@@ -33,31 +33,31 @@
 #include "rgy_osdep.h"
 #include <nvrtc.h>
 
-#ifndef CL_EXTERN
-#define CL_EXTERN extern
+#ifndef NVRTC_EXTERN
+#define NVRTC_EXTERN extern
 #endif
 
 #if defined(_WIN32)
-#define CL_API_ENTRY
-#define CL_API_CALL     __stdcall
-#define CL_CALLBACK     __stdcall
+#define NVRTC_API_ENTRY
+#define NVRTC_API_CALL     __stdcall
+#define NVRTC_CALLBACK     __stdcall
 #else
-#define CL_API_ENTRY
-#define CL_API_CALL
-#define CL_CALLBACK
+#define NVRTC_API_ENTRY
+#define NVRTC_API_CALL
+#define NVRTC_CALLBACK
 #endif
 
-CL_EXTERN const char *(CL_API_CALL* f_nvrtcGetErrorString)(nvrtcResult result);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcVersion)(int *major, int *minor);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcCreateProgram)(nvrtcProgram *prog, const char *src, const char *name, int numHeaders, const char * const *headers, const char * const *includeNames);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcDestroyProgram)(nvrtcProgram *prog);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcCompileProgram)(nvrtcProgram prog, int numOptions, const char * const *options);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcGetPTXSize)(nvrtcProgram prog, size_t *ptxSizeRet);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcGetPTX)(nvrtcProgram prog, char *ptx);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcGetProgramLogSize)(nvrtcProgram prog, size_t *logSizeRet);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcGetProgramLog)(nvrtcProgram prog, char *log);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcAddNameExpression)(nvrtcProgram prog, const char * const name_expression);
-CL_EXTERN nvrtcResult (CL_API_CALL* f_nvrtcGetLoweredName)(nvrtcProgram prog, const char *const name_expression, const char** lowered_name);
+NVRTC_EXTERN const char *(NVRTC_API_CALL* f_nvrtcGetErrorString)(nvrtcResult result);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcVersion)(int *major, int *minor);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcCreateProgram)(nvrtcProgram *prog, const char *src, const char *name, int numHeaders, const char * const *headers, const char * const *includeNames);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcDestroyProgram)(nvrtcProgram *prog);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcCompileProgram)(nvrtcProgram prog, int numOptions, const char * const *options);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcGetPTXSize)(nvrtcProgram prog, size_t *ptxSizeRet);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcGetPTX)(nvrtcProgram prog, char *ptx);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcGetProgramLogSize)(nvrtcProgram prog, size_t *logSizeRet);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcGetProgramLog)(nvrtcProgram prog, char *log);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcAddNameExpression)(nvrtcProgram prog, const char * const name_expression);
+NVRTC_EXTERN nvrtcResult (NVRTC_API_CALL* f_nvrtcGetLoweredName)(nvrtcProgram prog, const char *const name_expression, const char** lowered_name);
 
 #define nvrtcGetErrorString f_nvrtcGetErrorString
 #define nvrtcVersion f_nvrtcVersion

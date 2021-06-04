@@ -28,7 +28,7 @@
 
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
-#define CL_EXTERN
+#define NVRTC_EXTERN
 #include "rgy_nvrtc.h"
 
 extern const TCHAR *NVRTC_DLL_NAME_TSTR;
@@ -51,8 +51,6 @@ int initNVRTCGlobal() {
         nvrtcHandle = nullptr; \
         return 1; \
     }
-#define LOAD_NO_CHECK(name) \
-    f_##name = (decltype(f_##name)) RGY_GET_PROC_ADDRESS(nvrtcHandle, #name);
 
     LOAD(nvrtcGetErrorString);
     LOAD(nvrtcVersion);
