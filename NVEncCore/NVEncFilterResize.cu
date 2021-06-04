@@ -51,13 +51,7 @@ const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
 #elif __CUDACC_VER_MAJOR__ == 11
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_11.dll");
 #endif
-#else //#if defined(_WIN32) || defined(_WIN64)
-const TCHAR* NPPI_DLL_NAME_TSTR = _T("libnppc.so");
-const TCHAR* NVRTC_DLL_NAME_TSTR = _T("libnvrtc.so");
-const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("");
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
-#if defined(_WIN32) || defined(_WIN64)
 #if __CUDACC_VER_MAJOR__ == 8
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_80.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_80.dll");
