@@ -17,28 +17,72 @@ matrix:
       env:
       - CC=gcc-8
       - CXX=g++-8
+      - OSVER=ubuntu1804
+      - CUDA_DEB_URL=http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
+      - CUDA_DEB_NAME=cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
+      - CUDA_PUB_PATH=/var/cuda-repo-10-2-local-10.2.89-440.33.01/7fa2af80.pub
+      - CUDA_INSTALL_TARGET=cuda-toolkit-10-2
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
+          sources:
+            - 'ubuntu-toolchain-r-test'
+            - sourceline: 'ppa:jonathonf/ffmpeg-4'
           packages:
             - *native_deps
             - gcc-8
             - g++-8
+            - libavcodec-extra58
+            - libavcodec-dev
+            - libavutil56
+            - libavutil-dev
+            - libavformat58
+            - libavformat-dev
+            - libswresample3
+            - libswresample-dev
+            - libavfilter-extra7
+            - libavfilter-dev
+            - libass9
+            - libass-dev
+
+    - name: gcc 9 + CUDA 11 build
+      compiler: gcc
+      dist: focal
+      env:
+      - CC=gcc
+      - CXX=g++
+      - OSVER=ubuntu2004
+      - CUDA_DEB_URL=https://developer.download.nvidia.com/compute/cuda/11.2.1/local_installers/cuda-repo-ubuntu2004-11-2-local_11.2.1-460.32.03-1_amd64.deb
+      - CUDA_DEB_NAME=cuda-repo-ubuntu2004-11-2-local_11.2.1-460.32.03-1_amd64.deb
+      - CUDA_PUB_PATH=/var/cuda-repo-ubuntu2004-11-2-local/7fa2af80.pub
+      - CUDA_INSTALL_TARGET=cuda-toolkit-11-2
+      addons:
+        apt:
+          packages:
+            - *native_deps
+            - libavcodec58
+            - libavcodec-dev
+            - libavutil56
+            - libavutil-dev
+            - libavformat58
+            - libavformat-dev
+            - libswresample3
+            - libswresample-dev
+            - libavfilter7
+            - libavfilter-dev
+            - libass9
+            - libass-dev
 
 before_install:
-  - wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
-  - sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
-  - wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
-  - sudo dpkg -i cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
-  - sudo apt-key add /var/cuda-repo-10-2-local-10.2.89-440.33.01/7fa2af80.pub
+  - wget https://developer.download.nvidia.com/compute/cuda/repos/${OSVER}/x86_64/cuda-${OSVER}.pin
+  - sudo mv cuda-${OSVER}.pin /etc/apt/preferences.d/cuda-repository-pin-600
+  - wget ${CUDA_DEB_URL}
+  - sudo dpkg -i ${CUDA_DEB_NAME}
+  - sudo apt-key add ${CUDA_PUB_PATH}
   - sudo apt-get update
   - sudo apt-get -y install cuda
   - CUDA_PATH=/usr/local/cuda
   - LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}
   - PATH=${CUDA_PATH}/bin:${PATH}
-  - sudo -E add-apt-repository -y "ppa:jonathonf/ffmpeg-4"
-  - sudo apt update
-  - sudo apt -y install libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
   - $CXX --version
   - nvcc --version
 
