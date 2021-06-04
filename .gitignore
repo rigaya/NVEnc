@@ -3,6 +3,9 @@
 
 rgy_config.h
 config.mak
+.debpkg
+*.deb
+*.rpm
 
 # User-specific files
 *.suo
