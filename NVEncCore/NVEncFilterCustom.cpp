@@ -118,17 +118,11 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         return RGY_ERR_INVALID_PARAM;
     }
 #if ENABLE_NVRTC
-    if (!check_if_nvrtc_dll_available()) {
-        AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) requires \"%s\", not available on your system.\n"), prm->custom.filter_name.c_str(), NVRTC_DLL_NAME_TSTR);
+    if (initNVRTCGlobal()) {
+        AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) requires \"%s\" and \"%s\", not available on your system.\n"), prm->custom.filter_name.c_str(), NVRTC_DLL_NAME_TSTR, NVRTC_BUILTIN_DLL_NAME_TSTR);
         return RGY_ERR_UNSUPPORTED;
     }
     AddMessage(RGY_LOG_DEBUG, _T("%s available.\n"), NVRTC_DLL_NAME_TSTR);
-
-    if (!check_if_nvrtc_builtin_dll_available()) {
-        AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) requires \"%s\", not available on your system.\n"), prm->custom.filter_name.c_str(), NVRTC_BUILTIN_DLL_NAME_TSTR);
-        return RGY_ERR_UNSUPPORTED;
-    }
-    AddMessage(RGY_LOG_DEBUG, _T("%s available.\n"), NVRTC_BUILTIN_DLL_NAME_TSTR);
 
     auto cudaerr = AllocFrameBuf(pParam->frameOut, 1);
     if (cudaerr != cudaSuccess) {

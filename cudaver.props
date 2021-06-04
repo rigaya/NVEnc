@@ -71,6 +71,13 @@
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
   </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_3)'" >
+    <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>3</CUDA_MINOR_VER>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_113_0.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
   <ImportGroup Label="ExtensionSettings">
     <Import Project="C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\BuildCustomizations\CUDA $(CUDA_VER).props" />
   </ImportGroup>
@@ -81,7 +88,7 @@
     <Link>
       <AdditionalDependencies>nppc.lib;nppif.lib;nppig.lib;nvrtc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <!-- <AdditionalIncludeDirectories>;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories> -->
-      <DelayLoadDLLs>nppc64_$(CUDA_MAJOR_VER).dll;nppif64_$(CUDA_MAJOR_VER).dll;nppig64_$(CUDA_MAJOR_VER).dll;$(NVRTC_DLL_NAME);%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>nppc64_$(CUDA_MAJOR_VER).dll;nppif64_$(CUDA_MAJOR_VER).dll;nppig64_$(CUDA_MAJOR_VER).dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="$(CUDA_MAJOR_VER) &lt; 10 AND '$(Platform)'=='x64'">

@@ -125,7 +125,7 @@
 #if CUDA_VERSION >= 8000
 #define NVRTC_GET_TYPE_NAME 1
 #endif
-#include <nvrtc.h>
+#include "rgy_nvrtc.h"
 
 #ifndef JITIFY_PRINT_LOG
 #define JITIFY_PRINT_LOG 1
