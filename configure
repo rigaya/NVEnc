@@ -303,7 +303,7 @@ else
 fi
 
 CUDA_CFLAGS=""
-CUDA_LIBS="-lnvrtc -lnppif_static -lnppig_static -lnppc_static -lcudart_static -lculibos -lcuda -lrt"
+CUDA_LIBS="-lnppif_static -lnppig_static -lnppc_static -lcudart_static -lculibos -lcuda -lrt"
 if [ "${CUDA_PATH}" != "" ]; then
     cnf_print "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
     CUDA_CFLAGS="-I${CUDA_PATH}/include"
