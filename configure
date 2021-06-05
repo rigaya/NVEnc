@@ -359,36 +359,16 @@ else
 fi
 
 if [ $X86_64 -ne 0 ]; then
-    if cxx_check "-msse4.1" "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
-        if cxx_check "-march=native" "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
-            CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
-        elif cxx_check "-mpopcnt" "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
-            CXXFLAGS="$CXXFLAGS -msse4.1 -mpopcnt"
-        else
-            CXXFLAGS="$CXXFLAGS -msse4.1"
-        fi
+    if cxx_check "-msse2" "${CXXFLAGS} -msse2 ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -msse2"
     else
-        cnf_write "SSE4.1 not supported with this compiler." 
+        cnf_write "SSE2 not supported with this compiler." 
         exit 1
-    fi
-    cnf_write "OK"
-
-    cnf_print "checking for system SSE4.1 support..."
-    if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
-        cnf_write "System does not support SSE4.1."
-        exit 1 
     fi
     cnf_write "OK"
 
     if ! cxx_check "__rdtscp()" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
         CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
-        cnf_write "no"
-    else
-        cnf_write "yes"
-    fi
-
-    if ! cxx_check "_xgetbv()" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
-        CXXFLAGS="${CXXFLAGS} -DNO_XGETBV_INTRIN=1"
         cnf_write "no"
     else
         cnf_write "yes"
@@ -627,8 +607,7 @@ NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           
 NVEncFilterCustom.cpp  NVEncFilterDelogo.cpp       NVEncFilterDenoiseGauss.cpp  NVEncFilterPad.cpp \
 NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
 NVEncFrameInfo.cpp     NVEncParam.cpp              NVEncUtil.cpp                cl_func.cpp \
-convert_csp.cpp        convert_csp_avx.cpp         convert_csp_avx2.cpp         convert_csp_sse2.cpp \
-convert_csp_sse41.cpp  convert_csp_ssse3.cpp       cpu_info.cpp                 gpu_info.cpp \
+convert_csp.cpp        cpu_info.cpp                gpu_info.cpp \
 gpuz_info.cpp          h264_level.cpp              hevc_level.cpp               logo.cpp \
 rgy_aspect_ratio.cpp   rgy_avlog.cpp               rgy_avutil.cpp               rgy_bitstream.cpp \
 rgy_caption.cpp        rgy_chapter.cpp             rgy_cmd.cpp                  rgy_codepage.cpp             rgy_def.cpp \
@@ -638,6 +617,11 @@ rgy_input_avs.cpp      rgy_input_raw.cpp           rgy_input_sm.cpp             
 rgy_log.cpp            rgy_nvrtc.cpp               rgy_output.cpp               rgy_output_avcodec.cpp       rgy_perf_counter.cpp \
 rgy_perf_monitor.cpp   rgy_pipe.cpp                rgy_pipe_linux.cpp           rgy_prm.cpp                  rgy_resource.cpp \
 rgy_simd.cpp           rgy_status.cpp              rgy_timecode.cpp             rgy_util.cpp                 rgy_version.cpp \
+"
+
+SRC_NVENCCORE_X86="\
+convert_csp_avx.cpp    convert_csp_avx2.cpp         convert_csp_sse2.cpp \
+convert_csp_sse41.cpp  convert_csp_ssse3.cpp
 "
 
 CU_NVENCCORE=" \
@@ -665,6 +649,12 @@ done
 for src in $SRC_NVENCCORE; do
     SRCS="$SRCS NVEncCore/$src"
 done
+
+if [ $X86_64 -ne 0 ]; then
+    for src in $SRC_NVENCCORE_X86; do
+        SRCS="$SRCS NVEncCore/$src"
+    done
+fi
 
 for src in $CU_NVENCCORE; do
     SRCCUS="$SRCCUS NVEncCore/$src"

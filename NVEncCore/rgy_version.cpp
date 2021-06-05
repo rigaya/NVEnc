@@ -48,16 +48,9 @@ const TCHAR *get_encoder_version() {
 #endif
         _T("/")
 #ifdef _WIN32
-        _T("Win/avx2")
+        _T("Win")
 #elif  __linux
         _T("Linux")
-  #if defined(__AVX2__)
-        _T("/avx2")
-  #elif defined(__AVX__)
-        _T("/avx")
-  #else
-        _T("/sse4.2")
-  #endif
 #else
         _T("unknown")
 #endif

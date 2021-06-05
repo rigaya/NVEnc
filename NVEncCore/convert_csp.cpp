@@ -120,12 +120,6 @@ void convert_yv12_10_to_p010_sse2(void **dst, const void **src, int width, int s
 void convert_yv12_09_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_yv12_09_to_p010_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
-#if defined(_MSC_VER) || defined(__AVX2__)
-#define FUNC_AVX2(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
-#else
-#define FUNC_AVX2(from, to, uv_only, funcp, funci, simd)
-#endif
-
 void convert_yuv422_to_nv16_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_yuv422_to_p210_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_yuv422_09_to_p210_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
@@ -1610,13 +1604,11 @@ static void convert_yv12_to_p010(void **dst, const void **src, int width, int sr
 #pragma warning (pop)
 
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
-#if defined(_MSC_VER) || defined(__AVX__)
+#define FUNC_AVX2(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
 #define FUNC_AVX(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
-#else
-#define FUNC_AVX(from, to, uv_only, funcp, funci, simd)
-#endif
 #define FUNC_SSE(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
 #else
+#define FUNC_AVX2(from, to, uv_only, funcp, funci, simd)
 #define FUNC_AVX(from, to, uv_only, funcp, funci, simd)
 #define FUNC_SSE(from, to, uv_only, funcp, funci, simd)
 #endif

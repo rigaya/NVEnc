@@ -13,6 +13,21 @@ all: $(PROGRAM)
 $(PROGRAM): .depend $(OBJCUS) $(OBJS) $(OBJBINS) $(OBJBINHS) $(OBJPYWS)
 	$(LD) $(OBJS) $(OBJCUS) $(OBJBINS) $(OBJBINHS) $(OBJPYWS) $(LDFLAGS) -o $(PROGRAM)
 
+%_sse2.cpp.o: %_sse2.cpp .depend
+	$(CXX) -c $(CXXFLAGS) -msse2 -o $@ $<
+
+%_ssse3.cpp.o: %_ssse3.cpp .depend
+	$(CXX) -c $(CXXFLAGS) -mssse3 -o $@ $<
+
+%_sse41.cpp.o: %_sse41.cpp .depend
+	$(CXX) -c $(CXXFLAGS) -msse4.1 -o $@ $<
+
+%_avx.cpp.o: %_avx.cpp .depend
+	$(CXX) -c $(CXXFLAGS) -mavx -o $@ $<
+
+%_avx2.cpp.o: %_avx2.cpp .depend
+	$(CXX) -c $(CXXFLAGS) -mavx2 -o $@ $<
+
 %.cpp.o: %.cpp .depend
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
 

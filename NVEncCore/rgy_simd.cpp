@@ -48,10 +48,10 @@ uint32_t get_availableSIMD() {
     if (CPUInfo[2] & 0x00800000) simd |= POPCNT;
     uint64_t xgetbv = 0;
     if ((CPUInfo[2] & 0x18000000) == 0x18000000) {
-#if _MSC_VER || defined(__AVX__)
+#if _MSC_VER
         xgetbv = _xgetbv(0);
 #else
-        xgetbv = 0;
+        xgetbv = rgy_xgetbv(0);
 #endif
         if ((xgetbv & 0x06) == 0x06)
             simd |= AVX;
