@@ -526,7 +526,7 @@ if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
     else
         cnf_write "yes"
     fi
-    if ! cxx_check "VSScript.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VSScript.h" "" "vsscript_init();" ; then
+    if ! cxx_check "VSScript.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VSScript.h" "" "" ; then
         cnf_write "no"
         ENABLE_VAPOURSYNTH=0
     else
