@@ -7,3 +7,6 @@
 [submodule "cppcodec"]
 	path = cppcodec
 	url = https://github.com/tplgy/cppcodec.git
+[submodule "build_pkg"]
+	path = build_pkg
+	url = git@github.com:rigaya/build_pkg.git

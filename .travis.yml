@@ -87,7 +87,6 @@ before_install:
   - nvcc --version
   - git clone https://github.com/AviSynth/AviSynthPlus.git ../AviSynthPlus
   - git clone https://github.com/vapoursynth/vapoursynth.git ../vapoursynth
-  - git clone https://github.com/rigaya/build_pkg.git
 
 script:
     - ./configure --cuda-path=${CUDA_PATH} --extra-cxxflags="-I../AviSynthPlus/avs_core/include -I../vapoursynth/include" && make && ./nvencc --version && ./check_options.py && ./build_deb.sh
