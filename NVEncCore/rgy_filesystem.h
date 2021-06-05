@@ -59,5 +59,7 @@ bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list
 //拡張子が一致するか確認する
 bool _tcheck_ext(const TCHAR *filename, const TCHAR *ext);
 
+bool rgy_path_is_same(const TCHAR *path1, const TCHAR *path2);
+bool rgy_path_is_same(const tstring& path1, const tstring& path2);
 
 #endif //__RGY_FILESYSTEM_H__

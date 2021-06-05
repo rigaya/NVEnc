@@ -438,6 +438,13 @@ int _tmain(int argc, TCHAR **argv) {
         return -1;
     }
 
+    if (encPrm.common.inputFilename != _T("-")
+        && encPrm.common.outputFilename != _T("-")
+        && rgy_path_is_same(encPrm.common.inputFilename, encPrm.common.outputFilename)) {
+        _ftprintf(stderr, _T("destination file is equal to source file!"));
+        return 1;
+    }
+
 #if defined(_WIN32) || defined(_WIN64)
     //set stdin to binary mode when using pipe input
     if (_tcscmp(encPrm.common.inputFilename.c_str(), _T("-")) == NULL) {

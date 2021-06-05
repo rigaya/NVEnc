@@ -217,3 +217,14 @@ tstring getExePath() {
 tstring getExeDir() {
     return PathRemoveFileSpecFixed(getExePath()).second;
 }
+
+bool rgy_path_is_same(const TCHAR *path1, const TCHAR *path2) {
+    const auto p1 = std::filesystem::path(path1);
+    const auto p2 = std::filesystem::path(path2);
+    std::error_code ec;
+    return std::filesystem::equivalent(p1, p2, ec);
+}
+
+bool rgy_path_is_same(const tstring& path1, const tstring& path2) {
+    return rgy_path_is_same(path1.c_str(), path2.c_str());
+}
