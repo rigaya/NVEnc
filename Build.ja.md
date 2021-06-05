@@ -139,7 +139,7 @@ wget https://developer.download.nvidia.com/compute/cuda/11.2.1/local_installers/
 sudo dpkg -i cuda-repo-ubuntu2004-11-2-local_11.2.1-460.32.03-1_amd64.deb
 sudo apt-key add /var/cuda-repo-ubuntu2004-11-2-local/7fa2af80.pub
 sudo apt-get update
-sudo apt-get -y install --no-install-recommends cuda-toolkit-11-2
+sudo apt-get -y install --no-install-recommends cuda
 export CUDA_PATH=/usr/local/cuda
 ```
 
