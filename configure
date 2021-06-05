@@ -426,15 +426,15 @@ else
     #LDFLAGS="$LDFLAGS -Wl,-s"
 fi
 
-if [ -n $EXTRACXXFLAGS ]; then
-    if ! cxx_check "--extra-cflags" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" ; then
-        cnf_write "--extra-cflags=${EXTRACXXFLAGS} does not work"
+if [ -n "$EXTRACXXFLAGS" ]; then
+    if ! cxx_check "--extra-cxxflags" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" ; then
+        cnf_write "--extra-cxxflags=${EXTRACXXFLAGS} does not work"
         exit 1
     fi
     cnf_write "OK"
 fi
 
-if [ -n $EXTRALDFLAGS ]; then
+if [ -n "$EXTRALDFLAGS" ]; then
     if ! cxx_check "--extra-ldflags" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" ; then
         cnf_write "--extra-ldflags=${EXTRALDFLAGS} does not work"
         exit 1
@@ -468,7 +468,7 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
         for lib in $CHECK_LIB_NAMES; do
             LIBAV_LIBS="${LIBAV_LIBS} -l${lib#lib}"
         done
-        cnf_write "lib settings might be inaqurate."
+        cnf_write "lib settings might be inacurate."
     fi
 
     if ! cxx_check "libavutil" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavutil/avutil.h" "avutil_version();" ; then
