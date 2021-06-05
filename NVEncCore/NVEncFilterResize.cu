@@ -666,11 +666,14 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+#if defined(_WIN32) || defined(_WIN64)
+    // linuxではnppは静的リンクにしたので、下記チェックは不要になった
     if (pResizeParam->interp > RGY_VPP_RESIZE_OPENCL_CUDA_MAX && !check_if_nppi_dll_available()) {
         AddMessage(RGY_LOG_WARN, _T("--vpp-resize %s requires \"%s\", not available on your system.\n"), get_chr_from_value(list_vpp_resize, pResizeParam->interp), NPPI_DLL_NAME_TSTR);
         pResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
         AddMessage(RGY_LOG_WARN, _T("switching to %s."), get_chr_from_value(list_vpp_resize, pResizeParam->interp));
     }
+#endif
     //パラメータチェック
     if (pResizeParam->frameOut.height <= 0 || pResizeParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
