@@ -15,10 +15,10 @@ if [ -e /etc/lsb-release ]; then
     PACKAGE_OS_CODENAME=`cat /etc/lsb-release | grep DISTRIB_CODENAME | cut -f 2 --delim="="`
     PACKAGE_OS="_${PACKAGE_OS_ID}${PACKAGE_OS_VER}"
     if [ "${PACKAGE_OS_CODENAME}" = "focal" ]; then
-        PACKAGE_DEPENDS="libc6(>=2.29),libgcc-s1(>=3.0),libstdc++6(>=6)"
+        PACKAGE_DEPENDS="libc6(>=2.29),libstdc++6(>=6)"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},libavcodec58,libavutil56,libavformat58,libswresample3,libavfilter7,libass9"
     elif [ "${PACKAGE_OS_CODENAME}" = "bionic" ]; then
-        PACKAGE_DEPENDS="libc6(>=2.15),libgcc-s1(>=3.0),libstdc++6(>=6)"
+        PACKAGE_DEPENDS="libc6(>=2.22),libstdc++6(>=6)"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},libavcodec58,libavutil56,libavformat58,libswresample3,libavfilter7,libass9"
     else
         echo "${PACKAGE_OS_ID}${PACKAGE_OS_VER} ${PACKAGE_OS_CODENAME} not supported in this script!"
