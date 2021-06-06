@@ -12,6 +12,10 @@ by rigaya
 
 ## 配布場所 & 更新履歴  
 [rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)  
+[github releases](https://github.com/rigaya/NVEnc/releases)  
+  
+## インストール
+インストール方法は[こちら](./Install.ja.md)。
 
 ## 基本動作環境  
 Windows 10 (x86/x64)  

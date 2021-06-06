@@ -14,7 +14,11 @@ There are 2 types of software developed, one is command line version that runs i
 - NVEnc.auo ... Output plugin for [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
 
 ## Downloads & update history
-[rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)
+[rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)  
+[github releases](https://github.com/rigaya/NVEnc/releases)  
+  
+## Install
+[Install instructions for Windows and Linux](./Install.en.md).
 
 ## System Requirements
 Windows 10 (x86 / x64)  
