@@ -479,7 +479,7 @@ H.265/HEVC
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install git
+sudo apt install git g++-8
 ```
 
 ### 2. NVIDIA ドライバ + CUDA のインストール
@@ -600,7 +600,7 @@ cd ../../../
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-./configure
+./configure --cxx=g++-8
 make -j4
 ```
 

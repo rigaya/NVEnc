@@ -474,7 +474,7 @@ H.265/HEVC
 ### 1. Install build tools
 
 ```Shell
-sudo apt install git
+sudo apt install git g++-8
 ```
 
 ### 2. Install NVIDIA driver and CUDA 10.2
@@ -594,7 +594,7 @@ cd ../../../
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-./configure
+./configure --cxx=g++-8
 make -j4
 ```
 Check if it works properly.
