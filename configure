@@ -291,7 +291,7 @@ CXXINC=" \
 "
 CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused -Wno-missing-braces"
 
-LDFLAGS="-L. -ldl -lstdc++ -lstdc++fs"
+LDFLAGS="-L. -ldl -static-libgcc -static-libstdc++"
 if [ $ARM64 -ne 0 ]; then
     CXXINC="${CXXINC} -DLINUX64"
 elif [ $X86_64 -ne 0 ]; then
