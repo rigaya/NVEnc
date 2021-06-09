@@ -314,6 +314,7 @@ if [ "${CUDA_PATH}" != "" ]; then
 fi
 if ! cxx_check "cuda" "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "cuda.h" "" "auto result = cuInit(0);" ; then
     cnf_write "cuda not supported." 
+    tail -n 100 ${CNF_LOG}
     exit 1
 fi
 CUDA_VER_MAJOR=`${NVCC} --version | grep "release" | awk '{print $6}' | cut -c2- | cut -d . -f1`

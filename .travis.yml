@@ -47,7 +47,7 @@ script:
   - docker exec build_pkg ./nvencc --version
   - docker exec build_pkg ./check_options.py
   - docker exec build_pkg ./build_${PKG_TYPE}.sh
-  - docker exec build_pkg sh -c 'cp ./* /output'
+  - docker exec build_pkg sh -c "cp ./*.${PKG_TYPE} /output/"
 
 deploy:
   provider: releases

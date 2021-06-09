@@ -12,8 +12,8 @@ PACKAGE_ARCH=`uname -m`
 PACKAGE_LICENSE=MIT
 
 if [ -e /etc/os-release ]; then
-    PACKAGE_OS_NAME=`cat /etc/os-release | grep NAME | cut -f 2 --delim="="`
-    PACKAGE_OS_VER=`cat /etc/os-release | grep VERSION_ID | cut -f 2 --delim="="`
+    PACKAGE_OS_NAME=`cat /etc/os-release | grep NAME | cut -f 2 --delim="=" | head -n 1 `
+    PACKAGE_OS_VER=`cat /etc/os-release | grep VERSION_ID | cut -f 2 --delim="=" | head -n 1 `
     PACKAGE_OS="${PACKAGE_OS_NAME}${PACKAGE_OS_VER}"
 fi
 
