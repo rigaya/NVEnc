@@ -11,6 +11,12 @@ PACKAGE_VERSION=`git describe --tags | cut -f 1 --delim="-"`
 PACKAGE_ARCH=`uname -m`
 PACKAGE_LICENSE=MIT
 
+if [ -e /etc/os-release ]; then
+    PACKAGE_OS_NAME=`cat /etc/os-release | grep NAME | cut -f 2 --delim="="`
+    PACKAGE_OS_VER=`cat /etc/os-release | grep VERSION_ID | cut -f 2 --delim="="`
+    PACKAGE_OS="${PACKAGE_OS_NAME}${PACKAGE_OS_VER}"
+fi
+
 mkdir -p ${PACKAGE_ROOT}
 cp ${PACKAGE_BIN} ${PACKAGE_ROOT}
 chmod +x ${PACKAGE_ROOT}/${PACKAGE_BIN}

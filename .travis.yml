@@ -1,6 +1,11 @@
 language: cpp
 os: linux
 sudo: required
+compiler: gcc
+dist: focal
+
+services:
+  - docker
 
 branches:
   only: 
@@ -11,91 +16,44 @@ branches:
 matrix:
   fast_finish: true
   include:
-    - name: gcc 8 + CUDA 10 build
-      compiler: gcc
-      dist: bionic
+    - name: Ubuntu 20.04 build
       env:
-      - CC=gcc-8
-      - CXX=g++-8
-      - OSVER=ubuntu1804
-      - CUDA_DEB_URL=http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
-      - CUDA_DEB_NAME=cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
-      - CUDA_PUB_PATH=/var/cuda-repo-10-2-local-10.2.89-440.33.01/7fa2af80.pub
-      - CUDA_INSTALL_TARGET=cuda-toolkit-10-2
-      addons:
-        apt:
-          sources:
-            - 'ubuntu-toolchain-r-test'
-            - sourceline: 'ppa:jonathonf/ffmpeg-4'
-          packages:
-            - *native_deps
-            - gcc-8
-            - g++-8
-            - libavcodec-extra58
-            - libavcodec-dev
-            - libavutil56
-            - libavutil-dev
-            - libavformat58
-            - libavformat-dev
-            - libswresample3
-            - libswresample-dev
-            - libavfilter-extra7
-            - libavfilter-dev
-            - libass9
-            - libass-dev
+      - DOCKER_FILE=docker/docker_ubuntu2004_cuda11
+      - PKG_TYPE=deb
 
-    - name: gcc 9 + CUDA 11 build
-      compiler: gcc
-      dist: focal
+    - name: Ubuntu 18.04 build
       env:
-      - CC=gcc
-      - CXX=g++
-      - OSVER=ubuntu2004
-      - CUDA_DEB_URL=https://developer.download.nvidia.com/compute/cuda/11.2.1/local_installers/cuda-repo-ubuntu2004-11-2-local_11.2.1-460.32.03-1_amd64.deb
-      - CUDA_DEB_NAME=cuda-repo-ubuntu2004-11-2-local_11.2.1-460.32.03-1_amd64.deb
-      - CUDA_PUB_PATH=/var/cuda-repo-ubuntu2004-11-2-local/7fa2af80.pub
-      - CUDA_INSTALL_TARGET=cuda-toolkit-11-2
-      addons:
-        apt:
-          packages:
-            - *native_deps
-            - libavcodec58
-            - libavcodec-dev
-            - libavutil56
-            - libavutil-dev
-            - libavformat58
-            - libavformat-dev
-            - libswresample3
-            - libswresample-dev
-            - libavfilter7
-            - libavfilter-dev
-            - libass9
-            - libass-dev
+      - DOCKER_FILE=docker/docker_ubuntu1804_cuda10
+      - PKG_TYPE=deb
+
+    - name: Fedora 32 build
+      env:
+      - DOCKER_FILE=docker/docker_fedora32_cuda11
+      - PKG_TYPE=rpm
 
 before_install:
-  - wget https://developer.download.nvidia.com/compute/cuda/repos/${OSVER}/x86_64/cuda-${OSVER}.pin
-  - sudo mv cuda-${OSVER}.pin /etc/apt/preferences.d/cuda-repository-pin-600
-  - wget ${CUDA_DEB_URL}
-  - sudo dpkg -i ${CUDA_DEB_NAME}
-  - sudo apt-key add ${CUDA_PUB_PATH}
-  - sudo apt-get update
-  - sudo apt-get -y install cuda
-  - CUDA_PATH=/usr/local/cuda
-  - LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}
-  - PATH=${CUDA_PATH}/bin:${PATH}
-  - $CXX --version
-  - nvcc --version
-  - git clone https://github.com/AviSynth/AviSynthPlus.git ../AviSynthPlus
-  - git clone https://github.com/vapoursynth/vapoursynth.git ../vapoursynth
+  - git clone https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus
+  - git clone https://github.com/vapoursynth/vapoursynth.git vapoursynth
+  - DOCKER_IMAGE=build_pkg_image
+  - cp ${DOCKER_FILE} Dockerfile
+  - docker image build -t ${DOCKER_IMAGE} .
+  - OUTPUT_DIR=`pwd`/../output
+  - mkdir ${OUTPUT_DIR}
 
 script:
-    - ./configure --cuda-path=${CUDA_PATH} --extra-cxxflags="-I../AviSynthPlus/avs_core/include -I../vapoursynth/include" && make && ./nvencc --version && ./check_options.py && ./build_deb.sh
-    
+  - docker run -dit --rm -v ${OUTPUT_DIR}:/output --name build_pkg ${DOCKER_IMAGE}
+  - docker exec build_pkg ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include"
+  - docker exec build_pkg make -j2
+  - docker exec build_pkg ./nvencc --version
+  - docker exec build_pkg ./check_options.py
+  - docker exec build_pkg ./build_${PKG_TYPE}.sh
+  - docker exec build_pkg sh -c 'cp ./*.${PKG_TYPE} /output'
+
 deploy:
   provider: releases
   api_key: IDRwZWN1uQaTxb64SQnTDNJR5KPtCFPL3Mln9GrdZ7TSiyec/o1KXpOuh/50ZO5A
   file:
-    - nvencc_*.deb
+    - ${OUTPUT_DIR}/*
   skip_cleanup: true
   on:
     branch: release

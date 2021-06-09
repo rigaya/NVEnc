@@ -1,0 +1,43 @@
+FROM ubuntu:18.04
+
+ARG DEBIAN_FRONTEND=noninteractive \
+    OSVER=ubuntu1804 \
+    CUDA_DEB_URL=http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb \
+    CUDA_DEB_NAME=cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb \
+    CUDA_PUB_PATH=/var/cuda-repo-10-2-local-10.2.89-440.33.01/7fa2af80.pub
+
+RUN apt update
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository -y ppa:jonathonf/ffmpeg-4
+RUN apt update
+RUN apt-get install -y \
+    wget \
+    git \
+    build-essential \
+    gcc-8 g++-8 \
+    libavcodec58 \
+    libavcodec-dev \
+    libavutil56 \
+    libavutil-dev \
+    libavformat58 \
+    libavformat-dev \
+    libswresample3 \
+    libswresample-dev \
+    libavfilter7 \
+    libavfilter-dev \
+    libass9 \
+    libass-dev
+
+RUN wget -q https://developer.download.nvidia.com/compute/cuda/repos/${OSVER}/x86_64/cuda-${OSVER}.pin
+RUN mv cuda-${OSVER}.pin /etc/apt/preferences.d/cuda-repository-pin-600
+RUN wget ${CUDA_DEB_URL}
+RUN dpkg -i ${CUDA_DEB_NAME}
+RUN apt-key add ${CUDA_PUB_PATH}
+RUN apt-get update
+RUN apt-get -y install cuda
+
+RUN useradd -m --user-group --shell /bin/bash rigaya
+WORKDIR /home/rigaya
+COPY . .
+RUN chown -R rigaya:rigaya .
+USER rigaya
