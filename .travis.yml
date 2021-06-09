@@ -47,13 +47,13 @@ script:
   - docker exec build_pkg ./nvencc --version
   - docker exec build_pkg ./check_options.py
   - docker exec build_pkg ./build_${PKG_TYPE}.sh
-  - docker exec build_pkg sh -c 'cp ./*.${PKG_TYPE} /output'
+  - docker exec build_pkg sh -c 'cp ./* /output'
 
 deploy:
   provider: releases
   api_key: IDRwZWN1uQaTxb64SQnTDNJR5KPtCFPL3Mln9GrdZ7TSiyec/o1KXpOuh/50ZO5A
   file:
-    - ${OUTPUT_DIR}/*
+    - ${OUTPUT_DIR}/*.${PKG_TYPE}
   skip_cleanup: true
   on:
     branch: release
