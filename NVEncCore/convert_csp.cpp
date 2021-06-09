@@ -1390,13 +1390,7 @@ static void RGY_FORCEINLINE convert_yv12_i_to_yuv444_c(void **dst, const void **
                 memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
             } else {
                 for (int x = 0; x < y_width; x++) {
-                    if (out_bit_depth > in_bit_depth) {
-                        dstLine[x] = (Tout)((int)(srcYLine[x]) << std::max(out_bit_depth - in_bit_depth, 0));
-                    } else if (out_bit_depth < in_bit_depth) {
-                        dstLine[x] = (Tout)((int)(srcYLine[x]) >> std::max(in_bit_depth - out_bit_depth, 0));
-                    } else {
-                        dstLine[x] = (Tout)srcYLine[x];
-                    }
+                    dstLine[x] = (Tout)conv_bit_depth<in_bit_depth, out_bit_depth, 0>(srcYLine[x]);
                 }
             }
         }
