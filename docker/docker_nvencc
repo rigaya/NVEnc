@@ -1,0 +1,39 @@
+FROM nvidia/cuda:11.3.1-devel-ubuntu20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt update
+RUN apt-get install -y \
+    git \
+    build-essential \
+    libavcodec58 \
+    libavcodec-dev \
+    libavutil56 \
+    libavutil-dev \
+    libavformat58 \
+    libavformat-dev \
+    libswresample3 \
+    libswresample-dev \
+    libavfilter7 \
+    libavfilter-dev \
+    libass9 \
+    libass-dev
+
+WORKDIR /usr/local/nvencc_build
+RUN set -xe && \
+    nproc=`grep 'processor' /proc/cpuinfo | wc -l` && \
+    git clone https://github.com/rigaya/NVEnc.git --recursive && \
+    cd NVEnc && \
+    git clone https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus && \
+    git clone https://github.com/vapoursynth/vapoursynth.git vapoursynth && \
+    ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include" && \
+    make -j$(nproc) && \
+    make install && \
+    nvencc --version
+
+WORKDIR /
+RUN set -xe && \
+    rm -rf /usr/local/nvencc_build
+
+ENTRYPOINT ["/usr/local/bin/nvencc"]
+CMD ["--help"]

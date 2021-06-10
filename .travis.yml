@@ -19,33 +19,36 @@ matrix:
     - name: Ubuntu 20.04 build
       env:
       - DOCKER_FILE=docker/docker_ubuntu2004_cuda11
+      - DOCKER_IMAGE=ubuntu2004_cuda11
       - PKG_TYPE=deb
 
     - name: Ubuntu 18.04 build
       env:
       - DOCKER_FILE=docker/docker_ubuntu1804_cuda10
+      - DOCKER_IMAGE=ubuntu1804_cuda10
       - PKG_TYPE=deb
 
-    - name: Fedora 32 build
+    - name: CentOS 8 build
       env:
-      - DOCKER_FILE=docker/docker_fedora32_cuda11
+      - DOCKER_FILE=docker/docker_centos8_cuda11
+      - DOCKER_IMAGE=centos8_cuda11
       - PKG_TYPE=rpm
 
 before_install:
   - git clone https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus
   - git clone https://github.com/vapoursynth/vapoursynth.git vapoursynth
-  - DOCKER_IMAGE=build_nvencc_pkg_image
-  - cp ${DOCKER_FILE} Dockerfile
+  - cp -f ${DOCKER_FILE} Dockerfile
   - LOCAL_USER_ID=`id -u`
   - LOCAL_GROUP_ID=`id -g`
   - docker image build --build-arg LOCAL_USER_ID=${LOCAL_USER_ID} --build-arg LOCAL_GROUP_ID=${LOCAL_GROUP_ID} -t ${DOCKER_IMAGE} .
   - OUTPUT_DIR=`pwd`/../output
   - mkdir ${OUTPUT_DIR}
+  - nproc=`grep 'processor' /proc/cpuinfo | wc -l`
 
 script:
   - docker run -dit --rm -v ${OUTPUT_DIR}:/output --name build_pkg ${DOCKER_IMAGE}
   - docker exec build_pkg ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include"
-  - docker exec build_pkg make -j2
+  - docker exec build_pkg make -j${nproc}
   - docker exec build_pkg ./nvencc --version
   - docker exec build_pkg ./check_options.py
   - docker exec build_pkg ./build_${PKG_TYPE}.sh
