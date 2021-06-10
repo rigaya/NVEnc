@@ -34,9 +34,11 @@ matrix:
 before_install:
   - git clone https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus
   - git clone https://github.com/vapoursynth/vapoursynth.git vapoursynth
-  - DOCKER_IMAGE=build_pkg_image
+  - DOCKER_IMAGE=build_nvencc_pkg_image
   - cp ${DOCKER_FILE} Dockerfile
-  - docker image build -t ${DOCKER_IMAGE} .
+  - LOCAL_USER_ID=`id -u`
+  - LOCAL_GROUP_ID=`id -g`
+  - docker image build --build-arg LOCAL_USER_ID=${LOCAL_USER_ID} --build-arg LOCAL_GROUP_ID=${LOCAL_GROUP_ID} -t ${DOCKER_IMAGE} .
   - OUTPUT_DIR=`pwd`/../output
   - mkdir ${OUTPUT_DIR}
 
@@ -47,7 +49,7 @@ script:
   - docker exec build_pkg ./nvencc --version
   - docker exec build_pkg ./check_options.py
   - docker exec build_pkg ./build_${PKG_TYPE}.sh
-  - docker exec build_pkg sh -c "cp ./*.${PKG_TYPE} /output/"
+  - docker exec build_pkg sh -c "cp -v ./*.${PKG_TYPE} /output/"
 
 deploy:
   provider: releases
