@@ -200,6 +200,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputCsp = RGY_CSP_YV12;
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         //read y4m header
+        auto orig_picstruct = m_inputVideoInfo.picstruct; // ParseY4MHeaderで書き換えられるので退避
         char buf[128] = { 0 };
         if (fread(buf, 1, strlen("YUV4MPEG2"), m_fSource) != strlen("YUV4MPEG2")
             || strcmp(buf, "YUV4MPEG2") != 0
@@ -207,6 +208,9 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             || RGY_ERR_NONE != ParseY4MHeader(buf, &m_inputVideoInfo)) {
             AddMessage(RGY_LOG_ERROR, _T("failed to parse y4m header."));
             return RGY_ERR_INVALID_FORMAT;
+        }
+        if (orig_picstruct != RGY_PICSTRUCT_AUTO && orig_picstruct != RGY_PICSTRUCT_UNKNOWN) {
+            m_inputVideoInfo.picstruct = orig_picstruct; // 自動あるいはデフォルト値でない場合、復帰させる
         }
         m_inputCsp = m_inputVideoInfo.csp;
     } else {

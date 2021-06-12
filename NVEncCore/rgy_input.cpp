@@ -373,6 +373,9 @@ RGY_ERR initReaders(
         return RGY_ERR_UNSUPPORTED;
     }
     if (!check_if_avhw_or_avsw(input->type)) {
+        if (input->type != RGY_INPUT_FMT_Y4M) {
+            if (check_avhw_avsw_only(input->picstruct, RGY_PICSTRUCT_AUTO, "--interlace auto", log.get())) return RGY_ERR_UNSUPPORTED;
+        }
         if (check_avhw_avsw_only(input->picstruct,           RGY_PICSTRUCT_AUTO,  "--interlace auto",   log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only(common->out_vui.chromaloc,  RGY_CHROMALOC_AUTO,  "--chromaloc auto",   log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only(common->out_vui.format,     COLOR_VALUE_AUTO,    "--videoformat auto", log.get())) return RGY_ERR_UNSUPPORTED;
