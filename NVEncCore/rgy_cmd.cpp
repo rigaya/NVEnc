@@ -5722,7 +5722,9 @@ tstring gen_cmd_help_vpp() {
         _T("      smooth=<bool> (スムージング)     enable smoothing   (default=%s)\n")
         _T("      24fps=<bool>  (24fps化)          force 30fps->24fps (default=%s)\n")
         _T("      tune=<bool>   (調整モード)       show scan result   (default=%s)\n")
+#if ENCODER_NVENC
         _T("      rff=<bool>                       rff flag aware     (default=%s)\n")
+#endif
         _T("      timecode=<bool>                  output timecode    (default=%s)\n")
         _T("      log=<bool>                       output log         (default=%s)\n"),
         FILTER_DEFAULT_AFS_CLIP_TB, FILTER_DEFAULT_AFS_CLIP_TB,
@@ -5736,7 +5738,9 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_AFS_SMOOTH  ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"),
+#if ENCODER_NVENC
         FILTER_DEFAULT_AFS_RFF     ? _T("on") : _T("off"),
+#endif
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
 #endif
