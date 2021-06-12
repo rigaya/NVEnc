@@ -441,7 +441,7 @@ int _tmain(int argc, TCHAR **argv) {
     if (encPrm.common.inputFilename != _T("-")
         && encPrm.common.outputFilename != _T("-")
         && rgy_path_is_same(encPrm.common.inputFilename, encPrm.common.outputFilename)) {
-        _ftprintf(stderr, _T("destination file is equal to source file!"));
+        _ftprintf(stderr, _T("destination file is equal to source file!\n"));
         return 1;
     }
 
@@ -449,7 +449,7 @@ int _tmain(int argc, TCHAR **argv) {
     //set stdin to binary mode when using pipe input
     if (_tcscmp(encPrm.common.inputFilename.c_str(), _T("-")) == NULL) {
         if (_setmode(_fileno(stdin), _O_BINARY) == 1) {
-            _ftprintf(stderr, _T("Error: failed to switch stdin to binary mode."));
+            _ftprintf(stderr, _T("Error: failed to switch stdin to binary mode.\n"));
             return 1;
         }
     }
@@ -457,7 +457,7 @@ int _tmain(int argc, TCHAR **argv) {
     //set stdout to binary mode when using pipe output
     if (_tcscmp(encPrm.common.outputFilename.c_str(), _T("-")) == NULL) {
         if (_setmode(_fileno(stdout), _O_BINARY) == 1) {
-            _ftprintf(stderr, _T("Error: failed to switch stdout to binary mode."));
+            _ftprintf(stderr, _T("Error: failed to switch stdout to binary mode.\n"));
             return 1;
         }
     }
