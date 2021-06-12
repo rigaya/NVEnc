@@ -53,12 +53,13 @@ script:
   - docker exec build_pkg ./check_options.py
   - docker exec build_pkg ./build_${PKG_TYPE}.sh
   - docker exec build_pkg sh -c "cp -v ./*.${PKG_TYPE} /output/"
+  - export PKGFILE=`ls ${OUTPUT_DIR}/*.${PKG_TYPE}`
 
 deploy:
   provider: releases
   api_key: $GITHUB_API_KEY
   file:
-    - ${OUTPUT_DIR}/*.${PKG_TYPE}
+    - ${PKGFILE}
   skip_cleanup: true
   on:
     branch: release
