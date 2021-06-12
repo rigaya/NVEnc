@@ -110,6 +110,7 @@ static const TCHAR *avisynth_dll_name = _T("libavisynth.so");
 #endif
 
 static const int RGY_AVISYNTH_INTERFACE_25 = 2;
+static const int RGY_AVISYNTH_INTERFACE_6  = 6; 
 
 int AVSC_CC rgy_avs_get_pitch_p(const AVS_VideoFrame * p, int plane) {
     switch (plane) {
@@ -335,7 +336,9 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
 
-    const auto interface_ver = (m_sAvisynth->f_is_420 && m_sAvisynth->f_is_422 && m_sAvisynth->f_is_444) ? AVISYNTH_INTERFACE_VERSION : RGY_AVISYNTH_INTERFACE_25;
+    //AvisynthNeoなどは、ver=8などでf_create_script_environmentは通るものの、その後のf_invoke(m_sAVSenv, "Import", ...)で異常終了したりする
+    //そこで、RGY_AVISYNTH_INTERFACE_6決め打ちで初期化する(なにが正しいのかはよくわからない)
+    const auto interface_ver = (m_sAvisynth->f_is_420 && m_sAvisynth->f_is_422 && m_sAvisynth->f_is_444) ? RGY_AVISYNTH_INTERFACE_6 : RGY_AVISYNTH_INTERFACE_25;
     if (nullptr == (m_sAVSenv = m_sAvisynth->f_create_script_environment(interface_ver))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init avisynth enviroment.\n"));
         return RGY_ERR_INVALID_HANDLE;
