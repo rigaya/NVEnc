@@ -56,7 +56,7 @@ script:
 
 deploy:
   provider: releases
-  api_key: IDRwZWN1uQaTxb64SQnTDNJR5KPtCFPL3Mln9GrdZ7TSiyec/o1KXpOuh/50ZO5A
+  api_key: $GITHUB_API_KEY
   file:
     - ${OUTPUT_DIR}/*.${PKG_TYPE}
   skip_cleanup: true
