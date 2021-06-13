@@ -7,12 +7,6 @@ dist: focal
 services:
   - docker
 
-branches:
-  only: 
-    - master
-    - linux
-    - buildtest
-
 matrix:
   fast_finish: true
   include:
