@@ -20,10 +20,10 @@ NVEncC could be run directly from the extracted directory.
 ## Linux (Ubuntu 20.04)
 
 ### 1. Install [NVIDIA Graphics driver](https://www.nvidia.com/Download/index.aspx)  
-Select "Linux 64bit" and download "run" file. A install file named like "NVIDIA-Linux-x86_64-460.84.run" shall be downloaded, which can be run to install the driver.  
+Select "Linux 64bit" and download "run" file. A install file named like "NVIDIA-Linux-x86_64-xxx.xx.run" shall be downloaded, which can be run to install the driver.  
 ```Shell
-chmod u+x NVIDIA-Linux-x86_64-460.84.run
-sudo ./NVIDIA-Linux-x86_64-460.84.run
+chmod u+x NVIDIA-Linux-x86_64-xxx.xx.run
+sudo ./NVIDIA-Linux-x86_64-xxx.xx.run
 ```
 
 ### 2. Install nvencc
@@ -47,7 +47,7 @@ There are some features which require additional installations.
 ## Linux (Ubuntu 18.04)
 
 ### 1. Install [NVIDIA Graphics driver](https://www.nvidia.com/Download/index.aspx)  
-Select "Linux 64bit" and download "run" file. A install file named like "NVIDIA-Linux-x86_64-460.84.run" shall be downloaded, which can be run to install the driver.  
+Select "Linux 64bit" and download "run" file. A install file named like "NVIDIA-Linux-x86_64-xxx.xx.run" shall be downloaded, which can be run to install the driver.  
 ```Shell
 chmod u+x NVIDIA-Linux-x86_64-xxx.xx.run
 sudo ./NVIDIA-Linux-x86_64-xxx.xx.run

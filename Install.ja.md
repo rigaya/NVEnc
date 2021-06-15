@@ -20,12 +20,12 @@
 ## Linux (Ubuntu 20.04)
 
 ### 1. [NVIDIAグラフィックスドライバ](https://www.nvidia.co.jp/Download/index.aspx?lang=jp)をインストールします。  
-OSで「Linux 64bit」を選択し、"run"ファイルをダウンロードします。(例えば、"NVIDIA-Linux-x86_64-460.84.run"などのファイルがダウンロードできます)
+OSで「Linux 64bit」を選択し、"run"ファイルをダウンロードします。(例えば、"NVIDIA-Linux-x86_64-xxx.xx.run"などのファイルがダウンロードできます)
 
 その後、runファイルを実行し、ドライバをインストールします。
 ```Shell
-chmod u+x NVIDIA-Linux-x86_64-460.84.run
-sudo ./NVIDIA-Linux-x86_64-460.84.run
+chmod u+x NVIDIA-Linux-x86_64-xxx.xx.run
+sudo ./NVIDIA-Linux-x86_64-xxx.xx.run
 ```
 
 ### 2. nvenccのインストール
@@ -53,7 +53,7 @@ NVEncCの下記オプションを使用するには、追加でインストー�
 ## Linux (Ubuntu 18.04)
 
 ### 1. [NVIDIAグラフィックスドライバ](https://www.nvidia.co.jp/Download/index.aspx?lang=jp)をインストールします。  
-OSで「Linux 64bit」を選択し、"run"ファイルをダウンロードします。(例えば、"NVIDIA-Linux-x86_64-460.84.run"などのファイルがダウンロードできます)
+OSで「Linux 64bit」を選択し、"run"ファイルをダウンロードします。(例えば、"NVIDIA-Linux-x86_64-xxx.xx.run"などのファイルがダウンロードできます)
 
 その後、runファイルを実行し、ドライバをインストールします。
 ```Shell
