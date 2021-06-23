@@ -37,7 +37,7 @@ install:
   - 7z x -oC:\hdr10plus_gen\ "c:\hdr10plus_gen\hdr10plus_gen_0.00_%PLATFORM%.7z"
 
 before_build:
-  - if "%CUDA_VER_MAJOR%" == "10" appveyor DownloadFile https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_10.1.105_418.96_win10.exe -FileName cuda_installer_win10.exe
+  - if "%CUDA_VER_MAJOR%" == "10" appveyor DownloadFile https://developer.download.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_10.1.243_426.00_win10.exe -FileName cuda_installer_win10.exe
   - if "%CUDA_VER_MAJOR%" == "11" appveyor DownloadFile https://developer.download.nvidia.com/compute/cuda/11.1.1/local_installers/cuda_11.1.1_456.81_win10.exe -FileName cuda_installer_win10.exe
   - cuda_installer_win10.exe -s nvcc_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% cudart_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% curand_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% curand_dev_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% npp_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% npp_dev_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% nvml_dev_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% nvrtc_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% nvrtc_dev_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR% visual_studio_integration_%CUDA_VER_MAJOR%.%CUDA_VER_MINOR%
   - set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v%CUDA_VER_MAJOR%.%CUDA_VER_MINOR%\bin;%PATH%
