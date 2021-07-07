@@ -1077,8 +1077,7 @@ protected:
     bool hasVideoWithStreamInfo() const;
 
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
-    //動画ストリーム以外は、vidStreamIdに近いstreamIDのものの順番にソートする
-    vector<int> getStreamIndex(AVMediaType type, const vector<int> *vidStreamIndex = nullptr);
+    vector<int> getStreamIndex(AVMediaType type);
 
     //VC-1のスタートコードの確認
     bool vc1StartCodeExists(uint8_t *ptr);

@@ -470,7 +470,7 @@ bool RGYInputAvcodec::hasVideoWithStreamInfo() const {
     return false;
 }
 
-vector<int> RGYInputAvcodec::getStreamIndex(AVMediaType type, const vector<int> *vidStreamIndex) {
+vector<int> RGYInputAvcodec::getStreamIndex(AVMediaType type) {
     vector<int> streams;
     const int n_streams = m_Demux.format.formatCtx->nb_streams;
     for (int i = 0; i < n_streams; i++) {
@@ -496,34 +496,6 @@ vector<int> RGYInputAvcodec::getStreamIndex(AVMediaType type, const vector<int> 
             const int resA = pStreamA->codecpar->width * pStreamA->codecpar->height;
             const int resB = pStreamB->codecpar->width * pStreamB->codecpar->height;
             return (resA > resB);
-        });
-    } else if (vidStreamIndex && vidStreamIndex->size()) {
-        auto mostNearestVidStreamId = [formatCtx = m_Demux.format.formatCtx, vidStreamIndex](int streamId) {
-            auto ret = std::make_pair(0, UINT32_MAX);
-            for (uint32_t i = 0; i < vidStreamIndex->size(); i++) {
-                uint32_t diff = (uint32_t)(streamId - formatCtx->streams[(*vidStreamIndex)[i]]->id);
-                if (diff < ret.second) {
-                    ret.second = diff;
-                    ret.first = i;
-                }
-            }
-            return ret;
-        };
-        std::sort(streams.begin(), streams.end(), [formatCtx = m_Demux.format.formatCtx, vidStreamIndex, mostNearestVidStreamId](int streamIdA, int streamIdB) {
-            if (formatCtx->streams[streamIdA]->codecpar == nullptr) {
-                return false;
-            }
-            if (formatCtx->streams[streamIdB]->codecpar == nullptr) {
-                return true;
-            }
-            auto pStreamIdA = formatCtx->streams[streamIdA]->id;
-            auto pStreamIdB = formatCtx->streams[streamIdB]->id;
-            auto nearestVidA = mostNearestVidStreamId(pStreamIdA);
-            auto nearestVidB = mostNearestVidStreamId(pStreamIdB);
-            if (nearestVidA.first == nearestVidB.first) {
-                return nearestVidA.second < nearestVidB.second;
-            }
-            return nearestVidA.first < nearestVidB.first;
         });
     }
     return streams;
@@ -1488,7 +1460,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     if (input_prm->readAudio || input_prm->readSubtitle || input_prm->readData || input_prm->readAttachment) {
         vector<int> mediaStreams;
         if (input_prm->readAudio) {
-            auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO, &videoStreams);
+            auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO);
             //他のファイルから音声を読み込む場合もあるので、ここでチェックはできない
             //if (audioStreams.size() == 0) {
             //    AddMessage(RGY_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
@@ -1498,7 +1470,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             vector_cat(mediaStreams, audioStreams);
         }
         if (input_prm->readSubtitle) {
-            auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE, &videoStreams);
+            auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE);
             if (subStreams.size() == 0 && !m_cap2ass.enabled()) {
                 AddMessage(RGY_LOG_WARN, _T("--sub-copy%s is set, but no subtitle stream found.\n"), (ENCODER_NVENC) ? _T("/--vpp-subburn") : _T(""));
             } else {
@@ -1507,12 +1479,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             }
         }
         if (input_prm->readData) {
-            auto dataStreams = getStreamIndex(AVMEDIA_TYPE_DATA, &videoStreams);
+            auto dataStreams = getStreamIndex(AVMEDIA_TYPE_DATA);
             m_Demux.format.dataTracks = (int)dataStreams.size();
             vector_cat(mediaStreams, dataStreams);
         }
         if (input_prm->readAttachment) {
-            auto attachmentStreams = getStreamIndex(AVMEDIA_TYPE_ATTACHMENT, &videoStreams);
+            auto attachmentStreams = getStreamIndex(AVMEDIA_TYPE_ATTACHMENT);
             m_Demux.format.attachmentTracks = (int)attachmentStreams.size();
             vector_cat(mediaStreams, attachmentStreams);
         }
