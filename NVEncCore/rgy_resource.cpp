@@ -91,6 +91,10 @@ extern char _binary_QSVPipeline_rgy_filter_unsharp_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_warpsharp_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_warpsharp_cl_end[];
 #endif
+#if ENCODER_NVENC
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start[];
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end[];
+#endif
 }
 
 struct RGYResourceData {
