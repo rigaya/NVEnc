@@ -39,11 +39,6 @@
 #include "NVEncFilterColorspaceFunc.h"
 #include "NVEncParam.h"
 
-extern "C" {
-extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start[];
-extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end[];
-}
-
 using std::pair;
 using std::make_pair;
 using std::make_unique;

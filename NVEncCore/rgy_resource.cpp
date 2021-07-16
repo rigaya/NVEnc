@@ -136,6 +136,9 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_UNSHARP_CL"), _binary_QSVPipeline_rgy_filter_unsharp_cl_start, _binary_QSVPipeline_rgy_filter_unsharp_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_WARPSHARP_CL"), _binary_QSVPipeline_rgy_filter_warpsharp_cl_start, _binary_QSVPipeline_rgy_filter_warpsharp_cl_end }
 #endif
+#if ENCODER_NVENC
+    { _T("EXE_DATA"), _T("NVENC_FILTER_COLRSPACE_FUNC_HEADER"), _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start, _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end }
+#endif
 };
 #endif
 
