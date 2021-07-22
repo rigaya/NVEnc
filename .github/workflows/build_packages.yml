@@ -1,0 +1,125 @@
+name: Build Linux Packages
+
+on:
+  push:
+    branches:
+      - master
+      - linux
+    tags:
+      - '*'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerimg: ubuntu2004_cuda11
+            pkgtype: deb
+          - dockerimg: ubuntu1804_cuda10
+            pkgtype: deb
+          - dockerimg: centos8_cuda11
+            pkgtype: rpm
+
+    env:
+      DOCKER_FILE:  docker/docker_${{ matrix.dockerimg }}
+      DOCKER_IMAGE: ${{ matrix.dockerimg }}
+      PKG_TYPE: ${{ matrix.pkgtype }}
+
+    name: Upload Release Asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare
+        id: prep
+        run: |
+          REPOSITORY=$(echo ${{ github.repository }} | sed -e "s#.*/##")
+          VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
+          IMAGE="rigaya/build_nvencc_"${{ env.DOCKER_IMAGE }}
+          TAG=$(echo $GITHUB_SHA | head -c7)
+          NPROC=$(grep 'processor' /proc/cpuinfo | wc -l)
+          OUTPUT_DIR=`pwd`/../output
+          LOCAL_USER_ID=$(id -u)
+          LOCAL_GROUP_ID=$(id -g)
+          echo ::set-output name=tagged_image::${IMAGE}:${TAG}
+          echo ::set-output name=tag::${TAG}
+          echo ::set-output name=nproc::${NPROC}
+          echo ::set-output name=output_dir::${OUTPUT_DIR}
+          echo ::set-output name=local_user_id::${LOCAL_USER_ID}
+          echo ::set-output name=local_group_id::${LOCAL_GROUP_ID}
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Checkout dependencies
+        run: |
+          git clone https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus
+          git clone https://github.com/vapoursynth/vapoursynth.git vapoursynth
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ github.ref }}-${{ env.DOCKER_IMAGE }}-${{ github.sha }}
+          restore-keys: |
+            ${{ github.ref }}-${{ env.DOCKER_IMAGE }}-${{ github.sha }}
+            ${{ github.ref }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image and push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          context: ./
+          file: ${{ env.DOCKER_FILE }}
+          builder: ${{ steps.buildx.outputs.name }}
+          push: true
+          tags: ${{ steps.prep.outputs.tagged_image }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+          build-args: |
+            LOCAL_USER_ID=${{ steps.prep.outputs.local_user_id }}
+            LOCAL_GROUP_ID=${{ steps.prep.outputs.local_group_id }}
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Create Output Dir
+        run: |
+          mkdir -p ${{ steps.prep.outputs.output_dir }}
+
+      - name: Build Exec
+        id: build_exec
+        run: |
+          docker run -dit --rm -v ${{ steps.prep.outputs.output_dir }}:/output -u "$(id -u):$(id -g)" --name build_pkg ${{ steps.prep.outputs.tagged_image }}
+          docker exec build_pkg ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include"
+          docker exec build_pkg make -j${{ steps.prep.outputs.nproc }}
+          docker exec build_pkg ./nvencc --version
+          docker exec build_pkg ./check_options.py
+          docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh
+          docker exec build_pkg sh -c "cp -v ./*.${{ env.PKG_TYPE }} /output/"
+          PKGFILE=`ls ${{ steps.prep.outputs.output_dir }}/*.${{ env.PKG_TYPE }}`
+          echo ${PKGFILE}
+          echo ::set-output name=pkgfile::${PKGFILE}
+
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: ${{ steps.build_exec.outputs.pkgfile }}

@@ -4,7 +4,7 @@ by rigaya
 
 **[日本語版はこちら＞＞](./Readme.ja.md)**
 
-[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master) [![Build Status](https://travis-ci.org/rigaya/NVEnc.svg?branch=master)](https://travis-ci.org/rigaya/NVEnc)  
+[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master) [![Build status](https://github.com/rigaya/NVEnc/workflows/build_packages.yml/badge.svg)](https://travis-ci.com/rigaya/NVEnc)  
 
 本软件旨在研究NVIDIA的HW编码器(NVENC)的性能和图像质量。
 所开发的软件有两种类型，一种是独立运行的命令行版本，另一种是输出插件 [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).

@@ -39,7 +39,7 @@ RUN apt-get update
 RUN apt-get -y install cuda
 
 RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
-RUN groupmod -g $LOCAL_GROUP_ID rigaya
+RUN groupmod -og $LOCAL_GROUP_ID rigaya
 WORKDIR /home/rigaya
 COPY . .
 RUN chown -R rigaya:rigaya .

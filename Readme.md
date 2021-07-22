@@ -5,7 +5,7 @@ by rigaya
 **[日本語版はこちら＞＞](./Readme.ja.md)**
 **[简体中文版本＞＞](./Readme.cn.md)**
 
-[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master)  [![Build Status](https://travis-ci.com/rigaya/NVEnc.svg?branch=master)](https://travis-ci.com/rigaya/NVEnc)   
+[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master)  [![Build status](https://github.com/rigaya/NVEnc/workflows/build_packages.yml/badge.svg)](https://travis-ci.com/rigaya/NVEnc)   
 
 This software is meant to investigate performance and image quality of HW encoder (NVENC) of NVIDIA.
 There are 2 types of software developed, one is command line version that runs independently, and the nother is a output plug-in of [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
