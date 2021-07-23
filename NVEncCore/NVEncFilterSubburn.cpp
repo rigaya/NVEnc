@@ -72,7 +72,7 @@ static inline int log_level_ass2qsv(int level) {
         RGY_LOG_ERROR,
         RGY_LOG_WARN,
         RGY_LOG_WARN,
-        RGY_LOG_MORE,
+        RGY_LOG_INFO,
         RGY_LOG_MORE,
         RGY_LOG_DEBUG,
         RGY_LOG_TRACE
