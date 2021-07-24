@@ -821,14 +821,14 @@ void RGY_FORCEINLINE convert_yuv444_to_nv12_p_avx2_base(void** dst, const void**
 #endif
                 } else {
                     const auto mask0000ffff = _mm256_set1_epi32(0x0000ffff);
-                    __m256i u00 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + 0)), mask0000ffff); // 14 -  0
-                    __m256i u01 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + 8)), mask0000ffff); // 30 - 16
-                    __m256i v00 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + 0)), mask0000ffff);
-                    __m256i v01 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + 8)), mask0000ffff);
-                    __m256i u10 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch + 0)), mask0000ffff);
-                    __m256i u11 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch + 8)), mask0000ffff);
-                    __m256i v10 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch + 0)), mask0000ffff);
-                    __m256i v11 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch + 8)), mask0000ffff);
+                    __m256i u00 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU +  0)), mask0000ffff); // 14 -  0
+                    __m256i u01 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + 16)), mask0000ffff); // 30 - 16
+                    __m256i v00 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV +  0)), mask0000ffff);
+                    __m256i v01 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + 16)), mask0000ffff);
+                    __m256i u10 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch +  0)), mask0000ffff);
+                    __m256i u11 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch + 16)), mask0000ffff);
+                    __m256i v10 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch +  0)), mask0000ffff);
+                    __m256i v11 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch + 16)), mask0000ffff);
                     u00 = _mm256_add_epi32(u00, u10);
                     u01 = _mm256_add_epi32(u01, u11);
                     v00 = _mm256_add_epi32(v00, v10);
@@ -1017,7 +1017,7 @@ void copy_yuv444_to_ayuv444_avx2(void **dst, const void **src, int width, int sr
             __m256i pixUV1 = _mm256_unpackhi_epi8(pixV, pixU); // 31 - 24 | 15 - 8
             __m256i pixVUYA0 = _mm256_unpacklo_epi16(pixAY0, pixUV0); // 19 - 16 |  3 -  0
             __m256i pixVUYA1 = _mm256_unpackhi_epi16(pixAY0, pixUV0); // 23 - 20 |  7 -  4
-            __m256i pixVUYA2 = _mm256_unpacklo_epi16(pixAY1, pixUV1); // 27 - 24 | 11 -  8 
+            __m256i pixVUYA2 = _mm256_unpacklo_epi16(pixAY1, pixUV1); // 27 - 24 | 11 -  8
             __m256i pixVUYA3 = _mm256_unpackhi_epi16(pixAY1, pixUV1); // 31 - 28 | 15 - 12
 
             _mm256_storeu_si256((__m256i *)(dst_ptr +  0), _mm256_permute2x128_si256(pixVUYA0, pixVUYA1, (2 << 4) + 0));
