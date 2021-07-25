@@ -87,7 +87,7 @@ float elliott(float val) {
 __device__ __inline__
 __half2 __half2_abs(__half2 val) {
     __half2 h;
-    __HALF2_TO_UI(h) = __HALF2_TO_UI(val) & 0x7fff7fffu;
+    RGY_HALF2_TO_UI(h) = RGY_HALF2_TO_UI(val) & 0x7fff7fffu;
     return h;
 }
 

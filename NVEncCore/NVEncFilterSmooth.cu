@@ -73,9 +73,7 @@ template<> __device__ __inline__ __half2 setval(float val) { return __float2half
 __device__ __inline__
 __half2 fabs(__half2 val) {
     __half2 h;
-#if ENABLE_CUDA_FP16_DEVICE
-    __HALF2_TO_UI(h) = __HALF2_TO_UI(val) & 0x7fff7fffu;
-#endif
+    RGY_HALF2_TO_UI(h) = RGY_HALF2_TO_UI(val) & 0x7fff7fffu;
     return h;
 }
 #endif //#if ENABLE_CUDA_FP16_HOST

@@ -43,6 +43,12 @@ static const int WARP_SIZE = (1<<WARP_SIZE_2N);
 #define __all(x)          __all_sync(0xFFFFFFFFU, x)
 #endif
 
+// cuda_fp16.hppが定義してくれないことがある
+#define RGY_HALF_TO_US(var) *(reinterpret_cast<unsigned short *>(&(var)))
+#define RGY_HALF_TO_CUS(var) *(reinterpret_cast<const unsigned short *>(&(var)))
+#define RGY_HALF2_TO_UI(var) *(reinterpret_cast<unsigned int *>(&(var)))
+#define RGY_HALF2_TO_CUI(var) *(reinterpret_cast<const unsigned int *>(&(var)))
+
 template<typename Type, int width>
 __inline__ __device__
 Type warp_sum(Type val) {
