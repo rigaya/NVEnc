@@ -46,6 +46,8 @@ extern char _binary_QSVPipeline_rgy_filter_afs_merge_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_afs_merge_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_afs_synthesize_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_afs_synthesize_cl_end[];
+extern char _binary_QSVPipeline_rgy_filter_colorspace_func_h_start[];
+extern char _binary_QSVPipeline_rgy_filter_colorspace_func_h_end[];
 extern char _binary_QSVPipeline_rgy_filter_deband_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_deband_cl_end[];
 extern char _binary_clRNG_src_include_clRNG_clRNG_clh_start[];
@@ -115,6 +117,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_FILTER_CL"), _binary_QSVPipeline_rgy_filter_afs_filter_cl_start, _binary_QSVPipeline_rgy_filter_afs_filter_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_MERGE_CL"), _binary_QSVPipeline_rgy_filter_afs_merge_cl_start, _binary_QSVPipeline_rgy_filter_afs_merge_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_SYNTHESIZE_CL"), _binary_QSVPipeline_rgy_filter_afs_synthesize_cl_start, _binary_QSVPipeline_rgy_filter_afs_synthesize_cl_end },
+    { _T("EXE_DATA"), _T("RGY_FILTER_COLORSPACE_CL"), _binary_QSVPipeline_rgy_filter_colorspace_func_h_start, _binary_QSVPipeline_rgy_filter_colorspace_func_h_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_CL"), _binary_QSVPipeline_rgy_filter_deband_cl_start, _binary_QSVPipeline_rgy_filter_deband_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_GEN_RAND_CL"), _binary_QSVPipeline_rgy_filter_deband_gen_rand_cl_start, _binary_QSVPipeline_rgy_filter_deband_gen_rand_cl_end },
 
