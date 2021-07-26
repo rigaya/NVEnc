@@ -251,7 +251,7 @@ const TCHAR *get_err_mes(RGY_ERR sts) {
     case RGY_WRN_IN_EXECUTION:                    return _T("the previous asynchrous operation is in execution.");
     case RGY_WRN_DEVICE_BUSY:                     return _T("the HW acceleration device is busy.");
     case RGY_WRN_VIDEO_PARAM_CHANGED:             return _T("the video parameters are changed during decoding.");
-    case RGY_WRN_PARTIAL_ACCELERATION:            return _T("SW is used.");
+    case RGY_WRN_PARTIAL_ACCELERATION:            return _T("partial acceleration.");
     case RGY_WRN_INCOMPATIBLE_VIDEO_PARAM:        return _T("incompatible video parameters.");
     case RGY_WRN_VALUE_NOT_CHANGED:               return _T("the value is saturated based on its valid range.");
     case RGY_WRN_OUT_OF_RANGE:                    return _T("the value is out of valid range.");
