@@ -80,6 +80,8 @@ extern char _binary_QSVPipeline_rgy_filter_pad_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_pad_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_resize_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_resize_cl_end[];
+extern char _binary_QSVPipeline_rgy_filter_ssim_cl_start[];
+extern char _binary_QSVPipeline_rgy_filter_ssim_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_smooth_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_smooth_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_subburn_cl_start[];
@@ -136,6 +138,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_K0_CL"), _binary_QSVPipeline_rgy_filter_nnedi_k0_cl_start, _binary_QSVPipeline_rgy_filter_nnedi_k0_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_K1_CL"), _binary_QSVPipeline_rgy_filter_nnedi_k1_cl_start, _binary_QSVPipeline_rgy_filter_nnedi_k1_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_RESIZE_CL"), _binary_QSVPipeline_rgy_filter_resize_cl_start, _binary_QSVPipeline_rgy_filter_resize_cl_end },
+    { _T("EXE_DATA"), _T("RGY_FILTER_SSIM_CL"), _binary_QSVPipeline_rgy_filter_ssim_cl_start, _binary_QSVPipeline_rgy_filter_ssim_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_SMOOTH_CL"), _binary_QSVPipeline_rgy_filter_smooth_cl_start, _binary_QSVPipeline_rgy_filter_smooth_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_SUBBURN_CL"), _binary_QSVPipeline_rgy_filter_subburn_cl_start, _binary_QSVPipeline_rgy_filter_subburn_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_TRANSFORM_CL"), _binary_QSVPipeline_rgy_filter_transform_cl_start, _binary_QSVPipeline_rgy_filter_transform_cl_end },
