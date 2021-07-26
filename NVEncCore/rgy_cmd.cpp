@@ -4249,6 +4249,22 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("ssim")) {
+        common->metric.ssim = true;
+        return 0;
+    }
+    if (IS_OPTION("no-ssim")) {
+        common->metric.ssim = false;
+        return 0;
+    }
+    if (IS_OPTION("psnr")) {
+        common->metric.psnr = true;
+        return 0;
+    }
+    if (IS_OPTION("no-psnr")) {
+        common->metric.psnr = false;
+        return 0;
+    }
     return -10;
 }
 
@@ -5341,6 +5357,8 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << param->timecodeFile;
         }
     }
+    OPT_BOOL(_T("--ssim"), _T("--no-ssim"), metric.ssim);
+    OPT_BOOL(_T("--psnr"), _T("--no-psnr"), metric.psnr);
     return cmd.str();
 }
 
@@ -5635,6 +5653,10 @@ tstring gen_cmd_help_common() {
         _T("   --timecode [<string>]        output timecode file.\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
 #endif
+    str += _T("\n")
+        _T("   --ssim                       calc ssim\n")
+        _T("   --psnr                       calc psnr\n")
+        _T("\n");
     return str;
 }
 

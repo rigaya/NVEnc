@@ -1070,6 +1070,18 @@ struct DataSelect {
     ~DataSelect() {};
 };
 
+struct RGYVideoQualityMetric {
+    bool ssim;
+    bool psnr;
+    bool vmaf;
+    tstring vmaf_model;
+
+    RGYVideoQualityMetric();
+    ~RGYVideoQualityMetric() {};
+    bool enabled() const;
+    tstring enabled_metric() const;
+};
+
 using AttachmentSelect = DataSelect;
 
 struct GPUAutoSelectMul {
@@ -1131,6 +1143,8 @@ struct RGYParamCommon {
     RGYAVSync AVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     bool timecode;
     tstring timecodeFile;
+
+    RGYVideoQualityMetric metric;
 
     RGYParamCommon();
     ~RGYParamCommon();
