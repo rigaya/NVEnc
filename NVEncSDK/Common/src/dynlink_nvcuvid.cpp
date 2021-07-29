@@ -29,6 +29,8 @@ tcuvidGetDecoderCaps                  *cuvidGetDecoderCaps;
 tcuvidCreateDecoder                   *cuvidCreateDecoder;
 tcuvidDestroyDecoder                  *cuvidDestroyDecoder;
 tcuvidDecodePicture                   *cuvidDecodePicture;
+tcuvidGetDecodeStatus                 *cuvidGetDecodeStatus;
+tcuvidReconfigureDecoder              *cuvidReconfigureDecoder;
 
 tcuvidMapVideoFrame                   *cuvidMapVideoFrame;
 tcuvidUnmapVideoFrame                 *cuvidUnmapVideoFrame;
@@ -179,6 +181,8 @@ CUresult CUDAAPI cuvidInit(unsigned int Flags)
     GET_PROC(cuvidCreateDecoder);
     GET_PROC(cuvidDestroyDecoder);
     GET_PROC(cuvidDecodePicture);
+    GET_PROC_OPTIONAL(cuvidGetDecodeStatus);
+    GET_PROC_OPTIONAL(cuvidReconfigureDecoder);
 
 #if defined(WIN64) || defined(_WIN64) || defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
     GET_PROC(cuvidMapVideoFrame64);

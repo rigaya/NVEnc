@@ -158,7 +158,7 @@ typedef struct _CUVIDDECODECAPS
     unsigned int            reserved1[3];               /**< Reserved for future use - set to zero                              */
 
     unsigned char           bIsSupported;               /**< OUT: 1 if codec supported, 0 if not supported                      */
-    unsigned char           reserved2;                  /**< Reserved for future use - set to zero                              */
+    unsigned char           nNumNVDECs;                 /**< OUT: Number of NVDECs that can support IN params                   */
     unsigned short          nOutputFormatMask;          /**< OUT: each bit represents corresponding cudaVideoSurfaceFormat enum */
     unsigned int            nMaxWidth;                  /**< OUT: Max supported coded width in pixels                           */
     unsigned int            nMaxHeight;                 /**< OUT: Max supported coded height in pixels                          */
@@ -224,7 +224,7 @@ typedef struct _CUVIDDECODECREATEINFO
     } target_rect;
 
     unsigned long enableHistogram;             /**< IN: enable histogram output, if supported */
-    unsigned long Reserved2[5];                /**< Reserved for future use - set to zero */
+    unsigned long Reserved2[4];                /**< Reserved for future use - set to zero */
 } CUVIDDECODECREATEINFO;
 
 /*********************************************************/
@@ -1073,6 +1073,22 @@ typedef CUresult CUDAAPI tcuvidDestroyDecoder(CUvideodecoder hDecoder);
 /********************************************************************************************************************/
 typedef CUresult CUDAAPI tcuvidDecodePicture(CUvideodecoder hDecoder, CUVIDPICPARAMS *pPicParams);
 
+/************************************************************************************************************/
+//! \fn CUresult CUDAAPI cuvidGetDecodeStatus(CUvideodecoder hDecoder, int nPicIdx);
+//! Get the decode status for frame corresponding to nPicIdx
+//! API is supported for Maxwell and above generation GPUs.
+//! API is currently supported for HEVC, H264 and JPEG codecs.
+//! API returns CUDA_ERROR_NOT_SUPPORTED error code for unsupported GPU or codec.
+/************************************************************************************************************/
+typedef CUresult CUDAAPI tcuvidGetDecodeStatus(CUvideodecoder hDecoder, int nPicIdx, CUVIDGETDECODESTATUS* pDecodeStatus);
+
+/*********************************************************************************************************/
+//! \fn CUresult CUDAAPI cuvidReconfigureDecoder(CUvideodecoder hDecoder, CUVIDRECONFIGUREDECODERINFO *pDecReconfigParams)
+//! Used to reuse single decoder for multiple clips. Currently supports resolution change, resize params, display area 
+//! params, target area params change for same codec. Must be called during CUVIDPARSERPARAMS::pfnSequenceCallback 
+/*********************************************************************************************************/
+typedef CUresult CUDAAPI tcuvidReconfigureDecoder(CUvideodecoder hDecoder, CUVIDRECONFIGUREDECODERINFO *pDecReconfigParams);
+
 
 #if !defined(__CUVID_DEVPTR64) || defined(__CUVID_INTERNAL)
 /************************************************************************************************************************/
@@ -1162,6 +1178,8 @@ extern tcuvidGetDecoderCaps       *cuvidGetDecoderCaps;
 extern tcuvidCreateDecoder        *cuvidCreateDecoder;
 extern tcuvidDestroyDecoder       *cuvidDestroyDecoder;
 extern tcuvidDecodePicture        *cuvidDecodePicture;
+extern tcuvidGetDecodeStatus      *cuvidGetDecodeStatus;
+extern tcuvidReconfigureDecoder   *cuvidReconfigureDecoder;
 extern tcuvidMapVideoFrame        *cuvidMapVideoFrame;
 extern tcuvidUnmapVideoFrame      *cuvidUnmapVideoFrame;
 

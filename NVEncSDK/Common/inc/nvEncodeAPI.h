@@ -1,7 +1,7 @@
 /*
  * This copyright notice applies to this header file only:
  *
- * Copyright (c) 2010-2020 NVIDIA Corporation
+ * Copyright (c) 2010-2021 NVIDIA Corporation
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -111,7 +111,7 @@ typedef void* NV_ENC_REGISTERED_PTR;        /**< A Resource that has been regist
 typedef void* NV_ENC_CUSTREAM_PTR;          /**< Pointer to CUstream*/
 
 #define NVENCAPI_MAJOR_VERSION 11
-#define NVENCAPI_MINOR_VERSION 0
+#define NVENCAPI_MINOR_VERSION 1
 
 #define NVENCAPI_VERSION (NVENCAPI_MAJOR_VERSION | (NVENCAPI_MINOR_VERSION << 24))
 
@@ -1114,10 +1114,15 @@ typedef enum _NV_ENC_CAPS
      */
     NV_ENC_CAPS_SUPPORT_ALPHA_LAYER_ENCODING,
 
-    /**
+     /**
      * Indicates number of Encoding engines present on GPU.
      */
     NV_ENC_CAPS_NUM_ENCODER_ENGINES,
+
+    /**
+     * Indicates single slice intra refresh support.
+     */
+    NV_ENC_CAPS_SINGLE_SLICE_INTRA_REFRESH,
 
      /**
      * Reserved - Not to be used by clients.
@@ -1322,7 +1327,10 @@ typedef struct _NV_ENC_QP
     NV_ENC_MULTI_PASS               multiPass;                                    /**< [in]: This flag is used to enable multi-pass encoding for a given ::NV_ENC_PARAMS_RC_MODE. This flag is not valid for H264 and HEVC MEOnly mode */
     uint32_t                        alphaLayerBitrateRatio;                       /**< [in]: Specifies the ratio in which bitrate should be split between base and alpha layer. A value 'x' for this field will split the target bitrate in a ratio of x : 1 between base and alpha layer. 
                                                                                              The default split ratio is 15.*/
-    uint32_t                        reserved[5];
+    int8_t                          cbQPIndexOffset;                              /**< [in]: Specifies the value of 'chroma_qp_index_offset' in H264 / 'pps_cb_qp_offset' in HEVC.*/
+    int8_t                          crQPIndexOffset;                              /**< [in]: Specifies the value of 'second_chroma_qp_index_offset' in H264 / 'pps_cr_qp_offset' in HEVC.*/
+    uint16_t                        reserved2;
+    uint32_t                        reserved[4];
  } NV_ENC_RC_PARAMS;
 
 /** macro for constructing the version field of ::_NV_ENC_RC_PARAMS */
@@ -1372,7 +1380,7 @@ typedef struct _NVENC_EXTERNAL_ME_HINT_COUNTS_PER_BLOCKTYPE
 
 /**
  * \struct _NVENC_EXTERNAL_ME_HINT
- * External Motion Vector hint structure.
+ * External Motion Vector hint structure for H264 and HEVC.
  */
 typedef struct _NVENC_EXTERNAL_ME_HINT
 {
@@ -1434,7 +1442,10 @@ typedef struct _NV_ENC_CONFIG_H264
                                                                                Applicable only when temporal SVC is enabled (NV_ENC_CONFIG_H264::enableTemporalSVC = 1). */
     uint32_t enableScalabilityInfoSEI  :1;                          /**< [in]: Set to 1 to enable writing of Scalability Information SEI message preceding each IDR picture in bitstream 
                                                                                Applicable only when temporal SVC is enabled (NV_ENC_CONFIG_H264::enableTemporalSVC = 1). */
-    uint32_t reservedBitFields         :12;                         /**< [in]: Reserved bitfields and must be set to 0 */
+    uint32_t singleSliceIntraRefresh : 1;                           /**< [in]: Set to 1 to maintain single slice in frames during intra refresh.
+                                                                               Check support for single slice intra refresh using ::NV_ENC_CAPS_SINGLE_SLICE_INTRA_REFRESH caps.
+                                                                               This flag will be ignored if the value returned for ::NV_ENC_CAPS_SINGLE_SLICE_INTRA_REFRESH caps is false. */
+    uint32_t reservedBitFields : 11;                                /**< [in]: Reserved bitfields and must be set to 0 */
     uint32_t level;                                                 /**< [in]: Specifies the encoding level. Client is recommended to set this to NV_ENC_LEVEL_AUTOSELECT in order to enable the NvEncodeAPI interface to select the correct level. */
     uint32_t idrPeriod;                                             /**< [in]: Specifies the IDR interval. If not set, this is made equal to gopLength in NV_ENC_CONFIG.Low latency application client can set IDR interval to NVENC_INFINITE_GOPLENGTH so that IDR frames are not inserted automatically. */
     uint32_t separateColourPlaneFlag;                               /**< [in]: Set to 1 to enable 4:4:4 separate colour planes */
@@ -1530,7 +1541,10 @@ typedef struct _NV_ENC_CONFIG_HEVC
                                                                                Constrained encoding works only with rectangular slices.
                                                                                Check support for constrained encoding using ::NV_ENC_CAPS_SUPPORT_CONSTRAINED_ENCODING caps. */
     uint32_t enableAlphaLayerEncoding              :1;              /**< [in]: Set this to 1 to enable HEVC encode with alpha layer. */
-    uint32_t reserved                              :15;             /**< [in]: Reserved bitfields.*/
+    uint32_t singleSliceIntraRefresh : 1;                           /**< [in]: Set this to 1 to maintain single slice frames during intra refresh.
+                                                                               Check support for single slice intra refresh using ::NV_ENC_CAPS_SINGLE_SLICE_INTRA_REFRESH caps.
+                                                                               This flag will be ignored if the value returned for ::NV_ENC_CAPS_SINGLE_SLICE_INTRA_REFRESH caps is false. */
+    uint32_t reserved : 14;                                         /**< [in]: Reserved bitfields.*/
     uint32_t idrPeriod;                                             /**< [in]: Specifies the IDR interval. If not set, this is made equal to gopLength in NV_ENC_CONFIG. Low latency application client can set IDR interval to NVENC_INFINITE_GOPLENGTH so that IDR frames are not inserted automatically. */
     uint32_t intraRefreshPeriod;                                    /**< [in]: Specifies the interval between successive intra refresh if enableIntrarefresh is set. Requires enableIntraRefresh to be set.
                                                                     Will be disabled if NV_ENC_CONFIG::gopLength is not set to NVENC_INFINITE_GOPLENGTH. */
@@ -1688,7 +1702,8 @@ typedef struct _NV_ENC_INITIALIZE_PARAMS
                                                                                            The NV_ENC_INITIALIZE_PARAMS::maxMEHintCountsPerBlock[0] is for L0 predictors and NV_ENC_INITIALIZE_PARAMS::maxMEHintCountsPerBlock[1] is for L1 predictors.
                                                                                            This client must also set NV_ENC_INITIALIZE_PARAMS::enableExternalMEHints to 1. */
     NV_ENC_TUNING_INFO                         tuningInfo;                      /**< [in]: Tuning Info of NVENC encoding(TuningInfo is not applicable to H264 and HEVC meonly mode). */
-    uint32_t                                   reserved [288];                  /**< [in]: Reserved and must be set to 0 */
+    NV_ENC_BUFFER_FORMAT                       bufferFormat;                    /**< [in]: Specifies input buffer format. Client should set input buffer format only when D3D12 interface type is used. */
+    uint32_t                                   reserved[287];                   /**< [in]: Reserved and must be set to 0 */
     void*                                      reserved2[64];                   /**< [in]: Reserved and must be set to NULL */
 } NV_ENC_INITIALIZE_PARAMS;
 
@@ -1914,9 +1929,9 @@ typedef struct _NV_ENC_PIC_PARAMS
     NV_ENC_PIC_STRUCT                           pictureStruct;                  /**< [in]: Specifies structure of the input picture. */
     NV_ENC_PIC_TYPE                             pictureType;                    /**< [in]: Specifies input picture type. Client required to be set explicitly by the client if the client has not set NV_ENC_INITALIZE_PARAMS::enablePTD to 1 while calling NvInitializeEncoder. */
     NV_ENC_CODEC_PIC_PARAMS                     codecPicParams;                 /**< [in]: Specifies the codec specific per-picture encoding parameters. */
-    NVENC_EXTERNAL_ME_HINT_COUNTS_PER_BLOCKTYPE meHintCountsPerBlock[2];        /**< [in]: Specifies the number of hint candidates per block per direction for the current frame. meHintCountsPerBlock[0] is for L0 predictors and meHintCountsPerBlock[1] is for L1 predictors.
+    NVENC_EXTERNAL_ME_HINT_COUNTS_PER_BLOCKTYPE meHintCountsPerBlock[2];        /**< [in]: For H264 and Hevc, specifies the number of hint candidates per block per direction for the current frame. meHintCountsPerBlock[0] is for L0 predictors and meHintCountsPerBlock[1] is for L1 predictors.
                                                                                            The candidate count in NV_ENC_PIC_PARAMS::meHintCountsPerBlock[lx] must never exceed NV_ENC_INITIALIZE_PARAMS::maxMEHintCountsPerBlock[lx] provided during encoder initialization. */
-    NVENC_EXTERNAL_ME_HINT                     *meExternalHints;                /**< [in]: Specifies the pointer to ME external hints for the current frame. The size of ME hint buffer should be equal to number of macroblocks * the total number of candidates per macroblock.
+    NVENC_EXTERNAL_ME_HINT*                     meExternalHints;                /**< [in]: For H264 and Hevc, Specifies the pointer to ME external hints for the current frame. The size of ME hint buffer should be equal to number of macroblocks * the total number of candidates per macroblock.
                                                                                            The total number of candidates per MB per direction = 1*meHintCountsPerBlock[Lx].numCandsPerBlk16x16 + 2*meHintCountsPerBlock[Lx].numCandsPerBlk16x8 + 2*meHintCountsPerBlock[Lx].numCandsPerBlk8x8  
                                                                                            + 4*meHintCountsPerBlock[Lx].numCandsPerBlk8x8. For frames using bidirectional ME , the total number of candidates for single macroblock is sum of total number of candidates per MB for each direction (L0 and L1) */
     uint32_t                                    reserved1[6];                    /**< [in]: Reserved and must be set to 0 */
@@ -2007,7 +2022,8 @@ typedef struct _NV_ENC_LOCK_BITSTREAM
     uint32_t                frameSatd;                   /**< [out]: Total SATD cost for whole frame. */
     uint32_t                ltrFrameIdx;                 /**< [out]: Frame index associated with this LTR frame. */
     uint32_t                ltrFrameBitmap;              /**< [out]: Bitmap of LTR frames indices which were used for encoding this frame. Value of 0 if no LTR frames were used. */
-    uint32_t                reserved[13];                /**< [in]: Reserved and must be set to 0 */
+    uint32_t                temporalId;                  /**< [out]: TemporalId value of the frame when using temporalSVC encoding */
+    uint32_t                reserved[12];                /**< [in]:  Reserved and must be set to 0 */
     uint32_t                intraMBCount;                /**< [out]: For H264, Number of Intra MBs in the encoded frame. For HEVC, Number of Intra CTBs in the encoded frame. Supported only if _NV_ENC_LOCK_BITSTREAM::getRCStats set to 1. */
     uint32_t                interMBCount;                /**< [out]: For H264, Number of Inter MBs in the encoded frame, includes skip MBs. For HEVC, Number of Inter CTBs in the encoded frame. Supported only if _NV_ENC_LOCK_BITSTREAM::getRCStats set to 1. */
     int32_t                 averageMVX;                  /**< [out]: Average Motion Vector in X direction for the encoded frame. Supported only if _NV_ENC_LOCK_BITSTREAM::getRCStats set to 1. */
@@ -2072,6 +2088,45 @@ typedef struct _NV_ENC_INPUT_RESOURCE_OPENGL_TEX
     uint32_t target;                                      /**< [in]: Accepted values are GL_TEXTURE_RECTANGLE and GL_TEXTURE_2D. */
 } NV_ENC_INPUT_RESOURCE_OPENGL_TEX;
 
+/** \struct NV_ENC_FENCE_POINT_D3D12
+  * Fence and fence value for synchronization.
+  */
+typedef struct _NV_ENC_FENCE_POINT_D3D12
+{
+    void*                   pFence;                    /**< [in]: Pointer to ID3D12Fence. This fence object is used for synchronization. */
+    uint64_t                value;                     /**< [in]: Fence value to reach or exceed before the GPU operation or
+                                                                  fence value to set the fence to, after the GPU operation. */
+} NV_ENC_FENCE_POINT_D3D12;
+
+/**
+  * \struct _NV_ENC_INPUT_RESOURCE_D3D12
+  * NV_ENC_PIC_PARAMS::inputBuffer and NV_ENC_PIC_PARAMS::alphaBuffer must be a pointer to a struct of this type,
+  * when D3D12 interface is used
+  */
+typedef struct _NV_ENC_INPUT_RESOURCE_D3D12
+{
+    NV_ENC_REGISTERED_PTR       pInputBuffer;          /**< [in]: Specifies the input surface pointer. Client must use a pointer obtained from NvEncRegisterResource() in NV_ENC_REGISTER_RESOURCE::registeredResource
+                                                                  when registering input surface. */
+    NV_ENC_FENCE_POINT_D3D12    inputFencePoint;       /**< [in]: Specifies the input fence and corresponding fence value to do GPU wait. 
+                                                                  This fence will be used to do GPU wait until the specified fence reaches or exceeds the specified value. */
+    uint32_t                    reserved1[16];         /**< [in]: Reserved and must be set to 0. */
+    void*                       reserved2[16];         /**< [in]: Reserved and must be set to NULL. */
+} NV_ENC_INPUT_RESOURCE_D3D12;
+
+/**
+  * \struct _NV_ENC_OUTPUT_RESOURCE_D3D12
+  * NV_ENC_PIC_PARAMS::outputBitstream and NV_ENC_LOCK_BITSTREAM::outputBitstream must be a pointer to a struct of this type,
+  * when D3D12 interface is used
+  */
+typedef struct _NV_ENC_OUTPUT_RESOURCE_D3D12
+{
+    NV_ENC_REGISTERED_PTR      pOutputBuffer;          /**< [in]: Specifies the output buffer pointer. Client must use a pointer obtained from NvEncRegisterResource() in NV_ENC_REGISTER_RESOURCE::registeredResource
+                                                                  when registering output bitstream buffer */
+    NV_ENC_FENCE_POINT_D3D12   outputFencePoint;       /**< [in]: Specifies the output fence and corresponding fence value to set after GPU operation is finished.*/
+    uint32_t                   reserved1[16];          /**< [in]: Reserved and must be set to 0. */
+    void*                      reserved2[16];          /**< [in]: Reserved and must be set to NULL. */
+} NV_ENC_OUTPUT_RESOURCE_D3D12;
+
 /**
  * \struct _NV_ENC_REGISTER_RESOURCE
  * Register a resource for future use with the Nvidia Video Encoder Interface.
@@ -2103,8 +2158,15 @@ typedef struct _NV_ENC_REGISTER_RESOURCE
     NV_ENC_REGISTERED_PTR       registeredResource;             /**< [out]: Registered resource handle. This should be used in future interactions with the Nvidia Video Encoder Interface. */
     NV_ENC_BUFFER_FORMAT        bufferFormat;                   /**< [in]: Buffer format of resource to be registered. */
     NV_ENC_BUFFER_USAGE         bufferUsage;                    /**< [in]: Usage of resource to be registered. */
+    NV_ENC_FENCE_POINT_D3D12*   pInputFencePoint;               /**< [in]: Specifies the pointer to input fence and corresponding fence value to do GPU wait.
+                                                                           To be used only when NV_ENC_REGISTER_RESOURCE::resourceToRegister represents D3D12 surface and
+                                                                           NV_ENC_BUFFER_USAGE::bufferUsage is NV_ENC_INPUT_IMAGE.
+                                                                           This fence will be used to do GPU wait until the specified fence reaches or exceeds the specified value. */
+    NV_ENC_FENCE_POINT_D3D12*   pOutputFencePoint;              /**< [in]: Specifies the pointer to output fence and corresponding fence value to set after GPU operation is finished.
+                                                                           To be used only when NV_ENC_REGISTER_RESOURCE::resourceToRegister represents D3D12 surface and
+                                                                           NV_ENC_BUFFER_USAGE::bufferUsage is NV_ENC_INPUT_IMAGE. */
     uint32_t                    reserved1[247];                 /**< [in]: Reserved and must be set to 0. */
-    void*                       reserved2[62];                  /**< [in]: Reserved and must be set to NULL. */
+    void*                       reserved2[60];                  /**< [in]: Reserved and must be set to NULL. */
 } NV_ENC_REGISTER_RESOURCE;
 
 /** Macro for constructing the version field of ::_NV_ENC_REGISTER_RESOURCE */
@@ -3340,6 +3402,7 @@ NVENCSTATUS NVENCAPI NvEncUnregisterAsyncEvent                  (void* encoder, 
  * also true for compute (i.e. CUDA) work, provided that the previous workload using
  * the input resource was submitted to the default stream.
  * The client should not access any input buffer while they are mapped by the encoder.
+ * For D3D12 interface type, this function does not provide synchronization guarantee.
  *
  * \param [in] encoder
  *   Pointer to the NvEncodeAPI interface.

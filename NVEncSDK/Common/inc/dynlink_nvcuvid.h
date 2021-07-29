@@ -221,10 +221,13 @@ typedef struct
 //! Used in CUVIDSOURCEDATAPACKET structure
 /***************************************************************/
 typedef enum {
-    CUVID_PKT_ENDOFSTREAM   = 0x01,   /**< Set when this is the last packet for this stream  */
-    CUVID_PKT_TIMESTAMP     = 0x02,   /**< Timestamp is valid                                */
-    CUVID_PKT_DISCONTINUITY = 0x04,   /**< Set when a discontinuity has to be signalled      */
-    CUVID_PKT_ENDOFPICTURE  = 0x08,   /**< Set when the packet contains exactly one frame    */
+    CUVID_PKT_ENDOFSTREAM   = 0x01,   /**< Set when this is the last packet for this stream                              */
+    CUVID_PKT_TIMESTAMP     = 0x02,   /**< Timestamp is valid                                                            */
+    CUVID_PKT_DISCONTINUITY = 0x04,   /**< Set when a discontinuity has to be signalled                                  */
+    CUVID_PKT_ENDOFPICTURE  = 0x08,   /**< Set when the packet contains exactly one frame or one field                   */
+    CUVID_PKT_NOTIFY_EOS    = 0x10,   /**< If this flag is set along with CUVID_PKT_ENDOFSTREAM, an additional (dummy)
+                                           display callback will be invoked with null value of CUVIDPARSERDISPINFO which
+                                           should be interpreted as end of the stream.                                   */
 } CUvideopacketflags;
 
 /*****************************************************************************/
@@ -300,13 +303,20 @@ typedef CUresult CUDAAPI tcuvidDestroyVideoSource(CUvideosource obj);
 
 /******************************************************************************************/
 //! \fn CUresult CUDAAPI cuvidSetVideoSourceState(CUvideosource obj, cudaVideoState state)
-//! Set video source state
+//! Set video source state to:
+//! cudaVideoState_Started - to signal the source to run and deliver data
+//! cudaVideoState_Stopped - to stop the source from delivering the data
+//! cudaVideoState_Error   - invalid source
 /******************************************************************************************/
 typedef CUresult CUDAAPI tcuvidSetVideoSourceState(CUvideosource obj, cudaVideoState state);
 
 /******************************************************************************************/
 //! \fn cudaVideoState CUDAAPI cuvidGetVideoSourceState(CUvideosource obj)
 //! Get video source state
+//! Returns:
+//! cudaVideoState_Started - if Source is running and delivering data
+//! cudaVideoState_Stopped - if Source is stopped or reached end-of-stream
+//! cudaVideoState_Error   - if Source is in error state
 /******************************************************************************************/
 typedef cudaVideoState CUDAAPI tcuvidGetVideoSourceState(CUvideosource obj);
 
