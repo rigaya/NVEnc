@@ -448,6 +448,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
 
     static constexpr auto API_VER_LIST = make_array<uint32_t>(
         nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
+        nvenc_api_ver(11, 0),
         nvenc_api_ver(10, 0),
         nvenc_api_ver( 9, 1),
         nvenc_api_ver( 9, 0)
