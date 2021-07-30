@@ -1851,6 +1851,16 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stCreateEncodeParams.encodeConfig->rcParams.initialRCQP.qpInterB = 0;
     }
 
+    m_stEncConfig.rcParams.crQPIndexOffset = 0;
+    m_stEncConfig.rcParams.cbQPIndexOffset = 0;
+    if (inputParam->chromaQPOffset != 0) {
+        if (!m_dev->encoder()->checkAPIver(11, 1)) {
+            error_feature_unsupported(RGY_LOG_WARN, _T("chroma qp offset"));
+        } else {
+            m_stEncConfig.rcParams.crQPIndexOffset = (decltype(m_stEncConfig.rcParams.crQPIndexOffset))inputParam->chromaQPOffset;
+            m_stEncConfig.rcParams.cbQPIndexOffset = (decltype(m_stEncConfig.rcParams.cbQPIndexOffset))inputParam->chromaQPOffset;
+        }
+    }
     if (inputParam->codec == NV_ENC_HEVC) {
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode != 3) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode = 3;
@@ -4681,6 +4691,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
         add_str(RGY_LOG_ERROR, _T("  I:%d  P:%d  B:%d%s\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB,
             lossless ? _T(" (lossless)") : _T(""));
+        if (m_dev->encoder()->checkAPIver(11, 1)) {
+            add_str(RGY_LOG_INFO, _T("ChromaQPOffset cb:%d  cr:%d\n"), m_stEncConfig.rcParams.cbQPIndexOffset, m_stEncConfig.rcParams.crQPIndexOffset);
+        }
     } else {
         add_str(RGY_LOG_ERROR, _T("\n"));
         if (m_dev->encoder()->checkAPIver(10, 0)) {
@@ -4704,6 +4717,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             int minQPB = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpInterB :  0;
             int maxQPB = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterB : 51;
             add_str(RGY_LOG_INFO,  _T("QP range       I:%d-%d  P:%d-%d  B:%d-%d\n"), minQPI, maxQPI, minQPP, maxQPP, minQPB, maxQPB);
+        }
+        if (m_dev->encoder()->checkAPIver(11, 1)) {
+            add_str(RGY_LOG_INFO, _T("QP Offset      cb:%d  cr:%d\n"), m_stEncConfig.rcParams.cbQPIndexOffset, m_stEncConfig.rcParams.crQPIndexOffset);
         }
         add_str(RGY_LOG_INFO,  _T("VBV buf size   %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
         add_str(RGY_LOG_DEBUG, _T("VBV init delay %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());

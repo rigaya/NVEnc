@@ -344,6 +344,9 @@ Set the maximum QP value to &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;. Thi
 
 It could be used to maintain certain degree of image quality in any part of the video, even if doing so may exceed the specified bitrate.
 
+### --chroma-qp-offset &lt;int&gt;
+Set the QP offset for chroma. (default: 0)
+
 ### --vbr-quality &lt;float&gt;
 Set target quality when using VBR mode. (0.0-51.0, 0 = automatic)
 

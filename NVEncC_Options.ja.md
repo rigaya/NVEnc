@@ -348,6 +348,9 @@ VBVバッファサイズ(kbps単位)。 (default: auto)
 
 指定したビットレートを超えてでも、動画のどんな部分でもある程度の品質を維持したい場合に使用する。
 
+### --chroma-qp-offset &lt;int&gt;
+色差成分のQPオフセット。 (default: 0)
+
 ### --vbr-quality &lt;float&gt;
 VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
 

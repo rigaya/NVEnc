@@ -198,6 +198,7 @@ tstring encoder_help() {
         _T("            <int>:<int>:<int>     default: unset\n")
         _T("   --qp-min <int> or            set min QP\n")
         _T("             <int>:<int>:<int>    default: unset\n")
+        _T("   --chroma-qp-offset <int>     set chroma QP Offset\n")
         _T("   --gop-len <int>              set GOP Length / default: %d frames%s\n")
         _T("   --lookahead <int>            enable lookahead and set lookahead depth (1-32)\n")
         _T("                                  default: %d frames\n")
@@ -725,6 +726,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         ptrQP->qpIntra  = a[0];
         ptrQP->qpInterP = a[1];
         ptrQP->qpInterB = a[2];
+        return 0;
+    }
+    if (IS_OPTION("chroma-qp-offset")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->chromaQPOffset = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
         return 0;
     }
     if (IS_OPTION("gop-len")) {
@@ -1432,6 +1444,11 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     if (pParams->encConfig.rcParams.enableMaxQP || save_disabled_prm) {
         OPT_QP(_T("--qp-max"), encConfig.rcParams.maxQP, pParams->encConfig.rcParams.enableMaxQP, false);
     }
+    if (pParams->encConfig.rcParams.enableMaxQP || save_disabled_prm) {
+        OPT_QP(_T("--qp-max"), encConfig.rcParams.maxQP, pParams->encConfig.rcParams.enableMaxQP, false);
+    }
+    OPT_NUM(_T("--chroma-qp-offset"), chromaQPOffset);
+
     if (pParams->encConfig.rcParams.enableLookahead || save_disabled_prm) {
         OPT_NUM(_T("--lookahead"), encConfig.rcParams.lookaheadDepth);
     }

@@ -586,6 +586,7 @@ struct InEncodeVideoParam {
     int lossless;                 //ロスレス出力
     int losslessIgnoreInputCsp;
     int nWeightP;
+    int chromaQPOffset;
 
     RGYParamCommon common;
     RGYParamControl ctrl;
