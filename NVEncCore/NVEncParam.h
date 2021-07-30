@@ -64,7 +64,7 @@ static const int DEFAULT_QP_B        = 25;
 static const int DEFAULT_AVG_BITRATE = 7500000;
 static const int DEFAULT_MAX_BITRATE = 17500000;
 static const int DEFAULT_OUTPUT_BUF  = 8;
-static const int DEFAULT_LOOKAHEAD   = 16;
+static const int DEFAULT_LOOKAHEAD   = 0;
 
 static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
 
