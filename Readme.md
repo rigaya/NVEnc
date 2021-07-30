@@ -42,6 +42,7 @@ Hardware which supports NVENC
 | NVEnc 5.10 or later | 9.0, 9.1, 10.0       | NVIDIA graphics driver 418.81 or later |
 | NVEnc 5.18 or later | 9.0, 9.1, 10.0, 11.0 | NVIDIA graphics driver 418.81 or later |
 | NVEnc 5.24 or later | 9.0, 9.1, 10.0, 11.0 | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 5.36 or later | 9.0, 9.1, 10.0, 11.0, 11.1 | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 
 | Supported NVENC API | Required graphics driver version |
 |:-------------- |:--------------------------------- |
@@ -49,6 +50,7 @@ Hardware which supports NVENC
 | 9.1  | NVIDIA graphics driver (Win 436.15 / Linux 435.21) or later |
 | 10.0 | NVIDIA graphics driver (Win 445.87 / Linux 450.51) or later |
 | 11.0 | NVIDIA graphics driver (Win 456.71 / Linux 455.28) or later |
+| 11.1 | NVIDIA graphics driver (Win 471.41 / Linux 470.57.02) or later |
 
 | CUDA version | Required graphics driver version |
 |:------ |:--------------------------------- |
