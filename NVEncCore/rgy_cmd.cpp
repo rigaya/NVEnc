@@ -4265,6 +4265,92 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->metric.psnr = false;
         return 0;
     }
+#if ENABLE_VMAF
+    if (IS_OPTION("no-vmaf")) {
+        common->metric.vmaf.enable = false;
+        return 0;
+    }
+    if (IS_OPTION("vmaf")) {
+        common->metric.vmaf.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "model", "threads", "subsample", "phone_model", "enable_transform" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        common->metric.vmaf.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("model")) {
+                    common->metric.vmaf.model = trim(param_val, _T("\""));
+                    continue;
+                }
+                if (param_arg == _T("threads")) {
+                    try {
+                        common->metric.vmaf.threads = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("subsample")) {
+                    try {
+                        common->metric.vmaf.subsample = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("phone_model")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        common->metric.vmaf.phone_model = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("enable_transform")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        common->metric.vmaf.enable_transform = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("enable_transform")) {
+                    common->metric.vmaf.enable_transform = true;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+#endif
     return -10;
 }
 
@@ -5357,8 +5443,26 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << param->timecodeFile;
         }
     }
+
     OPT_BOOL(_T("--ssim"), _T("--no-ssim"), metric.ssim);
     OPT_BOOL(_T("--psnr"), _T("--no-psnr"), metric.psnr);
+
+    if (param->metric.vmaf != defaultPrm->metric.vmaf) {
+        tmp.str(tstring());
+        if (!param->metric.vmaf.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->metric.vmaf.enable || save_disabled_prm) {
+            ADD_PATH(_T("model"), metric.vmaf.model.c_str());
+            ADD_NUM(_T("threads"), metric.vmaf.threads);
+            ADD_NUM(_T("subsample"), metric.vmaf.subsample);
+            ADD_BOOL(_T("phone_model"), metric.vmaf.phone_model);
+            ADD_BOOL(_T("enable_transform"), metric.vmaf.enable_transform);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vmaf ") << tmp.str().substr(1);
+        }
+    }
     return cmd.str();
 }
 
@@ -5657,6 +5761,19 @@ tstring gen_cmd_help_common() {
         _T("   --ssim                       calc ssim\n")
         _T("   --psnr                       calc psnr\n")
         _T("\n");
+#if ENABLE_VMAF
+    str += strsprintf(_T("")
+        _T("   --vmaf [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Calc vmaf. Please note that this is very CPU intensive and likely to \n")
+        _T("     become bottleneck, strongly affecting encoding perfromance.\n")
+        _T("    params\n")
+        _T("      model=<string>            set model version/filepath [default:%s].\n")
+        _T("      threads=<int>             cpu thread(s) to calculate vmaf score.\n")
+        _T("      subsample=<int>           interval for frame subsampling calculating vmaf score.\n")
+        _T("      phone_model=<bool>        use phone model which generate higher vmaf score.\n")
+        _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n"),
+        VMAF_DEFAULT_MODEL_VERSION);
+#endif //#if ENABLE_VMAF
     return str;
 }
 

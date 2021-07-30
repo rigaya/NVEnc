@@ -569,20 +569,6 @@ struct VppParam {
     VppParam();
 };
 
-struct VMAFParam {
-    bool enable;
-    tstring model;
-    int threads;
-    int subsample;
-    bool phone_model;
-    bool enable_transform;
-
-    VMAFParam();
-    bool operator==(const VMAFParam &x) const;
-    bool operator!=(const VMAFParam &x) const;
-    tstring print() const;
-};
-
 struct InEncodeVideoParam {
     int deviceID;                 //使用するGPUのID
     int cudaSchedule;
@@ -605,9 +591,6 @@ struct InEncodeVideoParam {
     RGYParamControl ctrl;
     RGYParamVpp vpp;
     VppParam vppnv;                 //vpp
-    bool ssim;
-    bool psnr;
-    VMAFParam vmaf;
 
     InEncodeVideoParam();
 };

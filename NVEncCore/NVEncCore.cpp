@@ -723,7 +723,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
             gpu = gpuList.erase(gpu);
             continue;
         }
-        if (inputParam->ssim || inputParam->psnr || inputParam->vmaf.enable) {
+        if (inputParam->common.metric.enabled()) {
             //デコードのほうもチェックしてあげないといけない
            const auto& cuvid_csp = (*gpu)->cuvid_csp();
            if (cuvid_csp.count(rgy_codec) == 0) {
@@ -3042,7 +3042,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitOutput: Success.\n"), inputParam->common.outputFilename.c_str());
 
-    if (inputParam->ssim || inputParam->psnr || inputParam->vmaf.enable) {
+    if (inputParam->common.metric.enabled()) {
         unique_ptr<NVEncFilterSsim> filterSsim(new NVEncFilterSsim());
         shared_ptr<NVEncFilterParamSsim> param(new NVEncFilterParamSsim());
         param->input = videooutputinfo(m_stCodecGUID, encBufferFormat,
@@ -3060,9 +3060,9 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         param->bOutOverwrite = false;
         param->streamtimebase = m_outputTimebase;
         param->vidctxlock = m_dev->vidCtxLock();
-        param->ssim = inputParam->ssim;
-        param->psnr = inputParam->psnr;
-        param->vmaf = inputParam->vmaf;
+        param->ssim = inputParam->common.metric.ssim;
+        param->psnr = inputParam->common.metric.psnr;
+        param->vmaf = inputParam->common.metric.vmaf;
         param->deviceId = m_nDeviceId;
         auto sts = filterSsim->init(param, m_pNVLog);
         if (sts != RGY_ERR_NONE) {

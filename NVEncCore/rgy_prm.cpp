@@ -1083,22 +1083,53 @@ DataSelect::DataSelect() :
 
 }
 
+VMAFParam::VMAFParam() :
+    enable(false),
+    model(VMAF_DEFAULT_MODEL_VERSION),
+    threads(0),
+    subsample(1),
+    phone_model(false),
+    enable_transform(false) {
+};
+
+bool VMAFParam::operator==(const VMAFParam &x) const {
+    return enable == x.enable
+        && model == x.model
+        && threads == x.threads
+        && subsample == x.subsample
+        && phone_model == x.phone_model
+        && enable_transform == x.enable_transform;
+}
+bool VMAFParam::operator!=(const VMAFParam &x) const {
+    return !(*this == x);
+}
+tstring VMAFParam::print() const {
+    auto str = strsprintf(_T("vmaf %s, threads %d, subsample %d"),
+        model.c_str(), threads, subsample);
+    if (phone_model) {
+        str += _T(", phone_model");
+    }
+    if (enable_transform) {
+        str += _T(", transform");
+    }
+    return str;
+}
+
 RGYVideoQualityMetric::RGYVideoQualityMetric() :
     ssim(false),
     psnr(false),
-    vmaf(false),
-    vmaf_model() {
+    vmaf() {
 
 }
 bool RGYVideoQualityMetric::enabled() const {
-    return ssim || psnr || vmaf;
+    return ssim || psnr || vmaf.enable;
 }
 tstring RGYVideoQualityMetric::enabled_metric() const {
     if (!enabled()) return _T("none");
     tstring str;
     if (ssim) str += _T(",ssim");
     if (psnr) str += _T(",psnr");
-    if (vmaf) str += _T(",vmaf");
+    if (vmaf.enable) str += _T(",vmaf");
     return (str.length() > 0) ? str.substr(1) : _T("unknown");
 }
 

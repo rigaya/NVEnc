@@ -150,38 +150,6 @@ VppParam::VppParam() :
     gaussMaskSize((NppiMaskSize)0) {
 }
 
-VMAFParam::VMAFParam() :
-    enable(false),
-    model(VMAF_DEFAULT_MODEL_VERSION),
-    threads(0),
-    subsample(1),
-    phone_model(false),
-    enable_transform(false) {
-};
-
-bool VMAFParam::operator==(const VMAFParam &x) const {
-    return enable == x.enable
-        && model == x.model
-        && threads == x.threads
-        && subsample == x.subsample
-        && phone_model == x.phone_model
-        && enable_transform == x.enable_transform;
-}
-bool VMAFParam::operator!=(const VMAFParam &x) const {
-    return !(*this == x);
-}
-tstring VMAFParam::print() const {
-    auto str = strsprintf(_T("vmaf %s, threads %d, subsample %d"),
-        model.c_str(), threads, subsample);
-    if (phone_model) {
-        str += _T(", phone_model");
-    }
-    if (enable_transform) {
-        str += _T(", transform");
-    }
-    return str;
-}
-
 NV_ENC_CODEC_CONFIG DefaultParamH264() {
     NV_ENC_CODEC_CONFIG config = { 0 };
 
@@ -282,10 +250,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     common(),
     ctrl(),
     vpp(),
-    vppnv(),
-    ssim(false),
-    psnr(false),
-    vmaf() {
+    vppnv() {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));
     input.vui = VideoVUIInfo();

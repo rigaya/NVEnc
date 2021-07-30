@@ -1070,11 +1070,24 @@ struct DataSelect {
     ~DataSelect() {};
 };
 
+struct VMAFParam {
+    bool enable;
+    tstring model;
+    int threads;
+    int subsample;
+    bool phone_model;
+    bool enable_transform;
+
+    VMAFParam();
+    bool operator==(const VMAFParam &x) const;
+    bool operator!=(const VMAFParam &x) const;
+    tstring print() const;
+};
+
 struct RGYVideoQualityMetric {
     bool ssim;
     bool psnr;
-    bool vmaf;
-    tstring vmaf_model;
+    VMAFParam vmaf;
 
     RGYVideoQualityMetric();
     ~RGYVideoQualityMetric() {};
