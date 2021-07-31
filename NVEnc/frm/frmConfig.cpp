@@ -1071,8 +1071,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     //fcgCBShowPerformanceInfo->Checked = (CHECK_PERFORMANCE) ? cnf->vid.vce_ext_prm.show_performance_info != 0 : false;
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
-        fcgCBSSIM->Checked                 = encPrm.ssim;
-        fcgCBPSNR->Checked                 = encPrm.psnr;
+        fcgCBSSIM->Checked                 = encPrm.common.metric.ssim;
+        fcgCBPSNR->Checked                 = encPrm.common.metric.psnr;
         SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
         fcgCBAFS->Checked                  = cnf->vid.afs != 0;
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
@@ -1327,8 +1327,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     //cnf->vid.vce_ext_prm.show_performance_info = fcgCBShowPerformanceInfo->Checked;
 
-    encPrm.ssim                     = fcgCBSSIM->Checked;
-    encPrm.psnr                     = fcgCBPSNR->Checked;
+    encPrm.common.metric.ssim       = fcgCBSSIM->Checked;
+    encPrm.common.metric.psnr       = fcgCBPSNR->Checked;
     cnf->vid.afs                    = FALSE;
     cnf->vid.auo_tcfile_out         = FALSE;
     /*cnf->qsv.nPAR[0]                = (int)fcgNUAspectRatioX->Value;
