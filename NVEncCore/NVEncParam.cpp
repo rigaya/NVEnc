@@ -247,6 +247,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     lossless(0),                 //ロスレス出力
     losslessIgnoreInputCsp(0),
     nWeightP(0),
+    chromaQPOffset(0),
     common(),
     ctrl(),
     vpp(),
