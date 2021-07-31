@@ -1450,6 +1450,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppWarpsharpThreshold;
 
 private: System::Windows::Forms::Label^  label14;
 private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
+private: System::Windows::Forms::Label^  fcgLBChromaQPOffset;
+private: System::Windows::Forms::NumericUpDown^  fcgNUChromaQPOffset;
 
 
 
@@ -1830,6 +1832,17 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             this->fcgNUVppTweakBrightness = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgCBVppPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxVppDetailEnahance = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgPNVppWarpsharp = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBVppWarpsharpBlurType = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppWarpsharpBlurType = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBVppWarpsharpDepth = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppWarpsharpBlur = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppWarpsharpThreshold = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppWarpsharpDepth = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppWarpsharpBlur = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppWarpsharpThreshold = (gcnew System::Windows::Forms::NumericUpDown());
+            this->label14 = (gcnew System::Windows::Forms::Label());
+            this->numericUpDown6 = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgCXVppDetailEnhance = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNVppEdgelevel = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppEdgelevelWhite = (gcnew System::Windows::Forms::Label());
@@ -2008,17 +2021,8 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
-            this->fcgPNVppWarpsharp = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBVppWarpsharpBlurType = (gcnew System::Windows::Forms::Label());
-            this->fcgNUVppWarpsharpBlurType = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgLBVppWarpsharpDepth = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppWarpsharpBlur = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppWarpsharpThreshold = (gcnew System::Windows::Forms::Label());
-            this->fcgNUVppWarpsharpDepth = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgNUVppWarpsharpBlur = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgNUVppWarpsharpThreshold = (gcnew System::Windows::Forms::NumericUpDown());
-            this->label14 = (gcnew System::Windows::Forms::Label());
-            this->numericUpDown6 = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUChromaQPOffset = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBChromaQPOffset = (gcnew System::Windows::Forms::Label());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2078,6 +2082,12 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakContrast))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakBrightness))->BeginInit();
             this->fcggroupBoxVppDetailEnahance->SuspendLayout();
+            this->fcgPNVppWarpsharp->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlurType))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpDepth))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlur))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpThreshold))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown6))->BeginInit();
             this->fcgPNVppEdgelevel->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelWhite))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelThreshold))->BeginInit();
@@ -2140,12 +2150,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             this->fcgPNAudioInternal->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
-            this->fcgPNVppWarpsharp->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlurType))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpDepth))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlur))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpThreshold))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown6))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUChromaQPOffset))->BeginInit();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -3877,7 +3882,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             // fcgCBPSNR
             // 
             this->fcgCBPSNR->AutoSize = true;
-            this->fcgCBPSNR->Location = System::Drawing::Point(133, 325);
+            this->fcgCBPSNR->Location = System::Drawing::Point(133, 352);
             this->fcgCBPSNR->Name = L"fcgCBPSNR";
             this->fcgCBPSNR->Size = System::Drawing::Size(15, 14);
             this->fcgCBPSNR->TabIndex = 33;
@@ -3887,7 +3892,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             // fcgLBPSNR
             // 
             this->fcgLBPSNR->AutoSize = true;
-            this->fcgLBPSNR->Location = System::Drawing::Point(21, 324);
+            this->fcgLBPSNR->Location = System::Drawing::Point(21, 351);
             this->fcgLBPSNR->Name = L"fcgLBPSNR";
             this->fcgLBPSNR->Size = System::Drawing::Size(32, 15);
             this->fcgLBPSNR->TabIndex = 32;
@@ -3896,7 +3901,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             // fcgCBSSIM
             // 
             this->fcgCBSSIM->AutoSize = true;
-            this->fcgCBSSIM->Location = System::Drawing::Point(133, 301);
+            this->fcgCBSSIM->Location = System::Drawing::Point(133, 328);
             this->fcgCBSSIM->Name = L"fcgCBSSIM";
             this->fcgCBSSIM->Size = System::Drawing::Size(15, 14);
             this->fcgCBSSIM->TabIndex = 31;
@@ -3906,7 +3911,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             // fcgLBSSIM
             // 
             this->fcgLBSSIM->AutoSize = true;
-            this->fcgLBSSIM->Location = System::Drawing::Point(21, 300);
+            this->fcgLBSSIM->Location = System::Drawing::Point(21, 327);
             this->fcgLBSSIM->Name = L"fcgLBSSIM";
             this->fcgLBSSIM->Size = System::Drawing::Size(34, 15);
             this->fcgLBSSIM->TabIndex = 30;
@@ -3952,6 +3957,8 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             // 
             // groupBoxQPDetail
             // 
+            this->groupBoxQPDetail->Controls->Add(this->fcgLBChromaQPOffset);
+            this->groupBoxQPDetail->Controls->Add(this->fcgNUChromaQPOffset);
             this->groupBoxQPDetail->Controls->Add(this->fcgLBQPDetailB);
             this->groupBoxQPDetail->Controls->Add(this->fcgLBQPDetailP);
             this->groupBoxQPDetail->Controls->Add(this->fcgLBQPDetailI);
@@ -3975,7 +3982,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             this->groupBoxQPDetail->Controls->Add(this->fcgNUQPMaxI);
             this->groupBoxQPDetail->Location = System::Drawing::Point(14, 115);
             this->groupBoxQPDetail->Name = L"groupBoxQPDetail";
-            this->groupBoxQPDetail->Size = System::Drawing::Size(285, 138);
+            this->groupBoxQPDetail->Size = System::Drawing::Size(285, 172);
             this->groupBoxQPDetail->TabIndex = 10;
             this->groupBoxQPDetail->TabStop = false;
             this->groupBoxQPDetail->Text = L"QP詳細設定";
@@ -4206,7 +4213,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             // fcgLBSlices
             // 
             this->fcgLBSlices->AutoSize = true;
-            this->fcgLBSlices->Location = System::Drawing::Point(21, 268);
+            this->fcgLBSlices->Location = System::Drawing::Point(21, 295);
             this->fcgLBSlices->Name = L"fcgLBSlices";
             this->fcgLBSlices->Size = System::Drawing::Size(54, 15);
             this->fcgLBSlices->TabIndex = 20;
@@ -4215,7 +4222,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             // 
             // fcgNUSlices
             // 
-            this->fcgNUSlices->Location = System::Drawing::Point(130, 266);
+            this->fcgNUSlices->Location = System::Drawing::Point(130, 293);
             this->fcgNUSlices->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUSlices->Name = L"fcgNUSlices";
             this->fcgNUSlices->Size = System::Drawing::Size(70, 23);
@@ -4642,6 +4649,124 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             this->fcggroupBoxVppDetailEnahance->TabIndex = 11;
             this->fcggroupBoxVppDetailEnahance->TabStop = false;
             this->fcggroupBoxVppDetailEnahance->Text = L"ディテール・輪郭強調";
+            // 
+            // fcgPNVppWarpsharp
+            // 
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpBlurType);
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpBlurType);
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpDepth);
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpBlur);
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpThreshold);
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpDepth);
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpBlur);
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpThreshold);
+            this->fcgPNVppWarpsharp->Controls->Add(this->label14);
+            this->fcgPNVppWarpsharp->Controls->Add(this->numericUpDown6);
+            this->fcgPNVppWarpsharp->Location = System::Drawing::Point(3, 43);
+            this->fcgPNVppWarpsharp->Name = L"fcgPNVppWarpsharp";
+            this->fcgPNVppWarpsharp->Size = System::Drawing::Size(311, 61);
+            this->fcgPNVppWarpsharp->TabIndex = 66;
+            // 
+            // fcgLBVppWarpsharpBlurType
+            // 
+            this->fcgLBVppWarpsharpBlurType->AutoSize = true;
+            this->fcgLBVppWarpsharpBlurType->Location = System::Drawing::Point(182, 37);
+            this->fcgLBVppWarpsharpBlurType->Name = L"fcgLBVppWarpsharpBlurType";
+            this->fcgLBVppWarpsharpBlurType->Size = System::Drawing::Size(30, 14);
+            this->fcgLBVppWarpsharpBlurType->TabIndex = 7;
+            this->fcgLBVppWarpsharpBlurType->Text = L"type";
+            // 
+            // fcgNUVppWarpsharpBlurType
+            // 
+            this->fcgNUVppWarpsharpBlurType->Location = System::Drawing::Point(239, 34);
+            this->fcgNUVppWarpsharpBlurType->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppWarpsharpBlurType->Name = L"fcgNUVppWarpsharpBlurType";
+            this->fcgNUVppWarpsharpBlurType->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppWarpsharpBlurType->TabIndex = 8;
+            this->fcgNUVppWarpsharpBlurType->Tag = L"reCmd";
+            this->fcgNUVppWarpsharpBlurType->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppWarpsharpBlurType->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            // 
+            // fcgLBVppWarpsharpDepth
+            // 
+            this->fcgLBVppWarpsharpDepth->AutoSize = true;
+            this->fcgLBVppWarpsharpDepth->Location = System::Drawing::Point(182, 9);
+            this->fcgLBVppWarpsharpDepth->Name = L"fcgLBVppWarpsharpDepth";
+            this->fcgLBVppWarpsharpDepth->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppWarpsharpDepth->TabIndex = 3;
+            this->fcgLBVppWarpsharpDepth->Text = L"深度";
+            // 
+            // fcgLBVppWarpsharpBlur
+            // 
+            this->fcgLBVppWarpsharpBlur->AutoSize = true;
+            this->fcgLBVppWarpsharpBlur->Location = System::Drawing::Point(8, 37);
+            this->fcgLBVppWarpsharpBlur->Name = L"fcgLBVppWarpsharpBlur";
+            this->fcgLBVppWarpsharpBlur->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppWarpsharpBlur->TabIndex = 5;
+            this->fcgLBVppWarpsharpBlur->Text = L"blur";
+            // 
+            // fcgLBVppWarpsharpThreshold
+            // 
+            this->fcgLBVppWarpsharpThreshold->AutoSize = true;
+            this->fcgLBVppWarpsharpThreshold->Location = System::Drawing::Point(8, 10);
+            this->fcgLBVppWarpsharpThreshold->Name = L"fcgLBVppWarpsharpThreshold";
+            this->fcgLBVppWarpsharpThreshold->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppWarpsharpThreshold->TabIndex = 1;
+            this->fcgLBVppWarpsharpThreshold->Text = L"閾値";
+            // 
+            // fcgNUVppWarpsharpDepth
+            // 
+            this->fcgNUVppWarpsharpDepth->Location = System::Drawing::Point(239, 7);
+            this->fcgNUVppWarpsharpDepth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 127, 0, 0, 0 });
+            this->fcgNUVppWarpsharpDepth->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 128, 0, 0, System::Int32::MinValue });
+            this->fcgNUVppWarpsharpDepth->Name = L"fcgNUVppWarpsharpDepth";
+            this->fcgNUVppWarpsharpDepth->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppWarpsharpDepth->TabIndex = 4;
+            this->fcgNUVppWarpsharpDepth->Tag = L"reCmd";
+            this->fcgNUVppWarpsharpDepth->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppWarpsharpDepth->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            // 
+            // fcgNUVppWarpsharpBlur
+            // 
+            this->fcgNUVppWarpsharpBlur->Location = System::Drawing::Point(68, 34);
+            this->fcgNUVppWarpsharpBlur->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 127, 0, 0, 0 });
+            this->fcgNUVppWarpsharpBlur->Name = L"fcgNUVppWarpsharpBlur";
+            this->fcgNUVppWarpsharpBlur->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppWarpsharpBlur->TabIndex = 6;
+            this->fcgNUVppWarpsharpBlur->Tag = L"reCmd";
+            this->fcgNUVppWarpsharpBlur->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppWarpsharpBlur->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            // 
+            // fcgNUVppWarpsharpThreshold
+            // 
+            this->fcgNUVppWarpsharpThreshold->Location = System::Drawing::Point(68, 7);
+            this->fcgNUVppWarpsharpThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppWarpsharpThreshold->Name = L"fcgNUVppWarpsharpThreshold";
+            this->fcgNUVppWarpsharpThreshold->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppWarpsharpThreshold->TabIndex = 2;
+            this->fcgNUVppWarpsharpThreshold->Tag = L"reCmd";
+            this->fcgNUVppWarpsharpThreshold->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppWarpsharpThreshold->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
+            // 
+            // label14
+            // 
+            this->label14->AutoSize = true;
+            this->label14->Location = System::Drawing::Point(69, 66);
+            this->label14->Name = L"label14";
+            this->label14->Size = System::Drawing::Size(29, 14);
+            this->label14->TabIndex = 11;
+            this->label14->Text = L"閾値";
+            // 
+            // numericUpDown6
+            // 
+            this->numericUpDown6->Location = System::Drawing::Point(129, 64);
+            this->numericUpDown6->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->numericUpDown6->Name = L"numericUpDown6";
+            this->numericUpDown6->Size = System::Drawing::Size(60, 21);
+            this->numericUpDown6->TabIndex = 8;
+            this->numericUpDown6->Tag = L"chValue";
+            this->numericUpDown6->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->numericUpDown6->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
             // 
             // fcgCXVppDetailEnhance
             // 
@@ -6571,123 +6696,25 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             this->fcgTXCmd->TabIndex = 52;
             this->fcgTXCmd->DoubleClick += gcnew System::EventHandler(this, &frmConfig::fcgTXCmd_DoubleClick);
             // 
-            // fcgPNVppWarpsharp
+            // fcgNUChromaQPOffset
             // 
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpBlurType);
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpBlurType);
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpDepth);
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpBlur);
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpThreshold);
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpDepth);
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpBlur);
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpThreshold);
-            this->fcgPNVppWarpsharp->Controls->Add(this->label14);
-            this->fcgPNVppWarpsharp->Controls->Add(this->numericUpDown6);
-            this->fcgPNVppWarpsharp->Location = System::Drawing::Point(3, 43);
-            this->fcgPNVppWarpsharp->Name = L"fcgPNVppWarpsharp";
-            this->fcgPNVppWarpsharp->Size = System::Drawing::Size(311, 61);
-            this->fcgPNVppWarpsharp->TabIndex = 66;
+            this->fcgNUChromaQPOffset->Location = System::Drawing::Point(115, 134);
+            this->fcgNUChromaQPOffset->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 51, 0, 0, 0 });
+            this->fcgNUChromaQPOffset->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 51, 0, 0, System::Int32::MinValue });
+            this->fcgNUChromaQPOffset->Name = L"fcgNUChromaQPOffset";
+            this->fcgNUChromaQPOffset->Size = System::Drawing::Size(71, 23);
+            this->fcgNUChromaQPOffset->TabIndex = 13;
+            this->fcgNUChromaQPOffset->Tag = L"reCmd";
+            this->fcgNUChromaQPOffset->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
-            // fcgLBVppWarpsharpBlurType
+            // fcgLBChromaQPOffset
             // 
-            this->fcgLBVppWarpsharpBlurType->AutoSize = true;
-            this->fcgLBVppWarpsharpBlurType->Location = System::Drawing::Point(182, 37);
-            this->fcgLBVppWarpsharpBlurType->Name = L"fcgLBVppWarpsharpBlurType";
-            this->fcgLBVppWarpsharpBlurType->Size = System::Drawing::Size(30, 14);
-            this->fcgLBVppWarpsharpBlurType->TabIndex = 7;
-            this->fcgLBVppWarpsharpBlurType->Text = L"type";
-            // 
-            // fcgNUVppWarpsharpBlurType
-            // 
-            this->fcgNUVppWarpsharpBlurType->Location = System::Drawing::Point(239, 34);
-            this->fcgNUVppWarpsharpBlurType->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            this->fcgNUVppWarpsharpBlurType->Name = L"fcgNUVppWarpsharpBlurType";
-            this->fcgNUVppWarpsharpBlurType->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppWarpsharpBlurType->TabIndex = 8;
-            this->fcgNUVppWarpsharpBlurType->Tag = L"reCmd";
-            this->fcgNUVppWarpsharpBlurType->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppWarpsharpBlurType->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            // 
-            // fcgLBVppWarpsharpDepth
-            // 
-            this->fcgLBVppWarpsharpDepth->AutoSize = true;
-            this->fcgLBVppWarpsharpDepth->Location = System::Drawing::Point(182, 9);
-            this->fcgLBVppWarpsharpDepth->Name = L"fcgLBVppWarpsharpDepth";
-            this->fcgLBVppWarpsharpDepth->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppWarpsharpDepth->TabIndex = 3;
-            this->fcgLBVppWarpsharpDepth->Text = L"深度";
-            // 
-            // fcgLBVppWarpsharpBlur
-            // 
-            this->fcgLBVppWarpsharpBlur->AutoSize = true;
-            this->fcgLBVppWarpsharpBlur->Location = System::Drawing::Point(8, 37);
-            this->fcgLBVppWarpsharpBlur->Name = L"fcgLBVppWarpsharpBlur";
-            this->fcgLBVppWarpsharpBlur->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppWarpsharpBlur->TabIndex = 5;
-            this->fcgLBVppWarpsharpBlur->Text = L"blur";
-            // 
-            // fcgLBVppWarpsharpThreshold
-            // 
-            this->fcgLBVppWarpsharpThreshold->AutoSize = true;
-            this->fcgLBVppWarpsharpThreshold->Location = System::Drawing::Point(8, 10);
-            this->fcgLBVppWarpsharpThreshold->Name = L"fcgLBVppWarpsharpThreshold";
-            this->fcgLBVppWarpsharpThreshold->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppWarpsharpThreshold->TabIndex = 1;
-            this->fcgLBVppWarpsharpThreshold->Text = L"閾値";
-            // 
-            // fcgNUVppWarpsharpDepth
-            // 
-            this->fcgNUVppWarpsharpDepth->Location = System::Drawing::Point(239, 7);
-            this->fcgNUVppWarpsharpDepth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 127, 0, 0, 0 });
-            this->fcgNUVppWarpsharpDepth->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 128, 0, 0, System::Int32::MinValue });
-            this->fcgNUVppWarpsharpDepth->Name = L"fcgNUVppWarpsharpDepth";
-            this->fcgNUVppWarpsharpDepth->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppWarpsharpDepth->TabIndex = 4;
-            this->fcgNUVppWarpsharpDepth->Tag = L"reCmd";
-            this->fcgNUVppWarpsharpDepth->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppWarpsharpDepth->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            // 
-            // fcgNUVppWarpsharpBlur
-            // 
-            this->fcgNUVppWarpsharpBlur->Location = System::Drawing::Point(68, 34);
-            this->fcgNUVppWarpsharpBlur->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 127, 0, 0, 0 });
-            this->fcgNUVppWarpsharpBlur->Name = L"fcgNUVppWarpsharpBlur";
-            this->fcgNUVppWarpsharpBlur->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppWarpsharpBlur->TabIndex = 6;
-            this->fcgNUVppWarpsharpBlur->Tag = L"reCmd";
-            this->fcgNUVppWarpsharpBlur->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppWarpsharpBlur->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            // 
-            // fcgNUVppWarpsharpThreshold
-            // 
-            this->fcgNUVppWarpsharpThreshold->Location = System::Drawing::Point(68, 7);
-            this->fcgNUVppWarpsharpThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->fcgNUVppWarpsharpThreshold->Name = L"fcgNUVppWarpsharpThreshold";
-            this->fcgNUVppWarpsharpThreshold->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppWarpsharpThreshold->TabIndex = 2;
-            this->fcgNUVppWarpsharpThreshold->Tag = L"reCmd";
-            this->fcgNUVppWarpsharpThreshold->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppWarpsharpThreshold->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
-            // 
-            // label14
-            // 
-            this->label14->AutoSize = true;
-            this->label14->Location = System::Drawing::Point(69, 66);
-            this->label14->Name = L"label14";
-            this->label14->Size = System::Drawing::Size(29, 14);
-            this->label14->TabIndex = 11;
-            this->label14->Text = L"閾値";
-            // 
-            // numericUpDown6
-            // 
-            this->numericUpDown6->Location = System::Drawing::Point(129, 64);
-            this->numericUpDown6->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->numericUpDown6->Name = L"numericUpDown6";
-            this->numericUpDown6->Size = System::Drawing::Size(60, 21);
-            this->numericUpDown6->TabIndex = 8;
-            this->numericUpDown6->Tag = L"chValue";
-            this->numericUpDown6->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->numericUpDown6->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
+            this->fcgLBChromaQPOffset->AutoSize = true;
+            this->fcgLBChromaQPOffset->Location = System::Drawing::Point(10, 136);
+            this->fcgLBChromaQPOffset->Name = L"fcgLBChromaQPOffset";
+            this->fcgLBChromaQPOffset->Size = System::Drawing::Size(89, 15);
+            this->fcgLBChromaQPOffset->TabIndex = 12;
+            this->fcgLBChromaQPOffset->Text = L"色差QPオフセット";
             // 
             // frmConfig
             // 
@@ -6792,6 +6819,13 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakContrast))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakBrightness))->EndInit();
             this->fcggroupBoxVppDetailEnahance->ResumeLayout(false);
+            this->fcgPNVppWarpsharp->ResumeLayout(false);
+            this->fcgPNVppWarpsharp->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlurType))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpDepth))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlur))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpThreshold))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown6))->EndInit();
             this->fcgPNVppEdgelevel->ResumeLayout(false);
             this->fcgPNVppEdgelevel->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelWhite))->EndInit();
@@ -6871,13 +6905,7 @@ private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
-            this->fcgPNVppWarpsharp->ResumeLayout(false);
-            this->fcgPNVppWarpsharp->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlurType))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpDepth))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlur))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpThreshold))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown6))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUChromaQPOffset))->EndInit();
             this->ResumeLayout(false);
             this->PerformLayout();
 

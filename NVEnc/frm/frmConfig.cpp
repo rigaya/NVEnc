@@ -1041,6 +1041,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUQPInitI, encPrm.encConfig.rcParams.initialRCQP.qpIntra);
     SetNUValue(fcgNUQPInitP, encPrm.encConfig.rcParams.initialRCQP.qpInterP);
     SetNUValue(fcgNUQPInitB, encPrm.encConfig.rcParams.initialRCQP.qpInterB);
+    fcgNUChromaQPOffset->Value = encPrm.chromaQPOffset;
 
     //H.264
     SetNUValue(fcgNURefFrames,         codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames);
@@ -1290,6 +1291,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.encConfig.rcParams.initialRCQP.qpIntra  = (int)fcgNUQPInitI->Value;
     encPrm.encConfig.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
     encPrm.encConfig.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
+    encPrm.chromaQPOffset = (int)fcgNUChromaQPOffset->Value;
 
     encPrm.ctrl.perfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
 
