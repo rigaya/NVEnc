@@ -95,9 +95,16 @@ static bool font_attached(const AVStream *stream) {
     const AVDictionaryEntry *tag = av_dict_get(stream->metadata, "mimetype", NULL, AV_DICT_MATCH_CASE);
     if (tag) {
         const auto font_mimetypes = make_array<std::string>(
+            "font/ttf",
+            "font/otf",
+            "font/sfnt",
+            "font/woff",
+            "font/woff2",
+            "application/font-sfnt",
+            "application/font-woff",
+            "application/x-font-ttf",
             "application/x-truetype-font",
-            "application/vnd.ms-opentype",
-            "application/x-font-ttf");
+            "application/vnd.ms-opentype");
         for (const auto &mime : font_mimetypes) {
             if (tolowercase(mime) == tolowercase(tag->value)) {
                 return true;
