@@ -58,6 +58,11 @@
 #define RGY_GET_PROC_ADDRESS GetProcAddress
 #define RGY_FREE_LIBRARY FreeLibrary
 
+static bool RGYThreadStillActive(HANDLE handle) {
+    DWORD exitCode = 0;
+    return GetExitCodeThread(handle, &exitCode) == STILL_ACTIVE;
+}
+
 #else //#if defined(_WIN32) || defined(_WIN64)
 #include <sys/stat.h>
 #include <sys/times.h>
@@ -213,6 +218,10 @@ static void SetThreadAffinityMask(pthread_t thread, size_t mask) {
         }
     }
     pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+}
+
+static bool RGYThreadStillActive(pthread_t thread) {
+    return pthread_tryjoin_np(thread, nullptr) != 0;
 }
 
 enum {
