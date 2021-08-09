@@ -42,6 +42,7 @@
 #endif
 #if ENCODER_VCEENC
 #include "core/Result.h"
+#include "rgy_vulkan.h"
 #endif
 
 #include <algorithm>
@@ -139,6 +140,51 @@ enum RGY_ERR {
     RGY_ERR_COMPILE_PROGRAM_FAILURE         = -95,
     RGY_ERR_OPENCL_CRUSH                    = -96,
 
+    //Vulkan
+    RGY_ERR_VK_NOT_READY                       =  -97,
+    RGY_ERR_VK_TIMEOUT                         =  -98,
+    RGY_ERR_VK_EVENT_SET                       =  -99,
+    RGY_ERR_VK_EVENT_RESET                     = -100,
+    RGY_ERR_VK_INCOMPLETE                      = -101,
+    RGY_ERR_VK_OUT_OF_HOST_MEMORY              = -102,
+    RGY_ERR_VK_OUT_OF_DEVICE_MEMORY            = -103,
+    RGY_ERR_VK_INITIALIZATION_FAILED           = -104,
+    RGY_ERR_VK_DEVICE_LOST                     = -105,
+    RGY_ERR_VK_MEMORY_MAP_FAILED               = -106,
+    RGY_ERR_VK_LAYER_NOT_PRESENT               = -107,
+    RGY_ERR_VK_EXTENSION_NOT_PRESENT           = -108,
+    RGY_ERR_VK_FEATURE_NOT_PRESENT             = -109,
+    RGY_ERR_VK_INCOMPATIBLE_DRIVER             = -110,
+    RGY_ERR_VK_TOO_MANY_OBJECTS                = -111,
+    RGY_ERR_VK_FORMAT_NOT_SUPPORTED            = -112,
+    RGY_ERR_VK_FRAGMENTED_POOL                 = -113,
+    RGY_ERR_VK_UNKNOWN                         = -114,
+    RGY_ERR_VK_OUT_OF_POOL_MEMORY              = -115,
+    RGY_ERR_VK_INVALID_EXTERNAL_HANDLE         = -116,
+    RGY_ERR_VK_FRAGMENTATION                   = -117,
+    RGY_ERR_VK_INVALID_OPAQUE_CAPTURE_ADDRESS  = -118,
+    RGY_ERR_VK_SURFACE_LOST_KHR                = -119,
+    RGY_ERR_VK_NATIVE_WINDOW_IN_USE_KHR        = -120,
+    RGY_ERR_VK__SUBOPTIMAL_KHR                 = -121,
+    RGY_ERR_VK_OUT_OF_DATE_KHR                 = -122,
+    RGY_ERR_VK_INCOMPATIBLE_DISPLAY_KHR        = -123,
+    RGY_ERR_VK_VALIDATION_FAILED_EXT           = -124,
+    RGY_ERR_VK_INVALID_SHADER_NV               = -125,
+    RGY_ERR_VK_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT = -126,
+    RGY_ERR_VK_NOT_PERMITTED_EXT                   = -127,
+    RGY_ERR_VK_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT = -128,
+    RGY_VK_THREAD_IDLE_KHR                         = -129,
+    RGY_VK_THREAD_DONE_KHR                         = -130,
+    RGY_VK_OPERATION_DEFERRED_KHR                  = -131,
+    RGY_VK_OPERATION_NOT_DEFERRED_KHR              = -132,
+    RGY_VK_PIPELINE_COMPILE_REQUIRED_EXT           = -133,
+    RGY_ERR_VK_OUT_OF_POOL_MEMORY_KHR              = -134,
+    RGY_ERR_VK_INVALID_EXTERNAL_HANDLE_KHR         = -135,
+    RGY_ERR_VK_FRAGMENTATION_EXT                   = -136,
+    RGY_ERR_VK_INVALID_DEVICE_ADDRESS_EXT          = -137,
+    RGY_ERR_VK_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR  = -138,
+    RGY_ERR_VK_PIPELINE_COMPILE_REQUIRED_EXT       = -139,
+
     RGY_WRN_IN_EXECUTION                = 1,
     RGY_WRN_DEVICE_BUSY                 = 2,
     RGY_WRN_VIDEO_PARAM_CHANGED         = 3,
@@ -170,6 +216,11 @@ RGY_ERR err_to_rgy(NVENCSTATUS err);
 #if ENCODER_VCEENC
 AMF_RESULT err_to_amf(RGY_ERR err);
 RGY_ERR err_to_rgy(AMF_RESULT err);
+
+#if ENABLE_VULKAN
+VkResult err_to_vk(RGY_ERR err);
+RGY_ERR err_to_rgy(VkResult err);
+#endif //#if ENABLE_VULKAN
 #endif //#if ENCODER_VCEENC
 
 const TCHAR *get_err_mes(RGY_ERR sts);

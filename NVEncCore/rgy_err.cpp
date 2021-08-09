@@ -203,6 +203,79 @@ RGY_ERR err_to_rgy(AMF_RESULT err) {
     });
     return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
 }
+
+#include "rgy_vulkan.h"
+
+#if ENABLE_VULKAN
+
+struct RGYErrMapVK {
+    RGY_ERR rgy;
+    VkResult vk;
+};
+
+static const RGYErrMapVK ERR_MAP_VK[] = {
+    { RGY_ERR_NONE, VK_SUCCESS },
+    { RGY_ERR_VK_NOT_READY, VK_NOT_READY },
+    { RGY_ERR_VK_TIMEOUT, VK_TIMEOUT },
+    { RGY_ERR_VK_EVENT_SET, VK_EVENT_SET },
+    { RGY_ERR_VK_EVENT_RESET, VK_EVENT_RESET },
+    { RGY_ERR_VK_INCOMPLETE, VK_INCOMPLETE },
+    { RGY_ERR_VK_OUT_OF_HOST_MEMORY, VK_ERROR_OUT_OF_HOST_MEMORY },
+    { RGY_ERR_VK_OUT_OF_DEVICE_MEMORY, VK_ERROR_OUT_OF_DEVICE_MEMORY },
+    { RGY_ERR_VK_INITIALIZATION_FAILED, VK_ERROR_INITIALIZATION_FAILED },
+    { RGY_ERR_VK_DEVICE_LOST, VK_ERROR_DEVICE_LOST },
+    { RGY_ERR_VK_MEMORY_MAP_FAILED, VK_ERROR_MEMORY_MAP_FAILED },
+    { RGY_ERR_VK_LAYER_NOT_PRESENT, VK_ERROR_LAYER_NOT_PRESENT },
+    { RGY_ERR_VK_EXTENSION_NOT_PRESENT, VK_ERROR_EXTENSION_NOT_PRESENT },
+    { RGY_ERR_VK_FEATURE_NOT_PRESENT, VK_ERROR_FEATURE_NOT_PRESENT },
+    { RGY_ERR_VK_INCOMPATIBLE_DRIVER, VK_ERROR_INCOMPATIBLE_DRIVER },
+    { RGY_ERR_VK_TOO_MANY_OBJECTS, VK_ERROR_TOO_MANY_OBJECTS },
+    { RGY_ERR_VK_FORMAT_NOT_SUPPORTED, VK_ERROR_FORMAT_NOT_SUPPORTED },
+    { RGY_ERR_VK_FRAGMENTED_POOL, VK_ERROR_FRAGMENTED_POOL },
+    { RGY_ERR_VK_UNKNOWN, VK_ERROR_UNKNOWN },
+    { RGY_ERR_VK_OUT_OF_POOL_MEMORY, VK_ERROR_OUT_OF_POOL_MEMORY },
+    { RGY_ERR_VK_INVALID_EXTERNAL_HANDLE, VK_ERROR_INVALID_EXTERNAL_HANDLE },
+    { RGY_ERR_VK_FRAGMENTATION, VK_ERROR_FRAGMENTATION },
+    { RGY_ERR_VK_INVALID_OPAQUE_CAPTURE_ADDRESS, VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS },
+    { RGY_ERR_VK_SURFACE_LOST_KHR, VK_ERROR_SURFACE_LOST_KHR },
+    { RGY_ERR_VK_NATIVE_WINDOW_IN_USE_KHR, VK_ERROR_NATIVE_WINDOW_IN_USE_KHR },
+    { RGY_ERR_VK__SUBOPTIMAL_KHR, VK_SUBOPTIMAL_KHR },
+    { RGY_ERR_VK_OUT_OF_DATE_KHR, VK_ERROR_OUT_OF_DATE_KHR },
+    { RGY_ERR_VK_INCOMPATIBLE_DISPLAY_KHR, VK_ERROR_INCOMPATIBLE_DISPLAY_KHR },
+    { RGY_ERR_VK_VALIDATION_FAILED_EXT, VK_ERROR_VALIDATION_FAILED_EXT },
+    { RGY_ERR_VK_INVALID_SHADER_NV, VK_ERROR_INVALID_SHADER_NV },
+    { RGY_ERR_VK_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT, VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT },
+    { RGY_ERR_VK_NOT_PERMITTED_EXT, VK_ERROR_NOT_PERMITTED_EXT },
+    { RGY_ERR_VK_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT, VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT },
+    //{ RGY_VK_THREAD_IDLE_KHR, VK_THREAD_IDLE_KHR },
+    //{ RGY_VK_THREAD_DONE_KHR, VK_THREAD_DONE_KHR },
+    //{ RGY_VK_OPERATION_DEFERRED_KHR, VK_OPERATION_DEFERRED_KHR },
+    //{ RGY_VK_OPERATION_NOT_DEFERRED_KHR, VK_OPERATION_NOT_DEFERRED_KHR },
+    //{ RGY_VK_PIPELINE_COMPILE_REQUIRED_EXT, VK_PIPELINE_COMPILE_REQUIRED_EXT },
+    { RGY_ERR_VK_OUT_OF_POOL_MEMORY_KHR, VK_ERROR_OUT_OF_POOL_MEMORY_KHR },
+    { RGY_ERR_VK_INVALID_EXTERNAL_HANDLE_KHR, VK_ERROR_INVALID_EXTERNAL_HANDLE_KHR },
+    { RGY_ERR_VK_FRAGMENTATION_EXT, VK_ERROR_FRAGMENTATION_EXT },
+    { RGY_ERR_VK_INVALID_DEVICE_ADDRESS_EXT, VK_ERROR_INVALID_DEVICE_ADDRESS_EXT },
+    { RGY_ERR_VK_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR, VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR },
+    //{ RGY_ERR_VK_PIPELINE_COMPILE_REQUIRED_EXT, VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT },
+};
+
+VkResult err_to_vk(RGY_ERR err) {
+    const RGYErrMapVK *ERR_MAP_VK_FIN = (const RGYErrMapVK *)ERR_MAP_VK + _countof(ERR_MAP_VK);
+    auto ret = std::find_if((const RGYErrMapVK *)ERR_MAP_VK, ERR_MAP_VK_FIN, [err](const RGYErrMapVK map) {
+        return map.rgy == err;
+        });
+    return (ret == ERR_MAP_VK_FIN) ? VK_ERROR_UNKNOWN : ret->vk;
+}
+
+RGY_ERR err_to_rgy(VkResult err) {
+    const RGYErrMapVK *ERR_MAP_VK_FIN = (const RGYErrMapVK *)ERR_MAP_VK + _countof(ERR_MAP_VK);
+    auto ret = std::find_if((const RGYErrMapVK *)ERR_MAP_VK, ERR_MAP_VK_FIN, [err](const RGYErrMapVK map) {
+        return map.vk == err;
+        });
+    return (ret == ERR_MAP_VK_FIN) ? RGY_ERR_VK_UNKNOWN : ret->rgy;
+}
+#endif //#if ENABLE_VULKAN
 #endif //#if ENCODER_VCEENC
 
 const TCHAR *get_err_mes(RGY_ERR sts) {
@@ -301,6 +374,49 @@ const TCHAR *get_err_mes(RGY_ERR sts) {
     case RGY_ERR_INVALID_MIP_LEVEL:               return _T("invalid mip level.");
     case RGY_ERR_INVALID_GLOBAL_WORK_SIZE:        return _T("invalid global work size.");
     case RGY_ERR_OPENCL_CRUSH:                    return _T("OpenCL crushed.");
+    case RGY_ERR_VK_NOT_READY:                                      return _T("VK_NOT_READY");
+    case RGY_ERR_VK_TIMEOUT:                                        return _T("VK_TIMEOUT");
+    case RGY_ERR_VK_EVENT_SET:                                      return _T("VK_EVENT_SET");
+    case RGY_ERR_VK_EVENT_RESET:                                    return _T("VK_EVENT_RESET");
+    case RGY_ERR_VK_INCOMPLETE:                                     return _T("VK_INCOMPLETE");
+    case RGY_ERR_VK_OUT_OF_HOST_MEMORY:                             return _T("VK_OUT_OF_HOST_MEMORY");
+    case RGY_ERR_VK_OUT_OF_DEVICE_MEMORY:                           return _T("VK_OUT_OF_DEVICE_MEMORY");
+    case RGY_ERR_VK_INITIALIZATION_FAILED:                          return _T("VK_INITIALIZATION_FAILED");
+    case RGY_ERR_VK_DEVICE_LOST:                                    return _T("VK_DEVICE_LOST");
+    case RGY_ERR_VK_MEMORY_MAP_FAILED:                              return _T("VK_MEMORY_MAP_FAILED");
+    case RGY_ERR_VK_LAYER_NOT_PRESENT:                              return _T("VK_LAYER_NOT_PRESENT");
+    case RGY_ERR_VK_EXTENSION_NOT_PRESENT:                          return _T("VK_EXTENSION_NOT_PRESENT");
+    case RGY_ERR_VK_FEATURE_NOT_PRESENT:                            return _T("VK_FEATURE_NOT_PRESENT");
+    case RGY_ERR_VK_INCOMPATIBLE_DRIVER:                            return _T("VK_INCOMPATIBLE_DRIVER");
+    case RGY_ERR_VK_TOO_MANY_OBJECTS:                               return _T("VK_TOO_MANY_OBJECTS");
+    case RGY_ERR_VK_FORMAT_NOT_SUPPORTED:                           return _T("VK_FORMAT_NOT_SUPPORTED");
+    case RGY_ERR_VK_FRAGMENTED_POOL:                                return _T("VK_FRAGMENTED_POOL");
+    case RGY_ERR_VK_UNKNOWN:                                        return _T("VK_UNKNOWN");
+    case RGY_ERR_VK_OUT_OF_POOL_MEMORY:                             return _T("VK_OUT_OF_POOL_MEMORY");
+    case RGY_ERR_VK_INVALID_EXTERNAL_HANDLE:                        return _T("VK_INVALID_EXTERNAL_HANDLE");
+    case RGY_ERR_VK_FRAGMENTATION:                                  return _T("VK_FRAGMENTATION");
+    case RGY_ERR_VK_INVALID_OPAQUE_CAPTURE_ADDRESS:                 return _T("VK_INVALID_OPAQUE_CAPTURE_ADDRESS");
+    case RGY_ERR_VK_SURFACE_LOST_KHR:                               return _T("VK_SURFACE_LOST_KHR");
+    case RGY_ERR_VK_NATIVE_WINDOW_IN_USE_KHR:                       return _T("VK_NATIVE_WINDOW_IN_USE_KHR");
+    case RGY_ERR_VK__SUBOPTIMAL_KHR:                                return _T("VK_SUBOPTIMAL_KHR");
+    case RGY_ERR_VK_OUT_OF_DATE_KHR:                                return _T("VK_OUT_OF_DATE_KHR");
+    case RGY_ERR_VK_INCOMPATIBLE_DISPLAY_KHR:                       return _T("VK_INCOMPATIBLE_DISPLAY_KHR");
+    case RGY_ERR_VK_VALIDATION_FAILED_EXT:                          return _T("VK_VALIDATION_FAILED_EXT");
+    case RGY_ERR_VK_INVALID_SHADER_NV:                              return _T("VK_INVALID_SHADER_NV");
+    case RGY_ERR_VK_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:   return _T("VK_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT");
+    case RGY_ERR_VK_NOT_PERMITTED_EXT:                              return _T("VK_NOT_PERMITTED_EXT");
+    case RGY_ERR_VK_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:            return _T("VK_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT");
+    case RGY_VK_THREAD_IDLE_KHR:                                    return _T("VK_THREAD_IDLE_KHR");
+    case RGY_VK_THREAD_DONE_KHR:                                    return _T("VK_THREAD_DONE_KHR");
+    case RGY_VK_OPERATION_DEFERRED_KHR:                             return _T("VK_OPERATION_DEFERRED_KHR");
+    case RGY_VK_OPERATION_NOT_DEFERRED_KHR:                         return _T("VK_OPERATION_NOT_DEFERRED_KHR");
+    case RGY_VK_PIPELINE_COMPILE_REQUIRED_EXT:                      return _T("VK_PIPELINE_COMPILE_REQUIRED_EXT");
+    case RGY_ERR_VK_OUT_OF_POOL_MEMORY_KHR:                         return _T("VK_OUT_OF_POOL_MEMORY_KHR");
+    case RGY_ERR_VK_INVALID_EXTERNAL_HANDLE_KHR:                    return _T("VK_INVALID_EXTERNAL_HANDLE_KHR");
+    case RGY_ERR_VK_FRAGMENTATION_EXT:                              return _T("VK_FRAGMENTATION_EXT");
+    case RGY_ERR_VK_INVALID_DEVICE_ADDRESS_EXT:                     return _T("VK_INVALID_DEVICE_ADDRESS_EXT");
+    case RGY_ERR_VK_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR:             return _T("VK_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR");
+    case RGY_ERR_VK_PIPELINE_COMPILE_REQUIRED_EXT:                  return _T("VK_PIPELINE_COMPILE_REQUIRED_EXT");
     default:                                      return _T("unknown error.");
     }
 }
