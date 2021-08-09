@@ -83,19 +83,19 @@ public:
         return m_pFrameQueue;
     }
 protected:
-    void AddMessage(int log_level, const tstring& str) {
-        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const tstring& str) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel(RGY_LOGT_DEC)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto& line : lines) {
             if (line[0] != _T('\0')) {
-                m_pPrintMes->write(log_level, (_T("cuvid: ") + line + _T("\n")).c_str());
+                m_pPrintMes->write(log_level, RGY_LOGT_DEC, (_T("cuvid: ") + line + _T("\n")).c_str());
             }
         }
     }
-    void AddMessage(int log_level, const TCHAR *format, ... ) {
-        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ... ) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel(RGY_LOGT_DEC)) {
             return;
         }
 

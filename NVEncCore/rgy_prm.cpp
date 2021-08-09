@@ -1295,18 +1295,18 @@ bool metadata_clear(const std::vector<tstring> &metadata) {
 unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log) {
     unique_ptr<RGYHDR10Plus> hdr10plus;
     if (!rgy_file_exists(dynamicHdr10plusJson)) {
-        log->write(RGY_LOG_ERROR, _T("Cannot find the file specified : %s.\n"), dynamicHdr10plusJson.c_str());
+        log->write(RGY_LOG_ERROR, RGY_LOGT_HDR10PLUS, _T("Cannot find the file specified : %s.\n"), dynamicHdr10plusJson.c_str());
     } else {
         hdr10plus = std::unique_ptr<RGYHDR10Plus>(new RGYHDR10Plus());
         auto ret = hdr10plus->init(dynamicHdr10plusJson);
         if (ret == RGY_ERR_NOT_FOUND) {
-            log->write(RGY_LOG_ERROR, _T("Cannot find \"%s\" required for --dhdr10-info.\n"), RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME);
+            log->write(RGY_LOG_ERROR, RGY_LOGT_HDR10PLUS, _T("Cannot find \"%s\" required for --dhdr10-info.\n"), RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME);
             hdr10plus.reset();
         } else if (ret != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, _T("Failed to initialize hdr10plus reader: %s.\n"), get_err_mes((RGY_ERR)ret));
+            log->write(RGY_LOG_ERROR, RGY_LOGT_HDR10PLUS, _T("Failed to initialize hdr10plus reader: %s.\n"), get_err_mes((RGY_ERR)ret));
             hdr10plus.reset();
         }
-        log->write(RGY_LOG_DEBUG, _T("initialized hdr10plus reader: %s\n"), dynamicHdr10plusJson.c_str());
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_HDR10PLUS, _T("initialized hdr10plus reader: %s\n"), dynamicHdr10plusJson.c_str());
     }
     return hdr10plus;
 }

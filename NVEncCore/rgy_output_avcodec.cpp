@@ -961,7 +961,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
             }
             if (filterchain.length() > 0) filterchain += ",";
             filterchain += channel_map;
-            if (RGY_LOG_DEBUG >= m_printMes->getLogLevel()) {
+            if (RGY_LOG_DEBUG >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
                 tstring channel_layout_str = strsprintf(_T("channel layout for track %d.%d:\n["), trackID(muxAudio->inTrackId), muxAudio->inSubStream);
                 for (int inChannel = 0; inChannel < channels; inChannel++) {
                     channel_layout_str += strsprintf(_T("%4d"), muxAudio->channelMapping[inChannel]);
@@ -1674,7 +1674,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         return RGY_ERR_UNSUPPORTED;
     }
 
-    av_log_set_level((m_printMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
+    av_log_set_level((m_printMes->getLogLevel(RGY_LOGT_LIBAV) == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
     av_qsv_log_set(m_printMes);
 
     if (prm->outputFormat.length() > 0) {
@@ -1722,7 +1722,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
                 m_outputIsStdout = true;
                 filename = "pipe:1";
                 AddMessage(RGY_LOG_DEBUG, _T("output is set to stdout\n"));
-            } else if (m_printMes->getLogLevel() == RGY_LOG_DEBUG) {
+            } else if (m_printMes->getLogLevel(RGY_LOGT_OUT) == RGY_LOG_DEBUG) {
                 //AddMessage(RGY_LOG_DEBUG, _T("file name is %sunc path.\n"), (PathIsUNC(strFileName)) ? _T("") : _T("not "));
                 if (rgy_file_exists(strFileName)) {
                     AddMessage(RGY_LOG_DEBUG, _T("file already exists and will overwrite.\n"));
@@ -2630,7 +2630,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
         const auto maxPts = muxAudio->lastPtsOut + !(m_Mux.format.formatCtx->oformat->flags & AVFMT_TS_NONSTRICT);
         if (pkt->pts < maxPts) {
             auto loglevel = (maxPts - pkt->pts > 2) ? RGY_LOG_WARN : RGY_LOG_DEBUG;
-            if (loglevel < m_printMes->getLogLevel()) {
+            if (loglevel < m_printMes->getLogLevel(RGY_LOGT_OUT)) {
                 AddMessage(loglevel, _T("Timestamp error in stream %d, previous: %lld, current: %lld [timebase: %d/%d].\n"),
                     muxAudio->streamOut->index,
                     (long long int)muxAudio->lastPtsOut,
@@ -3456,8 +3456,8 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                 && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr))) {
                 WriteNextFrameInternal(&bitstream, &videoDts);
                 nWaitVideo = 0;
-                const int log_level = RGY_LOG_TRACE;
-                if (m_printMes && log_level >= m_printMes->getLogLevel()) {
+                const auto log_level = RGY_LOG_TRACE;
+                if (m_printMes && log_level >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
                     AddMessage(log_level, _T("videoDts=%8lld: %s.\n"), videoDts, getTimestampString(videoDts, QUEUE_DTS_TIMEBASE).c_str());
                 }
             }
@@ -3480,8 +3480,8 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                     audioDts = (std::max)(audioDts, (std::max)(pktData.dts, m_Mux.thread.streamOutMaxDts.load()));
                 }
                 nWaitAudio = 0;
-                const int log_level = RGY_LOG_TRACE;
-                if (m_printMes && log_level >= m_printMes->getLogLevel()) {
+                const auto log_level = RGY_LOG_TRACE;
+                if (m_printMes && log_level >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
                     AddMessage(log_level, _T("audioDts=%8lld: %s, maxDst=%8lld.\n"), audioDts, getTimestampString(audioDts, QUEUE_DTS_TIMEBASE).c_str(), maxDts);
                 }
             }

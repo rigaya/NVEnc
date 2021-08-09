@@ -145,7 +145,7 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("failed to build program source.\n%s\n"), char_to_tstring(e.what()).c_str());
         return RGY_ERR_CUDA;
     }
-    m_pPrintMes->write_log(RGY_LOG_DEBUG, char_to_tstring(m_program->getLog()).c_str());
+    m_pPrintMes->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, char_to_tstring(m_program->getLog()).c_str());
 
     //test compile
     std::string compile_log;
@@ -157,10 +157,10 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
     } catch (const std::exception& e) {
         AddMessage(RGY_LOG_ERROR, _T("failed to instantiate program source.\n%s\n"), char_to_tstring(e.what()).c_str());
-        m_pPrintMes->write_log(RGY_LOG_ERROR, char_to_tstring(compile_log).c_str());
+        m_pPrintMes->write_log(RGY_LOG_ERROR, RGY_LOGT_VPP_BUILD, char_to_tstring(compile_log).c_str());
         return RGY_ERR_CUDA;
     }
-    m_pPrintMes->write_log(RGY_LOG_DEBUG, char_to_tstring(compile_log).c_str());
+    m_pPrintMes->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, char_to_tstring(compile_log).c_str());
 
     setFilterInfo(pParam->print());
     m_pParam = pParam;

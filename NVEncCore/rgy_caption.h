@@ -261,24 +261,24 @@ public:
     void setOutputResolution(int w, int h, int sar_x, int sar_y);
 
     //現在の設定を表示
-    void printParam(int log_level);
+    void printParam(RGYLogLevel log_level);
 
     //内部データをリセット(seekが発生したときなどに使用する想定)
     void reset();
 private:
-    void AddMessage(int log_level, const tstring& str) {
-        if (!m_pLog || log_level < m_pLog->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const tstring& str) {
+        if (!m_pLog || log_level < m_pLog->getLogLevel(RGY_LOGT_CAPION2ASS)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto& line : lines) {
             if (line[0] != _T('\0')) {
-                m_pLog->write(log_level, (_T("cap: ") + line + _T("\n")).c_str());
+                m_pLog->write(log_level, RGY_LOGT_CAPION2ASS, (_T("cap: ") + line + _T("\n")).c_str());
             }
         }
     }
-    void AddMessage(int log_level, const TCHAR *format, ...) {
-        if (!m_pLog || log_level < m_pLog->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
+        if (!m_pLog || log_level < m_pLog->getLogLevel(RGY_LOGT_CAPION2ASS)) {
             return;
         }
 

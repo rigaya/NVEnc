@@ -442,19 +442,19 @@ protected:
     void write_header(FILE *fp, int nSelect);
     void write(FILE *fp, int nSelect);
 
-    void AddMessage(int log_level, const tstring &str) {
-        if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const tstring &str) {
+        if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel(RGY_LOGT_PERF_MONITOR)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto &line : lines) {
             if (line[0] != _T('\0')) {
-                m_pRGYLog->write(log_level, (_T("perf monitor: ") + line + _T("\n")).c_str());
+                m_pRGYLog->write(log_level, RGY_LOGT_PERF_MONITOR, (_T("perf monitor: ") + line + _T("\n")).c_str());
             }
         }
     }
-    void AddMessage(int log_level, const TCHAR *format, ...) {
-        if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
+        if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel(RGY_LOGT_PERF_MONITOR)) {
             return;
         }
 

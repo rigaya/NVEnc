@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <string>
 #include <memory>
+#include <array>
 #include "rgy_tchar.h"
 
 //NVEnc.auo/QSVEnc.auoビルド時、/clrでは<thread>は使用できませんなどと出るので、
@@ -40,7 +41,7 @@ namespace std {
     class mutex;
 }
 
-enum {
+enum RGYLogLevel {
     RGY_LOG_TRACE = -3,
     RGY_LOG_DEBUG = -2,
     RGY_LOG_MORE  = -1,
@@ -50,38 +51,118 @@ enum {
     RGY_LOG_QUIET = 3,
 };
 
+static const std::array<std::pair<RGYLogLevel, const TCHAR *>, RGY_LOG_QUIET - RGY_LOG_TRACE + 1> RGY_LOG_LEVEL_STR = {
+    std::pair<RGYLogLevel, const TCHAR *>{ RGY_LOG_TRACE,   _T("trace")},
+    std::pair<RGYLogLevel, const TCHAR *>{ RGY_LOG_DEBUG,   _T("debug")},
+    std::pair<RGYLogLevel, const TCHAR *>{ RGY_LOG_MORE,    _T("more")},
+    std::pair<RGYLogLevel, const TCHAR *>{ RGY_LOG_INFO,    _T("info")},
+    std::pair<RGYLogLevel, const TCHAR *>{ RGY_LOG_WARN,    _T("warn")},
+    std::pair<RGYLogLevel, const TCHAR *>{ RGY_LOG_ERROR,   _T("error")},
+    std::pair<RGYLogLevel, const TCHAR *>{ RGY_LOG_QUIET,   _T("quiet")}
+};
+
+enum RGYLogType {
+    RGY_LOGT_ALL = -1,
+    RGY_LOGT_APP,
+    RGY_LOGT_CORE,
+    RGY_LOGT_HDR10PLUS = RGY_LOGT_CORE,
+    RGY_LOGT_DEV,
+    RGY_LOGT_DEC,
+    RGY_LOGT_IN,
+    RGY_LOGT_OUT,
+    RGY_LOGT_VPP,
+    RGY_LOGT_VPP_BUILD = RGY_LOGT_VPP,
+    RGY_LOGT_LIBAV,
+    RGY_LOGT_LIBASS,
+    RGY_LOGT_PERF_MONITOR,
+    RGY_LOGT_CAPION2ASS,
+};
+
+static const std::array<std::pair<RGYLogType, const TCHAR *>, RGY_LOGT_CAPION2ASS - RGY_LOGT_ALL + 1> RGY_LOG_TYPE_STR = {
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_ALL,    _T("all")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_APP,    _T("app")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_DEV,    _T("device")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE,   _T("core")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_DEC,    _T("decoder")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_IN,     _T("input")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OUT,    _T("output")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_VPP,    _T("vpp")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_LIBAV,  _T("libav")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_LIBASS, _T("libass")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_PERF_MONITOR, _T("perfmonitor")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CAPION2ASS,   _T("caption2ass")}
+};
+
+struct RGYParamLogLevel {
+private:
+    RGYLogLevel appcore_;
+    RGYLogLevel appdevice_;
+    RGYLogLevel appdecode_;
+    RGYLogLevel appinput_;
+    RGYLogLevel appoutput_;
+    RGYLogLevel appvpp_;
+    RGYLogLevel libav_;
+    RGYLogLevel libass_;
+    RGYLogLevel perfmonitor_;
+    RGYLogLevel caption2ass_;
+public:
+    RGYParamLogLevel();
+    RGYParamLogLevel(const RGYLogLevel level);
+    bool operator==(const RGYParamLogLevel &x) const;
+    bool operator!=(const RGYParamLogLevel &x) const;
+    RGYLogLevel set(const RGYLogLevel newLogLevel, const RGYLogType type);
+    RGYLogLevel get(const RGYLogType type) const {
+        switch (type) {
+        case RGY_LOGT_DEC: return appdecode_;
+        case RGY_LOGT_DEV: return appdevice_;
+        case RGY_LOGT_IN: return appinput_;
+        case RGY_LOGT_OUT: return appoutput_;
+        case RGY_LOGT_VPP: return appvpp_;
+        case RGY_LOGT_LIBAV: return libav_;
+        case RGY_LOGT_LIBASS: return libass_;
+        case RGY_LOGT_PERF_MONITOR: return perfmonitor_;
+        case RGY_LOGT_CAPION2ASS: return caption2ass_;
+        case RGY_LOGT_APP:
+        case RGY_LOGT_CORE:
+        case RGY_LOGT_ALL:
+        default:
+            return appcore_;
+        }
+    };
+    tstring to_string() const;
+};
+
 int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle = NULL);
 
 class RGYLog {
 protected:
-    int m_nLogLevel = RGY_LOG_INFO;
+    RGYParamLogLevel m_nLogLevel;
     const TCHAR *m_pStrLog = nullptr;
     bool m_bHtml = false;
     std::unique_ptr<std::mutex> m_mtx;
     static const char *HTML_FOOTER;
 public:
-    RGYLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
+    RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level = RGY_LOG_INFO);
+    RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level);
     virtual ~RGYLog();
-    void init(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
+    void init(const TCHAR *pLogFile, const RGYParamLogLevel& log_level);
     void writeHtmlHeader();
     void writeFileHeader(const TCHAR *pDstFilename);
     void writeFileFooter();
-    int getLogLevel() {
-        return m_nLogLevel;
+    RGYLogLevel getLogLevel(const RGYLogType type) const {
+        return m_nLogLevel.get(type);
     }
-    int setLogLevel(int newLogLevel) {
-        int prevLogLevel = m_nLogLevel;
-        m_nLogLevel = newLogLevel;
-        return prevLogLevel;
+    RGYLogLevel setLogLevel(const RGYLogLevel newLogLevel, const RGYLogType type) {
+        return m_nLogLevel.set(newLogLevel, type);
     }
     bool logFileAvail() {
         return m_pStrLog != nullptr;
     }
-    virtual void write_log(int log_level, const TCHAR *buffer, bool file_only = false);
-    virtual void write(int log_level, const TCHAR *format, ...);
-    virtual void write(int log_level, const wchar_t *format, va_list args);
-    virtual void write(int log_level, const char *format, va_list args, uint32_t codepage);
-    virtual void write_line(int log_level, const char *format, va_list args, uint32_t codepage);
+    virtual void write_log(RGYLogLevel log_level, const RGYLogType logtype, const TCHAR *buffer, bool file_only = false);
+    virtual void write(RGYLogLevel log_level, const RGYLogType logtype, const TCHAR *format, ...);
+    virtual void write(RGYLogLevel log_level, const RGYLogType logtype, const wchar_t *format, va_list args);
+    virtual void write(RGYLogLevel log_level, const RGYLogType logtype, const char *format, va_list args, uint32_t codepage);
+    virtual void write_line(RGYLogLevel log_level, const RGYLogType logtype, const char *format, va_list args, uint32_t codepage);
 };
 
 #endif //__RGY_LOG_H__

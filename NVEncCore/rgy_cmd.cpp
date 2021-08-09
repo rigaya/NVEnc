@@ -4361,13 +4361,48 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
     if (IS_OPTION("log-level")) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
         i++;
-        int value = 0;
-        if (get_list_value(list_log_level, strInput[i], &value)) {
-            ctrl->loglevel = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_log_level);
-            return -1;
+
+        std::vector<std::string> paramList;
+        for (const auto& param : RGY_LOG_TYPE_STR) {
+            paramList.push_back(tchar_to_string(param.second));
+        }
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                int value = 0;
+                if (get_list_value(list_log_level, param_val.c_str(), &value)) {
+                    auto type_ret = std::find_if(RGY_LOG_TYPE_STR.begin(), RGY_LOG_TYPE_STR.end(), [param_arg](decltype(RGY_LOG_TYPE_STR[0])& type) {
+                        return param_arg == type.second;
+                    });
+                    if (type_ret != RGY_LOG_TYPE_STR.end()) {
+                        ctrl->loglevel.set((RGYLogLevel)value, type_ret->first);
+                        continue;
+                    } else {
+                        print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                        return 1;
+                    }
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_log_level);
+                    return 1;
+                }
+            } else {
+                int value = 0;
+                if (get_list_value(list_log_level, param.c_str(), &value)) {
+                    ctrl->loglevel.set((RGYLogLevel)value, RGY_LOGT_ALL);
+                    continue;
+                } else {
+                    print_cmd_error_invalid_value(option_name, strInput[i], list_log_level);
+                    return 1;
+                }
+            }
         }
         return 0;
     }
@@ -5477,7 +5512,11 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
     OPT_STR_PATH(_T("--log"), logfile);
-    OPT_LST(_T("--log-level"), loglevel, list_log_level);
+
+    if (param->loglevel != defaultPrm->loglevel) {
+        cmd << _T(" --loglevel ") << param->loglevel.to_string();
+    }
+
     OPT_BOOL(_T("--log-framelist"), _T(""), logFramePosList);
     OPT_BOOL(_T("--log-packets"), _T(""), logPacketsList);
     OPT_CHAR_PATH(_T("--log-mux-ts"), logMuxVidTsFile);

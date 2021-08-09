@@ -802,7 +802,7 @@ public:
         m_cap2ass.setOutputResolution(w, h, sar_x, sar_y);
         m_resolutionDetermined = true;
     }
-    void printParam(int log_level) {
+    void printParam(RGYLogLevel log_level) {
         m_cap2ass.printParam(log_level);
     }
     void setVidFirstKeyPts(int64_t pts) {

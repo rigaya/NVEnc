@@ -157,7 +157,7 @@ RGY_ERR NVEncFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int
 
     auto cudaerr = m_buf.copyFrameAsync(pInputFrame, stream);
     if (cudaerr != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, _T("failed to set frame to data cache: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
     return RGY_ERR_NONE;
@@ -172,25 +172,25 @@ RGY_ERR NVEncFilterMpdecimateFrameData::calcDiff(const NVEncFilterMpdecimateFram
         { RGY_CSP_YUV444_16, calc_block_diff_frame<ushort4> }
     };
     if (func_list.count(ref->m_buf.frame.csp) == 0) {
-        m_log->write(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[ref->m_buf.frame.csp]);
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[ref->m_buf.frame.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
     auto cudaerr = func_list.at(ref->m_buf.frame.csp)(&m_buf.frame, &ref->get()->frame, &m_tmp.frameDev, streamDiff);
     if (cudaerr != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to run calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
 
     if ((cudaerr = cudaEventRecord(eventTransfer, streamDiff)) != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, _T("failed to cudaEventRecord in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to cudaEventRecord in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
     if ((cudaerr = cudaStreamWaitEvent(streamTransfer, eventTransfer, 0)) != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, _T("failed to cudaStreamWaitEvent in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to cudaStreamWaitEvent in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
     if ((cudaerr = m_tmp.copyDtoHAsync(streamTransfer)) != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, _T("failed to copyDtoHAsync in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to copyDtoHAsync in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
     return RGY_ERR_NONE;

@@ -666,8 +666,8 @@ void Caption2Ass::setOutputResolution(int w, int h, int sar_x, int sar_y) {
     AddMessage(RGY_LOG_DEBUG, _T("PlayResX: %d, PlayResY: %d, m_sidebarSize: %d.\n"), m_ass.PlayResX, m_ass.PlayResY, m_sidebarSize);
 }
 
-void Caption2Ass::printParam(int log_level) {
-    if (!m_pLog || log_level < m_pLog->getLogLevel()) {
+void Caption2Ass::printParam(RGYLogLevel log_level) {
+    if (!m_pLog || log_level < m_pLog->getLogLevel(RGY_LOGT_CAPION2ASS)) {
         return;
     }
     AddMessage(log_level, _T("caption2ass:   %s\n"), get_chr_from_value(list_caption2ass, m_format));
@@ -1047,7 +1047,7 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
                 it2->strDecode = GetHalfChar(it2->strDecode);
 
             const auto loglevel = RGY_LOG_TRACE;
-            if (loglevel >= m_pLog->getLogLevel()) {
+            if (loglevel >= m_pLog->getLogLevel(RGY_LOGT_CAPION2ASS)) {
                 AddMessage(loglevel, _T("pts: %11lld\n"), PTS);
                 if (it2->bUnderLine)
                     AddMessage(loglevel, _T("  UnderLine : on\n"));
