@@ -224,19 +224,19 @@ public:
         const TCHAR *mes = m_inputInfo.c_str();
         return (mes) ? mes : _T("");
     }
-    void AddMessage(int log_level, const tstring& str) {
-        if (m_printMes == nullptr || log_level < m_printMes->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const tstring& str) {
+        if (m_printMes == nullptr || log_level < m_printMes->getLogLevel(RGY_LOGT_IN)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto& line : lines) {
             if (line[0] != _T('\0')) {
-                m_printMes->write(log_level, (m_readerName + _T(": ") + line + _T("\n")).c_str());
+                m_printMes->write(log_level, RGY_LOGT_IN, (m_readerName + _T(": ") + line + _T("\n")).c_str());
             }
         }
     }
-    void AddMessage(int log_level, const TCHAR *format, ... ) {
-        if (m_printMes == nullptr || log_level < m_printMes->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ... ) {
+        if (m_printMes == nullptr || log_level < m_printMes->getLogLevel(RGY_LOGT_IN)) {
             return;
         }
 

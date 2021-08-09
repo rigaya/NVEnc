@@ -727,7 +727,7 @@ RGY_ERR initWriters(
 
     bool audioCopyAll = false;
     if (common->AVMuxTarget & RGY_MUX_VIDEO) {
-        log->write(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Using avformat writer.\n"));
         pFileWriter = std::make_shared<RGYOutputAvcodec>();
         AvcodecWriterPrm writerPrm;
         writerPrm.outputFormat            = common->muxOutputFormat;
@@ -762,12 +762,12 @@ RGY_ERR initWriters(
             }
         }
         if (common->AVMuxTarget & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
-            log->write(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Audio/Subtitle muxing enabled.\n"));
             for (int i = 0; !audioCopyAll && i < common->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
                 audioCopyAll = (common->ppAudioSelectList[i]->trackID == 0);
             }
-            log->write(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (audioCopyAll) ? _T("true") : _T("false"));
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: CopyAll=%s\n"), (audioCopyAll) ? _T("true") : _T("false"));
             pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
             vector<AVDemuxStream> streamList = pFileReader->GetInputStreamInfo();
 
@@ -871,7 +871,7 @@ RGY_ERR initWriters(
                         prm.disposition = pDataSelect->disposition;
                         prm.metadata = pDataSelect->metadata;
                     }
-                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s, disposition: %s, metadata %s\n"),
+                    log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s, disposition: %s, metadata %s\n"),
                         char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
                         stream.trackId, stream.index, prm.bitrate, prm.encodeCodec.c_str(),
                         prm.encodeCodecProfile.c_str(),
@@ -899,7 +899,7 @@ RGY_ERR initWriters(
             for (auto &stream : otherSrcStreams) {
                 const auto streamMediaType = trackMediaType(stream.trackId);
                 if (stream.sourceFileIndex < 0) {
-                    log->write(RGY_LOG_ERROR, _T("Internal Error, Invalid file index %d set for %s-source.\n"),
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Internal Error, Invalid file index %d set for %s-source.\n"),
                         stream.sourceFileIndex, char_to_tstring(av_get_media_type_string(streamMediaType)).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
@@ -920,7 +920,7 @@ RGY_ERR initWriters(
                 const AudioSelect *pAudioSelect = nullptr;
                 if (streamMediaType == AVMEDIA_TYPE_AUDIO) {
                     if (stream.sourceFileIndex >= (int)common->audioSource.size()) {
-                        log->write(RGY_LOG_ERROR, _T("Internal Error, Invalid file index %d set for audio-source.\n"), stream.sourceFileIndex);
+                        log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Internal Error, Invalid file index %d set for audio-source.\n"), stream.sourceFileIndex);
                         return RGY_ERR_UNKNOWN;
                     }
                     const auto& audsrc = common->audioSource[stream.sourceFileIndex];
@@ -943,7 +943,7 @@ RGY_ERR initWriters(
                 const SubtitleSelect *pSubtitleSelect = nullptr;
                 if (streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
                     if (stream.sourceFileIndex >= (int)common->subSource.size()) {
-                        log->write(RGY_LOG_ERROR, _T("Internal Error, Invalid file index %d set for audio-source.\n"), stream.sourceFileIndex);
+                        log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Internal Error, Invalid file index %d set for audio-source.\n"), stream.sourceFileIndex);
                         return RGY_ERR_UNKNOWN;
                     }
                     const auto& subsrc = common->subSource[stream.sourceFileIndex];
@@ -987,7 +987,7 @@ RGY_ERR initWriters(
                         prm.disposition = pSubtitleSelect->disposition;
                         prm.metadata = pSubtitleSelect->metadata;
                     }
-                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s, disposition: %s, metadata: %s\n"),
+                    log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s, disposition: %s, metadata: %s\n"),
                         char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
                         stream.trackId, stream.index, prm.bitrate, prm.encodeCodec.c_str(),
                         prm.encodeCodecProfile.c_str(),
@@ -1002,15 +1002,15 @@ RGY_ERR initWriters(
         }
         auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &writerPrm, log, pStatus);
         if (sts != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, pFileWriter->GetOutputMessage());
+            log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
             return sts;
         } else if (common->AVMuxTarget & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             pFileWriterListAudio.push_back(pFileWriter);
         }
         stdoutUsed = pFileWriter->outputStdout();
-        log->write(RGY_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
     } else if (common->AVMuxTarget & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
-        log->write(RGY_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
+        log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
         return RGY_ERR_UNKNOWN;
     } else {
 #endif //ENABLE_AVSW_READER
@@ -1021,7 +1021,7 @@ RGY_ERR initWriters(
             param.bY4m = true;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &param, log, pStatus);
             if (sts != RGY_ERR_NONE) {
-                log->write(RGY_LOG_ERROR, pFileWriter->GetOutputMessage());
+                log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
                 return sts;
             }
             stdoutUsed = pFileWriter->outputStdout();
@@ -1037,21 +1037,21 @@ RGY_ERR initWriters(
             rawPrm.hedrsei = hedrsei;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
             if (sts != RGY_ERR_NONE) {
-                log->write(RGY_LOG_ERROR, pFileWriter->GetOutputMessage());
+                log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
                 return sts;
             }
             stdoutUsed = pFileWriter->outputStdout();
-            log->write(RGY_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         }
 #if ENABLE_AVSW_READER
     }
 
     //音声の抽出
     if (common->nAudioSelectCount + common->nSubtitleSelectCount - (audioCopyAll ? 1 : 0) > (int)streamTrackUsed.size()) {
-        log->write(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
         if (pAVCodecReader == nullptr) {
-            log->write(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avhw/avsw reader).\n"));
+            log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Audio output is only supported with transcoding (avhw/avsw reader).\n"));
             return RGY_ERR_INVALID_PARAM;
         } else {
             auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
@@ -1060,7 +1060,7 @@ RGY_ERR initWriters(
                 for (auto usedTrack : streamTrackUsed) {
                     if (usedTrack == audioTrack.trackId) {
                         bTrackAlreadyUsed = true;
-                        log->write(RGY_LOG_DEBUG, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), trackID(audioTrack.trackId));
+                        log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), trackID(audioTrack.trackId));
                         break;
                     }
                 }
@@ -1075,10 +1075,10 @@ RGY_ERR initWriters(
                     }
                 }
                 if (pAudioSelect == nullptr) {
-                    log->write(RGY_LOG_ERROR, _T("Audio track #%d is not used anyware, this should not happen.\n"), trackID(audioTrack.trackId));
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Audio track #%d is not used anyware, this should not happen.\n"), trackID(audioTrack.trackId));
                     return RGY_ERR_UNKNOWN;
                 }
-                log->write(RGY_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
                     trackID(audioTrack.trackId), audioTrack.index, pAudioSelect->extractFilename.c_str(), pAudioSelect->extractFormat.c_str(), pAudioSelect->encCodec.c_str(), pAudioSelect->encBitrate);
 
                 AVOutputStreamPrm prm;
@@ -1105,13 +1105,13 @@ RGY_ERR initWriters(
                 shared_ptr<RGYOutput> pWriter = std::make_shared<RGYOutputAvcodec>();
                 auto sts = pWriter->Init(pAudioSelect->extractFilename.c_str(), nullptr, &writerAudioPrm, log, pStatus);
                 if (sts != RGY_ERR_NONE) {
-                    log->write(RGY_LOG_ERROR, pWriter->GetOutputMessage());
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pWriter->GetOutputMessage());
                     return sts;
                 }
-                log->write(RGY_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), trackID(audioTrack.trackId));
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Intialized audio output for track #%d.\n"), trackID(audioTrack.trackId));
                 bool audioStdout = pWriter->outputStdout();
                 if (stdoutUsed && audioStdout) {
-                    log->write(RGY_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
                     return RGY_ERR_UNKNOWN;
                 }
                 stdoutUsed |= audioStdout;

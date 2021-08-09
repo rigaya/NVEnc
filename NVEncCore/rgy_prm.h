@@ -30,6 +30,7 @@
 #define __RGY_PRM_H__
 
 #include "rgy_def.h"
+#include "rgy_log.h"
 #include "rgy_caption.h"
 #include "rgy_simd.h"
 #include "rgy_hdr10plus.h"
@@ -1167,7 +1168,7 @@ struct RGYParamControl {
     int threadCsp;
     int simdCsp;
     tstring logfile;              //ログ出力先
-    int loglevel;                 //ログ出力レベル
+    RGYParamLogLevel loglevel; //ログ出力レベル
     bool logFramePosList;     //framePosList出力
     bool logPacketsList;
     TCHAR *logMuxVidTsFile;

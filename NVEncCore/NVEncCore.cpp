@@ -336,12 +336,12 @@ RGY_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-void NVEncCore::PrintMes(int logLevel, const TCHAR *format, ...) {
+void NVEncCore::PrintMes(RGYLogLevel logLevel, const TCHAR *format, ...) {
     if (m_pNVLog.get() == nullptr) {
         if (logLevel <= RGY_LOG_INFO) {
             return;
         }
-    } else if (logLevel < m_pNVLog->getLogLevel()) {
+    } else if (logLevel < m_pNVLog->getLogLevel(RGY_LOGT_APP)) {
         return;
     }
 
@@ -354,7 +354,7 @@ void NVEncCore::PrintMes(int logLevel, const TCHAR *format, ...) {
     va_end(args);
 
     if (m_pNVLog.get() != nullptr) {
-        m_pNVLog->write(logLevel, buffer.data());
+        m_pNVLog->write(logLevel, RGY_LOGT_APP, buffer.data());
     } else {
         _ftprintf(stderr, _T("%s"), buffer.data());
     }
@@ -1478,7 +1478,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //    return NV_ENC_ERR_UNSUPPORTED_PARAM;
     //}
 
-    auto error_feature_unsupported = [&](int log_level, const TCHAR *feature_name) {
+    auto error_feature_unsupported = [&](RGYLogLevel log_level, const TCHAR *feature_name) {
         PrintMes(log_level, FOR_AUO ? _T("%sはサポートされていません。\n") : _T("%s unsupported.\n"), feature_name);
     };
 

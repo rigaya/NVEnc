@@ -92,8 +92,8 @@ private:
     RGY_ERR addColorspaceOpLinear2Gamma(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to, double source_peak, bool approx_gamma, bool scene_ref);
     RGY_ERR addColorspaceOpGamut(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR getNeighboringColorspaces(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &csp, double source_peak, bool approx_gamma, bool scene_ref);
-    void AddMessage(int log_level, const TCHAR *format, ...) {
-        if (m_log == nullptr || log_level < m_log->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_VPP)) {
             return;
         }
 
@@ -106,14 +106,14 @@ private:
         va_end(args);
         AddMessage(log_level, buffer);
     }
-    void AddMessage(int log_level, const tstring &str) {
-        if (m_log == nullptr || log_level < m_log->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const tstring &str) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_VPP)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto &line : lines) {
             if (line[0] != _T('\0')) {
-                m_log->write(log_level, (_T("ColorspaceOpCtrl: ") + line + _T("\n")).c_str());
+                m_log->write(log_level, RGY_LOGT_VPP, (_T("ColorspaceOpCtrl: ") + line + _T("\n")).c_str());
             }
         }
     }

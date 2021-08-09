@@ -277,7 +277,7 @@ static RGY_ERR initOtherReaders(
         shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
         auto ret = audioReader->Init(src.filename.c_str(), &inputInfo, &inputInfoAVAudioReader, log, nullptr);
         if (ret != 0) {
-            log->write(RGY_LOG_ERROR, audioReader->GetInputMessage());
+            log->write(RGY_LOG_ERROR, RGY_LOGT_IN, audioReader->GetInputMessage());
             return ret;
         }
         sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
@@ -298,7 +298,7 @@ static bool check_if_avhw_or_avsw(RGY_INPUT_FMT input_type) {
 template<typename T>
 bool check_avhw_avsw_only(const T& target, const T& autoval, const char *name, RGYLog *log) {
     if (target == autoval) {
-        log->write(RGY_LOG_ERROR, _T("\"%s\" is only supported with avsw/avhw reader.\n"), char_to_tstring(name).c_str());
+        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("\"%s\" is only supported with avsw/avhw reader.\n"), char_to_tstring(name).c_str());
         return true;
     }
     return false;
@@ -353,23 +353,23 @@ RGY_ERR initReaders(
 
     //Check if selected format is enabled
     if (input->type == RGY_INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
-        log->write(RGY_LOG_ERROR, _T("avs reader not compiled in this binary.\n"));
+        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("avs reader not compiled in this binary.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (input->type == RGY_INPUT_FMT_VPY_MT && !ENABLE_VAPOURSYNTH_READER) {
-        log->write(RGY_LOG_ERROR, _T("vpy reader not compiled in this binary.\n"));
+        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy reader not compiled in this binary.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (input->type == RGY_INPUT_FMT_AVI && !ENABLE_AVI_READER) {
-        log->write(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
+        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("avi reader not compiled in this binary.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (input->type == RGY_INPUT_FMT_AVHW && !ENABLE_AVSW_READER) {
-        log->write(RGY_LOG_ERROR, _T("avcodec + cuvid reader not compiled in this binary.\n"));
+        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("avcodec + cuvid reader not compiled in this binary.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (input->type == RGY_INPUT_FMT_AVSW && !ENABLE_AVSW_READER) {
-        log->write(RGY_LOG_ERROR, _T("avsw reader not compiled in this binary.\n"));
+        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("avsw reader not compiled in this binary.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (!check_if_avhw_or_avsw(input->type)) {
@@ -420,7 +420,7 @@ RGY_ERR initReaders(
     switch (input->type) {
 #if ENABLE_AVI_READER
     case RGY_INPUT_FMT_AVI:
-        log->write(RGY_LOG_DEBUG, _T("avi reader selected.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avi reader selected.\n"));
         pFileReader.reset(new RGYInputAvi());
         break;
 #endif //ENABLE_AVI_READER
@@ -429,14 +429,14 @@ RGY_ERR initReaders(
         inputPrmAvs.readAudio = common->nAudioSelectCount > 0;
         inputPrmAvs.avsdll = ctrl->avsdll;
         pInputPrm = &inputPrmAvs;
-        log->write(RGY_LOG_DEBUG, _T("avs reader selected.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avs reader selected.\n"));
         pFileReader.reset(new RGYInputAvs());
         break;
 #endif //ENABLE_AVISYNTH_READER
 #if ENABLE_VAPOURSYNTH_READER
     case RGY_INPUT_FMT_VPY:
     case RGY_INPUT_FMT_VPY_MT:
-        log->write(RGY_LOG_DEBUG, _T("vpy reader selected.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("vpy reader selected.\n"));
         pFileReader.reset(new RGYInputVpy());
         break;
 #endif //ENABLE_VAPOURSYNTH_READER
@@ -490,13 +490,13 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.inputOpt = common->inputOpt;
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
         pInputPrm = &inputInfoAVCuvid;
-        log->write(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avhw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());
         } break;
 #endif //#if ENABLE_AVSW_READER
 #if ENABLE_SM_READER
     case RGY_INPUT_FMT_SM: {
-        log->write(RGY_LOG_DEBUG, _T("shared mem reader selected.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("shared mem reader selected.\n"));
         pInputPrm = &inputPrmSM;
         pFileReader.reset(new RGYInputSM());
         } break;
@@ -506,20 +506,20 @@ RGY_ERR initReaders(
     default: {
         if (input->type == RGY_INPUT_FMT_RAW &&
             (input->fpsN <= 0 || input->fpsD <= 0)) {
-            log->write(RGY_LOG_ERROR, _T("Please set fps when using raw input.\n"));
+            log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("Please set fps when using raw input.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
         pInputPrm = &inputPrmRaw;
-        log->write(RGY_LOG_DEBUG, _T("raw/y4m reader selected.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("raw/y4m reader selected.\n"));
         pFileReader.reset(new RGYInputRaw());
         break; }
     }
-    log->write(RGY_LOG_DEBUG, _T("InitInput: input selected : %d.\n"), input->type);
+    log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("InitInput: input selected : %d.\n"), input->type);
 
     VideoInfo inputParamCopy = *input;
     auto ret = pFileReader->Init(common->inputFilename.c_str(), input, pInputPrm, log, pStatus);
     if (ret != 0) {
-        log->write(RGY_LOG_ERROR, pFileReader->GetInputMessage());
+        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, pFileReader->GetInputMessage());
         return ret;
     }
     sourceAudioTrackIdStart    += pFileReader->GetAudioTrackCount();

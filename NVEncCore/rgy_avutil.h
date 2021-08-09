@@ -150,11 +150,11 @@ static inline bool avcodecIsAuto(const tstring &codec) {
 //AV_LOG_INFO     32 - RGY_LOG_INFO   0
 //AV_LOG_WARNING  24 - RGY_LOG_WARN   1
 //AV_LOG_ERROR    16 - RGY_LOG_ERROR  2
-static inline int log_level_av2rgy(int level) {
-    return clamp((AV_LOG_INFO / 8) - (level / 8), RGY_LOG_TRACE, RGY_LOG_ERROR);
+static inline RGYLogLevel log_level_av2rgy(int level) {
+    return (RGYLogLevel)clamp((AV_LOG_INFO / 8) - (level / 8), RGY_LOG_TRACE, RGY_LOG_ERROR);
 }
 
-static inline int log_level_rgy2av(int level) {
+static inline int log_level_rgy2av(RGYLogLevel level) {
     return clamp(AV_LOG_INFO - level * 8, AV_LOG_QUIET, AV_LOG_TRACE);
 }
 

@@ -229,8 +229,8 @@ public:
     uint32_t getAPIver() const { return m_apiVer; }
 protected:
     //既定の出力先に情報をメッセージを出力
-    void PrintMes(int log_level, const tstring &str);
-    void PrintMes(int logLevel, const TCHAR *format, ...);
+    void PrintMes(RGYLogLevel log_level, const tstring &str);
+    void PrintMes(RGYLogLevel logLevel, const TCHAR *format, ...);
 
     //特定の関数でのエラーを表示
     void NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus);
@@ -314,19 +314,19 @@ public:
     RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool skipHWDecodeCheck);
     tstring infostr() const;
 protected:
-    void writeLog(int log_level, const tstring &str) {
-        if (!m_log || log_level < m_log->getLogLevel()) {
+    void writeLog(RGYLogLevel log_level, const tstring &str) {
+        if (!m_log || log_level < m_log->getLogLevel(RGY_LOGT_DEV)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto &line : lines) {
             if (line[0] != _T('\0')) {
-                m_log->write(log_level, (+_T("gpuinfo: ") + line + _T("\n")).c_str());
+                m_log->write(log_level, RGY_LOGT_DEV, (+_T("gpuinfo: ") + line + _T("\n")).c_str());
             }
         }
     }
-    void writeLog(int log_level, const TCHAR *format, ...) {
-        if (!m_log || log_level < m_log->getLogLevel()) {
+    void writeLog(RGYLogLevel log_level, const TCHAR *format, ...) {
+        if (!m_log || log_level < m_log->getLogLevel(RGY_LOGT_DEV)) {
             return;
         }
 

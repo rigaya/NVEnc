@@ -52,7 +52,7 @@ EncodeStatus::EncodeStatus() {
     m_bStdErrWriteToConsole = false;
 }
 EncodeStatus::~EncodeStatus() {
-    if (m_pRGYLog) m_pRGYLog->write_log(RGY_LOG_DEBUG, _T("Closing EncodeStatus...\n"));
+    if (m_pRGYLog) m_pRGYLog->write_log(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Closing EncodeStatus...\n"));
     m_pPerfMonitor.reset();
     m_pRGYLog.reset();
     m_sStartTime.reset();
@@ -105,7 +105,7 @@ void EncodeStatus::SetOutputData(RGY_FRAMETYPE picType, uint64_t outputBytes, ui
 #pragma warning(push)
 #pragma warning(disable: 4100)
 void EncodeStatus::UpdateDisplay(const TCHAR *mes, double progressPercent) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
         return;
     }
 #if UNICODE
@@ -134,7 +134,7 @@ RGY_ERR EncodeStatus::UpdateDisplayByCurrentDuration(double currentDuration) {
     return UpdateDisplay(progressPercent);
 }
 RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
         return RGY_ERR_NONE;
     }
     if (m_sData.frameOut + m_sData.frameDrop <= 0) {
@@ -424,16 +424,16 @@ EncodeStatusData EncodeStatus::GetEncodeData() {
 }
 
 void EncodeStatus::WriteLine(const TCHAR *mes) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
         return;
     }
-    m_pRGYLog->write(RGY_LOG_INFO, _T("%s\n"), mes);
+    m_pRGYLog->write(RGY_LOG_INFO, RGY_LOGT_CORE, _T("%s\n"), mes);
 }
 void EncodeStatus::WriteLineDirect(const TCHAR *mes) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
         return;
     }
-    m_pRGYLog->write_log(RGY_LOG_INFO, mes);
+    m_pRGYLog->write_log(RGY_LOG_INFO, RGY_LOGT_CORE, mes);
 }
 void EncodeStatus::WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
     if (count) {

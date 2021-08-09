@@ -130,19 +130,19 @@ void NVEncoder::NVPrintFuncError(const TCHAR *funcName, CUresult code) {
     PrintMes(RGY_LOG_ERROR, _T("Error on %s: %d (%s)\n"), funcName, (int)code, char_to_tstring(_cudaGetErrorEnum(code)).c_str());
 }
 
-void NVEncoder::PrintMes(int log_level, const tstring &str) {
-    if (m_log == nullptr || log_level < m_log->getLogLevel()) {
+void NVEncoder::PrintMes(RGYLogLevel log_level, const tstring &str) {
+    if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_DEV)) {
         return;
     }
     auto lines = split(str, _T("\n"));
     for (const auto &line : lines) {
         if (line[0] != _T('\0')) {
-            m_log->write(log_level, (_T("nvenc : ") + line + _T("\n")).c_str());
+            m_log->write(log_level, RGY_LOGT_DEV, (_T("nvenc : ") + line + _T("\n")).c_str());
         }
     }
 }
-void NVEncoder::PrintMes(int log_level, const TCHAR *format, ...) {
-    if (m_log == nullptr || log_level < m_log->getLogLevel()) {
+void NVEncoder::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
+    if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_DEV)) {
         return;
     }
 
@@ -784,7 +784,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     char pci_bus_name[64] = { 0 };
     char dev_name[256] = { 0 };
     CUdevice cuDevice = 0;
-    const int error_level = (error_if_fail) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
+    const auto error_level = (error_if_fail) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
     writeLog(RGY_LOG_DEBUG, _T("checking for device #%d.\n"), deviceID);
     auto cuResult = cuDeviceGet(&cuDevice, deviceID);
     if (cuResult != CUDA_SUCCESS) {

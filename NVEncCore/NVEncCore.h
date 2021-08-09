@@ -103,7 +103,7 @@ protected:
     RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
 
     //既定の出力先に情報をメッセージを出力
-    virtual void PrintMes(int logLevel, const TCHAR *format, ...);
+    virtual void PrintMes(RGYLogLevel logLevel, const TCHAR *format, ...);
 
     //チャプターファイルを読み込み
     NVENCSTATUS readChapterFile(const tstring& chapfile);

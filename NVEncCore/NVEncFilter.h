@@ -150,19 +150,19 @@ protected:
         m_sFilterInfo = info;
         AddMessage(RGY_LOG_DEBUG, info);
     }
-    void AddMessage(int log_level, const tstring& str) {
-        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const tstring& str) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel(RGY_LOGT_VPP)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto& line : lines) {
             if (line[0] != _T('\0')) {
-                m_pPrintMes->write(log_level, (m_sFilterName + _T(": ") + line + _T("\n")).c_str());
+                m_pPrintMes->write(log_level, RGY_LOGT_VPP, (m_sFilterName + _T(": ") + line + _T("\n")).c_str());
             }
         }
     }
-    void AddMessage(int log_level, const TCHAR *format, ... ) {
-        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ... ) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel(RGY_LOGT_VPP)) {
             return;
         }
 

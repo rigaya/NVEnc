@@ -78,14 +78,136 @@ int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle_) {
 
 const char *RGYLog::HTML_FOOTER = "</body>\n</html>\n";
 
-RGYLog::RGYLog(const TCHAR *pLogFile, int log_level) {
-    init(pLogFile, log_level);
+const TCHAR *rgy_log_level_to_str(RGYLogLevel level) {
+    for (const auto& p : RGY_LOG_LEVEL_STR) {
+        if (p.first == level) return p.second;
+    }
+    return nullptr;
+}
+const RGYLogLevel rgy_log_level_by_name(const TCHAR *type) {
+    for (const auto& p : RGY_LOG_LEVEL_STR) {
+        if (_tcscmp(p.second, type) == 0) return p.first;
+    }
+    return RGY_LOG_INFO;
+}
+
+const TCHAR *rgy_log_type_to_str(RGYLogType type) {
+    for (const auto& p : RGY_LOG_TYPE_STR) {
+        if (p.first == type) return p.second;
+    }
+    return nullptr;
+}
+const RGYLogType rgy_log_type_by_name(const TCHAR *type) {
+    for (const auto& p : RGY_LOG_TYPE_STR) {
+        if (_tcscmp(p.second, type) == 0) return p.first;
+    }
+    return RGY_LOGT_ALL;
+}
+
+RGYParamLogLevel::RGYParamLogLevel() :
+    appcore_(RGY_LOG_INFO),
+    appdevice_(RGY_LOG_INFO),
+    appdecode_(RGY_LOG_INFO),
+    appinput_(RGY_LOG_INFO),
+    appoutput_(RGY_LOG_INFO),
+    appvpp_(RGY_LOG_INFO),
+    libav_(RGY_LOG_INFO),
+    libass_(RGY_LOG_INFO),
+    perfmonitor_(RGY_LOG_INFO),
+    caption2ass_(RGY_LOG_INFO)
+{ };
+
+RGYParamLogLevel::RGYParamLogLevel(const RGYLogLevel level) : RGYParamLogLevel() {
+    set(level, RGY_LOGT_ALL);
 };
+
+bool RGYParamLogLevel::operator==(const RGYParamLogLevel &x) const {
+    return appcore_ == x.appcore_
+        && appdevice_ == x.appdevice_
+        && appdecode_ == x.appdecode_
+        && appinput_ == x.appinput_
+        && appoutput_ == x.appoutput_
+        && appvpp_ == x.appvpp_
+        && libav_ == x.libav_
+        && libass_ == x.libass_
+        && perfmonitor_ == x.perfmonitor_
+        && caption2ass_ == x.caption2ass_;
+}
+bool RGYParamLogLevel::operator!=(const RGYParamLogLevel &x) const {
+    return !(*this == x);
+}
+
+RGYLogLevel RGYParamLogLevel::set(const RGYLogLevel newLogLevel, const RGYLogType type) {
+    RGYLogLevel prevLevel = RGY_LOG_INFO;
+    switch (type) {
+#define LOG_LEVEL_ADD_TYPE(TYPE, VAR) case (TYPE): { prevLevel = (VAR); (VAR) = newLogLevel; } break;
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_CORE,     appcore_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_DEV,   appdevice_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_DEC,  appdecode_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_IN,    appinput_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_OUT,   appoutput_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_VPP,      appvpp_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_LIBAV,        libav_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_LIBASS,       libass_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_PERF_MONITOR, perfmonitor_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_CAPION2ASS,  caption2ass_);
+#undef LOG_LEVEL_ADD_TYPE
+    case RGY_LOGT_APP: {
+        prevLevel  = appcore_;
+        appcore_   = newLogLevel;
+        appdevice_ = newLogLevel;
+        appdecode_ = newLogLevel;
+        appinput_  = newLogLevel;
+        appoutput_ = newLogLevel;
+        appvpp_    = newLogLevel;
+        } break;
+    case RGY_LOGT_ALL:
+    default: {
+        prevLevel    = appcore_;
+        appcore_     = newLogLevel;
+        appdevice_   = newLogLevel;
+        appdecode_   = newLogLevel;
+        appinput_    = newLogLevel;
+        appoutput_   = newLogLevel;
+        appvpp_      = newLogLevel;
+        libav_       = newLogLevel;
+        libass_      = newLogLevel;
+        perfmonitor_ = newLogLevel;
+        caption2ass_ = newLogLevel;
+        } break;
+    }
+    return prevLevel;
+}
+
+tstring RGYParamLogLevel::to_string() const {
+    std::basic_stringstream<TCHAR> tmp;
+    tmp << appcore_;
+#define LOG_LEVEL_ADD_TYPE(TYPE, VAR) { if ((VAR) != appcore_) tmp << _T(",") << rgy_log_type_to_str(TYPE) << _T("=") << rgy_log_level_to_str(VAR); }
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_DEV,   appdevice_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_DEC,  appdecode_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_IN,    appinput_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_OUT,   appoutput_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_VPP,      appvpp_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_LIBAV,        libav_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_LIBASS,       libass_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_PERF_MONITOR, perfmonitor_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_CAPION2ASS,  caption2ass_);
+#undef LOG_LEVEL_ADD_TYPE
+    return tmp.str();
+}
+
+RGYLog::RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level) {
+    init(pLogFile, RGYParamLogLevel(log_level));
+};
+
+RGYLog::RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level) {
+    init(pLogFile, log_level);
+}
 
 RGYLog::~RGYLog() {
 }
 
-void RGYLog::init(const TCHAR *pLogFile, int log_level) {
+void RGYLog::init(const TCHAR *pLogFile, const RGYParamLogLevel& log_level) {
     m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
     m_mtx.reset(new std::mutex());
@@ -167,36 +289,36 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
             fileHeader += SEP5;
     }
     fileHeader += _T("\n");
-    write(RGY_LOG_INFO, fileHeader.c_str());
+    write(RGY_LOG_INFO, RGY_LOGT_CORE, fileHeader.c_str());
 
-    if (m_nLogLevel <= RGY_LOG_DEBUG) {
+    if (m_nLogLevel.get(RGY_LOGT_APP) <= RGY_LOG_DEBUG) {
         TCHAR cpuInfo[256] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
-        write(RGY_LOG_DEBUG, _T("%s    %s (%s)\n"), _T(ENCODER_NAME), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("%s    %s (%s)\n"), _T(ENCODER_NAME), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
 #if defined(_WIN32) || defined(_WIN64)
         OSVERSIONINFOEXW osversioninfo = { 0 };
         tstring osversionstr = getOSVersion(&osversioninfo);
-        write(RGY_LOG_DEBUG, _T("OS        %s %s (%d) [%s]\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber, getACPCodepageStr().c_str());
+        write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("OS        %s %s (%d) [%s]\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber, getACPCodepageStr().c_str());
 #else
-        write(RGY_LOG_DEBUG, _T("OS        %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
+        write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("OS        %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
 #endif
-        write(RGY_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+        write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CPU Info  %s\n"), cpuInfo);
 #if ENCODER_QSV
         TCHAR gpu_info[1024] = { 0 };
         getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
-        write(RGY_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+        write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("GPU Info  %s\n"), gpu_info);
 #endif //#if ENCODER_QSV
 #if defined(_WIN32) || defined(_WIN64)
-        write(RGY_LOG_DEBUG, _T("Locale    %s\n"), _tsetlocale(LC_ALL, nullptr));
+        write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Locale    %s\n"), _tsetlocale(LC_ALL, nullptr));
 #endif
     }
 }
 void RGYLog::writeFileFooter() {
-    write(RGY_LOG_INFO, _T("\n\n"));
+    write(RGY_LOG_INFO, RGY_LOGT_CORE, _T("\n\n"));
 }
 
-void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
-    if (log_level < m_nLogLevel) {
+void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TCHAR *buffer, bool file_only) {
+    if (log_level < m_nLogLevel.get(logtype)) {
         return;
     }
 
@@ -273,8 +395,8 @@ void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     }
 }
 
-void RGYLog::write(int log_level, const wchar_t *format, va_list args) {
-    if (log_level < m_nLogLevel) {
+void RGYLog::write(RGYLogLevel log_level, const RGYLogType logtype, const wchar_t *format, va_list args) {
+    if (log_level < m_nLogLevel.get(logtype)) {
         return;
     }
 
@@ -282,13 +404,13 @@ void RGYLog::write(int log_level, const wchar_t *format, va_list args) {
     std::vector<wchar_t> buffer(len, 0);
     if (buffer.data() != nullptr) {
         vswprintf_s(buffer.data(), len, format, args); // C4996
-        write_log(log_level, wstring_to_tstring(buffer.data()).c_str());
+        write_log(log_level, logtype, wstring_to_tstring(buffer.data()).c_str());
     }
     va_end(args);
 }
 
-void RGYLog::write(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP) {
-    if (log_level < m_nLogLevel) {
+void RGYLog::write(RGYLogLevel log_level, const RGYLogType logtype, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP) {
+    if (log_level < m_nLogLevel.get(logtype)) {
         return;
     }
 
@@ -296,13 +418,13 @@ void RGYLog::write(int log_level, const char *format, va_list args, uint32_t cod
     std::vector<char> buffer(len, 0);
     if (buffer.data() != nullptr) {
         vsprintf_s(buffer.data(), len, format, args); // C4996
-        write_log(log_level, char_to_tstring(buffer.data(), codepage).c_str());
+        write_log(log_level, logtype, char_to_tstring(buffer.data(), codepage).c_str());
     }
     va_end(args);
 }
 
-void RGYLog::write_line(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP) {
-    if (log_level < m_nLogLevel) {
+void RGYLog::write_line(RGYLogLevel log_level, const RGYLogType logtype, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP) {
+    if (log_level < m_nLogLevel.get(logtype)) {
         return;
     }
 
@@ -311,13 +433,13 @@ void RGYLog::write_line(int log_level, const char *format, va_list args, uint32_
     if (buffer.data() != nullptr) {
         vsprintf_s(buffer.data(), len, format, args); // C4996
         tstring str = char_to_tstring(buffer.data(), codepage) + tstring(_T("\n"));
-        write_log(log_level, str.c_str());
+        write_log(log_level, logtype, str.c_str());
     }
     va_end(args);
 }
 
-void RGYLog::write(int log_level, const TCHAR *format, ...) {
-    if (log_level < m_nLogLevel) {
+void RGYLog::write(RGYLogLevel log_level, const RGYLogType logtype, const TCHAR *format, ...) {
+    if (log_level < m_nLogLevel.get(logtype)) {
         return;
     }
 
@@ -328,7 +450,8 @@ void RGYLog::write(int log_level, const TCHAR *format, ...) {
     std::vector<TCHAR> buffer(len, 0);
     if (buffer.data() != nullptr) {
         _vstprintf_s(buffer.data(), len, format, args); // C4996
-        write_log(log_level, buffer.data());
+        write_log(log_level, logtype, buffer.data());
     }
     va_end(args);
 }
+
