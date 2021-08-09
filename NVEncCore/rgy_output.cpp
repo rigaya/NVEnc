@@ -1025,7 +1025,7 @@ RGY_ERR initWriters(
                 return sts;
             }
             stdoutUsed = pFileWriter->outputStdout();
-            log->write(RGY_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         } else
 #endif
         {
