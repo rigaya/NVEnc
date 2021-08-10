@@ -528,7 +528,7 @@ if [ $ENABLE_AVISYNTH -ne 0 ]; then
         AVISYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_AVISYNTH_NAMES}`
         AVISYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_AVISYNTH_NAMES}`
     fi
-    if ! cxx_check "avisynth_c.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVISYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVISYNTH_LIBS}" "" "avisynth_c.h" "" ; then
+    if ! cxx_check "avisynth_c.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVISYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVISYNTH_LIBS}" "avisynth_c.h" "" "" ; then
         cnf_write "no"
         ENABLE_AVISYNTH=0
     else
