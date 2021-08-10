@@ -2576,8 +2576,8 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
         } else {
             AVDemuxStream *pStream = getPacketStreamData(&pkt);
             const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
-            if (pkt.pts == AV_NOPTS_VALUE) pkt.pts += delay_ts;
-            if (pkt.dts == AV_NOPTS_VALUE) pkt.dts += delay_ts;
+            if (pkt.pts != AV_NOPTS_VALUE) pkt.pts += delay_ts;
+            if (pkt.dts != AV_NOPTS_VALUE) pkt.dts += delay_ts;
             if (checkStreamPacketToAdd(&pkt, pStream)) {
                 m_Demux.qStreamPktL1.push_back(pkt);
             } else {
