@@ -757,11 +757,12 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         || (ENCODER_QSV
             && videoOutputInfo->vui.chromaloc != 0)
         || (ENCODER_VCEENC
-            && (videoOutputInfo->vui.format != 5
+            && (videoOutputInfo->codec == RGY_CODEC_HEVC // HEVCの時は常に上書き
+                || (videoOutputInfo->vui.format != 5
                 || videoOutputInfo->vui.colorprim != 2
                 || videoOutputInfo->vui.transfer != 2
                 || videoOutputInfo->vui.matrix != 2
-                || videoOutputInfo->vui.chromaloc != 0))) {
+                || videoOutputInfo->vui.chromaloc != 0)))) {
         const char *bsf_name = nullptr;
         switch (videoOutputInfo->codec) {
         case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
@@ -818,19 +819,21 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), videoOutputInfo->sar[0], videoOutputInfo->sar[1], bsf_tname.c_str());
         }
         if (ENCODER_VCEENC) {
-            if (videoOutputInfo->vui.format != 5 /*undef*/) {
+            // HEVCの10bitの時、エンコーダがおかしなVUIを設定することがあるのでこれを常に上書き
+            const bool override_always = videoOutputInfo->codec == RGY_CODEC_HEVC;
+            if (override_always || videoOutputInfo->vui.format != 5 /*undef*/) {
                 av_dict_set_int(&bsfPrm, "video_format", videoOutputInfo->vui.format, 0);
                 AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), videoOutputInfo->vui.format, bsf_tname.c_str());
             }
-            if (videoOutputInfo->vui.colorprim != 2 /*undef*/) {
+            if (override_always || videoOutputInfo->vui.colorprim != 2 /*undef*/) {
                 av_dict_set_int(&bsfPrm, "colour_primaries", videoOutputInfo->vui.colorprim, 0);
                 AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), videoOutputInfo->vui.colorprim, bsf_tname.c_str());
             }
-            if (videoOutputInfo->vui.transfer != 2 /*undef*/) {
+            if (override_always || videoOutputInfo->vui.transfer != 2 /*undef*/) {
                 av_dict_set_int(&bsfPrm, "transfer_characteristics", videoOutputInfo->vui.transfer, 0);
                 AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), videoOutputInfo->vui.transfer, bsf_tname.c_str());
             }
-            if (videoOutputInfo->vui.matrix != 2 /*undef*/) {
+            if (override_always || videoOutputInfo->vui.matrix != 2 /*undef*/) {
                 av_dict_set_int(&bsfPrm, "matrix_coefficients", videoOutputInfo->vui.matrix, 0);
                 AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), videoOutputInfo->vui.matrix, bsf_tname.c_str());
             }

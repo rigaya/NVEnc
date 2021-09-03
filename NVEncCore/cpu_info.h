@@ -62,7 +62,7 @@ bool get_cpu_info(cpu_info_t *cpu_info);
 cpu_info_t get_cpu_info();
 
 #if ENCODER_QSV
-#include "mfxvideo++.h"
+class MFXVideoSession;
 int getCPUInfo(TCHAR *buffer, size_t nSize, MFXVideoSession *pSession = nullptr);
 #else
 int getCPUInfo(TCHAR *buffer, size_t nSize);
