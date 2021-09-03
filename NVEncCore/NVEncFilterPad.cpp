@@ -139,7 +139,7 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
         }
     }
     const int pixel_byte = RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8 ? 2 : 1;
-    auto cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptr + pad->top * pOutputFrame->pitch + pad->right * pixel_byte, pOutputFrame->pitch,
+    auto cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptr + pad->top * pOutputFrame->pitch + pad->left * pixel_byte, pOutputFrame->pitch,
             pInputFrame->ptr, pInputFrame->pitch,
             pInputFrame->width * pixel_byte, pInputFrame->height,
             memcpyKind);
