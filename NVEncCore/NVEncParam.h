@@ -562,7 +562,6 @@ struct VppCustom {
 };
 
 struct VppParam {
-    bool checkPerformance;
     cudaVideoDeinterlaceMode deinterlace;
     NppiMaskSize             gaussMaskSize;
 

@@ -2700,6 +2700,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-perf-monitor")) {
+        vpp->checkPerformance = true;
+        return 0;
+    }
+    if (IS_OPTION("no-vpp-perf-monitor")) {
+        vpp->checkPerformance = false;
+        return 0;
+    }
     return -1;
 }
 
@@ -4645,7 +4653,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-#if ENCODER_QSV
+#if ENCODER_QSV || ENCODER_VCEENC
     if (IS_OPTION("disable-opencl")) {
         ctrl->enableOpenCL = false;
         return 0;
@@ -5153,6 +5161,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-deband");
         }
     }
+    OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), checkPerformance);
     return cmd.str();
 }
 
@@ -6167,6 +6176,9 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));
 #endif
+    str += strsprintf(_T("\n")
+        _T("   --vpp-perf-monitor           check vpp perfromance (for debug)\n")
+    );
     return str;
 }
 

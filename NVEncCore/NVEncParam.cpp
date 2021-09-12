@@ -145,7 +145,6 @@ tstring VppCustom::print() const {
 }
 
 VppParam::VppParam() :
-    checkPerformance(false),
     deinterlace(cudaVideoDeinterlaceMode_Weave),
     gaussMaskSize((NppiMaskSize)0) {
 }

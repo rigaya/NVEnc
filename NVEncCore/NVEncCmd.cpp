@@ -270,9 +270,6 @@ tstring encoder_help() {
     str += _T("\n");
 
     str += strsprintf(_T("")
-        _T("   --vpp-perf-monitor           check duration of each filter.\n")
-        _T("                                  may decrease overall transcode performance.\n"));
-    str += strsprintf(_T("")
         _T("   --cuda-schedule <string>     set cuda schedule mode (default: sync).\n")
         _T("       auto  : let cuda driver to decide\n")
         _T("       spin  : CPU will spin when waiting GPU tasks,\n")
@@ -395,15 +392,6 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
             print_cmd_error_invalid_value(option_name, strInput[i], list_nppi_gauss);
             return 1;
         }
-        return 0;
-    }
-
-    if (IS_OPTION("vpp-perf-monitor")) {
-        vppnv->checkPerformance = true;
-        return 0;
-    }
-    if (IS_OPTION("no-vpp-perf-monitor")) {
-        vppnv->checkPerformance = false;
         return 0;
     }
     return -1;
@@ -1525,7 +1513,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_LST(_T("--vpp-deinterlace"), vppnv.deinterlace, list_deinterlace);
     OPT_LST(_T("--vpp-gauss"), vppnv.gaussMaskSize, list_nppi_gauss);
-    OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vppnv.checkPerformance);
 
     cmd << gen_cmd(&pParams->vpp, &encPrmDefault.vpp, save_disabled_prm);
 

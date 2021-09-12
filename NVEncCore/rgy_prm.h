@@ -981,6 +981,7 @@ struct RGYParamVpp {
     VppTweak tweak;
     VppTransform transform;
     VppDeband deband;
+    bool checkPerformance;
 
     RGYParamVpp();
 };

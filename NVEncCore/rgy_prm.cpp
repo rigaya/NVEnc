@@ -1020,7 +1020,8 @@ RGYParamVpp::RGYParamVpp() :
     warpsharp(),
     tweak(),
     transform(),
-    deband() {
+    deband(),
+    checkPerformance(false) {
 
 }
 

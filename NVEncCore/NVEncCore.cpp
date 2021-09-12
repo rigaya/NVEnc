@@ -2807,7 +2807,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     {
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         for (auto& filter : m_vpFilters) {
-            filter->CheckPerformance(inputParam->vppnv.checkPerformance);
+            filter->CheckPerformance(inputParam->vpp.checkPerformance);
         }
     }
     m_encVUI = inputParam->common.out_vui;
