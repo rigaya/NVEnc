@@ -862,6 +862,9 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 --audio-metadata 1?title="音声の タイトル" --audio-metadata 1?language=jpn
 ```
 
+### --audio-bsf [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+音声トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
+
 ### --audio-ignore-decode-error &lt;int&gt;
 指定した連続する音声のデコードエラーの数をカウントし、閾値以内ならエラーを無視して処理を継続し、エラーの箇所は無音に置き換える。
 
@@ -900,6 +903,9 @@ hexagonal  = FL + FR + FC + BL + BR + BC
   
 - metadata=&lt;string1&gt;=&lt;string2&gt;  
   音声のmetadataを指定する。
+
+- bsf=&lt;string&gt;  
+  音声に適用するbitstream filterを指定する。
 
 ```
 例1: --audio-source "<audio_file>":copy
@@ -994,6 +1000,9 @@ matroska形式 (UTF-8であること)
 - metadata=&lt;string1&gt;=&lt;string2&gt;  
   字幕のmetadataを指定する。
 
+- bsf=&lt;string&gt;  
+  字幕に適用するbitstream filterを指定する。
+
 ```
 例1: --sub-source "<sub_file>"
 例2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
@@ -1054,6 +1063,9 @@ matroska形式 (UTF-8であること)
 例3: 指定のmetadataを設定する
 --sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
 ```
+
+### --sub-bsf [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+字幕トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
 
 ### --caption2ass [&lt;string&gt;]
 caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。

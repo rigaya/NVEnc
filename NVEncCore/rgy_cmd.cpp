@@ -5766,6 +5766,7 @@ tstring gen_cmd_help_common() {
         _T("                                set metadata for the specified audio track.\n")
         _T("                                 - copy ... copy metadata from input (default)\n")
         _T("                                 - clear ... do not set metadata\n")
+        _T("   --audio-bsf [<int>?]<string> set bitstream filter to audio track.\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
         _T("   --chapter-no-trim            do not apply --trim to --chapter.\n")
@@ -5787,6 +5788,7 @@ tstring gen_cmd_help_common() {
         _T("                                set metadata for the specified audio track.\n")
         _T("                                 - copy ... copy metadata from input (default)\n")
         _T("                                 - clear ... do not set metadata\n")
+        _T("   --sub-bsf [<int>?]<string>   set bitstream filter to subtitle track.\n")
 #if ENABLE_CAPTION2ASS
         _T("   --caption2ass [<string>]     enable caption2ass during encode.\n")
         _T("                                  !! This feature requires Caption.dll !!\n")
