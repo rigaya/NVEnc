@@ -234,56 +234,96 @@ __constant__ uchar2 SPP_DEBLOCK_OFFSET[127] = {
 #define SIN(x, y)  (shared_in[(y) & (8 * SPP_SHARED_BLOCK_NUM_Y - 1)][(x)])
 #define SOUT(x, y) (shared_out[(y) & (8 * SPP_SHARED_BLOCK_NUM_Y - 1)][(x)])
 
-__device__ void load_8x8(float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], cudaTextureObject_t texSrc, int thWorker, int shared_bx, int shared_by, int src_global_bx, int src_global_by) {
-    #pragma unroll
-    for (int y = 0; y < 8; y++) {
-        SIN(shared_bx * 8 + thWorker, shared_by * 8 + y) = tex2D<float>(texSrc, src_global_bx * 8 + thWorker, src_global_by * 8 + y);
+
+template<typename TypeIO>
+__device__ TypeIO float2TypeIO(float f) {
+    if (sizeof(TypeIO) == sizeof(float)) {
+        return f;
+    } else {
+        return __half2float(f);
     }
 }
-__device__ void zero_8x8(float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by) {
-    #pragma unroll
-    for (int y = 0; y < 8; y++) {
-        SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y) = 0.0f;
+template<typename TypeIO>
+__device__ TypeIO half2TypeIO(__half f) {
+    if (sizeof(TypeIO) == sizeof(__half)) {
+        return f;
+    } else {
+        return __half2float(f);
     }
 }
-__device__ void load_8x8tmp(float shared_tmp[8][9], float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
-    #pragma unroll
-    for (int y = 0; y < 8; y++) {
-        STMP(thWorker, y) = SIN(shared_bx*8 + offset1_x + thWorker, shared_by*8 + offset1_y + y);
+template<typename TypeIO>
+__device__ float TypeIO2float(TypeIO f) {
+    if (sizeof(TypeIO) == sizeof(float)) {
+        return f;
+    } else {
+        return __float2half(f);
     }
 }
-__device__ void add_8x8tmp(float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], float shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+template<typename TypeIO>
+__device__ __half2 TypeIO2half2(TypeIO f1, TypeIO f2) {
+    if (sizeof(TypeIO) == sizeof(__half)) {
+        return __half2(f1, f2);
+    } else {
+        return __floats2half2_rn(f1, f2);
+    }
+}
+
+template<typename TypeIO>
+__device__ void load_8x8(TypeIO shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], cudaTextureObject_t texSrc, int thWorker, int shared_bx, int shared_by, int src_global_bx, int src_global_by) {
     #pragma unroll
     for (int y = 0; y < 8; y++) {
-        SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += STMP(thWorker, y);
+        SIN(shared_bx * 8 + thWorker, shared_by * 8 + y) = float2TypeIO<TypeIO>(tex2D<float>(texSrc, src_global_bx * 8 + thWorker, src_global_by * 8 + y));
+    }
+}
+template<typename TypeIO>
+__device__ void zero_8x8(TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by) {
+    #pragma unroll
+    for (int y = 0; y < 8; y++) {
+        SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y) = float2TypeIO<TypeIO>(0.0f);
+    }
+}
+template<typename TypeIO>
+__device__ void load_8x8tmp(float shared_tmp[8][9], TypeIO shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+    #pragma unroll
+    for (int y = 0; y < 8; y++) {
+        STMP(thWorker, y) = TypeIO2float<TypeIO>(SIN(shared_bx*8 + offset1_x + thWorker, shared_by*8 + offset1_y + y));
+    }
+}
+template<typename TypeIO>
+__device__ void add_8x8tmp(TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], float shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+    #pragma unroll
+    for (int y = 0; y < 8; y++) {
+        SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += float2TypeIO<TypeIO>(STMP(thWorker, y));
     }
 }
 #if ENABLE_CUDA_FP16_HOST
-__device__ void load_8x8tmp(__half2 shared_tmp[8][9], float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+template<typename TypeIO>
+__device__ void load_8x8tmp(__half2 shared_tmp[8][9], TypeIO shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
 #if ENABLE_CUDA_FP16_DEVICE
     #pragma unroll
     for (int y = 0; y < 8; y++) {
-        float v0 = SIN(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y);
-        float v1 = SIN(shared_bx * 8 + offset2_x + thWorker, shared_by * 8 + offset2_y + y);
-        STMP(thWorker, y) = __floats2half2_rn(v0, v1);
+        TypeIO v0 = SIN(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y);
+        TypeIO v1 = SIN(shared_bx * 8 + offset2_x + thWorker, shared_by * 8 + offset2_y + y);
+        STMP(thWorker, y) = TypeIO2half2<TypeIO>(v0, v1);
     }
 #endif //#if ENABLE_CUDA_FP16_DEVICE
 }
-__device__ void add_8x8tmp(float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], __half2 shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+template<typename TypeIO>
+__device__ void add_8x8tmp(TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], __half2 shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
 #if ENABLE_CUDA_FP16_DEVICE
     #pragma unroll
     for (int y = 0; y < 8; y++) {
         __half2 v = STMP(thWorker, y);
-        float v0 = __half2float(v.x);
-        float v1 = __half2float(v.y);
+        TypeIO v0 = half2TypeIO<TypeIO>(v.x);
+        TypeIO v1 = half2TypeIO<TypeIO>(v.y);
         SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += v0;
         SOUT(shared_bx * 8 + offset2_x + thWorker, shared_by * 8 + offset2_y + y) += v1;
     }
 #endif //#if ENABLE_CUDA_FP16_DEVICE
 }
 #endif //#if ENABLE_CUDA_FP16_HOST
-template<typename TypePixel, int bit_depth>
-__device__ void store_8x8(char *__restrict__ pDst, int dstPitch, int dstWidth, int dstHeight, float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int dst_global_bx, int dst_global_by, int quality) {
+template<typename TypePixel, int bit_depth, typename TypeIO>
+__device__ void store_8x8(char *__restrict__ pDst, int dstPitch, int dstWidth, int dstHeight, TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int dst_global_bx, int dst_global_by, int quality) {
     const int dst_global_x = dst_global_bx * 8 + thWorker;
     if (dst_global_x < dstWidth) {
         const int dst_block_offset = (dst_global_by * 8) * dstPitch + dst_global_x * sizeof(TypePixel);
@@ -293,13 +333,13 @@ __device__ void store_8x8(char *__restrict__ pDst, int dstPitch, int dstWidth, i
         #pragma unroll
         for (int y = 0; y < 8; y++, ptrDst += dstPitch) {
             if (y < y_max) {
-                *(TypePixel *)ptrDst = (TypePixel)clamp(SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y) * (float)(1 << (bit_depth - quality)), 0.0f, (float)((1 << bit_depth) - 0.5f));
+                *(TypePixel *)ptrDst = (TypePixel)clamp(TypeIO2float<TypeIO>(SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y)) * (float)(1 << (bit_depth - quality)), 0.0f, (float)((1 << bit_depth) - 0.5f));
             }
         }
     }
 }
 
-template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
+template<typename TypePixel, int bit_depth, typename TypeIO, typename TypeDct, bool usefp16, typename TypeQP>
 __global__ void kernel_spp(
     char *__restrict__ ptrDst,
     cudaTextureObject_t texSrc,
@@ -322,8 +362,8 @@ __global__ void kernel_spp(
     const int count = 1 << quality;
 
     __shared__ TypeDct shared_tmp[SPP_THREAD_BLOCK_Y][8][9];
-    __shared__ float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
-    __shared__ float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
+    __shared__ TypeIO shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
+    __shared__ TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
 
     load_8x8(shared_in, texSrc, thWorker, local_bx, 0, global_bx - 1, global_by - 1);
     zero_8x8(shared_out, thWorker, local_bx, 0);
@@ -385,7 +425,7 @@ __global__ void kernel_spp(
             __syncthreads();
         }
         if (local_by > 0) {
-            store_8x8<TypePixel, bit_depth>(ptrDst, dstPitch, dstWidth, dstHeight, shared_out, thWorker, local_bx+1, local_by, global_bx, global_by-1, quality);
+            store_8x8<TypePixel, bit_depth, TypeIO>(ptrDst, dstPitch, dstWidth, dstHeight, shared_out, thWorker, local_bx+1, local_by, global_bx, global_by-1, quality);
         }
         __syncthreads();
     }
@@ -415,7 +455,7 @@ cudaError_t setTexFieldSmooth(cudaTextureObject_t& texSrc, const RGYFrameInfo *p
     return cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
 }
 
-template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
+template<typename TypePixel, int bit_depth, typename TypeIO, typename TypeDct, bool usefp16, typename TypeQP>
 cudaError_t run_spp(RGYFrameInfo *pOutputPlane,
     const RGYFrameInfo *pSrc,
     const RGYFrameInfo *pQP,
@@ -438,7 +478,7 @@ cudaError_t run_spp(RGYFrameInfo *pOutputPlane,
     const float thresh_a = (threshold + W) / (2.0f * W);
     const float thresh_b = (W * W - threshold * threshold) / (2.0f * W);
 
-    kernel_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP><<<gridSize, blockSize, 0, stream>>>(
+    kernel_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP><<<gridSize, blockSize, 0, stream>>>(
         (char * )pOutputPlane->ptr,
         texSrc,
         pOutputPlane->pitch,
@@ -456,7 +496,7 @@ cudaError_t run_spp(RGYFrameInfo *pOutputPlane,
     return cudaerr;
 }
 
-template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
+template<typename TypePixel, int bit_depth, typename TypeIO, typename TypeDct, bool usefp16, typename TypeQP>
 cudaError_t run_spp_frame(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pSrc,
     const CUFrameBuf *qpFrame,
@@ -475,15 +515,15 @@ cudaError_t run_spp_frame(RGYFrameInfo *pOutputFrame,
     const int qpBlockShiftY = 1;
     const int qpBlockShiftUV = RGY_CSP_CHROMA_FORMAT[pSrc->csp] == RGY_CHROMAFMT_YUV420 ? 0 : 1;
 
-    auto cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputY, &planeSrcY, &qpFrame->frame, qpBlockShiftY, qpMul, quality, strength, threshold, stream);
+    auto cudaerr = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputY, &planeSrcY, &qpFrame->frame, qpBlockShiftY, qpMul, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputU, &planeSrcU, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
+    cudaerr = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputU, &planeSrcU, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputV, &planeSrcV, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
+    cudaerr = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputV, &planeSrcV, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -798,18 +838,18 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         }
     }
 
-    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, false, uint8_t>)*> func_list_fp32 = {
-        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, float, false, uint8_t> },
-        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, float, false, uint8_t> },
-        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, float, false, uint8_t> },
-        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, float, false, uint8_t> }
+    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, float, false, uint8_t>)*> func_list_fp32 = {
+        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, float, float, false, uint8_t> },
+        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, float, float, false, uint8_t> },
+        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, float, float, false, uint8_t> },
+        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, float, float, false, uint8_t> }
     };
 #if ENABLE_CUDA_FP16_HOST
-    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, false, uint8_t>) *> func_list_fp16 = {
-        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, __half2, true, uint8_t> },
-        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, __half2, true, uint8_t> },
-        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, __half2, true, uint8_t> },
-        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, __half2, true, uint8_t> },
+    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, float, false, uint8_t>) *> func_list_fp16 = {
+        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, __half, __half2, true, uint8_t> },
+        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, __half, __half2, true, uint8_t> },
+        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, __half, __half2, true, uint8_t> },
+        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, __half, __half2, true, uint8_t> },
     };
     const auto &func_list = (prm->smooth.prec == VPP_FP_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
 #else
