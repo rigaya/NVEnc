@@ -2934,6 +2934,8 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
                 chSel.selectCodec = tchar_to_string(param_val);
             } else if (param_arg == _T("metadata")) {
                 chSel.metadata.push_back(param_val);
+            } else if (param_arg == _T("bsf")) {
+                chSel.bsf = param_val;
             } else {
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
@@ -2971,6 +2973,8 @@ int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TC
                 chSel.selectCodec = tchar_to_string(param_val);
             } else if (param_arg == _T("metadata")) {
                 chSel.metadata.push_back(param_val);
+            } else if (param_arg == _T("bsf")) {
+                chSel.bsf = param_val;
             } else {
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
@@ -5357,6 +5361,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     for (const auto& metadata : sel.metadata) {
                         tmp << _T(";metadata=") << metadata;
                     }
+                    if (sel.bsf.length() > 0) {
+                        tmp << _T(";bsf=") << sel.bsf;
+                    }
                 }
                 if (!tmp.str().empty()) {
                     cmd << tmp.str().substr(1);
@@ -5412,6 +5419,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     }
                     for (const auto& metadata : sel.metadata) {
                         tmp << _T(";metadata=") << metadata;
+                    }
+                    if (sel.bsf.length() > 0) {
+                        tmp << _T(";bsf=") << sel.bsf;
                     }
                 }
                 if (!tmp.str().empty()) {
