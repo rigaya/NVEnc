@@ -910,7 +910,7 @@ Mux an external audio file specified.
 - metadata=&lt;string1&gt;=&lt;string2&gt;  
   Specify metadata for audio track.
   
-- filter=&lt;string&gt;  
+- bsf=&lt;string&gt;  
   Specify bitstream filter for audio track.
 
 ```
@@ -1006,7 +1006,7 @@ Read subtitle from the specified file and mux into the output file.
 - metadata=&lt;string1&gt;=&lt;string2&gt;  
   Specify metadata for subtitle track.
   
-- filter=&lt;string&gt;  
+- bsf=&lt;string&gt;  
   Specify bitstream filter for subtitle track.
 
 ```
