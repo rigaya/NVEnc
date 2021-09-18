@@ -314,7 +314,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
-    const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
+    const auto fps_gcd = std::gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
     m_inputVideoInfo.srcWidth = vsvideoinfo->width;
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
     m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
