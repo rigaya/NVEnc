@@ -1078,7 +1078,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
         fcgCBLogDebug->Checked             = encPrm.ctrl.loglevel.get(RGY_LOGT_APP) == RGY_LOG_DEBUG;
 
-        fcgCBVppPerfMonitor->Checked   = encPrm.vppnv.checkPerformance != 0;
+        fcgCBVppPerfMonitor->Checked   = encPrm.vpp.checkPerformance != 0;
         fcgCBVppResize->Checked        = cnf->vid.resize_enable != 0;
         SetNUValue(fcgNUVppResizeWidth,  cnf->vid.resize_width);
         SetNUValue(fcgNUVppResizeHeight, cnf->vid.resize_height);
@@ -1354,7 +1354,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     }
 
     encPrm.ctrl.loglevel.set(fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO, RGY_LOGT_ALL);
-    encPrm.vppnv.checkPerformance     = fcgCBVppPerfMonitor->Checked;
+    encPrm.vpp.checkPerformance       = fcgCBVppPerfMonitor->Checked;
 
     encPrm.vpp.resize_algo            = (RGY_VPP_RESIZE_ALGO)list_vpp_resize[fcgCXVppResizeAlg->SelectedIndex].value;
 
