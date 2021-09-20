@@ -1849,7 +1849,7 @@ System::Void frmConfig::SetVidEncInfo(VidEncInfo info) {
 
 VidEncInfo frmConfig::GetVidEncInfo() {
     char exe_path[MAX_PATH_LEN];
-    char mes[8192];
+    std::vector<char> mes(16384, 0);
 
     VidEncInfo info;
     info.hwencAvail = false;
@@ -1859,14 +1859,18 @@ VidEncInfo frmConfig::GetVidEncInfo() {
         info.devices->Clear();
     }
     GetCHARfromString(exe_path, sizeof(exe_path), LocalStg.vidEncPath);
-    if (get_exe_message(exe_path, "--check-device", mes, _countof(mes), AUO_PIPE_MUXED) == RP_SUCCESS) {
+    if (get_exe_message(exe_path, "--check-device", mes.data(), mes.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
         info.devices = gcnew List<String^>();
-        auto list = String(mes).ToString()->Replace("DeviceId ", "")->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
-        info.devices->AddRange(list);
+        auto lines = String(mes.data()).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+        for (int i = 0; i < lines->Length; i++) {
+            if (lines[i]->Contains("DeviceId")) {
+                info.devices->Add(lines[i]->Replace("DeviceId ", ""));
+            }
+        }
     }
 
-    if (get_exe_message(exe_path, "--check-hw", mes, _countof(mes), AUO_PIPE_MUXED) == RP_SUCCESS) {
-        auto lines = String(mes).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+    if (get_exe_message(exe_path, "--check-hw", mes.data(), mes.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
+        auto lines = String(mes.data()).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
         bool check_codecs = false;
         for (int i = 0; i < lines->Length; i++) {
             if (lines[i]->Contains("Avaliable Codec")) {
