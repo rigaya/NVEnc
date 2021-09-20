@@ -36,7 +36,6 @@
 #include <chrono>
 #include <cassert>
 #include <memory>
-#include <numeric>
 #include <algorithm>
 #include <unordered_map>
 #include <climits>
@@ -262,10 +261,42 @@ struct module_deleter {
 };
 
 template<typename T>
+static inline T rgy_gcd(T a, T b) {
+    static_assert(std::is_integral<T>::value, "rgy_gcd is defined only for integer.");
+    if (a == 0) return b;
+    if (b == 0) return a;
+    T c;
+    while ((c = a % b) != 0)
+        a = b, b = c;
+    return b;
+}
+
+template<typename T>
+static inline T rgy_gcd(std::pair<T, T> int2) {
+    return rgy_gcd(int2.first, int2.second);
+}
+
+template<typename T>
+static inline T rgy_lcm(T a, T b) {
+    static_assert(std::is_integral<T>::value, "rgy_lcm is defined only for integer.");
+    if (a == 0) return 0;
+    if (b == 0) return 0;
+    T gcd = rgy_gcd(a, b);
+    a /= gcd;
+    b /= gcd;
+    return a * b * gcd;
+}
+
+template<typename T>
+static inline T rgy_lcm(std::pair<T, T> int2) {
+    return rgy_lcm(int2.first, int2.second);
+}
+
+template<typename T>
 static inline void rgy_reduce(T& a, T& b) {
     static_assert(std::is_integral<T>::value, "rgy_reduce is defined only for integer.");
     if (a == 0 || b == 0) return;
-    T gcd = std::gcd(a, b);
+    T gcd = rgy_gcd(a, b);
     a /= gcd;
     b /= gcd;
 }
@@ -335,11 +366,11 @@ public:
             return *this;
         }
 
-        T gcd0 = std::gcd(den, r.den);
+        T gcd0 = rgy_gcd(den, r.den);
         den /= gcd0;
         T tmp = r.den / gcd0;
         num = num * tmp + r.num * den;
-        T gcd1 = std::gcd(num, gcd0);
+        T gcd1 = rgy_gcd(num, gcd0);
         num /= gcd1;
         tmp = r.den / gcd1;
         den *= tmp;
@@ -358,8 +389,8 @@ public:
             num = 0;
             return *this;
         }
-        T gcd0 = std::gcd(num, r.den);
-        T gcd1 = std::gcd(den, r.num);
+        T gcd0 = rgy_gcd(num, r.den);
+        T gcd1 = rgy_gcd(den, r.num);
         T a0 = num / gcd0;
         T a1 = r.num / gcd1;
         T b0 = den / gcd1;
@@ -387,7 +418,7 @@ public:
         return *this;
     }
     rgy_rational<T>& operator*= (const T& i) {
-        T gcd = std::gcd(i, den);
+        T gcd = rgy_gcd(i, den);
         num *= i / gcd;
         den /= gcd;
         return *this;
@@ -397,7 +428,7 @@ public:
             num = 0;
             den = 0;
         } else if (num != 0) {
-            T gcd = std::gcd(num, i);
+            T gcd = rgy_gcd(num, i);
             num /= gcd;
             den *= i / gcd;
             if (den < 0) {
