@@ -3292,7 +3292,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
         for (const auto& chap : m_Chapters) {
             //av_cmopare_tsを使うと、timebaseが粗く端数が出る場合に厳密に比較できないことがある
             //そこで、ここでは、最小公倍数をとって厳密な比較を行う
-            const auto timebase_lcm = rgy_lcm<int64_t>(chap->time_base.den, m_outputTimebase.d());
+            const auto timebase_lcm = std::lcm<int64_t, int64_t>(chap->time_base.den, m_outputTimebase.d());
             ttint128 ts_frame = timestamp;
             ts_frame *= m_outputTimebase.n();
             ts_frame *= timebase_lcm / m_outputTimebase.d();
