@@ -312,6 +312,7 @@ public:
     void close_device();
 
     RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool skipHWDecodeCheck);
+    RGY_ERR initEncoder();
     tstring infostr() const;
 protected:
     void writeLog(RGYLogLevel log_level, const tstring &str) {

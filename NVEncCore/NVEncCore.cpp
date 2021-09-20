@@ -840,6 +840,10 @@ NVENCSTATUS NVEncCore::InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuLi
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitDevice: device #%d (%s) selected.\n"), (*gpu)->id(), (*gpu)->name().c_str());
     m_dev = std::move(*gpu);
+    if (auto err = m_dev->initEncoder(); err != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to init Encoder error: %s\n"), get_err_mes(err));
+        return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+    }
     return NV_ENC_SUCCESS;
 }
 

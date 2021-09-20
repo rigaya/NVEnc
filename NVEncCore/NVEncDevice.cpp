@@ -898,7 +898,27 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
         NVEncCtxAutoLock(ctxlock(m_vidCtxLock.get()));
         m_cuvid_csp = getHWDecCodecCsp(skipHWDecodeCheck);
     }
-    m_encoder = std::make_unique<NVEncoder>(cuCtxCreated, m_log);
+
+    // DeviceFeature取得のため、一時的なencoder sessionを作成する
+    // session数の上限に達するのを防ぐため、featureを取得したらすぐに破棄する
+    auto encoder = std::make_unique<NVEncoder>(cuCtxCreated, m_log);
+    auto nvsts = encoder->InitSession();
+    if (nvsts != NV_ENC_SUCCESS) {
+        writeLog(RGY_LOG_ERROR, _T("Failed to init encoder session for getting features.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    nvsts = encoder->createDeviceFeatureList();
+    if (nvsts != NV_ENC_SUCCESS) {
+        writeLog(RGY_LOG_ERROR, _T("Failed to create device codec list.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    writeLog(RGY_LOG_DEBUG, _T("  createDeviceFeatureList\n"));
+    m_nvenc_codec_features = encoder->GetNVEncCapability();
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVGPUInfo::initEncoder() {
+    m_encoder = std::make_unique<NVEncoder>(m_cuCtx.get(), m_log);
     auto nvsts = m_encoder->InitSession();
     if (nvsts != NV_ENC_SUCCESS) {
         writeLog(RGY_LOG_ERROR, _T("Failed to init encoder session.\n"));
@@ -909,8 +929,6 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
         writeLog(RGY_LOG_ERROR, _T("Failed to create device codec list.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    writeLog(RGY_LOG_DEBUG, _T("  createDeviceFeatureList\n"));
-    m_nvenc_codec_features = m_encoder->GetNVEncCapability();
     return RGY_ERR_NONE;
 }
 
