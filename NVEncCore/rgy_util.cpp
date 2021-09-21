@@ -459,6 +459,43 @@ std::wstring trim(const std::wstring& string, const WCHAR* trim) {
     return result;
 }
 
+std::string add_indent(const std::string& str, const int indentLength) {
+    const auto origLength = str.length();
+
+    std::string indent(indentLength, ' ');
+
+    std::string ret;
+    ret.reserve(origLength + indentLength * origLength / 16);
+
+    size_t current = 0, found;
+    while (std::string::npos != (found = str.find("\n", current))) {
+        auto segment = std::string(str, current, found - current);
+        ret.append(indent);
+        ret.append(segment);
+        current = found + 1;
+    }
+    return ret;
+}
+
+std::wstring add_indent(const std::wstring& str, const int indentLength) {
+    const auto origLength = str.length();
+
+    std::wstring indent(indentLength, L' ');
+
+    std::wstring ret;
+    ret.reserve(origLength + indentLength * origLength / 16);
+
+    size_t current = 0, found;
+    while (std::wstring::npos != (found = str.find(L"\n", current))) {
+        auto segment = std::wstring(str, current, found - current);
+        ret.append(indent);
+        ret.append(segment);
+        ret.append(L"\n");
+        current = found + 1;
+    }
+    return ret;
+}
+
 struct RGYSIPrefix {
     char prefix;
     bool inverse;

@@ -585,6 +585,8 @@ std::string trim(const std::string& string, const char* trim = " \t\v\r\n");
 std::wstring lstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 std::wstring rstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 std::wstring trim(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
+std::string add_indent(const std::string& str, const int indentLength);
+std::wstring add_indent(const std::wstring& str, const int indentLength);
 
 #if defined(_WIN32) || defined(_WIN64)
 std::vector<std::wstring> sep_cmd(const std::wstring &cmd);

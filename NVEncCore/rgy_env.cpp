@@ -271,7 +271,7 @@ tstring getACPCodepageStr() {
 }
 #endif
 
-tstring getEnviromentInfo(int device_id) {
+tstring getEnviromentInfo([[maybe_unused]] int device_id) {
     tstring buf;
 
     TCHAR cpu_info[1024] = { 0 };
