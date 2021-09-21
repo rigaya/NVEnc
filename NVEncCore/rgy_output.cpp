@@ -845,7 +845,10 @@ RGY_ERR initWriters(
                 if (pAudioSelect != nullptr || audioCopyAll || streamMediaType != AVMEDIA_TYPE_AUDIO) {
                     streamTrackUsed.push_back(stream.trackId);
                     if (pSubtitleSelect == nullptr && streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
-                        continue;
+                        if (common->caption2ass == FORMAT_INVALID) { //caption2assの字幕の場合はそのまま処理する
+                            continue;
+                        }
+                        //caption2assの字幕の場合、AVOutputStreamPrmのパラメータはデフォルト(copy)でよい
                     }
                     AVOutputStreamPrm prm;
                     prm.src = stream;

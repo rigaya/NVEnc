@@ -482,7 +482,9 @@ bool usingAVProtocols(const std::string& filename, int bOutput) {
         return false;
     }
     auto protocol_name = avio_find_protocol_name(filename.c_str());
-    if (protocol_name != nullptr) {
+    if (protocol_name != nullptr
+        && strcmp(protocol_name, "file") != 0
+        && strcmp(protocol_name, "pipe") != 0) {
         const auto protocolList = getAVProtocolList(bOutput);
         if (std::find(protocolList.begin(), protocolList.end(), protocol_name) != protocolList.end()) {
             return true;
