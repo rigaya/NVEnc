@@ -3146,7 +3146,7 @@ NVENCSTATUS NVEncCore::ShowCodecSupport(const InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_GENERIC;
     }
     _ftprintf(stdout, _T("%s\n"), (*gpu)->infostr().c_str());
-    auto nvEncCaps = (*gpu)->encoder()->GetNVEncCapability();
+    auto nvEncCaps = (*gpu)->nvenc_codec_features();
     if (nvEncCaps.size()) {
         _ftprintf(stdout, _T("Avaliable Codec(s)\n"));
         for (auto codecNVEncCaps : nvEncCaps) {
@@ -3176,7 +3176,7 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_GENERIC;
     }
     _ftprintf(stdout, _T("%s\n"), (*gpu)->infostr().c_str());
-    auto nvEncCaps = (*gpu)->encoder()->GetNVEncCapability();
+    auto nvEncCaps = (*gpu)->nvenc_codec_features();
     if (nvEncCaps.size() == 0) {
         _ftprintf(stdout, _T("No NVEnc support.\n"));
         nvStatus = NV_ENC_ERR_UNSUPPORTED_DEVICE;
