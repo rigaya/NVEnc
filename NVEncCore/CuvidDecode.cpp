@@ -32,15 +32,21 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 static const TCHAR *NVCUVID_DLL_NAME = _T("nvcuvid.dll");
+static const TCHAR *NVCUVID_DLL_NAME2 = nullptr;
 #else
 static const TCHAR *NVCUVID_DLL_NAME = _T("libnvcuvid.so");
+static const TCHAR *NVCUVID_DLL_NAME2 = _T("libnvcuvid.so.1");
 #endif
 
 bool check_if_nvcuvid_dll_available() {
     //check for nvcuvid.dll
     HMODULE hModule = RGY_LOAD_LIBRARY(NVCUVID_DLL_NAME);
-    if (hModule == NULL)
+    if (hModule == nullptr && NVCUVID_DLL_NAME2 != nullptr) {
+        hModule = RGY_LOAD_LIBRARY(NVCUVID_DLL_NAME2);
+    }
+    if (hModule == nullptr) {
         return false;
+    }
     RGY_FREE_LIBRARY(hModule);
     return true;
 }

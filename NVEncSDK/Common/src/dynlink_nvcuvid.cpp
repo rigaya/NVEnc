@@ -109,6 +109,7 @@ static CUresult LOAD_LIBRARY(DLLDRIVER *pInstance)
 #include <dlfcn.h>
 
 static char __DriverLibName[] = "libnvcuvid.so";
+static char __DriverLibName2[] = "libnvcuvid.so.1";
 
 typedef void *DLLDRIVER;
 
@@ -116,8 +117,10 @@ static CUresult LOAD_LIBRARY(DLLDRIVER *pInstance)
 {
     *pInstance = dlopen(__DriverLibName, RTLD_NOW);
 
-    if (*pInstance == NULL)
-    {
+    if (*pInstance == NULL) {
+        *pInstance = dlopen(__DriverLibName2, RTLD_NOW);
+    }
+    if (*pInstance == NULL) {
         printf("dlopen \"%s\" failed!\n", __DriverLibName);
         return CUDA_ERROR_UNKNOWN;
     }
