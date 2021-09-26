@@ -4372,6 +4372,70 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->logfile = strInput[i];
         return 0;
     }
+    if (IS_OPTION("log-opt")) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "addtime", "framelist", "packets" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("addtime")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        ctrl->logAddTime = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("framelist")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        ctrl->logAddTime = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("packets")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        ctrl->logAddTime = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("addtime")) {
+                    ctrl->logAddTime = true;
+                    continue;
+                } else if (param == _T("framelist")) {
+                    ctrl->logFramePosList = true;
+                    continue;
+                } else if (param == _T("packets")) {
+                    ctrl->logPacketsList = true;
+                    continue;
+                } else {
+                    print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("log-level")) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -5531,11 +5595,20 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
     OPT_STR_PATH(_T("--log"), logfile);
-
     if (param->loglevel != defaultPrm->loglevel) {
         cmd << _T(" --loglevel ") << param->loglevel.to_string();
     }
 
+    if (param->logAddTime != defaultPrm->logAddTime) {
+        std::basic_stringstream<TCHAR> tmp;
+        tmp.str(tstring());
+        if (param->logAddTime != defaultPrm->logAddTime) {
+            tmp << _T(",addtime");
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --log-opt ") << tmp.str().substr(1);
+        }
+    }
     OPT_BOOL(_T("--log-framelist"), _T(""), logFramePosList);
     OPT_BOOL(_T("--log-packets"), _T(""), logPacketsList);
     OPT_CHAR_PATH(_T("--log-mux-ts"), logMuxVidTsFile);
@@ -6199,6 +6272,10 @@ tstring gen_cmd_help_ctrl() {
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
+        _T("   --log-opt [<param1>][,<param2>][]...\n")
+        _T("     additional options for log output.\n")
+        _T("    params\n")
+        _T("      addtime                   add time to log lines.\n")
         _T("   --log-framelist              output debug info for avsw/avhw reader.\n")
         _T("   --log-packets                output debug info for avsw/avhw reader.\n"));
 

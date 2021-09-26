@@ -1203,6 +1203,7 @@ RGYParamControl::RGYParamControl() :
     simdCsp(-1),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
+    logAddTime(false),
     logFramePosList(false),     //framePosList出力
     logPacketsList(false),
     logMuxVidTsFile(nullptr),

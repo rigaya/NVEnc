@@ -145,13 +145,14 @@ int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle = NULL);
 class RGYLog {
 protected:
     RGYParamLogLevel m_nLogLevel;
-    const TCHAR *m_pStrLog = nullptr;
-    bool m_bHtml = false;
+    const TCHAR *m_pStrLog;
+    bool m_bHtml;
+    bool m_showTime;
     std::unique_ptr<std::mutex> m_mtx;
     static const char *HTML_FOOTER;
 public:
-    RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level = RGY_LOG_INFO);
-    RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level);
+    RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level = RGY_LOG_INFO, bool showTime = false);
+    RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level, bool showTime = false);
     virtual ~RGYLog();
     void init(const TCHAR *pLogFile, const RGYParamLogLevel& log_level);
     void writeHtmlHeader();
