@@ -18,7 +18,7 @@ by rigaya
 インストール方法は[こちら](./Install.ja.md)。
 
 ## 基本動作環境  
-Windows 10 (x86/x64)  
+Windows 10/11 (x86/x64)  
 Linux (x64)  
 [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/) 1.00 以降 (NVEnc.auo)  
 NVEncが載ったハードウェア  

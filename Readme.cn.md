@@ -16,7 +16,7 @@ by rigaya
 [rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)
 
 ## 系统需求
-Windows 10 (x86 / x64)  
+Windows 10/11 (x86 / x64)  
 Aviutl 1.00 or later (NVEnc.auo)  
 支持NVENC的硬件  
   NVIDIA GPU GeForce Kepler gen或更新(GT / GTX 6xx或更新)  
