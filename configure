@@ -103,6 +103,8 @@ PROGRAM=nvencc
 PREFIX=${PREFIX:-/usr/local}
 EXTRACXXFLAGS=""
 EXTRALDFLAGS=""
+EXTRACUDACXXFLAGS=""
+EXTRACUDALDFLAGS=""
 SRCS=""
 SRCCUS=""
 X86_64=1
@@ -199,6 +201,12 @@ for opt; do
         --extra-ldflags=*)
             EXTRALDFLAGS="$optarg"
             ;;
+        --extra-cudacxxflags=*)
+            EXTRACUDACXXFLAGS="$optarg"
+            ;;
+        --extra-cudaldflags=*)
+            EXTRACUDALDFLAGS="$optarg"
+            ;;
         --cuda-path=*)
             CUDA_PATH="$optarg"
             ;;
@@ -245,6 +253,8 @@ echo "PROGRAM=${PROGRAM}" >> ${CNF_LOG}
 echo "PREFIX=${PREFIX}" >> ${CNF_LOG}
 echo "EXTRACXXFLAGS=${EXTRACXXFLAGS}" >> ${CNF_LOG}
 echo "EXTRALDFLAGS=${EXTRALDFLAGS}" >> ${CNF_LOG}
+echo "EXTRACUDACXXFLAGS=${EXTRACUDACXXFLAGS}" >> ${CNF_LOG}
+echo "EXTRACUDALDFLAGS=${EXTRACUDALDFLAGS}" >> ${CNF_LOG}
 echo "X86_64=${X86_64}" >> ${CNF_LOG}
 echo "CUDA_PATH=${CUDA_PATH}" >> ${CNF_LOG}
 echo "ENABLE_CPP_REGEX=${ENABLE_CPP_REGEX}" >> ${CNF_LOG}
@@ -306,8 +316,8 @@ CUDA_CFLAGS=""
 CUDA_LIBS="-lnppif_static -lnppig_static -lnppc_static -lcudart_static -lculibos -lcuda -lrt"
 if [ "${CUDA_PATH}" != "" ]; then
     cnf_print "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
-    CUDA_CFLAGS="-I${CUDA_PATH}/include"
-    CUDA_LIBS="-L${CUDA_PATH}/lib64 ${CUDA_LIBS}"
+    CUDA_CFLAGS="-I${CUDA_PATH}/include ${EXTRACUDACXXFLAGS}"
+    CUDA_LIBS="-L${CUDA_PATH}/lib64 ${EXTRACUDALDFLAGS} ${CUDA_LIBS}"
     export PATH=${CUDA_PATH}/bin:${PATH}
     NVCC=`which nvcc`
     cnf_write "nvcc=${NVCC}"
