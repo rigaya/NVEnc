@@ -52,8 +52,10 @@ static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI.dll");
 #else
 static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI64.dll");
 #endif
+static const TCHAR *NVENCODE_API_DLL2 = nullptr;
 #else
-static const TCHAR *NVENCODE_API_DLL = _T("libnvidia-encode.so");
+static const TCHAR *NVENCODE_API_DLL  = _T("libnvidia-encode.so");
+static const TCHAR *NVENCODE_API_DLL2 = _T("libnvidia-encode.so.1");
 #endif
 
 

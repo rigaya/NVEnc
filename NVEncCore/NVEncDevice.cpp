@@ -522,8 +522,12 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
 }
 
 NVENCSTATUS NVEncoder::loadNVEncAPIDLL() {
-    if (m_hinstLib == NULL) {
-        if ((m_hinstLib = RGY_LOAD_LIBRARY(NVENCODE_API_DLL)) == NULL) {
+    if (m_hinstLib == nullptr) {
+        m_hinstLib = RGY_LOAD_LIBRARY(NVENCODE_API_DLL);
+        if (m_hinstLib == nullptr && NVENCODE_API_DLL2 != nullptr) {
+            m_hinstLib = RGY_LOAD_LIBRARY(NVENCODE_API_DLL2);
+        }
+        if (m_hinstLib == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("%s does not exists in your system.\n"), NVENCODE_API_DLL);
             PrintMes(RGY_LOG_ERROR, _T("Please check if the GPU driver is propery installed."));
             return NV_ENC_ERR_OUT_OF_MEMORY;
