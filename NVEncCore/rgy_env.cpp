@@ -148,10 +148,10 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
             }
             break;
         case 10:
-            ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 10") : _T("Windows Server 2016"); break;
+            ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? ((infoex.dwBuildNumber >= 21996) ? _T("Windows 11") : _T("Windows 10")) : _T("Windows Server 2016"); break;
         default:
-            if (10 <= infoex.dwMajorVersion) {
-                ptr = _T("Later than Windows 10");
+            if (10 < infoex.dwMajorVersion) {
+                ptr = _T("Windows 11 or later");
             }
             break;
         }
