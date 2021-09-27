@@ -54,6 +54,9 @@ typedef struct {
     uint32_t max_cache_level;
     cache_info_t caches[4];
     processor_info_t proc_list[1024];
+    size_t maskCoreP;
+    size_t maskCoreE;
+    size_t maskSystem;
 } cpu_info_t;
 
 

@@ -148,6 +148,64 @@ int getCPUName(char *buffer, size_t nSize) {
 #endif
 }
 
+static inline uint32_t CountSetBits(size_t bits) {
+    if (sizeof(size_t) > 4) {
+        bits = (bits & 0x5555555555555555) + (bits >>  1 & 0x5555555555555555);
+        bits = (bits & 0x3333333333333333) + (bits >>  2 & 0x3333333333333333);
+        bits = (bits & 0x0f0f0f0f0f0f0f0f) + (bits >>  4 & 0x0f0f0f0f0f0f0f0f);
+        bits = (bits & 0x00ff00ff00ff00ff) + (bits >>  8 & 0x00ff00ff00ff00ff);
+        bits = (bits & 0x0000ffff0000ffff) + (bits >> 16 & 0x0000ffff0000ffff);
+        bits = (bits & 0x00000000ffffffff) + (bits >> 32 & 0x00000000ffffffff);
+    } else {
+        bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
+        bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
+        bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
+        bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
+        bits = (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
+    }
+    return (uint32_t)bits;
+}
+
+bool getCPUHybridMasks(cpu_info_t *info) {
+    info->maskSystem = 0;
+    info->maskCoreP = 0;
+    info->maskCoreE = 0;
+#if _MSC_VER
+    DWORD_PTR maskProcess = 0;
+    DWORD_PTR maskSysAff = 0;
+    if (GetProcessAffinityMask(GetCurrentProcess(), &maskProcess, &maskSysAff) == 0) {
+        info->maskSystem = 0;
+        info->maskCoreP = 0;
+        info->maskCoreE = 0;
+        return false;
+    }
+    info->maskSystem = maskSysAff;
+    const auto threadCount = CountSetBits(info->maskSystem);
+#else
+    const auto threadCount = info->physical_cores;
+#endif
+    const auto hThread = GetCurrentThread();
+    DWORD_PTR maskOriginal = 0;
+    for (uint32_t ith = 0; ith < threadCount; ith++) {
+        const auto maskTarget = (DWORD_PTR)1u << ith;
+        auto maskPrev = SetThreadAffinityMask(hThread, maskTarget);
+        if (maskOriginal == 0) {
+            maskOriginal = maskPrev;
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(0));
+        int CPUInfo[4] = { 0 };
+        __cpuid(CPUInfo, 0x1A);
+        const auto hybridInfo = CPUInfo[0 /*EAX*/] >> 24;
+        if (hybridInfo == 0x20) {
+            info->maskCoreE |= maskTarget;
+        } else if (hybridInfo == 0x40) {
+            info->maskCoreP |= maskTarget;
+        }
+    }
+    SetThreadAffinityMask(hThread, maskOriginal); // 元に戻す
+    return true;
+}
+
 #if _MSC_VER
 static int getCPUName(wchar_t *buffer, size_t nSize) {
     int ret = 0;
@@ -185,15 +243,6 @@ double getCPUDefaultClockFromCPUName() {
 #if defined(_WIN32) || defined(_WIN64)
 
 typedef BOOL (WINAPI *LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
-
-static DWORD CountSetBits(ULONG_PTR bitMask) {
-    DWORD LSHIFT = sizeof(ULONG_PTR)*8 - 1;
-    DWORD bitSetCount = 0;
-    for (ULONG_PTR bitTest = (ULONG_PTR)1 << LSHIFT; bitTest; bitTest >>= 1)
-        bitSetCount += ((bitMask & bitTest) != 0);
-
-    return bitSetCount;
-}
 
 bool get_cpu_info(cpu_info_t *cpu_info) {
     if (nullptr == cpu_info)
@@ -260,6 +309,7 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
     if (buffer)
         free(buffer);
 
+    getCPUHybridMasks(cpu_info);
     return true;
 }
 
@@ -473,7 +523,11 @@ int getCPUInfo(TCHAR *buffer, size_t nSize
             _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [%.2fGHz]"), maxFrequency);
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-        _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
+        _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT"), cpu_info.physical_cores, cpu_info.logical_cores);
+        if (cpu_info.maskCoreP != 0 && cpu_info.maskCoreE != 0 && cpu_info.physical_cores <= 64) {
+            _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(",%dP+%dE"), CountSetBits(cpu_info.maskCoreP), CountSetBits(cpu_info.maskCoreE));
+        }
+        strcpy_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(")"));
 #if ENCODER_QSV && !FOR_AUO
         if (pSession != nullptr) {
             int cpuGen = getCPUGen(pSession);
