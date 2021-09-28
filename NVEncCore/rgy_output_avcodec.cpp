@@ -1900,20 +1900,23 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         m_Mux.thread.qVideobitstreamFreePB.init(3840);
         m_Mux.thread.heEventPktAddedOutput = CreateEvent(NULL, TRUE, FALSE, NULL);
         m_Mux.thread.heEventClosingOutput  = CreateEvent(NULL, TRUE, FALSE, NULL);
-        m_Mux.thread.thOutput = std::thread(&RGYOutputAvcodec::WriteThreadFunc, this);
+        m_Mux.thread.thOutput = std::thread(&RGYOutputAvcodec::WriteThreadFunc, this, prm->threadAffinityOutput);
+        AddMessage(RGY_LOG_DEBUG, _T("Set output thread affinity mask: %s (0x%llx).\n"), prm->threadAffinityOutput.to_string().c_str(), prm->threadAffinityOutput.getMask());
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.enableAudProcessThread) {
             AddMessage(RGY_LOG_DEBUG, _T("starting audio process thread...\n"));
             m_Mux.thread.qAudioPacketProcess.init(16384, audioQueueCapacity * std::max(2, (int)m_Mux.audio.size()), 4);
             m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
-            m_Mux.thread.thAudProcess = std::thread(&RGYOutputAvcodec::ThreadFuncAudThread, this);
+            m_Mux.thread.thAudProcess = std::thread(&RGYOutputAvcodec::ThreadFuncAudThread, this, prm->threadAffinityAudio);
+            AddMessage(RGY_LOG_DEBUG, _T("Set audio process thread affinity mask: %s (0x%llx).\n"), prm->threadAffinityAudio.to_string().c_str(), prm->threadAffinityAudio.getMask());
             if (m_Mux.thread.enableAudEncodeThread) {
                 AddMessage(RGY_LOG_DEBUG, _T("starting audio encode thread...\n"));
                 m_Mux.thread.qAudioFrameEncode.init(16384, audioQueueCapacity * std::max(2, (int)m_Mux.audio.size()), 4);
                 m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
                 m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
-                m_Mux.thread.thAudEncode = std::thread(&RGYOutputAvcodec::ThreadFuncAudEncodeThread, this);
+                m_Mux.thread.thAudEncode = std::thread(&RGYOutputAvcodec::ThreadFuncAudEncodeThread, this, prm->threadAffinityAudio);
+                AddMessage(RGY_LOG_DEBUG, _T("Set audio encode thread affinity mask: %s (0x%llx).\n"), prm->threadAffinityAudio.to_string().c_str(), prm->threadAffinityAudio.getMask());
             }
         }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
@@ -3348,8 +3351,11 @@ RGY_ERR RGYOutputAvcodec::WriteNextAudioFrame(AVPktMuxData *pktData) {
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread() {
+RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread(RGYThreadAffinity threadAffinity) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
+        SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
+    }
     WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, INFINITE);
     while (!m_Mux.thread.thAudEncodeAbort) {
         if (!m_Mux.format.fileHeaderWritten) {
@@ -3375,8 +3381,11 @@ RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread() {
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread() {
+RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread(RGYThreadAffinity threadAffinity) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
+        SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
+    }
     WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, INFINITE);
     while (!m_Mux.thread.thAudProcessAbort) {
         if (!m_Mux.format.fileHeaderWritten) {
@@ -3403,8 +3412,11 @@ RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread() {
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
+RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYThreadAffinity threadAffinity) {
 #if ENABLE_AVCODEC_OUT_THREAD
+    if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
+        SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
+    }
     //映像と音声の同期をとる際に、それをあきらめるまでの閾値
     const int nWaitThreshold = 32;
     //キューにデータが存在するか

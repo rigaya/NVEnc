@@ -75,6 +75,9 @@ static bool RGYThreadStillActive(HANDLE handle) {
 #include <cstring>
 #include <cwchar>
 #include <pthread.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <sched.h>
 #include <dlfcn.h>
 
@@ -205,11 +208,45 @@ static uint32_t GetCurrentProcessId() {
     return (uint32_t)pid;
 }
 
+static pid_t GetCurrentProcess() {
+    return getpid();
+}
+
 static pthread_t GetCurrentThread() {
     return pthread_self();
 }
 
-static void SetThreadAffinityMask(pthread_t thread, size_t mask) {
+static size_t SetProcessAffinityMask(pid_t process, size_t mask) {
+    cpu_set_t cpuset_org;
+    CPU_ZERO(&cpuset_org);
+    sched_getaffinity(process, sizeof(cpu_set_t), &cpuset_org);
+    size_t mask_org = 0x00;
+    for (uint32_t j = 0; j < sizeof(mask_org) * 8; j++) {
+        if (CPU_ISSET(j, &cpuset_org)) {
+            mask_org |= ((size_t)1u << j);
+        }
+    }
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    for (uint32_t j = 0; j < sizeof(mask) * 8; j++) {
+        if (mask & (1 << j)) {
+            CPU_SET(j, &cpuset);
+        }
+    }
+    sched_setaffinity(process, sizeof(cpu_set_t), &cpuset);
+    return mask_org;
+}
+
+static size_t SetThreadAffinityMask(pthread_t thread, size_t mask) {
+    cpu_set_t cpuset_org;
+    CPU_ZERO(&cpuset_org);
+    pthread_getaffinity_np(thread, sizeof(cpu_set_t), &cpuset_org);
+    size_t mask_org = 0x00;
+    for (uint32_t j = 0; j < sizeof(mask_org) * 8; j++) {
+        if (CPU_ISSET(j, &cpuset_org)) {
+            mask_org |= ((size_t)1u << j);
+        }
+    }
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     for (uint32_t j = 0; j < sizeof(mask) * 8; j++) {
@@ -218,6 +255,7 @@ static void SetThreadAffinityMask(pthread_t thread, size_t mask) {
         }
     }
     pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+    return mask_org;
 }
 
 static bool RGYThreadStillActive(pthread_t thread) {

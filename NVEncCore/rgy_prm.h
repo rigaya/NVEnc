@@ -34,6 +34,7 @@
 #include "rgy_caption.h"
 #include "rgy_simd.h"
 #include "rgy_hdr10plus.h"
+#include "rgy_thread_affinity.h"
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -1177,6 +1178,7 @@ struct RGYParamControl {
     int threadOutput;
     int threadAudio;
     int threadInput;
+    RGYParamThreadAffinity threadAffinity;
     int procSpeedLimit;      //処理速度制限 (0で制限なし)
     int64_t perfMonitorSelect;
     int64_t perfMonitorSelectMatplot;

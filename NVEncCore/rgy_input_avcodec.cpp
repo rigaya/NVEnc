@@ -102,6 +102,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     logCopyFrameData(),
     logPackets(),
     threadInput(0),
+    threadAffinityInput(),
     queueInfo(nullptr),
     HWDecCodecCsp(nullptr),
     videoDetectPulldown(false),
@@ -1351,7 +1352,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         return RGY_ERR_NULL_PTR;
     }
 
-    m_convert = std::unique_ptr<RGYConvertCSP>(new RGYConvertCSP(prm->threadCsp));
+    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadAffinityCsp);
 
     for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
         tstring audioLog = strsprintf(_T("select audio track %s, codec %s"),
@@ -1928,7 +1929,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             cpu_info_t cpu_info;
             if (get_cpu_info(&cpu_info)) {
                 AVDictionary *pDict = nullptr;
-                av_dict_set_int(&pDict, "threads", std::min(cpu_info.logical_cores, 16u), 0);
+                av_dict_set_int(&pDict, "threads", std::min(cpu_info.logical_cores, 16), 0);
                 if (0 > (ret = av_opt_set_dict(m_Demux.video.codecCtxDecode, &pDict))) {
                     AddMessage(RGY_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
                         char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
@@ -2056,7 +2057,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_Demux.thread.threadInput = 0;
 #endif
         if (m_Demux.thread.threadInput) {
-            m_Demux.thread.thInput = std::thread(&RGYInputAvcodec::ThreadFuncRead, this);
+            m_Demux.thread.thInput = std::thread(&RGYInputAvcodec::ThreadFuncRead, this, input_prm->threadAffinityInput);
+            AddMessage(RGY_LOG_DEBUG, _T("Set input thread affinity mask: %s (0x%llx).\n"), input_prm->threadAffinityInput.to_string().c_str(), input_prm->threadAffinityInput.getMask());
             //はじめcapacityを無限大にセットしたので、この段階で制限をかける
             //入力をスレッド化しない場合には、自動的に同期が保たれるので、ここでの制限は必要ない
             m_Demux.qVideoPkt.set_capacity(256);
@@ -2910,7 +2912,10 @@ void RGYInputAvcodec::setOutputVideoInfo(int w, int h, int sar_x, int sar_y, boo
     }
 }
 
-RGY_ERR RGYInputAvcodec::ThreadFuncRead() {
+RGY_ERR RGYInputAvcodec::ThreadFuncRead(RGYThreadAffinity threadAffinity) {
+    if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
+        SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
+    }
     while (!m_Demux.thread.bAbortInput) {
         AVPacket pkt;
         if (getSample(&pkt)) {

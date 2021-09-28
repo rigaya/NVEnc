@@ -4559,6 +4559,91 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->threadAudio = value;
         return 0;
     }
+    if (IS_OPTION("thread-affinity")) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        auto parse_val = [option_name](RGYThreadAffinity& affinity, const tstring& param_arg, const tstring& param_val) {
+            if (param_val.substr(0, 2) == _T("0x")) {
+                try {
+                    uint64_t affintyValue = std::strtoull(tchar_to_string(param_val).c_str(), nullptr, 16);
+                    affinity = RGYThreadAffinity(RGYThreadAffinityMode::CUSTOM, affintyValue);
+                    return 0;
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+            }
+
+            uint64_t affintyValue = std::numeric_limits<decltype(affintyValue)>::max();
+            auto mode = param_val;
+            auto pos = param_val.find_first_of(_T("#"));
+            if (pos != std::string::npos) {
+                mode = param_val.substr(0, pos);
+                affintyValue = 0u;
+                for (auto item : split(param_val.substr(pos + 1), _T(":"))) {
+                    int v0 = 0, v1 = 0;
+                    if (_stscanf_s(item.c_str(), _T("%d-%d"), &v0, &v1) == 2) {
+                        for (int id = v0; id <= v1; id++) {
+                            affintyValue |= (1llu << id);
+                        }
+                    } else if (_stscanf_s(item.c_str(), _T("%d"), &v0) == 1) {
+                        affintyValue |= (1llu << v0);
+                    } else {
+                        return 1;
+                    }
+                }
+            }
+
+            int value = 0;
+            if (get_list_value(list_thread_affinity_mode, mode.c_str(), &value)) {
+                affinity = RGYThreadAffinity((RGYThreadAffinityMode)value, affintyValue);
+            } else {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_thread_affinity_mode);
+                return 1;
+            }
+            return 0;
+        };
+
+        std::vector<std::string> paramList;
+        for (const auto& param : RGY_THREAD_TYPE_STR) {
+            paramList.push_back(tchar_to_string(param.second));
+        }
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+
+                RGYThreadAffinity affinity;
+                if (parse_val(affinity, param_arg, tolowercase(param_val)) == 0) {
+                    auto type_ret = std::find_if(RGY_THREAD_TYPE_STR.begin(), RGY_THREAD_TYPE_STR.end(), [param_arg](decltype(RGY_THREAD_TYPE_STR[0])& type) {
+                        return param_arg == type.second;
+                        });
+                    if (type_ret != RGY_THREAD_TYPE_STR.end()) {
+                        ctrl->threadAffinity.set(affinity, type_ret->first);
+                    } else {
+                        print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                        return 1;
+                    }
+                } else {
+                    return 1;
+                }
+            } else {
+                RGYThreadAffinity affinity;
+                if (parse_val(affinity, _T(""), tolowercase(param)) == 0) {
+                    ctrl->threadAffinity.set(affinity, RGYThreadType::ALL);
+                } else {
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("output-buf")) {
         i++;
         int value = 0;
@@ -5591,6 +5676,9 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_NUM(_T("--thread-input"), threadInput);
     OPT_NUM(_T("--thread-audio"), threadAudio);
     OPT_NUM(_T("--thread-csp"), threadCsp);
+    if (param->threadAffinity != defaultPrm->threadAffinity) {
+        cmd << _T(" --thread-affinity ") << param->threadAffinity.to_string();
+    }
     OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
@@ -5652,6 +5740,29 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
 
 
 //適当に改行しながら表示する
+tstring print_list(const CX_DESC *list) {
+    const TCHAR *indent_space = _T("                                ");
+    const int indent_len = (int)_tcslen(indent_space);
+    const int max_len = 77;
+
+    tstring str = indent_space;
+    int line_len = (int)str.length();
+    for (int i = 0; list[i].desc; i++) {
+        if (line_len + _tcslen(list[i].desc) + _tcslen(_T(", ")) >= max_len) {
+            str += strsprintf(_T("\n%s"), indent_space);
+            line_len = indent_len;
+        } else {
+            if (i) {
+                str += strsprintf(_T(", "));
+                line_len += 2;
+            }
+        }
+        str += strsprintf(_T("%s"), list[i].desc);
+        line_len += (int)_tcslen(list[i].desc);
+    }
+    return str;
+}
+
 tstring print_list_options(const TCHAR *option_name, const CX_DESC *list, int default_index) {
     const TCHAR *indent_space = _T("                                ");
     const int indent_len = (int)_tcslen(indent_space);
@@ -6304,6 +6415,23 @@ tstring gen_cmd_help_ctrl() {
         _T("                                  2: use two thread\n")
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     );
+    {
+        std::array<CX_DESC, RGY_THREAD_TYPE_STR.size() + 1> list_rgy_thread_type;
+        for (size_t i = 0; i < RGY_THREAD_TYPE_STR.size(); i++) {
+            list_rgy_thread_type[i].value = (int)RGY_THREAD_TYPE_STR[i].first;
+            list_rgy_thread_type[i].desc = RGY_THREAD_TYPE_STR[i].second;
+        }
+        list_rgy_thread_type[RGY_THREAD_TYPE_STR.size()].value = 0;
+        list_rgy_thread_type[RGY_THREAD_TYPE_STR.size()].desc = nullptr;
+        str += strsprintf(_T("")
+            _T("   --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
+        str += strsprintf(_T("")
+            _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
+        ) + print_list(list_rgy_thread_type.data()) + _T("\n");
+        str += strsprintf(_T("")
+            _T("     thread type (string2)  (default: %s)\n"), list_thread_affinity_mode[(int)RGYThreadAffinityMode::ALL].desc
+        ) + print_list(list_thread_affinity_mode) + _T("\n");
+    }
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
     str += strsprintf(_T("\n")
         _T("   --avsdll <string>            specifies AviSynth DLL location to use.\n"));

@@ -41,6 +41,7 @@
 #include "rgy_log.h"
 #include "gpuz_info.h"
 #include "rgy_util.h"
+#include "rgy_thread_affinity.h"
 
 #if ENABLE_PERF_COUNTER
 #include "rgy_perf_counter.h"
@@ -382,6 +383,7 @@ public:
     int init(tstring filename, const TCHAR *pPythonPath,
         int interval, int nSelectOutputLog, int nSelectOutputMatplot,
         std::unique_ptr<void, handle_deleter> thMainThread,
+        const RGYThreadAffinity& threadAffinity,
         std::shared_ptr<RGYLog> pRGYLog, CPerfMonitorPrm *prm);
     ~CPerfMonitor();
 
@@ -503,6 +505,7 @@ protected:
     int m_nSelectOutputPlot;
     PerfQueueInfo m_QueueInfo;
     std::shared_ptr<RGYLog> m_pRGYLog;
+    RGYThreadAffinity m_threadAffinity;
 
 #if ENABLE_METRIC_FRAMEWORK
     IExtensionLoader *m_pLoader;

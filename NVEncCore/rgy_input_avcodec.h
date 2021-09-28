@@ -955,6 +955,7 @@ public:
     tstring        logCopyFrameData;        //frame情報copy関数のログ出力先 (デバッグ用)
     tstring        logPackets;              //読み込んだパケットの情報を出力する
     int            threadInput;             //入力スレッドを有効にする
+    RGYThreadAffinity threadAffinityInput;  //入力スレッドのスレッドアフィニティ
     PerfQueueInfo *queueInfo;               //キューの情報を格納する構造体
     DeviceCodecCsp *HWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
     bool           videoDetectPulldown;     //pulldownの検出を試みるかどうか
@@ -1107,7 +1108,7 @@ protected:
     RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown, bool lowLatency, rgy_rational<int> fpsOverride);
 
     //読み込みスレッド関数
-    RGY_ERR ThreadFuncRead();
+    RGY_ERR ThreadFuncRead(RGYThreadAffinity threadAffinity);
 
     //指定したptsとtimebaseから、該当する動画フレームを取得する
     int getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart);

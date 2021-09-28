@@ -174,7 +174,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo = *pInputInfo;
     m_readerName = (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw");
 
-    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
+    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadAffinityCsp);
 
     bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
     if (use_stdin) {

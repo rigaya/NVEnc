@@ -49,17 +49,17 @@ RGYConvertCSPPrm::RGYConvertCSPPrm() :
 }
 
 
-RGYConvertCSP::RGYConvertCSP() : RGYConvertCSP(0) {
+RGYConvertCSP::RGYConvertCSP() : RGYConvertCSP(0, RGYThreadAffinity()) {
 }
 
-RGYConvertCSP::RGYConvertCSP(int threads) :
+RGYConvertCSP::RGYConvertCSP(int threads, RGYThreadAffinity threadAffinity) :
     m_csp(nullptr),
     m_csp_from(RGY_CSP_NA),
     m_csp_to(RGY_CSP_NA),
     m_uv_only(false),
     m_threads(threads),
     m_th(), m_heStart(), m_heFin(), m_heFinCopy(),
-    m_prm() {
+    m_prm(), m_threadAffinity(threadAffinity) {
 };
 
 RGYConvertCSP::~RGYConvertCSP() {
@@ -96,10 +96,13 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
         m_heFinCopy.clear();
         m_heStart.clear();
         m_heFin.clear();
-        for (int ith = 1; ith < m_threads; ith++) {
+        for (int ith = 0; ith < m_threads; ith++) {
             auto heStart = std::unique_ptr<void, handle_deleter>(CreateEvent(nullptr, false, false, nullptr), handle_deleter());
             auto heFin = std::unique_ptr<void, handle_deleter>(CreateEvent(nullptr, false, false, nullptr), handle_deleter());
-            m_th.push_back(std::thread([heStart = heStart.get(), heFin = heFin.get(), ithId = ith, threadN = m_threads, prm = &m_prm, cspfunc = &m_csp]() {
+            m_th.push_back(std::thread([heStart = heStart.get(), heFin = heFin.get(), ithId = ith, threadN = m_threads, threadAffinity = m_threadAffinity, prm = &m_prm, cspfunc = &m_csp]() {
+                if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
+                    SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
+                }
                 WaitForSingleObject((HANDLE)heStart, INFINITE);
                 while (!prm->abort) {
                     (*cspfunc)->func[prm->interlaced](prm->dst, prm->src,
@@ -128,9 +131,11 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
     for (size_t i = 0; i < m_heStart.size(); i++) {
         SetEvent(m_heStart[i].get());
     }
-    m_csp->func[interlaced](dst, src,
-        width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte,
-        height, dst_height, 0, (int)m_th.size()+1, crop);
+    if (m_threads == 1) {
+        m_csp->func[interlaced](dst, src,
+            width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte,
+            height, dst_height, 0, 1, crop);
+    }
     if (m_th.size() > 0) {
         WaitForMultipleObjects((uint32_t)m_heFinCopy.size(), m_heFinCopy.data(), TRUE, INFINITE);
     }
@@ -232,6 +237,7 @@ static RGY_ERR initOtherReaders(
     RGYInputPrm inputPrm;
     inputPrm.threadCsp = ctrl->threadCsp;
     inputPrm.simdCsp = ctrl->simdCsp;
+    inputPrm.threadAffinityCsp = ctrl->threadAffinity.get(RGYThreadType::CSP);
 
     for (int ifile = 0; ifile < (int)source.size(); ifile++) {
         auto& src = source[ifile];
@@ -273,6 +279,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.seekSec = common->seekSec;
         inputInfoAVAudioReader.logFramePosList = (ctrl->logFramePosList) ? src.filename + _T(".framelist.csv") : _T("");
         inputInfoAVAudioReader.threadInput = 0;
+        inputInfoAVAudioReader.threadAffinityInput = ctrl->threadAffinity.get(RGYThreadType::INPUT);
 
         shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
         auto ret = audioReader->Init(src.filename.c_str(), &inputInfo, &inputInfoAVAudioReader, log, nullptr);
@@ -390,6 +397,8 @@ RGY_ERR initReaders(
     RGYInputPrm inputPrm;
     inputPrm.threadCsp = ctrl->threadCsp;
     inputPrm.simdCsp = ctrl->simdCsp;
+    inputPrm.threadAffinityCsp = ctrl->threadAffinity.get(RGYThreadType::CSP);
+    log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("Set csp thread affinity mask: %s (0x%llx).\n"), inputPrm.threadAffinityCsp.to_string().c_str(), inputPrm.threadAffinityCsp.getMask());
     RGYInputPrm *pInputPrm = &inputPrm;
 
     std::unique_ptr<SubtitleSelect> subBurnTrack;
@@ -479,6 +488,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.logFramePosList = (ctrl->logFramePosList) ? common->outputFilename + _T(".framelist.csv") : _T("");
         inputInfoAVCuvid.logPackets = (ctrl->logPacketsList) ? common->outputFilename + _T(".packets.csv") : _T("");
         inputInfoAVCuvid.threadInput = ctrl->threadInput;
+        inputInfoAVCuvid.threadAffinityInput = ctrl->threadAffinity.get(RGYThreadType::INPUT);
         inputInfoAVCuvid.queueInfo = (perfMonitor) ? perfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.HWDecCodecCsp = &HWDecCodecCsp;
         inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_ASSUME_CFR;

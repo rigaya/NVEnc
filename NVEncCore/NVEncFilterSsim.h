@@ -53,8 +53,9 @@ public:
     CUvideoctxlock vidctxlock;
     VideoInfo input;
     rgy_rational<int> streamtimebase;
+    RGYThreadAffinity threadAffinityCompare;
 
-    NVEncFilterParamSsim() : ssim(true), psnr(false), vmaf(), deviceId(0), vidctxlock(), input(), streamtimebase() {
+    NVEncFilterParamSsim() : ssim(true), psnr(false), vmaf(), deviceId(0), vidctxlock(), input(), streamtimebase(), threadAffinityCompare() {
 
     };
     virtual ~NVEncFilterParamSsim() {};
@@ -82,8 +83,8 @@ public:
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
     RGY_ERR initDecode(const RGYBitstream *bitstream);
     bool decodeStarted() { return m_decodeStarted; }
-    RGY_ERR thread_func_ssim_psnr();
-    RGY_ERR thread_func_vmaf();
+    RGY_ERR thread_func_ssim_psnr(RGYThreadAffinity threadAffinity);
+    RGY_ERR thread_func_vmaf(RGYThreadAffinity threadAffinity);
     RGY_ERR compare_frames(bool flush);
 
     RGY_ERR addBitstream(const RGYBitstream *bitstream);

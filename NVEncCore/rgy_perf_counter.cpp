@@ -334,7 +334,8 @@ int RGYGPUCounterWin::refreshCounters() {
     return 0;
 }
 
-int RGYGPUCounterWin::thread_func() {
+int RGYGPUCounterWin::thread_func(uint64_t threadAffinityMask) {
+    SetThreadAffinityMask(GetCurrentThread(), threadAffinityMask);
     auto hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (hr != S_OK || init()) {
         return 1;
@@ -362,9 +363,9 @@ int RGYGPUCounterWin::thread_func() {
     return 0;
 }
 
-void RGYGPUCounterWin::thread_run() {
+void RGYGPUCounterWin::thread_run(uint64_t threadAffinityMask) {
     m_refreshedTime = std::chrono::system_clock::now() - std::chrono::milliseconds(500);
-    thRefresh = std::thread(&RGYGPUCounterWin::thread_func, this);
+    thRefresh = std::thread(&RGYGPUCounterWin::thread_func, this, threadAffinityMask);
 }
 
 void RGYGPUCounterWin::send_thread_fin() {

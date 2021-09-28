@@ -118,10 +118,11 @@ private:
     std::vector<std::unique_ptr<void, handle_deleter>> m_heStart;
     std::vector<std::unique_ptr<void, handle_deleter>> m_heFin;
     std::vector<HANDLE> m_heFinCopy;
+    RGYThreadAffinity m_threadAffinity;
     RGYConvertCSPPrm m_prm;
 public:
     RGYConvertCSP();
-    RGYConvertCSP(int threads);
+    RGYConvertCSP(int threads, RGYThreadAffinity threadAffinity);
     ~RGYConvertCSP();
     const ConvertCSP *getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd);
     const ConvertCSP *getFunc() const { return m_csp; };
@@ -133,8 +134,9 @@ class RGYInputPrm {
 public:
     int threadCsp;
     uint32_t simdCsp;
+    RGYThreadAffinity threadAffinityCsp;
 
-    RGYInputPrm() : threadCsp(-1), simdCsp(0) {};
+    RGYInputPrm() : threadCsp(-1), simdCsp(0), threadAffinityCsp() {};
     virtual ~RGYInputPrm() {};
 };
 

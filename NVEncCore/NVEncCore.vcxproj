@@ -1069,6 +1069,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </ClCompile>
     <ClCompile Include="rgy_simd.cpp" />
     <ClCompile Include="rgy_status.cpp" />
+    <ClCompile Include="rgy_thread_affinity.cpp" />
     <ClCompile Include="rgy_timecode.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="rgy_version.cpp" />
@@ -1278,6 +1279,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_stream.h" />
     <ClInclude Include="rgy_tchar.h" />
     <ClInclude Include="rgy_thread.h" />
+    <ClInclude Include="rgy_thread_affinity.h" />
     <ClInclude Include="rgy_timecode.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="rgy_version.h" />

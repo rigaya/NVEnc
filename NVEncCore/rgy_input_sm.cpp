@@ -81,7 +81,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
 
     m_readerName = _T("sm");
 
-    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
+    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadAffinityCsp);
 
 
     const RGYInputSMPrm *prmSM = dynamic_cast<const RGYInputSMPrm *>(prm);

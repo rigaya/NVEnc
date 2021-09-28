@@ -33,36 +33,76 @@
 #include "rgy_osdep.h"
 #include "rgy_version.h"
 
+static const int MAX_CACHE_LEVEL = 4;
+static const int MAX_CORE_COUNT = 512;
+static const int MAX_NODE_COUNT = 8;
+
+enum class RGYCacheLevel {
+    L0,
+    L1,
+    L2,
+    L3,
+    L4
+};
+
+enum class RGYCacheType {
+    Unified,
+    Instruction,
+    Data,
+    Trace
+};
+
+enum class RGYUnitType {
+   Core,
+   Cache,
+   Node
+};
+
+enum class RGYCoreType {
+    Physical,
+    Logical
+};
+
+typedef struct node_info_t {
+    size_t mask;
+} node_info_t;
+
 typedef struct cache_info_t {
-    uint32_t count;
-    uint32_t level;
-    uint32_t associativity;
-    uint32_t linesize;
-    uint32_t type;
-    uint32_t size;
+    RGYCacheType type;
+    RGYCacheLevel level;
+    int associativity;
+    int linesize;
+    int size;
+    size_t mask;
 } cache_info_t;
 
 typedef struct {
-    int processor_id;
-    int core_id;
-    int socket_id;
+    int processor_id;   // プロセッサID
+    int core_id;        // コアID
+    int socket_id;      // ソケットID
+    int logical_cores;  // 論理コア数
+    size_t mask;      // 対応する物理コアのマスク
 } processor_info_t;
+
 typedef struct {
-    uint32_t nodes;
-    uint32_t physical_cores;
-    uint32_t logical_cores;
-    uint32_t max_cache_level;
-    cache_info_t caches[4];
-    processor_info_t proc_list[1024];
-    size_t maskCoreP;
-    size_t maskCoreE;
-    size_t maskSystem;
+    int node_count;           // ノード数
+    node_info_t nodes[MAX_NODE_COUNT];
+    int physical_cores;  // 物理コア数
+    int logical_cores;   // 論理コア数
+    int max_cache_level; // キャッシュの最大レベル
+    int cache_count[MAX_CACHE_LEVEL];       // 各階層のキャッシュの数
+    cache_info_t caches[MAX_CACHE_LEVEL][MAX_CORE_COUNT]; // 各階層のキャッシュの情報
+    processor_info_t proc_list[MAX_CORE_COUNT]; // 物理コアの情報
+    size_t maskCoreP;  // Performanceコアのマスク
+    size_t maskCoreE;  // Efficiencyコアのマスク
+    size_t maskSystem; // システム全体のマスク
 } cpu_info_t;
 
 
 int getCPUName(char *buffer, size_t nSize);
 bool get_cpu_info(cpu_info_t *cpu_info);
 cpu_info_t get_cpu_info();
+uint64_t get_mask(const cpu_info_t *cpu_info, RGYUnitType unit_type, int level, int id);
 
 #if ENCODER_QSV
 class MFXVideoSession;

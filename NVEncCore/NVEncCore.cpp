@@ -605,6 +605,7 @@ NVENCSTATUS NVEncCore::InitPerfMonitor(const InEncodeVideoParam *inputParam) {
 #else
         nullptr,
 #endif
+        inputParam->ctrl.threadAffinity.get(RGYThreadType::PERF_MONITOR),
         m_pNVLog, &perfMonitorPrm)) {
         PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
         m_pPerfMonitor.reset();
@@ -3074,6 +3075,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         param->bOutOverwrite = false;
         param->streamtimebase = m_outputTimebase;
         param->vidctxlock = m_dev->vidCtxLock();
+        param->threadAffinityCompare = inputParam->ctrl.threadAffinity.get(RGYThreadType::VIDEO_QUALITY);
         param->ssim = inputParam->common.metric.ssim;
         param->psnr = inputParam->common.metric.psnr;
         param->vmaf = inputParam->common.metric.vmaf;
@@ -3099,8 +3101,17 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_DEVICE;
     }
     m_nDeviceId = inputParam->deviceID;
+
+    if (const auto affinity = inputParam->ctrl.threadAffinity.get(RGYThreadType::PROCESS); affinity.mode != RGYThreadAffinityMode::ALL) {
+        SetProcessAffinityMask(GetCurrentProcess(), affinity.getMask());
+        PrintMes(RGY_LOG_DEBUG, _T("Set Process Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+    }
+    if (const auto affinity = inputParam->ctrl.threadAffinity.get(RGYThreadType::MAIN); affinity.mode != RGYThreadAffinityMode::ALL) {
+        SetThreadAffinityMask(GetCurrentThread(), affinity.getMask());
+        PrintMes(RGY_LOG_DEBUG, _T("Set Main thread Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+    }
     //入力などにも渡すため、まずはインスタンスを作っておく必要がある
-    m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
+    m_pPerfMonitor = std::make_unique<CPerfMonitor>();
 
     if (NV_ENC_SUCCESS != (nvStatus = InitCuda(inputParam))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
