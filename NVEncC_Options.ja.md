@@ -1941,6 +1941,49 @@ avsw/avhw読み込み時のデバッグ情報出力。
 ### --log-packets
 avsw/avhw読み込み時のデバッグ情報出力。
 
+### --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)
+NVEncCのプロセスやスレッドのスレッドアフィニティを設定する。具体的な指定方法は例を確認してください。
+
+**対象** (<string1>)
+スレッドアフィニティを設定する対象を指定する。省略された場合は"all"。
+
+- all ... 下記すべてを対象とする
+- process ... NVEncCのプロセス
+- main ... メインスレッド
+- decoder ... avhwデコード用スレッド
+- csp ... CPUの色空間変換用スレッド
+- input ... 読み込み用スレッド
+- output ... 出力用スレッド
+- audio ... 音声処理用スレッド
+- perfmonitor ... パフォーマンス測定用スレッド
+- videoquality ... ssim/psnr/vmaf算出用スレッド
+
+**スレッドアフィニティ** (<string2>)
+- all ... 全スレッド(制限なし)
+- pcore ... performanceコアに割り当てる(hybridアーキテクチャのみ有効)
+- ecore ... efficiencyコアに割り当てる(hybridアーキテクチャのみ有効)
+- logical ... "#"以降に指定する論理コアに割り当て
+- physical ... "#"以降に指定する物理コアに割り当て
+- cachel2 ... "#"以降に指定するL2キャッシュを共有するコアに割り当て
+- cachel3 ... "#"以降に指定するL3キャッシュを共有するコアに割り当て
+- <hex> ... 0x<hex>の16進数で直接指定 (start /affinityと同じ)
+
+```
+例: プロセス全体を物理コア0,1,2,5,6に割り当て
+--thread-affinity process=physical#0-2:5:6
+
+例: プロセス全体を論理コア0,1,2,3に割り当て
+--thread-affinity process=0x0f
+--thread-affinity process=logical#0-3
+--thread-affinity process=logical#0:1:2:3
+
+例: hybridアーキテクチャでパフォーマンス測定用スレッドをefficiencyコアに割り当て
+--thread-affinity perfmonitor=ecore
+
+例: Ryzen CPUでプロセス全体を最初のCCXのみに割り当て
+--thread-affinity process=cachel3#0
+```
+
 ### --option-file &lt;string&gt;
 使用するオプションを記載したファイルを指定する。
 1行に複数のオプションを記載できるが、改行は空白として扱われるので、

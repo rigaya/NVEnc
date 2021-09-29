@@ -1890,6 +1890,49 @@ FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
 ### --log-packets
 FOR DEBUG ONLY! Output debug log for packets read in avsw/avhw reader.
 
+### --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)
+Set thread affinity to the process or threads of the application.
+
+**target** (<string1>)
+Set target of which thread affinity will be set. Default is "all".
+
+- all ... All targets below.
+- process ... process of NVEncC.
+- main ... main thread
+- decoder ... avhw decode thread
+- csp ... colorspace conversion threads (CPU)
+- input ... input thread
+- output ... output thread
+- audio ... audio processing threads
+- perfmonitor ... performance monitoring threads
+- videoquality ... ssim/psnr/vmaf calculation thread
+
+**thread affinity** (<string2>)
+- all ... All cores(no limit)
+- pcore ... performance cores (hybrid architecture only)
+- ecore ... efficiency cores (hybrid architecture only)
+- logical ... logical cores specified by the numbers after "#". (Windows only)
+- physical ... physical cores specified by the numbers after "#". (Windows only)
+- cachel2 ... cores which share the L2 cache specified by the numbers after "#". (Windows only)
+- cachel3 ... cores which share the L3 cache specified by the numbers after "#". (Windows only)
+- <hex> ... set by 0x<hex> (same as "start /affinity")
+
+```
+Example: Set process affinity to physical 0,1,2,5,6 cores
+--thread-affinity process=physical#0-2:5:6
+
+Example: Set process affinity to logical 0,1,2,3 cores
+--thread-affinity process=0x0f
+--thread-affinity process=logical#0-3
+--thread-affinity process=logical#0:1:2:3
+
+Example: Set performance monitoring thread to efficiency core on hybrid architecture
+--thread-affinity perfmonitor=ecore
+
+Example: Set process affinity to firect CCX on Ryzen CPUs
+--thread-affinity process=cachel3#0
+```
+
 ### --option-file &lt;string&gt;
 File which containes a list of options to be used.
 Line feed is treated as a blank, therefore an option or a value of it should not splitted in multiple lines.
