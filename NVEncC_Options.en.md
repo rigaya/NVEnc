@@ -1890,10 +1890,10 @@ FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
 ### --log-packets
 FOR DEBUG ONLY! Output debug log for packets read in avsw/avhw reader.
 
-### --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)
+### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...] or 0x&lt;hex&gt;}
 Set thread affinity to the process or threads of the application.
 
-**target** (<string1>)
+**target** (&lt;string1&gt;)
 Set target of which thread affinity will be set. Default is "all".
 
 - all ... All targets below.
@@ -1907,7 +1907,7 @@ Set target of which thread affinity will be set. Default is "all".
 - perfmonitor ... performance monitoring threads
 - videoquality ... ssim/psnr/vmaf calculation thread
 
-**thread affinity** (<string2>)
+**thread affinity** (&lt;string2&gt;)
 - all ... All cores(no limit)
 - pcore ... performance cores (hybrid architecture only)
 - ecore ... efficiency cores (hybrid architecture only)

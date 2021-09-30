@@ -1941,10 +1941,10 @@ avsw/avhw読み込み時のデバッグ情報出力。
 ### --log-packets
 avsw/avhw読み込み時のデバッグ情報出力。
 
-### --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)
+### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...] or 0x&lt;hex&gt;}
 NVEncCのプロセスやスレッドのスレッドアフィニティを設定する。具体的な指定方法は例を確認してください。
 
-**対象** (<string1>)
+**対象** (&lt;string1&gt;)
 スレッドアフィニティを設定する対象を指定する。省略された場合は"all"。
 
 - all ... 下記すべてを対象とする
@@ -1958,7 +1958,7 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 - perfmonitor ... パフォーマンス測定用スレッド
 - videoquality ... ssim/psnr/vmaf算出用スレッド
 
-**スレッドアフィニティ** (<string2>)
+**スレッドアフィニティ** (&lt;string2&gt;)
 - all ... 全スレッド(制限なし)
 - pcore ... performanceコアに割り当てる(hybridアーキテクチャのみ有効)
 - ecore ... efficiencyコアに割り当てる(hybridアーキテクチャのみ有効)
