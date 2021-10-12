@@ -145,23 +145,29 @@ int getCPUName(char *buffer, size_t nSize) {
 #endif
 }
 
-static inline uint32_t CountSetBits(size_t bits) {
-    if constexpr (sizeof(size_t) > 4) {
+#pragma warning(push)
+#pragma warning(disable: 4127) //warning C4127: 条件式が定数です。
+static inline int CountSetBits(size_t bits_) {
+    if (sizeof(size_t) > 4) {
+        uint64_t bits = (uint64_t)bits_;
         bits = (bits & 0x5555555555555555) + (bits >>  1 & 0x5555555555555555);
         bits = (bits & 0x3333333333333333) + (bits >>  2 & 0x3333333333333333);
         bits = (bits & 0x0f0f0f0f0f0f0f0f) + (bits >>  4 & 0x0f0f0f0f0f0f0f0f);
         bits = (bits & 0x00ff00ff00ff00ff) + (bits >>  8 & 0x00ff00ff00ff00ff);
         bits = (bits & 0x0000ffff0000ffff) + (bits >> 16 & 0x0000ffff0000ffff);
         bits = (bits & 0x00000000ffffffff) + (bits >> 32 & 0x00000000ffffffff);
+        return (int)bits;
     } else {
+        uint32_t bits = (uint32_t)bits_;
         bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
         bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
         bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
         bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
         bits = (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
+        return (int)bits;
     }
-    return (uint32_t)bits;
 }
+#pragma warning(pop)
 
 bool getCPUHybridMasks(cpu_info_t *info) {
     info->maskSystem = 0;
@@ -180,7 +186,7 @@ bool getCPUHybridMasks(cpu_info_t *info) {
         return false;
     }
     info->maskSystem = maskSysAff;
-    const auto threadCount = (int)CountSetBits(info->maskSystem);
+    const auto threadCount = CountSetBits(info->maskSystem);
 #else
     const auto threadCount = info->physical_cores;
 #endif
