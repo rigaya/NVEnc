@@ -263,6 +263,8 @@ bool RGYParamThreadAffinity::operator!=(const RGYParamThreadAffinity &x) const {
     return !(*this == x);
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4146) //warning C4146: 符号付きの値を代入する変数は、符号付き型にキャストしなければなりません。
 uint64_t selectMaskFromLowerBit(uint64_t mask, const int idx) {
     int count = 0;
     uint64_t ret = 0;
@@ -273,3 +275,4 @@ uint64_t selectMaskFromLowerBit(uint64_t mask, const int idx) {
     } while (count <= idx);
     return ret;
 }
+#pragma warning(pop)
