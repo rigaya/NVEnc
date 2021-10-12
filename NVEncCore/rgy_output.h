@@ -216,6 +216,8 @@ protected:
 #if ENABLE_AVSW_READER
     unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
 #endif //#if ENABLE_AVSW_READER
+    decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
+    decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
 
 std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);

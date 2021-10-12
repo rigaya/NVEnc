@@ -1103,7 +1103,7 @@ RGY_ERR RGYInputAvcodec::parseHDR10plus(AVPacket *pkt) {
     if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_HEVC) {
         return RGY_ERR_NONE;
     }
-    const auto nal_list = parse_nal_unit_hevc(pkt->data, pkt->size);
+    const auto nal_list = m_Demux.video.parse_nal_hevc(pkt->data, pkt->size);
     for (const auto& nal_unit : nal_list) {
         if (nal_unit.type != NALU_HEVC_PREFIX_SEI) {
             continue;
@@ -1665,6 +1665,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_DEBUG, _T("Opened framepos log file: \"%s\"\n"), input_prm->logCopyFrameData.c_str());
         }
 
+        m_Demux.video.parse_nal_h264 = get_parse_nal_unit_h264_func();
+        m_Demux.video.parse_nal_hevc = get_parse_nal_unit_hevc_func();
         m_Demux.video.hdr10plusMetadataCopy = input_prm->hdr10plusMetadataCopy;
         AddMessage(RGY_LOG_DEBUG, _T("hdr10plusMetadataCopy: %s\n"), m_Demux.video.hdr10plusMetadataCopy ? _T("on") : _T("off"));
         m_Demux.video.HWDecodeDeviceId = -1;
@@ -2732,7 +2734,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
         //NVEncのデコーダが受け取れるヘッダは1024byteまで
         if (m_Demux.video.extradataSize > 1024) {
             if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_H264) {
-                std::vector<nal_info> nal_list = parse_nal_unit_h264(m_Demux.video.extradata, m_Demux.video.extradataSize);
+                std::vector<nal_info> nal_list = m_Demux.video.parse_nal_h264(m_Demux.video.extradata, m_Demux.video.extradataSize);
                 const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
                 const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
                 const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
@@ -2747,7 +2749,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
                     m_Demux.video.extradata = new_ptr;
                 }
             } else if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
-                std::vector<nal_info> nal_list = parse_nal_unit_hevc(m_Demux.video.extradata, m_Demux.video.extradataSize);
+                std::vector<nal_info> nal_list = m_Demux.video.parse_nal_hevc(m_Demux.video.extradata, m_Demux.video.extradataSize);
                 const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
                 const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
                 const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });

@@ -59,7 +59,7 @@ RGYConvertCSP::RGYConvertCSP(int threads, RGYThreadAffinity threadAffinity) :
     m_uv_only(false),
     m_threads(threads),
     m_th(), m_heStart(), m_heFin(), m_heFinCopy(),
-    m_prm(), m_threadAffinity(threadAffinity) {
+    m_threadAffinity(threadAffinity), m_prm() {
 };
 
 RGYConvertCSP::~RGYConvertCSP() {

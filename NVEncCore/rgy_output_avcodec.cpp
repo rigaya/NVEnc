@@ -58,7 +58,7 @@ static int64_t funcSeek(void *opaque, int64_t offset, int whence) {
 
 const AVRational RGYOutputAvcodec::QUEUE_DTS_TIMEBASE = av_make_q(1, 90000);
 
-RGYOutputAvcodec::RGYOutputAvcodec() {
+RGYOutputAvcodec::RGYOutputAvcodec() : m_Mux(), m_AudPktBufFileHead() {
     memset(&m_Mux.format, 0, sizeof(m_Mux.format));
     memset(&m_Mux.video,  0, sizeof(m_Mux.video));
     m_strWriterName = _T("avout");
@@ -622,6 +622,9 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
     m_Mux.video.timestamp        = prm->vidTimestamp;
     m_Mux.video.afs              = prm->afs;
+
+    m_Mux.video.parse_nal_h264 = get_parse_nal_unit_h264_func();
+    m_Mux.video.parse_nal_hevc = get_parse_nal_unit_hevc_func();
 
     auto retm = SetMetadata(&m_Mux.video.streamOut->metadata, (prm->videoInputStream) ? prm->videoInputStream->metadata : nullptr, prm->videoMetadata, RGY_METADATA_DEFAULT_COPY_LANG_ONLY, _T("Video"));
     if (retm != RGY_ERR_NONE) {
@@ -1934,7 +1937,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
 }
 
 RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *bitstream) {
-    std::vector<nal_info> nal_list = parse_nal_unit_h264(bitstream->data(), bitstream->size());
+    std::vector<nal_info> nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
     const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
     const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
     const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
@@ -1953,7 +1956,7 @@ RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *bitstream
 
 //extradataにHEVCのヘッダーを追加する
 RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *bitstream) {
-    std::vector<nal_info> nal_list = parse_nal_unit_hevc(bitstream->data(), bitstream->size());
+    std::vector<nal_info> nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
     const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
     const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
     const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
@@ -2304,10 +2307,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         std::vector<nal_info> nal_list;
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
             target_nal = NALU_HEVC_SPS;
-            nal_list = parse_nal_unit_hevc(bitstream->data(), bitstream->size());
+            nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
         } else if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
             target_nal = NALU_H264_SPS;
-            nal_list = parse_nal_unit_h264(bitstream->data(), bitstream->size());
+            nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
         }
         auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [target_nal](nal_info info) { return info.type == target_nal; });
         if (sps_nal != nal_list.end()) {
@@ -2351,7 +2354,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
     bool isIDR = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
     if (m_Mux.video.streamOut->codecpar->field_order != AV_FIELD_PROGRESSIVE) {
         if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
-            const auto nal_list = parse_nal_unit_h264(bitstream->data(), bitstream->size());
+            const auto nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
             //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
             //どちらかのフィールドがIDRならIDRのフラグを立てる
             isIDR = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_IDR; }) != nal_list.end();
@@ -2365,7 +2368,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         && isIDR) {
         RGYBitstream bsCopy = RGYBitstreamInit();
         bsCopy.copy(bitstream);
-        const auto nal_list = parse_nal_unit_hevc(bsCopy.data(), bsCopy.size());
+        const auto nal_list = m_Mux.video.parse_nal_hevc(bsCopy.data(), bsCopy.size());
         const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
         const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
         const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });

@@ -308,3 +308,96 @@ void HEVCHDRSei::to_nal(std::vector<uint8_t>& data) const {
         }
     }
 }
+
+static inline int64_t memmem_c(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
+    const uint8_t *data = (const uint8_t *)data_;
+    for (int64_t i = 0; i <= data_size - target_size; i++) {
+        if (memcmp(data + i, target_, target_size) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size) {
+    std::vector<nal_info> nal_list;
+    if (size >= 3) {
+        static const uint8_t header[3] = { 0, 0, 1 };
+        nal_info nal_start = { nullptr, 0, 0 };
+        int64_t i = 0;
+        for (;;) {
+            const int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            if (next < 0) break;
+
+            i += next;
+            if (nal_start.ptr) {
+                nal_list.push_back(nal_start);
+            }
+            nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
+            nal_start.type = data[i + 3] & 0x1f;
+            nal_start.size = data + size - nal_start.ptr;
+            if (nal_list.size()) {
+                auto prev = nal_list.end() - 1;
+                prev->size = nal_start.ptr - prev->ptr;
+            }
+            i += 3;
+        }
+        if (nal_start.ptr) {
+            nal_list.push_back(nal_start);
+        }
+    }
+    return nal_list;
+}
+
+std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
+    std::vector<nal_info> nal_list;
+    if (size >= 3) {
+        static const uint8_t header[3] = { 0, 0, 1 };
+        nal_info nal_start = { nullptr, 0, 0 };
+        int64_t i = 0;
+        for (;;) {
+            const int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            if (next < 0) break;
+
+            i += next;
+            if (nal_start.ptr) {
+                nal_list.push_back(nal_start);
+            }
+            nal_start.ptr = data + i - (i > 0 && data[i - 1] == 0);
+            nal_start.type = (data[i + 3] & 0x7f) >> 1;
+            nal_start.size = data + size - nal_start.ptr;
+            if (nal_list.size()) {
+                auto prev = nal_list.end() - 1;
+                prev->size = nal_start.ptr - prev->ptr;
+            }
+            i += 3;
+        }
+        if (nal_start.ptr) {
+            nal_list.push_back(nal_start);
+        }
+    }
+    return nal_list;
+}
+
+#include "rgy_simd.h"
+
+decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func() {
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+    const auto simd = get_availableSIMD();
+#if defined(_M_X64) || defined(__x86_64)
+    if ((simd & AVX512BW) != 0) return parse_nal_unit_h264_avx512bw;
+#endif
+    if ((simd & AVX2) != 0) return parse_nal_unit_h264_avx2;
+#endif
+    return parse_nal_unit_h264_c;
+}
+decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func() {
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+    const auto simd = get_availableSIMD();
+#if defined(_M_X64) || defined(__x86_64)
+    if ((simd & AVX512BW) != 0) return parse_nal_unit_hevc_avx512bw;
+#endif
+    if ((simd & AVX2) != 0) return parse_nal_unit_hevc_avx2;
+#endif
+    return parse_nal_unit_hevc_c;
+}

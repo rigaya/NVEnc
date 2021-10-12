@@ -111,11 +111,12 @@ void RGYOutput::Close() {
 
 RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
-    m_seiNal()
+    m_seiNal(),
 #if ENABLE_AVSW_READER
-    , m_pBsfc()
+    m_pBsfc(),
 #endif //#if ENABLE_AVSW_READER
-{
+    parse_nal_h264(get_parse_nal_unit_h264_func()),
+    parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
@@ -301,10 +302,10 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             std::vector<nal_info> nal_list;
             if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
                 nal_type = NALU_HEVC_SPS;
-                nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+                nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
             } else if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
                 nal_type = NALU_H264_SPS;
-                nal_list = parse_nal_unit_h264(pBitstream->data(), pBitstream->size());
+                nal_list = parse_nal_h264(pBitstream->data(), pBitstream->size());
             }
             auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             if (sps_nal != nal_list.end()) {
@@ -353,7 +354,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         }
 #endif //#if ENABLE_AVSW_READER
         if (m_seiNal.size() > 0 && (pBitstream->frametype() & (RGY_FRAMETYPE_IDR|RGY_FRAMETYPE_xIDR)) != 0) {
-            const auto nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+            const auto nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
             const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });

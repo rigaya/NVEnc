@@ -120,60 +120,15 @@ enum PayloadType {
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len);
 
-static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, size_t size) {
-    std::vector<nal_info> nal_list;
-    if (size > 3) {
-        nal_info nal_start = { nullptr, 0, 0 };
-        const auto i_fin = size - 3;
-        for (size_t i = 0; i < i_fin; i++) {
-            if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
-                if (nal_start.ptr) {
-                    nal_list.push_back(nal_start);
-                }
-                nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
-                nal_start.type = data[i+3] & 0x1f;
-                nal_start.size = data + size - nal_start.ptr;
-                if (nal_list.size()) {
-                    auto prev = nal_list.end()-1;
-                    prev->size = nal_start.ptr - prev->ptr;
-                }
-                i += 3;
-            }
-        }
-        if (nal_start.ptr) {
-            nal_list.push_back(nal_start);
-        }
-    }
-    return nal_list;
-}
+std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size);
+std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size);
+std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t *data, size_t size);
+std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size);
+std::vector<nal_info> parse_nal_unit_h264_avx512bw(const uint8_t *data, size_t size);
+std::vector<nal_info> parse_nal_unit_hevc_avx512bw(const uint8_t *data, size_t size);
 
-static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, size_t size) {
-    std::vector<nal_info> nal_list;
-    if (size > 3) {
-        nal_info nal_start = { nullptr, 0, 0 };
-        const auto i_fin = size - 3;
-
-        for (size_t i = 0; i < i_fin; i++) {
-            if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
-                if (nal_start.ptr) {
-                    nal_list.push_back(nal_start);
-                }
-                nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
-                nal_start.type = (data[i+3] & 0x7f) >> 1;
-                nal_start.size = data + size - nal_start.ptr;
-                if (nal_list.size()) {
-                    auto prev = nal_list.end()-1;
-                    prev->size = nal_start.ptr - prev->ptr;
-                }
-                i += 3;
-            }
-        }
-        if (nal_start.ptr) {
-            nal_list.push_back(nal_start);
-        }
-    }
-    return nal_list;
-}
+decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func();
+decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func();
 
 struct HEVCHDRSeiPrm {
     int maxcll;
