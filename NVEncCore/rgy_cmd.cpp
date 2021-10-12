@@ -4597,11 +4597,18 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 }
             }
 
-            int value = 0;
-            if (get_list_value(list_thread_affinity_mode, mode.c_str(), &value)) {
-                affinity = RGYThreadAffinity((RGYThreadAffinityMode)value, affintyValue);
+            const auto affinity_mode = rgy_str_to_thread_affnity_mode(mode.c_str());
+            if (affinity_mode != RGYThreadAffinityMode::END) {
+                affinity = RGYThreadAffinity(affinity_mode, affintyValue);
             } else {
-                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_thread_affinity_mode);
+                std::array<CX_DESC, RGY_THREAD_AFFINITY_MODE_STR.size() + 1> list_thread_affinity_mode;
+                for (size_t i = 0; i < RGY_THREAD_AFFINITY_MODE_STR.size(); i++) {
+                    list_thread_affinity_mode[i].value = (int)RGY_THREAD_AFFINITY_MODE_STR[i].second;
+                    list_thread_affinity_mode[i].desc = RGY_THREAD_AFFINITY_MODE_STR[i].first;
+                }
+                list_thread_affinity_mode[RGY_THREAD_AFFINITY_MODE_STR.size()].value = 0;
+                list_thread_affinity_mode[RGY_THREAD_AFFINITY_MODE_STR.size()].desc = nullptr;
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_thread_affinity_mode.data());
                 return 1;
             }
             return 0;
@@ -6423,14 +6430,23 @@ tstring gen_cmd_help_ctrl() {
         }
         list_rgy_thread_type[RGY_THREAD_TYPE_STR.size()].value = 0;
         list_rgy_thread_type[RGY_THREAD_TYPE_STR.size()].desc = nullptr;
+
+        std::array<CX_DESC, RGY_THREAD_AFFINITY_MODE_STR.size()+1> list_thread_affinity_mode;
+        for (size_t i = 0; i < RGY_THREAD_AFFINITY_MODE_STR.size(); i++) {
+            list_thread_affinity_mode[i].value = (int)RGY_THREAD_AFFINITY_MODE_STR[i].second;
+            list_thread_affinity_mode[i].desc = RGY_THREAD_AFFINITY_MODE_STR[i].first;
+        }
+        list_thread_affinity_mode[RGY_THREAD_AFFINITY_MODE_STR.size()].value = 0;
+        list_thread_affinity_mode[RGY_THREAD_AFFINITY_MODE_STR.size()].desc = nullptr;
+
         str += strsprintf(_T("")
             _T("   --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
             _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
         ) + print_list(list_rgy_thread_type.data()) + _T("\n");
         str += strsprintf(_T("")
-            _T("     thread type (string2)  (default: %s)\n"), list_thread_affinity_mode[(int)RGYThreadAffinityMode::ALL].desc
-        ) + print_list(list_thread_affinity_mode) + _T("\n");
+            _T("     thread type (string2)  (default: %s)\n"), rgy_thread_affnity_mode_to_str(RGYThreadAffinityMode::ALL)
+        ) + print_list(list_thread_affinity_mode.data()) + _T("\n");
     }
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
     str += strsprintf(_T("\n")

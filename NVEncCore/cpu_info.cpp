@@ -183,13 +183,14 @@ bool getCPUHybridMasks(cpu_info_t *info) {
         return false;
     }
     info->maskSystem = maskSysAff;
-    const auto threadCount = CountSetBits(info->maskSystem);
+    const auto threadCount = (int)CountSetBits(info->maskSystem);
 #else
     const auto threadCount = info->physical_cores;
 #endif
+#if defined(__x86__) || defined(__x86_64__) || defined(_M_X86) || defined(_M_X64)
     const auto hThread = GetCurrentThread();
     size_t maskOriginal = 0;
-    for (uint32_t ith = 0; ith < threadCount; ith++) {
+    for (int ith = 0; ith < threadCount; ith++) {
         const auto maskTarget = (size_t)1u << ith;
         auto maskPrev = SetThreadAffinityMask(hThread, maskTarget);
         if (maskOriginal == 0) {
@@ -206,6 +207,18 @@ bool getCPUHybridMasks(cpu_info_t *info) {
         }
     }
     SetThreadAffinityMask(hThread, maskOriginal); // 元に戻す
+
+    info->physical_cores_e = 0;
+    info->physical_cores_p = 0;
+    for (int i = 0; i < info->physical_cores; i++) {
+        const auto maskTarget = info->proc_list[i].mask;
+        if (info->maskCoreP & maskTarget) {
+            info->physical_cores_p++;
+        } else if (info->maskCoreE & maskTarget) {
+            info->physical_cores_e++;
+        }
+    }
+#endif //#if defined(__x86__) || defined(__x86_64__) || defined(_M_X86) || defined(_M_X64)
     return true;
 }
 
@@ -383,22 +396,167 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
         processor_list.push_back(info);
     }
 
+    //ここまでで論理コアの情報を作った
+    //cpu_infoに登録するのは物理コアの情報なので、整理しなおす
+    //いったんsocket→core→processorの順でソート
     std::sort(processor_list.begin(), processor_list.end(), [](const processor_info_t& a, const processor_info_t& b) {
         if (a.socket_id != b.socket_id) return a.socket_id < b.socket_id;
         if (a.core_id != b.core_id) return a.core_id < b.core_id;
         return a.processor_id < b.processor_id;
     });
-    int physical_core_count = 0;
-    uint64_t last_key = UINT64_MAX;
-    for (uint32_t i = 0; i < processor_list.size(); i++) {
-        uint64_t key = ((uint64_t)processor_list[i].socket_id << 32) | processor_list[i].core_id;
-        physical_core_count += key != last_key;
-        last_key = key;
-    }
-    memcpy(cpu_info->proc_list, processor_list.data(), sizeof(processor_list[0]) * processor_list.size());
-    cpu_info->node_count = processor_list.back().socket_id + 1;
-    cpu_info->physical_cores = physical_core_count;
+
+    cpu_info->max_cache_level = 0;
+    cpu_info->physical_cores = 0;
     cpu_info->logical_cores = processor_list.size();
+
+    processor_info_t *prevCore = nullptr;
+    for (size_t ip = 0; ip < processor_list.size(); ip++) {
+        if (prevCore != nullptr
+            && prevCore->socket_id == processor_list[ip].socket_id
+            && prevCore->core_id   == processor_list[ip].core_id) {
+            // 同じソケットの同じコアならそれは論理コア
+            prevCore->logical_cores++;
+            prevCore->mask |= 1llu << processor_list[ip].processor_id;
+        } else {
+            auto targetCore = &cpu_info->proc_list[cpu_info->physical_cores];
+            *targetCore = processor_list[ip];
+            targetCore->logical_cores = 1;
+            targetCore->mask = 1llu << processor_list[ip].processor_id;
+            cpu_info->physical_cores++;
+            prevCore = targetCore;
+        }
+    }
+
+    //キャッシュの情報を作る
+    std::vector<cache_info_t> caches;
+    for (int ip = 0; ip < cpu_info->physical_cores; ip++) {
+        const auto& targetCore = &cpu_info->proc_list[ip];
+        uint64_t mask = 0;
+        for (int index = 0; ; index++) {
+            cache_info_t cacheinfo;
+
+            char buffer[256];
+            sprintf_s(buffer, "/sys/devices/system/cpu/cpu%d/cache/index%d", targetCore->processor_id, index);
+            struct stat st;
+            if (stat(buffer, &st) != 0) break;
+
+            sprintf_s(buffer, "/sys/devices/system/cpu/cpu%d/cache/index%d/shared_cpu_list", targetCore->processor_id, index);
+            FILE *fp = fopen(buffer, "r");
+            if (fp) {
+                while (fgets(buffer, _countof(buffer), fp) != NULL) {
+                    for (auto numstr : split(buffer, ",")) {
+                        int value0 = 0, value1 = 0;
+                        if (sscanf_s(numstr.c_str(), "%d-%d", &value0, &value1) == 2) {
+                            for (int iv = value0; iv <= value1; iv++) {
+                                mask |= 1llu << iv;
+                            }
+                        } else if (sscanf_s(numstr.c_str(), "%d", &value0) == 1) {
+                            mask |= 1llu << value0;
+                        }
+                    }
+                }
+                fclose(fp);
+            }
+            cacheinfo.mask = mask;
+
+            sprintf_s(buffer, "/sys/devices/system/cpu/cpu%d/cache/index%d/level", targetCore->processor_id, index);
+            fp = fopen(buffer, "r");
+            if (fp) {
+                while (fgets(buffer, _countof(buffer), fp) != NULL) {
+                    int value = 0;
+                    if (sscanf_s(buffer, "%d", &value) == 1) {
+                        cacheinfo.level = (RGYCacheLevel)value;
+                    }
+                }
+                fclose(fp);
+            }
+
+            sprintf_s(buffer, "/sys/devices/system/cpu/cpu%d/cache/index%d/size", targetCore->processor_id, index);
+            fp = fopen(buffer, "r");
+            if (fp) {
+                while (fgets(buffer, _countof(buffer), fp) != NULL) {
+                    int value = 0;
+                    if (sscanf_s(buffer, "%dK", &value) == 1) {
+                        cacheinfo.size = value * 1024;
+                    } else if (sscanf_s(buffer, "%dM", &value) == 1) {
+                        cacheinfo.size = value * 1024 * 1024;
+                    } else if (sscanf_s(buffer, "%dG", &value) == 1) {
+                        cacheinfo.size = value * 1024 * 1024 * 1024;
+                    } else if (sscanf_s(buffer, "%d", &value) == 1) {
+                        cacheinfo.size = value;
+                    }
+                }
+                fclose(fp);
+            }
+
+            sprintf_s(buffer, "/sys/devices/system/cpu/cpu%d/cache/index%d/ways_of_associativity", targetCore->processor_id, index);
+            fp = fopen(buffer, "r");
+            if (fp) {
+                while (fgets(buffer, _countof(buffer), fp) != NULL) {
+                    int value = 0;
+                    if (sscanf_s(buffer, "%d", &value) == 1) {
+                        cacheinfo.associativity = (RGYCacheLevel)value;
+                    }
+                }
+                fclose(fp);
+            }
+
+            sprintf_s(buffer, "/sys/devices/system/cpu/cpu%d/cache/index%d/type", targetCore->processor_id, index);
+            fp = fopen(buffer, "r");
+            if (fp) {
+                while (fgets(buffer, _countof(buffer), fp) != NULL) {
+                    if (strncasecmp(buffer, "Instruction", strlen("Instruction")) == 0) {
+                        cacheinfo.type = RGYCacheType::Instruction;
+                        break;
+                    } else if (strncasecmp(buffer, "Data", strlen("Data")) == 0) {
+                        cacheinfo.type = RGYCacheType::Data;
+                        break;
+                    } else if (strncasecmp(buffer, "Unified", strlen("Unified")) == 0) {
+                        cacheinfo.type = RGYCacheType::Unified;
+                        break;
+                    }
+                }
+                fclose(fp);
+            }
+
+            auto sameCache = std::find_if(caches.begin(), caches.end(), [&cacheinfo](const cache_info_t& c){
+                return cacheinfo.type == c.type
+                    && cacheinfo.level == c.level
+                    && ((cacheinfo.mask & c.mask) != 0);
+            });
+            if (sameCache != caches.end()) {
+                sameCache->mask |= cacheinfo.mask;
+            } else {
+                caches.push_back(cacheinfo);
+            }
+        }
+    }
+
+    for (int ilevel = 0; ilevel < MAX_CACHE_LEVEL; ilevel++) {
+        cpu_info->cache_count[ilevel] = 0;
+    }
+    for (const auto& c : caches) {
+        const int ilevel = (int)c.level - 1;
+        const int icacheidx = cpu_info->cache_count[ilevel]++;
+        cpu_info->caches[ilevel][icacheidx] = c;
+    }
+    for (int ilevel = 0; ilevel < MAX_CACHE_LEVEL; ilevel++) {
+        if (cpu_info->cache_count[ilevel] > 0) {
+            cpu_info->max_cache_level = ilevel+1;
+        }
+    }
+
+    //ノードの情報を作る
+    cpu_info->node_count = processor_list.back().socket_id + 1;
+    //初期化
+    for (int in = 0; in < cpu_info->node_count; in++) {
+        cpu_info->nodes[in].mask = 0;
+    }
+    for (int ip = 0; ip < cpu_info->physical_cores; ip++) {
+        auto& targetCore = cpu_info->proc_list[ip];
+        cpu_info->nodes[targetCore.socket_id].mask |= targetCore.mask;
+    }
+
     getCPUHybridMasks(cpu_info);
     return true;
 }
@@ -581,7 +739,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize
 #endif //#if defined(_WIN32) || defined(_WIN64)
         _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT"), cpu_info.physical_cores, cpu_info.logical_cores);
         if (cpu_info.maskCoreP != 0 && cpu_info.maskCoreE != 0 && cpu_info.physical_cores <= 64) {
-            _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(",%dP+%dE"), CountSetBits(cpu_info.maskCoreP), CountSetBits(cpu_info.maskCoreE));
+            _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(",%dP+%dE"), cpu_info.physical_cores_p, cpu_info.physical_cores_e);
         }
         _tcscpy_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(")"));
 #if ENCODER_QSV && !FOR_AUO
@@ -644,3 +802,53 @@ double GetProcessAvgCPUUsage(PROCESS_TIME *start) {
 #endif
 }
 
+const TCHAR *RGYCacheTypeToStr(RGYCacheType type) {
+    switch (type) {
+    case RGYCacheType::Unified:     return _T(" ");
+    case RGYCacheType::Instruction: return _T("I");
+    case RGYCacheType::Data:        return _T("D");
+    default:                        return _T("-");
+    }
+}
+
+tstring print_cpu_info(const cpu_info_t *cpu_info) {
+    TCHAR buffer[256];
+    getCPUInfo(buffer, _countof(buffer));
+
+    tstring str = buffer;
+    str += _T("\n");
+    str += _T("CPU cores\n");
+    for (int ip = 0; ip < cpu_info->physical_cores; ip++) {
+        auto& targetCore = cpu_info->proc_list[ip];
+        str += strsprintf(_T("  core %2d "), ip);
+        if ((cpu_info->maskCoreP & targetCore.mask) == targetCore.mask) {
+            str += _T("P");
+        } else if ((cpu_info->maskCoreE & targetCore.mask) == targetCore.mask) {
+            str += _T("E");
+        } else {
+            str += _T(" ");
+        }
+        str += _T(" : ");
+        for (int il = 0; il < cpu_info->logical_cores; il++) {
+            const auto mask = 1llu << il;
+            str += (mask & targetCore.mask) ? _T("*") : _T("-");
+        }
+        str += _T("\n");
+    }
+
+    if (cpu_info->cache_count[0] > 0) {
+        str += _T("CPU caches\n");
+        for (int icache_level = 0; icache_level < MAX_CACHE_LEVEL; icache_level++) {
+            for (int ic = 0; ic < cpu_info->cache_count[icache_level]; ic++) {
+                auto& targetCache = cpu_info->caches[icache_level][ic];
+                str += strsprintf(_T("  cache L%d%s : "), icache_level + 1, RGYCacheTypeToStr(targetCache.type));
+                for (int il = 0; il < cpu_info->logical_cores; il++) {
+                    const auto mask = 1llu << il;
+                    str += (mask & targetCache.mask) ? _T("*") : _T("-");
+                }
+                str += strsprintf(_T(" : %2dway %6dKB\n"), targetCache.associativity, targetCache.size / 1024);
+            }
+        }
+    }
+    return str;
+}

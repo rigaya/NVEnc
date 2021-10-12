@@ -81,13 +81,15 @@ typedef struct {
     int core_id;        // コアID
     int socket_id;      // ソケットID
     int logical_cores;  // 論理コア数
-    size_t mask;      // 対応する物理コアのマスク
-} processor_info_t;
+    size_t mask;        // 対応する物理コアのマスク
+} processor_info_t;     // 物理コアの情報
 
 typedef struct {
     int node_count;           // ノード数
     node_info_t nodes[MAX_NODE_COUNT];
     int physical_cores;  // 物理コア数
+    int physical_cores_p; // 物理コア数
+    int physical_cores_e; // 物理コア数
     int logical_cores;   // 論理コア数
     int max_cache_level; // キャッシュの最大レベル
     int cache_count[MAX_CACHE_LEVEL];       // 各階層のキャッシュの数
@@ -103,6 +105,8 @@ int getCPUName(char *buffer, size_t nSize);
 bool get_cpu_info(cpu_info_t *cpu_info);
 cpu_info_t get_cpu_info();
 uint64_t get_mask(const cpu_info_t *cpu_info, RGYUnitType unit_type, int level, int id);
+
+tstring print_cpu_info(const cpu_info_t *cpu_info);
 
 #if ENCODER_QSV
 class MFXVideoSession;

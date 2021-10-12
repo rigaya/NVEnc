@@ -42,23 +42,28 @@ tstring RGYThreadAffinity::to_string() const {
         _stprintf_s(buf, _T("0x%llx"), custom);
         return buf;
     }
-    auto modeStr = get_cx_desc(list_thread_affinity_mode, (int)mode);
-#if defined(_WIN32) || defined(_WIN64)
-    if (mode == RGYThreadAffinityMode::LOGICAL
+    auto modeStr = rgy_thread_affnity_mode_to_str(mode);
+    if (   mode == RGYThreadAffinityMode::LOGICAL
         || mode == RGYThreadAffinityMode::PHYSICAL
+#if defined(_WIN32) || defined(_WIN64)
         || mode == RGYThreadAffinityMode::CACHEL2
-        || mode == RGYThreadAffinityMode::CACHEL3) {
+        || mode == RGYThreadAffinityMode::CACHEL3
+#endif
+    ) {
         const auto cpu_info = get_cpu_info();
         int targetCount = 0;
         if (mode == RGYThreadAffinityMode::LOGICAL) {
             targetCount = cpu_info.logical_cores;
         } else if (mode == RGYThreadAffinityMode::PHYSICAL) {
             targetCount = cpu_info.physical_cores;
-        } else if (mode == RGYThreadAffinityMode::CACHEL2) {
+        }
+#if defined(_WIN32) || defined(_WIN64)
+        else if (mode == RGYThreadAffinityMode::CACHEL2) {
             targetCount = cpu_info.cache_count[1];
         } else if (mode == RGYThreadAffinityMode::CACHEL3) {
             targetCount = cpu_info.cache_count[2];
         }
+#endif
         std::basic_stringstream<TCHAR> tmp;
         for (int id = 0; id < targetCount; id++) {
             const auto target = 1llu << id;
@@ -72,8 +77,22 @@ tstring RGYThreadAffinity::to_string() const {
             return modeStr;
         }
     }
-#endif
     return modeStr;
+}
+
+const TCHAR *rgy_thread_affnity_mode_to_str(RGYThreadAffinityMode mode) {
+    for (const auto& p : RGY_THREAD_AFFINITY_MODE_STR) {
+        if (p.second == mode) return p.first;
+    }
+    return nullptr;
+}
+
+RGYThreadAffinityMode rgy_str_to_thread_affnity_mode(const TCHAR *str) {
+    tstring target(str);
+    for (const auto& p : RGY_THREAD_AFFINITY_MODE_STR) {
+        if (target == p.first) return p.second;
+    }
+    return RGYThreadAffinityMode::END;
 }
 
 bool RGYThreadAffinity::operator==(const RGYThreadAffinity &x) const {
@@ -84,13 +103,31 @@ bool RGYThreadAffinity::operator!=(const RGYThreadAffinity &x) const {
     return !(*this == x);
 }
 
+uint64_t RGYThreadAffinity::getMask(int idx) const {
+    return selectMaskFromLowerBit(getMask(), idx);
+}
+
 uint64_t RGYThreadAffinity::getMask() const {
     uint64_t mask = 0;
     const auto cpu_info = get_cpu_info();
     switch (mode) {
-    case RGYThreadAffinityMode::PCORE:  mask = (cpu_info.maskCoreP) ? cpu_info.maskCoreP : cpu_info.maskSystem; break;
-    case RGYThreadAffinityMode::ECORE:  mask = (cpu_info.maskCoreE) ? cpu_info.maskCoreE : cpu_info.maskSystem; break;
-#if defined(_WIN32) || defined(_WIN64)
+    case RGYThreadAffinityMode::PCORE:
+    case RGYThreadAffinityMode::ECORE: {
+        auto maskSelected = cpu_info.maskSystem;
+        if (mode == RGYThreadAffinityMode::PCORE && cpu_info.maskCoreP) maskSelected = cpu_info.maskCoreP;
+        if (mode == RGYThreadAffinityMode::ECORE && cpu_info.maskCoreE) maskSelected = cpu_info.maskCoreE;
+        int targetCore = 0;
+        for (int i = 0; i < cpu_info.physical_cores; i++) {
+            const auto target_i = get_mask(&cpu_info, RGYUnitType::Core, (int)RGYCoreType::Physical, i);
+            if (maskSelected & target_i) { // PCoreであるか?
+                const auto target_core_mask = 1llu << targetCore;
+                if (target_core_mask & custom) { // customで指定のコアであるか?
+                    mask |= target_i;
+                }
+                targetCore++;
+            }
+        }
+    } break;
     case RGYThreadAffinityMode::LOGICAL:
         for (int i = 0; i < cpu_info.logical_cores; i++) {
             const auto target = 1llu << i;
@@ -123,7 +160,6 @@ uint64_t RGYThreadAffinity::getMask() const {
             }
         }
         break;
-#endif
     case RGYThreadAffinityMode::CUSTOM: mask = (custom) ? custom & cpu_info.maskSystem : cpu_info.maskSystem; break;
     case RGYThreadAffinityMode::ALL:
     default: mask = cpu_info.maskSystem; break;
@@ -225,4 +261,15 @@ bool RGYParamThreadAffinity::operator==(const RGYParamThreadAffinity &x) const {
 }
 bool RGYParamThreadAffinity::operator!=(const RGYParamThreadAffinity &x) const {
     return !(*this == x);
+}
+
+uint64_t selectMaskFromLowerBit(uint64_t mask, const int idx) {
+    int count = 0;
+    uint64_t ret = 0;
+    do {
+        mask &= (~ret);
+        ret = (uint64_t)(mask & (-mask)); // select lowest bit
+        count++;
+    } while (count <= idx);
+    return ret;
 }

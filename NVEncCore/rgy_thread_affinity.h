@@ -30,36 +30,35 @@
 #define __RGY_THREAD_AFFINITY_H__
 
 #include <cstdint>
+#include <array>
+#include <limits>
 #include "rgy_tchar.h"
-#include "rgy_def.h"
 
 enum class RGYThreadAffinityMode {
     ALL,
     PCORE,
     ECORE,
-#if defined(_WIN32) || defined(_WIN64)
     LOGICAL,
     PHYSICAL,
     CACHEL2,
     CACHEL3,
-#endif //#if defined(_WIN32) || defined(_WIN64)
     CUSTOM,
     END
 };
 
-const CX_DESC list_thread_affinity_mode[] = {
-    { _T("all"),      (int)RGYThreadAffinityMode::ALL      },
-    { _T("pcore"),    (int)RGYThreadAffinityMode::PCORE    },
-    { _T("ecore"),    (int)RGYThreadAffinityMode::ECORE    },
-#if defined(_WIN32) || defined(_WIN64)
-    { _T("logical"),  (int)RGYThreadAffinityMode::LOGICAL  },
-    { _T("physical"), (int)RGYThreadAffinityMode::PHYSICAL },
-    { _T("cachel2"),  (int)RGYThreadAffinityMode::CACHEL2  },
-    { _T("cachel3"),  (int)RGYThreadAffinityMode::CACHEL3  },
-#endif //#if defined(_WIN32) || defined(_WIN64)
-    { _T("custom"),   (int)RGYThreadAffinityMode::CUSTOM   },
-    { NULL, 0 }
+static const std::array<std::pair<const TCHAR *, RGYThreadAffinityMode>, (int)RGYThreadAffinityMode::END - (int)RGYThreadAffinityMode::ALL> RGY_THREAD_AFFINITY_MODE_STR = {
+    std::pair<const TCHAR *, RGYThreadAffinityMode>{ _T("all"),      RGYThreadAffinityMode::ALL      },
+    std::pair<const TCHAR *, RGYThreadAffinityMode>{ _T("pcore"),    RGYThreadAffinityMode::PCORE    },
+    std::pair<const TCHAR *, RGYThreadAffinityMode>{ _T("ecore"),    RGYThreadAffinityMode::ECORE    },
+    std::pair<const TCHAR *, RGYThreadAffinityMode>{ _T("logical"),  RGYThreadAffinityMode::LOGICAL  },
+    std::pair<const TCHAR *, RGYThreadAffinityMode>{ _T("physical"), RGYThreadAffinityMode::PHYSICAL },
+    std::pair<const TCHAR *, RGYThreadAffinityMode>{ _T("cachel2"),  RGYThreadAffinityMode::CACHEL2  },
+    std::pair<const TCHAR *, RGYThreadAffinityMode>{ _T("cachel3"),  RGYThreadAffinityMode::CACHEL3  },
+    std::pair<const TCHAR *, RGYThreadAffinityMode>{ _T("custom"),   RGYThreadAffinityMode::CUSTOM   }
 };
+
+const TCHAR *rgy_thread_affnity_mode_to_str(RGYThreadAffinityMode mode);
+RGYThreadAffinityMode rgy_str_to_thread_affnity_mode(const TCHAR *str);
 
 struct RGYThreadAffinity {
     RGYThreadAffinityMode mode;
@@ -69,10 +68,13 @@ struct RGYThreadAffinity {
     RGYThreadAffinity(RGYThreadAffinityMode m);
     RGYThreadAffinity(RGYThreadAffinityMode m, uint64_t customAffinity);
     uint64_t getMask() const;
+    uint64_t getMask(int idx) const;
     tstring to_string() const;
     bool operator==(const RGYThreadAffinity &x) const;
     bool operator!=(const RGYThreadAffinity &x) const;
 };
+
+uint64_t selectMaskFromLowerBit(uint64_t mask, const int idx);
 
 enum class RGYThreadType {
     ALL,
