@@ -5740,7 +5740,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         }
     }
 #if ENCODER_QSV
-    OPT_BOOL(_T("--disable-opencl"), _T(""), enableOpenCL);
+    OPT_BOOL(_T("--enable-opencl"), _T("--disable-opencl"), enableOpenCL);
 #endif
     return cmd.str();
 }
