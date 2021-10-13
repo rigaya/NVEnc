@@ -45,10 +45,8 @@ tstring RGYThreadAffinity::to_string() const {
     auto modeStr = rgy_thread_affnity_mode_to_str(mode);
     if (   mode == RGYThreadAffinityMode::LOGICAL
         || mode == RGYThreadAffinityMode::PHYSICAL
-#if defined(_WIN32) || defined(_WIN64)
         || mode == RGYThreadAffinityMode::CACHEL2
         || mode == RGYThreadAffinityMode::CACHEL3
-#endif
     ) {
         const auto cpu_info = get_cpu_info();
         int targetCount = 0;
@@ -56,14 +54,11 @@ tstring RGYThreadAffinity::to_string() const {
             targetCount = cpu_info.logical_cores;
         } else if (mode == RGYThreadAffinityMode::PHYSICAL) {
             targetCount = cpu_info.physical_cores;
-        }
-#if defined(_WIN32) || defined(_WIN64)
-        else if (mode == RGYThreadAffinityMode::CACHEL2) {
+        } else if (mode == RGYThreadAffinityMode::CACHEL2) {
             targetCount = cpu_info.cache_count[1];
         } else if (mode == RGYThreadAffinityMode::CACHEL3) {
             targetCount = cpu_info.cache_count[2];
         }
-#endif
         std::basic_stringstream<TCHAR> tmp;
         for (int id = 0; id < targetCount; id++) {
             const auto target = 1llu << id;
