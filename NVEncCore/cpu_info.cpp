@@ -498,7 +498,7 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
                 while (fgets(buffer, _countof(buffer), fp) != NULL) {
                     int value = 0;
                     if (sscanf_s(buffer, "%d", &value) == 1) {
-                        cacheinfo.associativity = (RGYCacheLevel)value;
+                        cacheinfo.associativity = value;
                     }
                 }
                 fclose(fp);
