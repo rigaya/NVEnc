@@ -5691,7 +5691,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
     OPT_STR_PATH(_T("--log"), logfile);
     if (param->loglevel != defaultPrm->loglevel) {
-        cmd << _T(" --loglevel ") << param->loglevel.to_string();
+        cmd << _T(" --log-level ") << param->loglevel.to_string();
     }
 
     if (param->logAddTime != defaultPrm->logAddTime) {
