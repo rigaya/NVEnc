@@ -244,7 +244,7 @@ tstring RGYParamThreadAffinity::to_string() const {
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::PERF_MONITOR, perfmonitor);
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::VIDEO_QUALITY, videoquality);
 #undef LOG_LEVEL_ADD_TYPE
-    return tmp.str();
+    return tmp.str().substr(1);
 }
 
 bool RGYParamThreadAffinity::operator==(const RGYParamThreadAffinity &x) const {
