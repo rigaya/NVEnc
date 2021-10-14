@@ -4684,7 +4684,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        if (value < -1 || value >= 2) {
+        if (value < -1) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
