@@ -204,7 +204,7 @@ tstring RGYParamLogLevel::to_string() const {
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_PERF_MONITOR, perfmonitor_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_CAPION2ASS,  caption2ass_);
 #undef LOG_LEVEL_ADD_TYPE
-    return tmp.str();
+    return tmp.str().substr(1);
 }
 
 RGYLog::RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level, bool showTime) :
