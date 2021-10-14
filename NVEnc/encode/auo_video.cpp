@@ -108,8 +108,8 @@ static int calc_input_frame_size(int width, int height, int color_format, int& b
     width = (color_format == CF_RGB) ? (width+3) & ~3 : (width+1) & ~1;
     //widthが割り切れない場合、多めにアクセスが発生するので、そのぶんを確保しておく
     const DWORD pixel_size = COLORFORMATS[color_format].size;
-    const DWORD simd_check = get_availableSIMD();
-    const DWORD align_size = (simd_check & SSE2) ? ((simd_check & AVX2) ? 64 : 32) : 1;
+    const RGY_SIMD simd_check = get_availableSIMD();
+    const DWORD align_size = ((simd_check & RGY_SIMD::SSE2) == RGY_SIMD::SSE2) ? (((simd_check & RGY_SIMD::AVX2) == RGY_SIMD::AVX2) ? 64 : 32) : 1;
 #define ALIGN_NEXT(i, align) (((i) + (align-1)) & (~(align-1))) //alignは2の累乗(1,2,4,8,16,32...)
     buf_size = ALIGN_NEXT(width * height * pixel_size + (ALIGN_NEXT(width, align_size / pixel_size) - width) * 2 * pixel_size, align_size);
 #undef ALIGN_NEXT
@@ -377,15 +377,15 @@ static int send_frame(
             error_video_open_shared_input_buf();
             return AUO_RESULT_ERROR;
         }
-        DWORD simd = 0xffffffff;
+        RGY_SIMD simd = RGY_SIMD::SIMD_ALL;
         if (prmsm->w % ((input_csp == RGY_CSP_YC48) ? 16 : 32) != 0) {
             if (prmsm->w % ((input_csp == RGY_CSP_YC48) ? 8 : 16) == 0) { //SSEで割り切れるならそちらを使う
-                simd = AVX | POPCNT | SSE42 | SSE41 | SSSE3 | SSE2;
+                simd = RGY_SIMD::AVX | RGY_SIMD::POPCNT | RGY_SIMD::SSE42 | RGY_SIMD::SSE41 | RGY_SIMD::SSSE3 | RGY_SIMD::SSE2;
             } else {
                 //SIMDの要求する値で割り切れない場合は、一時バッファを使用してpitchがあるようにする
                 tempBufForNonModWidthPitch = ALIGN(oip->w, 128) * ((input_csp == RGY_CSP_YC48) ? 6 : 2);
                 tempBufForNonModWidth = std::unique_ptr<uint8_t, aligned_malloc_deleter>(
-                    (uint8_t*)_aligned_malloc(tempBufForNonModWidthPitch * oip->h, 128), aligned_malloc_deleter());;
+                    (uint8_t*)_aligned_malloc(tempBufForNonModWidthPitch * oip->h, 128), aligned_malloc_deleter());
             }
         }
         if (convert->getFunc(input_csp, prmsm->csp, false, simd) == nullptr) {
