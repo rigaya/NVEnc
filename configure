@@ -621,7 +621,7 @@ NVEncFrameInfo.cpp     NVEncParam.cpp              NVEncUtil.cpp                
 convert_csp.cpp        cpu_info.cpp                gpu_info.cpp \
 gpuz_info.cpp          h264_level.cpp              hevc_level.cpp               logo.cpp \
 rgy_aspect_ratio.cpp   rgy_avlog.cpp               rgy_avutil.cpp \
-rgy_bitstream.cpp      rgy_bitstream_avx2.cpp      rgy_bitstream_avx512.cpp \
+rgy_bitstream.cpp      rgy_bitstream_avx2.cpp      rgy_bitstream_avx512bw.cpp \
 rgy_caption.cpp        rgy_chapter.cpp             rgy_cmd.cpp                  rgy_codepage.cpp             rgy_def.cpp \
 rgy_env.cpp            rgy_err.cpp                 rgy_event.cpp                rgy_filesystem.cpp           rgy_frame.cpp \
 rgy_hdr10plus.cpp      rgy_ini.cpp                 rgy_input.cpp                rgy_input_avcodec.cpp        rgy_input_avi.cpp \
