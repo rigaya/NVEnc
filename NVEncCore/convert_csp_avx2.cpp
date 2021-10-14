@@ -703,7 +703,7 @@ void RGY_FORCEINLINE copy_y_plane(void *dst, int dst_y_pitch_byte, const void*sr
             Tout* dst_ptr = dstLine;
             Tin* src_ptr = srcYLine;
             Tin* src_ptr_fin = src_ptr + y_width;
-            for (; src_ptr < src_ptr_fin; dst_ptr += 16, src_ptr += 16) {
+            for (; src_ptr < src_ptr_fin; dst_ptr += 32, src_ptr += 32) {
                 __m256i y0 = _mm256_loadu_si256((const __m256i*)(src_ptr +  0));
                 __m256i y1 = _mm256_loadu_si256((const __m256i*)(src_ptr + 16));
                 if (out_bit_depth > in_bit_depth) {
