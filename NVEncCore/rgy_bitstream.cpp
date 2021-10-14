@@ -385,9 +385,9 @@ decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func() {
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
     const auto simd = get_availableSIMD();
 #if defined(_M_X64) || defined(__x86_64)
-    if ((simd & AVX512BW) != 0) return parse_nal_unit_h264_avx512bw;
+    if ((simd & RGY_SIMD::AVX512BW) == RGY_SIMD::AVX512BW) return parse_nal_unit_h264_avx512bw;
 #endif
-    if ((simd & AVX2) != 0) return parse_nal_unit_h264_avx2;
+    if ((simd & RGY_SIMD::AVX2) == RGY_SIMD::AVX2) return parse_nal_unit_h264_avx2;
 #endif
     return parse_nal_unit_h264_c;
 }
@@ -395,9 +395,9 @@ decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func() {
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
     const auto simd = get_availableSIMD();
 #if defined(_M_X64) || defined(__x86_64)
-    if ((simd & AVX512BW) != 0) return parse_nal_unit_hevc_avx512bw;
+    if ((simd & RGY_SIMD::AVX512BW) == RGY_SIMD::AVX512BW) return parse_nal_unit_hevc_avx512bw;
 #endif
-    if ((simd & AVX2) != 0) return parse_nal_unit_hevc_avx2;
+    if ((simd & RGY_SIMD::AVX2) == RGY_SIMD::AVX2) return parse_nal_unit_hevc_avx2;
 #endif
     return parse_nal_unit_hevc_c;
 }

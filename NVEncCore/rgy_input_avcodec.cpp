@@ -2833,8 +2833,9 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
-#if ENCODER_NVENC
+#if ENCODER_NVENC || ENABLE_DHDR10_INFO
         pSurface->dataList().clear();
+#if ENCODER_NVENC
         if (m_Demux.video.qpTableListRef != nullptr) {
             int qp_stride = 0;
             int qscale_type = 0;
@@ -2862,6 +2863,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             }
         }
 #endif //#if ENABLE_DHDR10_INFO
+#endif //#if ENCODER_NVENC || ENABLE_DHDR10_INFO
         //フレームデータをコピー
         void *dst_array[3];
         pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);

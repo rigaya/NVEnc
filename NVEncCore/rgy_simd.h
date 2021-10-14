@@ -29,6 +29,9 @@
 #ifndef __RGY_SIMD_H__
 #define __RGY_SIMD_H__
 
+#include <cstdint>
+#include <limits>
+
 #ifndef _MSC_VER
 
 #ifndef __forceinline
@@ -37,27 +40,57 @@
 
 #endif //#ifndef _MSC_VER
 
-enum {
-    NONE       = 0x0000,
-    SSE2       = 0x0001,
-    SSE3       = 0x0002,
-    SSSE3      = 0x0004,
-    SSE41      = 0x0008,
-    SSE42      = 0x0010,
-    POPCNT     = 0x0020,
-    AVX        = 0x0040,
-    AVX2       = 0x0080,
-    AVX512F    = 0x0100,
-    AVX512DQ   = 0x0200,
-    AVX512IFMA = 0x0400,
-    AVX512PF   = 0x0800,
-    AVX512ER   = 0x1000,
-    AVX512CD   = 0x2000,
-    AVX512BW   = 0x4000,
-    AVX512VL   = 0x8000,
-    AVX512VBMI = 0x10000,
+enum class RGY_SIMD : uint64_t {
+    NONE            = 0x000000,
+    SSE2            = 0x000001,
+    SSE3            = 0x000002,
+    SSSE3           = 0x000004,
+    SSE41           = 0x000008,
+    SSE42           = 0x000010,
+    POPCNT          = 0x000020,
+    AVX             = 0x000040,
+    AVX2            = 0x000080,
+    BMI1            = 0x000100,
+    BMI2            = 0x000200,
+    AVX512F         = 0x000400,
+    AVX512DQ        = 0x000800,
+    AVX512IFMA      = 0x001000,
+    AVX512PF        = 0x002000,
+    AVX512ER        = 0x004000,
+    AVX512CD        = 0x008000,
+    AVX512BW        = 0x010000,
+    AVX512VL        = 0x020000,
+    AVX512VBMI      = 0x040000,
+    AVX512VBMI2     = 0x080000,
+    AVX512VNNI      = 0x100000,
+    AVX512BITALG    = 0x200000,
+    AVX512VPOPCNTDQ = 0x400000,
+
+    SIMD_ALL        = std::numeric_limits<uint64_t>::max(),
 };
 
-unsigned int get_availableSIMD();
+static bool operator!(RGY_SIMD e) {
+    return e == static_cast<RGY_SIMD>(0);
+}
+
+static RGY_SIMD operator|(RGY_SIMD a, RGY_SIMD b) {
+    return (RGY_SIMD)((uint64_t)a | (uint64_t)b);
+}
+
+static RGY_SIMD operator|=(RGY_SIMD &a, RGY_SIMD b) {
+    a = a | b;
+    return a;
+}
+
+static RGY_SIMD operator&(RGY_SIMD a, RGY_SIMD b) {
+    return (RGY_SIMD)((uint64_t)a & (uint64_t)b);
+}
+
+static RGY_SIMD operator&=(RGY_SIMD &a, RGY_SIMD b) {
+    a = a & b;
+    return a;
+}
+
+RGY_SIMD get_availableSIMD();
 
 #endif //__RGY_SIMD_H__

@@ -75,7 +75,7 @@ RGYConvertCSP::~RGYConvertCSP() {
     m_heFin.clear();
     m_th.clear();
 };
-const ConvertCSP *RGYConvertCSP::getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd) {
+const ConvertCSP *RGYConvertCSP::getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd) {
     if (m_csp == nullptr
         || (m_csp_from != csp_from || m_csp_to != csp_to || m_uv_only != uv_only)) {
         m_csp_from = csp_from;
@@ -88,8 +88,8 @@ const ConvertCSP *RGYConvertCSP::getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool 
 
 int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     if (m_threads == 0) {
-        const int div = (m_csp->simd == 0) ? 2 : 4;
-        const int max = (m_csp->simd == 0) ? 8 : 4;
+        const int div = (m_csp->simd == RGY_SIMD::NONE) ? 2 : 4;
+        const int max = (m_csp->simd == RGY_SIMD::NONE) ? 8 : 4;
         m_threads = (dst_y_pitch_byte % 128 != 0) ? 1 : std::min(max, ((int)get_cpu_info().physical_cores + div) / div);
     }
     if (m_threads > 1 && m_th.size() == 0) {

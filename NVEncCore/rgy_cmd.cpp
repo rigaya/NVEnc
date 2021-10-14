@@ -169,7 +169,8 @@ void print_cmd_error_unknown_opt_param(tstring option, tstring strErrorValue, co
 #endif //#if !FOR_AUO
 }
 
-void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, tstring strErrorMessage, const CX_DESC *list, int list_length) {
+template<typename T>
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, tstring strErrorMessage, const T *list, int list_length) {
     if (!FOR_AUO && strOptionName.length() > 0) {
         if (strErrorValue.length() > 0) {
             if (0 == _tcsnccmp(strErrorValue.c_str(), _T("--"), _tcslen(_T("--")))
@@ -202,6 +203,17 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue,
 
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const CX_DESC *list) {
     print_cmd_error_invalid_value(strOptionName, strErrorValue, _T(""), list);
+}
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const FEATURE_DESC *list) {
+    print_cmd_error_invalid_value(strOptionName, strErrorValue, _T(""), list);
+}
+
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue) {
+    print_cmd_error_invalid_value(strOptionName, strErrorValue, _T(""), (const CX_DESC *)nullptr);
+}
+
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, tstring strErrorMessage) {
+    print_cmd_error_invalid_value(strOptionName, strErrorValue, strErrorMessage, (const CX_DESC *)nullptr);
 }
 
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const std::vector<std::pair<RGY_CODEC, const CX_DESC *>>& codec_list) {
@@ -4681,9 +4693,9 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
     }
     if (IS_OPTION("simd-csp")) {
         i++;
-        int value = 0;
+        uint64_t value = 0;
         if (get_list_value(list_simd, strInput[i], &value)) {
-            ctrl->simdCsp = value;
+            ctrl->simdCsp = (RGY_SIMD)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_simd);
             return -1;
@@ -4828,7 +4840,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 
 #define OPT_FLOAT(str, opt, prec) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << std::setprecision(prec) << (param->opt);
 #define OPT_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << (int)(param->opt);
-#define OPT_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (param->opt));
+#define OPT_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (decltype(list->value))(param->opt));
 #define OPT_BOOL(str_true, str_false, opt) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << ((param->opt) ? (str_true) : (str_false));
 
 #define OPT_TCHAR(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" ") << (param->opt);

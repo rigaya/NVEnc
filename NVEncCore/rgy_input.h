@@ -124,7 +124,7 @@ public:
     RGYConvertCSP();
     RGYConvertCSP(int threads, RGYThreadAffinity threadAffinity);
     ~RGYConvertCSP();
-    const ConvertCSP *getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd);
+    const ConvertCSP *getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd);
     const ConvertCSP *getFunc() const { return m_csp; };
 
     int run(int interlaced, void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
@@ -133,10 +133,10 @@ public:
 class RGYInputPrm {
 public:
     int threadCsp;
-    uint32_t simdCsp;
+    RGY_SIMD simdCsp;
     RGYThreadAffinity threadAffinityCsp;
 
-    RGYInputPrm() : threadCsp(-1), simdCsp(0), threadAffinityCsp() {};
+    RGYInputPrm() : threadCsp(-1), simdCsp(RGY_SIMD::NONE), threadAffinityCsp() {};
     virtual ~RGYInputPrm() {};
 };
 

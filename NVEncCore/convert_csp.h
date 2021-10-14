@@ -33,6 +33,7 @@
 #include <memory>
 #include <string>
 #include "rgy_tchar.h"
+#include "rgy_simd.h"
 
 #if defined(_MSC_VER)
 #ifndef RGY_FORCEINLINE
@@ -423,11 +424,11 @@ typedef struct ConvertCSP {
     RGY_CSP csp_from, csp_to;
     bool uv_only;
     funcConvertCSP func[2];
-    unsigned int simd;
+    RGY_SIMD simd;
 } ConvertCSP;
 
-const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd);
-const TCHAR *get_simd_str(unsigned int simd);
+const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd);
+const TCHAR *get_simd_str(RGY_SIMD simd);
 
 enum RGY_FRAME_FLAGS : uint64_t {
     RGY_FRAME_FLAG_NONE     = 0x00u,

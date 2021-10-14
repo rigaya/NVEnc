@@ -1168,7 +1168,7 @@ struct RGYParamCommon {
 
 struct RGYParamControl {
     int threadCsp;
-    int simdCsp;
+    RGY_SIMD simdCsp;
     tstring logfile;              //ログ出力先
     RGYParamLogLevel loglevel; //ログ出力レベル
     bool logAddTime;
@@ -1203,16 +1203,16 @@ tstring print_metadata(const std::vector<tstring>& metadata);
 bool metadata_copy(const std::vector<tstring> &metadata);
 bool metadata_clear(const std::vector<tstring> &metadata);
 
-const CX_DESC list_simd[] = {
-    { _T("auto"),     -1  },
-    { _T("none"),     NONE },
-    { _T("sse2"),     SSE2 },
-    { _T("sse3"),     SSE3|SSE2 },
-    { _T("ssse3"),    SSSE3|SSE3|SSE2 },
-    { _T("sse41"),    SSE41|SSSE3|SSE3|SSE2 },
-    { _T("avx"),      AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
-    { _T("avx2"),     AVX2|AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
-    { NULL, 0 }
+const FEATURE_DESC list_simd[] = {
+    { _T("auto"),     (uint64_t)RGY_SIMD::SIMD_ALL  },
+    { _T("none"),     (uint64_t)RGY_SIMD::NONE },
+    { _T("sse2"),     (uint64_t)RGY_SIMD::SSE2 },
+    { _T("sse3"),     (uint64_t)(RGY_SIMD::SSE3| RGY_SIMD::SSE2) },
+    { _T("ssse3"),    (uint64_t)(RGY_SIMD::SSSE3| RGY_SIMD::SSE3| RGY_SIMD::SSE2) },
+    { _T("sse41"),    (uint64_t)(RGY_SIMD::SSE41| RGY_SIMD::SSSE3| RGY_SIMD::SSE3| RGY_SIMD::SSE2) },
+    { _T("avx"),      (uint64_t)(RGY_SIMD::AVX  | RGY_SIMD::SSE42| RGY_SIMD::SSE41| RGY_SIMD::SSSE3| RGY_SIMD::SSE3| RGY_SIMD::SSE2) },
+    { _T("avx2"),     (uint64_t)(RGY_SIMD::AVX2 | RGY_SIMD::AVX| RGY_SIMD::SSE42| RGY_SIMD::SSE41| RGY_SIMD::SSSE3| RGY_SIMD::SSE3| RGY_SIMD::SSE2) },
+    { nullptr,        (uint64_t)RGY_SIMD::NONE }
 };
 
 template <uint32_t size>

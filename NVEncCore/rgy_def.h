@@ -177,28 +177,32 @@ typedef struct FEATURE_DESC {
     uint64_t value;
 } FEATURE_DESC;
 
-static const TCHAR *get_chr_from_value(const CX_DESC *list, int v) {
+template<typename T>
+static const TCHAR *get_chr_from_value(const T *list, decltype(T::value) v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return list[i].desc;
     return _T("unknown");
 }
 
-static int get_cx_index(const CX_DESC *list, int v) {
+template<typename T>
+static int get_cx_index(const T *list, decltype(T::value) v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return i;
     return 0;
 }
 
-static int get_cx_index(const CX_DESC *list, const TCHAR *chr) {
+template<typename T>
+static int get_cx_index(const T *list, const TCHAR *chr) {
     for (int i = 0; list[i].desc; i++)
         if (0 == _tcscmp(list[i].desc, chr))
             return i;
     return 0;
 }
 
-static int get_cx_value(const CX_DESC *list, const TCHAR *chr) {
+template<typename T>
+static decltype(T::value) get_cx_value(const T *list, const TCHAR *chr) {
     for (int i = 0; list[i].desc; i++)
         if (0 == _tcscmp(list[i].desc, chr))
             return list[i].value;
@@ -206,23 +210,26 @@ static int get_cx_value(const CX_DESC *list, const TCHAR *chr) {
 }
 
 static int PARSE_ERROR_FLAG = std::numeric_limits<int>::min();
-static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
+template<typename T>
+static decltype(T::value) get_value_from_chr(const T *list, const TCHAR *chr) {
     for (int i = 0; list[i].desc; i++)
         if (_tcsicmp(list[i].desc, chr) == 0)
             return list[i].value;
     return PARSE_ERROR_FLAG;
 }
 
-static const TCHAR *get_cx_desc(const CX_DESC *list, int v) {
+template<typename T>
+static const TCHAR *get_cx_desc(const T *list, decltype(T::value) v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return list[i].desc;
     return nullptr;
 }
 
-static bool get_list_value(const CX_DESC *list, const TCHAR *chr, int *value) {
+template<typename T>
+static bool get_list_value(const T *list, const TCHAR *chr, decltype(T::value) *value) {
     for (int i = 0; list[i].desc; i++) {
-        if (0 == _tcsicmp(list[i].desc, chr)) {
+        if (_tcsicmp(list[i].desc, chr) == 0) {
             *value = list[i].value;
             return true;
         }

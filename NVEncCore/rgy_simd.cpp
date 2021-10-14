@@ -36,16 +36,16 @@
 #include <x86intrin.h>
 #endif //_MSC_VER
 
-uint32_t get_availableSIMD() {
+RGY_SIMD get_availableSIMD() {
     int CPUInfo[4];
     __cpuid(CPUInfo, 1);
-    uint32_t simd = NONE;
-    if (CPUInfo[3] & 0x04000000) simd |= SSE2;
-    if (CPUInfo[2] & 0x00000001) simd |= SSE3;
-    if (CPUInfo[2] & 0x00000200) simd |= SSSE3;
-    if (CPUInfo[2] & 0x00080000) simd |= SSE41;
-    if (CPUInfo[2] & 0x00100000) simd |= SSE42;
-    if (CPUInfo[2] & 0x00800000) simd |= POPCNT;
+    RGY_SIMD simd = RGY_SIMD::NONE;
+    if (CPUInfo[3] & 0x04000000) simd |= RGY_SIMD::SSE2;
+    if (CPUInfo[2] & 0x00000001) simd |= RGY_SIMD::SSE3;
+    if (CPUInfo[2] & 0x00000200) simd |= RGY_SIMD::SSSE3;
+    if (CPUInfo[2] & 0x00080000) simd |= RGY_SIMD::SSE41;
+    if (CPUInfo[2] & 0x00100000) simd |= RGY_SIMD::SSE42;
+    if (CPUInfo[2] & 0x00800000) simd |= RGY_SIMD::POPCNT;
     uint64_t xgetbv = 0;
     if ((CPUInfo[2] & 0x18000000) == 0x18000000) {
 #if _MSC_VER
@@ -54,29 +54,35 @@ uint32_t get_availableSIMD() {
         xgetbv = rgy_xgetbv(0);
 #endif
         if ((xgetbv & 0x06) == 0x06)
-            simd |= AVX;
+            simd |= RGY_SIMD::AVX;
     }
     __cpuid(CPUInfo, 7);
-    if ((simd & AVX) && (CPUInfo[1] & 0x00000020)) {
-        simd |= AVX2;
+    if (!!(simd & RGY_SIMD::AVX) && (CPUInfo[1] & 0x00000020)) {
+        simd |= RGY_SIMD::AVX2;
     }
-    if ((simd & AVX) && ((xgetbv >> 5) & 7) == 7) {
-        if (CPUInfo[1] & (1u << 16)) simd |= AVX512F;
-        if (simd & AVX512F) {
-            if (CPUInfo[1] & (1u << 17)) simd |= AVX512DQ;
-            if (CPUInfo[1] & (1u << 21)) simd |= AVX512IFMA;
-            if (CPUInfo[1] & (1u << 26)) simd |= AVX512PF;
-            if (CPUInfo[1] & (1u << 27)) simd |= AVX512ER;
-            if (CPUInfo[1] & (1u << 28)) simd |= AVX512CD;
-            if (CPUInfo[1] & (1u << 30)) simd |= AVX512BW;
-            if (CPUInfo[1] & (1u << 31)) simd |= AVX512VL;
-            if (CPUInfo[2] & (1u <<  1)) simd |= AVX512VBMI;
+    if (!!(simd & RGY_SIMD::AVX) && ((xgetbv >> 5) & 7) == 7) {
+        if (CPUInfo[1] & (1u <<  3)) simd |= RGY_SIMD::BMI1;
+        if (CPUInfo[1] & (1u <<  8)) simd |= RGY_SIMD::BMI2;
+        if (CPUInfo[1] & (1u << 16)) simd |= RGY_SIMD::AVX512F;
+        if (!!(simd & RGY_SIMD::AVX512F)) {
+            if (CPUInfo[1] & (1u << 17)) simd |= RGY_SIMD::AVX512DQ;
+            if (CPUInfo[1] & (1u << 21)) simd |= RGY_SIMD::AVX512IFMA;
+            if (CPUInfo[1] & (1u << 26)) simd |= RGY_SIMD::AVX512PF;
+            if (CPUInfo[1] & (1u << 27)) simd |= RGY_SIMD::AVX512ER;
+            if (CPUInfo[1] & (1u << 28)) simd |= RGY_SIMD::AVX512CD;
+            if (CPUInfo[1] & (1u << 30)) simd |= RGY_SIMD::AVX512BW;
+            if (CPUInfo[1] & (1u << 31)) simd |= RGY_SIMD::AVX512VL;
+            if (CPUInfo[2] & (1u <<  1)) simd |= RGY_SIMD::AVX512VBMI;
+            if (CPUInfo[2] & (1u <<  6)) simd |= RGY_SIMD::AVX512VBMI2;
+            if (CPUInfo[2] & (1u << 11)) simd |= RGY_SIMD::AVX512VNNI;
+            if (CPUInfo[2] & (1u << 12)) simd |= RGY_SIMD::AVX512BITALG;
+            if (CPUInfo[2] & (1u << 14)) simd |= RGY_SIMD::AVX512VPOPCNTDQ;
         }
     }
     return simd;
 }
 #else
-uint32_t get_availableSIMD() {
+RGY_SIMD get_availableSIMD() {
     return NONE;
 }
 #endif

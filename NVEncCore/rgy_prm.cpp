@@ -1200,7 +1200,7 @@ RGYParamCommon::~RGYParamCommon() {};
 
 RGYParamControl::RGYParamControl() :
     threadCsp(0),
-    simdCsp(-1),
+    simdCsp(RGY_SIMD::SIMD_ALL),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     logAddTime(false),

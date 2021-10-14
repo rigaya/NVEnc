@@ -1608,6 +1608,14 @@ static void convert_yv12_to_p010(void **dst, const void **src, int width, int sr
 #endif
 #define FUNC__C_(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
 
+// テーブル作成の簡略化のため
+#define AVX2  (RGY_SIMD::AVX2)
+#define AVX   (RGY_SIMD::AVX)
+#define SSE42 (RGY_SIMD::SSE42)
+#define SSE41 (RGY_SIMD::SSE41)
+#define SSSE3 (RGY_SIMD::SSSE3)
+#define SSE2  (RGY_SIMD::SSE2)
+#define NONE  (RGY_SIMD::NONE)
 
 static const ConvertCSP funcList[] = {
 #if !FOR_AUO
@@ -1888,8 +1896,8 @@ const TCHAR *get_memtype_str(RGY_MEM_TYPE type) {
     }
 }
 
-const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd) {
-    uint32_t availableSIMD = get_availableSIMD() & simd;
+const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd) {
+    RGY_SIMD availableSIMD = get_availableSIMD() & simd;
     const ConvertCSP *convert = nullptr;
     for (int i = 0; i < _countof(funcList); i++) {
         if (csp_from != funcList[i].csp_from)
@@ -1924,18 +1932,19 @@ std::basic_string<TCHAR> RGYFrameInfo::print() const {
     return std::basic_string<TCHAR>(buf);
 };
 
-const TCHAR *get_simd_str(unsigned int simd) {
-    static std::vector<std::pair<uint32_t, const TCHAR*>> simd_str_list = {
+const TCHAR *get_simd_str(RGY_SIMD simd) {
+    static std::vector<std::pair<RGY_SIMD, const TCHAR*>> simd_str_list = {
         { AVX2,  _T("AVX2")   },
         { AVX,   _T("AVX")    },
         { SSE42, _T("SSE4.2") },
         { SSE41, _T("SSE4.1") },
         { SSSE3, _T("SSSE3")  },
-        { SSE2,  _T("SSE2")   },
+        { SSE2,  _T("SSE2")   }
     };
-    for (auto simd_str : simd_str_list) {
-        if (simd_str.first & simd)
+    for (const auto& simd_str : simd_str_list) {
+        if ((simd & simd_str.first) == simd_str.first) {
             return simd_str.second;
+        }
     }
     return _T("-");
 }

@@ -63,9 +63,14 @@ std::vector<std::pair<std::string, std::string>> createOptionList();
 
 void print_cmd_error_unknown_opt(tstring strErrorValue);
 void print_cmd_error_unknown_opt_param(tstring option, tstring strErrorValue, const std::vector<std::string> &optionParamsList);
-void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const CX_DESC *list);
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue);
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, tstring strErrorMessage);
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const std::vector<std::pair<RGY_CODEC, const CX_DESC *>>& codec_list);
-void print_cmd_error_invalid_value(tstring strErrorMessage, tstring strOptionName, tstring strErrorValue = _T(""), const CX_DESC *list = nullptr, int list_length = std::numeric_limits<int>::max());
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const CX_DESC *list);
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const FEATURE_DESC *list);
+
+template<typename T>
+void print_cmd_error_invalid_value(tstring strErrorMessage, tstring strOptionName, tstring strErrorValue, const T *list, int list_length = std::numeric_limits<int>::max());
 
 int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData);
 int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, sArgsData *argData);
