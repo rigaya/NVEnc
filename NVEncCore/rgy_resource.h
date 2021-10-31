@@ -33,5 +33,6 @@
 #include "rgy_tchar.h"
 
 int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule = NULL);
+std::string getEmbeddedResourceStr(const tstring& name, const tstring& type);
 
 #endif //__RGY_RESOURCE_H__

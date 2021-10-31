@@ -179,3 +179,25 @@ int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODU
 #endif
 }
 
+std::string getEmbeddedResourceStr(const tstring& name, const tstring& type) {
+    std::string data_str;
+    {
+        char* data = nullptr;
+        int size = getEmbeddedResource((void**)&data, name.c_str(), type.c_str());
+        if (size == 0) {
+            return "";
+        } else {
+
+            auto datalen = size;
+            {
+                const uint8_t* ptr = (const uint8_t*)data;
+                if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM
+                    data += 3;
+                    datalen -= 3;
+                }
+            }
+            data_str = std::string(data, datalen);
+        }
+    }
+    return data_str;
+}
