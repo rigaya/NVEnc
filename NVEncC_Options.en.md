@@ -217,7 +217,7 @@ Set interlace flag of **input** frame.
 
 Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string) or [--vpp-afs](#--vpp-afs-param1value1param2value2). If deinterlacer is not activated for interlaced input, then interlaced encoding is performed.
 
-- none ... progressive
+- progressive ... progressive
 - tff ... top field first
 - bff ... Bottom Field First
 - auto ... detect each frame (available only for [avhw](#--avhw)/[avsw](#--avsw) reader)

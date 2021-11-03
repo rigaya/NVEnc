@@ -226,7 +226,7 @@ avformat + cuvid decoderを使用して読み込む。
 
 [--vpp-deinterlace](#--vpp-deinterlace-string) / [--vpp-afs](#--vpp-afs-param1value1param2value2) によりNVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
 
-- none ... プログレッシブ
+- progressive ... プログレッシブ
 - tff ... トップフィールドファースト
 - bff ... ボトムフィールドファースト
 - auto ... 各フレームについて自動的に判断 ([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
