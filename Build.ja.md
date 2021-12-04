@@ -29,7 +29,7 @@ includeパスは環境変数 "AVISYNTH_SDK" / "VAPOURSYNTH_SDK" で渡すこと�
 Avisynth+ / VapourSynthインストーラのデフォルトの場所にインストールした場合、下記のように設定することになります。
 ```Batchfile
 setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
-setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
+setx VAPOURSYNTH_SDK "C:\Program Files\VapourSynth\sdk"
 ```
 
 さらにビルドに必要な[Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR)をcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
