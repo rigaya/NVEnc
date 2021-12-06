@@ -78,7 +78,7 @@ public:
     int init();
     void close();
 
-    void thread_run(uint64_t threadAffinityMask);
+    void thread_run(uint64_t threadAffinityMask, int threadPriority, bool powerThrottoling);
     int thread_fin();
     void send_thread_fin();
 
@@ -94,7 +94,7 @@ public:
 
 protected:
     int refreshCounters();
-    int thread_func(uint64_t threadAffinityMask);
+    int thread_func(uint64_t threadAffinityMask, int threadPriority, bool powerThrottoling);
 
     bool initialized;
     std::thread thRefresh;

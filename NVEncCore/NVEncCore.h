@@ -144,6 +144,9 @@ protected:
     //デコーダインスタンスを作成
     RGY_ERR InitFilters(const InEncodeVideoParam *inputParam);
 
+    //power throttoling設定の自動設定
+    RGY_ERR InitPowerThrottoling(InEncodeVideoParam *inputParam);
+
     //チャプター読み込み等
     NVENCSTATUS InitChapters(const InEncodeVideoParam *inputParam);
 

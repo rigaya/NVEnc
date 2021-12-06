@@ -334,7 +334,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_HANDLE;
     }
 
-    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadAffinityCsp);
+    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadParamCsp);
 
     //AvisynthNeoなどは、ver=8などでf_create_script_environmentは通るものの、その後のf_invoke(m_sAVSenv, "Import", ...)で異常終了したりする
     //そこで、RGY_AVISYNTH_INTERFACE_6決め打ちで初期化する(なにが正しいのかはよくわからない)

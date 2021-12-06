@@ -693,7 +693,7 @@ void CPerfMonitor::runCounterThread() {
         getOSVersion(&osver);
         if (osver.dwMajorVersion > 6 || (osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 4)) { //Windows10
             m_perfCounter = std::make_unique<RGYGPUCounterWin>();
-            m_perfCounter->thread_run(m_threadAffinity.getMask());
+            m_perfCounter->thread_run(m_threadParam.affinity.getMask(), (int)m_threadParam.priority, m_threadParam.throttling == RGYThreadPowerThrottlingMode::Enabled);
         }
     }
 }
@@ -702,7 +702,7 @@ void CPerfMonitor::runCounterThread() {
 int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     int interval, int nSelectOutputLog, int nSelectOutputPlot,
     std::unique_ptr<void, handle_deleter> thMainThread,
-    const RGYThreadAffinity& threadAffinity,
+    const RGYParamThread& threadParam,
     std::shared_ptr<RGYLog> pRGYLog, CPerfMonitorPrm *prm) {
     m_pRGYLog = pRGYLog;
     m_luid = prm->luid;
@@ -715,7 +715,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nSelectOutputLog = nSelectOutputLog;
     m_nSelectCheck = m_nSelectOutputLog | m_nSelectOutputPlot;
     m_thMainThread = std::move(thMainThread);
-    m_threadAffinity = threadAffinity;
+    m_threadParam = threadParam;
     m_refreshedTime = std::chrono::system_clock::now() - std::chrono::milliseconds(m_nInterval);
 
     if (!m_fpLog && m_sMonitorFilename.length() > 0) {
@@ -1315,10 +1315,8 @@ void CPerfMonitor::loader(void *prm) {
 }
 
 void CPerfMonitor::run() {
-    if (m_threadAffinity.mode != RGYThreadAffinityMode::ALL) {
-        SetThreadAffinityMask(GetCurrentThread(), m_threadAffinity.getMask());
-    }
-    AddMessage(RGY_LOG_DEBUG, _T("Set perf monitor Affinity Mask: %s (0x%llx).\n"), m_threadAffinity.to_string().c_str(), m_threadAffinity.getMask());
+    m_threadParam.apply(GetCurrentThread());
+    AddMessage(RGY_LOG_DEBUG, _T("Set perf monitor thread param %s.\n"), m_threadParam.desc().c_str());
     while (!m_bAbort) {
         auto timenow = std::chrono::system_clock::now();
         if (m_nInterval <= 100 || timenow - m_refreshedTime > std::chrono::milliseconds(m_nInterval)) {

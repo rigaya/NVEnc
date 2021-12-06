@@ -383,7 +383,7 @@ public:
     int init(tstring filename, const TCHAR *pPythonPath,
         int interval, int nSelectOutputLog, int nSelectOutputMatplot,
         std::unique_ptr<void, handle_deleter> thMainThread,
-        const RGYThreadAffinity& threadAffinity,
+        const RGYParamThread& threadAffinity,
         std::shared_ptr<RGYLog> pRGYLog, CPerfMonitorPrm *prm);
     ~CPerfMonitor();
 
@@ -505,7 +505,7 @@ protected:
     int m_nSelectOutputPlot;
     PerfQueueInfo m_QueueInfo;
     std::shared_ptr<RGYLog> m_pRGYLog;
-    RGYThreadAffinity m_threadAffinity;
+    RGYParamThread m_threadParam;
 
 #if ENABLE_METRIC_FRAMEWORK
     IExtensionLoader *m_pLoader;

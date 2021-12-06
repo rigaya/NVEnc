@@ -1178,7 +1178,7 @@ struct RGYParamControl {
     int threadOutput;
     int threadAudio;
     int threadInput;
-    RGYParamThreadAffinity threadAffinity;
+    RGYParamThreads threadParams;
     int procSpeedLimit;      //処理速度制限 (0で制限なし)
     int64_t perfMonitorSelect;
     int64_t perfMonitorSelectMatplot;

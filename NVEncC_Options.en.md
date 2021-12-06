@@ -1933,6 +1933,66 @@ Example: Set process affinity to firect CCX on Ryzen CPUs
 --thread-affinity process=cachel3#0
 ```
 
+### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+Set priority to the process or threads of the application. [Windows OS only]  
+
+**target** (&lt;string1&gt;)
+Set target of which thread priority will be set. Default is "all".
+
+- all ... All targets below.
+- process ... whole process
+- main ... main thread
+- decoder ... avhw decode thread
+- csp ... colorspace conversion threads (CPU)
+- input ... input thread
+- encoder ... background encoder threads
+- output ... output thread
+- audio ... audio processing threads
+- perfmonitor ... performance monitoring threads
+- videoquality ... ssim/psnr/vmaf calculation thread
+
+**Priority** (&lt;string2&gt;)
+- background, idle, lowest, belownormal, normal (default), abovenormal, highest
+
+```
+Example: apply belownormal priority to whole process
+--thread-priority process=belownormal
+
+Example: apply belownormal priority to output thread, and background priority to performance monitoring threads
+--thread-priority output=belownormal,perfmonitor=background
+```
+
+### --thread-throttling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]  
+Set power throttling mode to the threads of the application. [Windows OS only]  
+
+**target** (&lt;string1&gt;)
+Set target of which thread power throttling mode will be set. Default is "all".
+
+- all ... All targets below.
+- main ... main thread
+- decoder ... avhw decode thread
+- csp ... colorspace conversion threads (CPU)
+- input ... input thread
+- encoder ... background encoder threads
+- output ... output thread
+- audio ... audio processing threads
+- perfmonitor ... performance monitoring threads
+- videoquality ... ssim/psnr/vmaf calculation thread
+
+**mode** (&lt;string2&gt;)
+- unset (default) ... mode will be set automatically depending on the encode target.
+- auto            ... Let OS decide.
+- on              ... prefer power efficiency.
+- off             ... prefer performance.
+
+```
+Example: prefer power efficiency in output and performance monitoring threads
+--thread-throttling output=on,perfmonitor=on
+
+Example: prefer performance in main and input threads
+--thread-throttling main=off,input=off
+```
+
 ### --option-file &lt;string&gt;
 File which containes a list of options to be used.
 Line feed is treated as a blank, therefore an option or a value of it should not splitted in multiple lines.

@@ -319,8 +319,8 @@ struct AvcodecWriterPrm {
     int                          bufSizeMB;               //出力バッファサイズ
     int                          threadOutput;            //出力スレッド数
     int                          threadAudio;             //音声処理スレッド数
-    RGYThreadAffinity            threadAffinityOutput;    //出力スレッドのアフィニティ
-    RGYThreadAffinity            threadAffinityAudio;     //出力スレッドのアフィニティ
+    RGYParamThread               threadParamOutput;       //出力スレッドのパラメータ
+    RGYParamThread               threadParamAudio;        //音声処理スレッドのパラメータ
     RGYOptList                   muxOpt;                  //mux時に使用するオプション
     PerfQueueInfo               *queueInfo;               //キューの情報を格納する構造体
     tstring                      muxVidTsLogFile;         //mux timestampログファイル
@@ -348,8 +348,8 @@ struct AvcodecWriterPrm {
         bufSizeMB(0),
         threadOutput(0),
         threadAudio(0),
-        threadAffinityOutput(),
-        threadAffinityAudio(),
+        threadParamOutput(),
+        threadParamAudio(),
         muxOpt(),
         queueInfo(nullptr),
         muxVidTsLogFile(),
@@ -394,13 +394,13 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *videoOutputInfo, const void *option) override;
 
     //別のスレッドで実行する場合のスレッド関数 (出力)
-    RGY_ERR WriteThreadFunc(RGYThreadAffinity threadAffinity);
+    RGY_ERR WriteThreadFunc(RGYParamThread threadParam);
 
     //別のスレッドで実行する場合のスレッド関数 (音声処理)
-    RGY_ERR ThreadFuncAudThread(RGYThreadAffinity threadAffinity);
+    RGY_ERR ThreadFuncAudThread(RGYParamThread threadParam);
 
     //別のスレッドで実行する場合のスレッド関数 (音声エンコード処理)
-    RGY_ERR ThreadFuncAudEncodeThread(RGYThreadAffinity threadAffinity);
+    RGY_ERR ThreadFuncAudEncodeThread(RGYParamThread threadParam);
 
     //音声出力キューに追加 (音声処理スレッドが有効な場合のみ有効)
     RGY_ERR AddAudQueue(AVPktMuxData *pktData, int type);

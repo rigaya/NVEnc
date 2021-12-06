@@ -102,7 +102,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     logCopyFrameData(),
     logPackets(),
     threadInput(0),
-    threadAffinityInput(),
+    threadParamInput(),
     queueInfo(nullptr),
     HWDecCodecCsp(nullptr),
     videoDetectPulldown(false),
@@ -1352,7 +1352,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         return RGY_ERR_NULL_PTR;
     }
 
-    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadAffinityCsp);
+    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadParamCsp);
 
     for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
         tstring audioLog = strsprintf(_T("select audio track %s, codec %s"),
@@ -2059,8 +2059,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_Demux.thread.threadInput = 0;
 #endif
         if (m_Demux.thread.threadInput) {
-            m_Demux.thread.thInput = std::thread(&RGYInputAvcodec::ThreadFuncRead, this, input_prm->threadAffinityInput);
-            AddMessage(RGY_LOG_DEBUG, _T("Set input thread affinity mask: %s (0x%llx).\n"), input_prm->threadAffinityInput.to_string().c_str(), input_prm->threadAffinityInput.getMask());
+            m_Demux.thread.thInput = std::thread(&RGYInputAvcodec::ThreadFuncRead, this, input_prm->threadParamInput);
             //はじめcapacityを無限大にセットしたので、この段階で制限をかける
             //入力をスレッド化しない場合には、自動的に同期が保たれるので、ここでの制限は必要ない
             m_Demux.qVideoPkt.set_capacity(256);
@@ -2916,10 +2915,9 @@ void RGYInputAvcodec::setOutputVideoInfo(int w, int h, int sar_x, int sar_y, boo
     }
 }
 
-RGY_ERR RGYInputAvcodec::ThreadFuncRead(RGYThreadAffinity threadAffinity) {
-    if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
-        SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
-    }
+RGY_ERR RGYInputAvcodec::ThreadFuncRead(RGYParamThread threadParam) {
+    threadParam.apply(GetCurrentThread());
+    AddMessage(RGY_LOG_DEBUG, _T("Set input thread param: %s.\n"), threadParam.desc().c_str());
     while (!m_Demux.thread.bAbortInput) {
         AVPacket pkt;
         if (getSample(&pkt)) {

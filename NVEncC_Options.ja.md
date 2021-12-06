@@ -1984,6 +1984,58 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 --thread-affinity process=cachel3#0
 ```
 
+### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+プロセスやスレッドの優先度を設定する。[Windowsのみ有効]  
+
+**対象** (&lt;string1&gt;)
+設定する対象を指定する。省略された場合は"all"。
+
+- all ... 下記すべてを対象とする
+- process ... プロセス全体
+- main ... メインスレッド
+- decoder ... avhwデコード用スレッド
+- csp ... CPUの色空間変換用スレッド
+- input ... 読み込み用スレッド
+- encoder ... エンコーダパイプラインのバックグラウンドスレッド
+- output ... 出力用スレッド
+- audio ... 音声処理用スレッド
+- perfmonitor ... パフォーマンス測定用スレッド
+- videoquality ... ssim/psnr/vmaf算出用スレッド
+
+**優先度** (&lt;string2&gt;)
+- background, idle, lowest, belownormal, normal (default), abovenormal, highest
+
+### --thread-throttling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+プロセスやスレッドのスケジューリングの方針を設定する。 [Windowsのみ有効]  
+
+**対象** (&lt;string1&gt;)
+設定する対象を指定する。省略された場合は"all"。
+
+- all ... 下記すべてを対象とする
+- main ... メインスレッド
+- decoder ... avhwデコード用スレッド
+- csp ... CPUの色空間変換用スレッド
+- input ... 読み込み用スレッド
+- encoder ... エンコーダパイプラインのバックグラウンドスレッド
+- output ... 出力用スレッド
+- audio ... 音声処理用スレッド
+- perfmonitor ... パフォーマンス測定用スレッド
+- videoquality ... ssim/psnr/vmaf算出用スレッド
+
+**優先度** (&lt;string2&gt;)
+- unset (default) ... エンコード設定により自動的に決定
+- auto            ... OSに自動的に決定させる。
+- on              ... 電力効率を優先したスケジューリングを行う。
+- off             ... パフォーマンスを優先したスケジューリングを行う。
+
+```
+例: 出力スレッドとパフォーマンス測定用スレッドを電力効率を優先したスケジューリングに設定
+--thread-throttling output=on,perfmonitor=on
+
+例: メインスレッドと読み込みスレッドをパフォーマンスを優先したスケジューリングに設定
+--thread-throttling main=off,input=off
+```
+
 ### --option-file &lt;string&gt;
 使用するオプションを記載したファイルを指定する。
 1行に複数のオプションを記載できるが、改行は空白として扱われるので、

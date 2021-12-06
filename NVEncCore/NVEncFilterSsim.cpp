@@ -285,7 +285,7 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
     av_packet_unref(&pkt);
 
     //比較用のスレッドの開始
-    m_thread = std::thread(&NVEncFilterSsim::thread_func_ssim_psnr, this, prm->threadAffinityCompare);
+    m_thread = std::thread(&NVEncFilterSsim::thread_func_ssim_psnr, this, prm->threadParamCompare);
     AddMessage(RGY_LOG_DEBUG, _T("Started ssim/psnr calculation thread.\n"));
 
     //デコードの開始を待つ必要がある
@@ -386,7 +386,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             }
 
 #if ENABLE_VMAF
-            m_vmaf.thread = std::thread(&NVEncFilterSsim::thread_func_vmaf, this, prm->threadAffinityCompare);
+            m_vmaf.thread = std::thread(&NVEncFilterSsim::thread_func_vmaf, this, prm->threadParamCompare);
             AddMessage(RGY_LOG_DEBUG, _T("Started vmaf calculation thread.\n"));
 #endif //#if ENABLE_VMAF
         }
@@ -590,10 +590,9 @@ int read_frames_vmaf2(VmafPicture *ref_data /*オリジナルのこと*/, VmafPi
     return 0;
 };
 
-RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYThreadAffinity threadAffinity) {
-    if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
-        SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
-    }
+RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
+    threadParam.apply(GetCurrentThread());
+    AddMessage(RGY_LOG_DEBUG, _T("Set vmaf calculation thread param: %s.\n"), threadParam.desc().c_str());
     const auto frameInfo = m_frameHostEnc[0]->frame;
 
     VmafPixelFormat vmafPixFmt = VMAF_PIX_FMT_UNKNOWN;
@@ -798,10 +797,9 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYThreadAffinity threadAffinity) {
 }
 #endif //#if ENABLE_VMAF
 
-RGY_ERR NVEncFilterSsim::thread_func_ssim_psnr(RGYThreadAffinity threadAffinity) {
-    if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
-        SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
-    }
+RGY_ERR NVEncFilterSsim::thread_func_ssim_psnr(RGYParamThread threadParam) {
+    threadParam.apply(GetCurrentThread());
+    AddMessage(RGY_LOG_DEBUG, _T("Set ssim/psnr calculation thread param: %s.\n"), threadParam.desc().c_str());
     auto sts = init_cuda_resources();
     if (sts != RGY_ERR_NONE) {
         return sts;

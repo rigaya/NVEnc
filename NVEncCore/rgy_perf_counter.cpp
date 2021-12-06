@@ -37,6 +37,17 @@
 #pragma comment(lib, "wbemuuid.lib")
 #include <atlstr.h>
 
+static bool EnablePowerThrottling(HANDLE threadHandle) {
+    THREAD_POWER_THROTTLING_STATE throttlingState;
+    memset(&throttlingState, 0, sizeof(throttlingState));
+
+    throttlingState.Version = THREAD_POWER_THROTTLING_CURRENT_VERSION;
+    throttlingState.ControlMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
+    throttlingState.StateMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
+
+    return SetThreadInformation(threadHandle, ThreadPowerThrottling, &throttlingState, sizeof(throttlingState));
+}
+
 CounterEntry::CounterEntry() :
     luid({ 0,0 }),
     pid(0),
@@ -334,8 +345,13 @@ int RGYGPUCounterWin::refreshCounters() {
     return 0;
 }
 
-int RGYGPUCounterWin::thread_func(uint64_t threadAffinityMask) {
-    SetThreadAffinityMask(GetCurrentThread(), threadAffinityMask);
+int RGYGPUCounterWin::thread_func(uint64_t threadAffinityMask, int threadPriority, bool powerThrottoling) {
+    const auto threadHandle = GetCurrentThread();
+    SetThreadAffinityMask(threadHandle, threadAffinityMask);
+    SetThreadPriority(threadHandle, threadPriority);
+    if (powerThrottoling) {
+        EnablePowerThrottling(threadHandle);
+    }
     auto hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (hr != S_OK || init()) {
         return 1;
@@ -363,9 +379,9 @@ int RGYGPUCounterWin::thread_func(uint64_t threadAffinityMask) {
     return 0;
 }
 
-void RGYGPUCounterWin::thread_run(uint64_t threadAffinityMask) {
+void RGYGPUCounterWin::thread_run(uint64_t threadAffinityMask, int threadPriority, bool powerThrottoling) {
     m_refreshedTime = std::chrono::system_clock::now() - std::chrono::milliseconds(500);
-    thRefresh = std::thread(&RGYGPUCounterWin::thread_func, this, threadAffinityMask);
+    thRefresh = std::thread(&RGYGPUCounterWin::thread_func, this, threadAffinityMask, threadPriority, powerThrottoling);
 }
 
 void RGYGPUCounterWin::send_thread_fin() {

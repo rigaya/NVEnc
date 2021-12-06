@@ -275,6 +275,10 @@ static void SetThreadPriority(pthread_t thread, int priority) {
     return; //何もしない
 }
 
+static void SetPriorityClass(pid_t thread, int priority) {
+    return; //何もしない
+}
+
 #define _fread_nolock fread
 #define _fwrite_nolock fwrite
 #define _fgetc_nolock fgetc

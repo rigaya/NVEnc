@@ -4644,25 +4644,135 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                         return param_arg == type.second;
                         });
                     if (type_ret != RGY_THREAD_TYPE_STR.end()) {
-                        ctrl->threadAffinity.set(affinity, type_ret->first);
+                        ctrl->threadParams.set(affinity, type_ret->first);
                     } else {
                         print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                         return 1;
                     }
                 } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_log_level);
                     return 1;
                 }
             } else {
                 RGYThreadAffinity affinity;
                 if (parse_val(affinity, _T(""), tolowercase(param)) == 0) {
-                    ctrl->threadAffinity.set(affinity, RGYThreadType::ALL);
+                    ctrl->threadParams.set(affinity, RGYThreadType::ALL);
                 } else {
+                    print_cmd_error_invalid_value(option_name, strInput[i]);
                     return 1;
                 }
             }
         }
         return 0;
     }
+#if defined(_WIN32) || defined(_WIN64)
+    if (IS_OPTION("thread-priority")) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        std::vector<std::string> paramList;
+        for (const auto& param : RGY_THREAD_TYPE_STR) {
+            paramList.push_back(tchar_to_string(param.second));
+        }
+
+        std::array<CX_DESC, RGY_THREAD_PRIORITY_STR.size() + 1> list_thread_priority;
+        for (size_t j = 0; j < RGY_THREAD_PRIORITY_STR.size(); j++) {
+            list_thread_priority[j].value = (int)RGY_THREAD_PRIORITY_STR[j].first;
+            list_thread_priority[j].desc = RGY_THREAD_PRIORITY_STR[j].second;
+        }
+        list_thread_priority[RGY_THREAD_PRIORITY_STR.size()].value = 0;
+        list_thread_priority[RGY_THREAD_PRIORITY_STR.size()].desc = nullptr;
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+
+                const RGYThreadPriority priority = rgy_str_to_thread_priority_mode(tolowercase(param_val).c_str());
+                if (priority != RGYThreadPriority::Unknwon) {
+                    auto type_ret = std::find_if(RGY_THREAD_TYPE_STR.begin(), RGY_THREAD_TYPE_STR.end(), [param_arg](decltype(RGY_THREAD_TYPE_STR[0])& type) {
+                        return param_arg == type.second;
+                        });
+                    if (type_ret != RGY_THREAD_TYPE_STR.end()) {
+                        ctrl->threadParams.set(priority, type_ret->first);
+                    } else {
+                        print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                        return 1;
+                    }
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_thread_priority.data());
+                    return 1;
+                }
+            } else {
+                const RGYThreadPriority priority = rgy_str_to_thread_priority_mode(tolowercase(param).c_str());
+                if (priority != RGYThreadPriority::Unknwon) {
+                    ctrl->threadParams.set(priority, RGYThreadType::ALL);
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name), param, list_thread_priority.data());
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("thread-throttling")) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        std::vector<std::string> paramList;
+        for (const auto& param : RGY_THREAD_TYPE_STR) {
+            paramList.push_back(tchar_to_string(param.second));
+        }
+
+        std::array<CX_DESC, RGY_THREAD_POWER_THROTTOLING_MODE_STR.size() + 1> list_thread_throttoling;
+        for (size_t j = 0; j < RGY_THREAD_POWER_THROTTOLING_MODE_STR.size(); j++) {
+            list_thread_throttoling[j].value = (int)RGY_THREAD_POWER_THROTTOLING_MODE_STR[j].first;
+            list_thread_throttoling[j].desc = RGY_THREAD_POWER_THROTTOLING_MODE_STR[j].second;
+        }
+        list_thread_throttoling[RGY_THREAD_POWER_THROTTOLING_MODE_STR.size()].value = 0;
+        list_thread_throttoling[RGY_THREAD_POWER_THROTTOLING_MODE_STR.size()].desc = nullptr;
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+
+                const RGYThreadPowerThrottlingMode throttling = rgy_str_to_thread_power_throttoling_mode(tolowercase(param_val).c_str());
+                if (throttling != RGYThreadPowerThrottlingMode::END) {
+                    auto type_ret = std::find_if(RGY_THREAD_TYPE_STR.begin(), RGY_THREAD_TYPE_STR.end(), [param_arg](decltype(RGY_THREAD_TYPE_STR[0])& type) {
+                        return param_arg == type.second;
+                        });
+                    if (type_ret != RGY_THREAD_TYPE_STR.end()) {
+                        ctrl->threadParams.set(throttling, type_ret->first);
+                    } else {
+                        print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                        return 1;
+                    }
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_thread_throttoling.data());
+                    return 1;
+                }
+            } else {
+                const RGYThreadPowerThrottlingMode throttling = rgy_str_to_thread_power_throttoling_mode(tolowercase(param).c_str());
+                if (throttling != RGYThreadPowerThrottlingMode::END) {
+                    ctrl->threadParams.set(throttling, RGYThreadType::ALL);
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name), param, list_thread_throttoling.data());
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     if (IS_OPTION("output-buf")) {
         i++;
         int value = 0;
@@ -5695,8 +5805,10 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_NUM(_T("--thread-input"), threadInput);
     OPT_NUM(_T("--thread-audio"), threadAudio);
     OPT_NUM(_T("--thread-csp"), threadCsp);
-    if (param->threadAffinity != defaultPrm->threadAffinity) {
-        cmd << _T(" --thread-affinity ") << param->threadAffinity.to_string();
+    if (param->threadParams != defaultPrm->threadParams) {
+        cmd << _T(" --thread-affinity ")    << param->threadParams.to_string(RGYParamThreadType::affinity);
+        cmd << _T(" --thread-priority ")    << param->threadParams.to_string(RGYParamThreadType::priority);
+        cmd << _T(" --thread-throttling ") << param->threadParams.to_string(RGYParamThreadType::throttling);
     }
     OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
@@ -6451,6 +6563,22 @@ tstring gen_cmd_help_ctrl() {
         list_thread_affinity_mode[RGY_THREAD_AFFINITY_MODE_STR.size()].value = 0;
         list_thread_affinity_mode[RGY_THREAD_AFFINITY_MODE_STR.size()].desc = nullptr;
 
+        std::array<CX_DESC, RGY_THREAD_PRIORITY_STR.size() + 1> list_thread_priority;
+        for (size_t i = 0; i < RGY_THREAD_PRIORITY_STR.size(); i++) {
+            list_thread_priority[i].value = (int)RGY_THREAD_PRIORITY_STR[i].first;
+            list_thread_priority[i].desc = RGY_THREAD_PRIORITY_STR[i].second;
+        }
+        list_thread_priority[RGY_THREAD_PRIORITY_STR.size()].value = 0;
+        list_thread_priority[RGY_THREAD_PRIORITY_STR.size()].desc = nullptr;
+
+        std::array<CX_DESC, RGY_THREAD_POWER_THROTTOLING_MODE_STR.size() + 1> list_thread_throttoling;
+        for (size_t i = 0; i < RGY_THREAD_POWER_THROTTOLING_MODE_STR.size(); i++) {
+            list_thread_throttoling[i].value = (int)RGY_THREAD_POWER_THROTTOLING_MODE_STR[i].first;
+            list_thread_throttoling[i].desc = RGY_THREAD_POWER_THROTTOLING_MODE_STR[i].second;
+        }
+        list_thread_throttoling[RGY_THREAD_POWER_THROTTOLING_MODE_STR.size()].value = 0;
+        list_thread_throttoling[RGY_THREAD_POWER_THROTTOLING_MODE_STR.size()].desc = nullptr;
+
         str += strsprintf(_T("")
             _T("   --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
@@ -6459,6 +6587,25 @@ tstring gen_cmd_help_ctrl() {
         str += strsprintf(_T("")
             _T("     thread type (string2)  (default: %s)\n"), rgy_thread_affnity_mode_to_str(RGYThreadAffinityMode::ALL)
         ) + print_list(list_thread_affinity_mode.data()) + _T("\n");
+#if defined(_WIN32) || defined(_WIN64)
+        str += strsprintf(_T("")
+            _T("   --thread-priority [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
+        str += strsprintf(_T("")
+            _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
+        ) + print_list(list_rgy_thread_type.data()) + _T("\n");
+        str += strsprintf(_T("")
+            _T("     priority (string2)  (default: %s)\n"), rgy_thread_priority_mode_to_str(RGYThreadPriority::Normal)
+        ) + print_list(list_thread_priority.data()) + _T("\n");
+
+        str += strsprintf(_T("")
+            _T("   --thread-throttling [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
+        str += strsprintf(_T("")
+            _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
+        ) + print_list(list_rgy_thread_type.data()) + _T("\n");
+        str += strsprintf(_T("")
+            _T("     throttling mode (string2)  (default: %s)\n"), rgy_thread_power_throttoling_mode_to_str(RGYThreadPowerThrottlingMode::Auto)
+        ) + print_list(list_thread_throttoling.data()) + _T("\n");
+#endif //#if defined(_WIN32) || defined(_WIN64)
     }
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
     str += strsprintf(_T("\n")
