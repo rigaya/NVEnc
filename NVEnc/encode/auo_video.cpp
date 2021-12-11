@@ -606,7 +606,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         int tempBufForNonModWidthPitch = 0;
         int sendFrames = 0;
         std::array<std::unique_ptr<RGYSharedMemWin>, 2> inputbuf;
-        auto convert = std::unique_ptr<RGYConvertCSP>(new RGYConvertCSP(std::min(MAX_CONV_THREADS, ((int)get_cpu_info().physical_cores + 3) / 4), RGYThreadAffinity()));
+        auto convert = std::unique_ptr<RGYConvertCSP>(new RGYConvertCSP(std::min(MAX_CONV_THREADS, ((int)get_cpu_info().physical_cores + 3) / 4), RGYParamThread()));
 
         //Aviutlの時間を取得
         PROCESS_TIME time_aviutl;
