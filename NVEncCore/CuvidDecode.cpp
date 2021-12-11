@@ -470,8 +470,10 @@ CUresult CuvidDecode::FlushParser() {
     try {
         result = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
     } catch(...) {
-        AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         result = CUDA_ERROR_UNKNOWN;
+    }
+    if (result != CUDA_SUCCESS) {
+        AddMessage(RGY_LOG_DEBUG, _T("cuvidParseVideoData error\n"));
         m_bError = true;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);
@@ -499,8 +501,10 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
     try {
         result = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
     } catch(...) {
-        AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         result = CUDA_ERROR_UNKNOWN;
+    }
+    if (result != CUDA_SUCCESS) {
+        AddMessage(RGY_LOG_DEBUG, _T("cuvidParseVideoData error\n"));
         m_bError = true;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);
