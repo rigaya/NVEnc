@@ -452,6 +452,10 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
         pCuvidPacket.payload = m_videoFormatEx.raw_seqhdr_data;
         pCuvidPacket.payload_size = m_videoFormatEx.format.seqhdr_data_length;
         curesult = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
+        if (curesult != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
+            m_bError = true;
+        }
     }
 #endif
     cuvidCtxUnlock(m_ctxLock, 0);
