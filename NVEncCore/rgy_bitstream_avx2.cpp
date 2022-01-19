@@ -174,4 +174,8 @@ std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size)
     return nal_list;
 }
 
+int64_t find_header_avx2(const uint8_t *data, size_t size) {
+    return memmem_avx2(data, size, DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header));
+}
+
 #endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)

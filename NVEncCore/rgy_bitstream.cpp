@@ -28,7 +28,6 @@
 #include <regex>
 #include "rgy_util.h"
 #include "rgy_bitstream.h"
-#include "rgy_util.h"
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     std::vector<uint8_t> data;
@@ -43,6 +42,28 @@ std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
         }
     }
     return data;
+}
+
+static void to_nal(std::vector<uint8_t>& data) {
+    for (auto it = data.begin(); it < data.end() - 2; it++) {
+        if (*it == 0
+            && *(it + 1) == 0
+            && (*(it + 2) & (~(0x03))) == 0) {
+            it = data.insert(it + 2, 0x03);
+        }
+    }
+}
+
+static void add_u16(std::vector<uint8_t>& data, uint16_t u16) {
+    data.push_back((uint8_t)((u16 & 0xff00) >> 8));
+    data.push_back((uint8_t)(u16 & 0x00ff));
+}
+
+static void add_u32(std::vector<uint8_t>& data, uint32_t u32) {
+    data.push_back((uint8_t)((u32 & 0xff000000) >> 24));
+    data.push_back((uint8_t)((u32 & 0x00ff0000) >> 16));
+    data.push_back((uint8_t)((u32 & 0x0000ff00) >>  8));
+    data.push_back((uint8_t)((u32 & 0x000000ff) >>  0));
 }
 
 HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false), atcSei(RGY_TRANSFER_UNKNOWN) {
@@ -161,18 +182,6 @@ std::string HEVCHDRSei::print() const {
     return str;
 }
 
-void HEVCHDRSei::add_u16(std::vector<uint8_t>& data, uint16_t u16) const {
-    data.push_back((uint8_t)((u16 & 0xff00) >> 8));
-    data.push_back((uint8_t)(u16 & 0x00ff));
-}
-
-void HEVCHDRSei::add_u32(std::vector<uint8_t>& data, uint32_t u32) const {
-    data.push_back((uint8_t)((u32 & 0xff000000) >> 24));
-    data.push_back((uint8_t)((u32 & 0x00ff0000) >> 16));
-    data.push_back((uint8_t)((u32 & 0x0000ff00) >>  8));
-    data.push_back((uint8_t)((u32 & 0x000000ff) >>  0));
-}
-
 std::vector<uint8_t> HEVCHDRSei::gen_nal(HEVCHDRSeiPrm prm_set) {
     prm = prm_set;
     return gen_nal();
@@ -209,7 +218,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
     if (data_maxcll.size() > 0) {
         std::vector<uint8_t> buf;
         uint16_t u16 = 0x00;
-        u16 |= (39 << 9) | 1;
+        u16 |= (NALU_HEVC_PREFIX_SEI << 9) | 1;
         add_u16(buf, u16);
         vector_cat(buf, data_maxcll);
         to_nal(buf);
@@ -226,7 +235,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
     if (data_masterdisplay.size() > 0) {
         std::vector<uint8_t> buf;
         uint16_t u16 = 0x00;
-        u16 |= (39 << 9) | 1;
+        u16 |= (NALU_HEVC_PREFIX_SEI << 9) | 1;
         add_u16(buf, u16);
         vector_cat(buf, data_masterdisplay);
         to_nal(buf);
@@ -243,7 +252,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
     if (data_atcsei.size() > 0) {
         std::vector<uint8_t> buf;
         uint16_t u16 = 0x00;
-        u16 |= (39 << 9) | 1;
+        u16 |= (NALU_HEVC_PREFIX_SEI << 9) | 1;
         add_u16(buf, u16);
         vector_cat(buf, data_atcsei);
         to_nal(buf);
@@ -265,7 +274,7 @@ std::vector<uint8_t> HEVCHDRSei::sei_maxcll() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
-        data.push_back(144);
+        data.push_back(CONTENT_LIGHT_LEVEL_INFO);
         data.push_back(4);
         add_u16(data, (uint16_t)prm.maxcll);
         add_u16(data, (uint16_t)prm.maxfall);
@@ -277,7 +286,7 @@ std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.masterdisplay_set) {
-        data.push_back(137);
+        data.push_back(MASTERING_DISPLAY_COLOUR_VOLUME);
         data.push_back(24);
         for (int i = 0; i < 8; i++) {
             add_u16(data, (uint16_t)prm.masterdisplay[i]);
@@ -292,21 +301,125 @@ std::vector<uint8_t> HEVCHDRSei::sei_atcsei() const {
     std::vector<uint8_t> data;
     data.reserve(8);
     if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
-        data.push_back(147);
+        data.push_back(ALTERNATIVE_TRANSFER_CHARACTERISTICS);
         data.push_back(1);
         data.push_back((uint8_t)prm.atcSei);
     }
     return data;
 }
 
-void HEVCHDRSei::to_nal(std::vector<uint8_t>& data) const {
-    for (auto it = data.begin(); it < data.end() - 2; it++) {
-        if (    *it == 0
-            && *(it+1) == 0
-            && (*(it+2) & (~(0x03))) == 0) {
-            it = data.insert(it+2, 0x03);
+DOVIRpu::DOVIRpu() : m_find_header(get_find_header_func()), m_filepath(), m_fp(nullptr, fclose), m_buffer(), m_datasize(0), m_dataoffset(0), m_count(0), m_rpus() {};
+DOVIRpu::~DOVIRpu() { m_fp.reset(); };
+
+const uint8_t DOVIRpu::rpu_header[4] = { 0, 0, 0, 1 };
+
+const tstring& DOVIRpu::get_filepath() const {
+    return m_filepath;
+}
+
+int DOVIRpu::init(const TCHAR *rpu_file) {
+    m_filepath.clear();
+    FILE *fp = NULL;
+    if (_tfopen_s(&fp, rpu_file, _T("rb")) != 0) {
+        return 1;
+    }
+    m_fp.reset(fp);
+    m_filepath = rpu_file;
+
+    m_buffer.resize(256 * 1024);
+    return 0;
+}
+
+int DOVIRpu::fillBuffer() {
+    int64_t bufRemain = m_buffer.size() - (m_dataoffset + m_datasize);
+    if (bufRemain < 4) {
+        if (m_dataoffset > 4) {
+            memmove(m_buffer.data(), m_buffer.data() + m_dataoffset, m_datasize);
+            m_dataoffset = 0;
+        } else {
+            m_buffer.resize(m_buffer.size() * 2);
+        }
+        bufRemain = m_buffer.size() - (m_dataoffset + m_datasize);
+    }
+    const auto bytes_read = (int)fread(m_buffer.data() + m_dataoffset + m_datasize, sizeof(uint8_t), bufRemain, m_fp.get());
+    m_datasize += bytes_read;
+    return bytes_read;
+}
+
+int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes) {
+    if (m_datasize <= 4) {
+        if (fillBuffer() == 0) {
+            return 1; //EOF
         }
     }
+    if (memcmp(m_buffer.data() + m_dataoffset, &DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header)) != 0) {
+        return 1;
+    }
+    m_dataoffset += sizeof(DOVIRpu::rpu_header);
+    m_datasize -= sizeof(DOVIRpu::rpu_header);
+
+    int64_t next_size = 0;
+    for (;;) {
+        auto dataptr = m_buffer.data() + m_dataoffset;
+        const auto pos = m_find_header(dataptr, m_datasize);
+        if (pos >= 0) {
+            const auto next_header = dataptr + pos;
+            next_size = next_header - dataptr;
+            break;
+        }
+        if (fillBuffer() == 0) { // EOF
+            next_size = m_datasize;
+            break;
+        }
+    }
+    if (next_size <= 0) {
+        return 1;
+    }
+
+    bytes.resize(next_size);
+    const auto dataptr = m_buffer.data() + m_dataoffset;
+    memcpy(bytes.data(), dataptr, next_size);
+    m_dataoffset += next_size;
+    m_datasize -= next_size;
+    return 0;
+}
+
+int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id) {
+    bytes.clear();
+    for (; m_count <= id; m_count++) {
+        std::vector<uint8_t> rpu;
+        if (int ret = get_next_rpu(rpu); ret != 0) {
+            return ret;
+        }
+        m_rpus[m_count] = rpu;
+    }
+    if (auto it = m_rpus.find(id); it != m_rpus.end()) {
+        bytes = std::move(it->second);
+        m_rpus.erase(it);
+    } else {
+        return 1;
+    }
+    return 0;
+}
+
+int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id) {
+    std::vector<uint8_t> rpu;
+    if (int ret = get_next_rpu(rpu, id); ret != 0) {
+        return ret;
+    }
+    //to_nal(rpu); // NALU_HEVC_UNSPECIFIEDの場合は不要
+    if (rpu.back() == 0x00) { // 最後が0x00の場合
+        rpu.push_back(0x03);
+    }
+
+    bytes.resize(sizeof(DOVIRpu::rpu_header));
+    memcpy(bytes.data(), &DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header));
+
+    uint16_t u16 = 0x00;
+    u16 |= (NALU_HEVC_UNSPECIFIED << 9) | 1;
+    add_u16(bytes, u16);
+    vector_cat(bytes, rpu);
+    return 0;
 }
 
 static inline int64_t memmem_c(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
@@ -317,6 +430,21 @@ static inline int64_t memmem_c(const void *data_, const int64_t data_size, const
         }
     }
     return -1;
+}
+
+const DOVIProfile *getDOVIProfile(const int id) {
+    static const std::array<DOVIProfile, 4> DOVI_PROFILES = {
+        DOVIProfile{ 50, true, true, true, VideoVUIInfo(1, RGY_PRIM_UNSPECIFIED, RGY_MATRIX_UNSPECIFIED, RGY_TRANSFER_UNSPECIFIED, 5, RGY_COLORRANGE_FULL,    RGY_CHROMALOC_UNSPECIFIED) },
+        DOVIProfile{ 81, true, true, true, VideoVUIInfo(1, RGY_PRIM_BT2020,      RGY_MATRIX_BT2020_NCL,  RGY_TRANSFER_ST2084,      5, RGY_COLORRANGE_LIMITED, RGY_CHROMALOC_UNSPECIFIED) },
+        DOVIProfile{ 82, true, true, true, VideoVUIInfo(1, RGY_PRIM_BT709,       RGY_MATRIX_BT709,       RGY_TRANSFER_BT709,       5, RGY_COLORRANGE_LIMITED, RGY_CHROMALOC_UNSPECIFIED) },
+        DOVIProfile{ 84, true, true, true, VideoVUIInfo(1, RGY_PRIM_BT2020,      RGY_MATRIX_BT2020_NCL,  RGY_TRANSFER_ARIB_B67,    5, RGY_COLORRANGE_LIMITED, RGY_CHROMALOC_UNSPECIFIED) }
+    };
+    for (const auto& profile : DOVI_PROFILES) {
+        if (profile.profile == id) {
+            return &profile;
+        }
+    }
+    return nullptr;
 }
 
 std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size) {
@@ -379,6 +507,10 @@ std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
     return nal_list;
 }
 
+int64_t find_header_c(const uint8_t *data, size_t size) {
+    return memmem_c(data, size, DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header));
+}
+
 #include "rgy_simd.h"
 
 decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func() {
@@ -400,4 +532,15 @@ decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func() {
     if ((simd & RGY_SIMD::AVX2) == RGY_SIMD::AVX2) return parse_nal_unit_hevc_avx2;
 #endif
     return parse_nal_unit_hevc_c;
+}
+
+decltype(find_header_c)* get_find_header_func() {
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+    const auto simd = get_availableSIMD();
+#if defined(_M_X64) || defined(__x86_64)
+    if ((simd & RGY_SIMD::AVX512BW) == RGY_SIMD::AVX512BW) return find_header_avx512bw;
+#endif
+    if ((simd & RGY_SIMD::AVX2) == RGY_SIMD::AVX2) return find_header_avx2;
+#endif
+    return find_header_c;
 }

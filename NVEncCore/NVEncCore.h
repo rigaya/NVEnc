@@ -209,6 +209,8 @@ protected:
     unique_ptr<RGYTimecode>       m_timecode;
     unique_ptr<RGYHDR10Plus>      m_hdr10plus;
     unique_ptr<HEVCHDRSei>        m_hdrsei;
+    unique_ptr<DOVIRpu>           m_dovirpu;
+    std::unique_ptr<RGYTimestamp> m_encTimestamp;
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;

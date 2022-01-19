@@ -4257,6 +4257,24 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
 #endif //#if ENABLE_DHDR10_INFO
+    if (IS_OPTION("dolby-vision-profile")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_dovi_profile, strInput[i], &value)) {
+            common->doviProfile = value;
+        } else if (_stscanf_s(strInput[i], _T("%d"), &value) == 1) {
+            common->doviProfile = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_colorprim);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("dolby-vision-rpu")) {
+        i++;
+        common->doviRpuFile = strInput[i];
+        return 0;
+    }
     if (IS_OPTION("timecode")) {
         common->timecode = true;
         if (i + 1 < nArgNum && strInput[i+1][0] != _T('-')) {
@@ -5769,6 +5787,8 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
     }
 #endif //#if ENABLE_DHDR10_INFO
+    OPT_LST(_T("--dolby-vision-profile"), doviProfile, list_dovi_profile);
+    OPT_STR_PATH(_T("--dolby-vision-rpu"), doviRpuFile);
     if (param->timecode || param->timecodeFile.length() > 0) {
         cmd << (param->timecode ? _T("--timecode ") : _T("--no-timecode "));
         if (param->timecodeFile.length() > 0) {
@@ -5969,11 +5989,14 @@ tstring gen_cmd_help_common() {
         _T("   --master-display <string>    set Mastering display data.\n")
         _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
     str += print_list_options(_T("--atc-sei <string> or <int>"), list_transfer, 1);
-    str += strsprintf(
 #if ENABLE_DHDR10_INFO
+    str += strsprintf(
         _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n")
-        _T("   --dhdr10-info copy           Copy dynamic HDR10+ metadata from input file.\n")
+        _T("   --dhdr10-info copy           Copy dynamic HDR10+ metadata from input file.\n"));
 #endif //#if ENABLE_DHDR10_INFO
+    str += print_list_options(_T("--dolby-vision-profile <int>"), list_dovi_profile, 0);
+    str += strsprintf(
+        _T("   --dolby-vision-rpu <string>  Copy dolby vision metadata from input rpu file.\n")
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avhw/avsw reader.\n")

@@ -593,6 +593,8 @@ struct InEncodeVideoParam {
     VppParam vppnv;                 //vpp
 
     InEncodeVideoParam();
+
+    void applyDOVIProfile();
 };
 
 NV_ENC_CONFIG DefaultParam();

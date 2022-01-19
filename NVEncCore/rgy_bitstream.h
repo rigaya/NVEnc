@@ -30,6 +30,7 @@
 #define __RGY_BITSTREAM_H__
 
 #include <vector>
+#include <unordered_map>
 #include <cstdint>
 #include <string>
 #include "rgy_def.h"
@@ -65,9 +66,11 @@ enum : uint8_t {
     NALU_HEVC_AUD      = 35,
     NALU_HEVC_EOS      = 36,
     NALU_HEVC_EOB      = 37,
-    NALU_HEVC_FILLER     = 38,
-    NALU_HEVC_PREFIX_SEI = 39,
-    NALU_HEVC_SUFFIX_SEI = 40,
+    NALU_HEVC_FILLER      = 38,
+    NALU_HEVC_PREFIX_SEI  = 39,
+    NALU_HEVC_SUFFIX_SEI  = 40,
+    NALU_HEVC_UNSPECIFIED = 62,
+    NALU_HEVC_INVALID     = 64,
 };
 
 enum PayloadType {
@@ -130,6 +133,12 @@ std::vector<nal_info> parse_nal_unit_hevc_avx512bw(const uint8_t *data, size_t s
 decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func();
 decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func();
 
+int64_t find_header_c(const uint8_t *data, size_t size);
+int64_t find_header_avx2(const uint8_t *data, size_t size);
+int64_t find_header_avx512bw(const uint8_t *data, size_t size);
+
+decltype(find_header_c)* get_find_header_func();
+
 struct HEVCHDRSeiPrm {
     int maxcll;
     int maxfall;
@@ -164,9 +173,44 @@ private:
     std::vector<uint8_t> sei_maxcll() const;
     std::vector<uint8_t> sei_masterdisplay() const;
     std::vector<uint8_t> sei_atcsei() const;
-    void to_nal(std::vector<uint8_t>& data) const;
-    void add_u16(std::vector<uint8_t>& data, uint16_t u16) const;
-    void add_u32(std::vector<uint8_t>& data, uint32_t u32) const;
+};
+
+struct DOVIProfile {
+    int profile;
+
+    bool HRDSEI;
+    bool videoSignalTypeDescript;
+    bool aud;
+
+    VideoVUIInfo vui;
+};
+
+const DOVIProfile *getDOVIProfile(const int id);
+
+class DOVIRpu {
+public:
+    static const uint8_t rpu_header[4];
+
+    DOVIRpu();
+    ~DOVIRpu();
+    int init(const TCHAR *rpu_file);
+    int get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id);
+    const tstring& get_filepath() const;
+
+protected:
+    int fillBuffer();
+    int get_next_rpu(std::vector<uint8_t>& bytes);
+    int get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id);
+
+    decltype(find_header_c)* m_find_header;
+    tstring m_filepath;
+    std::unique_ptr<FILE, decltype(&fclose)> m_fp;
+    std::vector<uint8_t> m_buffer;
+    int64_t m_datasize;
+    int64_t m_dataoffset;
+    int64_t m_count;
+
+    std::unordered_map<int64_t, std::vector<uint8_t>> m_rpus;
 };
 
 #endif //__RGY_BITSTREAM_H__

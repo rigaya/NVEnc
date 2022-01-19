@@ -431,6 +431,15 @@ const CX_DESC list_videoformat[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_dovi_profile[] = {
+    { _T("unset"), 0 },
+    { _T("5.0"),  50 },
+    { _T("8.1"),  81 },
+    { _T("8.2"),  82 },
+    { _T("8.4"),  84 },
+    { NULL, 0 }
+};
+
 
 // 1st luma line > |X   X ...    |3 4 X ...     X が輝度ピクセル位置
 //                 |             |1 2           1-6 are possible chroma positions
@@ -515,6 +524,22 @@ struct VideoVUIInfo {
         chromaloc((CspChromaloc)get_cx_value(list_chromaloc_str, _T("undef"))) {
 
     }
+
+    VideoVUIInfo(int descriptpresent_,
+        CspColorprim colorprim_, 
+        CspMatrix matrix_,
+        CspTransfer transfer_,
+        int format_,
+        CspColorRange colorrange_,
+        CspChromaloc chromaloc_) :
+        descriptpresent(descriptpresent_),
+        colorprim(colorprim_),
+        matrix(matrix_),
+        transfer(transfer_),
+        format(format_),
+        colorrange(colorrange_),
+        chromaloc(chromaloc_) {}
+
     VideoVUIInfo to(CspMatrix csp_matrix) const {
         auto ret = *this;
         ret.matrix = csp_matrix;

@@ -28,6 +28,7 @@
 #include "NVEncParam.h"
 #include "afs_stg.h"
 #include "rgy_ini.h"
+#include "rgy_bitstream.h"
 
 using std::vector;
 
@@ -256,3 +257,32 @@ InEncodeVideoParam::InEncodeVideoParam() :
     input.vui = VideoVUIInfo();
 }
 
+void InEncodeVideoParam::applyDOVIProfile() {
+    if (codec != NV_ENC_HEVC) {
+        return;
+    }
+    if (common.doviProfile == 0) {
+        return;
+    }
+    auto profile = getDOVIProfile(common.doviProfile);
+    if (profile == nullptr) {
+        return;
+    }
+
+    common.out_vui = profile->vui;
+    encConfig.encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
+    if (profile->aud) {
+        encConfig.encodeCodecConfig.hevcConfig.outputAUD = 1;
+    }
+    if (profile->HRDSEI) {
+        encConfig.encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI = 1;
+        encConfig.encodeCodecConfig.hevcConfig.outputPictureTimingSEI = 1;
+    }
+    if (profile->profile == 50) {
+        encConfig.rcParams.crQPIndexOffset = 3;
+    }
+    if (profile->profile == 81) {
+        //hdr10sei
+        //maxcll
+    }
+}

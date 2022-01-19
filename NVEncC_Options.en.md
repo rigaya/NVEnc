@@ -537,6 +537,17 @@ Copy HDR10+ dynamic metadata from input file.
 Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
 Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
 
+### --dolby-vision-profile &lt;float&gt;,&lt;
+Output file which is specified in Dolby Vision profile.
+```
+5.0, 8.1, 8.2, 8.4
+```
+
+### --dolby-vision-rpu &lt;string&gt;
+Interleave Dolby Vision RPU metadata from the specified file into the output file.
+
+Currently, the Dolby Vision info in the re-encoded file will not be detected by MediaInfo. In order to be able to detect the Dolby Vision info by MediaInfo, you will need to re-mux the output file by [tsMuxeR](https://github.com/justdan96/tsMuxer/releases) (nightly).
+
 ### --aud
 Insert Access Unit Delimiter NAL.
 

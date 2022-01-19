@@ -1157,6 +1157,8 @@ RGYParamCommon::RGYParamCommon() :
     atcSei(RGY_TRANSFER_UNKNOWN),
     hdr10plusMetadataCopy(false),
     dynamicHdr10plusJson(),
+    doviRpuFile(),
+    doviProfile(0),
     videoCodecTag(),
     videoMetadata(),
     formatMetadata(),

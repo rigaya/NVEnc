@@ -542,6 +542,19 @@ HDR10+のメタデータを入力ファイルからそのままコピーしま�
 avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
 こうした場合には、avsw読み込みを使用してください。 
 
+### --dolby-vision-profile &lt;float&gt;,&lt;
+指定されたdolby visionプロファイルを適用します。
+```
+5.0, 8.1, 8.2, 8.4
+```
+
+### --dolby-vision-rpu &lt;string&gt;
+指定のrpuファイルに含まれるdolby visionのmetadataを出力ファイルに挿入します。
+
+現時点(2022年1月実装時点)では、このオプションを使用して出力した動画ファイルは、MediaInfoによりDolby Vision情報が検出されません。
+
+MediaInfoによるDolby Vision情報の検出を可能とするには、[tsMuxeR](https://github.com/justdan96/tsMuxer/releases) (nightly版) による再muxが必要です。
+
 ### --aud
 Access Unit Delimiter NALを挿入する。
 

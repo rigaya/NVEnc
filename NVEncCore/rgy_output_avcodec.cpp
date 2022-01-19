@@ -622,7 +622,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
     m_Mux.video.timestamp        = prm->vidTimestamp;
     m_Mux.video.afs              = prm->afs;
-
+    m_Mux.video.doviRpu          = prm->doviRpu;
     m_Mux.video.parse_nal_h264 = get_parse_nal_unit_h264_func();
     m_Mux.video.parse_nal_hevc = get_parse_nal_unit_hevc_func();
 
@@ -2288,15 +2288,16 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         }
     }
 
-#if ENCODER_QSV
-    //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
-    int64_t bs_duration = 0;
+    RGYTimestampMapVal bs_framedata;
     if (m_Mux.video.timestamp) {
-        while ((bs_duration = m_Mux.video.timestamp->get_and_pop(bitstream->pts())) < 0) {
+        for (;;) {
+            bs_framedata = m_Mux.video.timestamp->get_and_pop(bitstream->pts());
+            if (bs_framedata.inputFrameId >= 0) {
+                break;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
-#endif
 
 #if ENCODER_VCEENC
     VidCheckStreamAVParser(bitstream);
@@ -2363,39 +2364,50 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
             return RGY_ERR_UNSUPPORTED;
         }
     }
-    if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC
-        && m_Mux.video.seiNal.size() > 0
-        && isIDR) {
-        RGYBitstream bsCopy = RGYBitstreamInit();
-        bsCopy.copy(bitstream);
-        const auto nal_list = m_Mux.video.parse_nal_hevc(bsCopy.data(), bsCopy.size());
-        const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
-        const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
-        const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
-        const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+    if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+        const bool insertSEI = m_Mux.video.seiNal.size() > 0 && isIDR;
+        if (insertSEI) {
+            RGYBitstream bsCopy = RGYBitstreamInit();
+            bsCopy.copy(bitstream);
+            const auto nal_list = m_Mux.video.parse_nal_hevc(bsCopy.data(), bsCopy.size());
+            const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+            const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+            const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+            const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
 
-        bitstream->setSize(0);
-        bitstream->setOffset(0);
-        bool seiWritten = false;
-        if (!header_check) {
-            bitstream->append(&m_Mux.video.seiNal);
-            seiWritten = true;
-        }
-        for (size_t i = 0; i < nal_list.size(); i++) {
-            bitstream->append(nal_list[i].ptr, nal_list[i].size);
-            if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
-                if (!seiWritten
-                    && i + 1 < nal_list.size()
-                    && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
-                    bitstream->append(&m_Mux.video.seiNal);
-                    seiWritten = true;
+            bitstream->setSize(0);
+            bitstream->setOffset(0);
+            bool seiWritten = false;
+            if (!header_check && insertSEI) {
+                bitstream->append(&m_Mux.video.seiNal);
+                seiWritten = true;
+            }
+            for (int i = 0; i < (int)nal_list.size(); i++) {
+                bitstream->append(nal_list[i].ptr, nal_list[i].size);
+                if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
+                    if (!seiWritten
+                        && i + 1 < nal_list.size()
+                        && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
+                        bitstream->append(&m_Mux.video.seiNal);
+                        seiWritten = true;
+                    }
                 }
             }
+            bsCopy.clear();
+            if (insertSEI && !seiWritten) {
+                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
         }
-        bsCopy.clear();
-        if (!seiWritten) {
-            AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
-            return RGY_ERR_UNDEFINED_BEHAVIOR;
+
+        if (m_Mux.video.doviRpu) {
+            std::vector<uint8_t> dovi_nal;
+            if (m_Mux.video.doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
+            }
+            if (dovi_nal.size() > 0) {
+                bitstream->append(dovi_nal.data(), dovi_nal.size());
+            }
         }
     }
 
@@ -2410,7 +2422,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
     pkt.flags        = isIDR ? AV_PKT_FLAG_KEY : 0;
 #if ENCODER_QSV
     //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
-    pkt.duration = bs_duration;
+    pkt.duration = bs_framedata.duration;
 #else
     pkt.duration = bitstream->duration();
 #endif

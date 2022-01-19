@@ -285,6 +285,8 @@ NVEncCore::NVEncCore() :
     m_timecode(),
     m_hdr10plus(),
     m_hdrsei(),
+    m_dovirpu(),
+    m_encTimestamp(),
     m_vpFilters(),
     m_pLastFilterParam(),
 #if ENABLE_SSIM
@@ -572,6 +574,14 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
     } else if (inputParam->common.hdr10plusMetadataCopy) {
         m_hdr10plusCopy = true;
     }
+
+    if (inputParam->common.doviRpuFile.length() > 0) {
+        m_dovirpu = std::make_unique<DOVIRpu>();
+        if (m_dovirpu->init(inputParam->common.doviRpuFile.c_str()) != 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to open dovi rpu \"%s\".\n"), inputParam->common.doviRpuFile.c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+    }
 #endif
 
     m_hdrsei = createHEVCHDRSei(inputParam->common.maxCll, inputParam->common.masterDisplay, inputParam->common.atcSei, m_pFileReader.get());
@@ -659,7 +669,8 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
 
     if (initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
-        m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), false, false, m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
+        m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), m_dovirpu.get(), m_encTimestamp.get(),
+        false, false, m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
     }
@@ -1021,6 +1032,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     m_ssim.reset();
+    m_dovirpu.reset();
     m_hdr10plus.reset();
     m_hdrsei.reset();
     m_AudioReaders.clear();
@@ -1452,6 +1464,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
+    static const auto VBR_RC_LIST = make_array<NV_ENC_PARAMS_RC_MODE>(NV_ENC_PARAMS_RC_VBR, NV_ENC_PARAMS_RC_VBR_MINQP, NV_ENC_PARAMS_RC_2_PASS_VBR, NV_ENC_PARAMS_RC_CBR, NV_ENC_PARAMS_RC_CBR2, NV_ENC_PARAMS_RC_CBR_HQ, NV_ENC_PARAMS_RC_VBR_HQ);
+
     //制限事項チェック
     if (inputParam->input.srcWidth < 0 && inputParam->input.srcHeight < 0) {
         PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d\n"), FOR_AUO ? _T("解像度が無効です。") : _T("Invalid resolution."), inputParam->input.srcWidth, inputParam->input.srcHeight);
@@ -1579,7 +1593,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("HEVCではBluray用出力はサポートされていません。\n") : _T("Bluray output is not supported for HEVC codec.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
-        const auto VBR_RC_LIST = make_array<NV_ENC_PARAMS_RC_MODE>(NV_ENC_PARAMS_RC_VBR, NV_ENC_PARAMS_RC_VBR_MINQP, NV_ENC_PARAMS_RC_2_PASS_VBR, NV_ENC_PARAMS_RC_CBR, NV_ENC_PARAMS_RC_CBR2);
         if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), inputParam->encConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
             PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Bluray用出力では、VBRモードを使用してください。\n") :  _T("Please use VBR mode for bluray output.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1945,6 +1958,22 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
         if (m_hdr10plus || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
+        }
+
+        if (auto profile = getDOVIProfile(inputParam->common.doviProfile); profile != nullptr && profile->HRDSEI) {
+            if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), inputParam->encConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
+                PrintMes(RGY_LOG_ERROR, _T("Please use VBR mode for dolby vision output.\n"));
+                return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            }
+            if (!codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
+                error_feature_unsupported(RGY_LOG_ERROR, _T("Custom VBV Bufsize"));
+                PrintMes(RGY_LOG_ERROR, _T("Therfore you cannot output for dolby vision.\n"));
+                return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            }
+            if (m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize == 0) {
+                m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize = m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate;
+            }
+            m_stCreateEncodeParams.encodeConfig->rcParams.vbvInitialDelay = m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize / 2;
         }
     } else if (inputParam->codec == NV_ENC_H264) {
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceMode != 3) {
@@ -2910,6 +2939,7 @@ RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<DynamicRCParam>& dynamicRC) 
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
+    inputParam->applyDOVIProfile();
     m_nAVSyncMode = inputParam->common.AVSyncMode;
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
     if (inputParam->ctrl.lowLatency) {
@@ -3046,6 +3076,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
 
+    m_encTimestamp = std::make_unique<RGYTimestamp>();
 
     if (InitPowerThrottoling(inputParam) != RGY_ERR_NONE) {
         return NV_ENC_ERR_INVALID_PARAM;
@@ -3448,6 +3479,8 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
     //        }
     //    }
     //}
+
+    m_encTimestamp->add(timestamp, inputFrameId, duration);
 
     NVENCSTATUS nvStatus = m_dev->encoder()->NvEncEncodePicture(&encPicParams);
     if (nvStatus != NV_ENC_SUCCESS && nvStatus != NV_ENC_ERR_NEED_MORE_INPUT) {
@@ -4907,6 +4940,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             add_str(RGY_LOG_INFO, _T("MaxCLL/MaxFALL %s\n"), char_to_tstring(maxcll).c_str());
         }
     }
+    if (m_dovirpu) {
+        add_str(RGY_LOG_INFO, _T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());
+    }
     add_str(RGY_LOG_INFO, _T("Others         "));
     add_str(RGY_LOG_INFO, _T("mv:%s "), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
     if (m_stCreateEncodeParams.enableWeightedPrediction) {
@@ -4931,6 +4967,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI) {
             add_str(RGY_LOG_INFO, _T("pic-struct "));
         }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.outputBufferingPeriodSEI) {
+            add_str(RGY_LOG_INFO, _T("buf-period "));
+        }
         if (m_stEncConfig.encodeCodecConfig.h264Config.repeatSPSPPS) {
             add_str(RGY_LOG_INFO, _T("repeat-headers "));
         }
@@ -4940,6 +4979,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
         if (m_stEncConfig.encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
             add_str(RGY_LOG_INFO, _T("pic-struct "));
+        }
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI) {
+            add_str(RGY_LOG_INFO, _T("buf-period "));
         }
         if (m_stEncConfig.encodeCodecConfig.hevcConfig.repeatSPSPPS) {
             add_str(RGY_LOG_INFO, _T("repeat-headers "));
