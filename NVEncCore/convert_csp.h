@@ -518,6 +518,7 @@ static void copyFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     dst->picstruct = src->picstruct;
     dst->timestamp = src->timestamp;
     dst->duration = src->duration;
+    dst->inputFrameId = src->inputFrameId;
     dst->flags = src->flags;
 }
 

@@ -466,8 +466,12 @@ cudaError_t NVEncFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, i
     if (m_buf.frame.ptr == nullptr) {
         m_buf.alloc(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
     }
+    auto cudaerr = m_buf.copyFrameAsync(pInputFrame, stream);
+    if (cudaerr != cudaSuccess) {
+        return cudaerr;
+    }
     copyFrameProp(&m_buf.frame, pInputFrame);
-    return m_buf.copyFrameAsync(pInputFrame, stream);
+    return cudaSuccess;
 }
 
 cudaError_t NVEncFilterDecimateFrameData::calcDiff(funcCalcDiff func, const NVEncFilterDecimateFrameData *target, const bool chroma,

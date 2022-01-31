@@ -153,13 +153,13 @@ RGY_ERR NVEncFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int
     if (m_tmp.frameDev.ptr == nullptr) {
         m_tmp.alloc(divCeil(pInputFrame->width, 8), divCeil(pInputFrame->height, 8), RGY_CSP_YUV444_32);
     }
-    copyFrameProp(&m_buf.frame, pInputFrame);
 
     auto cudaerr = m_buf.copyFrameAsync(pInputFrame, stream);
     if (cudaerr != cudaSuccess) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
+    copyFrameProp(&m_buf.frame, pInputFrame);
     return RGY_ERR_NONE;
 }
 

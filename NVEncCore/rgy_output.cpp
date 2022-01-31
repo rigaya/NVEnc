@@ -113,6 +113,8 @@ RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
     m_seiNal(),
     m_doviRpu(nullptr),
+    m_timestamp(nullptr),
+    m_prevInputFrameId(-1),
 #if ENABLE_AVSW_READER
     m_pBsfc(),
 #endif //#if ENABLE_AVSW_READER
@@ -390,14 +392,18 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         if (m_doviRpu) {
             RGYTimestampMapVal bs_framedata;
             if (m_timestamp) {
-                for (;;) {
-                    bs_framedata = m_timestamp->get_and_pop(pBitstream->pts());
-                    if (bs_framedata.inputFrameId >= 0) {
-                        break;
-                    }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                bs_framedata = m_timestamp->get(pBitstream->pts());
+                if (bs_framedata.inputFrameId < 0) {
+                    bs_framedata.inputFrameId = m_prevInputFrameId;
+                    AddMessage(RGY_LOG_WARN, _T("Failed to get frame ID for pts %lld, using %lld.\n"), pBitstream->pts(), bs_framedata.inputFrameId);
                 }
+                m_prevInputFrameId = bs_framedata.inputFrameId;
             }
+            if (bs_framedata.inputFrameId < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get frame ID for pts %lld (%lld).\n"), pBitstream->pts(), bs_framedata.inputFrameId);
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+
             std::vector<uint8_t> dovi_nal;
             if (m_doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);

@@ -621,6 +621,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.dtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
     m_Mux.video.timestamp        = prm->vidTimestamp;
+    m_Mux.video.prevInputFrameId = -1;
     m_Mux.video.afs              = prm->afs;
     m_Mux.video.doviRpu          = prm->doviRpu;
     m_Mux.video.parse_nal_h264 = get_parse_nal_unit_h264_func();
@@ -2290,13 +2291,12 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 
     RGYTimestampMapVal bs_framedata;
     if (m_Mux.video.timestamp) {
-        for (;;) {
-            bs_framedata = m_Mux.video.timestamp->get_and_pop(bitstream->pts());
-            if (bs_framedata.inputFrameId >= 0) {
-                break;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        bs_framedata = m_Mux.video.timestamp->get(bitstream->pts());
+        if (bs_framedata.inputFrameId < 0) {
+            bs_framedata.inputFrameId = m_Mux.video.prevInputFrameId;
+            AddMessage(RGY_LOG_WARN, _T("Failed to get frame ID for pts %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
         }
+        m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
     }
 
 #if ENCODER_VCEENC
@@ -2401,6 +2401,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         }
 
         if (m_Mux.video.doviRpu) {
+            if (bs_framedata.inputFrameId < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get frame ID for pts %lld (%lld).\n"), bitstream->pts(), bs_framedata.inputFrameId);
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
             std::vector<uint8_t> dovi_nal;
             if (m_Mux.video.doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);

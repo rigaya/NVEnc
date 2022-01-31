@@ -138,6 +138,7 @@ typedef struct AVMuxVideo {
     DOVIRpu              *doviRpu;              //dovi rpu 追加用
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
     RGYTimestamp         *timestamp;            //timestampの情報
+    int64_t               prevInputFrameId;     //前回の入力フレームID
 #if ENCODER_VCEENC
     AVCodecParserContext *parserCtx;            //動画ストリームのParser (VCEのみ)
     int64_t               parserStreamPos;      //動画ストリームのバイト数

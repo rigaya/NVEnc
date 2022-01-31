@@ -100,6 +100,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                     return RGY_ERR_CUDA;
                 }
+                pOutFrame->frame.inputFrameId = pInputFrame->inputFrameId;
             }
             ppOutputFrames[0] = &pOutFrame->frame;
             ppOutputFrames[0]->duration = m_totalDuration * pSelectParam->selectevery.step / ((m_frames % pSelectParam->selectevery.step) + 1);

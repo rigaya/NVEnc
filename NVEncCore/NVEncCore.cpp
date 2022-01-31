@@ -3480,6 +3480,10 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
     //    }
     //}
 
+    if (inputFrameId < 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Invalid input frame ID %d sent to encoder.\n"), inputFrameId);
+        return NV_ENC_ERR_GENERIC;
+    }
     m_encTimestamp->add(timestamp, inputFrameId, duration);
 
     NVENCSTATUS nvStatus = m_dev->encoder()->NvEncEncodePicture(&encPicParams);
