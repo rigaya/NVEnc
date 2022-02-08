@@ -537,7 +537,7 @@ Copy HDR10+ dynamic metadata from input file.
 Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
 Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
 
-### --dolby-vision-profile &lt;float&gt;,&lt;
+### --dolby-vision-profile &lt;float&gt;
 Output file which is specified in Dolby Vision profile.
 ```
 5.0, 8.1, 8.2, 8.4
