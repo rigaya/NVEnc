@@ -195,12 +195,12 @@ RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputPlane, const RGYFr
         AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint16_t]\n"));
         err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint16_t>()).configure(gridSize, blockSize, 0, stream).launch(
             pOutputPlane->ptr, pOutputPlane->pitch, pOutputPlane->width, pOutputPlane->height,
-            pInpuPlane->ptr, pInpuPlane->pitch, pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), plane);
+            pInpuPlane->ptr, pInpuPlane->pitch, pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), prm->custom.dev_params, plane);
     } else {
         AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint8_t]\n"));
         err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint8_t>()).configure(gridSize, blockSize, 0, stream).launch(
             pOutputPlane->ptr, pOutputPlane->pitch, pOutputPlane->width, pOutputPlane->height,
-            pInpuPlane->ptr, pInpuPlane->pitch, pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), plane);
+            pInpuPlane->ptr, pInpuPlane->pitch, pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), prm->custom.dev_params, plane);
     }
     if (err != CUDA_SUCCESS) {
         const char *ptr;
@@ -263,13 +263,13 @@ RGY_ERR NVEncFilterCustom::run_planes(RGYFrameInfo *pOutputFrame, const RGYFrame
         err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint16_t>()).configure(gridSize, blockSize, 0, stream).launch(
             planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch, planeOutputY.width, planeOutputY.height,
             planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch, planeInputY.width, planeInputY.height,
-            interlacedFrame);
+            interlacedFrame, prm->custom.dev_params);
     } else {
         AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint8_t]\n"));
         err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint8_t>()).configure(gridSize, blockSize, 0, stream).launch(
             planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch, planeOutputY.width, planeOutputY.height,
             planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch, planeInputY.width, planeInputY.height,
-            interlacedFrame);
+            interlacedFrame, prm->custom.dev_params);
     }
     if (err != CUDA_SUCCESS) {
         const char *ptr;

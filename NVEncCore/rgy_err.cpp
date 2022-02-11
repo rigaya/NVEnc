@@ -141,6 +141,13 @@ RGY_ERR err_to_rgy(NVENCSTATUS err) {
     return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
 }
 
+cudaError err_to_cuda(RGY_ERR err) {
+    return (err == RGY_ERR_NONE) ? cudaSuccess : cudaErrorUnknown;
+}
+RGY_ERR err_to_rgy(cudaError err) {
+    return (err == cudaSuccess) ? RGY_ERR_NONE : RGY_ERR_CUDA;
+}
+
 #endif //#if ENCODER_NVENC
 
 #if ENCODER_VCEENC

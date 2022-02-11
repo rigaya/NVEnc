@@ -1174,6 +1174,14 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
   limited, full, auto
 ```
 
+- lut3d=&lt;string&gt;  
+  3D LUTを適用する。(.cubeファイルのみの対応)
+  
+- lut3d_interp=&lt;string&gt;  
+  ```
+  nearest, trilinear, tetrahedral
+  ```
+
 - hdr2sdr=&lt;string&gt;  
   tone-mappingを指定してHDRからSDRへの変換を行う。 
   
@@ -1230,6 +1238,9 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 
 例3: hdr2sdr使用時の追加パラメータの指定例 (下記例ではデフォルトと同じ意味)
 --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+
+例4: lut3dの使用
+--vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
 ```
 
 

@@ -429,13 +429,27 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
+        vector<tstring> param_list;
+        bool flag_comma = false;
+        const TCHAR *pstr = strInput[i];
+        const TCHAR *qstr = strInput[i];
+        for (; *pstr; pstr++) {
+            if (*pstr == _T('\"')) {
+                flag_comma ^= true;
+            }
+            if (!flag_comma && *pstr == _T(',')) {
+                param_list.push_back(tstring(qstr, pstr - qstr));
+                qstr = pstr + 1;
+            }
+        }
+        param_list.push_back(tstring(qstr, pstr - qstr));
 
         const auto paramList = std::vector<std::string>{
             "matrix", "colormatrix", "colorprim", "transfer", "range", "colorrange", "source_peak", "approx_gamma",
             "hdr2sdr", "ldr_nits", "a", "b", "c", "d", "e", "f", "contrast", "peak",
-            "desat_base", "desat_strength", "desat_exp" };
+            "desat_base", "desat_strength", "desat_exp", "lut3d", "lut3d_interp" };
 
-        for (const auto &param : split(strInput[i], _T(","))) {
+        for (const auto &param : param_list) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
                 auto parse = [](int *from, int *to, tstring param_val, const CX_DESC *list) {
@@ -667,6 +681,20 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("lut3d")) {
+                    vpp->colorspace.lut3d.table_file = param_val;
+                    continue;
+                }
+                if (param_arg == _T("lut3d_interp")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_colorspace_lut3d_interp, param_val.c_str(), &value)) {
+                        vpp->colorspace.lut3d.interp = (LUT3DInterp)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_colorspace_lut3d_interp);
+                        return 1;
+                    }
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
@@ -710,7 +738,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 #endif
         };
 
-        for (const auto& param : split(strInput[i], _T(","))) {
+        for (const auto& param : param_list) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
@@ -4980,7 +5008,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 
 #define ADD_FLOAT(str, opt, prec) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (param->opt);
 #define ADD_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
-#define ADD_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (param->opt));
+#define ADD_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (int)(param->opt));
 #define ADD_BOOL(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << ((param->opt) ? (_T("true")) : (_T("false")));
 #define ADD_CHAR(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
 #define ADD_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=\"") << (param->opt) << _T("\"");
@@ -5076,6 +5104,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 }
                 ADD_BOOL(_T("approx_gamma"), colorspace.convs[i].approx_gamma);
                 ADD_BOOL(_T("scene_ref"), colorspace.convs[i].scene_ref);
+                ADD_PATH(_T("lut3d"), colorspace.lut3d.table_file.c_str());
+                ADD_LST(_T("lut3d_interp"), colorspace.lut3d.interp, list_vpp_colorspace_lut3d_interp);
                 ADD_LST(_T("hdr2sdr"), colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
                 ADD_FLOAT(_T("ldr_nits"), colorspace.hdr2sdr.ldr_nits, 1);
                 ADD_FLOAT(_T("source_peak"), colorspace.hdr2sdr.hdr_source_peak, 1);
@@ -6193,6 +6223,9 @@ tstring gen_cmd_help_vpp() {
         _T("        bt2020-10, bt2020-12, smpte2084, arib-srd-b67\n")
         _T("      range=<from>:<to>\n")
         _T("        limited, full\n")
+        _T("      lut3d=<path>\n")
+        _T("      lut3d_interp=<string>\n")
+        _T("        nearest, trilinear, tetrahedral\n")
         _T("      hdr2sdr=<string>     Enables HDR10 to SDR.\n")
         _T("                             hable, mobius, reinhard, bt2390, none\n")
         _T("      source_peak=<float>     (default: %.1f)\n")

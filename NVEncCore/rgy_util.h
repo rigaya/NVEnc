@@ -91,6 +91,17 @@ using std::shared_ptr;
 #define ALIGN16(x) (((x)+15)&(~15))
 #define ALIGN32(x) (((x)+31)&(~31))
 
+template<typename T>
+static bool rgy_is_pow2(T i) {
+    static_assert(std::is_integral<T>::value, "rgy_is_pow2 is defined only for integer.");
+    return (i & (i - 1)) != 0;
+}
+template<typename T>
+static T rgy_ceil_int(T i, T div) {
+    static_assert(std::is_integral<T>::value, "rgy_ceil_int is defined only for integer.");
+    return ((i + div - 1) / div) * div;
+}
+
 #define MAP_PAIR_0_1_PROTO(prefix, name0, type0, name1, type1) \
     type1 prefix ## _ ## name0 ## _to_ ## name1(type0 var0); \
     type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1);
@@ -649,64 +660,101 @@ static tstring fourccToStr(uint32_t nFourCC) {
 //確保できなかったら、サイズを小さくして再度確保を試みる (最終的にnMinSizeも確保できなかったら諦める)
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);
 
-class vec3 {
+template<typename T>
+class RGYVec3 {
 public:
-    vec3() : v() {
+    RGYVec3() : v() {
         for (int i = 0; i < 3; i++)
-            v[i] = 0.0;
+            v[i] = (T)0.0;
     }
-    vec3(const vec3 &m) { memcpy(&v[0], &m.v[0], sizeof(v)); }
-    vec3(double a0, double a1, double a2) {
+    RGYVec3(const RGYVec3 &m) { memcpy(&v[0], &m.v[0], sizeof(v)); }
+    RGYVec3(T a0, T a1, T a2) {
         v[0] = a0;
         v[1] = a1;
         v[2] = a2;
     }
-    vec3 &operator=(const vec3 &m) { memcpy(&v[0], &m.v[0], sizeof(v)); return *this; }
-    const vec3 &m() const {
+    RGYVec3 &operator=(const RGYVec3 &m) { memcpy(&v[0], &m.v[0], sizeof(v)); return *this; }
+    const RGYVec3 &m() const {
         return *this;
     }
-    double &operator()(int i) {
+    T &operator()(int i) {
         return v[i];
     }
-    const double &operator()(int i) const {
+    const T &operator()(int i) const {
         return v[i];
     }
-    vec3 &operator+= (const vec3 &a) {
+    RGYVec3 &operator+= (const RGYVec3 &a) {
         for (int i = 0; i < 3; i++)
             v[i] += a.v[i];
         return *this;
     }
-    vec3 &operator-= (const vec3 &a) {
+    RGYVec3 &operator-= (const RGYVec3 &a) {
         for (int i = 0; i < 3; i++)
             v[i] -= a.v[i];
         return *this;
     }
-    vec3 amdal(const vec3 &a) const {
-        return vec3(
+    RGYVec3 &operator*= (const T a) {
+        for (int i = 0; i < 3; i++)
+            v[i] *= a;
+        return *this;
+    }
+    RGYVec3 &operator/= (const T a) {
+        for (int i = 0; i < 3; i++)
+            v[i] /= a;
+        return *this;
+    }
+    RGYVec3 operator + (const RGYVec3 &a) const {
+        RGYVec3 t(*this);
+        t += a;
+        return t;
+    }
+    RGYVec3 operator - (const RGYVec3 &a) const {
+        RGYVec3 t(*this);
+        t -= a;
+        return t;
+    }
+    RGYVec3 operator * (const T a) const {
+        RGYVec3 t(*this);
+        t *= a;
+        return t;
+    }
+    RGYVec3 operator / (const T a) const {
+        RGYVec3 t(*this);
+        t /= a;
+        return t;
+    }
+    RGYVec3 amdal(const RGYVec3 &a) const {
+        return RGYVec3(
             v[0] * a.v[0],
             v[1] * a.v[1],
             v[2] * a.v[2]
         );
     }
-    double dot(const vec3 &a) const {
+    T dot(const RGYVec3 &a) const {
         return a.v[0] * v[0] + a.v[1] * v[1] + a.v[2] * v[2];
     }
-    vec3 cross(const vec3 &a) const {
-        return vec3(
+    RGYVec3 cross(const RGYVec3 &a) const {
+        return RGYVec3(
             v[1] * a.v[2] - v[2] * a.v[1],
             v[2] * a.v[0] - v[0] * a.v[2],
             v[0] * a.v[1] - v[1] * a.v[0]
         );
     }
-    bool operator== (const vec3 &r) const {
+    RGYVec3 inv() const {
+        return RGYVec3(1.0f / v[0], 1.0f / v[1], 1.0f / v[2]);
+    }
+    bool operator== (const RGYVec3 &r) const {
         return memcmp(&v[0], &r.v[0], sizeof(v)) == 0;
     }
-    bool operator!= (const vec3 &r) const {
+    bool operator!= (const RGYVec3 &r) const {
         return memcmp(&v[0], &r.v[0], sizeof(v)) != 0;
     }
 private:
-    double v[3];
+    T v[3];
 };
+
+using vec3 = RGYVec3<double>;
+using vec3f = RGYVec3<float>;
 
 class mat3x3 {
 public:

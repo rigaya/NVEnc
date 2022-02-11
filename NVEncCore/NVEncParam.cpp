@@ -101,6 +101,7 @@ VppCustom::VppCustom() :
     kernel_name(FILTER_DEFAULT_CUSTOM_KERNEL_NAME),
     kernel_path(),
     kernel(),
+    dev_params(nullptr),
     compile_options(),
     kernel_interface(VPP_CUSTOM_INTERFACE_PER_PLANE),
     interlace(VPP_CUSTOM_INTERLACE_UNSUPPORTED),
@@ -120,6 +121,7 @@ bool VppCustom::operator==(const VppCustom &x) const {
         && kernel_name == x.kernel_name
         && kernel_path == x.kernel_path
         && kernel == x.kernel
+        && dev_params == x.dev_params
         && compile_options == x.compile_options
         && kernel_interface == x.kernel_interface
         && interlace == x.interlace

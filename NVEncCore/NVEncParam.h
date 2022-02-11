@@ -544,6 +544,7 @@ struct VppCustom {
     tstring kernel_name;
     tstring kernel_path;
     std::string kernel;
+    void *dev_params;
     std::string compile_options;
     VppCustomInterface kernel_interface;
     VppCustomInterlaceMode interlace;

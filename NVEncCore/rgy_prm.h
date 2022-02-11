@@ -580,9 +580,34 @@ struct HDR2SDRParams {
     bool operator!=(const HDR2SDRParams &x) const;
 };
 
+enum class LUT3DInterp {
+    Nearest,
+    Trilinear,
+    Tetrahedral
+};
+
+static const auto FILTER_DEFAULT_LUT3D_INTERP = LUT3DInterp::Tetrahedral;
+
+const CX_DESC list_vpp_colorspace_lut3d_interp[] = {
+    { _T("nearest"),     (int)LUT3DInterp::Nearest     },
+    { _T("trilinear"),   (int)LUT3DInterp::Trilinear   },
+    { _T("tetrahedral"), (int)LUT3DInterp::Tetrahedral },
+    { NULL, 0 }
+};
+
+struct LUT3DParams {
+    LUT3DInterp interp;
+    tstring table_file;
+
+    LUT3DParams();
+    bool operator==(const LUT3DParams &x) const;
+    bool operator!=(const LUT3DParams &x) const;
+};
+
 struct VppColorspace {
     bool enable;
     HDR2SDRParams hdr2sdr;
+    LUT3DParams lut3d;
     vector<ColorspaceConv> convs;
 
     VppColorspace();

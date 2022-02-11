@@ -1174,6 +1174,14 @@ Values for parameters will be copied from input file for "input".
   limited, full, auto
 ```
 
+- lut3d=&lt;string&gt;  
+  Apply a 3D LUT to an input video. Curretly supports .cube file only.
+  
+- lut3d_interp=&lt;string&gt;  
+  ```
+  nearest, trilinear, tetrahedral
+  ```
+
 - hdr2sdr=&lt;string&gt;  
   Enables HDR10 to SDR by selected tone-mapping.  
 
@@ -1231,6 +1239,9 @@ example2: using hdr2sdr (hable tone-mapping)
 
 example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is example for the default settings)
 --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+
+example34: lut3dの使用
+--vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
 ```
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

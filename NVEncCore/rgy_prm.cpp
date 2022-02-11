@@ -138,9 +138,23 @@ bool HDR2SDRParams::operator!=(const HDR2SDRParams &x) const {
     return !(*this == x);
 }
 
+LUT3DParams::LUT3DParams() :
+    interp(FILTER_DEFAULT_LUT3D_INTERP),
+    table_file() {
+
+}
+bool LUT3DParams::operator==(const LUT3DParams &x) const {
+    return interp == x.interp
+        && table_file == x.table_file;
+}
+bool LUT3DParams::operator!=(const LUT3DParams &x) const {
+    return !(*this == x);
+}
+
 VppColorspace::VppColorspace() :
     enable(false),
     hdr2sdr(),
+    lut3d(),
     convs() {
 
 }
@@ -148,6 +162,7 @@ VppColorspace::VppColorspace() :
 bool VppColorspace::operator==(const VppColorspace &x) const {
     if (enable != x.enable
         || x.hdr2sdr != this->hdr2sdr
+        || x.lut3d != this->lut3d
         || x.convs.size() != this->convs.size()) {
         return false;
     }

@@ -40,8 +40,10 @@
 #endif
 #if ENCODER_NVENC
 #pragma warning (push)
-#pragma warning (disable: 4819)
+#pragma warning (disable: 4819) //C4819: ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include "nvEncodeAPI.h"
+#include "cuda.h"
+#include "cuda_runtime.h"
 #pragma warning(pop)
 #endif
 #if ENCODER_VCEENC
@@ -215,6 +217,9 @@ RGY_ERR err_to_rgy(mfxStatus err);
 #if ENCODER_NVENC
 NVENCSTATUS err_to_nv(RGY_ERR err);
 RGY_ERR err_to_rgy(NVENCSTATUS err);
+
+cudaError_t err_to_cuda(RGY_ERR err);
+RGY_ERR err_to_rgy(cudaError_t err);
 #endif //#if ENCODER_NVENC
 
 #if ENCODER_VCEENC

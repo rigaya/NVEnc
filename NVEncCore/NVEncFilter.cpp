@@ -28,14 +28,6 @@
 
 #include "NVEncFilter.h"
 
-
-RGY_ERR err_to_rgy(cudaError_t err) {
-    if (err != cudaSuccess) {
-        return RGY_ERR_CUDA;
-    }
-    return RGY_ERR_NONE;
-}
-
 NVEncFilter::NVEncFilter() :
     m_sFilterName(), m_sFilterInfo(), m_pPrintMes(), m_pFrameBuf(), m_nFrameIdx(0),
     m_pFieldPairIn(), m_pFieldPairOut(),

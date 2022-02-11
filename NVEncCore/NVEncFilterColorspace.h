@@ -39,6 +39,7 @@ enum ColorspaceOpType {
     COLORSPACE_OP_TYPE_FUNC,
     COLORSPACE_OP_TYPE_F2I,
     COLORSPACE_OP_TYPE_I2F,
+    COLORSPACE_OP_TYPE_LUT3D,
     COLORSPACE_OP_TYPE_HDR2SDR,
     COLORSPACE_OP_TYPE_NONE,
 };
@@ -74,6 +75,7 @@ public:
         operations.clear();
     }
     RGY_ERR setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams &prm, int height);
+    RGY_ERR setLUT3D(const VideoVUIInfo &in, const VideoVUIInfo &out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const LUT3DParams& prm, std::vector<uint8_t>& additionalParams, int height);
     RGY_ERR setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, int height);
     RGY_ERR setOperation(RGY_CSP csp_in, RGY_CSP csp_out);
     std::string printOpAll() const;
@@ -84,6 +86,7 @@ private:
     RGY_ERR addColorspaceOpHDR2SDRMobius(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
     RGY_ERR addColorspaceOpHDR2SDRReinhard(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
     RGY_ERR addColorspaceOpHDR2SDRBT2390(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
+    RGY_ERR addColorspaceOpLUT3D(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const LUT3DParams &prm, std::vector<uint8_t>& additionalParams);
     RGY_ERR addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpNclRGB2YUV(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpClYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to, double source_peak);
@@ -151,4 +154,6 @@ protected:
     unique_ptr<NVEncFilterCspCrop> crop;
     unique_ptr<ColorspaceOpCtrl> opCtrl;
     unique_ptr<NVEncFilterCustom> custom;
+    std::vector<uint8_t> additionalParams;
+    std::unique_ptr<CUMemBuf> additionalParamsDev;
 };
