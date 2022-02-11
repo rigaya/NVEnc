@@ -2480,6 +2480,7 @@ inline void KernelInstantiation_impl::build_kernel() {
                                            &log, &ptx, &mangled_instantiation);
 #if JITIFY_PRINT_LOG
   if (log.size() > 1) {
+    log = log.substr(0, strlen(log.c_str())); // fix '\0' isnerted between the string
     _compile_log += detail::print_compile_log(program.name(), log);
   }
 #endif
