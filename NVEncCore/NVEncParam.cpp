@@ -260,6 +260,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
 }
 
 void InEncodeVideoParam::applyDOVIProfile() {
+#if !FOR_AUO
     if (codec != NV_ENC_HEVC) {
         return;
     }
@@ -287,4 +288,5 @@ void InEncodeVideoParam::applyDOVIProfile() {
         //hdr10sei
         //maxcll
     }
+#endif //#if !FOR_AUO
 }
