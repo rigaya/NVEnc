@@ -52,6 +52,11 @@ void error_filename_too_long() {
     write_log_auo_line(LOG_ERROR, "出力ファイル名が長すぎます。もっと短くしてください。");
 }
 
+void error_file_is_already_opened_by_aviutl() {
+    write_log_auo_line(LOG_ERROR, "出力ファイルはすでにAviutlで開かれているため、出力できません。");
+    write_log_auo_line(LOG_ERROR, "異なるファイル名を指定してやり直してください。");
+}
+
 void error_nothing_to_output() {
     write_log_auo_line(LOG_ERROR, "出力すべきものがありません。");
 }

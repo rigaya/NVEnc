@@ -206,6 +206,7 @@ BOOL func_output( OUTPUT_INFO *oip ) {
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_AFTER_PROCESS);
 
     log_process_events();
+    free_enc_prm(&pe);
     return (ret & AUO_RESULT_ERROR) ? FALSE : TRUE;
 }
 

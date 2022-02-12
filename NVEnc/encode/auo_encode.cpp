@@ -48,6 +48,9 @@
 #include "auo_faw2aac.h"
 #include "NVEncCmd.h"
 
+static void create_aviutl_opened_file_list(PRM_ENC *pe);
+static bool check_file_is_aviutl_opened_file(const char *filepath, const PRM_ENC *pe);
+
 void get_audio_pipe_name(char *pipename, size_t nSize, int audIdx) {
     sprintf_s(pipename, nSize, AUO_NAMED_PIPE_BASE, GetCurrentProcessId(), audIdx);
 }
@@ -78,6 +81,11 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, c
     //ファイル名長さ
     if (strlen(oip->savefile) > (MAX_PATH_LEN - MAX_APPENDIX_LEN - 1)) {
         error_filename_too_long();
+        check = FALSE;
+    }
+
+    if (check_file_is_aviutl_opened_file(oip->savefile, pe)) {
+        error_file_is_already_opened_by_aviutl();
         check = FALSE;
     }
 
@@ -221,6 +229,33 @@ static void set_aud_delay_cut(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *
     }
 }
 
+void avoid_exsisting_tmp_file(char *buf, size_t size) {
+    if (!PathFileExists(buf)) {
+        return;
+    }
+    for (int i = 0; i < 1000000; i++) {
+        char new_ext[32];
+        sprintf_s(new_ext, ".%d.%s", i, PathFindExtension(buf));
+        change_ext(buf, size, new_ext);
+        if (!PathFileExists(buf)) {
+            return;
+        }
+    }
+}
+
+void free_enc_prm(PRM_ENC *pe) {
+    if (pe->opened_aviutl_files) {
+        for (int i = 0; i < pe->n_opened_aviutl_files; i++) {
+            if (pe->opened_aviutl_files[i]) {
+                free(pe->opened_aviutl_files[i]);
+            }
+        }
+        free(pe->opened_aviutl_files);
+        pe->opened_aviutl_files = nullptr;
+        pe->n_opened_aviutl_files = 0;
+    }
+}
+
 void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat) {
     InEncodeVideoParam enc_prm;
     NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
@@ -240,6 +275,7 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     pe->drop_count = 0;
     memcpy(&pe->append, &sys_dat->exstg->s_append, sizeof(FILE_APPENDIX));
     ZeroMemory(&pe->append.aud, sizeof(pe->append.aud));
+    create_aviutl_opened_file_list(pe);
 
     char filename_replace[MAX_PATH_LEN];
 
@@ -266,6 +302,8 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     strcpy_s(filename_replace, _countof(filename_replace), PathFindFileName(oip->savefile));
     sys_dat->exstg->apply_fn_replace(filename_replace, _countof(filename_replace));
     PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
+    //ファイルの上書きを避ける
+    avoid_exsisting_tmp_file(pe->temp_filename, _countof(pe->temp_filename));
 
     pe->vpp_afs = enc_prm.vpp.afs.enable ? TRUE : FALSE;
     pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
@@ -671,4 +709,26 @@ void write_cached_lines(int log_level, const char *exename, LOG_CACHE *log_line_
         }
     }
     if (buffer) free(buffer);
+}
+
+#include "rgy_filesystem.h"
+
+static void create_aviutl_opened_file_list(PRM_ENC *pe) {
+    const auto list_file = createProcessOpenedFileList(GetCurrentProcessId());
+    pe->n_opened_aviutl_files = (int)list_file.size();
+    if (pe->n_opened_aviutl_files > 0) {
+        pe->opened_aviutl_files = (char **)calloc(1, sizeof(char *) * pe->n_opened_aviutl_files);
+        for (int i = 0; i < pe->n_opened_aviutl_files; i++) {
+            pe->opened_aviutl_files[i] = _strdup(list_file[i].c_str());
+        }
+    }
+}
+
+static bool check_file_is_aviutl_opened_file(const char *filepath, const PRM_ENC *pe) {
+    for (int i = 0; i < pe->n_opened_aviutl_files; i++) {
+        if (rgy_path_is_same(filepath, pe->opened_aviutl_files[i])) {
+            return true;
+        }
+    }
+    return false;
 }

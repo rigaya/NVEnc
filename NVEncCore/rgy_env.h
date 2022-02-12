@@ -43,4 +43,8 @@ tstring getEnviromentInfo(int device_id = 0);
 
 BOOL check_OS_Win8orLater();
 
+#if defined(_WIN32) || defined(_WIN64)
+std::vector<HANDLE> createProcessHandleList(const size_t pid, const wchar_t *handle_type);
+#endif
+
 #endif //__RGY_ENV_H__

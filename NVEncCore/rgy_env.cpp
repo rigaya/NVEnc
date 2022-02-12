@@ -299,3 +299,157 @@ tstring getEnviromentInfo([[maybe_unused]] int device_id) {
 #endif //#if ENCODER_QSV
     return buf;
 }
+
+#if defined(_WIN32) || defined(_WIN64)
+
+#include <winternl.h>
+
+typedef __kernel_entry NTSYSCALLAPI NTSTATUS(NTAPI *NtQueryObject_t)(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass, PVOID ObjectInformation, ULONG ObjectInformationLength, PULONG ReturnLength);
+typedef __kernel_entry NTSTATUS(NTAPI *NtQuerySystemInformation_t)(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength);
+
+typedef struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX {
+    PVOID Object;
+    ULONG_PTR UniqueProcessId;
+    ULONG_PTR HandleValue;
+    ULONG GrantedAccess;
+    USHORT CreatorBackTraceIndex;
+    USHORT ObjectTypeIndex;
+    ULONG HandleAttributes;
+    ULONG Reserved;
+} SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX, *PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX;
+
+typedef struct _SYSTEM_HANDLE_INFORMATION_EX {
+    ULONG_PTR  NumberOfHandles;
+    ULONG_PTR  Reserved;
+    SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX Handles[1];
+} SYSTEM_HANDLE_INFORMATION_EX, * PSYSTEM_HANDLE_INFORMATION_EX;
+
+#pragma warning(push)
+#pragma warning(disable: 4200) //C4200: 非標準の拡張機能が使用されています: 構造体または共用体中にサイズが 0 の配列があります。
+typedef struct _OBJECT_NAME_INFORMATION {
+    UNICODE_STRING          Name;
+    WCHAR                   NameBuffer[0];
+} OBJECT_NAME_INFORMATION, * POBJECT_NAME_INFORMATION;
+#pragma warning(pop)
+
+typedef struct _OBJECT_BASIC_INFORMATION {
+    ULONG Attributes;
+    ACCESS_MASK GrantedAccess;
+    ULONG HandleCount;
+    ULONG PointerCount;
+    ULONG PagedPoolCharge;
+    ULONG NonPagedPoolCharge;
+    ULONG Reserved[3];
+    ULONG NameInfoSize;
+    ULONG TypeInfoSize;
+    ULONG SecurityDescriptorSize;
+    LARGE_INTEGER CreationTime;
+} OBJECT_BASIC_INFORMATION, *POBJECT_BASIC_INFORMATION;
+
+typedef struct _OBJECT_TYPE_INFORMATION {
+    UNICODE_STRING TypeName;
+    ULONG TotalNumberOfObjects;
+    ULONG TotalNumberOfHandles;
+    ULONG TotalPagedPoolUsage;
+    ULONG TotalNonPagedPoolUsage;
+    ULONG TotalNamePoolUsage;
+    ULONG TotalHandleTableUsage;
+    ULONG HighWaterNumberOfObjects;
+    ULONG HighWaterNumberOfHandles;
+    ULONG HighWaterPagedPoolUsage;
+    ULONG HighWaterNonPagedPoolUsage;
+    ULONG HighWaterNamePoolUsage;
+    ULONG HighWaterHandleTableUsage;
+    ULONG InvalidAttributes;
+    GENERIC_MAPPING GenericMapping;
+    ULONG ValidAccessMask;
+    BOOLEAN SecurityRequired;
+    BOOLEAN MaintainHandleCount;
+    UCHAR TypeIndex; // since WINBLUE
+    CHAR ReservedByte;
+    ULONG PoolType;
+    ULONG DefaultPagedPoolCharge;
+    ULONG DefaultNonPagedPoolCharge;
+} OBJECT_TYPE_INFORMATION, *POBJECT_TYPE_INFORMATION;
+
+typedef struct _OBJECT_TYPES_INFORMATION {
+    ULONG NumberOfTypes;
+} OBJECT_TYPES_INFORMATION, *POBJECT_TYPES_INFORMATION;
+
+#ifndef STATUS_INFO_LENGTH_MISMATCH
+#define STATUS_INFO_LENGTH_MISMATCH      ((NTSTATUS)0xC0000004L)
+#endif
+
+#define CEIL_INT(x, div) (((x + div - 1) / div) * div)
+
+std::vector<HANDLE> createProcessHandleList(const size_t pid, const wchar_t *handle_type) {
+    std::vector<HANDLE> handle_list;
+    HMODULE hNtDll = LoadLibrary("ntdll.dll");
+    if (hNtDll == NULL) return handle_list;
+
+    auto fNtQueryObject = (decltype(NtQueryObject) *)GetProcAddress(hNtDll, "NtQueryObject");
+    auto fNtQuerySystemInformation = (decltype(NtQuerySystemInformation) *)GetProcAddress(hNtDll, "NtQuerySystemInformation");
+    if (fNtQueryObject == nullptr || fNtQuerySystemInformation == nullptr) return handle_list;
+
+    //auto getObjectTypeNumber = [fNtQueryObject](wchar_t * TypeName) {
+    //    static const auto ObjectTypesInformation = (OBJECT_INFORMATION_CLASS)3;
+    //    std::vector<char> data(1024, 0);
+    //    NTSTATUS status = STATUS_INFO_LENGTH_MISMATCH;
+    //    do {
+    //        data.resize(data.size() * 2);
+    //        ULONG size = 0;
+    //        status = fNtQueryObject(NULL, ObjectTypesInformation, data.data(), data.size(), &size);
+    //    } while (status == STATUS_INFO_LENGTH_MISMATCH);
+
+    //    POBJECT_TYPES_INFORMATION objectTypes = (POBJECT_TYPES_INFORMATION)data.data();
+    //    char *ptr = data.data() + CEIL_INT(sizeof(OBJECT_TYPES_INFORMATION), sizeof(ULONG_PTR));
+    //    for (size_t i = 0; i < objectTypes->NumberOfTypes; i++) {
+    //        POBJECT_TYPE_INFORMATION objectType = (POBJECT_TYPE_INFORMATION)ptr;
+    //        if (wcsicmp(objectType->TypeName.Buffer, TypeName) == 0) {
+    //            return (int)objectType->TypeIndex;
+    //        }
+    //        ptr += sizeof(OBJECT_TYPE_INFORMATION) + CEIL_INT(objectType->TypeName.MaximumLength, sizeof(ULONG_PTR));
+    //    }
+    //    return -1;
+    //};
+    //const int fileObjectTypeIndex = getObjectTypeNumber(L"File");
+
+    static const SYSTEM_INFORMATION_CLASS SystemExtendedHandleInformation = (SYSTEM_INFORMATION_CLASS)0x40;
+    ULONG size = 0;
+    fNtQuerySystemInformation(SystemExtendedHandleInformation, NULL, 0, &size);
+    std::vector<char> buffer;
+    NTSTATUS status = STATUS_INFO_LENGTH_MISMATCH;
+    do {
+        buffer.resize(size + 4096);
+        status = fNtQuerySystemInformation(SystemExtendedHandleInformation, buffer.data(), buffer.size(), &size);
+    } while (status == STATUS_INFO_LENGTH_MISMATCH);
+
+    if (NT_SUCCESS(status)) {
+        const auto buf = (PSYSTEM_HANDLE_INFORMATION_EX)buffer.data();
+        for (decltype(buf->NumberOfHandles) i = 0; i < buf->NumberOfHandles; i++) {
+            if (buf->Handles[i].UniqueProcessId == pid) {
+                const HANDLE handle = (HANDLE)buf->Handles[i].HandleValue;
+                if (handle_type) {
+                    status = fNtQueryObject(handle, ObjectTypeInformation, NULL, 0, &size);
+                    std::vector<char> buffer2(size, 0);
+                    status = fNtQueryObject(handle, ObjectTypeInformation, buffer2.data(), buffer2.size(), &size);
+                    const auto oti = (PPUBLIC_OBJECT_TYPE_INFORMATION)buffer2.data();
+                    if (NT_SUCCESS(status) && oti->TypeName.Buffer && _wcsicmp(oti->TypeName.Buffer, handle_type) == 0) {
+                        //static const OBJECT_INFORMATION_CLASS ObjectNameInformation = (OBJECT_INFORMATION_CLASS)1;
+                        //status = fNtQueryObject(handle, ObjectNameInformation, NULL, 0, &size);
+                        //std::vector<char> buffer3(size, 0);
+                        //status = fNtQueryObject(handle, ObjectNameInformation, buffer3.data(), buffer3.size(), &size);
+                        //POBJECT_NAME_INFORMATION oni = (POBJECT_NAME_INFORMATION)buffer3.data();
+                        handle_list.push_back(handle);
+                    }
+                } else {
+                    handle_list.push_back(handle);
+                }
+            }
+        }
+    }
+    if (hNtDll) FreeLibrary(hNtDll);
+    return handle_list;
+}
+
+#endif //#if defined(_WIN32) || defined(_WIN64)
