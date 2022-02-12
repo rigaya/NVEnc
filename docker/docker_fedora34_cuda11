@@ -13,7 +13,8 @@ RUN rpm -ivh $CUDA_RPM_NAME
 RUN dnf clean all && dnf install -y cuda
 ENV CUDA_PATH=/usr/local/cuda
 
-RUN useradd -m --user-group --shell /bin/bash rigaya
+RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
+RUN groupmod -og $LOCAL_GROUP_ID rigaya
 WORKDIR /home/rigaya
 COPY . .
 RUN chown -R rigaya:rigaya .
