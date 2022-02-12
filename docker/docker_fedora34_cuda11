@@ -1,6 +1,8 @@
 FROM fedora:34
 
 ARG OSVER=fc34 \
+    LOCAL_USER_ID=1000 \
+    LOCAL_GROUP_ID=1000 \
     CUDA_RPM_URL=https://developer.download.nvidia.com/compute/cuda/11.4.1/local_installers/cuda-repo-fedora34-11-4-local-11.4.1_470.57.02-1.x86_64.rpm \
     CUDA_RPM_NAME=cuda-repo-fedora34-11-4-local-11.4.1_470.57.02-1.x86_64.rpm
 
