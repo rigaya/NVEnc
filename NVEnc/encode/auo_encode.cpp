@@ -362,6 +362,19 @@ BOOL fps_after_afs_is_24fps(const int frame_n, const PRM_ENC *pe) {
     return (pe->drop_count > (frame_n * 0.10));
 }
 
+int get_mux_excmd_mode(const CONF_GUIEX *conf, const PRM_ENC *pe) {
+    int mode = 0;
+    switch (pe->muxer_to_be_used) {
+    case MUXER_INTERNAL: mode = conf->mux.internal_mode; break;
+    case MUXER_MKV:      mode = conf->mux.mkv_mode; break;
+    case MUXER_MPG:      mode = conf->mux.mpg_mode; break;
+    case MUXER_MP4:
+    case MUXER_TC2MP4:
+    case MUXER_MP4_RAW:  mode = conf->mux.mp4_mode; break;
+    }
+    return mode;
+}
+
 void get_aud_filename(char *audfile, size_t nSize, const PRM_ENC *pe, int i_aud) {
     PathCombineLong(audfile, nSize, pe->aud_temp_dir, PathFindFileName(pe->temp_filename));
     apply_appendix(audfile, nSize, audfile, pe->append.aud[i_aud]);

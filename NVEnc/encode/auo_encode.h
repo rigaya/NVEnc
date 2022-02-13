@@ -62,6 +62,7 @@ void free_enc_prm(PRM_ENC *pe);
 int additional_vframe_for_aud_delay_cut(double fps, int audio_rate, int audio_delay);
 int additional_silence_for_aud_delay_cut(double fps, int audio_rate, int audio_delay, int vframe_added = -1);
 BOOL fps_after_afs_is_24fps(const int frame_n, const PRM_ENC *pe);
+int get_mux_excmd_mode(const CONF_GUIEX *conf, const PRM_ENC *pe);
 
 void get_aud_filename(char *audfile, size_t nSize, const PRM_ENC *pe, int i_aud); //音声一時ファイル名を作成
 void get_muxout_filename(char *filename, size_t nSize, const SYSTEM_DATA *sys_dat, const PRM_ENC *pe); //mux出力ファイル名を作成
