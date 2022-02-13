@@ -384,7 +384,7 @@ typedef struct _OBJECT_TYPES_INFORMATION {
 
 std::vector<HANDLE> createProcessHandleList(const size_t pid, const wchar_t *handle_type) {
     std::vector<HANDLE> handle_list;
-    HMODULE hNtDll = LoadLibrary("ntdll.dll");
+    HMODULE hNtDll = (HMODULE)LoadLibrary(_T("ntdll.dll"));
     if (hNtDll == NULL) return handle_list;
 
     auto fNtQueryObject = (decltype(NtQueryObject) *)GetProcAddress(hNtDll, "NtQueryObject");
@@ -421,7 +421,7 @@ std::vector<HANDLE> createProcessHandleList(const size_t pid, const wchar_t *han
     NTSTATUS status = STATUS_INFO_LENGTH_MISMATCH;
     do {
         buffer.resize(size + 4096);
-        status = fNtQuerySystemInformation(SystemExtendedHandleInformation, buffer.data(), buffer.size(), &size);
+        status = fNtQuerySystemInformation(SystemExtendedHandleInformation, buffer.data(), (ULONG)buffer.size(), &size);
     } while (status == STATUS_INFO_LENGTH_MISMATCH);
 
     if (NT_SUCCESS(status)) {
@@ -432,7 +432,7 @@ std::vector<HANDLE> createProcessHandleList(const size_t pid, const wchar_t *han
                 if (handle_type) {
                     status = fNtQueryObject(handle, ObjectTypeInformation, NULL, 0, &size);
                     std::vector<char> buffer2(size, 0);
-                    status = fNtQueryObject(handle, ObjectTypeInformation, buffer2.data(), buffer2.size(), &size);
+                    status = fNtQueryObject(handle, ObjectTypeInformation, buffer2.data(), (ULONG)buffer2.size(), &size);
                     const auto oti = (PPUBLIC_OBJECT_TYPE_INFORMATION)buffer2.data();
                     if (NT_SUCCESS(status) && oti->TypeName.Buffer && _wcsicmp(oti->TypeName.Buffer, handle_type) == 0) {
                         //static const OBJECT_INFORMATION_CLASS ObjectNameInformation = (OBJECT_INFORMATION_CLASS)1;

@@ -237,7 +237,7 @@ std::vector<std::basic_string<TCHAR>> createProcessOpenedFileList(const size_t p
     std::vector<TCHAR> filename(32768 + 1, 0);
     for (const auto handle : list_handle) {
         memset(filename.data(), 0, sizeof(filename[0]) * filename.size());
-        auto ret = GetFinalPathNameByHandle(handle, filename.data(), filename.size(), FILE_NAME_OPENED | VOLUME_NAME_DOS);
+        auto ret = GetFinalPathNameByHandle(handle, filename.data(), (DWORD)filename.size(), FILE_NAME_OPENED | VOLUME_NAME_DOS);
         if (ret != 0) {
             try {
                 auto f = std::filesystem::canonical(filename.data());
