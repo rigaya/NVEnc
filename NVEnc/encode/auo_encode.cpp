@@ -233,11 +233,14 @@ void avoid_exsisting_tmp_file(char *buf, size_t size) {
     if (!PathFileExists(buf)) {
         return;
     }
+    char tmp[MAX_PATH_LEN];
     for (int i = 0; i < 1000000; i++) {
         char new_ext[32];
-        sprintf_s(new_ext, ".%d.%s", i, PathFindExtension(buf));
-        change_ext(buf, size, new_ext);
-        if (!PathFileExists(buf)) {
+        sprintf_s(new_ext, ".%d%s", i, PathFindExtension(buf));
+        strcpy_s(tmp, buf);
+        change_ext(tmp, size, new_ext);
+        if (!PathFileExists(tmp)) {
+            strcpy_s(buf, size, tmp);
             return;
         }
     }
