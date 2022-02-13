@@ -127,6 +127,7 @@ which might cause problem in some playback environments.
     - mpdecimate
     - colorspace conversion (x64 version only)
       - hdr2sdr
+      - lut3d
     - delogo
     - subburn
     - resize
