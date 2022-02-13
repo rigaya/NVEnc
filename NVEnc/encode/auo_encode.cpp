@@ -310,6 +310,24 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
 
     pe->vpp_afs = enc_prm.vpp.afs.enable ? TRUE : FALSE;
     pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
+    if (pe->muxer_to_be_used >= 0) {
+        const MUXER_CMD_EX *muxer_mode = &sys_dat->exstg->s_mux[pe->muxer_to_be_used].ex_cmd[get_mux_excmd_mode(conf, pe)];
+        if (str_has_char(muxer_mode->chap_file) && strstr(muxer_mode->chap_file, "chapter.%{pid}.txt")) {
+            char move_to[MAX_PATH_LEN] = { 0 };
+            char move_from[MAX_PATH_LEN] = { 0 };
+            strcpy_s(move_to, muxer_mode->chap_file);
+            strcpy_s(move_from, muxer_mode->chap_file);
+            replace(move_from, sizeof(move_from), "%{pid}.", "");
+            cmd_replace(move_to, sizeof(move_to), pe, sys_dat, conf, oip);
+            cmd_replace(move_from, sizeof(move_from), pe, sys_dat, conf, oip);
+            if (PathFileExists(move_from)) {
+                if (PathFileExists(move_to))
+                    remove(move_to);
+                if (rename(move_from, move_to))
+                    write_log_auo_line_fmt(LOG_WARNING, "チャプターファイルの移動に失敗しました。");
+            }
+        }
+    }
 
     //FAWチェックとオーディオディレイの修正
     const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
@@ -512,6 +530,9 @@ void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *
     replace(cmd, nSize, "%{fps_scale}", tmp);
     //アスペクト比
     //replace_aspect_ratio(cmd, nSize, conf, oip);
+    //%{pid}
+    sprintf_s(tmp, sizeof(tmp), "%d", GetCurrentProcessId());
+    replace(cmd, nSize, "%{pid}", tmp);
 
     char fullpath[MAX_PATH_LEN];
     if (conf->aud.use_internal) {
@@ -583,13 +604,16 @@ AUO_RESULT move_temporary_files(const CONF_GUIEX *conf, const PRM_ENC *pe, const
     BOOL erase_tc = (conf->vid.afs || pe->vpp_afs) && !conf->vid.auo_tcfile_out && pe->muxer_to_be_used != MUXER_DISABLED;
     move_temp_file(pe->append.tc,   pe->temp_filename, oip->savefile, ret, erase_tc, "タイムコード", FALSE);
     //チャプターファイル
-    if (pe->muxer_to_be_used >= 0 && sys_dat->exstg->s_local.auto_del_chap) {
-        char chap_file[MAX_PATH_LEN];
-        char chap_apple[MAX_PATH_LEN];
-        const MUXER_CMD_EX *muxer_mode = get_muxer_mode(conf, sys_dat, pe->muxer_to_be_used);
-        set_chap_filename(chap_file, _countof(chap_file), chap_apple, _countof(chap_apple), muxer_mode->chap_file, pe, sys_dat, conf, oip);
-        move_temp_file(NULL, chap_file,  NULL, ret, TRUE, "チャプター",        FALSE);
-        move_temp_file(NULL, chap_apple, NULL, ret, TRUE, "チャプター(Apple)", FALSE);
+    if (pe->muxer_to_be_used >= 0) {
+        const MUXER_CMD_EX *muxer_mode = &sys_dat->exstg->s_mux[pe->muxer_to_be_used].ex_cmd[get_mux_excmd_mode(conf, pe)];
+        bool chapter_auf = strstr(muxer_mode->chap_file, "chapter.%{pid}.txt") != nullptr;
+        if (sys_dat->exstg->s_local.auto_del_chap || chapter_auf) {
+            char chap_file[MAX_PATH_LEN];
+            char chap_apple[MAX_PATH_LEN];
+            set_chap_filename(chap_file, _countof(chap_file), chap_apple, _countof(chap_apple), muxer_mode->chap_file, pe, sys_dat, conf, oip);
+            move_temp_file(NULL, chap_file, NULL, chapter_auf ? AUO_RESULT_SUCCESS : ret, TRUE, "チャプター", FALSE);
+            move_temp_file(NULL, chap_apple, NULL, chapter_auf ? AUO_RESULT_SUCCESS : ret, TRUE, "チャプター(Apple)", FALSE);
+        }
     }
     //音声ファイル(wav)
     if (strcmp(pe->append.aud[0], pe->append.wav)) //「wav出力」ならここでは処理せず下のエンコード後ファイルとして扱う
