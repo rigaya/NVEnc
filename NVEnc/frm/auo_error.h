@@ -28,6 +28,7 @@
 #ifndef _AUO_ERROR_H_
 #define _AUO_ERROR_H_
 
+void warning_conf_not_initialized();
 void warning_failed_getting_temp_path();
 void warning_no_temp_root(const char *dir);
 void warning_no_aud_temp_root(const char *dir);
