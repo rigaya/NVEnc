@@ -178,6 +178,7 @@ RGYLogLevel RGYParamLogLevel::set(const RGYLogLevel newLogLevel, const RGYLogTyp
         appinput_    = newLogLevel;
         appoutput_   = newLogLevel;
         appvpp_      = newLogLevel;
+        amf_         = newLogLevel;
         opencl_      = newLogLevel;
         libav_       = newLogLevel;
         libass_      = newLogLevel;
@@ -190,7 +191,7 @@ RGYLogLevel RGYParamLogLevel::set(const RGYLogLevel newLogLevel, const RGYLogTyp
 
 tstring RGYParamLogLevel::to_string() const {
     std::basic_stringstream<TCHAR> tmp;
-    tmp << appcore_;
+    tmp << rgy_log_level_to_str(appcore_);
 #define LOG_LEVEL_ADD_TYPE(TYPE, VAR) { if ((VAR) != appcore_) tmp << _T(",") << rgy_log_type_to_str(TYPE) << _T("=") << rgy_log_level_to_str(VAR); }
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_DEV,   appdevice_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_DEC,  appdecode_);
