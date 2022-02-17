@@ -249,12 +249,17 @@ const CX_DESC list_mv_presicion_ja[] = {
     { NULL, 0 }
 };
 
+#define NV_ENC_PARAMS_RC_QVBR ((NV_ENC_PARAMS_RC_MODE)(NV_ENC_PARAMS_RC_VBR | 0x1000))
+
 const CX_DESC list_nvenc_rc_method[] = {
     { _T("CQP - 固定量子化量"),                     NV_ENC_PARAMS_RC_CONSTQP   },
     { _T("CBR - 固定ビットレート"),                 NV_ENC_PARAMS_RC_CBR       },
     //{ _T("CBR - 固定ビットレート (高品質)"),        NV_ENC_PARAMS_RC_CBR_HQ    },
     { _T("VBR - 可変ビットレート"),                 NV_ENC_PARAMS_RC_VBR       },
     //{ _T("VBR - 可変ビットレート (高品質)"),        NV_ENC_PARAMS_RC_VBR_HQ    },
+#if FOR_AUO
+    { _T("QVBR - 固定品質"),                        -1 * NV_ENC_PARAMS_RC_VBR       },
+#endif
     { NULL, 0 }
 };
 

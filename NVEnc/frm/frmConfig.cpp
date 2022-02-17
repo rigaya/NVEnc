@@ -830,7 +830,12 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
     bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
 
+    bool qvbr_mode = false;
     int vce_rc_method = list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
+    if (vce_rc_method == NV_ENC_PARAMS_RC_QVBR) {
+        vce_rc_method = NV_ENC_PARAMS_RC_VBR;
+        qvbr_mode = true;
+    }
     bool cqp_mode = (vce_rc_method == NV_ENC_PARAMS_RC_CONSTQP);
     bool cbr_vbr_mode = (vce_rc_method == NV_ENC_PARAMS_RC_CBR || vce_rc_method == NV_ENC_PARAMS_RC_CBR_HQ || vce_rc_method == NV_ENC_PARAMS_RC_VBR || vce_rc_method == NV_ENC_PARAMS_RC_VBR_HQ);
 
@@ -849,12 +854,16 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgLBQPP->Enabled = cqp_mode;
     fcgLBQPB->Enabled = cqp_mode;
 
-    fcgPNBitrate->Visible = !cqp_mode;
-    fcgNUBitrate->Enabled = !cqp_mode;
-    fcgLBBitrate->Enabled = !cqp_mode;
+    fcgPNBitrate->Visible = !cqp_mode && !qvbr_mode;
+    fcgNUBitrate->Enabled = !cqp_mode && !qvbr_mode;
+    fcgLBBitrate->Enabled = !cqp_mode && !qvbr_mode;
     fcgNUMaxkbps->Enabled = cbr_vbr_mode;
     fcgLBMaxkbps->Enabled = cbr_vbr_mode;
     fcgLBMaxBitrate2->Enabled = cbr_vbr_mode;
+
+    if (qvbr_mode) {
+        fcgNUBitrate->Value = 0;
+    }
 
     fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
@@ -995,7 +1004,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     parse_cmd(&encPrm, codecPrm, cnf->nvenc.cmd);
 
     SetCXIndex(fcgCXEncCodec,          get_index_from_value(encPrm.codec, list_nvenc_codecs));
-    SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, encPrm.encConfig.rcParams.rateControlMode));
+    SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, (encPrm.encConfig.rcParams.averageBitRate == 0 && encPrm.encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_VBR) ? NV_ENC_PARAMS_RC_QVBR : encPrm.encConfig.rcParams.rateControlMode));
     SetNUValue(fcgNUBitrate,           encPrm.encConfig.rcParams.averageBitRate / 1000);
     SetNUValue(fcgNUMaxkbps,           encPrm.encConfig.rcParams.maxBitRate / 1000);
     SetNUValue(fcgNUQPI,               encPrm.encConfig.rcParams.constQP.qpIntra);
@@ -1234,7 +1243,12 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.codec = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;
     cnf->nvenc.codec = encPrm.codec;
     encPrm.encConfig.rcParams.rateControlMode = (NV_ENC_PARAMS_RC_MODE)list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
-    encPrm.encConfig.rcParams.averageBitRate = (int)fcgNUBitrate->Value * 1000;
+    if (encPrm.encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_QVBR) {
+        encPrm.encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
+        encPrm.encConfig.rcParams.averageBitRate = 0;
+    } else {
+        encPrm.encConfig.rcParams.averageBitRate = (int)fcgNUBitrate->Value * 1000;
+    }
     encPrm.encConfig.rcParams.maxBitRate = (int)fcgNUMaxkbps->Value * 1000;
     encPrm.encConfig.rcParams.constQP.qpIntra  = (int)fcgNUQPI->Value;
     encPrm.encConfig.rcParams.constQP.qpInterP = (int)fcgNUQPP->Value;

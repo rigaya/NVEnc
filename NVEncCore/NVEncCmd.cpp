@@ -172,6 +172,8 @@ tstring encoder_help() {
         _T("   --vbr <int>                  set bitrate for VBR mode (kbps)\n")
         _T("   --cbr <int>                  set bitrate for CBR mode (kbps)\n")
         _T("                                  default: %d kbps\n")
+        _T("   --qvbr <int>                 set bitrate for QVBR mode (kbps)\n")
+        _T("                                  same as \"--vbr 0 --vbr-quality <int>\"\n")
         _T("\n")
         _T("-u,--preset <string>            set encoder preset\n")
         _T("                                  default, performance, quality\n")
@@ -189,6 +191,7 @@ tstring encoder_help() {
         _T("      vbrhq=<int>\n")
         _T("      cbr=<int>\n")
         _T("      cbrhq=<int>\n")
+        _T("      qvbr=<int>\n")
         _T("      max-bitrate=<int>\n")
         _T("      vbr-quality=<float>\n")
         _T("\n")
@@ -502,6 +505,23 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("qvbr")) {
+        i++;
+        double value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%lf"), &value)) {
+            value = (std::max)(0.0, value);
+            int value_int = (int)value;
+            pParams->encConfig.rcParams.targetQuality = (uint8_t)clamp(value_int, 0, 51);
+            pParams->encConfig.rcParams.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
+            pParams->encConfig.rcParams.averageBitRate = 0;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("vbr-quality")) {
         i++;
         double value = 0;
@@ -594,6 +614,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (param_arg == _T("max-bitrate")) {
                     try {
                         rcPrm.max_bitrate = std::stoi(param_val) * 1000;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("qvbr")) {
+                    try {
+                        auto value = (std::max)(0.0, std::stod(param_val));
+                        int value_int = (int)value;
+                        rcPrm.targetQuality = (uint8_t)clamp(value_int, 0, 51);
+                        rcPrm.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+                        rcPrm.avg_bitrate = 0;
+                        rcPrm.rc_mode = NV_ENC_PARAMS_RC_VBR;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
