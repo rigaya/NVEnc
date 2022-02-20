@@ -1,0 +1,25 @@
+FROM fedora:32
+
+ARG OSVER=fc32 \
+    LOCAL_USER_ID=1000 \
+    LOCAL_GROUP_ID=1000 \
+    CUDA_RPM_URL=https://developer.download.nvidia.com/compute/cuda/11.1.1/local_installers/cuda-repo-fedora32-11-1-local-11.1.1_455.32.00-1.x86_64.rpm \
+    CUDA_RPM_NAME=cuda-repo-fedora32-11-1-local-11.1.1_455.32.00-1.x86_64.rpm
+
+RUN dnf update -y
+RUN dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+RUN dnf install -y which @development-tools kernel-devel make wget pciutils acpid libglvnd-devel dkms ffmpeg ffmpeg-devel libass libass-devel rpm-build
+
+RUN wget -q $CUDA_RPM_URL
+RUN rpm -ivh $CUDA_RPM_NAME
+RUN dnf clean all && dnf install -y cuda
+ENV CUDA_PATH=/usr/local/cuda
+
+RUN dnf downgrade -y gcc gcc-c++ glibc libgcc libstdc++
+
+RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
+RUN groupmod -g $LOCAL_GROUP_ID rigaya
+WORKDIR /home/rigaya
+COPY . .
+RUN chown -R rigaya:rigaya .
+USER rigaya
