@@ -33,6 +33,7 @@
 #include "gpu_info.h"
 #endif
 #include "rgy_codepage.h"
+#include <unordered_map>
 
 #if defined(_WIN32) || defined(_WIN64)
 
@@ -302,6 +303,38 @@ tstring getEnviromentInfo([[maybe_unused]] int device_id) {
 
 #if defined(_WIN32) || defined(_WIN64)
 
+#include <tlhelp32.h>
+
+static bool check_parent(const size_t check_pid, const size_t target_pid, const std::unordered_map<size_t, size_t>& map_pid) {
+    if (check_pid == target_pid) return true;
+    if (check_pid == 0) return false;
+    auto key = map_pid.find(check_pid);
+    if (key == map_pid.end() || key->second == 0 || key->second == key->first) return false;
+    return check_parent(key->second, target_pid, map_pid);
+};
+
+std::vector<size_t> createChildProcessIDList(const size_t target_pid) {
+    auto h = unique_handle(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), [](HANDLE h) { CloseHandle(h); });
+
+    PROCESSENTRY32 pe = { 0 };
+    pe.dwSize = sizeof(PROCESSENTRY32);
+
+    std::unordered_map<size_t, size_t> map_pid;
+    if (Process32First(h.get(), &pe)) {
+        do {
+            map_pid[pe.th32ProcessID] = pe.th32ParentProcessID;
+        } while (Process32Next(h.get(), &pe));
+    }
+
+    std::vector<size_t> list_childs;
+    for (auto& [pid, parentpid] : map_pid) {
+        if (check_parent(parentpid, target_pid, map_pid)) {
+            list_childs.push_back(pid);
+        }
+    }
+    return list_childs;
+}
+
 #include <winternl.h>
 
 typedef __kernel_entry NTSYSCALLAPI NTSTATUS(NTAPI *NtQueryObject_t)(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass, PVOID ObjectInformation, ULONG ObjectInformationLength, PULONG ReturnLength);
@@ -377,20 +410,21 @@ typedef struct _OBJECT_TYPES_INFORMATION {
 } OBJECT_TYPES_INFORMATION, *POBJECT_TYPES_INFORMATION;
 
 #ifndef STATUS_INFO_LENGTH_MISMATCH
-#define STATUS_INFO_LENGTH_MISMATCH      ((NTSTATUS)0xC0000004L)
+#define STATUS_INFO_LENGTH_MISMATCH ((NTSTATUS)0xC0000004L)
 #endif
 
 #define CEIL_INT(x, div) (((x + div - 1) / div) * div)
 
-std::vector<HANDLE> createProcessHandleList(const size_t pid, const wchar_t *handle_type) {
-    std::vector<HANDLE> handle_list;
-    HMODULE hNtDll = (HMODULE)LoadLibrary(_T("ntdll.dll"));
+using unique_handle = std::unique_ptr<std::remove_pointer<HANDLE>::type, std::function<void(HANDLE)>>;
+
+std::vector<unique_handle> createProcessHandleList(const std::vector<size_t>& list_pid, const wchar_t *handle_type) {
+    std::vector<unique_handle> handle_list;
+    std::unique_ptr<std::remove_pointer<HMODULE>::type, decltype(&FreeLibrary)> hNtDll(LoadLibrary(_T("ntdll.dll")), FreeLibrary);
     if (hNtDll == NULL) return handle_list;
 
-    auto fNtQueryObject = (decltype(NtQueryObject) *)GetProcAddress(hNtDll, "NtQueryObject");
-    auto fNtQuerySystemInformation = (decltype(NtQuerySystemInformation) *)GetProcAddress(hNtDll, "NtQuerySystemInformation");
+    auto fNtQueryObject = (decltype(NtQueryObject) *)GetProcAddress(hNtDll.get(), "NtQueryObject");
+    auto fNtQuerySystemInformation = (decltype(NtQuerySystemInformation) *)GetProcAddress(hNtDll.get(), "NtQuerySystemInformation");
     if (fNtQueryObject == nullptr || fNtQuerySystemInformation == nullptr) {
-        FreeLibrary(hNtDll);
         return handle_list;
     }
 
@@ -420,38 +454,54 @@ std::vector<HANDLE> createProcessHandleList(const size_t pid, const wchar_t *han
     static const SYSTEM_INFORMATION_CLASS SystemExtendedHandleInformation = (SYSTEM_INFORMATION_CLASS)0x40;
     ULONG size = 0;
     fNtQuerySystemInformation(SystemExtendedHandleInformation, NULL, 0, &size);
-    std::vector<char> buffer;
+    std::vector<char> shibuffer;
     NTSTATUS status = STATUS_INFO_LENGTH_MISMATCH;
     do {
-        buffer.resize(size + 4096);
-        status = fNtQuerySystemInformation(SystemExtendedHandleInformation, buffer.data(), (ULONG)buffer.size(), &size);
+        shibuffer.resize(size + 16*1024);
+        status = fNtQuerySystemInformation(SystemExtendedHandleInformation, shibuffer.data(), (ULONG)shibuffer.size(), &size);
     } while (status == STATUS_INFO_LENGTH_MISMATCH);
 
     if (NT_SUCCESS(status)) {
-        const auto buf = (PSYSTEM_HANDLE_INFORMATION_EX)buffer.data();
-        for (decltype(buf->NumberOfHandles) i = 0; i < buf->NumberOfHandles; i++) {
-            if (buf->Handles[i].UniqueProcessId == pid) {
-                const HANDLE handle = (HANDLE)buf->Handles[i].HandleValue;
+        const auto currentPID = GetCurrentProcessId();
+        const auto currentProcessHandle = GetCurrentProcess();
+        const auto shi = (PSYSTEM_HANDLE_INFORMATION_EX)shibuffer.data();
+        for (decltype(shi->NumberOfHandles) i = 0; i < shi->NumberOfHandles; i++) {
+            const auto handlePID = shi->Handles[i].UniqueProcessId;
+            if (std::find(list_pid.begin(), list_pid.end(), handlePID) != list_pid.end()) {
+                auto handle = unique_handle((HANDLE)shi->Handles[i].HandleValue, []([[maybe_unused]] HANDLE h) { /*Do nothing*/ });
+                // handleValue はプロセスごとに存在する
+                // 自プロセスでなければ、DuplicateHandle で自プロセスでの調査用のhandleをつくる
+                // その場合は新たに作ったhandleなので CloseHandle が必要
+                if (shi->Handles[i].UniqueProcessId != currentPID) {
+                    const auto hProcess = std::unique_ptr<std::remove_pointer<HANDLE>::type, decltype(&CloseHandle)>(OpenProcess(PROCESS_DUP_HANDLE, FALSE, (DWORD)handlePID), CloseHandle);
+                    if (hProcess) {
+                        HANDLE handleDup = NULL;
+                        const BOOL ret = DuplicateHandle(hProcess.get(), (HANDLE)shi->Handles[i].HandleValue, currentProcessHandle, &handleDup, 0, FALSE, DUPLICATE_SAME_ACCESS);
+                        if (ret) {
+                            handle = unique_handle((HANDLE)handleDup, [](HANDLE h) { CloseHandle(h); });
+                        }
+                    }
+                }
                 if (handle_type) {
-                    status = fNtQueryObject(handle, ObjectTypeInformation, NULL, 0, &size);
-                    std::vector<char> buffer2(size, 0);
-                    status = fNtQueryObject(handle, ObjectTypeInformation, buffer2.data(), (ULONG)buffer2.size(), &size);
-                    const auto oti = (PPUBLIC_OBJECT_TYPE_INFORMATION)buffer2.data();
+                    // handleの種類を確認する
+                    status = fNtQueryObject(handle.get(), ObjectTypeInformation, NULL, 0, &size);
+                    std::vector<char> otibuffer(size, 0);
+                    status = fNtQueryObject(handle.get(), ObjectTypeInformation, otibuffer.data(), (ULONG)otibuffer.size(), &size);
+                    const auto oti = (PPUBLIC_OBJECT_TYPE_INFORMATION)otibuffer.data();
                     if (NT_SUCCESS(status) && oti->TypeName.Buffer && _wcsicmp(oti->TypeName.Buffer, handle_type) == 0) {
                         //static const OBJECT_INFORMATION_CLASS ObjectNameInformation = (OBJECT_INFORMATION_CLASS)1;
                         //status = fNtQueryObject(handle, ObjectNameInformation, NULL, 0, &size);
                         //std::vector<char> buffer3(size, 0);
                         //status = fNtQueryObject(handle, ObjectNameInformation, buffer3.data(), buffer3.size(), &size);
                         //POBJECT_NAME_INFORMATION oni = (POBJECT_NAME_INFORMATION)buffer3.data();
-                        handle_list.push_back(handle);
+                        handle_list.push_back(std::move(handle));
                     }
                 } else {
-                    handle_list.push_back(handle);
+                    handle_list.push_back(std::move(handle));
                 }
             }
         }
     }
-    FreeLibrary(hNtDll);
     return handle_list;
 }
 

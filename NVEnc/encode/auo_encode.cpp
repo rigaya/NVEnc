@@ -752,9 +752,14 @@ void write_cached_lines(int log_level, const char *exename, LOG_CACHE *log_line_
 }
 
 #include "rgy_filesystem.h"
+#include "rgy_env.h"
 
 static void create_aviutl_opened_file_list(PRM_ENC *pe) {
-    const auto list_file = createProcessOpenedFileList(GetCurrentProcessId());
+    const auto pid_aviutl = GetCurrentProcessId();
+    auto list_pid = createChildProcessIDList(pid_aviutl);
+    list_pid.push_back(pid_aviutl);
+
+    const auto list_file = createProcessOpenedFileList(list_pid);
     pe->n_opened_aviutl_files = (int)list_file.size();
     if (pe->n_opened_aviutl_files > 0) {
         pe->opened_aviutl_files = (char **)calloc(1, sizeof(char *) * pe->n_opened_aviutl_files);

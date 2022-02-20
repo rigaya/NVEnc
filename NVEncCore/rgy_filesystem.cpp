@@ -220,10 +220,14 @@ tstring getExeDir() {
 }
 
 bool rgy_path_is_same(const TCHAR *path1, const TCHAR *path2) {
-    const auto p1 = std::filesystem::path(path1);
-    const auto p2 = std::filesystem::path(path2);
-    std::error_code ec;
-    return std::filesystem::equivalent(p1, p2, ec);
+    try {
+        const auto p1 = std::filesystem::path(path1);
+        const auto p2 = std::filesystem::path(path2);
+        std::error_code ec;
+        return std::filesystem::equivalent(p1, p2, ec);
+    } catch (...) {
+        return false;
+    }
 }
 
 bool rgy_path_is_same(const tstring& path1, const tstring& path2) {
@@ -231,15 +235,15 @@ bool rgy_path_is_same(const tstring& path1, const tstring& path2) {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-std::vector<std::basic_string<TCHAR>> createProcessOpenedFileList(const size_t pid) {
-    const auto list_handle = createProcessHandleList(pid, L"File");
+std::vector<std::basic_string<TCHAR>> createProcessOpenedFileList(const std::vector<size_t>& list_pid) {
+    const auto list_handle = createProcessHandleList(list_pid, L"File");
     std::vector<std::basic_string<TCHAR>> list_file;
-    std::vector<TCHAR> filename(32768 + 1, 0);
-    for (const auto handle : list_handle) {
-        memset(filename.data(), 0, sizeof(filename[0]) * filename.size());
-        const auto fileType = GetFileType(handle);
+    std::vector<TCHAR> filename(32768+1, 0);
+    for (const auto& handle : list_handle) {
+        const auto fileType = GetFileType(handle.get());
         if (fileType == FILE_TYPE_DISK) { //ハンドルがパイプだとGetFinalPathNameByHandleがフリーズするため使用不可
-            auto ret = GetFinalPathNameByHandle(handle, filename.data(), filename.size(), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+            memset(filename.data(), 0, sizeof(filename[0]) * filename.size());
+            auto ret = GetFinalPathNameByHandle(handle.get(), filename.data(), filename.size(), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
             if (ret != 0) {
                 try {
                     auto f = std::filesystem::canonical(filename.data());
