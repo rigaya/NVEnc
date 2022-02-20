@@ -615,8 +615,7 @@ System::Void frmConfig::SaveToStgFile(String^ stgName) {
     String^ stgDir = Path::GetDirectoryName(stgName);
     if (!Directory::Exists(stgDir))
         Directory::CreateDirectory(stgDir);
-    guiEx_config exCnf;
-    int result = exCnf.save_guiex_conf(cnf_stgSelected, stg_name);
+    int result = guiEx_config::save_guiEx_conf(cnf_stgSelected, stg_name);
     free(stg_name);
     switch (result) {
         case CONF_ERROR_FILE_OPEN:
@@ -673,10 +672,9 @@ System::Void frmConfig::fcgTSSettings_DropDownItemClicked(System::Object^  sende
     if (ClickedMenuItem->Tag == nullptr || ClickedMenuItem->Tag->ToString()->Length == 0)
         return;
     CONF_GUIEX load_stg;
-    guiEx_config exCnf;
     char stg_path[MAX_PATH_LEN];
     GetCHARfromString(stg_path, sizeof(stg_path), ClickedMenuItem->Tag->ToString());
-    if (exCnf.load_guiex_conf(&load_stg, stg_path) == CONF_ERROR_FILE_OPEN) {
+    if (guiEx_config::load_guiEx_conf(&load_stg, stg_path) == CONF_ERROR_FILE_OPEN) {
         if (MessageBox::Show(L"設定ファイルオープンに失敗しました。\n"
                            + L"このファイルを削除しますか?",
                            L"エラー", MessageBoxButtons::YesNo, MessageBoxIcon::Error)

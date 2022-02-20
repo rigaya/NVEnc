@@ -67,6 +67,8 @@ const int CONF_BLOCK_MAX                 = 32;
 const int CONF_BLOCK_COUNT               = 5; //最大 CONF_BLOCK_MAXまで
 const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
 
+static const char *const CONF_LAST_OUT = "前回出力.stg";
+
 enum {
     CONF_ERROR_NONE = 0,
     CONF_ERROR_FILE_OPEN,
@@ -180,7 +182,7 @@ class guiEx_config {
 private:
     static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
     static const int conf_block_data[CONF_BLOCK_COUNT];
-    int stgv3_block_size();
+    static int  stgv3_block_size();
     static void convert_nvencstg_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
     static void convert_nvencstgv2_to_nvencstgv3(void *dat);
     static void convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
@@ -189,8 +191,8 @@ public:
     guiEx_config();
     static void write_conf_header(CONF_GUIEX *conf);
     static int  adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int old_size);
-    int  load_guiex_conf(CONF_GUIEX *conf, const char *stg_file);       //設定をstgファイルから読み込み
-    int  save_guiex_conf(const CONF_GUIEX *conf, const char *stg_file); //設定をstgファイルとして保存
+    static int  load_guiEx_conf(CONF_GUIEX *conf, const char *stg_file);       //設定をstgファイルから読み込み
+    static int  save_guiEx_conf(const CONF_GUIEX *conf, const char *stg_file); //設定をstgファイルとして保存
 };
 
 //定義はNVEnc.cpp
