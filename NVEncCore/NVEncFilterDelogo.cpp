@@ -1173,20 +1173,13 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     int auto_nr = pDelogoParam->delogo.NRValue;
     if (pDelogoParam->delogo.autoFade || pDelogoParam->delogo.autoNR) {
         if (pInputFrame->ptr != nullptr) {
-            const auto frameOutInfoEx = getFrameInfoExtra(&m_src[m_frameIn].frame);
-            m_src[m_frameIn].frame.flags = pInputFrame->flags;
-            m_src[m_frameIn].frame.picstruct = pInputFrame->picstruct;
-            m_src[m_frameIn].frame.duration = pInputFrame->duration;
-            m_src[m_frameIn].frame.timestamp = pInputFrame->timestamp;
-            auto cudaerr = cudaMemcpy2DAsync(m_src[m_frameIn].frame.ptr, m_src[m_frameIn].frame.pitch,
-                pInputFrame->ptr, pInputFrame->pitch,
-                frameOutInfoEx.width_byte, frameOutInfoEx.height_total,
-                cudaMemcpyDeviceToDevice);
+            auto cudaerr = copyFrameAsync(&m_src[m_frameIn].frame, pInputFrame, stream);
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy input frame to buffer: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+                return err_to_rgy(cudaerr);
             }
+            copyFrameProp(&m_src[m_frameIn].frame, pInputFrame);
             m_frameIn++;
         } else if (m_frameIn <= m_frameOut) {
             //出力フレームなし
