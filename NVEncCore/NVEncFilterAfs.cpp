@@ -69,12 +69,12 @@ cudaError_t afsSourceCache::alloc(const RGYFrameInfo& frameInfo) {
 cudaError_t afsSourceCache::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
-    pDstFrame->frame.flags        = pInputFrame->flags;
-    pDstFrame->frame.picstruct    = pInputFrame->picstruct;
-    pDstFrame->frame.timestamp    = pInputFrame->timestamp;
-    pDstFrame->frame.duration     = pInputFrame->duration;
-    pDstFrame->frame.inputFrameId = pInputFrame->inputFrameId;
-    return copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);;
+    auto ret = copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);
+    if (ret != cudaSuccess) {
+        return ret;
+    }
+    copyFrameProp(&pDstFrame->frame, pInputFrame);
+    return cudaSuccess;
 }
 
 void afsSourceCache::clear() {
