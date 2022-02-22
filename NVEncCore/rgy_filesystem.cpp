@@ -243,7 +243,7 @@ std::vector<std::basic_string<TCHAR>> createProcessOpenedFileList(const std::vec
         const auto fileType = GetFileType(handle.get());
         if (fileType == FILE_TYPE_DISK) { //ハンドルがパイプだとGetFinalPathNameByHandleがフリーズするため使用不可
             memset(filename.data(), 0, sizeof(filename[0]) * filename.size());
-            auto ret = GetFinalPathNameByHandle(handle.get(), filename.data(), filename.size(), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+            auto ret = GetFinalPathNameByHandle(handle.get(), filename.data(), (DWORD)filename.size(), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
             if (ret != 0) {
                 try {
                     auto f = std::filesystem::canonical(filename.data());
