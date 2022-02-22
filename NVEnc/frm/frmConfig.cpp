@@ -852,7 +852,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgLBQPP->Enabled = cqp_mode;
     fcgLBQPB->Enabled = cqp_mode;
 
-    fcgPNBitrate->Visible = !cqp_mode && !qvbr_mode;
+    fcgPNBitrate->Visible = !cqp_mode;
     fcgNUBitrate->Enabled = !cqp_mode && !qvbr_mode;
     fcgLBBitrate->Enabled = !cqp_mode && !qvbr_mode;
     fcgNUMaxkbps->Enabled = cbr_vbr_mode;

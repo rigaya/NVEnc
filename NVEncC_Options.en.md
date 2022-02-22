@@ -278,7 +278,10 @@ Generally, it is recommended to set the QP value to be I &lt; P &lt; B.
 ### --vbr &lt;int&gt;
 Set bitrate in kbps.
 
-Constant quality mode can be used by "--vbr 0 --vbr-quality &lt;float&gt;".
+### --qvbr  &lt;float&gt;
+Encode using constant quality mode. (0.0-51.0, 0 = automatic)
+
+This is equivalent to --vbr 0 --vbr-quality &lt;float&gt;.
 
 ## Other Options for Encoder
 

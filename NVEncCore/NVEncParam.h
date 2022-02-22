@@ -258,7 +258,7 @@ const CX_DESC list_nvenc_rc_method[] = {
     { _T("VBR - 可変ビットレート"),                 NV_ENC_PARAMS_RC_VBR       },
     //{ _T("VBR - 可変ビットレート (高品質)"),        NV_ENC_PARAMS_RC_VBR_HQ    },
 #if FOR_AUO
-    { _T("QVBR - 固定品質"),                        -1 * NV_ENC_PARAMS_RC_VBR       },
+    { _T("QVBR - 固定品質"),                        NV_ENC_PARAMS_RC_QVBR       },
 #endif
     { NULL, 0 }
 };
