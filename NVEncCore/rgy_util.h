@@ -184,6 +184,31 @@ static void rgy_free(T& ptr) {
     }
 }
 
+// -------------------------------------------------------
+// RGYArgN<関数引数のインデックス, decltype(関数名)>::type で関数引数の型がとれる
+template <std::size_t N, typename T0, typename ... Ts>
+struct RGYTypeN
+ { using type = typename RGYTypeN<N-1U, Ts...>::type; };
+
+template <typename T0, typename ... Ts>
+struct RGYTypeN<0U, T0, Ts...>
+ { using type = T0; };
+
+template <std::size_t, typename>
+struct RGYArgN;
+
+template <std::size_t N, typename R, typename ... As>
+struct RGYArgN<N, R(As...)>
+ { using type = typename RGYTypeN<N, As...>::type; };
+
+template <typename>
+struct RGYReturnType;
+
+template <typename R, typename ... As>
+struct RGYReturnType<R(As...)>
+ { using type = R; };
+// -------------------------------------------------------
+
 #pragma warning(push)
 #pragma warning(disable: 4127)
 template <class T, int N>

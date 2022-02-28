@@ -56,6 +56,8 @@ const char *get_encoder_version();
 #define ENABLE_AVCODEC_OUT_THREAD 1
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 
+#define ENAVLE_LIBAV_DOVI_PARSER 0
+
 #define ENABLE_NVTX 0
 
 #define GPU_VENDOR "NVIDIA"

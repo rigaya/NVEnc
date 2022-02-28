@@ -40,7 +40,9 @@
 enum RGYFrameDataType {
     RGY_FRAME_DATA_NONE,
     RGY_FRAME_DATA_QP,
+    RGY_FRAME_DATA_METADATA,
     RGY_FRAME_DATA_HDR10PLUS,
+    RGY_FRAME_DATA_DOVIRPU,
 
     RGY_FRAME_DATA_MAX,
 };
@@ -81,17 +83,31 @@ protected:
     RGYFrameInfo m_qpHost;
 };
 
-class RGYFrameDataHDR10plus : public RGYFrameData {
+class RGYFrameDataMetadata : public RGYFrameData {
 public:
-    RGYFrameDataHDR10plus();
-    RGYFrameDataHDR10plus(const uint8_t* data, size_t size, int64_t timestamp);
-    virtual ~RGYFrameDataHDR10plus();
+    RGYFrameDataMetadata();
+    RGYFrameDataMetadata(const uint8_t* data, size_t size, int64_t timestamp);
+    virtual ~RGYFrameDataMetadata();
 
     const std::vector<uint8_t>& getData() { return m_data; }
     int64_t timestamp() const { return m_timestamp; }
 protected:
     int64_t m_timestamp;
     std::vector<uint8_t> m_data;
+};
+
+class RGYFrameDataHDR10plus : public RGYFrameDataMetadata {
+public:
+    RGYFrameDataHDR10plus();
+    RGYFrameDataHDR10plus(const uint8_t* data, size_t size, int64_t timestamp);
+    virtual ~RGYFrameDataHDR10plus();
+};
+
+class RGYFrameDataDOVIRpu : public RGYFrameDataMetadata {
+public:
+    RGYFrameDataDOVIRpu();
+    RGYFrameDataDOVIRpu(const uint8_t* data, size_t size, int64_t timestamp);
+    virtual ~RGYFrameDataDOVIRpu();
 };
 
 #endif //__RGY_FRAME_H__

@@ -552,7 +552,6 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         AddMessage(RGY_LOG_ERROR, _T("failed to find codec id for video.\n"));
         return RGY_ERR_INVALID_CODEC;
     }
-    m_Mux.format.formatCtx->oformat->video_codec = m_Mux.format.formatCtx->video_codec_id;
     if (NULL == (m_Mux.video.codec = avcodec_find_decoder(m_Mux.format.formatCtx->video_codec_id))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to codec for video codec %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
         return RGY_ERR_INVALID_CODEC;
@@ -634,7 +633,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     if (prm->videoInputStream) {
         m_Mux.video.inputStreamTimebase = prm->videoInputStream->time_base;
         m_Mux.video.streamOut->disposition = prm->videoInputStream->disposition;
-        int side_data_size = 0;
+        std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type side_data_size = 0;
         auto side_data = av_stream_get_side_data(prm->videoInputStream, AV_PKT_DATA_DISPLAYMATRIX, &side_data_size);
         if (side_data) {
             unique_ptr<uint8_t, decltype(&av_freep)> side_data_copy((uint8_t *)av_malloc(side_data_size), av_freep);
@@ -1453,11 +1452,11 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         codecId = AV_CODEC_ID_ASS;
     }
 
-    auto copy_subtitle_header = [](AVCodecContext *dstCtx, const AVCodecContext *srcCtx) {
-        if (srcCtx->subtitle_header_size) {
-            dstCtx->subtitle_header_size = srcCtx->subtitle_header_size;
-            dstCtx->subtitle_header = (uint8_t *)av_mallocz(dstCtx->subtitle_header_size + AV_INPUT_BUFFER_PADDING_SIZE);
-            memcpy(dstCtx->subtitle_header, srcCtx->subtitle_header, srcCtx->subtitle_header_size);
+    auto copy_subtitle_header = [](AVCodecContext *dstCtx, const uint8_t *header, const size_t header_size) {
+        if (header) {
+            dstCtx->subtitle_header_size = header_size;
+            dstCtx->subtitle_header = (uint8_t *)av_mallocz(header_size + AV_INPUT_BUFFER_PADDING_SIZE);
+            memcpy(dstCtx->subtitle_header, header, header_size);
         }
     };
 
@@ -1539,20 +1538,15 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         }
         muxSub->outCodecEncodeCtx->time_base = av_make_q(1, 1000);
 
-        #pragma warning(push)
-        #pragma warning(disable:4996) // warning C4996: 'codec': が古い形式として宣言されました。
-        RGY_DISABLE_WARNING_PUSH
-        RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
         //subtitle_headerをここで設定しないとavcodec_open2に失敗する
         //基本的にはass形式のヘッダーを設定する
-        if (inputStream->src.stream) {
-            copy_subtitle_header(muxSub->outCodecEncodeCtx, inputStream->src.stream->codec);
-        } else if (inputStream->src.subtitleHeader) {
-            muxSub->outCodecEncodeCtx->subtitle_header = (uint8_t *)av_strdup((char *)inputStream->src.subtitleHeader);
-            muxSub->outCodecEncodeCtx->subtitle_header_size = inputStream->src.subtitleHeaderSize;
-        }
-        RGY_DISABLE_WARNING_POP
-        #pragma warning(pop)
+        if (inputStream->src.subtitleHeader) {
+            copy_subtitle_header(muxSub->outCodecEncodeCtx, (uint8_t *)inputStream->src.subtitleHeader, inputStream->src.subtitleHeaderSize);
+        } else if (muxSub->outCodecDecodeCtx->subtitle_header) {
+            copy_subtitle_header(muxSub->outCodecEncodeCtx, (uint8_t *)muxSub->outCodecDecodeCtx->subtitle_header, muxSub->outCodecDecodeCtx->subtitle_header_size);
+        } else if (inputStream->src.stream && inputStream->src.stream->codecpar->extradata) {
+            copy_subtitle_header(muxSub->outCodecEncodeCtx, (uint8_t *)inputStream->src.stream->codecpar->extradata, inputStream->src.stream->codecpar->extradata_size);
+        } 
 
         AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(muxSub->outCodecEncode->name).c_str(),
             muxSub->outCodecEncodeCtx->width, muxSub->outCodecEncodeCtx->height);
@@ -1588,11 +1582,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         return RGY_ERR_UNKNOWN;
     }
 
-    #pragma warning(push)
-    #pragma warning(disable:4996) // warning C4996: 'codec': が古い形式として宣言されました。
-    RGY_DISABLE_WARNING_PUSH
-    RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
-    if (!muxSub->streamOut->codec->codec_tag) {
+    if (!muxSub->streamOut->codecpar->codec_tag) {
         uint32_t codec_tag = 0;
         if (!m_Mux.format.formatCtx->oformat->codec_tag
             || av_codec_get_id(m_Mux.format.formatCtx->oformat->codec_tag, srcCodecParam->codec_tag) == srcCodecParam->codec_id
@@ -1600,14 +1590,13 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             muxSub->streamOut->codecpar->codec_tag = srcCodecParam->codec_tag;
         }
     }
-    if (inputStream->src.stream) {
-        copy_subtitle_header(muxSub->streamOut->codec, (muxSub->outCodecEncodeCtx) ?  muxSub->outCodecEncodeCtx : inputStream->src.stream->codec);
-    } else if (inputStream->src.subtitleHeader != nullptr) {
-        muxSub->streamOut->codec->subtitle_header = (uint8_t *)av_strdup((char *)inputStream->src.subtitleHeader);
-        muxSub->streamOut->codec->subtitle_header_size = inputStream->src.subtitleHeaderSize;
+    if (muxSub->outCodecEncodeCtx) {
+        SetExtraData(muxSub->streamOut->codecpar, (uint8_t *)muxSub->outCodecEncodeCtx->subtitle_header, muxSub->outCodecEncodeCtx->subtitle_header_size);
+    } else if (inputStream->src.stream && inputStream->src.stream->codecpar->extradata) {
+        SetExtraData(muxSub->streamOut->codecpar, (uint8_t *)inputStream->src.stream->codecpar->extradata, inputStream->src.stream->codecpar->extradata_size);
+    } else if (inputStream->src.subtitleHeader) {
+        SetExtraData(muxSub->streamOut->codecpar, (uint8_t *)inputStream->src.subtitleHeader, inputStream->src.subtitleHeaderSize);
     }
-    RGY_DISABLE_WARNING_POP
-    #pragma warning(pop)
 
     muxSub->streamOut->time_base  = (mediaType == AVMEDIA_TYPE_SUBTITLE) ? av_make_q(1, 1000) : muxSub->streamInTimebase;
     muxSub->streamOut->start_time = 0;
@@ -1706,7 +1695,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     } else if (filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)")) {
         m_Mux.format.isPipe = true;
     }
-    int err = avformat_alloc_output_context2(&m_Mux.format.formatCtx, m_Mux.format.outputFmt, nullptr, filename.c_str());
+    int err = avformat_alloc_output_context2(&m_Mux.format.formatCtx, (RGYArgN<1U, decltype(avformat_alloc_output_context2)>::type)m_Mux.format.outputFmt, nullptr, filename.c_str());
     if (m_Mux.format.formatCtx == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate format context: %s.\n"), qsv_av_err2str(err).c_str());
         return RGY_ERR_NULL_PTR;
@@ -2935,6 +2924,7 @@ void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDt
             audPkt.type = MUX_DATA_TYPE_FRAME;
             audPkt.frame = decodedFrames[i].release();
             audPkt.got_result = audPkt.frame && audPkt.frame->nb_samples > 0;
+            audPkt.muxAudio = muxAudio;
             audioFrames.push_back(audPkt);
         }
         //フィルタリングを行う

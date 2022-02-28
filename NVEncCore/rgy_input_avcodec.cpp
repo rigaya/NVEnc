@@ -422,7 +422,7 @@ RGY_ERR RGYInputAvcodec::parseVideoExtraData(const AVPacket *pkt) {
             char_to_tstring(bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
-    int side_data_size = 0;
+    std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type side_data_size = 0;
     auto side_data = av_packet_get_side_data(pktCopy.get(), AV_PKT_DATA_NEW_EXTRADATA, &side_data_size);
     if (side_data) {
         AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), side_data_size);
@@ -975,7 +975,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
 RGY_ERR RGYInputAvcodec::parseHDRData() {
     //まずはstreamのside_dataを探す
-    int size = 0;
+    std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type size = 0;
     auto data = av_stream_get_side_data(m_Demux.video.stream, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, &size);
     if (data) {
         m_Demux.video.masteringDisplay = av_mastering_display_metadata_alloc();
@@ -1141,7 +1141,7 @@ RGY_ERR RGYInputAvcodec::parseHDR10plus(AVPacket *pkt) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to set dictionary for key=%s\n"), char_to_tstring(HDR10PLUS_METADATA_KEY).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            int frameDictSize = 0;
+            std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type frameDictSize = 0;
             uint8_t *frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
             if (frameDictData == nullptr) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to pack dictionary for key=%s\n"), char_to_tstring(HDR10PLUS_METADATA_KEY).c_str());
@@ -1173,7 +1173,7 @@ RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVFrame *fram
 }
 
 RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVPacket *pkt) {
-    int side_data_size = 0;
+    std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type side_data_size = 0;
     auto side_data = av_packet_get_side_data(pkt, AV_PKT_DATA_STRINGS_METADATA, &side_data_size);
     if (side_data) {
         AVDictionary *dict = nullptr;
@@ -1189,6 +1189,16 @@ RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVPacket *pkt
             }
         }
     }
+    return nullptr;
+}
+
+RGYFrameDataDOVIRpu *RGYInputAvcodec::getDoviRpu(const AVFrame *frame) {
+#if ENAVLE_LIBAV_DOVI_PARSER
+    auto side_data = av_frame_get_side_data(frame, AV_FRAME_DATA_DOVI_RPU_BUFFER);
+    if (side_data) {
+        return new RGYFrameDataDOVIRpu(side_data->data, side_data->size, frame->pts);
+    }
+#endif
     return nullptr;
 }
 
@@ -1255,7 +1265,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         scan_all_pmts_set = true;
     }
     //入力フォーマットが指定されていれば、それを渡す
-    AVInputFormat *inFormat = nullptr;
+    const AVInputFormat *inFormat = nullptr;
     if (input_prm->pInputFormat) {
         if (nullptr == (inFormat = av_find_input_format(tchar_to_string(input_prm->pInputFormat).c_str()))) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown Input format: %s.\n"), input_prm->pInputFormat);
@@ -1299,7 +1309,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         }
     }
     //ファイルのオープン
-    if ((ret = avformat_open_input(&(m_Demux.format.formatCtx), filename_char.c_str(), inFormat, &m_Demux.format.formatOptions)) != 0) {
+    if ((ret = avformat_open_input(&(m_Demux.format.formatCtx), filename_char.c_str(), (RGYArgN<2U, decltype(avformat_open_input)>::type)inFormat, &m_Demux.format.formatOptions)) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("error opening file \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_FILE_OPEN; // Couldn't open file
     }
@@ -2340,8 +2350,10 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
             if (m_Demux.video.bUseHEVCmp42AnnexB) {
                 hevcMp42Annexb(pkt);
             }
-            if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC && m_Demux.video.hdr10plusMetadataCopy) {
-                parseHDR10plus(pkt);
+            if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+                if (m_Demux.video.hdr10plusMetadataCopy) {
+                    parseHDR10plus(pkt);
+                }
             }
             FramePos pos = { 0 };
             pos.pts = pkt->pts;
@@ -2832,9 +2844,8 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
-#if ENCODER_NVENC || ENABLE_DHDR10_INFO
         pSurface->dataList().clear();
-#if ENCODER_NVENC
+#if 0
         if (m_Demux.video.qpTableListRef != nullptr) {
             int qp_stride = 0;
             int qscale_type = 0;
@@ -2862,7 +2873,12 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             }
         }
 #endif //#if ENABLE_DHDR10_INFO
-#endif //#if ENCODER_NVENC || ENABLE_DHDR10_INFO
+        {
+            auto dovirpu = std::shared_ptr<RGYFrameData>(getDoviRpu(m_Demux.video.frame));
+            if (dovirpu) {
+                pSurface->dataList().push_back(dovirpu);
+            }
+        }
         //フレームデータをコピー
         void *dst_array[3];
         pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);

@@ -105,7 +105,7 @@ typedef struct AVMuxFormat {
     const TCHAR          *filename;             //出力ファイル名
     AVFormatContext      *formatCtx;            //出力ファイルのformatContext
     char                  metadataStr[256];     //出力ファイルのエンコーダ名
-    AVOutputFormat       *outputFmt;            //出力ファイルのoutputFormat
+    const AVOutputFormat *outputFmt;            //出力ファイルのoutputFormat
 
 #if USE_CUSTOM_IO
     uint8_t              *AVOutBuffer;          //avio_alloc_context用のバッファ
@@ -123,7 +123,7 @@ typedef struct AVMuxFormat {
 } AVMuxFormat;
 
 typedef struct AVMuxVideo {
-    AVCodec              *codec;                //出力映像のCodec
+    const AVCodec        *codec;                //出力映像のCodec
     AVCodecContext       *codecCtx;             //出力映像のCodecCtx
     AVRational            outputFps;            //出力映像のフレームレート
     AVStream             *streamOut;            //出力ファイルの映像ストリーム
@@ -158,9 +158,9 @@ typedef struct AVMuxAudio {
     int64_t               dec_rescale_delta;    //decode時のtimebase変換用
 
     //変換用
-    AVCodec              *outCodecDecode;       //変換する元のコーデック
+    const AVCodec        *outCodecDecode;       //変換する元のコーデック
     AVCodecContext       *outCodecDecodeCtx;    //変換する元のCodecContext
-    AVCodec              *outCodecEncode;       //変換先の音声のコーデック
+    const AVCodec        *outCodecEncode;       //変換先の音声のコーデック
     AVCodecContext       *outCodecEncodeCtx;    //変換先の音声のCodecContext
     uint32_t              ignoreDecodeError;    //デコード時に連続して発生したエラー回数がこの閾値を以下なら無視し、無音に置き換える
     uint32_t              decodeError;          //デコード処理中に連続してエラーが発生した回数
@@ -203,9 +203,9 @@ typedef struct AVMuxOther {
     AVStream             *streamOut;           //出力ファイルの字幕ストリーム
 
     //変換用
-    AVCodec              *outCodecDecode;      //変換する元のコーデック
+    const AVCodec        *outCodecDecode;      //変換する元のコーデック
     AVCodecContext       *outCodecDecodeCtx;   //変換する元のCodecContext
-    AVCodec              *outCodecEncode;      //変換先の音声のコーデック
+    const AVCodec        *outCodecEncode;      //変換先の音声のコーデック
     AVCodecContext       *outCodecEncodeCtx;   //変換先の音声のCodecContext
 
     uint8_t              *bufConvert;          //変換用のバッファ

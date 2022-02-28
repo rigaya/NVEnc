@@ -119,7 +119,16 @@ RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
 #endif //#if !FOR_AUO && ENCODER_NVENC
 
 
-RGYFrameDataHDR10plus::RGYFrameDataHDR10plus() : m_timestamp(-1), m_data() { m_dataType = RGY_FRAME_DATA_HDR10PLUS; };
+RGYFrameDataMetadata::RGYFrameDataMetadata() : m_timestamp(-1), m_data() { m_dataType = RGY_FRAME_DATA_METADATA; };
+
+RGYFrameDataMetadata::RGYFrameDataMetadata(const uint8_t *data, size_t size, int64_t timestamp) {
+    m_timestamp = timestamp;
+    m_data = make_vector(data, size);
+}
+
+RGYFrameDataMetadata::~RGYFrameDataMetadata() { m_data.clear(); }
+
+RGYFrameDataHDR10plus::RGYFrameDataHDR10plus() { m_dataType = RGY_FRAME_DATA_HDR10PLUS; };
 
 RGYFrameDataHDR10plus::RGYFrameDataHDR10plus(const uint8_t *data, size_t size, int64_t timestamp) {
     m_dataType = RGY_FRAME_DATA_HDR10PLUS;
@@ -127,5 +136,5 @@ RGYFrameDataHDR10plus::RGYFrameDataHDR10plus(const uint8_t *data, size_t size, i
     m_data = make_vector(data, size);
 }
 
-RGYFrameDataHDR10plus::~RGYFrameDataHDR10plus() { m_data.clear(); }
+RGYFrameDataHDR10plus::~RGYFrameDataHDR10plus() { }
 

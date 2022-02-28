@@ -1048,6 +1048,7 @@ public:
 
     RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVFrame* frame);
     RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVPacket* pkt);
+    RGYFrameDataDOVIRpu *getDoviRpu(const AVFrame *frame);
 
 #if USE_CUSTOM_INPUT
     int readPacket(uint8_t *buf, int buf_size);
