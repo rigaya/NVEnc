@@ -1,0 +1,110 @@
+name: Build Windows Releases
+
+on:
+  push:
+    branches:
+      - master
+      - actions
+    tags:
+      - '*'
+
+jobs:
+  get_version_name:
+    name: Get version name
+    runs-on: ubuntu-latest
+    outputs:
+      rev_count: ${{ steps.rev.outputs.REVCOUNT }}
+      version_name: ${{ steps.rev.outputs.VERSION_NAME }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Set version name
+      id: rev
+      run: |
+        cd ${{ github.workspace }}
+        REVCOUNT=`git rev-list --count HEAD`
+        echo "::set-output name=REV_COUNT::${REVCOUNT}"
+        if [[ "${{ github.ref }}" =~ "refs/tags/" ]]; then
+          VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
+        else
+          VERSION=r${REVCOUNT}
+        fi
+        echo "::set-output name=VERSION_NAME::${VERSION}"
+
+  build:
+    name: Upload Release Asset
+    runs-on: windows-2019
+    needs: get_version_name
+
+    defaults:
+      run:
+        shell: cmd
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86
+            platform: Win32
+            cuda_ver_major: 11
+            cuda_ver_minor: 1
+            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.1.1/network_installers/cuda_11.1.1_win10_network.exe
+          - arch: x64
+            platform: x64
+            cuda_ver_major: 10
+            cuda_ver_minor: 1
+            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/10.1/Prod/network_installers/cuda_10.1.243_win10_network.exe
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Checkout dependencies
+        run: |
+          git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
+          git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
+          git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
+          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+        with:
+          msbuild-architecture: ${{ matrix.arch }}
+          
+      - name: Setup CUDA
+        run: |
+          curl -s -o cuda_installer.exe -L ${{ matrix.cuda_download_url }}
+          cuda_installer.exe -s nvcc_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} cudart_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} curand_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} curand_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} npp_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} npp_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvml_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvrtc_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvrtc_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} visual_studio_integration_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
+
+      - name: MSBuild
+        run: |
+          set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
+          set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
+          set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
+          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
+          set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
+          if "${{ matrix.cuda_ver_major }}" == "10" set CUDA_PATH_V10_1=%CUDA_PATH%
+          if "${{ matrix.cuda_ver_major }}" == "11" set CUDA_PATH_V11_1=%CUDA_PATH%
+          msbuild NVEnc.sln /t:build /p:configuration=RelStatic /p:Platform=${{ matrix.platform }} -maxcpucount
+
+      - name: Create Archieve
+        id: archieve
+        run: |
+          mkdir NVEncC_Release
+          copy _build\${{ matrix.platform }}\ReleaseStatic\NVEncC*.exe NVEncC_Release
+          copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll NVEncC_Release
+          7z a -mx9 NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\NVEncC_Release\*
+
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: .\NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
