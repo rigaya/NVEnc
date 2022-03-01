@@ -191,7 +191,7 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
             AVFormatContext *tmpFormatCtx = nullptr;
             int ret = avformat_open_input(&tmpFormatCtx, filename_char.c_str(), nullptr, nullptr);
             if (ret < 0) {
-                const AVInputFormat* inFormat = nullptr;
+                decltype(av_find_input_format(nullptr)) inFormat = nullptr;
                 if (check_ext(prm->subburn.filename, { ".ass" })) {
                     inFormat = av_find_input_format("ass");
                 } else if (check_ext(prm->subburn.filename, { ".srt" })) {
