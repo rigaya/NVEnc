@@ -1265,7 +1265,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         scan_all_pmts_set = true;
     }
     //入力フォーマットが指定されていれば、それを渡す
-    const AVInputFormat *inFormat = nullptr;
+    decltype(av_find_input_format(nullptr)) inFormat = nullptr;
     if (input_prm->pInputFormat) {
         if (nullptr == (inFormat = av_find_input_format(tchar_to_string(input_prm->pInputFormat).c_str()))) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown Input format: %s.\n"), input_prm->pInputFormat);
@@ -1309,7 +1309,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         }
     }
     //ファイルのオープン
-    if ((ret = avformat_open_input(&(m_Demux.format.formatCtx), filename_char.c_str(), (RGYArgN<2U, decltype(avformat_open_input)>::type)inFormat, &m_Demux.format.formatOptions)) != 0) {
+    if ((ret = avformat_open_input(&(m_Demux.format.formatCtx), filename_char.c_str(), inFormat, &m_Demux.format.formatOptions)) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("error opening file \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_FILE_OPEN; // Couldn't open file
     }
