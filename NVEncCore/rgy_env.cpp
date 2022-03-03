@@ -305,16 +305,22 @@ tstring getEnviromentInfo([[maybe_unused]] int device_id) {
 
 #include <tlhelp32.h>
 
-static bool check_parent(const size_t check_pid, const size_t target_pid, const std::unordered_map<size_t, size_t>& map_pid) {
-    if (check_pid == target_pid) return true;
-    if (check_pid == 0) return false;
-    auto key = map_pid.find(check_pid);
-    if (key == map_pid.end() || key->second == 0 || key->second == key->first) return false;
-    return check_parent(key->second, target_pid, map_pid);
+static bool check_parent(size_t check_pid, const size_t target_pid, const std::unordered_map<size_t, size_t>& map_pid) {
+    for (size_t i = 0; i < map_pid.size(); i++) { // 最大でもmap_pid.size()を超えてチェックする必要はないはず
+        if (check_pid == target_pid) return true;
+        if (check_pid == 0) return false;
+        auto key = map_pid.find(check_pid);
+        if (key == map_pid.end() || key->second == 0 || key->second == key->first) return false;
+        check_pid = key->second;
+    }
+    return false;
 };
 
 std::vector<size_t> createChildProcessIDList(const size_t target_pid) {
-    auto h = unique_handle(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), [](HANDLE h) { CloseHandle(h); });
+    auto h = unique_handle(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), [](HANDLE h) { if (h != INVALID_HANDLE_VALUE) CloseHandle(h); });
+    if (h.get() == INVALID_HANDLE_VALUE) {
+        return std::vector<size_t>();
+    }
 
     PROCESSENTRY32 pe = { 0 };
     pe.dwSize = sizeof(PROCESSENTRY32);
