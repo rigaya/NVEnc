@@ -758,6 +758,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
         && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0)
         || (ENCODER_QSV
+            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
             && videoOutputInfo->vui.chromaloc != 0)
         || (ENCODER_VCEENC
             && (videoOutputInfo->codec == RGY_CODEC_HEVC // HEVCの時は常に上書き
