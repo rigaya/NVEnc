@@ -303,7 +303,8 @@ RGYParamThreads::RGYParamThreads() :
         if (   targetType != RGYThreadType::DEC
             && targetType != RGYThreadType::ENC
             && targetType != RGYThreadType::OUTUT
-            && targetType != RGYThreadType::VIDEO_QUALITY) {
+            && targetType != RGYThreadType::VIDEO_QUALITY
+            && targetType != RGYThreadType::PERF_MONITOR) {
             get(targetType).throttling = RGYThreadPowerThrottlingMode::Auto;
         }
     }
@@ -571,7 +572,18 @@ bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThread
         throttlingState.StateMask = 0;
         break;
     }
-    return SetThreadInformation(threadHandle, ThreadPowerThrottling, &throttlingState, sizeof(throttlingState));
+    HMODULE hDll = NULL;
+    decltype(SetThreadInformation)* ptrSetThreadInformation = nullptr;
+
+    bool ret = false;
+    if ((hDll = LoadLibrary(_T("kernel32.dll"))) != NULL
+        && (ptrSetThreadInformation = (decltype(SetThreadInformation)*)GetProcAddress(hDll, "SetThreadInformation")) != NULL) {
+        ret = ptrSetThreadInformation(threadHandle, ThreadPowerThrottling, &throttlingState, sizeof(throttlingState));
+    }
+    if (hDll) {
+        FreeLibrary(hDll);
+    }
+    return ret;
 }
 
 bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const RGYThreadPowerThrottlingMode mode) {
