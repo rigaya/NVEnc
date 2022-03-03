@@ -45,7 +45,18 @@ static bool EnablePowerThrottling(HANDLE threadHandle) {
     throttlingState.ControlMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
     throttlingState.StateMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
 
-    return SetThreadInformation(threadHandle, ThreadPowerThrottling, &throttlingState, sizeof(throttlingState));
+    HMODULE hDll = NULL;
+    decltype(SetThreadInformation)* ptrSetThreadInformation = nullptr;
+
+    bool ret = false;
+    if ((hDll = LoadLibrary(_T("kernel32.dll"))) != NULL
+        && (ptrSetThreadInformation = (decltype(SetThreadInformation)*)GetProcAddress(hDll, "SetThreadInformation")) != NULL) {
+        ret = ptrSetThreadInformation(threadHandle, ThreadPowerThrottling, &throttlingState, sizeof(throttlingState));
+    }
+    if (hDll) {
+        FreeLibrary(hDll);
+    }
+    return ret;
 }
 
 CounterEntry::CounterEntry() :
