@@ -722,6 +722,7 @@ typedef struct AVDemuxVideo {
 
     bool                      bUseHEVCmp42AnnexB;
     bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
+    bool                      doviRpuCopy;           //dovi rpuのメタ情報を取得する
 
     AVMasteringDisplayMetadata *masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
     AVContentLightMetadata   *contentLight;          //入力ファイルから抽出したHDRメタ情報

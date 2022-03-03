@@ -72,6 +72,7 @@ private:
     std::mutex mtx;
     int64_t last_add_pts;
     int64_t last_check_pts;
+    int64_t last_input_frame_id;
     int64_t offset;
     int64_t last_clean_id;
 public:
@@ -93,7 +94,7 @@ public:
         m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, duration);
         last_add_pts = pts;
     }
-    int64_t check(int64_t pts) {
+    RGYTimestampMapVal check(int64_t pts) {
         if (last_check_pts < 0 && pts > 0) {
             offset = -pts;
         }
@@ -105,10 +106,12 @@ public:
             pts = last_check_pos.timestamp + last_check_pos.duration / 2;
             auto next_pts = last_check_pos.timestamp + last_check_pos.duration;
             last_check_pos.duration = pts - last_check_pos.timestamp;
-            m_frame[pts].duration = next_pts - pts;
+            m_frame[pts] = RGYTimestampMapVal(pts, last_input_frame_id, next_pts - pts);
+            pos = m_frame.find(pts);
         }
-        last_check_pts = pts;
-        return pts;
+        last_input_frame_id = pos->second.inputFrameId;
+        last_check_pts = pos->second.timestamp;
+        return pos->second;
     }
     RGYTimestampMapVal get(int64_t pts) {
         std::lock_guard<std::mutex> lock(mtx);
