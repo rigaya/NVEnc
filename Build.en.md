@@ -43,6 +43,8 @@ setx CAPTION2ASS_SRC "<path-to-clone>/src"
 
 ```Batchfile
 git clone https://github.com/rigaya/NVEnc --recursive
+cd NVEnc
+git clone https://github.com/rigaya/ffmpeg5_dlls_for_hwenc.git ffmpeg_lgpl
 ```
 
 ### 3. Build NVEncC.exe / NVEnc.auo

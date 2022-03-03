@@ -66,6 +66,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
+          git clone https://github.com/rigaya/ffmpeg5_dlls_for_hwenc.git ffmpeg_lgpl
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
