@@ -1546,7 +1546,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             copy_subtitle_header(muxSub->outCodecEncodeCtx, (uint8_t *)muxSub->outCodecDecodeCtx->subtitle_header, muxSub->outCodecDecodeCtx->subtitle_header_size);
         } else if (inputStream->src.stream && inputStream->src.stream->codecpar->extradata) {
             copy_subtitle_header(muxSub->outCodecEncodeCtx, (uint8_t *)inputStream->src.stream->codecpar->extradata, inputStream->src.stream->codecpar->extradata_size);
-        } 
+        }
 
         AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(muxSub->outCodecEncode->name).c_str(),
             muxSub->outCodecEncodeCtx->width, muxSub->outCodecEncodeCtx->height);
