@@ -160,11 +160,14 @@ options:
   --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
   --cuda-path=CUDA_PATH    set cuda path [${CUDA_PATH}]
   --gpu-code=GPU_CODE_GEN  set gpu code gen options
-      [${GPU_CODE_GEN}]
   --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
 
   --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
   --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
+  --extra-cudacxxflags=EXTRACUDACXXFLAGS
+                           add EXTRACUDACXXFLAGS to CUDA CXXFLAGS
+  --extra-cudaldflags=EXTRACUDALDFLAGS
+                           add EXTRACUDALDFLAGS to CUDA LD FLAGS
 
   --disable-vapoursynth    disable vapoursynth support [auto]
   --disable-avisynth       disable avisynth support [auto]
