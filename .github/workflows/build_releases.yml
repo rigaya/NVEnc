@@ -66,6 +66,8 @@ jobs:
 
       - name: Checkout dependencies
         run: |
+          curl -s -o hdr10plus_gen_0.00_${{ matrix.platform }}.7z -L https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_${{ matrix.platform }}.7z
+          7z x -ohdr10plus_gen\ hdr10plus_gen_0.00_${{ matrix.platform }}.7z
           curl -s -o ffmpeg_lgpl_20220302.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20220302.zip
           7z x -y ffmpeg_lgpl_20220302.zip
           move ffmpeg5* ffmpeg_lgpl
@@ -102,6 +104,10 @@ jobs:
           mkdir NVEncC_Release
           copy _build\${{ matrix.platform }}\RelStatic\NVEncC*.exe NVEncC_Release
           copy _build\${{ matrix.platform }}\RelStatic\*.dll NVEncC_Release
+          copy hdr10plus_gen\hdr10plus_gen.exe NVEncC_Release
+          set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
+          if "${{ matrix.arch }}" == "x64" copy "%CUDA_PATH%\bin\nvrtc64_%CUDA_VER_MAJOR%%CUDA_VER_MINOR%_0.dll" NVEncC_Release
+          if "${{ matrix.arch }}" == "x64" copy "%CUDA_PATH%\bin\nvrtc-builtins64_%CUDA_VER_MAJOR%%CUDA_VER_MINOR%.dll" NVEncC_Release
           7z a -mx9 NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\NVEncC_Release\*
 
       - name: Upload Release Asset
