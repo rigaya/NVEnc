@@ -5,7 +5,7 @@ by rigaya
 **[日本語版はこちら＞＞](./Readme.ja.md)**
 **[简体中文版本＞＞](./Readme.cn.md)**
 
-[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master)  [![Build Linux Packages](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml/badge.svg)](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml)   
+[![Build Windows Releases](https://github.com/rigaya/NVEnc/actions/workflows/build_releases.yml/badge.svg)](https://github.com/rigaya/NVEnc/actions/workflows/build_releases.yml)  [![Build Linux Packages](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml/badge.svg)](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml)   
 
 This software is meant to investigate performance and image quality of HW encoder (NVENC) of NVIDIA.
 There are 2 types of software developed, one is command line version that runs independently, and the nother is a output plug-in of [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
@@ -18,7 +18,10 @@ There are 2 types of software developed, one is command line version that runs i
 [github releases](https://github.com/rigaya/NVEnc/releases)  
   
 ## Install
-[Install instructions for Windows and Linux](./Install.en.md).
+[Install instructions for Windows and Linux](./Install.en.md)
+
+## Build
+[Build instructions for Windows and Linux](./Build.en.md)
 
 ## System Requirements
 Windows 10/11 (x86 / x64)  
@@ -212,8 +215,6 @@ when there are multiple GPUs available which support NVENC.
   [ttmath](http://www.ttmath.org/) &
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR).
   For these licenses, please see the header part of the corresponding source and NVEnc_license.txt.
-
-- [How to build](./Build.en.md)
 
 ### About source code
 Windows ... VC build

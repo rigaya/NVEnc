@@ -2,7 +2,7 @@
 # NVEnc  
 by rigaya  
 
-[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master) [![Build Linux Packages](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml/badge.svg)](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml)   
+[![Build Windows Releases](https://github.com/rigaya/NVEnc/actions/workflows/build_releases.yml/badge.svg)](https://github.com/rigaya/NVEnc/actions/workflows/build_releases.yml) [![Build Linux Packages](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml/badge.svg)](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml)   
 
 このソフトウェアは、NVIDIAのGPU/APUに搭載されているHWエンコーダ(NVENC)の画質や速度といった性能の実験を目的としています。[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグイン版と単体で動作するコマンドライン版があります。  
 
@@ -16,6 +16,9 @@ by rigaya
   
 ## インストール
 インストール方法は[こちら](./Install.ja.md)。
+
+## ビルド
+ビルド方法は[こちら](./Build.ja.md)。
 
 ## 基本動作環境  
 Windows 10/11 (x86/x64)  
@@ -210,8 +213,6 @@ NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
   [ttmath](http://www.ttmath.org/),
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR)を使用しています。  
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、NVEnc_license.txtをご覧ください。
-
-- ビルド方法については[こちら](./Build.ja.md)
 
 ### ソースの構成
 Windows ... VCビルド  
