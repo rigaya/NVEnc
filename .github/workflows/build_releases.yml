@@ -86,6 +86,7 @@ jobs:
 
       - name: MSBuild
         run: |
+          chcp 932
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
@@ -99,8 +100,8 @@ jobs:
         id: archieve
         run: |
           mkdir NVEncC_Release
-          copy _build\${{ matrix.platform }}\ReleaseStatic\NVEncC*.exe NVEncC_Release
-          copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll NVEncC_Release
+          copy _build\${{ matrix.platform }}\RelStatic\NVEncC*.exe NVEncC_Release
+          copy _build\${{ matrix.platform }}\RelStatic\*.dll NVEncC_Release
           7z a -mx9 NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\NVEncC_Release\*
 
       - name: Upload Release Asset
