@@ -168,7 +168,7 @@ static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
 
 static const AVRational HW_NATIVE_TIMEBASE = { 1, (int)HW_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
-    _T("avcodec-58.dll"), _T("avformat-58.dll"), _T("avutil-56.dll"), _T("avfilter-7.dll"), _T("swresample-3.dll")
+    _T("avcodec-59.dll"), _T("avformat-59.dll"), _T("avutil-57.dll"), _T("avfilter-8.dll"), _T("swresample-4.dll")
 };
 
 template<typename T>
