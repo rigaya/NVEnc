@@ -173,6 +173,14 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
         return show_nvenc_features(deviceid) == 0 ? 1 : -1;
     }
 #if ENABLE_AVSW_READER
+    if (0 == _tcscmp(option_name, _T("check-avcodec-dll"))) {
+        const auto ret = check_avcodec_dll();
+        _ftprintf(stdout, _T("%s\n"), ret ? _T("yes") : _T("no"));
+        if (!ret) {
+            _ftprintf(stdout, _T("%s\n"), error_mes_avcodec_dll_not_found().c_str());
+        }
+        return ret ? 1 : -1;
+    }
     if (0 == _tcscmp(option_name, _T("check-avversion"))) {
         _ftprintf(stdout, _T("%s\n"), getAVVersions().c_str());
         return 1;
