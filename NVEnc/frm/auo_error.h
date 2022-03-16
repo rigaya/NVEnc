@@ -51,7 +51,7 @@ void error_video_get_conv_func();
 void warning_auto_qpfile_failed();
 void warning_auo_tcfile_failed();
 void error_open_wavfile();
-void warning_audio_length();
+void warning_audio_length(const double video_length, const double audio_length);
 
 void error_malloc_pixel_data();
 void error_malloc_tc();

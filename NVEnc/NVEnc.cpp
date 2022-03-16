@@ -302,6 +302,17 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
       conf->aud.ext.bitrate = aud_stg_ext->mode[conf->aud.ext.enc_mode].bitrate_default; }
     conf->size_all = CONF_INITIALIZED;
 }
+void write_log_line_fmt(int log_type_index, const char *format, ...) {
+    va_list args;
+    int len;
+    char *buffer;
+    va_start(args, format);
+    len = _vscprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    buffer = (char *)malloc(len * sizeof(buffer[0]));
+    vsprintf_s(buffer, len, format, args);
+    write_log_line(log_type_index, buffer);
+    free(buffer);
+}
 #pragma warning( pop )
 void write_log_auo_line_fmt(int log_type_index, const char *format, ... ) {
     va_list args;

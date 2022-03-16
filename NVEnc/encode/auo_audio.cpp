@@ -116,10 +116,13 @@ void auo_faw_check(CONF_AUDIO *aud, const OUTPUT_INFO *oip, PRM_ENC *pe, const g
     }
 }
 
-static AUO_RESULT check_audio_length(const OUTPUT_INFO *oip) {
-    double video_length = oip->n * (double)oip->scale / oip->rate;
-    double audio_length = oip->audio_n / (double)oip->audio_rate;
-    return (check_range(audio_length / video_length, 0.5, 1.5)) ? AUO_RESULT_SUCCESS : AUO_RESULT_ERROR;
+static void check_audio_length(const OUTPUT_INFO *oip) {
+    const double video_length = oip->n * (double)oip->scale / oip->rate;
+    const double audio_length = oip->audio_n / (double)oip->audio_rate;
+    if (video_length >= 1.0 // 1秒未満はチェックしない
+        && !check_range(audio_length / video_length, 0.5, 1.5)) {
+        warning_audio_length(video_length, audio_length);
+    }
 }
 
 static void build_wave_header(BYTE *head, const OUTPUT_INFO *oip, BOOL use_8bit, int sample_n) {
@@ -589,8 +592,7 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
     }
 
     //音声長さチェック
-    if (AUO_RESULT_SUCCESS != check_audio_length(oip))
-        warning_audio_length();
+    check_audio_length(oip);
 
     //wav、音声ファイル名、音声エンココマンド等作成
     for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
