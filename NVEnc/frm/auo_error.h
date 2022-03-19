@@ -45,6 +45,7 @@ void error_log_line_cache();
 void error_no_exe_file(const char *name, const char *path);
 void warning_use_default_audio_encoder(const char *name);
 void error_invalid_ini_file();
+void error_unsupported_audio_format_by_muxer(const int video_out_type, const char *selected_aud, const char *default_aud);
 void info_use_exe_found(const char *target, const char *path);
 void warning_auto_afs_disable();
 void error_afs_setup(BOOL afs, BOOL auto_afs_disable);

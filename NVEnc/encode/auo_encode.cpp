@@ -208,6 +208,21 @@ const MUXER_CMD_EX *get_muxer_mode(const CONF_GUIEX *conf, const SYSTEM_DATA *sy
     return (mode >= 0) ? &sys_dat->exstg->s_mux[muxer_to_be_used].ex_cmd[mode] : nullptr;
 }
 
+static BOOL muxer_supports_audio_format(const int muxer_to_be_used, const AUDIO_SETTINGS *aud_stg) {
+    switch (muxer_to_be_used) {
+    case MUXER_TC2MP4:
+    case MUXER_MP4_RAW:
+    case MUXER_MP4:
+        return aud_stg->unsupported_mp4 == 0;
+    case MUXER_MKV:
+    case MUXER_MPG:
+    case MUXER_DISABLED:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
 BOOL check_if_exedit_is_used() {
     char name[256];
     wsprintf(name, "exedit_%d_%d", '01', GetCurrentProcessId());
@@ -373,6 +388,17 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, g
                 error_invalid_ini_file();
                 check = FALSE;
             }
+            AUDIO_SETTINGS *aud_stg = &exstg->s_aud_int[cnf_aud->encoder];
+            if (!muxer_supports_audio_format(pe->muxer_to_be_used, aud_stg)) {
+                AUDIO_SETTINGS *aud_default = nullptr;
+                if (default_audenc_cnf_avail) {
+                    aud_default = &exstg->s_aud_ext[exstg->s_local.default_audio_encoder_ext];
+                } else if (default_audenc_auo_avail) {
+                    aud_default = &exstg->s_aud_ext[DEFAULT_AUDIO_ENCODER_EXT];
+                }
+                error_unsupported_audio_format_by_muxer(pe->video_out_type, aud_stg->dispname, (aud_default) ? aud_default->dispname : nullptr);
+                check = FALSE;
+            }
         } else {
             CONF_AUDIO_BASE *cnf_aud = &conf->aud.ext;
             const bool default_audenc_cnf_avail = (exstg->s_local.default_audio_encoder_ext < exstg->s_aud_ext_count
@@ -441,7 +467,19 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, g
                         }
                     }
                 }
-                info_use_exe_found("音声エンコーダ", aud_stg->fullpath);
+                if (str_has_char(aud_stg->filename)) {
+                    info_use_exe_found("音声エンコーダ", aud_stg->fullpath);
+                }
+                if (!muxer_supports_audio_format(pe->muxer_to_be_used, aud_stg)) {
+                    AUDIO_SETTINGS *aud_default = nullptr;
+                    if (default_audenc_cnf_avail) {
+                        aud_default = &exstg->s_aud_ext[exstg->s_local.default_audio_encoder_ext];
+                    } else if (default_audenc_auo_avail) {
+                        aud_default = &exstg->s_aud_ext[DEFAULT_AUDIO_ENCODER_EXT];
+                    }
+                    error_unsupported_audio_format_by_muxer(pe->video_out_type, aud_stg->dispname, (aud_default) ? aud_default->dispname : nullptr);
+                    check = FALSE;
+                }
             } else {
                 error_invalid_ini_file();
                 check = FALSE;

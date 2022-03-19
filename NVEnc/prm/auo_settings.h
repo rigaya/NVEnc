@@ -186,6 +186,7 @@ typedef struct {
     char *raw_appendix;          //作成する音声ファイル名に追加する文字列 (raw出力時)
     int pipe_input;              //パイプ入力が可能
     DWORD disable_log;           //ログ表示を禁止 (DISABLE_LOG_xxx)
+    BOOL  unsupported_mp4;       //mp4非対応
     char *cmd_base;              //1st pass用コマンドライン
     char *cmd_2pass;             //2nd pass用コマンドライン
     char *cmd_raw;               //raw出力用コマンドライン

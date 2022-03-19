@@ -155,6 +155,17 @@ void error_invalid_ini_file() {
     write_log_auo_line(LOG_ERROR, "プラグイン(auo)とiniファイルの音声エンコーダの記述が一致しません。");
 }
 
+void error_unsupported_audio_format_by_muxer(const int video_out_type, const char *selected_aud, const char *default_aud) {
+    if (video_out_type < _countof(OUTPUT_FILE_EXT)) {
+        write_log_auo_line_fmt(LOG_ERROR, "音声エンコーダ %s は、%s 形式での出力に対応していません。", selected_aud, OUTPUT_FILE_EXT[video_out_type] + 1);
+        if (default_aud) {
+            write_log_auo_line_fmt(LOG_ERROR, "%s 等の他の音声エンコーダを選択して出力してください。", default_aud);
+        } else {
+            write_log_auo_line(LOG_ERROR, "他の音声エンコーダを選択して出力してください。");
+        }
+    }
+}
+
 void warning_auto_afs_disable() {
     write_log_line(LOG_WARNING, ""
         "auo [warning]: Aviutlからの映像入力の初期化に失敗したため、\n"

@@ -318,6 +318,7 @@ void guiEx_settings::load_aud(BOOL internal) {
         s_aud[i].cmd_raw      = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_cmd",      "", ini_fileName);
         s_aud[i].pipe_input   = GetPrivateProfileInt(            encoder_section, "pipe_input",    0, ini_fileName);
         s_aud[i].disable_log  = GetPrivateProfileInt(            encoder_section, "disable_log",   0, ini_fileName);
+        s_aud[i].unsupported_mp4  = GetPrivateProfileInt(    encoder_section, "unsupported_mp4",   0, ini_fileName);
         s_aud[i].auolink_only = GetPrivateProfileInt(            encoder_section, "auolink_only",  0, ini_fileName);
 
         sprintf_s(encoder_section, sizeof(encoder_section), "%s%s", INI_SECTION_MODE, s_aud[i].keyName);
