@@ -88,6 +88,18 @@ void error_no_exe_file(const char *name, const char *path) {
     write_log_auo_line_fmt(LOG_ERROR, "%s を用意し、その場所を設定画面から正しく指定してください。", name);
 }
 
+void warning_use_default_audio_encoder(const char *name) {
+    write_log_auo_line_fmt(LOG_WARNING, "音声エンコーダが適切に設定されていないため、デフォルトの音声エンコーダ %s を使用します。", name);
+}
+
+void info_use_exe_found(const char *target, const char *path) {
+    write_log_auo_line_fmt(LOG_INFO, "%sとして \"%s\" を使用します。", target, path);
+}
+
+void error_invalid_ini_file() {
+    write_log_auo_line(LOG_ERROR, "プラグイン(auo)とiniファイルの音声エンコーダの記述が一致しません。");
+}
+
 void warning_auto_afs_disable() {
     write_log_line(LOG_WARNING, ""
         "auo [warning]: Aviutlからの映像入力の初期化に失敗したため、\n"
