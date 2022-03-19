@@ -121,7 +121,7 @@ static void check_audio_length(const OUTPUT_INFO *oip) {
     const double audio_length = oip->audio_n / (double)oip->audio_rate;
     if (video_length >= 1.0 // 1秒未満はチェックしない
         && !check_range(audio_length / video_length, 0.5, 1.5)) {
-        warning_audio_length(video_length, audio_length);
+        warning_audio_length(video_length, audio_length, check_if_exedit_is_used());
     }
 }
 
