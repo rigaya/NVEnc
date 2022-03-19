@@ -58,9 +58,59 @@ void error_filename_too_long() {
     write_log_auo_line(LOG_ERROR, "出力ファイル名が長すぎます。もっと短くしてください。");
 }
 
+void error_savdir_do_not_exist(const char *savname, const char *savedir) {
+    write_log_auo_line(    LOG_ERROR, "出力先フォルダを認識できないため、出力できません。");
+    write_log_auo_line_fmt(LOG_ERROR, "  出力ファイル名: \"%s\"", savname);
+    write_log_auo_line_fmt(LOG_ERROR, "  出力先フォルダ: \"%s\"", savedir);
+    if (strchr(savedir, '?') != nullptr) {
+        write_log_auo_line(LOG_ERROR, "このエラーは、上記出力先のフォルダ名に環境依存文字を含む場合に発生することがあります。");
+        write_log_auo_line(LOG_ERROR, "  該当文字は、\"?\"で表示されています。");
+        write_log_auo_line(LOG_ERROR, "  環境依存文字を含まないフォルダに出力先に変更して出力しなおしてください。");
+    }
+}
+
 void error_file_is_already_opened_by_aviutl() {
     write_log_auo_line(LOG_ERROR, "出力ファイルはすでにAviutlで開かれているため、出力できません。");
     write_log_auo_line(LOG_ERROR, "異なるファイル名を指定してやり直してください。");
+}
+
+void warning_no_auo_check_fileopen() {
+    write_log_auo_line_fmt(LOG_WARNING, "映像の出力ファイルチェック用のサブプロセス %s が %s 以下に存在しません。",
+        AUO_CHECK_FILEOPEN_NAME, DEFAULT_EXE_DIR);
+    write_log_auo_line_fmt(LOG_WARNING, "同梱の %s フォルダをAviutlフォルダ内にすべてコピーできているか、再確認してください。", DEFAULT_EXE_DIR);
+}
+
+void error_failed_to_open_tempfile(const char *temp_filename, const char *mesBuffer, const DWORD err) {
+    write_log_auo_line_fmt(LOG_ERROR, "映像の出力ファイル \"%s\" を開くことができません。", temp_filename);
+    write_log_auo_line_fmt(LOG_ERROR, "  %s", mesBuffer);
+    if (strchr(temp_filename, '?') != nullptr) {
+        write_log_auo_line(LOG_ERROR, "このエラーは、出力ファイル名に環境依存文字を含む場合に発生することがあります。");
+        write_log_auo_line(LOG_ERROR, "  該当文字は、\"?\"で表示されていますので該当文字を避けたファイル名で出力しなおしてください。");
+    } else if (err == ERROR_ACCESS_DENIED) {
+        char systemdrive_dir[MAX_PATH_LEN] = { 0 };
+        char systemroot_dir[MAX_PATH_LEN] = { 0 };
+        char programdata_dir[MAX_PATH_LEN] = { 0 };
+        char programfiles_dir[MAX_PATH_LEN] = { 0 };
+        //char programfilesx86_dir[MAX_PATH_LEN];
+        ExpandEnvironmentStrings("%SystemDrive%", systemdrive_dir, _countof(systemdrive_dir));
+        ExpandEnvironmentStrings("%SystemRoot%", systemroot_dir, _countof(systemroot_dir));
+        ExpandEnvironmentStrings("%PROGRAMDATA%", programdata_dir, _countof(programdata_dir));
+        ExpandEnvironmentStrings("%PROGRAMFILES%", programfiles_dir, _countof(programfiles_dir));
+        //ExpandEnvironmentStrings("%PROGRAMFILES(X86)%", programfilesx86_dir, _countof(programfilesx86_dir));
+        write_log_auo_line(LOG_ERROR, "このエラーは、アクセス権のないフォルダ、あるいはWindowsにより保護されたフォルダに");
+        write_log_auo_line(LOG_ERROR, "出力しようとすると発生することがあります。");
+        write_log_auo_line(LOG_ERROR, "出力先のフォルダを変更して出力しなおしてください。");
+        write_log_auo_line(LOG_ERROR, "なお、下記はWindowsにより保護されたフォルダですので、ここへの出力は避けてください。");
+        write_log_auo_line_fmt(LOG_ERROR, "例: %s ドライブ直下", systemdrive_dir);
+        write_log_auo_line_fmt(LOG_ERROR, "    %s 以下", systemroot_dir);
+        write_log_auo_line_fmt(LOG_ERROR, "    %s 以下", programdata_dir);
+        write_log_auo_line_fmt(LOG_ERROR, "    %s 以下", programfiles_dir);
+        //write_log_auo_line_fmt(LOG_ERROR, "    %s 以下", programfilesx86_dir);
+        write_log_auo_line(LOG_ERROR, "    など");
+        write_log_auo_line(LOG_ERROR, "");
+    } else {
+        write_log_auo_line(LOG_ERROR, "出力先のフォルダ・ファイル名を変更して出力しなおしてください。");
+    }
 }
 
 void error_nothing_to_output() {

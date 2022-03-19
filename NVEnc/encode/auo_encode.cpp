@@ -35,6 +35,8 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <memory>
+#include <functional>
 
 #include "auo.h"
 #include "auo_version.h"
@@ -52,6 +54,8 @@
 #include "auo_faw2aac.h"
 #include "NVEncCmd.h"
 #include "rgy_env.h"
+
+using unique_handle = std::unique_ptr<std::remove_pointer<HANDLE>::type, std::function<void(HANDLE)>>;
 
 static void create_aviutl_opened_file_list(PRM_ENC *pe);
 static bool check_file_is_aviutl_opened_file(const char *filepath, const PRM_ENC *pe);
@@ -204,11 +208,84 @@ const MUXER_CMD_EX *get_muxer_mode(const CONF_GUIEX *conf, const SYSTEM_DATA *sy
     return (mode >= 0) ? &sys_dat->exstg->s_mux[muxer_to_be_used].ex_cmd[mode] : nullptr;
 }
 
+static BOOL check_temp_file_open(const char *temp_filename, const char *defaultExeDir) {
+    DWORD err = ERROR_SUCCESS;
+
+    char exe_path[MAX_PATH_LEN] = { 0 };
+    PathCombine(exe_path, defaultExeDir, AUO_CHECK_FILEOPEN_NAME);
+
+    if (rgy_is_64bit_os() && !PathFileExists(exe_path)) {
+        warning_no_auo_check_fileopen();
+    }
+
+    if (rgy_is_64bit_os() && PathFileExists(exe_path)) {
+        //64bit OSでは、32bitアプリに対してはVirtualStoreが働く一方、
+        //64bitアプリに対してはVirtualStoreが働かない
+        //x264を64bitで実行することを考慮すると、
+        //Aviutl(32bit)からチェックしても意味がないので、64bitプロセスからのチェックを行う
+        PROCESS_INFORMATION pi;
+        PIPE_SET pipes;
+        InitPipes(&pipes);
+
+        char fullargs[4096] = { 0 };
+        sprintf_s(fullargs, "\"%s\" \"%s\"", exe_path, temp_filename);
+
+        int ret = 0;
+        if ((ret = RunProcess(fullargs, defaultExeDir, &pi, &pipes, NORMAL_PRIORITY_CLASS, TRUE, FALSE)) == RP_SUCCESS) {
+            WaitForSingleObject(pi.hProcess, INFINITE);
+            GetExitCodeProcess(pi.hProcess, &err);
+            CloseHandle(pi.hProcess);
+        }
+        if (err == ERROR_SUCCESS) {
+            return TRUE;
+        }
+    } else {
+        auto handle = unique_handle(CreateFile(temp_filename, GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL),
+            [](HANDLE h) { if (h != INVALID_HANDLE_VALUE) CloseHandle(h); });
+        if (handle.get() != INVALID_HANDLE_VALUE) {
+            handle.reset();
+            DeleteFile(temp_filename);
+            return TRUE;
+        }
+        err = GetLastError();
+    }
+    if (err != ERROR_ALREADY_EXISTS) {
+        char *mesBuffer = nullptr;
+        FormatMessage(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPSTR)&mesBuffer, 0, NULL);
+        error_failed_to_open_tempfile(temp_filename, mesBuffer, err);
+        if (mesBuffer != nullptr) {
+            LocalFree(mesBuffer);
+        }
+    }
+    return FALSE;
+}
+
 BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_settings *exstg) {
     BOOL check = TRUE;
     //ファイル名長さ
     if (strlen(oip->savefile) > (MAX_PATH_LEN - MAX_APPENDIX_LEN - 1)) {
         error_filename_too_long();
+        check = FALSE;
+    }
+
+    char aviutl_dir[MAX_PATH_LEN] = { 0 };
+    get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+
+    char defaultExeDir[MAX_PATH_LEN] = { 0 };
+    PathCombineLong(defaultExeDir, _countof(defaultExeDir), aviutl_dir, DEFAULT_EXE_DIR);
+
+    //ダメ文字・環境依存文字チェック
+    char savedir[MAX_PATH_LEN] = { 0 };
+    strcpy_s(savedir, oip->savefile);
+    PathRemoveFileSpecFixed(savedir);
+    if (!PathIsDirectory(savedir)) {
+        error_savdir_do_not_exist(oip->savefile, savedir);
+        check = FALSE;
+        //一時ファイルを開けるかどうか
+    } else if (!check_temp_file_open(pe->temp_filename, defaultExeDir)) {
         check = FALSE;
     }
 
@@ -236,12 +313,6 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, g
 
     if (conf->oth.out_audio_only)
         write_log_auo_line(LOG_INFO, "音声のみ出力を行います。");
-
-    char aviutl_dir[MAX_PATH_LEN];
-    get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
-
-    char defaultExeDir[MAX_PATH_LEN];
-    PathCombineLong(defaultExeDir, _countof(defaultExeDir), aviutl_dir, DEFAULT_EXE_DIR);
 
     const auto exeFiles = find_exe_files(defaultExeDir);
 
