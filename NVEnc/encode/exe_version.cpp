@@ -35,6 +35,14 @@
 #include "auo_util.h"
 #include "exe_version.h"
 
+int version_a_larger_than_b(const int a[4], const int b[4]) {
+    for (int i = 0; i < 4; i++) {
+        if (a[i] > b[i]) return +1;
+        if (a[i] < b[i]) return -1;
+    }
+    return 0;
+}
+
 std::string ver_string(int ver[4]) {
     const int VER_LENGTH = 4;
     if (nullptr == ver)

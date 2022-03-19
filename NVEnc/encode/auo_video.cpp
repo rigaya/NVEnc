@@ -459,6 +459,29 @@ static int send_frame(
     return AUO_RESULT_SUCCESS;
 }
 
+static void error_videnc_failed(const PRM_ENC *pe) {
+    ULARGE_INTEGER temp_drive_avail_space = { 0 };
+    const uint64_t disk_warn_threshold = 4 * 1024 * 1024; //4MB
+    //指定されたドライブが存在するかどうか
+    char temp_root[MAX_PATH_LEN];
+    if (PathGetRoot(pe->temp_filename, temp_root, _countof(temp_root))
+        && PathIsDirectory(temp_root)
+        && GetDiskFreeSpaceEx(temp_root, &temp_drive_avail_space, NULL, NULL)
+        && temp_drive_avail_space.QuadPart <= disk_warn_threshold) {
+        char driveLetter[MAX_PATH_LEN];
+        strcpy_s(driveLetter, temp_root);
+        if (strlen(driveLetter) > 1 && driveLetter[strlen(driveLetter) - 1] == '\\') {
+            driveLetter[strlen(driveLetter) - 1] = '\0';
+        }
+        if (strlen(driveLetter) > 1 && driveLetter[strlen(driveLetter) - 1] == ':') {
+            driveLetter[strlen(driveLetter) - 1] = '\0';
+        }
+        error_videnc_dead_and_nodiskspace(driveLetter, temp_drive_avail_space.QuadPart);
+    } else {
+        error_videnc_dead();
+    }
+}
+
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
@@ -631,7 +654,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             //x264が実行中なら、メッセージを取得・ログウィンドウに表示
             if (ReadLogEnc(&pipes, pe->drop_count, i) < 0) {
                 //勝手に死んだ...
-                ret |= AUO_RESULT_ERROR; error_x264_dead();
+                ret |= AUO_RESULT_ERROR; error_videnc_failed(pe);
                 break;
             }
 
@@ -676,7 +699,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                 ret |= (oip->func_is_abort()) ? AUO_RESULT_ABORT : AUO_RESULT_SUCCESS;
                 if (ReadLogEnc(&pipes, pe->drop_count, i) < 0) {
                     //勝手に死んだ...
-                    ret |= AUO_RESULT_ERROR; error_x264_dead();
+                    ret |= AUO_RESULT_ERROR; error_videnc_failed(pe);
                     break;
                 }
             } while ((wait_err = WaitForSingleObject(heBufEmpty[sendFrames & 1], LOG_UPDATE_INTERVAL)) != WAIT_OBJECT_0);
@@ -730,7 +753,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             //x264が実行中なら、メッセージを取得・ログウィンドウに表示
             if (ReadLogEnc(&pipes, pe->drop_count, i) < 0) {
                 //勝手に死んだ...
-                ret |= AUO_RESULT_ERROR; error_x264_dead();
+                ret |= AUO_RESULT_ERROR; error_videnc_failed(pe);
                 break;
             }
             log_process_events();

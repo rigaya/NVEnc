@@ -196,8 +196,24 @@ void error_afs_interlace_stg() {
         "             設定を見なおしてください。");
 }
 
-void error_x264_dead() {
-    write_log_auo_line(LOG_ERROR, "NVEncCが予期せず途中終了しました。NVEncCに不正なパラメータ(オプション)が渡された可能性があります。");
+void error_videnc_dead() {
+    write_log_auo_line_fmt(LOG_ERROR, "%sが予期せず途中終了しました。%sに不正なパラメータ(オプション)が渡された可能性があります。", ENCODER_NAME, ENCODER_NAME);
+}
+
+void error_videnc_dead_and_nodiskspace(const char *drive, uint64_t diskspace) {
+    write_log_auo_line_fmt(LOG_ERROR, "%sが予期せず途中終了しました。", ENCODER_NAME);
+    write_log_auo_line_fmt(LOG_ERROR, "%sドライブの空き容量が残り %.2f MBしかありません。", drive, (double)diskspace / (1024 * 1024));
+    write_log_auo_line_fmt(LOG_ERROR, "%sドライブの空き容量不足で失敗した可能性があります。", drive);
+    write_log_auo_line_fmt(LOG_ERROR, "%sドライブの空きをつくり、再度実行しなおしてください。", drive);
+}
+
+void error_videnc_version(const char *required_ver, const char *current_ver) {
+    write_log_line_fmt(LOG_ERROR, ""
+        "auo [error]: %sのバージョンが古く、エンコードできません。\n"
+        "             最新の%sをダウンロードし、設定画面で最新版に指定しなおしてください。\n"
+        "             必要なバージョン:         %s\n"
+        "             実行ファイルのバージョン: %s\n",
+        ENCODER_NAME, required_ver, current_ver);
 }
 
 void error_x264_version() {
