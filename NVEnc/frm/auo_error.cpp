@@ -117,6 +117,11 @@ void error_nothing_to_output() {
     write_log_auo_line(LOG_ERROR, "出力すべきものがありません。");
 }
 
+void error_output_zero_frames() {
+    write_log_auo_line(LOG_ERROR, "出力フレーム数が 0 フレームのため、エンコードできません。");
+    write_log_auo_line(LOG_ERROR, "選択範囲が適切になっているか確認して出力しなおしてください。");
+}
+
 void info_afs_audio_delay_confliction() {
     write_log_auo_line(LOG_INFO, "自動フィールドシフト、音声ディレイカット[動画追加]が同時に指定されている場合には、音声エンコードは後で行います。");
 }

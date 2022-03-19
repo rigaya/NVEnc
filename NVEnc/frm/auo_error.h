@@ -38,6 +38,7 @@ void error_file_is_already_opened_by_aviutl();
 void warning_no_auo_check_fileopen();
 void error_failed_to_open_tempfile(const char *temp_filename, const char *mesBuffer, const DWORD err);
 void error_nothing_to_output();
+void error_output_zero_frames();
 void info_afs_audio_delay_confliction();
 void error_invalid_resolution(BOOL width, int mul, int w, int h);
 void error_log_line_cache();

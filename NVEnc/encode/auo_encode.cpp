@@ -299,6 +299,10 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, g
         error_nothing_to_output();
         check = FALSE;
     }
+    if (pe->video_out_type != VIDEO_OUTPUT_DISABLED && oip->n <= 0) {
+        error_output_zero_frames();
+        check = FALSE;
+    }
 
     //解像度
     int w_mul = 2, h_mul = 2;
