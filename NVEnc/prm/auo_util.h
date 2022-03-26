@@ -153,6 +153,20 @@ static inline int get_gcd(int a, int b) {
         a = b, b = c;
     return b;
 }
+static inline int div_round(int i, int div) { // 四捨五入
+    int ret = i / div;
+    if (div <= (i % div) * 2) {
+        ret++;
+    }
+    return ret;
+};
+static inline int64_t div_round(int64_t i, int64_t div) { // 四捨五入
+    int64_t ret = i / div;
+    if (div <= (i % div) * 2) {
+        ret++;
+    }
+    return ret;
+};
 
 //大文字小文字を無視して、1文字検索
 static inline const char *strichr(const char *str, int c) {

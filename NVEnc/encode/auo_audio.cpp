@@ -116,12 +116,35 @@ void auo_faw_check(CONF_AUDIO *aud, const OUTPUT_INFO *oip, PRM_ENC *pe, const g
     }
 }
 
-static void check_audio_length(const OUTPUT_INFO *oip) {
+void check_audio_length(OUTPUT_INFO *oip) {
     const double video_length = oip->n * (double)oip->scale / oip->rate;
     const double audio_length = oip->audio_n / (double)oip->audio_rate;
-    if (video_length >= 1.0 // 1秒未満はチェックしない
-        && !check_range(audio_length / video_length, 0.5, 1.5)) {
-        warning_audio_length(video_length, audio_length, check_if_exedit_is_used());
+    if (video_length <= 1.0) { // 1秒未満はチェックしない
+        return;
+    }
+    const double audio_ratio = audio_length / video_length;
+    if (!check_range(audio_ratio, 0.96, 1.04)) { // 4%以上 差がある場合
+        const BOOL exedit_is_used = check_if_exedit_is_used();
+        int selected_audio_rate = 0;
+        if (exedit_is_used) {
+            //拡張編集で音声を読み込ませたあと、異なるサンプリングレートの音声をAviutl本体に読み込ませると、
+            //音声のサンプル数はそのままに、サンプリングレートだけが変わってしまい、音声の時間が変わってしまうことがある
+            //拡張編集使用時に、映像と音声の長さにずれがある場合、これを疑ってサンプリングレートのずれの可能性がある場合は
+            //音声のサンプル数を修正する
+            const int estimated_audio_rate = (int)div_round((int64_t)oip->audio_n * oip->rate, (int64_t)oip->n * oip->scale);
+            static const int known_audio_rate[] = { 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 64000, 88200, 96000, 176400, 192000 };
+            for (int i = 0; i < _countof(known_audio_rate); i++) {
+                if (estimated_audio_rate == known_audio_rate[i]) {
+                    selected_audio_rate = estimated_audio_rate;
+                }
+            }
+        }
+        if (selected_audio_rate != 0) {
+            oip->audio_n = (int)div_round((int64_t)oip->audio_n * (int64_t)oip->audio_rate, (int64_t)selected_audio_rate);
+            info_audio_length_changed(video_length, audio_length, exedit_is_used);
+        } else if (!check_range(audio_ratio, 0.5, 1.5)) { // 50%以上差がある場合
+            warning_audio_length(video_length, audio_length, exedit_is_used);
+        }
     }
 }
 
@@ -590,9 +613,6 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
         error_no_exe_file(aud_stg->dispname, aud_stg->fullpath);
         return AUO_RESULT_ERROR;
     }
-
-    //音声長さチェック
-    check_audio_length(oip);
 
     //wav、音声ファイル名、音声エンココマンド等作成
     for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)

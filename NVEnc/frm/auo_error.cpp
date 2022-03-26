@@ -300,7 +300,7 @@ void error_no_wavefile() {
     write_log_auo_line(LOG_ERROR, "wavファイルがみつかりません。音声エンコードに失敗しました。");
 }
 
-void warning_audio_length(const double video_length, const double audio_length, const BOOL exedit_is_used) {
+static void message_audio_length_different(const double video_length, const double audio_length, const BOOL exedit_is_used, const BOOL audio_length_changed) {
     const int vid_h = (int)(video_length / 3600);
     const int vid_m = (int)(video_length - vid_h * 3600) / 60;
     const int vid_s = (int)(video_length - vid_h * 3600 - vid_m * 60);
@@ -311,22 +311,45 @@ void warning_audio_length(const double video_length, const double audio_length, 
     const int aud_s = (int)(audio_length - aud_h * 3600 - aud_m * 60);
     const int aud_ms = std::min((int)((audio_length - (double)(aud_h * 3600 + aud_m * 60 + aud_s)) * 1000.0), 999);
 
-    write_log_line_fmt(LOG_WARNING, 
-        "auo [warning]: 音声の長さが映像の長さと大きく異なるようです。\n"
-        "               映像: %d:%02d:%02d.%03d, 音声: %d:%02d:%02d.%03d\n",
-        vid_h, vid_m, vid_s, vid_ms,
-        aud_h, aud_m, aud_s, aud_ms);
-    if (exedit_is_used) {
-        write_log_line_fmt(LOG_WARNING, ""
-        "               拡張編集の音声トラックとAviutl本体の音声トラックが競合している可能性があります。\n"
-        "               拡張編集使用時には、Aviutl本体の音声トラック読み込みを使用しないようご注意ください。\n");
+    if (audio_length_changed) {
+        write_log_line_fmt(LOG_INFO,
+            "auo [info]: 音声の長さが映像の長さと異なるようです。\n"
+            "            映像: %d:%02d:%02d.%03d, 音声: %d:%02d:%02d.%03d\n",
+            vid_h, vid_m, vid_s, vid_ms,
+            aud_h, aud_m, aud_s, aud_ms);
+        write_log_line_fmt(LOG_INFO, ""
+            "            音声の長さが映像の長さに一致するよう、自動的に調整しました。\n");
+        if (exedit_is_used) {
+            write_log_line_fmt(LOG_INFO, ""
+                "            拡張編集の音声トラックとAviutl本体の音声トラックが競合している可能性があります。\n"
+                "            拡張編集使用時には、Aviutl本体の音声トラック読み込みを使用しないようご注意ください。\n");
+        }
     } else {
-        write_log_line_fmt(LOG_WARNING, ""
-        "               これが意図したものでない場合、音声が正常に出力されていないかもしれません。\n"
-        "               この問題は圧縮音声をソースとしていると発生することがあります。\n"
-        "               一度音声をデコードし、「音声読み込み」から無圧縮wavとして別に読み込むか、\n"
-        "               異なる入力プラグインを利用して読み込むといった方法を試してみてください。");
+        write_log_line_fmt(LOG_WARNING,
+            "auo [warning]: 音声の長さが映像の長さと異なるようです。\n"
+            "               映像: %d:%02d:%02d.%03d, 音声: %d:%02d:%02d.%03d\n",
+            vid_h, vid_m, vid_s, vid_ms,
+            aud_h, aud_m, aud_s, aud_ms);
+        if (exedit_is_used) {
+            write_log_line_fmt(LOG_WARNING, ""
+                "               拡張編集の音声トラックとAviutl本体の音声トラックが競合している可能性があります。\n"
+                "               拡張編集使用時には、Aviutl本体の音声トラック読み込みを使用しないようご注意ください。\n");
+        } else {
+            write_log_line_fmt(LOG_WARNING, ""
+                "               これが意図したものでない場合、音声が正常に出力されていないかもしれません。\n"
+                "               この問題は圧縮音声をソースとしていると発生することがあります。\n"
+                "               一度音声をデコードし、「音声読み込み」から無圧縮wavとして別に読み込むか、\n"
+                "               異なる入力プラグインを利用して読み込むといった方法を試してみてください。");
+        }
     }
+}
+
+void info_audio_length_changed(const double video_length, const double audio_length, const BOOL exedit_is_used) {
+    message_audio_length_different(video_length, audio_length, exedit_is_used, TRUE);
+}
+
+void warning_audio_length(const double video_length, const double audio_length, const BOOL exedit_is_used) {
+    message_audio_length_different(video_length, audio_length, exedit_is_used, FALSE);
 }
 
 void error_audenc_failed(const char *name, const char *args) {
