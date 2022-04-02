@@ -123,10 +123,11 @@ void check_audio_length(OUTPUT_INFO *oip) {
         return;
     }
     const double audio_ratio = audio_length / video_length;
-    if (!check_range(audio_ratio, 0.96, 1.04)) { // 4%以上 差がある場合
+    if (!check_range(audio_ratio, 0.95, 1.05)) { // 5%以上 差がある場合
         const BOOL exedit_is_used = check_if_exedit_is_used();
         int selected_audio_rate = 0;
-        if (exedit_is_used) {
+        if (exedit_is_used
+            && audio_ratio > 1.0) { // 音声の長さが長い場合にはカットできるが、音声が短い場合には調整できない
             //拡張編集で音声を読み込ませたあと、異なるサンプリングレートの音声をAviutl本体に読み込ませると、
             //音声のサンプル数はそのままに、サンプリングレートだけが変わってしまい、音声の時間が変わってしまうことがある
             //拡張編集使用時に、映像と音声の長さにずれがある場合、これを疑ってサンプリングレートのずれの可能性がある場合は
@@ -142,7 +143,7 @@ void check_audio_length(OUTPUT_INFO *oip) {
         if (selected_audio_rate != 0) {
             oip->audio_n = (int)div_round((int64_t)oip->audio_n * (int64_t)oip->audio_rate, (int64_t)selected_audio_rate);
             info_audio_length_changed(video_length, audio_length, exedit_is_used);
-        } else if (!check_range(audio_ratio, 0.5, 1.5)) { // 50%以上差がある場合
+        } else { // 5%以上差がある場合
             warning_audio_length(video_length, audio_length, exedit_is_used);
         }
     }
