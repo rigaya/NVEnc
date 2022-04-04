@@ -217,6 +217,7 @@ static BOOL muxer_supports_audio_format(const int muxer_to_be_used, const AUDIO_
     case MUXER_MKV:
     case MUXER_MPG:
     case MUXER_DISABLED:
+    case MUXER_INTERNAL:
         return TRUE;
     default:
         return FALSE;
