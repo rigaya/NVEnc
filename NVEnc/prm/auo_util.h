@@ -429,20 +429,6 @@ static BOOL check_OS_Win7orLater() {
 #endif
 }
 
-static inline const char *GetFullPath(const char *path, char *buffer, size_t nSize) {
-    if (PathIsRelativeA(path) == FALSE)
-        return path;
-
-    _fullpath(buffer, path, nSize);
-    return buffer;
-}
-static inline const WCHAR *GetFullPath(const WCHAR *path, WCHAR *buffer, size_t nSize) {
-    if (PathIsRelativeW(path) == FALSE)
-        return path;
-
-    _wfullpath(buffer, path, nSize);
-    return buffer;
-}
 //文字列の置換に必要な領域を計算する
 static size_t calc_replace_mem_required(char *str, const char *old_str, const char *new_str) {
     size_t size = strlen(str) + 1;

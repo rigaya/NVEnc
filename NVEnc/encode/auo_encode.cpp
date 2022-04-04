@@ -54,6 +54,7 @@
 #include "auo_faw2aac.h"
 #include "NVEncCmd.h"
 #include "rgy_env.h"
+#include "rgy_filesystem.h"
 
 using unique_handle = std::unique_ptr<std::remove_pointer<HANDLE>::type, std::function<void(HANDLE)>>;
 
@@ -557,9 +558,7 @@ static void set_tmpdir(PRM_ENC *pe, int tmp_dir_index, const char *savefile, con
     if (tmp_dir_index == TMP_DIR_CUSTOM) {
         //指定されたフォルダ
         if (DirectoryExistsOrCreate(sys_dat->exstg->s_local.custom_tmp_dir)) {
-            if (sys_dat->exstg->s_local.custom_tmp_dir == GetFullPath(sys_dat->exstg->s_local.custom_tmp_dir, pe->temp_filename, _countof(pe->temp_filename))) {
-                strcpy_s(pe->temp_filename, _countof(pe->temp_filename), sys_dat->exstg->s_local.custom_tmp_dir);
-            }
+            strcpy_s(pe->temp_filename, GetFullPathFrom(sys_dat->exstg->s_local.custom_tmp_dir, sys_dat->aviutl_dir).c_str());
             PathRemoveBackslash(pe->temp_filename);
             write_log_auo_line_fmt(LOG_INFO, "一時フォルダ : %s", pe->temp_filename);
         } else {
@@ -668,14 +667,12 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
         if (conf->aud.ext.aud_temp_dir) {
             if (DirectoryExistsOrCreate(sys_dat->exstg->s_local.custom_audio_tmp_dir)) {
                 cus_aud_tdir = sys_dat->exstg->s_local.custom_audio_tmp_dir;
-                write_log_auo_line_fmt(LOG_INFO, "音声一時フォルダ : %s", GetFullPath(cus_aud_tdir, pe->aud_temp_dir, _countof(pe->aud_temp_dir)));
+                write_log_auo_line_fmt(LOG_INFO, "音声一時フォルダ : %s", GetFullPathFrom(cus_aud_tdir, sys_dat->aviutl_dir).c_str());
             } else {
                 warning_no_aud_temp_root(sys_dat->exstg->s_local.custom_audio_tmp_dir);
             }
         }
-        if (cus_aud_tdir == GetFullPath(cus_aud_tdir, pe->aud_temp_dir, _countof(pe->aud_temp_dir))) {
-            strcpy_s(pe->aud_temp_dir, cus_aud_tdir);
-        }
+        strcpy_s(pe->aud_temp_dir, GetFullPathFrom(cus_aud_tdir, sys_dat->aviutl_dir).c_str());
     }
 
     //ファイル名置換を行い、一時ファイル名を作成
@@ -924,16 +921,15 @@ void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *
     sprintf_s(tmp, sizeof(tmp), "%d", GetCurrentProcessId());
     replace(cmd, nSize, "%{pid}", tmp);
 
-    char fullpath[MAX_PATH_LEN];
     if (conf->aud.use_internal) {
         replace(cmd, nSize, "%{audencpath}", "");
     } else {
         const CONF_AUDIO_BASE *cnf_aud = &conf->aud.ext;
         const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];
-        replace(cmd, nSize, "%{audencpath}", GetFullPath(aud_stg->fullpath, fullpath, _countof(fullpath)));
+        replace(cmd, nSize, "%{audencpath}", GetFullPathFrom(aud_stg->fullpath, sys_dat->aviutl_dir).c_str());
     }
-    replace(cmd, nSize, "%{mp4muxerpath}", GetFullPath(sys_dat->exstg->s_mux[MUXER_MP4].fullpath,         fullpath, _countof(fullpath)));
-    replace(cmd, nSize, "%{mkvmuxerpath}", GetFullPath(sys_dat->exstg->s_mux[MUXER_MKV].fullpath,         fullpath, _countof(fullpath)));
+    replace(cmd, nSize, "%{mp4muxerpath}", GetFullPathFrom(sys_dat->exstg->s_mux[MUXER_MP4].fullpath, sys_dat->aviutl_dir).c_str());
+    replace(cmd, nSize, "%{mkvmuxerpath}", GetFullPathFrom(sys_dat->exstg->s_mux[MUXER_MKV].fullpath, sys_dat->aviutl_dir).c_str());
 }
 
 //一時ファイルの移動・削除を行う

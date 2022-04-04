@@ -32,19 +32,53 @@
 #include "rgy_codepage.h"
 #include "rgy_filesystem.h"
 
-std::string GetFullPath(const char *path) {
-    return std::filesystem::absolute(std::filesystem::path(strlen(path) ? path : ".")).lexically_normal().string();
+std::string GetFullPathFrom(const char *path, const char *baseDir) {
+    if (auto p = std::filesystem::path(path); p.is_absolute()) {
+        return path;
+    }
+    path = (path && strlen(path)) ? path : ".";
+    const auto p = (baseDir) ? std::filesystem::path(baseDir).append(path) : std::filesystem::absolute(std::filesystem::path(path));
+    return p.lexically_normal().string();
+}
+std::string GetRelativePathFrom(const char *path, const char *baseDir) {
+    if (path == nullptr || strlen(path) == 0) {
+        return ".";
+    }
+    const auto p = std::filesystem::path(path);
+    if (p.is_relative()) {
+        return path;
+    }
+    const auto basePath = (baseDir) ? std::filesystem::path(baseDir) : std::filesystem::current_path();
+    std::error_code ec;
+    return std::filesystem::proximate(p, basePath, ec).string();
 }
 #if defined(_WIN32) || defined(_WIN64)
-std::wstring GetFullPath(const wchar_t *path) {
-    return std::filesystem::absolute(std::filesystem::path(wcslen(path) ? path : L".")).lexically_normal().wstring();
+std::wstring GetFullPathFrom(const wchar_t *path, const wchar_t *baseDir) {
+    if (auto p = std::filesystem::path(path); p.is_absolute()) {
+        return path;
+    }
+    path = (path && wcslen(path)) ? path : L".";
+    const auto p = (baseDir) ? std::filesystem::path(baseDir).append(path) : std::filesystem::absolute(std::filesystem::path(path));
+    return p.lexically_normal().wstring();
+}
+std::wstring GetRelativePathFrom(const wchar_t *path, const wchar_t *baseDir) {
+    if (path == nullptr || wcslen(path) == 0) {
+        return L".";
+    }
+    const auto p = std::filesystem::path(path);
+    if (p.is_relative()) {
+        return path;
+    }
+    const auto basePath = (baseDir) ? std::filesystem::path(baseDir) : std::filesystem::current_path();
+    std::error_code ec;
+    return std::filesystem::proximate(p, basePath, ec).wstring();
 }
 //ルートディレクトリを取得
 std::string PathGetRoot(const char *path) {
-    return std::filesystem::path(GetFullPath(path)).root_name().string();
+    return std::filesystem::path(GetFullPathFrom(path)).root_name().string();
 }
 std::wstring PathGetRoot(const wchar_t *path) {
-    return std::filesystem::path(GetFullPath(path)).root_name().wstring();
+    return std::filesystem::path(GetFullPathFrom(path)).root_name().wstring();
 }
 
 //パスのルートが存在するかどうか
@@ -163,7 +197,7 @@ bool rgy_get_filesize(const wchar_t *filepath, uint64_t *filesize) {
 std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir) {
     std::vector<tstring> list;
 
-    auto buf = wstring_to_tstring(std::filesystem::path(GetFullPath(dir.c_str())).append(pattern).wstring());
+    auto buf = wstring_to_tstring(std::filesystem::path(GetFullPathFrom(dir.c_str())).append(pattern).wstring());
 
     WIN32_FIND_DATA win32fd;
     HANDLE hFind = FindFirstFile(buf.c_str(), &win32fd); // FindFirstFileW No MAX_PATH Limitation
@@ -176,10 +210,10 @@ std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir) {
         if ((win32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             && _tcscmp(win32fd.cFileName, _T("..")) != 0
             && _tcscmp(win32fd.cFileName, _T(".")) != 0) {
-            const auto buf2 = wstring_to_tstring(std::filesystem::path(GetFullPath(dir.c_str())).append(win32fd.cFileName).wstring());
+            const auto buf2 = wstring_to_tstring(std::filesystem::path(GetFullPathFrom(dir.c_str())).append(win32fd.cFileName).wstring());
             vector_cat(list, get_file_list(pattern, buf2));
         } else {
-            buf = wstring_to_tstring(std::filesystem::path(GetFullPath(dir.c_str())).append(win32fd.cFileName).wstring());
+            buf = wstring_to_tstring(std::filesystem::path(GetFullPathFrom(dir.c_str())).append(win32fd.cFileName).wstring());
             list.push_back(buf);
         }
     } while (FindNextFile(hFind, &win32fd));

@@ -33,7 +33,8 @@
 #include "rgy_tchar.h"
 
 #if defined(_WIN32) || defined(_WIN64)
-std::wstring GetFullPath(const wchar_t *path);
+std::wstring GetFullPathFrom(const wchar_t *path, const wchar_t *baseDir = nullptr);
+std::wstring GetRelativePathFrom(const wchar_t *path, const wchar_t *baseDir = nullptr);
 bool rgy_get_filesize(const wchar_t *filepath, uint64_t *filesize);
 std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
 std::wstring PathRemoveExtensionS(const std::wstring& path);
@@ -45,7 +46,8 @@ std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
 tstring getExePath();
 tstring getExeDir();
 
-std::string GetFullPath(const char *path);
+std::string GetFullPathFrom(const char *path, const char *baseDir = nullptr);
+std::string GetRelativePathFrom(const char *path, const char *baseDir = nullptr);
 bool rgy_file_exists(const std::string& filepath);
 bool rgy_file_exists(const std::wstring& filepath);
 bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
