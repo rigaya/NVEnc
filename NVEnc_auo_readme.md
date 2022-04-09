@@ -1,5 +1,5 @@
 
-# NVEnc  
+# NVEnc.auo  
 by rigaya  
 
 [![Build Windows Releases](https://github.com/rigaya/NVEnc/actions/workflows/build_releases.yml/badge.svg)](https://github.com/rigaya/NVEnc/actions/workflows/build_releases.yml) [![Build Linux Packages](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml/badge.svg)](https://github.com/rigaya/NVEnc/actions/workflows/build_packages.yml)   
@@ -8,26 +8,100 @@ by rigaya
 [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグイン版と単体で動作するコマンドライン版があります。  
 
 - NVEncC.exe  
-  単体で動作するコマンドライン版です。本項で説明します。
+  単体で動作するコマンドライン版については、[こちら](./NVEnc_auo_readme.md)を参照してください。
 
 - [NVEnc.auo](./NVEnc_auo_readme.md)  
-  NVIDIAのNVEncを使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインの使用方法については、[こちら](./NVEnc_auo_readme.md)を参照してください。
+  NVIDIAのNVEncを使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインです。本項で説明します。
 
 - cufilters  
   [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)用CUDAフィルタです。
 
 ## 配布場所 & 更新履歴  
-[こちら](https://github.com/rigaya/NVEnc/releases)  
-  
-## インストール
-インストール方法は[こちら](./Install.ja.md)。
+[こちら](https://github.com/rigaya/NVEnc/releases)から、Aviutl_NVEnc_x.xx.zipをダウンロードしてください。
 
-## ビルド
-ビルド方法は[こちら](./Build.ja.md)。
+## NVEnc 使用にあたっての注意事項  
+無保証です。自己責任で使用してください。   
+NVEncを使用したことによる、いかなる損害・トラブルについても責任を負いません。  
+
+NVEncによる出力は、max_dec_frame_buffering フィールドを含まないことがあり、
+一部の再生環境では問題となることがあります。
+
+## NVEnc の Aviutl への導入・更新
+
+### ダウンロード
+
+まず、NVEncを[こちら](https://github.com/rigaya/NVEnc/releases)から、Aviutl_NVEnc_x.xx.zipをダウンロードしてください。
+
+### 導入・更新
+
+ダウンロードしたzipファイルをダブルクリックして開きます。中身はこんな感じです。
+
+![zipファイルの中身](./data/NVEnc_6_00_install_02.png)
+
+中身をすべてAviutlフォルダにコピーします。
+
+![中身のコピー](./data/NVEnc_6_00_install_03.png)
+
+更新時には、下記のように上書きするか聞いてくることがあります。
+
+その場合には「ファイルを置き換える」を選択して上書きしてください。
+
+![上書き](./data/NVEnc_6_00_install_04.png)
+  
+  
+  
+このあとAviutlをダブルクリックして起動してください。
+
+初回起動時に必要に応じて下の図のようにNVEncの使用準備をするというメッセージが出ます。環境によっては準備が不要な場合があり、その場合は表示されません。
+
+OKをクリックすると使用準備が開始されます。
+
+![初回起動時](./data/NVEnc_6_00_install_05.png)
+  
+  
+  
+下の図のように、「この不明な発行元からのアプリがデバイスに変更を加えることを許可しますか?」というメッセージが表示されますので、「はい」をクリックしてください。
+
+![UAC](./data/NVEnc_6_00_install_06.png)
+  
+  
+  
+下の図のようなウィンドウが表示され、NVEncの使用に必要なモジュールがインストールされます。
+
+エラーなくインストールが完了すると下記のように表示されますので、右上の[x]ボタンでウィンドウを閉じてください。
+
+![auo_setup](./data/NVEnc_6_00_install_11.png)
+
+これで使用準備は完了です。
+
+### 確認
+
+NVEnc がAviutlに認識されているか確認します。
+
+Aviutlの [その他] > [出力プラグイン情報]を選択します。
+
+![出力プラグイン情報](./data/NVEnc_6_00_install_07.png)
+
+
+NVEnc が表示されていれば成功です。
+
+![確認](./data/NVEnc_6_00_install_09.png)
+
+
+### エンコード
+[ ファイル ] > [ プラグイン出力 ] > [ 拡張 NVEnc 出力 (GUI) ] を選択し、出力ファイル名を入力して、「保存」をクリックしてください。
+
+![プラグイン出力](./data/NVEnc_6_00_install_14.png)
+
+エンコードが開始されます。
+
+![エンコード](./data/NVEnc_6_00_install_10.webp)
+
+エンコードが完了するまで待ちます。お疲れ様でした。
+
 
 ## 基本動作環境  
 Windows 10/11 (x86/x64)  
-Linux (x64)  
 [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/) 1.00 以降 (NVEnc.auo)  
 NVEncが載ったハードウェア  
   NVIDIA製 GPU GeForce Kepler世代以降 (GT/GTX 6xx 以降)  
@@ -67,9 +141,6 @@ NVEncが載ったハードウェア
 | 11.1.1  | NVIDIA グラフィックドライバ (Win 456.81 / Linux 455.32)    以降 |
 | 11.2    | NVIDIA グラフィックドライバ (Win 460.89 / Linux 460.27.04) 以降 |
 
-## NVEncCの使用方法とオプション  
-[NVEncCのオプションの説明](./NVEncC_Options.ja.md)
-
 ## 各GPUのエンコード機能情報の調査結果  
 NVEncC --check-features の結果をまとめたものです。ドライバに問い合わせた結果となっています。そのため、ドライバのバージョンによって結果が異なる可能性があります。 
 
@@ -81,97 +152,6 @@ NVEncC --check-features の結果をまとめたものです。ドライバに�
 | Volta | [GTX1650](./GPUFeatures/gtx1650.txt) | |
 | Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt)  |
 | Ampere | [RTX3090](./GPUFeatures/rtx3090.txt), [RTX3080](./GPUFeatures/rtx3080.txt)  | |
-
-## NVEnc 使用にあたっての注意事項  
-無保証です。自己責任で使用してください。   
-NVEncを使用したことによる、いかなる損害・トラブルについても責任を負いません。  
-
-NVEncによる出力は、max_dec_frame_buffering フィールドを含まないことがあり、
-一部の再生環境では問題となることがあります。
-
-## 使用出来る主な機能
-### NVEnc/NVEncC共通
-- NVENCを使用したエンコード
-   - H.264/AVC
-      - YUV4:4:4対応
-   - H.265/HEVC (第2世代Maxwell以降)
-      - YUV4:4:4対応
-      - 10bit
-- NVENCの各エンコードモード
-   - CQP       固定量子化量
-   - CBR       固定ビットレート
-   - CBRHQ     固定ビットレート (高品質)
-   - VBR       可変ビットレート
-   - VBRHQ     可変ビットレート (高品質)
-- インタレ保持エンコード (PAFF方式)
-- colormatrix等の指定
-- SAR比指定
-- H.264 Level / Profileの指定
-- 最大ビットレート等の指定
-- 最大GOP長の指定
-- ロスレス出力 (YUV 420 / YUV 444)
-
-### NVEnc.auo
-- 音声エンコード
-- 音声及びチャプターとのmux機能
-- 自動フィールドシフト対応
-
-### NVEncC
-- cuvidデコードに対応
-  - MPEG1
-  - MPEG2
-  - H.264/AVC
-  - HEVC (10bit/12bit YUV4:4:4対応)
-  - VC-1
-  - VP9
-- avs, vpy, y4m, rawなど各種形式に対応
-- エンコード結果のSSIM/PSNR/VMAFを計算
-- GPUを使用した高速フィルタリング
-  - cuvid内蔵のhw処理
-    - リサイズ
-    - インタレ解除 (normal / bob)
-  - CUDAによるGPUフィルタリング
-    - rff (rffフラグの適用)
-    - インタレ解除
-      - afs (自動フィールドシフト)
-      - nnedi
-      - yadif
-    - decimate
-    - mpdecimate
-    - delogo
-    - 字幕焼きこみ
-    - 色空間変換 (x64版のみ)
-      - hdr2sdr
-      - lut3d
-    - リサイズ  
-      - bilinear
-      - spline16, spline36, spline64
-      - lanczos2, lanczos3, lanczos4
-      - nppライブラリによる各種アルゴリズム (x64版のみ)
-    - 回転 / 反転
-    - パディング(黒帯)の追加
-    - フレーム間引き(select every)
-    - バンディング低減
-    - ノイズ除去
-      - knn (K-nearest neighbor)
-      - pmd (正則化pmd法)
-      - gauss (nppライブラリ、x64版のみ)
-    - 輪郭・ディテール強調
-      - unsharp
-      - edgelevel (エッジレベル調整)
-      - warpsharp
-
-### cufilters.auf
-- 対応フィルタ
-  - nnedi
-  - リサイズ
-  - ノイズ除去
-    - knn (K-nearest neighbor)
-    - pmd (正則化pmd法)
-  - 輪郭・ディテール強調
-    - unsharp
-    - edgelevel (エッジレベル調整)
-  - バンディング低減  
 
 
 ## マルチGPU環境でのGPU自動選択
@@ -204,24 +184,14 @@ NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
   エンコードをほぼ同時に複数開始すると、複数のエンコードが同じGPUに割り当てられてしまうことが
   多いのでご注意ください。
 
-## NVEncのソースコードについて
-- MITライセンスです。
-- 本プログラムは、NVIDA CUDA Samplesをベースに作成されており、サンプルコードを含みます。  
-  This software contains source code provided by NVIDIA Corporation.  
-- 本ソフトウェアでは、
-  [jitify](https://github.com/NVIDIA/jitify),
-  [ffmpeg](https://ffmpeg.org/),
-  [vmaf](https://github.com/Netflix/vmaf),
-  [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
-  [dtl](https://github.com/cubicdaiya/dtl),
-  [libass](https://github.com/libass/libass),
-  [ttmath](http://www.ttmath.org/),
-  [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR)を使用しています。  
-  これらのライセンスにつきましては、該当ソースのヘッダ部分や、NVEnc_license.txtをご覧ください。
+## NVEnc の Aviutl からの削除
 
-### ソースの構成
-Windows ... VCビルド  
+NVEnc の Aviutl から削除するには、"plugins" フォルダ内の下記ファイルとフォルダを削除してください。
 
-文字コード: UTF-8-BOM  
-改行: CRLF  
-インデント: 空白x4  
+- [フォルダ] NVEnc_stg
+- [ファイル] NVEnc.auo
+- [ファイル] NVEnc.conf (存在する場合のみ)
+- [ファイル] NVEnc(.ini)
+- [ファイル] auo_setup.auf
+
+![削除](./data/NVEnc_6_00_uninstall_01.png)
