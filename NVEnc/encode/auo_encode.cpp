@@ -187,6 +187,22 @@ std::filesystem::path find_latest_videnc(const std::vector<std::filesystem::path
     return ret;
 }
 
+std::string find_latest_videnc_for_frm() {
+    char aviutl_dir[MAX_PATH_LEN] = { 0 };
+    get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+
+    char defaultExeDir[MAX_PATH_LEN] = { 0 };
+    PathCombineLong(defaultExeDir, _countof(defaultExeDir), aviutl_dir, DEFAULT_EXE_DIR);
+
+    const auto exeFiles = find_exe_files(defaultExeDir);
+    const auto targetExes = find_target_exe_files(ENCODER_NAME, exeFiles);
+    if (targetExes.size() > 0) {
+        const auto latestVidEnc = find_latest_videnc(targetExes);
+        return latestVidEnc.string().c_str();
+    }
+    return "";
+}
+
 void get_audio_pipe_name(char *pipename, size_t nSize, int audIdx) {
     sprintf_s(pipename, nSize, AUO_NAMED_PIPE_BASE, GetCurrentProcessId(), audIdx);
 }

@@ -7458,8 +7458,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUChromaQPOffset;
                 fcgTXVideoEncoderPath->ForeColor = System::Drawing::SystemColors::WindowText;
                 LocalStg.vidEncPath = fcgTXVideoEncoderPath->Text;
                 fcgTXVideoEncoderPath->ContextMenuStrip = (File::Exists(fcgTXVideoEncoderPath->Text)) ? fcgCSExeFiles : nullptr;
-                GetVidEncInfoAsync();
             }
+            GetVidEncInfoAsync();
         }
     private:
         System::Void fcgTXAudioEncoderPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {

@@ -1879,7 +1879,14 @@ VidEncInfo frmConfig::GetVidEncInfo() {
     if (info.devices != nullptr) {
         info.devices->Clear();
     }
-    GetCHARfromString(exe_path, sizeof(exe_path), LocalStg.vidEncPath);
+    if (File::Exists(LocalStg.vidEncPath)) {
+        GetCHARfromString(exe_path, sizeof(exe_path), LocalStg.vidEncPath);
+    } else {
+        const auto defaultExePath = find_latest_videnc_for_frm();
+        if (defaultExePath.length() > 0) {
+            strcpy_s(exe_path, defaultExePath.c_str());
+        }
+    }
     if (get_exe_message(exe_path, "--check-device", mes.data(), mes.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
         info.devices = gcnew List<String^>();
         auto lines = String(mes.data()).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
@@ -1915,10 +1922,16 @@ VidEncInfo frmConfig::GetVidEncInfo() {
 
 System::Void frmConfig::GetVidEncInfoAsync() {
     if (!File::Exists(LocalStg.vidEncPath)) {
-        nvencInfo.hwencAvail = false;
-        nvencInfo.h264Enc = false;
-        nvencInfo.hevcEnc = false;
-        return;
+        const auto defaultExePath = find_latest_videnc_for_frm();
+        if (defaultExePath.length() > 0) {
+            String^ exePath = String(defaultExePath.c_str()).ToString();
+            if (!File::Exists(exePath)) {
+                nvencInfo.hwencAvail = false;
+                nvencInfo.h264Enc = false;
+                nvencInfo.hevcEnc = false;
+                return;
+            }
+        }
     }
     if (taskNVEncInfo != nullptr && !taskNVEncInfo->IsCompleted) {
         taskNVEncInfoCancell->Cancel();
