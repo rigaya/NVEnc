@@ -42,6 +42,12 @@ void warning_failed_getting_temp_path() {
     write_log_auo_line(LOG_WARNING, "一時フォルダ名取得に失敗しました。一時フォルダ指定を解除しました。");
 }
 
+void warning_unable_to_open_tempfile(const char *dir) {
+    write_log_auo_line_fmt(LOG_WARNING,
+        "指定された一時フォルダ \"%s\" にファイルを作成できません。一時フォルダ指定を解除しました。",
+        dir);
+}
+
 void warning_no_temp_root(const char *dir) {
     write_log_auo_line_fmt(LOG_WARNING,
         "指定された一時フォルダ \"%s\" が存在しません。一時フォルダ指定を解除しました。",
@@ -80,12 +86,16 @@ void warning_no_auo_check_fileopen() {
     write_log_auo_line_fmt(LOG_WARNING, "同梱の %s フォルダをAviutlフォルダ内にすべてコピーできているか、再確認してください。", DEFAULT_EXE_DIR);
 }
 
-void error_failed_to_open_tempfile(const char *temp_filename, const char *mesBuffer, const DWORD err) {
-    write_log_auo_line_fmt(LOG_ERROR, "映像の出力ファイル \"%s\" を開くことができません。", temp_filename);
+static void error_failed_to_open_temp_file_dir(const char *temp_filename, const char *mesBuffer, const DWORD err, const BOOL target_is_dir) {
+    if (target_is_dir) {
+        write_log_auo_line_fmt(LOG_ERROR, "出力先 \"%s\" にファイルを作成できません。", temp_filename);
+    } else {
+        write_log_auo_line_fmt(LOG_ERROR, "映像の出力ファイル \"%s\" を開くことができません。", temp_filename);
+    }
     write_log_auo_line_fmt(LOG_ERROR, "  %s", mesBuffer);
     if (strchr(temp_filename, '?') != nullptr) {
-        write_log_auo_line(LOG_ERROR, "このエラーは、出力ファイル名に環境依存文字を含む場合に発生することがあります。");
-        write_log_auo_line(LOG_ERROR, "  該当文字は、\"?\"で表示されていますので該当文字を避けたファイル名で出力しなおしてください。");
+        write_log_auo_line(LOG_ERROR, "このエラーは、出力%s名に環境依存文字を含む場合に発生することがあります。", (target_is_dir) ? "フォルダ" : "ファイル");
+        write_log_auo_line(LOG_ERROR, "  該当文字は、\"?\"で表示されていますので該当文字を避けた%sに出力しなおしてください。", (target_is_dir) ? "フォルダ" : "ファイル");
     } else if (err == ERROR_ACCESS_DENIED) {
         char systemdrive_dir[MAX_PATH_LEN] = { 0 };
         char systemroot_dir[MAX_PATH_LEN] = { 0 };
@@ -109,8 +119,16 @@ void error_failed_to_open_tempfile(const char *temp_filename, const char *mesBuf
         write_log_auo_line(LOG_ERROR, "    など");
         write_log_auo_line(LOG_ERROR, "");
     } else {
-        write_log_auo_line(LOG_ERROR, "出力先のフォルダ・ファイル名を変更して出力しなおしてください。");
+        write_log_auo_line(LOG_ERROR, "出力先のフォルダ・ファイルを変更して出力しなおしてください。");
     }
+}
+
+void error_failed_to_open_tempdir(const char *temp_dir, const char *mesBuffer, const DWORD err) {
+    error_failed_to_open_temp_file_dir(temp_dir, mesBuffer, err, true);
+}
+
+void error_failed_to_open_tempfile(const char *temp_filename, const char *mesBuffer, const DWORD err) {
+    error_failed_to_open_temp_file_dir(temp_filename, mesBuffer, err, false);
 }
 
 void error_nothing_to_output() {
