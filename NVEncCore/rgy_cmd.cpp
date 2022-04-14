@@ -1753,6 +1753,96 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-convolution3d") && ENABLE_VPP_FILTER_CONVOLUTION3D) {
+        vpp->convolution3d.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{
+            "matrix", "fast", "ythresh", "cthresh", "t_ythresh", "t_cthresh" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        vpp->convolution3d.enable = true;
+                    } else if (param_val == _T("false")) {
+                        vpp->convolution3d.enable = false;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("matrix")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_convolution3d_matrix, param_val.c_str(), &value)) {
+                        vpp->convolution3d.matrix = (VppConvolution3dMatrix)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("fast")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->convolution3d.fast = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ythresh")) {
+                    try {
+                        vpp->convolution3d.threshYspatial = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cthresh")) {
+                    try {
+                        vpp->convolution3d.threshCspatial = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("t_ythresh")) {
+                    try {
+                        vpp->convolution3d.threshYtemporal = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("t_cthresh")) {
+                    try {
+                        vpp->convolution3d.threshCtemporal = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-knn")) {
         vpp->knn.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -5289,6 +5379,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-pad");
         }
     }
+    if (param->convolution3d != defaultPrm->convolution3d) {
+        tmp.str(tstring());
+        if (!param->convolution3d.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->convolution3d.enable || save_disabled_prm) {
+            ADD_LST(_T("matrix"),    convolution3d.matrix, list_vpp_convolution3d_matrix);
+            ADD_BOOL(_T("fast"),     convolution3d.fast);
+            ADD_NUM(_T("ythresh"),   convolution3d.threshYspatial);
+            ADD_NUM(_T("cthresh"),   convolution3d.threshCspatial);
+            ADD_NUM(_T("t_ythresh"), convolution3d.threshYtemporal);
+            ADD_NUM(_T("t_cthresh"), convolution3d.threshCtemporal);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-convolution3d ") << tmp.str().substr(1);
+        } else if (param->convolution3d.enable) {
+            cmd << _T(" --vpp-convolution3d");
+        }
+    }
     if (param->knn != defaultPrm->knn) {
         tmp.str(tstring());
         if (!param->knn.enable && save_disabled_prm) {
@@ -6409,6 +6518,20 @@ tstring gen_cmd_help_vpp() {
     str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize, 0);
 #if ENCODER_QSV
     str += print_list_options(_T("--vpp-resize-mode <string>"), list_vpp_resize_mode, 0);
+#endif
+#if ENABLE_VPP_FILTER_CONVOLUTION3D
+    str += strsprintf(_T("\n")
+        _T("   --vpp-convolution3d [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable denoise filter by convolution3d.\n")
+        _T("    params\n")
+        _T("      matrix=<string>  standard(default), simple\n")
+        _T("      fast=<bool>      use fast mode\n")
+        _T("      ythresh=<int>    spatial  luma threshold   (default=%d, 0 - 255)\n")
+        _T("      cthresh=<int>    spatial  chroma threshold (default=%d, 0 - 255)\n")
+        _T("      t_ythresh=<int>  temporal luma threshold   (default=%d, 0 - 255)\n")
+        _T("      t_cthresh=<int>  temporal chroma threshold (default=%d, 0 - 255)\n"),
+        FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_SPATIAL, FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_SPATIAL,
+        FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_TEMPORAL, FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_TEMPORAL);
 #endif
     str += strsprintf(_T("")
         _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")

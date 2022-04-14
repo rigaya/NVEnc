@@ -156,6 +156,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - knn (K-nearest neighbor)
       - pmd (正則化pmd法)
       - gauss (nppライブラリ、x64版のみ)
+      - convolution3d
     - 輪郭・ディテール強調
       - unsharp
       - edgelevel (エッジレベル調整)

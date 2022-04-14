@@ -509,6 +509,9 @@
     <ClInclude Include="rgy_thread_affinity.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterConvolution3d.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="NVEncFilterCrop.cu">
@@ -575,6 +578,9 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterWarpsharp.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterConvolution3d.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
   </ItemGroup>

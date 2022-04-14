@@ -1634,6 +1634,35 @@ yadifによるインタレ解除を行う。
 | super         | nppのsuper sampling(詳細不明) | ○ |
 | lanczos       | Lanczos法                    | ○ |
 
+### --vpp-convolution3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+3次元ノイズ除去フィルタ。
+
+**パラメータ**
+- matrix=&lt;string&gt;  (デフォルト=original)  
+  使用するmatrixの選択。  
+  - standard
+  - simple
+
+- fast=&lt;bool&gt  (default=false)  
+  計算を簡略化した高速モードを使用する。
+
+- ythresh=&lt;float&gt;  (デフォルト=3, 0-255)  
+  spatial luma threshold. 
+
+- cthresh=&lt;float&gt;  (デフォルト=4, 0-255)  
+  spatial chroma threshold.
+
+- t_ythresh=&lt;float&gt;  (デフォルト=3, 0-255)  
+  temporal luma threshold. 
+
+- t_cthresh=&lt;float&gt;  (デフォルト=4, 0-255)  
+  temporal chroma threshold.
+
+```
+例: simple matrixの使用
+--vpp-convolution3d matrix=simple
+```
+
   
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 

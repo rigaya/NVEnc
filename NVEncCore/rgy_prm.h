@@ -57,6 +57,7 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 #define ENABLE_VPP_FILTER_PAD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
@@ -123,6 +124,11 @@ static const bool  FILTER_DEFAULT_MPDECIMATE_MAX = 0;
 static const float FILTER_DEFAULT_MPDECIMATE_FRAC = 0.33f;
 static const bool  FILTER_DEFAULT_MPDECIMATE_LOG = false;
 
+static const int   FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_SPATIAL  = 3;
+static const int   FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_SPATIAL  = 4;
+static const int   FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_TEMPORAL = 3;
+static const int   FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_TEMPORAL = 4;
+
 static const int   FILTER_DEFAULT_KNN_RADIUS = 3;
 static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
 static const float FILTER_DEFAULT_KNN_LERPC = 0.20f;
@@ -183,6 +189,9 @@ const CX_DESC list_vpp_denoise[] = {
     { _T("knn"),     1 },
     { _T("pmd"),     2 },
     { _T("smooth"),  3 },
+#if ENCODER_NVENC
+    { _T("convolution3d"),  5 },
+#endif
     { NULL, 0 }
 };
 
@@ -834,6 +843,32 @@ struct VppPad {
     tstring print() const;
 };
 
+enum class VppConvolution3dMatrix {
+    Standard,
+    Simple,
+};
+
+const CX_DESC list_vpp_convolution3d_matrix[] = {
+    { _T("standard"),  (int)VppConvolution3dMatrix::Standard },
+    { _T("simple"),    (int)VppConvolution3dMatrix::Simple   },
+    { NULL, 0 }
+};
+
+struct VppConvolution3d {
+    bool enable;
+    bool fast;
+    VppConvolution3dMatrix matrix;
+    int threshYspatial;
+    int threshCspatial;
+    int threshYtemporal;
+    int threshCtemporal;
+
+    VppConvolution3d();
+    bool operator==(const VppConvolution3d &x) const;
+    bool operator!=(const VppConvolution3d &x) const;
+    tstring print() const;
+};
+
 struct VppKnn {
     bool  enable;
     int   radius;
@@ -997,6 +1032,7 @@ struct RGYParamVpp {
     VppDecimate decimate;
     VppMpdecimate mpdecimate;
     VppPad pad;
+    VppConvolution3d convolution3d;
     VppKnn knn;
     VppPmd pmd;
     VppSmooth smooth;

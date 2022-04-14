@@ -146,6 +146,7 @@ which might cause problem in some playback environments.
       - knn (K-nearest neighbor)
       - pmd (modified pmd method)
       - gauss (npp library, x64 version only)
+      - convolution3d
     - edge / detail enhancement
       - unsharp
       - edgelevel (edge ​​level adjustment)

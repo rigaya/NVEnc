@@ -1591,6 +1591,35 @@ Those with "○" in nppi64_10.dll use the [NPP library](https://developer.nvidia
 | super         | So called "super sampling" by NPP library | ○ |
 | lanczos       | Lanczos interpolation                    | ○ |
 
+### --vpp-convolution3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+3d noise reduction.
+
+**Parameters**
+- matrix=&lt;string&gt;  (default=original)  
+  select matrix to use.  
+  - standard
+  - simple
+  
+- fast=&lt;bool&gt  (default=false)  
+  Use more simple fast mode.
+
+- ythresh=&lt;float&gt;  (default=3, 0-255)  
+  spatial luma threshold. 
+
+- cthresh=&lt;float&gt;  (default=4, 0-255)  
+  spatial chroma threshold.
+
+- t_ythresh=&lt;float&gt;  (default=3, 0-255)  
+  temporal luma threshold. 
+
+- t_cthresh=&lt;float&gt;  (default=4, 0-255)  
+  temporal chroma threshold.
+
+```
+Example: using simple matrix
+--vpp-convolution3d matrix=simple
+```
+
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Strong noise reduction filter.
 

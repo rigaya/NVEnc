@@ -751,6 +751,39 @@ tstring VppSmooth::print() const {
     return str;
 }
 
+VppConvolution3d::VppConvolution3d() :
+    enable(false),
+    fast(false),
+    matrix(VppConvolution3dMatrix::Standard),
+    threshYspatial(FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_SPATIAL),
+    threshCspatial(FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_SPATIAL),
+    threshYtemporal(FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_TEMPORAL),
+    threshCtemporal(FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_TEMPORAL) {
+
+}
+
+bool VppConvolution3d::operator==(const VppConvolution3d &x) const {
+    return enable == x.enable
+        && fast == x.fast
+        && matrix == x.matrix
+        && threshYspatial == x.threshYspatial
+        && threshCspatial == x.threshCspatial
+        && threshYtemporal == x.threshYtemporal
+        && threshCtemporal == x.threshCtemporal;
+}
+bool VppConvolution3d::operator!=(const VppConvolution3d &x) const {
+    return !(*this == x);
+}
+
+tstring VppConvolution3d::print() const {
+    tstring str = strsprintf(_T("convolution3d: matrix %s, mode %s\n")
+        _T("                       threshold spatial luma %d, chroma %d, temporal luma:%d, chroma %d"),
+        get_cx_desc(list_vpp_convolution3d_matrix, (int)matrix),
+        fast ? _T("fast") : _T("normal"),
+        threshYspatial, threshCspatial, threshYtemporal, threshCtemporal);
+    return str;
+}
+
 VppSubburn::VppSubburn() :
     enable(false),
     filename(),
@@ -1026,6 +1059,7 @@ RGYParamVpp::RGYParamVpp() :
     decimate(),
     mpdecimate(),
     pad(),
+    convolution3d(),
     knn(),
     pmd(),
     smooth(),

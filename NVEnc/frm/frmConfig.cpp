@@ -756,6 +756,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppDetailEnhance,  list_vpp_detail_enahance);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
     setComboBox(fcgCXVppDeinterlace,    list_vpp_deinterlacer);
+    setComboBox(fcgCXVppDenoiseConv3DMatrix,   list_vpp_convolution3d_matrix);
     setComboBox(fcgCXVppAfsAnalyze,     list_vpp_afs_analyze);
     setComboBox(fcgCXVppNnediNsize,     list_vpp_nnedi_nsize);
     setComboBox(fcgCXVppNnediNns,       list_vpp_nnedi_nns);
@@ -869,6 +870,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
     fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
+    fcgPNVppDenoiseConv3D->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d")));
     fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
     fcgPNVppWarpsharp->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("warpsharp")));
@@ -1106,6 +1108,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
         } else if (encPrm.vpp.smooth.enable) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
+        } else if (encPrm.vpp.convolution3d.enable) {
+            dnoise_idx = get_cx_index(list_vpp_denoise, _T("convolution3d"));
         }
         SetCXIndex(fcgCXVppDenoiseMethod,        dnoise_idx);
 
@@ -1137,6 +1141,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoisePmdThreshold,  encPrm.vpp.pmd.threshold);
         SetNUValue(fcgNUVppDenoiseSmoothQuality, encPrm.vpp.smooth.quality);
         SetNUValue(fcgNUVppDenoiseSmoothQP,      encPrm.vpp.smooth.qp);
+        SetCXIndex(fcgCXVppDenoiseConv3DMatrix,          get_cx_index(list_vpp_convolution3d_matrix, (int)encPrm.vpp.convolution3d.matrix));
+        SetNUValue(fcgNUVppDenoiseConv3DThreshYSpatial,  encPrm.vpp.convolution3d.threshYspatial);
+        SetNUValue(fcgNUVppDenoiseConv3DThreshCSpatial,  encPrm.vpp.convolution3d.threshCspatial);
+        SetNUValue(fcgNUVppDenoiseConv3DThreshYTemporal, encPrm.vpp.convolution3d.threshYtemporal);
+        SetNUValue(fcgNUVppDenoiseConv3DThreshCTemporal, encPrm.vpp.convolution3d.threshCtemporal);
         fcgCBVppDebandEnable->Checked          = encPrm.vpp.deband.enable;
         SetNUValue(fcgNUVppDebandRange,          encPrm.vpp.deband.range);
         SetNUValue(fcgNUVppDebandThreY,          encPrm.vpp.deband.threY);
@@ -1392,6 +1401,13 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.smooth.enable          = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth"));
     encPrm.vpp.smooth.quality         = (int)fcgNUVppDenoiseSmoothQuality->Value;
     encPrm.vpp.smooth.qp              = (int)fcgNUVppDenoiseSmoothQP->Value;
+
+    encPrm.vpp.convolution3d.enable          = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d"));
+    encPrm.vpp.convolution3d.matrix          = (VppConvolution3dMatrix)list_vpp_convolution3d_matrix[fcgCXVppDenoiseConv3DMatrix->SelectedIndex].value;;
+    encPrm.vpp.convolution3d.threshYspatial  = (int)fcgNUVppDenoiseConv3DThreshYSpatial->Value;
+    encPrm.vpp.convolution3d.threshCspatial  = (int)fcgNUVppDenoiseConv3DThreshCSpatial->Value;
+    encPrm.vpp.convolution3d.threshYtemporal = (int)fcgNUVppDenoiseConv3DThreshYTemporal->Value;
+    encPrm.vpp.convolution3d.threshCtemporal = (int)fcgNUVppDenoiseConv3DThreshCTemporal->Value;
 
     encPrm.vpp.unsharp.enable         = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
     encPrm.vpp.unsharp.radius         = (int)fcgNUVppUnsharpRadius->Value;
