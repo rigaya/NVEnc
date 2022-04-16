@@ -7,10 +7,10 @@ by rigaya
 このソフトウェアは、NVIDIAのGPU/APUに搭載されているHWエンコーダ(NVENC)の画質や速度といった性能の実験を目的としています。
 [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグイン版と単体で動作するコマンドライン版があります。  
 
-- NVEncC.exe  
+- [NVEncC.exe](./Readme.ja.md)  
   単体で動作するコマンドライン版については、[こちら](./NVEnc_auo_readme.md)を参照してください。
 
-- [NVEnc.auo](./NVEnc_auo_readme.md)  
+- NVEnc.auo  
   NVIDIAのNVEncを使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインです。本項で説明します。
 
 - cufilters  
@@ -83,13 +83,13 @@ Aviutlの [その他] > [出力プラグイン情報]を選択します。
 ![出力プラグイン情報](./data/NVEnc_6_00_install_07.png)
 
 
-NVEnc が表示されていれば成功です。
+拡張 NVEnc 出力 が表示されていれば成功です。
 
 ![確認](./data/NVEnc_6_00_install_09.png)
 
 
 ### エンコード
-[ ファイル ] > [ プラグイン出力 ] > [ 拡張 NVEnc 出力 (GUI) ] を選択し、出力ファイル名を入力して、「保存」をクリックしてください。
+[ ファイル ] > [ プラグイン出力 ] > [ 拡張 NVEnc 出力 ] を選択し、出力ファイル名を入力して、「保存」をクリックしてください。
 
 ![プラグイン出力](./data/NVEnc_6_00_install_14.png)
 
