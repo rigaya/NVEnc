@@ -2224,7 +2224,7 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
     pkt.pos = m_Mux.video.parserStreamPos;
     uint8_t *dummy = nullptr;
     int dummy_size = 0;
-    if (0 < av_parser_parse2(m_Mux.video.parserCtx, m_Mux.video.streamOut->codec, &dummy, &dummy_size, pkt.data, pkt.size, pkt.pts, pkt.dts, pkt.pos)) {
+    if (0 < av_parser_parse2(m_Mux.video.parserCtx, m_Mux.video.codecCtx, &dummy, &dummy_size, pkt.data, pkt.size, pkt.pts, pkt.dts, pkt.pos)) {
         //pBitstream->PictStruct = m_Mux.video.parserCtx->picture_structure;
         //pBitstream->RepeatPict = m_Mux.video.parserCtx->repeat_pict;
 
