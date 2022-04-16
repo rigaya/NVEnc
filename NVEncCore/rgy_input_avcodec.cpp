@@ -2202,7 +2202,7 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
     }
 
     //該当フレームが-1フレーム未満なら、その音声はこの動画には含まれない
-    if (stream->lastVidIndex < -1) {
+    if (stream->lastVidIndex < 0) {
         return false;
     }
 
@@ -2278,7 +2278,8 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
                 //基本的には動画の情報を基準に情報を修正する
                 const int first_vid_frame = (m_trimParam.list.size() > 0) ? m_trimParam.list[0].start : 0;
                 const int64_t vid0_start = convertTimebaseVidToStream(m_Demux.frames.list(first_vid_frame).pts, stream);
-                stream->trimOffset += std::min(aud1_start, vid0_start) - m_Demux.video.streamFirstKeyPts;
+                const int64_t vid0_first = convertTimebaseVidToStream(m_Demux.video.streamFirstKeyPts,          stream);
+                stream->trimOffset += std::max(0ll, vid0_start - vid0_first);
             } else {
                 assert(frame_trim_block_index > 0);
                 const int last_valid_vid_frame = m_trimParam.list[frame_trim_block_index-1].start;
