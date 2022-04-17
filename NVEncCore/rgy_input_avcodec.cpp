@@ -2279,7 +2279,7 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
                 const int first_vid_frame = (m_trimParam.list.size() > 0) ? m_trimParam.list[0].start : 0;
                 const int64_t vid0_start = convertTimebaseVidToStream(m_Demux.frames.list(first_vid_frame).pts, stream);
                 const int64_t vid0_first = convertTimebaseVidToStream(m_Demux.video.streamFirstKeyPts,          stream);
-                stream->trimOffset += std::max(0ll, vid0_start - vid0_first);
+                stream->trimOffset += std::max<int64_t>(0, vid0_start - vid0_first);
             } else {
                 assert(frame_trim_block_index > 0);
                 const int last_valid_vid_frame = m_trimParam.list[frame_trim_block_index-1].start;
