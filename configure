@@ -641,7 +641,7 @@ convert_csp_sse41.cpp  convert_csp_ssse3.cpp
 "
 
 CU_NVENCCORE=" \
-NVEncFilterAfsAnalyze.cu  NVEncFilterAfsFilter.cu   NVEncFilterAfsMerge.cu   NVEncFilterAfsSynthesize.cu \
+NVEncFilterAfsAnalyze.cu  NVEncFilterAfsFilter.cu   NVEncFilterAfsMerge.cu   NVEncFilterAfsSynthesize.cu         NVEncFilterConvolution3d.cu \
 NVEncFilterCrop.cu        NVEncFilterDeband.cu      NVEncFilterDecimate.cu   NVEncFilterDelogo.cu \
 NVEncFilterDenoiseKnn.cu  NVEncFilterDenoisePmd.cu  NVEncFilterEdgelevel.cu  NVEncFilterMpdecimate.cu            NVEncFilterNnedi.cu \
 NVEncFilterResize.cu      NVEncFilterSmooth.cu      NVEncFilterSsim.cu       NVEncFilterSubburn.cu \
