@@ -8,7 +8,7 @@ by rigaya
 [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグイン版と単体で動作するコマンドライン版があります。  
 
 - [NVEncC.exe](./Readme.ja.md)  
-  単体で動作するコマンドライン版については、[こちら](./NVEnc_auo_readme.md)を参照してください。
+  単体で動作するコマンドライン版については、[こちら](./Readme.ja.md)を参照してください。
 
 - NVEnc.auo  
   NVIDIAのNVEncを使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインです。本項で説明します。
