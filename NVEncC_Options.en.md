@@ -1182,7 +1182,7 @@ Values for parameters will be copied from input file for "input".
   
 - lut3d_interp=&lt;string&gt;  
   ```
-  nearest, trilinear, tetrahedral
+  nearest, trilinear, pyramid, prism, tetrahedral
   ```
 
 - hdr2sdr=&lt;string&gt;  

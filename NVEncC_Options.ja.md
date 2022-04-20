@@ -1182,7 +1182,7 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
   
 - lut3d_interp=&lt;string&gt;  
   ```
-  nearest, trilinear, tetrahedral
+  nearest, trilinear, pyramid, prism, tetrahedral
   ```
 
 - hdr2sdr=&lt;string&gt;  

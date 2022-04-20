@@ -592,7 +592,9 @@ struct HDR2SDRParams {
 enum class LUT3DInterp {
     Nearest,
     Trilinear,
-    Tetrahedral
+    Pyramid,
+    Prism,
+    Tetrahedral,
 };
 
 static const auto FILTER_DEFAULT_LUT3D_INTERP = LUT3DInterp::Tetrahedral;
@@ -600,6 +602,8 @@ static const auto FILTER_DEFAULT_LUT3D_INTERP = LUT3DInterp::Tetrahedral;
 const CX_DESC list_vpp_colorspace_lut3d_interp[] = {
     { _T("nearest"),     (int)LUT3DInterp::Nearest     },
     { _T("trilinear"),   (int)LUT3DInterp::Trilinear   },
+    { _T("pyramid"),     (int)LUT3DInterp::Pyramid     },
+    { _T("prism"),       (int)LUT3DInterp::Prism       },
     { _T("tetrahedral"), (int)LUT3DInterp::Tetrahedral },
     { NULL, 0 }
 };
