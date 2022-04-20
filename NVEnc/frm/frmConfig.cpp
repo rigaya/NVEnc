@@ -1939,14 +1939,18 @@ VidEncInfo frmConfig::GetVidEncInfo() {
 System::Void frmConfig::GetVidEncInfoAsync() {
     if (!File::Exists(LocalStg.vidEncPath)) {
         const auto defaultExePath = find_latest_videnc_for_frm();
-        if (defaultExePath.length() > 0) {
-            String^ exePath = String(defaultExePath.c_str()).ToString();
-            if (!File::Exists(exePath)) {
-                nvencInfo.hwencAvail = false;
-                nvencInfo.h264Enc = false;
-                nvencInfo.hevcEnc = false;
-                return;
-            }
+        if (defaultExePath.length() == 0) {
+            nvencInfo.hwencAvail = false;
+            nvencInfo.h264Enc = false;
+            nvencInfo.hevcEnc = false;
+            return;
+        }
+        String^ exePath = String(defaultExePath.c_str()).ToString();
+        if (!File::Exists(exePath)) {
+            nvencInfo.hwencAvail = false;
+            nvencInfo.h264Enc = false;
+            nvencInfo.hevcEnc = false;
+            return;
         }
     }
     if (taskNVEncInfo != nullptr && !taskNVEncInfo->IsCompleted) {
