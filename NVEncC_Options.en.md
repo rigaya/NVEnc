@@ -1149,6 +1149,35 @@ Example3: set metadata
 
 ## Vpp Options
 
+These options will apply filters before encoding.
+
+Vpp filters will be applied in fixed order, regardless of the order in the commandline.
+
+- [--vpp-deinterlace](./NVEncC_Options.en.md#--vpp-deinterlace-string)
+- [--vpp-colorspace](./NVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2)
+- [--vpp-rff](./NVEncC_Options.en.md#--vpp-rff)
+- [--vpp-delogo](./NVEncC_Options.en.md#--vpp-delogo-stringparam1value1param2value2)
+- [--vpp-afs](./NVEncC_Options.en.md#--vpp-afs-param1value1param2value2)
+- [--vpp-nnedi](./NVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2)
+- [--vpp-yadif](./NVEncC_Options.en.md#--vpp-yadif-param1value1)
+- [--vpp-decimate](./NVEncC_Options.en.md#--vpp-decimate-param1value1param2value2)
+- [--vpp-mpdecimate](./NVEncC_Options.en.md#--vpp-mpdecimate-param1value1param2value2)
+- [--vpp-select-every](./NVEncC_Options.en.md#--vpp-select-every-intparam1int)
+- [--vpp-transform/rotate](./NVEncC_Options.en.md#--vpp-rotate-int)
+- [--vpp-convolution3d](./NVEncC_Options.en.md#--vpp-convolution3d-param1value1param2value2)
+- [--vpp-smooth](./NVEncC_Options.en.md#--vpp-smooth-param1value1param2value2)
+- [--vpp-knn](./NVEncC_Options.en.md#--vpp-knn-param1value1param2value2)
+- [--vpp-pmd](./NVEncC_Options.en.md#--vpp-pmd-param1value1param2value2)
+- [--vpp-gauss](./NVEncC_Options.en.md#--vpp-gauss-int)
+- [--vpp-subburn](./NVEncC_Options.en.md#--vpp-subburn-param1value1param2value2)
+- [--vpp-resize](./NVEncC_Options.en.md#--vpp-resize-string)
+- [--vpp-unsharp](./NVEncC_Options.en.md#--vpp-unsharp-param1value1param2value2)
+- [--vpp-edgelevel](./NVEncC_Options.en.md#--vpp-edgelevel-param1value1param2value2)
+- [--vpp-warpsharp](./NVEncC_Options.en.md#--vpp-warpsharp-param1value1param2value2)
+- [--vpp-tweak](./NVEncC_Options.en.md#--vpp-tweak-param1value1param2value2)
+- [--vpp-deband](./NVEncC_Options.en.md#--vpp-deband-param1value1param2value2)
+- [--vpp-padding](./NVEncC_Options.en.md#--vpp-pad-intintintint)
+
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 Converts colorspace of the video. Available on x64 version.  
 Values for parameters will be copied from input file for "input".

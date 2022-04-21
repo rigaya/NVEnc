@@ -1148,6 +1148,34 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 
 ## vppオプション
 
+エンコード前にフィルタ処理を追加するオプションです。
+
+vppフィルタの適用順は固定で、コマンドラインの順序によらず下記順番で適用されます。
+
+- [--vpp-deinterlace](./NVEncC_Options.ja.md#--vpp-deinterlace-string)
+- [--vpp-colorspace](./NVEncC_Options.ja.md#--vpp-colorspace-param1value1param2value2)
+- [--vpp-rff](./NVEncC_Options.ja.md#--vpp-rff)
+- [--vpp-delogo](./NVEncC_Options.ja.md#--vpp-delogo-stringparam1value1param2value2)
+- [--vpp-afs](./NVEncC_Options.ja.md#--vpp-afs-param1value1param2value2)
+- [--vpp-nnedi](./NVEncC_Options.ja.md#--vpp-nnedi-param1value1param2value2)
+- [--vpp-yadif](./NVEncC_Options.ja.md#--vpp-yadif-param1value1)
+- [--vpp-decimate](./NVEncC_Options.ja.md#--vpp-decimate-param1value1param2value2)
+- [--vpp-mpdecimate](./NVEncC_Options.ja.md#--vpp-mpdecimate-param1value1param2value2)
+- [--vpp-select-every](./NVEncC_Options.ja.md#--vpp-select-every-intparam1int)
+- [--vpp-transform/rotate](./NVEncC_Options.ja.md#--vpp-rotate-int)
+- [--vpp-convolution3d](./NVEncC_Options.ja.md#--vpp-convolution3d-param1value1param2value2)
+- [--vpp-smooth](./NVEncC_Options.ja.md#--vpp-smooth-param1value1param2value2)
+- [--vpp-knn](./NVEncC_Options.ja.md#--vpp-knn-param1value1param2value2)
+- [--vpp-pmd](./NVEncC_Options.ja.md#--vpp-pmd-param1value1param2value2)
+- [--vpp-gauss](./NVEncC_Options.ja.md#--vpp-gauss-int)
+- [--vpp-subburn](./NVEncC_Options.ja.md#--vpp-subburn-param1value1param2value2)
+- [--vpp-resize](./NVEncC_Options.ja.md#--vpp-resize-string)
+- [--vpp-unsharp](./NVEncC_Options.ja.md#--vpp-unsharp-param1value1param2value2)
+- [--vpp-edgelevel](./NVEncC_Options.ja.md#--vpp-edgelevel-param1value1param2value2)
+- [--vpp-warpsharp](./NVEncC_Options.ja.md#--vpp-warpsharp-param1value1param2value2)
+- [--vpp-tweak](./NVEncC_Options.ja.md#--vpp-tweak-param1value1param2value2)
+- [--vpp-deband](./NVEncC_Options.ja.md#--vpp-deband-param1value1param2value2)
+- [--vpp-padding](./NVEncC_Options.ja.md#--vpp-pad-intintintint)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 色空間変換を行う。x64版のみ使用可能。  
