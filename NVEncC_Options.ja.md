@@ -1,209 +1,207 @@
 ﻿
-# NVEncC オプションリスト
+# NVEncC オプションリスト <!-- omit in toc -->
 
-- [NVEncC オプションリスト](#nvencc-オプションリスト)
-  - [コマンドラインの例](#コマンドラインの例)
-    - [基本的なコマンドの表記](#基本的なコマンドの表記)
-    - [もっと実用的なコマンド](#もっと実用的なコマンド)
-      - [hwデコードを使用する例](#hwデコードを使用する例)
-      - [hwデコードを使用する例 (インタレ保持)](#hwデコードを使用する例-インタレ保持)
-      - [avs(Avisynth)の例 (avsやvpyはvfw経由でも読み込み可能です)](#avsavisynthの例-avsやvpyはvfw経由でも読み込み可能です)
-      - [パイプ利用の例](#パイプ利用の例)
-      - [ffmpegからパイプ渡し](#ffmpegからパイプ渡し)
-      - [ffmpegから映像と音声を両方パイプ渡したい](#ffmpegから映像と音声を両方パイプ渡したい)
-      - [raw H.264/ESのmux](#raw-h264esのmux)
-  - [オプションの指定方法](#オプションの指定方法)
-  - [表示系オプション](#表示系オプション)
-    - [-h,-? --help](#-h----help)
-    - [-v, --version](#-v---version)
-    - [--option-list](#--option-list)
-    - [--check-device](#--check-device)
-    - [--check-hw [&lt;int&gt;]](#--check-hw-int)
-    - [--check-features [&lt;int&gt;]](#--check-features-int)
-    - [--check-environment](#--check-environment)
-    - [--check-codecs, --check-decoders, --check-encoders](#--check-codecs---check-decoders---check-encoders)
-    - [--check-profiles &lt;string&gt;](#--check-profiles-string)
-    - [--check-formats](#--check-formats)
-    - [--check-protocols](#--check-protocols)
-    - [--check-filters](#--check-filters)
-    - [--check-avversion](#--check-avversion)
-  - [エンコードの基本的なオプション](#エンコードの基本的なオプション)
-    - [-d, --device &lt;int&gt;](#-d---device-int)
-    - [-c, --codec &lt;string&gt;](#-c---codec-string)
-    - [-o, --output &lt;string&gt;](#-o---output-string)
-    - [-i, --input &lt;string&gt;](#-i---input-string)
-    - [--raw](#--raw)
-    - [--y4m](#--y4m)
-    - [--avi](#--avi)
-    - [--avs](#--avs)
-    - [--vpy](#--vpy)
-    - [--avsw](#--avsw)
-    - [--avhw](#--avhw)
-    - [--interlace &lt;string&gt;](#--interlace-string)
-    - [--crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;](#--crop-intintintint)
-    - [--fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;](#--fps-intint-or-float)
-    - [--input-res &lt;int&gt;x&lt;int&gt;](#--input-res-intxint)
-    - [--output-res &lt;int&gt;x&lt;int&gt;](#--output-res-intxint)
-    - [--input-csp &lt;string&gt;](#--input-csp-string)
-  - [エンコードモードのオプション](#エンコードモードのオプション)
-    - [--cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;　(固定量子化量)](#--cqp-int-or-intintint固定量子化量)
-    - [--cbr &lt;int&gt;   (固定ビットレート)](#--cbr-int---固定ビットレート)
-    - [--vbr &lt;int&gt;   (可変ビットレート)](#--vbr-int---可変ビットレート)
-    - [--qvbr  &lt;float&gt; (固定品質モード)](#--qvbr--float-固定品質モード)
-  - [その他のオプション](#その他のオプション)
-    - [-u, --preset](#-u---preset)
-    - [--output-depth &lt;int&gt;](#--output-depth-int)
-    - [--lossless](#--lossless)
-    - [--multipass &lt;string&gt;](#--multipass-string)
-    - [--max-bitrate &lt;int&gt;](#--max-bitrate-int)
-    - [--vbv-bufsize &lt;int&gt;](#--vbv-bufsize-int)
-    - [--qp-init &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-init-int-or-intintint)
-    - [--qp-min &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-min-int-or-intintint)
-    - [--qp-max &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-max-int-or-intintint)
-    - [--chroma-qp-offset &lt;int&gt;](#--chroma-qp-offset-int)
-    - [--vbr-quality &lt;float&gt;](#--vbr-quality-float)
-    - [--dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...](#--dynamic-rc-intintintintparam1value1param2value2)
-    - [--lookahead &lt;int&gt;](#--lookahead-int)
-    - [--no-i-adapt](#--no-i-adapt)
-    - [--no-b-adapt](#--no-b-adapt)
-    - [--strict-gop](#--strict-gop)
-    - [--gop-len &lt;int&gt;](#--gop-len-int)
-    - [-b, --bframes &lt;int&gt;](#-b---bframes-int)
-    - [--ref &lt;int&gt;](#--ref-int)
-    - [--multiref-l0 &lt;int&gt;](#--multiref-l0-int)
-    - [--multiref-l1 &lt;int&gt;](#--multiref-l1-int)
-    - [--weightp](#--weightp)
-    - [--nonrefp](#--nonrefp)
-    - [--aq](#--aq)
-    - [--aq-temporal](#--aq-temporal)
-    - [--aq-strength &lt;int&gt;](#--aq-strength-int)
-    - [--bref-mode &lt;string&gt;](#--bref-mode-string)
-    - [--direct &lt;string&gt; [H.264のみ]](#--direct-string-h264のみ)
-    - [--(no-)adapt-transform [H.264のみ]](#--no-adapt-transform-h264のみ)
-    - [--mv-precision &lt;string&gt;](#--mv-precision-string)
-    - [--slices &lt;int&gt;](#--slices-int)
-    - [--level &lt;string&gt;](#--level-string)
-    - [--profile &lt;string&gt;](#--profile-string)
-    - [--tier &lt;string&gt;](#--tier-string)
-    - [--sar &lt;int&gt;:&lt;int&gt;](#--sar-intint)
-    - [--dar &lt;int&gt;:&lt;int&gt;](#--dar-intint)
-    - [--colorrange &lt;string&gt;](#--colorrange-string)
-    - [--videoformat &lt;string&gt;](#--videoformat-string)
-    - [--colormatrix &lt;string&gt;](#--colormatrix-string)
-    - [--colorprim &lt;string&gt;](#--colorprim-string)
-    - [--transfer &lt;string&gt;](#--transfer-string)
-    - [--chromaloc &lt;int&gt; or "auto"](#--chromaloc-int-or-auto)
-    - [--max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVCのみ]](#--max-cll-intint-or-copy-hevcのみ)
-    - [--master-display &lt;string&gt; or "copy" [HEVCのみ]](#--master-display-string-or-copy-hevcのみ)
-    - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVCのみ]](#--atc-sei-string-or-int-hevcのみ)
-    - [--dhdr10-info &lt;string&gt; [HEVC only]](#--dhdr10-info-string-hevc-only)
-    - [--dhdr10-info copy [HEVC only, Experimental]](#--dhdr10-info-copy-hevc-only-experimental)
-    - [--dolby-vision-profile &lt;float&gt;](#--dolby-vision-profile-float)
-    - [--dolby-vision-rpu &lt;string&gt;](#--dolby-vision-rpu-string)
-    - [--aud](#--aud)
-    - [--repeat-headers](#--repeat-headers)
-    - [--pic-struct](#--pic-struct)
-    - [--cabac [H.264のみ]](#--cabac-h264のみ)
-    - [--cavlc [H.264のみ]](#--cavlc-h264のみ)
-    - [--bluray [H.264のみ]](#--bluray-h264のみ)
-    - [--(no-)deblock [H.264のみ]](#--no-deblock-h264のみ)
-    - [--cu-max &lt;int&gt; [HEVCのみ]](#--cu-max-int-hevcのみ)
-    - [--cu-min &lt;int&gt; [HEVCのみ]](#--cu-min-int-hevcのみ)
-    - [--ssim](#--ssim)
-    - [--psnr](#--psnr)
-    - [--vmaf &lt;param1&gt;=&lt;value1&gt;,...](#--vmaf-param1value1)
-  - [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
-    - [--input-analyze &lt;float&gt;](#--input-analyze-float)
-    - [--input-probesize &lt;int&gt;](#--input-probesize-int)
-    - [--trim &lt;int&gt;:&lt;int&gt;,&lt;int&gt;:&lt;int&gt;...](#--trim-intintintint)
-    - [--seek &lt;int&gt;:](#--seek-intintint)
-    - [--input-format &lt;string&gt;](#--input-format-string)
-    - [-f, --output-format &lt;string&gt;](#-f---output-format-string)
-    - [--video-track &lt;int&gt;](#--video-track-int)
-    - [--video-streamid &lt;int&gt;](#--video-streamid-int)
-    - [--video-tag &lt;string&gt;](#--video-tag-string)
-    - [--video-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;](#--video-metadata-intstring-or-intstringstring)
-    - [--audio-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]](#--audio-copy-intorstringintorstring)
-    - [--audio-codec [[{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;:&lt;string&gt;=&lt;string&gt;](#--audio-codec-intorstringstringstringstring)
-    - [--audio-bitrate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;](#--audio-bitrate-intorstringint)
-    - [--audio-profile [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;](#--audio-profile-intorstringstring)
-    - [--audio-stream {&lt;int&gt;or&lt;string&gt;}?](#--audio-stream-intorstringstring2)
-        - [書式](#書式)
-        - [使用できる記号](#使用できる記号)
-    - [--audio-samplerate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;](#--audio-samplerate-intorstringint)
-    - [--audio-resampler &lt;string&gt;](#--audio-resampler-string)
-    - [--audio-delay [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;](#--audio-delay-intorstringint)
-    - [--audio-file &lt;int&gt;&lt;string&gt;](#--audio-file-intstring)
-    - [--audio-filter [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;](#--audio-filter-intorstringstring)
-    - [--audio-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;,&lt;string&gt;...](#--audio-disposition-intorstringstringstring)
-    - [--audio-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;](#--audio-metadata-intorstringstring-or-intorstringstringstring)
-    - [--audio-bsf [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;](#--audio-bsf-intorstringstring)
-    - [--audio-ignore-decode-error &lt;int&gt;](#--audio-ignore-decode-error-int)
-    - [--audio-source &lt;string&gt;:[&lt;int&gt;?](#--audio-source-stringintparam2value2)
-    - [--chapter &lt;string&gt;](#--chapter-string)
-    - [--chapter-copy](#--chapter-copy)
-    - [--chapter-no-trim](#--chapter-no-trim)
-    - [--key-on-chapter](#--key-on-chapter)
-    - [--keyfile &lt;string&gt;](#--keyfile-string)
-    - [--sub-source &lt;string&gt;:[&lt;int&gt;?](#--sub-source-stringintparam2value2)
-    - [--sub-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]](#--sub-copy-intorstringintorstring)
-    - [--sub-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;,&lt;string&gt;...](#--sub-disposition-intorstringstringstring)
-    - [--sub-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;](#--sub-metadata-intorstringstring-or-intorstringstringstring)
-    - [--sub-bsf [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;](#--sub-bsf-intorstringstring)
-    - [--caption2ass [&lt;string&gt;]](#--caption2ass-string)
-    - [--data-copy [&lt;int&gt;[,&lt;int&gt;]...]](#--data-copy-intint)
-    - [--attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]](#--attachment-copy-intint)
-    - [--input-option &lt;string1&gt;:&lt;string2&gt;](#--input-option-string1string2)
-    - [-m, --mux-option &lt;string1&gt;:&lt;string2&gt;](#-m---mux-option-string1string2)
-    - [--metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;](#--metadata-string-or-stringstring)
-    - [--avsync &lt;string&gt;](#--avsync-string)
-    - [--timecode [&lt;string&gt;]](#--timecode-string)
-  - [vppオプション](#vppオプション)
-    - [--vpp-colorspace &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-colorspace-param1value1)
-    - [--vpp-delogo &lt;string&gt;,&lt;param1&gt;=&lt;value1&gt;,...](#--vpp-delogo-stringparam1value1)
-    - [--vpp-deinterlace &lt;string&gt;](#--vpp-deinterlace-string)
-    - [--vpp-rff](#--vpp-rff)
-    - [--vpp-afs &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-afs-param1value1)
-    - [--vpp-nnedi &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-nnedi-param1value1)
-    - [--vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]](#--vpp-yadif-param1value1)
-    - [--vpp-decimate &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-decimate-param1value1)
-    - [--vpp-mpdecimate &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-mpdecimate-param1value1)
-    - [--vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]](#--vpp-select-every-intparam1int)
-    - [--vpp-resize &lt;string&gt;](#--vpp-resize-string)
-    - [--vpp-convolution3d &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-convolution3d-param1value1)
-    - [--vpp-knn &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-knn-param1value1)
-    - [--vpp-pmd &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-pmd-param1value1)
-    - [--vpp-smooth &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-smooth-param1value1)
-    - [--vpp-gauss &lt;int&gt;](#--vpp-gauss-int)
-    - [--vpp-subburn &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-subburn-param1value1)
-    - [--vpp-unsharp &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-unsharp-param1value1)
-    - [--vpp-edgelevel &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-edgelevel-param1value1)
-    - [--vpp-warpsharp &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-warpsharp-param1value1)
-    - [--vpp-rotate &lt;int&gt;](#--vpp-rotate-int)
-    - [--vpp-transform &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-transform-param1value1)
-    - [--vpp-tweak &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-tweak-param1value1)
-    - [--vpp-deband &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-deband-param1value1)
-    - [--vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;](#--vpp-pad-intintintint)
-    - [--vpp-perf-monitor](#--vpp-perf-monitor)
-  - [制御系のオプション](#制御系のオプション)
-    - [--cuda-schedule &lt;string&gt;](#--cuda-schedule-string)
-    - [--output-buf &lt;int&gt;](#--output-buf-int)
-    - [--output-thread &lt;int&gt;](#--output-thread-int)
-    - [--log &lt;string&gt;](#--log-string)
-    - [--log-level &lt;string&gt;](#--log-level-string)
-    - [--log-opt [<param1>[=<value>]][,<param2>[=<value>]][]...](#--log-opt-param1valueparam2value)
-    - [--log-framelist](#--log-framelist)
-    - [--log-packets](#--log-packets)
-    - [--thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;#&lt;int&gt;[:&lt;int&gt; or 0x&lt;hex&gt;}](#--thread-affinity-string1string2intint-or-0xhex)
-    - [--thread-priority [&lt;string1&gt;=]&lt;string2&gt;#&lt;int&gt;[:&lt;int&gt;](#--thread-priority-string1string2intint)
-    - [--thread-throttling [&lt;string1&gt;=]&lt;string2&gt;#&lt;int&gt;[:&lt;int&gt;](#--thread-throttling-string1string2intint)
-    - [--option-file &lt;string&gt;](#--option-file-string)
-    - [--max-procfps &lt;int&gt;](#--max-procfps-int)
-    - [--lowlatency](#--lowlatency)
-    - [--avsdll &lt;string&gt;](#--avsdll-string)
-    - [--process-codepage &lt;string&gt;](#--process-codepage-string)
-    - [--perf-monitor &lt;string&gt;...](#--perf-monitor-string)
-    - [--perf-monitor-interval &lt;int&gt;](#--perf-monitor-interval-int)
+- [コマンドラインの例](#コマンドラインの例)
+  - [基本的なコマンドの表記](#基本的なコマンドの表記)
+  - [もっと実用的なコマンド](#もっと実用的なコマンド)
+    - [hwデコードを使用する例](#hwデコードを使用する例)
+    - [hwデコードを使用する例 (インタレ保持)](#hwデコードを使用する例-インタレ保持)
+    - [avs(Avisynth)の例 (avsやvpyはvfw経由でも読み込み可能です)](#avsavisynthの例-avsやvpyはvfw経由でも読み込み可能です)
+    - [パイプ利用の例](#パイプ利用の例)
+    - [ffmpegからパイプ渡し](#ffmpegからパイプ渡し)
+    - [ffmpegから映像と音声を両方パイプ渡したい](#ffmpegから映像と音声を両方パイプ渡したい)
+    - [raw H.264/ESのmux](#raw-h264esのmux)
+- [オプションの指定方法](#オプションの指定方法)
+- [表示系オプション](#表示系オプション)
+  - [-h,-? --help](#-h----help)
+  - [-v, --version](#-v---version)
+  - [--option-list](#--option-list)
+  - [--check-device](#--check-device)
+  - [--check-hw [&lt;int&gt;]](#--check-hw-int)
+  - [--check-features [&lt;int&gt;]](#--check-features-int)
+  - [--check-environment](#--check-environment)
+  - [--check-codecs, --check-decoders, --check-encoders](#--check-codecs---check-decoders---check-encoders)
+  - [--check-profiles &lt;string&gt;](#--check-profiles-string)
+  - [--check-formats](#--check-formats)
+  - [--check-protocols](#--check-protocols)
+  - [--check-filters](#--check-filters)
+  - [--check-avversion](#--check-avversion)
+- [エンコードの基本的なオプション](#エンコードの基本的なオプション)
+  - [-d, --device &lt;int&gt;](#-d---device-int)
+  - [-c, --codec &lt;string&gt;](#-c---codec-string)
+  - [-o, --output &lt;string&gt;](#-o---output-string)
+  - [-i, --input &lt;string&gt;](#-i---input-string)
+  - [--raw](#--raw)
+  - [--y4m](#--y4m)
+  - [--avi](#--avi)
+  - [--avs](#--avs)
+  - [--vpy](#--vpy)
+  - [--avsw](#--avsw)
+  - [--avhw](#--avhw)
+  - [--interlace &lt;string&gt;](#--interlace-string)
+  - [--crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;](#--crop-intintintint)
+  - [--fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;](#--fps-intint-or-float)
+  - [--input-res &lt;int&gt;x&lt;int&gt;](#--input-res-intxint)
+  - [--output-res &lt;int&gt;x&lt;int&gt;](#--output-res-intxint)
+  - [--input-csp &lt;string&gt;](#--input-csp-string)
+- [エンコードモードのオプション](#エンコードモードのオプション)
+  - [--cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;　(固定量子化量)](#--cqp-int-or-intintint固定量子化量)
+  - [--cbr &lt;int&gt;   (固定ビットレート)](#--cbr-int---固定ビットレート)
+  - [--vbr &lt;int&gt;   (可変ビットレート)](#--vbr-int---可変ビットレート)
+  - [--qvbr  &lt;float&gt; (固定品質モード)](#--qvbr--float-固定品質モード)
+- [その他のオプション](#その他のオプション)
+  - [-u, --preset](#-u---preset)
+  - [--output-depth &lt;int&gt;](#--output-depth-int)
+  - [--lossless](#--lossless)
+  - [--multipass &lt;string&gt;](#--multipass-string)
+  - [--max-bitrate &lt;int&gt;](#--max-bitrate-int)
+  - [--vbv-bufsize &lt;int&gt;](#--vbv-bufsize-int)
+  - [--qp-init &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-init-int-or-intintint)
+  - [--qp-min &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-min-int-or-intintint)
+  - [--qp-max &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-max-int-or-intintint)
+  - [--chroma-qp-offset &lt;int&gt;](#--chroma-qp-offset-int)
+  - [--vbr-quality &lt;float&gt;](#--vbr-quality-float)
+  - [--dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...](#--dynamic-rc-intintintintparam1value1param2value2)
+  - [--lookahead &lt;int&gt;](#--lookahead-int)
+  - [--no-i-adapt](#--no-i-adapt)
+  - [--no-b-adapt](#--no-b-adapt)
+  - [--strict-gop](#--strict-gop)
+  - [--gop-len &lt;int&gt;](#--gop-len-int)
+  - [-b, --bframes &lt;int&gt;](#-b---bframes-int)
+  - [--ref &lt;int&gt;](#--ref-int)
+  - [--multiref-l0 &lt;int&gt;](#--multiref-l0-int)
+  - [--multiref-l1 &lt;int&gt;](#--multiref-l1-int)
+  - [--weightp](#--weightp)
+  - [--nonrefp](#--nonrefp)
+  - [--aq](#--aq)
+  - [--aq-temporal](#--aq-temporal)
+  - [--aq-strength &lt;int&gt;](#--aq-strength-int)
+  - [--bref-mode &lt;string&gt;](#--bref-mode-string)
+  - [--direct &lt;string&gt; [H.264のみ]](#--direct-string-h264のみ)
+  - [--(no-)adapt-transform [H.264のみ]](#--no-adapt-transform-h264のみ)
+  - [--mv-precision &lt;string&gt;](#--mv-precision-string)
+  - [--slices &lt;int&gt;](#--slices-int)
+  - [--level &lt;string&gt;](#--level-string)
+  - [--profile &lt;string&gt;](#--profile-string)
+  - [--tier &lt;string&gt;](#--tier-string)
+  - [--sar &lt;int&gt;:&lt;int&gt;](#--sar-intint)
+  - [--dar &lt;int&gt;:&lt;int&gt;](#--dar-intint)
+  - [--colorrange &lt;string&gt;](#--colorrange-string)
+  - [--videoformat &lt;string&gt;](#--videoformat-string)
+  - [--colormatrix &lt;string&gt;](#--colormatrix-string)
+  - [--colorprim &lt;string&gt;](#--colorprim-string)
+  - [--transfer &lt;string&gt;](#--transfer-string)
+  - [--chromaloc &lt;int&gt; or "auto"](#--chromaloc-int-or-auto)
+  - [--max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVCのみ]](#--max-cll-intint-or-copy-hevcのみ)
+  - [--master-display &lt;string&gt; or "copy" [HEVCのみ]](#--master-display-string-or-copy-hevcのみ)
+  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVCのみ]](#--atc-sei-string-or-int-hevcのみ)
+  - [--dhdr10-info &lt;string&gt; [HEVC only]](#--dhdr10-info-string-hevc-only)
+  - [--dhdr10-info copy [HEVC only, Experimental]](#--dhdr10-info-copy-hevc-only-experimental)
+  - [--dolby-vision-profile &lt;float&gt;](#--dolby-vision-profile-float)
+  - [--dolby-vision-rpu &lt;string&gt;](#--dolby-vision-rpu-string)
+  - [--aud](#--aud)
+  - [--repeat-headers](#--repeat-headers)
+  - [--pic-struct](#--pic-struct)
+  - [--cabac [H.264のみ]](#--cabac-h264のみ)
+  - [--cavlc [H.264のみ]](#--cavlc-h264のみ)
+  - [--bluray [H.264のみ]](#--bluray-h264のみ)
+  - [--(no-)deblock [H.264のみ]](#--no-deblock-h264のみ)
+  - [--cu-max &lt;int&gt; [HEVCのみ]](#--cu-max-int-hevcのみ)
+  - [--cu-min &lt;int&gt; [HEVCのみ]](#--cu-min-int-hevcのみ)
+  - [--ssim](#--ssim)
+  - [--psnr](#--psnr)
+  - [--vmaf &lt;param1&gt;=&lt;value1&gt;,...](#--vmaf-param1value1)
+- [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
+  - [--input-analyze &lt;float&gt;](#--input-analyze-float)
+  - [--input-probesize &lt;int&gt;](#--input-probesize-int)
+  - [--trim &lt;int&gt;:&lt;int&gt;,&lt;int&gt;:&lt;int&gt;...](#--trim-intintintint)
+  - [--seek [[&lt;int&gt;:]&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]](#--seek-intintintint)
+  - [--input-format &lt;string&gt;](#--input-format-string)
+  - [-f, --output-format &lt;string&gt;](#-f---output-format-string)
+  - [--video-track &lt;int&gt;](#--video-track-int)
+  - [--video-streamid &lt;int&gt;](#--video-streamid-int)
+  - [--video-tag &lt;string&gt;](#--video-tag-string)
+  - [--video-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;](#--video-metadata-intstring-or-intstringstring)
+  - [--audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]](#--audio-copy-intstringintstring)
+  - [--audio-codec [[&lt;int/string&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;[,&lt;string&gt;=&lt;string&gt;]...]...]](#--audio-codec-intstringstringstringstringstringstring)
+  - [--audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;](#--audio-bitrate-intstringint)
+  - [--audio-profile [&lt;int/string&gt;?]&lt;string&gt;](#--audio-profile-intstringstring)
+  - [--audio-stream [&lt;int/string&gt;?]{&lt;string1&gt;}[:&lt;string2&gt;]](#--audio-stream-intstringstring1string2)
+  - [--audio-samplerate [&lt;int/string&gt;?]&lt;int&gt;](#--audio-samplerate-intstringint)
+  - [--audio-resampler &lt;string&gt;](#--audio-resampler-string)
+  - [--audio-delay [&lt;int/string&gt;?]&lt;int&gt;](#--audio-delay-intstringint)
+  - [--audio-file &lt;int&gt;&lt;string&gt;](#--audio-file-intstring)
+  - [--audio-filter [&lt;int/string&gt;?]&lt;string&gt;](#--audio-filter-intstringstring)
+  - [--audio-disposition [&lt;int/string&gt;?]&lt;string&gt;,&lt;string&gt;...](#--audio-disposition-intstringstringstring)
+  - [--audio-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;](#--audio-metadata-intstringstring-or-intstringstringstring)
+  - [--audio-bsf [&lt;int/string&gt;?]&lt;string&gt;](#--audio-bsf-intstringstring)
+  - [--audio-ignore-decode-error &lt;int&gt;](#--audio-ignore-decode-error-int)
+  - [--audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...](#--audio-source-stringintparam1value1)
+  - [--chapter &lt;string&gt;](#--chapter-string)
+  - [--chapter-copy](#--chapter-copy)
+  - [--chapter-no-trim](#--chapter-no-trim)
+  - [--key-on-chapter](#--key-on-chapter)
+  - [--keyfile &lt;string&gt;](#--keyfile-string)
+  - [--sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...](#--sub-source-stringintparam1value1)
+  - [--sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]](#--sub-copy-intstringintstring)
+  - [--sub-disposition [&lt;int/string&gt;?]&lt;string&gt;,&lt;string&gt;...](#--sub-disposition-intstringstringstring)
+  - [--sub-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;](#--sub-metadata-intstringstring-or-intstringstringstring)
+  - [--sub-bsf [&lt;int/string&gt;?]&lt;string&gt;](#--sub-bsf-intstringstring)
+  - [--caption2ass [&lt;string&gt;]](#--caption2ass-string)
+  - [--data-copy [&lt;int&gt;[,&lt;int&gt;]...]](#--data-copy-intint)
+  - [--attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]](#--attachment-copy-intint)
+  - [--input-option &lt;string1&gt;:&lt;string2&gt;](#--input-option-string1string2)
+  - [-m, --mux-option &lt;string1&gt;:&lt;string2&gt;](#-m---mux-option-string1string2)
+  - [--metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;](#--metadata-string-or-stringstring)
+  - [--avsync &lt;string&gt;](#--avsync-string)
+  - [--timecode [&lt;string&gt;]](#--timecode-string)
+- [vppオプション](#vppオプション)
+  - [vppフィルタの適用順](#vppフィルタの適用順)
+  - [--vpp-colorspace &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-colorspace-param1value1)
+  - [--vpp-delogo &lt;string&gt;,&lt;param1&gt;=&lt;value1&gt;,...](#--vpp-delogo-stringparam1value1)
+  - [--vpp-deinterlace &lt;string&gt;](#--vpp-deinterlace-string)
+  - [--vpp-rff](#--vpp-rff)
+  - [--vpp-afs &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-afs-param1value1)
+  - [--vpp-nnedi &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-nnedi-param1value1)
+  - [--vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]](#--vpp-yadif-param1value1)
+  - [--vpp-decimate &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-decimate-param1value1)
+  - [--vpp-mpdecimate &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-mpdecimate-param1value1)
+  - [--vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]](#--vpp-select-every-intparam1int)
+  - [--vpp-rotate &lt;int&gt;](#--vpp-rotate-int)
+  - [--vpp-transform &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-transform-param1value1)
+  - [--vpp-convolution3d &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-convolution3d-param1value1)
+  - [--vpp-smooth &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-smooth-param1value1)
+  - [--vpp-knn &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-knn-param1value1)
+  - [--vpp-pmd &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-pmd-param1value1)
+  - [--vpp-gauss &lt;int&gt;](#--vpp-gauss-int)
+  - [--vpp-subburn &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-subburn-param1value1)
+  - [--vpp-resize &lt;string&gt;](#--vpp-resize-string)
+  - [--vpp-unsharp &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-unsharp-param1value1)
+  - [--vpp-edgelevel &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-edgelevel-param1value1)
+  - [--vpp-warpsharp &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-warpsharp-param1value1)
+  - [--vpp-tweak &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-tweak-param1value1)
+  - [--vpp-deband &lt;param1&gt;=&lt;value1&gt;,...](#--vpp-deband-param1value1)
+  - [--vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;](#--vpp-pad-intintintint)
+  - [--vpp-perf-monitor](#--vpp-perf-monitor)
+- [制御系のオプション](#制御系のオプション)
+  - [--cuda-schedule &lt;string&gt;](#--cuda-schedule-string)
+  - [--output-buf &lt;int&gt;](#--output-buf-int)
+  - [--output-thread &lt;int&gt;](#--output-thread-int)
+  - [--log &lt;string&gt;](#--log-string)
+  - [--log-level &lt;string&gt;](#--log-level-string)
+  - [--log-opt &lt;param1&gt;=&lt;value&gt;[,&lt;param2&gt;=&lt;value&gt;]...](#--log-opt-param1valueparam2value)
+  - [--log-framelist](#--log-framelist)
+  - [--log-packets](#--log-packets)
+  - [--thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...] or 0x&lt;hex&gt;}](#--thread-affinity-string1string2intint-or-0xhex)
+  - [--thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...]](#--thread-priority-string1string2intint)
+  - [--thread-throttling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...]](#--thread-throttling-string1string2intint)
+  - [--option-file &lt;string&gt;](#--option-file-string)
+  - [--max-procfps &lt;int&gt;](#--max-procfps-int)
+  - [--lowlatency](#--lowlatency)
+  - [--avsdll &lt;string&gt;](#--avsdll-string)
+  - [--process-codepage &lt;string&gt;](#--process-codepage-string)
+  - [--perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]](#--perf-monitor-stringstring)
+  - [--perf-monitor-interval &lt;int&gt;](#--perf-monitor-interval-int)
 
 ## コマンドラインの例
 
@@ -277,7 +275,8 @@ remuxer.exe -i "<video mp4file>" -i "<m4a(ALAC in mp4)file>" -o "<muxed mp4 file
 - <float>　小数点で指定
 - <string> 文字列で指定
 
-引数の [ ] 内は、省略可能です。
+引数の [ ] { } 内は、省略可能です。
+"..." は繰り返し意味します。
 
 --(no-)xxx
 と付いている場合は、--no-xxxとすることで、--xxxと逆の効果を得る。  
@@ -841,7 +840,7 @@ libavが読み込み時に解析する最大のサイズをbyte単位で指定�
 例2: --trim 2000:0              (2000～最終フレームまでをエンコード)
 ```
 
-### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
+### --seek [[&lt;int&gt;:]&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
 高速だが不正確なシークをしてからエンコードを開始する。正確な範囲指定を行いたい場合は[--trim](#--trim-intintintintintint)で行う。
 ```
@@ -893,7 +892,7 @@ muxerに出力フォーマットを指定して出力する。
 --video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
 ```
 
-### --audio-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
+### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
 
 tsなどでエラーが出るなどしてうまく動作しない場合は、[--audio-codec](#--audio-codec-intstring)で一度エンコードしたほうが安定動作するかもしれない。
@@ -911,7 +910,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 --audio-copy jpn,eng
 ```
 
-### --audio-codec [[{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;]...]
+### --audio-codec [[&lt;int/string&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;[,&lt;string&gt;=&lt;string&gt;]...]...]
 音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-codecs---check-decoders---check-encoders)で確認できる。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
@@ -934,7 +933,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 --audio-codec aac:aac_coder=twoloop
 ```
 
-### --audio-bitrate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
+### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;
 音声をエンコードする際のビットレートをkbpsで指定する。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
@@ -943,15 +942,15 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
 ```
 
-### --audio-profile [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+### --audio-profile [&lt;int/string&gt;?]&lt;string&gt;
 音声をエンコードする際、そのプロファイルを指定する。
 
-### --audio-stream [{&lt;int&gt;or&lt;string&gt;}?][&lt;string1&gt;][:&lt;string2&gt;]
+### --audio-stream [&lt;int/string&gt;?]{&lt;string1&gt;}[:&lt;string2&gt;]
 音声チャンネルの分離・統合などを行う。
 --audio-streamが指定された音声トラックは常にエンコードされる。(コピー不可)
 ,(カンマ)で区切ることで、入力の同じトラックから複数のトラックを生成できる。
 
-##### 書式
+**書式**  
 &lt;int&gt;に処理対象のトラックを指定する。
 
 &lt;string1&gt;に入力として使用するチャンネルを指定する。省略された場合は入力の全チャンネルを使用する。
@@ -970,7 +969,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 実際に使うことがあるかは微妙だが、書式の紹介例としてはわかりやすいかと。
 ```
 
-##### 使用できる記号
+**使用できる記号**  
 ```
 mono       = FC
 stereo     = FL + FR
@@ -995,7 +994,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
 ```
 
-### --audio-samplerate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
+### --audio-samplerate [&lt;int/string&gt;?]&lt;int&gt;
 音声のサンプリング周波数をHzで指定する。
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 ```
@@ -1008,7 +1007,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 - swr  ... swresampler (デフォルト)
 - soxr ... sox resampler (libsoxr)
 
-### --audio-delay [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
+### --audio-delay [&lt;int/string&gt;?]&lt;int&gt;
 音声に設定する遅延をms単位で指定する。[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 ### --audio-file [&lt;int&gt;][&lt;string&gt;?]&lt;string&gt;
@@ -1026,7 +1025,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 --audio-file 2?adts:"test_out2"  
 ```
 
-### --audio-filter [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+### --audio-filter [&lt;int/string&gt;?]&lt;string&gt;
 音声に音声フィルタを適用する。適用可能なフィルタは[こちら](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters)。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
@@ -1036,7 +1035,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 例2: --audio-filter 2?volume=-4db  (第2トラックの音量を下げる例)
 ```
 
-### --audio-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[,&lt;string&gt;][]...
+### --audio-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
 音声のdispositionを指定する。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
@@ -1063,7 +1062,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 --audio-disposition 2?default,forced
 ```
 
-### --audio-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;
+### --audio-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;
 音声トラックのmetadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
   - clear ... do not copy metadata
@@ -1081,7 +1080,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 --audio-metadata 1?title="音声の タイトル" --audio-metadata 1?language=jpn
 ```
 
-### --audio-bsf [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+### --audio-bsf [&lt;int/string&gt;?]&lt;string&gt;
 音声トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
 
 ### --audio-ignore-decode-error &lt;int&gt;
@@ -1089,7 +1088,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 デフォルトは10。 0とすれば、1回でもデコードエラーが起これば処理を中断してエラー終了する。
 
-### --audio-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
+### --audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 外部音声ファイルをmuxする。
 
 **パラメータ** 
@@ -1209,7 +1208,7 @@ matroska形式 (UTF-8であること)
 キーフレームしたいフレーム番号を記載したファイルを読み込み、指定のフレームをキーフレームに設定する。
 フレーム番号は、先頭から0, 1, 2, .... として、複数指定する場合は都度改行する。
 
-### --sub-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
+### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 指定のファイルから字幕を読み込みmuxする。
 
 **パラメータ** 
@@ -1227,7 +1226,7 @@ matroska形式 (UTF-8であること)
 例2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
 ```
 
-### --sub-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
+### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
 
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する字幕トラック(1,2,...)を指定したり、[&lt;string&gt;[,&lt;string&gt;]...]で指定した言語の字幕トラックをコピーすることもできる。
@@ -1245,7 +1244,7 @@ matroska形式 (UTF-8であること)
 --sub-copy jpn,eng
 ```
 
-### --sub-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[,&lt;string&gt;][]...
+### --sub-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
 字幕のdispositionを指定する。
 
 ```
@@ -1267,7 +1266,7 @@ matroska形式 (UTF-8であること)
  copy
 ```
 
-### --sub-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;
+### --sub-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;
 字幕トラックのmetadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
   - clear ... do not copy metadata
@@ -1283,7 +1282,7 @@ matroska形式 (UTF-8であること)
 --sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
 ```
 
-### --sub-bsf [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+### --sub-bsf [&lt;int/string&gt;?]&lt;string&gt;
 字幕トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
 
 ### --caption2ass [&lt;string&gt;]
@@ -1352,6 +1351,8 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 ## vppオプション
 
 エンコード前にフィルタ処理を追加するオプションです。
+
+### vppフィルタの適用順
 
 vppフィルタの適用順は固定で、コマンドラインの順序によらず下記順番で適用されます。
 
@@ -1843,27 +1844,20 @@ yadifによるインタレ解除を行う。
 例1 ("select even"): --vpp-select-every 2
 例2 ("select odd "): --vpp-select-every 2,offset=1
 ```
-  
-### --vpp-resize &lt;string&gt;
-リサイズのアルゴリズムを指定する。
 
-要nppi64_10.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
+### --vpp-rotate &lt;int&gt;
 
-| オプション名 | 説明 | 要nppi64_10.dll |
-|:---|:---|:---:|
-| auto  | 自動的に適切なものを選択 | |
-| bilinear | 線形補間 | |
-| spline16 | 4x4 Spline補間 | |
-| spline36 | 6x6 Spline補間 | |
-| spline64 | 8x8 Spline補間 | |
-| lanczos2 | 4x4 lanczos補間 | |
-| lanczos3 | 6x6 lanczos補間 | |
-| lanczos4 | 8x8 lanczos補間 | |
-| nn            | 最近傍点選択 | ○ |
-| npp_linear    | nppの線形補間 | ○ |
-| cubic         | 4x4 3次補間 | ○ |
-| super         | nppのsuper sampling(詳細不明) | ○ |
-| lanczos       | Lanczos法                    | ○ |
+動画を回転させる。 90, 180, 270 度の回転のみに対応。
+
+
+### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**パラメータ**
+- flip_x=&lt;bool&gt;
+
+- flip_y=&lt;bool&gt;
+
+- transpose=&lt;bool&gt;
 
 ### --vpp-convolution3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 3次元ノイズ除去フィルタ。
@@ -1893,6 +1887,28 @@ yadifによるインタレ解除を行う。
 例: simple matrixの使用
 --vpp-convolution3d matrix=simple
 ```
+
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**パラメータ**
+- quality=&lt;int&gt;  (default=3, 1-6)  
+  処理の品質。値が大きいほど高精度だが遅くなる。
+
+- qp=&lt;int&gt;  (default=12, 1 - 63)    
+  フィルタの強さ。
+  
+- prec (デフォルト: auto)  
+  演算精度の選択。
+  - auto  
+    fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
+    現状ではTuring世代のGPUで自動的にfp16が使用される。
+    Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
+  
+  - fp16 (x64版のみ)  
+    半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
+  
+  - fp32  
+    単精度浮動小数点を使って計算する。
 
   
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -1932,28 +1948,6 @@ yadifによるインタレ解除を行う。
 例: すこし弱め
 --vpp-pmd apply_count=2,strength=90,threshold=120
 ```
-
-### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-
-**パラメータ**
-- quality=&lt;int&gt;  (default=3, 1-6)  
-  処理の品質。値が大きいほど高精度だが遅くなる。
-
-- qp=&lt;int&gt;  (default=12, 1 - 63)    
-  フィルタの強さ。
-  
-- prec (デフォルト: auto)  
-  演算精度の選択。
-  - auto  
-    fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
-    現状ではTuring世代のGPUで自動的にfp16が使用される。
-    Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
-  
-  - fp16 (x64版のみ)  
-    半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
-  
-  - fp32  
-    単精度浮動小数点を使って計算する。
 
 
 ### --vpp-gauss &lt;int&gt;
@@ -2011,6 +2005,27 @@ nppi64_10.dll導入が必要で、x64版のみ使用可。
 例3: Shift-JISな文字コードのassファイルの焼きこみ
 --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
 ```
+  
+### --vpp-resize &lt;string&gt;
+リサイズのアルゴリズムを指定する。
+
+要nppi64_10.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
+
+| オプション名 | 説明 | 要nppi64_10.dll |
+|:---|:---|:---:|
+| auto  | 自動的に適切なものを選択 | |
+| bilinear | 線形補間 | |
+| spline16 | 4x4 Spline補間 | |
+| spline36 | 6x6 Spline補間 | |
+| spline64 | 8x8 Spline補間 | |
+| lanczos2 | 4x4 lanczos補間 | |
+| lanczos3 | 6x6 lanczos補間 | |
+| lanczos4 | 8x8 lanczos補間 | |
+| nn            | 最近傍点選択 | ○ |
+| npp_linear    | nppの線形補間 | ○ |
+| cubic         | 4x4 3次補間 | ○ |
+| super         | nppのsuper sampling(詳細不明) | ○ |
+| lanczos       | Lanczos法                    | ○ |
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
@@ -2081,20 +2096,6 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 --vpp-warpsharp threshold=128,blur=3,type=1
 ```
 
-
-### --vpp-rotate &lt;int&gt;
-
-動画を回転させる。 90, 180, 270 度の回転のみに対応。
-
-
-### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-
-**パラメータ**
-- flip_x=&lt;bool&gt;
-
-- flip_y=&lt;bool&gt;
-
-- transpose=&lt;bool&gt;
 
 ### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
@@ -2216,7 +2217,7 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 - debug ... デバッグ情報を追加で出力
 - trace ... フレームごとに情報を出力
 
-### --log-opt [<param1>[=<value>]][,<param2>[=<value>]][]...
+### --log-opt &lt;param1&gt;=&lt;value&gt;[,&lt;param2&gt;=&lt;value&gt;]...
 ログ関係の追加オプションの指定。
 **パラメータ**
 - addtime (デフォルト=off)  
@@ -2228,7 +2229,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
 ### --log-packets
 avsw/avhw読み込み時のデバッグ情報出力。
 
-### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...] or 0x&lt;hex&gt;}
+### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...] or 0x&lt;hex&gt;}
 NVEncCのプロセスやスレッドのスレッドアフィニティを設定する。具体的な指定方法は例を確認してください。
 
 **対象** (&lt;string1&gt;)
@@ -2271,7 +2272,7 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 --thread-affinity process=cachel3#0
 ```
 
-### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...]
 プロセスやスレッドの優先度を設定する。[Windowsのみ有効]  
 
 **対象** (&lt;string1&gt;)
@@ -2292,7 +2293,7 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 **優先度** (&lt;string2&gt;)
 - background, idle, lowest, belownormal, normal (default), abovenormal, highest
 
-### --thread-throttling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+### --thread-throttling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...]
 プロセスやスレッドのスケジューリングの方針を設定する。 [Windowsのみ有効]  
 
 **対象** (&lt;string1&gt;)
@@ -2355,7 +2356,7 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
   このオプションを指定すると自動的に実行ファイルをコピーしてmanifestを書き換えた一時的な実行ファイルを作成し、
   それを実行するようになっている。
 
-### --perf-monitor [&lt;string&gt;][,&lt;string&gt;]...
+### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 エンコーダのパフォーマンス情報を出力する。パラメータとして出力したい情報名を下記から選択できる。デフォルトはall (すべての情報)。
 
 ```

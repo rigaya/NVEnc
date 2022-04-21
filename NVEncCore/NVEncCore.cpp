@@ -2742,7 +2742,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
             m_encFps = param->baseFps;
         }
-        //edgelevel
+        //warpsharp
         if (inputParam->vpp.warpsharp.enable) {
             unique_ptr<NVEncFilter> filterWarpsharp(new NVEncFilterWarpsharp());
             shared_ptr<NVEncFilterParamWarpsharp> param(new NVEncFilterParamWarpsharp());
