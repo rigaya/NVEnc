@@ -1038,6 +1038,11 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         }
 
         m_nFrame++;
+
+        // drain中にdropが発生した場合には、次のフレームを出力するようにする
+        if (pInputFrame->ptr == nullptr && afs_duration == afsStreamStatus::AFS_SSTS_DROP) {
+            return run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
+        }
     } else {
         //出力フレームなし
         *pOutputFrameNum = 0;
