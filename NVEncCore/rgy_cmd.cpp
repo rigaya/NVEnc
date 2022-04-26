@@ -4375,6 +4375,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
 #endif //#if ENABLE_DHDR10_INFO
+#if ENABLE_DOVI_METADATA_OPTIONS
     if (IS_OPTION("dolby-vision-profile")) {
         i++;
         int value = 0;
@@ -4393,6 +4394,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->doviRpuFile = strInput[i];
         return 0;
     }
+#endif //#if ENABLE_DOVI_METADATA_OPTIONS
     if (IS_OPTION("timecode")) {
         common->timecode = true;
         if (i + 1 < nArgNum && strInput[i+1][0] != _T('-')) {
@@ -6133,9 +6135,12 @@ tstring gen_cmd_help_common() {
         _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n")
         _T("   --dhdr10-info copy           Copy dynamic HDR10+ metadata from input file.\n"));
 #endif //#if ENABLE_DHDR10_INFO
+#if ENABLE_DOVI_METADATA_OPTIONS
     str += print_list_options(_T("--dolby-vision-profile <int>"), list_dovi_profile, 0);
     str += strsprintf(
-        _T("   --dolby-vision-rpu <string>  Copy dolby vision metadata from input rpu file.\n")
+        _T("   --dolby-vision-rpu <string>  Copy dolby vision metadata from input rpu file.\n"));
+#endif //#if ENABLE_DOVI_METADATA_OPTIONS
+    str += strsprintf(
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avhw/avsw reader.\n")
@@ -6166,7 +6171,7 @@ tstring gen_cmd_help_common() {
         _T("   --trim <int>:<int>[,<int>:<int>]...\n")
         _T("                                trim video for the frame range specified.\n")
         _T("                                 frame range should not overwrap each other.\n")
-        _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
+        _T("   --seek [[<int>:]<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
         _T("   --input-format <string>      set input format of input file.\n")
@@ -6334,7 +6339,7 @@ tstring gen_cmd_help_vpp() {
         _T("        limited, full\n")
         _T("      lut3d=<path>\n")
         _T("      lut3d_interp=<string>\n")
-        _T("        nearest, trilinear, tetrahedral\n")
+        _T("        nearest, trilinear, pyramid, prism, tetrahedral\n")
         _T("      hdr2sdr=<string>     Enables HDR10 to SDR.\n")
         _T("                             hable, mobius, reinhard, bt2390, none\n")
         _T("      source_peak=<float>     (default: %.1f)\n")
@@ -6693,7 +6698,7 @@ tstring gen_cmd_help_ctrl() {
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
-        _T("   --log-opt [<param1>][,<param2>][]...\n")
+        _T("   --log-opt [<param1>=<value>][,<param2>]...\n")
         _T("     additional options for log output.\n")
         _T("    params\n")
         _T("      addtime                   add time to log lines.\n")
@@ -6759,7 +6764,7 @@ tstring gen_cmd_help_ctrl() {
         list_thread_throttoling[RGY_THREAD_POWER_THROTTOLING_MODE_STR.size()].desc = nullptr;
 
         str += strsprintf(_T("")
-            _T("   --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
+            _T("   --thread-affinity [<string1>=](<string2>[#<int>[:<int>]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
             _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
         ) + print_list(list_rgy_thread_type.data()) + _T("\n");
@@ -6768,7 +6773,7 @@ tstring gen_cmd_help_ctrl() {
         ) + print_list(list_thread_affinity_mode.data()) + _T("\n");
 #if defined(_WIN32) || defined(_WIN64)
         str += strsprintf(_T("")
-            _T("   --thread-priority [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
+            _T("   --thread-priority [<string1>=](<string2>[#<int>[:<int>]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
             _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
         ) + print_list(list_rgy_thread_type.data()) + _T("\n");
@@ -6777,7 +6782,7 @@ tstring gen_cmd_help_ctrl() {
         ) + print_list(list_thread_priority.data()) + _T("\n");
 
         str += strsprintf(_T("")
-            _T("   --thread-throttling [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
+            _T("   --thread-throttling [<string1>=](<string2>[#<int>[:<int>]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
             _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
         ) + print_list(list_rgy_thread_type.data()) + _T("\n");
@@ -6795,7 +6800,7 @@ tstring gen_cmd_help_ctrl() {
         _T("                                os   ... use the codepage set in Operating System.\n"));
 #endif //#if defined(_WIN32) || defined(_WIN64)
     str += strsprintf(_T("\n")
-        _T("   --perf-monitor [<string>][,<string>]...\n")
+        _T("   --perf-monitor [<string>[,<string>]...]\n")
         _T("       check performance info of encoder and output to log file\n")
         _T("       select counter from below, default = all\n")
         _T("                                 \n")

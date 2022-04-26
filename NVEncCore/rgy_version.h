@@ -63,6 +63,7 @@ const char *get_encoder_version();
 #define GPU_VENDOR "NVIDIA"
 
 #define ENABLE_DHDR10_INFO 1
+#define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_KEYFRAME_INSERT 1
 #define ENABLE_AUTO_PICSTRUCT 1
 
