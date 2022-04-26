@@ -948,7 +948,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     }
     static const int preread_len = 3;
     //十分な数のフレームがたまった、あるいはdrainモードならフレームを出力
-    if (iframe >= (5+preread_len+STREAM_OPT) || pInputFrame == nullptr) {
+    if (iframe >= (5+preread_len+STREAM_OPT) || pInputFrame->ptr == nullptr) {
         int reverse[4] = { 0 }, assume_shift[4] = { 0 }, result_stat[4] = { 0 };
 
         //m_streamsts.get_durationを呼ぶには、3フレーム先までstatusをセットする必要がある
