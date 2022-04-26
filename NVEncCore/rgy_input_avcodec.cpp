@@ -294,7 +294,10 @@ RGY_ERR RGYInputAvcodec::initVideoBsfs() {
         av_bsf_free(&m_Demux.video.bsfcCtx);
         AddMessage(RGY_LOG_DEBUG, _T("initVideoBsfs: Freed old bsf.\n"));
     }
-    if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+    // NVEnc issue#70でm_Demux.video.bUseHEVCmp42AnnexBを使用することが効果的だあったため、採用したが、
+    // NVEnc issue#389ではm_Demux.video.bUseHEVCmp42AnnexBを使用するとエラーとなることがわかった
+    // 現時点では、NVEnc issue#70の入力ファイルでも問題なさそうなため、無効化する
+    if (false && m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
         m_Demux.video.bUseHEVCmp42AnnexB = true;
     } else if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_H264 ||
         m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
