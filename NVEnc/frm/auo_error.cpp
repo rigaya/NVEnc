@@ -426,16 +426,20 @@ void error_vid_file_zero_byte() {
     write_log_auo_line(LOG_ERROR, "映像一時ファイルが 0 byteです。muxを行えません。");
 }
 
-void warning_mux_tmp_not_enough_space() {
-    write_log_auo_line(LOG_WARNING, "mux一時フォルダのあるドライブに十分な空きがありません。mux用一時フォルダ指定を解除しました。");
+void warning_mux_tmp_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
+    write_log_auo_line_fmt(LOG_WARNING, "mux一時フォルダのある%sドライブに十分な空きがありません。", drive);
+    write_log_auo_line_fmt(LOG_WARNING, "  必要サイズ %.2f MB, 残り空き容量 %.2f MB", (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
+    write_log_auo_line(LOG_WARNING, "mux用一時フォルダ指定を解除しました。");
 }
 
-void error_muxer_drive_not_enough_space() {
-    write_log_auo_line(LOG_ERROR, "muxerのあるドライブに十分な空きがありません。muxを行えません。");
+void error_muxer_drive_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
+    write_log_auo_line(LOG_ERROR, "muxerのある%sドライブに十分な空きがありません。muxを行えません。", drive);
+    write_log_auo_line_fmt(LOG_ERROR, "  必要サイズ %.2f MB, 残り空き容量 %.2f MB", (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
 }
 
-void error_out_drive_not_enough_space() {
-    write_log_auo_line(LOG_ERROR, "出力先のドライブに十分な空きがありません。muxを行えません。");
+void error_out_drive_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
+    write_log_auo_line(LOG_ERROR, "出力先の%sドライブに十分な空きがありません。muxを行えません。", drive);
+    write_log_auo_line_fmt(LOG_ERROR, "  必要サイズ %.2f MB, 残り空き容量 %.2f MB", (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
 }
 
 void warning_failed_to_get_duration_from_timecode() {

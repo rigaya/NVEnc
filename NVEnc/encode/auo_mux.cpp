@@ -77,7 +77,7 @@ static void show_mux_info(const MUXER_SETTINGS *mux_stg, BOOL vidmux, BOOL audmu
 //muxの空き容量などを計算し、行えるかを確認する
 static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char *mux_tmpdir, const CONF_GUIEX *conf, const PRM_ENC *pe, UINT64 expected_filesize) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
-    UINT64 required_space = (UINT64)(expected_filesize * 1.01); //ちょい多め
+    uint64_t required_space = (uint64_t)(expected_filesize * 1.01); //ちょい多め
     //出力先ドライブ
     char vid_root[MAX_PATH_LEN];
     strcpy_s(vid_root, _countof(vid_root), pe->temp_filename);
@@ -100,9 +100,9 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
             ret = AUO_RESULT_WARNING; warning_failed_mux_tmp_drive_space();
         //一時フォルダと出力先が同じフォルダかどうかで、一時フォルダの必要とされる空き領域が変わる
         } else {
-            tmp_same_drive_as_out = (_stricmp(vid_root, temp_root) == NULL);
-            if ((UINT64)temp_drive_avail_space.QuadPart < required_space * (1 + tmp_same_drive_as_out)) {
-                ret = AUO_RESULT_WARNING; warning_mux_tmp_not_enough_space();
+            tmp_same_drive_as_out = (_stricmp(vid_root, temp_root) == NULL) ? 1 : 0;
+            if ((uint64_t)temp_drive_avail_space.QuadPart < required_space * (1 + tmp_same_drive_as_out)) {
+                ret = AUO_RESULT_WARNING; warning_mux_tmp_not_enough_space(temp_root, (uint64_t)temp_drive_avail_space.QuadPart, required_space * (1 + tmp_same_drive_as_out));
             }
         }
         //一時フォルダと出力先が同じフォルダならさらなる検証の必要はない
@@ -124,9 +124,9 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
             warning_failed_muxer_drive_space(); return AUO_RESULT_WARNING;
         }
         //一時フォルダと出力先が同じフォルダかどうかで、一時フォルダの必要とされる空き領域が変わる
-        BOOL muxer_same_drive_as_out = (_stricmp(vid_root, muxer_root) == NULL);
-        if ((UINT64)muxer_drive_avail_space.QuadPart < required_space * (1 + muxer_same_drive_as_out)) {
-            error_muxer_drive_not_enough_space(); return AUO_RESULT_ERROR;
+        BOOL muxer_same_drive_as_out = (_stricmp(vid_root, muxer_root) == NULL) ? 1 : 0;
+        if ((uint64_t)muxer_drive_avail_space.QuadPart < required_space * (1 + muxer_same_drive_as_out)) {
+            error_muxer_drive_not_enough_space(muxer_root, (uint64_t)muxer_drive_avail_space.QuadPart, required_space * (1 + muxer_same_drive_as_out)); return AUO_RESULT_ERROR;
         }
         //一時フォルダと出力先が同じフォルダならさらなる検証の必要はない
         if (muxer_same_drive_as_out && ret == AUO_RESULT_SUCCESS)
@@ -138,8 +138,8 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
     if (!GetDiskFreeSpaceEx(vid_root, &out_drive_avail_space, NULL, NULL)) {
         warning_failed_out_drive_space(); return AUO_RESULT_WARNING;
     }
-    if ((UINT64)out_drive_avail_space.QuadPart < required_space) {
-        error_out_drive_not_enough_space(); return AUO_RESULT_ERROR;
+    if ((uint64_t)out_drive_avail_space.QuadPart < required_space) {
+        error_out_drive_not_enough_space(vid_root, (uint64_t)out_drive_avail_space.QuadPart, required_space); return AUO_RESULT_ERROR;
     }
     return ret;
 }
