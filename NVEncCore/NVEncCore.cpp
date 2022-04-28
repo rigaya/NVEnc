@@ -236,13 +236,13 @@ private:
 class FrameBufferDataEnc {
 public:
     RGY_CSP m_csp;
-    uint64_t m_timestamp;
-    uint64_t m_duration;
+    int64_t m_timestamp;
+    int64_t m_duration;
     int m_inputFrameId;
     EncodeBuffer *m_pEncodeBuffer;
     cudaEvent_t *m_pEvent;
     std::vector<std::shared_ptr<RGYFrameData>> m_frameDataList;
-    FrameBufferDataEnc(RGY_CSP csp, uint64_t timestamp, uint64_t duration, int inputFrameId, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent, std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) :
+    FrameBufferDataEnc(RGY_CSP csp, int64_t timestamp, int64_t duration, int inputFrameId, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent, std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) :
         m_csp(csp),
         m_timestamp(timestamp),
         m_duration(duration),
@@ -3335,8 +3335,8 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId, const std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) {
-    PrintMes(RGY_LOG_TRACE, _T("Sending frame %d to encoder: timestamp %lld, duration %lld\n"), inputFrameId, timestamp, duration);
+NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int id, const int64_t timestamp, const int64_t duration, const int inputFrameId, const std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) {
+    PrintMes((inputFrameId < 0 || timestamp < 0 || duration < 0) ? RGY_LOG_WARN : RGY_LOG_TRACE, _T("Sending frame #%d to encoder: timestamp %lld, duration %lld\n"), inputFrameId, timestamp, duration);
     NV_ENC_PIC_PARAMS encPicParams;
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS, m_dev->encoder()->getAPIver());
 
@@ -3850,6 +3850,10 @@ NVENCSTATUS NVEncCore::Encode() {
 #if ENABLE_AVSW_READER
         if ((srcTimebase.n() > 0 && srcTimebase.is_valid())
             && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware)) {
+            if (pInputFrame->getTimeStamp() < 0) {
+                PrintMes(RGY_LOG_WARN, _T("check_pts: Invalid timestamp from input frame #%d: timestamp %lld, timebase %d/%d, duration %lld.\n"),
+                         pInputFrame->getFrameInfo().inputFrameId, pInputFrame->getTimeStamp(), srcTimebase.n(), srcTimebase.d(), pInputFrame->getDuration());
+            }
             //CFR仮定ではなく、オリジナルの時間を見る
             outPtsSource = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase);
         }
@@ -3860,6 +3864,10 @@ NVENCSTATUS NVEncCore::Encode() {
         }
         //最初のptsを0に修正
         outPtsSource -= nOutFirstPts;
+        if (outPtsSource < 0) {
+            PrintMes(RGY_LOG_WARN, _T("check_pts: Invalid timestamp calculated from input frame #%d: timestamp %lld (-%lld), timebase %d/%d.\n"),
+                     pInputFrame->getFrameInfo().inputFrameId, outPtsSource, nOutFirstPts, m_outputTimebase.n(), m_outputTimebase.d());
+        }
 
         if ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) {
             if (vpp_rff || vpp_afs_rff_aware) {
@@ -3936,6 +3944,10 @@ NVENCSTATUS NVEncCore::Encode() {
         nOutEstimatedPts += outDuration;
         nLastPts = outPtsSource;
         add_dec_vpp_param(pInputFrame, decFrames, outPtsSource, outDuration);
+        if (outPtsSource < 0) {
+            PrintMes(RGY_LOG_WARN, _T("check_pts: Invalid timestamp set to frame #%d: timestamp %lld (-%lld), timebase %d/%d.\n"),
+                     pInputFrame->getFrameInfo().inputFrameId, outPtsSource, nOutFirstPts, m_outputTimebase.n(), m_outputTimebase.d());
+        }
         return decFrames;
     };
 

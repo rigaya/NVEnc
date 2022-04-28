@@ -106,11 +106,21 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
             ppOutputFrames[0]->duration = m_totalDuration * pSelectParam->selectevery.step / ((m_frames % pSelectParam->selectevery.step) + 1);
             ppOutputFrames[0]->timestamp = m_outPts;
             *pOutputFrameNum = 1;
+            if (m_totalDuration < 0 || m_outPts < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Invalid timestamp calculated for output: timestamp %lld, duration %lld.\n"),
+                           m_outPts, m_totalDuration);
+                return RGY_ERR_INVALID_PARAM;
+            }
         }
         return sts;
     }
 
     if (m_outPts < 0) {
+        if (pInputFrame->timestamp < 0 || pInputFrame->duration < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid timestamp from input, frame #%d: timestamp %lld, duration %lld.\n"),
+                m_frames, pInputFrame->timestamp, pInputFrame->duration);
+            return RGY_ERR_INVALID_PARAM;
+        }
         m_outPts = pInputFrame->timestamp;
     }
     m_totalDuration += pInputFrame->duration;
@@ -137,6 +147,11 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
             ppOutputFrames[0]->duration = m_totalDuration;
             ppOutputFrames[0]->timestamp = m_outPts;
             *pOutputFrameNum = 1;
+            if (m_totalDuration < 0 || m_outPts < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Invalid timestamp calculated for output: timestamp %lld, duration %lld.\n"),
+                           m_outPts, m_totalDuration);
+                return RGY_ERR_INVALID_PARAM;
+            }
         }
         m_outPts = -1;
         m_totalDuration = 0;
