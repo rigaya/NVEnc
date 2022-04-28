@@ -1101,17 +1101,17 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppResizeWidth,  cnf->vid.resize_width);
         SetNUValue(fcgNUVppResizeHeight, cnf->vid.resize_height);
         SetCXIndex(fcgCXVppResizeAlg,    get_cx_index(list_vpp_resize, encPrm.vpp.resize_algo));
-        int dnoise_idx = 0;
+        int denoise_idx = 0;
         if (encPrm.vpp.knn.enable) {
-            dnoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
         } else if (encPrm.vpp.pmd.enable) {
-            dnoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
         } else if (encPrm.vpp.smooth.enable) {
-            dnoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
         } else if (encPrm.vpp.convolution3d.enable) {
-            dnoise_idx = get_cx_index(list_vpp_denoise, _T("convolution3d"));
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("convolution3d"));
         }
-        SetCXIndex(fcgCXVppDenoiseMethod,        dnoise_idx);
+        SetCXIndex(fcgCXVppDenoiseMethod, denoise_idx);
 
         int detail_enahance_idx = 0;
         if (encPrm.vpp.unsharp.enable) {
