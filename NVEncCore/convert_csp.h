@@ -507,8 +507,7 @@ static bool cmpFrameInfoCspResolution(const RGYFrameInfo *pA, const RGYFrameInfo
     return pA->csp != pB->csp
         || pA->width != pB->width
         || pA->height != pB->height
-        || pA->deivce_mem != pB->deivce_mem
-        || pA->pitch != pB->pitch;
+        || pA->deivce_mem != pB->deivce_mem;
 }
 
 static void copyFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) {
