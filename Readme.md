@@ -157,18 +157,6 @@ which might cause problem in some playback environments.
 - Mux audio and chapter
 - afs (Automatic field shift) support
 
-### cufilters.auf (Aviutl plugin)
-- supported filters
-  - nnedi
-  - resize
-  - noise reduction
-    - knn (K-nearest neighbor)
-    - pmd (modified pmd method)
-  - edge / detail enhancement
-    - unsharp
-    - edgelevel (edge ​​level adjustment)
-  - deband  
-
 
 ## Auto GPU selection in multi GPU envinronment
 

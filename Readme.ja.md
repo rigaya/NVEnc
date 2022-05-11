@@ -13,9 +13,6 @@ by rigaya
 - [NVEnc.auo](./NVEnc_auo_readme.md)  
   NVIDIAのNVEncを使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインの使用方法については、[こちら](./NVEnc_auo_readme.md)を参照してください。
 
-- cufilters  
-  [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)用CUDAフィルタです。
-
 ## 配布場所 & 更新履歴  
 [こちら](https://github.com/rigaya/NVEnc/releases)  
   
@@ -161,18 +158,6 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - unsharp
       - edgelevel (エッジレベル調整)
       - warpsharp
-
-### cufilters.auf
-- 対応フィルタ
-  - nnedi
-  - リサイズ
-  - ノイズ除去
-    - knn (K-nearest neighbor)
-    - pmd (正則化pmd法)
-  - 輪郭・ディテール強調
-    - unsharp
-    - edgelevel (エッジレベル調整)
-  - バンディング低減  
 
 
 ## マルチGPU環境でのGPU自動選択
