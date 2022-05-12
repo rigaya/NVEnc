@@ -175,6 +175,9 @@ public:
     bool logFileAvail() {
         return m_pStrLog != nullptr;
     }
+    void setLogFile(const TCHAR *pLogFile) {
+        m_pStrLog = pLogFile;
+    }
     virtual void write_log(RGYLogLevel log_level, const RGYLogType logtype, const TCHAR *buffer, bool file_only = false);
     virtual void write(RGYLogLevel log_level, const RGYLogType logtype, const TCHAR *format, ...);
     virtual void write(RGYLogLevel log_level, const RGYLogType logtype, const wchar_t *format, va_list args);
