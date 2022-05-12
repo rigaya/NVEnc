@@ -472,6 +472,7 @@ std::string add_indent(const std::string& str, const int indentLength) {
         auto segment = std::string(str, current, found - current);
         ret.append(indent);
         ret.append(segment);
+        ret.append("\n");
         current = found + 1;
     }
     return ret;
