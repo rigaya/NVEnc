@@ -50,6 +50,7 @@ const char *get_encoder_version();
 #define ENCODER_QSV    0
 #define ENCODER_NVENC  1
 #define ENCODER_VCEENC 0
+#define CLFILTERS_AUF  0
 
 #define CUVID_DISABLE_CROP 1
 

@@ -806,7 +806,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     if (m_nSelectOutputPlot) {
         m_pProcess = createRGYPipeProcess();
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
-#if defined(_WIN32) || defined(_WIN64)
+#if (defined(_WIN32) || defined(_WIN64)) && !CLFILTERS_AUF
         TCHAR tempDir[1024] = { 0 };
         GetModuleFileName(NULL, tempDir, _countof(tempDir));
         m_sPywPath = std::filesystem::path(tempDir).remove_filename().append(strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), GetProcessId(GetCurrentProcess())));

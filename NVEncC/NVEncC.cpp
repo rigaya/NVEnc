@@ -253,7 +253,7 @@ static int run_on_os_codepage() {
         return 1;
     }
     void *manifest = nullptr;
-    int size = getEmbeddedResource(&manifest, _T("APP_OSCODEPAGE_MANIFEST"), _T("EXE_DATA"));
+    int size = getEmbeddedResource(&manifest, _T("APP_OSCODEPAGE_MANIFEST"), _T("EXE_DATA"), NULL);
     if (size == 0) {
         _ftprintf(stderr, _T("Failed to load manifest for OS codepage mode.\n"));
         return 1;

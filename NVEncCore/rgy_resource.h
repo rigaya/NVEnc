@@ -32,7 +32,7 @@
 #include "rgy_osdep.h"
 #include "rgy_tchar.h"
 
-int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule = NULL);
-std::string getEmbeddedResourceStr(const tstring& name, const tstring& type);
+int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule);
+std::string getEmbeddedResourceStr(const tstring& name, const tstring& type, HMODULE hModule);
 
 #endif //__RGY_RESOURCE_H__

@@ -31,10 +31,12 @@
 
 #include "rgy_def.h"
 #include "rgy_log.h"
+#if ENABLE_CAPTION2ASS
 #include "rgy_caption.h"
-#include "rgy_simd.h"
+#endif
 #include "rgy_hdr10plus.h"
 #include "rgy_thread_affinity.h"
+#include "rgy_simd.h"
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -45,24 +47,24 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 #if ENCODER_NVENC
 #define ENABLE_VPP_FILTER_COLORSPACE   (ENABLE_NVRTC)
 #else
-#define ENABLE_VPP_FILTER_COLORSPACE   (ENCODER_QSV   || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_COLORSPACE   (ENCODER_QSV   || ENCODER_VCEENC ||                  CLFILTERS_AUF)
 #endif
 #define ENABLE_VPP_FILTER_AFS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_RFF          (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_SELECT_EVERY (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DECIMATE     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 #define ENABLE_VPP_FILTER_MPDECIMATE   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_PAD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
-#define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_PAD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV  || ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
 
@@ -528,6 +530,49 @@ const CX_DESC list_vpp_mirroring[] = {
 const CX_DESC list_vpp_ass_shaping[] = {
     { _T("simple"),  0 },
     { _T("complex"), 1 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_raduis[] = {
+    { _T("1 - weak"),  1 },
+    { _T("2"),  2 },
+    { _T("3"),  3 },
+    { _T("4"),  4 },
+    { _T("5 - strong"),  5 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_apply_count[] = {
+    { _T("1"),  1 },
+    { _T("2"),  2 },
+    { _T("3"),  3 },
+    { _T("4"),  4 },
+    { _T("5"),  5 },
+    { _T("6"),  6 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_smooth_quality[] = {
+    { _T("1 - fast"),  1 },
+    { _T("2"),  2 },
+    { _T("3"),  3 },
+    { _T("4"),  4 },
+    { _T("5"),  5 },
+    { _T("6 - high quality"),  6 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_1_to_10[] = {
+    { _T("1"),  1 },
+    { _T("2"),  2 },
+    { _T("3"),  3 },
+    { _T("4"),  4 },
+    { _T("5"),  5 },
+    { _T("6"),  6 },
+    { _T("7"),  7 },
+    { _T("8"),  8 },
+    { _T("9"),  9 },
+    { _T("10"),  10 },
     { NULL, 0 }
 };
 
@@ -1214,7 +1259,9 @@ struct RGYParamCommon {
     bool copyChapter;
     bool keyOnChapter;
     bool chapterNoTrim;
+#if ENABLE_CAPTION2ASS
     C2AFormat caption2ass;
+#endif
     int audioIgnoreDecodeError;
     RGYOptList muxOpt;
     bool disableMp4Opt;
