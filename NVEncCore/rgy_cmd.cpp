@@ -6171,7 +6171,7 @@ tstring gen_cmd_help_common() {
         _T("   --trim <int>:<int>[,<int>:<int>]...\n")
         _T("                                trim video for the frame range specified.\n")
         _T("                                 frame range should not overwrap each other.\n")
-        _T("   --seek [[<int>:]<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
+        _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
         _T("   --input-format <string>      set input format of input file.\n")
@@ -6698,7 +6698,7 @@ tstring gen_cmd_help_ctrl() {
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
-        _T("   --log-opt [<param1>=<value>][,<param2>]...\n")
+        _T("   --log-opt [<param1>][,<param2>][]...\n")
         _T("     additional options for log output.\n")
         _T("    params\n")
         _T("      addtime                   add time to log lines.\n")
@@ -6764,7 +6764,7 @@ tstring gen_cmd_help_ctrl() {
         list_thread_throttoling[RGY_THREAD_POWER_THROTTOLING_MODE_STR.size()].desc = nullptr;
 
         str += strsprintf(_T("")
-            _T("   --thread-affinity [<string1>=](<string2>[#<int>[:<int>]...] or 0x<hex>)\n"));
+            _T("   --thread-affinity [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
             _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
         ) + print_list(list_rgy_thread_type.data()) + _T("\n");
@@ -6773,7 +6773,7 @@ tstring gen_cmd_help_ctrl() {
         ) + print_list(list_thread_affinity_mode.data()) + _T("\n");
 #if defined(_WIN32) || defined(_WIN64)
         str += strsprintf(_T("")
-            _T("   --thread-priority [<string1>=](<string2>[#<int>[:<int>]...] or 0x<hex>)\n"));
+            _T("   --thread-priority [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
             _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
         ) + print_list(list_rgy_thread_type.data()) + _T("\n");
@@ -6782,7 +6782,7 @@ tstring gen_cmd_help_ctrl() {
         ) + print_list(list_thread_priority.data()) + _T("\n");
 
         str += strsprintf(_T("")
-            _T("   --thread-throttling [<string1>=](<string2>[#<int>[:<int>]...] or 0x<hex>)\n"));
+            _T("   --thread-throttling [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
             _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
         ) + print_list(list_rgy_thread_type.data()) + _T("\n");
@@ -6800,7 +6800,7 @@ tstring gen_cmd_help_ctrl() {
         _T("                                os   ... use the codepage set in Operating System.\n"));
 #endif //#if defined(_WIN32) || defined(_WIN64)
     str += strsprintf(_T("\n")
-        _T("   --perf-monitor [<string>[,<string>]...]\n")
+        _T("   --perf-monitor [<string>][,<string>]...\n")
         _T("       check performance info of encoder and output to log file\n")
         _T("       select counter from below, default = all\n")
         _T("                                 \n")
