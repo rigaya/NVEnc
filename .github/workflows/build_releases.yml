@@ -109,6 +109,17 @@ jobs:
           if "${{ matrix.arch }}" == "x64" copy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}\bin\nvrtc-builtins64_${{ matrix.cuda_ver_major }}${{ matrix.cuda_ver_minor }}.dll" NVEncC_Release
           7z a -mx9 NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\NVEncC_Release\*
 
+      - name: Check dll
+        run: |
+          if ("${{ matrix.platform }}" == "x64")   "NVEncC_Release\NVEncC64.exe" --check-avcodec-dll
+          if ("${{ matrix.platform }}" == "Win32") "NVEncC_Release\NVEncC.exe" --check-avcodec-dll
+
+      - name: Check Version
+        if: startsWith(github.ref, 'refs/tags/')
+        id: check_ver
+        run: |
+          powershell "$ver = (Get-ItemProperty .\NVEncC_Release\NVEncC*.exe).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
+
       - name: Upload Release Asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
@@ -117,3 +128,123 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: .\NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: NVEncC_release_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}
+          path: .\NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+
+  upload_aviutl_release:
+    name: Upload Aviutl Release Asset
+    runs-on: windows-2019
+    needs: [ get_version_name, build ]
+
+    defaults:
+      run:
+        shell: cmd
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86
+            platform: Win32
+            cuda_ver_major: 11
+            cuda_ver_minor: 1
+            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.1.1/network_installers/cuda_11.1.1_win10_network.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Checkout dependencies
+        run: |
+          curl -s -o ffmpeg_lgpl_20220302.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20220302.zip
+          7z x -y ffmpeg_lgpl_20220302.zip
+          move ffmpeg5* ffmpeg_lgpl
+          git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
+          git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
+          git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
+          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+        with:
+          msbuild-architecture: ${{ matrix.arch }}
+          
+      - name: Setup CUDA
+        run: |
+          curl -s -o cuda_installer.exe -L ${{ matrix.cuda_download_url }}
+          cuda_installer.exe -s nvcc_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} cudart_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} curand_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} curand_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} npp_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} npp_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvml_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvrtc_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvrtc_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} visual_studio_integration_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
+
+      - name: MSBuild
+        run: |
+          set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
+          set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
+          set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
+          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
+          set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
+          if "${{ matrix.cuda_ver_major }}" == "10" set CUDA_PATH_V10_1=%CUDA_PATH%
+          if "${{ matrix.cuda_ver_major }}" == "11" set CUDA_PATH_V11_1=%CUDA_PATH%
+          msbuild NVEnc.sln /t:build /p:configuration=Release /p:Platform=${{ matrix.platform }} -maxcpucount
+
+      - name: Download auo_setup
+        id: download_auosetup
+        run: |
+          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.01/auo_setup_2.01.zip
+
+      - name: Download NVEncC Win32
+        uses: actions/download-artifact@v3
+        with:
+          name: NVEncC_release_${{ needs.get_version_name.outputs.version_name }}_Win32
+          path: NVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
+
+      - name: Download NVEncC x64
+        uses: actions/download-artifact@v3
+        with:
+          name: NVEncC_release_${{ needs.get_version_name.outputs.version_name }}_x64
+          path: NVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          
+      - name: Create package
+        id: archieve
+        run: |
+          mkdir Aviutl_NVEnc_release
+          7z x -oAviutl_NVEnc_release\ auo_setup.zip
+          mkdir Aviutl_NVEnc_release\exe_files\NVEncC
+          mkdir Aviutl_NVEnc_release\exe_files\NVEncC\x86
+          mkdir Aviutl_NVEnc_release\exe_files\NVEncC\x64
+          7z x -oAviutl_NVEnc_release\exe_files\NVEncC\x86\ NVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
+          7z x -oAviutl_NVEnc_release\exe_files\NVEncC\x64\ NVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          copy /y _build\Win32\Release\NVEnc.auo Aviutl_NVEnc_release\plugins\
+          copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\plugins\
+          copy /y NVEnc\auo_setup.ini Aviutl_NVEnc_release\exe_files\
+          copy /y NVEnc\NVEnc_readme.txt Aviutl_NVEnc_release\
+          copy /y "NVEnc\NVENCが利用可能か確認 [ダブルクリック].bat" Aviutl_NVEnc_release\
+          echo D | xcopy /y /e NVEnc\stg Aviutl_NVEnc_release\plugins\NVEnc_stg
+          dir /b /s Aviutl_NVEnc_release\
+          7z a -mx9 Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip .\Aviutl_NVEnc_release\*
+
+      - name: Check Version
+        id: check_ver
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          powershell "$ver = (Get-ItemProperty .\Aviutl_NVEnc_release\plugins\NVEnc.auo).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
+
+      - name: Check dll
+        id: check_dll
+        run: |
+          "Aviutl_NVEnc_release\exe_files\NVEncC\x86\NVEncC.exe" --check-avcodec-dll
+          "Aviutl_NVEnc_release\exe_files\NVEncC\x64\NVEncC64.exe" --check-avcodec-dll
+
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: .\Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
