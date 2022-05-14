@@ -1243,9 +1243,7 @@ RGYParamCommon::RGYParamCommon() :
     copyChapter(false),
     keyOnChapter(false),
     chapterNoTrim(false),
-#if ENABLE_CAPTION2ASS
     caption2ass(FORMAT_INVALID),
-#endif
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     muxOpt(),
     disableMp4Opt(false),

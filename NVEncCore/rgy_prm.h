@@ -31,9 +31,7 @@
 
 #include "rgy_def.h"
 #include "rgy_log.h"
-#if ENABLE_CAPTION2ASS
 #include "rgy_caption.h"
-#endif
 #include "rgy_hdr10plus.h"
 #include "rgy_thread_affinity.h"
 #include "rgy_simd.h"
@@ -1259,9 +1257,7 @@ struct RGYParamCommon {
     bool copyChapter;
     bool keyOnChapter;
     bool chapterNoTrim;
-#if ENABLE_CAPTION2ASS
     C2AFormat caption2ass;
-#endif
     int audioIgnoreDecodeError;
     RGYOptList muxOpt;
     bool disableMp4Opt;

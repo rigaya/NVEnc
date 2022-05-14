@@ -30,11 +30,13 @@
 
 #include "rgy_osdep.h"
 #include "rgy_version.h"
+#if !CLFILTERS_AUF
 #include "rgy_avutil.h"
+#include "rgy_stream.h"
+#endif
 #include "rgy_err.h"
 #include "rgy_log.h"
 #include "rgy_def.h"
-#include "rgy_stream.h"
 
 enum C2AFormat {
     FORMAT_INVALID = 0,
