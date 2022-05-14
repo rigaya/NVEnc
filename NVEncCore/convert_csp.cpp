@@ -1626,13 +1626,15 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_P010,      RGY_CSP_P010,      false,  copy_p010_to_p010_sse2,              copy_p010_to_p010_sse2,              SSE2 )
     FUNC__C_(  RGY_CSP_P010,      RGY_CSP_P010,      false,  copy_p010_to_p010_c,                 copy_p010_to_p010_c,                 NONE)
 #endif
+#if !CLFILTERS_AUF
     FUNC_AVX2( RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_avx2,           convert_yuy2_to_nv12_i_avx2,         AVX2|AVX)
     FUNC_AVX(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_avx,            convert_yuy2_to_nv12_i_avx,          AVX )
     FUNC_SSE(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_sse2,           convert_yuy2_to_nv12_i_ssse3,        SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_sse2,           convert_yuy2_to_nv12_i_sse2,         SSE2 )
     FUNC__C_(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12,                convert_yuy2_to_nv12,                NONE )
     FUNC__C_(  RGY_CSP_YUY2,      RGY_CSP_YUV444,    false,  convert_yuy2_to_yuv444,              convert_yuy2_to_yuv444,              NONE )
-#if FOR_AUO
+#endif
+#if FOR_AUO && !CLFILTERS_AUF
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444,    false,  convert_yc48_to_yuv444_avx,          convert_yc48_to_yuv444_avx,          AVX )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444,    false,  convert_yc48_to_yuv444_sse41,        convert_yc48_to_yuv444_sse41,        SSE41|SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444,    false,  convert_yc48_to_yuv444_sse2,         convert_yc48_to_yuv444_sse2,         SSE2 )
@@ -1641,13 +1643,15 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_sse41,          convert_yc48_to_p010_i_sse41,        SSE41|SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_ssse3,          convert_yc48_to_p010_i_ssse3,        SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_sse2,           convert_yc48_to_p010_i_sse2,         SSE2 )
+#endif
+#if FOR_AUO
     FUNC_AVX2( RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_avx2,   convert_yc48_to_yuv444_16bit_avx2,   AVX2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_avx,    convert_yc48_to_yuv444_16bit_avx,    AVX )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_sse41,  convert_yc48_to_yuv444_16bit_sse41,  SSE41|SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_ssse3,  convert_yc48_to_yuv444_16bit_ssse3,  SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_sse2,   convert_yc48_to_yuv444_16bit_sse2,   SSE2 )
 #endif
-#if 0
+#if CLFILTERS_AUF
     FUNC_AVX2(RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_avx2,   convert_yuv444_16bit_to_yc48_avx2,   AVX2 )
     FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_avx,    convert_yuv444_16bit_to_yc48_avx,    AVX )
     FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_sse41,  convert_yuv444_16bit_to_yc48_sse41,  SSE41|SSSE3|SSE2 )
