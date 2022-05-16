@@ -6410,6 +6410,7 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             this->fcgTXCustomAudioTempDir->Name = L"fcgTXCustomAudioTempDir";
             this->fcgTXCustomAudioTempDir->Size = System::Drawing::Size(245, 21);
             this->fcgTXCustomAudioTempDir->TabIndex = 68;
+            this->fcgTXCustomAudioTempDir->TextChanged += gcnew System::EventHandler(this, &frmConfig::fcgTXCustomAudioTempDir_TextChanged);
             // 
             // fcgBTCustomAudioTempDir
             // 
