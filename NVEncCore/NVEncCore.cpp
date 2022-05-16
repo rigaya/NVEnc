@@ -4169,7 +4169,7 @@ NVENCSTATUS NVEncCore::Encode() {
     bool bInputEmpty = false;
     bool bFilterEmpty = false;
     for (int nInputFrame = 0, nFilterFrame = 0; nvStatus == NV_ENC_SUCCESS && !bInputEmpty && !bFilterEmpty; ) {
-        if (m_pAbortByUser && *m_pAbortByUser) {
+        if ((m_pAbortByUser && *m_pAbortByUser) || stdInAbort()) {
             nvStatus = NV_ENC_ERR_ABORT;
             break;
         }
