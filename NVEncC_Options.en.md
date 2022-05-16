@@ -419,10 +419,11 @@ Set interlace flag of **input** frame.
 
 Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string) or [--vpp-afs](#--vpp-afs-param1value1param2value2). If deinterlacer is not activated for interlaced input, then interlaced encoding is performed.
 
-- progressive ... progressive
-- tff ... top field first
-- bff ... Bottom Field First
-- auto ... detect each frame (available only for [avhw](#--avhw)/[avsw](#--avsw) reader)
+- parameters
+  - progressive ... progressive
+  - tff ... top field first
+  - bff ... Bottom Field First
+  - auto ... detect each frame (available only for [avhw](#--avhw)/[avsw](#--avsw) reader)
 
 ### --video-track &lt;int&gt;
 Set video track to encode in track id. Will be active when used with avhw/avsw reader.
@@ -442,22 +443,32 @@ Set the input frame rate. Required for raw format.
 ### --input-res &lt;int&gt;x&lt;int&gt;
 Set input resolution. Required for raw format.
 
-### --output-res &lt;int&gt;x&lt;int&gt;
+### --output-res &lt;int&gt;x&lt;int&gt;[,&lt;string&gt;=&lt;string&gt;]
 Set output resolution. When it is different from the input resolution, HW/GPU resizer will be activated automatically.
 
 If not specified, it will be same as the input resolution. (no resize)  
 
-_Special Values_
-- 0 ... Will be same as input.
-- One of width or height as negative value    
-  Will be resized keeping aspect ratio, and a value which could be divided by the negative value will be chosen.
+- **Special Values**
+  - 0 ... Will be same as input.
+  - One of width or height as negative value    
+    Will be resized keeping aspect ratio, and a value which could be divided by the negative value will be chosen.
 
-```
-Example: input 1280x720
---output-res 1024x576 -> normal
---output-res 960x0    -> resize to 960x720 (0 will be replaced to 720, same as input)
---output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
-```
+- **パラメータ**
+  - preserve_aspect_ratio=&lt;string&gt;  
+    Resize to specified width **or** height, while preserving input aspect ratio.
+    - increase ... preserve aspect ratio by increasing resolution.
+    - decrease ... preserve aspect ratio by decreasing resolution.
+
+- Example
+  ```
+  When input is 1280x720...
+  --output-res 1024x576 -> normal
+  --output-res 960x0    -> resize to 960x720 (0 will be replaced to 720, same as input)
+  --output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
+  
+  --output-res 1440x1440,preserve_aspect_ratio=increase -> resize to 2560x1440
+  --output-res 1440x1440,preserve_aspect_ratio=decrease -> resize to 1440x810
+  ```
 
 ### --input-csp &lt;string&gt;
 Set input colorspace for --raw input. Default is yv12.

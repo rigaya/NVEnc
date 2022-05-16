@@ -135,13 +135,17 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
     return std::make_pair<int, int>(x / b, y / b);
 }
 
-void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, int src_sar_w, int src_sar_h, const sInputCrop& crop) {
-    if (dst_w * dst_h < 0) {
+void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, const int src_sar_w, const int src_sar_h, const int mod_w, const int mod_h, const RGYResizeResMode mode, const sInputCrop& crop) {
+    if (dst_w * dst_h < 0
+        || mode == RGYResizeResMode::PreserveOrgAspectDec
+        || mode == RGYResizeResMode::PreserveOrgAspectInc) {
+        // cropの反映
         src_w -= (crop.e.left + crop.e.right);
         src_h -= (crop.e.bottom + crop.e.up);
         if (dst_sar_w * dst_sar_h <= 0) {
             dst_sar_w = dst_sar_h = 1;
         }
+        // 最終的なアスペクト比の計算
         double dar = src_w / (double)src_h;
         if (dst_sar_w < 0 && dst_sar_h < 0) {
             dar = dst_sar_w / (double)dst_sar_h;
@@ -149,13 +153,37 @@ void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, i
             if (src_sar_w * src_sar_h > 0) {
                 if (src_sar_w < 0) {
                     dar = src_sar_w / (double)src_sar_h;
-                }
-                else {
+                } else {
                     dar = (src_w * (double)src_sar_w) / (src_h * (double)src_sar_h);
                 }
             }
             dar /= (dst_sar_w / (double)dst_sar_h);
         }
+        // PreserveOrgAspectInc, PreserveOrgAspectDec の場合、
+        // 解像度の変更が必要となる側のdst_xに負の値を設定し、
+        // 次のステップで適用する解像度の計算を行う
+        // このとき、この負の値はYUV420の条件等を考慮した mod_w, mod_h の負の数とする
+        if (dst_w * dst_h > 0
+            && (mode == RGYResizeResMode::PreserveOrgAspectDec
+             || mode == RGYResizeResMode::PreserveOrgAspectInc)) {
+            int w_new = (int)(dst_h * dar + 0.5);
+            if (mode == RGYResizeResMode::PreserveOrgAspectDec) {
+                // 大きくなってしまうほうを変更する
+                if (w_new > dst_w) {
+                    dst_h = -mod_h;
+                } else {
+                    dst_w = -mod_w;
+                }
+            } else { //mode == RGYResizeResMode::PreserveOrgAspectInc
+                // 小さくなってしまうほうを変更する
+                if (w_new < dst_w) {
+                    dst_h = -mod_h;
+                } else {
+                    dst_w = -mod_w;
+                }
+            }
+        }
+        // 適用する解像度の計算
         if (dst_w < 0) {
             const int div = std::abs(dst_w);
             dst_w = (((int)(dst_h * dar) + (div >> 1)) / div) * div;

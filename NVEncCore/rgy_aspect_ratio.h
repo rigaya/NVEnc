@@ -35,7 +35,7 @@
 void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sar_h);
 std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned int darWidth, unsigned int darHeight);
 void adjust_sar(int *sar_w, int *sar_h, int width, int height);
-void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, int src_sar_w, int src_sar_h, const sInputCrop& crop);
+void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, const int src_sar_w, const int src_sar_h, const int mod_w, const int mod_h, const RGYResizeResMode mode, const sInputCrop& crop);
 int get_h264_sar_idx(std::pair<int, int>sar);
 std::pair<int, int> get_h264_sar(int idx);
 

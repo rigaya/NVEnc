@@ -251,6 +251,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nWeightP(0),
     chromaQPOffset(0),
     common(),
+    inprm(),
     ctrl(),
     vpp(),
     vppnv() {

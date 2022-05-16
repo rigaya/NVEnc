@@ -1204,6 +1204,13 @@ bool GPUAutoSelectMul::operator!=(const GPUAutoSelectMul &x) const {
     return !(*this == x);
 }
 
+RGYParamInput::RGYParamInput() :
+    resizeResMode(RGYResizeResMode::Normal) {
+
+}
+
+RGYParamInput::~RGYParamInput() {};
+
 RGYParamCommon::RGYParamCommon() :
     inputFilename(),
     outputFilename(),

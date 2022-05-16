@@ -428,10 +428,11 @@ avformat + cuvid decoderを使用して読み込む。
 
 [--vpp-deinterlace](#--vpp-deinterlace-string) / [--vpp-afs](#--vpp-afs-param1value1param2value2) によりNVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
 
-- progressive ... プログレッシブ
-- tff ... トップフィールドファースト
-- bff ... ボトムフィールドファースト
-- auto ... 各フレームについて自動的に判断 ([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
+- **パラメータ**
+  - progressive ... プログレッシブ
+  - tff ... トップフィールドファースト
+  - bff ... ボトムフィールドファースト
+  - auto ... 各フレームについて自動的に判断 ([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 左、上、右、下の切り落とし画素数。
@@ -442,22 +443,32 @@ avformat + cuvid decoderを使用して読み込む。
 ### --input-res &lt;int&gt;x&lt;int&gt;
 入力解像度の設定。raw形式の場合は必須。
 
-### --output-res &lt;int&gt;x&lt;int&gt;
+### --output-res &lt;int&gt;x&lt;int&gt;[,&lt;string&gt;=&lt;string&gt;]
 出力解像度の設定。入力解像度と異なる場合、自動的にHW/GPUリサイズを行う。
 
 指定がない場合、入力解像度と同じになり、リサイズは行われない。
 
-_特殊な値について_
-- 0 ... 入力解像度と同じ
-- 縦横のどちらかを負の値  
-  アスペクト比を維持したまま、片方に合わせてリサイズ。ただし、その負の値で割り切れる数にする。
+- **特殊な値について**
+  - 0 ... 入力解像度と同じ
+  - 縦横のどちらかを負の値  
+    アスペクト比を維持したまま、片方に合わせてリサイズ。ただし、その負の値で割り切れる数にする。
 
-```
-例: 入力が1280x720の場合
---output-res 1024x576 -> 通常の指定方法
---output-res 960x0    -> 960x720にリサイズ (0のほうは720のまま)
---output-res 1920x-2  -> 1920x1080にリサイズ (アスペクト比が維持できるように調整)
-```
+- **パラメータ**
+  - preserve_aspect_ratio=&lt;string&gt;  
+    指定解像度(指定枠)の縦横どちらかに合うよう、入力アスペクト比を維持しながらリサイズする。
+    - increase ... 拡大してアスペクト比を維持する (指定枠に外接するよう調整)
+    - decrease ... 縮小してアスペクト比を維持する (指定枠に収めるように調整)
+
+- 使用例
+  ```
+  例: 入力が1280x720の場合
+  --output-res 1024x576 -> 通常の指定方法
+  --output-res 960x0    -> 960x720にリサイズ (0のほうは720のまま)
+  --output-res 1920x-2  -> 1920x1080にリサイズ (アスペクト比が維持できるように調整)
+  
+  --output-res 1440x1440,preserve_aspect_ratio=increase -> 2560x1440にリサイズ
+  --output-res 1440x1440,preserve_aspect_ratio=decrease -> 1440x810にリサイズ
+  ```
 
 ### --input-csp &lt;string&gt;
 raw読み込み時の入力色空間の設定。デフォルトはyv12。

@@ -594,6 +594,7 @@ struct InEncodeVideoParam {
     int chromaQPOffset;
 
     RGYParamCommon common;
+    RGYParamInput inprm;
     RGYParamControl ctrl;
     RGYParamVpp vpp;
     VppParam vppnv;                 //vpp

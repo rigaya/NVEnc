@@ -247,6 +247,12 @@ enum {
     DELOGO_MODE_ADD,
 };
 
+enum class RGYResizeResMode {
+    Normal,
+    PreserveOrgAspectDec,
+    PreserveOrgAspectInc,
+};
+
 const int COLOR_VALUE_AUTO = -1;
 const int COLOR_VALUE_AUTO_RESOLUTION = std::numeric_limits<int>::max();
 const int HD_HEIGHT_THRESHOLD = 720;

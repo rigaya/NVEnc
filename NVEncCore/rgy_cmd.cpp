@@ -2841,7 +2841,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     return -1;
 }
 
-int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, sArgsData *argData) {
+int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, RGYParamInput *inprm, sArgsData *argData) {
     if (IS_OPTION("fps")) {
         i++;
         int a[2] = { 0 };
@@ -2873,8 +2873,7 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         i++;
         int a[2] = { 0 };
         if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])) {
             input->srcWidth  = a[0];
             input->srcHeight = a[1];
         } else {
@@ -2884,16 +2883,43 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         return 0;
     }
     if (IS_OPTION("output-res")) {
+        if (i + 1 >= nArgNum) {
+            return 0;
+        }
         i++;
-        int a[2] = { 0 };
-        if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            input->dstWidth  = a[0];
-            input->dstHeight = a[1];
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
+
+        const auto paramList = std::vector<std::string>{ "preserve_aspect_ratio" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("preserve_aspect_ratio")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_resize_res_mode, param_val.c_str(), &value)) {
+                        inprm->resizeResMode = (RGYResizeResMode)value;
+                        continue;
+                    } else {
+                        print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_resize_res_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                int a[2] = { 0 };
+                if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
+                    || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])) {
+                    input->dstWidth  = a[0];
+                    input->dstHeight = a[1];
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
         }
         return 0;
     }
@@ -5106,7 +5132,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 #define ADD_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=\"") << (param->opt) << _T("\"");
 #define ADD_STR(str, opt) if (param->opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (param->opt.c_str());
 
-tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, bool save_disabled_prm) {
+tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYParamInput *inprm, const RGYParamInput *inprmDefault, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> cmd;
     switch (param->type) {
     case RGY_INPUT_FMT_RAW:    cmd << _T(" --raw"); break;
@@ -5137,6 +5163,9 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, bool save_d
     }
     if (param->dstWidth * param->dstHeight != 0) {
         cmd << _T(" --output-res ") << param->dstWidth << _T("x") << param->dstHeight;
+        if (inprm->resizeResMode != inprmDefault->resizeResMode) {
+            cmd << _T(",preserve_aspect_ratio=") << get_chr_from_value(list_vpp_resize_res_mode, (int)(inprm->resizeResMode));
+        }
     }
     return cmd.str();
 }
@@ -6106,7 +6135,13 @@ tstring gen_cmd_help_input() {
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
         _T("                                    left crop is unavailable with avhw reader\n")
-        _T("   --output-res <int>x<int>     set output resolution\n")
+        _T("   --output-res <int>x<int>[,<string>=<string>]...\n")
+        _T("                                set output resolution\n")
+        _T("    params\n")
+        _T("      preserve_aspect_ratio=<string>   preserve input aspect ratio.\n")
+        _T("        decrease ... preserve aspect ratio by decreasing resolution specified.\n")
+        _T("        increase ... preserve aspect ratio by increasing resolution specified.\n")
+        _T("\n")
         _T("   --fps <int>/<int> or <float> set framerate\n")
         _T("   --interlace <string>         set input as interlaced\n")
         _T("                                  tff, bff\n");

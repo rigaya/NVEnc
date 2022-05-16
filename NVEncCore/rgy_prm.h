@@ -360,6 +360,13 @@ const CX_DESC list_vpp_resize_help[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_vpp_resize_res_mode[] = {
+    { _T("normal"),   (int)RGYResizeResMode::Normal },
+    { _T("decrease"), (int)RGYResizeResMode::PreserveOrgAspectDec },
+    { _T("increase"), (int)RGYResizeResMode::PreserveOrgAspectInc },
+    { NULL, 0 }
+};
+
 enum VppFpPrecision {
     VPP_FP_PRECISION_UNKNOWN = -1,
 
@@ -1215,6 +1222,13 @@ struct GPUAutoSelectMul {
     GPUAutoSelectMul();
     bool operator==(const GPUAutoSelectMul &x) const;
     bool operator!=(const GPUAutoSelectMul &x) const;
+};
+
+struct RGYParamInput {
+    RGYResizeResMode resizeResMode;
+
+    RGYParamInput();
+    ~RGYParamInput();
 };
 
 struct RGYParamCommon {
