@@ -721,6 +721,7 @@ typedef struct AVDemuxVideo {
     int                       HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
 
     bool                      bUseHEVCmp42AnnexB;
+    int                       hevcNaluLengthSize;
     bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
     bool                      doviRpuCopy;           //dovi rpuのメタ情報を取得する
 
