@@ -28,6 +28,7 @@
 
 #include "CuvidDecode.h"
 #include "NVEncUtil.h"
+#include "rgy_bitstream.h"
 #if ENABLE_AVSW_READER
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -374,8 +375,43 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
         //    AddMessage(RGY_LOG_ERROR, _T("Parsed header too large!\n"));
         //    return CUDA_ERROR_INVALID_VALUE;
         //}
-        m_videoFormatEx.format.seqhdr_data_length = std::min<uint32_t>(input->codecExtraSize, sizeof(m_videoFormatEx.raw_seqhdr_data));
-        memcpy(m_videoFormatEx.raw_seqhdr_data, input->codecExtra, m_videoFormatEx.format.seqhdr_data_length);
+
+        std::vector<uint8_t> tmpBuf;
+        //抽出されたextradataが大きすぎる場合、適当に縮める
+        //NVEncのデコーダが受け取れるヘッダは1024byteまで
+        if (input->codecExtraSize > 1024) {
+            if (input->codec == RGY_CODEC_H264) {
+                std::vector<nal_info> nal_list = get_parse_nal_unit_h264_func()((const uint8_t *)input->codecExtra, input->codecExtraSize);
+                const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
+                const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
+                const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
+                if (header_check) {
+                    tmpBuf.resize(h264_sps_nal->size + h264_pps_nal->size);
+                    memcpy(tmpBuf.data(), h264_sps_nal->ptr, h264_sps_nal->size);
+                    memcpy(tmpBuf.data() + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
+                }
+            } else if (input->codec == RGY_CODEC_HEVC) {
+                std::vector<nal_info> nal_list = get_parse_nal_unit_hevc_func()((const uint8_t *)input->codecExtra, input->codecExtraSize);
+                const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+                const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+                const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+                const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+                if (header_check) {
+                    tmpBuf.resize(hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size);
+                    memcpy(tmpBuf.data(), hevc_vps_nal->ptr, hevc_vps_nal->size);
+                    memcpy(tmpBuf.data() + hevc_vps_nal->size, hevc_sps_nal->ptr, hevc_sps_nal->size);
+                    memcpy(tmpBuf.data() + hevc_vps_nal->size + hevc_sps_nal->size, hevc_pps_nal->ptr, hevc_pps_nal->size);
+                }
+            } else {
+                AddMessage(RGY_LOG_WARN, _T("GetHeader: Unknown codec.\n"));
+                return CUDA_ERROR_INVALID_VALUE;
+            }
+        } else {
+            tmpBuf.resize(input->codecExtraSize);
+            memcpy(tmpBuf.data(), input->codecExtra, tmpBuf.size());
+        }
+        m_videoFormatEx.format.seqhdr_data_length = std::min<uint32_t>(tmpBuf.size(), sizeof(m_videoFormatEx.raw_seqhdr_data));
+        memcpy(m_videoFormatEx.raw_seqhdr_data, tmpBuf.data(), m_videoFormatEx.format.seqhdr_data_length);
     }
     if (!av_isvalid_q(streamtimebase)) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid stream timebase %d/%d\n"), streamtimebase.num, streamtimebase.den);
