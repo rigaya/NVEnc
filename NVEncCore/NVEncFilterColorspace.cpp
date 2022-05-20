@@ -1623,6 +1623,14 @@ RGY_ERR NVEncFilterColorspace::check_param(shared_ptr<NVEncFilterParamColorspace
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->colorspace.hdr2sdr.ldr_nits <= 0.0) {
+        AddMessage(RGY_LOG_ERROR, _T("ldr_nits must be positive value.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->colorspace.hdr2sdr.hdr_source_peak <= 0.0) {
+        AddMessage(RGY_LOG_ERROR, _T("source_peak must be positive value.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     return RGY_ERR_NONE;
 }
 
