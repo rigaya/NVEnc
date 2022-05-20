@@ -662,9 +662,9 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItem1;
                     richTextLog->SelectionLength = richTextLog->Text->Length;
                     richTextLog->SelectionColor = log_color_text[log_type_index];
                     richTextLog->AppendText(L"auo [" + log_type[log_type_index] + L"]: " + str + L"\n");
-                    richTextLog->SelectionStart = richTextLog->Text->Length;
+                    //richTextLog->SelectionStart = richTextLog->Text->Length;
                     if (!wine_compatible_mode) {
-                        richTextLog->ScrollToCaret();
+                        //richTextLog->ScrollToCaret(); // 頻繁に呼び出すと、最終的にSystem.AccessViolationExceptionが出ることがあるらしい
                     }
                     richTextLog->ResumeLayout();
                 }
@@ -687,9 +687,9 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItem1;
                     richTextLog->SelectionLength = richTextLog->Text->Length;
                     richTextLog->SelectionColor = log_color_text[log_type_index];
                     richTextLog->AppendText(str + L"\n");
-                    richTextLog->SelectionStart = richTextLog->Text->Length;
+                    //richTextLog->SelectionStart = richTextLog->Text->Length;
                     if (!wine_compatible_mode) {
-                        richTextLog->ScrollToCaret();
+                        //richTextLog->ScrollToCaret(); // 頻繁に呼び出すと、最終的にSystem.AccessViolationExceptionが出ることがあるらしい
                     }
                     richTextLog->ResumeLayout();
                 }
@@ -697,11 +697,19 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItem1;
         }
     public:
         System::Void FlushAudioLogCache() {
+            richTextLog->SuspendLayout();
             for (int i = 0; i < AudioParallelCache.Count; i++) {
-                (AudioParallelCache[i].type)
-                    ? WriteLogLine(AudioParallelCache[i].str, AudioParallelCache[i].log_type_index)
-                    : WriteLogAuoLine(AudioParallelCache[i].str, AudioParallelCache[i].log_type_index);
+                const int log_type_index = clamp(AudioParallelCache[i].log_type_index, LOG_INFO, LOG_ERROR);
+                richTextLog->SelectionStart = richTextLog->Text->Length;
+                richTextLog->SelectionLength = richTextLog->Text->Length;
+                richTextLog->SelectionColor = log_color_text[log_type_index];
+                if (AudioParallelCache[i].type) {
+                    richTextLog->AppendText(AudioParallelCache[i].str + L"\n");
+                } else {
+                    richTextLog->AppendText(L"auo [" + log_type[log_type_index] + L"]: " + AudioParallelCache[i].str + L"\n");
+                }
             }
+            richTextLog->ResumeLayout();
             AudioParallelCache.Clear();
         }
     private:
