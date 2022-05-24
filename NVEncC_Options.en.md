@@ -453,7 +453,7 @@ If not specified, it will be same as the input resolution. (no resize)
   - One of width or height as negative value    
     Will be resized keeping aspect ratio, and a value which could be divided by the negative value will be chosen.
 
-- **パラメータ**
+- **parameters**
   - preserve_aspect_ratio=&lt;string&gt;  
     Resize to specified width **or** height, while preserving input aspect ratio.
     - increase ... preserve aspect ratio by increasing resolution.
