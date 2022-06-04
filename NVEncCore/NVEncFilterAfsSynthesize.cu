@@ -382,13 +382,13 @@ void proc_uv(
     float ifx = (float)ix + 0.5f;
 
     //この関数内でsipだけはYUV444のデータであることに注意
-    sip += iy * sip_pitch + ix * 4/*4画素/スレッド*/ * 2/*YUV444->YUV420*/ * sizeof(uint8_t);
+    sip += iy * sip_pitch + ix * 2/*YUV444->YUV420*/ * sizeof(uint8_t);
 
     //sharedメモリ上に、YUV422相当のデータ(32x(16+PREREAD))を縦方向のテクスチャ補間で作ってから、
     //blendを実行して、YUV422相当の合成データ(32x16)を作り、
     //その後YUV420相当のデータ(32x8)をs_outに出力する
     //横方向に4回ループを回して、32pixel x4の出力結果をs_out(横:128pixel)に格納する
-    for (int i = 0; i < 4; i++, ifx += SYN_BLOCK_INT_X, psOut += SYN_BLOCK_INT_X, sip += 2/*YUV444->YUV420*/) {
+    for (int i = 0; i < 4; i++, ifx += SYN_BLOCK_INT_X, psOut += SYN_BLOCK_INT_X, sip += SYN_BLOCK_INT_X * 2/*YUV444->YUV420*/) {
         //shredメモリに値をロード
         //縦方向のテクスチャ補間を使って、YUV422相当のデータとしてロード
         //横方向には補間しない
@@ -409,7 +409,7 @@ void proc_uv(
         for (int j = 0; j < 2; j++) {
             //sipのy (境界チェックに必要)
             const int iy_sip = iy + j * SYN_BLOCK_Y;
-            const uint8_t *psip = sip + SYN_BLOCK_Y * sip_pitch;
+            const uint8_t *psip = sip + j * SYN_BLOCK_Y * sip_pitch;
 
             // -1するのは、pinのlineは最小値が1だから
             float *pShared = pSharedX + SOFFSET(0, ly-1+j*SYN_BLOCK_Y, 0);
