@@ -104,7 +104,7 @@ TonemapMobius::TonemapMobius() :
 }
 bool TonemapMobius::operator==(const TonemapMobius &x) const {
     return transition == x.transition
-        &&peak == x.peak;
+        && peak == x.peak;
 }
 bool TonemapMobius::operator!=(const TonemapMobius &x) const {
     return !(*this == x);
@@ -137,7 +137,12 @@ bool HDR2SDRParams::operator==(const HDR2SDRParams &x) const {
     return tonemap == x.tonemap
         && hable == x.hable
         && mobius == x.mobius
-        && reinhard == x.reinhard;
+        && reinhard == x.reinhard
+        && ldr_nits == x.ldr_nits
+        && hdr_source_peak == x.hdr_source_peak
+        && desat_base == x.desat_base
+        && desat_strength == x.desat_strength
+        && desat_exp == x.desat_exp;
 }
 bool HDR2SDRParams::operator!=(const HDR2SDRParams &x) const {
     return !(*this == x);
