@@ -34,6 +34,7 @@
 #include <vcclr.h>
 #include "auo.h"
 #include "auo_util.h"
+#include "ComboBoxFolderBrowser.h"
 
 using namespace System;
 using namespace System::IO;
@@ -185,8 +186,12 @@ static System::Void ColortoInt(int *color_dst, Color color_src) {
     color_dst[2] = color_src.B;
 }
 
-static Color ColorfromInt(int *color_src) {
+static Color ColorfromInt(const int *color_src) {
     return Color::FromArgb(color_src[0], color_src[1], color_src[2]);
+}
+
+static Color ColorfromInt(const ColorRGB c) {
+    return Color::FromArgb(c.r, c.g, c.b);
 }
 
 static inline String^ Utf8toString(const char *str) {
@@ -198,6 +203,214 @@ static inline String^ Utf8toString(const char *str) {
     for (int i = 0; i < length; i++)
         a[i] = str[i];
     return System::Text::Encoding::UTF8->GetString(a);
+}
+
+static System::Drawing::Color getTextBoxForeColor(const AuoTheme theme, const DarkenWindowStgReader *stgReader, const DarkenWindowState state) {
+    System::Drawing::Color foreColor = (theme == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_TEXT_DARK) : System::Windows::Forms::Control::DefaultForeColor;
+    if (state == DarkenWindowState::Disabled) {
+        foreColor = (theme == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_TEXT_DARK_DISABLED) : System::Drawing::SystemColors::ControlDark;
+    }
+    if (theme != AuoTheme::DefaultLight && stgReader) {
+        const DarkenWindowStgNamedColor *dwcolor = stgReader->getColorTextBox(state);
+        if (dwcolor) {
+            foreColor = ColorfromInt(dwcolor->textForeColor());
+        }
+    }
+    return foreColor;
+}
+
+//tabcontrolのborderを隠す
+//tabControlをPanelの(2,2)に配置
+//panelのサイズをtabcontrolの width+4, height+4にする
+//tabControlのanchorはLeft,Upのみにする
+static System::Void SwitchComboBoxBorder(TabControl^ TB, Panel^ PN, const AuoTheme themeFrom, const AuoTheme themeTo, const DarkenWindowStgReader *stgReader) {
+    if (themeTo == themeFrom) return;
+    switch (themeFrom) {
+    case AuoTheme::DarkenWindowDark:
+        break;
+    case AuoTheme::DefaultLight:
+    case AuoTheme::DarkenWindowLight:
+    default:
+        // Light→Lightのときは調整不要
+        if (themeTo == AuoTheme::DefaultLight || themeTo == AuoTheme::DarkenWindowLight) return;
+        break;
+
+    }
+    const int offsetSizeX = (themeTo == AuoTheme::DarkenWindowDark) ? -12 : 12;
+    const int offsetSizeY = (themeTo == AuoTheme::DarkenWindowDark) ? -6 : 6;
+    //パネルの上に(2,2)の位置にtabControlが載っている
+    //borderを隠す時は、パネルを縮小し、
+    //tabControlをパネルの範囲外に移すことで、borderを見えないように調整する
+    Point loc = PN->Location;
+    loc.X -= offsetSizeX / 2;
+    //loc.Y -= offsetSize / 2;
+    PN->Location = loc;
+    System::Drawing::Size size = PN->Size;
+    size.Width += offsetSizeX;
+    size.Height += offsetSizeY;
+    PN->Size = size;
+
+    loc = TB->Location;
+    loc.X += offsetSizeX / 2;
+    TB->Location = loc;
+}
+
+static bool isToolStripItem(System::Type^ type) {
+    return type == ToolStrip::typeid
+        || type == ToolStripButton::typeid
+        || type == ToolStripComboBox::typeid
+        || type == ToolStripContainer::typeid
+        || type == ToolStripContentPanel::typeid
+        || type == ToolStripDropDown::typeid
+        || type == ToolStripDropDownButton::typeid
+        || type == ToolStripDropDownItem::typeid
+        || type == ToolStripDropDownMenu::typeid
+        || type == ToolStripMenuItem::typeid
+        || type == ToolStripLabel::typeid
+        || type == ToolStripPanel::typeid
+        || type == ToolStripSeparator::typeid
+        || type == ToolStripSplitButton::typeid
+        || type == ToolStripStatusLabel::typeid
+        || type == ToolStripTextBox::typeid;
+}
+
+static System::Void SetAllColor(Control ^top, const AuoTheme themeTo, System::Type^ topType, const DarkenWindowStgReader *stgReader) {
+    System::Type^ type = top->GetType();
+    if (type == GroupBox::typeid) {
+        GroupBox^ GB = dynamic_cast<GroupBox^>(top);
+        GB->FlatStyle = (themeTo == AuoTheme::DefaultLight) ? System::Windows::Forms::FlatStyle::Standard : System::Windows::Forms::FlatStyle::System;
+    } else if (type == TextBox::typeid) {
+        TextBox^ TX = dynamic_cast<TextBox^>(top);
+        TX->BorderStyle = (themeTo == AuoTheme::DefaultLight) ? System::Windows::Forms::BorderStyle::Fixed3D : System::Windows::Forms::BorderStyle::FixedSingle;
+    } else if (type == ToolStrip::typeid) {
+        ToolStrip^ TS = dynamic_cast<ToolStrip^>(top);
+        TS->RenderMode = (themeTo == AuoTheme::DefaultLight) ? System::Windows::Forms::ToolStripRenderMode::ManagerRenderMode : System::Windows::Forms::ToolStripRenderMode::System;
+    } else if (type == TabPage::typeid) {
+        TabPage^ TC = dynamic_cast<TabPage^>(top);
+        TC->BorderStyle = (themeTo == AuoTheme::DefaultLight) ? System::Windows::Forms::BorderStyle::None : System::Windows::Forms::BorderStyle::FixedSingle;
+        TC->UseVisualStyleBackColor = (themeTo == AuoTheme::DefaultLight) ? true : false;
+    } else if (type == Label::typeid) {
+        //Label^ LB = dynamic_cast<Label^>(top->Controls[i]);
+        //if (themeTo == AuoTheme::LightDefault) BT->FlatStyle = System::Windows::Forms::FlatStyle::Standard;
+    } else if (type == TabControl::typeid) {
+        //TabControl^ TC = dynamic_cast<TabControl^>(top->Controls[i]);
+        //TabControlをオーナードローする -> タブ内はよくなってもタブ外がうまくいかない
+        //TC->DrawMode = TabDrawMode::OwnerDrawFixed;
+        //DrawItemイベントハンドラを追加
+        //TC->DrawItem += gcnew System::Windows::Forms::DrawItemEventHandler(this, &frmConfig::TabControl_DarkDrawItem);
+        //TC->Appearance = System::Windows::Forms::TabAppearance::FlatButtons;
+    }
+    //色の変更
+    if (themeTo != AuoTheme::DefaultLight) {
+        //DarkenWindow使用時
+        //まず、値が取れなかった時に備えて、デフォルトの値を入れる
+        System::Drawing::Color foreColor = (themeTo == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_TEXT_DARK) : System::Windows::Forms::Control::DefaultForeColor;
+        System::Drawing::Color backColor = (themeTo == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_BASE_DARK) : System::Windows::Forms::Control::DefaultBackColor;
+        //設定ファイルから値が取得できていれば、それを使用する
+        bool setForeColor = true;
+        bool setBackColor = true;
+        const DarkenWindowStgNamedColor *dwcolor = nullptr;
+        if (type == TextBox::typeid
+            || type == ComboBox::typeid
+            || type == NVEnc::ComboBoxFolderBrowser::typeid
+            || type == NumericUpDown::typeid) {
+            dwcolor = stgReader->getColorTextBox();
+        } else if (type == Button::typeid) {
+            dwcolor = stgReader->getColorButton();
+            setBackColor = false;
+        } else if (type == CheckBox::typeid) {
+            dwcolor = stgReader->getColorCheckBox();
+            setBackColor = false;
+        } else if (type == ScrollBar::typeid
+            ) {
+            setForeColor = setBackColor = false;
+        } else if (type == topType
+            || type == ToolStrip::typeid
+            || type == Label::typeid
+            || type == TabControl::typeid
+            || type == TabPage::typeid) {
+            dwcolor = stgReader->getColorStatic();
+        } else {
+            setForeColor = setBackColor = false;
+        }
+        if (setForeColor || setBackColor) {
+            if (dwcolor) {
+                foreColor = ColorfromInt(dwcolor->textForeColor());
+                backColor = ColorfromInt(dwcolor->fillColor());
+            }
+            if (setForeColor) {
+                top->ForeColor = foreColor;
+            }
+            if (setBackColor && top->BackColor != System::Drawing::Color::Transparent) {
+                top->BackColor = backColor;
+            }
+        }
+    }
+    for (int i = 0; i < top->Controls->Count; i++) {
+        SetAllColor(top->Controls[i], themeTo, topType, stgReader);
+    }
+    //色を変更してから必要な処理
+    if (type == Button::typeid) {
+        Button^ BT = dynamic_cast<Button^>(top);
+        // BackColor を変更すると自動的にoffになってしまうのを元に戻す
+        if (themeTo == AuoTheme::DefaultLight) BT->UseVisualStyleBackColor = true;
+    } else if (type == TabPage::typeid) {
+        TabPage^ TC = dynamic_cast<TabPage^>(top);
+        TC->UseVisualStyleBackColor = (themeTo == AuoTheme::DefaultLight) ? true : false;
+    }
+}
+
+static System::Void fcgMouseEnterLeave_SetColor(System::Object^ sender,  const AuoTheme themeMode, const DarkenWindowState state, const DarkenWindowStgReader *stgReader) {
+    if (stgReader == nullptr) return;
+    System::Type^ type = sender->GetType();
+    bool setForeColor = false;
+    bool setBackColor = false;
+    System::Drawing::Color foreColor = (themeMode == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_TEXT_DARK) : System::Windows::Forms::Control::DefaultForeColor;
+    System::Drawing::Color backColor = (themeMode == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_BASE_DARK) : System::Windows::Forms::Control::DefaultBackColor;
+    if (type == CheckBox::typeid) {
+        const DarkenWindowStgNamedColor *dwcolor = stgReader->getColorCheckBox(state);
+        if (dwcolor) {
+            foreColor = ColorfromInt(dwcolor->textForeColor());
+            setForeColor = true;
+        }
+        Control^ control = dynamic_cast<Control^>(sender);
+        if (setForeColor) {
+            control->ForeColor = foreColor;
+        }
+        if (setBackColor) {
+            control->BackColor = backColor;
+        }
+    } else if (isToolStripItem(type)) {
+        const DarkenWindowStgNamedColor *dwcolor = stgReader->getColorStatic(state);
+        if (dwcolor) {
+            foreColor = ColorfromInt(dwcolor->textForeColor());
+            backColor = ColorfromInt(dwcolor->fillColor());
+            setForeColor = true;
+            setBackColor = true;
+        }
+        ToolStripItem^ item = dynamic_cast<ToolStripItem^>(sender);
+        if (setForeColor) {
+            item->ForeColor = foreColor;
+        }
+        if (setBackColor) {
+            item->BackColor = backColor;
+        }
+    }
+}
+
+//どうもうまくいかない
+static System::Void SetToolTipColor(ToolTip ^TT, const AuoTheme themeTo, const DarkenWindowStgReader *stgReader) {
+    TT->IsBalloon = (themeTo == AuoTheme::DefaultLight);
+
+    System::Drawing::Color foreColor = (themeTo == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_TEXT_DARK) : System::Windows::Forms::Control::DefaultForeColor;
+    System::Drawing::Color backColor = (themeTo == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_BASE_DARK) : System::Windows::Forms::Control::DefaultBackColor;
+    if (stgReader) {
+        const DarkenWindowStgNamedColor *dwcolor = stgReader->getColorToolTip(DarkenWindowState::Normal);
+        if (dwcolor) {
+            foreColor = ColorfromInt(dwcolor->textForeColor());
+        }
+    }
+    TT->ForeColor = foreColor;
 }
 
 #endif //_AUO_CLRUTIL_H_

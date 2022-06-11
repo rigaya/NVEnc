@@ -56,6 +56,8 @@ namespace NVEnc {
             //
             //TODO: ここにコンストラクタ コードを追加します
             //
+            themeMode = AuoTheme::DefaultLight;
+            dwStgReader = nullptr;
         }
 
     protected:
@@ -68,6 +70,8 @@ namespace NVEnc {
             {
                 delete components;
             }
+            if (dwStgReader != nullptr)
+                delete dwStgReader;
         }
     //Instanceを介し、ひとつだけ生成
     private:
@@ -266,6 +270,9 @@ namespace NVEnc {
         Color colorWarning;
         Color colorError;
     private:
+        AuoTheme themeMode;
+        const DarkenWindowStgReader *dwStgReader;
+    private:
         System::Void fscBTOK_Click(System::Object^  sender, System::EventArgs^  e);
     private:
         System::Void SetColors() {
@@ -337,6 +344,28 @@ namespace NVEnc {
         System::Void frmSetLogColor_KeyDown(System::Object^  sender, System::Windows::Forms::KeyEventArgs^  e) {
             if (e->KeyCode == Keys::Escape)
                 this->Close();
+        }
+    public:
+        System::Void InitTheme() {
+            if (dwStgReader != nullptr) delete dwStgReader;
+            char aviutl_dir[MAX_PATH_LEN];
+            get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+            const auto [themeTo, dwStg] = check_current_theme(aviutl_dir);
+            dwStgReader = dwStg;
+            CheckTheme(themeTo);
+        }
+    private:
+        System::Void CheckTheme(const AuoTheme themeTo) {
+            //変更の必要がなければ終了
+            if (themeTo == themeMode) return;
+
+            //一度ウィンドウの再描画を完全に抑止する
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+            SetAllColor(this, themeTo, this->GetType(), dwStgReader);
+            //一度ウィンドウの再描画を再開し、強制的に再描画させる
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+            this->Refresh();
+            themeMode = themeTo;
         }
 };
 }

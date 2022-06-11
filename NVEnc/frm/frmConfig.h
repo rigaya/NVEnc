@@ -71,6 +71,8 @@ namespace NVEnc {
         frmConfig(CONF_GUIEX *_conf, const SYSTEM_DATA *_sys_dat)
         {
             InitData(_conf, _sys_dat);
+            dwStgReader = nullptr;
+            themeMode = AuoTheme::DefaultLight;
             cnf_stgSelected = (CONF_GUIEX *)calloc(1, sizeof(CONF_GUIEX));
             InitializeComponent();
             //
@@ -89,6 +91,8 @@ namespace NVEnc {
                 delete components;
             }
             CloseBitrateCalc();
+            if (dwStgReader != nullptr)
+                delete dwStgReader;
             if (cnf_stgSelected) free(cnf_stgSelected); cnf_stgSelected = NULL;
         }
 
@@ -1483,6 +1487,7 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseConv3DThreshYTem
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseConv3DThreshYSpatial;
 private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseConv3DMatrix;
 private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
+private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
 
 
 
@@ -1977,6 +1982,19 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             this->fcgNUVppDebandThreY = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppDebandRange = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcggroupBoxVppDenoise = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgPNVppDenoiseConv3D = (gcnew System::Windows::Forms::Panel());
+            this->fcgCXVppDenoiseConv3DMatrix = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVppDenoiseConv3DMatrix = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseConv3DThreshTemporal = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseConv3DThreshSpatial = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseConv3DThreshCTemporal = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseConv3DThreshCSpatial = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppDenoiseConv3DThreshCTemporal = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppDenoiseConv3DThreshCSpatial = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBVppDenoiseConv3DThreshYTemporal = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseConv3DThreshYSpatial = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppDenoiseConv3DThreshYTemporal = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppDenoiseConv3DThreshYSpatial = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgPNVppDenoiseSmooth = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDenoiseSmoothQP = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppDenoiseSmoothQuality = (gcnew System::Windows::Forms::Label());
@@ -2062,19 +2080,7 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
-            this->fcgPNVppDenoiseConv3D = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBVppDenoiseConv3DThreshYTemporal = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppDenoiseConv3DThreshYSpatial = (gcnew System::Windows::Forms::Label());
-            this->fcgNUVppDenoiseConv3DThreshYTemporal = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgNUVppDenoiseConv3DThreshYSpatial = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgLBVppDenoiseConv3DThreshCTemporal = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppDenoiseConv3DThreshCSpatial = (gcnew System::Windows::Forms::Label());
-            this->fcgNUVppDenoiseConv3DThreshCTemporal = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgNUVppDenoiseConv3DThreshCSpatial = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgLBVppDenoiseConv3DThreshSpatial = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppDenoiseConv3DThreshTemporal = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppDenoiseConv3DMatrix = (gcnew System::Windows::Forms::Label());
-            this->fcgCXVppDenoiseConv3DMatrix = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2179,6 +2185,11 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandThreY))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandRange))->BeginInit();
             this->fcggroupBoxVppDenoise->SuspendLayout();
+            this->fcgPNVppDenoiseConv3D->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCTemporal))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCSpatial))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYTemporal))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYSpatial))->BeginInit();
             this->fcgPNVppDenoiseSmooth->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQuality))->BeginInit();
@@ -2203,11 +2214,6 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             this->fcgPNAudioInternal->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
-            this->fcgPNVppDenoiseConv3D->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYTemporal))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYSpatial))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCTemporal))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCSpatial))->BeginInit();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -5864,6 +5870,146 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             this->fcggroupBoxVppDenoise->TabStop = false;
             this->fcggroupBoxVppDenoise->Text = L"ノイズ除去";
             // 
+            // fcgPNVppDenoiseConv3D
+            // 
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgCXVppDenoiseConv3DMatrix);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DMatrix);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshTemporal);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshSpatial);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshCTemporal);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshCSpatial);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgNUVppDenoiseConv3DThreshCTemporal);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgNUVppDenoiseConv3DThreshCSpatial);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshYTemporal);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshYSpatial);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgNUVppDenoiseConv3DThreshYTemporal);
+            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgNUVppDenoiseConv3DThreshYSpatial);
+            this->fcgPNVppDenoiseConv3D->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppDenoiseConv3D->Name = L"fcgPNVppDenoiseConv3D";
+            this->fcgPNVppDenoiseConv3D->Size = System::Drawing::Size(310, 92);
+            this->fcgPNVppDenoiseConv3D->TabIndex = 66;
+            // 
+            // fcgCXVppDenoiseConv3DMatrix
+            // 
+            this->fcgCXVppDenoiseConv3DMatrix->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppDenoiseConv3DMatrix->FormattingEnabled = true;
+            this->fcgCXVppDenoiseConv3DMatrix->Location = System::Drawing::Point(95, 9);
+            this->fcgCXVppDenoiseConv3DMatrix->Name = L"fcgCXVppDenoiseConv3DMatrix";
+            this->fcgCXVppDenoiseConv3DMatrix->Size = System::Drawing::Size(119, 22);
+            this->fcgCXVppDenoiseConv3DMatrix->TabIndex = 1;
+            this->fcgCXVppDenoiseConv3DMatrix->Tag = L"reCmd";
+            // 
+            // fcgLBVppDenoiseConv3DMatrix
+            // 
+            this->fcgLBVppDenoiseConv3DMatrix->AutoSize = true;
+            this->fcgLBVppDenoiseConv3DMatrix->Location = System::Drawing::Point(8, 12);
+            this->fcgLBVppDenoiseConv3DMatrix->Name = L"fcgLBVppDenoiseConv3DMatrix";
+            this->fcgLBVppDenoiseConv3DMatrix->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppDenoiseConv3DMatrix->TabIndex = 12;
+            this->fcgLBVppDenoiseConv3DMatrix->Text = L"行列";
+            // 
+            // fcgLBVppDenoiseConv3DThreshTemporal
+            // 
+            this->fcgLBVppDenoiseConv3DThreshTemporal->AutoSize = true;
+            this->fcgLBVppDenoiseConv3DThreshTemporal->Location = System::Drawing::Point(5, 66);
+            this->fcgLBVppDenoiseConv3DThreshTemporal->Name = L"fcgLBVppDenoiseConv3DThreshTemporal";
+            this->fcgLBVppDenoiseConv3DThreshTemporal->Size = System::Drawing::Size(73, 14);
+            this->fcgLBVppDenoiseConv3DThreshTemporal->TabIndex = 11;
+            this->fcgLBVppDenoiseConv3DThreshTemporal->Text = L"時間方向閾値";
+            // 
+            // fcgLBVppDenoiseConv3DThreshSpatial
+            // 
+            this->fcgLBVppDenoiseConv3DThreshSpatial->AutoSize = true;
+            this->fcgLBVppDenoiseConv3DThreshSpatial->Location = System::Drawing::Point(5, 40);
+            this->fcgLBVppDenoiseConv3DThreshSpatial->Name = L"fcgLBVppDenoiseConv3DThreshSpatial";
+            this->fcgLBVppDenoiseConv3DThreshSpatial->Size = System::Drawing::Size(73, 14);
+            this->fcgLBVppDenoiseConv3DThreshSpatial->TabIndex = 10;
+            this->fcgLBVppDenoiseConv3DThreshSpatial->Text = L"空間方向閾値";
+            // 
+            // fcgLBVppDenoiseConv3DThreshCTemporal
+            // 
+            this->fcgLBVppDenoiseConv3DThreshCTemporal->AutoSize = true;
+            this->fcgLBVppDenoiseConv3DThreshCTemporal->Location = System::Drawing::Point(204, 67);
+            this->fcgLBVppDenoiseConv3DThreshCTemporal->Name = L"fcgLBVppDenoiseConv3DThreshCTemporal";
+            this->fcgLBVppDenoiseConv3DThreshCTemporal->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppDenoiseConv3DThreshCTemporal->TabIndex = 8;
+            this->fcgLBVppDenoiseConv3DThreshCTemporal->Text = L"色差";
+            // 
+            // fcgLBVppDenoiseConv3DThreshCSpatial
+            // 
+            this->fcgLBVppDenoiseConv3DThreshCSpatial->AutoSize = true;
+            this->fcgLBVppDenoiseConv3DThreshCSpatial->Location = System::Drawing::Point(204, 40);
+            this->fcgLBVppDenoiseConv3DThreshCSpatial->Name = L"fcgLBVppDenoiseConv3DThreshCSpatial";
+            this->fcgLBVppDenoiseConv3DThreshCSpatial->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppDenoiseConv3DThreshCSpatial->TabIndex = 6;
+            this->fcgLBVppDenoiseConv3DThreshCSpatial->Text = L"色差";
+            // 
+            // fcgNUVppDenoiseConv3DThreshCTemporal
+            // 
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Location = System::Drawing::Point(239, 65);
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Name = L"fcgNUVppDenoiseConv3DThreshCTemporal";
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->TabIndex = 5;
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Tag = L"reCmd";
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 12, 0, 0, 0 });
+            // 
+            // fcgNUVppDenoiseConv3DThreshCSpatial
+            // 
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Location = System::Drawing::Point(239, 38);
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Name = L"fcgNUVppDenoiseConv3DThreshCSpatial";
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->TabIndex = 3;
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Tag = L"reCmd";
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
+            // 
+            // fcgLBVppDenoiseConv3DThreshYTemporal
+            // 
+            this->fcgLBVppDenoiseConv3DThreshYTemporal->AutoSize = true;
+            this->fcgLBVppDenoiseConv3DThreshYTemporal->Location = System::Drawing::Point(92, 67);
+            this->fcgLBVppDenoiseConv3DThreshYTemporal->Name = L"fcgLBVppDenoiseConv3DThreshYTemporal";
+            this->fcgLBVppDenoiseConv3DThreshYTemporal->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppDenoiseConv3DThreshYTemporal->TabIndex = 4;
+            this->fcgLBVppDenoiseConv3DThreshYTemporal->Text = L"輝度";
+            // 
+            // fcgLBVppDenoiseConv3DThreshYSpatial
+            // 
+            this->fcgLBVppDenoiseConv3DThreshYSpatial->AutoSize = true;
+            this->fcgLBVppDenoiseConv3DThreshYSpatial->Location = System::Drawing::Point(92, 40);
+            this->fcgLBVppDenoiseConv3DThreshYSpatial->Name = L"fcgLBVppDenoiseConv3DThreshYSpatial";
+            this->fcgLBVppDenoiseConv3DThreshYSpatial->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppDenoiseConv3DThreshYSpatial->TabIndex = 2;
+            this->fcgLBVppDenoiseConv3DThreshYSpatial->Text = L"輝度";
+            // 
+            // fcgNUVppDenoiseConv3DThreshYTemporal
+            // 
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Location = System::Drawing::Point(128, 65);
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Name = L"fcgNUVppDenoiseConv3DThreshYTemporal";
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->TabIndex = 4;
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Tag = L"reCmd";
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 12, 0, 0, 0 });
+            // 
+            // fcgNUVppDenoiseConv3DThreshYSpatial
+            // 
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Location = System::Drawing::Point(128, 38);
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Name = L"fcgNUVppDenoiseConv3DThreshYSpatial";
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->TabIndex = 2;
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Tag = L"reCmd";
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
+            // 
             // fcgPNVppDenoiseSmooth
             // 
             this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgLBVppDenoiseSmoothQP);
@@ -6791,151 +6937,20 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             this->fcgTXCmd->TabIndex = 52;
             this->fcgTXCmd->DoubleClick += gcnew System::EventHandler(this, &frmConfig::fcgTXCmd_DoubleClick);
             // 
-            // fcgPNVppDenoiseConv3D
+            // fcgPNHideToolStripBorder
             // 
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgCXVppDenoiseConv3DMatrix);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DMatrix);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshTemporal);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshSpatial);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshCTemporal);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshCSpatial);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgNUVppDenoiseConv3DThreshCTemporal);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgNUVppDenoiseConv3DThreshCSpatial);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshYTemporal);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgLBVppDenoiseConv3DThreshYSpatial);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgNUVppDenoiseConv3DThreshYTemporal);
-            this->fcgPNVppDenoiseConv3D->Controls->Add(this->fcgNUVppDenoiseConv3DThreshYSpatial);
-            this->fcgPNVppDenoiseConv3D->Location = System::Drawing::Point(3, 42);
-            this->fcgPNVppDenoiseConv3D->Name = L"fcgPNVppDenoiseConv3D";
-            this->fcgPNVppDenoiseConv3D->Size = System::Drawing::Size(310, 92);
-            this->fcgPNVppDenoiseConv3D->TabIndex = 66;
-            // 
-            // fcgLBVppDenoiseConv3DThreshYTemporal
-            // 
-            this->fcgLBVppDenoiseConv3DThreshYTemporal->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshYTemporal->Location = System::Drawing::Point(92, 67);
-            this->fcgLBVppDenoiseConv3DThreshYTemporal->Name = L"fcgLBVppDenoiseConv3DThreshYTemporal";
-            this->fcgLBVppDenoiseConv3DThreshYTemporal->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppDenoiseConv3DThreshYTemporal->TabIndex = 4;
-            this->fcgLBVppDenoiseConv3DThreshYTemporal->Text = L"輝度";
-            // 
-            // fcgLBVppDenoiseConv3DThreshYSpatial
-            // 
-            this->fcgLBVppDenoiseConv3DThreshYSpatial->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshYSpatial->Location = System::Drawing::Point(92, 40);
-            this->fcgLBVppDenoiseConv3DThreshYSpatial->Name = L"fcgLBVppDenoiseConv3DThreshYSpatial";
-            this->fcgLBVppDenoiseConv3DThreshYSpatial->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppDenoiseConv3DThreshYSpatial->TabIndex = 2;
-            this->fcgLBVppDenoiseConv3DThreshYSpatial->Text = L"輝度";
-            // 
-            // fcgNUVppDenoiseConv3DThreshYTemporal
-            // 
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Location = System::Drawing::Point(128, 65);
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Name = L"fcgNUVppDenoiseConv3DThreshYTemporal";
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->TabIndex = 4;
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Tag = L"reCmd";
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 12, 0, 0, 0 });
-            // 
-            // fcgNUVppDenoiseConv3DThreshYSpatial
-            // 
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Location = System::Drawing::Point(128, 38);
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Name = L"fcgNUVppDenoiseConv3DThreshYSpatial";
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->TabIndex = 2;
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Tag = L"reCmd";
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
-            // 
-            // fcgLBVppDenoiseConv3DThreshCTemporal
-            // 
-            this->fcgLBVppDenoiseConv3DThreshCTemporal->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshCTemporal->Location = System::Drawing::Point(204, 67);
-            this->fcgLBVppDenoiseConv3DThreshCTemporal->Name = L"fcgLBVppDenoiseConv3DThreshCTemporal";
-            this->fcgLBVppDenoiseConv3DThreshCTemporal->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppDenoiseConv3DThreshCTemporal->TabIndex = 8;
-            this->fcgLBVppDenoiseConv3DThreshCTemporal->Text = L"色差";
-            // 
-            // fcgLBVppDenoiseConv3DThreshCSpatial
-            // 
-            this->fcgLBVppDenoiseConv3DThreshCSpatial->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshCSpatial->Location = System::Drawing::Point(204, 40);
-            this->fcgLBVppDenoiseConv3DThreshCSpatial->Name = L"fcgLBVppDenoiseConv3DThreshCSpatial";
-            this->fcgLBVppDenoiseConv3DThreshCSpatial->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppDenoiseConv3DThreshCSpatial->TabIndex = 6;
-            this->fcgLBVppDenoiseConv3DThreshCSpatial->Text = L"色差";
-            // 
-            // fcgNUVppDenoiseConv3DThreshCTemporal
-            // 
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Location = System::Drawing::Point(239, 65);
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Name = L"fcgNUVppDenoiseConv3DThreshCTemporal";
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->TabIndex = 5;
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Tag = L"reCmd";
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 12, 0, 0, 0 });
-            // 
-            // fcgNUVppDenoiseConv3DThreshCSpatial
-            // 
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Location = System::Drawing::Point(239, 38);
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Name = L"fcgNUVppDenoiseConv3DThreshCSpatial";
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->TabIndex = 3;
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Tag = L"reCmd";
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
-            // 
-            // fcgLBVppDenoiseConv3DThreshSpatial
-            // 
-            this->fcgLBVppDenoiseConv3DThreshSpatial->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshSpatial->Location = System::Drawing::Point(5, 40);
-            this->fcgLBVppDenoiseConv3DThreshSpatial->Name = L"fcgLBVppDenoiseConv3DThreshSpatial";
-            this->fcgLBVppDenoiseConv3DThreshSpatial->Size = System::Drawing::Size(73, 14);
-            this->fcgLBVppDenoiseConv3DThreshSpatial->TabIndex = 10;
-            this->fcgLBVppDenoiseConv3DThreshSpatial->Text = L"空間方向閾値";
-            // 
-            // fcgLBVppDenoiseConv3DThreshTemporal
-            // 
-            this->fcgLBVppDenoiseConv3DThreshTemporal->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshTemporal->Location = System::Drawing::Point(5, 66);
-            this->fcgLBVppDenoiseConv3DThreshTemporal->Name = L"fcgLBVppDenoiseConv3DThreshTemporal";
-            this->fcgLBVppDenoiseConv3DThreshTemporal->Size = System::Drawing::Size(73, 14);
-            this->fcgLBVppDenoiseConv3DThreshTemporal->TabIndex = 11;
-            this->fcgLBVppDenoiseConv3DThreshTemporal->Text = L"時間方向閾値";
-            // 
-            // fcgLBVppDenoiseConv3DMatrix
-            // 
-            this->fcgLBVppDenoiseConv3DMatrix->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DMatrix->Location = System::Drawing::Point(8, 12);
-            this->fcgLBVppDenoiseConv3DMatrix->Name = L"fcgLBVppDenoiseConv3DMatrix";
-            this->fcgLBVppDenoiseConv3DMatrix->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppDenoiseConv3DMatrix->TabIndex = 12;
-            this->fcgLBVppDenoiseConv3DMatrix->Text = L"行列";
-            // 
-            // fcgCXVppDenoiseConv3DMatrix
-            // 
-            this->fcgCXVppDenoiseConv3DMatrix->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXVppDenoiseConv3DMatrix->FormattingEnabled = true;
-            this->fcgCXVppDenoiseConv3DMatrix->Location = System::Drawing::Point(95, 9);
-            this->fcgCXVppDenoiseConv3DMatrix->Name = L"fcgCXVppDenoiseConv3DMatrix";
-            this->fcgCXVppDenoiseConv3DMatrix->Size = System::Drawing::Size(119, 22);
-            this->fcgCXVppDenoiseConv3DMatrix->TabIndex = 1;
-            this->fcgCXVppDenoiseConv3DMatrix->Tag = L"reCmd";
+            this->fcgPNHideToolStripBorder->Location = System::Drawing::Point(0, 22);
+            this->fcgPNHideToolStripBorder->Name = L"fcgPNHideToolStripBorder";
+            this->fcgPNHideToolStripBorder->Size = System::Drawing::Size(1020, 4);
+            this->fcgPNHideToolStripBorder->TabIndex = 53;
+            this->fcgPNHideToolStripBorder->Visible = false;
             // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
             this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Dpi;
             this->ClientSize = System::Drawing::Size(1008, 617);
+            this->Controls->Add(this->fcgPNHideToolStripBorder);
             this->Controls->Add(this->fcgTXCmd);
             this->Controls->Add(this->fcgtabControlAudio);
             this->Controls->Add(this->fcgLBguiExBlog);
@@ -7087,6 +7102,12 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandThreY))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandRange))->EndInit();
             this->fcggroupBoxVppDenoise->ResumeLayout(false);
+            this->fcgPNVppDenoiseConv3D->ResumeLayout(false);
+            this->fcgPNVppDenoiseConv3D->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCTemporal))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCSpatial))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYTemporal))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYSpatial))->EndInit();
             this->fcgPNVppDenoiseSmooth->ResumeLayout(false);
             this->fcgPNVppDenoiseSmooth->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->EndInit();
@@ -7121,12 +7142,6 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
-            this->fcgPNVppDenoiseConv3D->ResumeLayout(false);
-            this->fcgPNVppDenoiseConv3D->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYTemporal))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYSpatial))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCTemporal))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCSpatial))->EndInit();
             this->ResumeLayout(false);
             this->PerformLayout();
 
@@ -7136,6 +7151,8 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         const SYSTEM_DATA *sys_dat;
         CONF_GUIEX *conf;
         LocalSettings LocalStg;
+        DarkenWindowStgReader *dwStgReader;
+        AuoTheme themeMode;
         bool CurrentPipeEnabled;
         bool stgChanged;
         String^ CurrentStgDir;
@@ -7149,6 +7166,12 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         TabPage^ tabPageMpgMux;
 #endif
     private:
+        System::Void CheckTheme();
+        System::Void SetAllMouseMove(Control ^top, const AuoTheme themeTo);
+        System::Void fcgMouseEnter_SetColor(System::Object^  sender, System::EventArgs^  e);
+        System::Void fcgMouseLeave_SetColor(System::Object^  sender, System::EventArgs^  e);
+        System::Void TabControl_DarkDrawItem(System::Object^ sender, DrawItemEventArgs^ e);
+
         System::Int32 GetCurrentAudioDefaultBitrate();
         delegate System::Void qualityTimerChangeDelegate();
         System::Void InitComboBox();
@@ -7658,9 +7681,9 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         System::Void fcgTXVideoEncoderPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXVideoEncoderPath->Text == String(use_default_exe_path).ToString()) {
                 LocalStg.vidEncPath = L"";
-                fcgTXVideoEncoderPath->ForeColor = System::Drawing::SystemColors::ControlDark;
+                fcgTXVideoEncoderPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
-                fcgTXVideoEncoderPath->ForeColor = System::Drawing::SystemColors::WindowText;
+                fcgTXVideoEncoderPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Normal);
                 LocalStg.vidEncPath = fcgTXVideoEncoderPath->Text;
                 fcgTXVideoEncoderPath->ContextMenuStrip = (File::Exists(fcgTXVideoEncoderPath->Text)) ? fcgCSExeFiles : nullptr;
             }
@@ -7670,9 +7693,9 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         System::Void fcgTXAudioEncoderPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXAudioEncoderPath->Text == String(use_default_exe_path).ToString()) {
                 LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex] = L"";
-                fcgTXAudioEncoderPath->ForeColor = System::Drawing::SystemColors::ControlDark;
+                fcgTXAudioEncoderPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
-                fcgTXAudioEncoderPath->ForeColor = System::Drawing::SystemColors::WindowText;
+                fcgTXAudioEncoderPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Normal);
                 LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex] = fcgTXAudioEncoderPath->Text;
                 fcgBTAudioEncoderPath->ContextMenuStrip = (File::Exists(fcgTXAudioEncoderPath->Text)) ? fcgCSExeFiles : nullptr;
             }
@@ -7681,9 +7704,9 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         System::Void fcgTXMP4MuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXMP4MuxerPath->Text == String(use_default_exe_path).ToString()) {
                 LocalStg.MP4MuxerPath = L"";
-                fcgTXMP4MuxerPath->ForeColor = System::Drawing::SystemColors::ControlDark;
+                fcgTXMP4MuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
-                fcgTXMP4MuxerPath->ForeColor = System::Drawing::SystemColors::WindowText;
+                fcgTXMP4MuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Normal);
                 LocalStg.MP4MuxerPath = fcgTXMP4MuxerPath->Text;
                 fcgBTMP4MuxerPath->ContextMenuStrip = (File::Exists(fcgTXMP4MuxerPath->Text)) ? fcgCSExeFiles : nullptr;
             }
@@ -7692,9 +7715,9 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         System::Void fcgTXTC2MP4Path_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXTC2MP4Path->Text == String(use_default_exe_path).ToString()) {
                 LocalStg.TC2MP4Path = L"";
-                fcgTXTC2MP4Path->ForeColor = System::Drawing::SystemColors::ControlDark;
+                fcgTXTC2MP4Path->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
-                fcgTXTC2MP4Path->ForeColor = System::Drawing::SystemColors::WindowText;
+                fcgTXTC2MP4Path->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Normal);
                 LocalStg.TC2MP4Path = fcgTXTC2MP4Path->Text;
                 fcgBTTC2MP4Path->ContextMenuStrip = (File::Exists(fcgTXTC2MP4Path->Text)) ? fcgCSExeFiles : nullptr;
             }
@@ -7703,9 +7726,9 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         System::Void fcgTXMP4RawMuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXMP4RawPath->Text == String(use_default_exe_path).ToString()) {
                 LocalStg.MP4RawPath = L"";
-                fcgTXMP4RawPath->ForeColor = System::Drawing::SystemColors::ControlDark;
+                fcgTXMP4RawPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
-                fcgTXMP4RawPath->ForeColor = System::Drawing::SystemColors::WindowText;
+                fcgTXMP4RawPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Normal);
                 LocalStg.MP4RawPath = fcgTXMP4RawPath->Text;
                 fcgBTMP4RawPath->ContextMenuStrip = (File::Exists(fcgTXMP4RawPath->Text)) ? fcgCSExeFiles : nullptr;
             }
@@ -7714,9 +7737,9 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         System::Void fcgTXMKVMuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXMKVMuxerPath->Text == String(use_default_exe_path).ToString()) {
                 LocalStg.MKVMuxerPath = L"";
-                fcgTXMKVMuxerPath->ForeColor = System::Drawing::SystemColors::ControlDark;
+                fcgTXMKVMuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
-                fcgTXMKVMuxerPath->ForeColor = System::Drawing::SystemColors::WindowText;
+                fcgTXMKVMuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Normal);
                 LocalStg.MKVMuxerPath = fcgTXMKVMuxerPath->Text;
                 fcgBTMKVMuxerPath->ContextMenuStrip = (File::Exists(fcgTXMKVMuxerPath->Text)) ? fcgCSExeFiles : nullptr;
             }
@@ -7725,9 +7748,9 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
         System::Void fcgTXMPGMuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXMPGMuxerPath->Text == String(use_default_exe_path).ToString()) {
                 LocalStg.MPGMuxerPath = L"";
-                fcgTXMPGMuxerPath->ForeColor = System::Drawing::SystemColors::ControlDark;
+                fcgTXMPGMuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
-                fcgTXMPGMuxerPath->ForeColor = System::Drawing::SystemColors::WindowText;
+                fcgTXMPGMuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Normal);
                 LocalStg.MPGMuxerPath = fcgTXMPGMuxerPath->Text;
                 fcgBTMPGMuxerPath->ContextMenuStrip = (File::Exists(fcgTXMPGMuxerPath->Text)) ? fcgCSExeFiles : nullptr;
             }

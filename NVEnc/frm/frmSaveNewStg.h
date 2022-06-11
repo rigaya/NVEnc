@@ -59,6 +59,8 @@ namespace NVEnc {
             //
             //TODO: ここにコンストラクタ コードを追加します
             //
+            themeMode = AuoTheme::DefaultLight;
+            dwStgReader = nullptr;
         }
 
     protected:
@@ -198,6 +200,9 @@ namespace NVEnc {
 
         }
 #pragma endregion
+    private:
+        AuoTheme themeMode;
+        const DarkenWindowStgReader *dwStgReader;
     public:
         System::Void setStgDir(String^ _stgDir);
         System::Void setFilename(String^ fileName) {
@@ -227,6 +232,7 @@ namespace NVEnc {
     private:
         System::Void fsnBTNewFolder_Click(System::Object^  sender, System::EventArgs^  e) {
             frmNewFolderName^ fnf = gcnew frmNewFolderName();
+            fnf->SetTheme(themeMode, dwStgReader);
             fnf->ShowDialog();
             String^ NewDir = Path::Combine(fsnCXFolderBrowser->GetSelectedFolder(), fnf->NewFolder);
             if (NewDir == nullptr || NewDir->Length == 0 || Directory::Exists(NewDir))
@@ -239,6 +245,24 @@ namespace NVEnc {
         System::Void frmSaveNewStg_KeyDown(System::Object^  sender, System::Windows::Forms::KeyEventArgs^  e) {
             if (e->KeyCode == Keys::Escape)
                 this->Close();
+        }
+    public:
+        System::Void SetTheme(AuoTheme themeTo, const DarkenWindowStgReader *dwStg) {
+            dwStgReader = dwStg;
+            CheckTheme(themeTo);
+        }
+    private:
+        System::Void CheckTheme(const AuoTheme themeTo) {
+            //変更の必要がなければ終了
+            if (themeTo == themeMode) return;
+
+            //一度ウィンドウの再描画を完全に抑止する
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+            SetAllColor(this, themeTo, this->GetType(), dwStgReader);
+            //一度ウィンドウの再描画を再開し、強制的に再描画させる
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+            this->Refresh();
+            themeMode = themeTo;
         }
 };
 }

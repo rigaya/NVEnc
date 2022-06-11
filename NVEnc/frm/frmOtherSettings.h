@@ -58,6 +58,8 @@ namespace NVEnc {
             //
             //TODO: ここにコンストラクタ コードを追加します
             //
+            themeMode = AuoTheme::DefaultLight;
+            dwStgReader = nullptr;
         }
 
     protected:
@@ -527,6 +529,9 @@ namespace NVEnc {
         }
 #pragma endregion
     private:
+        AuoTheme themeMode;
+        const DarkenWindowStgReader *dwStgReader;
+    private:
         System::Void fosCBOK_Click(System::Object^  sender, System::EventArgs^  e) {
             //DisableToolTipHelp = fosCBDisableToolTip->Checked;
             make_file_filter(NULL, 0, fosCXDefaultOutExt->SelectedIndex);
@@ -634,6 +639,45 @@ namespace NVEnc {
                 exstg.s_local.conf_font.style = 0;
                 exstg.save_local();
                 SetFontFamilyToForm(this, fosfontDialog->Font->FontFamily, this->Font->FontFamily);
+            }
+        }
+    public:
+        System::Void frmOtherSettings::SetTheme(AuoTheme themeTo, const DarkenWindowStgReader *dwStg) {
+            dwStgReader = dwStg;
+            CheckTheme(themeTo);
+        }
+    private:
+        System::Void frmOtherSettings::CheckTheme(const AuoTheme themeTo) {
+            //変更の必要がなければ終了
+            if (themeTo == themeMode) return;
+
+            //一度ウィンドウの再描画を完全に抑止する
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+            SetAllColor(this, themeTo, this->GetType(), dwStgReader);
+            SetAllMouseMove(this, themeTo);
+            //一度ウィンドウの再描画を再開し、強制的に再描画させる
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+            this->Refresh();
+            themeMode = themeTo;
+        }
+    private:
+        System::Void frmOtherSettings::fosMouseEnter_SetColor(System::Object^  sender, System::EventArgs^  e) {
+            fcgMouseEnterLeave_SetColor(sender, themeMode, DarkenWindowState::Hot, dwStgReader);
+        }
+    private:
+        System::Void frmOtherSettings::fosMouseLeave_SetColor(System::Object^  sender, System::EventArgs^  e) {
+            fcgMouseEnterLeave_SetColor(sender, themeMode, DarkenWindowState::Normal, dwStgReader);
+        }
+    private:
+        System::Void frmOtherSettings::SetAllMouseMove(Control ^top, const AuoTheme themeTo) {
+            if (themeTo == themeMode) return;
+            System::Type^ type = top->GetType();
+            if (type == CheckBox::typeid) {
+                top->MouseEnter += gcnew System::EventHandler(this, &frmOtherSettings::fosMouseEnter_SetColor);
+                top->MouseLeave += gcnew System::EventHandler(this, &frmOtherSettings::fosMouseLeave_SetColor);
+            }
+            for (int i = 0; i < top->Controls->Count; i++) {
+                SetAllMouseMove(top->Controls[i], themeTo);
             }
         }
 };

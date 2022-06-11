@@ -63,6 +63,8 @@ namespace NVEnc {
             //
             //TODO: ここにコンストラクタ コードを追加します
             //
+            themeMode = AuoTheme::DefaultLight;
+            dwStgReader = nullptr;
         }
 
     protected:
@@ -564,12 +566,18 @@ namespace NVEnc {
     private:
         String^ LastStr;
         bool enable_events;
+        AuoTheme themeMode;
+        const DarkenWindowStgReader *dwStgReader;
         System::Void fbcBTVBApply_Click(System::Object^  sender, System::EventArgs^  e);
         System::Void fbcBTABApply_Click(System::Object^  sender, System::EventArgs^  e);
         System::Void frmBitrateCalculator_FormClosing(System::Object^  sender, System::Windows::Forms::FormClosingEventArgs^  e);
         System::Void fbcRBCalcRate_CheckedChanged(System::Object^  sender, System::EventArgs^  e);
+        System::Void CheckTheme(const AuoTheme themeTo);
+        System::Void SetAllMouseMove(Control ^top, const AuoTheme themeTo);
+        System::Void fbcMouseEnter_SetColor(System::Object^  sender, System::EventArgs^  e);
+        System::Void fbcMouseLeave_SetColor(System::Object^  sender, System::EventArgs^  e);
     public:
-        System::Void Init(int VideoBitrate, int AudioBitrate, bool BTVBEnable, bool BTABEnable, int ab_max);
+        System::Void Init(int VideoBitrate, int AudioBitrate, bool BTVBEnable, bool BTABEnable, int ab_max, const AuoTheme theme, const DarkenWindowStgReader *dwStg);
     private:
         System::Void fbcChangeTimeSetMode(bool use_frames) {
             fbcPNMovieFrames->Visible = use_frames;

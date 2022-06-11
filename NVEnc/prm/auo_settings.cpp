@@ -31,7 +31,9 @@
 #include <Math.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
+#include <fstream>
+#include <filesystem>
+#include <tinyxml2.h>
 #include <locale.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -39,6 +41,7 @@
 #include "auo_util.h"
 #include "auo_settings.h"
 #include "auo_version.h"
+#include "rgy_util.h"
 
 static const int INI_SECTION_BUFSIZE = 32768;
 static const int INI_KEY_MAX_LEN = 256;
@@ -709,3 +712,285 @@ void guiEx_settings::apply_fn_replace(char *target_filename, DWORD nSize) {
     for (auto i_rep : fn_rep)
         replace(target_filename, nSize, i_rep.from, i_rep.to);
 }
+
+ColorRGB DarkenWindowStgNamedColor::parseColor(const std::string& colorStr) const {
+    if (colorStr.length() == 0) return ColorRGB();
+    {
+        int r = 0, g = 0, b = 0;
+        if (sscanf_s(colorStr.c_str(), "%d, %d, %d", &r, &g, &b) == 3) {
+            return ColorRGB(r, g, b);
+        }
+    }
+    const bool withSharp = (colorStr[0] == '#');
+    const int colorLength = colorStr.length() - (withSharp ? 1 : 0);
+    int value = 0;
+    if (colorLength == 3 && sscanf_s(colorStr.c_str(), "#%x", &value) == 1) {
+        const auto R = colorStr.substr(withSharp ? 1 : 0, 1);
+        const auto G = colorStr.substr(withSharp ? 2 : 1, 1);
+        const auto B = colorStr.substr(withSharp ? 3 : 2, 1);
+        return ColorRGB(
+            std::stoi(R + R, nullptr, 16),
+            std::stoi(G + G, nullptr, 16),
+            std::stoi(B + B, nullptr, 16));
+    } else if (colorLength == 6 && sscanf_s(colorStr.c_str(), "#%x", &value) == 1) {
+        const auto R = colorStr.substr(withSharp ? 1 : 0, 2);
+        const auto G = colorStr.substr(withSharp ? 3 : 2, 2);
+        const auto B = colorStr.substr(withSharp ? 5 : 4, 2);
+        return ColorRGB(
+            std::stoi(R, nullptr, 16),
+            std::stoi(G, nullptr, 16),
+            std::stoi(B, nullptr, 16));
+    }
+    return ColorRGB();
+}
+
+const DarkenWindowStgNamedColor *DarkenWindowStgReader::getColor(const char *name) const {
+    for (const auto& c : namedColors) {
+        if (_stricmp(c.name().c_str(), name) == 0) {
+            return &c;
+        }
+    }
+    return nullptr;
+}
+
+const DarkenWindowStgNamedColor *DarkenWindowStgReader::getColorFromNameAndState(const char *name, const DarkenWindowState state) const {
+    if (namedColors.size() == 0) return nullptr;
+    const int stateId = clamp((int)state, 0, (int)DarkenWindowState::MaxCout - 1);
+    char key[256];
+    sprintf_s(key, "%s_%s", name, DWSTATE_NAMES[stateId]);
+    const auto color = getColor(key);
+    if (color) return color;
+    return nullptr;
+}
+
+const DarkenWindowStgNamedColor *DarkenWindowStgReader::getColorStatic(const DarkenWindowState state) const {
+    static const char *STATIC_COLOR_NAMES[] = { "c5", "c2" };
+    if (namedColors.size() == 0) return nullptr;
+    for (int i = 0; i < _countof(STATIC_COLOR_NAMES); i++) {
+        const auto color = getColorFromNameAndState(STATIC_COLOR_NAMES[i], state);
+        if (color) return color;
+    }
+    return nullptr;
+}
+const DarkenWindowStgNamedColor *DarkenWindowStgReader::getColorButton(const DarkenWindowState state) const {
+    static const char *BUTTON_COLOR_NAMES[] = { "c2" };
+    if (namedColors.size() == 0) return nullptr;
+    for (int i = 0; i < _countof(BUTTON_COLOR_NAMES); i++) {
+        const auto color = getColorFromNameAndState(BUTTON_COLOR_NAMES[i], state);
+        if (color) return color;
+    }
+    return nullptr;
+}
+const DarkenWindowStgNamedColor *DarkenWindowStgReader::getColorCheckBox(const DarkenWindowState state) const {
+    static const char *BUTTON_COLOR_NAMES[] = { "c5", "c2" };
+    if (namedColors.size() == 0) return nullptr;
+    for (int i = 0; i < _countof(BUTTON_COLOR_NAMES); i++) {
+        const auto color = getColorFromNameAndState(BUTTON_COLOR_NAMES[i], state);
+        if (color) return color;
+    }
+    return nullptr;
+}
+const DarkenWindowStgNamedColor *DarkenWindowStgReader::getColorTextBox(const DarkenWindowState state) const {
+    static const char *TEXT_BOX_COLOR_NAMES[] = { "c1" };
+    if (namedColors.size() == 0) return nullptr;
+    for (int i = 0; i < _countof(TEXT_BOX_COLOR_NAMES); i++) {
+        const auto color = getColorFromNameAndState(TEXT_BOX_COLOR_NAMES[i], state);
+        if (color) return color;
+    }
+    return nullptr;
+}
+
+const DarkenWindowStgNamedColor *DarkenWindowStgReader::getColorMenu(const DarkenWindowState state) const {
+    static const char *STATIC_COLOR_NAMES[] = { "c4" };
+    if (namedColors.size() == 0) return nullptr;
+    for (int i = 0; i < _countof(STATIC_COLOR_NAMES); i++) {
+        const auto color = getColorFromNameAndState(STATIC_COLOR_NAMES[i], state);
+        if (color) return color;
+    }
+    return nullptr;
+}
+const DarkenWindowStgNamedColor *DarkenWindowStgReader::getColorToolTip(const DarkenWindowState state) const {
+    static const char *BUTTON_COLOR_NAMES[] = { "c2" };
+    if (namedColors.size() == 0) return nullptr;
+    for (int i = 0; i < _countof(BUTTON_COLOR_NAMES); i++) {
+        const auto color = getColorFromNameAndState(BUTTON_COLOR_NAMES[i], state);
+        if (color) return color;
+    }
+    return nullptr;
+}
+
+bool DarkenWindowStgReader::isDarkTheme() const {
+    const auto color = getColorStatic();
+    if (color) {
+        //輝度に変換して、暗い系の色かをチェックする
+        const double y = color->fillColor().r * 0.299 + color->fillColor().g * 0.587 + color->fillColor().b * 0.114;
+        return y < 128.0;
+    }
+    return false;
+}
+
+DarkenWindowStgReader::DarkenWindowStgReader(const std::wstring& dir) : rootDir(dir), selectedThemeXml(), selectedThemeXmlFileSets(), namedColors() {};
+DarkenWindowStgReader::~DarkenWindowStgReader() {};
+
+std::string DarkenWindowStgReader::readWcharXml(const std::wstring& path) {
+    std::ifstream ifs(path, std::ios_base::in | std::ios_base::binary);
+    ifs.seekg(0, std::ios::end);
+    const auto size = (size_t)ifs.tellg();
+    ifs.seekg(0);
+
+    std::vector<char> buffer(size + sizeof(wchar_t), '\0');
+    ifs.read(buffer.data(), size);
+    char *ptr = buffer.data();
+    if ((ptr[0] == 0xFE && ptr[1] == 0xFF) || ptr[0] == 0xFF && ptr[1] == 0xFE) {
+        ptr += 2;
+    }
+    return wstring_to_string((wchar_t*)buffer.data(), CP_UTF8);
+}
+
+int DarkenWindowStgReader::parseRootStg() {
+    const auto rootStgPath = std::filesystem::path(rootDir) / L"DarkenWindowSettings.xml";
+    if (!std::filesystem::exists(rootStgPath)) {
+        return 1;
+    }
+    const auto xml_utf8 = DarkenWindowStgReader::readWcharXml(rootStgPath.wstring());
+    if (xml_utf8.length() == 0) {
+        return 1;
+    }
+
+    tinyxml2::XMLDocument xml;
+    if (xml.Parse(xml_utf8.c_str(), xml_utf8.length()) != tinyxml2::XML_NO_ERROR) {
+        return 1;
+    }
+    static const char *ELEM_NAME_SETTINGS = "Settings";
+    static const char *ATTR_NAME_SKIN = "skin";
+    auto root = xml.FirstChildElement(ELEM_NAME_SETTINGS);
+    if (root != nullptr) {
+        if (auto attr = root->Attribute(ATTR_NAME_SKIN); attr != nullptr) {
+            selectedThemeXml = char_to_wstring(attr, CP_UTF8);
+        }
+    }
+    return 0;
+}
+
+std::wstring DarkenWindowStgReader::getSelectedTheme() const {
+    return std::filesystem::path(selectedThemeXml).stem().wstring();
+}
+
+int DarkenWindowStgReader::parseSelectedStg() {
+    static const char *ELEM_NAME_SETTINGS = "Settings";
+    static const char *ELEM_NAME_SKIN = "Skin";
+    selectedThemeXmlFileSets.clear();
+    const auto selectedStg = std::filesystem::path(rootDir) / selectedThemeXml;
+    if (!std::filesystem::exists(selectedStg)) {
+        return 1;
+    }
+    const auto xml_utf8 = DarkenWindowStgReader::readWcharXml(selectedStg.wstring());
+    if (xml_utf8.length() == 0) {
+        return 1;
+    }
+    tinyxml2::XMLDocument xml;
+    if (xml.Parse(xml_utf8.c_str(), xml_utf8.length()) != tinyxml2::XML_NO_ERROR) {
+        return 1;
+    }
+    auto elem = xml.FirstChildElement(ELEM_NAME_SETTINGS);
+    if (elem == nullptr) {
+        return 1;
+    }
+    for (auto skinXml = elem->FirstChildElement(ELEM_NAME_SKIN);
+        skinXml != nullptr; skinXml = skinXml->NextSiblingElement(ELEM_NAME_SKIN)) {
+        auto filename = skinXml->Attribute("fileName");
+        if (filename != nullptr) {
+            selectedThemeXmlFileSets.push_back(char_to_wstring(filename, CP_UTF8));
+        }
+    }
+    return 0;
+}
+
+int DarkenWindowStgReader::parseSelectedStg2() {
+    static const char *ELEM_NAME_SKIN = "Skin";
+    static const char *ELEM_NAME_ATTRIBUTES = "Attributes";
+    static const char *ELEM_NAME_NAMED_COLORS = "NamedColors";
+    static const char *ELEM_NAME_NAMED_COLOR = "NamedColor";
+    namedColors.clear();
+
+    const auto selectedStg = (std::filesystem::path(rootDir) / selectedThemeXml).remove_filename() / selectedThemeXmlFileSets.front();
+    if (!std::filesystem::exists(selectedStg)) {
+        return 1;
+    }
+    const auto xml_utf8 = DarkenWindowStgReader::readWcharXml(selectedStg.wstring());
+    if (xml_utf8.length() == 0) {
+        return 1;
+    }
+    tinyxml2::XMLDocument xml;
+    if (xml.Parse(xml_utf8.c_str(), xml_utf8.length()) != tinyxml2::XML_NO_ERROR) {
+        return 1;
+    }
+    auto elem = xml.FirstChildElement(ELEM_NAME_SKIN);
+    if (elem == nullptr) {
+        return 1;
+    }
+    elem = elem->FirstChildElement(ELEM_NAME_ATTRIBUTES);
+    if (elem == nullptr) {
+        return 1;
+    }
+    auto namedColorsElem = elem->FirstChildElement(ELEM_NAME_NAMED_COLORS);
+    if (namedColorsElem == nullptr) {
+        return 1;
+    }
+    for (auto namedColorElem = namedColorsElem->FirstChildElement(ELEM_NAME_NAMED_COLOR);
+        namedColorElem != nullptr; namedColorElem = namedColorElem->NextSiblingElement(ELEM_NAME_NAMED_COLOR)) {
+        DarkenWindowStgNamedColor color(
+            namedColorElem->Attribute("name"),
+            namedColorElem->Attribute("fillColor"),
+            namedColorElem->Attribute("edgeColor"),
+            namedColorElem->Attribute("textForeColor"),
+            namedColorElem->Attribute("textBackColor"));
+        if (false) {
+            fprintf(stderr, "color=%s, fillColor=%s, edgeColor=%s, textForeColor=%s, textBackColor=%s\n",
+                color.name().c_str(),
+                color.fillColor().printHex().c_str(),
+                color.edgeColor().printHex().c_str(),
+                color.textForeColor().printHex().c_str(),
+                color.textBackColor().printHex().c_str());
+        }
+        if (color.name().length() > 0) {
+            namedColors.push_back(color);
+        }
+    }
+    return 0;
+}
+
+int DarkenWindowStgReader::parseStg() {
+    if (parseRootStg()) {
+        return 1;
+    }
+    if (parseSelectedStg()) {
+        return 1;
+    }
+    if (parseSelectedStg2()) {
+        return 1;
+    }
+    return 0;
+}
+
+DarkenWindowStgReader *createDarkenWindowStgReader(const char *aviutl_dir) {
+    char pluginDir[MAX_PATH_LEN];
+    PathCombineLong(pluginDir, _countof(pluginDir), aviutl_dir, "plugins");
+    char DWStgDir[MAX_PATH_LEN];
+    PathCombineLong(DWStgDir, _countof(DWStgDir), pluginDir, "DarkenWindow");
+    return new DarkenWindowStgReader(char_to_wstring(DWStgDir));
+}
+
+std::tuple<AuoTheme, DarkenWindowStgReader *> check_current_theme(const char *aviutl_dir) {
+    const bool DWLoaded = checkIfModuleLoaded(L"DarkenWindow.aul");
+    DarkenWindowStgReader *dwStg = nullptr;
+    if (DWLoaded) {
+        dwStg = createDarkenWindowStgReader(aviutl_dir);
+    }
+    //DarkenWindowが使用されていれば設定をロードする
+    return {
+        (DWLoaded && dwStg->parseStg() == 0) ? ((dwStg->isDarkTheme()) ? AuoTheme::DarkenWindowDark : AuoTheme::DarkenWindowLight) : AuoTheme::DefaultLight,
+        dwStg
+    };
+}
+

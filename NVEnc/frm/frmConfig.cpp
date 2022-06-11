@@ -87,10 +87,12 @@ System::Void frmSaveNewStg::setStgDir(String^ _stgDir) {
 /// -------------------------------------------------
 ///     frmBitrateCalculator 関数
 /// -------------------------------------------------
-System::Void frmBitrateCalculator::Init(int VideoBitrate, int AudioBitrate, bool BTVBEnable, bool BTABEnable, int ab_max) {
+System::Void frmBitrateCalculator::Init(int VideoBitrate, int AudioBitrate, bool BTVBEnable, bool BTABEnable, int ab_max, const AuoTheme themeTo, const DarkenWindowStgReader *dwStg) {
     guiEx_settings exStg(true);
     exStg.load_fbc();
     enable_events = false;
+    dwStgReader = dwStg;
+    CheckTheme(themeTo);
     fbcTXSize->Text = exStg.s_fbc.initial_size.ToString("F2");
     fbcChangeTimeSetMode(exStg.s_fbc.calc_time_from_frame != 0);
     fbcRBCalcRate->Checked = exStg.s_fbc.calc_bitrate != 0;
@@ -105,6 +107,19 @@ System::Void frmBitrateCalculator::Init(int VideoBitrate, int AudioBitrate, bool
     SetNUVideoBitrate(VideoBitrate);
     SetNUAudioBitrate(AudioBitrate);
     enable_events = true;
+}
+System::Void frmBitrateCalculator::CheckTheme(const AuoTheme themeTo) {
+    //変更の必要がなければ終了
+    if (themeTo == themeMode) return;
+
+    //一度ウィンドウの再描画を完全に抑止する
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+    SetAllColor(this, themeTo, this->GetType(), dwStgReader);
+    SetAllMouseMove(this, themeTo);
+    //一度ウィンドウの再描画を再開し、強制的に再描画させる
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+    this->Refresh();
+    themeMode = themeTo;
 }
 System::Void frmBitrateCalculator::frmBitrateCalculator_FormClosing(System::Object^  sender, System::Windows::Forms::FormClosingEventArgs^  e) {
     guiEx_settings exStg(true);
@@ -140,6 +155,23 @@ System::Void frmBitrateCalculator::fbcBTABApply_Click(System::Object^  sender, S
     if (fcg != nullptr)
         fcg->SetAudioBitrate((int)fbcNUBitrateAudio->Value);
 }
+System::Void frmBitrateCalculator::fbcMouseEnter_SetColor(System::Object^  sender, System::EventArgs^  e) {
+    fcgMouseEnterLeave_SetColor(sender, themeMode, DarkenWindowState::Hot, dwStgReader);
+}
+System::Void frmBitrateCalculator::fbcMouseLeave_SetColor(System::Object^  sender, System::EventArgs^  e) {
+    fcgMouseEnterLeave_SetColor(sender, themeMode, DarkenWindowState::Normal, dwStgReader);
+}
+System::Void frmBitrateCalculator::SetAllMouseMove(Control ^top, const AuoTheme themeTo) {
+    if (themeTo == themeMode) return;
+    System::Type^ type = top->GetType();
+    if (type == CheckBox::typeid) {
+        top->MouseEnter += gcnew System::EventHandler(this, &frmBitrateCalculator::fbcMouseEnter_SetColor);
+        top->MouseLeave += gcnew System::EventHandler(this, &frmBitrateCalculator::fbcMouseLeave_SetColor);
+    }
+    for (int i = 0; i < top->Controls->Count; i++) {
+        SetAllMouseMove(top->Controls[i], themeTo);
+    }
+}
 
 
 /// -------------------------------------------------
@@ -157,7 +189,9 @@ System::Void frmConfig::fcgTSBBitrateCalc_CheckedChanged(System::Object^  sender
             (fcgNUAudioBitrate->Visible) ? (int)fcgNUAudioBitrate->Value : 0,
             videoBitrateMode,
             fcgNUAudioBitrate->Visible,
-            (int)fcgNUAudioBitrate->Maximum
+            (int)fcgNUAudioBitrate->Maximum,
+            themeMode,
+            dwStgReader
             );
         frmBitrateCalculator::Instance::get()->Owner = this;
         frmBitrateCalculator::Instance::get()->Show();
@@ -321,6 +355,7 @@ System::Void frmConfig::ActivateToolTip(bool Enable) {
 
 System::Void frmConfig::fcgTSBOtherSettings_Click(System::Object^  sender, System::EventArgs^  e) {
     frmOtherSettings::Instance::get()->stgDir = String(sys_dat->exstg->s_local.stg_dir).ToString();
+    frmOtherSettings::Instance::get()->SetTheme(themeMode, dwStgReader);
     frmOtherSettings::Instance::get()->ShowDialog();
     char buf[MAX_PATH_LEN];
     GetCHARfromString(buf, sizeof(buf), frmOtherSettings::Instance::get()->stgDir);
@@ -641,6 +676,7 @@ System::Void frmConfig::fcgTSBSave_Click(System::Object^  sender, System::EventA
 
 System::Void frmConfig::fcgTSBSaveNew_Click(System::Object^  sender, System::EventArgs^  e) {
     frmSaveNewStg::Instance::get()->setStgDir(String(sys_dat->exstg->s_local.stg_dir).ToString());
+    frmSaveNewStg::Instance::get()->SetTheme(themeMode, dwStgReader);
     if (CheckedStgMenuItem != nullptr)
         frmSaveNewStg::Instance::get()->setFilename(CheckedStgMenuItem->Text);
     frmSaveNewStg::Instance::get()->ShowDialog();
@@ -959,6 +995,8 @@ System::Void frmConfig::AdjustLocation() {
 }
 
 System::Void frmConfig::InitForm() {
+    //UIテーマ切り替え
+    CheckTheme();
     fcgPBNVEncLogoEnabled->Visible = false;
     GetVidEncInfoAsync();
     //ローカル設定のロード
@@ -1572,6 +1610,94 @@ System::Void frmConfig::SetToolStripEvents(ToolStrip^ TS, System::Windows::Forms
         ToolStripButton^ TSB = dynamic_cast<ToolStripButton^>(TS->Items[i]);
         if (TSB != nullptr) TSB->MouseDown += _event;
     }
+}
+
+System::Void frmConfig::TabControl_DarkDrawItem(System::Object^ sender, DrawItemEventArgs^ e) {
+    //対象のTabControlを取得
+    TabControl^ tab = dynamic_cast<TabControl^>(sender);
+    //タブページのテキストを取得
+    System::String^ txt = tab->TabPages[e->Index]->Text;
+
+    //タブのテキストと背景を描画するためのブラシを決定する
+    SolidBrush^ foreBrush = gcnew System::Drawing::SolidBrush(ColorfromInt(DEFAULT_UI_COLOR_TEXT_DARK));
+    SolidBrush^ backBrush = gcnew System::Drawing::SolidBrush(ColorfromInt(DEFAULT_UI_COLOR_BASE_DARK));
+
+    //StringFormatを作成
+    StringFormat^ sf = gcnew System::Drawing::StringFormat();
+    //中央に表示する
+    sf->Alignment = StringAlignment::Center;
+    sf->LineAlignment = StringAlignment::Center;
+
+    //背景の描画
+    e->Graphics->FillRectangle(backBrush, e->Bounds);
+    //Textの描画
+    e->Graphics->DrawString(txt, e->Font, foreBrush, e->Bounds, sf);
+}
+
+System::Void frmConfig::fcgMouseEnter_SetColor(System::Object^  sender, System::EventArgs^  e) {
+    fcgMouseEnterLeave_SetColor(sender, themeMode, DarkenWindowState::Hot, dwStgReader);
+}
+System::Void frmConfig::fcgMouseLeave_SetColor(System::Object^  sender, System::EventArgs^  e) {
+    fcgMouseEnterLeave_SetColor(sender, themeMode, DarkenWindowState::Normal, dwStgReader);
+}
+
+System::Void frmConfig::SetAllMouseMove(Control ^top, const AuoTheme themeTo) {
+    if (themeTo == themeMode) return;
+    System::Type^ type = top->GetType();
+    if (type == CheckBox::typeid /* || isToolStripItem(type)*/) {
+        top->MouseEnter += gcnew System::EventHandler(this, &frmConfig::fcgMouseEnter_SetColor);
+        top->MouseLeave += gcnew System::EventHandler(this, &frmConfig::fcgMouseLeave_SetColor);
+    } else if (type == ToolStrip::typeid) {
+        ToolStrip^ TS = dynamic_cast<ToolStrip^>(top);
+        for (int i = 0; i < TS->Items->Count; i++) {
+            auto item = TS->Items[i];
+            item->MouseEnter += gcnew System::EventHandler(this, &frmConfig::fcgMouseEnter_SetColor);
+            item->MouseLeave += gcnew System::EventHandler(this, &frmConfig::fcgMouseLeave_SetColor);
+        }
+    }
+    for (int i = 0; i < top->Controls->Count; i++) {
+        SetAllMouseMove(top->Controls[i], themeTo);
+    }
+}
+
+System::Void frmConfig::CheckTheme() {
+    //DarkenWindowが使用されていれば設定をロードする
+    if (dwStgReader != nullptr) delete dwStgReader;
+    const auto [themeTo, dwStg] = check_current_theme(sys_dat->aviutl_dir);
+    dwStgReader = dwStg;
+
+    //変更の必要がなければ終了
+    if (themeTo == themeMode) return;
+
+    //一度ウィンドウの再描画を完全に抑止する
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+#if 0
+    //tabcontrolのborderを隠す
+    SwitchComboBoxBorder(fcgtabControlVideo, fcgPNHideTabControlVideo, themeMode, themeTo, dwStgReader);
+    SwitchComboBoxBorder(fcgtabControlAudio, fcgPNHideTabControlAudio, themeMode, themeTo, dwStgReader);
+    SwitchComboBoxBorder(fcgtabControlMux,   fcgPNHideTabControlMux,   themeMode, themeTo, dwStgReader);
+#endif
+    //上部のtoolstripborderを隠すためのパネル
+    fcgPNHideToolStripBorder->Visible = themeTo == AuoTheme::DarkenWindowDark;
+#if 0
+    //TabControlをオーナードローする
+    fcgtabControlVideo->DrawMode = TabDrawMode::OwnerDrawFixed;
+    fcgtabControlVideo->DrawItem += gcnew DrawItemEventHandler(this, &frmConfig::TabControl_DarkDrawItem);
+
+    fcgtabControlAudio->DrawMode = TabDrawMode::OwnerDrawFixed;
+    fcgtabControlAudio->DrawItem += gcnew DrawItemEventHandler(this, &frmConfig::TabControl_DarkDrawItem);
+
+    fcgtabControlMux->DrawMode = TabDrawMode::OwnerDrawFixed;
+    fcgtabControlMux->DrawItem += gcnew DrawItemEventHandler(this, &frmConfig::TabControl_DarkDrawItem);
+#endif
+    if (themeTo != themeMode) {
+        SetAllColor(this, themeTo, this->GetType(), dwStgReader);
+        SetAllMouseMove(this, themeTo);
+    }
+    //一度ウィンドウの再描画を再開し、強制的に再描画させる
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+    this->Refresh();
+    themeMode = themeTo;
 }
 
 System::Void frmConfig::SetAllCheckChangedEvents(Control ^top) {

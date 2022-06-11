@@ -99,4 +99,6 @@ void write_log_line_fmt(int log_type_index, const char *format, ...);
 void write_log_auo_line_fmt(int log_type_index, const char *format, ... );
 void write_log_auo_enc_time(const char *mes, DWORD time);
 
+bool checkIfModuleLoaded(const wchar_t *moduleName);
+
 #endif //_AUO_H_

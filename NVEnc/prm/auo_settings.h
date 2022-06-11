@@ -66,11 +66,23 @@ static const int    DEFAULT_LOG_HEIGHT           = 0;
 static const int    DEFAULT_LOG_TRANSPARENCY     = 28;
 static const int    DEFAULT_LOG_POS[2]           = { 100, 100 };
 
+enum class AuoTheme : int {
+    DefaultLight,
+    DarkenWindowLight,
+    DarkenWindowDark,
+    CountMax
+};
+
 ///ログ表示で使う色                                        R    G    B
 static const int    DEFAULT_LOG_COLOR_BACKGROUND[3] =   {   0,   0,   0 };
 static const int    DEFAULT_LOG_COLOR_TEXT[3][3]    = { { 198, 253, 226 },   //LOG_INFO
                                                         { 245, 218,  90 },   //LOG_WARNING
                                                         { 253,  83, 121 } }; //LOG_ERROR
+static const int    DEFAULT_UI_COLOR_BASE_LIGHT[3]  =  { 240, 240, 240 };
+static const int    DEFAULT_UI_COLOR_TEXT_LIGHT[3]  =  {   0,   0,   0 };
+static const int    DEFAULT_UI_COLOR_BASE_DARK[3]   =  {  51,  51,  51 };
+static const int    DEFAULT_UI_COLOR_TEXT_DARK[3]   =  { 255, 255, 255 };
+static const int    DEFAULT_UI_COLOR_TEXT_DARK_DISABLED[3] = { 153, 153, 153 };
 
 static const BOOL   DEFAULT_FBC_CALC_BITRATE         = 1;
 static const BOOL   DEFAULT_FBC_CALC_TIME_FROM_FRAME = 0;
@@ -372,5 +384,89 @@ private:
     void clear_append();      //各種ファイルの設定の消去
     void clear_fbc();         //簡易ビットレート計算機設定のクリア
 };
+
+struct ColorRGB {
+    int r, g, b;
+    ColorRGB() : r(0), g(0), b(0) {};
+    ColorRGB(int r_, int g_, int b_) : r(r_), g(g_), b(b_) {};
+    std::string print() const {
+        char buf[32];
+        sprintf_s(buf, "(%3d, %3d, %3d)", r, g, b);
+        return buf;
+    }
+    std::string printHex() const {
+        char buf[32];
+        sprintf_s(buf, "#%02x%02x%02x", r, g, b);
+        return buf;
+    }
+};
+
+class DarkenWindowStgNamedColor {
+public:
+    DarkenWindowStgNamedColor(const char *name, const char * fillColor, const char * edgeColor, const char * textForeColor, const char * textBackColor) :
+        name_((name) ? name : ""),
+        fillColor_((fillColor) ? fillColor : ""),
+        edgeColor_((edgeColor) ? edgeColor : ""),
+        textForeColor_((textForeColor) ? textForeColor : ""),
+        textBackColor_((textBackColor) ? textBackColor : "") {}
+    ~DarkenWindowStgNamedColor() {};
+    const std::string& name() const { return name_; };
+    ColorRGB fillColor() const { return parseColor(fillColor_); };
+    ColorRGB edgeColor() const { return parseColor(edgeColor_); };
+    ColorRGB textForeColor() const { return parseColor(textForeColor_); };
+    ColorRGB textBackColor() const { return parseColor(textBackColor_); };
+    ColorRGB parseColor(const std::string& colorStr) const;
+protected:
+    std::string name_;
+    std::string fillColor_;
+    std::string edgeColor_;
+    std::string textForeColor_;
+    std::string textBackColor_;
+};
+
+enum class DarkenWindowState {
+    Normal,
+    Hot,
+    Disabled,
+    MaxCout
+};
+
+static const char * DWSTATE_NAMES[] = {
+    "normal",
+    "hot",
+    "disabled"
+};
+
+class DarkenWindowStgReader {
+public:
+    DarkenWindowStgReader(const std::wstring& dir);
+    ~DarkenWindowStgReader();
+    int parseStg();
+
+    std::wstring getSelectedThemeXml() const { return selectedThemeXml; }
+    std::wstring getSelectedTheme() const;
+    const DarkenWindowStgNamedColor *getColorStatic(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorButton(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorCheckBox(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorTextBox(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorMenu(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorToolTip(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    bool isDarkTheme() const;
+protected:
+    const DarkenWindowStgNamedColor *getColor(const char *name) const;
+    const DarkenWindowStgNamedColor *getColorFromNameAndState(const char *name, const DarkenWindowState state) const;
+    int parseRootStg();
+    int parseSelectedStg();
+    int parseSelectedStg2();
+    std::wstring rootDir;
+    std::wstring selectedThemeXml;
+    std::vector<std::wstring> selectedThemeXmlFileSets;
+    std::vector<DarkenWindowStgNamedColor> namedColors;
+
+    static std::string readWcharXml(const std::wstring& path);
+};
+
+DarkenWindowStgReader *createDarkenWindowStgReader(const char *aviutl_dir);
+std::tuple<AuoTheme, DarkenWindowStgReader *> check_current_theme(const char *aviutl_dir);
 
 #endif //_AUO_SETTINGS_H_
