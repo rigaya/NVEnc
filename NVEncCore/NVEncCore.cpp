@@ -4006,7 +4006,8 @@ NVENCSTATUS NVEncCore::Encode() {
                 frameInfo.pitch = pitch;
                 frameInfo.ptr = (uint8_t *)dMappedFrame;
                 deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
-                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                    //ロック内で解放されるので、ここでのさらなるロックは不要
+                    //NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                     cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
                 });
                 PrintMes(RGY_LOG_TRACE, _T("filter_frame(%d): mapped video frame.\n"), nFilterFrame);
