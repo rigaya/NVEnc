@@ -623,8 +623,7 @@ NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          
 NVEncFrameInfo.cpp     NVEncParam.cpp              NVEncUtil.cpp                cl_func.cpp \
 convert_csp.cpp        cpu_info.cpp                gpu_info.cpp \
 gpuz_info.cpp          h264_level.cpp              hevc_level.cpp               logo.cpp \
-rgy_aspect_ratio.cpp   rgy_avlog.cpp               rgy_avutil.cpp \
-rgy_bitstream.cpp      rgy_bitstream_avx2.cpp      rgy_bitstream_avx512bw.cpp \
+rgy_aspect_ratio.cpp   rgy_avlog.cpp               rgy_avutil.cpp               rgy_bitstream.cpp \
 rgy_caption.cpp        rgy_chapter.cpp             rgy_cmd.cpp                  rgy_codepage.cpp             rgy_def.cpp \
 rgy_env.cpp            rgy_err.cpp                 rgy_event.cpp                rgy_filesystem.cpp           rgy_frame.cpp \
 rgy_hdr10plus.cpp      rgy_ini.cpp                 rgy_input.cpp                rgy_input_avcodec.cpp        rgy_input_avi.cpp \
@@ -637,7 +636,8 @@ rgy_version.cpp \
 
 SRC_NVENCCORE_X86="\
 convert_csp_avx.cpp    convert_csp_avx2.cpp         convert_csp_sse2.cpp \
-convert_csp_sse41.cpp  convert_csp_ssse3.cpp
+convert_csp_sse41.cpp  convert_csp_ssse3.cpp \
+rgy_bitstream_avx2.cpp rgy_bitstream_avx512bw.cpp \
 "
 
 CU_NVENCCORE=" \

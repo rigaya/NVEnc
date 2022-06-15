@@ -83,6 +83,6 @@ RGY_SIMD get_availableSIMD() {
 }
 #else
 RGY_SIMD get_availableSIMD() {
-    return NONE;
+    return RGY_SIMD::NONE;
 }
 #endif

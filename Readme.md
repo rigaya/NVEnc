@@ -25,7 +25,7 @@ There are 2 types of software developed, one is command line version that runs i
 
 ## System Requirements
 Windows 10/11 (x86 / x64)  
-Linux (x64)  
+Linux (x64/aarch64)  
 Aviutl 1.00 or later (NVEnc.auo)  
 Hardware which supports NVENC  
   NVIDIA GPU GeForce Kepler gen or later (GT / GTX 6xx or later)  
@@ -77,7 +77,7 @@ Result of --check-features, a feature list returned from the driver. May depend 
 | Maxwell | [GTX970](./GPUFeatures/gtx970.txt) | [Tesla M80](./GPUFeatures/teslaM80_linux.txt) |
 | Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1070](./GPUFeatures/gtx1070.txt), [GTX1060](./GPUFeatures/gtx1060.txt), [GTX1050Ti](./GPUFeatures/gtx1050ti.txt) | [GTX1080](./GPUFeatures/gtx1080_linux.txt) |
 | Volta | [GTX1650](./GPUFeatures/gtx1650.txt) | |
-| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt)  |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt), [Tesla T4G @ aarch64](./GPUFeatures/teslaT4G_linux_arm.txt)  |
 | Ampere | [RTX3090](./GPUFeatures/rtx3090.txt), [RTX3080](./GPUFeatures/rtx3080.txt), [RTX3050Ti](./GPUFeatures/rtx3050ti.txt)  | |
 
 ## Precautions for using NVEnc

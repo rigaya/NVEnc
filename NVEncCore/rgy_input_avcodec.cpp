@@ -1709,6 +1709,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_Demux.video.parse_nal_hevc = get_parse_nal_unit_hevc_func();
         m_Demux.video.hdr10plusMetadataCopy = input_prm->hdr10plusMetadataCopy;
         AddMessage(RGY_LOG_DEBUG, _T("hdr10plusMetadataCopy: %s\n"), m_Demux.video.hdr10plusMetadataCopy ? _T("on") : _T("off"));
+#if ENCODER_NVENC && (defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) || defined(__ARM_ARCH))
+        //armではhwデコーダを使用すると現状エラー終了するため、--avhwの指定がないときはavswを使用する
+        if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVHW) {
+            m_inputVideoInfo.type = RGY_INPUT_FMT_AVSW;
+        }
+#endif
         m_Demux.video.HWDecodeDeviceId = -1;
         if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
             for (const auto& devCodecCsp : *input_prm->HWDecCodecCsp) {

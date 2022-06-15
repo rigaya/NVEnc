@@ -17,12 +17,19 @@ jobs:
         include:
           - dockerimg: ubuntu2204_cuda11
             pkgtype: deb
+            arch: x86_64
+          - dockerimg: ubuntu2204_cuda11_aarch64
+            pkgtype: deb
+            arch: arm64
           - dockerimg: ubuntu2004_cuda11
             pkgtype: deb
+            arch: x86_64
           - dockerimg: ubuntu1804_cuda10
             pkgtype: deb
+            arch: x86_64
           - dockerimg: fedora32_cuda11
             pkgtype: rpm
+            arch: x86_64
 
     env:
       DOCKER_FILE:  docker/docker_${{ matrix.dockerimg }}
@@ -40,7 +47,7 @@ jobs:
           IMAGE="build_nvencc_"${{ env.DOCKER_IMAGE }}
           TAG=$(echo $GITHUB_SHA | head -c7)
           NPROC=$(grep 'processor' /proc/cpuinfo | wc -l)
-          OUTPUT_DIR=`pwd`/../output
+          OUTPUT_DIR=`pwd`/output
           LOCAL_USER_ID=$(id -u)
           LOCAL_GROUP_ID=$(id -g)
           echo ::set-output name=tagged_image::${IMAGE}:${TAG}
@@ -65,10 +72,14 @@ jobs:
         run: |
           mkdir -p ${{ steps.prep.outputs.output_dir }}
 
+      - name: Set up QEMU
+        if: matrix.arch != 'x86_64'
+        uses: docker/setup-qemu-action@v2
+
       - name: Build Exec
         id: build_exec
         run: |
-          docker build --build-arg LOCAL_USER_ID=${{ steps.prep.outputs.local_user_id }} --build-arg LOCAL_GROUP_ID=${{ steps.prep.outputs.local_group_id }} --tag ${{ steps.prep.outputs.tagged_image }}  --file ${{ env.DOCKER_FILE }} ./
+          docker build --build-arg LOCAL_USER_ID=${{ steps.prep.outputs.local_user_id }} --build-arg LOCAL_GROUP_ID=${{ steps.prep.outputs.local_group_id }} --tag ${{ steps.prep.outputs.tagged_image }} --platform linux/${{ matrix.arch }} --file ${{ env.DOCKER_FILE }} ./
           docker run -dit --rm -v ${{ steps.prep.outputs.output_dir }}:/output -u "$(id -u):$(id -g)" --name build_pkg ${{ steps.prep.outputs.tagged_image }}
           docker exec build_pkg ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include"
           docker exec build_pkg make -j${{ steps.prep.outputs.nproc }}
@@ -88,3 +99,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: ${{ steps.build_exec.outputs.pkgfile }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: nvencc_${{ matrix.dockerimg }}_${{ matrix.pkgtype }}
+          path: ${{ steps.build_exec.outputs.pkgfile }}

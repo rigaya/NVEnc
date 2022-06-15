@@ -71,11 +71,12 @@ static inline uint64_t __rdtscp(uint32_t *Aux) {
 //}
 #endif //#if !(defined(_WIN32) || defined(_WIN64))
 
-#elif defined(__ARM_ARCH)
+#elif (defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) || defined(__ARM_ARCH))
 
 static inline void rgy_yield() {
     __asm__ __volatile__("isb\n");
 }
+
 #endif
 
 #endif //__RGY_ARCH_H__
