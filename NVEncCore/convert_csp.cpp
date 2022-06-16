@@ -764,7 +764,7 @@ static void convert_yuv422_to_nv12_c(void **dst, const void **src, int width, in
         uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left * sizeof(Tin);
         uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
         const int y_width = width - crop_right - crop_left;
-        for (int y = crop_up; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+        for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
             if (in_bit_depth == out_bit_depth && sizeof(Tin) == sizeof(Tout)) {
                 memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
             } else {
