@@ -3851,11 +3851,18 @@ NVENCSTATUS NVEncCore::Encode() {
         if ((srcTimebase.n() > 0 && srcTimebase.is_valid())
             && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware)) {
             if (pInputFrame->getTimeStamp() < 0) {
+                // timestampを修正
+                outPtsSource = nOutEstimatedPts;
+                pInputFrame->setTimeStamp(rational_rescale(nOutEstimatedPts, m_outputTimebase, srcTimebase));
+                pInputFrame->setDuration(rational_rescale(nOutFrameDuration, m_outputTimebase, srcTimebase));
                 PrintMes(RGY_LOG_WARN, _T("check_pts: Invalid timestamp from input frame #%d: timestamp %lld, timebase %d/%d, duration %lld.\n"),
                          pInputFrame->getFrameInfo().inputFrameId, pInputFrame->getTimeStamp(), srcTimebase.n(), srcTimebase.d(), pInputFrame->getDuration());
+                PrintMes(RGY_LOG_WARN, _T("           use estimated timestamp: timestamp %lld, timebase %d/%d, duration %lld.\n"),
+                    outPtsSource, m_outputTimebase.n(), m_outputTimebase.d(), nOutFrameDuration);
+            } else {
+                //CFR仮定ではなく、オリジナルの時間を見る
+                outPtsSource = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase);
             }
-            //CFR仮定ではなく、オリジナルの時間を見る
-            outPtsSource = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase);
         }
         PrintMes(RGY_LOG_TRACE, _T("check_pts(%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), pInputFrame->getFrameInfo().inputFrameId, nOutEstimatedPts, outPtsSource, outDuration);
         if (nOutFirstPts == AV_NOPTS_VALUE) {
