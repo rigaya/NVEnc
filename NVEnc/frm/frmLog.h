@@ -720,7 +720,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItem1;
                 System::Text::StringBuilder^ sb = gcnew System::Text::StringBuilder(richTextLog->Text->Substring(LastLogLen));
                 sb->Replace(L"\n", L"\r\n");//改行コード変換
                 sw->WriteLine(sb->ToString());
-                sw->WriteLine(DateTime::Now.ToString("yyyy年M月d日 H時mm分 エンコード終了"));
+                sw->WriteLine(DateTime::Now.ToString(L"yyyy年M月d日 H時mm分 エンコード終了"));
                 sw->WriteLine(L"-------------------------------------------------------------------------------------");
                 sw->WriteLine();
             } catch (IOException^ ex) {
