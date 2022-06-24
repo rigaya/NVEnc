@@ -269,13 +269,23 @@ BOOL check_if_exedit_is_used() {
     return handle != nullptr;
 }
 
-static BOOL check_temp_file_open(const char *target, const char *defaultExeDir, const bool check_dir, const bool auo_check_fileopen_warning) {
-    DWORD err = ERROR_SUCCESS;
-
+static std::string find_auo_check_fileopen(const char *defaultExeDir, const char *defaultExeDir2) {
     char exe_path[MAX_PATH_LEN] = { 0 };
     PathCombine(exe_path, defaultExeDir, AUO_CHECK_FILEOPEN_NAME);
+    if (PathFileExists(exe_path)) {
+        return exe_path;
+    }
+    PathCombine(exe_path, defaultExeDir2, AUO_CHECK_FILEOPEN_NAME);
+    if (PathFileExists(exe_path)) {
+        return exe_path;
+    }
+    return "";
+}
 
-    if (is_64bit_os() && !PathFileExists(exe_path) && auo_check_fileopen_warning) {
+static BOOL check_temp_file_open(const char *target, const std::string& auo_check_fileopen_path, const bool check_dir, const bool auo_check_fileopen_warning) {
+    DWORD err = ERROR_SUCCESS;
+
+    if (is_64bit_os() && (auo_check_fileopen_path.length() == 0 || !PathFileExists(auo_check_fileopen_path.c_str())) && auo_check_fileopen_warning) {
         warning_no_auo_check_fileopen();
     }
 
@@ -287,7 +297,7 @@ static BOOL check_temp_file_open(const char *target, const char *defaultExeDir, 
         strcpy_s(test_filename, target);
     }
 
-    if (is_64bit_os() && PathFileExists(exe_path)) {
+    if (is_64bit_os() && auo_check_fileopen_path.length() > 0 && PathFileExists(auo_check_fileopen_path.c_str())) {
         //64bit OSでは、32bitアプリに対してはVirtualStoreが働く一方、
         //64bitアプリに対してはVirtualStoreが働かない
         //x264を64bitで実行することを考慮すると、
@@ -297,10 +307,14 @@ static BOOL check_temp_file_open(const char *target, const char *defaultExeDir, 
         InitPipes(&pipes);
 
         char fullargs[4096] = { 0 };
-        sprintf_s(fullargs, "\"%s\" \"%s\"", exe_path, test_filename);
+        sprintf_s(fullargs, "\"%s\" \"%s\"", auo_check_fileopen_path.c_str(), test_filename);
+
+        char exeDir[MAX_PATH_LEN];
+        strcpy_s(exeDir, auo_check_fileopen_path.c_str());
+        PathRemoveFileSpecFixed(exeDir);
 
         int ret = 0;
-        if ((ret = RunProcess(fullargs, defaultExeDir, &pi, &pipes, NORMAL_PRIORITY_CLASS, TRUE, FALSE)) == RP_SUCCESS) {
+        if ((ret = RunProcess(fullargs, exeDir, &pi, &pipes, NORMAL_PRIORITY_CLASS, TRUE, FALSE)) == RP_SUCCESS) {
             WaitForSingleObject(pi.hProcess, INFINITE);
             GetExitCodeProcess(pi.hProcess, &err);
             CloseHandle(pi.hProcess);
@@ -364,6 +378,13 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
     char defaultExeDir[MAX_PATH_LEN] = { 0 };
     PathCombineLong(defaultExeDir, _countof(defaultExeDir), aviutl_dir, DEFAULT_EXE_DIR);
 
+    char pluginsDir[MAX_PATH_LEN] = { 0 };
+    char defaultExeDir2[MAX_PATH_LEN] = { 0 };
+    PathCombineLong(pluginsDir, _countof(pluginsDir), aviutl_dir, "plugins");
+    PathCombineLong(defaultExeDir2, _countof(defaultExeDir2), pluginsDir, DEFAULT_EXE_DIR);
+
+    const auto auo_check_fileopen_path = find_auo_check_fileopen(defaultExeDir, defaultExeDir2);
+
     //ダメ文字・環境依存文字チェック
     char savedir[MAX_PATH_LEN] = { 0 };
     strcpy_s(savedir, oip->savefile);
@@ -372,10 +393,10 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
         error_savdir_do_not_exist(oip->savefile, savedir);
         check = FALSE;
         //出力フォルダにファイルを開けるかどうか
-    } else if (!check_temp_file_open(savedir, defaultExeDir, true, true)) {
+    } else if (!check_temp_file_open(savedir, auo_check_fileopen_path, true, true)) {
         check = FALSE;
         //一時ファイルを開けるかどうか
-    } else if (!check_temp_file_open(pe->temp_filename, defaultExeDir, false, false)) {
+    } else if (!check_temp_file_open(pe->temp_filename, auo_check_fileopen_path, false, false)) {
         check = FALSE;
     }
 
@@ -401,8 +422,10 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
         check = FALSE;
     }
     if (oip->h % h_mul) {
-        error_invalid_resolution(FALSE, h_mul, oip->w, oip->h);
-        check = FALSE;
+        //error_invalid_resolution(FALSE, h_mul, oip->w, oip->h);
+        //check = FALSE;
+        //切り捨て
+        oip->h = (int)(oip->h / h_mul) * h_mul;
     }
 
     if (conf->oth.out_audio_only)
@@ -615,7 +638,14 @@ static void set_tmpdir(PRM_ENC *pe, int tmp_dir_index, const char *savefile, con
             char defaultExeDir[MAX_PATH_LEN] = { 0 };
             PathCombineLong(defaultExeDir, _countof(defaultExeDir), sys_dat->aviutl_dir, DEFAULT_EXE_DIR);
 
-            if (check_temp_file_open(pe->temp_filename, defaultExeDir, true, false)) {
+            char pluginsDir[MAX_PATH_LEN] = { 0 };
+            char defaultExeDir2[MAX_PATH_LEN] = { 0 };
+            PathCombineLong(pluginsDir, _countof(pluginsDir), sys_dat->aviutl_dir, "plugins");
+            PathCombineLong(defaultExeDir2, _countof(defaultExeDir2), pluginsDir, DEFAULT_EXE_DIR);
+
+            const auto auo_check_fileopen_path = find_auo_check_fileopen(defaultExeDir, defaultExeDir2);
+
+            if (check_temp_file_open(pe->temp_filename, auo_check_fileopen_path, true, false)) {
                 write_log_auo_line_fmt(LOG_INFO, "一時フォルダ : %s", pe->temp_filename);
             } else {
                 warning_unable_to_open_tempfile(sys_dat->exstg->s_local.custom_tmp_dir);
