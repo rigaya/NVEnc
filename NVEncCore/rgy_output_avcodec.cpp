@@ -984,10 +984,11 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
             muxAudio->outCodecEncodeCtx->sample_rate,
             (unsigned long long int)muxAudio->outCodecEncodeCtx->channel_layout);
 
+        AddMessage(RGY_LOG_DEBUG, _T("Parse filter description: %s\n"), char_to_tstring(filterchain).c_str());
         AVFilterInOut *filter_inputs = nullptr;
         AVFilterInOut *filter_outputs = nullptr;
         if (0 > (ret = avfilter_graph_parse2(muxAudio->filterGraph, filterchain.c_str(), &filter_inputs, &filter_outputs))) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to parse filter description: %s: \"%s\"\n"), qsv_av_err2str(ret).c_str(), muxAudio->filter);
+            AddMessage(RGY_LOG_ERROR, _T("Failed to parse filter description: %s: \"%s\": %s\n"), qsv_av_err2str(ret).c_str(), muxAudio->filter, char_to_tstring(filterchain).c_str());
             return RGY_ERR_INVALID_AUDIO_PARAM;
         }
         unique_ptr<AVFilterInOut, RGYAVDeleter<AVFilterInOut>> inputs(filter_inputs, RGYAVDeleter<AVFilterInOut>(avfilter_inout_free));
@@ -1008,8 +1009,9 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
             sample_rate, av_get_sample_fmt_name(sample_fmt), (unsigned long long int)channel_layout);
         const AVFilter *abuffersrc  = avfilter_get_by_name("abuffer");
         const auto inName = strsprintf("in_track_%d.%d", trackID(muxAudio->inTrackId), muxAudio->inSubStream);
+        AddMessage(RGY_LOG_DEBUG, _T("create abuffer \"%s\": %s\n"), char_to_tstring(inName).c_str(), char_to_tstring(inargs).c_str());
         if (0 > (ret = avfilter_graph_create_filter(&muxAudio->filterBufferSrcCtx, abuffersrc, inName.c_str(), inargs.c_str(), nullptr, muxAudio->filterGraph))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to create abuffer: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to create abuffer: %s: %s.\n"), qsv_av_err2str(ret).c_str(), char_to_tstring(inargs).c_str());
             return RGY_ERR_UNSUPPORTED;
         }
         if (0 > (ret = avfilter_link(muxAudio->filterBufferSrcCtx, 0, inputs->filter_ctx, inputs->pad_idx))) {
@@ -1022,6 +1024,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
         //出力の設定
         const AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
         const auto outName = strsprintf("out_track_%d.%d", trackID(muxAudio->inTrackId), muxAudio->inSubStream);
+        AddMessage(RGY_LOG_DEBUG, _T("create abuffersink \"%s\"\n"), char_to_tstring(outName).c_str());
         if (0 > (ret = avfilter_graph_create_filter(&muxAudio->filterBufferSinkCtx, abuffersink, outName.c_str(), nullptr, nullptr, muxAudio->filterGraph))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to create abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNSUPPORTED;
@@ -1304,7 +1307,11 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             av_get_channel_layout_nb_channels(channelLayoutDec),
             channelLayoutDec,
             muxAudio->outCodecDecodeCtx->sample_rate,
-            muxAudio->outCodecDecodeCtx->sample_fmt);
+            // sample_fmtはデコーダのavcodec_open2時には設定されていないばあがある
+            // そのときにはとりあえずAV_SAMPLE_FMT_S16で適当にフィルタを初期化しておく
+            // 実際のsample_fmtはAVFrameに設定されており、フィルタ実行前の再度のInitAudioFilterで
+            // 必要に応じて再初期化されるので、ここでは仮の値でも問題はない
+            av_get_sample_fmt_name(muxAudio->outCodecDecodeCtx->sample_fmt) ? muxAudio->outCodecDecodeCtx->sample_fmt : AV_SAMPLE_FMT_S16);
         if (sts != RGY_ERR_NONE) return sts;
     } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && m_Mux.video.streamOut) {
         muxAudio->bsfc = InitStreamBsf(_T("aac_adtstoasc"), muxAudio->streamIn);
