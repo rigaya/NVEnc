@@ -187,7 +187,6 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     inputFile.close();
 
     const VSVideoInfo *vsvideoinfo = nullptr;
-    const VSCoreInfo *vscoreinfo = nullptr;
     if (!m_sVS.init()) {
         AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
         return RGY_ERR_NULL_PTR;
@@ -199,15 +198,25 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_NULL_PTR;
     } else if (m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), nullptr, efSetWorkingDir)
         || nullptr == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
-        || nullptr == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
-        || nullptr == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
+        || nullptr == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))) {
         AddMessage(RGY_LOG_ERROR, _T("VapourSynth script error.\n"));
         if (m_sVSscript) {
             AddMessage(RGY_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }
         return RGY_ERR_NULL_PTR;
     }
-    if (vscoreinfo->api < 3) {
+    auto vscoreinfo = VSCoreInfo();
+    if (m_sVSapi->getCoreInfo2) {
+        m_sVSapi->getCoreInfo2(m_sVS.getCore(m_sVSscript), &vscoreinfo);
+    } else {
+        auto infoptr = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript));
+        if (!infoptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get VapourSynth core info.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        vscoreinfo = *infoptr;
+    }
+    if (vscoreinfo.api < 3) {
         AddMessage(RGY_LOG_ERROR, _T("VapourSynth API v3 or later is necessary.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
@@ -326,7 +335,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     }
 
     m_nAsyncFrames = vsvideoinfo->numFrames;
-    m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo->numThreads);
+    m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo.numThreads);
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, ASYNC_BUFFER_SIZE-1);
     if (m_inputVideoInfo.type != RGY_INPUT_FMT_VPY_MT) {
         m_nAsyncFrames = 1;
@@ -340,7 +349,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) {
         vs_ver += _T("MT");
     }
-    const int rev = getRevInfo(vscoreinfo->versionString);
+    const int rev = getRevInfo(vscoreinfo.versionString);
     if (0 != rev) {
         vs_ver += strsprintf(_T(" r%d"), rev);
     }
