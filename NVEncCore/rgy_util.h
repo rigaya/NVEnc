@@ -176,6 +176,12 @@ void vector_cat(std::vector<T>& v1, const T *ptr, size_t nCount) {
     }
 }
 template<typename T>
+void vector_move(vector<T>& v1, vector<T> v2) {
+    if (v2.size()) {
+        v1.insert(v1.end(), std::make_move_iterator(v2.begin()), std::make_move_iterator(v2.end()));
+    }
+}
+template<typename T>
 static void rgy_free(T& ptr) {
     static_assert(std::is_pointer<T>::value == true, "T should be pointer");
     if (ptr) {

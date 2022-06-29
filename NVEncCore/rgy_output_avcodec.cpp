@@ -139,6 +139,14 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
     if (m_Mux.video.bsfc) {
         av_bsf_free(&m_Mux.video.bsfc);
     }
+    if (m_Mux.video.pktOut) {
+        av_packet_unref(m_Mux.video.pktOut);
+        av_packet_free(&m_Mux.video.pktOut);
+    }
+    if (m_Mux.video.pktParse) {
+        av_packet_unref(m_Mux.video.pktParse);
+        av_packet_free(&m_Mux.video.pktParse);
+    }
     memset(muxVideo, 0, sizeof(muxVideo[0]));
     AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
 }
@@ -621,6 +629,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
     m_Mux.video.timestamp        = prm->vidTimestamp;
     m_Mux.video.prevInputFrameId = -1;
+    m_Mux.video.pktOut           = av_packet_alloc();
+    m_Mux.video.pktParse         = av_packet_alloc();
     m_Mux.video.afs              = prm->afs;
     m_Mux.video.doviRpu          = prm->doviRpu;
     m_Mux.video.parse_nal_h264 = get_parse_nal_unit_h264_func();
@@ -1318,12 +1328,12 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         if (muxAudio->bsfc == nullptr) {
             return RGY_ERR_UNKNOWN;
         }
-        if (inputAudio->src.pktSample.data) {
+        if (inputAudio->src.pktSample) {
             //mkvではavformat_write_headerまでにAVCodecContextにextradataをセットしておく必要がある
-            for (AVPacket *inpkt = av_packet_clone(&inputAudio->src.pktSample); 0 == av_bsf_send_packet(muxAudio->bsfc, inpkt); inpkt = nullptr) {
-                AVPacket outpkt = { 0 };
-                av_init_packet(&outpkt);
-                int ret = av_bsf_receive_packet(muxAudio->bsfc, &outpkt);
+            std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> inpkt(nullptr, RGYAVDeleter<AVPacket>(av_packet_free));
+            for (inpkt.reset(av_packet_clone(inputAudio->src.pktSample)); 0 == av_bsf_send_packet(muxAudio->bsfc, inpkt.get()); inpkt.reset()) {
+                std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> outpkt(av_packet_alloc(), RGYAVDeleter<AVPacket>(av_packet_free));
+                int ret = av_bsf_receive_packet(muxAudio->bsfc, outpkt.get());
                 if (ret == 0) {
                     if (muxAudio->bsfc->par_out->extradata) {
                         SetExtraData(muxAudio->streamIn->codecpar, muxAudio->bsfc->par_out->extradata, muxAudio->bsfc->par_out->extradata_size);
@@ -1334,7 +1344,6 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                     AddMessage(RGY_LOG_ERROR, _T("failed to run aac_adtstoasc.\n"));
                     return RGY_ERR_UNKNOWN;
                 }
-                av_packet_unref(&outpkt);
             }
             AddMessage(RGY_LOG_DEBUG, _T("successfully attached packet sample from AAC\n."));
         }
@@ -1785,6 +1794,8 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
 #endif //#if USE_CUSTOM_IO
 
     m_Mux.trim = prm->trimList;
+    m_Mux.poolPkt = prm->poolPkt;
+    m_Mux.poolFrame = prm->poolFrame;
 
     if (videoOutputInfo) {
         RGY_ERR sts = InitVideo(videoOutputInfo, prm);
@@ -2221,17 +2232,16 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
 RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
     RGY_ERR err = RGY_ERR_NONE;
     m_Mux.video.parserStreamPos += pBitstream->size();
-    AVPacket pkt;
-    av_init_packet(&pkt);
-    av_new_packet(&pkt, (int)pBitstream->size());
-    memcpy(pkt.data, pBitstream->data(), pBitstream->size());
-    pkt.size = (int)pBitstream->size();
-    pkt.pts = pBitstream->pts();
-    pkt.dts = pBitstream->dts();
-    pkt.pos = m_Mux.video.parserStreamPos;
+    AVPacket *pkt = m_Mux.video.pktParse;
+    av_new_packet(pkt, (int)pBitstream->size());
+    memcpy(pkt->data, pBitstream->data(), pBitstream->size());
+    pkt->size = (int)pBitstream->size();
+    pkt->pts = pBitstream->pts();
+    pkt->dts = pBitstream->dts();
+    pkt->pos = m_Mux.video.parserStreamPos;
     uint8_t *dummy = nullptr;
     int dummy_size = 0;
-    if (0 < av_parser_parse2(m_Mux.video.parserCtx, m_Mux.video.codecCtx, &dummy, &dummy_size, pkt.data, pkt.size, pkt.pts, pkt.dts, pkt.pos)) {
+    if (0 < av_parser_parse2(m_Mux.video.parserCtx, m_Mux.video.codecCtx, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos)) {
         //pBitstream->PictStruct = m_Mux.video.parserCtx->picture_structure;
         //pBitstream->RepeatPict = m_Mux.video.parserCtx->repeat_pict;
 
@@ -2247,7 +2257,6 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
         AddMessage(RGY_LOG_ERROR, _T("AVParser error parsing VCE output."));
         err = RGY_ERR_UNKNOWN;
     }
-    av_packet_unref(&pkt);
     return err;
 }
 #endif
@@ -2312,39 +2321,38 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         }
         auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [target_nal](nal_info info) { return info.type == target_nal; });
         if (sps_nal != nal_list.end()) {
-            AVPacket pkt = { 0 };
-            av_init_packet(&pkt);
-            av_new_packet(&pkt, (int)sps_nal->size);
-            memcpy(pkt.data, sps_nal->ptr, sps_nal->size);
+            AVPacket *pkt = m_Mux.video.pktOut;
+            av_new_packet(pkt, (int)sps_nal->size);
+            memcpy(pkt->data, sps_nal->ptr, sps_nal->size);
             int ret = 0;
-            if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, &pkt))) {
-                av_packet_unref(&pkt);
+            if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, pkt))) {
+                av_packet_unref(pkt);
                 AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
                     char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            ret = av_bsf_receive_packet(m_Mux.video.bsfc, &pkt);
+            ret = av_bsf_receive_packet(m_Mux.video.bsfc, pkt);
             if (ret == AVERROR(EAGAIN)) {
                 return RGY_ERR_NONE;
-            } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
+            } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
                     char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            const auto new_data_size = bitstream->size() + pkt.size - sps_nal->size;
+            const auto new_data_size = bitstream->size() + pkt->size - sps_nal->size;
             const auto sps_nal_offset = sps_nal->ptr - bitstream->data();
             const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-            const auto next_nal_new_offset = sps_nal_offset + pkt.size;
+            const auto next_nal_new_offset = sps_nal_offset + pkt->size;
             const auto stream_orig_length = bitstream->size();
             if ((decltype(new_data_size))bitstream->bufsize() < new_data_size) {
                 bitstream->changeSize(new_data_size);
-            } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
+            } else if (pkt->size > (decltype(pkt->size))sps_nal->size) {
                 bitstream->trim();
             }
             memmove(bitstream->data() + next_nal_new_offset, bitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-            memcpy(bitstream->data() + sps_nal_offset, pkt.data, pkt.size);
+            memcpy(bitstream->data() + sps_nal_offset, pkt->data, pkt->size);
             bitstream->setSize(new_data_size);
-            av_packet_unref(&pkt);
+            av_packet_unref(pkt);
         }
     }
 
@@ -2412,45 +2420,44 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         }
     }
 
-    AVPacket pkt = { 0 };
-    av_init_packet(&pkt);
-    av_new_packet(&pkt, (int)bitstream->size());
-    memcpy(pkt.data, bitstream->data(), bitstream->size());
-    pkt.size = (int)bitstream->size();
+    AVPacket *pkt = m_Mux.video.pktOut;
+    av_new_packet(pkt, (int)bitstream->size());
+    memcpy(pkt->data, bitstream->data(), bitstream->size());
+    pkt->size = (int)bitstream->size();
 
     const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
-    pkt.stream_index = m_Mux.video.streamOut->index;
-    pkt.flags        = isIDR ? AV_PKT_FLAG_KEY : 0;
+    pkt->stream_index = m_Mux.video.streamOut->index;
+    pkt->flags        = isIDR ? AV_PKT_FLAG_KEY : 0;
 #if ENCODER_QSV
     //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
-    pkt.duration = bs_framedata.duration;
+    pkt->duration = bs_framedata.duration;
 #else
-    pkt.duration = bitstream->duration();
+    pkt->duration = bitstream->duration();
 #endif
-    pkt.pts = bitstream->pts();
+    pkt->pts = bitstream->pts();
 #if ENCODER_QSV
     //QSVエンコーダだけは、HW_NATIVE_TIMEBASEで送られてくる
-    pkt.duration = av_rescale_q(pkt.duration, HW_NATIVE_TIMEBASE, m_Mux.video.bitstreamTimebase);
-    pkt.pts = av_rescale_q(pkt.pts, HW_NATIVE_TIMEBASE, m_Mux.video.bitstreamTimebase);
+    pkt->duration = av_rescale_q(pkt->duration, HW_NATIVE_TIMEBASE, m_Mux.video.bitstreamTimebase);
+    pkt->pts = av_rescale_q(pkt->pts, HW_NATIVE_TIMEBASE, m_Mux.video.bitstreamTimebase);
 #endif
     if (av_cmp_q(m_Mux.video.bitstreamTimebase, streamTimebase) != 0) {
-        pkt.duration = av_rescale_q(pkt.duration, m_Mux.video.bitstreamTimebase, streamTimebase);
-        pkt.pts      = av_rescale_q(pkt.pts, m_Mux.video.bitstreamTimebase, streamTimebase);
+        pkt->duration = av_rescale_q(pkt->duration, m_Mux.video.bitstreamTimebase, streamTimebase);
+        pkt->pts      = av_rescale_q(pkt->pts, m_Mux.video.bitstreamTimebase, streamTimebase);
     }
     if (false && !m_Mux.video.dtsUnavailable) {
-        pkt.dts = av_rescale_q(bitstream->dts(), m_Mux.video.bitstreamTimebase, streamTimebase);
+        pkt->dts = av_rescale_q(bitstream->dts(), m_Mux.video.bitstreamTimebase, streamTimebase);
     } else {
-        m_Mux.video.timestampList.add(pkt.pts);
-        pkt.dts = m_Mux.video.timestampList.get_min_pts();
+        m_Mux.video.timestampList.add(pkt->pts);
+        pkt->dts = m_Mux.video.timestampList.get_min_pts();
     }
     if (WRITE_PTS_DEBUG) {
         AddMessage(RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
-            pkt.stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt.stream_index]->codecpar->codec_id)).c_str(),
-            pkt.pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt.pts, streamTimebase).c_str());
+            pkt->stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
+            pkt->pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt->pts, streamTimebase).c_str());
     }
-    const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
-    *writtenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
-    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, &pkt);
+    const auto pts = pkt->pts, dts = pkt->dts, duration = pkt->duration;
+    *writtenDts = av_rescale_q(pkt->dts, streamTimebase, QUEUE_DTS_TIMEBASE);
+    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
     if (ret_write != 0) {
         AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write video frame: %s.\n"), qsv_av_err2str(ret_write).c_str());
         m_Mux.format.streamError = true;
@@ -2549,7 +2556,7 @@ AVMuxOther *RGYOutputAvcodec::getOtherPacketStreamData(const AVPacket *pkt) {
 RGY_ERR RGYOutputAvcodec::applyBitstreamFilterOther(AVPacket *pkt, const AVMuxOther *muxOther) {
     int ret = 0;
     if (0 > (ret = av_bsf_send_packet(muxOther->bsfc, pkt))) {
-        av_packet_unref(pkt);
+        m_Mux.poolPkt->returnFree(&pkt);
         AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), char_to_tstring(muxOther->bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
@@ -2580,7 +2587,7 @@ RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *m
         }
     }
     if (0 > (ret = av_bsf_send_packet(muxAudio->bsfc, pkt))) {
-        av_packet_unref(pkt);
+        m_Mux.poolPkt->returnFree(&pkt);
         AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), filterName.c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
@@ -2694,6 +2701,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
         m_Mux.format.streamError = true;
     }
     muxAudio->outputSamples += samples;
+    m_Mux.poolPkt->returnFree(&pkt);
 }
 
 //音声/字幕パケットを実際に書き出す (構造体版)
@@ -2702,11 +2710,11 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
 // pktData->samples   ... [i]  pktのsamples数 音声処理時のみ有効 / 字幕の際は0を渡すべき
 // &pktData->dts      ... [o]  書き出したパケットの最終的なdtsをHW_NATIVE_TIMEBASEで返す
 void RGYOutputAvcodec::WriteNextPacketProcessed(AVPktMuxData *pktData) {
-    WriteNextPacketProcessed(pktData->muxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
+    WriteNextPacketProcessed(pktData->muxAudio, pktData->pkt, pktData->samples, &pktData->dts);
 }
 
 void RGYOutputAvcodec::WriteNextPacketProcessed(AVPktMuxData *pktData, int64_t *writtenDts) {
-    WriteNextPacketProcessed(pktData->muxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
+    WriteNextPacketProcessed(pktData->muxAudio, pktData->pkt, pktData->samples, &pktData->dts);
     *writtenDts = pktData->dts;
 }
 
@@ -2715,8 +2723,7 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
     if (muxAudio->decodeError > muxAudio->ignoreDecodeError) {
         return decodedFrames;
     }
-    AVPacket pktInInfo;
-    av_packet_copy_props(&pktInInfo, pkt);
+    const auto in_pts = (pkt) ? pkt->pts : AV_NOPTS_VALUE;
 
     bool sent_packet = false;
 
@@ -2727,13 +2734,13 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
         unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> receivedData(nullptr, RGYAVDeleter<AVFrame>(av_frame_free));
         int send_ret = 0;
         //必ず一度はパケットを送る
-        if (!sent_packet || pkt->size > 0) {
+        if (!sent_packet || (pkt && pkt->size > 0)) {
             sent_packet = true;
             //ひとつのパケットをデコーダに送る
             send_ret = avcodec_send_packet(muxAudio->outCodecDecodeCtx, pkt);
             //AVERROR(EAGAIN) -> パケットを送る前に受け取る必要がある (パケットが受け取られていないので解放しない)
             if (send_ret != AVERROR(EAGAIN)) {
-                av_packet_unref(pkt);
+                m_Mux.poolPkt->returnFree(&pkt);
             }
             if (send_ret == AVERROR_EOF) {
                 AddMessage(RGY_LOG_DEBUG, _T("avcodec writer: failed to send packet to audio decoder, already flushed.\n"));
@@ -2764,7 +2771,7 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
 
             if (receivedData) {
                 if (receivedData->pts == AV_NOPTS_VALUE) {
-                    receivedData->pts = pktInInfo.pts;
+                    receivedData->pts = in_pts;
                 }
                 if (receivedData->pts == AV_NOPTS_VALUE) {
                     const auto nextPts = muxAudio->decodeNextPts;
@@ -2800,7 +2807,7 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
                 decodedFrames.push_back(std::move(silentFrame));
 #else
                 AddMessage(RGY_LOG_WARN, _T("avcodec writer: ignore error(%d) on audio #%d decode at %lld(%s)\n"),
-                    muxAudio->decodeError, trackID(muxAudio->inTrackId), pktInInfo.pts, getTimestampString(pktInInfo.pts, muxAudio->streamIn->time_base).c_str());
+                    muxAudio->decodeError, trackID(muxAudio->inTrackId), in_pts, getTimestampString(in_pts, muxAudio->streamIn->time_base).c_str());
 #endif
             } else {
                 AddMessage(RGY_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d for %d times.\n"), trackID(muxAudio->inTrackId), muxAudio->decodeError);
@@ -2897,20 +2904,20 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioEncodeFrame(AVMuxAudio *muxAudio, AV
         return encPktDatas;
     }
 
-    AVPktMuxData pktData = { 0 };
-    memset(&pktData.pkt, 0, sizeof(pktData.pkt)); //av_init_packetでsizeなどは初期化されないので0をセット
-    pktData.type = MUX_DATA_TYPE_PACKET;
-    pktData.muxAudio = muxAudio;
     while (ret >= 0) {
-        av_init_packet(&pktData.pkt);
-        ret = avcodec_receive_packet(muxAudio->outCodecEncodeCtx, &pktData.pkt);
+        auto pkt = m_Mux.poolPkt->getFree();
+        ret = avcodec_receive_packet(muxAudio->outCodecEncodeCtx, pkt.get());
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
             break;
         } else if (ret < 0) {
             AddMessage(RGY_LOG_WARN, _T("avcodec writer: failed to encode audio #%d: %s\n"), trackID(muxAudio->inTrackId), qsv_av_err2str(ret).c_str());
             muxAudio->encodeError = true;
         }
-        pktData.samples = (int)av_rescale_q(pktData.pkt.duration, muxAudio->outCodecEncodeCtx->pkt_timebase, { 1, muxAudio->streamIn->codecpar->sample_rate });
+        AVPktMuxData pktData = { 0 };
+        pktData.type = MUX_DATA_TYPE_PACKET;
+        pktData.muxAudio = muxAudio;
+        pktData.pkt = pkt.release();
+        pktData.samples = (int)av_rescale_q(pktData.pkt->duration, muxAudio->outCodecEncodeCtx->pkt_timebase, { 1, muxAudio->streamIn->codecpar->sample_rate });
         encPktDatas.push_back(pktData);
     }
     return encPktDatas;
@@ -2918,15 +2925,14 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioEncodeFrame(AVMuxAudio *muxAudio, AV
 
 void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDts) {
     while (muxAudio->outCodecDecodeCtx && !muxAudio->encodeError) {
-        AVPacket pkt = { 0 };
-        auto decodedFrames = AudioDecodePacket(muxAudio, &pkt);
+        auto decodedFrames = AudioDecodePacket(muxAudio, nullptr);
         if (decodedFrames.size() == 0) {
             break;
         }
         vector<AVPktMuxData> audioFrames;
         for (size_t i = 0; i < decodedFrames.size(); i++) {
             AVPktMuxData audPkt;
-            av_init_packet(&audPkt.pkt);
+            audPkt.pkt = m_Mux.poolPkt->getFree().release();
             audPkt.dts = AV_NOPTS_VALUE;
             audPkt.samples = 0;
             audPkt.type = MUX_DATA_TYPE_FRAME;
@@ -2970,7 +2976,7 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxOther *muxSub, AVPacket *
         AddMessage(RGY_LOG_ERROR, _T("No buffer for encoding subtitle.\n"));
         m_Mux.format.streamError = true;
     }
-    av_packet_unref(pkt);
+    m_Mux.poolPkt->returnFree(&pkt);
     if (m_Mux.format.streamError)
         return RGY_ERR_UNKNOWN;
     if (!got_sub || sub.num_rects == 0)
@@ -2993,20 +2999,19 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxOther *muxSub, AVPacket *
             return RGY_ERR_UNKNOWN;
         }
 
-        AVPacket pktOut;
-        av_init_packet(&pktOut);
-        pktOut.data = muxSub->bufConvert;
-        pktOut.stream_index = muxSub->streamOut->index;
-        pktOut.size = sub_out_size;
+        auto pktOut = m_Mux.poolPkt->getFree();
+        pktOut->data = muxSub->bufConvert;
+        pktOut->stream_index = muxSub->streamOut->index;
+        pktOut->size = sub_out_size;
         // pts + duration <= 次のptsとなるよう、オリジナルのptsを使って再計算する
         auto end_ts = av_rescale_q(org_end_time,   muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
-        pktOut.pts  = av_rescale_q(org_start_time, muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
-        pktOut.duration = (int)av_rescale_q(end_ts - pktOut.pts, muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
+        pktOut->pts  = av_rescale_q(org_start_time, muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
+        pktOut->duration = (int)av_rescale_q(end_ts - pktOut->pts, muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
         if (muxSub->outCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE) {
-            pktOut.pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);
+            pktOut->pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);
         }
-        pktOut.dts = pktOut.pts;
-        const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, &pktOut);
+        pktOut->dts = pktOut->pts;
+        const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pktOut.get());
         if (ret_write != 0) {
             AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
                 get_media_type_string(muxSub->streamOut->codecpar->codec_id).c_str(),
@@ -3028,7 +3033,7 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
         }
         //pktData->pkt.duration == 0 の場合はなにもせず終了する
         if (pkt->duration == 0) {
-            av_packet_unref(pkt);
+            m_Mux.poolPkt->returnFree(&pkt);
             //特にエラーでなければそのまま終了
             if (sts == RGY_ERR_NONE) {
                 return RGY_ERR_NONE;
@@ -3064,14 +3069,15 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
             pMuxOther->streamOut->index, qsv_av_err2str(ret_write).c_str());
         m_Mux.format.streamError = true;
     }
+    m_Mux.poolPkt->returnFree(&pkt);
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-AVPktMuxData RGYOutputAvcodec::pktMuxData(const AVPacket *pkt) {
+AVPktMuxData RGYOutputAvcodec::pktMuxData(AVPacket *pkt) {
     AVPktMuxData data = { 0 };
     data.type = MUX_DATA_TYPE_PACKET;
     if (pkt) {
-        data.pkt = *pkt;
+        data.pkt = pkt;
         data.muxAudio = getAudioPacketStreamData(pkt);
     }
     return data;
@@ -3136,7 +3142,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
     }
     //m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
     if (m_AudPktBufFileHead.end() == std::find_if(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(),
-        [pktData](const AVPktMuxData& data) { return pktData->pkt.buf == data.pkt.buf; })) {
+        [pktData](const AVPktMuxData& data) { return pktData->pkt == data.pkt; })) {
         //キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する
         for (auto bufPkt : m_AudPktBufFileHead) {
             RGY_ERR sts = WriteNextPacketInternal(&bufPkt, maxDtsToWrite);
@@ -3153,7 +3159,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
         m_AudPktBufFileHead.clear();
     }
 
-    if (pktData->pkt.data == nullptr) {
+    if (pktData->pkt == nullptr || pktData->pkt->data == nullptr) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.thAudProcess.joinable()) {
             //音声処理を別スレッドでやっている場合は、AddAudOutputQueueを後段の出力スレッドで行う必要がある
@@ -3170,7 +3176,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
         return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 
-    const int trackID = ((uint32_t)pktData->pkt.flags >> 16);
+    const int trackID = ((uint32_t)pktData->pkt->flags >> 16);
     if (trackMediaType(trackID) != AVMEDIA_TYPE_AUDIO) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.thAudProcess.joinable()) {
@@ -3179,7 +3185,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
             return AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
         }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        return WriteOtherPacket(&pktData->pkt);
+        return WriteOtherPacket(pktData->pkt);
     }
     return WriteNextPacketAudio(pktData);
 }
@@ -3193,7 +3199,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
     if (muxAudio == NULL) {
         AddMessage(RGY_LOG_ERROR, _T("failed to get stream for input stream.\n"));
         m_Mux.format.streamError = true;
-        av_packet_unref(&pktData->pkt);
+        m_Mux.poolPkt->returnFree(&pktData->pkt);
         return RGY_ERR_NULL_PTR;
     }
 
@@ -3201,17 +3207,18 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
     bool bSetSilenceDueToAACBsfError = false;
     AVRational samplerate = { 1, muxAudio->streamIn->codecpar->sample_rate };
     //このパケットのサンプル数
-    const int nSamples = (int)av_rescale_q(pktData->pkt.duration, muxAudio->streamIn->time_base, samplerate);
+    const int nSamples = (int)av_rescale_q(pktData->pkt->duration, muxAudio->streamIn->time_base, samplerate);
     if (muxAudio->bsfc) {
-        auto sts = applyBitstreamFilterAudio(&pktData->pkt, muxAudio);
+        auto sts = applyBitstreamFilterAudio(pktData->pkt, muxAudio);
         //bitstream filterを正常に起動できなかった
         if (sts < RGY_ERR_NONE) {
             m_Mux.format.streamError = true;
+            m_Mux.poolPkt->returnFree(&pktData->pkt);
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
         //pktData->pkt.duration == 0 の場合はなにもせず終了する
-        if (pktData->pkt.duration == 0) {
-            av_packet_unref(&pktData->pkt);
+        if (pktData->pkt->duration == 0) {
+            m_Mux.poolPkt->returnFree(&pktData->pkt);
             //特にエラーでなければそのまま終了
             if (sts == RGY_ERR_NONE) {
                 return RGY_ERR_NONE;
@@ -3238,9 +3245,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     };
     if (!muxAudio->outCodecDecodeCtx) {
-        pktData->samples = av_get_audio_frame_duration2(muxAudio->streamIn->codecpar, pktData->pkt.size);
+        pktData->samples = av_get_audio_frame_duration2(muxAudio->streamIn->codecpar, pktData->pkt->size);
         if (!pktData->samples) {
-            pktData->samples = (int)av_rescale_q(pktData->pkt.duration, muxAudio->streamIn->time_base, samplerate);
+            pktData->samples = (int)av_rescale_q(pktData->pkt->duration, muxAudio->streamIn->time_base, samplerate);
             // 1/1000 timebaseは信じるに値しないので、frame_sizeがあればその値を使用する
             if (0 == av_cmp_q(muxAudio->streamIn->time_base, { 1, 1000 })
                 && muxAudio->streamIn->codecpar->frame_size) {
@@ -3249,17 +3256,17 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
                 //このdurationから計算したsampleが信頼できるか計算する
                 //mkvではたまにptsの差分とdurationが一致しないことがある
                 //ptsDiffが動画の1フレーム分より小さいときのみ対象とする (カット編集によるものを混同する可能性がある)
-                int64_t ptsDiff = pktData->pkt.pts - muxAudio->lastPtsIn;
+                int64_t ptsDiff = pktData->pkt->pts - muxAudio->lastPtsIn;
                 if (0 < ptsDiff
                     && ptsDiff < av_rescale_q(1, av_inv_q(m_Mux.video.outputFps), samplerate)
                     && muxAudio->lastPtsIn != AV_NOPTS_VALUE
-                    && 1 < std::abs(ptsDiff - pktData->pkt.duration)) {
+                    && 1 < std::abs(ptsDiff - pktData->pkt->duration)) {
                     //ptsの差分から計算しなおす
                     pktData->samples = (int)av_rescale_q(ptsDiff, muxAudio->streamIn->time_base, samplerate);
                 }
             }
         }
-        muxAudio->lastPtsIn = pktData->pkt.pts;
+        muxAudio->lastPtsIn = pktData->pkt->pts;
         writeOrSetNextPacketAudioProcessed(pktData);
     } else if (!(muxAudio->decodeError > muxAudio->ignoreDecodeError) && !muxAudio->encodeError) {
         vector<AVPktMuxData> audioFrames;
@@ -3271,7 +3278,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
             silentFrame->channel_layout = muxAudio->outCodecDecodeCtx->channel_layout;
             silentFrame->sample_rate    = muxAudio->outCodecDecodeCtx->sample_rate;
             silentFrame->format         = muxAudio->outCodecDecodeCtx->sample_fmt;
-            silentFrame->pts            = pktData->pkt.pts;
+            silentFrame->pts            = pktData->pkt->pts;
             av_frame_get_buffer(silentFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
             av_samples_set_silence((uint8_t **)silentFrame->data, 0, silentFrame->nb_samples, silentFrame->channels, (AVSampleFormat)silentFrame->format);
 
@@ -3281,7 +3288,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
             silentPkt.got_result = silentFrame && silentFrame->nb_samples > 0;
             audioFrames.push_back(silentPkt);
         } else {
-            auto decodedFrames = AudioDecodePacket(muxAudio, &pktData->pkt);
+            auto decodedFrames = AudioDecodePacket(muxAudio, pktData->pkt);
             for (size_t i = 0; i < decodedFrames.size(); i++) {
                 AVPktMuxData audPkt = *pktData;
                 audPkt.type = MUX_DATA_TYPE_FRAME;
@@ -3446,11 +3453,11 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     auto writeProcessedPacket = [this](AVPktMuxData *pktData) {
         //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
         auto sts = RGY_ERR_NONE;
-        const int trackFullID = ((uint32_t)pktData->pkt.flags >> 16);
+        const int trackFullID = ((uint32_t)pktData->pkt->flags >> 16);
         if (trackMediaType(trackFullID) == AVMEDIA_TYPE_AUDIO) {
             WriteNextPacketProcessed(pktData);
         } else {
-            sts = WriteOtherPacket(&pktData->pkt);
+            sts = WriteOtherPacket(pktData->pkt);
         }
         return sts;
     };
@@ -3491,7 +3498,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
                 && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
                 if (pktData.muxAudio && pktData.muxAudio->streamIn) {
-                    audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt.duration) + 0.5));
+                    audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt->duration) + 0.5));
                     const auto videoDelay = (audioDts - videoDts) * av_q2d(QUEUE_DTS_TIMEBASE);
                     const auto streamQueueCapacity = (int)(audPacketsPerSec * std::max(5.0, videoDelay * 1.5) * std::max((int)m_Mux.audio.size(), 1) + 0.5);
                     if ((int)m_Mux.thread.qAudioPacketOut.capacity() < streamQueueCapacity) {

@@ -138,6 +138,8 @@ typedef struct AVMuxVideo {
     DOVIRpu              *doviRpu;              //dovi rpu 追加用
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
     RGYTimestamp         *timestamp;            //timestampの情報
+    AVPacket             *pktOut;               //出力用のAVPacket
+    AVPacket             *pktParse;             //parser用のAVPacket
     int64_t               prevInputFrameId;     //前回の入力フレームID
 #if ENCODER_VCEENC
     AVCodecParserContext *parserCtx;            //動画ストリームのParser (VCEのみ)
@@ -221,7 +223,7 @@ enum {
 
 typedef struct AVPktMuxData {
     int         type;        //MUX_DATA_TYPE_xxx
-    AVPacket    pkt;         //type == MUX_DATA_TYPE_PACKET 時有効
+    AVPacket   *pkt;         //type == MUX_DATA_TYPE_PACKET 時有効
     AVMuxAudio *muxAudio;    //type == MUX_DATA_TYPE_PACKET 時有効
     int64_t     dts;         //type == MUX_DATA_TYPE_PACKET 時有効
     int         samples;     //type == MUX_DATA_TYPE_PACKET 時有効
@@ -252,12 +254,12 @@ typedef struct AVMuxThread {
     HANDLE                         heEventClosingAudProcess;  //音声処理スレッドが停止処理を開始したことを通知する
     HANDLE                         heEventPktAddedAudEncode;  //キューのいずれかにデータが追加されたことを通知する
     HANDLE                         heEventClosingAudEncode;   //音声処理スレッドが停止処理を開始したことを通知する
-    RGYQueueSPSP<RGYBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
-    RGYQueueSPSP<RGYBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
-    RGYQueueSPSP<RGYBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
-    RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
-    RGYQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
-    RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
+    RGYQueueMPMP<RGYBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
+    RGYQueueMPMP<RGYBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
+    RGYQueueMPMP<RGYBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
+    RGYQueueMPMP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
+    RGYQueueMPMP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
+    RGYQueueMPMP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
     std::atomic<int64_t>           streamOutMaxDts;           //音声・字幕キューの最後のdts (timebase = QUEUE_DTS_TIMEBASE) (キューの同期に使用)
     PerfQueueInfo                 *queueInfo;                 //キューの情報を格納する構造体
 } AVMuxThread;
@@ -272,6 +274,8 @@ typedef struct AVMux {
 #if ENABLE_AVCODEC_OUT_THREAD
     AVMuxThread         thread;
 #endif
+    RGYPoolAVPacket    *poolPkt;
+    RGYPoolAVFrame     *poolFrame;
 } AVMux;
 
 struct AVOutputStreamPrm {
@@ -334,6 +338,8 @@ struct AvcodecWriterPrm {
     std::vector<tstring>         formatMetadata;          //formatのmetadata
     bool                         afs;                     //入力が自動フィールドシフト
     bool                         disableMp4Opt;           //mp4出力時のmuxの最適化を無効にする
+    RGYPoolAVPacket             *poolPkt;                 //読み込み側からわたってきたパケットの返却先
+    RGYPoolAVFrame              *poolFrame;               //読み込み側からわたってきたパケットの返却先
 
     AvcodecWriterPrm() :
         inputFormatMetadata(nullptr),
@@ -363,7 +369,9 @@ struct AvcodecWriterPrm {
         videoMetadata(),
         formatMetadata(),
         afs(false),
-        disableMp4Opt(false) {
+        disableMp4Opt(false),
+        poolPkt(nullptr),
+        poolFrame(nullptr) {
     }
 };
 
@@ -410,7 +418,7 @@ protected:
     RGY_ERR AddAudQueue(AVPktMuxData *pktData, int type);
 
     //AVPktMuxDataを初期化する
-    AVPktMuxData pktMuxData(const AVPacket *pkt);
+    AVPktMuxData pktMuxData(AVPacket *pkt);
 
     //AVPktMuxDataを初期化する
     AVPktMuxData pktMuxData(AVFrame *frame);

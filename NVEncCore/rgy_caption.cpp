@@ -681,7 +681,7 @@ void Caption2Ass::printParam(RGYLogLevel log_level) {
     AddMessage(log_level, _T(" srt ornament: %s\n"), m_srt.ornament ? _T("yes") : _T("no"));
 }
 
-RGY_ERR Caption2Ass::proc(const uint8_t *data, const size_t data_size, std::vector<AVPacket>& subList) {
+RGY_ERR Caption2Ass::proc(const uint8_t *data, const size_t data_size, std::vector<unique_ptr_custom<AVPacket>>& subList) {
     m_stream.append(data, data_size);
 
     if (m_streamSync) {
@@ -874,15 +874,15 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const size_t data_size, std::vect
                     }
                 }
             } else if (ret == NO_ERR_CAPTION) {
-                vector_cat(subList, genCaption(PTS));
+                vector_move(subList, std::move(genCaption(PTS)));
             }
         }
     }
     return RGY_ERR_NONE;
 }
 
-std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
-    std::vector<AVPacket> subList;
+std::vector<unique_ptr_custom<AVPacket>> Caption2Ass::genCaption(int64_t PTS) {
+    std::vector<unique_ptr_custom<AVPacket>> subList;
     int   workCharSizeMode  = 0;
     int   workCharW         = 0;
     int   workCharH         = 0;
@@ -913,13 +913,13 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
             } else if (m_capList.size() > 0) {
                 //endTimeはstartTime同様、startPCRを基準とする
                 int64_t endTime = (PTS + itcap->dwWaitTime * 90) - m_timestamp.startPCR;
-                std::vector<AVPacket> pkts;
+                std::vector<unique_ptr_custom<AVPacket>> pkts;
                 switch (m_format) {
                 case FORMAT_ASS: pkts = genAss(endTime); break;
                 case FORMAT_SRT: pkts = genSrt(endTime); break;
                 default: break;
                 }
-                vector_cat(subList, pkts);
+                vector_move(subList, std::move(pkts));
             }
             m_capList.clear();
             continue;
@@ -1145,8 +1145,8 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
     return subList;
 }
 
-std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
-    std::vector<AVPacket> assLines;
+std::vector<unique_ptr_custom<AVPacket>> Caption2Ass::genAss(int64_t endTime) {
+    std::vector<unique_ptr_custom<AVPacket>> assLines;
     auto it = m_capList.begin();
     for (int i = 0; it != m_capList.end(); it++, i++) {
         (*it)->endTime = endTime;
@@ -1154,13 +1154,12 @@ std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
         rgy_time ts((uint32_t)((*it)->startTime / 90));
         rgy_time te((uint32_t)((*it)->endTime / 90));
 
-        AVPacket pkt;
-        av_init_packet(&pkt);
+        unique_ptr_custom<AVPacket> pkt(av_packet_alloc(), [this](AVPacket *pkt) { av_packet_free(&pkt); });
         //muxerには生のptsを伝達する
-        pkt.pts = (*it)->pts;
-        pkt.dts = (*it)->pts;
+        pkt->pts = (*it)->pts;
+        pkt->dts = (*it)->pts;
         //startTime, endTimeは、startPCRを基準としているのでその差分は有効
-        pkt.duration = (*it)->endTime - (*it)->startTime;
+        pkt->duration = (*it)->endTime - (*it)->startTime;
 
         auto it2 = (*it)->outStrings.begin();
         UINT outCharColor = it2->outCharColor.b << 16
@@ -1186,16 +1185,15 @@ std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
                 std::string str = strsprintf("0,0,Box,,0000,0000,0000,,{\\pos(%d,%d)\\fscx%d\\fscy%d\\3c&H%06x&}",
                     iBoxPosX, iBoxPosY, iBoxScaleX, iBoxScaleY, outCharColor);
                 static uint8_t utf8box[] = { 0xE2, 0x96, 0xA0 };
-                AVPacket pkt2;
-                av_init_packet(&pkt2);
-                av_packet_copy_props(&pkt2, &pkt);
+                unique_ptr_custom<AVPacket> pkt2(av_packet_alloc(), [this](AVPacket *pkt) { av_packet_free(&pkt); });
+                av_packet_copy_props(pkt2.get(), pkt.get());
                 uint8_t *ptr = (uint8_t *)av_strdup(str.c_str());
-                av_packet_from_data(&pkt2, ptr, (int)str.length());
-                assLines.push_back(pkt2);
+                av_packet_from_data(pkt2.get(), ptr, (int)str.length());
                 AddMessage(RGY_LOG_DEBUG, _T("pts: %11lld, dur: %6lld, %01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d, %s\n"),
-                    pkt2.pts, pkt2.duration,
+                    pkt2->pts, pkt2->duration,
                     ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
                     char_to_tstring(str, CP_UTF8).c_str());
+                assLines.push_back(std::move(pkt2));
             } else { /* outHLC == HLC_draw */
                 int iBoxPosX = (*it)->outPosX + (iHankaku * (((*it)->outCharW + (*it)->outCharHInterval) / 4));
                 int iBoxPosY = (*it)->outPosY + ((*it)->outCharVInterval / 4);
@@ -1205,16 +1203,15 @@ std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
                 //    ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10, iBoxPosX, iBoxPosY, outCharColor, iBoxScaleX, iBoxScaleX, iBoxScaleY, iBoxScaleY);
                 auto str = strsprintf("0,0,Box,,0000,0000,0000,,{\\pos(%d,%d)\\3c&H%06x&\\p1}m 0 0 l %d 0 %d %d 0 %d{\\p0}",
                     iBoxPosX, iBoxPosY, outCharColor, iBoxScaleX, iBoxScaleX, iBoxScaleY, iBoxScaleY);
-                AVPacket pkt2;
-                av_init_packet(&pkt2);
-                av_packet_copy_props(&pkt2, &pkt);
+                unique_ptr_custom<AVPacket> pkt2(av_packet_alloc(), [this](AVPacket *pkt) { av_packet_free(&pkt); });
+                av_packet_copy_props(pkt2.get(), pkt.get());
                 uint8_t *ptr = (uint8_t *)av_strdup(str.c_str());
-                av_packet_from_data(&pkt2, ptr, (int)str.length());
-                assLines.push_back(pkt2);
+                av_packet_from_data(pkt2.get(), ptr, (int)str.length());
                 AddMessage(RGY_LOG_DEBUG, _T("pts: %11lld, dur: %6lld, %01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d, %s\n"),
-                    pkt2.pts, pkt2.duration,
+                    pkt2->pts, pkt2->duration,
                     ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
                     char_to_tstring(str, CP_UTF8).c_str());
+                assLines.push_back(std::move(pkt2));
             }
         }
         //std::string str = strsprintf("0,%01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d,%s,,0000,0000,0000,,{\\pos(%d,%d)",
@@ -1286,19 +1283,18 @@ std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
             str += "\\N";
         }
         uint8_t *ptr = (uint8_t *)av_strdup(str.c_str());
-        av_packet_from_data(&pkt, ptr, (int)str.length());
-        assLines.push_back(pkt);
+        av_packet_from_data(pkt.get(), ptr, (int)str.length());
         AddMessage(RGY_LOG_DEBUG, _T("pts: %11lld, dur: %6lld, %01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d, %s\n"),
-            pkt.pts, pkt.duration,
+            pkt->pts, pkt->duration,
             ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
             char_to_tstring(str, CP_UTF8).c_str());
+        assLines.push_back(std::move(pkt));
     }
     return assLines;
 }
 
-std::vector<AVPacket> Caption2Ass::genSrt(int64_t endTime) {
-    AVPacket pkt;
-    av_init_packet(&pkt);
+std::vector<unique_ptr_custom<AVPacket>> Caption2Ass::genSrt(int64_t endTime) {
+    unique_ptr_custom<AVPacket> pkt(av_packet_alloc(), [this](AVPacket *pkt) { av_packet_free(&pkt); });
     rgy_time ts, te;
     std::string str;
     bool bNoSRT = true;
@@ -1308,9 +1304,9 @@ std::vector<AVPacket> Caption2Ass::genSrt(int64_t endTime) {
 
         if (i == 0) {
             (*it)->endTime = endTime;
-            pkt.pts = (*it)->pts;
-            pkt.dts = (*it)->pts;
-            pkt.duration = (*it)->endTime - (*it)->startTime;
+            pkt->pts = (*it)->pts;
+            pkt->dts = (*it)->pts;
+            pkt->duration = (*it)->endTime - (*it)->startTime;
 
             ts = rgy_time((uint32_t)((*it)->startTime / 90));
             te = rgy_time((uint32_t)((*it)->endTime / 90));
@@ -1391,14 +1387,14 @@ std::vector<AVPacket> Caption2Ass::genSrt(int64_t endTime) {
     //    m_srt.index++;
     //}
     AddMessage(RGY_LOG_DEBUG, _T("pts: %11lld, dur: %6lld, %01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d, %s\n"),
-        pkt.pts, pkt.duration,
+        pkt->pts, pkt->duration,
         ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
         char_to_tstring(str, CP_UTF8).c_str());
     uint8_t *ptr = (uint8_t *)av_strdup(str.c_str());
-    av_packet_from_data(&pkt, ptr, (int)str.length());
+    av_packet_from_data(pkt.get(), ptr, (int)str.length());
 
-    std::vector<AVPacket> assLines;
-    assLines.push_back(pkt);
+    std::vector<unique_ptr_custom<AVPacket>> assLines;
+    assLines.push_back(std::move(pkt));
     return assLines;
 }
 

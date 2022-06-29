@@ -168,7 +168,9 @@ RGYInput::RGYInput() :
     m_printMes(),
     m_inputInfo(),
     m_readerName(_T("unknown")),
-    m_trimParam() {
+    m_trimParam(),
+    m_poolPkt(nullptr),
+    m_poolFrame(nullptr) {
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
 }
@@ -187,6 +189,8 @@ void RGYInput::Close() {
 
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
+    m_poolPkt = nullptr;
+    m_poolFrame = nullptr;
     AddMessage(RGY_LOG_DEBUG, _T("Close...\n"));
     m_printMes.reset();
 }
@@ -230,6 +234,8 @@ static RGY_ERR initOtherReaders(
     const VideoInfo *input,
     const RGYParamCommon *common,
     const RGYParamControl *ctrl,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     shared_ptr<RGYLog> log
 ) {
     RGYInputPrm inputPrm;
@@ -248,6 +254,8 @@ static RGY_ERR initOtherReaders(
         }
 
         RGYInputAvcodecPrm inputInfoAVAudioReader(inputPrm);
+        inputInfoAVAudioReader.poolPkt = poolPkt;
+        inputInfoAVAudioReader.poolFrame = poolFrame;
         inputInfoAVAudioReader.readVideo = false;
         inputInfoAVAudioReader.readChapter = false;
         inputInfoAVAudioReader.readData = false;
@@ -321,6 +329,8 @@ RGY_ERR initReaders(
     const int subburnTrackId,
     const bool vpp_afs,
     const bool vpp_rff,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     RGYListRef<RGYFrameDataQP> *qpTableListRef,
     CPerfMonitor *perfMonitor,
     shared_ptr<RGYLog> log
@@ -396,6 +406,8 @@ RGY_ERR initReaders(
     inputPrm.threadCsp = ctrl->threadCsp;
     inputPrm.simdCsp = ctrl->simdCsp;
     inputPrm.threadParamCsp = ctrl->threadParams.get(RGYThreadType::CSP);
+    inputPrm.poolPkt = poolPkt;
+    inputPrm.poolFrame = poolFrame;
     log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("Set csp thread param: %s.\n"), inputPrm.threadParamCsp.desc().c_str());
     RGYInputPrm *pInputPrm = &inputPrm;
 
@@ -549,12 +561,12 @@ RGY_ERR initReaders(
 #endif //#if ENABLE_AVSW_READER
     if ((ret = initOtherReaders<false>(otherReaders,
         sourceAudioTrackIdStart, sourceSubtitleTrackIdStart, sourceDataTrackIdStart,
-        common->audioSource, input, common, ctrl, log)) != RGY_ERR_NONE) {
+        common->audioSource, input, common, ctrl, poolPkt, poolFrame, log)) != RGY_ERR_NONE) {
         return ret;
     }
     if ((ret = initOtherReaders<true>(otherReaders,
         sourceAudioTrackIdStart, sourceSubtitleTrackIdStart, sourceDataTrackIdStart,
-        common->subSource, input, common, ctrl, log)) != RGY_ERR_NONE) {
+        common->subSource, input, common, ctrl, poolPkt, poolFrame, log)) != RGY_ERR_NONE) {
         return ret;
     }
     return RGY_ERR_NONE;

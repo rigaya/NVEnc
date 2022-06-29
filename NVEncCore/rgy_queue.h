@@ -42,24 +42,44 @@
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
 
+class RGYQueueLock {
+public:
+    RGYQueueLock(std::atomic<bool>& lock) : m_lock(lock) {
+        while (!tryLock()) {
+            rgy_yield();
+        }
+    };
+    ~RGYQueueLock() { m_lock = false; }
+private:
+    bool tryLock() {
+        bool expected = false;
+        return m_lock.compare_exchange_weak(expected, true);
+    }
+    std::atomic<bool>& m_lock;
+};
+
+#pragma warning (push)
+#pragma warning (disable: 4324) //アラインメント指定子のために構造体がパッドされました
 template<typename Type, size_t align_byte = sizeof(Type)>
-class RGYQueueSPSP {
+class RGYQueueMPMP {
     union queueData {
         Type data;
-        char pad[((sizeof(Type) + (align_byte-1)) & (~(align_byte-1)))];
+        char pad[((sizeof(Type) + (align_byte - 1)) & (~(align_byte - 1)))];
     };
 public:
-    //並列で1つの押し込みと1つの取り出しが可能なキューを作成する
+    //並列で押し込みと取り出しが可能なキューを作成する
     //スレッド並列対応のため、データにはパディングをつけてアライメントをとることが可能 (align_byte)
     //どこまで効果があるかは不明だが、align_byte=64としてfalse sharingを回避できる
-    RGYQueueSPSP() :
+    RGYQueueMPMP() :
         m_nPushRestartExtra(0),
         m_heEventPoped(NULL),
         m_heEventPushed(NULL),
         m_nMallocAlign(32),
         m_nMaxCapacity(SIZE_MAX),
         m_nKeepLength(0),
-        m_pBufStart(), m_pBufFin(nullptr), m_pBufIn(nullptr), m_pBufOut(nullptr), m_bUsingData(false) {
+        m_pBufIn(nullptr), m_pBufOut(nullptr),
+        m_pBufStart(), m_pBufFin(nullptr),
+        m_bUsingData(false), m_bPush(false) {
         //実際のメモリのアライメントに適切な2の倍数であるか確認する
         //そうでない場合は32をデフォルトとして使用
         for (uint32_t i = 4; i < sizeof(i) * 8; i++) {
@@ -70,7 +90,7 @@ public:
             }
         }
     }
-    ~RGYQueueSPSP() {
+    ~RGYQueueMPMP() {
         close();
     }
     //indexの位置への参照を返す
@@ -111,7 +131,7 @@ public:
     void clear() {
         const auto bufSize = m_pBufFin - m_pBufStart.get();
         m_pBufFin = m_pBufStart.get() + bufSize;
-        m_pBufIn  = m_pBufStart.get();
+        m_pBufIn = m_pBufStart.get();
         m_pBufOut = m_pBufStart.get();
     }
     //キューのデータをクリアする際に、指定した関数で内部データを開放してから、データをクリアする
@@ -134,6 +154,7 @@ public:
         m_pBufIn = nullptr;
         m_pBufOut = nullptr;
         m_bUsingData = false;
+        m_bPush = false;
     }
     //キューのデータをクリアする際に、指定した関数で内部データを開放してから、リソースを破棄する
     template<typename Func>
@@ -149,6 +170,8 @@ public:
             ResetEvent(m_heEventPoped);
             WaitForSingleObject(m_heEventPoped, 16);
         }
+        // pushするスレッド同士が競合しないよう、下記領域にロックをかける
+        RGYQueueLock pushLock(m_bPush);
         if (m_pBufIn >= m_pBufFin) {
             //現時点でのm_pBufOut (この後別スレッドによって書き換わるかもしれない)
             queueData *pBufOutOld = m_pBufOut.load();
@@ -181,20 +204,15 @@ public:
                 pBufOutOld = pBufOutExpected;
             }
             //新しいバッファ用にデータを書き換え
-            m_pBufIn  = newBuf.get() + dataSize;
+            m_pBufIn = newBuf.get() + dataSize;
             m_pBufFin = newBuf.get() + bufSize;
             //取り出し側のコピー終了を待機
             //一度falseになったことが確認できれば、
             //その次の取り出しは新しいバッファから行われていることになるので、
             //古いバッファは破棄してよい
-            int expected = 0;
-            while (!m_bUsingData.compare_exchange_weak(expected, 1)) {
-                rgy_yield();
-                expected = 0;
-            }
+            RGYQueueLock lockUsing(m_bUsingData);
             //古いバッファを破棄
             m_pBufStart = std::move(newBuf);
-            m_bUsingData--;
         }
         m_pBufIn.load()->data = in;
         m_pBufIn++;
@@ -228,14 +246,16 @@ public:
     }
     //indexの位置のコピーを取得する
     bool copy(Type *out, uint32_t index, size_t *pnSize = nullptr) {
-        m_bUsingData++;
-        auto nSize = size();
-        bool bCopy = index < nSize;
-        if (bCopy) {
-            auto ptr = m_pBufOut + index;
-            *out = ptr->data;
+        bool bCopy; decltype(size()) nSize;
+        { // 同時に更新しないよう、ロックする
+            RGYQueueLock lockUsing(m_bUsingData);
+            nSize = size();
+            bCopy = index < nSize;
+            if (bCopy) {
+                auto ptr = m_pBufOut + index;
+                *out = ptr->data;
+            }
         }
-        m_bUsingData--;
         if (!bCopy) {
             ResetEvent(m_heEventPushed);
         }
@@ -247,13 +267,15 @@ public:
     //キューの先頭のデータを取り出す (outにコピーする)
     //キューが空ならなにもせずfalseを返す
     bool front_copy_no_lock(Type *out, size_t *pnSize = nullptr) {
-        m_bUsingData++;
-        auto nSize = size();
-        bool bCopy = nSize > m_nKeepLength;
-        if (bCopy) {
-            *out = m_pBufOut.load()->data;
+        bool bCopy; decltype(size()) nSize;
+        { // 同時に更新しないよう、ロックする
+            RGYQueueLock lockUsing(m_bUsingData);
+            nSize = size();
+            bCopy = nSize > m_nKeepLength;
+            if (bCopy) {
+                *out = m_pBufOut.load()->data;
+            }
         }
-        m_bUsingData--;
         if (!bCopy) {
             ResetEvent(m_heEventPushed);
         }
@@ -265,17 +287,19 @@ public:
     //キューの先頭のデータを取り出しながら(outにコピーする)、キューから取り除く
     //キューが空ならなにもせずfalseを返す
     bool front_copy_and_pop_no_lock(Type *out, size_t *pnSize = nullptr) {
-        m_bUsingData++;
-        auto nSize = size();
-        bool bCopy = nSize > m_nKeepLength;
-        if (bCopy) {
-            *out = m_pBufOut.load()->data;
-            m_pBufOut++;
-            if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
-                SetEvent(m_heEventPoped);
+        bool bCopy; decltype(size()) nSize;
+        { // 同時に更新しないよう、ロックする
+            RGYQueueLock lockUsing(m_bUsingData);
+            nSize = size();
+            bCopy = nSize > m_nKeepLength;
+            if (bCopy) {
+                *out = m_pBufOut.load()->data;
+                m_pBufOut++;
+                if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
+                    SetEvent(m_heEventPoped);
+                }
             }
         }
-        m_bUsingData--;
         if (!bCopy) {
             ResetEvent(m_heEventPushed);
         }
@@ -287,16 +311,18 @@ public:
     //キューの先頭のデータを取り除く
     //キューが空ならfalseを返す
     bool pop() {
-        m_bUsingData++;
-        auto nSize = size();
-        bool bCopy = nSize > m_nKeepLength;
-        if (bCopy) {
-            m_pBufOut++;
-            if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
-                SetEvent(m_heEventPoped);
+        bool bCopy; decltype(size()) nSize;
+        { // 同時に更新しないよう、ロックする
+            RGYQueueLock lockUsing(m_bUsingData);
+            nSize = size();
+            bCopy = nSize > m_nKeepLength;
+            if (bCopy) {
+                m_pBufOut++;
+                if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
+                    SetEvent(m_heEventPoped);
+                }
             }
         }
-        m_bUsingData--;
         if (!bCopy) {
             ResetEvent(m_heEventPushed);
         }
@@ -318,7 +344,7 @@ protected:
         m_pBufStart = std::unique_ptr<queueData, aligned_malloc_deleter>(
             (queueData *)_aligned_malloc(sizeof(queueData) * bufSize, (std::max)(16, m_nMallocAlign)), aligned_malloc_deleter());
         m_pBufFin = m_pBufStart.get() + bufSize;
-        m_pBufIn  = m_pBufStart.get();
+        m_pBufIn = m_pBufStart.get();
         m_pBufOut = m_pBufStart.get();
     }
 
@@ -328,11 +354,13 @@ protected:
     int m_nMallocAlign; //メモリのアライメント
     size_t m_nMaxCapacity; //キューに詰められる有効なデータの最大数
     size_t m_nKeepLength; //ある一定の長さを常にキュー内に保持するようにする
-    std::unique_ptr<queueData, aligned_malloc_deleter> m_pBufStart; //確保しているメモリ領域の先頭へのポインタ
-    queueData *m_pBufFin; //確保しているメモリ領域の終端
-    std::atomic<queueData*> m_pBufIn; //キューにデータを格納する位置へのポインタ
-    std::atomic<queueData*> m_pBufOut; //キューから取り出すべき先頭のデータへのポインタ
-    std::atomic<int> m_bUsingData; //キューから読み出し中のスレッドの数
+    alignas(64) std::atomic<queueData*> m_pBufIn; //キューにデータを格納する位置へのポインタ
+                std::atomic<queueData*> m_pBufOut; //キューから取り出すべき先頭のデータへのポインタ
+                std::unique_ptr<queueData, aligned_malloc_deleter> m_pBufStart; //確保しているメモリ領域の先頭へのポインタ
+                queueData *m_pBufFin; //確保しているメモリ領域の終端
+    alignas(64) std::atomic<bool> m_bUsingData; //キューから読み出し中のスレッドの数
+    alignas(64) std::atomic<bool> m_bPush; //push用のロックの数
 };
+#pragma warning (pop)
 
 #endif //__RGY_QUEUE_H__

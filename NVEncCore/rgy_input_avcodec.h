@@ -653,7 +653,7 @@ protected:
     }
 protected:
     double m_frameDuration; //CFRを仮定する際のフレーム長 (RGY_PTS_ALL_INVALID, RGY_PTS_NONKEY_INVALID, RGY_PTS_NONKEY_INVALID時有効)
-    RGYQueueSPSP<FramePos, 1> m_list; //内部データサイズとFramePosのデータサイズを一致させるため、alignを1に設定
+    RGYQueueMPMP<FramePos, 1> m_list; //内部データサイズとFramePosのデータサイズを一致させるため、alignを1に設定
     int m_nextFixNumIndex; //次にptsを確定させるフレームのインデックス
     bool m_inputFin; //入力が終了したことを示すフラグ
     int64_t m_duration; //m_durationNumのフレーム数分のdurationの総和
@@ -747,9 +747,9 @@ typedef struct AVDemuxer {
     vector<AVDemuxStream>    stream;
     vector<const AVChapter*> chapter;
     AVDemuxThread            thread;
-    RGYQueueSPSP<AVPacket>   qVideoPkt;
-    deque<AVPacket>          qStreamPktL1;
-    RGYQueueSPSP<AVPacket>   qStreamPktL2;
+    RGYQueueMPMP<AVPacket*>  qVideoPkt;
+    deque<AVPacket*>         qStreamPktL1;
+    RGYQueueMPMP<AVPacket*>  qStreamPktL2;
 } AVDemuxer;
 
 enum AVCAPTION_STATE {
@@ -778,6 +778,7 @@ public:
     void close() {
         m_state = AVCAPTION_UNKNOWN;
         m_cap2ass.close();
+        m_subList.clear();
         m_pLog.reset();
     }
     RGY_ERR init(std::shared_ptr<RGYLog> pLog, C2AFormat format) {
@@ -850,8 +851,8 @@ public:
                     m_state = AVCAPTION_ERROR;
                 } else if (m_index >= 0) { //インデックスが決まるまでは、クラス内にためておく
                     for (auto it = m_subList.begin(); it != m_subList.end(); it++) {
-                        it->stream_index = m_index;
-                        qStreamPkt.push_back(*it);
+                        (*it)->stream_index = m_index;
+                        qStreamPkt.push_back(it->release());
                     }
                     m_subList.clear();
                 }
@@ -862,7 +863,7 @@ public:
 protected:
     Caption2Ass m_cap2ass; //Caption2Ass処理
     std::shared_ptr<RGYLog> m_pLog;
-    std::vector<AVPacket> m_subList;
+    std::vector<unique_ptr_custom<AVPacket>> m_subList;
 
     //解像度が決まるまでデータを取っておくバッファ
     std::vector<uint8_t> m_buffer;
@@ -1007,7 +1008,7 @@ public:
     double GetInputVideoDuration();
 
     //音声・字幕パケットの配列を取得する
-    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) override;
+    virtual std::vector<AVPacket*> GetStreamDataPackets(int inputFrame) override;
 
     //音声・字幕のコーデックコンテキストを取得する
     virtual vector<AVDemuxStream> GetInputStreamInfo() override;
@@ -1090,7 +1091,7 @@ protected:
     bool vc1StartCodeExists(uint8_t *ptr);
 
     //対象ストリームのパケットを取得
-    int getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe = false);
+    std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> getSample(bool bTreatFirstPacketAsKeyframe = false);
 
     //対象・字幕の音声パケットを追加するかどうか
     bool checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *stream);

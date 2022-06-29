@@ -225,9 +225,9 @@ void RGYInputAvcodec::CloseVideo(AVDemuxVideo *video) {
 }
 
 void RGYInputAvcodec::CloseStream(AVDemuxStream *stream) {
-    if (stream->pktSample.data) {
+    if (stream->pktSample) {
         AddMessage(RGY_LOG_DEBUG, _T("Free packet sample...\n"));
-        av_packet_unref(&stream->pktSample);
+        av_packet_free(&stream->pktSample);
         AddMessage(RGY_LOG_DEBUG, _T("Freed packet sample.\n"));
     }
     if (stream->subtitleHeader) {
@@ -245,12 +245,12 @@ void RGYInputAvcodec::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     //リソースの解放
     CloseThread();
-    m_Demux.qVideoPkt.close([](AVPacket *pkt) { av_packet_unref(pkt); });
+    m_Demux.qVideoPkt.close([](AVPacket **pkt) { av_packet_free(pkt); });
     for (uint32_t i = 0; i < m_Demux.qStreamPktL1.size(); i++) {
-        av_packet_unref(&m_Demux.qStreamPktL1[i]);
+        av_packet_free(&m_Demux.qStreamPktL1[i]);
     }
     m_Demux.qStreamPktL1.clear();
-    m_Demux.qStreamPktL2.close([](AVPacket *pkt) { av_packet_unref(pkt); });
+    m_Demux.qStreamPktL2.close([](AVPacket **pkt) { av_packet_free(pkt); });
     AddMessage(RGY_LOG_DEBUG, _T("Closed Stream Packet Buffer.\n"));
 
     m_cap2ass.close();
@@ -411,7 +411,8 @@ RGY_ERR RGYInputAvcodec::parseVideoExtraData(const AVPacket *pkt) {
     }
     AddMessage(RGY_LOG_DEBUG, _T("Initialized bsf %s\n"), char_to_tstring(bsf_name).c_str());
 
-    unique_ptr<AVPacket, decltype(&av_packet_unref)> pktCopy(av_packet_clone(pkt), av_packet_unref);
+    auto pktCopy = m_poolPkt->getFree();
+    av_packet_ref(pktCopy.get(), pkt);
     if (0 > (ret = av_bsf_send_packet(bsfc.get(), pktCopy.get()))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
             char_to_tstring(bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
@@ -636,14 +637,14 @@ void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
 const AVPacket *RGYInputAvcodec::findFirstAudioStreamPackets(const AVDemuxStream& streamInfo) {
     //まず、L2キューを探す
     for (int j = 0; j < (int)m_Demux.qStreamPktL2.size(); j++) {
-        if (m_Demux.qStreamPktL2.get(j)->data.stream_index == streamInfo.index) {
-            return &(m_Demux.qStreamPktL2.get(j)->data);
+        if (m_Demux.qStreamPktL2.get(j)->data->stream_index == streamInfo.index) {
+            return m_Demux.qStreamPktL2.get(j)->data;
         }
     }
     //それで見つからなかったら、L1キューを探す
     for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
-        if (m_Demux.qStreamPktL1[j].stream_index == streamInfo.index) {
-            return &m_Demux.qStreamPktL1[j];
+        if (m_Demux.qStreamPktL1[j]->stream_index == streamInfo.index) {
+            return m_Demux.qStreamPktL1[j];
         }
     }
     return nullptr;
@@ -679,9 +680,6 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
     }
     AddMessage(RGY_LOG_DEBUG, _T("fps decoder %d/%d, invalid: %s\n"), fpsDecoder.num, fpsDecoder.den, fpsDecoderInvalid ? _T("true") : _T("false"));
 
-    AVPacket pkt;
-    av_init_packet(&pkt);
-
     const bool bCheckDuration = m_Demux.video.stream->time_base.num * m_Demux.video.stream->time_base.den > 0;
     const double timebase = (bCheckDuration) ? m_Demux.video.stream->time_base.num / (double)m_Demux.video.stream->time_base.den : 1.0;
     m_Demux.video.streamFirstKeyPts = 0;
@@ -704,14 +702,20 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         AddMessage(RGY_LOG_DEBUG, _T("maxCheckFrames %d, maxCheckSec: %.3e\n"), maxCheckFrames, maxCheckSec);
 
         int ret = 0;
-        for (; i_samples < maxCheckFrames && ((ret = getSample(&pkt)) == 0); i_samples++) {
+        for (; i_samples < maxCheckFrames; i_samples++) {
+            auto [ret_sample, spkt] = getSample();
+            if (ret_sample) {
+                ret = ret_sample;
+                break;
+            }
+            auto pkt = spkt.release();
             m_Demux.qVideoPkt.push(pkt);
             if (bCheckDuration) {
                 int64_t diff = 0;
-                if (pkt.dts != AV_NOPTS_VALUE && m_Demux.frames.list(0).dts != AV_NOPTS_VALUE) {
-                    diff = (int)(pkt.dts - m_Demux.frames.list(0).dts);
-                } else if (pkt.pts != AV_NOPTS_VALUE && m_Demux.frames.list(0).pts != AV_NOPTS_VALUE) {
-                    diff = (int)(pkt.pts - m_Demux.frames.list(0).pts);
+                if (pkt->dts != AV_NOPTS_VALUE && m_Demux.frames.list(0).dts != AV_NOPTS_VALUE) {
+                    diff = (int)(pkt->dts - m_Demux.frames.list(0).dts);
+                } else if (pkt->pts != AV_NOPTS_VALUE && m_Demux.frames.list(0).pts != AV_NOPTS_VALUE) {
+                    diff = (int)(pkt->pts - m_Demux.frames.list(0).pts);
                 }
                 const double duration = diff * timebase;
                 if (duration >= maxCheckSec) {
@@ -963,29 +967,29 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 const AVPacket *pkt2 = nullptr; //2番目のパケット
                 //まず、L2キューを探す
                 for (int j = 0; j < (int)m_Demux.qStreamPktL2.size(); j++) {
-                    if (m_Demux.qStreamPktL2.get(j)->data.stream_index == streamInfo->index) {
+                    if (m_Demux.qStreamPktL2.get(j)->data->stream_index == streamInfo->index) {
                         if (pkt1) {
-                            pkt2 = &(m_Demux.qStreamPktL2.get(j)->data);
+                            pkt2 = m_Demux.qStreamPktL2.get(j)->data;
                             break;
                         }
-                        pkt1 = &(m_Demux.qStreamPktL2.get(j)->data);
+                        pkt1 = m_Demux.qStreamPktL2.get(j)->data;
                     }
                 }
                 if (pkt2 == nullptr) {
                     //それで見つからなかったら、L1キューを探す
                     for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
-                        if (m_Demux.qStreamPktL1[j].stream_index == streamInfo->index) {
+                        if (m_Demux.qStreamPktL1[j]->stream_index == streamInfo->index) {
                             if (pkt1) {
-                                pkt2 = &m_Demux.qStreamPktL1[j];
+                                pkt2 = m_Demux.qStreamPktL1[j];
                                 break;
                             }
-                            pkt1 = &m_Demux.qStreamPktL1[j];
+                            pkt1 = m_Demux.qStreamPktL1[j];
                         }
                     }
                 }
                 if (pkt1 != nullptr) {
                     //1パケット目はたまにおかしいので、可能なら2パケット目を使用する
-                    av_packet_ref(&streamInfo->pktSample, (pkt2) ? pkt2 : pkt1);
+                    streamInfo->pktSample = av_packet_clone((pkt2) ? pkt2 : pkt1);
                 } else {
                     //音声の最初のサンプルを取得できていない
                     AddMessage(RGY_LOG_WARN, _T("failed to find stream #%d in preread.\n"), streamInfo->index);
@@ -1080,7 +1084,7 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
     std::unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> frameDec(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
     bool got_frame = false;
     for (uint32_t i = 0; i < m_Demux.qVideoPkt.size() && !got_frame; i++) {
-        AVPacket *pkt = &m_Demux.qVideoPkt.get(i)->data;
+        AVPacket *pkt = m_Demux.qVideoPkt.get(i)->data;
         ret = avcodec_send_packet(codecCtxDec.get(), pkt);
 
         if (ret == AVERROR_EOF) { //これ以上パケットを送れない
@@ -1378,7 +1382,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     } else {
         m_readerName = _T("avsw");
     }
-
     m_Demux.video.readVideo = input_prm->readVideo;
     m_Demux.thread.queueInfo = input_prm->queueInfo;
     if (input_prm->readVideo) {
@@ -1818,17 +1821,16 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_inputVideoInfo.codecExtraSize = m_Demux.video.extradataSize;
         }
         if (input_prm->seekSec > 0.0f) {
-            AVPacket firstpkt;
-            if (getSample(&firstpkt)) { //現在のtimestampを取得する
+            auto [ret, firstpkt] = getSample();
+            if (ret) { //現在のtimestampを取得する
                 AddMessage(RGY_LOG_ERROR, _T("Failed to get firstpkt of video!\n"));
                 return RGY_ERR_UNKNOWN;
             }
             const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->seekSec, 1<<24), m_Demux.video.stream->time_base);
-            int seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt.pts + seek_time, 0);
+            int seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt->pts + seek_time, 0);
             if (0 > seek_ret) {
-                seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt.pts + seek_time, AVSEEK_FLAG_ANY);
+                seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt->pts + seek_time, AVSEEK_FLAG_ANY);
             }
-            av_packet_unref(&firstpkt);
             if (0 > seek_ret) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to seek %s.\n"), print_time(input_prm->seekSec).c_str());
                 return RGY_ERR_UNKNOWN;
@@ -2120,16 +2122,14 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
 
         if (m_Demux.video.stream) {
             //動画の最初のフレームを取得しておく
-            AVPacket pkt;
-            av_init_packet(&pkt);
             //音声のみ処理モードでは、動画の先頭をキーフレームとする必要はなく、
             //先頭がキーフレームでなくてもframePosListに追加するようにして、trimをoffsetなしで反映できるようにする
             //そこで、bTreatFirstPacketAsKeyframe=trueにして最初のパケットを処理する
-            if (getSample(&pkt, true)) {
+            auto [ ret, pkt ] = getSample(true);
+            if (ret) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to get first packet of the video!\n"));
                 return RGY_ERR_UNKNOWN;
             }
-            av_packet_unref(&pkt);
 
             m_Demux.frames.checkPtsStatus();
         }
@@ -2349,13 +2349,14 @@ AVDemuxStream *RGYInputAvcodec::getPacketStreamData(const AVPacket *pkt) {
     return nullptr;
 }
 
-int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
-    av_init_packet(pkt);
+std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcodec::getSample(bool bTreatFirstPacketAsKeyframe) {
     int i_samples = 0;
     int ret_read_frame = 0;
-    while ((ret_read_frame = av_read_frame(m_Demux.format.formatCtx, pkt)) >= 0
+
+    auto pkt = m_poolPkt->getFree();
+    for (; (ret_read_frame = av_read_frame(m_Demux.format.formatCtx, pkt.get())) >= 0
         //trimからわかるフレーム数の上限値よりfixedNumがある程度の量の処理を進めたら読み込みを打ち切る
-        && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx()) {
+        && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx(); pkt = m_poolPkt->getFree()) {
         if (m_fpPacketList) {
             fprintf(m_fpPacketList.get(), "stream %2d, %12s, pts, %s\n",
                 pkt->stream_index, avcodec_get_name(m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id),
@@ -2367,29 +2368,30 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                 AddMessage(RGY_LOG_WARN, _T("corrupt packet in video: %lld (%s)\n"), (long long int)timestamp, getTimestampString(timestamp, m_Demux.video.stream->time_base).c_str());
             }
             if (m_Demux.video.bsfcCtx) {
-                auto ret = av_bsf_send_packet(m_Demux.video.bsfcCtx, pkt);
+                auto ret = av_bsf_send_packet(m_Demux.video.bsfcCtx, pkt.get());
                 if (ret < 0) {
-                    av_packet_unref(pkt);
+                    pkt.reset();
                     AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), char_to_tstring(m_Demux.video.bsfcCtx->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-                    return 1;
+                    return { 1, nullptr };
                 }
-                ret = av_bsf_receive_packet(m_Demux.video.bsfcCtx, pkt);
+                ret = av_bsf_receive_packet(m_Demux.video.bsfcCtx, pkt.get());
                 if (ret == AVERROR(EAGAIN)) {
                     continue; //もっとpacketを送らないとダメ
                 } else if (ret < 0 && ret != AVERROR_EOF) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"), char_to_tstring(m_Demux.video.bsfcCtx->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-                    return 1;
+                    pkt.reset();
+                    return { 1, nullptr };
                 }
             }
             if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_VC1) {
-                vc1AddFrameHeader(pkt);
+                vc1AddFrameHeader(pkt.get());
             }
             if (m_Demux.video.bUseHEVCmp42AnnexB) {
-                hevcMp42Annexb(pkt);
+                hevcMp42Annexb(pkt.get());
             }
             if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
                 if (m_Demux.video.hdr10plusMetadataCopy) {
-                    parseHDR10plus(pkt);
+                    parseHDR10plus(pkt.get());
                 }
             }
             FramePos pos = { 0 };
@@ -2429,7 +2431,7 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
             //  ただし、bTreatFirstPacketAsKeyframeが指定されている場合には、キーフレームでなくてもframePosListへの追加を許可する
             //  このモードは、対象の入力ファイルから--audio-sourceなどで音声のみ拾ってくる場合に使用する
             if (!bTreatFirstPacketAsKeyframe && !m_Demux.video.gotFirstKeyframe && !keyframe) {
-                av_packet_unref(pkt);
+                av_packet_unref(pkt.get());
                 i_samples++;
                 continue;
             } else {
@@ -2472,28 +2474,25 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
             }
             //ptsの確定したところまで、音声を出力する
             CheckAndMoveStreamPacketList();
-            return 0;
+            return { 0, std::move(pkt) };
         }
-        const auto *stream = getPacketStreamData(pkt);
+        const auto *stream = getPacketStreamData(pkt.get());
         if (stream != nullptr) {
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
                 const auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
                 AddMessage(RGY_LOG_WARN, _T("corrupt packet in stream %d: %lld (%s)\n"), pkt->stream_index, (long long int)timestamp, getTimestampString(timestamp, stream->stream->time_base).c_str());
             }
             //音声/字幕パケットはひとまずすべてバッファに格納する
-            m_Demux.qStreamPktL1.push_back(*pkt);
-        } else {
-            av_packet_unref(pkt);
+            m_Demux.qStreamPktL1.push_back(pkt.release());
         }
     }
+    pkt.reset();
     //ファイルの終わりに到達
     if (ret_read_frame != AVERROR_EOF && ret_read_frame < 0) {
         AddMessage(RGY_LOG_ERROR, _T("error occured while reading file: %d frames, %s\n"), m_Demux.frames.frameNum(), qsv_av_err2str(ret_read_frame).c_str());
-        return 1;
+        return { 1, nullptr };
     }
     AddMessage(RGY_LOG_DEBUG, _T("%d frames, %s\n"), m_Demux.frames.frameNum(), qsv_av_err2str(ret_read_frame).c_str());
-    pkt->data = nullptr;
-    pkt->size = 0;
     //動画の終端を表す最後のptsを挿入する
     int64_t videoFinPts = 0;
     const int nFrameNum = m_Demux.frames.frameNum();
@@ -2506,10 +2505,10 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
     //もし選択範囲が手動で決定されていないのなら、音声を最大限取得する
     if (m_trimParam.list.size() == 0 || m_trimParam.list.back().fin == TRIM_MAX) {
         for (uint32_t i = 0; i < m_Demux.qStreamPktL2.size(); i++) {
-            videoFinPts = (std::max)(videoFinPts, m_Demux.qStreamPktL2[i].data.pts);
+            videoFinPts = (std::max)(videoFinPts, m_Demux.qStreamPktL2[i].data->pts);
         }
         for (uint32_t i = 0; i < m_Demux.qStreamPktL1.size(); i++) {
-            videoFinPts = (std::max)(videoFinPts, m_Demux.qStreamPktL1[i].pts);
+            videoFinPts = (std::max)(videoFinPts, m_Demux.qStreamPktL1[i]->pts);
         }
     }
     //最後のフレーム情報をセットし、m_Demux.framesの内部状態を終了状態に移行する
@@ -2525,36 +2524,36 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
         m_encSatusInfo->UpdateDisplay(100.0);
     }
 #endif
-    return AVERROR_EOF;
+    return { AVERROR_EOF, nullptr };
 }
 
 //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
 RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
-    AVPacket pkt;
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
-        const int ret = getSample(&pkt);
+        auto [ret, pkt] = getSample();
         if (ret == 0) {
-            m_Demux.qVideoPkt.push(pkt);
+            m_Demux.qVideoPkt.push(pkt.release());
         } else if (ret != AVERROR_EOF) {
             return RGY_ERR_UNKNOWN;
         }
     }
 
     bool bGetPacket = false;
+    AVPacket *pkt = nullptr;
     for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_and_pop_no_lock(&pkt, (m_Demux.thread.queueInfo) ? &m_Demux.thread.queueInfo->usage_vid_in : nullptr)) && m_Demux.qVideoPkt.size() > 0; i++) {
         m_Demux.qVideoPkt.wait_for_push();
     }
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
-        if (pkt.data) {
-            auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
-            sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
+        if (pkt->data) {
+            auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt->pts : AV_NOPTS_VALUE;
+            sts = pBitstream->copy(pkt->data, pkt->size, pkt->dts, pts);
         }
         if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC && m_Demux.video.hdr10plusMetadataCopy) {
-            pBitstream->addFrameData(getHDR10plusMetaData(&pkt));
+            pBitstream->addFrameData(getHDR10plusMetaData(pkt));
         }
-        av_packet_unref(&pkt);
+        m_poolPkt->returnFree(&pkt);
         m_Demux.video.nSampleGetCount++;
         m_encSatusInfo->m_sData.frameIn++;
     }
@@ -2563,27 +2562,28 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
 
 //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
 RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
-    AVPacket pkt;
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
-        const int ret = getSample(&pkt);
+        auto [ret, pkt] = getSample();
         if (ret == 0) {
-            m_Demux.qVideoPkt.push(pkt);
+            m_Demux.qVideoPkt.push(pkt.release());
         } else if (ret != AVERROR_EOF) {
             return RGY_ERR_UNKNOWN;
         }
     }
 
     bool bGetPacket = false;
+    AVPacket *pkt = nullptr;
     for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_no_lock(&pkt, (m_Demux.thread.queueInfo) ? &m_Demux.thread.queueInfo->usage_vid_in : nullptr)) && m_Demux.qVideoPkt.size() > 0; i++) {
         m_Demux.qVideoPkt.wait_for_push();
     }
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
-        if (pkt.data) {
-            auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
-            sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
+        if (pkt->data) {
+            auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt->pts : AV_NOPTS_VALUE;
+            sts = pBitstream->copy(pkt->data, pkt->size, pkt->dts, pts);
         }
+        m_poolPkt->returnFree(&pkt);
     }
     return sts;
 }
@@ -2596,14 +2596,13 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
     m_Demux.video.nSampleGetCount = inputFrame;
     const double vidEstDurationSec = inputFrame * (double)m_Demux.video.nAvgFramerate.den / (double)m_Demux.video.nAvgFramerate.num; //1フレームの時間(秒)
 
-    AVPacket pkt;
-    av_init_packet(&pkt);
     if (m_Demux.video.stream) {
         //動画に映像がある場合、getSampleを呼んで1フレーム分の音声データをm_Demux.qStreamPktL1に取得する
         //同時に映像フレームをロードし、ロードしたptsデータを突っ込む
-        if (!getSample(&pkt)) {
+        auto [ret, pkt] = getSample();
+        if (!ret) {
             //動画データ自体は不要なので解放
-            av_packet_unref(&pkt);
+            pkt.reset();
             CheckAndMoveStreamPacketList();
         }
         return;
@@ -2612,12 +2611,12 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
     auto move_pkt = [this](double vidEstDurationSec) {
         while (!m_Demux.qStreamPktL1.empty()) {
             auto pkt2 = m_Demux.qStreamPktL1.front();
-            AVDemuxStream *pStream2 = getPacketStreamData(&pkt2);
-            const double pkt2timeSec = pkt2.pts * (double)pStream2->stream->time_base.num / (double)pStream2->stream->time_base.den;
+            AVDemuxStream *pStream2 = getPacketStreamData(pkt2);
+            const double pkt2timeSec = pkt2->pts * (double)pStream2->stream->time_base.num / (double)pStream2->stream->time_base.den;
             if (pkt2timeSec > vidEstDurationSec + 5.0) {
                 break;
             }
-            pkt2.flags = (pkt2.flags & 0xffff) | ((uint32_t)pStream2->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+            pkt2->flags = (pkt2->flags & 0xffff) | ((uint32_t)pStream2->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
             m_Demux.qStreamPktL2.push(pkt2); //Writer側に渡したパケットはWriter側で開放する
             m_Demux.qStreamPktL1.pop_front();
         }
@@ -2625,27 +2624,28 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
 
     //動画に映像がない場合、
     //およそ1フレーム分のパケットを取得する
-    while (av_read_frame(m_Demux.format.formatCtx, &pkt) >= 0) {
-        const auto codec_type = m_Demux.format.formatCtx->streams[pkt.stream_index]->codecpar->codec_type;
+    auto pkt = m_poolPkt->getFree();
+    for (; av_read_frame(m_Demux.format.formatCtx, pkt.get()) >= 0; pkt = m_poolPkt->getFree()) {
+        const auto codec_type = m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_type;
         if (codec_type != AVMEDIA_TYPE_AUDIO && codec_type != AVMEDIA_TYPE_SUBTITLE) {
-            av_packet_unref(&pkt);
+            pkt.reset();
         } else {
-            AVDemuxStream *pStream = getPacketStreamData(&pkt);
+            AVDemuxStream *pStream = getPacketStreamData(pkt.get());
             const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
-            if (pkt.pts != AV_NOPTS_VALUE) pkt.pts += delay_ts;
-            if (pkt.dts != AV_NOPTS_VALUE) pkt.dts += delay_ts;
-            if (checkStreamPacketToAdd(&pkt, pStream)) {
-                m_Demux.qStreamPktL1.push_back(pkt);
+            if (pkt->pts != AV_NOPTS_VALUE) pkt->pts += delay_ts;
+            if (pkt->dts != AV_NOPTS_VALUE) pkt->dts += delay_ts;
+            //最初のパケットは参照用にコピーしておく
+            if (pStream->pktSample == nullptr) {
+                pStream->pktSample = av_packet_clone(pkt.get());
+            }
+            auto pktt = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
+            auto pkt_dist = pktt - pStream->pktSample->pts;
+            if (checkStreamPacketToAdd(pkt.get(), pStream)) {
+                m_Demux.qStreamPktL1.push_back(pkt.release());
             } else {
-                av_packet_unref(&pkt); //Writer側に渡さないパケットはここで開放する
+                pkt.reset(); //Writer側に渡さないパケットはここで開放する
             }
 
-            //最初のパケットは参照用にコピーしておく
-            if (pStream->pktSample.data == nullptr) {
-                av_packet_ref(&pStream->pktSample, &pkt);
-            }
-            auto pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
-            auto pkt_dist = pktt - pStream->pktSample.pts;
             //1フレーム分のサンプルを取得したら終了
             if (pkt_dist * (double)pStream->stream->time_base.num / (double)pStream->stream->time_base.den > vidEstDurationSec + 2.5) {
                 //およそ1フレーム分のパケットを設定する
@@ -2693,34 +2693,34 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
     const AVRational vid_pkt_timebase = (m_Demux.video.stream) ? m_Demux.video.stream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
     while (!m_Demux.qStreamPktL1.empty()) {
         auto pkt = m_Demux.qStreamPktL1.front();
-        AVDemuxStream *pStream = getPacketStreamData(&pkt);
+        AVDemuxStream *pStream = getPacketStreamData(pkt);
         const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
         //音声のptsが映像の終わりのptsを行きすぎたらやめる
         const auto fixedLastFrame = m_Demux.frames.list(m_Demux.frames.fixedNum() - 1);
         if (!m_Demux.frames.isEof() // 最後まで読み込んでいたらすべて転送するようにする
-            && 0 < av_compare_ts(pkt.pts + delay_ts, pStream->timebase, fixedLastFrame.pts, vid_pkt_timebase)) {
+            && 0 < av_compare_ts(pkt->pts + delay_ts, pStream->timebase, fixedLastFrame.pts, vid_pkt_timebase)) {
             break;
         }
-        if (pkt.pts != AV_NOPTS_VALUE) pkt.pts += delay_ts;
-        if (pkt.dts != AV_NOPTS_VALUE) pkt.dts += delay_ts;
-        if (checkStreamPacketToAdd(&pkt, pStream)) {
-            pkt.flags = (pkt.flags & 0xffff) | ((uint32_t)pStream->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+        if (pkt->pts != AV_NOPTS_VALUE) pkt->pts += delay_ts;
+        if (pkt->dts != AV_NOPTS_VALUE) pkt->dts += delay_ts;
+        if (checkStreamPacketToAdd(pkt, pStream)) {
+            pkt->flags = (pkt->flags & 0xffff) | ((uint32_t)pStream->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
             m_Demux.qStreamPktL2.push(pkt); //Writer側に渡したパケットはWriter側で開放する
         } else {
-            av_packet_unref(&pkt); //Writer側に渡さないパケットはここで開放する
+            m_poolPkt->returnFree(&pkt); //Writer側に渡さないパケットはここで開放する
         }
         m_Demux.qStreamPktL1.pop_front();
     }
 }
 
-vector<AVPacket> RGYInputAvcodec::GetStreamDataPackets(int inputFrame) {
+std::vector<AVPacket*> RGYInputAvcodec::GetStreamDataPackets(int inputFrame) {
     if (!m_Demux.video.readVideo) {
         GetAudioDataPacketsWhenNoVideoRead(inputFrame);
     }
 
     //出力するパケットを選択する
-    vector<AVPacket> packets;
-    AVPacket pkt;
+    std::vector<AVPacket*> packets;
+    AVPacket *pkt = nullptr;
     while (m_Demux.qStreamPktL2.front_copy_and_pop_no_lock(&pkt, (m_Demux.thread.queueInfo) ? &m_Demux.thread.queueInfo->usage_aud_in : nullptr)) {
         packets.push_back(pkt);
     }
@@ -2789,33 +2789,32 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         //動画のデコードを行う
         int got_frame = 0;
         while (!got_frame) {
-            AVPacket pkt;
-            av_init_packet(&pkt);
             if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
                 && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
-                const int ret = getSample(&pkt);
+                auto [ret, pkt] = getSample();
                 if (ret == 0) {
-                    m_Demux.qVideoPkt.push(pkt);
+                    m_Demux.qVideoPkt.push(pkt.release());
                 } else if (ret != AVERROR_EOF) {
                     return RGY_ERR_UNKNOWN;
                 }
             }
 
             bool bGetPacket = false;
+            AVPacket *pkt = nullptr;
             for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_no_lock(&pkt, (m_Demux.thread.queueInfo) ? &m_Demux.thread.queueInfo->usage_vid_in : nullptr)) && m_Demux.qVideoPkt.size() > 0; i++) {
                 m_Demux.qVideoPkt.wait_for_push();
             }
-            if (!bGetPacket) {
+            if (!bGetPacket && pkt) {
                 //flushするためのパケット
-                pkt.data = nullptr;
-                pkt.size = 0;
+                pkt->data = nullptr;
+                pkt->size = 0;
             }
-            int ret = avcodec_send_packet(m_Demux.video.codecCtxDecode, &pkt);
+            int ret = avcodec_send_packet(m_Demux.video.codecCtxDecode, pkt);
             //AVERROR(EAGAIN) -> パケットを送る前に受け取る必要がある
             //パケットが受け取られていないのでpopしない
             if (ret != AVERROR(EAGAIN)) {
                 m_Demux.qVideoPkt.pop();
-                av_packet_unref(&pkt);
+                m_poolPkt->returnFree(&pkt);
             }
             if (ret == AVERROR_EOF) { //これ以上パケットを送れない
                 AddMessage(RGY_LOG_DEBUG, _T("failed to send packet to video decoder, already flushed: %s.\n"), qsv_av_err2str(ret).c_str());
@@ -2933,11 +2932,11 @@ RGY_ERR RGYInputAvcodec::ThreadFuncRead(RGYParamThread threadParam) {
     threadParam.apply(GetCurrentThread());
     AddMessage(RGY_LOG_DEBUG, _T("Set input thread param: %s.\n"), threadParam.desc().c_str());
     while (!m_Demux.thread.bAbortInput) {
-        AVPacket pkt;
-        if (getSample(&pkt)) {
+        auto [ret, pkt] = getSample();
+        if (ret) {
             break;
         }
-        m_Demux.qVideoPkt.push(pkt);
+        m_Demux.qVideoPkt.push(pkt.release());
     }
     return RGY_ERR_NONE;
 }

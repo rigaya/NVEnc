@@ -64,7 +64,7 @@ public:
     virtual int GetAudioTrackCount() override { return (int)m_audio.size(); };
 
     //音声・字幕パケットの配列を取得する
-    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) override;
+    virtual std::vector<AVPacket*> GetStreamDataPackets(int inputFrame) override;
 
     //音声・字幕のコーデックコンテキストを取得する
     virtual vector<AVDemuxStream> GetInputStreamInfo() override { return m_audio; };

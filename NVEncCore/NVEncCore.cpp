@@ -269,6 +269,8 @@ NVEncCore::NVEncCore() :
     m_pipelineDepth(PIPELINE_DEPTH),
     m_inputHostBuffer(),
     m_trimParam(),
+    m_poolPkt(),
+    m_poolFrame(),
     m_pFileReader(),
     m_AudioReaders(),
     m_pFileWriter(),
@@ -478,10 +480,15 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
             inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
         }
     }
+
+    m_poolPkt = std::make_unique<RGYPoolAVPacket>();
+    m_poolFrame = std::make_unique<RGYPoolAVFrame>();
+
     //入力モジュールの初期化
     if (initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
-        inputParam->vpp.rff, inputParam->vpp.afs.enable, m_qpTable.get(), m_pPerfMonitor.get(), m_pNVLog) != RGY_ERR_NONE) {
+        inputParam->vpp.rff, inputParam->vpp.afs.enable,
+        m_poolPkt.get(), m_poolFrame.get(), m_qpTable.get(), m_pPerfMonitor.get(), m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
     }
@@ -671,7 +678,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     if (initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
         m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), m_dovirpu.get(), m_encTimestamp.get(),
-        false, false, m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
+        false, false, m_poolPkt.get(), m_poolFrame.get(), m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
     }
@@ -2650,6 +2657,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->frameOut = inputFrame;
                 param->baseFps = m_encFps;
                 param->crop = inputParam->input.crop;
+                param->poolPkt = m_poolPkt.get();
                 NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
                 auto sts = filter->init(param, m_pNVLog);
                 if (sts != RGY_ERR_NONE) {
@@ -3635,7 +3643,7 @@ NVENCSTATUS NVEncCore::Encode() {
 #else
             const int droppedInAviutl = 0;
 #endif
-            vector<AVPacket> packetList = m_pFileReader->GetStreamDataPackets(inputFrames + droppedInAviutl);
+            vector<AVPacket*> packetList = m_pFileReader->GetStreamDataPackets(inputFrames + droppedInAviutl);
 
             //音声ファイルリーダーからのトラックを結合する
             for (const auto& reader : m_AudioReaders) {
@@ -3643,10 +3651,10 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
-                const int nTrackId = (int)((uint32_t)packetList[i].flags >> 16);
+                const int nTrackId = (int)((uint32_t)packetList[i]->flags >> 16);
                 const bool sendToFilter = pFilterForStreams.count(nTrackId) > 0;
                 const bool sendToWriter = pWriterForAudioStreams.count(nTrackId) > 0;
-                AVPacket *pkt = &packetList[i];
+                AVPacket *pkt = packetList[i];
                 if (sendToFilter) {
                     AVPacket *pktToFilter = nullptr;
                     if (sendToWriter) {
@@ -3678,7 +3686,7 @@ NVENCSTATUS NVEncCore::Encode() {
         return RGY_ERR_NONE;
     };
 
-    RGYQueueSPSP<RGYFrameDataHDR10plus*> queueHDR10plusMetadata;
+    RGYQueueMPMP<RGYFrameDataHDR10plus*> queueHDR10plusMetadata;
     queueHDR10plusMetadata.init(256);
     std::thread th_input;
     if (m_cuvidDec) {

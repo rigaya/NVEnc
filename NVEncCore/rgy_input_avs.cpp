@@ -282,10 +282,10 @@ RGY_ERR RGYInputAvs::InitAudio() {
     return RGY_ERR_NONE;
 }
 
-vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
+std::vector<AVPacket*> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
     UNREFERENCED_PARAMETER(inputFrame);
 
-    vector<AVPacket> pkts;
+    std::vector<AVPacket*> pkts;
     if (m_audio.size() == 0) {
         return pkts;
     }
@@ -301,23 +301,23 @@ vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
     }
 
     const int size = avs_bytes_per_channel_sample(m_sAVSinfo) * samples * m_sAVSinfo->nchannels;
-    AVPacket pkt;
-    if (av_new_packet(&pkt, size) < 0) {
+    auto pkt = m_poolPkt->getFree();
+    if (av_new_packet(pkt.get(), size) < 0) {
         return pkts;
     }
-    pkt.pts = m_audioCurrentSample;
-    pkt.dts = m_audioCurrentSample;
-    pkt.duration = samples;
-    pkt.stream_index = m_audio.begin()->index;
-    pkt.flags = (pkt.flags & 0xffff) | ((uint32_t)m_audio.begin()->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+    pkt->pts = m_audioCurrentSample;
+    pkt->dts = m_audioCurrentSample;
+    pkt->duration = samples;
+    pkt->stream_index = m_audio.begin()->index;
+    pkt->flags = (pkt->flags & 0xffff) | ((uint32_t)m_audio.begin()->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
 
-    m_sAvisynth->f_get_audio(m_sAVSclip, pkt.data, m_audioCurrentSample, samples);
+    m_sAvisynth->f_get_audio(m_sAVSclip, pkt->data, m_audioCurrentSample, samples);
     const auto avs_err = m_sAvisynth->f_clip_get_error(m_sAVSclip);
     if (avs_err) {
         AddMessage(RGY_LOG_ERROR, _T("Unknown error when reading audio frame from avisynth: %d.\n"), avs_err);
         return pkts;
     }
-    pkts.push_back(pkt);
+    pkts.push_back(pkt.release());
     m_audioCurrentSample += samples;
     return pkts;
 }

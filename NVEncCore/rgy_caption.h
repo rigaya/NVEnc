@@ -244,7 +244,7 @@ public:
     Caption2Ass();
     virtual ~Caption2Ass();
     RGY_ERR init(std::shared_ptr<RGYLog> pLog, C2AFormat format);
-    RGY_ERR proc(const uint8_t *data, const size_t data_size, std::vector<AVPacket>& subList);
+    RGY_ERR proc(const uint8_t *data, const size_t data_size, std::vector<unique_ptr_custom<AVPacket>>& subList);
     void close();
     bool enabled() const { return !!m_dll; };
     void setVidFirstKeyPts(int64_t pts) {
@@ -294,9 +294,9 @@ private:
         AddMessage(log_level, buffer);
     }
     std::vector<CAPTION_DATA> getCaptionDataList(uint8_t ucLangTag);
-    std::vector<AVPacket> genCaption(int64_t pts);
-    std::vector<AVPacket> genAss(int64_t endTime);
-    std::vector<AVPacket> genSrt(int64_t endTime);
+    std::vector<unique_ptr_custom<AVPacket>> genCaption(int64_t pts);
+    std::vector<unique_ptr_custom<AVPacket>> genAss(int64_t endTime);
+    std::vector<unique_ptr_custom<AVPacket>> genSrt(int64_t endTime);
 
     std::unique_ptr<CaptionDLL> m_dll;
     C2AFormat m_format;

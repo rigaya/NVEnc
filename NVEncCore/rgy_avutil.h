@@ -70,12 +70,80 @@ extern "C" {
 #include "rgy_log.h"
 #include "rgy_def.h"
 #include "rgy_util.h"
+#include "rgy_queue.h"
 
 #if _DEBUG
 #define RGY_AV_LOG_LEVEL AV_LOG_WARNING
 #else
 #define RGY_AV_LOG_LEVEL AV_LOG_ERROR
 #endif
+
+template<typename T>
+struct RGYAVDeleter {
+    RGYAVDeleter() : deleter(nullptr) {};
+    RGYAVDeleter(std::function<void(T**)> deleter) : deleter(deleter) {};
+    void operator()(T *p) { deleter(&p); }
+    std::function<void(T**)> deleter;
+};
+
+#define RGYPOOLAV_DEBUG 0
+#define RGYPOOLAV_COUNT 1
+
+template<typename T, T *Talloc(), void Tunref(T* ptr), void Tfree(T** ptr)>
+class RGYPoolAV {
+private:
+    RGYQueueMPMP<T*> queue;
+#if RGYPOOLAV_COUNT
+    uint64_t allocated, reused;
+#endif
+public:
+    RGYPoolAV() : queue()
+#if RGYPOOLAV_COUNT
+        , allocated(0), reused(0)
+#endif
+    { queue.init(); }
+    ~RGYPoolAV() {
+#if RGYPOOLAV_COUNT
+        fprintf(stderr, "RGYPoolAV: allocated %lld, reused %lld\n", allocated, reused);
+#endif
+        queue.close([](T **ptr) { Tfree(ptr); });
+    }
+    std::unique_ptr<T, RGYAVDeleter<T>> getUnique(T *ptr) {
+        return std::unique_ptr<T, RGYAVDeleter<T>>(ptr, RGYAVDeleter<T>([this](T **ptr) { returnFree(ptr); }));
+    }
+    std::unique_ptr<T, RGYAVDeleter<T>> getFree() {
+#if RGYPOOLAV_DEBUG
+        T *ptr = Talloc();
+#else
+        T *ptr = nullptr;
+        if (!queue.front_copy_and_pop_no_lock(&ptr) || ptr == nullptr) {
+            ptr = Talloc();
+#if RGYPOOLAV_COUNT
+            allocated++;
+#endif
+        }
+#if RGYPOOLAV_COUNT
+        else {
+            reused++;
+        }
+#endif
+#endif
+        return getUnique(ptr);
+    }
+    void returnFree(T **ptr) {
+        if (ptr == nullptr || *ptr == nullptr) return;
+#if RGYPOOLAV_DEBUG
+        Tfree(ptr);
+#else
+        Tunref(*ptr);
+        queue.push(*ptr);
+        *ptr = nullptr;
+#endif
+    }
+};
+
+using RGYPoolAVPacket = RGYPoolAV<AVPacket, av_packet_alloc, av_packet_unref, av_packet_free>;
+using RGYPoolAVFrame = RGYPoolAV<AVFrame, av_frame_alloc, av_frame_unref, av_frame_free>;
 
 typedef struct CodecMap {
     AVCodecID avcodec_id;   //avcodecのコーデックID
@@ -169,14 +237,6 @@ static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
 static const AVRational HW_NATIVE_TIMEBASE = { 1, (int)HW_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
     _T("avcodec-59.dll"), _T("avformat-59.dll"), _T("avutil-57.dll"), _T("avfilter-8.dll"), _T("swresample-4.dll")
-};
-
-template<typename T>
-struct RGYAVDeleter {
-    RGYAVDeleter() : deleter(nullptr) {};
-    RGYAVDeleter(std::function<void(T**)> deleter) : deleter(deleter) {};
-    void operator()(T *p) { deleter(&p); }
-    std::function<void(T**)> deleter;
 };
 
 enum RGYAVCodecType : uint32_t {

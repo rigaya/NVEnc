@@ -64,9 +64,10 @@ public:
     VideoInfo       videoInfo;
     AVDemuxStream   streamIn;
     sInputCrop      crop;
+    RGYPoolAVPacket *poolPkt;
     std::vector<const AVStream *> attachmentStreams;
 
-    NVEncFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), attachmentStreams() {};
+    NVEncFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams() {};
     virtual ~NVEncFilterParamSubburn() {};
     virtual tstring print() const override;
 };
@@ -107,7 +108,8 @@ protected:
 
     unique_ptr<NVEncFilterResize> m_resize;
 
-    RGYQueueSPSP<AVPacket> m_queueSubPackets; //入力から得られた字幕パケット
+    RGYPoolAVPacket *m_poolPkt;
+    RGYQueueMPMP<AVPacket*> m_queueSubPackets; //入力から得られた字幕パケット
 };
 
 #endif //#if ENABLE_AVSW_READER

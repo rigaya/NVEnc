@@ -67,7 +67,7 @@ typedef struct AVDemuxStream {
     int64_t                   trimOffset;             //trimによる補正量 (stream timebase基準)
     int64_t                   aud0_fin;               //直前に有効だったパケットのpts(stream timebase基準)
     int                       appliedTrimBlock;       //trim blockをどこまで適用したか
-    AVPacket                  pktSample;              //サンプル用の音声・字幕データ
+    AVPacket                 *pktSample;              //サンプル用の音声・字幕データ
     uint64_t                  streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
     uint64_t                  streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
     AVRational                timebase;               //streamのtimebase [stream = nullptrの場合でも使えるように]
@@ -135,8 +135,10 @@ public:
     int threadCsp;
     RGY_SIMD simdCsp;
     RGYParamThread threadParamCsp;
+    RGYPoolAVPacket *poolPkt;
+    RGYPoolAVFrame *poolFrame;
 
-    RGYInputPrm() : threadCsp(-1), simdCsp(RGY_SIMD::NONE), threadParamCsp() {};
+    RGYInputPrm() : threadCsp(-1), simdCsp(RGY_SIMD::NONE), threadParamCsp(), poolPkt(nullptr), poolFrame(nullptr) {};
     virtual ~RGYInputPrm() {};
 };
 
@@ -149,6 +151,8 @@ public:
         Close();
         m_printMes = log;
         m_encSatusInfo = encSatusInfo;
+        m_poolPkt = prm->poolPkt;
+        m_poolFrame = prm->poolFrame;
         return Init(strFileName, inputInfo, prm);
     };
 
@@ -199,8 +203,8 @@ public:
 #pragma warning(push)
 #pragma warning(disable: 4100)
     //音声・字幕パケットの配列を取得する
-    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) {
-        return vector<AVPacket>();
+    virtual std::vector<AVPacket*> GetStreamDataPackets(int inputFrame) {
+        return std::vector<AVPacket*>();
     }
 
     //音声・字幕のコーデックコンテキストを取得する
@@ -281,6 +285,8 @@ protected:
     tstring m_readerName;    //読み込みの名前
 
     sTrimParam m_trimParam;
+    RGYPoolAVPacket *m_poolPkt; //AVPacketのpool
+    RGYPoolAVFrame *m_poolFrame; //AVFrameのpool
 };
 
 RGY_ERR initReaders(
@@ -295,6 +301,8 @@ RGY_ERR initReaders(
     const int subburnTrackId,
     const bool vpp_afs,
     const bool vpp_rff,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     RGYListRef<RGYFrameDataQP> *qpTableListRef,
     CPerfMonitor *perfMonitor,
     shared_ptr<RGYLog> log

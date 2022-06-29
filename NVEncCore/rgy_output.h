@@ -266,6 +266,8 @@ RGY_ERR initWriters(
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
     const bool benchmark,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,
     shared_ptr<CPerfMonitor> pPerfMonitor,
     shared_ptr<RGYLog> log

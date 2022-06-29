@@ -722,6 +722,8 @@ RGY_ERR initWriters(
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
     const bool benchmark,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,
     shared_ptr<CPerfMonitor> pPerfMonitor,
     shared_ptr<RGYLog> log
@@ -793,6 +795,8 @@ RGY_ERR initWriters(
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
         writerPrm.muxOpt                  = common->muxOpt;
+        writerPrm.poolPkt                 = poolPkt;
+        writerPrm.poolFrame               = poolFrame;
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.inputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
@@ -1152,6 +1156,8 @@ RGY_ERR initWriters(
                 writerAudioPrm.videoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.videoInputStream = pAVCodecReader->GetInputVideoStream();
                 writerAudioPrm.bitstreamTimebase = av_make_q(outputTimebase);
+                writerAudioPrm.poolPkt = poolPkt;
+                writerAudioPrm.poolFrame = poolFrame;
 
                 shared_ptr<RGYOutput> pWriter = std::make_shared<RGYOutputAvcodec>();
                 auto sts = pWriter->Init(pAudioSelect->extractFilename.c_str(), nullptr, &writerAudioPrm, log, pStatus);
