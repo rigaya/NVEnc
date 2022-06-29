@@ -1081,7 +1081,7 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
         return RGY_ERR_UNSUPPORTED;
     }
 
-    std::unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> frameDec(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
+    auto frameDec = m_poolFrame->getFree();
     bool got_frame = false;
     for (uint32_t i = 0; i < m_Demux.qVideoPkt.size() && !got_frame; i++) {
         AVPacket *pkt = m_Demux.qVideoPkt.get(i)->data;

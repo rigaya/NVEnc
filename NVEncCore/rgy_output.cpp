@@ -117,6 +117,7 @@ RGYOutputRaw::RGYOutputRaw() :
     m_prevInputFrameId(-1),
 #if ENABLE_AVSW_READER
     m_pBsfc(),
+    m_pkt(),
 #endif //#if ENABLE_AVSW_READER
     parse_nal_h264(get_parse_nal_unit_h264_func()),
     parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
@@ -127,6 +128,7 @@ RGYOutputRaw::RGYOutputRaw() :
 RGYOutputRaw::~RGYOutputRaw() {
 #if ENABLE_AVSW_READER
     m_pBsfc.reset();
+    m_pkt.reset();
 #endif //#if ENABLE_AVSW_READER
 }
 
@@ -280,6 +282,8 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                 return RGY_ERR_UNKNOWN;
             }
             AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_tname.c_str());
+
+            m_pkt = std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>(av_packet_alloc(), RGYAVDeleter<AVPacket>(av_packet_free));
         }
 #endif //#if ENABLE_AVSW_READER
         if (rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->hedrsei != nullptr) {
@@ -315,29 +319,28 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             }
             auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             if (sps_nal != nal_list.end()) {
-                AVPacket pkt = { 0 };
-                av_init_packet(&pkt);
-                av_new_packet(&pkt, (int)sps_nal->size);
-                memcpy(pkt.data, sps_nal->ptr, sps_nal->size);
+                AVPacket *pkt = m_pkt.get();
+                av_new_packet(pkt, (int)sps_nal->size);
+                memcpy(pkt->data, sps_nal->ptr, sps_nal->size);
                 int ret = 0;
-                if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), &pkt))) {
-                    av_packet_unref(&pkt);
+                if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), pkt))) {
+                    av_packet_unref(pkt);
                     AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
                         char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
-                ret = av_bsf_receive_packet(m_pBsfc.get(), &pkt);
+                ret = av_bsf_receive_packet(m_pBsfc.get(), pkt);
                 if (ret == AVERROR(EAGAIN)) {
                     return RGY_ERR_NONE;
-                } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
+                } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
                         char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
-                const auto new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
+                const auto new_data_size = pBitstream->size() + pkt->size - sps_nal->size;
                 const auto sps_nal_offset = sps_nal->ptr - pBitstream->data();
                 const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-                const auto next_nal_new_offset = sps_nal_offset + pkt.size;
+                const auto next_nal_new_offset = sps_nal_offset + pkt->size;
                 const auto stream_orig_length = pBitstream->size();
                 if ((decltype(new_data_size))pBitstream->bufsize() < new_data_size) {
 #if ENCODER_QSV
@@ -349,13 +352,13 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                     pBitstream->release();
                     pBitstream->ref(m_outputBuf2.data(), m_outputBuf2.size());
 #endif
-                } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
+                } else if (pkt->size > (decltype(pkt->size))sps_nal->size) {
                     pBitstream->trim();
                 }
                 memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-                memcpy(pBitstream->data() + sps_nal_offset, pkt.data, pkt.size);
+                memcpy(pBitstream->data() + sps_nal_offset, pkt->data, pkt->size);
                 pBitstream->setSize(new_data_size);
-                av_packet_unref(&pkt);
+                av_packet_unref(pkt);
             }
         }
 #endif //#if ENABLE_AVSW_READER

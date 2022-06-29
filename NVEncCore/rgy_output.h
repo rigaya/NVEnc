@@ -239,7 +239,8 @@ protected:
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
 #if ENABLE_AVSW_READER
-    unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
+    std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
+    std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> m_pkt;
 #endif //#if ENABLE_AVSW_READER
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ

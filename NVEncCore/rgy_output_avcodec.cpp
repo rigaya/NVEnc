@@ -2756,7 +2756,7 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
             AddMessage(RGY_LOG_ERROR, _T("failed to send packet to audio decoder: %s.\n"), qsv_av_err2str(send_ret).c_str());
             muxAudio->decodeError++;
         } else {
-            receivedData = unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
+            receivedData = m_Mux.poolFrame->getFree();
             recv_ret = avcodec_receive_frame(muxAudio->outCodecDecodeCtx, receivedData.get());
             if (recv_ret == AVERROR(EAGAIN)   //もっとパケットを送る必要がある
                 || recv_ret == AVERROR_EOF) { //最後まで読み込んだ
@@ -2842,7 +2842,7 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
             { //フィルターチェーンにフレームを追加
                 auto ret = av_buffersrc_add_frame_flags(muxAudio->filterBufferSrcCtx, pktData.frame, AV_BUFFERSRC_FLAG_PUSH);
                 // AVFrame構造体の破棄
-                av_frame_free(&pktData.frame);
+                m_Mux.poolFrame->returnFree(&pktData.frame);
                 if (ret < 0) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to feed the audio filtergraph\n"));
                     m_Mux.format.streamError = true;
@@ -2850,7 +2850,7 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
                 }
             }
             for (;;) {
-                unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> filteredFrame(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
+                auto filteredFrame = m_Mux.poolFrame->getFree();
                 auto ret = av_buffersink_get_frame_flags(muxAudio->filterBufferSinkCtx, filteredFrame.get(), (flush) ? AV_BUFFERSINK_FLAG_NO_REQUEST : 0);
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                     break;
@@ -3272,19 +3272,19 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
         vector<AVPktMuxData> audioFrames;
         if (bSetSilenceDueToAACBsfError) {
             //無音挿入
-            AVFrame *silentFrame        = av_frame_alloc();
+            auto silentFrame = m_Mux.poolFrame->getFree();
             silentFrame->nb_samples     = nSamples;
             silentFrame->channels       = muxAudio->outCodecDecodeCtx->channels;
             silentFrame->channel_layout = muxAudio->outCodecDecodeCtx->channel_layout;
             silentFrame->sample_rate    = muxAudio->outCodecDecodeCtx->sample_rate;
             silentFrame->format         = muxAudio->outCodecDecodeCtx->sample_fmt;
             silentFrame->pts            = pktData->pkt->pts;
-            av_frame_get_buffer(silentFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+            av_frame_get_buffer(silentFrame.get(), 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
             av_samples_set_silence((uint8_t **)silentFrame->data, 0, silentFrame->nb_samples, silentFrame->channels, (AVSampleFormat)silentFrame->format);
 
             AVPktMuxData silentPkt = *pktData;
             silentPkt.type = MUX_DATA_TYPE_FRAME;
-            silentPkt.frame = silentFrame;
+            silentPkt.frame = silentFrame.release();
             silentPkt.got_result = silentFrame && silentFrame->nb_samples > 0;
             audioFrames.push_back(silentPkt);
         } else {
@@ -3358,7 +3358,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextAudioFrame(AVPktMuxData *pktData) {
         return RGY_ERR_UNSUPPORTED;
     }
     auto encPktDatas = AudioEncodeFrame(pktData->muxAudio, pktData->frame);
-    av_frame_free(&pktData->frame);
+    m_Mux.poolFrame->returnFree(&pktData->frame);
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     if (m_Mux.thread.thAudProcess.joinable()) {
         for (auto& pktMux : encPktDatas) {
