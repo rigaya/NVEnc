@@ -87,7 +87,7 @@ struct RGYAVDeleter {
 };
 
 #define RGYPOOLAV_DEBUG 0
-#define RGYPOOLAV_COUNT 1
+#define RGYPOOLAV_COUNT 0
 
 template<typename T, T *Talloc(), void Tunref(T* ptr), void Tfree(T** ptr)>
 class RGYPoolAV {
