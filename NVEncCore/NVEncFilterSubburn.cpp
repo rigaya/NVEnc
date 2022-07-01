@@ -397,7 +397,7 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
     if (sar.num * sar.den > 0) {
         par = (double)sar.num / sar.den;
     }
-    ass_set_aspect_ratio(m_assRenderer.get(), 1, par);
+    ass_set_pixel_aspect(m_assRenderer.get(), par);
 
     if (m_outCodecDecodeCtx && m_outCodecDecodeCtx->subtitle_header && m_outCodecDecodeCtx->subtitle_header_size > 0) {
         ass_process_codec_private(m_assTrack.get(), (char *)m_outCodecDecodeCtx->subtitle_header, m_outCodecDecodeCtx->subtitle_header_size);
