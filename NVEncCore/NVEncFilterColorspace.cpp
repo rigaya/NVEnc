@@ -685,10 +685,10 @@ RGY_ERR ColorspaceOpLUT3D::parseCube(std::vector<uint8_t>& additionalParams) {
         if (buffer[0] == '\n') continue;
         if (m_tableSize01 > 0
             && sscanf_s(buffer, "%f %f %f", &value.x, &value.y, &value.z) == 3) {
-            const size_t b = tableidx / m_tableSize01;
-            const size_t g = (tableidx - m_tableSize01 * b) / m_tableSize0;
-            const size_t r = tableidx - m_tableSize01 * b - m_tableSize0 * g;
-            if (b >= m_tableSize0 || g >= m_tableSize0 || r >= m_tableSize0) {
+            const auto b = tableidx / m_tableSize01;
+            const auto g = (tableidx - m_tableSize01 * b) / m_tableSize0;
+            const auto r = tableidx - m_tableSize01 * b - m_tableSize0 * g;
+            if (b >= (size_t)m_tableSize0 || g >= (size_t)m_tableSize0 || r >= (size_t)m_tableSize0) {
                 return RGY_ERR_INVALID_DATA_TYPE;
             }
             luttable[r * m_tableSize01 + g * m_tableSize0 + b] = value;

@@ -3589,7 +3589,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (rgy_lang_exist(tempc)) {
                         trackId = TRACK_SELECT_BY_LANG;
                         lang = tempc;
-                    } else if (avcodec_exists(tempc), AVMEDIA_TYPE_DATA) {
+                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_DATA)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
                     }
@@ -4131,7 +4131,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         auto track = std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str));
                         trackSet[track].trackID = TRACK_SELECT_BY_LANG;
                         trackSet[track].lang = tchar_to_string(str);
-                    } else if (avcodec_exists(tchar_to_string(str)), AVMEDIA_TYPE_DATA) {
+                    } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_DATA)) {
                         auto track = std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str));
                         trackSet[track].trackID = TRACK_SELECT_BY_CODEC;
                         trackSet[track].selectCodec = tchar_to_string(str);

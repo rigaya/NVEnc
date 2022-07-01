@@ -2391,7 +2391,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
                 bitstream->append(nal_list[i].ptr, nal_list[i].size);
                 if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
                     if (!seiWritten
-                        && i + 1 < nal_list.size()
+                        && i + 1 < (int)nal_list.size()
                         && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
                         bitstream->append(&m_Mux.video.seiNal);
                         seiWritten = true;
