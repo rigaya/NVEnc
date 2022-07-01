@@ -410,7 +410,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
             tmpBuf.resize(input->codecExtraSize);
             memcpy(tmpBuf.data(), input->codecExtra, tmpBuf.size());
         }
-        m_videoFormatEx.format.seqhdr_data_length = std::min<uint32_t>(tmpBuf.size(), sizeof(m_videoFormatEx.raw_seqhdr_data));
+        m_videoFormatEx.format.seqhdr_data_length = (decltype(m_videoFormatEx.format.seqhdr_data_length))std::min(tmpBuf.size(), sizeof(m_videoFormatEx.raw_seqhdr_data));
         memcpy(m_videoFormatEx.raw_seqhdr_data, tmpBuf.data(), m_videoFormatEx.format.seqhdr_data_length);
     }
     if (!av_isvalid_q(streamtimebase)) {

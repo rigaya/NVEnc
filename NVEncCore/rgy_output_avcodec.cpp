@@ -1471,7 +1471,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
 
     auto copy_subtitle_header = [](AVCodecContext *dstCtx, const uint8_t *header, const size_t header_size) {
         if (header) {
-            dstCtx->subtitle_header_size = header_size;
+            dstCtx->subtitle_header_size = (decltype(dstCtx->subtitle_header_size))header_size;
             dstCtx->subtitle_header = (uint8_t *)av_mallocz(header_size + AV_INPUT_BUFFER_PADDING_SIZE);
             memcpy(dstCtx->subtitle_header, header, header_size);
         }

@@ -1232,6 +1232,8 @@ RGYFrameDataDOVIRpu *RGYInputAvcodec::getDoviRpu(const AVFrame *frame) {
     if (side_data) {
         return new RGYFrameDataDOVIRpu(side_data->data, side_data->size, frame->pts);
     }
+#else
+    UNREFERENCED_PARAMETER(frame);
 #endif
     return nullptr;
 }
@@ -2260,7 +2262,6 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
     const auto frame_is_in_range = frame_inside_range(stream->lastVidIndex,     m_trimParam.list);
     const auto next_is_in_range  = frame_inside_range(stream->lastVidIndex + 1, m_trimParam.list);
     const auto frame_trim_block_index = frame_is_in_range.second;
-    const auto next_trim_block_index  = next_is_in_range.second;
 
     bool result = true; //動画に含まれる音声かどうか
 

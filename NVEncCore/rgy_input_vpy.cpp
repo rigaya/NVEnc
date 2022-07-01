@@ -209,7 +209,13 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     if (m_sVSapi->getCoreInfo2) {
         m_sVSapi->getCoreInfo2(m_sVS.getCore(m_sVSscript), &vscoreinfo);
     } else {
+        #pragma warning(push)
+        #pragma warning(disable:4996) //warning C4996: 'VSAPI::getCoreInfo': getCoreInfo has been deprecated as of api 3.6, use getCoreInfo2 instead
+        RGY_DISABLE_WARNING_PUSH
+        RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
         auto infoptr = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript));
+        RGY_DISABLE_WARNING_POP
+        #pragma warning(pop)
         if (!infoptr) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get VapourSynth core info.\n"));
             return RGY_ERR_NULL_PTR;

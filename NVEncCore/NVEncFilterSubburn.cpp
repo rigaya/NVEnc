@@ -610,7 +610,7 @@ RGY_ERR NVEncFilterSubburn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if ((sts = procFrame(ppOutputFrames[0], cudaStreamDefault)) != RGY_ERR_NONE) {
+    if ((sts = procFrame(ppOutputFrames[0], stream)) != RGY_ERR_NONE) {
         return sts;
     }
 

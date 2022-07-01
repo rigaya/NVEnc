@@ -106,7 +106,8 @@ int get_hevc_max_bitrate(int level, bool high_tier) {
     if (level_idx == _countof(HEVC_LEVEL_INDEX)) {
         level_idx = 0;
     }
-    return (level_idx > 0 && HEVC_LEVEL_LIMITS[level_idx][1] > 0) ? HEVC_LEVEL_LIMITS[level_idx][(high_tier) ? COLUMN_MAX_BITRATE_HIGH : COLUMN_MAX_BITRATE_MAIN] : 0;
+    auto bitrate = (level_idx > 0 && HEVC_LEVEL_LIMITS[level_idx][1] > 0) ? HEVC_LEVEL_LIMITS[level_idx][(high_tier) ? COLUMN_MAX_BITRATE_HIGH : COLUMN_MAX_BITRATE_MAIN] : 0;
+    return (int)bitrate;
 }
 
 bool is_avail_hevc_high_tier(int level) {

@@ -34,7 +34,6 @@ RGYFrameDataQP::RGYFrameDataQP() :
 #if !FOR_AUO && ENCODER_NVENC
     m_qpDev(),
     m_event(std::unique_ptr<cudaEvent_t, cudaevent_deleter>(nullptr, cudaevent_deleter())),
-    m_stream(std::unique_ptr<cudaStream_t, cudastream_deleter>(nullptr, cudastream_deleter())),
 #endif //#if !FOR_AUO && ENCODER_NVENC
     m_qpHost() {
     m_dataType = RGY_FRAME_DATA_QP;
@@ -92,13 +91,6 @@ RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
     if (!m_qpDev) {
         m_qpDev = std::make_unique<CUFrameBuf>(m_qpHost.width, m_qpHost.height, m_qpHost.csp);
     }
-    if (!m_stream) {
-        m_stream = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-        auto cudaerr = cudaStreamCreateWithFlags(m_stream.get(), cudaStreamNonBlocking);
-        if (cudaerr != cudaSuccess) {
-            return RGY_ERR_CUDA;
-        }
-    }
     if (!m_event) {
         m_event = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         auto cudaerr = cudaEventCreate(m_event.get());
@@ -106,11 +98,11 @@ RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
             return RGY_ERR_CUDA;
         }
     }
-    auto cudaerr = copyFrameDataAsync(&m_qpDev->frame, &m_qpHost, *m_stream.get());
+    auto cudaerr = copyFrameDataAsync(&m_qpDev->frame, &m_qpHost, stream);
     if (cudaerr != cudaSuccess) {
         return RGY_ERR_MEMORY_ALLOC;
     }
-    cudaerr = cudaEventRecord(*m_event.get(), *m_stream.get());
+    cudaerr = cudaEventRecord(*m_event.get(), stream);
     if (cudaerr != cudaSuccess) {
         return RGY_ERR_CUDA;
     }

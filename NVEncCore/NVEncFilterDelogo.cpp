@@ -316,7 +316,7 @@ int NVEncFilterDelogo::selectLogo(const tstring& selectStr, const tstring& input
     }
     //自動選択キー
 #if (defined(_WIN32) || defined(_WIN64))
-    uint32_t codepage = CP_THREAD_ACP;
+    [[maybe_unused]] uint32_t codepage = CP_THREAD_ACP;
 #else
     uint32_t codepage = CODE_PAGE_UNSET;
 #endif

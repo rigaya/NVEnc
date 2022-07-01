@@ -78,7 +78,6 @@ protected:
 #if !FOR_AUO && ENCODER_NVENC
     std::unique_ptr<CUFrameBuf> m_qpDev;
     std::unique_ptr<cudaEvent_t, cudaevent_deleter> m_event;
-    std::unique_ptr<cudaStream_t, cudastream_deleter> m_stream;
 #endif //#if !FOR_AUO && ENCODER_NVENC
     RGYFrameInfo m_qpHost;
 };

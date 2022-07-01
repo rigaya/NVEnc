@@ -374,7 +374,7 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue,
     print_cmd_error_invalid_value(strOptionName, strErrorValue, cx_codec_list_ptr);
 }
 
-int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, int nArgNum, VppParam* vppnv, sArgsData* argData) {
+int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, [[maybe_unused]] int nArgNum, VppParam* vppnv, [[maybe_unused]] sArgsData* argData) {
     if (IS_OPTION("vpp-deinterlace")) {
         i++;
         int value = 0;

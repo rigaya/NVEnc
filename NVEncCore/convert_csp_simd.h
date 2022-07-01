@@ -379,7 +379,6 @@ static void RGY_FORCEINLINE convert_yuv422_to_nv16_simd(void **dst, const void *
     uint8_t *srcULine = (uint8_t *)src[1] + ((src_uv_pitch_byte * y_range.start_src) + (crop_left >> 1));
     uint8_t *srcVLine = (uint8_t *)src[2] + ((src_uv_pitch_byte * y_range.start_src) + (crop_left >> 1));
     dstLine = (uint8_t *)dst[1] + dst_y_pitch_byte * y_range.start_dst;
-    const int uv_fin = height - crop_bottom;
     for (int y = 0; y < y_range.len; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
         const int x_fin = width - crop_right;
         uint8_t *src_u_ptr = srcULine;

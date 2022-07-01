@@ -292,7 +292,6 @@ static void RGY_FORCEINLINE convert_yv12_to_nv12_avx2_base(void **dst, const voi
         const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
         uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left;
         uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
-        const int y_fin = height - crop_bottom;
         const int y_width = width - crop_right - crop_left;
         for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
             avx2_memcpy<false>(dstLine, srcYLine, y_width);
@@ -654,9 +653,7 @@ void convert_yv12_09_to_nv12_avx2(void **dst, const void **src, int width, int s
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth>
 void RGY_FORCEINLINE copy_y_plane(void *dst, int dst_y_pitch_byte, const void*src, int src_y_pitch_byte, const int width, const int* crop, const THREAD_Y_RANGE& y_range) {
     const int crop_left   = crop[0];
-    const int crop_up     = crop[1];
     const int crop_right  = crop[2];
-    const int crop_bottom = crop[3];
     const int src_y_pitch = src_y_pitch_byte / sizeof(Tin);
     const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
     const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
@@ -731,7 +728,6 @@ void RGY_FORCEINLINE convert_yuv444_to_nv12_p_avx2_base(void** dst, const void**
     const int crop_up = crop[1];
     const int crop_right = crop[2];
     const int crop_bottom = crop[3];
-    const int src_y_pitch = src_y_pitch_byte / sizeof(Tin);
     const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
     const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());

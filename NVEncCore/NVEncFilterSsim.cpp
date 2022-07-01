@@ -278,7 +278,7 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
     auto side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_data_size);
     if (side_data) {
         prm->input.codecExtra = malloc(side_data_size);
-        prm->input.codecExtraSize = side_data_size;
+        prm->input.codecExtraSize = (decltype(prm->input.codecExtraSize))side_data_size;
         memcpy(prm->input.codecExtra, side_data, side_data_size);
         AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str(), side_data_size);
     }

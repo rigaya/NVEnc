@@ -755,7 +755,7 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (interlaced(*pInputFrame)) {
-        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
+        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
@@ -796,7 +796,7 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pResizeParam->interp, (float *)m_weightSpline.ptr, cudaStreamDefault);
+        resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pResizeParam->interp, (float *)m_weightSpline.ptr, stream);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),

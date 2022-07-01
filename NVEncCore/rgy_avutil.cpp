@@ -497,7 +497,6 @@ tstring getAVVersions() {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
-    const uint32_t ver = avutil_version();
     auto ver2str = [](uint32_t ver) {
         return strsprintf("%3d.%3d.%4d", (ver >> 16) & 0xff, (ver >> 8) & 0xff, ver & 0xff);
     };

@@ -310,7 +310,6 @@ void convert_yv12_to_nv12_c(void **dst, const void **src, int width, int src_y_p
         const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
         uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left;
         uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
-        const int y_fin = height - crop_bottom;
         const int y_width = width - crop_right - crop_left;
         for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
             memcpy(dstLine, srcYLine, y_width);
@@ -611,7 +610,6 @@ static void RGY_FORCEINLINE convert_yuv444_to_nv12_i_c(void **dst, const void **
     Tin *srcULine = (Tin *)src[1] + ((src_uv_pitch * y_range.start_src) + crop_left);
     Tin *srcVLine = (Tin *)src[2] + ((src_uv_pitch * y_range.start_src) + crop_left);
     Tout *dstLine = (Tout *)dst[1] + (dst_y_pitch >> 1) * y_range.start_dst;
-    const int uv_fin = height - crop_bottom - crop_up;
     for (int y = 0; y < y_range.len; y += 4, srcULine += src_uv_pitch * 4, srcVLine += src_uv_pitch * 4, dstLine += dst_y_pitch * 2) {
         Tout *dstC = dstLine;
         Tin *srcU = srcULine;
@@ -915,7 +913,6 @@ static void convert_yuv422_to_nv16_c(void **dst, const void **src, int width, in
     uint8_t *srcULine = (uint8_t *)src[1] + ((src_uv_pitch_byte * y_range.start_src) + (crop_left >> 1));
     uint8_t *srcVLine = (uint8_t *)src[2] + ((src_uv_pitch_byte * y_range.start_src) + (crop_left >> 1));
     dstLine = (uint8_t *)dst[1] + dst_y_pitch_byte * y_range.start_dst;
-    const int uv_fin = height - crop_bottom;
     for (int y = 0; y < y_range.len; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
         const int x_fin = (width - crop_right - crop_left) >> 1;
         uint8_t *src_u_ptr = srcULine;
@@ -1091,7 +1088,6 @@ void convert_yuv444_09_to_yuv444_16_c(void **dst, const void **src, int width, i
 }
 
 void convert_yuv444_to_yuv444_16_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
-    const int in_bit_depth = 8;
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -1241,7 +1237,6 @@ static void convert_yuy2_to_yuv444(void **dst, const void **src, int width, int 
     uint8_t *dstYLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
     uint8_t *dstULine = (uint8_t *)dst[1] + dst_y_pitch_byte * y_range.start_dst;
     uint8_t *dstVLine = (uint8_t *)dst[2] + dst_y_pitch_byte * y_range.start_dst;
-    const int y_width = width - crop_right - crop_left;
     for (int y = 0; y < y_range.len; y++, srcLine += src_y_pitch_byte, dstYLine += dst_y_pitch_byte, dstULine += dst_y_pitch_byte, dstVLine += dst_y_pitch_byte) {
         uint8_t *srcP = srcLine;
         uint8_t *dstY = dstYLine;
@@ -1280,7 +1275,6 @@ static void RGY_FORCEINLINE convert_yv12_p_to_yuv444_c(void **dst, const void **
     if (!uv_only) {
         Tin *srcYLine = (Tin *)src[0] + src_y_pitch * y_range.start_src + crop_left;
         Tout *dstLine = (Tout *)dst[0] + dst_y_pitch * y_range.start_dst;
-        const int y_fin = height - crop_bottom;
         const int y_width = width - crop_right - crop_left;
         for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
             if (in_bit_depth == out_bit_depth && sizeof(Tin) == sizeof(Tout)) {
@@ -1578,7 +1572,6 @@ static void convert_yv12_to_p010_c(void **dst, const void **src, int width, int 
     uint8_t *srcULine = (uint8_t *)src[1] + ((src_uv_pitch_byte * uv_range.start_src) + (crop_left >> 1));
     uint8_t *srcVLine = (uint8_t *)src[2] + ((src_uv_pitch_byte * uv_range.start_src) + (crop_left >> 1));
     uint8_t *dstLine  = (uint8_t *)dst[1] + dst_y_pitch_byte * uv_range.start_dst;
-    const int uv_fin = (height - crop_bottom) >> 1;
     for (int y = 0; y < uv_range.len; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
         const int x_fin = width - crop_right;
         uint8_t *src_u_ptr = srcULine;
