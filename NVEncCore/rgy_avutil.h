@@ -94,7 +94,7 @@ class RGYPoolAV {
 private:
     RGYQueueMPMP<T*> queue;
 #if RGYPOOLAV_COUNT
-    uint64_t allocated, reused;
+    std::atomic<uint64_t> allocated, reused;
 #endif
 public:
     RGYPoolAV() : queue()
