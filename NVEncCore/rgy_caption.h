@@ -69,7 +69,10 @@ static const CX_DESC list_caption2ass_hlc[] ={
 
 #if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))
 
+#pragma warning(push)
+#pragma warning(disable: 4010) //C4010: single-line comment contains line-continuation character
 #include "Caption.h"
+#pragma warning(pop)
 
 #define CAPTIONF(x) \
     private: \
