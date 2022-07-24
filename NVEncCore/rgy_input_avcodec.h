@@ -705,6 +705,7 @@ typedef struct AVDemuxVideo {
     AVFrame                  *frame;                 //動画デコード用のフレーム
     int                       index;                 //動画のストリームID
     int64_t                   streamFirstKeyPts;     //動画ファイルの最初のpts
+    AVPacket                 *firstPkt;              //動画の最初のpacket
     uint32_t                  streamPtsInvalid;      //動画ファイルのptsが無効 (H.264/ES, 等)
     int                       RFFEstimate;           //動画がRFFの可能性がある
     bool                      gotFirstKeyframe;      //動画の最初のキーフレームを取得済み

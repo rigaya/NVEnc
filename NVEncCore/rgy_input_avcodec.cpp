@@ -213,6 +213,11 @@ void RGYInputAvcodec::CloseVideo(AVDemuxVideo *video) {
         av_frame_free(&video->frame);
         AddMessage(RGY_LOG_DEBUG, _T("Freed video frame.\n"));
     }
+    if (video->firstPkt) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free first video packet...\n"));
+        av_packet_free(&video->firstPkt);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed first video packet.\n"));
+    }
 
     if (video->extradata) {
         AddMessage(RGY_LOG_DEBUG, _T("Free extra data...\n"));
@@ -2450,6 +2455,7 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
                         }
                         m_Demux.video.streamFirstKeyPts = 0;
                     }
+                    m_Demux.video.firstPkt = av_packet_clone(pkt.get());
                     m_Demux.video.gotFirstKeyframe = true;
                     //キーフレームに到達するまでQSVではフレームが出てこない
                     //そのため、getSampleでも最初のキーフレームを取得するまでパケットを出力しない
@@ -2754,6 +2760,13 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
         //ヘッダのデータをコピーしておく
         memcpy(m_Demux.video.extradata, m_Demux.video.stream->codecpar->extradata, m_Demux.video.extradataSize);
         memset(m_Demux.video.extradata + m_Demux.video.extradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+        if (m_printMes != nullptr && RGY_LOG_DEBUG >= m_printMes->getLogLevel(RGY_LOGT_IN)) {
+            tstring header_str;
+            for (int i = 0; i < m_Demux.video.extradataSize; i++) {
+                header_str += strsprintf(_T("%02x "), m_Demux.video.extradata[i]);
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("GetHeader extradata(%d): %s\n"), m_Demux.video.extradataSize, header_str.c_str());
+        }
 
         if (m_Demux.video.bUseHEVCmp42AnnexB) {
             hevcMp42Annexb(nullptr);
@@ -2779,7 +2792,33 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
             return RGY_ERR_MORE_DATA;
         }
     }
+    if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_AV1
+        && m_Demux.video.extradataSize > 0
+        && m_Demux.video.firstPkt) {
+        const int max_check_len = std::min(8, m_Demux.video.extradataSize - 8);
+        if (m_Demux.video.firstPkt->size > m_Demux.video.extradataSize - max_check_len) {
+            //mp4に入っているAV1等の場合、先頭に余計なbyteがあることがあるので、最初のパケットと照らし合わせて不要なら取り除く
+            for (int i = 1; i <= max_check_len; i++) {
+                if (m_Demux.video.extradataSize - i < m_Demux.video.firstPkt->size) {
+                    if (memcmp(m_Demux.video.extradata + i, m_Demux.video.firstPkt->data, m_Demux.video.extradataSize - i) == 0) {
+                        const int remove_bytes = i;
+                        AddMessage(RGY_LOG_DEBUG, _T("GetHeader remove bytes: %d (size: %d -> %d)\n"), remove_bytes, m_Demux.video.extradataSize, m_Demux.video.extradataSize - remove_bytes);
+                        m_Demux.video.extradataSize -= remove_bytes;
+                        memmove(m_Demux.video.extradata, m_Demux.video.extradata + remove_bytes, m_Demux.video.extradataSize);
+                        break;
+                    }
+                }
+            }
+        }
+    }
     pBitstream->copy(m_Demux.video.extradata, m_Demux.video.extradataSize);
+    if (m_Demux.video.extradataSize && m_printMes != nullptr && RGY_LOG_DEBUG >= m_printMes->getLogLevel(RGY_LOGT_IN)) {
+        tstring header_str;
+        for (int i = 0; i < m_Demux.video.extradataSize; i++) {
+            header_str += strsprintf(_T("%02x "), m_Demux.video.extradata[i]);
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("GetHeader(%d): %s\n"), m_Demux.video.extradataSize, header_str.c_str());
+    }
     return RGY_ERR_NONE;
 }
 
