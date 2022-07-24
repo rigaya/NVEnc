@@ -331,6 +331,8 @@ tstring getDispositionStr(uint32_t disposition);
 
 #else
 #define AV_NOPTS_VALUE (-1)
+class RGYPoolAVPacket;
+class RGYPoolAVFrame;
 #endif //ENABLE_AVSW_READER
 
 #endif //__RGY_AVUTIL_H__
