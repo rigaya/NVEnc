@@ -2144,7 +2144,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_DEBUG, _T("avcodec %s: %s from %s\n"),
                 get_media_type_string(stream.stream->codecpar->codec_id).c_str(), codec_name.c_str(), strFileName);
         }
-        m_inputInfo += _T("avcodec audio: ") + mes;
+        m_inputInfo += _T("avcodec: ") + mes;
     }
     return RGY_ERR_NONE;
 }
