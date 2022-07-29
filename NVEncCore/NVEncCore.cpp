@@ -1965,7 +1965,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationTop = m_encVUI.chromaloc - 1;
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationBot = m_encVUI.chromaloc - 1;
         }
-        if (m_hdr10plus || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
+        if (m_hdr10plus || m_hdr10plusCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
         }
 
@@ -4972,6 +4972,8 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize));
         if (m_hdr10plus) {
             add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     %s\n"), m_hdr10plus->inputJson().c_str());
+        } else if (m_hdr10plusCopy) {
+            add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     copy\n"));
         }
     }
     { const auto &vui_str = m_encVUI.print_all();
