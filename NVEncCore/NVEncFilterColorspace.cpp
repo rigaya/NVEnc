@@ -53,6 +53,7 @@ static const auto primXYList = make_array<std::pair<CspColorprim, mat3x3>>(
     make_pair(RGY_PRIM_ST170_M,   mat3x3(0.630, 0.340, 0.0,   0.310, 0.595, 0.0,   0.155, 0.070, 0.0) ),
     make_pair(RGY_PRIM_ST240_M,   mat3x3(0.630, 0.340, 0.0,   0.310, 0.595, 0.0,   0.155, 0.070, 0.0) ),
     make_pair(RGY_PRIM_ST431_2,   mat3x3(0.680, 0.320, 0.0,   0.265, 0.690, 0.0,   0.150, 0.060, 0.0) ),
+    make_pair(RGY_PRIM_ST432_1,   mat3x3(0.680, 0.320, 0.0,   0.265, 0.690, 0.0,   0.150, 0.060, 0.0) ), // RGY_PRIM_ST431_2 と同じ
     make_pair(RGY_PRIM_EBU3213_E, mat3x3(0.630, 0.340, 0.0,   0.295, 0.605, 0.0,   0.155, 0.077, 0.0) )
 );
 
