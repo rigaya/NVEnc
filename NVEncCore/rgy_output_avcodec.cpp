@@ -417,9 +417,29 @@ int RGYOutputAvcodec::AutoSelectSamplingRate(const int *samplingRateList, int sr
 }
 
 AVSampleFormat RGYOutputAvcodec::AutoSelectSampleFmt(const AVSampleFormat *samplefmtList, const AVCodecContext *srcAudioCtx) {
-    AVSampleFormat srcFormat = srcAudioCtx->sample_fmt;
+    const AVSampleFormat srcFormat = srcAudioCtx->sample_fmt;
     if (samplefmtList == nullptr) {
         return srcFormat;
+    }
+
+    static const auto sampleFmtLevel = make_array<AVSampleFormat>(
+        AV_SAMPLE_FMT_DBLP,
+        AV_SAMPLE_FMT_DBL,
+        AV_SAMPLE_FMT_FLTP,
+        AV_SAMPLE_FMT_FLT,
+        AV_SAMPLE_FMT_S32P,
+        AV_SAMPLE_FMT_S32,
+        AV_SAMPLE_FMT_S16P,
+        AV_SAMPLE_FMT_S16,
+        AV_SAMPLE_FMT_U8P,
+        AV_SAMPLE_FMT_U8
+    );
+    for (const auto fmt : sampleFmtLevel) {
+        for (int i = 0; samplefmtList[i] >= 0; i++) {
+            if (fmt == samplefmtList[i]) {
+                return fmt;
+            }
+        }
     }
     if (srcFormat == AV_SAMPLE_FMT_NONE) {
         return samplefmtList[0];
@@ -427,29 +447,6 @@ AVSampleFormat RGYOutputAvcodec::AutoSelectSampleFmt(const AVSampleFormat *sampl
     for (int i = 0; samplefmtList[i] >= 0; i++) {
         if (srcFormat == samplefmtList[i]) {
             return samplefmtList[i];
-        }
-    }
-    static const auto sampleFmtLevel = make_array<std::pair<AVSampleFormat, int>>(
-        std::make_pair(AV_SAMPLE_FMT_DBLP, 8),
-        std::make_pair(AV_SAMPLE_FMT_DBL,  8),
-        std::make_pair(AV_SAMPLE_FMT_FLTP, 6),
-        std::make_pair(AV_SAMPLE_FMT_FLT,  6),
-        std::make_pair(AV_SAMPLE_FMT_S32P, 4),
-        std::make_pair(AV_SAMPLE_FMT_S32,  4),
-        std::make_pair(AV_SAMPLE_FMT_S16P, 2),
-        std::make_pair(AV_SAMPLE_FMT_S16,  2),
-        std::make_pair(AV_SAMPLE_FMT_U8P,  1),
-        std::make_pair(AV_SAMPLE_FMT_U8,   1)
-    );
-    int srcFormatLevel = std::find_if(sampleFmtLevel.begin(), sampleFmtLevel.end(),
-        [srcFormat](const std::pair<AVSampleFormat, int>& targetFormat) { return targetFormat.first == srcFormat;})->second;
-    auto foundFormat = std::find_if(sampleFmtLevel.begin(), sampleFmtLevel.end(),
-        [srcFormatLevel](const std::pair<AVSampleFormat, int>& targetFormat) { return targetFormat.second == srcFormatLevel; });
-    for (; foundFormat != sampleFmtLevel.end(); foundFormat++) {
-        for (int i = 0; samplefmtList[i] >= 0; i++) {
-            if (foundFormat->first == samplefmtList[i]) {
-                return samplefmtList[i];
-            }
         }
     }
     return samplefmtList[0];
@@ -1321,7 +1318,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             // そのときにはとりあえずAV_SAMPLE_FMT_S16で適当にフィルタを初期化しておく
             // 実際のsample_fmtはAVFrameに設定されており、フィルタ実行前の再度のInitAudioFilterで
             // 必要に応じて再初期化されるので、ここでは仮の値でも問題はない
-            av_get_sample_fmt_name(muxAudio->outCodecDecodeCtx->sample_fmt) ? muxAudio->outCodecDecodeCtx->sample_fmt : AV_SAMPLE_FMT_S16);
+            av_get_sample_fmt_name(muxAudio->outCodecDecodeCtx->sample_fmt) ? muxAudio->outCodecDecodeCtx->sample_fmt : AV_SAMPLE_FMT_FLTP);
         if (sts != RGY_ERR_NONE) return sts;
     } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && m_Mux.video.streamOut) {
         muxAudio->bsfc = InitStreamBsf(_T("aac_adtstoasc"), muxAudio->streamIn);
