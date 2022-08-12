@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// NVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2014-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
 
 #ifndef _AUO_AUDIO_H_
 #define _AUO_AUDIO_H_
