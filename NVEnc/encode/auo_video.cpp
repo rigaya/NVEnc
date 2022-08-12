@@ -91,7 +91,7 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
     NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
     codec_prm[NV_ENC_H264] = DefaultParamH264();
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd);
+    parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
     if (enc_prm.lossless) {
         enc_prm.yuv444 = true;
@@ -199,8 +199,8 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
     //GUI部のコマンドライン生成
     strcpy_s(cmd, nSize, gen_cmd(encPrm, nullptr, false).c_str());
     //cmdexの処理
-    char cmdex[sizeof(conf->nvenc.cmdex)];
-    strcpy_s(cmdex, conf->nvenc.cmdex);
+    char cmdex[sizeof(conf->enc.cmdex)];
+    strcpy_s(cmdex, conf->enc.cmdex);
     cmd_replace(cmdex, sizeof(cmdex), pe, sys_dat, conf, oip);
     replace_cmd_CRLF_to_Space(cmdex, sizeof(cmdex) - 1);
     sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " %s", cmdex);
@@ -493,7 +493,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
     codec_prm[NV_ENC_H264] = DefaultParamH264();
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd);
+    parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
 
     enc_prm.common.AVSyncMode = conf->vid.afs ? RGY_AVSYNC_VFR : RGY_AVSYNC_ASSUME_CFR;

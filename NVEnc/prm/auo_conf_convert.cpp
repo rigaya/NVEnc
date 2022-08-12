@@ -726,7 +726,7 @@ void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void
     COPY_BLOCK(oth, 4);
 #undef COPY_BLOCK
 
-    conf->nvenc.codec        = conf_old.nvenc.codec;
+    conf->enc.codec        = conf_old.nvenc.codec;
     conf->vid.auo_tcfile_out = conf_old.vid.auo_tcfile_out;
     conf->vid.afs            = conf_old.vid.afs;
     conf->vid.resize_enable  = conf_old.vpp.resize_enable;
@@ -756,7 +756,7 @@ void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void
     codec_prm[NV_ENC_HEVC].hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
     codec_prm[NV_ENC_HEVC].hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
 
-    strcpy_s(conf->nvenc.cmd, gen_cmd(&enc_prm, codec_prm, true).c_str());
+    strcpy_s(conf->enc.cmd, gen_cmd(&enc_prm, codec_prm, true).c_str());
 }
 
 #pragma warning (pop)

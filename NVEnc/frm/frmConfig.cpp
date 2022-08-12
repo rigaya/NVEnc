@@ -1048,7 +1048,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
     codecPrm[NV_ENC_H264] = DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&encPrm, codecPrm, cnf->nvenc.cmd);
+    parse_cmd(&encPrm, codecPrm, cnf->enc.cmd);
 
     SetCXIndex(fcgCXEncCodec,          get_index_from_value(encPrm.codec, list_nvenc_codecs));
     SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, (encPrm.encConfig.rcParams.averageBitRate == 0 && encPrm.encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_VBR) ? NV_ENC_PARAMS_RC_QVBR : encPrm.encConfig.rcParams.rateControlMode));
@@ -1279,7 +1279,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgTXBatBeforePath->Text           = String(cnf->oth.batfile.before_process).ToString();
         fcgTXBatAfterPath->Text            = String(cnf->oth.batfile.after_process).ToString();
 
-        fcgTXCmdEx->Text                   = String(cnf->nvenc.cmdex).ToString();
+        fcgTXCmdEx->Text                   = String(cnf->enc.cmdex).ToString();
 
         SetfcgTSLSettingsNotes(cnf->oth.notes);
 
@@ -1295,7 +1295,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     //これもひたすら書くだけ。めんどい
     encPrm.codec = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;
-    cnf->nvenc.codec = encPrm.codec;
+    cnf->enc.codec = encPrm.codec;
     encPrm.encConfig.rcParams.rateControlMode = (NV_ENC_PARAMS_RC_MODE)list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
     if (encPrm.encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_QVBR) {
         encPrm.encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
@@ -1561,8 +1561,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     GetfcgTSLSettingsNotes(cnf->oth.notes, sizeof(cnf->oth.notes));
 
-    GetCHARfromString(cnf->nvenc.cmdex, sizeof(cnf->nvenc.cmdex), fcgTXCmdEx->Text);
-    strcpy_s(cnf->nvenc.cmd, gen_cmd(&encPrm, codecPrm, true).c_str());
+    GetCHARfromString(cnf->enc.cmdex, sizeof(cnf->enc.cmdex), fcgTXCmdEx->Text);
+    strcpy_s(cnf->enc.cmd, gen_cmd(&encPrm, codecPrm, true).c_str());
 
     return String(gen_cmd(&encPrm, codecPrm, false).c_str()).ToString();
 }

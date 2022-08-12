@@ -713,7 +713,7 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
     codec_prm[NV_ENC_H264] = DefaultParamH264();
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd);
+    parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
 
     //初期化

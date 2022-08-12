@@ -7821,16 +7821,16 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             //CONF_GUIEX cnf;
             //FrmToConf(&cnf);
             //auto presetList = nvfeature_GetCachedNVEncCapability(featureCache);
-            //memcpy(&cnf.nvenc.enc_config, &presetList[fcgCXEncCodec->SelectedIndex].presetConfigs[fcgCXQualityPreset->SelectedIndex].presetCfg, sizeof(cnf.nvenc.enc_config));
-            //if (cnf.nvenc.enc_config.gopLength == UINT32_MAX) {
-            //    cnf.nvenc.enc_config.gopLength = 0;
-            //    cnf.nvenc.enc_config.encodeCodecConfig.h264Config.idrPeriod = 0;
-            //    cnf.nvenc.enc_config.encodeCodecConfig.hevcConfig.idrPeriod = 0;
+            //memcpy(&cnf.enc.enc_config, &presetList[fcgCXEncCodec->SelectedIndex].presetConfigs[fcgCXQualityPreset->SelectedIndex].presetCfg, sizeof(cnf.enc.enc_config));
+            //if (cnf.enc.enc_config.gopLength == UINT32_MAX) {
+            //    cnf.enc.enc_config.gopLength = 0;
+            //    cnf.enc.enc_config.encodeCodecConfig.h264Config.idrPeriod = 0;
+            //    cnf.enc.enc_config.encodeCodecConfig.hevcConfig.idrPeriod = 0;
             //}
-            //cnf.nvenc.codecConfig[fcgCXEncCodec->SelectedIndex] = cnf.nvenc.enc_config.encodeCodecConfig;
-            //cnf.nvenc.enc_config.encodeCodecConfig.h264Config.sliceModeData = 1;
-            //cnf.nvenc.enc_config.encodeCodecConfig.hevcConfig.sliceMode     = 0;
-            //cnf.nvenc.enc_config.encodeCodecConfig.hevcConfig.sliceModeData = 0;
+            //cnf.enc.codecConfig[fcgCXEncCodec->SelectedIndex] = cnf.enc.enc_config.encodeCodecConfig;
+            //cnf.enc.enc_config.encodeCodecConfig.h264Config.sliceModeData = 1;
+            //cnf.enc.enc_config.encodeCodecConfig.hevcConfig.sliceMode     = 0;
+            //cnf.enc.enc_config.encodeCodecConfig.hevcConfig.sliceModeData = 0;
             //ConfToFrm(&cnf);
         }
     private:
