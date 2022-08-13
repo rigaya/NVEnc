@@ -231,7 +231,6 @@ static BOOL check_muxer_exist(MUXER_SETTINGS *muxer_stg, const char *aviutl_dir,
 }
 
 const MUXER_CMD_EX *get_muxer_mode(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, int muxer_to_be_used) {
-    BOOL has_chapter = FALSE;
     int mode = -1;
     switch (muxer_to_be_used) {
     case MUXER_TC2MP4:
