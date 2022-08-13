@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 // --------------------------------------------------------------------------------------------
+
 #ifndef _AUO_PIPE_H_
 #define _AUO_PIPE_H_
 
@@ -67,6 +68,7 @@ typedef struct {
 void InitPipes(PIPE_SET *pipes);
 int RunProcess(char *args, const char *exe_dir, PROCESS_INFORMATION *pi, PIPE_SET *pipes, DWORD priority, BOOL hidden, BOOL minimized);
 void CloseStdIn(PIPE_SET *pipes);
+int read_from_pipe(PIPE_SET *pipes, BOOL fromStdErr);
 BOOL get_exe_message(const char *exe_path, const char *args, char *buf, size_t nSize, AUO_PIPE_MODE from_stderr);
 BOOL get_exe_message_to_file(const char *exe_path, const char *args, const char *filepath, AUO_PIPE_MODE from_stderr, DWORD loop_ms);
 

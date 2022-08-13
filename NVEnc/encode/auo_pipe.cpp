@@ -145,7 +145,7 @@ void CloseStdIn(PIPE_SET *pipes) {
 }
 
 //PeekNamedPipeが失敗→プロセスが終了していたら-1
-static int read_from_pipe(PIPE_SET *pipes, BOOL fromStdErr) {
+int read_from_pipe(PIPE_SET *pipes, BOOL fromStdErr) {
     DWORD pipe_read = 0;
     HANDLE h_read = (fromStdErr) ? pipes->stdErr.h_read : pipes->stdOut.h_read;
     if (!PeekNamedPipe(h_read, NULL, 0, NULL, &pipe_read, NULL))
