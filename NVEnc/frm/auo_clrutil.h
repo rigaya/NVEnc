@@ -57,6 +57,14 @@ int GetCHARfromString(char(&chr)[size], System::String^ str) {
     return GetCHARfromString(chr, size, str);
 }
 
+static std::string GetCHARfromString(System::String ^str) {
+    System::IntPtr ptr = System::Runtime::InteropServices::Marshal::StringToHGlobalAnsi(str);
+    char *ch_ptr = (char *)ptr.ToPointer();
+    std::string result = ch_ptr;
+    System::Runtime::InteropServices::Marshal::FreeHGlobal(ptr);
+    return result;
+}
+
 static int CountStringBytes(System::String^ str) {
     return System::Text::Encoding::GetEncoding(L"Shift_JIS")->GetByteCount(str);
 }
