@@ -37,6 +37,8 @@
 const int LOG_UPDATE_INTERVAL = 50;
 
 enum {
+    LOG_TRACE   = -3,
+    LOG_DEBUG   = -2,
     LOG_MORE    = -1,
     LOG_INFO    = 0,
     LOG_WARNING = 1,

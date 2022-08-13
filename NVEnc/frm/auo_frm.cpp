@@ -173,4 +173,3 @@ void write_log_exe_mes(char *const msg, DWORD *log_len, const char *exename, LOG
     memmove(msg, mes, ((*log_len = fin - mes) + 1) * sizeof(msg[0]));
     if (buffer) free(buffer);
 }
-
