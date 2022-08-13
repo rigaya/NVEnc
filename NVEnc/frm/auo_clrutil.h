@@ -104,14 +104,14 @@ static System::Drawing::Font^ GetFontFrom_AUO_FONT_INFO(const AUO_FONT_INFO *inf
     if (info && (str_has_char(info->name) || info->size > 0.0)) {
         return gcnew System::Drawing::Font(
             (str_has_char(info->name)) ? String(info->name).ToString() : baseFont->FontFamily->ToString(),
-            (info->size > 0.0) ? (float)info->size : baseFont->Size, 
+            (info->size > 0.0) ? (float)info->size : baseFont->Size,
             (System::Drawing::FontStyle)info->style);
     }
     return baseFont;
 }
 
 //DefaultFontと比較して、異なっていたらAUO_FONT_INFOに保存する
-static void Set_AUO_FONT_INFO(AUO_FONT_INFO *info, System::Drawing::Font^ Font, System::Drawing::Font^ DefaultFont) {                
+static void Set_AUO_FONT_INFO(AUO_FONT_INFO *info, System::Drawing::Font^ Font, System::Drawing::Font^ DefaultFont) {
     if (String::Compare(DefaultFont->FontFamily->Name, Font->FontFamily->Name))
         GetCHARfromString(info->name, sizeof(info->name), Font->FontFamily->Name);
     if (DefaultFont->Size != Font->Size)
@@ -156,15 +156,15 @@ static void SetFontFamilyToForm(Form^ form, FontFamily^ NewFontFamily, FontFamil
 }
 
 static String^ AddBackSlash(String^ Dir) {
-    if (Dir != nullptr && 
-        Dir->Length > 0 && 
+    if (Dir != nullptr &&
+        Dir->Length > 0 &&
         L'\\' != Dir[Dir->Length - 1])
         Dir += L"\\";
     return Dir;
 }
 
 //相対パスに変換して返す
-static String^ GetRelativePath(String^ path, String^ baseDir) { 
+static String^ GetRelativePath(String^ path, String^ baseDir) {
     //相対パスならそのまま返す
     if (path == nullptr || !Path::IsPathRooted(path))
         return path;
