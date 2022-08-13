@@ -28,6 +28,8 @@
 #ifndef _AUO_WIN7_TASKBAR_H_
 #define _AUO_WIN7_TASKBAR_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <Shobjidl.h>
 #pragma comment(lib, "ole32.lib")
