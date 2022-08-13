@@ -360,6 +360,35 @@ static System::Void SetAllColor(Control ^top, const AuoTheme themeTo, System::Ty
     }
 }
 
+static System::Void fcgSetDataGridViewCellStyleHeader(DataGridViewCellStyle^ cellStyle, const AuoTheme themeMode, const DarkenWindowStgReader *stgReader) {
+    if (stgReader == nullptr) return;
+    System::Drawing::Color foreColor = (themeMode == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_TEXT_DARK) : System::Windows::Forms::Control::DefaultForeColor;
+    System::Drawing::Color backColor = (themeMode == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_BASE_DARK) : System::Windows::Forms::Control::DefaultBackColor;
+    bool setForeColor = false;
+    bool setBackColor = false;
+    const DarkenWindowStgNamedColor *dwcolor = stgReader->getColorStatic();
+    if (dwcolor) {
+        foreColor = ColorfromInt(dwcolor->textForeColor());
+        backColor = ColorfromInt(dwcolor->fillColor());
+        setForeColor = true;
+        setBackColor = true;
+    }
+    if (setForeColor) {
+        cellStyle->ForeColor = foreColor;
+    }
+    if (setBackColor) {
+        cellStyle->BackColor = backColor;
+    }
+}
+
+static System::Void fcgSetDataGridViewCellStyleHeader(DataGridView^ DG, const AuoTheme themeMode, const DarkenWindowStgReader *stgReader) {
+    if (stgReader == nullptr) return;
+    const DarkenWindowStgNamedColor *dwcolor = stgReader->getColorStatic();
+    DG->EnableHeadersVisualStyles = dwcolor == nullptr;
+    fcgSetDataGridViewCellStyleHeader(DG->ColumnHeadersDefaultCellStyle, themeMode, stgReader);
+    fcgSetDataGridViewCellStyleHeader(DG->RowHeadersDefaultCellStyle, themeMode, stgReader);
+}
+
 static System::Void fcgMouseEnterLeave_SetColor(System::Object^ sender,  const AuoTheme themeMode, const DarkenWindowState state, const DarkenWindowStgReader *stgReader) {
     if (stgReader == nullptr) return;
     System::Type^ type = sender->GetType();
