@@ -139,7 +139,7 @@ int RunProcess(char *args, const char *exe_dir, PROCESS_INFORMATION *pi, PIPE_SE
 void CloseStdIn(PIPE_SET *pipes) {
     if (pipes->stdIn.mode) {
         _fclose_nolock(pipes->f_stdin);
-        CloseHandle(pipes->stdIn.h_write);
+        //CloseHandle(pipes->stdIn.h_write);
         pipes->stdIn.mode = AUO_PIPE_DISABLE;
     }
 }
