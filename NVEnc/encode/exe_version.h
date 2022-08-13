@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 // --------------------------------------------------------------------------------------------
-
 #pragma once
 #ifndef _EXE_VERSION_H_
 #define _EXE_VERSION_H_
