@@ -298,6 +298,7 @@ static void SetPriorityClass(pid_t thread, int priority) {
 }
 
 static int getStdInKey() {
+#if 0 // stdinで読み込む場合と干渉してしまうので、無効化する
     const int stdInFd = 0; // 0 = stdin
     fd_set fdStdIn;
     FD_ZERO(&fdStdIn);
@@ -310,6 +311,7 @@ static int getStdInKey() {
             return key;
         }
     }
+#endif
     return 0;
 }
 
