@@ -99,6 +99,7 @@ mat3x3 matrixRGB2YUV(CspMatrix matrix) {
     case RGY_MATRIX_RGB:       return genMatrix(0.0,       0.0);
     case RGY_MATRIX_BT709:     return genMatrix(0.2126, 0.0722);
     case RGY_MATRIX_FCC:       return genMatrix(0.3,      0.11);
+    case RGY_MATRIX_BT470_BG:
     case RGY_MATRIX_ST170_M:   return genMatrix(0.299,   0.114);
     case RGY_MATRIX_ST240_M:   return genMatrix(0.212,   0.087);
     case RGY_MATRIX_BT2020_NCL:
