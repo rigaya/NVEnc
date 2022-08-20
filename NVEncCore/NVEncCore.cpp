@@ -3822,6 +3822,7 @@ NVENCSTATUS NVEncCore::Encode() {
             case cudaVideoDeinterlaceMode_Bob:
                 //RFFに関するフラグを念のためクリア
                 frameinfo.flags &= (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+                frameinfo.picstruct = RGY_PICSTRUCT_FRAME;
                 pInputFrame->setInterlaceFlag(RGY_PICSTRUCT_FRAME);
                 oVPP.progressive_frame = (interlaceAutoDetect) ? pInputFrame->getCuvidInfo()->progressive_frame : 0;
                 oVPP.second_field = 0;
@@ -3836,6 +3837,7 @@ NVENCSTATUS NVEncCore::Encode() {
             case cudaVideoDeinterlaceMode_Adaptive:
                 //RFFに関するフラグを念のためクリア
                 frameinfo.flags &= (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+                frameinfo.picstruct = RGY_PICSTRUCT_FRAME;
                 pInputFrame->setInterlaceFlag(RGY_PICSTRUCT_FRAME);
                 oVPP.progressive_frame = (interlaceAutoDetect) ? pInputFrame->getCuvidInfo()->progressive_frame : 0;
                 vppParams.push_back(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo)));
