@@ -64,8 +64,8 @@ void convert_audio_16to8_avx2(BYTE *dst, short *src, int n) {
     }
     //メインループ
     while (byte < loop_fin) {
-        ySA = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(sh + 32)), _mm_loadu_si128((__m128i*)(sh +  0)));
-        ySB = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(sh + 48)), _mm_loadu_si128((__m128i*)(sh + 16)));
+        ySA = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(sh + 16)), _mm_loadu_si128((__m128i*)(sh +  0)));
+        ySB = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(sh + 24)), _mm_loadu_si128((__m128i*)(sh +  8)));
         ySA = _mm256_srai_epi16(ySA, 8);
         ySB = _mm256_srai_epi16(ySB, 8);
         ySA = _mm256_add_epi16(ySA, yConst);
