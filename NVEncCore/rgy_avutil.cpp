@@ -172,16 +172,16 @@ tstring getAVCodecs(RGYAVCodecType flag) {
             bool alreadyExists = false;
             for (uint32_t i = 0; i < list.size(); i++) {
                 if (0 == strcmp(list[i].name, codec->name)) {
-                    list[i].type |= codec->decode ? RGY_AVCODEC_DEC : 0x00;
-                    list[i].type |= codec->encode2 ? RGY_AVCODEC_ENC : 0x00;
+                    list[i].type |= av_codec_is_decoder(codec) ? RGY_AVCODEC_DEC : 0x00;
+                    list[i].type |= av_codec_is_encoder(codec) ? RGY_AVCODEC_ENC : 0x00;
                     alreadyExists = true;
                     break;
                 }
             }
             if (!alreadyExists) {
                 uint32_t type = 0x00;
-                type |= codec->decode ? RGY_AVCODEC_DEC : 0x00;
-                type |= codec->encode2 ? RGY_AVCODEC_ENC : 0x00;
+                type |= av_codec_is_decoder(codec) ? RGY_AVCODEC_DEC : 0x00;
+                type |= av_codec_is_encoder(codec) ? RGY_AVCODEC_ENC : 0x00;
                 list.push_back({ type, codec->name, codec->long_name });
             }
         }
