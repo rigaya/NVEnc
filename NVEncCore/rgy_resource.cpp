@@ -79,6 +79,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_transform_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_tweak_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_unsharp_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_yadif_cl);
 
 #undef _BINARY_VPP_FILTER_FILE
 
@@ -138,7 +139,8 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_TRANSFORM_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_transform_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_TWEAK_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_tweak_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_UNSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_unsharp_cl) },
-    { _T("EXE_DATA"), _T("RGY_FILTER_WARPSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl) }
+    { _T("EXE_DATA"), _T("RGY_FILTER_WARPSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_YADIF_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_yadif_cl) }
 
 #undef _BINARY_VPP_FILTER_FILE
 
