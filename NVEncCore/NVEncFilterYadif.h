@@ -41,8 +41,9 @@ enum YadifTargetField {
 class NVEncFilterParamYadif : public NVEncFilterParam {
 public:
     VppYadif yadif;
+    rgy_rational<int> timebase;
 
-    NVEncFilterParamYadif() : yadif() {
+    NVEncFilterParamYadif() : yadif(), timebase() {
 
     };
     virtual ~NVEncFilterParamYadif() {};

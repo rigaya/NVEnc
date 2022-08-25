@@ -511,11 +511,21 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
                 pSourceFrame->picstruct,
                 stream
                 );
+            auto frameDuration = pSourceFrame->duration;
+            if (frameDuration == 0) {
+                if (iframe <= 1) {
+                    frameDuration = (decltype(frameDuration))((prmYadif->timebase / prmYadif->baseFps * 2).qdouble() + 0.5);
+                } else if (m_nFrame + 1 >= iframe) {
+                    frameDuration = m_source.get(m_nFrame + 0)->frame.timestamp - m_source.get(m_nFrame - 1)->frame.timestamp;
+                } else {
+                    frameDuration = m_source.get(m_nFrame + 1)->frame.timestamp - m_source.get(m_nFrame + 0)->frame.timestamp;
+                }
+            }
             ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
             ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
-            ppOutputFrames[0]->duration = (pSourceFrame->duration + 1) / 2;
+            ppOutputFrames[0]->duration = (frameDuration + 1) / 2;
             ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
-            ppOutputFrames[1]->duration = pSourceFrame->duration - ppOutputFrames[0]->duration;
+            ppOutputFrames[1]->duration = frameDuration - ppOutputFrames[0]->duration;
             ppOutputFrames[1]->inputFrameId = pSourceFrame->inputFrameId;
         }
         m_nFrame++;
