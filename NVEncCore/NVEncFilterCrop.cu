@@ -397,7 +397,7 @@ __global__ void kernel_crop_uv_nv16_yuv444(uint8_t *__restrict__ pDstU, uint8_t 
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
         TypeOut *ptr_dst_v = (TypeOut *)(pDstV + idst);
         struct TypeOut2 { TypeOut a, b; };
-        TypeOut2 dst_u = { (TypeOut)BIT_DEPTH_CONV(src0.a), (TypeOut)BIT_DEPTH_CONV_AVG(src0.a, src1.b) };
+        TypeOut2 dst_u = { (TypeOut)BIT_DEPTH_CONV(src0.a), (TypeOut)BIT_DEPTH_CONV_AVG(src0.a, src1.a) };
         TypeOut2 dst_v = { (TypeOut)BIT_DEPTH_CONV(src0.b), (TypeOut)BIT_DEPTH_CONV_AVG(src0.b, src1.b) };
         *(TypeOut2 *)ptr_dst_u = dst_u;
         *(TypeOut2 *)ptr_dst_v = dst_v;
