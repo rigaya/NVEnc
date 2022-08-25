@@ -942,10 +942,12 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
 
         auto filterchain = tchar_to_string(muxAudio->filter);
 
+        const auto select_channel_layout = (muxAudio->streamChannelSelect[muxAudio->inSubStream] == RGY_CHANNEL_AUTO) ? channel_layout : muxAudio->streamChannelSelect[muxAudio->inSubStream];
+
         //チャンネルレイアウトの変更
         if (bSplitChannelsEnabled(muxAudio->streamChannelSelect)
-            && muxAudio->streamChannelSelect[muxAudio->inSubStream] != channel_layout
-            && av_get_channel_layout_nb_channels(muxAudio->streamChannelSelect[muxAudio->inSubStream]) < channels) {
+            && select_channel_layout != channel_layout
+            && av_get_channel_layout_nb_channels(select_channel_layout) < channels) {
             //初期化
             for (int inChannel = 0; inChannel < _countof(muxAudio->channelMapping); inChannel++) {
                 muxAudio->channelMapping[inChannel] = -1;
@@ -953,7 +955,6 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
             //時折channel_layoutが設定されていない場合がある
             const auto channelLayoutDec = (muxAudio->outCodecDecodeCtx->channel_layout) ? muxAudio->outCodecDecodeCtx->channel_layout : av_get_default_channel_layout(muxAudio->outCodecDecodeCtx->channels);
             //オプションによって指定されている、入力音声から抽出するべき音声レイアウト
-            const auto select_channel_layout = muxAudio->streamChannelSelect[muxAudio->inSubStream];
             const int select_channel_count = av_get_channel_layout_nb_channels(select_channel_layout);
             std::string channel_map = "pan=" + getChannelLayoutChar(select_channel_count, av_get_default_channel_layout(select_channel_count));
             for (int inChannel = 0; inChannel < select_channel_count; inChannel++) {
@@ -1216,21 +1217,19 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             return RGY_ERR_NULL_PTR;
         }
 
-        //チャンネル選択の自動設定を反映
-        for (int i = 0; i < _countof(muxAudio->streamChannelSelect); i++) {
-            if (muxAudio->streamChannelSelect[i] == RGY_CHANNEL_AUTO) {
-                muxAudio->streamChannelSelect[i] = (muxAudio->outCodecDecodeCtx->channel_layout)
-                    ? muxAudio->outCodecDecodeCtx->channel_layout
-                    : av_get_default_channel_layout(muxAudio->outCodecDecodeCtx->channels);
-            }
-        }
-
         auto enc_channel_layout = AutoSelectChannelLayout(muxAudio->outCodecEncode->channel_layouts, muxAudio->outCodecDecodeCtx);
         //もしチャンネルの分離・変更があれば、それを反映してエンコーダの入力とする
         if (bSplitChannelsEnabled(muxAudio->streamChannelOut)) {
             enc_channel_layout = muxAudio->streamChannelOut[muxAudio->inSubStream];
             if (enc_channel_layout == RGY_CHANNEL_AUTO) {
-                auto channels = av_get_channel_layout_nb_channels(muxAudio->streamChannelSelect[muxAudio->inSubStream]);
+                auto channelSelect = muxAudio->streamChannelSelect[muxAudio->inSubStream];
+                //チャンネル選択の自動設定を反映
+                if (channelSelect == RGY_CHANNEL_AUTO) {
+                    channelSelect = (muxAudio->outCodecDecodeCtx->channel_layout)
+                        ? muxAudio->outCodecDecodeCtx->channel_layout
+                        : av_get_default_channel_layout(muxAudio->outCodecDecodeCtx->channels);
+                }
+                auto channels = av_get_channel_layout_nb_channels(channelSelect);
                 enc_channel_layout = av_get_default_channel_layout(channels);
             }
         }
