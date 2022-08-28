@@ -188,7 +188,6 @@ typedef struct {
 
 typedef struct {
     BOOL is_internal;            //内蔵エンコーダかどうか
-    int  auolink_only;           //auo link時のみ有効
     char *keyName;               //iniファイルでのセクション名
     char *dispname;              //名前
     char *codec;                 //コーデック名

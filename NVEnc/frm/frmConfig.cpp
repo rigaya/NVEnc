@@ -540,29 +540,12 @@ System::Void frmConfig::fcgCXAudioEncModeInternal_SelectedIndexChanged(System::O
     AudioIntEncodeModeChanged();
 }
 
-bool frmConfig::AudioIntEncoderEnabled(const AUDIO_SETTINGS *astg, bool isAuoLinkMode) {
-    if (isAuoLinkMode && astg->auolink_only < 0) {
-        return false;
-    } else if (!isAuoLinkMode && astg->auolink_only > 0) {
-        return false;
-    }
-    return true;
-}
-
 System::Void frmConfig::setAudioIntDisplay() {
     AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
-    if (!AudioIntEncoderEnabled(astg, false)) {
-        fcgCXAudioEncoderInternal->SelectedIndex = DEFAULT_AUDIO_ENCODER_IN;
-        astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
-    }
     fcgCXAudioEncModeInternal->BeginUpdate();
     fcgCXAudioEncModeInternal->Items->Clear();
-    if (AudioIntEncoderEnabled(astg, false)) {
-        for (int i = 0; i < astg->mode_count; i++) {
-            fcgCXAudioEncModeInternal->Items->Add(String(astg->mode[i].name).ToString());
-        }
-    } else {
-        fcgCXAudioEncModeInternal->Items->Add(String(L"-----").ToString());
+    for (int i = 0; i < astg->mode_count; i++) {
+        fcgCXAudioEncModeInternal->Items->Add(String(astg->mode[i].name).ToString());
     }
     fcgCXAudioEncModeInternal->EndUpdate();
     if (fcgCXAudioEncModeInternal->Items->Count > 0)
@@ -1249,15 +1232,14 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXAudioPriority,       cnf->aud.ext.priority);
         SetCXIndex(fcgCXAudioTempDir,        cnf->aud.ext.aud_temp_dir);
         SetCXIndex(fcgCXAudioEncTiming,      cnf->aud.ext.audio_encode_timing);
-        //内蔵音声エンコーダ
-        SetCXIndex(fcgCXAudioEncoderInternal, cnf->aud.in.encoder);
-        SetCXIndex(fcgCXAudioEncModeInternal, cnf->aud.in.enc_mode);
-        SetNUValue(fcgNUAudioBitrateInternal, (cnf->aud.in.bitrate != 0) ? cnf->aud.in.bitrate : GetCurrentAudioDefaultBitrate());
-
         fcgCBRunBatBeforeAudio->Checked    =(cnf->oth.run_bat & RUN_BAT_BEFORE_AUDIO) != 0;
         fcgCBRunBatAfterAudio->Checked     =(cnf->oth.run_bat & RUN_BAT_AFTER_AUDIO) != 0;
         fcgTXBatBeforeAudioPath->Text      = String(cnf->oth.batfile.before_audio).ToString();
         fcgTXBatAfterAudioPath->Text       = String(cnf->oth.batfile.after_audio).ToString();
+        //内蔵音声エンコーダ
+        SetCXIndex(fcgCXAudioEncoderInternal, cnf->aud.in.encoder);
+        SetCXIndex(fcgCXAudioEncModeInternal, cnf->aud.in.enc_mode);
+        SetNUValue(fcgNUAudioBitrateInternal, (cnf->aud.in.bitrate != 0) ? cnf->aud.in.bitrate : GetCurrentAudioDefaultBitrate());
 
         //mux
         fcgCBMP4MuxerExt->Checked          = cnf->mux.disable_mp4ext == 0;
@@ -1268,9 +1250,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXMKVCmdEx,            cnf->mux.mkv_mode);
         fcgCBMPGMuxerExt->Checked          = cnf->mux.disable_mpgext == 0;
         SetCXIndex(fcgCXMPGCmdEx,            cnf->mux.mpg_mode);
-        SetCXIndex(fcgCXInternalCmdEx,       cnf->mux.internal_mode);
         fcgCBMuxMinimize->Checked          = cnf->mux.minimized != 0;
         SetCXIndex(fcgCXMuxPriority,         cnf->mux.priority);
+        SetCXIndex(fcgCXInternalCmdEx,       cnf->mux.internal_mode);
 
         fcgCBRunBatBefore->Checked         =(cnf->oth.run_bat & RUN_BAT_BEFORE_PROCESS) != 0;
         fcgCBRunBatAfter->Checked          =(cnf->oth.run_bat & RUN_BAT_AFTER_PROCESS)  != 0;
@@ -1962,9 +1944,9 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
         array<String^>^ arg_list = args->Split(L';');
         for (int i = 0; i < arg_list->Length; i++) {
             if (i) {
-                StreamWriter^ sw;
+                System::IO::StreamWriter^ sw;
                 try {
-                    sw = gcnew StreamWriter(String(file_path).ToString(), true, System::Text::Encoding::GetEncoding("shift_jis"));
+                    sw = gcnew System::IO::StreamWriter(String(file_path).ToString(), true, System::Text::Encoding::GetEncoding("shift_jis"));
                     sw->WriteLine();
                     sw->WriteLine();
                 } catch (...) {
