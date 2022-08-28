@@ -288,7 +288,6 @@ typedef struct {
     int    default_audio_encoder_ext;           //デフォルトの音声エンコーダ
     int    default_audio_encoder_in;            //デフォルトの音声エンコーダ
     BOOL   get_relative_path;                   //相対パスで保存する
-    BOOL   thread_tuning;                       //スレッドチューニング
 
     BOOL   run_bat_minimized;                   //エンコ前後バッチ処理を最小化で実行
     char   custom_tmp_dir[MAX_PATH_LEN];        //一時フォルダ
