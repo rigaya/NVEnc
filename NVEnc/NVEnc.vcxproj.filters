@@ -93,9 +93,6 @@
     <ClCompile Include="frm\frmLog.cpp">
       <Filter>フォーム</Filter>
     </ClCompile>
-    <ClCompile Include="encode\convert_avx.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
     <ClCompile Include="encode\exe_version.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
@@ -103,15 +100,6 @@
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
     <ClCompile Include="encode\convert_avx2.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
-    <ClCompile Include="encode\convert_sse2.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
-    <ClCompile Include="encode\convert_sse41.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
-    <ClCompile Include="encode\convert_ssse3.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
     <ClCompile Include="prm\auo_conf_convert.cpp">

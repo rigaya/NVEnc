@@ -10,6 +10,8 @@
 #ifndef _CONVERT_CONST_H_
 #define _CONVERT_CONST_H_
 
+#include <cstdint>
+
 //色変換で用いる定数
 //convert.cppとconvert_avx.cppで使うので分離
 
