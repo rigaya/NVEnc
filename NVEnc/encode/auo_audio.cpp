@@ -312,7 +312,7 @@ static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO_
     write_log_auo_line_fmt(LOG_INFO, "%s%s で音声エンコードを行います。%s%s%s", aud_stg->dispname, ver_str.c_str(), aud_stg->mode[cnf_aud->enc_mode].name, bitrate, use2pass);
     show_audio_delay_cut_info(cnf_aud->delay_cut, pe);
     if (strlen(aud_dat->args) > 0) {
-        write_log_auo_line(LOG_MORE, aud_dat->args);
+        write_log_auo_line(LOG_DEBUG, aud_dat->args);
     }
 }
 
@@ -496,6 +496,7 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
         //動画との音声との同時処理が終了
         release_audio_parallel_events(pe);
     }
+
     if (buf8bit) _aligned_free(buf8bit);
     if (aud_dat->he_ov_aud_namedpipe) {
         CloseHandle(aud_dat->he_ov_aud_namedpipe);

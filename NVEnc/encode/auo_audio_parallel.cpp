@@ -51,6 +51,29 @@ static inline void if_valid_close_handle(HANDLE *p_hnd) {
     }
 }
 
+//並列処理制御用のイベントをすべて解放する
+//映像・音声どちらかのAviutlからのデータ取得が必要なくなった時点で呼ぶ
+//呼び出しは映像・音声スレッドどちらでもよい
+//この関数が呼ばれたあとは、映像・音声どちらも自由に動くようにする
+void release_audio_parallel_events(PRM_ENC *pe) {
+    if (pe->aud_parallel.he_aud_start) {
+        //この関数が同時に呼ばれた場合のことを考え、InterlockedExchangePointerを使用してHANDLEを処理する
+        HANDLE he_aud_start_copy = InterlockedExchangePointer(&(pe->aud_parallel.he_aud_start), NULL);
+        SetEvent(he_aud_start_copy); //もし止まっていたら動かしてやる
+        CloseHandle(he_aud_start_copy);
+    }
+    if (pe->aud_parallel.he_vid_start) {
+        //この関数が同時に呼ばれた場合のことを考え、InterlockedExchangePointerを使用してHANDLEを処理する
+        HANDLE he_vid_start_copy = InterlockedExchangePointer(&(pe->aud_parallel.he_vid_start), NULL);
+        SetEvent(he_vid_start_copy); //もし止まっていたら動かしてやる
+        CloseHandle(he_vid_start_copy);
+    }
+    std::mutex *mtx_aud = (std::mutex *)InterlockedExchangePointer((void **)&pe->aud_parallel.mtx_aud, nullptr);
+    if (mtx_aud) {
+        delete mtx_aud;
+    }
+}
+
 //音声並列処理スレッド用関数
 static unsigned __stdcall audio_output_parallel_func(void *prm) {
     AUDIO_OUTPUT_PRM *aud_prm = (AUDIO_OUTPUT_PRM *)prm;
@@ -61,7 +84,9 @@ static unsigned __stdcall audio_output_parallel_func(void *prm) {
     free(prm); //audio_output_parallel関数内で確保したものをここで解放
 
     //_endthreadexは明示的なCloseHandleが必要 (exit_audio_parallel_control内で実行)
-    _endthreadex(audio_output(conf, oip, pe, sys_dat));
+    int ret = audio_output(conf, oip, pe, sys_dat);
+    release_audio_parallel_events(pe);
+    _endthreadex(ret);
     return 0;
 }
 
@@ -95,25 +120,3 @@ AUO_RESULT audio_output_parallel(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     return ret;
 }
 
-//並列処理制御用のイベントをすべて解放する
-//映像・音声どちらかのAviutlからのデータ取得が必要なくなった時点で呼ぶ
-//呼び出しは映像・音声スレッドどちらでもよい
-//この関数が呼ばれたあとは、映像・音声どちらも自由に動くようにする
-void release_audio_parallel_events(PRM_ENC *pe) {
-    if (pe->aud_parallel.he_aud_start) {
-        //この関数が同時に呼ばれた場合のことを考え、InterlockedExchangePointerを使用してHANDLEを処理する
-        HANDLE he_aud_start_copy = InterlockedExchangePointer(&(pe->aud_parallel.he_aud_start), NULL);
-        SetEvent(he_aud_start_copy); //もし止まっていたら動かしてやる
-        CloseHandle(he_aud_start_copy);
-    }
-    if (pe->aud_parallel.he_vid_start) {
-        //この関数が同時に呼ばれた場合のことを考え、InterlockedExchangePointerを使用してHANDLEを処理する
-        HANDLE he_vid_start_copy = InterlockedExchangePointer(&(pe->aud_parallel.he_vid_start), NULL);
-        SetEvent(he_vid_start_copy); //もし止まっていたら動かしてやる
-        CloseHandle(he_vid_start_copy);
-    }
-    std::mutex *mtx_aud = (std::mutex *)InterlockedExchangePointer((void **)&pe->aud_parallel.mtx_aud, nullptr);
-    if (mtx_aud) {
-        delete mtx_aud;
-    }
-}
