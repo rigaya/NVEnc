@@ -69,7 +69,6 @@ typedef struct {
     int muxer_to_be_used;                  //使用するmuxerのインデックス
     int drop_count;                        //ドロップ数
     BOOL afs_init;                         //動画入力の準備ができているか
-    BOOL vpp_afs;                          //vppのafsが使用されるか
     HANDLE h_p_aviutl;                     //優先度取得用のAviutlのハンドル
     HANDLE h_p_videnc;                     //動画エンコーダのハンドル
     char **opened_aviutl_files;            //Aviutlの開いているファイルリスト

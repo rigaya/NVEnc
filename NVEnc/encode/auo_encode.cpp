@@ -709,13 +709,6 @@ void free_enc_prm(PRM_ENC *pe) {
 }
 
 void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat) {
-    InEncodeVideoParam enc_prm;
-    NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
-    codec_prm[NV_ENC_H264] = DefaultParamH264();
-    codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
-    enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
-
     //初期化
     ZeroMemory(pe, sizeof(PRM_ENC));
     //設定更新
@@ -755,7 +748,6 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     //ファイルの上書きを避ける
     avoid_exsisting_tmp_file(pe->temp_filename, _countof(pe->temp_filename));
 
-    pe->vpp_afs = enc_prm.vpp.afs.enable ? TRUE : FALSE;
     pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
     if (pe->muxer_to_be_used >= 0) {
         const MUXER_CMD_EX *muxer_mode = &sys_dat->exstg->s_mux[pe->muxer_to_be_used].ex_cmd[get_mux_excmd_mode(conf, pe)];
@@ -1060,7 +1052,7 @@ AUO_RESULT move_temporary_files(const CONF_GUIEX *conf, const PRM_ENC *pe, const
     //qpファイル
     move_temp_file(pe->append.qp,   pe->temp_filename, oip->savefile, ret, TRUE, "qp", FALSE);
     //tcファイル
-    BOOL erase_tc = (conf->vid.afs || pe->vpp_afs) && !conf->vid.auo_tcfile_out && pe->muxer_to_be_used != MUXER_DISABLED;
+    BOOL erase_tc = (conf->vid.afs) && !conf->vid.auo_tcfile_out && pe->muxer_to_be_used != MUXER_DISABLED;
     move_temp_file(pe->append.tc,   pe->temp_filename, oip->savefile, ret, erase_tc, "タイムコード", FALSE);
     //チャプターファイル
     if (pe->muxer_to_be_used >= 0) {
@@ -1127,7 +1119,6 @@ int check_muxer_to_be_used(const CONF_GUIEX *conf, const PRM_ENC *pe, const SYST
     no_muxer &= !conf->mux.use_internal;
     no_muxer &= !audio_output;
     no_muxer &= !conf->vid.afs;
-    no_muxer &= !pe->vpp_afs;
     no_muxer &= video_output_type == check_video_ouput(temp_filename);
     no_muxer &= !check_output_has_chapter(conf, sys_dat, muxer_to_be_used);
     return (no_muxer) ? MUXER_DISABLED : muxer_to_be_used;
