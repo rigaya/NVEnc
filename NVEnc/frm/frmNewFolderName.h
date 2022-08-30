@@ -74,7 +74,7 @@ namespace AUO_NAME_R {
         }
     private: System::Windows::Forms::TextBox^  fnfTXNewFolderName;
     private: System::Windows::Forms::Button^  fnfBTOK;
-    protected: 
+    protected:
     private: System::Windows::Forms::Button^  fnfBTCancel;
 
     private:
@@ -94,9 +94,9 @@ namespace AUO_NAME_R {
             this->fnfBTCancel = (gcnew System::Windows::Forms::Button());
             this->fnfTXNewFolderName = (gcnew System::Windows::Forms::TextBox());
             this->SuspendLayout();
-            // 
+            //
             // fnfBTOK
-            // 
+            //
             this->fnfBTOK->Location = System::Drawing::Point(239, 61);
             this->fnfBTOK->Name = L"fnfBTOK";
             this->fnfBTOK->Size = System::Drawing::Size(75, 32);
@@ -104,9 +104,9 @@ namespace AUO_NAME_R {
             this->fnfBTOK->Text = L"OK";
             this->fnfBTOK->UseVisualStyleBackColor = true;
             this->fnfBTOK->Click += gcnew System::EventHandler(this, &frmNewFolderName::fnfBTOK_Click);
-            // 
+            //
             // fnfBTCancel
-            // 
+            //
             this->fnfBTCancel->DialogResult = System::Windows::Forms::DialogResult::Cancel;
             this->fnfBTCancel->Location = System::Drawing::Point(155, 61);
             this->fnfBTCancel->Name = L"fnfBTCancel";
@@ -115,16 +115,16 @@ namespace AUO_NAME_R {
             this->fnfBTCancel->Text = L"キャンセル";
             this->fnfBTCancel->UseVisualStyleBackColor = true;
             this->fnfBTCancel->Click += gcnew System::EventHandler(this, &frmNewFolderName::fnfBTCancel_Click);
-            // 
+            //
             // fnfTXNewFolderName
-            // 
+            //
             this->fnfTXNewFolderName->Location = System::Drawing::Point(24, 23);
             this->fnfTXNewFolderName->Name = L"fnfTXNewFolderName";
             this->fnfTXNewFolderName->Size = System::Drawing::Size(290, 23);
             this->fnfTXNewFolderName->TabIndex = 8;
-            // 
+            //
             // frmNewFolderName
-            // 
+            //
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
             this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Dpi;
             this->AcceptButton = this->fnfBTOK;
@@ -133,7 +133,7 @@ namespace AUO_NAME_R {
             this->Controls->Add(this->fnfTXNewFolderName);
             this->Controls->Add(this->fnfBTOK);
             this->Controls->Add(this->fnfBTCancel);
-            this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point, 
+            this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(0)));
             this->FormBorderStyle = System::Windows::Forms::FormBorderStyle::FixedDialog;
             this->KeyPreview = true;
@@ -153,11 +153,11 @@ namespace AUO_NAME_R {
         String^ NewFolder;
         AuoTheme themeMode;
         const DarkenWindowStgReader *dwStgReader;
-    private: 
+    private:
         System::Void frmNewFolderName_Load(System::Object^  sender, System::EventArgs^  e) {
             NewFolder = L"";
             fnfTXNewFolderName->Select();
-            
+
             //フォントの設定
             guiEx_settings exstg;
             exstg.load_encode_stg();
