@@ -71,6 +71,8 @@ namespace AUO_NAME_R {
             {
                 delete components;
             }
+            if (dwStgReader != nullptr)
+                delete dwStgReader;
         }
     private: System::Windows::Forms::TextBox^  fnfTXNewFolderName;
     private: System::Windows::Forms::Button^  fnfBTOK;
