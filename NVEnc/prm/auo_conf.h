@@ -204,7 +204,7 @@ typedef struct CONF_GUIEX {
     int         block_count;                     //ヘッダ部を除いた設定のブロック数
     int         block_size[CONF_BLOCK_MAX];      //各ブロックのサイズ
     size_t      block_head_p[CONF_BLOCK_MAX];    //各ブロックのポインタ位置
-    CONF_ENC  enc;                           //nvencについての設定
+    CONF_ENC    enc;                             //エンコーダについての設定
     CONF_VIDEO  vid;                             //その他動画についての設定
     CONF_AUDIO  aud;                             //音声についての設定
     CONF_MUX    mux;                             //muxについての設定
@@ -237,7 +237,7 @@ public:
     static int  save_guiEx_conf(const CONF_GUIEX *conf, const char *stg_file); //設定をstgファイルとして保存
 };
 
-void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit); //初期化し、デフォルトを設定
+void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_highbit); //初期化し、デフォルトを設定
 
 //出力ファイルの拡張子フィルタを作成
 //filterがNULLならauoのOUTPUT_PLUGIN_TABLE用のフィルタを書き換える
