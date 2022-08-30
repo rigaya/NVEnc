@@ -32,8 +32,7 @@
 #define NOMINMAX
 #include <Windows.h>
 #include "auo.h"
-#include "NVEncParam.h"
-
+#include "auo_version.h"
 
 const int CONF_INITIALIZED = 1;
 
@@ -57,6 +56,24 @@ static inline int get_run_bat_idx(DWORD flag) {
     return (int)ret;
 }
 
+#if ENCODER_QSV
+#include "qsv_util.h"
+#include "qsv_prm.h"
+
+static const char *const CONF_NAME_OLD_1 = "QSVEnc ConfigFile";
+static const char *const CONF_NAME_OLD_2 = "QSVEnc ConfigFile v2";
+static const char *const CONF_NAME_OLD_3 = "QSVEnc ConfigFile v3";
+static const char *const CONF_NAME_OLD_4 = "QSVEnc ConfigFile v4";
+static const char *const CONF_NAME_OLD_5 = "QSVEnc ConfigFile v5";
+static const char *const CONF_NAME_OLD_6 = "QSVEnc ConfigFile v6";
+static const char *const CONF_NAME       = CONF_NAME_OLD_6;
+const int CONF_NAME_BLOCK_LEN            = 32;
+const int CONF_BLOCK_MAX                 = 32;
+const int CONF_BLOCK_COUNT               = 6; //最大 CONF_BLOCK_MAXまで
+const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
+#elif ENCODER_NVENC
+#include "NVEncParam.h"
+
 static const char *const CONF_NAME_OLD_1 = "NVEnc ConfigFile";
 static const char *const CONF_NAME_OLD_2 = "NVEnc ConfigFile v2";
 static const char *const CONF_NAME_OLD_3 = "NVEnc ConfigFile v3";
@@ -66,6 +83,17 @@ const int CONF_NAME_BLOCK_LEN            = 32;
 const int CONF_BLOCK_MAX                 = 32;
 const int CONF_BLOCK_COUNT               = 5; //最大 CONF_BLOCK_MAXまで
 const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
+#elif ENCODER_VCEENC
+#include "vce_param.h"
+
+static const char *CONF_NAME          = "VCEEnc ConfigFile v3";
+const int CONF_NAME_BLOCK_LEN         = 32;
+const int CONF_BLOCK_MAX              = 32;
+const int CONF_BLOCK_COUNT            = 5; //最大 CONF_BLOCK_MAXまで
+const int CONF_HEAD_SIZE              = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
+#else
+static_assert(false);
+#endif
 
 static const char *const CONF_LAST_OUT = "前回出力.stg";
 
@@ -94,17 +122,23 @@ static const char *const AUDIO_DELAY_CUT_MODE[] = {
 const int CMDEX_MAX_LEN = 2048;    //追加コマンドラインの最大長
 
 #pragma pack(push, 1)
-typedef struct {
+typedef struct CONF_NVENC {
     int codec;
     int reserved[128];
+#if ENCODER_QSV
+    char reserved3[1024];
+#endif
     char cmd[3072];
     char cmdex[512];
     char reserved2[512];
 } CONF_NVENC;
 
-typedef struct {
+typedef struct CONF_VIDEO {
     BOOL afs;                      //自動フィールドシフトの使用
     BOOL auo_tcfile_out;           //auo側でタイムコードを出力する
+#if ENCODER_QSV
+    int  reserved[2];
+#endif
     BOOL resize_enable;
     int resize_width;
     int resize_height;
@@ -124,13 +158,13 @@ typedef struct {
     int  delay_cut;           //エンコード遅延の削除
 } CONF_AUDIO_BASE; //音声用設定
 
-typedef struct {
+typedef struct CONF_AUDIO {
     CONF_AUDIO_BASE ext;
     CONF_AUDIO_BASE in;
     BOOL use_internal;
 } CONF_AUDIO; //音声用設定
 
-typedef struct {
+typedef struct CONF_MUX {
     BOOL disable_mp4ext;  //mp4出力時、外部muxerを使用する
     BOOL disable_mkvext;  //mkv出力時、外部muxerを使用する
     int  mp4_mode;        //mp4 外部muxer用追加コマンドの設定
@@ -145,11 +179,11 @@ typedef struct {
     int  internal_mode;   //内蔵muxer用のオプション
 } CONF_MUX; //muxer用設定
 
-typedef struct {
+typedef struct CONF_OTHER {
     //BOOL disable_guicmd;         //GUIによるコマンドライン生成を停止(CLIモード)
-    int  temp_dir;               //一時ディレクトリ
-    BOOL out_audio_only;         //音声のみ出力
-    char notes[128];             //メモ
+    int   temp_dir;               //一時ディレクトリ
+    BOOL  out_audio_only;         //音声のみ出力
+    char  notes[128];             //メモ
     DWORD run_bat;                //バッチファイルを実行するかどうか (RUN_BAT_xxx)
     DWORD dont_wait_bat_fin;      //バッチファイルの処理終了待機をするかどうか (RUN_BAT_xxx)
     union {
@@ -163,7 +197,7 @@ typedef struct {
     };
 } CONF_OTHER;
 
-typedef struct {
+typedef struct CONF_GUIEX {
     char        conf_name[CONF_NAME_BLOCK_LEN];  //保存時に使用
     int         size_all;                        //保存時: CONF_GUIEXの全サイズ / 設定中、エンコ中: CONF_INITIALIZED
     int         head_size;                       //ヘッダ部分の全サイズ
@@ -182,11 +216,19 @@ class guiEx_config {
 private:
     static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
     static const int conf_block_data[CONF_BLOCK_COUNT];
+#if ENCODER_QSV
+    static void *convert_qsvstgv1_to_stgv3(void *_conf, int size);
+    static void *convert_qsvstgv2_to_stgv3(void *_conf);
+    static void *convert_qsvstgv3_to_stgv4(void *_conf);
+    static void *convert_qsvstgv4_to_stgv5(void *_conf);
+    static void *convert_qsvstgv5_to_stgv6(void *_conf);
+#elif ENCODER_NVENC
     static int  stgv3_block_size();
     static void convert_nvencstg_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
     static void convert_nvencstgv2_to_nvencstgv3(void *dat);
     static void convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
     static void convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
+#endif
 public:
     guiEx_config();
     static void write_conf_header(CONF_GUIEX *conf);
@@ -195,7 +237,6 @@ public:
     static int  save_guiEx_conf(const CONF_GUIEX *conf, const char *stg_file); //設定をstgファイルとして保存
 };
 
-//定義はNVEnc.cpp
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit); //初期化し、デフォルトを設定
 
 //出力ファイルの拡張子フィルタを作成
