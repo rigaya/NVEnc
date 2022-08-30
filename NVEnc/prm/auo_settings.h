@@ -45,8 +45,8 @@ static const BOOL   DEFAULT_DISABLE_VISUAL_STYLES = 0;
 static const BOOL   DEFAULT_ENABLE_STG_ESC_KEY    = 0;
 static const BOOL   DEFAULT_SAVE_RELATIVE_PATH    = 1;
 static const BOOL   DEFAULT_CHAP_NERO_TO_UTF8     = 0;
-static const BOOL   DEFAULT_AUDIO_ENCODER_EXT     = 15;
-static const BOOL   DEFAULT_AUDIO_ENCODER_IN      = 1;
+static const int    DEFAULT_AUDIO_ENCODER_EXT     = 15;
+static const int    DEFAULT_AUDIO_ENCODER_IN      = 1;
 static const BOOL   DEFAULT_AUDIO_ENCODER_USE_IN  = 1;
 static const BOOL   DEFAULT_THREAD_TUNING         = 0;
 
