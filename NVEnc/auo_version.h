@@ -35,6 +35,7 @@
 #define AUO_NAME_WITHOUT_EXT "NVEnc"
 #define AUO_NAME             "NVEnc.auo"
 #define AUO_NAME_W          L"NVEnc.auo"
+#define AUO_NAME_R            NVEnc
 #define AUO_FULL_NAME        "拡張 NVEnc 出力"
 #define AUO_VERSION_NAME     "拡張 NVEnc 出力 " AUO_VERSION_STR
 #define AUO_VERSION_INFO     "拡張 NVEnc 出力 " AUO_VERSION_STR " by rigaya"

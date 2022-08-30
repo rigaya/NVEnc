@@ -320,7 +320,7 @@ static System::Void SetAllColor(Control ^top, const AuoTheme themeTo, System::Ty
         const DarkenWindowStgNamedColor *dwcolor = nullptr;
         if (type == TextBox::typeid
             || type == ComboBox::typeid
-            || type == NVEnc::ComboBoxFolderBrowser::typeid
+            || type == AUO_NAME_R::ComboBoxFolderBrowser::typeid
             || type == NumericUpDown::typeid) {
             dwcolor = stgReader->getColorTextBox();
         } else if (type == Button::typeid) {

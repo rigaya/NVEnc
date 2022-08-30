@@ -37,7 +37,7 @@ using namespace System::Drawing;
 #include "auo_settings.h"
 
 
-namespace NVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmSetTransparency の概要
@@ -121,7 +121,7 @@ namespace NVEnc {
             this->SuspendLayout();
             // 
             // fstBTDefault
-            // 
+            //
             this->fstBTDefault->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Left));
             this->fstBTDefault->Location = System::Drawing::Point(12, 74);
             this->fstBTDefault->Name = L"fstBTDefault";

@@ -59,7 +59,7 @@ using namespace System::Data;
 using namespace System::Drawing;
 using namespace System::IO;
 
-namespace NVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmLog の概要

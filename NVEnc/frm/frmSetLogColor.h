@@ -36,7 +36,7 @@ using namespace System::Windows::Forms;
 using namespace System::Data;
 using namespace System::Drawing;
 
-namespace NVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmSetLogColor の概要

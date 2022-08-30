@@ -43,7 +43,7 @@ using namespace System::Drawing;
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 
-namespace NVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmBitrateCalculator の概要
