@@ -233,6 +233,14 @@ const CX_DESC list_vpp_yadif_mode_gui[] = {
     { NULL, NULL }
 };
 
+
+const CX_DESC list_log_level_jp[] = {
+    { "通常",                  RGY_LOG_INFO  },
+    { "音声/muxのログも表示 ", RGY_LOG_MORE  },
+    { "デバッグ用出力も表示 ", RGY_LOG_DEBUG },
+    { NULL, NULL }
+};
+
 static int get_cx_index(const wchar_t * const*list, const wchar_t *wchr) {
     for (int i = 0; list[i]; i++)
         if (0 == wcscmp(list[i], wchr))

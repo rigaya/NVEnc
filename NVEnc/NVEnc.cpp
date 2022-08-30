@@ -182,7 +182,7 @@ BOOL func_output( OUTPUT_INFO *oip ) {
     //ログウィンドウを開く
     open_log_window(oip->savefile, &g_sys_dat, 1, 1);
     if (conf_not_initialized) {
-        warning_conf_not_initialized();
+        warning_conf_not_initialized(default_stg_file);
     }
     set_prevent_log_close(TRUE); //※1 start
 

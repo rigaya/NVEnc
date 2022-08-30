@@ -32,8 +32,12 @@
 #include "auo_chapter.h"
 #include "auo_convert.h"
 
-void warning_conf_not_initialized() {
-    write_log_auo_line(LOG_WARNING, "設定が行われていないため、デフォルト設定でエンコードを行います。");
+void warning_conf_not_initialized(const char *default_stg_file) {
+    if (default_stg_file && strlen(default_stg_file) > 0) {
+        write_log_auo_line_fmt(LOG_WARNING, "設定が行われていないため、前回出力した設定でエンコードを行います。: %s", default_stg_file);
+    } else {
+        write_log_auo_line(LOG_WARNING, "設定が行われていないため、デフォルト設定でエンコードを行います。");
+    }
     write_log_auo_line(LOG_WARNING, "設定を変更するには[プラグイン出力]>[" AUO_FULL_NAME "]の画面で「ビデオ圧縮」をクリックし、");
     write_log_auo_line(LOG_WARNING, "設定画面で設定を変更したのち [ OK ] をクリックしてください。");
 }
