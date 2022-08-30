@@ -54,7 +54,19 @@ static const char * const STG_DEFAULT_DIRECTORY_APPENDIX = "_stg";
 
 //----    セクション名    ---------------------------------------------------
 
+#if ENCODER_QSV
+static const char * const INI_SECTION_MAIN         = "QSVENC";
+static const char * const INI_VID_FILENAME         = "qsvencc";
+#elif ENCODER_NVENC
 static const char * const INI_SECTION_MAIN         = "NVENC";
+static const char * const INI_VID_FILENAME         = "nvencc";
+#elif ENCODER_VCEENC
+static const char * const INI_SECTION_MAIN         = "VCEENC";
+static const char * const INI_VID_FILENAME         = "vceencc";
+#else
+static_assert(false);
+#endif
+
 static const char * const INI_SECTION_APPENDIX     = "APPENDIX";
 static const char * const INI_SECTION_VID          = "VIDEO";
 static const char * const INI_SECTION_AUD          = "AUDIO";
@@ -277,7 +289,7 @@ void guiEx_settings::load_vid() {
 
     s_vid_mc.init(ini_filesize);
 
-    s_vid.filename     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "filename", "nvencc", ini_fileName);
+    s_vid.filename     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "filename", INI_VID_FILENAME, ini_fileName);
     s_vid.default_cmd  = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_default", "", ini_fileName);
     s_vid.help_cmd     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_help", "", ini_fileName);
 
@@ -512,7 +524,11 @@ void guiEx_settings::load_local() {
     s_local.default_audio_encoder_ext = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder",     DEFAULT_AUDIO_ENCODER_EXT,     conf_fileName);
     s_local.default_audio_encoder_in  = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder_in",  DEFAULT_AUDIO_ENCODER_IN,      conf_fileName);
     s_local.default_audenc_use_in     = GetPrivateProfileInt(   ini_section_main, "default_audenc_use_in",     DEFAULT_AUDIO_ENCODER_USE_IN,  conf_fileName);
-
+#if ENCODER_QSV
+    s_local.force_bluray              = GetPrivateProfileInt(   ini_section_main, "force_bluray",              DEFAULT_FORCE_BLURAY,          conf_fileName);
+    s_local.perf_monitor              = GetPrivateProfileInt(   ini_section_main, "perf_monitor",              DEFAULT_PERF_MONITOR,          conf_fileName);
+    s_local.perf_monitor_plot         = GetPrivateProfileInt(   ini_section_main, "perf_monitor_plot",         DEFAULT_PERF_MONITOR_PLOT,     conf_fileName);
+#endif
 
     GetFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
 
@@ -531,7 +547,7 @@ void guiEx_settings::load_local() {
     s_local.large_cmdbox = 0;
     s_local.audio_buffer_size   = std::min<DWORD>(GetPrivateProfileInt(ini_section_main, "audio_buffer",        AUDIO_BUFFER_DEFAULT, conf_fileName), AUDIO_BUFFER_MAX);
 
-    GetPrivateProfileString(INI_SECTION_VID, "NVENCC", "", s_vid.fullpath, _countof(s_vid.fullpath), conf_fileName);
+    GetPrivateProfileString(INI_SECTION_VID, INI_SECTION_MAIN, "", s_vid.fullpath, _countof(s_vid.fullpath), conf_fileName);
     for (int i = 0; i < s_aud_ext_count; i++)
         GetPrivateProfileString(INI_SECTION_AUD, s_aud_ext[i].keyName, "", s_aud_ext[i].fullpath, _countof(s_aud_ext[i].fullpath), conf_fileName);
     for (int i = 0; i < s_mux_count; i++)
@@ -594,7 +610,11 @@ void guiEx_settings::save_local() {
     WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder",     s_local.default_audio_encoder_ext, DEFAULT_AUDIO_ENCODER_EXT,     conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder_in",  s_local.default_audio_encoder_in,  DEFAULT_AUDIO_ENCODER_IN,      conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "default_audenc_use_in",     s_local.default_audenc_use_in,     DEFAULT_AUDIO_ENCODER_USE_IN,  conf_fileName);
-
+#if ENCODER_QSV
+    WritePrivateProfileIntWithDefault(   ini_section_main, "force_bluray",              s_local.force_bluray,              DEFAULT_FORCE_BLURAY,          conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "perf_monitor",              s_local.perf_monitor,              DEFAULT_PERF_MONITOR,          conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "perf_monitor_plot",         s_local.perf_monitor_plot,         DEFAULT_PERF_MONITOR_PLOT,     conf_fileName);
+#endif
 
     WriteFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
 
@@ -631,7 +651,7 @@ void guiEx_settings::save_local() {
         WritePrivateProfileString(INI_SECTION_MUX, s_mux[i].keyName, s_mux[i].fullpath, conf_fileName);
     }
     PathRemoveBlanks(s_vid.fullpath);
-    WritePrivateProfileString(INI_SECTION_VID, "NVENCC", s_vid.fullpath, conf_fileName);
+    WritePrivateProfileString(INI_SECTION_VID, INI_SECTION_MAIN, s_vid.fullpath, conf_fileName);
 }
 
 void guiEx_settings::save_log_win() {
