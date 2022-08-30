@@ -48,8 +48,6 @@ static const BOOL   DEFAULT_CHAP_NERO_TO_UTF8     = 0;
 static const int    DEFAULT_AUDIO_ENCODER_EXT     = 15;
 static const int    DEFAULT_AUDIO_ENCODER_IN      = 1;
 static const BOOL   DEFAULT_AUDIO_ENCODER_USE_IN  = 1;
-static const BOOL   DEFAULT_THREAD_TUNING         = 0;
-
 static const BOOL   DEFAULT_RUN_BAT_MINIMIZED     = 0;
 
 static const int    DEFAULT_LOG_LEVEL            = 0;

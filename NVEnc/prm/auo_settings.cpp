@@ -31,17 +31,16 @@
 #include <Math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <fstream>
 #include <filesystem>
 #include <tinyxml2.h>
-#include <locale.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
 
 #include "auo_util.h"
 #include "auo_settings.h"
 #include "auo_version.h"
-#include "rgy_util.h"
 
 static const int INI_SECTION_BUFSIZE = 32768;
 static const int INI_KEY_MAX_LEN = 256;
@@ -274,8 +273,6 @@ void guiEx_settings::load_encode_stg() {
 }
 
 void guiEx_settings::load_vid() {
-    char key[INI_KEY_MAX_LEN];
-
     clear_vid();
 
     s_vid_mc.init(ini_filesize);
