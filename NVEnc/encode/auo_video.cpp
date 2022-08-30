@@ -57,13 +57,12 @@
 #include "auo_version.h"
 
 #include "auo_encode.h"
+#include "auo_convert.h"
 #include "auo_video.h"
 #include "auo_audio_parallel.h"
 
 #include "cpu_info.h"
-#include "rgy_shared_mem.h"
 #include "rgy_input_sm.h"
-#include "NVEncParam.h"
 #include "NVEncCmd.h"
 
 static const int MAX_CONV_THREADS = 4;
@@ -77,6 +76,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     }
 
     switch (chromafmt) {
+    case RGY_CHROMAFMT_YUVA444:
     case RGY_CHROMAFMT_YUV444:
         return CF_YC48;
     case RGY_CHROMAFMT_YUV420:
@@ -165,7 +165,9 @@ DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *
     //ファイル名作成
     apply_appendix(auotcfile, sizeof(auotcfile), pe->temp_filename, pe->append.tc);
 
-    if (fopen_s(&tcfile, auotcfile, "wb") == NULL) {
+    if (NULL != fopen_s(&tcfile, auotcfile, "wb")) {
+        ret |= AUO_RESULT_ERROR; warning_auo_tcfile_failed();
+    } else {
         fprintf(tcfile, "# timecode format v2\r\n");
         if (afs) {
             int time_additional_frame = 0;
@@ -182,12 +184,11 @@ DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *
                 if (jitter[i] != DROP_FRAME_FLAG)
                     fprintf(tcfile, "%.6lf\r\n", (i * 4 + jitter[i] + time_additional_frame) * tm_multi);
         } else {
+            frame_n += pe->delay_cut_additional_vframe;
             for (int i = 0; i < frame_n; i++)
                 fprintf(tcfile, "%.6lf\r\n", i * tm_multi);
         }
         fclose(tcfile);
-    } else {
-        ret |= AUO_RESULT_ERROR; warning_auo_tcfile_failed();
     }
     return ret;
 }
