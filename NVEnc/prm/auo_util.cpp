@@ -66,7 +66,7 @@ static BOOL isJis(const void *str, DWORD size_in_byte) {
         if (*chr > 0x7F)
             return FALSE;
         for (int i = 0; ESCAPE[i][0]; i++) {
-            if (str_fin - chr > ESCAPE[i][0] && 
+            if (str_fin - chr > ESCAPE[i][0] &&
                 memcmp(chr, &ESCAPE[i][1], ESCAPE[i][0]) == NULL)
                 return TRUE;
         }
@@ -121,8 +121,8 @@ DWORD jpn_check(const void *str, DWORD size_in_byte) {
                 score_euc += 2; chr++;
         } else if (
             str_fin - chr > 2 &&
-            chr[0] == 0x8F && 
-            (0xA1 <= chr[1] && chr[1] <= 0xFE) && 
+            chr[0] == 0x8F &&
+            (0xA1 <= chr[1] && chr[1] <= 0xFE) &&
             (0xA1 <= chr[2] && chr[2] <= 0xFE)) {
                 score_euc += 3; chr += 2;
         }
@@ -208,126 +208,8 @@ BOOL del_arg(char *cmd, char *target_arg, int del_arg_delta) {
     //文字列の移動
     if (del_arg_delta < 0)
         std::swap(p_start, ptr);
-        
+
     memmove(p_start, ptr, (cmd_fin - ptr + 1) * sizeof(cmd[0]));
     return TRUE;
 }
 
-static const int ThreadQuerySetWin32StartAddress = 9;
-typedef int (WINAPI *typeNtQueryInformationThread)(HANDLE, int, PVOID, ULONG, PULONG);
-
-static void *GetThreadBeginAddress(DWORD TargetProcessId) {
-    HMODULE hNtDll = NULL;
-    typeNtQueryInformationThread NtQueryInformationThread = NULL;
-    HANDLE hThread = NULL;
-    ULONG length = 0;
-    void *BeginAddress = NULL;
-
-    if (   NULL != (hNtDll = LoadLibrary("ntdll.dll"))
-        && NULL != (NtQueryInformationThread = (typeNtQueryInformationThread)GetProcAddress(hNtDll, "NtQueryInformationThread"))
-        && NULL != (hThread = OpenThread(THREAD_QUERY_INFORMATION, FALSE, TargetProcessId)) ) {
-        NtQueryInformationThread(hThread, ThreadQuerySetWin32StartAddress, &BeginAddress, sizeof(BeginAddress), &length );
-    }
-    if (hNtDll)
-        FreeLibrary(hNtDll);
-    if (hThread)
-        CloseHandle(hThread);
-    return BeginAddress;
-}
-
-static inline std::vector<DWORD> GetThreadList(DWORD TargetProcessId) {
-    std::vector<DWORD> ThreadList;
-    HANDLE hSnapshot;
-
-    if (INVALID_HANDLE_VALUE != (hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0x00))) {
-        THREADENTRY32 te32 = { 0 };
-        te32.dwSize = sizeof(THREADENTRY32);
-
-        if (Thread32First(hSnapshot, &te32)) {
-            do {
-                if (te32.th32OwnerProcessID == TargetProcessId)
-                    ThreadList.push_back(te32.th32ThreadID);
-            } while (Thread32Next(hSnapshot, &te32));
-        }
-        CloseHandle(hSnapshot);
-    }
-    return ThreadList;
-}
-
-static inline std::vector<MODULEENTRY32> GetModuleList(DWORD TargetProcessId) {
-    std::vector<MODULEENTRY32> ModuleList;
-    HANDLE hSnapshot;
-
-    if (INVALID_HANDLE_VALUE != (hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, TargetProcessId))) {
-        MODULEENTRY32 me32 = { 0 };
-        me32.dwSize = sizeof(MODULEENTRY32);
-
-        if (Module32First(hSnapshot, &me32)) {
-            do {
-                ModuleList.push_back(me32);
-            } while (Module32Next(hSnapshot, &me32));
-        }
-        CloseHandle(hSnapshot);
-    }
-    return ModuleList;
-}
-
-static BOOL SetThreadPriorityFromThreadId(DWORD TargetThreadId, int ThreadPriority) {
-    HANDLE hThread = OpenThread(THREAD_SET_INFORMATION, FALSE, TargetThreadId);
-    if (hThread == NULL)
-        return FALSE;
-    BOOL ret = SetThreadPriority(hThread, ThreadPriority);
-    CloseHandle(hThread);
-    return ret;
-}
-
-BOOL SetThreadPriorityForModule(DWORD TargetProcessId, const char *TargetModule, int ThreadPriority) {
-    BOOL ret = TRUE;
-    std::vector<DWORD> thread_list = GetThreadList(TargetProcessId);
-    std::vector<MODULEENTRY32> module_list = GetModuleList(TargetProcessId);
-    for (auto thread_id : thread_list) {
-        void *thread_address = GetThreadBeginAddress(thread_id);
-        if (!thread_address) {
-            ret = FALSE;
-        } else {
-            for (auto i_module : module_list) {
-                if (   check_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
-                    && (NULL == TargetModule || NULL == _strnicmp(TargetModule, i_module.szModule, strlen(TargetModule)))) {
-                    ret &= !!SetThreadPriorityFromThreadId(thread_id, ThreadPriority);
-                    break;
-                }
-            }
-        }
-    }
-    return ret;
-}
-
-static BOOL SetThreadAffinityFromThreadId(DWORD TargetThreadId, DWORD_PTR ThreadAffinityMask) {
-    HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, TargetThreadId);
-    if (hThread == NULL)
-        return FALSE;
-    DWORD_PTR ret = SetThreadAffinityMask(hThread, ThreadAffinityMask);
-    CloseHandle(hThread);
-    return (ret != 0);
-}
-
-BOOL SetThreadAffinityForModule(DWORD TargetProcessId, const char *TargetModule, DWORD_PTR ThreadAffinityMask) {
-    BOOL ret = TRUE;
-    std::vector<DWORD> thread_list = GetThreadList(TargetProcessId);
-    std::vector<MODULEENTRY32> module_list = GetModuleList(TargetProcessId);
-    for (auto thread_id : thread_list) {
-        void *thread_address = GetThreadBeginAddress(thread_id);
-        if (!thread_address) {
-            ret = FALSE;
-        } else {
-            for (auto i_module : module_list) {
-                if (   check_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
-                    && (NULL == TargetModule || NULL == _strnicmp(TargetModule, i_module.szModule, strlen(TargetModule)))) {
-                    ret &= !!SetThreadAffinityFromThreadId(thread_id, ThreadAffinityMask);
-                    break;
-                }
-            }
-        }
-    }
-    return ret;
-}
