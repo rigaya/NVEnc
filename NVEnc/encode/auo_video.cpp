@@ -566,7 +566,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     PathGetDirectory(exe_dir, _countof(exe_dir), sys_dat->exstg->s_vid.fullpath);
 
     //output csp
-    const int output_csp = (enc_prm.yuv444) ? OUT_CSP_YUV444 : OUT_CSP_NV12;
     RGY_CSP rgy_output_csp;
     bool output_highbit_depth;
     get_csp_and_bitdepth(output_highbit_depth, rgy_output_csp, conf);
