@@ -4437,6 +4437,18 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("input-hevc-bsf")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_hevc_bsf_mode, strInput[i], &value)) {
+            common->hevcbsf = (RGYHEVCBsf)value;
+        }
+        else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_bsf_mode);
+            return -1;
+        }
+        return 0;
+    }
     if (IS_OPTION("ssim")) {
         common->metric.ssim = true;
         return 0;
@@ -5966,6 +5978,8 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
 
+    OPT_LST(_T("--input-hevc-bsf"), hevcbsf, list_hevc_bsf_mode);
+
     OPT_BOOL(_T("--ssim"), _T("--no-ssim"), metric.ssim);
     OPT_BOOL(_T("--psnr"), _T("--no-psnr"), metric.psnr);
 
@@ -6331,7 +6345,11 @@ tstring gen_cmd_help_common() {
         _T("                                 - copy ... copy metadata from input (default)\n")
         _T("                                 - clear ... do not set metadata\n")
         _T("\n")
-        _T("   --timecode [<string>]        output timecode file.\n"),
+        _T("   --timecode [<string>]        output timecode file.\n")
+        _T("\n")
+        _T("   --input-hevc-bsf <string>    switch hevc bitstream filter used for hw decoder input")
+        _T("                                 - internal   ... use internal implementation (default)\n")
+        _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
 #endif
     str += _T("\n")

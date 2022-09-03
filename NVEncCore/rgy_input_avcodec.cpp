@@ -112,7 +112,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     interlaceAutoFrame(false),
     qpTableListRef(nullptr),
     lowLatency(false),
-    inputOpt() {
+    inputOpt(),
+    hevcbsf(RGYHEVCBsf::INTERNAL) {
 
 }
 
@@ -302,8 +303,10 @@ RGY_ERR RGYInputAvcodec::initVideoBsfs() {
     // NVEnc issue#70でm_Demux.video.bUseHEVCmp42AnnexBを使用することが効果的だあったため、採用したが、
     // NVEnc issue#389ではm_Demux.video.bUseHEVCmp42AnnexBを使用するとエラーとなることがわかった
     // さらに、#389の問題はirapがありヘッダーがない場合の処理の問題と分かった。これを修正し、再度有効に
-    if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+    if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC
+        && m_Demux.video.hevcbsf == RGYHEVCBsf::INTERNAL) {
         m_Demux.video.bUseHEVCmp42AnnexB = true;
+        AddMessage(RGY_LOG_DEBUG, _T("selected internal hevc bsf filter.\n"));
     } else if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_H264 ||
         m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
         const char *filtername = nullptr;
@@ -1390,6 +1393,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_readerName = _T("avsw");
     }
     m_Demux.video.readVideo = input_prm->readVideo;
+    m_Demux.video.hevcbsf = input_prm->hevcbsf;
     m_Demux.thread.queueInfo = input_prm->queueInfo;
     if (input_prm->readVideo) {
         m_inputVideoInfo = *inputInfo;

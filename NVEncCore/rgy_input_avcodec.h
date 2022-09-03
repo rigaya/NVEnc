@@ -721,6 +721,7 @@ typedef struct AVDemuxVideo {
 
     int                       HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
 
+    RGYHEVCBsf                hevcbsf;               //HEVCのbsfの選択
     bool                      bUseHEVCmp42AnnexB;
     int                       hevcNaluLengthSize;
     bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
@@ -973,6 +974,7 @@ public:
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     bool           lowLatency;
     RGYOptList     inputOpt;                //入力オプション
+    RGYHEVCBsf     hevcbsf;
 
     RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};

@@ -180,6 +180,16 @@ static const int   FILTER_DEFAULT_DEBAND_SEED = 1234;
 static const bool  FILTER_DEFAULT_DEBAND_BLUR_FIRST = false;
 static const bool  FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME = false;
 
+enum class RGYHEVCBsf {
+    INTERNAL,
+    LIBAVCODEC
+};
+
+const CX_DESC list_hevc_bsf_mode[] = {
+    { _T("internal"),   (int)RGYHEVCBsf::INTERNAL   },
+    { _T("libavcodec"), (int)RGYHEVCBsf::LIBAVCODEC },
+    { NULL, 0 }
+};
 
 const CX_DESC list_vpp_denoise[] = {
     { _T("none"),    0 },
@@ -1281,6 +1291,7 @@ struct RGYParamCommon {
     RGYAVSync AVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     bool timecode;
     tstring timecodeFile;
+    RGYHEVCBsf hevcbsf;
 
     RGYVideoQualityMetric metric;
 
