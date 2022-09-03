@@ -1022,15 +1022,15 @@ void CPerfMonitor::check() {
             pInfoNew->gpu_info_valid = TRUE;
             if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKの値を優先する
                 pInfoNew->vee_load_percent = std::max(
-                    RGYGPUCounterWinEntries(counters).filter_type(L"encode").sum(),
-                    RGYGPUCounterWinEntries(counters).filter_type(L"codec").sum()); //vce rx5xxx
+                    RGYGPUCounterWinEntries(counters).filter_type(L"encode").max(),
+                    RGYGPUCounterWinEntries(counters).filter_type(L"codec").max()); //vce rx5xxx
             }
             pInfoNew->gpu_load_percent = std::max(std::max(std::max(
-                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").sum(), //nvenc
-                RGYGPUCounterWinEntries(counters).filter_type(L"compute").sum()), //vce-opencl
-                RGYGPUCounterWinEntries(counters).filter_type(L"3d").sum()), //qsv
-                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").sum()); //qsv
-            pInfoNew->ved_load_percent = RGYGPUCounterWinEntries(counters).filter_type(L"decode").sum();
+                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").max(), //nvenc
+                RGYGPUCounterWinEntries(counters).filter_type(L"compute").max()), //vce-opencl
+                RGYGPUCounterWinEntries(counters).filter_type(L"3d").max()), //qsv
+                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").max()); //qsv
+            pInfoNew->ved_load_percent = RGYGPUCounterWinEntries(counters).filter_type(L"decode").max();
         }
     }
 #endif //#if ENABLE_PERF_COUNTER

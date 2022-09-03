@@ -59,6 +59,7 @@ public:
     RGYGPUCounterWinEntries filter_type(const std::wstring &type);
     std::vector<CounterEntry> get() const;
     int sum() const;
+    int max() const;
 protected:
     std::wstring tolowercase(const std::wstring &str);
     std::vector<const CounterEntry *> entries;

@@ -181,6 +181,11 @@ int RGYGPUCounterWinEntries::sum() const {
         [](int sum, const CounterEntry *e) { return sum + e->val; });
 }
 
+int RGYGPUCounterWinEntries::max() const {
+    return std::accumulate(entries.begin(), entries.end(), 0,
+        [](int maxval, const CounterEntry *e) { return std::max(maxval, e->val); });
+}
+
 std::wstring RGYGPUCounterWinEntries::tolowercase(const std::wstring &str) {
     auto temp = _wcsdup(str.data());
     _wcslwr(temp);
