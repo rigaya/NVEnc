@@ -673,6 +673,16 @@
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
     </ClCompile>
+    <ClCompile Include="frm\auo_mes.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
+    </ClCompile>
     <ClCompile Include="frm\frmConfig.cpp" />
     <ClCompile Include="frm\frmLog.cpp" />
     <ClCompile Include="NVEnc.cpp">
@@ -744,6 +754,7 @@
     <ClInclude Include="frm\auo_clrutil.h" />
     <ClInclude Include="frm\auo_error.h" />
     <ClInclude Include="frm\auo_frm.h" />
+    <ClInclude Include="frm\auo_mes.h" />
     <ClInclude Include="frm\ComboBoxFolderBrowser.h" />
     <ClInclude Include="frm\frmAutoSaveLogSettings.h">
       <FileType>CppForm</FileType>
