@@ -36,6 +36,10 @@
 #include <algorithm>
 #include <tlhelp32.h>
 #include <vector>
+#include <string>
+#include <regex>
+#include <filesystem>
+#include <tchar.h>
 
 #include "auo_util.h"
 #include "auo_version.h"
@@ -160,6 +164,94 @@ BOOL fix_ImulL_WesternEurope(UINT *code_page) {
     return TRUE;
 }
 
+//ひとつのコードページの表すutf-8文字を返す
+std::string cp_to_utf8(uint32_t codepoint) {
+    char ptr[7] = { 0 };
+    if (codepoint <= 0x7f) {
+        ptr[0] = (char)codepoint & 0x7f;
+    } else if (codepoint <= 0x7ff) {
+        ptr[0] = (char)(0xc0 | (codepoint >> 6));
+        ptr[1] = (char)(0x80 | (codepoint & 0x3f));
+    } else if (codepoint <= 0xffff) {
+        ptr[0] = (char)(0xe0 | (codepoint >> 12));
+        ptr[1] = (char)(0x80 | ((codepoint >> 6) & 0x3f));
+        ptr[2] = (char)(0x80 |  (codepoint       & 0x3f));
+    } else if (codepoint <= 0x1fffff) {
+        ptr[0] = (char)(0xf0 |  (codepoint >> 18));
+        ptr[1] = (char)(0x80 | ((codepoint >> 12) & 0x3f));
+        ptr[2] = (char)(0x80 | ((codepoint >>  6) & 0x3f));
+        ptr[3] = (char)(0x80 |  (codepoint        & 0x3f));
+    } else if (codepoint <= 0x3fffff) {
+        ptr[0] = (char)(0xf8 |  (codepoint >> 24));
+        ptr[1] = (char)(0x80 | ((codepoint >> 18) & 0x3f));
+        ptr[2] = (char)(0x80 | ((codepoint >> 12) & 0x3f));
+        ptr[3] = (char)(0x80 | ((codepoint >>  6) & 0x3f));
+        ptr[4] = (char)(0x80 |  (codepoint        & 0x3f));
+    } else if (codepoint <= 0x7fffff) {
+        ptr[0] = (char)(0xfc |  (codepoint >> 30));
+        ptr[1] = (char)(0x80 | ((codepoint >> 24) & 0x3f));
+        ptr[2] = (char)(0x80 | ((codepoint >> 18) & 0x3f));
+        ptr[3] = (char)(0x80 | ((codepoint >> 12) & 0x3f));
+        ptr[4] = (char)(0x80 | ((codepoint >>  6) & 0x3f));
+        ptr[5] = (char)(0x80 |  (codepoint        & 0x3f));
+    }
+    return std::string(ptr);
+}
+
+//複数のU+xxxxU+xxxxのような文字列について、codepageのリストを作成する
+std::vector<uint32_t> get_cp_list(const std::string& str_in) {
+    std::string str = str_in;
+    std::vector<uint32_t> cp_list;
+    std::regex re(R"(^\s*U\+([0-9A-Fa-f]{2,})(.*))");
+    std::smatch match;
+    while (regex_match(str, match, re) && match.size() == 3) {
+        cp_list.push_back(std::stoi(match[1], nullptr, 16));
+        str = match[2];
+    }
+    return cp_list;
+}
+
+//code pageを記述している'U+xxxx'を含むUTF-8文字列をcode page部分を文字列に置換して返す
+std::string conv_cp_part_to_utf8(const std::string& string_utf8_with_cp) {
+    std::string string_utf8 = string_utf8_with_cp;
+    //まず 'U+****'の部分を抽出
+    std::regex re1(R"((.+)'(U\+[U\+0-9A-Fa-f\s]{2,}[0-9A-Fa-f]{2,})'(.+))");
+    std::smatch match1;
+    while (regex_match(string_utf8, match1, re1)) {
+        if (match1.size() != 4) {
+            break;
+        }
+        std::string str_next = match1[1];
+        //'U+****'の部分をcodepageに変換し、さらにUTF-8に変換する
+        for (auto cp : get_cp_list(match1[2])) {
+            str_next += cp_to_utf8(cp);
+        }
+        str_next += match1[3];
+        string_utf8 = str_next;
+    }
+    return string_utf8;
+}
+
+#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1
+std::string GetFullPathFrom(const char *path, const char *baseDir) {
+    if (auto p = std::filesystem::path(path); p.is_absolute()) {
+        return path;
+    }
+    path = (path && strlen(path)) ? path : ".";
+    const auto p = (baseDir) ? std::filesystem::path(baseDir).append(path) : std::filesystem::absolute(std::filesystem::path(path));
+    return p.lexically_normal().string();
+}
+
+std::wstring GetFullPathFrom(const wchar_t *path, const wchar_t *baseDir) {
+    if (auto p = std::filesystem::path(path); p.is_absolute()) {
+        return path;
+    }
+    path = (path && wcslen(path)) ? path : L".";
+    const auto p = (baseDir) ? std::filesystem::path(baseDir).append(path) : std::filesystem::absolute(std::filesystem::path(path));
+    return p.lexically_normal().wstring();
+}
+#endif
+
 static inline BOOL is_space_or_crlf(int c) {
     return (c == ' ' || c == '\r' || c == '\n');
 }
@@ -193,9 +285,12 @@ BOOL del_arg(char *cmd, char *target_arg, int del_arg_delta) {
 
     //次の値を検索
     if (del_arg_delta) {
-        do {
+        while (cmd <= ptr + del_arg_delta && ptr + del_arg_delta < cmd_fin) {
             ptr += del_arg_delta;
-        } while (is_space_or_crlf(*ptr));
+            if (!is_space_or_crlf(*ptr)) {
+                break;
+            }
+        }
 
         BOOL dQB = FALSE;
         while (cmd < ptr && ptr < cmd_fin) {

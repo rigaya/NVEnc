@@ -28,6 +28,7 @@
 #pragma once
 
 #include "auo_settings.h"
+#include "auo_mes.h"
 
 using namespace System;
 using namespace System::ComponentModel;
@@ -273,6 +274,18 @@ namespace AUO_NAME_R {
         AuoTheme themeMode;
         const DarkenWindowStgReader *dwStgReader;
     private:
+        System::Void LoadLangText() {
+            LOAD_CLI_TEXT(fscBTOK);
+            LOAD_CLI_TEXT(fscBTCancel);
+            LOAD_CLI_TEXT(fscBTDefault);
+            LOAD_CLI_TEXT(fscLBColorBackground);
+            LOAD_CLI_TEXT(fcsLBColorText);
+            LOAD_CLI_TEXT(fcsTXColorTextInfo);
+            LOAD_CLI_TEXT(fcsTXColorTextWarning);
+            LOAD_CLI_TEXT(fcsTXColorTextError);
+            LOAD_CLI_MAIN_TEXT(fcsMain);
+        }
+    private:
         System::Void fscBTOK_Click(System::Object^  sender, System::EventArgs^  e);
     private:
         System::Void SetColors() {
@@ -290,6 +303,7 @@ namespace AUO_NAME_R {
         }
     private:
         System::Void frmSetLogColor_Load(System::Object^  sender, System::EventArgs^  e) {
+            LoadLangText();
             SetColors();
         }
     private:

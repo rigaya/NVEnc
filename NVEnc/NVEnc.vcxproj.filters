@@ -114,6 +114,11 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="NVEnc.ini" />
+    <None Include="NVEnc.en.lng" />
+    <None Include="NVEnc.ja.lng" />
+    <None Include="NVEnc.zh.lng" />
+    <None Include="NVEnc.en.ini" />
+    <None Include="NVEnc.zh.ini" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h">

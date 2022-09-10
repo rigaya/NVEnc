@@ -177,8 +177,16 @@ typedef struct FEATURE_DESC {
     uint64_t value;
 } FEATURE_DESC;
 
+static int get_cx_desc_cmp(const wchar_t *str1, const wchar_t *str2) {
+    return wcscmp(str1, str2);
+}
+
+static int get_cx_desc_cmp(const char *str1, const char *str2) {
+    return strcmp(str1, str2);
+}
+
 template<typename T>
-static const TCHAR *get_chr_from_value(const T *list, decltype(T::value) v) {
+static const decltype(T::desc) get_chr_from_value(const T *list, decltype(T::value) v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return list[i].desc;
@@ -194,32 +202,32 @@ static int get_cx_index(const T *list, decltype(T::value) v) {
 }
 
 template<typename T>
-static int get_cx_index(const T *list, const TCHAR *chr) {
+static int get_cx_index(const T *list, const decltype(T::desc) chr) {
     for (int i = 0; list[i].desc; i++)
-        if (0 == _tcscmp(list[i].desc, chr))
+        if (get_cx_desc_cmp(list[i].desc, chr) == 0)
             return i;
     return 0;
 }
 
 template<typename T>
-static decltype(T::value) get_cx_value(const T *list, const TCHAR *chr) {
+static decltype(T::value) get_cx_value(const T *list, const decltype(T::desc) chr) {
     for (int i = 0; list[i].desc; i++)
-        if (0 == _tcscmp(list[i].desc, chr))
+        if (get_cx_desc_cmp(list[i].desc, chr) == 0)
             return list[i].value;
     return 0;
 }
 
 static int PARSE_ERROR_FLAG = std::numeric_limits<int>::min();
 template<typename T>
-static decltype(T::value) get_value_from_chr(const T *list, const TCHAR *chr) {
+static decltype(T::value) get_value_from_chr(const T *list, const decltype(T::desc) chr) {
     for (int i = 0; list[i].desc; i++)
-        if (_tcsicmp(list[i].desc, chr) == 0)
+        if (get_cx_desc_cmp(list[i].desc, chr) == 0)
             return list[i].value;
     return PARSE_ERROR_FLAG;
 }
 
 template<typename T>
-static const TCHAR *get_cx_desc(const T *list, decltype(T::value) v) {
+static const decltype(T::desc) get_cx_desc(const T *list, decltype(T::value) v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return list[i].desc;
@@ -227,9 +235,9 @@ static const TCHAR *get_cx_desc(const T *list, decltype(T::value) v) {
 }
 
 template<typename T>
-static bool get_list_value(const T *list, const TCHAR *chr, decltype(T::value) *value) {
+static bool get_list_value(const T *list, const decltype(T::desc) chr, decltype(T::value) *value) {
     for (int i = 0; list[i].desc; i++) {
-        if (_tcsicmp(list[i].desc, chr) == 0) {
+        if (get_cx_desc_cmp(list[i].desc, chr) == 0) {
             *value = list[i].value;
             return true;
         }

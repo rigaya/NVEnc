@@ -40,6 +40,7 @@
 #include "auo_pipe.h"
 #include "auo_encode.h"
 
+#include "auo_mes.h"
 #include "auo_error.h"
 #include "auo_frm.h"
 
@@ -121,15 +122,15 @@ AUO_RESULT run_bat_file(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PR
     char bat_dir[MAX_PATH_LEN];
     sprintf_s(bat_args, _countof(bat_args), "\"%s\"", bat_tmp);
     sprintf_s(bat_dir, _countof(bat_dir), "\"%s\"", sys_dat->aviutl_dir);
-    set_window_title("バッチファイル処理", PROGRESSBAR_MARQUEE);
+    set_window_title(g_auo_mes.get(AUO_BAT_RUN), PROGRESSBAR_MARQUEE);
     if (RP_SUCCESS != (rp_ret = RunProcess(bat_args, sys_dat->aviutl_dir, &pi_bat, NULL, NORMAL_PRIORITY_CLASS, FALSE, sys_dat->exstg->s_local.run_bat_minimized))) {
-        ret |= AUO_RESULT_ERROR; error_run_process("バッチファイル処理", rp_ret);
+        ret |= AUO_RESULT_ERROR; error_run_process(g_auo_mes.get(AUO_BAT_RUN), rp_ret);
     }
     if (!ret && !(conf->oth.dont_wait_bat_fin & run_bat_mode))
         while (WaitForSingleObject(pi_bat.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT)
             log_process_events();
 
-    set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
+    set_window_title(g_auo_mes.get(AUO_GUIEX_FULL_NAME), PROGRESSBAR_DISABLED);
 
     return ret;
 }

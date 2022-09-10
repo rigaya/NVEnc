@@ -29,6 +29,7 @@
 
 #include "auo_version.h"
 #include "auo_settings.h"
+#include "auo_mes.h"
 
 using namespace System;
 using namespace System::ComponentModel;
@@ -82,16 +83,6 @@ namespace AUO_NAME_R {
         static int useLastExt;
         //static bool DisableToolTipHelp;
 
-
-    public:
-        static property frmOtherSettings^ Instance {
-            frmOtherSettings^ get() {
-                if (_instance == nullptr || _instance->IsDisposed)
-                    _instance = gcnew frmOtherSettings();
-                return _instance;
-            }
-        }
-
     protected:
     private: System::Windows::Forms::Button^  fosCBCancel;
     private: System::Windows::Forms::Button^  fosCBOK;
@@ -123,7 +114,6 @@ namespace AUO_NAME_R {
 
     private: System::Windows::Forms::ComboBox^  fosCXLogLevel;
     private: System::Windows::Forms::Label^  fosLBLogOut;
-    private: System::Windows::Forms::CheckBox^  fosCBPerfMonitorPlot;
     private: System::Windows::Forms::CheckBox^  fosCBPerfMonitor;
     private: System::Windows::Forms::CheckBox^  fosCBOutputMoreLog;
 
@@ -139,6 +129,14 @@ namespace AUO_NAME_R {
 
 
 
+    public:
+        static property frmOtherSettings^ Instance {
+            frmOtherSettings^ get() {
+                if (_instance == nullptr || _instance->IsDisposed)
+                    _instance = gcnew frmOtherSettings();
+                return _instance;
+            }
+        }
 
 
     private:
@@ -159,7 +157,6 @@ namespace AUO_NAME_R {
             this->fosfontDialog = (gcnew System::Windows::Forms::FontDialog());
             this->fosTabControl = (gcnew System::Windows::Forms::TabControl());
             this->fostabPageGeneral = (gcnew System::Windows::Forms::TabPage());
-            this->fosCBPerfMonitorPlot = (gcnew System::Windows::Forms::CheckBox());
             this->fosCBPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
             this->fosCXDefaultAudioEncoder = (gcnew System::Windows::Forms::ComboBox());
             this->fosLBDefaultAudioEncoder = (gcnew System::Windows::Forms::Label());
@@ -171,6 +168,7 @@ namespace AUO_NAME_R {
             this->fosCXDefaultOutExt = (gcnew System::Windows::Forms::ComboBox());
             this->fosLBDefaultOutExt = (gcnew System::Windows::Forms::Label());
             this->fostabPageGUI = (gcnew System::Windows::Forms::TabPage());
+            this->fosCBOutputMoreLog = (gcnew System::Windows::Forms::CheckBox());
             this->fosCXLogLevel = (gcnew System::Windows::Forms::ComboBox());
             this->fosLBLogOut = (gcnew System::Windows::Forms::Label());
             this->fosBTSetFont = (gcnew System::Windows::Forms::Button());
@@ -184,7 +182,6 @@ namespace AUO_NAME_R {
             this->fosBTStgDir = (gcnew System::Windows::Forms::Button());
             this->fosLBStgDir = (gcnew System::Windows::Forms::Label());
             this->fosTXStgDir = (gcnew System::Windows::Forms::TextBox());
-            this->fosCBOutputMoreLog = (gcnew System::Windows::Forms::CheckBox());
             this->fosTabControl->SuspendLayout();
             this->fostabPageGeneral->SuspendLayout();
             this->fostabPageGUI->SuspendLayout();
@@ -235,7 +232,6 @@ namespace AUO_NAME_R {
             // 
             // fostabPageGeneral
             // 
-            this->fostabPageGeneral->Controls->Add(this->fosCBPerfMonitorPlot);
             this->fostabPageGeneral->Controls->Add(this->fosCBPerfMonitor);
             this->fostabPageGeneral->Controls->Add(this->fosCXDefaultAudioEncoder);
             this->fostabPageGeneral->Controls->Add(this->fosLBDefaultAudioEncoder);
@@ -253,16 +249,6 @@ namespace AUO_NAME_R {
             this->fostabPageGeneral->TabIndex = 0;
             this->fostabPageGeneral->Text = L"エンコード設定";
             this->fostabPageGeneral->UseVisualStyleBackColor = true;
-            // 
-            // fosCBPerfMonitorPlot
-            // 
-            this->fosCBPerfMonitorPlot->AutoSize = true;
-            this->fosCBPerfMonitorPlot->Location = System::Drawing::Point(41, 336);
-            this->fosCBPerfMonitorPlot->Name = L"fosCBPerfMonitorPlot";
-            this->fosCBPerfMonitorPlot->Size = System::Drawing::Size(292, 19);
-            this->fosCBPerfMonitorPlot->TabIndex = 35;
-            this->fosCBPerfMonitorPlot->Text = L"リアルタイム表示 (要 python3.4以降 + pyqtgraph)";
-            this->fosCBPerfMonitorPlot->UseVisualStyleBackColor = true;
             // 
             // fosCBPerfMonitor
             // 
@@ -554,6 +540,54 @@ namespace AUO_NAME_R {
         AuoTheme themeMode;
         const DarkenWindowStgReader *dwStgReader;
     private:
+        System::Void LoadLangText() {
+            LOAD_CLI_TEXT(fosCBCancel);
+            LOAD_CLI_TEXT(fosCBOK);
+            LOAD_CLI_TEXT(fosCBAutoAFSDisable);
+            LOAD_CLI_TEXT(fosCBAutoDelChap);
+            LOAD_CLI_TEXT(fostabPageGeneral);
+            LOAD_CLI_TEXT(fosLBDefaultAudioEncoder);
+            //LOAD_CLI_TEXT(fosCBAutoRefLimitByLevel);
+            LOAD_CLI_TEXT(fosCBChapConvertToUTF8);
+            //LOAD_CLI_TEXT(fosCBKeepQPFile);
+            LOAD_CLI_TEXT(fosCBRunBatMinimized);
+            LOAD_CLI_TEXT(fosLBDefaultOutExt2);
+            LOAD_CLI_TEXT(fosLBDefaultOutExt);
+            LOAD_CLI_TEXT(fostabPageGUI);
+            LOAD_CLI_TEXT(fosCBOutputMoreLog);
+            LOAD_CLI_TEXT(fosCBGetRelativePath);
+            LOAD_CLI_TEXT(fosBTSetFont);
+            LOAD_CLI_TEXT(fosCBStgEscKey);
+            LOAD_CLI_TEXT(fosCBDisableToolTip);
+            LOAD_CLI_TEXT(fosCBDisableVisualStyles);
+            LOAD_CLI_TEXT(fosCBLogDisableTransparency);
+            LOAD_CLI_TEXT(fosLBDisableVisualStyles);
+            LOAD_CLI_TEXT(fosCBLogStartMinimized);
+            LOAD_CLI_TEXT(fosLBStgDir);
+            LOAD_CLI_TEXT(fosBTStgDir);
+            //LOAD_CLI_TEXT(fostabPageAMP);
+            //LOAD_CLI_TEXT(fosCBAutoDelStats);
+            //LOAD_CLI_TEXT(fosGroupBoxAMPLimit);
+            //LOAD_CLI_TEXT(fosLBAMPLimitMarginWarning);
+            //LOAD_CLI_TEXT(fosBTAMPMarginMulti);
+            //LOAD_CLI_TEXT(fosGroupBoxAMPLimitMarginExample);
+            //LOAD_CLI_TEXT(fosLBAMPLMMExampleB32);
+            //LOAD_CLI_TEXT(fosLBAMPLMMExampleB22);
+            //LOAD_CLI_TEXT(fosLBAMPLMMExampleB31);
+            //LOAD_CLI_TEXT(fosLBAMPLMMExampleB21);
+            //LOAD_CLI_TEXT(fosLBAMPLMMExampleB12);
+            //LOAD_CLI_TEXT(fosLBAMPLMMExampleB11);
+            //LOAD_CLI_TEXT(fosLBAMPLMMExampleA12);
+            //LOAD_CLI_TEXT(fosLBAMPLMMExampleA11);
+            //LOAD_CLI_TEXT(fosLBAMPLimitMarginInfo);
+            //LOAD_CLI_TEXT(fosLBAMPLimitMarginMax);
+            //LOAD_CLI_TEXT(fosLBAMPLimitMarginMin);
+            //LOAD_CLI_TEXT(fosCBAmpKeepOldFile);
+            //LOAD_CLI_TEXT(fosCBPerfMonitor);
+            //LOAD_CLI_TEXT(fosLBLogOut);
+            LOAD_CLI_MAIN_TEXT(fosMain);
+        }
+    private:
         System::Void fosCBOK_Click(System::Object^  sender, System::EventArgs^  e) {
             //DisableToolTipHelp = fosCBDisableToolTip->Checked;
             make_file_filter(NULL, 0, fosCXDefaultOutExt->SelectedIndex);
@@ -584,11 +618,34 @@ namespace AUO_NAME_R {
             fos_ex_stg->s_local.run_bat_minimized         = fosCBRunBatMinimized->Checked;
 #if ENCODER_QSV
             fos_ex_stg->s_local.perf_monitor              = fosCBPerfMonitor->Checked;
-            fos_ex_stg->s_local.perf_monitor_plot         = fosCBPerfMonitorPlot->Checked;
 #endif
             fos_ex_stg->save_local();
             fos_ex_stg->save_log_win();
             this->Close();
+        }
+    private:
+        System::Void SetCXIndex(ComboBox^ CX, int index) {
+            if (CX->Items->Count > 0) {
+                CX->SelectedIndex = clamp(index, 0, CX->Items->Count - 1);
+            }
+        }
+    private:
+        System::Void setComboBox(ComboBox^ CX, const ENC_OPTION_STR2 * list) {
+            CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
+            CX->Items->Clear();
+            for (int i = 0; list[i].desc; i++) {
+                String^ string = nullptr;
+                if (list[i].mes != AUO_MES_UNKNOWN) {
+                    string = LOAD_CLI_STRING(list[i].mes);
+                }
+                if (string == nullptr || string->Length == 0) {
+                    string = String(list[i].desc).ToString();
+                }
+                CX->Items->Add(string);
+            }
+            SetCXIndex(CX, prevIdx);
+            CX->EndUpdate();
         }
     private:
         System::Void fosSetComboBox() {
@@ -603,14 +660,10 @@ namespace AUO_NAME_R {
             for (int i = 0; i < fos_ex_stg->s_aud_int_count; i++)
                 fosCXDefaultAudioEncoder->Items->Add(String(fos_ex_stg->s_aud_int[i].dispname).ToString());
             for (int i = 0; i < fos_ex_stg->s_aud_ext_count; i++)
-                fosCXDefaultAudioEncoder->Items->Add(String(L"外部: ").ToString() + String(fos_ex_stg->s_aud_ext[i].dispname).ToString());
+                fosCXDefaultAudioEncoder->Items->Add(LOAD_CLI_STRING(AUO_OTHER_SETTINGS_AUDIO_ENCODER_EXTERNAL) + L": " + String(fos_ex_stg->s_aud_ext[i].dispname).ToString());
             fosCXDefaultAudioEncoder->ResumeLayout();
 
-            fosCXLogLevel->SuspendLayout();
-            fosCXLogLevel->Items->Clear();
-            for (int i = 0; list_log_level_jp[i].desc; i++)
-                fosCXLogLevel->Items->Add(String(list_log_level_jp[i].desc).ToString());
-            fosCXLogLevel->ResumeLayout();
+            setComboBox(fosCXLogLevel, list_log_level_jp);
         }
     private:
         System::Void frmOtherSettings_Load(System::Object^  sender, System::EventArgs^  e) {
@@ -618,6 +671,8 @@ namespace AUO_NAME_R {
             fosTXStgDir->Text = stgDir;
             fos_ex_stg->load_encode_stg();
             fos_ex_stg->load_log_win();
+
+            LoadLangText();
             fosSetComboBox();
             fosCBAutoAFSDisable->Checked         = fos_ex_stg->s_local.auto_afs_disable != 0;
             fosCBAutoDelChap->Checked            = fos_ex_stg->s_local.auto_del_chap != 0;
@@ -638,10 +693,8 @@ namespace AUO_NAME_R {
             }
 #if ENCODER_QSV
             fosCBPerfMonitor->Checked               = fos_ex_stg->s_local.perf_monitor != 0;
-            fosCBPerfMonitorPlot->Checked           = fos_ex_stg->s_local.perf_monitor_plot != 0;
 #else
             fosCBPerfMonitor->Visible = false;
-            fosCBPerfMonitorPlot->Visible = false;
 #endif
             if (str_has_char(fos_ex_stg->s_local.conf_font.name))
                 SetFontFamilyToForm(this, gcnew FontFamily(String(fos_ex_stg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
@@ -650,9 +703,11 @@ namespace AUO_NAME_R {
         System::Void fosBTStgDir_Click(System::Object^  sender, System::EventArgs^  e) {
             FolderBrowserDialog^ fbd = gcnew FolderBrowserDialog();
             if (System::IO::Directory::Exists(fosTXStgDir->Text)) {
-                fbd->SelectedPath = fosTXStgDir->Text;
+                fbd->SelectedPath = Path::GetFullPath(fosTXStgDir->Text);
             }
             if (fbd->ShowDialog() == System::Windows::Forms::DialogResult::OK) {
+                if (fosCBGetRelativePath->Checked)
+                    fbd->SelectedPath = GetRelativePath(fbd->SelectedPath);
                 fosTXStgDir->Text = fbd->SelectedPath;
             }
         }

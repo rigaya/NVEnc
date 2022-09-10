@@ -26,104 +26,100 @@
 // --------------------------------------------------------------------------------------------
 
 #include "auo.h"
-#include "auo_version.h"
 #include "auo_frm.h"
+#include "auo_mes.h"
+#include "auo_version.h"
 #include "auo_pipe.h"
 #include "auo_chapter.h"
-#include "auo_convert.h"
+#include "auo_settings.h"
+#include "auo_util.h"
 
 void warning_conf_not_initialized(const char *default_stg_file) {
     if (default_stg_file && strlen(default_stg_file) > 0) {
-        write_log_auo_line_fmt(LOG_WARNING, "設定が行われていないため、前回出力した設定でエンコードを行います。: %s", default_stg_file);
+        write_log_auo_line_fmt(LOG_WARNING, L"%s: %s", g_auo_mes.get(AUO_ERR_CONF_NOT_INIT0), char_to_wstring(default_stg_file).c_str());
     } else {
-        write_log_auo_line(LOG_WARNING, "設定が行われていないため、デフォルト設定でエンコードを行います。");
+        write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_CONF_NOT_INIT1));
     }
-    write_log_auo_line(LOG_WARNING, "設定を変更するには[プラグイン出力]>[" AUO_FULL_NAME "]の画面で「ビデオ圧縮」をクリックし、");
-    write_log_auo_line(LOG_WARNING, "設定画面で設定を変更したのち [ OK ] をクリックしてください。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_CONF_NOT_INIT2));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_CONF_NOT_INIT3));
 }
 
 void warning_failed_getting_temp_path() {
-    write_log_auo_line(LOG_WARNING, "一時フォルダ名取得に失敗しました。一時フォルダ指定を解除しました。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_GET_TEMP_PATH));
 }
 
 void warning_unable_to_open_tempfile(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING,
-        "指定された一時フォルダ \"%s\" にファイルを作成できません。一時フォルダ指定を解除しました。",
-        dir);
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_UNABLE_OPEM_TEMP_FILE), char_to_wstring(dir).c_str());
 }
 
 void warning_no_temp_root(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING,
-        "指定された一時フォルダ \"%s\" が存在しません。一時フォルダ指定を解除しました。",
-        dir);
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_TEMP_ROOT), char_to_wstring(dir).c_str());
 }
 
 void warning_no_aud_temp_root(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING,
-        "指定された音声用一時フォルダ \"%s\" が存在しません。一時フォルダ指定を解除しました。",
-        dir);
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_AUD_TEMP_ROOT), char_to_wstring(dir).c_str());
 }
 
 void error_filename_too_long() {
-    write_log_auo_line(LOG_ERROR, "出力ファイル名が長すぎます。もっと短くしてください。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FILENAME_TOO_LONG));
 }
 
 void error_savdir_do_not_exist(const char *savname, const char *savedir) {
-    write_log_auo_line(    LOG_ERROR, "出力先フォルダを認識できないため、出力できません。");
-    write_log_auo_line_fmt(LOG_ERROR, "  出力ファイル名: \"%s\"", savname);
-    write_log_auo_line_fmt(LOG_ERROR, "  出力先フォルダ: \"%s\"", savedir);
+    write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST1));
+    write_log_auo_line_fmt(LOG_ERROR, L"%s: \"%s\"", g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST2), char_to_wstring(savname).c_str());
+    write_log_auo_line_fmt(LOG_ERROR, L"%s: \"%s\"", g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST3), char_to_wstring(savedir).c_str());
     if (strchr(savedir, '?') != nullptr) {
-        write_log_auo_line(LOG_ERROR, "このエラーは、上記出力先のフォルダ名に環境依存文字を含む場合に発生することがあります。");
-        write_log_auo_line(LOG_ERROR, "  該当文字は、\"?\"で表示されています。");
-        write_log_auo_line(LOG_ERROR, "  環境依存文字を含まないフォルダに出力先に変更して出力しなおしてください。");
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST4));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST5));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST6));
     }
 }
 
 void error_file_is_already_opened_by_aviutl() {
-    write_log_auo_line(LOG_ERROR, "出力ファイルはすでにAviutlで開かれているため、出力できません。");
-    write_log_auo_line(LOG_ERROR, "異なるファイル名を指定してやり直してください。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FILE_ALREADY_OPENED1));
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FILE_ALREADY_OPENED2));
 }
 
 void warning_no_auo_check_fileopen() {
-    write_log_auo_line_fmt(LOG_WARNING, "映像の出力ファイルチェック用のサブプロセス %s が %s 以下に存在しません。",
-        AUO_CHECK_FILEOPEN_NAME, DEFAULT_EXE_DIR);
-    write_log_auo_line_fmt(LOG_WARNING, "同梱の %s フォルダをAviutlフォルダ内にすべてコピーできているか、再確認してください。", DEFAULT_EXE_DIR);
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_WARN_NO_AUO_CHECK_FILEOPEN1), char_to_wstring(AUO_CHECK_FILEOPEN_NAME).c_str(), char_to_wstring(DEFAULT_EXE_DIR).c_str());
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_WARN_NO_AUO_CHECK_FILEOPEN2), char_to_wstring(DEFAULT_EXE_DIR).c_str());
 }
 
 static void error_failed_to_open_temp_file_dir(const char *temp_filename, const char *mesBuffer, const DWORD err, const BOOL target_is_dir) {
     if (target_is_dir) {
-        write_log_auo_line_fmt(LOG_ERROR, "出力先 \"%s\" にファイルを作成できません。", temp_filename);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR1), char_to_wstring(temp_filename).c_str());
     } else {
-        write_log_auo_line_fmt(LOG_ERROR, "映像の出力ファイル \"%s\" を開くことができません。", temp_filename);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR2), char_to_wstring(temp_filename).c_str());
     }
-    write_log_auo_line_fmt(LOG_ERROR, "  %s", mesBuffer);
+    write_log_auo_line_fmt(LOG_ERROR, L"  %s", char_to_wstring(mesBuffer).c_str());
     if (strchr(temp_filename, '?') != nullptr) {
-        write_log_auo_line(LOG_ERROR, "このエラーは、出力%s名に環境依存文字を含む場合に発生することがあります。", (target_is_dir) ? "フォルダ" : "ファイル");
-        write_log_auo_line(LOG_ERROR, "  該当文字は、\"?\"で表示されていますので該当文字を避けた%sに出力しなおしてください。", (target_is_dir) ? "フォルダ" : "ファイル");
+        const wchar_t *target_name = (target_is_dir) ? g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_FOLDER) : g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_FILE);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_SPECIAL_CHAR1), target_name);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_SPECIAL_CHAR2), target_name);
     } else if (err == ERROR_ACCESS_DENIED) {
-        char systemdrive_dir[MAX_PATH_LEN] = { 0 };
-        char systemroot_dir[MAX_PATH_LEN] = { 0 };
-        char programdata_dir[MAX_PATH_LEN] = { 0 };
-        char programfiles_dir[MAX_PATH_LEN] = { 0 };
+        wchar_t systemdrive_dir[MAX_PATH_LEN] = { 0 };
+        wchar_t systemroot_dir[MAX_PATH_LEN] = { 0 };
+        wchar_t programdata_dir[MAX_PATH_LEN] = { 0 };
+        wchar_t programfiles_dir[MAX_PATH_LEN] = { 0 };
         //char programfilesx86_dir[MAX_PATH_LEN];
-        ExpandEnvironmentStrings("%SystemDrive%", systemdrive_dir, _countof(systemdrive_dir));
-        ExpandEnvironmentStrings("%SystemRoot%", systemroot_dir, _countof(systemroot_dir));
-        ExpandEnvironmentStrings("%PROGRAMDATA%", programdata_dir, _countof(programdata_dir));
-        ExpandEnvironmentStrings("%PROGRAMFILES%", programfiles_dir, _countof(programfiles_dir));
+        ExpandEnvironmentStringsW(L"%SystemDrive%", systemdrive_dir, _countof(systemdrive_dir));
+        ExpandEnvironmentStringsW(L"%SystemRoot%", systemroot_dir, _countof(systemroot_dir));
+        ExpandEnvironmentStringsW(L"%PROGRAMDATA%", programdata_dir, _countof(programdata_dir));
+        ExpandEnvironmentStringsW(L"%PROGRAMFILES%", programfiles_dir, _countof(programfiles_dir));
         //ExpandEnvironmentStrings("%PROGRAMFILES(X86)%", programfilesx86_dir, _countof(programfilesx86_dir));
-        write_log_auo_line(LOG_ERROR, "このエラーは、アクセス権のないフォルダ、あるいはWindowsにより保護されたフォルダに");
-        write_log_auo_line(LOG_ERROR, "出力しようとすると発生することがあります。");
-        write_log_auo_line(LOG_ERROR, "出力先のフォルダを変更して出力しなおしてください。");
-        write_log_auo_line(LOG_ERROR, "なお、下記はWindowsにより保護されたフォルダですので、ここへの出力は避けてください。");
-        write_log_auo_line_fmt(LOG_ERROR, "例: %s ドライブ直下", systemdrive_dir);
-        write_log_auo_line_fmt(LOG_ERROR, "    %s 以下", systemroot_dir);
-        write_log_auo_line_fmt(LOG_ERROR, "    %s 以下", programdata_dir);
-        write_log_auo_line_fmt(LOG_ERROR, "    %s 以下", programfiles_dir);
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED1));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED2));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED3));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED4));
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED5), systemdrive_dir);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED6), systemroot_dir);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED6), programdata_dir);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED6), programfiles_dir);
         //write_log_auo_line_fmt(LOG_ERROR, "    %s 以下", programfilesx86_dir);
-        write_log_auo_line(LOG_ERROR, "    など");
-        write_log_auo_line(LOG_ERROR, "");
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_ACCESS_DENIED7));
+        write_log_auo_line(LOG_ERROR, L"");
     } else {
-        write_log_auo_line(LOG_ERROR, "出力先のフォルダ・ファイルを変更して出力しなおしてください。");
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_OTHER));
     }
 }
 
@@ -136,190 +132,251 @@ void error_failed_to_open_tempfile(const char *temp_filename, const char *mesBuf
 }
 
 void error_nothing_to_output() {
-    write_log_auo_line(LOG_ERROR, "出力すべきものがありません。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_NOTHING_TO_OUTPUT));
 }
 
 void error_output_zero_frames() {
-    write_log_auo_line(LOG_ERROR, "出力フレーム数が 0 フレームのため、エンコードできません。");
-    write_log_auo_line(LOG_ERROR, "選択範囲が適切になっているか確認して出力しなおしてください。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_OUTPUT_ZERO_FRAMES1));
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_OUTPUT_ZERO_FRAMES2));
+}
+
+void warning_amp_bitrate_confliction(int lower, int upper) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_AMP_BITRATE_CONFLICT1), upper, lower);
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AMP_BITRATE_CONFLICT2));
+}
+
+void error_amp_bitrate_confliction() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AMP_BITRATE_CONFLICT3));
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AMP_BITRATE_CONFLICT4));
+}
+
+void error_amp_afs_audio_delay_confliction() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AMP_AFS_AUDIO_DELAY_CONFLICT1));
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AMP_AFS_AUDIO_DELAY_CONFLICT2));
 }
 
 void info_afs_audio_delay_confliction() {
-    write_log_auo_line(LOG_INFO, "自動フィールドシフト、音声ディレイカット[動画追加]が同時に指定されている場合には、音声エンコードは後で行います。");
+    write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AFS_AUDIO_DELAY_CONFLICT));
+}
+
+static const wchar_t *get_target_limit_name(DWORD target_limit) {
+    const wchar_t *str_limit = L"";
+    switch (target_limit) {
+        case AMPLIMIT_BITRATE_UPPER:
+        case AMPLIMIT_BITRATE_LOWER:
+            str_limit = g_auo_mes.get(AUO_ERR_AMP_TARGET_LIMIT_NAME_BITRATE);   break;
+        case AMPLIMIT_FILE_SIZE:
+            str_limit = g_auo_mes.get(AUO_ERR_AMP_TARGET_LIMIT_NAME_FILESIZE); break;
+        default:
+            str_limit = g_auo_mes.get(AUO_ERR_AMP_TARGET_LIMIT_NAME_BITRATE_FILESIZE);   break;
+    }
+    return str_limit;
+}
+
+void info_amp_do_aud_enc_first(DWORD target_limit) {
+    write_log_auo_line_fmt(LOG_INFO, g_auo_mes.get(AUO_ERR_AMP_DO_AUD_ENC_FIRST), get_target_limit_name(target_limit));
+}
+
+void error_amp_aud_too_big(DWORD target_limit) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_AMP_AUD_TOO_BIG1), get_target_limit_name(target_limit));
+    write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_AMP_AUD_TOO_BIG2));
+}
+
+void error_amp_target_bitrate_too_small(DWORD target_limit) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_AMP_TARGET_BITRATE_TOO_SMALL1), get_target_limit_name(target_limit));
+    write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_AMP_TARGET_BITRATE_TOO_SMALL2));
+}
+
+void warning_amp_change_bitrate(int bitrate_old, int bitrate_new, DWORD target_limit) {
+    if (bitrate_old > 0) {
+        write_log_auo_line_fmt(LOG_WARNING, (bitrate_old > bitrate_new)
+            ? g_auo_mes.get(AUO_ERR_AMP_CHANGE_BITRATE_TOO_BIG)
+            : g_auo_mes.get(AUO_ERR_AMP_CHANGE_BITRATE_TOO_SMALL),
+            get_target_limit_name(target_limit));
+        write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_AMP_CHANGE_BITRATE_FROM_TO), bitrate_old, bitrate_new);
+    } else {
+        //-1は上限確認付crfで使用する
+        write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_AMP_CHANGE_BITRATE_AUTO), bitrate_new);
+    }
 }
 
 void error_invalid_resolution(BOOL width, int mul, int w, int h) {
-    write_log_auo_line_fmt(LOG_ERROR, "%s入力解像度が %d で割りきれません。エンコードできません。入力解像度:%dx%d",
-        (width) ? "横" : "縦", mul, w, h);
+    const wchar_t *resolution_x_y = (width) ? g_auo_mes.get(AUO_ERR_INVALID_RESOLUTION_WIDTH) : g_auo_mes.get(AUO_ERR_INVALID_RESOLUTION_HEIGHT);
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_INVALID_RESOLUTION), resolution_x_y, mul, w, h);
 }
 
 void error_log_line_cache() {
-    write_log_auo_line(LOG_ERROR, "ログ保存キャッシュ用メモリ確保に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_LOG_LINE_CACHE));
 }
 
-void error_no_exe_file(const char *name, const char *path) {
+void error_tc2mp4_afs_not_supported() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_TC2MP4_AFS_NOT_SUPPORTED1));
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_TC2MP4_AFS_NOT_SUPPORTED2));
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_TC2MP4_AFS_NOT_SUPPORTED3));
+}
+
+void error_no_exe_file(const wchar_t *name, const char *path) {
     if (strlen(path))
-        write_log_auo_line_fmt(LOG_ERROR, "指定された %s が %s にありません。", name, path);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_EXE_FILE1), name, char_to_wstring(path).c_str());
     else
-        write_log_auo_line_fmt(LOG_ERROR, "%s の場所が指定されていません。", name);
-    write_log_auo_line_fmt(LOG_ERROR, "%s を用意し、その場所を設定画面から正しく指定してください。", name);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_EXE_FILE2), name);
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_EXE_FILE3), name);
 }
 
-void warning_use_default_audio_encoder(const char *name) {
-    write_log_auo_line_fmt(LOG_WARNING, "音声エンコーダが適切に設定されていないため、デフォルトの音声エンコーダ %s を使用します。", name);
+void warning_use_default_audio_encoder(const wchar_t *name) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_USE_DEFAULT_AUDIO_ENCODER), name);
 }
 
-void info_use_exe_found(const char *target, const char *path) {
-    write_log_auo_line_fmt(LOG_INFO, "%sとして \"%s\" を使用します。", target, path);
+void info_use_exe_found(const wchar_t *target, const char *path) {
+    write_log_auo_line_fmt(LOG_INFO, g_auo_mes.get(AUO_ERR_INFO_USE_EXE_FOUND), target, char_to_wstring(path).c_str());
 }
 
 void error_invalid_ini_file() {
-    write_log_auo_line(LOG_ERROR, "プラグイン(auo)とiniファイルの音声エンコーダの記述が一致しません。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_INVALID_INI_FILE));
 }
 
-void error_unsupported_audio_format_by_muxer(const int video_out_type, const char *selected_aud, const char *default_aud) {
+void error_unsupported_audio_format_by_muxer(const int video_out_type, const wchar_t *selected_aud, const wchar_t *default_aud) {
     if (video_out_type < _countof(OUTPUT_FILE_EXT)) {
-        write_log_auo_line_fmt(LOG_ERROR, "音声エンコーダ %s は、%s 形式での出力に対応していません。", selected_aud, OUTPUT_FILE_EXT[video_out_type] + 1);
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_UNSUPPORTED_AUDIO_FORMAT_BY_MUXER1), selected_aud, char_to_wstring(OUTPUT_FILE_EXT[video_out_type] + 1).c_str());
         if (default_aud) {
-            write_log_auo_line_fmt(LOG_ERROR, "%s 等の他の音声エンコーダを選択して出力してください。", default_aud);
+            write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_UNSUPPORTED_AUDIO_FORMAT_BY_MUXER2), default_aud);
         } else {
-            write_log_auo_line(LOG_ERROR, "他の音声エンコーダを選択して出力してください。");
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_UNSUPPORTED_AUDIO_FORMAT_BY_MUXER3));
         }
     }
 }
 
+void error_mp4box_ini() {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_MP4_MUXER_ERROR));
+}
+
 void warning_auto_afs_disable() {
-    write_log_line(LOG_WARNING, ""
-        "auo [warning]: Aviutlからの映像入力の初期化に失敗したため、\n"
-        "               自動フィールドシフト(afs)をオフにして再初期化を行いました。\n"
-        "               この問題は、Aviutlでafsを使用していないにも関わらず、\n"
-        "               x264guiEx側でafsをオンにしていると発生します。\n"
-        "               他のエラーの可能性も考えられます。afsがオフになっている点に注意してください。"
-        );
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AFS_AUTO_DISABLE1));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AFS_AUTO_DISABLE2));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AFS_AUTO_DISABLE3));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AFS_AUTO_DISABLE4));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AFS_AUTO_DISABLE5));
 }
 
 void error_afs_setup(BOOL afs, BOOL auto_afs_disable) {
     if (afs && !auto_afs_disable) {
-        write_log_line(LOG_ERROR, ""
-            "auo [error]: Aviutlからの映像入力の初期化に失敗しました。以下のような原因が考えられます。\n"
-            "             ・自動フィールドシフト(afs)をAviutlで使用していないにもかかわらず、\n"
-            "               x264guiExの設定画面で自動フィールドシフトにチェックを入れていたり、\n"
-            "               自動フィールドシフト非対応の動画(60fps読み込み等)を入力したりしている。\n"
-            "             ・メモリ不足による、メモリ確保の失敗。"
-            );
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AFS_SETUP1));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AFS_SETUP2));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AFS_SETUP3));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AFS_SETUP4));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AFS_SETUP5));
     } else
-        write_log_auo_line(LOG_ERROR, "Aviutlからの映像入力の初期化に失敗しました。メモリを確保できませんでした。");
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AFS_SETUP6));
 }
 
 void error_open_pipe() {
-    write_log_auo_line(LOG_ERROR, "パイプの作成に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_OPEN_PIPE));
 }
 
 void error_get_pipe_handle() {
-    write_log_auo_line(LOG_ERROR, "パイプハンドルの取得に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_GET_PIPE_HANDLE));
 }
 
-void error_run_process(const char *exe_name, int rp_ret) {
+void error_run_process(const wchar_t *exe_name, int rp_ret) {
     switch (rp_ret) {
         case RP_ERROR_OPEN_PIPE:
-            write_log_auo_line(LOG_ERROR, "パイプの作成に失敗しました。");
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_OPEN_PIPE));
             break;
         case RP_ERROR_GET_STDIN_FILE_HANDLE:
-            write_log_auo_line(LOG_ERROR, "パイプハンドルの取得に失敗しました。");
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_GET_PIPE_HANDLE));
             break;
         case RP_ERROR_CREATE_PROCESS:
         default:
-            write_log_auo_line_fmt(LOG_ERROR, "%s の実行に失敗しました。", exe_name);
+            write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_RUN_PROCESS), exe_name);
             break;
     }
 }
 
+void error_video_output_thread_start() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDEO_OUTPUT_THREAD_START));
+}
+
 void error_video_create_param_mem() {
-    write_log_auo_line(LOG_ERROR, "パラメータ保持用のメモリ確保に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDEO_CREATE_PARAM_MEM));
 }
 
 void error_video_create_event() {
-    write_log_auo_line(LOG_ERROR, "読み込み用のイベント作成に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDEO_CREATE_EVENT));
 }
 
 void error_video_wait_event() {
-    write_log_auo_line(LOG_ERROR, "読み込み用のイベント待機に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDEO_WAIT_EVENT));
 }
 
 void error_video_set_event() {
-    write_log_auo_line(LOG_ERROR, "読み込み用のイベントセットに失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDEO_SET_EVENT));
 }
 
 void error_video_open_shared_input_buf() {
-    write_log_auo_line(LOG_ERROR, "読み込み用のメモリのオープンに失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDEO_OPEN_SHARED_INPUT_BUF));
 }
 
 void error_video_get_conv_func() {
-    write_log_auo_line(LOG_ERROR, "色変換用の関数選択に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDEO_GET_CONV_FUNC));
 }
 
 void warning_auto_qpfile_failed() {
-    write_log_auo_line(LOG_WARNING, "Aviutlのキーフレーム検出用 qpfileの自動作成に失敗しました。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_QPFILE_FAILED));
 }
 
 void warning_auo_tcfile_failed() {
-    write_log_auo_line(LOG_WARNING, "タイムコードファイル作成に失敗しました。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_TCFILE_FAILED));
 }
 
 void error_malloc_pixel_data() {
-    write_log_auo_line(LOG_ERROR, "映像バッファ用メモリ確保に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_MALLOC_PIXEL_DATA));
 }
 
 void error_malloc_tc() {
-    write_log_auo_line(LOG_ERROR, "タイムコード用メモリ確保に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_MALLOC_TC));
 }
 
 void error_malloc_8bit() {
-    write_log_auo_line(LOG_ERROR, "音声16bit→8bit変換用メモリ確保に失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_MALLOC_8BIT));
 }
 
 void error_afs_interlace_stg() {
-    write_log_line(LOG_ERROR,
-        "auo [error]: 自動フィールドシフトとインターレース設定が両方オンになっており、設定が矛盾しています。\n"
-        "             設定を見なおしてください。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AFS_INTERLACE_STG));
+}
+
+void warning_x264_mp4_output_not_supported() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_X264_MP4_OUTPUT_NOT_SUPPORTED1));
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_X264_MP4_OUTPUT_NOT_SUPPORTED2));
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_X264_MP4_OUTPUT_NOT_SUPPORTED3));
 }
 
 void error_videnc_dead() {
-    write_log_auo_line_fmt(LOG_ERROR, "%sが予期せず途中終了しました。%sに不正なパラメータ(オプション)が渡された可能性があります。", ENCODER_NAME, ENCODER_NAME);
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD));
 }
 
 void error_videnc_dead_and_nodiskspace(const char *drive, uint64_t diskspace) {
-    write_log_auo_line_fmt(LOG_ERROR, "%sが予期せず途中終了しました。", ENCODER_NAME);
-    write_log_auo_line_fmt(LOG_ERROR, "%sドライブの空き容量が残り %.2f MBしかありません。", drive, (double)diskspace / (1024 * 1024));
-    write_log_auo_line_fmt(LOG_ERROR, "%sドライブの空き容量不足で失敗した可能性があります。", drive);
-    write_log_auo_line_fmt(LOG_ERROR, "%sドライブの空きをつくり、再度実行しなおしてください。", drive);
+    write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE1));
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE2), char_to_wstring(drive).c_str(), (double)diskspace / (1024 * 1024));
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE3), char_to_wstring(drive).c_str());
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE4), char_to_wstring(drive).c_str());
 }
-
 void error_videnc_version(const char *required_ver, const char *current_ver) {
-    write_log_line_fmt(LOG_ERROR, ""
-        "auo [error]: %sのバージョンが古く、エンコードできません。\n"
-        "             最新の%sをダウンロードし、設定画面で最新版に指定しなおしてください。\n"
-        "             必要なバージョン:         %s\n"
-        "             実行ファイルのバージョン: %s\n",
-        ENCODER_NAME, required_ver, current_ver);
-}
-
-void error_x264_version() {
-    write_log_line(LOG_ERROR, ""
-        "auo [error]: NVEncCのバージョンが古く、エンコードできません。\n"
-        "             最新のNVEncCをダウンロードし、設定画面で最新版に指定しなおしてください。");
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_VERSION1));
+    write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_VERSION2));
+    write_log_auo_line_fmt(LOG_ERROR, L"%s: %s", g_auo_mes.get(AUO_ERR_VIDENC_VERSION3), char_to_wstring(required_ver).c_str());
+    write_log_auo_line_fmt(LOG_ERROR, L"%s: %s", g_auo_mes.get(AUO_ERR_VIDENC_VERSION4), char_to_wstring(current_ver).c_str());
 }
 
 void error_afs_get_frame() {
-    write_log_auo_line(LOG_ERROR, "Aviutlからのフレーム読み込みに失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AFS_GET_FRAME));
 }
 
 void error_open_wavfile() {
-    write_log_auo_line(LOG_ERROR, "wavファイルのオープンに失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_OPEN_WAVFILE));
 }
 
 void error_no_wavefile() {
-    write_log_auo_line(LOG_ERROR, "wavファイルがみつかりません。音声エンコードに失敗しました。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_WAVFILE));
 }
 
 static void message_audio_length_different(const double video_length, const double audio_length, const BOOL exedit_is_used, const BOOL audio_length_changed) {
@@ -334,34 +391,28 @@ static void message_audio_length_different(const double video_length, const doub
     const int aud_ms = std::min((int)((audio_length - (double)(aud_h * 3600 + aud_m * 60 + aud_s)) * 1000.0), 999);
 
     if (audio_length_changed) {
-        write_log_line_fmt(LOG_INFO,
-            "auo [info]: 音声の長さが映像の長さと異なるようです。\n"
-            "            映像: %d:%02d:%02d.%03d, 音声: %d:%02d:%02d.%03d\n",
+        write_log_auo_line(    LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT1));
+        write_log_auo_line_fmt(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT2),
             vid_h, vid_m, vid_s, vid_ms,
             aud_h, aud_m, aud_s, aud_ms);
-        write_log_line_fmt(LOG_INFO, ""
-            "            音声の長さが映像の長さに一致するよう、自動的に調整しました。\n");
+        write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT3));
         if (exedit_is_used) {
-            write_log_line_fmt(LOG_INFO, ""
-                "            拡張編集の音声トラックとAviutl本体の音声トラックが競合している可能性があります。\n"
-                "            拡張編集使用時には、Aviutl本体の音声トラック読み込みを使用しないようご注意ください。\n");
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT4));
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT5));
         }
     } else {
-        write_log_line_fmt(LOG_WARNING,
-            "auo [warning]: 音声の長さが映像の長さと異なるようです。\n"
-            "               映像: %d:%02d:%02d.%03d, 音声: %d:%02d:%02d.%03d\n",
+        write_log_auo_line(    LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT1));
+        write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT2),
             vid_h, vid_m, vid_s, vid_ms,
             aud_h, aud_m, aud_s, aud_ms);
         if (exedit_is_used) {
-            write_log_line_fmt(LOG_WARNING, ""
-                "               拡張編集の音声トラックとAviutl本体の音声トラックが競合している可能性があります。\n"
-                "               拡張編集使用時には、Aviutl本体の音声トラック読み込みを使用しないようご注意ください。\n");
+            write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT4));
+            write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT5));
         } else {
-            write_log_line_fmt(LOG_WARNING, ""
-                "               これが意図したものでない場合、音声が正常に出力されていないかもしれません。\n"
-                "               この問題は圧縮音声をソースとしていると発生することがあります。\n"
-                "               一度音声をデコードし、「音声読み込み」から無圧縮wavとして別に読み込むか、\n"
-                "               異なる入力プラグインを利用して読み込むといった方法を試してみてください。");
+            write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT6));
+            write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT7));
+            write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT8));
+            write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT9));
         }
     }
 }
@@ -374,156 +425,200 @@ void warning_audio_length(const double video_length, const double audio_length, 
     message_audio_length_different(video_length, audio_length, exedit_is_used, FALSE);
 }
 
-void error_audenc_failed(const char *name, const char *args) {
-    write_log_auo_line_fmt(LOG_ERROR, "出力音声ファイルがみつかりません。%s での音声のエンコードに失敗しました。", name);
+void error_audenc_failed(const wchar_t *name, const char *args) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDENC_FAILED1), name);
     if (args) {
-        write_log_auo_line(    LOG_ERROR, "音声エンコードのコマンドラインは…");
-        write_log_auo_line(    LOG_ERROR, args);
+        write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDENC_FAILED2));
+        write_log_auo_line(    LOG_ERROR, char_to_wstring(args).c_str());
     }
 }
 
-void error_mux_failed(const char *name, const char *args) {
-    write_log_auo_line_fmt(LOG_ERROR, "%s でのmuxに失敗しました。", name);
-    write_log_auo_line(    LOG_ERROR, "muxのコマンドラインは…");
-    write_log_auo_line(    LOG_ERROR, args);
+void error_mux_failed(const wchar_t *name, const char *args) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_MUX_FAILED1), name);
+    write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_MUX_FAILED2));
+    write_log_auo_line(    LOG_ERROR, char_to_wstring(args).c_str());
 }
 
 void warning_no_mux_tmp_root(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING,
-        "指定されたmux用一時ドライブ \"%s\" が存在しません。一時フォルダ指定を解除しました。",
-        dir);
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_MUX_TMP_ROOT), char_to_wstring(dir).c_str());
 }
 
 void warning_failed_mux_tmp_drive_space() {
-    write_log_auo_line(LOG_WARNING, "指定されたmux用一時フォルダのあるドライブの空き容量取得に失敗しました。mux用一時フォルダ指定を解除しました。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_TMP_DRIVE_SPACE));
 }
 
 void warning_failed_muxer_drive_space() {
-    write_log_auo_line(LOG_WARNING, "muxerのあるドライブの空き容量取得に失敗しました。容量不足によりmuxが失敗する可能性があります。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_MUX_DRIVE_SPACE));
 }
 
 void warning_failed_out_drive_space() {
-    write_log_auo_line(LOG_WARNING, "出力先のあるドライブの空き容量取得に失敗しました。容量不足によりmuxが失敗する可能性があります。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_OUT_DRIVE_SPACE));
 }
 
 void warning_failed_get_aud_size() {
-    write_log_auo_line(LOG_WARNING, "音声一時ファイルのサイズ取得に失敗しました。muxが正常に行えるか確認できません。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_GET_AUD_SIZE));
 }
 
 void warning_failed_get_vid_size() {
-    write_log_auo_line(LOG_WARNING, "映像一時ファイルのサイズ取得に失敗しました。muxが正常に行えるか確認できません。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_GET_VID_SIZE));
 }
 
 void error_no_aud_file() {
-    write_log_auo_line(LOG_ERROR, "音声一時ファイルが見つかりません。muxを行えません。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_AUD_FILE));
 }
 
 void error_no_vid_file() {
-    write_log_auo_line(LOG_ERROR, "映像一時ファイルが見つかりません。muxを行えません。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_VID_FILE));
 }
 
 void error_aud_file_zero_byte() {
-    write_log_auo_line(LOG_ERROR, "音声一時ファイルが 0 byteです。muxを行えません。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUD_FILE_ZERO_BYTE));
 }
 
 void error_vid_file_zero_byte() {
-    write_log_auo_line(LOG_ERROR, "映像一時ファイルが 0 byteです。muxを行えません。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VID_FILE_ZERO_BYTE));
 }
 
 void warning_mux_tmp_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
-    write_log_auo_line_fmt(LOG_WARNING, "mux一時フォルダのある%sドライブに十分な空きがありません。", drive);
-    write_log_auo_line_fmt(LOG_WARNING, "  必要サイズ %.2f MB, 残り空き容量 %.2f MB", (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
-    write_log_auo_line(LOG_WARNING, "mux用一時フォルダ指定を解除しました。");
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_TMP_NO_ENOUGH_SPACE1), char_to_wstring(drive).c_str());
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_ENOUGH_SPACE_SHOW_SIZE), (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
+    write_log_auo_line    (LOG_WARNING, g_auo_mes.get(AUO_ERR_TMP_NO_ENOUGH_SPACE2));
 }
 
 void error_muxer_drive_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
-    write_log_auo_line(LOG_ERROR, "muxerのある%sドライブに十分な空きがありません。muxを行えません。", drive);
-    write_log_auo_line_fmt(LOG_ERROR, "  必要サイズ %.2f MB, 残り空き容量 %.2f MB", (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_MUX_NO_ENOUGH_SPACE), char_to_wstring(drive).c_str());
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_ENOUGH_SPACE_SHOW_SIZE), (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
 }
 
 void error_out_drive_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
-    write_log_auo_line(LOG_ERROR, "出力先の%sドライブに十分な空きがありません。muxを行えません。", drive);
-    write_log_auo_line_fmt(LOG_ERROR, "  必要サイズ %.2f MB, 残り空き容量 %.2f MB", (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_OUT_NO_ENOUGH_SPACE), char_to_wstring(drive).c_str());
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_ENOUGH_SPACE_SHOW_SIZE), (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
 }
 
 void warning_failed_to_get_duration_from_timecode() {
-    write_log_auo_line(LOG_WARNING, "タイムコードからの動画長さの取得に失敗しました。");
-    write_log_auo_line(LOG_WARNING, "Apple形式チャプターに記述する動画長さはAviutlから取得したものを使用します。");
-    write_log_auo_line(LOG_WARNING, "そのため、チャプターストリームの長さが実際の動画と異なる恐れがあります。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_TO_GET_DURATION_FROM_TIMECODE1));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_TO_GET_DURATION_FROM_TIMECODE2));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_TO_GET_DURATION_FROM_TIMECODE3));
 }
 
 void error_check_muxout_exist() {
-    write_log_auo_line(LOG_ERROR, "mux後ファイルが見つかりませんでした。");
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_EXIST));
 }
 
 void error_check_muxout_too_small(int expected_filesize_KB, int muxout_filesize_KB) {
-    write_log_auo_line    (LOG_ERROR, "mux後ファイルが小さすぎます。muxに失敗したものと思われます。");
-    write_log_auo_line_fmt(LOG_ERROR, "推定ファイルサイズ %d KB,  出力ファイルサイズ %d KB", expected_filesize_KB, muxout_filesize_KB);
+    write_log_auo_line    (LOG_ERROR, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_TO_SMALL1));
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_TO_SMALL2), expected_filesize_KB, muxout_filesize_KB);
 }
 
 void warning_failed_check_muxout_filesize() {
-    write_log_auo_line(LOG_WARNING, "mux後ファイルのファイルサイズ確認に失敗しました。正常にmuxされていない可能性があります。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_GET_SIZE));
+}
+
+void warning_amp_failed() {
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AMP_FAILED));
+}
+
+void warning_amp_filesize_over_limit() {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_AMP_FILESIZE_OVER_LIMIT1));
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_AMP_FILESIZE_OVER_LIMIT2));
 }
 
 void warning_no_auto_save_log_dir() {
-    write_log_auo_line(LOG_WARNING, "指定した自動ログ保存先が存在しません。動画出力先に保存します。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_AUTO_SAVE_LOG_DIR));
 }
 
 void info_encoding_aborted() {
-    write_log_auo_line(LOG_INFO, "エンコードを中断しました。");
+    write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_ABORT));
 }
 
 void warning_mux_no_chapter_file() {
-    write_log_auo_line(LOG_WARNING, "指定されたチャプターファイルが存在しません。チャプターはmuxされません。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_MUX_NO_CHAPTER_FILE));
+}
+
+void info_amp_result(DWORD status, int amp_result, UINT64 filesize, double file_bitrate, double limit_filesize, double limit_filebitrate_upper, double limit_filebitrate_lower, int retry_count, int new_bitrate) {
+    int log_index = (status) ? ((amp_result) ? LOG_WARNING : LOG_ERROR) : LOG_INFO;
+    write_log_auo_line_fmt(    log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT1), filesize / (double)(1024*1024), file_bitrate);
+    if (status & AMPLIMIT_FILE_SIZE)
+        write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT2), limit_filesize);
+    if (status & AMPLIMIT_BITRATE_UPPER)
+        write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT3), limit_filebitrate_upper);
+    if (status & AMPLIMIT_BITRATE_LOWER)
+        write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT4), limit_filebitrate_lower);
+    if (status && amp_result)
+        if (amp_result == 2)
+            write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT5), new_bitrate);
+        else if (new_bitrate > 0) //-1, 0は上限確認付crfで使用する
+            write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT6), new_bitrate);
+
+    if (!status)
+        write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT7));
+    else if (!amp_result) {
+        if (status & (AMPLIMIT_BITRATE_UPPER | AMPLIMIT_FILE_SIZE)) {
+            write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT8), retry_count);
+        } else if (status & AMPLIMIT_BITRATE_LOWER) {
+            write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT9), retry_count);
+            write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT10));
+            write_log_auo_line_fmt(log_index, g_auo_mes.get(AUO_ERR_AMP_RESULT11));
+        }
+    }
 }
 
 void warning_mux_chapter(int sts) {
+    AuoMes id = AUO_MES_UNKNOWN;
     switch (sts) {
         case AUO_CHAP_ERR_NONE: break;
-        case AUO_CHAP_ERR_FILE_OPEN:        write_log_auo_line(LOG_WARNING, "チャプターファイルのオープンに失敗しました。"); break;
-        case AUO_CHAP_ERR_FILE_READ:        write_log_auo_line(LOG_WARNING, "チャプターファイルの読み込みに失敗しました。"); break;
-        case AUO_CHAP_ERR_FILE_WRITE:       write_log_auo_line(LOG_WARNING, "チャプターファイルの書き込みに失敗しました。"); break;
-        case AUO_CHAP_ERR_FILE_SWAP:        write_log_auo_line(LOG_WARNING, "チャプターファイル名の交換に失敗しました。"); break;
-        case AUO_CHAP_ERR_CP_DETECT:        write_log_auo_line(LOG_WARNING, "チャプターファイルのコードページの判定に失敗しました。"); break;
-        case AUO_CHAP_ERR_INIT_IMUL2:       write_log_auo_line(LOG_WARNING, "コードページ変換の初期化に失敗しました。"); break;
-        case AUO_CHAP_ERR_INVALID_FMT:      write_log_auo_line(LOG_WARNING, "指定されたチャプターファイルの書式が不正です。"); break;
-        case AUO_CHAP_ERR_NULL_PTR:         write_log_auo_line(LOG_WARNING, "ぬるぽ。"); break;
-        case AUO_CHAP_ERR_INIT_XML_PARSER:  write_log_auo_line(LOG_WARNING, "Xml Parserの初期化に失敗しました。"); break;
-        case AUO_CHAP_ERR_INIT_READ_STREAM: write_log_auo_line(LOG_WARNING, "チャプターファイルのオープンに失敗しました。"); break;
-        case AUO_CHAP_ERR_FAIL_SET_STREAM:  write_log_auo_line(LOG_WARNING, "Xml Parserと入力ストリームの接続に失敗しました。"); break;
-        case AUO_CHAP_ERR_PARSE_XML:        write_log_auo_line(LOG_WARNING, "チャプターファイルの読み取りに失敗しました。"); break;
-        default:                            write_log_auo_line(LOG_WARNING, "チャプターmux: 不明なエラーが発生しました。"); break;
+        case AUO_CHAP_ERR_FILE_OPEN:        id = AUO_ERR_MUX_CHPATER_OPEN; break;
+        case AUO_CHAP_ERR_FILE_READ:        id = AUO_ERR_MUX_CHPATER_READ; break;
+        case AUO_CHAP_ERR_FILE_WRITE:       id = AUO_ERR_MUX_CHPATER_WRITE; break;
+        case AUO_CHAP_ERR_FILE_SWAP:        id = AUO_ERR_MUX_CHPATER_SWAP; break;
+        case AUO_CHAP_ERR_CP_DETECT:        id = AUO_ERR_MUX_CHPATER_CP_DETECT; break;
+        case AUO_CHAP_ERR_INIT_IMUL2:       id = AUO_ERR_MUX_CHPATER_INIT_IMUL2; break;
+        case AUO_CHAP_ERR_INVALID_FMT:      id = AUO_ERR_MUX_CHPATER_INVALID_FMT; break;
+        case AUO_CHAP_ERR_NULL_PTR:         id = AUO_ERR_MUX_CHPATER_NULL_PTR; break;
+        case AUO_CHAP_ERR_INIT_XML_PARSER:  id = AUO_ERR_MUX_CHPATER_INIT_XML_PARSE; break;
+        case AUO_CHAP_ERR_INIT_READ_STREAM: id = AUO_ERR_MUX_CHPATER_INIT_READ_STREAM; break;
+        case AUO_CHAP_ERR_FAIL_SET_STREAM:  id = AUO_ERR_MUX_CHPATER_SET_STREAM; break;
+        case AUO_CHAP_ERR_PARSE_XML:        id = AUO_ERR_MUX_CHPATER_PARSE_XML; break;
+        default:                            id = AUO_ERR_MUX_CHPATER_UNKNOWN; break;
     }
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(id));
     return;
 }
 
 void warning_chapter_convert_to_utf8(int sts) {
-    write_log_auo_line_fmt(LOG_WARNING, "チャプターファイルのUTF-8への変換に失敗しました。");
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_CHPATER_CONVERT));
     warning_mux_chapter(sts);
 }
 
-void error_select_convert_func(int width, int height, BOOL use16bit, BOOL interlaced, int output_csp) {
-    write_log_auo_line(LOG_ERROR, "色形式変換関数の取得に失敗しました。");
-    write_log_auo_line_fmt(LOG_ERROR, "%dx%d%s, output-csp %s%s%s",
+void error_select_convert_func(int width, int height, int bit_depth, BOOL interlaced, int output_csp) {
+    const char *bit_depth_str = "";
+    switch (bit_depth) {
+    case 16: bit_depth_str = "(16bit)"; break;
+    case 12: bit_depth_str = "(12bit)"; break;
+    case 10: bit_depth_str = "(10bit)"; break;
+    default: break;
+    }
+    write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_SEL_CONVERT_FUNC));
+    write_log_auo_line_fmt(LOG_ERROR, L"%dx%d%s, output-csp %s%s%s",
         width, height,
-        (interlaced) ? "i" : "p",
-        specify_csp[output_csp],
-        (use16bit) ? "(16bit)" : ""
-    );
+        (interlaced) ? L"i" : L"p",
+        char_to_wstring(specify_csp[output_csp]).c_str(),
+        bit_depth_str
+        );
 }
 
 void warning_no_batfile(const char *batfile) {
-    write_log_auo_line_fmt(LOG_WARNING, "指定されたバッチファイル \"%s\"が存在しません。", batfile);
+    write_log_auo_line_fmt(LOG_WARNING, L"%s: %s", g_auo_mes.get(AUO_ERR_NO_BAT_FILE), char_to_wstring(batfile).c_str());
 }
 
 void warning_malloc_batfile_tmp() {
-    write_log_auo_line(LOG_WARNING, "一時バッチファイル作成用バッファの確保に失敗しました。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_MALLOC_BAT_FILE_TMP));
 }
 
 void warning_failed_open_bat_orig() {
-    write_log_auo_line(LOG_WARNING, "バッチファイルを開けませんでした。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_OPEN_BAT_ORG));
 }
 
 void warning_failed_open_bat_new() {
-    write_log_auo_line(LOG_WARNING, "一時バッチファイルを作成できませんでした。");
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_OPEN_BAT_NEW));
 }

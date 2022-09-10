@@ -31,6 +31,7 @@
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
 #include <emmintrin.h>
+#include <chrono>
 #include <fcntl.h>
 #include <io.h>
 #include <thread>
@@ -49,6 +50,7 @@
 #include "auo_audio.h"
 #include "auo_audio_parallel.h"
 #include "auo_faw2aac.h"
+#include "auo_mes.h"
 
 typedef OUTPUT_PLUGIN_TABLE* (*func_get_auo_table)(void);
 
@@ -74,9 +76,9 @@ static BOOL auo_rest_time_disp(int now, int total) {
         if (g_oip)
             g_oip->func_rest_time_disp(now, total);
         //進捗表示
-        static DWORD tm_last = timeGetTime();
-        DWORD tm;
-        if ((tm = timeGetTime()) - tm_last > LOG_UPDATE_INTERVAL * 5) {
+        static auto tm_last = std::chrono::system_clock::now();
+        decltype(tm_last) tm;
+        if (std::chrono::duration_cast<std::chrono::milliseconds>((tm = std::chrono::system_clock::now()) - tm_last).count() > LOG_UPDATE_INTERVAL * 5) {
             set_log_progress(now / (double)total);
             tm_last = tm;
         }
@@ -286,7 +288,7 @@ static AUO_RESULT audio_faw2aac_check(const char *audfile) {
     if (!PathFileExists(audfile) ||
         (GetFileSizeUInt64(audfile, &audfilesize) && audfilesize == 0)) {
             //エラーが発生した場合
-        ret |= AUO_RESULT_ERROR; error_audenc_failed("faw2aac.auo", NULL);
+        ret |= AUO_RESULT_ERROR; error_audenc_failed(L"faw2aac.auo", NULL);
     }
     return ret;
 }
@@ -325,19 +327,19 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
     }
 
     if (hModule == NULL) {
-        ret = AUO_RESULT_WARNING; write_log_auo_line(LOG_INFO, "faw2aac.auoが見つかりませんでした。");
+        ret = AUO_RESULT_WARNING; write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_FAW2AAC_NOT_FOUND));
     } else if (
            NULL == (getFAW2AACTable = (func_get_auo_table)GetProcAddress(hModule, "GetOutputPluginTable"))
         || NULL == (opt = getFAW2AACTable())
         || NULL ==  opt->func_output) {
-        ret = AUO_RESULT_WARNING; write_log_auo_line(LOG_WARNING, "faw2aac.auoのロードに失敗しました。");
+        ret = AUO_RESULT_WARNING; write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_FAW2AAC_NOT_LOADED));
     } else {
         //進捗表示の取り込み
         g_oip = oip;
         g_pe = pe;
 
-        set_window_title("faw2aac", PROGRESSBAR_CONTINUOUS);
-        write_log_auo_line(LOG_INFO, "faw2aac で音声エンコードを行います。");
+        set_window_title(L"faw2aac", PROGRESSBAR_CONTINUOUS);
+        write_log_auo_line_fmt(LOG_INFO, L"faw2aac %s", g_auo_mes.get(AUO_AUDIO_START_ENCODE));
         static const int PIPE_BUF = 4096;
 
         faw2aac_data_t aud_dat[2];
@@ -386,12 +388,12 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
             int ret = AUO_RESULT_SUCCESS;
             //開始
             if (opt->func_init && !opt->func_init()) {
-                ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoの初期化に失敗しました。");
+                ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_FAW2AAC_ERR_INIT));
             } else {
                 //faw2aac用の処理スレッドが処理を開始したことを通知
                 if (threadStarted[audio_idx]) SetEvent(threadStarted[audio_idx]);
                 if (FALSE == opt->func_output(&aud_dat[audio_idx].oip)) {
-                    ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoの実行に失敗しました。");
+                    ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_FAW2AAC_ERR_RUN));
                 }
             }
             if (opt->func_exit)
@@ -511,7 +513,7 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
     if (hModule)
         FreeLibrary(hModule);
 
-    set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
+    set_window_title(g_auo_mes.get(AUO_GUIEX_FULL_NAME), PROGRESSBAR_DISABLED);
 
     return ret;
 }

@@ -168,85 +168,160 @@ const int fcgTXCmdfulloffset = 57;
 const int fcgCXAudioEncModeSmallWidth = 189;
 const int fcgCXAudioEncModeLargeWidth = 237;
 
-
-static const wchar_t * const list_aspect_ratio[] = {
-    L"SAR(PAR, 画素比)で指定",
-    L"DAR(画面比)で指定",
-    NULL
+static const ENC_OPTION_STR aspect_desc[] = {
+    { NULL, AUO_CONFIG_CX_ASPECT_SAR, L"SAR比を指定 (デフォルト)" },
+    { NULL, AUO_CONFIG_CX_ASPECT_DAR, L"画面比から自動計算"       },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-static const wchar_t * const list_tempdir[] = {
-    L"出力先と同じフォルダ (デフォルト)",
-    L"システムの一時フォルダ",
-    L"カスタム",
-    NULL
+static const ENC_OPTION_STR tempdir_desc[] = {
+    { NULL, AUO_CONFIG_CX_TEMPDIR_OUTDIR, L"出力先と同じフォルダ (デフォルト)" },
+    { NULL, AUO_CONFIG_CX_TEMPDIR_SYSTEM, L"システムの一時フォルダ"            },
+    { NULL, AUO_CONFIG_CX_TEMPDIR_CUSTOM, L"カスタム"                          },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-static const wchar_t * const list_audtempdir[] = {
-    L"変更しない",
-    L"カスタム",
-    NULL
+static const ENC_OPTION_STR audtempdir_desc[] = {
+    { NULL, AUO_CONFIG_CX_AUDTEMP_DEFAULT, L"変更しない" },
+    { NULL, AUO_CONFIG_CX_AUDTEMP_CUSTOM,  L"カスタム"   },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-static const wchar_t * const list_mp4boxtempdir[] = {
-    L"指定しない",
-    L"カスタム",
-    NULL
+static const ENC_OPTION_STR mp4boxtempdir_desc[] = {
+    { NULL, AUO_CONFIG_CX_MP4BOXTEMP_DEFAULT, L"指定しない" },
+    { NULL, AUO_CONFIG_CX_MP4BOXTEMP_CUSTOM,  L"カスタム"   },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-const wchar_t * const audio_enc_timing_desc[] = {
-    L"後",
-    L"前",
-    L"同時",
-    NULL
+#if ENCODER_QSV
+static const ENC_OPTION_STR2 list_interlaced_mfx_gui[] = {
+    { AUO_CONFIG_CX_INTERLACE_PROGRESSIVE, L"progressive",     MFX_PICSTRUCT_PROGRESSIVE },
+    { AUO_CONFIG_CX_INTERLACE_TFF,         L"interlaced(tff)", MFX_PICSTRUCT_FIELD_TFF   },
+    { AUO_CONFIG_CX_INTERLACE_BFF,         L"interlaced(bff)", MFX_PICSTRUCT_FIELD_BFF   },
+    { AUO_MES_UNKNOWN, NULL, 0 }
+};
+#endif
+
+static const ENC_OPTION_STR audio_enc_timing_desc[] = {
+    { NULL, AUO_CONFIG_CX_AUD_ENC_ORDER_AFTER,    L"後"   },
+    { NULL, AUO_CONFIG_CX_AUD_ENC_ORDER_BEFORE,   L"前"   },
+    { NULL, AUO_CONFIG_CX_AUD_ENC_ORDER_PARALLEL, L"同時" },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-static const wchar_t * const list_vpp_deinterlacer[] = {
-    L"なし",
-    L"自動フィールドシフト",
-    L"nnedi",
-    L"yadif",
-    NULL
+static const ENC_OPTION_STR2 list_deinterlace_gui[] = {
+    { AUO_CONFIG_CX_DEINTERLACE_NONE,   L"なし",                   0 },
+#if ENCODER_QSV
+    { AUO_CONFIG_CX_DEINTERLACE_NORMAL, L"インタレ解除 (通常)",     MFX_DEINTERLACE_NORMAL      },
+    { AUO_CONFIG_CX_DEINTERLACE_IT,     L"インタレ解除 (24fps化)",  MFX_DEINTERLACE_IT          },
+    { AUO_CONFIG_CX_DEINTERLACE_BOB,    L"インタレ解除 (Bob化)",    MFX_DEINTERLACE_BOB         },
+#elif ENCODER_NVENC
+#elif ENCODER_VCEENC
+#else
+    static_assert(false);
+#endif
+    { AUO_CONFIG_CX_DEINTERLACE_AFS,    L"自動フィールドシフト",    100 },
+    { AUO_CONFIG_CX_DEINTERLACE_NNEDI,  L"nnedi",                   101 },
+    { AUO_CONFIG_CX_DEINTERLACE_YADIF,  L"yadif",                   102 },
+    { AUO_MES_UNKNOWN, NULL, NULL }
 };
 
-static const wchar_t * const list_vpp_afs_analyze[] = {
-    L"0 - 解除なし",
-    L"1 - フィールド三重化",
-    L"2 - 縞検出二重化",
-    L"3 - 動き検出二重化",
-    L"4 - 動き検出補間",
-    NULL
+static const ENC_OPTION_STR list_vpp_afs_analyze[] = {
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE0, L"0 - 解除なし"         },
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE1, L"1 - フィールド三重化" },
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE2, L"2 - 縞検出二重化"     },
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE3, L"3 - 動き検出二重化"   },
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE4, L"4 - 動き検出補間"     },
+    { NULL, AUO_MES_UNKNOWN, NULL},
 };
 
-const CX_DESC list_vpp_nnedi_pre_screen_gui[] = {
-    { _T("none"),           VPP_NNEDI_PRE_SCREEN_NONE },
-    { _T("original"),       VPP_NNEDI_PRE_SCREEN_ORIGINAL },
-    { _T("new"),            VPP_NNEDI_PRE_SCREEN_NEW },
-    { _T("original_block"), VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
-    { _T("new_block"),      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK },
-    { NULL, NULL }
+static const ENC_OPTION_STR2 list_vpp_nnedi_pre_screen_gui[] = {
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NONE,           L"none",           VPP_NNEDI_PRE_SCREEN_NONE           },
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_ORIGINAL,       L"original",       VPP_NNEDI_PRE_SCREEN_ORIGINAL       },
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NEW,            L"new",            VPP_NNEDI_PRE_SCREEN_NEW            },
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_ORIGINAL_BLOCK, L"original_block", VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NEW_BLOCK,      L"new_block",      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK      },
+    { AUO_MES_UNKNOWN, NULL, NULL }
 };
 
-const CX_DESC list_vpp_yadif_mode_gui[] = {
-    { _T("normal"),        VPP_YADIF_MODE_AUTO },
-    { _T("bob"),           VPP_YADIF_MODE_BOB_AUTO },
-    { NULL, NULL }
+static const ENC_OPTION_STR2 list_vpp_yadif_mode_gui[] = {
+    { AUO_CONFIG_CX_YADIF_MODE_NORMAL, L"normal",        VPP_YADIF_MODE_AUTO     },
+    { AUO_CONFIG_CX_YADIF_MODE_BOB,    L"bob",           VPP_YADIF_MODE_BOB_AUTO },
+    { AUO_MES_UNKNOWN, NULL, NULL }
 };
 
-
-const CX_DESC list_log_level_jp[] = {
-    { "通常",                  RGY_LOG_INFO  },
-    { "音声/muxのログも表示 ", RGY_LOG_MORE  },
-    { "デバッグ用出力も表示 ", RGY_LOG_DEBUG },
-    { NULL, NULL }
+static const ENC_OPTION_STR2 list_mv_presicion_ja[] = {
+    { AUO_CONFIG_CX_MV_PREC_AUTO,   L"自動",        NV_ENC_MV_PRECISION_DEFAULT     },
+    { AUO_CONFIG_CX_MV_PREC_FULL,   L"1画素精度",   NV_ENC_MV_PRECISION_FULL_PEL    },
+    { AUO_CONFIG_CX_MV_PREC_HALF,   L"1/2画素精度", NV_ENC_MV_PRECISION_HALF_PEL    },
+    { AUO_CONFIG_CX_MV_PREC_QUATER, L"1/4画素精度", NV_ENC_MV_PRECISION_QUARTER_PEL },
+    { AUO_MES_UNKNOWN, NULL, 0 }
 };
 
-static int get_cx_index(const wchar_t * const*list, const wchar_t *wchr) {
-    for (int i = 0; list[i]; i++)
-        if (0 == wcscmp(list[i], wchr))
-            return i;
-    return 0;
-}
+#define NV_ENC_PARAMS_RC_QVBR ((NV_ENC_PARAMS_RC_MODE)(NV_ENC_PARAMS_RC_VBR | 0x1000))
+
+static const ENC_OPTION_STR2 list_encmode[] = {
+#if ENCODER_QSV
+    { AUO_CONFIG_CX_RC_CBR,    L"ビットレート指定 - CBR",           MFX_RATECONTROL_CBR    },
+    { AUO_CONFIG_CX_RC_VBR,    L"ビットレート指定 - VBR",           MFX_RATECONTROL_VBR    },
+    { AUO_CONFIG_CX_RC_AVBR,   L"ビットレート指定 - AVBR",          MFX_RATECONTROL_AVBR   },
+    { AUO_CONFIG_CX_RC_QVBR,   L"ビットレート指定 - QVBR",          MFX_RATECONTROL_QVBR   },
+    { AUO_CONFIG_CX_RC_CQP,    L"固定量子化量 (CQP)",               MFX_RATECONTROL_CQP    },
+    { AUO_CONFIG_CX_RC_LA,     L"先行探索レート制御",               MFX_RATECONTROL_LA     },
+    { AUO_CONFIG_CX_RC_LA_HRD, L"先行探索レート制御 (HRD準拠)",     MFX_RATECONTROL_LA_HRD },
+    { AUO_CONFIG_CX_RC_ICQ,    L"固定品質モード",                   MFX_RATECONTROL_ICQ    },
+    { AUO_CONFIG_CX_RC_LA_ICQ, L"先行探索付き固定品質モード",       MFX_RATECONTROL_LA_ICQ },
+    { AUO_CONFIG_CX_RC_VCM,    L"ビデオ会議モード",                 MFX_RATECONTROL_VCM    },
+#elif ENCODER_NVENC
+    { AUO_CONFIG_CX_RC_CQP,    L"CQP - 固定量子化量",               NV_ENC_PARAMS_RC_CONSTQP   },
+    { AUO_CONFIG_CX_RC_CBR,    L"CBR - 固定ビットレート",           NV_ENC_PARAMS_RC_CBR       },
+    { AUO_CONFIG_CX_RC_VBR,    L"VBR - 可変ビットレート",           NV_ENC_PARAMS_RC_VBR       },
+    { AUO_CONFIG_CX_RC_QVBR,   L"QVBR - 固定品質",                  NV_ENC_PARAMS_RC_QVBR      },
+#elif ENCODER_VCEENC
+#else
+    static_assert(false);
+#endif
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+
+static const ENC_OPTION_STR2 list_vpp_deband_gui[] = {
+    { AUO_CONFIG_CX_DEBAND_0, L"0 - 1点参照",  0 },
+    { AUO_CONFIG_CX_DEBAND_1, L"1 - 2点参照",  1 },
+    { AUO_CONFIG_CX_DEBAND_2, L"2 - 4点参照",  2 },
+    { AUO_MES_UNKNOWN, NULL, 0 }
+};
+
+#if ENCODER_QSV
+static const ENC_OPTION_STR2 list_rotate_angle_ja[] = {
+    { AUO_MES_UNKNOWN,   L"0°",  MFX_ANGLE_0    },
+    { AUO_MES_UNKNOWN,  L"90°",  MFX_ANGLE_90   },
+    { AUO_MES_UNKNOWN, L"180°",  MFX_ANGLE_180  },
+    { AUO_MES_UNKNOWN, L"270°",  MFX_ANGLE_270  },
+    { AUO_MES_UNKNOWN, NULL, 0 }
+};
+
+static const ENC_OPTION_STR2 list_out_enc_codec[] = {
+    { AUO_MES_UNKNOWN, L"H.264 / AVC",  MFX_CODEC_AVC  },
+    { AUO_MES_UNKNOWN, L"H.265 / HEVC", MFX_CODEC_HEVC },
+#ifndef HIDE_MPEG2
+    { AUO_MES_UNKNOWN, L"MPEG2", MFX_CODEC_MPEG2 },
+#endif
+    //{ AUO_MES_UNKNOWN,"VC-1", MFX_CODEC_VC1 },
+    { AUO_MES_UNKNOWN, L"VP9", MFX_CODEC_VP9 },
+    { AUO_MES_UNKNOWN, L"AV1", MFX_CODEC_AV1 },
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+//下記は一致していないといけない
+static_assert(_countof(list_out_enc_codec)-1/*NULLの分*/ == _countof(CODEC_LIST_AUO));
+#endif
+
+static const ENC_OPTION_STR2 list_log_level_jp[] = {
+    { AUO_CONFIG_CX_LOG_LEVEL_INFO,  L"通常",                  RGY_LOG_INFO  },
+    { AUO_CONFIG_CX_LOG_LEVEL_MORE,  L"音声/muxのログも表示 ", RGY_LOG_MORE  },
+    { AUO_CONFIG_CX_LOG_LEVEL_DEBUG, L"デバッグ用出力も表示 ", RGY_LOG_DEBUG },
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+
 
 //メモ表示用 RGB
 const int StgNotesColor[][3] = {

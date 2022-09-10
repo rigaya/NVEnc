@@ -37,9 +37,14 @@
 #define AUO_NAME_W          L"NVEnc.auo"
 #define AUO_NAME_R            NVEnc
 #define AUO_FULL_NAME        "拡張 NVEnc 出力"
+#define AUO_FULL_NAME_W     L"拡張 NVEnc 出力"
 #define AUO_VERSION_NAME     "拡張 NVEnc 出力 " AUO_VERSION_STR
 #define AUO_VERSION_INFO     "拡張 NVEnc 出力 " AUO_VERSION_STR " by rigaya"
 #define AUO_EXT_FILTER       "All Support Formats (*.*)\0*.mp4;*.mkv;*.264;*.mp4\0mp4 file (*.mp4)\0*.mp4\0mkv file (*.mkv)\0*.mkv\0raw file (*.264)\0*.264\0"
+
+#define ENCODER_X264   0
+#define ENCODER_X265   0
+#define ENCODER_SVTAV1 0
 
 #ifdef DEBUG
 #define VER_DEBUG   VS_FF_DEBUG

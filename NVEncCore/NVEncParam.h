@@ -241,28 +241,6 @@ const CX_DESC list_mv_presicion[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_mv_presicion_ja[] = {
-    { _T("自動"),        NV_ENC_MV_PRECISION_DEFAULT     },
-    { _T("1画素精度"),   NV_ENC_MV_PRECISION_FULL_PEL    },
-    { _T("1/2画素精度"), NV_ENC_MV_PRECISION_HALF_PEL    },
-    { _T("1/4画素精度"), NV_ENC_MV_PRECISION_QUARTER_PEL },
-    { NULL, 0 }
-};
-
-#define NV_ENC_PARAMS_RC_QVBR ((NV_ENC_PARAMS_RC_MODE)(NV_ENC_PARAMS_RC_VBR | 0x1000))
-
-const CX_DESC list_nvenc_rc_method[] = {
-    { _T("CQP - 固定量子化量"),                     NV_ENC_PARAMS_RC_CONSTQP   },
-    { _T("CBR - 固定ビットレート"),                 NV_ENC_PARAMS_RC_CBR       },
-    //{ _T("CBR - 固定ビットレート (高品質)"),        NV_ENC_PARAMS_RC_CBR_HQ    },
-    { _T("VBR - 可変ビットレート"),                 NV_ENC_PARAMS_RC_VBR       },
-    //{ _T("VBR - 可変ビットレート (高品質)"),        NV_ENC_PARAMS_RC_VBR_HQ    },
-#if FOR_AUO
-    { _T("QVBR - 固定品質"),                        NV_ENC_PARAMS_RC_QVBR       },
-#endif
-    { NULL, 0 }
-};
-
 const CX_DESC list_nvenc_rc_method_en[] = {
     { _T("CQP"),                          NV_ENC_PARAMS_RC_CONSTQP   },
     { _T("CBR"),                          NV_ENC_PARAMS_RC_CBR       },

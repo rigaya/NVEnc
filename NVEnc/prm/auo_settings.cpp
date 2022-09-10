@@ -45,7 +45,8 @@
 static const int INI_SECTION_BUFSIZE = 32768;
 static const int INI_KEY_MAX_LEN = 256;
 
-static const int INI_VER = 2;
+static const int INI_VER_MIN = 2;
+static const int INI_VER_UTF8 = 3;
 
 static const char * const INI_APPENDIX  = ".ini";
 static const char * const CONF_APPENDIX = ".conf";
@@ -168,14 +169,17 @@ static inline void WriteColorInfo(const char *section, const char *keyname, int 
     }
 }
 
-
-BOOL    guiEx_settings::init = FALSE;
-char    guiEx_settings::ini_section_main[256] = { 0 };
-char    guiEx_settings::auo_path[MAX_PATH_LEN] = { 0 };
-char    guiEx_settings::ini_fileName[MAX_PATH_LEN] = { 0 };
-char    guiEx_settings::conf_fileName[MAX_PATH_LEN] = { 0 };
-DWORD   guiEx_settings::ini_filesize = 0;
-
+BOOL  guiEx_settings::init = FALSE;
+char  guiEx_settings::ini_section_main[256] = { 0 };
+char  guiEx_settings::auo_path[MAX_PATH_LEN] = { 0 };
+char  guiEx_settings::ini_fileName[MAX_PATH_LEN] = { 0 };
+char  guiEx_settings::conf_fileName[MAX_PATH_LEN] = { 0 };
+DWORD guiEx_settings::ini_filesize = 0;
+char  guiEx_settings::default_lang[4] = { 0 };
+int   guiEx_settings::ini_ver = 0;
+DWORD guiEx_settings::codepage_ini = 0;
+DWORD guiEx_settings::codepage_cnf = 0;
+char  guiEx_settings::language[MAX_PATH_LEN] = { 0 };
 char  guiEx_settings::blog_url[MAX_PATH_LEN] = { 0 };
 
 guiEx_settings::guiEx_settings() {
@@ -194,6 +198,19 @@ void guiEx_settings::initialize(BOOL disable_loading) {
     initialize(disable_loading, NULL, NULL);
 }
 
+void guiEx_settings::convert_conf_if_necessary() {
+#if ENCODER_X265
+    if (0 == strcmp(ini_section_main, INI_SECTION_MAIN)) {
+        char buffer[32 * 1024] = { 0 };
+        if (   0 == GetPrivateProfileSection(INI_SECTION_MAIN,     buffer, sizeof(buffer), conf_fileName)
+            && 0 != GetPrivateProfileSection(INI_SECTION_MAIN_OLD, buffer, sizeof(buffer), conf_fileName)) {
+            WritePrivateProfileSection(INI_SECTION_MAIN,   buffer, conf_fileName);
+            WritePrivateProfileSection(INI_SECTION_MAIN_OLD, NULL, conf_fileName);
+        }
+    }
+#endif //#if ENCODER_X265
+}
+
 void guiEx_settings::initialize(BOOL disable_loading, const char *_auo_path, const char *main_section) {
     s_aud_ext_count = 0;
     s_aud_int_count = 0;
@@ -204,26 +221,68 @@ void guiEx_settings::initialize(BOOL disable_loading, const char *_auo_path, con
     ZeroMemory(&s_local, sizeof(s_local));
     ZeroMemory(&s_log, sizeof(s_log));
     ZeroMemory(&s_append, sizeof(s_append));
+    ZeroMemory(&language, sizeof(language));
     if (!init) {
-        if (_auo_path == NULL)
+        if (strlen(default_lang) == 0) {
+            get_default_lang();
+        }
+        if (_auo_path == NULL) {
             get_auo_path(auo_path, _countof(auo_path));
-        else
+        } else {
             strcpy_s(auo_path, _countof(auo_path), _auo_path);
-        strcpy_s(ini_section_main, _countof(ini_section_main), (main_section == NULL) ? INI_SECTION_MAIN : main_section);
-        apply_appendix(ini_fileName,  _countof(ini_fileName),  auo_path, INI_APPENDIX);
+        }
         apply_appendix(conf_fileName, _countof(conf_fileName), auo_path, CONF_APPENDIX);
+        strcpy_s(ini_section_main, _countof(ini_section_main), (main_section == NULL) ? INI_SECTION_MAIN : main_section);
+        load_lang();
+        bool language_ini_selected = false;
+        for (const auto& auo_lang : list_auo_languages) {
+            if (   strcmp(language, auo_lang.code) == 0
+                && strcmp("ja", auo_lang.code) != 0) { // 日本語用x264guiEx.iniはx264guiEx.iniのまま
+                char ini_append[64];
+                sprintf_s(ini_append, ".%s%s", language, INI_APPENDIX);
+                apply_appendix(ini_fileName, _countof(ini_fileName), auo_path, ini_append);
+                if (PathFileExists(ini_fileName)) {
+                    language_ini_selected = true;
+                }
+            }
+        }
+        if (!language_ini_selected) {
+            char auo_dir[MAX_PATH_LEN];
+            strcpy_s(auo_dir, auo_path);
+            PathRemoveFileSpecFixed(auo_dir);
+            char lng_path[MAX_PATH_LEN];
+            PathCombineLong(lng_path, _countof(lng_path), auo_dir, language);
+            if (PathFileExists(lng_path)) {
+                const auto lang_code = get_file_lang_code(lng_path);
+                char ini_append[64];
+                sprintf_s(ini_append, ".%s%s", lang_code.c_str(), INI_APPENDIX);
+                apply_appendix(ini_fileName, _countof(ini_fileName), auo_path, ini_append);
+                if (PathFileExists(ini_fileName)) {
+                    language_ini_selected = true;
+                }
+            }
+        }
+        if (!language_ini_selected) {
+            apply_appendix(ini_fileName, _countof(ini_fileName), auo_path, INI_APPENDIX);
+        }
         init = check_inifile() && !disable_loading;
         GetPrivateProfileString(ini_section_main, "blog_url", "", blog_url, _countof(blog_url), ini_fileName);
+        convert_conf_if_necessary();
         if (init) {
             load_encode_stg();
             load_fn_replace();
             load_log_win();
             load_append();
+            load_last_out_stg();
         }
     }
 }
 
 guiEx_settings::~guiEx_settings() {
+    clear_all();
+}
+
+void guiEx_settings::clear_all() {
     clear_vid();
     clear_aud();
     clear_mux();
@@ -235,9 +294,12 @@ guiEx_settings::~guiEx_settings() {
 }
 
 BOOL guiEx_settings::check_inifile() {
-    BOOL ret = (INI_VER == GetPrivateProfileInt(ini_section_main, "ini_ver", 0, ini_fileName));
+    ini_ver = GetPrivateProfileInt(ini_section_main, "ini_ver", 0, ini_fileName);
+    BOOL ret = (ini_ver >= INI_VER_MIN);
     if (ret && !GetFileSizeDWORD(ini_fileName, &ini_filesize))
         ret = FALSE;
+    codepage_ini = ini_ver >= INI_VER_UTF8 ? CP_UTF8 : CP_THREAD_ACP;
+    codepage_cnf = CP_THREAD_ACP;
     return ret;
 }
 
@@ -258,6 +320,56 @@ BOOL guiEx_settings::get_init_success(BOOL no_message) {
         MessageBox(NULL, mes, title, MB_ICONERROR);
     }
     return init;
+}
+
+void guiEx_settings::get_default_lang() {
+    WCHAR userSysLangW[LOCALE_NAME_MAX_LENGTH] = { 0 };
+    GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SISO639LANGNAME, userSysLangW, _countof(userSysLangW));
+    const auto userSysLang = wstring_to_string(userSysLangW);
+    const char *defaultLanguage = AUO_LANGUAGE_DEFAULT;
+    for (const auto& auo_lang : list_auo_languages) {
+        if (_stricmp(userSysLang.c_str(), auo_lang.code) == 0) {
+            defaultLanguage = auo_lang.code;
+            break;
+        }
+    }
+    //日本語のみ重ねてチェック
+    WCHAR userSysCountryW[LOCALE_NAME_MAX_LENGTH] = { 0 };
+    GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SISO3166CTRYNAME, userSysCountryW, _countof(userSysCountryW));
+    const auto userSysCountry = wstring_to_string(userSysCountryW);
+    if (_stricmp(userSysCountry.c_str(), "JP") == 0) {
+        defaultLanguage = AUO_LANGUAGE_JA;
+    }
+    strcpy_s(default_lang, defaultLanguage);
+}
+
+const char *guiEx_settings::get_lang() const {
+    return language;
+}
+
+void guiEx_settings::set_and_save_lang(const char *lang) {
+    if (strcmp(language, lang) != 0) {
+        strcpy_s(language, lang);
+        save_lang();
+
+        //強制リロード
+        char tmp_auo_path[_countof(auo_path)];
+        char tmp_section_main[_countof(ini_section_main)];
+        strcpy_s(tmp_auo_path, auo_path);
+        strcpy_s(tmp_section_main, ini_section_main);
+        clear_all();
+
+        init = FALSE;
+        initialize(FALSE, tmp_auo_path, tmp_section_main);
+    }
+}
+
+const char *guiEx_settings::get_last_out_stg() const {
+    return last_out_stg;
+}
+
+void guiEx_settings::set_last_out_stg(const char *stg) {
+    strcpy_s(last_out_stg, stg);
 }
 
 BOOL guiEx_settings::is_faw(const AUDIO_SETTINGS *aud_stg) const {
@@ -284,14 +396,22 @@ void guiEx_settings::load_encode_stg() {
     load_local(); //fullpathの情報がきちんと格納されるよう、最後に呼ぶ
 }
 
+void guiEx_settings::load_lang() {
+    GetPrivateProfileString(ini_section_main, "language", default_lang, language, _countof(language), conf_fileName);
+}
+
+void guiEx_settings::load_last_out_stg() {
+    GetPrivateProfileString(ini_section_main, "last_out_stg", "", last_out_stg, _countof(last_out_stg), conf_fileName);
+}
+
 void guiEx_settings::load_vid() {
     clear_vid();
 
     s_vid_mc.init(ini_filesize);
 
-    s_vid.filename     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "filename", INI_VID_FILENAME, ini_fileName);
-    s_vid.default_cmd  = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_default", "", ini_fileName);
-    s_vid.help_cmd     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_help", "", ini_fileName);
+    s_vid.filename     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "filename", INI_VID_FILENAME, ini_fileName, codepage_ini);
+    s_vid.default_cmd  = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_default", "", ini_fileName, codepage_ini);
+    s_vid.help_cmd     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_help", "", ini_fileName, codepage_ini);
 
     s_vid_refresh = TRUE;
 }
@@ -316,18 +436,18 @@ void guiEx_settings::load_aud(BOOL internal) {
     for (i = 0; i < s_aud_count; i++) {
         s_aud[i].is_internal = internal;
         sprintf_s(key, _countof(key), "audio_encoder_%d", i+1);
-        s_aud[i].keyName = s_aud_mc.SetPrivateProfileString(ini_section, key, "key", ini_fileName);
+        s_aud[i].keyName = s_aud_mc.SetPrivateProfileString(ini_section, key, "key", ini_fileName, codepage_ini);
         sprintf_s(encoder_section, _countof(encoder_section), "%s%s", INI_SECTION_PREFIX, s_aud[i].keyName);
-        s_aud[i].dispname     = s_aud_mc.SetPrivateProfileString(encoder_section, "dispname",     "", ini_fileName);
-        s_aud[i].codec        = s_aud_mc.SetPrivateProfileString(encoder_section, "codec",        "", ini_fileName);
-        s_aud[i].filename     = s_aud_mc.SetPrivateProfileString(encoder_section, "filename",     "", ini_fileName);
-        s_aud[i].aud_appendix = s_aud_mc.SetPrivateProfileString(encoder_section, "aud_appendix", "", ini_fileName);
-        s_aud[i].raw_appendix = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_appendix", "", ini_fileName);
-        s_aud[i].cmd_base     = s_aud_mc.SetPrivateProfileString(encoder_section, "base_cmd",     "", ini_fileName);
-        s_aud[i].cmd_2pass    = s_aud_mc.SetPrivateProfileString(encoder_section, "2pass_cmd",    "", ini_fileName);
-        s_aud[i].cmd_help     = s_aud_mc.SetPrivateProfileString(encoder_section, "help_cmd",     "", ini_fileName);
-        s_aud[i].cmd_ver      = s_aud_mc.SetPrivateProfileString(encoder_section, "ver_cmd",      "", ini_fileName);
-        s_aud[i].cmd_raw      = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_cmd",      "", ini_fileName);
+        s_aud[i].dispname     = s_aud_mc.SetPrivateProfileWString(encoder_section, "dispname",     "", ini_fileName, codepage_ini);
+        s_aud[i].codec        = s_aud_mc.SetPrivateProfileString(encoder_section, "codec",        "", ini_fileName, codepage_ini);
+        s_aud[i].filename     = s_aud_mc.SetPrivateProfileString(encoder_section, "filename",     "", ini_fileName, codepage_ini);
+        s_aud[i].aud_appendix = s_aud_mc.SetPrivateProfileString(encoder_section, "aud_appendix", "", ini_fileName, codepage_ini);
+        s_aud[i].raw_appendix = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_appendix", "", ini_fileName, codepage_ini);
+        s_aud[i].cmd_base     = s_aud_mc.SetPrivateProfileString(encoder_section, "base_cmd",     "", ini_fileName, codepage_ini);
+        s_aud[i].cmd_2pass    = s_aud_mc.SetPrivateProfileString(encoder_section, "2pass_cmd",    "", ini_fileName, codepage_ini);
+        s_aud[i].cmd_help     = s_aud_mc.SetPrivateProfileString(encoder_section, "help_cmd",     "", ini_fileName, codepage_ini);
+        s_aud[i].cmd_ver      = s_aud_mc.SetPrivateProfileString(encoder_section, "ver_cmd",      "", ini_fileName, codepage_ini);
+        s_aud[i].cmd_raw      = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_cmd",      "", ini_fileName, codepage_ini);
         s_aud[i].pipe_input   = GetPrivateProfileInt(            encoder_section, "pipe_input",    0, ini_fileName);
         s_aud[i].disable_log  = GetPrivateProfileInt(            encoder_section, "disable_log",   0, ini_fileName);
         s_aud[i].unsupported_mp4  = GetPrivateProfileInt(    encoder_section, "unsupported_mp4",   0, ini_fileName);
@@ -340,10 +460,10 @@ void guiEx_settings::load_aud(BOOL internal) {
         AUDIO_ENC_MODE *tmp_mode = (AUDIO_ENC_MODE *)s_aud_mc.CutMem(tmp_count * sizeof(AUDIO_ENC_MODE));
         for (j = 0; j < tmp_count; j++) {
             sprintf_s(key, _countof(key), "mode_%d", j+1);
-            tmp_mode[j].name = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName);
+            tmp_mode[j].name = s_aud_mc.SetPrivateProfileWString(encoder_section, key, "", ini_fileName, codepage_ini);
             const size_t keybase_len = strlen(key);
             strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_cmd");
-            tmp_mode[j].cmd = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName);
+            tmp_mode[j].cmd = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName, codepage_ini);
             strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_2pass");
             tmp_mode[j].enc_2pass = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
             strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_convert8bit");
@@ -365,10 +485,10 @@ void guiEx_settings::load_aud(BOOL internal) {
                 tmp_mode[j].bitrate_default = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
             } else {
                 strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_dispList");
-                tmp_mode[j].disp_list = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName);
+                tmp_mode[j].disp_list = s_aud_mc.SetPrivateProfileWString(encoder_section, key, "", ini_fileName, codepage_ini);
                 s_aud_mc.CutMem(sizeof(key[0]));
                 strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_cmdList");
-                tmp_mode[j].cmd_list = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName);
+                tmp_mode[j].cmd_list = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName, codepage_ini);
                 s_aud_mc.CutMem(sizeof(key[0]));
                 //リストのcmd置き換えリストの","の数分AUDIO_ENC_MODEは増える
                 if (!tmp_mode[j].bitrate)
@@ -387,15 +507,16 @@ void guiEx_settings::load_aud(BOOL internal) {
                 int list_count = countchr(tmp_mode[tmp_index].cmd_list, ',') + 1;
                 //分解した先頭へのポインタへのポインタ用領域を確保
                 char **cmd_list  = (char**)s_aud_mc.CutMem(sizeof(char*) * list_count);
-                char **disp_list = (char**)s_aud_mc.CutMem(sizeof(char*) * list_count);
+                wchar_t **disp_list = (wchar_t**)s_aud_mc.CutMem(sizeof(wchar_t*) * list_count);
                 //cmdの置き換えリストを","により分解
                 cmd_list[0] = tmp_mode[tmp_index].cmd_list;
                 for (k = 0, p = cmd_list[0];  (cmd_list[k] = strtok_s(p, ",", &q))  != NULL; k++)
                     p = NULL;
                 //同様に表示用リストを分解
                 disp_list[0] = tmp_mode[tmp_index].disp_list;
-                for (k = 0, p = disp_list[0]; (disp_list[k] = strtok_s(p, ",", &q)) != NULL; k++)
-                    p = NULL;
+                wchar_t *wp, *wq;
+                for (k = 0, wp = disp_list[0]; (disp_list[k] = wcstok_s(wp, L",", &wq)) != NULL; k++)
+                    wp = NULL;
                 //リストの個数分、置き換えを行ったAUDIO_ENC_MODEを作成する
                 for (k = 0; k < list_count; j++, k++) {
                     memcpy(&s_aud[i].mode[j], &tmp_mode[tmp_index], sizeof(AUDIO_ENC_MODE));
@@ -408,9 +529,9 @@ void guiEx_settings::load_aud(BOOL internal) {
                     }
 
                     if (disp_list[k]) {
-                        strcpy_s((char *)s_aud_mc.GetPtr(), s_aud_mc.GetRemain() / sizeof(s_aud[i].mode[j].name[0]), s_aud[i].mode[j].name);
-                        replace((char *)s_aud_mc.GetPtr(), s_aud_mc.GetRemain() / sizeof(s_aud[i].mode[j].name[0]), "%{dispList}", disp_list[k]);
-                        s_aud[i].mode[j].name = (char *)s_aud_mc.GetPtr();
+                        wcscpy_s((wchar_t *)s_aud_mc.GetPtr(), s_aud_mc.GetRemain() / sizeof(s_aud[i].mode[j].name[0]), s_aud[i].mode[j].name);
+                        replace((wchar_t *)s_aud_mc.GetPtr(), s_aud_mc.GetRemain() / sizeof(s_aud[i].mode[j].name[0]), L"%{dispList}", disp_list[k]);
+                        s_aud[i].mode[j].name = (wchar_t *)s_aud_mc.GetPtr();
                         s_aud_mc.CutString(sizeof(s_aud[i].mode[j].name[0]));
                     }
                 }
@@ -436,27 +557,28 @@ void guiEx_settings::load_mux() {
 
     clear_mux();
 
+
     s_mux_count = MUX_COUNT;
     s_mux_mc.init(ini_filesize + s_mux_count * sizeof(MUXER_SETTINGS));
     s_mux = (MUXER_SETTINGS *)s_mux_mc.CutMem(s_mux_count * sizeof(MUXER_SETTINGS));
     for (i = 0; i < s_mux_count; i++) {
         sprintf_s(muxer_section, _countof(muxer_section), "%s%s", INI_SECTION_PREFIX, MUXER_TYPE[i]);
         len = strlen(MUXER_TYPE[i]);
-        s_mux[i].keyName = (char *)s_mux_mc.CutMem((len + 1) * sizeof(s_mux[i].keyName[0]));
+        s_mux[i].keyName  = (char *)s_mux_mc.CutMem((len + 1) * sizeof(s_mux[i].keyName[0]));
         memcpy(s_mux[i].keyName, MUXER_TYPE[i], (len + 1) * sizeof(s_mux[i].keyName[0]));
-        s_mux[i].dispname  = s_mux_mc.SetPrivateProfileString(muxer_section, "dispname",  "", ini_fileName);
-        s_mux[i].filename  = s_mux_mc.SetPrivateProfileString(muxer_section, "filename",  "", ini_fileName);
-        s_mux[i].base_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "base_cmd",  "", ini_fileName);
+        s_mux[i].dispname  = s_mux_mc.SetPrivateProfileWString(muxer_section, "dispname",  "", ini_fileName, codepage_ini);
+        s_mux[i].filename  = s_mux_mc.SetPrivateProfileString(muxer_section, "filename",  "", ini_fileName, codepage_ini);
+        s_mux[i].base_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "base_cmd",  "", ini_fileName, codepage_ini);
         s_mux[i].out_ext   = (char *)s_mux_mc.GetPtr();
         strcpy_s(s_mux[i].out_ext, s_mux_mc.GetRemain(), MUXER_OUT_EXT[i]);
         s_mux_mc.CutString(sizeof(s_mux[i].out_ext[0]));
-        s_mux[i].vid_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "vd_cmd",    "", ini_fileName);
-        s_mux[i].aud_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "au_cmd",    "", ini_fileName);
-        s_mux[i].delay_cmd = s_mux_mc.SetPrivateProfileString(muxer_section, "delay_cmd", "", ini_fileName);
-        s_mux[i].tc_cmd    = s_mux_mc.SetPrivateProfileString(muxer_section, "tc_cmd",    "", ini_fileName);
-        s_mux[i].tmp_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "tmp_cmd",   "", ini_fileName);
-        s_mux[i].help_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "help_cmd",  "", ini_fileName);
-        s_mux[i].ver_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "ver_cmd",   "", ini_fileName);
+        s_mux[i].vid_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "vd_cmd",    "", ini_fileName, codepage_ini);
+        s_mux[i].aud_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "au_cmd",    "", ini_fileName, codepage_ini);
+        s_mux[i].tc_cmd    = s_mux_mc.SetPrivateProfileString(muxer_section, "tc_cmd",    "", ini_fileName, codepage_ini);
+        s_mux[i].delay_cmd = s_mux_mc.SetPrivateProfileString(muxer_section, "delay_cmd", "", ini_fileName, codepage_ini);
+        s_mux[i].tmp_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "tmp_cmd",   "", ini_fileName, codepage_ini);
+        s_mux[i].help_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "help_cmd",  "", ini_fileName, codepage_ini);
+        s_mux[i].ver_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "ver_cmd",   "", ini_fileName, codepage_ini);
         s_mux[i].post_mux  = GetPrivateProfileInt(muxer_section, "post_mux", MUXER_DISABLED,  ini_fileName);
 
         sprintf_s(muxer_section, _countof(muxer_section), "%s%s", INI_SECTION_MODE, s_mux[i].keyName);
@@ -464,14 +586,14 @@ void guiEx_settings::load_mux() {
         s_mux[i].ex_cmd = (MUXER_CMD_EX *)s_mux_mc.CutMem(s_mux[i].ex_count * sizeof(MUXER_CMD_EX));
         for (j = 0; j < s_mux[i].ex_count; j++) {
             sprintf_s(key, _countof(key), "ex_cmd_%d", j+1);
-            s_mux[i].ex_cmd[j].cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, key, "", ini_fileName);
+            s_mux[i].ex_cmd[j].cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, key, "", ini_fileName, codepage_ini);
             keybase_len = strlen(key);
             strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_name");
-            s_mux[i].ex_cmd[j].name = s_mux_mc.SetPrivateProfileString(muxer_section, key, "", ini_fileName);
+            s_mux[i].ex_cmd[j].name = s_mux_mc.SetPrivateProfileWString(muxer_section, key, "", ini_fileName, codepage_ini);
             strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_apple");
-            s_mux[i].ex_cmd[j].cmd_apple = s_mux_mc.SetPrivateProfileString(muxer_section, key, "", ini_fileName);
+            s_mux[i].ex_cmd[j].cmd_apple = s_mux_mc.SetPrivateProfileString(muxer_section, key, "", ini_fileName, codepage_ini);
             strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_chap");
-            s_mux[i].ex_cmd[j].chap_file = s_mux_mc.SetPrivateProfileString(muxer_section, key, "", ini_fileName);
+            s_mux[i].ex_cmd[j].chap_file = s_mux_mc.SetPrivateProfileString(muxer_section, key, "", ini_fileName, codepage_ini);
         }
     }
 }
@@ -482,7 +604,7 @@ void guiEx_settings::load_fn_replace() {
     fn_rep_mc.init(ini_filesize);
 
     char *ptr = (char *)fn_rep_mc.GetPtr();
-    size_t len = GetPrivateProfileSection(INI_SECTION_FN, ptr, (DWORD)fn_rep_mc.GetRemain() / sizeof(ptr[0]), ini_fileName);
+    size_t len = GetPrivateProfileSectionStg(INI_SECTION_FN, ptr, (DWORD)fn_rep_mc.GetRemain() / sizeof(ptr[0]), ini_fileName, codepage_ini);
     fn_rep_mc.CutMem((len + 1) * sizeof(ptr[0]));
     for (; *ptr != NULL; ptr += strlen(ptr) + 1) {
         FILENAME_REPLACE rep = { 0 };
@@ -527,31 +649,29 @@ void guiEx_settings::load_local() {
 #if ENCODER_QSV
     s_local.force_bluray              = GetPrivateProfileInt(   ini_section_main, "force_bluray",              DEFAULT_FORCE_BLURAY,          conf_fileName);
     s_local.perf_monitor              = GetPrivateProfileInt(   ini_section_main, "perf_monitor",              DEFAULT_PERF_MONITOR,          conf_fileName);
-    s_local.perf_monitor_plot         = GetPrivateProfileInt(   ini_section_main, "perf_monitor_plot",         DEFAULT_PERF_MONITOR_PLOT,     conf_fileName);
 #endif
 
     GetFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
 
-    GetPrivateProfileString(ini_section_main, "custom_tmp_dir",        "", s_local.custom_tmp_dir,        _countof(s_local.custom_tmp_dir),        conf_fileName);
-    GetPrivateProfileString(ini_section_main, "custom_audio_tmp_dir",  "", s_local.custom_audio_tmp_dir,  _countof(s_local.custom_audio_tmp_dir),  conf_fileName);
-    GetPrivateProfileString(ini_section_main, "custom_mp4box_tmp_dir", "", s_local.custom_mp4box_tmp_dir, _countof(s_local.custom_mp4box_tmp_dir), conf_fileName);
-    GetPrivateProfileString(ini_section_main, "stg_dir",  default_stg_dir, s_local.stg_dir,               _countof(s_local.stg_dir),               conf_fileName);
-    GetPrivateProfileString(ini_section_main, "last_app_dir",          "", s_local.app_dir,               _countof(s_local.app_dir),               conf_fileName);
-    GetPrivateProfileString(ini_section_main, "last_bat_dir",          "", s_local.bat_dir,               _countof(s_local.bat_dir),               conf_fileName);
+    GetPrivateProfileStringStg(ini_section_main, "custom_tmp_dir",        "", s_local.custom_tmp_dir,        _countof(s_local.custom_tmp_dir),        conf_fileName, codepage_cnf);
+    GetPrivateProfileStringStg(ini_section_main, "custom_audio_tmp_dir",  "", s_local.custom_audio_tmp_dir,  _countof(s_local.custom_audio_tmp_dir),  conf_fileName, codepage_cnf);
+    GetPrivateProfileStringStg(ini_section_main, "custom_mp4box_tmp_dir", "", s_local.custom_mp4box_tmp_dir, _countof(s_local.custom_mp4box_tmp_dir), conf_fileName, codepage_cnf);
+    GetPrivateProfileStringStg(ini_section_main, "stg_dir",  default_stg_dir, s_local.stg_dir,               _countof(s_local.stg_dir),               conf_fileName, codepage_cnf);
+    GetPrivateProfileStringStg(ini_section_main, "last_app_dir",          "", s_local.app_dir,               _countof(s_local.app_dir),               conf_fileName, codepage_cnf);
+    GetPrivateProfileStringStg(ini_section_main, "last_bat_dir",          "", s_local.bat_dir,               _countof(s_local.bat_dir),               conf_fileName, codepage_cnf);
 
     //設定ファイル保存場所をチェックする
     if (!str_has_char(s_local.stg_dir) || !PathRootExists(s_local.stg_dir))
         strcpy_s(s_local.stg_dir, _countof(s_local.stg_dir), default_stg_dir);
 
-
     s_local.large_cmdbox = 0;
-    s_local.audio_buffer_size   = std::min<DWORD>(GetPrivateProfileInt(ini_section_main, "audio_buffer",        AUDIO_BUFFER_DEFAULT, conf_fileName), AUDIO_BUFFER_MAX);
+    s_local.audio_buffer_size   = std::min((decltype(s_local.audio_buffer_size))GetPrivateProfileInt(ini_section_main, "audio_buffer",        AUDIO_BUFFER_DEFAULT, conf_fileName), AUDIO_BUFFER_MAX);
 
-    GetPrivateProfileString(INI_SECTION_VID, INI_SECTION_MAIN, "", s_vid.fullpath, _countof(s_vid.fullpath), conf_fileName);
+    GetPrivateProfileStringStg(INI_SECTION_VID, INI_SECTION_MAIN, "", s_vid.fullpath, _countof(s_vid.fullpath), conf_fileName, codepage_cnf);
     for (int i = 0; i < s_aud_ext_count; i++)
-        GetPrivateProfileString(INI_SECTION_AUD, s_aud_ext[i].keyName, "", s_aud_ext[i].fullpath, _countof(s_aud_ext[i].fullpath), conf_fileName);
+        GetPrivateProfileStringStg(INI_SECTION_AUD, s_aud_ext[i].keyName, "", s_aud_ext[i].fullpath, _countof(s_aud_ext[i].fullpath), conf_fileName, codepage_cnf);
     for (int i = 0; i < s_mux_count; i++)
-        GetPrivateProfileString(INI_SECTION_MUX, s_mux[i].keyName, "", s_mux[i].fullpath,     _countof(s_mux[i].fullpath),     conf_fileName);
+        GetPrivateProfileStringStg(INI_SECTION_MUX, s_mux[i].keyName, "", s_mux[i].fullpath,       _countof(s_mux[i].fullpath),       conf_fileName, codepage_cnf);
 }
 
 void guiEx_settings::load_log_win() {
@@ -562,7 +682,7 @@ void guiEx_settings::load_log_win() {
     s_log.transparency       = GetPrivateProfileInt(   ini_section_main, "log_transparency",     DEFAULT_LOG_TRANSPARENCY,     conf_fileName);
     s_log.auto_save_log      = GetPrivateProfileInt(   ini_section_main, "log_auto_save",        DEFAULT_LOG_AUTO_SAVE,        conf_fileName);
     s_log.auto_save_log_mode = GetPrivateProfileInt(   ini_section_main, "log_auto_save_mode",   DEFAULT_LOG_AUTO_SAVE_MODE,   conf_fileName);
-    GetPrivateProfileString(ini_section_main, "log_auto_save_path", "", s_log.auto_save_log_path, _countof(s_log.auto_save_log_path), conf_fileName);
+    GetPrivateProfileStringStg(ini_section_main, "log_auto_save_path", "", s_log.auto_save_log_path, _countof(s_log.auto_save_log_path), conf_fileName, codepage_cnf);
     s_log.show_status_bar    = GetPrivateProfileInt(   ini_section_main, "log_show_status_bar",  DEFAULT_LOG_SHOW_STATUS_BAR,  conf_fileName);
     s_log.taskbar_progress   = GetPrivateProfileInt(   ini_section_main, "log_taskbar_progress", DEFAULT_LOG_TASKBAR_PROGRESS, conf_fileName);
     s_log.save_log_size      = GetPrivateProfileInt(   ini_section_main, "save_log_size",        DEFAULT_LOG_SAVE_SIZE,        conf_fileName);
@@ -574,16 +694,16 @@ void guiEx_settings::load_log_win() {
     GetColorInfo(ini_section_main, "log_color_text_info",    s_log.log_color_text[0],    DEFAULT_LOG_COLOR_TEXT[0],    conf_fileName);
     GetColorInfo(ini_section_main, "log_color_text_warning", s_log.log_color_text[1],    DEFAULT_LOG_COLOR_TEXT[1],    conf_fileName);
     GetColorInfo(ini_section_main, "log_color_text_error",   s_log.log_color_text[2],    DEFAULT_LOG_COLOR_TEXT[2],    conf_fileName);
-    GetFontInfo(ini_section_main, "log_font", &s_log.log_font, conf_fileName);
+    GetFontInfo(ini_section_main,  "log_font", &s_log.log_font, conf_fileName);
 }
 
 void guiEx_settings::load_append() {
     clear_append();
-    GetPrivateProfileString(INI_SECTION_APPENDIX, "tc_appendix",         "_tc.txt",      s_append.tc,         _countof(s_append.tc),         ini_fileName);
-    GetPrivateProfileString(INI_SECTION_APPENDIX, "qp_appendix",         "_qp.txt",      s_append.qp,         _countof(s_append.qp),         ini_fileName);
-    GetPrivateProfileString(INI_SECTION_APPENDIX, "chap_appendix",       "_chapter.txt", s_append.chap,       _countof(s_append.chap),       ini_fileName);
-    GetPrivateProfileString(INI_SECTION_APPENDIX, "chap_apple_appendix", "_chapter.txt", s_append.chap_apple, _countof(s_append.chap_apple), ini_fileName);
-    GetPrivateProfileString(INI_SECTION_APPENDIX, "wav_appendix",        "_tmp.wav",     s_append.wav,        _countof(s_append.wav),        ini_fileName);
+    GetPrivateProfileStringStg(INI_SECTION_APPENDIX, "tc_appendix",         "_tc.txt",      s_append.tc,         _countof(s_append.tc),         ini_fileName, codepage_ini);
+    GetPrivateProfileStringStg(INI_SECTION_APPENDIX, "qp_appendix",         "_qp.txt",      s_append.qp,         _countof(s_append.qp),         ini_fileName, codepage_ini);
+    GetPrivateProfileStringStg(INI_SECTION_APPENDIX, "chap_appendix",       "_chapter.txt", s_append.chap,       _countof(s_append.chap),       ini_fileName, codepage_ini);
+    GetPrivateProfileStringStg(INI_SECTION_APPENDIX, "chap_apple_appendix", "_chapter.txt", s_append.chap_apple, _countof(s_append.chap_apple), ini_fileName, codepage_ini);
+    GetPrivateProfileStringStg(INI_SECTION_APPENDIX, "wav_appendix",        "_tmp.wav",     s_append.wav,        _countof(s_append.wav),        ini_fileName, codepage_ini);
 }
 
 void guiEx_settings::load_fbc() {
@@ -613,7 +733,6 @@ void guiEx_settings::save_local() {
 #if ENCODER_QSV
     WritePrivateProfileIntWithDefault(   ini_section_main, "force_bluray",              s_local.force_bluray,              DEFAULT_FORCE_BLURAY,          conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "perf_monitor",              s_local.perf_monitor,              DEFAULT_PERF_MONITOR,          conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "perf_monitor_plot",         s_local.perf_monitor_plot,         DEFAULT_PERF_MONITOR_PLOT,     conf_fileName);
 #endif
 
     WriteFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
@@ -661,7 +780,7 @@ void guiEx_settings::save_log_win() {
     WritePrivateProfileIntWithDefault(   ini_section_main, "log_transparency",      s_log.transparency,       DEFAULT_LOG_TRANSPARENCY,     conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "log_auto_save",         s_log.auto_save_log,      DEFAULT_LOG_AUTO_SAVE,        conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "log_auto_save_mode",    s_log.auto_save_log_mode, DEFAULT_LOG_AUTO_SAVE_MODE,   conf_fileName);
-    WritePrivateProfileString(ini_section_main, "log_auto_save_path",    s_log.auto_save_log_path, conf_fileName);
+    WritePrivateProfileString(           ini_section_main, "log_auto_save_path",    s_log.auto_save_log_path,                               conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "log_show_status_bar",   s_log.show_status_bar,    DEFAULT_LOG_SHOW_STATUS_BAR,  conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "log_taskbar_progress",  s_log.taskbar_progress,   DEFAULT_LOG_TASKBAR_PROGRESS, conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "save_log_size",         s_log.save_log_size,      DEFAULT_LOG_SAVE_SIZE,        conf_fileName);
@@ -673,7 +792,7 @@ void guiEx_settings::save_log_win() {
     WriteColorInfo(ini_section_main, "log_color_text_info",    s_log.log_color_text[0],    DEFAULT_LOG_COLOR_TEXT[0],    conf_fileName);
     WriteColorInfo(ini_section_main, "log_color_text_warning", s_log.log_color_text[1],    DEFAULT_LOG_COLOR_TEXT[1],    conf_fileName);
     WriteColorInfo(ini_section_main, "log_color_text_error",   s_log.log_color_text[2],    DEFAULT_LOG_COLOR_TEXT[2],    conf_fileName);
-    WriteFontInfo( ini_section_main, "log_font", &s_log.log_font, conf_fileName);
+    WriteFontInfo(ini_section_main,  "log_font", &s_log.log_font, conf_fileName);
 }
 
 void guiEx_settings::save_fbc() {
@@ -683,6 +802,14 @@ void guiEx_settings::save_fbc() {
     WritePrivateProfileDoubleWithDefault(INI_SECTION_FBC, "last_fps",             s_fbc.last_fps,             DEFAULT_FBC_LAST_FPS,             conf_fileName);
     WritePrivateProfileDoubleWithDefault(INI_SECTION_FBC, "last_time_in_sec",     s_fbc.last_time_in_sec,     DEFAULT_FBC_LAST_TIME_IN_SEC,     conf_fileName);
     WritePrivateProfileDoubleWithDefault(INI_SECTION_FBC, "initial_size",         s_fbc.initial_size,         DEFAULT_FBC_INITIAL_SIZE,         conf_fileName);
+}
+
+void guiEx_settings::save_lang() {
+    WritePrivateProfileString(ini_section_main, "language", language, conf_fileName);
+}
+
+void guiEx_settings::save_last_out_stg() {
+    WritePrivateProfileString(ini_section_main, "last_out_stg", last_out_stg, conf_fileName);
 }
 
 void guiEx_settings::clear_vid() {
@@ -1007,4 +1134,3 @@ std::tuple<AuoTheme, DarkenWindowStgReader *> check_current_theme(const char *av
         dwStg
     };
 }
-

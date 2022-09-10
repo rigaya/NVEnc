@@ -35,6 +35,7 @@ using namespace System::Data;
 using namespace System::Drawing;
 
 #include "auo_settings.h"
+#include "auo_mes.h"
 
 
 namespace AUO_NAME_R {
@@ -224,8 +225,17 @@ namespace AUO_NAME_R {
         System::Void fstSetLastTransparency();
         System::Void setTransparency(int value);
         System::Void frmSetTransparency_FormClosed(System::Object^  sender, System::Windows::Forms::FormClosedEventArgs^  e);
+    private:
+        System::Void LoadLangText() {
+            LOAD_CLI_TEXT(fstBTDefault);
+            LOAD_CLI_TEXT(fstBTOK);
+            LOAD_CLI_TEXT(fstBTCancel);
+            LOAD_CLI_TEXT(fstLBTransparency);
+            LOAD_CLI_MAIN_TEXT(fstMain);
+        }
     private: 
         System::Void frmSetTransparency_Load(System::Object^  sender, System::EventArgs^  e) {
+            LoadLangText();
             fstSetLastTransparency();
             setTransparency(last_transparency);
         }

@@ -729,7 +729,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="NVEnc.def" />
+    <None Include="NVEnc.en.ini" />
+    <None Include="NVEnc.en.lng" />
     <None Include="NVEnc.ini" />
+    <None Include="NVEnc.ja.lng" />
+    <None Include="NVEnc.zh.ini" />
+    <None Include="NVEnc.zh.lng" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h" />

@@ -284,9 +284,10 @@ static inline int countchr(const WCHAR *str, int ch) {
 }
 
 //文字列の末尾についている '\r' '\n' ' ' を削除する
-static inline size_t deleteCRLFSpace_at_End(WCHAR *str) {
-    WCHAR *pw = str + wcslen(str) - 1;
-    WCHAR * const qw = pw;
+static inline size_t deleteCRLFSpace_at_End(WCHAR* str) {
+    if (str == nullptr || wcslen(str) == 0) return 0;
+    WCHAR* pw = str + wcslen(str) - 1;
+    WCHAR* const qw = pw;
     while ((*pw == L'\n' || *pw == L'\r' || *pw == L' ') && pw >= str) {
         *pw = L'\0';
         pw--;
@@ -294,9 +295,10 @@ static inline size_t deleteCRLFSpace_at_End(WCHAR *str) {
     return qw - pw;
 }
 
-static inline size_t deleteCRLFSpace_at_End(char *str) {
-    char *pw = str + strlen(str) - 1;
-    char *qw = pw;
+static inline size_t deleteCRLFSpace_at_End(char* str) {
+    if (str == nullptr || strlen(str) == 0) return 0;
+    char* pw = str + strlen(str) - 1;
+    char* qw = pw;
     while ((*pw == '\n' || *pw == '\r' || *pw == ' ') && pw >= str) {
         *pw = '\0';
         pw--;
@@ -316,6 +318,14 @@ static inline BOOL str_has_char(const WCHAR *str) {
     for (; !ret && *str != L'\0'; str++)
         ret = (*str != ' ');
     return ret;
+}
+
+static void *find_data(const void *data_to_search, size_t data_to_search_len, const void *data_to_find, size_t data_to_find_len) {
+    const BYTE *search_fin = (const BYTE *)data_to_search + (data_to_search_len - data_to_find_len);
+    for (const BYTE *ptr = (const BYTE *)data_to_search; ptr < search_fin; ptr++)
+        if (0 == memcmp(ptr, data_to_find, data_to_find_len))
+            return (void *)ptr;
+    return NULL;
 }
 
 static DWORD cpu_core_count() {
@@ -391,7 +401,8 @@ static BOOL check_avx2() {
     }
     return FALSE;
 }
-#if 0
+
+#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1
 static DWORD get_availableSIMD() {
     int CPUInfo[4];
     __cpuid(CPUInfo, 1);
@@ -415,8 +426,22 @@ static DWORD get_availableSIMD() {
     __cpuid(CPUInfo, 7);
     if ((simd & AUO_SIMD_AVX) && (CPUInfo[1] & 0x00000020))
         simd |= AUO_SIMD_AVX2;
+    if (simd & AUO_SIMD_AVX2) {
+        __cpuid(CPUInfo, 0);
+        char vendor[16] = { 0 };
+        memcpy(vendor + 0, &CPUInfo[1], sizeof(CPUInfo[1]));
+        memcpy(vendor + 4, &CPUInfo[3], sizeof(CPUInfo[3]));
+        memcpy(vendor + 8, &CPUInfo[2], sizeof(CPUInfo[2]));
+        //if (strcmp(vendor, "GenuineIntel") == 0) {
+        if (strcmp(vendor, "AuthenticAMD") != 0) {
+            simd |= AUO_SIMD_AVX2FAST;
+        }
+    }
     return simd;
 }
+
+std::string GetFullPathFrom(const char *path, const char *baseDir);
+std::wstring GetFullPathFrom(const wchar_t *path, const wchar_t *baseDir);
 #endif
 
 static BOOL check_OS_Win7orLater() {
@@ -451,6 +476,18 @@ static size_t calc_replace_mem_required(WCHAR *str, const WCHAR *old_str, const 
         size += move_len;
     return size;
 }
+static inline void insert(char *str, size_t nSize, const char *target_str, const char *new_str) {
+    char *fin = str + strlen(str) + 1;//null文字まで
+    const size_t new_len = strlen(new_str);
+    if (strlen(str) + new_len + 1 >= nSize) {
+        return;
+    }
+    auto pos = strstr(str, target_str);
+    if (pos != nullptr) {
+        memmove(pos + new_len, pos, (fin - pos) * sizeof(str[0]));
+        memcpy(pos, new_str, new_len * sizeof(str[0]));
+    }
+}
 //文字列の置換 str内で置き換える 置換を実行した回数を返す
 static inline int replace(char *str, size_t nSize, const char *old_str, const char *new_str) {
     char *c = str;
@@ -461,7 +498,7 @@ static inline int replace(char *str, size_t nSize, const char *old_str, const ch
     const size_t old_len = strlen(old_str);
     const size_t new_len = strlen(new_str);
     const int move_len = (int)(new_len - old_len);
-    if (old_len) {
+    if (old_len && strlen(str) >= old_len) {
         while ((p = strstr(c, old_str)) != NULL) {
             if (move_len) {
                 if (fin + move_len > limit)
@@ -484,7 +521,7 @@ static inline int replace(WCHAR *str, size_t nSize, const WCHAR *old_str, const 
     const size_t old_len = wcslen(old_str);
     const size_t new_len = wcslen(new_str);
     const int move_len = (int)(new_len - old_len);
-    if (old_len) {
+    if (old_len && wcslen(str) >= old_len) {
         while ((p = wcsstr(c, old_str)) != NULL) {
             if (move_len) {
                 if (fin + move_len > limit)
@@ -994,6 +1031,15 @@ DWORD jpn_check(const void *str, DWORD size_in_byte);
 //IMultipleLanguge2 の DetectInoutCodePageがたまに的外れな「西ヨーロッパ言語」を返すので
 //西ヨーロッパ言語 なら Shift-JIS にしてしまう
 BOOL fix_ImulL_WesternEurope(UINT *code_page);
+
+//ひとつのコードページの表すutf-8文字を返す
+std::string cp_to_utf8(uint32_t codepoint);
+
+//複数のU+xxxxU+xxxxのような文字列について、codepageのリストを作成する
+std::vector<uint32_t> get_cp_list(const std::string& str);
+
+//code pageを記述している'U+xxxx'を含むUTF-8文字列をcode page部分を文字列に置換して返す
+std::string conv_cp_part_to_utf8(const std::string& string_utf8_with_cp);
 
 //cmd中のtarget_argを抜き出し削除する
 //del_valueが+1ならその後の値を削除する、-1ならその前の値を削除する
