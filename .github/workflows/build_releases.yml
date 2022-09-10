@@ -221,6 +221,7 @@ jobs:
           7z x -oAviutl_NVEnc_release\exe_files\NVEncC\x64\ NVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
           copy /y _build\Win32\Release\NVEnc.auo Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\plugins\
+          copy /y NVEnc\NVEnc.en.ini Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\auo_setup.ini Aviutl_NVEnc_release\exe_files\
           copy /y NVEnc\NVEnc_readme.txt Aviutl_NVEnc_release\
           copy /y "NVEnc\NVENCが利用可能か確認 [ダブルクリック].bat" Aviutl_NVEnc_release\
