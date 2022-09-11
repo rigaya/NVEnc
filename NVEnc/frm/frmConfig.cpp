@@ -1526,7 +1526,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppWarpsharpThreshold,   encPrm.vpp.warpsharp.threshold);
         SetNUValue(fcgNUVppWarpsharpDepth,       encPrm.vpp.warpsharp.depth);
         SetNUValue(fcgNUVppWarpsharpBlur,        encPrm.vpp.warpsharp.blur);
-        SetNUValue(fcgNUVppWarpsharpBlurType,    encPrm.vpp.warpsharp.type);
+        SetNUValue(fcgNUVppWarpsharpType,        encPrm.vpp.warpsharp.type);
         SetNUValue(fcgNUVppAfsUp,                encPrm.vpp.afs.clip.top);
         SetNUValue(fcgNUVppAfsBottom,            encPrm.vpp.afs.clip.bottom);
         SetNUValue(fcgNUVppAfsLeft,              encPrm.vpp.afs.clip.left);
@@ -1783,7 +1783,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.warpsharp.threshold    = (float)fcgNUVppWarpsharpThreshold->Value;
     encPrm.vpp.warpsharp.depth        = (float)fcgNUVppWarpsharpDepth->Value;
     encPrm.vpp.warpsharp.blur         = (int)fcgNUVppWarpsharpBlur->Value;
-    encPrm.vpp.warpsharp.type         = (int)fcgNUVppWarpsharpBlurType->Value;
+    encPrm.vpp.warpsharp.type         = (int)fcgNUVppWarpsharpType->Value;
 
     encPrm.vpp.deband.enable          = fcgCBVppDebandEnable->Checked;
     encPrm.vpp.deband.range           = (int)fcgNUVppDebandRange->Value;
@@ -2051,6 +2051,81 @@ System::Void frmConfig::SetHelpToolTips() {
 
 #define SET_TOOL_TIP_EX2(target, x) { fcgTTEx->SetToolTip(target, LOAD_CLI_STRING(AuofrmTT ## x)); }
 #define SET_TOOL_TIP_EX(target) { fcgTTEx->SetToolTip(target, LOAD_CLI_STRING(AuofrmTT ## target)); }
+
+    //フィルタ
+    SET_TOOL_TIP_EX(fcgCBVppResize);
+    SET_TOOL_TIP_EX(fcgCXVppResizeAlg);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseMethod);
+    SET_TOOL_TIP_EX(fcgNUVppDenoisePmdApplyCount);
+    SET_TOOL_TIP_EX(fcgNUVppDenoisePmdStrength);
+    SET_TOOL_TIP_EX(fcgNUVppDenoisePmdThreshold);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseConv3DMatrix);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseConv3DThreshYSpatial);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseConv3DThreshCSpatial);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseConv3DThreshYTemporal);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseConv3DThreshCTemporal);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseSmoothQuality);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseSmoothQP);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnRadius);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnStrength);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnThreshold);
+    SET_TOOL_TIP_EX(fcgCXVppDetailEnhance);
+    SET_TOOL_TIP_EX(fcgNUVppWarpsharpBlur);
+    SET_TOOL_TIP_EX(fcgNUVppWarpsharpThreshold);
+    SET_TOOL_TIP_EX(fcgNUVppWarpsharpType);
+    SET_TOOL_TIP_EX(fcgNUVppWarpsharpDepth);
+    SET_TOOL_TIP_EX(fcgNUVppEdgelevelStrength);
+    SET_TOOL_TIP_EX(fcgNUVppEdgelevelThreshold);
+    SET_TOOL_TIP_EX(fcgNUVppEdgelevelBlack);
+    SET_TOOL_TIP_EX(fcgNUVppEdgelevelWhite);
+    SET_TOOL_TIP_EX(fcgNUVppUnsharpRadius);
+    SET_TOOL_TIP_EX(fcgNUVppUnsharpThreshold);
+    SET_TOOL_TIP_EX(fcgNUVppUnsharpWeight);
+    SET_TOOL_TIP_EX(fcgCBVppDebandEnable);
+    SET_TOOL_TIP_EX(fcgNUVppDebandRange);
+    SET_TOOL_TIP_EX(fcgNUVppDebandThreY);
+    SET_TOOL_TIP_EX(fcgNUVppDebandThreCb);
+    SET_TOOL_TIP_EX(fcgNUVppDebandThreCr);
+    SET_TOOL_TIP_EX(fcgNUVppDebandDitherY);
+    SET_TOOL_TIP_EX(fcgNUVppDebandDitherC);
+    SET_TOOL_TIP_EX(fcgCXVppDebandSample);
+    SET_TOOL_TIP_EX(fcgCBVppDebandBlurFirst);
+    SET_TOOL_TIP_EX(fcgCBVppDebandRandEachFrame);
+    SET_TOOL_TIP_EX(fcgCXVppDeinterlace);
+    SET_TOOL_TIP_EX(fcgNUVppAfsUp);
+    SET_TOOL_TIP_EX(fcgNUVppAfsBottom);
+    SET_TOOL_TIP_EX(fcgNUVppAfsLeft);
+    SET_TOOL_TIP_EX(fcgNUVppAfsRight);
+    SET_TOOL_TIP_EX(fcgNUVppAfsMethodSwitch);
+    SET_TOOL_TIP_EX(fcgNUVppAfsCoeffShift);
+    SET_TOOL_TIP_EX(fcgNUVppAfsThreShift);
+    SET_TOOL_TIP_EX(fcgNUVppAfsThreDeint);
+    SET_TOOL_TIP_EX(fcgNUVppAfsThreYMotion);
+    SET_TOOL_TIP_EX(fcgNUVppAfsThreCMotion);
+    SET_TOOL_TIP_EX(fcgCXVppAfsAnalyze);
+    SET_TOOL_TIP_EX(fcgCBVppAfsShift);
+    SET_TOOL_TIP_EX(fcgCBVppAfs24fps);
+    SET_TOOL_TIP_EX(fcgCBVppAfsDrop);
+    SET_TOOL_TIP_EX(fcgCBVppAfsSmooth);
+    SET_TOOL_TIP_EX(fcgCBVppAfsTune);
+    SET_TOOL_TIP_EX(fcgCXVppYadifMode);
+    SET_TOOL_TIP_EX(fcgCXVppNnediNns);
+    SET_TOOL_TIP_EX(fcgCXVppNnediNsize);
+    SET_TOOL_TIP_EX(fcgCXVppNnediQual);
+    SET_TOOL_TIP_EX(fcgCXVppNnediPrec);
+    SET_TOOL_TIP_EX(fcgCXVppNnediPrescreen);
+    SET_TOOL_TIP_EX(fcgCXVppNnediErrorType);
+    SET_TOOL_TIP_EX(fcgCBVppTweakEnable);
+    SET_TOOL_TIP_EX(fcgNUVppTweakBrightness);
+    SET_TOOL_TIP_EX(fcgTBVppTweakBrightness);
+    SET_TOOL_TIP_EX(fcgNUVppTweakContrast);
+    SET_TOOL_TIP_EX(fcgTBVppTweakContrast);
+    SET_TOOL_TIP_EX(fcgNUVppTweakGamma);
+    SET_TOOL_TIP_EX(fcgTBVppTweakGamma);
+    SET_TOOL_TIP_EX(fcgNUVppTweakSaturation);
+    SET_TOOL_TIP_EX(fcgTBVppTweakSaturation);
+    SET_TOOL_TIP_EX(fcgNUVppTweakHue);
+    SET_TOOL_TIP_EX(fcgTBVppTweakHue);
 
     //拡張
     SET_TOOL_TIP_EX(fcgCBAFS);

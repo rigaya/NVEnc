@@ -1457,8 +1457,9 @@ private: System::Windows::Forms::Label ^fcgLBMultiPass;
 private: System::Windows::Forms::ComboBox ^fcgCXMultiPass;
 private: System::Windows::Forms::Panel^  fcgPNVppWarpsharp;
 private: System::Windows::Forms::Label^  fcgLBVppWarpsharpType;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppWarpsharpType;
 
-private: System::Windows::Forms::NumericUpDown^  fcgNUVppWarpsharpBlurType;
+
 
 
 
@@ -1800,13 +1801,6 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgCXEncMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPBNVEncLogoEnabled = (gcnew System::Windows::Forms::PictureBox());
             this->fcgPBNVEncLogoDisabled = (gcnew System::Windows::Forms::PictureBox());
-            this->fcgPNH264 = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBBluray = (gcnew System::Windows::Forms::Label());
-            this->fcgCBBluray = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgLBCodecProfile = (gcnew System::Windows::Forms::Label());
-            this->fcgLBCodecLevel = (gcnew System::Windows::Forms::Label());
-            this->fcgCXCodecProfile = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgCXCodecLevel = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNQP = (gcnew System::Windows::Forms::Panel());
             this->fcgLBQPI = (gcnew System::Windows::Forms::Label());
             this->fcgNUQPI = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1831,6 +1825,13 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgLBHEVCProfile = (gcnew System::Windows::Forms::Label());
             this->fcgCXHEVCTier = (gcnew System::Windows::Forms::ComboBox());
             this->fxgCXHEVCLevel = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgPNH264 = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBBluray = (gcnew System::Windows::Forms::Label());
+            this->fcgCBBluray = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgLBCodecProfile = (gcnew System::Windows::Forms::Label());
+            this->fcgLBCodecLevel = (gcnew System::Windows::Forms::Label());
+            this->fcgCXCodecProfile = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXCodecLevel = (gcnew System::Windows::Forms::ComboBox());
             this->tabPageVideoDetail = (gcnew System::Windows::Forms::TabPage());
             this->fcgCBPSNR = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBPSNR = (gcnew System::Windows::Forms::Label());
@@ -1907,7 +1908,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgCXVppDetailEnhance = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNVppWarpsharp = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppWarpsharpType = (gcnew System::Windows::Forms::Label());
-            this->fcgNUVppWarpsharpBlurType = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppWarpsharpType = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgLBVppWarpsharpDepth = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppWarpsharpBlur = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppWarpsharpThreshold = (gcnew System::Windows::Forms::Label());
@@ -2125,7 +2126,6 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUGopLength))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoEnabled))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoDisabled))->BeginInit();
-            this->fcgPNH264->SuspendLayout();
             this->fcgPNQP->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPI))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPP))->BeginInit();
@@ -2135,6 +2135,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUBitrate))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUMaxkbps))->BeginInit();
             this->fcgPNHEVC->SuspendLayout();
+            this->fcgPNH264->SuspendLayout();
             this->tabPageVideoDetail->SuspendLayout();
             this->groupBoxQPDetail->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUChromaQPOffset))->BeginInit();
@@ -2164,7 +2165,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakBrightness))->BeginInit();
             this->fcggroupBoxVppDetailEnahance->SuspendLayout();
             this->fcgPNVppWarpsharp->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlurType))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpType))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpDepth))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlur))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpThreshold))->BeginInit();
@@ -3655,76 +3656,6 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgPBNVEncLogoDisabled->TabIndex = 149;
             this->fcgPBNVEncLogoDisabled->TabStop = false;
             // 
-            // fcgPNH264
-            // 
-            this->fcgPNH264->Controls->Add(this->fcgLBBluray);
-            this->fcgPNH264->Controls->Add(this->fcgCBBluray);
-            this->fcgPNH264->Controls->Add(this->fcgLBCodecProfile);
-            this->fcgPNH264->Controls->Add(this->fcgLBCodecLevel);
-            this->fcgPNH264->Controls->Add(this->fcgCXCodecProfile);
-            this->fcgPNH264->Controls->Add(this->fcgCXCodecLevel);
-            this->fcgPNH264->Location = System::Drawing::Point(341, 142);
-            this->fcgPNH264->Name = L"fcgPNH264";
-            this->fcgPNH264->Size = System::Drawing::Size(264, 91);
-            this->fcgPNH264->TabIndex = 90;
-            // 
-            // fcgLBBluray
-            // 
-            this->fcgLBBluray->AutoSize = true;
-            this->fcgLBBluray->Location = System::Drawing::Point(12, 8);
-            this->fcgLBBluray->Name = L"fcgLBBluray";
-            this->fcgLBBluray->Size = System::Drawing::Size(74, 14);
-            this->fcgLBBluray->TabIndex = 91;
-            this->fcgLBBluray->Text = L"Bluray用出力";
-            // 
-            // fcgCBBluray
-            // 
-            this->fcgCBBluray->AutoSize = true;
-            this->fcgCBBluray->Location = System::Drawing::Point(128, 9);
-            this->fcgCBBluray->Name = L"fcgCBBluray";
-            this->fcgCBBluray->Size = System::Drawing::Size(15, 14);
-            this->fcgCBBluray->TabIndex = 92;
-            this->fcgCBBluray->Tag = L"reCmd";
-            this->fcgCBBluray->UseVisualStyleBackColor = true;
-            // 
-            // fcgLBCodecProfile
-            // 
-            this->fcgLBCodecProfile->AutoSize = true;
-            this->fcgLBCodecProfile->Location = System::Drawing::Point(12, 37);
-            this->fcgLBCodecProfile->Name = L"fcgLBCodecProfile";
-            this->fcgLBCodecProfile->Size = System::Drawing::Size(53, 14);
-            this->fcgLBCodecProfile->TabIndex = 93;
-            this->fcgLBCodecProfile->Text = L"プロファイル";
-            // 
-            // fcgLBCodecLevel
-            // 
-            this->fcgLBCodecLevel->AutoSize = true;
-            this->fcgLBCodecLevel->Location = System::Drawing::Point(12, 67);
-            this->fcgLBCodecLevel->Name = L"fcgLBCodecLevel";
-            this->fcgLBCodecLevel->Size = System::Drawing::Size(33, 14);
-            this->fcgLBCodecLevel->TabIndex = 95;
-            this->fcgLBCodecLevel->Text = L"レベル";
-            // 
-            // fcgCXCodecProfile
-            // 
-            this->fcgCXCodecProfile->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXCodecProfile->FormattingEnabled = true;
-            this->fcgCXCodecProfile->Location = System::Drawing::Point(130, 35);
-            this->fcgCXCodecProfile->Name = L"fcgCXCodecProfile";
-            this->fcgCXCodecProfile->Size = System::Drawing::Size(121, 22);
-            this->fcgCXCodecProfile->TabIndex = 94;
-            this->fcgCXCodecProfile->Tag = L"reCmd";
-            // 
-            // fcgCXCodecLevel
-            // 
-            this->fcgCXCodecLevel->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXCodecLevel->FormattingEnabled = true;
-            this->fcgCXCodecLevel->Location = System::Drawing::Point(130, 65);
-            this->fcgCXCodecLevel->Name = L"fcgCXCodecLevel";
-            this->fcgCXCodecLevel->Size = System::Drawing::Size(121, 22);
-            this->fcgCXCodecLevel->TabIndex = 96;
-            this->fcgCXCodecLevel->Tag = L"reCmd";
-            // 
             // fcgPNQP
             // 
             this->fcgPNQP->Controls->Add(this->fcgLBQPI);
@@ -3966,6 +3897,76 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fxgCXHEVCLevel->Size = System::Drawing::Size(121, 22);
             this->fxgCXHEVCLevel->TabIndex = 86;
             this->fxgCXHEVCLevel->Tag = L"reCmd";
+            // 
+            // fcgPNH264
+            // 
+            this->fcgPNH264->Controls->Add(this->fcgLBBluray);
+            this->fcgPNH264->Controls->Add(this->fcgCBBluray);
+            this->fcgPNH264->Controls->Add(this->fcgLBCodecProfile);
+            this->fcgPNH264->Controls->Add(this->fcgLBCodecLevel);
+            this->fcgPNH264->Controls->Add(this->fcgCXCodecProfile);
+            this->fcgPNH264->Controls->Add(this->fcgCXCodecLevel);
+            this->fcgPNH264->Location = System::Drawing::Point(341, 142);
+            this->fcgPNH264->Name = L"fcgPNH264";
+            this->fcgPNH264->Size = System::Drawing::Size(264, 91);
+            this->fcgPNH264->TabIndex = 90;
+            // 
+            // fcgLBBluray
+            // 
+            this->fcgLBBluray->AutoSize = true;
+            this->fcgLBBluray->Location = System::Drawing::Point(12, 8);
+            this->fcgLBBluray->Name = L"fcgLBBluray";
+            this->fcgLBBluray->Size = System::Drawing::Size(74, 14);
+            this->fcgLBBluray->TabIndex = 91;
+            this->fcgLBBluray->Text = L"Bluray用出力";
+            // 
+            // fcgCBBluray
+            // 
+            this->fcgCBBluray->AutoSize = true;
+            this->fcgCBBluray->Location = System::Drawing::Point(128, 9);
+            this->fcgCBBluray->Name = L"fcgCBBluray";
+            this->fcgCBBluray->Size = System::Drawing::Size(15, 14);
+            this->fcgCBBluray->TabIndex = 92;
+            this->fcgCBBluray->Tag = L"reCmd";
+            this->fcgCBBluray->UseVisualStyleBackColor = true;
+            // 
+            // fcgLBCodecProfile
+            // 
+            this->fcgLBCodecProfile->AutoSize = true;
+            this->fcgLBCodecProfile->Location = System::Drawing::Point(12, 37);
+            this->fcgLBCodecProfile->Name = L"fcgLBCodecProfile";
+            this->fcgLBCodecProfile->Size = System::Drawing::Size(53, 14);
+            this->fcgLBCodecProfile->TabIndex = 93;
+            this->fcgLBCodecProfile->Text = L"プロファイル";
+            // 
+            // fcgLBCodecLevel
+            // 
+            this->fcgLBCodecLevel->AutoSize = true;
+            this->fcgLBCodecLevel->Location = System::Drawing::Point(12, 67);
+            this->fcgLBCodecLevel->Name = L"fcgLBCodecLevel";
+            this->fcgLBCodecLevel->Size = System::Drawing::Size(33, 14);
+            this->fcgLBCodecLevel->TabIndex = 95;
+            this->fcgLBCodecLevel->Text = L"レベル";
+            // 
+            // fcgCXCodecProfile
+            // 
+            this->fcgCXCodecProfile->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXCodecProfile->FormattingEnabled = true;
+            this->fcgCXCodecProfile->Location = System::Drawing::Point(130, 35);
+            this->fcgCXCodecProfile->Name = L"fcgCXCodecProfile";
+            this->fcgCXCodecProfile->Size = System::Drawing::Size(121, 22);
+            this->fcgCXCodecProfile->TabIndex = 94;
+            this->fcgCXCodecProfile->Tag = L"reCmd";
+            // 
+            // fcgCXCodecLevel
+            // 
+            this->fcgCXCodecLevel->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXCodecLevel->FormattingEnabled = true;
+            this->fcgCXCodecLevel->Location = System::Drawing::Point(130, 65);
+            this->fcgCXCodecLevel->Name = L"fcgCXCodecLevel";
+            this->fcgCXCodecLevel->Size = System::Drawing::Size(121, 22);
+            this->fcgCXCodecLevel->TabIndex = 96;
+            this->fcgCXCodecLevel->Tag = L"reCmd";
             // 
             // tabPageVideoDetail
             // 
@@ -4551,7 +4552,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             // fcgCBVppTweakEnable
             // 
             this->fcgCBVppTweakEnable->AutoSize = true;
-            this->fcgCBVppTweakEnable->Location = System::Drawing::Point(370, 346);
+            this->fcgCBVppTweakEnable->Location = System::Drawing::Point(359, 346);
             this->fcgCBVppTweakEnable->Name = L"fcgCBVppTweakEnable";
             this->fcgCBVppTweakEnable->Size = System::Drawing::Size(70, 18);
             this->fcgCBVppTweakEnable->TabIndex = 50;
@@ -4798,7 +4799,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             // fcgPNVppWarpsharp
             // 
             this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpType);
-            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpBlurType);
+            this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpType);
             this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpDepth);
             this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpBlur);
             this->fcgPNVppWarpsharp->Controls->Add(this->fcgLBVppWarpsharpThreshold);
@@ -4819,16 +4820,16 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgLBVppWarpsharpType->TabIndex = 7;
             this->fcgLBVppWarpsharpType->Text = L"type";
             // 
-            // fcgNUVppWarpsharpBlurType
+            // fcgNUVppWarpsharpType
             // 
-            this->fcgNUVppWarpsharpBlurType->Location = System::Drawing::Point(242, 34);
-            this->fcgNUVppWarpsharpBlurType->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            this->fcgNUVppWarpsharpBlurType->Name = L"fcgNUVppWarpsharpBlurType";
-            this->fcgNUVppWarpsharpBlurType->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppWarpsharpBlurType->TabIndex = 8;
-            this->fcgNUVppWarpsharpBlurType->Tag = L"reCmd";
-            this->fcgNUVppWarpsharpBlurType->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppWarpsharpBlurType->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppWarpsharpType->Location = System::Drawing::Point(242, 34);
+            this->fcgNUVppWarpsharpType->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppWarpsharpType->Name = L"fcgNUVppWarpsharpType";
+            this->fcgNUVppWarpsharpType->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppWarpsharpType->TabIndex = 8;
+            this->fcgNUVppWarpsharpType->Tag = L"reCmd";
+            this->fcgNUVppWarpsharpType->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppWarpsharpType->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             // 
             // fcgLBVppWarpsharpDepth
             // 
@@ -6997,8 +6998,6 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUGopLength))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoEnabled))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoDisabled))->EndInit();
-            this->fcgPNH264->ResumeLayout(false);
-            this->fcgPNH264->PerformLayout();
             this->fcgPNQP->ResumeLayout(false);
             this->fcgPNQP->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPI))->EndInit();
@@ -7011,6 +7010,8 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUMaxkbps))->EndInit();
             this->fcgPNHEVC->ResumeLayout(false);
             this->fcgPNHEVC->PerformLayout();
+            this->fcgPNH264->ResumeLayout(false);
+            this->fcgPNH264->PerformLayout();
             this->tabPageVideoDetail->ResumeLayout(false);
             this->tabPageVideoDetail->PerformLayout();
             this->groupBoxQPDetail->ResumeLayout(false);
@@ -7047,7 +7048,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcggroupBoxVppDetailEnahance->ResumeLayout(false);
             this->fcgPNVppWarpsharp->ResumeLayout(false);
             this->fcgPNVppWarpsharp->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlurType))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpType))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpDepth))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlur))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpThreshold))->EndInit();
