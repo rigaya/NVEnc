@@ -87,6 +87,7 @@ EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTa
     make_file_filter(NULL, 0, g_sys_dat.exstg->s_local.default_output_ext);
     overwrite_aviutl_ini_file_filter(g_sys_dat.exstg->s_local.default_output_ext);
     output_plugin_table.filefilter = g_auo_filefilter;
+    overwrite_aviutl_ini_auo_info();
     return &output_plugin_table;
 }
 
