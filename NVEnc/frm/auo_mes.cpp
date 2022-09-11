@@ -841,6 +841,7 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 "AuofrmTTfcgCXTempDir",
 "AuofrmTTfcgBTCustomTempDir",
 "AuofrmTTfcgBTCmdEx",
+"AuofrmTTfcgCBAudioUseExt",
 "AuofrmTTfcgCXAudioEncoder",
 "AuofrmTTfcgCBAudioOnly",
 "AuofrmTTfcgCBFAWCheck",

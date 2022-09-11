@@ -2051,6 +2051,7 @@ System::Void frmConfig::SetHelpToolTips() {
 
 #define SET_TOOL_TIP_EX2(target, x) { fcgTTEx->SetToolTip(target, LOAD_CLI_STRING(AuofrmTT ## x)); }
 #define SET_TOOL_TIP_EX(target) { fcgTTEx->SetToolTip(target, LOAD_CLI_STRING(AuofrmTT ## target)); }
+#define SET_TOOL_TIP_EX_AUD_INTERNAL(target) { fcgTTEx->SetToolTip(target ## Internal, LOAD_CLI_STRING(AuofrmTT ## target)); }
 
     //フィルタ
     SET_TOOL_TIP_EX(fcgCBVppResize);
@@ -2097,11 +2098,17 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgNUVppAfsLeft);
     SET_TOOL_TIP_EX(fcgNUVppAfsRight);
     SET_TOOL_TIP_EX(fcgNUVppAfsMethodSwitch);
+    SET_TOOL_TIP_EX(fcgTBVppAfsMethodSwitch);
     SET_TOOL_TIP_EX(fcgNUVppAfsCoeffShift);
+    SET_TOOL_TIP_EX(fcgTBVppAfsCoeffShift);
     SET_TOOL_TIP_EX(fcgNUVppAfsThreShift);
+    SET_TOOL_TIP_EX(fcgTBVppAfsThreShift);
     SET_TOOL_TIP_EX(fcgNUVppAfsThreDeint);
+    SET_TOOL_TIP_EX(fcgTBVppAfsThreDeint);
     SET_TOOL_TIP_EX(fcgNUVppAfsThreYMotion);
+    SET_TOOL_TIP_EX(fcgTBVppAfsThreYMotion);
     SET_TOOL_TIP_EX(fcgNUVppAfsThreCMotion);
+    SET_TOOL_TIP_EX(fcgTBVppAfsThreCMotion);
     SET_TOOL_TIP_EX(fcgCXVppAfsAnalyze);
     SET_TOOL_TIP_EX(fcgCBVppAfsShift);
     SET_TOOL_TIP_EX(fcgCBVppAfs24fps);
@@ -2134,6 +2141,10 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgBTCustomTempDir);
 
     //音声
+    SET_TOOL_TIP_EX(fcgCBAudioUseExt);
+    SET_TOOL_TIP_EX_AUD_INTERNAL(fcgCXAudioEncoder);
+    SET_TOOL_TIP_EX_AUD_INTERNAL(fcgCXAudioEncMode);
+    SET_TOOL_TIP_EX_AUD_INTERNAL(fcgNUAudioBitrate);
     SET_TOOL_TIP_EX(fcgCXAudioEncoder);
     SET_TOOL_TIP_EX(fcgCBAudioOnly);
     SET_TOOL_TIP_EX(fcgCBFAWCheck);
