@@ -580,8 +580,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUAspectRatioX;
 private: System::Windows::Forms::ComboBox^  fcgCXAspectRatio;
 private: System::Windows::Forms::ComboBox^  fcgCXInterlaced;
 private: System::Windows::Forms::Label^  fcgLBInterlaced;
-private: System::Windows::Forms::NumericUpDown^  fcgNUGopLength;
-private: System::Windows::Forms::Label^  fcgLBGOPLength;
+
+
 private: System::Windows::Forms::ComboBox^  fcgCXCodecLevel;
 private: System::Windows::Forms::ComboBox^  fcgCXCodecProfile;
 private: System::Windows::Forms::Label^  fcgLBCodecLevel;
@@ -590,24 +590,24 @@ private: System::Windows::Forms::Label^  fcgLBCodecProfile;
 
 
 
-private: System::Windows::Forms::Label^  fcgLBMaxBitrate2;
+
 private: System::Windows::Forms::Label^  fcgLBEncMode;
 private: System::Windows::Forms::ComboBox^  fcgCXEncMode;
-private: System::Windows::Forms::Label^  fcgLBMaxkbps;
-private: System::Windows::Forms::NumericUpDown^  fcgNUMaxkbps;
-private: System::Windows::Forms::Label^  fcgLBQPB;
-private: System::Windows::Forms::Label^  fcgLBQPP;
-private: System::Windows::Forms::Label^  fcgLBQPI;
-
-private: System::Windows::Forms::NumericUpDown^  fcgNUQPB;
-private: System::Windows::Forms::NumericUpDown^  fcgNUQPP;
-private: System::Windows::Forms::NumericUpDown^  fcgNUQPI;
 
 
 
-private: System::Windows::Forms::Label^  fcgLBBitrate2;
-private: System::Windows::Forms::NumericUpDown^  fcgNUBitrate;
-private: System::Windows::Forms::Label^  fcgLBBitrate;
+
+
+
+
+
+
+
+
+
+
+
+
 private: System::Windows::Forms::TabPage^  tabPageVpp;
 
 
@@ -643,7 +643,7 @@ private: System::Windows::Forms::TabPage^  tabPageVpp;
 
 
 
-private: System::Windows::Forms::Label^  fcgLBGOPLengthAuto;
+
 
 
 
@@ -703,8 +703,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBMP4MuxApple;
 
 
 
-private: System::Windows::Forms::Panel^  fcgPNBitrate;
-private: System::Windows::Forms::Panel^  fcgPNQP;
+
+
 
 
 
@@ -795,8 +795,6 @@ private: System::Windows::Forms::LinkLabel^  fcgLBguiExBlog;
 
 
 
-private: System::Windows::Forms::NumericUpDown^  fcgNUBframes;
-private: System::Windows::Forms::Label^  fcgLBBframes;
 
 
 
@@ -810,8 +808,10 @@ private: System::Windows::Forms::Label^  fcgLBBframes;
 
 
 
-private: System::Windows::Forms::NumericUpDown^  fcgNURefFrames;
-private: System::Windows::Forms::Label^  fcgLBRefFrames;
+
+
+
+
 
 
 
@@ -875,8 +875,8 @@ private: System::Windows::Forms::ComboBox^  fxgCXHEVCLevel;
 
 
 private: System::Windows::Forms::CheckBox^  fcgCBAFS;
-private: System::Windows::Forms::NumericUpDown^  fcgNUVBVBufsize;
-private: System::Windows::Forms::Label^  fcgLBVBVBufsize;
+
+
 private: System::Windows::Forms::Label^  fcgLBBluray;
 private: System::Windows::Forms::CheckBox^  fcgCBBluray;
 private: System::Windows::Forms::TabControl^  fcgtabControlAudio;
@@ -933,15 +933,15 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
 
 
 
-private: System::Windows::Forms::Label^  fcgLBLookaheadDisable;
-private: System::Windows::Forms::NumericUpDown^  fcgNULookaheadDepth;
+
+
 
 private: System::Windows::Forms::Label^  fcgLBAQStrengthAuto;
 private: System::Windows::Forms::NumericUpDown^  fcgNUAQStrength;
 private: System::Windows::Forms::Label^  fcgLBAQStrength;
 private: System::Windows::Forms::ComboBox^  fcgCXAQ;
 
-private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
+
 private: System::Windows::Forms::Label^  fcgLBHEVCOutBitDepth;
 private: System::Windows::Forms::ComboBox^  fcgCXHEVCOutBitDepth;
 
@@ -1009,7 +1009,7 @@ private: System::Windows::Forms::Label^  fcgLBHEVCMaxCUSize;
 
 
 private: System::Windows::Forms::ComboBox^  fcgCXHEVCMaxCUSize;
-private: System::Windows::Forms::Label^  fcgLBVBVBufsize2;
+
 
 
 private: System::Windows::Forms::Label^  fcgLBDevice;
@@ -1053,14 +1053,14 @@ private: System::Windows::Forms::Label^  fcgLBQPMax1;
 private: System::Windows::Forms::NumericUpDown^  fcgNUQPMaxP;
 
 private: System::Windows::Forms::NumericUpDown^  fcgNUQPMaxI;
-private: System::Windows::Forms::Label^  fcgLBWeightP;
-private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
 
 
 
-private: System::Windows::Forms::NumericUpDown^  fcgNUVBRTragetQuality;
-private: System::Windows::Forms::Label^  fcgLBVBRTragetQuality;
-private: System::Windows::Forms::Label^  fcgLBVBRTragetQuality2;
+
+
+
+
+
 
 
 
@@ -1307,9 +1307,9 @@ private: System::Windows::Forms::Button^  fcgBTVideoEncoderPath;
 
 
 private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
-private: System::Windows::Forms::ComboBox^  fcgCXBrefMode;
 
-private: System::Windows::Forms::Label^  fcgLBBrefMode;
+
+
 private: System::Windows::Forms::Label^  fcgLBQualityPreset;
 private: System::Windows::Forms::ComboBox^  fcgCXQualityPreset;
 
@@ -1453,8 +1453,8 @@ private: System::Windows::Forms::ComboBox ^fcgCXTempDir;
 private: System::Windows::Forms::CheckBox ^fcgCBPerfMonitor;
 private: System::Windows::Forms::GroupBox ^fcggroupBoxCmdEx;
 private: System::Windows::Forms::TextBox ^fcgTXCmdEx;
-private: System::Windows::Forms::Label ^fcgLBMultiPass;
-private: System::Windows::Forms::ComboBox ^fcgCXMultiPass;
+
+
 private: System::Windows::Forms::Panel^  fcgPNVppWarpsharp;
 private: System::Windows::Forms::Label^  fcgLBVppWarpsharpType;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppWarpsharpType;
@@ -1513,6 +1513,44 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DMatrix;
 private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
 private: System::Windows::Forms::ToolStripDropDownButton^  fcgTSLanguage;
 private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
+private: System::Windows::Forms::ComboBox^  fcgCXBrefMode;
+private: System::Windows::Forms::Label^  fcgLBBrefMode;
+private: System::Windows::Forms::Label^  fcgLBWeightP;
+private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
+private: System::Windows::Forms::Label^  fcgLBVBVBufsize2;
+private: System::Windows::Forms::Label^  fcgLBLookaheadDisable;
+private: System::Windows::Forms::NumericUpDown^  fcgNULookaheadDepth;
+private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVBVBufsize;
+
+
+private: System::Windows::Forms::Label^  fcgLBVBVBufsize;
+private: System::Windows::Forms::NumericUpDown^  fcgNURefFrames;
+private: System::Windows::Forms::Label^  fcgLBRefFrames;
+private: System::Windows::Forms::NumericUpDown^  fcgNUBframes;
+private: System::Windows::Forms::Label^  fcgLBBframes;
+private: System::Windows::Forms::Label^  fcgLBGOPLengthAuto;
+private: System::Windows::Forms::NumericUpDown^  fcgNUGopLength;
+private: System::Windows::Forms::Label^  fcgLBGOPLength;
+private: System::Windows::Forms::Panel^  fcgPNQP;
+private: System::Windows::Forms::Label^  fcgLBQPI;
+private: System::Windows::Forms::NumericUpDown^  fcgNUQPI;
+private: System::Windows::Forms::NumericUpDown^  fcgNUQPP;
+private: System::Windows::Forms::NumericUpDown^  fcgNUQPB;
+private: System::Windows::Forms::Label^  fcgLBQPP;
+private: System::Windows::Forms::Label^  fcgLBQPB;
+private: System::Windows::Forms::Panel^  fcgPNBitrate;
+private: System::Windows::Forms::Label^  fcgLBVBRTragetQuality2;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVBRTragetQuality;
+private: System::Windows::Forms::Label^  fcgLBVBRTragetQuality;
+private: System::Windows::Forms::Label^  fcgLBBitrate;
+private: System::Windows::Forms::NumericUpDown^  fcgNUBitrate;
+private: System::Windows::Forms::Label^  fcgLBBitrate2;
+private: System::Windows::Forms::NumericUpDown^  fcgNUMaxkbps;
+private: System::Windows::Forms::Label^  fcgLBMaxkbps;
+private: System::Windows::Forms::Label^  fcgLBMaxBitrate2;
+private: System::Windows::Forms::Label^  fcgLBMultiPass;
+private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
 
 
 
@@ -6294,6 +6332,8 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->tabPageExOpt->Controls->Add(this->fcgTXCustomTempDir);
             this->tabPageExOpt->Controls->Add(this->fcgCXTempDir);
             this->tabPageExOpt->Controls->Add(this->fcgCBPerfMonitor);
+            this->tabPageExOpt->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
+                static_cast<System::Byte>(128)));
             this->tabPageExOpt->Location = System::Drawing::Point(4, 24);
             this->tabPageExOpt->Name = L"tabPageExOpt";
             this->tabPageExOpt->Size = System::Drawing::Size(608, 494);
@@ -6328,7 +6368,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgCBLogDebug->AutoSize = true;
             this->fcgCBLogDebug->Location = System::Drawing::Point(197, 104);
             this->fcgCBLogDebug->Name = L"fcgCBLogDebug";
-            this->fcgCBLogDebug->Size = System::Drawing::Size(104, 19);
+            this->fcgCBLogDebug->Size = System::Drawing::Size(96, 18);
             this->fcgCBLogDebug->TabIndex = 59;
             this->fcgCBLogDebug->Tag = L"reCmd";
             this->fcgCBLogDebug->Text = L"デバッグログ出力";
@@ -6339,7 +6379,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgCBAuoTcfileout->AutoSize = true;
             this->fcgCBAuoTcfileout->Location = System::Drawing::Point(15, 78);
             this->fcgCBAuoTcfileout->Name = L"fcgCBAuoTcfileout";
-            this->fcgCBAuoTcfileout->Size = System::Drawing::Size(103, 19);
+            this->fcgCBAuoTcfileout->Size = System::Drawing::Size(98, 18);
             this->fcgCBAuoTcfileout->TabIndex = 57;
             this->fcgCBAuoTcfileout->Tag = L"chValue";
             this->fcgCBAuoTcfileout->Text = L"タイムコード出力";
@@ -6350,7 +6390,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgLBTempDir->AutoSize = true;
             this->fcgLBTempDir->Location = System::Drawing::Point(10, 15);
             this->fcgLBTempDir->Name = L"fcgLBTempDir";
-            this->fcgLBTempDir->Size = System::Drawing::Size(66, 15);
+            this->fcgLBTempDir->Size = System::Drawing::Size(60, 14);
             this->fcgLBTempDir->TabIndex = 53;
             this->fcgLBTempDir->Text = L"一時フォルダ";
             // 
@@ -6368,7 +6408,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             // 
             this->fcgTXCustomTempDir->Location = System::Drawing::Point(88, 40);
             this->fcgTXCustomTempDir->Name = L"fcgTXCustomTempDir";
-            this->fcgTXCustomTempDir->Size = System::Drawing::Size(182, 23);
+            this->fcgTXCustomTempDir->Size = System::Drawing::Size(182, 21);
             this->fcgTXCustomTempDir->TabIndex = 55;
             this->fcgTXCustomTempDir->Tag = L"";
             this->fcgTXCustomTempDir->TextChanged += gcnew System::EventHandler(this, &frmConfig::fcgTXCustomTempDir_TextChanged);
@@ -6379,7 +6419,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgCXTempDir->FormattingEnabled = true;
             this->fcgCXTempDir->Location = System::Drawing::Point(111, 12);
             this->fcgCXTempDir->Name = L"fcgCXTempDir";
-            this->fcgCXTempDir->Size = System::Drawing::Size(190, 23);
+            this->fcgCXTempDir->Size = System::Drawing::Size(190, 22);
             this->fcgCXTempDir->TabIndex = 54;
             this->fcgCXTempDir->Tag = L"chValue";
             // 
@@ -6388,7 +6428,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgCBPerfMonitor->AutoSize = true;
             this->fcgCBPerfMonitor->Location = System::Drawing::Point(15, 104);
             this->fcgCBPerfMonitor->Name = L"fcgCBPerfMonitor";
-            this->fcgCBPerfMonitor->Size = System::Drawing::Size(131, 19);
+            this->fcgCBPerfMonitor->Size = System::Drawing::Size(120, 18);
             this->fcgCBPerfMonitor->TabIndex = 58;
             this->fcgCBPerfMonitor->Tag = L"reCmd";
             this->fcgCBPerfMonitor->Text = L"パフォーマンスログ出力";
@@ -7216,6 +7256,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
         System::Void CheckTSLanguageDropDownItem(ToolStripMenuItem^ mItem);
         System::Void fcgTSLanguage_DropDownItemClicked(System::Object^  sender, System::Windows::Forms::ToolStripItemClickedEventArgs^  e);
 
+        System::Void SetHelpToolTipsColorMatrix(Control^ control, const CX_DESC *list, const wchar_t *type);
         System::Void SetHelpToolTips();
         System::Void ShowExehelp(String^ ExePath, String^ args);
         System::Void fcgTSBOtherSettings_Click(System::Object^  sender, System::EventArgs^  e);
