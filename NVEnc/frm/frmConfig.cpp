@@ -2072,7 +2072,7 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgNUQPI);
     SET_TOOL_TIP_EX(fcgNUQPP);
     SET_TOOL_TIP_EX(fcgNUQPB);
-    SET_TOOL_TIP_EX(fcgNUVBVBufsize);
+    //SET_TOOL_TIP_EX(fcgNUVBVBufsize);
     SET_TOOL_TIP_EX(fcgNUGopLength);
     SET_TOOL_TIP_EX(fcgNUBframes);
     SET_TOOL_TIP_EX(fcgCXBrefMode);
@@ -2126,8 +2126,8 @@ System::Void frmConfig::SetHelpToolTips() {
         + LOAD_CLI_STRING(aspect_desc[1].mes) + L"\n"
         + L"   " + LOAD_CLI_STRING(AuofrmTTfcgCXAspectRatioDAR) + L"\n"
     );
-    SET_TOOL_TIP_EX(fcgNUAspectRatioX, fcgNUAspectRatioX);
-    SET_TOOL_TIP_EX(fcgNUAspectRatioY, fcgNUAspectRatioY);
+    SET_TOOL_TIP_EX(fcgNUAspectRatioX);
+    SET_TOOL_TIP_EX(fcgNUAspectRatioY);
 
     //フィルタ
     SET_TOOL_TIP_EX(fcgCBVppResize);
