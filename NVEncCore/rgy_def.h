@@ -261,11 +261,11 @@ enum class RGYResizeResMode {
     PreserveOrgAspectInc,
 };
 
-const int COLOR_VALUE_AUTO = -1;
-const int COLOR_VALUE_AUTO_RESOLUTION = std::numeric_limits<int>::max();
-const int HD_HEIGHT_THRESHOLD = 720;
-const int HD_INDEX = 3;
-const int SD_INDEX = 4;
+static const int COLOR_VALUE_AUTO = -1;
+static const int COLOR_VALUE_AUTO_RESOLUTION = std::numeric_limits<int>::max();
+static const TCHAR *COLOR_VALUE_AUTO_HD_NAME = _T("bt709");
+static const TCHAR *COLOR_VALUE_AUTO_SD_NAME = _T("smpte170m");
+static const int HD_HEIGHT_THRESHOLD = 720;
 
 enum CspMatrix {
     RGY_MATRIX_AUTO        = COLOR_VALUE_AUTO,
@@ -513,7 +513,7 @@ const CX_DESC list_colorrange[] = {
 template<typename T>
 void apply_auto_color_characteristic(T &value, const CX_DESC *list, int frame_height, T auto_val) {
     if (value == COLOR_VALUE_AUTO_RESOLUTION) {
-        value = (T)list[(frame_height >= HD_HEIGHT_THRESHOLD) ? HD_INDEX : SD_INDEX].value;
+        value = (T)get_cx_value(list, (frame_height >= HD_HEIGHT_THRESHOLD) ? COLOR_VALUE_AUTO_HD_NAME : COLOR_VALUE_AUTO_SD_NAME);
     } else if (value == COLOR_VALUE_AUTO) {
         value = auto_val;
     }
