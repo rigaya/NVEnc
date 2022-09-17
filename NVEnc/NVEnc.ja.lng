@@ -5,7 +5,7 @@
 
 [AUO_GUIEX]
 AUO_GUIEX_LANG=ja
-AUO_GUIEX_FULL_NAME=拡張 NVEnc 出力(GUI) Ex
+AUO_GUIEX_FULL_NAME=拡張 NVEnc 出力
 AUO_GUIEX_TOTAL_TIME=総エンコード時間  
 AUO_GUIEX_TIME_HOUR=時間
 AUO_GUIEX_TIME_MIN=分
@@ -17,7 +17,7 @@ AUO_GUIEX_DEFAULT=デフォルト
 [AUO_ERR]
 AUO_ERR_CONF_NOT_INIT0=設定が行われていないため、前回出力した設定でエンコードを行います。
 AUO_ERR_CONF_NOT_INIT1=設定が行われていないため、デフォルト設定でエンコードを行います。
-AUO_ERR_CONF_NOT_INIT2=設定を変更するには[プラグイン出力]>[拡張 NVEnc 出力(GUI) Ex]の画面で「ビデオ圧縮」をクリックし、
+AUO_ERR_CONF_NOT_INIT2=設定を変更するには[プラグイン出力]>[拡張 NVEnc 出力]の画面で「ビデオ圧縮」をクリックし、
 AUO_ERR_CONF_NOT_INIT3=設定画面で設定を変更したのち [ OK ] をクリックしてください。
 AUO_ERR_FAILED_GET_TEMP_PATH=一時フォルダ名取得に失敗しました。一時フォルダ指定を解除しました。
 AUO_ERR_UNABLE_OPEM_TEMP_FILE=指定された一時フォルダ "%s" にファイルを作成できません。一時フォルダ指定を解除しました。
