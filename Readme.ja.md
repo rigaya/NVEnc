@@ -113,6 +113,8 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - 音声及びチャプターとのmux機能
 - 自動フィールドシフト対応
 
+![NVEnc.auo](./data/NVEnc_auo_stg_window_ja.png)
+
 ### NVEncC
 - cuvidデコードに対応
   - MPEG1

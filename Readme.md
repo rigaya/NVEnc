@@ -157,6 +157,7 @@ which might cause problem in some playback environments.
 - Mux audio and chapter
 - afs (Automatic field shift) support
 
+![NVEnc.auo](./data/NVEnc_auo_stg_window_en.png)
 
 ## Auto GPU selection in multi GPU envinronment
 
