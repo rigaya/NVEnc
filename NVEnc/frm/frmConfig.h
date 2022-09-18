@@ -3163,7 +3163,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBMultiPass
             // 
             this->fcgLBMultiPass->AutoSize = true;
-            this->fcgLBMultiPass->Location = System::Drawing::Point(13, 198);
+            this->fcgLBMultiPass->Location = System::Drawing::Point(13, 208);
             this->fcgLBMultiPass->Name = L"fcgLBMultiPass";
             this->fcgLBMultiPass->Size = System::Drawing::Size(50, 14);
             this->fcgLBMultiPass->TabIndex = 150;
@@ -3174,7 +3174,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgCXMultiPass->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXMultiPass->FormattingEnabled = true;
             this->fcgCXMultiPass->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXMultiPass->Location = System::Drawing::Point(81, 195);
+            this->fcgCXMultiPass->Location = System::Drawing::Point(81, 205);
             this->fcgCXMultiPass->Name = L"fcgCXMultiPass";
             this->fcgCXMultiPass->Size = System::Drawing::Size(185, 22);
             this->fcgCXMultiPass->TabIndex = 151;
@@ -3293,7 +3293,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBQualityPreset
             // 
             this->fcgLBQualityPreset->AutoSize = true;
-            this->fcgLBQualityPreset->Location = System::Drawing::Point(13, 170);
+            this->fcgLBQualityPreset->Location = System::Drawing::Point(13, 181);
             this->fcgLBQualityPreset->Name = L"fcgLBQualityPreset";
             this->fcgLBQualityPreset->Size = System::Drawing::Size(29, 14);
             this->fcgLBQualityPreset->TabIndex = 8;
@@ -3304,7 +3304,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgCXQualityPreset->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXQualityPreset->FormattingEnabled = true;
             this->fcgCXQualityPreset->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXQualityPreset->Location = System::Drawing::Point(81, 167);
+            this->fcgCXQualityPreset->Location = System::Drawing::Point(81, 178);
             this->fcgCXQualityPreset->Name = L"fcgCXQualityPreset";
             this->fcgCXQualityPreset->Size = System::Drawing::Size(185, 22);
             this->fcgCXQualityPreset->TabIndex = 9;
@@ -3314,7 +3314,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // 
             this->fcgCXBrefMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXBrefMode->FormattingEnabled = true;
-            this->fcgCXBrefMode->Location = System::Drawing::Point(132, 387);
+            this->fcgCXBrefMode->Location = System::Drawing::Point(132, 392);
             this->fcgCXBrefMode->Name = L"fcgCXBrefMode";
             this->fcgCXBrefMode->Size = System::Drawing::Size(122, 22);
             this->fcgCXBrefMode->TabIndex = 39;
@@ -3323,7 +3323,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBBrefMode
             // 
             this->fcgLBBrefMode->AutoSize = true;
-            this->fcgLBBrefMode->Location = System::Drawing::Point(14, 389);
+            this->fcgLBBrefMode->Location = System::Drawing::Point(14, 394);
             this->fcgLBBrefMode->Name = L"fcgLBBrefMode";
             this->fcgLBBrefMode->Size = System::Drawing::Size(94, 14);
             this->fcgLBBrefMode->TabIndex = 38;
@@ -3331,7 +3331,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // 
             // fcgBTVideoEncoderPath
             // 
-            this->fcgBTVideoEncoderPath->Location = System::Drawing::Point(303, 81);
+            this->fcgBTVideoEncoderPath->Location = System::Drawing::Point(303, 92);
             this->fcgBTVideoEncoderPath->Name = L"fcgBTVideoEncoderPath";
             this->fcgBTVideoEncoderPath->Size = System::Drawing::Size(30, 23);
             this->fcgBTVideoEncoderPath->TabIndex = 3;
@@ -3342,9 +3342,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgTXVideoEncoderPath
             // 
             this->fcgTXVideoEncoderPath->AllowDrop = true;
-            this->fcgTXVideoEncoderPath->Location = System::Drawing::Point(81, 82);
+            this->fcgTXVideoEncoderPath->Location = System::Drawing::Point(21, 93);
             this->fcgTXVideoEncoderPath->Name = L"fcgTXVideoEncoderPath";
-            this->fcgTXVideoEncoderPath->Size = System::Drawing::Size(216, 21);
+            this->fcgTXVideoEncoderPath->Size = System::Drawing::Size(276, 21);
             this->fcgTXVideoEncoderPath->TabIndex = 2;
             this->fcgTXVideoEncoderPath->TextChanged += gcnew System::EventHandler(this, &frmConfig::fcgTXVideoEncoderPath_TextChanged);
             this->fcgTXVideoEncoderPath->DragDrop += gcnew System::Windows::Forms::DragEventHandler(this, &frmConfig::fcgSetDragDropFilename_DragDrop);
@@ -3355,7 +3355,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBVideoEncoderPath
             // 
             this->fcgLBVideoEncoderPath->AutoSize = true;
-            this->fcgLBVideoEncoderPath->Location = System::Drawing::Point(6, 82);
+            this->fcgLBVideoEncoderPath->Location = System::Drawing::Point(13, 74);
             this->fcgLBVideoEncoderPath->Name = L"fcgLBVideoEncoderPath";
             this->fcgLBVideoEncoderPath->Size = System::Drawing::Size(49, 14);
             this->fcgLBVideoEncoderPath->TabIndex = 1;
@@ -3364,7 +3364,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBWeightP
             // 
             this->fcgLBWeightP->AutoSize = true;
-            this->fcgLBWeightP->Location = System::Drawing::Point(15, 470);
+            this->fcgLBWeightP->Location = System::Drawing::Point(15, 471);
             this->fcgLBWeightP->Name = L"fcgLBWeightP";
             this->fcgLBWeightP->Size = System::Drawing::Size(87, 14);
             this->fcgLBWeightP->TabIndex = 45;
@@ -3382,7 +3382,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgCBWeightP
             // 
             this->fcgCBWeightP->AutoSize = true;
-            this->fcgCBWeightP->Location = System::Drawing::Point(132, 473);
+            this->fcgCBWeightP->Location = System::Drawing::Point(132, 474);
             this->fcgCBWeightP->Name = L"fcgCBWeightP";
             this->fcgCBWeightP->Size = System::Drawing::Size(15, 14);
             this->fcgCBWeightP->TabIndex = 46;
@@ -3392,7 +3392,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBVBVBufsize2
             // 
             this->fcgLBVBVBufsize2->AutoSize = true;
-            this->fcgLBVBVBufsize2->Location = System::Drawing::Point(215, 310);
+            this->fcgLBVBVBufsize2->Location = System::Drawing::Point(215, 318);
             this->fcgLBVBVBufsize2->Name = L"fcgLBVBVBufsize2";
             this->fcgLBVBVBufsize2->Size = System::Drawing::Size(32, 14);
             this->fcgLBVBVBufsize2->TabIndex = 32;
@@ -3401,7 +3401,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBLookaheadDisable
             // 
             this->fcgLBLookaheadDisable->AutoSize = true;
-            this->fcgLBLookaheadDisable->Location = System::Drawing::Point(215, 445);
+            this->fcgLBLookaheadDisable->Location = System::Drawing::Point(215, 447);
             this->fcgLBLookaheadDisable->Name = L"fcgLBLookaheadDisable";
             this->fcgLBLookaheadDisable->Size = System::Drawing::Size(66, 14);
             this->fcgLBLookaheadDisable->TabIndex = 44;
@@ -3409,7 +3409,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // 
             // fcgNULookaheadDepth
             // 
-            this->fcgNULookaheadDepth->Location = System::Drawing::Point(132, 443);
+            this->fcgNULookaheadDepth->Location = System::Drawing::Point(132, 445);
             this->fcgNULookaheadDepth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 32, 0, 0, 0 });
             this->fcgNULookaheadDepth->Name = L"fcgNULookaheadDepth";
             this->fcgNULookaheadDepth->Size = System::Drawing::Size(77, 21);
@@ -3468,7 +3468,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBLookaheadDepth
             // 
             this->fcgLBLookaheadDepth->AutoSize = true;
-            this->fcgLBLookaheadDepth->Location = System::Drawing::Point(14, 445);
+            this->fcgLBLookaheadDepth->Location = System::Drawing::Point(14, 447);
             this->fcgLBLookaheadDepth->Name = L"fcgLBLookaheadDepth";
             this->fcgLBLookaheadDepth->Size = System::Drawing::Size(100, 14);
             this->fcgLBLookaheadDepth->TabIndex = 42;
@@ -3486,7 +3486,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgNUVBVBufsize
             // 
             this->fcgNUVBVBufsize->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 500, 0, 0, 0 });
-            this->fcgNUVBVBufsize->Location = System::Drawing::Point(132, 306);
+            this->fcgNUVBVBufsize->Location = System::Drawing::Point(132, 314);
             this->fcgNUVBVBufsize->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 128000, 0, 0, 0 });
             this->fcgNUVBVBufsize->Name = L"fcgNUVBVBufsize";
             this->fcgNUVBVBufsize->Size = System::Drawing::Size(77, 21);
@@ -3549,7 +3549,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBVBVBufsize
             // 
             this->fcgLBVBVBufsize->AutoSize = true;
-            this->fcgLBVBVBufsize->Location = System::Drawing::Point(14, 308);
+            this->fcgLBVBVBufsize->Location = System::Drawing::Point(14, 316);
             this->fcgLBVBVBufsize->Name = L"fcgLBVBVBufsize";
             this->fcgLBVBVBufsize->Size = System::Drawing::Size(84, 14);
             this->fcgLBVBVBufsize->TabIndex = 30;
@@ -3569,7 +3569,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBEncCodec
             // 
             this->fcgLBEncCodec->AutoSize = true;
-            this->fcgLBEncCodec->Location = System::Drawing::Point(13, 114);
+            this->fcgLBEncCodec->Location = System::Drawing::Point(13, 127);
             this->fcgLBEncCodec->Name = L"fcgLBEncCodec";
             this->fcgLBEncCodec->Size = System::Drawing::Size(51, 14);
             this->fcgLBEncCodec->TabIndex = 4;
@@ -3580,7 +3580,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgCXEncCodec->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXEncCodec->FormattingEnabled = true;
             this->fcgCXEncCodec->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXEncCodec->Location = System::Drawing::Point(81, 111);
+            this->fcgCXEncCodec->Location = System::Drawing::Point(81, 124);
             this->fcgCXEncCodec->Name = L"fcgCXEncCodec";
             this->fcgCXEncCodec->Size = System::Drawing::Size(185, 22);
             this->fcgCXEncCodec->TabIndex = 5;
@@ -3589,7 +3589,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // 
             // fcgNURefFrames
             // 
-            this->fcgNURefFrames->Location = System::Drawing::Point(132, 415);
+            this->fcgNURefFrames->Location = System::Drawing::Point(132, 419);
             this->fcgNURefFrames->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNURefFrames->Name = L"fcgNURefFrames";
             this->fcgNURefFrames->Size = System::Drawing::Size(77, 21);
@@ -3600,7 +3600,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBRefFrames
             // 
             this->fcgLBRefFrames->AutoSize = true;
-            this->fcgLBRefFrames->Location = System::Drawing::Point(13, 418);
+            this->fcgLBRefFrames->Location = System::Drawing::Point(13, 422);
             this->fcgLBRefFrames->Name = L"fcgLBRefFrames";
             this->fcgLBRefFrames->Size = System::Drawing::Size(51, 14);
             this->fcgLBRefFrames->TabIndex = 40;
@@ -3608,7 +3608,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // 
             // fcgNUBframes
             // 
-            this->fcgNUBframes->Location = System::Drawing::Point(132, 361);
+            this->fcgNUBframes->Location = System::Drawing::Point(132, 367);
             this->fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNUBframes->Name = L"fcgNUBframes";
             this->fcgNUBframes->Size = System::Drawing::Size(77, 21);
@@ -3619,7 +3619,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBBframes
             // 
             this->fcgLBBframes->AutoSize = true;
-            this->fcgLBBframes->Location = System::Drawing::Point(14, 364);
+            this->fcgLBBframes->Location = System::Drawing::Point(14, 370);
             this->fcgLBBframes->Name = L"fcgLBBframes";
             this->fcgLBBframes->Size = System::Drawing::Size(58, 14);
             this->fcgLBBframes->TabIndex = 36;
@@ -3628,7 +3628,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBGOPLengthAuto
             // 
             this->fcgLBGOPLengthAuto->AutoSize = true;
-            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 336);
+            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 343);
             this->fcgLBGOPLengthAuto->Name = L"fcgLBGOPLengthAuto";
             this->fcgLBGOPLengthAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBGOPLengthAuto->TabIndex = 35;
@@ -3636,7 +3636,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // 
             // fcgNUGopLength
             // 
-            this->fcgNUGopLength->Location = System::Drawing::Point(132, 333);
+            this->fcgNUGopLength->Location = System::Drawing::Point(132, 340);
             this->fcgNUGopLength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 120000, 0, 0, 0 });
             this->fcgNUGopLength->Name = L"fcgNUGopLength";
             this->fcgNUGopLength->Size = System::Drawing::Size(77, 21);
@@ -3647,7 +3647,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBGOPLength
             // 
             this->fcgLBGOPLength->AutoSize = true;
-            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 336);
+            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 343);
             this->fcgLBGOPLength->Name = L"fcgLBGOPLength";
             this->fcgLBGOPLength->Size = System::Drawing::Size(41, 14);
             this->fcgLBGOPLength->TabIndex = 33;
@@ -3656,7 +3656,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // fcgLBEncMode
             // 
             this->fcgLBEncMode->AutoSize = true;
-            this->fcgLBEncMode->Location = System::Drawing::Point(13, 142);
+            this->fcgLBEncMode->Location = System::Drawing::Point(13, 154);
             this->fcgLBEncMode->Name = L"fcgLBEncMode";
             this->fcgLBEncMode->Size = System::Drawing::Size(32, 14);
             this->fcgLBEncMode->TabIndex = 6;
@@ -3667,7 +3667,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgCXEncMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXEncMode->FormattingEnabled = true;
             this->fcgCXEncMode->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXEncMode->Location = System::Drawing::Point(81, 139);
+            this->fcgCXEncMode->Location = System::Drawing::Point(81, 151);
             this->fcgCXEncMode->Name = L"fcgCXEncMode";
             this->fcgCXEncMode->Size = System::Drawing::Size(185, 22);
             this->fcgCXEncMode->TabIndex = 7;
@@ -3679,7 +3679,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgPBNVEncLogoEnabled->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgPBNVEncLogoEnabled.Image")));
             this->fcgPBNVEncLogoEnabled->Location = System::Drawing::Point(6, 1);
             this->fcgPBNVEncLogoEnabled->Name = L"fcgPBNVEncLogoEnabled";
-            this->fcgPBNVEncLogoEnabled->Size = System::Drawing::Size(219, 75);
+            this->fcgPBNVEncLogoEnabled->Size = System::Drawing::Size(203, 69);
             this->fcgPBNVEncLogoEnabled->SizeMode = System::Windows::Forms::PictureBoxSizeMode::StretchImage;
             this->fcgPBNVEncLogoEnabled->TabIndex = 148;
             this->fcgPBNVEncLogoEnabled->TabStop = false;
@@ -3689,7 +3689,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgPBNVEncLogoDisabled->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgPBNVEncLogoDisabled.Image")));
             this->fcgPBNVEncLogoDisabled->Location = System::Drawing::Point(6, 1);
             this->fcgPBNVEncLogoDisabled->Name = L"fcgPBNVEncLogoDisabled";
-            this->fcgPBNVEncLogoDisabled->Size = System::Drawing::Size(219, 75);
+            this->fcgPBNVEncLogoDisabled->Size = System::Drawing::Size(203, 69);
             this->fcgPBNVEncLogoDisabled->SizeMode = System::Windows::Forms::PictureBoxSizeMode::StretchImage;
             this->fcgPBNVEncLogoDisabled->TabIndex = 149;
             this->fcgPBNVEncLogoDisabled->TabStop = false;
@@ -3702,7 +3702,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgPNQP->Controls->Add(this->fcgNUQPB);
             this->fcgPNQP->Controls->Add(this->fcgLBQPP);
             this->fcgPNQP->Controls->Add(this->fcgLBQPB);
-            this->fcgPNQP->Location = System::Drawing::Point(8, 223);
+            this->fcgPNQP->Location = System::Drawing::Point(8, 232);
             this->fcgPNQP->Name = L"fcgPNQP";
             this->fcgPNQP->Size = System::Drawing::Size(289, 79);
             this->fcgPNQP->TabIndex = 10;
@@ -3775,7 +3775,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgPNBitrate->Controls->Add(this->fcgNUMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxBitrate2);
-            this->fcgPNBitrate->Location = System::Drawing::Point(8, 223);
+            this->fcgPNBitrate->Location = System::Drawing::Point(8, 232);
             this->fcgPNBitrate->Name = L"fcgPNBitrate";
             this->fcgPNBitrate->Size = System::Drawing::Size(289, 79);
             this->fcgPNBitrate->TabIndex = 20;
