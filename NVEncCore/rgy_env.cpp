@@ -295,7 +295,7 @@ tstring getEnviromentInfo([[maybe_unused]] int device_id) {
 
 #if ENCODER_QSV
     TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
+    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info), device_id);
     buf += strsprintf(_T("GPU: %s\n"), gpu_info);
 #endif //#if ENCODER_QSV
     return buf;
