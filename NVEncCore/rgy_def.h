@@ -178,11 +178,19 @@ typedef struct FEATURE_DESC {
 } FEATURE_DESC;
 
 static int get_cx_desc_cmp(const wchar_t *str1, const wchar_t *str2) {
-    return wcscmp(str1, str2);
+#if defined(_WIN32) || defined(_WIN64)
+    return _wcsicmp(str1, str2);
+#else
+    return wcscasecmp(str1, str2);
+#endif
 }
 
 static int get_cx_desc_cmp(const char *str1, const char *str2) {
-    return strcmp(str1, str2);
+#if defined(_WIN32) || defined(_WIN64)
+    return _stricmp(str1, str2);
+#else
+    return strcasecmp(str1, str2);
+#endif
 }
 
 template<typename T>
