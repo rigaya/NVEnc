@@ -528,6 +528,14 @@ const CX_DESC list_vpp_deband[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_vpp_deband_en[] = {
+    { _T("0 - 1pixel ref"),  0 },
+    { _T("1 - 2pixel ref"),  1 },
+    { _T("2 - 4pixel ref"),  2 },
+    { NULL, 0 }
+};
+static_assert(_countof(list_vpp_deband) == _countof(list_vpp_deband_en));
+
 const CX_DESC list_vpp_rotate[] = {
     { _T("90"),   90 },
     { _T("180"), 180 },
