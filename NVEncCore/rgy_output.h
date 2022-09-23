@@ -113,6 +113,34 @@ public:
         last_check_pts = pos->second.timestamp;
         return pos->second;
     }
+    void clean(const int64_t current_id) {
+        if (current_id >= last_clean_id + 64) {
+            for (auto it = m_frame.begin(); it != m_frame.end();) {
+                if (it->second.inputFrameId < current_id - 32) {
+                    it = m_frame.erase(it);
+                } else {
+                    it++;
+                }
+            }
+            last_clean_id = current_id;
+        }
+    }
+    RGYTimestampMapVal getByFrameID(const int64_t id) {
+        std::lock_guard<std::mutex> lock(mtx);
+        auto pos = m_frame.end();
+        for (auto it = m_frame.begin(); it != m_frame.end(); it++) {
+            if (it->second.inputFrameId == id) {
+                pos = it;
+                break;
+            }
+        }
+        if (pos == m_frame.end()) {
+            return RGYTimestampMapVal();
+        }
+        auto& ret = pos->second;
+        clean(id);
+        return ret;
+    }
     RGYTimestampMapVal get(int64_t pts) {
         std::lock_guard<std::mutex> lock(mtx);
         auto pos = m_frame.find(pts);
@@ -120,16 +148,7 @@ public:
             return RGYTimestampMapVal();
         }
         auto& ret = pos->second;
-        if (ret.inputFrameId >= last_clean_id + 64) {
-            for (auto it = m_frame.begin(); it != m_frame.end();) {
-                if (it->second.inputFrameId < ret.inputFrameId - 32) {
-                    it = m_frame.erase(it);
-                } else {
-                    it++;
-                }
-            }
-            last_clean_id = ret.inputFrameId;
-        }
+        clean(ret.inputFrameId);
         return ret;
     }
 };
