@@ -30,6 +30,7 @@
 #define __RGY_BITSTREAM_H__
 
 #include <vector>
+#include <deque>
 #include <unordered_map>
 #include <cstdint>
 #include <string>
@@ -39,6 +40,11 @@ struct nal_info {
     const uint8_t *ptr;
     uint8_t type;
     size_t size;
+};
+
+struct unit_info {
+    uint8_t type;
+    std::vector<uint8_t> unit_data;
 };
 
 enum : uint8_t {
@@ -71,6 +77,16 @@ enum : uint8_t {
     NALU_HEVC_SUFFIX_SEI  = 40,
     NALU_HEVC_UNSPECIFIED = 62,
     NALU_HEVC_INVALID     = 64,
+
+    OBU_SEQUENCE_HEADER        = 1,
+    OBU_TEMPORAL_DELIMITER     = 2,
+    OBU_FRAME_HEADER           = 3,
+    OBU_TILE_GROUP             = 4,
+    OBU_METADATA               = 5,
+    OBU_FRAME                  = 6,
+    OBU_REDUNDANT_FRAME_HEADER = 7,
+    OBU_TILE_LIST              = 8,
+    OBU_PADDING                = 15,
 };
 
 enum PayloadType {
@@ -138,6 +154,8 @@ int64_t find_header_avx2(const uint8_t *data, size_t size);
 int64_t find_header_avx512bw(const uint8_t *data, size_t size);
 
 decltype(find_header_c)* get_find_header_func();
+
+std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const size_t size);
 
 struct HEVCHDRSeiPrm {
     int maxcll;

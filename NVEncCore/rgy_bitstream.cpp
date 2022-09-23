@@ -544,3 +544,57 @@ decltype(find_header_c)* get_find_header_func() {
 #endif
     return find_header_c;
 }
+
+static std::unique_ptr<unit_info> get_unit(const uint8_t *data, const size_t size) {
+    std::unique_ptr<unit_info> unit;
+    if (size <= 1) {
+        return unit;
+    }
+    const uint8_t *const start_pos = data;
+    const uint8_t firstbyte = *data++;
+    const uint8_t type = (firstbyte & (0x78)) >> 3;
+    const uint8_t extension_flag = (firstbyte & 0x04) >> 2;
+    const uint8_t has_size_flag = (firstbyte & 0x02) >> 1;
+
+    unit = std::make_unique<unit_info>();
+    unit->type = type;
+
+    if (extension_flag) {
+        data++;
+    }
+    if (!has_size_flag) {
+        size_t ret = size - 1 - extension_flag;
+        unit->unit_data.resize(ret);
+    } else {
+        size_t obu_size = 0;
+        for (int i = 0; i < 8; i++) {
+            uint8_t byte = *data++;
+            obu_size |= (int64_t)(byte & 0x7f) << (i * 7);
+            if (!(byte & 0x80))
+                break;
+        }
+
+        const size_t ret = obu_size + (data - start_pos);
+        unit->unit_data.resize(ret);
+    }
+    if (unit->unit_data.size() > 0) {
+        memcpy(unit->unit_data.data(), start_pos, unit->unit_data.size());
+    }
+    return unit;
+}
+
+std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const size_t size) {
+    std::deque<std::unique_ptr<unit_info>> list;
+    int64_t size_remain = (int64_t)size;
+    while (size_remain > 0) {
+        auto unit = get_unit(data, size);
+        const auto unit_size = unit->unit_data.size();
+        if (unit_size == 0) {
+            break;
+        }
+        list.push_back(std::move(unit));
+        data += unit_size;
+        size_remain -= unit_size;
+    }
+    return list;
+}
