@@ -141,10 +141,8 @@ typedef struct AVMuxVideo {
     AVPacket             *pktOut;               //出力用のAVPacket
     AVPacket             *pktParse;             //parser用のAVPacket
     int64_t               prevInputFrameId;     //前回の入力フレームID
-#if ENCODER_VCEENC
     AVCodecParserContext *parserCtx;            //動画ストリームのParser (VCEのみ)
     int64_t               parserStreamPos;      //動画ストリームのバイト数
-#endif //#if ENCODER_VCEENC
     bool                  afs;                  //入力が自動フィールドシフト
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
@@ -554,9 +552,7 @@ protected:
     //lastValidFrame ... true 最後の有効なフレーム+1のtimestampを返す / false .. AV_NOPTS_VALUEを返す
     int64_t AdjustTimestampTrimmed(int64_t nTimeIn, AVRational timescaleIn, AVRational timescaleOut, bool lastValidFrame);
 
-#if ENCODER_VCEENC
     RGY_ERR VidCheckStreamAVParser(RGYBitstream *pBitstream);
-#endif
 
     void CloseOther(AVMuxOther *pMuxOther);
     void CloseAudio(AVMuxAudio *muxAudio);
