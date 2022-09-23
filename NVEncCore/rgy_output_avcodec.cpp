@@ -1978,7 +1978,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *bitstream) {
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataH264(const RGYBitstream *bitstream) {
     std::vector<nal_info> nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
     const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
     const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
@@ -1997,7 +1997,7 @@ RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *bitstream
 }
 
 //extradataにHEVCのヘッダーを追加する
-RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *bitstream) {
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream) {
     std::vector<nal_info> nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
     const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
     const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
@@ -2017,15 +2017,37 @@ RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *bitstream
     return RGY_ERR_NONE;
 }
 
+//extradataにAV1のヘッダーを追加する
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataAV1(const RGYBitstream *bitstream) {
+    const auto unit_list = parse_unit_av1(bitstream->data(), bitstream->size());
+    auto it_seq_header = std::find_if(unit_list.begin(), unit_list.end(), [](const std::unique_ptr<unit_info>& unit) {
+        return unit->type == OBU_SEQUENCE_HEADER;
+    });
+    if (it_seq_header != unit_list.end()) {
+        const auto& seq_header = (it_seq_header->get())->unit_data;
+        m_Mux.video.streamOut->codecpar->extradata_size = seq_header.size();
+        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(new_ptr, seq_header.data(), m_Mux.video.streamOut->codecpar->extradata_size);
+        if (m_Mux.video.streamOut->codecpar->extradata) {
+            av_free(m_Mux.video.streamOut->codecpar->extradata);
+        }
+        m_Mux.video.streamOut->codecpar->extradata = new_ptr;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
     if (m_Mux.video.streamOut && bitstream) {
         RGY_ERR sts = RGY_ERR_NONE;
         switch (m_Mux.video.streamOut->codecpar->codec_id) {
         case AV_CODEC_ID_H264:
-            sts = AddH264HeaderToExtraData(bitstream);
+            sts = AddHeaderToExtraDataH264(bitstream);
             break;
         case AV_CODEC_ID_HEVC:
-            sts = AddHEVCHeaderToExtraData(bitstream);
+            sts = AddHeaderToExtraDataHEVC(bitstream);
+            break;
+        case AV_CODEC_ID_AV1:
+            sts = AddHeaderToExtraDataAV1(bitstream);
             break;
         default:
             break;
@@ -2294,53 +2316,36 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
     return err;
 }
 
-#pragma warning (push)
-#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
-RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts) {
-    if (!m_Mux.format.fileHeaderWritten) {
-#if 0 && ENCODER_QSV //HEVCエンコードやFixed Funcでは、DecodeTimeStampが正しく設定されないので無効化
-        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && bitstream->dts() == MFX_TIMESTAMP_UNKNOWN) {
-            m_Mux.video.dtsUnavailable = true;
+RGY_ERR RGYOutputAvcodec::WriteNextFrameFinish(RGYBitstream *bitstream, const RGY_FRAMETYPE frameType) {
+#if ENABLE_AVCODEC_OUT_THREAD
+    //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
+    if (m_Mux.thread.thOutput.joinable()) {
+        //確保したメモリ領域を使いまわすためにキューに格納
+        const auto frameI = (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
+        auto& qVideoQueueFree = (frameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
+        auto queueFavoredSize = (frameI) ? VID_BITSTREAM_QUEUE_SIZE_I : VID_BITSTREAM_QUEUE_SIZE_PB;
+        if ((int64_t)qVideoQueueFree.size() > queueFavoredSize) {
+            //あまり多すぎると無駄にメモリを使用するので減らす
+            bitstream->clear();
+        } else {
+            qVideoQueueFree.push(*bitstream);
         }
-#else
-        m_Mux.video.dtsUnavailable = true;
+    } else {
 #endif
-        RGY_ERR sts = WriteFileHeader(bitstream);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-
-        //dts生成を初期化
-        //何フレーム前からにすればよいかは、b-pyramid次第で異なるので、可能な限りエンコーダの情報を使用する
-#if ENCODER_QSV
-        if (bitstream->dts() != MFX_TIMESTAMP_UNKNOWN) {
-            const auto srcTimebase = (ENCODER_QSV) ? HW_NATIVE_TIMEBASE : m_Mux.video.bitstreamTimebase;
-            m_VideoOutputInfo.videoDelay = -1 * (int)av_rescale_q(bitstream->dts(), srcTimebase, av_inv_q(m_Mux.video.outputFps));
-        }
+        bitstream->setSize(0);
+        bitstream->setOffset(0);
+#if ENABLE_AVCODEC_OUT_THREAD
+    }
 #endif
-        m_Mux.video.fpsBaseNextDts = 0 - m_VideoOutputInfo.videoDelay;
-        AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.fpsBaseNextDts);
+    m_Mux.format.fileHeaderWritten = true;
+    return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
+}
 
-        const AVRational fpsTimebase = (m_Mux.video.afs) ? av_inv_q(av_mul_q(m_Mux.video.outputFps, av_make_q(4, 5))) : av_inv_q(m_Mux.video.outputFps);
-        const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
-        for (int i = m_Mux.video.fpsBaseNextDts; i < 0; i++) {
-            m_Mux.video.timestampList.add(av_rescale_q(i, fpsTimebase, streamTimebase));
-        }
-    }
-
-    RGYTimestampMapVal bs_framedata;
-    if (m_Mux.video.timestamp) {
-        bs_framedata = m_Mux.video.timestamp->get(bitstream->pts());
-        if (bs_framedata.inputFrameId < 0) {
-            bs_framedata.inputFrameId = m_Mux.video.prevInputFrameId;
-            AddMessage(RGY_LOG_WARN, _T("Failed to get frame ID for pts %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
-        }
-        m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
-    }
-
+RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream, int64_t *writtenDts, const RGYTimestampMapVal& bs_framedata) {
+    //AVParserを使用して必要に応じてframeTypeを取得する
     VidCheckStreamAVParser(bitstream);
 
-    if (m_Mux.video.bsfc) {
+    if (m_Mux.video.bsfc && m_VideoOutputInfo.codec != RGY_CODEC_AV1) {
         int target_nal = 0;
         std::vector<nal_info> nal_list;
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
@@ -2458,7 +2463,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 
     const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
     pkt->stream_index = m_Mux.video.streamOut->index;
-    pkt->flags        = isIDR ? AV_PKT_FLAG_KEY : 0;
+    pkt->flags = isIDR ? AV_PKT_FLAG_KEY : 0;
 #if ENCODER_QSV
     //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
     pkt->duration = bs_framedata.duration;
@@ -2473,7 +2478,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 #endif
     if (av_cmp_q(m_Mux.video.bitstreamTimebase, streamTimebase) != 0) {
         pkt->duration = av_rescale_q(pkt->duration, m_Mux.video.bitstreamTimebase, streamTimebase);
-        pkt->pts      = av_rescale_q(pkt->pts, m_Mux.video.bitstreamTimebase, streamTimebase);
+        pkt->pts = av_rescale_q(pkt->pts, m_Mux.video.bitstreamTimebase, streamTimebase);
     }
     if (false && !m_Mux.video.dtsUnavailable) {
         pkt->dts = av_rescale_q(bitstream->dts(), m_Mux.video.bitstreamTimebase, streamTimebase);
@@ -2503,28 +2508,135 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pFrameTypeStr, (lls)bitstream->pts(), (lls)bitstream->dts(), (lls)pts, (lls)dts, (int)duration, bitstream->size());
     }
     m_encSatusInfo->SetOutputData(frameType, bitstream->size(), bitstream->avgQP());
-#if ENABLE_AVCODEC_OUT_THREAD
-    //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
-    if (m_Mux.thread.thOutput.joinable()) {
-        //確保したメモリ領域を使いまわすためにキューに格納
-        const auto frameI = (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
-        auto& qVideoQueueFree = (frameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
-        auto queueFavoredSize = (frameI) ? VID_BITSTREAM_QUEUE_SIZE_I : VID_BITSTREAM_QUEUE_SIZE_PB;
-        if ((int64_t)qVideoQueueFree.size() > queueFavoredSize) {
-            //あまり多すぎると無駄にメモリを使用するので減らす
-            bitstream->clear();
-        } else {
-            qVideoQueueFree.push(*bitstream);
-        }
-    } else {
-#endif
-        bitstream->setSize(0);
-        bitstream->setOffset(0);
-#if ENABLE_AVCODEC_OUT_THREAD
-    }
-#endif
-    m_Mux.format.fileHeaderWritten = true;
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
+}
+
+#pragma warning (push)
+#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
+RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts) {
+    if (!m_Mux.format.fileHeaderWritten) {
+#if 0 && ENCODER_QSV //HEVCエンコードやFixed Funcでは、DecodeTimeStampが正しく設定されないので無効化
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && bitstream->dts() == MFX_TIMESTAMP_UNKNOWN) {
+            m_Mux.video.dtsUnavailable = true;
+        }
+#else
+        m_Mux.video.dtsUnavailable = true;
+#endif
+        RGY_ERR sts = WriteFileHeader(bitstream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+
+        //dts生成を初期化
+        //何フレーム前からにすればよいかは、b-pyramid次第で異なるので、可能な限りエンコーダの情報を使用する
+#if ENCODER_QSV
+        if (bitstream->dts() != MFX_TIMESTAMP_UNKNOWN) {
+            const auto srcTimebase = (ENCODER_QSV) ? HW_NATIVE_TIMEBASE : m_Mux.video.bitstreamTimebase;
+            m_VideoOutputInfo.videoDelay = (m_VideoOutputInfo.codec == RGY_CODEC_AV1 && AV1_TIMESTAMP_OVERRIDE) ? 0 : -1 * (int)av_rescale_q(bitstream->dts(), srcTimebase, av_inv_q(m_Mux.video.outputFps));
+        }
+#endif
+        m_Mux.video.fpsBaseNextDts = 0 - m_VideoOutputInfo.videoDelay;
+        AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.fpsBaseNextDts);
+
+        const AVRational fpsTimebase = (m_Mux.video.afs) ? av_inv_q(av_mul_q(m_Mux.video.outputFps, av_make_q(4, 5))) : av_inv_q(m_Mux.video.outputFps);
+        const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
+        for (int i = m_Mux.video.fpsBaseNextDts; i < 0; i++) {
+            m_Mux.video.timestampList.add(av_rescale_q(i, fpsTimebase, streamTimebase));
+        }
+    }
+
+    const bool flush = bitstream->size() == 0;
+
+    if (m_VideoOutputInfo.codec != RGY_CODEC_AV1) { // AV1以外
+        if (flush) {
+            return RGY_ERR_NONE; // 特にflushするものはない
+        }
+        RGYTimestampMapVal bs_framedata;
+        if (m_Mux.video.timestamp) {
+            bs_framedata = m_Mux.video.timestamp->get(bitstream->pts());
+            if (bs_framedata.inputFrameId < 0) {
+                bs_framedata.inputFrameId = m_Mux.video.prevInputFrameId;
+                AddMessage(RGY_LOG_WARN, _T("Failed to get frame ID for pts %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
+            }
+            m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
+        }
+        auto err = WriteNextFrameInternalOneFrame(bitstream, writtenDts, bs_framedata);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        return WriteNextFrameFinish(bitstream, bitstream->frametype());
+    }
+
+    // AV1の場合、SDKの返すtimestampは滅茶苦茶
+    // また、TEMPORAL_DELIMITERベースの区切りになっていないため、区切りをやり直す必要がある
+    if (!m_Mux.video.timestamp && AV1_TIMESTAMP_OVERRIDE) {
+        AddMessage(RGY_LOG_ERROR, _T("m_Mux.video.timestamp == nullptr!\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+
+    // まず、AV1をユニット単位に分割し、その種類を取得する
+    auto new_units = parse_unit_av1(bitstream->data(), bitstream->size());
+    // バッファに連結
+    m_Mux.videoAV1Merge.insert(m_Mux.videoAV1Merge.end(), std::make_move_iterator(new_units.begin()), std::make_move_iterator(new_units.end()));
+    bitstream->setSize(0);
+    bitstream->setOffset(0);
+
+    for (;;) {
+        // 先頭ユニットは、OBU_AV1_TEMPORAL_DELIMITERになるようになっている
+        // その次のOBU_AV1_TEMPORAL_DELIMITERが見つかったら、そこまでを一単位として送出する
+        size_t next_delim = 0;
+        for (size_t iunit = 1; iunit < m_Mux.videoAV1Merge.size(); iunit++) {
+            if (m_Mux.videoAV1Merge[iunit]->type == OBU_TEMPORAL_DELIMITER) {
+                next_delim = iunit;
+                break;
+            }
+        }
+        if (next_delim == 0) { // 見つからなかった
+            if (flush) { // flushする場合は最後まで
+                next_delim = m_Mux.videoAV1Merge.size();
+            }
+            if (next_delim == 0) {
+                break; // 抜けて、次のデータが来るまで待つ
+            }
+        }
+        //次のフレームの時刻情報を取得
+        RGYTimestampMapVal bs_framedata = m_Mux.video.timestamp->getByFrameID(m_Mux.video.prevInputFrameId + 1);
+        if (bs_framedata.inputFrameId < 0) {
+            bs_framedata.inputFrameId = m_Mux.video.prevInputFrameId;
+            AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for id %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
+        } else {
+            m_Mux.video.prevInputFrameId++;
+        }
+
+        //送出すべきデータサイズを取得
+        size_t data_size = 0;
+        for (size_t iunit = 0; iunit < next_delim; iunit++) {
+            data_size += m_Mux.videoAV1Merge[iunit]->unit_data.size();
+        }
+        //bitstreamを設定
+        bitstream->init(data_size);
+        bitstream->setSize(data_size);
+        bitstream->setPts(bs_framedata.timestamp);
+        bitstream->setDts(bs_framedata.timestamp);
+        bitstream->setDuration(bs_framedata.duration);
+
+        size_t copy_size = 0; // コピーしたデータサイズ
+        for (size_t iunit = 0; iunit < next_delim; iunit++) {
+            const auto& unit_data = m_Mux.videoAV1Merge[iunit]->unit_data;
+            memcpy(bitstream->data() + copy_size, unit_data.data(), unit_data.size());
+            copy_size += unit_data.size();
+        }
+        // コピーし終わったユニットを破棄
+        for (size_t iunit = 0; iunit < next_delim; iunit++) {
+            m_Mux.videoAV1Merge.pop_front();
+        }
+
+        auto err = WriteNextFrameInternalOneFrame(bitstream, writtenDts, bs_framedata);
+        if (err != RGY_ERR_NONE) {
+            break;
+        }
+    }
+    return WriteNextFrameFinish(bitstream, bitstream->frametype());
 }
 #pragma warning (pop)
 
@@ -3633,6 +3745,9 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         while (m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr)) {
             WriteNextFrameInternal(&bitstream, &videoDts);
         }
+        //空のbitstreamを送って終了を通知する
+        bitstream = RGYBitstreamInit();
+        WriteNextFrameInternal(&bitstream, &videoDts);
     }
 #endif
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;

@@ -34,6 +34,7 @@
 
 #if ENABLE_AVSW_READER
 #include <thread>
+#include <deque>
 #include <atomic>
 #include <cstdint>
 #include "rgy_avutil.h"
@@ -266,6 +267,7 @@ typedef struct AVMuxThread {
 typedef struct AVMux {
     AVMuxFormat         format;
     AVMuxVideo          video;
+    std::deque<std::unique_ptr<unit_info>> videoAV1Merge;
     vector<AVMuxAudio>  audio;
     vector<AVMuxOther>  other;
     vector<sTrim>       trim;
@@ -423,6 +425,8 @@ protected:
 
     //WriteNextFrameの本体
     RGY_ERR WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts);
+    RGY_ERR WriteNextFrameInternalOneFrame(RGYBitstream *bitstream, int64_t *writtenDts, const RGYTimestampMapVal& bs_framedata);
+    RGY_ERR WriteNextFrameFinish(RGYBitstream *bitstream, const RGY_FRAMETYPE frameType);
 
     //WriteNextPacketの本体
     RGY_ERR WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite);
@@ -539,10 +543,13 @@ protected:
     void WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts);
 
     //extradataにH264のヘッダーを追加する
-    RGY_ERR AddH264HeaderToExtraData(const RGYBitstream *pBitstream);
+    RGY_ERR AddHeaderToExtraDataH264(const RGYBitstream *pBitstream);
 
     //extradataにHEVCのヘッダーを追加する
-    RGY_ERR AddHEVCHeaderToExtraData(const RGYBitstream *pBitstream);
+    RGY_ERR AddHeaderToExtraDataHEVC(const RGYBitstream *pBitstream);
+
+    //extradataにAV1のヘッダーを追加する
+    RGY_ERR AddHeaderToExtraDataAV1(const RGYBitstream *pBitstream);
 
     //ファイルヘッダーを書き出す
     RGY_ERR WriteFileHeader(const RGYBitstream *pBitstream);

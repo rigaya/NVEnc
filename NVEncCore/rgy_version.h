@@ -54,6 +54,8 @@ const char *get_encoder_version();
 
 #define CUVID_DISABLE_CROP 1
 
+#define AV1_TIMESTAMP_OVERRIDE 1
+
 #define ENABLE_AVCODEC_OUT_THREAD 1
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 
