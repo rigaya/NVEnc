@@ -66,20 +66,20 @@ static void add_u32(std::vector<uint8_t>& data, uint32_t u32) {
     data.push_back((uint8_t)((u32 & 0x000000ff) >>  0));
 }
 
-HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false), atcSei(RGY_TRANSFER_UNKNOWN) {
+RGYHDRMetadataPrm::RGYHDRMetadataPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false), atcSei(RGY_TRANSFER_UNKNOWN) {
     memset(&masterdisplay, 0, sizeof(masterdisplay));
 }
 
-HEVCHDRSei::HEVCHDRSei() : prm() {
+RGYHDRMetadata::RGYHDRMetadata() : prm() {
 }
 
-void HEVCHDRSei::set_maxcll(int maxcll, int maxfall) {
+void RGYHDRMetadata::set_maxcll(int maxcll, int maxfall) {
     prm.maxcll = maxcll;
     prm.maxfall = maxfall;
     prm.contentlight_set = true;
 }
 
-int HEVCHDRSei::parse_maxcll(std::string str_maxcll) {
+int RGYHDRMetadata::parse_maxcll(std::string str_maxcll) {
     if (str_maxcll.length()) {
         std::regex re_maxcll(R"((\d+),(\d+))");
         std::smatch match_maxcll;
@@ -98,14 +98,14 @@ int HEVCHDRSei::parse_maxcll(std::string str_maxcll) {
     return 0;
 }
 
-void HEVCHDRSei::set_masterdisplay(const int masterdisplay[10]) {
+void RGYHDRMetadata::set_masterdisplay(const int masterdisplay[10]) {
     for (int i = 0; i < 10; i++) {
         prm.masterdisplay[i] = masterdisplay[i];
     }
     prm.masterdisplay_set = true;
 }
 
-int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
+int RGYHDRMetadata::parse_masterdisplay(std::string str_masterdisplay) {
     if (str_masterdisplay.length()) {
         std::regex re_masterdisplay(R"(G\((\d+),(\d+)\)B\((\d+),(\d+)\)R\((\d+),(\d+)\)WP\((\d+),(\d+)\)L\((\d+),(\d+)\))");
         std::smatch match_masterdisplay;
@@ -125,14 +125,14 @@ int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
     return 0;
 }
 
-void HEVCHDRSei::set_atcsei(CspTransfer atcSei) {
+void RGYHDRMetadata::set_atcsei(CspTransfer atcSei) {
     prm.atcSei = atcSei;
 }
 
-HEVCHDRSeiPrm HEVCHDRSei::getprm() const {
+RGYHDRMetadataPrm RGYHDRMetadata::getprm() const {
     return prm;
 }
-std::string HEVCHDRSei::print_masterdisplay() const {
+std::string RGYHDRMetadata::print_masterdisplay() const {
     std::string str;
     if (prm.masterdisplay_set) {
         str += strsprintf("G(%f %f) B(%f %f) R(%f %f) WP(%f %f) L(%f %f)",
@@ -150,7 +150,7 @@ std::string HEVCHDRSei::print_masterdisplay() const {
     return str;
 }
 
-std::string HEVCHDRSei::print_maxcll() const {
+std::string RGYHDRMetadata::print_maxcll() const {
     std::string str;
     if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
         str += strsprintf("%d/%d", prm.maxcll, prm.maxfall);
@@ -158,7 +158,7 @@ std::string HEVCHDRSei::print_maxcll() const {
     return str;
 }
 
-std::string HEVCHDRSei::print_atcsei() const {
+std::string RGYHDRMetadata::print_atcsei() const {
     std::string str;
     if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
         str += tchar_to_string(get_cx_desc(list_transfer, prm.atcSei));
@@ -166,7 +166,7 @@ std::string HEVCHDRSei::print_atcsei() const {
     return str;
 }
 
-std::string HEVCHDRSei::print() const {
+std::string RGYHDRMetadata::print() const {
     std::string str = print_masterdisplay();
     std::string str1 = print_maxcll();
     std::string str2 = print_atcsei();
@@ -182,12 +182,12 @@ std::string HEVCHDRSei::print() const {
     return str;
 }
 
-std::vector<uint8_t> HEVCHDRSei::gen_nal(HEVCHDRSeiPrm prm_set) {
+std::vector<uint8_t> RGYHDRMetadata::gen_nal(RGYHDRMetadataPrm prm_set) {
     prm = prm_set;
     return gen_nal();
 }
 
-std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
+std::vector<uint8_t> RGYHDRMetadata::gen_nal() const {
     std::vector<uint8_t> data;
     data.reserve(128);
 
@@ -270,7 +270,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
 }
 
 
-std::vector<uint8_t> HEVCHDRSei::sei_maxcll() const {
+std::vector<uint8_t> RGYHDRMetadata::sei_maxcll() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
@@ -282,7 +282,7 @@ std::vector<uint8_t> HEVCHDRSei::sei_maxcll() const {
     return data;
 }
 
-std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() const {
+std::vector<uint8_t> RGYHDRMetadata::sei_masterdisplay() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.masterdisplay_set) {
@@ -297,7 +297,7 @@ std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() const {
     return data;
 }
 
-std::vector<uint8_t> HEVCHDRSei::sei_atcsei() const {
+std::vector<uint8_t> RGYHDRMetadata::sei_atcsei() const {
     std::vector<uint8_t> data;
     data.reserve(8);
     if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {

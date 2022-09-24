@@ -585,7 +585,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     if (videoOutputInfo->vui.descriptpresent
         //atcSeiを設定する場合は、コンテナ側にはVUI情報をもたせないようにする
         //コンテナ側にはatcの情報をもたせられないので、勝ちあってしまう
-        && prm->HEVCHdrSei->getprm().atcSei == RGY_TRANSFER_UNKNOWN) {
+        && prm->hdrMetadata->getprm().atcSei == RGY_TRANSFER_UNKNOWN) {
         m_Mux.video.codecCtx->colorspace          = (AVColorSpace)videoOutputInfo->vui.matrix;
         m_Mux.video.codecCtx->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
         m_Mux.video.codecCtx->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
@@ -653,7 +653,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             side_data_copy.release();
         }
 #if 0
-        if (videoOutputInfo->codec == RGY_CODEC_HEVC && prm->HEVCHdrSei == nullptr) {
+        if (videoOutputInfo->codec == RGY_CODEC_HEVC && prm->hdrMetadata == nullptr) {
             side_data = av_stream_get_side_data(prm->videoInputStream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, &side_data_size);
             if (side_data) {
                 unique_ptr<uint8_t, decltype(&av_freep)> side_data_copy((uint8_t *)av_malloc(side_data_size), av_freep);
@@ -697,13 +697,13 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 
     m_Mux.video.timestampList.clear();
 
-    if (videoOutputInfo->codec == RGY_CODEC_HEVC && prm->HEVCHdrSei != nullptr) {
-        auto seiNal = prm->HEVCHdrSei->gen_nal();
-        if (seiNal.size() > 0) {
-            m_Mux.video.seiNal.copy(seiNal.data(), (uint32_t)seiNal.size());
-            AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->HEVCHdrSei->print()));
+    if (videoOutputInfo->codec == RGY_CODEC_HEVC && prm->hdrMetadata != nullptr) {
+        auto hdrBitstream = prm->hdrMetadata->gen_nal();
+        if (hdrBitstream.size() > 0) {
+            m_Mux.video.hdrBitstream.copy(hdrBitstream.data(), (uint32_t)hdrBitstream.size());
+            AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->hdrMetadata->print()));
 
-            const auto HEVCHdrSeiPrm = prm->HEVCHdrSei->getprm();
+            const auto HEVCHdrSeiPrm = prm->hdrMetadata->getprm();
 
             if (false && HEVCHdrSeiPrm.masterdisplay_set) {
                 unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)> mastering(av_mastering_display_metadata_alloc(), av_freep);
@@ -2406,7 +2406,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         }
     }
     if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
-        const bool insertSEI = m_Mux.video.seiNal.size() > 0 && isIDR;
+        const bool insertSEI = m_Mux.video.hdrBitstream.size() > 0 && isIDR;
         if (insertSEI) {
             RGYBitstream bsCopy = RGYBitstreamInit();
             bsCopy.copy(bitstream);
@@ -2420,7 +2420,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
             bitstream->setOffset(0);
             bool seiWritten = false;
             if (!header_check && insertSEI) {
-                bitstream->append(&m_Mux.video.seiNal);
+                bitstream->append(&m_Mux.video.hdrBitstream);
                 seiWritten = true;
             }
             for (int i = 0; i < (int)nal_list.size(); i++) {
@@ -2429,7 +2429,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
                     if (!seiWritten
                         && i + 1 < (int)nal_list.size()
                         && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
-                        bitstream->append(&m_Mux.video.seiNal);
+                        bitstream->append(&m_Mux.video.hdrBitstream);
                         seiWritten = true;
                     }
                 }

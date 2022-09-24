@@ -236,7 +236,7 @@ struct RGYOutputRawPrm {
     bool benchmark;
     int bufSizeMB;
     RGY_CODEC codecId;
-    const HEVCHDRSei *hedrsei;
+    const RGYHDRMetadata *hdrMetadata;
     DOVIRpu *doviRpu;
     RGYTimestamp *vidTimestamp;
 };
@@ -253,7 +253,7 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
 
     vector<uint8_t> m_outputBuf2;
-    vector<uint8_t> m_seiNal;
+    vector<uint8_t> m_hdrBitstream;
     DOVIRpu *m_doviRpu;
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
@@ -265,7 +265,7 @@ protected:
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
 
-std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);
+std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);
 
 RGY_ERR initWriters(
     shared_ptr<RGYOutput> &pFileWriter,
@@ -281,7 +281,7 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     const vector<unique_ptr<AVChapter>> &chapters,
 #endif //#if ENABLE_AVSW_READER
-    const HEVCHDRSei *hedrsei,
+    const RGYHDRMetadata *hdrMetadata,
     DOVIRpu *doviRpu,
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,

@@ -157,7 +157,7 @@ decltype(find_header_c)* get_find_header_func();
 
 std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const size_t size);
 
-struct HEVCHDRSeiPrm {
+struct RGYHDRMetadataPrm {
     int maxcll;
     int maxfall;
     bool contentlight_set;
@@ -165,28 +165,28 @@ struct HEVCHDRSeiPrm {
     bool masterdisplay_set;
     CspTransfer atcSei;
 public:
-    HEVCHDRSeiPrm();
+    RGYHDRMetadataPrm();
 };
 
-class HEVCHDRSei {
+class RGYHDRMetadata {
 private:
-    HEVCHDRSeiPrm prm;
+    RGYHDRMetadataPrm prm;
 
 public:
-    HEVCHDRSei();
+    RGYHDRMetadata();
 
     void set_maxcll(int maxcll, int maxfall);
     int parse_maxcll(std::string maxcll);
     void set_masterdisplay(const int masterdisplay[10]);
     int parse_masterdisplay(std::string masterdisplay);
     void set_atcsei(CspTransfer atcSei);
-    HEVCHDRSeiPrm getprm() const;
+    RGYHDRMetadataPrm getprm() const;
     std::string print_masterdisplay() const;
     std::string print_maxcll() const;
     std::string print_atcsei() const;
     std::string print() const;
     std::vector<uint8_t> gen_nal() const;
-    std::vector<uint8_t> gen_nal(HEVCHDRSeiPrm prm);
+    std::vector<uint8_t> gen_nal(RGYHDRMetadataPrm prm);
 private:
     std::vector<uint8_t> sei_maxcll() const;
     std::vector<uint8_t> sei_masterdisplay() const;

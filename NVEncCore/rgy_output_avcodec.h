@@ -135,7 +135,7 @@ typedef struct AVMuxVideo {
     AVMuxTimestamp        timestampList;        //エンコーダから渡されたtimestampリスト
     int                   fpsBaseNextDts;       //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     FILE                 *fpTsLogFile;          //mux timestampログファイル
-    RGYBitstream          seiNal;               //追加のsei nal
+    RGYBitstream          hdrBitstream;         //追加のsei nal
     DOVIRpu              *doviRpu;              //dovi rpu 追加用
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
     RGYTimestamp         *timestamp;            //timestampの情報
@@ -330,7 +330,7 @@ struct AvcodecWriterPrm {
     RGYOptList                   muxOpt;                  //mux時に使用するオプション
     PerfQueueInfo               *queueInfo;               //キューの情報を格納する構造体
     tstring                      muxVidTsLogFile;         //mux timestampログファイル
-    const HEVCHDRSei            *HEVCHdrSei;              //HDR関連のmetadata
+    const RGYHDRMetadata        *hdrMetadata;             //HDR関連のmetadata
     DOVIRpu                     *doviRpu;                 //DOVIRpu
     RGYTimestamp                *vidTimestamp;            //動画のtimestampの情報
     std::string                  videoCodecTag;           //動画タグ
@@ -362,7 +362,7 @@ struct AvcodecWriterPrm {
         muxOpt(),
         queueInfo(nullptr),
         muxVidTsLogFile(),
-        HEVCHdrSei(nullptr),
+        hdrMetadata(nullptr),
         doviRpu(nullptr),
         vidTimestamp(nullptr),
         videoCodecTag(),

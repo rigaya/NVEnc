@@ -111,7 +111,7 @@ void RGYOutput::Close() {
 
 RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
-    m_seiNal(),
+    m_hdrBitstream(),
     m_doviRpu(nullptr),
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
@@ -286,9 +286,9 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             m_pkt = std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>(av_packet_alloc(), RGYAVDeleter<AVPacket>(av_packet_free));
         }
 #endif //#if ENABLE_AVSW_READER
-        if (rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->hedrsei != nullptr) {
-            AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hedrsei->print()));
-            m_seiNal = rawPrm->hedrsei->gen_nal();
+        if (rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->hdrMetadata != nullptr) {
+            AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hdrMetadata->print()));
+            m_hdrBitstream = rawPrm->hdrMetadata->gen_nal();
         }
         m_doviRpu = rawPrm->doviRpu;
         m_timestamp = rawPrm->vidTimestamp;
@@ -362,7 +362,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             }
         }
 #endif //#if ENABLE_AVSW_READER
-        const bool insertSEI = m_seiNal.size() > 0 && (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
+        const bool insertSEI = m_hdrBitstream.size() > 0 && (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
         if (insertSEI) {
             const auto nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
@@ -371,7 +371,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
             bool seiWritten = false;
             if (!header_check) {
-                nBytesWritten += _fwrite_nolock(m_seiNal.data(), 1, m_seiNal.size(), m_fDest.get());
+                nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
                 seiWritten = true;
             }
             for (size_t i = 0; i < nal_list.size(); i++) {
@@ -380,7 +380,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                     if (!seiWritten
                         && i+1 < nal_list.size()
                         && (nal_list[i+1].type != NALU_HEVC_VPS && nal_list[i+1].type != NALU_HEVC_SPS && nal_list[i+1].type != NALU_HEVC_PPS)) {
-                        nBytesWritten += _fwrite_nolock(m_seiNal.data(), 1, m_seiNal.size(), m_fDest.get());
+                        nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
                         seiWritten = true;
                     }
                 }
@@ -624,8 +624,8 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #include "rgy_input_avcodec.h"
 #include "rgy_output_avcodec.h"
 
-std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader) {
-    auto hedrsei = std::make_unique<HEVCHDRSei>();
+std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string& maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader) {
+    auto hdrMetadata = std::make_unique<RGYHDRMetadata>();
     const AVMasteringDisplayMetadata *masteringDisplaySrc = nullptr;
     const AVContentLightMetadata *contentLightSrc = nullptr;
     { auto avcodecReader = dynamic_cast<const RGYInputAvcodec *>(reader);
@@ -637,10 +637,10 @@ std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const st
     int ret = 0;
     if (maxCll == maxCLLSource) {
         if (contentLightSrc != nullptr) {
-            hedrsei->set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
+            hdrMetadata->set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
         }
     } else {
-        ret = hedrsei->parse_maxcll(maxCll);
+        ret = hdrMetadata->parse_maxcll(maxCll);
     }
     if (masterDisplay == masterDisplaySource) {
         if (masteringDisplaySrc != nullptr) {
@@ -655,18 +655,18 @@ std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const st
             masterdisplay[7] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->white_point[1], av_make_q(50000, 1))) + 0.5);
             masterdisplay[8] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->max_luminance, av_make_q(10000, 1))) + 0.5);
             masterdisplay[9] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->min_luminance, av_make_q(10000, 1))) + 0.5);
-            hedrsei->set_masterdisplay(masterdisplay);
+            hdrMetadata->set_masterdisplay(masterdisplay);
         }
     } else {
-        ret = hedrsei->parse_masterdisplay(masterDisplay);
+        ret = hdrMetadata->parse_masterdisplay(masterDisplay);
     }
     if (atcSei != RGY_TRANSFER_UNKNOWN) {
-        hedrsei->set_atcsei(atcSei);
+        hdrMetadata->set_atcsei(atcSei);
     }
     if (ret) {
-        hedrsei.reset();
+        hdrMetadata.reset();
     }
-    return hedrsei;
+    return hdrMetadata;
 }
 
 static bool audioSelected(const AudioSelect *sel, const AVDemuxStream *stream) {
@@ -720,7 +720,7 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     const vector<unique_ptr<AVChapter>>& chapters,
 #endif //#if ENABLE_AVSW_READER
-    const HEVCHDRSei *hedrsei,
+    const RGYHDRMetadata *hdrMetadata,
     DOVIRpu *doviRpu,
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
@@ -789,7 +789,7 @@ RGY_ERR initWriters(
         writerPrm.muxVidTsLogFile         = (ctrl->logMuxVidTsFile) ? ctrl->logMuxVidTsFile : _T("");
         writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
         writerPrm.chapterNoTrim           = common->chapterNoTrim;
-        writerPrm.HEVCHdrSei              = hedrsei;
+        writerPrm.hdrMetadata              = hdrMetadata;
         writerPrm.doviRpu                 = doviRpu;
         writerPrm.vidTimestamp            = vidTimestamp;
         writerPrm.videoCodecTag           = common->videoCodecTag;
@@ -1088,7 +1088,7 @@ RGY_ERR initWriters(
             rawPrm.bufSizeMB = ctrl->outputBufSizeMB;
             rawPrm.benchmark = benchmark;
             rawPrm.codecId = outputVideoInfo.codec;
-            rawPrm.hedrsei = hedrsei;
+            rawPrm.hdrMetadata = hdrMetadata;
             rawPrm.doviRpu = doviRpu;
             rawPrm.vidTimestamp = vidTimestamp;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
