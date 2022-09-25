@@ -87,6 +87,14 @@ enum : uint8_t {
     OBU_REDUNDANT_FRAME_HEADER = 7,
     OBU_TILE_LIST              = 8,
     OBU_PADDING                = 15,
+
+    AV1_METADATA_TYPE_AOM_RESERVED_0 = 0,
+    AV1_METADATA_TYPE_HDR_CLL        = 1,
+    AV1_METADATA_TYPE_HDR_MDCV       = 2,
+    AV1_METADATA_TYPE_SCALABILITY    = 3,
+    AV1_METADATA_TYPE_ITUT_T35       = 4,
+    AV1_METADATA_TYPE_TIMECODE       = 5,
+    AV1_METADATA_TYPE_FRAME_SIZE     = 6,
 };
 
 enum PayloadType {
@@ -157,6 +165,10 @@ decltype(find_header_c)* get_find_header_func();
 
 std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const size_t size);
 
+uint8_t gen_obu_header(const uint8_t obu_type);
+size_t get_av1_uleb_size_bytes(uint64_t value);
+std::vector<uint8_t> get_av1_uleb_size_data(uint64_t value);
+
 struct RGYHDRMetadataPrm {
     int maxcll;
     int maxfall;
@@ -166,6 +178,7 @@ struct RGYHDRMetadataPrm {
     CspTransfer atcSei;
 public:
     RGYHDRMetadataPrm();
+    bool hasPrmSet() const;
 };
 
 class RGYHDRMetadata {
@@ -187,7 +200,16 @@ public:
     std::string print() const;
     std::vector<uint8_t> gen_nal() const;
     std::vector<uint8_t> gen_nal(RGYHDRMetadataPrm prm);
+
+    std::vector<uint8_t> gen_metadata_obu(const uint8_t metadata_type, const std::vector<uint8_t>& data) const;
+    std::vector<uint8_t> gen_masterdisplay_obu() const;
+    std::vector<uint8_t> gen_maxcll_obu() const;
+    std::vector<uint8_t> gen_obu() const;
 private:
+    std::vector<uint8_t> raw_maxcll() const;
+    std::vector<uint8_t> raw_masterdisplay() const;
+    std::vector<uint8_t> raw_atcsei() const;
+
     std::vector<uint8_t> sei_maxcll() const;
     std::vector<uint8_t> sei_masterdisplay() const;
     std::vector<uint8_t> sei_atcsei() const;

@@ -286,9 +286,16 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             m_pkt = std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>(av_packet_alloc(), RGYAVDeleter<AVPacket>(av_packet_free));
         }
 #endif //#if ENABLE_AVSW_READER
-        if (rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->hdrMetadata != nullptr) {
+        if (rawPrm->hdrMetadata != nullptr && rawPrm->hdrMetadata->getprm().hasPrmSet()) {
             AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hdrMetadata->print()));
-            m_hdrBitstream = rawPrm->hdrMetadata->gen_nal();
+            if (rawPrm->codecId == RGY_CODEC_HEVC) {
+                m_hdrBitstream = rawPrm->hdrMetadata->gen_nal();
+            } else if (rawPrm->codecId == RGY_CODEC_AV1) {
+                m_hdrBitstream = rawPrm->hdrMetadata->gen_obu();
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(rawPrm->codecId).c_str());
+                return RGY_ERR_UNSUPPORTED;
+            }
         }
         m_doviRpu = rawPrm->doviRpu;
         m_timestamp = rawPrm->vidTimestamp;
@@ -364,30 +371,45 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
 #endif //#if ENABLE_AVSW_READER
         const bool insertSEI = m_hdrBitstream.size() > 0 && (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
         if (insertSEI) {
-            const auto nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
-            const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
-            const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
-            const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
-            const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
-            bool seiWritten = false;
-            if (!header_check) {
-                nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
-                seiWritten = true;
-            }
-            for (size_t i = 0; i < nal_list.size(); i++) {
-                nBytesWritten += _fwrite_nolock(nal_list[i].ptr, 1, nal_list[i].size, m_fDest.get());
-                if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
-                    if (!seiWritten
-                        && i+1 < nal_list.size()
-                        && (nal_list[i+1].type != NALU_HEVC_VPS && nal_list[i+1].type != NALU_HEVC_SPS && nal_list[i+1].type != NALU_HEVC_PPS)) {
-                        nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
-                        seiWritten = true;
+            if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+                const auto nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
+                const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+                const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+                const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+                const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+                bool seiWritten = false;
+                if (!header_check) {
+                    nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
+                    seiWritten = true;
+                }
+                for (size_t i = 0; i < nal_list.size(); i++) {
+                    nBytesWritten += _fwrite_nolock(nal_list[i].ptr, 1, nal_list[i].size, m_fDest.get());
+                    if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
+                        if (!seiWritten
+                            && i + 1 < nal_list.size()
+                            && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
+                            nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
+                            seiWritten = true;
+                        }
                     }
                 }
-            }
-            if (insertSEI && !seiWritten) {
-                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
-                return RGY_ERR_UNDEFINED_BEHAVIOR;
+                if (insertSEI && !seiWritten) {
+                    AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
+                    return RGY_ERR_UNDEFINED_BEHAVIOR;
+                }
+            } else if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
+                const auto av1_units = parse_unit_av1(pBitstream->data(), pBitstream->size());
+                bool metadata_written = false;
+                for (const auto& unit : av1_units) {
+                    nBytesWritten += _fwrite_nolock(unit->unit_data.data(), 1, unit->unit_data.size(), m_fDest.get());
+                    if (!metadata_written && unit->type == OBU_SEQUENCE_HEADER) {
+                        nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
+                        metadata_written = true;
+                    }
+                }
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+                return RGY_ERR_UNSUPPORTED;
             }
         } else {
             nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());

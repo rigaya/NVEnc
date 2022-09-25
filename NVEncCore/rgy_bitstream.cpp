@@ -66,8 +66,43 @@ static void add_u32(std::vector<uint8_t>& data, uint32_t u32) {
     data.push_back((uint8_t)((u32 & 0x000000ff) >>  0));
 }
 
+uint8_t gen_obu_header(const uint8_t obu_type) {
+    const uint8_t extension_flag = 0;
+    const uint8_t has_size_flag = 1;
+    return (obu_type << 3)
+        | (extension_flag << 2)
+        | (has_size_flag << 1);
+}
+
+size_t get_av1_uleb_size_bytes(uint64_t value) {
+    size_t size = 0;
+    do {
+        size++;
+    } while ((value >>= 7) != 0);
+    return size;
+}
+
+std::vector<uint8_t> get_av1_uleb_size_data(uint64_t value) {
+    std::vector<uint8_t> buffer(get_av1_uleb_size_bytes(value));
+    for (size_t i = 0; i < buffer.size(); i++) {
+        uint8_t byte = value & 0x7f;
+        value >>= 7;
+        if (value != 0) {
+            byte |= 0x80; // 続きがある
+        }
+        buffer[i] = byte;
+    }
+    return buffer;
+}
+
 RGYHDRMetadataPrm::RGYHDRMetadataPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false), atcSei(RGY_TRANSFER_UNKNOWN) {
     memset(&masterdisplay, 0, sizeof(masterdisplay));
+}
+
+bool RGYHDRMetadataPrm::hasPrmSet() const {
+    return contentlight_set
+        || masterdisplay_set
+        || atcSei != RGY_TRANSFER_UNKNOWN;
 }
 
 RGYHDRMetadata::RGYHDRMetadata() : prm() {
@@ -269,15 +304,39 @@ std::vector<uint8_t> RGYHDRMetadata::gen_nal() const {
     return data;
 }
 
+std::vector<uint8_t> RGYHDRMetadata::raw_maxcll() const {
+    std::vector<uint8_t> data;
+    add_u16(data, (uint16_t)prm.maxcll);
+    add_u16(data, (uint16_t)prm.maxfall);
+    return data;
+}
+
+std::vector<uint8_t> RGYHDRMetadata::raw_masterdisplay() const {
+    std::vector<uint8_t> data;
+    for (int i = 0; i < 8; i++) {
+        add_u16(data, (uint16_t)prm.masterdisplay[i]);
+    }
+    add_u32(data, (uint32_t)prm.masterdisplay[8]);
+    add_u32(data, (uint32_t)prm.masterdisplay[9]);
+    return data;
+}
+
+std::vector<uint8_t> RGYHDRMetadata::raw_atcsei() const {
+    std::vector<uint8_t> data;
+    data.push_back((uint8_t)prm.atcSei);
+    return data;
+}
 
 std::vector<uint8_t> RGYHDRMetadata::sei_maxcll() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
+        const auto maxcll = raw_maxcll();
+        assert(maxcll.size() == 4);
+
         data.push_back(CONTENT_LIGHT_LEVEL_INFO);
-        data.push_back(4);
-        add_u16(data, (uint16_t)prm.maxcll);
-        add_u16(data, (uint16_t)prm.maxfall);
+        data.push_back(maxcll.size());
+        vector_cat(data, maxcll);
     }
     return data;
 }
@@ -286,13 +345,12 @@ std::vector<uint8_t> RGYHDRMetadata::sei_masterdisplay() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.masterdisplay_set) {
+        const auto masterdisplay = raw_masterdisplay();
+        assert(masterdisplay.size() == 24);
+
         data.push_back(MASTERING_DISPLAY_COLOUR_VOLUME);
-        data.push_back(24);
-        for (int i = 0; i < 8; i++) {
-            add_u16(data, (uint16_t)prm.masterdisplay[i]);
-        }
-        add_u32(data, (uint32_t)prm.masterdisplay[8]);
-        add_u32(data, (uint32_t)prm.masterdisplay[9]);
+        data.push_back(masterdisplay.size());
+        vector_cat(data, raw_masterdisplay());
     }
     return data;
 }
@@ -301,10 +359,45 @@ std::vector<uint8_t> RGYHDRMetadata::sei_atcsei() const {
     std::vector<uint8_t> data;
     data.reserve(8);
     if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
+        const auto atcsei = raw_atcsei();
+        assert(atcsei.size() == 24);
+
         data.push_back(ALTERNATIVE_TRANSFER_CHARACTERISTICS);
-        data.push_back(1);
-        data.push_back((uint8_t)prm.atcSei);
+        data.push_back(atcsei.size());
+        vector_cat(data, atcsei);
     }
+    return data;
+}
+
+std::vector<uint8_t> RGYHDRMetadata::gen_metadata_obu(const uint8_t metadata_type, const std::vector<uint8_t>& metadata) const {
+    if (metadata.size() == 0) {
+        return metadata;
+    }
+    std::vector<uint8_t> metadata_buf;
+    metadata_buf.reserve(128);
+    const uint8_t obu_header = gen_obu_header(OBU_METADATA);
+    const size_t payload_size = sizeof(metadata_type) + metadata.size() + 1 /*last 0x80*/;
+    metadata_buf.push_back(obu_header);
+    vector_cat(metadata_buf, get_av1_uleb_size_data(payload_size));
+    metadata_buf.push_back(metadata_type);
+    vector_cat(metadata_buf, metadata);
+    metadata_buf.push_back(0x80);
+    return metadata_buf;
+}
+
+std::vector<uint8_t> RGYHDRMetadata::gen_maxcll_obu() const {
+    return gen_metadata_obu(AV1_METADATA_TYPE_HDR_CLL, raw_maxcll());
+}
+
+std::vector<uint8_t> RGYHDRMetadata::gen_masterdisplay_obu() const {
+    return gen_metadata_obu(AV1_METADATA_TYPE_HDR_MDCV, raw_masterdisplay());
+}
+
+std::vector<uint8_t> RGYHDRMetadata::gen_obu() const {
+    std::vector<uint8_t> data;
+    data.reserve(128);
+    vector_cat(data, gen_masterdisplay_obu());
+    vector_cat(data, gen_maxcll_obu());
     return data;
 }
 
