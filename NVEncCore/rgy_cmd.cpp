@@ -4390,7 +4390,6 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#if ENABLE_DHDR10_INFO
     if (IS_OPTION("dhdr10-info")) {
         i++;
         if (strInput[i] == tstring(_T("copy"))) {
@@ -4400,7 +4399,6 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#endif //#if ENABLE_DHDR10_INFO
 #if ENABLE_DOVI_METADATA_OPTIONS
     if (IS_OPTION("dolby-vision-profile")) {
         i++;
@@ -5962,13 +5960,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_STR(_T("--max-cll"), maxCll);
     OPT_STR(_T("--master-display"), masterDisplay);
     OPT_LST(_T("--atc-sei"), atcSei, list_transfer);
-#if ENABLE_DHDR10_INFO
     if (param->hdr10plusMetadataCopy) {
         cmd << _T("--dhdr10-info copy");
     } else {
         OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
     }
-#endif //#if ENABLE_DHDR10_INFO
     OPT_LST(_T("--dolby-vision-profile"), doviProfile, list_dovi_profile);
     OPT_STR_PATH(_T("--dolby-vision-rpu"), doviRpuFile);
     if (param->timecode || param->timecodeFile.length() > 0) {
@@ -6179,11 +6175,9 @@ tstring gen_cmd_help_common() {
         _T("   --master-display <string>    set Mastering display data.\n")
         _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
     str += print_list_options(_T("--atc-sei <string> or <int>"), list_transfer, 1);
-#if ENABLE_DHDR10_INFO
     str += strsprintf(
         _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n")
         _T("   --dhdr10-info copy           Copy dynamic HDR10+ metadata from input file.\n"));
-#endif //#if ENABLE_DHDR10_INFO
 #if ENABLE_DOVI_METADATA_OPTIONS
     str += print_list_options(_T("--dolby-vision-profile <int>"), list_dovi_profile, 0);
     str += strsprintf(

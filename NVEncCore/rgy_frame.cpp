@@ -27,6 +27,7 @@
 
 #include "rgy_util.h"
 #include "rgy_frame.h"
+#include "rgy_bitstream.h"
 
 RGYFrameDataQP::RGYFrameDataQP() :
     m_frameType(0),
@@ -129,8 +130,43 @@ RGYFrameDataHDR10plus::RGYFrameDataHDR10plus(const uint8_t *data, size_t size, i
 
 RGYFrameDataHDR10plus::~RGYFrameDataHDR10plus() {}
 
+
+std::vector<uint8_t> RGYFrameDataHDR10plus::gen_nal() const {
+    std::vector<uint8_t> header = { 0x00, 0x00, 0x00, 0x01 };
+
+    std::vector<uint8_t> buf;
+    uint16_t u16 = 0x00;
+    u16 |= (NALU_HEVC_PREFIX_SEI << 9) | 1;
+    add_u16(buf, u16);
+    buf.push_back(USER_DATA_REGISTERED_ITU_T_T35);
+    auto datasize = m_data.size();
+    for (; datasize > 0xff; datasize -= 0xff)
+        buf.push_back((uint8_t)0xff);
+    buf.push_back((uint8_t)datasize);
+    vector_cat(buf, m_data);
+    to_nal(buf);
+
+    std::vector<uint8_t> nal_hdr10plus;
+    nal_hdr10plus.reserve(128);
+    vector_cat(nal_hdr10plus, header);
+    vector_cat(nal_hdr10plus, buf);
+    nal_hdr10plus.push_back(0x80);
+    return nal_hdr10plus;
+}
+
+std::vector<uint8_t> RGYFrameDataHDR10plus::gen_obu() const {
+    return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, m_data);
+}
+
 RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu() : RGYFrameDataMetadata() { m_dataType = RGY_FRAME_DATA_DOVIRPU; };
 RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu(const uint8_t *data, size_t size, int64_t timestamp) : 
     RGYFrameDataMetadata(data, size, timestamp) { m_dataType = RGY_FRAME_DATA_DOVIRPU; };
 
 RGYFrameDataDOVIRpu::~RGYFrameDataDOVIRpu() { }
+
+std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_nal() const {
+    return m_data;
+}
+std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_obu() const {
+    return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, m_data);
+}

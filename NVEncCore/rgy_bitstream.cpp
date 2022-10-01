@@ -44,7 +44,7 @@ std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     return data;
 }
 
-static void to_nal(std::vector<uint8_t>& data) {
+void to_nal(std::vector<uint8_t>& data) {
     for (auto it = data.begin(); it < data.end() - 2; it++) {
         if (*it == 0
             && *(it + 1) == 0
@@ -54,12 +54,12 @@ static void to_nal(std::vector<uint8_t>& data) {
     }
 }
 
-static void add_u16(std::vector<uint8_t>& data, uint16_t u16) {
+void add_u16(std::vector<uint8_t>& data, uint16_t u16) {
     data.push_back((uint8_t)((u16 & 0xff00) >> 8));
     data.push_back((uint8_t)(u16 & 0x00ff));
 }
 
-static void add_u32(std::vector<uint8_t>& data, uint32_t u32) {
+void add_u32(std::vector<uint8_t>& data, uint32_t u32) {
     data.push_back((uint8_t)((u32 & 0xff000000) >> 24));
     data.push_back((uint8_t)((u32 & 0x00ff0000) >> 16));
     data.push_back((uint8_t)((u32 & 0x0000ff00) >>  8));
@@ -93,6 +93,22 @@ std::vector<uint8_t> get_av1_uleb_size_data(uint64_t value) {
         buffer[i] = byte;
     }
     return buffer;
+}
+
+std::vector<uint8_t> gen_av1_obu_metadata(const uint8_t metadata_type, const std::vector<uint8_t>& metadata) {
+    if (metadata.size() == 0) {
+        return metadata;
+    }
+    std::vector<uint8_t> metadata_buf;
+    metadata_buf.reserve(128);
+    const uint8_t obu_header = gen_obu_header(OBU_METADATA);
+    const size_t payload_size = sizeof(metadata_type) + metadata.size() + 1 /*last 0x80*/;
+    metadata_buf.push_back(obu_header);
+    vector_cat(metadata_buf, get_av1_uleb_size_data(payload_size));
+    metadata_buf.push_back(metadata_type);
+    vector_cat(metadata_buf, metadata);
+    metadata_buf.push_back(0x80);
+    return metadata_buf;
 }
 
 RGYHDRMetadataPrm::RGYHDRMetadataPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false), atcSei(RGY_TRANSFER_UNKNOWN) {
@@ -335,7 +351,7 @@ std::vector<uint8_t> RGYHDRMetadata::sei_maxcll() const {
         assert(maxcll.size() == 4);
 
         data.push_back(CONTENT_LIGHT_LEVEL_INFO);
-        data.push_back(maxcll.size());
+        data.push_back((uint8_t)maxcll.size());
         vector_cat(data, maxcll);
     }
     return data;
@@ -349,7 +365,7 @@ std::vector<uint8_t> RGYHDRMetadata::sei_masterdisplay() const {
         assert(masterdisplay.size() == 24);
 
         data.push_back(MASTERING_DISPLAY_COLOUR_VOLUME);
-        data.push_back(masterdisplay.size());
+        data.push_back((uint8_t)masterdisplay.size());
         vector_cat(data, raw_masterdisplay());
     }
     return data;
@@ -363,34 +379,18 @@ std::vector<uint8_t> RGYHDRMetadata::sei_atcsei() const {
         assert(atcsei.size() == 24);
 
         data.push_back(ALTERNATIVE_TRANSFER_CHARACTERISTICS);
-        data.push_back(atcsei.size());
+        data.push_back((uint8_t)atcsei.size());
         vector_cat(data, atcsei);
     }
     return data;
 }
 
-std::vector<uint8_t> RGYHDRMetadata::gen_metadata_obu(const uint8_t metadata_type, const std::vector<uint8_t>& metadata) const {
-    if (metadata.size() == 0) {
-        return metadata;
-    }
-    std::vector<uint8_t> metadata_buf;
-    metadata_buf.reserve(128);
-    const uint8_t obu_header = gen_obu_header(OBU_METADATA);
-    const size_t payload_size = sizeof(metadata_type) + metadata.size() + 1 /*last 0x80*/;
-    metadata_buf.push_back(obu_header);
-    vector_cat(metadata_buf, get_av1_uleb_size_data(payload_size));
-    metadata_buf.push_back(metadata_type);
-    vector_cat(metadata_buf, metadata);
-    metadata_buf.push_back(0x80);
-    return metadata_buf;
-}
-
 std::vector<uint8_t> RGYHDRMetadata::gen_maxcll_obu() const {
-    return gen_metadata_obu(AV1_METADATA_TYPE_HDR_CLL, raw_maxcll());
+    return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_CLL, raw_maxcll());
 }
 
 std::vector<uint8_t> RGYHDRMetadata::gen_masterdisplay_obu() const {
-    return gen_metadata_obu(AV1_METADATA_TYPE_HDR_MDCV, raw_masterdisplay());
+    return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_MDCV, raw_masterdisplay());
 }
 
 std::vector<uint8_t> RGYHDRMetadata::gen_obu() const {

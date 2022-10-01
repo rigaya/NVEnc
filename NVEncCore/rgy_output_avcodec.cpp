@@ -2415,8 +2415,29 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
             return RGY_ERR_UNSUPPORTED;
         }
     }
-    const bool insertSEI = m_Mux.video.hdrBitstream.size() > 0 && isIDR;
-    if (insertSEI) {
+
+    const auto frameDataHdr10plusMetadata = std::find_if(bs_framedata.dataList.begin(), bs_framedata.dataList.end(), [](const std::shared_ptr<RGYFrameData>& data) {
+        return data->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+    });
+    std::vector<uint8_t> hdr10plusMetadata;
+    if (frameDataHdr10plusMetadata != bs_framedata.dataList.end()) {
+        auto frameDataPtr = dynamic_cast<RGYFrameDataHDR10plus *>((*frameDataHdr10plusMetadata).get());
+        if (!frameDataPtr) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid cast for hdr10plus metadata.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            hdr10plusMetadata = frameDataPtr->gen_nal();
+        } else if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
+            hdr10plusMetadata = frameDataPtr->gen_obu();
+        } else {
+            AddMessage(RGY_LOG_ERROR, _T("Setting hdr10plus metadata not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
+
+    const bool insertSEI = (m_Mux.video.hdrBitstream.size() > 0 && isIDR);
+    if (insertSEI || hdr10plusMetadata.size() > 0) {
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
             RGYBitstream bsCopy = RGYBitstreamInit();
             bsCopy.copy(bitstream);
@@ -2424,23 +2445,35 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
             const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
-            const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+            const bool header_check = (nal_list.end() != hevc_vps_nal) || (nal_list.end() != hevc_sps_nal) || (nal_list.end() != hevc_pps_nal);
 
             bitstream->setSize(0);
             bitstream->setOffset(0);
             bool seiWritten = false;
-            if (!header_check && insertSEI) {
-                bitstream->append(&m_Mux.video.hdrBitstream);
-                seiWritten = true;
+            bool hdr10plus_metadata_written = false;
+            if (!header_check) {
+                if (insertSEI) {
+                    bitstream->append(&m_Mux.video.hdrBitstream);
+                    seiWritten = true;
+                }
+                if (hdr10plusMetadata.size() > 0) {
+                    bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                    hdr10plus_metadata_written = true;
+                }
             }
             for (int i = 0; i < (int)nal_list.size(); i++) {
                 bitstream->append(nal_list[i].ptr, nal_list[i].size);
                 if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
-                    if (!seiWritten
-                        && i + 1 < (int)nal_list.size()
+                    if (i + 1 < (int)nal_list.size()
                         && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
-                        bitstream->append(&m_Mux.video.hdrBitstream);
-                        seiWritten = true;
+                        if (!seiWritten && insertSEI) {
+                            bitstream->append(&m_Mux.video.hdrBitstream);
+                            seiWritten = true;
+                        }
+                        if (!hdr10plus_metadata_written && hdr10plusMetadata.size() > 0) {
+                            bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                            hdr10plus_metadata_written = true;
+                        }
                     }
                 }
             }
@@ -2449,17 +2482,46 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
                 AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
+            if (hdr10plusMetadata.size() > 0 && !hdr10plus_metadata_written) {
+                AddMessage(RGY_LOG_ERROR, _T("hdr10plus metadata not written, unexpected behavior.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
         } else if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
             const auto av1_units = parse_unit_av1(bitstream->data(), bitstream->size());
             bitstream->setSize(0);
             bitstream->setOffset(0);
-            bool metadata_written = false;
-            for (const auto& unit : av1_units) {
-                bitstream->append(unit->unit_data.data(), unit->unit_data.size());
-                if (!metadata_written && unit->type == OBU_SEQUENCE_HEADER) {
-                    bitstream->append(m_Mux.video.hdrBitstream.data(), m_Mux.video.hdrBitstream.size());
-                    metadata_written = true;
+
+            const auto has_seq_header = std::find_if(av1_units.begin(), av1_units.end(), [](const std::unique_ptr<unit_info>& info) { return info->type == OBU_SEQUENCE_HEADER; }) != av1_units.end();
+            bool hdr10plus_metadata_written = false;
+            if (!has_seq_header) {
+                bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                hdr10plus_metadata_written = true;
+            }
+
+            bool hdr_metadata_written = false;
+            for (size_t i = 0; i < av1_units.size(); i++) {
+                bitstream->append(av1_units[i]->unit_data.data(), av1_units[i]->unit_data.size());
+                if (av1_units[i]->type == OBU_TEMPORAL_DELIMITER) {
+                    if (i + 1 >= av1_units.size() || av1_units[i+1]->type != OBU_SEQUENCE_HEADER) {
+                        if (!hdr10plus_metadata_written) {
+                            bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                            hdr10plus_metadata_written = true;
+                        }
+                    }
+                } else if (av1_units[i]->type == OBU_SEQUENCE_HEADER) {
+                    if (!hdr_metadata_written) {
+                        bitstream->append(&m_Mux.video.hdrBitstream);
+                        hdr_metadata_written = true;
+                    }
+                    if (!hdr10plus_metadata_written) {
+                        bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                        hdr10plus_metadata_written = true;
+                    }
                 }
+            }
+            if (!hdr10plus_metadata_written) {
+                AddMessage(RGY_LOG_ERROR, _T("hdr10plus metadata not written, unexpected behavior.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
         } else {
             AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());

@@ -61,9 +61,13 @@ enum OutputType {
 
 struct RGYTimestampMapVal {
     int64_t timestamp, inputFrameId, duration;
+    std::vector<std::shared_ptr<RGYFrameData>> dataList;
 
-    RGYTimestampMapVal() : timestamp(-1), inputFrameId(-1), duration(-1) {};
-    RGYTimestampMapVal(int64_t timestamp_, int64_t inputFrameId_, int64_t duration_) : timestamp(timestamp_), inputFrameId(inputFrameId_), duration(duration_) {};
+    RGYTimestampMapVal() : timestamp(-1), inputFrameId(-1), duration(-1), dataList() {};
+    RGYTimestampMapVal(int64_t timestamp_, int64_t inputFrameId_, int64_t duration_, std::vector<std::shared_ptr<RGYFrameData>>& datalist)
+        : timestamp(timestamp_), inputFrameId(inputFrameId_), duration(duration_), dataList(datalist) {};
+    void addMetadata(std::shared_ptr<RGYFrameData>& data) { dataList.push_back(data); }
+    void addMetadata(std::vector<std::shared_ptr<RGYFrameData>>& list) { dataList.insert(dataList.end(), list.begin(), list.end()); }
 };
 
 class RGYTimestamp {
@@ -84,14 +88,14 @@ public:
         last_check_pts = -1;
         offset = 0;
     }
-    void add(int64_t pts, int64_t inputFrameId, int64_t duration) {
+    void add(int64_t pts, int64_t inputFrameId, int64_t duration, std::vector<std::shared_ptr<RGYFrameData>> metadatalist) {
         std::lock_guard<std::mutex> lock(mtx);
         if (last_add_pts >= 0) { // 前のフレームのdurationの更新
             auto& last_add_pos = m_frame.find(last_add_pts)->second;
             last_add_pos.duration = pts - last_add_pos.timestamp;
             if (duration == 0) duration = last_add_pos.duration;
         }
-        m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, duration);
+        m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, duration, metadatalist);
         last_add_pts = pts;
     }
     RGYTimestampMapVal check(int64_t pts) {
@@ -106,7 +110,7 @@ public:
             pts = last_check_pos.timestamp + last_check_pos.duration / 2;
             auto next_pts = last_check_pos.timestamp + last_check_pos.duration;
             last_check_pos.duration = pts - last_check_pos.timestamp;
-            m_frame[pts] = RGYTimestampMapVal(pts, last_input_frame_id, next_pts - pts);
+            m_frame[pts] = RGYTimestampMapVal(pts, last_input_frame_id, next_pts - pts, last_check_pos.dataList);
             pos = m_frame.find(pts);
         }
         last_input_frame_id = pos->second.inputFrameId;

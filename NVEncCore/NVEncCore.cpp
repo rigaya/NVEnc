@@ -1588,11 +1588,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stEncConfig.rcParams.disableBadapt = 0;
         m_stEncConfig.rcParams.disableIadapt = 0;
     }
-    if (m_hdr10plus != nullptr || m_hdr10plusMetadataCopy) {
-        PrintMes(RGY_LOG_WARN, _T("--dhdr10-info is unstable with lookahead, lookahead feature will be disabled.\n"));
-        m_stEncConfig.rcParams.enableLookahead = 0;
-        m_stEncConfig.rcParams.lookaheadDepth = 0;
-    }
     if (m_stEncConfig.rcParams.enableTemporalAQ && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ)) {
         error_feature_unsupported(RGY_LOG_WARN, _T("Temporal AQ"));
         m_stEncConfig.rcParams.enableTemporalAQ = 0;
@@ -3444,37 +3439,26 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
         encPicParams.encodePicFlags |= NV_ENC_PIC_FLAG_FORCEIDR;
     }
 #endif //#if ENABLE_AVSW_READER
-    vector<uint8_t> dhdr10plus_sei;
-    vector<NV_ENC_SEI_PAYLOAD> sei_payload;
-    const int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
-    if (codec == NV_ENC_HEVC) {
+
+    const auto codec = codec_guid_enc_to_rgy(m_stCodecGUID);
+    std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
+    if (codec == RGY_CODEC_HEVC || codec == RGY_CODEC_AV1) {
         if (m_hdr10plus) {
-            const auto data = m_hdr10plus->getData(inputFrameId);
-            if (data && data->size() > 0) {
-                dhdr10plus_sei = *data;
+            if (const auto data = m_hdr10plus->getData(inputFrameId); data) {
+                metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data->data(), data->size(), timestamp));
             }
         } else if (frameDataList.size() > 0) {
-            auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
+            if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
                 return frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
-            });
-            if (data != frameDataList.end()) {
-                auto hdr10plus = dynamic_cast<RGYFrameDataHDR10plus *>(data->get());
-                if (hdr10plus && hdr10plus->getData().size() > 0) {
-                    dhdr10plus_sei = hdr10plus->getData();
-                }
+            }); data != frameDataList.end()) {
+                metadatalist.push_back(*data);
             }
         }
-        if (dhdr10plus_sei.size() > 0) {
-            NV_ENC_SEI_PAYLOAD payload;
-            payload.payload = dhdr10plus_sei.data();
-            payload.payloadSize = (uint32_t)dhdr10plus_sei.size();
-            payload.payloadType = USER_DATA_REGISTERED_ITU_T_T35;
-            sei_payload.push_back(payload);
+        if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
+            return frameData->dataType() == RGY_FRAME_DATA_DOVIRPU;
+        }); data != frameDataList.end()) {
+            metadatalist.push_back(*data);
         }
-    }
-    if (sei_payload.size() > 0) {
-        encPicParams.codecPicParams.hevcPicParams.seiPayloadArrayCnt = (uint32_t)sei_payload.size();
-        encPicParams.codecPicParams.hevcPicParams.seiPayloadArray = sei_payload.data();
     }
 
     if (m_timecode) {
@@ -3518,7 +3502,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
         PrintMes(RGY_LOG_ERROR, _T("Invalid input frame ID %d sent to encoder.\n"), inputFrameId);
         return NV_ENC_ERR_GENERIC;
     }
-    m_encTimestamp->add(timestamp, inputFrameId, duration);
+    m_encTimestamp->add(timestamp, inputFrameId, duration, metadatalist);
 
     NVENCSTATUS nvStatus = m_dev->encoder()->NvEncEncodePicture(&encPicParams);
     if (nvStatus != NV_ENC_SUCCESS && nvStatus != NV_ENC_ERR_NEED_MORE_INPUT) {

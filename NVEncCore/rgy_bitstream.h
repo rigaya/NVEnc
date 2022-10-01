@@ -146,6 +146,9 @@ enum PayloadType {
 };
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len);
+void to_nal(std::vector<uint8_t>& data);
+void add_u16(std::vector<uint8_t>& data, uint16_t u16);
+void add_u32(std::vector<uint8_t>& data, uint32_t u32);
 
 std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size);
 std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size);
@@ -168,6 +171,7 @@ std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const
 uint8_t gen_obu_header(const uint8_t obu_type);
 size_t get_av1_uleb_size_bytes(uint64_t value);
 std::vector<uint8_t> get_av1_uleb_size_data(uint64_t value);
+std::vector<uint8_t> gen_av1_obu_metadata(const uint8_t metadata_type, const std::vector<uint8_t>& metadata);
 
 struct RGYHDRMetadataPrm {
     int maxcll;
@@ -201,7 +205,6 @@ public:
     std::vector<uint8_t> gen_nal() const;
     std::vector<uint8_t> gen_nal(RGYHDRMetadataPrm prm);
 
-    std::vector<uint8_t> gen_metadata_obu(const uint8_t metadata_type, const std::vector<uint8_t>& data) const;
     std::vector<uint8_t> gen_masterdisplay_obu() const;
     std::vector<uint8_t> gen_maxcll_obu() const;
     std::vector<uint8_t> gen_obu() const;

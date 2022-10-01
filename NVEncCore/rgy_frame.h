@@ -88,7 +88,9 @@ public:
     RGYFrameDataMetadata(const uint8_t* data, size_t size, int64_t timestamp);
     virtual ~RGYFrameDataMetadata();
 
-    const std::vector<uint8_t>& getData() { return m_data; }
+    virtual std::vector<uint8_t> gen_nal() const = 0;
+    virtual std::vector<uint8_t> gen_obu() const = 0;
+    const std::vector<uint8_t>& getData() const { return m_data; }
     int64_t timestamp() const { return m_timestamp; }
 protected:
     int64_t m_timestamp;
@@ -100,6 +102,8 @@ public:
     RGYFrameDataHDR10plus();
     RGYFrameDataHDR10plus(const uint8_t* data, size_t size, int64_t timestamp);
     virtual ~RGYFrameDataHDR10plus();
+    virtual std::vector<uint8_t> gen_nal() const override;
+    virtual std::vector<uint8_t> gen_obu() const override;
 };
 
 class RGYFrameDataDOVIRpu : public RGYFrameDataMetadata {
@@ -107,6 +111,8 @@ public:
     RGYFrameDataDOVIRpu();
     RGYFrameDataDOVIRpu(const uint8_t* data, size_t size, int64_t timestamp);
     virtual ~RGYFrameDataDOVIRpu();
+    virtual std::vector<uint8_t> gen_nal() const override;
+    virtual std::vector<uint8_t> gen_obu() const override;
 };
 
 #endif //__RGY_FRAME_H__

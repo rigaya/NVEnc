@@ -2906,14 +2906,12 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             }
         }
 #endif //#if ENCODER_NVENC
-#if ENABLE_DHDR10_INFO
         {
             auto hdr10plus = std::shared_ptr<RGYFrameData>(getHDR10plusMetaData(m_Demux.video.frame));
             if (hdr10plus) {
                 pSurface->dataList().push_back(hdr10plus);
             }
         }
-#endif //#if ENABLE_DHDR10_INFO
         {
             auto dovirpu = std::shared_ptr<RGYFrameData>(getDoviRpu(m_Demux.video.frame));
             if (dovirpu) {
