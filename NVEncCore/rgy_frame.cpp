@@ -27,7 +27,9 @@
 
 #include "rgy_util.h"
 #include "rgy_frame.h"
+#if !CLFILTERS_AUF
 #include "rgy_bitstream.h"
+#endif
 
 RGYFrameDataQP::RGYFrameDataQP() :
     m_frameType(0),
@@ -122,6 +124,7 @@ RGYFrameDataMetadata::RGYFrameDataMetadata(const uint8_t *data, size_t size, int
 
 RGYFrameDataMetadata::~RGYFrameDataMetadata() { m_data.clear(); }
 
+#if !CLFILTERS_AUF
 RGYFrameDataHDR10plus::RGYFrameDataHDR10plus() : RGYFrameDataMetadata() { m_dataType = RGY_FRAME_DATA_HDR10PLUS; };
 RGYFrameDataHDR10plus::RGYFrameDataHDR10plus(const uint8_t *data, size_t size, int64_t timestamp) :
     RGYFrameDataMetadata(data, size, timestamp) {
@@ -170,3 +173,4 @@ std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_nal() const {
 std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_obu() const {
     return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, m_data);
 }
+#endif
