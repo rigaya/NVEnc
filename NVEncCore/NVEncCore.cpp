@@ -283,7 +283,7 @@ NVEncCore::NVEncCore() :
     m_keyOnChapter(false),
     m_keyFile(),
     m_Chapters(),
-    m_hdr10plusCopy(false),
+    m_hdr10plusMetadataCopy(false),
 #endif //#if ENABLE_AVSW_READER
     m_timecode(),
     m_hdr10plus(),
@@ -580,7 +580,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
             return NV_ENC_ERR_GENERIC;
         }
     } else if (inputParam->common.hdr10plusMetadataCopy) {
-        m_hdr10plusCopy = true;
+        m_hdr10plusMetadataCopy = true;
     }
 
     if (inputParam->common.doviRpuFile.length() > 0) {
@@ -1588,7 +1588,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stEncConfig.rcParams.disableBadapt = 0;
         m_stEncConfig.rcParams.disableIadapt = 0;
     }
-    if (m_hdr10plus != nullptr || m_hdr10plusCopy) {
+    if (m_hdr10plus != nullptr || m_hdr10plusMetadataCopy) {
         PrintMes(RGY_LOG_WARN, _T("--dhdr10-info is unstable with lookahead, lookahead feature will be disabled.\n"));
         m_stEncConfig.rcParams.enableLookahead = 0;
         m_stEncConfig.rcParams.lookaheadDepth = 0;
@@ -1965,7 +1965,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationTop = m_encVUI.chromaloc - 1;
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationBot = m_encVUI.chromaloc - 1;
         }
-        if (m_hdr10plus || m_hdr10plusCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
+        if (m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
         }
 
@@ -4232,7 +4232,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     delete ptr;
                 }), m_cuvidDec->GetDecFrameInfo());
                 inputFrame.setInputFrameId(nInputFrame);
-                if (m_hdr10plusCopy && streamIn) {
+                if (m_hdr10plusMetadataCopy && streamIn) {
                     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
                     if (pAVCodecReader != nullptr) {
                         const auto timestamp_status = pAVCodecReader->GetFramePosList()->getStreamPtsStatus();
@@ -4975,7 +4975,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize));
         if (m_hdr10plus) {
             add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     %s\n"), m_hdr10plus->inputJson().c_str());
-        } else if (m_hdr10plusCopy) {
+        } else if (m_hdr10plusMetadataCopy) {
             add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     copy\n"));
         }
     }

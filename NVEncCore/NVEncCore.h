@@ -206,7 +206,7 @@ protected:
     bool                          m_keyOnChapter;        //チャプター上にキーフレームを配置する
     vector<int>                   m_keyFile;             //キーフレームの指定
     vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
-    bool                          m_hdr10plusCopy;
+    bool                          m_hdr10plusMetadataCopy;
 #endif //#if ENABLE_AVSW_READER
     unique_ptr<RGYTimecode>       m_timecode;
     unique_ptr<RGYHDR10Plus>      m_hdr10plus;
