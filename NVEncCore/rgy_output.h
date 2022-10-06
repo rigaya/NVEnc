@@ -60,12 +60,12 @@ enum OutputType {
 };
 
 struct RGYTimestampMapVal {
-    int64_t timestamp, inputFrameId, duration;
+    int64_t timestamp, inputFrameId, encodeFrameId, duration;
     std::vector<std::shared_ptr<RGYFrameData>> dataList;
 
-    RGYTimestampMapVal() : timestamp(-1), inputFrameId(-1), duration(-1), dataList() {};
-    RGYTimestampMapVal(int64_t timestamp_, int64_t inputFrameId_, int64_t duration_, std::vector<std::shared_ptr<RGYFrameData>>& datalist)
-        : timestamp(timestamp_), inputFrameId(inputFrameId_), duration(duration_), dataList(datalist) {};
+    RGYTimestampMapVal() : timestamp(-1), inputFrameId(-1), encodeFrameId(-1), duration(-1), dataList() {};
+    RGYTimestampMapVal(int64_t timestamp_, int64_t inputFrameId_, int64_t encodeFrameId_, int64_t duration_, std::vector<std::shared_ptr<RGYFrameData>>& datalist)
+        : timestamp(timestamp_), inputFrameId(inputFrameId_), encodeFrameId(encodeFrameId_), duration(duration_), dataList(datalist) {};
     void addMetadata(std::shared_ptr<RGYFrameData>& data) { dataList.push_back(data); }
     void addMetadata(std::vector<std::shared_ptr<RGYFrameData>>& list) { dataList.insert(dataList.end(), list.begin(), list.end()); }
 };
@@ -88,14 +88,14 @@ public:
         last_check_pts = -1;
         offset = 0;
     }
-    void add(int64_t pts, int64_t inputFrameId, int64_t duration, std::vector<std::shared_ptr<RGYFrameData>> metadatalist) {
+    void add(int64_t pts, int64_t inputFrameId, int64_t encodeFrameId, int64_t duration, std::vector<std::shared_ptr<RGYFrameData>> metadatalist) {
         std::lock_guard<std::mutex> lock(mtx);
         if (last_add_pts >= 0) { // 前のフレームのdurationの更新
             auto& last_add_pos = m_frame.find(last_add_pts)->second;
             last_add_pos.duration = pts - last_add_pos.timestamp;
             if (duration == 0) duration = last_add_pos.duration;
         }
-        m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, duration, metadatalist);
+        m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, encodeFrameId, duration, metadatalist);
         last_add_pts = pts;
     }
     RGYTimestampMapVal check(int64_t pts) {
@@ -110,7 +110,7 @@ public:
             pts = last_check_pos.timestamp + last_check_pos.duration / 2;
             auto next_pts = last_check_pos.timestamp + last_check_pos.duration;
             last_check_pos.duration = pts - last_check_pos.timestamp;
-            m_frame[pts] = RGYTimestampMapVal(pts, last_input_frame_id, next_pts - pts, last_check_pos.dataList);
+            m_frame[pts] = RGYTimestampMapVal(pts, last_input_frame_id, last_check_pos.encodeFrameId, next_pts - pts, last_check_pos.dataList);
             pos = m_frame.find(pts);
         }
         last_input_frame_id = pos->second.inputFrameId;
@@ -129,11 +129,11 @@ public:
             last_clean_id = current_id;
         }
     }
-    RGYTimestampMapVal getByFrameID(const int64_t id) {
+    RGYTimestampMapVal getByEncodeFrameID(const int64_t id) {
         std::lock_guard<std::mutex> lock(mtx);
         auto pos = m_frame.end();
         for (auto it = m_frame.begin(); it != m_frame.end(); it++) {
-            if (it->second.inputFrameId == id) {
+            if (it->second.encodeFrameId == id) {
                 pos = it;
                 break;
             }
@@ -142,7 +142,7 @@ public:
             return RGYTimestampMapVal();
         }
         auto& ret = pos->second;
-        clean(id);
+        clean(ret.inputFrameId);
         return ret;
     }
     RGYTimestampMapVal get(int64_t pts) {
@@ -261,6 +261,7 @@ protected:
     DOVIRpu *m_doviRpu;
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
+    int64_t m_prevEncodeFrameId;
 #if ENABLE_AVSW_READER
     std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
     std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> m_pkt;

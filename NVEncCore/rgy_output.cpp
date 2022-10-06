@@ -115,6 +115,7 @@ RGYOutputRaw::RGYOutputRaw() :
     m_doviRpu(nullptr),
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
+    m_prevEncodeFrameId(-1),
 #if ENABLE_AVSW_READER
     m_pBsfc(),
     m_pkt(),
@@ -403,12 +404,13 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
 
                 if (av1_units[i]->type == OBU_TEMPORAL_DELIMITER) {
                     //次のフレームの時刻情報を取得
-                    bs_framedata = m_timestamp->getByFrameID(m_prevInputFrameId + 1);
+                    bs_framedata = m_timestamp->getByEncodeFrameID(m_prevEncodeFrameId + 1);
                     if (bs_framedata.inputFrameId < 0) {
                         bs_framedata.inputFrameId = m_prevInputFrameId;
                         AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for id %lld, using %lld.\n"), pBitstream->pts(), bs_framedata.inputFrameId);
                     } else {
-                        m_prevInputFrameId++;
+                        m_prevEncodeFrameId++;
+                        m_prevInputFrameId = bs_framedata.inputFrameId;
                     }
                     hdr10plus_metadata_written = false;
 

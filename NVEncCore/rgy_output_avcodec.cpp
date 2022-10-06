@@ -623,6 +623,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.dtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
     m_Mux.video.timestamp        = prm->vidTimestamp;
+    m_Mux.video.prevEncodeFrameId = -1;
     m_Mux.video.prevInputFrameId = -1;
     m_Mux.video.pktOut           = av_packet_alloc();
     m_Mux.video.pktParse         = av_packet_alloc();
@@ -2651,6 +2652,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
                 AddMessage(RGY_LOG_WARN, _T("Failed to get frame ID for pts %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
             }
             m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
+            m_Mux.video.prevEncodeFrameId = bs_framedata.encodeFrameId;
         }
         auto err = WriteNextFrameInternalOneFrame(bitstream, writtenDts, bs_framedata);
         if (err != RGY_ERR_NONE) {
@@ -2692,12 +2694,13 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
             }
         }
         //次のフレームの時刻情報を取得
-        RGYTimestampMapVal bs_framedata = m_Mux.video.timestamp->getByFrameID(m_Mux.video.prevInputFrameId + 1);
+        RGYTimestampMapVal bs_framedata = m_Mux.video.timestamp->getByEncodeFrameID(m_Mux.video.prevEncodeFrameId + 1);
         if (bs_framedata.inputFrameId < 0) {
             bs_framedata.inputFrameId = m_Mux.video.prevInputFrameId;
             AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for id %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
         } else {
-            m_Mux.video.prevInputFrameId++;
+            m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
+            m_Mux.video.prevEncodeFrameId++;
         }
 
         //送出すべきデータサイズを取得

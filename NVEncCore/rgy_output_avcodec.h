@@ -141,6 +141,7 @@ typedef struct AVMuxVideo {
     RGYTimestamp         *timestamp;            //timestampの情報
     AVPacket             *pktOut;               //出力用のAVPacket
     AVPacket             *pktParse;             //parser用のAVPacket
+    int64_t               prevEncodeFrameId;    //前回のエンコードフレームID
     int64_t               prevInputFrameId;     //前回の入力フレームID
     AVCodecParserContext *parserCtx;            //動画ストリームのParser (VCEのみ)
     int64_t               parserStreamPos;      //動画ストリームのバイト数
