@@ -27,7 +27,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include "NVEncUtil.h"
-#include "NvHWEncoder.h"
+#include "NVEncParam.h"
 #include "rgy_frame.h"
 #include "rgy_aspect_ratio.h"
 
@@ -220,17 +220,23 @@ VideoInfo videooutputinfo(
     info.picstruct = picstruct_enc_to_rgy(nPicStruct);
     info.csp = csp_enc_to_rgy(buffer_fmt);
 
-    const NV_ENC_CONFIG_H264_VUI_PARAMETERS& videoSignalInfo = (info.codec == RGY_CODEC_H264)
-        ? pEncConfig->encodeCodecConfig.h264Config.h264VUIParameters
-        : pEncConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters;
-
-    info.vui.descriptpresent = videoSignalInfo.colourDescriptionPresentFlag;
-    info.vui.colorprim = (CspColorprim)videoSignalInfo.colourPrimaries;
-    info.vui.matrix = (CspMatrix)videoSignalInfo.colourMatrix;
-    info.vui.transfer = (CspTransfer)videoSignalInfo.transferCharacteristics;
-    info.vui.colorrange = videoSignalInfo.videoFullRangeFlag ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
-    info.vui.format = videoSignalInfo.videoFormat;
-    info.vui.chromaloc = (videoSignalInfo.chromaSampleLocationFlag) ? (CspChromaloc)(videoSignalInfo.chromaSampleLocationTop+1) :  RGY_CHROMALOC_UNSPECIFIED;
+    info.vui.colorprim = (CspColorprim)get_colorprim(pEncConfig->encodeCodecConfig, info.codec);
+    info.vui.matrix    = (CspMatrix)get_colormatrix(pEncConfig->encodeCodecConfig, info.codec);
+    info.vui.transfer  = (CspTransfer)get_transfer(pEncConfig->encodeCodecConfig, info.codec);
+    info.vui.colorrange = get_colorrange(pEncConfig->encodeCodecConfig, info.codec) ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
+    info.vui.format = (int)get_videoFormat(pEncConfig->encodeCodecConfig, info.codec);
+    if (info.codec == RGY_CODEC_H264 || info.codec == RGY_CODEC_HEVC) {
+        info.vui.chromaloc = (get_chromaSampleLocationFlag(pEncConfig->encodeCodecConfig, info.codec)) ? (CspChromaloc)(get_chromaSampleLocationTop(pEncConfig->encodeCodecConfig, info.codec) + 1) : RGY_CHROMALOC_UNSPECIFIED;
+    } else if (info.codec == RGY_CODEC_AV1) {
+        switch (pEncConfig->encodeCodecConfig.av1Config.chromaSamplePosition) {
+        case 1:  info.vui.chromaloc = RGY_CHROMALOC_LEFT; break;
+        case 2:  info.vui.chromaloc = RGY_CHROMALOC_TOPLEFT; break;
+        default: info.vui.chromaloc = RGY_CHROMALOC_UNSPECIFIED; break;
+        }
+    } else {
+        info.vui.chromaloc = RGY_CHROMALOC_UNSPECIFIED;
+    }
+    info.vui.setDescriptPreset();
     return info;
 }
 

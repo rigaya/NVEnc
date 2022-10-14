@@ -586,6 +586,12 @@ struct VideoVUIInfo {
         apply_auto_color_characteristic(colorrange, list_colorrange,  inputHeight, input.colorrange);
         apply_auto_color_characteristic(chromaloc,  list_chromaloc,   inputHeight, input.chromaloc);
     }
+    void setDescriptPreset() {
+        descriptpresent =
+           get_cx_value(list_colormatrix, _T("undef")) != (int)matrix
+        || get_cx_value(list_colorprim,   _T("undef")) != (int)colorprim
+        || get_cx_value(list_transfer,    _T("undef")) != (int)transfer;
+    }
 
     bool operator==(const VideoVUIInfo &x) const {
         return descriptpresent == x.descriptpresent

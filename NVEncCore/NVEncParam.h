@@ -44,7 +44,6 @@
 #include "rgy_simd.h"
 #include "rgy_prm.h"
 #include "convert_csp.h"
-#include "NvHWEncoder.h"
 
 using std::vector;
 
@@ -72,6 +71,13 @@ static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
 
 static const int PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;
+
+enum {
+    NV_ENC_H264 = 0,
+    NV_ENC_HEVC = 1,
+    NV_ENC_AV1 = 2,
+    NV_ENC_CODEC_MAX,
+};
 
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
@@ -729,6 +735,7 @@ static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, co
 
 NV_CODEC_PARAM_ALL(level, 0);
 NV_CODEC_PARAM_HEVC_AV1(tier, 0);
+NV_CODEC_PARAM_HEVC_AV1(pixelBitDepthMinus8, 0);
 NV_CODEC_PARAM_ALL(idrPeriod, 300);
 NV_CODEC_PARAM_ALL(useBFramesAsRef, NV_ENC_BFRAME_REF_MODE_DISABLED);
 NV_CODEC_PARAM_H264_HEVC(enableLTR, false);

@@ -44,6 +44,7 @@
 #include "NVEncFilter.h"
 #include "NVEncFilterSsim.h"
 #include "NVEncFrameInfo.h"
+#include "NvHWEncoder.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
 #include "rgy_osdep.h"

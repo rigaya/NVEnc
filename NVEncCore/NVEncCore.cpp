@@ -700,12 +700,8 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
         //手動で設定されている
         return NV_ENC_SUCCESS;
     }
-    RGY_CODEC rgy_codec = RGY_CODEC_UNKNOWN;
-    switch (inputParam->codec) {
-    case NV_ENC_H264: rgy_codec = RGY_CODEC_H264; break;
-    case NV_ENC_HEVC: rgy_codec = RGY_CODEC_HEVC; break;
-    case NV_ENC_AV1:  rgy_codec = RGY_CODEC_AV1; break;
-    default:
+    const RGY_CODEC rgy_codec = codec_enc_to_rgy(inputParam->codec);
+    if (rgy_codec == RGY_CODEC_UNKNOWN) {
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -1399,11 +1395,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     //コーデックの決定とチェックNV_ENC_PIC_PARAMS
     const auto rgy_codec = codec_enc_to_rgy(inputParam->codec);
-    switch (inputParam->codec) {
-    case NV_ENC_H264: m_stCodecGUID = NV_ENC_CODEC_H264_GUID; break;
-    case NV_ENC_HEVC: m_stCodecGUID = NV_ENC_CODEC_HEVC_GUID; break;
-    case NV_ENC_AV1:  m_stCodecGUID = NV_ENC_CODEC_AV1_GUID; break;
-    default:
+    if (rgy_codec == RGY_CODEC_UNKNOWN) {
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -1411,6 +1403,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_ERROR, _T("Selected codec requires NVENC API v12.0 or later.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+
+    m_stCodecGUID = codec_guid_rgy_to_enc(rgy_codec);
     auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
     if (codecFeature == nullptr) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("指定されたコーデックはサポートされていません。\n") : _T("Selected codec is not supported.\n"));
@@ -1738,7 +1732,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     } else if (m_stEncConfig.rcParams.maxBitRate == 0) {
         //指定されたビットレートの1.5倍は最大ビットレートを確保する
         const int prefered_bitrate_kbps = m_stEncConfig.rcParams.averageBitRate * 3 / 2 / 1000;
-        if (inputParam->codec == NV_ENC_H264) {
+        if (rgy_codec == RGY_CODEC_H264) {
             const int profile = get_value_from_guid(m_stEncConfig.profileGUID, h264_profile_names);
             int level = m_stEncConfig.encodeCodecConfig.h264Config.level;
             if (level == 0) {
@@ -1753,7 +1747,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
                 vbv_bufsize_kbps = (int)(vbv_bufsize_kbps * 0.96 + 0.5);
             }
             m_stEncConfig.rcParams.maxBitRate = max_bitrate_kbps * 1000;
-        } else if (inputParam->codec == NV_ENC_HEVC) {
+        } else if (rgy_codec == RGY_CODEC_HEVC) {
             const bool high_tier = m_stEncConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_HIGH;
             int level = m_stEncConfig.encodeCodecConfig.hevcConfig.level;
             if (level == 0) {
@@ -1767,7 +1761,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
     }
     if (inputParam->yuv444) {
-        if (inputParam->codec == NV_ENC_H264 || inputParam->codec == NV_ENC_HEVC) {
+        if (rgy_codec == RGY_CODEC_H264 || rgy_codec == RGY_CODEC_HEVC) {
             set_chromaSampleLocationFlag(m_stEncConfig.encodeCodecConfig, rgy_codec, 0);
             set_chromaSampleLocationTop(m_stEncConfig.encodeCodecConfig, rgy_codec, 0);
             set_chromaSampleLocationBot(m_stEncConfig.encodeCodecConfig, rgy_codec, 0);
@@ -1776,10 +1770,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
     }
-    m_encVUI.descriptpresent =
-           get_cx_value(list_colormatrix, _T("undef")) != (int)m_encVUI.matrix
-        || get_cx_value(list_colorprim, _T("undef")) != (int)m_encVUI.colorprim
-        || get_cx_value(list_transfer, _T("undef")) != (int)m_encVUI.transfer;
 
     //バッファサイズ
     int extraBufSize = 0;
@@ -1825,7 +1815,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         } else if (m_stEncConfig.frameIntervalP - 1 > 0) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction with B frames"));
         } else {
-            if (inputParam->codec == NV_ENC_HEVC) {
+            if (rgy_codec == RGY_CODEC_HEVC) {
                 if (m_dev->cc().first == 6 //Pascal
                     || (m_dev->cc().first == 7 && m_dev->cc().second <= 2) //Volta
                     ) {
@@ -1873,7 +1863,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             #pragma warning (pop)
         }
         //profileは0にしておかないと正常に動作しない
-        if (inputParam->codec == NV_ENC_H264) {
+        if (rgy_codec == RGY_CODEC_H264) {
             memset(&m_stCreateEncodeParams.encodeConfig->profileGUID, 0, sizeof(m_stCreateEncodeParams.encodeConfig->profileGUID));
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag = 1;
         }
@@ -1921,6 +1911,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     set_overscanInfoPresentFlag(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, 1);
     set_overscanInfo(           m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, 0);
 
+    m_encVUI.setDescriptPreset();
     set_colourDescriptionPresentFlag(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, m_encVUI.descriptpresent);
     if (m_encVUI.descriptpresent) {
         set_colorprim(  m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, m_encVUI.colorprim);
@@ -1938,9 +1929,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     if (rgy_codec == RGY_CODEC_AV1) {
         switch (m_encVUI.chromaloc) {
-        case RGY_CHROMALOC_LEFT:   m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.chromaSamplePosition = 1; break;
-        case RGY_CHROMALOC_CENTER: m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.chromaSamplePosition = 2; break;
-        default:                   m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.chromaSamplePosition = 0; break;
+        case RGY_CHROMALOC_LEFT:    m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.chromaSamplePosition = 1; break;
+        case RGY_CHROMALOC_TOPLEFT: m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.chromaSamplePosition = 2; break;
+        default:                    m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.chromaSamplePosition = 0; break;
         }
     } else {
         set_chromaSampleLocationFlag(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, m_encVUI.chromaloc != RGY_CHROMALOC_UNSPECIFIED);
@@ -1957,12 +1948,16 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         set_sliceModeData(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, 1);
     }
 
+    auto require_repeat_headers = [this]() {
+        return m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0);
+    };
+
     if (rgy_codec == RGY_CODEC_AV1) {
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.outputAnnexBFormat = 0; // とりあえず0で
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.inputPixelBitDepthMinus8 = m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.pixelBitDepthMinus8;
 
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.disableSeqHdr = 1;
-        if (m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
+        if (require_repeat_headers()) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.repeatSeqHdr = 1;
         }
     } else if (rgy_codec == RGY_CODEC_HEVC) {
@@ -1978,7 +1973,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         } else if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) {
             m_stCreateEncodeParams.encodeConfig->profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
         }
-        if (m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
+        if (require_repeat_headers()) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
         }
 
@@ -1997,7 +1992,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             }
             m_stCreateEncodeParams.encodeConfig->rcParams.vbvInitialDelay = m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize / 2;
         }
-    } else if (inputParam->codec == NV_ENC_H264) {
+    } else if (rgy_codec == RGY_CODEC_H264) {
         //Bluray 互換出力
         if (inputParam->bluray) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI = 1;
@@ -2037,7 +2032,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         //整合性チェック (一般, H.264/AVC)
         m_stCreateEncodeParams.encodeConfig->frameFieldMode = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME) ? NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME : NV_ENC_PARAMS_FRAME_FIELD_MODE_FIELD;
         //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.entropyCodingMode = (m_stEncoderInput[0].profile > 66) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
         if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 <= 0) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
         }
@@ -2957,13 +2951,7 @@ RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<DynamicRCParam>& dynamicRC) 
     return RGY_ERR_NONE;
 }
 bool NVEncCore::encodeIsHighBitDepth(const InEncodeVideoParam *inputParam) {
-    switch (inputParam->codec) {
-    case NV_ENC_H264: return false;
-    case NV_ENC_HEVC: return inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
-    case NV_ENC_AV1:  return inputParam->encConfig.encodeCodecConfig.av1Config.pixelBitDepthMinus8 > 0;
-    default: break;
-    }
-    return false;
+    return get_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, codec_enc_to_rgy(inputParam->codec)) > 0;
 }
 
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
@@ -3026,13 +3014,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         inputParam->yuv444 = (RGY_CSP_CHROMA_FORMAT[inputFrameInfo.csp] != RGY_CHROMAFMT_YUV420);
 
         if (RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
-            if (inputParam->codec == NV_ENC_HEVC) {
-                inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 = 2;
-                bOutputHighBitDepth = true;
-            } else if (inputParam->codec == NV_ENC_AV1) {
-                inputParam->encConfig.encodeCodecConfig.av1Config.pixelBitDepthMinus8 = 2;
-                bOutputHighBitDepth = true;
-            }
+            set_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, codec_enc_to_rgy(inputParam->codec), RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] - 8);
         }
     }
 

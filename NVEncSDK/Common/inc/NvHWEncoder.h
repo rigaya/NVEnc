@@ -8,6 +8,9 @@
  * is strictly prohibited.
  *
  */
+#pragma once
+#ifndef _NVHWENCODER_H_
+#define _NVHWENCODER_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -143,14 +146,6 @@ typedef struct _NvEncPictureCommand
     uint32_t  refFrameNumbers[16];
 }NvEncPictureCommand;
 
-enum
-{
-    NV_ENC_H264 = 0,
-    NV_ENC_HEVC = 1,
-    NV_ENC_AV1  = 2,
-    NV_ENC_CODEC_MAX,
-};
-
 struct MEOnlyConfig
 {
     unsigned char *yuv[2][3];
@@ -245,3 +240,5 @@ public:
 typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*);
 
 #endif
+
+#endif //_NVHWENCODER_H_
