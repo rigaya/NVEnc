@@ -201,7 +201,7 @@ NV_ENC_CODEC_CONFIG DefaultParamHEVC() {
 NV_ENC_CODEC_CONFIG DefaultParamAV1() {
     NV_ENC_CODEC_CONFIG config = { 0 };
 
-    config.av1Config.level = NV_ENC_LEVEL_AUTOSELECT;
+    config.av1Config.level = NV_ENC_LEVEL_AV1_AUTOSELECT;
     config.av1Config.tier = NV_ENC_TIER_AV1_0;
     config.av1Config.minPartSize = NV_ENC_AV1_PART_SIZE_AUTOSELECT;
     config.av1Config.maxPartSize = NV_ENC_AV1_PART_SIZE_AUTOSELECT;

@@ -64,6 +64,9 @@
 #include "rgy_chapter.h"
 #include "rgy_timecode.h"
 #include "rgy_aspect_ratio.h"
+#include "rgy_level_h264.h"
+#include "rgy_level_hevc.h"
+#include "rgy_level_av1.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
 #include "NVEncFilter.h"
@@ -89,8 +92,6 @@
 #include "NVEncFilterSelectEvery.h"
 #include "helper_cuda.h"
 #include "helper_nvenc.h"
-#include "h264_level.h"
-#include "hevc_level.h"
 
 #pragma warning(push)
 #pragma warning(disable: 4244)
@@ -1698,7 +1699,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     if (inputParam->codec == NV_ENC_HEVC) {
         if (m_stEncConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_HIGH) {
             if (m_stEncConfig.encodeCodecConfig.hevcConfig.level != 0
-                && !is_avail_hevc_high_tier(m_stEncConfig.encodeCodecConfig.hevcConfig.level)) {
+                && !is_avail_high_tier_hevc(m_stEncConfig.encodeCodecConfig.hevcConfig.level)) {
                 PrintMes(RGY_LOG_WARN, _T("HEVC Level %s does not support High tier, switching to Main tier.\n"), get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.hevcConfig.level).c_str());
                 m_stEncConfig.encodeCodecConfig.hevcConfig.tier = NV_ENC_TIER_HEVC_MAIN;
             }
@@ -1734,13 +1735,13 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         const int prefered_bitrate_kbps = m_stEncConfig.rcParams.averageBitRate * 3 / 2 / 1000;
         if (rgy_codec == RGY_CODEC_H264) {
             const int profile = get_value_from_guid(m_stEncConfig.profileGUID, h264_profile_names);
-            int level = m_stEncConfig.encodeCodecConfig.h264Config.level;
+            int level = get_level(m_stEncConfig.encodeCodecConfig, rgy_codec);
             if (level == 0) {
-                level = calc_h264_auto_level(m_uEncWidth, m_uEncHeight, m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames, is_interlaced(m_stPicStruct),
+                level = calc_auto_level_h264(m_uEncWidth, m_uEncHeight, numRefFrames(m_stEncConfig.encodeCodecConfig, rgy_codec), is_interlaced(m_stPicStruct),
                     m_encFps.n(), m_encFps.d(), profile, prefered_bitrate_kbps, m_stEncConfig.rcParams.vbvBufferSize / 1000);
             }
             int max_bitrate_kbps = 0, vbv_bufsize_kbps = 0;
-            get_h264_vbv_value(&max_bitrate_kbps, &vbv_bufsize_kbps, level, profile);
+            get_vbv_value_h264(&max_bitrate_kbps, &vbv_bufsize_kbps, level, profile);
             if (profile >= 100) {
                 //なぜかhigh profileではぎりぎりを指定するとエラー終了するので、すこし減らす
                 max_bitrate_kbps = (int)(max_bitrate_kbps * 0.96 + 0.5);
@@ -1749,13 +1750,22 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.rcParams.maxBitRate = max_bitrate_kbps * 1000;
         } else if (rgy_codec == RGY_CODEC_HEVC) {
             const bool high_tier = m_stEncConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_HIGH;
-            int level = m_stEncConfig.encodeCodecConfig.hevcConfig.level;
+            int level = get_level(m_stEncConfig.encodeCodecConfig, rgy_codec);
             if (level == 0) {
-                level = calc_hevc_auto_level(m_uEncWidth, m_uEncHeight, m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
+                level = calc_auto_level_hevc(m_uEncWidth, m_uEncHeight, numRefFrames(m_stEncConfig.encodeCodecConfig, rgy_codec),
                     m_encFps.n(), m_encFps.d(), high_tier, prefered_bitrate_kbps);
             }
             //なぜかぎりぎりを指定するとエラー終了するので、すこし減らす
-            m_stEncConfig.rcParams.maxBitRate = get_hevc_max_bitrate(level, high_tier) * 960;
+            m_stEncConfig.rcParams.maxBitRate = get_max_bitrate_hevc(level, high_tier) * 960;
+        } else if (rgy_codec == RGY_CODEC_AV1) {
+            const int profile = get_value_from_guid(m_stEncConfig.profileGUID, av1_profile_names);
+            int level = get_level(m_stEncConfig.encodeCodecConfig, rgy_codec);
+            if (level == 0) {
+                level = calc_auto_level_av1(m_uEncWidth, m_uEncHeight, numRefFrames(m_stEncConfig.encodeCodecConfig, rgy_codec),
+                    m_encFps.n(), m_encFps.d(), profile, prefered_bitrate_kbps, m_stEncConfig.encodeCodecConfig.av1Config.numTileColumns, m_stEncConfig.encodeCodecConfig.av1Config.numTileRows);
+            }
+            //ぎりぎりを指定するとエラー終了するので、すこし減らす
+            m_stEncConfig.rcParams.maxBitRate = get_max_bitrate_av1(level, profile) * 960;
         } else {
             m_stEncConfig.rcParams.maxBitRate = DEFAULT_MAX_BITRATE;
         }

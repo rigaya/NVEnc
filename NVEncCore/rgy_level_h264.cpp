@@ -29,7 +29,7 @@
 #include <cstdint>
 #include <algorithm>
 #include "rgy_osdep.h"
-#include "h264_level.h"
+#include "rgy_level_h264.h"
 
 const int MAX_REF_FRAMES = 16;
 const int PROGRESSIVE    = 1;
@@ -98,7 +98,7 @@ static int64_t ceil_div_int64(int64_t value, int64_t div) {
 }
 
 //必要なLevelを計算する, 適合するLevelがなければ 0 を返す
-int calc_h264_auto_level(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, int vbv_max, int vbv_buf) {
+int calc_auto_level_h264(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, int vbv_max, int vbv_buf) {
     double profile_vbv_multi = H264_PROFILE_VBV_MULTI.at((H264_PROFILE_VBV_MULTI.count(profile) == 0) ? 0 : profile);
     int i, j = (interlaced) ? INTERLACED : PROGRESSIVE;
     int MB_frame = ceil_div_int(width, 16) * (j * ceil_div_int(height, 16*j));
@@ -122,7 +122,7 @@ int calc_h264_auto_level(int width, int height, int ref, bool interlaced, int fp
 }
 
 //vbv値を求める *vbv_max と *vbv_buf はNULLでもOK
-void get_h264_vbv_value(int *vbv_max, int *vbv_buf, int level, int profile) {
+void get_vbv_value_h264(int *vbv_max, int *vbv_buf, int level, int profile) {
     int level_idx = (int)(std::find(H264_LEVEL_INDEX, H264_LEVEL_INDEX + _countof(H264_LEVEL_INDEX), level) - H264_LEVEL_INDEX);
     if (level_idx == _countof(H264_LEVEL_INDEX)) {
         level_idx = 0;

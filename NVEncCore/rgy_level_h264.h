@@ -25,11 +25,10 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __HEVC_LEVEL_H__
-#define __HEVC_LEVEL_H__
+#ifndef __RGY_LEVEL_H264_H__
+#define __RGY_LEVEL_H264_H__
 
-int calc_hevc_auto_level(int width, int height, int ref, int fps_num, int fps_den, bool high_tier, int max_bitrate);
-int get_hevc_max_bitrate(int level, bool high_tier);
-bool is_avail_hevc_high_tier(int level);
+int calc_auto_level_h264(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, int vbv_max, int vbv_buf);
+void get_vbv_value_h264(int *vbv_max, int *vbv_buf, int level, int profile);
 
-#endif //__HEVC_LEVEL_H__
+#endif //__RGY_LEVEL_H264_H__
