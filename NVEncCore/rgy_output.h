@@ -238,6 +238,7 @@ protected:
 
 struct RGYOutputRawPrm {
     bool benchmark;
+    bool debugDirectAV1Out;
     int bufSizeMB;
     RGY_CODEC codecId;
     const RGYHDRMetadata *hdrMetadata;
@@ -262,6 +263,7 @@ protected:
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
     int64_t m_prevEncodeFrameId;
+    bool m_debugDirectAV1Out;
 #if ENABLE_AVSW_READER
     std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
     std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> m_pkt;

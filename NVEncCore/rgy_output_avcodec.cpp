@@ -620,17 +620,18 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.streamOut->avg_frame_rate.num = videoOutputInfo->fpsN; //mkvのTRACKDEFAULTDURATIONの出力に必要
     m_Mux.video.streamOut->avg_frame_rate.den = videoOutputInfo->fpsD;
     m_Mux.video.streamOut->start_time          = 0;
-    m_Mux.video.dtsUnavailable   = prm->bVideoDtsUnavailable;
-    m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
-    m_Mux.video.timestamp        = prm->vidTimestamp;
+    m_Mux.video.dtsUnavailable    = prm->bVideoDtsUnavailable;
+    m_Mux.video.inputFirstKeyPts  = prm->videoInputFirstKeyPts;
+    m_Mux.video.timestamp         = prm->vidTimestamp;
     m_Mux.video.prevEncodeFrameId = -1;
-    m_Mux.video.prevInputFrameId = -1;
-    m_Mux.video.pktOut           = av_packet_alloc();
-    m_Mux.video.pktParse         = av_packet_alloc();
-    m_Mux.video.afs              = prm->afs;
-    m_Mux.video.doviRpu          = prm->doviRpu;
-    m_Mux.video.parse_nal_h264 = get_parse_nal_unit_h264_func();
-    m_Mux.video.parse_nal_hevc = get_parse_nal_unit_hevc_func();
+    m_Mux.video.prevInputFrameId  = -1;
+    m_Mux.video.pktOut            = av_packet_alloc();
+    m_Mux.video.pktParse          = av_packet_alloc();
+    m_Mux.video.afs               = prm->afs;
+    m_Mux.video.debugDirectAV1Out = prm->debugDirectAV1Out;
+    m_Mux.video.doviRpu           = prm->doviRpu;
+    m_Mux.video.parse_nal_h264    = get_parse_nal_unit_h264_func();
+    m_Mux.video.parse_nal_hevc    = get_parse_nal_unit_hevc_func();
 
     auto retm = SetMetadata(&m_Mux.video.streamOut->metadata, (prm->videoInputStream) ? prm->videoInputStream->metadata : nullptr, prm->videoMetadata, RGY_METADATA_DEFAULT_COPY_LANG_ONLY, _T("Video"));
     if (retm != RGY_ERR_NONE) {
@@ -2640,7 +2641,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 
     const bool flush = bitstream->size() == 0;
 
-    if (m_VideoOutputInfo.codec != RGY_CODEC_AV1) { // AV1以外
+    if (m_VideoOutputInfo.codec != RGY_CODEC_AV1 || m_Mux.video.debugDirectAV1Out) { // AV1以外
         if (flush) {
             return RGY_ERR_NONE; // 特にflushするものはない
         }

@@ -1259,6 +1259,7 @@ RGYParamCommon::RGYParamCommon() :
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     muxOpt(),
     disableMp4Opt(false),
+    debugDirectAV1Out(false),
     chapterFile(),
     AVInputFormat(nullptr),
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)

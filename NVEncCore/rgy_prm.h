@@ -1293,6 +1293,7 @@ struct RGYParamCommon {
     int audioIgnoreDecodeError;
     RGYOptList muxOpt;
     bool disableMp4Opt;
+    bool debugDirectAV1Out;
     tstring chapterFile;
     tstring keyFile;
     TCHAR *AVInputFormat;

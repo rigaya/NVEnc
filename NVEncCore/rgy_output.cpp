@@ -116,6 +116,7 @@ RGYOutputRaw::RGYOutputRaw() :
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
     m_prevEncodeFrameId(-1),
+    m_debugDirectAV1Out(false),
 #if ENABLE_AVSW_READER
     m_pBsfc(),
     m_pkt(),
@@ -300,6 +301,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         }
         m_doviRpu = rawPrm->doviRpu;
         m_timestamp = rawPrm->vidTimestamp;
+        m_debugDirectAV1Out = rawPrm->debugDirectAV1Out;
     }
     m_inited = true;
     return RGY_ERR_NONE;
@@ -372,65 +374,70 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
 #endif //#if ENABLE_AVSW_READER
         const bool isIDR = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
         if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
-            RGYTimestampMapVal bs_framedata;
-            bool hdr10plus_metadata_written = false;
+            if (m_debugDirectAV1Out) {
+                nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+                WRITE_CHECK(nBytesWritten, pBitstream->size());
+            } else {
+                RGYTimestampMapVal bs_framedata;
+                bool hdr10plus_metadata_written = false;
 
-            const auto av1_units = parse_unit_av1(pBitstream->data(), pBitstream->size());
-            for (size_t i = 0; i < av1_units.size(); i++) {
-                nBytesWritten += _fwrite_nolock(av1_units[i]->unit_data.data(), 1, av1_units[i]->unit_data.size(), m_fDest.get());
+                const auto av1_units = parse_unit_av1(pBitstream->data(), pBitstream->size());
+                for (size_t i = 0; i < av1_units.size(); i++) {
+                    nBytesWritten += _fwrite_nolock(av1_units[i]->unit_data.data(), 1, av1_units[i]->unit_data.size(), m_fDest.get());
 
-                auto writeHdr10PlusMetadata = [&]() {
-                    if (hdr10plus_metadata_written) {
+                    auto writeHdr10PlusMetadata = [&]() {
+                        if (hdr10plus_metadata_written) {
+                            return RGY_ERR_NONE;
+                        }
+                        const auto frameDataHdr10plusMetadata = std::find_if(bs_framedata.dataList.begin(), bs_framedata.dataList.end(),
+                            [](const std::shared_ptr<RGYFrameData>& data) {
+                            return data->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+                        });
+                        if (frameDataHdr10plusMetadata != bs_framedata.dataList.end()) {
+                            const auto frameDataPtr = dynamic_cast<RGYFrameDataHDR10plus *>((*frameDataHdr10plusMetadata).get());
+                            if (!frameDataPtr) {
+                                AddMessage(RGY_LOG_ERROR, _T("Invalid cast for hdr10plus metadata.\n"));
+                                return RGY_ERR_UNSUPPORTED;
+                            }
+                            const auto hdr10plusMetadata = frameDataPtr->gen_obu();
+                            if (hdr10plusMetadata.size() > 0) {
+                                nBytesWritten += _fwrite_nolock(hdr10plusMetadata.data(), 1, hdr10plusMetadata.size(), m_fDest.get());
+                            }
+                        }
+                        hdr10plus_metadata_written = true;
                         return RGY_ERR_NONE;
-                    }
-                    const auto frameDataHdr10plusMetadata = std::find_if(bs_framedata.dataList.begin(), bs_framedata.dataList.end(),
-                        [](const std::shared_ptr<RGYFrameData>& data) {
-                        return data->dataType() == RGY_FRAME_DATA_HDR10PLUS;
-                    });
-                    if (frameDataHdr10plusMetadata != bs_framedata.dataList.end()) {
-                        const auto frameDataPtr = dynamic_cast<RGYFrameDataHDR10plus *>((*frameDataHdr10plusMetadata).get());
-                        if (!frameDataPtr) {
-                            AddMessage(RGY_LOG_ERROR, _T("Invalid cast for hdr10plus metadata.\n"));
-                            return RGY_ERR_UNSUPPORTED;
-                        }
-                        const auto hdr10plusMetadata = frameDataPtr->gen_obu();
-                        if (hdr10plusMetadata.size() > 0) {
-                            nBytesWritten += _fwrite_nolock(hdr10plusMetadata.data(), 1, hdr10plusMetadata.size(), m_fDest.get());
-                        }
-                    }
-                    hdr10plus_metadata_written = true;
-                    return RGY_ERR_NONE;
-                };
+                    };
 
-                if (av1_units[i]->type == OBU_TEMPORAL_DELIMITER) {
-                    //次のフレームの時刻情報を取得
-                    bs_framedata = m_timestamp->getByEncodeFrameID(m_prevEncodeFrameId + 1);
-                    if (bs_framedata.inputFrameId < 0) {
-                        bs_framedata.inputFrameId = m_prevInputFrameId;
-                        AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for id %lld, using %lld.\n"), pBitstream->pts(), bs_framedata.inputFrameId);
-                    } else {
-                        m_prevEncodeFrameId++;
-                        m_prevInputFrameId = bs_framedata.inputFrameId;
-                    }
-                    hdr10plus_metadata_written = false;
+                    if (av1_units[i]->type == OBU_TEMPORAL_DELIMITER) {
+                        //次のフレームの時刻情報を取得
+                        bs_framedata = m_timestamp->getByEncodeFrameID(m_prevEncodeFrameId + 1);
+                        if (bs_framedata.inputFrameId < 0) {
+                            bs_framedata.inputFrameId = m_prevInputFrameId;
+                            AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for id %lld, using %lld.\n"), pBitstream->pts(), bs_framedata.inputFrameId);
+                        } else {
+                            m_prevEncodeFrameId++;
+                            m_prevInputFrameId = bs_framedata.inputFrameId;
+                        }
+                        hdr10plus_metadata_written = false;
 
-                    if (i+1 >= av1_units.size() || av1_units[i+1]->type != OBU_SEQUENCE_HEADER) {
+                        if (i + 1 >= av1_units.size() || av1_units[i + 1]->type != OBU_SEQUENCE_HEADER) {
+                            if (auto err = writeHdr10PlusMetadata(); err != RGY_ERR_NONE) {
+                                return err;
+                            }
+                        }
+                    } else if (av1_units[i]->type == OBU_SEQUENCE_HEADER) {
+                        if (m_hdrBitstream.size() > 0 && (isIDR || av1_units[i]->type == OBU_SEQUENCE_HEADER)) {
+                            nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
+                        }
                         if (auto err = writeHdr10PlusMetadata(); err != RGY_ERR_NONE) {
                             return err;
                         }
                     }
-                } else if (av1_units[i]->type == OBU_SEQUENCE_HEADER) {
-                    if (m_hdrBitstream.size() > 0 && (isIDR || av1_units[i]->type == OBU_SEQUENCE_HEADER)) {
-                        nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
-                    }
-                    if (auto err = writeHdr10PlusMetadata(); err != RGY_ERR_NONE) {
-                        return err;
-                    }
                 }
-            }
-            if (m_doviRpu) {
-                AddMessage(RGY_LOG_ERROR, _T("Adding dovi rpu not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
-                return RGY_ERR_UNSUPPORTED;
+                if (m_doviRpu) {
+                    AddMessage(RGY_LOG_ERROR, _T("Adding dovi rpu not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+                    return RGY_ERR_UNSUPPORTED;
+                }
             }
         } else {
             RGYTimestampMapVal bs_framedata;
@@ -913,6 +920,7 @@ RGY_ERR initWriters(
         writerPrm.formatMetadata          = common->formatMetadata;
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
+        writerPrm.debugDirectAV1Out       = common->debugDirectAV1Out;
         writerPrm.muxOpt                  = common->muxOpt;
         writerPrm.poolPkt                 = poolPkt;
         writerPrm.poolFrame               = poolFrame;
@@ -1207,6 +1215,7 @@ RGY_ERR initWriters(
             rawPrm.hdrMetadata = hdrMetadata;
             rawPrm.doviRpu = doviRpu;
             rawPrm.vidTimestamp = vidTimestamp;
+            rawPrm.debugDirectAV1Out = common->debugDirectAV1Out;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());

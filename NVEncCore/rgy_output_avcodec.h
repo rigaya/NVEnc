@@ -146,6 +146,7 @@ typedef struct AVMuxVideo {
     AVCodecParserContext *parserCtx;            //動画ストリームのParser (VCEのみ)
     int64_t               parserStreamPos;      //動画ストリームのバイト数
     bool                  afs;                  //入力が自動フィールドシフト
+    bool                  debugDirectAV1Out;    //AV1出力のデバッグ用
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 } AVMuxVideo;
@@ -339,6 +340,7 @@ struct AvcodecWriterPrm {
     std::vector<tstring>         formatMetadata;          //formatのmetadata
     bool                         afs;                     //入力が自動フィールドシフト
     bool                         disableMp4Opt;           //mp4出力時のmuxの最適化を無効にする
+    bool                         debugDirectAV1Out;       //AV1出力のデバッグ用
     RGYPoolAVPacket             *poolPkt;                 //読み込み側からわたってきたパケットの返却先
     RGYPoolAVFrame              *poolFrame;               //読み込み側からわたってきたパケットの返却先
 
@@ -371,6 +373,7 @@ struct AvcodecWriterPrm {
         formatMetadata(),
         afs(false),
         disableMp4Opt(false),
+        debugDirectAV1Out(false),
         poolPkt(nullptr),
         poolFrame(nullptr) {
     }
