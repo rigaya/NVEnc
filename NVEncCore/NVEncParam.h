@@ -26,6 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef _NVENC_PARAM_H_
+#define _NVENC_PARAM_H_
 
 #include <limits.h>
 #include <vector>
@@ -111,6 +113,23 @@ const CX_DESC h265_tier_names[] = {
 };
 
 enum {
+    NV_ENC_PROFILE_AV1_MAIN = 0,
+    NV_ENC_PROFILE_AV1_HIGH = 1,
+};
+
+const guid_desc av1_profile_names[] = {
+    //{ NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),                     0 },
+    { NV_ENC_AV1_PROFILE_MAIN_GUID,      _T("main"),  NV_ENC_PROFILE_AV1_MAIN },
+    { NV_ENC_AV1_PROFILE_HIGH_GUID,      _T("high"),  NV_ENC_PROFILE_AV1_HIGH },
+    //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, _T("High"), NV_ENC_TIER_HEVC_HIGH },
+};
+
+const CX_DESC av1_tier_names[] = {
+    { _T("0"),  NV_ENC_TIER_AV1_0 },
+    { _T("1"),  NV_ENC_TIER_AV1_1 },
+};
+
+enum {
     NVENC_PRESET_DEFAULT = 0,
     NVENC_PRESET_HP,
     NVENC_PRESET_P2,
@@ -157,6 +176,7 @@ const guid_desc list_nvenc_preset_names_ver10[] = {
 const guid_desc list_nvenc_codecs[] = {
     { NV_ENC_CODEC_H264_GUID, _T("H.264/AVC"),  NV_ENC_H264 },
     { NV_ENC_CODEC_HEVC_GUID, _T("H.265/HEVC"), NV_ENC_HEVC },
+    { NV_ENC_CODEC_AV1_GUID,  _T("AV1"),       NV_ENC_AV1 },
 };
 const CX_DESC list_nvenc_multipass_mode[] = {
     { _T("none"),          NV_ENC_MULTI_PASS_DISABLED },
@@ -170,6 +190,7 @@ const CX_DESC list_nvenc_codecs_for_opt[] = {
     { _T("avc"),  NV_ENC_H264 },
     { _T("hevc"), NV_ENC_HEVC },
     { _T("h265"), NV_ENC_HEVC },
+    { _T("av1"),  NV_ENC_AV1 },
     { NULL, 0 }
 };
 
@@ -216,10 +237,40 @@ const CX_DESC list_hevc_level[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_av1_level[] = {
+    { _T("auto"), 0   },
+    { _T("2"),    NV_ENC_LEVEL_AV1_2   },
+    { _T("2.1"),  NV_ENC_LEVEL_AV1_21  },
+    { _T("2.2"),  NV_ENC_LEVEL_AV1_22  },
+    { _T("2.3"),  NV_ENC_LEVEL_AV1_23  },
+    { _T("3"),    NV_ENC_LEVEL_AV1_3   },
+    { _T("3.1"),  NV_ENC_LEVEL_AV1_31  },
+    { _T("3.2"),  NV_ENC_LEVEL_AV1_32  },
+    { _T("3.3"),  NV_ENC_LEVEL_AV1_33  },
+    { _T("4"),    NV_ENC_LEVEL_AV1_4   },
+    { _T("4.1"),  NV_ENC_LEVEL_AV1_41  },
+    { _T("4.2"),  NV_ENC_LEVEL_AV1_42  },
+    { _T("4.3"),  NV_ENC_LEVEL_AV1_43  },
+    { _T("5"),    NV_ENC_LEVEL_AV1_5   },
+    { _T("5.1"),  NV_ENC_LEVEL_AV1_51  },
+    { _T("5.2"),  NV_ENC_LEVEL_AV1_52  },
+    { _T("5.3"),  NV_ENC_LEVEL_AV1_53  },
+    { _T("6"),    NV_ENC_LEVEL_AV1_6   },
+    { _T("6.1"),  NV_ENC_LEVEL_AV1_61  },
+    { _T("6.2"),  NV_ENC_LEVEL_AV1_62  },
+    { _T("6.3"),  NV_ENC_LEVEL_AV1_63  },
+    { _T("7"),    NV_ENC_LEVEL_AV1_7   },
+    { _T("7.1"),  NV_ENC_LEVEL_AV1_71  },
+    { _T("7.2"),  NV_ENC_LEVEL_AV1_72  },
+    { _T("7.3"),  NV_ENC_LEVEL_AV1_73  },
+    { NULL, 0 }
+};
+
 static const CX_DESC *get_codec_level_list(RGY_CODEC codec) {
     switch (codec) {
     case RGY_CODEC_H264: return list_avc_level;
     case RGY_CODEC_HEVC: return list_hevc_level;
+    case RGY_CODEC_AV1: return list_av1_level;
     default: return nullptr;
     }
 }
@@ -336,6 +387,16 @@ const CX_DESC list_num_refs[] = {
     { _T("5"),        NV_ENC_NUM_REF_FRAMES_5          },
     { _T("6"),        NV_ENC_NUM_REF_FRAMES_6          },
     { _T("7"),        NV_ENC_NUM_REF_FRAMES_7          },
+    { NULL, 0 }
+};
+
+const CX_DESC list_part_size_av1[] = {
+    { _T("auto"),  NV_ENC_AV1_PART_SIZE_AUTOSELECT },
+    { _T("4"),     NV_ENC_AV1_PART_SIZE_4x4        },
+    { _T("8"),     NV_ENC_AV1_PART_SIZE_8x8        },
+    { _T("16"),    NV_ENC_AV1_PART_SIZE_16x16      },
+    { _T("32"),    NV_ENC_AV1_PART_SIZE_32x32      },
+    { _T("64"),    NV_ENC_AV1_PART_SIZE_64x64      },
     { NULL, 0 }
 };
 
@@ -585,3 +646,175 @@ struct InEncodeVideoParam {
 NV_ENC_CONFIG DefaultParam();
 NV_ENC_CODEC_CONFIG DefaultParamH264();
 NV_ENC_CODEC_CONFIG DefaultParamHEVC();
+NV_ENC_CODEC_CONFIG DefaultParamAV1();
+
+static decltype(NV_ENC_CONFIG_H264::maxNumRefFrames)& numRefFrames(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_H264: return codec_config.h264Config.maxNumRefFrames;
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.maxNumRefFramesInDPB;
+    case RGY_CODEC_AV1:  return codec_config.av1Config.maxNumRefFramesInDPB;
+    default:
+        abort();
+    }
+}
+
+#define NV_CODEC_PARAM_ALL(x, other_return_val) \
+static decltype(NV_ENC_CONFIG_H264::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
+    switch (codec) { \
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.##x; \
+    case RGY_CODEC_AV1:  return codec_config.av1Config.##x; \
+    case RGY_CODEC_H264: return codec_config.h264Config.##x; \
+    default: break; \
+    } \
+    return other_return_val; \
+}; \
+static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const decltype(NV_ENC_CONFIG_H264::x) value) { \
+    switch (codec) { \
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.##x = value; break; \
+    case RGY_CODEC_AV1:  codec_config.av1Config.##x = value; break; \
+    case RGY_CODEC_H264: codec_config.h264Config.##x = value; break; \
+    default: break; \
+    } \
+};
+
+#define NV_CODEC_PARAM_H264_HEVC(x, other_return_val) \
+static decltype(NV_ENC_CONFIG_H264::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
+    switch (codec) { \
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.##x; \
+    case RGY_CODEC_H264: return codec_config.h264Config.##x; \
+    default: return other_return_val; \
+    } \
+}; \
+static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const decltype(NV_ENC_CONFIG_H264::x) value) { \
+    switch (codec) { \
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.##x = value; break; \
+    case RGY_CODEC_H264: codec_config.h264Config.##x = value; break; \
+    default: break; \
+    } \
+};
+
+#define NV_CODEC_PARAM_HEVC_AV1(x, other_return_val) \
+static decltype(NV_ENC_CONFIG_HEVC::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
+    switch (codec) { \
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.##x; \
+    case RGY_CODEC_AV1:  return codec_config.av1Config.##x; \
+    default: return other_return_val; \
+    } \
+}; \
+static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const decltype(NV_ENC_CONFIG_HEVC::x) value) { \
+    switch (codec) { \
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.##x = value; break; \
+    case RGY_CODEC_AV1:  codec_config.av1Config.##x  = value; break; \
+    default: break; \
+    } \
+};
+
+
+#define NV_CODEC_PARAM_H264_HEVC_VUI(x, other_return_val) \
+static decltype(NV_ENC_CONFIG_H264_VUI_PARAMETERS::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
+    switch (codec) { \
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.hevcVUIParameters.##x; \
+    case RGY_CODEC_H264: return codec_config.h264Config.h264VUIParameters.##x; \
+    default: return other_return_val; \
+    } \
+}; \
+static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const int value) { \
+    switch (codec) { \
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.hevcVUIParameters.##x = (decltype(NV_ENC_CONFIG_H264_VUI_PARAMETERS::##x))value; break; \
+    case RGY_CODEC_H264: codec_config.h264Config.h264VUIParameters.##x = (decltype(NV_ENC_CONFIG_HEVC_VUI_PARAMETERS::##x))value; break; \
+    default: break; \
+    } \
+};
+
+
+NV_CODEC_PARAM_ALL(level, 0);
+NV_CODEC_PARAM_HEVC_AV1(tier, 0);
+NV_CODEC_PARAM_ALL(idrPeriod, 300);
+NV_CODEC_PARAM_ALL(useBFramesAsRef, NV_ENC_BFRAME_REF_MODE_DISABLED);
+NV_CODEC_PARAM_H264_HEVC(enableLTR, false);
+NV_CODEC_PARAM_H264_HEVC(ltrNumFrames, 0);
+NV_CODEC_PARAM_H264_HEVC(sliceMode, 0);
+NV_CODEC_PARAM_H264_HEVC(sliceModeData, 0);
+NV_CODEC_PARAM_H264_HEVC(numRefL0, NV_ENC_NUM_REF_FRAMES_AUTOSELECT);
+NV_CODEC_PARAM_H264_HEVC(numRefL1, NV_ENC_NUM_REF_FRAMES_AUTOSELECT);
+NV_CODEC_PARAM_H264_HEVC(outputAUD, 0);
+NV_CODEC_PARAM_H264_HEVC(outputPictureTimingSEI, 0);
+NV_CODEC_PARAM_H264_HEVC(outputBufferingPeriodSEI, 0);
+NV_CODEC_PARAM_H264_HEVC(repeatSPSPPS, 0);
+
+static NV_ENC_VUI_COLOR_PRIMARIES get_colorprim(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.hevcVUIParameters.colourPrimaries;
+    case RGY_CODEC_H264: return codec_config.h264Config.h264VUIParameters.colourPrimaries;
+    case RGY_CODEC_AV1:  return codec_config.av1Config.colorPrimaries;
+    default: return NV_ENC_VUI_COLOR_PRIMARIES_UNDEFINED;
+    }
+};
+static void set_colorprim(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const int value) { \
+    switch (codec) {
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.hevcVUIParameters.colourPrimaries = (NV_ENC_VUI_COLOR_PRIMARIES)value; break;
+    case RGY_CODEC_H264: codec_config.h264Config.h264VUIParameters.colourPrimaries = (NV_ENC_VUI_COLOR_PRIMARIES)value; break;
+    case RGY_CODEC_AV1:  codec_config.av1Config.colorPrimaries = (NV_ENC_VUI_COLOR_PRIMARIES)value; break;
+    default: break;
+    }
+};
+static NV_ENC_VUI_MATRIX_COEFFS get_colormatrix(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.hevcVUIParameters.colourMatrix;
+    case RGY_CODEC_H264: return codec_config.h264Config.h264VUIParameters.colourMatrix;
+    case RGY_CODEC_AV1:  return codec_config.av1Config.matrixCoefficients;
+    default: return NV_ENC_VUI_MATRIX_COEFFS_UNSPECIFIED;
+    }
+};
+static void set_colormatrix(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const int value) {
+    switch (codec) {
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.hevcVUIParameters.colourMatrix = (NV_ENC_VUI_MATRIX_COEFFS)value; break;
+    case RGY_CODEC_H264: codec_config.h264Config.h264VUIParameters.colourMatrix = (NV_ENC_VUI_MATRIX_COEFFS)value; break;
+    case RGY_CODEC_AV1:  codec_config.av1Config.matrixCoefficients = (NV_ENC_VUI_MATRIX_COEFFS)value; break;
+    default: break;
+    }
+};
+static NV_ENC_VUI_TRANSFER_CHARACTERISTIC get_transfer(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.hevcVUIParameters.transferCharacteristics;
+    case RGY_CODEC_H264: return codec_config.h264Config.h264VUIParameters.transferCharacteristics;
+    case RGY_CODEC_AV1:  return codec_config.av1Config.transferCharacteristics;
+    default: return NV_ENC_VUI_TRANSFER_CHARACTERISTIC_UNDEFINED;
+    }
+};
+static void set_transfer(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const int value) {
+    switch (codec) {
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.hevcVUIParameters.transferCharacteristics = (NV_ENC_VUI_TRANSFER_CHARACTERISTIC)value; break;
+    case RGY_CODEC_H264: codec_config.h264Config.h264VUIParameters.transferCharacteristics = (NV_ENC_VUI_TRANSFER_CHARACTERISTIC)value; break;
+    case RGY_CODEC_AV1:  codec_config.av1Config.transferCharacteristics = (NV_ENC_VUI_TRANSFER_CHARACTERISTIC)value; break;
+    default: break;
+    }
+};
+
+NV_CODEC_PARAM_H264_HEVC_VUI(videoFormat, NV_ENC_VUI_VIDEO_FORMAT_UNSPECIFIED);
+NV_CODEC_PARAM_H264_HEVC_VUI(overscanInfoPresentFlag, 0);
+NV_CODEC_PARAM_H264_HEVC_VUI(overscanInfo, 0);
+NV_CODEC_PARAM_H264_HEVC_VUI(videoSignalTypePresentFlag, 0);
+NV_CODEC_PARAM_H264_HEVC_VUI(colourDescriptionPresentFlag, 0);
+NV_CODEC_PARAM_H264_HEVC_VUI(chromaSampleLocationFlag, 0);
+NV_CODEC_PARAM_H264_HEVC_VUI(chromaSampleLocationTop, 0);
+NV_CODEC_PARAM_H264_HEVC_VUI(chromaSampleLocationBot, 0);
+
+static uint32_t get_colorrange(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.hevcVUIParameters.videoFullRangeFlag;
+    case RGY_CODEC_H264: return codec_config.h264Config.h264VUIParameters.videoFullRangeFlag;
+    case RGY_CODEC_AV1:  return codec_config.av1Config.colorRange;
+    default: return 0;
+    }
+};
+static void set_colorrange(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const uint32_t value) {
+    switch (codec) {
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.hevcVUIParameters.videoFullRangeFlag = value; break;
+    case RGY_CODEC_H264: codec_config.h264Config.h264VUIParameters.videoFullRangeFlag = value; break;
+    case RGY_CODEC_AV1:  codec_config.av1Config.colorRange = value; break;
+    default: break;
+    }
+};
+
+#endif //_NVENC_PARAM_H_

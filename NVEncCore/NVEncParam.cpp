@@ -169,10 +169,10 @@ NV_ENC_CODEC_CONFIG DefaultParamH264() {
     config.h264Config.entropyCodingMode          = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
 
     config.h264Config.h264VUIParameters.overscanInfo = 0;
-    config.h264Config.h264VUIParameters.colourMatrix            = get_cx_value(list_colormatrix, _T("undef"));
-    config.h264Config.h264VUIParameters.colourPrimaries         = get_cx_value(list_colorprim,   _T("undef"));
-    config.h264Config.h264VUIParameters.transferCharacteristics = get_cx_value(list_transfer,    _T("undef"));
-    config.h264Config.h264VUIParameters.videoFormat             = get_cx_value(list_videoformat, _T("undef"));
+    set_colormatrix(config, RGY_CODEC_H264, get_cx_value(list_colormatrix, _T("undef")));
+    set_colorprim(  config, RGY_CODEC_H264, get_cx_value(list_colorprim,   _T("undef")));
+    set_transfer(   config, RGY_CODEC_H264, get_cx_value(list_transfer,    _T("undef")));
+    set_videoFormat(config, RGY_CODEC_H264, get_cx_value(list_videoformat, _T("undef")));
 
     return config;
 }
@@ -190,10 +190,39 @@ NV_ENC_CODEC_CONFIG DefaultParamHEVC() {
     config.hevcConfig.chromaFormatIDC = 1;
 
     config.hevcConfig.hevcVUIParameters.overscanInfo = 0;
-    config.hevcConfig.hevcVUIParameters.colourMatrix            = get_cx_value(list_colormatrix, _T("undef"));
-    config.hevcConfig.hevcVUIParameters.colourPrimaries         = get_cx_value(list_colorprim,   _T("undef"));
-    config.hevcConfig.hevcVUIParameters.transferCharacteristics = get_cx_value(list_transfer,    _T("undef"));
-    config.hevcConfig.hevcVUIParameters.videoFormat             = get_cx_value(list_videoformat, _T("undef"));
+    set_colormatrix(config, RGY_CODEC_HEVC, get_cx_value(list_colormatrix, _T("undef")));
+    set_colorprim(  config, RGY_CODEC_HEVC, get_cx_value(list_colorprim,   _T("undef")));
+    set_transfer(   config, RGY_CODEC_HEVC, get_cx_value(list_transfer,    _T("undef")));
+    set_videoFormat(config, RGY_CODEC_HEVC, get_cx_value(list_videoformat, _T("undef")));
+
+    return config;
+}
+
+NV_ENC_CODEC_CONFIG DefaultParamAV1() {
+    NV_ENC_CODEC_CONFIG config = { 0 };
+
+    config.av1Config.level = NV_ENC_LEVEL_AUTOSELECT;
+    config.av1Config.tier = NV_ENC_TIER_AV1_0;
+    config.av1Config.minPartSize = NV_ENC_AV1_PART_SIZE_AUTOSELECT;
+    config.av1Config.maxPartSize = NV_ENC_AV1_PART_SIZE_AUTOSELECT;
+    config.av1Config.outputAnnexBFormat = 0;
+    config.av1Config.disableSeqHdr = 0;
+    config.av1Config.chromaFormatIDC = 1;
+    config.av1Config.enableBitstreamPadding = 0;
+    config.av1Config.enableCustomTileConfig = 0;
+    config.av1Config.enableFilmGrainParams = 0;
+    config.av1Config.inputPixelBitDepthMinus8 = 0;
+    config.av1Config.pixelBitDepthMinus8 = 0;
+
+    config.av1Config.idrPeriod = DEFAULT_GOP_LENGTH;
+
+    config.av1Config.maxNumRefFramesInDPB = DEFAULT_REF_FRAMES;
+    config.av1Config.chromaFormatIDC = 1;
+    
+    set_colormatrix(config, RGY_CODEC_AV1, get_cx_value(list_colormatrix, _T("undef")));
+    set_colorprim(  config, RGY_CODEC_AV1, get_cx_value(list_colorprim,   _T("undef")));
+    set_transfer(   config, RGY_CODEC_AV1, get_cx_value(list_transfer,    _T("undef")));
+    set_videoFormat(config, RGY_CODEC_AV1, get_cx_value(list_videoformat, _T("undef")));
 
     return config;
 }

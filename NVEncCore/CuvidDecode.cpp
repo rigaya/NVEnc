@@ -73,7 +73,7 @@ CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck) {
 
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         std::vector<RGY_CSP> supported_csp;
-        const auto enc_codec = codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec);
+        const auto enc_codec = codec_rgy_to_dec(HW_DECODE_LIST[i].rgy_codec);
         for (auto csp : test_target_yv12) {
             if (skipHWDecodeCheck) {
                 supported_csp.push_back(csp);
@@ -421,7 +421,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
 
     CUVIDPARSERPARAMS oVideoParserParameters;
     memset(&oVideoParserParameters, 0, sizeof(CUVIDPARSERPARAMS));
-    oVideoParserParameters.CodecType              = codec_rgy_to_enc(input->codec);
+    oVideoParserParameters.CodecType              = codec_rgy_to_dec(input->codec);
     oVideoParserParameters.ulClockRate            = streamtimebase.den;
     oVideoParserParameters.ulMaxNumDecodeSurfaces = FrameQueue::cnMaximumSize;
     oVideoParserParameters.ulMaxDisplayDelay      = (lowLatency) ? 0 : 1;

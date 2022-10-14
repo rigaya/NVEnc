@@ -115,8 +115,9 @@ static bool operator!=(const GUID &guid1, const GUID &guid2) {
 }
 #endif
 
-MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, cudaVideoCodec);
+MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, dec, cudaVideoCodec);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, cudaVideoChromaFormat);
+MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, int);
 MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, NV_ENC_BUFFER_FORMAT);
 MAP_PAIR_0_1_PROTO(codec_guid, rgy, RGY_CODEC, enc, GUID);
 MAP_PAIR_0_1_PROTO(codec_guid_profile, rgy, RGY_CODEC_DATA, enc, GUID);

@@ -147,6 +147,8 @@ enum
 {
     NV_ENC_H264 = 0,
     NV_ENC_HEVC = 1,
+    NV_ENC_AV1  = 2,
+    NV_ENC_CODEC_MAX,
 };
 
 struct MEOnlyConfig

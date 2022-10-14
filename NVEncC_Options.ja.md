@@ -351,6 +351,7 @@ nvidia-smi.exeは通常ドライバと一緒に"C:\Program Files\NVIDIA Corporat
 エンコードするコーデックの指定
  - h264 (デフォルト)
  - hevc
+ - av1
 
 ### -o, --output &lt;string&gt;
 出力ファイル名の表示、"-"でパイプ出力
@@ -421,6 +422,7 @@ avformat + cuvid decoderを使用して読み込む。
 | H.265/HEVC | ○ |
 | VP8        | × |
 | VP9        | ○ |
+| AV1        | ○ |
 | VC-1       | ○ |
 | WMV3/WMV9  | × |
 
@@ -672,6 +674,7 @@ H.264のadaptive transform modeを有効(無効)にする。
 ```
 h264:  auto, 1, 1b, 1.1, 1.2, 1.3, 2, 2.1, 2.2, 3, 3.1, 3.2, 4, 4.1, 4.2, 5, 5.1, 5.2
 hevc:  auto, 1, 2, 2.1, 3, 3.1, 4, 4.1, 5, 5.1, 5.2, 6, 6.1, 6.2
+av1 :  auto, 2, 2.1, 2.2, 2.3, 3, 3.1, 3.2, 3.3, 4, 4.1, 4.2, 4.3, 5, 5.1, 5.2, 5.3, 6, 6.1, 6.2, 6.3, 7, 7.1, 7.2, 7.3
 ```
 
 ### --profile &lt;string&gt;
@@ -679,12 +682,14 @@ hevc:  auto, 1, 2, 2.1, 3, 3.1, 4, 4.1, 5, 5.1, 5.2, 6, 6.1, 6.2
 ```
 h264:  auto, baseline, main, high, high444
 hevc:  auto, main, main10, main444
+av1 :  auto, main, high
 ```
 
 ### --tier &lt;string&gt;
 コーデックのtierを指定する。
 ```
 hevc:  main, high
+av1 :  0, 1
 ```
 
 ### --sar &lt;int&gt;:&lt;int&gt;

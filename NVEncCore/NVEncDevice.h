@@ -229,6 +229,8 @@ public:
 
     bool checkAPIver(uint32_t major, uint8_t minor) const;
     uint32_t getAPIver() const { return m_apiVer; }
+    void setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const;
+    void setStructVer(NV_ENC_CONFIG& obj) const;
 protected:
     //既定の出力先に情報をメッセージを出力
     void PrintMes(RGYLogLevel log_level, const tstring &str);

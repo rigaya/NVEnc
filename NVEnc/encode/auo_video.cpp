@@ -89,15 +89,17 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
 
 void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
     InEncodeVideoParam enc_prm;
-    NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
+    NV_ENC_CODEC_CONFIG codec_prm[NV_ENC_CODEC_MAX] = { 0 };
     codec_prm[NV_ENC_H264] = DefaultParamH264();
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
+    codec_prm[NV_ENC_AV1]  = DefaultParamAV1();
     parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
     if (enc_prm.lossless) {
         enc_prm.yuv444 = true;
     }
-    use_highbit = enc_prm.codec == NV_ENC_HEVC && enc_prm.encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    use_highbit = (enc_prm.codec == NV_ENC_HEVC && enc_prm.encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0)
+               || (enc_prm.codec == NV_ENC_AV1  && enc_prm.encConfig.encodeCodecConfig.av1Config.pixelBitDepthMinus8 > 0);
     if (use_highbit) {
         csp = (enc_prm.yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
     } else {
@@ -491,9 +493,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         return AUO_RESULT_SUCCESS;
 
     InEncodeVideoParam enc_prm;
-    NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
+    NV_ENC_CODEC_CONFIG codec_prm[NV_ENC_CODEC_MAX] = { 0 };
     codec_prm[NV_ENC_H264] = DefaultParamH264();
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
+    codec_prm[NV_ENC_AV1]  = DefaultParamAV1();
     parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
 

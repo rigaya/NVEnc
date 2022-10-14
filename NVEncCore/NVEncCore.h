@@ -96,6 +96,8 @@ public:
     NVENCSTATUS ShowNVEncFeatures(const InEncodeVideoParam *inputParam);
 
 protected:
+    bool encodeIsHighBitDepth(const InEncodeVideoParam *inputParam);
+
     //メインメソッド
     RGY_ERR CheckDynamicRCParams(std::vector<DynamicRCParam> &dynamicRC);
 
@@ -213,6 +215,7 @@ protected:
     unique_ptr<RGYHDRMetadata>    m_hdrsei;
     unique_ptr<DOVIRpu>           m_dovirpu;
     std::unique_ptr<RGYTimestamp> m_encTimestamp;
+    int64_t                       m_encodeFrameID;
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;

@@ -46,6 +46,7 @@ Hardware which supports NVENC
 | NVEnc 5.18 or later | 9.0, 9.1, 10.0, 11.0 | NVIDIA graphics driver 418.81 or later |
 | NVEnc 5.24 or later | 9.0, 9.1, 10.0, 11.0 | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 | NVEnc 5.36 or later | 9.0, 9.1, 10.0, 11.0, 11.1 | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 7.00 or later | 9.0, 9.1, 10.0, 11.0, 11.1, 12.0 | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 
 | Supported NVENC API | Required graphics driver version |
 |:-------------- |:--------------------------------- |
@@ -54,6 +55,7 @@ Hardware which supports NVENC
 | 10.0 | NVIDIA graphics driver (Win 445.87 / Linux 450.51) or later |
 | 11.0 | NVIDIA graphics driver (Win 456.71 / Linux 455.28) or later |
 | 11.1 | NVIDIA graphics driver (Win 471.41 / Linux 470.57.02) or later |
+| 12.0 | ??? |
 
 | CUDA version | Required graphics driver version |
 |:------ |:--------------------------------- |
@@ -79,6 +81,7 @@ Result of --check-features, a feature list returned from the driver. May depend 
 | Volta | [GTX1650](./GPUFeatures/gtx1650.txt) | |
 | Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt), [Tesla T4G @ aarch64](./GPUFeatures/teslaT4G_linux_arm.txt)  |
 | Ampere | [RTX3090](./GPUFeatures/rtx3090.txt), [RTX3080](./GPUFeatures/rtx3080.txt), [RTX3050Ti](./GPUFeatures/rtx3050ti.txt)  | |
+| Ada Lovelace | | |
 
 ## Precautions for using NVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
@@ -94,6 +97,7 @@ which might cause problem in some playback environments.
    - H.265 / HEVC (2nd Gen Maxwell or later)
       - YUV420 / YUV444
       - 10 bits
+   - AV1 (Ada Lovelace or later)
 - Each encode mode of NVENC
    - CQP (fixed quantization)
    - CBR (Constant bitrate)
@@ -112,6 +116,7 @@ which might cause problem in some playback environments.
   - HEVC (10 bit / 12bitdepth with YUV444 support)
   - VC-1
   - VP9
+  - AV1
 - Supports various formats such as avs, vpy, y4m, and raw
 - Supports demux/muxing using libavformat
 - Supports decode using libavcodec

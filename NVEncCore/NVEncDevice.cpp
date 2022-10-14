@@ -50,6 +50,23 @@ bool check_if_nvcuda_dll_available() {
     return true;
 }
 
+static constexpr auto API_VER_LIST = make_array<uint32_t>(
+    nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
+    nvenc_api_ver(11, 1),
+    nvenc_api_ver(11, 0),
+    nvenc_api_ver(10, 0),
+    nvenc_api_ver(9, 1),
+    nvenc_api_ver(9, 0)
+    );
+
+void NVEncoder::setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const {
+    SET_VER(obj, NV_ENC_INITIALIZE_PARAMS, m_apiVer);
+}
+
+void NVEncoder::setStructVer(NV_ENC_CONFIG& obj) const {
+    SET_VER(obj, NV_ENC_CONFIG, m_apiVer);
+}
+
 NVEncCodecFeature::NVEncCodecFeature(GUID codec_) :
     codec(codec_),
     profiles(),
@@ -446,14 +463,6 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
 
-    static constexpr auto API_VER_LIST = make_array<uint32_t>(
-        nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
-        nvenc_api_ver(11, 0),
-        nvenc_api_ver(10, 0),
-        nvenc_api_ver( 9, 1),
-        nvenc_api_ver( 9, 0)
-    );
-
     NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
     INIT_CONFIG(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS, API_VER_LIST.front());
 
@@ -630,7 +639,7 @@ NVENCSTATUS NVEncoder::setCodecPresetList(NVEncCodecFeature& codecFeature, bool 
     if (getPresetConfig) {
         for (uint32_t i = 0; i < codecFeature.presets.size(); i++) {
             INIT_CONFIG(codecFeature.presetConfigs[i], NV_ENC_PRESET_CONFIG, m_apiVer);
-            SET_VER(codecFeature.presetConfigs[i].presetCfg, NV_ENC_CONFIG, m_apiVer);
+            setStructVer(codecFeature.presetConfigs[i].presetCfg);
             if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(m_hEncoder, codecFeature.codec, codecFeature.presets[i], &codecFeature.presetConfigs[i]))) {
                 NVPrintFuncError(_T("nvEncGetEncodePresetConfig"), nvStatus);
                 return nvStatus;

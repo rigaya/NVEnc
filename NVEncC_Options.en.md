@@ -333,6 +333,7 @@ nvidia-smi is usually installed in "C:\Program Files\NVIDIA Corporation\NVSMI\nv
 Specify the output codec
  - h264 (default)
  - hevc
+ - av1
 
 ### -o, --output &lt;string&gt;
 Set output file name, pipe output with "-"
@@ -409,6 +410,7 @@ since entire transcode process will be run on the GPU.
 | H.265/HEVC | ○ |
 | VP8        | × |
 | VP9        | ○ |
+| AV1        | ○ |
 | VC-1       | ○ |
 | WMV3/WMV9  | × |
 
@@ -666,6 +668,7 @@ Specify the Level of the codec to be encoded. If not specified, it will be autom
 ```
 h264: auto, 1, 1 b, 1.1, 1.2, 1.3, 2, 2.1, 2.2, 3, 3.1, 3.2, 4, 4.1, 4.2, 5, 5.1, 5.2
 hevc: auto, 1, 2, 2.1, 3, 3.1, 4, 4.1, 5, 5.1, 5.2, 6, 6.1, 6.2
+av1 :  auto, 2, 2.1, 2.2, 2.3, 3, 3.1, 3.2, 3.3, 4, 4.1, 4.2, 4.3, 5, 5.1, 5.2, 5.3, 6, 6.1, 6.2, 6.3, 7, 7.1, 7.2, 7.3
 ```
 
 ### --profile &lt;string&gt;
@@ -673,12 +676,14 @@ Specify the profile of the codec to be encoded. If not specified, it will be aut
 ```
 h264:  auto, baseline, main, high, high444
 hevc:  auto, main, main10, main444
+av1 :  auto, main, high
 ```
 
 ### --tier &lt;string&gt;  [HEVC only]
 Specify the tier of the codec.
 ```
 hevc:  main, high
+av1 :  0, 1
 ```
 
 ### --sar &lt;int&gt;:&lt;int&gt;

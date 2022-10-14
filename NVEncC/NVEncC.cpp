@@ -398,9 +398,10 @@ int _tmain(int argc, TCHAR **argv) {
     }
 
     InEncodeVideoParam encPrm;
-    NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
+    NV_ENC_CODEC_CONFIG codecPrm[NV_ENC_CODEC_MAX] = { 0 };
     codecPrm[NV_ENC_H264] = DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
+    codecPrm[NV_ENC_AV1]  = DefaultParamAV1();
 
     //optionファイルの読み取り
     std::vector<tstring> argvCnfFile;

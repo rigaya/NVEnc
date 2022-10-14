@@ -1367,9 +1367,10 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
     InEncodeVideoParam encPrm;
-    NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
+    NV_ENC_CODEC_CONFIG codecPrm[NV_ENC_CODEC_MAX] = { 0 };
     codecPrm[NV_ENC_H264] = DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
+    codecPrm[NV_ENC_AV1]  = DefaultParamAV1();
     parse_cmd(&encPrm, codecPrm, cnf->enc.cmd);
 
     SetCXIndex(fcgCXEncCodec,          get_index_from_value(encPrm.codec, list_nvenc_codecs));
@@ -1610,9 +1611,10 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
 System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     InEncodeVideoParam encPrm;
-    NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
+    NV_ENC_CODEC_CONFIG codecPrm[NV_ENC_CODEC_MAX] = { 0 };
     codecPrm[NV_ENC_H264] = DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
+    codecPrm[NV_ENC_AV1]  = DefaultParamAV1();
 
     //これもひたすら書くだけ。めんどい
     encPrm.codec = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;

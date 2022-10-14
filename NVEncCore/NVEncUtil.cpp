@@ -43,16 +43,27 @@ static const auto RGY_CODEC_TO_NVENC = make_array<std::pair<RGY_CODEC, cudaVideo
     std::make_pair(RGY_CODEC_AV1,   cudaVideoCodec_AV1)
     );
 
-MAP_PAIR_0_1(codec, rgy, RGY_CODEC, enc, cudaVideoCodec, RGY_CODEC_TO_NVENC, RGY_CODEC_UNKNOWN, cudaVideoCodec_NumCodecs);
+MAP_PAIR_0_1(codec, rgy, RGY_CODEC, dec, cudaVideoCodec, RGY_CODEC_TO_NVENC, RGY_CODEC_UNKNOWN, cudaVideoCodec_NumCodecs);
 
 static const GUID GUID_EMPTY = { 0 };
 
 static const auto RGY_CODEC_TO_GUID = make_array<std::pair<RGY_CODEC, GUID>>(
     std::make_pair(RGY_CODEC_H264, NV_ENC_CODEC_H264_GUID),
-    std::make_pair(RGY_CODEC_HEVC, NV_ENC_CODEC_HEVC_GUID)
+    std::make_pair(RGY_CODEC_HEVC, NV_ENC_CODEC_HEVC_GUID),
+    std::make_pair(RGY_CODEC_AV1,  NV_ENC_CODEC_AV1_GUID)
     );
 
 MAP_PAIR_0_1(codec_guid, rgy, RGY_CODEC, enc, GUID, RGY_CODEC_TO_GUID, RGY_CODEC_UNKNOWN, GUID_EMPTY);
+
+
+static const auto RGY_CODEC_TO_ENC_CODEC = make_array<std::pair<RGY_CODEC, int>>(
+    std::make_pair(RGY_CODEC_H264, NV_ENC_H264),
+    std::make_pair(RGY_CODEC_HEVC, NV_ENC_HEVC),
+    std::make_pair(RGY_CODEC_AV1,  NV_ENC_AV1)
+    );
+
+MAP_PAIR_0_1(codec, rgy, RGY_CODEC, enc, int, RGY_CODEC_TO_ENC_CODEC, RGY_CODEC_UNKNOWN, NV_ENC_CODEC_MAX);
+
 
 static const auto RGY_CODEC_PROFILE_TO_GUID = make_array<std::pair<RGY_CODEC_DATA, GUID>>(
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 77),  NV_ENC_H264_PROFILE_BASELINE_GUID),
@@ -61,7 +72,9 @@ static const auto RGY_CODEC_PROFILE_TO_GUID = make_array<std::pair<RGY_CODEC_DAT
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 144), NV_ENC_H264_PROFILE_HIGH_444_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 1),   NV_ENC_HEVC_PROFILE_MAIN_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 2),   NV_ENC_HEVC_PROFILE_MAIN10_GUID),
-    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 4),   NV_ENC_HEVC_PROFILE_FREXT_GUID)
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 4),   NV_ENC_HEVC_PROFILE_FREXT_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_AV1,  0),   NV_ENC_AV1_PROFILE_MAIN_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_AV1,  1),   NV_ENC_AV1_PROFILE_HIGH_GUID)
     );
 
 MAP_PAIR_0_1(codec_guid_profile, rgy, RGY_CODEC_DATA, enc, GUID, RGY_CODEC_PROFILE_TO_GUID, RGY_CODEC_DATA(), GUID_EMPTY);

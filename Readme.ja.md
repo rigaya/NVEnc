@@ -45,6 +45,7 @@ NVEncが載ったハードウェア
 | NVEnc 5.18 以降 | 9.0, 9.1, 10.0, 11.0 | NVIDIA グラフィックドライバ 418.81 以降 (x64) <br> NVIDIA グラフィックドライバ 456.81 以降 (x86) |
 | NVEnc 5.24 以降 | 9.0, 9.1, 10.0, 11.0 | NVIDIA グラフィックドライバ 418.81 以降 (x64) <br> NVIDIA グラフィックドライバ 456.81 以降 (x86) |
 | NVEnc 5.36 以降 | 9.0, 9.1, 10.0, 11.0, 11.1 | NVIDIA グラフィックドライバ 418.81 以降 (x64) <br> NVIDIA グラフィックドライバ 456.81 以降 (x86) |
+| NVEnc 7.00 以降 | 9.0, 9.1, 10.0, 11.0, 11.1, 12.0 | NVIDIA グラフィックドライバ 418.81 以降 (x64) <br> NVIDIA グラフィックドライバ 456.81 以降 (x86) |
 
 | 対応するNVENC SDK API | 必要なグラフィックドライバのバージョン |
 |:-------------- |:--------------------------------- |
@@ -53,6 +54,7 @@ NVEncが載ったハードウェア
 | 10.0 | NVIDIA グラフィックドライバ (Win 445.87 / Linux 450.51) 以降 |
 | 11.0 | NVIDIA グラフィックドライバ (Win 456.71 / Linux 455.28) 以降 |
 | 11.1 | NVIDIA グラフィックドライバ (Win 471.41 / Linux 470.57.02) 以降 |
+| 12.0 | ??? |
 
 | CUDAバージョン | 必要なグラフィックドライバのバージョン |
 |:------ |:--------------------------------- |
@@ -78,6 +80,7 @@ NVEncC --check-features の結果をまとめたものです。ドライバに�
 | Volta | [GTX1650](./GPUFeatures/gtx1650.txt) | |
 | Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt) | [Tesla T4](./GPUFeatures/teslaT4_linux.txt)  |
 | Ampere | [RTX3090](./GPUFeatures/rtx3090.txt), [RTX3080](./GPUFeatures/rtx3080.txt), [RTX3050Ti](./GPUFeatures/rtx3050ti.txt)  | |
+| Ada Lovelace | | |
 
 ## NVEnc 使用にあたっての注意事項  
 無保証です。自己責任で使用してください。   
@@ -94,6 +97,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
    - H.265/HEVC (第2世代Maxwell以降)
       - YUV4:4:4対応
       - 10bit
+   - AV1 (Ada Lovelace以降)
 - NVENCの各エンコードモード
    - CQP       固定量子化量
    - CBR       固定ビットレート
@@ -123,6 +127,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   - HEVC (10bit/12bit YUV4:4:4対応)
   - VC-1
   - VP9
+  - AV1
 - avs, vpy, y4m, rawなど各種形式に対応
 - エンコード結果のSSIM/PSNR/VMAFを計算
 - GPUを使用した高速フィルタリング
