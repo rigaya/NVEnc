@@ -65,14 +65,6 @@ static const TCHAR *NVENCODE_API_DLL2 = _T("libnvidia-encode.so.1");
 #define ENABLE_ASYNC 0
 #endif
 
-#define INIT_CONFIG(configStruct, type, apiver) { \
-    memset(&(configStruct), 0, sizeof(configStruct)); \
-    (configStruct).version = ((type##_VER & 0xf0ff0000) | apiver); \
-}
-#define SET_VER(configStruct, type, apiver) { \
-    (configStruct).version = ((type##_VER & 0xf0ff0000) | apiver); \
-}
-
 #define MAX_ENCODE_QUEUE 64
 
 typedef NVENCSTATUS(NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST *);
@@ -231,6 +223,19 @@ public:
     uint32_t getAPIver() const { return m_apiVer; }
     void setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const;
     void setStructVer(NV_ENC_CONFIG& obj) const;
+    void setStructVer(NV_ENC_PIC_PARAMS& obj) const;
+    void setStructVer(NV_ENC_LOCK_BITSTREAM& obj) const;
+    void setStructVer(NV_ENC_REGISTER_RESOURCE& obj) const;
+    void setStructVer(NV_ENC_RECONFIGURE_PARAMS& obj) const;
+    void setStructVer(NV_ENC_CREATE_INPUT_BUFFER& obj) const;
+    void setStructVer(NV_ENC_CREATE_BITSTREAM_BUFFER& obj) const;
+    void setStructVer(NV_ENC_LOCK_INPUT_BUFFER& obj) const;
+    void setStructVer(NV_ENC_EVENT_PARAMS& obj) const;
+    void setStructVer(NV_ENC_MAP_INPUT_RESOURCE& obj) const;
+    void setStructVer(NV_ENC_PRESET_CONFIG& obj) const;
+    void setStructVer(NV_ENC_CAPS_PARAM& obj) const;
+    void setStructVer(NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS& obj, const uint32_t apiver) const;
+    void setStructVer(NV_ENCODE_API_FUNCTION_LIST& obj, const uint32_t apiver) const;
 protected:
     //既定の出力先に情報をメッセージを出力
     void PrintMes(RGYLogLevel log_level, const tstring &str);

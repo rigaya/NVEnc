@@ -50,6 +50,24 @@ bool check_if_nvcuda_dll_available() {
     return true;
 }
 
+// NVENC_STRUCT_VER1 と NVENC_STRUCT_VER2 は 1<<31 の有無の違い
+// 構造体により異なる
+#define NVENC_STRUCT_VER1(structver, apiver) ((uint32_t)(apiver) | (uint32_t)((structver) << 16) | (0x7 << 28) | (1<<31))
+#define NVENC_STRUCT_VER2(structver, apiver) ((uint32_t)(apiver) | (uint32_t)((structver) << 16) | (0x7 << 28))
+
+#define INIT_STRUCT(configStruct) { \
+    memset(&(configStruct), 0, sizeof(configStruct)); \
+    setStructVer(configStruct); \
+}
+#define INIT_STRUCT_BY_APIVER(configStruct, apiver) { \
+    memset(&(configStruct), 0, sizeof(configStruct)); \
+    setStructVer(configStruct, (apiver)); \
+}
+
+//前提とするAPIバージョンのチェック
+static_assert(NVENCAPI_MAJOR_VERSION == 12);
+static_assert(NVENCAPI_MINOR_VERSION == 0);
+//対応するAPIバージョンの管理
 static constexpr auto API_VER_LIST = make_array<uint32_t>(
     nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
     nvenc_api_ver(11, 1),
@@ -59,13 +77,121 @@ static constexpr auto API_VER_LIST = make_array<uint32_t>(
     nvenc_api_ver(9, 0)
     );
 
+//対応するAPIバージョンによる構造体のバージョン管理
+//APIバージョンが異なると、構造体のバージョンも異なる場合があるので、これを一括で管理する
+//API v9 - v11.1までは変更がなかった
+//現在のAPIバージョンによって、必要に応じて異なるバージョンで初期化し、互換性を維持する
+//static_assertでは現在のAPIバージョンが一致するかを確認し、将来のアップデートに備える
+void NVEncoder::setStructVer(NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS& obj, const uint32_t apiver) const {
+    if (nvenc_api_ver_check(apiver, nvenc_api_ver(12, 0))) {
+        static const int latest_ver = 1;
+        static_assert(NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER2(latest_ver, apiver);
+    } else {
+        obj.version = NVENC_STRUCT_VER2(1, apiver); // いまは同じ
+    }
+}
+void NVEncoder::setStructVer(NV_ENCODE_API_FUNCTION_LIST& obj, const uint32_t apiver) const {
+    if (nvenc_api_ver_check(apiver, nvenc_api_ver(12, 0))) {
+        static const int latest_ver = 2;
+        static_assert(NV_ENCODE_API_FUNCTION_LIST_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER2(latest_ver, apiver);
+    } else {
+        obj.version = NVENC_STRUCT_VER2(2, apiver); // いまは同じ
+    }
+}
 void NVEncoder::setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const {
-    SET_VER(obj, NV_ENC_INITIALIZE_PARAMS, m_apiVer);
+    static const int latest_ver = 5;
+    static_assert(NV_ENC_INITIALIZE_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
 }
 
 void NVEncoder::setStructVer(NV_ENC_CONFIG& obj) const {
-    SET_VER(obj, NV_ENC_CONFIG, m_apiVer);
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
+        static const int latest_ver = 8;
+        static_assert(NV_ENC_CONFIG_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    } else {
+        //API 11.1までは7
+        obj.version = NVENC_STRUCT_VER1(7, m_apiVer);
+    }
 }
+
+void NVEncoder::setStructVer(NV_ENC_PIC_PARAMS& obj) const {
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
+        static const int latest_ver = 6;
+        static_assert(NV_ENC_PIC_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    } else {
+        //API 11.1までは7
+        obj.version = NVENC_STRUCT_VER1(4, m_apiVer);
+    }
+}
+
+void NVEncoder::setStructVer(NV_ENC_LOCK_BITSTREAM& obj) const {
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
+        static const int latest_ver = 2;
+        static_assert(NV_ENC_LOCK_BITSTREAM_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    } else {
+        //API 11.1までは1
+        obj.version = NVENC_STRUCT_VER2(1, m_apiVer);
+    }
+}
+
+void NVEncoder::setStructVer(NV_ENC_REGISTER_RESOURCE& obj) const {
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
+        static const int latest_ver = 4;
+        static_assert(NV_ENC_REGISTER_RESOURCE_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    } else {
+        //API 11.1までは3
+        obj.version = NVENC_STRUCT_VER2(3, m_apiVer);
+    }
+}
+
+void NVEncoder::setStructVer(NV_ENC_RECONFIGURE_PARAMS& obj) const {
+    static const int latest_ver = 1;
+    static_assert(NV_ENC_RECONFIGURE_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+}
+void NVEncoder::setStructVer(NV_ENC_CREATE_INPUT_BUFFER& obj) const {
+    static const int latest_ver = 1;
+    static_assert(NV_ENC_CREATE_INPUT_BUFFER_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+}
+void NVEncoder::setStructVer(NV_ENC_CREATE_BITSTREAM_BUFFER& obj) const {
+    static const int latest_ver = 1;
+    static_assert(NV_ENC_CREATE_BITSTREAM_BUFFER_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+}
+void NVEncoder::setStructVer(NV_ENC_LOCK_INPUT_BUFFER& obj) const {
+    static const int latest_ver = 1;
+    static_assert(NV_ENC_LOCK_INPUT_BUFFER_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+}
+void NVEncoder::setStructVer(NV_ENC_EVENT_PARAMS& obj) const {
+    static const int latest_ver = 1;
+    static_assert(NV_ENC_EVENT_PARAMS_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+}
+void NVEncoder::setStructVer(NV_ENC_MAP_INPUT_RESOURCE& obj) const {
+    static const int latest_ver = 4;
+    static_assert(NV_ENC_MAP_INPUT_RESOURCE_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+}
+void NVEncoder::setStructVer(NV_ENC_PRESET_CONFIG& obj) const {
+    static const int latest_ver = 4;
+    static_assert(NV_ENC_PRESET_CONFIG_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+}
+void NVEncoder::setStructVer(NV_ENC_CAPS_PARAM& obj) const {
+    static const int latest_ver = 1;
+    static_assert(NV_ENC_CAPS_PARAM_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+}
+#undef NVENC_STRUCT_VER1
+#undef NVENC_STRUCT_VER2
 
 NVEncCodecFeature::NVEncCodecFeature(GUID codec_) :
     codec(codec_),
@@ -175,7 +301,7 @@ void NVEncoder::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
 
 NVENCSTATUS NVEncoder::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat) {
     NV_ENC_CREATE_INPUT_BUFFER createInputBufferParams;
-    INIT_CONFIG(createInputBufferParams, NV_ENC_CREATE_INPUT_BUFFER, m_apiVer);
+    INIT_STRUCT(createInputBufferParams);
 
     createInputBufferParams.width = width;
     createInputBufferParams.height = height;
@@ -208,7 +334,7 @@ NVENCSTATUS NVEncoder::NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer) {
 NVENCSTATUS NVEncoder::NvEncCreateBitstreamBuffer(uint32_t size, void **bitstreamBuffer) {
     UNREFERENCED_PARAMETER(size);
     NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBufferParams;
-    INIT_CONFIG(createBitstreamBufferParams, NV_ENC_CREATE_BITSTREAM_BUFFER, m_apiVer);
+    INIT_STRUCT(createBitstreamBufferParams);
 
     //ここでは特に指定せず、ドライバにバッファサイズを決めさせる
     //createBitstreamBufferParams.size = size;
@@ -257,7 +383,7 @@ NVENCSTATUS NVEncoder::NvEncUnlockBitstream(NV_ENC_OUTPUT_PTR bitstreamBuffer) {
 
 NVENCSTATUS NVEncoder::NvEncLockInputBuffer(void *inputBuffer, void **bufferDataPtr, uint32_t *pitch) {
     NV_ENC_LOCK_INPUT_BUFFER lockInputBufferParams;
-    INIT_CONFIG(lockInputBufferParams, NV_ENC_LOCK_INPUT_BUFFER, m_apiVer);
+    INIT_STRUCT(lockInputBufferParams);
 
     lockInputBufferParams.inputBuffer = inputBuffer;
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockInputBuffer(m_hEncoder, &lockInputBufferParams);
@@ -322,7 +448,7 @@ NVENCSTATUS NVEncoder::NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD *seq
 NVENCSTATUS NVEncoder::NvEncRegisterAsyncEvent(void **completionEvent) {
 #if ENABLE_ASYNC
     NV_ENC_EVENT_PARAMS eventParams;
-    INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS, m_apiVer);
+    INIT_STRUCT(eventParams);
 
     eventParams.completionEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncRegisterAsyncEvent(m_hEncoder, &eventParams);
@@ -344,7 +470,7 @@ NVENCSTATUS NVEncoder::NvEncUnregisterAsyncEvent(void *completionEvent) {
 #if ENABLE_ASYNC
     if (completionEvent) {
         NV_ENC_EVENT_PARAMS eventParams;
-        INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS, m_apiVer);
+        INIT_STRUCT(eventParams);
 
         eventParams.completionEvent = completionEvent;
 
@@ -361,8 +487,7 @@ NVENCSTATUS NVEncoder::NvEncUnregisterAsyncEvent(void *completionEvent) {
 NVENCSTATUS NVEncoder::NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister, uint32_t width, uint32_t height, uint32_t pitch, NV_ENC_BUFFER_FORMAT inputFormat, void** registeredResource) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     NV_ENC_REGISTER_RESOURCE registerResParams;
-
-    INIT_CONFIG(registerResParams, NV_ENC_REGISTER_RESOURCE, m_apiVer);
+    INIT_STRUCT(registerResParams);
 
     registerResParams.resourceType = resourceType;
     registerResParams.resourceToRegister = resourceToRegister;
@@ -394,7 +519,7 @@ NVENCSTATUS NVEncoder::NvEncUnregisterResource(NV_ENC_REGISTERED_PTR registeredR
 
 NVENCSTATUS NVEncoder::NvEncMapInputResource(void *registeredResource, void **mappedResource) {
     NV_ENC_MAP_INPUT_RESOURCE mapInputResParams;
-    INIT_CONFIG(mapInputResParams, NV_ENC_MAP_INPUT_RESOURCE, m_apiVer);
+    INIT_STRUCT(mapInputResParams);
 
     mapInputResParams.registeredResource = registeredResource;
 
@@ -437,7 +562,7 @@ NVENCSTATUS NVEncoder::NvEncDestroyEncoder() {
 
 NVENCSTATUS NVEncoder::NvEncFlushEncoderQueue(void *hEOSEvent) {
     NV_ENC_PIC_PARAMS encPicParams;
-    INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS, m_apiVer);
+    INIT_STRUCT(encPicParams);
     encPicParams.encodePicFlags = NV_ENC_PIC_FLAG_EOS;
     encPicParams.completionEvent = hEOSEvent;
 
@@ -464,7 +589,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
     }
 
     NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
-    INIT_CONFIG(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS, API_VER_LIST.front());
+    INIT_STRUCT_BY_APIVER(openSessionExParams, API_VER_LIST.front());
 
     openSessionExParams.device = device;
     openSessionExParams.deviceType = deviceType;
@@ -472,7 +597,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
 
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     for (const auto apiver : API_VER_LIST) {
-        INIT_CONFIG((*m_pEncodeAPI), NV_ENCODE_API_FUNCTION_LIST, apiver);
+        INIT_STRUCT_BY_APIVER((*m_pEncodeAPI), apiver);
 
         nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI.get());
         if (nvStatus != NV_ENC_SUCCESS) {
@@ -486,7 +611,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
         PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x): Success.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
 
         openSessionExParams.apiVersion = apiver;
-        SET_VER(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS, apiver);
+        setStructVer(openSessionExParams, apiver);
         nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder);
         if (nvStatus != NV_ENC_ERR_INVALID_VERSION) {
             break;
@@ -638,7 +763,7 @@ NVENCSTATUS NVEncoder::setCodecPresetList(NVEncCodecFeature& codecFeature, bool 
     }
     if (getPresetConfig) {
         for (uint32_t i = 0; i < codecFeature.presets.size(); i++) {
-            INIT_CONFIG(codecFeature.presetConfigs[i], NV_ENC_PRESET_CONFIG, m_apiVer);
+            INIT_STRUCT(codecFeature.presetConfigs[i]);
             setStructVer(codecFeature.presetConfigs[i].presetCfg);
             if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(m_hEncoder, codecFeature.codec, codecFeature.presets[i], &codecFeature.presetConfigs[i]))) {
                 NVPrintFuncError(_T("nvEncGetEncodePresetConfig"), nvStatus);
@@ -673,7 +798,7 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     auto add_cap_info = [&](NV_ENC_CAPS cap_id, bool for_h264_only, bool is_boolean, const TCHAR *cap_name, const CX_DESC *desc = nullptr) {
         if (!(!check_h264 && for_h264_only)) {
             NV_ENC_CAPS_PARAM param;
-            INIT_CONFIG(param, NV_ENC_CAPS_PARAM, m_apiVer);
+            INIT_STRUCT(param);
             param.capsToQuery = cap_id;
             int value = 0;
             NVENCSTATUS result = m_pEncodeAPI->nvEncGetEncodeCaps(m_hEncoder, codecFeature.codec, &param, &value);

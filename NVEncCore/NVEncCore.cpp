@@ -315,8 +315,8 @@ NVEncCore::NVEncCore() :
     m_keyFile.clear();
     m_keyOnChapter = false;
 #endif //#if ENABLE_AVSW_READER
-    INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS, 0);
-    INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG, 0);
+    memset(&m_stCreateEncodeParams, 0, sizeof(m_stCreateEncodeParams));
+    memset(&m_stEncConfig, 0, sizeof(m_stEncConfig));
     memset(&m_stCodecGUID,    0, sizeof(m_stCodecGUID));
     memset(&m_stEOSOutputBfr, 0, sizeof(m_stEOSOutputBfr));
     memset(&m_stEncodeBuffer, 0, sizeof(m_stEncodeBuffer));
@@ -995,7 +995,8 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
 
     NVTXRANGE(ProcessOutput);
     NV_ENC_LOCK_BITSTREAM lockBitstreamData;
-    INIT_CONFIG(lockBitstreamData, NV_ENC_LOCK_BITSTREAM, m_dev->encoder()->getAPIver());
+    memset(&lockBitstreamData, 0, sizeof(lockBitstreamData));
+    m_dev->encoder()->setStructVer(lockBitstreamData);
     lockBitstreamData.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
     lockBitstreamData.doNotWait = false;
 
@@ -1806,7 +1807,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
-    INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS, m_dev->encoder()->getAPIver());
     m_stCreateEncodeParams.encodeConfig        = &m_stEncConfig;
     m_stCreateEncodeParams.encodeHeight        = m_uEncHeight;
     m_stCreateEncodeParams.encodeWidth         = m_uEncWidth;
@@ -3348,8 +3348,8 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
 
 NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int id, const int64_t timestamp, const int64_t duration, const int inputFrameId, const std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) {
     PrintMes((inputFrameId < 0 || timestamp < 0 || duration < 0) ? RGY_LOG_WARN : RGY_LOG_TRACE, _T("Sending frame #%d to encoder: timestamp %lld, duration %lld\n"), inputFrameId, timestamp, duration);
-    NV_ENC_PIC_PARAMS encPicParams;
-    INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS, m_dev->encoder()->getAPIver());
+    NV_ENC_PIC_PARAMS encPicParams = { 0 };
+    m_dev->encoder()->setStructVer(encPicParams);
 
     if (m_dynamicRC.size() > 0) {
         int selectedIdx = DYNAMIC_PARAM_NOT_SELECTED;
@@ -3364,7 +3364,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
         if (m_appliedDynamicRC != selectedIdx) {
             NV_ENC_CONFIG encConfig = m_stEncConfig; //エンコード設定
             NV_ENC_RECONFIGURE_PARAMS reconf_params = { 0 };
-            INIT_CONFIG(reconf_params, NV_ENC_RECONFIGURE_PARAMS, m_dev->encoder()->getAPIver());
+            m_dev->encoder()->setStructVer(reconf_params);
             reconf_params.resetEncoder = 1;
             reconf_params.forceIDR = 1;
             reconf_params.reInitEncodeParams = m_stCreateEncodeParams;
