@@ -182,7 +182,7 @@ const guid_desc list_nvenc_preset_names_ver10[] = {
 const guid_desc list_nvenc_codecs[] = {
     { NV_ENC_CODEC_H264_GUID, _T("H.264/AVC"),  NV_ENC_H264 },
     { NV_ENC_CODEC_HEVC_GUID, _T("H.265/HEVC"), NV_ENC_HEVC },
-    { NV_ENC_CODEC_AV1_GUID,  _T("AV1"),       NV_ENC_AV1 },
+    { NV_ENC_CODEC_AV1_GUID,  _T("AV1"),        NV_ENC_AV1 },
 };
 const CX_DESC list_nvenc_multipass_mode[] = {
     { _T("none"),          NV_ENC_MULTI_PASS_DISABLED },

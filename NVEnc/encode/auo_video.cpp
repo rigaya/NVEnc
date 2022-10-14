@@ -98,8 +98,7 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
     if (enc_prm.lossless) {
         enc_prm.yuv444 = true;
     }
-    use_highbit = (enc_prm.codec == NV_ENC_HEVC && enc_prm.encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0)
-               || (enc_prm.codec == NV_ENC_AV1  && enc_prm.encConfig.encodeCodecConfig.av1Config.pixelBitDepthMinus8 > 0);
+    use_highbit = get_pixelBitDepthMinus8(enc_prm.encConfig.encodeCodecConfig, codec_enc_to_rgy(enc_prm.codec)) > 0;
     if (use_highbit) {
         csp = (enc_prm.yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
     } else {

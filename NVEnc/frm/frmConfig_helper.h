@@ -89,6 +89,7 @@ namespace NVEnc {
         bool hwencAvail;
         bool h264Enc;
         bool hevcEnc;
+        bool av1Enc;
         List<String^>^ devices;
     };
     /*

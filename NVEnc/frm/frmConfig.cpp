@@ -853,6 +853,8 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCOutBitDepth,   list_bitdepth);
+    setComboBox(fcgCXCodecProfileAV1,   av1_profile_names);
+    setComboBox(fcgCXCodecLevelAV1,     list_av1_level);
     setComboBox(fcgCXAQ,                list_aq);
     setComboBox(fcgCXBrefMode,          list_bref_mode);
     setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
@@ -933,8 +935,9 @@ System::Void frmConfig::InitStgFileList() {
 }
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
-    bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
-    bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
+    const bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
+    const bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
+    const bool av1_mode  = fcgCXEncCodec->SelectedIndex == NV_ENC_AV1;
 
     bool qvbr_mode = false;
     int vce_rc_method = list_encmode[fcgCXEncMode->SelectedIndex].value;
@@ -947,10 +950,11 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 
     this->SuspendLayout();
 
-    fcgPNHEVC->Visible = hevc_mode;
     fcgPNH264->Visible = h264_mode;
-    fcgPNHEVCDetail->Visible = hevc_mode;
+    fcgPNHEVC->Visible = hevc_mode;
+    fcgPNAV1->Visible = av1_mode;
     fcgPNH264Detail->Visible = h264_mode;
+    fcgPNHEVCDetail->Visible = hevc_mode;
 
     fcgPNQP->Visible = cqp_mode;
     fcgNUQPI->Enabled = cqp_mode;
@@ -990,11 +994,13 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 }
 
 System::Void frmConfig::fcgCodecChanged(System::Object^  sender, System::EventArgs^  e) {
-    bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
-    bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
+    const bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
+    const bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
+    const bool av1_mode  = fcgCXEncCodec->SelectedIndex == NV_ENC_AV1;
     if (hevc_mode && !nvencInfo.hevcEnc) {
-        h264_mode = true;
-        hevc_mode = false;
+        fcgCXEncCodec->SelectedIndex = NV_ENC_H264;
+    }
+    if (av1_mode && !nvencInfo.av1Enc) {
         fcgCXEncCodec->SelectedIndex = NV_ENC_H264;
     }
 }
@@ -1211,6 +1217,9 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBQPMax1);
     LOAD_CLI_TEXT(fxgLBHEVCTier);
     LOAD_CLI_TEXT(fcgLBHEVCProfile);
+    LOAD_CLI_TEXT(fcgLBCodecProfileAV1);
+    LOAD_CLI_TEXT(fcgLBCodecLevelAV1);
+    LOAD_CLI_TEXT(fcgLBOutBitDepthAV1);
     LOAD_CLI_TEXT(tabPageVideoDetail);
     LOAD_CLI_TEXT(fcgLBLossless);
     LOAD_CLI_TEXT(fcgLBCudaSchdule);
@@ -1440,6 +1449,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   codecPrm[NV_ENC_HEVC].hevcConfig.level));
     SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize));
     SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize));
+
+    //AV1
+    SetCXIndex(fcgCXOutBitDepthAV1,    get_cx_index(list_bitdepth, codecPrm[NV_ENC_AV1].av1Config.pixelBitDepthMinus8));
+    SetCXIndex(fcgCXCodecProfileAV1,   get_index_from_value(codecPrm[NV_ENC_HEVC].av1Config.tier, av1_profile_names));
+    SetCXIndex(fcgCXCodecLevelAV1,     get_cx_index(list_av1_level,   codecPrm[NV_ENC_HEVC].av1Config.level));
 
     SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat, encPrm.common.out_vui.format));
     fcgCBFullrange->Checked                                         = encPrm.common.out_vui.colorrange == RGY_COLORRANGE_FULL;
@@ -1705,6 +1719,12 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     codecPrm[NV_ENC_HEVC].hevcConfig.tier  = h265_profile_names[fcgCXHEVCTier->SelectedIndex].value;
     codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMaxCUSize->SelectedIndex].value;
     codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
+
+    //AV1
+    codecPrm[NV_ENC_AV1].av1Config.pixelBitDepthMinus8 = list_bitdepth[fcgCXOutBitDepthAV1->SelectedIndex].value;
+    codecPrm[NV_ENC_AV1].av1Config.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
+    codecPrm[NV_ENC_AV1].av1Config.level = list_av1_level[fcgCXCodecLevelAV1->SelectedIndex].value;
+    codecPrm[NV_ENC_AV1].av1Config.tier = av1_profile_names[fcgCXCodecProfileAV1->SelectedIndex].value;
 
     encPrm.common.out_vui.format    = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
     encPrm.common.out_vui.colorrange = fcgCBFullrange->Checked ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
@@ -2088,6 +2108,9 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgCXHEVCOutBitDepth);
     SET_TOOL_TIP_EX(fcgCXHEVCTier);
     SET_TOOL_TIP_EX(fxgCXHEVCLevel);
+    SET_TOOL_TIP_EX(fcgCXOutBitDepthAV1);
+    SET_TOOL_TIP_EX(fcgCXCodecProfileAV1);
+    SET_TOOL_TIP_EX(fcgCXCodecLevelAV1);
     SET_TOOL_TIP_EX(fcgCBBluray);
     SET_TOOL_TIP_EX(fcgCXCodecProfile);
     SET_TOOL_TIP_EX(fcgCXCodecLevel);
@@ -2328,6 +2351,9 @@ System::Void frmConfig::SetVidEncInfo(VidEncInfo info) {
         if (!nvencInfo.hevcEnc) {
             fcgCXEncCodec->Items[NV_ENC_HEVC] = L"-------------";
         }
+        if (!nvencInfo.av1Enc) {
+            fcgCXEncCodec->Items[NV_ENC_AV1] = L"-------------";
+        }
         fcgCXEncCodec->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCodecChanged);
         fcgCodecChanged(nullptr, nullptr);
     }
@@ -2341,6 +2367,7 @@ VidEncInfo frmConfig::GetVidEncInfo() {
     info.hwencAvail = false;
     info.h264Enc = false;
     info.hevcEnc = false;
+    info.av1Enc = false;
     if (info.devices != nullptr) {
         info.devices->Clear();
     }
@@ -2373,11 +2400,13 @@ VidEncInfo frmConfig::GetVidEncInfo() {
                     info.h264Enc = true;
                 } else if (lines[i]->ToLower()->Contains("hevc")) {
                     info.hevcEnc = true;
+                } else if (lines[i]->ToLower()->Contains("av1")) {
+                    info.av1Enc = true;
                 }
             }
         }
     }
-    if (info.h264Enc || info.hevcEnc) {
+    if (info.h264Enc || info.hevcEnc || info.av1Enc) {
         info.hwencAvail = true;
     }
     nvencInfo = info;
@@ -2392,6 +2421,7 @@ System::Void frmConfig::GetVidEncInfoAsync() {
             nvencInfo.hwencAvail = false;
             nvencInfo.h264Enc = false;
             nvencInfo.hevcEnc = false;
+            nvencInfo.av1Enc = false;
             return;
         }
         String^ exePath = String(defaultExePath.c_str()).ToString();
@@ -2399,6 +2429,7 @@ System::Void frmConfig::GetVidEncInfoAsync() {
             nvencInfo.hwencAvail = false;
             nvencInfo.h264Enc = false;
             nvencInfo.hevcEnc = false;
+            nvencInfo.av1Enc = false;
             return;
         }
     }

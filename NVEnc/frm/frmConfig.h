@@ -942,8 +942,8 @@ private: System::Windows::Forms::Label^  fcgLBAQStrength;
 private: System::Windows::Forms::ComboBox^  fcgCXAQ;
 
 
-private: System::Windows::Forms::Label^  fcgLBHEVCOutBitDepth;
-private: System::Windows::Forms::ComboBox^  fcgCXHEVCOutBitDepth;
+
+
 
 
 
@@ -1551,6 +1551,24 @@ private: System::Windows::Forms::Label^  fcgLBMaxkbps;
 private: System::Windows::Forms::Label^  fcgLBMaxBitrate2;
 private: System::Windows::Forms::Label^  fcgLBMultiPass;
 private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
+private: System::Windows::Forms::Panel^  fcgPNAV1;
+private: System::Windows::Forms::Label^  fcgLBCodecLevelAV1;
+
+private: System::Windows::Forms::Label^  fcgLBCodecProfileAV1;
+
+private: System::Windows::Forms::ComboBox^  fcgCXCodecProfileAV1;
+private: System::Windows::Forms::ComboBox^  fcgCXCodecLevelAV1;
+
+
+private: System::Windows::Forms::Label^  fcgLBHEVCOutBitDepth;
+private: System::Windows::Forms::ComboBox^  fcgCXHEVCOutBitDepth;
+private: System::Windows::Forms::Label^  fcgLBOutBitDepthAV1;
+private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
+
+
+
+
+
 
 
 
@@ -1785,6 +1803,11 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlNVEnc = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgPNAV1 = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBCodecLevelAV1 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBCodecProfileAV1 = (gcnew System::Windows::Forms::Label());
+            this->fcgCXCodecProfileAV1 = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXCodecLevelAV1 = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBMultiPass = (gcnew System::Windows::Forms::Label());
             this->fcgCXMultiPass = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBFullrange = (gcnew System::Windows::Forms::Label());
@@ -1858,8 +1881,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgLBMaxBitrate2 = (gcnew System::Windows::Forms::Label());
             this->fcgPNHEVC = (gcnew System::Windows::Forms::Panel());
             this->fxgLBHEVCTier = (gcnew System::Windows::Forms::Label());
-            this->fcgLBHEVCOutBitDepth = (gcnew System::Windows::Forms::Label());
-            this->fcgCXHEVCOutBitDepth = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBHEVCProfile = (gcnew System::Windows::Forms::Label());
             this->fcgCXHEVCTier = (gcnew System::Windows::Forms::ComboBox());
             this->fxgCXHEVCLevel = (gcnew System::Windows::Forms::ComboBox());
@@ -2142,6 +2163,10 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBOutBitDepthAV1 = (gcnew System::Windows::Forms::Label());
+            this->fcgCXOutBitDepthAV1 = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBHEVCOutBitDepth = (gcnew System::Windows::Forms::Label());
+            this->fcgCXHEVCOutBitDepth = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2152,6 +2177,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgtabPageInternal->SuspendLayout();
             this->fcgtabControlNVEnc->SuspendLayout();
             this->tabPageVideoEnc->SuspendLayout();
+            this->fcgPNAV1->SuspendLayout();
             this->fcggroupBoxColorMatrix->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAQStrength))->BeginInit();
@@ -3150,6 +3176,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->tabPageVideoEnc->Controls->Add(this->fcgPNBitrate);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNHEVC);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNH264);
+            this->tabPageVideoEnc->Controls->Add(this->fcgPNAV1);
             this->tabPageVideoEnc->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->tabPageVideoEnc->Location = System::Drawing::Point(4, 24);
@@ -3159,6 +3186,57 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
+            // 
+            // fcgPNAV1
+            // 
+            this->fcgPNAV1->Controls->Add(this->fcgLBOutBitDepthAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgCXOutBitDepthAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgLBCodecLevelAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgLBCodecProfileAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgCXCodecProfileAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgCXCodecLevelAV1);
+            this->fcgPNAV1->Location = System::Drawing::Point(341, 142);
+            this->fcgPNAV1->Name = L"fcgPNAV1";
+            this->fcgPNAV1->Size = System::Drawing::Size(264, 91);
+            this->fcgPNAV1->TabIndex = 152;
+            // 
+            // fcgLBCodecLevelAV1
+            // 
+            this->fcgLBCodecLevelAV1->AutoSize = true;
+            this->fcgLBCodecLevelAV1->Location = System::Drawing::Point(12, 67);
+            this->fcgLBCodecLevelAV1->Name = L"fcgLBCodecLevelAV1";
+            this->fcgLBCodecLevelAV1->Size = System::Drawing::Size(33, 14);
+            this->fcgLBCodecLevelAV1->TabIndex = 156;
+            this->fcgLBCodecLevelAV1->Text = L"レベル";
+            // 
+            // fcgLBCodecProfileAV1
+            // 
+            this->fcgLBCodecProfileAV1->AutoSize = true;
+            this->fcgLBCodecProfileAV1->Location = System::Drawing::Point(12, 37);
+            this->fcgLBCodecProfileAV1->Name = L"fcgLBCodecProfileAV1";
+            this->fcgLBCodecProfileAV1->Size = System::Drawing::Size(53, 14);
+            this->fcgLBCodecProfileAV1->TabIndex = 154;
+            this->fcgLBCodecProfileAV1->Text = L"プロファイル";
+            // 
+            // fcgCXCodecProfileAV1
+            // 
+            this->fcgCXCodecProfileAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXCodecProfileAV1->FormattingEnabled = true;
+            this->fcgCXCodecProfileAV1->Location = System::Drawing::Point(130, 35);
+            this->fcgCXCodecProfileAV1->Name = L"fcgCXCodecProfileAV1";
+            this->fcgCXCodecProfileAV1->Size = System::Drawing::Size(121, 22);
+            this->fcgCXCodecProfileAV1->TabIndex = 155;
+            this->fcgCXCodecProfileAV1->Tag = L"reCmd";
+            // 
+            // fcgCXCodecLevelAV1
+            // 
+            this->fcgCXCodecLevelAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXCodecLevelAV1->FormattingEnabled = true;
+            this->fcgCXCodecLevelAV1->Location = System::Drawing::Point(130, 65);
+            this->fcgCXCodecLevelAV1->Name = L"fcgCXCodecLevelAV1";
+            this->fcgCXCodecLevelAV1->Size = System::Drawing::Size(121, 22);
+            this->fcgCXCodecLevelAV1->TabIndex = 157;
+            this->fcgCXCodecLevelAV1->Tag = L"reCmd";
             // 
             // fcgLBMultiPass
             // 
@@ -3868,9 +3946,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             // 
             // fcgPNHEVC
             // 
-            this->fcgPNHEVC->Controls->Add(this->fxgLBHEVCTier);
             this->fcgPNHEVC->Controls->Add(this->fcgLBHEVCOutBitDepth);
             this->fcgPNHEVC->Controls->Add(this->fcgCXHEVCOutBitDepth);
+            this->fcgPNHEVC->Controls->Add(this->fxgLBHEVCTier);
             this->fcgPNHEVC->Controls->Add(this->fcgLBHEVCProfile);
             this->fcgPNHEVC->Controls->Add(this->fcgCXHEVCTier);
             this->fcgPNHEVC->Controls->Add(this->fxgCXHEVCLevel);
@@ -3887,25 +3965,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fxgLBHEVCTier->Size = System::Drawing::Size(33, 14);
             this->fxgLBHEVCTier->TabIndex = 85;
             this->fxgLBHEVCTier->Text = L"レベル";
-            // 
-            // fcgLBHEVCOutBitDepth
-            // 
-            this->fcgLBHEVCOutBitDepth->AutoSize = true;
-            this->fcgLBHEVCOutBitDepth->Location = System::Drawing::Point(12, 8);
-            this->fcgLBHEVCOutBitDepth->Name = L"fcgLBHEVCOutBitDepth";
-            this->fcgLBHEVCOutBitDepth->Size = System::Drawing::Size(73, 14);
-            this->fcgLBHEVCOutBitDepth->TabIndex = 81;
-            this->fcgLBHEVCOutBitDepth->Text = L"出力ビット深度";
-            // 
-            // fcgCXHEVCOutBitDepth
-            // 
-            this->fcgCXHEVCOutBitDepth->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXHEVCOutBitDepth->FormattingEnabled = true;
-            this->fcgCXHEVCOutBitDepth->Location = System::Drawing::Point(130, 5);
-            this->fcgCXHEVCOutBitDepth->Name = L"fcgCXHEVCOutBitDepth";
-            this->fcgCXHEVCOutBitDepth->Size = System::Drawing::Size(121, 22);
-            this->fcgCXHEVCOutBitDepth->TabIndex = 82;
-            this->fcgCXHEVCOutBitDepth->Tag = L"reCmd";
             // 
             // fcgLBHEVCProfile
             // 
@@ -6981,6 +7040,44 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgPNHideToolStripBorder->TabIndex = 53;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
+            // fcgLBOutBitDepthAV1
+            // 
+            this->fcgLBOutBitDepthAV1->AutoSize = true;
+            this->fcgLBOutBitDepthAV1->Location = System::Drawing::Point(12, 8);
+            this->fcgLBOutBitDepthAV1->Name = L"fcgLBOutBitDepthAV1";
+            this->fcgLBOutBitDepthAV1->Size = System::Drawing::Size(73, 14);
+            this->fcgLBOutBitDepthAV1->TabIndex = 158;
+            this->fcgLBOutBitDepthAV1->Text = L"出力ビット深度";
+            // 
+            // fcgCXOutBitDepthAV1
+            // 
+            this->fcgCXOutBitDepthAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXOutBitDepthAV1->FormattingEnabled = true;
+            this->fcgCXOutBitDepthAV1->Location = System::Drawing::Point(130, 5);
+            this->fcgCXOutBitDepthAV1->Name = L"fcgCXOutBitDepthAV1";
+            this->fcgCXOutBitDepthAV1->Size = System::Drawing::Size(121, 22);
+            this->fcgCXOutBitDepthAV1->TabIndex = 159;
+            this->fcgCXOutBitDepthAV1->Tag = L"reCmd";
+            // 
+            // fcgLBHEVCOutBitDepth
+            // 
+            this->fcgLBHEVCOutBitDepth->AutoSize = true;
+            this->fcgLBHEVCOutBitDepth->Location = System::Drawing::Point(12, 8);
+            this->fcgLBHEVCOutBitDepth->Name = L"fcgLBHEVCOutBitDepth";
+            this->fcgLBHEVCOutBitDepth->Size = System::Drawing::Size(73, 14);
+            this->fcgLBHEVCOutBitDepth->TabIndex = 87;
+            this->fcgLBHEVCOutBitDepth->Text = L"出力ビット深度";
+            // 
+            // fcgCXHEVCOutBitDepth
+            // 
+            this->fcgCXHEVCOutBitDepth->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXHEVCOutBitDepth->FormattingEnabled = true;
+            this->fcgCXHEVCOutBitDepth->Location = System::Drawing::Point(130, 5);
+            this->fcgCXHEVCOutBitDepth->Name = L"fcgCXHEVCOutBitDepth";
+            this->fcgCXHEVCOutBitDepth->Size = System::Drawing::Size(121, 22);
+            this->fcgCXHEVCOutBitDepth->TabIndex = 88;
+            this->fcgCXHEVCOutBitDepth->Tag = L"reCmd";
+            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -7024,6 +7121,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXMultiPass;
             this->fcgtabControlNVEnc->ResumeLayout(false);
             this->tabPageVideoEnc->ResumeLayout(false);
             this->tabPageVideoEnc->PerformLayout();
+            this->fcgPNAV1->ResumeLayout(false);
+            this->fcgPNAV1->PerformLayout();
             this->fcggroupBoxColorMatrix->ResumeLayout(false);
             this->fcggroupBoxColorMatrix->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->EndInit();
