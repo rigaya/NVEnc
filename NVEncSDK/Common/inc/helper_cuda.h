@@ -756,6 +756,8 @@ inline int _ConvertSMVer2Cores(int major, int minor)
         { 0x75, 64 }, // Turing Generation (SM 7.5)
         { 0x80, 64 }, // Ampere Generation (SM 8.0) A100
         { 0x86, 128 }, // Ampere Generation (SM 8.6) GA10x
+        { 0x89, 128 }, // Ada Lovelace Generation (SM 8.9) AD10x
+        { 0x90, 128 }, // Hopper Generation (SM 9.0) GH100
         {   -1, -1 }
     };
 
