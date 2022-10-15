@@ -3040,7 +3040,6 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         if (RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
             set_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, codec_enc_to_rgy(inputParam->codec), RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] - 8);
             PrintMes(RGY_LOG_DEBUG, _T("Set bitdepth to %d for lossless encoding.\n"), RGY_CSP_BIT_DEPTH[inputFrameInfo.csp]);
-            bOutputHighBitDepth = true;
         }
     }
 
