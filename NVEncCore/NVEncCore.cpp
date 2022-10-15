@@ -706,6 +706,10 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    if (rgy_codec == RGY_CODEC_AV1 && !m_dev->encoder()->checkAPIver(12, 0)) {
+        PrintMes(RGY_LOG_ERROR, _T("Selected codec %s requires NVENC API v12.0 or later.\n"), CodecToStr(rgy_codec).c_str());
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     //エンコーダの対応をチェック
     tstring message; //GPUチェックのメッセージ
     for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
@@ -722,11 +726,11 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
         //プロファイルのチェック
         auto codecProfileGUID = inputParam->encConfig.profileGUID;
         if (rgy_codec == RGY_CODEC_AV1) {
-            //はデフォルトではH.264のプロファイル情報
+            //デフォルトではH.264のプロファイル情報
             //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.av1Config.tierの下位16bitに保存されている
             codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.av1Config.tier & 0xffff, av1_profile_names);
         } else if (rgy_codec == RGY_CODEC_HEVC) {
-            //はデフォルトではH.264のプロファイル情報
+            //デフォルトではH.264のプロファイル情報
             //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
             codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
             if (inputParam->yuv444) {
@@ -742,6 +746,10 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
             PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
+        if (memcmp(&codecProfileGUID, &GUID_EMPTY, sizeof(GUID_EMPTY)) == 0) {
+            PrintMes(RGY_LOG_DEBUG, _T("Selected profile for %s is unfound, profile will be auto selected by NVENC API.\n"), CodecToStr(rgy_codec).c_str());
+            codecProfileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
+        }
         const auto profile = std::find_if(codec->profiles.begin(), codec->profiles.end(), [codecProfileGUID](const GUID& profile_guid) {
             return 0 == memcmp(&codecProfileGUID, &profile_guid, sizeof(profile_guid));
         });
@@ -753,18 +761,18 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
             continue;
         }
         if (inputParam->lossless && !get_value(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE, codec->caps)) {
-            message += strsprintf(_T("GPU #%d (%s) does not support lossless encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str());
+            message += strsprintf(_T("GPU #%d (%s) does not support %s lossless encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(rgy_codec).c_str());
             gpu = gpuList.erase(gpu);
             continue;
         }
         if (inputParam->yuv444 && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps)) {
-            message += strsprintf(_T("GPU #%d (%s) does not support yuv444 encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str());
+            message += strsprintf(_T("GPU #%d (%s) does not support %s yuv444 encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(rgy_codec).c_str());
             gpu = gpuList.erase(gpu);
             continue;
         }
         const bool highbitdepth = encodeIsHighBitDepth(inputParam);
         if (highbitdepth && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps)) {
-            message += strsprintf(_T("GPU #%d (%s) does not support HEVC 10bit depth encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str());
+            message += strsprintf(_T("GPU #%d (%s) does not support %s 10bit depth encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(rgy_codec).c_str());
             gpu = gpuList.erase(gpu);
             continue;
         }
@@ -950,7 +958,7 @@ NVENCSTATUS NVEncCore::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& g
         PrintMes(RGY_LOG_ERROR, _T("Error: no CUDA device.\n"));
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGetCount: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGetCount: Success, %d.\n"), deviceCount);
 
     if (m_nDeviceId > deviceCount - 1) {
         PrintMes(RGY_LOG_ERROR, _T("Invalid Device Id = %d\n"), m_nDeviceId);
@@ -1132,6 +1140,9 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
     default:
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("AllocateIOBuffers: %s %dx%d (width byte %d, height total %d), buffer count %d\n"),
+        RGY_CSP_NAMES[csp_enc_to_rgy(inputFormat)], uInputWidth, uInputHeight, uInputWidthByte, uInputHeightTotal, m_encodeBufferCount);
+
     for (int i = 0; i < m_encodeBufferCount; i++) {
         if (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME) {
 #if ENABLE_AVSW_READER
@@ -1248,6 +1259,9 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
             PrintMes(RGY_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
+        PrintMes(RGY_LOG_DEBUG, _T("Allocate Host buffers: %s %dx%d (pitch:%d), buffer count %d\n"),
+            RGY_CSP_NAMES[pInputInfo->csp], bufWidth, bufHeight, bufPitch, m_pipelineDepth);
+
         for (uint32_t i = 0; i < m_inputHostBuffer.size(); i++) {
             m_inputHostBuffer[i].frameInfo.width = bufWidth;
             m_inputHostBuffer[i].frameInfo.height = bufHeight;
@@ -1428,8 +1442,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
     }
     if (!codecFeature->checkProfileSupported(m_stEncConfig.profileGUID)) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("指定されたプロファイルはサポートされていません。\n") : _T("Selected profile is not supported.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        m_stEncConfig.profileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
+        PrintMes(RGY_LOG_WARN, _T("Selected profile is not supported, profile will be auto selected by NVENC API!\n"));
     }
 
     //プリセットのチェック
@@ -3025,6 +3039,8 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
 
         if (RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
             set_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, codec_enc_to_rgy(inputParam->codec), RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] - 8);
+            PrintMes(RGY_LOG_DEBUG, _T("Set bitdepth to %d for lossless encoding.\n"), RGY_CSP_BIT_DEPTH[inputFrameInfo.csp]);
+            bOutputHighBitDepth = true;
         }
     }
 

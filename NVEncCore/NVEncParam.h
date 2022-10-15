@@ -90,6 +90,8 @@ typedef struct {
     unsigned int value;
 } guid_desc;
 
+extern const GUID GUID_EMPTY; // 定義はNVEncUtil.cpp
+
 const guid_desc h264_profile_names[] = {
     { NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),      0 },
     { NV_ENC_H264_PROFILE_BASELINE_GUID,    _T("baseline"), 66 },
@@ -129,6 +131,15 @@ const guid_desc av1_profile_names[] = {
     { NV_ENC_AV1_PROFILE_HIGH_GUID,      _T("high"),  NV_ENC_PROFILE_AV1_HIGH },
     //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, _T("High"), NV_ENC_TIER_HEVC_HIGH },
 };
+
+static const std::vector<guid_desc> get_codec_profile_list(const RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_H264: return make_vector(h264_profile_names);
+    case RGY_CODEC_HEVC: return make_vector(h265_profile_names);
+    case RGY_CODEC_AV1: return make_vector(av1_profile_names);
+    default: return std::vector<guid_desc>();
+    }
+}
 
 const CX_DESC av1_tier_names[] = {
     { _T("0"),  NV_ENC_TIER_AV1_0 },
@@ -476,6 +487,15 @@ const CX_DESC list_cuda_schedule[] = {
     { NULL, 0 }
 };
 
+static const TCHAR *get_name_from_guid(GUID guid, const std::vector<guid_desc>& desc) {
+    for (size_t i = 0; i < desc.size(); i++) {
+        if (0 == memcmp(&desc[i].id, &guid, sizeof(GUID))) {
+            return desc[i].desc;
+        }
+    }
+    return _T("Unknown");
+};
+
 template<size_t count>
 static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
     for (size_t i = 0; i < count; i++) {
@@ -513,7 +533,7 @@ static GUID get_guid_from_value(int value, const guid_desc (&desc)[count]) {
             return desc[i].id;
         }
     }
-    return GUID{ 0 };
+    return GUID_EMPTY;
 };
 
 template<size_t count>
@@ -523,7 +543,7 @@ static GUID get_guid_from_name(const TCHAR *name, const guid_desc (&desc)[count]
             return desc[i].id;
         }
     }
-    return GUID{ 0 };
+    return GUID_EMPTY;
 };
 
 template<size_t count>

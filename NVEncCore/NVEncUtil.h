@@ -92,7 +92,6 @@ static constexpr bool nvenc_api_ver_check(uint32_t ver, uint32_t required) {
 }
 #endif
 
-
 #if !defined(_MSC_VER)
 static bool operator==(const GUID &guid1, const GUID &guid2) {
      if (guid1.Data1    == guid2.Data1 &&

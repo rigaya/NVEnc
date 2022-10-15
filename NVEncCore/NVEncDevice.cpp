@@ -714,6 +714,8 @@ NVENCSTATUS NVEncoder::SetEncodeCodecList() {
         NVPrintFuncError(_T("nvEncGetEncodeGUIDCount"), nvStatus);
         return nvStatus;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("m_pEncodeAPI->nvEncGetEncodeGUIDCount: %d.\n"), dwEncodeGUIDCount);
+
     uint32_t uArraysize = 0;
     GUID guid_init = { 0 };
     std::vector<GUID> list_codecs;
@@ -722,7 +724,8 @@ NVENCSTATUS NVEncoder::SetEncodeCodecList() {
         NVPrintFuncError(_T("nvEncGetEncodeGUIDs"), nvStatus);
         return nvStatus;
     }
-    for (auto codec : list_codecs) {
+    for (const auto& codec : list_codecs) {
+        PrintMes(RGY_LOG_DEBUG, _T("Found codec %s.\n"), get_name_from_guid(codec, list_nvenc_codecs));
         m_EncodeFeatures.push_back(NVEncCodecFeature(codec));
     }
     return nvStatus;
@@ -735,6 +738,8 @@ NVENCSTATUS NVEncoder::setCodecProfileList(NVEncCodecFeature& codecFeature) {
         NVPrintFuncError(_T("nvEncGetEncodeProfileGUIDCount"), nvStatus);
         return nvStatus;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("m_pEncodeAPI->nvEncGetEncodeProfileGUIDCount: %d.\n"), dwCodecProfileGUIDCount);
+
     uint32_t uArraysize = 0;
     GUID guid_init = { 0 };
     codecFeature.profiles.resize(dwCodecProfileGUIDCount, guid_init);
@@ -742,25 +747,35 @@ NVENCSTATUS NVEncoder::setCodecProfileList(NVEncCodecFeature& codecFeature) {
         NVPrintFuncError(_T("nvEncGetEncodeProfileGUIDs"), nvStatus);
         return nvStatus;
     }
+
+    const auto codec_profile = get_codec_profile_list(codec_guid_enc_to_rgy(codecFeature.codec));
+    for (const auto& profile : codecFeature.profiles) {
+        PrintMes(RGY_LOG_DEBUG, _T("Found %s %s profile.\n"),
+            get_name_from_guid(codecFeature.codec, list_nvenc_codecs), get_name_from_guid(profile, codec_profile));
+    }
     return nvStatus;
 }
 
 NVENCSTATUS NVEncoder::setCodecPresetList(NVEncCodecFeature& codecFeature, bool getPresetConfig) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    uint32_t dwCodecProfileGUIDCount = 0;
-    if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetCount(m_hEncoder, codecFeature.codec, &dwCodecProfileGUIDCount))) {
+    uint32_t dwCodecPresetGUIDCount = 0;
+    if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetCount(m_hEncoder, codecFeature.codec, &dwCodecPresetGUIDCount))) {
         NVPrintFuncError(_T("nvEncGetEncodePresetCount"), nvStatus);
         return nvStatus;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("m_pEncodeAPI->nvEncGetEncodePresetCount: %d.\n"), dwCodecPresetGUIDCount);
+
     uint32_t uArraysize = 0;
     GUID guid_init = { 0 };
     NV_ENC_PRESET_CONFIG config_init = { 0 };
-    codecFeature.presets.resize(dwCodecProfileGUIDCount, guid_init);
-    codecFeature.presetConfigs.resize(dwCodecProfileGUIDCount, config_init);
-    if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetGUIDs(m_hEncoder, codecFeature.codec, &codecFeature.presets[0], dwCodecProfileGUIDCount, &uArraysize))) {
+    codecFeature.presets.resize(dwCodecPresetGUIDCount, guid_init);
+    codecFeature.presetConfigs.resize(dwCodecPresetGUIDCount, config_init);
+    if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetGUIDs(m_hEncoder, codecFeature.codec, &codecFeature.presets[0], dwCodecPresetGUIDCount, &uArraysize))) {
         NVPrintFuncError(_T("nvEncGetEncodePresetGUIDs"), nvStatus);
         return nvStatus;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("m_pEncodeAPI->nvEncGetEncodePresetGUIDs: Success.\n"));
+
     if (getPresetConfig) {
         for (uint32_t i = 0; i < codecFeature.presets.size(); i++) {
             INIT_STRUCT(codecFeature.presetConfigs[i]);
@@ -781,13 +796,19 @@ NVENCSTATUS NVEncoder::setInputFormatList(NVEncCodecFeature& codecFeature) {
         NVPrintFuncError(_T("nvEncGetInputFormatCount"), nvStatus);
         return nvStatus;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("m_pEncodeAPI->nvEncGetInputFormatCount: %d.\n"), dwInputFmtCount);
+
     uint32_t uArraysize = 0;
     codecFeature.surfaceFmt.resize(dwInputFmtCount);
     if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetInputFormats(m_hEncoder, codecFeature.codec, &codecFeature.surfaceFmt[0], dwInputFmtCount, &uArraysize))) {
         NVPrintFuncError(_T("nvEncGetInputFormats"), nvStatus);
         return nvStatus;
     }
-
+    PrintMes(RGY_LOG_DEBUG, _T("Found input fmt: "));
+    for (const auto& fmt : codecFeature.surfaceFmt) {
+        PrintMes(RGY_LOG_DEBUG, _T("%s "), RGY_CSP_NAMES[csp_enc_to_rgy(fmt)]);
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("\n"));
     return nvStatus;
 }
 

@@ -45,7 +45,7 @@ static const auto RGY_CODEC_TO_NVENC = make_array<std::pair<RGY_CODEC, cudaVideo
 
 MAP_PAIR_0_1(codec, rgy, RGY_CODEC, dec, cudaVideoCodec, RGY_CODEC_TO_NVENC, RGY_CODEC_UNKNOWN, cudaVideoCodec_NumCodecs);
 
-static const GUID GUID_EMPTY = { 0 };
+const GUID GUID_EMPTY = { 0 };
 
 static const auto RGY_CODEC_TO_GUID = make_array<std::pair<RGY_CODEC, GUID>>(
     std::make_pair(RGY_CODEC_H264, NV_ENC_CODEC_H264_GUID),
