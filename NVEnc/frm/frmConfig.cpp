@@ -1453,8 +1453,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
     //AV1
     SetCXIndex(fcgCXOutBitDepthAV1,    get_cx_index(list_bitdepth, codecPrm[NV_ENC_AV1].av1Config.pixelBitDepthMinus8));
-    SetCXIndex(fcgCXCodecProfileAV1,   get_index_from_value(codecPrm[NV_ENC_HEVC].av1Config.tier, av1_profile_names));
-    SetCXIndex(fcgCXCodecLevelAV1,     get_cx_index(list_av1_level,   codecPrm[NV_ENC_HEVC].av1Config.level));
+    SetCXIndex(fcgCXCodecProfileAV1,   get_index_from_value(codecPrm[NV_ENC_AV1].av1Config.tier, av1_profile_names));
+    SetCXIndex(fcgCXCodecLevelAV1,     get_cx_index(list_av1_level,   codecPrm[NV_ENC_AV1].av1Config.level));
 
     SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat, encPrm.common.out_vui.format));
     fcgCBFullrange->Checked                                         = encPrm.common.out_vui.colorrange == RGY_COLORRANGE_FULL;
