@@ -52,14 +52,14 @@
 - [その他のオプション](#その他のオプション)
   - [-u, --preset](#-u---preset)
   - [--output-depth &lt;int&gt;](#--output-depth-int)
-  - [--lossless](#--lossless)
+  - [--lossless  [H.264/HEVC]](#--lossless--h264hevc)
   - [--multipass &lt;string&gt;](#--multipass-string)
   - [--max-bitrate &lt;int&gt;](#--max-bitrate-int)
   - [--vbv-bufsize &lt;int&gt;](#--vbv-bufsize-int)
   - [--qp-init &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-init-int-or-intintint)
   - [--qp-min &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-min-int-or-intintint)
   - [--qp-max &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-max-int-or-intintint)
-  - [--chroma-qp-offset &lt;int&gt;](#--chroma-qp-offset-int)
+  - [--chroma-qp-offset &lt;int&gt;  [H.264/HEVC]](#--chroma-qp-offset-int--h264hevc)
   - [--vbr-quality &lt;float&gt;](#--vbr-quality-float)
   - [--dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--lookahead &lt;int&gt;](#--lookahead-int)
@@ -69,31 +69,31 @@
   - [--gop-len &lt;int&gt;](#--gop-len-int)
   - [-b, --bframes &lt;int&gt;](#-b---bframes-int)
   - [--ref &lt;int&gt;](#--ref-int)
-  - [--multiref-l0 &lt;int&gt;](#--multiref-l0-int)
-  - [--multiref-l1 &lt;int&gt;](#--multiref-l1-int)
+  - [--multiref-l0 &lt;int&gt;  [H.264/HEVC]](#--multiref-l0-int--h264hevc)
+  - [--multiref-l1 &lt;int&gt;  [H.264/HEVC]](#--multiref-l1-int--h264hevc)
   - [--weightp](#--weightp)
   - [--nonrefp](#--nonrefp)
   - [--aq](#--aq)
   - [--aq-temporal](#--aq-temporal)
   - [--aq-strength &lt;int&gt;](#--aq-strength-int)
   - [--bref-mode &lt;string&gt;](#--bref-mode-string)
-  - [--direct &lt;string&gt; [H.264のみ]](#--direct-string-h264のみ)
-  - [--(no-)adapt-transform [H.264のみ]](#--no-adapt-transform-h264のみ)
+  - [--direct &lt;string&gt; [H.264]](#--direct-string-h264)
+  - [--(no-)adapt-transform [H.264]](#--no-adapt-transform-h264)
   - [--mv-precision &lt;string&gt;](#--mv-precision-string)
-  - [--slices &lt;int&gt;](#--slices-int)
-  - [--cabac [H.264のみ]](#--cabac-h264のみ)
-  - [--cavlc [H.264のみ]](#--cavlc-h264のみ)
-  - [--bluray [H.264のみ]](#--bluray-h264のみ)
-  - [--(no-)deblock [H.264のみ]](#--no-deblock-h264のみ)
-  - [--cu-max &lt;int&gt; [HEVCのみ]](#--cu-max-int-hevcのみ)
-  - [--cu-min &lt;int&gt; [HEVCのみ]](#--cu-min-int-hevcのみ)
-  - [--part-size-min &lt;int&gt; [AV1のみ]](#--part-size-min-int-av1のみ)
-  - [--part-size-max &lt;int&gt; [AV1のみ]](#--part-size-max-int-av1のみ)
-  - [--tile-columns &lt;int&gt; [AV1のみ]](#--tile-columns-int-av1のみ)
-  - [--tile-rows &lt;int&gt; [AV1のみ]](#--tile-rows-int-av1のみ)
-  - [--max-temporal-layers &lt;int&gt; [AV1のみ]](#--max-temporal-layers-int-av1のみ)
-  - [--refs-forward &lt;int&gt; [AV1のみ]](#--refs-forward-int-av1のみ)
-  - [--refs-backward &lt;int&gt; [AV1のみ]](#--refs-backward-int-av1のみ)
+  - [--slices &lt;int&gt; [H.264/HEVC]](#--slices-int-h264hevc)
+  - [--cabac [H.264]](#--cabac-h264)
+  - [--cavlc [H.264]](#--cavlc-h264)
+  - [--bluray [H.264]](#--bluray-h264)
+  - [--(no-)deblock [H.264]](#--no-deblock-h264)
+  - [--cu-max &lt;int&gt; [HEVC]](#--cu-max-int-hevc)
+  - [--cu-min &lt;int&gt; [HEVC]](#--cu-min-int-hevc)
+  - [--part-size-min &lt;int&gt; [AV1]](#--part-size-min-int-av1)
+  - [--part-size-max &lt;int&gt; [AV1]](#--part-size-max-int-av1)
+  - [--tile-columns &lt;int&gt; [AV1]](#--tile-columns-int-av1)
+  - [--tile-rows &lt;int&gt; [AV1]](#--tile-rows-int-av1)
+  - [--max-temporal-layers &lt;int&gt; [AV1]](#--max-temporal-layers-int-av1)
+  - [--refs-forward &lt;int&gt; [AV1]](#--refs-forward-int-av1)
+  - [--refs-backward &lt;int&gt; [AV1]](#--refs-backward-int-av1)
   - [--level &lt;string&gt;](#--level-string)
   - [--profile &lt;string&gt;](#--profile-string)
   - [--tier &lt;string&gt;](#--tier-string)
@@ -107,14 +107,14 @@
   - [--chromaloc &lt;int&gt; or "auto"](#--chromaloc-int-or-auto)
   - [--max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC/AV1]](#--max-cll-intint-or-copy-hevcav1)
   - [--master-display &lt;string&gt; or "copy" [HEVC/AV1]](#--master-display-string-or-copy-hevcav1)
-  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVC/AV1]](#--atc-sei-string-or-int-hevcav1)
+  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVC]](#--atc-sei-string-or-int-hevc)
   - [--dhdr10-info &lt;string&gt; [HEVC/AV1]](#--dhdr10-info-string-hevcav1)
   - [--dhdr10-info copy [HEVC/AV1, Experimental]](#--dhdr10-info-copy-hevcav1-experimental)
-  - [--dolby-vision-profile &lt;float&gt;](#--dolby-vision-profile-float)
-  - [--dolby-vision-rpu &lt;string&gt;](#--dolby-vision-rpu-string)
-  - [--aud](#--aud)
+  - [--dolby-vision-profile &lt;float&gt; [HEVC]](#--dolby-vision-profile-float-hevc)
+  - [--dolby-vision-rpu &lt;string&gt; [HEVC]](#--dolby-vision-rpu-string-hevc)
+  - [--aud [H.264/HEVC]](#--aud-h264hevc)
   - [--repeat-headers](#--repeat-headers)
-  - [--pic-struct](#--pic-struct)
+  - [--pic-struct [H.264/HEVC]](#--pic-struct-h264hevc)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
   - [--vmaf &lt;param1&gt;=&lt;value1&gt;,...](#--vmaf-param1value1)
@@ -527,7 +527,7 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 - 8 ... 8bit (デフォルト)
 - 10 ... 10bit
 
-### --lossless
+### --lossless  [H.264/HEVC]
 ロスレス出力を行う。(デフォルト: オフ)
 
 ### --multipass &lt;string&gt;
@@ -574,7 +574,7 @@ VBVバッファサイズ(kbps単位)。 (default: auto)
 
 指定したビットレートを超えてでも、動画のどんな部分でもある程度の品質を維持したい場合に使用する。
 
-### --chroma-qp-offset &lt;int&gt;
+### --chroma-qp-offset &lt;int&gt;  [H.264/HEVC]
 色差成分のQPオフセット。 (default: 0)
 
 ### --vbr-quality &lt;float&gt;
@@ -627,8 +627,8 @@ lookahead有効時の適応的なBフレーム挿入を無効化する。
 ### --ref &lt;int&gt;
 参照距離を設定する。(最大16まで) 
 
-### --multiref-l0 &lt;int&gt;  
-### --multiref-l1 &lt;int&gt;  
+### --multiref-l0 &lt;int&gt;  [H.264/HEVC]
+### --multiref-l1 &lt;int&gt;  [H.264/HEVC]
 複数参照(L0,L1)の最大フレーム数を指定する。(最大7まで)  
 API v9.1 から使用可能。
 
@@ -656,14 +656,14 @@ Bフレームの参照モードを指定する。
 - middle
   偶数番目のBフレームのみが参照フレームとして利用できる  
 
-### --direct &lt;string&gt; [H.264のみ]
+### --direct &lt;string&gt; [H.264]
 H.264のBDirect modeを指定する。
 - auto(default)
 - disabled
 - spatial
 - temporal
 
-### --(no-)adapt-transform [H.264のみ]
+### --(no-)adapt-transform [H.264]
 H.264のadaptive transform modeを有効(無効)にする。
 
 ### --mv-precision &lt;string&gt;
@@ -673,62 +673,62 @@ H.264のadaptive transform modeを有効(無効)にする。
 - half-pel ... 1/2画素精度
 - full-pel ... 1 画素精度 (低精度)
 
-### --slices &lt;int&gt;
+### --slices &lt;int&gt; [H.264/HEVC]
 スライス数。指定なし、あるいは0で自動。
 
-### --cabac [H.264のみ]
+### --cabac [H.264]
 CABACを使用する。 (デフォルト: オン)
 
-### --cavlc [H.264のみ]
+### --cavlc [H.264]
 CAVLCを使用する。 (デフォルト: オフ)
 
-### --bluray [H.264のみ]
+### --bluray [H.264]
 Bluray用出力を行う。(デフォルト: オフ)
 
-### --(no-)deblock [H.264のみ]
+### --(no-)deblock [H.264]
 デブロックフィルタを有効にする。(デフォルト: オン)
 
-### --cu-max &lt;int&gt; [HEVCのみ]
-### --cu-min &lt;int&gt; [HEVCのみ]
+### --cu-max &lt;int&gt; [HEVC]
+### --cu-min &lt;int&gt; [HEVC]
 それぞれCUの最大、最小サイズを指定する。8, 16, 32 を指定可能。
 HEVCの規格では64まで存在するが、現状NVENCでは32までしかサポートされていない。  
 **画質が低下する恐れがあることがわかっているので、--cu-min / --cu-max の使用は非推奨。**
 
-### --part-size-min &lt;int&gt; [AV1のみ]
+### --part-size-min &lt;int&gt; [AV1]
 輝度成分の最小符号化ブロックサイズを指定する。 (デフォルト: 0 = auto)
 ```
   0 (auto), 4, 8, 16, 32, 64
 ```
 
-### --part-size-max &lt;int&gt; [AV1のみ]
+### --part-size-max &lt;int&gt; [AV1]
 輝度成分の最大符号化ブロックサイズを指定する。  (デフォルト: 0 = auto)
 ```
   0 (auto), 4, 8, 16, 32, 64
 ```
 
-### --tile-columns &lt;int&gt; [AV1のみ]
+### --tile-columns &lt;int&gt; [AV1]
 列方向のタイルの数を指定する。 (default: 0 = auto)
 
 ```
   0 (auto), 1, 2, 4, 8, 16, 32, 64
 ```
 
-### --tile-rows &lt;int&gt; [AV1のみ]
+### --tile-rows &lt;int&gt; [AV1]
 行方向のタイルの数を指定する。 (default: 0 = auto)
 
 ```
   0 (auto), 1, 2, 4, 8, 16, 32, 64
 ```
 
-### --max-temporal-layers &lt;int&gt; [AV1のみ]
+### --max-temporal-layers &lt;int&gt; [AV1]
 Specifies the max temporal layer used for hierarchical coding.
 
-### --refs-forward &lt;int&gt; [AV1のみ]
+### --refs-forward &lt;int&gt; [AV1]
 フレーム予測に使用する順方向の参照フレームの最大数を指定する。 (デフォルト: 0 = auto)
 
 1 - 4 の間で指定可能。常にこの値に従うわけではない点に注意。
 
-### --refs-backward &lt;int&gt; [AV1のみ]
+### --refs-backward &lt;int&gt; [AV1]
 フレーム予測に使用するL1 list参照フレームの最大数を指定する。 (デフォルト: 0 = auto)
 
 1 - 3 の間で指定可能。常にこの値に従うわけではない点に注意。
@@ -812,7 +812,7 @@ Mastering display data の設定。"copy"とすると入力ファイルの値を
 例2: --master-display copy  # 入力ファイルから値をコピー
 ```
 
-### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC/AV1]
+### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC]
 Alternative transfer characteristics SEI の設定。下記文字列または整数で指定する。
 ```
   undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
@@ -828,26 +828,26 @@ HDR10+のメタデータを入力ファイルからそのままコピーしま�
 avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
 こうした場合には、avsw読み込みを使用してください。 
 
-### --dolby-vision-profile &lt;float&gt;
+### --dolby-vision-profile &lt;float&gt; [HEVC]
 指定されたdolby visionプロファイルを適用します。
 ```
 5.0, 8.1, 8.2, 8.4
 ```
 
-### --dolby-vision-rpu &lt;string&gt;
+### --dolby-vision-rpu &lt;string&gt; [HEVC]
 指定のrpuファイルに含まれるdolby visionのmetadataを出力ファイルに挿入します。
 
 現時点(2022年1月実装時点)では、このオプションを使用して出力した動画ファイルは、MediaInfoによりDolby Vision情報が検出されません。
 
 MediaInfoによるDolby Vision情報の検出を可能とするには、[tsMuxeR](https://github.com/justdan96/tsMuxer/releases) (nightly版) による再muxが必要です。
 
-### --aud
+### --aud [H.264/HEVC]
 Access Unit Delimiter NALを挿入する。
 
 ### --repeat-headers
 キーフレームごとに VPS,SPS,PPS を出力する。
 
-### --pic-struct
+### --pic-struct [H.264/HEVC]
 picture timing SEIを挿入する。
 
 ### --ssim

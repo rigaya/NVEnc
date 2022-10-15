@@ -56,13 +56,13 @@
   - [-u, --preset](#-u---preset)
   - [--output-depth &lt;int&gt;](#--output-depth-int)
   - [--multipass &lt;string&gt;](#--multipass-string)
-  - [--lossless](#--lossless)
+  - [--lossless  [H.264/HEVC]](#--lossless--h264hevc)
   - [--max-bitrate &lt;int&gt;](#--max-bitrate-int)
   - [--vbv-bufsize &lt;int&gt;](#--vbv-bufsize-int)
   - [--qp-init &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-init-int-or-intintint)
   - [--qp-min &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-min-int-or-intintint)
   - [--qp-max &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;](#--qp-max-int-or-intintint)
-  - [--chroma-qp-offset &lt;int&gt;](#--chroma-qp-offset-int)
+  - [--chroma-qp-offset &lt;int&gt;  [H.264/HEVC]](#--chroma-qp-offset-int--h264hevc)
   - [--vbr-quality &lt;float&gt;](#--vbr-quality-float)
   - [--dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--lookahead &lt;int&gt;](#--lookahead-int)
@@ -72,31 +72,31 @@
   - [--gop-len &lt;int&gt;](#--gop-len-int)
   - [-b, --bframes &lt;int&gt;](#-b---bframes-int)
   - [--ref &lt;int&gt;](#--ref-int)
-  - [--multiref-l0 &lt;int&gt;](#--multiref-l0-int)
-  - [--multiref-l1 &lt;int&gt;](#--multiref-l1-int)
+  - [--multiref-l0 &lt;int&gt; [H.264/HEVC]](#--multiref-l0-int-h264hevc)
+  - [--multiref-l1 &lt;int&gt; [H.264/HEVC]](#--multiref-l1-int-h264hevc)
   - [--weightp](#--weightp)
   - [--nonrefp](#--nonrefp)
   - [--aq](#--aq)
   - [--aq-temporal](#--aq-temporal)
   - [--aq-strength &lt;int&gt;](#--aq-strength-int)
   - [--bref-mode &lt;string&gt;](#--bref-mode-string)
-  - [--direct &lt;string&gt; [H.264 only]](#--direct-string-h264-only)
-  - [--(no-)adapt-transform [H.264 only]](#--no-adapt-transform-h264-only)
+  - [--direct &lt;string&gt; [H.264]](#--direct-string-h264)
+  - [--(no-)adapt-transform [H.264]](#--no-adapt-transform-h264)
   - [--mv-precision &lt;string&gt;](#--mv-precision-string)
-  - [--slices &lt;int&gt;](#--slices-int)
-  - [--cabac [H.264 only]](#--cabac-h264-only)
-  - [--cavlc [H.264 only]](#--cavlc-h264-only)
-  - [--bluray [H.264 only]](#--bluray-h264-only)
-  - [--(no-)deblock [H.264 only]](#--no-deblock-h264-only)
-  - [--cu-max &lt;int&gt; [HEVC only]](#--cu-max-int-hevc-only)
-  - [--cu-min &lt;int&gt; [HEVC only]](#--cu-min-int-hevc-only)
-  - [--part-size-min &lt;int&gt; [AV1 only]](#--part-size-min-int-av1-only)
-  - [--part-size-max &lt;int&gt; [AV1 only]](#--part-size-max-int-av1-only)
-  - [--tile-columns &lt;int&gt; [AV1 only]](#--tile-columns-int-av1-only)
-  - [--tile-rows &lt;int&gt; [AV1 only]](#--tile-rows-int-av1-only)
-  - [--max-temporal-layers &lt;int&gt; [AV1 only]](#--max-temporal-layers-int-av1-only)
-  - [--refs-forward &lt;int&gt; [AV1 only]](#--refs-forward-int-av1-only)
-  - [--refs-backward &lt;int&gt; [AV1 only]](#--refs-backward-int-av1-only)
+  - [--slices &lt;int&gt; [H.264/HEVC]](#--slices-int-h264hevc)
+  - [--cabac [H.264]](#--cabac-h264)
+  - [--cavlc [H.264]](#--cavlc-h264)
+  - [--bluray [H.264]](#--bluray-h264)
+  - [--(no-)deblock [H.264]](#--no-deblock-h264)
+  - [--cu-max &lt;int&gt; [HEVC]](#--cu-max-int-hevc)
+  - [--cu-min &lt;int&gt; [HEVC]](#--cu-min-int-hevc)
+  - [--part-size-min &lt;int&gt; [AV1]](#--part-size-min-int-av1)
+  - [--part-size-max &lt;int&gt; [AV1]](#--part-size-max-int-av1)
+  - [--tile-columns &lt;int&gt; [AV1]](#--tile-columns-int-av1)
+  - [--tile-rows &lt;int&gt; [AV1]](#--tile-rows-int-av1)
+  - [--max-temporal-layers &lt;int&gt; [AV1]](#--max-temporal-layers-int-av1)
+  - [--refs-forward &lt;int&gt; [AV1]](#--refs-forward-int-av1)
+  - [--refs-backward &lt;int&gt; [AV1]](#--refs-backward-int-av1)
   - [--level &lt;string&gt;](#--level-string)
   - [--profile &lt;string&gt;](#--profile-string)
   - [--tier &lt;string&gt;  [HEVC only]](#--tier-string--hevc-only)
@@ -110,14 +110,14 @@
   - [--chromaloc &lt;int&gt; or "auto"](#--chromaloc-int-or-auto)
   - [--max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC/AV1]](#--max-cll-intint-or-copy-hevcav1)
   - [--master-display &lt;string&gt; or "copy" [HEVC/AV1]](#--master-display-string-or-copy-hevcav1)
-  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVC/AV1]](#--atc-sei-string-or-int-hevcav1)
+  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVC]](#--atc-sei-string-or-int-hevc)
   - [--dhdr10-info &lt;string&gt; [HEVC/AV1]](#--dhdr10-info-string-hevcav1)
   - [--dhdr10-info copy [HEVC/AV1, Experimental]](#--dhdr10-info-copy-hevcav1-experimental)
-  - [--dolby-vision-profile &lt;float&gt;](#--dolby-vision-profile-float)
-  - [--dolby-vision-rpu &lt;string&gt;](#--dolby-vision-rpu-string)
-  - [--aud](#--aud)
+  - [--dolby-vision-profile &lt;float&gt; [HEVC]](#--dolby-vision-profile-float-hevc)
+  - [--dolby-vision-rpu &lt;string&gt; [HEVC]](#--dolby-vision-rpu-string-hevc)
+  - [--aud [H.264/HEVC]](#--aud-h264hevc)
   - [--repeat-headers](#--repeat-headers)
-  - [--pic-struct](#--pic-struct)
+  - [--pic-struct [H.264/HEVC]](#--pic-struct-h264hevc)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
   - [--vmaf &lt;param1&gt;=&lt;value1&gt;,...](#--vmaf-param1value1)
@@ -544,7 +544,7 @@ In the second pass, NVENC encodes macroblocks in the frame using the distributio
 - 2pass-full  
   Runs first pass in full resolution, slower but generating better statistics for the second pass.
 
-### --lossless
+### --lossless  [H.264/HEVC]
 Perform lossless output. (Default: off)
 
 ### --max-bitrate &lt;int&gt;
@@ -570,7 +570,7 @@ Set the maximum QP value to &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;. Thi
 
 It could be used to maintain certain degree of image quality in any part of the video, even if doing so may exceed the specified bitrate.
 
-### --chroma-qp-offset &lt;int&gt;
+### --chroma-qp-offset &lt;int&gt;  [H.264/HEVC]
 Set the QP offset for chroma. (default: 0)
 
 ### --vbr-quality &lt;float&gt;
@@ -623,8 +623,8 @@ Set the number of consecutive B frames.
 ### --ref &lt;int&gt;
 Set the reference distance (max=16).  
 
-### --multiref-l0 &lt;int&gt;  
-### --multiref-l1 &lt;int&gt;  
+### --multiref-l0 &lt;int&gt; [H.264/HEVC]  
+### --multiref-l1 &lt;int&gt; [H.264/HEVC]  
 Set max number of reference frames in reference picture list L0/L1 (max=7). Avaialble from API v9.1.
 
 ### --weightp
@@ -650,14 +650,14 @@ Specify B frame reference mode.
 - middle
   Only(Number of B-frame)/2 th B-frame will be used for reference  
 
-### --direct &lt;string&gt; [H.264 only]
+### --direct &lt;string&gt; [H.264]
 Specify H.264 B Direct mode.
 - auto (default)
 - disabled
 - spatial
 - temporal
 
-### --(no-)adapt-transform [H.264 only]
+### --(no-)adapt-transform [H.264]
 Enable (or disable) adaptive transform mode of H.264.
 
 ### --mv-precision &lt;string&gt;
@@ -667,61 +667,61 @@ Motion vector accuracy / default: auto
 - half-pel ... 1/2 pixel precision
 - full-pel ... 1 pixel accuracy (low accuracy)
 
-### --slices &lt;int&gt;
+### --slices &lt;int&gt; [H.264/HEVC]
 Set number of slices.
 
-### --cabac [H.264 only]
+### --cabac [H.264]
 Use CABAC. (Default: on)
 
-### --cavlc [H.264 only]
+### --cavlc [H.264]
 Use CAVLC. (Default: off)
 
-### --bluray [H.264 only]
+### --bluray [H.264]
 Perform output for Bluray. (Default: off)
 
-### --(no-)deblock [H.264 only]
+### --(no-)deblock [H.264]
 Enable deblock filter. (Default: on)
 
-### --cu-max &lt;int&gt; [HEVC only]
-### --cu-min &lt;int&gt; [HEVC only]
+### --cu-max &lt;int&gt; [HEVC]
+### --cu-min &lt;int&gt; [HEVC]
 Specify the maximum and minimum size of CU respectively. 8, 16, 32 can be specified.
 **Since it is known that image quality may be degraded when this option is used, it is recommended not to use these options.**
 
-### --part-size-min &lt;int&gt; [AV1 only]
+### --part-size-min &lt;int&gt; [AV1]
 Specifies the minimum size of luma coding block partition. (default: 0 = auto)
 ```
   0 (auto), 4, 8, 16, 32, 64
 ```
 
-### --part-size-max &lt;int&gt; [AV1 only]
+### --part-size-max &lt;int&gt; [AV1]
 Specifies the maximum size of luma coding block partition. (default: 0 = auto)
 ```
   0 (auto), 4, 8, 16, 32, 64
 ```
 
-### --tile-columns &lt;int&gt; [AV1 only]
+### --tile-columns &lt;int&gt; [AV1]
 Set number of tile columns. (default: 0 = auto)
 
 ```
   0 (auto), 1, 2, 4, 8, 16, 32, 64
 ```
 
-### --tile-rows &lt;int&gt; [AV1 only]
+### --tile-rows &lt;int&gt; [AV1]
 Set number of tile rows. (default: 0 = auto)
 
 ```
   0 (auto), 1, 2, 4, 8, 16, 32, 64
 ```
 
-### --max-temporal-layers &lt;int&gt; [AV1 only]
+### --max-temporal-layers &lt;int&gt; [AV1]
 Specifies the max temporal layer used for hierarchical coding.
 
-### --refs-forward &lt;int&gt; [AV1 only]
+### --refs-forward &lt;int&gt; [AV1]
 Specifies max number of forward reference frame used for prediction of a frame. (default: 0 = auto)
 
 It must be in range 1-4 (Last, Last2, last3 and Golden). It's a suggestive value not necessarily be honored always.
 
-### --refs-backward &lt;int&gt; [AV1 only]
+### --refs-backward &lt;int&gt; [AV1]
 pecifies max number of L1 list reference frame used for prediction of a frame. (default: 0 = auto)
 
 It must be in range 1-3 (Backward, Altref2, Altref). It's a suggestive value not necessarily be honored always.
@@ -806,7 +806,7 @@ Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,1645
 Example2: --master-display copy  # copy values from source
 ```
 
-### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC/AV1]
+### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC]
 Set alternative transfer characteristics SEI from below or by integer, Required for HLG (Hybrid Log Gamma) signaling.
 ```
   undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
@@ -822,24 +822,24 @@ Copy HDR10+ dynamic metadata from input file.
 Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
 Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
 
-### --dolby-vision-profile &lt;float&gt;
+### --dolby-vision-profile &lt;float&gt; [HEVC]
 Output file which is specified in Dolby Vision profile.
 ```
 5.0, 8.1, 8.2, 8.4
 ```
 
-### --dolby-vision-rpu &lt;string&gt;
+### --dolby-vision-rpu &lt;string&gt; [HEVC]
 Interleave Dolby Vision RPU metadata from the specified file into the output file.
 
 Currently, the Dolby Vision info in the re-encoded file will not be detected by MediaInfo. In order to be able to detect the Dolby Vision info by MediaInfo, you will need to re-mux the output file by [tsMuxeR](https://github.com/justdan96/tsMuxer/releases) (nightly).
 
-### --aud
+### --aud [H.264/HEVC]
 Insert Access Unit Delimiter NAL.
 
 ### --repeat-headers
 Output VPS, SPS and PPS for every IDR frame.
 
-### --pic-struct
+### --pic-struct [H.264/HEVC]
 Insert picture timing SEI.
 
 ### --ssim
