@@ -216,8 +216,16 @@ NV_ENC_CODEC_CONFIG DefaultParamAV1() {
 
     config.av1Config.idrPeriod = DEFAULT_GOP_LENGTH;
 
+    config.av1Config.enableCustomTileConfig = 0;
+    config.av1Config.numTileColumns = 0;
+    config.av1Config.numTileRows = 0;
+
     config.av1Config.maxNumRefFramesInDPB = DEFAULT_REF_FRAMES;
+    config.av1Config.maxTemporalLayersMinus1 = 0;
     config.av1Config.chromaFormatIDC = 1;
+
+    config.av1Config.numFwdRefs = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+    config.av1Config.numBwdRefs = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
     
     set_colormatrix(config, RGY_CODEC_AV1, get_cx_value(list_colormatrix, _T("undef")));
     set_colorprim(  config, RGY_CODEC_AV1, get_cx_value(list_colorprim,   _T("undef")));
