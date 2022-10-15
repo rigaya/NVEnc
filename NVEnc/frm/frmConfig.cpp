@@ -855,6 +855,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXHEVCOutBitDepth,   list_bitdepth);
     setComboBox(fcgCXCodecProfileAV1,   av1_profile_names);
     setComboBox(fcgCXCodecLevelAV1,     list_av1_level);
+    setComboBox(fcgCXOutBitDepthAV1,    list_bitdepth);
     setComboBox(fcgCXAQ,                list_aq);
     setComboBox(fcgCXBrefMode,          list_bref_mode);
     setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
