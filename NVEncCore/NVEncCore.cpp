@@ -4936,22 +4936,29 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         strAQ = _T("off");
     }
     add_str(RGY_LOG_INFO,  _T("AQ             %s\n"), strAQ.c_str());
-    if (codec == NV_ENC_H264 || codec == NV_ENC_HEVC) {
+    if (rgy_codec == RGY_CODEC_H264 || rgy_codec == RGY_CODEC_HEVC) {
         if (get_sliceMode(m_stEncConfig.encodeCodecConfig, rgy_codec) == 3) {
             add_str((get_sliceModeData(m_stEncConfig.encodeCodecConfig, rgy_codec) > 1) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("Slices            %d\n"), get_sliceModeData(m_stEncConfig.encodeCodecConfig, rgy_codec));
         } else {
             add_str((get_sliceModeData(m_stEncConfig.encodeCodecConfig, rgy_codec) > 1) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), get_sliceMode(m_stEncConfig.encodeCodecConfig, rgy_codec), get_sliceModeData(m_stEncConfig.encodeCodecConfig, rgy_codec));
         }
     }
-    if (codec == NV_ENC_HEVC) {
+    if (rgy_codec == RGY_CODEC_HEVC) {
         add_str(RGY_LOG_INFO, _T("CU max / min   %s / %s\n"),
             get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.maxCUSize),
             get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize));
-        if (m_hdr10plus) {
-            add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     %s\n"), m_hdr10plus->inputJson().c_str());
-        } else if (m_hdr10plusMetadataCopy) {
-            add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     copy\n"));
-        }
+    }
+    if (rgy_codec == RGY_CODEC_AV1 && m_dev->encoder()->checkAPIver(12, 0)) {
+        add_str(RGY_LOG_INFO, _T("Part size      max %s / min %s\n"),
+            get_chr_from_value(list_part_size_av1, m_stEncConfig.encodeCodecConfig.av1Config.maxPartSize),
+            get_chr_from_value(list_part_size_av1, m_stEncConfig.encodeCodecConfig.av1Config.minPartSize));
+        add_str(RGY_LOG_INFO, _T("Tile num       columns %s / rows %s\n"),
+            get_chr_from_value(list_av1_tiles, m_stEncConfig.encodeCodecConfig.av1Config.numTileColumns),
+            get_chr_from_value(list_av1_tiles, m_stEncConfig.encodeCodecConfig.av1Config.numTileRows));
+        add_str(RGY_LOG_INFO, _T("TemporalLayers max %d\n"), m_stEncConfig.encodeCodecConfig.av1Config.maxTemporalLayersMinus1+1);
+        add_str(RGY_LOG_INFO, _T("Refs           forward %s, backward %s\n"),
+            get_chr_from_value(list_av1_refs_forward, m_stEncConfig.encodeCodecConfig.av1Config.numFwdRefs),
+            get_chr_from_value(list_av1_refs_backward, m_stEncConfig.encodeCodecConfig.av1Config.numBwdRefs));
     }
     { const auto &vui_str = m_encVUI.print_all();
         if (vui_str.length() > 0) {
@@ -4975,6 +4982,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         if (maxcll.length() > 0) {
             add_str(RGY_LOG_INFO, _T("MaxCLL/MaxFALL %s\n"), char_to_tstring(maxcll).c_str());
         }
+    }
+    if (m_hdr10plus) {
+        add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     %s\n"), m_hdr10plus->inputJson().c_str());
+    } else if (m_hdr10plusMetadataCopy) {
+        add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     copy\n"));
     }
     if (m_dovirpu) {
         add_str(RGY_LOG_INFO, _T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());

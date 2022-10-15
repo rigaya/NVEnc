@@ -256,6 +256,19 @@ tstring encoder_help() {
         _T("    warning: it is not recommended to use --cu-max or --cu-min,\n")
         _T("             leaving it auto will enhance video quality.\n"));
 
+    str += strsprintf(_T("\n")
+        _T("   --part-size-min <int>        [AV1] min size of luma coding block partition.\n")
+        _T("   --part-size-max <int>        [AV1] max size of luma coding block partition.\n")
+        _T("                                  0 (auto,default), 4, 8, 16, 32, 64\n")
+        _T("   --tile-columns <int>         [AV1] number of tile columns (default:0=auto).\n")
+        _T("   --tile-rows <int>            [AV1] number of tile rows (default:0=auto).\n")
+        _T("                                  0 (auto,default), 1, 2, 4, 8, 16, 32, 64\n")
+        _T("   --max-temporal-layers <int>  [AV1] max temporal layer for hierarchical coding.\n")
+        _T("   --refs-forward <int>         [AV1] max number of forward reference frame.\n")
+        _T("                                  0 (auto,default), 1, 2, 3, 4\n")
+        _T("   --refs-backward <int>        [AV1] max number of L1 list reference frame.\n")
+        _T("                                  0 (auto,default), 1, 2, 3\n"));
+
     str += strsprintf(_T("")
         _T("   --aud                        insert aud nal unit to ouput stream.\n")
         _T("   --repeat-headers             output VPS,SPS and PPS for every IDR frame.\n")
@@ -914,7 +927,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
             codecPrm[NV_ENC_HEVC].hevcConfig.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_num_refs);
             return 1;
         }
         return 0;
@@ -926,7 +939,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
             codecPrm[NV_ENC_HEVC].hevcConfig.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_num_refs);
             return 1;
         }
         return 0;
@@ -1015,6 +1028,85 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_HEVC].hevcConfig.sliceModeData = value;
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("tile-columns")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_av1_tiles, strInput[i], &value)) {
+            codecPrm[NV_ENC_AV1].av1Config.enableCustomTileConfig = 0;
+            codecPrm[NV_ENC_AV1].av1Config.numTileColumns = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_av1_tiles);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("tile-rows")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_av1_tiles, strInput[i], &value)) {
+            codecPrm[NV_ENC_AV1].av1Config.enableCustomTileConfig = 0;
+            codecPrm[NV_ENC_AV1].av1Config.numTileRows = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_av1_tiles);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("part-size-min")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_part_size_av1, strInput[i], &value)) {
+            codecPrm[NV_ENC_AV1].av1Config.minPartSize = (NV_ENC_AV1_PART_SIZE)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_part_size_av1);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("part-size-max")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_part_size_av1, strInput[i], &value)) {
+            codecPrm[NV_ENC_AV1].av1Config.maxPartSize = (NV_ENC_AV1_PART_SIZE)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_part_size_av1);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("max-temporal-layers")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_AV1].av1Config.maxTemporalLayersMinus1 = value-1;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("refs-forward")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_av1_refs_forward, strInput[i], &value)) {
+            codecPrm[NV_ENC_AV1].av1Config.numFwdRefs = (NV_ENC_NUM_REF_FRAMES)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_av1_refs_forward);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("refs-backward")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_av1_refs_backward, strInput[i], &value)) {
+            codecPrm[NV_ENC_AV1].av1Config.numBwdRefs = (NV_ENC_NUM_REF_FRAMES)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_av1_refs_forward);
             return 1;
         }
         return 0;
@@ -1556,6 +1648,14 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --output-depth ") << codecPrm[NV_ENC_AV1].av1Config.pixelBitDepthMinus8 + 8;
         }
         OPT_BOOL_AV1(_T("--repeat-headers"), _T(""), _T(":av1"), repeatSeqHdr);
+
+        OPT_LST_AV1(_T("--tile-columns"),  _T(""), numTileColumns, list_av1_tiles);
+        OPT_LST_AV1(_T("--tile-rows"),     _T(""), numTileRows,    list_av1_tiles);
+        OPT_LST_AV1(_T("--part-size-min"), _T(""), minPartSize,    list_part_size_av1);
+        OPT_LST_AV1(_T("--part-size-max"), _T(""), maxPartSize,    list_part_size_av1);
+        OPT_NUM_AV1(_T("--max-temporal-layers"), _T(""), maxTemporalLayersMinus1+1);
+        OPT_LST_AV1(_T("--refs-forward"),  _T(""), numFwdRefs, list_av1_refs_forward);
+        OPT_LST_AV1(_T("--refs-backward"), _T(""), numBwdRefs, list_av1_refs_backward);
     }
     if (pParams->codec == NV_ENC_HEVC || save_disabled_prm) {
         OPT_LST_HEVC(_T("--level"), _T(":hevc"), level, list_hevc_level);

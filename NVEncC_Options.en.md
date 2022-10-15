@@ -84,6 +84,19 @@
   - [--(no-)adapt-transform [H.264 only]](#--no-adapt-transform-h264-only)
   - [--mv-precision &lt;string&gt;](#--mv-precision-string)
   - [--slices &lt;int&gt;](#--slices-int)
+  - [--cabac [H.264 only]](#--cabac-h264-only)
+  - [--cavlc [H.264 only]](#--cavlc-h264-only)
+  - [--bluray [H.264 only]](#--bluray-h264-only)
+  - [--(no-)deblock [H.264 only]](#--no-deblock-h264-only)
+  - [--cu-max &lt;int&gt; [HEVC only]](#--cu-max-int-hevc-only)
+  - [--cu-min &lt;int&gt; [HEVC only]](#--cu-min-int-hevc-only)
+  - [--part-size-min &lt;int&gt; [AV1 only]](#--part-size-min-int-av1-only)
+  - [--part-size-max &lt;int&gt; [AV1 only]](#--part-size-max-int-av1-only)
+  - [--tile-columns &lt;int&gt; [AV1 only]](#--tile-columns-int-av1-only)
+  - [--tile-rows &lt;int&gt; [AV1 only]](#--tile-rows-int-av1-only)
+  - [--max-temporal-layers &lt;int&gt; [AV1 only]](#--max-temporal-layers-int-av1-only)
+  - [--refs-forward &lt;int&gt; [AV1 only]](#--refs-forward-int-av1-only)
+  - [--refs-backward &lt;int&gt; [AV1 only]](#--refs-backward-int-av1-only)
   - [--level &lt;string&gt;](#--level-string)
   - [--profile &lt;string&gt;](#--profile-string)
   - [--tier &lt;string&gt;  [HEVC only]](#--tier-string--hevc-only)
@@ -95,22 +108,16 @@
   - [--colorprim &lt;string&gt;](#--colorprim-string)
   - [--transfer &lt;string&gt;](#--transfer-string)
   - [--chromaloc &lt;int&gt; or "auto"](#--chromaloc-int-or-auto)
-  - [--max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC only]](#--max-cll-intint-or-copy-hevc-only)
-  - [--master-display &lt;string&gt; or "copy" [HEVC only]](#--master-display-string-or-copy-hevc-only)
-  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVC only]](#--atc-sei-string-or-int-hevc-only)
-  - [--dhdr10-info &lt;string&gt; [HEVC only]](#--dhdr10-info-string-hevc-only)
-  - [--dhdr10-info copy [HEVC only, Experimental]](#--dhdr10-info-copy-hevc-only-experimental)
+  - [--max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC/AV1]](#--max-cll-intint-or-copy-hevcav1)
+  - [--master-display &lt;string&gt; or "copy" [HEVC/AV1]](#--master-display-string-or-copy-hevcav1)
+  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVC/AV1]](#--atc-sei-string-or-int-hevcav1)
+  - [--dhdr10-info &lt;string&gt; [HEVC/AV1]](#--dhdr10-info-string-hevcav1)
+  - [--dhdr10-info copy [HEVC/AV1, Experimental]](#--dhdr10-info-copy-hevcav1-experimental)
   - [--dolby-vision-profile &lt;float&gt;](#--dolby-vision-profile-float)
   - [--dolby-vision-rpu &lt;string&gt;](#--dolby-vision-rpu-string)
   - [--aud](#--aud)
   - [--repeat-headers](#--repeat-headers)
   - [--pic-struct](#--pic-struct)
-  - [--cabac [H.264 only]](#--cabac-h264-only)
-  - [--cavlc [H.264 only]](#--cavlc-h264-only)
-  - [--bluray [H.264 only]](#--bluray-h264-only)
-  - [--(no-)deblock [H.264 only]](#--no-deblock-h264-only)
-  - [--cu-max &lt;int&gt; [HEVC only]](#--cu-max-int-hevc-only)
-  - [--cu-min &lt;int&gt; [HEVC only]](#--cu-min-int-hevc-only)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
   - [--vmaf &lt;param1&gt;=&lt;value1&gt;,...](#--vmaf-param1value1)
@@ -663,6 +670,62 @@ Motion vector accuracy / default: auto
 ### --slices &lt;int&gt;
 Set number of slices.
 
+### --cabac [H.264 only]
+Use CABAC. (Default: on)
+
+### --cavlc [H.264 only]
+Use CAVLC. (Default: off)
+
+### --bluray [H.264 only]
+Perform output for Bluray. (Default: off)
+
+### --(no-)deblock [H.264 only]
+Enable deblock filter. (Default: on)
+
+### --cu-max &lt;int&gt; [HEVC only]
+### --cu-min &lt;int&gt; [HEVC only]
+Specify the maximum and minimum size of CU respectively. 8, 16, 32 can be specified.
+**Since it is known that image quality may be degraded when this option is used, it is recommended not to use these options.**
+
+### --part-size-min &lt;int&gt; [AV1 only]
+Specifies the minimum size of luma coding block partition. (default: 0 = auto)
+```
+  0 (auto), 4, 8, 16, 32, 64
+```
+
+### --part-size-max &lt;int&gt; [AV1 only]
+Specifies the maximum size of luma coding block partition. (default: 0 = auto)
+```
+  0 (auto), 4, 8, 16, 32, 64
+```
+
+### --tile-columns &lt;int&gt; [AV1 only]
+Set number of tile columns. (default: 0 = auto)
+
+```
+  0 (auto), 1, 2, 4, 8, 16, 32, 64
+```
+
+### --tile-rows &lt;int&gt; [AV1 only]
+Set number of tile rows. (default: 0 = auto)
+
+```
+  0 (auto), 1, 2, 4, 8, 16, 32, 64
+```
+
+### --max-temporal-layers &lt;int&gt; [AV1 only]
+Specifies the max temporal layer used for hierarchical coding.
+
+### --refs-forward &lt;int&gt; [AV1 only]
+Specifies max number of forward reference frame used for prediction of a frame. (default: 0 = auto)
+
+It must be in range 1-4 (Last, Last2, last3 and Golden). It's a suggestive value not necessarily be honored always.
+
+### --refs-backward &lt;int&gt; [AV1 only]
+pecifies max number of L1 list reference frame used for prediction of a frame. (default: 0 = auto)
+
+It must be in range 1-3 (Backward, Altref2, Altref). It's a suggestive value not necessarily be honored always.
+
 ### --level &lt;string&gt;
 Specify the Level of the codec to be encoded. If not specified, it will be automatically set.
 ```
@@ -725,7 +788,7 @@ Set chroma location flag of the output bitstream from values 0 ... 5.
 "auto" will copy from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 default: 0 = unspecified
 
-### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC only]
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC/AV1]
 Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)  
 
 Please note that this option will implicitly activate [--repeat-headers](#--repeat-headers).  
@@ -734,7 +797,7 @@ Example1: --max-cll 1000,300
 Example2: --max-cll copy  # copy values from source
 ```
 
-### --master-display &lt;string&gt; or "copy" [HEVC only]
+### --master-display &lt;string&gt; or "copy" [HEVC/AV1]
 Set Mastering display data. "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)  
 
 Please note that this option will implicitly activate [--repeat-headers](#--repeat-headers).  
@@ -743,7 +806,7 @@ Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,1645
 Example2: --master-display copy  # copy values from source
 ```
 
-### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC only]
+### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC/AV1]
 Set alternative transfer characteristics SEI from below or by integer, Required for HLG (Hybrid Log Gamma) signaling.
 ```
   undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
@@ -751,10 +814,10 @@ Set alternative transfer characteristics SEI from below or by integer, Required 
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
-### --dhdr10-info &lt;string&gt; [HEVC only]
+### --dhdr10-info &lt;string&gt; [HEVC/AV1]
 Apply HDR10+ dynamic metadata from specified json file. Requires [hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen) module  additionally.
 
-### --dhdr10-info copy [HEVC only, Experimental]
+### --dhdr10-info copy [HEVC/AV1, Experimental]
 Copy HDR10+ dynamic metadata from input file.  
 Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
 Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
@@ -778,23 +841,6 @@ Output VPS, SPS and PPS for every IDR frame.
 
 ### --pic-struct
 Insert picture timing SEI.
-
-### --cabac [H.264 only]
-Use CABAC. (Default: on)
-
-### --cavlc [H.264 only]
-Use CAVLC. (Default: off)
-
-### --bluray [H.264 only]
-Perform output for Bluray. (Default: off)
-
-### --(no-)deblock [H.264 only]
-Enable deblock filter. (Default: on)
-
-### --cu-max &lt;int&gt; [HEVC only]
-### --cu-min &lt;int&gt; [HEVC only]
-Specify the maximum and minimum size of CU respectively. 8, 16, 32 can be specified.
-**Since it is known that image quality may be degraded when this option is used, it is recommended not to use these options.**
 
 ### --ssim
 Calculate ssim of the encoded video.

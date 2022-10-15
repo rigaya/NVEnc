@@ -81,6 +81,19 @@
   - [--(no-)adapt-transform [H.264のみ]](#--no-adapt-transform-h264のみ)
   - [--mv-precision &lt;string&gt;](#--mv-precision-string)
   - [--slices &lt;int&gt;](#--slices-int)
+  - [--cabac [H.264のみ]](#--cabac-h264のみ)
+  - [--cavlc [H.264のみ]](#--cavlc-h264のみ)
+  - [--bluray [H.264のみ]](#--bluray-h264のみ)
+  - [--(no-)deblock [H.264のみ]](#--no-deblock-h264のみ)
+  - [--cu-max &lt;int&gt; [HEVCのみ]](#--cu-max-int-hevcのみ)
+  - [--cu-min &lt;int&gt; [HEVCのみ]](#--cu-min-int-hevcのみ)
+  - [--part-size-min &lt;int&gt; [AV1のみ]](#--part-size-min-int-av1のみ)
+  - [--part-size-max &lt;int&gt; [AV1のみ]](#--part-size-max-int-av1のみ)
+  - [--tile-columns &lt;int&gt; [AV1のみ]](#--tile-columns-int-av1のみ)
+  - [--tile-rows &lt;int&gt; [AV1のみ]](#--tile-rows-int-av1のみ)
+  - [--max-temporal-layers &lt;int&gt; [AV1のみ]](#--max-temporal-layers-int-av1のみ)
+  - [--refs-forward &lt;int&gt; [AV1のみ]](#--refs-forward-int-av1のみ)
+  - [--refs-backward &lt;int&gt; [AV1のみ]](#--refs-backward-int-av1のみ)
   - [--level &lt;string&gt;](#--level-string)
   - [--profile &lt;string&gt;](#--profile-string)
   - [--tier &lt;string&gt;](#--tier-string)
@@ -92,22 +105,16 @@
   - [--colorprim &lt;string&gt;](#--colorprim-string)
   - [--transfer &lt;string&gt;](#--transfer-string)
   - [--chromaloc &lt;int&gt; or "auto"](#--chromaloc-int-or-auto)
-  - [--max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVCのみ]](#--max-cll-intint-or-copy-hevcのみ)
-  - [--master-display &lt;string&gt; or "copy" [HEVCのみ]](#--master-display-string-or-copy-hevcのみ)
-  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVCのみ]](#--atc-sei-string-or-int-hevcのみ)
-  - [--dhdr10-info &lt;string&gt; [HEVC only]](#--dhdr10-info-string-hevc-only)
-  - [--dhdr10-info copy [HEVC only, Experimental]](#--dhdr10-info-copy-hevc-only-experimental)
+  - [--max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC/AV1]](#--max-cll-intint-or-copy-hevcav1)
+  - [--master-display &lt;string&gt; or "copy" [HEVC/AV1]](#--master-display-string-or-copy-hevcav1)
+  - [--atc-sei &lt;string&gt; or &lt;int&gt; [HEVC/AV1]](#--atc-sei-string-or-int-hevcav1)
+  - [--dhdr10-info &lt;string&gt; [HEVC/AV1]](#--dhdr10-info-string-hevcav1)
+  - [--dhdr10-info copy [HEVC/AV1, Experimental]](#--dhdr10-info-copy-hevcav1-experimental)
   - [--dolby-vision-profile &lt;float&gt;](#--dolby-vision-profile-float)
   - [--dolby-vision-rpu &lt;string&gt;](#--dolby-vision-rpu-string)
   - [--aud](#--aud)
   - [--repeat-headers](#--repeat-headers)
   - [--pic-struct](#--pic-struct)
-  - [--cabac [H.264のみ]](#--cabac-h264のみ)
-  - [--cavlc [H.264のみ]](#--cavlc-h264のみ)
-  - [--bluray [H.264のみ]](#--bluray-h264のみ)
-  - [--(no-)deblock [H.264のみ]](#--no-deblock-h264のみ)
-  - [--cu-max &lt;int&gt; [HEVCのみ]](#--cu-max-int-hevcのみ)
-  - [--cu-min &lt;int&gt; [HEVCのみ]](#--cu-min-int-hevcのみ)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
   - [--vmaf &lt;param1&gt;=&lt;value1&gt;,...](#--vmaf-param1value1)
@@ -669,6 +676,63 @@ H.264のadaptive transform modeを有効(無効)にする。
 ### --slices &lt;int&gt;
 スライス数。指定なし、あるいは0で自動。
 
+### --cabac [H.264のみ]
+CABACを使用する。 (デフォルト: オン)
+
+### --cavlc [H.264のみ]
+CAVLCを使用する。 (デフォルト: オフ)
+
+### --bluray [H.264のみ]
+Bluray用出力を行う。(デフォルト: オフ)
+
+### --(no-)deblock [H.264のみ]
+デブロックフィルタを有効にする。(デフォルト: オン)
+
+### --cu-max &lt;int&gt; [HEVCのみ]
+### --cu-min &lt;int&gt; [HEVCのみ]
+それぞれCUの最大、最小サイズを指定する。8, 16, 32 を指定可能。
+HEVCの規格では64まで存在するが、現状NVENCでは32までしかサポートされていない。  
+**画質が低下する恐れがあることがわかっているので、--cu-min / --cu-max の使用は非推奨。**
+
+### --part-size-min &lt;int&gt; [AV1のみ]
+輝度成分の最小符号化ブロックサイズを指定する。 (デフォルト: 0 = auto)
+```
+  0 (auto), 4, 8, 16, 32, 64
+```
+
+### --part-size-max &lt;int&gt; [AV1のみ]
+輝度成分の最大符号化ブロックサイズを指定する。  (デフォルト: 0 = auto)
+```
+  0 (auto), 4, 8, 16, 32, 64
+```
+
+### --tile-columns &lt;int&gt; [AV1のみ]
+列方向のタイルの数を指定する。 (default: 0 = auto)
+
+```
+  0 (auto), 1, 2, 4, 8, 16, 32, 64
+```
+
+### --tile-rows &lt;int&gt; [AV1のみ]
+行方向のタイルの数を指定する。 (default: 0 = auto)
+
+```
+  0 (auto), 1, 2, 4, 8, 16, 32, 64
+```
+
+### --max-temporal-layers &lt;int&gt; [AV1のみ]
+Specifies the max temporal layer used for hierarchical coding.
+
+### --refs-forward &lt;int&gt; [AV1のみ]
+フレーム予測に使用する順方向の参照フレームの最大数を指定する。 (デフォルト: 0 = auto)
+
+1 - 4 の間で指定可能。常にこの値に従うわけではない点に注意。
+
+### --refs-backward &lt;int&gt; [AV1のみ]
+フレーム予測に使用するL1 list参照フレームの最大数を指定する。 (デフォルト: 0 = auto)
+
+1 - 3 の間で指定可能。常にこの値に従うわけではない点に注意。
+
 ### --level &lt;string&gt;
 エンコードするコーデックのLevelを指定する。指定しない場合は自動的に決定される。
 ```
@@ -730,7 +794,7 @@ DAR比 (画面アスペクト比) の指定。
 出力データのchroma location flagを 0 ～ 5 の範囲で指定する。  
 デフォルト = 0 (unspecified)
 
-### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVCのみ]
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC/AV1]
 MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
 
 [--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
@@ -739,7 +803,7 @@ MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイ�
 例2: --max-cll copy  # 入力ファイルから値をコピー
 ```
 
-### --master-display &lt;string&gt; or "copy" [HEVCのみ]
+### --master-display &lt;string&gt; or "copy" [HEVC/AV1]
 Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
 
 [--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
@@ -748,7 +812,7 @@ Mastering display data の設定。"copy"とすると入力ファイルの値を
 例2: --master-display copy  # 入力ファイルから値をコピー
 ```
 
-### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVCのみ]
+### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC/AV1]
 Alternative transfer characteristics SEI の設定。下記文字列または整数で指定する。
 ```
   undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
@@ -756,10 +820,10 @@ Alternative transfer characteristics SEI の設定。下記文字列または整
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
-### --dhdr10-info &lt;string&gt; [HEVC only]
+### --dhdr10-info &lt;string&gt; [HEVC/AV1]
 指定したjsonファイルから、HDR10+のメタデータを読み込んで反映する。実行には追加で[hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen)が必要。
 
-### --dhdr10-info copy [HEVC only, Experimental]
+### --dhdr10-info copy [HEVC/AV1, Experimental]
 HDR10+のメタデータを入力ファイルからそのままコピーします。
 avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
 こうした場合には、avsw読み込みを使用してください。 
@@ -785,24 +849,6 @@ Access Unit Delimiter NALを挿入する。
 
 ### --pic-struct
 picture timing SEIを挿入する。
-
-### --cabac [H.264のみ]
-CABACを使用する。 (デフォルト: オン)
-
-### --cavlc [H.264のみ]
-CAVLCを使用する。 (デフォルト: オフ)
-
-### --bluray [H.264のみ]
-Bluray用出力を行う。(デフォルト: オフ)
-
-### --(no-)deblock [H.264のみ]
-デブロックフィルタを有効にする。(デフォルト: オン)
-
-### --cu-max &lt;int&gt; [HEVCのみ]
-### --cu-min &lt;int&gt; [HEVCのみ]
-それぞれCUの最大、最小サイズを指定する。8, 16, 32 を指定可能。
-HEVCの規格では64まで存在するが、現状NVENCでは32までしかサポートされていない。  
-**画質が低下する恐れがあることがわかっているので、--cu-min / --cu-max の使用は非推奨。**
 
 ### --ssim
 エンコード結果のSSIMを計算。

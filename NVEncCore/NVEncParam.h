@@ -396,6 +396,35 @@ const CX_DESC list_num_refs[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_av1_refs_forward[] = {
+    { _T("auto"),     NV_ENC_NUM_REF_FRAMES_AUTOSELECT },
+    { _T("1"),        NV_ENC_NUM_REF_FRAMES_1          },
+    { _T("2"),        NV_ENC_NUM_REF_FRAMES_2          },
+    { _T("3"),        NV_ENC_NUM_REF_FRAMES_3          },
+    { _T("4"),        NV_ENC_NUM_REF_FRAMES_4          },
+    { NULL, 0 }
+};
+
+const CX_DESC list_av1_refs_backward[] = {
+    { _T("auto"),     NV_ENC_NUM_REF_FRAMES_AUTOSELECT },
+    { _T("1"),        NV_ENC_NUM_REF_FRAMES_1          },
+    { _T("2"),        NV_ENC_NUM_REF_FRAMES_2          },
+    { _T("3"),        NV_ENC_NUM_REF_FRAMES_3          },
+    { NULL, 0 }
+};
+
+const CX_DESC list_av1_tiles[] = {
+    { _T("auto"),     0 },
+    { _T("1"),        1 },
+    { _T("2"),        2 },
+    { _T("4"),        4 },
+    { _T("8"),        8 },
+    { _T("16"),      16 },
+    { _T("32"),      32 },
+    { _T("64"),      64 },
+    { NULL, 0 }
+};
+
 const CX_DESC list_part_size_av1[] = {
     { _T("auto"),  NV_ENC_AV1_PART_SIZE_AUTOSELECT },
     { _T("4"),     NV_ENC_AV1_PART_SIZE_4x4        },
