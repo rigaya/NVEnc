@@ -207,6 +207,7 @@ NVIDIA グラフィックドライバ 512.15
 - NVIDIA Video Codec SDK 12.0に対応。
 - AV1エンコードに仮対応。
   全くテストできていないので注意！
+- --dhdr10-infoの実装方法を変え、Lookahead使用時も対応するように。
 
 2022.09.19 (6.12)
 [NVEnc.auo]

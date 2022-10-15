@@ -716,18 +716,18 @@ static decltype(NV_ENC_CONFIG_H264::maxNumRefFrames)& numRefFrames(NV_ENC_CODEC_
 #define NV_CODEC_PARAM_ALL(x, other_return_val) \
 static decltype(NV_ENC_CONFIG_H264::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
     switch (codec) { \
-    case RGY_CODEC_HEVC: return codec_config.hevcConfig.##x; \
-    case RGY_CODEC_AV1:  return codec_config.av1Config.##x; \
-    case RGY_CODEC_H264: return codec_config.h264Config.##x; \
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.x; \
+    case RGY_CODEC_AV1:  return codec_config.av1Config.x; \
+    case RGY_CODEC_H264: return codec_config.h264Config.x; \
     default: break; \
     } \
     return other_return_val; \
 }; \
 static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const decltype(NV_ENC_CONFIG_H264::x) value) { \
     switch (codec) { \
-    case RGY_CODEC_HEVC: codec_config.hevcConfig.##x = value; break; \
-    case RGY_CODEC_AV1:  codec_config.av1Config.##x = value; break; \
-    case RGY_CODEC_H264: codec_config.h264Config.##x = value; break; \
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.x = value; break; \
+    case RGY_CODEC_AV1:  codec_config.av1Config.x = value; break; \
+    case RGY_CODEC_H264: codec_config.h264Config.x = value; break; \
     default: break; \
     } \
 };
@@ -735,15 +735,15 @@ static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, co
 #define NV_CODEC_PARAM_H264_HEVC(x, other_return_val) \
 static decltype(NV_ENC_CONFIG_H264::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
     switch (codec) { \
-    case RGY_CODEC_HEVC: return codec_config.hevcConfig.##x; \
-    case RGY_CODEC_H264: return codec_config.h264Config.##x; \
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.x; \
+    case RGY_CODEC_H264: return codec_config.h264Config.x; \
     default: return other_return_val; \
     } \
 }; \
 static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const decltype(NV_ENC_CONFIG_H264::x) value) { \
     switch (codec) { \
-    case RGY_CODEC_HEVC: codec_config.hevcConfig.##x = value; break; \
-    case RGY_CODEC_H264: codec_config.h264Config.##x = value; break; \
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.x = value; break; \
+    case RGY_CODEC_H264: codec_config.h264Config.x = value; break; \
     default: break; \
     } \
 };
@@ -751,15 +751,15 @@ static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, co
 #define NV_CODEC_PARAM_HEVC_AV1(x, other_return_val) \
 static decltype(NV_ENC_CONFIG_HEVC::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
     switch (codec) { \
-    case RGY_CODEC_HEVC: return codec_config.hevcConfig.##x; \
-    case RGY_CODEC_AV1:  return codec_config.av1Config.##x; \
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.x; \
+    case RGY_CODEC_AV1:  return codec_config.av1Config.x; \
     default: return other_return_val; \
     } \
 }; \
 static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const decltype(NV_ENC_CONFIG_HEVC::x) value) { \
     switch (codec) { \
-    case RGY_CODEC_HEVC: codec_config.hevcConfig.##x = value; break; \
-    case RGY_CODEC_AV1:  codec_config.av1Config.##x  = value; break; \
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.x = value; break; \
+    case RGY_CODEC_AV1:  codec_config.av1Config.x  = value; break; \
     default: break; \
     } \
 };
@@ -768,15 +768,15 @@ static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, co
 #define NV_CODEC_PARAM_H264_HEVC_VUI(x, other_return_val) \
 static decltype(NV_ENC_CONFIG_H264_VUI_PARAMETERS::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
     switch (codec) { \
-    case RGY_CODEC_HEVC: return codec_config.hevcConfig.hevcVUIParameters.##x; \
-    case RGY_CODEC_H264: return codec_config.h264Config.h264VUIParameters.##x; \
+    case RGY_CODEC_HEVC: return codec_config.hevcConfig.hevcVUIParameters.x; \
+    case RGY_CODEC_H264: return codec_config.h264Config.h264VUIParameters.x; \
     default: return other_return_val; \
     } \
 }; \
 static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const int value) { \
     switch (codec) { \
-    case RGY_CODEC_HEVC: codec_config.hevcConfig.hevcVUIParameters.##x = (decltype(NV_ENC_CONFIG_H264_VUI_PARAMETERS::##x))value; break; \
-    case RGY_CODEC_H264: codec_config.h264Config.h264VUIParameters.##x = (decltype(NV_ENC_CONFIG_HEVC_VUI_PARAMETERS::##x))value; break; \
+    case RGY_CODEC_HEVC: codec_config.hevcConfig.hevcVUIParameters.x = (decltype(NV_ENC_CONFIG_H264_VUI_PARAMETERS::x))value; break; \
+    case RGY_CODEC_H264: codec_config.h264Config.h264VUIParameters.x = (decltype(NV_ENC_CONFIG_HEVC_VUI_PARAMETERS::x))value; break; \
     default: break; \
     } \
 };
