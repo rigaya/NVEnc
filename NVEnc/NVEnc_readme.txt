@@ -188,7 +188,6 @@ Geforce RTX 2070
 Geforce GTX 1060
 NVIDIA グラフィックドライバ 510.06 (WSL2対応版)
 NVIDIA グラフィックドライバ 511.79
-NVIDIA グラフィックドライバ 522.25
 
 【検証環境 2021.11～】
 Win11 x64
@@ -197,6 +196,7 @@ Intel Core i9 12900K + MSI MAG Z690 TOMAHAWK WIFI DDR4
 Geforce RTX 2070
 Geforce GTX 1060
 NVIDIA グラフィックドライバ 512.15
+NVIDIA グラフィックドライバ 522.25
 
 【お断り】
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
@@ -205,7 +205,7 @@ NVIDIA グラフィックドライバ 512.15
 2022.10.14 (7.00)
 [NVEncC]
 - NVIDIA Video Codec SDK 12.0に対応。
-- AV1エンコードに仮対応。
+- AV1エンコードに「仮」対応。
   全くテストできていないので注意！
 - --dhdr10-infoの実装方法を変え、Lookahead使用時も対応するように。
 
