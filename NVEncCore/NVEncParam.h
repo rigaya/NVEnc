@@ -255,7 +255,7 @@ const CX_DESC list_hevc_level[] = {
 };
 
 const CX_DESC list_av1_level[] = {
-    { _T("auto"), -1   },
+    { _T("auto"), NV_ENC_LEVEL_AV1_AUTOSELECT },
     { _T("2"),    NV_ENC_LEVEL_AV1_2   },
     { _T("2.1"),  NV_ENC_LEVEL_AV1_21  },
     { _T("2.2"),  NV_ENC_LEVEL_AV1_22  },
