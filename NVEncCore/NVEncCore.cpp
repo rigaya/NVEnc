@@ -706,10 +706,6 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (rgy_codec == RGY_CODEC_AV1 && !m_dev->encoder()->checkAPIver(12, 0)) {
-        PrintMes(RGY_LOG_ERROR, _T("Selected codec %s requires NVENC API v12.0 or later.\n"), CodecToStr(rgy_codec).c_str());
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
-    }
     //エンコーダの対応をチェック
     tstring message; //GPUチェックのメッセージ
     for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
