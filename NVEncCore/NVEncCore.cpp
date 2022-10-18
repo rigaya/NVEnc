@@ -5035,6 +5035,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             add_str(RGY_LOG_INFO, _T("repeat-headers "));
         }
     }
+    if (rgy_codec == RGY_CODEC_AV1) {
+        if (m_stEncConfig.encodeCodecConfig.av1Config.outputAnnexBFormat) {
+            add_str(RGY_LOG_INFO, _T("annexb "));
+        }
+    }
     add_str(RGY_LOG_INFO, _T("\n"));
     return str;
 }

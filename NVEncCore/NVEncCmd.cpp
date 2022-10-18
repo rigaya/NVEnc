@@ -1111,6 +1111,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("av1-out-annexb")) {
+        codecPrm[NV_ENC_AV1].av1Config.outputAnnexBFormat = 1;
+        return 0;
+    }
     if (IS_OPTION("deblock")) {
         codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 0;
         return 0;
@@ -1648,6 +1652,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --output-depth ") << codecPrm[NV_ENC_AV1].av1Config.pixelBitDepthMinus8 + 8;
         }
         OPT_BOOL_AV1(_T("--repeat-headers"), _T(""), _T(":av1"), repeatSeqHdr);
+        OPT_BOOL_AV1(_T("--av1-out-annexb"), _T(""), _T(""), outputAnnexBFormat);
 
         OPT_LST_AV1(_T("--tile-columns"),  _T(""), numTileColumns, list_av1_tiles);
         OPT_LST_AV1(_T("--tile-rows"),     _T(""), numTileRows,    list_av1_tiles);
