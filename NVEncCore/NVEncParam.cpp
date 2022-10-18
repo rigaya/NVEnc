@@ -36,6 +36,7 @@ tstring get_codec_profile_name_from_guid(RGY_CODEC codec, const GUID& codecProfi
     switch (codec) {
     case RGY_CODEC_H264: return get_name_from_guid(codecProfileGUID, h264_profile_names);
     case RGY_CODEC_HEVC: return get_name_from_guid(codecProfileGUID, h265_profile_names);
+    case RGY_CODEC_AV1:  return get_name_from_guid(codecProfileGUID, av1_profile_names);
     default: return _T("Unknown codec.\n");
     }
 }
@@ -44,6 +45,7 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
     switch (codec) {
     case RGY_CODEC_H264: return get_chr_from_value(list_avc_level, level);
     case RGY_CODEC_HEVC: return get_chr_from_value(list_hevc_level, level);
+    case RGY_CODEC_AV1:  return get_chr_from_value(list_av1_level, level);
     default: return _T("Unknown codec.\n");
     }
 }
