@@ -1260,6 +1260,7 @@ RGYParamCommon::RGYParamCommon() :
     muxOpt(),
     disableMp4Opt(false),
     debugDirectAV1Out(false),
+    debugRawOut(false),
     chapterFile(),
     AVInputFormat(nullptr),
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)

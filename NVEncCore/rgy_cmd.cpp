@@ -4553,6 +4553,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->debugDirectAV1Out = true;
         return 0;
     }
+    if (IS_OPTION("debug-raw-out")) {
+        common->debugRawOut = true;
+        return 0;
+    }
     return -10;
 }
 
@@ -6000,6 +6004,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
     OPT_BOOL(_T("--disable-av1-write-parser"), _T("--no-disable-av1-write-parser"), debugDirectAV1Out);
+    OPT_BOOL(_T("--debug-raw-out"), _T("--no-debug-raw-out"), debugRawOut);
     return cmd.str();
 }
 

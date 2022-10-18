@@ -166,6 +166,7 @@ public:
         Close();
         m_printMes = log;
         m_encSatusInfo = encSatusInfo;
+        m_outFilename = strFileName;
         if (videoOutputInfo) {
             m_VideoOutputInfo = *videoOutputInfo;
         }
@@ -219,6 +220,7 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) = 0;
 
+    tstring     m_outFilename;
     shared_ptr<EncodeStatus> m_encSatusInfo;
     unique_ptr<FILE, fp_deleter>  m_fDest;
     bool        m_outputIsStdout;
@@ -239,6 +241,7 @@ protected:
 struct RGYOutputRawPrm {
     bool benchmark;
     bool debugDirectAV1Out;
+    bool debugRawOut;
     int bufSizeMB;
     RGY_CODEC codecId;
     const RGYHDRMetadata *hdrMetadata;
@@ -263,7 +266,9 @@ protected:
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
     int64_t m_prevEncodeFrameId;
+    unique_ptr<FILE, fp_deleter>  m_fpDebug;
     bool m_debugDirectAV1Out;
+    bool m_debugRawOut;
 #if ENABLE_AVSW_READER
     std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
     std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> m_pkt;
