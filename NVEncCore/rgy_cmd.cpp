@@ -4551,6 +4551,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
 #endif
     if (IS_OPTION("disable-av1-write-parser")) {
         common->debugDirectAV1Out = true;
+        return 0;
     }
     return -10;
 }
