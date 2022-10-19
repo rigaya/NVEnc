@@ -218,11 +218,18 @@ public:
         AddMessage(log_level, buffer);
     }
 protected:
+    static const char* OUT_DEBUG_FILE_HEADER;
+
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) = 0;
+
+    RGY_ERR writeRawDebug(RGYBitstream *pBitstream);
+    RGY_ERR readRawDebug(RGYBitstream *pBitstream);
 
     tstring     m_outFilename;
     shared_ptr<EncodeStatus> m_encSatusInfo;
-    unique_ptr<FILE, fp_deleter>  m_fDest;
+    unique_ptr<FILE, fp_deleter> m_fDest;
+    unique_ptr<FILE, fp_deleter> m_fpDebug;
+    unique_ptr<FILE, fp_deleter> m_fpOutReplay;
     bool        m_outputIsStdout;
     bool        m_inited;
     bool        m_noOutput;
@@ -242,6 +249,8 @@ struct RGYOutputRawPrm {
     bool benchmark;
     bool debugDirectAV1Out;
     bool debugRawOut;
+    tstring outReplayFile;
+    RGY_CODEC outReplayCodec;
     int bufSizeMB;
     RGY_CODEC codecId;
     const RGYHDRMetadata *hdrMetadata;
@@ -266,9 +275,7 @@ protected:
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
     int64_t m_prevEncodeFrameId;
-    unique_ptr<FILE, fp_deleter>  m_fpDebug;
     bool m_debugDirectAV1Out;
-    bool m_debugRawOut;
 #if ENABLE_AVSW_READER
     std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
     std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> m_pkt;

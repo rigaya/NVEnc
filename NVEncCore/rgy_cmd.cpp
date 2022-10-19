@@ -4557,6 +4557,23 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->debugRawOut = true;
         return 0;
     }
+    if (IS_OPTION("out-replay")) {
+        i++;
+        common->outReplayFile = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("out-replay-codec")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_rgy_codec, strInput[i], &value)) {
+            common->outReplayCodec = (RGY_CODEC)value;
+        }
+        else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_rgy_codec);
+            return 1;
+        }
+        return 0;
+    }
     return -10;
 }
 

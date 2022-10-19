@@ -253,6 +253,21 @@ static bool get_list_value(const T *list, const decltype(T::desc) chr, decltype(
     return false;
 };
 
+static const CX_DESC list_rgy_codec[] = {
+    { _T("h264"),  RGY_CODEC_H264 },
+    { _T("avc"),   RGY_CODEC_H264 },
+    { _T("h265"),  RGY_CODEC_HEVC },
+    { _T("hevc"),  RGY_CODEC_HEVC },
+    { _T("mpeg2"), RGY_CODEC_MPEG2 },
+    { _T("mpeg1"), RGY_CODEC_MPEG1 },
+    { _T("mpeg4"), RGY_CODEC_MPEG4 },
+    { _T("vc1"),   RGY_CODEC_VC1 },
+    { _T("vp8"),   RGY_CODEC_VP8 },
+    { _T("vp9"),   RGY_CODEC_VP9 },
+    { _T("av1"),   RGY_CODEC_AV1 },
+    { NULL, 0 }
+};
+
 enum {
     RGY_RESAMPLER_SWR,
     RGY_RESAMPLER_SOXR,

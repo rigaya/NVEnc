@@ -66,10 +66,14 @@ static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {
         return RGY_ERR_UNDEFINED_BEHAVIOR; \
     } }
 
+const char *RGYOutput::OUT_DEBUG_FILE_HEADER = "size %d, pts %lld, dts %lld, duration %lld, frametype %d, frameidx %d, picstruct %d";
+
 RGYOutput::RGYOutput() :
     m_outFilename(),
     m_encSatusInfo(),
     m_fDest(),
+    m_fpDebug(),
+    m_fpOutReplay(),
     m_outputIsStdout(false),
     m_inited(false),
     m_noOutput(false),
@@ -97,6 +101,8 @@ void RGYOutput::Close() {
         m_fDest.reset();
         AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
+    m_fpOutReplay.reset();
+    m_fpDebug.reset();
     m_encSatusInfo.reset();
     m_outputBuffer.reset();
     m_readBuffer.reset();
@@ -110,6 +116,40 @@ void RGYOutput::Close() {
     m_printMes.reset();
 }
 
+RGY_ERR RGYOutput::writeRawDebug(RGYBitstream *pBitstream) {
+    if (!m_fpDebug) return RGY_ERR_NONE;
+
+    char frame_info[256] = { 0 };
+    sprintf_s(frame_info, OUT_DEBUG_FILE_HEADER,
+        (int)pBitstream->size(), pBitstream->pts(), pBitstream->dts(), pBitstream->duration(),
+        pBitstream->frametype(), pBitstream->frameIdx(), pBitstream->picstruct());
+    _fwrite_nolock(frame_info, 1, sizeof(frame_info), m_fpDebug.get());
+    _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fpDebug.get());
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOutput::readRawDebug(RGYBitstream *pBitstream) {
+    if (!m_fpOutReplay) return RGY_ERR_NONE;
+
+    char frame_info[256] = { 0 };
+    _fread_nolock(frame_info, 1, sizeof(frame_info), m_fpOutReplay.get());
+    int size = 0, frameIdx = 0;
+    int64_t pts = 0, dts = 0, duration = 0;
+    RGY_FRAMETYPE frametype = RGY_FRAMETYPE_UNKNOWN;
+    RGY_PICSTRUCT picstruct = RGY_PICSTRUCT_UNKNOWN;
+    if (sscanf_s(frame_info, OUT_DEBUG_FILE_HEADER, &size, &pts, &dts, &duration, &frametype, &frameIdx, &picstruct) != 7) {
+        return RGY_ERR_INVALID_DATA_TYPE;
+    }
+    std::vector<uint8_t> buffer(size, 0);
+    _fread_nolock(buffer.data(), 1, buffer.size(), m_fpOutReplay.get());
+    pBitstream->setDuration(duration);
+    pBitstream->setFrameIdx(frameIdx);
+    pBitstream->setFrametype(frametype);
+    pBitstream->setPicstruct(picstruct);
+    pBitstream->copy(buffer.data(), buffer.size(), dts, pts);
+    return RGY_ERR_NONE;
+}
+
 RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
     m_hdrBitstream(),
@@ -117,7 +157,6 @@ RGYOutputRaw::RGYOutputRaw() :
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
     m_prevEncodeFrameId(-1),
-    m_fpDebug(),
     m_debugDirectAV1Out(false),
 #if ENABLE_AVSW_READER
     m_pBsfc(),
@@ -182,7 +221,8 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
 #if ENABLE_AVSW_READER
         if ((ENCODER_NVENC
             && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
-            && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0)
+            && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0
+            && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] != 1)
             || (ENCODER_QSV
                 && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
                 && pVideoOutputInfo->vui.chromaloc != 0)
@@ -307,12 +347,29 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         m_doviRpu = rawPrm->doviRpu;
         m_timestamp = rawPrm->vidTimestamp;
         m_debugDirectAV1Out = rawPrm->debugDirectAV1Out;
-        m_debugRawOut = rawPrm->debugRawOut;
-        if (m_debugRawOut) {
+        if (rawPrm->debugRawOut) {
             const auto filename_debug = m_outFilename + _T(".debug");
             m_fpDebug = std::unique_ptr<FILE, fp_deleter>(
                 _tfopen(filename_debug.c_str(), _T("wb")), fp_deleter());
+            if (!m_fpDebug) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to open raw frame debug out file \"%s\".\n"), filename_debug.c_str());
+                return RGY_ERR_FILE_OPEN;
+            }
             AddMessage(RGY_LOG_INFO, _T("Raw frame debug out to file \"%s\".\n"), filename_debug.c_str());
+        }
+        if (!rawPrm->outReplayFile.empty()) {
+            m_fpOutReplay = std::unique_ptr<FILE, fp_deleter>(
+                _tfopen(rawPrm->outReplayFile.c_str(), _T("rb")), fp_deleter());
+            if (!m_fpOutReplay) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to open replay debug out from file \"%s\".\n"), rawPrm->outReplayFile.c_str());
+                return RGY_ERR_FILE_OPEN;
+            }
+
+            AddMessage(RGY_LOG_WARN, _T("replay debug out from file \"%s\".\n"), rawPrm->outReplayFile.c_str());
+            if (rawPrm->outReplayCodec != RGY_CODEC_UNKNOWN) {
+                m_VideoOutputInfo.codec = rawPrm->outReplayCodec;
+                AddMessage(RGY_LOG_WARN, _T("replay codec set to \"%s\".\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+            }
         }
     }
     m_inited = true;
@@ -325,6 +382,8 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
         return RGY_ERR_NULL_PTR;
     }
+
+    readRawDebug(pBitstream);
 
     size_t nBytesWritten = 0;
     if (!m_noOutput) {
@@ -385,17 +444,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         }
 #endif //#if ENABLE_AVSW_READER
         const bool isIDR = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
-        if (m_fpDebug) {
-            fprintf(m_fpDebug.get(), "size:      %d\n", (int)pBitstream->size());
-            fprintf(m_fpDebug.get(), "pts:       %lld\n", pBitstream->pts());
-            fprintf(m_fpDebug.get(), "dts:       %lld\n", pBitstream->dts());
-            fprintf(m_fpDebug.get(), "duration:  %lld\n", pBitstream->duration());
-            fprintf(m_fpDebug.get(), "frametype: %d\n", pBitstream->frametype());
-            fprintf(m_fpDebug.get(), "frameidx:  %d\n", pBitstream->frameIdx());
-            fprintf(m_fpDebug.get(), "picstruct: %d\n", pBitstream->picstruct());
-            fprintf(m_fpDebug.get(), "data:");
-            _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fpDebug.get());
-        }
+        writeRawDebug(pBitstream);
         if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
             if (m_debugDirectAV1Out) {
                 nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
@@ -1240,6 +1289,8 @@ RGY_ERR initWriters(
             rawPrm.vidTimestamp = vidTimestamp;
             rawPrm.debugDirectAV1Out = common->debugDirectAV1Out;
             rawPrm.debugRawOut = common->debugRawOut;
+            rawPrm.outReplayFile = common->outReplayFile;
+            rawPrm.outReplayCodec = common->outReplayCodec;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
