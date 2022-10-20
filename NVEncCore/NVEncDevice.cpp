@@ -816,7 +816,7 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     const auto codec = codec_guid_enc_to_rgy(codecFeature.codec);
     bool check_h264 = codec == RGY_CODEC_H264;
-    auto add_cap_info = [&](NV_ENC_CAPS cap_id, bool for_h264_only, bool is_boolean, const TCHAR *cap_name, const CX_DESC *desc = nullptr) {
+    auto add_cap_info = [&](NV_ENC_CAPS cap_id, bool for_h264_only, bool is_boolean, const TCHAR *cap_name, const CX_DESC *desc = nullptr, const CX_DESC* desc_bitflag = nullptr) {
         if (!(!check_h264 && for_h264_only)) {
             NV_ENC_CAPS_PARAM param;
             INIT_STRUCT(param);
@@ -830,6 +830,7 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
                 cap.name = cap_name;
                 cap.value = value;
                 cap.desc = desc;
+                cap.desc_bit_flag = desc_bitflag;
                 codecFeature.caps.push_back(cap);
             } else {
                 nvStatus = result;
@@ -842,7 +843,7 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     }
     add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              false, false, _T("Max Bframes"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE,      false, false, _T("B Ref Mode"), list_nvenc_caps_bref_mode);
-    add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, false, _T("RC Modes"));
+    add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, false, _T("RC Modes"), nullptr, list_nvenc_rc_method_en);
     add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       false, false, _T("Field Encoding"), list_nvenc_caps_field_encoding);
     add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           false, true,  _T("MonoChrome"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_FMO,                  true,  true,  _T("FMO"));

@@ -598,6 +598,7 @@ typedef struct NVEncCap {
     bool isBool;         //値がtrue/falseの値
     int value;           //featureの制限値
     const CX_DESC *desc; //説明
+    const CX_DESC *desc_bit_flag; //説明
 } NVEncCap;
 
 //指定したIDのfeatureの値を取得する

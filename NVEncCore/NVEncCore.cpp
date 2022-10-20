@@ -3312,7 +3312,7 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
             _ftprintf(stdout, _T("Codec: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
             size_t max_length = 0;
             std::for_each(codecNVEncCaps.caps.begin(), codecNVEncCaps.caps.end(), [&max_length](const NVEncCap &x) { max_length = (std::max)(max_length, _tcslen(x.name)); });
-            for (auto cap : codecNVEncCaps.caps) {
+            for (const auto& cap : codecNVEncCaps.caps) {
                 _ftprintf(stdout, _T("%s"), cap.name);
                 for (size_t i = _tcslen(cap.name); i <= max_length; i++) {
                     _ftprintf(stdout, _T(" "));
@@ -3321,6 +3321,20 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
                     _ftprintf(stdout, cap.value ? _T("yes\n") : _T("no\n"));
                 } else if (cap.desc) {
                     _ftprintf(stdout, _T("%d (%s)\n"), cap.value, get_cx_desc(cap.desc, cap.value));
+                } else if (cap.desc_bit_flag) {
+                    tstring bit_flag;
+                    for (int i = 0; cap.desc_bit_flag[i].desc; i++) {
+                        const uint32_t bitflag = cap.desc_bit_flag[i].value;
+                        if (((uint32_t)cap.value & bitflag) == bitflag) {
+                            if (bit_flag.length() > 0) bit_flag += _T(", ");
+                            bit_flag += cap.desc_bit_flag[i].desc;
+                        }
+                    }
+                    if (bit_flag.empty()) {
+                        _ftprintf(stdout, _T("%d\n"), cap.value);
+                    } else {
+                        _ftprintf(stdout, _T("%d (%s)\n"), cap.value, bit_flag.c_str());
+                    }
                 } else {
                     _ftprintf(stdout, _T("%d\n"), cap.value);
                 }
