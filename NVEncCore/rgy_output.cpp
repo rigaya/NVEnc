@@ -132,7 +132,9 @@ RGY_ERR RGYOutput::readRawDebug(RGYBitstream *pBitstream) {
     if (!m_fpOutReplay) return RGY_ERR_NONE;
 
     char frame_info[256] = { 0 };
-    _fread_nolock(frame_info, 1, sizeof(frame_info), m_fpOutReplay.get());
+    if (_fread_nolock(frame_info, 1, sizeof(frame_info), m_fpOutReplay.get()) != sizeof(frame_info)) {
+        return RGY_ERR_MORE_DATA;
+    }
     int size = 0, frameIdx = 0;
     int64_t pts = 0, dts = 0, duration = 0;
     RGY_FRAMETYPE frametype = RGY_FRAMETYPE_UNKNOWN;
@@ -141,7 +143,9 @@ RGY_ERR RGYOutput::readRawDebug(RGYBitstream *pBitstream) {
         return RGY_ERR_INVALID_DATA_TYPE;
     }
     std::vector<uint8_t> buffer(size, 0);
-    _fread_nolock(buffer.data(), 1, buffer.size(), m_fpOutReplay.get());
+    if (_fread_nolock(buffer.data(), 1, buffer.size(), m_fpOutReplay.get()) != buffer.size()) {
+        return RGY_ERR_MORE_DATA;
+    }
     pBitstream->setDuration(duration);
     pBitstream->setFrameIdx(frameIdx);
     pBitstream->setFrametype(frametype);
