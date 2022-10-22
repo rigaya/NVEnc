@@ -309,7 +309,7 @@ const TCHAR *get_err_mes(RGY_ERR sts) {
     case RGY_ERR_REALLOC_SURFACE:                 return _T("failed to realloc surface.");
     case RGY_ERR_ACCESS_DENIED:                   return _T("access denied");
     case RGY_ERR_INVALID_PARAM:                   return _T("invalid param.");
-    case RGY_ERR_OUT_OF_RANGE:                    return _T("out pf range.");
+    case RGY_ERR_OUT_OF_RANGE:                    return _T("out of range.");
     case RGY_ERR_ALREADY_INITIALIZED:             return _T("already initialized.");
     case RGY_ERR_INVALID_FORMAT:                  return _T("invalid format.");
     case RGY_ERR_WRONG_STATE:                     return _T("wrong state.");
