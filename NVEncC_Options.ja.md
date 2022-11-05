@@ -78,7 +78,8 @@
   - [--aq-strength &lt;int&gt;](#--aq-strength-int)
   - [--bref-mode &lt;string&gt;](#--bref-mode-string)
   - [--direct &lt;string&gt; [H.264]](#--direct-string-h264)
-  - [--(no-)adapt-transform [H.264]](#--no-adapt-transform-h264)
+  - [--hierarchial-p [H.264]](#--hierarchial-p-h264)
+  - [--hierarchial-b [H.264]](#--hierarchial-b-h264)
   - [--mv-precision &lt;string&gt;](#--mv-precision-string)
   - [--slices &lt;int&gt; [H.264/HEVC]](#--slices-int-h264hevc)
   - [--cabac [H.264]](#--cabac-h264)
@@ -663,8 +664,11 @@ H.264のBDirect modeを指定する。
 - spatial
 - temporal
 
-### --(no-)adapt-transform [H.264]
-H.264のadaptive transform modeを有効(無効)にする。
+### --hierarchial-p [H.264]
+H.264のhierarchial Pフレームを有効にする。
+
+### --hierarchial-b [H.264]
+H.264のhierarchial Bフレームを有効にする。
 
 ### --mv-precision &lt;string&gt;
 動きベクトル精度 / デフォルト: auto

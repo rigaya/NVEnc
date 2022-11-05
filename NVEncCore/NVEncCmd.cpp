@@ -236,7 +236,9 @@ tstring encoder_help() {
         _T("                                  - middle\n")
         _T("   --direct <string>            [H264] set B Direct mode\n")
         _T("                                  auto(default), none, spatial, temporal\n")
-        _T("   --(no-)adapt-transform       [H264] set adaptive transform mode (default=auto)\n"),
+        _T("   --(no-)adapt-transform       [H264] set adaptive transform mode (default=auto)\n")
+        _T("   --hierarchial-p              [H264] enable hierarchial P frames\n")
+        _T("   --hierarchial-b              [H264] enable hierarchial B frames\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
@@ -905,6 +907,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("no-adapt-transform")) {
         codecPrm[NV_ENC_H264].h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
+        return 0;
+    }
+    if (IS_OPTION("hierarchial-p")) {
+        codecPrm[NV_ENC_H264].h264Config.hierarchicalPFrames = 1;
+        return 0;
+    }
+    if (IS_OPTION("hierarchial-b")) {
+        codecPrm[NV_ENC_H264].h264Config.hierarchicalBFrames = 1;
         return 0;
     }
     if (IS_OPTION("ref")) {

@@ -2054,6 +2054,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.entropyCodingMode = (m_stEncoderInput[0].profile > 66) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
         if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 <= 0) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.hierarchicalBFrames = 0;
         }
     } else {
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
@@ -5027,7 +5028,12 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (codec == NV_ENC_H264) {
         add_str(RGY_LOG_INFO, _T("%s "), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
         add_str(RGY_LOG_INFO, (m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC == 0) ? _T("deblock ") : _T("no_deblock "));
-        add_str(RGY_LOG_DEBUG, _T("hierarchyFrame P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
+        if (m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames || m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames) {
+            add_str(RGY_LOG_INFO, _T("hierarchical%s%s%s "),
+                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames ? _T("P") : _T(""),
+                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames && m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames ? _T("+") : _T(""),
+                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames ? _T("B") : _T(""));
+        }
         add_str(RGY_LOG_DEBUG, m_stEncConfig.encodeCodecConfig.h264Config.enableVFR ? _T("VFR ") : _T(""));
         add_str(RGY_LOG_INFO,  _T("adapt-transform:%s "), get_chr_from_value(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
         add_str(RGY_LOG_DEBUG, _T("fmo:%s "), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));

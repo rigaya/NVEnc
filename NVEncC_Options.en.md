@@ -82,6 +82,8 @@
   - [--bref-mode &lt;string&gt;](#--bref-mode-string)
   - [--direct &lt;string&gt; [H.264]](#--direct-string-h264)
   - [--(no-)adapt-transform [H.264]](#--no-adapt-transform-h264)
+  - [--hierarchial-p [H.264]](#--hierarchial-p-h264)
+  - [--hierarchial-b [H.264]](#--hierarchial-b-h264)
   - [--mv-precision &lt;string&gt;](#--mv-precision-string)
   - [--slices &lt;int&gt; [H.264/HEVC]](#--slices-int-h264hevc)
   - [--cabac [H.264]](#--cabac-h264)
@@ -659,6 +661,11 @@ Specify H.264 B Direct mode.
 
 ### --(no-)adapt-transform [H.264]
 Enable (or disable) adaptive transform mode of H.264.
+### --hierarchial-p [H.264]
+Enable hierarchial P frames.
+
+### --hierarchial-b [H.264]
+Enable hierarchial P frames.
 
 ### --mv-precision &lt;string&gt;
 Motion vector accuracy / default: auto
