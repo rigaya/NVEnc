@@ -995,6 +995,7 @@ struct VppSubburn {
     float contrast;
     double ts_offset;
     bool vid_ts_offset;
+    bool forced_subs_only;
 
     VppSubburn();
     bool operator==(const VppSubburn &x) const;

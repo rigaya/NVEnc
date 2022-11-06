@@ -2028,6 +2028,9 @@ It is necessary to install nppi64_10.dll, and could be used only in x64 version.
 
 - fontsdir=&lt;string&gt;  
   directory with fonts used.
+  
+- forced_subs_only=&lt;bool&gt;  
+  render forced subs only (default: off).
 
 ```
 Example1: burn in subtitle from the track of the input file

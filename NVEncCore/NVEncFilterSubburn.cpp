@@ -580,7 +580,7 @@ RGY_ERR NVEncFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, cudaStream_t s
             }
             AddMessage(RGY_LOG_TRACE, _T("burn subtitle into video frame (%s)"),
                 getTimestampString(nFrameTimeMs, av_make_q(1, 1000)).c_str());
-            return procFrameBitmap(pOutputFrame, prm->crop, stream);
+            return procFrameBitmap(pOutputFrame, nFrameTimeMs, prm->crop, prm->subburn.forced_subs_only, stream);
         }
     }
     return RGY_ERR_NONE;

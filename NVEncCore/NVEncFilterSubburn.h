@@ -90,7 +90,7 @@ protected:
     SubImageData textRectToImage(const ASS_Image *image, cudaStream_t stream);
     SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, cudaStream_t stream);
     RGY_ERR procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, cudaStream_t stream);
-    RGY_ERR procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop& crop, cudaStream_t stream);
+    RGY_ERR procFrameBitmap(RGYFrameInfo *pOutputFrame, const int64_t frameTimeMs, const sInputCrop& crop, const bool forced_subs_only, cudaStream_t stream);
     RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, cudaStream_t stream);
 
     int m_subType; //字幕の種類

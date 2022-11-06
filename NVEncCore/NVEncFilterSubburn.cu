@@ -456,12 +456,20 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
 }
 
 
-RGY_ERR NVEncFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop &crop, cudaStream_t stream) {
+RGY_ERR NVEncFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const int64_t frameTimeMs, const sInputCrop &crop, const bool forced_subs_only, cudaStream_t stream) {
     if (m_subData) {
         if (m_subData->num_rects != m_subImages.size()) {
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
                 const AVSubtitleRect *rect = m_subData->rects[irect];
-                m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, stream));
+                if (forced_subs_only && !(rect->flags & AV_SUBTITLE_FLAG_FORCED)) {
+                    AddMessage(RGY_LOG_DEBUG, _T("skipping non-forced sub at %s\n"), getTimestampString(frameTimeMs, av_make_q(1, 1000)).c_str());
+                    // 空の値をいれる
+                    m_subImages.push_back(SubImageData(
+                        std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
+                        std::unique_ptr<void, decltype(&cudaFreeHost)>(nullptr, nullptr), 0, 0));
+                } else {
+                    m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, stream));
+                }
             }
         }
         if ((m_subData->num_rects != m_subImages.size())) {
@@ -484,14 +492,16 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sI
             return RGY_ERR_UNSUPPORTED;
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
-            const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
-            auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
-                prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, stream);
-            if (cudaerr != cudaSuccess) {
-                AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
-                    RGY_CSP_NAMES[pOutputFrame->csp],
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+            if (m_subImages[irect].image) {
+                const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
+                auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
+                    prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, stream);
+                if (cudaerr != cudaSuccess) {
+                    AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
+                        RGY_CSP_NAMES[pOutputFrame->csp],
+                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                    return RGY_ERR_CUDA;
+                }
             }
         }
     }

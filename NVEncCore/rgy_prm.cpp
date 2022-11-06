@@ -810,7 +810,8 @@ VppSubburn::VppSubburn() :
     brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
     contrast(FILTER_DEFAULT_TWEAK_CONTRAST),
     ts_offset(0.0),
-    vid_ts_offset(true) {
+    vid_ts_offset(true),
+    forced_subs_only(false) {
 }
 
 bool VppSubburn::operator==(const VppSubburn &x) const {
@@ -825,7 +826,8 @@ bool VppSubburn::operator==(const VppSubburn &x) const {
         && brightness == x.brightness
         && contrast == x.contrast
         && ts_offset == x.ts_offset
-        && vid_ts_offset == x.vid_ts_offset;
+        && vid_ts_offset == x.vid_ts_offset
+        && forced_subs_only == x.forced_subs_only;
 }
 bool VppSubburn::operator!=(const VppSubburn &x) const {
     return !(*this == x);
@@ -851,6 +853,9 @@ tstring VppSubburn::print() const {
     }
     if (!vid_ts_offset) {
         str += _T(", vid_ts_offset off");
+    }
+    if (forced_subs_only) {
+        str += _T(", forced_subs_only");
     }
     return str;
 }

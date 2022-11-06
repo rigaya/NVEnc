@@ -2129,7 +2129,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         param_list.push_back(tstring(qstr, pstr - qstr));
 
-        const auto paramList = std::vector<std::string>{ "track", "filename", "charcode", "shaping", "scale", "transparency", "brightness", "contrast", "vid_ts_offset", "ts_offset", "fontsdir" };
+        const auto paramList = std::vector<std::string>{ "track", "filename", "charcode", "shaping", "scale", "transparency", "brightness", "contrast", "vid_ts_offset", "ts_offset", "fontsdir", "forced_subs_only" };
 
         for (const auto &param : param_list) {
             auto pos = param.find_first_of(_T("="));
@@ -2231,6 +2231,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("fontsdir")) {
                     subburn.fontsdir = trim(param_val, _T("\""));
+                    continue;
+                }
+                if (param_arg == _T("forced_subs_only")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        subburn.forced_subs_only = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -5538,6 +5548,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 ADD_BOOL(_T("vid_ts_offset"), subburn[i].vid_ts_offset);
                 ADD_FLOAT(_T("ts_offset"), subburn[i].ts_offset, 4);
                 ADD_PATH(_T("fontsdir"), subburn[i].fontsdir.c_str());
+                ADD_BOOL(_T("forced_subs_only"), subburn[i].forced_subs_only);
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);
@@ -6666,7 +6677,8 @@ tstring gen_cmd_help_vpp() {
         _T("                                  the video file (default: on)\n")
         _T("                                  (when \"track\" is used this options is always on)\n")
         _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n")
-        _T("      fontsdir=<string>         directory with fonts used.\n"),
+        _T("      fontsdir=<string>         directory with fonts used.\n")
+        _T("      forced_subs_only=<bool>   render forced subs only.\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS, FILTER_DEFAULT_TWEAK_CONTRAST);
 #if ENABLE_VPP_FILTER_UNSHARP
     str += strsprintf(_T("\n")
