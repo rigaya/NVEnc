@@ -3474,13 +3474,13 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
             }
         } else if (frameDataList.size() > 0) {
             if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
-                return frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+                return frameData && frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
             }); data != frameDataList.end()) {
                 metadatalist.push_back(*data);
             }
         }
         if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
-            return frameData->dataType() == RGY_FRAME_DATA_DOVIRPU;
+            return frameData && frameData->dataType() == RGY_FRAME_DATA_DOVIRPU;
         }); data != frameDataList.end()) {
             metadatalist.push_back(*data);
         }
@@ -5010,9 +5010,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
     }
     if (m_hdr10plus) {
-        add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     %s\n"), m_hdr10plus->inputJson().c_str());
+        add_str(RGY_LOG_INFO, _T("Dynamic HDR10     %s\n"), m_hdr10plus->inputJson().c_str());
     } else if (m_hdr10plusMetadataCopy) {
-        add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     copy\n"));
+        add_str(RGY_LOG_INFO, _T("Dynamic HDR10     copy\n"));
     }
     if (m_dovirpu) {
         add_str(RGY_LOG_INFO, _T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());
