@@ -3474,13 +3474,13 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
             }
         } else if (frameDataList.size() > 0) {
             if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
-                return frameData && frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+                return frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
             }); data != frameDataList.end()) {
                 metadatalist.push_back(*data);
             }
         }
         if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
-            return frameData && frameData->dataType() == RGY_FRAME_DATA_DOVIRPU;
+            return frameData->dataType() == RGY_FRAME_DATA_DOVIRPU;
         }); data != frameDataList.end()) {
             metadatalist.push_back(*data);
         }
@@ -4062,17 +4062,29 @@ NVENCSTATUS NVEncCore::Encode() {
                         continue;
                     }
                     return NV_ENC_SUCCESS;
-                }
-                filterframes.pop_front();
+                } 
                 if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
                     auto pCudaEvent = vInFrameTransferFin[nFilterFrame % vInFrameTransferFin.size()].get();
                     add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
                 }
                 bDrain = false; //途中でフレームが出てきたら、drain完了していない
 
-                //最初に出てきたフレームは先頭に追加する
-                for (int jframe = nOutFrames-1; jframe >= 0; jframe--) {
-                    filterframes.push_front(std::make_pair(*outInfo[jframe], ifilter+1));
+                // 上書きするタイプのフィルタの場合、pop_front -> push_front は不要
+                if (m_vpFilters[ifilter]->GetFilterParam()->bOutOverwrite
+                    && filterframes.front().first.ptr
+                    && filterframes.front().first.ptr == outInfo[0]->ptr) {
+                    // 上書きするタイプのフィルタが複数のフレームを返すのはサポートしない
+                    if (nOutFrames > 1) {
+                        PrintMes(RGY_LOG_ERROR, _T("bOutOverwrite = true but nOutFrames = %d at filter[%d][%s].\n"),
+                            nOutFrames, ifilter, m_vpFilters[ifilter]->name().c_str());
+                        return NV_ENC_ERR_GENERIC;
+                    }
+                } else {
+                    filterframes.pop_front();
+                    //最初に出てきたフレームは先頭に追加する
+                    for (int jframe = nOutFrames - 1; jframe >= 0; jframe--) {
+                        filterframes.push_front(std::make_pair(*outInfo[jframe], ifilter + 1));
+                    }
                 }
             }
             if (bDrain) {
