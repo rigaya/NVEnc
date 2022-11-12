@@ -467,6 +467,11 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const in
                     m_subImages.push_back(SubImageData(
                         std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
                         std::unique_ptr<void, decltype(&cudaFreeHost)>(nullptr, nullptr), 0, 0));
+                } else if (rect->w == 0 || rect->h == 0) {
+                    // 空の値をいれる
+                    m_subImages.push_back(SubImageData(
+                        std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
+                        std::unique_ptr<void, decltype(&cudaFreeHost)>(nullptr, nullptr), 0, 0));
                 } else {
                     m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, stream));
                 }
