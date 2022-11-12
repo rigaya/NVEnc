@@ -55,7 +55,7 @@ RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
         case 'F':
         {
             int rate = 0, scale = 0;
-            if (!rgy_rational<int>(pInfo->fpsN, pInfo->fpsD).is_valid() 
+            if (!rgy_rational<int>(pInfo->fpsN, pInfo->fpsD).is_valid()
                 && sscanf_s(p+1, "%d:%d", &rate, &scale) == 2) {
                 if (rate && scale) {
                     pInfo->fpsN = rate;
