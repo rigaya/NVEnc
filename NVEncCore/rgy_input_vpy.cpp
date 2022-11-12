@@ -329,10 +329,10 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
-    const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
     m_inputVideoInfo.srcWidth = vsvideoinfo->width;
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
     if (!rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+        const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
         m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
         m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
     }
