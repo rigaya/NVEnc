@@ -332,9 +332,14 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
     m_inputVideoInfo.srcWidth = vsvideoinfo->width;
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
-    m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
-    m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
-    m_inputVideoInfo.frames = vsvideoinfo->numFrames;
+    if (!rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+        m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
+        m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
+    }
+    if (m_inputVideoInfo.frames == 0) {
+        m_inputVideoInfo.frames = std::numeric_limits<decltype(m_inputVideoInfo.frames)>::max();
+    }
+    m_inputVideoInfo.frames = std::min(m_inputVideoInfo.frames, vsvideoinfo->numFrames);
     m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
     if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
         m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];

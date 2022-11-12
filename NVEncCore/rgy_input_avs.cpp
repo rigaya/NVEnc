@@ -462,9 +462,14 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     m_inputVideoInfo.srcWidth = m_sAVSinfo->width;
     m_inputVideoInfo.srcHeight = m_sAVSinfo->height;
-    m_inputVideoInfo.fpsN = m_sAVSinfo->fps_numerator;
-    m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator;
-    m_inputVideoInfo.frames = m_sAVSinfo->num_frames;
+    if (!rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+        m_inputVideoInfo.fpsN = m_sAVSinfo->fps_numerator;
+        m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator;
+    }
+    if (m_inputVideoInfo.frames == 0) {
+        m_inputVideoInfo.frames = std::numeric_limits<decltype(m_inputVideoInfo.frames)>::max();
+    }
+    m_inputVideoInfo.frames = std::min(m_inputVideoInfo.frames, m_sAVSinfo->num_frames);
     m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
     if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
         m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];

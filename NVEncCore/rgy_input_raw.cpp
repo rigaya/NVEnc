@@ -55,7 +55,7 @@ RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
         case 'F':
         {
             int rate = 0, scale = 0;
-            if ((pInfo->fpsN == 0 || pInfo->fpsD == 0)
+            if (!rgy_rational<int>(pInfo->fpsN, pInfo->fpsD).is_valid() 
                 && sscanf_s(p+1, "%d:%d", &rate, &scale) == 2) {
                 if (rate && scale) {
                     pInfo->fpsN = rate;
@@ -317,9 +317,11 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 }
 
 RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
-    //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
-    //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-    if (getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
+    if ((m_inputVideoInfo.frames > 0
+          &&(int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames)
+        //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+        //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
+        || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 

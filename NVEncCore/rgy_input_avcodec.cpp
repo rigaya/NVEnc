@@ -1302,6 +1302,16 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         }
         AddMessage(RGY_LOG_DEBUG, _T("set input opt: %s = %s.\n"), inputOpt.first.c_str(), inputOpt.second.c_str());
     }
+
+    if (rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+        const std::string optValue = strsprintf("%d/%d", m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+        const int err = av_dict_set(&m_Demux.format.formatOptions, "framerate", optValue.c_str(), 0);
+        if (err < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set input opt: framerate = %d/%d.\n"), m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("set input opt: framerate = %d/%d.\n"), m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+    }
     //ts向けの設定
     bool scan_all_pmts_set = false;
     if (!av_dict_get(m_Demux.format.formatOptions, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
@@ -1875,7 +1885,20 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_cap2ass.setVidFirstKeyPts(m_Demux.video.streamFirstKeyPts);
         }
 
-        m_trimParam.list = make_vector(input_prm->pTrimList, input_prm->nTrimCount);
+        if (m_inputVideoInfo.frames > 0) {
+            // avsw/avhwでは、--framesは--trimに置き換えて実現する
+            for (int itrim = 0; itrim < input_prm->nTrimCount; itrim++) {
+                const auto& t = m_trimParam.list[itrim];
+                if (t.start < m_inputVideoInfo.frames) {
+                    m_trimParam.list.push_back({ t.start, std::min(t.fin, m_inputVideoInfo.frames - 1) });
+                }
+            }
+            if (m_trimParam.list.size() == 0) {
+                m_trimParam.list.push_back({ 0, m_inputVideoInfo.frames - 1 });
+            }
+        } else {
+            m_trimParam.list = make_vector(input_prm->pTrimList, input_prm->nTrimCount);
+        }
         //キーフレームに到達するまでQSVではフレームが出てこない
         //そのぶんのずれを記録しておき、Trim値などに補正をかける
         if (m_trimParam.offset) {

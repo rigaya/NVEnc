@@ -2852,6 +2852,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 }
 
 int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, RGYParamInput *inprm, sArgsData *argData) {
+    if (IS_OPTION("frames")) {
+        i++;
+        int v = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        input->frames = v;
+        return 0;
+    }
     if (IS_OPTION("fps")) {
         i++;
         int a[2] = { 0 };
@@ -5200,6 +5210,9 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYPa
         cmd << _T(" --crop ") << param->crop.e.left << _T(",") << param->crop.e.up
             << _T(",") << param->crop.e.right << _T(",") << param->crop.e.bottom;
     }
+    if (param->frames > 0) {
+        cmd << _T(" --frames ") << param->frames;
+    }
     if (param->fpsN * param->fpsD > 0) {
         cmd << _T(" --fps ") << param->fpsN << _T("/") << param->fpsD;
     }
@@ -6190,6 +6203,7 @@ tstring gen_cmd_help_input() {
         _T("        decrease ... preserve aspect ratio by decreasing resolution specified.\n")
         _T("        increase ... preserve aspect ratio by increasing resolution specified.\n")
         _T("\n")
+        _T("   --frames <int>               frames to encode (based on input frames)\n")
         _T("   --fps <int>/<int> or <float> set framerate\n")
         _T("   --interlace <string>         set input as interlaced\n")
         _T("                                  tff, bff\n");

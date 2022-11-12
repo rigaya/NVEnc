@@ -43,6 +43,7 @@
   - [--interlace &lt;string&gt;](#--interlace-string)
   - [--video-track &lt;int&gt;](#--video-track-int)
   - [--crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;](#--crop-intintintint)
+  - [--frames &lt;int&gt;](#--frames-int)
   - [--fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;](#--fps-intint-or-float)
   - [--input-res &lt;int&gt;x&lt;int&gt;](#--input-res-intxint)
   - [--output-res &lt;int&gt;x&lt;int&gt;[,&lt;string&gt;=&lt;string&gt;]](#--output-res-intxintstringstring)
@@ -449,6 +450,9 @@ Set video track to encode in track id. Will be active when used with avhw/avsw r
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 Number of pixels to cropped from left, top, right, bottom.
+
+### --frames &lt;int&gt;
+Number of frames to input. (Note: input base, not output base)
 
 ### --fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;
 Set the input frame rate. Required for raw format.
