@@ -202,6 +202,10 @@ NVIDIA グラフィックドライバ 522.25
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2022.11.12 (7.04)
+- --vpp-subburnと--dhdr10-info copyを併用すると、dynamic HDR10のmetadataが適切にコピーされない問題を修正。
+- Hierarchial P/Bフレームの階層数を指定するオプションを追加。(--temporal-layers)
+
 2022.11.06 (7.03)
 [NVEncC]
 - --vpp-subburnにfoced flag付きの字幕のみ焼きこむオプションを追加。

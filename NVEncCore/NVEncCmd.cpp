@@ -238,7 +238,8 @@ tstring encoder_help() {
         _T("                                  auto(default), none, spatial, temporal\n")
         _T("   --(no-)adapt-transform       [H264] set adaptive transform mode (default=auto)\n")
         _T("   --hierarchial-p              [H264] enable hierarchial P frames\n")
-        _T("   --hierarchial-b              [H264] enable hierarchial B frames\n"),
+        _T("   --hierarchial-b              [H264] enable hierarchial B frames\n")
+        _T("   --temporal-layers <int>      [H264] set number of temporal layers\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
@@ -917,6 +918,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         codecPrm[NV_ENC_H264].h264Config.hierarchicalBFrames = 1;
         return 0;
     }
+    if (IS_OPTION("temporal-layers")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            codecPrm[NV_ENC_H264].h264Config.numTemporalLayers = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("ref")) {
         i++;
         try {
@@ -1088,10 +1100,33 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("max-temporal-layers:h264")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_H264].h264Config.maxTemporalLayers = value;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("max-temporal-layers:av1")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_AV1].av1Config.maxTemporalLayersMinus1 = value-1;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("max-temporal-layers")) {
         i++;
         try {
             int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_H264].h264Config.maxTemporalLayers = value;
             codecPrm[NV_ENC_AV1].av1Config.maxTemporalLayersMinus1 = value-1;
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
@@ -1668,7 +1703,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_AV1(_T("--tile-rows"),     _T(""), numTileRows,    list_av1_tiles);
         OPT_LST_AV1(_T("--part-size-min"), _T(""), minPartSize,    list_part_size_av1);
         OPT_LST_AV1(_T("--part-size-max"), _T(""), maxPartSize,    list_part_size_av1);
-        OPT_NUM_AV1(_T("--max-temporal-layers"), _T(""), maxTemporalLayersMinus1+1);
+        OPT_NUM_AV1(_T("--max-temporal-layers"), _T(":av1"), maxTemporalLayersMinus1+1);
         OPT_LST_AV1(_T("--refs-forward"),  _T(""), numFwdRefs, list_av1_refs_forward);
         OPT_LST_AV1(_T("--refs-backward"), _T(""), numBwdRefs, list_av1_refs_backward);
     }
@@ -1703,6 +1738,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_BOOL_H264(_T("--aud"), _T(""), _T(":h264"), outputAUD);
         OPT_BOOL_H264(_T("--repeat-headers"), _T(""), _T(":h264"), repeatSPSPPS);
         OPT_BOOL_H264(_T("--pic-struct"), _T(""), _T(":h264"), outputPictureTimingSEI);
+        OPT_NUM_H264(_T("--temporal-layers"), _T(":h264"), numTemporalLayers);
+        OPT_NUM_H264(_T("--max-temporal-layers"), _T(":h264"), maxTemporalLayers);
         if ((codecPrm[NV_ENC_H264].h264Config.entropyCodingMode) != (codecPrmDefault[NV_ENC_H264].h264Config.entropyCodingMode)) {
             cmd << _T(" --") << get_chr_from_value(list_entropy_coding, codecPrm[NV_ENC_H264].h264Config.entropyCodingMode);
         }

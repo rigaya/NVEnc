@@ -84,6 +84,7 @@
   - [--(no-)adapt-transform [H.264]](#--no-adapt-transform-h264)
   - [--hierarchial-p [H.264]](#--hierarchial-p-h264)
   - [--hierarchial-b [H.264]](#--hierarchial-b-h264)
+  - [--temporal-layers &lt;int&gt; [H.264]](#--temporal-layers-int-h264)
   - [--mv-precision &lt;string&gt;](#--mv-precision-string)
   - [--slices &lt;int&gt; [H.264/HEVC]](#--slices-int-h264hevc)
   - [--cabac [H.264]](#--cabac-h264)
@@ -666,6 +667,9 @@ Enable hierarchial P frames.
 
 ### --hierarchial-b [H.264]
 Enable hierarchial P frames.
+
+### --temporal-layers &lt;int&gt; [H.264]
+Specifies number of temporal layers to be used for hierarchical coding.
 
 ### --mv-precision &lt;string&gt;
 Motion vector accuracy / default: auto

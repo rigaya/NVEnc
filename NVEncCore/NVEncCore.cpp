@@ -1693,6 +1693,34 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
             error_feature_unsupported(RGY_LOG_WARN, _T("Adaptive Tranform"));
         }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES)) {
+            m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames = 0;
+            error_feature_unsupported(RGY_LOG_WARN, _T("Hierarchical Pframes"));
+        }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES)) {
+            m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames = 0;
+            error_feature_unsupported(RGY_LOG_WARN, _T("Hierarchical Bframes"));
+        }
+        // hierarchicalP/BFramesにはnumTemporalLayersが必要
+        if (m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames || m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames) {
+            m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers = 2;
+        }
+        // どうも最大3までしかうまく扱えていなさそう (4にするとエラーが発生)
+        const int maxTemporalLayersAvail = std::min(3, codecFeature->getCapLimit(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS));
+        if (m_stEncConfig.encodeCodecConfig.h264Config.maxTemporalLayers > maxTemporalLayersAvail) {
+            PrintMes(RGY_LOG_WARN, _T("maxTemporalLayers is lowered %d -> %d.\n"), m_stEncConfig.encodeCodecConfig.h264Config.maxTemporalLayers, maxTemporalLayersAvail);
+            m_stEncConfig.encodeCodecConfig.h264Config.maxTemporalLayers = maxTemporalLayersAvail;
+        }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers > maxTemporalLayersAvail) {
+            PrintMes(RGY_LOG_WARN, _T("numTemporalLayers is lowered %d -> %d.\n"), m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers, maxTemporalLayersAvail);
+            m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers = maxTemporalLayersAvail;
+
+            const int requiredRef = (m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers >= 2) ? (m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers - 2) * 2 : 0;
+            if (m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames != 0
+                && m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames < requiredRef) {
+                m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames = requiredRef;
+            }
+        }
     }
     if ((NV_ENC_MV_PRECISION_QUARTER_PEL == m_stEncConfig.mvPrecision) && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_QPELMV)) {
         m_stEncConfig.mvPrecision = NV_ENC_MV_PRECISION_HALF_PEL;
@@ -5029,6 +5057,15 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (m_dovirpu) {
         add_str(RGY_LOG_INFO, _T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());
     }
+    if (codec == NV_ENC_H264) {
+        if (m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames || m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames) {
+            add_str(RGY_LOG_INFO, _T("Hierarchical   %s%s%s Frames [temporal layers: %d]\n"),
+                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames ? _T("P") : _T(""),
+                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames && m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames ? _T(" + ") : _T(""),
+                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames ? _T("B") : _T(""),
+                m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers);
+        }
+    }
     add_str(RGY_LOG_INFO, _T("Others         "));
     add_str(RGY_LOG_INFO, _T("mv:%s "), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
     if (m_stCreateEncodeParams.enableWeightedPrediction) {
@@ -5040,12 +5077,6 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (codec == NV_ENC_H264) {
         add_str(RGY_LOG_INFO, _T("%s "), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
         add_str(RGY_LOG_INFO, (m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC == 0) ? _T("deblock ") : _T("no_deblock "));
-        if (m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames || m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames) {
-            add_str(RGY_LOG_INFO, _T("hierarchical%s%s%s "),
-                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames ? _T("P") : _T(""),
-                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames && m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames ? _T("+") : _T(""),
-                m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames ? _T("B") : _T(""));
-        }
         add_str(RGY_LOG_DEBUG, m_stEncConfig.encodeCodecConfig.h264Config.enableVFR ? _T("VFR ") : _T(""));
         add_str(RGY_LOG_INFO,  _T("adapt-transform:%s "), get_chr_from_value(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
         add_str(RGY_LOG_DEBUG, _T("fmo:%s "), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
