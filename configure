@@ -322,7 +322,7 @@ if [ "${CUDA_PATH}" != "" ]; then
     CUDA_CFLAGS="-I${CUDA_PATH}/include ${EXTRACUDACXXFLAGS}"
     CUDA_LIBS="-L${CUDA_PATH}/lib64 ${EXTRACUDALDFLAGS} ${CUDA_LIBS}"
     export PATH=${CUDA_PATH}/bin:${PATH}
-    NVCC=`which nvcc`
+    NVCC=`type -p nvcc`
     cnf_write "nvcc=${NVCC}"
 fi
 if ! cxx_check "cuda" "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "cuda.h" "" "auto result = cuInit(0);" ; then
@@ -350,7 +350,7 @@ cnf_write "OK, CUDA ${CUDA_VER_MAJOR}.${CUDA_VER_MINOR}"
 NVCCFLAGS="${GPU_CODE_GEN} -Wno-deprecated-gpu-targets --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
 
 for file in "${CXX}"; do
-if [ ! `which $file 2> /dev/null` ]; then
+if [ ! `type -p $file 2> /dev/null` ]; then
         cnf_write "$file not found"
         exit 1
     fi
@@ -438,7 +438,7 @@ fi
 
 cnf_print "checking for pkg-config..."
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig
-which $PKGCONFIG 2>/dev/null 1>/dev/null
+type -p $PKGCONFIG 2>/dev/null 1>/dev/null
 if [ $? -ne 0 ]; then
     cnf_write "${PKGCONFIG} does not exist."
     USE_PKGCONFIG=0
