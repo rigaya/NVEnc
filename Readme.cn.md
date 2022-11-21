@@ -48,6 +48,7 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
 | Volta | [GTX1650](./GPUFeatures/gtx1650.txt) | |
 | Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt)  |
 | Ampere | [RTX3090](./GPUFeatures/rtx3090.txt), [RTX3080](./GPUFeatures/rtx3080.txt), [RTX3050Ti](./GPUFeatures/rtx3050ti.txt)  | |
+| Ada Lovelace | [RTX4090](./GPUFeatures/rtx4090.txt), [RTX4080](./GPUFeatures/rtx4080.txt) | |
 
 ## 使用NVEnc的注意事项
 本软件是“按原样”提供的，没有任何形式的保证。
