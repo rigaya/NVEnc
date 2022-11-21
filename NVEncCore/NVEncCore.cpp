@@ -2005,9 +2005,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.inputPixelBitDepthMinus8 = m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.pixelBitDepthMinus8;
 
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.disableSeqHdr = 0;
-        if (require_repeat_headers()) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.repeatSeqHdr = 1;
-        }
+        // シーク性を確保するため、常に有効にする
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.repeatSeqHdr = 1;
     } else if (rgy_codec == RGY_CODEC_HEVC) {
         //整合性チェック (一般, H.265/HEVC)
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
