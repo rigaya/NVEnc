@@ -3062,6 +3062,48 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
     return -1;
 }
 
+int parse_log_level_param(const TCHAR *option_name, const TCHAR *arg_value, RGYParamLogLevel& loglevel) {
+    std::vector<std::string> paramList;
+    for (const auto& param : RGY_LOG_TYPE_STR) {
+        paramList.push_back(tchar_to_string(param.second));
+    }
+
+    for (const auto &param : split(arg_value, _T(","))) {
+        auto pos = param.find_first_of(_T("="));
+        if (pos != std::string::npos) {
+            auto param_arg = param.substr(0, pos);
+            auto param_val = param.substr(pos + 1);
+            param_arg = tolowercase(param_arg);
+            int value = 0;
+            if (get_list_value(list_log_level, param_val.c_str(), &value)) {
+                auto type_ret = std::find_if(RGY_LOG_TYPE_STR.begin(), RGY_LOG_TYPE_STR.end(), [param_arg](decltype(RGY_LOG_TYPE_STR[0])& type) {
+                    return param_arg == type.second;
+                    });
+                if (type_ret != RGY_LOG_TYPE_STR.end()) {
+                    loglevel.set((RGYLogLevel)value, type_ret->first);
+                    continue;
+                } else {
+                    print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                    return 1;
+                }
+            } else {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_log_level);
+                return 1;
+            }
+        } else {
+            int value = 0;
+            if (get_list_value(list_log_level, param.c_str(), &value)) {
+                loglevel.set((RGYLogLevel)value, RGY_LOGT_ALL);
+                continue;
+            } else {
+                print_cmd_error_invalid_value(option_name, arg_value, list_log_level);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
     const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition", "delay", "metadata" };
     for (const auto &param : split(str, _T(";"))) {
@@ -4668,46 +4710,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
             return 0;
         }
         i++;
-
-        std::vector<std::string> paramList;
-        for (const auto& param : RGY_LOG_TYPE_STR) {
-            paramList.push_back(tchar_to_string(param.second));
-        }
-
-        for (const auto &param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
-                auto param_val = param.substr(pos + 1);
-                param_arg = tolowercase(param_arg);
-                int value = 0;
-                if (get_list_value(list_log_level, param_val.c_str(), &value)) {
-                    auto type_ret = std::find_if(RGY_LOG_TYPE_STR.begin(), RGY_LOG_TYPE_STR.end(), [param_arg](decltype(RGY_LOG_TYPE_STR[0])& type) {
-                        return param_arg == type.second;
-                    });
-                    if (type_ret != RGY_LOG_TYPE_STR.end()) {
-                        ctrl->loglevel.set((RGYLogLevel)value, type_ret->first);
-                        continue;
-                    } else {
-                        print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                        return 1;
-                    }
-                } else {
-                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_log_level);
-                    return 1;
-                }
-            } else {
-                int value = 0;
-                if (get_list_value(list_log_level, param.c_str(), &value)) {
-                    ctrl->loglevel.set((RGYLogLevel)value, RGY_LOGT_ALL);
-                    continue;
-                } else {
-                    print_cmd_error_invalid_value(option_name, strInput[i], list_log_level);
-                    return 1;
-                }
-            }
-        }
-        return 0;
+        return parse_log_level_param(option_name, strInput[i], ctrl->loglevel);
     }
     if (IS_OPTION("log-framelist")) {
         ctrl->logFramePosList = true;
