@@ -1733,6 +1733,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_Demux.video.parse_nal_hevc = get_parse_nal_unit_hevc_func();
         m_Demux.video.hdr10plusMetadataCopy = input_prm->hdr10plusMetadataCopy;
         AddMessage(RGY_LOG_DEBUG, _T("hdr10plusMetadataCopy: %s\n"), m_Demux.video.hdr10plusMetadataCopy ? _T("on") : _T("off"));
+        if (ENCODER_VCEENC && m_Demux.video.hdr10plusMetadataCopy && m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
+            AddMessage((m_inputVideoInfo.type == RGY_INPUT_FMT_AVHW) ? RGY_LOG_WARN : RGY_LOG_INFO, _T("--dhdr10-info copy is only supported with sw deocde in %s, switching to --avsw.\n"), _T(ENCODER_NAME));
+            m_inputVideoInfo.type = RGY_INPUT_FMT_AVSW;
+        }
 #if ENCODER_NVENC && (defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) || defined(__ARM_ARCH))
         //armではhwデコーダを使用すると現状エラー終了するため、--avhwの指定がないときはavswを使用する
         if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVHW) {
