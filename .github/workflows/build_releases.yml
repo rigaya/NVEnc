@@ -13,11 +13,11 @@ jobs:
     name: Get version name
     runs-on: ubuntu-latest
     outputs:
-      rev_count: ${{ steps.rev.outputs.REVCOUNT }}
-      version_name: ${{ steps.rev.outputs.VERSION_NAME }}
+      rev_count: ${{ steps.rev.outputs.rev_count }}
+      version_name: ${{ steps.rev.outputs.version_name }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: Set version name
@@ -25,13 +25,13 @@ jobs:
       run: |
         cd ${{ github.workspace }}
         REVCOUNT=`git rev-list --count HEAD`
-        echo "::set-output name=REV_COUNT::${REVCOUNT}"
+        echo "rev_count=${REVCOUNT}" >> $GITHUB_OUTPUT
         if [[ "${{ github.ref }}" =~ "refs/tags/" ]]; then
           VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
         else
           VERSION=r${REVCOUNT}
         fi
-        echo "::set-output name=VERSION_NAME::${VERSION}"
+        echo "version_name=${VERSION}" >> $GITHUB_OUTPUT
 
   build:
     name: Upload Release Asset
@@ -59,7 +59,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
@@ -127,13 +127,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: .\NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+          files: NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: NVEncC_release_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}
-          path: .\NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+          path: NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
 
   upload_aviutl_release:
     name: Upload Aviutl Release Asset
@@ -156,7 +156,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
@@ -249,4 +249,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: .\Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+          files: Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}
+          path: Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip

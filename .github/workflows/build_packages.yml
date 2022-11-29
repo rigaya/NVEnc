@@ -50,15 +50,15 @@ jobs:
           OUTPUT_DIR=`pwd`/output
           LOCAL_USER_ID=$(id -u)
           LOCAL_GROUP_ID=$(id -g)
-          echo ::set-output name=tagged_image::${IMAGE}:${TAG}
-          echo ::set-output name=tag::${TAG}
-          echo ::set-output name=nproc::${NPROC}
-          echo ::set-output name=output_dir::${OUTPUT_DIR}
-          echo ::set-output name=local_user_id::${LOCAL_USER_ID}
-          echo ::set-output name=local_group_id::${LOCAL_GROUP_ID}
+          echo "tagged_image=${IMAGE}:${TAG}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "nproc=${NPROC}" >> $GITHUB_OUTPUT
+          echo "output_dir=${OUTPUT_DIR}" >> $GITHUB_OUTPUT
+          echo "local_user_id=${LOCAL_USER_ID}" >> $GITHUB_OUTPUT
+          echo "local_group_id=${LOCAL_GROUP_ID}" >> $GITHUB_OUTPUT
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
@@ -89,7 +89,7 @@ jobs:
           docker exec build_pkg sh -c "cp -v ./*.${{ env.PKG_TYPE }} /output/"
           PKGFILE=`ls ${{ steps.prep.outputs.output_dir }}/*.${{ env.PKG_TYPE }}`
           echo ${PKGFILE}
-          echo ::set-output name=pkgfile::${PKGFILE}
+          echo "pkgfile=${PKGFILE}" >> $GITHUB_OUTPUT
 
       - name: Upload Release Asset
         id: upload-release-asset 
@@ -101,7 +101,7 @@ jobs:
           files: ${{ steps.build_exec.outputs.pkgfile }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: nvencc_${{ matrix.dockerimg }}_${{ matrix.pkgtype }}
           path: ${{ steps.build_exec.outputs.pkgfile }}
