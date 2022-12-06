@@ -596,7 +596,7 @@ namespace AUO_NAME_R {
             LOAD_CLI_TEXT(fbcLBMovieBitrate);
             LOAD_CLI_TEXT(fbcRBCalcRate);
             LOAD_CLI_TEXT(fbcRBCalcSize);
-            LOAD_CLI_TEXT(fbcTXMovieFrameRate);
+            //LOAD_CLI_TEXT(fbcTXMovieFrameRate);
             LOAD_CLI_TEXT(fbcLBFrames);
             LOAD_CLI_TEXT(fbcLBMovieFrameRate);
             LOAD_CLI_TEXT(fbcBTChangeLengthMode);
