@@ -591,20 +591,20 @@ void warning_chapter_convert_to_utf8(int sts) {
 }
 
 void error_select_convert_func(int width, int height, int bit_depth, BOOL interlaced, int output_csp) {
-    const char *bit_depth_str = "";
+    const wchar_t *bit_depth_str = L"";
     switch (bit_depth) {
-    case 16: bit_depth_str = "(16bit)"; break;
-    case 12: bit_depth_str = "(12bit)"; break;
-    case 10: bit_depth_str = "(10bit)"; break;
+    case 16: bit_depth_str = L"(16bit)"; break;
+    case 12: bit_depth_str = L"(12bit)"; break;
+    case 10: bit_depth_str = L"(10bit)"; break;
     default: break;
     }
-    write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_SEL_CONVERT_FUNC));
-    write_log_auo_line_fmt(LOG_ERROR, L"%dx%d%s, output-csp %s%s%s",
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_SEL_CONVERT_FUNC));
+    write_log_auo_line_fmt(LOG_ERROR, L"%dx%d%s, output-csp %s%s",
         width, height,
         (interlaced) ? L"i" : L"p",
         char_to_wstring(specify_csp[output_csp]).c_str(),
         bit_depth_str
-        );
+    );
 }
 
 void warning_no_batfile(const char *batfile) {
