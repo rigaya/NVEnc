@@ -2397,11 +2397,11 @@ VidEncInfo frmConfig::GetVidEncInfo() {
             if (lines[i]->Contains("Avaliable Codec")) {
                 check_codecs = true;
             } else if (check_codecs) {
-                if (lines[i]->ToLower()->Contains("h.264")) {
+                if (lines[i]->ToLower()->Contains(L"h.264")) {
                     info.h264Enc = true;
-                } else if (lines[i]->ToLower()->Contains("hevc")) {
+                } else if (lines[i]->ToLower()->Contains(L"hevc")) {
                     info.hevcEnc = true;
-                } else if (lines[i]->ToLower()->Contains("av1")) {
+                } else if (lines[i]->ToLower()->Contains(L"av1")) {
                     info.av1Enc = true;
                 }
             }
