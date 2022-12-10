@@ -3062,8 +3062,9 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         inputParam->yuv444 = (RGY_CSP_CHROMA_FORMAT[inputFrameInfo.csp] != RGY_CHROMAFMT_YUV420);
 
         if (RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
-            set_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, codec_enc_to_rgy(inputParam->codec), RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] - 8);
-            PrintMes(RGY_LOG_DEBUG, _T("Set bitdepth to %d for lossless encoding.\n"), RGY_CSP_BIT_DEPTH[inputFrameInfo.csp]);
+            const int pixelBitDepth = 10; // 8bitより上のときはとりあえず10bitで出力
+            set_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, codec_enc_to_rgy(inputParam->codec), pixelBitDepth - 8);
+            PrintMes(RGY_LOG_DEBUG, _T("Set bitdepth to %d for lossless encoding.\n"), pixelBitDepth);
         }
     }
 
