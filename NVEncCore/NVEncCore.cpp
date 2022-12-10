@@ -701,6 +701,9 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
         //手動で設定されている
         return NV_ENC_SUCCESS;
     }
+    if (inputParam->ctrl.skipHWEncodeCheck) {
+        return NV_ENC_SUCCESS;
+    }
     const RGY_CODEC rgy_codec = codec_enc_to_rgy(inputParam->codec);
     if (rgy_codec == RGY_CODEC_UNKNOWN) {
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
