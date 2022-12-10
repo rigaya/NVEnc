@@ -758,6 +758,10 @@ const CX_DESC list_empty[] = {
     { NULL, 0 }
 };
 
+static bool is_list_empty(const CX_DESC *list) {
+    return list[0].desc == nullptr;
+}
+
 extern const CX_DESC list_log_level[];
 
 const CX_DESC list_avsync[] = {
