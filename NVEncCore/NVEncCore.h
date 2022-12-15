@@ -66,12 +66,11 @@ struct InputFrameBufInfo {
 tstring get_codec_profile_name_from_guid(RGY_CODEC codec, const GUID& codecProfileGUID);
 tstring get_codec_level_name(RGY_CODEC codec, int level);
 
-class NVEncCore {
+class NVEncCore : public NVEncCtrl {
 public:
     NVEncCore();
     virtual ~NVEncCore();
 
-    //CUDAインターフェース・デバイスの初期化
     virtual NVENCSTATUS Initialize(InEncodeVideoParam *inputParam);
 
     //エンコードの初期化 (デバイスの初期化(Initialize())後に行うこと)
@@ -91,11 +90,6 @@ public:
 
     //ユーザーからの中断を知らせるフラグへのポインタをセット
     void SetAbortFlagPointer(bool *abortFlag);
-
-    NVENCSTATUS ShowDeviceList(const InEncodeVideoParam *inputParam);
-    NVENCSTATUS ShowCodecSupport(const InEncodeVideoParam *inputParam);
-    NVENCSTATUS ShowNVEncFeatures(const InEncodeVideoParam *inputParam);
-
 protected:
     bool encodeIsHighBitDepth(const InEncodeVideoParam *inputParam);
 
@@ -105,11 +99,11 @@ protected:
     //エンコーダが出力使用する色空間を入力パラメータをもとに取得
     RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
 
-    //既定の出力先に情報をメッセージを出力
-    virtual void PrintMes(RGYLogLevel logLevel, const TCHAR *format, ...);
-
     //チャプターファイルを読み込み
     NVENCSTATUS readChapterFile(const tstring& chapfile);
+
+    //ログを初期化
+    virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
 
     //エンコーダへの入力を初期化
     virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam, const std::vector<std::unique_ptr<NVGPUInfo>> &gpuList);
@@ -117,17 +111,8 @@ protected:
     //エンコーダへの入力を初期化
     virtual NVENCSTATUS InitOutput(InEncodeVideoParam *inputParam, NV_ENC_BUFFER_FORMAT encBufferFormat);
 
-    //ログを初期化
-    virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
-
     //perfMonitorの初期化
     virtual NVENCSTATUS InitPerfMonitor(const InEncodeVideoParam *inputParam);
-
-    //CUDAインターフェースを初期化
-    NVENCSTATUS InitCuda(const InEncodeVideoParam *inputParam);
-
-    //deviceリストを作成
-    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
 
     //GPUListのGPUが必要なエンコードを行えるかチェック
     NVENCSTATUS CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
@@ -182,10 +167,8 @@ protected:
 #endif //#if ENABLE_AVSW_READER
 
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
-    shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
 
     CUctx_flags                  m_cudaSchedule;          //CUDAのスケジュール
-    int                          m_nDeviceId;             //DeviceId
 
     NV_ENC_INITIALIZE_PARAMS     m_stCreateEncodeParams;  //エンコーダの初期化パラメータ
     std::vector<DynamicRCParam>  m_dynamicRC;             //動的に変更するエンコーダのパラメータ

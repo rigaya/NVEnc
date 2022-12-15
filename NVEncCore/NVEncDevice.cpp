@@ -33,6 +33,7 @@
 #include "rgy_version.h"
 #include "rgy_log.h"
 #include "rgy_util.h"
+#include "rgy_env.h"
 #include "NVEncDevice.h"
 #include "NVEncUtil.h"
 #include "rgy_perf_monitor.h"
@@ -1133,4 +1134,262 @@ tstring NVGPUInfo::infostr() const {
         gpu_info += strsprintf(_T("[%d.%02d]"), m_nv_driver_version / 1000, (m_nv_driver_version % 1000) / 10);
     }
     return gpu_info;
+}
+
+NVEncCtrl::NVEncCtrl() :
+    m_pNVLog(0),
+    m_nDeviceId(-1) {
+};
+
+NVEncCtrl::~NVEncCtrl() {};
+
+#pragma warning(push)
+#pragma warning(disable:4100)
+void NVEncCtrl::PrintMes(RGYLogLevel logLevel, const TCHAR *format, ...) {
+    if (m_pNVLog.get() == nullptr) {
+        if (logLevel <= RGY_LOG_INFO) {
+            return;
+        }
+    } else if (logLevel < m_pNVLog->getLogLevel(RGY_LOGT_APP)) {
+        return;
+    }
+
+    va_list args;
+    va_start(args, format);
+
+    int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    vector<TCHAR> buffer(len, 0);
+    _vstprintf_s(buffer.data(), len, format, args);
+    va_end(args);
+
+    if (m_pNVLog.get() != nullptr) {
+        m_pNVLog->write(logLevel, RGY_LOGT_APP, buffer.data());
+    } else {
+        _ftprintf(stderr, _T("%s"), buffer.data());
+    }
+}
+
+NVENCSTATUS NVEncCtrl::Initialize(const int deviceID, RGYLogLevel logLevel) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+
+    initLogLevel(logLevel);
+
+    //m_pDeviceを初期化
+    if (!check_if_nvcuda_dll_available()) {
+        PrintMes(RGY_LOG_ERROR,
+            FOR_AUO ? _T("CUDAが使用できないため、NVEncによるエンコードが行えません。(check_if_nvcuda_dll_available)\n") : _T("CUDA not available.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+    }
+    m_nDeviceId = deviceID;
+
+    if (NV_ENC_SUCCESS != (nvStatus = InitCuda())) {
+        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
+        return nvStatus;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitCuda: Success.\n"));
+    return nvStatus;
+}
+
+RGY_ERR NVEncCtrl::initLogLevel(RGYLogLevel loglevel) {
+    m_pNVLog.reset(new RGYLog(nullptr, loglevel));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncCtrl::initLogLevel(const RGYParamLogLevel& loglevel) {
+    m_pNVLog.reset(new RGYLog(nullptr, loglevel));
+    return RGY_ERR_NONE;
+}
+
+NVENCSTATUS NVEncCtrl::InitCuda() {
+    //ひとまず、これまでのすべてのエラーをflush
+    auto cudaerr = cudaGetLastError();
+    PrintMes(RGY_LOG_DEBUG, _T("InitCuda: device #%d.\n"), m_nDeviceId);
+
+    PrintMes(RGY_LOG_DEBUG, _T("\n"), m_nDeviceId);
+    PrintMes(RGY_LOG_DEBUG, _T("Checking Environment Info...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("%s\n"), get_encoder_version());
+    PrintMes(RGY_LOG_DEBUG, _T("OS Version     %s\n"), getOSVersion().c_str());
+
+    TCHAR cpu_info[1024] = { 0 };
+    getCPUInfo(cpu_info, _countof(cpu_info));
+    PrintMes(RGY_LOG_DEBUG, _T("CPU            %s\n"), cpu_info);
+
+    //ひとまず、これまでのすべてのエラーをflush
+    cudaerr = cudaGetLastError();
+
+    CUresult cuResult;
+    if (CUDA_SUCCESS != (cuResult = cuInit(0))) {
+        PrintMes(RGY_LOG_ERROR, _T("cuInit error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("cuInit: Success.\n"));
+
+    if (CUDA_SUCCESS != (cuResult = cuvidInit(0))) {
+        PrintMes(RGY_LOG_ERROR, _T("cuvidInit error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+        return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("cuvidInit: Success.\n"));
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCtrl::ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck))) {
+        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
+        return nvStatus;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+    if (0 == gpuList.size()) {
+        _ftprintf(stdout, _T("No GPU found suitable for NVEnc Encoding.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+    }
+
+    for (const auto &gpu : gpuList) {
+        _ftprintf(stdout, _T("DeviceId #%d: %s\n"), gpu->id(), gpu->name().c_str());
+    }
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCtrl::ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck))) {
+        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
+        return nvStatus;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+
+    auto gpu = std::find_if(gpuList.begin(), gpuList.end(), [device_id = m_nDeviceId](const std::unique_ptr<NVGPUInfo> &gpuinfo) {
+        return gpuinfo->id() == device_id;
+        });
+    if (gpu == gpuList.end()) {
+        PrintMes(RGY_LOG_ERROR, _T("Selected device #%d not found\n"), m_nDeviceId);
+        return NV_ENC_ERR_GENERIC;
+    }
+    _ftprintf(stdout, _T("%s\n"), (*gpu)->infostr().c_str());
+    auto nvEncCaps = (*gpu)->nvenc_codec_features();
+    if (nvEncCaps.size()) {
+        _ftprintf(stdout, _T("Avaliable Codec(s)\n"));
+        for (auto codecNVEncCaps : nvEncCaps) {
+            _ftprintf(stdout, _T("%s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
+        }
+    } else {
+        _ftprintf(stdout, _T("No NVEnc support.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+    }
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCtrl::ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck))) {
+        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
+        return nvStatus;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+
+    auto gpu = std::find_if(gpuList.begin(), gpuList.end(), [device_id = m_nDeviceId](const std::unique_ptr<NVGPUInfo> &gpuinfo) {
+        return gpuinfo->id() == device_id;
+        });
+    if (gpu == gpuList.end()) {
+        PrintMes(RGY_LOG_ERROR, _T("Selected device #%d not found\n"), m_nDeviceId);
+        return NV_ENC_ERR_GENERIC;
+    }
+    _ftprintf(stdout, _T("%s\n"), (*gpu)->infostr().c_str());
+    auto nvEncCaps = (*gpu)->nvenc_codec_features();
+    if (nvEncCaps.size() == 0) {
+        _ftprintf(stdout, _T("No NVEnc support.\n"));
+        nvStatus = NV_ENC_ERR_UNSUPPORTED_DEVICE;
+    } else {
+        _ftprintf(stdout, _T("NVEnc features\n"));
+        for (auto codecNVEncCaps : nvEncCaps) {
+            _ftprintf(stdout, _T("Codec: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
+            size_t max_length = 0;
+            std::for_each(codecNVEncCaps.caps.begin(), codecNVEncCaps.caps.end(), [&max_length](const NVEncCap &x) { max_length = (std::max)(max_length, _tcslen(x.name)); });
+            for (const auto& cap : codecNVEncCaps.caps) {
+                _ftprintf(stdout, _T("%s"), cap.name);
+                for (size_t i = _tcslen(cap.name); i <= max_length; i++) {
+                    _ftprintf(stdout, _T(" "));
+                }
+                if (cap.isBool) {
+                    _ftprintf(stdout, cap.value ? _T("yes\n") : _T("no\n"));
+                } else if (cap.desc) {
+                    _ftprintf(stdout, _T("%d (%s)\n"), cap.value, get_cx_desc(cap.desc, cap.value));
+                } else if (cap.desc_bit_flag) {
+                    tstring bit_flag;
+                    for (int i = 0; cap.desc_bit_flag[i].desc; i++) {
+                        const uint32_t bitflag = cap.desc_bit_flag[i].value;
+                        if (((uint32_t)cap.value & bitflag) == bitflag) {
+                            if (bit_flag.length() > 0) bit_flag += _T(", ");
+                            bit_flag += cap.desc_bit_flag[i].desc;
+                        }
+                    }
+                    if (bit_flag.empty()) {
+                        _ftprintf(stdout, _T("%d\n"), cap.value);
+                    } else {
+                        _ftprintf(stdout, _T("%d (%s)\n"), cap.value, bit_flag.c_str());
+                    }
+                } else {
+                    _ftprintf(stdout, _T("%d\n"), cap.value);
+                }
+            }
+            _ftprintf(stdout, _T("\n"));
+        }
+    }
+    const auto cuvidCodecCsp = (*gpu)->cuvid_csp();
+    if (cuvidCodecCsp.size() == 0) {
+        _ftprintf(stdout, _T("No NVDec support.\n"));
+    } else {
+        _ftprintf(stdout, _T("\nNVDec features\n"));
+        size_t max_length = 0;
+        std::for_each(cuvidCodecCsp.begin(), cuvidCodecCsp.end(), [&max_length](const decltype(cuvidCodecCsp)::value_type  &codeccsp) { max_length = (std::max)(max_length, CodecToStr(codeccsp.first).length()); });
+        for (auto codeccsp : cuvidCodecCsp) {
+            tstring csps = CodecToStr(codeccsp.first) + _T(":");
+            for (size_t i = csps.length()-1; i <= max_length; i++) {
+                csps += _T(" ");
+            }
+            for (auto csp : codeccsp.second) {
+                csps += tstring(RGY_CSP_NAMES[csp]) + _T(", ");
+            }
+            _ftprintf(stdout, _T("  %s\n"), csps.substr(0, csps.length()-2).c_str());
+        }
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, const bool skipHWDecodeCheck) {
+    int deviceCount = 0;
+    auto cuResult = cuDeviceGetCount(&deviceCount);
+    if (cuResult != CUDA_SUCCESS) {
+        PrintMes(RGY_LOG_ERROR, _T("cuDeviceGetCount error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+    if (deviceCount == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Error: no CUDA device.\n"));
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGetCount: Success, %d.\n"), deviceCount);
+
+    if (m_nDeviceId > deviceCount - 1) {
+        PrintMes(RGY_LOG_ERROR, _T("Invalid Device Id = %d\n"), m_nDeviceId);
+        return NV_ENC_ERR_INVALID_ENCODERDEVICE;
+    }
+
+    gpuList.clear();
+    for (int currentDevice = 0; currentDevice < deviceCount; currentDevice++) {
+        cudaGetLastError(); //これまでのエラーを初期化
+        if ((m_nDeviceId < 0 || m_nDeviceId == currentDevice)) {
+            auto gpu = std::make_unique<NVGPUInfo>(m_pNVLog);
+            if (gpu->initDevice(currentDevice, (CUctx_flags)cudaSchedule, m_nDeviceId == currentDevice, skipHWDecodeCheck) == RGY_ERR_NONE) {
+                gpuList.push_back(std::move(gpu));
+            }
+        }
+    }
+    if (gpuList.size() == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("No GPU found suitable for NVEnc Encoding.\n"));
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+    return NV_ENC_SUCCESS;
 }

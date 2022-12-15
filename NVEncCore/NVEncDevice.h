@@ -351,3 +351,32 @@ protected:
     }
 };
 
+class NVEncCtrl {
+public:
+    NVEncCtrl();
+    virtual ~NVEncCtrl();
+
+    //CUDAインターフェース・デバイスの初期化
+    virtual NVENCSTATUS Initialize(const int deviceID, RGYLogLevel logLevel);
+
+    NVENCSTATUS ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck);
+    NVENCSTATUS ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck);
+    NVENCSTATUS ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck);
+
+protected:
+    //既定の出力先に情報をメッセージを出力
+    virtual void PrintMes(RGYLogLevel logLevel, const TCHAR *format, ...);
+
+    //ログを初期化
+    RGY_ERR initLogLevel(RGYLogLevel loglevel);
+    RGY_ERR initLogLevel(const RGYParamLogLevel& loglevel);
+
+    //CUDAインターフェースを初期化
+    NVENCSTATUS InitCuda();
+
+    //deviceリストを作成
+    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, const bool skipHWDecodeCheck);
+
+    shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
+    int                          m_nDeviceId;             //DeviceId
+};

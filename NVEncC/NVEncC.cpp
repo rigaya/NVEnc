@@ -65,13 +65,14 @@ static void show_device_list() {
         return;
     }
 
-    InEncodeVideoParam encPrm;
-    encPrm.deviceID = -1;
-    encPrm.ctrl.loglevel = RGY_LOG_INFO;
+    const int deviceID = -1;
+    const auto loglevel = RGY_LOG_INFO;
+    const int cudaSchedule = 0;
+    const bool skipHWDecodeCheck = false;
 
-    NVEncCore nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
-        && NV_ENC_SUCCESS == nvEnc.ShowDeviceList(&encPrm)) {
+    NVEncCtrl nvEnc;
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceID, loglevel)
+        && NV_ENC_SUCCESS == nvEnc.ShowDeviceList(cudaSchedule, skipHWDecodeCheck)) {
         return;
     }
 }
@@ -79,13 +80,13 @@ static void show_device_list() {
 static int show_hw(int deviceid) {
     show_version();
 
-    InEncodeVideoParam encPrm;
-    encPrm.deviceID = deviceid;
-    encPrm.ctrl.loglevel = RGY_LOG_DEBUG;
+    const auto loglevel = RGY_LOG_DEBUG;
+    const int cudaSchedule = 0;
+    const bool skipHWDecodeCheck = false;
 
-    NVEncCore nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
-        && NV_ENC_SUCCESS == nvEnc.ShowCodecSupport(&encPrm)) {
+    NVEncCtrl nvEnc;
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, loglevel)
+        && NV_ENC_SUCCESS == nvEnc.ShowCodecSupport(cudaSchedule, skipHWDecodeCheck)) {
         return 0;
     }
     return 1;
@@ -100,13 +101,13 @@ static int show_nvenc_features(int deviceid) {
     show_version();
     _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo().c_str());
 
-    InEncodeVideoParam encPrm;
-    encPrm.deviceID = deviceid;
-    encPrm.ctrl.loglevel = RGY_LOG_INFO;
+    const auto loglevel = RGY_LOG_INFO;
+    const int cudaSchedule = 0;
+    const bool skipHWDecodeCheck = false;
 
-    NVEncCore nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
-        && NV_ENC_SUCCESS == nvEnc.ShowNVEncFeatures(&encPrm)) {
+    NVEncCtrl nvEnc;
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, loglevel)
+        && NV_ENC_SUCCESS == nvEnc.ShowNVEncFeatures(cudaSchedule, skipHWDecodeCheck)) {
         return 0;
     }
     return 1;
