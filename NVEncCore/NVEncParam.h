@@ -73,13 +73,6 @@ static const int PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;
 
 enum {
-    NV_ENC_H264 = 0,
-    NV_ENC_HEVC = 1,
-    NV_ENC_AV1 = 2,
-    NV_ENC_CODEC_MAX,
-};
-
-enum {
     NV_ENC_AVCUVID_NATIVE = 0,
     NV_ENC_AVCUVID_CUDA,
 };
@@ -191,9 +184,9 @@ const guid_desc list_nvenc_preset_names_ver10[] = {
 };
 
 const guid_desc list_nvenc_codecs[] = {
-    { NV_ENC_CODEC_H264_GUID, _T("H.264/AVC"),  NV_ENC_H264 },
-    { NV_ENC_CODEC_HEVC_GUID, _T("H.265/HEVC"), NV_ENC_HEVC },
-    { NV_ENC_CODEC_AV1_GUID,  _T("AV1"),        NV_ENC_AV1 },
+    { NV_ENC_CODEC_H264_GUID, _T("H.264/AVC"),  RGY_CODEC_H264 },
+    { NV_ENC_CODEC_HEVC_GUID, _T("H.265/HEVC"), RGY_CODEC_HEVC },
+    { NV_ENC_CODEC_AV1_GUID,  _T("AV1"),        RGY_CODEC_AV1 },
 };
 const CX_DESC list_nvenc_multipass_mode[] = {
     { _T("none"),          NV_ENC_MULTI_PASS_DISABLED },
@@ -203,11 +196,12 @@ const CX_DESC list_nvenc_multipass_mode[] = {
 };
 
 const CX_DESC list_nvenc_codecs_for_opt[] = {
-    { _T("h264"), NV_ENC_H264 },
-    { _T("avc"),  NV_ENC_H264 },
-    { _T("hevc"), NV_ENC_HEVC },
-    { _T("h265"), NV_ENC_HEVC },
-    { _T("av1"),  NV_ENC_AV1 },
+    { _T("h264"), RGY_CODEC_H264 },
+    { _T("avc"),  RGY_CODEC_H264 },
+    { _T("hevc"), RGY_CODEC_HEVC },
+    { _T("h265"), RGY_CODEC_HEVC },
+    { _T("av1"),  RGY_CODEC_AV1  },
+    { _T("raw"),  RGY_CODEC_RAW  },
     { NULL, 0 }
 };
 
@@ -680,7 +674,7 @@ struct InEncodeVideoParam {
     int par[2];                   //使用されていません
     NV_ENC_CONFIG encConfig;      //エンコード設定
     std::vector<DynamicRCParam> dynamicRC;
-    int codec;                    //出力コーデック
+    RGY_CODEC codec_rgy;          //出力コーデック
     int bluray;                   //bluray出力
     int yuv444;                   //YUV444出力
     int lossless;                 //ロスレス出力

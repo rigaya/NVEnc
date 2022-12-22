@@ -399,10 +399,10 @@ int _tmain(int argc, TCHAR **argv) {
     }
 
     InEncodeVideoParam encPrm;
-    NV_ENC_CODEC_CONFIG codecPrm[NV_ENC_CODEC_MAX] = { 0 };
-    codecPrm[NV_ENC_H264] = DefaultParamH264();
-    codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
-    codecPrm[NV_ENC_AV1]  = DefaultParamAV1();
+    NV_ENC_CODEC_CONFIG codecPrm[RGY_CODEC_NUM] = { 0 };
+    codecPrm[RGY_CODEC_H264] = DefaultParamH264();
+    codecPrm[RGY_CODEC_HEVC] = DefaultParamHEVC();
+    codecPrm[RGY_CODEC_AV1]  = DefaultParamAV1();
 
     //optionファイルの読み取り
     std::vector<tstring> argvCnfFile;
@@ -473,7 +473,7 @@ int _tmain(int argc, TCHAR **argv) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-    encPrm.encConfig.encodeCodecConfig = codecPrm[encPrm.codec];
+    encPrm.encConfig.encodeCodecConfig = codecPrm[encPrm.codec_rgy];
 
     int ret = 1;
 

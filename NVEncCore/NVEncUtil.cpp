@@ -56,15 +56,6 @@ static const auto RGY_CODEC_TO_GUID = make_array<std::pair<RGY_CODEC, GUID>>(
 MAP_PAIR_0_1(codec_guid, rgy, RGY_CODEC, enc, GUID, RGY_CODEC_TO_GUID, RGY_CODEC_UNKNOWN, GUID_EMPTY);
 
 
-static const auto RGY_CODEC_TO_ENC_CODEC = make_array<std::pair<RGY_CODEC, int>>(
-    std::make_pair(RGY_CODEC_H264, NV_ENC_H264),
-    std::make_pair(RGY_CODEC_HEVC, NV_ENC_HEVC),
-    std::make_pair(RGY_CODEC_AV1,  NV_ENC_AV1)
-    );
-
-MAP_PAIR_0_1(codec, rgy, RGY_CODEC, enc, int, RGY_CODEC_TO_ENC_CODEC, RGY_CODEC_UNKNOWN, NV_ENC_CODEC_MAX);
-
-
 static const auto RGY_CODEC_PROFILE_TO_GUID = make_array<std::pair<RGY_CODEC_DATA, GUID>>(
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 77),  NV_ENC_H264_PROFILE_BASELINE_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 88),  NV_ENC_H264_PROFILE_MAIN_GUID),

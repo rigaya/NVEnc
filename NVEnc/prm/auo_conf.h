@@ -157,7 +157,7 @@ static const ENC_OPTION_STR AUDIO_DELAY_CUT_MODE[] = {
 
 #pragma pack(push, 1)
 typedef struct CONF_ENC {
-    int codec;
+    RGY_CODEC codec_rgy;
     int reserved[128];
 #if ENCODER_QSV
     char reserved3[1024];

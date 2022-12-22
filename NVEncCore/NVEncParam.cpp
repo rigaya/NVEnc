@@ -282,7 +282,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     par(),
     encConfig(),
     dynamicRC(),
-    codec(NV_ENC_H264),
+    codec_rgy(RGY_CODEC_H264),
     bluray(0),                   //bluray出力
     yuv444(0),                   //YUV444出力
     lossless(0),                 //ロスレス出力
@@ -301,7 +301,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
 
 void InEncodeVideoParam::applyDOVIProfile() {
 #if !FOR_AUO
-    if (codec != NV_ENC_HEVC) {
+    if (codec_rgy != RGY_CODEC_H264) {
         return;
     }
     if (common.doviProfile == 0) {
