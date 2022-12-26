@@ -4187,6 +4187,9 @@ NVENCSTATUS NVEncCore::Encode() {
             if (!trimSts.first) {
                 continue; //trimにより脱落させるフレーム
             }
+            if (!m_pFileReader->checkTimeSeekTo(inputFrame.getTimeStamp(), srcTimebase)) {
+                continue; //seektoにより脱落させるフレーム
+            }
             lastTrimFramePts = AV_NOPTS_VALUE;
             auto decFrames = check_pts(&inputFrame);
 

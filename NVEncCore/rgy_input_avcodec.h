@@ -959,6 +959,7 @@ public:
     RGYAVSync      AVSyncMode;              //音声・映像同期モード
     int            procSpeedLimit;          //プリデコードする場合の処理速度制限 (0で制限なし)
     float          seekSec;                 //指定された秒数分先頭を飛ばす
+    float          seekToSec;               //終了時刻(秒)
     tstring        logFramePosList;         //FramePosListの内容を入力終了時に出力する (デバッグ用)
     tstring        logCopyFrameData;        //frame情報copy関数のログ出力先 (デバッグ用)
     tstring        logPackets;              //読み込んだパケットの情報を出力する
@@ -1056,6 +1057,9 @@ public:
     RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVPacket* pkt);
     RGYFrameDataDOVIRpu *getDoviRpu(const AVFrame *frame);
 
+    //seektoで指定された時刻の範囲内かチェックする
+    bool checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, float marginSec) override;
+
 #if USE_CUSTOM_INPUT
     int readPacket(uint8_t *buf, int buf_size);
     int writePacket(uint8_t *buf, int buf_size);
@@ -1119,6 +1123,10 @@ protected:
 
     //読み込みスレッド関数
     RGY_ERR ThreadFuncRead(RGYParamThread threadParam);
+
+    //seektoで指定された時刻の範囲内かチェックする
+    bool checkTimeSeekTo(int64_t pts, AVRational timebase, float marginSec);
+    bool checkOtherTimeSeekTo(int64_t pts, const AVDemuxStream *stream);
 
     //指定したptsとtimebaseから、該当する動画フレームを取得する
     int getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart);

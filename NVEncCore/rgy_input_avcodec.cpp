@@ -97,7 +97,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     ppDataSelect(nullptr),
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),
     procSpeedLimit(0),
-    seekSec(0.0),
+    seekSec(0.0f),
+    seekToSec(0.0f),
     logFramePosList(),
     logCopyFrameData(),
     logPackets(),
@@ -1402,6 +1403,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     } else {
         m_readerName = _T("avsw");
     }
+    m_seek = std::make_pair(0.0f, 0.0f);
     m_Demux.video.readVideo = input_prm->readVideo;
     m_Demux.video.hevcbsf = input_prm->hevcbsf;
     m_Demux.thread.queueInfo = input_prm->queueInfo;
@@ -1860,8 +1862,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 AddMessage(RGY_LOG_ERROR, _T("failed to seek %s.\n"), print_time(input_prm->seekSec).c_str());
                 return RGY_ERR_UNKNOWN;
             }
+            AddMessage(RGY_LOG_DEBUG, _T("set seek %s.\n"), print_time(input_prm->seekSec).c_str());
             //seekのために行ったgetSampleの結果は破棄する
             m_Demux.frames.clear();
+            m_seek.first = input_prm->seekSec;
         }
 
         //parserはseek後に初期化すること
@@ -1923,6 +1927,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             }
             AddMessage(RGY_LOG_DEBUG, _T("adjust trim by offset %d.\n"), m_trimParam.offset);
         }
+
+        m_seek.second = input_prm->seekToSec;
+        AddMessage(RGY_LOG_DEBUG, _T("set seekto %s.\n"), print_time(input_prm->seekSec).c_str());
 
         struct pixfmtInfo {
             AVPixelFormat pix_fmt;
@@ -2113,8 +2120,17 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             tstring mes = strsprintf(_T("av" DECODER_NAME ": %s, %dx%d, %d/%d fps"),
                 CodecToStr(m_inputVideoInfo.codec).c_str(),
                 m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
-            if (input_prm->seekSec > 0.0f) {
-                mes += strsprintf(_T("\n         seek: %s"), print_time(input_prm->seekSec).c_str());
+            if (m_seek.first > 0.0f || m_seek.second > 0.0f) {
+                mes += _T("\n         ");
+                if (m_seek.first > 0.0f) {
+                    mes += strsprintf(_T("seek: %s"), print_time(m_seek.first).c_str());
+                }
+                if (m_seek.second > 0.0f) {
+                    if (m_seek.first > 0.0f) {
+                        mes += _T(", ");
+                    }
+                    mes += strsprintf(_T("seekto: %s"), print_time(m_seek.second).c_str());
+                }
             }
             AddMessage(RGY_LOG_DEBUG, mes);
             m_inputInfo += mes;
@@ -2223,6 +2239,27 @@ FramePosList *RGYInputAvcodec::GetFramePosList() {
     return &m_Demux.frames;
 }
 
+//seektoで指定された時刻の範囲内かチェックする
+bool RGYInputAvcodec::checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, float marginSec) {
+    if (m_seek.second <= 0.0f
+        || !m_Demux.video.gotFirstKeyframe) {
+        return true;
+    }
+    const float pts_sec = pts * timebase.qfloat();
+    const AVRational vid_pkt_timebase = (m_Demux.video.stream) ? m_Demux.video.stream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
+    const float vid_first_pts_sec = m_Demux.video.streamFirstKeyPts * vid_pkt_timebase.num / (float)vid_pkt_timebase.den;
+    return (pts_sec - vid_first_pts_sec) < m_seek.second + marginSec;
+}
+
+bool RGYInputAvcodec::checkTimeSeekTo(int64_t pts, AVRational timebase, float marginSec) {
+    return checkTimeSeekTo(pts, rgy_rational<int>(timebase.num, timebase.den), marginSec);
+}
+
+//seektoで指定された時刻の範囲内かチェックする
+bool RGYInputAvcodec::checkOtherTimeSeekTo(int64_t pts, const AVDemuxStream *stream) {
+    return checkTimeSeekTo(pts, stream->timebase, 0.0f);
+}
+
 int RGYInputAvcodec::getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart) {
     const int framePosCount = m_Demux.frames.frameNum();
     const AVRational vid_pkt_timebase = (m_Demux.video.stream) ? m_Demux.video.stream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
@@ -2283,6 +2320,11 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
     //映像がないなら判定しない
     if (!m_Demux.video.stream) {
         return true;
+    }
+
+    //seektoで指定された時間を超えていたら、その音声はこの動画には含まれない
+    if (!checkOtherTimeSeekTo(pkt->pts, stream)) {
+        return false;
     }
 
     const auto vidFramePos = &m_Demux.frames.list((std::max)(stream->lastVidIndex, 0));
@@ -2393,7 +2435,9 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
     auto pkt = m_poolPkt->getFree();
     for (; (ret_read_frame = av_read_frame(m_Demux.format.formatCtx, pkt.get())) >= 0
         //trimからわかるフレーム数の上限値よりfixedNumがある程度の量の処理を進めたら読み込みを打ち切る
-        && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx(); pkt = m_poolPkt->getFree()) {
+        && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx()
+        && checkTimeSeekTo(pkt->pts, m_Demux.format.formatCtx->streams[pkt->stream_index]->time_base, 10.0f);
+        pkt = m_poolPkt->getFree()) {
         if (m_fpPacketList) {
             fprintf(m_fpPacketList.get(), "stream %2d, %12s, pts, %s\n",
                 pkt->stream_index, avcodec_get_name(m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id),
@@ -2714,7 +2758,11 @@ const AVStream *RGYInputAvcodec::GetInputVideoStream() {
 }
 
 double RGYInputAvcodec::GetInputVideoDuration() {
-    return (m_Demux.format.formatCtx->duration * (1.0 / (double)AV_TIME_BASE));
+    double duration = m_Demux.format.formatCtx->duration * (1.0 / (double)AV_TIME_BASE);
+    if (m_seek.second > 0.0f) {
+        duration = std::min<double>(duration, m_seek.second);
+    }
+    return duration;
 }
 
 rgy_rational<int> RGYInputAvcodec::getInputTimebase() {
@@ -2967,6 +3015,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
     if (m_Demux.format.formatCtx->duration) {
         progressPercent = m_Demux.frames.duration() * (m_Demux.video.stream->time_base.num / (double)m_Demux.video.stream->time_base.den);
     }
+    progressPercent += m_seek.first;
     return m_encSatusInfo->UpdateDisplayByCurrentDuration(progressPercent);
 }
 #pragma warning(pop)

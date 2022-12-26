@@ -168,6 +168,7 @@ RGYInput::RGYInput() :
     m_printMes(),
     m_inputInfo(),
     m_readerName(_T("unknown")),
+    m_seek(std::make_pair(0.0f, 0.0f)),
     m_trimParam(),
     m_poolPkt(nullptr),
     m_poolFrame(nullptr) {
@@ -283,6 +284,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVAudioReader.seekSec = common->seekSec;
+        inputInfoAVAudioReader.seekToSec = common->seekToSec;
         inputInfoAVAudioReader.logFramePosList = (ctrl->logFramePosList) ? src.filename + _T(".framelist.csv") : _T("");
         inputInfoAVAudioReader.threadInput = 0;
         inputInfoAVAudioReader.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
@@ -496,6 +498,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVCuvid.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.seekSec = common->seekSec;
+        inputInfoAVCuvid.seekToSec = common->seekToSec;
         inputInfoAVCuvid.logFramePosList = (ctrl->logFramePosList) ? common->outputFilename + _T(".framelist.csv") : _T("");
         inputInfoAVCuvid.logPackets = (ctrl->logPacketsList) ? common->outputFilename + _T(".packets.csv") : _T("");
         inputInfoAVCuvid.threadInput = ctrl->threadInput;

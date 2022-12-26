@@ -186,6 +186,10 @@ public:
         return m_trimParam;
     }
 
+    virtual bool checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, float marginSec = 0.0f) {
+        return true;
+    }
+
     sInputCrop GetInputCropInfo() {
         return m_inputVideoInfo.crop;
     }
@@ -284,6 +288,7 @@ protected:
     tstring m_inputInfo;
     tstring m_readerName;    //読み込みの名前
 
+    std::pair<float, float> m_seek;
     sTrimParam m_trimParam;
     RGYPoolAVPacket *m_poolPkt; //AVPacketのpool
     RGYPoolAVFrame *m_poolFrame; //AVFrameのpool

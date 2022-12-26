@@ -1238,6 +1238,7 @@ RGYParamCommon::RGYParamCommon() :
     videoMetadata(),
     formatMetadata(),
     seekSec(0.0f),               //指定された秒数分先頭を飛ばす
+    seekToSec(0.0f),
     nSubtitleSelectCount(0),
     ppSubtitleSelectList(nullptr),
     subSource(),

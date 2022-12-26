@@ -3330,7 +3330,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-    if (IS_OPTION("seek")) {
+    if (IS_OPTION("seek") || IS_OPTION("seekto")) {
+        const bool seekTo = IS_OPTION("seekto");
         i++;
         int ret = 0;
         int hh = 0, mm = 0;
@@ -3360,7 +3361,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        common->seekSec = sec + mm * 60;
+        if (seekTo) {
+            common->seekToSec = sec + mm * 60;
+        } else {
+            common->seekSec = sec + mm * 60;
+        }
         return 0;
     }
 #if ENABLE_AVSW_READER && !FOR_AUO
@@ -5716,6 +5721,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
     OPT_FLOAT(_T("--seek"), seekSec, 2);
+    OPT_FLOAT(_T("--seekto"), seekToSec, 2);
     OPT_TCHAR(_T("--input-format"), AVInputFormat);
     OPT_TSTR(_T("--output-format"), muxOutputFormat);
     OPT_STR(_T("--video-tag"), videoCodecTag);
@@ -6273,6 +6279,8 @@ tstring gen_cmd_help_common() {
         _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
+        _T("   --seekto [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
+        _T("                                time to end encoding.\n")
         _T("   --input-format <string>      set input format of input file.\n")
         _T("                                 this requires use of avhw/avsw reader.\n")
         _T("-f,--output-format <string>     set output format of output file.\n")
