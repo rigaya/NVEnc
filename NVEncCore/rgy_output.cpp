@@ -687,7 +687,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     }
 
     auto loadLineToBuffer = [](uint8_t *ptrBuf, uint8_t *ptrSrc, int pitch) {
-#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+#if (defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)) && ENCODER_QSV
         for (int i = 0; i < pitch; i += 128, ptrSrc += 128, ptrBuf += 128) {
             __m128i x0 = _mm_stream_load_si128((__m128i *)(ptrSrc +   0));
             __m128i x1 = _mm_stream_load_si128((__m128i *)(ptrSrc +  16));
