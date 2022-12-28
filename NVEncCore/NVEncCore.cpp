@@ -1028,10 +1028,12 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
             PrintMes(RGY_LOG_ERROR, _T("Failed to allocate raw output buffer\n"));
             return NV_ENC_ERR_OUT_OF_MEMORY;
         }
-        return nvStatus;
+        m_encodeBufferCount = 0;
     }
 
-    m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_encodeBufferCount);
+    if (m_encodeBufferCount > 0) {
+        m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_encodeBufferCount);
+    }
     uint32_t uInputWidthByte = 0;
     uint32_t uInputHeightTotal = 0;
     switch (inputFormat) {
@@ -1211,9 +1213,12 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
 
     m_stEOSOutputBfr.bEOSFlag = TRUE;
 
-    nvStatus = m_dev->encoder()->NvEncRegisterAsyncEvent(&m_stEOSOutputBfr.hOutputEvent);
-    if (nvStatus != NV_ENC_SUCCESS)
-        return nvStatus;
+    if (m_dev->encoder()) {
+        nvStatus = m_dev->encoder()->NvEncRegisterAsyncEvent(&m_stEOSOutputBfr.hOutputEvent);
+        if (nvStatus != NV_ENC_SUCCESS) {
+            return nvStatus;
+        }
+    }
 
     return NV_ENC_SUCCESS;
 }

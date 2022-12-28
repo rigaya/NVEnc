@@ -345,6 +345,9 @@ Specify the output codec
  - h264 (default)
  - hevc
  - av1
+ - raw
+
+   rawの場合は、エンコードをせず、rawフレームをy4m出力します。
 
 ### -o, --output &lt;string&gt;
 Set output file name, pipe output with "-"
