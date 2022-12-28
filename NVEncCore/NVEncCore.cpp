@@ -3040,6 +3040,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             const int pixelBitDepth = 10; // 8bitより上のときはとりあえず10bitで出力
             set_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, inputParam->codec_rgy, pixelBitDepth - 8);
             PrintMes(RGY_LOG_DEBUG, _T("Set bitdepth to %d for lossless encoding.\n"), pixelBitDepth);
+            bOutputHighBitDepth = encodeIsHighBitDepth(inputParam); // 更新
         }
     }
 

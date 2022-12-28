@@ -186,9 +186,12 @@ public:
         return m_trimParam;
     }
 
+#pragma warning(push)
+#pragma warning(disable: 4100)
     virtual bool checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, float marginSec = 0.0f) {
         return true;
     }
+#pragma warning(pop)
 
     sInputCrop GetInputCropInfo() {
         return m_inputVideoInfo.crop;
