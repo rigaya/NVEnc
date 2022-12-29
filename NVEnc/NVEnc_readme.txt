@@ -198,10 +198,23 @@ Geforce GTX 1060
 NVIDIA グラフィックドライバ 512.15
 NVIDIA グラフィックドライバ 522.25
 
+【検証環境 2022.11～】
+Win11 x64
+Intel Core i9 12900K + MSI MAG Z690 TOMAHAWK WIFI DDR4
+32GB RAM
+Geforce RTX 4080
+Geforce GTX 1060
+NVIDIA グラフィックドライバ 527.56
+
 【お断り】
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2022.12.29 (7.08)
+[NVEncC]
+- vpp-decimateに複数のフレームをdropさせるオプションを追加。(--vpp-decimate drop)
+- -c rawを廃止。
+
 2022.12.28 (7.07)
 [NVEncC]
 - エンコードせずにy4m出力するオプションを追加。 (-c raw)

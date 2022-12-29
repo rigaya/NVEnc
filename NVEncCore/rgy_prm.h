@@ -1392,6 +1392,4 @@ static bool isSplitChannelAuto(uint64_t(&streamChannels)[size]) {
 
 unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log);
 
-bool invalid_with_raw_out(const RGYParamCommon &prm, shared_ptr<RGYLog> log);
-
 #endif //__RGY_PRM_H__

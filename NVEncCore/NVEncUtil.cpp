@@ -186,17 +186,21 @@ std::vector<RGYFrameData *> RGYBitstream::getFrameDataList() {
     return make_vector(frameDataList, frameDataNum);
 }
 
-VideoInfo videooutputinforaw(
+VideoInfo videooutputinfo(
     const GUID& encCodecGUID,
     NV_ENC_BUFFER_FORMAT buffer_fmt,
     int nEncWidth,
     int nEncHeight,
+    const NV_ENC_CONFIG *pEncConfig,
     NV_ENC_PIC_STRUCT nPicStruct,
     std::pair<int, int> sar,
     std::pair<int, int> outFps) {
 
     VideoInfo info;
-    info.codec = RGY_CODEC_RAW;
+    info.codec = codec_guid_enc_to_rgy(encCodecGUID);
+    info.codecLevel = (info.codec == RGY_CODEC_H264) ? pEncConfig->encodeCodecConfig.h264Config.level : pEncConfig->encodeCodecConfig.hevcConfig.level;
+    info.codecProfile = codec_guid_profile_enc_to_rgy(pEncConfig->profileGUID).codecProfile;
+    info.videoDelay = (info.codec == RGY_CODEC_AV1) ? 0 :((pEncConfig->frameIntervalP - 2) > 0) + (((pEncConfig->frameIntervalP - 2) >= 2));
     info.dstWidth = nEncWidth;
     info.dstHeight = nEncHeight;
     info.fpsN = outFps.first;
@@ -206,55 +210,24 @@ VideoInfo videooutputinforaw(
     adjust_sar(&info.sar[0], &info.sar[1], nEncWidth, nEncHeight);
     info.picstruct = picstruct_enc_to_rgy(nPicStruct);
     info.csp = csp_enc_to_rgy(buffer_fmt);
-    return info;
-}
 
-VideoInfo videooutputinfo(
-    const GUID& encCodecGUID,
-    NV_ENC_BUFFER_FORMAT buffer_fmt,
-    int nEncWidth,
-    int nEncHeight,
-    const NV_ENC_CONFIG *pEncConfig,
-    NV_ENC_PIC_STRUCT nPicStruct,
-    std::pair<int, int> sar,
-    rgy_rational<int> outFps) {
-
-    VideoInfo info;
-    info.dstWidth = nEncWidth;
-    info.dstHeight = nEncHeight;
-    info.fpsN = outFps.n();
-    info.fpsD = outFps.d();
-    info.sar[0] = sar.first;
-    info.sar[1] = sar.second;
-    adjust_sar(&info.sar[0], &info.sar[1], nEncWidth, nEncHeight);
-    info.picstruct = picstruct_enc_to_rgy(nPicStruct);
-    info.csp = csp_enc_to_rgy(buffer_fmt);
-
-    if (pEncConfig) {
-        info.codec = codec_guid_enc_to_rgy(encCodecGUID);
-        info.codecLevel = (info.codec == RGY_CODEC_H264) ? pEncConfig->encodeCodecConfig.h264Config.level : pEncConfig->encodeCodecConfig.hevcConfig.level;
-        info.codecProfile = codec_guid_profile_enc_to_rgy(pEncConfig->profileGUID).codecProfile;
-        info.videoDelay = (info.codec == RGY_CODEC_AV1) ? 0 : ((pEncConfig->frameIntervalP - 2) > 0) + (((pEncConfig->frameIntervalP - 2) >= 2));
-        info.vui.colorprim = (CspColorprim)get_colorprim(pEncConfig->encodeCodecConfig, info.codec);
-        info.vui.matrix = (CspMatrix)get_colormatrix(pEncConfig->encodeCodecConfig, info.codec);
-        info.vui.transfer = (CspTransfer)get_transfer(pEncConfig->encodeCodecConfig, info.codec);
-        info.vui.colorrange = get_colorrange(pEncConfig->encodeCodecConfig, info.codec) ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
-        info.vui.format = (int)get_videoFormat(pEncConfig->encodeCodecConfig, info.codec);
-        if (info.codec == RGY_CODEC_H264 || info.codec == RGY_CODEC_HEVC) {
-            info.vui.chromaloc = (get_chromaSampleLocationFlag(pEncConfig->encodeCodecConfig, info.codec)) ? (CspChromaloc)(get_chromaSampleLocationTop(pEncConfig->encodeCodecConfig, info.codec) + 1) : RGY_CHROMALOC_UNSPECIFIED;
-        } else if (info.codec == RGY_CODEC_AV1) {
-            switch (pEncConfig->encodeCodecConfig.av1Config.chromaSamplePosition) {
-            case 1:  info.vui.chromaloc = RGY_CHROMALOC_LEFT; break;
-            case 2:  info.vui.chromaloc = RGY_CHROMALOC_TOPLEFT; break;
-            default: info.vui.chromaloc = RGY_CHROMALOC_UNSPECIFIED; break;
-            }
-        } else {
-            info.vui.chromaloc = RGY_CHROMALOC_UNSPECIFIED;
+    info.vui.colorprim = (CspColorprim)get_colorprim(pEncConfig->encodeCodecConfig, info.codec);
+    info.vui.matrix    = (CspMatrix)get_colormatrix(pEncConfig->encodeCodecConfig, info.codec);
+    info.vui.transfer  = (CspTransfer)get_transfer(pEncConfig->encodeCodecConfig, info.codec);
+    info.vui.colorrange = get_colorrange(pEncConfig->encodeCodecConfig, info.codec) ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
+    info.vui.format = (int)get_videoFormat(pEncConfig->encodeCodecConfig, info.codec);
+    if (info.codec == RGY_CODEC_H264 || info.codec == RGY_CODEC_HEVC) {
+        info.vui.chromaloc = (get_chromaSampleLocationFlag(pEncConfig->encodeCodecConfig, info.codec)) ? (CspChromaloc)(get_chromaSampleLocationTop(pEncConfig->encodeCodecConfig, info.codec) + 1) : RGY_CHROMALOC_UNSPECIFIED;
+    } else if (info.codec == RGY_CODEC_AV1) {
+        switch (pEncConfig->encodeCodecConfig.av1Config.chromaSamplePosition) {
+        case 1:  info.vui.chromaloc = RGY_CHROMALOC_LEFT; break;
+        case 2:  info.vui.chromaloc = RGY_CHROMALOC_TOPLEFT; break;
+        default: info.vui.chromaloc = RGY_CHROMALOC_UNSPECIFIED; break;
         }
-        info.vui.setDescriptPreset();
     } else {
-        info.codec = RGY_CODEC_RAW;
+        info.vui.chromaloc = RGY_CHROMALOC_UNSPECIFIED;
     }
+    info.vui.setDescriptPreset();
     return info;
 }
 

@@ -1399,34 +1399,3 @@ unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJso
     return hdr10plus;
 }
 #endif
-
-bool invalid_with_raw_out(const RGYParamCommon &prm, shared_ptr<RGYLog> log) {
-    bool error = false;
-#define INVALID_WITH_RAW_OUT(check, option_name) { \
-    if (check) { error = true; log->write(RGY_LOG_ERROR, RGY_LOGT_APP, _T("%s cannot be used with -c raw!\n"), _T(option_name)); } \
-}
-
-    INVALID_WITH_RAW_OUT(prm.maxCll.length() > 0, "--max-cll");
-    INVALID_WITH_RAW_OUT(prm.masterDisplay.length() > 0, "--master-display");
-    INVALID_WITH_RAW_OUT(prm.hdr10plusMetadataCopy, "--dhdr10-info copy");
-    INVALID_WITH_RAW_OUT(prm.dynamicHdr10plusJson.length() > 0, "--dhdr10-info");
-    INVALID_WITH_RAW_OUT(prm.doviRpuFile.length() > 0, "--dolby-vision-rpu");
-    INVALID_WITH_RAW_OUT(prm.nAudioSelectCount > 0, "audio related options");
-    INVALID_WITH_RAW_OUT(prm.audioSource.size() > 0, "--audio-source");
-    INVALID_WITH_RAW_OUT(prm.nSubtitleSelectCount > 0, "subtitle related options");
-    INVALID_WITH_RAW_OUT(prm.subSource.size() > 0, "--sub-source");
-    INVALID_WITH_RAW_OUT(prm.nDataSelectCount > 0, "data related options");
-    INVALID_WITH_RAW_OUT(prm.nAttachmentSelectCount > 0, "--attachment-copy");
-    INVALID_WITH_RAW_OUT(prm.chapterFile.length() > 0, "--chapter");
-    INVALID_WITH_RAW_OUT(prm.copyChapter > 0, "--chapter-copy");
-    INVALID_WITH_RAW_OUT(prm.formatMetadata.size() > 0, "--metadata");
-    INVALID_WITH_RAW_OUT(prm.videoMetadata.size() > 0, "--video-metadata");
-    INVALID_WITH_RAW_OUT(prm.muxOpt.size() > 0, "-m");
-    INVALID_WITH_RAW_OUT(prm.keyFile.length() > 0, "--keyfile");
-    INVALID_WITH_RAW_OUT(prm.timecodeFile.length() > 0, "--timecode");
-    INVALID_WITH_RAW_OUT(prm.metric.ssim, "--ssim");
-    INVALID_WITH_RAW_OUT(prm.metric.psnr, "--psnr");
-    INVALID_WITH_RAW_OUT(prm.metric.vmaf.enable, "--vmaf");
-
-    return error;
-}

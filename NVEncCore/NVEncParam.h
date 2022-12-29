@@ -201,7 +201,6 @@ const CX_DESC list_nvenc_codecs_for_opt[] = {
     { _T("hevc"), RGY_CODEC_HEVC },
     { _T("h265"), RGY_CODEC_HEVC },
     { _T("av1"),  RGY_CODEC_AV1  },
-    { _T("raw"),  RGY_CODEC_RAW  },
     { NULL, 0 }
 };
 
@@ -759,24 +758,6 @@ static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, co
     } \
 };
 
-#define NV_CODEC_PARAM_HEVC_AV1_RAW(x, other_return_val) \
-static decltype(NV_ENC_CONFIG_HEVC::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
-    switch (codec) { \
-    case RGY_CODEC_RAW: \
-    case RGY_CODEC_HEVC: return codec_config.hevcConfig.x; \
-    case RGY_CODEC_AV1:  return codec_config.av1Config.x; \
-    default: return other_return_val; \
-    } \
-}; \
-static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const decltype(NV_ENC_CONFIG_HEVC::x) value) { \
-    switch (codec) { \
-    case RGY_CODEC_RAW: \
-    case RGY_CODEC_HEVC: codec_config.hevcConfig.x = value; break; \
-    case RGY_CODEC_AV1:  codec_config.av1Config.x  = value; break; \
-    default: break; \
-    } \
-};
-
 
 #define NV_CODEC_PARAM_H264_HEVC_VUI(x, other_return_val) \
 static decltype(NV_ENC_CONFIG_H264_VUI_PARAMETERS::x) get_##x(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) { \
@@ -797,7 +778,7 @@ static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, co
 
 NV_CODEC_PARAM_ALL(level, 0);
 NV_CODEC_PARAM_HEVC_AV1(tier, 0);
-NV_CODEC_PARAM_HEVC_AV1_RAW(pixelBitDepthMinus8, 0);
+NV_CODEC_PARAM_HEVC_AV1(pixelBitDepthMinus8, 0);
 NV_CODEC_PARAM_ALL(idrPeriod, 300);
 NV_CODEC_PARAM_ALL(useBFramesAsRef, NV_ENC_BFRAME_REF_MODE_DISABLED);
 NV_CODEC_PARAM_H264_HEVC(enableLTR, false);

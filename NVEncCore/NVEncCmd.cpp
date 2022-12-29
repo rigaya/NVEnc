@@ -150,7 +150,7 @@ tstring encoder_help() {
     str += strsprintf(_T("")
         _T("\n")
         _T("-c,--codec <string>             set output codec\n")
-        _T("                                  h264 (or avc), h265 (or hevc), av1, raw\n")
+        _T("                                  h264 (or avc), h265 (or hevc), av1\n")
         _T("   --profile <string>           set codec profile\n")
         _T("                                  H.264: baseline, main, high(default), high444\n")
         _T("                                  HEVC : main, main10, main444\n")

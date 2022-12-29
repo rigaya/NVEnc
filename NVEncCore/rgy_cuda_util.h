@@ -361,7 +361,6 @@ public:
         } else {
             ret = cudaErrorNotSupported;
         }
-        frame.deivce_mem = false;
         return ret;
     }
     cudaError_t allocHost(int width, int height, RGY_CSP csp = RGY_CSP_NV12) {

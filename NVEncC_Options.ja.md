@@ -363,9 +363,6 @@ nvidia-smi.exeは通常ドライバと一緒に"C:\Program Files\NVIDIA Corporat
  - h264 (デフォルト)
  - hevc
  - av1
- - raw
-
-   ```-c raw``` will not encode and output raw frames in y4m format.
 
 ### -o, --output &lt;string&gt;
 出力ファイル名の表示、"-"でパイプ出力
