@@ -1478,7 +1478,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "cycle", "thresc", "thredup", "blockx", "blocky", "chroma", "log" /*, "pp"*/ };
+        const auto paramList = std::vector<std::string>{ "cycle", "drop", "thresc", "thredup", "blockx", "blocky", "chroma", "log" /*, "pp"*/ };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -1499,6 +1499,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("cycle")) {
                     try {
                         vpp->decimate.cycle = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("drop")) {
+                    try {
+                        vpp->decimate.drop = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -5418,6 +5427,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->decimate.enable || save_disabled_prm) {
             ADD_NUM(_T("cycle"), decimate.cycle);
+            ADD_NUM(_T("drop"), decimate.drop);
             ADD_FLOAT(_T("thredup"), decimate.threDuplicate, 3);
             ADD_FLOAT(_T("thresc"), decimate.threSceneChange, 2);
             ADD_LST(_T("blockx"), decimate.blockX, list_vpp_decimate_block);
@@ -6596,7 +6606,9 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-decimate [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     drop duplicated frame.\n")
         _T("    params\n")
-        _T("      cycle=<int>               num of frame from which a frame will be droppped.\n")
+        _T("      cycle=<int>               num of frame to select frame(s) to be droppped.\n")
+        _T("                                  (default=%d)\n")
+        _T("      drop=<int>                num of frame(s) to drop within a cycle.\n")
         _T("                                  (default=%d)\n")
         _T("      thredup=<float>           duplicate threshold. (default=%.1f, 0 - 100)\n")
         _T("      thresc=<float>            scene change threshold. (default=%.1f, 0 - 100)\n")
@@ -6605,7 +6617,7 @@ tstring gen_cmd_help_vpp() {
         _T("                                  block size could be 4, 8, 16, 32, 64.\n")
         _T("      chroma=<bool>             consdier chroma (default: %s)\n")
         _T("      log=<bool>                output log file (default: %s).\n"),
-        FILTER_DEFAULT_DECIMATE_CYCLE,
+        FILTER_DEFAULT_DECIMATE_CYCLE, FILTER_DEFAULT_DECIMATE_DROP,
         FILTER_DEFAULT_DECIMATE_THRE_DUP, FILTER_DEFAULT_DECIMATE_THRE_SC,
         FILTER_DEFAULT_DECIMATE_BLOCK_X, FILTER_DEFAULT_DECIMATE_BLOCK_Y,
         FILTER_DEFAULT_DECIMATE_PREPROCESSED ? _T("on") : _T("off"),

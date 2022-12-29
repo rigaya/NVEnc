@@ -44,6 +44,37 @@ public:
 using funcCalcDiff = std::function<cudaError_t(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair&,
     const int, const int, const bool, cudaStream_t, cudaEvent_t, cudaStream_t)>;
 
+enum DecimateSelectResult : uint32_t {
+    NONE         = 0x00000,
+    ORDER        = 0x0ffff,
+    DROP         = 0x10000,
+    DUPLICATE    = 0x20000,
+    SCENE_CHANGE = 0x40000,
+};
+
+static DecimateSelectResult operator|(DecimateSelectResult a, DecimateSelectResult b) {
+    return (DecimateSelectResult)((uint32_t)a | (uint32_t)b);
+}
+
+static DecimateSelectResult operator|=(DecimateSelectResult &a, DecimateSelectResult b) {
+    a = a | b;
+    return a;
+}
+
+static DecimateSelectResult operator|=(DecimateSelectResult &a, uint32_t b) {
+    a = a | (DecimateSelectResult)b;
+    return a;
+}
+
+static DecimateSelectResult operator&(DecimateSelectResult a, DecimateSelectResult b) {
+    return (DecimateSelectResult)((uint32_t)a & (uint32_t)b);
+}
+
+static DecimateSelectResult operator&=(DecimateSelectResult &a, DecimateSelectResult b) {
+    a = (DecimateSelectResult)((uint32_t)a & (uint32_t)b);
+    return a;
+}
+
 class NVEncFilterDecimateFrameData {
 public:
     NVEncFilterDecimateFrameData();
@@ -102,8 +133,12 @@ protected:
     virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamDecimate> pParam);
     RGY_ERR setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
 
+    std::vector<DecimateSelectResult> selectDropFrame(const int iframeStart);
+    RGY_ERR calcDiffWithPrevFrameAndSetDiffToCurr(const int curr, const int prev, cudaStream_t stream);
+
     bool m_flushed;
     int m_frameLastDropped;
+    int64_t m_frameLastInputDuration;
     int64_t m_threSceneChange;
     int64_t m_threDuplicate;
     NVEncFilterDecimateCache m_cache;

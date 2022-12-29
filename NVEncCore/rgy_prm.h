@@ -110,6 +110,7 @@ static const int   FILTER_DEFAULT_AFS_TIMECODE = 0;
 static const bool  FILTER_DEFAULT_AFS_LOG = false;
 
 static const int   FILTER_DEFAULT_DECIMATE_CYCLE = 5;
+static const int   FILTER_DEFAULT_DECIMATE_DROP = 1;
 static const float FILTER_DEFAULT_DECIMATE_THRE_DUP = 1.1f;
 static const float FILTER_DEFAULT_DECIMATE_THRE_SC = 15.0f;
 static const int   FILTER_DEFAULT_DECIMATE_BLOCK_X = 32;
@@ -877,6 +878,7 @@ const CX_DESC list_vpp_decimate_block[] = {
 struct VppDecimate {
     bool enable;
     int cycle;
+    int drop;
     float threDuplicate;
     float threSceneChange;
     int blockX;

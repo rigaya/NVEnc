@@ -1855,7 +1855,10 @@ Drop duplicated frame in cycles set.
 
 **parameters**
   - cycle=&lt;int&gt;  (default: 5)  
-    num of frame from which a frame will be droppped.
+    num of frame to select frame(s) to be droppped.
+
+  - drop=&lt;int&gt;  (default: 1)  
+    num of frame(s) to drop within a cycle.
 
   - thredup=&lt;float&gt;  (default: 1.1,  0.0 - 100.0)  
     duplicate threshold.

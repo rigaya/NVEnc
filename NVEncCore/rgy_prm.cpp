@@ -584,6 +584,7 @@ tstring VppSelectEvery::print() const {
 VppDecimate::VppDecimate() :
     enable(false),
     cycle(FILTER_DEFAULT_DECIMATE_CYCLE),
+    drop(FILTER_DEFAULT_DECIMATE_DROP),
     threDuplicate(FILTER_DEFAULT_DECIMATE_THRE_DUP),
     threSceneChange(FILTER_DEFAULT_DECIMATE_THRE_SC),
     blockX(FILTER_DEFAULT_DECIMATE_BLOCK_X),
@@ -610,9 +611,9 @@ bool VppDecimate::operator!=(const VppDecimate& x) const {
 }
 
 tstring VppDecimate::print() const {
-    return strsprintf(_T("decimate: cycle %d, threDup %.2f, threSC %.2f\n")
+    return strsprintf(_T("decimate: cycle %d, drop %d, threDup %.2f, threSC %.2f\n")
         _T("                         block %dx%d, chroma %s, log %s"),
-        cycle,
+        cycle, drop,
         threDuplicate, threSceneChange,
         blockX, blockY,
         /*preProcessed ? _T("on") : _T("off"),*/
