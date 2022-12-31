@@ -482,7 +482,8 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
         }
     }
 #else
-    if (m_videoFormatEx.format.seqhdr_data_length > 0) {
+    if (m_videoFormatEx.format.seqhdr_data_length > 0
+        && input->codec != RGY_CODEC_AV1) { // AV1では不要
         CUVIDSOURCEDATAPACKET pCuvidPacket;
         memset(&pCuvidPacket, 0, sizeof(pCuvidPacket));
         pCuvidPacket.payload = m_videoFormatEx.raw_seqhdr_data;
