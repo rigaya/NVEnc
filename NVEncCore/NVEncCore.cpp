@@ -763,7 +763,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
             //デコードのほうもチェックしてあげないといけない
            const auto& cuvid_csp = (*gpu)->cuvid_csp();
            if (cuvid_csp.count(inputParam->codec_rgy) == 0) {
-               message += strsprintf(_T("GPU #%d (%s) does not support %s decoding required for ssim/psnr/vmaf calculation.\n"), CodecToStr(inputParam->codec_rgy).c_str());
+               message += strsprintf(_T("GPU #%d (%s) does not support %s decoding required for ssim/psnr/vmaf calculation.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
                gpu = gpuList.erase(gpu);
                continue;
            }
@@ -771,7 +771,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
                                                  : ((inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_YV12);
            const auto& cuvid_codec_csp = cuvid_csp.at(inputParam->codec_rgy);
            if (std::find(cuvid_codec_csp.begin(), cuvid_codec_csp.end(), targetCsp) == cuvid_codec_csp.end()) {
-               message += strsprintf(_T("GPU #%d (%s) does not support %s %s decoding required for ssim/psnr/vmaf calculation.\n"), CodecToStr(inputParam->codec_rgy).c_str(), RGY_CSP_NAMES[targetCsp]);
+               message += strsprintf(_T("GPU #%d (%s) does not support %s %s decoding required for ssim/psnr/vmaf calculation.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str(), RGY_CSP_NAMES[targetCsp]);
                gpu = gpuList.erase(gpu);
                continue;
            }
@@ -3160,13 +3160,26 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("InitOutput: Success.\n"), inputParam->common.outputFilename.c_str());
 
     if (inputParam->common.metric.enabled()) {
-        unique_ptr<NVEncFilterSsim> filterSsim(new NVEncFilterSsim());
-        shared_ptr<NVEncFilterParamSsim> param(new NVEncFilterParamSsim());
-        param->input = videooutputinfo(m_stCodecGUID, encBufferFormat,
+        //デコードのほうもチェックしてあげないといけない
+        const auto& cuvid_csp = m_dev->cuvid_csp();
+        if (cuvid_csp.count(inputParam->codec_rgy) == 0) {
+            PrintMes(RGY_LOG_ERROR, _T("GPU #%d (%s) does not support %s decoding required for ssim/psnr/vmaf calculation.\n"), m_dev->id(), m_dev->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
+            return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+        }
+        const auto targetInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
             m_uEncWidth, m_uEncHeight,
             &m_stEncConfig, m_stPicStruct,
             std::make_pair(m_sar.n(), m_sar.d()),
             std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
+        const auto& cuvid_codec_csp = cuvid_csp.at(inputParam->codec_rgy);
+        if (std::find(cuvid_codec_csp.begin(), cuvid_codec_csp.end(), targetInfo.csp) == cuvid_codec_csp.end()) {
+            PrintMes(RGY_LOG_ERROR, _T("GPU #%d (%s) does not support %s %s decoding required for ssim/psnr/vmaf calculation.\n"), m_dev->id(), m_dev->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str(), RGY_CSP_NAMES[targetInfo.csp]);
+            return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+        }
+
+        unique_ptr<NVEncFilterSsim> filterSsim(new NVEncFilterSsim());
+        shared_ptr<NVEncFilterParamSsim> param(new NVEncFilterParamSsim());
+        param->input = targetInfo;
         param->input.srcWidth = m_uEncWidth;
         param->input.srcHeight = m_uEncHeight;
         param->frameIn = m_pLastFilterParam->frameOut;
