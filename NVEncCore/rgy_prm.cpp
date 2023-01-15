@@ -1024,6 +1024,49 @@ tstring VppTransform::print() const {
 #undef ON_OFF
 }
 
+VppOverlay::VppOverlay() :
+    enable(false),
+    inputFile(),
+    posX(0),
+    posY(0),
+    width(0),
+    height(0),
+    alpha(0.0f),
+    alphaMode(VppOverlayAlphaMode::Override),
+    loop(false) {
+
+}
+
+bool VppOverlay::operator==(const VppOverlay &x) const {
+    return enable == x.enable
+        && inputFile == x.inputFile
+        && posX == x.posX
+        && posY == x.posY
+        && width == x.width
+        && height == x.height
+        && alpha == x.alpha
+        && alphaMode == x.alphaMode
+        && loop == x.loop;
+}
+bool VppOverlay::operator!=(const VppOverlay &x) const {
+    return !(*this == x);
+}
+
+tstring VppOverlay::print() const {
+    tstring alphaStr = _T("auto");
+    if (alpha > 0.0f) {
+        alphaStr = (alphaMode == VppOverlayAlphaMode::Mul) ? _T("*") : _T("");
+        alphaStr += strsprintf(_T("%.2f"), alpha);
+    }
+    return strsprintf(_T("overlay: %s\n")
+        _T("                        pos (%d,%d), size %dx%d, alpha %s, loop %s"),
+        inputFile.c_str(),
+        posX, posY,
+        width, height,
+        alphaStr.c_str(),
+        (loop) ? _T("on") : _T("off"));
+}
+
 VppDeband::VppDeband() :
     enable(false),
     range(FILTER_DEFAULT_DEBAND_RANGE),
@@ -1089,6 +1132,7 @@ RGYParamVpp::RGYParamVpp() :
     warpsharp(),
     tweak(),
     transform(),
+    overlay(),
     deband(),
     checkPerformance(false) {
 

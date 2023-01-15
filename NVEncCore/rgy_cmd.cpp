@@ -2687,6 +2687,164 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-overlay-file") && ENABLE_VPP_FILTER_OVERLAY) {
+        vpp->overlay.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        vpp->overlay.inputFile = strInput[i + 1];
+        return 0;
+    }
+    if (IS_OPTION("vpp-overlay") && ENABLE_VPP_FILTER_OVERLAY) {
+        vpp->overlay.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        vector<tstring> param_list;
+        bool flag_comma = false;
+        const TCHAR *pstr = strInput[i];
+        const TCHAR *qstr = strInput[i];
+        for (; *pstr; pstr++) {
+            if (*pstr == _T('\"')) {
+                flag_comma ^= true;
+            }
+            if (!flag_comma && *pstr == _T(',')) {
+                param_list.push_back(tstring(qstr, pstr - qstr));
+                qstr = pstr + 1;
+            }
+        }
+        param_list.push_back(tstring(qstr, pstr - qstr));
+
+        const auto paramList = std::vector<std::string>{
+            "pos", "posx", "posy",
+            "size", "width", "height",
+            "alpha", "alpha_mode", "loop", "file" };
+
+        for (const auto& param : param_list) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->overlay.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("file")) {
+                    vpp->overlay.inputFile = trim(param_val, _T("\""));
+                    continue;
+                }
+                if (param_arg == _T("pos")) {
+                    int x = 0, y = 0;
+                    if (   _stscanf_s(param_val.c_str(), _T("%dx%d"), &x, &y) == 2
+                        || _stscanf_s(param_val.c_str(), _T("%d/%d"), &x, &y) == 2) {
+                        vpp->overlay.posX = x;
+                        vpp->overlay.posY = y;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("posx")) {
+                    try {
+                        vpp->overlay.posX = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("posy")) {
+                    try {
+                        vpp->overlay.posY = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("size")) {
+                    int w = 0, h = 0;
+                    if (   _stscanf_s(param_val.c_str(), _T("%dx%d"), &w, &h) == 2
+                        || _stscanf_s(param_val.c_str(), _T("%d/%d"), &w, &h) == 2) {
+                        vpp->overlay.width = w;
+                        vpp->overlay.height = h;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("width")) {
+                    try {
+                        vpp->overlay.width = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("height")) {
+                    try {
+                        vpp->overlay.height = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("alpha")) {
+                    try {
+                        vpp->overlay.alpha = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("alpha_mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_overlay_alpha_mode, param_val.c_str(), &value)) {
+                        vpp->overlay.alphaMode = (VppOverlayAlphaMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_overlay_alpha_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("loop")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->overlay.loop = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("loop")) {
+                    vpp->overlay.loop = true;
+                    continue;
+                }
+                vpp->overlay.inputFile = param;
+                return 0;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-deband") && ENABLE_VPP_FILTER_DEBAND) {
         vpp->deband.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -5677,6 +5835,31 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         }
     }
+    if (param->overlay != defaultPrm->overlay) {
+        tmp.str(tstring());
+        if (!param->overlay.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->overlay.enable || save_disabled_prm) {
+            ADD_PATH(_T("file"), overlay.inputFile.c_str());
+            if (   param->overlay.posX != defaultPrm->overlay.posX
+                || param->overlay.posY != defaultPrm->overlay.posY) {
+                tmp << _T(",pos=") << param->overlay.posX << _T("x") << param->overlay.posY;
+            }
+            if (   param->overlay.width  != defaultPrm->overlay.width
+                || param->overlay.height != defaultPrm->overlay.height) {
+                tmp << _T(",size=") << param->overlay.width << _T("x") << param->overlay.height;
+            }
+            ADD_FLOAT(_T("alpha"), overlay.alpha, 3);
+            ADD_LST(_T("alpha_mode"), overlay.alphaMode, list_vpp_overlay_alpha_mode);
+            ADD_BOOL(_T("loop"), overlay.loop);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
+        } else if (param->deband.enable) {
+            cmd << _T(" --vpp-overlay");
+        }
+    }
     if (param->deband != defaultPrm->deband) {
         tmp.str(tstring());
         if (!param->deband.enable && save_disabled_prm) {
@@ -6782,6 +6965,20 @@ tstring gen_cmd_help_vpp() {
         _T("      flip_y=<bool>\n")
         _T("      transpose=<bool>\n")
     );
+#if ENABLE_VPP_FILTER_OVERLAY
+    str += strsprintf(_T("\n")
+        _T("   --vpp-overlay [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("    params\n")
+        _T("      file=<string>             src file path of the image\n")
+        _T("      pos=<int>x<int>           position to add image\n")
+        _T("      size=<int>x<int>          size of image  (default: 0x0 = no resize)\n")
+        _T("      alpha=<float>             alpha value of overlay\n")
+        _T("                                  default: 1.0 (0.0 - 1.0)\n")
+        _T("      alpha_mode=<string>       override ... set value of alpha\n")
+        _T("                                mul      ... multiple original value\n")
+        _T("      loop=<bool>\n")
+    );
+#endif
 #if ENABLE_VPP_FILTER_DEBAND
     str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")

@@ -196,6 +196,7 @@
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-tweak-param1value1param2value2)
+  - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
@@ -1478,6 +1479,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
 - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
+- [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
 
@@ -2175,6 +2177,26 @@ Edge warping (sharpening) filter.
 Example:
 --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
 ```
+
+### --vpp-overlay [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Overlay image on top of base video.
+
+**Parameters**
+- filename=&lt;string&gt;
+  source file path of the image.
+
+- pos=&lt;int&gt;x&lt;int&gt;
+  position to add image.
+
+- size=&lt;int&gt;x&lt;int&gt;
+  size of image.
+
+- alpha=&lt;float&gt; (default: 1.0 (0.0 - 1.0))
+  alpha value of overlay.
+
+- alpha_mode=&lt;string&gt;
+  - override ... set value of alpha
+  - mul      ... multiple original value
 
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
