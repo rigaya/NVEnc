@@ -210,6 +210,13 @@ NVIDIA グラフィックドライバ 527.56
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2023.01.16 (7.09)
+[NVEncC]
+- 画像を焼き込むフィルタを追加。 ( --vpp-overlay )
+- ssim/psnr/vmafでhwデコードがサポートされない場合のエラーメッセージを改善。
+- AV1 hwデコードが正常に動作しない問題を修正。
+  cuvid: cuvidParseVideoData errorが出てしまっていた。
+
 2022.12.29 (7.08)
 [NVEncC]
 - vpp-decimateに複数のフレームをdropさせるオプションを追加。(--vpp-decimate drop)
