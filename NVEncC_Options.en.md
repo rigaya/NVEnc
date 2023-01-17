@@ -2182,7 +2182,7 @@ Example:
 Overlay image on top of base video.
 
 **Parameters**
-- filename=&lt;string&gt;
+- file=&lt;string&gt;
   source file path of the image.
 
 - pos=&lt;int&gt;x&lt;int&gt;

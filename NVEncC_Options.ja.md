@@ -2224,7 +2224,7 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 指定の画像を動画上に焼き込む。
 
 **パラメータ**
-- filename=&lt;string&gt;
+- file=&lt;string&gt;
   焼き込む画像のパス。
 
 - pos=&lt;int&gt;x&lt;int&gt;
