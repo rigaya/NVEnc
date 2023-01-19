@@ -1077,12 +1077,25 @@ struct VppTransform {
 enum class VppOverlayAlphaMode {
     Override,
     Mul,
+    LumaKey,
 };
 
 const CX_DESC list_vpp_overlay_alpha_mode[] = {
     { _T("override"),  (int)VppOverlayAlphaMode::Override },
     { _T("mul"),       (int)VppOverlayAlphaMode::Mul      },
+    { _T("lumakey"),   (int)VppOverlayAlphaMode::LumaKey  },
     { NULL, 0 }
+};
+
+struct VppOverlayAlphaKey {
+    float threshold;
+    float tolerance;
+    float shoftness;
+
+    VppOverlayAlphaKey();
+    bool operator==(const VppOverlayAlphaKey &x) const;
+    bool operator!=(const VppOverlayAlphaKey &x) const;
+    tstring print() const;
 };
 
 struct VppOverlay {
@@ -1094,6 +1107,7 @@ struct VppOverlay {
     int height;
     float alpha; // 不透明度 透明(0.0 - 1.0)透明
     VppOverlayAlphaMode alphaMode;
+    VppOverlayAlphaKey lumaKey;
     bool loop;
 
     VppOverlay();

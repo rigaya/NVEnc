@@ -2721,7 +2721,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         const auto paramList = std::vector<std::string>{
             "pos", "posx", "posy",
             "size", "width", "height",
-            "alpha", "alpha_mode", "loop", "file" };
+            "alpha", "alpha_mode", "loop", "file",
+            "lumakey_threshold", "lumakey_tolerance", "lumakey_softness"};
 
         for (const auto& param : param_list) {
             auto pos = param.find_first_of(_T("="));
@@ -2818,6 +2819,33 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         vpp->overlay.alphaMode = (VppOverlayAlphaMode)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_overlay_alpha_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_threshold")) {
+                    try {
+                        vpp->overlay.lumaKey.threshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_tolerance")) {
+                    try {
+                        vpp->overlay.lumaKey.tolerance = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_softness")) {
+                    try {
+                        vpp->overlay.lumaKey.shoftness = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
                     continue;
@@ -5852,6 +5880,11 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
             ADD_FLOAT(_T("alpha"), overlay.alpha, 3);
             ADD_LST(_T("alpha_mode"), overlay.alphaMode, list_vpp_overlay_alpha_mode);
+            ADD_FLOAT(_T("lumakey_threshold"), overlay.lumaKey.threshold, 3);
+            ADD_FLOAT(_T("lumakey_tolerance"), overlay.lumaKey.tolerance, 3);
+            ADD_FLOAT(_T("lumakey_shoftness"), overlay.lumaKey.shoftness, 3);
+            ADD_FLOAT(_T("alpha"), overlay.alpha, 3);
+            ADD_FLOAT(_T("alpha"), overlay.alpha, 3);
             ADD_BOOL(_T("loop"), overlay.loop);
         }
         if (!tmp.str().empty()) {
@@ -6976,6 +7009,12 @@ tstring gen_cmd_help_vpp() {
         _T("                                  default: 1.0 (0.0 - 1.0)\n")
         _T("      alpha_mode=<string>       override ... set value of alpha\n")
         _T("                                mul      ... multiple original value\n")
+        _T("                                lumakey  ... set alpha depending on luma\n")
+        _T("      lumakey_threshold=<float> luma used for tranparency.\n")
+        _T("                                  default: 0.0 (dark: 0.0 - 1.0 :bright)\n")
+        _T("      lumakey_tolerance=<float> set luma range to be keyed out.\n")
+        _T("                                  default: 0.1 (0.0 - 1.0)\n")
+        _T("      lumakey_threshold=<float> set the range of softness for lumakey\n")
         _T("      loop=<bool>\n")
     );
 #endif

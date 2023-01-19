@@ -444,6 +444,27 @@ RGY_ERR NVEncFilterOverlay::prepareFrameDev(NVEncFilterOverlayFrame& target, cud
     return RGY_ERR_NONE;
 }
 
+template<typename TypeSrc>
+static inline void set_lumakey(uint8_t *ptrDstAlpha, const TypeSrc *ptrSrc, const int width, const int srcBitdepth,
+    const float threshold, const float tolerance, const float softness) {
+    const float black = std::max(threshold - tolerance, 0.0f);
+    const float white = std::min(threshold + tolerance, 1.0f);
+    for (int i = 0; i < width; i++) {
+        const float lumaf = clamp(((float)ptrSrc[i] * (float)(1.0f / ((1 << srcBitdepth) - 1)) - (16.0f / 255.0f)) * (255.0f / (235.0f - 16.0f)), 0.0f, 1.0f);
+        if (lumaf >= black && lumaf <= white) {
+            ptrDstAlpha[i] = 0;
+        } else if (softness > 0.0f && lumaf > black - softness && lumaf < white + softness) {
+            if (lumaf < black) {
+                ptrDstAlpha[i] = 255 - (uint8_t)((lumaf - black + softness) * 255 / softness + 0.5f);
+            } else {
+                ptrDstAlpha[i] = (uint8_t)((lumaf - white) * 255 / softness + 0.5f);
+            }
+        } else {
+            ptrDstAlpha[i] = 255;
+        }
+    }
+}
+
 RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
     if (!m_codecCtxDec) {
         AddMessage(RGY_LOG_ERROR, _T("decoder not initialized.\n"));
@@ -542,10 +563,28 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
                     }
                 }
             }
-        } else {
+        } else if (prm->overlay.alphaMode == VppOverlayAlphaMode::Mul) {
             prm->overlay.alphaMode = VppOverlayAlphaMode::Override; // Mulモードは無効
         }
-        if (prm->overlay.alpha > 0.0f || !readAlphaFromPixFmt) {
+        if (prm->overlay.alphaMode == VppOverlayAlphaMode::LumaKey) {
+            const auto& frameHost = m_frame.host->frame;
+            for (int iplane = 0; iplane < _countof(dst_array); iplane++) {
+                auto ptrSrcLineY = getPlane(&frameHost, RGY_PLANE_Y).ptr;
+                const auto pitchSrc = frameHost.pitch;
+                auto ptrDstLineA = dst_array[iplane];
+                const auto pitchDst = frameHostAlpha.pitch;
+                for (int j = 0; j < frameHostAlpha.height; j++, ptrDstLineA += pitchDst, ptrSrcLineY += pitchSrc) {
+                    auto ptrDst = ptrDstLineA;
+                    if (RGY_CSP_BIT_DEPTH[frameHost.csp] > 8) {
+                        set_lumakey<uint16_t>(ptrDst, (const uint16_t *)ptrSrcLineY, frameHostAlpha.width, RGY_CSP_BIT_DEPTH[frameHost.csp],
+                            prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness);
+                    } else {
+                        set_lumakey<uint8_t>(ptrDst, (const uint8_t *)ptrSrcLineY, frameHostAlpha.width, RGY_CSP_BIT_DEPTH[frameHost.csp],
+                            prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness);
+                    }
+                }
+            }
+        } else if (prm->overlay.alpha > 0.0f || !readAlphaFromPixFmt) {
             //値を設定する場合の設定値
             const uint8_t alpha8 = prm->overlay.alpha > 0.0f ? (uint8_t)std::min((int)(prm->overlay.alpha * 255.0 + 0.001), 255) : 255;
             AddMessage(RGY_LOG_DEBUG, _T("Set alpha %d (%.3f).\n"), alpha8, prm->overlay.alpha);
