@@ -1095,7 +1095,7 @@ tstring VppOverlay::print() const {
     }
     return strsprintf(_T("overlay: %s\n")
         _T("                        pos (%d,%d), size %dx%d, loop %s\n")
-        _T("                        alpha %s\n"),
+        _T("                        alpha %s"),
         inputFile.c_str(),
         posX, posY,
         width, height,

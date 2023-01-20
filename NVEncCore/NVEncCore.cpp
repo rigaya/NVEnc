@@ -1273,7 +1273,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.selectevery.enable
             || inputParam->vpp.decimate.enable
             || inputParam->vpp.mpdecimate.enable
-            || inputParam->vpp.overlay.enable);
+            || inputParam->vpp.overlay.size() > 0);
 }
 
 #pragma warning(push)
@@ -2118,7 +2118,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.decimate.enable
         || inputParam->vpp.mpdecimate.enable
         || inputParam->vpp.selectevery.enable
-        || inputParam->vpp.overlay.enable
+        || inputParam->vpp.overlay.size() > 0
         ) {
         //swデコードならGPUに上げる必要がある
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -2731,27 +2731,29 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_encFps = param->baseFps;
         }
         //overlay
-        if (inputParam->vpp.overlay.enable) {
-            unique_ptr<NVEncFilter> filter(new NVEncFilterOverlay());
-            shared_ptr<NVEncFilterParamOverlay> param(new NVEncFilterParamOverlay());
-            param->overlay = inputParam->vpp.overlay;
-            param->threadPrm = inputParam->ctrl.threadParams.get(RGYThreadType::CSP);
-            param->frameIn = inputFrame;
-            param->frameOut = inputFrame;
-            param->baseFps = m_encFps;
-            param->bOutOverwrite = false;
-            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
-            auto sts = filter->init(param, m_pNVLog);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
+        for (const auto& overlay : inputParam->vpp.overlay) {
+            if (overlay.enable) {
+                unique_ptr<NVEncFilter> filter(new NVEncFilterOverlay());
+                shared_ptr<NVEncFilterParamOverlay> param(new NVEncFilterParamOverlay());
+                param->overlay = overlay;
+                param->threadPrm = inputParam->ctrl.threadParams.get(RGYThreadType::CSP);
+                param->frameIn = inputFrame;
+                param->frameOut = inputFrame;
+                param->baseFps = m_encFps;
+                param->bOutOverwrite = false;
+                NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+                auto sts = filter->init(param, m_pNVLog);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                //フィルタチェーンに追加
+                m_vpFilters.push_back(std::move(filter));
+                //パラメータ情報を更新
+                m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+                //入力フレーム情報を更新
+                inputFrame = param->frameOut;
+                m_encFps = param->baseFps;
             }
-            //フィルタチェーンに追加
-            m_vpFilters.push_back(std::move(filter));
-            //パラメータ情報を更新
-            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
-            //入力フレーム情報を更新
-            inputFrame = param->frameOut;
-            m_encFps = param->baseFps;
         }
         //deband
         if (inputParam->vpp.deband.enable) {

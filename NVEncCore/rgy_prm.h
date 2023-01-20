@@ -1158,7 +1158,7 @@ struct RGYParamVpp {
     VppWarpsharp warpsharp;
     VppTweak tweak;
     VppTransform transform;
-    VppOverlay overlay;
+    std::vector<VppOverlay> overlay;
     VppDeband deband;
     bool checkPerformance;
 

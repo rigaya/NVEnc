@@ -134,7 +134,7 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
     m_inputFrames = 0;
 
     m_stream = nullptr;
-    for (int i = 0; i < m_formatCtx->nb_streams; i++) {
+    for (uint32_t i = 0; i < m_formatCtx->nb_streams; i++) {
         if (m_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
             m_stream = m_formatCtx->streams[i];
         }
@@ -568,41 +568,45 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
         }
         if (prm->overlay.alphaMode == VppOverlayAlphaMode::LumaKey) {
             const auto& frameHost = m_frame.host->frame;
-            for (int iplane = 0; iplane < _countof(dst_array); iplane++) {
-                auto ptrSrcLineY = getPlane(&frameHost, RGY_PLANE_Y).ptr;
-                const auto pitchSrc = frameHost.pitch;
-                auto ptrDstLineA = dst_array[iplane];
-                const auto pitchDst = frameHostAlpha.pitch;
-                for (int j = 0; j < frameHostAlpha.height; j++, ptrDstLineA += pitchDst, ptrSrcLineY += pitchSrc) {
-                    auto ptrDst = ptrDstLineA;
-                    if (RGY_CSP_BIT_DEPTH[frameHost.csp] > 8) {
-                        set_lumakey<uint16_t>(ptrDst, (const uint16_t *)ptrSrcLineY, frameHostAlpha.width, RGY_CSP_BIT_DEPTH[frameHost.csp],
-                            prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness);
-                    } else {
-                        set_lumakey<uint8_t>(ptrDst, (const uint8_t *)ptrSrcLineY, frameHostAlpha.width, RGY_CSP_BIT_DEPTH[frameHost.csp],
-                            prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness);
-                    }
+            int iplane = 0;
+            auto ptrSrcLineY = getPlane(&frameHost, RGY_PLANE_Y).ptr;
+            const auto pitchSrc = frameHost.pitch;
+            auto ptrDstLineA = dst_array[iplane];
+            const auto pitchDst = frameHostAlpha.pitch;
+            for (int j = 0; j < frameHostAlpha.height; j++, ptrDstLineA += pitchDst, ptrSrcLineY += pitchSrc) {
+                auto ptrDst = ptrDstLineA;
+                if (RGY_CSP_BIT_DEPTH[frameHost.csp] > 8) {
+                    set_lumakey<uint16_t>(ptrDst, (const uint16_t *)ptrSrcLineY, frameHostAlpha.width, RGY_CSP_BIT_DEPTH[frameHost.csp],
+                        prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness);
+                } else {
+                    set_lumakey<uint8_t>(ptrDst, (const uint8_t *)ptrSrcLineY, frameHostAlpha.width, RGY_CSP_BIT_DEPTH[frameHost.csp],
+                        prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness);
                 }
+            }
+            for (iplane = 1; iplane < _countof(dst_array); iplane++) {
+                memcpy(dst_array[iplane], dst_array[0], frameHostAlpha.pitch * frameHostAlpha.height);
             }
         } else if (prm->overlay.alpha > 0.0f || !readAlphaFromPixFmt) {
             //値を設定する場合の設定値
             const uint8_t alpha8 = prm->overlay.alpha > 0.0f ? (uint8_t)std::min((int)(prm->overlay.alpha * 255.0 + 0.001), 255) : 255;
             AddMessage(RGY_LOG_DEBUG, _T("Set alpha %d (%.3f).\n"), alpha8, prm->overlay.alpha);
-            for (int iplane = 0; iplane < _countof(dst_array); iplane++) {
-                auto ptrDstLineA = dst_array[iplane];
-                const auto pitchDst = frameHostAlpha.pitch;
-                for (int j = 0; j < frameHostAlpha.height; j++, ptrDstLineA += pitchDst) {
-                    auto ptrDst = ptrDstLineA;
-                    if (prm->overlay.alphaMode == VppOverlayAlphaMode::Mul) {
-                        for (int i = 0; i < frameHostAlpha.width; i++) {
-                            ptrDst[i] = (uint8_t)clamp((int)(ptrDst[i] * prm->overlay.alpha + 0.5), 0, 255);
-                        }
-                    } else {
-                        for (int i = 0; i < frameHostAlpha.width; i++) {
-                            ptrDst[i] = alpha8;
-                        }
+            int iplane = 0;
+            auto ptrDstLineA = dst_array[iplane];
+            const auto pitchDst = frameHostAlpha.pitch;
+            for (int j = 0; j < frameHostAlpha.height; j++, ptrDstLineA += pitchDst) {
+                auto ptrDst = ptrDstLineA;
+                if (prm->overlay.alphaMode == VppOverlayAlphaMode::Mul) {
+                    for (int i = 0; i < frameHostAlpha.width; i++) {
+                        ptrDst[i] = (uint8_t)clamp((int)(ptrDst[i] * prm->overlay.alpha + 0.5), 0, 255);
+                    }
+                } else {
+                    for (int i = 0; i < frameHostAlpha.width; i++) {
+                        ptrDst[i] = alpha8;
                     }
                 }
+            }
+            for (iplane = 1; iplane < _countof(dst_array); iplane++) {
+                memcpy(dst_array[iplane], dst_array[0], frameHostAlpha.pitch * frameHostAlpha.height);
             }
         }
         m_alpha.dev->copyFrameAsync(&frameHostAlpha, stream);

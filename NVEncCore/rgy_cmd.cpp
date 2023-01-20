@@ -2687,17 +2687,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-overlay-file") && ENABLE_VPP_FILTER_OVERLAY) {
-        vpp->overlay.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
-            return 0;
-        }
-        i++;
-        vpp->overlay.inputFile = strInput[i + 1];
-        return 0;
-    }
     if (IS_OPTION("vpp-overlay") && ENABLE_VPP_FILTER_OVERLAY) {
-        vpp->overlay.enable = true;
+        VppOverlay overlay;
+        overlay.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -2733,7 +2725,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("enable")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->overlay.enable = b;
+                        overlay.enable = b;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2741,15 +2733,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("file")) {
-                    vpp->overlay.inputFile = trim(param_val, _T("\""));
+                    overlay.inputFile = trim(param_val, _T("\""));
                     continue;
                 }
                 if (param_arg == _T("pos")) {
                     int x = 0, y = 0;
                     if (   _stscanf_s(param_val.c_str(), _T("%dx%d"), &x, &y) == 2
                         || _stscanf_s(param_val.c_str(), _T("%d/%d"), &x, &y) == 2) {
-                        vpp->overlay.posX = x;
-                        vpp->overlay.posY = y;
+                        overlay.posX = x;
+                        overlay.posY = y;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2758,7 +2750,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("posx")) {
                     try {
-                        vpp->overlay.posX = std::stoi(param_val);
+                        overlay.posX = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2767,7 +2759,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("posy")) {
                     try {
-                        vpp->overlay.posY = std::stoi(param_val);
+                        overlay.posY = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2778,8 +2770,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     int w = 0, h = 0;
                     if (   _stscanf_s(param_val.c_str(), _T("%dx%d"), &w, &h) == 2
                         || _stscanf_s(param_val.c_str(), _T("%d/%d"), &w, &h) == 2) {
-                        vpp->overlay.width = w;
-                        vpp->overlay.height = h;
+                        overlay.width = w;
+                        overlay.height = h;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2788,7 +2780,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("width")) {
                     try {
-                        vpp->overlay.width = std::stoi(param_val);
+                        overlay.width = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2797,7 +2789,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("height")) {
                     try {
-                        vpp->overlay.height = std::stoi(param_val);
+                        overlay.height = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2806,7 +2798,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("alpha")) {
                     try {
-                        vpp->overlay.alpha = std::stof(param_val);
+                        overlay.alpha = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2816,7 +2808,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("alpha_mode")) {
                     int value = 0;
                     if (get_list_value(list_vpp_overlay_alpha_mode, param_val.c_str(), &value)) {
-                        vpp->overlay.alphaMode = (VppOverlayAlphaMode)value;
+                        overlay.alphaMode = (VppOverlayAlphaMode)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_overlay_alpha_mode);
                         return 1;
@@ -2825,7 +2817,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("lumakey_threshold")) {
                     try {
-                        vpp->overlay.lumaKey.threshold = std::stof(param_val);
+                        overlay.lumaKey.threshold = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2834,7 +2826,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("lumakey_tolerance")) {
                     try {
-                        vpp->overlay.lumaKey.tolerance = std::stof(param_val);
+                        overlay.lumaKey.tolerance = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2843,7 +2835,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("lumakey_softness")) {
                     try {
-                        vpp->overlay.lumaKey.shoftness = std::stof(param_val);
+                        overlay.lumaKey.shoftness = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2853,7 +2845,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("loop")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->overlay.loop = b;
+                        overlay.loop = b;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2864,13 +2856,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 return 1;
             } else {
                 if (param == _T("loop")) {
-                    vpp->overlay.loop = true;
+                    overlay.loop = true;
                     continue;
                 }
-                vpp->overlay.inputFile = param;
+                overlay.inputFile = param;
                 return 0;
             }
         }
+        vpp->overlay.push_back(overlay);
         return 0;
     }
     if (IS_OPTION("vpp-deband") && ENABLE_VPP_FILTER_DEBAND) {
@@ -5390,6 +5383,13 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 #define ADD_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=\"") << (param->opt) << _T("\"");
 #define ADD_STR(str, opt) if (param->opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (param->opt.c_str());
 
+#define ADD_FLOAT2(str, prm, def, opt, prec) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (prm.opt);
+#define ADD_NUM2(str, prm, def, opt) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << (prm.opt);
+#define ADD_LST2(str, prm, def, opt, list) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (int)(prm.opt));
+#define ADD_BOOL2(str, prm, def, opt) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << ((prm.opt) ? (_T("true")) : (_T("false")));
+#define ADD_PATH2(str, prm, opt) if ((prm.opt) && _tcslen(prm.opt)) tmp << _T(",") << (str) << _T("=\"") << (prm.opt) << _T("\"");
+#define ADD_STR2(str, prm, opt) if (prm.opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (prm.opt.c_str());
+
 tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYParamInput *inprm, const RGYParamInput *inprmDefault, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> cmd;
     switch (param->type) {
@@ -5748,24 +5748,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
     }
     for (size_t i = 0; i < param->subburn.size(); i++) {
-        if (param->subburn[i] != VppSubburn()) {
+        const auto subburnDefault = VppSubburn();
+        if (param->subburn[i] != subburnDefault) {
             tmp.str(tstring());
             if (!param->subburn[i].enable && save_disabled_prm) {
                 tmp << _T(",enable=false");
             }
             if (param->subburn[i].enable || save_disabled_prm) {
-                ADD_NUM(_T("track"), subburn[i].trackId);
-                ADD_PATH(_T("filename"), subburn[i].filename.c_str());
-                ADD_STR(_T("charcode"), subburn[i].charcode);
-                ADD_LST(_T("shaping"), subburn[i].assShaping, list_vpp_ass_shaping);
-                ADD_FLOAT(_T("scale"), subburn[i].scale, 4);
-                ADD_FLOAT(_T("transparency"), subburn[i].transparency_offset, 4);
-                ADD_FLOAT(_T("brightness"), subburn[i].brightness, 4);
-                ADD_FLOAT(_T("contrast"), subburn[i].contrast, 4);
-                ADD_BOOL(_T("vid_ts_offset"), subburn[i].vid_ts_offset);
-                ADD_FLOAT(_T("ts_offset"), subburn[i].ts_offset, 4);
-                ADD_PATH(_T("fontsdir"), subburn[i].fontsdir.c_str());
-                ADD_BOOL(_T("forced_subs_only"), subburn[i].forced_subs_only);
+                ADD_NUM2(_T("track"), param->subburn[i], subburnDefault, trackId);
+                ADD_PATH2(_T("filename"), param->subburn[i], filename.c_str());
+                ADD_STR2(_T("charcode"), param->subburn[i], charcode);
+                ADD_LST2(_T("shaping"), param->subburn[i], subburnDefault, assShaping, list_vpp_ass_shaping);
+                ADD_FLOAT2(_T("scale"), param->subburn[i], subburnDefault, scale, 4);
+                ADD_FLOAT2(_T("transparency"), param->subburn[i], subburnDefault, transparency_offset, 4);
+                ADD_FLOAT2(_T("brightness"), param->subburn[i], subburnDefault, brightness, 4);
+                ADD_FLOAT2(_T("contrast"), param->subburn[i], subburnDefault, contrast, 4);
+                ADD_BOOL2(_T("vid_ts_offset"), param->subburn[i], subburnDefault, vid_ts_offset);
+                ADD_FLOAT2(_T("ts_offset"), param->subburn[i], subburnDefault, ts_offset, 4);
+                ADD_PATH2(_T("fontsdir"), param->subburn[i], fontsdir.c_str());
+                ADD_BOOL2(_T("forced_subs_only"), param->subburn[i], subburnDefault, forced_subs_only);
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);
@@ -5863,34 +5864,35 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         }
     }
-    if (param->overlay != defaultPrm->overlay) {
-        tmp.str(tstring());
-        if (!param->overlay.enable && save_disabled_prm) {
-            tmp << _T(",enable=false");
-        }
-        if (param->overlay.enable || save_disabled_prm) {
-            ADD_PATH(_T("file"), overlay.inputFile.c_str());
-            if (   param->overlay.posX != defaultPrm->overlay.posX
-                || param->overlay.posY != defaultPrm->overlay.posY) {
-                tmp << _T(",pos=") << param->overlay.posX << _T("x") << param->overlay.posY;
+    for (size_t i = 0; i < param->overlay.size(); i++) {
+        const auto overlayDefault = VppOverlay();
+        if (param->overlay[i] != overlayDefault) {
+            tmp.str(tstring());
+            if (!param->overlay[i].enable && save_disabled_prm) {
+                tmp << _T(",enable=false");
             }
-            if (   param->overlay.width  != defaultPrm->overlay.width
-                || param->overlay.height != defaultPrm->overlay.height) {
-                tmp << _T(",size=") << param->overlay.width << _T("x") << param->overlay.height;
+            if (param->overlay[i].enable || save_disabled_prm) {
+                ADD_PATH(_T("file"), overlay[i].inputFile.c_str());
+                if (   param->overlay[i].posX != overlayDefault.posX
+                    || param->overlay[i].posY != overlayDefault.posY) {
+                    tmp << _T(",pos=") << param->overlay[i].posX << _T("x") << param->overlay[i].posY;
+                }
+                if (   param->overlay[i].width  != overlayDefault.width
+                    || param->overlay[i].height != overlayDefault.height) {
+                    tmp << _T(",size=") << param->overlay[i].width << _T("x") << param->overlay[i].height;
+                }
+                ADD_FLOAT2(_T("alpha"), param->overlay[i], overlayDefault, alpha, 3);
+                ADD_LST2(_T("alpha_mode"), param->overlay[i], overlayDefault, alphaMode, list_vpp_overlay_alpha_mode);
+                ADD_FLOAT2(_T("lumakey_threshold"), param->overlay[i], overlayDefault, lumaKey.threshold, 3);
+                ADD_FLOAT2(_T("lumakey_tolerance"), param->overlay[i], overlayDefault, lumaKey.tolerance, 3);
+                ADD_FLOAT2(_T("lumakey_shoftness"), param->overlay[i], overlayDefault, lumaKey.shoftness, 3);
+                ADD_BOOL2(_T("loop"), param->overlay[i], overlayDefault, loop);
             }
-            ADD_FLOAT(_T("alpha"), overlay.alpha, 3);
-            ADD_LST(_T("alpha_mode"), overlay.alphaMode, list_vpp_overlay_alpha_mode);
-            ADD_FLOAT(_T("lumakey_threshold"), overlay.lumaKey.threshold, 3);
-            ADD_FLOAT(_T("lumakey_tolerance"), overlay.lumaKey.tolerance, 3);
-            ADD_FLOAT(_T("lumakey_shoftness"), overlay.lumaKey.shoftness, 3);
-            ADD_FLOAT(_T("alpha"), overlay.alpha, 3);
-            ADD_FLOAT(_T("alpha"), overlay.alpha, 3);
-            ADD_BOOL(_T("loop"), overlay.loop);
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
-        } else if (param->deband.enable) {
-            cmd << _T(" --vpp-overlay");
+            if (!tmp.str().empty()) {
+                cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
+            } else if (param->deband.enable) {
+                cmd << _T(" --vpp-overlay");
+            }
         }
     }
     if (param->deband != defaultPrm->deband) {
