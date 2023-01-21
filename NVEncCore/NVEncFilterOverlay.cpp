@@ -446,22 +446,22 @@ RGY_ERR NVEncFilterOverlay::prepareFrameDev(NVEncFilterOverlayFrame& target, cud
 
 template<typename TypeSrc>
 static inline void set_lumakey(uint8_t *ptrDstAlpha, const TypeSrc *ptrSrc, const int width, const int srcBitdepth,
-    const float threshold, const float tolerance, const float softness) {
+    const float threshold, const float tolerance, const float softness, const float baseAlpha) {
     const float black = std::max(threshold - tolerance, 0.0f);
     const float white = std::min(threshold + tolerance, 1.0f);
     for (int i = 0; i < width; i++) {
-        const float lumaf = clamp(((float)ptrSrc[i] * (float)(1.0f / ((1 << srcBitdepth) - 1)) - (16.0f / 255.0f)) * (255.0f / (235.0f - 16.0f)), 0.0f, 1.0f);
+        const float lumaf = clamp(((float)ptrSrc[i] * (float)(1.0f / (float)((1 << srcBitdepth) - 1)) - (16.0f / 255.0f)) * (255.0f / (235.0f - 16.0f)), 0.0f, 1.0f);
+        float alpha = 255.0f;
         if (lumaf >= black && lumaf <= white) {
-            ptrDstAlpha[i] = 0;
+            alpha = 0.0f;
         } else if (softness > 0.0f && lumaf > black - softness && lumaf < white + softness) {
             if (lumaf < black) {
-                ptrDstAlpha[i] = 255 - (uint8_t)((lumaf - black + softness) * 255 / softness + 0.5f);
+                alpha = 255.0f - (lumaf - black + softness) * 255.0f / softness;
             } else {
-                ptrDstAlpha[i] = (uint8_t)((lumaf - white) * 255 / softness + 0.5f);
+                alpha = ((lumaf - white) * 255.0f / softness + 0.5f);
             }
-        } else {
-            ptrDstAlpha[i] = 255;
         }
+        ptrDstAlpha[i] = (uint8_t)clamp((int)(alpha * baseAlpha + 0.5f), 0, 255);
     }
 }
 
@@ -568,6 +568,7 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
         }
         if (prm->overlay.alphaMode == VppOverlayAlphaMode::LumaKey) {
             const auto& frameHost = m_frame.host->frame;
+            const float baseAlpha = (prm->overlay.alpha > 0.0f) ? prm->overlay.alpha : 1.0f;
             int iplane = 0;
             auto ptrSrcLineY = getPlane(&frameHost, RGY_PLANE_Y).ptr;
             const auto pitchSrc = frameHost.pitch;
@@ -577,10 +578,10 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
                 auto ptrDst = ptrDstLineA;
                 if (RGY_CSP_BIT_DEPTH[frameHost.csp] > 8) {
                     set_lumakey<uint16_t>(ptrDst, (const uint16_t *)ptrSrcLineY, frameHostAlpha.width, RGY_CSP_BIT_DEPTH[frameHost.csp],
-                        prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness);
+                        prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness, baseAlpha);
                 } else {
                     set_lumakey<uint8_t>(ptrDst, (const uint8_t *)ptrSrcLineY, frameHostAlpha.width, RGY_CSP_BIT_DEPTH[frameHost.csp],
-                        prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness);
+                        prm->overlay.lumaKey.threshold, prm->overlay.lumaKey.tolerance, prm->overlay.lumaKey.shoftness, baseAlpha);
                 }
             }
             for (iplane = 1; iplane < _countof(dst_array); iplane++) {

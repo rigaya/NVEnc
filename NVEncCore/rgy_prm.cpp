@@ -1078,7 +1078,8 @@ bool VppOverlay::operator!=(const VppOverlay &x) const {
 tstring VppOverlay::print() const {
     tstring alphaStr = _T("auto");
     if (alphaMode == VppOverlayAlphaMode::LumaKey) {
-        alphaStr = _T("lumakey ") + lumaKey.print();
+        alphaStr = (alpha > 0.0f) ? strsprintf(_T("%.2f "), alpha) : _T("");
+        alphaStr += _T("lumakey ") + lumaKey.print();
     } else {
         if (alpha > 0.0f) {
             switch (alphaMode) {
