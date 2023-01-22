@@ -3748,7 +3748,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
                 //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
                 (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
                 //複数のstreamがあり得るので最大値をとる
-                if (pktData.dts != AV_NOPTS_VALUE) {
+                if (pktData.dts != AV_NOPTS_VALUE && pktData.dts != (int64_t)((uint64_t)AV_NOPTS_VALUE - 1)) {
                     audioDts = (std::max)(audioDts, (std::max)(pktData.dts, m_Mux.thread.streamOutMaxDts.load()));
                 }
                 nWaitAudio = 0;
@@ -3817,7 +3817,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : INT64_MAX;
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
             //複数のstreamがあり得るので最大値をとる
-            if (pktData.dts != AV_NOPTS_VALUE) {
+            if (pktData.dts != AV_NOPTS_VALUE && pktData.dts != (int64_t)((uint64_t)AV_NOPTS_VALUE - 1)) {
                 audioDts = (std::max)(audioDts, pktData.dts);
             }
         }
