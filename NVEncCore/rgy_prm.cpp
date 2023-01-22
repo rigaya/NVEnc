@@ -55,6 +55,10 @@ RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     } else if (resize < RGY_VPP_RESIZE_NPPI_MAX) {
         return RGY_VPP_RESIZE_TYPE_NPPI;
 #endif
+#if ENCODER_VCEENC
+    } else if (resize < RGY_VPP_RESIZE_AMF_MAX) {
+        return RGY_VPP_RESIZE_TYPE_AMF;
+#endif
     } else {
         return RGY_VPP_RESIZE_TYPE_UNKNOWN;
     }
