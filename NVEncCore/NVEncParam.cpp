@@ -311,8 +311,7 @@ void InEncodeVideoParam::applyDOVIProfile() {
     if (profile == nullptr) {
         return;
     }
-
-    common.out_vui = profile->vui;
+    common.out_vui.setIfUnset(profile->vui);
     encConfig.encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
     if (profile->aud) {
         encConfig.encodeCodecConfig.hevcConfig.outputAUD = 1;
