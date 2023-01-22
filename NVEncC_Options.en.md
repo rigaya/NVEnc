@@ -2182,31 +2182,31 @@ Example:
 Overlay image on top of base video.
 
 **Parameters**
-- file=&lt;string&gt;
+- file=&lt;string&gt;  
   source file path of the image.
   When video is used for file, video framerate should be equal to base video file.
 
-- pos=&lt;int&gt;x&lt;int&gt;
+- pos=&lt;int&gt;x&lt;int&gt;  
   position to add image.
 
-- size=&lt;int&gt;x&lt;int&gt;
+- size=&lt;int&gt;x&lt;int&gt;  
   size of image.
 
-- alpha=&lt;float&gt; (default: 1.0 (0.0 - 1.0))
+- alpha=&lt;float&gt; (default: 1.0 (0.0 - 1.0))  
   alpha value of overlay.
 
-- alpha_mode=&lt;string&gt;
+- alpha_mode=&lt;string&gt;  
   - override ... set value of alpha
   - mul      ... multiple original value
   - lumakey  ... set alpha depending on luma
 
-- lumakey_threshold=&lt;float&gt; (default: 0.0 (dark: 0.0 - 1.0 :bright))
+- lumakey_threshold=&lt;float&gt; (default: 0.0 (dark: 0.0 - 1.0 :bright))  
   luma used for tranparency.
 
-- lumakey_tolerance=&lt;float&gt; (default: 0.1 (0.0 - 1.0))
+- lumakey_tolerance=&lt;float&gt; (default: 0.1 (0.0 - 1.0))  
   set luma range to be keyed out.
 
-- lumakey_softness=&lt;float&gt; (default: 0.0 (0.0 - 1.0))
+- lumakey_softness=&lt;float&gt; (default: 0.0 (0.0 - 1.0))  
   set the range of softness for lumakey.
 
 ```

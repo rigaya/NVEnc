@@ -2224,30 +2224,30 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 指定の画像を動画上に焼き込む。
 
 - **パラメータ**
-- file=&lt;string&gt;
+- file=&lt;string&gt;  
   焼き込む画像のパス。
 
-- pos=&lt;int&gt;x&lt;int&gt;
+- pos=&lt;int&gt;x&lt;int&gt;  
   焼き込み位置。
 
-- size=&lt;int&gt;x&lt;int&gt;
+- size=&lt;int&gt;x&lt;int&gt;  
   焼き込む画像のサイズ。未指定の場合は、リサイズせず焼き込みを行う。
 
-- alpha=&lt;float&gt; (デフォルト: 1.0 (0.0 - 1.0))
+- alpha=&lt;float&gt; (デフォルト: 1.0 (0.0 - 1.0))  
   焼き込み際の不透明度。
 
-- alpha_mode=&lt;string&gt;
+- alpha_mode=&lt;string&gt;  
   - override ... alphaで指定の不透明度で上書きする。 (デフォルト)
   - mul      ... alphaで指定した不透明度を乗算する。
   - lumakey  ... 指定の輝度値で不透明度を設定する。
 
-- lumakey_threshold=&lt;float&gt; (デフォルト: 0.0 (暗い: 0.0 - 1.0 :明るい))
+- lumakey_threshold=&lt;float&gt; (デフォルト: 0.0 (暗い: 0.0 - 1.0 :明るい))  
   透明色にする輝度値。
 
-- lumakey_tolerance=&lt;float&gt; (デフォルト: 0.1 (0.0 - 1.0))
+- lumakey_tolerance=&lt;float&gt; (デフォルト: 0.1 (0.0 - 1.0))  
   透明色にする輝度値の範囲の指定。
 
-- lumakey_softness=&lt;float&gt; (デフォルト: 0.0 (0.0 - 1.0))
+- lumakey_softness=&lt;float&gt; (デフォルト: 0.0 (0.0 - 1.0))  
   toleranceに対する透明度の変化の具合を指定。
 
 - loop=&lt;bool&gt;  (default=false)
