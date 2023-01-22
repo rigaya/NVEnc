@@ -386,11 +386,17 @@ std::vector<uint8_t> RGYHDRMetadata::sei_atcsei() const {
 }
 
 std::vector<uint8_t> RGYHDRMetadata::gen_maxcll_obu() const {
-    return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_CLL, raw_maxcll());
+    if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
+        return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_CLL, raw_maxcll());
+    }
+    return {};
 }
 
 std::vector<uint8_t> RGYHDRMetadata::gen_masterdisplay_obu() const {
-    return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_MDCV, raw_masterdisplay());
+    if (prm.masterdisplay_set) {
+        return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_MDCV, raw_masterdisplay());
+    }
+    return {};
 }
 
 std::vector<uint8_t> RGYHDRMetadata::gen_obu() const {
