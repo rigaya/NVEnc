@@ -3894,15 +3894,17 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
                 int iTrack = 0;
-                if (1 == _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    trackSet.insert(std::make_pair(iTrack, ""));
-                } else if (rgy_lang_exist(tchar_to_string(str))) {
-                    trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str)));
-                } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_AUDIO)) {
-                    trackSet.insert(std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str)));
+                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
+                    if (rgy_lang_exist(tchar_to_string(str))) {
+                        trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str)));
+                    } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_AUDIO)) {
+                        trackSet.insert(std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str)));
+                    } else {
+                        print_cmd_error_invalid_value(option_name, strInput[i]);
+                        return 1;
+                    }
                 } else {
-                    print_cmd_error_invalid_value(option_name, strInput[i]);
-                    return 1;
+                    trackSet.insert(std::make_pair(iTrack, ""));
                 }
             }
         } else {
