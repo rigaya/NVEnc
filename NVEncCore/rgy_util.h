@@ -482,25 +482,25 @@ public:
     }
 
     template<typename Arg>
-    rgy_rational<T> operator + (const Arg& a) {
+    rgy_rational<T> operator + (const Arg& a) const {
         rgy_rational<T> t(*this);
         t += a;
         return t;
     }
     template<typename Arg>
-    rgy_rational<T> operator - (const Arg& a) {
+    rgy_rational<T> operator - (const Arg& a) const {
         rgy_rational<T> t(*this);
         t -= a;
         return t;
     }
     template<typename Arg>
-    rgy_rational<T> operator * (const Arg& a) {
+    rgy_rational<T> operator * (const Arg& a) const {
         rgy_rational<T> t(*this);
         t *= a;
         return t;
     }
     template<typename Arg>
-    rgy_rational<T> operator / (const Arg& a) {
+    rgy_rational<T> operator / (const Arg& a) const {
         rgy_rational<T> t(*this);
         t /= a;
         return t;

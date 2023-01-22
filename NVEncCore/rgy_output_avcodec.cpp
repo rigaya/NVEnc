@@ -654,8 +654,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             AddMessage(RGY_LOG_DEBUG, _T("copied rotation %d from input\n"), rotation);
             side_data_copy.release();
         }
-#if 0
-        if (videoOutputInfo->codec == RGY_CODEC_HEVC && prm->hdrMetadata == nullptr) {
+        if (videoOutputInfo->codec == RGY_CODEC_AV1 && prm->hdrMetadata != nullptr) {
             side_data = av_stream_get_side_data(prm->videoInputStream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, &side_data_size);
             if (side_data) {
                 unique_ptr<uint8_t, decltype(&av_freep)> side_data_copy((uint8_t *)av_malloc(side_data_size), av_freep);
@@ -694,7 +693,6 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                 side_data_copy.release();
             }
         }
-#endif
     }
 
     m_Mux.video.timestampList.clear();
@@ -722,20 +720,20 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)> mastering(av_mastering_display_metadata_alloc(), av_freep);
 
             //streamのside dataとしてmasteringdisplay等を設定する
-            mastering->display_primaries[1][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[0], 50000); //G
-            mastering->display_primaries[1][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[1], 50000); //G
-            mastering->display_primaries[2][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[2], 50000); //B
-            mastering->display_primaries[2][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[3], 50000); //B
-            mastering->display_primaries[0][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[4], 50000); //R
-            mastering->display_primaries[0][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[5], 50000); //R
-            mastering->white_point[0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[6], 50000);
-            mastering->white_point[1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[7], 50000);
-            mastering->max_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[8], 10000);
-            mastering->min_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[9], 10000);
+            mastering->display_primaries[1][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[0]); //G
+            mastering->display_primaries[1][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[1]); //G
+            mastering->display_primaries[2][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[2]); //B
+            mastering->display_primaries[2][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[3]); //B
+            mastering->display_primaries[0][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[4]); //R
+            mastering->display_primaries[0][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[5]); //R
+            mastering->white_point[0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[6]);
+            mastering->white_point[1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[7]);
+            mastering->max_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[8]);
+            mastering->min_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[9]);
             mastering->has_primaries = 1;
             mastering->has_luminance = 1;
 
-            AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
+            AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f,%f) WP(%f,%f) L(%f,%f)\n"),
                 av_q2d(mastering->display_primaries[0][0]),
                 av_q2d(mastering->display_primaries[0][1]),
                 av_q2d(mastering->display_primaries[1][0]),

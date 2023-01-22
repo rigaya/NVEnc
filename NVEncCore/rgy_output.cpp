@@ -842,17 +842,17 @@ std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string& maxCll, cons
     }
     if (masterDisplay == masterDisplaySource) {
         if (masteringDisplaySrc != nullptr) {
-            int masterdisplay[10];
-            masterdisplay[0] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[1][0], av_make_q(50000, 1))) + 0.5); //G
-            masterdisplay[1] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[1][1], av_make_q(50000, 1))) + 0.5); //G
-            masterdisplay[2] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[2][0], av_make_q(50000, 1))) + 0.5); //B
-            masterdisplay[3] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[2][1], av_make_q(50000, 1))) + 0.5); //B
-            masterdisplay[4] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[0][0], av_make_q(50000, 1))) + 0.5); //R
-            masterdisplay[5] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[0][1], av_make_q(50000, 1))) + 0.5); //R
-            masterdisplay[6] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->white_point[0], av_make_q(50000, 1))) + 0.5);
-            masterdisplay[7] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->white_point[1], av_make_q(50000, 1))) + 0.5);
-            masterdisplay[8] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->max_luminance, av_make_q(10000, 1))) + 0.5);
-            masterdisplay[9] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->min_luminance, av_make_q(10000, 1))) + 0.5);
+            rgy_rational<int> masterdisplay[10];
+            masterdisplay[0] = to_rgy(masteringDisplaySrc->display_primaries[1][0]); //G
+            masterdisplay[1] = to_rgy(masteringDisplaySrc->display_primaries[1][1]); //G
+            masterdisplay[2] = to_rgy(masteringDisplaySrc->display_primaries[2][0]); //B
+            masterdisplay[3] = to_rgy(masteringDisplaySrc->display_primaries[2][1]); //B
+            masterdisplay[4] = to_rgy(masteringDisplaySrc->display_primaries[0][0]); //R
+            masterdisplay[5] = to_rgy(masteringDisplaySrc->display_primaries[0][1]); //R
+            masterdisplay[6] = to_rgy(masteringDisplaySrc->white_point[0]);
+            masterdisplay[7] = to_rgy(masteringDisplaySrc->white_point[1]);
+            masterdisplay[8] = to_rgy(masteringDisplaySrc->max_luminance);
+            masterdisplay[9] = to_rgy(masteringDisplaySrc->min_luminance);
             hdrMetadata->set_masterdisplay(masterdisplay);
         }
     } else {

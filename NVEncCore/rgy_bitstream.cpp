@@ -149,7 +149,7 @@ int RGYHDRMetadata::parse_maxcll(std::string str_maxcll) {
     return 0;
 }
 
-void RGYHDRMetadata::set_masterdisplay(const int masterdisplay[10]) {
+void RGYHDRMetadata::set_masterdisplay(const rgy_rational<int> *masterdisplay) {
     for (int i = 0; i < 10; i++) {
         prm.masterdisplay[i] = masterdisplay[i];
     }
@@ -165,8 +165,11 @@ int RGYHDRMetadata::parse_masterdisplay(std::string str_masterdisplay) {
         }
 
         try {
-            for (int i = 0; i < 10; i++) {
-                prm.masterdisplay[i] = std::stoi(match_masterdisplay[i + 1]);
+            for (int i = 0; i < 8; i++) {
+                prm.masterdisplay[i] = rgy_rational<int>(std::stoi(match_masterdisplay[i + 1]), 50000);
+            }
+            for (int i = 8; i < 10; i++) {
+                prm.masterdisplay[i] = rgy_rational<int>(std::stoi(match_masterdisplay[i + 1]), 10000);
             }
             prm.masterdisplay_set = true;
         } catch (...) {
@@ -187,16 +190,16 @@ std::string RGYHDRMetadata::print_masterdisplay() const {
     std::string str;
     if (prm.masterdisplay_set) {
         str += strsprintf("G(%f %f) B(%f %f) R(%f %f) WP(%f %f) L(%f %f)",
-            (float)prm.masterdisplay[0] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[1] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[2] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[3] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[4] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[5] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[6] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[7] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[8] * (1.0f / 10000.0f),
-            (float)prm.masterdisplay[9] * (1.0f / 10000.0f));
+            prm.masterdisplay[0].qfloat(),
+            prm.masterdisplay[1].qfloat(),
+            prm.masterdisplay[2].qfloat(),
+            prm.masterdisplay[3].qfloat(),
+            prm.masterdisplay[4].qfloat(),
+            prm.masterdisplay[5].qfloat(),
+            prm.masterdisplay[6].qfloat(),
+            prm.masterdisplay[7].qfloat(),
+            prm.masterdisplay[8].qfloat(),
+            prm.masterdisplay[9].qfloat());
     }
     return str;
 }
@@ -327,13 +330,28 @@ std::vector<uint8_t> RGYHDRMetadata::raw_maxcll() const {
     return data;
 }
 
-std::vector<uint8_t> RGYHDRMetadata::raw_masterdisplay() const {
+std::vector<uint8_t> RGYHDRMetadata::raw_masterdisplay(const bool forAV1) const {
     std::vector<uint8_t> data;
-    for (int i = 0; i < 8; i++) {
-        add_u16(data, (uint16_t)prm.masterdisplay[i]);
+    if (forAV1) {
+        const double ratio = (double)(1 << 16);
+        add_u16(data, (uint16_t)(prm.masterdisplay[4].qdouble() * ratio + 0.5)); //R
+        add_u16(data, (uint16_t)(prm.masterdisplay[5].qdouble() * ratio + 0.5)); //R
+        add_u16(data, (uint16_t)(prm.masterdisplay[0].qdouble() * ratio + 0.5)); //G
+        add_u16(data, (uint16_t)(prm.masterdisplay[1].qdouble() * ratio + 0.5)); //G
+        add_u16(data, (uint16_t)(prm.masterdisplay[2].qdouble() * ratio + 0.5)); //B
+        add_u16(data, (uint16_t)(prm.masterdisplay[3].qdouble() * ratio + 0.5)); //B
+        add_u16(data, (uint16_t)(prm.masterdisplay[6].qdouble() * ratio + 0.5));
+        add_u16(data, (uint16_t)(prm.masterdisplay[7].qdouble() * ratio + 0.5));
+    } else {
+        const double ratio = 50000;
+        for (int i = 0; i < 8; i++) {
+            add_u16(data, (uint16_t)(prm.masterdisplay[i].qdouble() * ratio + 0.5));
+        }
     }
-    add_u32(data, (uint32_t)prm.masterdisplay[8]);
-    add_u32(data, (uint32_t)prm.masterdisplay[9]);
+    const double lumaMinRatio = forAV1 ? 16384 : 10000;
+    const double lumaMaxRatio = forAV1 ?   256 : 10000;
+    add_u32(data, (uint32_t)(prm.masterdisplay[8].qdouble() * lumaMaxRatio + 0.5));
+    add_u32(data, (uint32_t)(prm.masterdisplay[9].qdouble() * lumaMinRatio + 0.5));
     return data;
 }
 
@@ -361,12 +379,12 @@ std::vector<uint8_t> RGYHDRMetadata::sei_masterdisplay() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.masterdisplay_set) {
-        const auto masterdisplay = raw_masterdisplay();
+        const auto masterdisplay = raw_masterdisplay(false);
         assert(masterdisplay.size() == 24);
 
         data.push_back(MASTERING_DISPLAY_COLOUR_VOLUME);
         data.push_back((uint8_t)masterdisplay.size());
-        vector_cat(data, raw_masterdisplay());
+        vector_cat(data, raw_masterdisplay(false));
     }
     return data;
 }
@@ -394,7 +412,7 @@ std::vector<uint8_t> RGYHDRMetadata::gen_maxcll_obu() const {
 
 std::vector<uint8_t> RGYHDRMetadata::gen_masterdisplay_obu() const {
     if (prm.masterdisplay_set) {
-        return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_MDCV, raw_masterdisplay());
+        return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_MDCV, raw_masterdisplay(true));
     }
     return {};
 }

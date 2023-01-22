@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <string>
 #include "rgy_def.h"
+#include "rgy_util.h"
 
 struct nal_info {
     const uint8_t *ptr;
@@ -177,7 +178,7 @@ struct RGYHDRMetadataPrm {
     int maxcll;
     int maxfall;
     bool contentlight_set;
-    int masterdisplay[10];
+    rgy_rational<int> masterdisplay[10]; //G,B,R,WP,L(max,min)
     bool masterdisplay_set;
     CspTransfer atcSei;
 public:
@@ -194,7 +195,7 @@ public:
 
     void set_maxcll(int maxcll, int maxfall);
     int parse_maxcll(std::string maxcll);
-    void set_masterdisplay(const int masterdisplay[10]);
+    void set_masterdisplay(const rgy_rational<int> *masterdisplay);
     int parse_masterdisplay(std::string masterdisplay);
     void set_atcsei(CspTransfer atcSei);
     RGYHDRMetadataPrm getprm() const;
@@ -210,7 +211,7 @@ public:
     std::vector<uint8_t> gen_obu() const;
 private:
     std::vector<uint8_t> raw_maxcll() const;
-    std::vector<uint8_t> raw_masterdisplay() const;
+    std::vector<uint8_t> raw_masterdisplay(const bool forAV1) const;
     std::vector<uint8_t> raw_atcsei() const;
 
     std::vector<uint8_t> sei_maxcll() const;
