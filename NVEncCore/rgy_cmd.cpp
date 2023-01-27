@@ -3293,7 +3293,7 @@ int parse_log_level_param(const TCHAR *option_name, const TCHAR *arg_value, RGYP
 }
 
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition", "delay", "metadata" };
+    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "copy" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -3328,6 +3328,8 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
                 chSel.disposition = param_val;
             } else if (param_arg == _T("filter")) {
                 chSel.filter = param_val;
+            } else if (param_arg == _T("dec_prm")) {
+                chSel.decCodecPrm = param_val;
             } else if (param_arg == _T("enc_prm")) {
                 chSel.encCodecPrm = param_val;
             } else if (param_arg == _T("lang")) {
@@ -3359,7 +3361,7 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
 }
 
 int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "metadata", "enc_prm", "copy", "disposition", "bsf" };
+    const auto paramList = std::vector<std::string>{ "codec", "dec_prm", "enc_prm", "disposition", "select-codec", "metadata", "lang", "bsf", "copy", "asdata" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -3367,6 +3369,8 @@ int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TC
             auto param_val = param.substr(pos + 1);
             if (param_arg == _T("codec")) {
                 chSel.encCodec = param_val;
+            } else if (param_arg == _T("dec_prm")) {
+                chSel.decCodecPrm = param_val;
             } else if (param_arg == _T("enc_prm")) {
                 chSel.encCodecPrm = param_val;
             } else if (param_arg == _T("disposition")) {
@@ -3375,6 +3379,8 @@ int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TC
                 chSel.selectCodec = tchar_to_string(param_val);
             } else if (param_arg == _T("metadata")) {
                 chSel.metadata.push_back(param_val);
+            } else if (param_arg == _T("lang")) {
+                chSel.lang = tchar_to_string(param_val);
             } else if (param_arg == _T("bsf")) {
                 chSel.bsf = param_val;
             } else {
@@ -3388,6 +3394,8 @@ int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TC
         } else {
             if (param == _T("copy")) {
                 chSel.encCodec = RGY_AVCODEC_COPY;
+            } else if (param == _T("asdata")) {
+                chSel.asdata = true;
             } else {
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;

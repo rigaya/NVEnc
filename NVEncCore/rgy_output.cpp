@@ -1113,6 +1113,7 @@ RGY_ERR initWriters(
                         prm.metadata = pAudioSelect->metadata;
                     }
                     if (pSubtitleSelect != nullptr) {
+                        prm.decodeCodecPrm = pSubtitleSelect->decCodecPrm;
                         prm.encodeCodec = pSubtitleSelect->encCodec;
                         prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
                         prm.asdata = pSubtitleSelect->asdata;
@@ -1234,9 +1235,11 @@ RGY_ERR initWriters(
                         prm.metadata = pAudioSelect->metadata;
                     }
                     if (pSubtitleSelect != nullptr) {
+                        prm.decodeCodecPrm = pSubtitleSelect->decCodecPrm;
                         prm.encodeCodec = pSubtitleSelect->encCodec;
                         prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
                         prm.asdata = pSubtitleSelect->asdata;
+                        prm.bsf = pSubtitleSelect->bsf;
                         prm.disposition = pSubtitleSelect->disposition;
                         prm.metadata = pSubtitleSelect->metadata;
                     }

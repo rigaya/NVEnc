@@ -1196,6 +1196,9 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 - delay=&lt;int&gt;  
   音声を指定した時間遅延させる。(ms単位)
 
+- dec_prm=&lt;string&gt;  
+  音声デコード時のパラメータを指定する。
+
 - enc_prm=&lt;string&gt;  
   音声エンコード時のパラメータを指定する。
 

@@ -1204,6 +1204,9 @@ Mux an external audio file specified.
 - delay=&lt;int&gt;  
   Set audio delay in milli seconds.
 
+- dec_prm=&lt;string&gt;  
+  Specify params for audio decoder.
+
 - enc_prm=&lt;string&gt;  
   Specify params for audio encoder.
 
