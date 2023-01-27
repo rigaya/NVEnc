@@ -3359,7 +3359,7 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
 }
 
 int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "metadata", "enc_prm", "copy", "disposition" };
+    const auto paramList = std::vector<std::string>{ "codec", "metadata", "enc_prm", "copy", "disposition", "bsf" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -4311,7 +4311,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition", "select-codec" };
+        const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition", "select-codec", "bsf" };
         auto channel_select_list = split(qtr+1, _T(":"));
         for (auto channel : channel_select_list) {
             int trackId = 0;
