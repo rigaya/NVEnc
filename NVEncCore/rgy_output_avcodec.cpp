@@ -1474,7 +1474,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         : (inputStream->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
 
     if (inputStream->bsf.length() > 0) {
-        muxSub->bsfc = InitStreamBsf(inputStream->bsf, muxSub->streamIn);
+        muxSub->bsfc = InitStreamBsf(inputStream->bsf, inputStream->src.stream);
         if (muxSub->bsfc == nullptr) {
             return RGY_ERR_UNKNOWN;
         }
