@@ -1473,6 +1473,12 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         ? inputStream->src.stream->codecpar->codec_id
         : (inputStream->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
 
+    if (avcodecIsCopy(inputStream->encodeCodec)
+        && inputStream->bsf.length() == 0
+        && codecId == AV_CODEC_ID_HDMV_PGS_SUBTITLE) {
+        inputStream->bsf = _T("pgs_frame_merge"); //これがないと正しくmuxできない
+        AddMessage(RGY_LOG_DEBUG, _T("Auto insert %s bsf filter for %s\n"), char_to_tstring(avcodec_get_name(codecId)).c_str());
+    }
     if (inputStream->bsf.length() > 0) {
         muxSub->bsfc = InitStreamBsf(inputStream->bsf, inputStream->src.stream);
         if (muxSub->bsfc == nullptr) {
