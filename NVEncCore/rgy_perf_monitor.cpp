@@ -1186,7 +1186,7 @@ void CPerfMonitor::check() {
         EncodeStatusData data = m_pEncStatus->GetEncodeData();
 
         //fps情報
-        pInfoNew->frames_out = data.frameTotal;
+        pInfoNew->frames_out = data.frameOut;
         if (pInfoNew->frames_out > pInfoOld->frames_out) {
             pInfoNew->fps_avg = pInfoNew->frames_out / (double)(current_time / 10 - m_nEncStartTime) * 1e6;
             if (pInfoNew->time_us > pInfoOld->time_us) {
