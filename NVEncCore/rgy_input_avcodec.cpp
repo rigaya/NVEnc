@@ -1929,7 +1929,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
 
         m_seek.second = input_prm->seekToSec;
-        AddMessage(RGY_LOG_DEBUG, _T("set seekto %s.\n"), print_time(input_prm->seekSec).c_str());
+        if (input_prm->seekToSec > 0.0f) {
+            AddMessage(RGY_LOG_DEBUG, _T("set seekto %s.\n"), print_time(input_prm->seekSec).c_str());
+        }
 
         struct pixfmtInfo {
             AVPixelFormat pix_fmt;
