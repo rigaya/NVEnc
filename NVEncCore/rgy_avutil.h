@@ -247,6 +247,14 @@ enum RGYAVFormatType : uint32_t {
     RGY_AVFORMAT_MUX   = 0x02,
 };
 
+static inline void pktFlagSetTrackID(AVPacket *pkt, const int trackID) {
+    pkt->flags = (int)(((uint32_t)pkt->flags & 0xffff) | ((uint32_t)trackID << 16)); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+}
+
+static inline int pktFlagGetTrackID(const AVPacket *pkt) {
+    return (int)((uint32_t)pkt->flags >> 16);
+}
+
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
 
 //NV_ENC_PIC_STRUCTから、AVFieldOrderを返す

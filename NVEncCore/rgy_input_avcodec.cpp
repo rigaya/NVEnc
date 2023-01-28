@@ -2700,7 +2700,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
             if (pkt2timeSec > vidEstDurationSec + 5.0) {
                 break;
             }
-            pkt2->flags = (pkt2->flags & 0xffff) | ((uint32_t)pStream2->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+            pktFlagSetTrackID(pkt2, pStream2->trackId);
             m_Demux.qStreamPktL2.push(pkt2); //Writer側に渡したパケットはWriter側で開放する
             m_Demux.qStreamPktL1.pop_front();
         }
@@ -2792,7 +2792,7 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
         if (pkt->pts != AV_NOPTS_VALUE) pkt->pts += delay_ts;
         if (pkt->dts != AV_NOPTS_VALUE) pkt->dts += delay_ts;
         if (checkStreamPacketToAdd(pkt, pStream)) {
-            pkt->flags = (pkt->flags & 0xffff) | ((uint32_t)pStream->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+            pktFlagSetTrackID(pkt, pStream->trackId);
             m_Demux.qStreamPktL2.push(pkt); //Writer側に渡したパケットはWriter側で開放する
         } else {
             m_poolPkt->returnFree(&pkt); //Writer側に渡さないパケットはここで開放する

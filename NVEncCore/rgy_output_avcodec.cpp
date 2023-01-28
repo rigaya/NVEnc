@@ -2760,7 +2760,7 @@ vector<int> RGYOutputAvcodec::GetStreamTrackIdList() {
 AVMuxAudio *RGYOutputAvcodec::getAudioPacketStreamData(const AVPacket *pkt) {
     const int streamIndex = pkt->stream_index;
     //privには、trackIdへのポインタが格納してある…はず
-    const int inTrackId = (int)((uint32_t)pkt->flags >> 16);
+    const int inTrackId = pktFlagGetTrackID(pkt);
     for (int i = 0; i < (int)m_Mux.audio.size(); i++) {
         //streamIndexの一致とtrackIdの一致を確認する
         if (m_Mux.audio[i].streamIndexIn == streamIndex
@@ -2785,7 +2785,7 @@ AVMuxAudio *RGYOutputAvcodec::getAudioStreamData(int trackId, int subStreamId) {
 AVMuxOther *RGYOutputAvcodec::getOtherPacketStreamData(const AVPacket *pkt) {
     const int streamIndex = pkt->stream_index;
     //privには、trackIdへのポインタが格納してある…はず
-    const int inTrackId = (int)((uint32_t)pkt->flags >> 16);
+    const int inTrackId = pktFlagGetTrackID(pkt);
     for (int i = 0; i < (int)m_Mux.other.size(); i++) {
         //streamIndexの一致とtrackIdの一致を確認する
         if (m_Mux.other[i].streamIndexIn == streamIndex
@@ -3419,8 +3419,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
         return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 
-    const int trackID = ((uint32_t)pktData->pkt->flags >> 16);
-    if (trackMediaType(trackID) != AVMEDIA_TYPE_AUDIO) {
+    if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) != AVMEDIA_TYPE_AUDIO) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.thAudProcess.joinable()) {
             //音声処理を別スレッドでやっている場合は、字幕パケットもその流れに乗せてやる必要がある
