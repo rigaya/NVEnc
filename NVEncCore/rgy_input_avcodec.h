@@ -161,6 +161,7 @@ public:
         m_streamPtsStatus(RGY_PTS_UNKNOWN),
         m_lastPoc(0),
         m_firstKeyframePts(AV_NOPTS_VALUE),
+        m_maxPts(0),
         m_PAFFRewind(0),
         m_ptsWrapArroundThreshold(0xFFFFFFFF),
         m_fpDebugCopyFrameData() {
@@ -226,6 +227,7 @@ public:
         m_streamPtsStatus = RGY_PTS_UNKNOWN;
         m_lastPoc = 0;
         m_firstKeyframePts = AV_NOPTS_VALUE;
+        m_maxPts = 0;
         m_PAFFRewind = 0;
         m_ptsWrapArroundThreshold = 0xFFFFFFFF;
         m_fpDebugCopyFrameData.reset();
@@ -242,6 +244,10 @@ public:
     //ptsが確定したフレーム数を返す
     int fixedNum() const {
         return m_nextFixNumIndex;
+    }
+    //登録されたフレームのptsのうち、最大のものを返す
+    int64_t getMaxPts() const {
+        return m_maxPts;
     }
     void clearPtsStatus() {
         if (m_streamPtsStatus & RGY_PTS_DUPLICATE) {
@@ -564,6 +570,10 @@ protected:
                 }
             }
         }
+        //最大ptsの更新
+        if (m_list[nIndex].data.pts != AV_NOPTS_VALUE) {
+            m_maxPts = std::max(m_maxPts, m_list[nIndex].data.pts);
+        }
     }
     //ソートにより確定したptsに対して、pocを設定する
     void setPoc(int index) {
@@ -661,6 +671,7 @@ protected:
     RGYPtsStatus m_streamPtsStatus; //入力から提供されるptsの状態 (RGY_PTS_xxx)
     uint32_t m_lastPoc; //ptsが確定したフレームのうち、直近のpoc
     int64_t m_firstKeyframePts; //最初のキーフレームのpts
+    int64_t m_maxPts; //最大のpts
     int m_PAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
     uint32_t m_ptsWrapArroundThreshold; //wrap arroundを判定する閾値
     unique_ptr<FILE, fp_deleter> m_fpDebugCopyFrameData; //copyのデバッグ用
