@@ -2154,6 +2154,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         *inputInfo = m_inputVideoInfo;
 
         //スレッド関連初期化
+        m_Demux.format.lowLatency = input_prm->lowLatency;
         m_Demux.thread.bAbortInput = false;
 #if 1
         auto nPrmInputThread = input_prm->threadInput;
@@ -2777,14 +2778,19 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
     if (m_Demux.frames.fixedNum() == 0) {
         return;
     }
-    //出力するパケットを選択する
     const AVRational vid_pkt_timebase = (m_Demux.video.stream) ? m_Demux.video.stream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
+    // 低遅延モードの時は、2秒音声を先読みし、音声処理は早く終わらせておき、muxキューに積んでおく
+    const auto audioReadOffsetSec = 5.0;
+    const auto audioReadOffsetPTS = (m_Demux.format.lowLatency) 
+        ? std::max<int64_t>((int64_t)(av_q2d(av_inv_q(vid_pkt_timebase)) * audioReadOffsetSec + 0.5), 4)
+        : 0;
+    //出力するパケットを選択する
     while (!m_Demux.qStreamPktL1.empty()) {
         auto pkt = m_Demux.qStreamPktL1.front();
         AVDemuxStream *pStream = getPacketStreamData(pkt);
         const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
         if (!m_Demux.frames.isEof() // 最後まで読み込んでいたらすべて転送するようにする
-            && 0 < av_compare_ts(pkt->pts + delay_ts, pStream->timebase, m_Demux.frames.getMaxPts(), vid_pkt_timebase)) { //音声のptsが映像の終わりのptsを行きすぎたらやめる
+            && 0 < av_compare_ts(pkt->pts + delay_ts, pStream->timebase, m_Demux.frames.getMaxPts() + audioReadOffsetPTS, vid_pkt_timebase)) { //音声のptsが映像の終わりのptsを行きすぎたらやめる
             break;
         }
         if (pkt->pts != AV_NOPTS_VALUE) pkt->pts += delay_ts;

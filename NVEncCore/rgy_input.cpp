@@ -288,6 +288,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.logFramePosList = (ctrl->logFramePosList) ? src.filename + _T(".framelist.csv") : _T("");
         inputInfoAVAudioReader.threadInput = 0;
         inputInfoAVAudioReader.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
+        inputInfoAVAudioReader.lowLatency = ctrl->lowLatency;
         inputInfoAVAudioReader.hevcbsf = common->hevcbsf;
 
         shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());

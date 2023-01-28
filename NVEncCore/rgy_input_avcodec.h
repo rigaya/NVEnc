@@ -691,6 +691,7 @@ typedef struct AVDemuxFormat {
     AVFormatContext          *formatCtx;             //動画ファイルのformatContext
     double                    analyzeSec;            //動画ファイルを先頭から分析する時間
     bool                      isPipe;                //入力がパイプ
+    bool                      lowLatency;            //低遅延モード
     uint32_t                  preReadBufferIdx;      //先読みバッファの読み込み履歴
     int                       audioTracks;           //存在する音声のトラック数
     int                       subtitleTracks;        //存在する字幕のトラック数
