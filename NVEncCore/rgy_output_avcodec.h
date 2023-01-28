@@ -121,6 +121,7 @@ typedef struct AVMuxFormat {
     bool                  fileHeaderWritten;    //ファイルヘッダを出力したかどうか
     AVDictionary         *headerOptions;        //ヘッダオプション
     bool                  disableMp4Opt;        //mp4出力時のmuxの最適化(faststart)を無効にする
+    bool                  lowlatency;           //低遅延モード 
 } AVMuxFormat;
 
 typedef struct AVMuxVideo {
@@ -315,6 +316,7 @@ struct AvcodecWriterPrm {
     const AVDictionary          *inputFormatMetadata;     //入力ファイルのグローバルメタデータ
     tstring                      outputFormat;            //出力のフォーマット
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
+    bool                         lowlatency;              //低遅延モード 
     const AVStream              *videoInputStream;        //入力映像のストリーム
     AVRational                   bitstreamTimebase;       //エンコーダのtimebase
     int64_t                      videoInputFirstKeyPts;   //入力映像の最初のpts
@@ -348,6 +350,7 @@ struct AvcodecWriterPrm {
         inputFormatMetadata(nullptr),
         outputFormat(),
         bVideoDtsUnavailable(),
+        lowlatency(false),
         videoInputStream(nullptr),
         bitstreamTimebase(av_make_q(0, 1)),
         videoInputFirstKeyPts(0),

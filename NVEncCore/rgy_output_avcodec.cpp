@@ -1768,6 +1768,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     }
     m_Mux.format.isMatroska = 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "matroska");
     m_Mux.format.disableMp4Opt = prm->disableMp4Opt;
+    m_Mux.format.lowlatency = prm->lowlatency;
 
 #if USE_CUSTOM_IO
     if (m_Mux.format.isPipe || usingAVProtocols(filename, 1) || (m_Mux.format.formatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
@@ -3634,8 +3635,12 @@ RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread(RGYParamThread threadParam) 
                 WriteNextAudioFrame(&pktData);
             }
         }
-        ResetEvent(m_Mux.thread.heEventPktAddedAudEncode);
-        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, 16);
+        if (m_Mux.format.lowlatency) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+            ResetEvent(m_Mux.thread.heEventPktAddedAudEncode);
+            WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, 16);
+        }
     }
     {   //音声をすべてエンコード
         AVPktMuxData pktData = { 0 };
@@ -3662,8 +3667,12 @@ RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread(RGYParamThread threadParam) {
                 WriteNextPacketInternal(&pktData, INT64_MAX);
             }
         }
-        ResetEvent(m_Mux.thread.heEventPktAddedAudProcess);
-        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, 16);
+        if (m_Mux.format.lowlatency) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+            ResetEvent(m_Mux.thread.heEventPktAddedAudProcess);
+            WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, 16);
+        }
     }
     {   //音声をすべて書き出す
         AVPktMuxData pktData = { 0 };
@@ -3686,7 +3695,8 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     bool bAudioExists = false;
     bool bVideoExists = false;
     const auto fpsTimebase = av_inv_q(m_Mux.video.outputFps);
-    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);
+    const int VideoAudioPickSwitchThresholdFrames = m_Mux.format.lowlatency ? 1 : 4; // 映像-音声の切り替え間隔(フレーム数)
+    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(VideoAudioPickSwitchThresholdFrames, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);
     //syncIgnoreDtsは映像と音声の同期を行う必要がないことを意味する
     //dtsThresholdを加算したときにオーバーフローしないよう、dtsThresholdを引いておく
     const int64_t syncIgnoreDts = INT64_MAX - dtsThreshold;
@@ -3805,8 +3815,12 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         //一方、どちらかのキューが半分以上使われていれば、なるべく早く処理する必要がある
         if (   m_Mux.thread.qVideobitstream.size() / (double)m_Mux.thread.qVideobitstream.capacity() < 0.5
             && m_Mux.thread.qAudioPacketOut.size() / (double)m_Mux.thread.qAudioPacketOut.capacity() < 0.5) {
-            ResetEvent(m_Mux.thread.heEventPktAddedOutput);
-            WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, 16);
+            if (m_Mux.format.lowlatency) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } else {
+                ResetEvent(m_Mux.thread.heEventPktAddedOutput);
+                WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, 16);
+            }
         } else {
             std::this_thread::yield();
         }

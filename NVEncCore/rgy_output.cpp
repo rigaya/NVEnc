@@ -995,6 +995,7 @@ RGY_ERR initWriters(
         writerPrm.formatMetadata          = common->formatMetadata;
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
+        writerPrm.lowlatency              = ctrl->lowLatency;
         writerPrm.debugDirectAV1Out       = common->debugDirectAV1Out;
         writerPrm.muxOpt                  = common->muxOpt;
         writerPrm.poolPkt                 = poolPkt;
@@ -1359,6 +1360,7 @@ RGY_ERR initWriters(
                 writerAudioPrm.bufSizeMB      = ctrl->outputBufSizeMB;
                 writerAudioPrm.outputFormat   = pAudioSelect->extractFormat;
                 writerAudioPrm.audioIgnoreDecodeError = common->audioIgnoreDecodeError;
+                writerAudioPrm.lowlatency = ctrl->lowLatency;
                 writerAudioPrm.audioResampler = common->audioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
                 writerAudioPrm.trimList = trimParam.list;
