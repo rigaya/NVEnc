@@ -2866,6 +2866,7 @@ RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *m
 // dts       ... [o]  書き出したパケットの最終的なdtsをHW_NATIVE_TIMEBASEで返す
 void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts) {
     if (pkt == nullptr || pkt->buf == nullptr) {
+        //音声の全トラックにnullパケット送信
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
             AudioFlushStream(&m_Mux.audio[i], writtenDts);
         }
@@ -3160,6 +3161,7 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioEncodeFrame(AVMuxAudio *muxAudio, AV
         pktData.type = MUX_DATA_TYPE_PACKET;
         pktData.muxAudio = muxAudio;
         pktData.pkt = pkt.release();
+        pktFlagSetTrackID(pktData.pkt, pktData.muxAudio->inTrackId);
         pktData.samples = (int)av_rescale_q(pktData.pkt->duration, muxAudio->outCodecEncodeCtx->pkt_timebase, { 1, muxAudio->streamIn->codecpar->sample_rate });
         encPktDatas.push_back(pktData);
     }
@@ -3176,6 +3178,7 @@ void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDt
         for (size_t i = 0; i < decodedFrames.size(); i++) {
             AVPktMuxData audPkt;
             audPkt.pkt = m_Mux.poolPkt->getFree().release();
+            pktFlagSetTrackID(audPkt.pkt, muxAudio->inTrackId);
             audPkt.dts = AV_NOPTS_VALUE;
             audPkt.samples = 0;
             audPkt.type = MUX_DATA_TYPE_FRAME;
@@ -3695,11 +3698,14 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     auto writeProcessedPacket = [this](AVPktMuxData *pktData) {
         //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
         auto sts = RGY_ERR_NONE;
-        const int trackFullID = ((uint32_t)pktData->pkt->flags >> 16);
-        if (trackMediaType(trackFullID) == AVMEDIA_TYPE_AUDIO) {
+        if (pktData->pkt == nullptr) { // フラッシュ用
             WriteNextPacketProcessed(pktData);
         } else {
-            sts = WriteOtherPacket(pktData->pkt);
+            if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) == AVMEDIA_TYPE_AUDIO) {
+                WriteNextPacketProcessed(pktData);
+            } else {
+                sts = WriteOtherPacket(pktData->pkt);
+            }
         }
         return sts;
     };
