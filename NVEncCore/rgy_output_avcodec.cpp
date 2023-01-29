@@ -1473,7 +1473,8 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         ? inputStream->src.stream->codecpar->codec_id
         : (inputStream->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
 
-    if (avcodecIsCopy(inputStream->encodeCodec)
+    if (false // 現状では無効化
+        && avcodecIsCopy(inputStream->encodeCodec)
         && inputStream->bsf.length() == 0
         && codecId == AV_CODEC_ID_HDMV_PGS_SUBTITLE) {
         inputStream->bsf = _T("pgs_frame_merge"); //これがないと正しくmuxできない
