@@ -70,6 +70,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_mpdecimate_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_common_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k0_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k1_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_overlay_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_pad_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_resize_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_ssim_cl);
@@ -131,6 +132,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_COMMON_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_common_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_K0_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k0_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_K1_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k1_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_OVERLAY_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_overlay_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_PAD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_pad_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_RESIZE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_resize_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_SSIM_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_ssim_cl) },
