@@ -124,7 +124,7 @@ protected:
     virtual NVENCSTATUS InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
 
     //inputParamからエンコーダに渡すパラメータを設定
-    NVENCSTATUS SetInputParam(const InEncodeVideoParam *inputParam);
+    NVENCSTATUS SetInputParam(InEncodeVideoParam *inputParam);
 
     //デコーダインスタンスを作成
     NVENCSTATUS InitDecoder(const InEncodeVideoParam *inputParam);

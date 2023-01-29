@@ -1304,7 +1304,7 @@ NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 }
 #pragma warning(pop)
 
-NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
+NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
 
     m_dev->encoder()->setStructVer(m_stCreateEncodeParams);
@@ -1574,11 +1574,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             }
         }
     }
-    if (get_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) != NV_ENC_BFRAME_REF_MODE_DISABLED) {
+    if (inputParam->brefMode > NV_ENC_BFRAME_REF_MODE_DISABLED) {
         const int cap = codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE);
-        if ((cap & get_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy)) != get_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy)) {
-            error_feature_unsupported(RGY_LOG_WARN, strsprintf(_T("B Ref Mode %s"), get_chr_from_value(list_bref_mode, get_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy))).c_str());
-            set_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, NV_ENC_BFRAME_REF_MODE_DISABLED);
+        if ((cap & inputParam->brefMode) != inputParam->brefMode) {
+            error_feature_unsupported(RGY_LOG_WARN, strsprintf(_T("B Ref Mode %s"), get_chr_from_value(list_bref_mode, inputParam->brefMode)).c_str());
+            inputParam->brefMode = NV_ENC_BFRAME_REF_MODE_DISABLED;
         }
     }
     if (inputParam->codec_rgy == RGY_CODEC_H264) {
@@ -1789,11 +1789,27 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.enableEncodeAsync   = ENABLE_ASYNC != 0;
     m_stCreateEncodeParams.enablePTD           = true;
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
+
+    //bref-modeの自動設定
     if (m_dev->encoder()->checkAPIver(10, 0)) {
         m_stCreateEncodeParams.presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver10);
     } else {
         m_stCreateEncodeParams.presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver9_2);
     }
+    if (inputParam->brefMode == NV_ENC_BFRAME_REF_MODE_AUTO) {
+        inputParam->brefMode = NV_ENC_BFRAME_REF_MODE_DISABLED;
+        if (preset_slower_than_default(inputParam->preset)) {
+            //defaultより遅いpresetの場合、可能ならbref-modeを使用しないと映像が破綻するケースがある (#449, #458)
+            const auto caps = codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE);
+            for (auto mode : { NV_ENC_BFRAME_REF_MODE_EACH, NV_ENC_BFRAME_REF_MODE_MIDDLE }) {
+                if ((caps & mode) == mode) {
+                    inputParam->brefMode = mode;
+                }
+            }
+        }
+    }
+    set_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, (NV_ENC_BFRAME_REF_MODE)inputParam->brefMode);
+
     //ロスレス出力
     if (inputParam->lossless) {
         if (m_dev->encoder()->checkAPIver(10, 0)) {

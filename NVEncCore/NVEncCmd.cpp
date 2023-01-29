@@ -231,7 +231,8 @@ tstring encoder_help() {
         _T("   --aq-strength <int>          set aq strength (weak 1 - 15 strong)\n")
         _T("                                  default: 0 = auto\n")
         _T("   --bref-mode <string>         set B frame reference mode\n")
-        _T("                                  - disabled (default)\n")
+        _T("                                  - auto (default)\n")
+        _T("                                  - disabled\n")
         _T("                                  - each\n")
         _T("                                  - middle\n")
         _T("   --direct <string>            [H264] set B Direct mode\n")
@@ -812,9 +813,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_bref_mode, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_H264].h264Config.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
-            codecPrm[RGY_CODEC_AV1 ].av1Config.useBFramesAsRef  = (NV_ENC_BFRAME_REF_MODE)value;
+            pParams->brefMode = value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_bref_mode);
             return 1;
@@ -1674,6 +1673,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM(_T("--gop-len"), encConfig.gopLength);
     }
     OPT_NUM(_T("-b"), encConfig.frameIntervalP-1);
+    OPT_NUM(_T("--bref-mode"), brefMode);
     OPT_BOOL(_T("--weightp"), _T(""), nWeightP);
     OPT_BOOL(_T("--nonrefp"), _T(""), encConfig.rcParams.enableNonRefP);
     OPT_BOOL(_T("--aq"), _T("--no-aq"), encConfig.rcParams.enableAQ);
@@ -1692,7 +1692,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_AV1(_T("--level"), _T(":av1"), level, list_av1_level);
         OPT_GUID_AV1(_T("--profile"), _T(":av1"), tier & 0xffff, av1_profile_names);
         OPT_LST_AV1(_T("--tier"), _T(":av1"), tier >> 16, av1_tier_names);
-        OPT_LST_AV1(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         if (codecPrm[RGY_CODEC_AV1].av1Config.pixelBitDepthMinus8 != codecPrmDefault[RGY_CODEC_AV1].av1Config.pixelBitDepthMinus8) {
             cmd << _T(" --output-depth ") << codecPrm[RGY_CODEC_AV1].av1Config.pixelBitDepthMinus8 + 8;
         }
@@ -1714,7 +1713,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM_HEVC(_T("--ref"), _T(""), maxNumRefFramesInDPB);
         OPT_NUM_HEVC(_T("--multiref-l0"), _T(""), numRefL0);
         OPT_NUM_HEVC(_T("--multiref-l1"), _T(""), numRefL1);
-        OPT_LST_HEVC(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         if (codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8 != codecPrmDefault[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8) {
             cmd << _T(" --output-depth ") << codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;
         }
@@ -1731,7 +1729,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM_H264(_T("--ref"), _T(""), maxNumRefFrames);
         OPT_NUM_H264(_T("--multiref-l0"), _T(""), numRefL0);
         OPT_NUM_H264(_T("--multiref-l1"), _T(""), numRefL1);
-        OPT_LST_H264(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         OPT_LST_H264(_T("--direct"), _T(""), bdirectMode, list_bdirect);
         OPT_LST_H264(_T("--adapt-transform"), _T(""), adaptiveTransformMode, list_adapt_transform);
         OPT_NUM_H264(_T("--slices"), _T(":h264"), sliceModeData);

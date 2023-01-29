@@ -289,6 +289,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     losslessIgnoreInputCsp(0),
     nWeightP(0),
     chromaQPOffset(0),
+    brefMode(NV_ENC_BFRAME_REF_MODE_AUTO),
     common(),
     inprm(),
     ctrl(),

@@ -182,6 +182,13 @@ const guid_desc list_nvenc_preset_names_ver10[] = {
     { NV_ENC_PRESET_P6_GUID,                   _T("P6"),                      NVENC_PRESET_P6 },
     { NV_ENC_PRESET_P7_GUID,                   _T("P7"),                      NVENC_PRESET_HQ },
 };
+static const int list_nvenc_preset_slower_than_default[] = {
+    NVENC_PRESET_P5, NVENC_PRESET_P6, NVENC_PRESET_HQ, NVENC_PRESET_LL_HQ
+};
+static inline bool preset_slower_than_default(const int preset) {
+    const auto end = list_nvenc_preset_slower_than_default + _countof(list_nvenc_preset_slower_than_default);
+    return std::find(list_nvenc_preset_slower_than_default, end, preset) != end;
+}
 
 const guid_desc list_nvenc_codecs[] = {
     { NV_ENC_CODEC_H264_GUID, _T("H.264/AVC"),  RGY_CODEC_H264 },
@@ -325,7 +332,10 @@ const CX_DESC list_bdirect[] = {
     { NULL, 0 }
 };
 
+static const int NV_ENC_BFRAME_REF_MODE_AUTO = -1;
+
 const CX_DESC list_bref_mode[] = {
+    { _T("auto"),     NV_ENC_BFRAME_REF_MODE_AUTO },
     { _T("disabled"), NV_ENC_BFRAME_REF_MODE_DISABLED },
     { _T("each"),     NV_ENC_BFRAME_REF_MODE_EACH },
     { _T("middle"),   NV_ENC_BFRAME_REF_MODE_MIDDLE },
@@ -680,6 +690,7 @@ struct InEncodeVideoParam {
     int losslessIgnoreInputCsp;
     int nWeightP;
     int chromaQPOffset;
+    int brefMode;
 
     RGYParamCommon common;
     RGYParamInput inprm;
