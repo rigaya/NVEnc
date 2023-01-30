@@ -108,11 +108,11 @@
   - [--colorprim \<string\>](#--colorprim-string)
   - [--transfer \<string\>](#--transfer-string)
   - [--chromaloc \<int\> or "auto"](#--chromaloc-int-or-auto)
-  - [--max-cll \<int\>,\<int\> or "copy" \[HEVC/AV1\]](#--max-cll-intint-or-copy-hevcav1)
-  - [--master-display \<string\> or "copy" \[HEVC/AV1\]](#--master-display-string-or-copy-hevcav1)
-  - [--atc-sei \<string\> or \<int\> \[HEVC\]](#--atc-sei-string-or-int-hevc)
-  - [--dhdr10-info \<string\> \[HEVC/AV1\]](#--dhdr10-info-string-hevcav1)
-  - [--dhdr10-info copy \[HEVC/AV1, Experimental\]](#--dhdr10-info-copy-hevcav1-experimental)
+  - [--max-cll \<int\>,\<int\> or "copy" \[HEVC, AV1\]](#--max-cll-intint-or-copy-hevc-av1)
+  - [--master-display \<string\> or "copy" \[HEVC, AV1\]](#--master-display-string-or-copy-hevc-av1)
+  - [--atc-sei \<string\> or \<int\> \[HEVCのみ\]](#--atc-sei-string-or-int-hevcのみ)
+  - [--dhdr10-info \<string\> \[HEVC, AV1\]](#--dhdr10-info-string-hevc-av1)
+  - [--dhdr10-info copy \[HEVC, AV1\]](#--dhdr10-info-copy-hevc-av1)
   - [--dolby-vision-profile \<float\> \[HEVC\]](#--dolby-vision-profile-float-hevc)
   - [--dolby-vision-rpu \<string\> \[HEVC\]](#--dolby-vision-rpu-string-hevc)
   - [--aud \[H.264/HEVC\]](#--aud-h264hevc)
@@ -161,6 +161,7 @@
   - [--caption2ass \[\<string\>\]](#--caption2ass-string)
   - [--data-copy \[\<int\>\[,\<int\>\]...\]](#--data-copy-intint)
   - [--attachment-copy \[\<int\>\[,\<int\>\]...\]](#--attachment-copy-intint)
+  - [--attachment-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--attachment-source-stringintparam1value1)
   - [--input-option \<string1\>:\<string2\>](#--input-option-string1string2)
   - [-m, --mux-option \<string1\>:\<string2\>](#-m---mux-option-string1string2)
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
@@ -395,7 +396,7 @@ NVEncの入力方法は下の表のとおり。入力フォーマットをして
 ◎ ... 8bit / 9bit / 10bit / 12bit / 14bit / 16bitに対応  
 ◇ ... 8bit / 10bit / 12bitに対応  
 □ ... 8bit / 10bitに対応  
-○ ... 8bitのみ対応
+○ ... 8bitのみ対応  
 無印 ... 非対応
 
 ### --raw
@@ -591,27 +592,28 @@ VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
 "開始フレーム番号:終了フレーム番号"で指定した出力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(vbr-quality)、multipass。
 
-**必須パラメータ**
-下記パラメータのうち、必ずひとつは指定が必要。
-- [cqp](./NVEncC_Options.ja.md#--cqp-int-or-intintint%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
-- [cbr](./NVEncC_Options.ja.md#--cbr-int---%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
-- [vbr](./NVEncC_Options.ja.md#--vbr-int---%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+- **必須パラメータ**
+  下記パラメータのうち、必ずひとつは指定が必要。
+  - [cqp](./NVEncC_Options.ja.md#--cqp-int-or-intintint%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+  - [cbr](./NVEncC_Options.ja.md#--cbr-int---%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+  - [vbr](./NVEncC_Options.ja.md#--vbr-int---%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
 
-**追加パラメータ**
-- [max-bitrate](./NVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;  
-- [vbr-quality](./NVEncC_Options.ja.md#--vbr-quality-float)=&lt;float&gt;  
-- [multipass](./NVEncC_Options.ja.md#--multipass-string)=&lt;string&gt;  
+- **追加パラメータ**
+  - [max-bitrate](./NVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;  
+  - [vbr-quality](./NVEncC_Options.ja.md#--vbr-quality-float)=&lt;float&gt;  
+  - [multipass](./NVEncC_Options.ja.md#--multipass-string)=&lt;string&gt;  
 
-```
-例1: 出力フレーム番号 3000-3999 の間はvbrの12000kbpsでエンコード、
-     出力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
-     その他の領域は固定品質の25.0でエンコードする。
-  --vbr 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,vbr=0,vbr-quality=29.0
-
-例2: 出力フレーム番号 3000までは、vbrの6000kbpsでエンコードし、
-     出力フレーム番号 3000以降はvbrの12000kbpsでエンコードする。
-  --vbr 6000 --dynamic-rc start=3000,vbr=12000
-```
+- Examples
+  ```
+  例1: 出力フレーム番号 3000-3999 の間はvbrの12000kbpsでエンコード、
+       出力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
+       その他の領域は固定品質の25.0でエンコードする。
+    --vbr 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,vbr=0,vbr-quality=29.0
+  
+  例2: 出力フレーム番号 3000までは、vbrの6000kbpsでエンコードし、
+       出力フレーム番号 3000以降はvbrの12000kbpsでエンコードする。
+    --vbr 6000 --dynamic-rc start=3000,vbr=12000
+  ```
 
 ### --lookahead &lt;int&gt;
 lookaheadを有効にし、その対象範囲をフレーム数で指定する。(0-32)
@@ -808,7 +810,7 @@ DAR比 (画面アスペクト比) の指定。
 出力データのchroma location flagを 0 ～ 5 の範囲で指定する。  
 デフォルト = 0 (unspecified)
 
-### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC/AV1]
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC, AV1]
 MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
 
 [--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
@@ -817,7 +819,7 @@ MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイ�
 例2: --max-cll copy  # 入力ファイルから値をコピー
 ```
 
-### --master-display &lt;string&gt; or "copy" [HEVC/AV1]
+### --master-display &lt;string&gt; or "copy" [HEVC, AV1]
 Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
 
 [--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
@@ -826,7 +828,7 @@ Mastering display data の設定。"copy"とすると入力ファイルの値を
 例2: --master-display copy  # 入力ファイルから値をコピー
 ```
 
-### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC]
+### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVCのみ]
 Alternative transfer characteristics SEI の設定。下記文字列または整数で指定する。
 ```
   undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
@@ -834,10 +836,10 @@ Alternative transfer characteristics SEI の設定。下記文字列または整
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
-### --dhdr10-info &lt;string&gt; [HEVC/AV1]
+### --dhdr10-info &lt;string&gt; [HEVC, AV1]
 指定したjsonファイルから、HDR10+のメタデータを読み込んで反映する。実行には追加で[hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen)が必要。
 
-### --dhdr10-info copy [HEVC/AV1, Experimental]
+### --dhdr10-info copy [HEVC, AV1]
 HDR10+のメタデータを入力ファイルからそのままコピーします。
 avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
 こうした場合には、avsw読み込みを使用してください。 
@@ -876,29 +878,30 @@ picture timing SEIを挿入する。
 
 現状、Windowsの64bit版のみ使用可能です。
 
-**パラメータ**
-
-  - model=&lt;string&gt;  
-    libvmafの内蔵モデルファイルのバージョン、あるいは外部のモデルファイルのパスを指定する。デフォルトは内蔵モデル"vmaf_v0.6.1"。
-
-    モデルファイルを使用する場合は、[こちら](https://github.com/Netflix/vmaf/tree/master/model)から
-    json形式のモデルファイルをダウンロードし、そのファイル名を指定してください。
-
-  - threads=&lt;int&gt;  (default: 0)  
-    VMAFスコアを計算するCPUのスレッド数の指定。デフォルトは全物理コア。
-
-  - subsample=&lt;int&gt;  (default: 1)  
-    VMAFスコアを計算対象とするフレームサブサンプリング間隔の指定。
-
-  - phone_model=&lt;bool&gt;  (default: false)  
-    電話モデルを使用し、モバイル端末等に適したより高いVMAFスコアを計算する。
-    
-  - enable_transform=&lt;bool&gt;  (default: false)  
-    VMAFスコアの計算でtransformを有効にして計算する。
-    
-```
-例: --vmaf model=vmaf_v0.6.1.json
-```
+- **パラメータ**
+  
+    - model=&lt;string&gt;  
+      libvmafの内蔵モデルファイルのバージョン、あるいは外部のモデルファイルのパスを指定する。デフォルトは内蔵モデル"vmaf_v0.6.1"。
+  
+      モデルファイルを使用する場合は、[こちら](https://github.com/Netflix/vmaf/tree/master/model)から
+      json形式のモデルファイルをダウンロードし、そのファイル名を指定してください。
+  
+    - threads=&lt;int&gt;  (default: 0)  
+      VMAFスコアを計算するCPUのスレッド数の指定。デフォルトは全物理コア。
+  
+    - subsample=&lt;int&gt;  (default: 1)  
+      VMAFスコアを計算対象とするフレームサブサンプリング間隔の指定。
+  
+    - phone_model=&lt;bool&gt;  (default: false)  
+      電話モデルを使用し、モバイル端末等に適したより高いVMAFスコアを計算する。
+      
+    - enable_transform=&lt;bool&gt;  (default: false)  
+      VMAFスコアの計算でtransformを有効にして計算する。
+      
+- 使用例
+  ```
+  例: --vmaf model=vmaf_v0.6.1.json
+  ```
 
 ## 入出力 / 音声 / 字幕などのオプション
 
@@ -912,28 +915,33 @@ libavが読み込み時に解析する最大のサイズをbyte単位で指定�
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 指定した範囲のフレームのみをエンコードする。
 
-```
-例1: --trim 0:1000,2000:3000    (0～1000フレーム目, 2000～3000フレーム目をエンコード)
-例2: --trim 2000:0              (2000～最終フレームまでをエンコード)
-```
+- 使用例
+  ```
+  例1: --trim 0:1000,2000:3000    (0～1000フレーム目, 2000～3000フレーム目をエンコード)
+  例2: --trim 2000:0              (2000～最終フレームまでをエンコード)
+  ```
 
 ### --seek [[&lt;int&gt;:]&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
 高速だが不正確なシークをしてからエンコードを開始する。正確な範囲指定を行いたい場合は[--trim](#--trim-intintintintintint)で行う。
-```
-例1: --seek 0:01:15.400
-例2: --seek 1:15.4
-例3: --seek 75.4
-```
+
+- 使用例
+  ```
+  例1: --seek 0:01:15.400
+  例2: --seek 1:15.4
+  例3: --seek 75.4
+  ```
 
 ### --seekto [[&lt;int&gt;:]&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
 エンコードの終了時刻を指定する。正確な範囲指定を行いたい場合は[--trim](#--trim-intintintintintint)で行う。
-```
-例1: --seekto 0:01:15.400
-例2: --seekto 1:15.4
-例3: --seekto 75.4
-```
+
+- 使用例
+  ```
+  例1: --seekto 0:01:15.400
+  例2: --seekto 1:15.4
+  例3: --seekto 75.4
+  ```
 
 ### --input-format &lt;string&gt;
 avhw/avswリーダー使用時に、入力のフォーマットを指定する。
@@ -958,25 +966,28 @@ muxerに出力フォーマットを指定して出力する。
 
 ### --video-tag &lt;string&gt;
 映像のcodec tagの指定。
-```
- -o test.mp4 -c hevc --video-tag hvc1
-```
+
+- 使用例
+  ```
+   -o test.mp4 -c hevc --video-tag hvc1
+  ```
 
 ### --video-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;
 映像トラックのmetadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 
   - clear ... do not copy metadata (デフォルト)
 
-```
-例1: 入力ファイルからmetadataをコピー
---video-metadata 1?copy
-
-例2: 入力ファイルからのmetadataのコピーを行わない
---video-metadata 1?clear
-
-例3: 指定のmetadataを設定する
---video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
-```
+- 使用例
+  ```
+  例1: 入力ファイルからmetadataをコピー
+  --video-metadata 1?copy
+  
+  例2: 入力ファイルからのmetadataのコピーを行わない
+  --video-metadata 1?clear
+  
+  例3: 指定のmetadataを設定する
+  --video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
+  ```
 
 ### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
@@ -985,16 +996,17 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する音声トラック(1,2,...)を指定したり、[&lt;string&gt;]で指定した言語の音声トラックをコピーすることもできる。
 
-```
-例: 全ての音声トラックを抽出
---audio-copy
-
-例: トラック番号#1,#2を抽出
---audio-copy 1,2
-
-例: 日本語と英語の音声トラックを抽出
---audio-copy jpn,eng
-```
+- 使用例
+  ```
+  例: 全ての音声トラックを抽出
+  --audio-copy
+  
+  例: トラック番号#1,#2を抽出
+  --audio-copy 1,2
+  
+  例: 日本語と英語の音声トラックを抽出
+  --audio-copy jpn,eng
+  ```
 
 ### --audio-codec [[&lt;int/string&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;[,&lt;string&gt;=&lt;string&gt;]...]...]
 音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-codecs---check-decoders---check-encoders)で確認できる。
@@ -1002,31 +1014,35 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 さらに、[&lt;string&gt;=&lt;string&gt;]の形式で、音声エンコーダのオプションを指定することもできる。
-```
-例1: 音声をmp3に変換
---audio-codec libmp3lame
 
-例2: 音声の第2トラックをaacに変換
---audio-codec 2?aac
-
-例3: 日本語の音声をaacに変換
---audio-codec jpn?aac
-
-例4: 日本語と英語の音声をaacに変換
---audio-codec jpn?aac --audio-codec eng?aac
-
-例5: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
---audio-codec aac:aac_coder=twoloop
-```
+- 使用例
+  ```
+  例1: 音声をmp3に変換
+  --audio-codec libmp3lame
+  
+  例2: 音声の第2トラックをaacに変換
+  --audio-codec 2?aac
+  
+  例3: 日本語の音声をaacに変換
+  --audio-codec jpn?aac
+  
+  例4: 日本語と英語の音声をaacに変換
+  --audio-codec jpn?aac --audio-codec eng?aac
+  
+  例5: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
+  --audio-codec aac:aac_coder=twoloop
+  ```
 
 ### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;
 音声をエンコードする際のビットレートをkbpsで指定する。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
-```
-例1: --audio-bitrate 192   (音声を192kbpsで変換)
-例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
-```
+
+- 使用例
+  ```
+  例1: --audio-bitrate 192   (音声を192kbpsで変換)
+  例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
+  ```
 
 ### --audio-profile [&lt;int/string&gt;?]&lt;string&gt;
 音声をエンコードする際、そのプロファイルを指定する。
@@ -1036,57 +1052,60 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 --audio-streamが指定された音声トラックは常にエンコードされる。(コピー不可)
 ,(カンマ)で区切ることで、入力の同じトラックから複数のトラックを生成できる。
 
-**書式**  
-&lt;int&gt;に処理対象のトラックを指定する。
+- **書式**  
+  &lt;int&gt;に処理対象のトラックを指定する。
+  
+  &lt;string1&gt;に入力として使用するチャンネルを指定する。省略された場合は入力の全チャンネルを使用する。
+  
+  &lt;string2&gt;に出力チャンネル形式を指定する。省略された場合は、&lt;string1&gt;のチャンネルをすべて使用する。
 
-&lt;string1&gt;に入力として使用するチャンネルを指定する。省略された場合は入力の全チャンネルを使用する。
+- 使用例
+  ```
+  例1: --audio-stream FR,FL
+  デュアルモノから左右のチャンネルを2つのモノラル音声に分離する。
+  
+  例2: --audio-stream :stereo
+  どんな音声もステレオに変換する。
+  
+  例3: --audio-stream 2?5.1,5.1:stereo
+  入力ファイルの第２トラックを、5.1chの音声を5.1chとしてエンコードしつつ、ステレオにダウンミックスしたトラックを生成する。
+  実際に使うことがあるかは微妙だが、書式の紹介例としてはわかりやすいかと。
+  ```
 
-&lt;string2&gt;に出力チャンネル形式を指定する。省略された場合は、&lt;string1&gt;のチャンネルをすべて使用する。
-
-```
-例1: --audio-stream FR,FL
-デュアルモノから左右のチャンネルを2つのモノラル音声に分離する。
-
-例2: --audio-stream :stereo
-どんな音声もステレオに変換する。
-
-例3: --audio-stream 2?5.1,5.1:stereo
-入力ファイルの第２トラックを、5.1chの音声を5.1chとしてエンコードしつつ、ステレオにダウンミックスしたトラックを生成する。
-実際に使うことがあるかは微妙だが、書式の紹介例としてはわかりやすいかと。
-```
-
-**使用できる記号**  
-```
-mono       = FC
-stereo     = FL + FR
-2.1        = FL + FR + LFE
-3.0        = FL + FR + FC
-3.0(back)  = FL + FR + BC
-3.1        = FL + FR + FC + LFE
-4.0        = FL + FR
-4.0        = FL + FR + FC + BC
-quad       = FL + FR + BL + BR
-quad(side) = FL + FR + SL + SR
-5.0        = FL + FR + FC + SL + SR
-5.1        = FL + FR + FC + LFE + SL + SR
-6.0        = FL + FR + FC + BC + SL + SR
-6.0(front) = FL + FR + FLC + FRC + SL + SR
-hexagonal  = FL + FR + FC + BL + BR + BC
-6.1        = FL + FR + FC + LFE + BC + SL + SR
-6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR
-7.0        = FL + FR + FC + BL + BR + SL + SR
-7.0(front) = FL + FR + FC + FLC + FRC + SL + SR
-7.1        = FL + FR + FC + LFE + BL + BR + SL + SR
-7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
-```
+- **使用できる記号**  
+  ```
+  mono       = FC
+  stereo     = FL + FR
+  2.1        = FL + FR + LFE
+  3.0        = FL + FR + FC
+  3.0(back)  = FL + FR + BC
+  3.1        = FL + FR + FC + LFE
+  4.0        = FL + FR
+  4.0        = FL + FR + FC + BC
+  quad       = FL + FR + BL + BR
+  quad(side) = FL + FR + SL + SR
+  5.0        = FL + FR + FC + SL + SR
+  5.1        = FL + FR + FC + LFE + SL + SR
+  6.0        = FL + FR + FC + BC + SL + SR
+  6.0(front) = FL + FR + FLC + FRC + SL + SR
+  hexagonal  = FL + FR + FC + BL + BR + BC
+  6.1        = FL + FR + FC + LFE + BC + SL + SR
+  6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR
+  7.0        = FL + FR + FC + BL + BR + SL + SR
+  7.0(front) = FL + FR + FC + FLC + FRC + SL + SR
+  7.1        = FL + FR + FC + LFE + BL + BR + SL + SR
+  7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
+  ```
 
 ### --audio-samplerate [&lt;int/string&gt;?]&lt;int&gt;
 音声のサンプリング周波数をHzで指定する。
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
-```
-例1: --audio-bitrate 44100   (音声を44100Hzに変換)
-例2: --audio-bitrate 2?22050 (音声の第2トラックを22050Hzに変換)
-```
+
+- 使用例
+  ```
+  例1: --audio-bitrate 44100   (音声を44100Hzに変換)
+  例2: --audio-bitrate 2?22050 (音声の第2トラックを22050Hzに変換)
+  ```
 
 ### --audio-resampler &lt;string&gt;
 音声チャンネルのmixやサンプリング周波数変換に使用されるエンジンの指定。
@@ -1100,53 +1119,62 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 指定したパスに音声を抽出する。出力フォーマットは出力拡張子から自動的に決定する。avhw/avswリーダー使用時のみ有効。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
-```
-例: test_out2.aacにトラック番号#2を抽出
---audio-file 2?"test_out2.aac"
-```
+
+- 使用例
+  ```
+  例: test_out2.aacにトラック番号#2を抽出
+  --audio-file 2?"test_out2.aac"
+  ```
 
 [&lt;string&gt;]では、出力フォーマットを指定することができる。
-```
-例: 拡張子なしでもadtsフォーマットで出力
---audio-file 2?adts:"test_out2"  
-```
+
+- 使用例
+  ```
+  例: 拡張子なしでもadtsフォーマットで出力
+  --audio-file 2?adts:"test_out2"  
+  ```
 
 ### --audio-filter [&lt;int/string&gt;?]&lt;string&gt;
 音声に音声フィルタを適用する。適用可能なフィルタは[こちら](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters)。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
-```
-例1: --audio-filter volume=0.2     (音量を下げる例)
-例2: --audio-filter 2?volume=-4db  (第2トラックの音量を下げる例)
-```
+- 使用例
+  ```
+  例1: --audio-filter volume=0.2     (音量を下げる例)
+  例2: --audio-filter 2?volume=-4db  (第2トラックの音量を下げる例)
+  ```
 
 ### --audio-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
 音声のdispositionを指定する。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
-```
- default
- dub
- original
- comment
- lyrics
- karaoke
- forced
- hearing_impaired
- visual_impaired
- clean_effects
- attached_pic
- captions
- descriptions
- dependent
- metadata
- copy
+- 指定可能なdisposition
+  ```
+   default
+   dub
+   original
+   comment
+   lyrics
+   karaoke
+   forced
+   hearing_impaired
+   visual_impaired
+   clean_effects
+   attached_pic
+   captions
+   descriptions
+   dependent
+   metadata
+   copy
+  ```
 
-例:
---audio-disposition 2?default,forced
-```
+- 使用例
+  ```
+  例:
+  --audio-disposition 2?default,forced
+  ```
 
 ### --audio-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;
 音声トラックのmetadataを指定する。
@@ -1155,16 +1183,17 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
-```
-例1: 入力ファイルからmetadataをコピー
---audio-metadata 1?copy
-
-例2: 入力ファイルからのmetadataのコピーを行わない
---audio-metadata 1?clear
-
-例3: 指定のmetadataを設定する
---audio-metadata 1?title="音声の タイトル" --audio-metadata 1?language=jpn
-```
+- 使用例
+  ```
+  例1: 入力ファイルからmetadataをコピー
+  --audio-metadata 1?copy
+  
+  例2: 入力ファイルからのmetadataのコピーを行わない
+  --audio-metadata 1?clear
+  
+  例3: 指定のmetadataを設定する
+  --audio-metadata 1?title="音声の タイトル" --audio-metadata 1?language=jpn
+  ```
 
 ### --audio-bsf [&lt;int/string&gt;?]&lt;string&gt;
 音声トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
@@ -1177,112 +1206,113 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 ### --audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 外部音声ファイルをmuxする。
 
-**パラメータ** 
-- copy  
-  音声トラックをそのままコピーする。
-
-- codec=&lt;string&gt;  
-  音声トラックを指定のコーデックにエンコードする。
-
-- profile=&lt;string&gt;  
-  音声エンコード時のプロファイルを指定する。
-
-- bitrate=&lt;int&gt;  
-  音声エンコード時のビットレートをkbps単位で指定する。
+- **パラメータ** 
+  - copy  
+    音声トラックをそのままコピーする。
   
-- samplerate=&lt;int&gt;  
-  音声エンコード時のサンプリングレートをHz単位で指定する。
+  - codec=&lt;string&gt;  
+    音声トラックを指定のコーデックにエンコードする。
   
-- delay=&lt;int&gt;  
-  音声を指定した時間遅延させる。(ms単位)
-
-- dec_prm=&lt;string&gt;  
-  音声デコード時のパラメータを指定する。
-
-- enc_prm=&lt;string&gt;  
-  音声エンコード時のパラメータを指定する。
-
-- filter=&lt;string&gt;  
-  音声エンコード時のフィルタを指定する。
+  - profile=&lt;string&gt;  
+    音声エンコード時のプロファイルを指定する。
   
-- disposition=&lt;string&gt;  
-  音声のdispositionを指定する。
+  - bitrate=&lt;int&gt;  
+    音声エンコード時のビットレートをkbps単位で指定する。
+    
+  - samplerate=&lt;int&gt;  
+    音声エンコード時のサンプリングレートをHz単位で指定する。
+    
+  - delay=&lt;int&gt;  
+    音声を指定した時間遅延させる。(ms単位)
   
-- metadata=&lt;string1&gt;=&lt;string2&gt;  
-  音声のmetadataを指定する。
+  - dec_prm=&lt;string&gt;  
+    音声デコード時のパラメータを指定する。
+  
+  - enc_prm=&lt;string&gt;  
+    音声エンコード時のパラメータを指定する。
+  
+  - filter=&lt;string&gt;  
+    音声エンコード時のフィルタを指定する。
+    
+  - disposition=&lt;string&gt;  
+    音声のdispositionを指定する。
+    
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    音声のmetadataを指定する。
+  
+  - bsf=&lt;string&gt;  
+    音声に適用するbitstream filterを指定する。
 
-- bsf=&lt;string&gt;  
-  音声に適用するbitstream filterを指定する。
-
-```
-例1: --audio-source "<audio_file>":copy
-例2: --audio-source "<audio_file>":codec=aac
-例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
-```
+- 使用例
+  ```
+  例1: --audio-source "<audio_file>":copy
+  例2: --audio-source "<audio_file>":codec=aac
+  例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
+  ```
 
 ### --chapter &lt;string&gt;
 指定したチャプターファイルを読み込み反映させる。
 nero形式、apple形式、matroska形式に対応する。--chapter-copyとは併用できない。
 
-nero形式  
-```
-CHAPTER01=00:00:39.706
-CHAPTER01NAME=chapter-1
-CHAPTER02=00:01:09.703
-CHAPTER02NAME=chapter-2
-CHAPTER03=00:01:28.288
-CHAPTER03NAME=chapter-3
-```
+- nero形式  
+  ```
+  CHAPTER01=00:00:39.706
+  CHAPTER01NAME=chapter-1
+  CHAPTER02=00:01:09.703
+  CHAPTER02NAME=chapter-2
+  CHAPTER03=00:01:28.288
+  CHAPTER03NAME=chapter-3
+  ```
 
-apple形式 (UTF-8であること)  
-```
-<?xml version="1.0" encoding="UTF-8" ?>
-  <TextStream version="1.1">
-   <TextStreamHeader>
-    <TextSampleDescription>
-    </TextSampleDescription>
-  </TextStreamHeader>
-  <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
-  <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
-  <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
-  <TextSample sampleTime="00:01:28.289" text="" />
-</TextStream>
-```
+- apple形式 (UTF-8であること)  
+  ```
+  <?xml version="1.0" encoding="UTF-8" ?>
+    <TextStream version="1.1">
+     <TextStreamHeader>
+      <TextSampleDescription>
+      </TextSampleDescription>
+    </TextStreamHeader>
+    <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
+    <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
+    <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
+    <TextSample sampleTime="00:01:28.289" text="" />
+  </TextStream>
+  ```
 
-matroska形式 (UTF-8であること)  
-[その他のサンプル&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
-```
-<?xml version="1.0" encoding="UTF-8"?>
-<Chapters>
-  <EditionEntry>
-    <ChapterAtom>
-      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-0</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-1</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-2</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
-      <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
-      <ChapterDisplay>
-        <ChapterString>chapter-3</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-  </EditionEntry>
-</Chapters>
-```
+- matroska形式 (UTF-8であること)  
+  [その他のサンプル&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
+  ```
+  <?xml version="1.0" encoding="UTF-8"?>
+  <Chapters>
+    <EditionEntry>
+      <ChapterAtom>
+        <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-0</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-1</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-2</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
+        <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
+        <ChapterDisplay>
+          <ChapterString>chapter-3</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+    </EditionEntry>
+  </Chapters>
+  ```
 
 ### --chapter-copy
 チャプターをコピーする。
@@ -1300,20 +1330,21 @@ matroska形式 (UTF-8であること)
 ### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 指定のファイルから字幕を読み込みmuxする。
 
-**パラメータ** 
-- disposition=&lt;string&gt;  
-  字幕のdispositionを指定する。
+- **パラメータ** 
+  - disposition=&lt;string&gt;  
+    字幕のdispositionを指定する。
+    
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    字幕のmetadataを指定する。
   
-- metadata=&lt;string1&gt;=&lt;string2&gt;  
-  字幕のmetadataを指定する。
-
-- bsf=&lt;string&gt;  
-  字幕に適用するbitstream filterを指定する。
-
-```
-例1: --sub-source "<sub_file>"
-例2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
-```
+  - bsf=&lt;string&gt;  
+    字幕に適用するbitstream filterを指定する。
+  
+- 使用例
+  ```
+  例1: --sub-source "<sub_file>"
+  例2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
+  ```
 
 ### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
@@ -1322,54 +1353,57 @@ matroska形式 (UTF-8であること)
 
 対応する字幕は、PGS/srt/txt/ttxtなど。
 
-```
-例: 全ての字幕トラックをコピー
---sub-copy
-
-例: 字幕トラック #1と#2をコピー
---sub-copy 1,2
-
-例: 日本語と英語の音声トラックを抽出
---sub-copy jpn,eng
-```
+- 使用例
+  ```
+  例: 全ての字幕トラックをコピー
+  --sub-copy
+  
+  例: 字幕トラック #1と#2をコピー
+  --sub-copy 1,2
+  
+  例: 日本語と英語の音声トラックを抽出
+  --sub-copy jpn,eng
+  ```
 
 ### --sub-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
 字幕のdispositionを指定する。
 
-```
- default
- dub
- original
- comment
- lyrics
- karaoke
- forced
- hearing_impaired
- visual_impaired
- clean_effects
- attached_pic
- captions
- descriptions
- dependent
- metadata
- copy
-```
+- 指定可能なdisposition
+  ```
+   default
+   dub
+   original
+   comment
+   lyrics
+   karaoke
+   forced
+   hearing_impaired
+   visual_impaired
+   clean_effects
+   attached_pic
+   captions
+   descriptions
+   dependent
+   metadata
+   copy
+  ```
 
 ### --sub-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;
 字幕トラックのmetadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
   - clear ... do not copy metadata
 
-```
-例1: 入力ファイルからmetadataをコピー
---sub-metadata 1?copy
-
-例2: 入力ファイルからのmetadataのコピーを行わない
---sub-metadata 1?clear
-
-例3: 指定のmetadataを設定する
---sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
-```
+- 使用例
+  ```
+  例1: 入力ファイルからmetadataをコピー
+  --sub-metadata 1?copy
+  
+  例2: 入力ファイルからのmetadataのコピーを行わない
+  --sub-metadata 1?clear
+  
+  例3: 指定のmetadataを設定する
+  --sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
+  ```
 
 ### --sub-bsf [&lt;int/string&gt;?]&lt;string&gt;
 字幕トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
@@ -1379,9 +1413,9 @@ caption2assによる字幕抽出処理を行い、動画にmuxして出力する
 
 出力フォーマットがassかsrtのみなので、mkvなどで出力してください。
 
-**出力フォーマット**
-- srt (デフォルト)
-- ass
+- **出力フォーマット**
+  - srt (デフォルト)
+  - ass
 
 ### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
 データストリームをコピーする。avhw/avswリーダー使用時のみ有効。
@@ -1389,40 +1423,56 @@ caption2assによる字幕抽出処理を行い、動画にmuxして出力する
 ### --attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]
 attachmentストリームをコピーする。avhw/avswリーダー使用時のみ有効。
 
+
+### --attachment-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
+指定のファイルを読み込み、attachmentとしてmuxする。
+
+- **params** 
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    attachmentのmetadataの指定。特に、mimetypeの指定は必須。
+  
+- 使用例
+  ```
+  例1: --attachment-source "<png_file>":metadata=mimetype=image/png
+  ```
+
 ### --input-option &lt;string1&gt;:&lt;string2&gt;
 avsw/avhwでの読み込み時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
-```
-例: Blurayのplaylist 1を読み込み
--i bluray:D:\ --input-option playlist:1
-```
+- 使用例
+  ```
+  例: Blurayのplaylist 1を読み込み
+  -i bluray:D:\ --input-option playlist:1
+  ```
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
-```
-例: HLS用の出力
--i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
-
-例: "default"として設定されている字幕トラックがない場合に、自動的に"default"が付与されるのを抑止しする (mkvのみ)
--m default_mode:infer_no_subs
-```
+- 使用例
+  ```
+  例: HLS用の出力
+  -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+  
+  例: "default"として設定されている字幕トラックがない場合に、自動的に"default"が付与されるのを抑止しする (mkvのみ)
+  -m default_mode:infer_no_subs
+  ```
 
 ### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
 出力ファイルの(グローバルな)metadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
   - clear ... do not copy metadata
 
-```
-例1: 入力ファイルからmetadataをコピー
---metadata copy
-
-例2: 入力ファイルからのmetadataのコピーを行わない
---metadata clear
-
-例3: 指定のmetadataを設定する
---metadata title="動画の タイトル" --metadata language=jpn
-```
+- 使用例
+  ```
+  例1: 入力ファイルからmetadataをコピー
+  --metadata copy
+  
+  例2: 入力ファイルからのmetadataのコピーを行わない
+  --metadata clear
+  
+  例3: 指定のmetadataを設定する
+  --metadata title="動画の タイトル" --metadata language=jpn
+  ```
 
 ### --avsync &lt;string&gt;
   - cfr (default)  
@@ -1441,10 +1491,10 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 switch hevc bitstream filter used for hw decoder input. (for debug purpose)
 - パラメータ
 
-  - internal
+  - internal  
     内蔵の実装を使用する。 (default)
 
-  - libavcodec
+  - libavcodec  
     libavcodec の hevc_mp4toannexb bitstream filter を使用する。
 
 ## vppオプション
@@ -1485,164 +1535,166 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 色空間変換を行う。x64版のみ使用可能。  
 パラメータに"input"を指定すると、入力ファイルの値を参照できる。(avhww/avsw読み込みのみ)
 
-**パラメータ**
-- matrix=&lt;from&gt;:&lt;to&gt;  
-  
-```
-  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
-```
-
-- colorprim=&lt;from&gt;:&lt;to&gt;  
-```
-  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
-```
-
-- transfer=&lt;from&gt;:&lt;to&gt;  
-```
-  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
-  log100, log316, iec61966-2-4, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
-```
-
-- range=&lt;from&gt;:&lt;to&gt;  
-```
-  limited, full, auto
-```
-
-- lut3d=&lt;string&gt;  
-  3D LUTを適用する。(.cubeファイルのみの対応)
-  
-- lut3d_interp=&lt;string&gt;  
-  ```
-  nearest, trilinear, pyramid, prism, tetrahedral
-  ```
-
-- hdr2sdr=&lt;string&gt;  
-  tone-mappingを指定してHDRからSDRへの変換を行う。 
-  
-  - none  (デフォルト)  
-    hdr2sdrの処理を行うない。
-
-  - hable    
-    明部と暗部のディテールの両方をバランスよく保ちながら変換する。(ただし、やや暗めになる)
-    下記のhable tone-mappingの式のパラメータ(a,b,c,d,e,f)の指定も可能。
-
-    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
-    output = hable( input ) / hable( (source_peak / ldr_nits) )
+- **パラメータ**
+  - matrix=&lt;from&gt;:&lt;to&gt;  
     
-    デフォルト: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
-
-  - mobius  
-    なるべく画面の明るさやコントラストを維持した変換を行うが、明部のディテールがつぶれる可能性がある。
-   
-    - transition=&lt;float&gt;  (デフォルト: 0.3)  
-      線形変換から mobius tone mappingに移行する分岐点。  
-    - peak=&lt;float&gt;  (デフォルト: 1.0)  
-      reference peak brightness
+  ```
+    bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
+  ```
   
-  - reinhard  
-    - contrast=&lt;float&gt;  (デフォルト: 0.5)  
-      local contrast coefficient  
-    - peak=&lt;float&gt;  (デフォルト: 1.0)  
-      reference peak brightness
+  - colorprim=&lt;from&gt;:&lt;to&gt;  
+  ```
+    bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
+  ```
+  
+  - transfer=&lt;from&gt;:&lt;to&gt;  
+  ```
+    bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+    log100, log316, iec61966-2-4, iec61966-2-1,
+    bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
+  ```
+  
+  - range=&lt;from&gt;:&lt;to&gt;  
+  ```
+    limited, full, auto
+  ```
+  
+  - lut3d=&lt;string&gt;  
+    3D LUTを適用する。(.cubeファイルのみの対応)
+    
+  - lut3d_interp=&lt;string&gt;  
+    ```
+    nearest, trilinear, pyramid, prism, tetrahedral
+    ```
+  
+  - hdr2sdr=&lt;string&gt;  
+    tone-mappingを指定してHDRからSDRへの変換を行う。 
+    
+    - none  (デフォルト)  
+      hdr2sdrの処理を行うない。
+  
+    - hable    
+      明部と暗部のディテールの両方をバランスよく保ちながら変換する。(ただし、やや暗めになる)
+      下記のhable tone-mappingの式のパラメータ(a,b,c,d,e,f)の指定も可能。
+  
+      hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
+      output = hable( input ) / hable( (source_peak / ldr_nits) )
       
-  - bt2390  
-    BT.2390で規定されるtone mapping。
+      デフォルト: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
+  
+    - mobius  
+      なるべく画面の明るさやコントラストを維持した変換を行うが、明部のディテールがつぶれる可能性がある。
+     
+      - transition=&lt;float&gt;  (デフォルト: 0.3)  
+        線形変換から mobius tone mappingに移行する分岐点。  
+      - peak=&lt;float&gt;  (デフォルト: 1.0)  
+        reference peak brightness
+    
+    - reinhard  
+      - contrast=&lt;float&gt;  (デフォルト: 0.5)  
+        local contrast coefficient  
+      - peak=&lt;float&gt;  (デフォルト: 1.0)  
+        reference peak brightness
+        
+    - bt2390  
+      BT.2390で規定されるtone mapping。
+  
+  
+  - source_peak=&lt;float&gt;  (デフォルト: 1000.0)  
+  
+  - ldr_nits=&lt;float&gt;  (デフォルト: 100.0)  
+  
+  - desat_base=&lt;float&gt;  (デフォルト: 0.18)  
+    hdr2sdrで使用されるdesaturation処理のオフセット。
+  
+  - desat_strength=&lt;float&gt;  (デフォルト: 0.75)  
+    hdr2sdrで使用されるdesaturation処理の強度。0.0では処理が無効化され、1.0では明るい色は白くなる。
+  
+  - desat_exp=&lt;float&gt;  (デフォルト: 1.5)  
+    hdr2sdrで使用されるdesaturation処理の指数で、どのくらいの明るさから処理が行われるかを制御する。
+    低めの値では、より積極的に処理が行われる。
 
-
-- source_peak=&lt;float&gt;  (デフォルト: 1000.0)  
-
-- ldr_nits=&lt;float&gt;  (デフォルト: 100.0)  
-
-- desat_base=&lt;float&gt;  (デフォルト: 0.18)  
-  hdr2sdrで使用されるdesaturation処理のオフセット。
-
-- desat_strength=&lt;float&gt;  (デフォルト: 0.75)  
-  hdr2sdrで使用されるdesaturation処理の強度。0.0では処理が無効化され、1.0では明るい色は白くなる。
-
-- desat_exp=&lt;float&gt;  (デフォルト: 1.5)  
-  hdr2sdrで使用されるdesaturation処理の指数で、どのくらいの明るさから処理が行われるかを制御する。
-  低めの値では、より積極的に処理が行われる。
-
-```
-例1: BT.709(fullrange) -> BT.601 への変換
---vpp-colorspace matrix=smpte170m:bt709,range=full:limited
-
-例2: hdr2sdrの使用 (hable tone-mapping)
---vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
-
-例3: hdr2sdr使用時の追加パラメータの指定例 (下記例ではデフォルトと同じ意味)
---vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
-
-例4: lut3dの使用
---vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
-```
+- 使用例
+  ```
+  例1: BT.709(fullrange) -> BT.601 への変換
+  --vpp-colorspace matrix=smpte170m:bt709,range=full:limited
+  
+  例2: hdr2sdrの使用 (hable tone-mapping)
+  --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
+  
+  例3: hdr2sdr使用時の追加パラメータの指定例 (下記例ではデフォルトと同じ意味)
+  --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+  
+  例4: lut3dの使用
+  --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
+  ```
 
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。
 
-**パラメータ**
-- select=&lt;string&gt;  
-ロゴパックの場合に、使用するロゴを以下のいずれかで指定する。
-
-  - ロゴ名
-  - インデックス (1,2,...)
-  - 自動選択用iniファイル
-```
- [LOGO_AUTO_SELECT]
- logo<連番数字>=<マッチパターン>,<リストに表示されているロゴ名(完全一致!)>
-```
-
- 例:
- ```ini
-[LOGO_AUTO_SELECT]
-logo1= (NHK-G).,NHK総合 1440x1080
-logo2= (NHK-E).,NHK-E 1440x1080
-logo3= (MX).,TOKYO MX 1 1440x1080
-logo4= (CTC).,チバテレビ 1440x1080
-logo5= (NTV).,日本テレビ 1440x1080
-logo6= (TBS).,TBS 1440x1088
-logo7= (TX).,TV東京 50th 1440x1080
-logo8= (CX).,フジテレビ 1440x1088
-logo9= (BSP).,NHK BSP v3 1920x1080
-logo10= (BS4).,BS日テレ 1920x1080
-logo11= (BSA).,BS朝日 1920x1080
-logo12= (BS-TBS).,BS-TBS 1920x1080
-logo13= (BSJ).,BS Japan 1920x1080
-logo14= (BS11).,BS11 1920x1080 v3
-```
-
-- pos=&lt;int&gt;:&lt;int&gt;  
-1/4画素精度のロゴ位置の調整。Aviutlで言うところの &lt;位置 X&gt;:&lt;位置 Y&gt;。
-
-- depth=&lt;int&gt;  
-ロゴの透明度の補正。デフォルト128。Aviutlで言うところの &lt;深度&gt;。
-
-- y=&lt;int&gt;  
-- cb=&lt;int&gt;  
-- cr=&lt;int&gt;  
-ロゴの各色成分の補正。Aviutlで言うところの &lt;Y&gt;, &lt;Cb&gt;, &lt;Cr&gt;。  
-
-- auto_fade=&lt;bool&gt;  
-ロゴの実際の濃さに合わせて、fade値を自動的に調整する。デフォルト = off。  
+- **パラメータ**
+  - select=&lt;string&gt;  
+  ロゴパックの場合に、使用するロゴを以下のいずれかで指定する。
   
-- auto_nr=&lt;bool&gt;  
-ロゴの輪郭周辺のノイズを除去する際、その強さを自動的に変化させる。デフォルト = off。  
+    - ロゴ名
+    - インデックス (1,2,...)
+    - 自動選択用iniファイル  
+      ```
+       [LOGO_AUTO_SELECT]
+       logo<連番数字>=<マッチパターン>,<リストに表示されているロゴ名(完全一致!)>
+      ```
 
-- nr_area=&lt;int&gt;  
-ロゴの輪郭周辺に対するノイズ除去適用範囲の広さ。(default=0 (オフ), 0 - 3)  
+      例:
+      ```ini
+      [LOGO_AUTO_SELECT]
+      logo1= (NHK-G).,NHK総合 1440x1080
+      logo2= (NHK-E).,NHK-E 1440x1080
+      logo3= (MX).,TOKYO MX 1 1440x1080
+      logo4= (CTC).,チバテレビ 1440x1080
+      logo5= (NTV).,日本テレビ 1440x1080
+      logo6= (TBS).,TBS 1440x1088
+      logo7= (TX).,TV東京 50th 1440x1080
+      logo8= (CX).,フジテレビ 1440x1088
+      logo9= (BSP).,NHK BSP v3 1920x1080
+      logo10= (BS4).,BS日テレ 1920x1080
+      logo11= (BSA).,BS朝日 1920x1080
+      logo12= (BS-TBS).,BS-TBS 1920x1080
+      logo13= (BSJ).,BS Japan 1920x1080
+      logo14= (BS11).,BS11 1920x1080 v3
+      ```
 
-- nr_value=&lt;int&gt;  
-ロゴの輪郭周辺に対するノイズ除去の強さ。(default=0 (オフ), 0 - 4)  
+  - pos=&lt;int&gt;:&lt;int&gt;  
+    1/4画素精度のロゴ位置の調整。Aviutlで言うところの &lt;位置 X&gt;:&lt;位置 Y&gt;。
+  
+  - depth=&lt;int&gt;  
+    ロゴの透明度の補正。デフォルト128。Aviutlで言うところの &lt;深度&gt;。
+  
+  - y=&lt;int&gt;  
+  - cb=&lt;int&gt;  
+  - cr=&lt;int&gt;  
+    ロゴの各色成分の補正。Aviutlで言うところの &lt;Y&gt;, &lt;Cb&gt;, &lt;Cr&gt;。  
+  
+  - auto_fade=&lt;bool&gt;  
+    ロゴの実際の濃さに合わせて、fade値を自動的に調整する。デフォルト = off。  
+    
+  - auto_nr=&lt;bool&gt;  
+    ロゴの輪郭周辺のノイズを除去する際、その強さを自動的に変化させる。デフォルト = off。  
+  
+  - nr_area=&lt;int&gt;  
+    ロゴの輪郭周辺に対するノイズ除去適用範囲の広さ。(default=0 (オフ), 0 - 3)  
+  
+  - nr_value=&lt;int&gt;  
+    ロゴの輪郭周辺に対するノイズ除去の強さ。(default=0 (オフ), 0 - 4)  
+  
+  - log=&lt;bool&gt;  
+    auto_fade, auto_nrを使用した場合のfade値の推移をログに出力する。
 
-- log=&lt;bool&gt;  
-auto_fade, auto_nrを使用した場合のfade値の推移をログに出力する。
-
-```
-例:
---vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
-```
+- 使用例
+  ```
+  例:
+  --vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
+  ```
 
 
 ### --vpp-deinterlace &lt;string&gt;
@@ -1663,235 +1715,243 @@ rff=1の場合のみの対応。(rff > 1には対応しない) また、[--trim]
 ### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 自動フィールドシフトによるインタレ解除を行う。
 
-**パラメータ** ... 基本的にはAviutl版のパラメータをそのまま使用する。
-- top=&lt;int&gt;           (上)
-- bottom=&lt;int&gt;        (下)
-- left=&lt;int&gt;          (左)
-- right=&lt;int&gt;         (右)  
-  判定に使用する領域から除外する範囲の指定。NVEncでは、"左"と"右"は4の倍数である必要がある。
-
-- method_switch=&lt;int&gt; (切替点)  (0-256)  
-  切替点が大きいほど、新方式の判定になりやすい(0で常に新方式判定off)
-
-- coeff_shift=&lt;int&gt;   (判定比)  (0-256)  
-  判定比率が小さいほど、フィールドをシフトしにくい(0で常にシフト判定off)
-
-- thre_shift=&lt;int&gt;    (縞(シフト))  (0-1024)  
-  シフトの判定に使用する縞検出の閾値。値が小さいほど、縞と判定されやすくなる。
-
-- thre_deint=&lt;int&gt;    (縞(解除))  (0-1024)  
-  縞解除用の縞検出の閾値。値が小さいほど、縞と判定されやすくなる。
-
-- thre_motion_y=&lt;int&gt; (Y動き) (0-1024)  
-- thre_motion_c=&lt;int&gt; (C動き) (0-1024)  
-  動き検出の閾値。値が小さいほど、動きと判定されやすくなる。
-
-- level=&lt;int&gt;         (解除Lv)  
-  縞解除の方法の選択。(0 - 4)
-
-| 解除Lv | | |
-|:---|:---|:---|
-| Lv0 | 解除なし | 横縞模様の解除を行わない。<br>フィールドシフトで組み合わされた新しいフレームがそのまま出力になる。|
-| Lv1 | フィールド三重化 | フィールドシフトで組み合わされた新しいフレームに、さらに１つ前の フィールドを残像として足しこむ。<br>動きによる縞模様は完全に残像に変換される。 |
-| Lv2 | 縞検出二重化 | フレーム内で縞模様を検出して、縞の部分を平均化して残像に変える。<br>フィールド単位の動きが少ない映像向け。 |
-| Lv3 | 動き検出二重化 | 前のフレームと比較をして、動き(色の変化)があった部分だけ縞の平均化を行う。 <br>解除Lv2だと平均化されてしまう静止した横縞模様を保存できる。<br>静止したテロップの細かい文字や、アニメなどの枠線付きの静止画の 輪郭をつぶしたくない場合に使用する。| 
-| Lv4 | 動き検出補間 | 前のフレームと比較をして動きがあった部分は、片方のフィールドを潰して残す方のフィールドの画像で補間する。<br>残像はなくなりますが、この解除がかかった部分は縦の解像度が半分になる。 |
-| Lv5 | 斜め線補正補間 | **非対応** |
-
-- shift=&lt;bool&gt;        (フィールドシフト)  
-  フィールドシフトを行う。
-
-- drop=&lt;bool&gt;         (間引き)  
-  フィールドシフトを行うことで生じた表示時間の1フレームより短いフレームを間引く。これを有効にするとVFR(可変フレームレート)になるので注意。
-  NVEncCでmuxしながら出力する場合には、このタイムコードは自動的に反映される。
-  一方、raw出力する場合には、タイムコード反映されないので、vpp-afsのオプションにtimecode=trueを追加してタイムコードを別途出力し、あとからtimecodeファイルを含めてmuxする必要がある。
-
-- smooth=&lt;bool&gt;       (スムージング)  
-- 24fps=&lt;bool&gt;        (24fps化)   
-  24fps化を強制する、映画・アニメ用のオプション。フィールドシフトと間引きをonにする必要がある。
-
-- tune=&lt;bool&gt;         (調整モード)  
-  縞模様と動きの判定結果の確認用。
-
-| 色 | 意味 |
-|:---:|:---|
-| 青 | 動きを検出 |
-| 灰 | 縞を検出 |
-| 水色 | 動き + 縞を検出 |
-
-- rff=&lt;bool&gt;  
-  入力フレームにrffフラグ付きのプログレフレームがある場合、これをチェックしてインタレ解除処理に反映する。rffフラグ付きのプログレフレームについては、フィールドシフトを行わずに、フレームの表示時間の修正のみを行う。
-
-- log=&lt;bool&gt;  
-  フレームごとの判定状況等をcsvファイルで出力。(デバッグ用のログ出力)
-
-- timecode=&lt;bool&gt;  
-  タイムコードを出力する。
+- **パラメータ** ... 基本的にはAviutl版のパラメータをそのまま使用する。
+  - top=&lt;int&gt;           (上)
+  - bottom=&lt;int&gt;        (下)
+  - left=&lt;int&gt;          (左)
+  - right=&lt;int&gt;         (右)  
+    判定に使用する領域から除外する範囲の指定。NVEncでは、"左"と"右"は4の倍数である必要がある。
   
-**一括設定用オプション**
+  - method_switch=&lt;int&gt; (切替点)  (0-256)  
+    切替点が大きいほど、新方式の判定になりやすい(0で常に新方式判定off)
+  
+  - coeff_shift=&lt;int&gt;   (判定比)  (0-256)  
+    判定比率が小さいほど、フィールドをシフトしにくい(0で常にシフト判定off)
+  
+  - thre_shift=&lt;int&gt;    (縞(シフト))  (0-1024)  
+    シフトの判定に使用する縞検出の閾値。値が小さいほど、縞と判定されやすくなる。
+  
+  - thre_deint=&lt;int&gt;    (縞(解除))  (0-1024)  
+    縞解除用の縞検出の閾値。値が小さいほど、縞と判定されやすくなる。
+  
+  - thre_motion_y=&lt;int&gt; (Y動き) (0-1024)  
+  - thre_motion_c=&lt;int&gt; (C動き) (0-1024)  
+    動き検出の閾値。値が小さいほど、動きと判定されやすくなる。
+  
+  - level=&lt;int&gt;         (解除Lv)  
+    縞解除の方法の選択。(0 - 4)
+  
+    | 解除Lv | | |
+    |:---|:---|:---|
+    | Lv0 | 解除なし | 横縞模様の解除を行わない。<br>フィールドシフトで組み合わされた新しいフレームがそのまま出力になる。|
+    | Lv1 | フィールド三重化 | フィールドシフトで組み合わされた新しいフレームに、さらに１つ前の フィールドを残像として足しこむ。<br>動きによる縞模様は完全に残像に変換される。 |
+    | Lv2 | 縞検出二重化 | フレーム内で縞模様を検出して、縞の部分を平均化して残像に変える。<br>フィールド単位の動きが少ない映像向け。 |
+    | Lv3 | 動き検出二重化 | 前のフレームと比較をして、動き(色の変化)があった部分だけ縞の平均化を行う。 <br>解除Lv2だと平均化されてしまう静止した横縞模様を保存できる。<br>静止したテロップの細かい文字や、アニメなどの枠線付きの静止画の 輪郭をつぶしたくない場合に使用する。| 
+    | Lv4 | 動き検出補間 | 前のフレームと比較をして動きがあった部分は、片方のフィールドを潰して残す方のフィールドの画像で補間する。<br>残像はなくなりますが、この解除がかかった部分は縦の解像度が半分になる。 |
+    | Lv5 | 斜め線補正補間 | **非対応** |
+
+  - shift=&lt;bool&gt;        (フィールドシフト)  
+    フィールドシフトを行う。
+  
+  - drop=&lt;bool&gt;         (間引き)  
+    フィールドシフトを行うことで生じた表示時間の1フレームより短いフレームを間引く。これを有効にするとVFR(可変フレームレート)になるので注意。
+    NVEncCでmuxしながら出力する場合には、このタイムコードは自動的に反映される。
+    一方、raw出力する場合には、タイムコード反映されないので、vpp-afsのオプションにtimecode=trueを追加してタイムコードを別途出力し、あとからtimecodeファイルを含めてmuxする必要がある。
+  
+  - smooth=&lt;bool&gt;       (スムージング)  
+  - 24fps=&lt;bool&gt;        (24fps化)   
+    24fps化を強制する、映画・アニメ用のオプション。フィールドシフトと間引きをonにする必要がある。
+  
+  - tune=&lt;bool&gt;         (調整モード)  
+    縞模様と動きの判定結果の確認用。
+  
+    | 色 | 意味 |
+    |:---:|:---|
+    | 青 | 動きを検出 |
+    | 灰 | 縞を検出 |
+    | 水色 | 動き + 縞を検出 |
+  
+  - rff=&lt;bool&gt;  
+    入力フレームにrffフラグ付きのプログレフレームがある場合、これをチェックしてインタレ解除処理に反映する。rffフラグ付きのプログレフレームについては、フィールドシフトを行わずに、フレームの表示時間の修正のみを行う。
+  
+  - log=&lt;bool&gt;  
+    フレームごとの判定状況等をcsvファイルで出力。(デバッグ用のログ出力)
+  
+  - timecode=&lt;bool&gt;  
+    タイムコードを出力する。
+  
+- **一括設定用オプション**
 
   たくさんあるパラメータを一括指定するためのオプション。一括設定用オプションは必ず先に読み込まれ、個別オプションの指定があればそちらで上書きされる。
 
-- ini=&lt;string&gt;  
-  指定したini設定ファイルから設定を読み込む。この設定ファイルはAviutl版自動フィールドシフト 高速化 7.5a+20以降のafs.aufで出力できるものを使用する。
+  - ini=&lt;string&gt;  
+    指定したini設定ファイルから設定を読み込む。この設定ファイルはAviutl版自動フィールドシフト 高速化 7.5a+20以降のafs.aufで出力できるものを使用する。
+    
+    ```
+    [AFS_STG]
+    up=8
+    bottom=8
+    left=16
+    right=16
+    method_watershed=91
+    coeff_shift=191
+    thre_shift=447
+    thre_deint=44
+    thre_Ymotion=111
+    thre_Cmotion=222
+    mode=4
+    field_shift=1
+    drop=1
+    smooth=1
+    force24=1
+    tune_mode=0
+    rff=0
+    log=0
+    ```
   
-```
-[AFS_STG]
-up=8
-bottom=8
-left=16
-right=16
-method_watershed=91
-coeff_shift=191
-thre_shift=447
-thre_deint=44
-thre_Ymotion=111
-thre_Cmotion=222
-mode=4
-field_shift=1
-drop=1
-smooth=1
-force24=1
-tune_mode=0
-rff=0
-log=0
-```
+  - preset=&lt;string&gt;
+  
+    以下の表のプリセットをロードします。
+    
+    ```
+    例: アニメプリセットをロード後、"24fps"をonに、"rff"を"on"に
+    --vpp-afs preset=anime,24fps=true,rff=true
+    ```
+    
+    |              | default | triple<br>(動き重視) | double<br>(二重化) | anime<br>cinema<br>(アニメ/映画) | min_afterimg<br>(残像最小化) |  24fps<br>(24fps固定)  | 30fps<br>(30fps固定) |
+    |:---          |:---:| :---:| :---:|:---:|:---:| :---:| :---:|
+    |method_switch |     0   |    0   |     0  |       64        |       0      |    92   |   0   |
+    |coeff_shift   |   192   |  192   |   192  |      128        |     192      |   192   |  192  |
+    |thre_shift    |   128   |  128   |   128  |      128        |     128      |   448   |  128  |
+    |thre_deint    |    48   |   48   |    48  |       48        |      48      |    48   |   48  |
+    |thre_motion_y |   112   |  112   |   112  |      112        |     112      |   112   |  112  |
+    |thre_motion_c |   224   |  224   |   224  |      224        |     224      |   224   |  224  |
+    |level         |     3   |    1   |     2  |        3        |       4      |     3   |    3  |
+    |shift         |    on   |  off   |    on  |       on        |      on      |    on   |  off  |
+    |drop          |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
+    |smooth        |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
+    |24fps         |   off   |  off   |   off  |      off        |     off      |    on   |  off  |
+    |tune          |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
+    |rff           |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
 
-- preset=&lt;string&gt;
+- **vpp-afs使用上の注意**  
+  - Aviutl版とは全く同じ挙動にはなりません。
+  - Aviutl版の下記機能には非対応です。
+    - 解除Lv5
+    - シーンチェンジ検出(解除Lv1)
+    - 編集モード
+    - ログ保存
+    - ログ再生
+    - YUY2補間
+    - シフト・解除なし
 
-以下の表のプリセットをロードします。
-
-```
-例: アニメプリセットをロード後、"24fps"をonに、"rff"を"on"に
---vpp-afs preset=anime,24fps=true,rff=true
-```
-
-|              | default | triple<br>(動き重視) | double<br>(二重化) | anime<br>cinema<br>(アニメ/映画) | min_afterimg<br>(残像最小化) |  24fps<br>(24fps固定)  | 30fps<br>(30fps固定) |
-|:---          |:---:| :---:| :---:|:---:|:---:| :---:| :---:|
-|method_switch |     0   |    0   |     0  |       64        |       0      |    92   |   0   |
-|coeff_shift   |   192   |  192   |   192  |      128        |     192      |   192   |  192  |
-|thre_shift    |   128   |  128   |   128  |      128        |     128      |   448   |  128  |
-|thre_deint    |    48   |   48   |    48  |       48        |      48      |    48   |   48  |
-|thre_motion_y |   112   |  112   |   112  |      112        |     112      |   112   |  112  |
-|thre_motion_c |   224   |  224   |   224  |      224        |     224      |   224   |  224  |
-|level         |     3   |    1   |     2  |        3        |       4      |     3   |    3  |
-|shift         |    on   |  off   |    on  |       on        |      on      |    on   |  off  |
-|drop          |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
-|smooth        |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
-|24fps         |   off   |  off   |   off  |      off        |     off      |    on   |  off  |
-|tune          |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
-|rff           |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
-
-**vpp-afs使用上の注意**  
-- Aviutl版とは全く同じ挙動にはなりません。
-- Aviutl版の下記機能には非対応です。
-  - 解除Lv5
-  - シーンチェンジ検出(解除Lv1)
-  - 編集モード
-  - ログ保存
-  - ログ再生
-  - YUY2補間
-  - シフト・解除なし
+- 使用例
+  ```
+  例: --vpp-afs preset=24fpsと同じ設定をする例
+  --vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
+  ```
 
 ### --vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 nnediによるインタレ解除を行う。基本的には片方フィールドは捨てて、もう片方のフィールドから
 ニューラルネットを使って輪郭を補正しながらフレームを再構築することでインタレ解除するが、とても重い…。
 
-**パラメータ**
-- field  
-  インタレ解除の方法。
-  - auto (デフォルト)  
-    維持するフィールドを自動的に選択
-  - top  
-    トップフィールド維持
-  - bottom  
-    ボトムフィールド維持
-
-- nns  (デフォルト: 32)  
-  ニューラルネットのニューロン数。
-  - 16, 32, 64, 128, 256
-
-- nsize  (デフォルト: 32x4)  
-  ニューラルネットが参照する近傍ブロックのサイズ。
-  - 8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4
-
-- quality  (デフォルト: fast)  
-  品質の設定。
-
-  - fast
-
-  - slow  
-    slowではfastのニューラルネットの出力に、もうひとつの
-    ニューラルネットの出力をブレンドして品質を上げる(当然その分さらに遅い)。
-
-- prescreen (デフォルト: new_block)  
-  事前に前処理を行い、単純な補間で済ますか、ニューラルネットでの補正を行うか決定する。
-  基本的にはエッジ近傍がニューラルネットでの補正の対象となり、ニューラルネットを使う頻度が下がることで処理が高速になる。
+- **パラメータ**
+  - field  
+    インタレ解除の方法。
+    - auto (デフォルト)  
+      維持するフィールドを自動的に選択
+    - top  
+      トップフィールド維持
+    - bottom  
+      ボトムフィールド維持
   
-  - none  
-    前処理を行わず、すべてのpixelをニューラルネットで再構成する。
-
-  - original
-  - new  
-    前処理を行い、必要なところのみニューラルネットでの補正を行うようにする。originalとnewは方式が異なる。newのほうが速くなる傾向にある。
-
-  - original_block
-  - new_block  
-    original/newのGPU最適化版。pixel単位の判定の代わりにブロック単位の判定を行う。
-
-- errortype (デフォルト: abs)  
-  ニューラルネットの重みパラメータを選択する。
-  - abs  
-    絶対誤差を最小にするよう学習された重みを用いる。
-  - square  
-    二乗誤差を最小にするよう学習された重みを用いる。
+  - nns  (デフォルト: 32)  
+    ニューラルネットのニューロン数。
+    - 16, 32, 64, 128, 256
   
-- prec (デフォルト: auto)  
-  演算精度の選択。
-  - auto  
-    fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
-    現状ではTuring世代のGPUで自動的にfp16が使用される。
-    Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
+  - nsize  (デフォルト: 32x4)  
+    ニューラルネットが参照する近傍ブロックのサイズ。
+    - 8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4
   
-  - fp16 (x64版のみ)  
-    半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
+  - quality  (デフォルト: fast)  
+    品質の設定。
   
-  - fp32  
-    単精度浮動小数点を使って計算する。
+    - fast  
+      ひとつのニューラルネットの出力で画像を構成する。
+  
+    - slow  
+      slowではfastのニューラルネットの出力に、もうひとつの
+      ニューラルネットの出力をブレンドして品質を上げる(当然その分さらに遅い)。
+  
+  - prescreen (デフォルト: new_block)  
+    事前に前処理を行い、単純な補間で済ますか、ニューラルネットでの補正を行うか決定する。
+    基本的にはエッジ近傍がニューラルネットでの補正の対象となり、ニューラルネットを使う頻度が下がることで処理が高速になる。
     
+    - none  
+      前処理を行わず、すべてのpixelをニューラルネットで再構成する。
   
-- weightfile (デフォルト: 組み込み)  
-  重みパラメータファイルの(パスの)指定。特に指定のない場合、実行ファイルに埋め込まれたデータを使用する。
+    - original
+    - new  
+      前処理を行い、必要なところのみニューラルネットでの補正を行うようにする。originalとnewは方式が異なる。newのほうが速くなる傾向にある。
+  
+    - original_block
+    - new_block  
+      original/newのGPU最適化版。pixel単位の判定の代わりにブロック単位の判定を行う。
+  
+  - errortype (デフォルト: abs)  
+    ニューラルネットの重みパラメータを選択する。
+    - abs  
+      絶対誤差を最小にするよう学習された重みを用いる。
+    - square  
+      二乗誤差を最小にするよう学習された重みを用いる。
+    
+  - prec (デフォルト: auto)  
+    演算精度の選択。
+    - auto  
+      fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
+      現状ではTuring世代のGPUで自動的にfp16が使用される。
+      Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
+    
+    - fp16 (x64版のみ)  
+      半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
+    
+    - fp32  
+      単精度浮動小数点を使って計算する。
+      
+    
+  - weightfile (デフォルト: 組み込み)  
+    重みパラメータファイルの(パスの)指定。特に指定のない場合、実行ファイルに埋め込まれたデータを使用する。
 
-  
-```
-例: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
-```
+- 使用例
+  ```
+  例: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
+  ```
   
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
 yadifによるインタレ解除を行う。
 
-**パラメータ**
-- mode
+- **パラメータ**
 
-  - auto (default)  
-    維持するフィールドを自動的に選択。
-  - tff  
-    トップフィールド維持。
-  - bff  
-    ボトムフィールド維持。
-  - bob   
-    60fps化を行う(field順は自動選択)。
-  - bob_tff   
-    60fps化を行う(tff)。
-  - bob_bff   
-    60fps化を行う(bff)。
+  - mode
+  
+    - auto (default)  
+      維持するフィールドを自動的に選択。
+    - tff  
+      トップフィールド維持。
+    - bff  
+      ボトムフィールド維持。
+    - bob   
+      60fps化を行う(field順は自動選択)。
+    - bob_tff   
+      60fps化を行う(tff)。
+    - bob_bff   
+      60fps化を行う(bff)。
 
 
 ### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 重複フレームを削除します。
 
-**パラメータ**
+- **パラメータ**
   - cycle=&lt;int&gt;  (デフォルト: 5)  
     ドロップするフレームの周期。ここで設定したフレーム数の中から指定フレーム数をドロップする。
 
@@ -1920,7 +1980,7 @@ yadifによるインタレ解除を行う。
 連続した重複フレームを削除し、VFR動画を作ることで、実効的なエンコード速度の向上と圧縮率向上を測ります。
 なお、このフィルタを使用すると[--avsync](./NVEncC_Options.ja.md#--avsync-string) vfrが自動で有効になります。
 
-**パラメータ**
+- **パラメータ**
   - hi=&lt;int&gt;  (デフォルト: 768)  
     ドロップ対象とするかどうかの閾値。各8x8ブロックの中の差分の総和が、ひとつでもこの閾値を上回っていれば、ドロップ対象から外す。
 
@@ -1940,13 +2000,16 @@ yadifによるインタレ解除を行う。
 指定stepフレームごとに1フレームを選択してフレームを間引きます。フレームレートが1/stepになります。
 
 **パラメータ**
-- step=&lt;int&gt;
-- offset=&lt;int&gt; (デフォルト: 0)
 
-```
-例1 ("select even"): --vpp-select-every 2
-例2 ("select odd "): --vpp-select-every 2,offset=1
-```
+  - step=&lt;int&gt;
+
+  - offset=&lt;int&gt; (デフォルト: 0)
+
+- 使用例
+  ```
+  例1 ("select even"): --vpp-select-every 2
+  例2 ("select odd "): --vpp-select-every 2,offset=1
+  ```
 
 ### --vpp-rotate &lt;int&gt;
 
@@ -1955,102 +2018,115 @@ yadifによるインタレ解除を行う。
 
 ### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-**パラメータ**
-- flip_x=&lt;bool&gt;
+- **パラメータ**
+  - flip_x=&lt;bool&gt;
 
-- flip_y=&lt;bool&gt;
+  - flip_y=&lt;bool&gt;
 
-- transpose=&lt;bool&gt;
+  - transpose=&lt;bool&gt;
 
 ### --vpp-convolution3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 3次元ノイズ除去フィルタ。
 
-**パラメータ**
-- matrix=&lt;string&gt;  (デフォルト=original)  
-  使用するmatrixの選択。  
-  - standard
-  - simple
+- **パラメータ**
+  - matrix=&lt;string&gt;  (デフォルト=original)  
+    使用するmatrixの選択。
+    - standard
+      ```
+      1 2 1 2 4 2 1 2 1 
+      2 4 1 4 8 4 2 4 1 
+      1 2 1 2 4 2 1 2 1 
+      ```
+    - simple
+      ```
+      1 1 1 1 1 1 1 1 1 
+      1 1 1 1 1 1 1 1 1 
+      1 1 1 1 1 1 1 1 1 
+      ```
+  
+  - fast=&lt;bool&gt  (default=false)  
+    計算を簡略化した高速モードを使用する。
+  
+  - ythresh=&lt;float&gt;  (デフォルト=3, 0-255)  
+    空間方向の輝度成分の閾値で、輪郭の保護を行う。値を大きくするとノイズ除去が強くなるものの、輪郭がぼけてしまう可能性が高まる。
+  
+  - cthresh=&lt;float&gt;  (デフォルト=4, 0-255)  
+    空間方向の色差成分の閾値で、輪郭の保護を行う。値を大きくするとノイズ除去が強くなるものの、輪郭がぼけてしまう可能性が高まる。
+  
+  - t_ythresh=&lt;float&gt;  (デフォルト=3, 0-255)  
+    時間方向の輝度成分の閾値で、シーンチェンジでの残像を防止する。値を大きくするとノイズ除去が強くなるものの、シーンチェンジで残像が生じやすくなる。10以下の値が推奨。
+  
+  - t_cthresh=&lt;float&gt;  (デフォルト=4, 0-255)  
+    時間方向の色差成分の閾値で、シーンチェンジでの残像を防止する。値を大きくするとノイズ除去が強くなるものの、シーンチェンジで残像が生じやすくなる。10以下の値が推奨。
 
-- fast=&lt;bool&gt  (default=false)  
-  計算を簡略化した高速モードを使用する。
-
-- ythresh=&lt;float&gt;  (デフォルト=3, 0-255)  
-  spatial luma threshold. 
-
-- cthresh=&lt;float&gt;  (デフォルト=4, 0-255)  
-  spatial chroma threshold.
-
-- t_ythresh=&lt;float&gt;  (デフォルト=3, 0-255)  
-  temporal luma threshold. 
-
-- t_cthresh=&lt;float&gt;  (デフォルト=4, 0-255)  
-  temporal chroma threshold.
-
-```
-例: simple matrixの使用
---vpp-convolution3d matrix=simple
-```
+- 使用例
+  ```
+  例: simple matrixの使用
+  --vpp-convolution3d matrix=simple
+  ```
 
 ### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-**パラメータ**
-- quality=&lt;int&gt;  (default=3, 1-6)  
-  処理の品質。値が大きいほど高精度だが遅くなる。
-
-- qp=&lt;int&gt;  (default=12, 1 - 63)    
-  フィルタの強さ。
+- **パラメータ**
+  - quality=&lt;int&gt;  (default=3, 1-6)  
+    処理の品質。値が大きいほど高精度だが遅くなる。
   
-- prec (デフォルト: auto)  
-  演算精度の選択。
-  - auto  
-    fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
-    現状ではTuring世代のGPUで自動的にfp16が使用される。
-    Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
-  
-  - fp16 (x64版のみ)  
-    半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
-  
-  - fp32  
-    単精度浮動小数点を使って計算する。
+  - qp=&lt;int&gt;  (default=12, 1 - 63)   
+    フィルタの強さ。値が大きいほど強さが増すが、輪郭がぼける等の副作用も強くなる。
+    
+  - prec (デフォルト: auto)  
+    演算精度の選択。
+    - auto  
+      fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
+      現状ではTuring世代のGPUで自動的にfp16が使用される。
+      Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
+    
+    - fp16 (x64版のみ)  
+      半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
+    
+    - fp32  
+      単精度浮動小数点を使って計算する。
 
   
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-**パラメータ**
-- radius=&lt;int&gt;  (default=3, 1-5)  
-  適用半径。
-
-- strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)    
-  フィルタの強さ。
-
-- lerp=&lt;float&gt;  (default=0.2, 0.0 - 1.0)  
-  ノイズ除去ピクセルへのオリジナルピクセルのブレンド度合い。
-
-- th_lerp=&lt;float&gt;   (default=0.8, 0.0 - 1.0)  
-  エッジ検出の閾値。
-
-```
-例: すこし強め
---vpp-knn radius=3,strength=0.10,lerp=0.1
-```
+- **パラメータ**
+  - radius=&lt;int&gt;  (default=3, 1-5)  
+    適用半径。値が大きいほど効果が強くなる一方、処理が重くなる。
+  
+  - strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)    
+    フィルタの強さ。値が大きいほど効果が強くなる。
+  
+  - lerp=&lt;float&gt;  (default=0.2, 0.0 - 1.0)  
+    ノイズ除去ピクセルへのオリジナルピクセルのブレンド度合い。
+  
+  - th_lerp=&lt;float&gt;   (default=0.8, 0.0 - 1.0)  
+    エッジ検出の閾値。
+  
+- 使用例
+  ```
+  例: すこし強め
+  --vpp-knn radius=3,strength=0.10,lerp=0.1
+  ```
 
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 正則化pmd法によるノイズ除去。弱めのノイズ除去を行いたいときに使用する。
 
-**パラメータ**
-- apply_count=&lt;int&gt;  (default=2, 1- )  
-  適用回数。デフォルトは2。
-
-- strength=&lt;float&gt;  (default=100, 0-100)  
-  フィルタの強さ。
-
-- threshold=&lt;float&gt;  (default=100, 0-255)  
-  フィルタの輪郭検出の閾値。小さいほど輪郭を保持するようになるが、フィルタの効果も弱まる。
-
-```
-例: すこし弱め
---vpp-pmd apply_count=2,strength=90,threshold=120
-```
+- **パラメータ**
+  - apply_count=&lt;int&gt;  (default=2, 1- )  
+    適用回数。繰り返し適用することで、より強くノイズが除去されます。デフォルトは2。
+  
+  - strength=&lt;float&gt;  (default=100, 0-100)  
+    1回ごとのフィルタの強さ。
+  
+  - threshold=&lt;float&gt;  (default=100, 0-255)  
+    フィルタの輪郭検出の閾値。小さいほど輪郭を保持するようになるが、フィルタの効果も弱まる。
+  
+- 使用例
+  ```
+  例: すこし弱め
+  --vpp-pmd apply_count=2,strength=90,threshold=120
+  ```
 
 
 ### --vpp-gauss &lt;int&gt;
@@ -2061,167 +2137,173 @@ nppi64_10.dll導入が必要で、x64版のみ使用可。
 ### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 指定した字幕の焼きこみを行う。テキスト形式の字幕については、[libass](https://github.com/libass/libass)を用いたレンダリングを行う。
 
-**Parameters**
-- track=&lt;int&gt;  
-  入力ファイルの指定した字幕トラックを焼きこむ。(--avhw, --avsw時のみ有効、字幕トラックは1,2,3,...で指定)
+- **パラメータ**
+  - track=&lt;int&gt;  
+    入力ファイルの指定した字幕トラックを焼きこむ。(--avhw, --avsw時のみ有効、字幕トラックは1,2,3,...で指定)
+    
+  - filename=&lt;string&gt;  
+    指定したファイルの字幕トラックを焼きこむ。
   
-- filename=&lt;string&gt;  
-  指定したファイルの字幕トラックを焼きこむ。
-
-- charcode=&lt;string&gt;  
-  字幕の文字コードの指定。(字幕がtext形式の場合)
-
-- shaping=&lt;string&gt;  
-  字幕のレンダリングの品質の指定。(字幕がtext形式の場合)
-  - simple
-  - complex (デフォルト)
-
-- scale=&lt;float&gt; (デフォルト=0.0 (auto))  
-  bitmap形式の字幕の表示サイズの倍率  
-
-- transparency=&lt;float&gt; (デフォルト=0.0, 0.0 - 1.0)  
-  字幕に透過性を追加する。  
-
-- brightness=&lt;float&gt; (デフォルト=0.0, -1.0 - 1.0)  
-  字幕の輝度の調整を行う。  
-
-- contrast=&lt;float&gt; (デフォルト=1.0, -2.0 - 2.0)  
-  字幕のコントラストの調整を行う。  
+  - charcode=&lt;string&gt;  
+    字幕の文字コードの指定。(字幕がtext形式の場合)
   
-- vid_ts_offset=&lt;bool&gt;  
-  動画ファイルの最初のタイムスタンプに合わせて、タイムスタンプを補正する。 (デフォルト=on)
-  なお、"track"を使用する場合は、このオプションは常にオンになります。
-
-- ts_offset=&lt;float&gt; (デフォルト=0.0)  
-  字幕のtimestampを秒単位で調整(デバッグ用)  
-
-- fontsdir=&lt;string&gt;  
-  字幕で使用するフォントの存在するフォルダの指定。
+  - shaping=&lt;string&gt;  
+    字幕のレンダリングの品質の指定。(字幕がtext形式の場合)
+    - simple
+    - complex (デフォルト)
   
-- forced_subs_only=&lt;bool&gt;  
-  forced flagのついた字幕のみを焼きこむ。 (デフォルト=off)
-
-```
-例1: 入力ファイルの字幕トラックを焼きこみ
---vpp-subburn track=1
-
-例2: PGS字幕をファイルから焼きこみ
---vpp-subburn filename="subtitle.sup"
-
-例3: Shift-JISな文字コードのassファイルの焼きこみ
---vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
-```
+  - scale=&lt;float&gt; (デフォルト=0.0 (auto))  
+    bitmap形式の字幕の表示サイズの倍率  
+  
+  - transparency=&lt;float&gt; (デフォルト=0.0, 0.0 - 1.0)  
+    字幕に透過性を追加する。  
+  
+  - brightness=&lt;float&gt; (デフォルト=0.0, -1.0 - 1.0)  
+    字幕の輝度の調整を行う。  
+  
+  - contrast=&lt;float&gt; (デフォルト=1.0, -2.0 - 2.0)  
+    字幕のコントラストの調整を行う。  
+    
+  - vid_ts_offset=&lt;bool&gt;  
+    動画ファイルの最初のタイムスタンプに合わせて、タイムスタンプを補正する。 (デフォルト=on)
+    なお、"track"を使用する場合は、このオプションは常にオンになります。
+  
+  - ts_offset=&lt;float&gt; (デフォルト=0.0)  
+    字幕のtimestampを秒単位で調整(デバッグ用)  
+  
+  - fontsdir=&lt;string&gt;  
+    字幕で使用するフォントの存在するフォルダの指定。
+    
+  - forced_subs_only=&lt;bool&gt;  
+    forced flagのついた字幕のみを焼きこむ。 (デフォルト=off)
+  
+- 使用例
+  ```
+  例1: 入力ファイルの字幕トラックを焼きこみ
+  --vpp-subburn track=1
+  
+  例2: PGS字幕をファイルから焼きこみ
+  --vpp-subburn filename="subtitle.sup"
+  
+  例3: Shift-JISな文字コードのassファイルの焼きこみ
+  --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
+  ```
   
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
 要nppi64_10.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
 
-| オプション名 | 説明 | 要nppi64_10.dll |
-|:---|:---|:---:|
-| auto  | 自動的に適切なものを選択 | |
-| bilinear | 線形補間 | |
-| spline16 | 4x4 Spline補間 | |
-| spline36 | 6x6 Spline補間 | |
-| spline64 | 8x8 Spline補間 | |
-| lanczos2 | 4x4 lanczos補間 | |
-| lanczos3 | 6x6 lanczos補間 | |
-| lanczos4 | 8x8 lanczos補間 | |
-| nn            | 最近傍点選択 | ○ |
-| npp_linear    | nppの線形補間 | ○ |
-| cubic         | 4x4 3次補間 | ○ |
-| super         | nppのsuper sampling(詳細不明) | ○ |
-| lanczos       | Lanczos法                    | ○ |
+- オプション
+  | オプション名 | 説明 | 要nppi64_10.dll |
+  |:---|:---|:---:|
+  | auto  | 自動的に適切なものを選択 | |
+  | bilinear | 線形補間 | |
+  | spline16 | 4x4 Spline補間 | |
+  | spline36 | 6x6 Spline補間 | |
+  | spline64 | 8x8 Spline補間 | |
+  | lanczos2 | 4x4 lanczos補間 | |
+  | lanczos3 | 6x6 lanczos補間 | |
+  | lanczos4 | 8x8 lanczos補間 | |
+  | nn            | 最近傍点選択 | ○ |
+  | npp_linear    | nppの線形補間 | ○ |
+  | cubic         | 4x4 3次補間 | ○ |
+  | super         | nppのsuper sampling(詳細不明) | ○ |
+  | lanczos       | Lanczos法                    | ○ |
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 
-**パラメータ**
-- radius=&lt;int&gt; (default=3, 1-9)  
-  輪郭・ディテール検出の範囲。より大きな値とすることで、より広い範囲のディテールに反応して強調をかけるようになる。
-
-- weight=&lt;float&gt; (default=0.5, 0-10)  
-  輪郭・ディテール強調の強さ。より大きな値とすることで、強く強調がかかる。
-
-- threshold=&lt;float&gt;  (default=10.0, 0-255)  
-  輪郭・ディテール検出の閾値。閾値以上の差異がある画素に対して、輪郭強調を行う。
-
-```
-例: やや強め
---vpp-unsharp weight=1.0
-```
+- **パラメータ**
+  - radius=&lt;int&gt; (default=3, 1-9)  
+    輪郭・ディテール検出の範囲。より大きな値とすることで、より広い範囲のディテールに反応して強調をかけるようになる。
+  
+  - weight=&lt;float&gt; (default=0.5, 0-10)  
+    輪郭・ディテール強調の強さ。より大きな値とすることで、強く強調がかかる。
+  
+  - threshold=&lt;float&gt;  (default=10.0, 0-255)  
+    輪郭・ディテール検出の閾値。閾値以上の差異がある画素に対して、輪郭強調を行う。
+  
+- 使用例
+  ```
+  例: やや強め
+  --vpp-unsharp weight=1.0
+  ```
 
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 エッジレベル調整フィルタ。輪郭強調用のフィルタ。
 
-**パラメータ**
-- strength=&lt;float&gt; (default=5.0, -31 - 31)  
-  輪郭強調の強さ。より大きな値とすることで、輪郭強調が強力になる。
-
-- threshold=&lt;float&gt;  (default=20.0, 0 - 255)  
-  輪郭強調を行わないようにするノイズの閾値。より大きな値ほど大きな輝度の変化をノイズとして扱うようになる。
-
-- black=&lt;float&gt;  (default=0.0, 0-31)  
-  輪郭の黒い部分について、より黒くシュートさせて輪郭を強調するようにする。
-
-- white=&lt;float&gt;  (default=0.0, 0-31)  
-  輪郭の白く部分について、より白くシュートさせて輪郭を強調するようにする。
-
-```
-例: やや強め(Aviutl版のデフォルト)
---vpp-edgelevel strength=10.0,threshold=16.0,black=0,white=0
-
-例: 輪郭の黒い部分を気持ち強める
---vpp-edgelevel strength=5.0,threshold=24.0,black=6.0
-```
+- **パラメータ**
+  - strength=&lt;float&gt; (default=5.0, -31 - 31)  
+    輪郭強調の強さ。より大きな値とすることで、輪郭強調が強力になる。
+  
+  - threshold=&lt;float&gt;  (default=20.0, 0 - 255)  
+    輪郭強調を行わないようにするノイズの閾値。より大きな値ほど大きな輝度の変化をノイズとして扱うようになる。
+  
+  - black=&lt;float&gt;  (default=0.0, 0-31)  
+    輪郭の黒い部分について、より黒くシュートさせて輪郭を強調するようにする。
+  
+  - white=&lt;float&gt;  (default=0.0, 0-31)  
+    輪郭の白く部分について、より白くシュートさせて輪郭を強調するようにする。
+  
+- 使用例
+  ```
+  例: やや強め(Aviutl版のデフォルト)
+  --vpp-edgelevel strength=10.0,threshold=16.0,black=0,white=0
+  
+  例: 輪郭の黒い部分を気持ち強める
+  --vpp-edgelevel strength=5.0,threshold=24.0,black=6.0
+  ```
 
 ### --vpp-warpsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 細線化フィルタ。輪郭調整用のフィルタ。
 
-**パラメータ**
-- threshold=&lt;float&gt;  (default=128.0, 0 - 255)  
-  輪郭検出の閾値。値をあげるほどフィルタの強度が強まる。
-
-- blur=&lt;int&gt;  (default=2)  
-  blur処理を行う回数。値をあげるほどフィルタの強度が弱まる。
-
-- type=&lt;int&gt;  (default=0)  
-  - 0 ... 13x13のblur処理を行う。
-  - 1 ... 5x5のblur処理を行う。より高品質だが、blur回数を多めにする必要がある。
+- **パラメータ**
+  - threshold=&lt;float&gt;  (default=128.0, 0 - 255)  
+    輪郭検出の閾値。値をあげるほどフィルタの強度が強まる。
   
-- depth=&lt;float&gt;  (default=16.0, -128.0 - 128.0)  
-  warpの深度。値をあげるほどフィルタの強度が強まる。
+  - blur=&lt;int&gt;  (default=2)  
+    blur処理を行う回数。値をあげるほどフィルタの強度が弱まる。
   
-- chroma=&lt;int&gt;  (default=0)  
-  色差の処理方法の指定。
-  - 0 ... 輝度ベースの輪郭検出を色差成分にも適用する。
-  - 1 ... 各色差成分についてそれぞれ輪郭検出を行う。
-
-```
-例: type=1を使う場合
---vpp-warpsharp threshold=128,blur=3,type=1
-```
+  - type=&lt;int&gt;  (default=0)  
+    - 0 ... 13x13のblur処理を行う。
+    - 1 ... 5x5のblur処理を行う。より高品質だが、blur回数を多めにする必要がある。
+    
+  - depth=&lt;float&gt;  (default=16.0, -128.0 - 128.0)  
+    warpの深度。値をあげるほどフィルタの強度が強まる。
+    
+  - chroma=&lt;int&gt;  (default=0)  
+    色差の処理方法の指定。
+    - 0 ... 輝度ベースの輪郭検出を色差成分にも適用する。
+    - 1 ... 各色差成分についてそれぞれ輪郭検出を行う。
+  
+- 使用例
+  ```
+  例: type=1を使う場合
+  --vpp-warpsharp threshold=128,blur=3,type=1
+  ```
 
 
 ### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-**パラメータ**
-- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
-
-- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
-
-- gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
-
-- saturation=&lt;float&gt; (default=1.0, 0.0 - 3.0)  
-
-- hue=&lt;float&gt; (default=0.0, -180 - 180)  
-
-- swapuv=&lt;bool&gt;  (default=false)
-
-```
-例:
---vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
-```
+- **パラメータ**
+  - brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  
+  - contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+  
+  - gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
+  
+  - saturation=&lt;float&gt; (default=1.0, 0.0 - 3.0)  
+  
+  - hue=&lt;float&gt; (default=0.0, -180 - 180)  
+  
+  - swapuv=&lt;bool&gt;  (default=false)
+  
+- 使用例
+  ```
+  例:
+  --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
+  ```
 
 ### --vpp-overlay [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 指定の画像を動画上に焼き込む。
@@ -2255,7 +2337,7 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   
   - loop=&lt;bool&gt;  (default=false)
   
-- **例**
+- 使用例
   ```
   --vpp-overlay file=logo.png,pos=1620x780,size=300x300
   --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
@@ -2263,45 +2345,46 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-**パラメータ**
-- range=&lt;int&gt; (default=15, 0-127)  
-  ぼかす範囲。この範囲内の近傍画素からサンプルを取り、ブラー処理を行う。
-
-- sample=&lt;int&gt; (default=1, 0-2)  
-  - 設定値：0  
-    周辺1画素を参照し、元の画素値を維持したまま処理を行う。
-
-  - 設定値：1  
-    周辺1画素とその点対称画素の計2画素を参照し、ブラー処理を行う。
-
-  - 設定値：2  
-    周辺2画素とその点対称画素の計4画素を参照し、ブラー処理を行う。
-
-- thre=&lt;int&gt; (一括設定)
-- thre_y=&lt;int&gt; (default=15, 0-31)
-- thre_cb=&lt;int&gt; (default=15, 0-31)
-- thre_cr=&lt;int&gt; (default=15, 0-31)  
-  y,cb,cr 各成分の閾値。この値が高いと階調飛びを減らす一方で、細かい線などが潰れやすくなる。
-
-- dither=&lt;int&gt; (一括設定)
-- dither_y=&lt;int&gt; (default=15, 0-31)
-- dither_c=&lt;int&gt; (default=15, 0-31)  
-  y成分と cb+cr成分のディザの強さ。
-
-- seed=&lt;int&gt;  
-  乱数シードの変更。 (default=1234)
-
-- blurfirst (default=off)  
-  ブラー処理を先にすることでディザ強度を減らしつつ、階調飛びが多い素材での効果を上げる。
-  全体的に副作用が強くなり細かい線が潰れやすくなる。
-
-- rand_each_frame (default=off)  
-  毎フレーム使用する乱数を変更する。
-
-```
-例:
---vpp-deband range=31,dither=12,rand_each_frame
-```
+- **パラメータ**
+  - range=&lt;int&gt; (default=15, 0-127)  
+    ぼかす範囲。この範囲内の近傍画素からサンプルを取り、ブラー処理を行う。
+  
+  - sample=&lt;int&gt; (default=1, 0-2)  
+    - 設定値：0  
+      周辺1画素を参照し、元の画素値を維持したまま処理を行う。
+  
+    - 設定値：1  
+      周辺1画素とその点対称画素の計2画素を参照し、ブラー処理を行う。
+  
+    - 設定値：2  
+      周辺2画素とその点対称画素の計4画素を参照し、ブラー処理を行う。
+  
+  - thre=&lt;int&gt; (一括設定)
+  - thre_y=&lt;int&gt; (default=15, 0-31)
+  - thre_cb=&lt;int&gt; (default=15, 0-31)
+  - thre_cr=&lt;int&gt; (default=15, 0-31)  
+    y,cb,cr 各成分の閾値。この値が高いと階調飛びを減らす一方で、細かい線などが潰れやすくなる。
+  
+  - dither=&lt;int&gt; (一括設定)
+  - dither_y=&lt;int&gt; (default=15, 0-31)
+  - dither_c=&lt;int&gt; (default=15, 0-31)  
+    y成分と cb+cr成分のディザの強さ。
+  
+  - seed=&lt;int&gt;  
+    乱数シードの変更。 (default=1234)
+  
+  - blurfirst (default=off)  
+    ブラー処理を先にすることでディザ強度を減らしつつ、階調飛びが多い素材での効果を上げる。
+    全体的に副作用が強くなり細かい線が潰れやすくなる。
+  
+  - rand_each_frame (default=off)  
+    毎フレーム使用する乱数を変更する。
+  
+- 使用例
+  ```
+  例:
+  --vpp-deband range=31,dither=12,rand_each_frame
+  ```
 
 
 ### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
@@ -2319,16 +2402,17 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 ### --cuda-schedule &lt;string&gt;
   主に、GPUのタスク終了を待機する際のCPUの挙動を決める。デフォルトはauto。
 
-- auto (デフォルト)  
-  CUDAのドライバにモード決定を委ねる。
-
-- spin  
-  常にCPUを稼働させ、GPUタスクの終了を監視する。復帰のレイテンシが最小となり、最も高速だが、CPU 1コアを常に使用する。
-
-- yeild  
-  基本的にはspinと同じだが、他のスレッドがあればそちらに譲る。
-
-- sync  
+- **パラメータ**
+  - auto (デフォルト)  
+    CUDAのドライバにモード決定を委ねる。
+  
+  - spin  
+    常にCPUを稼働させ、GPUタスクの終了を監視する。復帰のレイテンシが最小となり、最も高速だが、CPU 1コアを常に使用する。
+  
+  - yeild  
+    基本的にはspinと同じだが、他のスレッドがあればそちらに譲る。
+  
+  - sync  
  GPUタスクの終了まで、スレッドをスリープさせる。性能が落ちる可能性があるかわりに、特にHWデコード使用時に、CPU使用率を大きく削減する。
 
 ### --output-buf &lt;int&gt;
@@ -2343,12 +2427,15 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 file以外のプロトコルを使用する場合には、この出力バッファは使用されず、この設定は反映されない。
 また、出力バッファ用のメモリは縮退確保するので、必ず指定した分確保されるとは限らない。
 
+
 ### --output-thread &lt;int&gt;
 出力スレッドを使用するかどうかを指定する。
-- -1 ... 自動(デフォルト)
--  0 ... 使用しない
--  1 ... 使用する  
 出力スレッドを使用すると、メモリ使用量が増加するが、エンコード速度が向上する場合がある。
+
+- **パラメータ**  
+  - -1 ... 自動(デフォルト)
+  -  0 ... 使用しない
+  -  1 ... 使用する  
 
 ### --log &lt;string&gt;
 ログを指定したファイルに出力する。
@@ -2363,9 +2450,9 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 
 ### --log-opt &lt;param1&gt;=&lt;value&gt;[,&lt;param2&gt;=&lt;value&gt;]...
 ログ関係の追加オプションの指定。
-**パラメータ**
-- addtime (デフォルト=off)  
-  ログの各行に時刻を表示するように。
+- **パラメータ**  
+  - addtime (デフォルト=off)  
+   ログの各行に時刻を表示するように。
 
 ### --log-framelist
 avsw/avhw読み込み時のデバッグ情報出力。
@@ -2376,97 +2463,99 @@ avsw/avhw読み込み時のデバッグ情報出力。
 ### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...] or 0x&lt;hex&gt;}
 NVEncCのプロセスやスレッドのスレッドアフィニティを設定する。具体的な指定方法は例を確認してください。
 
-**対象** (&lt;string1&gt;)
-スレッドアフィニティを設定する対象を指定する。省略された場合は"all"。
+- **対象** (&lt;string1&gt;)  
+  スレッドアフィニティを設定する対象を指定する。省略された場合は"all"。
 
-- all ... 下記すべてを対象とする
-- process ... NVEncCのプロセス
-- main ... メインスレッド
-- decoder ... avhwデコード用スレッド
-- csp ... CPUの色空間変換用スレッド
-- input ... 読み込み用スレッド
-- output ... 出力用スレッド
-- audio ... 音声処理用スレッド
-- perfmonitor ... パフォーマンス測定用スレッド
-- videoquality ... ssim/psnr/vmaf算出用スレッド
+  - all ... 下記すべてを対象とする
+  - process ... NVEncCのプロセス
+  - main ... メインスレッド
+  - decoder ... avhwデコード用スレッド
+  - csp ... CPUの色空間変換用スレッド
+  - input ... 読み込み用スレッド
+  - output ... 出力用スレッド
+  - audio ... 音声処理用スレッド
+  - perfmonitor ... パフォーマンス測定用スレッド
+  - videoquality ... ssim/psnr/vmaf算出用スレッド
 
-**スレッドアフィニティ** (&lt;string2&gt;)
-- all ... 全スレッド(制限なし)
-- pcore ... performanceコアに割り当てる(hybridアーキテクチャのみ有効)
-- ecore ... efficiencyコアに割り当てる(hybridアーキテクチャのみ有効)
-- logical ... "#"以降に指定する論理コアに割り当て
-- physical ... "#"以降に指定する物理コアに割り当て
-- cachel2 ... "#"以降に指定するL2キャッシュを共有するコアに割り当て
-- cachel3 ... "#"以降に指定するL3キャッシュを共有するコアに割り当て
-- <hex> ... 0x<hex>の16進数で直接指定 (start /affinityと同じ)
+- **スレッドアフィニティ** (&lt;string2&gt;)
+  - all ... 全スレッド(制限なし)
+  - pcore ... performanceコアに割り当てる(hybridアーキテクチャのみ有効)
+  - ecore ... efficiencyコアに割り当てる(hybridアーキテクチャのみ有効)
+  - logical ... "#"以降に指定する論理コアに割り当て
+  - physical ... "#"以降に指定する物理コアに割り当て
+  - cachel2 ... "#"以降に指定するL2キャッシュを共有するコアに割り当て
+  - cachel3 ... "#"以降に指定するL3キャッシュを共有するコアに割り当て
+  - <hex> ... 0x<hex>の16進数で直接指定 (start /affinityと同じ)
 
-```
-例: プロセス全体を物理コア0,1,2,5,6に割り当て
---thread-affinity process=physical#0-2:5:6
-
-例: プロセス全体を論理コア0,1,2,3に割り当て
---thread-affinity process=0x0f
---thread-affinity process=logical#0-3
---thread-affinity process=logical#0:1:2:3
-
-例: hybridアーキテクチャでパフォーマンス測定用スレッドをefficiencyコアに割り当て
---thread-affinity perfmonitor=ecore
-
-例: Ryzen CPUでプロセス全体を最初のCCXのみに割り当て
---thread-affinity process=cachel3#0
-```
+- 使用例
+  ```
+  例: プロセス全体を物理コア0,1,2,5,6に割り当て
+  --thread-affinity process=physical#0-2:5:6
+  
+  例: プロセス全体を論理コア0,1,2,3に割り当て
+  --thread-affinity process=0x0f
+  --thread-affinity process=logical#0-3
+  --thread-affinity process=logical#0:1:2:3
+  
+  例: hybridアーキテクチャでパフォーマンス測定用スレッドをefficiencyコアに割り当て
+  --thread-affinity perfmonitor=ecore
+  
+  例: Ryzen CPUでプロセス全体を最初のCCXのみに割り当て
+  --thread-affinity process=cachel3#0
+  ```
 
 ### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...]
 プロセスやスレッドの優先度を設定する。[Windowsのみ有効]  
 
-**対象** (&lt;string1&gt;)
-設定する対象を指定する。省略された場合は"all"。
-
-- all ... 下記すべてを対象とする
-- process ... プロセス全体
-- main ... メインスレッド
-- decoder ... avhwデコード用スレッド
-- csp ... CPUの色空間変換用スレッド
-- input ... 読み込み用スレッド
-- encoder ... エンコーダパイプラインのバックグラウンドスレッド
-- output ... 出力用スレッド
-- audio ... 音声処理用スレッド
-- perfmonitor ... パフォーマンス測定用スレッド
-- videoquality ... ssim/psnr/vmaf算出用スレッド
-
-**優先度** (&lt;string2&gt;)
-- background, idle, lowest, belownormal, normal (default), abovenormal, highest
-
+- **対象** (&lt;string1&gt;)
+  設定する対象を指定する。省略された場合は"all"。
+  
+  - all ... 下記すべてを対象とする
+  - process ... プロセス全体
+  - main ... メインスレッド
+  - decoder ... avhwデコード用スレッド
+  - csp ... CPUの色空間変換用スレッド
+  - input ... 読み込み用スレッド
+  - encoder ... エンコーダパイプラインのバックグラウンドスレッド
+  - output ... 出力用スレッド
+  - audio ... 音声処理用スレッド
+  - perfmonitor ... パフォーマンス測定用スレッド
+  - videoquality ... ssim/psnr/vmaf算出用スレッド
+  
+- **優先度** (&lt;string2&gt;)
+  - background, idle, lowest, belownormal, normal (default), abovenormal, highest
+  
 ### --thread-throttling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...]
-プロセスやスレッドのスケジューリングの方針を設定する。 [Windowsのみ有効]  
-
-**対象** (&lt;string1&gt;)
-設定する対象を指定する。省略された場合は"all"。
-
-- all ... 下記すべてを対象とする
-- main ... メインスレッド
-- decoder ... avhwデコード用スレッド
-- csp ... CPUの色空間変換用スレッド
-- input ... 読み込み用スレッド
-- encoder ... エンコーダパイプラインのバックグラウンドスレッド
-- output ... 出力用スレッド
-- audio ... 音声処理用スレッド
-- perfmonitor ... パフォーマンス測定用スレッド
-- videoquality ... ssim/psnr/vmaf算出用スレッド
-
-**優先度** (&lt;string2&gt;)
-- unset (default) ... エンコード設定により自動的に決定
-- auto            ... OSに自動的に決定させる。
-- on              ... 電力効率を優先したスケジューリングを行う。
-- off             ... パフォーマンスを優先したスケジューリングを行う。
-
-```
-例: 出力スレッドとパフォーマンス測定用スレッドを電力効率を優先したスケジューリングに設定
---thread-throttling output=on,perfmonitor=on
-
-例: メインスレッドと読み込みスレッドをパフォーマンスを優先したスケジューリングに設定
---thread-throttling main=off,input=off
-```
+  プロセスやスレッドのスケジューリングの方針を設定する。 [Windowsのみ有効]  
+  
+- **対象** (&lt;string1&gt;)
+  設定する対象を指定する。省略された場合は"all"。
+  
+  - all ... 下記すべてを対象とする
+  - main ... メインスレッド
+  - decoder ... avhwデコード用スレッド
+  - csp ... CPUの色空間変換用スレッド
+  - input ... 読み込み用スレッド
+  - encoder ... エンコーダパイプラインのバックグラウンドスレッド
+  - output ... 出力用スレッド
+  - audio ... 音声処理用スレッド
+  - perfmonitor ... パフォーマンス測定用スレッド
+  - videoquality ... ssim/psnr/vmaf算出用スレッド
+  
+- **優先度** (&lt;string2&gt;)
+  - unset (default) ... エンコード設定により自動的に決定
+  - auto            ... OSに自動的に決定させる。
+  - on              ... 電力効率を優先したスケジューリングを行う。
+  - off             ... パフォーマンスを優先したスケジューリングを行う。
+  
+- 使用例
+  ```
+  例: 出力スレッドとパフォーマンス測定用スレッドを電力効率を優先したスケジューリングに設定
+  --thread-throttling output=on,perfmonitor=on
+  
+  例: メインスレッドと読み込みスレッドをパフォーマンスを優先したスケジューリングに設定
+  --thread-throttling main=off,input=off
+  ```
 
 ### --option-file &lt;string&gt;
 使用するオプションを記載したファイルを指定する。
@@ -2476,10 +2565,12 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 ### --max-procfps &lt;int&gt;
 エンコード速度の上限を設定。デフォルトは0 ( = 無制限)。
 複数本NVENCでエンコードをしていて、ひとつのストリームにCPU/GPUの全力を奪われたくないというときのためのオプション。
-```
-例: 最大速度を90fpsに制限
---max-procfps 90
-```
+
+- 使用例
+  ```
+  例: 最大速度を90fpsに制限
+  --max-procfps 90
+  ```
 
 ### --lowlatency
 エンコード遅延を低減するモード。最大エンコード速度(スループット)は低下するので、通常は不要。
@@ -2488,50 +2579,52 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 使用するAvsiynth.dllを指定するオプション。特に指定しない場合、システムのAvisynth.dllが使用される。
 
 ### --process-codepage &lt;string&gt;  
-- utf8  
-  プロセスの文字コードとしてUTF-8を使用する。(デフォルト)
+- **パラメータ**  
+  - utf8  
+    プロセスの文字コードとしてUTF-8を使用する。(デフォルト)
+    
+  - os  
+    プロセスの使用する文字コードをデフォルトのUTF-8から、OSで設定されている(SJIS等の)文字コードに切り替える。
+    通常通りOSでSJISを使用している場合に、SJISのAvisynthスクリプトを読み込ませる際に必要。
   
-- os  
-  プロセスの使用する文字コードをデフォルトのUTF-8から、OSで設定されている(SJIS等の)文字コードに切り替える。
-  通常通りOSでSJISを使用している場合に、SJISのAvisynthスクリプトを読み込ませる際に必要。
-
-  プロセスの文字コードをUTF-8からOSのデフォルトのものに変更するには、
-  実行ファイルに埋め込まれているmanifestという情報を変更する必要がある。
-  このオプションを指定すると自動的に実行ファイルをコピーしてmanifestを書き換えた一時的な実行ファイルを作成し、
-  それを実行するようになっている。
+    プロセスの文字コードをUTF-8からOSのデフォルトのものに変更するには、
+    実行ファイルに埋め込まれているmanifestという情報を変更する必要がある。
+    このオプションを指定すると自動的に実行ファイルをコピーしてmanifestを書き換えた一時的な実行ファイルを作成し、
+    それを実行するようになっている。
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 エンコーダのパフォーマンス情報を出力する。パラメータとして出力したい情報名を下記から選択できる。デフォルトはall (すべての情報)。
 
-```
- all          ... monitor all info
- cpu_total    ... cpu total usage (%)
- cpu_kernel   ... cpu kernel usage (%)
- cpu_main     ... cpu main thread usage (%)
- cpu_enc      ... cpu encode thread usage (%)
- cpu_in       ... cpu input thread usage (%)
- cpu_out      ... cpu output thread usage (%)
- cpu_aud_proc ... cpu aud proc thread usage (%)
- cpu_aud_enc  ... cpu aud enc thread usage (%)
- cpu          ... monitor all cpu info
- gpu_load    ... gpu usage (%)
- gpu_clock   ... gpu avg clock
- vee_load    ... gpu video encoder usage (%)
- ved_load    ... gpu video decoder usage (%)
- gpu         ... monitor all gpu info
- queue       ... queue usage
- mem_private ... private memory (MB)
- mem_virtual ... virtual memory (MB)
- mem         ... monitor all memory info
- io_read     ... io read  (MB/s)
- io_write    ... io write (MB/s)
- io          ... monitor all io info
- fps         ... encode speed (fps)
- fps_avg     ... encode avg. speed (fps)
- bitrate     ... encode bitrate (kbps)
- bitrate_avg ... encode avg. bitrate (kbps)
- frame_out   ... written_frames
-```
+- 情報名
+  ```
+   all          ... monitor all info
+   cpu_total    ... cpu total usage (%)
+   cpu_kernel   ... cpu kernel usage (%)
+   cpu_main     ... cpu main thread usage (%)
+   cpu_enc      ... cpu encode thread usage (%)
+   cpu_in       ... cpu input thread usage (%)
+   cpu_out      ... cpu output thread usage (%)
+   cpu_aud_proc ... cpu aud proc thread usage (%)
+   cpu_aud_enc  ... cpu aud enc thread usage (%)
+   cpu          ... monitor all cpu info
+   gpu_load    ... gpu usage (%)
+   gpu_clock   ... gpu avg clock
+   vee_load    ... gpu video encoder usage (%)
+   ved_load    ... gpu video decoder usage (%)
+   gpu         ... monitor all gpu info
+   queue       ... queue usage
+   mem_private ... private memory (MB)
+   mem_virtual ... virtual memory (MB)
+   mem         ... monitor all memory info
+   io_read     ... io read  (MB/s)
+   io_write    ... io write (MB/s)
+   io          ... monitor all io info
+   fps         ... encode speed (fps)
+   fps_avg     ... encode avg. speed (fps)
+   bitrate     ... encode bitrate (kbps)
+   bitrate_avg ... encode avg. bitrate (kbps)
+   frame_out   ... written_frames
+  ```
 
 ### --perf-monitor-interval &lt;int&gt;
 [--perf-monitor](#--perf-monitor-stringstring)でパフォーマンス測定を行う時間間隔をms単位で指定する(50以上)。デフォルトは 500。

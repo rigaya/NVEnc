@@ -1335,6 +1335,7 @@ RGYParamCommon::RGYParamCommon() :
     ppDataSelectList(nullptr),
     nAttachmentSelectCount(0),
     ppAttachmentSelectList(nullptr),
+    attachmentSource(),
     audioResampler(RGY_RESAMPLER_SWR),
     inputRetry(0),
     demuxAnalyzeSec(-1),

@@ -1302,6 +1302,7 @@ struct RGYVideoQualityMetric {
 };
 
 using AttachmentSelect = DataSelect;
+using AttachmentSource = SubSource;
 
 struct GPUAutoSelectMul {
     float cores;
@@ -1350,6 +1351,7 @@ struct RGYParamCommon {
     DataSelect **ppDataSelectList;
     int        nAttachmentSelectCount;
     AttachmentSelect **ppAttachmentSelectList;
+    std::vector<AttachmentSource> attachmentSource;
     int audioResampler;
     int inputRetry;
     double demuxAnalyzeSec;

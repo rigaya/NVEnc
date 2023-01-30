@@ -4458,7 +4458,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
     }
     if (IS_OPTION("attachment-copy")) {
-        common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
+        common->AVMuxTarget |= RGY_MUX_VIDEO;
         std::map<int, DataSelect> trackSet; //重複しないように
         if (i + 1 < nArgNum && (strInput[i + 1][0] != _T('-') && strInput[i + 1][0] != _T('\0'))) {
             i++;
@@ -4495,6 +4495,52 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 common->nAttachmentSelectCount++;
             }
         }
+        return 0;
+    }
+    if (IS_OPTION("attachment-source")) {
+        i++;
+        common->AVMuxTarget |= RGY_MUX_VIDEO;
+        SubSource src;
+        const TCHAR *ptr = strInput[i];
+        const TCHAR *qtr = _tcsrchr(ptr, _T(':'));
+#if defined(_WIN32) || defined(_WIN64)
+        if (qtr
+            && (qtr - ptr == 1 || qtr - ptr == 2)
+            && qtr[1] == _T('\\')
+            && _istalpha(qtr[-1])
+            && (qtr - ptr == 1 || qtr[-2] == _T('\"'))) {
+            qtr = _tcsrchr(qtr + 1, _T(':'));
+        }
+#endif
+        if (qtr == nullptr) {
+            src.filename = strInput[i];
+            src.select[0].encCodec = RGY_AVCODEC_COPY;
+            common->attachmentSource.push_back(src);
+            return 0;
+        }
+        src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
+        auto channel_select_list = split(qtr + 1, _T(":"));
+        for (auto channel : channel_select_list) {
+            int trackId = 0;
+            auto channel_id_split = channel.find(_T('?'));
+            if (channel_id_split != std::string::npos) {
+                try {
+                    trackId = std::stoi(channel.substr(0, channel_id_split));
+                } catch (...) {
+                    print_cmd_error_invalid_value(option_name, strInput[i], _T("invalid track ID."));
+                    return 1;
+                }
+                channel = channel.substr(channel_id_split + 1);
+            }
+            SubtitleSelect &chSel = src.select[trackId];
+            chSel.trackID = trackId;
+            int ret = parse_one_subtitle_param(chSel, channel, option_name);
+            if (ret != 0) return ret;
+            if (chSel.encCodec.length() == 0) {
+                chSel.encCodec = RGY_AVCODEC_COPY;
+            }
+        }
+        common->attachmentSource.push_back(src);
         return 0;
     }
 #endif //#if ENABLE_AVSW_READER
@@ -6235,6 +6281,22 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     tmp.str(tstring());
 
+    for (const auto &src : param->attachmentSource) {
+        if (src.filename.length() > 0) {
+            cmd << _T(" --attachment-source ") << _T("\"") << src.filename << _T("\"");
+            for (const auto &channel : src.select) {
+                cmd << _T(":");
+                tmp.str(tstring());
+                for (const auto& metadata : channel.second.metadata) {
+                    tmp << _T(";metadata=") << metadata;
+                }
+                if (!tmp.str().empty()) {
+                    cmd << tmp.str().substr(1);
+                }
+            }
+        }
+    }
+
     OPT_STR_PATH(_T("--chapter"), chapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), copyChapter);
     OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
@@ -6623,6 +6685,7 @@ tstring gen_cmd_help_common() {
 #endif //#if ENABLE_CAPTION2ASS
         _T("   --data-copy [<int>[,...]]       copy data stream to output file.\n")
         _T("   --attachment-copy [<int>[,...]] copy attachment stream to output file.\n")
+        _T("   --attachment-source <string> add file as attachment stream.\n")
         _T("\n")
         _T("   --avsync <string>            method for AV sync (default: cfr)\n")
         _T("                                 cfr      ... assume cfr\n")

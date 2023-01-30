@@ -30,6 +30,8 @@
 #include <cctype>
 #include <cmath>
 #include <memory>
+#include <fstream>
+#include <iostream>
 #include "rgy_osdep.h"
 #include "rgy_util.h"
 #include "rgy_filesystem.h"
@@ -1464,6 +1466,46 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYOutputAvcodec::InitAttachment(AVMuxOther *pMuxAttach, const AttachmentSource& attachment) {
+    std::ifstream ifs(attachment.filename, std::ios_base::in | std::ios_base::binary);
+    if (ifs.fail()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to open file: \"%s\".\n"), attachment.filename.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Opened \"%s\" for attachment stream.\n"), attachment.filename.c_str());
+
+    std::istreambuf_iterator<char> it_ifs_begin(ifs);
+    std::istreambuf_iterator<char> it_ifs_end{};
+    std::vector<char> input_data(it_ifs_begin, it_ifs_end);
+    if (ifs.fail()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to read file: \"%s\".\n"), attachment.filename.c_str());
+        return RGY_ERR_MORE_DATA;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Read %lld bytes for attachment stream.\n"), (int64_t)input_data.size());
+
+    if (nullptr == (pMuxAttach->streamOut = avformat_new_stream(m_Mux.format.formatCtx, nullptr))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    pMuxAttach->streamOut->codecpar->codec_type = AVMEDIA_TYPE_ATTACHMENT;
+    pMuxAttach->streamOut->codecpar->extradata = (uint8_t *)av_malloc(input_data.size() + AV_INPUT_BUFFER_PADDING_SIZE);
+    memcpy(pMuxAttach->streamOut->codecpar->extradata, input_data.data(), input_data.size());
+    pMuxAttach->streamOut->codecpar->extradata_size = input_data.size();
+
+    const auto attach_name_utf8 = tchar_to_string(PathGetFilename(attachment.filename), CP_UTF8);
+    av_dict_set(&pMuxAttach->streamOut->metadata, "filename", attach_name_utf8.c_str(), AV_DICT_DONT_OVERWRITE);
+    
+    if (attachment.select.size() > 1) {
+        AddMessage(RGY_LOG_ERROR, _T("Multiple setting for attachment file is unsupported: \"%s\".\n"), attachment.filename.c_str());
+        return RGY_ERR_UNSUPPORTED;
+    } else if (attachment.select.size() == 1) {
+        //ユーザー指定のパラメータの指定
+        SetMetadata(&pMuxAttach->streamOut->metadata, nullptr, attachment.select.begin()->second.metadata, RGY_METADATA_DEFAULT_CLEAR, _T("Attachment"));
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Add attachment stream: \"%s\".\n"), attachment.filename.c_str());
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *inputStream, bool streamDispositionSet) {
     const auto mediaType = (inputStream->asdata) ? AVMEDIA_TYPE_UNKNOWN : trackMediaType(inputStream->src.trackId);
     const auto mediaTypeStr = char_to_tstring(av_get_media_type_string(mediaType));
@@ -1912,6 +1954,15 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
                 iSubIdx++;
             }
         }
+    }
+
+    for (const auto& attach : prm->attachments) {
+        AVMuxOther attachStream = { 0 };
+        RGY_ERR sts = InitAttachment(&attachStream, attach);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_Mux.other.push_back(attachStream);
     }
 
     SetChapters(prm->chapterList, prm->chapterNoTrim);

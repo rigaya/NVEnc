@@ -987,7 +987,8 @@ RGY_ERR initWriters(
         writerPrm.muxVidTsLogFile         = (ctrl->logMuxVidTsFile) ? ctrl->logMuxVidTsFile : _T("");
         writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
         writerPrm.chapterNoTrim           = common->chapterNoTrim;
-        writerPrm.hdrMetadata              = hdrMetadata;
+        writerPrm.attachments             = common->attachmentSource;
+        writerPrm.hdrMetadata             = hdrMetadata;
         writerPrm.doviRpu                 = doviRpu;
         writerPrm.vidTimestamp            = vidTimestamp;
         writerPrm.videoCodecTag           = common->videoCodecTag;

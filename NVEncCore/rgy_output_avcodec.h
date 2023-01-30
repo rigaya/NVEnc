@@ -324,6 +324,7 @@ struct AvcodecWriterPrm {
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
     bool                         chapterNoTrim;           //チャプターにtrimを反映しない
+    vector<AttachmentSource>     attachments;             //attachment
     int                          audioResampler;          //音声のresamplerの選択
     uint32_t                     audioIgnoreDecodeError;  //音声デコード時に発生したエラーを無視して、無音に置き換える
     int                          bufSizeMB;               //出力バッファサイズ
@@ -358,6 +359,7 @@ struct AvcodecWriterPrm {
         inputStreamList(),
         chapterList(),
         chapterNoTrim(false),
+        attachments(),
         audioResampler(0),
         audioIgnoreDecodeError(0),
         bufSizeMB(0),
@@ -497,6 +499,9 @@ protected:
 
     //字幕の初期化
     RGY_ERR InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *inputSubtitle, bool streamDispositionSet);
+
+    //Attachmentの初期化
+    RGY_ERR InitAttachment(AVMuxOther *pMuxAttach, const AttachmentSource& attachment);
 
     //チャプターをコピー
     RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList, bool chapterNoTrim);

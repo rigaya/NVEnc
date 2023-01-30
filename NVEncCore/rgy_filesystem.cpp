@@ -139,6 +139,16 @@ bool CreateDirectoryRecursive(const wchar_t *dir) {
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+
+std::string PathGetFilename(const std::string& path) {
+    return std::filesystem::path(path).filename().string();
+}
+#if defined(_WIN32) || defined(_WIN64)
+std::wstring PathGetFilename(const std::wstring& path) {
+    return std::filesystem::path(path).filename().wstring();
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) {
     const auto target = tolowercase(std::filesystem::path(filename).extension().string());
     if (target.length() > 0) {

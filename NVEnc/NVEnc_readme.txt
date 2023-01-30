@@ -211,11 +211,24 @@ NVIDIA グラフィックドライバ 528.02
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
-2023.01.22 (7.12)
+2023.01.30 (7.14)
+[NVEncC]
+- defaultより遅いpresetの場合、可能ならbref-modeを使用するように。
+- lowlatency向けにmuxの挙動を調整。
+- 動画ファイルに添付ファイルをつけるオプションを追加。 (--attachement-source)
+- --perf-monitorでビットレート情報等が出力されないのを修正。
+- 音声エンコードスレッド (--thread-audio 1) が動作しなくなっていた問題を修正。
+
+2023.01.22 (7.13)
+[NVEncC]
 - AV1のmaster-displayの取り扱いを改善。
 - maxcllあるいはmastering displayの片方がないときに、AV1エンコードで適切でないデータが発行されていた問題の修正。
 - 言語による--audio-copyの指定が適切に動作していなかった問題を修正。
 - dolby-vision-profileを使用した場合でも、指定したchromaloc等が優先されるよう動作を変更。
+
+2023.01.21 (7.12)
+[NVEncC]
+- --vpp-overlayのlumakey使用時にもalphaを指定できるように。
 
 2023.01.20 (7.11)
 [NVEncC]
