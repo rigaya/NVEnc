@@ -108,6 +108,8 @@ enum RGY_CSP {
     RGY_CSP_RGBA,  //planar
     RGY_CSP_GBR,   //planar
     RGY_CSP_GBRA,  //planar
+    RGY_CSP_RGB_F32,  //planar
+    RGY_CSP_RGBA_F32, //planar
     RGY_CSP_YC48,
     RGY_CSP_Y8,
     RGY_CSP_Y16
@@ -157,6 +159,8 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("rgba"),
     _T("gbr"),
     _T("gbra"),
+    _T("rgb(fp32)"),
+    _T("rgba(fp32)"),
     _T("yc48"),
     _T("y8"),
     _T("yc16")
@@ -206,6 +210,8 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_RGBA
      8, //RGY_CSP_GBR
      8, //RGY_CSP_GBRA
+    32, //RGY_CSP_RGB_F32
+    32, //RGY_CSP_RGBA_F32
     10, //RGY_CSP_YC48
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
@@ -252,9 +258,11 @@ static const uint8_t RGY_CSP_PLANES[] = {
      1, //RGY_CSP_BGR24
      1, //RGY_CSP_BGR32
      3, //RGY_CSP_RGB
-     3, //RGY_CSP_RGBA
+     4, //RGY_CSP_RGBA
      3, //RGY_CSP_GBR
-     3, //RGY_CSP_GBRA
+     4, //RGY_CSP_GBRA
+     3, //RGY_CSP_RGB_F32
+     4, //RGY_CSP_RGBA_F32
      1, //RGY_CSP_YC48
      1, //RGY_CSP_Y8
      1, //RGY_CSP_Y16
@@ -325,6 +333,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48
     RGY_CHROMAFMT_MONOCHROME,
     RGY_CHROMAFMT_MONOCHROME,
@@ -374,6 +384,8 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     32, //RGY_CSP_RGBA
     24, //RGY_CSP_GBR
     32, //RGY_CSP_GBRA
+    96, //RGY_CSP_RGB_F32
+   128, //RGY_CSP_RGBA_F32
     48, //RGY_CSP_YC48
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16

@@ -626,28 +626,130 @@ void crop_uv_yuv444_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
     }
 }
 
+static __device__ float3 yuv_2_rgb(float3 yuv) {
+    const float mat00 = 1.0f, mat01 =  0.0f,     mat02 =  1.402f;
+    const float mat10 = 1.0f, mat11 = -0.34414f, mat12 = -0.71414f;
+    const float mat20 = 1.0f, mat21 =  1.772f,   mat22 =   0.0f;
+    float3 rgb;
+    rgb.x = mat00 * yuv.x + mat01 * yuv.y + mat02 * yuv.z;
+    rgb.y = mat10 * yuv.x + mat11 * yuv.y + mat12 * yuv.z;
+    rgb.z = mat20 * yuv.x + mat21 * yuv.y + mat22 * yuv.z;
+    return rgb;
+}
+
 static __device__ float3 rgb_2_yuv(float3 rgb) {
+    const float r = 0.299f;
+    const float b = 0.114f;
+    const float g = 1.0f - (r + b);
+    const float u = 0.5f / (1.0f - b);
+    const float v = 0.5f / (1.0f - r);
+    const float mat00 =              r, mat01 =      g, mat02 =              b;
+    const float mat10 =         -r * u, mat11 = -g * u, mat12 = (1.0f - b) * u;
+    const float mat20 = (1.0f - r) * v, mat21 = -g * v, mat22 =         -b * v;
     float3 yuv;
-    yuv.x =  0.257f * rgb.x + 0.504f * rgb.y + 0.098f * rgb.z +  16.0f;
-    yuv.y = -0.148f * rgb.x - 0.291f * rgb.y + 0.439f * rgb.z + 128.0f;
-    yuv.z =  0.439f * rgb.x - 0.368f * rgb.y - 0.071f * rgb.z + 128.0f;
+    yuv.x = mat00 * rgb.x + mat01 * rgb.y + mat02 * rgb.z;
+    yuv.y = mat10 * rgb.x + mat11 * rgb.y + mat12 * rgb.z;
+    yuv.z = mat20 * rgb.x + mat21 * rgb.y + mat22 * rgb.z;
     return yuv;
 }
 
+template<typename TypeOut, int out_bit_depth>
+static __device__ TypeOut scaleRGBFloatToPix(float x) {
+    if (out_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)((1ll << out_bit_depth) - 1);
+    return (TypeOut)clamp(x * range + 0.5f, 0.0f, (float)(1ll << (out_bit_depth)) - 0.5f);
+}
+
+template<typename TypeOut, int out_bit_depth>
+static __device__ TypeOut scaleYFloatToPix(float x) {
+    if (out_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)(219 << (out_bit_depth - 8));
+    const float offset = (float)(16 << (out_bit_depth - 8));
+    return (TypeOut)clamp(x * range + offset + 0.5f, 0.0f, (float)(1ll << (out_bit_depth)) - 0.5f);
+}
+
+template<typename TypeOut, int out_bit_depth>
+static __device__ TypeOut scaleUVFloatToPix(float x) {
+    if (out_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)(224 << (out_bit_depth - 8));
+    const float offset = (float)(1 << (out_bit_depth - 1));
+    return (TypeOut)clamp(x * range + offset + 0.5f, 0.0f, (float)(1ll << (out_bit_depth)) - 0.5f);
+}
+
+template<typename TypeIn, int in_bit_depth>
+static __device__ float scaleRGBPixToFloat(TypeIn x) {
+    if (in_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)((1ll << in_bit_depth) - 1);
+    const float range_inv = 1.0f / range;
+    return clamp((float)x * range_inv, 0.0f, 1.0f);
+}
+
+template<typename TypeIn, int in_bit_depth>
+static __device__ float scaleYPixToFloat(TypeIn x) {
+    if (in_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)(219 << (in_bit_depth - 8));
+    const float offset = (float)(16 << (in_bit_depth - 8));
+    const float range_inv = 1.0f / range;
+    const float offset_inv = -offset * (1.0f / range);
+    return clamp((float)x * range_inv + offset_inv, 0.0f, 1.0f);
+}
+
+template<typename TypeIn, int in_bit_depth>
+static __device__ float scaleUVPixToFloat(TypeIn x) {
+    if (in_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)(224 << (in_bit_depth - 8));
+    const float offset = (float)(1 << (in_bit_depth - 1));
+    const float range_inv = 1.0f / range;
+    const float offset_inv = -offset * (1.0f / range);
+    return clamp((float)x * range_inv + offset_inv, -0.5f, 0.5f);
+}
+
+template<typename TypeIn, int bit_depth>
+static __device__ float3 make_float_yuv3(TypeIn y, TypeIn u, TypeIn v) {
+    if (bit_depth == 32) {
+        return make_float3(y, u, v);
+    }
+    return make_float3(
+        scaleYPixToFloat<TypeIn, bit_depth>(y),
+        scaleUVPixToFloat<TypeIn, bit_depth>(u),
+        scaleUVPixToFloat<TypeIn, bit_depth>(v));
+}
+
+template<typename TypeIn, int bit_depth>
+static __device__ float3 make_float_rgb3(TypeIn r, TypeIn g, TypeIn b) {
+    if (bit_depth == 32) {
+        return make_float3(r, g, b);
+    }
+    return make_float3(
+        scaleRGBPixToFloat<TypeIn, bit_depth>(r),
+        scaleRGBPixToFloat<TypeIn, bit_depth>(g),
+        scaleRGBPixToFloat<TypeIn, bit_depth>(b));
+}
+
+
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 static __device__ void rgb3_2_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__restrict__ pDstU, uint8_t *__restrict__ pDstV, const TypeIn *ptr) {
-    float3 rgb;
-    rgb.z = (float)ptr[0];
-    rgb.y = (float)ptr[1];
-    rgb.x = (float)ptr[2];
+    float3 rgb = make_float_rgb3<TypeIn, in_bit_depth>(ptr[0], ptr[1], ptr[2]);
     float3 yuv = rgb_2_yuv(rgb);
 
     TypeOut *ptr_dst_y = (TypeOut *)(pDstY);
     TypeOut *ptr_dst_u = (TypeOut *)(pDstU);
     TypeOut *ptr_dst_v = (TypeOut *)(pDstV);
-    ptr_dst_y[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv.x) + 0.5f);
-    ptr_dst_u[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv.y) + 0.5f);
-    ptr_dst_v[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv.z) + 0.5f);
+    ptr_dst_y[0] = (TypeOut)(scaleYFloatToPix<TypeOut, out_bit_depth>(yuv.x) + 0.5f);
+    ptr_dst_u[0] = (TypeOut)(scaleUVFloatToPix<TypeOut, out_bit_depth>(yuv.y) + 0.5f);
+    ptr_dst_v[0] = (TypeOut)(scaleUVFloatToPix<TypeOut, out_bit_depth>(yuv.z) + 0.5f);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -694,18 +796,14 @@ static __device__ void rgb4_2_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__res
         TypeIn x, y, z, w;
     };
     TypeIn4 input = *(TypeIn4 *)ptr;
-    float3 rgb;
-    rgb.z = (float)input.x;
-    rgb.y = (float)input.y;
-    rgb.x = (float)input.z;
-    float3 yuv = rgb_2_yuv(rgb);
+    float3 yuv = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(input.x, input.y, input.z));
 
     TypeOut *ptr_dst_y = (TypeOut *)(pDstY);
     TypeOut *ptr_dst_u = (TypeOut *)(pDstU);
     TypeOut *ptr_dst_v = (TypeOut *)(pDstV);
-    ptr_dst_y[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv.x) + 0.5f);
-    ptr_dst_u[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv.y) + 0.5f);
-    ptr_dst_v[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv.z) + 0.5f);
+    ptr_dst_y[0] = (TypeOut)(scaleYFloatToPix<TypeOut, out_bit_depth> (yuv.x) + 0.5f);
+    ptr_dst_u[0] = (TypeOut)(scaleUVFloatToPix<TypeOut, out_bit_depth>(yuv.y) + 0.5f);
+    ptr_dst_v[0] = (TypeOut)(scaleUVFloatToPix<TypeOut, out_bit_depth>(yuv.z) + 0.5f);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -747,22 +845,21 @@ __global__ void kernel_crop_rgb_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__r
     struct __align__(sizeof(TypeOut) * 4) TypeOut4 {
         TypeOut x, y, z, w;
     };
-#define toPix(x) (TypeOut)clamp(BIT_DEPTH_CONV_FLOAT(x) + 0.5f, 0.0f, (1<<(out_bit_depth)) - 0.5f)
     if (x + PIX_PER_THREAD - 1 < dstWidth && y < dstHeight) {
         TypeIn4 srcR = *(TypeIn4 *)(pSrcR + y * srcPitch + x * sizeof(TypeIn));
         TypeIn4 srcG = *(TypeIn4 *)(pSrcG + y * srcPitch + x * sizeof(TypeIn));
         TypeIn4 srcB = *(TypeIn4 *)(pSrcB + y * srcPitch + x * sizeof(TypeIn));
 
-        float3 pix0 = rgb_2_yuv(make_float3(srcR.x, srcG.x, srcB.x));
-        float3 pix1 = rgb_2_yuv(make_float3(srcR.y, srcG.y, srcB.y));
-        float3 pix2 = rgb_2_yuv(make_float3(srcR.z, srcG.z, srcB.z));
-        float3 pix3 = rgb_2_yuv(make_float3(srcR.w, srcG.w, srcB.w));
+        float3 pix0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(srcR.x, srcG.x, srcB.x));
+        float3 pix1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(srcR.y, srcG.y, srcB.y));
+        float3 pix2 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(srcR.z, srcG.z, srcB.z));
+        float3 pix3 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(srcR.w, srcG.w, srcB.w));
 
         TypeOut4 dstY, dstU, dstV;
-        dstY.x = toPix(pix0.x); dstU.x = toPix(pix0.y); dstV.x = toPix(pix0.z);
-        dstY.y = toPix(pix1.x); dstU.y = toPix(pix1.y); dstV.y = toPix(pix1.z);
-        dstY.z = toPix(pix2.x); dstU.z = toPix(pix2.y); dstV.z = toPix(pix2.z);
-        dstY.w = toPix(pix3.x); dstU.w = toPix(pix3.y); dstV.w = toPix(pix3.z);
+        dstY.x = scaleYFloatToPix<TypeOut, out_bit_depth>(pix0.x); dstU.x = scaleUVFloatToPix<TypeOut, out_bit_depth>(pix0.y); dstV.x = scaleUVFloatToPix<TypeOut, out_bit_depth>(pix0.z);
+        dstY.y = scaleYFloatToPix<TypeOut, out_bit_depth>(pix1.x); dstU.y = scaleUVFloatToPix<TypeOut, out_bit_depth>(pix1.y); dstV.y = scaleUVFloatToPix<TypeOut, out_bit_depth>(pix1.z);
+        dstY.z = scaleYFloatToPix<TypeOut, out_bit_depth>(pix2.x); dstU.z = scaleUVFloatToPix<TypeOut, out_bit_depth>(pix2.y); dstV.z = scaleUVFloatToPix<TypeOut, out_bit_depth>(pix2.z);
+        dstY.w = scaleYFloatToPix<TypeOut, out_bit_depth>(pix3.x); dstU.w = scaleUVFloatToPix<TypeOut, out_bit_depth>(pix3.y); dstV.w = scaleUVFloatToPix<TypeOut, out_bit_depth>(pix3.z);
 
         TypeOut4 *ptrDstY = (TypeOut4 *)(pDstY + y * dstPitch + x * sizeof(TypeOut));
         TypeOut4 *ptrDstU = (TypeOut4 *)(pDstU + y * dstPitch + x * sizeof(TypeOut));
@@ -772,7 +869,6 @@ __global__ void kernel_crop_rgb_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__r
         ptrDstU[0] = dstU;
         ptrDstV[0] = dstV;
     }
-#undef toPix
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -791,12 +887,67 @@ void crop_rgb_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame
         planeInputR.ptr, planeInputG.ptr, planeInputB.ptr, planeInputR.pitch, pCrop->e.left, pCrop->e.up);
 }
 
-template<typename TypeIn>
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+__global__ void kernel_crop_yuv444_rgb(
+    uint8_t *__restrict__ pDstR, uint8_t *__restrict__ pDstG, uint8_t *__restrict__ pDstB,
+    const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrcY, const uint8_t *__restrict__ pSrcU, const uint8_t *__restrict__ pSrcV,
+    const int srcPitch, const int offsetX, const int offsetY) {
+    const int PIX_PER_THREAD = 4;
+    int x = (blockIdx.x * blockDim.x + threadIdx.x) * PIX_PER_THREAD; //4pixel分ロードする
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    struct __align__(sizeof(TypeIn) * 4) TypeIn4 {
+        TypeIn x, y, z, w;
+    };
+    struct __align__(sizeof(TypeOut) * 4) TypeOut4 {
+        TypeOut x, y, z, w;
+    };
+    if (x + PIX_PER_THREAD - 1 < dstWidth && y < dstHeight) {
+        TypeIn4 srcY = *(TypeIn4 *)(pSrcY + y * srcPitch + x * sizeof(TypeIn));
+        TypeIn4 srcU = *(TypeIn4 *)(pSrcU + y * srcPitch + x * sizeof(TypeIn));
+        TypeIn4 srcV = *(TypeIn4 *)(pSrcV + y * srcPitch + x * sizeof(TypeIn));
+
+        float3 pix0 = yuv_2_rgb(make_float_yuv3<TypeIn, in_bit_depth>(srcY.x, srcU.x, srcV.x));
+        float3 pix1 = yuv_2_rgb(make_float_yuv3<TypeIn, in_bit_depth>(srcY.y, srcU.y, srcV.y));
+        float3 pix2 = yuv_2_rgb(make_float_yuv3<TypeIn, in_bit_depth>(srcY.z, srcU.z, srcV.z));
+        float3 pix3 = yuv_2_rgb(make_float_yuv3<TypeIn, in_bit_depth>(srcY.w, srcU.w, srcV.w));
+
+        TypeOut4 dstR, dstG, dstB;
+        dstR.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix0.x); dstG.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix0.y); dstB.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix0.z);
+        dstR.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix1.x); dstG.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix1.y); dstB.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix1.z);
+        dstR.z = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix2.x); dstG.z = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix2.y); dstB.z = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix2.z);
+        dstR.w = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix3.x); dstG.w = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix3.y); dstB.w = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix3.z);
+
+        TypeOut4 *ptrDstR = (TypeOut4 *)(pDstR + y * dstPitch + x * sizeof(TypeOut));
+        TypeOut4 *ptrDstG = (TypeOut4 *)(pDstG + y * dstPitch + x * sizeof(TypeOut));
+        TypeOut4 *ptrDstB = (TypeOut4 *)(pDstB + y * dstPitch + x * sizeof(TypeOut));
+
+        ptrDstR[0] = dstR;
+        ptrDstG[0] = dstG;
+        ptrDstB[0] = dstB;
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_yuv444_rgb(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputR = getPlane(pOutputFrame, RGY_PLANE_R);
+    auto planeOutputG = getPlane(pOutputFrame, RGY_PLANE_G);
+    auto planeOutputB = getPlane(pOutputFrame, RGY_PLANE_B);
+
+    dim3 blockSize(32, 4);
+    dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 4), divCeil(pOutputFrame->height, blockSize.y));
+    kernel_crop_yuv444_rgb<TypeOut, out_bit_depth, TypeIn, in_bit_depth> << <gridSize, blockSize, 0, stream >> > (
+        planeOutputR.ptr, planeOutputG.ptr, planeOutputB.ptr, planeOutputR.pitch, planeOutputR.width, planeOutputR.height,
+        planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch,
+        pCrop->e.left, pCrop->e.up);
+}
+
+template<typename TypeIn, int in_bit_depth>
 static __device__ float3 rgb3_2_yuv(const TypeIn *ptr) {
-    float3 rgb;
-    rgb.z = (float)ptr[0];
-    rgb.y = (float)ptr[1];
-    rgb.x = (float)ptr[2];
+    float3 rgb = make_float_rgb3<TypeIn, in_bit_depth>(ptr[0], ptr[1], ptr[2]);
     return rgb_2_yuv(rgb);
 }
 
@@ -823,10 +974,10 @@ __global__ void kernel_crop_rgb3_yv12(uint8_t *__restrict__ pDstY, uint8_t *__re
     }
     __syncthreads();
     if (x * 2 < dstWidth && y * 2 < dstHeight) {
-        float3 yuv00 = rgb3_2_yuv(ptrSharedIn + threadIdx.x * 6 + 0 + (threadIdx.y * 2 + 0) * blockDim.x * 6);
-        float3 yuv01 = rgb3_2_yuv(ptrSharedIn + threadIdx.x * 6 + 3 + (threadIdx.y * 2 + 0) * blockDim.x * 6);
-        float3 yuv10 = rgb3_2_yuv(ptrSharedIn + threadIdx.x * 6 + 0 + (threadIdx.y * 2 + 1) * blockDim.x * 6);
-        float3 yuv11 = rgb3_2_yuv(ptrSharedIn + threadIdx.x * 6 + 3 + (threadIdx.y * 2 + 1) * blockDim.x * 6);
+        float3 yuv00 = rgb3_2_yuv<TypeIn, in_bit_depth>(ptrSharedIn + threadIdx.x * 6 + 0 + (threadIdx.y * 2 + 0) * blockDim.x * 6);
+        float3 yuv01 = rgb3_2_yuv<TypeIn, in_bit_depth>(ptrSharedIn + threadIdx.x * 6 + 3 + (threadIdx.y * 2 + 0) * blockDim.x * 6);
+        float3 yuv10 = rgb3_2_yuv<TypeIn, in_bit_depth>(ptrSharedIn + threadIdx.x * 6 + 0 + (threadIdx.y * 2 + 1) * blockDim.x * 6);
+        float3 yuv11 = rgb3_2_yuv<TypeIn, in_bit_depth>(ptrSharedIn + threadIdx.x * 6 + 3 + (threadIdx.y * 2 + 1) * blockDim.x * 6);
 
         TypeOut *ptr_dst_y00 = (TypeOut *)(pDstY + ((y * 2 + 0) * dstPitch) + (x * 2 + 0) * sizeof(TypeOut));
         TypeOut *ptr_dst_y01 = (TypeOut *)(pDstY + ((y * 2 + 0) * dstPitch) + (x * 2 + 1) * sizeof(TypeOut));
@@ -834,12 +985,12 @@ __global__ void kernel_crop_rgb3_yv12(uint8_t *__restrict__ pDstY, uint8_t *__re
         TypeOut *ptr_dst_y11 = (TypeOut *)(pDstY + ((y * 2 + 1) * dstPitch) + (x * 2 + 1) * sizeof(TypeOut));
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + y * dstPitch + x * sizeof(TypeOut));
         TypeOut *ptr_dst_v = (TypeOut *)(pDstV + y * dstPitch + x * sizeof(TypeOut));
-        ptr_dst_y00[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv00.x) + 0.5f);
-        ptr_dst_y01[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv01.x) + 0.5f);
-        ptr_dst_y10[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv10.x) + 0.5f);
-        ptr_dst_y11[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv11.x) + 0.5f);
-        ptr_dst_u[0]   = (TypeOut)(BIT_DEPTH_CONV_FLOAT((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f) + 0.5f);
-        ptr_dst_v[0]   = (TypeOut)(BIT_DEPTH_CONV_FLOAT((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f) + 0.5f);
+        ptr_dst_y00[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv00.x);
+        ptr_dst_y01[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv01.x);
+        ptr_dst_y10[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv10.x);
+        ptr_dst_y11[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv11.x);
+        ptr_dst_u[0]   = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f);
+        ptr_dst_v[0]   = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f);
     }
 }
 
@@ -878,22 +1029,22 @@ __global__ void kernel_crop_rgb3_nv12(uint8_t *__restrict__ pDstY, uint8_t *__re
     }
     __syncthreads();
     if (x * 2 < dstWidth && y * 2 < dstHeight) {
-        float3 yuv00 = rgb3_2_yuv(ptrSharedIn + threadIdx.x * 6 + 0 + (threadIdx.y * 2 + 0) * blockDim.x * 6);
-        float3 yuv01 = rgb3_2_yuv(ptrSharedIn + threadIdx.x * 6 + 3 + (threadIdx.y * 2 + 0) * blockDim.x * 6);
-        float3 yuv10 = rgb3_2_yuv(ptrSharedIn + threadIdx.x * 6 + 0 + (threadIdx.y * 2 + 1) * blockDim.x * 6);
-        float3 yuv11 = rgb3_2_yuv(ptrSharedIn + threadIdx.x * 6 + 3 + (threadIdx.y * 2 + 1) * blockDim.x * 6);
+        float3 yuv00 = rgb3_2_yuv<TypeIn, in_bit_depth>(ptrSharedIn + threadIdx.x * 6 + 0 + (threadIdx.y * 2 + 0) * blockDim.x * 6);
+        float3 yuv01 = rgb3_2_yuv<TypeIn, in_bit_depth>(ptrSharedIn + threadIdx.x * 6 + 3 + (threadIdx.y * 2 + 0) * blockDim.x * 6);
+        float3 yuv10 = rgb3_2_yuv<TypeIn, in_bit_depth>(ptrSharedIn + threadIdx.x * 6 + 0 + (threadIdx.y * 2 + 1) * blockDim.x * 6);
+        float3 yuv11 = rgb3_2_yuv<TypeIn, in_bit_depth>(ptrSharedIn + threadIdx.x * 6 + 3 + (threadIdx.y * 2 + 1) * blockDim.x * 6);
 
         TypeOut *ptr_dst_y00 = (TypeOut *)(pDstY + ((y * 2 + 0) * dstPitch) + (x * 2 + 0) * sizeof(TypeOut));
         TypeOut *ptr_dst_y01 = (TypeOut *)(pDstY + ((y * 2 + 0) * dstPitch) + (x * 2 + 1) * sizeof(TypeOut));
         TypeOut *ptr_dst_y10 = (TypeOut *)(pDstY + ((y * 2 + 1) * dstPitch) + (x * 2 + 0) * sizeof(TypeOut));
         TypeOut *ptr_dst_y11 = (TypeOut *)(pDstY + ((y * 2 + 1) * dstPitch) + (x * 2 + 1) * sizeof(TypeOut));
         TypeOut *ptr_dst_c = (TypeOut *)(pDstC + y * dstPitch + x * 2 * sizeof(TypeOut));
-        ptr_dst_y00[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv00.x) + 0.5f);
-        ptr_dst_y01[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv01.x) + 0.5f);
-        ptr_dst_y10[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv10.x) + 0.5f);
-        ptr_dst_y11[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv11.x) + 0.5f);
-        ptr_dst_c[0]   = (TypeOut)(BIT_DEPTH_CONV_FLOAT((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f) + 0.5f);
-        ptr_dst_c[1]   = (TypeOut)(BIT_DEPTH_CONV_FLOAT((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f) + 0.5f);
+        ptr_dst_y00[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv00.x);
+        ptr_dst_y01[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv01.x);
+        ptr_dst_y10[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv10.x);
+        ptr_dst_y11[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv11.x);
+        ptr_dst_c[0]   = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f);
+        ptr_dst_c[1]   = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f);
     }
 }
 
@@ -908,16 +1059,13 @@ void crop_rgb3_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
         pInputFrame->ptr, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
 }
 
-template<typename TypeIn>
+template<typename TypeIn, int in_bit_depth>
 static __device__ float3 rgb4_2_yuv(const TypeIn *ptr) {
     struct TypeIn4 {
         TypeIn x, y, z, w;
     };
     TypeIn4 input = *(TypeIn4 *)ptr;
-    float3 rgb;
-    rgb.x = (float)input.z;
-    rgb.y = (float)input.y;
-    rgb.z = (float)input.x;
+    float3 rgb = make_float_rgb3<TypeIn, in_bit_depth>(input.z, input.y, input.x);
     return rgb_2_yuv(rgb);
 }
 
@@ -928,10 +1076,10 @@ __global__ void kernel_crop_rgb4_yv12(uint8_t *__restrict__ pDstY, uint8_t *__re
     int x = blockIdx.x * blockDim.x + threadIdx.x; //スレッドはpixel数/2
     int y = blockIdx.y * blockDim.y + threadIdx.y; //スレッドはpixel数/2
     if (x * 2 < dstWidth && y * 2 < dstHeight) {
-        float3 yuv00 = rgb4_2_yuv(pSrc + (y * 2 + 0) * srcPitch + (x * 2 + 0) * 4 * sizeof(TypeIn));
-        float3 yuv01 = rgb4_2_yuv(pSrc + (y * 2 + 0) * srcPitch + (x * 2 + 1) * 4 * sizeof(TypeIn));
-        float3 yuv10 = rgb4_2_yuv(pSrc + (y * 2 + 1) * srcPitch + (x * 2 + 0) * 4 * sizeof(TypeIn));
-        float3 yuv11 = rgb4_2_yuv(pSrc + (y * 2 + 1) * srcPitch + (x * 2 + 1) * 4 * sizeof(TypeIn));
+        float3 yuv00 = rgb4_2_yuv<TypeIn, in_bit_depth>(pSrc + (y * 2 + 0) * srcPitch + (x * 2 + 0) * 4 * sizeof(TypeIn));
+        float3 yuv01 = rgb4_2_yuv<TypeIn, in_bit_depth>(pSrc + (y * 2 + 0) * srcPitch + (x * 2 + 1) * 4 * sizeof(TypeIn));
+        float3 yuv10 = rgb4_2_yuv<TypeIn, in_bit_depth>(pSrc + (y * 2 + 1) * srcPitch + (x * 2 + 0) * 4 * sizeof(TypeIn));
+        float3 yuv11 = rgb4_2_yuv<TypeIn, in_bit_depth>(pSrc + (y * 2 + 1) * srcPitch + (x * 2 + 1) * 4 * sizeof(TypeIn));
 
         TypeOut *ptr_dst_y00 = (TypeOut *)(pDstY + ((y * 2 + 0) * dstPitch) + (x * 2 + 0) * sizeof(TypeOut));
         TypeOut *ptr_dst_y01 = (TypeOut *)(pDstY + ((y * 2 + 0) * dstPitch) + (x * 2 + 1) * sizeof(TypeOut));
@@ -939,12 +1087,12 @@ __global__ void kernel_crop_rgb4_yv12(uint8_t *__restrict__ pDstY, uint8_t *__re
         TypeOut *ptr_dst_y11 = (TypeOut *)(pDstY + ((y * 2 + 1) * dstPitch) + (x * 2 + 1) * sizeof(TypeOut));
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + y * dstPitch + x * sizeof(TypeOut));
         TypeOut *ptr_dst_v = (TypeOut *)(pDstV + y * dstPitch + x * sizeof(TypeOut));
-        ptr_dst_y00[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv00.x) + 0.5f);
-        ptr_dst_y01[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv01.x) + 0.5f);
-        ptr_dst_y10[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv10.x) + 0.5f);
-        ptr_dst_y11[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv11.x) + 0.5f);
-        ptr_dst_u[0]   = (TypeOut)(BIT_DEPTH_CONV_FLOAT((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f) + 0.5f);
-        ptr_dst_v[0]   = (TypeOut)(BIT_DEPTH_CONV_FLOAT((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f) + 0.5f);
+        ptr_dst_y00[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv00.x);
+        ptr_dst_y01[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv01.x);
+        ptr_dst_y10[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv10.x);
+        ptr_dst_y11[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv11.x);
+        ptr_dst_u[0]   = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f);
+        ptr_dst_v[0]   = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f);
     }
 }
 
@@ -967,22 +1115,22 @@ __global__ void kernel_crop_rgb4_nv12(uint8_t *__restrict__ pDstY, uint8_t *__re
     int x = blockIdx.x * blockDim.x + threadIdx.x; //スレッドはpixel数/2
     int y = blockIdx.y * blockDim.y + threadIdx.y; //スレッドはpixel数/2
     if (x * 2 < dstWidth && y * 2 < dstHeight) {
-        float3 yuv00 = rgb4_2_yuv(pSrc + (y * 2 + 0) * srcPitch + (x * 2 + 0) * 4 * sizeof(TypeIn));
-        float3 yuv01 = rgb4_2_yuv(pSrc + (y * 2 + 0) * srcPitch + (x * 2 + 1) * 4 * sizeof(TypeIn));
-        float3 yuv10 = rgb4_2_yuv(pSrc + (y * 2 + 1) * srcPitch + (x * 2 + 0) * 4 * sizeof(TypeIn));
-        float3 yuv11 = rgb4_2_yuv(pSrc + (y * 2 + 1) * srcPitch + (x * 2 + 1) * 4 * sizeof(TypeIn));
+        float3 yuv00 = rgb4_2_yuv<TypeIn, in_bit_depth>(pSrc + (y * 2 + 0) * srcPitch + (x * 2 + 0) * 4 * sizeof(TypeIn));
+        float3 yuv01 = rgb4_2_yuv<TypeIn, in_bit_depth>(pSrc + (y * 2 + 0) * srcPitch + (x * 2 + 1) * 4 * sizeof(TypeIn));
+        float3 yuv10 = rgb4_2_yuv<TypeIn, in_bit_depth>(pSrc + (y * 2 + 1) * srcPitch + (x * 2 + 0) * 4 * sizeof(TypeIn));
+        float3 yuv11 = rgb4_2_yuv<TypeIn, in_bit_depth>(pSrc + (y * 2 + 1) * srcPitch + (x * 2 + 1) * 4 * sizeof(TypeIn));
 
         TypeOut *ptr_dst_y00 = (TypeOut *)(pDstY + ((y * 2 + 0) * dstPitch) + (x * 2 + 0) * sizeof(TypeOut));
         TypeOut *ptr_dst_y01 = (TypeOut *)(pDstY + ((y * 2 + 0) * dstPitch) + (x * 2 + 1) * sizeof(TypeOut));
         TypeOut *ptr_dst_y10 = (TypeOut *)(pDstY + ((y * 2 + 1) * dstPitch) + (x * 2 + 0) * sizeof(TypeOut));
         TypeOut *ptr_dst_y11 = (TypeOut *)(pDstY + ((y * 2 + 1) * dstPitch) + (x * 2 + 1) * sizeof(TypeOut));
         TypeOut *ptr_dst_c = (TypeOut *)(pDstC + y * dstPitch + x * 2 * sizeof(TypeOut));
-        ptr_dst_y00[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv00.x) + 0.5f);
-        ptr_dst_y01[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv01.x) + 0.5f);
-        ptr_dst_y10[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv10.x) + 0.5f);
-        ptr_dst_y11[0] = (TypeOut)(BIT_DEPTH_CONV_FLOAT(yuv11.x) + 0.5f);
-        ptr_dst_c[0]   = (TypeOut)(BIT_DEPTH_CONV_FLOAT((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f) + 0.5f);
-        ptr_dst_c[1]   = (TypeOut)(BIT_DEPTH_CONV_FLOAT((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f) + 0.5f);
+        ptr_dst_y00[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv00.x);
+        ptr_dst_y01[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv01.x);
+        ptr_dst_y10[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv10.x);
+        ptr_dst_y11[0] = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv11.x);
+        ptr_dst_c[0]   = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f);
+        ptr_dst_c[1]   = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f);
     }
 }
 
@@ -1021,37 +1169,34 @@ __global__ void kernel_crop_rgb_yv12(uint8_t *__restrict__ pDstY, uint8_t *__res
         TypeIn4 b_x0123_y0 = *(TypeIn4 *)(pSrcB + (y * 2 + 0) * srcPitch + x * 4 * sizeof(TypeIn));
         TypeIn4 b_x0123_y1 = *(TypeIn4 *)(pSrcB + (y * 2 + 1) * srcPitch + x * 4 * sizeof(TypeIn));
 
-        float3 yuv_x0_y0 = rgb_2_yuv(make_float3(r_x0123_y0.x, g_x0123_y0.x, b_x0123_y0.x));
-        float3 yuv_x1_y0 = rgb_2_yuv(make_float3(r_x0123_y0.y, g_x0123_y0.y, b_x0123_y0.y));
-        float3 yuv_x2_y0 = rgb_2_yuv(make_float3(r_x0123_y0.z, g_x0123_y0.z, b_x0123_y0.z));
-        float3 yuv_x3_y0 = rgb_2_yuv(make_float3(r_x0123_y0.w, g_x0123_y0.w, b_x0123_y0.w));
-        float3 yuv_x0_y1 = rgb_2_yuv(make_float3(r_x0123_y1.x, g_x0123_y1.x, b_x0123_y1.x));
-        float3 yuv_x1_y1 = rgb_2_yuv(make_float3(r_x0123_y1.y, g_x0123_y1.y, b_x0123_y1.y));
-        float3 yuv_x2_y1 = rgb_2_yuv(make_float3(r_x0123_y1.z, g_x0123_y1.z, b_x0123_y1.z));
-        float3 yuv_x3_y1 = rgb_2_yuv(make_float3(r_x0123_y1.w, g_x0123_y1.w, b_x0123_y1.w));
-
-#define toPix(x) (TypeOut)clamp(BIT_DEPTH_CONV_FLOAT(x) + 0.5f, 0.0f, (1<<(out_bit_depth)) - 0.5f)
+        float3 yuv_x0_y0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y0.x, g_x0123_y0.x, b_x0123_y0.x));
+        float3 yuv_x1_y0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y0.y, g_x0123_y0.y, b_x0123_y0.y));
+        float3 yuv_x2_y0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y0.z, g_x0123_y0.z, b_x0123_y0.z));
+        float3 yuv_x3_y0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y0.w, g_x0123_y0.w, b_x0123_y0.w));
+        float3 yuv_x0_y1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y1.x, g_x0123_y1.x, b_x0123_y1.x));
+        float3 yuv_x1_y1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y1.y, g_x0123_y1.y, b_x0123_y1.y));
+        float3 yuv_x2_y1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y1.z, g_x0123_y1.z, b_x0123_y1.z));
+        float3 yuv_x3_y1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y1.w, g_x0123_y1.w, b_x0123_y1.w));
 
         TypeOut4 *ptr_dst_y0 = (TypeOut4 *)(pDstY + ((y * 2 + 0) * dstPitch) + x * 4 * sizeof(TypeOut));
         TypeOut4 *ptr_dst_y1 = (TypeOut4 *)(pDstY + ((y * 2 + 1) * dstPitch) + x * 4 * sizeof(TypeOut));
         TypeOut4 dstY0, dstY1;
-        dstY0.x = toPix(yuv_x0_y0.x); dstY1.x = toPix(yuv_x0_y1.x);
-        dstY0.y = toPix(yuv_x1_y0.x); dstY1.y = toPix(yuv_x1_y1.x);
-        dstY0.z = toPix(yuv_x2_y0.x); dstY1.z = toPix(yuv_x2_y1.x);
-        dstY0.w = toPix(yuv_x3_y0.x); dstY1.w = toPix(yuv_x3_y1.x);
+        dstY0.x = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x0_y0.x); dstY1.x = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x0_y1.x);
+        dstY0.y = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x1_y0.x); dstY1.y = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x1_y1.x);
+        dstY0.z = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x2_y0.x); dstY1.z = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x2_y1.x);
+        dstY0.w = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x3_y0.x); dstY1.w = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x3_y1.x);
         ptr_dst_y0[0] = dstY0;
         ptr_dst_y1[0] = dstY1;
 
         TypeOut2 *ptr_dst_u = (TypeOut2 *)(pDstU + y * dstPitch + x * 2 * sizeof(TypeOut));
         TypeOut2 *ptr_dst_v = (TypeOut2 *)(pDstV + y * dstPitch + x * 2 * sizeof(TypeOut));
         TypeOut2 dstU, dstV;
-        dstU.x = toPix((yuv_x0_y0.y + yuv_x1_y0.y + yuv_x0_y1.y + yuv_x1_y1.y) * 0.25f);
-        dstU.y = toPix((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x0_y1.y + yuv_x2_y1.y) * 0.25f);
-        dstV.x = toPix((yuv_x0_y0.z + yuv_x1_y0.z + yuv_x0_y1.z + yuv_x1_y1.z) * 0.25f);
-        dstV.y = toPix((yuv_x2_y0.z + yuv_x3_y0.z + yuv_x0_y1.z + yuv_x2_y1.z) * 0.25f);
+        dstU.x = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x0_y0.y + yuv_x1_y0.y + yuv_x0_y1.y + yuv_x1_y1.y) * 0.25f);
+        dstU.y = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x0_y1.y + yuv_x2_y1.y) * 0.25f);
+        dstV.x = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x0_y0.z + yuv_x1_y0.z + yuv_x0_y1.z + yuv_x1_y1.z) * 0.25f);
+        dstV.y = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.z + yuv_x3_y0.z + yuv_x0_y1.z + yuv_x2_y1.z) * 0.25f);
         ptr_dst_u[0] = dstU;
         ptr_dst_v[0] = dstV;
-#undef toPix
     }
 }
 
@@ -1068,6 +1213,84 @@ void crop_rgb_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, 
     kernel_crop_rgb_yv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream >>>(
         planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch, planeOutputY.width, planeOutputY.height,
         planeInputR.ptr, planeInputG.ptr, planeInputB.ptr, planeInputR.pitch, pCrop->e.left, pCrop->e.up);
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+__global__ void kernel_crop_yv12_rgb(
+    uint8_t *__restrict__ pDstR, uint8_t *__restrict__ pDstG, uint8_t *__restrict__ pDstB,
+    const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrcY, const uint8_t *__restrict__ pSrcU, const uint8_t *__restrict__ pSrcV,
+    const int srcPitch, const int offsetX, const int offsetY) {
+    int x = (blockIdx.x * blockDim.x + threadIdx.x) * 2; //2pixel分ロードする
+    int y = (blockIdx.y * blockDim.y + threadIdx.y) * 2; //2pixel分ロードする
+    struct __align__(sizeof(TypeIn) * 2) TypeIn2 {
+        TypeIn x, y;
+    };
+    struct __align__(sizeof(TypeOut) * 2) TypeOut2 {
+        TypeOut x, y;
+    };
+    if (x < dstWidth && y < dstHeight) {
+        TypeIn2 srcY0 = *(TypeIn2 *)(pSrcY + (y+0) * srcPitch +  x     * sizeof(TypeIn));
+        TypeIn2 srcY1 = *(TypeIn2 *)(pSrcY + (y+1) * srcPitch +  x     * sizeof(TypeIn));
+        TypeIn srcU0  = *(TypeIn *)(pSrcU + (y>>1) * srcPitch + (x>>1) * sizeof(TypeIn));
+        TypeIn srcV0  = *(TypeIn *)(pSrcV + (y>>1) * srcPitch + (x>>1) * sizeof(TypeIn));
+
+        TypeIn srcY00 = srcY0.x;
+        TypeIn srcY01 = srcY0.y;
+        TypeIn srcY10 = srcY1.x;
+        TypeIn srcY11 = srcY1.y;
+
+        TypeIn srcU00 = srcU0;
+        TypeIn srcV00 = srcV0;
+        TypeIn srcU01 = (x + 2 < dstWidth) ? *(TypeIn *)(pSrcU + (y >> 1) * srcPitch + ((x >> 1) + 1) * sizeof(TypeIn)) : srcU00;
+        TypeIn srcV01 = (x + 2 < dstWidth) ? *(TypeIn *)(pSrcV + (y >> 1) * srcPitch + ((x >> 1) + 1) * sizeof(TypeIn)) : srcV00;
+        TypeIn srcU001 = (srcU00 + srcU01 + 1) >> 1;
+        TypeIn srcV001 = (srcV00 + srcV01 + 1) >> 1;
+
+        float3 pix00 = yuv_2_rgb(make_float_yuv3<TypeIn, in_bit_depth>(srcY00, srcU00,  srcV00));
+        float3 pix01 = yuv_2_rgb(make_float_yuv3<TypeIn, in_bit_depth>(srcY01, srcU001, srcV001));
+        float3 pix10 = yuv_2_rgb(make_float_yuv3<TypeIn, in_bit_depth>(srcY10, srcU00,  srcV00));
+        float3 pix11 = yuv_2_rgb(make_float_yuv3<TypeIn, in_bit_depth>(srcY11, srcU001, srcV001));
+
+        TypeOut2 dstR0, dstR1, dstG0, dstG1, dstB0, dstB1;
+        dstR0.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix00.x); dstG0.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix00.y); dstB0.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix00.z);
+        dstR0.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix01.x); dstG0.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix01.y); dstB0.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix01.z);
+        dstR1.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix10.x); dstG1.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix10.y); dstB1.x = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix10.z);
+        dstR1.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix11.x); dstG1.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix11.y); dstB1.y = scaleRGBFloatToPix<TypeOut, out_bit_depth>(pix11.z);
+
+        TypeOut2 *ptrDstR = (TypeOut2 *)(pDstR + y * dstPitch + x * sizeof(TypeOut));
+        TypeOut2 *ptrDstG = (TypeOut2 *)(pDstG + y * dstPitch + x * sizeof(TypeOut));
+        TypeOut2 *ptrDstB = (TypeOut2 *)(pDstB + y * dstPitch + x * sizeof(TypeOut));
+
+        ptrDstR[0] = dstR0;
+        ptrDstG[0] = dstG0;
+        ptrDstB[0] = dstB0;
+
+        ptrDstR = (TypeOut2 *)(pDstR + (y+1) * dstPitch + x * sizeof(TypeOut));
+        ptrDstG = (TypeOut2 *)(pDstG + (y+1) * dstPitch + x * sizeof(TypeOut));
+        ptrDstB = (TypeOut2 *)(pDstB + (y+1) * dstPitch + x * sizeof(TypeOut));
+
+        ptrDstR[0] = dstR1;
+        ptrDstG[0] = dstG1;
+        ptrDstB[0] = dstB1;
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_yv12_rgb(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputR = getPlane(pOutputFrame, RGY_PLANE_R);
+    auto planeOutputG = getPlane(pOutputFrame, RGY_PLANE_G);
+    auto planeOutputB = getPlane(pOutputFrame, RGY_PLANE_B);
+
+    dim3 blockSize(32, 4);
+    dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 2), divCeil(pOutputFrame->height, blockSize.y * 2));
+    kernel_crop_yv12_rgb<TypeOut, out_bit_depth, TypeIn, in_bit_depth> << <gridSize, blockSize, 0, stream >> > (
+        planeOutputR.ptr, planeOutputG.ptr, planeOutputB.ptr, planeOutputR.pitch, planeOutputR.width, planeOutputR.height,
+        planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch,
+        pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -1091,35 +1314,32 @@ __global__ void kernel_crop_rgb_nv12(uint8_t *__restrict__ pDstY, uint8_t *__res
         TypeIn4 b_x0123_y0 = *(TypeIn4 *)(pSrcB + (y * 2 + 0) * srcPitch + x * 4 * sizeof(TypeIn));
         TypeIn4 b_x0123_y1 = *(TypeIn4 *)(pSrcB + (y * 2 + 1) * srcPitch + x * 4 * sizeof(TypeIn));
 
-        float3 yuv_x0_y0 = rgb_2_yuv(make_float3(r_x0123_y0.x, g_x0123_y0.x, b_x0123_y0.x));
-        float3 yuv_x1_y0 = rgb_2_yuv(make_float3(r_x0123_y0.y, g_x0123_y0.y, b_x0123_y0.y));
-        float3 yuv_x2_y0 = rgb_2_yuv(make_float3(r_x0123_y0.z, g_x0123_y0.z, b_x0123_y0.z));
-        float3 yuv_x3_y0 = rgb_2_yuv(make_float3(r_x0123_y0.w, g_x0123_y0.w, b_x0123_y0.w));
-        float3 yuv_x0_y1 = rgb_2_yuv(make_float3(r_x0123_y1.x, g_x0123_y1.x, b_x0123_y1.x));
-        float3 yuv_x1_y1 = rgb_2_yuv(make_float3(r_x0123_y1.y, g_x0123_y1.y, b_x0123_y1.y));
-        float3 yuv_x2_y1 = rgb_2_yuv(make_float3(r_x0123_y1.z, g_x0123_y1.z, b_x0123_y1.z));
-        float3 yuv_x3_y1 = rgb_2_yuv(make_float3(r_x0123_y1.w, g_x0123_y1.w, b_x0123_y1.w));
-
-#define toPix(x) (TypeOut)clamp(BIT_DEPTH_CONV_FLOAT(x) + 0.5f, 0.0f, (1<<(out_bit_depth)) - 0.5f)
+        float3 yuv_x0_y0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y0.x, g_x0123_y0.x, b_x0123_y0.x));
+        float3 yuv_x1_y0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y0.y, g_x0123_y0.y, b_x0123_y0.y));
+        float3 yuv_x2_y0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y0.z, g_x0123_y0.z, b_x0123_y0.z));
+        float3 yuv_x3_y0 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y0.w, g_x0123_y0.w, b_x0123_y0.w));
+        float3 yuv_x0_y1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y1.x, g_x0123_y1.x, b_x0123_y1.x));
+        float3 yuv_x1_y1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y1.y, g_x0123_y1.y, b_x0123_y1.y));
+        float3 yuv_x2_y1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y1.z, g_x0123_y1.z, b_x0123_y1.z));
+        float3 yuv_x3_y1 = rgb_2_yuv(make_float_rgb3<TypeIn, in_bit_depth>(r_x0123_y1.w, g_x0123_y1.w, b_x0123_y1.w));
 
         TypeOut4 *ptr_dst_y0 = (TypeOut4 *)(pDstY + ((y * 2 + 0) * dstPitch) + x * 4 * sizeof(TypeOut));
         TypeOut4 *ptr_dst_y1 = (TypeOut4 *)(pDstY + ((y * 2 + 1) * dstPitch) + x * 4 * sizeof(TypeOut));
         TypeOut4 dstY0, dstY1;
-        dstY0.x = toPix(yuv_x0_y0.x); dstY1.x = toPix(yuv_x0_y1.x);
-        dstY0.y = toPix(yuv_x1_y0.x); dstY1.y = toPix(yuv_x1_y1.x);
-        dstY0.z = toPix(yuv_x2_y0.x); dstY1.z = toPix(yuv_x2_y1.x);
-        dstY0.w = toPix(yuv_x3_y0.x); dstY1.w = toPix(yuv_x3_y1.x);
+        dstY0.x = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x0_y0.x); dstY1.x = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x0_y1.x);
+        dstY0.y = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x1_y0.x); dstY1.y = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x1_y1.x);
+        dstY0.z = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x2_y0.x); dstY1.z = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x2_y1.x);
+        dstY0.w = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x3_y0.x); dstY1.w = scaleYFloatToPix<TypeOut, out_bit_depth>(yuv_x3_y1.x);
         ptr_dst_y0[0] = dstY0;
         ptr_dst_y1[0] = dstY1;
 
         TypeOut4 *ptr_dst_c = (TypeOut4 *)(pDstC + y * dstPitch + x * 4 * sizeof(TypeOut));
         TypeOut4 dstC;
-        dstC.x = toPix((yuv_x0_y0.y + yuv_x1_y0.y + yuv_x0_y1.y + yuv_x1_y1.y) * 0.25f);
-        dstC.y = toPix((yuv_x0_y0.z + yuv_x1_y0.z + yuv_x0_y1.z + yuv_x1_y1.z) * 0.25f);
-        dstC.z = toPix((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x0_y1.y + yuv_x2_y1.y) * 0.25f);
-        dstC.w = toPix((yuv_x2_y0.z + yuv_x3_y0.z + yuv_x0_y1.z + yuv_x2_y1.z) * 0.25f);
+        dstC.x = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x0_y0.y + yuv_x1_y0.y + yuv_x0_y1.y + yuv_x1_y1.y) * 0.25f);
+        dstC.y = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x0_y0.z + yuv_x1_y0.z + yuv_x0_y1.z + yuv_x1_y1.z) * 0.25f);
+        dstC.z = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x0_y1.y + yuv_x2_y1.y) * 0.25f);
+        dstC.w = scaleUVFloatToPix<TypeOut, out_bit_depth>((yuv_x2_y0.z + yuv_x3_y0.z + yuv_x0_y1.z + yuv_x2_y1.z) * 0.25f);
         ptr_dst_c[0] = dstC;
-#undef toPix
     }
 }
 
@@ -1213,6 +1433,44 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_RGB) {
+        static const std::map<uint64_t, decltype(&crop_yv12_rgb<uint8_t, 8, uint8_t, 8>)> convert_from_yv12_to_rgb_list = {
+            { RGY_CSP_2(RGY_CSP_YV12,    RGY_CSP_RGB    ).i, crop_yv12_rgb<uint8_t, 8, uint8_t,   8> },
+            { RGY_CSP_2(RGY_CSP_YV12_16, RGY_CSP_RGB    ).i, crop_yv12_rgb<uint8_t, 8, uint16_t, 16> },
+            { RGY_CSP_2(RGY_CSP_YV12_14, RGY_CSP_RGB    ).i, crop_yv12_rgb<uint8_t, 8, uint16_t, 14> },
+            { RGY_CSP_2(RGY_CSP_YV12_12, RGY_CSP_RGB    ).i, crop_yv12_rgb<uint8_t, 8, uint16_t, 12> },
+            { RGY_CSP_2(RGY_CSP_YV12_10, RGY_CSP_RGB    ).i, crop_yv12_rgb<uint8_t, 8, uint16_t, 10> },
+            { RGY_CSP_2(RGY_CSP_YV12,    RGY_CSP_GBR    ).i, crop_yv12_rgb<uint8_t, 8, uint8_t,   8> },
+            { RGY_CSP_2(RGY_CSP_YV12_16, RGY_CSP_GBR    ).i, crop_yv12_rgb<uint8_t, 8, uint16_t, 16> },
+            { RGY_CSP_2(RGY_CSP_YV12_14, RGY_CSP_GBR    ).i, crop_yv12_rgb<uint8_t, 8, uint16_t, 14> },
+            { RGY_CSP_2(RGY_CSP_YV12_12, RGY_CSP_GBR    ).i, crop_yv12_rgb<uint8_t, 8, uint16_t, 12> },
+            { RGY_CSP_2(RGY_CSP_YV12_10, RGY_CSP_GBR    ).i, crop_yv12_rgb<uint8_t, 8, uint16_t, 10> },
+            { RGY_CSP_2(RGY_CSP_YV12,    RGY_CSP_RGB_F32).i, crop_yv12_rgb<float,  32, uint8_t,   8> },
+            { RGY_CSP_2(RGY_CSP_YV12_16, RGY_CSP_RGB_F32).i, crop_yv12_rgb<float,  32, uint16_t, 16> },
+            { RGY_CSP_2(RGY_CSP_YV12_14, RGY_CSP_RGB_F32).i, crop_yv12_rgb<float,  32, uint16_t, 14> },
+            { RGY_CSP_2(RGY_CSP_YV12_12, RGY_CSP_RGB_F32).i, crop_yv12_rgb<float,  32, uint16_t, 12> },
+            { RGY_CSP_2(RGY_CSP_YV12_10, RGY_CSP_RGB_F32).i, crop_yv12_rgb<float,  32, uint16_t, 10> }
+        };
+        if (interlaced(*pInputFrame)) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported interlaced csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
+        if (convert_from_yv12_to_rgb_list.count(cspconv.i) == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        convert_from_yv12_to_rgb_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
+        auto cudaerr = cudaGetLastError();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at convert_from_yv12_to_rgb_list(%s -> %s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return RGY_ERR_INVALID_CALL;
+        }
+        return RGY_ERR_NONE;
+    }
+
     const auto frameOutInfoEx = getFrameInfoExtra(&pCropParam->frameOut);
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
@@ -1341,6 +1599,39 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, con
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_RGB) {
+        static const std::map<uint64_t, decltype(&crop_yuv444_rgb<uint8_t, 8, uint8_t, 8>)> convert_from_yuv444_to_rgb_list = {
+            { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_RGB    ).i, crop_yuv444_rgb<uint8_t, 8, uint8_t,   8> },
+            { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_RGB    ).i, crop_yuv444_rgb<uint8_t, 8, uint16_t, 16> },
+            { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_RGB    ).i, crop_yuv444_rgb<uint8_t, 8, uint16_t, 14> },
+            { RGY_CSP_2(RGY_CSP_YUV444_12, RGY_CSP_RGB    ).i, crop_yuv444_rgb<uint8_t, 8, uint16_t, 12> },
+            { RGY_CSP_2(RGY_CSP_YUV444_10, RGY_CSP_RGB    ).i, crop_yuv444_rgb<uint8_t, 8, uint16_t, 10> },
+            { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_GBR    ).i, crop_yuv444_rgb<uint8_t, 8, uint8_t,   8> },
+            { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_GBR    ).i, crop_yuv444_rgb<uint8_t, 8, uint16_t, 16> },
+            { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_GBR    ).i, crop_yuv444_rgb<uint8_t, 8, uint16_t, 14> },
+            { RGY_CSP_2(RGY_CSP_YUV444_12, RGY_CSP_GBR    ).i, crop_yuv444_rgb<uint8_t, 8, uint16_t, 12> },
+            { RGY_CSP_2(RGY_CSP_YUV444_10, RGY_CSP_GBR    ).i, crop_yuv444_rgb<uint8_t, 8, uint16_t, 10> },
+            { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_RGB_F32).i, crop_yuv444_rgb<float,  32, uint8_t,   8> },
+            { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_RGB_F32).i, crop_yuv444_rgb<float,  32, uint16_t, 16> },
+            { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_RGB_F32).i, crop_yuv444_rgb<float,  32, uint16_t, 14> },
+            { RGY_CSP_2(RGY_CSP_YUV444_12, RGY_CSP_RGB_F32).i, crop_yuv444_rgb<float,  32, uint16_t, 12> },
+            { RGY_CSP_2(RGY_CSP_YUV444_10, RGY_CSP_RGB_F32).i, crop_yuv444_rgb<float,  32, uint16_t, 10> }
+        };
+        const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
+        if (convert_from_yuv444_to_rgb_list.count(cspconv.i) == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        convert_from_yuv444_to_rgb_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
+        auto cudaerr = cudaGetLastError();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at convert_from_yuv444_to_rgb_list(%s -> %s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return RGY_ERR_INVALID_CALL;
+        }
+        return RGY_ERR_NONE;
     }
     const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
     //Y
@@ -1474,6 +1765,35 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromRGB(RGYFrameInfo *pOutputFrame, const 
         { RGY_CSP_2(RGY_CSP_RGB, RGY_CSP_YV12_16).i,   crop_rgb_yv12<uint16_t, 16, uint8_t, 8> },
         { RGY_CSP_2(RGY_CSP_RGB, RGY_CSP_NV12).i,      crop_rgb_nv12<uint8_t,   8, uint8_t, 8> },
         { RGY_CSP_2(RGY_CSP_RGB, RGY_CSP_P010).i,      crop_rgb_nv12<uint16_t, 16, uint8_t, 8> },
+
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444).i,    crop_rgb_yuv444<uint8_t,   8, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_09).i, crop_rgb_yuv444<uint16_t,  9, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_10).i, crop_rgb_yuv444<uint16_t, 10, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_12).i, crop_rgb_yuv444<uint16_t, 12, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_14).i, crop_rgb_yuv444<uint16_t, 14, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_16).i, crop_rgb_yuv444<uint16_t, 16, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12).i,      crop_rgb_yv12<uint8_t,   8, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_09).i,   crop_rgb_yv12<uint16_t,  9, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_10).i,   crop_rgb_yv12<uint16_t, 10, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_12).i,   crop_rgb_yv12<uint16_t, 12, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_14).i,   crop_rgb_yv12<uint16_t, 14, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_16).i,   crop_rgb_yv12<uint16_t, 16, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_NV12).i,      crop_rgb_nv12<uint8_t,   8, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_P010).i,      crop_rgb_nv12<uint16_t, 16, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444).i,    crop_rgb_yuv444<uint8_t,   8, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_09).i, crop_rgb_yuv444<uint16_t,  9, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_10).i, crop_rgb_yuv444<uint16_t, 10, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_12).i, crop_rgb_yuv444<uint16_t, 12, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_14).i, crop_rgb_yuv444<uint16_t, 14, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YUV444_16).i, crop_rgb_yuv444<uint16_t, 16, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12).i,      crop_rgb_yv12<uint8_t,   8, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_09).i,   crop_rgb_yv12<uint16_t,  9, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_10).i,   crop_rgb_yv12<uint16_t, 10, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_12).i,   crop_rgb_yv12<uint16_t, 12, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_14).i,   crop_rgb_yv12<uint16_t, 14, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_YV12_16).i,   crop_rgb_yv12<uint16_t, 16, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_NV12).i,      crop_rgb_nv12<uint8_t,   8, float, 32> },
+        { RGY_CSP_2(RGY_CSP_RGB_F32, RGY_CSP_P010).i,      crop_rgb_nv12<uint16_t, 16, float, 32> },
 
         { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444).i,    crop_rgb_yuv444<uint8_t,   8, uint8_t, 8> },
         { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_09).i, crop_rgb_yuv444<uint16_t,  9, uint8_t, 8> },
@@ -1681,7 +2001,7 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
         static const auto supportedCspNV16   = make_array<RGY_CSP>(RGY_CSP_NV16, RGY_CSP_P210);
         static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32, RGY_CSP_RGB, RGY_CSP_GBR);
+        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32, RGY_CSP_RGB, RGY_CSP_GBR, RGY_CSP_RGB_F32);
         if (std::find(supportedCspNV12.begin(), supportedCspNV12.end(), pCropParam->frameIn.csp) != supportedCspNV12.end()) {
             sts = convertCspFromNV12(ppOutputFrames[0], pInputFrame, stream);
         } else if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameIn.csp) != supportedCspYV12.end()) {
