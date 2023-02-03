@@ -92,6 +92,9 @@ const TCHAR* NVRTC_DLL_NAME_TSTR = _T("libnvrtc.so");
 const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("");
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+static const int RESIZE_BLOCK_X = 32;
+static const int RESIZE_BLOCK_Y = 8;
+static_assert(RESIZE_BLOCK_Y <= RESIZE_BLOCK_X, "RESIZE_BLOCK_Y <= RESIZE_BLOCK_X");
 
 #if (!defined(_M_IX86))
 static const auto RGY_VPP_RESIZE_ALGO_TO_NPPI = make_array<std::pair<RGY_VPP_RESIZE_ALGO, NppiInterpolationMode>>(
@@ -109,6 +112,12 @@ static const auto RGY_VPP_RESIZE_ALGO_TO_NPPI = make_array<std::pair<RGY_VPP_RES
 
 MAP_PAIR_0_1(vpp_resize_algo, rgy, RGY_VPP_RESIZE_ALGO, enc, NppiInterpolationMode, RGY_VPP_RESIZE_ALGO_TO_NPPI, RGY_VPP_RESIZE_UNKNOWN, NPPI_INTER_UNDEFINED);
 #endif
+
+enum RESIZE_WEIGHT_TYPE {
+    WEIGHT_UNKNOWN,
+    WEIGHT_LANCZOS,
+    WEIGHT_SPLINE,
+};
 
 template<typename TypePixel>
 cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const RGYFrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
@@ -157,31 +166,31 @@ void resize_texture(uint8_t *pDst, const int dstPitch, const int dstWidth, const
 }
 
 template<typename Type, int bit_depth>
-cudaError_t resize_texture_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
+RGY_ERR resize_texture_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
     const float ratioX = 1.0f / (float)(pOutputFrame->width);
     const float ratioY = 1.0f / (float)(pOutputFrame->height);
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
     if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, (interp == RGY_VPP_RESIZE_BILINEAR) ? cudaFilterModeLinear : cudaFilterModePoint, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
     resize_texture<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
         pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
         texSrc, ratioX, ratioY, stream);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
     cudaerr = cudaDestroyTextureObject(texSrc);
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t resize_texture_frame(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
+static RGY_ERR resize_texture_frame(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -191,252 +200,207 @@ static cudaError_t resize_texture_frame(RGYFrameInfo* pOutputFrame, const RGYFra
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
-    auto cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputY, &planeSrcY, interp, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = resize_texture_plane<Type, bit_depth>(&planeOutputY, &planeSrcY, interp, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputU, &planeSrcU, interp, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = resize_texture_plane<Type, bit_depth>(&planeOutputU, &planeSrcU, interp, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputV, &planeSrcV, interp, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    if (planeOutputA.ptr != nullptr) {
-        cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputA, &planeSrcA, interp, stream);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
-        }
-    }
-    return cudaerr;
-}
-
-template<typename Type, int bit_depth, int radius, int block_x, int block_y>
-__global__ void kernel_resize_spline(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
-    cudaTextureObject_t texObj,
-    const float ratioX, const float ratioY, const float ratioDistX, const float ratioDistY, const float *__restrict__ pgFactor) {
-    const int ix = blockIdx.x * block_x + threadIdx.x;
-    const int iy = blockIdx.y * block_y + threadIdx.y;
-
-    //重みをsharedメモリにコピー
-    __shared__ float psCopyFactor[radius][4];
-    static_assert(radius * 4 < block_x, "radius * 4 < block_x");
-    if (threadIdx.y == 0 && threadIdx.x < radius * 4) {
-        ((float *)psCopyFactor[0])[threadIdx.x] = pgFactor[threadIdx.x];
-    }
-    __syncthreads();
-
-    if (ix < dstWidth && iy < dstHeight) {
-        //ピクセルの中心を算出してからスケール
-        const float x = ((float)ix + 0.5f) * ratioX;
-        const float y = ((float)iy + 0.5f) * ratioY;
-
-        float pWeightX[radius * 2];
-        float pWeightY[radius * 2];
-
-        #pragma unroll
-        for (int i = 0; i < radius * 2; i++) {
-            //+0.5fはピクセル中心とするため
-            const float sx = floorf(x) + i - radius + 1.0f + 0.5f;
-            const float sy = floorf(y) + i - radius + 1.0f + 0.5f;
-            //拡大ならratioDistXは1.0f、縮小ならratioの逆数(縮小側の距離に変換)
-            const float dx = std::abs(sx - x) * ratioDistX;
-            const float dy = std::abs(sy - y) * ratioDistY;
-            float *psWeightX = psCopyFactor[min((int)dx, radius-1)];
-            float *psWeightY = psCopyFactor[min((int)dy, radius-1)];
-            //重みを計算
-            float wx = psWeightX[3];
-            float wy = psWeightY[3];
-            wx += dx * psWeightX[2];
-            wy += dy * psWeightY[2];
-            const float dx2 = dx * dx;
-            const float dy2 = dy * dy;
-            wx += dx2 * psWeightX[1];
-            wy += dy2 * psWeightY[1];
-            wx += dx2 * dx * psWeightX[0];
-            wy += dy2 * dy * psWeightY[0];
-            pWeightX[i] = wx;
-            pWeightY[i] = wy;
-        }
-
-        float weightSum = 0.0f;
-        float clr = 0.0f;
-        for (int j = 0; j < radius * 2; j++) {
-            const float sy = floorf(y) + j - radius + 1.0f + 0.5f;
-            const float weightY = pWeightY[j];
-            #pragma unroll
-            for (int i = 0; i < radius * 2; i++) {
-                const float sx = floorf(x) + i - radius + 1.0f + 0.5f;
-                const float weightXY = pWeightX[i] * weightY;
-                clr += tex2D<float>(texObj, sx, sy) * weightXY;
-                weightSum += weightXY;
-            }
-        }
-
-        Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)clamp(clr * __frcp_rn(weightSum) * (1<<bit_depth), 0.0f, (1<<bit_depth) - 0.1f);
-    }
-}
-
-template<typename Type, int bit_depth, int radius>
-void resize_spline(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight,
-    cudaTextureObject_t texObj, const float ratioX, const float ratioY, const float ratioDistX, const float ratioDistY, const float *pgFactor, cudaStream_t stream) {
-    const int BLOCK_X = 32;
-    const int BLOCK_Y = 8;
-    dim3 blockSize(BLOCK_X, BLOCK_Y);
-    dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
-    kernel_resize_spline<Type, bit_depth, radius, BLOCK_X, BLOCK_Y><<<gridSize, blockSize, 0, stream>>>(
-        pDst, dstPitch, dstWidth, dstHeight, texObj, ratioX, ratioY, ratioDistX, ratioDistY, pgFactor);
-}
-
-template<typename Type, int bit_depth, int radius>
-static cudaError_t resize_spline_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const float *pgFactor, cudaStream_t stream) {
-    const float ratioX = pInputFrame->width / (float)(pOutputFrame->width);
-    const float ratioY = pInputFrame->height / (float)(pOutputFrame->height);
-    const float ratioDistX = (pInputFrame->width <= pOutputFrame->width) ? 1.0f : pOutputFrame->width / (float)(pInputFrame->width);
-    const float ratioDistY = (pInputFrame->height <= pOutputFrame->height) ? 1.0f : pOutputFrame->height / (float)(pInputFrame->height);
-
-    cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
-        return cudaerr;
-    }
-    resize_spline<Type, bit_depth, radius>((uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, ratioX, ratioY, ratioDistX, ratioDistY, pgFactor, stream);
-    cudaerr = cudaGetLastError();
-    cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
-}
-
-template<typename Type, int bit_depth, int radius>
-static cudaError_t resize_spline_frame(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, const float* pgFactor, cudaStream_t stream) {
-    const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
-    const auto planeSrcA = getPlane(pInputFrame, RGY_PLANE_A);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-    auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
-
-    auto cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputY, &planeSrcY, pgFactor, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputU, &planeSrcU, pgFactor, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputV, &planeSrcV, pgFactor, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = resize_texture_plane<Type, bit_depth>(&planeOutputV, &planeSrcV, interp, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     if (planeOutputA.ptr != nullptr) {
-        cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputA, &planeSrcA, pgFactor, stream);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        sts = resize_texture_plane<Type, bit_depth>(&planeOutputA, &planeSrcA, interp, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    return cudaerr;
+    return sts;
+}
+
+
+__inline__ __device__
+float sinc(float x) {
+    const float pi = (float)M_PI;
+    const float pi_x = pi * x;
+    return __sinf(pi_x) / pi_x;
 }
 
 template<int radius>
 __inline__ __device__
-float lanczos_factor(float x) {
-    const float pi = (float)M_PI;
+float factor_lanczos(const float x) {
+    if (fabs(x) >= (float)radius) return 0.0f;
     if (x == 0.0f) return 1.0f;
-    if (x >= (float)radius) return 0.0f;
-    const float pi_x = pi * x;
-    return (float)radius * __sinf(pi_x) * __sinf(pi_x * (1.0f / (float)radius)) * __frcp_rn(pi_x * pi_x);
+    return sinc(x) * sinc(x * (1.0f / radius));
 }
 
-template<typename Type, int bit_depth, int radius, int block_x, int block_y>
-__global__ void kernel_resize_lanczos(uint8_t* __restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
-    cudaTextureObject_t texObj,
-    const float ratioX, const float ratioY, const float ratioDistX, const float ratioDistY) {
+template<int radius>
+__inline__ __device__
+float factor_spline(const float x, const float *psCopyFactor) {
+    const float *psWeight = psCopyFactor + min((int)x, radius - 1) * 4;
+    //重みを計算
+    float w = psWeight[3];
+    w += x * psWeight[2];
+    const float x2 = x * x;
+    w += x2 * psWeight[1];
+    w += x2 * x * psWeight[0];
+    return w;
+}
+
+template<int radius, RESIZE_WEIGHT_TYPE algo>
+void __inline__ __device__ calc_weight(
+    float *pWeight, const float srcPos, const int srcFirst, const int srcEnd, const float ratioClamped, const float *psCopyFactor) {
+    float weightSum = 0.0f;
+    float *pW = pWeight;
+    for (int i = srcFirst; i <= srcEnd; i++, pW++) {
+        const float delta = ((i + 0.5f) - srcPos) * ratioClamped;
+        float weight = 0.0f;
+        switch (algo) {
+        case WEIGHT_LANCZOS: weight = factor_lanczos<radius>(delta); break;
+        case WEIGHT_SPLINE:  weight = factor_spline<radius>(fabs(delta), psCopyFactor);
+        default:
+            break;
+        }
+        pW[0] = weight;
+        weightSum += weight;
+    }
+
+    pW = pWeight;
+    float weightSumInv = 1.0f / weightSum;
+    for (int i = srcFirst; i <= srcEnd; i++, pW++) {
+        pW[0] *= weightSumInv;
+    }
+}
+
+template<typename Type, int bit_depth, RESIZE_WEIGHT_TYPE algo, int radius, int block_x, int block_y>
+__global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
+    const float ratioX, const float ratioY, const float *__restrict__ pgFactor,
+    const int shared_weightXdim, const int shared_weightYdim) {
+    const float ratioInvX = 1.0f / ratioX;
+    const float ratioClampedX = min(ratioX, 1.0f);
+    const float srcWindowX = radius / ratioClampedX;
+
+    const float ratioInvY = 1.0f / ratioY;
+    const float ratioClampedY = min(ratioY, 1.0f);
+    const float srcWindowY = radius / ratioClampedY;
+
+    //重みをsharedメモリにコピー
+    alignas(128) extern __shared__ float shared[];
+    float *weightXshared = shared;
+    float *weightYshared = weightXshared + shared_weightXdim * block_x;
+    float *psCopyFactor  = weightYshared + shared_weightYdim * block_y;
+
+    if (algo == WEIGHT_SPLINE) {
+        if (threadIdx.y == 0) {
+            static_assert(radius * 4 < block_x, "radius * 4 < block_x");
+            if (threadIdx.x < radius * 4) {
+                psCopyFactor[threadIdx.x] = pgFactor[threadIdx.x];
+            }
+        }
+        __syncthreads();
+    }
+
+    if (threadIdx.y == 0) {
+        // threadIdx.y==0のスレッドが、x方向の重みをそれぞれ計算してsharedメモリに書き込み
+        const int dstX = blockIdx.x * block_x + threadIdx.x;
+        const float srcX = ((float)(dstX + 0.5f)) * ratioInvX;
+        const int srcFirstX = max(0, (int)floorf(srcX - srcWindowX));
+        const int srcEndX = min(srcWidth - 1, (int)ceilf(srcX + srcWindowX));
+        calc_weight<radius, algo>(weightXshared + threadIdx.x * shared_weightXdim, srcX, srcFirstX, srcEndX, ratioClampedX, psCopyFactor);
+
+        if (threadIdx.x < block_y) {
+            // threadIdx.y==0のスレッドが、y方向の重みをそれぞれ計算してsharedメモリに書き込み
+            const int thready = threadIdx.x;
+            const int dstY = blockIdx.y * block_y + thready;
+            const float srcY = ((float)(dstY + 0.5f)) * ratioInvY;
+            const int srcFirstY = max(0, (int)floorf(srcY - srcWindowY));
+            const int srcEndY = min(srcHeight - 1, (int)ceilf(srcY + srcWindowY));
+            calc_weight<radius, algo>(weightYshared + thready * shared_weightYdim, srcY, srcFirstY, srcEndY, ratioClampedY, psCopyFactor);
+        }
+    }
+
+    __syncthreads();
+
     const int ix = blockIdx.x * block_x + threadIdx.x;
     const int iy = blockIdx.y * block_y + threadIdx.y;
-
     if (ix < dstWidth && iy < dstHeight) {
         //ピクセルの中心を算出してからスケール
         const float x = ((float)ix + 0.5f) * ratioX;
         const float y = ((float)iy + 0.5f) * ratioY;
 
-        float pWeightX[radius * 2];
-        float pWeightY[radius * 2];
+        const float srcX = ((float)(ix + 0.5f)) * ratioInvX;
+        const int srcFirstX = max(0, (int)floorf(srcX - srcWindowX));
+        const int srcEndX = min(srcWidth - 1, (int)ceilf(srcX + srcWindowX));
+        const float *weightX = weightXshared + threadIdx.x * shared_weightXdim;
 
-        #pragma unroll
-        for (int i = 0; i < radius * 2; i++) {
-            //+0.5fはピクセル中心とするため
-            const float sx = floorf(x) + i - radius + 1.0f + 0.5f;
-            const float sy = floorf(y) + i - radius + 1.0f + 0.5f;
-            //拡大ならratioDistXは1.0f、縮小ならratioの逆数(縮小側の距離に変換)
-            const float dx = std::abs(sx - x) * ratioDistX;
-            const float dy = std::abs(sy - y) * ratioDistY;
-            pWeightX[i] = lanczos_factor<radius>(dx);
-            pWeightY[i] = lanczos_factor<radius>(dy);
-        }
+        const float srcY = ((float)(iy + 0.5f)) * ratioInvY;
+        const int srcFirstY = max(0, (int)floorf(srcY - srcWindowY));
+        const int srcEndY = min(srcHeight - 1, (int)ceilf(srcY + srcWindowY));
+        const float *weightY = weightYshared + threadIdx.y * shared_weightYdim;
 
-        float weightSum = 0.0f;
+        const uint8_t *srcLine = pSrc + srcFirstY * srcPitch + srcFirstX * sizeof(Type);
         float clr = 0.0f;
-        for (int j = 0; j < radius * 2; j++) {
-            const float sy = floorf(y) + j - radius + 1.0f + 0.5f;
-            const float weightY = pWeightY[j];
-            #pragma unroll
-            for (int i = 0; i < radius * 2; i++) {
-                const float sx = floorf(x) + i - radius + 1.0f + 0.5f;
-                const float weightXY = pWeightX[i] * weightY;
-                clr += tex2D<float>(texObj, sx, sy) * weightXY;
-                weightSum += weightXY;
+        for (int j = srcFirstY; j <= srcEndY; j++, weightY++, srcLine += srcPitch) {
+            const float wy = weightY[0];
+            const float *pwx = weightX;
+            const Type *srcPtr = (Type*)srcLine;
+            for (int i = srcFirstX; i <= srcEndX; i++, pwx++, srcPtr++) {
+                clr += srcPtr[0] * pwx[0] * wy;
             }
         }
 
         Type* ptr = (Type*)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)clamp(clr * __frcp_rn(weightSum) * (1<<bit_depth), 0.0f, (1<<bit_depth) - 0.1f);
+        ptr[0] = (Type)clamp(clr, 0.0f, (1 << bit_depth) - 0.1f);
     }
 }
 
-template<typename Type, int bit_depth, int radius>
-void resize_lanczos(uint8_t* pDst, const int dstPitch, const int dstWidth, const int dstHeight,
-    cudaTextureObject_t texObj, const float ratioX, const float ratioY, const float ratioDistX, const float ratioDistY, cudaStream_t stream) {
-    const int BLOCK_X = 32;
-    const int BLOCK_Y = 8;
-    dim3 blockSize(BLOCK_X, BLOCK_Y);
+template<typename Type, int bit_depth, RESIZE_WEIGHT_TYPE algo, int radius>
+void resize_plane(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
+    const float *pgFactor, cudaStream_t stream) {
+    const float ratioX = (float)(dstWidth) / srcWidth;
+    const float ratioClampedX = min(ratioX, 1.0f);
+    const float srcWindowX = radius / ratioClampedX;
+
+    const int shared_weightXdim = (((int)ceil(srcWindowX) + 1) * 2);
+    const int shared_weightX = RESIZE_BLOCK_X * shared_weightXdim;
+
+    const float ratioY = (float)(dstHeight) / srcHeight;
+    const float ratioClampedY = min(ratioY, 1.0f);
+    const float srcWindowY = radius / ratioClampedY;
+
+    const int shared_weightYdim = (((int)ceil(srcWindowY) + 1) * 2);
+    const int shared_weightY = RESIZE_BLOCK_Y * shared_weightYdim;
+
+    const int shared_size_byte = (shared_weightX + shared_weightY + ((algo == WEIGHT_SPLINE) ? radius * 4 : 0)) * sizeof(float);
+
+    dim3 blockSize(RESIZE_BLOCK_X, RESIZE_BLOCK_Y);
     dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
-    kernel_resize_lanczos<Type, bit_depth, radius, BLOCK_X, BLOCK_Y><<<gridSize, blockSize, 0, stream>>>(
-        pDst, dstPitch, dstWidth, dstHeight, texObj, ratioX, ratioY, ratioDistX, ratioDistY);
+    kernel_resize<Type, bit_depth, algo, radius, RESIZE_BLOCK_X, RESIZE_BLOCK_Y><<<gridSize, blockSize, shared_size_byte, stream>>>(
+        pDst, dstPitch, dstWidth, dstHeight,
+        pSrc, srcPitch, srcWidth, srcHeight,
+        ratioX, ratioY, pgFactor, shared_weightXdim, shared_weightYdim);
 }
 
-template<typename Type, int bit_depth, int radius>
-static cudaError_t resize_lanczos_plane(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, cudaStream_t stream) {
-    const float ratioX = pInputFrame->width / (float)(pOutputFrame->width);
-    const float ratioY = pInputFrame->height / (float)(pOutputFrame->height);
-    const float ratioDistX = (pInputFrame->width <= pOutputFrame->width) ? 1.0f : pOutputFrame->width / (float)(pInputFrame->width);
-    const float ratioDistY = (pInputFrame->height <= pOutputFrame->height) ? 1.0f : pOutputFrame->height / (float)(pInputFrame->height);
-
-    cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
-        return cudaerr;
-    }
-    resize_lanczos<Type, bit_depth, radius>((uint8_t*)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, ratioX, ratioY, ratioDistX, ratioDistY, stream);
-    cudaerr = cudaGetLastError();
-    cudaDestroyTextureObject(texSrc);
+template<typename Type, int bit_depth, RESIZE_WEIGHT_TYPE algo, int radius>
+static RGY_ERR resize_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const float *pgFactor, cudaStream_t stream) {
+    resize_plane<Type, bit_depth, algo, radius>(
+        (uint8_t*)pOutputPlane->ptr, pOutputPlane->pitch, pOutputPlane->width, pOutputPlane->height,
+        (uint8_t*)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height,
+        pgFactor, stream);
+    auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
-template<typename Type, int bit_depth, int radius>
-static cudaError_t resize_lanczos_frame(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, cudaStream_t stream) {
+template<typename Type, int bit_depth, RESIZE_WEIGHT_TYPE algo, int radius>
+static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const float *pgFactor, cudaStream_t stream) {
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -446,39 +410,39 @@ static cudaError_t resize_lanczos_frame(RGYFrameInfo* pOutputFrame, const RGYFra
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
-    auto cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputY, &planeSrcY, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = resize_plane<Type, bit_depth, algo, radius>(&planeOutputY, &planeSrcY, pgFactor, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputU, &planeSrcU, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = resize_plane<Type, bit_depth, algo, radius>(&planeOutputU, &planeSrcU, pgFactor, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputV, &planeSrcV, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = resize_plane<Type, bit_depth, algo, radius>(&planeOutputV, &planeSrcV, pgFactor, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     if (planeOutputA.ptr != nullptr) {
-        cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputA, &planeSrcA, stream);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        sts = resize_plane<Type, bit_depth, algo, radius>(&planeOutputA, &planeSrcA, pgFactor, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    return cudaerr;
+    return sts;
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, const float *pgFactor, cudaStream_t stream) {
+static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, const float *pgFactor, cudaStream_t stream) {
     switch (interp) {
     case RGY_VPP_RESIZE_BILINEAR:
     case RGY_VPP_RESIZE_NEAREST: return resize_texture_frame<Type, bit_depth>(pOutputFrame, pInputFrame, interp, stream);
-    case RGY_VPP_RESIZE_SPLINE16: return resize_spline_frame<Type, bit_depth, 2>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RGY_VPP_RESIZE_SPLINE36: return resize_spline_frame<Type, bit_depth, 3>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RGY_VPP_RESIZE_SPLINE64: return resize_spline_frame<Type, bit_depth, 4>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RGY_VPP_RESIZE_LANCZOS2: return resize_lanczos_frame<Type, bit_depth, 2>(pOutputFrame, pInputFrame, stream);
-    case RGY_VPP_RESIZE_LANCZOS3: return resize_lanczos_frame<Type, bit_depth, 3>(pOutputFrame, pInputFrame, stream);
-    case RGY_VPP_RESIZE_LANCZOS4: return resize_lanczos_frame<Type, bit_depth, 4>(pOutputFrame, pInputFrame, stream);
-    default:  return cudaErrorUnknown;
+    case RGY_VPP_RESIZE_SPLINE16: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,  2>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_SPLINE36: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,  3>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_SPLINE64: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,  4>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS2: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS, 2>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS3: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS, 3>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS4: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS, 4>(pOutputFrame, pInputFrame, pgFactor, stream);
+    default:  return RGY_ERR_NONE;
     }
 }
 
@@ -796,13 +760,12 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pResizeParam->interp, (float *)m_weightSpline.ptr, stream);
-        auto cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
+        sts = resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pResizeParam->interp, (float *)m_weightSpline.ptr, stream);
+        if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+                get_err_mes(sts));
+            return sts;
         }
     }
     return sts;
