@@ -77,15 +77,14 @@ static void show_device_list() {
     }
 }
 
-static int show_hw(int deviceid) {
+static int show_hw(int deviceid, const RGYParamLogLevel& loglevelPrint) {
     show_version();
 
-    const auto loglevel = RGY_LOG_DEBUG;
     const int cudaSchedule = 0;
     const bool skipHWDecodeCheck = false;
 
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, loglevel)
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, loglevelPrint.get(RGY_LOGT_APP))
         && NV_ENC_SUCCESS == nvEnc.ShowCodecSupport(cudaSchedule, skipHWDecodeCheck)) {
         return 0;
     }
@@ -97,16 +96,15 @@ static void show_environment_info() {
     _ftprintf(stdout, _T("%s\n"), getEnviromentInfo().c_str());
 }
 
-static int show_nvenc_features(int deviceid) {
+static int show_nvenc_features(int deviceid, const RGYParamLogLevel& loglevelPrint) {
     show_version();
     _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo().c_str());
 
-    const auto loglevel = RGY_LOG_INFO;
     const int cudaSchedule = 0;
     const bool skipHWDecodeCheck = false;
 
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, loglevel)
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, loglevelPrint.get(RGY_LOGT_APP))
         && NV_ENC_SUCCESS == nvEnc.ShowNVEncFeatures(cudaSchedule, skipHWDecodeCheck)) {
         return 0;
     }
@@ -128,7 +126,7 @@ static void show_option_list() {
     }
 }
 
-int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
+int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const RGYParamLogLevel& loglevelPrint) {
 
 #define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
 
@@ -157,7 +155,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
                 deviceid = value;
             }
         }
-        return show_hw(deviceid) == 0 ? 1 : -1;
+        return show_hw(deviceid, loglevelPrint) == 0 ? 1 : -1;
     }
     if (IS_OPTION("check-environment")) {
         show_environment_info();
@@ -171,7 +169,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
                 deviceid = value;
             }
         }
-        return show_nvenc_features(deviceid) == 0 ? 1 : -1;
+        return show_nvenc_features(deviceid, loglevelPrint) == 0 ? 1 : -1;
     }
 #if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("check-avcodec-dll"))) {
@@ -377,6 +375,15 @@ int _tmain(int argc, TCHAR **argv) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+    //log-levelの取得
+    RGYParamLogLevel loglevelPrint(RGY_LOG_ERROR);
+    for (int iarg = 1; iarg < argc - 1; iarg++) {
+        if (tstring(argv[iarg]) == _T("--log-level")) {
+            parse_log_level_param(argv[iarg], argv[iarg + 1], loglevelPrint);
+            break;
+        }
+    }
+
     for (int iarg = 1; iarg < argc; iarg++) {
         const TCHAR *option_name = nullptr;
         if (argv[iarg][0] == _T('-')) {
@@ -391,7 +398,7 @@ int _tmain(int argc, TCHAR **argv) {
             }
         }
         if (option_name != nullptr) {
-            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""));
+            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""), loglevelPrint);
             if (ret != 0) {
                 return ret == 1 ? 0 : 1;
             }
