@@ -195,6 +195,7 @@ private:
 class NVEncFilterParamCrop : public NVEncFilterParam {
 public:
     sInputCrop crop;
+    CspMatrix matrix;
 
     NVEncFilterParamCrop();
     virtual ~NVEncFilterParamCrop();

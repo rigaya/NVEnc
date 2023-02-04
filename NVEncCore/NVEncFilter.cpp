@@ -233,7 +233,7 @@ double NVEncFilter::GetAvgTimeElapsed() {
     return m_dFilterTimeMs / (double)m_nFilterRunCount;
 }
 
-NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()) {};
+NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()), matrix(RGY_MATRIX_ST170_M) {};
 NVEncFilterParamCrop::~NVEncFilterParamCrop() {};
 
 bool check_if_nppi_dll_available() {
