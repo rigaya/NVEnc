@@ -175,7 +175,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
         paramCrop->frameIn = pParam->frameIn;
         paramCrop->frameOut = paramCrop->frameIn;
-        paramCrop->frameOut.csp = RGY_CSP_RGB_F32;
+        paramCrop->frameOut.csp = RGY_CSP_BGR_F32;
         paramCrop->matrix = prm->vuiInfo.matrix;
         paramCrop->baseFps = pParam->baseFps;
         paramCrop->frameIn.deivce_mem = true;
@@ -193,7 +193,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
         paramCrop->frameIn = pParam->frameOut;
-        paramCrop->frameIn.csp = RGY_CSP_RGB_F32;
+        paramCrop->frameIn.csp = RGY_CSP_BGR_F32;
         paramCrop->matrix = prm->vuiInfo.matrix;
         paramCrop->frameOut = pParam->frameOut;
         paramCrop->baseFps = pParam->baseFps;
@@ -304,7 +304,7 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
         return RGY_ERR_INVALID_PARAM;
     }
 
-    {
+    if (true) {
         RGYFrameInfo srcImgInfo = m_srcCrop->GetFilterParam()->frameOut;
         srcImgInfo.ptr = (uint8_t *)m_srcImg->pixels;
         srcImgInfo.pitch = m_srcImg->pitch;
@@ -321,6 +321,23 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
             AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_srcCrop->name().c_str());
             return sts_filter;
         }
+    } else { // デバッグ用
+        const auto planeY = getPlane(pInputFrame, RGY_PLANE_Y);
+        const auto planeU = getPlane(pInputFrame, RGY_PLANE_U);
+        const auto planeV = getPlane(pInputFrame, RGY_PLANE_V);
+        const int bitdepth = RGY_CSP_BIT_DEPTH[pInputFrame->csp];
+        const int pix_byte = bitdepth / 8;
+        const auto nvcvPixFmt = RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420 ? NVCV_YUV420 : NVCV_YUV444;
+        const auto nvcvElemType = bitdepth > 8 ? NVCV_U16 : NVCV_U8;
+        sts = err_to_rgy(NvCVImage_TransferFromYUV(
+            planeY.ptr, pix_byte, planeY.pitch,
+            planeU.ptr, planeV.ptr, pix_byte, planeU.pitch,
+            nvcvPixFmt, nvcvElemType, NVCV_PLANAR, NVCV_GPU,
+            m_srcImg.get(), nullptr, 1.0f / (float)((1 << bitdepth) - 1), stream, nullptr));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to run NvCVImage_TransferFromYUV: %s.\n"), get_err_mes(sts));
+            return RGY_ERR_INVALID_PARAM;
+        }
     }
 
     if (true) {
@@ -329,8 +346,12 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
             AddMessage(RGY_LOG_ERROR, _T("Failed to run filter: %s.\n"), get_err_mes(sts));
             return RGY_ERR_INVALID_PARAM;
         }
-    } else {
-        NvCVImage_Transfer(m_srcImg.get(), m_dstImg.get(), 1.f, stream, nullptr);
+    } else { // デバッグ用
+        sts = err_to_rgy(NvCVImage_Transfer(m_srcImg.get(), m_dstImg.get(), 1.f, stream, nullptr));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to run NvCVImage_Transfer: %s.\n"), get_err_mes(sts));
+            return RGY_ERR_INVALID_PARAM;
+        }
     }
 
     {
