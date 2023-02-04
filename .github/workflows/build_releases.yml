@@ -68,8 +68,8 @@ jobs:
         run: |
           curl -s -o hdr10plus_gen_0.00_${{ matrix.platform }}.7z -L https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_${{ matrix.platform }}.7z
           7z x -ohdr10plus_gen\ hdr10plus_gen_0.00_${{ matrix.platform }}.7z
-          curl -s -o ffmpeg_lgpl_20220302.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20220302.zip
-          7z x -y ffmpeg_lgpl_20220302.zip
+          curl -s -o ffmpeg_lgpl.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20230204.zip
+          7z x -y ffmpeg_lgpl.zip
           move ffmpeg5* ffmpeg_lgpl
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
