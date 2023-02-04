@@ -433,12 +433,12 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         }
         return 0;
     }
-    if (IS_OPTION("vpp-nvvfx-model-dir") && ENABLE_NVVFX) {
+    if (IS_OPTION("vpp-nvvfx-model-dir") && (ENABLE_NVVFX || FOR_AUO)) {
         i++;
         vppnv->nvvfxModelDir = strInput[i];
         return 0;
     }
-    if (IS_OPTION("vpp-resize") && ENABLE_NVVFX) {
+    if (IS_OPTION("vpp-resize") && (ENABLE_NVVFX || FOR_AUO)) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -503,7 +503,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         }
         return 0;
     }
-    if (IS_OPTION("vpp-nvvfx-denoise") && ENABLE_NVVFX) {
+    if (IS_OPTION("vpp-nvvfx-denoise") && (ENABLE_NVVFX || FOR_AUO)) {
         vppnv->nvvfxDenoise.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -542,7 +542,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         return 0;
     }
 
-    if (IS_OPTION("vpp-nvvfx-artifact-reduction") && ENABLE_NVVFX) {
+    if (IS_OPTION("vpp-nvvfx-artifact-reduction") && (ENABLE_NVVFX || FOR_AUO)) {
         vppnv->nvvfxArtifactReduction.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -581,7 +581,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         return 0;
     }
 
-    if (IS_OPTION("vpp-nvvfx-upscaler") && ENABLE_NVVFX) {
+    if (IS_OPTION("vpp-nvvfx-upscaler") && (ENABLE_NVVFX || FOR_AUO)) {
         vppnv->nvvfxUpScaler.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;

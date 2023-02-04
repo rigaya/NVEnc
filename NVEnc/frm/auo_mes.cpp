@@ -585,6 +585,8 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 "AuofcgLBVppDenoisePmdThreshold",
 "AuofcgLBVppDenoisePmdStrength",
 "AuofcgLBVppDenoisePmdApplyCount",
+"AuofcgLBVppNvvfxDenoiseStrength",
+"AuofcgLBVppNvvfxArtifactReductionMode",
 "AuofcggroupBoxVppDeinterlace",
 "AuofcgLBVppDeinterlace",
 "AuofcgLBVppAfsThreCMotion",

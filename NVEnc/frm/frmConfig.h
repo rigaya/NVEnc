@@ -1564,6 +1564,19 @@ private: System::Windows::Forms::Label^  fcgLBHEVCOutBitDepth;
 private: System::Windows::Forms::ComboBox^  fcgCXHEVCOutBitDepth;
 private: System::Windows::Forms::Label^  fcgLBOutBitDepthAV1;
 private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
+private: System::Windows::Forms::Panel^  fcgPNVppNvvfxDenoise;
+private: System::Windows::Forms::Label^  fcgLBVppNvvfxDenoiseStrength;
+
+
+private: System::Windows::Forms::Panel^  fcgPNVppNvvfxArtifactReduction;
+private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxArtifactReductionMode;
+private: System::Windows::Forms::Label^  fcgLBVppNvvfxArtifactReductionMode;
+private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
+
+
+
+
+
 
 
 
@@ -1803,11 +1816,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlNVEnc = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
-            this->fcgPNAV1 = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBCodecLevelAV1 = (gcnew System::Windows::Forms::Label());
-            this->fcgLBCodecProfileAV1 = (gcnew System::Windows::Forms::Label());
-            this->fcgCXCodecProfileAV1 = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgCXCodecLevelAV1 = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBMultiPass = (gcnew System::Windows::Forms::Label());
             this->fcgCXMultiPass = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBFullrange = (gcnew System::Windows::Forms::Label());
@@ -1880,6 +1888,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgLBMaxkbps = (gcnew System::Windows::Forms::Label());
             this->fcgLBMaxBitrate2 = (gcnew System::Windows::Forms::Label());
             this->fcgPNHEVC = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBHEVCOutBitDepth = (gcnew System::Windows::Forms::Label());
+            this->fcgCXHEVCOutBitDepth = (gcnew System::Windows::Forms::ComboBox());
             this->fxgLBHEVCTier = (gcnew System::Windows::Forms::Label());
             this->fcgLBHEVCProfile = (gcnew System::Windows::Forms::Label());
             this->fcgCXHEVCTier = (gcnew System::Windows::Forms::ComboBox());
@@ -1891,6 +1901,13 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgLBCodecLevel = (gcnew System::Windows::Forms::Label());
             this->fcgCXCodecProfile = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXCodecLevel = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgPNAV1 = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBOutBitDepthAV1 = (gcnew System::Windows::Forms::Label());
+            this->fcgCXOutBitDepthAV1 = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBCodecLevelAV1 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBCodecProfileAV1 = (gcnew System::Windows::Forms::Label());
+            this->fcgCXCodecProfileAV1 = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXCodecLevelAV1 = (gcnew System::Windows::Forms::ComboBox());
             this->tabPageVideoDetail = (gcnew System::Windows::Forms::TabPage());
             this->fcgCBPSNR = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBPSNR = (gcnew System::Windows::Forms::Label());
@@ -2163,10 +2180,12 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBOutBitDepthAV1 = (gcnew System::Windows::Forms::Label());
-            this->fcgCXOutBitDepthAV1 = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBHEVCOutBitDepth = (gcnew System::Windows::Forms::Label());
-            this->fcgCXHEVCOutBitDepth = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgPNVppNvvfxDenoise = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBVppNvvfxDenoiseStrength = (gcnew System::Windows::Forms::Label());
+            this->fcgCXVppNvvfxDenoiseStrength = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgPNVppNvvfxArtifactReduction = (gcnew System::Windows::Forms::Panel());
+            this->fcgCXVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::Label());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2177,7 +2196,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgtabPageInternal->SuspendLayout();
             this->fcgtabControlNVEnc->SuspendLayout();
             this->tabPageVideoEnc->SuspendLayout();
-            this->fcgPNAV1->SuspendLayout();
             this->fcggroupBoxColorMatrix->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAQStrength))->BeginInit();
@@ -2200,6 +2218,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUMaxkbps))->BeginInit();
             this->fcgPNHEVC->SuspendLayout();
             this->fcgPNH264->SuspendLayout();
+            this->fcgPNAV1->SuspendLayout();
             this->tabPageVideoDetail->SuspendLayout();
             this->groupBoxQPDetail->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUChromaQPOffset))->BeginInit();
@@ -2299,6 +2318,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgPNAudioInternal->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
+            this->fcgPNVppNvvfxDenoise->SuspendLayout();
+            this->fcgPNVppNvvfxArtifactReduction->SuspendLayout();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -3187,57 +3208,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
             // 
-            // fcgPNAV1
-            // 
-            this->fcgPNAV1->Controls->Add(this->fcgLBOutBitDepthAV1);
-            this->fcgPNAV1->Controls->Add(this->fcgCXOutBitDepthAV1);
-            this->fcgPNAV1->Controls->Add(this->fcgLBCodecLevelAV1);
-            this->fcgPNAV1->Controls->Add(this->fcgLBCodecProfileAV1);
-            this->fcgPNAV1->Controls->Add(this->fcgCXCodecProfileAV1);
-            this->fcgPNAV1->Controls->Add(this->fcgCXCodecLevelAV1);
-            this->fcgPNAV1->Location = System::Drawing::Point(341, 142);
-            this->fcgPNAV1->Name = L"fcgPNAV1";
-            this->fcgPNAV1->Size = System::Drawing::Size(264, 91);
-            this->fcgPNAV1->TabIndex = 152;
-            // 
-            // fcgLBCodecLevelAV1
-            // 
-            this->fcgLBCodecLevelAV1->AutoSize = true;
-            this->fcgLBCodecLevelAV1->Location = System::Drawing::Point(12, 67);
-            this->fcgLBCodecLevelAV1->Name = L"fcgLBCodecLevelAV1";
-            this->fcgLBCodecLevelAV1->Size = System::Drawing::Size(33, 14);
-            this->fcgLBCodecLevelAV1->TabIndex = 156;
-            this->fcgLBCodecLevelAV1->Text = L"レベル";
-            // 
-            // fcgLBCodecProfileAV1
-            // 
-            this->fcgLBCodecProfileAV1->AutoSize = true;
-            this->fcgLBCodecProfileAV1->Location = System::Drawing::Point(12, 37);
-            this->fcgLBCodecProfileAV1->Name = L"fcgLBCodecProfileAV1";
-            this->fcgLBCodecProfileAV1->Size = System::Drawing::Size(53, 14);
-            this->fcgLBCodecProfileAV1->TabIndex = 154;
-            this->fcgLBCodecProfileAV1->Text = L"プロファイル";
-            // 
-            // fcgCXCodecProfileAV1
-            // 
-            this->fcgCXCodecProfileAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXCodecProfileAV1->FormattingEnabled = true;
-            this->fcgCXCodecProfileAV1->Location = System::Drawing::Point(130, 35);
-            this->fcgCXCodecProfileAV1->Name = L"fcgCXCodecProfileAV1";
-            this->fcgCXCodecProfileAV1->Size = System::Drawing::Size(121, 22);
-            this->fcgCXCodecProfileAV1->TabIndex = 155;
-            this->fcgCXCodecProfileAV1->Tag = L"reCmd";
-            // 
-            // fcgCXCodecLevelAV1
-            // 
-            this->fcgCXCodecLevelAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXCodecLevelAV1->FormattingEnabled = true;
-            this->fcgCXCodecLevelAV1->Location = System::Drawing::Point(130, 65);
-            this->fcgCXCodecLevelAV1->Name = L"fcgCXCodecLevelAV1";
-            this->fcgCXCodecLevelAV1->Size = System::Drawing::Size(121, 22);
-            this->fcgCXCodecLevelAV1->TabIndex = 157;
-            this->fcgCXCodecLevelAV1->Tag = L"reCmd";
-            // 
             // fcgLBMultiPass
             // 
             this->fcgLBMultiPass->AutoSize = true;
@@ -3957,6 +3927,25 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgPNHEVC->Size = System::Drawing::Size(264, 91);
             this->fcgPNHEVC->TabIndex = 80;
             // 
+            // fcgLBHEVCOutBitDepth
+            // 
+            this->fcgLBHEVCOutBitDepth->AutoSize = true;
+            this->fcgLBHEVCOutBitDepth->Location = System::Drawing::Point(12, 8);
+            this->fcgLBHEVCOutBitDepth->Name = L"fcgLBHEVCOutBitDepth";
+            this->fcgLBHEVCOutBitDepth->Size = System::Drawing::Size(73, 14);
+            this->fcgLBHEVCOutBitDepth->TabIndex = 87;
+            this->fcgLBHEVCOutBitDepth->Text = L"出力ビット深度";
+            // 
+            // fcgCXHEVCOutBitDepth
+            // 
+            this->fcgCXHEVCOutBitDepth->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXHEVCOutBitDepth->FormattingEnabled = true;
+            this->fcgCXHEVCOutBitDepth->Location = System::Drawing::Point(130, 5);
+            this->fcgCXHEVCOutBitDepth->Name = L"fcgCXHEVCOutBitDepth";
+            this->fcgCXHEVCOutBitDepth->Size = System::Drawing::Size(121, 22);
+            this->fcgCXHEVCOutBitDepth->TabIndex = 88;
+            this->fcgCXHEVCOutBitDepth->Tag = L"reCmd";
+            // 
             // fxgLBHEVCTier
             // 
             this->fxgLBHEVCTier->AutoSize = true;
@@ -4064,6 +4053,76 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgCXCodecLevel->Size = System::Drawing::Size(121, 22);
             this->fcgCXCodecLevel->TabIndex = 96;
             this->fcgCXCodecLevel->Tag = L"reCmd";
+            // 
+            // fcgPNAV1
+            // 
+            this->fcgPNAV1->Controls->Add(this->fcgLBOutBitDepthAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgCXOutBitDepthAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgLBCodecLevelAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgLBCodecProfileAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgCXCodecProfileAV1);
+            this->fcgPNAV1->Controls->Add(this->fcgCXCodecLevelAV1);
+            this->fcgPNAV1->Location = System::Drawing::Point(341, 142);
+            this->fcgPNAV1->Name = L"fcgPNAV1";
+            this->fcgPNAV1->Size = System::Drawing::Size(264, 91);
+            this->fcgPNAV1->TabIndex = 152;
+            // 
+            // fcgLBOutBitDepthAV1
+            // 
+            this->fcgLBOutBitDepthAV1->AutoSize = true;
+            this->fcgLBOutBitDepthAV1->Location = System::Drawing::Point(12, 8);
+            this->fcgLBOutBitDepthAV1->Name = L"fcgLBOutBitDepthAV1";
+            this->fcgLBOutBitDepthAV1->Size = System::Drawing::Size(73, 14);
+            this->fcgLBOutBitDepthAV1->TabIndex = 158;
+            this->fcgLBOutBitDepthAV1->Text = L"出力ビット深度";
+            // 
+            // fcgCXOutBitDepthAV1
+            // 
+            this->fcgCXOutBitDepthAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXOutBitDepthAV1->FormattingEnabled = true;
+            this->fcgCXOutBitDepthAV1->Location = System::Drawing::Point(130, 5);
+            this->fcgCXOutBitDepthAV1->Name = L"fcgCXOutBitDepthAV1";
+            this->fcgCXOutBitDepthAV1->Size = System::Drawing::Size(121, 22);
+            this->fcgCXOutBitDepthAV1->TabIndex = 159;
+            this->fcgCXOutBitDepthAV1->Tag = L"reCmd";
+            // 
+            // fcgLBCodecLevelAV1
+            // 
+            this->fcgLBCodecLevelAV1->AutoSize = true;
+            this->fcgLBCodecLevelAV1->Location = System::Drawing::Point(12, 67);
+            this->fcgLBCodecLevelAV1->Name = L"fcgLBCodecLevelAV1";
+            this->fcgLBCodecLevelAV1->Size = System::Drawing::Size(33, 14);
+            this->fcgLBCodecLevelAV1->TabIndex = 156;
+            this->fcgLBCodecLevelAV1->Text = L"レベル";
+            // 
+            // fcgLBCodecProfileAV1
+            // 
+            this->fcgLBCodecProfileAV1->AutoSize = true;
+            this->fcgLBCodecProfileAV1->Location = System::Drawing::Point(12, 37);
+            this->fcgLBCodecProfileAV1->Name = L"fcgLBCodecProfileAV1";
+            this->fcgLBCodecProfileAV1->Size = System::Drawing::Size(53, 14);
+            this->fcgLBCodecProfileAV1->TabIndex = 154;
+            this->fcgLBCodecProfileAV1->Text = L"プロファイル";
+            // 
+            // fcgCXCodecProfileAV1
+            // 
+            this->fcgCXCodecProfileAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXCodecProfileAV1->FormattingEnabled = true;
+            this->fcgCXCodecProfileAV1->Location = System::Drawing::Point(130, 35);
+            this->fcgCXCodecProfileAV1->Name = L"fcgCXCodecProfileAV1";
+            this->fcgCXCodecProfileAV1->Size = System::Drawing::Size(121, 22);
+            this->fcgCXCodecProfileAV1->TabIndex = 155;
+            this->fcgCXCodecProfileAV1->Tag = L"reCmd";
+            // 
+            // fcgCXCodecLevelAV1
+            // 
+            this->fcgCXCodecLevelAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXCodecLevelAV1->FormattingEnabled = true;
+            this->fcgCXCodecLevelAV1->Location = System::Drawing::Point(130, 65);
+            this->fcgCXCodecLevelAV1->Name = L"fcgCXCodecLevelAV1";
+            this->fcgCXCodecLevelAV1->Size = System::Drawing::Size(121, 22);
+            this->fcgCXCodecLevelAV1->TabIndex = 157;
+            this->fcgCXCodecLevelAV1->Tag = L"reCmd";
             // 
             // tabPageVideoDetail
             // 
@@ -5951,11 +6010,13 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             // 
             // fcggroupBoxVppDenoise
             // 
+            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppNvvfxArtifactReduction);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseSmooth);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseKnn);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoisePmd);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseConv3D);
+            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppNvvfxDenoise);
             this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(3, 57);
             this->fcggroupBoxVppDenoise->Name = L"fcggroupBoxVppDenoise";
             this->fcggroupBoxVppDenoise->Size = System::Drawing::Size(320, 139);
@@ -7040,43 +7101,61 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgPNHideToolStripBorder->TabIndex = 53;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
-            // fcgLBOutBitDepthAV1
+            // fcgPNVppNvvfxDenoise
             // 
-            this->fcgLBOutBitDepthAV1->AutoSize = true;
-            this->fcgLBOutBitDepthAV1->Location = System::Drawing::Point(12, 8);
-            this->fcgLBOutBitDepthAV1->Name = L"fcgLBOutBitDepthAV1";
-            this->fcgLBOutBitDepthAV1->Size = System::Drawing::Size(73, 14);
-            this->fcgLBOutBitDepthAV1->TabIndex = 158;
-            this->fcgLBOutBitDepthAV1->Text = L"出力ビット深度";
+            this->fcgPNVppNvvfxDenoise->Controls->Add(this->fcgCXVppNvvfxDenoiseStrength);
+            this->fcgPNVppNvvfxDenoise->Controls->Add(this->fcgLBVppNvvfxDenoiseStrength);
+            this->fcgPNVppNvvfxDenoise->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppNvvfxDenoise->Name = L"fcgPNVppNvvfxDenoise";
+            this->fcgPNVppNvvfxDenoise->Size = System::Drawing::Size(310, 92);
+            this->fcgPNVppNvvfxDenoise->TabIndex = 67;
             // 
-            // fcgCXOutBitDepthAV1
+            // fcgLBVppNvvfxDenoiseStrength
             // 
-            this->fcgCXOutBitDepthAV1->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXOutBitDepthAV1->FormattingEnabled = true;
-            this->fcgCXOutBitDepthAV1->Location = System::Drawing::Point(130, 5);
-            this->fcgCXOutBitDepthAV1->Name = L"fcgCXOutBitDepthAV1";
-            this->fcgCXOutBitDepthAV1->Size = System::Drawing::Size(121, 22);
-            this->fcgCXOutBitDepthAV1->TabIndex = 159;
-            this->fcgCXOutBitDepthAV1->Tag = L"reCmd";
+            this->fcgLBVppNvvfxDenoiseStrength->AutoSize = true;
+            this->fcgLBVppNvvfxDenoiseStrength->Location = System::Drawing::Point(50, 12);
+            this->fcgLBVppNvvfxDenoiseStrength->Name = L"fcgLBVppNvvfxDenoiseStrength";
+            this->fcgLBVppNvvfxDenoiseStrength->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppNvvfxDenoiseStrength->TabIndex = 2;
+            this->fcgLBVppNvvfxDenoiseStrength->Text = L"強度";
             // 
-            // fcgLBHEVCOutBitDepth
+            // fcgCXVppNvvfxDenoiseStrength
             // 
-            this->fcgLBHEVCOutBitDepth->AutoSize = true;
-            this->fcgLBHEVCOutBitDepth->Location = System::Drawing::Point(12, 8);
-            this->fcgLBHEVCOutBitDepth->Name = L"fcgLBHEVCOutBitDepth";
-            this->fcgLBHEVCOutBitDepth->Size = System::Drawing::Size(73, 14);
-            this->fcgLBHEVCOutBitDepth->TabIndex = 87;
-            this->fcgLBHEVCOutBitDepth->Text = L"出力ビット深度";
+            this->fcgCXVppNvvfxDenoiseStrength->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppNvvfxDenoiseStrength->FormattingEnabled = true;
+            this->fcgCXVppNvvfxDenoiseStrength->Location = System::Drawing::Point(95, 9);
+            this->fcgCXVppNvvfxDenoiseStrength->Name = L"fcgCXVppNvvfxDenoiseStrength";
+            this->fcgCXVppNvvfxDenoiseStrength->Size = System::Drawing::Size(156, 22);
+            this->fcgCXVppNvvfxDenoiseStrength->TabIndex = 16;
+            this->fcgCXVppNvvfxDenoiseStrength->Tag = L"reCmd";
             // 
-            // fcgCXHEVCOutBitDepth
+            // fcgPNVppNvvfxArtifactReduction
             // 
-            this->fcgCXHEVCOutBitDepth->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXHEVCOutBitDepth->FormattingEnabled = true;
-            this->fcgCXHEVCOutBitDepth->Location = System::Drawing::Point(130, 5);
-            this->fcgCXHEVCOutBitDepth->Name = L"fcgCXHEVCOutBitDepth";
-            this->fcgCXHEVCOutBitDepth->Size = System::Drawing::Size(121, 22);
-            this->fcgCXHEVCOutBitDepth->TabIndex = 88;
-            this->fcgCXHEVCOutBitDepth->Tag = L"reCmd";
+            this->fcgPNVppNvvfxArtifactReduction->Controls->Add(this->fcgCXVppNvvfxArtifactReductionMode);
+            this->fcgPNVppNvvfxArtifactReduction->Controls->Add(this->fcgLBVppNvvfxArtifactReductionMode);
+            this->fcgPNVppNvvfxArtifactReduction->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppNvvfxArtifactReduction->Name = L"fcgPNVppNvvfxArtifactReduction";
+            this->fcgPNVppNvvfxArtifactReduction->Size = System::Drawing::Size(310, 92);
+            this->fcgPNVppNvvfxArtifactReduction->TabIndex = 68;
+            // 
+            // fcgCXVppNvvfxArtifactReductionMode
+            // 
+            this->fcgCXVppNvvfxArtifactReductionMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppNvvfxArtifactReductionMode->FormattingEnabled = true;
+            this->fcgCXVppNvvfxArtifactReductionMode->Location = System::Drawing::Point(95, 9);
+            this->fcgCXVppNvvfxArtifactReductionMode->Name = L"fcgCXVppNvvfxArtifactReductionMode";
+            this->fcgCXVppNvvfxArtifactReductionMode->Size = System::Drawing::Size(156, 22);
+            this->fcgCXVppNvvfxArtifactReductionMode->TabIndex = 16;
+            this->fcgCXVppNvvfxArtifactReductionMode->Tag = L"reCmd";
+            // 
+            // fcgLBVppNvvfxArtifactReductionMode
+            // 
+            this->fcgLBVppNvvfxArtifactReductionMode->AutoSize = true;
+            this->fcgLBVppNvvfxArtifactReductionMode->Location = System::Drawing::Point(50, 12);
+            this->fcgLBVppNvvfxArtifactReductionMode->Name = L"fcgLBVppNvvfxArtifactReductionMode";
+            this->fcgLBVppNvvfxArtifactReductionMode->Size = System::Drawing::Size(32, 14);
+            this->fcgLBVppNvvfxArtifactReductionMode->TabIndex = 2;
+            this->fcgLBVppNvvfxArtifactReductionMode->Text = L"モード";
             // 
             // frmConfig
             // 
@@ -7121,8 +7200,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgtabControlNVEnc->ResumeLayout(false);
             this->tabPageVideoEnc->ResumeLayout(false);
             this->tabPageVideoEnc->PerformLayout();
-            this->fcgPNAV1->ResumeLayout(false);
-            this->fcgPNAV1->PerformLayout();
             this->fcggroupBoxColorMatrix->ResumeLayout(false);
             this->fcggroupBoxColorMatrix->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->EndInit();
@@ -7151,6 +7228,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             this->fcgPNHEVC->PerformLayout();
             this->fcgPNH264->ResumeLayout(false);
             this->fcgPNH264->PerformLayout();
+            this->fcgPNAV1->ResumeLayout(false);
+            this->fcgPNAV1->PerformLayout();
             this->tabPageVideoDetail->ResumeLayout(false);
             this->tabPageVideoDetail->PerformLayout();
             this->groupBoxQPDetail->ResumeLayout(false);
@@ -7275,6 +7354,10 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutBitDepthAV1;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
+            this->fcgPNVppNvvfxDenoise->ResumeLayout(false);
+            this->fcgPNVppNvvfxDenoise->PerformLayout();
+            this->fcgPNVppNvvfxArtifactReduction->ResumeLayout(false);
+            this->fcgPNVppNvvfxArtifactReduction->PerformLayout();
             this->ResumeLayout(false);
             this->PerformLayout();
 

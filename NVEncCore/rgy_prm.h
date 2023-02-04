@@ -205,6 +205,10 @@ const CX_DESC list_vpp_denoise[] = {
 #if ENCODER_VCEENC
     { _T("preprocess"), 4 },
 #endif
+#if ENCODER_NVENC
+    { _T("nvvfx-denoise"), 6 },
+    { _T("nvvfx-artifact-reduction"), 7 },
+#endif
     { NULL, 0 }
 };
 
