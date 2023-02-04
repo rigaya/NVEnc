@@ -218,13 +218,19 @@ protected:
     virtual void close() override;
 };
 
+class NVEncFilterParamNvvfxSuperRes;
+
 class NVEncFilterParamResize : public NVEncFilterParam {
 public:
     RGY_VPP_RESIZE_ALGO interp;
-    NVEncFilterParamResize() : interp(RGY_VPP_RESIZE_SPLINE36) {}
-    virtual ~NVEncFilterParamResize() {};
+    RGY_VPP_RESIZE_ALGO nvvfxSubAlgo;
+    std::shared_ptr<NVEncFilterParamNvvfxSuperRes> nvvfxSuperRes;
+    NVEncFilterParamResize();
+    virtual ~NVEncFilterParamResize();
     virtual tstring print() const override;
 };
+
+class NVEncFilterNvvfxSuperRes;
 
 class NVEncFilterResize : public NVEncFilter {
 public:
@@ -235,10 +241,13 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     RGY_ERR resizeNppiYV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame);
     RGY_ERR resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame);
+    RGY_ERR initNvvfxFilter(NVEncFilterParamResize *param);
+    RGY_ERR resizeNvvfxSuperRes(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame);
     virtual void close() override;
 
     bool m_bInterlacedWarn;
     CUMemBuf m_weightSpline;
+    std::unique_ptr<NVEncFilterNvvfxSuperRes> m_nvvfxSuperRes;
 };
 
 

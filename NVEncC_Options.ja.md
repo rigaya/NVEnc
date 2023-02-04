@@ -183,12 +183,14 @@
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
+  - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
+  - [--vpp-nvvfx-artifact-reduction \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
   - [--vpp-gauss \<int\>](#--vpp-gauss-int)
   - [--vpp-subburn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-subburn-param1value1param2value2)
-  - [--vpp-resize \<string\>](#--vpp-resize-string)
+  - [--vpp-resize \<string\> or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-resize-string-or-param1value1param2value2)
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
@@ -197,6 +199,7 @@
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
+  - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [制御系のオプション](#制御系のオプション)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
   - [--output-buf \<int\>](#--output-buf-int)
@@ -1517,12 +1520,14 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-select-every](#--vpp-select-every-intparam1int)
 - [--vpp-transform/rotate](#--vpp-rotate-int)
 - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
+- [--vpp-nvvfx-denoise](#--vpp-nvvfx-denoise-param1value1param2value2)
+- [--vpp-nvvfx-artifact-reduction](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
 - [--vpp-gauss](#--vpp-gauss-int)
 - [--vpp-subburn](#--vpp-subburn-param1value1param2value2)
-- [--vpp-resize](#--vpp-resize-string)
+- [--vpp-resize](#--vpp-resize-string-or-param1value1param2value2)
 - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -2065,6 +2070,40 @@ yadifによるインタレ解除を行う。
   --vpp-convolution3d matrix=simple
   ```
 
+### --vpp-nvvfx-denoise [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)による、元映像の詳細の保持しながらノイズの除去を行う。
+主にウェブカメラによるノイズの除去を主眼とする。
+
+80p - 1080p までの入力解像度に対応しており、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。
+また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
+
+- **パラメータ**
+  - strength=&lt;int&gt;
+    - 0  
+      弱めの効果で元映像の詳細の保持を重視する.
+
+    - 1  
+      強めの効果でノイズ除去を重視する。
+
+
+
+### --vpp-nvvfx-artifact-reduction [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)による映像の圧縮劣化を低減するフィルタ。
+オリジナルの動画の情報を保存しながら、入力ファイルのエンコード時の圧縮劣化を低減する。
+
+90p - 1080p までの入力解像度に対応しており、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。
+また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
+
+- **parameters**
+  - mode=&lt;int&gt;
+    - 0 (default)  
+      弱めの効果で副作用を抑える。もとのファイルが比較的高ビットレートの場合に適している。
+
+    - 1  
+      より効果を強くし、圧縮劣化の低減する。もとのファイルが低ビットレートで劣化が激しい場合に適している。
+
+
+
 ### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 - **パラメータ**
@@ -2189,27 +2228,57 @@ nppi64_10.dll導入が必要で、x64版のみ使用可。
   --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
   ```
   
-### --vpp-resize &lt;string&gt;
+### --vpp-resize &lt;string&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 リサイズのアルゴリズムを指定する。
 
-要nppi64_10.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
+- **オプション**
+  - algo=&lt;string&gt;  
+    | 名前 | 説明 | 要nppi64_10.dll |
+    |:---|:---|:---:|
+    | auto          | 自動的に適切なものを選択                     | |
+    | bilinear      | 線形補間                                    | |
+    | spline16      | 4x4 Spline補間                             | |
+    | spline36      | 6x6 Spline補間                             | |
+    | spline64      | 8x8 Spline補間                             | |
+    | lanczos2      | 4x4 lanczos補間                            | |
+    | lanczos3      | 6x6 lanczos補間                            | |
+    | lanczos4      | 8x8 lanczos補間                            | |
+    | nn            | 最近傍点選択                                | ○ |
+    | npp_linear    | nppの線形補間                               | ○ |
+    | cubic         | 4x4 3次補間                                 | ○ |
+    | super         | nppのsuper sampling (縮小のみ)               | ○ |
+    | lanczos       | Lanczos法                                   | ○ |
+    | lanczos       | Lanczos法                                   | ○ |
+    | nvvfx-superres | NVIDIA Video EffectsによるSuper Resolution (拡大のみ)  |  |
 
-- オプション
-  | オプション名 | 説明 | 要nppi64_10.dll |
-  |:---|:---|:---:|
-  | auto  | 自動的に適切なものを選択 | |
-  | bilinear | 線形補間 | |
-  | spline16 | 4x4 Spline補間 | |
-  | spline36 | 6x6 Spline補間 | |
-  | spline64 | 8x8 Spline補間 | |
-  | lanczos2 | 4x4 lanczos補間 | |
-  | lanczos3 | 6x6 lanczos補間 | |
-  | lanczos4 | 8x8 lanczos補間 | |
-  | nn            | 最近傍点選択 | ○ |
-  | npp_linear    | nppの線形補間 | ○ |
-  | cubic         | 4x4 3次補間 | ○ |
-  | super         | nppのsuper sampling(詳細不明) | ○ |
-  | lanczos       | Lanczos法                    | ○ |
+  - superres-mode=&lt;int&gt;
+    nvvfx-superres のモードの選択。
+    - 0 ... 弱め (default)
+    - 1 ... 強め
+
+  - superres-strength=&lt;float&gt;
+    nvvfx-superresの強さの指定。 (0.0 - 1.0)
+
+- **注意点**
+  - 表の"要nppi64_10.dll"に"○"のあるものを使用する場合  
+    これらは[NPPライブラリ](https://developer.nvidia.com/npp)を使用しているため、使用には別途nppi64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。また、x64版のみ対応。
+
+  - ```nvvfx-superres```を使用する場合  
+    このモードは、[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)によるAIによって拡大処理を行うので、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
+
+    2160p までの入力解像度に対応している。
+
+- **使用例**
+  ```
+  例: spline64を使用する (短縮表記)
+  --vpp-resize spline64
+
+  例: spline64を使用する
+  --vpp-resize algo=spline64 
+
+  例: nvvfx-superresを効果強めで使用する
+  --vpp-resize algo=nvvfx-superres,superres-mode=1
+  ```
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
@@ -2395,6 +2464,9 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 ### --vpp-perf-monitor
 各フィルタのパフォーマンス測定を行い、適用したフィルタの1フレームあたりの平均処理時間を最後に出力する。全体のエンコード速度がやや遅くなることがある点に注意。
 
+
+### --vpp-nvvfx-model-dir &lt;string&gt;
+NVIDIA MAXINE VideoEffects のモデルを格納しているフォルダの場所を指定する。
 
 
 ## 制御系のオプション

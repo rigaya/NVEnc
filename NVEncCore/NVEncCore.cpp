@@ -75,6 +75,7 @@
 #include "NVEncFilterDenoiseKnn.h"
 #include "NVEncFilterDenoisePmd.h"
 #include "NVEncFilterSmooth.h"
+#include "NVEncFilterNvvfx.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterDecimate.h"
 #include "NVEncFilterMpdecimate.h"
@@ -1259,6 +1260,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
             || inputParam->vpp.smooth.enable
+            || inputParam->vppnv.nvvfxDenoise.enable
+            || inputParam->vppnv.nvvfxArtifactReduction.enable
             || inputParam->vpp.deband.enable
             || inputParam->vpp.edgelevel.enable
             || inputParam->vpp.warpsharp.enable
@@ -2119,6 +2122,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.knn.enable
         || inputParam->vpp.pmd.enable
         || inputParam->vpp.smooth.enable
+        || inputParam->vppnv.nvvfxDenoise.enable
+        || inputParam->vppnv.nvvfxArtifactReduction.enable
         || inputParam->vpp.deband.enable
         || inputParam->vpp.edgelevel.enable
         || inputParam->vpp.warpsharp.enable
@@ -2475,6 +2480,56 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
             m_encFps = param->baseFps;
         }
+        //ノイズ除去 (nvvfx-denoise)
+        if (inputParam->vppnv.nvvfxDenoise.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterNvvfxDenoise());
+            shared_ptr<NVEncFilterParamNvvfxDenoise> param(new NVEncFilterParamNvvfxDenoise());
+            param->nvvfxDenoise = inputParam->vppnv.nvvfxDenoise;
+            param->compute_capability = m_dev->cc();
+            param->modelDir = inputParam->vppnv.nvvfxModelDir;
+            param->vuiInfo = VuiFiltered;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //ノイズ除去 (nvvfx-artifact-reduction)
+        if (inputParam->vppnv.nvvfxArtifactReduction.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterNvvfxArtifactReduction());
+            shared_ptr<NVEncFilterParamNvvfxArtifactReduction> param(new NVEncFilterParamNvvfxArtifactReduction());
+            param->nvvfxArtifactReduction = inputParam->vppnv.nvvfxArtifactReduction;
+            param->compute_capability = m_dev->cc();
+            param->modelDir = inputParam->vppnv.nvvfxModelDir;
+            param->vuiInfo = VuiFiltered;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
         //ノイズ除去 (smooth)
         if (inputParam->vpp.smooth.enable) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterSmooth());
@@ -2638,6 +2693,13 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->interp = inputParam->vpp.resize_algo;
             } else {
                 param->interp = inputParam->vpp.resize_algo;
+            }
+            if (isNvvfxResizeFiter(inputParam->vpp.resize_algo)) {
+                param->nvvfxSuperRes = std::make_shared<NVEncFilterParamNvvfxSuperRes>();
+                param->nvvfxSuperRes->nvvfxSuperRes = inputParam->vppnv.nvvfxSuperRes;
+                param->nvvfxSuperRes->compute_capability = m_dev->cc();
+                param->nvvfxSuperRes->modelDir = inputParam->vppnv.nvvfxModelDir;
+                param->nvvfxSuperRes->vuiInfo = VuiFiltered;
             }
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;

@@ -53,6 +53,12 @@ static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_Y = 8;
 static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_X = 1;
 static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_Y = 1;
 
+static const float FILTER_DEFAULT_NVVFX_DENOISE_STRENGTH = 0.0f;
+static const int FILTER_DEFAULT_NVVFX_ARTIFACT_REDUCTION_MODE = 0;
+static const float FILTER_DEFAULT_NVVFX_SUPER_RES_STRENGTH = 0.4f;
+static const int FILTER_DEFAULT_NVVFX_SUPER_RES_MODE = 1;
+static const float FILTER_DEFAULT_NVVFX_UPSCALER_STRENGTH = 0.4f;
+
 static const int MAX_DECODE_FRAMES = 16;
 
 static const int DEFAULT_GOP_LENGTH  = 0;
@@ -665,9 +671,61 @@ struct VppCustom {
     tstring print() const;
 };
 
+const CX_DESC list_vpp_nvvfx_mode[] = {
+    { _T("conservative"), 0 },
+    { _T("aggressive"),   1 },
+    { NULL, 0 }
+};
+
+struct VppNvvfxDenoise {
+    bool enable;
+    float strength;
+
+    VppNvvfxDenoise();
+    bool operator==(const VppNvvfxDenoise &x) const;
+    bool operator!=(const VppNvvfxDenoise &x) const;
+    tstring print() const;
+};
+
+struct VppNvvfxArtifactReduction {
+    bool enable;
+    int mode; // 0: conservative, 1: aggressive
+
+    VppNvvfxArtifactReduction();
+    bool operator==(const VppNvvfxArtifactReduction &x) const;
+    bool operator!=(const VppNvvfxArtifactReduction &x) const;
+    tstring print() const;
+};
+
+struct VppNvvfxSuperRes {
+    bool enable;
+    int mode; // 0: conservative, 1: aggressive
+    float strength;
+
+    VppNvvfxSuperRes();
+    bool operator==(const VppNvvfxSuperRes &x) const;
+    bool operator!=(const VppNvvfxSuperRes &x) const;
+    tstring print() const;
+};
+
+struct VppNvvfxUpScaler {
+    bool enable;
+    float strength;
+
+    VppNvvfxUpScaler();
+    bool operator==(const VppNvvfxUpScaler &x) const;
+    bool operator!=(const VppNvvfxUpScaler &x) const;
+    tstring print() const;
+};
+
 struct VppParam {
-    cudaVideoDeinterlaceMode deinterlace;
-    NppiMaskSize             gaussMaskSize;
+    cudaVideoDeinterlaceMode  deinterlace;
+    NppiMaskSize              gaussMaskSize;
+    VppNvvfxDenoise           nvvfxDenoise;
+    VppNvvfxArtifactReduction nvvfxArtifactReduction;
+    VppNvvfxSuperRes          nvvfxSuperRes;
+    VppNvvfxUpScaler          nvvfxUpScaler;
+    tstring                   nvvfxModelDir;
 
     VppParam();
 };

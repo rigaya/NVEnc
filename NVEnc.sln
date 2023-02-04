@@ -9,12 +9,15 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NVEncCore", "NVEncCore\NVEn
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NVEncC", "NVEncC\NVEncC.vcxproj", "{2EEB3276-C363-4820-92EA-FEA8BF1045FE}"
 	ProjectSection(ProjectDependencies) = postProject
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72} = {FE9E0A80-E492-45BF-AB4D-042F8B44CC72}
 		{1CD1CF80-E971-4A92-93E0-4AEA5F4032B5} = {1CD1CF80-E971-4A92-93E0-4AEA5F4032B5}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tinyxml2", "tinyxml2\tinyxml2.vcxproj", "{A34CA86D-6C2B-482F-984E-2687459E65E9}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NVEncSDK", "NVEncSDK\NVEncSDK.vcxproj", "{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NVVfxLinker", "NVVfxLinker\NVVfxLinker.vcxproj", "{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -96,6 +99,20 @@ Global
 		{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}.RelStatic|Win32.Build.0 = RelStatic|Win32
 		{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}.RelStatic|x64.ActiveCfg = RelStatic|x64
 		{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}.RelStatic|x64.Build.0 = RelStatic|x64
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.Debug|Win32.ActiveCfg = Debug|Win32
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.Debug|x64.ActiveCfg = Debug|x64
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.Debug|x64.Build.0 = Debug|x64
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.DebugStatic|Win32.ActiveCfg = DebugStatic|Win32
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.DebugStatic|Win32.Build.0 = DebugStatic|Win32
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.DebugStatic|x64.ActiveCfg = DebugStatic|x64
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.DebugStatic|x64.Build.0 = DebugStatic|x64
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.Release|Win32.ActiveCfg = Release|Win32
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.Release|x64.ActiveCfg = Release|x64
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.Release|x64.Build.0 = Release|x64
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.RelStatic|Win32.ActiveCfg = RelStatic|Win32
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.RelStatic|Win32.Build.0 = RelStatic|Win32
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.RelStatic|x64.ActiveCfg = RelStatic|x64
+		{FE9E0A80-E492-45BF-AB4D-042F8B44CC72}.RelStatic|x64.Build.0 = RelStatic|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

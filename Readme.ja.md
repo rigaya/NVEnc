@@ -152,6 +152,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
       - nppライブラリによる各種アルゴリズム (x64版のみ)
+      - nvvfx-superres
     - 回転 / 反転
     - パディング(黒帯)の追加
     - フレーム間引き(select every)
@@ -161,6 +162,8 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - pmd (正則化pmd法)
       - gauss (nppライブラリ、x64版のみ)
       - convolution3d
+      - nvvfx-artifact-reduction
+      - nvvfx-denoise
     - 輪郭・ディテール強調
       - unsharp
       - edgelevel (エッジレベル調整)
@@ -201,6 +204,8 @@ NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
 - MITライセンスです。
 - 本プログラムは、NVIDA CUDA Samplesをベースに作成されており、サンプルコードを含みます。  
   This software contains source code provided by NVIDIA Corporation.  
+- --vpp-nvvfx フィルタは、NVIDIA BROADCASTを使用しています。
+  ![NVIDIA BROADCAST](./data/powered-by-nvidia-broadcast-lockup-rgb-wht-for-screen.png)
 - 本ソフトウェアでは、
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),

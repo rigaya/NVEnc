@@ -143,6 +143,7 @@ which might cause problem in some playback environments.
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
       - various algorithms by npp library are available (x64 version only)
+      - nvvfx-superres
     - transpose / rotate / flip
     - padding
     - select-every
@@ -152,6 +153,8 @@ which might cause problem in some playback environments.
       - pmd (modified pmd method)
       - gauss (npp library, x64 version only)
       - convolution3d
+      - nvvfx-artifact-reduction
+      - nvvfx-denoise
     - edge / detail enhancement
       - unsharp
       - edgelevel (edge ​​level adjustment)
@@ -200,6 +203,8 @@ when there are multiple GPUs available which support NVENC.
 - MIT license.
 - This program is based on NVIDA CUDA Samples and includes sample code.
   This software contains source code provided by NVIDIA Corporation.
+- --vpp-nvvfx fiters are power by NVIDIA BROADCAST.
+  ![NVIDIA BROADCAST](./data/powered-by-nvidia-broadcast-lockup-rgb-wht-for-screen.png)
 - This software depends on
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),

@@ -141,6 +141,86 @@ RGY_ERR err_to_rgy(NVENCSTATUS err) {
     return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
 }
 
+struct RGYErrMapNVCV {
+    RGY_ERR rgy;
+    NvCV_Status nvcv;
+};
+
+#define NVCVERR_MAP(x) { RGY_ ##x, ##x }
+static const RGYErrMapNVCV ERR_MAP_NVCV[] = {
+  NVCVERR_MAP(NVCV_ERR_GENERAL),
+  NVCVERR_MAP(NVCV_ERR_UNIMPLEMENTED),
+  NVCVERR_MAP(NVCV_ERR_MEMORY),
+  NVCVERR_MAP(NVCV_ERR_EFFECT),
+  NVCVERR_MAP(NVCV_ERR_SELECTOR),
+  NVCVERR_MAP(NVCV_ERR_BUFFER),
+  NVCVERR_MAP(NVCV_ERR_PARAMETER),
+  NVCVERR_MAP(NVCV_ERR_MISMATCH),
+  NVCVERR_MAP(NVCV_ERR_PIXELFORMAT),
+  NVCVERR_MAP(NVCV_ERR_MODEL),
+  NVCVERR_MAP(NVCV_ERR_LIBRARY),
+  NVCVERR_MAP(NVCV_ERR_INITIALIZATION),
+  NVCVERR_MAP(NVCV_ERR_FILE),
+  NVCVERR_MAP(NVCV_ERR_FEATURENOTFOUND),
+  NVCVERR_MAP(NVCV_ERR_MISSINGINPUT),
+  NVCVERR_MAP(NVCV_ERR_RESOLUTION),
+  NVCVERR_MAP(NVCV_ERR_UNSUPPORTEDGPU),
+  NVCVERR_MAP(NVCV_ERR_WRONGGPU),
+  NVCVERR_MAP(NVCV_ERR_UNSUPPORTEDDRIVER),
+  NVCVERR_MAP(NVCV_ERR_MODELDEPENDENCIES),
+  NVCVERR_MAP(NVCV_ERR_PARSE),
+  NVCVERR_MAP(NVCV_ERR_MODELSUBSTITUTION),
+  NVCVERR_MAP(NVCV_ERR_READ),
+  NVCVERR_MAP(NVCV_ERR_WRITE),
+  NVCVERR_MAP(NVCV_ERR_PARAMREADONLY),
+  NVCVERR_MAP(NVCV_ERR_TRT_ENQUEUE),
+  NVCVERR_MAP(NVCV_ERR_TRT_BINDINGS),
+  NVCVERR_MAP(NVCV_ERR_TRT_CONTEXT),
+  NVCVERR_MAP(NVCV_ERR_TRT_INFER),
+  NVCVERR_MAP(NVCV_ERR_TRT_ENGINE),
+  NVCVERR_MAP(NVCV_ERR_NPP),
+  NVCVERR_MAP(NVCV_ERR_CONFIG),
+  NVCVERR_MAP(NVCV_ERR_TOOSMALL),
+  NVCVERR_MAP(NVCV_ERR_TOOBIG),
+  NVCVERR_MAP(NVCV_ERR_WRONGSIZE),
+  NVCVERR_MAP(NVCV_ERR_OBJECTNOTFOUND),
+  NVCVERR_MAP(NVCV_ERR_SINGULAR),
+  NVCVERR_MAP(NVCV_ERR_NOTHINGRENDERED),
+  NVCVERR_MAP(NVCV_ERR_CONVERGENCE),
+  NVCVERR_MAP(NVCV_ERR_OPENGL),
+  NVCVERR_MAP(NVCV_ERR_DIRECT3D),
+  NVCVERR_MAP(NVCV_ERR_CUDA_BASE),
+  NVCVERR_MAP(NVCV_ERR_CUDA_VALUE),
+  NVCVERR_MAP(NVCV_ERR_CUDA_MEMORY),
+  NVCVERR_MAP(NVCV_ERR_CUDA_PITCH),
+  NVCVERR_MAP(NVCV_ERR_CUDA_INIT),
+  NVCVERR_MAP(NVCV_ERR_CUDA_LAUNCH),
+  NVCVERR_MAP(NVCV_ERR_CUDA_KERNEL),
+  NVCVERR_MAP(NVCV_ERR_CUDA_DRIVER),
+  NVCVERR_MAP(NVCV_ERR_CUDA_UNSUPPORTED),
+  NVCVERR_MAP(NVCV_ERR_CUDA_ILLEGAL_ADDRESS),
+  NVCVERR_MAP(NVCV_ERR_CUDA)
+};
+#undef MFX_MAP
+
+NvCV_Status err_to_nvcv(RGY_ERR err) {
+    if (err == RGY_ERR_NONE) return NVCV_SUCCESS;
+    const RGYErrMapNVCV *ERR_MAP_FIN = (const RGYErrMapNVCV *)ERR_MAP_NVCV + _countof(ERR_MAP_NVCV);
+    auto ret = std::find_if((const RGYErrMapNVCV *)ERR_MAP_NVCV, ERR_MAP_FIN, [err](const RGYErrMapNVCV map) {
+        return map.rgy == err;
+        });
+    return (ret == ERR_MAP_FIN) ? NVCV_ERR_GENERAL : ret->nvcv;
+}
+
+RGY_ERR err_to_rgy(NvCV_Status err) {
+    if (err == NVCV_SUCCESS) return RGY_ERR_NONE;
+    const RGYErrMapNVCV *ERR_MAP_FIN = (const RGYErrMapNVCV *)ERR_MAP_NVCV + _countof(ERR_MAP_NVCV);
+    auto ret = std::find_if((const RGYErrMapNVCV *)ERR_MAP_NVCV, ERR_MAP_FIN, [err](const RGYErrMapNVCV map) {
+        return map.nvcv == err;
+        });
+    return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
+}
+
 cudaError err_to_cuda(RGY_ERR err) {
     return (err == RGY_ERR_NONE) ? cudaSuccess : cudaErrorUnknown;
 }
@@ -421,6 +501,59 @@ const TCHAR *get_err_mes(RGY_ERR sts) {
     case RGY_ERR_VK_INVALID_DEVICE_ADDRESS_EXT:                     return _T("VK_INVALID_DEVICE_ADDRESS_EXT");
     case RGY_ERR_VK_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR:             return _T("VK_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR");
     case RGY_ERR_VK_PIPELINE_COMPILE_REQUIRED_EXT:                  return _T("VK_PIPELINE_COMPILE_REQUIRED_EXT");
+
+    case RGY_NVCV_ERR_GENERAL:               return _T("An otherwise unspecified error has occurred.");
+    case RGY_NVCV_ERR_UNIMPLEMENTED:         return _T("The requested feature is not yet implemented.");
+    case RGY_NVCV_ERR_MEMORY:                return _T("There is not enough memory for the requested operation.");
+    case RGY_NVCV_ERR_EFFECT:                return _T("An invalid effect handle has been supplied.");
+    case RGY_NVCV_ERR_SELECTOR:              return _T("The given parameter selector is not valid in this effect filter.");
+    case RGY_NVCV_ERR_BUFFER:                return _T("An image buffer has not been specified.");
+    case RGY_NVCV_ERR_PARAMETER:             return _T("An invalid parameter value has been supplied for this effect+selector.");
+    case RGY_NVCV_ERR_MISMATCH:              return _T("Some parameters are not appropriately matched.");
+    case RGY_NVCV_ERR_PIXELFORMAT:           return _T("The specified pixel format is not accommodated.");
+    case RGY_NVCV_ERR_MODEL:                 return _T("Error while loading the TRT model.");
+    case RGY_NVCV_ERR_LIBRARY:               return _T("Error loading the dynamic library.");
+    case RGY_NVCV_ERR_INITIALIZATION:        return _T("The effect has not been properly initialized.");
+    case RGY_NVCV_ERR_FILE:                  return _T("The file could not be found.");
+    case RGY_NVCV_ERR_FEATURENOTFOUND:       return _T("The requested feature was not found");
+    case RGY_NVCV_ERR_MISSINGINPUT:          return _T("A required parameter was not set");
+    case RGY_NVCV_ERR_RESOLUTION:            return _T("The specified image resolution is not supported.");
+    case RGY_NVCV_ERR_UNSUPPORTEDGPU:        return _T("The GPU is not supported");
+    case RGY_NVCV_ERR_WRONGGPU:              return _T("The current GPU is not the one selected.");
+    case RGY_NVCV_ERR_UNSUPPORTEDDRIVER:     return _T("The currently installed graphics driver is not supported");
+    case RGY_NVCV_ERR_MODELDEPENDENCIES:     return _T("There is no model with dependencies that match this system");
+    case RGY_NVCV_ERR_PARSE:                 return _T("There has been a parsing or syntax error while reading a file");
+    case RGY_NVCV_ERR_MODELSUBSTITUTION:     return _T("The specified model does not exist and has been substituted.");
+    case RGY_NVCV_ERR_READ:                  return _T("An error occurred while reading a file.");
+    case RGY_NVCV_ERR_WRITE:                 return _T("An error occurred while writing a file.");
+    case RGY_NVCV_ERR_PARAMREADONLY:         return _T("The selected parameter is read-only.");
+    case RGY_NVCV_ERR_TRT_ENQUEUE:           return _T("TensorRT enqueue failed.");
+    case RGY_NVCV_ERR_TRT_BINDINGS:          return _T("Unexpected TensorRT bindings.");
+    case RGY_NVCV_ERR_TRT_CONTEXT:           return _T("An error occurred while creating a TensorRT context.");
+    case RGY_NVCV_ERR_TRT_INFER:             return _T("The was a problem creating the inference engine.");
+    case RGY_NVCV_ERR_TRT_ENGINE:            return _T("There was a problem deserializing the inference runtime engine.");
+    case RGY_NVCV_ERR_NPP:                   return _T("An error has occurred in the NPP library.");
+    case RGY_NVCV_ERR_CONFIG:                return _T("No suitable model exists for the specified parameter configuration.");
+    case RGY_NVCV_ERR_TOOSMALL:              return _T("A supplied parameter or buffer is not large enough.");
+    case RGY_NVCV_ERR_TOOBIG:                return _T("A supplied parameter is too big.");
+    case RGY_NVCV_ERR_WRONGSIZE:             return _T("A supplied parameter is not the expected size.");
+    case RGY_NVCV_ERR_OBJECTNOTFOUND:        return _T("The specified object was not found.");
+    case RGY_NVCV_ERR_SINGULAR:              return _T("A mathematical singularity has been encountered.");
+    case RGY_NVCV_ERR_NOTHINGRENDERED:       return _T("Nothing was rendered in the specified region.");
+    case RGY_NVCV_ERR_CONVERGENCE:           return _T("An iteration did not converge satisfactorily.");
+    case RGY_NVCV_ERR_OPENGL:                return _T("An OpenGL error has occurred.");
+    case RGY_NVCV_ERR_DIRECT3D:              return _T("A Direct3D error has occurred.");
+    case RGY_NVCV_ERR_CUDA_BASE:             return _T("CUDA errors are offset from this value.");
+    case RGY_NVCV_ERR_CUDA_VALUE:            return _T("A CUDA parameter is not within the acceptable range.");
+    case RGY_NVCV_ERR_CUDA_MEMORY:           return _T("There is not enough CUDA memory for the requested operation.");
+    case RGY_NVCV_ERR_CUDA_PITCH:            return _T("A CUDA pitch is not within the acceptable range.");
+    case RGY_NVCV_ERR_CUDA_INIT:             return _T("The CUDA driver and runtime could not be initialized.");
+    case RGY_NVCV_ERR_CUDA_LAUNCH:           return _T("The CUDA kernel launch has failed.");
+    case RGY_NVCV_ERR_CUDA_KERNEL:           return _T("No suitable kernel image is available for the device.");
+    case RGY_NVCV_ERR_CUDA_DRIVER:           return _T("The installed NVIDIA CUDA driver is older than the CUDA runtime library.");
+    case RGY_NVCV_ERR_CUDA_UNSUPPORTED:      return _T("The CUDA operation is not supported on the current system or device.");
+    case RGY_NVCV_ERR_CUDA_ILLEGAL_ADDRESS:  return _T("CUDA tried to load or store on an invalid memory address.");
+    case RGY_NVCV_ERR_CUDA:                  return _T("An otherwise unspecified CUDA error has been reported.");
     default:                                      return _T("unknown error.");
     }
 }

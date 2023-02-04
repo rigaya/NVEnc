@@ -149,9 +149,93 @@ tstring VppCustom::print() const {
         pixelPerThreadX, pixelPerThreadY);
 }
 
+VppNvvfxDenoise::VppNvvfxDenoise() :
+    enable(false),
+    strength(FILTER_DEFAULT_NVVFX_DENOISE_STRENGTH) {
+
+}
+
+bool VppNvvfxDenoise::operator==(const VppNvvfxDenoise &x) const {
+    return enable == x.enable
+        && strength == x.strength;
+}
+bool VppNvvfxDenoise::operator!=(const VppNvvfxDenoise &x) const {
+    return !(*this == x);
+}
+
+tstring VppNvvfxDenoise::print() const {
+    return strsprintf(_T("nvvfx-denoise: strength %.0f"),
+        strength);
+}
+
+VppNvvfxArtifactReduction::VppNvvfxArtifactReduction() :
+    enable(false),
+    mode(FILTER_DEFAULT_NVVFX_ARTIFACT_REDUCTION_MODE) {
+
+}
+
+bool VppNvvfxArtifactReduction::operator==(const VppNvvfxArtifactReduction &x) const {
+    return enable == x.enable
+        && mode == x.mode;
+}
+bool VppNvvfxArtifactReduction::operator!=(const VppNvvfxArtifactReduction &x) const {
+    return !(*this == x);
+}
+
+tstring VppNvvfxArtifactReduction::print() const {
+    return strsprintf(_T("nvvfx-artifact-reduction: mode %d (%s)"),
+        mode, get_cx_desc(list_vpp_nvvfx_mode, mode));
+}
+
+VppNvvfxSuperRes::VppNvvfxSuperRes() :
+    enable(false),
+    mode(FILTER_DEFAULT_NVVFX_SUPER_RES_MODE),
+    strength(FILTER_DEFAULT_NVVFX_SUPER_RES_STRENGTH) {
+
+}
+
+bool VppNvvfxSuperRes::operator==(const VppNvvfxSuperRes &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && strength == x.strength;
+}
+bool VppNvvfxSuperRes::operator!=(const VppNvvfxSuperRes &x) const {
+    return !(*this == x);
+}
+
+tstring VppNvvfxSuperRes::print() const {
+    return strsprintf(_T("nvvfx-superres: mode: %d (%s), strength %.2f"),
+        mode, get_cx_desc(list_vpp_nvvfx_mode, mode), strength);
+}
+
+VppNvvfxUpScaler::VppNvvfxUpScaler() :
+    enable(false),
+    strength(FILTER_DEFAULT_NVVFX_UPSCALER_STRENGTH) {
+
+}
+
+bool VppNvvfxUpScaler::operator==(const VppNvvfxUpScaler &x) const {
+    return enable == x.enable
+        && strength == x.strength;
+}
+bool VppNvvfxUpScaler::operator!=(const VppNvvfxUpScaler &x) const {
+    return !(*this == x);
+}
+
+tstring VppNvvfxUpScaler::print() const {
+    return strsprintf(_T("nvvfx-upscaler: strength %.2f"),
+        strength);
+}
+
+
 VppParam::VppParam() :
     deinterlace(cudaVideoDeinterlaceMode_Weave),
-    gaussMaskSize((NppiMaskSize)0) {
+    gaussMaskSize((NppiMaskSize)0),
+    nvvfxDenoise(),
+    nvvfxArtifactReduction(),
+    nvvfxSuperRes(),
+    nvvfxUpScaler(),
+    nvvfxModelDir() {
 }
 
 NV_ENC_CODEC_CONFIG DefaultParamH264() {

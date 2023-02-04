@@ -618,7 +618,8 @@ dynlink_nvcuvid.cpp
 SRC_NVENCCORE=" \
 CuvidDecode.cpp        FrameQueue.cpp              NVEncCmd.cpp                 NVEncCore.cpp \
 NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           NVEncFilterColorspace.cpp \
-NVEncFilterCustom.cpp  NVEncFilterDelogo.cpp       NVEncFilterDenoiseGauss.cpp  NVEncFilterOverlay.cpp       NVEncFilterPad.cpp \
+NVEncFilterCustom.cpp  NVEncFilterDelogo.cpp       NVEncFilterDenoiseGauss.cpp  NVEncFilterNvvfx.cpp \
+NVEncFilterOverlay.cpp NVEncFilterPad.cpp \
 NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
 NVEncFrameInfo.cpp     NVEncParam.cpp              NVEncUtil.cpp                cl_func.cpp \
 convert_csp.cpp        cpu_info.cpp                gpu_info.cpp \

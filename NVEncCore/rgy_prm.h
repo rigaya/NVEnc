@@ -276,6 +276,9 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NPPI_INTER_LANCZOS3_ADVANCED,       /**<  Generic Lanczos filtering with order 3. */
     RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE, /**<  Smooth edge filtering. */
     RGY_VPP_RESIZE_NPPI_MAX,
+
+    RGY_VPP_RESIZE_NVVFX_SUPER_RES,
+    RGY_VPP_RESIZE_NVVFX_MAX,
 #endif
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_AMF_BILINEAR,
@@ -286,6 +289,22 @@ enum RGY_VPP_RESIZE_ALGO {
 #endif
     RGY_VPP_RESIZE_UNKNOWN,
 };
+
+static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+    return RGY_VPP_RESIZE_OPENCL_CUDA_MAX < interp && interp < RGY_VPP_RESIZE_NPPI_MAX;
+#else
+    return false;
+#endif
+}
+
+static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+    return RGY_VPP_RESIZE_NPPI_MAX < interp && interp < RGY_VPP_RESIZE_NVVFX_MAX;
+#else
+    return false;
+#endif
+}
 
 enum RGY_VPP_RESIZE_TYPE {
     RGY_VPP_RESIZE_TYPE_NONE,
@@ -348,6 +367,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+    { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
 #endif
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },

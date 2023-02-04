@@ -287,6 +287,22 @@ tstring encoder_help() {
         _T("                                  none, bob, adaptive (normal)\n")
         _T("                                  available only with avhw reader\n"));
     str += print_list_options(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
+    if (ENABLE_NVVFX) {
+        str += strsprintf(_T("\n")
+            _T("   --vpp-nvvfx-denoise [<param1>=<value>][,<param2>=<value>][...]\n")
+            _T("     enable nvvfx webcam denoise filter.\n")
+            _T("    params\n")
+            _T("      strength=<int>        0 ... conservative (default)\n")
+            _T("                            1 ... aggressive \n"));
+        str += strsprintf(_T("\n")
+            _T("   --vpp-nvvfx-artifact-reduction [<param1>=<value>][,<param2>=<value>][...]\n")
+            _T("     enable nvvfx artifact reduction filter.\n")
+            _T("    params\n")
+            _T("      mode=<int>            0 ... conservative (default)\n")
+            _T("                            1 ... aggressive \n"));
+        str += strsprintf(_T("\n")
+            _T("   --vpp-nvvfx-model-dir <string> set directory which has nxxmfx models.\n"));
+    }
 
     str += _T("\n");
     str += gen_cmd_help_vpp();
@@ -394,7 +410,7 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue,
     print_cmd_error_invalid_value(strOptionName, strErrorValue, cx_codec_list_ptr);
 }
 
-int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, [[maybe_unused]] int nArgNum, VppParam* vppnv, [[maybe_unused]] sArgsData* argData) {
+int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, [[maybe_unused]] int nArgNum, VppParam* vppnv, [[maybe_unused]] sArgsData* argData, RGY_VPP_RESIZE_ALGO& resize_algo) {
     if (IS_OPTION("vpp-deinterlace")) {
         i++;
         int value = 0;
@@ -414,6 +430,192 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_nppi_gauss);
             return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-nvvfx-model-dir") && ENABLE_NVVFX) {
+        i++;
+        vppnv->nvvfxModelDir = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("vpp-resize") && ENABLE_NVVFX) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "superres-mode", "strength" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppnv->nvvfxSuperRes.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("algo")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) {
+                        resize_algo = (RGY_VPP_RESIZE_ALGO)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("superres-mode")) {
+                    try {
+                        vppnv->nvvfxSuperRes.mode = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("superres-strength")) {
+                    try {
+                        vppnv->nvvfxSuperRes.strength = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+
+                int value = 0;
+                if (get_list_value(list_vpp_resize, param.c_str(), &value)) {
+                    resize_algo = (RGY_VPP_RESIZE_ALGO)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name), param, list_vpp_resize);
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-nvvfx-denoise") && ENABLE_NVVFX) {
+        vppnv->nvvfxDenoise.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "strength" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppnv->nvvfxDenoise.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try {
+                        vppnv->nvvfxDenoise.strength = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    if (IS_OPTION("vpp-nvvfx-artifact-reduction") && ENABLE_NVVFX) {
+        vppnv->nvvfxArtifactReduction.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "mode" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppnv->nvvfxArtifactReduction.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    try {
+                        vppnv->nvvfxArtifactReduction.mode = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    if (IS_OPTION("vpp-nvvfx-upscaler") && ENABLE_NVVFX) {
+        vppnv->nvvfxUpScaler.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "strength" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppnv->nvvfxUpScaler.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try {
+                        vppnv->nvvfxUpScaler.strength = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
         }
         return 0;
     }
@@ -1425,10 +1627,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     ret = parse_one_ctrl_option(option_name, strInput, i, nArgNum, &pParams->ctrl, argData);
     if (ret >= 0) return ret;
 
-    ret = parse_one_vpp_option(option_name, strInput, i, nArgNum, &pParams->vpp, argData);
+    ret = parse_one_vppnv_option(option_name, strInput, i, nArgNum, &pParams->vppnv, argData, pParams->vpp.resize_algo);
     if (ret >= 0) return ret;
 
-    ret = parse_one_vppnv_option(option_name, strInput, i, nArgNum, &pParams->vppnv, argData);
+    ret = parse_one_vpp_option(option_name, strInput, i, nArgNum, &pParams->vpp, argData);
     if (ret >= 0) return ret;
 
     print_cmd_error_unknown_opt(strInput[i]);
@@ -1756,6 +1958,70 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_LST(_T("--vpp-deinterlace"), vppnv.deinterlace, list_deinterlace);
     OPT_LST(_T("--vpp-gauss"), vppnv.gaussMaskSize, list_nppi_gauss);
+
+    std::basic_stringstream<TCHAR> tmp;
+    if (pParams->vppnv.nvvfxDenoise != encPrmDefault.vppnv.nvvfxDenoise) {
+        tmp.str(tstring());
+        if (!pParams->vppnv.nvvfxDenoise.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vppnv.nvvfxDenoise.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("strength"), vppnv.nvvfxDenoise.strength, 3);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-nvvfx-denoise ") << tmp.str().substr(1);
+        } else if (pParams->vppnv.nvvfxDenoise.enable) {
+            cmd << _T(" --vpp-nvvfx-denoise");
+        }
+    }
+
+    if (pParams->vppnv.nvvfxArtifactReduction != encPrmDefault.vppnv.nvvfxArtifactReduction) {
+        tmp.str(tstring());
+        if (!pParams->vppnv.nvvfxArtifactReduction.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vppnv.nvvfxArtifactReduction.enable || save_disabled_prm) {
+            ADD_NUM(_T("mode"), vppnv.nvvfxArtifactReduction.mode);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-nvvfx-artifact-reduction ") << tmp.str().substr(1);
+        } else if (pParams->vppnv.nvvfxArtifactReduction.enable) {
+            cmd << _T(" --vpp-nvvfx-artifact-reduction");
+        }
+    }
+
+    if (pParams->vppnv.nvvfxSuperRes != encPrmDefault.vppnv.nvvfxSuperRes) {
+        tmp.str(tstring());
+        if (!pParams->vppnv.nvvfxSuperRes.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vppnv.nvvfxSuperRes.enable || save_disabled_prm) {
+            ADD_NUM(_T("mode"), vppnv.nvvfxSuperRes.mode);
+            ADD_FLOAT(_T("strength"), vppnv.nvvfxSuperRes.strength, 3);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-nvvfx-superres ") << tmp.str().substr(1);
+        } else if (pParams->vppnv.nvvfxSuperRes.enable) {
+            cmd << _T(" --vpp-nvvfx-superres");
+        }
+    }
+
+    if (pParams->vppnv.nvvfxUpScaler != encPrmDefault.vppnv.nvvfxUpScaler) {
+        tmp.str(tstring());
+        if (!pParams->vppnv.nvvfxUpScaler.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vppnv.nvvfxDenoise.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("strength"), vppnv.nvvfxUpScaler.strength, 3);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-nvvfx-upscale ") << tmp.str().substr(1);
+        } else if (pParams->vppnv.nvvfxUpScaler.enable) {
+            cmd << _T(" --vpp-nvvfx-upscale");
+        }
+    }
+
+    OPT_STR_PATH(_T("--vpp-nvvfx-model-dir"), vppnv.nvvfxModelDir);
 
     cmd << gen_cmd(&pParams->vpp, &encPrmDefault.vpp, save_disabled_prm);
 

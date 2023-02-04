@@ -6706,7 +6706,7 @@ tstring gen_cmd_help_common() {
         _T("\n")
         _T("   --timecode [<string>]        output timecode file.\n")
         _T("\n")
-        _T("   --input-hevc-bsf <string>    switch hevc bitstream filter used for hw decoder input")
+        _T("   --input-hevc-bsf <string>    switch hevc bitstream filter used for hw decoder input\n")
         _T("                                 - internal   ... use internal implementation (default)\n")
         _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
@@ -6788,7 +6788,7 @@ tstring gen_cmd_help_vpp() {
         ,
         FILTER_DEFAULT_DELOGO_DEPTH);
 #if ENABLE_VPP_FILTER_AFS
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable auto field shift deinterlacer\n")
         _T("    params\n")
@@ -6829,16 +6829,16 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_AFS_THRE_SHIFT, FILTER_DEFAULT_AFS_THRE_DEINT,
         FILTER_DEFAULT_AFS_THRE_YMOTION, FILTER_DEFAULT_AFS_THRE_CMOTION,
         FILTER_DEFAULT_AFS_ANALYZE,
-        FILTER_DEFAULT_AFS_SHIFT   ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_DROP    ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_SMOOTH  ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_SHIFT ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_DROP ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_SMOOTH ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_TUNE ? _T("on") : _T("off"),
 #if ENCODER_NVENC
-        FILTER_DEFAULT_AFS_RFF     ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_RFF ? _T("on") : _T("off"),
 #endif
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
+        FILTER_DEFAULT_AFS_LOG ? _T("on") : _T("off"));
 #endif
 #if ENABLE_VPP_FILTER_NNEDI
     str += strsprintf(_T("\n")
@@ -6888,7 +6888,7 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-rff                    apply rff flag, with avhw reader only.\n"));
 #endif
 #if ENABLE_VPP_FILTER_SELECT_EVERY
-    str += strsprintf(
+    str += strsprintf(_T("\n")
         _T("   --vpp-select-every <int>[,offset=<int>]\n")
         _T("     select one frame per specified frames and create output.\n"));
 #endif
@@ -6934,7 +6934,36 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_MPDECIMATE_FRAC, FILTER_DEFAULT_MPDECIMATE_MAX,
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
 #endif
+#if ENABLE_NVVFX
+    {
+        str += strsprintf(_T("\n")
+            _T("--vpp-resize <string> or [<param1>=<value>][,<param2>=<value>][...]")
+            _T("    params\n")
+            _T("      algo=<string>             select algorithm"));
+        const TCHAR *indent = _T("        ");
+        int length = 80;
+        for (int ia = 0; list_vpp_resize[ia].desc; ia++) {
+            if (length > 77) {
+                length = _tcslen(indent);
+                str += tstring(_T("\n")) + indent;
+            } else {
+                length += _tcslen(_T(", "));
+                str += _T(", ");
+            }
+            length += _tcslen(list_vpp_resize[ia].desc);
+            str += list_vpp_resize[ia].desc;
+        }
+        str += _T("        default: auto\n");
+        str += strsprintf(_T("\n")
+            _T("      superres-mode=<int>\n")
+            _T("        mode for nvvfx-superres     0 ... conservative (default)\n")
+            _T("                                    1 ... aggressive \n")
+            _T("      superres-strength=<float>\n")
+            _T("        strength for nvvfx-superres (0.0 - 1.0)\n"));
+    }
+#else
     str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize, 0);
+#endif
 #if ENCODER_QSV
     str += print_list_options(_T("--vpp-resize-mode <string>"), list_vpp_resize_mode, 0);
 #endif
@@ -6952,7 +6981,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_SPATIAL, FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_SPATIAL,
         FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_TEMPORAL, FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_TEMPORAL);
 #endif
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by K-nearest neighbor.\n")
         _T("    params\n")

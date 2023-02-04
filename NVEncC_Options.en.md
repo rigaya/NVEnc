@@ -187,12 +187,14 @@
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-transform-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-convolution3d-param1value1param2value2)
+  - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
+  - [--vpp-nvvfx-artifact-reduction \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
   - [--vpp-gauss \<int\>](#--vpp-gauss-int)
   - [--vpp-subburn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-subburn-param1value1param2value2)
-  - [--vpp-resize \<string\>](#--vpp-resize-string)
+  - [--vpp-resize \<string\> or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-resize-string-or-param1value1param2value2)
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
@@ -201,6 +203,7 @@
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
+  - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [Other Options](#other-options)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
   - [--output-buf \<int\>](#--output-buf-int)
@@ -1521,12 +1524,14 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-select-every](#--vpp-select-every-intparam1int)
 - [--vpp-transform/rotate](#--vpp-rotate-int)
 - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
+- [--vpp-nvvfx-denoise](#--vpp-nvvfx-denoise-param1value1param2value2)
+- [--vpp-nvvfx-artifact-reduction](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
 - [--vpp-gauss](#--vpp-gauss-int)
 - [--vpp-subburn](#--vpp-subburn-param1value1param2value2)
-- [--vpp-resize](#--vpp-resize-string)
+- [--vpp-resize](#--vpp-resize-string-or-param1value1param2value2)
 - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -2014,6 +2019,38 @@ Rotate video. 90, 180, 270 degrees is allowed.
   --vpp-convolution3d matrix=simple
   ```
 
+### --vpp-nvvfx-denoise [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Webcam denoise filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
+This will removes low-light camera noise from a webcam video while preserving the texture details,
+supporting resolutions between 80p to 1080p.
+
+This fitler is supported on Turing Gen GPU (RTX20xx) or later. 
+Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this filter.
+
+- **parameters**
+  - strength=&lt;int&gt;
+    - 0  
+      Weaker effect, which places a higher emphasis on texture preservation.
+
+    - 1  
+      Stronger effect, which places a higher emphasis on noise removal. 
+
+### --vpp-nvvfx-artifact-reduction [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Artifact reduction filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
+This will reduce encoder artifacts, while preserving the details of orginal video,
+supporting resolutions between 90p to 1080p.
+
+This fitler is supported on Turing Gen GPU (RTX20xx) or later. 
+Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this filter.
+
+- **parameters**
+  - mode=&lt;int&gt;
+    - 0 (default)  
+      Removes lesser artifacts, preserves low gradient information better, and is suited for higher bitrate videos.
+
+    - 1  
+      Results stronger effect, suitable for lower bitrate videos.
+
 ### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 - **parameters**
@@ -2135,27 +2172,57 @@ It is necessary to install nppi64_10.dll, and could be used only in x64 version.
   --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
   ```
 
-### --vpp-resize &lt;string&gt;
+### --vpp-resize &lt;string&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Specify the resizing algorithm.
 
-Those with "○" in nppi64_10.dll use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only. To use those algorithms, you need to download nppi64_10.dll separately and place it in the same folder as NVEncC64.exe.
+- **options**
+  - algo=&lt;string&gt;  
+    select which algorithm to use.
 
-- options
-  | option name | description | require nppi64_10.dll |
-  |:---|:---|:---:|
-  | auto     | auto select | |
-  | bilinear | linear interpolation | |
-  | spline16 | 4x4 spline curve interpolation | |
-  | spline36 | 6x6 spline curve interpolation | |
-  | spline64 | 8x8 spline curve interpolation | |
-  | lanczos2 | 4x4 Lanczos resampling | |
-  | lanczos3 | 6x6 Lanczos resampling | |
-  | lanczos4 | 8x8 Lanczos resampling | |
-  | nn            | nearest neighbor | ○ |
-  | npp_linear    | linear interpolation by NPP library | ○ |
-  | cubic         | 4x4 cubic interpolation | ○ |
-  | super         | So called "super sampling" by NPP library | ○ |
-  | lanczos       | Lanczos interpolation                    | ○ |
+    | name | description | require nppi64_10.dll |
+    |:---|:---|:---:|
+    | auto           | auto select                                                |   |
+    | bilinear       | linear interpolation                                       |   |
+    | spline16       | 4x4 spline curve interpolation                             |   |
+    | spline36       | 6x6 spline curve interpolation                             |   |
+    | spline64       | 8x8 spline curve interpolation                             |   |
+    | lanczos2       | 4x4 Lanczos resampling                                     |   |
+    | lanczos3       | 6x6 Lanczos resampling                                     |   |
+    | lanczos4       | 8x8 Lanczos resampling                                     |   |
+    | nn             | nearest neighbor                                           | ○ |
+    | npp_linear     | linear interpolation by NPP library                        | ○ |
+    | cubic          | 4x4 cubic interpolation                                    | ○ |
+    | super          | So called "super sampling" by NPP library (downscale only) | ○ |
+    | lanczos        | Lanczos interpolation                                      | ○ |
+    | nvvfx-superres | Super Resolution based on nvvfx library (upscale only)     |   |
+
+  - superres-mode=&lt;int&gt;  
+    select mode for nvvfx-superres
+    - 0 ... conservative (default)
+    - 1 ... aggressive
+
+  - superres-strength=&lt;float&gt;  
+    strength for nvvfx-superres (0.0 - 1.0)
+
+- Notes
+  - Those with "○" in nppi64_10.dll on the table will use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only.
+    To use those algorithms, you need to download nppi64_10.dll separately and place it in the same folder as NVEncC64.exe.
+
+  - ```nvvfx-superres``` is super resolution filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
+    This mode is supported on Turing Gen GPU (RTX20xx) or later. Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this mode.
+
+- **Examples**
+  ```
+  Examples: Use spline64 (in short)
+  --vpp-resize spline64
+
+  Examples: Use spline64
+  --vpp-resize algo=spline64 
+
+  Examples: Use nvvfx-superres in mode 1
+  --vpp-resize algo=nvvfx-superres,superres-mode=1
+  ```
+
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 unsharp filter, for edge and detail enhancement.
@@ -2337,7 +2404,8 @@ add padding to left,top,right,bottom (in pixels)
 ### --vpp-perf-monitor
 Monitor the performance of each vpp filter, and output the average per frame processing time of the applied filter(s). Note that the overall encoding performance may slightly be harmed.
 
-
+### --vpp-nvvfx-model-dir &lt;string&gt;
+Set path to the model folder of Video Effect models.
 
 ## Other Options
 
