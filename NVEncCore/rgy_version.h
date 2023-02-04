@@ -121,7 +121,7 @@ const char *get_encoder_version();
 #define ENABLE_RAW_READER         1
 #define ENABLE_NVML               1
 #define ENABLE_NVRTC              1
-#define ENABLE_NVVFX              1
+#define ENABLE_NVVFX              0
 #define ENABLE_CAPTION2ASS        0
 #define ENABLE_VMAF               0
 #endif // #if defined(WIN32) || defined(WIN64)

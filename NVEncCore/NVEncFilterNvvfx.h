@@ -27,15 +27,19 @@
 // ------------------------------------------------------------------------------------------
 
 #include <array>
+#include "rgy_version.h"
 #include "convert_csp.h"
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
+
+#if ENABLE_NVVFX
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "nvVideoEffects.h"
 #pragma warning (pop)
 
 using unique_nvvfx_handle = std::unique_ptr<std::remove_pointer<NvVFX_Handle>::type, decltype(&NvVFX_DestroyEffect)>;
+#endif
 
 class NVEncFilterNvvfxEffect : public NVEncFilter {
 public:
@@ -49,12 +53,14 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
+#if ENABLE_NVVFX
     unique_nvvfx_handle m_effect;
+    std::unique_ptr<NvCVImage> m_srcImg;
+    std::unique_ptr<NvCVImage> m_dstImg;
+#endif
     std::string m_effectName;
     int m_maxWidth;
     int m_maxHeight;
-    std::unique_ptr<NvCVImage> m_srcImg;
-    std::unique_ptr<NvCVImage> m_dstImg;
     std::unique_ptr<NVEncFilterCspCrop> m_srcCrop;
     std::unique_ptr<NVEncFilterCspCrop> m_dstCrop;
     std::unique_ptr<CUMemBuf> m_state;

@@ -615,6 +615,10 @@ SRC_NVENCSDK=" \
 dynlink_nvcuvid.cpp
 "
 
+#SRC_NVVFX="\
+#nvCVImageProxy.cpp     NVVideoEffectsProxy.cpp
+#"
+
 SRC_NVENCCORE=" \
 CuvidDecode.cpp        FrameQueue.cpp              NVEncCmd.cpp                 NVEncCore.cpp \
 NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           NVEncFilterColorspace.cpp \
@@ -663,6 +667,10 @@ BINHS="NVEncCore/NVEncFilterColorspaceFunc.h"
 for src in $SRC_NVENCSDK; do
     SRCS="$SRCS NVEncSDK/Common/src/$src"
 done
+
+#for src in $SRC_NVVFX; do
+#    SRCS="$SRCS MAXINE-VFX-SDK/nvvfx/src/$src"
+#done
 
 for src in $SRC_NVENCCORE; do
     SRCS="$SRCS NVEncCore/$src"
