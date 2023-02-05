@@ -294,7 +294,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_UNKNOWN,
 };
 
-static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+static bool isNppResizeFiter([[maybe_unused]] const RGY_VPP_RESIZE_ALGO interp) {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
     return RGY_VPP_RESIZE_OPENCL_CUDA_MAX < interp && interp < RGY_VPP_RESIZE_NPPI_MAX;
 #else
@@ -302,7 +302,7 @@ static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
 #endif
 }
 
-static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+static bool isNvvfxResizeFiter([[maybe_unused]] const RGY_VPP_RESIZE_ALGO interp) {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
     return RGY_VPP_RESIZE_NPPI_MAX < interp && interp < RGY_VPP_RESIZE_NVVFX_MAX;
 #else
