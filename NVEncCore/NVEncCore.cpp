@@ -3837,6 +3837,8 @@ NVENCSTATUS NVEncCore::Encode() {
                     PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (vfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
                     return decFrames;
                 }
+                // 少しのずれはrffによるものとみなし、基準値を修正する
+                nOutEstimatedPts = outPtsSource;
             }
             if (streamIn) {
                 //cuvidデコード時は、timebaseの分子はかならず1なので、streamIn->time_baseとズレているかもしれないのでオリジナルを計算
