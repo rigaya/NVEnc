@@ -725,6 +725,7 @@ typedef struct AVDemuxVideo {
     uint8_t                  *extradata;             //動画のヘッダ情報
     int                       extradataSize;         //動画のヘッダサイズ
     AVRational                nAvgFramerate;         //動画のフレームレート
+    uint32_t                  findPosLastIdx;        //findpos用のindex
 
     int                       nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
 

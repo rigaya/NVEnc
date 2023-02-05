@@ -1725,6 +1725,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_Demux.video.stream->time_base.num, m_Demux.video.stream->time_base.den,
             av_stream_get_codec_timebase(m_Demux.video.stream).num, av_stream_get_codec_timebase(m_Demux.video.stream).den);
 
+        m_Demux.video.findPosLastIdx = 0;
         m_logFramePosList.clear();
         if (input_prm->logFramePosList.length() > 0) {
             m_logFramePosList = input_prm->logFramePosList;
@@ -2638,6 +2639,12 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
         if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC && m_Demux.video.hdr10plusMetadataCopy) {
             pBitstream->addFrameData(getHDR10plusMetaData(pkt));
         }
+        const auto findPos = m_Demux.frames.findpts(pBitstream->pts(), &m_Demux.video.findPosLastIdx);
+        if (findPos.poc != FRAMEPOS_POC_INVALID
+            && (findPos.pic_struct & RGY_PICSTRUCT_INTERLACED) == 0
+            && findPos.repeat_pict > 1) {
+            pBitstream->setDataflag(RGY_FRAME_FLAG_RFF);
+        }
         m_poolPkt->returnFree(&pkt);
         m_Demux.video.nSampleGetCount++;
         m_encSatusInfo->m_sData.frameIn++;
@@ -2960,6 +2967,12 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
             got_frame = TRUE;
+        }
+        const auto findPos = m_Demux.frames.findpts(m_Demux.video.frame->pts, &m_Demux.video.findPosLastIdx);
+        if (findPos.poc != FRAMEPOS_POC_INVALID
+            && (findPos.pic_struct & RGY_PICSTRUCT_INTERLACED) == 0
+            && findPos.repeat_pict > 1) {
+            pSurface->setFlags(RGY_FRAME_FLAG_RFF);
         }
         pSurface->setTimestamp(m_Demux.video.frame->pts);
         pSurface->setDuration(m_Demux.video.frame->pkt_duration);
