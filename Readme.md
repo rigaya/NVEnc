@@ -203,8 +203,8 @@ when there are multiple GPUs available which support NVENC.
 - MIT license.
 - This program is based on NVIDA CUDA Samples and includes sample code.
   This software contains source code provided by NVIDIA Corporation.
-- --vpp-nvvfx fiters are power by NVIDIA BROADCAST.
-  ![NVIDIA BROADCAST](./data/powered-by-nvidia-broadcast-lockup-rgb-wht-for-screen.png)
+- --vpp-nvvfx fiters are power by NVIDIA BROADCAST.  
+  <img src="./data/powered-by-nvidia-broadcast-lockup-rgb-blk-for-screen.png" width="480px">
 - This software depends on
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),

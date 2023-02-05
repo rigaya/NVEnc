@@ -205,7 +205,7 @@ NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
 - 本プログラムは、NVIDA CUDA Samplesをベースに作成されており、サンプルコードを含みます。  
   This software contains source code provided by NVIDIA Corporation.  
 - --vpp-nvvfx フィルタは、NVIDIA BROADCASTを使用しています。
-  ![NVIDIA BROADCAST](./data/powered-by-nvidia-broadcast-lockup-rgb-wht-for-screen.png)
+  <img src="./data/powered-by-nvidia-broadcast-lockup-rgb-blk-for-screen.png" width="480">
 - 本ソフトウェアでは、
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
