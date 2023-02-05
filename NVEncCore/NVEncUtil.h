@@ -471,6 +471,12 @@ public:
     void setPicstruct(RGY_PICSTRUCT picstruct) {
         info.picstruct = picstruct;
     }
+    RGY_FRAME_FLAGS flags() const {
+        return info.flags;
+    }
+    void setFlags(RGY_FRAME_FLAGS flags) {
+        info.flags = flags;
+    }
     const std::vector<std::shared_ptr<RGYFrameData>> &dataList() const { return info.dataList; };
     std::vector<std::shared_ptr<RGYFrameData>> &dataList() { return info.dataList; };
 };

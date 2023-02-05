@@ -1190,7 +1190,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#if ENCODER_NVENC
                 if (param_arg == _T("rff")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
@@ -1201,7 +1200,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#endif
                 if (param_arg == _T("timecode")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
@@ -6829,16 +6827,14 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_AFS_THRE_SHIFT, FILTER_DEFAULT_AFS_THRE_DEINT,
         FILTER_DEFAULT_AFS_THRE_YMOTION, FILTER_DEFAULT_AFS_THRE_CMOTION,
         FILTER_DEFAULT_AFS_ANALYZE,
-        FILTER_DEFAULT_AFS_SHIFT ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_DROP ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_SMOOTH ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_SHIFT   ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_DROP    ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_SMOOTH  ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_TUNE ? _T("on") : _T("off"),
-#if ENCODER_NVENC
-        FILTER_DEFAULT_AFS_RFF ? _T("on") : _T("off"),
-#endif
+        FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_RFF     ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_LOG ? _T("on") : _T("off"));
+        FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
 #endif
 #if ENABLE_VPP_FILTER_NNEDI
     str += strsprintf(_T("\n")
