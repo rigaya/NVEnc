@@ -240,7 +240,9 @@ float factor_lanczos(const float x) {
 
 template<int radius>
 __inline__ __device__
-float factor_spline(const float x, const float *psCopyFactor) {
+float factor_spline(const float x_raw, const float *psCopyFactor) {
+    const float x = fabs(x_raw);
+    if (x >= (float)radius) return 0.0f;
     const float *psWeight = psCopyFactor + min((int)x, radius - 1) * 4;
     //重みを計算
     float w = psWeight[3];
@@ -260,7 +262,7 @@ void __inline__ __device__ calc_weight(
         float weight = 0.0f;
         switch (algo) {
         case WEIGHT_LANCZOS: weight = factor_lanczos<radius>(delta); break;
-        case WEIGHT_SPLINE:  weight = factor_spline<radius>(fabs(delta), psCopyFactor);
+        case WEIGHT_SPLINE:  weight = factor_spline<radius>(delta, psCopyFactor);
         default:
             break;
         }

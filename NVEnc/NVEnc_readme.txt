@@ -211,6 +211,9 @@ NVIDIA グラフィックドライバ 528.02
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2023.02.07 (7.16)
+- 7.15から --vpp-resize spline16, spline36, spline64を使用すると、意図しない線やノイズが入る問題を修正。
+
 2023.02.05 (7.15)
 [NVEncC]
 - NVIDIA MAXINE VideoEffects SDKによるフィルタを追加。 (Windows x64版のみ)
