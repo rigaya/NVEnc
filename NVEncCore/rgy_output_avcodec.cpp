@@ -3321,15 +3321,6 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
             m_Mux.format.streamError = true;
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
-        //pktData->pkt.duration == 0 の場合はなにもせず終了する
-        if (pkt->duration == 0) {
-            m_Mux.poolPkt->returnFree(&pkt);
-            //特にエラーでなければそのまま終了
-            if (sts == RGY_ERR_NONE) {
-                return RGY_ERR_NONE;
-            }
-            return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
-        }
     }
     if (pMuxOther->outCodecEncodeCtx) {
         return SubtitleTranscode(pMuxOther, pkt);
