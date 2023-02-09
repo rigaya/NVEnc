@@ -145,7 +145,7 @@ private:
     size_t maxLength;
     int64_t  dataDts;
     int64_t  dataPts;
-    uint32_t dataFlag;
+    RGY_FRAME_FLAGS dataFlag;
     uint32_t dataAvgQP;
     RGY_FRAMETYPE dataFrametype;
     RGY_PICSTRUCT dataPicstruct;
@@ -171,11 +171,11 @@ public:
         return ptr;
     }
 
-    uint32_t dataflag() const {
+    RGY_FRAME_FLAGS dataflag() const {
         return dataFlag;
     }
 
-    void setDataflag(uint32_t flag) {
+    void setDataflag(RGY_FRAME_FLAGS flag) {
         dataFlag = flag;
     }
 
