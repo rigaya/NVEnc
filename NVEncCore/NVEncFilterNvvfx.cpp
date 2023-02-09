@@ -157,13 +157,28 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         }
     }
 
-    AddMessage(RGY_LOG_DEBUG, _T("Create src image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
-    m_srcImg = std::make_unique<NvCVImage>(pParam->frameIn.width, pParam->frameIn.height,
-        NVCV_BGR, NVCV_F32, NVCV_PLANAR, NVCV_GPU);
+    // C++コンストラクタでのメモリ確保ではなく、デフォルトコンストラクタでNvCVImageを作成した後、
+    // NvCVImage_Allocでメモリ確保すること
+    // そうしないと128で割り切れないwidthの場合にエラーが出る
+    AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx input image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
+    m_srcImg = std::make_unique<NvCVImage>();
+    err = err_to_rgy(NvCVImage_Alloc(m_srcImg.get(), pParam->frameIn.width, pParam->frameIn.height,
+        NVCV_BGR, NVCV_F32, NVCV_PLANAR, NVCV_GPU, 1));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx input image %dx%d: %s.\n"),
+            pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
 
-    AddMessage(RGY_LOG_DEBUG, _T("Create dst image %dx%d.\n"), pParam->frameOut.width, pParam->frameOut.height);
-    m_dstImg = std::make_unique<NvCVImage>(pParam->frameOut.width, pParam->frameOut.height,
-        NVCV_BGR, NVCV_F32, NVCV_PLANAR, NVCV_GPU);
+    AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx output image %dx%d.\n"), pParam->frameOut.width, pParam->frameOut.height);
+    m_dstImg = std::make_unique<NvCVImage>();
+    err = err_to_rgy(NvCVImage_Alloc(m_dstImg.get(), pParam->frameOut.width, pParam->frameOut.height,
+        NVCV_BGR, NVCV_F32, NVCV_PLANAR, NVCV_GPU, 1));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx output image %dx%d: %s.\n"),
+            pParam->frameOut.width, pParam->frameOut.height, get_err_mes(err));
+        return RGY_ERR_INVALID_PARAM;
+    }
 
     if (prm->vuiInfo.matrix == RGY_MATRIX_UNSPECIFIED) {
         prm->vuiInfo.matrix = (CspMatrix)COLOR_VALUE_AUTO_RESOLUTION;
