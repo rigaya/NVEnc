@@ -2461,6 +2461,71 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
+    if (IS_OPTION("vpp-curves") && ENABLE_VPP_FILTER_CURVES) {
+        vpp->curves.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "r", "g", "b", "m", "red", "green", "blue", "master", "all", "preset" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->curves.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("r") || param_arg == _T("red")) {
+                    vpp->curves.prm.r = param_val;
+                    continue;
+                }
+                if (param_arg == _T("g") || param_arg == _T("green")) {
+                    vpp->curves.prm.g = param_val;
+                    continue;
+                }
+                if (param_arg == _T("b") || param_arg == _T("blue")) {
+                    vpp->curves.prm.b = param_val;
+                    continue;
+                }
+                if (param_arg == _T("m") || param_arg == _T("master")) {
+                    vpp->curves.prm.m = param_val;
+                    continue;
+                }
+                if (param_arg == _T("all")) {
+                    vpp->curves.prm.m = param_val;
+                    continue;
+                }
+                if (param_arg == _T("preset")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_curves_preset, param_val.c_str(), &value)) {
+                        vpp->curves.preset = (VppCurvesPreset)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_curves_preset);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-tweak") && ENABLE_VPP_FILTER_TWEAK) {
         vpp->tweak.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -2468,11 +2533,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "contrast, ""brightness", "gamma", "saturation",
-#if ENCODER_NVENC
-            "swapuv",
-#endif
-            "hue" };
+        const auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "swapuv", "hue" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -5880,6 +5941,24 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-warpsharp");
         }
     }
+    if (param->curves != defaultPrm->curves) {
+        tmp.str(tstring());
+        if (!param->curves.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->curves.enable || save_disabled_prm) {
+            ADD_LST(_T("preset"), curves.preset, list_vpp_curves_preset);
+            ADD_STR(_T("r"), curves.prm.r);
+            ADD_STR(_T("g"), curves.prm.g);
+            ADD_STR(_T("b"), curves.prm.b);
+            ADD_STR(_T("all"), curves.all);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-curves ") << tmp.str().substr(1);
+        } else if (param->curves.enable) {
+            cmd << _T(" --vpp-curves");
+        }
+    }
     if (param->tweak != defaultPrm->tweak) {
         tmp.str(tstring());
         if (!param->tweak.enable && save_disabled_prm) {
@@ -7071,6 +7150,26 @@ tstring gen_cmd_help_vpp() {
         _T("                                  (default=%d)\n"),
         FILTER_DEFAULT_WARPSHARP_THRESHOLD, FILTER_DEFAULT_WARPSHARP_BLUR, FILTER_DEFAULT_WARPSHARP_TYPE,
         FILTER_DEFAULT_WARPSHARP_DEPTH, FILTER_DEFAULT_WARPSHARP_CHROMA);
+#endif
+#if ENABLE_VPP_FILTER_CURVES
+    str += strsprintf(_T("\n")
+        _T("   --vpp-curves [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     apply color adjustments using curves.\n")
+        _T("    params\n")
+        _T("      preset=<string>\n")
+        _T("        color_negative, process, darker, lighter, increase_contrast\n")
+        _T("        linear_contrast, medium_contrast, strong_contrast\n")
+        _T("        negative, vintage\n")
+        _T("      m=<string>\n")
+        _T("        set master curve points, post process for luminance.\n")
+        _T("      r=<string>\n")
+        _T("        set curve points for red. Will override preset settings.\n")
+        _T("      g=<string>\n")
+        _T("        set curve points for green. Will override preset settings.\n")
+        _T("      b=<string>\n")
+        _T("        set curve points for blue. Will override preset settings.\n")
+        _T("      all=<string>\n")
+        _T("        set curve points for r,g,b when not specified. Will override preset settings.\n"));
 #endif
 #if ENABLE_VPP_FILTER_TWEAK
     str += strsprintf(_T("\n")

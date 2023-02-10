@@ -966,6 +966,50 @@ tstring VppTweak::print() const {
         brightness, contrast, saturation, gamma, hue, swapuv ? _T("on") : _T("off"));
 }
 
+VppCurveParams::VppCurveParams() : r(), g(), b(), m() {};
+VppCurveParams::VppCurveParams(const tstring& r_, const tstring& g_, const tstring& b_, const tstring& m_) :
+    r(r_), g(g_), b(b_), m(m_) {};
+
+bool VppCurveParams::operator==(const VppCurveParams &x) const {
+    return r == x.r
+        && g == x.g
+        && b == x.b
+        && m == x.m;
+
+}
+bool VppCurveParams::operator!=(const VppCurveParams &x) const {
+    return !(*this == x);
+}
+
+VppCurves::VppCurves() :
+    enable(false),
+    preset(VppCurvesPreset::NONE),
+    prm(),
+    all() {
+}
+
+bool VppCurves::operator==(const VppCurves &x) const {
+    return enable == x.enable
+        && preset == x.preset
+        && prm == x.prm
+        && all == x.all;
+}
+bool VppCurves::operator!=(const VppCurves &x) const {
+    return !(*this == x);
+}
+
+tstring VppCurves::print() const {
+    tstring str    = _T("curves: ");
+    tstring indent = _T("        ");
+    if (preset != VppCurvesPreset::NONE) str += tstring(_T(" preset ")) + get_cx_desc(list_vpp_curves_preset, (int)preset);
+    if (prm.r.length() > 0) str += _T("\n") + indent + _T("r ") + prm.r;
+    if (prm.g.length() > 0) str += _T("\n") + indent + _T("g ") + prm.g;
+    if (prm.b.length() > 0) str += _T("\n") + indent + _T("b ") + prm.b;
+    if (prm.m.length() > 0) str += _T("\n") + indent + _T("master ") + prm.m;
+    if (all.length() > 0)   str += _T("\n") + indent + _T("all ") + all;
+    return str;
+}
+
 VppTransform::VppTransform() :
     enable(false),
     transpose(false),
@@ -1171,6 +1215,7 @@ RGYParamVpp::RGYParamVpp() :
     unsharp(),
     edgelevel(),
     warpsharp(),
+    curves(),
     tweak(),
     transform(),
     overlay(),

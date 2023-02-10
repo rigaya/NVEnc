@@ -86,6 +86,7 @@
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterWarpsharp.h"
+#include "NVEncFilterCurves.h"
 #include "NVEncFilterTweak.h"
 #include "NVEncFilterTransform.h"
 #include "NVEncFilterColorspace.h"
@@ -1269,6 +1270,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.nnedi.enable
             || inputParam->vpp.yadif.enable
             || inputParam->vpp.tweak.enable
+            || inputParam->vpp.curves.enable
             || inputParam->vpp.transform.enable
             || inputParam->vpp.colorspace.enable
             || inputParam->vpp.subburn.size() > 0
@@ -2131,6 +2133,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.nnedi.enable
         || inputParam->vpp.yadif.enable
         || inputParam->vpp.tweak.enable
+        || inputParam->vpp.curves.enable
         || inputParam->vpp.transform.enable
         || inputParam->vpp.colorspace.enable
         || inputParam->vpp.pad.enable
@@ -2780,6 +2783,28 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             }
             //フィルタチェーンに追加
             m_vpFilters.push_back(std::move(filterWarpsharp));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //curves
+        if (inputParam->vpp.curves.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterCurves());
+            shared_ptr<NVEncFilterParamCurves> param(new NVEncFilterParamCurves());
+            param->curves = inputParam->vpp.curves;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = true;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
             //パラメータ情報を更新
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新

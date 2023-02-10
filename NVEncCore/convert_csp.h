@@ -108,13 +108,18 @@ enum RGY_CSP {
     RGY_CSP_RGBA,  //planar
     RGY_CSP_GBR,   //planar
     RGY_CSP_GBRA,  //planar
+    RGY_CSP_RGB_16,   //planar
+    RGY_CSP_RGBA_16,  //planar
+    RGY_CSP_BGR_16,   //planar
+    RGY_CSP_BGRA_16,  //planar
     RGY_CSP_RGB_F32,  //planar
     RGY_CSP_RGBA_F32, //planar
     RGY_CSP_BGR_F32,  //planar
     RGY_CSP_BGRA_F32, //planar
     RGY_CSP_YC48,
     RGY_CSP_Y8,
-    RGY_CSP_Y16
+    RGY_CSP_Y16,
+    RGY_CSP_COUNT
 };
 
 static const TCHAR *RGY_CSP_NAMES[] = {
@@ -161,6 +166,10 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("rgba"),
     _T("gbr"),
     _T("gbra"),
+    _T("rgb(16bit)"),
+    _T("rgba(16bit)"),
+    _T("bgr(16bit)"),
+    _T("bgra(16bit)"),
     _T("rgb(fp32)"),
     _T("rgba(fp32)"),
     _T("bgr(fp32)"),
@@ -169,6 +178,7 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("y8"),
     _T("yc16")
 };
+static_assert(_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT, "_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      0, //RGY_CSP_NA
@@ -214,6 +224,10 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_RGBA
      8, //RGY_CSP_GBR
      8, //RGY_CSP_GBRA
+    16, //RGY_CSP_RGB_16
+    16, //RGY_CSP_RGBA_16
+    16, //RGY_CSP_BGR_16
+    16, //RGY_CSP_BGRA_16
     32, //RGY_CSP_RGB_F32
     32, //RGY_CSP_RGBA_F32
     32, //RGY_CSP_BGR_F32
@@ -222,6 +236,7 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
 };
+static_assert(_countof(RGY_CSP_BIT_DEPTH) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_DEPTH) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_PLANES[] = {
      0, //RGY_CSP_NA
@@ -267,6 +282,10 @@ static const uint8_t RGY_CSP_PLANES[] = {
      4, //RGY_CSP_RGBA
      3, //RGY_CSP_GBR
      4, //RGY_CSP_GBRA
+     3, //RGY_CSP_RGB_16
+     4, //RGY_CSP_RGBA_16
+     3, //RGY_CSP_BGR_16
+     4, //RGY_CSP_BGRA_16
      3, //RGY_CSP_RGB_F32
      4, //RGY_CSP_RGBA_F32
      3, //RGY_CSP_BGR_F32
@@ -275,6 +294,7 @@ static const uint8_t RGY_CSP_PLANES[] = {
      1, //RGY_CSP_Y8
      1, //RGY_CSP_Y16
 };
+static_assert(_countof(RGY_CSP_PLANES) == RGY_CSP_COUNT, "_countof(RGY_CSP_PLANES) == RGY_CSP_COUNT");
 
 enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_UNKNOWN = 0,
@@ -285,6 +305,7 @@ enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_YUVA444,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_COUNT,
 };
 
 static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
@@ -296,6 +317,7 @@ static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
     _T("rgbp"),
     _T("rgb")
 };
+static_assert(_countof(RGY_CHROMAFMT_NAMES) == RGY_CHROMAFMT_COUNT, "_countof(RGY_CHROMAFMT_NAMES) == RGY_CHROMAFMT_COUNT");
 
 static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_UNKNOWN, //RGY_CSP_NA
@@ -345,10 +367,15 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48
     RGY_CHROMAFMT_MONOCHROME,
     RGY_CHROMAFMT_MONOCHROME,
 };
+static_assert(_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT, "_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
      0, //RGY_CSP_NA
@@ -394,6 +421,10 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     32, //RGY_CSP_RGBA
     24, //RGY_CSP_GBR
     32, //RGY_CSP_GBRA
+    48, //RGY_CSP_RGB_16
+    64, //RGY_CSP_RGBA_16
+    48, //RGY_CSP_BGR_16
+    64, //RGY_CSP_BGRA_16
     96, //RGY_CSP_RGB_F32
    128, //RGY_CSP_RGBA_F32
     96, //RGY_CSP_BGR_F32
@@ -402,6 +433,7 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
 };
+static_assert(_countof(RGY_CSP_BIT_PER_PIXEL) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_PER_PIXEL) == RGY_CSP_COUNT");
 
 static bool cspShiftUsed(const RGY_CSP csp) {
     return csp == RGY_CSP_P010

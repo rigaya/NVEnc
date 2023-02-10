@@ -61,6 +61,7 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_CURVES       (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
@@ -1123,6 +1124,57 @@ struct VppTransform {
     tstring print() const;
 };
 
+
+enum class VppCurvesPreset {
+    NONE,
+    COLOR_NEGATIVE,
+    PROCESS,
+    DARKER,
+    LIGHTER,
+    INCREASE_CONTRAST,
+    LINEAR_CONTRAST,
+    MEDIUM_CONTRAST,
+    STRONG_CONTRAST,
+    NEGATIVE,
+    VINTAGE
+};
+
+const CX_DESC list_vpp_curves_preset[] = {
+    { _T("none"),              (int)VppCurvesPreset::NONE },
+    { _T("color_negative"),    (int)VppCurvesPreset::COLOR_NEGATIVE      },
+    { _T("process"),           (int)VppCurvesPreset::PROCESS  },
+    { _T("darker"),            (int)VppCurvesPreset::DARKER  },
+    { _T("lighter"),           (int)VppCurvesPreset::LIGHTER  },
+    { _T("increase_contrast"), (int)VppCurvesPreset::INCREASE_CONTRAST  },
+    { _T("linear_contrast"),   (int)VppCurvesPreset::LINEAR_CONTRAST  },
+    { _T("medium_contrast"),   (int)VppCurvesPreset::MEDIUM_CONTRAST  },
+    { _T("strong_contrast"),   (int)VppCurvesPreset::STRONG_CONTRAST  },
+    { _T("negative"),          (int)VppCurvesPreset::NEGATIVE  },
+    { _T("vintage"),           (int)VppCurvesPreset::VINTAGE  },
+    { NULL, 0 }
+};
+
+struct VppCurveParams {
+    tstring r, g, b, m;
+
+    VppCurveParams();
+    VppCurveParams(const tstring& r_, const tstring& g_, const tstring& b_, const tstring& m_);
+    bool operator==(const VppCurveParams &x) const;
+    bool operator!=(const VppCurveParams &x) const;
+};
+
+struct VppCurves {
+    bool enable;
+    VppCurvesPreset preset;
+    VppCurveParams prm;
+    tstring all;
+
+    VppCurves();
+    bool operator==(const VppCurves &x) const;
+    bool operator!=(const VppCurves &x) const;
+    tstring print() const;
+};
+
 enum class VppOverlayAlphaMode {
     Override,
     Mul,
@@ -1205,6 +1257,7 @@ struct RGYParamVpp {
     VppUnsharp unsharp;
     VppEdgelevel edgelevel;
     VppWarpsharp warpsharp;
+    VppCurves curves;
     VppTweak tweak;
     VppTransform transform;
     std::vector<VppOverlay> overlay;

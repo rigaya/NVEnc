@@ -119,6 +119,16 @@ FrameInfoExtra getFrameInfoExtra(const RGYFrameInfo *pFrameInfo) {
         exinfo.width_byte = pFrameInfo->width;
         exinfo.height_total = pFrameInfo->height * 4;
         break;
+    case RGY_CSP_RGB_16:
+    case RGY_CSP_BGR_16:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height * 3;
+        break;
+    case RGY_CSP_RGBA_16:
+    case RGY_CSP_BGRA_16:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height * 4;
+        break;
     case RGY_CSP_RGB_F32:
     case RGY_CSP_BGR_F32:
         exinfo.width_byte = pFrameInfo->width * 4;
@@ -158,7 +168,9 @@ RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, const RGY_PLANE plane) {
         case RGY_PLANE_A: planeInfo.ptr += frameInfo->pitch * frameInfo->height * 3; break;
         default: break;
         }
-    } else if (frameInfo->csp == RGY_CSP_RGB || frameInfo->csp == RGY_CSP_RGBA || frameInfo->csp == RGY_CSP_RGB_F32 || frameInfo->csp == RGY_CSP_RGBA_F32) {
+    } else if (frameInfo->csp == RGY_CSP_RGB || frameInfo->csp == RGY_CSP_RGBA
+            || frameInfo->csp == RGY_CSP_RGB_16 || frameInfo->csp == RGY_CSP_RGBA_16
+            || frameInfo->csp == RGY_CSP_RGB_F32 || frameInfo->csp == RGY_CSP_RGBA_F32) {
         switch (plane) {
         case RGY_PLANE_R: break;
         case RGY_PLANE_G: planeInfo.ptr += frameInfo->pitch * frameInfo->height; break;
@@ -166,7 +178,8 @@ RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, const RGY_PLANE plane) {
         case RGY_PLANE_A: planeInfo.ptr += frameInfo->pitch * frameInfo->height * 3; break;
         default: break;
         }
-    } else if (frameInfo->csp == RGY_CSP_BGR_F32 || frameInfo->csp == RGY_CSP_BGRA_F32) {
+    } else if (frameInfo->csp == RGY_CSP_BGR_16 || frameInfo->csp == RGY_CSP_BGRA_16
+            || frameInfo->csp == RGY_CSP_BGR_F32 || frameInfo->csp == RGY_CSP_BGRA_F32) {
         switch (plane) {
         case RGY_PLANE_B: break;
         case RGY_PLANE_G: planeInfo.ptr += frameInfo->pitch * frameInfo->height; break;
