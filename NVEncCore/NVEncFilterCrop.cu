@@ -2222,6 +2222,16 @@ tstring NVEncFilterParamCrop::print() const {
     if (frameOut.csp != frameIn.csp) {
         filterInfo += (filterInfo.length()) ? _T("/cspconv") : _T("cspconv");
         filterInfo += strsprintf(_T("(%s -> %s)"), RGY_CSP_NAMES[frameIn.csp], RGY_CSP_NAMES[frameOut.csp]);
+        if (   RGY_CSP_CHROMA_FORMAT[frameIn.csp]  == RGY_CHROMAFMT_RGB
+            || RGY_CSP_CHROMA_FORMAT[frameOut.csp] == RGY_CHROMAFMT_RGB) {
+            if (   matrix == RGY_MATRIX_BT709
+                || matrix == RGY_MATRIX_BT470_BG
+                || matrix == RGY_MATRIX_ST170_M
+                || matrix == RGY_MATRIX_BT2020_NCL
+                || matrix == RGY_MATRIX_BT2020_CL) {
+                //filterInfo += strsprintf(_T(" [%s]"), get_cx_desc(list_colormatrix, matrix));
+            }
+        }
     }
     if (filterInfo.length() == 0) {
         filterInfo += getCudaMemcpyKindStr(frameIn.deivce_mem, frameOut.deivce_mem);
