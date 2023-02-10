@@ -1801,6 +1801,12 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     } else {
         m_stCreateEncodeParams.presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver9_2);
     }
+    //Bフレーム数が3以下では強制的に無効
+    if (m_stEncConfig.frameIntervalP - 1 < 3 && inputParam->brefMode != NV_ENC_BFRAME_REF_MODE_DISABLED) {
+        const auto loglevel = (inputParam->brefMode != NV_ENC_BFRAME_REF_MODE_AUTO && m_stEncConfig.frameIntervalP - 1 > 0) ? RGY_LOG_WARN : RGY_LOG_DEBUG;
+        PrintMes(loglevel, _T("bref-mode will be disabled as B-frames is smaller than 3.\n"));
+        inputParam->brefMode = NV_ENC_BFRAME_REF_MODE_DISABLED;
+    }
     if (inputParam->brefMode == NV_ENC_BFRAME_REF_MODE_AUTO) {
         inputParam->brefMode = NV_ENC_BFRAME_REF_MODE_DISABLED;
         if (preset_slower_than_default(inputParam->preset)) {
