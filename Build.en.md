@@ -166,11 +166,11 @@ sudo apt install cmake
 
 #### 5.2 Install AvisynthPlus
 ```Shell
-git clone git://github.com/AviSynth/AviSynthPlus.git
+git clone https://github.com/AviSynth/AviSynthPlus.git
 cd AviSynthPlus
 mkdir avisynth-build && cd avisynth-build 
 cmake ../
-make -j16 && sudo make install
+make && sudo make install
 cd ../..
 ```
 
@@ -180,7 +180,7 @@ cd ../..
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # Install vslsmashsource
@@ -191,7 +191,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 </details>
@@ -210,11 +210,11 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 6.2 Install zimg
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
-sudo make install -j16
+make && sudo make install
 cd ..
 ```
 
@@ -229,8 +229,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
-sudo make install
+make && sudo make install
 
 # Make sure vapoursynth could be imported from python
 # Change "python3.x" depending on your environment
@@ -250,7 +249,7 @@ LD_LIBRARY_PATH=/usr/local/lib vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # Install vslsmashsource
@@ -261,7 +260,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -272,7 +271,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure
-make -j16
+make
 ```
 Check if it works properly.
 ```Shell
@@ -385,7 +384,7 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 5.2 Install zimg
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
@@ -404,7 +403,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
+make16
 sudo make install
 
 # Make sure vapoursynth could be imported from python
@@ -433,7 +432,7 @@ git clone https://github.com/HolyWu/L-SMASH-Works.git
 cd L-SMASH-Works/VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -444,7 +443,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure
-make -j16
+make16
 ```
 Check if it works properly.
 ```Shell
@@ -538,11 +537,11 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 4.2 Install zimg
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
-sudo make install -j4
+make && sudo make install
 cd ..
 ```
 
@@ -557,8 +556,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j4
-sudo make install
+make && sudo make install
 
 # Make sure vapoursynth could be imported from python
 # Change "python3.x" depending on your environment
@@ -578,7 +576,7 @@ vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j4
+make && sudo make install
 cd ..
  
 # Install vslsmashsource
@@ -586,7 +584,7 @@ git clone https://github.com/HolyWu/L-SMASH-Works.git
 cd L-SMASH-Works/VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -597,7 +595,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure --cxx=g++-8
-make -j4
+make
 ```
 Check if it works properly.
 ```Shell
@@ -705,7 +703,7 @@ git clone git://github.com/AviSynth/AviSynthPlus.git
 cd AviSynthPlus
 mkdir avisynth-build && cd avisynth-build 
 cmake ../
-make -j16 && sudo make install
+make && sudo make install
 cd ../..
 ```
 
@@ -715,7 +713,7 @@ cd ../..
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
 
 # Build lsmashsource
@@ -725,7 +723,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd AviSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -755,8 +753,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
-sudo make install
+make && sudo make install
 
 # Make sure vapoursynth could be imported from python
 # Change "python3.x" depending on your environment
@@ -776,7 +773,7 @@ vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # Build vslsmashsource
@@ -786,7 +783,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -797,7 +794,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure
-make -j16
+make
 ```
 
 Check if it works properly.

@@ -168,11 +168,11 @@ sudo apt install cmake
 
 #### 5.2 AvisynthPlusのインストール
 ```Shell
-git clone git://github.com/AviSynth/AviSynthPlus.git
+git clone https://github.com/AviSynth/AviSynthPlus.git
 cd AviSynthPlus
 mkdir avisynth-build && cd avisynth-build 
 cmake ../
-make -j16 && sudo make install
+make && sudo make install
 cd ../..
 ```
 
@@ -182,7 +182,7 @@ cd ../..
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
 
 # lsmashsourceのビルド
@@ -193,7 +193,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd AviSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -214,11 +214,11 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 6.2 zimgのインストール
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
-sudo make install -j16
+make && sudo make install
 cd ..
 ```
 
@@ -233,8 +233,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
-sudo make install
+make && sudo make install
 
 # vapoursynthが自動的にロードされるようにする
 # "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.8でした
@@ -254,7 +253,7 @@ LD_LIBRARY_PATH=/usr/local/lib vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # vslsmashsourceのビルド
@@ -265,7 +264,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -277,7 +276,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure
-make -j16
+make
 ```
 
 動作確認をします。
@@ -389,11 +388,11 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 5.2 zimgのインストール
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
-sudo make install -j16
+make && sudo make install
 cd ..
 ```
 
@@ -408,8 +407,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
-sudo make install
+make && sudo make install
 
 # vapoursynthが自動的にロードされるようにする
 # "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.7でした
@@ -429,7 +427,7 @@ vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # vslsmashsourceのビルド
@@ -437,7 +435,7 @@ git clone https://github.com/HolyWu/L-SMASH-Works.git
 cd L-SMASH-Works/VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -449,7 +447,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure
-make -j16
+make16
 ```
 
 動作確認をします。
@@ -543,11 +541,11 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 4.2 zimgのインストール
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
-sudo make install -j4
+make && sudo make install
 cd ..
 ```
 
@@ -562,8 +560,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j4
-sudo make install
+make && sudo make install
 
 # vapoursynthが自動的にロードされるようにする
 # "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.7でした
@@ -591,7 +588,7 @@ git clone https://github.com/HolyWu/L-SMASH-Works.git
 cd L-SMASH-Works/VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -603,7 +600,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure --cxx=g++-8
-make -j4
+make
 ```
 
 動作確認をします。
@@ -711,7 +708,7 @@ git clone git://github.com/AviSynth/AviSynthPlus.git
 cd AviSynthPlus
 mkdir avisynth-build && cd avisynth-build 
 cmake ../
-make -j16 && sudo make install
+make && sudo make install
 cd ../..
 ```
 
@@ -721,7 +718,7 @@ cd ../..
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
 
 # lsmashsourceのビルド
@@ -732,7 +729,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd AviSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -762,8 +759,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
-sudo make install
+make && sudo make install
 
 # vapoursynthが自動的にロードされるようにする
 # "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.9でした
@@ -783,7 +779,7 @@ vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # vslsmashsourceのビルド
@@ -794,7 +790,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -806,7 +802,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure
-make -j16
+make
 ```
 
 動作確認をします。
