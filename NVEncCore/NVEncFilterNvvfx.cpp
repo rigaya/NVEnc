@@ -283,7 +283,16 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
     }
     pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    setFilterInfo(pParam->print());
+    tstring info = m_sFilterName + _T(": ");
+    if (m_srcCrop) {
+        info += m_srcCrop->GetInputMessage() + _T("\n");
+    }
+    tstring nameBlank(m_sFilterName.length() + _tcslen(_T(": ")), _T(' '));
+    info += tstring(INFO_INDENT) + nameBlank + pParam->print();
+    if (m_dstCrop) {
+        info += tstring(_T("\n")) + tstring(INFO_INDENT) + nameBlank + m_dstCrop->GetInputMessage();
+    }
+    setFilterInfo(info);
     m_pParam = pParam;
     return sts;
 #endif

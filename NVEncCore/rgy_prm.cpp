@@ -1000,8 +1000,8 @@ bool VppCurves::operator!=(const VppCurves &x) const {
 
 tstring VppCurves::print() const {
     tstring str    = _T("curves: ");
-    tstring indent = _T("        ");
-    if (preset != VppCurvesPreset::NONE) str += tstring(_T(" preset ")) + get_cx_desc(list_vpp_curves_preset, (int)preset);
+    tstring indent = _T("                               ");
+    if (preset != VppCurvesPreset::NONE) str += tstring(_T("preset ")) + get_cx_desc(list_vpp_curves_preset, (int)preset);
     if (prm.r.length() > 0) str += _T("\n") + indent + _T("r ") + prm.r;
     if (prm.g.length() > 0) str += _T("\n") + indent + _T("g ") + prm.g;
     if (prm.b.length() > 0) str += _T("\n") + indent + _T("b ") + prm.b;

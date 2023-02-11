@@ -28,6 +28,8 @@
 
 #include "NVEncFilter.h"
 
+const TCHAR *NVEncFilter::INFO_INDENT = _T("               ");
+
 NVEncFilter::NVEncFilter() :
     m_sFilterName(), m_sFilterInfo(), m_pPrintMes(), m_pFrameBuf(), m_nFrameIdx(0),
     m_pFieldPairIn(), m_pFieldPairOut(),

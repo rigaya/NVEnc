@@ -767,7 +767,31 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
     }
 
-    setFilterInfo(pResizeParam->print());
+    tstring info;
+    if (m_nvvfxSuperRes) {
+        info = strsprintf(_T("resize: %s %dx%d -> %dx%d"),
+            get_chr_from_value(list_vpp_resize, pResizeParam->interp),
+            pParam->frameIn.width, pParam->frameIn.height,
+            pResizeParam->nvvfxSuperRes->frameOut.width, pResizeParam->nvvfxSuperRes->frameOut.height);
+        const auto indent2 = tstring(_tcslen(_T("resize:")) + 5, _T(' '));
+        const auto indent = tstring(INFO_INDENT) + indent2;
+        bool firstIndent = true;
+        for (const auto& str : split(m_nvvfxSuperRes->GetInputMessage(), _T("\n"))) {
+            info += _T("\n") + ((firstIndent) ? indent : indent2) + str;
+            firstIndent = false;
+        }
+        if (   pResizeParam->nvvfxSuperRes->frameOut.width != pParam->frameOut.width
+            || pResizeParam->nvvfxSuperRes->frameOut.height != pParam->frameOut.height) {
+            info += _T("\n") + tstring(INFO_INDENT) + tstring(_tcslen(_T("resize: ")), _T(' '));
+            info += strsprintf(_T("%s %dx%d -> %dx%d"),
+                get_chr_from_value(list_vpp_resize, pResizeParam->nvvfxSubAlgo),
+                pResizeParam->nvvfxSuperRes->frameOut.width, pResizeParam->nvvfxSuperRes->frameOut.height,
+                pParam->frameOut.width, pParam->frameOut.height);
+        }
+    } else {
+        info = pResizeParam->print();
+    }
+    setFilterInfo(info);
 
     //コピーを保存
     m_pParam = pResizeParam;

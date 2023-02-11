@@ -144,6 +144,7 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) = 0;
     virtual void close() = 0;
 
+    static const TCHAR *INFO_INDENT;
     void setFilterInfo(const tstring &info) {
         m_sFilterInfo = info;
         AddMessage(RGY_LOG_DEBUG, info);

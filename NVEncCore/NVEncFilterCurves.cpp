@@ -355,7 +355,16 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
     }
 
-    setFilterInfo(pParam->print());
+    tstring info = _T("curves: ");
+    if (m_convIn) {
+        info += m_convIn->GetInputMessage() + _T("\n");
+    }
+    const auto extraIndent = tstring(_tcslen(_T("curves: ")), _T(' '));
+    info += tstring(INFO_INDENT) + extraIndent + pParam->print();
+    if (m_convOut) {
+        info += tstring(_T("\n")) + tstring(INFO_INDENT) + extraIndent + m_convOut->GetInputMessage();
+    }
+    setFilterInfo(info);
     m_pParam = pParam;
     return sts;
 }
