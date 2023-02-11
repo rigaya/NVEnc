@@ -1297,10 +1297,23 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                     char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
                 return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
             }
-            muxAudio->outCodecEncodeCtx->profile = selected_profile;
-            AddMessage(RGY_LOG_DEBUG, _T("profile %d (%s) selected for codec %s (audio track %d)."),
-                selected_profile, inputAudio->encodeCodecProfile.c_str(),
-                char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
+            bool profileSupported = false;
+            if (muxAudio->outCodecEncode->profiles) {
+                for (auto encoderProfile = muxAudio->outCodecEncode->profiles; encoderProfile->profile != FF_PROFILE_UNKNOWN; encoderProfile++) {
+                    if (selected_profile == encoderProfile->profile) {
+                        muxAudio->outCodecEncodeCtx->profile = selected_profile;
+                        AddMessage(RGY_LOG_DEBUG, _T("profile %d (%s) selected for codec %s (audio track %d)."),
+                            selected_profile, inputAudio->encodeCodecProfile.c_str(),
+                            char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
+                        profileSupported = true;
+                    }
+                }
+            }
+            if (!profileSupported) {
+                AddMessage(RGY_LOG_WARN, _T("profile %d (%s) is not supported for codec %s (audio track %d), will be ignored."),
+                    selected_profile, inputAudio->encodeCodecProfile.c_str(),
+                    char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
+            }
         }
         //音声エンコーダのオプションの設定
         AVDictionary *codecPrmDict = nullptr;
