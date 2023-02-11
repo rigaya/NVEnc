@@ -447,7 +447,7 @@ cd ../../../
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure
-make16
+make
 ```
 
 動作確認をします。
