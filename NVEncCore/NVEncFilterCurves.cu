@@ -42,11 +42,21 @@ template<typename Type, int bit_depth>
 __global__ void kernel_run_curves_plane(
     uint8_t *__restrict__ pFrame, const int pitch, const int width, const int height,
     const Type *__restrict__ pLut) {
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int PIX_PER_THREAD = 4;
+    struct __align__(sizeof(Type) * 4) Type4 {
+        Type x, y, z, w;
+    };
+    const int ix = (blockIdx.x * blockDim.x + threadIdx.x) * PIX_PER_THREAD;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix < width && iy < height) {
-        Type *ptr = (Type *)(pFrame + iy * pitch + ix * sizeof(Type));
-        ptr[0] = pLut[ptr[0]];
+        Type4 *ptr = (Type4 *)(pFrame + iy * pitch + ix * sizeof(Type));
+
+        Type4 pix4 = ptr[0];
+        pix4.x = pLut[pix4.x];
+        pix4.y = pLut[pix4.y];
+        pix4.z = pLut[pix4.z];
+        pix4.w = pLut[pix4.w];
+        ptr[0] = pix4;
     }
 }
 
@@ -54,8 +64,8 @@ template<typename Type, int bit_depth>
 void run_curves_plane(
     uint8_t *pPlane, const int pitch, const int width, const int height,
     const void *pLut, cudaStream_t stream) {
-    dim3 blockSize(64, 8);
-    dim3 gridSize(divCeil(width, blockSize.x), divCeil(height, blockSize.y));
+    dim3 blockSize(64, 4);
+    dim3 gridSize(divCeil(width, blockSize.x * 4), divCeil(height, blockSize.y));
     kernel_run_curves_plane<Type, bit_depth> << <gridSize, blockSize, 0, stream >> > (
         pPlane, pitch, width, height, (const Type *)pLut);
 }
