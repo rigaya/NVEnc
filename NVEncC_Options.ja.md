@@ -1571,7 +1571,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
     
   - lut3d_interp=&lt;string&gt;  
     ```
-    nearest, trilinear, pyramid, prism, tetrahedral
+    nearest, trilinear, tetrahedral, pyramid, prism
     ```
   
   - hdr2sdr=&lt;string&gt;  

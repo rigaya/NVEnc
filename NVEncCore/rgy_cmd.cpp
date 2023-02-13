@@ -6828,7 +6828,7 @@ tstring gen_cmd_help_vpp() {
         _T("        limited, full\n")
         _T("      lut3d=<path>\n")
         _T("      lut3d_interp=<string>\n")
-        _T("        nearest, trilinear, pyramid, prism, tetrahedral\n")
+        _T("        nearest, trilinear, tetrahedral, pyramid, prism\n")
         _T("      hdr2sdr=<string>     Enables HDR10 to SDR.\n")
         _T("                             hable, mobius, reinhard, bt2390, none\n")
         _T("      source_peak=<float>     (default: %.1f)\n")
