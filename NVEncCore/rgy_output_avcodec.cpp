@@ -1297,22 +1297,25 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                     char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
                 return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
             }
-            bool profileSupported = false;
             if (muxAudio->outCodecEncode->profiles) {
+                bool profileSupported = false;
                 for (auto encoderProfile = muxAudio->outCodecEncode->profiles; encoderProfile->profile != FF_PROFILE_UNKNOWN; encoderProfile++) {
                     if (selected_profile == encoderProfile->profile) {
                         muxAudio->outCodecEncodeCtx->profile = selected_profile;
-                        AddMessage(RGY_LOG_DEBUG, _T("profile %d (%s) selected for codec %s (audio track %d)."),
+                        AddMessage(RGY_LOG_DEBUG, _T("profile %d (%s) selected for codec %s (audio track %d).\n"),
                             selected_profile, inputAudio->encodeCodecProfile.c_str(),
                             char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
                         profileSupported = true;
                     }
                 }
-            }
-            if (!profileSupported) {
-                AddMessage(RGY_LOG_WARN, _T("profile %d (%s) is not supported for codec %s (audio track %d), will be ignored."),
-                    selected_profile, inputAudio->encodeCodecProfile.c_str(),
-                    char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
+                if (!profileSupported) {
+                    AddMessage(RGY_LOG_WARN, _T("profile %d (%s) is not supported for codec %s (audio track %d), will be ignored.\n"),
+                        char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
+                }
+            } else {
+                AddMessage(RGY_LOG_WARN, _T("codec %s (audio track %d) does not have profile choice, profile settings to %d (%s) will be ignored and default profile will be used.\n"),
+                    char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId),
+                    selected_profile, inputAudio->encodeCodecProfile.c_str());
             }
         }
         //音声エンコーダのオプションの設定
