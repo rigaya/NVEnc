@@ -171,6 +171,8 @@
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
   - [--avsync \<string\>](#--avsync-string)
   - [--timecode \[\<string\>\]](#--timecode-string)
+  - [--tcfile-in \<string\>](#--tcfile-in-string)
+  - [--timebase \<int\>/\<int\>](#--timebase-intint)
   - [--input-hevc-bsf \<string\>](#--input-hevc-bsf-string)
 - [Vpp Options](#vpp-options)
   - [Vpp Filtering order](#vpp-filtering-order)
@@ -1494,6 +1496,13 @@ Set global metadata for output file.
     
 ### --timecode [&lt;string&gt;]  
   Write timecode file to the specified path. If the path is not set, it will be written to "&lt;output file path&gt;.timecode.txt".
+
+
+### --tcfile-in &lt;string&gt;  
+Read timecode file for input frames, can be used with readers except avhw.
+
+### --timebase &lt;int&gt;/&lt;int&gt;  
+Set timebase for transcoding and timecode file.
 
 ### --input-hevc-bsf &lt;string&gt;  
 switch hevc bitstream filter used for hw decoder input. (for debug purpose)

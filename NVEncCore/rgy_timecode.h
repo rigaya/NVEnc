@@ -43,4 +43,22 @@ public:
     std::unique_ptr<FILE, fp_deleter> fp;
 };
 
+class RGYTimecodeReader {
+public:
+    RGYTimecodeReader();
+    ~RGYTimecodeReader();
+    RGY_ERR init(const tstring &filename, rgy_rational<int> timeBaseTimecode);
+    RGY_ERR read(int64_t& timestamp, int64_t& duration);
+    rgy_rational<int> timebase() const { return m_timeBaseTimecode;}
+    const tstring& filename() const { return m_filename; }
+protected:
+    std::tuple<RGY_ERR, double> getValue();
+
+    std::unique_ptr<FILE, fp_deleter> m_fp;
+    tstring m_filename;
+    rgy_rational<int> m_timeBaseTimecode;
+    int64_t m_prevPts;
+    int64_t m_prevDuration;
+};
+
 #endif //__RGY_TIMECODE_H__

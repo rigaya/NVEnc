@@ -80,6 +80,10 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     m_inputVideoInfo = *pInputInfo;
 
     m_readerName = _T("sm");
+    if (m_timecode) {
+        AddMessage(RGY_LOG_WARN, _T("--tcfile-in ignored with sm reader.\n"));
+        m_timecode.reset();
+    }
 
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadParamCsp);
 
@@ -228,7 +232,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
 }
 #pragma warning(pop)
 
-RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputSM::LoadNextFrameInternal(RGYFrame *pSurface) {
     //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
     //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
     if (getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {

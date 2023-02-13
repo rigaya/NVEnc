@@ -48,11 +48,11 @@ public:
     RGYInputRaw();
     virtual ~RGYInputRaw();
 
-    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
+    virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
     RGY_ERR ParseY4MHeader(char *buf, VideoInfo *pInfo);
 
     FILE *m_fSource;

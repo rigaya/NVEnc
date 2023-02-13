@@ -76,12 +76,12 @@ public:
     RGYInputVpy();
     virtual ~RGYInputVpy();
 
-    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 
     void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
+    virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
 
     void release_vapoursynth();
     int load_vapoursynth();

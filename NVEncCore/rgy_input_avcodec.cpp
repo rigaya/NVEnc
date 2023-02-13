@@ -1747,6 +1747,19 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
 #endif
         m_Demux.video.HWDecodeDeviceId = -1;
+        if (input_prm->tcfileIn.length() > 0) {
+            if (input_prm->seekSec > 0.0f) {
+                AddMessage(RGY_LOG_ERROR, _T("--seek not supported with --tcfile-in.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
+            if (m_inputVideoInfo.type == RGY_INPUT_FMT_AVHW) {
+                AddMessage(RGY_LOG_ERROR, _T("avhw not supported with --tcfile-in.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            } else if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
+                m_inputVideoInfo.type = RGY_INPUT_FMT_AVSW;
+                AddMessage(RGY_LOG_INFO, _T("Using avsw reader as --tcfile-in is used.\n"));
+            }
+        }
         if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
             for (const auto& devCodecCsp : *input_prm->HWDecCodecCsp) {
                 //VC-1では、pixelFormatがAV_PIX_FMT_NONEとなっている場合があるので、その場合は試しにAV_PIX_FMT_YUV420Pとして処理してみる
@@ -2918,7 +2931,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
     if (m_Demux.video.codecCtxDecode) {
         //動画のデコードを行う
         int got_frame = 0;

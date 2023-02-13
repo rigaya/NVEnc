@@ -4801,6 +4801,34 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("tcfile-in")) {
+        i++;
+        common->tcfileIn = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("timebase")) {
+        i++;
+        int a[2] = { 0 };
+        if (   2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            common->timebase = rgy_rational<int>(a[0], a[1]);
+        } else {
+            double d = 0.0;
+            if (1 == _stscanf_s(strInput[i], _T("%lf"), &d)) {
+                int rate = (int)(d * 1001.0 + 0.5);
+                if (rate % 1000 == 0) {
+                    common->timebase = rgy_rational<int>(rate, 1001);
+                } else {
+                    common->timebase = rgy_rational<int>((int)(d * 100000 + 0.5), 100000);
+                }
+            } else {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("input-hevc-bsf")) {
         i++;
         int value = 0;
@@ -6410,6 +6438,10 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
 
     OPT_LST(_T("--input-hevc-bsf"), hevcbsf, list_hevc_bsf_mode);
+    OPT_STR_PATH(_T("--tcfile-in"), tcfileIn);
+    if (param->timebase != defaultPrm->timebase) {
+        cmd << _T("--timebase ") << param->timebase.n() << _T("/") << param->timebase.d();
+    }
 
     OPT_BOOL(_T("--ssim"), _T("--no-ssim"), metric.ssim);
     OPT_BOOL(_T("--psnr"), _T("--no-psnr"), metric.psnr);
@@ -6782,6 +6814,9 @@ tstring gen_cmd_help_common() {
         _T("                                 - clear ... do not set metadata\n")
         _T("\n")
         _T("   --timecode [<string>]        output timecode file.\n")
+        _T("\n")
+        _T("   --tcfile-in <string>         input timecode file, will not work with --avhw.\n")
+        _T("   --tc-timebase <int>/<int>    timebase of input timecode.\n")
         _T("\n")
         _T("   --input-hevc-bsf <string>    switch hevc bitstream filter used for hw decoder input\n")
         _T("                                 - internal   ... use internal implementation (default)\n")

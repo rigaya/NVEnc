@@ -472,14 +472,18 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
     }
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
-    m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
+    m_outputTimebase = (inputParam->common.timebase.is_valid()) ? inputParam->common.timebase : m_inputFps.inv() * rgy_rational<int>(1, 4);
 #if ENABLE_AVSW_READER
     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
     if (pAVCodecReader && inputParam->vpp.mpdecimate.enable) {
-        inputParam->common.AVSyncMode = RGY_AVSYNC_VFR;
-        PrintMes(RGY_LOG_INFO, _T("Switching to VFR mode as --vpp-mpdecimate is activated.\n"));
+        m_nAVSyncMode |= RGY_AVSYNC_VFR;
+        PrintMes(RGY_LOG_DEBUG, _T("Switching to VFR mode as --vpp-mpdecimate is activated.\n"));
     }
 #endif //#if ENABLE_AVSW_READER
+    if (inputParam->common.tcfileIn.length() > 0) {
+        PrintMes(RGY_LOG_DEBUG, _T("Switching to VFR mode as --tcfile-in is used.\n"));
+        m_nAVSyncMode |= RGY_AVSYNC_VFR;
+    }
     if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
         //avsync vfr時は、入力streamのtimebaseをそのまま使用する
         m_outputTimebase = m_pFileReader->getInputTimebase();

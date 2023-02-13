@@ -537,7 +537,7 @@ void RGYInputAvs::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_ERR RGYInputAvs::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputAvs::LoadNextFrameInternal(RGYFrame *pSurface) {
     if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく

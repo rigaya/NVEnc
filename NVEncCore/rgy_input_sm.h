@@ -72,7 +72,6 @@ public:
     RGYInputSM();
     virtual ~RGYInputSM();
 
-    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
     virtual rgy_rational<int> getInputTimebase() override;
 
@@ -80,6 +79,7 @@ public:
     int droppedFrames() const { return m_droppedInAviutl; }
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
+    virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
 
     std::unique_ptr<RGYSharedMemWin> m_prm;
     std::array<std::unique_ptr<RGYSharedMem>,2> m_sm;

@@ -1406,6 +1406,8 @@ RGYParamCommon::RGYParamCommon() :
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
     timecode(false),
     timecodeFile(),
+    tcfileIn(),
+    timebase({ 0, 0 }),
     hevcbsf(RGYHEVCBsf::INTERNAL),
     metric() {
 

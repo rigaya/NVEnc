@@ -36,6 +36,7 @@
 #include "rgy_log.h"
 #include "rgy_event.h"
 #include "rgy_status.h"
+#include "rgy_timecode.h"
 #include "convert_csp.h"
 #include "rgy_err.h"
 #include "rgy_util.h"
@@ -137,8 +138,11 @@ public:
     RGYParamThread threadParamCsp;
     RGYPoolAVPacket *poolPkt;
     RGYPoolAVFrame *poolFrame;
+    tstring tcfileIn;
+    rgy_rational<int> timebase;
 
-    RGYInputPrm() : threadCsp(-1), simdCsp(RGY_SIMD::NONE), threadParamCsp(), poolPkt(nullptr), poolFrame(nullptr) {};
+    RGYInputPrm() : threadCsp(-1), simdCsp(RGY_SIMD::NONE), threadParamCsp(), poolPkt(nullptr), poolFrame(nullptr),
+        tcfileIn(), timebase() {};
     virtual ~RGYInputPrm() {};
 };
 
@@ -147,16 +151,9 @@ public:
     RGYInput();
     virtual ~RGYInput();
 
-    RGY_ERR Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm, shared_ptr<RGYLog> log, shared_ptr<EncodeStatus> encSatusInfo) {
-        Close();
-        m_printMes = log;
-        m_encSatusInfo = encSatusInfo;
-        m_poolPkt = prm->poolPkt;
-        m_poolFrame = prm->poolFrame;
-        return Init(strFileName, inputInfo, prm);
-    };
+    RGY_ERR Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm, shared_ptr<RGYLog> log, shared_ptr<EncodeStatus> encSatusInfo);
 
-    virtual RGY_ERR LoadNextFrame(RGYFrame *surface) = 0;
+    RGY_ERR LoadNextFrame(RGYFrame *surface);
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
@@ -182,6 +179,8 @@ public:
         m_trimParam = trim;
     }
 
+    RGY_ERR readTimecode(int64_t& pts, int64_t& duration);
+
     sTrimParam GetTrimParam() {
         return m_trimParam;
     }
@@ -203,7 +202,9 @@ public:
         m_inputVideoInfo.frames = frames;
     }
     virtual rgy_rational<int> getInputTimebase() {
-        return rgy_rational<int>();
+    	if (m_timebase.is_valid()) return m_timebase;
+        auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+        return inputFps.inv() * rgy_rational<int>(1, 4);
     }
 
 #if ENABLE_AVSW_READER
@@ -271,6 +272,7 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) = 0;
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);
+    virtual RGY_ERR LoadNextFrameInternal(RGYFrame *surface) = 0;
 
     //trim listを参照し、動画の最大フレームインデックスを取得する
     int getVideoTrimMaxFramIdx() {
@@ -295,6 +297,8 @@ protected:
     sTrimParam m_trimParam;
     RGYPoolAVPacket *m_poolPkt; //AVPacketのpool
     RGYPoolAVFrame *m_poolFrame; //AVFrameのpool
+    std::unique_ptr<RGYTimecodeReader> m_timecode;
+    rgy_rational<int> m_timebase;
 };
 
 RGY_ERR initReaders(

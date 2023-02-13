@@ -167,6 +167,8 @@
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
   - [--avsync \<string\>](#--avsync-string)
   - [--timecode \[\<string\>\]](#--timecode-string)
+  - [--tcfile-in \<string\>](#--tcfile-in-string)
+  - [--timebase \<int\>/\<int\>](#--timebase-intint)
   - [--input-hevc-bsf \<string\>](#--input-hevc-bsf-string)
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
@@ -1490,6 +1492,12 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
     
 ### --timecode [&lt;string&gt;]  
   指定のパスにtimecodeファイルを出力する。パスを省略した場合には、"&lt;出力ファイル名&gt;.timecode.txt"に出力する。
+
+### --tcfile-in &lt;string&gt;  
+timecodeファイルを読み取り、入力フレームのタイムスタンプを設定する。avhw以外の読み込みで使用可能。
+
+### --timebase &lt;int&gt;/&lt;int&gt;  
+時間刻みを設定する。timecodeファイルを読み取り時の時間精度にも使用される。
 
 ### --input-hevc-bsf &lt;string&gt;  
 switch hevc bitstream filter used for hw decoder input. (for debug purpose)

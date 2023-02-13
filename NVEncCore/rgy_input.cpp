@@ -171,7 +171,9 @@ RGYInput::RGYInput() :
     m_seek(std::make_pair(0.0f, 0.0f)),
     m_trimParam(),
     m_poolPkt(nullptr),
-    m_poolFrame(nullptr) {
+    m_poolFrame(nullptr),
+    m_timecode(),
+    m_timebase({ 0, 0 }) {
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
 }
@@ -182,6 +184,8 @@ RGYInput::~RGYInput() {
 
 void RGYInput::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
+
+    m_timecode.reset();
 
     m_encSatusInfo.reset();
     m_convert = nullptr;
@@ -194,6 +198,58 @@ void RGYInput::Close() {
     m_poolFrame = nullptr;
     AddMessage(RGY_LOG_DEBUG, _T("Close...\n"));
     m_printMes.reset();
+}
+
+RGY_ERR RGYInput::Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm, shared_ptr<RGYLog> log, shared_ptr<EncodeStatus> encSatusInfo) {
+    Close();
+    m_printMes = log;
+    m_encSatusInfo = encSatusInfo;
+    m_poolPkt = prm->poolPkt;
+    m_poolFrame = prm->poolFrame;
+    m_timebase = prm->timebase;
+    if (prm->tcfileIn.length() > 0) {
+        m_timecode = std::make_unique<RGYTimecodeReader>();
+        auto err = m_timecode->init(prm->tcfileIn, m_timebase.is_valid() ? m_timebase : rgy_rational<int>(1, 120000));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to open timecode file \"%s\".\n"), prm->tcfileIn.c_str());
+            return RGY_ERR_FILE_OPEN;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("Opened file: \"%s\", timebase %d/%d.\n"), prm->tcfileIn.c_str(), m_timecode->timebase().n(), m_timecode->timebase().d());
+    }
+    return Init(strFileName, inputInfo, prm);
+};
+
+RGY_ERR RGYInput::readTimecode(int64_t& pts, int64_t& duration) {
+    auto err = m_timecode->read(pts, duration);
+    if (err == RGY_ERR_INVALID_DATA_TYPE) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid data found at timecode file.\n"));
+        return err;
+    } else if (err == RGY_ERR_MORE_DATA) {
+        AddMessage(RGY_LOG_ERROR, _T("Timecode file reached End OF File.\n"));
+        return err;
+    } else if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Error reading timecode file: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYInput::LoadNextFrame(RGYFrame *surface) {
+    auto err = LoadNextFrameInternal(surface);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    if (m_timecode) {
+        int64_t pts = -1, duration = 0;
+        if ((err = readTimecode(pts, duration)) != RGY_ERR_NONE) {
+            return err;
+        }
+        pts      = rational_rescale(pts, m_timecode->timebase(), getInputTimebase());
+        duration = rational_rescale(duration, m_timecode->timebase(), getInputTimebase());
+        surface->setTimestamp(pts);
+        surface->setDuration(duration);
+    }
+    return RGY_ERR_NONE;
 }
 
 void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm) {
@@ -210,7 +266,15 @@ void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSp
     ss << inputPrm->fpsN << _T("/") << inputPrm->fpsD << _T(" fps");
 
     if (cropEnabled(inputPrm->crop)) {
-        ss << " crop(" << inputPrm->crop.e.left << "," << inputPrm->crop.e.up << "," << inputPrm->crop.e.right << "," << inputPrm->crop.e.bottom << ")";
+        ss << _T(" crop(") << inputPrm->crop.e.left << _T(",") << inputPrm->crop.e.up << _T(",") << inputPrm->crop.e.right << _T(",") << inputPrm->crop.e.bottom << _T(")");
+    }
+    if (m_timecode) {
+        ss << std::endl;
+        ss << _T("  timecode: yes");
+    }
+    if (m_timebase.is_valid()) {
+        ss << std::endl;
+        ss << _T("  timebase: ") << m_timebase.n() << _T("/") << m_timebase.d();
     }
 
     m_inputInfo = ss.str();
@@ -412,6 +476,8 @@ RGY_ERR initReaders(
     inputPrm.threadParamCsp = ctrl->threadParams.get(RGYThreadType::CSP);
     inputPrm.poolPkt = poolPkt;
     inputPrm.poolFrame = poolFrame;
+    inputPrm.tcfileIn = common->tcfileIn;
+    inputPrm.timebase = common->timebase;
     log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("Set csp thread param: %s.\n"), inputPrm.threadParamCsp.desc().c_str());
     RGYInputPrm *pInputPrm = &inputPrm;
 

@@ -316,7 +316,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
     if ((m_inputVideoInfo.frames > 0
           &&(int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames)
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
