@@ -178,7 +178,7 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("y8"),
     _T("yc16")
 };
-static_assert(_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT, "_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT");
+static_assert(sizeof(RGY_CSP_NAMES)/sizeof(RGY_CSP_NAMES[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      0, //RGY_CSP_NA
@@ -236,7 +236,7 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
 };
-static_assert(_countof(RGY_CSP_BIT_DEPTH) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_DEPTH) == RGY_CSP_COUNT");
+static_assert(sizeof(RGY_CSP_BIT_DEPTH) / sizeof(RGY_CSP_BIT_DEPTH[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_DEPTH) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_PLANES[] = {
      0, //RGY_CSP_NA
@@ -294,7 +294,7 @@ static const uint8_t RGY_CSP_PLANES[] = {
      1, //RGY_CSP_Y8
      1, //RGY_CSP_Y16
 };
-static_assert(_countof(RGY_CSP_PLANES) == RGY_CSP_COUNT, "_countof(RGY_CSP_PLANES) == RGY_CSP_COUNT");
+static_assert(sizeof(RGY_CSP_PLANES) / sizeof(RGY_CSP_PLANES[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_PLANES) == RGY_CSP_COUNT");
 
 enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_UNKNOWN = 0,
@@ -317,7 +317,7 @@ static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
     _T("rgbp"),
     _T("rgb")
 };
-static_assert(_countof(RGY_CHROMAFMT_NAMES) == RGY_CHROMAFMT_COUNT, "_countof(RGY_CHROMAFMT_NAMES) == RGY_CHROMAFMT_COUNT");
+static_assert(sizeof(RGY_CHROMAFMT_NAMES) / sizeof(RGY_CHROMAFMT_NAMES[0]) == RGY_CHROMAFMT_COUNT, "_countof(RGY_CHROMAFMT_NAMES) == RGY_CHROMAFMT_COUNT");
 
 static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_UNKNOWN, //RGY_CSP_NA
@@ -375,7 +375,7 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_MONOCHROME,
     RGY_CHROMAFMT_MONOCHROME,
 };
-static_assert(_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT, "_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT");
+static_assert(sizeof(RGY_CSP_CHROMA_FORMAT)/sizeof(RGY_CSP_CHROMA_FORMAT[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
      0, //RGY_CSP_NA
@@ -433,7 +433,7 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
 };
-static_assert(_countof(RGY_CSP_BIT_PER_PIXEL) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_PER_PIXEL) == RGY_CSP_COUNT");
+static_assert(sizeof(RGY_CSP_BIT_PER_PIXEL) / sizeof(RGY_CSP_BIT_PER_PIXEL[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_PER_PIXEL) == RGY_CSP_COUNT");
 
 static bool cspShiftUsed(const RGY_CSP csp) {
     return csp == RGY_CSP_P010
