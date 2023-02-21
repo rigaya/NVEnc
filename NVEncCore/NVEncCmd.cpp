@@ -1875,7 +1875,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM(_T("--gop-len"), encConfig.gopLength);
     }
     OPT_NUM(_T("-b"), encConfig.frameIntervalP-1);
-    OPT_NUM(_T("--bref-mode"), brefMode);
+    OPT_LST(_T("--bref-mode"), brefMode, list_bref_mode);
     OPT_BOOL(_T("--weightp"), _T(""), nWeightP);
     OPT_BOOL(_T("--nonrefp"), _T(""), encConfig.rcParams.enableNonRefP);
     OPT_BOOL(_T("--aq"), _T("--no-aq"), encConfig.rcParams.enableAQ);
