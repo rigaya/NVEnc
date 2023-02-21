@@ -1310,8 +1310,11 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     }
 
-    //音声の抽出
-    if (common->nAudioSelectCount + common->nSubtitleSelectCount - (audioCopyAll ? 1 : 0) > (int)streamTrackUsed.size()) {
+    //音声の抽出(--audio-file)
+    const bool hasAudioExtract = std::find_if(common->ppAudioSelectList, common->ppAudioSelectList + common->nAudioSelectCount,
+        [](const AudioSelect *pAudioSelect) { return pAudioSelect->extractFilename.length() > 0; }) != common->ppAudioSelectList + common->nAudioSelectCount;
+    if (hasAudioExtract
+        && common->nAudioSelectCount + common->nSubtitleSelectCount - (audioCopyAll ? 1 : 0) > (int)streamTrackUsed.size()) {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
         if (pAVCodecReader == nullptr) {
