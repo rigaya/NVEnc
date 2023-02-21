@@ -1443,7 +1443,8 @@ Read attachment from the specified file and mux into the output file.
   
 - Examples
   ```
-  Example1: --attachment-source "<png_file>":metadata=mimetype=image/png
+  Example1: --attachment-source <png_file>:metadata=mimetype=image/png
+  Example2: --attachment-source <font_file>:metadata=mimetype=application/x-truetype-font
   ```
 
 ### --input-option &lt;string1&gt;:&lt;string2&gt;

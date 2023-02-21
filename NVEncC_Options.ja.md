@@ -1439,7 +1439,8 @@ attachmentストリームをコピーする。avhw/avswリーダー使用時の�
   
 - 使用例
   ```
-  例1: --attachment-source "<png_file>":metadata=mimetype=image/png
+  例1: --attachment-source <png_file>:metadata=mimetype=image/png
+  例2: --attachment-source <font_file>:metadata=mimetype=application/x-truetype-font
   ```
 
 ### --input-option &lt;string1&gt;:&lt;string2&gt;
