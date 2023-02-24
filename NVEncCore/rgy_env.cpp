@@ -490,17 +490,20 @@ std::vector<unique_handle> createProcessHandleList(const std::vector<size_t>& li
                 }
                 if (handle_type) {
                     // handleの種類を確認する
+                    size = 0;
                     status = fNtQueryObject(handle.get(), ObjectTypeInformation, NULL, 0, &size);
-                    std::vector<char> otibuffer(size, 0);
-                    status = fNtQueryObject(handle.get(), ObjectTypeInformation, otibuffer.data(), (ULONG)otibuffer.size(), &size);
-                    const auto oti = (PPUBLIC_OBJECT_TYPE_INFORMATION)otibuffer.data();
-                    if (NT_SUCCESS(status) && oti->TypeName.Buffer && _wcsicmp(oti->TypeName.Buffer, handle_type) == 0) {
-                        //static const OBJECT_INFORMATION_CLASS ObjectNameInformation = (OBJECT_INFORMATION_CLASS)1;
-                        //status = fNtQueryObject(handle, ObjectNameInformation, NULL, 0, &size);
-                        //std::vector<char> buffer3(size, 0);
-                        //status = fNtQueryObject(handle, ObjectNameInformation, buffer3.data(), buffer3.size(), &size);
-                        //POBJECT_NAME_INFORMATION oni = (POBJECT_NAME_INFORMATION)buffer3.data();
-                        handle_list.push_back(std::move(handle));
+                    if (status == STATUS_INFO_LENGTH_MISMATCH) { // 問題なければ、STATUS_INFO_LENGTH_MISMATCHが返る
+                        std::vector<char> otibuffer(size, 0);
+                        status = fNtQueryObject(handle.get(), ObjectTypeInformation, otibuffer.data(), (ULONG)otibuffer.size(), &size);
+                        const auto oti = (PPUBLIC_OBJECT_TYPE_INFORMATION)otibuffer.data();
+                        if (NT_SUCCESS(status) && oti->TypeName.Buffer && _wcsicmp(oti->TypeName.Buffer, handle_type) == 0) {
+                            //static const OBJECT_INFORMATION_CLASS ObjectNameInformation = (OBJECT_INFORMATION_CLASS)1;
+                            //status = fNtQueryObject(handle, ObjectNameInformation, NULL, 0, &size);
+                            //std::vector<char> buffer3(size, 0);
+                            //status = fNtQueryObject(handle, ObjectNameInformation, buffer3.data(), buffer3.size(), &size);
+                            //POBJECT_NAME_INFORMATION oni = (POBJECT_NAME_INFORMATION)buffer3.data();
+                            handle_list.push_back(std::move(handle));
+                        }
                     }
                 } else {
                     handle_list.push_back(std::move(handle));
