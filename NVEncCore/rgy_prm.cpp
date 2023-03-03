@@ -1218,8 +1218,8 @@ RGYParamVpp::RGYParamVpp() :
     curves(),
     tweak(),
     transform(),
-    overlay(),
     deband(),
+    overlay(),
     checkPerformance(false) {
 
 }

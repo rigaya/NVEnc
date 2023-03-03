@@ -2746,6 +2746,164 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-deband") && ENABLE_VPP_FILTER_DEBAND) {
+        vpp->deband.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{
+            "range", "thre", "thre_y", "thre_cb",
+            "thre_cr", "dither", "dither_y", "dither_c", "sample", "seed",
+            "blurfirst", "rand_each_frame" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->deband.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("range")) {
+                    try {
+                        vpp->deband.range = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre")) {
+                    try {
+                        vpp->deband.threY = std::stoi(param_val);
+                        vpp->deband.threCb = vpp->deband.threY;
+                        vpp->deband.threCr = vpp->deband.threY;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_y")) {
+                    try {
+                        vpp->deband.threY = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_cb")) {
+                    try {
+                        vpp->deband.threCb = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_cr")) {
+                    try {
+                        vpp->deband.threCr = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("dither")) {
+                    try {
+                        vpp->deband.ditherY = std::stoi(param_val);
+                        vpp->deband.ditherC = vpp->deband.ditherY;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("dither_y")) {
+                    try {
+                        vpp->deband.ditherY = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("dither_c")) {
+                    try {
+                        vpp->deband.ditherC = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sample")) {
+                    try {
+                        vpp->deband.sample = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("seed")) {
+                    try {
+                        vpp->deband.seed = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("blurfirst")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->deband.blurFirst = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("rand_each_frame")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->deband.randEachFrame = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("blurfirst")) {
+                    vpp->deband.blurFirst = true;
+                    continue;
+                }
+                if (param == _T("rand_each_frame")) {
+                    vpp->deband.randEachFrame = true;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-overlay") && ENABLE_VPP_FILTER_OVERLAY) {
         VppOverlay overlay;
         overlay.enable = true;
@@ -2923,164 +3081,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             }
         }
         vpp->overlay.push_back(overlay);
-        return 0;
-    }
-    if (IS_OPTION("vpp-deband") && ENABLE_VPP_FILTER_DEBAND) {
-        vpp->deband.enable = true;
-        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
-            return 0;
-        }
-        i++;
-
-        const auto paramList = std::vector<std::string>{
-            "range", "thre", "thre_y", "thre_cb",
-            "thre_cr", "dither", "dither_y", "dither_c", "sample", "seed",
-            "blurfirst", "rand_each_frame" };
-
-        for (const auto& param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
-                auto param_val = param.substr(pos+1);
-                param_arg = tolowercase(param_arg);
-                if (param_arg == _T("enable")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->deband.enable = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("range")) {
-                    try {
-                        vpp->deband.range = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("thre")) {
-                    try {
-                        vpp->deband.threY = std::stoi(param_val);
-                        vpp->deband.threCb = vpp->deband.threY;
-                        vpp->deband.threCr = vpp->deband.threY;
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("thre_y")) {
-                    try {
-                        vpp->deband.threY = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("thre_cb")) {
-                    try {
-                        vpp->deband.threCb = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("thre_cr")) {
-                    try {
-                        vpp->deband.threCr = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("dither")) {
-                    try {
-                        vpp->deband.ditherY = std::stoi(param_val);
-                        vpp->deband.ditherC = vpp->deband.ditherY;
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("dither_y")) {
-                    try {
-                        vpp->deband.ditherY = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("dither_c")) {
-                    try {
-                        vpp->deband.ditherC = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("sample")) {
-                    try {
-                        vpp->deband.sample = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("seed")) {
-                    try {
-                        vpp->deband.seed = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("blurfirst")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->deband.blurFirst = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("rand_each_frame")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->deband.randEachFrame = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                return 1;
-            } else {
-                if (param == _T("blurfirst")) {
-                    vpp->deband.blurFirst = true;
-                    continue;
-                }
-                if (param == _T("rand_each_frame")) {
-                    vpp->deband.randEachFrame = true;
-                    continue;
-                }
-                print_cmd_error_unknown_opt_param(option_name, param, paramList);
-                return 1;
-            }
-        }
         return 0;
     }
     if (IS_OPTION("vpp-perf-monitor")) {
@@ -6025,37 +6025,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         }
     }
-    for (size_t i = 0; i < param->overlay.size(); i++) {
-        const auto overlayDefault = VppOverlay();
-        if (param->overlay[i] != overlayDefault) {
-            tmp.str(tstring());
-            if (!param->overlay[i].enable && save_disabled_prm) {
-                tmp << _T(",enable=false");
-            }
-            if (param->overlay[i].enable || save_disabled_prm) {
-                ADD_PATH(_T("file"), overlay[i].inputFile.c_str());
-                if (   param->overlay[i].posX != overlayDefault.posX
-                    || param->overlay[i].posY != overlayDefault.posY) {
-                    tmp << _T(",pos=") << param->overlay[i].posX << _T("x") << param->overlay[i].posY;
-                }
-                if (   param->overlay[i].width  != overlayDefault.width
-                    || param->overlay[i].height != overlayDefault.height) {
-                    tmp << _T(",size=") << param->overlay[i].width << _T("x") << param->overlay[i].height;
-                }
-                ADD_FLOAT2(_T("alpha"), param->overlay[i], overlayDefault, alpha, 3);
-                ADD_LST2(_T("alpha_mode"), param->overlay[i], overlayDefault, alphaMode, list_vpp_overlay_alpha_mode);
-                ADD_FLOAT2(_T("lumakey_threshold"), param->overlay[i], overlayDefault, lumaKey.threshold, 3);
-                ADD_FLOAT2(_T("lumakey_tolerance"), param->overlay[i], overlayDefault, lumaKey.tolerance, 3);
-                ADD_FLOAT2(_T("lumakey_shoftness"), param->overlay[i], overlayDefault, lumaKey.shoftness, 3);
-                ADD_BOOL2(_T("loop"), param->overlay[i], overlayDefault, loop);
-            }
-            if (!tmp.str().empty()) {
-                cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
-            } else if (param->deband.enable) {
-                cmd << _T(" --vpp-overlay");
-            }
-        }
-    }
     if (param->deband != defaultPrm->deband) {
         tmp.str(tstring());
         if (!param->deband.enable && save_disabled_prm) {
@@ -6085,6 +6054,37 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-deband ") << tmp.str().substr(1);
         } else if (param->deband.enable) {
             cmd << _T(" --vpp-deband");
+        }
+    }
+    for (size_t i = 0; i < param->overlay.size(); i++) {
+        const auto overlayDefault = VppOverlay();
+        if (param->overlay[i] != overlayDefault) {
+            tmp.str(tstring());
+            if (!param->overlay[i].enable && save_disabled_prm) {
+                tmp << _T(",enable=false");
+            }
+            if (param->overlay[i].enable || save_disabled_prm) {
+                ADD_PATH(_T("file"), overlay[i].inputFile.c_str());
+                if (   param->overlay[i].posX != overlayDefault.posX
+                    || param->overlay[i].posY != overlayDefault.posY) {
+                    tmp << _T(",pos=") << param->overlay[i].posX << _T("x") << param->overlay[i].posY;
+                }
+                if (   param->overlay[i].width  != overlayDefault.width
+                    || param->overlay[i].height != overlayDefault.height) {
+                    tmp << _T(",size=") << param->overlay[i].width << _T("x") << param->overlay[i].height;
+                }
+                ADD_FLOAT2(_T("alpha"), param->overlay[i], overlayDefault, alpha, 3);
+                ADD_LST2(_T("alpha_mode"), param->overlay[i], overlayDefault, alphaMode, list_vpp_overlay_alpha_mode);
+                ADD_FLOAT2(_T("lumakey_threshold"), param->overlay[i], overlayDefault, lumaKey.threshold, 3);
+                ADD_FLOAT2(_T("lumakey_tolerance"), param->overlay[i], overlayDefault, lumaKey.tolerance, 3);
+                ADD_FLOAT2(_T("lumakey_shoftness"), param->overlay[i], overlayDefault, lumaKey.shoftness, 3);
+                ADD_BOOL2(_T("loop"), param->overlay[i], overlayDefault, loop);
+            }
+            if (!tmp.str().empty()) {
+                cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
+            } else if (param->deband.enable) {
+                cmd << _T(" --vpp-overlay");
+            }
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), checkPerformance);
@@ -7232,26 +7232,6 @@ tstring gen_cmd_help_vpp() {
         _T("      flip_y=<bool>\n")
         _T("      transpose=<bool>\n")
     );
-#if ENABLE_VPP_FILTER_OVERLAY
-    str += strsprintf(_T("\n")
-        _T("   --vpp-overlay [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("    params\n")
-        _T("      file=<string>             src file path of the image\n")
-        _T("      pos=<int>x<int>           position to add image\n")
-        _T("      size=<int>x<int>          size of image  (default: 0x0 = no resize)\n")
-        _T("      alpha=<float>             alpha value of overlay\n")
-        _T("                                  default: 1.0 (0.0 - 1.0)\n")
-        _T("      alpha_mode=<string>       override ... set value of alpha\n")
-        _T("                                mul      ... multiple original value\n")
-        _T("                                lumakey  ... set alpha depending on luma\n")
-        _T("      lumakey_threshold=<float> luma used for tranparency.\n")
-        _T("                                  default: 0.0 (dark: 0.0 - 1.0 :bright)\n")
-        _T("      lumakey_tolerance=<float> set luma range to be keyed out.\n")
-        _T("                                  default: 0.1 (0.0 - 1.0)\n")
-        _T("      lumakey_threshold=<float> set the range of softness for lumakey\n")
-        _T("      loop=<bool>\n")
-    );
-#endif
 #if ENABLE_VPP_FILTER_DEBAND
     str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
@@ -7280,6 +7260,26 @@ tstring gen_cmd_help_vpp() {
     str += strsprintf(_T("\n")
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));
+#endif
+#if ENABLE_VPP_FILTER_OVERLAY
+    str += strsprintf(_T("\n")
+        _T("   --vpp-overlay [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("    params\n")
+        _T("      file=<string>             src file path of the image\n")
+        _T("      pos=<int>x<int>           position to add image\n")
+        _T("      size=<int>x<int>          size of image  (default: 0x0 = no resize)\n")
+        _T("      alpha=<float>             alpha value of overlay\n")
+        _T("                                  default: 1.0 (0.0 - 1.0)\n")
+        _T("      alpha_mode=<string>       override ... set value of alpha\n")
+        _T("                                mul      ... multiple original value\n")
+        _T("                                lumakey  ... set alpha depending on luma\n")
+        _T("      lumakey_threshold=<float> luma used for tranparency.\n")
+        _T("                                  default: 0.0 (dark: 0.0 - 1.0 :bright)\n")
+        _T("      lumakey_tolerance=<float> set luma range to be keyed out.\n")
+        _T("                                  default: 0.1 (0.0 - 1.0)\n")
+        _T("      lumakey_threshold=<float> set the range of softness for lumakey\n")
+        _T("      loop=<bool>\n")
+    );
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-perf-monitor           check vpp perfromance (for debug)\n")

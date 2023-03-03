@@ -61,7 +61,7 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
-#define ENABLE_VPP_FILTER_CURVES       (                 ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_CURVES       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
@@ -1175,6 +1175,25 @@ struct VppCurves {
     tstring print() const;
 };
 
+struct VppDeband {
+    bool enable;
+    int range;
+    int threY;
+    int threCb;
+    int threCr;
+    int ditherY;
+    int ditherC;
+    int sample;
+    int seed;
+    bool blurFirst;
+    bool randEachFrame;
+
+    VppDeband();
+    bool operator==(const VppDeband &x) const;
+    bool operator!=(const VppDeband &x) const;
+    tstring print() const;
+};
+
 enum class VppOverlayAlphaMode {
     Override,
     Mul,
@@ -1217,25 +1236,6 @@ struct VppOverlay {
     tstring print() const;
 };
 
-struct VppDeband {
-    bool enable;
-    int range;
-    int threY;
-    int threCb;
-    int threCr;
-    int ditherY;
-    int ditherC;
-    int sample;
-    int seed;
-    bool blurFirst;
-    bool randEachFrame;
-
-    VppDeband();
-    bool operator==(const VppDeband &x) const;
-    bool operator!=(const VppDeband &x) const;
-    tstring print() const;
-};
-
 struct RGYParamVpp {
     RGY_VPP_RESIZE_ALGO resize_algo;
     RGY_VPP_RESIZE_MODE resize_mode;
@@ -1260,8 +1260,8 @@ struct RGYParamVpp {
     VppCurves curves;
     VppTweak tweak;
     VppTransform transform;
-    std::vector<VppOverlay> overlay;
     VppDeband deband;
+    std::vector<VppOverlay> overlay;
     bool checkPerformance;
 
     RGYParamVpp();

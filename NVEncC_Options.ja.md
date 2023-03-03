@@ -198,9 +198,9 @@
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-tweak-param1value1param2value2)
-  - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
+  - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [制御系のオプション](#制御系のオプション)
@@ -1543,9 +1543,9 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
 - [--vpp-curves](#--vpp-curves-param1value1param2value2)
 - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
-- [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
+- [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 色空間変換を行う。x64版のみ使用可能。  
@@ -2423,44 +2423,6 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
   ```
 
-### --vpp-overlay [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-指定の画像を動画上に焼き込む。
-
-- **パラメータ**
-  - file=&lt;string&gt;  
-    焼き込む画像のパス。
-  
-  - pos=&lt;int&gt;x&lt;int&gt;  
-    焼き込み位置。
-  
-  - size=&lt;int&gt;x&lt;int&gt;  
-    焼き込む画像のサイズ。未指定の場合は、リサイズせず焼き込みを行う。
-  
-  - alpha=&lt;float&gt; (デフォルト: 1.0 (0.0 - 1.0))  
-    焼き込み際の不透明度。
-  
-  - alpha_mode=&lt;string&gt;  
-    - override ... alphaで指定の不透明度で上書きする。 (デフォルト)
-    - mul      ... alphaで指定した不透明度を乗算する。
-    - lumakey  ... 指定の輝度値で不透明度を設定する。
-  
-  - lumakey_threshold=&lt;float&gt; (デフォルト: 0.0 (暗い: 0.0 - 1.0 :明るい))  
-    透明色にする輝度値。
-  
-  - lumakey_tolerance=&lt;float&gt; (デフォルト: 0.1 (0.0 - 1.0))  
-    透明色にする輝度値の範囲の指定。
-  
-  - lumakey_softness=&lt;float&gt; (デフォルト: 0.0 (0.0 - 1.0))  
-    toleranceに対する透明度の変化の具合を指定。
-  
-  - loop=&lt;bool&gt;  (default=false)
-  
-- 使用例
-  ```
-  --vpp-overlay file=logo.png,pos=1620x780,size=300x300
-  --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
-  ```
-
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 - **パラメータ**
@@ -2508,7 +2470,43 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 ### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 指定のピクセル数(偶数)分のパディングを行う。左、上、右、下の順にピクセル数で指定する。
 
+### --vpp-overlay [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+指定の画像を動画上に焼き込む。
 
+- **パラメータ**
+  - file=&lt;string&gt;  
+    焼き込む画像のパス。
+  
+  - pos=&lt;int&gt;x&lt;int&gt;  
+    焼き込み位置。
+  
+  - size=&lt;int&gt;x&lt;int&gt;  
+    焼き込む画像のサイズ。未指定の場合は、リサイズせず焼き込みを行う。
+  
+  - alpha=&lt;float&gt; (デフォルト: 1.0 (0.0 - 1.0))  
+    焼き込み際の不透明度。
+  
+  - alpha_mode=&lt;string&gt;  
+    - override ... alphaで指定の不透明度で上書きする。 (デフォルト)
+    - mul      ... alphaで指定した不透明度を乗算する。
+    - lumakey  ... 指定の輝度値で不透明度を設定する。
+  
+  - lumakey_threshold=&lt;float&gt; (デフォルト: 0.0 (暗い: 0.0 - 1.0 :明るい))  
+    透明色にする輝度値。
+  
+  - lumakey_tolerance=&lt;float&gt; (デフォルト: 0.1 (0.0 - 1.0))  
+    透明色にする輝度値の範囲の指定。
+  
+  - lumakey_softness=&lt;float&gt; (デフォルト: 0.0 (0.0 - 1.0))  
+    toleranceに対する透明度の変化の具合を指定。
+  
+  - loop=&lt;bool&gt;  (default=false)
+  
+- 使用例
+  ```
+  --vpp-overlay file=logo.png,pos=1620x780,size=300x300
+  --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
+  ```
 
 ### --vpp-perf-monitor
 各フィルタのパフォーマンス測定を行い、適用したフィルタの1フレームあたりの平均処理時間を最後に出力する。全体のエンコード速度がやや遅くなることがある点に注意。

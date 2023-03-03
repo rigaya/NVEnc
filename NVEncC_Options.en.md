@@ -202,9 +202,9 @@
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-tweak-param1value1param2value2)
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
-  - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
+  - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [Other Options](#other-options)
@@ -1547,9 +1547,9 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
 - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
-- [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
+- [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 Converts colorspace of the video. Available on x64 version.  
@@ -2367,43 +2367,6 @@ Apply color adjustments using curves.
   --vpp-curves r="0/0.11 0.42/0.51 1/0.95":g="0/0 0.50/0.48 1/1":b="0/0.22 0.49/0.44 1/0.8"
   ```
 
-### --vpp-overlay [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-Overlay image on top of base video.
-
-- **Parameters**
-  - file=&lt;string&gt;  
-    source file path of the image.
-    When video is used for file, video framerate should be equal to base video file.
-  
-  - pos=&lt;int&gt;x&lt;int&gt;  
-    position to add image.
-  
-  - size=&lt;int&gt;x&lt;int&gt;  
-    size of image.
-  
-  - alpha=&lt;float&gt; (default: 1.0 (0.0 - 1.0))  
-    alpha value of overlay.
-  
-  - alpha_mode=&lt;string&gt;  
-    - override ... set value of alpha
-    - mul      ... multiple original value
-    - lumakey  ... set alpha depending on luma
-  
-  - lumakey_threshold=&lt;float&gt; (default: 0.0 (dark: 0.0 - 1.0 :bright))  
-    luma used for tranparency.
-  
-  - lumakey_tolerance=&lt;float&gt; (default: 0.1 (0.0 - 1.0))  
-    set luma range to be keyed out.
-  
-  - lumakey_softness=&lt;float&gt; (default: 0.0 (0.0 - 1.0))  
-    set the range of softness for lumakey.
-
-- Example:
-  ```
-  --vpp-overlay file=logo.png,pos=1620x780,size=300x300
-  --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
-  ```
-
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 - **Parameters**
@@ -2449,6 +2412,43 @@ Overlay image on top of base video.
 
 ### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 add padding to left,top,right,bottom (in pixels)
+
+### --vpp-overlay [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Overlay image on top of base video.
+
+- **Parameters**
+  - file=&lt;string&gt;  
+    source file path of the image.
+    When video is used for file, video framerate should be equal to base video file.
+  
+  - pos=&lt;int&gt;x&lt;int&gt;  
+    position to add image.
+  
+  - size=&lt;int&gt;x&lt;int&gt;  
+    size of image.
+  
+  - alpha=&lt;float&gt; (default: 1.0 (0.0 - 1.0))  
+    alpha value of overlay.
+  
+  - alpha_mode=&lt;string&gt;  
+    - override ... set value of alpha
+    - mul      ... multiple original value
+    - lumakey  ... set alpha depending on luma
+  
+  - lumakey_threshold=&lt;float&gt; (default: 0.0 (dark: 0.0 - 1.0 :bright))  
+    luma used for tranparency.
+  
+  - lumakey_tolerance=&lt;float&gt; (default: 0.1 (0.0 - 1.0))  
+    set luma range to be keyed out.
+  
+  - lumakey_softness=&lt;float&gt; (default: 0.0 (0.0 - 1.0))  
+    set the range of softness for lumakey.
+
+- Example:
+  ```
+  --vpp-overlay file=logo.png,pos=1620x780,size=300x300
+  --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
+  ```
 
 ### --vpp-perf-monitor
 Monitor the performance of each vpp filter, and output the average per frame processing time of the applied filter(s). Note that the overall encoding performance may slightly be harmed.
