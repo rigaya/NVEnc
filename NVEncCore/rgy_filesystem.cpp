@@ -196,6 +196,22 @@ bool rgy_get_filesize(const char *filepath, uint64_t *filesize) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
+std::vector<tstring> get_file_list_with_filter(const tstring& dir, const tstring& filter_filename) {
+#if UNICODE
+#define pathstring wstring
+#else
+#define pathstring string
+#endif
+    std::vector<tstring> list;
+    for (const auto& x : std::filesystem::recursive_directory_iterator(dir)) {
+        if (filter_filename.length() == 0 || x.path().filename().pathstring().find(filter_filename) != std::string::npos) {
+            list.push_back(x.path().pathstring());
+        }
+    }
+#undef pathstring
+    return list;
+}
+
 #if defined(_WIN32) || defined(_WIN64)
 bool rgy_get_filesize(const wchar_t *filepath, uint64_t *filesize) {
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
@@ -246,6 +262,13 @@ tstring getExePath() {
     memset(exePath, 0, sizeof(exePath));
     GetModuleFileName(NULL, exePath, _countof(exePath));
     return exePath;
+}
+
+tstring getModulePath(void *module) {
+    TCHAR dllPath[16384];
+    memset(dllPath, 0, sizeof(dllPath));
+    GetModuleFileName((HMODULE)module, dllPath, _countof(dllPath));
+    return dllPath;
 }
 
 #else

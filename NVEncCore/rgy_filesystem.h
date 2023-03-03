@@ -43,9 +43,11 @@ std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const wchar_t *dir);
 std::wstring PathGetFilename(const std::wstring& path);
 std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
+tstring getModulePath(void *module);
 #endif //#if defined(_WIN32) || defined(_WIN64)
 tstring getExePath();
 tstring getExeDir();
+std::vector<tstring> get_file_list_with_filter(const tstring& dir, const tstring& filter_filename);
 
 std::string GetFullPathFrom(const char *path, const char *baseDir = nullptr);
 std::string GetRelativePathFrom(const char *path, const char *baseDir = nullptr);
