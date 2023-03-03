@@ -168,16 +168,16 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         if (bVideoEngineUsage) {
             if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKを優先
                 gpuencoder_usage = std::max(
-                    RGYGPUCounterWinEntries(counters).filter_type(L"encode").sum(),
-                    RGYGPUCounterWinEntries(counters).filter_type(L"codec").sum()); //vce rx5xxx
+                    RGYGPUCounterWinEntries(counters).filter_type(L"encode").max(),
+                    RGYGPUCounterWinEntries(counters).filter_type(L"codec").max()); //vce rx5xxx
                 bVideoEngineUsage = !ENCODER_QSV || gpuencoder_usage > 0.0; //QSVのMFX使用率はこれでは取れない
             }
             gpuusage = std::max(std::max(std::max(
-                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").sum(), //nvenc
-                RGYGPUCounterWinEntries(counters).filter_type(L"compute").sum()), //vce-opencl
-                RGYGPUCounterWinEntries(counters).filter_type(L"3d").sum()), //qsv
-                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").sum()); //qsv
-            gpudecoder_usage = RGYGPUCounterWinEntries(counters).filter_type(L"decode").sum();
+                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").max(), //nvenc
+                RGYGPUCounterWinEntries(counters).filter_type(L"compute").max()), //vce-opencl
+                RGYGPUCounterWinEntries(counters).filter_type(L"3d").max()), //qsv
+                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").max()); //qsv
+            gpudecoder_usage = RGYGPUCounterWinEntries(counters).filter_type(L"decode").max();
         }
     }
 #endif //#if ENABLE_PERF_COUNTER
