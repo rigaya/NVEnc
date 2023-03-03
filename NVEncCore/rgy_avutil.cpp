@@ -43,8 +43,11 @@ int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to
 //必要なavcodecのdllがそろっているかを確認
 bool check_avcodec_dll() {
 #if defined(_WIN32) || defined(_WIN64)
+    // static変数として、一度存在を確認したら再度チェックはしないように
+    static bool check = false;
+    if (check) return check;
     std::vector<HMODULE> hDllList;
-    bool check = true;
+    check = true;
     for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
         HMODULE hDll = NULL;
         if (NULL == (hDll = LoadLibrary(AVCODEC_DLL_NAME[i]))) {
