@@ -280,12 +280,12 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             chunks[MES_DROP].len = _stprintf_s(chunks[MES_DROP].str, _T(", afs drop %d/%d"), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
         }
         if (bGPUUsage) {
-            chunks[MES_GPU].len = _stprintf_s(chunks[MES_GPU].str, _T(", GPU %d%%"), std::max((int)(gpuusage + 0.5), 100));
+            chunks[MES_GPU].len = _stprintf_s(chunks[MES_GPU].str, _T(", GPU %d%%"), std::min((int)(gpuusage + 0.5), 100));
             if (bVideoEngineUsage) {
-                chunks[MES_GPU].len += _stprintf_s(chunks[MES_GPU].str + chunks[MES_GPU].len, _countof(chunks[MES_GPU].str) - chunks[MES_GPU].len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), std::max((int)(gpuencoder_usage + 0.5), 100));
+                chunks[MES_GPU].len += _stprintf_s(chunks[MES_GPU].str + chunks[MES_GPU].len, _countof(chunks[MES_GPU].str) - chunks[MES_GPU].len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), std::min((int)(gpuencoder_usage + 0.5), 100));
             }
             if (gpudecoder_usage > 0) {
-                chunks[MES_GPU_DEC].len += _stprintf_s(chunks[MES_GPU_DEC].str, _countof(chunks[MES_GPU_DEC].str), _T(", VD %d%%"), std::max((int)(gpudecoder_usage + 0.5), 100));
+                chunks[MES_GPU_DEC].len += _stprintf_s(chunks[MES_GPU_DEC].str, _countof(chunks[MES_GPU_DEC].str), _T(", VD %d%%"), std::min((int)(gpudecoder_usage + 0.5), 100));
             }
         }
 
@@ -371,13 +371,13 @@ void EncodeStatus::WriteResults() {
         const int gpu_clock_avg = (int)(m_sData.GPUClockTotal / m_sData.GPUInfoCountSuccess + 0.5);
         tstring tmes = strsprintf(_T("encode time %d:%02d:%02d, CPU: %.1f%%"), hh, mm, ss, m_sData.CPUUsagePercent);
         if (gpu_load > 0.0) {
-            tmes += strsprintf(_T(", GPU: %.1f%%"), std::max(gpu_load, 100.0));
+            tmes += strsprintf(_T(", GPU: %.1f%%"), std::min(gpu_load, 100.0));
         }
         if (vee_load > 0.0) {
-            tmes += strsprintf(_T(", %s: %.1f%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), std::max(vee_load, 100.0));
+            tmes += strsprintf(_T(", %s: %.1f%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), std::min(vee_load, 100.0));
         }
         if (ved_load > 0.0) {
-            tmes += strsprintf(_T(", VD: %.1f%%"), std::max(ved_load, 100.0));
+            tmes += strsprintf(_T(", VD: %.1f%%"), std::min(ved_load, 100.0));
         }
         if (gpu_clock_avg > 0) {
             tmes += strsprintf(_T(", GPUClock: %dMHz"), gpu_clock_avg);
