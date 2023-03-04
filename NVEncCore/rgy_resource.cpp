@@ -59,6 +59,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_afs_merge_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_afs_synthesize_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_colorspace_func_h);
 _BINARY_VPP_FILTER_FILE(rgy_filter_convolution3d_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_curves_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_deband_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_deband_gen_rand_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_decimate_cl);
@@ -121,6 +122,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_SYNTHESIZE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_afs_synthesize_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_COLORSPACE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_colorspace_func_h) },
     { _T("EXE_DATA"), _T("RGY_FILTER_CONVOLUTION3D_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_convolution3d_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_CURVES_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_curves_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_deband_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_GEN_RAND_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_deband_gen_rand_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DECIMATE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_decimate_cl) },
