@@ -494,7 +494,14 @@ vector<int> RGYInputAvcodec::getStreamIndex(AVMediaType type) {
                 streams.push_back(i);
             }
         } else if (stream->codecpar->codec_type == type && (stream->disposition & AV_DISPOSITION_ATTACHED_PIC) == 0) {
-            streams.push_back(i);
+            if (type == AVMEDIA_TYPE_VIDEO || type == AVMEDIA_TYPE_AUDIO || type == AVMEDIA_TYPE_SUBTITLE) {
+                // video, audio, subtitleの場合はCodecIDが必要 (たまにCodecIDのセットされていないものが来てエラーになる)
+                if (stream->codecpar->codec_id != AV_CODEC_ID_NONE) {
+                    streams.push_back(i);
+                }
+            } else {
+                streams.push_back(i);
+            }
         }
     }
     if (type == AVMEDIA_TYPE_VIDEO) {
