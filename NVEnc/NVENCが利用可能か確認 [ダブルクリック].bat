@@ -8,7 +8,15 @@ if "%PROCESSOR_ARCHITECTURE%" == "x86" (
 if %errorlevel% == 0 (
     echo NVENCは利用可能です。
 ) else (
-    echo NVENCが利用できません。
-    nvidia-smi
+    echo 環境変数CUDA_VISIBLE_DEVICESを指定して再試行します…
+    set CUDA_VISIBLE_DEVICES=0
+    %NVENCC_PATH% --check-hw --log-level debug
+
+    if %errorlevel% == 0 (
+        echo NVENCは利用可能です。
+    ) else (
+        echo NVENCが利用できません。
+        nvidia-smi
+    )
 )
 pause
