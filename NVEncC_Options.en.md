@@ -174,6 +174,7 @@
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
   - [--input-hevc-bsf \<string\>](#--input-hevc-bsf-string)
+  - [--allow-other-negative-pts](#--allow-other-negative-pts)
 - [Vpp Options](#vpp-options)
   - [Vpp Filtering order](#vpp-filtering-order)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
@@ -1514,6 +1515,9 @@ switch hevc bitstream filter used for hw decoder input. (for debug purpose)
 
   - libavcodec  
     use hevc_mp4toannexb bitstream filter.
+
+### --allow-other-negative-pts  
+Allow negative timestamps for audio, subtitles. Intended for debug purpose only.
 
 ## Vpp Options
 

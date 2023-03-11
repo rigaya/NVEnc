@@ -170,6 +170,7 @@
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
   - [--input-hevc-bsf \<string\>](#--input-hevc-bsf-string)
+  - [--allow-other-negative-pts](#--allow-other-negative-pts)
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
@@ -1509,6 +1510,9 @@ switch hevc bitstream filter used for hw decoder input. (for debug purpose)
 
   - libavcodec  
     libavcodec の hevc_mp4toannexb bitstream filter を使用する。
+
+### --allow-other-negative-pts  
+音声・字幕において負のtimestampを許容する。原則デバッグ用。
 
 ## vppオプション
 
