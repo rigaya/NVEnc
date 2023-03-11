@@ -2469,14 +2469,15 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         }
     }
 
-    //IDRかどうかのフラグ
-    bool isIDR = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
+    bool isIDR = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0; //IDRかどうかのフラグ
+    bool isKey = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR | RGY_FRAMETYPE_I | RGY_FRAMETYPE_xI)) != 0; //Keyフレームかどうかのフラグ
     if (m_Mux.video.streamOut->codecpar->field_order != AV_FIELD_PROGRESSIVE) {
         if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
             const auto nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
             //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
             //どちらかのフィールドがIDRならIDRのフラグを立てる
             isIDR = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_IDR; }) != nal_list.end();
+            isKey |= isIDR;
         } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
             AddMessage(RGY_LOG_ERROR, _T("Interlaced HEVC encoding not supported!\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -2622,7 +2623,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
 
     const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
     pkt->stream_index = m_Mux.video.streamOut->index;
-    pkt->flags = isIDR ? AV_PKT_FLAG_KEY : 0;
+    pkt->flags = (isKey) ? AV_PKT_FLAG_KEY : 0;
 #if ENCODER_QSV
     //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
     pkt->duration = bs_framedata.duration;
