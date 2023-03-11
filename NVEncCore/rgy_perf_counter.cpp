@@ -234,16 +234,16 @@ void RGYGPUCounterWin::close() {
 }
 
 int RGYGPUCounterWin::init() {
-    auto hr = S_OK;
-
-    if (FAILED(hr = CoInitializeSecurity(
+    auto hr = CoInitializeSecurity(
         NULL,
         -1,
         NULL,
         NULL,
         RPC_C_AUTHN_LEVEL_NONE,
         RPC_C_IMP_LEVEL_IMPERSONATE,
-        NULL, EOAC_NONE, 0))) {
+        NULL, EOAC_NONE, 0);
+    // 2度目の呼び出しでは、RPC_E_TOO_LATEが生じる場合がある
+    if (hr != RPC_E_TOO_LATE && FAILED(hr)) {
         return 1;
     }
 
