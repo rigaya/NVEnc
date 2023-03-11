@@ -1444,6 +1444,7 @@ struct RGYParamCommon {
     C2AFormat caption2ass;
     int audioIgnoreDecodeError;
     RGYOptList muxOpt;
+    bool allowOtherNegativePts;
     bool disableMp4Opt;
     bool debugDirectAV1Out;
     bool debugRawOut;

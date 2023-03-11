@@ -1819,6 +1819,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     m_Mux.format.isMatroska = 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "matroska");
     m_Mux.format.disableMp4Opt = prm->disableMp4Opt;
     m_Mux.format.lowlatency = prm->lowlatency;
+    m_Mux.format.allowOtherNegativePts = prm->allowOtherNegativePts;
 
 #if USE_CUSTOM_IO
     if (m_Mux.format.isPipe || usingAVProtocols(filename, 1) || (m_Mux.format.formatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
@@ -2645,7 +2646,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         pkt->dts = m_Mux.video.timestampList.get_min_pts();
     }
     if (WRITE_PTS_DEBUG) {
-        AddMessage(RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
+        AddMessage(RGY_LOG_WARN, _T("video pts %3d, %12s, pts, %lld (%d/%d) [%s]\n"),
             pkt->stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
             pkt->pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt->pts, streamTimebase).c_str());
     }
@@ -2972,7 +2973,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
                 AddMessage(loglevel, _T("                              previous: %s current: %s\n"),
                     getTimestampString(muxAudio->lastPtsOut, muxAudio->streamOut->time_base).c_str(),
                     getTimestampString(pkt->pts, muxAudio->streamOut->time_base).c_str());
-                AddMessage(loglevel, _T("Chaging timestamp to %lld(%s), this may corrupt av-synchronization.\n"),
+                AddMessage(loglevel, _T("Changing timestamp to %lld(%s), this may corrupt av-synchronization.\n"),
                     (long long int)maxPts, getTimestampString(maxPts, muxAudio->streamOut->time_base).c_str());
             }
             pkt->pts = maxPts;
@@ -2996,15 +2997,17 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
             pkt->stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
             pkt->pts, muxAudio->streamOut->time_base.num, muxAudio->streamOut->time_base.den, getTimestampString(pkt->pts, muxAudio->streamOut->time_base).c_str());
     }
-    //av_interleaved_write_frameに渡ったパケットは開放する必要がない
-    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
-    if (ret_write != 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
-            get_media_type_string(muxAudio->streamOut->codecpar->codec_id).c_str(),
-            muxAudio->streamOut->index, qsv_av_err2str(ret_write).c_str());
-        m_Mux.format.streamError = true;
+    if (pkt->pts >= 0 || m_Mux.format.allowOtherNegativePts) {
+        //av_interleaved_write_frameに渡ったパケットは開放する必要がない
+        const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+        if (ret_write != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
+                get_media_type_string(muxAudio->streamOut->codecpar->codec_id).c_str(),
+                muxAudio->streamOut->index, qsv_av_err2str(ret_write).c_str());
+            m_Mux.format.streamError = true;
+        }
+        muxAudio->outputSamples += samples;
     }
-    muxAudio->outputSamples += samples;
     m_Mux.poolPkt->returnFree(&pkt);
 }
 

@@ -1396,6 +1396,7 @@ RGYParamCommon::RGYParamCommon() :
     caption2ass(FORMAT_INVALID),
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     muxOpt(),
+    allowOtherNegativePts(false),
     disableMp4Opt(false),
     debugDirectAV1Out(false),
     debugRawOut(false),
