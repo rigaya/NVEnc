@@ -1,5 +1,10 @@
 @echo off
-exe_files\NVEncC\x86\NVEncC.exe --check-hw
+set NVENCC_PATH=exe_files\NVEncC\x64\NVEncC64.exe
+if "%PROCESSOR_ARCHITECTURE%" == "x86" (
+    set NVENCC_PATH=exe_files\NVEncC\x86\NVEncC.exe
+)
+
+%NVENCC_PATH% --check-hw
 if %errorlevel% == 0 (
     echo NVENCÇÕóòópâ¬î\Ç≈Ç∑ÅB
 ) else (
