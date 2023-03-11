@@ -9,5 +9,6 @@ if %errorlevel% == 0 (
     echo NVENCは利用可能です。
 ) else (
     echo NVENCが利用できません。
+    nvidia-smi
 )
 pause
