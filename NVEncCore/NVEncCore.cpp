@@ -3622,7 +3622,7 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
-                const int nTrackId = (int)((uint32_t)packetList[i]->flags >> 16);
+                const int nTrackId = pktFlagGetTrackID(packetList[i]);
                 const bool sendToFilter = pFilterForStreams.count(nTrackId) > 0;
                 const bool sendToWriter = pWriterForAudioStreams.count(nTrackId) > 0;
                 AVPacket *pkt = packetList[i];
