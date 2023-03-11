@@ -4,7 +4,7 @@ if "%PROCESSOR_ARCHITECTURE%" == "x86" (
     set NVENCC_PATH=exe_files\NVEncC\x86\NVEncC.exe
 )
 
-%NVENCC_PATH% --check-hw
+%NVENCC_PATH% --check-hw --log-level debug
 if %errorlevel% == 0 (
     echo NVENCÇÕóòópâ¬î\Ç≈Ç∑ÅB
 ) else (
