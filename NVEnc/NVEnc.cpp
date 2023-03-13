@@ -230,6 +230,8 @@ BOOL func_output( OUTPUT_INFO *oip ) {
 
     if (ret & AUO_RESULT_ABORT) info_encoding_aborted();
 
+    warn_video_length(oip);
+
     CloseHandle(pe.h_p_aviutl); //※2 end
     set_prevent_log_close(FALSE); //※1 end
     auto_save_log(&conf_out, oip, &pe, &g_sys_dat); //※1 end のあとで行うこと

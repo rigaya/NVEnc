@@ -126,5 +126,6 @@ void warning_no_batfile(const char *batfile);
 void warning_malloc_batfile_tmp();
 void warning_failed_open_bat_orig();
 void warning_failed_open_bat_new();
+void warning_video_very_short();
 
 #endif //_AUO_ERROR_H_

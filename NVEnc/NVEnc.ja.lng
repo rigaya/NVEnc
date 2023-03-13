@@ -200,6 +200,8 @@ AUO_ERR_NO_BAT_FILE=指定されたバッチファイルが存在しません。
 AUO_ERR_MALLOC_BAT_FILE_TMP=一時バッチファイル作成用バッファの確保に失敗しました。
 AUO_ERR_OPEN_BAT_ORG=バッチファイルを開けませんでした。
 AUO_ERR_FAILED_OPEN_BAT_NEW=一時バッチファイルを作成できませんでした。
+AUO_ERR_VIDEO_VERY_SHORT1=出力された動画サイズが1秒以下と非常に短くなっています。これが意図したものでない場合、
+AUO_ERR_VIDEO_VERY_SHORT2=動画の選択範囲(出力する時間の区間)の設定が誤っている可能性がありますので、選択範囲を見直してください。
 
 [AUO_AUDIO]
 AUO_AUDIO_FAW_INDEX_ERR=NVEnc.iniからのFAWの情報取得に失敗したため、判定を中止しました。

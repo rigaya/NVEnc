@@ -622,3 +622,8 @@ void warning_failed_open_bat_orig() {
 void warning_failed_open_bat_new() {
     write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_OPEN_BAT_NEW));
 }
+
+void warning_video_very_short() {
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_VIDEO_VERY_SHORT1));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_VIDEO_VERY_SHORT2));
+}

@@ -896,6 +896,13 @@ void auto_save_log(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC
     return;
 }
 
+void warn_video_length(const OUTPUT_INFO *oip) {
+    const double fps = oip->rate / (double)oip->scale;
+    if (oip->n <= (int)(fps + 0.5)) {
+        warning_video_very_short();
+    }
+}
+
 int additional_vframe_for_aud_delay_cut(double fps, int audio_rate, int audio_delay) {
     double delay_sec = audio_delay / (double)audio_rate;
     return (int)ceil(delay_sec * fps);

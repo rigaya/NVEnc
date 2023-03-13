@@ -201,6 +201,8 @@ AUO_ERR_NO_BAT_FILE=Bat file does not exist.
 AUO_ERR_MALLOC_BAT_FILE_TMP=Failed to allocate buffer for creating temporary bat file.
 AUO_ERR_OPEN_BAT_ORG=Failed to open bat file.
 AUO_ERR_FAILED_OPEN_BAT_NEW=Failed to create bat file.
+AUO_ERR_VIDEO_VERY_SHORT1=Output video is very short, shorter than 1 seconds.
+AUO_ERR_VIDEO_VERY_SHORT2=If this is not intended, please check the selected range of video is correct.
 
 [AUO_AUDIO]
 AUO_AUDIO_FAW_INDEX_ERR=Failed to analyze, failed to get information from NVEnc.ini.
