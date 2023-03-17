@@ -32,6 +32,11 @@
 #if ENABLE_RAW_READER
 
 RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
+    //どういうわけかCを指定しないy4mファイルが世の中にはあるようなので、
+    //とりあえずデフォルトはYV12にしておく
+    //これが正しいのかはよくわからない
+    pInfo->csp = RGY_CSP_YV12;
+
     char *p, *q = nullptr;
 
     for (p = buf; (p = strtok_s(p, " ", &q)) != nullptr; ) {
