@@ -53,6 +53,9 @@
 #include "core/Result.h"
 #include "rgy_vulkan.h"
 #endif
+#if ENCODER_MPP
+#include "mpp_err.h"
+#endif //#if ENCODER_MPP
 
 #include <algorithm>
 
@@ -251,6 +254,30 @@ enum RGY_ERR {
     RGY_ERR_NVCV_CUDA_ILLEGAL_ADDRESS  = RGY_ERR_NVCV_OFFSET -59,  //!< CUDA tried to load or store on an invalid memory address.
     RGY_ERR_NVCV_CUDA                  = RGY_ERR_NVCV_OFFSET -60, //!< An otherwise unspecified CUDA error has been reported.
 
+    //mpp
+    RGY_ERR_MPP_NOK = -300,
+    RGY_ERR_MPP_ERR_UNKNOW          = RGY_ERR_MPP_NOK -  1,
+    RGY_ERR_MPP_ERR_NULL_PTR        = RGY_ERR_MPP_NOK -  2,
+    RGY_ERR_MPP_ERR_MALLOC          = RGY_ERR_MPP_NOK -  3,
+    RGY_ERR_MPP_ERR_OPEN_FILE       = RGY_ERR_MPP_NOK -  4,
+    RGY_ERR_MPP_ERR_VALUE           = RGY_ERR_MPP_NOK -  5,
+    RGY_ERR_MPP_ERR_READ_BIT        = RGY_ERR_MPP_NOK -  6,
+    RGY_ERR_MPP_ERR_TIMEOUT         = RGY_ERR_MPP_NOK -  7,
+    RGY_ERR_MPP_ERR_PERM            = RGY_ERR_MPP_NOK -  8,
+    RGY_ERR_MPP_ERR_BASE            = RGY_ERR_MPP_NOK -  9,
+    RGY_ERR_MPP_ERR_LIST_STREAM     = RGY_ERR_MPP_NOK - 10,
+    RGY_ERR_MPP_ERR_INIT            = RGY_ERR_MPP_NOK - 11,
+    RGY_ERR_MPP_ERR_VPU_CODEC_INIT  = RGY_ERR_MPP_NOK - 12,
+    RGY_ERR_MPP_ERR_STREAM          = RGY_ERR_MPP_NOK - 13,
+    RGY_ERR_MPP_ERR_FATAL_THREAD    = RGY_ERR_MPP_NOK - 14,
+    RGY_ERR_MPP_ERR_NOMEM           = RGY_ERR_MPP_NOK - 15,
+    RGY_ERR_MPP_ERR_PROTOL          = RGY_ERR_MPP_NOK - 16,
+    RGY_ERR_MPP_FAIL_SPLIT_FRAME    = RGY_ERR_MPP_NOK - 17,
+    RGY_ERR_MPP_ERR_VPUHW           = RGY_ERR_MPP_NOK - 18,
+    RGY_ERR_MPP_EOS_STREAM_REACHED  = RGY_ERR_MPP_NOK - 19,
+    RGY_ERR_MPP_ERR_BUFFER_FULL     = RGY_ERR_MPP_NOK - 20,
+    RGY_ERR_MPP_ERR_DISPLAY_FULL    = RGY_ERR_MPP_NOK - 21,
+
     RGY_WRN_IN_EXECUTION                = 1,
     RGY_WRN_DEVICE_BUSY                 = 2,
     RGY_WRN_VIDEO_PARAM_CHANGED         = 3,
@@ -295,6 +322,12 @@ VkResult err_to_vk(RGY_ERR err);
 RGY_ERR err_to_rgy(VkResult err);
 #endif //#if ENABLE_VULKAN
 #endif //#if ENCODER_VCEENC
+
+#if ENCODER_MPP
+MPP_RET err_to_mpp(RGY_ERR err);
+RGY_ERR err_to_rgy(MPP_RET err);
+#endif //#if ENCODER_MPP
+
 
 const TCHAR *get_err_mes(RGY_ERR sts);
 

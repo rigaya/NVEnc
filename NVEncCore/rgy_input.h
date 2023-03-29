@@ -52,6 +52,9 @@
 #if ENCODER_VCEENC
 #include "vce_util.h"
 #endif //#if ENCODER_VCEENC
+#if ENCODER_MPP
+#include "mpp_util.h"
+#endif //#if ENCODER_MPP
 
 std::vector<int> read_keyfile(tstring keyfile);
 

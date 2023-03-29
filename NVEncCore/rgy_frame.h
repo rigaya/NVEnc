@@ -115,4 +115,19 @@ public:
     virtual std::vector<uint8_t> gen_obu() const override;
 };
 
+struct RGYSysFrame {
+public:
+    RGYSysFrame();
+    RGYSysFrame(const RGYFrameInfo& frame_);
+    ~RGYSysFrame();
+    RGY_ERR allocate(const int width, const int height, const RGY_CSP csp, const int bitdepth);
+    RGY_ERR allocate(const RGYFrameInfo &frame);
+    void deallocate();
+protected:
+    RGYSysFrame(const RGYSysFrame &) = delete;
+    void operator =(const RGYSysFrame &) = delete;
+public:
+    RGYFrameInfo frame;
+};
+
 #endif //__RGY_FRAME_H__

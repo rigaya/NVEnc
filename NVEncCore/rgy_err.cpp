@@ -367,6 +367,59 @@ RGY_ERR err_to_rgy(VkResult err) {
 #endif //#if ENABLE_VULKAN
 #endif //#if ENCODER_VCEENC
 
+#if ENCODER_MPP
+
+struct RGYErrMapMPP {
+    RGY_ERR rgy;
+    MPP_RET mpp;
+};
+
+#define MPPERR_MAP(x) { RGY_ERR_MPP_ERR_ ##x, MPP_ERR_ ##x }
+static const RGYErrMapMPP ERR_MAP_MPP[] = {
+    { RGY_ERR_NONE, MPP_SUCCESS },
+    { RGY_ERR_NONE, MPP_OK },
+    { RGY_ERR_UNKNOWN, MPP_NOK },
+    MPPERR_MAP(UNKNOW),
+    MPPERR_MAP(NULL_PTR),
+    MPPERR_MAP(MALLOC),
+    MPPERR_MAP(OPEN_FILE),
+    MPPERR_MAP(VALUE),
+    MPPERR_MAP(READ_BIT),
+    MPPERR_MAP(TIMEOUT),
+    MPPERR_MAP(PERM),
+    MPPERR_MAP(BASE),
+    MPPERR_MAP(LIST_STREAM),
+    MPPERR_MAP(INIT),
+    MPPERR_MAP(VPU_CODEC_INIT),
+    MPPERR_MAP(STREAM),
+    MPPERR_MAP(FATAL_THREAD),
+    MPPERR_MAP(NOMEM),
+    MPPERR_MAP(PROTOL),
+    { RGY_ERR_MPP_FAIL_SPLIT_FRAME, MPP_FAIL_SPLIT_FRAME },
+    MPPERR_MAP(VPUHW),
+    { RGY_ERR_MPP_EOS_STREAM_REACHED, MPP_EOS_STREAM_REACHED },
+    MPPERR_MAP(BUFFER_FULL),
+    MPPERR_MAP(DISPLAY_FULL)
+};
+#undef MPPERR_MAP
+
+MPP_RET err_to_mpp(RGY_ERR err) {
+    const RGYErrMapMPP *ERR_MAP_MPP_FIN = (const RGYErrMapMPP *)ERR_MAP_MPP + _countof(ERR_MAP_MPP);
+    auto ret = std::find_if((const RGYErrMapMPP *)ERR_MAP_MPP, ERR_MAP_MPP_FIN, [err](const RGYErrMapMPP map) {
+        return map.rgy == err;
+        });
+    return (ret == ERR_MAP_MPP_FIN) ? MPP_ERR_UNKNOW : ret->mpp;
+}
+
+RGY_ERR err_to_rgy(MPP_RET err) {
+    const RGYErrMapMPP *ERR_MAP_MPP_FIN = (const RGYErrMapMPP *)ERR_MAP_MPP + _countof(ERR_MAP_MPP);
+    auto ret = std::find_if((const RGYErrMapMPP *)ERR_MAP_MPP, ERR_MAP_MPP_FIN, [err](const RGYErrMapMPP map) {
+        return map.mpp == err;
+        });
+    return (ret == ERR_MAP_MPP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
+}
+#endif //#if ENCODER_MPP
+
 const TCHAR *get_err_mes(RGY_ERR sts) {
     switch (sts) {
     case RGY_ERR_NONE:                            return _T("no error.");
@@ -559,6 +612,31 @@ const TCHAR *get_err_mes(RGY_ERR sts) {
     case RGY_ERR_NVCV_CUDA_UNSUPPORTED:      return _T("The CUDA operation is not supported on the current system or device.");
     case RGY_ERR_NVCV_CUDA_ILLEGAL_ADDRESS:  return _T("CUDA tried to load or store on an invalid memory address.");
     case RGY_ERR_NVCV_CUDA:                  return _T("An otherwise unspecified CUDA error has been reported.");
+
+#define CASE_ERR_MPP(x) case RGY_ERR_ ## x: return _T(#x);
+    CASE_ERR_MPP(MPP_ERR_UNKNOW);
+    CASE_ERR_MPP(MPP_ERR_NULL_PTR);
+    CASE_ERR_MPP(MPP_ERR_MALLOC);
+    CASE_ERR_MPP(MPP_ERR_OPEN_FILE);
+    CASE_ERR_MPP(MPP_ERR_VALUE);
+    CASE_ERR_MPP(MPP_ERR_READ_BIT);
+    CASE_ERR_MPP(MPP_ERR_TIMEOUT);
+    CASE_ERR_MPP(MPP_ERR_PERM);
+    CASE_ERR_MPP(MPP_ERR_BASE);
+    CASE_ERR_MPP(MPP_ERR_LIST_STREAM);
+    CASE_ERR_MPP(MPP_ERR_INIT);
+    CASE_ERR_MPP(MPP_ERR_VPU_CODEC_INIT);
+    CASE_ERR_MPP(MPP_ERR_STREAM);
+    CASE_ERR_MPP(MPP_ERR_FATAL_THREAD);
+    CASE_ERR_MPP(MPP_ERR_NOMEM);
+    CASE_ERR_MPP(MPP_ERR_PROTOL);
+    CASE_ERR_MPP(MPP_FAIL_SPLIT_FRAME);
+    CASE_ERR_MPP(MPP_ERR_VPUHW);
+    CASE_ERR_MPP(MPP_EOS_STREAM_REACHED);
+    CASE_ERR_MPP(MPP_ERR_BUFFER_FULL);
+    CASE_ERR_MPP(MPP_ERR_DISPLAY_FULL);
+#undef CASE_ERR_MPP
+
     default:                                      return _T("unknown error.");
     }
 }

@@ -35,7 +35,7 @@ extern char _binary_PerfMonitor_perf_monitor_pyw_start[];
 extern char _binary_PerfMonitor_perf_monitor_pyw_end[];
 extern char _binary_resource_nnedi3_weights_bin_start[];
 extern char _binary_resource_nnedi3_weights_bin_end[];
-#if ENCODER_QSV || ENCODER_VCEENC
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
 extern char _binary_clRNG_src_include_clRNG_clRNG_clh_start[];
 extern char _binary_clRNG_src_include_clRNG_clRNG_clh_end[];
 extern char _binary_clRNG_src_include_clRNG_mrg31k3p_clh_start[];
@@ -51,6 +51,10 @@ extern char _binary_clRNG_src_include_clRNG_private_mrg31k3p_c_h_end[];
 #define _BINARY_VPP_FILTER_FILE(FILENAME) \
     extern char _binary_VCECore_##FILENAME##_start[]; \
     extern char _binary_VCECore_##FILENAME##_end[];
+#elif ENCODER_MPP
+#define _BINARY_VPP_FILTER_FILE(FILENAME) \
+    extern char _binary_mppcore_##FILENAME##_start[]; \
+    extern char _binary_mppcore_##FILENAME##_end[];
 #endif
 _BINARY_VPP_FILTER_FILE(rgy_filter_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_afs_analyze_cl);
@@ -104,7 +108,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     
     { _T("EXE_DATA"), _T("NNEDI_WEIGHTBIN"), _binary_resource_nnedi3_weights_bin_start, _binary_resource_nnedi3_weights_bin_end },
 
-#if ENCODER_QSV || ENCODER_VCEENC
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_CLH"), _binary_clRNG_src_include_clRNG_clRNG_clh_start, _binary_clRNG_src_include_clRNG_clRNG_clh_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_MRG31K3P_CLH"), _binary_clRNG_src_include_clRNG_mrg31k3p_clh_start, _binary_clRNG_src_include_clRNG_mrg31k3p_clh_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH"), _binary_clRNG_src_include_clRNG_private_mrg31k3p_c_h_start, _binary_clRNG_src_include_clRNG_private_mrg31k3p_c_h_end },
@@ -113,6 +117,8 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
 #define _BINARY_VPP_FILTER_FILE(FILENAME) _binary_QSVPipeline_##FILENAME##_start, _binary_QSVPipeline_##FILENAME##_end
 #elif ENCODER_VCEENC
 #define _BINARY_VPP_FILTER_FILE(FILENAME) _binary_VCECore_##FILENAME##_start, _binary_VCECore_##FILENAME##_end
+#elif ENCODER_MPP
+#define _BINARY_VPP_FILTER_FILE(FILENAME) _binary_mppcore_##FILENAME##_start, _binary_mppcore_##FILENAME##_end
 #endif
 
     { _T("EXE_DATA"), _T("RGY_FILTER_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_cl) },
@@ -148,7 +154,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
 
 #undef _BINARY_VPP_FILTER_FILE
 
-#endif //#if ENCODER_QSV || ENCODER_VCEENC
+#endif //#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
 #if ENCODER_NVENC
     { _T("EXE_DATA"), _T("NVENC_FILTER_COLRSPACE_FUNC_HEADER"), _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start, _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end }
 #endif //#if ENCODER_NVENC

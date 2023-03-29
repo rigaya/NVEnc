@@ -807,6 +807,13 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                         || videoOutputInfo->vui.colorprim != 2
                         || videoOutputInfo->vui.transfer != 2
                         || videoOutputInfo->vui.matrix != 2
+                        || videoOutputInfo->vui.chromaloc != 0)))
+            || (ENCODER_MPP
+                && (videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0
+                    || (videoOutputInfo->vui.format != 5
+                        || videoOutputInfo->vui.colorprim != 2
+                        || videoOutputInfo->vui.transfer != 2
+                        || videoOutputInfo->vui.matrix != 2
                         || videoOutputInfo->vui.chromaloc != 0)))) {
             const char *bsf_name = nullptr;
             switch (videoOutputInfo->codec) {
@@ -842,15 +849,15 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             }
             AVDictionary *bsfPrm = nullptr;
             std::unique_ptr<AVDictionary*, decltype(&av_dict_free)> bsfPrmDictDeleter(&bsfPrm, av_dict_free);
-            if (ENCODER_NVENC) {
+            if ((ENCODER_NVENC || ENCODER_MPP) && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0) {
                 char sar[128];
                 sprintf_s(sar, "%d/%d", videoOutputInfo->sar[0], videoOutputInfo->sar[1]);
                 av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
                 AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), videoOutputInfo->sar[0], videoOutputInfo->sar[1], bsf_tname.c_str());
             }
-            if (ENCODER_VCEENC) {
+            if (ENCODER_VCEENC || ENCODER_MPP) {
                 // HEVCの10bitの時、エンコーダがおかしなVUIを設定することがあるのでこれを常に上書き
-                const bool override_always = videoOutputInfo->codec == RGY_CODEC_HEVC;
+                const bool override_always = ENCODER_VCEENC && videoOutputInfo->codec == RGY_CODEC_HEVC;
                 if (override_always || videoOutputInfo->vui.format != 5 /*undef*/) {
                     if (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) {
                         av_dict_set_int(&bsfPrm, "video_format", videoOutputInfo->vui.format, 0);
@@ -870,7 +877,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                     AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), videoOutputInfo->vui.matrix, bsf_tname.c_str());
                 }
             }
-            if (ENCODER_QSV || ENCODER_VCEENC) {
+            if (ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP) {
                 if (videoOutputInfo->vui.chromaloc != 0) {
                     if (videoOutputInfo->codec == RGY_CODEC_AV1) {
                         if (videoOutputInfo->vui.chromaloc == RGY_CHROMALOC_TOPLEFT) {
@@ -915,7 +922,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         }
     }
 
-    if (ENCODER_VCEENC || videoOutputInfo->codec == RGY_CODEC_AV1) {
+    if (ENCODER_VCEENC || ENCODER_MPP || videoOutputInfo->codec == RGY_CODEC_AV1) {
         //parserを初期化 (frameType取得に使用、H.264/HEVCではVCEのみで必要)
         if (nullptr == (m_Mux.video.parserCtx = av_parser_init(m_Mux.format.formatCtx->video_codec_id))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
