@@ -635,10 +635,10 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
             if (retry >= retry_max) {
                 NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
                 PrintMes(RGY_LOG_ERROR,
-                    FOR_AUO ? _T("このエラーはメモリが不足しているか、同時にNVEncで3ストリーム以上エンコードしようとすると発生することがあります。\n")
-                    _T("Geforceでは、NVIDIAのドライバの制限により3ストリーム以上の同時エンコードが行えません。\n")
-                    : _T("This error might occur when shortage of memory, or when trying to encode more than 3 streams by NVEnc.\n")
-                    _T("In Geforce, simultaneous encoding is limited up to 3, due to the NVIDIA's driver limitation.\n"));
+                    FOR_AUO ? _T("このエラーはメモリが不足しているか、同時にNVEncで6ストリーム以上エンコードしようとすると発生することがあります。\n")
+                    _T("Geforceでは、NVIDIAのドライバの制限により6ストリーム以上の同時エンコードが行えません。\n")
+                    : _T("This error might occur when shortage of memory, or when trying to encode more than 6 streams by NVEnc.\n")
+                    _T("In Geforce, simultaneous encoding is limited up to 6, due to the NVIDIA's driver limitation.\n"));
                 break;
             }
             if ((retry % (10 * 1000 / retry_millisec)) == 0) {
