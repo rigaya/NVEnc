@@ -1867,6 +1867,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             }
             m_inputVideoInfo.codecExtra = m_Demux.video.extradata;
             m_inputVideoInfo.codecExtraSize = m_Demux.video.extradataSize;
+            bitstream.clear();
         }
         if (input_prm->seekSec > 0.0f) {
             auto [ret, firstpkt] = getSample();

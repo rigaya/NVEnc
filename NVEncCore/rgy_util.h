@@ -1055,6 +1055,9 @@ private:
 public:
     RGYListRef() : m_objs(), m_refCounts() {};
     ~RGYListRef() {
+        clear();
+    }
+    void clear() {
         m_refCounts.clear();
         m_objs.clear();
     }

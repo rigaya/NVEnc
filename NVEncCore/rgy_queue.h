@@ -147,7 +147,11 @@ public:
     void close() {
         if (m_heEventPoped) {
             CloseEvent(m_heEventPoped);
-            m_heEventPoped = NULL;
+            m_heEventPoped = nullptr;
+        }
+        if (m_heEventPushed) {
+            CloseEvent(m_heEventPushed);
+            m_heEventPushed = nullptr;
         }
         m_pBufStart.reset();
         m_pBufFin = nullptr;

@@ -2408,6 +2408,7 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
         AddMessage(RGY_LOG_ERROR, _T("AVParser error parsing VCE output."));
         err = RGY_ERR_UNKNOWN;
     }
+    av_packet_unref(pkt);
     return err;
 }
 
