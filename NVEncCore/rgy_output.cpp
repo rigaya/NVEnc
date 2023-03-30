@@ -235,7 +235,15 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                     || pVideoOutputInfo->vui.colorprim != 2
                     || pVideoOutputInfo->vui.transfer != 2
                     || pVideoOutputInfo->vui.matrix != 2
-                    || pVideoOutputInfo->vui.chromaloc != 0)))) {
+                    || pVideoOutputInfo->vui.chromaloc != 0)))
+            || (ENCODER_MPP
+                && ((pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
+                    || (pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0
+                    || (pVideoOutputInfo->vui.format != 5
+                        || pVideoOutputInfo->vui.colorprim != 2
+                        || pVideoOutputInfo->vui.transfer != 2
+                        || pVideoOutputInfo->vui.matrix != 2
+                        || pVideoOutputInfo->vui.chromaloc != 0))))) {
             if (!check_avcodec_dll()) {
                 AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
                 return RGY_ERR_NULL_PTR;
@@ -245,6 +253,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             switch (pVideoOutputInfo->codec) {
             case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
             case RGY_CODEC_HEVC: bsf_name = "hevc_metadata"; break;
+            case RGY_CODEC_AV1:  bsf_name = "av1_metadata"; break;
             default:
                 break;
             }
@@ -291,6 +300,11 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             }
             m_pBsfc = unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>(bsfc, RGYAVDeleter<AVBSFContext>(av_bsf_free));
             AVDictionary *bsfPrm = nullptr;
+            if (ENCODER_MPP) {
+                const auto level_str = get_cx_desc(get_level_list(pVideoOutputInfo->codec), pVideoOutputInfo->codecLevel);
+                av_dict_set(&bsfPrm, "level", tchar_to_string(level_str).c_str(), 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set level %s by %s filter\n"), level_str, bsf_tname.c_str());
+            }
             if (ENCODER_NVENC) {
                 char sar[128];
                 sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);

@@ -809,12 +809,13 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                         || videoOutputInfo->vui.matrix != 2
                         || videoOutputInfo->vui.chromaloc != 0)))
             || (ENCODER_MPP
-                && (videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0
+                && ((videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
+                    || (videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0
                     || (videoOutputInfo->vui.format != 5
                         || videoOutputInfo->vui.colorprim != 2
                         || videoOutputInfo->vui.transfer != 2
                         || videoOutputInfo->vui.matrix != 2
-                        || videoOutputInfo->vui.chromaloc != 0)))) {
+                        || videoOutputInfo->vui.chromaloc != 0))))) {
             const char *bsf_name = nullptr;
             switch (videoOutputInfo->codec) {
             case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
@@ -849,6 +850,11 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             }
             AVDictionary *bsfPrm = nullptr;
             std::unique_ptr<AVDictionary*, decltype(&av_dict_free)> bsfPrmDictDeleter(&bsfPrm, av_dict_free);
+            if (ENCODER_MPP) {
+                const auto level_str = get_cx_desc(get_level_list(videoOutputInfo->codec), videoOutputInfo->codecLevel);
+                av_dict_set(&bsfPrm, "level", tchar_to_string(level_str).c_str(), 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set level %s by %s filter\n"), level_str, bsf_tname.c_str());
+            }
             if ((ENCODER_NVENC || ENCODER_MPP) && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0) {
                 char sar[128];
                 sprintf_s(sar, "%d/%d", videoOutputInfo->sar[0], videoOutputInfo->sar[1]);
