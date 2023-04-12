@@ -81,13 +81,21 @@ void run_overlay_plane(
         overlayPosX, overlayPosY);
 }
 
+typedef void (*run_overlay_plane_t)(
+    uint8_t*, const int,
+    const uint8_t*, const int, const int, const int,
+    const uint8_t*, const int,
+    const uint8_t*, const int, const int, const int,
+    const int, const int,
+    cudaStream_t);
+
 RGY_ERR NVEncFilterOverlay::overlayFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamOverlay>(m_pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    static const std::map<RGY_CSP, decltype(run_overlay_plane<uint8_t, 8>)*> func_list = {
+    static const std::map<RGY_CSP, run_overlay_plane_t> func_list = {
         { RGY_CSP_YV12,      run_overlay_plane<uint8_t,   8> },
         { RGY_CSP_YV12_16,   run_overlay_plane<uint16_t, 16> },
         { RGY_CSP_YUV444,    run_overlay_plane<uint8_t,   8> },
