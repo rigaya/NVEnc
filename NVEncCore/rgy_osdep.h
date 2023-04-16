@@ -100,7 +100,7 @@ static int getStdInKey() {
 #include <dlfcn.h>
 
 static inline void *_aligned_malloc(size_t size, size_t alignment) {
-    void *p;
+    void *p = nullptr;
     int ret = posix_memalign(&p, alignment, size);
     return (ret == 0) ? p : 0;
 }
