@@ -2073,16 +2073,54 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYOutputAvcodec::applyBsfToHeader(std::vector<uint8_t>& result, const uint8_t *target, const size_t target_size) {
+    if (!target || target_size == 0) {
+        return RGY_ERR_NONE;
+    }
+    if (!m_Mux.video.bsfc) {
+        result.resize(target_size);
+        memcpy(result.data(), target, target_size);
+        return RGY_ERR_NONE;
+    }
+    AVPacket *pkt = m_Mux.video.pktOut;
+    av_new_packet(pkt, target_size);
+    memcpy(pkt->data, target, target_size);
+    int ret = 0;
+    if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, pkt))) {
+        av_packet_unref(pkt);
+        AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
+            char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    ret = av_bsf_receive_packet(m_Mux.video.bsfc, pkt);
+    if (ret == AVERROR(EAGAIN)) {
+        return RGY_ERR_NONE;
+    } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
+            char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    result.resize(pkt->size);
+    memcpy(result.data(), pkt->data, pkt->size);
+    av_packet_unref(pkt);
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataH264(const RGYBitstream *bitstream) {
     std::vector<nal_info> nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
     const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
     const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
     const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
     if (header_check) {
-        m_Mux.video.streamOut->codecpar->extradata_size = (int)(h264_sps_nal->size + h264_pps_nal->size);
+        std::vector<uint8_t> buf_sps;
+        auto err = applyBsfToHeader(buf_sps, h264_sps_nal->ptr, h264_sps_nal->size);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        m_Mux.video.streamOut->codecpar->extradata_size = (int)(buf_sps.size() + h264_pps_nal->size);
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        memcpy(new_ptr, h264_sps_nal->ptr, h264_sps_nal->size);
-        memcpy(new_ptr + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
+        memcpy(new_ptr, buf_sps.data(), buf_sps.size());
+        memcpy(new_ptr + buf_sps.size(), h264_pps_nal->ptr, h264_pps_nal->size);
         if (m_Mux.video.streamOut->codecpar->extradata) {
             av_free(m_Mux.video.streamOut->codecpar->extradata);
         }
@@ -2099,11 +2137,16 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream
     const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
     const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
     if (header_check) {
-        m_Mux.video.streamOut->codecpar->extradata_size = (int)(hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size);
+        std::vector<uint8_t> buf_sps;
+        auto err = applyBsfToHeader(buf_sps, hevc_sps_nal->ptr, hevc_sps_nal->size);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        m_Mux.video.streamOut->codecpar->extradata_size = (int)(hevc_vps_nal->size + buf_sps.size() + hevc_pps_nal->size);
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
-        memcpy(new_ptr + hevc_vps_nal->size, hevc_sps_nal->ptr, hevc_sps_nal->size);
-        memcpy(new_ptr + hevc_vps_nal->size + hevc_sps_nal->size, hevc_pps_nal->ptr, hevc_pps_nal->size);
+        memcpy(new_ptr + hevc_vps_nal->size, buf_sps.data(), buf_sps.size());
+        memcpy(new_ptr + hevc_vps_nal->size + buf_sps.size(), hevc_pps_nal->ptr, hevc_pps_nal->size);
         if (m_Mux.video.streamOut->codecpar->extradata) {
             av_free(m_Mux.video.streamOut->codecpar->extradata);
         }

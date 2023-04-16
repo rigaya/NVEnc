@@ -557,6 +557,9 @@ protected:
     //パケットを実際に書き出す
     void WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts);
 
+    //ヘッダにbsfを適用する
+    RGY_ERR applyBsfToHeader(std::vector<uint8_t>& result, const uint8_t *target, const size_t target_size);
+
     //extradataにH264のヘッダーを追加する
     RGY_ERR AddHeaderToExtraDataH264(const RGYBitstream *pBitstream);
 
