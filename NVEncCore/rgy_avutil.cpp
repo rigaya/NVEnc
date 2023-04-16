@@ -523,6 +523,7 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
     std::make_pair(AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2),
     std::make_pair(AV_PIX_FMT_UYVY422,     RGY_CSP_NA),
     std::make_pair(AV_PIX_FMT_NV16,        RGY_CSP_NV16),
+    std::make_pair(AV_PIX_FMT_NV24,        RGY_CSP_NV24),
     std::make_pair(AV_PIX_FMT_YUV444P,     RGY_CSP_YUV444),
     std::make_pair(AV_PIX_FMT_YUVJ444P,    RGY_CSP_YUV444),
     std::make_pair(AV_PIX_FMT_YUV420P16LE, RGY_CSP_YV12_16),
@@ -540,10 +541,10 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
     std::make_pair(AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12),
     std::make_pair(AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10),
     std::make_pair(AV_PIX_FMT_YUV444P9LE,  RGY_CSP_YUV444_09),
-    std::make_pair(AV_PIX_FMT_RGB24,       RGY_CSP_BGR24),
-    std::make_pair(AV_PIX_FMT_RGBA,        RGY_CSP_BGR32),
-    std::make_pair(AV_PIX_FMT_BGR24,       RGY_CSP_RGB24),
-    std::make_pair(AV_PIX_FMT_BGRA,        RGY_CSP_RGB32),
+    std::make_pair(AV_PIX_FMT_RGB24,       RGY_CSP_RGB24),
+    std::make_pair(AV_PIX_FMT_RGBA,        RGY_CSP_RGB32),
+    std::make_pair(AV_PIX_FMT_BGR24,       RGY_CSP_BGR24),
+    std::make_pair(AV_PIX_FMT_BGRA,        RGY_CSP_BGR32),
     std::make_pair(AV_PIX_FMT_GBRP,        RGY_CSP_GBR),
     std::make_pair(AV_PIX_FMT_GBRAP,       RGY_CSP_GBRA)
 );
