@@ -42,6 +42,7 @@
 #include "rgy_input.h"
 #if ENCODER_NVENC
 #include "NVEncUtil.h"
+#include "NVEncParam.h"
 #endif //#if ENCODER_NVENC
 #if ENCODER_QSV
 #include "qsv_util.h"
