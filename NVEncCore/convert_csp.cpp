@@ -528,6 +528,193 @@ static void convert_yuv444_16_to_y410(void **dst, const void **src, int width, i
 }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
+static void RGY_FORCEINLINE convert_nv24_to_nv12_p_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
+    static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte / sizeof(Tin);
+    const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    //Y成分のコピー
+    if (!uv_only) {
+        Tin *srcYLine = (Tin *)src[0] + src_y_pitch * y_range.start_src + crop_left;
+        Tout *dstLine = (Tout *)dst[0] + dst_y_pitch * y_range.start_dst;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+            if (in_bit_depth == out_bit_depth && sizeof(Tin) == sizeof(Tout)) {
+                memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
+            } else {
+                for (int x = 0; x < y_width; x++) {
+                    dstLine[x] = (Tout)CHANGE_BIT_DEPTH_1(srcYLine[x], 0);
+                }
+            }
+        }
+    }
+    //UV成分のコピー
+    const int src_uv_pitch = src_uv_pitch_byte / sizeof(Tin);
+    Tin *srcLine  = (Tin *)src[1] + ((src_uv_pitch * y_range.start_src) + crop_left * 2);
+    Tout *dstLine = (Tout *)dst[1] + (dst_y_pitch >> 1) * y_range.start_dst;
+    for (int y = 0; y < y_range.len; y += 2, srcLine += src_uv_pitch * 2, dstLine += dst_y_pitch) {
+        Tout *dstC = dstLine;
+        Tin *srcC = srcLine;
+        const int x_fin = width - crop_right - crop_left;
+        for (int x = 0; x < x_fin; x += 2, dstC += 2, srcC += 4) {
+            int cy0u = srcC[0*src_uv_pitch + 0];
+            int cy0v = srcC[0*src_uv_pitch + 1];
+            int cy1u = srcC[1*src_uv_pitch + 0];
+            int cy1v = srcC[1*src_uv_pitch + 1];
+
+            int cu = cy0u + cy1u;
+            int cv = cy0v + cy1v;
+            CHANGE_BIT_DEPTH_2(cu, cv, 1);
+
+            dstC[0] = (Tout)cu;
+            dstC[1] = (Tout)cv;
+        }
+    }
+}
+
+template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
+static void RGY_FORCEINLINE convert_nv24_to_nv12_i_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
+    static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte / sizeof(Tin);
+    const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    //Y成分のコピー
+    if (!uv_only) {
+        Tin *srcYLine = (Tin *)src[0] + src_y_pitch * y_range.start_src + crop_left;
+        Tout *dstLine = (Tout *)dst[0] + dst_y_pitch * y_range.start_dst;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+            if (in_bit_depth == out_bit_depth && sizeof(Tin) == sizeof(Tout)) {
+                memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
+            } else {
+                for (int x = 0; x < y_width; x++) {
+                    dstLine[x] = (Tout)CHANGE_BIT_DEPTH_1(srcYLine[x], 0);
+                }
+            }
+        }
+    }
+    //UV成分のコピー
+    const int src_uv_pitch = src_uv_pitch_byte / sizeof(Tin);
+    Tin *srcLine = (Tin *)src[1] + ((src_uv_pitch * y_range.start_src) + crop_left);
+    Tout *dstLine = (Tout *)dst[1] + (dst_y_pitch >> 1) * y_range.start_dst;
+    for (int y = 0; y < y_range.len; y += 4, srcLine += src_uv_pitch * 4, dstLine += dst_y_pitch * 2) {
+        Tout *dstC = dstLine;
+        Tin *srcC = srcLine;
+        const int x_fin = width - crop_right - crop_left;
+        for (int x = 0; x < x_fin; x += 2, dstC += 2, srcC += 4) {
+            int cy0u = srcC[0*src_uv_pitch + 0];
+            int cy0v = srcC[0*src_uv_pitch + 1];
+            int cy1u = srcC[1*src_uv_pitch + 0];
+            int cy1v = srcC[1*src_uv_pitch + 1];
+            int cy2u = srcC[2*src_uv_pitch + 0];
+            int cy2v = srcC[2*src_uv_pitch + 1];
+            int cy3u = srcC[3*src_uv_pitch + 0];
+            int cy3v = srcC[3*src_uv_pitch + 1];
+
+            int cu_y0 = cy0u * 3 + cy2u * 1;
+            int cu_y1 = cy1u * 1 + cy3u * 3;
+            int cv_y0 = cy0v * 3 + cy2v * 1;
+            int cv_y1 = cy1v * 1 + cy3v * 3;
+            CHANGE_BIT_DEPTH_4(cu_y0, cu_y1, cv_y0, cv_y1, 2);
+
+            dstC[0*dst_y_pitch + 0] = (Tout)cu_y0;
+            dstC[0*dst_y_pitch + 1] = (Tout)cv_y0;
+            dstC[1*dst_y_pitch + 0] = (Tout)cu_y1;
+            dstC[1*dst_y_pitch + 1] = (Tout)cv_y1;
+        }
+    }
+}
+
+static void convert_nv24_to_nv12_p(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_nv12_p_c<uint8_t, 8, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+static void convert_nv24_to_nv12_i(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_nv12_i_c<uint8_t, 8, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+static void convert_nv24_to_p010_p(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_nv12_p_c<uint8_t, 8, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+static void convert_nv24_to_p010_i(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_nv12_i_c<uint8_t, 8, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
+static void RGY_FORCEINLINE convert_nv24_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
+    static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte / sizeof(Tin);
+    const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    //Y成分のコピー
+    if (!uv_only) {
+        Tin *srcYLine = (Tin *)src[0] + src_y_pitch * y_range.start_src + crop_left;
+        Tout *dstLine = (Tout *)dst[0] + dst_y_pitch * y_range.start_dst;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+            if (in_bit_depth == out_bit_depth && sizeof(Tin) == sizeof(Tout)) {
+                memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
+            } else {
+                for (int x = 0; x < y_width; x++) {
+                    dstLine[x] = (Tout)CHANGE_BIT_DEPTH_1(srcYLine[x], 0);
+                }
+            }
+        }
+    }
+    //UV成分のコピー
+    const int src_uv_pitch = src_uv_pitch_byte / sizeof(Tin);
+    Tin *srcLine  = (Tin *)src[1] + ((src_uv_pitch * y_range.start_src) + crop_left * 2);
+    Tout *dstULine = (Tout *)dst[1] + (dst_y_pitch >> 1) * y_range.start_dst;
+    Tout *dstVLine = (Tout *)dst[2] + (dst_y_pitch >> 1) * y_range.start_dst;
+    for (int y = 0; y < y_range.len; y++, srcLine += src_uv_pitch * 2, dstULine += dst_y_pitch, dstVLine += dst_y_pitch) {
+        Tout *dstU = dstULine;
+        Tout *dstV = dstVLine;
+        Tin *srcC = srcLine;
+        const int x_fin = width - crop_right - crop_left;
+        for (int x = 0; x < x_fin; x++, srcC += 2, dstU++, dstV++) {
+            dstU[0] = (Tout)CHANGE_BIT_DEPTH_1(srcC[0], 0);
+            dstV[1] = (Tout)CHANGE_BIT_DEPTH_1(srcC[1], 0);
+        }
+    }
+}
+
+static void convert_nv24_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_yuv444_c<uint8_t, 8, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+static void convert_nv24_to_yuv444_10(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_yuv444_c<uint8_t, 8, uint16_t, 10, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+static void convert_nv24_to_yuv444_12(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_yuv444_c<uint8_t, 8, uint16_t, 12, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+static void convert_nv24_to_yuv444_14(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_yuv444_c<uint8_t, 8, uint16_t, 14, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+static void convert_nv24_to_yuv444_16(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_nv24_to_yuv444_c<uint8_t, 8, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
 static void RGY_FORCEINLINE convert_yuv444_to_nv12_p_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
@@ -1809,6 +1996,13 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX2( RGY_CSP_YUV444,    RGY_CSP_Y410,      false, convert_yuv444_to_y410_avx2,         convert_yuv444_to_y410_avx2,     AVX2|AVX)
     FUNC_SSE(  RGY_CSP_YUV444,    RGY_CSP_Y410,      false, convert_yuv444_to_y410_sse2,         convert_yuv444_to_y410_sse2,     SSE2)
     FUNC__C_(  RGY_CSP_YUV444,    RGY_CSP_Y410,      false, convert_yuv444_to_y410,              convert_yuv444_to_y410,          NONE)
+    FUNC__C_(  RGY_CSP_NV24,      RGY_CSP_NV12,      false, convert_nv24_to_nv12_p,              convert_nv24_to_nv12_i,      NONE )
+    FUNC__C_(  RGY_CSP_NV24,      RGY_CSP_P010,      false, convert_nv24_to_p010_p,              convert_nv24_to_p010_i,      NONE )
+    FUNC__C_(  RGY_CSP_NV24,      RGY_CSP_YUV444,    false, convert_nv24_to_yuv444,              convert_nv24_to_yuv444,      NONE )
+    FUNC__C_(  RGY_CSP_NV24,      RGY_CSP_YUV444_16, false, convert_nv24_to_yuv444_16,           convert_nv24_to_yuv444_16,   NONE )
+    FUNC__C_(  RGY_CSP_NV24,      RGY_CSP_YUV444_14, false, convert_nv24_to_yuv444_14,           convert_nv24_to_yuv444_14,   NONE )
+    FUNC__C_(  RGY_CSP_NV24,      RGY_CSP_YUV444_12, false, convert_nv24_to_yuv444_12,           convert_nv24_to_yuv444_12,   NONE )
+    FUNC__C_(  RGY_CSP_NV24,      RGY_CSP_YUV444_10, false, convert_nv24_to_yuv444_10,           convert_nv24_to_yuv444_10,   NONE )
     FUNC_AVX2( RGY_CSP_YUV444,    RGY_CSP_NV12,      false, convert_yuv444_to_nv12_p_avx2,       convert_yuv444_to_nv12_i,    AVX2|AVX )
     FUNC__C_(  RGY_CSP_YUV444,    RGY_CSP_NV12,      false, convert_yuv444_to_nv12_p,            convert_yuv444_to_nv12_i,    NONE )
     FUNC_AVX2( RGY_CSP_YUV444,    RGY_CSP_P010,      false, convert_yuv444_to_p010_p_avx2,       convert_yuv444_to_p010_i,    AVX2|AVX )

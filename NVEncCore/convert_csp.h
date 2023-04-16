@@ -71,6 +71,7 @@ enum RGY_CSP {
     RGY_CSP_YUY2,
     RGY_CSP_YUV422,
     RGY_CSP_NV16,
+    RGY_CSP_NV24,
     RGY_CSP_YUV444,
     RGY_CSP_YV12_09,
     RGY_CSP_YV12_10,
@@ -129,6 +130,7 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yuy2"),
     _T("yuv422"),
     _T("nv16"),
+    _T("nv24"),
     _T("yuv444"),
     _T("yv12(9bit)"),
     _T("yv12(10bit)"),
@@ -187,6 +189,7 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_YUY2
      8, //RGY_CSP_YUV422
      8, //RGY_CSP_NV16
+     8, //RGY_CSP_NV24
      8, //RGY_CSP_YUV444
      9, //RGY_CSP_YV12_09
     10,
@@ -245,6 +248,7 @@ static const uint8_t RGY_CSP_PLANES[] = {
      1, //RGY_CSP_YUY2
      3, //RGY_CSP_YUV422
      2, //RGY_CSP_NV16
+     2, //RGY_CSP_NV24
      3, //RGY_CSP_YUV444
      3, //RGY_CSP_YV12_09
      3,
@@ -326,6 +330,7 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV422, //RGY_CSP_YUY2
     RGY_CHROMAFMT_YUV422, //RGY_CSP_YUV422
     RGY_CHROMAFMT_YUV422, //RGY_CSP_NV16
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_NV24
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444
     RGY_CHROMAFMT_YUV420, //RGY_CSP_YV12_09
     RGY_CHROMAFMT_YUV420,
@@ -384,6 +389,7 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     16, //RGY_CSP_YUY2
     16, //RGY_CSP_YUV422
     16, //RGY_CSP_NV16
+    24, //RGY_CSP_NV24
     24, //RGY_CSP_YUV444
     24, //RGY_CSP_YV12_09
     24,
@@ -521,8 +527,9 @@ static const int RGY_MAX_PLANES = 4;
 enum RGY_MEM_TYPE {
     RGY_MEM_TYPE_CPU = 0,
     RGY_MEM_TYPE_GPU,
-    RGY_MEM_TYPE_GPU_IMAGE,           // VCEのImage
-    RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED // QSVのImage
+    RGY_MEM_TYPE_GPU_IMAGE,            // VCEのImage
+    RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED, // QSVのImage
+    RGY_MEM_TYPE_MPP,
 };
 const TCHAR *get_memtype_str(RGY_MEM_TYPE type);
 
