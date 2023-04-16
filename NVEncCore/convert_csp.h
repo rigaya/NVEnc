@@ -323,6 +323,10 @@ static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
 };
 static_assert(sizeof(RGY_CHROMAFMT_NAMES) / sizeof(RGY_CHROMAFMT_NAMES[0]) == RGY_CHROMAFMT_COUNT, "_countof(RGY_CHROMAFMT_NAMES) == RGY_CHROMAFMT_COUNT");
 
+static bool rgy_chromafmt_is_rgb(RGY_CHROMAFMT fmt) {
+    return fmt == RGY_CHROMAFMT_RGB || fmt == RGY_CHROMAFMT_RGB_PACKED;
+}
+
 static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_UNKNOWN, //RGY_CSP_NA
     RGY_CHROMAFMT_YUV420, //RGY_CSP_NV12
