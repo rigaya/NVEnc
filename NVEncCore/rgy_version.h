@@ -99,6 +99,7 @@ const char *get_encoder_version();
 #define ENABLE_VAPOURSYNTH_READER 0
 #define ENABLE_AVSW_READER        0
 #define ENABLE_SM_READER          0
+#define ENABLE_LIBAVDEVICE        0
 #define ENABLE_CAPTION2ASS        0
 #else
 #define ENCODER_NAME "NVEncC"
@@ -110,6 +111,7 @@ const char *get_encoder_version();
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVSW_READER        1
 #define ENABLE_SM_READER          1
+#define ENABLE_LIBAVDEVICE        1
 #define ENABLE_CAPTION2ASS        1
 #endif
 

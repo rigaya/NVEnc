@@ -509,8 +509,94 @@ tstring getAVVersions() {
     mes += std::string("avcodec    version: ") + ver2str(avcodec_version()) + "\n";
     mes += std::string("avformat   version: ") + ver2str(avformat_version()) + "\n";
     mes += std::string("avfilter   version: ") + ver2str(avfilter_version()) + "\n";
+#if ENABLE_LIBAVDEVICE
+    mes += std::string("avdevice   version: ") + ver2str(avdevice_version()) + "\n";
+#endif
     mes += std::string("swresample version: ") + ver2str(swresample_version()) + "\n";
     return char_to_tstring(mes);
+}
+
+bool initAVDevices() {
+    static bool avdevice_init = false;
+#if ENABLE_LIBAVDEVICE
+    if (!check_avcodec_dll()) {
+        return avdevice_init;
+    }
+    if (!avdevice_init) {
+        avdevice_register_all();
+        avdevice_init = true;
+    }
+#endif
+    return avdevice_init;
+}
+
+vector<std::string> getAVDevicesist(int bOutput) {
+    vector<std::string> devices;
+#if ENABLE_LIBAVDEVICE
+    if (bOutput) {
+        decltype(av_output_video_device_next(nullptr)) ptr = nullptr;
+        while (nullptr != (ptr = av_output_video_device_next(ptr))) {
+            devices.push_back("V " + tolowercase(ptr->name));
+        }
+        while (nullptr != (ptr = av_output_audio_device_next(ptr))) {
+            devices.push_back("A " + tolowercase(ptr->name));
+        }
+    } else {
+        decltype(av_input_video_device_next(nullptr)) ptr = nullptr;
+        while (nullptr != (ptr = av_input_video_device_next(ptr))) {
+            devices.push_back("V " + tolowercase(ptr->name));
+        }
+        while (nullptr != (ptr = av_input_audio_device_next(ptr))) {
+            devices.push_back("A " + tolowercase(ptr->name));
+        }
+    }
+#endif
+    return devices;
+}
+
+tstring getAVDevices() {
+#if ENABLE_LIBAVDEVICE
+    if (!check_avcodec_dll()) {
+        return error_mes_avcodec_dll_not_found();
+    }
+
+    const auto inputDevices  = getAVDevicesist(0);
+    const auto outputDevices = getAVDevicesist(1);
+
+    auto max_len = std::accumulate(inputDevices.begin(),  inputDevices.end(), (size_t)0, [](const size_t max_len, const std::string& str) { return (std::max)(max_len, str.length()); });
+    max_len      = std::accumulate(outputDevices.begin(), outputDevices.end(), max_len,  [](const size_t max_len, const std::string& str) { return (std::max)(max_len, str.length()); });
+    max_len += 1;
+
+    std::string mes = "input devices:\n";
+    size_t len = 0;
+    for (const auto& devices : inputDevices) {
+        mes += devices;
+        for (auto i = devices.length(); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79 - max_len) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    mes += "\n\noutput devices:\n";
+    len = 0;
+    for (const auto& devices : outputDevices) {
+        mes += devices;
+        for (auto i = devices.length(); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79 - max_len) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    return char_to_tstring(mes);
+#else
+    return _T("Not compiled with avdevice support.\n");
+#endif
 }
 
 static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>(

@@ -26,6 +26,7 @@
   - [--check-profiles \<string\>](#--check-profiles-string)
   - [--check-formats](#--check-formats)
   - [--check-protocols](#--check-protocols)
+  - [--check-avdevices](#--check-avdevices)
   - [--check-filters](#--check-filters)
   - [--check-avversion](#--check-avversion)
 - [Basic encoding options](#basic-encoding-options)
@@ -323,6 +324,9 @@ Show available output format
 
 ### --check-protocols
 Show available protocols
+
+### --check-avdevices
+Show available devices (from libavdevice)
 
 ### --check-filters
 Show available audio filters

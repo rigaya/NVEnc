@@ -210,8 +210,10 @@
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
@@ -245,8 +247,10 @@
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -281,8 +285,10 @@
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
@@ -316,8 +322,10 @@
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -363,8 +371,10 @@
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -410,8 +420,10 @@
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
@@ -455,8 +467,10 @@
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
@@ -500,8 +514,10 @@
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

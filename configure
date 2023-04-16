@@ -119,7 +119,7 @@ ENABLE_CPP_REGEX=1
 
 GPU_CODE_GEN=""
 
-CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
+CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter libavdevice"
 LIBAV_CFLAGS=""
 LIBAV_LIBS=""
 ENABLE_AVSW_READER=1

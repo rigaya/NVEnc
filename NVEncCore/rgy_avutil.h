@@ -59,12 +59,18 @@ extern "C" {
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
+#if ENABLE_LIBAVDEVICE
+#include <libavdevice/avdevice.h>
+#endif
 }
 #pragma comment (lib, "avcodec.lib")
 #pragma comment (lib, "avformat.lib")
 #pragma comment (lib, "avutil.lib")
 #pragma comment (lib, "swresample.lib")
 #pragma comment (lib, "avfilter.lib")
+#if ENABLE_LIBAVDEVICE
+#pragma comment (lib, "avdevice.lib")
+#endif
 #pragma warning (pop)
 
 #include "rgy_log.h"
@@ -235,6 +241,9 @@ static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
 static const AVRational HW_NATIVE_TIMEBASE = { 1, (int)HW_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
     _T("avcodec-59.dll"), _T("avformat-59.dll"), _T("avutil-57.dll"), _T("avfilter-8.dll"), _T("swresample-4.dll")
+#if ENABLE_LIBAVDEVICE
+    , _T("avdevice-59.dll")
+#endif
 };
 
 enum RGYAVCodecType : uint32_t {
@@ -325,6 +334,12 @@ bool usingAVProtocols(const std::string& filename, int bOutput);
 
 //バージョン情報の取得
 tstring getAVVersions();
+
+//avdeviceの初期化
+bool initAVDevices();
+
+//avdeviceのリストを取得
+tstring getAVDevices();
 
 MAP_PAIR_0_1_PROTO(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP);
 

@@ -1425,6 +1425,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         return RGY_ERR_NULL_PTR;
     }
 
+    initAVDevices();
+
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadParamCsp);
 
     for (int i = 0; i < input_prm->nAudioSelectCount; i++) {

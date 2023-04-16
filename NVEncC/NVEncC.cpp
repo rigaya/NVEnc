@@ -216,6 +216,10 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const RGYPa
         _ftprintf(stdout, _T("%s\n"), getAVFormats((RGYAVFormatType)(RGY_AVFORMAT_DEMUX | RGY_AVFORMAT_MUX)).c_str());
         return 1;
     }
+    if (0 == _tcscmp(option_name, _T("check-avdevices"))) {
+        _ftprintf(stdout, _T("%s\n"), getAVDevices().c_str());
+        return 1;
+    }
     if (0 == _tcscmp(option_name, _T("check-filters"))) {
         _ftprintf(stdout, _T("%s\n"), getAVFilters().c_str());
         return 1;

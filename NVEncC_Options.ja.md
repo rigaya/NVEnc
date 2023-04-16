@@ -24,6 +24,7 @@
   - [--check-profiles \<string\>](#--check-profiles-string)
   - [--check-formats](#--check-formats)
   - [--check-protocols](#--check-protocols)
+  - [--check-avdevices](#--check-avdevices)
   - [--check-filters](#--check-filters)
   - [--check-avversion](#--check-avversion)
 - [エンコードの基本的なオプション](#エンコードの基本的なオプション)
@@ -339,6 +340,9 @@ NVEncCの認識している環境情報を表示
 
 ### --check-protocols
 利用可能なプロトコルを表示
+
+### --check-avdevices
+利用可能なデバイス(libavdeviceのデバイス)を表示
 
 ### --check-filters
 利用可能な音声フィルタを表示

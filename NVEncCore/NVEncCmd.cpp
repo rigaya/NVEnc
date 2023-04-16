@@ -138,6 +138,7 @@ tstring encoder_help() {
         _T("   --check-profiles <string>    show profile names available for specified codec\n")
         _T("   --check-formats              show in/out formats available\n")
         _T("   --check-protocols            show in/out protocols available\n")
+        _T("   --check-avdevices            show in/out avdvices available\n")
         _T("   --check-filters              show filters available\n")
         _T("   --option-list                show option list\n")
 #endif
