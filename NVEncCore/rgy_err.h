@@ -55,6 +55,7 @@
 #endif
 #if ENCODER_MPP
 #include "mpp_err.h"
+#include "rga/im2d.hpp"
 #endif //#if ENCODER_MPP
 
 #include <algorithm>
@@ -278,6 +279,13 @@ enum RGY_ERR {
     RGY_ERR_MPP_ERR_BUFFER_FULL     = RGY_ERR_MPP_NOK - 20,
     RGY_ERR_MPP_ERR_DISPLAY_FULL    = RGY_ERR_MPP_NOK - 21,
 
+    //im2d
+    RGY_ERR_IM_STATUS_NOT_SUPPORTED = RGY_ERR_UNSUPPORTED,
+    RGY_ERR_IM_STATUS_OUT_OF_MEMORY = RGY_ERR_NULL_PTR,
+    RGY_ERR_IM_STATUS_INVALID_PARAM = RGY_ERR_INVALID_PARAM,
+    RGY_ERR_IM_STATUS_ILLEGAL_PARAM = RGY_ERR_INVALID_PARAM,
+    RGY_ERR_IM_STATUS_FAILED        = RGY_ERR_DEVICE_FAILED,
+
     RGY_WRN_IN_EXECUTION                = 1,
     RGY_WRN_DEVICE_BUSY                 = 2,
     RGY_WRN_VIDEO_PARAM_CHANGED         = 3,
@@ -326,6 +334,8 @@ RGY_ERR err_to_rgy(VkResult err);
 #if ENCODER_MPP
 MPP_RET err_to_mpp(RGY_ERR err);
 RGY_ERR err_to_rgy(MPP_RET err);
+IM_STATUS err_to_im2d(RGY_ERR err);
+RGY_ERR err_to_rgy(IM_STATUS err);
 #endif //#if ENCODER_MPP
 
 

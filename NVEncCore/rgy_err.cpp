@@ -418,6 +418,39 @@ RGY_ERR err_to_rgy(MPP_RET err) {
         });
     return (ret == ERR_MAP_MPP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
 }
+
+struct RGYErrMapIM2D {
+    RGY_ERR rgy;
+    IM_STATUS im2d;
+};
+#define MPPERR_IM2D(x) { RGY_ERR_IM_STATUS_ ##x, IM_STATUS_ ##x }
+static const RGYErrMapIM2D ERR_MAP_IM2D[] = {
+    { RGY_ERR_NONE, IM_STATUS_NOERROR },
+    { RGY_ERR_NONE, IM_STATUS_SUCCESS },
+    MPPERR_IM2D(NOT_SUPPORTED),
+    MPPERR_IM2D(OUT_OF_MEMORY),
+    MPPERR_IM2D(INVALID_PARAM),
+    MPPERR_IM2D(ILLEGAL_PARAM),
+    MPPERR_IM2D(FAILED)
+};
+#undef MPPERR_IM2D
+
+IM_STATUS err_to_im2d(RGY_ERR err) {
+    const RGYErrMapIM2D *ERR_MAP_IM2D_FIN = (const RGYErrMapIM2D *)ERR_MAP_IM2D + _countof(ERR_MAP_IM2D);
+    auto ret = std::find_if((const RGYErrMapIM2D *)ERR_MAP_IM2D, ERR_MAP_IM2D_FIN, [err](const RGYErrMapIM2D map) {
+        return map.rgy == err;
+        });
+    return (ret == ERR_MAP_IM2D_FIN) ? IM_STATUS_FAILED : ret->im2d;
+}
+
+RGY_ERR err_to_rgy(IM_STATUS err) {
+    const RGYErrMapIM2D *ERR_MAP_IM2D_FIN = (const RGYErrMapIM2D *)ERR_MAP_IM2D + _countof(ERR_MAP_IM2D);
+    auto ret = std::find_if((const RGYErrMapIM2D *)ERR_MAP_IM2D, ERR_MAP_IM2D_FIN, [err](const RGYErrMapIM2D map) {
+        return map.im2d == err;
+        });
+    return (ret == ERR_MAP_IM2D_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
+}
+
 #endif //#if ENCODER_MPP
 
 const TCHAR *get_err_mes(RGY_ERR sts) {
