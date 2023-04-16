@@ -1775,6 +1775,131 @@ static void convert_yv12_to_p010(void **dst, const void **src, int width, int sr
     convert_yv12_to_p010_c<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
+template<int byte_per_pix>
+void copy_rgb_packed_copy_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    static_assert(byte_per_pix == 3 || byte_per_pix == 4);
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    const uint8_t *srcYLine = (const uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left * byte_per_pix;
+    uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+        memcpy(dstLine, srcYLine, y_width * byte_per_pix);
+    }
+}
+
+void convert_rgb24_packed_copy_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return copy_rgb_packed_copy_c<3>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_rgb32_packed_copy_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return copy_rgb_packed_copy_c<4>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+template<int dstR, int dstG, int dstB, int src_byte_per_pix, int srcR, int srcG, int srcB>
+void convert_rgb_packed_to_rgb_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    static_assert(src_byte_per_pix == 3 || src_byte_per_pix == 4);
+    static_assert(srcR < src_byte_per_pix && srcG < src_byte_per_pix && srcB < src_byte_per_pix);
+    static_assert(dstR < src_byte_per_pix && dstG < src_byte_per_pix && dstB < src_byte_per_pix);
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    const uint8_t *srcLine = (const uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left * src_byte_per_pix;
+    uint8_t *dstRLine = (uint8_t *)dst[dstR] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *dstGLine = (uint8_t *)dst[dstG] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *dstBLine = (uint8_t *)dst[dstB] + dst_y_pitch_byte * y_range.start_dst;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_range.len; y++, srcLine += src_y_pitch_byte, dstRLine += dst_y_pitch_byte, dstGLine += dst_y_pitch_byte, dstBLine += dst_y_pitch_byte) {
+        const uint8_t *srcptr  = srcLine;
+        uint8_t *dstRptr = dstRLine;
+        uint8_t *dstGptr = dstGLine;
+        uint8_t *dstBptr = dstBLine;
+        for (int x = 0; x < y_width; x++, srcptr += src_byte_per_pix, dstRptr++, dstGptr++, dstBptr++) {
+            dstRptr[0] = srcptr[srcR];
+            dstGptr[0] = srcptr[srcG];
+            dstBptr[0] = srcptr[srcB];
+        }
+    }
+}
+
+void convert_rgb24_to_rgb_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_c<0, 1, 2, 3, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_bgr24_to_rgb_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_c<0, 1, 2, 3, 2, 1, 0>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_rgb32_to_rgb_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_c<0, 1, 2, 4, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_bgr32_to_rgb_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_c<0, 1, 2, 4, 2, 1, 0>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+template<int dst_byte_per_pix, int dstR, int dstG, int dstB, int src_byte_per_pix, int srcR, int srcG, int srcB>
+void convert_rgb_packed_to_rgb_packed_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    static_assert(src_byte_per_pix == 3 || src_byte_per_pix == 4);
+    static_assert(dst_byte_per_pix == 3 || dst_byte_per_pix == 4);
+    static_assert(srcR < src_byte_per_pix && srcG < src_byte_per_pix && srcB < src_byte_per_pix);
+    static_assert(dstR < dst_byte_per_pix && dstG < dst_byte_per_pix && dstB < dst_byte_per_pix);
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    const uint8_t *srcLine = (const uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left * src_byte_per_pix;
+    uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_range.len; y++, srcLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+        const uint8_t *srcptr  = srcLine;
+        uint8_t *dstptr = dstLine;
+        for (int x = 0; x < y_width; x++, srcptr += src_byte_per_pix, dstptr += dst_byte_per_pix) {
+            dstptr[dstR] = srcptr[srcR];
+            dstptr[dstG] = srcptr[srcG];
+            dstptr[dstB] = srcptr[srcB];
+        }
+    }
+}
+
+void convert_rgb24_to_rgb32_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_packed_c<4, 0, 1, 2, 3, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_bgr24_to_rgb32_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_packed_c<4, 0, 1, 2, 3, 2, 1, 0>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_rgb24_to_bgr32_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_packed_c<4, 2, 1, 0, 3, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_bgr24_to_bgr32_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_packed_c<4, 2, 1, 0, 3, 2, 1, 0>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_rgb32_to_rgb24_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_packed_c<3, 0, 1, 2, 4, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_bgr32_to_rgb24_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_packed_c<3, 0, 1, 2, 4, 2, 1, 0>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_rgb32_to_bgr24_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_packed_c<3, 2, 1, 0, 4, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_bgr32_to_bgr24_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_packed_to_rgb_packed_c<3, 2, 1, 0, 4, 2, 1, 0>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
 #pragma warning (pop)
 
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
@@ -1847,8 +1972,28 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX(  RGY_CSP_YV12, RGY_CSP_NV12, true,  convert_uv_yv12_to_nv12_avx,   convert_uv_yv12_to_nv12_avx,   AVX )
     FUNC_SSE(  RGY_CSP_YV12, RGY_CSP_NV12, true,  convert_uv_yv12_to_nv12_sse2,  convert_uv_yv12_to_nv12_sse2,  SSE2 )
 
+    FUNC__C_(  RGY_CSP_BGR24,  RGY_CSP_BGR24, false, convert_rgb24_packed_copy_c,      convert_rgb24_packed_copy_c,    NONE )
+    FUNC__C_(  RGY_CSP_BGR32,  RGY_CSP_BGR32, false, convert_rgb32_packed_copy_c,      convert_rgb32_packed_copy_c,    NONE )
+    FUNC__C_(  RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_packed_copy_c,      convert_rgb24_packed_copy_c,    NONE )
+    FUNC__C_(  RGY_CSP_RGB32,  RGY_CSP_RGB32, false, convert_rgb32_packed_copy_c,      convert_rgb32_packed_copy_c,    NONE )
+
     FUNC_SSE(  RGY_CSP_BGR24,  RGY_CSP_RGB24, false, convert_bgr24_to_rgb24_ssse3,     convert_bgr24_to_rgb24_ssse3,   SSSE3|SSE2)
     FUNC_SSE(  RGY_CSP_BGR32,  RGY_CSP_RGB32, false, convert_bgr32_to_rgb32_ssse3,     convert_bgr32_to_rgb32_ssse3,   SSSE3|SSE2)
+
+    FUNC__C_(  RGY_CSP_RGB24,  RGY_CSP_RGB32, false, convert_rgb24_to_rgb32_c,         convert_rgb24_to_rgb32_c,       NONE )
+    FUNC__C_(  RGY_CSP_BGR24,  RGY_CSP_RGB32, false, convert_bgr24_to_rgb32_c,         convert_bgr24_to_rgb32_c,       NONE )
+    FUNC__C_(  RGY_CSP_RGB24,  RGY_CSP_BGR32, false, convert_rgb24_to_bgr32_c,         convert_rgb24_to_bgr32_c,       NONE )
+    FUNC__C_(  RGY_CSP_BGR24,  RGY_CSP_BGR32, false, convert_bgr24_to_bgr32_c,         convert_bgr24_to_bgr32_c,       NONE )
+
+    FUNC__C_(  RGY_CSP_RGB32,  RGY_CSP_RGB24, false, convert_rgb32_to_rgb24_c,         convert_rgb32_to_rgb24_c,       NONE )
+    FUNC__C_(  RGY_CSP_BGR32,  RGY_CSP_RGB24, false, convert_bgr32_to_rgb24_c,         convert_bgr32_to_rgb24_c,       NONE )
+    FUNC__C_(  RGY_CSP_RGB32,  RGY_CSP_BGR24, false, convert_rgb32_to_bgr24_c,         convert_rgb32_to_bgr24_c,       NONE )
+    FUNC__C_(  RGY_CSP_BGR32,  RGY_CSP_BGR24, false, convert_bgr32_to_bgr24_c,         convert_bgr32_to_bgr24_c,       NONE )
+
+    FUNC__C_(  RGY_CSP_RGB24,  RGY_CSP_RGB,   false, convert_rgb24_to_rgb_c,           convert_rgb24_to_rgb_c,         NONE )
+    FUNC__C_(  RGY_CSP_BGR24,  RGY_CSP_RGB,   false, convert_bgr24_to_rgb_c,           convert_bgr24_to_rgb_c,         NONE )
+    FUNC__C_(  RGY_CSP_RGB32,  RGY_CSP_RGB,   false, convert_rgb32_to_rgb_c,           convert_rgb32_to_rgb_c,         NONE )
+    FUNC__C_(  RGY_CSP_BGR32,  RGY_CSP_RGB,   false, convert_bgr32_to_rgb_c,           convert_bgr32_to_rgb_c,         NONE )
 
     FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB,   false, convert_rgb24_to_rgb_ssse3,       convert_rgb24_to_rgb_ssse3,     SSSE3|SSE2)
     FUNC_SSE(  RGY_CSP_BGR24,  RGY_CSP_RGB,   false, convert_bgr24_to_rgb_ssse3,       convert_bgr24_to_rgb_ssse3,     SSSE3|SSE2)
