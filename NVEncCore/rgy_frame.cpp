@@ -175,6 +175,7 @@ std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_obu() const {
 }
 #endif
 
+#if 0
 RGYSysFrame::RGYSysFrame() : frame() {}
 RGYSysFrame::RGYSysFrame(const RGYFrameInfo& frame_) : frame(frame_) {}
 RGYSysFrame::~RGYSysFrame() { deallocate(); }
@@ -251,3 +252,4 @@ void RGYSysFrame::deallocate() {
         }
     }
 }
+#endif

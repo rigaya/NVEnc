@@ -855,8 +855,8 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     add_cap_info(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS,      false, false, _T("Max Temporal Layers"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES, false, true,  _T("Hierarchial P Frames"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES, false, true,  _T("Hierarchial B Frames"));
-    add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    false, false, _T("Max Level"), get_codec_level_list(codec));
-    add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    false, false, _T("Min Level"), get_codec_level_list(codec));
+    add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    false, false, _T("Max Level"), get_level_list(codec));
+    add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    false, false, _T("Min Level"), get_level_list(codec));
     add_cap_info(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE,        false, true,  _T("4:4:4"));
     add_cap_info(NV_ENC_CAPS_WIDTH_MIN,                    false, false, _T("Min Width"));
     add_cap_info(NV_ENC_CAPS_WIDTH_MAX,                    false, false, _T("Max Width"));
