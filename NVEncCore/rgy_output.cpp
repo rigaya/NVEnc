@@ -415,7 +415,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 nal_type = NALU_H264_SPS;
                 nal_list = parse_nal_h264(pBitstream->data(), pBitstream->size());
             }
-            auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+            auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [nal_type](nal_info info) { return info.type == nal_type; });
             if (sps_nal != nal_list.end()) {
                 AVPacket *pkt = m_pkt.get();
                 av_new_packet(pkt, (int)sps_nal->size);
