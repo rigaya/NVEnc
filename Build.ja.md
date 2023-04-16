@@ -69,7 +69,7 @@ NVEnc.slnを開き、ビルドします。
 - CUDA 10/11
 - git
 - ライブラリ群
-  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [オプション] AvisynthPlus
   - [オプション] VapourSynth
@@ -150,7 +150,7 @@ export CUDA_PATH=/usr/local/cuda
 ffmpegと関連ライブラリを導入します。
 ```Shell
 sudo apt install \
-  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
   libass9 libass-dev
 ```
 
@@ -301,7 +301,7 @@ H.265/HEVC
 - CUDA 10
 - git
 - ライブラリ群
-  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [オプション] VapourSynth
 
@@ -371,7 +371,7 @@ sudo apt install nvidia-cuda-toolkit
 ffmpegと関連ライブラリを導入します。
 ```Shell
 sudo apt install \
-  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
   libass9 libass-dev
 ```
 ### 5. [オプション] VapourSynthのビルド
@@ -472,7 +472,7 @@ H.265/HEVC
 - CUDA 10
 - git
 - ライブラリ群
-  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [オプション] VapourSynth
 
@@ -524,7 +524,7 @@ Ubuntu 18.04の標準ではffmpeg 3.x系が導入されてしまうため、下�
 sudo add-apt-repository ppa:jonathonf/ffmpeg-4
 sudo apt update
 sudo apt install ffmpeg \
-  libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev \
+  libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev libavdevice58 libavdevice-dev \
   libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
 ```
 ### 4. [オプション] VapourSynthのビルド
@@ -623,7 +623,7 @@ H.265/HEVC
 - CUDA 11
 - git
 - ライブラリ群
-  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [オプション] AvisynthPlus
   - [オプション] VapourSynth

@@ -67,7 +67,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 - CUDA 10/11
 - git
 - libraries
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [Optional] AvisynthPlus
   - [Optional] VapourSynth
@@ -148,7 +148,7 @@ export CUDA_PATH=/usr/local/cuda
 Install ffmpeg and other required libraries.
 ```Shell
 sudo apt install ffmpeg \
-  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
   libass9 libass-dev
 ```
 
@@ -296,7 +296,7 @@ H.265/HEVC
 - CUDA 10
 - git
 - libraries
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [Optional] VapourSynth
 
@@ -366,7 +366,7 @@ sudo apt install nvidia-cuda-toolkit
 Install ffmpeg and other required libraries.
 ```Shell
 sudo apt install ffmpeg \
-  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
   libass9 libass-dev
 ```
 
@@ -468,7 +468,7 @@ H.265/HEVC
 - CUDA 10
 - git
 - libraries
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [Optional] VapourSynth
 
@@ -519,7 +519,7 @@ Install ffmpeg 4.x libraries.
 sudo add-apt-repository ppa:jonathonf/ffmpeg-4
 sudo apt update
 sudo apt install ffmpeg \
-  libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev \
+  libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev libavdevice58 libavdevice-dev \
   libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
 ```
 
@@ -618,7 +618,7 @@ H.265/HEVC
 - CUDA 11
 - git
 - libraries
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [Option] AvisynthPlus
   - [Option] VapourSynth
