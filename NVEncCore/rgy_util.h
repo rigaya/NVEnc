@@ -263,13 +263,17 @@ using unique_ptr_custom = std::unique_ptr<T, std::function<void(T*)>>;
 
 struct aligned_malloc_deleter {
     void operator()(void* ptr) const {
-        _aligned_free(ptr);
+        if (ptr) {
+            _aligned_free(ptr);
+        }
     }
 };
 
 struct malloc_deleter {
     void operator()(void* ptr) const {
-        free(ptr);
+        if (ptr) {
+            free(ptr);
+        }
     }
 };
 
