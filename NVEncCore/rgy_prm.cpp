@@ -1254,6 +1254,8 @@ AudioSelect::AudioSelect() :
 
 AudioSource::AudioSource() :
     filename(),
+    format(),
+    inputOpt(),
     select() {
 
 }
@@ -1274,6 +1276,8 @@ SubtitleSelect::SubtitleSelect() :
 
 SubSource::SubSource() :
     filename(),
+    format(),
+    inputOpt(),
     select() {
 
 }

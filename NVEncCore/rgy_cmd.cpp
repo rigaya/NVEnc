@@ -3646,8 +3646,20 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        auto channel_select_list = split(qtr+1, _T(":"));
-        for (auto channel : channel_select_list) {
+        auto channel_select_list = split(qtr+1, _T(","));
+        for (size_t ichannel = 0; ichannel < channel_select_list.size(); ichannel++) {
+            auto& channel = channel_select_list[ichannel];
+            auto option_split = channel.find(_T('='));
+            if (option_split != std::string::npos) {
+                if (channel.substr(0, option_split) == _T("format")) {
+                    src.format = channel.substr(option_split+1);
+                    continue;
+                } else if (channel.substr(0, option_split) == _T("input_opt")) {
+                    src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split+1)), tstring(channel_select_list[ichannel+1])));
+                    ichannel++;
+                    continue;
+                }
+            }
             int trackId = 0;
             auto channel_id_split = channel.find(_T('?'));
             if (channel_id_split != std::string::npos) {
@@ -4380,7 +4392,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
         const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition", "select-codec", "bsf" };
         auto channel_select_list = split(qtr+1, _T(":"));
-        for (auto channel : channel_select_list) {
+
+        for (size_t ichannel = 0; ichannel < channel_select_list.size(); ichannel++) {
+            auto& channel = channel_select_list[ichannel];
+            auto option_split = channel.find(_T('='));
+            if (option_split != std::string::npos) {
+                if (channel.substr(0, option_split) == _T("format")) {
+                    src.format = channel.substr(option_split+1);
+                } else if (channel.substr(0, option_split) == _T("input_opt")) {
+                    src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split+1)), tstring(channel_select_list[ichannel+1])));
+                    ichannel++;
+                }
+                continue;
+            }
             int trackId = 0;
             auto channel_id_split = channel.find(_T('?'));
             if (channel_id_split != std::string::npos) {
@@ -5497,7 +5521,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-#if ENCODER_QSV || ENCODER_VCEENC
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     if (IS_OPTION("disable-opencl")) {
         ctrl->enableOpenCL = false;
         return 0;
@@ -6538,7 +6562,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
             cmd << _T(" --gpu-select ") << tmp.str().substr(1);
         }
     }
-#if ENCODER_QSV || ENCODER_VCEENC
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     OPT_BOOL(_T("--enable-opencl"), _T("--disable-opencl"), enableOpenCL);
 #endif
     return cmd.str();
@@ -7401,6 +7425,10 @@ tstring gen_cmd_help_ctrl() {
         _T("   --process-codepage <string>  utf8 ... use UTF-8 (default)\n")
         _T("                                os   ... use the codepage set in Operating System.\n"));
 #endif //#if defined(_WIN32) || defined(_WIN64)
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
+    str += strsprintf(_T("\n")
+        _T("   --disable-opencl             disable opencl features.\n"));
+#endif
     str += strsprintf(_T("\n")
         _T("   --perf-monitor [<string>][,<string>]...\n")
         _T("       check performance info of encoder and output to log file\n")

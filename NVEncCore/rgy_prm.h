@@ -1328,6 +1328,8 @@ struct AudioSelect {
 
 struct AudioSource {
     tstring filename;
+    tstring format;
+    RGYOptList inputOpt; //入力オプション
     std::map<int, AudioSelect> select;
 
     AudioSource();
@@ -1355,6 +1357,8 @@ struct SubtitleSelect {
 
 struct SubSource {
     tstring filename;
+    tstring format;
+    RGYOptList inputOpt; //入力オプション
     std::map<int, SubtitleSelect> select;
 
     SubSource();
