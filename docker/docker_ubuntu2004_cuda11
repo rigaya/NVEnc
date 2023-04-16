@@ -23,6 +23,8 @@ RUN apt update \
       libswresample-dev \
       libavfilter7 \
       libavfilter-dev \
+      libavdevice58 \
+      libavdevice-dev \
       libass9 \
       libass-dev \
     && wget -q https://developer.download.nvidia.com/compute/cuda/repos/${OSVER}/x86_64/cuda-${OSVER}.pin \
