@@ -25,8 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#if !(defined(_WIN32) || defined(_WIN64))
 #include "rgy_event.h"
+#if !(defined(_WIN32) || defined(_WIN64))
 
 #include <thread>
 #include <mutex>
@@ -122,4 +122,16 @@ uint32_t WaitForMultipleObjects(uint32_t count, HANDLE *pev, int dummy, uint32_t
     }
     return (bTimeout) ? WAIT_TIMEOUT : (WAIT_OBJECT_0 + success);
 }
+
+unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, void *pDummy2) {
+    return unique_event(CreateEvent(pDummy, bManualReset, bInitialState, pDummy2), CloseEvent);
+}
+
+#else
+
+unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, void *pDummy2) {
+    return unique_event(CreateEvent((LPSECURITY_ATTRIBUTES)pDummy, bManualReset, bInitialState, (LPCWSTR)pDummy2), CloseEvent);
+}
+
 #endif //#if !(defined(_WIN32) || defined(_WIN64))
+

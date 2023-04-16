@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <climits>
+#include <memory>
 #include "rgy_osdep.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -58,5 +59,9 @@ uint32_t WaitForSingleObject(HANDLE ev, uint32_t millisec);
 uint32_t WaitForMultipleObjects(uint32_t count, HANDLE *pev, int dummy, uint32_t millisec);
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+using unique_event = std::unique_ptr<std::remove_pointer<HANDLE>::type, decltype(&CloseEvent)>;
+
+unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, void *pDummy2);
 
 #endif //__RGY_EVENT_H__
