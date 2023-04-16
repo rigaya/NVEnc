@@ -293,6 +293,12 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_AMF_POINT,
     RGY_VPP_RESIZE_AMF_MAX,
 #endif
+#if ENCODER_MPP
+    RGY_VPP_RESIZE_RGA_NEAREST,
+    RGY_VPP_RESIZE_RGA_BILINEAR,
+    RGY_VPP_RESIZE_RGA_BICUBIC,
+    RGY_VPP_RESIZE_RGA_MAX,
+#endif
     RGY_VPP_RESIZE_UNKNOWN,
 };
 
@@ -324,6 +330,9 @@ enum RGY_VPP_RESIZE_TYPE {
 #endif
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_TYPE_AMF,
+#endif
+#if ENCODER_MPP
+    RGY_VPP_RESIZE_TYPE_RGA,
 #endif
     RGY_VPP_RESIZE_TYPE_UNKNOWN,
 };
@@ -382,6 +391,11 @@ const CX_DESC list_vpp_resize[] = {
     { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR },
     { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
 #endif
+#if ENCODER_MPP
+    { _T("rga_nearest"),  RGY_VPP_RESIZE_RGA_NEAREST },
+    { _T("rga_bilinear"), RGY_VPP_RESIZE_RGA_BILINEAR },
+    { _T("rga_bicubic"),  RGY_VPP_RESIZE_RGA_BICUBIC },
+#endif
     { NULL, 0 }
 };
 
@@ -421,6 +435,11 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
     { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR },
     { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
+#endif
+#if ENCODER_MPP
+    { _T("rga_nearest"),  RGY_VPP_RESIZE_RGA_NEAREST },
+    { _T("rga_bilinear"), RGY_VPP_RESIZE_RGA_BILINEAR },
+    { _T("rga_bicubic"),  RGY_VPP_RESIZE_RGA_BICUBIC },
 #endif
     { NULL, 0 }
 };
