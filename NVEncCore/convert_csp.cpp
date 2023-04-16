@@ -2069,6 +2069,8 @@ const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct) {
     case RGY_PICSTRUCT_FIELD_TOP:    return _T("tff_field");
     case RGY_PICSTRUCT_FIELD_BOTTOM: return _T("bff_field");
     case RGY_PICSTRUCT_FIELD:        return _T("field");
+    case RGY_PICSTRUCT_TFF:          return _T("tff");
+    case RGY_PICSTRUCT_BFF:          return _T("bff");
     case RGY_PICSTRUCT_FRAME_TFF:    return _T("tff_frame");
     case RGY_PICSTRUCT_FRAME_BFF:    return _T("bff_frame");
     case RGY_PICSTRUCT_AUTO:         return _T("auto");
