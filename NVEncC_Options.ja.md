@@ -2254,6 +2254,7 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
     |:---|:---|:---:|
     | auto          | 自動的に適切なものを選択                     | |
     | bilinear      | 線形補間                                    | |
+    | bicubic       | 双3次補間                                   | |
     | spline16      | 4x4 Spline補間                             | |
     | spline36      | 6x6 Spline補間                             | |
     | spline64      | 8x8 Spline補間                             | |

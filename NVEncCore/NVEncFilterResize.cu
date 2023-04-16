@@ -135,6 +135,8 @@ enum RESIZE_WEIGHT_TYPE {
     WEIGHT_UNKNOWN,
     WEIGHT_LANCZOS,
     WEIGHT_SPLINE,
+    WEIGHT_BICUBIC,
+    WEIGHT_BILINEAR
 };
 
 template<typename TypePixel>
@@ -240,6 +242,32 @@ static RGY_ERR resize_texture_frame(RGYFrameInfo* pOutputFrame, const RGYFrameIn
 }
 
 
+template<int radius>
+__inline__ __device__
+float factor_bilinear(const float x) {
+    if (fabs(x) >= (float)radius) return 0.0f;
+    return 1.0f - x * (1.0f / radius);
+}
+
+template<int radius>
+__inline__ __device__
+float factor_bicubic(float x, float B, float C) {
+    x = fabs(x);
+    if (x >= (float)radius) return 0.0f;
+    const float x2 = x * x;
+    const float x3 = x2 * x;
+    if (x <= 1.0f) {
+        return (2.0f - 1.5f * B - 1.0f * C) * x3 +
+            (-3.0f + 2.0f * B + 1.0f * C) * x2 +
+            (1.0f - (2.0f / 6.0f) * B);
+    } else {
+        return (-(1.0f / 6.0f) * B - 1.0f * C) * x3 +
+            (1.0f * B + 5.0f * C) * x2 +
+            (-2.0f * B - 8.0f * C) * x +
+            ((8.0f / 6.0f) * B + 4.0f * C);
+    }
+}
+
 __inline__ __device__
 float sinc(float x) {
     const float pi = (float)M_PI;
@@ -260,13 +288,13 @@ __inline__ __device__
 float factor_spline(const float x_raw, const float *psCopyFactor) {
     const float x = fabs(x_raw);
     if (x >= (float)radius) return 0.0f;
-    const float *psWeight = psCopyFactor + min((int)x, radius - 1) * 4;
+    const float weight = ((const float4 *)psCopyFactor)[min((int)x, radius - 1)];
     //重みを計算
-    float w = psWeight[3];
-    w += x * psWeight[2];
+    float w = weight.w;
+    w += x * weight.z;
     const float x2 = x * x;
-    w += x2 * psWeight[1];
-    w += x2 * x * psWeight[0];
+    w += x2 * weight.y;
+    w += x2 * x * weight.x;
     return w;
 }
 
@@ -278,8 +306,10 @@ void __inline__ __device__ calc_weight(
         const float delta = ((i + 0.5f) - srcPos) * ratioClamped;
         float weight = 0.0f;
         switch (algo) {
-        case WEIGHT_LANCZOS: weight = factor_lanczos<radius>(delta); break;
-        case WEIGHT_SPLINE:  weight = factor_spline<radius>(delta, psCopyFactor);
+        case WEIGHT_LANCZOS:  weight = factor_lanczos<radius>(delta); break;
+        case WEIGHT_SPLINE:   weight = factor_spline<radius>(delta, psCopyFactor); break;
+        case WEIGHT_BICUBIC:  weight = factor_bicubic<radius>(delta, 0.0f, 0.6f); break;
+        case WEIGHT_BILINEAR: weight = factor_bilinear<radius>(delta); break;
         default:
             break;
         }
@@ -447,17 +477,27 @@ static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
     return sts;
 }
 
+static bool useTextureBilinear(const RGY_VPP_RESIZE_ALGO interp, const RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
+    return interp == RGY_VPP_RESIZE_NEAREST
+       || (interp == RGY_VPP_RESIZE_BILINEAR
+            && pOutputFrame->width > pInputFrame->width
+            && pOutputFrame->height > pInputFrame->height);
+}
+
 template<typename Type, int bit_depth>
 static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, const float *pgFactor, cudaStream_t stream) {
+    if (useTextureBilinear(interp, pOutputFrame, pInputFrame)) {
+        return resize_texture_frame<Type, bit_depth>(pOutputFrame, pInputFrame, interp, stream);
+    }
     switch (interp) {
-    case RGY_VPP_RESIZE_BILINEAR:
-    case RGY_VPP_RESIZE_NEAREST: return resize_texture_frame<Type, bit_depth>(pOutputFrame, pInputFrame, interp, stream);
-    case RGY_VPP_RESIZE_SPLINE16: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,  2>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RGY_VPP_RESIZE_SPLINE36: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,  3>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RGY_VPP_RESIZE_SPLINE64: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,  4>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RGY_VPP_RESIZE_LANCZOS2: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS, 2>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RGY_VPP_RESIZE_LANCZOS3: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS, 3>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RGY_VPP_RESIZE_LANCZOS4: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS, 4>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_BILINEAR: return resize_frame<Type, bit_depth, WEIGHT_BILINEAR, 1>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_BICUBIC:  return resize_frame<Type, bit_depth, WEIGHT_BICUBIC,  2>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_SPLINE16: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,   2>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_SPLINE36: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,   3>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_SPLINE64: return resize_frame<Type, bit_depth, WEIGHT_SPLINE,   4>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS2: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  2>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS3: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  3>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS4: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  4>(pOutputFrame, pInputFrame, pgFactor, stream);
     default:  return RGY_ERR_NONE;
     }
 }
