@@ -1250,7 +1250,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
          //デフォルトの補間方法
         inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO
         //deinterlace bobとリサイズを有効にすると色成分が正常に出力されない場合がある
-        && inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Bob
+        //deinterlace normalとリサイズを有効にすると輝度成分も含めて正常に出力されない場合がある
+        && inputParam->vppnv.deinterlace == cudaVideoDeinterlaceMode_Weave
 #if CUVID_DISABLE_CROP
         //cropが行われていない (cuvidのcropはよくわからん)
         && !cropEnabled(inputParam->input.crop)
@@ -2701,7 +2702,9 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterResize());
             shared_ptr<NVEncFilterParamResize> param(new NVEncFilterParamResize());
             if (inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO) {
-                param->interp = RGY_VPP_RESIZE_SPLINE36;
+                param->interp = (resizeWidth < inputFrame.width && resizeHeight < inputFrame.height)
+                    ? RGY_VPP_RESIZE_BICUBIC   // 縮小時
+                    : RGY_VPP_RESIZE_SPLINE36; // 拡大時
             } else if (inputParam->vpp.resize_algo <= RGY_VPP_RESIZE_OPENCL_CUDA_MAX) {
                 param->interp = inputParam->vpp.resize_algo;
             } else {
