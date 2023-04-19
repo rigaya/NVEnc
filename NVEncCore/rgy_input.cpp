@@ -326,7 +326,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.readData = false;
         inputInfoAVAudioReader.fileIndex = ifile;
         inputInfoAVAudioReader.videoAvgFramerate = rgy_rational<int>(inputInfo.fpsN, inputInfo.fpsD);
-        inputInfoAVAudioReader.pInputFormat = src.format.c_str();
+        inputInfoAVAudioReader.pInputFormat = (src.format.length() > 0) ? src.format.c_str() : nullptr;
         inputInfoAVAudioReader.inputOpt = src.inputOpt;
         inputInfoAVAudioReader.inputRetry = common->inputRetry;
         inputInfoAVAudioReader.analyzeSec = common->demuxAnalyzeSec;
