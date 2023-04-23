@@ -3649,15 +3649,17 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         auto channel_select_list = split(qtr+1, _T(","));
         for (size_t ichannel = 0; ichannel < channel_select_list.size(); ichannel++) {
             auto& channel = channel_select_list[ichannel];
-            auto option_split = channel.find(_T('='));
-            if (option_split != std::string::npos) {
-                if (channel.substr(0, option_split) == _T("format")) {
-                    src.format = channel.substr(option_split+1);
-                    continue;
-                } else if (channel.substr(0, option_split) == _T("input_opt")) {
-                    src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split+1)), tstring(channel_select_list[ichannel+1])));
-                    ichannel++;
-                    continue;
+            {
+                auto option_split = channel.find(_T('='));
+                if (option_split != std::string::npos) {
+                    if (channel.substr(0, option_split) == _T("format")) {
+                        src.format = channel.substr(option_split + 1);
+                        continue;
+                    } else if (channel.substr(0, option_split) == _T("input_opt")) {
+                        src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split + 1)), tstring(channel_select_list[ichannel + 1])));
+                        ichannel++;
+                        continue;
+                    }
                 }
             }
             int trackId = 0;
@@ -4391,19 +4393,22 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
         const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition", "select-codec", "bsf" };
-        auto channel_select_list = split(qtr+1, _T(":"));
+        auto channel_select_list = split(qtr+1, _T(","));
 
         for (size_t ichannel = 0; ichannel < channel_select_list.size(); ichannel++) {
             auto& channel = channel_select_list[ichannel];
-            auto option_split = channel.find(_T('='));
-            if (option_split != std::string::npos) {
-                if (channel.substr(0, option_split) == _T("format")) {
-                    src.format = channel.substr(option_split+1);
-                } else if (channel.substr(0, option_split) == _T("input_opt")) {
-                    src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split+1)), tstring(channel_select_list[ichannel+1])));
-                    ichannel++;
+            {
+                auto option_split = channel.find(_T('='));
+                if (option_split != std::string::npos) {
+                    if (channel.substr(0, option_split) == _T("format")) {
+                        src.format = channel.substr(option_split + 1);
+                        continue;
+                    } else if (channel.substr(0, option_split) == _T("input_opt")) {
+                        src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split + 1)), tstring(channel_select_list[ichannel + 1])));
+                        ichannel++;
+                        continue;
+                    }
                 }
-                continue;
             }
             int trackId = 0;
             auto channel_id_split = channel.find(_T('?'));
