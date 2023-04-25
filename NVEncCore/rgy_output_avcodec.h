@@ -278,6 +278,7 @@ typedef struct AVMuxThread {
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
     std::unordered_map<const AVMuxAudio *, std::unique_ptr<AVMuxThreadAudio>> thAud; //音声スレッド
+    std::unordered_map<AVMuxAudio *, bool> thAudEOSCheck;
     std::atomic<int64_t>           streamOutMaxDts;           //音声・字幕キューの最後のdts (timebase = QUEUE_DTS_TIMEBASE) (キューの同期に使用)
     PerfQueueInfo                 *queueInfo;                 //キューの情報を格納する構造体
 
