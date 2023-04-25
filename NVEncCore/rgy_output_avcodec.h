@@ -269,7 +269,7 @@ struct AVMuxThreadAudio {
 };
 
 #if ENABLE_AVCODEC_OUT_THREAD
-typedef struct AVMuxThread {
+struct AVMuxThread {
     bool                           enableOutputThread;        //出力スレッドを使用する
     bool                           enableAudProcessThread;    //音声処理スレッドを使用する
     bool                           enableAudEncodeThread;     //音声エンコードスレッドを使用する
@@ -278,14 +278,13 @@ typedef struct AVMuxThread {
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
     std::unordered_map<const AVMuxAudio *, std::unique_ptr<AVMuxThreadAudio>> thAud; //音声スレッド
-    std::unordered_map<AVMuxAudio *, bool> thAudEOSCheck;
     std::atomic<int64_t>           streamOutMaxDts;           //音声・字幕キューの最後のdts (timebase = QUEUE_DTS_TIMEBASE) (キューの同期に使用)
     PerfQueueInfo                 *queueInfo;                 //キューの情報を格納する構造体
 
-    bool threadActiveAudio() { return thAud.count(nullptr) > 0; };
-    bool threadActiveAudioEncode() { return thAud.count(nullptr) > 0 && thAud[nullptr]->threadActiveEncode(); };
-    bool threadActiveAudioProcess() { return thAud.count(nullptr) > 0 && thAud[nullptr]->threadActiveProcess(); };
-} AVMuxThread;
+    bool threadActiveAudio() const { return enableAudProcessThread; };
+    bool threadActiveAudioEncode() const { return enableAudEncodeThread; };
+    bool threadActiveAudioProcess() const { return enableAudProcessThread; };
+};
 #endif
 
 typedef struct AVMux {

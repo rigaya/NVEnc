@@ -262,13 +262,19 @@ void RGYOutputAvcodec::CloseQueues() {
 
 void RGYOutputAvcodec::CloseThread() {
 #if ENABLE_AVCODEC_OUT_THREAD
+    // process -> encode -> output の順に終了させる
     for (auto& [mux, thread] : m_Mux.thread.thAud) {
-        const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
-        thread->closeEncode();
-        AddMessage(RGY_LOG_DEBUG, _T("closed audio encode thread %s.\n"), target.c_str());
         if (thread->process.thread.joinable()) {
             thread->closeProcess();
+            const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
             AddMessage(RGY_LOG_DEBUG, _T("closed audio process thread %s.\n"), target.c_str());
+        }
+    }
+    for (auto& [mux, thread] : m_Mux.thread.thAud) {
+        if (thread->encode.thread.joinable()) {
+            thread->closeEncode();
+            const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
+            AddMessage(RGY_LOG_DEBUG, _T("closed audio encode thread %s.\n"), target.c_str());
         }
     }
     if (m_Mux.thread.thOutput) {
@@ -3032,26 +3038,20 @@ RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *m
 void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts) {
     if (pkt == nullptr || pkt->buf == nullptr) {
         //muxAudioのnullpacketが到着した
-        m_Mux.thread.thAudEOSCheck[muxAudio] = true;
+        muxAudio->flushed = true;
         //送出したEOSがすべて来たか確認しないといけない
-        // 全トラックにEOSが来たら、初めてflushを実行できる
-        // 音声の全トラックにnullパケット送信
         const auto loglevel_flush = RGY_LOG_DEBUG;
-        if (std::find_if(m_Mux.thread.thAudEOSCheck.begin(), m_Mux.thread.thAudEOSCheck.end(), [](const auto& check) {
-            return !check.second;
-        }) == m_Mux.thread.thAudEOSCheck.end()) {
-            //音声の全トラックにnullパケット送信
-            for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-                AudioFlushStream(&m_Mux.audio[i], writtenDts);
-            }
+        if (std::find_if(m_Mux.audio.begin(), m_Mux.audio.end(), [](const auto& audio) {
+            return !audio.flushed;
+        }) == m_Mux.audio.end()) {
             *writtenDts = INT64_MAX;
             AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         } else if (m_printMes && loglevel_flush >= m_printMes->getLogLevel(RGY_LOGT_OUT)) { // ログ出力用
             tstring tracks;
-            for (auto& [mux, check] : m_Mux.thread.thAudEOSCheck) {
-                if (!check) {
+            for (auto& aud : m_Mux.audio) {
+                if (!aud.flushed) {
                     if (tracks.length() > 0) tracks += _T(", ");
-                    tracks += strsprintf(_T("%d"), trackID(mux->inTrackId));
+                    tracks += strsprintf(_T("%d"), trackID(aud.inTrackId));
                 }
             }
             AddMessage(loglevel_flush, _T("null packet from %d, waiting for EOS to come from other tracks: [%s].\n"), muxAudio ? trackID(muxAudio->inTrackId) : 0, tracks.c_str());
@@ -3534,30 +3534,17 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacket(AVPacket *pkt) {
 #if ENABLE_AVCODEC_OUT_THREAD
     if (m_Mux.thread.thOutput) {
         if (pkt == nullptr) {
-            if (!m_Mux.thread.threadActiveAudioProcess()) {
-                AVMuxThreadWorker *worker = m_Mux.thread.thOutput.get();
-                AVPktMuxData zeroFilled = { 0 };
-                if (!worker->qPackets.push(zeroFilled)) {
-                    AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
-                    m_Mux.format.streamError = true;
+            //音声の全トラックにnullパケット送信
+            for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
+                auto mux = &m_Mux.audio[i];
+                if (m_Mux.thread.threadActiveAudioEncode()) {
+                    getPacketWorker(mux, AUD_QUEUE_ENCODE)->qPackets.set_keep_length(0);
                 }
-            } else {
-                m_Mux.thread.thAudEOSCheck.clear();
-                //音声の全トラックにnullパケット送信
-                //pkt = nullptrの代理として、pkt.buf == nullptrなパケットを投入
-                //まずどこに送信する必要があるか、確認する
-                for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-                    const auto worker = getPacketWorker(&m_Mux.audio[i], AUD_QUEUE_PROCESS);
-                    // workerはtrackごとの場合とそうでない場合がある
-                    // nullpacket送信はworkerごとに一度だけでよい
-                    if (!worker->sentEOS) {
-                        m_Mux.thread.thAudEOSCheck[&m_Mux.audio[i]] = false;
-                        worker->sentEOS = true; // そのworkerにEOS送信を完了する
-                    }
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    getPacketWorker(mux, AUD_QUEUE_PROCESS)->qPackets.set_keep_length(0);
                 }
-                // 実際に送信を行う
-                for (auto& [mux, check] : m_Mux.thread.thAudEOSCheck) {
-                    const auto worker = getPacketWorker(mux, AUD_QUEUE_PROCESS);
+                if (mux->inSubStream == 0) { // サブトラックには送信しない
+                    const auto worker = getPacketWorker(mux, (m_Mux.thread.threadActiveAudioProcess()) ? AUD_QUEUE_PROCESS : AUD_QUEUE_OUT);
                     AddMessage(RGY_LOG_DEBUG, _T("Send null packet to worker %d.\n"), trackID(mux->inTrackId));
                     AVPktMuxData zeroFilled = { 0 };
                     zeroFilled.muxAudio = mux;
@@ -3576,10 +3563,20 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacket(AVPacket *pkt) {
                 m_Mux.format.streamError = true;
             }
             SetEvent(heEventPktAdd);
-            return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
         }
+        return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 #endif
+    if (pkt == nullptr) {
+        //音声の全トラックにnullパケット送信
+        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
+            AVPktMuxData pktDataCopy = pktData;
+            pktDataCopy.muxAudio = &m_Mux.audio[i];
+            auto err = WriteNextPacketInternal(&pktDataCopy, INT64_MAX);
+            if (err != RGY_ERR_NONE) return err;
+        }
+        return RGY_ERR_NONE;
+    }
     return WriteNextPacketInternal(&pktData, INT64_MAX);
 }
 
@@ -3650,24 +3647,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
         }
     }
 
-    if (pktData->pkt == nullptr || pktData->pkt->data == nullptr) {
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.threadActiveAudioProcess()) {
-            //音声処理を別スレッドでやっている場合は、AddAudOutputQueueを後段の出力スレッドで行う必要がある
-            //WriteNextPacketInternalでは音声キューに追加するだけにして、WriteNextPacketProcessedで対応する
-            //ひとまず、ここでは処理せず、次のキューに回す
-            return AddAudQueue(pktData, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
-        }
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            AudioFlushStream(&m_Mux.audio[i], &pktData->dts);
-        }
-        pktData->dts = INT64_MAX;
-        AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
-        return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
-    }
-
-    if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) != AVMEDIA_TYPE_AUDIO) {
+    if (pktData->pkt == nullptr) {
+        return WriteNextPacketAudio(pktData);
+    } else if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) != AVMEDIA_TYPE_AUDIO) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.threadActiveAudioProcess()) {
             //音声処理を別スレッドでやっている場合は、字幕パケットもその流れに乗せてやる必要がある
@@ -3691,6 +3673,51 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
         m_Mux.format.streamError = true;
         m_Mux.poolPkt->returnFree(&pktData->pkt);
         return RGY_ERR_NULL_PTR;
+    }
+
+    if (pktData->pkt == nullptr || pktData->pkt->data == nullptr) {
+        //デコーダをflush
+        while (muxAudio->outCodecDecodeCtx && !muxAudio->encodeError) {
+            auto decodedFrames = AudioDecodePacket(muxAudio, nullptr);
+            if (decodedFrames.size() == 0) {
+                break;
+            }
+            vector<AVPktMuxData> audioFrames;
+            for (size_t i = 0; i < decodedFrames.size(); i++) {
+                AVPktMuxData audPkt;
+                audPkt.pkt = m_Mux.poolPkt->getFree().release();
+                pktFlagSetTrackID(audPkt.pkt, muxAudio->inTrackId);
+                audPkt.dts = AV_NOPTS_VALUE;
+                audPkt.samples = 0;
+                audPkt.type = MUX_DATA_TYPE_FRAME;
+                audPkt.frame = decodedFrames[i].release();
+                audPkt.got_result = audPkt.frame && audPkt.frame->nb_samples > 0;
+                audPkt.muxAudio = muxAudio;
+                audioFrames.push_back(audPkt);
+            }
+            //フィルタリングを行う
+            WriteNextPacketToAudioSubtracks(std::move(audioFrames));
+        }
+
+        //終わったら後段にnull packetを渡してflushの指示を伝える
+        //サブストリームが存在すれば、null packetをそれぞれに渡す
+        AVMuxAudio *pMuxAudioSubStream = nullptr;
+        for (int iSubStream = 1; nullptr != (pMuxAudioSubStream = getAudioStreamData(muxAudio->inTrackId, iSubStream)); iSubStream++) {
+            auto pktDataCopy = *pktData;
+            pktDataCopy.muxAudio = pMuxAudioSubStream;
+            if (m_Mux.thread.threadActiveAudioProcess()) {
+                AddAudQueue(&pktDataCopy, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+            } else {
+                WriteNextAudioFrame(&pktDataCopy);
+            }
+        }
+        //メインストリームにnull packetを渡してflushの指示を伝える
+        if (m_Mux.thread.threadActiveAudioProcess()) {
+            AddAudQueue(pktData, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+        } else {
+            WriteNextAudioFrame(pktData);
+        }
+        return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 
     //AACBsfでのエラーを無音挿入で回避する(音声エンコード時のみ)
@@ -3836,16 +3863,52 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudioFrame(vector<AVPktMuxData> audioFr
 //出力スレッドがなければメインエンコードスレッドが処理する
 RGY_ERR RGYOutputAvcodec::WriteNextAudioFrame(AVPktMuxData *pktData) {
     if (pktData->type != MUX_DATA_TYPE_FRAME) {
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.threadActiveAudioEncode()) {
+        if (pktData->muxAudio) {
             //音声エンコードスレッドがこの関数を処理
-            //AVPacketは字幕やnull終端パケットなどが流れてきたもの
+            if (pktData->pkt == nullptr) {
+                //null終端パケットなどが流れてきたもの
+                while (pktData->muxAudio->outCodecEncodeCtx) {
+                    auto encPktDatas = AudioEncodeFrame(pktData->muxAudio, nullptr);
+                    if (encPktDatas.size() == 0) {
+                        break;
+                    }
+                    if (pktData->muxAudio->decodeError > pktData->muxAudio->ignoreDecodeError)
+                        break;
+                    if (m_Mux.thread.threadActiveAudioProcess()) {
+                        for (auto& pktMux : encPktDatas) {
+                            AddAudQueue(&pktMux, AUD_QUEUE_OUT);
+                        }
+                    } else {
+                        for (auto& pktMux : encPktDatas) {
+                            WriteNextPacketProcessed(&pktMux, &pktData->dts);
+                        }
+                    }
+                }
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    //終わったら後段にflushの指示を伝える
+                    AddAudQueue(pktData, AUD_QUEUE_OUT);
+                } else {
+                    WriteNextPacketProcessed(pktData);
+                }
+            } else {
+                //音声コピーなどの際にパケットが流れてきたもの
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    //終わったら後段にflushの指示を伝える
+                    AddAudQueue(pktData, AUD_QUEUE_OUT);
+                } else {
+                    WriteNextPacketProcessed(pktData);
+                }
+            }
+        } else if (m_Mux.thread.thOutput) {
+            //AVPacketは字幕が流れてきたもの
             //これはそのまま出力キューに追加する
             AddAudQueue(pktData, AUD_QUEUE_OUT);
+        } else {
+            // ここには来ないはず
+            AddMessage(RGY_LOG_ERROR, _T("Unexpected non-audio packet!\n"));
+            return RGY_ERR_UNSUPPORTED;
         }
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        //音声エンコードスレッドが存在しない場合、ここにAVPacketは流れてこないはず
-        return RGY_ERR_UNSUPPORTED;
+        return RGY_ERR_NONE;
     }
     auto encPktDatas = AudioEncodeFrame(pktData->muxAudio, pktData->frame);
     m_Mux.poolFrame->returnFree(&pktData->frame);
