@@ -36,6 +36,7 @@
 #include <thread>
 #include <deque>
 #include <atomic>
+#include <unordered_map>
 #include <cstdint>
 #include "rgy_avutil.h"
 #include "rgy_bitstream.h"
@@ -167,10 +168,11 @@ typedef struct AVMuxAudio {
     AVCodecContext       *outCodecDecodeCtx;    //変換する元のCodecContext
     const AVCodec        *outCodecEncode;       //変換先の音声のコーデック
     AVCodecContext       *outCodecEncodeCtx;    //変換先の音声のCodecContext
+    int64_t               decodeNextPts;        //デコードの次のpts (samplerateベース)
     uint32_t              ignoreDecodeError;    //デコード時に連続して発生したエラー回数がこの閾値を以下なら無視し、無音に置き換える
     uint32_t              decodeError;          //デコード処理中に連続してエラーが発生した回数
     bool                  encodeError;          //エンコード処理中にエラーが発生
-    int64_t               decodeNextPts;        //デコードの次のpts (samplerateベース)
+    bool                  flushed;              //AudioFlushStream を完了したフラグ
 
     //filter
     int                   filterInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
@@ -240,31 +242,48 @@ enum {
     AUD_QUEUE_OUT     = 2,
 };
 
+struct AVMuxThreadWorker {
+    std::thread                    thread;          //音声処理スレッド(デコード/thAudEncodeがなければエンコードも担当)
+    std::atomic<bool>              thAbort;         //音声処理スレッドに停止を通知する
+    bool                           sentEOS;         //EOSパケットを送信側からこのworkerに送ったことを示す
+    HANDLE                         heEventPktAdded; //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                         heEventClosing;  //音声処理スレッドが停止処理を開始したことを通知する
+    RGYQueueMPMP<AVPktMuxData, 64> qPackets;        //音声パケットをスレッドに渡すためのキュー
+
+    AVMuxThreadWorker();
+    ~AVMuxThreadWorker();
+    void close();
+};
+
+
+struct AVMuxThreadAudio {
+    AVMuxThreadWorker encode;   //音声エンコードスレッド
+    AVMuxThreadWorker process;  //音声処理スレッド
+
+    AVMuxThreadAudio();
+    ~AVMuxThreadAudio();
+    bool threadActiveEncode();
+    bool threadActiveProcess();
+    void closeEncode();
+    void closeProcess();
+};
+
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
     bool                           enableOutputThread;        //出力スレッドを使用する
     bool                           enableAudProcessThread;    //音声処理スレッドを使用する
     bool                           enableAudEncodeThread;     //音声エンコードスレッドを使用する
-    std::atomic<bool>              abortOutput;               //出力スレッドに停止を通知する
-    std::thread                    thOutput;                  //出力スレッド(mux部分を担当)
-    std::atomic<bool>              thAudProcessAbort;         //音声処理スレッドに停止を通知する
-    std::thread                    thAudProcess;              //音声処理スレッド(デコード/thAudEncodeがなければエンコードも担当)
-    std::atomic<bool>              thAudEncodeAbort;          //音声エンコードスレッドに停止を通知する
-    std::thread                    thAudEncode;               //音声エンコードスレッド(エンコードを担当)
-    HANDLE                         heEventPktAddedOutput;     //キューのいずれかにデータが追加されたことを通知する
-    HANDLE                         heEventClosingOutput;      //出力スレッドが停止処理を開始したことを通知する
-    HANDLE                         heEventPktAddedAudProcess; //キューのいずれかにデータが追加されたことを通知する
-    HANDLE                         heEventClosingAudProcess;  //音声処理スレッドが停止処理を開始したことを通知する
-    HANDLE                         heEventPktAddedAudEncode;  //キューのいずれかにデータが追加されたことを通知する
-    HANDLE                         heEventClosingAudEncode;   //音声処理スレッドが停止処理を開始したことを通知する
+    std::unique_ptr<AVMuxThreadWorker> thOutput;              //出力スレッド
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
-    RGYQueueMPMP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
-    RGYQueueMPMP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
-    RGYQueueMPMP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
+    std::unordered_map<const AVMuxAudio *, std::unique_ptr<AVMuxThreadAudio>> thAud; //音声スレッド
     std::atomic<int64_t>           streamOutMaxDts;           //音声・字幕キューの最後のdts (timebase = QUEUE_DTS_TIMEBASE) (キューの同期に使用)
     PerfQueueInfo                 *queueInfo;                 //キューの情報を格納する構造体
+
+    bool threadActiveAudio() { return thAud.count(nullptr) > 0; };
+    bool threadActiveAudioEncode() { return thAud.count(nullptr) > 0 && thAud[nullptr]->threadActiveEncode(); };
+    bool threadActiveAudioProcess() { return thAud.count(nullptr) > 0 && thAud[nullptr]->threadActiveProcess(); };
 } AVMuxThread;
 #endif
 
@@ -421,10 +440,13 @@ protected:
     RGY_ERR WriteThreadFunc(RGYParamThread threadParam);
 
     //別のスレッドで実行する場合のスレッド関数 (音声処理)
-    RGY_ERR ThreadFuncAudThread(RGYParamThread threadParam);
+    RGY_ERR ThreadFuncAudThread(const AVMuxAudio *const muxAudio, RGYParamThread threadParam);
 
     //別のスレッドで実行する場合のスレッド関数 (音声エンコード処理)
-    RGY_ERR ThreadFuncAudEncodeThread(RGYParamThread threadParam);
+    RGY_ERR ThreadFuncAudEncodeThread(const AVMuxAudio *const muxAudio, RGYParamThread threadParam);
+
+    //対象パケットの担当スレッドを探す
+    AVMuxThreadWorker *RGYOutputAvcodec::getPacketWorker(const AVMuxAudio *muxAudio, const int type);
 
     //音声出力キューに追加 (音声処理スレッドが有効な場合のみ有効)
     RGY_ERR AddAudQueue(AVPktMuxData *pktData, int type);

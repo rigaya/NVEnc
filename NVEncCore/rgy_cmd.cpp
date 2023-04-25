@@ -5151,8 +5151,8 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        if (value < -1 || value >= 3) {
-            print_cmd_error_invalid_value(option_name, strInput[i], _T("shoule be in range: 0 - 2"));
+        if (value < -1 || value >= 4) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("shoule be in range: 0 - 3"));
             return 1;
         }
         ctrl->threadAudio = value;
