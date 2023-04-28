@@ -394,7 +394,7 @@ std::vector<uint8_t> RGYHDRMetadata::sei_atcsei() const {
     data.reserve(8);
     if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
         const auto atcsei = raw_atcsei();
-        assert(atcsei.size() == 24);
+        assert(atcsei.size() == 1);
 
         data.push_back(ALTERNATIVE_TRANSFER_CHARACTERISTICS);
         data.push_back((uint8_t)atcsei.size());
