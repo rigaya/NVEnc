@@ -2,7 +2,7 @@
 # NVEncのビルド方法
 
 - [Windows](./Build.ja.md#windows)
-- [Linux (Ubuntu 22.04 - 23.04)](./Build.ja.md#linux-ubuntu-2204-2304)
+- [Linux (Ubuntu 22.04 - 23.04)](./Build.ja.md#linux-ubuntu-2204---2304)
 - [Linux (Ubuntu 20.04)](./Build.ja.md#linux-ubuntu-2004)
 - [Linux (Ubuntu 18.04)](./Build.ja.md#linux-ubuntu-1804)
 - [Linux (Fedora 33)](./Build.ja.md#linux-fedora-33)
@@ -68,7 +68,7 @@ NVEnc.slnを開き、ビルドします。
 - CUDA 10-12
 - git
 - ライブラリ群
-  - ffmpegライブラリ群 (libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev)
+  - ffmpeg 4.x/5.x ライブラリ群 (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
   - libass-dev
   - [オプション] AvisynthPlus
   - [オプション] VapourSynth

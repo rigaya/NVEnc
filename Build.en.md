@@ -2,7 +2,7 @@
 # How to build NVEnc
 
 - [Windows](./Build.en.md#windows)
-- [Linux (Ubuntu 22.04 - 23.04)](./Build.en.md#linux-ubuntu-2204-2304)
+- [Linux (Ubuntu 22.04 - 23.04)](./Build.en.md#linux-ubuntu-2204---2304)
 - [Linux (Ubuntu 20.04)](./Build.en.md#linux-ubuntu-2004)
 - [Linux (Ubuntu 18.04)](./Build.en.md#linux-ubuntu-1804)
 - [Linux (Fedora 33)](./Build.en.md#linux-fedora-33)
@@ -67,7 +67,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 - CUDA 10/11
 - git
 - libraries
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
+  - ffmpeg 4.x/5.x libs (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
   - libass9
   - [Optional] AvisynthPlus
   - [Optional] VapourSynth
