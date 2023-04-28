@@ -446,7 +446,7 @@ protected:
     RGY_ERR ThreadFuncAudEncodeThread(const AVMuxAudio *const muxAudio, RGYParamThread threadParam);
 
     //対象パケットの担当スレッドを探す
-    AVMuxThreadWorker *RGYOutputAvcodec::getPacketWorker(const AVMuxAudio *muxAudio, const int type);
+    AVMuxThreadWorker *getPacketWorker(const AVMuxAudio *muxAudio, const int type);
 
     //音声出力キューに追加 (音声処理スレッドが有効な場合のみ有効)
     RGY_ERR AddAudQueue(AVPktMuxData *pktData, int type);
