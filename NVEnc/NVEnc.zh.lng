@@ -200,8 +200,8 @@ AUO_ERR_NO_BAT_FILE=找不到指定的批处理文件。
 AUO_ERR_MALLOC_BAT_FILE_TMP=无法为临时批处理文件生成分配内存。
 AUO_ERR_OPEN_BAT_ORG=无法打开批处理文件。
 AUO_ERR_FAILED_OPEN_BAT_NEW=无法创建临时批处理文件。
-AUO_ERR_VIDEO_VERY_SHORT1=Output video is very short, shorter than 1 seconds.
-AUO_ERR_VIDEO_VERY_SHORT2=If this is not intended, please check the selected range of video is correct.
+AUO_ERR_VIDEO_VERY_SHORT1=导出视频时长短于1秒。
+AUO_ERR_VIDEO_VERY_SHORT2=如果不打算这样做，请检查所选视频范围是否正确。
 
 [AUO_AUDIO]
 AUO_AUDIO_FAW_INDEX_ERR=无法从NVEnc.ini中获取FAW信息，判断中止。
