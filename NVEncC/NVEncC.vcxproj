@@ -212,7 +212,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>compute_30,compute_30</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -268,7 +268,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>compute_30,compute_30</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -322,7 +322,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" 
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>compute_30,compute_30</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -379,7 +379,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" 
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>compute_30,compute_30</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -439,7 +439,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avdevice-*.dll" "$(OutDir
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>compute_30,compute_30</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -493,7 +493,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>compute_30,compute_30</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
@@ -549,7 +549,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avdevice-*.dll" "$(OutDir
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>compute_30,compute_30</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
@@ -604,7 +604,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>compute_30,compute_30</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

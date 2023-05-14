@@ -67,8 +67,8 @@ template<typename Type, int bit_depth>
 void run_overlay_plane(
     uint8_t *pDst, const int dstPitch,
     const uint8_t *pSrc, const int srcPitch, const int width, const int height,
-    const uint8_t *__restrict__ pOverlay, const int overlayPitch,
-    const uint8_t *__restrict__ pAlpha, const int alphaPitch, const int overlayWidth, const int overlayHeight,
+    const uint8_t *pOverlay, const int overlayPitch,
+    const uint8_t *pAlpha, const int alphaPitch, const int overlayWidth, const int overlayHeight,
     const int overlayPosX, const int overlayPosY,
     cudaStream_t stream) {
     dim3 blockSize(64, 8);

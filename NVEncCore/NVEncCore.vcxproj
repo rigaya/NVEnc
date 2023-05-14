@@ -179,7 +179,7 @@
     <CudaCompile />
     <CudaCompile>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
@@ -282,7 +282,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
@@ -394,7 +394,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
       <UseHostDefines>true</UseHostDefines>
@@ -446,7 +446,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
       <UseHostDefines>true</UseHostDefines>

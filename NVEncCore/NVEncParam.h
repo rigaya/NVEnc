@@ -612,7 +612,7 @@ typedef struct NVEncCap {
 
 //指定したIDのfeatureの値を取得する
 static int get_value(int id, const std::vector<NVEncCap>& capList) {
-    for (auto cap_info : capList) {
+    for (const auto &cap_info : capList) {
         if (cap_info.id == id)
             return cap_info.value;
     }
