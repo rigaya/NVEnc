@@ -175,8 +175,9 @@ std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_obu() const {
 }
 #endif
 
+
 #if 0
-RGYSysFrame::RGYSysFrame() : frame() {}
+RGYSysFrame::RGYSysFrame() : frame(), allocatedFirstPlaneOnly(false) {}
 RGYSysFrame::RGYSysFrame(const RGYFrameInfo& frame_) : frame(frame_) {}
 RGYSysFrame::~RGYSysFrame() { deallocate(); }
 
@@ -245,11 +246,12 @@ RGY_ERR RGYSysFrame::allocate(const RGYFrameInfo &info) {
     return RGY_ERR_NONE;
 }
 void RGYSysFrame::deallocate() {
-    for (int i = 0; i < _countof(frame.ptr); i++) {
+    for (int i = 0; i < ((allocatedFirstPlaneOnly) ? 1 : _countof(frame.ptr)); i++) {
         if (frame.ptr[i] != nullptr) {
             _aligned_free(frame.ptr[i]);
             frame.ptr[i] = nullptr;
         }
     }
 }
+
 #endif
