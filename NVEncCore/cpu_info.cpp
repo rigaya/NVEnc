@@ -33,6 +33,7 @@
 #include <algorithm>
 #include <chrono>
 #include <thread>
+#include <map>
 #include "rgy_tchar.h"
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #ifdef _MSC_VER
@@ -52,8 +53,91 @@
 #endif
 
 
+#pragma warning(push)
+#pragma warning(disable: 4127) //warning C4127: 条件式が定数です。
+static inline int CountSetBits(size_t bits_) {
+    if (sizeof(size_t) > 4) {
+        uint64_t bits = (uint64_t)bits_;
+        bits = (bits & 0x5555555555555555) + (bits >>  1 & 0x5555555555555555);
+        bits = (bits & 0x3333333333333333) + (bits >>  2 & 0x3333333333333333);
+        bits = (bits & 0x0f0f0f0f0f0f0f0f) + (bits >>  4 & 0x0f0f0f0f0f0f0f0f);
+        bits = (bits & 0x00ff00ff00ff00ff) + (bits >>  8 & 0x00ff00ff00ff00ff);
+        bits = (bits & 0x0000ffff0000ffff) + (bits >> 16 & 0x0000ffff0000ffff);
+        bits = (bits & 0x00000000ffffffff) + (bits >> 32 & 0x00000000ffffffff);
+        return (int)bits;
+    } else {
+        uint32_t bits = (uint32_t)bits_;
+        bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
+        bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
+        bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
+        bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
+        bits = (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
+        return (int)bits;
+    }
+}
+#pragma warning(pop)
+
 #if (defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) || defined(__ARM_ARCH))
- 
+
+std::map<uint32_t, uint64_t> getCPUPartARM() {
+    std::map<int, uint64_t> cpu_architecture;
+    std::map<uint32_t, uint64_t> cpu_variant;
+    std::map<uint32_t, uint64_t> cpu_part;
+    
+    std::ifstream inputFile("/proc/cpuinfo");
+    std::istreambuf_iterator<char> data_begin(inputFile);
+    std::istreambuf_iterator<char> data_end;
+    std::string script_data = std::string(data_begin, data_end);
+    inputFile.close();
+
+    int processorID = -1;
+
+    for (auto line : split(script_data, "\n")) {
+        auto pos = line.find("processor");
+        if (pos != std::string::npos) {
+            int i = 0;
+            if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), " %d", &i)) {
+                processorID = i;
+            }
+            continue;
+        }
+        pos = line.find("CPU architecture");
+        if (pos != std::string::npos) {
+            int i = 0;
+            if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), " %d", &i)) {
+                if (cpu_architecture.count(i) == 0) {
+                    cpu_architecture[i] = 0;
+                }
+                cpu_architecture[i] |= (1llu << processorID);
+            }
+            continue;
+        }
+        pos = line.find("CPU variant");
+        if (pos != std::string::npos) {
+            uint32_t i = 0;
+            if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), " 0x%x", &i)) {
+                if (cpu_variant.count(i) == 0) {
+                    cpu_variant[i] = 0;
+                }
+                cpu_variant[i] |= (1llu << processorID);
+            }
+            continue;
+        }
+        pos = line.find("CPU part");
+        if (pos != std::string::npos) {
+            uint32_t i = 0;
+            if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), " 0x%x", &i)) {
+                if (cpu_part.count(i) == 0) {
+                    cpu_part[i] = 0;
+                }
+                cpu_part[i] |= (1llu << processorID);
+            }
+            continue;
+        }
+    }
+    return cpu_part;
+}
+
 std::string getCPUNameARM() {
     std::unordered_map<int, int> cpu_architecture;
     std::unordered_map<uint32_t, int> cpu_variant;
@@ -239,30 +323,6 @@ int getCPUName(char *buffer, size_t nSize) {
 #endif
 }
 
-#pragma warning(push)
-#pragma warning(disable: 4127) //warning C4127: 条件式が定数です。
-static inline int CountSetBits(size_t bits_) {
-    if (sizeof(size_t) > 4) {
-        uint64_t bits = (uint64_t)bits_;
-        bits = (bits & 0x5555555555555555) + (bits >>  1 & 0x5555555555555555);
-        bits = (bits & 0x3333333333333333) + (bits >>  2 & 0x3333333333333333);
-        bits = (bits & 0x0f0f0f0f0f0f0f0f) + (bits >>  4 & 0x0f0f0f0f0f0f0f0f);
-        bits = (bits & 0x00ff00ff00ff00ff) + (bits >>  8 & 0x00ff00ff00ff00ff);
-        bits = (bits & 0x0000ffff0000ffff) + (bits >> 16 & 0x0000ffff0000ffff);
-        bits = (bits & 0x00000000ffffffff) + (bits >> 32 & 0x00000000ffffffff);
-        return (int)bits;
-    } else {
-        uint32_t bits = (uint32_t)bits_;
-        bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
-        bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
-        bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
-        bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
-        bits = (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
-        return (int)bits;
-    }
-}
-#pragma warning(pop)
-
 bool getCPUHybridMasks(cpu_info_t *info) {
     info->maskSystem = 0;
     info->maskCoreP = 0;
@@ -316,6 +376,29 @@ bool getCPUHybridMasks(cpu_info_t *info) {
         }
     }
 #endif //#if defined(__x86__) || defined(__x86_64__) || defined(_M_X86) || defined(_M_X64)
+#if (defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) || defined(__ARM_ARCH))
+    const auto cpu_part = getCPUPartARM();
+    if (cpu_part.size() > 1) {
+        for (auto it = cpu_part.begin(); it != cpu_part.end(); it++) {
+            if (it == cpu_part.begin()) { //partが一番小さいのがEcore
+                info->maskCoreE |= it->second;
+            } else {
+                info->maskCoreP |= it->second;
+            }
+        }
+    }
+
+    info->physical_cores_e = 0;
+    info->physical_cores_p = 0;
+    for (int i = 0; i < info->physical_cores; i++) {
+        const auto maskTarget = info->proc_list[i].mask;
+        if (info->maskCoreP & maskTarget) {
+            info->physical_cores_p++;
+        } else if (info->maskCoreE & maskTarget) {
+            info->physical_cores_e++;
+        }
+    }
+#endif
     return true;
 }
 
