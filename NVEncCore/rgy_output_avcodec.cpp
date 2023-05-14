@@ -2057,7 +2057,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     }
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     if (prm->threadAudio == RGY_AUDIO_THREAD_AUTO) {
-        prm->threadAudio = 0;
+        prm->threadAudio = 3;
     }
     m_Mux.thread.enableAudProcessThread = prm->threadOutput > 0 && prm->threadAudio > 0;
     m_Mux.thread.enableAudEncodeThread  = prm->threadOutput > 0 && prm->threadAudio > 1;
