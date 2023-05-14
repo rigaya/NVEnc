@@ -3646,7 +3646,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        auto channel_select_list = split(qtr+1, _T(","));
+        auto channel_select_list = split(qtr+1, _T("/"));
         for (size_t ichannel = 0; ichannel < channel_select_list.size(); ichannel++) {
             auto& channel = channel_select_list[ichannel];
             {
@@ -4393,7 +4393,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
         const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition", "select-codec", "bsf" };
-        auto channel_select_list = split(qtr+1, _T(","));
+        auto channel_select_list = split(qtr+1, _T("/"));
 
         for (size_t ichannel = 0; ichannel < channel_select_list.size(); ichannel++) {
             auto& channel = channel_select_list[ichannel];
@@ -6278,8 +6278,18 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     for (const auto &src : param->audioSource) {
         if (src.filename.length() > 0) {
             cmd << _T(" --audio-source ") << _T("\"") << src.filename << _T("\"");
-            for (const auto &channel : src.select) {
-                cmd << _T(":");
+            auto source_delim = _T(":");
+            if (src.format.length() > 0) {
+                cmd << source_delim << _T("format=") << src.format;
+                source_delim = _T("/");
+            }
+            for (auto& opt : src.inputOpt) {
+                cmd << source_delim << _T("input_opt=") << opt.first << _T("=") << opt.second;
+                source_delim = _T("/");
+            }
+            for (const auto& channel : src.select) {
+                cmd << source_delim;
+                source_delim = _T("/");
                 if (channel.first == TRACK_SELECT_BY_LANG) {
                     cmd << char_to_tstring(channel.second.lang) << _T("?");
                 } else if (channel.first > 0) {
@@ -6299,8 +6309,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     if (sel.addDelayMs > 0) {
                         tmp << _T(";delay=") << sel.addDelayMs;
                     }
+                    if (sel.decCodecPrm.length() > 0) {
+                        tmp << _T(";dec_prm=") << sel.decCodecPrm;
+                    }
                     if (sel.encCodecPrm.length() > 0) {
-                        tmp << _T(";prm=") << sel.encCodecPrm;
+                        tmp << _T(";enc_prm=") << sel.encCodecPrm;
                     }
                     if (sel.encCodecProfile.length() > 0) {
                         tmp << _T(";profile=") << sel.encCodecProfile;
@@ -6352,8 +6365,18 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     for (const auto &src : param->subSource) {
         if (src.filename.length() > 0) {
             cmd << _T(" --sub-source ") << _T("\"") << src.filename << _T("\"");
-            for (const auto &channel : src.select) {
-                cmd << _T(":");
+            auto source_delim = _T(":");
+            if (src.format.length() > 0) {
+                cmd << source_delim << _T("format=") << src.format;
+                source_delim = _T("/");
+            }
+            for (auto& opt : src.inputOpt) {
+                cmd << source_delim << _T("input_opt=") << opt.first << _T("=") << opt.second;
+                source_delim = _T("/");
+            }
+            for (const auto& channel : src.select) {
+                cmd << source_delim;
+                source_delim = _T("/");
                 if (channel.first == TRACK_SELECT_BY_LANG) {
                     cmd << char_to_tstring(channel.second.lang) << _T("?");
                 } else if (channel.first > 0) {

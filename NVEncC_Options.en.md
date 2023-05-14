@@ -152,13 +152,13 @@
   - [--audio-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--audio-metadata-intstringstring-or-intstringstringstring)
   - [--audio-bsf \[\<int/string\>?\]\<string\>](#--audio-bsf-intstringstring)
   - [--audio-ignore-decode-error \<int\>](#--audio-ignore-decode-error-int)
-  - [--audio-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--audio-source-stringintparam1value1)
+  - [--audio-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>...\]/\[\]...\]](#--audio-source-stringintparam1value1)
   - [--chapter \<string\>](#--chapter-string)
   - [--chapter-copy](#--chapter-copy)
   - [--chapter-no-trim](#--chapter-no-trim)
   - [--key-on-chapter](#--key-on-chapter)
   - [--keyfile \<string\>](#--keyfile-string)
-  - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--sub-source-stringintparam1value1)
+  - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>...\]/\[\]...\]](#--sub-source-stringintparam1value1)
   - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>](#--sub-disposition-intstringstring)
   - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
@@ -1222,7 +1222,7 @@ The default is 10.
   --audio-ignore-decode-error 0
   ```
 
-### --audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
+### --audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;...]/[]...]
 Mux an external audio file specified.
 
 - **file params**
@@ -1271,10 +1271,10 @@ Mux an external audio file specified.
 
 - Examples
   ```
-  Example1: --audio-source "<audio_file>":copy
-  Example2: --audio-source "<audio_file>":codec=aac
-  Example3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
-  Example4: --audio-source --audio-source "hw:1:format=alsa,codec=aac;bitrate=256"
+  Example1: --audio-source "<audio_file>:copy"
+  Example2: --audio-source "<audio_file>:codec=aac"
+  Example3: --audio-source "<audio_file>:1?codec=aac;bitrate=256/2?codec=aac;bitrate=192;metadata=language=jpn;disposition=default,forced"
+  Example4: --audio-source "hw:1:format=alsa/codec=aac;bitrate=256"
   ```
 
 ### --chapter &lt;string&gt;
@@ -1354,7 +1354,7 @@ Set keyframes on chapter position.
 Set keyframes on frames (starting from 0, 1, 2, ...) specified in the file.
 There should be one frame ID per line.
 
-### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
+### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;...]/[]...]
 Read subtitle from the specified file and mux into the output file.
 
 - **file params**
@@ -1377,7 +1377,7 @@ Read subtitle from the specified file and mux into the output file.
 - Examples
   ```
   Example1: --sub-source "<sub_file>"
-  Example2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
+  Example2: --sub-source "<sub_file>:disposition=default,forced;metadata=language=jpn"
   ```
 
 ### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]

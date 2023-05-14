@@ -148,7 +148,7 @@
   - [--audio-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--audio-metadata-intstringstring-or-intstringstringstring)
   - [--audio-bsf \[\<int/string\>?\]\<string\>](#--audio-bsf-intstringstring)
   - [--audio-ignore-decode-error \<int\>](#--audio-ignore-decode-error-int)
-  - [--audio-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--audio-source-stringintparam1value1)
+  - [--audio-source \<string\>\[:\[{\<int\>?}\]\[;\<param1\>=\<value1\>...\]/\[\]...\]](#--audio-source-stringintparam1value1)
   - [--chapter \<string\>](#--chapter-string)
   - [--chapter-copy](#--chapter-copy)
   - [--chapter-no-trim](#--chapter-no-trim)
@@ -1214,7 +1214,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 
 デフォルトは10。 0とすれば、1回でもデコードエラーが起これば処理を中断してエラー終了する。
 
-### --audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
+### --audio-source &lt;string&gt;[:[{&lt;int&gt;?}][;&lt;param1&gt;=&lt;value1&gt;...]/[]...]
 外部音声ファイルをmuxする。
 
 - **ファイルのパラメータ**
@@ -1263,10 +1263,10 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 
 - 使用例
   ```
-  例1: --audio-source "<audio_file>":copy
-  例2: --audio-source "<audio_file>":codec=aac
-  例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
-  例4: --audio-source "hw:1:format=alsa,codec=aac;bitrate=256"
+  例1: --audio-source "<audio_file>:copy"
+  例2: --audio-source "<audio_file>:codec=aac"
+  例3: --audio-source "<audio_file>:1?codec=aac;bitrate=256/2?codec=aac;bitrate=192;metadata=language=jpn;disposition=default,forced"
+  例4: --audio-source "hw:1:format=alsa/codec=aac;bitrate=256"
   ```
 
 ### --chapter &lt;string&gt;
@@ -1369,7 +1369,7 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
 - 使用例
   ```
   例1: --sub-source "<sub_file>"
-  例2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
+  例2: --sub-source "<sub_file>:disposition=default,forced;metadata=language=jpn"
   ```
 
 ### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
