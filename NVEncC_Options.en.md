@@ -666,11 +666,10 @@ Specify the AQ strength. (1 (weak) - 15 (strong), 0 = auto)
 
 ### --bref-mode &lt;string&gt;
 Specify B frame reference mode.
-- disabled (default)
-- each
-  use each B frames as references  
-- middle
-  Only(Number of B-frame)/2 th B-frame will be used for reference  
+- auto (default)
+- disabled
+- each ... use each B frames as references  
+- middle ... only (Number of B-frame)/2 th B-frame will be used for reference  
 
 ### --direct &lt;string&gt; [H.264]
 Specify H.264 B Direct mode.
