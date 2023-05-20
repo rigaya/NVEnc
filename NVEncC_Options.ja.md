@@ -671,11 +671,10 @@ AQ強度を指定する。(1(弱) ～ 15(強)、0 = 自動)
 
 ### --bref-mode &lt;string&gt;
 Bフレームの参照モードを指定する。
-- disabled (default)
-- each
-  すべてのBフレームを参照フレームとして利用する  
-- middle
-  偶数番目のBフレームのみが参照フレームとして利用できる  
+- auto (default)
+- disabled
+- each ... すべてのBフレームを参照フレームとして利用する  
+- middle ... 偶数番目のBフレームのみが参照フレームとして利用できる  
 
 ### --direct &lt;string&gt; [H.264]
 H.264のBDirect modeを指定する。
