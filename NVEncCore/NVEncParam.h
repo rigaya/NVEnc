@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
@@ -78,6 +78,58 @@ static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
 static const int PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;
 
+// --------------------------------------------------------------------------------
+// 昔の定義
+// --------------------------------------------------------------------------------
+// {B2DFB705-4EBD-4C49-9B5F-24A777D3E587}
+static const GUID NV_ENC_PRESET_DEFAULT_GUID =
+{ 0xb2dfb705, 0x4ebd, 0x4c49, { 0x9b, 0x5f, 0x24, 0xa7, 0x77, 0xd3, 0xe5, 0x87 } };
+
+// {60E4C59F-E846-4484-A56D-CD45BE9FDDF6}
+static const GUID NV_ENC_PRESET_HP_GUID =
+{ 0x60e4c59f, 0xe846, 0x4484, { 0xa5, 0x6d, 0xcd, 0x45, 0xbe, 0x9f, 0xdd, 0xf6 } };
+
+// {34DBA71D-A77B-4B8F-9C3E-B6D5DA24C012}
+static const GUID NV_ENC_PRESET_HQ_GUID =
+{ 0x34dba71d, 0xa77b, 0x4b8f, { 0x9c, 0x3e, 0xb6, 0xd5, 0xda, 0x24, 0xc0, 0x12 } };
+
+// {82E3E450-BDBB-4e40-989C-82A90DF9EF32}
+static const GUID NV_ENC_PRESET_BD_GUID =
+{ 0x82e3e450, 0xbdbb, 0x4e40, { 0x98, 0x9c, 0x82, 0xa9, 0xd, 0xf9, 0xef, 0x32 } };
+
+// {49DF21C5-6DFA-4feb-9787-6ACC9EFFB726}
+static const GUID NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID =
+{ 0x49df21c5, 0x6dfa, 0x4feb, { 0x97, 0x87, 0x6a, 0xcc, 0x9e, 0xff, 0xb7, 0x26 } };
+
+// {C5F733B9-EA97-4cf9-BEC2-BF78A74FD105}
+static const GUID NV_ENC_PRESET_LOW_LATENCY_HQ_GUID =
+{ 0xc5f733b9, 0xea97, 0x4cf9, { 0xbe, 0xc2, 0xbf, 0x78, 0xa7, 0x4f, 0xd1, 0x5 } };
+
+// {67082A44-4BAD-48FA-98EA-93056D150A58}
+static const GUID NV_ENC_PRESET_LOW_LATENCY_HP_GUID =
+{ 0x67082a44, 0x4bad, 0x48fa, { 0x98, 0xea, 0x93, 0x5, 0x6d, 0x15, 0xa, 0x58 } };
+
+// {D5BFB716-C604-44e7-9BB8-DEA5510FC3AC}
+static const GUID NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID =
+{ 0xd5bfb716, 0xc604, 0x44e7, { 0x9b, 0xb8, 0xde, 0xa5, 0x51, 0xf, 0xc3, 0xac } };
+
+// {149998E7-2364-411d-82EF-179888093409}
+static const GUID NV_ENC_PRESET_LOSSLESS_HP_GUID =
+{ 0x149998e7, 0x2364, 0x411d, { 0x82, 0xef, 0x17, 0x98, 0x88, 0x9, 0x34, 0x9 } };
+
+#define NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ  ((NV_ENC_PARAMS_RC_MODE)0x08)      /**< Deprecated, use NV_ENC_PARAMS_RC_CBR + NV_ENC_TWO_PASS_QUARTER_RESOLUTION / NV_ENC_TWO_PASS_FULL_RESOLUTION + lowDelayKeyFrameScale=1 */
+#define NV_ENC_PARAMS_RC_CBR_HQ           ((NV_ENC_PARAMS_RC_MODE)0x10)      /**< Deprecated, use NV_ENC_PARAMS_RC_CBR + NV_ENC_TWO_PASS_QUARTER_RESOLUTION / NV_ENC_TWO_PASS_FULL_RESOLUTION */
+#define NV_ENC_PARAMS_RC_VBR_HQ           ((NV_ENC_PARAMS_RC_MODE)0x20)      /**< Deprecated, use NV_ENC_PARAMS_RC_VBR + NV_ENC_TWO_PASS_QUARTER_RESOLUTION / NV_ENC_TWO_PASS_FULL_RESOLUTION */
+
+#define NV_ENC_PARAMS_RC_VBR_MINQP             ((NV_ENC_PARAMS_RC_MODE)0x4)          /**< Deprecated */
+#define NV_ENC_PARAMS_RC_2_PASS_QUALITY         NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ    /**< Deprecated */
+#define NV_ENC_PARAMS_RC_2_PASS_FRAMESIZE_CAP   NV_ENC_PARAMS_RC_CBR_HQ             /**< Deprecated */
+#define NV_ENC_PARAMS_RC_2_PASS_VBR             NV_ENC_PARAMS_RC_VBR_HQ             /**< Deprecated */
+#define NV_ENC_PARAMS_RC_CBR2                   NV_ENC_PARAMS_RC_CBR                /**< Deprecated */
+
+// --------------------------------------------------------------------------------
+
+
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
     NV_ENC_AVCUVID_CUDA,
@@ -127,7 +179,7 @@ enum {
 const guid_desc av1_profile_names[] = {
     //{ NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),                     0 },
     { NV_ENC_AV1_PROFILE_MAIN_GUID,      _T("main"),  NV_ENC_PROFILE_AV1_MAIN },
-    { NV_ENC_AV1_PROFILE_HIGH_GUID,      _T("high"),  NV_ENC_PROFILE_AV1_HIGH },
+    //{ NV_ENC_AV1_PROFILE_HIGH_GUID,      _T("high"),  NV_ENC_PROFILE_AV1_HIGH },
     //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, _T("High"), NV_ENC_TIER_HEVC_HIGH },
 };
 

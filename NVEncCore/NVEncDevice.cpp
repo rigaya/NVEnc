@@ -67,10 +67,11 @@ bool check_if_nvcuda_dll_available() {
 
 //前提とするAPIバージョンのチェック
 static_assert(NVENCAPI_MAJOR_VERSION == 12);
-static_assert(NVENCAPI_MINOR_VERSION == 0);
+static_assert(NVENCAPI_MINOR_VERSION == 1);
 //対応するAPIバージョンの管理
 static constexpr auto API_VER_LIST = make_array<uint32_t>(
     nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
+    nvenc_api_ver(12, 0),
     nvenc_api_ver(11, 1),
     nvenc_api_ver(11, 0),
     nvenc_api_ver(10, 0),
@@ -102,9 +103,14 @@ void NVEncoder::setStructVer(NV_ENCODE_API_FUNCTION_LIST& obj, const uint32_t ap
     }
 }
 void NVEncoder::setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const {
-    static const int latest_ver = 5;
-    static_assert(NV_ENC_INITIALIZE_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
-    obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 1))) {
+        static const int latest_ver = 6;
+        static_assert(NV_ENC_INITIALIZE_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    } else {
+        //API 12.0までは7
+        obj.version = NVENC_STRUCT_VER1(5, m_apiVer);
+    }
 }
 
 void NVEncoder::setStructVer(NV_ENC_CONFIG& obj) const {
@@ -130,10 +136,13 @@ void NVEncoder::setStructVer(NV_ENC_PIC_PARAMS& obj) const {
 }
 
 void NVEncoder::setStructVer(NV_ENC_LOCK_BITSTREAM& obj) const {
-    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
-        static const int latest_ver = 2;
-        static_assert(NV_ENC_LOCK_BITSTREAM_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 1))) {
+        static const int latest_ver = 1;
+        static_assert(NV_ENC_LOCK_BITSTREAM_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
         obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    } else if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
+        //API 12.0までは2
+        obj.version = NVENC_STRUCT_VER2(2, m_apiVer);
     } else {
         //API 11.1までは1
         obj.version = NVENC_STRUCT_VER2(1, m_apiVer);
