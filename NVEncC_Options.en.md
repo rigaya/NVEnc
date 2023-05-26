@@ -123,6 +123,7 @@
   - [--aud \[H.264/HEVC\]](#--aud-h264hevc)
   - [--repeat-headers](#--repeat-headers)
   - [--pic-struct \[H.264/HEVC\]](#--pic-struct-h264hevc)
+  - [--split-enc \<string\>](#--split-enc-string)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
   - [--vmaf \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vmaf-param1value1param2value2)
@@ -870,6 +871,23 @@ Output VPS, SPS and PPS for every IDR frame.
 
 ### --pic-struct [H.264/HEVC]
 Insert picture timing SEI.
+
+### --split-enc &lt;string&gt;
+- **Parameters**
+  - auto  
+    Split frame forced mode disabled, split frame auto mode enabled. 
+
+  - auto_forced  
+    Split frame forced mode enabled with number of strips automatically selected by driver to best fit configuration.
+
+  - forced_2  
+    Forced 2-strip split frame encoding (if NVENC number > 1, 1-strip encode otherwise).
+
+  - forced_3  
+    Forced 3-strip split frame encoding (if NVENC number > 2, NVENC number of strips otherwise).
+
+  - disable  
+    Both split frame auto mode and forced mode are disabled.
 
 ### --ssim
 Calculate ssim of the encoded video.

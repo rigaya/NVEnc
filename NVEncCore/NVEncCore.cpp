@@ -1799,6 +1799,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.enableEncodeAsync   = ENABLE_ASYNC != 0;
     m_stCreateEncodeParams.enablePTD           = true;
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
+    m_stCreateEncodeParams.splitEncodeMode     = inputParam->splitEncMode;
 
     //bref-modeの自動設定
     if (m_dev->encoder()->checkAPIver(10, 0)) {
@@ -4877,6 +4878,10 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             strDynamicRC += _T("\n               ") + m_dynamicRC[i].print();
         }
         add_str(RGY_LOG_INFO, _T("%s\n"), strDynamicRC.c_str());
+    }
+
+    if (m_dev->encoder()->checkAPIver(12, 1)) {
+        add_str(RGY_LOG_INFO, _T("Split Enc Mode %s\n"), get_chr_from_value(list_split_enc_mode, m_stCreateEncodeParams.splitEncodeMode));
     }
     tstring strLookahead = _T("Lookahead      ");
     if (m_stEncConfig.rcParams.enableLookahead) {

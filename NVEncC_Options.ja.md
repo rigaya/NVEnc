@@ -119,6 +119,7 @@
   - [--aud \[H.264/HEVC\]](#--aud-h264hevc)
   - [--repeat-headers](#--repeat-headers)
   - [--pic-struct \[H.264/HEVC\]](#--pic-struct-h264hevc)
+  - [--split-enc \<string\>](#--split-enc-string)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
   - [--vmaf \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vmaf-param1value1param2value2)
@@ -875,6 +876,23 @@ Access Unit Delimiter NALを挿入する。
 
 ### --pic-struct [H.264/HEVC]
 picture timing SEIを挿入する。
+
+### --split-enc &lt;string&gt;
+- **パラメータ**
+  - auto  
+    フレーム分割のforced modeが無効、auto modeが有効。
+
+  - auto_forced  
+    適用するフレーム分割のforced modeをドライバが設定から自動的に判断する。
+
+  - forced_2  
+    NVENCの数に応じて、最大で2-stripのフレーム分割エンコードを行う。
+
+  - forced_3  
+    NVENCの数に応じて、最大で3-stripのフレーム分割エンコードを行う。
+
+  - disable  
+    フレーム分割のforced modeとauto modeをともに無効にする。
 
 ### --ssim
 エンコード結果のSSIMを計算。

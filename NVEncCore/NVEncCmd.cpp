@@ -279,6 +279,11 @@ tstring encoder_help() {
         _T("   --repeat-headers             output VPS,SPS and PPS for every IDR frame.\n")
         _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n"));
 
+    str += strsprintf(_T("")
+        _T("   --split-enc <string>         set cuda schedule mode (default: sync).\n")
+        _T("                                  - auto (default), auto_forced\n")
+        _T("                                  - forced_2, forced_3, disable\n"));
+
     str += _T("\n");
     str += gen_cmd_help_common();
     str += _T("\n");
@@ -308,7 +313,6 @@ tstring encoder_help() {
     str += _T("\n");
     str += gen_cmd_help_vpp();
     str += _T("\n");
-
     str += strsprintf(_T("")
         _T("   --cuda-schedule <string>     set cuda schedule mode (default: sync).\n")
         _T("       auto  : let cuda driver to decide\n")
@@ -1593,6 +1597,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("split-enc")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_split_enc_mode, strInput[i], &value)) {
+            pParams->splitEncMode = (decltype(pParams->splitEncMode))value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_split_enc_mode);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("cuda-schedule")) {
         i++;
         int value = 0;
@@ -1808,6 +1823,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);
 
+    #pragma warning(push)
+    #pragma warning(disable: 4063) //C4063: case '16' は '_NV_ENC_PARAMS_RC_MODE' の switch の値として正しくありません。
     if (save_disabled_prm) {
         switch (pParams->encConfig.rcParams.rateControlMode) {
         case NV_ENC_PARAMS_RC_CBR:
@@ -1840,6 +1857,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_QP(_T("--cqp"), encConfig.rcParams.constQP, true, true);
     } break;
     }
+    #pragma warning(pop)
+
     OPT_LST(_T("--multipass"), encConfig.rcParams.multiPass, list_nvenc_multipass_mode);
     if (pParams->encConfig.rcParams.rateControlMode != NV_ENC_PARAMS_RC_CONSTQP || save_disabled_prm) {
         OPT_NUM(_T("--vbv-bufsize"), encConfig.rcParams.vbvBufferSize / 1000);
@@ -1946,6 +1965,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_BOOL(_T("--bluray"), _T(""), bluray);
         OPT_BOOL_H264(_T("--no-deblock"), _T("--deblock"), _T(""), disableDeblockingFilterIDC);
     }
+
+    OPT_LST(_T("--split-enc"), splitEncMode, list_split_enc_mode);
 
     cmd << gen_cmd(&pParams->common, &encPrmDefault.common, save_disabled_prm);
 

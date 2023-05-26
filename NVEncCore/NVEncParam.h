@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
@@ -507,6 +507,15 @@ const CX_DESC list_part_size_av1[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_split_enc_mode[] = {
+    { _T("auto"),        NV_ENC_SPLIT_AUTO_MODE },
+    { _T("auto_forced"), NV_ENC_SPLIT_AUTO_FORCED_MODE },
+    { _T("forced_2"),    NV_ENC_SPLIT_TWO_FORCED_MODE },
+    { _T("forced_3"),    NV_ENC_SPLIT_THREE_FORCED_MODE },
+    { _T("disable"),     NV_ENC_SPLIT_DISABLE_MODE },
+    {},
+};
+
 static const int DYNAMIC_PARAM_NOT_SELECTED = -1;
 
 struct DynamicRCParam {
@@ -801,6 +810,7 @@ struct InEncodeVideoParam {
     int nWeightP;
     int chromaQPOffset;
     int brefMode;
+    NV_ENC_SPLIT_ENCODE_MODE splitEncMode;
 
     RGYParamCommon common;
     RGYParamInput inprm;
