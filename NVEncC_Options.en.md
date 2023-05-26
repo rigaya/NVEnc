@@ -1169,7 +1169,7 @@ You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select a
 - Examples
   ```
   Example 1: --audio-filter volume=0.2  (lowering the volume)
-  Example 2: --audio-filter 2?volume=-4db (lowering the volume of the 2nd track)
+  Example 2: --audio-filter 2?volume=-4dB (lowering the volume of the 2nd track)
   ```
 
 ### --audio-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...

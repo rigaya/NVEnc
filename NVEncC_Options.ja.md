@@ -1170,7 +1170,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 - 使用例
   ```
   例1: --audio-filter volume=0.2     (音量を下げる例)
-  例2: --audio-filter 2?volume=-4db  (第2トラックの音量を下げる例)
+  例2: --audio-filter 2?volume=-4dB  (第2トラックの音量を下げる例)
   ```
 
 ### --audio-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
