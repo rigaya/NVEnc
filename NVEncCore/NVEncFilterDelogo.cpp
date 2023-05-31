@@ -31,6 +31,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <random>
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
@@ -414,6 +415,13 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         const int frameWidth  = pDelogoParam->frameIn.width;
         const int frameHeight = pDelogoParam->frameIn.height;
 
+        const int alignWidthMinusOne = ((pDelogoParam->delogo.mode == DELOGO_MODE_ADD_MULTI) ? 4 : 64) - 1;
+        auto logo_multi = get_logo_multi_data(logoData.header.w, logoData.header.h, frameWidth, frameHeight);
+        if (pDelogoParam->delogo.mode == DELOGO_MODE_ADD_MULTI) {
+            logoData.header.x = 0;
+            logoData.header.y = 0;
+        }
+
         m_sProcessData[LOGO__Y].offset[0] = (short)pDelogoParam->delogo.Y  << 4;
         m_sProcessData[LOGO__Y].offset[1] = (short)pDelogoParam->delogo.Y  << 4;
         m_sProcessData[LOGO_UV].offset[0] = (short)pDelogoParam->delogo.Cb << 4;
@@ -433,8 +441,8 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_sProcessData[LOGO__U].depth = pDelogoParam->delogo.depth;
         m_sProcessData[LOGO__V].depth = pDelogoParam->delogo.depth;
 
-        m_sProcessData[LOGO__Y].i_start = (std::min)(logoData.header.x & ~63, frameWidth);
-        m_sProcessData[LOGO__Y].width   = (((std::min)(logoData.header.x + logoData.header.w, frameWidth) + 63) & ~63) - m_sProcessData[LOGO__Y].i_start;
+        m_sProcessData[LOGO__Y].i_start = (pDelogoParam->delogo.mode == DELOGO_MODE_ADD_MULTI) ? 0 : (std::min)(logoData.header.x & (~alignWidthMinusOne), frameWidth);
+        m_sProcessData[LOGO__Y].width   = (((std::min)(logoData.header.x + logoData.header.w, frameWidth) + alignWidthMinusOne) & (~alignWidthMinusOne)) - m_sProcessData[LOGO__Y].i_start;
         m_sProcessData[LOGO_UV].i_start = m_sProcessData[LOGO__Y].i_start;
         m_sProcessData[LOGO_UV].width   = m_sProcessData[LOGO__Y].width;
         m_sProcessData[LOGO__U].i_start = m_sProcessData[LOGO__Y].i_start >> 1;
@@ -443,7 +451,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_sProcessData[LOGO__V].width   = m_sProcessData[LOGO__U].width;
         const int yWidthOffset = logoData.header.x - m_sProcessData[LOGO__Y].i_start;
 
-        m_sProcessData[LOGO__Y].j_start = (std::min)((int)logoData.header.y, frameHeight);
+        m_sProcessData[LOGO__Y].j_start = (pDelogoParam->delogo.mode == DELOGO_MODE_ADD_MULTI) ? 0 : (std::min)((int)logoData.header.y, frameHeight);
         m_sProcessData[LOGO__Y].height  = (std::min)(logoData.header.y + logoData.header.h, frameHeight) - m_sProcessData[LOGO__Y].j_start;
         m_sProcessData[LOGO_UV].j_start = logoData.header.y >> 1;
         m_sProcessData[LOGO_UV].height  = (((logoData.header.y + logoData.header.h + 1) & ~1) - (m_sProcessData[LOGO_UV].j_start << 1)) >> 1;
@@ -500,8 +508,8 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                 //偶数列おわりなら、それをその次の奇数列に拡張する
                 int16x2_t logoCb = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset) * 2 + 0];
                 int16x2_t logoCr = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset) * 2 + 1];
-                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset + 1) * 2 + 0] = logoCb;
-                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset + 1) * 2 + 1] = logoCr;
+                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset) * 2 + 0] = logoCb;
+                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset) * 2 + 1] = logoCr;
             }
         };
         if (logoData.header.y & 1) {
@@ -563,6 +571,28 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                     getCudaMemcpyKindStr(cudaMemcpyHostToDevice),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             }
+        }
+
+        if (pDelogoParam->delogo.mode == DELOGO_MODE_ADD_MULTI) {
+            auto logo_multi_data = get_logo_multi_data(m_sProcessData[LOGO__Y].width, m_sProcessData[LOGO__Y].height, pDelogoParam->frameOut.width, pDelogoParam->frameOut.height);
+            const int block_count = logo_multi_data.block_x * logo_multi_data.block_y;
+
+            m_DepthHost.resize(block_count);
+            AddMessage(RGY_LOG_INFO, _T("logo multi block size %dx%d=%d\n"), logo_multi_data.block_x, logo_multi_data.block_y, block_count);
+
+            m_Depth.reset(new CUMemBuf(sizeof(float) * block_count));
+            m_Depth->alloc();
+            for (uint32_t i = 0; i < _countof(m_sProcessData); i++) {
+                m_sProcessData[i].pBlockDepth = m_Depth;
+            }
+
+            FILE *fp = nullptr;
+            tstring depthfile = tstring(pDelogoParam->outputFileName) + _T(".depth.dat");
+            if (_tfopen_s(&fp, depthfile.c_str(), _T("wb"))) {
+                AddMessage(RGY_LOG_INFO, _T("error opening depth file \"%s\"\n"), depthfile.c_str());
+                return RGY_ERR_FILE_OPEN;
+            }
+            m_fpDepth.reset(fp);
         }
 
         if (pDelogoParam->delogo.autoFade
@@ -805,7 +835,16 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
 
         auto logo_name = char_to_string(CP_THREAD_ACP, logoData.header.name, CODE_PAGE_SJIS);;
-        setFilterInfo(_T("delgo:") + char_to_tstring(logo_name) + pDelogoParam->print());
+        tstring delogoInfo = _T("delgo:") + char_to_tstring(logo_name) + pDelogoParam->print();
+        if (pDelogoParam->delogo.mode == DELOGO_MODE_ADD_MULTI) {
+            delogoInfo += strsprintf(_T("\n               multiadd block count %dx%d, logo size %dx%d, block size %dx%d, pad %dx%d, offset %dx%d"),
+                logo_multi.block_x, logo_multi.block_y,
+                logoData.header.w, logoData.header.h,
+                logo_multi.block_width, logo_multi.block_height,
+                LOGO_MULTI_PADDING, LOGO_MULTI_PADDING,
+                logo_multi.block_offset_x, logo_multi.block_offset_y);
+        }
+        setFilterInfo(delogoInfo);
         if (pDelogoParam->delogo.log) {
             m_logPath = pDelogoParam->inputFileName + tstring(_T(".delogo_log.csv"));
             std::unique_ptr<FILE, decltype(&fclose)> fp(_tfopen(m_logPath.c_str(), _T("w")), fclose);
@@ -813,6 +852,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             _ftprintf(fp.get(), _T(", NR, fade (adj), fade (raw)\n"));
             fp.reset();
         }
+        m_nFramesProcessed = 0;
     }
     return sts;
 }
@@ -1168,6 +1208,20 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (pDelogoParam->delogo.mode == DELOGO_MODE_ADD_MULTI) {
+        if (m_nFramesProcessed % 1000 == 0) {
+            std::random_device seed_gen;
+            std::mt19937 mt_engine(seed_gen());
+            std::uniform_real_distribution<float> generator(pDelogoParam->delogo.multiaddDepthMin, pDelogoParam->delogo.multiaddDepthMax);
+            std::generate(m_DepthHost.begin(), m_DepthHost.end(), [&]() {
+                auto rand = generator(mt_engine);
+                //return (rand > 144.0f) ? 128.0f : std::max(0.0f, rand);
+                return clamp(rand, 0.0f, 128.0f);
+            });
+            cudaMemcpy(m_Depth->ptr, m_DepthHost.data(), sizeof(m_DepthHost[0]) * m_DepthHost.size(), cudaMemcpyHostToDevice);
+        }
+        fwrite(m_DepthHost.data(), sizeof(m_DepthHost[0]), m_DepthHost.size(), m_fpDepth.get());
+    }
 
     float fade = (float)m_sProcessData[LOGO__Y].fade;
     int auto_nr = pDelogoParam->delogo.NRValue;
@@ -1230,6 +1284,7 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     if (RGY_ERR_NONE != (sts = logAutoFadeNR())) {
         return sts;
     }
+    m_nFramesProcessed++;
     return sts;
 }
 
@@ -1270,4 +1325,7 @@ void NVEncFilterDelogo::close() {
     m_logPath.clear();
     m_frameIn = 0;
     m_frameOut = 0;
+    m_Depth.reset();
+    m_fpDepth.reset();
+    m_nFramesProcessed = 0;
 }

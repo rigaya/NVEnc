@@ -157,6 +157,33 @@ __global__ void kernel_logo_add(
 }
 
 template<typename Type, int bit_depth, bool target_y>
+__global__ void kernel_delogo_add_multi(
+    uint8_t *__restrict__ pFrame, const int framePitch, const int width, const int height,
+    uint8_t *__restrict__ pLogo, const int logo_pitch, const int logo_width, const int logo_height,
+    const int logo_block_width, const int logo_block_height,
+    const int logo_block_padding_x, const int logo_block_padding_y,
+    const int block_count_x,
+    float *__restrict__ pBlockDepth, const float logo_fade) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int z = blockIdx.z;
+    int by = z / block_count_x;
+    int bx = z - block_count_x * by;
+    int logo_x = bx * logo_block_width  + logo_block_padding_x;
+    int logo_y = by * logo_block_height + logo_block_padding_y;
+    if (x < logo_width && y < logo_height && (x + logo_x) < width && (y + logo_y) < height) {
+        //ロゴ情報取り出し
+        const int16x2_t logo_data = *(int16x2_t *)(&pLogo[y * logo_pitch + x * sizeof(int16x2_t)]);
+
+        //画素データ取り出し
+        pFrame += (y + logo_y) * framePitch + (x + logo_x) * sizeof(Type);
+        Type pixel_yuv = *(Type *)pFrame;
+        Type ret = logo_add<Type, bit_depth, target_y>(pixel_yuv, logo_data, pBlockDepth[blockIdx.z] * logo_fade);
+        *(Type *)pFrame = ret;
+    }
+}
+
+template<typename Type, int bit_depth, bool target_y>
 void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const int target_yuv, const int mode, const float fade) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pDelego->width, blockSize.x), divCeil(pDelego->height, blockSize.y));
@@ -181,6 +208,40 @@ void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const in
             (target_y) ? pFrame->height : (pFrame->height>>1),
             (uint8_t *)pDelego->pDevLogo->frame.ptr, pDelego->pDevLogo->frame.pitch,
             pDelego->i_start, pDelego->j_start, pDelego->width, pDelego->height, (float)pDelego->depth * fade);
+    } else if (mode == DELOGO_MODE_ADD_MULTI) {
+        const ProcessDataDelogo *pDelogoY = &pDelego[LOGO__Y - target_yuv];
+        auto logo_multi_data = get_logo_multi_data(pDelogoY->width, pDelogoY->height, pFrame->width, pFrame->height);
+        int logo_block_padding_x = LOGO_MULTI_PADDING;
+        int logo_block_padding_y = LOGO_MULTI_PADDING;
+        switch (target_yuv) {
+        case LOGO__U:
+        case LOGO__V:
+            logo_block_padding_x >>= 1;
+            logo_block_padding_y >>= 1;
+            logo_multi_data.block_width >>= 1;
+            logo_multi_data.block_height >>= 1;
+            logo_multi_data.block_offset_x >>= 1;
+            logo_multi_data.block_offset_y >>= 1;
+            break;
+        case LOGO_UV:
+            logo_block_padding_y >>= 1;
+            logo_multi_data.block_height >>= 1;
+            logo_multi_data.block_offset_y >>= 1;
+            break;
+        case LOGO__Y:
+        default:
+            break;
+        }
+        gridSize.z = logo_multi_data.block_x * logo_multi_data.block_y;
+        kernel_delogo_add_multi<Type, bit_depth, target_y> << <gridSize, blockSize >> > (
+            dptr,
+            pFrame->pitch,
+            pFrame->width,
+            (target_y) ? pFrame->height : (pFrame->height >> 1),
+            (uint8_t *)pDelego->pDevLogo->frame.ptr, pDelego->pDevLogo->frame.pitch,
+            pDelego->width, pDelego->height, logo_multi_data.block_width, logo_multi_data.block_height,
+            logo_block_padding_x + logo_multi_data.block_offset_x, logo_block_padding_y + logo_multi_data.block_offset_y, logo_multi_data.block_x,
+            (float *)pDelego->pBlockDepth->ptr, (float)pDelego->fade);
     } else {
         kernel_delogo<Type, bit_depth, target_y><<<gridSize, blockSize>>>(
             dptr,

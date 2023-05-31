@@ -276,6 +276,7 @@ enum {
 enum {
     DELOGO_MODE_REMOVE = 0,
     DELOGO_MODE_ADD,
+    DELOGO_MODE_ADD_MULTI,
 };
 
 enum class RGYResizeResMode {

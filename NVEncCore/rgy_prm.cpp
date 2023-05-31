@@ -208,6 +208,8 @@ VppDelogo::VppDelogo() :
     autoNR(false),
     NRArea(0),
     NRValue(0),
+    multiaddDepthMin(0.0f),
+    multiaddDepthMax(128.0f),
     log(false) {
 }
 
@@ -226,6 +228,8 @@ bool VppDelogo::operator==(const VppDelogo& x) const {
         && autoNR == x.autoNR
         && NRArea == x.NRArea
         && NRValue == x.NRValue
+        && multiaddDepthMin == x.multiaddDepthMin
+        && multiaddDepthMax == x.multiaddDepthMax
         && log == x.log;
 }
 bool VppDelogo::operator!=(const VppDelogo& x) const {
@@ -237,6 +241,9 @@ tstring VppDelogo::print() const {
     switch (mode) {
     case DELOGO_MODE_ADD:
         str += _T(", add");
+        break;
+    case DELOGO_MODE_ADD_MULTI:
+        str += _T(", multi_add");
         break;
     case DELOGO_MODE_REMOVE:
     default:
@@ -265,6 +272,9 @@ tstring VppDelogo::print() const {
     }
     if (NRArea) {
         str += strsprintf(_T(", nr_area=%d"), NRArea);
+    }
+    if (mode == DELOGO_MODE_ADD_MULTI) {
+        str += strsprintf(_T(", multi_add_depth=%.1f-%.1f"), multiaddDepthMin, multiaddDepthMax);
     }
     return str;
 }

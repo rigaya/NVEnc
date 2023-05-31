@@ -65,6 +65,7 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (                 ENCODER_NVENC)
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
 
@@ -782,6 +783,8 @@ struct VppDelogo {
     bool autoNR;
     int NRArea;
     int NRValue;
+    float multiaddDepthMin;
+    float multiaddDepthMax;
     bool log;
 
     VppDelogo();

@@ -47,6 +47,40 @@
 #define LOGO_FADE_AD_MAX	(10)
 #define LOGO_FADE_AD_DEF	(7)
 
+static const int LOGO_MULTI_ALIGN = 16;
+static const int LOGO_MULTI_PADDING = 16;
+
+struct LOGO_MULTI_DATA {
+    int block_width;
+    int block_height;
+    int block_x;
+    int block_y;
+    int block_offset_x;
+    int block_offset_y;
+};
+
+static int logo_multi_align(int n) {
+    return (n + (LOGO_MULTI_ALIGN - 1)) & (~(LOGO_MULTI_ALIGN - 1));
+}
+
+static LOGO_MULTI_DATA get_logo_multi_data(int logo_width, int logo_height, int width, int height) {
+    LOGO_MULTI_DATA data;
+    data.block_width = logo_multi_align(logo_width + LOGO_MULTI_PADDING * 2);
+    data.block_height = logo_multi_align(logo_height + LOGO_MULTI_PADDING * 2);
+    if (data.block_width > data.block_height) {
+        data.block_offset_x = 0;
+        data.block_offset_y = (data.block_width - data.block_height) / 2;
+        data.block_height = data.block_width;
+    } else {
+        data.block_offset_x = (data.block_height - data.block_width) / 2;
+        data.block_offset_y = 0;
+        data.block_width = data.block_height;
+    }
+    data.block_x = width / data.block_width;
+    data.block_y = height / data.block_height;
+    return data;
+}
+
 struct ProcessDataDelogo {
     unique_ptr<int16_t, aligned_malloc_deleter> pLogoPtr;
     unique_ptr<CUFrameBuf> pDevLogo;
@@ -57,10 +91,12 @@ struct ProcessDataDelogo {
     int    depth;
     short  offset[2];
     int    fade;
+    shared_ptr<CUMemBuf> pBlockDepth;
 
     ~ProcessDataDelogo() {
         pLogoPtr.reset();
         pDevLogo.reset();
+        pBlockDepth.reset();
     }
 };
 
@@ -178,10 +214,11 @@ public:
 class NVEncFilterParamDelogo : public NVEncFilterParam {
 public:
     const TCHAR *inputFileName; //入力ファイル名
+    const TCHAR *outputFileName; //出力ファイル名
     CUctx_flags cudaSchedule;
     VppDelogo delogo;
 
-    NVEncFilterParamDelogo() : inputFileName(nullptr), cudaSchedule(CU_CTX_SCHED_AUTO), delogo() {
+    NVEncFilterParamDelogo() : inputFileName(nullptr), outputFileName(nullptr), cudaSchedule(CU_CTX_SCHED_AUTO), delogo() {
 
     };
     virtual ~NVEncFilterParamDelogo() {};
@@ -258,4 +295,9 @@ protected:
     int m_yDepth;
     bool m_EnableAutoNR;
     tstring m_logPath;
+
+    shared_ptr<CUMemBuf> m_Depth;
+    vector<float> m_DepthHost;
+    unique_ptr<FILE, fp_deleter> m_fpDepth;
+    int m_nFramesProcessed;
 };
