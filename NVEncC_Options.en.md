@@ -215,7 +215,7 @@
   - [--output-buf \<int\>](#--output-buf-int)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--log \<string\>](#--log-string)
-  - [--log-level \<string\>](#--log-level-string)
+  - [--log-level \[\<param1\>=\]\<value\>\[,\<param2\>=\<value\>\]...](#--log-level-param1valueparam2value)
   - [--log-opt \<param1\>=\<value\>\[,\<param2\>=\<value\>\]...](#--log-opt-param1valueparam2value)
   - [--log-framelist](#--log-framelist)
   - [--log-packets](#--log-packets)
@@ -2537,14 +2537,46 @@ Using output thread increases memory usage, but sometimes improves encoding spee
 ### --log &lt;string&gt;
 Output the log to the specified file.
 
-### --log-level &lt;string&gt;
+### --log-level [&lt;param1&gt;=]&lt;value&gt;[,&lt;param2&gt;=&lt;value&gt;]...
 Select the level of log output.
 
-- error ... Display only errors
-- warn ... Show errors and warnings
-- info ... Display general encoding information (default)
-- debug ... Output additional information, mainly for debug
-- trace ... Output information for each frame (slow)
+- **level**
+  - error ... Display only errors
+  - warn ... Show errors and warnings
+  - info ... Display general encoding information (default)
+  - debug ... Output additional information, mainly for debug
+  - trace ... Output information for each frame (slow)
+
+- **Target**  
+  Target category of logs. Will be handled as ```all``` when omitted.
+  - all ... Set all targets.
+  - app ... Set all targets, except libav, libass, perfmonitor, caption2ass, amf.
+  - device ... Device initialization.
+  - core ... Application core logs, including core_progress and core_result
+  - core_progress ... Progress indicator
+  - core_result ... Encode result
+  - decoder ... decoder logs
+  - input ... File input logs
+  - output ... File output logs
+  - vpp ... logs of vpp fitlers
+  - amf ... logs ofamf library
+  - opencl ... logs ofopencl
+  - libav ... internal logs of libav library
+  - libass ... logs of ass library
+  - perfmonitor ... logs of perf monitoring
+  - caption2ass ... logs of caption2ass
+
+- Examples
+  ```
+  Example: Enable debug messages
+  --log-level debug
+  
+  Example: Show only application debug messages
+  --log-level app=debug
+  
+  Example: Show progress only
+  --log-level error,core_progress=info
+  ```
 
 ### --log-opt &lt;param1&gt;=&lt;value&gt;[,&lt;param2&gt;=&lt;value&gt;]...
 additional options for log output.

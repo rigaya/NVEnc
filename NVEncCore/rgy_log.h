@@ -65,7 +65,9 @@ enum RGYLogType {
     RGY_LOGT_ALL = -1,
     RGY_LOGT_APP,
     RGY_LOGT_CORE,
-    RGY_LOGT_HDR10PLUS = RGY_LOGT_CORE,
+    RGY_LOGT_CORE_PROGRESS,
+    RGY_LOGT_CORE_RESULT,
+    RGY_LOGT_HDR10PLUS = RGY_LOGT_CORE_RESULT,
     RGY_LOGT_DEV,
     RGY_LOGT_DEC,
     RGY_LOGT_IN,
@@ -81,25 +83,29 @@ enum RGYLogType {
 };
 
 static const std::array<std::pair<RGYLogType, const TCHAR *>, RGY_LOGT_CAPION2ASS - RGY_LOGT_ALL + 1> RGY_LOG_TYPE_STR = {
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_ALL,    _T("all")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_APP,    _T("app")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_DEV,    _T("device")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE,   _T("core")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_DEC,    _T("decoder")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_IN,     _T("input")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OUT,    _T("output")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_VPP,    _T("vpp")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_AMF,    _T("amf")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OPENCL, _T("opencl")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_LIBAV,  _T("libav")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_LIBASS, _T("libass")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_PERF_MONITOR, _T("perfmonitor")},
-    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CAPION2ASS,   _T("caption2ass")}
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_ALL,           _T("all")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_APP,           _T("app")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_DEV,           _T("device")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE,          _T("core")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_PROGRESS, _T("core_progress")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_RESULT,   _T("core_result")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_DEC,           _T("decoder")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_IN,            _T("input")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OUT,           _T("output")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_VPP,           _T("vpp")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_AMF,           _T("amf")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OPENCL,        _T("opencl")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_LIBAV,         _T("libav")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_LIBASS,        _T("libass")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_PERF_MONITOR,  _T("perfmonitor")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CAPION2ASS,    _T("caption2ass")}
 };
 
 struct RGYParamLogLevel {
 private:
     RGYLogLevel appcore_;
+    RGYLogLevel appcoreprogress_;
+    RGYLogLevel appcoreresult_;
     RGYLogLevel appdevice_;
     RGYLogLevel appdecode_;
     RGYLogLevel appinput_;
@@ -119,6 +125,8 @@ public:
     RGYLogLevel set(const RGYLogLevel newLogLevel, const RGYLogType type);
     RGYLogLevel get(const RGYLogType type) const {
         switch (type) {
+        case RGY_LOGT_CORE_PROGRESS: return appcoreprogress_;
+        case RGY_LOGT_CORE_RESULT: return appcoreresult_;
         case RGY_LOGT_DEC: return appdecode_;
         case RGY_LOGT_DEV: return appdevice_;
         case RGY_LOGT_IN: return appinput_;

@@ -110,8 +110,8 @@ public:
     EncodeStatusData GetEncodeData();
     EncodeStatusData m_sData;
 protected:
-    virtual void WriteLine(const TCHAR *mes);
-    virtual void WriteLineDirect(const TCHAR *mes);
+    virtual void WriteResultLine(const TCHAR *mes);
+    virtual void WriteResultLineDirect(const TCHAR *mes);
     void WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP);
 
     bool m_pause;

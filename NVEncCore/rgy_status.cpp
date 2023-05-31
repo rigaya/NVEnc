@@ -105,7 +105,7 @@ void EncodeStatus::SetOutputData(RGY_FRAMETYPE picType, uint64_t outputBytes, ui
 #pragma warning(push)
 #pragma warning(disable: 4100)
 void EncodeStatus::UpdateDisplay(const TCHAR *mes, double progressPercent) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_PROGRESS) > RGY_LOG_INFO) {
         return;
     }
 #if UNICODE
@@ -134,7 +134,7 @@ RGY_ERR EncodeStatus::UpdateDisplayByCurrentDuration(double currentDuration) {
     return UpdateDisplay(progressPercent);
 }
 RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_PROGRESS) > RGY_LOG_INFO) {
         return RGY_ERR_NONE;
     }
     if (m_sData.frameOut + m_sData.frameDrop <= 0) {
@@ -344,7 +344,7 @@ void EncodeStatus::WriteResults() {
     TCHAR mes[512] = { 0 };
     for (int i = 0; i < std::max(consoleWidth-1, 79); i++)
         mes[i] = ' ';
-    WriteLine(mes);
+    WriteResultLine(mes);
 
     m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / (double)time_elapsed64;
     m_sData.bitrateKbps = (m_sData.frameOut + m_sData.frameDrop == 0) ? 0 : (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
@@ -356,7 +356,7 @@ void EncodeStatus::WriteResults() {
         m_sData.bitrateKbps,
         (double)m_sData.outFileSize / (double)(1024 * 1024)
     );
-    WriteLine(mes);
+    WriteResultLine(mes);
 
     int hh = (int)(time_elapsed64 / (60*60*1000));
     int time_elapsed = (int)(time_elapsed64 - (hh * (60*60*1000)));
@@ -389,10 +389,10 @@ void EncodeStatus::WriteResults() {
         }
 #endif //#if ENABLE_NVML
         tmes += _T("\n");
-        WriteLineDirect(tmes.c_str());
+        WriteResultLineDirect(tmes.c_str());
     } else {
         _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.1f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent);
-        WriteLineDirect(mes);
+        WriteResultLineDirect(mes);
     }
 
     uint32_t maxCount = (std::max)(m_sData.frameOutI, (std::max)(m_sData.frameOutP, m_sData.frameOutB));
@@ -423,17 +423,17 @@ EncodeStatusData EncodeStatus::GetEncodeData() {
     return m_sData;
 }
 
-void EncodeStatus::WriteLine(const TCHAR *mes) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
+void EncodeStatus::WriteResultLine(const TCHAR *mes) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_RESULT) > RGY_LOG_INFO) {
         return;
     }
-    m_pRGYLog->write(RGY_LOG_INFO, RGY_LOGT_CORE, _T("%s\n"), mes);
+    m_pRGYLog->write(RGY_LOG_INFO, RGY_LOGT_CORE_RESULT, _T("%s\n"), mes);
 }
-void EncodeStatus::WriteLineDirect(const TCHAR *mes) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
+void EncodeStatus::WriteResultLineDirect(const TCHAR *mes) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_RESULT) > RGY_LOG_INFO) {
         return;
     }
-    m_pRGYLog->write_log(RGY_LOG_INFO, RGY_LOGT_CORE, mes);
+    m_pRGYLog->write_log(RGY_LOG_INFO, RGY_LOGT_CORE_RESULT, mes);
 }
 void EncodeStatus::WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
     if (count) {
@@ -464,7 +464,7 @@ void EncodeStatus::WriteFrameTypeResult(const TCHAR *header, uint32_t count, uin
             mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%.2f MB"), (double)frameSize / (double)(1024 * 1024));
         }
 
-        WriteLine(mes);
+        WriteResultLine(mes);
     }
 }
 

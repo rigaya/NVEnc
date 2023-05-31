@@ -211,7 +211,7 @@
   - [--output-buf \<int\>](#--output-buf-int)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--log \<string\>](#--log-string)
-  - [--log-level \<string\>](#--log-level-string)
+  - [--log-level \[\<param1\>=\]\<value\>\[,\<param2\>=\<value\>\]...](#--log-level-param1valueparam2value)
   - [--log-opt \<param1\>=\<value\>\[,\<param2\>=\<value\>\]...](#--log-opt-param1valueparam2value)
   - [--log-framelist](#--log-framelist)
   - [--log-packets](#--log-packets)
@@ -2604,13 +2604,46 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 ### --log &lt;string&gt;
 ログを指定したファイルに出力する。
 
-### --log-level &lt;string&gt;
-ログ出力の段階を選択する。不具合などあった場合には、--log-level debug --log log.txtのようにしてデバッグ用情報を出力したものをコメントなどで教えていただけると、不具合の原因が明確になる場合があります。
-- error ... エラーのみ表示
-- warn ... エラーと警告を表示
-- info ... 一般的なエンコード情報を表示、デフォルト
-- debug ... デバッグ情報を追加で出力
-- trace ... フレームごとに情報を出力
+### --log-level [&lt;param1&gt;=]&lt;value&gt;[,&lt;param2&gt;=&lt;value&gt;]...
+ログ出力の段階を選択する。不具合などあった場合には、```--log-level debug --log log.txt```のようにしてデバッグ用情報を出力したものをコメントなどで教えていただけると、不具合の原因が明確になる場合があります。
+
+- **レベル**
+  - error ... エラーのみ表示
+  - warn ... エラーと警告を表示
+  - info ... 一般的なエンコード情報を表示、デフォルト
+  - debug ... デバッグ情報を追加で出力
+  - trace ... フレームごとに情報を出力
+
+- **対象**  
+  ログ出力レベルの設定対象の指定。省略した場合は、```all```として扱う。
+  - all ... すべて
+  - app ... libav, libass, perfmonitor, caption2ass, amf を除いたすべて
+  - device ... デバイス初期化関連
+  - core ... アプリケーションのコア部分 (core_progress, core_result含む)
+  - core_progress ... 進捗表示
+  - core_result ... 結果表示
+  - decoder ... デコーダ関連
+  - input ... ファイル読み込み関連
+  - output ... ファイル書き出し関連
+  - vpp ... vppフィルタ関連
+  - amf ... amfライブラリ関連
+  - opencl ... opencl関連
+  - libav ... libavライブラリ内部のログ出力
+  - libass ... assライブラリ関連
+  - perfmonitor ... パフォーマンスモニタ関連
+  - caption2ass ... caption2ass関連
+
+- 使用例
+  ```
+  例: デバッグ出力
+  --log-level debug
+  
+  例: 周辺ライブラリを除いたログ出力をデバッグ出力に
+  --log-level app=debug
+  
+  例: 進捗表示のみ
+  --log-level error,core_progress=info
+  ```
 
 ### --log-opt &lt;param1&gt;=&lt;value&gt;[,&lt;param2&gt;=&lt;value&gt;]...
 ログ関係の追加オプションの指定。
