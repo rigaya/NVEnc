@@ -2461,11 +2461,15 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
     int ret_read_frame = 0;
 
     auto pkt = m_poolPkt->getFree();
-    for (; (ret_read_frame = av_read_frame(m_Demux.format.formatCtx, pkt.get())) >= 0
+    for (; ((ret_read_frame = av_read_frame(m_Demux.format.formatCtx, pkt.get())) >= 0 || (ret_read_frame == AVERROR(EAGAIN))) // camera等で、av_read_frameがAVERROR(EAGAIN)を返す場合がある
         //trimからわかるフレーム数の上限値よりfixedNumがある程度の量の処理を進めたら読み込みを打ち切る
         && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx()
         && checkTimeSeekTo(pkt->pts, m_Demux.format.formatCtx->streams[pkt->stream_index]->time_base, 10.0f);
         pkt = m_poolPkt->getFree()) {
+        if (ret_read_frame == AVERROR(EAGAIN)) { // camera等で、av_read_frameがAVERROR(EAGAIN)を返す場合がある
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
         if (m_fpPacketList) {
             fprintf(m_fpPacketList.get(), "stream %2d, %12s, pts, %s\n",
                 pkt->stream_index, avcodec_get_name(m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id),
