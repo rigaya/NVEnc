@@ -602,7 +602,7 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
 
     //可能ならfaw2aacを使用
     if (sys_dat->exstg->is_faw(aud_stg)) {
-        if ((ret == audio_faw2aac(conf, oip, pe, sys_dat)) == AUO_RESULT_SUCCESS) {
+        if ((ret = audio_faw2aac(conf, oip, pe, sys_dat)) == AUO_RESULT_SUCCESS) {
             return run_bat_file(conf, oip, pe, sys_dat, RUN_BAT_AFTER_AUDIO);
         } else if (ret == AUO_RESULT_ERROR) {
             return ret;

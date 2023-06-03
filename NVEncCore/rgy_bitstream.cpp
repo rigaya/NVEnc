@@ -28,6 +28,7 @@
 #include <regex>
 #include "rgy_util.h"
 #include "rgy_bitstream.h"
+#include "rgy_memmem.h"
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     std::vector<uint8_t> data;
@@ -479,7 +480,7 @@ int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes) {
     for (;;) {
         auto dataptr = m_buffer.data() + m_dataoffset;
         const auto pos = m_find_header(dataptr, m_datasize);
-        if (pos >= 0) {
+        if (pos != RGY_MEMMEM_NOT_FOUND) {
             const auto next_header = dataptr + pos;
             next_size = next_header - dataptr;
             break;
@@ -539,16 +540,6 @@ int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id) {
     return 0;
 }
 
-static inline int64_t memmem_c(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
-    const uint8_t *data = (const uint8_t *)data_;
-    for (int64_t i = 0; i <= data_size - target_size; i++) {
-        if (memcmp(data + i, target_, target_size) == 0) {
-            return i;
-        }
-    }
-    return -1;
-}
-
 const DOVIProfile *getDOVIProfile(const int id) {
     static const std::array<DOVIProfile, 4> DOVI_PROFILES = {
         DOVIProfile{ 50, true, true, true, VideoVUIInfo(1, RGY_PRIM_UNSPECIFIED, RGY_MATRIX_UNSPECIFIED, RGY_TRANSFER_UNSPECIFIED, 5, RGY_COLORRANGE_FULL,    RGY_CHROMALOC_UNSPECIFIED) },
@@ -571,8 +562,8 @@ std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size) {
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            const int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
-            if (next < 0) break;
+            const auto next = rgy_memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            if (next == RGY_MEMMEM_NOT_FOUND) break;
 
             i += next;
             if (nal_start.ptr) {
@@ -601,8 +592,8 @@ std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            const int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
-            if (next < 0) break;
+            const auto next = rgy_memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            if (next == RGY_MEMMEM_NOT_FOUND) break;
 
             i += next;
             if (nal_start.ptr) {
@@ -624,8 +615,8 @@ std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
     return nal_list;
 }
 
-int64_t find_header_c(const uint8_t *data, size_t size) {
-    return memmem_c(data, size, DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header));
+size_t find_header_c(const uint8_t *data, size_t size) {
+    return rgy_memmem_c(data, size, DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header));
 }
 
 #include "rgy_simd.h"

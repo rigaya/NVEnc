@@ -38,6 +38,7 @@
 #include <future>
 
 #include "output.h"
+#include "rgy_faw.h"
 #include "auo.h"
 #include "auo_version.h"
 #include "auo_util.h"
@@ -300,14 +301,166 @@ typedef struct {
 } faw2aac_named_pipeset_t;
 
 typedef struct {
-    OUTPUT_INFO oip;
-    std::future<int> th_faw2aac;
-    std::future<int> th_transfer;
-    bool th_transfer_started;
-    faw2aac_named_pipeset_t from_auo;
-    faw2aac_named_pipeset_t to_exe;
+    int id;
     char audfile[MAX_PATH_LEN];
+    BOOL is_internal;
+    HANDLE h_aud_namedpipe;
+    HANDLE he_ov_aud_namedpipe;
+    FILE *fp_out;
 } faw2aac_data_t;
+
+static size_t write_file(faw2aac_data_t *aud_dat, const PRM_ENC *pe, const void *buf, size_t size) {
+    if (aud_dat->is_internal) {
+        OVERLAPPED overlapped;
+        memset(&overlapped, 0, sizeof(overlapped));
+        overlapped.hEvent = aud_dat->he_ov_aud_namedpipe;
+        DWORD sizeWritten = 0;
+        //非同期処理中は0を返すことがある
+        WriteFile(aud_dat->h_aud_namedpipe, buf, size, &sizeWritten, &overlapped);
+        while (WaitForSingleObject(aud_dat->he_ov_aud_namedpipe, 1000) != WAIT_OBJECT_0) {
+            if (pe->aud_parallel.abort) {
+                return 0;
+            }
+        }
+        return sizeWritten;
+    } else {
+        return _fwrite_nolock(buf, 1, size, aud_dat->fp_out);
+    }
+}
+
+AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
+    AUO_RESULT ret = AUO_RESULT_SUCCESS;
+
+    set_window_title(L"faw2aac", PROGRESSBAR_CONTINUOUS);
+    write_log_auo_line_fmt(LOG_INFO, L"faw2aac %s", g_auo_mes.get(AUO_AUDIO_START_ENCODE));
+    const int bufsize = sys_dat->exstg->s_local.audio_buffer_size;
+
+    faw2aac_data_t aud_dat[2] = { 0 };
+    //パイプ or ファイルオープン
+    for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+        aud_dat[i_aud].id = i_aud;
+        aud_dat[i_aud].is_internal = conf->aud.use_internal;
+        aud_dat[i_aud].fp_out = nullptr;
+        if (conf->aud.use_internal) {
+            char pipename[MAX_PATH_LEN];
+            get_audio_pipe_name(pipename, _countof(pipename), i_aud);
+            aud_dat[i_aud].h_aud_namedpipe = CreateNamedPipeA(pipename, PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, NULL);
+            aud_dat[i_aud].he_ov_aud_namedpipe = CreateEvent(NULL, FALSE, FALSE, NULL);
+        }
+    }
+
+
+    //確実なfcloseのために何故か一度ここで待機する必要あり
+    if_valid_set_event(pe->aud_parallel.he_vid_start);
+    if_valid_wait_for_single_object(pe->aud_parallel.he_aud_start, INFINITE);
+
+    //パイプ or ファイルオープン
+    if (conf->aud.use_internal) {
+        for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+            OVERLAPPED overlapped;
+            memset(&overlapped, 0, sizeof(overlapped));
+            overlapped.hEvent = aud_dat[i_aud].he_ov_aud_namedpipe;
+            ConnectNamedPipe(aud_dat[i_aud].h_aud_namedpipe, &overlapped);
+            while (WaitForSingleObject(overlapped.hEvent, 50) != WAIT_OBJECT_0) {
+                if (pe->aud_parallel.abort) {
+                    ret |= AUO_RESULT_ABORT;
+                    break;
+                }
+            }
+        }
+    } else {
+        for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+            const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
+            const AUDIO_SETTINGS *aud_stg = (conf->aud.use_internal) ? &sys_dat->exstg->s_aud_int[cnf_aud->encoder] : &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];
+            strcpy_s(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), aud_stg->aud_appendix); //pe一時パラメータにコピーしておく
+            if (i_aud)
+                insert_before_ext(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), i_aud);
+            get_aud_filename(aud_dat[i_aud].audfile, _countof(aud_dat[i_aud].audfile), pe, i_aud);
+            if (fopen_s(&aud_dat[i_aud].fp_out, aud_dat[i_aud].audfile, "wbS")) {
+                ret |= AUO_RESULT_ABORT;
+                break;
+            }
+        }
+    }
+
+    if (!ret) {
+        const int elemsize = sizeof(short);
+        const int wav_sample_size = oip->audio_ch * elemsize;
+
+        RGYWAVHeader wavheader = { 0 };
+        wavheader.file_size = 0;
+        wavheader.subchunk_size = 16;
+        wavheader.audio_format = 1;
+        wavheader.number_of_channels = oip->audio_ch;
+        wavheader.sample_rate = oip->audio_rate;
+        wavheader.byte_rate = oip->audio_rate * oip->audio_ch * elemsize;
+        wavheader.block_align = wav_sample_size;
+        wavheader.bits_per_sample = elemsize * 8;
+        wavheader.data_size = oip->audio_n * wavheader.number_of_channels * elemsize;
+
+        RGYFAWDecoder fawdec;
+        fawdec.init(&wavheader);
+
+        RGYFAWDecoderOutput output;
+        int samples_read = 0;
+        int samples_get = bufsize;
+
+        //wav出力ループ
+        while (oip->audio_n - samples_read > 0 && samples_get) {
+            //中断
+            if ((pe->aud_parallel.he_aud_start) ? pe->aud_parallel.abort : oip->func_is_abort()) {
+                ret |= AUO_RESULT_ABORT;
+                break;
+            }
+            uint8_t *audio_dat = (uint8_t *)get_audio_data(oip, pe, samples_read, std::min(oip->audio_n - samples_read, bufsize), &samples_get);
+            samples_read += samples_get;
+            set_log_progress(samples_read / (double)oip->audio_n);
+
+            fawdec.decode(output, audio_dat, samples_get * wav_sample_size);
+            for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+                if (output[i_aud].size() > 0) {
+                    write_file(&aud_dat[i_aud], pe, output[i_aud].data(), output[i_aud].size());
+                }
+            }
+        }
+
+        fawdec.fin(output);
+        for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+            if (output[i_aud].size() > 0) {
+                write_file(&aud_dat[i_aud], pe, output[i_aud].data(), output[i_aud].size());
+            }
+        }
+
+        //動画との音声との同時処理が終了
+        release_audio_parallel_events(pe);
+
+        //ファイルクローズ
+        for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+            if (aud_dat[i_aud].fp_out) {
+                fclose(aud_dat[i_aud].fp_out);
+                aud_dat[i_aud].fp_out = nullptr;
+            }
+        }
+    } else {
+        //これをやっておかないとプラグインがフリーズしてしまう
+        //動画との音声との同時処理が終了
+        release_audio_parallel_events(pe);
+    }
+
+    for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+        if (aud_dat[i_aud].he_ov_aud_namedpipe) {
+            CloseHandle(aud_dat[i_aud].he_ov_aud_namedpipe);
+        }
+        if (aud_dat[i_aud].h_aud_namedpipe) {
+            DisconnectNamedPipe(aud_dat[i_aud].h_aud_namedpipe);
+            CloseHandle(aud_dat[i_aud].h_aud_namedpipe);
+        }
+    }
+
+    set_window_title(g_auo_mes.get(AUO_GUIEX_FULL_NAME), PROGRESSBAR_DISABLED);
+    return ret;
+}
+#if 0
 
 AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
@@ -517,3 +670,4 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
 
     return ret;
 }
+#endif

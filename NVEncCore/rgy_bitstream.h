@@ -161,9 +161,9 @@ std::vector<nal_info> parse_nal_unit_hevc_avx512bw(const uint8_t *data, size_t s
 decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func();
 decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func();
 
-int64_t find_header_c(const uint8_t *data, size_t size);
-int64_t find_header_avx2(const uint8_t *data, size_t size);
-int64_t find_header_avx512bw(const uint8_t *data, size_t size);
+size_t find_header_c(const uint8_t *data, size_t size);
+size_t find_header_avx2(const uint8_t *data, size_t size);
+size_t find_header_avx512bw(const uint8_t *data, size_t size);
 
 decltype(find_header_c)* get_find_header_func();
 
