@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 //
@@ -1894,6 +1894,8 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
     }
     //VUI関係の設定
+    set_bitstreamRestrictionFlag(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 1);
+
     set_overscanInfoPresentFlag(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 0);
     set_overscanInfo(           m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 0);
 

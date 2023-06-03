@@ -977,6 +977,7 @@ NV_CODEC_PARAM_H264_HEVC_VUI(overscanInfoPresentFlag, 0);
 NV_CODEC_PARAM_H264_HEVC_VUI(overscanInfo, 0);
 NV_CODEC_PARAM_H264_HEVC_VUI(videoSignalTypePresentFlag, 0);
 NV_CODEC_PARAM_H264_HEVC_VUI(colourDescriptionPresentFlag, 0);
+NV_CODEC_PARAM_H264_HEVC_VUI(bitstreamRestrictionFlag, 0);
 NV_CODEC_PARAM_H264_HEVC_VUI(chromaSampleLocationFlag, 0);
 NV_CODEC_PARAM_H264_HEVC_VUI(chromaSampleLocationTop, 0);
 NV_CODEC_PARAM_H264_HEVC_VUI(chromaSampleLocationBot, 0);
