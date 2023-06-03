@@ -129,7 +129,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
             AddMessage(RGY_LOG_ERROR, _T("Failed to get max input width: %s.\n"), get_err_mes(err));
             return RGY_ERR_INVALID_PARAM;
         }
-        if (maxInputWidth < pParam->frameIn.width) {
+        if ((int)maxInputWidth < pParam->frameIn.width) {
             AddMessage(RGY_LOG_ERROR, _T("%s supports up to max width of %d, but input video has width of %d.\n"),
                 m_sFilterName.c_str(),
                 maxInputWidth, pParam->frameIn.width);
@@ -142,7 +142,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
             AddMessage(RGY_LOG_ERROR, _T("Failed to get max input height: %s.\n"), get_err_mes(err));
             return RGY_ERR_INVALID_PARAM;
         }
-        if (maxInputHeight < pParam->frameIn.height) {
+        if ((int)maxInputHeight < pParam->frameIn.height) {
             AddMessage(RGY_LOG_ERROR, _T("%s supports up to max height of %d, but input video has height of %d.\n"),
                 m_sFilterName.c_str(),
                 maxInputHeight, pParam->frameIn.height);
