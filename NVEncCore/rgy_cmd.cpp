@@ -4900,6 +4900,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+#if !ENCODER_MPP
     if (IS_OPTION("ssim")) {
         common->metric.ssim = true;
         return 0;
@@ -4916,6 +4917,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->metric.psnr = false;
         return 0;
     }
+#endif
 #if ENABLE_VMAF
     if (IS_OPTION("no-vmaf")) {
         common->metric.vmaf.enable = false;
@@ -6917,10 +6919,12 @@ tstring gen_cmd_help_common() {
         _T("   --allow-other-negative-pts  for debug\n")
         _T("\n");
 #endif
+#if !ENCODER_MPP
     str += _T("\n")
         _T("   --ssim                       calc ssim\n")
         _T("   --psnr                       calc psnr\n")
         _T("\n");
+#endif //#if !ENCODER_MPP
 #if ENABLE_VMAF
     str += strsprintf(_T("")
         _T("   --vmaf [<param1>=<value>][,<param2>=<value>][...]\n")
