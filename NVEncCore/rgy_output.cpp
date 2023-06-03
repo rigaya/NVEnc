@@ -165,6 +165,8 @@ RGYOutputRaw::RGYOutputRaw() :
 #if ENABLE_AVSW_READER
     m_pBsfc(),
     m_pkt(),
+    bsfcBuffer(nullptr),
+    bsfcBufferLength(0),
 #endif //#if ENABLE_AVSW_READER
     parse_nal_h264(get_parse_nal_unit_h264_func()),
     parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
@@ -179,6 +181,9 @@ RGYOutputRaw::~RGYOutputRaw() {
 #if ENABLE_AVSW_READER
     m_pBsfc.reset();
     m_pkt.reset();
+    if (bsfcBuffer) {
+        free(bsfcBuffer);
+    }
 #endif //#if ENABLE_AVSW_READER
 }
 
@@ -440,23 +445,17 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
                 const auto next_nal_new_offset = sps_nal_offset + pkt->size;
                 const auto stream_orig_length = pBitstream->size();
-                if (pBitstream->size() < new_data_size
-                    && (decltype(new_data_size))pBitstream->bufsize() < new_data_size) {
-#if ENCODER_QSV
-                    pBitstream->changeSize(new_data_size);
-#else //NVEnc, VCEの場合はこうしないとメモリリークが発生する
-                    const auto org_data_size = pBitstream->size();
-                    m_outputBuf2.resize(std::max(new_data_size, org_data_size));
-                    memcpy(m_outputBuf2.data(), pBitstream->data(), org_data_size);
-                    pBitstream->release();
-                    pBitstream->ref(m_outputBuf2.data(), org_data_size);
-#endif
-                } else if (pkt->size > (decltype(pkt->size))sps_nal->size) {
-                    pBitstream->trim();
+                if (bsfcBufferLength < new_data_size) {
+                    free(bsfcBuffer);
+                    bsfcBufferLength = new_data_size * 2;
+                    bsfcBuffer = (uint8_t *)malloc(bsfcBufferLength);
                 }
-                memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-                memcpy(pBitstream->data() + sps_nal_offset, pkt->data, pkt->size);
-                pBitstream->setSize(new_data_size);
+                if (sps_nal_offset > 0) {
+                    memcpy(bsfcBuffer, pBitstream->data(), sps_nal_offset);
+                }
+                memcpy(bsfcBuffer + sps_nal_offset, pkt->data, pkt->size);
+                memcpy(bsfcBuffer + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+                pBitstream->copy(bsfcBuffer, new_data_size);
                 av_packet_unref(pkt);
             }
         }

@@ -212,6 +212,11 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
         av_packet_unref(m_Mux.video.pktParse);
         av_packet_free(&m_Mux.video.pktParse);
     }
+    if (m_Mux.video.bsfcBuffer) {
+        free(m_Mux.video.bsfcBuffer);
+        m_Mux.video.bsfcBuffer = nullptr;
+        m_Mux.video.bsfcBufferLength = 0;
+    }
     memset(muxVideo, 0, sizeof(muxVideo[0]));
     AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
 }
@@ -669,6 +674,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.doviRpu           = prm->doviRpu;
     m_Mux.video.parse_nal_h264    = get_parse_nal_unit_h264_func();
     m_Mux.video.parse_nal_hevc    = get_parse_nal_unit_hevc_func();
+    m_Mux.video.bsfcBuffer        = nullptr;
+    m_Mux.video.bsfcBufferLength  = 0;
 
     auto retm = SetMetadata(&m_Mux.video.streamOut->metadata, (prm->videoInputStream) ? prm->videoInputStream->metadata : nullptr, prm->videoMetadata, RGY_METADATA_DEFAULT_COPY_LANG_ONLY, _T("Video"));
     if (retm != RGY_ERR_NONE) {
@@ -2150,6 +2157,7 @@ RGY_ERR RGYOutputAvcodec::applyBsfToHeader(std::vector<uint8_t>& result, const u
     result.resize(pkt->size);
     memcpy(result.data(), pkt->data, pkt->size);
     av_packet_unref(pkt);
+    av_bsf_flush(m_Mux.video.bsfc);
     return RGY_ERR_NONE;
 }
 
@@ -2566,15 +2574,20 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
             const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
             const auto next_nal_new_offset = sps_nal_offset + pkt->size;
             const auto stream_orig_length = bitstream->size();
-            if ((decltype(new_data_size))bitstream->bufsize() < new_data_size) {
-                bitstream->changeSize(new_data_size);
-            } else if (pkt->size > (decltype(pkt->size))sps_nal->size) {
-                bitstream->trim();
+            if (m_Mux.video.bsfcBufferLength < new_data_size) {
+                free(m_Mux.video.bsfcBuffer);
+                m_Mux.video.bsfcBufferLength = new_data_size * 2;
+                m_Mux.video.bsfcBuffer = (uint8_t *)malloc(m_Mux.video.bsfcBufferLength);
             }
-            memmove(bitstream->data() + next_nal_new_offset, bitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-            memcpy(bitstream->data() + sps_nal_offset, pkt->data, pkt->size);
-            bitstream->setSize(new_data_size);
+            if (sps_nal_offset > 0) {
+                memcpy(m_Mux.video.bsfcBuffer, bitstream->data(), sps_nal_offset);
+            }
+            memcpy(m_Mux.video.bsfcBuffer + sps_nal_offset, pkt->data, pkt->size);
+            memcpy(m_Mux.video.bsfcBuffer + next_nal_new_offset, bitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+            bitstream->copy(m_Mux.video.bsfcBuffer, new_data_size);
             av_packet_unref(pkt);
+
+            av_bsf_flush(m_Mux.video.bsfc);
         }
     }
 

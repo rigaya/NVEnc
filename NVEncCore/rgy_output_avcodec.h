@@ -126,7 +126,7 @@ typedef struct AVMuxFormat {
     bool                  allowOtherNegativePts; //音声・字幕の負のptsを許可するかどうか
 } AVMuxFormat;
 
-typedef struct AVMuxVideo {
+struct AVMuxVideo {
     const AVCodec        *codec;                //出力映像のCodec
     AVCodecContext       *codecCtx;             //出力映像のCodecCtx
     AVRational            outputFps;            //出力映像のフレームレート
@@ -141,6 +141,8 @@ typedef struct AVMuxVideo {
     RGYBitstream          hdrBitstream;         //追加のsei nal
     DOVIRpu              *doviRpu;              //dovi rpu 追加用
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
+    uint8_t              *bsfcBuffer;           //bitstreamfilter用のバッファ
+    size_t                bsfcBufferLength;     //bitstreamfilter用のバッファの長さ
     RGYTimestamp         *timestamp;            //timestampの情報
     AVPacket             *pktOut;               //出力用のAVPacket
     AVPacket             *pktParse;             //parser用のAVPacket
@@ -152,7 +154,7 @@ typedef struct AVMuxVideo {
     bool                  debugDirectAV1Out;    //AV1出力のデバッグ用
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
-} AVMuxVideo;
+};
 
 typedef struct AVMuxAudio {
     int                   inTrackId;            //ソースファイルの入力トラック番号
@@ -287,7 +289,7 @@ struct AVMuxThread {
 };
 #endif
 
-typedef struct AVMux {
+struct AVMux {
     AVMuxFormat         format;
     AVMuxVideo          video;
     std::deque<std::unique_ptr<unit_info>> videoAV1Merge;
@@ -299,7 +301,7 @@ typedef struct AVMux {
 #endif
     RGYPoolAVPacket    *poolPkt;
     RGYPoolAVFrame     *poolFrame;
-} AVMux;
+};
 
 struct AVOutputStreamPrm {
     AVDemuxStream src;          //入力音声・字幕の情報
