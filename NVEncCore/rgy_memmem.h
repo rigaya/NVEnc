@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <cstring>
 #include <algorithm>
+#include <limits>
 #include "rgy_osdep.h"
 
 size_t rgy_memmem_c(const void *data_, const size_t data_size, const void *target_, const size_t target_size);

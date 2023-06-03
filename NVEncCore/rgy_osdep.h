@@ -152,6 +152,9 @@ static inline char *strcpy_s(char *dst, const char *src) {
 static inline char *strncpy_s(char *dst, size_t numberOfElements, const char *src, size_t count) {
     return strncpy(dst, src, count);
 }
+static inline char *strncpy_s(char *dst, const char *src, size_t count) {
+    return strncpy(dst, src, count);
+}
 static inline char *strcat_s(char *dst, size_t size, const char *src) {
     return strcat(dst, src);
 }

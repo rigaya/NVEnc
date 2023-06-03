@@ -26,6 +26,7 @@
 // --------------------------------------------------------------------------------------------
 
 #include <string>
+#include "rgy_osdep.h"
 #include "rgy_wav_parser.h"
 
 static inline uint32_t read_u32(const uint8_t* data) {

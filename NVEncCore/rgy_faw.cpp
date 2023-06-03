@@ -163,8 +163,8 @@ void RGYAACHeader::parse(const uint8_t *buf) {
 
 RGYFAWBitstream::RGYFAWBitstream() :
     buffer(),
-    bufferLength(0),
     bufferOffset(0),
+    bufferLength(0),
     bytePerWholeSample(0),
     inputSamples(0),
     outSamples(0),
