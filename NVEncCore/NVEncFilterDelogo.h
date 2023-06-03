@@ -47,8 +47,8 @@
 #define LOGO_FADE_AD_MAX	(10)
 #define LOGO_FADE_AD_DEF	(7)
 
-static const int LOGO_MULTI_ALIGN = 16;
-static const int LOGO_MULTI_PADDING = 16;
+static const int LOGO_MULTI_ALIGN = 32;
+static const int LOGO_MULTI_PADDING = 32;
 
 struct LOGO_MULTI_DATA {
     int block_width;
