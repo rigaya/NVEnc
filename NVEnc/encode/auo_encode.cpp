@@ -652,14 +652,14 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
                         }
                     }
                     if (!PathFileExists(aud_stg->fullpath)) {
-                        //fawの場合はfaw2aacがあればOKだが、それもなければエラー
-                        if (!(cnf_aud->encoder == exstg->get_faw_index(conf->aud.use_internal) && check_if_faw2aac_exists())) {
+                        //fawの場合はOK
+                        if (cnf_aud->encoder != exstg->get_faw_index(conf->aud.use_internal)) {
                             error_no_exe_file(aud_stg->dispname, aud_stg->fullpath);
                             check = FALSE;
                         }
                     }
                 }
-                if (str_has_char(aud_stg->filename) && (cnf_aud->encoder != exstg->get_faw_index(conf->aud.use_internal) || !check_if_faw2aac_exists())) {
+                if (str_has_char(aud_stg->filename) && (cnf_aud->encoder != exstg->get_faw_index(conf->aud.use_internal))) {
                     info_use_exe_found(aud_stg->dispname, aud_stg->fullpath);
                 }
                 if (!muxer_supports_audio_format(pe->muxer_to_be_used, aud_stg)) {
