@@ -165,9 +165,9 @@ RGYOutputRaw::RGYOutputRaw() :
 #if ENABLE_AVSW_READER
     m_pBsfc(),
     m_pkt(),
+#endif //#if ENABLE_AVSW_READER
     bsfcBuffer(nullptr),
     bsfcBufferLength(0),
-#endif //#if ENABLE_AVSW_READER
     parse_nal_h264(get_parse_nal_unit_h264_func()),
     parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
     m_strWriterName = _T("bitstream");
@@ -181,10 +181,10 @@ RGYOutputRaw::~RGYOutputRaw() {
 #if ENABLE_AVSW_READER
     m_pBsfc.reset();
     m_pkt.reset();
+#endif //#if ENABLE_AVSW_READER
     if (bsfcBuffer) {
         free(bsfcBuffer);
     }
-#endif //#if ENABLE_AVSW_READER
 }
 
 #pragma warning (push)
