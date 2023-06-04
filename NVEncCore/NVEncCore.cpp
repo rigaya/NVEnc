@@ -3517,10 +3517,10 @@ NVENCSTATUS NVEncCore::Encode() {
     const int cudaEventFlags = (m_cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : cudaEventDefault;
 
     //vpp-afsのrffが使用されているか
-    const bool vpp_afs_rff_aware = VppAfsRffAware();
+    const bool vpp_afs_rff_aware = VppAfsRffAware() && m_pFileReader->rffAware();
 
     //vpp-rffが使用されているか
-    const bool vpp_rff = VppRffEnabled();
+    const bool vpp_rff = VppRffEnabled() && m_pFileReader->rffAware();
 
     //エンコードを開始してもよいかを示すcueventの入れ物
     //FrameBufferDataEncに関連付けて使用する

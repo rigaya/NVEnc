@@ -209,6 +209,9 @@ public:
         auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
         return inputFps.inv() * rgy_rational<int>(1, 4);
     }
+    virtual bool rffAware() {
+        return false;
+    }
 
 #if ENABLE_AVSW_READER
 #pragma warning(push)

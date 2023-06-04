@@ -2811,6 +2811,10 @@ rgy_rational<int> RGYInputAvcodec::getInputTimebase() {
     return to_rgy(GetInputVideoStream()->time_base);
 }
 
+bool RGYInputAvcodec::rffAware() {
+    return ENCODER_NVENC != 0;
+}
+
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
 //必要ならqStreamPktL2に移し、不要ならパケットを開放する
 void RGYInputAvcodec::CheckAndMoveStreamPacketList() {

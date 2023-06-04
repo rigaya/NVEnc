@@ -1037,6 +1037,8 @@ public:
 
     virtual rgy_rational<int> getInputTimebase() override;
 
+    virtual bool rffAware() override;
+
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
 
