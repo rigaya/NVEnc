@@ -373,7 +373,13 @@ void guiEx_settings::set_last_out_stg(const char *stg) {
 }
 
 BOOL guiEx_settings::is_faw(const AUDIO_SETTINGS *aud_stg) const {
-    return stristr((aud_stg->is_internal) ? aud_stg->codec : aud_stg->filename, "faw") ? TRUE : FALSE;
+    if (stristr(aud_stg->codec, "faw")) {
+        return TRUE;
+    }
+    if (!aud_stg->is_internal) {
+        return wcsstr(aud_stg->dispname, L"FAW") ? TRUE : FALSE;
+    }
+    return FALSE;
 }
 
 int guiEx_settings::get_faw_index(BOOL internal) const {
