@@ -88,9 +88,6 @@ Result of --check-features, a feature list returned from the driver. May depend 
 ## Precautions for using NVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
-The output from NVEnc may not include the max_dec_frame_buffering field,
-which might cause problem in some playback environments.
-
 ## Main usable functions
 ### Common to NVEnc / NVEncC
 - Encoding using NVENC

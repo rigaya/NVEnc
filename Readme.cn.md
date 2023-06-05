@@ -53,9 +53,6 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
 ## 使用NVEnc的注意事项
 本软件是“按原样”提供的，没有任何形式的保证。
 
-NVEnc的输出可能不包括max_dec_frame_buffering字段，
-这可能会在某些回放环境中引起问题。
-
 ## Main usable functions
 ### Common to NVEnc / NVEncC
 - Encoding using NVENC
