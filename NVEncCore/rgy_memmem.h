@@ -127,7 +127,7 @@ static RGY_FORCEINLINE size_t rgy_memmem_avx2_imp(const void *data_, const size_
             const auto j = CTZ32(mask);
             if (memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
                 const auto ret = i + j;
-                return ret < data_size ? ret : -1;
+                return ret < data_size ? ret : RGY_MEMMEM_NOT_FOUND;
             }
             mask = CLEAR_LEFT_BIT(mask);
         }
