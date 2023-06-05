@@ -725,17 +725,19 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #endif
     };
 
+    const auto mfxsurf = dynamic_cast<RGYFrameMFXSurf*>(pSurface);
+    const auto crop = (mfxsurf) ? mfxsurf->crop() : initCrop();
     const uint32_t lumaWidthBytes = pSurface->width() << ((pSurface->csp() == RGY_CSP_P010) ? 1 : 0);
     if (   pSurface->csp() == RGY_CSP_YV12
         || pSurface->csp() == RGY_CSP_NV12
         || pSurface->csp() == RGY_CSP_P010) {
-        const uint32_t cropOffset = pSurface->crop().e.up * pSurface->pitch() + pSurface->crop().e.left;
+        const uint32_t cropOffset = crop.e.up * pSurface->pitch() + crop.e.left;
         if (m_sourceHWMem) {
             for (uint32_t j = 0; j < pSurface->height(); j++) {
                 uint8_t *ptrBuf = m_readBuffer.get();
-                uint8_t *ptrSrc = pSurface->ptrY() + (pSurface->crop().e.up + j) * pSurface->pitch();
+                uint8_t *ptrSrc = pSurface->ptrY() + (crop.e.up + j) * pSurface->pitch();
                 loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
-                WRITE_CHECK(fwrite(ptrBuf + pSurface->crop().e.left, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
+                WRITE_CHECK(fwrite(ptrBuf + crop.e.left, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
             }
         } else {
             for (uint32_t j = 0; j < pSurface->height(); j++) {
@@ -753,12 +755,12 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         uint32_t uvHeight = pSurface->height() >> 1;
         uint8_t *ptrBuf = m_readBuffer.get();
         for (uint32_t i = 0; i < uvHeight; i++) {
-            loadLineToBuffer(ptrBuf, pSurface->ptrU() + (pSurface->crop().e.up + i) * uvPitch, uvPitch);
-            WRITE_CHECK(fwrite(ptrBuf + (pSurface->crop().e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
+            loadLineToBuffer(ptrBuf, pSurface->ptrU() + (crop.e.up + i) * uvPitch, uvPitch);
+            WRITE_CHECK(fwrite(ptrBuf + (crop.e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
         }
         for (uint32_t i = 0; i < uvHeight; i++) {
-            loadLineToBuffer(ptrBuf, pSurface->ptrV() + (pSurface->crop().e.up + i) * uvPitch, uvPitch);
-            WRITE_CHECK(fwrite(ptrBuf + (pSurface->crop().e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
+            loadLineToBuffer(ptrBuf, pSurface->ptrV() + (crop.e.up + i) * uvPitch, uvPitch);
+            WRITE_CHECK(fwrite(ptrBuf + (crop.e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
         }
     } else if (pSurface->csp() == RGY_CSP_NV12) {
         frameSize = lumaWidthBytes * pSurface->height() * 3 / 2;
@@ -777,14 +779,14 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 
         for (uint32_t j = 0; j < uvHeight; j++) {
             uint8_t *ptrBuf = m_readBuffer.get();
-            uint8_t *ptrSrc = pSurface->ptrUV() + (pSurface->crop().e.up + j) * pSurface->pitch();
+            uint8_t *ptrSrc = pSurface->ptrUV() + (crop.e.up + j) * pSurface->pitch();
             if (m_sourceHWMem) {
                 loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
             } else {
                 ptrBuf = ptrSrc;
             }
 
-            uint8_t *ptrUV = ptrBuf + pSurface->crop().e.left;
+            uint8_t *ptrUV = ptrBuf + crop.e.left;
             uint8_t *ptrU = m_UVBuffer.get() + j * uvWidth;
             uint8_t *ptrV = ptrU + uvFrameOffset;
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
@@ -807,8 +809,8 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         frameSize = lumaWidthBytes * pSurface->height() * 3 / 2;
         uint8_t *ptrBuf = m_readBuffer.get();
         for (uint32_t i = 0; i < (uint32_t)(pSurface->height() >> 1); i++) {
-            loadLineToBuffer(ptrBuf, pSurface->ptrUV() + pSurface->crop().e.up * (pSurface->pitch() >> 1) + i * pSurface->pitch(), pSurface->pitch());
-            WRITE_CHECK(fwrite(ptrBuf + pSurface->crop().e.left, 1, (uint32_t)pSurface->width() << 1, m_fDest.get()), (uint32_t)pSurface->width() << 1);
+            loadLineToBuffer(ptrBuf, pSurface->ptrUV() + crop.e.up * (pSurface->pitch() >> 1) + i * pSurface->pitch(), pSurface->pitch());
+            WRITE_CHECK(fwrite(ptrBuf + crop.e.left, 1, (uint32_t)pSurface->width() << 1, m_fDest.get()), (uint32_t)pSurface->width() << 1);
         }
     } else if (pSurface->csp() == RGY_CSP_RGB32R
         /*|| pSurface->csp() == 100 //DXGI_FORMAT_AYUV
@@ -817,7 +819,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         uint32_t w = pSurface->width();
         uint32_t h = pSurface->height();
 
-        uint8_t *ptr = pSurface->ptrRGB() + pSurface->crop().e.left + pSurface->crop().e.up * pSurface->pitch();
+        uint8_t *ptr = pSurface->ptrRGB() + crop.e.left + crop.e.up * pSurface->pitch();
 
         for (uint32_t i = 0; i < h; i++) {
             WRITE_CHECK(fwrite(ptr + i * pSurface->pitch(), 1, 4*w, m_fDest.get()), 4*w);
