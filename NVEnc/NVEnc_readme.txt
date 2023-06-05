@@ -212,6 +212,10 @@ NVIDIA グラフィックドライバ 531.68
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2023.06.xx (7.28)
+[NVEncC]
+- tsファイルで--audio-copyを使用すると、"AAC bitstream not in ADTS format and extradata missing" というエラーが出るのを回避。
+
 2023.06.04 (7.27)
 [NVEncC]
 - ログ出力の調整機能を拡張。

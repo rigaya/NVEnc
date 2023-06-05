@@ -1431,9 +1431,10 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             // 必要に応じて再初期化されるので、ここでは仮の値でも問題はない
             av_get_sample_fmt_name(muxAudio->outCodecDecodeCtx->sample_fmt) ? muxAudio->outCodecDecodeCtx->sample_fmt : AV_SAMPLE_FMT_FLTP);
         if (sts != RGY_ERR_NONE) return sts;
-    } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && m_Mux.video.streamOut) {
+    } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && inputAudio->src.pktSample) {
         muxAudio->bsfc = InitStreamBsf(_T("aac_adtstoasc"), muxAudio->streamIn);
         if (muxAudio->bsfc == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to find bsf \"%s\"\n."), _T("aac_adtstoasc"));
             return RGY_ERR_UNKNOWN;
         }
         if (inputAudio->src.pktSample) {
@@ -1445,6 +1446,13 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                 if (ret == 0) {
                     if (muxAudio->bsfc->par_out->extradata) {
                         SetExtraData(muxAudio->streamIn->codecpar, muxAudio->bsfc->par_out->extradata, muxAudio->bsfc->par_out->extradata_size);
+                    } else {
+                        for (int i = 0; i < outpkt->side_data_elems; i++) {
+                            if (outpkt->side_data[i].type == AV_PKT_DATA_NEW_EXTRADATA) {
+                                SetExtraData(muxAudio->streamIn->codecpar, outpkt->side_data[i].data, outpkt->side_data[i].size);
+                                break;
+                            }
+                        }
                     }
                     break;
                 }
