@@ -70,6 +70,7 @@ enum class RGYFAWMode {
     Mix
 };
 
+static const int AAC_HEADER_MIN_SIZE = 7;
 static const uint32_t AAC_BLOCK_SAMPLES = 1024;
 
 struct RGYAACHeader {
@@ -78,12 +79,12 @@ struct RGYAACHeader {
     int profile;     // 00 ... main, 01 ... lc, 10 ... ssr
     int samplerate;
     bool private_bit;
-    int channel;
+    uint32_t channel;
     bool original;
     bool home;
     bool copyright;
     bool copyright_start;
-    int aac_frame_length; // AACヘッダを含む
+    uint32_t aac_frame_length; // AACヘッダを含む
     int adts_buffer_fullness;
     int no_raw_data_blocks_in_frame;
 
@@ -98,7 +99,7 @@ private:
     size_t bufferLength;
 
     int bytePerWholeSample; // channels * bits per sample
-    uint64_t inputSamples;
+    uint64_t inputLengthByte;
     uint64_t outSamples;
 
     RGYAACHeader aacHeader;
@@ -111,8 +112,9 @@ public:
     uint8_t *data() { return buffer.data() + bufferOffset; }
     const uint8_t *data() const { return buffer.data() + bufferOffset; }
     size_t size() const { return bufferLength; }
-    uint64_t inputSampleStart() const { return inputSamples - bufferLength / bytePerWholeSample; }
-    uint64_t inputSampleFin() const { return inputSamples; }
+    uint64_t inputLength() const { return inputLengthByte; }
+    uint64_t inputSampleStart() const { return (inputLengthByte - bufferLength) / bytePerWholeSample; }
+    uint64_t inputSampleFin() const { return inputLengthByte / bytePerWholeSample; }
     uint64_t outputSamples() const { return outSamples; }
     int bytePerSample() const { return bytePerWholeSample; }
 
@@ -124,8 +126,8 @@ public:
     void clear();
 
     void parseAACHeader(const uint8_t *buffer);
-    int aacChannels() const;
-    int aacFrameSize() const;
+    uint32_t aacChannels() const;
+    uint32_t aacFrameSize() const;
 };
 
 class RGYFAWDecoder {
@@ -160,6 +162,28 @@ private:
     int decodeBlock(std::vector<uint8_t>& output, RGYFAWBitstream& input);
     void addSilent(std::vector<uint8_t>& output, RGYFAWBitstream& input);
     void fin(std::vector<uint8_t>& output, RGYFAWBitstream& input);
+};
+
+class RGYFAWEncoder {
+private:
+    RGYWAVHeader wavheader;
+    RGYFAWMode fawmode;
+    int delaySamples;
+
+    int64_t inputAACPosByte;
+    int64_t outputFAWPosByte;
+    RGYFAWBitstream bufferIn;
+    RGYFAWBitstream bufferTmp;
+public:
+    RGYFAWEncoder();
+    ~RGYFAWEncoder();
+
+    int init(const RGYWAVHeader *data, const RGYFAWMode mode, const int delayMillisec);
+    int encode(std::vector<uint8_t>& output, const uint8_t *data, const size_t dataLength);
+    int fin(std::vector<uint8_t>& output);
+private:
+    int encode(std::vector<uint8_t>& output);
+    void encodeBlock(const uint8_t *data, const size_t dataLength);
 };
 
 #endif //__RGY_FAW_H__

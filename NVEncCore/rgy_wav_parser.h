@@ -29,6 +29,9 @@
 #define __RGY_WAV_PARSER_H__
 
 #include <cstdint>
+#include <vector>
+
+static const uint32_t WAVE_HEADER_SIZE = 44;
 
 struct RGYWAVHeader {
     char file_id[5]; // "RIFF"
@@ -46,6 +49,7 @@ struct RGYWAVHeader {
     uint32_t data_size; // samples * number of channels * bits per sample / 8 (Actual number of bytes)
 
     uint32_t parseHeader(const uint8_t *data);
+    std::vector<uint8_t> createHeader();
 };
 
 #endif //__RGY_WAV_PARSER_H__

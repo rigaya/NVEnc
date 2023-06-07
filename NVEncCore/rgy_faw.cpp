@@ -45,6 +45,22 @@ decltype(rgy_memmem_fawstart1_c)* get_memmem_fawstart1_func() {
     return rgy_memmem_fawstart1_c;
 }
 
+static const std::array<uint8_t, 2> AACSYNC_BYTES = { 0xff, 0xf0 };
+
+static size_t rgy_find_aacsync_c(const void *data_, const size_t data_size) {
+    const uint16_t target = *(const uint16_t *)AACSYNC_BYTES.data();
+    const size_t target_size = AACSYNC_BYTES.size();
+    const uint8_t *data = (const uint8_t *)data_;
+    if (data_size < target_size) {
+        return RGY_MEMMEM_NOT_FOUND;
+    }
+    for (size_t i = 0; i <= data_size - target_size; i++) {
+        if ((*(const uint16_t *)(data + i) & target) == target) {
+            return i;
+        }
+    }
+    return RGY_MEMMEM_NOT_FOUND;
+}
 
 //16bit音声 -> 8bit音声
 void rgy_convert_audio_16to8(uint8_t *dst, const short *src, const size_t n) {
@@ -163,10 +179,10 @@ void RGYAACHeader::parse(const uint8_t *buf) {
 
 RGYFAWBitstream::RGYFAWBitstream() :
     buffer(),
-    bufferOffset(0),
     bufferLength(0),
+    bufferOffset(0),
     bytePerWholeSample(0),
-    inputSamples(0),
+    inputLengthByte(0),
     outSamples(0),
     aacHeader() {
 
@@ -182,10 +198,10 @@ void RGYFAWBitstream::parseAACHeader(const uint8_t *buf) {
     aacHeader.parse(buf);
 }
 
-int RGYFAWBitstream::aacChannels() const {
+uint32_t RGYFAWBitstream::aacChannels() const {
     return aacHeader.channel;
 }
-int RGYFAWBitstream::aacFrameSize() const {
+uint32_t RGYFAWBitstream::aacFrameSize() const {
     return aacHeader.aac_frame_length;
 }
 
@@ -226,13 +242,13 @@ void RGYFAWBitstream::append(const uint8_t *input, const size_t inputLength) {
         memcpy(buffer.data() + bufferOffset + bufferLength, input, inputLength);
     }
     bufferLength += inputLength;
-    inputSamples += inputLength / bytePerWholeSample;
+    inputLengthByte += inputLength;
 }
 
 void RGYFAWBitstream::clear() {
     bufferLength = 0;
     bufferOffset = 0;
-    inputSamples = 0;
+    inputLengthByte = 0;
     outSamples = 0;
 }
 
@@ -482,4 +498,128 @@ void RGYFAWDecoder::fin(std::vector<uint8_t>& output, RGYFAWBitstream& input) {
         //fprintf(stderr, "Insert silence: %lld -> %lld\n", input.outputSamples(), input.outputSamples() + AAC_BLOCK_SAMPLES);
         addSilent(output, input);
     }
+}
+
+RGYFAWEncoder::RGYFAWEncoder() :
+    wavheader(),
+    fawmode(),
+    delaySamples(0),
+    inputAACPosByte(0),
+    outputFAWPosByte(0),
+    bufferIn(),
+    bufferTmp() {
+
+}
+
+RGYFAWEncoder::~RGYFAWEncoder() {
+
+}
+
+int RGYFAWEncoder::init(const RGYWAVHeader *data, const RGYFAWMode mode, const int delayMillisec) {
+    wavheader = *data;
+    fawmode = mode;
+    bufferTmp.setBytePerSample(wavheader.number_of_channels * wavheader.bits_per_sample / 8);
+    delaySamples = delayMillisec * (int)wavheader.sample_rate / 1000;
+    inputAACPosByte += delaySamples * bufferTmp.bytePerSample();
+    return 0;
+}
+
+int RGYFAWEncoder::encode(std::vector<uint8_t>& output, const uint8_t *input, const size_t inputLength) {
+    output.clear();
+    bufferTmp.clear();
+
+    if (fawmode == RGYFAWMode::Unknown) {
+        return -1;
+    }
+
+    bufferIn.append(input, inputLength);
+
+    const auto ret = rgy_find_aacsync_c(bufferIn.data(), bufferIn.size());
+    if (ret == RGY_MEMMEM_NOT_FOUND) {
+        return 0;
+    }
+    bufferIn.addOffset(ret);
+    return encode(output);
+}
+
+int RGYFAWEncoder::encode(std::vector<uint8_t>& output) {
+    if (bufferIn.size() < AAC_HEADER_MIN_SIZE) {
+        return 0;
+    }
+    bufferIn.parseAACHeader(bufferIn.data());
+    auto aacBlockSize = bufferIn.aacFrameSize();
+    if (aacBlockSize > bufferIn.size()) {
+        return 0;
+    }
+    auto ret0 = rgy_find_aacsync_c(bufferIn.data() + aacBlockSize, bufferIn.size() - aacBlockSize);
+    while (ret0 != RGY_MEMMEM_NOT_FOUND) {
+        ret0 += aacBlockSize;
+        if (inputAACPosByte < outputFAWPosByte) {
+            ; // このブロックを破棄
+        } else {
+            if (outputFAWPosByte < inputAACPosByte) {
+                const auto offsetBytes = inputAACPosByte - outputFAWPosByte;
+                const auto origSize = bufferTmp.size();
+                bufferTmp.append(nullptr, (size_t)offsetBytes);
+                memset(bufferTmp.data() + origSize, 0, (size_t)offsetBytes);
+                outputFAWPosByte = inputAACPosByte;
+            }
+            // outputWavPosSample == inputAACPosSample
+            encodeBlock(bufferIn.data(), aacBlockSize);
+        }
+        inputAACPosByte += AAC_BLOCK_SAMPLES * bufferTmp.bytePerSample();
+
+        bufferIn.addOffset(ret0);
+        if (bufferIn.size() < AAC_HEADER_MIN_SIZE) {
+            break;
+        }
+        bufferIn.parseAACHeader(bufferIn.data());
+        aacBlockSize = bufferIn.aacFrameSize();
+        if (aacBlockSize > bufferIn.size()) {
+            break;
+        }
+        ret0 = rgy_find_aacsync_c(bufferIn.data() + aacBlockSize, bufferIn.size() - aacBlockSize);
+    }
+
+    output.resize(bufferTmp.size());
+    memcpy(output.data(), bufferTmp.data(), bufferTmp.size());
+    bufferTmp.clear();
+    return 0;
+}
+
+void RGYFAWEncoder::encodeBlock(const uint8_t *data, const size_t dataLength) {
+    const uint32_t checksumCalc = faw_checksum_calc(data, dataLength);
+
+    bufferTmp.append(fawstart1.data(), fawstart1.size());
+    outputFAWPosByte += fawstart1.size();
+
+    bufferTmp.append(data, dataLength);
+    outputFAWPosByte += dataLength;
+
+    bufferTmp.append((const uint8_t *)&checksumCalc, sizeof(checksumCalc));
+    outputFAWPosByte += sizeof(checksumCalc);
+
+    bufferTmp.append(fawfin1.data(), fawfin1.size());
+    outputFAWPosByte += fawfin1.size();
+}
+
+int RGYFAWEncoder::fin(std::vector<uint8_t>& output) {
+    output.clear();
+    bufferIn.append(AACSYNC_BYTES.data(), AACSYNC_BYTES.size());
+    auto ret = encode(output);
+    if (outputFAWPosByte < inputAACPosByte) {
+        // 残りのbyteを0で調整
+        const auto offsetBytes = inputAACPosByte - outputFAWPosByte;
+        output.resize(output.size() + (size_t)offsetBytes, 0);
+    }
+    if (delaySamples < 0) {
+        // 負のdelayの場合、wavの長さを合わせるために0で埋める
+        const auto offsetBytes = -1 * delaySamples * bufferTmp.bytePerSample();
+        output.resize(output.size() + offsetBytes, 0);
+    }
+    //最終出力は4byte少ない (先頭に4byte入れたためと思われる)
+    if (output.size() > 4) {
+        output.resize(output.size() - 4);
+    }
+    return ret;
 }

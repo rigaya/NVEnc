@@ -38,7 +38,7 @@ size_t rgy_memmem_c(const void *data_, const size_t data_size, const void *targe
 size_t rgy_memmem_avx2(const void *data_, const size_t data_size, const void *target_, const size_t target_size);
 size_t rgy_memmem_avx512bw(const void *data_, const size_t data_size, const void *target_, const size_t target_size);
 
-static const auto RGY_MEMMEM_NOT_FOUND = std::numeric_limits<decltype(rgy_memmem_c(nullptr,0,nullptr,0))>::max();
+static const auto RGY_MEMMEM_NOT_FOUND = std::numeric_limits<decltype(rgy_memmem_c(nullptr, 0, nullptr, 0))>::max();
 
 decltype(rgy_memmem_c)* get_memmem_func();
 
@@ -134,7 +134,6 @@ static RGY_FORCEINLINE size_t rgy_memmem_avx2_imp(const void *data_, const size_
     }
     return RGY_MEMMEM_NOT_FOUND;
 }
-
 #endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 
 #elif defined(RGY_MEMMEM_AVX512) 
@@ -188,7 +187,7 @@ static RGY_FORCEINLINE size_t rgy_memmem_avx512_imp(const void *data_, const siz
             const __m512i r1 = _mm512_loadu_si512((const __m512i*)(data + i + target_size - 1));
             uint64_t mask = _mm512_mask_cmpeq_epi8_mask(_mm512_cmpeq_epi8_mask(r0, target_first), r1, target_last);
             while (mask != 0) {
-                const int64_t j = (int64_t)CTZ64(mask);
+                const auto j = CTZ64(mask);
                 if (memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
                     const auto ret = i + j;
                     return ret;
@@ -204,7 +203,7 @@ static RGY_FORCEINLINE size_t rgy_memmem_avx512_imp(const void *data_, const siz
         const __m512i r1 = _mm512_loadu_si512_exact(data + i + target_size - 1, data_fin);
         uint64_t mask = _mm512_mask_cmpeq_epi8_mask(_mm512_cmpeq_epi8_mask(r0, target_first), r1, target_last);
         while (mask != 0) {
-            const int64_t j = (int64_t)CTZ64(mask);
+            const auto j = CTZ64(mask);
             if (memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
                 const auto ret = i + j;
                 return ret;

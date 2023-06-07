@@ -81,3 +81,32 @@ uint32_t RGYWAVHeader::parseHeader(const uint8_t *data) {
 
     return (uint32_t)(data_ptr - data);
 }
+
+std::vector<uint8_t> RGYWAVHeader::createHeader() {
+    std::vector<uint8_t> buffer(WAVE_HEADER_SIZE);
+    auto head = buffer.data();
+
+    static const char * const RIFF_HEADER = "RIFF";
+    static const char * const WAVE_HEADER = "WAVE";
+    static const char * const FMT_CHUNK = "fmt ";
+    static const char * const DATA_CHUNK = "data";
+    const int32_t FMT_SIZE = 16;
+    const int16_t FMT_ID = 1;
+    const int   size = bits_per_sample / 8;
+
+    memcpy(head + 0, RIFF_HEADER, strlen(RIFF_HEADER));
+    *(int32_t*)(head + 4) = data_size + WAVE_HEADER_SIZE - 8;
+    memcpy(head +  8, WAVE_HEADER, strlen(WAVE_HEADER));
+    memcpy(head + 12, FMT_CHUNK, strlen(FMT_CHUNK));
+    *(int32_t*)(head + 16) = FMT_SIZE;
+    *(int16_t*)(head + 20) = FMT_ID;
+    *(int16_t*)(head + 22) = (int16_t)number_of_channels;
+    *(int32_t*)(head + 24) = sample_rate;
+    *(int32_t*)(head + 28) = sample_rate * number_of_channels * size;
+    *(int16_t*)(head + 32) = (int16_t)(size * number_of_channels);
+    *(int16_t*)(head + 34) = (int16_t)(size * 8);
+    memcpy(head + 36, DATA_CHUNK, strlen(DATA_CHUNK));
+    *(int32_t*)(head + 40) = data_size;
+    //計44byte(WAVE_HEADER_SIZE)
+    return buffer;
+}
