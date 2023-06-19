@@ -98,7 +98,7 @@ static RGY_FORCEINLINE size_t rgy_memmem_avx2_imp(const void *data_, const size_
     const uint8_t *target = (const uint8_t *)target_;
     const __m256i target_first = _mm256_set1_epi8(target[0]);
     const __m256i target_last = _mm256_set1_epi8(target[target_size - 1]);
-    const int64_t fin64 = (int64_t)data_size - (int64_t)target_size + 1 - 32; // r1の32byteロードが安全に行える限界
+    const int64_t fin64 = (int64_t)data_size - (int64_t)(target_size + 32 - 1); // r1の32byteロードが安全に行える限界
     size_t i = 0;
     if (fin64 > 0) {
         const size_t fin = (size_t)fin64;
@@ -125,7 +125,8 @@ static RGY_FORCEINLINE size_t rgy_memmem_avx2_imp(const void *data_, const size_
         uint32_t mask = _mm256_movemask_epi8(_mm256_and_si256(_mm256_cmpeq_epi8(r0, target_first), _mm256_cmpeq_epi8(r1, target_last)));
         while (mask != 0) {
             const auto j = CTZ32(mask);
-            if (memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
+            if ((i + j + target_size - 1 < data_size)
+                && memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
                 const auto ret = i + j;
                 return ret < data_size ? ret : RGY_MEMMEM_NOT_FOUND;
             }
@@ -177,7 +178,7 @@ static RGY_FORCEINLINE size_t rgy_memmem_avx512_imp(const void *data_, const siz
     const uint8_t *target = (const uint8_t *)target_;
     const __m512i target_first = _mm512_set1_epi8(target[0]);
     const __m512i target_last = _mm512_set1_epi8(target[target_size - 1]);
-    const int64_t fin64 = (int64_t)data_size - (int64_t)target_size + 1 - 64; // r1の64byteロードが安全に行える限界
+    const int64_t fin64 = (int64_t)data_size - (int64_t)(target_size + 64 - 1); // r1の64byteロードが安全に行える限界
     size_t i = 0;
     if (fin64 > 0) {
         const size_t fin = (size_t)fin64;
@@ -204,7 +205,8 @@ static RGY_FORCEINLINE size_t rgy_memmem_avx512_imp(const void *data_, const siz
         uint64_t mask = _mm512_mask_cmpeq_epi8_mask(_mm512_cmpeq_epi8_mask(r0, target_first), r1, target_last);
         while (mask != 0) {
             const auto j = CTZ64(mask);
-            if (memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
+            if ((i + j + target_size - 1 < data_size)
+                && memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
                 const auto ret = i + j;
                 return ret;
             }

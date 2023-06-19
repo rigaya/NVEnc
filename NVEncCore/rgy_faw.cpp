@@ -206,7 +206,11 @@ uint32_t RGYFAWBitstream::aacFrameSize() const {
 }
 
 void RGYFAWBitstream::addOffset(size_t offset) {
-    bufferLength -= offset;
+    if (bufferLength < offset) {
+        bufferLength = 0;
+    } else {
+        bufferLength -= offset;
+    }
     if (bufferLength == 0) {
         bufferOffset = 0;
     } else {
