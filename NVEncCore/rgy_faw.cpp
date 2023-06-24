@@ -120,8 +120,14 @@ void faw_read(uint8_t *dst, const uint8_t *src, const size_t outlen) {
 static uint32_t faw_checksum_calc(const uint8_t *buf, const size_t len) {
     uint32_t _v4288 = 0;
     uint32_t _v48 = 0;
-    for (size_t i = 0; i < len; i += 2) {
+    const size_t fin_mod2 = (len & (~1));
+    for (size_t i = 0; i < fin_mod2; i += 2) {
         uint32_t _v132 = *(uint16_t *)(buf + i);
+        _v4288 += _v132;
+        _v48 ^= _v132;
+    }
+    if ((len & 1) != 0) {
+        uint32_t _v132 = *(uint8_t *)(buf + len - 1);
         _v4288 += _v132;
         _v48 ^= _v132;
     }
