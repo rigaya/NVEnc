@@ -511,8 +511,8 @@ COLORSPACE_FUNC float3 lut3d_interp_tetrahedral(float3 in, const LUTVEC *__restr
             xB = x0; yB = y1; zB = z1;
         } else {
             scale0 = scaley;
-            scale1 = scalez;
-            scale2 = scalex;
+            scale1 = scalex;
+            scale2 = scalez;
             xA = x0; yA = y1; zA = z0;
             xB = x1; yB = y1; zB = z0;
         }
