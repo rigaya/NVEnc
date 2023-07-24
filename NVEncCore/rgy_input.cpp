@@ -517,7 +517,8 @@ RGY_ERR initReaders(
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVISYNTH_READER
     case RGY_INPUT_FMT_AVS:
-        inputPrmAvs.readAudio = common->nAudioSelectCount > 0;
+        inputPrmAvs.nAudioSelectCount = common->nAudioSelectCount;
+        inputPrmAvs.ppAudioSelect = common->ppAudioSelectList;
         inputPrmAvs.avsdll = ctrl->avsdll;
         pInputPrm = &inputPrmAvs;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avs reader selected.\n"));

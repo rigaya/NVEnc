@@ -45,7 +45,8 @@ struct avs_dll_t;
 
 class RGYInputAvsPrm : public RGYInputPrm {
 public:
-    bool readAudio;
+    int            nAudioSelectCount;       //muxする音声のトラック数
+    AudioSelect **ppAudioSelect;            //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     tstring avsdll;
     RGYInputAvsPrm(RGYInputPrm base);
 
@@ -82,7 +83,7 @@ protected:
     std::unique_ptr<avs_dll_t> m_sAvisynth;
 
 #if ENABLE_AVSW_READER
-    RGY_ERR InitAudio();
+    RGY_ERR InitAudio(const RGYInputAvsPrm *input_prm);
 
     vector<AVDemuxStream> m_audio;
     unique_ptr<AVFormatContext, decltype(&avformat_free_context)> m_format;
