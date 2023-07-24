@@ -290,6 +290,7 @@ static RGY_ERR warpsharp_warp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     }
     cudaerr = cudaDestroyTextureObject(texSrc);
     if (cudaerr != cudaSuccess) {
+        return err_to_rgy(cudaerr);
     }
     return RGY_ERR_NONE;
 }
