@@ -54,16 +54,23 @@ RGY_ERR NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
-    if (   pPadParam->pad.left   % 2 != 0
-        || pPadParam->pad.top    % 2 != 0
-        || pPadParam->pad.right  % 2 != 0
-        || pPadParam->pad.bottom % 2 != 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
+    if (RGY_CSP_CHROMA_FORMAT[pPadParam->frameIn.csp] == RGY_CHROMAFMT_YUV420
+        && (pPadParam->pad.left   % 2 != 0
+         || pPadParam->pad.top    % 2 != 0
+         || pPadParam->pad.right  % 2 != 0
+         || pPadParam->pad.bottom % 2 != 0)) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter, --vpp-pad only supports values which is multiple of 2 in YUV420.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (pParam->frameOut.width != pParam->frameIn.width + pPadParam->pad.right + pPadParam->pad.left
         || pParam->frameOut.height != pParam->frameIn.height + pPadParam->pad.top + pPadParam->pad.bottom) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (RGY_CSP_CHROMA_FORMAT[pPadParam->encoderCsp] == RGY_CHROMAFMT_YUV420
+        && (pParam->frameOut.width  % 2 != 0
+         || pParam->frameOut.height % 2 != 0)) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter, output resolution must be multiple of 2.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
 

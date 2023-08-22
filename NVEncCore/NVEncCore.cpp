@@ -2881,6 +2881,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut = inputFrame;
             param->frameOut.width = m_uEncWidth;
             param->frameOut.height = m_uEncHeight;
+            param->encoderCsp = GetEncoderCSP(inputParam);
             param->frameOut.pitch = 0;
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;

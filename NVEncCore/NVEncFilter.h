@@ -276,7 +276,8 @@ protected:
 class NVEncFilterParamPad : public NVEncFilterParam {
 public:
     VppPad pad;
-    NVEncFilterParamPad() : pad() {};
+    RGY_CSP encoderCsp;
+    NVEncFilterParamPad() : pad(), encoderCsp(RGY_CSP_NA) {};
     virtual ~NVEncFilterParamPad() {};
     virtual tstring print() const override;
 };
