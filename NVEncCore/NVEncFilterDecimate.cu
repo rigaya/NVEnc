@@ -739,7 +739,7 @@ RGY_ERR NVEncFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo 
     }
     if (nextTimestamp == AV_NOPTS_VALUE && !ptsInvalid) {
         if (cycleInPts.size() > 1) {
-            nextTimestamp = (cycleInPts.back() - cycleInPts.front()) * cycleInPts.size() / (cycleInPts.size() - 1); // 単純外挿
+            nextTimestamp = cycleInPts.back() + (cycleInPts.back() - cycleInPts.front()) * cycleInPts.size() / (cycleInPts.size() - 1); // 単純外挿
         } else {
             nextTimestamp = cycleInPts.back() + m_frameLastInputDuration;
         }
@@ -747,7 +747,7 @@ RGY_ERR NVEncFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo 
     cycleInPts.push_back(nextTimestamp);
     if (selectResults.size() == 0 && !ptsInvalid) {
         if (cycleInPts.size() > 1) {
-            cycleInPts.push_back((cycleInPts.back() - cycleInPts.front()) * cycleInPts.size() / (cycleInPts.size() - 1)); // 単純外挿
+            cycleInPts.push_back(cycleInPts.back() + (cycleInPts.back() - cycleInPts.front()) * cycleInPts.size() / (cycleInPts.size() - 1)); // 単純外挿
         } else {
             cycleInPts.push_back(cycleInPts.back() + m_frameLastInputDuration);
         }
