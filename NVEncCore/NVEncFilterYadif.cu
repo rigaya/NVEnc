@@ -328,6 +328,11 @@ RGY_ERR NVEncFilterYadif::check_param(shared_ptr<NVEncFilterParamYadif> pAfsPara
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    const int hight_mul = (RGY_CSP_CHROMA_FORMAT[pAfsParam->frameOut.csp] == RGY_CHROMAFMT_YUV420) ? 4 : 2;
+    if ((pAfsParam->frameOut.height % hight_mul) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Height must be multiple of %d.\n"), hight_mul);
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (pAfsParam->yadif.mode >= VPP_YADIF_MODE_MAX) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (mode).\n"));
         return RGY_ERR_INVALID_PARAM;

@@ -425,6 +425,11 @@ RGY_ERR NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    const int hight_mul = (RGY_CSP_CHROMA_FORMAT[pAfsParam->frameOut.csp] == RGY_CHROMAFMT_YUV420) ? 4 : 2;
+    if ((pAfsParam->frameOut.height % hight_mul) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Height must be multiple of %d.\n"), hight_mul);
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (pAfsParam->afs.clip.top < 0 || pAfsParam->afs.clip.top >= pAfsParam->frameOut.height) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.top).\n"));
         return RGY_ERR_INVALID_PARAM;
