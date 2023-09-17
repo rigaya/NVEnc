@@ -121,7 +121,7 @@ public:
     void clean(const int64_t current_id) {
         if (current_id >= last_clean_id + 64) {
             for (auto it = m_frame.begin(); it != m_frame.end();) {
-                if (it->second.inputFrameId < current_id - 32) {
+                if (it->second.inputFrameId < current_id - 64) {
                     it = m_frame.erase(it);
                 } else {
                     it++;
