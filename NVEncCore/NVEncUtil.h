@@ -134,7 +134,7 @@ VideoInfo videooutputinfo(
     const NV_ENC_CONFIG *pEncConfig,
     NV_ENC_PIC_STRUCT nPicStruct,
     std::pair<int, int> sar,
-    std::pair<int, int> outFps);
+    rgy_rational<int> outFps);
 
 
 struct RGYBitstream {
@@ -428,6 +428,12 @@ public:
         array[0] = info.ptr;
         array[1] = info.ptr + info.pitch * info.height;
         array[2] = info.ptr + info.pitch * info.height * 2;
+    }
+    RGY_CSP csp() const {
+        return info.csp;
+    }
+    sInputCrop crop() const {
+        return sInputCrop();
     }
     uint8_t *ptrY() {
         return info.ptr;

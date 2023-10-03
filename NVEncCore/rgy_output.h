@@ -315,7 +315,7 @@ RGY_ERR initWriters(
     shared_ptr<RGYLog> log
 );
 
-#if ENCODER_QSV
+#if ENCODER_QSV || ENCODER_NVENC
 
 struct YUVWriterParam {
     bool bY4m;
@@ -335,6 +335,6 @@ protected:
     bool m_bY4m;
 };
 
-#endif //#if ENCODER_QSV
+#endif //#if ENCODER_QSV || ENCODER_NVENC
 
 #endif //__RGY_OUTPUT_H__

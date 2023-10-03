@@ -176,6 +176,7 @@ protected:
 
     int                          m_pipelineDepth;
     vector<InputFrameBufInfo>    m_inputHostBuffer;
+    std::unique_ptr<CUFrameBuf>  m_outputFrameHostRaw;
 
     sTrimParam                    m_trimParam;
     std::unique_ptr<RGYPoolAVPacket> m_poolPkt;

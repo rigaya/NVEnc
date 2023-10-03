@@ -34,7 +34,7 @@
 #include <smmintrin.h>
 #endif
 
-#if ENCODER_QSV
+#if ENCODER_QSV || ENCODER_NVENC
 
 static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {
     char buffer[256] = { 0 };
@@ -54,11 +54,11 @@ static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {
     }
     strcpy_s(ptr+len, sizeof(buffer)-len, picstruct); len += 3;
     len += sprintf_s(ptr+len, sizeof(buffer)-len, "A%d:%d ", info->sar[0], info->sar[1]);
-    strcpy_s(ptr+len, sizeof(buffer)-len, "C420mpeg2\n"); len += (mfxU32)strlen("C420mpeg2\n");
+    strcpy_s(ptr+len, sizeof(buffer)-len, "C420mpeg2\n"); len += (uint32_t)strlen("C420mpeg2\n");
     return (len == fwrite(buffer, 1, len, fp)) ? RGY_ERR_NONE : RGY_ERR_UNDEFINED_BEHAVIOR;
 }
 
-#endif //#if ENCODER_QSV
+#endif //#if ENCODER_QSV || ENCODER_NVENC
 
 #define WRITE_CHECK(writtenBytes, expected) { \
     if (writtenBytes != expected) { \
@@ -641,7 +641,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYFrame *pSurface) {
     return RGY_ERR_UNSUPPORTED;
 }
 
-#if ENCODER_QSV
+#if ENCODER_QSV || ENCODER_NVENC
 
 RGYOutFrame::RGYOutFrame() : m_bY4m(true) {
     m_strWriterName = _T("yuv writer");
@@ -725,8 +725,12 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #endif
     };
 
-    const auto mfxsurf = dynamic_cast<RGYFrameMFXSurf*>(pSurface);
-    const auto crop = (mfxsurf) ? mfxsurf->crop() : initCrop();
+    auto crop = initCrop();
+#if ENCODER_QSV
+    if (auto mfxsurf = dynamic_cast<RGYFrameMFXSurf*>(pSurface); mfxsurf) {
+        crop = mfxsurf->crop();
+    }
+#endif
     const uint32_t lumaWidthBytes = pSurface->width() << ((pSurface->csp() == RGY_CSP_P010) ? 1 : 0);
     if (   pSurface->csp() == RGY_CSP_YV12
         || pSurface->csp() == RGY_CSP_NV12
@@ -768,7 +772,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         //uint32_t nv12Width = pSurface->width();
         uint32_t uvHeight = pSurface->height() >> 1;
         uint32_t uvFrameOffset = ALIGN16(uvWidth * uvHeight + 16);
-        if (m_UVBuffer.get() == nullptr) {
+        if (!m_UVBuffer) {
             m_UVBuffer.reset((uint8_t *)_aligned_malloc(uvFrameOffset << 1, 32));
         }
 
@@ -828,11 +832,11 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    m_encSatusInfo->SetOutputData(frametype_enc_to_rgy(MFX_FRAMETYPE_IDR | MFX_FRAMETYPE_I), frameSize, 0);
+    m_encSatusInfo->SetOutputData(RGY_FRAMETYPE_IDR, frameSize, 0);
     return RGY_ERR_NONE;
 }
 
-#endif //#if ENCODER_QSV
+#endif //#if ENCODER_QSV || ENCODER_NVENC
 
 #include "rgy_input_sm.h"
 #include "rgy_input_avcodec.h"
@@ -1288,8 +1292,8 @@ RGY_ERR initWriters(
         return RGY_ERR_UNKNOWN;
     } else {
 #endif //ENABLE_AVSW_READER
-#if ENCODER_QSV
-        if (outputVideoInfo.codec == RGY_CODEC_UNKNOWN) {
+#if ENCODER_QSV || ENCODER_NVENC
+        if (outputVideoInfo.codec == RGY_CODEC_RAW) {
             pFileWriter = std::make_shared<RGYOutFrame>();
             YUVWriterParam param;
             param.bY4m = true;
