@@ -1700,8 +1700,18 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const
             return ret;
         }
     }
-
-    //UV
+    // YV12 - UV
+    static const auto supportedCspYV12 = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
+    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pOutputFrame->csp) != supportedCspYV12.end()) {
+        const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+        const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+        auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
+        auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+        convertYBitDepth(&planeOutputU, &planeInputU, stream);
+        convertYBitDepth(&planeOutputV, &planeInputV, stream);
+        return RGY_ERR_NONE;
+    }
+    // NV12 - UV
     static const std::map<uint64_t, void (*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> crop_uv_yv12_nv12_list = {
         { RGY_CSP_2(RGY_CSP_YV12,    RGY_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_YV12_16, RGY_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 16, uint16_t, 16> },
