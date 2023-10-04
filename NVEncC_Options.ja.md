@@ -54,6 +54,7 @@
 - [その他のオプション](#その他のオプション)
   - [-u, --preset](#-u---preset)
   - [--output-depth \<int\>](#--output-depth-int)
+  - [--output-csp \<string\>](#--output-csp-string)
   - [--lossless  \[H.264/HEVC\]](#--lossless--h264hevc)
   - [--multipass \<string\>](#--multipass-string)
   - [--max-bitrate \<int\>](#--max-bitrate-int)
@@ -550,6 +551,15 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 出力ビット深度を設定。
 - 8 ... 8bit (デフォルト)
 - 10 ... 10bit
+
+### --output-csp &lt;string&gt;
+出力色空間を設定。
+- yuv420 (デフォルト)
+- yuv444
+
+  :::note info
+  他の色空間(yuv422, rgb等)のサポートの予定はありません。
+  :::
 
 ### --lossless  [H.264/HEVC]
 ロスレス出力を行う。(デフォルト: オフ)

@@ -337,10 +337,26 @@ void NVEncCore::SetAbortFlagPointer(bool *abortFlag) {
 //エンコーダが出力使用する色空間を入力パラメータをもとに取得
 RGY_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) {
     const bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
+    const bool yuv444 = inputParam->yuv444;
     if (bOutputHighBitDepth) {
-        return (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+        return (yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
     } else {
-        return (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+        return (yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+    }
+}
+
+RGY_CSP NVEncCore::GetRawOutCSP(const InEncodeVideoParam *inputParam) {
+    if (inputParam->codec_rgy != RGY_CODEC_RAW) {
+        return GetEncoderCSP(inputParam);
+    }
+    const bool yuv444 = inputParam->yuv444;
+    switch (inputParam->outputDepth) {
+    case 10: return (yuv444) ? RGY_CSP_YUV444_10 : RGY_CSP_YV12_10;
+    case 12: return (yuv444) ? RGY_CSP_YUV444_12 : RGY_CSP_YV12_12;
+    case 14: return (yuv444) ? RGY_CSP_YUV444_14 : RGY_CSP_YV12_14;
+    case 16: return (yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_YV12_16;
+    case 8:
+    default: return (yuv444) ? RGY_CSP_YUV444 : RGY_CSP_YV12;
     }
 }
 
@@ -716,7 +732,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
             codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
             if (inputParam->yuv444) {
                 codecProfileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
-            } else if (inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) {
+            } else if (inputParam->outputDepth > 8) {
                 codecProfileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
             }
         } else if (inputParam->codec_rgy == RGY_CODEC_H264) {
@@ -1022,32 +1038,120 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const VideoInfo *pInputInfo) {
-    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    if (!m_dev->encoder()) {
-        RGYFrameInfo outFrame;
-        outFrame.csp = csp_enc_to_rgy(inputFormat);
-        outFrame.width = uInputWidth;
-        outFrame.height = uInputHeight;
-        outFrame.deivce_mem = false;
-        m_outputFrameHostRaw = std::make_unique<CUFrameBuf>(outFrame);
-        if (m_outputFrameHostRaw->allocHost() != cudaSuccess) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to allocate raw output buffer\n"));
-            return NV_ENC_ERR_OUT_OF_MEMORY;
-        }
-        m_encodeBufferCount = 0;
+RGY_ERR NVEncCore::AllocateBufferInputHost(const VideoInfo *pInputInfo) {
+    if (m_cuvidDec) {
+        return RGY_ERR_NONE;
     }
 
-    if (m_encodeBufferCount > 0) {
-        m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_encodeBufferCount);
+    m_inputHostBuffer.resize(m_pipelineDepth);
+    //このアライメントは読み込み時の色変換の並列化のために必要
+    const int align = 64 * (RGY_CSP_BIT_DEPTH[pInputInfo->csp] > 8 ? 2 : 1);
+    const int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
+    const int bufHeight = pInputInfo->srcHeight - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
+    int bufPitch = 0;
+    int bufSize = 0;
+    switch (pInputInfo->csp) {
+    case RGY_CSP_NV12:
+        bufPitch  = ALIGN(bufWidth, align);
+        bufSize = bufPitch * bufHeight * 3 / 2; break;
+    case RGY_CSP_P010:
+        bufPitch = ALIGN(bufWidth * 2, align);
+        bufSize = bufPitch * bufHeight * 3 / 2; break;
+    case RGY_CSP_YV12:
+        bufPitch = ALIGN(bufWidth, align);
+        bufSize = bufPitch * bufHeight * 2; break;
+    case RGY_CSP_YV12_09:
+    case RGY_CSP_YV12_10:
+    case RGY_CSP_YV12_12:
+    case RGY_CSP_YV12_14:
+    case RGY_CSP_YV12_16:
+        bufPitch = ALIGN(bufWidth * 2, align);
+        bufSize = bufPitch * bufHeight * 2; break;
+    case RGY_CSP_NV16:
+    case RGY_CSP_YUY2:
+        bufPitch = ALIGN(bufWidth, align);
+        bufSize = bufPitch * bufHeight * 2; break;
+    case RGY_CSP_YUV422:
+        bufPitch  = ALIGN(bufWidth, align);
+        bufSize = bufPitch * bufHeight * 3; break;
+    case RGY_CSP_P210:
+    case RGY_CSP_YUV422_09:
+    case RGY_CSP_YUV422_10:
+    case RGY_CSP_YUV422_12:
+    case RGY_CSP_YUV422_14:
+    case RGY_CSP_YUV422_16:
+        bufPitch = ALIGN(bufWidth * 2, align);
+        bufSize = bufPitch * bufHeight * 3; break;
+    case RGY_CSP_YUV444:
+        bufPitch  = ALIGN(bufWidth, align);
+        bufSize = bufPitch * bufHeight * 3; break;
+    case RGY_CSP_YUV444_09:
+    case RGY_CSP_YUV444_10:
+    case RGY_CSP_YUV444_12:
+    case RGY_CSP_YUV444_14:
+    case RGY_CSP_YUV444_16:
+        bufPitch = ALIGN(bufWidth * 2, align);
+        bufSize = bufPitch * bufHeight * 3; break;
+    case RGY_CSP_RGB24:
+    case RGY_CSP_RGB24R:
+        bufPitch = ALIGN(bufWidth * 3, align);
+        bufSize = bufPitch * bufHeight; break;
+    case RGY_CSP_RGB32:
+    case RGY_CSP_RGB32R:
+        bufPitch = ALIGN(bufWidth * 4, align);
+        bufSize = bufPitch * bufHeight; break;
+    case RGY_CSP_RGB:
+    case RGY_CSP_GBR:
+        bufPitch  = ALIGN(bufWidth, align);
+        bufSize = bufPitch * bufHeight * 3; break;
+    case RGY_CSP_RGBA:
+    case RGY_CSP_GBRA:
+        bufPitch  = ALIGN(bufWidth, align);
+        bufSize = bufPitch * bufHeight * 4; break;
+    default:
+        PrintMes(RGY_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
+        return RGY_ERR_UNSUPPORTED;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("Allocate Host buffers: %s %dx%d (pitch:%d), buffer count %d\n"),
+        RGY_CSP_NAMES[pInputInfo->csp], bufWidth, bufHeight, bufPitch, m_pipelineDepth);
+
+    for (uint32_t i = 0; i < m_inputHostBuffer.size(); i++) {
+        m_inputHostBuffer[i].frameInfo.width = bufWidth;
+        m_inputHostBuffer[i].frameInfo.height = bufHeight;
+        m_inputHostBuffer[i].frameInfo.pitch = bufPitch;
+        m_inputHostBuffer[i].frameInfo.csp = pInputInfo->csp;
+        m_inputHostBuffer[i].frameInfo.picstruct = pInputInfo->picstruct;
+        m_inputHostBuffer[i].frameInfo.flags = RGY_FRAME_FLAG_NONE;
+        m_inputHostBuffer[i].frameInfo.duration = 0;
+        m_inputHostBuffer[i].frameInfo.timestamp = 0;
+        m_inputHostBuffer[i].frameInfo.deivce_mem = false;
+        m_inputHostBuffer[i].heTransferFin = unique_ptr<void, handle_deleter>(CreateEvent(NULL, FALSE, TRUE, NULL), handle_deleter());
+
+        CCtxAutoLock ctxLock(m_dev->vidCtxLock());
+        auto cudaret = cudaMallocHost(&m_inputHostBuffer[i].frameInfo.ptr, bufSize);
+        if (cudaret != cudaSuccess) {
+            PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+            return err_to_rgy(cudaret);
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncCore::AllocateBufferEncoder(const uint32_t uInputWidth, const uint32_t uInputHeight, const NV_ENC_BUFFER_FORMAT inputFormat) {
+    m_stEOSOutputBfr.bEOSFlag = TRUE;
+    if (!m_dev->encoder()) {
+        return RGY_ERR_NONE;
+    }
+
+    m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_encodeBufferCount);
+
     uint32_t uInputWidthByte = 0;
     uint32_t uInputHeightTotal = 0;
     switch (inputFormat) {
     case NV_ENC_BUFFER_FORMAT_UNDEFINED: /**< Undefined buffer format */
     case NV_ENC_BUFFER_FORMAT_YV12:      /**< Planar YUV [Y plane followed by V and U planes] */
     case NV_ENC_BUFFER_FORMAT_IYUV:      /**< Planar YUV [Y plane followed by U and V planes] */
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_UNSUPPORTED;
     case NV_ENC_BUFFER_FORMAT_YUV444:    /**< Planar YUV [Y plane followed by U and V planes] */
         uInputWidthByte = uInputWidth;
         uInputHeightTotal = uInputHeight * 3;
@@ -1065,45 +1169,42 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
     case NV_ENC_BUFFER_FORMAT_AYUV:    /**< 8 bit Packed A8Y8U8V8 */
     case NV_ENC_BUFFER_FORMAT_ABGR:    /**< 8 bit Packed A8B8G8R8 */
     case NV_ENC_BUFFER_FORMAT_ABGR10:  /**< 10 bit Packed A2B10G10R10. Each pixel of size 2 bytes. Most Significant 10 bits contain pixel data.  */
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_UNSUPPORTED;
     case NV_ENC_BUFFER_FORMAT_NV12:    /**< Semi-Planar YUV [Y plane followed by interleaved UV plane] */
         uInputWidthByte = uInputWidth;
         uInputHeightTotal = uInputHeight * 3 / 2;
         break;
     default:
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_UNSUPPORTED;
     }
     PrintMes(RGY_LOG_DEBUG, _T("AllocateIOBuffers: %s %dx%d (width byte %d, height total %d), buffer count %d\n"),
         RGY_CSP_NAMES[csp_enc_to_rgy(inputFormat)], uInputWidth, uInputHeight, uInputWidthByte, uInputHeightTotal, m_encodeBufferCount);
 
     for (int i = 0; i < m_encodeBufferCount; i++) {
         if (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME) {
-#if ENABLE_AVSW_READER
             cuvidCtxLock(m_dev->vidCtxLock(), 0);
-#endif //#if ENABLE_AVSW_READER
             auto cudaerr = cudaMallocPitch((void **)&m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
                 (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidthByte, uInputHeightTotal);
-#if ENABLE_AVSW_READER
             cuvidCtxUnlock(m_dev->vidCtxLock(), 0);
-#endif //#if ENABLE_AVSW_READER
             if (cudaerr != cudaSuccess) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to cuMemAllocPitch, %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return err_to_rgy(cudaerr);
             }
 
-            if (NV_ENC_SUCCESS != (nvStatus = m_dev->encoder()->NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
+            auto nvStatus = m_dev->encoder()->NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
                 (void*)m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
                 uInputWidth, uInputHeight, m_stEncodeBuffer[i].stInputBfr.uNV12Stride, inputFormat,
-                &m_stEncodeBuffer[i].stInputBfr.nvRegisteredResource))) {
+                &m_stEncodeBuffer[i].stInputBfr.nvRegisteredResource);
+            if (nvStatus != NV_ENC_SUCCESS) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to register input device memory.\n"));
-                return nvStatus;
+                return err_to_rgy(nvStatus);
             }
         } else {
             //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
-            nvStatus = m_dev->encoder()->NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, inputFormat);
+            auto nvStatus = m_dev->encoder()->NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, inputFormat);
             if (nvStatus != NV_ENC_SUCCESS) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
-                return nvStatus;
+                return err_to_rgy(nvStatus);
             }
         }
 
@@ -1111,123 +1212,44 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         m_stEncodeBuffer[i].stInputBfr.dwWidth = uInputWidth;
         m_stEncodeBuffer[i].stInputBfr.dwHeight = uInputHeight;
 
-        nvStatus = m_dev->encoder()->NvEncCreateBitstreamBuffer(BITSTREAM_BUFFER_SIZE, &m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer);
+        auto nvStatus = m_dev->encoder()->NvEncCreateBitstreamBuffer(BITSTREAM_BUFFER_SIZE, &m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer);
         if (nvStatus != NV_ENC_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to allocate Output Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
-            return nvStatus;
+            return err_to_rgy(nvStatus);
         }
         m_stEncodeBuffer[i].stOutputBfr.dwBitstreamBufferSize = BITSTREAM_BUFFER_SIZE;
 
         nvStatus = m_dev->encoder()->NvEncRegisterAsyncEvent(&m_stEncodeBuffer[i].stOutputBfr.hOutputEvent);
-        if (nvStatus != NV_ENC_SUCCESS)
-            return nvStatus;
+        if (nvStatus != NV_ENC_SUCCESS) {
+            return err_to_rgy(nvStatus);
+        }
         m_stEncodeBuffer[i].stOutputBfr.bWaitOnEvent = ENABLE_ASYNC != 0;
-    }
 
-#if ENABLE_AVSW_READER
-    if (!m_cuvidDec) {
-#else
-    {
-#endif //#if ENABLE_AVSW_READER
-        m_inputHostBuffer.resize(m_pipelineDepth);
-        //このアライメントは読み込み時の色変換の並列化のために必要
-        const int align = 64 * (RGY_CSP_BIT_DEPTH[pInputInfo->csp] > 8 ? 2 : 1);
-        const int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
-        const int bufHeight = pInputInfo->srcHeight - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
-        int bufPitch = 0;
-        int bufSize = 0;
-        switch (pInputInfo->csp) {
-        case RGY_CSP_NV12:
-        case RGY_CSP_YV12:
-            bufPitch  = ALIGN(bufWidth, align);
-            bufSize = bufPitch * bufHeight * 3 / 2; break;
-        case RGY_CSP_P010:
-        case RGY_CSP_YV12_09:
-        case RGY_CSP_YV12_10:
-        case RGY_CSP_YV12_12:
-        case RGY_CSP_YV12_14:
-        case RGY_CSP_YV12_16:
-            bufPitch = ALIGN(bufWidth * 2, align);
-            bufSize = bufPitch * bufHeight * 3 / 2; break;
-        case RGY_CSP_NV16:
-        case RGY_CSP_YUY2:
-        case RGY_CSP_YUV422:
-            bufPitch  = ALIGN(bufWidth, align);
-            bufSize = bufPitch * bufHeight * 2; break;
-        case RGY_CSP_P210:
-        case RGY_CSP_YUV422_09:
-        case RGY_CSP_YUV422_10:
-        case RGY_CSP_YUV422_12:
-        case RGY_CSP_YUV422_14:
-        case RGY_CSP_YUV422_16:
-            bufPitch = ALIGN(bufWidth * 2, align);
-            bufSize = bufPitch * bufHeight * 2; break;
-        case RGY_CSP_YUV444:
-            bufPitch  = ALIGN(bufWidth, align);
-            bufSize = bufPitch * bufHeight * 3; break;
-        case RGY_CSP_YUV444_09:
-        case RGY_CSP_YUV444_10:
-        case RGY_CSP_YUV444_12:
-        case RGY_CSP_YUV444_14:
-        case RGY_CSP_YUV444_16:
-            bufPitch = ALIGN(bufWidth * 2, align);
-            bufSize = bufPitch * bufHeight * 3; break;
-        case RGY_CSP_RGB24:
-        case RGY_CSP_RGB24R:
-            bufPitch = ALIGN(bufWidth * 3, align);
-            bufSize = bufPitch * bufHeight; break;
-        case RGY_CSP_RGB32:
-        case RGY_CSP_RGB32R:
-            bufPitch = ALIGN(bufWidth * 4, align);
-            bufSize = bufPitch * bufHeight; break;
-        case RGY_CSP_RGB:
-        case RGY_CSP_GBR:
-            bufPitch  = ALIGN(bufWidth, align);
-            bufSize = bufPitch * bufHeight * 3; break;
-        case RGY_CSP_RGBA:
-        case RGY_CSP_GBRA:
-            bufPitch  = ALIGN(bufWidth, align);
-            bufSize = bufPitch * bufHeight * 4; break;
-        default:
-            PrintMes(RGY_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("Allocate Host buffers: %s %dx%d (pitch:%d), buffer count %d\n"),
-            RGY_CSP_NAMES[pInputInfo->csp], bufWidth, bufHeight, bufPitch, m_pipelineDepth);
-
-        for (uint32_t i = 0; i < m_inputHostBuffer.size(); i++) {
-            m_inputHostBuffer[i].frameInfo.width = bufWidth;
-            m_inputHostBuffer[i].frameInfo.height = bufHeight;
-            m_inputHostBuffer[i].frameInfo.pitch = bufPitch;
-            m_inputHostBuffer[i].frameInfo.csp = pInputInfo->csp;
-            m_inputHostBuffer[i].frameInfo.picstruct = pInputInfo->picstruct;
-            m_inputHostBuffer[i].frameInfo.flags = RGY_FRAME_FLAG_NONE;
-            m_inputHostBuffer[i].frameInfo.duration = 0;
-            m_inputHostBuffer[i].frameInfo.timestamp = 0;
-            m_inputHostBuffer[i].frameInfo.deivce_mem = false;
-            m_inputHostBuffer[i].heTransferFin = unique_ptr<void, handle_deleter>(CreateEvent(NULL, FALSE, TRUE, NULL), handle_deleter());
-
-#if ENABLE_AVSW_READER
-            CCtxAutoLock ctxLock(m_dev->vidCtxLock());
-#endif //#if ENABLE_AVSW_READER
-            auto cudaret = cudaMallocHost(&m_inputHostBuffer[i].frameInfo.ptr, bufSize);
-            if (cudaret != cudaSuccess) {
-                PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
-                return NV_ENC_ERR_GENERIC;
-            }
-        }
-    }
-
-    m_stEOSOutputBfr.bEOSFlag = TRUE;
-
-    if (m_dev->encoder()) {
         nvStatus = m_dev->encoder()->NvEncRegisterAsyncEvent(&m_stEOSOutputBfr.hOutputEvent);
         if (nvStatus != NV_ENC_SUCCESS) {
-            return nvStatus;
+            return err_to_rgy(nvStatus);
         }
     }
+    return RGY_ERR_NONE;
+}
 
-    return NV_ENC_SUCCESS;
+RGY_ERR NVEncCore::AllocateBufferRawOutput(const uint32_t uInputWidth, const uint32_t uInputHeight, const RGY_CSP csp) {
+    if (m_dev->encoder()) {
+        return RGY_ERR_NONE;
+    }
+    m_encodeBufferCount = 0;
+
+    RGYFrameInfo outFrame;
+    outFrame.csp = csp;
+    outFrame.width = uInputWidth;
+    outFrame.height = uInputHeight;
+    outFrame.deivce_mem = false;
+    m_outputFrameHostRaw = std::make_unique<CUFrameBuf>(outFrame);
+    if (auto cudaerr = m_outputFrameHostRaw->allocHost(); cudaerr != cudaSuccess) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to allocate raw output buffer: %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+        return err_to_rgy(cudaerr);
+    }
+    return RGY_ERR_NONE;
 }
 
 NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
@@ -1971,6 +1993,8 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         set_sliceMode(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 3);
         set_sliceModeData(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 1);
     }
+
+    set_pixelBitDepthMinus8(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, clamp(inputParam->outputDepth - 8, 0, 4));
 
     auto require_repeat_headers = [this]() {
         return m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0);
@@ -2982,11 +3006,12 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
         }
-        const bool bDeviceMemFinal = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && inputFrame.csp == GetEncoderCSP(inputParam)) ? false : true;
+        const auto cropOutCsp = (inputParam->codec_rgy == RGY_CODEC_RAW) ? GetRawOutCSP(inputParam) : GetEncoderCSP(inputParam);
+        const bool bDeviceMemFinal = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && inputFrame.csp == cropOutCsp) ? false : true;
         unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->frameIn = inputFrame;
-        param->frameOut.csp = GetEncoderCSP(inputParam);
+        param->frameOut.csp = cropOutCsp;
         //インタレ保持であれば、CPU側にフレームを戻す必要がある
         //色空間が同じなら、ここでやってしまう
         param->frameOut.deivce_mem = bDeviceMemFinal;
@@ -3089,7 +3114,10 @@ RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<DynamicRCParam>& dynamicRC) 
     return RGY_ERR_NONE;
 }
 bool NVEncCore::encodeIsHighBitDepth(const InEncodeVideoParam *inputParam) {
-    return get_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, inputParam->codec_rgy) > 0;
+    if (inputParam->codec_rgy == RGY_CODEC_H264) {
+        return false;
+    }
+    return inputParam->outputDepth > 8;
 }
 
 NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
@@ -3191,10 +3219,11 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         inputParam->yuv444 = (RGY_CSP_CHROMA_FORMAT[inputFrameInfo.csp] != RGY_CHROMAFMT_YUV420);
 
         if (RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
-            const int pixelBitDepth = 10; // 8bitより上のときはとりあえず10bitで出力
-            set_pixelBitDepthMinus8(inputParam->encConfig.encodeCodecConfig, inputParam->codec_rgy, pixelBitDepth - 8);
-            PrintMes(RGY_LOG_DEBUG, _T("Set bitdepth to %d for lossless encoding.\n"), pixelBitDepth);
-            bOutputHighBitDepth = encodeIsHighBitDepth(inputParam); // 更新
+            if (inputParam->codec_rgy != RGY_CODEC_H264) {
+                inputParam->outputDepth = 10; // 8bitより上のときはとりあえず10bitで出力
+                PrintMes(RGY_LOG_DEBUG, _T("Set bitdepth to %d for lossless encoding.\n"), inputParam->outputDepth);
+                bOutputHighBitDepth = encodeIsHighBitDepth(inputParam); // 更新
+            }
         }
     }
 
@@ -3283,15 +3312,21 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
 
     //入出力用メモリ確保
+    RGY_ERR err = AllocateBufferInputHost(&inputParam->input);
+    if (err != RGY_ERR_NONE) return NV_ENC_ERR_INVALID_PARAM;
+
     NV_ENC_BUFFER_FORMAT encBufferFormat;
     if (bOutputHighBitDepth) {
         encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_10BIT : NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
     } else {
         encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
     }
-    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, encBufferFormat, &inputParam->input))) {
-        return nvStatus;
-    }
+    err = AllocateBufferEncoder(m_uEncWidth, m_uEncHeight, encBufferFormat);
+    if (err != RGY_ERR_NONE) return NV_ENC_ERR_INVALID_PARAM;
+
+    err = AllocateBufferRawOutput(m_uEncWidth, m_uEncHeight, GetRawOutCSP(inputParam));
+    if (err != RGY_ERR_NONE) return NV_ENC_ERR_INVALID_PARAM;
+
     PrintMes(RGY_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));
 
     //エンコーダにパラメータを渡し、初期化

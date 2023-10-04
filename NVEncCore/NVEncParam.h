@@ -419,6 +419,12 @@ const CX_DESC list_bitdepth[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_output_csp[] = {
+    { _T("yuv420"), RGY_CSP_YV12   },
+    { _T("yuv444"), RGY_CSP_YUV444 },
+    { NULL, 0 }
+};
+
 enum : uint32_t {
     NV_ENC_AQ_DISABLED = 0x00,
     NV_ENC_AQ_SPATIAL  = 0x01,
@@ -805,6 +811,7 @@ struct InEncodeVideoParam {
     std::vector<DynamicRCParam> dynamicRC;
     RGY_CODEC codec_rgy;          //出力コーデック
     int bluray;                   //bluray出力
+    int outputDepth;              //出力ビット深度
     int yuv444;                   //YUV444出力
     int lossless;                 //ロスレス出力
     int losslessIgnoreInputCsp;

@@ -98,6 +98,7 @@ protected:
 
     //エンコーダが出力使用する色空間を入力パラメータをもとに取得
     RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
+    RGY_CSP GetRawOutCSP(const InEncodeVideoParam *inputParam);
 
     //チャプターファイルを読み込み
     NVENCSTATUS readChapterFile(const tstring& chapfile);
@@ -139,7 +140,9 @@ protected:
     NVENCSTATUS InitChapters(const InEncodeVideoParam *inputParam);
 
     //入出力用バッファを確保
-    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const VideoInfo *pInputInfo);
+    RGY_ERR AllocateBufferInputHost(const VideoInfo *pInputInfo);
+    RGY_ERR AllocateBufferEncoder(const uint32_t uInputWidth, const uint32_t uInputHeight, const NV_ENC_BUFFER_FORMAT inputFormat);
+    RGY_ERR AllocateBufferRawOutput(const uint32_t uInputWidth, const uint32_t uInputHeight, const RGY_CSP csp);
 
     NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int id, const int64_t timestamp, const int64_t duration, const int inputFrameId, const std::vector<std::shared_ptr<RGYFrameData>>& frameDataList);
 

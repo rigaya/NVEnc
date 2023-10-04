@@ -368,6 +368,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     dynamicRC(),
     codec_rgy(RGY_CODEC_H264),
     bluray(0),                   //bluray出力
+    outputDepth(8),
     yuv444(0),                   //YUV444出力
     lossless(0),                 //ロスレス出力
     losslessIgnoreInputCsp(0),

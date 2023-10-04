@@ -168,6 +168,7 @@ tstring encoder_help() {
     });
     str += strsprintf(_T("")
         _T("   --output-depth <int>         set output bit depth ( 8(default), 10 )\n")
+        _T("   --output-csp <string>        set output csp ( yuv420(default), yuv444 )\n")
         _T("   --sar <int>:<int>            set Sample  Aspect Ratio\n")
         _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
         _T("\n")
@@ -1548,10 +1549,28 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8 = clamp(value - 8, 0, 4);
-            codecPrm[RGY_CODEC_AV1 ].av1Config.pixelBitDepthMinus8  = clamp(value - 8, 0, 4);
+            pParams->outputDepth = value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("output-csp")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_output_csp, strInput[i], &value)) {
+            const RGY_CSP csp = (RGY_CSP)value;
+            pParams->yuv444 = csp == RGY_CSP_YUV444;
+            if (pParams->yuv444) {
+                //H264
+                memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(pParams->encConfig.profileGUID));
+                //HEVC
+                uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_HEVC].hevcConfig.tier;
+                ptr[0] = (uint16_t)NV_ENC_PROFILE_HEVC_MAIN444;
+            }
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_output_csp);
             return 1;
         }
         return 0;
@@ -1909,6 +1928,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     }
     OPT_BOOL(_T("--lossless"), _T(""), lossless);
     OPT_BOOL(_T("--lossless-ignore-input-csp"), _T(""), losslessIgnoreInputCsp);
+
+    if (pParams->yuv444) {
+        cmd << _T(" --output-csp ") << get_cx_desc(list_output_csp, (int)RGY_CSP_YUV444);
+    }
 
     if (pParams->codec_rgy == RGY_CODEC_AV1 || save_disabled_prm) {
         OPT_LST_AV1(_T("--level"), _T(":av1"), level, list_av1_level);

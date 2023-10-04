@@ -58,6 +58,9 @@
 
 std::vector<int> read_keyfile(tstring keyfile);
 
+RGY_CSP csp_y4mheader_to_rgy(const char *str);
+const char *csp_rgy_to_y4mheader(const RGY_CSP csp);
+
 #if ENABLE_AVSW_READER
 typedef struct AVDemuxStream {
     int                       index;                  //音声・字幕のストリームID (libavのストリームID)

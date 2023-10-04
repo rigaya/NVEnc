@@ -57,6 +57,7 @@
 - [Other Options for Encoder](#other-options-for-encoder)
   - [-u, --preset](#-u---preset)
   - [--output-depth \<int\>](#--output-depth-int)
+  - [--output-csp \<string\>](#--output-csp-string)
   - [--multipass \<string\>](#--multipass-string)
   - [--lossless  \[H.264/HEVC\]](#--lossless--h264hevc)
   - [--max-bitrate \<int\>](#--max-bitrate-int)
@@ -550,6 +551,15 @@ Encode quality preset. P1～P7 preset is available from API v10.0.
 Set output bit depth.
 - 8 ... 8 bits (default)
 - 10 ... 10 bits
+
+### --output-csp &lt;string&gt;
+Set output colorspace.
+- yuv420 (default)
+- yuv444
+
+  :::note info
+  There is no plan to add other colorspaces such as yuv422 and rgb.
+  :::
 
 ### --multipass &lt;string&gt;
 Multi pass mode. Available only for --vbr and --cbr. [API v10.0]  

@@ -716,4 +716,12 @@ static int conv_bit_depth(int c) {
     }
 }
 
+template<typename Tout, typename Tin, int in_bit_depth, int out_bit_depth>
+static void convert_nv12_to_yv12_line_c(Tout *dst_ptr_u, Tout *dst_ptr_v, const Tin *src_uv_ptr, const int x_fin) {
+    for (int x = 0; x < x_fin; x++) {
+        dst_ptr_u[x] = (Tout)conv_bit_depth<in_bit_depth, out_bit_depth, 0>(src_uv_ptr[2 * x + 0]);
+        dst_ptr_v[x] = (Tout)conv_bit_depth<in_bit_depth, out_bit_depth, 0>(src_uv_ptr[2 * x + 1]);
+    }
+}
+
 #endif //_CONVERT_CSP_H_

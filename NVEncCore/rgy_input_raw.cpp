@@ -95,50 +95,8 @@ RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
             }
             break;
         case 'C':
-            if (0 == _strnicmp(p+1, "420p9", strlen("420p9"))) {
-                pInfo->csp = RGY_CSP_YV12_09;
-            } else if (0 == _strnicmp(p+1, "420p10", strlen("420p10"))) {
-                pInfo->csp = RGY_CSP_YV12_10;
-            } else if (0 == _strnicmp(p+1, "420p12", strlen("420p12"))) {
-                pInfo->csp = RGY_CSP_YV12_12;
-            } else if (0 == _strnicmp(p+1, "420p14", strlen("420p14"))) {
-                pInfo->csp = RGY_CSP_YV12_14;
-            } else if (0 == _strnicmp(p+1, "420p16", strlen("420p16"))) {
-                pInfo->csp = RGY_CSP_YV12_16;
-            } else if (0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
-                    || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
-                    || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))
-                    || 0 == _strnicmp(p+1, "420",      strlen("420"))) {
-                pInfo->csp = RGY_CSP_YV12;
-            } else if (0 == _strnicmp(p+1, "422p9", strlen("422p9"))) {
-                pInfo->csp = RGY_CSP_YUV422_09;
-            } else if (0 == _strnicmp(p+1, "422p10", strlen("422p10"))) {
-                pInfo->csp = RGY_CSP_YUV422_10;
-            } else if (0 == _strnicmp(p+1, "422p12", strlen("422p12"))) {
-                pInfo->csp = RGY_CSP_YUV422_12;
-            } else if (0 == _strnicmp(p+1, "422p14", strlen("422p14"))) {
-                pInfo->csp = RGY_CSP_YUV422_14;
-            } else if (0 == _strnicmp(p+1, "422p16", strlen("422p16"))) {
-                pInfo->csp = RGY_CSP_YUV422_16;
-            } else if (0 == _strnicmp(p+1, "422", strlen("422"))) {
-                pInfo->csp = RGY_CSP_YUV422;
-            } else if (0 == _strnicmp(p+1, "444p9", strlen("444p9"))) {
-                pInfo->csp = RGY_CSP_YUV444_09;
-            } else if (0 == _strnicmp(p+1, "444p10", strlen("444p10"))) {
-                pInfo->csp = RGY_CSP_YUV444_10;
-            } else if (0 == _strnicmp(p+1, "444p12", strlen("444p12"))) {
-                pInfo->csp = RGY_CSP_YUV444_12;
-            } else if (0 == _strnicmp(p+1, "444p14", strlen("444p14"))) {
-                pInfo->csp = RGY_CSP_YUV444_14;
-            } else if (0 == _strnicmp(p+1, "444p16", strlen("444p16"))) {
-                pInfo->csp = RGY_CSP_YUV444_16;
-            } else if (0 == _strnicmp(p+1, "444", strlen("444"))) {
-                pInfo->csp = RGY_CSP_YUV444;
-            } else if (0 == _strnicmp(p+1, "nv12", strlen("nv12"))) {
-                pInfo->csp = RGY_CSP_NV12;
-            } else if (0 == _strnicmp(p+1, "p010", strlen("p010"))) {
-                pInfo->csp = RGY_CSP_P010;
-            } else {
+            pInfo->csp = csp_y4mheader_to_rgy(p+1);
+            if (pInfo->csp == RGY_CSP_NA) {
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
             break;

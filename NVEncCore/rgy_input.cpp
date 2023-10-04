@@ -33,6 +33,52 @@
 #include "rgy_filesystem.h"
 #include "cpu_info.h"
 
+static const auto RGY_CSP_TO_Y4MHEADER_CSP = make_array<std::pair<RGY_CSP, const char *>>(
+    std::make_pair(RGY_CSP_YV12,      "420mpeg2"),
+    std::make_pair(RGY_CSP_YV12,      "420jpeg"),
+    std::make_pair(RGY_CSP_YV12,      "420paldv"),
+    std::make_pair(RGY_CSP_YV12,      "420"),
+    std::make_pair(RGY_CSP_YV12_09,   "420p9"),
+    std::make_pair(RGY_CSP_YV12_10,   "420p10"),
+    std::make_pair(RGY_CSP_YV12_12,   "420p12"),
+    std::make_pair(RGY_CSP_YV12_14,   "420p14"),
+    std::make_pair(RGY_CSP_YV12_16,   "420p16"),
+    std::make_pair(RGY_CSP_YUV422,    "422"),
+    std::make_pair(RGY_CSP_YUV422,    "422p"),
+    std::make_pair(RGY_CSP_YUV422_09, "422p9"),
+    std::make_pair(RGY_CSP_YUV422_10, "422p10"),
+    std::make_pair(RGY_CSP_YUV422_12, "422p12"),
+    std::make_pair(RGY_CSP_YUV422_14, "422p14"),
+    std::make_pair(RGY_CSP_YUV422_16, "422p16"),
+    std::make_pair(RGY_CSP_YUV444,    "444"),
+    std::make_pair(RGY_CSP_YUV444,    "444p"),
+    std::make_pair(RGY_CSP_YUV444_09, "444p9"),
+    std::make_pair(RGY_CSP_YUV444_10, "444p10"),
+    std::make_pair(RGY_CSP_YUV444_12, "444p12"),
+    std::make_pair(RGY_CSP_YUV444_14, "444p14"),
+    std::make_pair(RGY_CSP_YUV444_16, "444p16"),
+    std::make_pair(RGY_CSP_NV12,      "nv12"),
+    std::make_pair(RGY_CSP_P010,      "p010")
+    );
+
+RGY_CSP csp_y4mheader_to_rgy(const char *str) {
+    for (const auto& p : RGY_CSP_TO_Y4MHEADER_CSP) {
+        if (0 == _strnicmp(str, p.second, strlen(p.second))) {
+            return p.first;
+        }
+    }
+    return RGY_CSP_NA;
+}
+
+const char *csp_rgy_to_y4mheader(const RGY_CSP csp) {
+    for (const auto& p : RGY_CSP_TO_Y4MHEADER_CSP) {
+        if (csp == p.first) {
+            return p.second;
+        }
+    }
+    return nullptr;
+}
+
 RGYConvertCSPPrm::RGYConvertCSPPrm() :
     abort(false),
     dst(nullptr),
