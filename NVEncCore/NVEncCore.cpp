@@ -4234,6 +4234,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(RGY_CSP_NV12, encFrameInfo.timestamp, encFrameInfo.duration, encFrameInfo.inputFrameId, pEncodeBuffer, pCudaEvent, encFrameInfo.dataList));
                     dqEncFrames.push_back(std::move(frameEnc));
                 } else {
+                    cudaEventSynchronize(*pCudaEvent);
                     RGYFrame outFrame(encFrameInfo);
                     m_pFileWriter->WriteNextFrame(&outFrame);
                 }
