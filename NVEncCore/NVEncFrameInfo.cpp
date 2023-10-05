@@ -37,7 +37,7 @@ FrameInfoExtra getFrameInfoExtra(const RGYFrameInfo *pFrameInfo) {
         break;
     case RGY_CSP_YV12:
         exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = (pFrameInfo->deivce_mem) ? pFrameInfo->height * 2 : pFrameInfo->height * 3 / 2;
+        exinfo.height_total = pFrameInfo->height * 2;
         break;
     case RGY_CSP_YUY2:
         exinfo.width_byte = pFrameInfo->width * 2;
