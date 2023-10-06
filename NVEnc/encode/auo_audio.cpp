@@ -151,29 +151,33 @@ void check_audio_length(OUTPUT_INFO *oip) {
     }
 }
 
-static void build_wave_header(BYTE *head, const OUTPUT_INFO *oip, BOOL use_8bit, int sample_n) {
+static void build_wave_header(BYTE *head, const int audio_ch, const int audio_rate, BOOL use_8bit, int sample_n) {
     static const char * const RIFF_HEADER = "RIFF";
     static const char * const WAVE_HEADER = "WAVE";
-    static const char * const FMT_CHUNK   = "fmt ";
-    static const char * const DATA_CHUNK  = "data";
-    const DWORD FMT_SIZE    = 16;
-    const short FMT_ID      = 1;
-    const int   size        = (use_8bit) ? sizeof(BYTE) : sizeof(short);
+    static const char * const FMT_CHUNK = "fmt ";
+    static const char * const DATA_CHUNK = "data";
+    const DWORD FMT_SIZE = 16;
+    const short FMT_ID = 1;
+    const int   size = (use_8bit) ? sizeof(BYTE) : sizeof(short);
 
-    memcpy(   head +  0, RIFF_HEADER, strlen(RIFF_HEADER));
-    *(DWORD*)(head +  4) = sample_n * (size * oip->audio_ch) + WAVE_HEADER_SIZE - 8;
-    memcpy(   head +  8, WAVE_HEADER, strlen(WAVE_HEADER));
-    memcpy(   head + 12, FMT_CHUNK, strlen(FMT_CHUNK));
+    memcpy(head + 0, RIFF_HEADER, strlen(RIFF_HEADER));
+    *(DWORD*)(head + 4) = sample_n * (size * audio_ch) + WAVE_HEADER_SIZE - 8;
+    memcpy(head + 8, WAVE_HEADER, strlen(WAVE_HEADER));
+    memcpy(head + 12, FMT_CHUNK, strlen(FMT_CHUNK));
     *(DWORD*)(head + 16) = FMT_SIZE;
     *(short*)(head + 20) = FMT_ID;
-    *(short*)(head + 22) = (short)oip->audio_ch;
-    *(DWORD*)(head + 24) = oip->audio_rate;
-    *(DWORD*)(head + 28) = oip->audio_rate * oip->audio_ch * size;
-    *(short*)(head + 32) = (short)(size * oip->audio_ch);
+    *(short*)(head + 22) = (short)audio_ch;
+    *(DWORD*)(head + 24) = audio_rate;
+    *(DWORD*)(head + 28) = audio_rate * audio_ch * size;
+    *(short*)(head + 32) = (short)(size * audio_ch);
     *(short*)(head + 34) = (short)(size * 8);
-    memcpy(   head + 36, DATA_CHUNK, strlen(DATA_CHUNK));
-    *(DWORD*)(head + 40) = sample_n * (size * oip->audio_ch);
+    memcpy(head + 36, DATA_CHUNK, strlen(DATA_CHUNK));
+    *(DWORD*)(head + 40) = sample_n * (size * audio_ch);
     //計44byte(WAVE_HEADER_SIZE)
+}
+
+static void build_wave_header(BYTE *head, const OUTPUT_INFO *oip, BOOL use_8bit, int sample_n) {
+    build_wave_header(head, oip->audio_ch, oip->audio_rate, use_8bit, sample_n);
 }
 
 static void correct_header(FILE *f_out, int data_size) {
@@ -276,7 +280,7 @@ static void show_progressbar(BOOL use_pipe, const wchar_t *enc_name, int progres
 
 static void show_audio_delay_cut_info(int delay_cut, const PRM_ENC *pe) {
     if (AUDIO_DELAY_CUT_EDTS == delay_cut) {
-        write_log_auo_line_fmt(LOG_INFO, L"%s - %s", g_auo_mes.get(AUO_AUDIO_DELAY_CUT), AUDIO_DELAY_CUT_MODE[AUDIO_DELAY_CUT_EDTS].desc);
+        write_log_auo_line_fmt(LOG_INFO, L"%s - %s", g_auo_mes.get(AUO_AUDIO_DELAY_CUT), g_auo_mes.get(AUDIO_DELAY_CUT_MODE[AUDIO_DELAY_CUT_EDTS].mes));
     } else if (0 != pe->delay_cut_additional_aframe || 0 != pe->delay_cut_additional_vframe) {
         wchar_t message[1024] = { 0 };
         int mes_len = 0;
@@ -650,5 +654,100 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
     //音声エンコード後バッチ処理
     if (!ret) ret |= run_bat_file(conf, oip, pe, sys_dat, RUN_BAT_AFTER_AUDIO);
 
+    return ret;
+}
+
+BOOL check_audenc_output(const AUDIO_SETTINGS *aud_stg, std::wstring& exe_message) {
+    //実行ファイルチェック(filenameが空文字列なら実行しない)
+    if (!str_has_char(aud_stg->filename)) {
+        return TRUE;
+    }
+    if (str_has_char(aud_stg->filename) && !PathFileExists(aud_stg->fullpath)) {
+        return FALSE;
+    }
+
+    //qaac以外はチェックしない
+    if (wcsstr(aud_stg->dispname, L"qaac") == nullptr) {
+        return TRUE;
+    }
+
+    exe_message.clear();
+
+    char fullargs[8192];
+    sprintf_s(fullargs, "\"%s\" -o nul -", aud_stg->fullpath);
+
+    const int audio_rate = 48000;
+    const int audio_n = audio_rate;
+    const int audio_ch = 2;
+    const int audio_use_8bit = FALSE;
+    const int audio_elem_size = (audio_use_8bit) ? 1 : 2;
+    std::vector<char> test_buffer(audio_n * audio_ch * audio_elem_size, 0);
+
+    PROCESS_INFORMATION pi = { 0 };
+    PIPE_SET pipes = { 0 };
+    InitPipes(&pipes);
+    pipes.stdIn.mode = AUO_PIPE_ENABLE;
+    pipes.stdOut.mode = AUO_PIPE_DISABLE;
+    pipes.stdErr.mode = AUO_PIPE_ENABLE;
+    pipes.stdIn.bufferSize = test_buffer.size();
+
+    char exe_dir[1024] = { 0 };
+    strcpy_s(exe_dir, _countof(exe_dir), aud_stg->fullpath);
+    PathRemoveFileSpecFixed(exe_dir);
+
+    BOOL ret = FALSE;
+    if ((ret = RunProcess(fullargs, exe_dir, &pi, &pipes, NORMAL_PRIORITY_CLASS, TRUE, FALSE)) == RP_SUCCESS) {
+
+        while (WAIT_TIMEOUT == WaitForInputIdle(pi.hProcess, LOG_UPDATE_INTERVAL))
+            log_process_events();
+
+        BYTE head[WAVE_HEADER_SIZE];
+        build_wave_header(head, audio_ch, audio_rate, audio_use_8bit, audio_n);
+        _fwrite_nolock(&head, 1, sizeof(head), pipes.f_stdin);
+        _fwrite_nolock(&test_buffer[0], 1, test_buffer.size(), pipes.f_stdin);
+        CloseStdIn(&pipes);
+
+        auto read_stderr = [](PIPE_SET *pipes) {
+            DWORD pipe_read = 0;
+            if (!PeekNamedPipe(pipes->stdErr.h_read, NULL, 0, NULL, &pipe_read, NULL))
+                return -1;
+            if (pipe_read) {
+                ReadFile(pipes->stdErr.h_read, pipes->read_buf + pipes->buf_len, sizeof(pipes->read_buf) - pipes->buf_len - 1, &pipe_read, NULL);
+                pipes->buf_len += pipe_read;
+                pipes->read_buf[pipes->buf_len] = '\0';
+            }
+            return (int)pipe_read;
+        };
+
+        while (WAIT_TIMEOUT == WaitForSingleObject(pi.hProcess, 10)) {
+            if (read_stderr(&pipes)) {
+                exe_message += char_to_wstring(pipes.read_buf, CP_UTF8);
+                pipes.buf_len = 0;
+            } else {
+                log_process_events();
+            }
+        }
+
+        while (read_stderr(&pipes) > 0) {
+            exe_message += char_to_wstring(pipes.read_buf, CP_UTF8);
+            pipes.buf_len = 0;
+        }
+        log_process_events();
+
+        DWORD exitCode = 0;
+        GetExitCodeProcess(pi.hProcess, &exitCode);
+
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+
+        ret = exitCode == 0 ? TRUE : FALSE;
+        //if (exe_message.find("CoreAudioToolbox.dll") == std::string::npos) {
+        //    ret = TRUE;
+        //}
+    }
+
+    if (pipes.stdIn.mode)  CloseHandle(pipes.stdIn.h_read);
+    if (pipes.stdOut.mode) CloseHandle(pipes.stdOut.h_read);
+    if (pipes.stdErr.mode) CloseHandle(pipes.stdErr.h_read);
     return ret;
 }

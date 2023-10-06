@@ -43,4 +43,6 @@ void check_audio_length(OUTPUT_INFO *oip);
 AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat); //音声処理を実行
 AUO_RESULT audio_output_parallel(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
 
+BOOL check_audenc_output(const AUDIO_SETTINGS *aud_stg, std::wstring& exe_message);
+
 #endif //_AUO_AUDIO_H_

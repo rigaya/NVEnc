@@ -56,7 +56,7 @@ typedef AUO_RESULT (*encode_task) (CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM
 
 BOOL check_if_exedit_is_used();
 BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_settings *exstg);
-void open_log_window(const char *savefile, const SYSTEM_DATA *sys_dat, int current_pass, int total_pass, bool amp_crf_reenc = false);
+void open_log_window(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, int current_pass, int total_pass, bool amp_crf_reenc = false);
 void auto_save_log(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
 void warn_video_length(const OUTPUT_INFO *oip);
 int get_total_path(const CONF_GUIEX *conf);

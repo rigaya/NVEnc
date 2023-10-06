@@ -100,7 +100,7 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
             return AUO_RESULT_SUCCESS;
         //ドライブの空き容量取得
         } else if (!GetDiskFreeSpaceEx(temp_root, &temp_drive_avail_space, NULL, NULL)) {
-            ret = AUO_RESULT_WARNING; warning_failed_mux_tmp_drive_space();
+            ret = AUO_RESULT_WARNING; warning_failed_mux_tmp_drive_space(temp_root);
         //一時フォルダと出力先が同じフォルダかどうかで、一時フォルダの必要とされる空き領域が変わる
         } else {
             tmp_same_drive_as_out = (_stricmp(vid_root, temp_root) == NULL) ? 1 : 0;
@@ -124,7 +124,7 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
         ULARGE_INTEGER muxer_drive_avail_space = { 0 };
         if (!PathGetRoot(mux_stg->fullpath, muxer_root, _countof(muxer_root)) ||
             !GetDiskFreeSpaceEx(muxer_root, &muxer_drive_avail_space, NULL, NULL)) {
-            warning_failed_muxer_drive_space(); return AUO_RESULT_WARNING;
+            warning_failed_muxer_drive_space(muxer_root); return AUO_RESULT_WARNING;
         }
         //一時フォルダと出力先が同じフォルダかどうかで、一時フォルダの必要とされる空き領域が変わる
         BOOL muxer_same_drive_as_out = (_stricmp(vid_root, muxer_root) == NULL) ? 1 : 0;
@@ -139,7 +139,7 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
     //ドライブの空き容量取得
     ULARGE_INTEGER out_drive_avail_space = { 0 };
     if (!GetDiskFreeSpaceEx(vid_root, &out_drive_avail_space, NULL, NULL)) {
-        warning_failed_out_drive_space(); return AUO_RESULT_WARNING;
+        warning_failed_out_drive_space(vid_root); return AUO_RESULT_WARNING;
     }
     if ((uint64_t)out_drive_avail_space.QuadPart < required_space) {
         error_out_drive_not_enough_space(vid_root, (uint64_t)out_drive_avail_space.QuadPart, required_space); return AUO_RESULT_ERROR;
@@ -154,13 +154,13 @@ static AUO_RESULT get_expected_filesize(const PRM_ENC *pe, BOOL enable_vid_mux, 
     if (enable_vid_mux) {
         UINT64 vid_size = 0;
         if (!PathFileExists(pe->temp_filename)) {
-            error_no_vid_file(); return AUO_RESULT_ERROR;
+            error_no_vid_file(pe->temp_filename); return AUO_RESULT_ERROR;
         }
         if (!GetFileSizeUInt64(pe->temp_filename, &vid_size)) {
-            warning_failed_get_vid_size(); return AUO_RESULT_WARNING;
+            warning_failed_get_vid_size(pe->temp_filename); return AUO_RESULT_WARNING;
         }
         if (vid_size == 0) {
-            error_vid_file_zero_byte(); return AUO_RESULT_ERROR;
+            error_vid_file_zero_byte(pe->temp_filename); return AUO_RESULT_ERROR;
         }
         *_expected_filesize += vid_size;
     }
@@ -172,13 +172,13 @@ static AUO_RESULT get_expected_filesize(const PRM_ENC *pe, BOOL enable_vid_mux, 
                 char audfile[MAX_PATH_LEN] = { 0 };
                 get_aud_filename(audfile, _countof(audfile), pe, i_aud);
                 if (!PathFileExists(audfile)) {
-                    error_no_aud_file(); return AUO_RESULT_ERROR;
+                    error_no_aud_file(audfile); return AUO_RESULT_ERROR;
                 }
                 if (!GetFileSizeUInt64(audfile, &aud_size)) {
-                    warning_failed_get_aud_size(); return AUO_RESULT_WARNING;
+                    warning_failed_get_aud_size(audfile); return AUO_RESULT_WARNING;
                 }
                 if (aud_size == 0) {
-                    error_aud_file_zero_byte(); return AUO_RESULT_ERROR;
+                    error_aud_file_zero_byte(audfile); return AUO_RESULT_ERROR;
                 }
                 *_expected_filesize += aud_size;
             }
@@ -193,7 +193,7 @@ static AUO_RESULT check_muxout_filesize(const char *muxout, UINT64 expected_file
     const double FILE_SIZE_THRESHOLD_MULTI = 0.95;
     UINT64 muxout_filesize = 0;
     if (!PathFileExists(muxout)) {
-        error_check_muxout_exist();
+        error_check_muxout_exist(muxout);
         return AUO_RESULT_ERROR;
     }
     //推定ファイルサイズの取得に失敗していたら終了
@@ -202,12 +202,12 @@ static AUO_RESULT check_muxout_filesize(const char *muxout, UINT64 expected_file
     if (GetFileSizeUInt64(muxout, &muxout_filesize)) {
         //ファイルサイズの取得に成功したら、予想サイズとの比較を行う
         if (((double)muxout_filesize) <= ((double)expected_filesize * FILE_SIZE_THRESHOLD_MULTI * (1.0 - exp(-1.0 * (double)expected_filesize / (128.0 * 1024.0))))) {
-            error_check_muxout_too_small((int)(expected_filesize / 1024), (int)(muxout_filesize / 1024));
+            error_check_muxout_too_small(muxout, (int)(expected_filesize / 1024), (int)(muxout_filesize / 1024));
             return AUO_RESULT_ERROR;
         }
         return AUO_RESULT_SUCCESS;
     }
-    warning_failed_check_muxout_filesize();
+    warning_failed_check_muxout_filesize(muxout);
     return AUO_RESULT_WARNING;
 }
 
@@ -554,29 +554,32 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
         //最後のメッセージを回収
         while (ReadLogExe(&pipes, mux_stg->dispname, &log_line_cache) > 0);
 
+#define REMOVE_AND_CHECK(REMOVEFILE) { if (!DeleteFile(REMOVEFILE)) { auto err = GetLastError(); error_failed_remove_file((REMOVEFILE), err); return AUO_RESULT_ERROR; } }
+#define RENAME_AND_CHECK(OLDFILE, NEWFILE) { if (!MoveFile((OLDFILE), (NEWFILE))) { auto err = GetLastError(); error_failed_rename_file((NEWFILE), err); return AUO_RESULT_ERROR; } }
+
         ret |= check_muxout_filesize(muxout, expected_filesize);
         int muxer_log_level = LOG_MORE;
         if (ret == AUO_RESULT_SUCCESS) {
             if (enable_vid_mux) {
-                if (str_has_char(pe->muxed_vid_filename) && PathFileExists(pe->muxed_vid_filename)) remove(pe->muxed_vid_filename);
+                if (str_has_char(pe->muxed_vid_filename) && PathFileExists(pe->muxed_vid_filename)) REMOVE_AND_CHECK(pe->muxed_vid_filename);
                 apply_appendix(pe->muxed_vid_filename, _countof(pe->muxed_vid_filename), pe->temp_filename, VID_FILE_APPENDIX);
                 strcat_s(pe->muxed_vid_filename, _countof(pe->muxed_vid_filename), PathFindExtension(pe->temp_filename));
-                if (PathFileExists(pe->muxed_vid_filename)) remove(pe->muxed_vid_filename);
-                rename(pe->temp_filename, pe->muxed_vid_filename);
+                if (PathFileExists(pe->muxed_vid_filename)) REMOVE_AND_CHECK(pe->muxed_vid_filename);
+                RENAME_AND_CHECK(pe->temp_filename, pe->muxed_vid_filename);
                 change_ext(pe->temp_filename, _countof(pe->temp_filename), mux_stg->out_ext); //拡張子を変更
-                if (PathFileExists(pe->temp_filename)) remove(pe->temp_filename);
-                rename(muxout, pe->temp_filename);
+                if (PathFileExists(pe->temp_filename)) REMOVE_AND_CHECK(pe->temp_filename);
+                RENAME_AND_CHECK(muxout, pe->temp_filename);
             } else {
                 //音声のみmuxなら、一時音声ファイルの情報を変更する
                 char aud_file[MAX_PATH_LEN] = { 0 };
                 for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
                     if (enable_aud_mux & (0x01 << i_aud)) {
                         get_aud_filename(aud_file, _countof(aud_file), pe, i_aud);
-                        remove(aud_file);
+                        REMOVE_AND_CHECK(aud_file);
                         change_ext(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), mux_stg->out_ext); //拡張子を変更
                         get_aud_filename(aud_file, _countof(aud_file), pe, i_aud);
-                        if (PathFileExists(aud_file)) remove(aud_file);
-                        rename(muxout, aud_file);
+                        if (PathFileExists(aud_file)) REMOVE_AND_CHECK(aud_file);
+                        RENAME_AND_CHECK(muxout, aud_file);
                     }
                 }
             }
@@ -584,7 +587,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
             muxer_log_level = LOG_ERROR;
             error_mux_failed(mux_stg->dispname, muxargs);
             if (PathFileExists(muxout))
-                remove(muxout);
+                REMOVE_AND_CHECK(muxout);
         } else {
             //AUO_RESULT_WARNING
             change_mux_vid_filename(muxout, pe);

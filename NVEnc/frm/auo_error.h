@@ -31,6 +31,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+#include <string>
 
 void warning_conf_not_initialized(const char *default_stg_file);
 void warning_failed_getting_temp_path();
@@ -60,6 +61,7 @@ void error_no_exe_file(const wchar_t *name, const char *path);
 void warning_use_default_audio_encoder(const wchar_t *name);
 void error_invalid_ini_file();
 void error_unsupported_audio_format_by_muxer(const int video_out_type, const wchar_t *selected_aud, const wchar_t *default_aud);
+void error_failed_to_run_audio_encoder(const wchar_t *selected_aud, const wchar_t *error_mes, const wchar_t *default_aud);
 void info_use_exe_found(const wchar_t *target, const char *path);
 void error_mp4box_ini();
 void warning_auto_afs_disable();
@@ -92,22 +94,24 @@ void error_no_wavefile();
 void error_mux_failed(const wchar_t *name, const char *args);
 
 void warning_no_mux_tmp_root(const char *dir);
-void warning_failed_mux_tmp_drive_space();
-void warning_failed_muxer_drive_space();
-void warning_failed_out_drive_space();
-void warning_failed_get_aud_size();
-void warning_failed_get_vid_size();
-void error_no_vid_file();
-void error_no_aud_file();
-void error_vid_file_zero_byte();
-void error_aud_file_zero_byte();
+void warning_failed_mux_tmp_drive_space(const char *drivename);
+void warning_failed_muxer_drive_space(const char *drivename);
+void warning_failed_out_drive_space(const char *drivename);
+void warning_failed_get_aud_size(const char *filename);
+void warning_failed_get_vid_size(const char *filename);
+void error_no_vid_file(const char *filename);
+void error_no_aud_file(const char *filename);
+void error_vid_file_zero_byte(const char *filename);
+void error_aud_file_zero_byte(const char *filename);
 void warning_mux_tmp_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace);
 void error_muxer_drive_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace);
 void error_out_drive_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace);
 void warning_failed_to_get_duration_from_timecode();
-void error_check_muxout_exist();
-void error_check_muxout_too_small(int expected_filesize_KB, int muxout_filesize_KB);
-void warning_failed_check_muxout_filesize();
+void error_check_muxout_exist(const char *filename);
+void error_check_muxout_too_small(const char *filename, int expected_filesize_KB, int muxout_filesize_KB);
+void warning_failed_check_muxout_filesize(const char *filename);
+void error_failed_remove_file(const char *filename, const DWORD err);
+void error_failed_rename_file(const char *filename, const DWORD err);
 void warning_amp_failed();
 void warning_amp_filesize_over_limit();
 void info_amp_result(DWORD status, int amp_result, UINT64 filesize, double file_bitrate, double limit_filesize, double limit_filebitrate_upper, double limit_filebitrate_lower, int retry_count, int new_bitrate);
@@ -127,5 +131,7 @@ void warning_malloc_batfile_tmp();
 void warning_failed_open_bat_orig();
 void warning_failed_open_bat_new();
 void warning_video_very_short();
+
+std::wstring getLastErrorStr(DWORD err);
 
 #endif //_AUO_ERROR_H_
