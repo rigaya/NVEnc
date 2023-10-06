@@ -380,7 +380,7 @@ nvidia-smi.exeは通常ドライバと一緒に"C:\Program Files\NVIDIA Corporat
  - av1
  - raw
 
-   ```-c raw``` will not encode and output raw frames in y4m format.
+   ```-c raw```の場合は、エンコードをせず、rawフレームを出力します。rawフレームの形式はデフォルトではy4m形式です。```-f raw```を追加することで、raw形式に変更できます。
 
 ### -o, --output &lt;string&gt;
 出力ファイル名の表示、"-"でパイプ出力
@@ -988,11 +988,21 @@ libavが読み込み時に解析する最大のサイズをbyte単位で指定�
 avhw/avswリーダー使用時に、入力のフォーマットを指定する。
 
 ### -f, --output-format &lt;string&gt;
-muxerに出力フォーマットを指定して出力する。
+- 通常エンコード時
 
-出力フォーマットは出力拡張子から自動的に決定されるので、通常、特に指定する必要はないが、このオプションで出力フォーマットを強制できる。
+  muxerに出力フォーマットを指定して出力する。
 
-使用可能なフォーマットは[--check-formats](#--check-formats)で確認できる。H.264/HEVCをElementary Streamで出力する場合には、"raw"を指定する。
+  出力フォーマットは出力拡張子から自動的に決定されるので、通常、特に指定する必要はないが、このオプションで出力フォーマットを強制できる。
+
+  使用可能なフォーマットは[--check-formats](#--check-formats)で確認できる。H.264/HEVCをElementary Streamで出力する場合には、"raw"を指定する。
+
+- raw出力時 (```-c raw```指定時)
+
+  出力するrawフレームの形式を指定する。  
+
+  - パラメータ
+    - y4m (デフォルト)
+    - raw
 
 ### --video-track &lt;int&gt;
 エンコード対象の映像トラックの選択。avsw/avhwリーダー使用時のみ有効。

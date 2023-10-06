@@ -363,7 +363,7 @@ Specify the output codec
  - av1
  - raw
 
-   rawの場合は、エンコードをせず、rawフレームをy4m出力します。
+   ```-c raw``` will not encode and output raw frames. The format of raw frames will be y4m by default. This can be changed to raw fromat by adding ```-f raw```.
 
 ### -o, --output &lt;string&gt;
 Set output file name, pipe output with "-".
@@ -985,11 +985,21 @@ Set encode finish time. This might be inaccurate, so if you require exact number
 Specify input format for avhw / avsw reader.
 
 ### -f, --output-format &lt;string&gt;
-Specify output format for muxer.
+- For normal encode
 
-Since the output format is automatically determined by the output extension, it is usually not necessary to specify it, but you can force the output format with this option.
+  Specify output format for muxer.
 
-Available formats can be checked with [--check-formats](#--check-formats). To output H.264 / HEVC as an Elementary Stream, specify "raw".
+  Since the output format is automatically determined by the output extension, it is usually not necessary to specify it, but you can force the output format with this option.
+
+  Available formats can be checked with [--check-formats](#--check-formats). To output H.264 / HEVC as an Elementary Stream, specify "raw".
+
+- For raw output (Used with ```-c raw```)
+
+  Specify output format for raw frame.
+
+  - Parameters
+    - y4m (default)
+    - raw
 
 ### --video-track &lt;int&gt;
 Set video track to encode by resolution. Will be active when used with avhw/avsw reader.
