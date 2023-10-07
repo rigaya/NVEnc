@@ -115,6 +115,9 @@ protected:
     //perfMonitorの初期化
     virtual NVENCSTATUS InitPerfMonitor(const InEncodeVideoParam *inputParam);
 
+    //nvvfxを使用するかチェック
+    bool useNVVFX(const InEncodeVideoParam *inputParam);
+
     //GPUListのGPUが必要なエンコードを行えるかチェック
     NVENCSTATUS CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
 

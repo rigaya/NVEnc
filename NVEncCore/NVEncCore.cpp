@@ -692,6 +692,20 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     return NV_ENC_SUCCESS;
 }
 
+bool NVEncCore::useNVVFX(const InEncodeVideoParam *inputParam) {
+#if (!defined(_M_IX86))
+    const auto& vppnv = inputParam->vppnv;
+    if (   vppnv.nvvfxArtifactReduction.enable
+        || vppnv.nvvfxDenoise.enable
+        || vppnv.nvvfxSuperRes.enable
+        || vppnv.nvvfxUpScaler.enable
+        || inputParam->vpp.resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
+        return true;
+    }
+#endif
+    return false;
+}
+
 NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam) {
     if (m_nDeviceId >= 0) {
         //手動で設定されている
@@ -802,6 +816,17 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
                continue;
            }
         }
+        //フィルタのチェック
+        if (useNVVFX(inputParam)) {
+            //nvvfxにはturing以降(CC7.0)が必要
+            const int nvvfxRequiredCCMajor = 7;
+            if ((*gpu)->cc().first < nvvfxRequiredCCMajor) {
+                message += strsprintf(_T("GPU #%d (%s) does not support nvvfx, CC 7.0 is required but GPU is CC %d.%d.\n"), (*gpu)->id(), (*gpu)->name().c_str(), (*gpu)->cc().first, (*gpu)->cc().second);
+                gpu = gpuList.erase(gpu);
+                continue;
+            }
+        }
+
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for encode.\n"), (*gpu)->id(), (*gpu)->name().c_str());
         gpu++;
     }
