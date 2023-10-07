@@ -86,24 +86,12 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
     ppOutputFrames[0] = nullptr;
     *pOutputFrameNum = 0;
     if (pInputFrame->ptr == nullptr) {
-        if (m_frames % pSelectParam->selectevery.step != (pSelectParam->selectevery.step-1)
+        if (m_totalDuration > 0
+            && m_frames % pSelectParam->selectevery.step != (pSelectParam->selectevery.step-1)
             && m_frames % pSelectParam->selectevery.step >= (pSelectParam->selectevery.step / 2)) {
             auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
-            if (m_frames % pSelectParam->selectevery.step < pSelectParam->selectevery.offset) {
-                const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, pOutFrame->frame.deivce_mem);
-                if (memcpyKind != cudaMemcpyDeviceToDevice) {
-                    AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-                    return RGY_ERR_INVALID_PARAM;
-                }
-                auto cudaerr = copyFrameAsync(&pOutFrame->frame, pInputFrame, stream);
-                if (cudaerr != cudaSuccess) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                    return RGY_ERR_CUDA;
-                }
-                pOutFrame->frame.inputFrameId = pInputFrame->inputFrameId;
-            }
             ppOutputFrames[0] = &pOutFrame->frame;
-            ppOutputFrames[0]->duration = m_totalDuration * pSelectParam->selectevery.step / ((m_frames % pSelectParam->selectevery.step) + 1);
+            ppOutputFrames[0]->duration = m_totalDuration * pSelectParam->selectevery.step / (m_frames % pSelectParam->selectevery.step);
             ppOutputFrames[0]->timestamp = m_outPts;
             *pOutputFrameNum = 1;
             if (m_totalDuration < 0 || m_outPts < 0) {
@@ -111,6 +99,8 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
                            m_outPts, m_totalDuration);
                 return RGY_ERR_INVALID_PARAM;
             }
+            m_outPts = -1;
+            m_totalDuration = 0;
         }
         return sts;
     }
