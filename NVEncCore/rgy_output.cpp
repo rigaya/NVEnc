@@ -1294,7 +1294,7 @@ RGY_ERR initWriters(
         if (outputVideoInfo.codec == RGY_CODEC_RAW) {
             pFileWriter = std::make_shared<RGYOutFrame>();
             YUVWriterParam param;
-            param.bY4m = common->muxOutputFormat == _T("raw");
+            param.bY4m = common->muxOutputFormat != _T("raw");
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &param, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
