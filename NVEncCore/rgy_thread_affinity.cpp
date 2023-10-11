@@ -508,6 +508,8 @@ bool SetThreadPriorityForModule(const uint32_t TargetProcessId, const TCHAR *Tar
         void* thread_address = GetThreadBeginAddress(thread_id);
         if (!thread_address) {
             ret = FALSE;
+        } else if (TargetModule == nullptr) {
+            ret &= !!SetThreadPriorityFromThreadId(thread_id, ThreadPriority);
         } else {
             for (const auto& i_module : module_list) {
                 if (check_ptr_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
@@ -538,6 +540,8 @@ bool SetThreadAffinityForModule(const uint32_t TargetProcessId, const TCHAR *Tar
         void* thread_address = GetThreadBeginAddress(thread_id);
         if (!thread_address) {
             ret = FALSE;
+        } else if (TargetModule == nullptr) {
+            ret &= !!SetThreadAffinityFromThreadId(thread_id, ThreadAffinityMask);
         } else {
             for (const auto& i_module : module_list) {
                 if (check_ptr_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
@@ -586,7 +590,7 @@ bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThread
     return ret;
 }
 
-bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const RGYThreadPowerThrottlingMode mode) {
+bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR *TargetModule, const RGYThreadPowerThrottlingMode mode) {
     bool ret = TRUE;
     const auto thread_list = GetThreadList(TargetProcessId);
     const auto module_list = GetModuleList(TargetProcessId);
@@ -594,8 +598,13 @@ bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, cons
         void* thread_address = GetThreadBeginAddress(thread_id);
         if (!thread_address) {
             ret = FALSE;
-        }
-        else {
+        } else if (TargetModule == nullptr) {
+            HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, thread_id);
+            if (hThread) {
+                ret &= !!SetThreadPowerThrottolingMode(hThread, mode);
+                CloseHandle(hThread);
+            }
+        } else {
             for (const auto& i_module : module_list) {
                 if (check_ptr_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
                     && (TargetModule == nullptr || _tcsncicmp(TargetModule, i_module.szModule, _tcslen(TargetModule)) == 0)) {
