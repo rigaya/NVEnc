@@ -333,7 +333,6 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
 
     bool m_bY4m;
-    std::unique_ptr<RGYFrame> m_outputFrameBuf;
 };
 
 #endif //#if ENCODER_QSV || ENCODER_NVENC
