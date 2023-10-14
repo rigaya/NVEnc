@@ -1570,7 +1570,7 @@ bool invalid_with_raw_out(const RGYParamCommon &prm, shared_ptr<RGYLog> log) {
     INVALID_WITH_RAW_OUT(prm.nDataSelectCount > 0, "data related options");
     INVALID_WITH_RAW_OUT(prm.nAttachmentSelectCount > 0, "--attachment-copy");
     INVALID_WITH_RAW_OUT(prm.chapterFile.length() > 0, "--chapter");
-    INVALID_WITH_RAW_OUT(prm.copyChapter > 0, "--chapter-copy");
+    INVALID_WITH_RAW_OUT(prm.copyChapter, "--chapter-copy");
     INVALID_WITH_RAW_OUT(prm.formatMetadata.size() > 0, "--metadata");
     INVALID_WITH_RAW_OUT(prm.videoMetadata.size() > 0, "--video-metadata");
     INVALID_WITH_RAW_OUT(prm.muxOpt.size() > 0, "-m");
