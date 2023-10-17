@@ -232,13 +232,17 @@ RGY_ERR RGYInputAvs::InitAudio(const RGYInputAvsPrm *input_prm) {
     }
     m_format = unique_ptr<AVFormatContext, decltype(&avformat_free_context)>(format, &avformat_free_context);
 
-    AVDemuxStream st = { 0 };
+    AVDemuxStream st;
 
     st.stream = avformat_new_stream(m_format.get(), NULL);
 
     st.stream->codecpar->codec_type  = AVMEDIA_TYPE_AUDIO;
     st.stream->codecpar->sample_rate = m_sAVSinfo->audio_samples_per_second;
-    st.stream->codecpar->channels    = m_sAVSinfo->nchannels;
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    av_channel_layout_default(&st.stream->codecpar->ch_layout, m_sAVSinfo->nchannels);
+#else
+    st.stream->codecpar->channels = m_sAVSinfo->nchannels;
+#endif
     st.stream->duration              = m_sAVSinfo->num_audio_samples;
     st.stream->time_base             = av_make_q(1, m_sAVSinfo->audio_samples_per_second);
 
@@ -297,8 +301,8 @@ RGY_ERR RGYInputAvs::InitAudio(const RGYInputAvsPrm *input_prm) {
     }
     if (pAudioSelect) {
         st.addDelayMs = pAudioSelect->addDelayMs;
-        memcpy(st.streamChannelSelect, pAudioSelect->streamChannelSelect, sizeof(st.streamChannelSelect));
-        memcpy(st.streamChannelOut,    pAudioSelect->streamChannelOut,    sizeof(st.streamChannelOut));
+        st.streamChannelSelect = pAudioSelect->streamChannelSelect;
+        st.streamChannelOut = pAudioSelect->streamChannelOut;
     }
     m_audio.push_back(st);
     return RGY_ERR_NONE;

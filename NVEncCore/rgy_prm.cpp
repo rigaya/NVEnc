@@ -1258,8 +1258,6 @@ AudioSelect::AudioSelect() :
     lang(),
     selectCodec(),
     metadata() {
-    memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
-    memset(streamChannelOut, 0, sizeof(streamChannelOut));
 }
 
 AudioSource::AudioSource() :

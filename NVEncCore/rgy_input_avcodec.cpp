@@ -1625,27 +1625,13 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 }
             }
             if (useStream) {
-                //存在するチャンネルまでのchannel_layoutのマスクを作成する
-                //特に引数を指定せず--audio-channel-layoutを指定したときには、
-                //pnStreamChannelsはchannelの存在しない不要なビットまで立っているのをここで修正
-                if (pAudioSelect //字幕ストリームの場合は無視
-                    && isSplitChannelAuto(pAudioSelect->streamChannelSelect)) {
-                    const uint64_t channel_layout_mask = UINT64_MAX >> (sizeof(channel_layout_mask) * 8 - m_Demux.format.formatCtx->streams[mediaStreams[iTrack]]->codecpar->channels);
-                    for (uint32_t iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
-                        pAudioSelect->streamChannelSelect[iSubStream] &= channel_layout_mask;
-                    }
-                    for (uint32_t iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
-                        pAudioSelect->streamChannelOut[iSubStream] &= channel_layout_mask;
-                    }
-                }
-
                 //必要であれば、サブストリームを追加する
                 for (uint32_t iSubStream = 0; iSubStream == 0 || //初回は字幕・音声含め、かならず登録する必要がある
                     (iSubStream < MAX_SPLIT_CHANNELS //最大サブストリームの上限
                         && pAudioSelect != nullptr //字幕ではない
-                        && pAudioSelect->streamChannelSelect[iSubStream]); //audio-splitが指定されている
+                        && !pAudioSelect->streamChannelSelect[iSubStream].empty()); //audio-splitが指定されている
                     iSubStream++) {
-                    AVDemuxStream stream = { 0 };
+                    AVDemuxStream stream;
                     switch (mediaType) {
                     case AVMEDIA_TYPE_SUBTITLE:
                         stream.trackId = trackFullID(AVMEDIA_TYPE_SUBTITLE, iTrack - m_Demux.format.audioTracks + input_prm->trackStartSubtitle);
@@ -1675,8 +1661,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     strncpy_s(stream.lang, _countof(stream.lang), getTrackLang(m_Demux.format.formatCtx->streams[stream.index]).c_str(), 3);
                     if (pAudioSelect) {
                         stream.addDelayMs = pAudioSelect->addDelayMs;
-                        memcpy(stream.streamChannelSelect, pAudioSelect->streamChannelSelect, sizeof(stream.streamChannelSelect));
-                        memcpy(stream.streamChannelOut,    pAudioSelect->streamChannelOut,    sizeof(stream.streamChannelOut));
+                        stream.streamChannelSelect = pAudioSelect->streamChannelSelect;
+                        stream.streamChannelOut    = pAudioSelect->streamChannelOut;
                     }
                     m_Demux.stream.push_back(stream);
                     AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d, delay %d ms\n"),

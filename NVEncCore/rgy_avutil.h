@@ -84,6 +84,14 @@ extern "C" {
 #define RGY_AV_LOG_LEVEL AV_LOG_ERROR
 #endif
 
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+using RGYChannelLayout = AVChannelLayout;
+using uniuqeRGYChannelLayout = std::unique_ptr<RGYChannelLayout, decltype(&av_channel_layout_uninit)>;
+#else
+using RGYChannelLayout = uint64_t;
+using uniuqeRGYChannelLayout = std::unique_ptr<RGYChannelLayout>;
+#endif
+
 template<typename T>
 struct RGYAVDeleter {
     RGYAVDeleter() : deleter(nullptr) {};
@@ -311,9 +319,65 @@ tstring getAVFormats(RGYAVFormatType flag);
 //利用可能なフィルターを表示
 tstring getAVFilters();
 
+// AVFrameのdeep copyを行う
+void av_frame_deep_copy(AVFrame *copyFrame, const AVFrame *frame);
+
+static bool channelLayoutSet(const RGYChannelLayout *a) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return a->nb_channels > 0;
+#else
+    return *a != 0;
+#endif
+}
+
+static bool channelLayoutOrderUnspec([[maybe_unused]] const RGYChannelLayout *a) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return a->order == AV_CHANNEL_ORDER_UNSPEC;
+#else
+    return false;
+#endif
+}
+
+static bool channelLayoutCompare(const RGYChannelLayout *a, const RGYChannelLayout *b) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return av_channel_layout_compare(a, b) != 0;
+#else
+    return *a != *b;
+#endif
+}
+
+uniuqeRGYChannelLayout createChannelLayoutEmpty();
+uniuqeRGYChannelLayout createChannelLayoutCopy(const RGYChannelLayout *ch_layout);
+
+//コーデックのサポートするチャンネルレイアウトを取得
+const RGYChannelLayout *getChannelLayoutSupportedCodec(const AVCodec *codec);
+
+//チェンネル数をマスクから取得
+int getChannelCount(const uint64_t channel_layout);
+int getChannelCount(const RGYChannelLayout *channel_layout);
+int getChannelCount(const AVCodecParameters *codecpar);
+int getChannelCount(const AVCodecContext *ctx);
+
+//チャンネルレイアウトを取得
+uniuqeRGYChannelLayout getChannelLayout(const AVCodecContext *ctx);
+
 //チャンネルレイアウトを表示
 std::string getChannelLayoutChar(int channels, uint64_t channel_layout);
 tstring getChannelLayoutString(int channels, uint64_t channel_layout);
+std::string getChannelLayoutChar(const RGYChannelLayout *ch_layout);
+tstring getChannelLayoutString(const RGYChannelLayout *ch_layout);
+std::string getChannelLayoutChar(const AVCodecContext *ctx);
+tstring getChannelLayoutString(const AVCodecContext *ctx);
+
+//チャンネルレイアウトのマスクを文字列から取得
+uint64_t getChannelLayoutMask(const std::string& channel_layout_str);
+uniuqeRGYChannelLayout getChannelLayoutFromString(const std::string& channel_layout_str);
+
+//デフォルトのチャンネルレイアウトを取得
+uniuqeRGYChannelLayout getDefaultChannelLayout(const int nb_channels);
+
+int getChannelLayoutIndexFromChannel(const RGYChannelLayout *ch_layout, const AVChannel channel);
+AVChannel getChannelLayoutChannelFromIndex(const RGYChannelLayout *ch_layout, const int index);
 
 //時刻を表示
 std::string getTimestampChar(int64_t ts, const AVRational& timebase);

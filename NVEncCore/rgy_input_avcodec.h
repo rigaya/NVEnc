@@ -928,7 +928,6 @@ public:
     }
     AVDemuxStream stream() const {
         AVDemuxStream stream;
-        memset(&stream, 0, sizeof(AVDemuxStream));
         return stream;
     }
     RGY_ERR proc(uint8_t *buf, int buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {

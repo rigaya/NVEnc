@@ -62,7 +62,7 @@ RGY_CSP csp_y4mheader_to_rgy(const char *str);
 const char *csp_rgy_to_y4mheader(const RGY_CSP csp);
 
 #if ENABLE_AVSW_READER
-typedef struct AVDemuxStream {
+struct AVDemuxStream {
     int                       index;                  //音声・字幕のストリームID (libavのストリームID)
     int                       trackId;                //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
     int                       subStreamId;            //通常は0、音声のチャンネルを分離する際に複製として作成
@@ -75,14 +75,36 @@ typedef struct AVDemuxStream {
     int64_t                   aud0_fin;               //直前に有効だったパケットのpts(stream timebase基準)
     int                       appliedTrimBlock;       //trim blockをどこまで適用したか
     AVPacket                 *pktSample;              //サンプル用の音声・字幕データ
-    uint64_t                  streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t                  streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+    std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelSelect; //入力音声の使用するチャンネル
+    std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelOut;    //出力音声のチャンネル
     AVRational                timebase;               //streamのtimebase [stream = nullptrの場合でも使えるように]
     void                     *subtitleHeader;         //stream = nullptrの場合 caption2assのヘッダー情報 (srt形式でもass用のヘッダーが入っている)
     int                       subtitleHeaderSize;     //stream = nullptrの場合 caption2assのヘッダー情報のサイズ
     C2AFormat                 caption2ass;            //stream = nullptrの場合 caption2assのformat
     char                      lang[4];                //trackの言語情報(3文字)
-} AVDemuxStream;
+
+    AVDemuxStream() :
+        index(0),
+        trackId(0),
+        subStreamId(0),
+        sourceFileIndex(0),
+        stream(nullptr),
+        addDelayMs(0),
+        lastVidIndex(0),
+        extractErrExcess(0),
+        trimOffset(0),
+        aud0_fin(0),
+        appliedTrimBlock(0),
+        pktSample(nullptr),
+        streamChannelSelect(),
+        streamChannelOut(),
+        timebase({ 0, 0 }),
+        subtitleHeader(nullptr),
+        subtitleHeaderSize(0),
+        caption2ass(),
+        lang() {
+    };
+};
 
 static int trackFullID(AVMediaType media_type, int trackID) {
     return (((uint32_t)media_type) << 12) | trackID;

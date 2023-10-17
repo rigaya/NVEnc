@@ -51,7 +51,7 @@ static const int TRIM_MAX = std::numeric_limits<int>::max();
 static const int TRIM_OVERREAD_FRAMES = 128;
 
 static const int MAX_SPLIT_CHANNELS = 32;
-static const uint64_t RGY_CHANNEL_AUTO = std::numeric_limits<uint64_t>::max();
+static const std::string RGY_CHANNEL_AUTO = "RGY_CHANNEL_AUTO";
 static const int RGY_OUTPUT_BUF_MB_DEFAULT = 8;
 static const int RGY_OUTPUT_BUF_MB_MAX = 128;
 

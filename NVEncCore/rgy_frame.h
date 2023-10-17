@@ -136,6 +136,9 @@ public:
         array[1] = (void *)frame.ptr[1];
         array[2] = (void *)frame.ptr[2];
     }
+    uint8_t *ptrPlane(const RGY_PLANE plane) const {
+        return getInfo().ptr[plane];
+    }
     uint8_t *ptrY() const {
         return getInfo().ptr[0];
     }
@@ -165,6 +168,9 @@ public:
     }
     uint32_t pitch(int index = 0) const {
         return getInfo().pitch[index];
+    }
+    uint32_t pitch(const RGY_PLANE plane) const {
+        return getInfo().pitch[plane];
     }
     uint64_t timestamp() const {
         return getInfo().timestamp;

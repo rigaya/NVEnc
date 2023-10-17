@@ -383,15 +383,117 @@ tstring getAVFilters() {
     return char_to_tstring(mes);
 }
 
-std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
+void av_frame_deep_copy(AVFrame *copyFrame, const AVFrame *frame) {
+    copyFrame->format = frame->format;
+    copyFrame->width = frame->width;
+    copyFrame->height = frame->height;
+    copyFrame->sample_rate = frame->sample_rate;
+    copyFrame->duration = frame->duration;
+    copyFrame->pts = frame->pts;
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    av_channel_layout_copy(&copyFrame->ch_layout, &frame->ch_layout);
+#else
+    copyFrame->channels = frame->channels;
+    copyFrame->channel_layout = frame->channel_layout;
+#endif
+    copyFrame->nb_samples = frame->nb_samples;
+    av_frame_get_buffer(copyFrame, 32);
+    av_frame_copy(copyFrame, frame);
+    av_frame_copy_props(copyFrame, frame);
+}
+
+uniuqeRGYChannelLayout createChannelLayoutEmpty() {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    auto ch_layout = uniuqeRGYChannelLayout(new RGYChannelLayout(), av_channel_layout_uninit);
+    return ch_layout;
+#else
+    auto channel_layout = uniuqeRGYChannelLayout(new RGYChannelLayout);
+    *channel_layout = 0;
+    return channel_layout;
+#endif
+}
+
+uniuqeRGYChannelLayout createChannelLayoutCopy(const RGYChannelLayout *ch_layout) {
+    auto ch_layout_copy = createChannelLayoutEmpty();
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    av_channel_layout_copy(ch_layout_copy.get(), ch_layout);
+#else
+    *ch_layout_copy = *ch_layout;
+#endif
+    return ch_layout_copy;
+}
+
+const RGYChannelLayout *getChannelLayoutSupportedCodec(const AVCodec *codec) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    const RGYChannelLayout *channelLayout = codec->ch_layouts;
+#else
+    const RGYChannelLayout *channelLayout = codec->channel_layouts;
+#endif
+    return channelLayout;
+}
+
+int getChannelCount(const uint64_t channel_layout) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    auto ch_layout = createChannelLayoutEmpty();
+    av_channel_layout_from_mask(ch_layout.get(), channel_layout);
+    return ch_layout->nb_channels;
+#else
+    return av_get_channel_layout_nb_channels(channel_layout);
+#endif
+}
+
+int getChannelCount(const RGYChannelLayout *channel_layout) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return channel_layout->nb_channels;
+#else
+    return av_get_channel_layout_nb_channels(*channel_layout);
+#endif
+}
+
+int getChannelCount(const AVCodecParameters *codecpar) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return codecpar->ch_layout.nb_channels;
+#else
+    return codecpar->channels;
+#endif
+}
+
+int getChannelCount(const AVCodecContext *ctx) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return ctx->ch_layout.nb_channels;
+#else
+    int ret = getChannelCount(ctx->channel_layout);
+    if (ret == 0) {
+        ret = ctx->channels;
+    }
+    return ret;
+#endif
+}
+
+uniuqeRGYChannelLayout getChannelLayout(const AVCodecContext *ctx) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return createChannelLayoutCopy(&ctx->ch_layout);
+#else
+    //時折channel_layoutが設定されていない場合がある
+    return channelLayoutSet(&ctx->channel_layout) ? createChannelLayoutCopy(&ctx->channel_layout) : getDefaultChannelLayout(ctx->channels);
+#endif
+}
+
+std::string getChannelLayoutChar([[maybe_unused]] int channels, uint64_t channel_layout) {
     char string[1024] = { 0 };
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    auto ch_layout = createChannelLayoutEmpty();
+    av_channel_layout_from_mask(ch_layout.get(), channel_layout);
+    av_channel_layout_describe(ch_layout.get(), string, _countof(string));
+#else
     av_get_channel_layout_string(string, _countof(string), channels, channel_layout);
-    if (auto ptr = strstr(string, " channel")) {
-        strcpy(ptr, "ch");
-    }
-    if (auto ptr = strstr(string, "channel")) {
-        strcpy(ptr, "ch");
-    }
+#endif
+    //if (auto ptr = strstr(string, " channel")) {
+    //    strcpy(ptr, "ch");
+    //}
+    //if (auto ptr = strstr(string, "channel")) {
+    //    strcpy(ptr, "ch");
+    //}
     //if (0 == _strnicmp(string, "stereo", strlen("stereo"))) {
     //    return "2ch";
     //}
@@ -400,6 +502,88 @@ std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
 
 tstring getChannelLayoutString(int channels, uint64_t channel_layout) {
     return char_to_tstring(getChannelLayoutChar(channels, channel_layout));
+}
+
+std::string getChannelLayoutChar(const RGYChannelLayout *ch_layout) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    char string[1024] = { 0 };
+    av_channel_layout_describe(ch_layout, string, _countof(string));
+    //if (auto ptr = strstr(string, " channel")) {
+    //    strcpy(ptr, "ch");
+    //}
+    //if (auto ptr = strstr(string, "channel")) {
+    //    strcpy(ptr, "ch");
+    //}
+    //if (0 == _strnicmp(string, "stereo", strlen("stereo"))) {
+    //    return "2ch";
+    //}
+    return string;
+#else
+    const int channel_count = getChannelCount(*ch_layout);
+    return getChannelLayoutChar(channel_count, *ch_layout);
+#endif
+}
+
+tstring getChannelLayoutString(const RGYChannelLayout *ch_layout) {
+    return char_to_tstring(getChannelLayoutChar(ch_layout));
+}
+
+std::string getChannelLayoutChar(const AVCodecContext *ctx) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return getChannelLayoutChar(&ctx->ch_layout);
+#else
+    return getChannelLayoutChar(ctx->channels, ctx->channel_layout);
+#endif
+}
+
+tstring getChannelLayoutString(const AVCodecContext *ctx) {
+    return char_to_tstring(getChannelLayoutChar(ctx));
+}
+
+uint64_t getChannelLayoutMask(const std::string& channel_layout_str) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    auto ch_layout = createChannelLayoutEmpty();
+    av_channel_layout_from_string(ch_layout.get(), channel_layout_str.c_str());
+    return (ch_layout->order == AV_CHANNEL_ORDER_NATIVE) ? ch_layout->u.mask : 0;
+#else
+    return av_get_channel_layout(channel_layout_str.c_str());
+#endif
+}
+
+uniuqeRGYChannelLayout getChannelLayoutFromString(const std::string& channel_layout_str) {
+    auto ch_layout = createChannelLayoutEmpty();
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    av_channel_layout_from_string(ch_layout.get(), channel_layout_str.c_str());
+#else
+    *ch_layout = av_get_channel_layout(channel_layout_str.c_str());
+#endif
+    return ch_layout;
+}
+
+uniuqeRGYChannelLayout getDefaultChannelLayout(const int nb_channels) {
+    auto ch_layout = createChannelLayoutEmpty();
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    av_channel_layout_default(ch_layout.get(), nb_channels);
+#else
+    *ch_layout = av_get_default_channel_layout(nb_channels);
+#endif
+    return ch_layout;
+}
+
+int getChannelLayoutIndexFromChannel(const RGYChannelLayout *ch_layout, const AVChannel channel) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return av_channel_layout_index_from_channel(ch_layout, channel);
+#else
+    return av_get_channel_layout_channel_index(*ch_layout, (int)channel);
+#endif
+}
+
+AVChannel getChannelLayoutChannelFromIndex(const RGYChannelLayout *ch_layout, const int index) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return av_channel_layout_channel_from_index(ch_layout, index);
+#else
+    return (AVChannel)av_channel_layout_extract_channel(*ch_layout, index);
+#endif
 }
 
 std::string getTimestampChar(int64_t ts, const AVRational& timebase) {

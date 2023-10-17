@@ -72,6 +72,8 @@ enum RGYMetadataCopyDefault {
 struct AVMuxTimestamp {
     int64_t timestamp_list[8];
 
+    AVMuxTimestamp() : timestamp_list() { }
+
     void add(int64_t timestamp) {
         for (int idx = 0; idx < _countof(timestamp_list); idx++) {
             if (timestamp_list[idx] == AV_NOPTS_VALUE) {
@@ -103,7 +105,7 @@ struct AVMuxTimestamp {
     }
 };
 
-typedef struct AVMuxFormat {
+struct AVMuxFormat {
     const TCHAR          *filename;             //出力ファイル名
     AVFormatContext      *formatCtx;            //出力ファイルのformatContext
     char                  metadataStr[256];     //出力ファイルのエンコーダ名
@@ -124,7 +126,9 @@ typedef struct AVMuxFormat {
     bool                  disableMp4Opt;        //mp4出力時のmuxの最適化(faststart)を無効にする
     bool                  lowlatency;           //低遅延モード
     bool                  allowOtherNegativePts; //音声・字幕の負のptsを許可するかどうか
-} AVMuxFormat;
+
+    AVMuxFormat();
+};
 
 struct AVMuxVideo {
     const AVCodec        *codec;                //出力映像のCodec
@@ -154,9 +158,11 @@ struct AVMuxVideo {
     bool                  debugDirectAV1Out;    //AV1出力のデバッグ用
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
+
+    AVMuxVideo();
 };
 
-typedef struct AVMuxAudio {
+struct AVMuxAudio {
     int                   inTrackId;            //ソースファイルの入力トラック番号
     int                   inSubStream;          //ソースファイルの入力サブストリーム番号
     const AVStream       *streamIn;             //入力音声のストリーム
@@ -178,7 +184,7 @@ typedef struct AVMuxAudio {
 
     //filter
     int                   filterInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    uint64_t              filterInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    uniuqeRGYChannelLayout filterInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     int                   filterInSampleRate;    //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     AVSampleFormat        filterInSampleFmt;     //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     const TCHAR          *filter;
@@ -191,8 +197,8 @@ typedef struct AVMuxAudio {
     int                   audioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
     AVFrame              *decodedFrameCache;   //デコードされたデータのキャッシュされたもの
     int                   channelMapping[MAX_SPLIT_CHANNELS];        //resamplerで使用するチャンネル割り当て(入力チャンネルの選択)
-    uint64_t              streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t              streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+    std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelSelect; //入力音声の使用するチャンネル
+    std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelOut;    //出力音声のチャンネル
 
     //AACの変換用
     AVBSFContext         *bsfc;              //必要なら使用するbitstreamfilter
@@ -202,9 +208,11 @@ typedef struct AVMuxAudio {
     int64_t               outputSamples;        //出力音声の出力済みsample数
     int64_t               lastPtsIn;            //入力音声の前パケットのpts (input stream timebase)
     int64_t               lastPtsOut;           //出力音声の前パケットのpts
-} AVMuxAudio;
 
-typedef struct AVMuxOther {
+    AVMuxAudio();
+};
+
+struct AVMuxOther {
     int                   inTrackId;           //ソースファイルの入力トラック番号
     const AVStream       *streamIn;            //入力字幕のストリーム
     int                   streamIndexIn;       //入力字幕のStreamのindex
@@ -220,7 +228,9 @@ typedef struct AVMuxOther {
     uint8_t              *bufConvert;          //変換用のバッファ
 
     AVBSFContext         *bsfc;              //必要なら使用するbitstreamfilter
-} AVMuxOther;
+
+    AVMuxOther();
+};
 
 enum {
     MUX_DATA_TYPE_NONE   = 0,
@@ -283,6 +293,7 @@ struct AVMuxThread {
     std::atomic<int64_t>           streamOutMaxDts;           //音声・字幕キューの最後のdts (timebase = QUEUE_DTS_TIMEBASE) (キューの同期に使用)
     PerfQueueInfo                 *queueInfo;                 //キューの情報を格納する構造体
 
+    AVMuxThread();
     bool threadActiveAudio() const { return enableAudProcessThread; };
     bool threadActiveAudioEncode() const { return enableAudEncodeThread; };
     bool threadActiveAudioProcess() const { return enableAudProcessThread; };
@@ -301,6 +312,8 @@ struct AVMux {
 #endif
     RGYPoolAVPacket    *poolPkt;
     RGYPoolAVFrame     *poolFrame;
+
+    AVMux();
 };
 
 struct AVOutputStreamPrm {
@@ -513,10 +526,10 @@ protected:
     RGY_ERR InitVideo(const VideoInfo *videoOutputInfo, const AvcodecWriterPrm *prm);
 
     //音声フィルタの初期化
-    RGY_ERR InitAudioFilter(AVMuxAudio *muxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+    RGY_ERR InitAudioFilter(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声リサンプラの初期化
-    RGY_ERR InitAudioResampler(AVMuxAudio *muxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+    RGY_ERR InitAudioResampler(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
     RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet);
@@ -549,7 +562,7 @@ protected:
     AVMuxOther *getOtherPacketStreamData(const AVPacket *pkt);
 
     //音声のchannel_layoutを自動選択する
-    uint64_t AutoSelectChannelLayout(const uint64_t *channelLayout, const AVCodecContext *srcAudioCtx);
+    uniuqeRGYChannelLayout AutoSelectChannelLayout(const AVCodec *codec, const AVCodecContext *srcAudioCtx);
 
     //音声のsample formatを自動選択する
     AVSampleFormat AutoSelectSampleFmt(const AVSampleFormat *samplefmtList, const AVCodecContext *srcAudioCtx);
