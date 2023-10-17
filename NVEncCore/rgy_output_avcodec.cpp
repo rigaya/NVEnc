@@ -1021,7 +1021,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
         if (muxAudio->filterGraph) {
             //filterをflush
             auto filteredFrames = AudioFilterFrameFlush(muxAudio);
-            WriteNextPacketToAudioSubtracks(filteredFrames);
+            WriteNextPacketAudioFrame(filteredFrames);
 
             //filterをclose
             avfilter_graph_free(&muxAudio->filterGraph);
