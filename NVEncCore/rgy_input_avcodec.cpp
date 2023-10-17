@@ -3013,7 +3013,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         }
         pSurface->setFlags(flags);
         pSurface->setTimestamp(m_Demux.video.frame->pts);
-        pSurface->setDuration(m_Demux.video.frame->pkt_duration);
+        pSurface->setDuration(m_Demux.video.frame->duration);
         if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
