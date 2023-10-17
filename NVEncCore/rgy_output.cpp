@@ -703,17 +703,17 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         WRITE_CHECK(fwrite("FRAME\n", 1, strlen("FRAME\n"), m_fDest.get()), strlen("FRAME\n"));
     }
 
-    auto loadLineToBuffer = [](uint8_t *ptrBuf, const uint8_t *ptrSrc, const int pitch) {
+    auto loadLineToBuffer = [](uint8_t *ptrBuf, uint8_t *ptrSrc, const int pitch) {
 #if (defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)) && ENCODER_QSV
         for (int i = 0; i < pitch; i += 128, ptrSrc += 128, ptrBuf += 128) {
-            __m128i x0 = _mm_stream_load_si128((const __m128i *)(ptrSrc +   0));
-            __m128i x1 = _mm_stream_load_si128((const __m128i *)(ptrSrc +  16));
-            __m128i x2 = _mm_stream_load_si128((const __m128i *)(ptrSrc +  32));
-            __m128i x3 = _mm_stream_load_si128((const __m128i *)(ptrSrc +  48));
-            __m128i x4 = _mm_stream_load_si128((const __m128i *)(ptrSrc +  64));
-            __m128i x5 = _mm_stream_load_si128((const __m128i *)(ptrSrc +  80));
-            __m128i x6 = _mm_stream_load_si128((const __m128i *)(ptrSrc +  96));
-            __m128i x7 = _mm_stream_load_si128((const __m128i *)(ptrSrc + 112));
+            __m128i x0 = _mm_stream_load_si128((__m128i *)(ptrSrc +   0));
+            __m128i x1 = _mm_stream_load_si128((__m128i *)(ptrSrc +  16));
+            __m128i x2 = _mm_stream_load_si128((__m128i *)(ptrSrc +  32));
+            __m128i x3 = _mm_stream_load_si128((__m128i *)(ptrSrc +  48));
+            __m128i x4 = _mm_stream_load_si128((__m128i *)(ptrSrc +  64));
+            __m128i x5 = _mm_stream_load_si128((__m128i *)(ptrSrc +  80));
+            __m128i x6 = _mm_stream_load_si128((__m128i *)(ptrSrc +  96));
+            __m128i x7 = _mm_stream_load_si128((__m128i *)(ptrSrc + 112));
             _mm_store_si128((__m128i *)(ptrBuf +   0), x0);
             _mm_store_si128((__m128i *)(ptrBuf +  16), x1);
             _mm_store_si128((__m128i *)(ptrBuf +  32), x2);
@@ -740,14 +740,14 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         const uint32_t lumaWidthBytes = pSurface->width() * pixSize;
         const uint32_t cropOffset = crop.e.up * pSurface->pitch() + crop.e.left * pixSize;
         if (m_sourceHWMem) {
-            for (uint32_t j = 0; j < pSurface->height(); j++) {
+            for (decltype(pSurface->height()) j = 0; j < pSurface->height(); j++) {
                 uint8_t *ptrBuf = m_readBuffer.get();
-                const uint8_t *ptrSrc = pSurface->ptrY() + (crop.e.up + j) * pSurface->pitch();
+                uint8_t *ptrSrc = pSurface->ptrY() + (crop.e.up + j) * pSurface->pitch();
                 loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
                 WRITE_CHECK(fwrite(ptrBuf + crop.e.left * pixSize, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
             }
         } else {
-            for (uint32_t j = 0; j < pSurface->height(); j++) {
+            for (decltype(pSurface->height()) j = 0; j < pSurface->height(); j++) {
                 WRITE_CHECK(fwrite(pSurface->ptrY() + cropOffset + j * pSurface->pitch(), 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
             }
         }
