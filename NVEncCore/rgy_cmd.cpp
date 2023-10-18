@@ -4129,6 +4129,16 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     if (IS_OPTION("audio-ignore-notrack-error")) {
         return 0;
     }
+    if (IS_OPTION("video-ignore-timestamp-error")) {
+        i++;
+        uint32_t value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        common->videoIgnoreTimestampError = value;
+        return 0;
+    }
     if (IS_OPTION("audio-samplerate")) {
         try {
             auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
@@ -6373,6 +6383,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
     OPT_NUM(_T("--audio-ignore-decode-error"), audioIgnoreDecodeError);
+    OPT_NUM(_T("--video-ignore-timestamp-error"), videoIgnoreTimestampError);
 
     tmp.str(tstring());
     for (int i = 0; i < param->nSubtitleSelectCount; i++) {

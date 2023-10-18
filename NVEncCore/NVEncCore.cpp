@@ -295,6 +295,7 @@ NVEncCore::NVEncCore() :
     m_dovirpu(),
     m_encTimestamp(),
     m_encodeFrameID(0),
+    m_videoIgnoreTimestampError(DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR),
     m_vpFilters(),
     m_pLastFilterParam(),
 #if ENABLE_SSIM
@@ -3185,6 +3186,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     inputParam->applyDOVIProfile();
     m_nAVSyncMode = inputParam->common.AVSyncMode;
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
+    m_videoIgnoreTimestampError = inputParam->common.videoIgnoreTimestampError;
     if (inputParam->ctrl.lowLatency) {
         m_pipelineDepth = 1;
     }
@@ -3936,6 +3938,7 @@ NVENCSTATUS NVEncCore::Encode() {
         return;
     };
 
+    int ignoreVideoTimestampErrorCount = 0;
     uint32_t nInputFramePosIdx = UINT32_MAX;
     auto check_pts = [&](FrameBufferDataIn *pInputFrame) {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
@@ -4029,9 +4032,14 @@ NVENCSTATUS NVEncCore::Encode() {
                 nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
                 outPtsSource = nOutEstimatedPts;
                 PrintMes(RGY_LOG_DEBUG, _T("check_pts:   changed to nOutFirstPts %lld, outPtsSource %lld.\n"), nOutFirstPts, outPtsSource);
+                ignoreVideoTimestampErrorCount = 0;
             } else {
                 if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) {
                     //間引きが必要
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), pInputFrame->getFrameInfo().inputFrameId, nLastPts, outPtsSource);
+                    return decFrames;
+                } else if (ignoreVideoTimestampErrorCount < m_videoIgnoreTimestampError) {
+                    //間引き
                     PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), pInputFrame->getFrameInfo().inputFrameId, nLastPts, outPtsSource);
                     return decFrames;
                 } else {
@@ -4040,7 +4048,10 @@ NVENCSTATUS NVEncCore::Encode() {
                     PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, changing pts: %lld -> %lld (previous pts %lld).\n"),
                         pInputFrame->getFrameInfo().inputFrameId, origPts, outPtsSource, nLastPts);
                 }
+                ignoreVideoTimestampErrorCount++;
             }
+        } else {
+            ignoreVideoTimestampErrorCount = 0;
         }
 #endif //#if ENABLE_AVSW_READER
         //次のフレームのptsの予想

@@ -207,6 +207,7 @@ protected:
     unique_ptr<DOVIRpu>           m_dovirpu;
     std::unique_ptr<RGYTimestamp> m_encTimestamp;
     int64_t                       m_encodeFrameID;
+    int                           m_videoIgnoreTimestampError;
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;

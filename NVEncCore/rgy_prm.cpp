@@ -1411,6 +1411,7 @@ RGYParamCommon::RGYParamCommon() :
     chapterNoTrim(false),
     caption2ass(FORMAT_INVALID),
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
+    videoIgnoreTimestampError(DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR),
     muxOpt(),
     allowOtherNegativePts(false),
     disableMp4Opt(false),

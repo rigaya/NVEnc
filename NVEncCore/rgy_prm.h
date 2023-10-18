@@ -41,6 +41,7 @@ static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
 
 static const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
+static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 
 #if ENCODER_NVENC
 #define ENABLE_VPP_FILTER_COLORSPACE   (ENABLE_NVRTC)
@@ -1474,6 +1475,7 @@ struct RGYParamCommon {
     bool chapterNoTrim;
     C2AFormat caption2ass;
     int audioIgnoreDecodeError;
+    int videoIgnoreTimestampError;
     RGYOptList muxOpt;
     bool allowOtherNegativePts;
     bool disableMp4Opt;
