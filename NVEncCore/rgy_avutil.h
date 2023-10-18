@@ -85,9 +85,11 @@ extern "C" {
 #endif
 
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+using RGYChannel = AVChannel;
 using RGYChannelLayout = AVChannelLayout;
 using uniuqeRGYChannelLayout = std::unique_ptr<RGYChannelLayout, decltype(&av_channel_layout_uninit)>;
 #else
+using RGYChannel = uint64_t;
 using RGYChannelLayout = uint64_t;
 using uniuqeRGYChannelLayout = std::unique_ptr<RGYChannelLayout>;
 #endif
@@ -376,8 +378,8 @@ uniuqeRGYChannelLayout getChannelLayoutFromString(const std::string& channel_lay
 //デフォルトのチャンネルレイアウトを取得
 uniuqeRGYChannelLayout getDefaultChannelLayout(const int nb_channels);
 
-int getChannelLayoutIndexFromChannel(const RGYChannelLayout *ch_layout, const AVChannel channel);
-AVChannel getChannelLayoutChannelFromIndex(const RGYChannelLayout *ch_layout, const int index);
+int getChannelLayoutIndexFromChannel(const RGYChannelLayout *ch_layout, const RGYChannel channel);
+RGYChannel getChannelLayoutChannelFromIndex(const RGYChannelLayout *ch_layout, const int index);
 
 //時刻を表示
 std::string getTimestampChar(int64_t ts, const AVRational& timebase);

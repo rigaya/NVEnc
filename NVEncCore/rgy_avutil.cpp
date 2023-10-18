@@ -570,7 +570,7 @@ uniuqeRGYChannelLayout getDefaultChannelLayout(const int nb_channels) {
     return ch_layout;
 }
 
-int getChannelLayoutIndexFromChannel(const RGYChannelLayout *ch_layout, const AVChannel channel) {
+int getChannelLayoutIndexFromChannel(const RGYChannelLayout *ch_layout, const RGYChannel channel) {
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
     return av_channel_layout_index_from_channel(ch_layout, channel);
 #else
@@ -578,7 +578,7 @@ int getChannelLayoutIndexFromChannel(const RGYChannelLayout *ch_layout, const AV
 #endif
 }
 
-AVChannel getChannelLayoutChannelFromIndex(const RGYChannelLayout *ch_layout, const int index) {
+RGYChannel getChannelLayoutChannelFromIndex(const RGYChannelLayout *ch_layout, const int index) {
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
     return av_channel_layout_channel_from_index(ch_layout, index);
 #else
