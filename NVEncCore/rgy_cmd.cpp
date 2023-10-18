@@ -7385,7 +7385,7 @@ tstring gen_cmd_help_ctrl() {
     tstring str = strsprintf(_T("\n")
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
-        _T("                                  debug, info(default), warn, error\n")
+        _T("                                  debug, info(default), warn, error, quiet\n")
         _T("   --log-opt [<param1>][,<param2>][]...\n")
         _T("     additional options for log output.\n")
         _T("    params\n")

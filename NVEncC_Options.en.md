@@ -2564,11 +2564,12 @@ Output the log to the specified file.
 Select the level of log output.
 
 - **level**
-  - error ... Display only errors
-  - warn ... Show errors and warnings
-  - info ... Display general encoding information (default)
-  - debug ... Output additional information, mainly for debug
   - trace ... Output information for each frame (slow)
+  - debug ... Output additional information, mainly for debug
+  - info ... Display general encoding information (default)
+  - warn ... Show errors and warnings
+  - error ... Display only errors
+  - quiet ... Show no logs
 
 - **Target**  
   Target category of logs. Will be handled as ```all``` when omitted.
