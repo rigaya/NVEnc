@@ -371,7 +371,7 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
 
         std::string strHtml;
         for (uint32_t i = 0; i < strLines.size() - 1; i++) {
-            strHtml += strsprintf("<div class=\"%s\">", tchar_to_string(list_log_level[log_level - RGY_LOG_TRACE].desc).c_str());
+            strHtml += strsprintf("<div class=\"%s\">", rgy_log_level_to_str(log_level));
             strHtml += strLines[i];
             strHtml += "</div>\n";
         }

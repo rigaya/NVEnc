@@ -788,8 +788,6 @@ static bool is_list_empty(const CX_DESC *list) {
     return list[0].desc == nullptr;
 }
 
-extern const CX_DESC list_log_level[];
-
 const CX_DESC list_avsync[] = {
     { _T("cfr"),      RGY_AVSYNC_ASSUME_CFR   },
     { _T("vfr"),      RGY_AVSYNC_VFR       },

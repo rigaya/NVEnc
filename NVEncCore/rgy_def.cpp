@@ -28,16 +28,6 @@
 #include "rgy_def.h"
 #include "rgy_log.h"
 
-const CX_DESC list_log_level[7] = {
-    { _T("trace"), RGY_LOG_TRACE },
-    { _T("debug"), RGY_LOG_DEBUG },
-    { _T("more"),  RGY_LOG_MORE  },
-    { _T("info"),  RGY_LOG_INFO  },
-    { _T("warn"),  RGY_LOG_WARN  },
-    { _T("error"), RGY_LOG_ERROR },
-    { NULL, 0 }
-};
-
 tstring VideoVUIInfo::print_main() const {
     return tstring(_T("matrix:")) + get_cx_desc(list_colormatrix, matrix) + _T(",")
         + tstring(_T("colorprim:")) + get_cx_desc(list_colorprim, colorprim) + _T(",")
