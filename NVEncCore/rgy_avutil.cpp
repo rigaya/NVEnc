@@ -388,7 +388,6 @@ void av_frame_deep_copy(AVFrame *copyFrame, const AVFrame *frame) {
     copyFrame->width = frame->width;
     copyFrame->height = frame->height;
     copyFrame->sample_rate = frame->sample_rate;
-    copyFrame->duration = frame->duration;
     copyFrame->pts = frame->pts;
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
     av_channel_layout_copy(&copyFrame->ch_layout, &frame->ch_layout);
@@ -582,7 +581,7 @@ RGYChannel getChannelLayoutChannelFromIndex(const RGYChannelLayout *ch_layout, c
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
     return av_channel_layout_channel_from_index(ch_layout, index);
 #else
-    return (AVChannel)av_channel_layout_extract_channel(*ch_layout, index);
+    return (RGYChannel)av_channel_layout_extract_channel(*ch_layout, index);
 #endif
 }
 
