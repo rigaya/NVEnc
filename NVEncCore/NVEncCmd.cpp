@@ -1738,6 +1738,9 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const 
         return 0;
     }
     vector<tstring> argv_tstring;
+    if (wcslen(argvw[0]) != 0) {
+        argv_tstring.push_back(_T("")); // 最初は実行ファイルのパスが入っているのを模擬するため、空文字列を入れておく
+    }
     for (int i = 0; i < argc; i++) {
         argv_tstring.push_back(wstring_to_tstring(argvw[i]));
     }
@@ -1747,9 +1750,9 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const 
     for (int i = 0; i < argc; i++) {
         argv_tchar.push_back((TCHAR *)argv_tstring[i].data());
     }
-    argv_tchar.push_back(_T(""));
+    argv_tchar.push_back(_T("")); // 最後に空白を追加
     const TCHAR **strInput = (const TCHAR **)argv_tchar.data();
-    int ret = parse_cmd(pParams, codecPrm, argc, strInput, ignore_parse_err);
+    int ret = parse_cmd(pParams, codecPrm, (int)argv_tchar.size() - 1 /*最後の空白の分*/, strInput, ignore_parse_err);
     return ret;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
