@@ -518,37 +518,44 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         //音声
         for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
-            char pipename[MAX_PATH_LEN];
-            get_audio_pipe_name(pipename, _countof(pipename), i_aud);
-
-            const CONF_AUDIO_BASE *cnf_aud = &conf->aud.in;
-            const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud_int[cnf_aud->encoder];
+            char aud_filename[MAX_PATH_LEN];
+            if (conf->aud.use_internal) {
+                get_audio_pipe_name(aud_filename, _countof(aud_filename), i_aud);
+            } else {
+                get_aud_filename(aud_filename, _countof(aud_filename), pe, i_aud);
+            }
 
             AudioSource src;
-            src.filename = pipename;
+            src.filename = aud_filename;
             AudioSelect &chSel = src.select[0];
-            if (sys_dat->exstg->is_faw(aud_stg)) {
+            if (!conf->aud.use_internal) {
                 chSel.encCodec = "copy";
             } else {
-                if (aud_stg->mode[cnf_aud->enc_mode].bitrate) {
-                    chSel.encBitrate = cnf_aud->bitrate;
+                const CONF_AUDIO_BASE *cnf_aud = &conf->aud.in;
+                const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud_int[cnf_aud->encoder];
+                if (sys_dat->exstg->is_faw(aud_stg)) {
+                    chSel.encCodec = "copy";
+                } else {
+                    if (aud_stg->mode[cnf_aud->enc_mode].bitrate) {
+                        chSel.encBitrate = cnf_aud->bitrate;
+                    }
+                    chSel.encCodec = aud_stg->codec;
                 }
-                chSel.encCodec = aud_stg->codec;
             }
             common->audioSource.push_back(src);
         }
+    }
 
-        //chapterファイル
-        char chap_file[MAX_PATH_LEN];
-        char chap_apple[MAX_PATH_LEN];
-        const MUXER_CMD_EX *muxer_mode = get_muxer_mode(conf, sys_dat, pe->muxer_to_be_used);
-        if (muxer_mode && strlen(muxer_mode->chap_file) > 0) {
-            set_chap_filename(chap_file, _countof(chap_file), chap_apple, _countof(chap_apple), muxer_mode->chap_file, pe, sys_dat, conf, oip);
-            if (!PathFileExists(chap_file)) {
-                warning_mux_no_chapter_file();
-            } else {
-                common->chapterFile = chap_file;
-            }
+    //chapterファイル
+    char chap_file[MAX_PATH_LEN];
+    char chap_apple[MAX_PATH_LEN];
+    const MUXER_CMD_EX *muxer_mode = get_muxer_mode(conf, sys_dat, pe->muxer_to_be_used);
+    if (muxer_mode && strlen(muxer_mode->chap_file) > 0) {
+        set_chap_filename(chap_file, _countof(chap_file), chap_apple, _countof(chap_apple), muxer_mode->chap_file, pe, sys_dat, conf, oip);
+        if (!PathFileExists(chap_file)) {
+            warning_mux_no_chapter_file();
+        } else {
+            enc_prm.common.chapterFile = chap_file;
         }
     }
 

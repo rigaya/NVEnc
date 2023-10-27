@@ -1311,11 +1311,11 @@ int check_muxer_to_be_used(const CONF_GUIEX *conf, const PRM_ENC *pe, const SYST
     if (conf->mux.use_internal)
         muxer_to_be_used = MUXER_INTERNAL;
     else if (video_output_type == VIDEO_OUTPUT_MP4 && !conf->mux.disable_mp4ext)
-        muxer_to_be_used = MUXER_MP4;
+        muxer_to_be_used = MUXER_INTERNAL; // MUXER_MP4;
     else if (video_output_type == VIDEO_OUTPUT_MKV && !conf->mux.disable_mkvext)
-        muxer_to_be_used = MUXER_MKV;
+        muxer_to_be_used = MUXER_INTERNAL; // MUXER_MKV;
     else if (video_output_type == VIDEO_OUTPUT_MPEG2 && !conf->mux.disable_mpgext)
-        muxer_to_be_used = MUXER_MPG;
+        muxer_to_be_used = MUXER_INTERNAL; // MUXER_MPG;
 
     //muxerが必要ないかどうかチェック
     BOOL no_muxer = TRUE;

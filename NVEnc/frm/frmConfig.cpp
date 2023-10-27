@@ -516,12 +516,18 @@ System::Void frmConfig::fcgCBAudioUseExt_CheckedChanged(System::Object ^sender, 
     fcgPNAudioExt->Visible = fcgCBAudioUseExt->Checked;
     fcgPNAudioInternal->Visible = !fcgCBAudioUseExt->Checked;
 
+    //fcgCBAudioUseExt->Checkedの場合は、処理順を「前」で固定する
+    if (fcgCBAudioUseExt->Checked) {
+        fcgCXAudioEncTiming->SelectedIndex = 1; // 処理順「前」
+    }
+    fcgCXAudioEncTiming->Enabled = !fcgCBAudioUseExt->Checked;
+
     //一度ウィンドウの再描画を完全に抑止する
     SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
     //なぜか知らんが、Visibleプロパティをfalseにするだけでは非表示にできない
     //しょうがないので参照の削除と挿入を行う
     fcgtabControlMux->TabPages->Clear();
-    if (fcgCBAudioUseExt->Checked) {
+    if (false && fcgCBAudioUseExt->Checked) {
         fcgtabControlMux->TabPages->Insert(0, fcgtabPageMP4);
         fcgtabControlMux->TabPages->Insert(1, fcgtabPageMKV);
         fcgtabControlMux->TabPages->Insert(2, fcgtabPageBat);
