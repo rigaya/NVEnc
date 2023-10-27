@@ -957,6 +957,20 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgLBQPI->Enabled = cqp_mode;
     fcgLBQPP->Enabled = cqp_mode;
     fcgLBQPB->Enabled = cqp_mode;
+    // codec が RGY_CODEC_AV1 の時、CQPの上限は255、それ以外なら51
+    const int qp_max = (av1_mode) ? 255 : 51;
+    fcgNUQPI->Maximum = qp_max;
+    fcgNUQPP->Maximum = qp_max;
+    fcgNUQPB->Maximum = qp_max;
+    fcgNUQPInitI->Maximum = qp_max;
+    fcgNUQPInitP->Maximum = qp_max;
+    fcgNUQPInitB->Maximum = qp_max;
+    fcgNUQPMaxI->Maximum = qp_max;
+    fcgNUQPMaxP->Maximum = qp_max;
+    fcgNUQPMaxB->Maximum = qp_max;
+    fcgNUQPMinI->Maximum = qp_max;
+    fcgNUQPMinP->Maximum = qp_max;
+    fcgNUQPMinB->Maximum = qp_max;
 
     fcgPNBitrate->Visible = !cqp_mode;
     fcgNUBitrate->Enabled = !cqp_mode && !qvbr_mode;
