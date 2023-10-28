@@ -978,16 +978,12 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgNUQPMinP->Maximum = qp_max;
     fcgNUQPMinB->Maximum = qp_max;
 
-    fcgPNBitrate->Visible = !cqp_mode;
+    fcgPNBitrate->Visible = !cqp_mode && !qvbr_mode;
     fcgNUBitrate->Enabled = !cqp_mode && !qvbr_mode;
     fcgLBBitrate->Enabled = !cqp_mode && !qvbr_mode;
     fcgNUMaxkbps->Enabled = cbr_vbr_mode;
     fcgLBMaxkbps->Enabled = cbr_vbr_mode;
     fcgLBMaxBitrate2->Enabled = cbr_vbr_mode;
-
-    if (qvbr_mode) {
-        fcgNUBitrate->Value = 0;
-    }
 
     fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
@@ -1399,26 +1395,26 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     parse_cmd(&encPrm, codecPrm, cnf->enc.cmd);
 
     SetCXIndex(fcgCXEncCodec,          get_index_from_value(encPrm.codec_rgy, list_nvenc_codecs));
-    SetCXIndex(fcgCXEncMode,           get_cx_index(list_encmode, (encPrm.encConfig.rcParams.averageBitRate == 0 && encPrm.encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_VBR) ? NV_ENC_PARAMS_RC_QVBR : encPrm.encConfig.rcParams.rateControlMode));
-    SetNUValue(fcgNUBitrate,           encPrm.encConfig.rcParams.averageBitRate / 1000);
-    SetNUValue(fcgNUMaxkbps,           encPrm.encConfig.rcParams.maxBitRate / 1000);
-    SetNUValue(fcgNUQPI,               encPrm.encConfig.rcParams.constQP.qpIntra);
-    SetNUValue(fcgNUQPP,               encPrm.encConfig.rcParams.constQP.qpInterP);
-    SetNUValue(fcgNUQPB,               encPrm.encConfig.rcParams.constQP.qpInterB);
-    SetNUValue(fcgNUVBRTragetQuality,  Decimal(encPrm.encConfig.rcParams.targetQuality + encPrm.encConfig.rcParams.targetQualityLSB / 256.0));
-    SetNUValue(fcgNUGopLength,         encPrm.encConfig.gopLength);
-    SetNUValue(fcgNUBframes,           encPrm.encConfig.frameIntervalP - 1);
+    SetCXIndex(fcgCXEncMode,           get_cx_index(list_encmode, (encPrm.rcParam.avg_bitrate == 0 && encPrm.rcParam.rc_mode == NV_ENC_PARAMS_RC_VBR) ? NV_ENC_PARAMS_RC_QVBR : encPrm.rcParam.rc_mode));
+    SetNUValue(fcgNUBitrate,           encPrm.rcParam.avg_bitrate / 1000);
+    SetNUValue(fcgNUMaxkbps,           encPrm.rcParam.max_bitrate / 1000);
+    SetNUValue(fcgNUQPI,               encPrm.rcParam.qp.qpI);
+    SetNUValue(fcgNUQPP,               encPrm.rcParam.qp.qpP);
+    SetNUValue(fcgNUQPB,               encPrm.rcParam.qp.qpB);
+    SetNUValue(fcgNUVBRTragetQuality,  Decimal(encPrm.rcParam.targetQuality + encPrm.rcParam.targetQualityLSB / 256.0));
+    SetNUValue(fcgNUGopLength,         encPrm.gopLength);
+    SetNUValue(fcgNUBframes,           encPrm.bFrames);
     SetCXIndex(fcgCXQualityPreset,     get_index_from_value(encPrm.preset, list_nvenc_preset_names_ver10));
-    SetCXIndex(fcgCXMultiPass,         get_cx_index(list_nvenc_multipass_mode, encPrm.encConfig.rcParams.multiPass));
-    SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, encPrm.encConfig.mvPrecision));
-    SetNUValue(fcgNUVBVBufsize, encPrm.encConfig.rcParams.vbvBufferSize / 1000);
-    SetNUValue(fcgNULookaheadDepth,   (encPrm.encConfig.rcParams.enableLookahead) ? encPrm.encConfig.rcParams.lookaheadDepth : 0);
+    SetCXIndex(fcgCXMultiPass,         get_cx_index(list_nvenc_multipass_mode, encPrm.multipass));
+    SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, encPrm.mvPrecision));
+    SetNUValue(fcgNUVBVBufsize,        encPrm.vbvBufferSize / 1000);
+    SetNUValue(fcgNULookaheadDepth,   (encPrm.enableLookahead) ? encPrm.lookahead : 0);
     SetCXIndex(fcgCXBrefMode,          get_cx_index(list_bref_mode, encPrm.brefMode));
     uint32_t nAQ = 0;
-    nAQ |= encPrm.encConfig.rcParams.enableAQ ? NV_ENC_AQ_SPATIAL : 0x00;
-    nAQ |= encPrm.encConfig.rcParams.enableTemporalAQ ? NV_ENC_AQ_TEMPORAL : 0x00;
+    nAQ |= encPrm.enableAQ ? NV_ENC_AQ_SPATIAL : 0x00;
+    nAQ |= encPrm.enableAQTemporal ? NV_ENC_AQ_TEMPORAL : 0x00;
     SetCXIndex(fcgCXAQ,                get_cx_index(list_aq, nAQ));
-    SetNUValue(fcgNUAQStrength,        encPrm.encConfig.rcParams.aqStrength);
+    SetNUValue(fcgNUAQStrength,        encPrm.aqStrength);
     fcgCBWeightP->Checked            = encPrm.nWeightP != 0;
 
     if (encPrm.par[0] * encPrm.par[1] <= 0)
@@ -1433,18 +1429,18 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBLossless->Checked = 0 != encPrm.lossless;
 
     //QPDetail
-    fcgCBQPMin->Checked = encPrm.encConfig.rcParams.enableMinQP != 0;
-    fcgCBQPMax->Checked = encPrm.encConfig.rcParams.enableMaxQP != 0;
-    fcgCBQPInit->Checked = encPrm.encConfig.rcParams.enableInitialRCQP != 0;
-    SetNUValue(fcgNUQPMinI, encPrm.encConfig.rcParams.minQP.qpIntra);
-    SetNUValue(fcgNUQPMinP, encPrm.encConfig.rcParams.minQP.qpInterP);
-    SetNUValue(fcgNUQPMinB, encPrm.encConfig.rcParams.minQP.qpInterB);
-    SetNUValue(fcgNUQPMaxI, encPrm.encConfig.rcParams.maxQP.qpIntra);
-    SetNUValue(fcgNUQPMaxP, encPrm.encConfig.rcParams.maxQP.qpInterP);
-    SetNUValue(fcgNUQPMaxB, encPrm.encConfig.rcParams.maxQP.qpInterB);
-    SetNUValue(fcgNUQPInitI, encPrm.encConfig.rcParams.initialRCQP.qpIntra);
-    SetNUValue(fcgNUQPInitP, encPrm.encConfig.rcParams.initialRCQP.qpInterP);
-    SetNUValue(fcgNUQPInitB, encPrm.encConfig.rcParams.initialRCQP.qpInterB);
+    fcgCBQPMin->Checked = encPrm.qpMin.enable;
+    fcgCBQPMax->Checked = encPrm.qpMax.enable;
+    fcgCBQPInit->Checked = encPrm.qpInit.enable;
+    SetNUValue(fcgNUQPMinI, encPrm.qpMin.qpI);
+    SetNUValue(fcgNUQPMinP, encPrm.qpMin.qpP);
+    SetNUValue(fcgNUQPMinB, encPrm.qpMin.qpB);
+    SetNUValue(fcgNUQPMaxI, encPrm.qpMax.qpI);
+    SetNUValue(fcgNUQPMaxP, encPrm.qpMax.qpP);
+    SetNUValue(fcgNUQPMaxB, encPrm.qpMax.qpB);
+    SetNUValue(fcgNUQPInitI, encPrm.qpInit.qpI);
+    SetNUValue(fcgNUQPInitP, encPrm.qpInit.qpP);
+    SetNUValue(fcgNUQPInitB, encPrm.qpInit.qpB);
     fcgNUChromaQPOffset->Value = encPrm.chromaQPOffset;
 
     //H.264
@@ -1655,41 +1651,36 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     //これもひたすら書くだけ。めんどい
     encPrm.codec_rgy = (RGY_CODEC)list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;
     cnf->enc.codec_rgy = encPrm.codec_rgy;
-    encPrm.encConfig.rcParams.rateControlMode = (NV_ENC_PARAMS_RC_MODE)list_encmode[fcgCXEncMode->SelectedIndex].value;
-    if (encPrm.encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_QVBR) {
-        encPrm.encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
-        encPrm.encConfig.rcParams.averageBitRate = 0;
-    } else {
-        encPrm.encConfig.rcParams.averageBitRate = (int)fcgNUBitrate->Value * 1000;
-    }
-    encPrm.encConfig.rcParams.maxBitRate = (int)fcgNUMaxkbps->Value * 1000;
-    encPrm.encConfig.rcParams.constQP.qpIntra  = (int)fcgNUQPI->Value;
-    encPrm.encConfig.rcParams.constQP.qpInterP = (int)fcgNUQPP->Value;
-    encPrm.encConfig.rcParams.constQP.qpInterB = (int)fcgNUQPB->Value;
-    encPrm.encConfig.gopLength = (int)fcgNUGopLength->Value;
+    encPrm.rcParam.rc_mode = (NV_ENC_PARAMS_RC_MODE)list_encmode[fcgCXEncMode->SelectedIndex].value;
+    encPrm.rcParam.avg_bitrate = (int)fcgNUBitrate->Value * 1000;
+    encPrm.rcParam.max_bitrate = (int)fcgNUMaxkbps->Value * 1000;
+    encPrm.rcParam.qp.qpI  = (int)fcgNUQPI->Value;
+    encPrm.rcParam.qp.qpP = (int)fcgNUQPP->Value;
+    encPrm.rcParam.qp.qpB = (int)fcgNUQPB->Value;
+    encPrm.gopLength = (int)fcgNUGopLength->Value;
     const double targetQualityDouble = (double)fcgNUVBRTragetQuality->Value;
     const int targetQualityInt = (int)targetQualityDouble;
-    encPrm.encConfig.rcParams.targetQuality = (uint8_t)targetQualityInt;
-    encPrm.encConfig.rcParams.targetQualityLSB = (uint8_t)clamp(((targetQualityDouble - targetQualityInt) * 256.0), 0, 255);
-    encPrm.encConfig.frameIntervalP = (int)fcgNUBframes->Value + 1;
-    encPrm.encConfig.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
-    encPrm.encConfig.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
+    encPrm.rcParam.targetQuality = (uint8_t)targetQualityInt;
+    encPrm.rcParam.targetQualityLSB = (uint8_t)clamp(((targetQualityDouble - targetQualityInt) * 256.0), 0, 255);
+    encPrm.bFrames = (int)fcgNUBframes->Value;
+    encPrm.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
+    encPrm.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
     encPrm.preset = list_nvenc_preset_names_ver10[fcgCXQualityPreset->SelectedIndex].value;
-    encPrm.encConfig.rcParams.multiPass = (NV_ENC_MULTI_PASS)list_nvenc_multipass_mode[fcgCXMultiPass->SelectedIndex].value;
+    encPrm.multipass = (NV_ENC_MULTI_PASS)list_nvenc_multipass_mode[fcgCXMultiPass->SelectedIndex].value;
     encPrm.brefMode = list_bref_mode[fcgCXBrefMode->SelectedIndex].value;
 
     int nLookaheadDepth = (int)fcgNULookaheadDepth->Value;
     if (nLookaheadDepth > 0) {
-        encPrm.encConfig.rcParams.enableLookahead = 1;
-        encPrm.encConfig.rcParams.lookaheadDepth = (uint16_t)clamp(nLookaheadDepth, 0, 32);
+        encPrm.enableLookahead = 1;
+        encPrm.lookahead = (uint16_t)clamp(nLookaheadDepth, 0, 32);
     } else {
-        encPrm.encConfig.rcParams.enableLookahead = 0;
-        encPrm.encConfig.rcParams.lookaheadDepth = 0;
+        encPrm.enableLookahead = 0;
+        encPrm.lookahead = 0;
     }
     uint32_t nAQ = list_aq[fcgCXAQ->SelectedIndex].value;
-    encPrm.encConfig.rcParams.enableAQ         = (nAQ & NV_ENC_AQ_SPATIAL)  ? 1 : 0;
-    encPrm.encConfig.rcParams.enableTemporalAQ = (nAQ & NV_ENC_AQ_TEMPORAL) ? 1 : 0;
-    encPrm.encConfig.rcParams.aqStrength = (uint32_t)clamp(fcgNUAQStrength->Value, 0, 15);
+    encPrm.enableAQ         = (nAQ & NV_ENC_AQ_SPATIAL)  ? 1 : 0;
+    encPrm.enableAQTemporal = (nAQ & NV_ENC_AQ_TEMPORAL) ? 1 : 0;
+    encPrm.aqStrength = (uint32_t)clamp(fcgNUAQStrength->Value, 0, 15);
     encPrm.nWeightP                        = (fcgCBWeightP->Checked) ? 1 : 0;
 
 
@@ -1705,18 +1696,18 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.lossless = fcgCBLossless->Checked;
 
     //QPDetail
-    encPrm.encConfig.rcParams.enableMinQP = (fcgCBQPMin->Checked) ? 1 : 0;
-    encPrm.encConfig.rcParams.enableMaxQP = (fcgCBQPMax->Checked) ? 1 : 0;
-    encPrm.encConfig.rcParams.enableInitialRCQP = (fcgCBQPInit->Checked) ? 1 : 0;
-    encPrm.encConfig.rcParams.minQP.qpIntra  = (int)fcgNUQPMinI->Value;
-    encPrm.encConfig.rcParams.minQP.qpInterP = (int)fcgNUQPMinP->Value;
-    encPrm.encConfig.rcParams.minQP.qpInterB = (int)fcgNUQPMinB->Value;
-    encPrm.encConfig.rcParams.maxQP.qpIntra  = (int)fcgNUQPMaxI->Value;
-    encPrm.encConfig.rcParams.maxQP.qpInterP = (int)fcgNUQPMaxP->Value;
-    encPrm.encConfig.rcParams.maxQP.qpInterB = (int)fcgNUQPMaxB->Value;
-    encPrm.encConfig.rcParams.initialRCQP.qpIntra  = (int)fcgNUQPInitI->Value;
-    encPrm.encConfig.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
-    encPrm.encConfig.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
+    encPrm.qpMin.enable  = fcgCBQPMin->Checked;
+    encPrm.qpMax.enable  = fcgCBQPMax->Checked;
+    encPrm.qpInit.enable = fcgCBQPInit->Checked;
+    encPrm.qpMin.qpI = (int)fcgNUQPMinI->Value;
+    encPrm.qpMin.qpP = (int)fcgNUQPMinP->Value;
+    encPrm.qpMin.qpB = (int)fcgNUQPMinB->Value;
+    encPrm.qpMax.qpI = (int)fcgNUQPMaxI->Value;
+    encPrm.qpMax.qpP = (int)fcgNUQPMaxP->Value;
+    encPrm.qpMax.qpB = (int)fcgNUQPMaxB->Value;
+    encPrm.qpInit.qpI = (int)fcgNUQPInitI->Value;
+    encPrm.qpInit.qpP = (int)fcgNUQPInitP->Value;
+    encPrm.qpInit.qpB = (int)fcgNUQPInitB->Value;
     encPrm.chromaQPOffset = (int)fcgNUChromaQPOffset->Value;
 
     encPrm.ctrl.perfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;

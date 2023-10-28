@@ -259,8 +259,6 @@ static const ENC_OPTION_STR2 list_mv_presicion_ja[] = {
     { AUO_MES_UNKNOWN, NULL, 0 }
 };
 
-#define NV_ENC_PARAMS_RC_QVBR ((NV_ENC_PARAMS_RC_MODE)(NV_ENC_PARAMS_RC_VBR | 0x1000))
-
 static const ENC_OPTION_STR2 list_encmode[] = {
 #if ENCODER_QSV
     { AUO_CONFIG_CX_RC_CBR,    L"ビットレート指定 - CBR",           MFX_RATECONTROL_CBR    },

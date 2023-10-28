@@ -94,7 +94,7 @@ protected:
     bool encodeIsHighBitDepth(const InEncodeVideoParam *inputParam);
 
     //メインメソッド
-    RGY_ERR CheckDynamicRCParams(std::vector<DynamicRCParam> &dynamicRC);
+    RGY_ERR CheckDynamicRCParams(std::vector<NVEncRCParam> &dynamicRC);
 
     //エンコーダが出力使用する色空間を入力パラメータをもとに取得
     RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
@@ -177,7 +177,7 @@ protected:
     CUctx_flags                  m_cudaSchedule;          //CUDAのスケジュール
 
     NV_ENC_INITIALIZE_PARAMS     m_stCreateEncodeParams;  //エンコーダの初期化パラメータ
-    std::vector<DynamicRCParam>  m_dynamicRC;             //動的に変更するエンコーダのパラメータ
+    std::vector<NVEncRCParam>    m_dynamicRC;             //動的に変更するエンコーダのパラメータ
     int                          m_appliedDynamicRC;      //今適用されているパラメータ(未適用なら-1)
 
     int                          m_pipelineDepth;

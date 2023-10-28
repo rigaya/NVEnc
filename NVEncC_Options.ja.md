@@ -47,10 +47,10 @@
   - [--output-res \<int\>x\<int\>\[,\<string\>=\<string\>\]](#--output-res-intxintstringstring)
   - [--input-csp \<string\>](#--input-csp-string)
 - [エンコードモードのオプション](#エンコードモードのオプション)
-  - [--cqp \<int\> or \<int\>:\<int\>:\<int\>　(固定量子化量)](#--cqp-int-or-intintint固定量子化量)
+  - [--qvbr  \<float\> (固定品質モード)](#--qvbr--float-固定品質モード)
   - [--cbr \<int\>   (固定ビットレート)](#--cbr-int---固定ビットレート)
   - [--vbr \<int\>   (可変ビットレート)](#--vbr-int---可変ビットレート)
-  - [--qvbr  \<float\> (固定品質モード)](#--qvbr--float-固定品質モード)
+  - [--cqp \<int\> or \<int\>:\<int\>:\<int\>　(固定量子化量)](#--cqp-int-or-intintint固定量子化量)
 - [その他のオプション](#その他のオプション)
   - [-u, --preset](#-u---preset)
   - [--output-depth \<int\>](#--output-depth-int)
@@ -515,21 +515,21 @@ raw読み込み時の入力色空間の設定。デフォルトはyv12。
 
 ## エンコードモードのオプション
 
-デフォルトはCQP(固定量子化量)。
-
-### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;　(固定量子化量)
-CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;Pフレーム&gt;:&lt;Bフレーム&gt;のQP値を設定。
-
-基本的にQP値は I &lt; P &lt; B になるように設定することをおすすめ。
-
-### --cbr &lt;int&gt;   (固定ビットレート)
-### --vbr &lt;int&gt;   (可変ビットレート)
-ビットレートをkbps単位で指定してエンコードを行う。
+デフォルトはQVBR(固定品質モード)。
 
 ### --qvbr  &lt;float&gt; (固定品質モード)
 固定品質モードでエンコードを行う。(0.0-51.0, 0 = 自動)
 
 --vbr 0 --vbr-quality &lt;float&gt; と同じ。
+
+### --cbr &lt;int&gt;   (固定ビットレート)
+### --vbr &lt;int&gt;   (可変ビットレート)
+ビットレートをkbps単位で指定してエンコードを行う。
+
+### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;　(固定量子化量)
+CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;Pフレーム&gt;:&lt;Bフレーム&gt;のQP値を設定。
+
+基本的にQP値は I &lt; P &lt; B になるように設定することをおすすめ。
 
 
 ## その他のオプション

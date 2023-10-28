@@ -185,6 +185,18 @@ static const int   FILTER_DEFAULT_DEBAND_SEED = 1234;
 static const bool  FILTER_DEFAULT_DEBAND_BLUR_FIRST = false;
 static const bool  FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME = false;
 
+struct RGYQPSet {
+    bool enable;
+    int qpI, qpP, qpB;
+
+    RGYQPSet();
+    RGYQPSet(int i, int p, int b);
+    bool operator==(const RGYQPSet &x) const;
+    bool operator!=(const RGYQPSet &x) const;
+    int parse(const TCHAR *str);
+    void applyQPMinMax(const int min, const int max);
+};
+
 enum class RGYHEVCBsf {
     INTERNAL,
     LIBAVCODEC

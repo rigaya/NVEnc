@@ -50,10 +50,10 @@
   - [--output-res \<int\>x\<int\>\[,\<string\>=\<string\>\]](#--output-res-intxintstringstring)
   - [--input-csp \<string\>](#--input-csp-string)
 - [Encode Mode Options](#encode-mode-options)
-  - [--cqp \<int\> or \<int\>:\<int\>:\<int\>](#--cqp-int-or-intintint)
+  - [--qvbr  \<float\>](#--qvbr--float)
   - [--cbr \<int\>](#--cbr-int)
   - [--vbr \<int\>](#--vbr-int)
-  - [--qvbr  \<float\>](#--qvbr--float)
+  - [--cqp \<int\> or \<int\>:\<int\>:\<int\>](#--cqp-int-or-intintint)
 - [Other Options for Encoder](#other-options-for-encoder)
   - [-u, --preset](#-u---preset)
   - [--output-depth \<int\>](#--output-depth-int)
@@ -516,21 +516,21 @@ Set input colorspace for --raw input. Default is yv12.
 
 ## Encode Mode Options
 
-The default is CQP (Constant quantization).
-
-### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;
-Set the QP value of &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;
-
-Generally, it is recommended to set the QP value to be I &lt; P &lt; B.
-
-### --cbr &lt;int&gt;
-### --vbr &lt;int&gt;
-Set bitrate in kbps.
+The default is QVBR (constant quality mode).
 
 ### --qvbr  &lt;float&gt;
 Encode using constant quality mode. (0.0-51.0, 0 = automatic)
 
 This is equivalent to --vbr 0 --vbr-quality &lt;float&gt;.
+
+### --cbr &lt;int&gt;
+### --vbr &lt;int&gt;
+Set bitrate in kbps.
+
+### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;
+Set the QP value of &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;
+
+Generally, it is recommended to set the QP value to be I &lt; P &lt; B.
 
 ## Other Options for Encoder
 

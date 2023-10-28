@@ -840,7 +840,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
         return NV_ENC_SUCCESS;
     }
 
-    if (inputParam->encConfig.frameIntervalP > 1) {
+    if (inputParam->bFrames > 0) {
         bool support_bframe = false;
         //エンコード対象のBフレームサポートのあるGPUがあるかを確認する
         for (const auto& gpu : gpuList) {
@@ -1541,6 +1541,13 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
     }
 
+    //QP上限のチェック
+    const int qpMaxCodec = (inputParam->codec_rgy == RGY_CODEC_AV1) ? 255 : (encodeIsHighBitDepth(inputParam) ? 63 : 51);
+    inputParam->rcParam.qp.applyQPMinMax(0, qpMaxCodec);
+    inputParam->qpInit.applyQPMinMax(0, qpMaxCodec);
+    inputParam->qpMin.applyQPMinMax(0, qpMaxCodec);
+    inputParam->qpMax.applyQPMinMax(0, qpMaxCodec);
+
     //入力フォーマットはここでは気にしない
     //NV_ENC_BUFFER_FORMAT_NV12_TILED64x16
     //if (!checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT_NV12_TILED64x16)) {
@@ -1592,6 +1599,9 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    // レート制御の設定
+    m_stEncConfig.rcParams.rateControlMode = inputParam->rcParam.rc_mode;
+    m_stEncConfig.rcParams.multiPass       = inputParam->multipass;
     // API v10.0で追加されたmultipass関係の互換性維持
     if (m_dev->encoder()->checkAPIver(10, 0)) {
         if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CBR_HQ) {
@@ -1611,6 +1621,48 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             }
         }
     }
+    // QVBR指定で値が設定されていないときは、DEFAULT_QVBR_TARGETを適用する
+    if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_QVBR
+        && (inputParam->rcParam.targetQuality < 0 || inputParam->rcParam.targetQualityLSB < 0)) {
+        inputParam->rcParam.targetQuality = DEFAULT_QVBR_TARGET;
+        inputParam->rcParam.targetQualityLSB = 0;
+    }
+
+    //その他のレート制御パラメータの設定
+    m_stEncConfig.rcParams.averageBitRate    = inputParam->rcParam.avg_bitrate;
+    m_stEncConfig.rcParams.maxBitRate        = inputParam->rcParam.max_bitrate;
+    m_stEncConfig.rcParams.targetQuality     = (uint8_t)std::max(inputParam->rcParam.targetQuality, 0);
+    m_stEncConfig.rcParams.targetQualityLSB  = (uint8_t)std::max(inputParam->rcParam.targetQualityLSB, 0);
+    setQP(m_stEncConfig.rcParams.constQP,      inputParam->rcParam.qp);
+    setQP(m_stEncConfig.rcParams.initialRCQP,  inputParam->qpInit);
+    setQP(m_stEncConfig.rcParams.minQP,        inputParam->qpMin);
+    setQP(m_stEncConfig.rcParams.maxQP,        inputParam->qpMax);
+    m_stEncConfig.rcParams.multiPass         = inputParam->multipass;
+    m_stEncConfig.rcParams.enableInitialRCQP = inputParam->qpInit.enable ? 1 : 0;
+    m_stEncConfig.rcParams.enableMinQP       = inputParam->qpMin.enable ? 1 : 0;
+    m_stEncConfig.rcParams.enableMaxQP       = inputParam->qpMax.enable ? 1 : 0;
+    m_stEncConfig.rcParams.strictGOPTarget   = inputParam->strictGOP ? 1 : 0;
+    m_stEncConfig.rcParams.enableNonRefP     = inputParam->nonrefP ? 1 : 0;
+    m_stEncConfig.rcParams.enableLookahead   = inputParam->enableLookahead ? 1 : 0;
+    m_stEncConfig.rcParams.lookaheadDepth    = (uint16_t)inputParam->lookahead;
+    m_stEncConfig.rcParams.vbvBufferSize     = inputParam->vbvBufferSize;
+    m_stEncConfig.rcParams.disableIadapt     = inputParam->disableIadapt ? 1 : 0;
+    m_stEncConfig.rcParams.disableBadapt     = inputParam->disableBadapt ? 1 : 0;
+    m_stEncConfig.rcParams.enableAQ          = inputParam->enableAQ ? 1 : 0;
+    m_stEncConfig.rcParams.enableTemporalAQ  = inputParam->enableAQTemporal ? 1 : 0;
+    m_stEncConfig.rcParams.aqStrength        = inputParam->aqStrength;
+    //その他のパラメータの設定
+    m_stEncConfig.frameIntervalP             = inputParam->bFrames + 1;
+    m_stEncConfig.gopLength                  = inputParam->gopLength;
+    m_stEncConfig.mvPrecision                = inputParam->mvPrecision;
+
+    // QVBRの時は、VBRに変更して、averageBitRateとmaxBitRateを0にする
+    if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_QVBR) {
+        m_stEncConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
+        m_stEncConfig.rcParams.averageBitRate = 0;
+        m_stEncConfig.rcParams.maxBitRate = 0;
+    }
+
     if (m_stEncConfig.rcParams.rateControlMode != (m_stEncConfig.rcParams.rateControlMode & codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES))) {
         error_feature_unsupported(RGY_LOG_ERROR, FOR_AUO ? _T("選択されたレート制御モード") : _T("Selected encode mode"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1637,7 +1689,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("Bluray output is not supported only for H.264 codec.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
-        if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), inputParam->encConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
+        if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), m_stEncConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
             PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Bluray用出力では、VBRモードを使用してください。\n") :  _T("Please use VBR mode for bluray output.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
@@ -2051,7 +2103,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
 
         if (auto profile = getDOVIProfile(inputParam->common.doviProfile); profile != nullptr && profile->HRDSEI) {
-            if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), inputParam->encConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
+            if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), m_stEncConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
                 PrintMes(RGY_LOG_ERROR, _T("Please use VBR mode for dolby vision output.\n"));
                 return NV_ENC_ERR_UNSUPPORTED_PARAM;
             }
@@ -3108,14 +3160,14 @@ bool NVEncCore::VppAfsRffAware() {
     return vpp_afs_rff_aware;
 }
 
-RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<DynamicRCParam>& dynamicRC) {
+RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<NVEncRCParam>& dynamicRC) {
     if (dynamicRC.size() == 0) {
         return RGY_ERR_NONE;
     }
-    std::sort(dynamicRC.begin(), dynamicRC.end(), [](const DynamicRCParam& a, const DynamicRCParam& b) {
+    std::sort(dynamicRC.begin(), dynamicRC.end(), [](const NVEncRCParam& a, const NVEncRCParam& b) {
         return (a.start == b.start) ? a.end < b.end : a.start < b.start;
     });
-    std::for_each(dynamicRC.begin(), dynamicRC.end(), [](DynamicRCParam &a) {
+    std::for_each(dynamicRC.begin(), dynamicRC.end(), [](NVEncRCParam &a) {
         if (a.end <= 0) {
             a.end = TRIM_MAX;
         }
@@ -3486,10 +3538,10 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
                     }
                 }
                 if (encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) {
-                    encConfig.rcParams.constQP = selectedPrms.qp;
+                    setQP(encConfig.rcParams.constQP, selectedPrms.qp);
                 } else {
                     encConfig.rcParams.averageBitRate = selectedPrms.avg_bitrate;
-                    if (selectedPrms.targetQuality >= 0) {
+                    if (selectedPrms.targetQuality >= 0 && selectedPrms.targetQualityLSB >= 0) {
                         encConfig.rcParams.targetQuality    = (uint8_t)selectedPrms.targetQuality;
                         encConfig.rcParams.targetQualityLSB = (uint8_t)selectedPrms.targetQualityLSB;
                     }

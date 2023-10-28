@@ -73,6 +73,8 @@ static const int DEFAULT_MAX_BITRATE = 17500000;
 static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 0;
 
+static const int DEFAULT_QVBR_TARGET = 25;
+
 static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
 
 static const int PIPELINE_DEPTH = 4;
@@ -126,6 +128,9 @@ static const GUID NV_ENC_PRESET_LOSSLESS_HP_GUID =
 #define NV_ENC_PARAMS_RC_2_PASS_FRAMESIZE_CAP   NV_ENC_PARAMS_RC_CBR_HQ             /**< Deprecated */
 #define NV_ENC_PARAMS_RC_2_PASS_VBR             NV_ENC_PARAMS_RC_VBR_HQ             /**< Deprecated */
 #define NV_ENC_PARAMS_RC_CBR2                   NV_ENC_PARAMS_RC_CBR                /**< Deprecated */
+
+
+#define NV_ENC_PARAMS_RC_QVBR ((NV_ENC_PARAMS_RC_MODE)0x1000)
 
 // --------------------------------------------------------------------------------
 
@@ -525,23 +530,6 @@ const CX_DESC list_split_enc_mode[] = {
 
 static const int DYNAMIC_PARAM_NOT_SELECTED = -1;
 
-struct DynamicRCParam {
-    int start;
-    int end;
-    NV_ENC_PARAMS_RC_MODE rc_mode;
-    int avg_bitrate;
-    int max_bitrate;
-    int targetQuality;
-    int targetQualityLSB;
-    NV_ENC_QP qp;
-
-    DynamicRCParam();
-    tstring print() const;
-    bool operator==(const DynamicRCParam &x) const;
-    bool operator!=(const DynamicRCParam &x) const;
-};
-tstring printParams(const std::vector<DynamicRCParam> &dynamicRC);
-
 const CX_DESC list_nppi_gauss[] = {
     { _T("disabled"), 0 },
     { _T("3"), NPP_MASK_SIZE_3_X_3 },
@@ -798,6 +786,23 @@ struct VppParam {
     VppParam();
 };
 
+struct NVEncRCParam {
+    int start;
+    int end;
+    NV_ENC_PARAMS_RC_MODE rc_mode;
+    int avg_bitrate;
+    int max_bitrate;
+    int targetQuality;
+    int targetQualityLSB;
+    RGYQPSet qp;
+
+    NVEncRCParam();
+    tstring print() const;
+    bool operator==(const NVEncRCParam &x) const;
+    bool operator!=(const NVEncRCParam &x) const;
+};
+tstring printParams(const std::vector<NVEncRCParam> &dynamicRC);
+
 struct InEncodeVideoParam {
     int deviceID;                 //使用するGPUのID
     int cudaSchedule;
@@ -806,9 +811,33 @@ struct InEncodeVideoParam {
     VideoInfo input;              //入力する動画の情報
     int preset;                   //出力プリセット
     int nHWDecType;               //
-    int par[2];                   //使用されていません
+    int par[2];                   //
+
+    NVEncRCParam rcParam;
+    int gopLength;
+    int bFrames;
+    NV_ENC_MV_PRECISION mvPrecision;
+    RGYQPSet qpInit;
+    RGYQPSet qpMin;
+    RGYQPSet qpMax;
+    int targetQuality;
+    int targetQualityLSB;
+    int vbvBufferSize;
+    int vbvInitialDelay;
+    NV_ENC_MULTI_PASS multipass;
+    bool strictGOP;
+    bool disableIadapt;
+    bool disableBadapt;
+    bool enableAQ;
+    bool enableAQTemporal;
+    bool nonrefP;
+    bool enableLookahead;
+    int lookahead;
+    int aqStrength;
+
     NV_ENC_CONFIG encConfig;      //エンコード設定
-    std::vector<DynamicRCParam> dynamicRC;
+
+    std::vector<NVEncRCParam> dynamicRC;
     RGY_CODEC codec_rgy;          //出力コーデック
     int bluray;                   //bluray出力
     int outputDepth;              //出力ビット深度
@@ -829,6 +858,12 @@ struct InEncodeVideoParam {
     InEncodeVideoParam();
 
     void applyDOVIProfile();
+};
+
+static void setQP(NV_ENC_QP& nvencqp, const RGYQPSet& qp) {
+    nvencqp.qpIntra = qp.qpI;
+    nvencqp.qpInterP = qp.qpP;
+    nvencqp.qpInterB = qp.qpB;
 };
 
 NV_ENC_CONFIG DefaultParam();

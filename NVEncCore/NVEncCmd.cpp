@@ -172,13 +172,13 @@ tstring encoder_help() {
         _T("   --sar <int>:<int>            set Sample  Aspect Ratio\n")
         _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
         _T("\n")
-        _T("   --cqp <int> or               encode in Constant QP mode\n")
-        _T("         <int>:<int>:<int>        default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
+        _T("   --qvbr <float>               set bitrate for QVBR mode (kbps)\n")
+        _T("                                  same as \"--vbr 0 --vbr-quality <float>\"\n")
         _T("   --vbr <int>                  set bitrate for VBR mode (kbps)\n")
         _T("   --cbr <int>                  set bitrate for CBR mode (kbps)\n")
         _T("                                  default: %d kbps\n")
-        _T("   --qvbr <float>               set bitrate for QVBR mode (kbps)\n")
-        _T("                                  same as \"--vbr 0 --vbr-quality <float>\"\n")
+        _T("   --cqp <int> or               encode in Constant QP mode\n")
+        _T("         <int>:<int>:<int>        default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
         _T("\n")
         _T("-u,--preset <string>            set encoder preset\n")
         _T("                                  default, performance, quality\n")
@@ -669,24 +669,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("cqp")) {
         i++;
-        int a[3] = { 0 };
-        int ret = parse_qp(a, strInput[i]);
-        if (ret == 0) {
+        int ret = pParams->rcParam.qp.parse(strInput[i]);
+        if (ret != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-        pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
-        pParams->encConfig.rcParams.constQP.qpInterP = (ret > 1) ? a[1] : a[ret-1];
-        pParams->encConfig.rcParams.constQP.qpInterB = (ret > 2) ? a[2] : a[ret-1];
+        pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_CONSTQP;
         return 0;
     }
     if (IS_OPTION("vbr")) {
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
-            pParams->encConfig.rcParams.averageBitRate = value * 1000;
+            pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_VBR;
+            pParams->rcParam.avg_bitrate = value * 1000;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -697,9 +693,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_HQ;
-            pParams->encConfig.rcParams.averageBitRate = value * 1000;
-            pParams->encConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+            pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_VBR_HQ;
+            pParams->rcParam.avg_bitrate = value * 1000;
+            pParams->multipass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -710,9 +706,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
-            pParams->encConfig.rcParams.averageBitRate = value * 1000;
-            pParams->encConfig.rcParams.maxBitRate = value * 1000;
+            pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_CBR;
+            pParams->rcParam.avg_bitrate = value * 1000;
+            pParams->rcParam.max_bitrate = value * 1000;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -723,10 +719,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR_HQ;
-            pParams->encConfig.rcParams.averageBitRate = value * 1000;
-            pParams->encConfig.rcParams.maxBitRate = value * 1000;
-            pParams->encConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+            pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_CBR_HQ;
+            pParams->rcParam.avg_bitrate = value * 1000;
+            pParams->rcParam.max_bitrate = value * 1000;
+            pParams->multipass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -736,14 +732,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("qvbr")) {
         i++;
         double value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%lf"), &value)) {
+        if (tstring(_T("auto")) == tstring(strInput[i])) {
+            pParams->rcParam.targetQuality = -1;
+            pParams->rcParam.targetQualityLSB = -1;
+            pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_QVBR;
+        } else if (1 == _stscanf_s(strInput[i], _T("%lf"), &value)) {
             value = (std::max)(0.0, value);
             int value_int = (int)value;
-            pParams->encConfig.rcParams.targetQuality = (uint8_t)clamp(value_int, 0, 51);
-            pParams->encConfig.rcParams.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+            pParams->rcParam.targetQuality = (uint8_t)clamp(value_int, 0, 51);
+            pParams->rcParam.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
 
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
-            pParams->encConfig.rcParams.averageBitRate = 0;
+            pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_QVBR;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -753,11 +752,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("vbr-quality")) {
         i++;
         double value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%lf"), &value)) {
+        if (tstring(_T("auto")) == tstring(strInput[i])) {
+            pParams->rcParam.targetQuality = 0;
+            pParams->rcParam.targetQualityLSB = 0;
+        } else if (1 == _stscanf_s(strInput[i], _T("%lf"), &value)) {
             value = (std::max)(0.0, value);
             int value_int = (int)value;
-            pParams->encConfig.rcParams.targetQuality = (uint8_t)clamp(value_int, 0, 51);
-            pParams->encConfig.rcParams.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+            pParams->rcParam.targetQuality = (uint8_t)clamp(value_int, 0, 51);
+            pParams->rcParam.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -768,7 +770,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_nvenc_multipass_mode, strInput[i], &value)) {
-            pParams->encConfig.rcParams.multiPass = (NV_ENC_MULTI_PASS)value;
+            pParams->multipass = (NV_ENC_MULTI_PASS)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_nvenc_multipass_mode);
             return 1;
@@ -785,7 +787,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         for (int j = 0; list_nvenc_rc_method_en[j].desc; j++) {
             paramList.push_back(tolowercase(tchar_to_string(list_nvenc_rc_method_en[j].desc)));
         }
-        DynamicRCParam rcPrm;
+        NVEncRCParam rcPrm;
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -811,16 +813,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("cqp")) {
-                    int a[3] = { 0 };
-                    int ret = parse_qp(a, strInput[i]);
-                    if (ret == 0) {
+                    int ret = rcPrm.qp.parse(strInput[i]);
+                    if (ret != 0) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
                     rcPrm.rc_mode = NV_ENC_PARAMS_RC_CONSTQP;
-                    rcPrm.qp.qpIntra  = a[0];
-                    rcPrm.qp.qpInterP = (ret > 1) ? a[1] : a[ret-1];
-                    rcPrm.qp.qpInterB = (ret > 2) ? a[2] : a[ret-1];
                     rc_mode_defined = true;
                     continue;
                 }
@@ -830,7 +828,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         rcPrm.avg_bitrate = std::stoi(param_val) * 1000;
                         rcPrm.rc_mode = (NV_ENC_PARAMS_RC_MODE)temp;
                         if (temp == NV_ENC_PARAMS_RC_CBR_HQ || temp == NV_ENC_PARAMS_RC_VBR_HQ) {
-                            pParams->encConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+                            pParams->multipass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
                         }
                         rc_mode_defined = true;
                     } catch (...) {
@@ -877,7 +875,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (param_arg == _T("multipass")) {
                     int value = 0;
                     if (get_list_value(list_nvenc_multipass_mode, param_val.c_str(), &value)) {
-                        pParams->encConfig.rcParams.multiPass = (NV_ENC_MULTI_PASS)value;
+                        pParams->multipass = (NV_ENC_MULTI_PASS)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -919,63 +917,31 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->dynamicRC.push_back(rcPrm);
         return 0;
     }
-    if (IS_OPTION("qp-init") || IS_OPTION("qp-max") || IS_OPTION("qp-min")) {
+    if (IS_OPTION("qp-init")) {
         i++;
-        int a[4] = { 0 };
-        if (   4 == _stscanf_s(strInput[i], _T("%d;%d:%d:%d"), &a[3], &a[0], &a[1], &a[2])
-            || 4 == _stscanf_s(strInput[i], _T("%d;%d/%d/%d"), &a[3], &a[0], &a[1], &a[2])
-            || 4 == _stscanf_s(strInput[i], _T("%d;%d.%d.%d"), &a[3], &a[0], &a[1], &a[2])
-            || 4 == _stscanf_s(strInput[i], _T("%d;%d,%d,%d"), &a[3], &a[0], &a[1], &a[2])) {
-            a[3] = a[3] ? 1 : 0;
-        } else if (
-               3 == _stscanf_s(strInput[i], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
-            || 3 == _stscanf_s(strInput[i], _T("%d/%d/%d"), &a[0], &a[1], &a[2])
-            || 3 == _stscanf_s(strInput[i], _T("%d.%d.%d"), &a[0], &a[1], &a[2])
-            || 3 == _stscanf_s(strInput[i], _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
-            a[3] = 1;
-        } else if (
-               3 == _stscanf_s(strInput[i], _T("%d;%d:%d"), &a[3], &a[0], &a[1])
-            || 3 == _stscanf_s(strInput[i], _T("%d;%d/%d"), &a[3], &a[0], &a[1])
-            || 3 == _stscanf_s(strInput[i], _T("%d;%d.%d"), &a[3], &a[0], &a[1])
-            || 3 == _stscanf_s(strInput[i], _T("%d;%d,%d"), &a[3], &a[0], &a[1])) {
-            a[3] = a[3] ? 1 : 0;
-            a[2] = a[1];
-        } else if (
-               2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d.%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            a[3] = 1;
-            a[2] = a[1];
-        } else if (2 == _stscanf_s(strInput[i], _T("%d;%d"), &a[3], &a[0])) {
-            a[3] = a[3] ? 1 : 0;
-            a[1] = a[0];
-            a[2] = a[0];
-        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &a[0])) {
-            a[3] = 1;
-            a[1] = a[0];
-            a[2] = a[0];
-        } else {
+        int ret = pParams->qpInit.parse(strInput[i]);
+        if (ret != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        NV_ENC_QP *ptrQP = nullptr;
-        if (IS_OPTION("qp-init")) {
-            pParams->encConfig.rcParams.enableInitialRCQP = a[3];
-            ptrQP = &pParams->encConfig.rcParams.initialRCQP;
-        } else if (IS_OPTION("qp-max")) {
-            pParams->encConfig.rcParams.enableMaxQP = a[3];
-            ptrQP = &pParams->encConfig.rcParams.maxQP;
-        } else if (IS_OPTION("qp-min")) {
-            pParams->encConfig.rcParams.enableMinQP = a[3];
-            ptrQP = &pParams->encConfig.rcParams.minQP;
-        } else {
+        return 0;
+    }
+    if (IS_OPTION("qp-min")) {
+        i++;
+        int ret = pParams->qpMin.parse(strInput[i]);
+        if (ret != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        ptrQP->qpIntra  = a[0];
-        ptrQP->qpInterP = a[1];
-        ptrQP->qpInterB = a[2];
+        return 0;
+    }
+    if (IS_OPTION("qp-max")) {
+        i++;
+        int ret = pParams->qpMax.parse(strInput[i]);
+        if (ret != 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
         return 0;
     }
     if (IS_OPTION("chroma-qp-offset")) {
@@ -993,9 +959,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (0 == _tcsnccmp(strInput[i], _T("auto"), _tcslen(_T("auto")))) {
-            pParams->encConfig.gopLength = 0;
+            pParams->gopLength = 0;
         } else if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.gopLength = value;
+            pParams->gopLength = value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1003,14 +969,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("strict-gop")) {
-        pParams->encConfig.rcParams.strictGOPTarget = 1;
+        pParams->strictGOP = true;
         return 0;
     }
     if (IS_OPTION("bframes")) {
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.frameIntervalP = value + 1;
+            pParams->bFrames = value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1032,7 +998,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.maxBitRate = value * 1000;
+            pParams->rcParam.max_bitrate = value * 1000;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1043,8 +1009,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.enableLookahead = value > 0;
-            pParams->encConfig.rcParams.lookaheadDepth = (uint16_t)clamp(value, 0, 32);
+            pParams->enableLookahead = value > 0;
+            pParams->lookahead = clamp(value, 0, 32);
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1052,18 +1018,18 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("no-i-adapt")) {
-        pParams->encConfig.rcParams.disableIadapt = 1;
+        pParams->disableIadapt = true;
         return 0;
     }
     if (IS_OPTION("no-b-adapt")) {
-        pParams->encConfig.rcParams.disableBadapt = 1;
+        pParams->disableBadapt = true;
         return 0;
     }
     if (IS_OPTION("vbv-bufsize")) {
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.vbvBufferSize = value * 1000;
+            pParams->vbvBufferSize = value * 1000;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1071,18 +1037,18 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("aq")) {
-        pParams->encConfig.rcParams.enableAQ = 1;
+        pParams->enableAQ = true;
         return 0;
     }
     if (IS_OPTION("aq-temporal")) {
-        pParams->encConfig.rcParams.enableTemporalAQ = 1;
+        pParams->enableAQTemporal = true;
         return 0;
     }
     if (IS_OPTION("aq-strength")) {
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.aqStrength = clamp(value, 0, 15);
+            pParams->aqStrength = clamp(value, 0, 15);
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1091,11 +1057,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("disable-aq")
         || IS_OPTION("no-aq")) {
-        pParams->encConfig.rcParams.enableAQ = 0;
+        pParams->enableAQ = false;
         return 0;
     }
     if (IS_OPTION("no-aq-temporal")) {
-        pParams->encConfig.rcParams.enableTemporalAQ = 0;
+        pParams->enableAQTemporal = false;
         return 0;
     }
     if (IS_OPTION("direct")) {
@@ -1185,14 +1151,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("nonrefp")) {
-        pParams->encConfig.rcParams.enableNonRefP = 1;
+        pParams->nonrefP = 1;
         return 0;
     }
     if (IS_OPTION("mv-precision")) {
         i++;
         int value = 0;
         if (get_list_value(list_mv_presicion, strInput[i], &value)) {
-            pParams->encConfig.mvPrecision = (NV_ENC_MV_PRECISION)value;
+            pParams->mvPrecision = (NV_ENC_MV_PRECISION)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_mv_presicion);
             return 1;
@@ -1789,18 +1755,20 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 #define OPT_LST_H264(str, codec, opt, list) if ((codecPrm[RGY_CODEC_H264].h264Config.opt) != (codecPrmDefault[RGY_CODEC_H264].h264Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_chr_from_value(list, (codecPrm[RGY_CODEC_H264].h264Config.opt));
 #define OPT_QP(str, qp, enable, force) { \
     if ((force) || (enable) \
-    || (pParams->qp.qpIntra) != (encPrmDefault.qp.qpIntra) \
-    || (pParams->qp.qpInterP) != (encPrmDefault.qp.qpInterP) \
-    || (pParams->qp.qpInterB) != (encPrmDefault.qp.qpInterB)) { \
+    || (pParams->qp.qpI) != (encPrmDefault.qp.qpI) \
+    || (pParams->qp.qpP) != (encPrmDefault.qp.qpP) \
+    || (pParams->qp.qpB) != (encPrmDefault.qp.qpB)) { \
         if (enable) { \
             cmd << _T(" ") << (str) << _T(" "); \
         } else { \
             cmd << _T(" ") << (str) << _T(" 0;"); \
         } \
-        if ((pParams->qp.qpIntra) == (pParams->qp.qpInterP) && (pParams->qp.qpIntra) == (pParams->qp.qpInterB)) { \
-            cmd << (int)(pParams->qp.qpIntra); \
+        if ((pParams->qp.qpI) == (pParams->qp.qpP) && (pParams->qp.qpI) == (pParams->qp.qpB)) { \
+            cmd << (int)(pParams->qp.qpI); \
+        } else if ((pParams->qp.qpP) == (pParams->qp.qpB)) { \
+            cmd << (int)(pParams->qp.qpI) << _T(":") << (int)(pParams->qp.qpP); \
         } else { \
-            cmd << (int)(pParams->qp.qpIntra) << _T(":") << (int)(pParams->qp.qpInterP) << _T(":") << (int)(pParams->qp.qpInterB); \
+            cmd << (int)(pParams->qp.qpI) << _T(":") << (int)(pParams->qp.qpP) << _T(":") << (int)(pParams->qp.qpB); \
         } \
     } \
 }
@@ -1848,82 +1816,89 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     #pragma warning(push)
     #pragma warning(disable: 4063) //C4063: case '16' は '_NV_ENC_PARAMS_RC_MODE' の switch の値として正しくありません。
     if (save_disabled_prm) {
-        switch (pParams->encConfig.rcParams.rateControlMode) {
+        switch (pParams->rcParam.rc_mode) {
         case NV_ENC_PARAMS_RC_CBR:
         case NV_ENC_PARAMS_RC_CBR_HQ:
         case NV_ENC_PARAMS_RC_VBR:
         case NV_ENC_PARAMS_RC_VBR_HQ: {
-            OPT_QP(_T("--cqp"), encConfig.rcParams.constQP, true, true);
+            OPT_QP(_T("--cqp"), rcParam.qp, true, true);
         } break;
         case NV_ENC_PARAMS_RC_CONSTQP:
         default: {
-            cmd << _T(" --vbr ") << pParams->encConfig.rcParams.averageBitRate / 1000;
+            cmd << _T(" --vbr ") << pParams->rcParam.avg_bitrate / 1000;
         } break;
         }
     }
-    switch (pParams->encConfig.rcParams.rateControlMode) {
+
+    if (pParams->rcParam.rc_mode != NV_ENC_PARAMS_RC_QVBR
+        && (pParams->rcParam.targetQuality > 0 || pParams->rcParam.targetQualityLSB > 0)) {
+        const float val = pParams->rcParam.targetQuality + pParams->rcParam.targetQualityLSB / 256.0f;
+        cmd << _T(" --vbr-quality ") << std::fixed << std::setprecision(2) << val;
+    }
+
+    switch (pParams->rcParam.rc_mode) {
     case NV_ENC_PARAMS_RC_CBR: {
-        cmd << _T(" --cbr ") << pParams->encConfig.rcParams.averageBitRate / 1000;
+        cmd << _T(" --cbr ") << pParams->rcParam.avg_bitrate / 1000;
     } break;
     case NV_ENC_PARAMS_RC_CBR_HQ: {
-        cmd << _T(" --cbrhq ") << pParams->encConfig.rcParams.averageBitRate / 1000;
+        cmd << _T(" --cbrhq ") << pParams->rcParam.avg_bitrate / 1000;
     } break;
     case NV_ENC_PARAMS_RC_VBR: {
-        cmd << _T(" --vbr ") << pParams->encConfig.rcParams.averageBitRate / 1000;
+        cmd << _T(" --vbr ") << pParams->rcParam.avg_bitrate / 1000;
     } break;
     case NV_ENC_PARAMS_RC_VBR_HQ: {
-        cmd << _T(" --vbrhq ") << pParams->encConfig.rcParams.averageBitRate / 1000;
+        cmd << _T(" --vbrhq ") << pParams->rcParam.avg_bitrate / 1000;
+    } break;
+    case NV_ENC_PARAMS_RC_QVBR: {
+        if (pParams->rcParam.targetQuality > 0 || pParams->rcParam.targetQualityLSB > 0) {
+            const float val = pParams->rcParam.targetQuality + pParams->rcParam.targetQualityLSB / 256.0f;
+            cmd << _T(" --qvbr ") << std::fixed << std::setprecision(2) << val;
+        } else {
+            cmd << _T(" --qvbr auto");
+        }
     } break;
     case NV_ENC_PARAMS_RC_CONSTQP:
     default: {
-        OPT_QP(_T("--cqp"), encConfig.rcParams.constQP, true, true);
+        OPT_QP(_T("--cqp"), rcParam.qp, true, true);
     } break;
     }
     #pragma warning(pop)
 
-    OPT_LST(_T("--multipass"), encConfig.rcParams.multiPass, list_nvenc_multipass_mode);
-    if (pParams->encConfig.rcParams.rateControlMode != NV_ENC_PARAMS_RC_CONSTQP || save_disabled_prm) {
-        OPT_NUM(_T("--vbv-bufsize"), encConfig.rcParams.vbvBufferSize / 1000);
-        if ((pParams->encConfig.rcParams.targetQuality) != (encPrmDefault.encConfig.rcParams.targetQuality)
-            || (pParams->encConfig.rcParams.targetQualityLSB) != (encPrmDefault.encConfig.rcParams.targetQualityLSB)) {
-            float val = pParams->encConfig.rcParams.targetQuality + pParams->encConfig.rcParams.targetQualityLSB / 256.0f;
-            cmd << _T(" --vbr-quality ") << std::fixed << std::setprecision(2) << val;
-        }
-        OPT_NUM(_T("--max-bitrate"), encConfig.rcParams.maxBitRate / 1000);
+    OPT_LST(_T("--multipass"), multipass, list_nvenc_multipass_mode);
+    if (pParams->rcParam.rc_mode != NV_ENC_PARAMS_RC_CONSTQP || save_disabled_prm) {
+        OPT_NUM(_T("--vbv-bufsize"), vbvBufferSize / 1000);
+        OPT_NUM(_T("--max-bitrate"), rcParam.max_bitrate / 1000);
     }
-    if (pParams->encConfig.rcParams.enableInitialRCQP || save_disabled_prm) {
-        OPT_QP(_T("--qp-init"), encConfig.rcParams.initialRCQP, pParams->encConfig.rcParams.enableInitialRCQP, false);
+    if (pParams->qpInit.enable || save_disabled_prm) {
+        OPT_QP(_T("--qp-init"), qpInit, pParams->qpInit.enable, false);
     }
-    if (pParams->encConfig.rcParams.enableMinQP || save_disabled_prm) {
-        OPT_QP(_T("--qp-min"), encConfig.rcParams.minQP, pParams->encConfig.rcParams.enableMinQP, false);
+    if (pParams->qpMin.enable || save_disabled_prm) {
+        OPT_QP(_T("--qp-min"), qpMin, pParams->qpMin.enable, false);
     }
-    if (pParams->encConfig.rcParams.enableMaxQP || save_disabled_prm) {
-        OPT_QP(_T("--qp-max"), encConfig.rcParams.maxQP, pParams->encConfig.rcParams.enableMaxQP, false);
-    }
-    if (pParams->encConfig.rcParams.enableMaxQP || save_disabled_prm) {
-        OPT_QP(_T("--qp-max"), encConfig.rcParams.maxQP, pParams->encConfig.rcParams.enableMaxQP, false);
+    if (pParams->qpMax.enable || save_disabled_prm) {
+        OPT_QP(_T("--qp-max"), qpMax, pParams->qpMax.enable, false);
     }
     OPT_NUM(_T("--chroma-qp-offset"), chromaQPOffset);
 
-    if (pParams->encConfig.rcParams.enableLookahead || save_disabled_prm) {
-        OPT_NUM(_T("--lookahead"), encConfig.rcParams.lookaheadDepth);
+    if (pParams->enableLookahead || save_disabled_prm) {
+        OPT_NUM(_T("--lookahead"), lookahead);
     }
-    OPT_BOOL(_T("--no-i-adapt"), _T(""), encConfig.rcParams.disableIadapt);
-    OPT_BOOL(_T("--no-b-adapt"), _T(""), encConfig.rcParams.disableBadapt);
-    OPT_BOOL(_T("--strict-gop"), _T(""), encConfig.rcParams.strictGOPTarget);
-    if (pParams->encConfig.gopLength == 0) {
+    OPT_BOOL(_T("--no-i-adapt"), _T(""), disableIadapt);
+    OPT_BOOL(_T("--no-b-adapt"), _T(""), disableBadapt);
+    OPT_BOOL(_T("--strict-gop"), _T(""), strictGOP);
+    if (pParams->gopLength == 0) {
         cmd << _T(" --gop-len auto");
     } else {
-        OPT_NUM(_T("--gop-len"), encConfig.gopLength);
+        OPT_NUM(_T("--gop-len"), gopLength);
     }
-    OPT_NUM(_T("-b"), encConfig.frameIntervalP-1);
+    OPT_NUM(_T("-b"), bFrames);
     OPT_LST(_T("--bref-mode"), brefMode, list_bref_mode);
     OPT_BOOL(_T("--weightp"), _T(""), nWeightP);
-    OPT_BOOL(_T("--nonrefp"), _T(""), encConfig.rcParams.enableNonRefP);
-    OPT_BOOL(_T("--aq"), _T("--no-aq"), encConfig.rcParams.enableAQ);
-    OPT_BOOL(_T("--aq-temporal"), _T(""), encConfig.rcParams.enableTemporalAQ);
-    OPT_NUM(_T("--aq-strength"), encConfig.rcParams.aqStrength);
-    OPT_LST(_T("--mv-precision"), encConfig.mvPrecision, list_mv_presicion);
+    OPT_BOOL(_T("--nonrefp"), _T(""), nonrefP);
+    OPT_BOOL(_T("--aq"), _T("--no-aq"), enableAQ);
+    OPT_BOOL(_T("--aq-temporal"), _T(""), enableAQTemporal);
+    OPT_NUM(_T("--aq-strength"), aqStrength);
+    OPT_LST(_T("--mv-precision"), mvPrecision, list_mv_presicion);
     if (pParams->par[0] > 0 && pParams->par[1] > 0) {
         cmd << _T(" --sar ") << pParams->par[0] << _T(":") << pParams->par[1];
     } else if (pParams->par[0] < 0 && pParams->par[1] < 0) {

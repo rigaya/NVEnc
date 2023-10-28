@@ -42,6 +42,79 @@
 #include "afs_stg.h"
 #endif
 
+RGYQPSet::RGYQPSet() :
+    enable(true),
+    qpI(0), qpP(0), qpB(0) {
+
+};
+
+RGYQPSet::RGYQPSet(int i, int p, int b) :
+    enable(true),
+    qpI(i), qpP(p), qpB(b) {
+
+};
+
+bool RGYQPSet::operator==(const RGYQPSet &x) const {
+    return enable == x.enable
+        && qpI == x.qpI
+        && qpP == x.qpP
+        && qpB == x.qpB;
+}
+bool RGYQPSet::operator!=(const RGYQPSet &x) const {
+    return !(*this == x);
+}
+
+int RGYQPSet::parse(const TCHAR *str) {
+    int a[4] = { 0 };
+    if (   4 == _stscanf_s(str, _T("%d;%d:%d:%d"), &a[3], &a[0], &a[1], &a[2])
+        || 4 == _stscanf_s(str, _T("%d;%d/%d/%d"), &a[3], &a[0], &a[1], &a[2])
+        || 4 == _stscanf_s(str, _T("%d;%d.%d.%d"), &a[3], &a[0], &a[1], &a[2])
+        || 4 == _stscanf_s(str, _T("%d;%d,%d,%d"), &a[3], &a[0], &a[1], &a[2])) {
+        a[3] = a[3] ? 1 : 0;
+    } else if (
+           3 == _stscanf_s(str, _T("%d:%d:%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d/%d/%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d.%d.%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
+        a[3] = 1;
+    } else if (
+           3 == _stscanf_s(str, _T("%d;%d:%d"), &a[3], &a[0], &a[1])
+        || 3 == _stscanf_s(str, _T("%d;%d/%d"), &a[3], &a[0], &a[1])
+        || 3 == _stscanf_s(str, _T("%d;%d.%d"), &a[3], &a[0], &a[1])
+        || 3 == _stscanf_s(str, _T("%d;%d,%d"), &a[3], &a[0], &a[1])) {
+        a[3] = a[3] ? 1 : 0;
+        a[2] = a[1];
+    } else if (
+           2 == _stscanf_s(str, _T("%d:%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d/%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d.%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d,%d"), &a[0], &a[1])) {
+        a[3] = 1;
+        a[2] = a[1];
+    } else if (2 == _stscanf_s(str, _T("%d;%d"), &a[3], &a[0])) {
+        a[3] = a[3] ? 1 : 0;
+        a[1] = a[0];
+        a[2] = a[0];
+    } else if (1 == _stscanf_s(str, _T("%d"), &a[0])) {
+        a[3] = 1;
+        a[1] = a[0];
+        a[2] = a[0];
+    } else {
+        return 1;
+    }
+    enable = a[3] != 0;
+    qpI = a[0];
+    qpP = a[1];
+    qpB = a[2];
+    return 0;
+}
+
+void RGYQPSet::applyQPMinMax(const int min, const int max) {
+    qpI = clamp(qpI, min, max);
+    qpP = clamp(qpP, min, max);
+    qpB = clamp(qpB, min, max);
+}
+
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     if (resize == RGY_VPP_RESIZE_AUTO) {
         return RGY_VPP_RESIZE_TYPE_AUTO;

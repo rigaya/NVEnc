@@ -50,53 +50,6 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
     }
 }
 
-tstring printParams(const std::vector<DynamicRCParam> &dynamicRC) {
-    TStringStream t;
-    for (const auto& a : dynamicRC) {
-        t << a.print() << std::endl;
-    }
-    return t.str();
-};
-
-DynamicRCParam::DynamicRCParam() : start(-1), end(-1), rc_mode(NV_ENC_PARAMS_RC_CONSTQP), avg_bitrate(-1), max_bitrate(0), targetQuality(-1), targetQualityLSB(-1), qp() {
-
-}
-tstring DynamicRCParam::print() const {
-    TStringStream t;
-    if (end == INT_MAX || end <= 0) {
-        t << "frame=" << start << ":end";
-    } else {
-        t << "frame=" << start << ":" << end;
-    }
-    t << "," << get_chr_from_value(list_nvenc_rc_method_en, rc_mode) << "=";
-    if (rc_mode == NV_ENC_PARAMS_RC_CONSTQP) {
-        t << qp.qpIntra << ":" << qp.qpInterP << ":" << qp.qpInterB;
-    } else {
-        t << avg_bitrate / 1000;
-        if (targetQuality >= 0) {
-            double qual = targetQuality + targetQualityLSB / 256.0;
-            t << ",vbr-quality=" << qual;
-        }
-    }
-    if (max_bitrate != 0) {
-        t << ",maxbitrate=" << max_bitrate / 1000;
-    }
-    return t.str();
-}
-bool DynamicRCParam::operator==(const DynamicRCParam &x) const {
-    return start == x.start
-        && end == x.end
-        && rc_mode == x.rc_mode
-        && avg_bitrate == x.avg_bitrate
-        && max_bitrate == x.max_bitrate
-        && targetQuality == x.targetQuality
-        && targetQualityLSB == x.targetQualityLSB
-        && memcmp(&qp, &x.qp, sizeof(qp)) == 0;
-}
-bool DynamicRCParam::operator!=(const DynamicRCParam &x) const {
-    return !(*this == x);
-}
-
 VppCustom::VppCustom() :
     enable(false),
     filter_name(),
@@ -238,6 +191,64 @@ VppParam::VppParam() :
     nvvfxModelDir() {
 }
 
+tstring printParams(const std::vector<NVEncRCParam> &dynamicRC) {
+    TStringStream t;
+    for (const auto& a : dynamicRC) {
+        t << a.print() << std::endl;
+    }
+    return t.str();
+};
+
+NVEncRCParam::NVEncRCParam() :
+    start(-1),
+    end(-1),
+    rc_mode(NV_ENC_PARAMS_RC_VBR),
+    avg_bitrate(0),
+    max_bitrate(0),
+    targetQuality(-1),
+    targetQualityLSB(-1),
+    qp() {
+
+}
+tstring NVEncRCParam::print() const {
+    TStringStream t;
+    if (start >= 0) {
+        if (end == INT_MAX || end <= 0) {
+            t << "frame=" << start << ":end";
+        } else {
+            t << "frame=" << start << ":" << end;
+        }
+        t << ",";
+    }
+    t << get_chr_from_value(list_nvenc_rc_method_en, rc_mode) << "=";
+    if (rc_mode == NV_ENC_PARAMS_RC_CONSTQP) {
+        t << qp.qpI << ":" << qp.qpP << ":" << qp.qpB;
+    } else {
+        t << avg_bitrate / 1000;
+        if (targetQuality >= 0) {
+            double qual = targetQuality + targetQualityLSB / 256.0;
+            t << ",vbr-quality=" << qual;
+        }
+    }
+    if (max_bitrate != 0) {
+        t << ",maxbitrate=" << max_bitrate / 1000;
+    }
+    return t.str();
+}
+bool NVEncRCParam::operator==(const NVEncRCParam &x) const {
+    return start == x.start
+        && end == x.end
+        && rc_mode == x.rc_mode
+        && avg_bitrate == x.avg_bitrate
+        && max_bitrate == x.max_bitrate
+        && targetQuality == x.targetQuality
+        && targetQualityLSB == x.targetQualityLSB
+        && qp == x.qp;
+}
+bool NVEncRCParam::operator!=(const NVEncRCParam &x) const {
+    return !(*this == x);
+}
+
 NV_ENC_CODEC_CONFIG DefaultParamH264() {
     NV_ENC_CODEC_CONFIG config = { 0 };
 
@@ -327,13 +338,13 @@ NV_ENC_CONFIG DefaultParam() {
     config.frameFieldMode                 = NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME;
     config.profileGUID                    = NV_ENC_H264_PROFILE_HIGH_GUID;
     config.gopLength                      = DEFAULT_GOP_LENGTH;
-    config.rcParams.rateControlMode       = NV_ENC_PARAMS_RC_CONSTQP;
+    config.rcParams.rateControlMode       = NV_ENC_PARAMS_RC_VBR;
     //config.encodeCodecConfig.h264Config.level;
     config.frameIntervalP                 = DEFAULT_B_FRAMES + 1;
     config.mvPrecision                    = NV_ENC_MV_PRECISION_DEFAULT;
     config.monoChromeEncoding             = 0;
     config.rcParams.version               = NV_ENC_RC_PARAMS_VER;
-    config.rcParams.averageBitRate        = DEFAULT_AVG_BITRATE;
+    config.rcParams.averageBitRate        = 0;
     config.rcParams.maxBitRate            = 0;
     config.rcParams.enableInitialRCQP     = 1;
     config.rcParams.initialRCQP.qpInterB  = DEFAULT_QP_B;
@@ -346,7 +357,7 @@ NV_ENC_CONFIG DefaultParam() {
     config.rcParams.constQP.qpInterP      = DEFAULT_QP_P;
     config.rcParams.constQP.qpIntra       = DEFAUTL_QP_I;
     config.rcParams.lookaheadDepth        = DEFAULT_LOOKAHEAD;
-    config.rcParams.targetQuality         = 0; //auto
+    config.rcParams.targetQuality         = 0;
     config.rcParams.targetQualityLSB      = 0;
 
     config.rcParams.vbvBufferSize         = 0;
@@ -364,6 +375,27 @@ InEncodeVideoParam::InEncodeVideoParam() :
     preset(0),
     nHWDecType(0),
     par(),
+    rcParam(),
+    gopLength(DEFAULT_GOP_LENGTH),
+    bFrames(DEFAULT_B_FRAMES),
+    mvPrecision(NV_ENC_MV_PRECISION_DEFAULT),
+    qpInit(RGYQPSet(DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B)),
+    qpMin(RGYQPSet(0, 0, 0)),
+    qpMax(RGYQPSet(255, 255, 255)),
+    targetQuality(25),
+    targetQualityLSB(0),
+    vbvBufferSize(0),
+    vbvInitialDelay(0),
+    multipass(NV_ENC_MULTI_PASS_DISABLED),
+    strictGOP(true),
+    disableIadapt(false),
+    disableBadapt(false),
+    enableAQ(false),
+    enableAQTemporal(false),
+    nonrefP(false),
+    enableLookahead(false),
+    lookahead(DEFAULT_LOOKAHEAD),
+    aqStrength(0),
     encConfig(),
     dynamicRC(),
     codec_rgy(RGY_CODEC_H264),
@@ -382,7 +414,10 @@ InEncodeVideoParam::InEncodeVideoParam() :
     vpp(),
     vppnv() {
     encConfig = DefaultParam();
-    memset(&par, 0, sizeof(par));
+    rcParam.qp = RGYQPSet(DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B);
+    rcParam.rc_mode = NV_ENC_PARAMS_RC_QVBR;
+    rcParam.avg_bitrate = DEFAULT_AVG_BITRATE;
+    rcParam.max_bitrate = DEFAULT_MAX_BITRATE;
     input.vui = VideoVUIInfo();
 }
 
