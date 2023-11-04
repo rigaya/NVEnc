@@ -108,6 +108,12 @@ const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_120.dll");
 #elif __CUDACC_VER_MAJOR__ == 12 && __CUDACC_VER_MINOR__ == 1
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_120_0.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_121.dll");
+#elif __CUDACC_VER_MAJOR__ == 12 && __CUDACC_VER_MINOR__ == 2
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_120_0.dll");
+const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_122.dll");
+#elif __CUDACC_VER_MAJOR__ == 12 && __CUDACC_VER_MINOR__ == 3
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_120_0.dll");
+const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_123.dll");
 #endif
 #else //#if defined(_WIN32) || defined(_WIN64)
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("libnppc.so");
