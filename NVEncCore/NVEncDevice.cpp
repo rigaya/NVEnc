@@ -612,13 +612,13 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
         nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI.get());
         if (nvStatus != NV_ENC_SUCCESS) {
             if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI(ver=0x%x), please consider updating your GPU driver.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
+                PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI(ver=0x%x: %d.%d), please consider updating your GPU driver.\n"), apiver, nvenc_api_ver_major(apiver), nvenc_api_ver_minor(apiver));
             } else {
                 NVPrintFuncError(_T("nvEncodeAPICreateInstance"), nvStatus);
             }
             return nvStatus;
         }
-        PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x): Success.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
+        PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x: %d.%d): Success.\n"), apiver, nvenc_api_ver_major(apiver), nvenc_api_ver_minor(apiver));
 
         openSessionExParams.apiVersion = apiver;
         setStructVer(openSessionExParams, apiver);
