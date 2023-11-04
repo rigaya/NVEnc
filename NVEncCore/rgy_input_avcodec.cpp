@@ -1720,6 +1720,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_Demux.video.stream->time_base.num, m_Demux.video.stream->time_base.den,
             av_stream_get_codec_timebase(m_Demux.video.stream).num, av_stream_get_codec_timebase(m_Demux.video.stream).den);
 
+        m_Demux.video.decRFFStatus = 0;
         m_Demux.video.findPosLastIdx = 0;
         m_logFramePosList.clear();
         if (input_prm->logFramePosList.length() > 0) {
@@ -2992,15 +2993,20 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         }
         auto flags = RGY_FRAME_FLAG_NONE;
         const auto findPos = m_Demux.frames.findpts(m_Demux.video.frame->pts, &m_Demux.video.findPosLastIdx);
-        if (findPos.poc != FRAMEPOS_POC_INVALID
-            && (findPos.pic_struct & RGY_PICSTRUCT_INTERLACED) == 0
-            && findPos.repeat_pict > 1) {
-            flags |= RGY_FRAME_FLAG_RFF;
+        if (findPos.poc != FRAMEPOS_POC_INVALID) {
+            if (findPos.repeat_pict > 1) {
+                flags |= RGY_FRAME_FLAG_RFF;
+                m_Demux.video.decRFFStatus ^= 1; // 反転させる
+            }
+            if (m_Demux.video.frame->top_field_first || findPos.repeat_pict > 1 || m_Demux.video.decRFFStatus) {
+                // RFF用のTFF/BFFを示すフラグを設定 (picstructとは別)
+                flags |= (m_Demux.video.frame->top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
+            }
         }
         pSurface->setFlags(flags);
         pSurface->setTimestamp(m_Demux.video.frame->pts);
         pSurface->setDuration(m_Demux.video.frame->pkt_duration);
-        if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
+        if (m_inputVideoInfo.picstruct == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
         pSurface->dataList().clear();

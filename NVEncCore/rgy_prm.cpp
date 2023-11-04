@@ -269,6 +269,27 @@ bool VppColorspace::operator!=(const VppColorspace &x) const {
     return !(*this == x);
 }
 
+VppRff::VppRff() :
+    enable(false),
+    log(false) {
+
+}
+
+bool VppRff::operator==(const VppRff &x) const {
+    if (  enable != x.enable
+        || log != x.log) {
+        return false;
+    }
+    return true;
+}
+bool VppRff::operator!=(const VppRff &x) const {
+    return !(*this == x);
+}
+
+tstring VppRff::print() const {
+    return strsprintf(_T("rff: log %s"), (log) ? _T("on") : _T("off"));
+}
+
 VppDelogo::VppDelogo() :
     enable(false),
     logoFilePath(),
@@ -1289,7 +1310,7 @@ RGYParamVpp::RGYParamVpp() :
     afs(),
     nnedi(),
     yadif(),
-    rff(false),
+    rff(),
     selectevery(),
     decimate(),
     mpdecimate(),

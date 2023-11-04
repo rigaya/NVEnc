@@ -31,13 +31,16 @@
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
 
+static const int FRAME_BUF_SIZE = 2;
 
 class NVEncFilterParamRff : public NVEncFilterParam {
 public:
+    VppRff rff;
     rgy_rational<int> inFps;
     rgy_rational<int> timebase;
+    tstring outFilename;
 
-    NVEncFilterParamRff() : inFps(), timebase() {
+    NVEncFilterParamRff() : rff(), inFps(), timebase(), outFilename() {
 
     };
     virtual ~NVEncFilterParamRff() {};
@@ -53,8 +56,18 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
-    int m_nStatus;
-    CUFrameBuf m_fieldBuf;
+    RGY_ERR checkParam(const NVEncFilterParam *param);
+    int64_t getInputDuration(const RGYFrameInfo *pInputFrame);
+    RGY_FRAME_FLAGS getPrevBufFlags() const;
+
+    std::tuple<RGY_ERR, int, bool> copyFieldFromBuffer(RGYFrameInfo *dst, const int idx, cudaStream_t& stream);
+    RGY_ERR copyFieldToBuffer(const RGYFrameInfo *src, const bool copyTopField, cudaStream_t& stream);
+
     int m_nFieldBufUsed;
-    RGY_FRAME_FLAGS m_nFieldBufPicStruct;
+    std::array<RGY_FRAME_FLAGS, FRAME_BUF_SIZE> m_nFieldBufPicStruct;
+    int64_t m_ptsOffset;
+    int64_t m_prevInputTimestamp;
+    RGY_FRAME_FLAGS m_prevInputFlags;
+    RGY_PICSTRUCT m_prevInputPicStruct;
+    std::unique_ptr<FILE, fp_deleter> m_fpLog;
 };

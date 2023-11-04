@@ -1780,7 +1780,7 @@ Values for parameters will be copied from input file for "input".
 
 
 ### --vpp-rff
-Reflect the Repeat Field Flag. The avsync error caused by rff could be solved. Available only when [--avhw](#--avhw-string) is used.
+Reflect the Repeat Field Flag. The avsync error caused by rff could be solved. Available only when [--avhw](#--avhw-string) or [--avsw](#--avsw-string) is used.
 
 rff of 2 or more will not be supported (only  supports rff = 1). Also, it can not be used with [--trim](#--trim-intintintintintint), [--vpp-deinterlace](#--vpp-deinterlace-string).
 

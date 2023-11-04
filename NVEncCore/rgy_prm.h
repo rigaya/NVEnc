@@ -49,9 +49,11 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 #define ENABLE_VPP_FILTER_COLORSPACE   (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP ||                  CLFILTERS_AUF)
 #endif
 #define ENABLE_VPP_FILTER_AFS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_AFS_RFF      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
-#define ENABLE_VPP_FILTER_RFF          (ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RFF          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_RFF_AVHW     (ENCODER_QSV   || ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_SELECT_EVERY (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DECIMATE     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_MPDECIMATE   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -784,6 +786,16 @@ struct VppColorspace {
     bool operator!=(const VppColorspace &x) const;
 };
 
+struct VppRff {
+    bool  enable;
+    bool  log;
+
+    VppRff();
+    bool operator==(const VppRff& x) const;
+    bool operator!=(const VppRff& x) const;
+    tstring print() const;
+};
+
 struct VppDelogo {
     bool enable;
     tstring logoFilePath;  //ロゴファイル名
@@ -1284,7 +1296,7 @@ struct RGYParamVpp {
     VppAfs afs;
     VppNnedi nnedi;
     VppYadif yadif;
-    bool rff;
+    VppRff rff;
     VppSelectEvery selectevery;
     VppDecimate decimate;
     VppMpdecimate mpdecimate;

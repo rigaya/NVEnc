@@ -398,6 +398,13 @@ public:
         return tmp;
     }
 
+    T round() const {
+        if (den == 1) {
+            return num;
+        }
+        return (T)(qdouble() + 0.5);
+    }
+
     rgy_rational<T> operator+ () {
         return *this;
     }

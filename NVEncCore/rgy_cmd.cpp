@@ -1019,7 +1019,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             "top", "bottom", "left", "right",
             "method_switch", "coeff_shift", "thre_shift", "thre_deint", "thre_motion_y", "thre_motion_c",
             "level", "shift", "drop", "smooth", "24fps", "tune", "timecode", "ini", "preset",
-#if ENCODER_NVENC
+#if ENABLE_VPP_FILTER_AFS_RFF
             "rff",
 #endif
             "log"
@@ -1220,7 +1220,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("rff")) {
+                if (param_arg == _T("rff") && ENABLE_VPP_FILTER_AFS_RFF) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         vpp->afs.rff = b;
@@ -1439,10 +1439,52 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+
     if (IS_OPTION("vpp-rff") && ENABLE_VPP_FILTER_RFF) {
-        vpp->rff = true;
+        vpp->rff.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "log" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->rff.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->rff.log = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
         return 0;
     }
+
     if (IS_OPTION("vpp-select-every") && ENABLE_VPP_FILTER_SELECT_EVERY) {
         vpp->selectevery.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -3325,13 +3367,9 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         i++;
         int value = 0;
         if (get_list_value(list_interlaced, strInput[i], &value)) {
-            if (ENCODER_QSV && value == (int)RGY_PICSTRUCT_AUTO) { //qsvではinterlace autoは未サポート
-                print_cmd_error_invalid_value(option_name, strInput[i], _T(""), list_interlaced, _countof(list_interlaced) - (ENCODER_QSV ? 2 : 1));
-                return 1;
-            }
             input->picstruct = (RGY_PICSTRUCT)value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], _T(""), list_interlaced, _countof(list_interlaced) - (ENCODER_QSV ? 2 : 1));
+            print_cmd_error_invalid_value(option_name, strInput[i], _T(""), list_interlaced, _countof(list_interlaced));
             return 1;
         }
         return 0;
@@ -5827,7 +5865,19 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-yadif");
         }
     }
-    OPT_BOOL(_T("--vpp-rff"), _T(""), rff);
+    if (param->rff != defaultPrm->rff) {
+        tmp.str(tstring());
+        if (!param->rff.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->rff.enable || save_disabled_prm) {
+            ADD_BOOL(_T("log"), rff.log);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-rff ") << tmp.str().substr(1);
+        }
+    }
+
     if (param->decimate != defaultPrm->decimate) {
         tmp.str(tstring());
         if (!param->decimate.enable && save_disabled_prm) {
@@ -7035,7 +7085,7 @@ tstring gen_cmd_help_vpp() {
         _T("      smooth=<bool> (スムージング)     enable smoothing   (default=%s)\n")
         _T("      24fps=<bool>  (24fps化)          force 30fps->24fps (default=%s)\n")
         _T("      tune=<bool>   (調整モード)       show scan result   (default=%s)\n")
-#if ENCODER_NVENC
+#if ENABLE_VPP_FILTER_AFS_RFF
         _T("      rff=<bool>                       rff flag aware     (default=%s)\n")
 #endif
         _T("      timecode=<bool>                  output timecode    (default=%s)\n")
@@ -7100,7 +7150,8 @@ tstring gen_cmd_help_vpp() {
 #endif
 #if ENABLE_VPP_FILTER_RFF
     str += strsprintf(_T("\n")
-        _T("   --vpp-rff                    apply rff flag, with avhw reader only.\n"));
+        _T("   --vpp-rff                    apply rff flag, with %savsw reader only.\n"),
+            ENABLE_VPP_FILTER_RFF_AVHW ? _T("avhw/") : _T(""));
 #endif
 #if ENABLE_VPP_FILTER_SELECT_EVERY
     str += strsprintf(_T("\n")

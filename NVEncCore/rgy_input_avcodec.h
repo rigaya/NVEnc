@@ -728,6 +728,7 @@ typedef struct AVDemuxVideo {
     uint32_t                  findPosLastIdx;        //findpos用のindex
 
     int                       nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
+    int                       decRFFStatus;          //swデコード時にRFF展開中かどうか
 
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
