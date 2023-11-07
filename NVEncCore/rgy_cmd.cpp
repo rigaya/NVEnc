@@ -1018,11 +1018,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         const auto paramList = std::vector<std::string>{
             "top", "bottom", "left", "right",
             "method_switch", "coeff_shift", "thre_shift", "thre_deint", "thre_motion_y", "thre_motion_c",
-            "level", "shift", "drop", "smooth", "24fps", "tune", "timecode", "ini", "preset",
-#if ENABLE_VPP_FILTER_AFS_RFF
-            "rff",
-#endif
-            "log"
+            "level", "shift", "drop", "smooth", "24fps", "tune", "timecode", "ini", "preset", "rff", "log"
         };
 
         for (const auto &param : param_list) {
@@ -1220,7 +1216,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("rff") && ENABLE_VPP_FILTER_AFS_RFF) {
+                if (param_arg == _T("rff")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         vpp->afs.rff = b;
@@ -7085,9 +7081,7 @@ tstring gen_cmd_help_vpp() {
         _T("      smooth=<bool> (スムージング)     enable smoothing   (default=%s)\n")
         _T("      24fps=<bool>  (24fps化)          force 30fps->24fps (default=%s)\n")
         _T("      tune=<bool>   (調整モード)       show scan result   (default=%s)\n")
-#if ENABLE_VPP_FILTER_AFS_RFF
         _T("      rff=<bool>                       rff flag aware     (default=%s)\n")
-#endif
         _T("      timecode=<bool>                  output timecode    (default=%s)\n")
         _T("      log=<bool>                       output log         (default=%s)\n"),
         FILTER_DEFAULT_AFS_CLIP_TB, FILTER_DEFAULT_AFS_CLIP_TB,
