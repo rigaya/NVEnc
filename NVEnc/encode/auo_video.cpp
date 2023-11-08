@@ -512,7 +512,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         return AUO_RESULT_ERROR;
     }
 
-    if ((oip->flag & OUTPUT_INFO_FLAG_AUDIO) && conf->aud.use_internal) {
+    if ((oip->flag & OUTPUT_INFO_FLAG_AUDIO)) {
         if_valid_wait_for_single_object(pe->aud_parallel.he_vid_start, INFINITE);
         auto common = &enc_prm.common;
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
