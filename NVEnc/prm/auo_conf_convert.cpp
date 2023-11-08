@@ -413,6 +413,7 @@ void guiEx_config::convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX *conf, const void
 
 #pragma warning (push)
 #pragma warning (disable: 4127)
+#pragma warning (disable: 4063) //warning C4063 : case '16' は '_NV_ENC_PARAMS_RC_MODE' の switch の値として正しくありません。
 tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     std::basic_stringstream<TCHAR> cmd;
 
