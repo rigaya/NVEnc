@@ -69,7 +69,7 @@ static const int DEFAUTL_QP_I        = 20;
 static const int DEFAULT_QP_P        = 23;
 static const int DEFAULT_QP_B        = 25;
 static const int DEFAULT_AVG_BITRATE = 7500000;
-static const int DEFAULT_MAX_BITRATE = 17500000;
+static const int DEFAULT_MAX_BITRATE = 0;
 static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 0;
 

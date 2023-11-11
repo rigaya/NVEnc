@@ -1660,7 +1660,6 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_QVBR) {
         m_stEncConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
         m_stEncConfig.rcParams.averageBitRate = 0;
-        m_stEncConfig.rcParams.maxBitRate = 0;
     }
 
     if (m_stEncConfig.rcParams.rateControlMode != (m_stEncConfig.rcParams.rateControlMode & codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES))) {
