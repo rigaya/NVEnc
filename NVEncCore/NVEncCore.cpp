@@ -5094,15 +5094,13 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     tstring strAQ;
     if (m_stEncConfig.rcParams.enableAQ || m_stEncConfig.rcParams.enableTemporalAQ) {
         strAQ = _T("on");
-        if (rgy_codec == RGY_CODEC_H264) {
-            strAQ += _T("(");
-            if (m_stEncConfig.rcParams.enableAQ)         strAQ += _T("spatial");
-            if (m_stEncConfig.rcParams.enableAQ && m_stEncConfig.rcParams.enableTemporalAQ) strAQ += _T(", ");
-            if (m_stEncConfig.rcParams.enableTemporalAQ) strAQ += _T("temporal");
-            strAQ += _T(", strength ");
-            strAQ += (m_stEncConfig.rcParams.aqStrength == 0) ? _T("auto") : strsprintf(_T("%d"), m_stEncConfig.rcParams.aqStrength);
-            strAQ += _T(")");
-        }
+        strAQ += _T(" (");
+        if (m_stEncConfig.rcParams.enableAQ)         strAQ += _T("spatial");
+        if (m_stEncConfig.rcParams.enableAQ && m_stEncConfig.rcParams.enableTemporalAQ) strAQ += _T(", ");
+        if (m_stEncConfig.rcParams.enableTemporalAQ) strAQ += _T("temporal");
+        strAQ += _T(", strength ");
+        strAQ += (m_stEncConfig.rcParams.aqStrength == 0) ? _T("auto") : strsprintf(_T("%d"), m_stEncConfig.rcParams.aqStrength);
+        strAQ += _T(")");
     } else {
         strAQ = _T("off");
     }
