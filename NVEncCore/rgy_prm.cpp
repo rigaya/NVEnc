@@ -54,6 +54,24 @@ RGYQPSet::RGYQPSet(int i, int p, int b) :
 
 };
 
+int RGYQPSet::qp(int i) const {
+    switch (i) {
+    case 0: return qpI;
+    case 1: return qpP;
+    case 2: return qpB;
+    default: return 0;
+    }
+}
+
+int& RGYQPSet::qp(int i) {
+    switch (i) {
+    case 0: return qpI;
+    case 1: return qpP;
+    case 2: return qpB;
+    default: return qpI;
+    }
+}
+
 bool RGYQPSet::operator==(const RGYQPSet &x) const {
     return enable == x.enable
         && qpI == x.qpI

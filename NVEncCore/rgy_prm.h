@@ -192,6 +192,8 @@ struct RGYQPSet {
 
     RGYQPSet();
     RGYQPSet(int i, int p, int b);
+    int qp(int i) const;
+    int& qp(int i);
     bool operator==(const RGYQPSet &x) const;
     bool operator!=(const RGYQPSet &x) const;
     int parse(const TCHAR *str);
