@@ -476,6 +476,15 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
             inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
         }
     }
+    // インタレ解除が指定され、かつインタレの指定がない場合は、自動的にインタレの情報取得を行う
+    int deinterlacer = 0;
+    if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
+    if (inputParam->vpp.afs.enable) deinterlacer++;
+    if (inputParam->vpp.nnedi.enable) deinterlacer++;
+    if (inputParam->vpp.yadif.enable) deinterlacer++;
+    if (deinterlacer > 0 && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) == 0)) {
+        inputParam->input.picstruct = RGY_PICSTRUCT_AUTO;
+    }
 
     m_poolPkt = std::make_unique<RGYPoolAVPacket>();
     m_poolFrame = std::make_unique<RGYPoolAVFrame>();
@@ -2432,10 +2441,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
         //afs
         if (inputParam->vpp.afs.enable) {
-            if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
-                PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-afs.\n"));
-                return RGY_ERR_INVALID_PARAM;
-            }
             unique_ptr<NVEncFilter> filter(new NVEncFilterAfs());
             shared_ptr<NVEncFilterParamAfs> param(new NVEncFilterParamAfs());
             param->afs = inputParam->vpp.afs;
@@ -2467,10 +2472,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
         //nnedi
         if (inputParam->vpp.nnedi.enable) {
-            if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
-                PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-nnedi.\n"));
-                return RGY_ERR_INVALID_PARAM;
-            }
             unique_ptr<NVEncFilter> filter(new NVEncFilterNnedi());
             shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
             param->nnedi = inputParam->vpp.nnedi;
@@ -2494,10 +2495,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
         //yadif
         if (inputParam->vpp.yadif.enable) {
-            if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
-                PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-yadif.\n"));
-                return RGY_ERR_INVALID_PARAM;
-            }
             unique_ptr<NVEncFilter> filter(new NVEncFilterYadif());
             shared_ptr<NVEncFilterParamYadif> param(new NVEncFilterParamYadif());
             param->yadif = inputParam->vpp.yadif;
