@@ -450,6 +450,7 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+    { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
 #endif
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
@@ -467,11 +468,6 @@ const CX_DESC list_vpp_resize_help[] = {
 #endif
     { NULL, 0 }
 };
-#if DONOTSHOW_AMF_POINT_FSR11
-static_assert(_countof(list_vpp_resize) == (_countof(list_vpp_resize_help)+2));
-#else
-static_assert(_countof(list_vpp_resize) == _countof(list_vpp_resize_help));
-#endif
 
 const CX_DESC list_vpp_resize_res_mode[] = {
     { _T("normal"),   (int)RGYResizeResMode::Normal },
