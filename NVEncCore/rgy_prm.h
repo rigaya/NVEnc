@@ -306,7 +306,8 @@ enum RGY_VPP_RESIZE_ALGO {
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_AMF_BILINEAR,
     RGY_VPP_RESIZE_AMF_BICUBIC,
-    RGY_VPP_RESIZE_AMF_FSR,
+    RGY_VPP_RESIZE_AMF_FSR_10,
+    RGY_VPP_RESIZE_AMF_FSR_11,
     RGY_VPP_RESIZE_AMF_POINT,
     RGY_VPP_RESIZE_AMF_MAX,
 #endif
@@ -407,7 +408,8 @@ const CX_DESC list_vpp_resize[] = {
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
     { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
-    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR },
+    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR_10 },
+    { _T("amf_fsr_11"),   RGY_VPP_RESIZE_AMF_FSR_11 },
     { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
 #endif
 #if ENCODER_MPP
@@ -452,8 +454,11 @@ const CX_DESC list_vpp_resize_help[] = {
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
     { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
-    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR },
+    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR_10 },
+#if !DONOTSHOW_AMF_POINT_FSR11
+    { _T("amf_fsr_11"),   RGY_VPP_RESIZE_AMF_FSR_11 },
     { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
+#endif
 #endif
 #if ENCODER_MPP
     { _T("rga_nearest"),  RGY_VPP_RESIZE_RGA_NEAREST },
@@ -462,6 +467,11 @@ const CX_DESC list_vpp_resize_help[] = {
 #endif
     { NULL, 0 }
 };
+#if DONOTSHOW_AMF_POINT_FSR11
+static_assert(_countof(list_vpp_resize) == (_countof(list_vpp_resize_help)+2));
+#else
+static_assert(_countof(list_vpp_resize) == _countof(list_vpp_resize_help));
+#endif
 
 const CX_DESC list_vpp_resize_res_mode[] = {
     { _T("normal"),   (int)RGYResizeResMode::Normal },

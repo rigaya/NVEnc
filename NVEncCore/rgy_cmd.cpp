@@ -283,26 +283,6 @@ int cmd_string_to_bool(bool *b, const tstring &str) {
     }
 }
 
-int parse_qp(int a[3], const TCHAR *str) {
-    a[0] = a[1] = a[2] = 0;
-    if (   3 == _stscanf_s(str, _T("%d:%d:%d"), &a[0], &a[1], &a[2])
-        || 3 == _stscanf_s(str, _T("%d/%d/%d"), &a[0], &a[1], &a[2])
-        || 3 == _stscanf_s(str, _T("%d.%d.%d"), &a[0], &a[1], &a[2])
-        || 3 == _stscanf_s(str, _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
-        return 3;
-    }
-    if (   2 == _stscanf_s(str, _T("%d:%d"), &a[0], &a[1])
-        || 2 == _stscanf_s(str, _T("%d/%d"), &a[0], &a[1])
-        || 2 == _stscanf_s(str, _T("%d.%d"), &a[0], &a[1])
-        || 2 == _stscanf_s(str, _T("%d,%d"), &a[0], &a[1])) {
-        return 2;
-    }
-    if (1 == _stscanf_s(str, _T("%d"), &a[0])) {
-        return 1;
-    }
-    return 0;
-}
-
 static int getAudioTrackIdx(const RGYParamCommon *common, const int iTrack, const std::string& lang, const std::string& selectCodec) {
     if (iTrack == TRACK_SELECT_BY_LANG) {
         if (lang.length() == 0) return -1;
