@@ -407,7 +407,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
         int value;
         if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_vpp_resize, strInput[i]))) {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_resize);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_resize_help);
             return 1;
         }
         vpp->resize_algo = (RGY_VPP_RESIZE_ALGO)value;
@@ -7222,7 +7222,7 @@ tstring gen_cmd_help_vpp() {
             _T("        strength for nvvfx-superres (0.0 - 1.0)\n"));
     }
 #else
-    str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize, 0);
+    str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize_help, 0);
 #endif
 #if ENCODER_QSV
     str += print_list_options(_T("--vpp-resize-mode <string>"), list_vpp_resize_mode, 0);
