@@ -39,11 +39,18 @@ static std::atomic<bool> g_bSetCustomLog(false);
 
 static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
     const auto rgy_log_level = log_level_av2rgy(level);
+
+    char mes[4096];
+    av_log_format_line(ptr, level, fmt, vl, mes, sizeof(mes), &print_prefix);
+    if (rgy_log_level > RGY_LOG_DEBUG) {
+        // 不要なメッセージをフィルター
+        if (strstr(mes, "Skipping NAL unit") != nullptr) {
+            return;
+        }
+    }
     if (auto pQSVLog = g_pQSVLog.lock()) {
         if (rgy_log_level >= pQSVLog->getLogLevel(RGY_LOGT_LIBAV))  {
             if (pQSVLog->logFileAvail()) {
-                char mes[4096];
-                av_log_format_line(ptr, level, fmt, vl, mes, sizeof(mes), &print_prefix);
                 pQSVLog->write_log(rgy_log_level, RGY_LOGT_LIBAV, char_to_tstring(mes, CP_UTF8).c_str(), true);
             }
             av_log_default_callback(ptr, level, fmt, vl);
