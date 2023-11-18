@@ -68,7 +68,6 @@ const char *get_encoder_version();
 
 #define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_KEYFRAME_INSERT 1
-#define ENABLE_AUTO_PICSTRUCT 1
 
 #if defined(_WIN32) || defined(_WIN64)
 #define NV_DRIVER_VER_MIN 418081
@@ -102,6 +101,7 @@ const char *get_encoder_version();
 #define ENABLE_SM_READER          0
 #define ENABLE_LIBAVDEVICE        0
 #define ENABLE_CAPTION2ASS        0
+#define ENABLE_AUTO_PICSTRUCT     0
 #else
 #define ENCODER_NAME "NVEncC"
 #define DECODER_NAME "cuvid"
@@ -114,6 +114,7 @@ const char *get_encoder_version();
 #define ENABLE_SM_READER          1
 #define ENABLE_LIBAVDEVICE        1
 #define ENABLE_CAPTION2ASS        1
+#define ENABLE_AUTO_PICSTRUCT     1
 #endif
 
 #else //#if defined(WIN32) || defined(WIN64)
