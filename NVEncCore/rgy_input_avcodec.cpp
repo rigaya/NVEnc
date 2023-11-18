@@ -241,11 +241,23 @@ void RGYInputAvcodec::CloseStream(AVDemuxStream *stream) {
         AddMessage(RGY_LOG_DEBUG, _T("Free subtitleHeader...\n"));
         av_free(stream->subtitleHeader);
         AddMessage(RGY_LOG_DEBUG, _T("Freed subtitleHeader.\n"));
+        stream->subtitleHeader = nullptr;
+        stream->subtitleHeaderSize = 0;
     }
-    memset(stream, 0, sizeof(stream[0]));
+    memset(stream->lang, 0, sizeof(stream->lang));
+    stream->stream = nullptr;
     stream->appliedTrimBlock = -1;
     stream->aud0_fin = AV_NOPTS_VALUE;
     stream->index = -1;
+    stream->trackId = 0;
+    stream->subStreamId = 0;
+    stream->sourceFileIndex = 0;
+    stream->addDelayMs = 0;
+    stream->lastVidIndex = 0;
+    stream->extractErrExcess = 0;
+    stream->trimOffset = 0;
+    stream->aud0_fin = 0;
+    stream->appliedTrimBlock = 0;
 }
 
 void RGYInputAvcodec::Close() {
@@ -637,7 +649,7 @@ void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
             m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC + 4);
             m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr + size); ptr += size;
         }
-        if (pkt->buf->size < (int)m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE) {
+        if (pkt->buf->size < m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE) {
             av_grow_packet(pkt, (int)m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE);
         }
         memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());

@@ -1060,7 +1060,7 @@ void CPerfMonitor::check() {
                 }
             }
         }
-        fclose(fp_mem);
+        pclose(fp_mem);
     }
     //IO情報
     FILE *fp_io = popen((std::string("cat ") + proc_dir + std::string("io")).c_str(), "r");
@@ -1079,7 +1079,7 @@ void CPerfMonitor::check() {
                 }
             }
         }
-        fclose(fp_io);
+        pclose(fp_io);
     }
 
     //CPU情報

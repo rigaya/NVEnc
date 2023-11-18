@@ -236,9 +236,9 @@ AVMuxThread::AVMuxThread() :
     enableAudProcessThread(false),
     enableAudEncodeThread(false),
     thOutput(),
-    qVideobitstream(),
     qVideobitstreamFreeI(),
     qVideobitstreamFreePB(),
+    qVideobitstream(),
     thAud(),
     streamOutMaxDts(0),
     queueInfo(nullptr) {
