@@ -1801,6 +1801,10 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         || pNnediParam->nnedi.field == VPP_NNEDI_FIELD_BOB_AUTO) {
         if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
             copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
+            if (pNnediParam->nnedi.isbob()) {
+                copyFrameAsync(ppOutputFrames[1], pInputFrame, stream);
+                setBobTimestamp(pInputFrame, ppOutputFrames);
+            }
             return RGY_ERR_NONE;
         } else if ((pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) == RGY_PICSTRUCT_FRAME_TFF) {
             targetField = NNEDI_GEN_FIELD_BOTTOM;
@@ -1880,6 +1884,22 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         ppOutputFrames[1]->inputFrameId = pInputFrame->inputFrameId;
     }
     return sts;
+}
+
+void NVEncFilterNnedi::setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames) {
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
+
+    auto frameDuration = pInputFrame->duration;
+    if (frameDuration == 0) {
+        frameDuration = (decltype(frameDuration))((prm->timebase.inv() / prm->baseFps * 2).qdouble() + 0.5);
+    }
+    ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
+    ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
+    ppOutputFrames[0]->duration = (frameDuration + 1) / 2;
+    ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
+    ppOutputFrames[1]->duration = frameDuration - ppOutputFrames[0]->duration;
+    ppOutputFrames[0]->inputFrameId = pInputFrame->inputFrameId;
+    ppOutputFrames[1]->inputFrameId = pInputFrame->inputFrameId;
 }
 
 void NVEncFilterNnedi::close() {

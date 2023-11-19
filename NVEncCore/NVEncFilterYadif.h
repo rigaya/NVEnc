@@ -77,6 +77,7 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<NVEncFilterParamYadif> prmYadif);
+    void setBobTimestamp(const int iframe, RGYFrameInfo **ppOutputFrames);
 
     int m_nFrame;
     int64_t m_pts;

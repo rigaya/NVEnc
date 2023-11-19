@@ -453,15 +453,18 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
                 ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
                 ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
                 ppOutputFrames[0]->inputFrameId = pSourceFrame->inputFrameId;
-                copyFrameAsync(ppOutputFrames[0], pSourceFrame, stream);
+                sts = err_to_rgy(copyFrameAsync(ppOutputFrames[0], pSourceFrame, stream));
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to copy frame: %s.\n"), get_err_mes(sts));
+                    return sts;
+                }
                 if (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) {
-                    ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
-                    ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
-                    ppOutputFrames[0]->duration = (pSourceFrame->duration + 1) / 2;
-                    ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
-                    ppOutputFrames[1]->duration = pSourceFrame->duration - ppOutputFrames[0]->duration;
-                    ppOutputFrames[1]->inputFrameId = pSourceFrame->inputFrameId;
-                    copyFrameAsync(ppOutputFrames[1], pSourceFrame, stream);
+                    sts = err_to_rgy(copyFrameAsync(ppOutputFrames[1], pSourceFrame, stream));
+                    if (sts != RGY_ERR_NONE) {
+                        AddMessage(RGY_LOG_ERROR, _T("failed to copy frame: %s.\n"), get_err_mes(sts));
+                        return sts;
+                    }
+                    setBobTimestamp(iframe, ppOutputFrames);
                 }
                 m_nFrame++;
                 return RGY_ERR_NONE;
@@ -489,14 +492,18 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pSourceFrame->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        func_list.at(pSourceFrame->csp)(ppOutputFrames[0],
+        sts = err_to_rgy(func_list.at(pSourceFrame->csp)(ppOutputFrames[0],
             &m_source.get(m_nFrame-1)->frame,
             &m_source.get(m_nFrame+0)->frame,
             &m_source.get(m_nFrame+1)->frame,
             targetField,
             pSourceFrame->picstruct,
             stream
-            );
+            ));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy frame: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
 
         ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
         ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
@@ -508,30 +515,19 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
                 AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pSourceFrame->csp]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            func_list.at(pSourceFrame->csp)(ppOutputFrames[1],
+            sts = err_to_rgy(func_list.at(pSourceFrame->csp)(ppOutputFrames[1],
                 &m_source.get(m_nFrame-1)->frame,
                 &m_source.get(m_nFrame+0)->frame,
                 &m_source.get(m_nFrame+1)->frame,
                 targetField,
                 pSourceFrame->picstruct,
                 stream
-                );
-            auto frameDuration = pSourceFrame->duration;
-            if (frameDuration == 0) {
-                if (iframe <= 1) {
-                    frameDuration = (decltype(frameDuration))((prmYadif->timebase / prmYadif->baseFps * 2).qdouble() + 0.5);
-                } else if (m_nFrame + 1 >= iframe) {
-                    frameDuration = m_source.get(m_nFrame + 0)->frame.timestamp - m_source.get(m_nFrame - 1)->frame.timestamp;
-                } else {
-                    frameDuration = m_source.get(m_nFrame + 1)->frame.timestamp - m_source.get(m_nFrame + 0)->frame.timestamp;
-                }
+                ));
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy frame: %s.\n"), get_err_mes(sts));
+                return sts;
             }
-            ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
-            ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
-            ppOutputFrames[0]->duration = (frameDuration + 1) / 2;
-            ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
-            ppOutputFrames[1]->duration = frameDuration - ppOutputFrames[0]->duration;
-            ppOutputFrames[1]->inputFrameId = pSourceFrame->inputFrameId;
+            setBobTimestamp(iframe, ppOutputFrames);
         }
         m_nFrame++;
     } else {
@@ -540,6 +536,27 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         ppOutputFrames[0] = nullptr;
     }
     return sts;
+}
+
+void NVEncFilterYadif::setBobTimestamp(const int iframe, RGYFrameInfo **ppOutputFrames) {
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamYadif>(m_pParam);
+
+    auto frameDuration = m_source.get(m_nFrame + 0)->frame.duration;
+    if (frameDuration == 0) {
+        if (iframe <= 1) {
+            frameDuration = (decltype(frameDuration))((prm->timebase.inv() / prm->baseFps * 2).qdouble() + 0.5);
+        } else if (m_nFrame + 1 >= iframe) {
+            frameDuration = m_source.get(m_nFrame + 0)->frame.timestamp - m_source.get(m_nFrame - 1)->frame.timestamp;
+        } else {
+            frameDuration = m_source.get(m_nFrame + 1)->frame.timestamp - m_source.get(m_nFrame + 0)->frame.timestamp;
+        }
+    }
+    ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
+    ppOutputFrames[0]->timestamp = m_source.get(m_nFrame + 0)->frame.timestamp;
+    ppOutputFrames[0]->duration = (frameDuration + 1) / 2;
+    ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
+    ppOutputFrames[1]->duration = frameDuration - ppOutputFrames[0]->duration;
+    ppOutputFrames[1]->inputFrameId = m_source.get(m_nFrame + 0)->frame.inputFrameId;
 }
 
 void NVEncFilterYadif::close() {

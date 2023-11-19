@@ -42,8 +42,9 @@ public:
     VppNnedi nnedi;
     std::pair<int, int> compute_capability;
     HMODULE hModule;
+    rgy_rational<int> timebase;
 
-    NVEncFilterParamNnedi() : nnedi(), compute_capability(std::make_pair(0, 0)), hModule(NULL) {};
+    NVEncFilterParamNnedi() : nnedi(), compute_capability(std::make_pair(0, 0)), hModule(NULL), timebase() {};
     virtual ~NVEncFilterParamNnedi() {};
     virtual tstring print() const override;
 };
@@ -64,6 +65,7 @@ protected:
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamNnedi> pParam);
     virtual RGY_ERR initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
+    void setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames);
 
     template<typename TypeWeight>
     void setWeight0(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
