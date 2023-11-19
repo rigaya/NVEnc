@@ -854,6 +854,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         rcPrm.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
                         rcPrm.avg_bitrate = 0;
                         rcPrm.rc_mode = NV_ENC_PARAMS_RC_VBR;
+                        rc_mode_defined = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
