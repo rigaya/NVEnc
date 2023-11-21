@@ -113,6 +113,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     interlaceAutoFrame(false),
     qpTableListRef(nullptr),
     lowLatency(false),
+    timestampPassThrough(false),
     inputOpt(),
     hevcbsf(RGYHEVCBsf::INTERNAL) {
 
@@ -1279,6 +1280,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         || (0 == strncmp(filename_char.c_str(), "pipe:", strlen("pipe:")))
         || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");
     m_Demux.format.analyzeSec = input_prm->analyzeSec;
+    m_Demux.format.timestampPassThrough = input_prm->timestampPassThrough;
     m_Demux.format.formatCtx = avformat_alloc_context();
     if (input_prm->probesize >= 0 || input_prm->analyzeSec >= 0) {
         // probesizeの設定
@@ -2341,6 +2343,13 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
 
     //該当フレームが-1フレーム未満なら、その音声はこの動画には含まれない
     if (stream->lastVidIndex < 0) {
+        //timestampをそのまま転送する場合、音声/字幕が映像に含まれなくてもそのまま転送する
+        if (m_Demux.format.timestampPassThrough) {
+            //時刻を補正
+            pkt->pts -= stream->trimOffset;
+            pkt->dts -= stream->trimOffset;
+            return true;
+        }
         return false;
     }
 

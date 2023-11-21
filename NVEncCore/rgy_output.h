@@ -80,8 +80,9 @@ private:
     int64_t last_input_frame_id;
     int64_t offset;
     int64_t last_clean_id;
+    bool timestampPassThrough;
 public:
-    RGYTimestamp() : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0), last_clean_id(-1) {};
+    RGYTimestamp(bool timestampPassThrough_) : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0), last_clean_id(-1), timestampPassThrough(timestampPassThrough_) {};
     ~RGYTimestamp() {};
     void clear() {
         std::lock_guard<std::mutex> lock(mtx);
@@ -100,7 +101,7 @@ public:
         last_add_pts = pts;
     }
     RGYTimestampMapVal check(int64_t pts) {
-        if (last_check_pts < 0 && pts > 0) {
+        if (last_check_pts < 0 && pts > 0 && !timestampPassThrough) {
             offset = -pts;
         }
         std::lock_guard<std::mutex> lock(mtx);

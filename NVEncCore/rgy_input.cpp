@@ -400,6 +400,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.logFramePosList = (ctrl->logFramePosList) ? src.filename + _T(".framelist.csv") : _T("");
         inputInfoAVAudioReader.threadInput = 0;
         inputInfoAVAudioReader.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
+        inputInfoAVAudioReader.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVAudioReader.lowLatency = ctrl->lowLatency;
         inputInfoAVAudioReader.hevcbsf = common->hevcbsf;
 
@@ -629,6 +630,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
+        inputInfoAVCuvid.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVCuvid.hevcbsf = common->hevcbsf;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avhw reader selected.\n"));

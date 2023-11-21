@@ -692,6 +692,7 @@ typedef struct AVDemuxFormat {
     double                    analyzeSec;            //動画ファイルを先頭から分析する時間
     bool                      isPipe;                //入力がパイプ
     bool                      lowLatency;            //低遅延モード
+    bool                      timestampPassThrough;  //timestampをそのまま通す
     uint32_t                  preReadBufferIdx;      //先読みバッファの読み込み履歴
     int                       audioTracks;           //存在する音声のトラック数
     int                       subtitleTracks;        //存在する字幕のトラック数
@@ -987,6 +988,7 @@ public:
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     bool           lowLatency;
+    bool           timestampPassThrough;    //timestampをそのまま出力する
     RGYOptList     inputOpt;                //入力オプション
     RGYHEVCBsf     hevcbsf;
 

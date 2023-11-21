@@ -1518,6 +1518,7 @@ struct RGYParamCommon {
     tstring keyFile;
     TCHAR *AVInputFormat;
     RGYAVSync AVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
+    bool timestampPassThrough; //timestampをそのまま出力する
     bool timecode;
     tstring timecodeFile;
     tstring tcfileIn;

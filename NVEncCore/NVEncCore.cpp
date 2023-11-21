@@ -308,6 +308,7 @@ NVEncCore::NVEncCore() :
     m_encVUI(),
     m_nProcSpeedLimit(0),
     m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
+    m_timestampPassThrough(false),
     m_inputFps(),
     m_outputTimebase(),
     m_encFps(),
@@ -500,6 +501,12 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = (inputParam->common.timebase.is_valid()) ? inputParam->common.timebase : m_inputFps.inv() * rgy_rational<int>(1, 4);
+    m_timestampPassThrough = inputParam->common.timestampPassThrough;
+    if (inputParam->common.timestampPassThrough) {
+        PrintMes(RGY_LOG_DEBUG, _T("Switching to VFR mode as --timestamp-paththrough is used.\n"));
+        m_nAVSyncMode = RGY_AVSYNC_VFR;
+    }
+
 #if ENABLE_AVSW_READER
     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
     if (pAVCodecReader && inputParam->vpp.mpdecimate.enable) {
@@ -2789,6 +2796,9 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterSubburn());
             shared_ptr<NVEncFilterParamSubburn> param(new NVEncFilterParamSubburn());
             param->subburn = subburn;
+            if (m_timestampPassThrough) {
+                param->subburn.vid_ts_offset = false;
+            }
 
             auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             if (pAVCodecReader != nullptr) {
@@ -3376,7 +3386,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
 
-    m_encTimestamp = std::make_unique<RGYTimestamp>();
+    m_encTimestamp = std::make_unique<RGYTimestamp>(inputParam->common.timestampPassThrough);
     m_encodeFrameID = 0;
 
     if (InitPowerThrottoling(inputParam) != RGY_ERR_NONE) {
@@ -3530,17 +3540,19 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
                         }
                     }
                 }
+                int averageBitRateUsed = 0;
                 if (encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) {
                     setQP(encConfig.rcParams.constQP, selectedPrms.qp);
                 } else {
                     encConfig.rcParams.averageBitRate = selectedPrms.avg_bitrate;
+                    averageBitRateUsed = encConfig.rcParams.averageBitRate;
                     if (selectedPrms.targetQuality >= 0 && selectedPrms.targetQualityLSB >= 0) {
                         encConfig.rcParams.targetQuality    = (uint8_t)selectedPrms.targetQuality;
                         encConfig.rcParams.targetQualityLSB = (uint8_t)selectedPrms.targetQualityLSB;
                     }
                 }
                 if (selectedPrms.max_bitrate > 0) {
-                    encConfig.rcParams.maxBitRate = selectedPrms.max_bitrate;
+                    encConfig.rcParams.maxBitRate = std::max(selectedPrms.max_bitrate, averageBitRateUsed);
                 }
             }
             NVENCSTATUS nvStatus = m_dev->encoder()->NvEncReconfigureEncoder(&reconf_params);
@@ -3969,7 +3981,7 @@ NVENCSTATUS NVEncCore::Encode() {
         int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
 #if ENABLE_AVSW_READER
         if ((srcTimebase.n() > 0 && srcTimebase.is_valid())
-            && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware)) {
+            && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware || m_timestampPassThrough)) {
             if (pInputFrame->getTimeStamp() < 0) {
                 // timestampを修正
                 outPtsSource = nOutEstimatedPts;
@@ -3993,7 +4005,9 @@ NVENCSTATUS NVEncCore::Encode() {
             PrintMes(RGY_LOG_TRACE, _T("check_pts: nOutFirstPts %lld\n"), outPtsSource);
         }
         //最初のptsを0に修正
-        outPtsSource -= nOutFirstPts;
+        if (!m_timestampPassThrough) {
+            outPtsSource -= nOutFirstPts;
+        }
         if (outPtsSource < 0) {
             PrintMes(RGY_LOG_WARN, _T("check_pts: Invalid timestamp calculated from input frame #%d: timestamp %lld (-%lld), timebase %d/%d.\n"),
                      pInputFrame->getFrameInfo().inputFrameId, outPtsSource, nOutFirstPts, m_outputTimebase.n(), m_outputTimebase.d());

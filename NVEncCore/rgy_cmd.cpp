@@ -4696,6 +4696,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("timestamp-passthrough")) {
+        common->timestampPassThrough = true;
+        common->AVSyncMode = RGY_AVSYNC_VFR;
+        return 0;
+    }
     if (IS_OPTION("input-option")) {
         if (i + 1 < nArgNum && strInput[i + 1][0] != _T('-')) {
             i++;
@@ -6535,6 +6540,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
 
     OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
     OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
+    OPT_BOOL(_T("--timestamp-passthrough"), _T(""), timestampPassThrough);
     for (auto &m : param->formatMetadata) {
         cmd << _T(" --metadata ") << m;
     }
@@ -6928,6 +6934,7 @@ tstring gen_cmd_help_common() {
         _T("                                 vfr      ... honor source timestamp and enable vfr output.\n")
         _T("                                              only available for avsw/avhw reader,\n")
         _T("                                              and could not be used with --trim.\n")
+        _T("  --timestamp-passthrough       passthrough original timestamp\n")
         _T("  --input-option <string1>:<string2>\n")
         _T("                                set input option name and value.\n")
         _T("                                 these could be only used with avhw/avsw reader.\n")
