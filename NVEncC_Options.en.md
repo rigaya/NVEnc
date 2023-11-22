@@ -218,8 +218,9 @@
   - [--log \<string\>](#--log-string)
   - [--log-level \[\<param1\>=\]\<value\>\[,\<param2\>=\<value\>\]...](#--log-level-param1valueparam2value)
   - [--log-opt \<param1\>=\<value\>\[,\<param2\>=\<value\>\]...](#--log-opt-param1valueparam2value)
-  - [--log-framelist](#--log-framelist)
-  - [--log-packets](#--log-packets)
+  - [--log-framelist \[\<string\>\]](#--log-framelist-string)
+  - [--log-packets \[\<string\>\]](#--log-packets-string)
+  - [--log-mux-ts \[\<string\>\]](#--log-mux-ts-string)
   - [--thread-affinity \[\<string1\>=\]{\<string2\>\[#\<int\>\[:\<int\>\]...\] or 0x\<hex\>}](#--thread-affinity-string1string2intint-or-0xhex)
   - [--thread-priority \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]...\]](#--thread-priority-string1string2intint)
   - [--thread-throttling \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]...\]](#--thread-throttling-string1string2intint)
@@ -2608,11 +2609,14 @@ additional options for log output.
  - addtime (default=off)  
    Add time of to each line of the log.
 
-### --log-framelist
+### --log-framelist [&lt;string&gt;]
 FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
 
-### --log-packets
+### --log-packets [&lt;string&gt;]
 FOR DEBUG ONLY! Output debug log for packets read in avsw/avhw reader.
+
+### --log-mux-ts [&lt;string&gt;]
+FOR DEBUG ONLY! Output debug log for packets written.
 
 ### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...] or 0x&lt;hex&gt;}
 Set thread affinity to the process or threads of the application.

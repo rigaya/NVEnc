@@ -214,8 +214,9 @@
   - [--log \<string\>](#--log-string)
   - [--log-level \[\<param1\>=\]\<value\>\[,\<param2\>=\<value\>\]...](#--log-level-param1valueparam2value)
   - [--log-opt \<param1\>=\<value\>\[,\<param2\>=\<value\>\]...](#--log-opt-param1valueparam2value)
-  - [--log-framelist](#--log-framelist)
-  - [--log-packets](#--log-packets)
+  - [--log-framelist \[\<string\>\]](#--log-framelist-string)
+  - [--log-packets \[\<string\>\]](#--log-packets-string)
+  - [--log-mux-ts \[\<string\>\]](#--log-mux-ts-string)
   - [--thread-affinity \[\<string1\>=\]{\<string2\>\[#\<int\>\[:\<int\>\]...\] or 0x\<hex\>}](#--thread-affinity-string1string2intint-or-0xhex)
   - [--thread-priority \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]...\]](#--thread-priority-string1string2intint)
   - [--thread-throttling \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]...\]](#--thread-throttling-string1string2intint)
@@ -2675,12 +2676,14 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
   - addtime (デフォルト=off)  
    ログの各行に時刻を表示するように。
 
-### --log-framelist
+### --log-framelist [&lt;string&gt;]
 avsw/avhw読み込み時のデバッグ情報出力。
 
-### --log-packets
+### --log-packets [&lt;string&gt;]
 avsw/avhw読み込み時のデバッグ情報出力。
 
+### --log-mux-ts [&lt;string&gt;]
+デバッグ情報出力。
 ### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...] or 0x&lt;hex&gt;}
 NVEncCのプロセスやスレッドのスレッドアフィニティを設定する。具体的な指定方法は例を確認してください。
 

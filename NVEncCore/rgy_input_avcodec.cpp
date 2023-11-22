@@ -1470,6 +1470,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     }
     if (input_prm->logPackets.length() > 0) {
         m_fpPacketList.reset(_tfopen(input_prm->logPackets.c_str(), _T("w")));
+        fprintf(m_fpPacketList.get(), " stream id,       codec,         pts,         dts, duration, flags, pos\n");
     }
 
     // input-probesizeやinput-analyzeが小さすぎて動画情報を得られなかったときのためのretryループ (デフォルトでは無効)
@@ -2479,9 +2480,11 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
             continue;
         }
         if (m_fpPacketList) {
-            fprintf(m_fpPacketList.get(), "stream %2d, %12s, pts, %s\n",
+            fprintf(m_fpPacketList.get(), "stream %2d, %12s, %s, %s,%5lld,%2d, %12lld\n",
                 pkt->stream_index, avcodec_get_name(m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id),
-                pkt->pts == AV_NOPTS_VALUE ? "Unknown" : strsprintf("%lld", pkt->pts).c_str());
+                pkt->pts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", pkt->pts).c_str(),
+                pkt->dts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", pkt->dts).c_str(),
+                pkt->duration, pkt->flags, pkt->pos);
         }
         if (pkt->stream_index == m_Demux.video.index) {
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {

@@ -5097,7 +5097,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 if (param_arg == _T("framelist")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        ctrl->logAddTime = b;
+                        ctrl->logFramePosList.enable = b;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -5107,7 +5107,17 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 if (param_arg == _T("packets")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        ctrl->logAddTime = b;
+                        ctrl->logPacketsList.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mux-ts")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        ctrl->logMuxVidTs.enable = b;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -5121,10 +5131,13 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                     ctrl->logAddTime = true;
                     continue;
                 } else if (param == _T("framelist")) {
-                    ctrl->logFramePosList = true;
+                    ctrl->logFramePosList.enable = true;
                     continue;
                 } else if (param == _T("packets")) {
-                    ctrl->logPacketsList = true;
+                    ctrl->logPacketsList.enable = true;
+                    continue;
+                } else if (param == _T("mux-ts")) {
+                    ctrl->logMuxVidTs.enable = true;
                     continue;
                 } else {
                     print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -5142,16 +5155,30 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return parse_log_level_param(option_name, strInput[i], ctrl->loglevel);
     }
     if (IS_OPTION("log-framelist")) {
-        ctrl->logFramePosList = true;
+        ctrl->logFramePosList.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        ctrl->logFramePosList.filename = strInput[i];
         return 0;
     }
     if (IS_OPTION("log-packets")) {
-        ctrl->logPacketsList = true;
+        ctrl->logPacketsList.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        ctrl->logPacketsList.filename = strInput[i];
         return 0;
     }
     if (IS_OPTION("log-mux-ts")) {
+        ctrl->logMuxVidTs.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
         i++;
-        ctrl->logMuxVidTsFile = _tcsdup(strInput[i]);
+        ctrl->logMuxVidTs.filename = strInput[i];
         return 0;
     }
     if (IS_OPTION("max-procfps")) {
@@ -6629,9 +6656,24 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
             cmd << _T(" --log-opt ") << tmp.str().substr(1);
         }
     }
-    OPT_BOOL(_T("--log-framelist"), _T(""), logFramePosList);
-    OPT_BOOL(_T("--log-packets"), _T(""), logPacketsList);
-    OPT_CHAR_PATH(_T("--log-mux-ts"), logMuxVidTsFile);
+    if (param->logFramePosList.enable) {
+        cmd << _T(" --log-framelist");
+        if (param->logFramePosList.filename.length() > 0) {
+            cmd << _T(" \"") << param->logFramePosList.filename << _T("\"");
+        }
+    }
+    if (param->logPacketsList.enable) {
+        cmd << _T(" --log-packets");
+        if (param->logPacketsList.filename.length() > 0) {
+            cmd << _T(" \"") << param->logPacketsList.filename << _T("\"");
+        }
+    }
+    if (param->logMuxVidTs.enable) {
+        cmd << _T(" --log-mux-ts");
+        if (param->logMuxVidTs.filename.length() > 0) {
+            cmd << _T(" \"") << param->logMuxVidTs.filename << _T("\"");
+        }
+    }
     OPT_BOOL(_T("--skip-hwenc-check"), _T(""), skipHWEncodeCheck);
     OPT_BOOL(_T("--skip-hwdec-check"), _T(""), skipHWDecodeCheck);
     OPT_STR_PATH(_T("--avsdll"), avsdll);
@@ -7433,8 +7475,9 @@ tstring gen_cmd_help_ctrl() {
         _T("     additional options for log output.\n")
         _T("    params\n")
         _T("      addtime                   add time to log lines.\n")
-        _T("   --log-framelist              output debug info for avsw/avhw reader.\n")
-        _T("   --log-packets                output debug info for avsw/avhw reader.\n"));
+        _T("   --log-framelist [<string>]   output debug info for avsw/avhw reader.\n")
+        _T("   --log-packets [<string>]     output debug info for avsw/avhw reader.\n")
+        _T("   --log-mux-ts [<string>]      output debug info for avsw/avhw reader.\n"));
 
     str += strsprintf(_T("\n")
         _T("   --option-file <string>       read commanline options written in file.\n"));

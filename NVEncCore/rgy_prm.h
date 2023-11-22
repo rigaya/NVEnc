@@ -1455,6 +1455,16 @@ struct GPUAutoSelectMul {
     bool operator!=(const GPUAutoSelectMul &x) const;
 };
 
+struct RGYDebugLogFile {
+    bool enable;
+    tstring filename;
+
+    RGYDebugLogFile();
+    bool operator==(const RGYDebugLogFile &x) const;
+    bool operator!=(const RGYDebugLogFile &x) const;
+    tstring getFilename(const tstring& outputFilename, const tstring& defaultAppendix) const;
+};
+
 struct RGYParamInput {
     RGYResizeResMode resizeResMode;
 
@@ -1537,9 +1547,9 @@ struct RGYParamControl {
     tstring logfile;              //ログ出力先
     RGYParamLogLevel loglevel; //ログ出力レベル
     bool logAddTime;
-    bool logFramePosList;     //framePosList出力
-    bool logPacketsList;
-    TCHAR *logMuxVidTsFile;
+    RGYDebugLogFile logFramePosList;     //framePosList出力
+    RGYDebugLogFile logPacketsList;
+    RGYDebugLogFile logMuxVidTs;
     int threadOutput;
     int threadAudio;
     int threadInput;

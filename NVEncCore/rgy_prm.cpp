@@ -1473,6 +1473,23 @@ bool GPUAutoSelectMul::operator!=(const GPUAutoSelectMul &x) const {
     return !(*this == x);
 }
 
+RGYDebugLogFile::RGYDebugLogFile() : enable(false), filename() {}
+
+bool RGYDebugLogFile::operator==(const RGYDebugLogFile &x) const {
+    return enable == x.enable
+        && filename == x.filename;
+}
+bool RGYDebugLogFile::operator!=(const RGYDebugLogFile &x) const {
+    return !(*this == x);
+}
+tstring RGYDebugLogFile::getFilename(const tstring& outputFilename, const tstring& defaultAppendix) const {
+    if (!enable) return tstring();
+    if (filename.length() > 0) {
+        return filename;
+    }
+    return outputFilename + defaultAppendix;
+}
+
 RGYParamInput::RGYParamInput() :
     resizeResMode(RGYResizeResMode::Normal) {
 
@@ -1552,9 +1569,9 @@ RGYParamControl::RGYParamControl() :
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     logAddTime(false),
-    logFramePosList(false),     //framePosList出力
-    logPacketsList(false),
-    logMuxVidTsFile(nullptr),
+    logFramePosList(),     //framePosList出力
+    logPacketsList(),
+    logMuxVidTs(),
     threadOutput(RGY_OUTPUT_THREAD_AUTO),
     threadAudio(RGY_AUDIO_THREAD_AUTO),
     threadInput(RGY_INPUT_THREAD_AUTO),

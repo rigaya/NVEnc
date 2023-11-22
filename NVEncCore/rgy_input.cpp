@@ -397,7 +397,8 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVAudioReader.seekSec = common->seekSec;
         inputInfoAVAudioReader.seekToSec = common->seekToSec;
-        inputInfoAVAudioReader.logFramePosList = (ctrl->logFramePosList) ? src.filename + _T(".framelist.csv") : _T("");
+        inputInfoAVAudioReader.logFramePosList = ctrl->logFramePosList.getFilename(src.filename, _T(".framelist.csv"));
+        inputInfoAVAudioReader.logPackets = ctrl->logPacketsList.getFilename(src.filename, _T(".packets.csv"));
         inputInfoAVAudioReader.threadInput = 0;
         inputInfoAVAudioReader.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
         inputInfoAVAudioReader.timestampPassThrough = common->timestampPassThrough;
@@ -616,8 +617,8 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.seekSec = common->seekSec;
         inputInfoAVCuvid.seekToSec = common->seekToSec;
-        inputInfoAVCuvid.logFramePosList = (ctrl->logFramePosList) ? common->outputFilename + _T(".framelist.csv") : _T("");
-        inputInfoAVCuvid.logPackets = (ctrl->logPacketsList) ? common->outputFilename + _T(".packets.csv") : _T("");
+        inputInfoAVCuvid.logFramePosList = ctrl->logFramePosList.getFilename(common->inputFilename, _T(".framelist.csv"));
+        inputInfoAVCuvid.logPackets = ctrl->logPacketsList.getFilename(common->inputFilename, _T(".packets.csv"));
         inputInfoAVCuvid.threadInput = ctrl->threadInput;
         inputInfoAVCuvid.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
         inputInfoAVCuvid.queueInfo = (perfMonitor) ? perfMonitor->GetQueueInfoPtr() : nullptr;

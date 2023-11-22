@@ -1046,7 +1046,7 @@ RGY_ERR initWriters(
         writerPrm.audioResampler          = common->audioResampler;
         writerPrm.audioIgnoreDecodeError  = common->audioIgnoreDecodeError;
         writerPrm.queueInfo = (pPerfMonitor) ? pPerfMonitor->GetQueueInfoPtr() : nullptr;
-        writerPrm.muxVidTsLogFile         = (ctrl->logMuxVidTsFile) ? ctrl->logMuxVidTsFile : _T("");
+        writerPrm.muxVidTsLogFile         = ctrl->logMuxVidTs.getFilename(common->outputFilename, _T(".muxts.log"));
         writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
         writerPrm.chapterNoTrim           = common->chapterNoTrim;
         writerPrm.attachments             = common->attachmentSource;
