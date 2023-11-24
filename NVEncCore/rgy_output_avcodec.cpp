@@ -42,6 +42,43 @@
 
 #define WRITE_PTS_DEBUG (0)
 
+static bool format_is_mp4(const AVFormatContext *formatCtx) {
+    static const char *FORMAT_NAME_MP4[] = {
+        "mov",
+        "3gp",
+        "mp4",
+        "psp",
+        "3g2",
+        "ipod",
+        "ismv",
+        "f4v"
+    };
+    for (int i = 0; i < _countof(FORMAT_NAME_MP4); i++) {
+        if (0 == _stricmp(formatCtx->oformat->name, FORMAT_NAME_MP4[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+static bool format_is_mkv(const AVFormatContext *formatCtx) {
+    static const char *FORMAT_NAME_MKV[] = {
+        "matroska",
+        "webm"
+    };
+    for (int i = 0; i < _countof(FORMAT_NAME_MKV); i++) {
+        if (0 == _stricmp(formatCtx->oformat->name, FORMAT_NAME_MKV[i])) {
+            return true;
+        }
+    }
+    return false;
+}
+static bool format_is_flv(const AVFormatContext *formatCtx) {
+    return _stricmp(formatCtx->oformat->name, "flv") == 0;
+}
+static bool format_is_latm(const AVFormatContext *formatCtx) {
+    return _stricmp(formatCtx->oformat->name, "latm") == 0;
+}
+
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
 static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
@@ -1586,7 +1623,8 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             // 必要に応じて再初期化されるので、ここでは仮の値でも問題はない
             av_get_sample_fmt_name(muxAudio->outCodecDecodeCtx->sample_fmt) ? muxAudio->outCodecDecodeCtx->sample_fmt : AV_SAMPLE_FMT_FLTP);
         if (sts != RGY_ERR_NONE) return sts;
-    } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && inputAudio->src.pktSample) {
+    } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && inputAudio->src.pktSample
+        && (format_is_mp4(m_Mux.format.formatCtx) || format_is_mkv(m_Mux.format.formatCtx) || format_is_flv(m_Mux.format.formatCtx) || format_is_latm(m_Mux.format.formatCtx))) {
         muxAudio->bsfc = InitStreamBsf(_T("aac_adtstoasc"), muxAudio->streamIn);
         if (muxAudio->bsfc == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to find bsf \"%s\"\n."), _T("aac_adtstoasc"));
@@ -1785,13 +1823,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             return RGY_ERR_INVALID_CODEC;
         }
         codecId = codec->id;
-    } else if (0 == strcmp(m_Mux.format.formatCtx->oformat->name, "mp4")
-        || 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "mov")
-        || 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "3gp")
-        || 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "3g2")
-        || 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "psp")
-        || 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "ipod")
-        || 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "f4v")) {
+    } else if (format_is_mp4(m_Mux.format.formatCtx)) {
         if (avcodec_descriptor_get(codecId)->props & AV_CODEC_PROP_TEXT_SUB) {
             //mp4はmov_text形式しか使用できない
             codecId = AV_CODEC_ID_MOV_TEXT;
@@ -2056,7 +2088,8 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate format context: %s.\n"), qsv_av_err2str(err).c_str());
         return RGY_ERR_NULL_PTR;
     }
-    m_Mux.format.isMatroska = 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "matroska");
+
+    m_Mux.format.isMatroska = format_is_mkv(m_Mux.format.formatCtx);
     m_Mux.format.disableMp4Opt = prm->disableMp4Opt;
     m_Mux.format.lowlatency = prm->lowlatency;
     m_Mux.format.allowOtherNegativePts = prm->allowOtherNegativePts;
