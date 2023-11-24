@@ -169,6 +169,13 @@ bool _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
     return tolowercase(std::filesystem::path(filename).extension().string()) == tolowercase(tchar_to_string(ext));
 }
 
+std::string rgy_get_extension(const std::string& filename) {
+    return std::filesystem::path(filename).extension().string();
+}
+std::wstring rgy_get_extension(const std::wstring& filename) {
+    return std::filesystem::path(filename).extension().wstring();
+}
+
 bool rgy_file_exists(const std::string& filepath) {
     return std::filesystem::exists(filepath) && std::filesystem::is_regular_file(filepath);
 }

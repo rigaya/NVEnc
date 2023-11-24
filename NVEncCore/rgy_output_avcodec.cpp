@@ -92,7 +92,7 @@ AVMuxVideo::AVMuxVideo() :
     bitstreamTimebase(av_make_q(0, 0)),
     timestampList(),
     fpsBaseNextDts(0),
-    fpTsLogFile(nullptr),
+    fpTsLogFile(),
     hdrBitstream(),
     doviRpu(nullptr),
     bsfc(nullptr),
@@ -147,7 +147,8 @@ AVMuxAudio::AVMuxAudio() :
     outputSampleOffset(0),
     outputSamples(0),
     lastPtsIn(0),
-    lastPtsOut(0) {
+    lastPtsOut(0),
+    fpTsLogFile() {
 
 }
 
@@ -335,6 +336,7 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
     }
     muxAudio->streamIn = nullptr;
     muxAudio->streamOut = nullptr;
+    muxAudio->fpTsLogFile.reset();
     AddMessage(RGY_LOG_DEBUG, _T("Closed audio.\n"));
 }
 
@@ -349,10 +351,7 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
     }
     muxVideo->codec = nullptr;
     muxVideo->streamOut = nullptr;
-    if (m_Mux.video.fpTsLogFile) {
-        fclose(m_Mux.video.fpTsLogFile);
-        m_Mux.video.fpTsLogFile = nullptr;
-    }
+    muxVideo->fpTsLogFile.reset();
     m_Mux.video.timestampList.clear();
     if (m_Mux.video.bsfc) {
         av_bsf_free(&m_Mux.video.bsfc);
@@ -1137,20 +1136,21 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     }
 
     if (prm->muxVidTsLogFile.length() > 0) {
-        if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->muxVidTsLogFile.c_str(), _T("a"))) {
+        FILE *fp = nullptr;
+        if (_tfopen_s(&fp, prm->muxVidTsLogFile.c_str(), _T("a"))) {
             AddMessage(RGY_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), prm->muxVidTsLogFile.c_str());
-            m_Mux.video.fpTsLogFile = NULL;
         } else {
+            m_Mux.video.fpTsLogFile = std::unique_ptr<FILE, fp_deleter>(fp, fp_deleter());
             AddMessage(RGY_LOG_DEBUG, _T("Opened mux timestamp log file: \"%s\""), prm->muxVidTsLogFile.c_str());
             tstring strFileHeadSep;
             for (int i = 0; i < 78; i++) {
                 strFileHeadSep += _T("-");
             }
-            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), strFileHeadSep.c_str());
-            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), m_Mux.format.filename);
-            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), strFileHeadSep.c_str());
-            _ftprintf(m_Mux.video.fpTsLogFile, _T("FrameType,      out pts,              out dts,                  pts,                dts, length,    size\n"));
-            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), strFileHeadSep.c_str());
+            _ftprintf(m_Mux.video.fpTsLogFile.get(), _T("%s\n"), strFileHeadSep.c_str());
+            _ftprintf(m_Mux.video.fpTsLogFile.get(), _T("%s\n"), m_Mux.format.filename);
+            _ftprintf(m_Mux.video.fpTsLogFile.get(), _T("%s\n"), strFileHeadSep.c_str());
+            _ftprintf(m_Mux.video.fpTsLogFile.get(), _T("FrameType,      out pts,              out dts,                  pts,                dts, length,    size\n"));
+            _ftprintf(m_Mux.video.fpTsLogFile.get(), _T("%s\n"), strFileHeadSep.c_str());
         }
     }
 
@@ -1345,7 +1345,7 @@ AVBSFContext *RGYOutputAvcodec::InitStreamBsf(const tstring& bsfName, const AVSt
     return bsfc;
 }
 
-RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet) {
+RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet, const tstring& muxTsLogFileBase) {
     muxAudio->streamIn = inputAudio->src.stream;
     AddMessage(RGY_LOG_DEBUG, _T("start initializing audio ouput...\n"));
     AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, trackId %d.%d\n"), inputAudio->src.index, trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
@@ -1685,9 +1685,26 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         muxAudio->streamOut->disposition &= (~AV_DISPOSITION_DEFAULT);
     }
     auto ret = SetMetadata(&muxAudio->streamOut->metadata, inputAudio->src.stream->metadata, inputAudio->metadata, RGY_METADATA_DEFAULT_COPY,
-        strsprintf(_T("Audio #%d.%d"), muxAudio->inTrackId, muxAudio->inSubStream));
+        strsprintf(_T("Audio #%d.%d"), trackID(muxAudio->inTrackId), muxAudio->inSubStream));
     if (ret != RGY_ERR_NONE) {
         return ret;
+    }
+    if (muxTsLogFileBase.length() > 0) {
+        const auto logfileName = PathRemoveExtensionS(muxTsLogFileBase) + strsprintf(_T("_aud%d.%d"), trackID(inputAudio->src.trackId), inputAudio->src.subStreamId) + rgy_get_extension(muxTsLogFileBase);
+        FILE *fp = nullptr;
+        if (_tfopen_s(&fp, logfileName.c_str(), _T("a"))) {
+            AddMessage(RGY_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), logfileName.c_str());
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("Opened mux timestamp log file: \"%s\""), logfileName.c_str());
+            muxAudio->fpTsLogFile = std::unique_ptr<FILE, fp_deleter>(fp, fp_deleter());
+            tstring strFileHeadSep;
+            for (int i = 0; i < 78; i++) {
+                strFileHeadSep += _T("-");
+            }
+            _ftprintf(muxAudio->fpTsLogFile.get(), _T("%s\n"), strFileHeadSep.c_str());
+            _ftprintf(muxAudio->fpTsLogFile.get(), _T("%s  - audio %d.%d\n"), m_Mux.format.filename, trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
+            _ftprintf(muxAudio->fpTsLogFile.get(), _T("%s\n"), strFileHeadSep.c_str());
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -2153,7 +2170,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
                         return RGY_ERR_UNDEFINED_BEHAVIOR;
                     }
                 }
-                RGY_ERR sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->audioIgnoreDecodeError, audioDispositionSet);
+                RGY_ERR sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->audioIgnoreDecodeError, audioDispositionSet, prm->muxVidTsLogFile);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
@@ -2978,7 +2995,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
     if (m_Mux.video.fpTsLogFile) {
         const TCHAR *pFrameTypeStr =
             (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? _T("I") : (((frameType & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
-        _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pFrameTypeStr, (lls)bitstream->pts(), (lls)bitstream->dts(), (lls)pts, (lls)dts, (int)duration, bitstream->size());
+        _ftprintf(m_Mux.video.fpTsLogFile.get(), _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pFrameTypeStr, (lls)bitstream->pts(), (lls)bitstream->dts(), (lls)pts, (lls)dts, (int)duration, bitstream->size());
     }
     m_encSatusInfo->SetOutputData(frameType, bitstream->size(), bitstream->avgQP());
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
@@ -3321,6 +3338,9 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
         AddMessage(RGY_LOG_WARN, _T("audio %3d [%3d.%3d], %12s, pts, %lld (%d/%d) [%s]\n"),
             pkt->stream_index,trackID(muxAudio->inTrackId), muxAudio->inSubStream, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
             pkt->pts, muxAudio->streamOut->time_base.num, muxAudio->streamOut->time_base.den, getTimestampString(pkt->pts, muxAudio->streamOut->time_base).c_str());
+    }
+    if (muxAudio->fpTsLogFile) {
+        _ftprintf(muxAudio->fpTsLogFile.get(), _T(" , %20lld, %8d, %d\n"), (lls)pkt->pts, (int)pkt->duration, pkt->size);
     }
     if (pkt->pts >= 0 || m_Mux.format.allowOtherNegativePts) {
         //av_interleaved_write_frameに渡ったパケットは開放する必要がない

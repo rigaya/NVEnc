@@ -142,7 +142,7 @@ struct AVMuxVideo {
     AVRational            bitstreamTimebase;    //エンコーダのtimebase
     AVMuxTimestamp        timestampList;        //エンコーダから渡されたtimestampリスト
     int                   fpsBaseNextDts;       //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
-    FILE                 *fpTsLogFile;          //mux timestampログファイル
+    std::unique_ptr<FILE, fp_deleter> fpTsLogFile; //mux timestampログファイル
     RGYBitstream          hdrBitstream;         //追加のsei nal
     DOVIRpu              *doviRpu;              //dovi rpu 追加用
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
@@ -209,6 +209,8 @@ struct AVMuxAudio {
     int64_t               outputSamples;        //出力音声の出力済みsample数
     int64_t               lastPtsIn;            //入力音声の前パケットのpts (input stream timebase)
     int64_t               lastPtsOut;           //出力音声の前パケットのpts
+
+    std::unique_ptr<FILE, fp_deleter> fpTsLogFile; //mux timestampログファイル
 
     AVMuxAudio();
 };
@@ -535,7 +537,7 @@ protected:
     RGY_ERR InitAudioResampler(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet);
+    RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet, const tstring& muxTsLogFileBase);
 
     //Bitstream Filterの初期化
     AVBSFContext* InitStreamBsf(const tstring& bsfName, const AVStream* streamIn);
