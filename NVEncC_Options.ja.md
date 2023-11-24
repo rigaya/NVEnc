@@ -143,7 +143,7 @@
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
   - [--audio-samplerate \[\<int/string\>?\]\<int\>](#--audio-samplerate-intstringint)
   - [--audio-resampler \<string\>](#--audio-resampler-string)
-  - [--audio-delay \[\<int/string\>?\]\<int\>](#--audio-delay-intstringint)
+  - [--audio-delay \[\<int/string\>?\]\<float\>](#--audio-delay-intstringfloat)
   - [--audio-file \[\<int\>\]\[\<string\>?\]\<string\>](#--audio-file-intstringstring)
   - [--audio-filter \[\<int/string\>?\]\<string\>](#--audio-filter-intstringstring)
   - [--audio-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--audio-disposition-intstringstringstring)
@@ -1164,7 +1164,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 - swr  ... swresampler (デフォルト)
 - soxr ... sox resampler (libsoxr)
 
-### --audio-delay [&lt;int/string&gt;?]&lt;int&gt;
+### --audio-delay [&lt;int/string&gt;?]&lt;float&gt;
 音声に設定する遅延をms単位で指定する。[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 ### --audio-file [&lt;int&gt;][&lt;string&gt;?]&lt;string&gt;

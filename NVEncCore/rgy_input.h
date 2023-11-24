@@ -68,7 +68,7 @@ struct AVDemuxStream {
     int                       subStreamId;            //通常は0、音声のチャンネルを分離する際に複製として作成
     int                       sourceFileIndex;        //audio/sub/data-source経由の場合、そのファイルインデックス
     AVStream                 *stream;                 //音声・字幕のストリーム (caption2assから字幕生成の場合、nullptrとなる)
-    int                       addDelayMs;             //設定すべき遅延の量(millisecond)
+    double                    addDelayMs;             //設定すべき遅延の量(millisecond)
     int                       lastVidIndex;           //音声の直前の相当する動画の位置
     int64_t                   extractErrExcess;       //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
     int64_t                   trimOffset;             //trimによる補正量 (stream timebase基準)
@@ -89,7 +89,7 @@ struct AVDemuxStream {
         subStreamId(0),
         sourceFileIndex(0),
         stream(nullptr),
-        addDelayMs(0),
+        addDelayMs(0.0),
         lastVidIndex(0),
         extractErrExcess(0),
         trimOffset(0),

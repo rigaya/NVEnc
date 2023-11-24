@@ -1359,7 +1359,7 @@ AudioSelect::AudioSelect() :
     encCodecProfile(),
     encBitrate(0),
     encSamplingRate(0),
-    addDelayMs(0),
+    addDelayMs(0.0),
     extractFilename(),
     extractFormat(),
     filter(),

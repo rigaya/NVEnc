@@ -147,7 +147,7 @@
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
   - [--audio-samplerate \[\<int/string\>?\]\<int\>](#--audio-samplerate-intstringint)
   - [--audio-resampler \<string\>](#--audio-resampler-string)
-  - [--audio-delay \[\<int/string\>?\]\<int\>](#--audio-delay-intstringint)
+  - [--audio-delay \[\<int/string\>?\]\<float\>](#--audio-delay-intstringfloat)
   - [--audio-file \[\<int/string\>?\]\[\<string\>\]\<string\>](#--audio-file-intstringstringstring)
   - [--audio-filter \[\<int/string\>?\]\<string\>](#--audio-filter-intstringstring)
   - [--audio-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--audio-disposition-intstringstringstring)
@@ -1163,7 +1163,7 @@ Specify the engine used for mixing audio channels and sampling frequency convers
 - swr ... swresampler (default)
 - soxr ... sox resampler (libsoxr)
 
-### --audio-delay [&lt;int/string&gt;?]&lt;int&gt;
+### --audio-delay [&lt;int/string&gt;?]&lt;float&gt;
 Specify audio delay in milli seconds.　You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ### --audio-file [&lt;int/string&gt;?][&lt;string&gt;]&lt;string&gt;

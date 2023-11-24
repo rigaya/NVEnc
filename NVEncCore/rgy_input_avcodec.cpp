@@ -253,7 +253,7 @@ void RGYInputAvcodec::CloseStream(AVDemuxStream *stream) {
     stream->trackId = 0;
     stream->subStreamId = 0;
     stream->sourceFileIndex = 0;
-    stream->addDelayMs = 0;
+    stream->addDelayMs = 0.0;
     stream->lastVidIndex = 0;
     stream->extractErrExcess = 0;
     stream->trimOffset = 0;
@@ -1680,7 +1680,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                         stream.streamChannelOut    = pAudioSelect->streamChannelOut;
                     }
                     m_Demux.stream.push_back(stream);
-                    AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d, delay %d ms\n"),
+                    AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d, delay %.3f ms\n"),
                         get_media_type_string(codecId).c_str(),
                         stream.index, trackID(stream.trackId), stream.subStreamId, char_to_tstring(avcodec_get_name(codecId)).c_str(),
                         stream.stream->codecpar->frame_size, stream.stream->time_base.num, stream.stream->time_base.den, stream.addDelayMs);
@@ -2766,7 +2766,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
             pkt.reset();
         } else {
             AVDemuxStream *pStream = getPacketStreamData(pkt.get());
-            const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
+            const auto delay_ts = (int64_t)(pStream->addDelayMs * 0.001 / av_q2d(pStream->timebase) + 0.5);
             if (pkt->pts != AV_NOPTS_VALUE) pkt->pts += delay_ts;
             if (pkt->dts != AV_NOPTS_VALUE) pkt->dts += delay_ts;
             //最初のパケットは参照用にコピーしておく
@@ -2842,7 +2842,7 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
     while (!m_Demux.qStreamPktL1.empty()) {
         auto pkt = m_Demux.qStreamPktL1.front();
         AVDemuxStream *pStream = getPacketStreamData(pkt);
-        const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
+        const auto delay_ts = (int64_t)(pStream->addDelayMs * 0.001 / av_q2d(pStream->timebase) + 0.5);
         if (!m_Demux.frames.isEof() // 最後まで読み込んでいたらすべて転送するようにする
             && 0 < av_compare_ts(pkt->pts + delay_ts, pStream->timebase, m_Demux.frames.getMaxPts() + audioReadOffsetPTS, vid_pkt_timebase)) { //音声のptsが映像の終わりのptsを行きすぎたらやめる
             break;

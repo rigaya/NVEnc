@@ -4120,7 +4120,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         try {
             auto ret = set_audio_prm([](AudioSelect* pAudioSelect, int trackId, const TCHAR* prmstr) {
                 if (trackId != 0 || pAudioSelect->addDelayMs == 0) {
-                    pAudioSelect->addDelayMs = std::stoi(prmstr);
+                    pAudioSelect->addDelayMs = std::stod(prmstr);
                 }
                 });
             return ret;
@@ -6349,7 +6349,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
-            && pAudioSelect->addDelayMs > 0) {
+            && pAudioSelect->addDelayMs != 0.0) {
             cmd << _T(" --audio-delay ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->addDelayMs;
         }
     }
@@ -6893,7 +6893,7 @@ tstring gen_cmd_help_common() {
         _T("                                  in [<int>?], specify track number of audio.\n")
         _T("   --audio-resampler <string>   set audio resampler.\n")
         _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
-        _T("   --audio-delay [<int>?]<int>  set audio delay (ms).\n")
+        _T("   --audio-delay [<int>?]<float>  set audio delay (ms).\n")
         _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][..\n")
         _T("       set audio streams in channels.\n")
         _T("         in [<int>?], specify track number to split.\n")
