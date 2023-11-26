@@ -2584,17 +2584,6 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
                         (long long int)m_Demux.video.streamFirstKeyPts, getTimestampString(m_Demux.video.streamFirstKeyPts, m_Demux.video.stream->time_base).c_str(),
                         m_trimParam.offset);
                 }
-#if ENCODER_NVENC
-                //NVENCのhwデコーダでは、opengopなどでキーフレームのパケットよりあとにその前のフレームが来た場合、
-                //フレーム位置がさらにずれるので補正する
-                else if (!(pkt->flags & AV_PKT_FLAG_KEY)
-                    && (pkt->pts != AV_NOPTS_VALUE)
-                    && (m_Demux.video.streamFirstKeyPts != AV_NOPTS_VALUE)
-                    && pkt->pts < m_Demux.video.streamFirstKeyPts
-                    && m_Demux.video.HWDecodeDeviceId >= 0) { //trim調整の適用はavhwリーダーのみ
-                    m_trimParam.offset++;
-                }
-#endif //#if ENCODER_NVENC
                 m_Demux.frames.add(pos);
             }
             //ptsの確定したところまで、音声を出力する

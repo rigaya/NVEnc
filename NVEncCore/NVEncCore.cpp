@@ -3829,11 +3829,12 @@ NVENCSTATUS NVEncCore::Encode() {
         return RGY_ERR_NONE;
     };
 
+    int64_t hwDecFirstPts = AV_NOPTS_VALUE;
     RGYQueueMPMP<RGYFrameDataHDR10plus*> queueHDR10plusMetadata;
     queueHDR10plusMetadata.init(256);
     std::thread th_input;
     if (m_cuvidDec) {
-        th_input = std::thread([this, streamIn, &queueHDR10plusMetadata, &nvStatus]() {
+        th_input = std::thread([this, streamIn, &hwDecFirstPts, &queueHDR10plusMetadata, &nvStatus]() {
             CUresult curesult = CUDA_SUCCESS;
             RGYBitstream bitstream = RGYBitstreamInit();
             RGY_ERR sts = RGY_ERR_NONE;
@@ -3852,6 +3853,9 @@ NVENCSTATUS NVEncCore::Encode() {
                             queueHDR10plusMetadata.push(new RGYFrameDataHDR10plus(*ptr));
                         }
                     }
+                }
+                if (hwDecFirstPts == AV_NOPTS_VALUE) {
+                    hwDecFirstPts = bitstream.pts();
                 }
                 PrintMes(RGY_LOG_TRACE, _T("Set packet #%d, size %zu, pts %lld (%s)\n"), i, bitstream.size(),
                     (long long int)bitstream.pts(), getTimestampString(bitstream.pts(), streamIn->time_base).c_str());
@@ -4378,6 +4382,11 @@ NVENCSTATUS NVEncCore::Encode() {
                     m_cuvidDec->frameQueue()->waitForQueueUpdate();
                     continue;
                 }
+                // OpenGOP等でキーフレームより前のフレームが出てくることがあるのを削除
+                if (dispInfo.timestamp < hwDecFirstPts) {
+                    m_cuvidDec->frameQueue()->releaseFrame(&dispInfo);
+                    continue;
+                }
                 inputFrame.setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
                     m_cuvidDec->frameQueue()->releaseFrame(ptr);
                     delete ptr;
@@ -4443,6 +4452,7 @@ NVENCSTATUS NVEncCore::Encode() {
             PrintMes(RGY_LOG_ERROR, _T("Unexpected error at Encode().\n"));
             return NV_ENC_ERR_GENERIC;
         }
+
 
         if (!bInputEmpty) {
             //trim反映
