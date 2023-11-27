@@ -88,7 +88,7 @@ struct RGYAACHeader {
     int adts_buffer_fullness;
     int no_raw_data_blocks_in_frame;
 
-    void parse(const uint8_t *buffer);
+    int parse(const uint8_t *buffer);
     int sampleRateIdxToRate(const uint32_t idx);
 };
 
