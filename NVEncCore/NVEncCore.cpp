@@ -904,8 +904,9 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gp
         NVMLMonitorInfo info;
 #if ENABLE_NVML
         NVMLMonitor monitor;
-        auto nvml_ret = monitor.Init(gpu->pciBusId());
-        if (nvml_ret == NVML_SUCCESS
+        auto nvml_ret = NVML_SUCCESS;
+        if (gpu->pciBusId().length() > 0
+            && (nvml_ret = monitor.Init(gpu->pciBusId())) == NVML_SUCCESS
             && monitor.getData(&info) == NVML_SUCCESS) {
 #else
         NVSMIInfo nvsmi;
@@ -3253,7 +3254,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
 
     //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, m_cudaSchedule, inputParam->ctrl.skipHWDecodeCheck))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, m_cudaSchedule, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }

@@ -939,7 +939,7 @@ const NVEncCodecFeature *NVEncoder::getCodecFeature(const GUID &codec) {
     return nullptr;
 }
 
-RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool skipHWDecodeCheck) {
+RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool skipHWDecodeCheck, bool disableNVML) {
 #define GETATTRIB_CHECK(val, attrib, dev) { \
         cudaError_t cuErr = cudaDeviceGetAttribute(&(val), (attrib), (dev)); \
         if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) { \
@@ -978,7 +978,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     }
     writeLog(RGY_LOG_DEBUG, _T("  cudaDeviceGetAttribute: CUDA %d.%d\n"), cudaDevMajor, cudaDevMinor);
 
-    {
+    if (!disableNVML) {
         auto cuErr = cudaDeviceGetPCIBusId(pci_bus_name, sizeof(pci_bus_name), deviceID);
         if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) {
             writeLog((error_if_fail) ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("  Warn: cudaDeviceGetPCIBusId(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
@@ -1244,7 +1244,7 @@ NVENCSTATUS NVEncCtrl::InitCuda() {
 NVENCSTATUS NVEncCtrl::ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck, false))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
@@ -1263,7 +1263,7 @@ NVENCSTATUS NVEncCtrl::ShowDeviceList(const int cudaSchedule, const bool skipHWD
 NVENCSTATUS NVEncCtrl::ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck, false))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
@@ -1293,7 +1293,7 @@ NVENCSTATUS NVEncCtrl::ShowCodecSupport(const int cudaSchedule, const bool skipH
 NVENCSTATUS NVEncCtrl::ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, skipHWDecodeCheck, false))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
@@ -1368,7 +1368,7 @@ NVENCSTATUS NVEncCtrl::ShowNVEncFeatures(const int cudaSchedule, const bool skip
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, const bool skipHWDecodeCheck) {
+NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, const bool skipHWDecodeCheck, const int disableNVML) {
     int deviceCount = 0;
     auto cuResult = cuDeviceGetCount(&deviceCount);
     if (cuResult != CUDA_SUCCESS) {
@@ -1386,12 +1386,14 @@ NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& g
         return NV_ENC_ERR_INVALID_ENCODERDEVICE;
     }
 
+    const bool disableNVMLCheck = (disableNVML > 1 || (disableNVML == 1 && deviceCount > 1));
+
     gpuList.clear();
     for (int currentDevice = 0; currentDevice < deviceCount; currentDevice++) {
         cudaGetLastError(); //これまでのエラーを初期化
         if ((m_nDeviceId < 0 || m_nDeviceId == currentDevice)) {
             auto gpu = std::make_unique<NVGPUInfo>(m_pNVLog);
-            if (gpu->initDevice(currentDevice, (CUctx_flags)cudaSchedule, m_nDeviceId == currentDevice, skipHWDecodeCheck) == RGY_ERR_NONE) {
+            if (gpu->initDevice(currentDevice, (CUctx_flags)cudaSchedule, m_nDeviceId == currentDevice, skipHWDecodeCheck, disableNVMLCheck) == RGY_ERR_NONE) {
                 gpuList.push_back(std::move(gpu));
             }
         }

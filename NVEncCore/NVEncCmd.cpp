@@ -323,6 +323,8 @@ tstring encoder_help() {
         _T("       sync  : CPU will sleep when waiting GPU tasks, performance might\n")
         _T("                drop slightly, while CPU utilization will be lower,\n")
         _T("                especially on HW decode mode.\n"));
+    str += _T("")
+        _T("   --disable-nvml <int>        disable NVML GPU monitoring (default 0, 0-2)\n");
     str += gen_cmd_help_ctrl();
     return str;
 }
@@ -1619,6 +1621,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->sessionRetry = value;
         return 0;
     }
+    if (IS_OPTION("disable-nvml")) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        if (value < 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("disable-nvml should be specified in positive value."));
+            return 1;
+        }
+        pParams->disableNVML = value;
+        return 0;
+    }
 
     auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, &pParams->inprm, argData);
     if (ret >= 0) return ret;
@@ -2054,6 +2070,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_LST(_T("--cuda-schedule"), cudaSchedule, list_cuda_schedule);
     OPT_NUM(_T("--session-retry"), sessionRetry);
+    OPT_NUM(_T("--disable-nvml"), disableNVML);
 
     cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);
 

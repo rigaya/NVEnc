@@ -320,7 +320,7 @@ public:
 
     void close_device();
 
-    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool skipHWDecodeCheck);
+    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool skipHWDecodeCheck, bool disableNVML);
     RGY_ERR initEncoder();
     tstring infostr() const;
 protected:
@@ -375,7 +375,7 @@ protected:
     NVENCSTATUS InitCuda();
 
     //deviceリストを作成
-    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, const bool skipHWDecodeCheck);
+    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, const bool skipHWDecodeCheck, const int disableNVML);
 
     shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
     int                          m_nDeviceId;             //DeviceId

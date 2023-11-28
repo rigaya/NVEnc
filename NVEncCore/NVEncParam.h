@@ -807,6 +807,7 @@ struct InEncodeVideoParam {
     int deviceID;                 //使用するGPUのID
     int cudaSchedule;
     int sessionRetry;
+    int disableNVML;
 
     VideoInfo input;              //入力する動画の情報
     int preset;                   //出力プリセット

@@ -533,6 +533,9 @@ void CPerfMonitor::clear() {
     }
     m_pManager.reset();
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+    m_nvmlMonitor.reset();
+#endif //#if ENABLE_NVML
 
     m_nStep = 0;
     m_thMainThread.reset();
@@ -789,11 +792,15 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
-    auto nvml_ret = m_nvmlMonitor.Init(prm->pciBusId);
-    if (nvml_ret != NVML_SUCCESS) {
-        AddMessage(RGY_LOG_INFO, _T("Failed to start NVML Monitoring for \"%s\": %s.\n"), char_to_tstring(prm->pciBusId).c_str(), nvmlErrStr(nvml_ret));
-    } else {
-        AddMessage(RGY_LOG_DEBUG, _T("Eanble NVML Monitoring\n"));
+    if (prm->pciBusId.length() > 0) {
+        m_nvmlMonitor = std::make_unique<NVMLMonitor>();
+        auto nvml_ret = m_nvmlMonitor->Init(prm->pciBusId);
+        if (nvml_ret != NVML_SUCCESS) {
+            AddMessage(RGY_LOG_INFO, _T("Failed to start NVML Monitoring for \"%s\": %s.\n"), char_to_tstring(prm->pciBusId).c_str(), nvmlErrStr(nvml_ret));
+            m_nvmlMonitor.reset();
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("Eanble NVML Monitoring\n"));
+        }
     }
 #else
     UNREFERENCED_PARAMETER(prm);
@@ -970,7 +977,7 @@ void CPerfMonitor::check() {
     pInfoNew->pcie_throughput_rx_per_sec = 0;
 #if ENABLE_NVML
     NVMLMonitorInfo nvmlInfo;
-    if (m_nvmlMonitor.getData(&nvmlInfo) == NVML_SUCCESS) {
+    if (m_nvmlMonitor && m_nvmlMonitor->getData(&nvmlInfo) == NVML_SUCCESS) {
         m_nvmlInfo = nvmlInfo;
         pInfoNew->gpu_info_valid   = TRUE;
         pInfoNew->gpu_clock        = m_nvmlInfo.GPUFreq;

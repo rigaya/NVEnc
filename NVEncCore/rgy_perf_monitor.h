@@ -513,7 +513,7 @@ protected:
     CQSVConsumer m_Consumer;
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
-    NVMLMonitor m_nvmlMonitor;
+    std::unique_ptr<NVMLMonitor> m_nvmlMonitor;
     NVMLMonitorInfo m_nvmlInfo;
 #endif //#if ENABLE_NVML
 #if ENABLE_GPUZ_INFO

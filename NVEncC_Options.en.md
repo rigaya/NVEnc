@@ -213,6 +213,7 @@
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [Other Options](#other-options)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
+  - [--disable-nvml \<int\>](#--disable-nvml-int)
   - [--output-buf \<int\>](#--output-buf-int)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--log \<string\>](#--log-string)
@@ -2529,7 +2530,7 @@ Set path to the model folder of Video Effect models.
 ### --cuda-schedule &lt;string&gt;
   Change the behavior of the CPU when waiting for GPU task completion. The default is auto.
 
-- paramters
+- **paramters**
   - auto (default)
     Leave the mode decision to the driver of CUDA.
   
@@ -2541,6 +2542,19 @@ Set path to the model folder of Video Effect models.
   
   - sync
     Sleep a thread until the end of the GPU task. Performance might decrease, but will reduce CPU utilization especially when decoding is done by HW.
+
+### --disable-nvml &lt;int&gt;
+Disable NVML GPU monitoring。
+
+- **Paramters**
+  - 0 (default)  
+    Enable NVML.
+
+  - 1
+    Disable NVML when system has one CUDA devices.
+
+  - 2
+    Always disable NVML.
 
 ### --output-buf &lt;int&gt;
 Specify the output buffer size in MB. The default is 8 and the maximum value is 128.

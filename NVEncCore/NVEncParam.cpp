@@ -371,6 +371,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     deviceID(-1),
     cudaSchedule(DEFAULT_CUDA_SCHEDULE),
     sessionRetry(0),
+    disableNVML(0),
     input(),
     preset(0),
     nHWDecType(0),

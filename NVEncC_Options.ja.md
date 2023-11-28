@@ -209,6 +209,7 @@
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [制御系のオプション](#制御系のオプション)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
+  - [--disable-nvml \<int\>](#--disable-nvml-int)
   - [--output-buf \<int\>](#--output-buf-int)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--log \<string\>](#--log-string)
@@ -2602,6 +2603,19 @@ NVIDIA MAXINE VideoEffects のモデルを格納しているフォルダの場�
   
   - sync  
  GPUタスクの終了まで、スレッドをスリープさせる。性能が落ちる可能性があるかわりに、特にHWデコード使用時に、CPU使用率を大きく削減する。
+
+### --disable-nvml &lt;int&gt;
+NVMLによるGPUモニタリングの無効化について指定する。デフォルトは0 (無効化しない)。
+
+- **パラメータ**
+  - 0 (デフォルト)  
+    NVMLを無効化しない。
+
+  - 1
+    CUDAを実行できるGPUが1つの場合にNVMLを無効化する。
+
+  - 2
+    常にNVMLを無効化する。
 
 ### --output-buf &lt;int&gt;
 出力バッファサイズをMB単位で指定する。デフォルトは8、最大値は128。0で使用しない。
