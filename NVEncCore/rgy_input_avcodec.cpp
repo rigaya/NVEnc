@@ -2804,6 +2804,9 @@ double RGYInputAvcodec::GetInputVideoDuration() {
     if (m_seek.second > 0.0f) {
         duration = std::min<double>(duration, m_seek.second);
     }
+    if (m_seek.first > 0.0f) {
+        duration = std::max(0.0, duration - m_seek.first);
+    }
     return duration;
 }
 
@@ -3077,7 +3080,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
     if (m_Demux.format.formatCtx->duration) {
         progressPercent = m_Demux.frames.duration() * (m_Demux.video.stream->time_base.num / (double)m_Demux.video.stream->time_base.den);
     }
-    progressPercent += m_seek.first;
     return m_encSatusInfo->UpdateDisplayByCurrentDuration(progressPercent);
 }
 #pragma warning(pop)
