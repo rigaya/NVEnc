@@ -263,6 +263,12 @@ std::vector<tstring> cmd_from_config_file(const tstring& filename) {
             configstr += trim(str);
         }
     }
+    //configstrが空文字列の場合、sep_cmdに渡すと先頭に実行ファイルへのパスが付与されてしまう
+    //エラーを避けるため、空のvectorを返すようにする
+    if (configstr.length() == 0) {
+        _ftprintf(stderr, _T("Option file is empty!\n"));
+        return std::vector<tstring>();
+    }
     return sep_cmd(char_to_tstring(configstr));
 #else
     _ftprintf(stderr, _T("--option-file not supported on linux systems!\n"));
