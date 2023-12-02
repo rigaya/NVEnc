@@ -650,7 +650,7 @@ void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
             m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC + 4);
             m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr + size); ptr += size;
         }
-        if (pkt->buf->size < m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE) {
+        if (pkt->buf->size < (int)m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE) {
             av_grow_packet(pkt, (int)m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE);
         }
         memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
@@ -2482,9 +2482,9 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
         if (m_fpPacketList) {
             fprintf(m_fpPacketList.get(), "stream %2d, %12s, %s, %s,%5lld,%2d, %12lld\n",
                 pkt->stream_index, avcodec_get_name(m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id),
-                pkt->pts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", pkt->pts).c_str(),
-                pkt->dts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", pkt->dts).c_str(),
-                pkt->duration, pkt->flags, pkt->pos);
+                pkt->pts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", (long long int)pkt->pts).c_str(),
+                pkt->dts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", (long long int)pkt->dts).c_str(),
+                (long long int)pkt->duration, pkt->flags, (long long int)pkt->pos);
         }
         if (pkt->stream_index == m_Demux.video.index) {
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
