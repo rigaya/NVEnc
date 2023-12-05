@@ -215,6 +215,15 @@ struct AVMuxAudio {
     AVMuxAudio();
 };
 
+struct AVSubtitleData {
+    AVSubtitle decodecSub; //デコードした字幕データ
+    int64_t origPts;
+    int64_t origDuration;
+
+    AVSubtitleData();
+    ~AVSubtitleData();
+};
+
 struct AVMuxOther {
     int                   inTrackId;           //ソースファイルの入力トラック番号
     const AVStream       *streamIn;            //入力字幕のストリーム
@@ -231,6 +240,8 @@ struct AVMuxOther {
     uint8_t              *bufConvert;          //変換用のバッファ
 
     AVBSFContext         *bsfc;              //必要なら使用するbitstreamfilter
+
+    std::vector<AVSubtitleData> decodedSub; //字幕データ
 
     AVMuxOther();
 };
@@ -585,7 +596,10 @@ protected:
     vector<AVPktMuxData> AudioEncodeFrame(AVMuxAudio *muxAudio, AVFrame *frame);
 
     //字幕パケットを書き出す
-    RGY_ERR SubtitleTranscode(const AVMuxOther *pMuxSub, AVPacket *pkt);
+    RGY_ERR SubtitleTranscode(AVMuxOther *pMuxSub, AVPacket *pkt);
+
+    //字幕パケットのエンコードと出力
+    RGY_ERR SubtitleEncode(const AVMuxOther *muxSub, AVSubtitleData *sub);
 
     //その他のパケットを書き出す
     RGY_ERR WriteOtherPacket(AVPacket *pkt);
