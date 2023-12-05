@@ -186,7 +186,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>avcodec-59.dll;avformat-59.dll;avutil-57.dll;swresample-4.dll;avfilter-8.dll;avdevice-59.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;swresample-4.dll;avfilter-9.dll;avdevice-60.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -239,7 +239,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>avcodec-59.dll;avformat-59.dll;avutil-57.dll;swresample-4.dll;avfilter-8.dll;avdevice-59.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;swresample-4.dll;avfilter-9.dll;avdevice-60.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -295,7 +295,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>avcodec-59.dll;avformat-59.dll;avutil-57.dll;swresample-4.dll;avfilter-8.dll;avdevice-59.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;swresample-4.dll;avfilter-9.dll;avdevice-60.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -349,7 +349,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" 
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>avcodec-59.dll;avformat-59.dll;avutil-57.dll;swresample-4.dll;avfilter-8.dll;avdevice-59.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;swresample-4.dll;avfilter-9.dll;avdevice-60.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -417,7 +417,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" 
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>cuda.lib;d3d9.lib;pthreads.lib;ptools.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>avcodec-59.dll;avformat-59.dll;avutil-57.dll;swresample-4.dll;avfilter-8.dll;avdevice-59.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;swresample-4.dll;avfilter-9.dll;avdevice-60.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -470,7 +470,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>cuda.lib;d3d9.lib;pthreads.lib;ptools.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>avcodec-59.dll;avformat-59.dll;avutil-57.dll;swresample-4.dll;avfilter-8.dll;avdevice-59.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;swresample-4.dll;avfilter-9.dll;avdevice-60.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -525,7 +525,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" 
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>avcodec-59.dll;avformat-59.dll;avutil-57.dll;swresample-4.dll;avfilter-8.dll;avdevice-59.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;swresample-4.dll;avfilter-9.dll;avdevice-60.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
@@ -580,7 +580,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>avcodec-59.dll;avformat-59.dll;avutil-57.dll;swresample-4.dll;avfilter-8.dll;avdevice-59.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;swresample-4.dll;avfilter-9.dll;avdevice-60.dll;libass-9.dll;nvcuda.dll;libvmaf.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
