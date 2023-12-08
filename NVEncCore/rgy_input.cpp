@@ -624,7 +624,6 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.queueInfo = (perfMonitor) ? perfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.HWDecCodecCsp = &HWDecCodecCsp;
         inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_ASSUME_CFR;
-        inputInfoAVCuvid.caption2ass = common->caption2ass;
         inputInfoAVCuvid.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy;
         inputInfoAVCuvid.parseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource;
         inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;

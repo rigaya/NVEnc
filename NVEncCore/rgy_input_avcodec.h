@@ -43,13 +43,6 @@
 #include <thread>
 #include <cassert>
 
-#if (defined(_WIN32) || defined(_WIN64))
-#define USE_CUSTOM_INPUT 1
-#include "rgy_caption.h"
-#else
-#define USE_CUSTOM_INPUT 0
-#endif
-
 using std::vector;
 using std::pair;
 using std::deque;
@@ -771,177 +764,6 @@ typedef struct AVDemuxer {
     RGYQueueMPMP<AVPacket*>  qStreamPktL2;
 } AVDemuxer;
 
-enum AVCAPTION_STATE {
-    //エラー
-    AVCAPTION_ERROR = -3,
-    AVCAPTION_DISABLED = -2,
-    AVCAPTION_NOT_TS = -1,
-    //初期状態
-    AVCAPTION_UNKNOWN = 0,
-    //ts処理中
-    AVCAPTION_IS_TS = 1,
-};
-
-
-#if ENABLE_CAPTION2ASS
-class AVCaption2Ass {
-public:
-    AVCaption2Ass() : m_cap2ass(), m_pLog(), m_subList(), m_buffer(),
-        m_index(-1), m_trackId(0),
-        m_state(AVCAPTION_UNKNOWN), m_resolutionDetermined(false) {
-    };
-    ~AVCaption2Ass() { close(); };
-    bool enabled() const {
-        return m_cap2ass.enabled() && m_state >= AVCAPTION_UNKNOWN;
-    }
-    void close() {
-        m_state = AVCAPTION_UNKNOWN;
-        m_cap2ass.close();
-        m_subList.clear();
-        m_pLog.reset();
-    }
-    RGY_ERR init(std::shared_ptr<RGYLog> pLog, C2AFormat format) {
-        m_pLog = pLog;
-        return m_cap2ass.init(pLog, format);
-    }
-    C2AFormat format() const {
-        return m_cap2ass.format();
-    }
-    AVCAPTION_STATE state() const {
-        return m_state;
-    }
-    void disable() {
-        m_state = AVCAPTION_DISABLED;
-    }
-    void reset() {
-        //m_resolutionDeterminedはリセットしない
-        m_state = AVCAPTION_UNKNOWN;
-        m_cap2ass.reset();
-        m_buffer.clear();
-    }
-    void setIndex(int streamIndex, int trackId) {
-        m_index = streamIndex;
-        m_trackId = trackId;
-    }
-    void setOutputResolution(int w, int h, int sar_x, int sar_y) {
-        m_cap2ass.setOutputResolution(w, h, sar_x, sar_y);
-        m_resolutionDetermined = true;
-    }
-    void printParam(RGYLogLevel log_level) {
-        m_cap2ass.printParam(log_level);
-    }
-    void setVidFirstKeyPts(int64_t pts) {
-        m_cap2ass.setVidFirstKeyPts(pts);
-    }
-    AVDemuxStream stream() const {
-        std::string header = m_cap2ass.assHeader();
-        AVDemuxStream stream;
-        memset(&stream, 0, sizeof(AVDemuxStream));
-        stream.index = m_index;
-        stream.trackId = m_trackId;
-        stream.subtitleHeader = av_strdup(header.c_str());
-        stream.subtitleHeaderSize = (int)header.length();
-        stream.timebase = av_make_q(1, 90000);
-        stream.caption2ass = m_cap2ass.format();
-        return stream;
-    }
-    RGY_ERR proc(uint8_t *buf, size_t buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {
-        auto ret = RGY_ERR_NONE;
-        if (buf_size == 0) {
-            return ret;
-        }
-        if (m_state == AVCAPTION_UNKNOWN) {
-            m_state = m_cap2ass.isTS(buf, buf_size) ? AVCAPTION_IS_TS : AVCAPTION_NOT_TS;
-        }
-        if (m_state == AVCAPTION_IS_TS) {
-            if (!m_resolutionDetermined) {
-                //出力解像度が決まるまでデータを蓄積
-                vector_cat(m_buffer, buf, buf_size);
-            } else {
-                if (m_buffer.size() > 0) {
-                    ret = m_cap2ass.proc(m_buffer.data(), m_buffer.size(), m_subList);
-                    m_buffer.clear();
-                    m_buffer.shrink_to_fit();
-                }
-                if (ret == RGY_ERR_NONE) {
-                    ret = m_cap2ass.proc(buf, buf_size, m_subList);
-                }
-                if (ret != RGY_ERR_NONE) {
-                    m_state = AVCAPTION_ERROR;
-                } else if (m_index >= 0) { //インデックスが決まるまでは、クラス内にためておく
-                    for (auto it = m_subList.begin(); it != m_subList.end(); it++) {
-                        (*it)->stream_index = m_index;
-                        qStreamPkt.push_back(it->release());
-                    }
-                    m_subList.clear();
-                }
-            }
-        }
-        return ret;
-    }
-protected:
-    Caption2Ass m_cap2ass; //Caption2Ass処理
-    std::shared_ptr<RGYLog> m_pLog;
-    std::vector<unique_ptr_custom<AVPacket>> m_subList;
-
-    //解像度が決まるまでデータを取っておくバッファ
-    std::vector<uint8_t> m_buffer;
-
-    int m_index;
-    int m_trackId;
-
-    //現在の処理状態
-    AVCAPTION_STATE m_state;
-
-    //出力解像度が決まったら処理を開始するので、
-    //出力解像度が決まったかどうかを示すフラグ
-    bool m_resolutionDetermined;
-};
-#else
-#pragma warning(push)
-#pragma warning(disable: 4100)
-class AVCaption2Ass {
-public:
-    AVCaption2Ass() {};
-    ~AVCaption2Ass() {  };
-    bool enabled() const {
-        return false;
-    }
-    void close() {
-    }
-    RGY_ERR init(std::shared_ptr<RGYLog> pLog, C2AFormat format) {
-        return RGY_ERR_NONE;
-    }
-    C2AFormat format() const {
-        return FORMAT_INVALID;
-    }
-    AVCAPTION_STATE state() const {
-        return AVCAPTION_DISABLED;
-    }
-    void disable() {
-    }
-    void reset() {
-    }
-    void setIndex(int streamIndex, int trackId) {
-    }
-    void setOutputResolution(int w, int h, int sar_x, int sar_y) {
-    }
-    void printParam(int log_level) {
-    }
-    void setVidFirstKeyPts(int64_t pts) {
-    }
-    AVDemuxStream stream() const {
-        AVDemuxStream stream;
-        return stream;
-    }
-    RGY_ERR proc(uint8_t *buf, int buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {
-        return RGY_ERR_NONE;
-    }
-protected:
-};
-#pragma warning(pop)
-#endif //#if ENABLE_CAPTION2ASS
-
 class RGYInputAvcodecPrm : public RGYInputPrm {
 public:
     int            inputRetry;              //ファイルオープンを再試行する回数
@@ -984,7 +806,6 @@ public:
     PerfQueueInfo *queueInfo;               //キューの情報を格納する構造体
     DeviceCodecCsp *HWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
     bool           videoDetectPulldown;     //pulldownの検出を試みるかどうか
-    C2AFormat      caption2ass;             //caption2assの処理の有効化
     bool           parseHDRmetadata;        //HDR関連のmeta情報を取得する
     bool           hdr10plusMetadataCopy;  //HDR10plus関連のmeta情報を取得する
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
@@ -1060,9 +881,6 @@ public:
 
     //入力スレッドのハンドルを取得する
     HANDLE getThreadHandleInput();
-
-    //出力する動画の情報をセット
-    void setOutputVideoInfo(int w, int h, int sar_x, int sar_y, bool mux);
 
     //HDRのmetadataへのポインタを返す
     const AVMasteringDisplayMetadata *getMasteringDisplay() const;
@@ -1170,7 +988,6 @@ protected:
     tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
     std::unique_ptr<FILE, fp_deleter> m_fpPacketList; // 読み取ったパケット情報を出力するファイル
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
-    AVCaption2Ass    m_cap2ass;
 };
 
 #endif //ENABLE_AVSW_READER

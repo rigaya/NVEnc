@@ -80,7 +80,6 @@ struct AVDemuxStream {
     AVRational                timebase;               //streamのtimebase [stream = nullptrの場合でも使えるように]
     void                     *subtitleHeader;         //stream = nullptrの場合 caption2assのヘッダー情報 (srt形式でもass用のヘッダーが入っている)
     int                       subtitleHeaderSize;     //stream = nullptrの場合 caption2assのヘッダー情報のサイズ
-    C2AFormat                 caption2ass;            //stream = nullptrの場合 caption2assのformat
     char                      lang[4];                //trackの言語情報(3文字)
 
     AVDemuxStream() :
@@ -101,7 +100,6 @@ struct AVDemuxStream {
         timebase({ 0, 0 }),
         subtitleHeader(nullptr),
         subtitleHeaderSize(0),
-        caption2ass(),
         lang() {
     };
 };

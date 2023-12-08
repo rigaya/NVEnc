@@ -29,9 +29,9 @@
 #ifndef __RGY_CONFIG_H__
 #define __RGY_CONFIG_H__
 
-#define VER_FILEVERSION              0,7,39,0
-#define VER_STR_FILEVERSION          "7.39"
-#define VER_STR_FILEVERSION_TCHAR _T("7.39")
+#define VER_FILEVERSION              0,7,40,0
+#define VER_STR_FILEVERSION          "7.40"
+#define VER_STR_FILEVERSION_TCHAR _T("7.40")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -113,7 +113,7 @@ const char *get_encoder_version();
 #define ENABLE_AVSW_READER        1
 #define ENABLE_SM_READER          1
 #define ENABLE_LIBAVDEVICE        1
-#define ENABLE_CAPTION2ASS        1
+#define ENABLE_CAPTION2ASS        0
 #define ENABLE_AUTO_PICSTRUCT     1
 #endif
 

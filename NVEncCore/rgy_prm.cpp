@@ -1538,7 +1538,6 @@ RGYParamCommon::RGYParamCommon() :
     copyChapter(false),
     keyOnChapter(false),
     chapterNoTrim(false),
-    caption2ass(FORMAT_INVALID),
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     videoIgnoreTimestampError(DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR),
     muxOpt(),

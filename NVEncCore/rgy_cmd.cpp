@@ -4504,27 +4504,6 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#if ENABLE_CAPTION2ASS
-    if (IS_OPTION("caption2ass")) {
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
-            i++;
-            C2AFormat format = FORMAT_INVALID;
-            if (PARSE_ERROR_FLAG != (format = (C2AFormat)get_value_from_chr(list_caption2ass, strInput[i]))) {
-                common->caption2ass = format;
-            } else {
-                print_cmd_error_invalid_value(option_name, strInput[i], list_caption2ass);
-                return 1;
-            }
-        } else {
-            common->caption2ass = FORMAT_SRT;
-        }
-        return 0;
-    }
-    if (IS_OPTION("no-caption2ass")) {
-        common->caption2ass = FORMAT_INVALID;
-        return 0;
-    }
-#endif //#if ENABLE_CAPTION2ASS
     if (IS_OPTION("data-copy")) {
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         using trackID_Lang = std::pair<int, std::string>;
@@ -6521,7 +6500,6 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T(" --sub-bsf ") << printTrack(param->ppSubtitleSelectList[i]) << _T("?") << param->ppSubtitleSelectList[i]->bsf;
         }
     }
-    OPT_LST(_T("--caption2ass"), caption2ass, list_caption2ass);
 
     tmp.str(tstring());
     for (int i = 0; i < param->nDataSelectCount; i++) {
@@ -6967,11 +6945,6 @@ tstring gen_cmd_help_common() {
         _T("                                 - copy ... copy metadata from input (default)\n")
         _T("                                 - clear ... do not set metadata\n")
         _T("   --sub-bsf [<int>?]<string>   set bitstream filter to subtitle track.\n")
-#if ENABLE_CAPTION2ASS
-        _T("   --caption2ass [<string>]     enable caption2ass during encode.\n")
-        _T("                                  !! This feature requires Caption.dll !!\n")
-        _T("                                 supported formats ... srt (default), ass\n")
-#endif //#if ENABLE_CAPTION2ASS
         _T("   --data-copy [<int>[,...]]       copy data stream to output file.\n")
         _T("   --attachment-copy [<int>[,...]] copy attachment stream to output file.\n")
         _T("   --attachment-source <string> add file as attachment stream.\n")

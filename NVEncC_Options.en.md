@@ -165,7 +165,6 @@
   - [--sub-disposition \[\<int/string\>?\]\<string\>](#--sub-disposition-intstringstring)
   - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
   - [--sub-bsf \[\<int/string\>?\]\<string\>](#--sub-bsf-intstringstring)
-  - [--caption2ass \[\<string\>\]](#--caption2ass-string)
   - [--data-copy \[\<int\>\[,\<int\>\]...\]](#--data-copy-intint)
   - [--attachment-copy \[\<int\>\[,\<int\>\]...\]](#--attachment-copy-intint)
   - [--attachment-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--attachment-source-stringintparam1value1)
@@ -1483,13 +1482,6 @@ Set metadata for subtitle track.
 ### --sub-bsf [&lt;int/string&gt;?]&lt;string&gt;
 Apply [bitstream filter](https://ffmpeg.org/ffmpeg-bitstream-filters.html) to subtitle track.
 
-### --caption2ass [&lt;string&gt;]
-Enable internal caption2ass process. This feature requires Caption.dll.  
-
-**Note:** Pelase always select srt format when muxing to mp4.  
-
-supported formats ... srt (default), ass
-
 ### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy data stream from input file. Available only when avhw / avsw reader is used.
 
@@ -2589,7 +2581,7 @@ Select the level of log output.
 - **Target**  
   Target category of logs. Will be handled as ```all``` when omitted.
   - all ... Set all targets.
-  - app ... Set all targets, except libav, libass, perfmonitor, caption2ass, amf.
+  - app ... Set all targets, except libav, libass, perfmonitor, amf.
   - device ... Device initialization.
   - core ... Application core logs, including core_progress and core_result
   - core_progress ... Progress indicator
@@ -2603,7 +2595,6 @@ Select the level of log output.
   - libav ... internal logs of libav library
   - libass ... logs of ass library
   - perfmonitor ... logs of perf monitoring
-  - caption2ass ... logs of caption2ass
 
 - Examples
   ```

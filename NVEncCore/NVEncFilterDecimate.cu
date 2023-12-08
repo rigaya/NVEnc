@@ -44,6 +44,7 @@
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 #include "rgy_cuda_util_kernel.h"
+#include "rgy_avutil.h"
 
 #define DECIMATE_BLOCK_MAX (32)
 #define DECIMATE_K2_THREAD_BLOCK_X (32)

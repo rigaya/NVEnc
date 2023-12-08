@@ -36,7 +36,6 @@
 #include "NVEncFilterAfs.h"
 #include "rgy_osdep.h"
 #include "rgy_perf_monitor.h"
-#include "rgy_caption.h"
 #include "rgy_avutil.h"
 
 tstring GetNVEncVersion() {

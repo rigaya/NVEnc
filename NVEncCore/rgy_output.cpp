@@ -1000,17 +1000,9 @@ RGY_ERR initWriters(
         common->AVMuxTarget |= RGY_MUX_VIDEO;
     }
 
-
     double inputFileDuration = 0.0;
-    { auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
-    if (pAVCodecReader != nullptr) {
-        //caption2ass用の解像度情報の提供
-        //これをしないと入力ファイルのデータをずっとバッファし続けるので注意
-        pAVCodecReader->setOutputVideoInfo(outputVideoInfo.dstWidth, outputVideoInfo.dstHeight,
-            outputVideoInfo.sar[0], outputVideoInfo.sar[1],
-            (common->AVMuxTarget & RGY_MUX_VIDEO) != 0);
+    if (auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader); pAVCodecReader != nullptr) {
         inputFileDuration = pAVCodecReader->GetInputVideoDuration();
-    }
     }
     bool isAfs = false;
 #if ENABLE_SM_READER
@@ -1156,10 +1148,7 @@ RGY_ERR initWriters(
                 if (pAudioSelect != nullptr || audioCopyAll || streamMediaType != AVMEDIA_TYPE_AUDIO) {
                     streamTrackUsed.push_back(stream.trackId);
                     if (pSubtitleSelect == nullptr && streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
-                        if (common->caption2ass == FORMAT_INVALID) { //caption2assの字幕の場合はそのまま処理する
-                            continue;
-                        }
-                        //caption2assの字幕の場合、AVOutputStreamPrmのパラメータはデフォルト(copy)でよい
+                        continue;
                     }
                     AVOutputStreamPrm prm;
                     prm.src = stream;

@@ -1803,9 +1803,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
     const auto mediaTypeStr = char_to_tstring(av_get_media_type_string(mediaType));
     AddMessage(RGY_LOG_DEBUG, _T("start initializing %s ouput...\n"), mediaTypeStr.c_str());
 
-    AVCodecID codecId = (inputStream->src.stream)
-        ? inputStream->src.stream->codecpar->codec_id
-        : (inputStream->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
+    AVCodecID codecId = inputStream->src.stream->codecpar->codec_id;
 
     if (avcodecIsCopy(inputStream->encodeCodec)
         && inputStream->bsf.length() == 0
@@ -1862,34 +1860,14 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
     auto srcCodecParam = unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>>(
         avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
 
-    if (inputStream->src.stream == nullptr) {
-        //caption2assで生成した字幕を受け取る
-        const auto src_codec_id = (inputStream->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
-        const auto codec = avcodec_find_decoder(src_codec_id);
-        if (nullptr == (muxSub->streamOut = avformat_new_stream(m_Mux.format.formatCtx, codec))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
-            return RGY_ERR_NULL_PTR;
-        }
-        if (src_codec_id == AV_CODEC_ID_ASS) {
-            if (inputStream->src.subtitleHeader == nullptr || inputStream->src.subtitleHeaderSize == 0) {
-                AddMessage(RGY_LOG_ERROR, _T("subtitle header unknown for track %d.\n"), trackID(inputStream->src.trackId));
-                return RGY_ERR_NULL_PTR;
-            }
-            srcCodecParam->extradata_size = inputStream->src.subtitleHeaderSize;
-            srcCodecParam->extradata = (uint8_t *)av_strdup((char *)inputStream->src.subtitleHeader);
-        }
-        srcCodecParam->codec_type = codec->type;
-        srcCodecParam->codec_id   = codec->id;
-    } else {
-        avcodec_parameters_copy(srcCodecParam.get(), inputStream->src.stream->codecpar);
+    avcodec_parameters_copy(srcCodecParam.get(), inputStream->src.stream->codecpar);
 
-        if (nullptr == (muxSub->streamOut = avformat_new_stream(m_Mux.format.formatCtx, avcodec_find_decoder(codecId)))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
-            return RGY_ERR_NULL_PTR;
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, pkt_timebase %d/%d, trackId %d\n"),
-            inputStream->src.index, inputStream->src.stream->time_base.num, inputStream->src.stream->time_base.den, trackID(inputStream->src.trackId));
+    if (nullptr == (muxSub->streamOut = avformat_new_stream(m_Mux.format.formatCtx, avcodec_find_decoder(codecId)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
+        return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, pkt_timebase %d/%d, trackId %d\n"),
+        inputStream->src.index, inputStream->src.stream->time_base.num, inputStream->src.stream->time_base.den, trackID(inputStream->src.trackId));
     if (inputStream->asdata) {
         srcCodecParam->codec_type = AVMEDIA_TYPE_UNKNOWN;
     } else if (mediaType == AVMEDIA_TYPE_DATA) {

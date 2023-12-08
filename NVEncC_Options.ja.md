@@ -161,7 +161,6 @@
   - [--sub-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--sub-disposition-intstringstringstring)
   - [--sub-metadata \[\<int/string\>?\]\<string\> or \[\<int/string\>?\]\<string\>=\<string\>](#--sub-metadata-intstringstring-or-intstringstringstring)
   - [--sub-bsf \[\<int/string\>?\]\<string\>](#--sub-bsf-intstringstring)
-  - [--caption2ass \[\<string\>\]](#--caption2ass-string)
   - [--data-copy \[\<int\>\[,\<int\>\]...\]](#--data-copy-intint)
   - [--attachment-copy \[\<int\>\[,\<int\>\]...\]](#--attachment-copy-intint)
   - [--attachment-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--attachment-source-stringintparam1value1)
@@ -1476,15 +1475,6 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
 ### --sub-bsf [&lt;int/string&gt;?]&lt;string&gt;
 字幕トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
 
-### --caption2ass [&lt;string&gt;]
-caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。
-
-出力フォーマットがassかsrtのみなので、mkvなどで出力してください。
-
-- **出力フォーマット**
-  - srt (デフォルト)
-  - ass
-
 ### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
 データストリームをコピーする。avhw/avswリーダー使用時のみ有効。
 
@@ -2656,7 +2646,7 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 - **対象**  
   ログ出力レベルの設定対象の指定。省略した場合は、```all```として扱う。
   - all ... すべて
-  - app ... libav, libass, perfmonitor, caption2ass, amf を除いたすべて
+  - app ... libav, libass, perfmonitor, amf を除いたすべて
   - device ... デバイス初期化関連
   - core ... アプリケーションのコア部分 (core_progress, core_result含む)
   - core_progress ... 進捗表示
@@ -2670,7 +2660,6 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
   - libav ... libavライブラリ内部のログ出力
   - libass ... assライブラリ関連
   - perfmonitor ... パフォーマンスモニタ関連
-  - caption2ass ... caption2ass関連
 
 - 使用例
   ```

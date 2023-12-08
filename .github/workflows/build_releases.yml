@@ -68,13 +68,11 @@ jobs:
         run: |
           curl -s -o hdr10plus_gen_0.00_${{ matrix.platform }}.7z -L https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_${{ matrix.platform }}.7z
           7z x -ohdr10plus_gen\ hdr10plus_gen_0.00_${{ matrix.platform }}.7z
-          curl -s -o ffmpeg_lgpl.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20230204.zip
-          7z x -y ffmpeg_lgpl.zip
-          move ffmpeg5* ffmpeg_lgpl
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20231123/ffmpeg_dlls_for_hwenc_20231123.7z
+          7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
-          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
@@ -92,7 +90,6 @@ jobs:
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
           set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
           if "${{ matrix.cuda_ver_major }}" == "10" set CUDA_PATH_V10_1=%CUDA_PATH%
           if "${{ matrix.cuda_ver_major }}" == "11" set CUDA_PATH_V11_1=%CUDA_PATH%
@@ -169,7 +166,6 @@ jobs:
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
-          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
@@ -186,7 +182,6 @@ jobs:
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
           set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
           if "${{ matrix.cuda_ver_major }}" == "10" set CUDA_PATH_V10_1=%CUDA_PATH%
           if "${{ matrix.cuda_ver_major }}" == "11" set CUDA_PATH_V11_1=%CUDA_PATH%
@@ -225,7 +220,7 @@ jobs:
           copy /y NVEnc\NVEnc.zh.ini Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\auo_setup.ini Aviutl_NVEnc_release\exe_files\
           copy /y NVEnc\NVEnc_readme.txt Aviutl_NVEnc_release\
-          copy /y "NVEnc\NVENCÇ™óòópâ¬î\Ç©ämîF [É_ÉuÉãÉNÉäÉbÉN].bat" Aviutl_NVEnc_release\
+          copy /y "NVEnc\NVENC„ÅåÂà©Áî®ÂèØËÉΩ„ÅãÁ¢∫Ë™ç [„ÉÄ„Éñ„É´„ÇØ„É™„ÉÉ„ÇØ].bat" Aviutl_NVEnc_release\
           echo D | xcopy /y /e NVEnc\stg Aviutl_NVEnc_release\plugins\NVEnc_stg
           dir /b /s Aviutl_NVEnc_release\
           7z a -mx9 Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip .\Aviutl_NVEnc_release\*

@@ -21,19 +21,16 @@ by rigaya
 ```Batchfile
 setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
-```
-
-您还需要[Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR)的源代码。
-
-```Batchfile
-git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
-setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+```PTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
 ```
 
 ## 1. 下载源代码
 
 ```Batchfile
 git clone https://github.com/rigaya/NVEnc --recursive
+cd NVEnc
+curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20231123/ffmpeg_dlls_for_hwenc_20231123.7z
+7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
 ```
 
 ## 2. 构建 NVEncC.exe / NVEnc.auo
