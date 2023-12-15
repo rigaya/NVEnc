@@ -812,15 +812,15 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             void *ptrLineU = m_UVBuffer.get() + j * widthUV * pixSize;
             void *ptrLineV = m_UVBuffer.get() + j * widthUV * pixSize + planeOffsetUV;
             if (pSurface->csp() == RGY_CSP_NV12) {
+                const uint8_t *ptrUV = (const uint8_t *)ptrLineUV;
+                uint8_t *ptrU = (uint8_t *)ptrLineU;
+                uint8_t *ptrV = (uint8_t *)ptrLineV;
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
                 alignas(16) static const uint16_t MASK_LOW8[] = {
                     0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff
                 };
                 const __m128i xMaskLow8 = _mm_load_si128((__m128i *)MASK_LOW8);
 
-                const uint8_t *ptrUV = (const uint8_t *)ptrLineUV;
-                uint8_t *ptrU = (uint8_t *)ptrLineU;
-                uint8_t *ptrV = (uint8_t *)ptrLineV;
-#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
                 for (uint32_t i = 0; i < widthUV; i += 16, ptrUV += 32, ptrU += 16, ptrV += 16) {
                     __m128i x0 = _mm_loadu_si128((const __m128i *)(ptrUV + 0));
                     __m128i x1 = _mm_loadu_si128((const __m128i *)(ptrUV + 16));
