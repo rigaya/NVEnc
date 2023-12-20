@@ -347,6 +347,7 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
     float *weightXshared = shared;
     float *weightYshared = weightXshared + shared_weightXdim * block_x;
     float *psCopyFactor  = weightYshared + shared_weightYdim * block_y;
+    static_assert(block_x % 4 == 0 && block_y % 4 == 0, "block_x & block_y must be able to be divided by 4 to ensure psCopyFactor can be accessed by float4.");
 
     if (algo == WEIGHT_SPLINE) {
         if (threadIdx.y == 0) {
