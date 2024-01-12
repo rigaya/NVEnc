@@ -896,6 +896,29 @@ tstring VppSmooth::print() const {
     return str;
 }
 
+VppDenoiseDct::VppDenoiseDct() :
+    enable(false),
+    sigma(FILTER_DEFAULT_DENOISE_DCT_SIGMA),
+    step(FILTER_DEFAULT_DENOISE_DCT_STEP),
+    block_size(FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE) {
+
+}
+
+bool VppDenoiseDct::operator==(const VppDenoiseDct &x) const {
+    return enable == x.enable
+        && sigma == x.sigma
+        && step == x.step
+        && block_size == x.block_size;
+}
+bool VppDenoiseDct::operator!=(const VppDenoiseDct &x) const {
+    return !(*this == x);
+}
+
+tstring VppDenoiseDct::print() const {
+    tstring str = strsprintf(_T("denoise-dct: sigma %.2f, step %d, block_size %d"), sigma, step, block_size);
+    return str;
+}
+
 VppConvolution3d::VppConvolution3d() :
     enable(false),
     fast(false),
@@ -1336,6 +1359,7 @@ RGYParamVpp::RGYParamVpp() :
     convolution3d(),
     knn(),
     pmd(),
+    dct(),
     smooth(),
     subburn(),
     unsharp(),

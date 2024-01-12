@@ -2064,6 +2064,69 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
+        vpp->dct.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{
+            "sigma", "overlap", "block_size" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        vpp->dct.enable = true;
+                    } else if (param_val == _T("false")) {
+                        vpp->dct.enable = false;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma")) {
+                    try {
+                        vpp->dct.sigma = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("step")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_denoise_dct_step, param_val.c_str(), &value)) {
+                        vpp->dct.step = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("block_size")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_denoise_dct_block_size, param_val.c_str(), &value)) {
+                        vpp->dct.block_size = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-smooth") && ENABLE_VPP_FILTER_SMOOTH) {
         vpp->smooth.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -5991,6 +6054,22 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-pmd");
         }
     }
+    if (param->dct != defaultPrm->dct) {
+        tmp.str(tstring());
+        if (!param->dct.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->dct.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("sigma"), dct.sigma, 3);
+            ADD_LST(_T("step"), dct.step, list_vpp_denoise_dct_step);
+            ADD_LST(_T("block_size"), dct.block_size, list_vpp_denoise_dct_block_size);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-denoise-dct ") << tmp.str().substr(1);
+        } else if (param->smooth.enable) {
+            cmd << _T(" --denoise-dct");
+        }
+    }
     if (param->smooth != defaultPrm->smooth) {
         tmp.str(tstring());
         if (!param->smooth.enable && save_disabled_prm) {
@@ -7271,6 +7350,15 @@ tstring gen_cmd_help_vpp() {
         _T("      threshold=<float>         threshold of pmd (default=%.2f, 0.0-255.0)\n")
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
+#endif
+#if ENABLE_VPP_FILTER_DENOISE_DCT
+    str += strsprintf(_T("\n")
+        _T("   --vpp-denoise-dct [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable dct based denoise filter.\n")
+        _T("    params\n")
+        _T("      sigma=<float>\n")
+        _T("      overlap=<int>\n")
+        _T("      block_size=<int>      8 (default) or 16\n"));
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")
