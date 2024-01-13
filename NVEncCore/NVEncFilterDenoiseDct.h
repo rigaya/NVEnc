@@ -62,12 +62,7 @@ protected:
     float m_threshold;
     int m_step;
 
-    int m_targetWidth;
-    int m_targetHeight;
-
     std::unique_ptr<NVEncFilterCspCrop> m_srcCrop;
     std::unique_ptr<NVEncFilterCspCrop> m_dstCrop;
     std::array<std::unique_ptr<CUFrameBuf>, 2> m_bufImg;
-    std::unique_ptr<CUMemBufPair> m_weight;
-    int m_weightPitch;
 };

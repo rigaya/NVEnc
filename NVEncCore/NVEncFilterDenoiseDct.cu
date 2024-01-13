@@ -296,8 +296,6 @@ __device__ void filter_block(
 template<typename TypePixel, int bit_depth, typename TypeTmp, typename TypeWeight, int BLOCK_SIZE, int STEP>
 __device__ void write_output(
     char *__restrict__ ptrDst, const int dstPitch,
-    const char *__restrict__ ptrWeight, const int weightPitch,
-    const char *__restrict__ ptrSrc, const int srcPitch,
     SHARED_OUT,
     const int width, const int height,
     const int sx, const int sy, 
@@ -321,13 +319,11 @@ template<typename TypePixel, int bit_depth, typename TypeTmp, typename TypeWeigh
 __global__ void kernel_denoise_dct(
     char *__restrict__ ptrDst,          const int dstPitch,
     const char *__restrict__ ptrSrc,    const int srcPitch,
-    const char *__restrict__ ptrWeight, const int weightPitch,
     const int width, const int height,
     const float threshold) {
     const int thWorker = threadIdx.x; // BLOCK_SIZE
     const int local_bx = threadIdx.y; // DENOISE_BLOCK_SIZE_X
     const int global_bx = blockIdx.x * DENOISE_BLOCK_SIZE_X + local_bx;
-    const int max_bx = width / BLOCK_SIZE;
     const int global_by = blockIdx.y * DENOISE_LOOP_COUNT_BLOCK;
 
     const int block_x = global_bx * BLOCK_SIZE;
@@ -377,7 +373,7 @@ __global__ void kernel_denoise_dct(
                 __syncthreads();
             }
             for (int iy = 0; iy < STEP; iy++) {
-                write_output<TypePixel, bit_depth, TypeTmp, TypeWeight, BLOCK_SIZE, STEP>(ptrDst, dstPitch, ptrWeight, weightPitch, ptrSrc, srcPitch, shared_out, width, height,
+                write_output<TypePixel, bit_depth, TypeTmp, TypeWeight, BLOCK_SIZE, STEP>(ptrDst, dstPitch, shared_out, width, height,
                     (local_bx + 1 /*1ブロック分ずれている*/) * BLOCK_SIZE + thWorker, shared_y + iy, block_x + thWorker, y + iy);
 
                 clearSharedOutLine<TypeTmp, BLOCK_SIZE>(shared_out, local_bx, thWorker, shared_y + iy + BLOCK_SIZE);
@@ -391,17 +387,15 @@ __global__ void kernel_denoise_dct(
 
 template<typename Type, int bit_depth, int BLOCK_SIZE>
 RGY_ERR denoise_dct_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
-    const void *ptrWeight, const int weightPitch,
-    const int targetWidth, const int targetHeight,
     const float threshold, const int step, cudaStream_t stream) {
     dim3 blockSize(BLOCK_SIZE, DENOISE_BLOCK_SIZE_X);
-    dim3 gridSize(divCeil(targetWidth, blockSize.x), divCeil(targetHeight, BLOCK_SIZE * DENOISE_LOOP_COUNT_BLOCK));
+    dim3 gridSize(divCeil(pInputPlane->width, blockSize.x), divCeil(pInputPlane->height, BLOCK_SIZE * DENOISE_LOOP_COUNT_BLOCK));
     switch (step) {
-    case 2:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 2><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, (const char *)ptrWeight, weightPitch, targetWidth, targetHeight, threshold); break;
-    case 4:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 4><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, (const char *)ptrWeight, weightPitch, targetWidth, targetHeight, threshold); break;
-    case 8:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 8><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, (const char *)ptrWeight, weightPitch, targetWidth, targetHeight, threshold); break;
+    case 2:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 2><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height, threshold); break;
+    case 4:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 4><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height, threshold); break;
+    case 8:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 8><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height, threshold); break;
     case 1:
-    default: kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 1><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, (const char *)ptrWeight, weightPitch, targetWidth, targetHeight, threshold); break;
+    default: kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 1><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height, threshold); break;
     }
     
     auto err = err_to_rgy(cudaGetLastError());
@@ -413,15 +407,13 @@ RGY_ERR denoise_dct_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInput
 
 template<typename Type, int bit_depth, int BLOCK_SIZE>
 static RGY_ERR denoise_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
-    const void *ptrWeight, const int weightPitch,
-    const int targetWidth, const int targetHeight,
     const float threshold, const int step, cudaStream_t stream) {
     for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
         const auto plane = (RGY_PLANE)iplane;
         const auto planeInput = getPlane(pInputFrame, plane);
         auto planeOutput = getPlane(pOutputFrame, plane);
         auto sts = denoise_dct_plane<Type, bit_depth, BLOCK_SIZE>(
-            &planeOutput, &planeInput, ptrWeight, weightPitch, targetWidth, targetHeight, threshold, step, stream);
+            &planeOutput, &planeInput, threshold, step, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -473,7 +465,7 @@ RGY_ERR NVEncFilterDenoiseDct::colorDecorrelation(RGYFrameInfo *pOutputFrame, co
     kernel_color_decorrelation<float> << <gridSize, blockSize, 0, stream >> > (
         planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch,
         planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch,
-        m_targetWidth, m_targetHeight);
+        planeInputY.width, planeInputY.height);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
         return err;
@@ -526,7 +518,7 @@ RGY_ERR NVEncFilterDenoiseDct::colorCorrelation(RGYFrameInfo *pOutputFrame, cons
     kernel_color_correlation<float><<<gridSize, blockSize, 0, stream >>> (
         planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch,
         planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch,
-        m_targetWidth, m_targetHeight);
+        planeInputY.width, planeInputY.height);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
         return err;
@@ -568,7 +560,7 @@ RGY_ERR NVEncFilterDenoiseDct::denoise(RGYFrameInfo *pOutputFrame, const RGYFram
     }
 #if 1
     std::swap(bufSrc, bufDst);
-    static const std::map<int, decltype(denoise_frame<uint16_t, 16, 8>)*> func_list = {
+    static const std::map<int, decltype(denoise_frame<float, 32, 8>)*> func_list = {
         { 8,  denoise_frame<float, 32, 8>  },
         //{ 16, denoise_frame<uint16_t, 16, 16> },
     };
@@ -576,7 +568,7 @@ RGY_ERR NVEncFilterDenoiseDct::denoise(RGYFrameInfo *pOutputFrame, const RGYFram
         AddMessage(RGY_LOG_ERROR, _T("unsupported block_size %d.\n"), prm->dct.block_size);
         return RGY_ERR_UNSUPPORTED;
     }
-    sts = func_list.at(prm->dct.block_size)(&bufDst->frame, &bufSrc->frame, m_weight->ptrDevice, m_weightPitch, m_targetWidth, m_targetHeight, m_threshold, m_step, stream);
+    sts = func_list.at(prm->dct.block_size)(&bufDst->frame, &bufSrc->frame, m_threshold, m_step, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -603,12 +595,9 @@ NVEncFilterDenoiseDct::NVEncFilterDenoiseDct() :
     m_bInterlacedWarn(false),
     m_threshold(0.0f),
     m_step(0),
-    m_targetWidth(0),
-    m_targetHeight(0),
     m_srcCrop(),
     m_dstCrop(),
-    m_bufImg(),
-    m_weight() {
+    m_bufImg() {
     m_sFilterName = _T("denoise-dct");
 }
 
@@ -700,40 +689,6 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
         m_threshold = prm->dct.sigma * 3.0f;
         if (RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] > 8) {
             m_threshold *= (1 << (RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] - 8));
-        }
-
-        m_targetWidth = prm->frameIn.width - (prm->frameIn.width - prm->dct.block_size) % m_step;
-        m_targetHeight = prm->frameIn.height - (prm->frameIn.height - prm->dct.block_size) % m_step;
-
-        const int sliceHeight = (int)m_targetHeight + (prm->dct.block_size - 1) * 2;
-        const int linesize = ALIGN32(m_targetWidth);
-        std::vector<int> invWeights(linesize * m_targetHeight, 0);
-
-        for (int y = 0; y < m_targetHeight - prm->dct.block_size + 1; y += m_step) {
-            for (int x = 0; x < m_targetWidth - prm->dct.block_size + 1; x += m_step) {
-                for (int by = 0; by < prm->dct.block_size; by++) {
-                    for (int bx = 0; bx < prm->dct.block_size; bx++) {
-                        invWeights[(y + by) * linesize + x + bx]++;
-                    }
-                }
-            }
-        }
-        m_weight = std::make_unique<CUMemBufPair>(invWeights.size() * sizeof(float));
-        m_weightPitch = linesize * sizeof(float);
-        sts = err_to_rgy(m_weight->alloc());
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-
-        float *ptrWeighHost = (float *)m_weight->ptrHost;
-        for (int y = 0; y < m_targetHeight; y++) {
-            for (int x = 0; x < m_targetWidth; x++) {
-                ptrWeighHost[y * linesize + x] = 1.0f / invWeights[y * linesize + x];
-            }
-        }
-        sts = err_to_rgy(m_weight->copyHtoD());
-        if (sts != RGY_ERR_NONE) {
-            return sts;
         }
     }
 
