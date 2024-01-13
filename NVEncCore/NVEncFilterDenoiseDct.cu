@@ -422,9 +422,9 @@ __global__ void kernel_color_decorrelation(
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix < width && iy < height) {
-        const float ptrSrc0 = (float)(((const Type *)(src0 + iy * dstPitch + ix * sizeof(Type)))[0]);
-        const float ptrSrc1 = (float)(((const Type *)(src1 + iy * dstPitch + ix * sizeof(Type)))[0]);
-        const float ptrSrc2 = (float)(((const Type *)(src2 + iy * dstPitch + ix * sizeof(Type)))[0]);
+        const float ptrSrc0 = (float)(((const Type *)(src0 + iy * srcPitch + ix * sizeof(Type)))[0]);
+        const float ptrSrc1 = (float)(((const Type *)(src1 + iy * srcPitch + ix * sizeof(Type)))[0]);
+        const float ptrSrc2 = (float)(((const Type *)(src2 + iy * srcPitch + ix * sizeof(Type)))[0]);
 
         const float d0 = ptrSrc0 * DCT3X3_0_0 + ptrSrc1 * DCT3X3_0_1 + ptrSrc2 * DCT3X3_0_2;
         const float d1 = ptrSrc0 * DCT3X3_1_0 +                        ptrSrc2 * DCT3X3_1_2;
