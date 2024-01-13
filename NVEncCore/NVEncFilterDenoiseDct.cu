@@ -41,9 +41,9 @@
 #define DENOISE_BLOCK_SIZE_X (8) //ひとつのスレッドブロックの担当するx方向の8x8ブロックの数
 
 #define DENOISE_SHARED_BLOCK_NUM_X (DENOISE_BLOCK_SIZE_X+2) //sharedメモリ上のx方向の8x8ブロックの数
-#define DENOISE_SHARED_BLOCK_NUM_Y (8)                      //sharedメモリ上のy方向の8x8ブロックの数
+#define DENOISE_SHARED_BLOCK_NUM_Y (2)                      //sharedメモリ上のy方向の8x8ブロックの数
 
-#define DENOISE_LOOP_COUNT_BLOCK (1)
+#define DENOISE_LOOP_COUNT_BLOCK (8)
 
 #define DCT3X3_0_0 ( 0.5773502691896258f) /*  1/sqrt(3) */
 #define DCT3X3_0_1 ( 0.5773502691896258f) /*  1/sqrt(3) */
@@ -282,11 +282,11 @@ __device__ void filter_block(
     const int block_x, const int block_y,
     const int width, const int height,
     const float threshold) {
-#if 0
+#if 1
     loadBlocktmp<TypePixel, TypeTmp, BLOCK_SIZE>(shared_tmp, local_bx, thWorker, ptrSrc, srcPitch, block_x, block_y, width, height);
-    //dctBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker);
-    //thresholdBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker, threshold);
-    //idctBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker);
+    dctBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker);
+    thresholdBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker, threshold);
+    idctBlock<TypeTmp, BLOCK_SIZE>(shared_tmp[local_bx], thWorker);
     addBlocktmp<TypeTmp, BLOCK_SIZE>(shared_out, shared_block_x, shared_block_y, shared_tmp, local_bx, thWorker);
 #else
     directAddBlock<TypePixel, TypeTmp, BLOCK_SIZE>(shared_out, shared_block_x, shared_block_y, thWorker, ptrSrc, srcPitch, block_x, block_y, width, height);
