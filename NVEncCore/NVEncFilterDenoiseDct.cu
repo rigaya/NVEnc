@@ -196,6 +196,22 @@ __device__ void thresholdBlock(TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], i
 #define SHARED_TMP TypeTmp shared_tmp[DENOISE_BLOCK_SIZE_X][BLOCK_SIZE][BLOCK_SIZE + 1]
 #define SHARED_OUT TypeTmp shared_out[BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y][BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_X]
 
+
+template<typename TypeTmp, int BLOCK_SIZE>
+__device__ void clearSharedOutLine(
+    SHARED_OUT,
+    const int local_bx,
+    const int thWorker,
+    const int sy
+) {
+    const int y = sy % (BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y);
+    shared_out[y][local_bx * BLOCK_SIZE + thWorker] = 0;
+    if (local_bx < (DENOISE_SHARED_BLOCK_NUM_X - BLOCK_SIZE)) {
+        shared_out[y][(local_bx + BLOCK_SIZE) * BLOCK_SIZE + thWorker] = 0;
+    }
+}
+
+
 template<typename TypeTmp, int BLOCK_SIZE>
 __device__ void clearSharedOut(
     SHARED_OUT,
@@ -204,10 +220,7 @@ __device__ void clearSharedOut(
 ) {
     #pragma unroll
     for (int y = 0; y < BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y; y++) {
-        shared_out[y][local_bx * BLOCK_SIZE + thWorker] = 0;
-        if (local_bx < (DENOISE_SHARED_BLOCK_NUM_X - BLOCK_SIZE)) {
-            shared_out[y][(local_bx + BLOCK_SIZE) * BLOCK_SIZE + thWorker] = 0;
-        }
+        clearSharedOutLine<TypeTmp, BLOCK_SIZE>(shared_out, local_bx, thWorker, y);
     }
 }
 
@@ -293,14 +306,13 @@ __device__ void write_output(
         TypePixel        *dst    = (TypePixel        *)(ptrDst    + y * dstPitch    + x * sizeof(TypePixel) );
         //const TypeWeight *weight = (const TypeWeight *)(ptrWeight + y * weightPitch + x * sizeof(TypeWeight));
         //const TypePixel  *src    = (const TypePixel  *)(ptrSrc    + y * srcPitch    + x * sizeof(TypePixel));
-        TypeTmp *out = &shared_out[sy % (BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y)][sx];
+        const TypeTmp *out = &shared_out[sy % (BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y)][sx];
         const float weight = (1.0f / (float)(BLOCK_SIZE * BLOCK_SIZE / (STEP * STEP)));;
         if (bit_depth == 32) {
             dst[0] = out[0] * weight;
         } else {
             dst[0] = (TypePixel)clamp((int)out[0] * weight + 0.5f, 0, (1 << bit_depth) - 1);
         }
-        out[0] = 0;
     }
 }
 
@@ -366,6 +378,8 @@ __global__ void kernel_denoise_dct(
             for (int iy = 0; iy < STEP; iy++) {
                 write_output<TypePixel, bit_depth, TypeTmp, TypeWeight, BLOCK_SIZE, STEP>(ptrDst, dstPitch, ptrWeight, weightPitch, ptrSrc, srcPitch, shared_out, width, height,
                     (local_bx + 1 /*1ブロック分ずれている*/) * BLOCK_SIZE + thWorker, shared_y + iy, block_x + thWorker, y + iy);
+
+                clearSharedOutLine<TypeTmp, BLOCK_SIZE>(shared_out, local_bx, thWorker, shared_y + iy + BLOCK_SIZE);
             }
             __syncthreads();
         }
