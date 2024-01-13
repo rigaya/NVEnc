@@ -183,4 +183,21 @@ static __device__ float lerpf(float v0, float v1, float ratio) {
     return v0 + (v1 - v0) * ratio;
 }
 
+static __device__ int wrap_idx(const int idx, const int min, const int max) {
+    if (idx < min) {
+        return min - idx;
+    }
+    if (idx > max) {
+        return max - (idx - max);
+    }
+    return idx;
+}
+
+template<typename T>
+static __device__ T *selectptr(T *ptr0, T *ptr1, T *ptr2, const int idx) {
+    if (idx == 1) return ptr1;
+    if (idx == 2) return ptr2;
+    return ptr0;
+}
+
 #endif //__RGY_CUDA_UTIL_KERNEL_H__

@@ -35,6 +35,7 @@
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "rgy_cuda_util_kernel.h"
 #pragma warning (pop)
 
 #define DENOISE_BLOCK_SIZE_X (8) //ひとつのスレッドブロックの担当するx方向の8x8ブロックの数
@@ -233,8 +234,8 @@ __device__ void loadBlocktmp(
     const int width, const int height) {
     #pragma unroll
     for (int y = 0; y < BLOCK_SIZE; y++) {
-        const int src_x = clamp(block_x + thWorker, 0, width  - 1);
-        const int src_y = clamp(block_y + y,        0, height - 1);
+        const int src_x = wrap_idx(block_x + thWorker, 0, width  - 1);
+        const int src_y = wrap_idx(block_y + y,        0, height - 1);
         TypePixel pix = ((const TypePixel *)(ptrSrc + src_y * srcPitch + src_x * sizeof(TypePixel)))[0];
         shared_tmp[local_bx][y][thWorker] = (TypeTmp)pix;
     }
@@ -264,8 +265,8 @@ __device__ void directAddBlock(
     const int width, const int height) {
     #pragma unroll
     for (int y = 0; y < BLOCK_SIZE; y++) {
-        const int src_x = clamp(block_x + thWorker, 0, width - 1);
-        const int src_y = clamp(block_y + y,        0, height - 1);
+        const int src_x = wrap_idx(block_x + thWorker, 0, width - 1);
+        const int src_y = wrap_idx(block_y + y,        0, height - 1);
         TypePixel pix = ((const TypePixel *)(ptrSrc + src_y * srcPitch + src_x * sizeof(TypePixel)))[0];
         shared_out[(shared_block_y + y) % (BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y)][shared_block_x + thWorker] += pix;
     }
