@@ -684,7 +684,7 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
         m_step = prm->dct.step;
         m_threshold = prm->dct.sigma * 3.0f;
         if (RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] > 8) {
-            m_threshold *= (1 << RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] - 8);
+            m_threshold *= (1 << (RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] - 8));
         }
 
         m_targetWidth = prm->frameIn.width - (prm->frameIn.width - prm->dct.block_size) % m_step;
