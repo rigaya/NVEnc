@@ -344,9 +344,9 @@ __global__ void kernel_denoise_dct(
 
     // y方向の事前計算
     {
-        const int block_y_start = block_y - BLOCK_SIZE + STEP;
+        const int block_y_start = (block_y - BLOCK_SIZE) + STEP;
         for (int y = block_y_start; y < block_y; y += STEP) {
-            const int shared_y = y - block_y + BLOCK_SIZE;
+            const int shared_y = y - (block_y - BLOCK_SIZE);
             for (int ix_loop = 0; ix_loop < BLOCK_SIZE; ix_loop += STEP) {
                 const int x = block_x + ix_loop;
                 const int shared_x = local_bx * BLOCK_SIZE + ix_loop;
@@ -363,7 +363,7 @@ __global__ void kernel_denoise_dct(
     {
         const int block_y_fin = min(height, block_y + DENOISE_LOOP_COUNT_BLOCK * BLOCK_SIZE);
         for (int y = block_y; y < block_y_fin; y += STEP) {
-            const int shared_y = y - block_y + BLOCK_SIZE;
+            const int shared_y = y - (block_y - BLOCK_SIZE);
             for (int ix_loop = 0; ix_loop < BLOCK_SIZE; ix_loop += STEP) {
                 const int x = block_x + ix_loop;
                 const int shared_x = local_bx * BLOCK_SIZE + ix_loop;
@@ -377,7 +377,7 @@ __global__ void kernel_denoise_dct(
                 write_output<TypePixel, bit_depth, TypeTmp, TypeWeight, BLOCK_SIZE, STEP>(ptrDst, dstPitch, shared_out, width, height,
                     (local_bx + 1 /*1ブロック分ずれている*/) * BLOCK_SIZE + thWorker, shared_y + iy, block_x + thWorker, y + iy);
 
-                clearSharedOutLine<TypeTmp, BLOCK_SIZE>(shared_out, local_bx, thWorker, shared_y + iy + BLOCK_SIZE);
+                clearSharedOutLine<TypeTmp, BLOCK_SIZE>(shared_out, local_bx, thWorker, shared_y + iy + BLOCK_SIZE /*1ブロック先をクリア*/);
             }
             __syncthreads();
         }
