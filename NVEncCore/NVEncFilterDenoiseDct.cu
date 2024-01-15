@@ -296,18 +296,14 @@ __device__ void filter_block(
 template<typename TypePixel, int bit_depth, typename TypeTmp, typename TypeWeight, int BLOCK_SIZE, int STEP>
 __device__ void write_output(
     char *const __restrict__ ptrDst, const int dstPitch,
-    const char *const __restrict__ ptrSrc, const int srcPitch,
     SHARED_OUT,
     const int width, const int height,
     const int sx, const int sy, 
-    const int x, const int y
-) {
+    const int x, const int y) {
     if (x < width && y < height) {
-        TypePixel        *dst    = (TypePixel        *)(ptrDst    + y * dstPitch    + x * sizeof(TypePixel) );
-        //const TypeWeight *weight = (const TypeWeight *)(ptrWeight + y * weightPitch + x * sizeof(TypeWeight));
-        //const TypePixel  *src    = (const TypePixel  *)(ptrSrc    + y * srcPitch    + x * sizeof(TypePixel));
+        TypePixel*dst = (TypePixel*)(ptrDst + y * dstPitch + x * sizeof(TypePixel));
         const TypeTmp *out = &shared_out[sy % (BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y)][sx];
-        const float weight = (1.0f / (float)(BLOCK_SIZE * BLOCK_SIZE / (STEP * STEP)));;
+        const float weight = (1.0f / (float)(BLOCK_SIZE * BLOCK_SIZE / (STEP * STEP)));
         if (bit_depth == 32) {
             dst[0] = out[0] * weight;
         } else {
@@ -336,14 +332,12 @@ __global__ void kernel_denoise_dct(
     #define FILTER_BLOCK(SHARED_X, SHARED_Y, X, Y) \
         { filter_block<TypePixel, bit_depth, TypeTmp, BLOCK_SIZE>(ptrSrc, srcPitch, shared_tmp, shared_out, local_bx, thWorker, (SHARED_X), (SHARED_Y), (X), (Y), width, height, threshold); }
 
-    // SHARED_OUTの初期化
-    {
+    { // SHARED_OUTの初期化
         clearSharedOut<TypeTmp, BLOCK_SIZE>(shared_out, local_bx, thWorker);
         __syncthreads();
     }
 
-    // y方向の事前計算
-    {
+    { // y方向の事前計算
         const int block_y_start = (block_y - BLOCK_SIZE) + STEP;
         for (int y = block_y_start; y < block_y; y += STEP) {
             const int shared_y = y - (block_y - BLOCK_SIZE);
@@ -359,8 +353,7 @@ __global__ void kernel_denoise_dct(
         }
     }
 
-    // 本計算
-    {
+    { // 本計算
         const int block_y_fin = min(height, block_y + DENOISE_LOOP_COUNT_BLOCK * BLOCK_SIZE);
         for (int y = block_y; y < block_y_fin; y += STEP) {
             const int shared_y = y - (block_y - BLOCK_SIZE);
