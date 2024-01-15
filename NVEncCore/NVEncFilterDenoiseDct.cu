@@ -229,7 +229,7 @@ template<typename TypePixel, typename TypeTmp, int BLOCK_SIZE>
 __device__ void loadBlocktmp(
     SHARED_TMP,
     const int local_bx, const int thWorker,
-    const char *__restrict__ ptrSrc, const int srcPitch,
+    const char *const __restrict__ ptrSrc, const int srcPitch,
     const int block_x, const int block_y,
     const int width, const int height) {
     #pragma unroll
@@ -260,7 +260,7 @@ __device__ void directAddBlock(
     SHARED_OUT,
     const int shared_block_x, const int shared_block_y,
     const int thWorker,
-    const char *__restrict__ ptrSrc, const int srcPitch,
+    const char *const __restrict__ ptrSrc, const int srcPitch,
     const int block_x, const int block_y,
     const int width, const int height) {
     #pragma unroll
@@ -274,7 +274,7 @@ __device__ void directAddBlock(
 
 template<typename TypePixel, int bit_depth, typename TypeTmp, int BLOCK_SIZE>
 __device__ void filter_block(
-    const char *__restrict__ ptrSrc, const int srcPitch,
+    const char *const __restrict__ ptrSrc, const int srcPitch,
     SHARED_TMP,
     SHARED_OUT,
     const int local_bx, const int thWorker,
@@ -295,7 +295,8 @@ __device__ void filter_block(
 
 template<typename TypePixel, int bit_depth, typename TypeTmp, typename TypeWeight, int BLOCK_SIZE, int STEP>
 __device__ void write_output(
-    char *__restrict__ ptrDst, const int dstPitch,
+    char *const __restrict__ ptrDst, const int dstPitch,
+    const char *const __restrict__ ptrSrc, const int srcPitch,
     SHARED_OUT,
     const int width, const int height,
     const int sx, const int sy, 
@@ -317,8 +318,8 @@ __device__ void write_output(
 
 template<typename TypePixel, int bit_depth, typename TypeTmp, typename TypeWeight, int BLOCK_SIZE, int STEP>
 __global__ void kernel_denoise_dct(
-    char *__restrict__ ptrDst,          const int dstPitch,
-    const char *__restrict__ ptrSrc,    const int srcPitch,
+    char *const __restrict__ ptrDst,          const int dstPitch,
+    const char *const __restrict__ ptrSrc,    const int srcPitch,
     const int width, const int height,
     const float threshold) {
     const int thWorker = threadIdx.x; // BLOCK_SIZE
