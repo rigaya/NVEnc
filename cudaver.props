@@ -106,6 +106,13 @@
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_117_0.dll</NVRTC_DLL_NAME>
   </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_8)'" >
+	  <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
+	  <CUDA_MINOR_VER>8</CUDA_MINOR_VER>
+	  <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+	  <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+	  <NVRTC_DLL_NAME>nvrtc64_118_0.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V12_0)'" >
     <CUDA_MAJOR_VER>12</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
