@@ -714,9 +714,9 @@ RGY_ERR NVEncFilterDenoiseDct::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    if (interlaced(*pInputFrame)) {
-        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
-    }
+    //if (interlaced(*pInputFrame)) {
+    //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
+    //}
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
