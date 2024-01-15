@@ -619,7 +619,7 @@ const CX_DESC list_vpp_nnedi_error_type[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_vpp_deband[] = {
+/*const CX_DESC list_vpp_deband[] = {
     { _T("0 - 1点参照"),  0 },
     { _T("1 - 2点参照"),  1 },
     { _T("2 - 4点参照"),  2 },
@@ -632,7 +632,7 @@ const CX_DESC list_vpp_deband_en[] = {
     { _T("2 - 4pixel ref"),  2 },
     { NULL, 0 }
 };
-static_assert(_countof(list_vpp_deband) == _countof(list_vpp_deband_en), "_countof(list_vpp_deband) == _countof(list_vpp_deband_en)");
+static_assert(_countof(list_vpp_deband) == _countof(list_vpp_deband_en), "_countof(list_vpp_deband) == _countof(list_vpp_deband_en)");*/
 
 const CX_DESC list_vpp_rotate[] = {
     { _T("90"),   90 },
