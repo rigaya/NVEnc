@@ -397,8 +397,8 @@ __device__ void clearSharedOutLine(
 ) {
     const int y = sy % (BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y);
     shared_out[y][local_bx * BLOCK_SIZE + thWorker] = 0;
-    if (local_bx < (DENOISE_SHARED_BLOCK_NUM_X - BLOCK_SIZE)) {
-        shared_out[y][(local_bx + BLOCK_SIZE) * BLOCK_SIZE + thWorker] = 0;
+    if (local_bx < (DENOISE_SHARED_BLOCK_NUM_X - DENOISE_BLOCK_SIZE_X)) {
+        shared_out[y][(local_bx + DENOISE_BLOCK_SIZE_X) * BLOCK_SIZE + thWorker] = 0;
     }
 }
 
