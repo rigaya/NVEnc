@@ -314,17 +314,27 @@ __device__ void write_output(
 
 template<typename TypePixel, int bit_depth, typename TypeTmp, typename TypeWeight, int BLOCK_SIZE, int STEP>
 __global__ void kernel_denoise_dct(
-    char *const __restrict__ ptrDst,          const int dstPitch,
-    const char *const __restrict__ ptrSrc,    const int srcPitch,
+    char *const __restrict__ ptrDst0,
+    char *const __restrict__ ptrDst1,
+    char *const __restrict__ ptrDst2,
+    const int dstPitch,
+    const char *const __restrict__ ptrSrc0,
+    const char *const __restrict__ ptrSrc1,
+    const char *const __restrict__ ptrSrc2,
+    const int srcPitch,
     const int width, const int height,
     const float threshold) {
     const int thWorker = threadIdx.x; // BLOCK_SIZE
     const int local_bx = threadIdx.y; // DENOISE_BLOCK_SIZE_X
     const int global_bx = blockIdx.x * DENOISE_BLOCK_SIZE_X + local_bx;
     const int global_by = blockIdx.y * DENOISE_LOOP_COUNT_BLOCK;
+    const int plane_idx = blockIdx.z;
 
     const int block_x = global_bx * BLOCK_SIZE;
     const int block_y = global_by * BLOCK_SIZE;
+
+    char *const __restrict__ ptrDst = selectptr(ptrDst0, ptrDst1, ptrDst2, plane_idx);
+    const char *const __restrict__ ptrSrc = selectptr(ptrSrc0, ptrSrc1, ptrSrc2, plane_idx);
 
     __shared__ SHARED_TMP;
     __shared__ SHARED_OUT;
@@ -379,19 +389,25 @@ __global__ void kernel_denoise_dct(
 }
 
 
-template<typename Type, int bit_depth, int BLOCK_SIZE>
-RGY_ERR denoise_dct_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
-    const float threshold, const int step, cudaStream_t stream) {
-    dim3 blockSize(BLOCK_SIZE, DENOISE_BLOCK_SIZE_X);
-    dim3 gridSize(divCeil(pInputPlane->width, blockSize.x), divCeil(pInputPlane->height, BLOCK_SIZE * DENOISE_LOOP_COUNT_BLOCK));
-    switch (step) {
-    case 2:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 2><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height, threshold); break;
-    case 4:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 4><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height, threshold); break;
-    case 8:  kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 8><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height, threshold); break;
-    case 1:
-    default: kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 1><<<gridSize, blockSize, 0, stream>>>((char *)pOutputPlane->ptr, pOutputPlane->pitch, (const char *)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height, threshold); break;
+template<typename Type, int bit_depth, int BLOCK_SIZE, int STEP>
+RGY_ERR denoise_dct_run(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+    const float threshold, cudaStream_t stream) {
+    const auto planeInputR = getPlane(pInputFrame, RGY_PLANE_R);
+    const auto planeInputG = getPlane(pInputFrame, RGY_PLANE_G);
+    const auto planeInputB = getPlane(pInputFrame, RGY_PLANE_B);
+    auto planeOutputR = getPlane(pOutputFrame, RGY_PLANE_R);
+    auto planeOutputG = getPlane(pOutputFrame, RGY_PLANE_G);
+    auto planeOutputB = getPlane(pOutputFrame, RGY_PLANE_B);
+    if (planeInputR.pitch != planeInputG.pitch || planeInputR.pitch != planeInputB.pitch
+        || planeOutputR.pitch != planeOutputG.pitch || planeOutputR.pitch != planeOutputB.pitch) {
+        return RGY_ERR_UNKNOWN;
     }
-    
+    dim3 blockSize(BLOCK_SIZE, DENOISE_BLOCK_SIZE_X);
+    dim3 gridSize(divCeil(planeInputR.width, blockSize.x * DENOISE_BLOCK_SIZE_X), divCeil(planeInputR.height, BLOCK_SIZE * DENOISE_LOOP_COUNT_BLOCK), 3);
+    kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 1> << <gridSize, blockSize, 0, stream >>>(
+        (char *)planeOutputR.ptr, (char *)planeOutputG.ptr, (char *)planeOutputB.ptr, planeOutputR.pitch,
+        (const char *)planeInputR.ptr, (const char *)planeInputG.ptr, (const char *)planeInputB.ptr, planeInputR.pitch,
+        planeInputR.width, planeInputR.height, threshold);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
         return err;
@@ -402,17 +418,12 @@ RGY_ERR denoise_dct_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInput
 template<typename Type, int bit_depth, int BLOCK_SIZE>
 static RGY_ERR denoise_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     const float threshold, const int step, cudaStream_t stream) {
-    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
-        const auto plane = (RGY_PLANE)iplane;
-        const auto planeInput = getPlane(pInputFrame, plane);
-        auto planeOutput = getPlane(pOutputFrame, plane);
-        auto sts = denoise_dct_plane<Type, bit_depth, BLOCK_SIZE>(
-            &planeOutput, &planeInput, threshold, step, stream);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
+    switch (step) {
+    case 2:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 2>(pOutputFrame, pInputFrame, threshold, stream);
+    case 4:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 4>(pOutputFrame, pInputFrame, threshold, stream);
+    case 8:  return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 8>(pOutputFrame, pInputFrame, threshold, stream);
+    default: return denoise_dct_run<Type, bit_depth, BLOCK_SIZE, 1>(pOutputFrame, pInputFrame, threshold, stream);
     }
-    return RGY_ERR_NONE;
 }
 
 template<typename Type>
