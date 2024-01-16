@@ -441,25 +441,29 @@ __global__ void kernel_color_decorrelation(
 }
 
 RGY_ERR NVEncFilterDenoiseDct::colorDecorrelation(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-    if (   cmpFrameInfoCspResolution(&planeInputY, &planeOutputY)
-        || cmpFrameInfoCspResolution(&planeInputU, &planeOutputU)
-        || cmpFrameInfoCspResolution(&planeInputV, &planeOutputV)
-        || cmpFrameInfoCspResolution(&planeInputY, &planeInputU)
-        || cmpFrameInfoCspResolution(&planeInputY, &planeInputV)) {
+    const auto planeInputR = getPlane(pInputFrame, RGY_PLANE_R);
+    const auto planeInputG = getPlane(pInputFrame, RGY_PLANE_G);
+    const auto planeInputB = getPlane(pInputFrame, RGY_PLANE_B);
+    auto planeOutputR = getPlane(pOutputFrame, RGY_PLANE_R);
+    auto planeOutputG = getPlane(pOutputFrame, RGY_PLANE_G);
+    auto planeOutputB = getPlane(pOutputFrame, RGY_PLANE_B);
+    if (   cmpFrameInfoCspResolution(&planeInputR, &planeOutputR)
+        || cmpFrameInfoCspResolution(&planeInputG, &planeOutputG)
+        || cmpFrameInfoCspResolution(&planeInputB, &planeOutputB)
+        || cmpFrameInfoCspResolution(&planeInputR, &planeInputG)
+        || cmpFrameInfoCspResolution(&planeInputR, &planeInputB)) {
+        return RGY_ERR_UNKNOWN;
+    }
+    if (planeInputR.pitch != planeInputG.pitch || planeInputR.pitch != planeInputB.pitch
+        || planeOutputR.pitch != planeOutputG.pitch || planeOutputR.pitch != planeOutputB.pitch) {
         return RGY_ERR_UNKNOWN;
     }
     dim3 blockSize(64, 8);
-    dim3 gridSize(divCeil(planeInputY.width, blockSize.x), divCeil(planeInputY.height, blockSize.y));
+    dim3 gridSize(divCeil(planeInputR.width, blockSize.x), divCeil(planeInputR.height, blockSize.y));
     kernel_color_decorrelation<float> << <gridSize, blockSize, 0, stream >> > (
-        planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch,
-        planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch,
-        planeInputY.width, planeInputY.height);
+        planeOutputR.ptr, planeOutputG.ptr, planeOutputB.ptr, planeOutputR.pitch,
+        planeInputR.ptr, planeInputG.ptr, planeInputB.ptr, planeInputR.pitch,
+        planeInputR.width, planeInputR.height);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
         return err;
@@ -494,25 +498,29 @@ __global__ void kernel_color_correlation(
 }
 
 RGY_ERR NVEncFilterDenoiseDct::colorCorrelation(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-    if (   cmpFrameInfoCspResolution(&planeInputY, &planeOutputY)
-        || cmpFrameInfoCspResolution(&planeInputU, &planeOutputU)
-        || cmpFrameInfoCspResolution(&planeInputV, &planeOutputV)
-        || cmpFrameInfoCspResolution(&planeInputY, &planeInputU)
-        || cmpFrameInfoCspResolution(&planeInputY, &planeInputV)) {
+    const auto planeInputR = getPlane(pInputFrame, RGY_PLANE_R);
+    const auto planeInputG = getPlane(pInputFrame, RGY_PLANE_G);
+    const auto planeInputB = getPlane(pInputFrame, RGY_PLANE_B);
+    auto planeOutputR = getPlane(pOutputFrame, RGY_PLANE_R);
+    auto planeOutputG = getPlane(pOutputFrame, RGY_PLANE_G);
+    auto planeOutputB = getPlane(pOutputFrame, RGY_PLANE_B);
+    if (   cmpFrameInfoCspResolution(&planeInputR, &planeOutputR)
+        || cmpFrameInfoCspResolution(&planeInputG, &planeOutputG)
+        || cmpFrameInfoCspResolution(&planeInputB, &planeOutputB)
+        || cmpFrameInfoCspResolution(&planeInputR, &planeInputG)
+        || cmpFrameInfoCspResolution(&planeInputR, &planeInputB)) {
+        return RGY_ERR_UNKNOWN;
+    }
+    if (planeInputR.pitch != planeInputG.pitch || planeInputR.pitch != planeInputB.pitch
+        || planeOutputR.pitch != planeOutputG.pitch || planeOutputR.pitch != planeOutputB.pitch) {
         return RGY_ERR_UNKNOWN;
     }
     dim3 blockSize(64, 8);
-    dim3 gridSize(divCeil(planeInputY.width, blockSize.x), divCeil(planeInputY.height, blockSize.y));
+    dim3 gridSize(divCeil(planeInputR.width, blockSize.x), divCeil(planeInputR.height, blockSize.y));
     kernel_color_correlation<float><<<gridSize, blockSize, 0, stream >>> (
-        planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch,
-        planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch,
-        planeInputY.width, planeInputY.height);
+        planeOutputR.ptr, planeOutputG.ptr, planeOutputB.ptr, planeOutputR.pitch,
+        planeInputR.ptr, planeInputG.ptr, planeInputB.ptr, planeInputR.pitch,
+        planeInputR.width, planeInputR.height);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
         return err;
