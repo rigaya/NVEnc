@@ -304,11 +304,7 @@ __device__ void write_output(
         TypePixel*dst = (TypePixel*)(ptrDst + y * dstPitch + x * sizeof(TypePixel));
         const TypeTmp *out = &shared_out[sy % (BLOCK_SIZE * DENOISE_SHARED_BLOCK_NUM_Y)][sx];
         const float weight = (1.0f / (float)(BLOCK_SIZE * BLOCK_SIZE / (STEP * STEP)));
-        if (bit_depth == 32) {
-            dst[0] = out[0] * weight;
-        } else {
-            dst[0] = (TypePixel)clamp((int)out[0] * weight + 0.5f, 0, (1 << bit_depth) - 1);
-        }
+        dst[0] = out[0] * weight;
     }
 }
 
