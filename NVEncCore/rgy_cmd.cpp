@@ -7351,15 +7351,6 @@ tstring gen_cmd_help_vpp() {
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
 #endif
-#if ENABLE_VPP_FILTER_DENOISE_DCT
-    str += strsprintf(_T("\n")
-        _T("   --vpp-denoise-dct [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     enable dct based denoise filter.\n")
-        _T("    params\n")
-        _T("      sigma=<float>\n")
-        _T("      overlap=<int>\n")
-        _T("      block_size=<int>      8 (default) or 16\n"));
-#endif
 #if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")
         _T("   --vpp-smooth [<param1>=<value>][,<param2>=<value>][...]\n")
@@ -7371,6 +7362,18 @@ tstring gen_cmd_help_vpp() {
         _T("      prec=<string>         Select calculation precision.\n")
         _T("                              auto (default), fp16, fp32\n"),
         FILTER_DEFAULT_SMOOTH_QUALITY, FILTER_DEFAULT_SMOOTH_QP);
+#endif
+#if ENABLE_VPP_FILTER_DENOISE_DCT
+    str += strsprintf(_T("\n")
+        _T("   --vpp-denoise-dct [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable dct based denoise filter.\n")
+        _T("    params\n")
+        _T("      step=<int>            quality of filter (smaller value will result higher quality)\n")
+        _T("                             1, 2 (default), 4, 8\n")
+        _T("      sigma=<float>         strength of filter (default=%.2f)\n")
+        _T("      block_size=<int>      block size of calculation.\n")
+        _T("                              8 (default), 16\n"),
+        FILTER_DEFAULT_DENOISE_DCT_SIGMA);
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-subburn [<param1>=<value>][,<param2>=<value>][...]\n")

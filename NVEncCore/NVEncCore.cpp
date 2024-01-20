@@ -2690,28 +2690,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
             m_encFps = param->baseFps;
         }
-        //ノイズ除去 (denoise-dct)
-        if (inputParam->vpp.dct.enable) {
-            unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseDct());
-            shared_ptr<NVEncFilterParamDenoiseDct> param(new NVEncFilterParamDenoiseDct());
-            param->dct = inputParam->vpp.dct;
-            param->frameIn = inputFrame;
-            param->frameOut = inputFrame;
-            param->baseFps = m_encFps;
-            param->bOutOverwrite = false;
-            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
-            auto sts = filter->init(param, m_pNVLog);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
-            //フィルタチェーンに追加
-            m_vpFilters.push_back(std::move(filter));
-            //パラメータ情報を更新
-            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
-            //入力フレーム情報を更新
-            inputFrame = param->frameOut;
-            m_encFps = param->baseFps;
-        }
         //ノイズ除去 (smooth)
         if (inputParam->vpp.smooth.enable) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterSmooth());
@@ -2735,6 +2713,28 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             if (param->smooth.qp > 0) {
                 m_qpTable.reset();
             }
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //ノイズ除去 (denoise-dct)
+        if (inputParam->vpp.dct.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseDct());
+            shared_ptr<NVEncFilterParamDenoiseDct> param(new NVEncFilterParamDenoiseDct());
+            param->dct = inputParam->vpp.dct;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
             m_encFps = param->baseFps;
