@@ -154,8 +154,8 @@ static const int   FILTER_DEFAULT_SMOOTH_MODE = 0;
 static const float FILTER_DEFAULT_SMOOTH_B_RATIO = 0.5f;
 static const int   FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR = 10;
 
-static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA = 0.0f;
-static const int   FILTER_DEFAULT_DENOISE_DCT_STEP = 1;
+static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA = 4.0f;
+static const int   FILTER_DEFAULT_DENOISE_DCT_STEP = 2;
 static const int   FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE = 8;
 
 static const float FILTER_DEFAULT_TWEAK_BRIGHTNESS = 0.0f;
