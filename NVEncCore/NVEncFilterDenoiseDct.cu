@@ -590,7 +590,7 @@ RGY_ERR denoise_dct_run(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFr
     }
     dim3 blockSize(BLOCK_SIZE, DENOISE_BLOCK_SIZE_X);
     dim3 gridSize(divCeil(planeInputR.width, blockSize.x * DENOISE_BLOCK_SIZE_X), divCeil(planeInputR.height, BLOCK_SIZE * DENOISE_LOOP_COUNT_BLOCK), 3);
-    kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, 1> << <gridSize, blockSize, 0, stream >>>(
+    kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, STEP> << <gridSize, blockSize, 0, stream >>>(
         (char *)planeOutputR.ptr, (char *)planeOutputG.ptr, (char *)planeOutputB.ptr, planeOutputR.pitch,
         (const char *)planeInputR.ptr, (const char *)planeInputG.ptr, (const char *)planeInputB.ptr, planeInputR.pitch,
         planeInputR.width, planeInputR.height, threshold);
