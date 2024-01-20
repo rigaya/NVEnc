@@ -222,6 +222,9 @@ const CX_DESC list_vpp_denoise[] = {
 #endif
     { _T("knn"),     1 },
     { _T("pmd"),     2 },
+#if ENCODER_NVENC
+    { _T("denoise-dct"), 8 },
+#endif
     { _T("smooth"),  3 },
     { _T("convolution3d"),  5 },
 #if ENCODER_VCEENC

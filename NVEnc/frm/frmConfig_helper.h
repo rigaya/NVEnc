@@ -251,6 +251,15 @@ static const ENC_OPTION_STR2 list_vpp_yadif_mode_gui[] = {
     { AUO_MES_UNKNOWN, NULL, NULL }
 };
 
+static const ENC_OPTION_STR2 list_vpp_denoise_dct_step_gui[] = {
+    { AUO_CONFIG_CX_DENOISE_DCT_STEP_1, L"1 - 高品質",  1 },
+    { AUO_CONFIG_CX_DENOISE_DCT_STEP_2, L"2",           2 },
+    { AUO_CONFIG_CX_DENOISE_DCT_STEP_4, L"4",           4 },
+    { AUO_CONFIG_CX_DENOISE_DCT_STEP_8, L"8 - 高速",    8 },
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+static_assert(_countof(list_vpp_denoise_dct_step) == _countof(list_vpp_denoise_dct_step_gui), "list_vpp_denoise_dct_step size");
+
 static const ENC_OPTION_STR2 list_mv_presicion_ja[] = {
     { AUO_CONFIG_CX_MV_PREC_AUTO,   L"自動",        NV_ENC_MV_PRECISION_DEFAULT     },
     { AUO_CONFIG_CX_MV_PREC_FULL,   L"1画素精度",   NV_ENC_MV_PRECISION_FULL_PEL    },

@@ -1572,6 +1572,17 @@ private: System::Windows::Forms::Panel^  fcgPNVppNvvfxArtifactReduction;
 private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxArtifactReductionMode;
 private: System::Windows::Forms::Label^  fcgLBVppNvvfxArtifactReductionMode;
 private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
+private: System::Windows::Forms::Panel^  fcgPNVppDenoiseDct;
+private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseDctStep;
+
+
+
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctStep;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseDctSigma;
+private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseDctBlockSize;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctBlockSize;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctSigma;
+
 
 
 
@@ -2081,6 +2092,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             this->fcgNUVppDebandThreY = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppDebandRange = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcggroupBoxVppDenoise = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgPNVppNvvfxArtifactReduction = (gcnew System::Windows::Forms::Panel());
+            this->fcgCXVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppDenoiseMethod = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNVppDenoiseSmooth = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDenoiseSmoothQP = (gcnew System::Windows::Forms::Label());
@@ -2114,6 +2128,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             this->fcgLBVppDenoiseConv3DThreshYSpatial = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppDenoiseConv3DThreshYTemporal = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppDenoiseConv3DThreshYSpatial = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgPNVppNvvfxDenoise = (gcnew System::Windows::Forms::Panel());
+            this->fcgCXVppNvvfxDenoiseStrength = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVppNvvfxDenoiseStrength = (gcnew System::Windows::Forms::Label());
             this->fcgCBVppResize = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxResize = (gcnew System::Windows::Forms::GroupBox());
             this->fcgCXVppResizeAlg = (gcnew System::Windows::Forms::ComboBox());
@@ -2180,12 +2197,13 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
-            this->fcgPNVppNvvfxDenoise = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBVppNvvfxDenoiseStrength = (gcnew System::Windows::Forms::Label());
-            this->fcgCXVppNvvfxDenoiseStrength = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgPNVppNvvfxArtifactReduction = (gcnew System::Windows::Forms::Panel());
-            this->fcgCXVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::Label());
+            this->fcgPNVppDenoiseDct = (gcnew System::Windows::Forms::Panel());
+            this->fcgCXVppDenoiseDctStep = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVppDenoiseDctStep = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseDctSigma = (gcnew System::Windows::Forms::Label());
+            this->fcgCXVppDenoiseDctBlockSize = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVppDenoiseDctBlockSize = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppDenoiseDctSigma = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2289,6 +2307,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandThreY))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandRange))->BeginInit();
             this->fcggroupBoxVppDenoise->SuspendLayout();
+            this->fcgPNVppNvvfxArtifactReduction->SuspendLayout();
             this->fcgPNVppDenoiseSmooth->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQuality))->BeginInit();
@@ -2305,6 +2324,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCSpatial))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYTemporal))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYSpatial))->BeginInit();
+            this->fcgPNVppNvvfxDenoise->SuspendLayout();
             this->fcggroupBoxResize->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeHeight))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeWidth))->BeginInit();
@@ -2318,8 +2338,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             this->fcgPNAudioInternal->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
-            this->fcgPNVppNvvfxDenoise->SuspendLayout();
-            this->fcgPNVppNvvfxArtifactReduction->SuspendLayout();
+            this->fcgPNVppDenoiseDct->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDctSigma))->BeginInit();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -6010,6 +6030,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             // 
             // fcggroupBoxVppDenoise
             // 
+            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseDct);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppNvvfxArtifactReduction);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseSmooth);
@@ -6023,6 +6044,34 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             this->fcggroupBoxVppDenoise->TabIndex = 10;
             this->fcggroupBoxVppDenoise->TabStop = false;
             this->fcggroupBoxVppDenoise->Text = L"ノイズ除去";
+            // 
+            // fcgPNVppNvvfxArtifactReduction
+            // 
+            this->fcgPNVppNvvfxArtifactReduction->Controls->Add(this->fcgCXVppNvvfxArtifactReductionMode);
+            this->fcgPNVppNvvfxArtifactReduction->Controls->Add(this->fcgLBVppNvvfxArtifactReductionMode);
+            this->fcgPNVppNvvfxArtifactReduction->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppNvvfxArtifactReduction->Name = L"fcgPNVppNvvfxArtifactReduction";
+            this->fcgPNVppNvvfxArtifactReduction->Size = System::Drawing::Size(310, 92);
+            this->fcgPNVppNvvfxArtifactReduction->TabIndex = 68;
+            // 
+            // fcgCXVppNvvfxArtifactReductionMode
+            // 
+            this->fcgCXVppNvvfxArtifactReductionMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppNvvfxArtifactReductionMode->FormattingEnabled = true;
+            this->fcgCXVppNvvfxArtifactReductionMode->Location = System::Drawing::Point(95, 9);
+            this->fcgCXVppNvvfxArtifactReductionMode->Name = L"fcgCXVppNvvfxArtifactReductionMode";
+            this->fcgCXVppNvvfxArtifactReductionMode->Size = System::Drawing::Size(156, 22);
+            this->fcgCXVppNvvfxArtifactReductionMode->TabIndex = 16;
+            this->fcgCXVppNvvfxArtifactReductionMode->Tag = L"reCmd";
+            // 
+            // fcgLBVppNvvfxArtifactReductionMode
+            // 
+            this->fcgLBVppNvvfxArtifactReductionMode->AutoSize = true;
+            this->fcgLBVppNvvfxArtifactReductionMode->Location = System::Drawing::Point(50, 12);
+            this->fcgLBVppNvvfxArtifactReductionMode->Name = L"fcgLBVppNvvfxArtifactReductionMode";
+            this->fcgLBVppNvvfxArtifactReductionMode->Size = System::Drawing::Size(32, 14);
+            this->fcgLBVppNvvfxArtifactReductionMode->TabIndex = 2;
+            this->fcgLBVppNvvfxArtifactReductionMode->Text = L"モード";
             // 
             // fcgCXVppDenoiseMethod
             // 
@@ -6376,6 +6425,34 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             this->fcgNUVppDenoiseConv3DThreshYSpatial->Tag = L"reCmd";
             this->fcgNUVppDenoiseConv3DThreshYSpatial->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             this->fcgNUVppDenoiseConv3DThreshYSpatial->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
+            // 
+            // fcgPNVppNvvfxDenoise
+            // 
+            this->fcgPNVppNvvfxDenoise->Controls->Add(this->fcgCXVppNvvfxDenoiseStrength);
+            this->fcgPNVppNvvfxDenoise->Controls->Add(this->fcgLBVppNvvfxDenoiseStrength);
+            this->fcgPNVppNvvfxDenoise->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppNvvfxDenoise->Name = L"fcgPNVppNvvfxDenoise";
+            this->fcgPNVppNvvfxDenoise->Size = System::Drawing::Size(310, 92);
+            this->fcgPNVppNvvfxDenoise->TabIndex = 67;
+            // 
+            // fcgCXVppNvvfxDenoiseStrength
+            // 
+            this->fcgCXVppNvvfxDenoiseStrength->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppNvvfxDenoiseStrength->FormattingEnabled = true;
+            this->fcgCXVppNvvfxDenoiseStrength->Location = System::Drawing::Point(95, 9);
+            this->fcgCXVppNvvfxDenoiseStrength->Name = L"fcgCXVppNvvfxDenoiseStrength";
+            this->fcgCXVppNvvfxDenoiseStrength->Size = System::Drawing::Size(156, 22);
+            this->fcgCXVppNvvfxDenoiseStrength->TabIndex = 16;
+            this->fcgCXVppNvvfxDenoiseStrength->Tag = L"reCmd";
+            // 
+            // fcgLBVppNvvfxDenoiseStrength
+            // 
+            this->fcgLBVppNvvfxDenoiseStrength->AutoSize = true;
+            this->fcgLBVppNvvfxDenoiseStrength->Location = System::Drawing::Point(50, 12);
+            this->fcgLBVppNvvfxDenoiseStrength->Name = L"fcgLBVppNvvfxDenoiseStrength";
+            this->fcgLBVppNvvfxDenoiseStrength->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppNvvfxDenoiseStrength->TabIndex = 2;
+            this->fcgLBVppNvvfxDenoiseStrength->Text = L"強度";
             // 
             // fcgCBVppResize
             // 
@@ -7101,61 +7178,77 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             this->fcgPNHideToolStripBorder->TabIndex = 53;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
-            // fcgPNVppNvvfxDenoise
+            // fcgPNVppDenoiseDct
             // 
-            this->fcgPNVppNvvfxDenoise->Controls->Add(this->fcgCXVppNvvfxDenoiseStrength);
-            this->fcgPNVppNvvfxDenoise->Controls->Add(this->fcgLBVppNvvfxDenoiseStrength);
-            this->fcgPNVppNvvfxDenoise->Location = System::Drawing::Point(3, 42);
-            this->fcgPNVppNvvfxDenoise->Name = L"fcgPNVppNvvfxDenoise";
-            this->fcgPNVppNvvfxDenoise->Size = System::Drawing::Size(310, 92);
-            this->fcgPNVppNvvfxDenoise->TabIndex = 67;
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgNUVppDenoiseDctSigma);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgCXVppDenoiseDctBlockSize);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgLBVppDenoiseDctBlockSize);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgLBVppDenoiseDctSigma);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgCXVppDenoiseDctStep);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgLBVppDenoiseDctStep);
+            this->fcgPNVppDenoiseDct->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppDenoiseDct->Name = L"fcgPNVppDenoiseDct";
+            this->fcgPNVppDenoiseDct->Size = System::Drawing::Size(310, 92);
+            this->fcgPNVppDenoiseDct->TabIndex = 69;
             // 
-            // fcgLBVppNvvfxDenoiseStrength
+            // fcgCXVppDenoiseDctStep
             // 
-            this->fcgLBVppNvvfxDenoiseStrength->AutoSize = true;
-            this->fcgLBVppNvvfxDenoiseStrength->Location = System::Drawing::Point(50, 12);
-            this->fcgLBVppNvvfxDenoiseStrength->Name = L"fcgLBVppNvvfxDenoiseStrength";
-            this->fcgLBVppNvvfxDenoiseStrength->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppNvvfxDenoiseStrength->TabIndex = 2;
-            this->fcgLBVppNvvfxDenoiseStrength->Text = L"強度";
+            this->fcgCXVppDenoiseDctStep->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppDenoiseDctStep->FormattingEnabled = true;
+            this->fcgCXVppDenoiseDctStep->Location = System::Drawing::Point(95, 9);
+            this->fcgCXVppDenoiseDctStep->Name = L"fcgCXVppDenoiseDctStep";
+            this->fcgCXVppDenoiseDctStep->Size = System::Drawing::Size(156, 22);
+            this->fcgCXVppDenoiseDctStep->TabIndex = 16;
+            this->fcgCXVppDenoiseDctStep->Tag = L"reCmd";
             // 
-            // fcgCXVppNvvfxDenoiseStrength
+            // fcgLBVppDenoiseDctStep
             // 
-            this->fcgCXVppNvvfxDenoiseStrength->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXVppNvvfxDenoiseStrength->FormattingEnabled = true;
-            this->fcgCXVppNvvfxDenoiseStrength->Location = System::Drawing::Point(95, 9);
-            this->fcgCXVppNvvfxDenoiseStrength->Name = L"fcgCXVppNvvfxDenoiseStrength";
-            this->fcgCXVppNvvfxDenoiseStrength->Size = System::Drawing::Size(156, 22);
-            this->fcgCXVppNvvfxDenoiseStrength->TabIndex = 16;
-            this->fcgCXVppNvvfxDenoiseStrength->Tag = L"reCmd";
+            this->fcgLBVppDenoiseDctStep->AutoSize = true;
+            this->fcgLBVppDenoiseDctStep->Location = System::Drawing::Point(13, 13);
+            this->fcgLBVppDenoiseDctStep->Name = L"fcgLBVppDenoiseDctStep";
+            this->fcgLBVppDenoiseDctStep->Size = System::Drawing::Size(37, 14);
+            this->fcgLBVppDenoiseDctStep->TabIndex = 2;
+            this->fcgLBVppDenoiseDctStep->Text = L"ステップ";
             // 
-            // fcgPNVppNvvfxArtifactReduction
+            // fcgLBVppDenoiseDctSigma
             // 
-            this->fcgPNVppNvvfxArtifactReduction->Controls->Add(this->fcgCXVppNvvfxArtifactReductionMode);
-            this->fcgPNVppNvvfxArtifactReduction->Controls->Add(this->fcgLBVppNvvfxArtifactReductionMode);
-            this->fcgPNVppNvvfxArtifactReduction->Location = System::Drawing::Point(3, 42);
-            this->fcgPNVppNvvfxArtifactReduction->Name = L"fcgPNVppNvvfxArtifactReduction";
-            this->fcgPNVppNvvfxArtifactReduction->Size = System::Drawing::Size(310, 92);
-            this->fcgPNVppNvvfxArtifactReduction->TabIndex = 68;
+            this->fcgLBVppDenoiseDctSigma->AutoSize = true;
+            this->fcgLBVppDenoiseDctSigma->Location = System::Drawing::Point(13, 40);
+            this->fcgLBVppDenoiseDctSigma->Name = L"fcgLBVppDenoiseDctSigma";
+            this->fcgLBVppDenoiseDctSigma->Size = System::Drawing::Size(39, 14);
+            this->fcgLBVppDenoiseDctSigma->TabIndex = 17;
+            this->fcgLBVppDenoiseDctSigma->Text = L"sigma";
             // 
-            // fcgCXVppNvvfxArtifactReductionMode
+            // fcgCXVppDenoiseDctBlockSize
             // 
-            this->fcgCXVppNvvfxArtifactReductionMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXVppNvvfxArtifactReductionMode->FormattingEnabled = true;
-            this->fcgCXVppNvvfxArtifactReductionMode->Location = System::Drawing::Point(95, 9);
-            this->fcgCXVppNvvfxArtifactReductionMode->Name = L"fcgCXVppNvvfxArtifactReductionMode";
-            this->fcgCXVppNvvfxArtifactReductionMode->Size = System::Drawing::Size(156, 22);
-            this->fcgCXVppNvvfxArtifactReductionMode->TabIndex = 16;
-            this->fcgCXVppNvvfxArtifactReductionMode->Tag = L"reCmd";
+            this->fcgCXVppDenoiseDctBlockSize->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppDenoiseDctBlockSize->FormattingEnabled = true;
+            this->fcgCXVppDenoiseDctBlockSize->Location = System::Drawing::Point(95, 62);
+            this->fcgCXVppDenoiseDctBlockSize->Name = L"fcgCXVppDenoiseDctBlockSize";
+            this->fcgCXVppDenoiseDctBlockSize->Size = System::Drawing::Size(156, 22);
+            this->fcgCXVppDenoiseDctBlockSize->TabIndex = 20;
+            this->fcgCXVppDenoiseDctBlockSize->Tag = L"reCmd";
             // 
-            // fcgLBVppNvvfxArtifactReductionMode
+            // fcgLBVppDenoiseDctBlockSize
             // 
-            this->fcgLBVppNvvfxArtifactReductionMode->AutoSize = true;
-            this->fcgLBVppNvvfxArtifactReductionMode->Location = System::Drawing::Point(50, 12);
-            this->fcgLBVppNvvfxArtifactReductionMode->Name = L"fcgLBVppNvvfxArtifactReductionMode";
-            this->fcgLBVppNvvfxArtifactReductionMode->Size = System::Drawing::Size(32, 14);
-            this->fcgLBVppNvvfxArtifactReductionMode->TabIndex = 2;
-            this->fcgLBVppNvvfxArtifactReductionMode->Text = L"モード";
+            this->fcgLBVppDenoiseDctBlockSize->AutoSize = true;
+            this->fcgLBVppDenoiseDctBlockSize->Location = System::Drawing::Point(13, 67);
+            this->fcgLBVppDenoiseDctBlockSize->Name = L"fcgLBVppDenoiseDctBlockSize";
+            this->fcgLBVppDenoiseDctBlockSize->Size = System::Drawing::Size(63, 14);
+            this->fcgLBVppDenoiseDctBlockSize->TabIndex = 19;
+            this->fcgLBVppDenoiseDctBlockSize->Text = L"ブロックサイズ";
+            // 
+            // fcgNUVppDenoiseDctSigma
+            // 
+            this->fcgNUVppDenoiseDctSigma->DecimalPlaces = 1;
+            this->fcgNUVppDenoiseDctSigma->Location = System::Drawing::Point(95, 36);
+            this->fcgNUVppDenoiseDctSigma->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDenoiseDctSigma->Name = L"fcgNUVppDenoiseDctSigma";
+            this->fcgNUVppDenoiseDctSigma->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseDctSigma->TabIndex = 21;
+            this->fcgNUVppDenoiseDctSigma->Tag = L"reCmd";
+            this->fcgNUVppDenoiseDctSigma->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoiseDctSigma->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             // 
             // frmConfig
             // 
@@ -7314,6 +7407,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandThreY))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandRange))->EndInit();
             this->fcggroupBoxVppDenoise->ResumeLayout(false);
+            this->fcgPNVppNvvfxArtifactReduction->ResumeLayout(false);
+            this->fcgPNVppNvvfxArtifactReduction->PerformLayout();
             this->fcgPNVppDenoiseSmooth->ResumeLayout(false);
             this->fcgPNVppDenoiseSmooth->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->EndInit();
@@ -7334,6 +7429,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCSpatial))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYTemporal))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshYSpatial))->EndInit();
+            this->fcgPNVppNvvfxDenoise->ResumeLayout(false);
+            this->fcgPNVppNvvfxDenoise->PerformLayout();
             this->fcggroupBoxResize->ResumeLayout(false);
             this->fcggroupBoxResize->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeHeight))->EndInit();
@@ -7354,10 +7451,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppNvvfxDenoiseStrength;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
-            this->fcgPNVppNvvfxDenoise->ResumeLayout(false);
-            this->fcgPNVppNvvfxDenoise->PerformLayout();
-            this->fcgPNVppNvvfxArtifactReduction->ResumeLayout(false);
-            this->fcgPNVppNvvfxArtifactReduction->PerformLayout();
+            this->fcgPNVppDenoiseDct->ResumeLayout(false);
+            this->fcgPNVppDenoiseDct->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDctSigma))->EndInit();
             this->ResumeLayout(false);
             this->PerformLayout();
 

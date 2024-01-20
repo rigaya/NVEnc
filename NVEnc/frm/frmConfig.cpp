@@ -858,6 +858,9 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
     setComboBox(fcgCXVppResizeAlg,      list_vpp_resize);
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
+    setComboBox(fcgCXVppDenoiseDctStep, list_vpp_denoise_dct_step_gui);
+    setComboBox(fcgCXVppDenoiseDctBlockSize, list_vpp_denoise_dct_block_size);
+    setComboBox(fcgCXVppDenoiseMethod, list_vpp_denoise);
     setComboBox(fcgCXVppDetailEnhance,  list_vpp_detail_enahance);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband_gui);
     setComboBox(fcgCXVppDeinterlace,    list_deinterlace_gui);
@@ -989,6 +992,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
     fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
+    fcgPNVppDenoiseDct->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("denoise-dct")));
     fcgPNVppDenoiseConv3D->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d")));
     fcgPNVppNvvfxDenoise->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-denoise")));
     fcgPNVppNvvfxArtifactReduction->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-artifact-reduction")));
@@ -1287,6 +1291,9 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppDenoiseConv3DThreshYSpatial);
     LOAD_CLI_TEXT(fcgLBVppDenoiseSmoothQP);
     LOAD_CLI_TEXT(fcgLBVppDenoiseSmoothQuality);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseDctStep);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseDctSigma);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseDctBlockSize);
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnThreshold);
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnStrength);
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnRadius);
@@ -1495,6 +1502,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
         } else if (encPrm.vpp.smooth.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
+        } else if (encPrm.vpp.dct.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("denoise-dct"));
         } else if (encPrm.vpp.convolution3d.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("convolution3d"));
         } else if (encPrm.vppnv.nvvfxDenoise.enable) {
@@ -1532,6 +1541,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoisePmdThreshold,  encPrm.vpp.pmd.threshold);
         SetNUValue(fcgNUVppDenoiseSmoothQuality, encPrm.vpp.smooth.quality);
         SetNUValue(fcgNUVppDenoiseSmoothQP,      encPrm.vpp.smooth.qp);
+        SetCXIndex(fcgCXVppDenoiseDctStep,       get_cx_index(list_vpp_denoise_dct_step_gui, (int)encPrm.vpp.dct.step));
+        SetNUValue(fcgNUVppDenoiseDctSigma,      encPrm.vpp.dct.sigma);
+        SetCXIndex(fcgCXVppDenoiseDctBlockSize,  get_cx_index(list_vpp_denoise_dct_block_size, (int)encPrm.vpp.dct.block_size));
         SetCXIndex(fcgCXVppDenoiseConv3DMatrix,          get_cx_index(list_vpp_convolution3d_matrix, (int)encPrm.vpp.convolution3d.matrix));
         SetNUValue(fcgNUVppDenoiseConv3DThreshYSpatial,  encPrm.vpp.convolution3d.threshYspatial);
         SetNUValue(fcgNUVppDenoiseConv3DThreshCSpatial,  encPrm.vpp.convolution3d.threshCspatial);
@@ -1794,6 +1806,11 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.smooth.enable          = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth"));
     encPrm.vpp.smooth.quality         = (int)fcgNUVppDenoiseSmoothQuality->Value;
     encPrm.vpp.smooth.qp              = (int)fcgNUVppDenoiseSmoothQP->Value;
+
+    encPrm.vpp.dct.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("denoise-dct"));
+    encPrm.vpp.dct.step               = list_vpp_denoise_dct_step[fcgCXVppDenoiseDctStep->SelectedIndex].value;
+    encPrm.vpp.dct.sigma              = (float)fcgNUVppDenoiseDctSigma->Value;
+    encPrm.vpp.dct.block_size         = list_vpp_denoise_dct_block_size[fcgCXVppDenoiseDctBlockSize->SelectedIndex].value;
 
     encPrm.vpp.convolution3d.enable          = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d"));
     encPrm.vpp.convolution3d.matrix          = (VppConvolution3dMatrix)list_vpp_convolution3d_matrix[fcgCXVppDenoiseConv3DMatrix->SelectedIndex].value;
@@ -2186,6 +2203,9 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgNUVppDenoiseConv3DThreshCTemporal);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseSmoothQuality);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseSmoothQP);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseDctStep);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseDctSigma);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseDctBlockSize);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnRadius);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnStrength);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnThreshold);
