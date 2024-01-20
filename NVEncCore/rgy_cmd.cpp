@@ -6066,8 +6066,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-denoise-dct ") << tmp.str().substr(1);
-        } else if (param->smooth.enable) {
-            cmd << _T(" --denoise-dct");
+        } else if (param->dct.enable) {
+            cmd << _T(" --vpp-denoise-dct");
         }
     }
     if (param->smooth != defaultPrm->smooth) {
