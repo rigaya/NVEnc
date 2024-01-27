@@ -32,6 +32,7 @@
 #include "NVEncFilter.h"
 #include "NVEncFilterNvvfx.h"
 #include "NVEncParam.h"
+#include "rgy_filesystem.h"
 
 char *g_nvVFXSDKPath = nullptr;
 
@@ -70,8 +71,38 @@ RGY_ERR NVEncFilterNvvfxEffect::initEffect(const tstring& modelDir) {
     auto err = err_to_rgy(NvVFX_CreateEffect(m_effectName.c_str(), &effHandle));
     if (err != RGY_ERR_NONE) {
         if (err == RGY_ERR_NVCV_LIBRARY) {
+            // エラーチェック
             AddMessage(RGY_LOG_ERROR, _T("Failed load library for nvvfx.\n"));
-            AddMessage(RGY_LOG_ERROR, _T("Please make sure you have downloaded and installed Video Effect models and runtime dependencies.\n"));
+            TCHAR path[8192] = { 0 };
+            GetEnvironmentVariable(_T("NV_VIDEO_EFFECTS_PATH"), path, MAX_PATH);
+            tstring dllPath;
+            if (g_nvVFXSDKPath && g_nvVFXSDKPath[0]) {
+                dllPath = char_to_tstring(g_nvVFXSDKPath);
+            } else if (tstring(path) == _T("USE_APP_PATH")) {
+                // NV_VIDEO_EFFECTS_PATH が USE_APP_PATH だとカレントディレクトリを探すらしい
+                AddMessage(RGY_LOG_WARN, _T("env NV_VIDEO_EFFECTS_PATH = USE_APP_PATH.\n"));
+                dllPath = _T("NVVideoEffects.dll");
+            } else {
+                memset(path, 0, sizeof(path));
+                GetEnvironmentVariable(_T("ProgramFiles"), path, MAX_PATH);
+                dllPath = PathCombineS(path, _T("NVIDIA Corporation\\NVIDIA Video Effects\\NVVideoEffects.dll"));
+            }
+            if (!rgy_file_exists(dllPath)) {
+                AddMessage(RGY_LOG_ERROR, _T("target dll \"%s\" does not exist.\n"), dllPath.c_str());
+                AddMessage(RGY_LOG_ERROR, _T("Please make sure you have downloaded and installed Video Effect models and runtime dependencies.\n"));
+            } else {
+                HMODULE nvEffectsDLLHandle = nullptr;
+                if ((nvEffectsDLLHandle = RGY_LOAD_LIBRARY(dllPath.c_str())) == nullptr) {
+                    AddMessage(RGY_LOG_ERROR, _T("target dll \"%s\" exists, but cannot be loaded.\n"), dllPath.c_str());
+#if defined(_WIN32) || defined(_WIN64)
+                    AddMessage(RGY_LOG_ERROR, _T("Please try installing VC runtime and try again.\n"));
+#endif
+                } else {
+                    AddMessage(RGY_LOG_ERROR, _T("Unknwon error: target dll \"%s\" exists, and can be loaded, but error is caused.\n"));
+                    RGY_FREE_LIBRARY(nvEffectsDLLHandle);
+                    nvEffectsDLLHandle = nullptr;
+                }
+            }
         } else {
             AddMessage(RGY_LOG_ERROR, _T("Failed to create effect %s: %s.\n"), m_effectName.c_str(), get_err_mes(err));
         }
