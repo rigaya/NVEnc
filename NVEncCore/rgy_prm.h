@@ -790,6 +790,13 @@ const CX_DESC list_vpp_smooth_quality[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_vpp_deband[] = {
+    { _T("0"),  0 },
+    { _T("1"),  1 },
+    { _T("2"),  2 },
+    { NULL, 0 }
+};
+
 const CX_DESC list_vpp_1_to_10[] = {
     { _T("1"),  1 },
     { _T("2"),  2 },
