@@ -388,6 +388,22 @@ static int getAttachmentTrackIdx(const RGYParamCommon *common, const int iTrack)
 #pragma warning(disable: 4127) //warning C4127: 条件式が定数です。
 
 int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData) {
+    if (IS_OPTION("vpp-order") && ENABLE_VPP_ORDER) {
+        i++;
+        int value = 0;
+        const auto list_vpp_filters = get_list_vpp_filter();
+        const auto vpp_list = split(strInput[i], _T(","));
+        vpp->filterOrder.clear();
+        for (auto& vppstr : vpp_list) {
+            const auto vpptype = vppfilter_str_to_type(vppstr);
+            if (vpptype == VppType::VPP_NONE) {
+                print_cmd_error_invalid_value(option_name, vppstr.c_str(), list_vpp_filters.data());
+                return 1;
+            }
+            vpp->filterOrder.push_back(vpptype);
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-resize")
         || (IS_OPTION("vpp-scaling") && ENCODER_QSV)) {
         i++;
@@ -5758,6 +5774,14 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     std::basic_stringstream<TCHAR> cmd;
     std::basic_stringstream<TCHAR> tmp;
 
+    tmp.str(tstring());
+    for (auto& vpptype : param->filterOrder) {
+        tmp << _T(",") << vppfilter_type_to_str(vpptype);
+    }
+    if (!tmp.str().empty()) {
+        cmd << _T(" --vpp-order ") << tmp.str().substr(1);
+    }
+
     OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
 #if ENCODER_QSV
     OPT_LST(_T("--vpp-resize-mode"), resize_mode, list_vpp_resize_mode);
@@ -7083,6 +7107,9 @@ tstring gen_cmd_help_common() {
 
 tstring gen_cmd_help_vpp() {
     tstring str;
+#if ENABLE_VPP_ORDER
+    str += print_list_options(_T("--vpp-order <string>"), get_list_vpp_filter().data(), 0);
+#endif
 #if ENABLE_VPP_FILTER_COLORSPACE
     str += strsprintf(_T("\n")
         _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")

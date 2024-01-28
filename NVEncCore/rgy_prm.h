@@ -57,7 +57,7 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 #define ENABLE_VPP_FILTER_MPDECIMATE   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_PAD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
-#define ENABLE_VPP_FILTER_DENOISE_DCT  (                 ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV  || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -68,6 +68,106 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
+#define ENABLE_VPP_ORDER 0
+
+enum class VppType : int {
+    VPP_NONE,
+#if ENCODER_QSV
+    MFX_COLORSPACE,
+    MFX_CROP,
+    MFX_ROTATE,
+    MFX_MIRROR,
+    MFX_DEINTERLACE,
+    MFX_IMAGE_STABILIZATION,
+    MFX_MCTF,
+    MFX_DENOISE,
+    MFX_RESIZE,
+    MFX_DETAIL_ENHANCE,
+    MFX_FPS_CONV,
+    MFX_PERC_ENC_PREFILTER,
+    MFX_COPY,
+#endif //#if ENCODER_QSV
+    MFX_MAX,
+#if ENCODER_VCEENC
+    AMF_CONVERTER,
+    AMF_PREPROCESS,
+    AMF_RESIZE,
+    AMF_VQENHANCE,
+#endif
+    AMF_MAX,
+#if ENCODER_MPP
+    IEP_MIN = AMF_MAX,
+    IEP_DEINTERLACE,
+#endif
+    IEP_MAX,
+#if ENCODER_MPP
+    RGA_MIN = IEP_MAX,
+    RGA_CROP,
+    RGA_CSPCONV,
+    RGA_RESIZE,
+#endif
+    RGA_MAX,
+
+    CL_MIN = RGA_MAX,
+
+    CL_CROP,
+    CL_COLORSPACE,
+    CL_AFS,
+    CL_NNEDI,
+    CL_YADIF,
+    CL_DECIMATE,
+    CL_MPDECIMATE,
+    CL_RFF,
+    CL_DELOGO,
+    CL_TRANSFORM,
+
+    CL_CONVOLUTION3D,
+    CL_DENOISE_KNN,
+    CL_DENOISE_PMD,
+    CL_DENOISE_DENOISE_DCT,
+    CL_DENOISE_SMOOTH,
+
+    CL_RESIZE,
+
+    CL_SUBBURN,
+
+    CL_UNSHARP,
+    CL_EDGELEVEL,
+    CL_WARPSHARP,
+
+    CL_CURVES,
+    CL_TWEAK,
+
+    CL_OVERLAY,
+
+    CL_DEBAND,
+
+    CL_PAD,
+
+    CL_MAX,
+};
+
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
+
+static VppFilterType getVppFilterType(VppType vpptype) {
+    if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
+#if ENCODER_QSV
+    if (vpptype < VppType::MFX_MAX) return VppFilterType::FILTER_MFX;
+#endif // #if ENCODER_QSV
+#if ENCODER_VCEENC
+    if (vpptype < VppType::AMF_MAX) return VppFilterType::FILTER_AMF;
+#endif
+#if ENCODER_MPP
+    if (vpptype < VppType::IEP_MAX) return VppFilterType::FILTER_IEP;
+    if (vpptype < VppType::RGA_MAX) return VppFilterType::FILTER_RGA;
+#endif
+    if (vpptype < VppType::CL_MAX) return VppFilterType::FILTER_OPENCL;
+    return VppFilterType::FILTER_NONE;
+}
+
+tstring vppfilter_type_to_str(VppType type);
+VppType vppfilter_str_to_type(tstring str);
+std::vector<CX_DESC> get_list_vpp_filter();
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
 
@@ -1313,6 +1413,7 @@ struct VppOverlay {
 };
 
 struct RGYParamVpp {
+    std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
     RGY_VPP_RESIZE_MODE resize_mode;
     VppColorspace colorspace;

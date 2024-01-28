@@ -32,9 +32,6 @@
 #include "rgy_version.h"
 #include "rgy_tchar.h"
 
-static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
-static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
-
 #if ENABLE_AVSW_READER
 #include <algorithm>
 

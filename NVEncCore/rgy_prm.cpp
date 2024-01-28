@@ -42,6 +42,70 @@
 #include "afs_stg.h"
 #endif
 
+static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
+    std::make_pair(VppType::VPP_NONE,                _T("none")),
+#if ENCODER_QSV
+    std::make_pair(VppType::MFX_COLORSPACE,          _T("mfx_colorspace")),
+    std::make_pair(VppType::MFX_CROP,                _T("mfx_crop")),
+    std::make_pair(VppType::MFX_ROTATE,              _T("mfx_rotate")),
+    std::make_pair(VppType::MFX_MIRROR,              _T("mfx_mirror")),
+    std::make_pair(VppType::MFX_DEINTERLACE,         _T("mfx_deinterlace")),
+    std::make_pair(VppType::MFX_IMAGE_STABILIZATION, _T("mfx_image_stab")),
+    std::make_pair(VppType::MFX_MCTF,                _T("mfx_mctf")),
+    std::make_pair(VppType::MFX_DENOISE,             _T("mfx_denoise")),
+    std::make_pair(VppType::MFX_RESIZE,              _T("mfx_resize")),
+    std::make_pair(VppType::MFX_DETAIL_ENHANCE,      _T("mfx_detail_enhance")),
+    std::make_pair(VppType::MFX_FPS_CONV,            _T("mfx_fps_conv")),
+    std::make_pair(VppType::MFX_PERC_ENC_PREFILTER,  _T("mfx_perc_enc_prefilter")),
+    std::make_pair(VppType::MFX_COPY,                _T("mfx_copy")),
+#endif //#if ENCODER_QSV
+#if ENCODER_VCEENC
+    std::make_pair(VppType::AMF_CONVERTER,           _T("amf_perc_enc_prefilter")),
+    std::make_pair(VppType::AMF_PREPROCESS,          _T("amf_preprocess")),
+    std::make_pair(VppType::AMF_RESIZE,              _T("amf_resize")),
+    std::make_pair(VppType::AMF_VQENHANCE,           _T("amf_vqenhance")),
+#endif //#if ENCODER_VCEENC
+#if ENCODER_MPP
+    std::make_pair(VppType::IEP_DEINTERLACE,         _T("iep_deinterlace")),
+    std::make_pair(VppType::RGA_CROP,                _T("rga_crop")),
+    std::make_pair(VppType::RGA_CSPCONV,             _T("rga_cspconv")),
+    std::make_pair(VppType::RGA_RESIZE,              _T("rga_resize")),
+#endif //#if ENCODER_VCEENC
+    std::make_pair(VppType::CL_COLORSPACE,           _T("colorspace")),
+    std::make_pair(VppType::CL_AFS,                  _T("afs")),
+    std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
+    std::make_pair(VppType::CL_YADIF,                _T("yadif")),
+    std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
+    std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
+    std::make_pair(VppType::CL_RFF,                  _T("rff")),
+    std::make_pair(VppType::CL_DELOGO,               _T("delogo")),
+    std::make_pair(VppType::CL_TRANSFORM,            _T("transform")),
+    std::make_pair(VppType::CL_CONVOLUTION3D,        _T("convolution3d")),
+    std::make_pair(VppType::CL_DENOISE_KNN,          _T("knn")),
+    std::make_pair(VppType::CL_DENOISE_PMD,          _T("pmd")),
+    std::make_pair(VppType::CL_DENOISE_DENOISE_DCT,  _T("denoise-dct")),
+    std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
+    std::make_pair(VppType::CL_RESIZE,               _T("resize")),
+    std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
+    std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
+    std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
+    std::make_pair(VppType::CL_CURVES,               _T("curves")),
+    std::make_pair(VppType::CL_TWEAK,                _T("tweak")),
+    std::make_pair(VppType::CL_DEBAND,               _T("deband")),
+    std::make_pair(VppType::CL_PAD,                  _T("pad"))
+);
+MAP_PAIR_0_1(vppfilter, type, VppType, str, tstring, VPPTYPE_TO_STR, VppType::VPP_NONE, _T("none"));
+
+std::vector<CX_DESC> get_list_vpp_filter() {
+    std::vector<CX_DESC> list_vpp_filter;
+    list_vpp_filter.reserve(VPPTYPE_TO_STR.size()+1);
+    for (const auto& vpp : VPPTYPE_TO_STR) {
+        list_vpp_filter.push_back({ vpp.second.c_str(), (int)vpp.first});
+    }
+    list_vpp_filter.push_back({ nullptr, 0 });
+    return list_vpp_filter;
+}
+
 RGYQPSet::RGYQPSet() :
     enable(true),
     qpI(0), qpP(0), qpB(0) {
@@ -1344,6 +1408,7 @@ tstring VppDeband::print() const {
 }
 
 RGYParamVpp::RGYParamVpp() :
+    filterOrder(),
     resize_algo(RGY_VPP_RESIZE_AUTO),
     resize_mode(RGY_VPP_RESIZE_MODE_DEFAULT),
     colorspace(),
