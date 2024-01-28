@@ -1439,6 +1439,39 @@ RGYParamVpp::RGYParamVpp() :
 
 }
 
+bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
+    return resize_algo == x.resize_algo
+        && resize_mode == x.resize_mode
+        && colorspace == x.colorspace
+        && delogo == x.delogo
+        && afs == x.afs
+        && nnedi == x.nnedi
+        && yadif == x.yadif
+        && rff == x.rff
+        && selectevery == x.selectevery
+        && decimate == x.decimate
+        && mpdecimate == x.mpdecimate
+        && pad == x.pad
+        && convolution3d == x.convolution3d
+        && knn == x.knn
+        && pmd == x.pmd
+        && dct == x.dct
+        && smooth == x.smooth
+        && subburn == x.subburn
+        && unsharp == x.unsharp
+        && edgelevel == x.edgelevel
+        && warpsharp == x.warpsharp
+        && curves == x.curves
+        && tweak == x.tweak
+        && transform == x.transform
+        && deband == x.deband
+        && overlay == x.overlay
+        && checkPerformance == x.checkPerformance;
+}
+bool RGYParamVpp::operator!=(const RGYParamVpp& x) const {
+    return !(*this == x);
+}
+
 
 AudioSelect::AudioSelect() :
     trackID(0),
