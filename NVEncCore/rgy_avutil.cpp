@@ -130,6 +130,18 @@ bool avcodec_exists(const std::string& codec, const AVMediaType type) {
     if (type == AVMEDIA_TYPE_NB) return true;
     return desc->type == type;
 }
+bool avcodec_exists_video(const std::string& codec) {
+    return avcodec_exists(codec, AVMEDIA_TYPE_VIDEO);
+}
+bool avcodec_exists_audio(const std::string& codec) {
+    return avcodec_exists(codec, AVMEDIA_TYPE_AUDIO);
+}
+bool avcodec_exists_subtitle(const std::string& codec) {
+    return avcodec_exists(codec, AVMEDIA_TYPE_SUBTITLE);
+}
+bool avcodec_exists_data(const std::string& codec) {
+    return avcodec_exists(codec, AVMEDIA_TYPE_DATA);
+}
 
 //コーデックの種類を表示
 tstring get_media_type_string(AVCodecID codecId) {

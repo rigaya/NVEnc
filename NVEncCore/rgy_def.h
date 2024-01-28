@@ -55,6 +55,9 @@ static const char *RGY_CHANNEL_AUTO = "RGY_CHANNEL_AUTO";
 static const int RGY_OUTPUT_BUF_MB_DEFAULT = 8;
 static const int RGY_OUTPUT_BUF_MB_MAX = 128;
 
+static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
+static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
+
 typedef struct {
     int start, fin;
 } sTrim;

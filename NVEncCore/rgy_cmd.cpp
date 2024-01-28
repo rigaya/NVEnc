@@ -3907,7 +3907,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (rgy_lang_exist(tempc)) {
                         trackId = TRACK_SELECT_BY_LANG;
                         lang = tempc;
-                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_AUDIO)) {
+                    } else if (avcodec_exists_audio(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
                     }
@@ -3973,7 +3973,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (rgy_lang_exist(tempc)) {
                         trackId = TRACK_SELECT_BY_LANG;
                         lang = tempc;
-                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_SUBTITLE)) {
+                    } else if (avcodec_exists_subtitle(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
                     }
@@ -4039,7 +4039,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (rgy_lang_exist(tempc)) {
                         trackId = TRACK_SELECT_BY_LANG;
                         lang = tempc;
-                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_DATA)) {
+                    } else if (avcodec_exists_data(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
                     }
@@ -4096,7 +4096,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
                     if (rgy_lang_exist(tchar_to_string(str))) {
                         trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str)));
-                    } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_AUDIO)) {
+                    } else if (avcodec_exists_audio(tchar_to_string(str))) {
                         trackSet.insert(std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str)));
                     } else {
                         print_cmd_error_invalid_value(option_name, strInput[i]);
