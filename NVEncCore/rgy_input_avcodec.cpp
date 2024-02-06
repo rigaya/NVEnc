@@ -2121,7 +2121,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_Demux.thread.thInput = std::thread(&RGYInputAvcodec::ThreadFuncRead, this, input_prm->threadParamInput);
             //はじめcapacityを無限大にセットしたので、この段階で制限をかける
             //入力をスレッド化しない場合には、自動的に同期が保たれるので、ここでの制限は必要ない
-            m_Demux.qVideoPkt.set_capacity(256);
+            m_Demux.qVideoPkt.set_capacity(2048);
         }
     } else {
         //音声との同期とかに使うので、動画の情報を格納する
