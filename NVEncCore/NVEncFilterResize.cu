@@ -302,13 +302,14 @@ __inline__ __device__
 float factor_spline(const float x_raw, const float *psCopyFactor) {
     const float x = fabs(x_raw);
     if (x >= (float)radius) return 0.0f;
-    const float4 weight = ((const float4 *)psCopyFactor)[min((int)x, radius - 1)];
+    const int pos = min((int)x, radius - 1);
+    const float *psWeight = psCopyFactor + min((int)x, radius - 1) * 4;
     //重みを計算
-    float w = weight.w;
-    w += x * weight.z;
+    float w = psWeight[3];
+    w += x * psWeight[2];
     const float x2 = x * x;
-    w += x2 * weight.y;
-    w += x2 * x * weight.x;
+    w += x2 * psWeight[1];
+    w += x2 * x * psWeight[0];
     return w;
 }
 
