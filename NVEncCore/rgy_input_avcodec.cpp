@@ -2110,18 +2110,13 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //スレッド関連初期化
         m_Demux.format.lowLatency = input_prm->lowLatency;
         m_Demux.thread.bAbortInput = false;
-#if 1
         auto nPrmInputThread = input_prm->threadInput;
-        m_Demux.thread.threadInput = ((nPrmInputThread == RGY_INPUT_THREAD_AUTO) | (m_Demux.video.stream != nullptr)) ? 0 : nPrmInputThread;
-#else
-        //NVEncではいまのところ、常に無効
-        m_Demux.thread.threadInput = 0;
-#endif
+        m_Demux.thread.threadInput = (nPrmInputThread == RGY_INPUT_THREAD_AUTO) ? 1 : nPrmInputThread;
         if (m_Demux.thread.threadInput) {
             m_Demux.thread.thInput = std::thread(&RGYInputAvcodec::ThreadFuncRead, this, input_prm->threadParamInput);
             //はじめcapacityを無限大にセットしたので、この段階で制限をかける
             //入力をスレッド化しない場合には、自動的に同期が保たれるので、ここでの制限は必要ない
-            m_Demux.qVideoPkt.set_capacity(2048);
+            m_Demux.qVideoPkt.set_capacity(256);
         }
     } else {
         //音声との同期とかに使うので、動画の情報を格納する
