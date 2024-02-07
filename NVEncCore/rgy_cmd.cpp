@@ -5259,6 +5259,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->procSpeedLimit = (std::min)(value, std::numeric_limits<decltype(ctrl->procSpeedLimit)>::max());
         return 0;
     }
+    if (IS_OPTION("task-perf-monitor") && ENCODER_QSV) {
+        ctrl->taskPerfMonitor = true;
+        return 0;
+    }
     if (IS_OPTION("lowlatency")) {
         ctrl->lowLatency = true;
         return 0;
@@ -6727,6 +6731,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     }
     OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
+    OPT_BOOL(_T("--task-perf-monitor"), _T(""), taskPerfMonitor);
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
     OPT_STR_PATH(_T("--log"), logfile);
     if (param->loglevel != defaultPrm->loglevel) {
@@ -7581,6 +7586,9 @@ tstring gen_cmd_help_ctrl() {
     str += strsprintf(_T("")
         _T("   --max-procfps <int>          limit encoding speed for lower utilization.\n")
         _T("                                 default:0 (no limit)\n")
+#if ENCODER_QSV
+        _T("   --task-perf-monitor          enable task performance monitoring.\n")
+#endif
         _T("   --lowlatency                 minimize latency (might have lower throughput).\n"));
     str += strsprintf(_T("")
         _T("   --output-buf <int>           buffer size for output in MByte\n")

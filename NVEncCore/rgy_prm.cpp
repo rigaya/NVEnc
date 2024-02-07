@@ -1698,6 +1698,7 @@ RGYParamControl::RGYParamControl() :
     threadInput(RGY_INPUT_THREAD_AUTO),
     threadParams(),
     procSpeedLimit(0),      //処理速度制限 (0で制限なし)
+    taskPerfMonitor(false),   //タスクの処理時間を計測する
     perfMonitorSelect(0),
     perfMonitorSelectMatplot(0),
     perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),

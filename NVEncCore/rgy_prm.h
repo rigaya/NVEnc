@@ -322,9 +322,7 @@ const CX_DESC list_vpp_denoise[] = {
 #endif
     { _T("knn"),     1 },
     { _T("pmd"),     2 },
-#if ENCODER_NVENC
     { _T("denoise-dct"), 8 },
-#endif
     { _T("smooth"),  3 },
     { _T("convolution3d"),  5 },
 #if ENCODER_VCEENC
@@ -1682,6 +1680,7 @@ struct RGYParamControl {
     int threadInput;
     RGYParamThreads threadParams;
     int procSpeedLimit;      //処理速度制限 (0で制限なし)
+    bool taskPerfMonitor;
     int64_t perfMonitorSelect;
     int64_t perfMonitorSelectMatplot;
     int     perfMonitorInterval;
