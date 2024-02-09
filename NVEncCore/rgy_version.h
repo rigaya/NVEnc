@@ -29,9 +29,9 @@
 #ifndef __RGY_CONFIG_H__
 #define __RGY_CONFIG_H__
 
-#define VER_FILEVERSION              0,7,42,1
-#define VER_STR_FILEVERSION          "7.42beta2"
-#define VER_STR_FILEVERSION_TCHAR _T("7.42beta2")
+#define VER_FILEVERSION              0,7,42,2
+#define VER_STR_FILEVERSION          "7.42beta3"
+#define VER_STR_FILEVERSION_TCHAR _T("7.42beta3")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
