@@ -62,6 +62,8 @@ uint32_t WaitForMultipleObjects(uint32_t count, HANDLE *pev, int dummy, uint32_t
 
 using unique_event = std::unique_ptr<std::remove_pointer<HANDLE>::type, decltype(&CloseEvent)>;
 
-unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, void *pDummy2);
+unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, const char* name);
+unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, const wchar_t* name);
+unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState);
 
 #endif //__RGY_EVENT_H__

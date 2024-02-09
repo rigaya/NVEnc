@@ -36,11 +36,30 @@
 #include "rgy_util.h"
 #include "rgy_tchar.h"
 
-enum PipeMode {
-    PIPE_MODE_DISABLE = 0,
-    PIPE_MODE_ENABLE,
-    PIPE_MODE_MUXED, //Stderrのモードに使用し、StderrをStdOutに混合する
+enum RGYPipeMode : uint32_t {
+    PIPE_MODE_DISABLE   = 0x00,
+    PIPE_MODE_ENABLE    = 0x01,
+    PIPE_MODE_ENABLE_FP = 0x02,
+    PIPE_MODE_MUXED     = 0x04, //Stderrのモードに使用し、StderrをStdOutに混合する
 };
+
+static RGYPipeMode operator|(RGYPipeMode a, RGYPipeMode b) {
+    return (RGYPipeMode)((uint32_t)a | (uint32_t)b);
+}
+
+static RGYPipeMode operator|=(RGYPipeMode& a, RGYPipeMode b) {
+    a = a | b;
+    return a;
+}
+
+static RGYPipeMode operator&(RGYPipeMode a, RGYPipeMode b) {
+    return (RGYPipeMode)((uint32_t)a & (uint32_t)b);
+}
+
+static RGYPipeMode operator&=(RGYPipeMode& a, RGYPipeMode b) {
+    a = (RGYPipeMode)((uint32_t)a & (uint32_t)b);
+    return a;
+}
 
 static const int QSV_PIPE_READ_BUF = 2048;
 
@@ -52,37 +71,51 @@ typedef int PIPE_HANDLE;
 typedef pid_t PROCESS_HANDLE;
 #endif
 
-typedef struct {
+struct RGYPipeSet {
     PIPE_HANDLE h_read;
     PIPE_HANDLE h_write;
-    PipeMode mode;
+    RGYPipeMode mode;
     uint32_t bufferSize;
-} PipeSet;
+    FILE *fp;
 
-typedef struct {
-    PipeSet stdIn;
-    PipeSet stdOut;
-    PipeSet stdErr;
-    FILE *f_stdin;
-    FILE *f_stdout;
-    FILE *f_stderr;
-    uint32_t buf_len;
-    char read_buf[QSV_PIPE_READ_BUF];
-} ProcessPipe;
+    RGYPipeSet() : h_read(0), h_write(0), mode(PIPE_MODE_DISABLE), bufferSize(0), fp(nullptr) {};
+};
+
+struct RGYProcessPipe {
+    RGYPipeSet stdIn;
+    RGYPipeSet stdOut;
+    RGYPipeSet stdErr;
+
+    RGYProcessPipe() : stdIn(), stdOut(), stdErr() { };
+};
 
 class RGYPipeProcess {
 public:
-    RGYPipeProcess() : m_phandle(0) { };
+    RGYPipeProcess() : m_phandle(0), m_pipe() { };
     virtual ~RGYPipeProcess() { };
 
-    virtual void init() = 0;
-    virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) = 0;
+    void init(RGYPipeMode stdin_, RGYPipeMode stdout_, RGYPipeMode stderr_) {
+        m_pipe.stdIn.mode = stdin_;
+        m_pipe.stdOut.mode = stdout_;
+        m_pipe.stdErr.mode = stderr_;
+    };
+    virtual int run(const std::vector<tstring>& args, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) = 0;
     virtual void close() = 0;
     virtual bool processAlive() = 0;
-    virtual std::string getOutput(ProcessPipe *pipes) = 0;
+    virtual std::string getOutput() = 0;
+    virtual int stdOutRead(std::vector<uint8_t>& buffer) = 0;
+    virtual int stdErrRead(std::vector<uint8_t>& buffer) = 0;
+    virtual size_t stdInFpWrite(const void *data, const size_t dataSize) = 0;
+    virtual int stdInFpFlush() = 0;
+    virtual int stdInFpClose() = 0;
+    virtual size_t stdOutFpRead(void *data, const size_t dataSize) = 0;
+    virtual int stdOutFpClose() = 0;
+    virtual size_t stdErrFpRead(void *data, const size_t dataSize) = 0;
+    virtual int stdErrFpClose() = 0;
 protected:
-    virtual int startPipes(ProcessPipe *pipes) = 0;
+    virtual int startPipes() = 0;
     PROCESS_HANDLE m_phandle;
+    RGYProcessPipe m_pipe;
 };
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -91,14 +124,22 @@ public:
     RGYPipeProcessWin();
     virtual ~RGYPipeProcessWin();
 
-    virtual void init() override;
-    virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
+    virtual int run(const std::vector<tstring>& args, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) override;
     virtual void close() override;
     virtual bool processAlive() override;
-    virtual std::string getOutput(ProcessPipe *pipes) override;
+    virtual std::string getOutput() override;
+    virtual int stdOutRead(std::vector<uint8_t>& buffer) override;
+    virtual int stdErrRead(std::vector<uint8_t>& buffer) override;
+    virtual size_t stdInFpWrite(const void *data, const size_t dataSize) override;
+    virtual int stdInFpFlush() override;
+    virtual int stdInFpClose() override;
+    virtual size_t stdOutFpRead(void *data, const size_t dataSize) override;
+    virtual int stdOutFpClose() override;
+    virtual size_t stdErrFpRead(void *data, const size_t dataSize) override;
+    virtual int stdErrFpClose() override;
     const PROCESS_INFORMATION& getProcessInfo();
 protected:
-    virtual int startPipes(ProcessPipe *pipes) override;
+    virtual int startPipes() override;
     PROCESS_INFORMATION m_pi;
 };
 #else
@@ -107,13 +148,21 @@ public:
     RGYPipeProcessLinux();
     virtual ~RGYPipeProcessLinux();
 
-    virtual void init() override;
-    virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
+    virtual int run(const std::vector<tstring>& args, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) override;
     virtual void close() override;
     virtual bool processAlive() override;
-    virtual std::string getOutput(ProcessPipe *pipes) override;
+    virtual std::string getOutput() override;
+    virtual int stdOutRead(std::vector<uint8_t>& buffer) override;
+    virtual int stdErrRead(std::vector<uint8_t>& buffer) override;
+    virtual size_t stdInFpWrite(const void *data, const size_t dataSize) override;
+    virtual int stdInFpFlush() override;
+    virtual int stdInFpClose() override;
+    virtual size_t stdOutFpRead(void *data, const size_t dataSize) override;
+    virtual int stdOutFpClose() override;
+    virtual size_t stdErrFpRead(void *data, const size_t dataSize) override;
+    virtual int stdErrFpClose() override;
 protected:
-    virtual int startPipes(ProcessPipe *pipes) override;
+    virtual int startPipes() override;
 };
 #endif //#if defined(_WIN32) || defined(_WIN64)
 

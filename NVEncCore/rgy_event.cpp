@@ -129,8 +129,14 @@ unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState
 
 #else
 
-unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, void *pDummy2) {
-    return unique_event(CreateEvent((LPSECURITY_ATTRIBUTES)pDummy, bManualReset, bInitialState, (LPCWSTR)pDummy2), CloseEvent);
+unique_event CreateEventUnique(void* pDummy, int bManualReset, int bInitialState, const wchar_t* name) {
+    return unique_event(CreateEventW((LPSECURITY_ATTRIBUTES)pDummy, bManualReset, bInitialState, name), CloseEvent);
+}
+unique_event CreateEventUnique(void* pDummy, int bManualReset, int bInitialState, const char* name) {
+    return unique_event(CreateEventA((LPSECURITY_ATTRIBUTES)pDummy, bManualReset, bInitialState, name), CloseEvent);
+}
+unique_event CreateEventUnique(void* pDummy, int bManualReset, int bInitialState) {
+    return unique_event(CreateEventA((LPSECURITY_ATTRIBUTES)pDummy, bManualReset, bInitialState, nullptr), CloseEvent);
 }
 
 #endif //#if !(defined(_WIN32) || defined(_WIN64))

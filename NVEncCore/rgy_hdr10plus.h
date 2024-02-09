@@ -47,8 +47,6 @@ public:
 protected:
     tstring m_inputJson;
     std::unique_ptr<RGYPipeProcess> m_proc;
-    ProcessPipe m_pipes;
-    std::unique_ptr<FILE, decltype(&fclose)> m_fpStdOut;
     std::pair<int, std::vector<uint8_t>> m_buffer;
 };
 

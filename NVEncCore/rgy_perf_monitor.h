@@ -441,8 +441,8 @@ protected:
     int createPerfMpnitorPyw(const TCHAR *pywPath);
     void check();
     void run();
-    void write_header(FILE *fp, int nSelect);
-    void write(FILE *fp, int nSelect);
+    std::string write_header(int nSelect);
+    std::string write(int nSelect);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel(RGY_LOGT_PERF_MONITOR)) {
@@ -483,7 +483,6 @@ protected:
     std::thread m_thCheck;
     std::unique_ptr<void, handle_deleter> m_thMainThread;
     std::unique_ptr<RGYPipeProcess> m_pProcess;
-    ProcessPipe m_pipes;
     HANDLE m_thEncThread;
     HANDLE m_thInThread;
     HANDLE m_thOutThread;

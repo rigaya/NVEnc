@@ -328,16 +328,12 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
     info->clear();
 
     auto process = createRGYPipeProcess();
-    process->init();
-    ProcessPipe pipes = { 0 };
-    pipes.stdOut.mode = PIPE_MODE_ENABLE;
-    std::vector<const TCHAR *> args;
-    args.push_back(NVSMI_PATH);
-    args.push_back(_T("-q"));
-    if (process->run(args, nullptr, &pipes, 0, true, true)) {
+    process->init(PIPE_MODE_DISABLE, PIPE_MODE_ENABLE, PIPE_MODE_DISABLE);
+    std::vector<tstring> args = { NVSMI_PATH, _T("-q") };
+    if (process->run(args, nullptr, 0, true, true)) {
         return 1;
     }
-    m_NVSMIOut = tolowercase(process->getOutput(&pipes));
+    m_NVSMIOut = tolowercase(process->getOutput());
     if (m_NVSMIOut.length() == 0) {
         return 1;
     }
@@ -454,7 +450,6 @@ CPerfMonitor::CPerfMonitor() :
     m_thCheck(),
     m_thMainThread(),
     m_pProcess(),
-    m_pipes(),
     m_thEncThread(NULL),
     m_thInThread(NULL),
     m_thOutThread(NULL),
@@ -495,7 +490,6 @@ CPerfMonitor::CPerfMonitor() :
     m_prefCounterValid(false)
 {
     memset(m_info, 0, sizeof(m_info));
-    memset(&m_pipes, 0, sizeof(m_pipes));
     memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
 #if ENABLE_METRIC_FRAMEWORK
     m_pManager = nullptr;
@@ -549,10 +543,6 @@ void CPerfMonitor::clear() {
         AddMessage(RGY_LOG_DEBUG, _T("Closing perf monitor log...\n"));
     }
     m_fpLog.reset();
-    if (m_pipes.f_stdin) {
-        fclose(m_pipes.f_stdin);
-        m_pipes.f_stdin = NULL;
-    }
     m_pProcess.reset();
     m_pRGYLog.reset();
 }
@@ -592,11 +582,11 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
     return ret;
 }
 
-void CPerfMonitor::write_header(FILE *fp, int nSelect) {
-    if (fp == NULL || nSelect == 0) {
-        return;
-    }
+std::string CPerfMonitor::write_header(int nSelect) {
     std::string str;
+    if (nSelect == 0) {
+        return str;
+    }
     if (nSelect & PERF_MONITOR_CPU) {
         str += ",cpu (%)";
     }
@@ -685,8 +675,7 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
         str += ",write (MB/s)";
     }
     str += "\n";
-    fwrite(str.c_str(), 1, str.length(), fp);
-    fflush(fp);
+    return str;
 }
 
 #if ENABLE_PERF_COUNTER
@@ -812,7 +801,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 
     if (m_nSelectOutputPlot) {
         m_pProcess = createRGYPipeProcess();
-        m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
+        m_pProcess->init(PIPE_MODE_ENABLE | PIPE_MODE_ENABLE_FP, PIPE_MODE_DISABLE, PIPE_MODE_DISABLE);
 #if (defined(_WIN32) || defined(_WIN64)) && !CLFILTERS_AUF
         TCHAR tempDir[1024] = { 0 };
         GetModuleFileName(NULL, tempDir, _countof(tempDir));
@@ -843,14 +832,11 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
             AddMessage(RGY_LOG_WARN, _T("performance monitor plot disabled.\n"));
             m_nSelectOutputPlot = 0;
         } else {
-            tstring sInterval = strsprintf(_T("%d"), interval);
-            std::vector<const TCHAR *> args;
-            args.push_back(sPythonPath.c_str());
-            args.push_back(m_sPywPath.c_str());
-            args.push_back(_T("-i"));
-            args.push_back(sInterval.c_str());
-            args.push_back(nullptr);
-            if (m_pProcess->run(args, nullptr, &m_pipes, priority, false, false)) {
+            const std::vector<tstring> args = {
+                sPythonPath, m_sPywPath,
+                _T("-i"), strsprintf(_T("%d"), interval)
+            };
+            if (m_pProcess->run(args, nullptr, priority, false, false)) {
                 AddMessage(RGY_LOG_WARN, _T("Failed to run performance monitor plot.\n"));
                 AddMessage(RGY_LOG_WARN, _T("performance monitor plot disabled.\n"));
                 m_nSelectOutputPlot = 0;
@@ -893,8 +879,12 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     AddMessage(RGY_LOG_DEBUG, _T("Performace Monitor: %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputLog).c_str());
     AddMessage(RGY_LOG_DEBUG, _T("Performace Plot   : %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputPlot).c_str());
 
-    write_header(m_fpLog.get(),   m_nSelectOutputLog);
-    write_header(m_pipes.f_stdin, m_nSelectOutputPlot);
+    if (m_fpLog) fprintf(m_fpLog.get(), "%s", write_header(m_nSelectOutputLog).c_str());
+    if (m_pProcess) {
+        const auto str = write_header(m_nSelectOutputPlot);
+        m_pProcess->stdInFpWrite(str.c_str(), str.length());
+        m_pProcess->stdInFpFlush();
+    }
 
     m_thCheck = std::thread(loader, this);
     return 0;
@@ -1215,10 +1205,7 @@ void CPerfMonitor::check() {
     m_nStep++;
 }
 
-void CPerfMonitor::write(FILE *fp, int nSelect) {
-    if (fp == NULL) {
-        return;
-    }
+std::string CPerfMonitor::write(int nSelect) {
     const PerfInfo *pInfo = &m_info[m_nStep & 1];
     std::string str = strsprintf("%lf", pInfo->time_us * 1e-6);
     if (nSelect & PERF_MONITOR_CPU) {
@@ -1311,10 +1298,7 @@ void CPerfMonitor::write(FILE *fp, int nSelect) {
         str += strsprintf(",%lf", pInfo->io_write_per_sec / (double)(1024 * 1024));
     }
     str += "\n";
-    fwrite(str.c_str(), 1, str.length(), fp);
-    if (fp == m_pipes.f_stdin) {
-        fflush(fp);
-    }
+    return str;
 }
 
 void CPerfMonitor::loader(void *prm) {
@@ -1329,22 +1313,28 @@ void CPerfMonitor::run() {
         if (m_nInterval <= 100 || timenow - m_refreshedTime > std::chrono::milliseconds(m_nInterval)) {
             check();
             if (m_pProcess && !m_pProcess->processAlive()) {
-                if (m_pipes.f_stdin) {
-                    fclose(m_pipes.f_stdin);
-                }
-                m_pipes.f_stdin = NULL;
+                m_pProcess->stdInFpClose();
                 if (m_nSelectOutputPlot) {
                     AddMessage(RGY_LOG_WARN, _T("Error occured running python for perf-monitor-plot.\n"));
                     m_nSelectOutputPlot = 0;
                 }
             }
-            write(m_fpLog.get(), m_nSelectOutputLog);
-            write(m_pipes.f_stdin, m_nSelectOutputPlot);
+            if (m_fpLog)  fprintf(m_fpLog.get(), "%s", write(m_nSelectOutputLog).c_str());
+            if (m_pProcess) {
+                const auto str = write(m_nSelectOutputPlot);
+                m_pProcess->stdInFpWrite(str.c_str(), str.length());
+                m_pProcess->stdInFpFlush();
+            }
             m_refreshedTime = timenow;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds((m_nInterval <= 100) ? m_nInterval : 50));
     }
     check();
-    write(m_fpLog.get(),   m_nSelectOutputLog);
-    write(m_pipes.f_stdin, m_nSelectOutputPlot);
+    if (m_fpLog)  fprintf(m_fpLog.get(), "%s", write(m_nSelectOutputLog).c_str());
+    if (m_pProcess) {
+        const auto str = write(m_nSelectOutputPlot);
+        m_pProcess->stdInFpWrite(str.c_str(), str.length());
+        m_pProcess->stdInFpFlush();
+        m_pProcess->close();
+    }
 }

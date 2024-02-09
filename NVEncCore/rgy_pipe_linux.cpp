@@ -34,39 +34,41 @@
 #include "rgy_pipe.h"
 #include "rgy_tchar.h"
 
-RGYPipeProcessLinux::RGYPipeProcessLinux() {
+RGYPipeProcessLinux::RGYPipeProcessLinux() :
+    RGYPipeProcess() {
 }
 
 RGYPipeProcessLinux::~RGYPipeProcessLinux() {
 
 }
 
-void RGYPipeProcessLinux::init() {
-    close();
-}
-
-
-int RGYPipeProcessLinux::startPipes(ProcessPipe *pipes) {
-    if (pipes->stdOut.mode) {
-        if (-1 == (pipe((int *)&pipes->stdOut.h_read)))
+int RGYPipeProcessLinux::startPipes() {
+    if (m_pipe.stdOut.mode & PIPE_MODE_ENABLE) {
+        if (-1 == (pipe((int *)&m_pipe.stdOut.h_read)))
             return 1;
-        pipes->f_stdout = fdopen(pipes->stdOut.h_read, "r");
+        if (m_pipe.stdOut.mode & PIPE_MODE_ENABLE_FP) {
+            m_pipe.stdOut.fp = fdopen(m_pipe.stdOut.h_read, "r");
+        }
     }
-    if (pipes->stdErr.mode) {
-        if (-1 == (pipe((int *)&pipes->stdErr.h_read)))
+    if (m_pipe.stdErr.mode & PIPE_MODE_ENABLE) {
+        if (-1 == (pipe((int *)&m_pipe.stdErr.h_read)))
             return 1;
-        pipes->f_stderr = fdopen(pipes->stdErr.h_read, "r");
+        if (m_pipe.stdErr.mode & PIPE_MODE_ENABLE_FP) {
+            m_pipe.stdErr.fp = fdopen(m_pipe.stdErr.h_read, "r");
+        }
     }
-    if (pipes->stdIn.mode) {
-        if (-1 == (pipe((int *)&pipes->stdIn.h_read)))
+    if (m_pipe.stdIn.mode & PIPE_MODE_ENABLE) {
+        if (-1 == (pipe((int *)&m_pipe.stdIn.h_read)))
             return 1;
-        pipes->f_stdin = fdopen(pipes->stdIn.h_write, "w");
+        if (m_pipe.stdIn.mode & PIPE_MODE_ENABLE_FP) {
+            m_pipe.stdIn.fp = fdopen(m_pipe.stdIn.h_write, "w");
+        }
     }
     return 0;
 }
 
-int RGYPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
-    startPipes(pipes);
+int RGYPipeProcessLinux::run(const std::vector<tstring>& args, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) {
+    startPipes();
 
     m_phandle = fork();
     if (m_phandle < 0) {
@@ -75,54 +77,166 @@ int RGYPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR
 
     if (m_phandle == 0) {
         //子プロセス
-        if (pipes->stdIn.mode) {
-            ::close(pipes->stdIn.h_write);
-            dup2(pipes->stdIn.h_read, STDIN_FILENO);
+        if (m_pipe.stdIn.mode) {
+            ::close(m_pipe.stdIn.h_write);
+            dup2(m_pipe.stdIn.h_read, STDIN_FILENO);
         }
-        if (pipes->stdOut.mode) {
-            ::close(pipes->stdOut.h_read);
-            dup2(pipes->stdOut.h_write, STDOUT_FILENO);
+        if (m_pipe.stdOut.mode) {
+            ::close(m_pipe.stdOut.h_read);
+            dup2(m_pipe.stdOut.h_write, STDOUT_FILENO);
         }
-        if (pipes->stdErr.mode) {
-            ::close(pipes->stdErr.h_read);
-            dup2(pipes->stdErr.h_write, STDERR_FILENO);
+        if (m_pipe.stdErr.mode) {
+            ::close(m_pipe.stdErr.h_read);
+            dup2(m_pipe.stdErr.h_write, STDERR_FILENO);
         }
-        int ret = execvp(args[0], (char *const *)args.data());
+        std::vector<const TCHAR *> pargs(args.size() + 1, nullptr);
+        for (size_t i = 0; i < args.size(); i++) {
+            pargs[i] = args[i].c_str();
+        }
+        int ret = execvp(pargs[0], (char *const *)pargs.data());
         exit(-1);
     }
     //親プロセス
-    if (pipes->stdIn.mode) {
-        ::close(pipes->stdIn.h_read);
-        pipes->stdIn.h_read = 0;
+    if (m_pipe.stdIn.mode) {
+        ::close(m_pipe.stdIn.h_read);
+        m_pipe.stdIn.h_read = 0;
     }
-    if (pipes->stdOut.mode) {
-        ::close(pipes->stdOut.h_write);
-        pipes->stdOut.h_write = 0;
+    if (m_pipe.stdOut.mode) {
+        ::close(m_pipe.stdOut.h_write);
+        m_pipe.stdOut.h_write = 0;
     }
-    if (pipes->stdErr.mode) {
-        ::close(pipes->stdErr.h_write);
-        pipes->stdErr.h_write = 0;
+    if (m_pipe.stdErr.mode) {
+        ::close(m_pipe.stdErr.h_write);
+        m_pipe.stdErr.h_write = 0;
     }
     return 0;
 }
 
 void RGYPipeProcessLinux::close() {
+    if (m_pipe.stdIn.fp) {
+        fclose(m_pipe.stdIn.fp);
+        m_pipe.stdIn.fp = nullptr;
+        m_pipe.stdIn.h_write = 0;
+    }
+    if (m_pipe.stdIn.h_write) {
+        ::close(m_pipe.stdIn.h_write);
+        m_pipe.stdIn.h_write = 0;
+    }
+    if (m_pipe.stdIn.h_read) {
+        ::close(m_pipe.stdIn.h_read);
+        m_pipe.stdIn.h_read = 0;
+    }
+    if (m_pipe.stdOut.fp) {
+        fclose(m_pipe.stdOut.fp);
+        m_pipe.stdOut.fp = nullptr;
+        m_pipe.stdOut.h_read = 0;
+    }
+    if (m_pipe.stdOut.h_read) {
+        ::close(m_pipe.stdOut.h_read);
+        m_pipe.stdOut.h_read = 0;
+    }
+    if (m_pipe.stdOut.h_write) {
+        ::close(m_pipe.stdOut.h_write);
+        m_pipe.stdOut.h_write = 0;
+    }
+    if (m_pipe.stdErr.fp) {
+        fclose(m_pipe.stdErr.fp);
+        m_pipe.stdErr.fp = nullptr;
+        m_pipe.stdErr.h_read = 0;
+    }
+    if (m_pipe.stdErr.h_read) {
+        ::close(m_pipe.stdErr.h_read);
+        m_pipe.stdErr.h_read = 0;
+    }
+    if (m_pipe.stdErr.h_write) {
+        ::close(m_pipe.stdErr.h_write);
+        m_pipe.stdErr.h_write = 0;
+    }
 }
 
-tstring RGYPipeProcessLinux::getOutput(ProcessPipe *pipes) {
-    std::string outstr;
+size_t RGYPipeProcessLinux::stdInFpWrite(const void *data, const size_t dataSize) {
+    return fwrite(data, 1, dataSize, m_pipe.stdIn.fp);
+}
+
+int RGYPipeProcessLinux::stdInFpFlush() {
+    return fflush(m_pipe.stdIn.fp);
+}
+
+int RGYPipeProcessLinux::stdInFpClose() {
+    const int ret = fclose(m_pipe.stdIn.fp);
+    m_pipe.stdIn.fp = nullptr;
+    m_pipe.stdIn.h_write = 0;
+    return ret;
+}
+
+int RGYPipeProcessLinux::stdOutRead(std::vector<uint8_t>& buffer) {
     auto read_from_pipe = [&]() {
-        char buf[4096];
-        int ret = fread(buf, sizeof(buf[0]), _countof(buf), pipes->f_stdout);
-        outstr += ret;
-        return (int)ret;
+        char read_buf[512 * 1024];
+        int pipe_read = (int)read(m_pipe.stdOut.h_read, read_buf, _countof(read_buf));
+        if (pipe_read <= 0) return -1;
+        buffer.insert(buffer.end(), read_buf, read_buf + pipe_read);
+        return (int)pipe_read;
     };
 
-    while (processAlive()) {
-        read_from_pipe();
-    }
+    int ret = 0;
     for (;;) {
-        if (read_from_pipe() <= 0) {
+        ret = read_from_pipe();
+        if (ret != 0) {
+            break;
+        }
+    }
+    return ret < 0 ? -1 : (int)buffer.size();
+}
+int RGYPipeProcessLinux::stdErrRead(std::vector<uint8_t>& buffer) {
+    auto read_from_pipe = [&]() {
+        char read_buf[4096];
+        int pipe_read = (int)read(m_pipe.stdErr.h_read, read_buf, _countof(read_buf));
+        if (pipe_read <= 0) return -1;
+        buffer.insert(buffer.end(), read_buf, read_buf + pipe_read);
+        return (int)pipe_read;
+    };
+
+    int ret = 0;
+    for (;;) {
+        ret = read_from_pipe();
+        if (ret != 0) {
+            break;
+        }
+    }
+    return ret < 0 ? -1 : (int)buffer.size();
+}
+
+size_t RGYPipeProcessLinux::stdOutFpRead(void *data, const size_t dataSize) {
+    return fread(data, 1, dataSize, m_pipe.stdOut.fp);
+}
+
+int RGYPipeProcessLinux::stdOutFpClose() {
+    fclose(m_pipe.stdOut.fp);
+    m_pipe.stdOut.fp = nullptr;
+    m_pipe.stdOut.h_read = 0;
+}
+
+size_t RGYPipeProcessLinux::stdErrFpRead(void *data, const size_t dataSize) {
+    return fread(data, 1, dataSize, m_pipe.stdErr.fp);
+}
+
+int RGYPipeProcessLinux::stdErrFpClose() {
+    fclose(m_pipe.stdErr.fp);
+    m_pipe.stdErr.fp = nullptr;
+    m_pipe.stdErr.h_read = 0;
+}
+
+tstring RGYPipeProcessLinux::getOutput() {
+    std::string outstr;
+    auto read_from_pipe = [&]() {
+        char read_buf[4096];
+        int ret = (int)read(m_pipe.stdOut.h_read, read_buf, _countof(read_buf));
+        if (ret == -1) return -1;
+        outstr += std::string(read_buf, read_buf+ret);
+        return (int)ret;
+    };
+    for (;;) {
+        if (read_from_pipe() < 0) {
             break;
         }
     }
