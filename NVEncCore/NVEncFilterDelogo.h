@@ -153,15 +153,15 @@ public:
     ~DelogoSrcBuffer() {
         clear();
     }
-    cudaError_t alloc(const RGYFrameInfo& frame) {
+    RGY_ERR alloc(const RGYFrameInfo& frame) {
         for (size_t i = 0; i < m_src.size(); i++) {
             m_src[i].frame = frame;
             auto sts = m_src[i].alloc();
-            if (sts != cudaSuccess) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
         }
-        return cudaSuccess;
+        return RGY_ERR_NONE;
     }
     void clear() {
         for (size_t i = 0; i < m_src.size(); i++) {
@@ -187,27 +187,27 @@ public:
         heEval.reset();
         heEvalCopyFin.reset();
     }
-    cudaError_t init(CUctx_flags cudaSchedule, bool noSubStream = false) {
+    RGY_ERR init(CUctx_flags cudaSchedule, bool noSubStream = false) {
         cudaError_t cudaerr = cudaSuccess;
         stEval = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
         cudaerr = cudaStreamCreateWithFlags(stEval.get(), cudaStreamNonBlocking);
-        if (cudaerr != cudaSuccess) return cudaerr;
+        if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
         if (!noSubStream) {
             stEvalSub = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
             cudaerr = cudaStreamCreateWithFlags(stEvalSub.get(), cudaStreamNonBlocking);
-            if (cudaerr != cudaSuccess) return cudaerr;
+            if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
         }
         const uint32_t cudaEventFlags = (cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : 0;
         heEval = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         cudaerr = cudaEventCreateWithFlags(heEval.get(), cudaEventFlags | cudaEventDisableTiming);
-        if (cudaerr != cudaSuccess) return cudaerr;
+        if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
         heEvalCopyFin = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         cudaerr = cudaEventCreateWithFlags(heEvalCopyFin.get(), cudaEventFlags | cudaEventDisableTiming);
-        if (cudaerr != cudaSuccess) return cudaerr;
+        if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
-        return cudaerr;
+        return RGY_ERR_NONE;
     }
 };
 

@@ -219,7 +219,7 @@ RGY_ERR NVEncFilterCurves::sendLUTToGPU(std::unique_ptr<CUMemBuf>& mem, const st
     if (lut.size() > 0) {
         auto sts = RGY_ERR_NONE;
         mem = std::make_unique<CUMemBuf>(lut.size() * sizeof(lut[0]));
-        if ((sts = err_to_rgy(mem->alloc())) != RGY_ERR_NONE) {
+        if ((sts = mem->alloc()) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate CUDA memory for lut: %s.\n"), get_err_mes(sts));
             return sts;
         }
@@ -347,10 +347,10 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             }
         }
 
-        auto cudaerr = AllocFrameBuf(prm->frameOut, 1);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = AllocFrameBuf(prm->frameOut, 1);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
     }

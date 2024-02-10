@@ -82,8 +82,9 @@ RGY_ERR NVEncFilterCustom::check_param(shared_ptr<NVEncFilterParamCustom> prm) {
     int maxThreadsPerBlock = 0;
     auto cuErr = cudaDeviceGetAttribute(&maxThreadsPerBlock, cudaDevAttrMaxThreadsPerBlock, device);
     if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) {
-        AddMessage(RGY_LOG_ERROR, _T("Error on cudaDeviceGetAttribute(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
-        return RGY_ERR_CUDA;
+        auto sts = err_to_rgy(cuErr);
+        AddMessage(RGY_LOG_ERROR, _T("Error on cudaDeviceGetAttribute(): %s\n"), get_err_mes(sts));
+        return sts;
     }
     if (cuErr == cudaSuccess && maxThreadsPerBlock < prm->custom.threadPerBlockX * prm->custom.threadPerBlockY) {
         AddMessage(RGY_LOG_ERROR, _T("threadPerBlock is over limit of device: %d=%dx%d, limit=%d\n"),
@@ -124,10 +125,10 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
     AddMessage(RGY_LOG_DEBUG, _T("%s available.\n"), NVRTC_DLL_NAME_TSTR);
 
-    auto cudaerr = AllocFrameBuf(pParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(pParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -207,13 +208,14 @@ RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputPlane, const RGYFr
         cuGetErrorString(err, &ptr);
         AddMessage(RGY_LOG_ERROR, _T("error at run_per_plane(%s): %s.\n"),
             RGY_CSP_NAMES[pInpuPlane->csp], char_to_tstring(ptr).c_str());
-        return RGY_ERR_CUDA;
+        return err_to_rgy(err);
     }
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
+        auto sts = err_to_rgy(cudaerr);
         AddMessage(RGY_LOG_ERROR, _T("error at run_per_plane(%s) kernel_filter: %s.\n"),
-            RGY_CSP_NAMES[pInpuPlane->csp], char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            RGY_CSP_NAMES[pInpuPlane->csp], get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 #else
@@ -276,13 +278,14 @@ RGY_ERR NVEncFilterCustom::run_planes(RGYFrameInfo *pOutputFrame, const RGYFrame
         cuGetErrorString(err, &ptr);
         AddMessage(RGY_LOG_ERROR, _T("error at run_planes(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp], char_to_tstring(ptr).c_str());
-        return RGY_ERR_CUDA;
+        return err_to_rgy(err);
     }
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
+        auto sts = err_to_rgy(cudaerr);
         AddMessage(RGY_LOG_ERROR, _T("error at run_planes(%s) kernel_filter: %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 #else
@@ -318,13 +321,13 @@ RGY_ERR NVEncFilterCustom::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     auto pOutputFrame = ppOutputFrames[0];
     if (false) {//for debug
         const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
-        auto cudaerr = cudaMemcpy2D((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
+        sts = err_to_rgy(cudaMemcpy2D((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
             (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
-            frameOutInfoEx.width_byte, frameOutInfoEx.height_total, memcpyKind);
-        if (cudaerr != cudaSuccess) {
+            frameOutInfoEx.width_byte, frameOutInfoEx.height_total, memcpyKind));
+        if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error to copy frames: %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+                RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
+            return sts;
         }
     } else if (prm->custom.kernel_interface == VPP_CUSTOM_INTERFACE_PLANES) {
         sts = run_planes(pOutputFrame, pInputFrame, stream);

@@ -188,10 +188,10 @@ RGY_ERR NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf, int
     const int nBufferSize = sizeof(float) * nWeightCount;
     pGaussWeightBuf = unique_ptr<CUMemBuf>(new CUMemBuf(nBufferSize));
 
-    auto cudaerr = pGaussWeightBuf->alloc();
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate weight buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    auto sts = pGaussWeightBuf->alloc();
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate weight buffer: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     vector<float> weight(nWeightCount);
     float *ptr_weight = weight.data();
@@ -212,9 +212,9 @@ RGY_ERR NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf, int
             ptr_weight++;
         }
     }
-    cudaerr = cudaMemcpy(pGaussWeightBuf->ptr, weight.data(), nBufferSize, cudaMemcpyHostToDevice);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to copy weight to device: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    sts = err_to_rgy(cudaMemcpy(pGaussWeightBuf->ptr, weight.data(), nBufferSize, cudaMemcpyHostToDevice));
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy weight to device: %s.\n"), get_err_mes(sts));
         return RGY_ERR_CUDA;
     }
     return RGY_ERR_NONE;
@@ -249,11 +249,10 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         pUnsharpParam->unsharp.threshold = clamp(pUnsharpParam->unsharp.threshold, 0.0f, 255.0f);
         AddMessage(RGY_LOG_WARN, _T("threshold should be in range of %.1f - %.1f.\n"), 0.0f, 255.0f);
     }
-
-    auto cudaerr = AllocFrameBuf(pUnsharpParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(pUnsharpParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     pUnsharpParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -264,7 +263,7 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
 
         if (   RGY_ERR_NONE != (sts = setWeight(m_pGaussWeightBufY,  pUnsharpParam->unsharp.radius, sigmaY))
             || RGY_ERR_NONE != (sts = setWeight(m_pGaussWeightBufUV, pUnsharpParam->unsharp.radius, sigmaUV))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set weight: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to set weight: %s.\n"), get_err_mes(sts));
             return sts;
         }
     }
@@ -319,15 +318,14 @@ RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, m_pGaussWeightBufY.get(), m_pGaussWeightBufUV.get(),
+    sts = denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, m_pGaussWeightBufY.get(), m_pGaussWeightBufUV.get(),
         pUnsharpParam->unsharp.radius, pUnsharpParam->unsharp.weight, pUnsharpParam->unsharp.threshold,
         stream);
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
+    if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at unsharp(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            get_err_mes(sts));
+        return sts;
     }
     return sts;
 }

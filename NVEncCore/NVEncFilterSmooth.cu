@@ -456,7 +456,7 @@ cudaError_t setTexFieldSmooth(cudaTextureObject_t& texSrc, const RGYFrameInfo *p
 }
 
 template<typename TypePixel, int bit_depth, typename TypeIO, typename TypeDct, bool usefp16, typename TypeQP>
-cudaError_t run_spp(RGYFrameInfo *pOutputPlane,
+RGY_ERR run_spp(RGYFrameInfo *pOutputPlane,
     const RGYFrameInfo *pSrc,
     const RGYFrameInfo *pQP,
     const int qpBlockShift,
@@ -468,7 +468,7 @@ cudaError_t run_spp(RGYFrameInfo *pOutputPlane,
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = setTexFieldSmooth<TypePixel>(texSrc, pSrc);
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
 
     dim3 blockSize(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
@@ -493,11 +493,11 @@ cudaError_t run_spp(RGYFrameInfo *pOutputPlane,
         thresh_a, thresh_b);
     cudaerr = cudaGetLastError();
     cudaDestroyTextureObject(texSrc);
-    return cudaerr;
+    return err_to_rgy(cudaerr);
 }
 
 template<typename TypePixel, int bit_depth, typename TypeIO, typename TypeDct, bool usefp16, typename TypeQP>
-cudaError_t run_spp_frame(RGYFrameInfo *pOutputFrame,
+RGY_ERR run_spp_frame(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pSrc,
     const CUFrameBuf *qpFrame,
     const float qpMul,
@@ -515,19 +515,19 @@ cudaError_t run_spp_frame(RGYFrameInfo *pOutputFrame,
     const int qpBlockShiftY = 1;
     const int qpBlockShiftUV = RGY_CSP_CHROMA_FORMAT[pSrc->csp] == RGY_CHROMAFMT_YUV420 ? 0 : 1;
 
-    auto cudaerr = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputY, &planeSrcY, &qpFrame->frame, qpBlockShiftY, qpMul, quality, strength, threshold, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputY, &planeSrcY, &qpFrame->frame, qpBlockShiftY, qpMul, quality, strength, threshold, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputU, &planeSrcU, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputU, &planeSrcU, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputV, &planeSrcV, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = run_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP>(&planeOutputV, &planeSrcV, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaerr;
+    return sts;
 }
 
 template<typename TypeQP4>
@@ -569,7 +569,7 @@ __global__ void kernel_gen_qp_table(
 }
 
 template<typename TypeQP4>
-cudaError_t run_gen_qp_table(
+RGY_ERR run_gen_qp_table(
     RGYFrameInfo *pQPDst,
     const RGYFrameInfo *pQPSrc,
     const RGYFrameInfo *pQPSrcB,
@@ -590,8 +590,7 @@ cudaError_t run_gen_qp_table(
         (pQPSrc->width + 3) & (~3),
         pQPSrc->height,
         qpMul, bRatio);
-    auto cudaerr = cudaGetLastError();
-    return cudaerr;
+    return err_to_rgy(cudaGetLastError());
 }
 
 template<typename TypeQP4>
@@ -618,7 +617,7 @@ __global__ void kernel_set_qp(
 }
 
 template<typename TypeQP4>
-cudaError_t run_set_qp(
+RGY_ERR run_set_qp(
     RGYFrameInfo *pQP,
     const int qp,
     cudaStream_t stream) {
@@ -631,8 +630,7 @@ cudaError_t run_set_qp(
         (pQP->width + 3) & (~3),
         pQP->height,
         qp);
-    auto cudaerr = cudaGetLastError();
-    return cudaerr;
+    return err_to_rgy(cudaGetLastError());
 }
 
 NVEncFilterSmooth::NVEncFilterSmooth() : m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0) {
@@ -694,19 +692,19 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         || (std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam)
             && std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam)->smooth != prm->smooth)) {
 
-        auto cudaerr = AllocFrameBuf(prm->frameOut, 1);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for output: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = AllocFrameBuf(prm->frameOut, 1);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for output: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
         AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
             m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
-        cudaerr = m_qp.alloc(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = m_qp.alloc(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
             m_qp.frame.width, m_qp.frame.height, m_qp.frame.pitch, RGY_CSP_NAMES[m_qp.frame.csp]);
@@ -813,10 +811,10 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     float qpMul = 1.0f;
 #if ENABLE_VPP_SMOOTH_QP_FRAME
     if (!!qpInput) {
-        auto cudaerr = cudaStreamWaitEvent(stream, qpInput->event(), 0);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("error in cudaStreamWaitEvent(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = err_to_rgy(cudaStreamWaitEvent(stream, qpInput->event(), 0));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error in cudaStreamWaitEvent(): %s.\n"), get_err_mes(sts));
+            return sts;
         }
         qpMul = getQPMul(qpInput->qpScaleType());
         if (qpMul <= 0.0f) {
@@ -827,10 +825,10 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         if (isBFrame) {
             m_qpSrcB = qpInput;
             targetQPTable = &m_qp;
-            cudaerr = run_gen_qp_table<uchar4>(&m_qp.frame, &m_qpSrc->qpDev()->frame, &m_qpSrcB->qpDev()->frame, qpMul, prm->smooth.bratio, stream);
-            if (cudaerr != cudaSuccess) {
-                AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+            sts = run_gen_qp_table<uchar4>(&m_qp.frame, &m_qpSrc->qpDev()->frame, &m_qpSrcB->qpDev()->frame, qpMul, prm->smooth.bratio, stream);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), get_err_mes(sts));
+                return sts;
             }
             qpMul = 1.0f; //run_gen_qp_tableの中で反映済み
         } else {
@@ -841,10 +839,10 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 #endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
     {
         targetQPTable = &m_qp;
-        auto cudaerr = run_set_qp<uchar4>(&m_qp.frame, prm->smooth.qp, stream);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = run_set_qp<uchar4>(&m_qp.frame, prm->smooth.qp, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), get_err_mes(sts));
+            return sts;
         }
     }
 
@@ -869,7 +867,7 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto cudaerr = func_list.at(pInputFrame->csp)(ppOutputFrames[0],
+    sts = func_list.at(pInputFrame->csp)(ppOutputFrames[0],
         pInputFrame,
         targetQPTable,
         qpMul,
@@ -878,9 +876,9 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         prm->smooth.threshold,
         stream
         );
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("error in run_spp_frame(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error in run_spp_frame(): %s.\n"), get_err_mes(sts));
+        return sts;
     }
 
     return sts;

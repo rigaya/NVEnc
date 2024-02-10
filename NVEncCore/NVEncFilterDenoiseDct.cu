@@ -871,16 +871,16 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
         for (auto& buf : m_bufImg) {
             if (!buf || cmpFrameInfoCspResolution(&buf->frame, &m_srcCrop->GetFilterParam()->frameOut)) {
                 buf = std::make_unique<CUFrameBuf>(m_srcCrop->GetFilterParam()->frameOut);
-                if ((sts = err_to_rgy(buf->alloc())) != RGY_ERR_NONE) {
+                if ((sts = buf->alloc()) != RGY_ERR_NONE) {
                     return sts;
                 }
             }
         }
 
-        auto cudaerr = AllocFrameBuf(prm->frameOut, 1);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = AllocFrameBuf(prm->frameOut, 1);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 

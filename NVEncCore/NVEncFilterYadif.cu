@@ -189,7 +189,7 @@ cudaError_t setTexFieldYadif(cudaTextureObject_t& texSrc, const RGYFrameInfo *pF
 }
 
 template<typename TypePixel, int bit_depth>
-cudaError_t run_yadif(RGYFrameInfo *pOutputPlane,
+RGY_ERR run_yadif(RGYFrameInfo *pOutputPlane,
     const RGYFrameInfo *pSrc0,
     const RGYFrameInfo *pSrc1,
     const RGYFrameInfo *pSrc2,
@@ -203,7 +203,7 @@ cudaError_t run_yadif(RGYFrameInfo *pOutputPlane,
     if (   (cudaerr = setTexFieldYadif<TypePixel>(texSrc0, pSrc0)) != cudaSuccess
         || (cudaerr = setTexFieldYadif<TypePixel>(texSrc1, pSrc1)) != cudaSuccess
         || (cudaerr = setTexFieldYadif<TypePixel>(texSrc2, pSrc2)) != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
 
     static const int YADIF_BLOCK_X = 32;
@@ -224,12 +224,12 @@ cudaError_t run_yadif(RGYFrameInfo *pOutputPlane,
     cudaDestroyTextureObject(texSrc0);
     cudaDestroyTextureObject(texSrc1);
     cudaDestroyTextureObject(texSrc2);
-    return cudaerr;
+    return err_to_rgy(cudaerr);
 }
 
 
 template<typename TypePixel, int bit_depth>
-cudaError_t run_yadif_frame(RGYFrameInfo *pOutputFrame,
+RGY_ERR run_yadif_frame(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pSrc0,
     const RGYFrameInfo *pSrc1,
     const RGYFrameInfo *pSrc2,
@@ -249,19 +249,19 @@ cudaError_t run_yadif_frame(RGYFrameInfo *pOutputFrame,
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    auto cudaerr = run_yadif<TypePixel, bit_depth>(&planeOutputY, &planeSrc0Y, &planeSrc1Y, &planeSrc2Y, targetField, picstruct, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = run_yadif<TypePixel, bit_depth>(&planeOutputY, &planeSrc0Y, &planeSrc1Y, &planeSrc2Y, targetField, picstruct, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = run_yadif<TypePixel, bit_depth>(&planeOutputU, &planeSrc0U, &planeSrc1U, &planeSrc2U, targetField, picstruct, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = run_yadif<TypePixel, bit_depth>(&planeOutputU, &planeSrc0U, &planeSrc1U, &planeSrc2U, targetField, picstruct, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = run_yadif<TypePixel, bit_depth>(&planeOutputV, &planeSrc0V, &planeSrc1V, &planeSrc2V, targetField, picstruct, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = run_yadif<TypePixel, bit_depth>(&planeOutputV, &planeSrc0V, &planeSrc1V, &planeSrc2V, targetField, picstruct, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaerr;
+    return sts;
 }
 
 NVEncFilterYadifSource::NVEncFilterYadifSource() : m_nFramesInput(0), m_nFramesOutput(0), m_buf() {
@@ -280,7 +280,7 @@ void NVEncFilterYadifSource::clear() {
     m_nFramesOutput = 0;
 }
 
-cudaError_t NVEncFilterYadifSource::alloc(const RGYFrameInfo& frameInfo) {
+RGY_ERR NVEncFilterYadifSource::alloc(const RGYFrameInfo& frameInfo) {
     if (!cmpFrameInfoCspResolution(&m_buf.begin()->frame, &frameInfo)) {
         //すべて確保されているか確認
         bool allocated = true;
@@ -291,28 +291,28 @@ cudaError_t NVEncFilterYadifSource::alloc(const RGYFrameInfo& frameInfo) {
             }
         }
         if (allocated) {
-            return cudaSuccess;
+            return RGY_ERR_NONE;
         }
     }
     for (auto& buf : m_buf) {
         auto ret = buf.alloc(frameInfo.width, frameInfo.height, frameInfo.csp);
-        if (ret != cudaSuccess) {
+        if (ret != RGY_ERR_NONE) {
             buf.clear();
             return ret;
         }
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
-cudaError_t NVEncFilterYadifSource::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterYadifSource::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
-    auto cudaerr = copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);
+    if (sts != RGY_ERR_NONE) {
+        return RGY_ERR_NONE;
     }
     copyFrameProp(&pDstFrame->frame, pInputFrame);
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterYadif::NVEncFilterYadif() : m_nFrame(0), m_pts(0), m_source() {
@@ -353,19 +353,19 @@ RGY_ERR NVEncFilterYadif::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto cudaerr = AllocFrameBuf(prmYadif->frameOut, (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) ? 2 : 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(prmYadif->frameOut, (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) ? 2 : 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     prmYadif->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
         m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
-    cudaerr = m_source.alloc(prmYadif->frameOut);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = m_source.alloc(prmYadif->frameOut);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
 
     prmYadif->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
@@ -412,10 +412,10 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             return RGY_ERR_INVALID_PARAM;
         }
         //sourceキャッシュにコピー
-        auto cudaerr = m_source.add(pInputFrame, stream);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to add frame to source buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        sts = m_source.add(pInputFrame, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to add frame to source buffer: %s.\n"), get_err_mes(sts));
+            return sts;
         }
     }
 
@@ -453,13 +453,13 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
                 ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
                 ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
                 ppOutputFrames[0]->inputFrameId = pSourceFrame->inputFrameId;
-                sts = err_to_rgy(copyFrameAsync(ppOutputFrames[0], pSourceFrame, stream));
+                sts = copyFrameAsync(ppOutputFrames[0], pSourceFrame, stream);
                 if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy frame: %s.\n"), get_err_mes(sts));
                     return sts;
                 }
                 if (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) {
-                    sts = err_to_rgy(copyFrameAsync(ppOutputFrames[1], pSourceFrame, stream));
+                    sts = copyFrameAsync(ppOutputFrames[1], pSourceFrame, stream);
                     if (sts != RGY_ERR_NONE) {
                         AddMessage(RGY_LOG_ERROR, _T("failed to copy frame: %s.\n"), get_err_mes(sts));
                         return sts;
@@ -492,14 +492,14 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pSourceFrame->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        sts = err_to_rgy(func_list.at(pSourceFrame->csp)(ppOutputFrames[0],
+        sts = func_list.at(pSourceFrame->csp)(ppOutputFrames[0],
             &m_source.get(m_nFrame-1)->frame,
             &m_source.get(m_nFrame+0)->frame,
             &m_source.get(m_nFrame+1)->frame,
             targetField,
             pSourceFrame->picstruct,
             stream
-            ));
+            );
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy frame: %s.\n"), get_err_mes(sts));
             return sts;
@@ -515,14 +515,14 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
                 AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pSourceFrame->csp]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            sts = err_to_rgy(func_list.at(pSourceFrame->csp)(ppOutputFrames[1],
+            sts = func_list.at(pSourceFrame->csp)(ppOutputFrames[1],
                 &m_source.get(m_nFrame-1)->frame,
                 &m_source.get(m_nFrame+0)->frame,
                 &m_source.get(m_nFrame+1)->frame,
                 targetField,
                 pSourceFrame->picstruct,
                 stream
-                ));
+                );
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy frame: %s.\n"), get_err_mes(sts));
                 return sts;

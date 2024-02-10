@@ -115,7 +115,7 @@ __global__ void kernel_transpose_plane(
 };
 
 template<typename TypePixel4, bool flipX, bool flipY>
-cudaError_t transpose_plane(
+RGY_ERR transpose_plane(
     RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pInputFrame,
     cudaStream_t stream
@@ -134,9 +134,9 @@ cudaError_t transpose_plane(
         pInputFrame->pitch);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 template<typename TypePixel4, bool flipX, bool flipY>
@@ -194,7 +194,7 @@ __global__ void kernel_flip_plane(
 };
 
 template<typename TypePixel4, bool flipX, bool flipY>
-cudaError_t flip_plane(
+RGY_ERR flip_plane(
     RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pInputFrame,
     cudaStream_t stream
@@ -213,13 +213,13 @@ cudaError_t flip_plane(
         pInputFrame->pitch);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 template<typename TypePixel4>
-cudaError_t transform_plane(
+RGY_ERR transform_plane(
     RGYFrameInfo *pOutputPlane,
     const RGYFrameInfo *pInputPlane,
     const std::shared_ptr<NVEncFilterParamTransform> pParam,
@@ -249,12 +249,12 @@ cudaError_t transform_plane(
 }
 
 template<typename TypePixel4>
-cudaError_t transform_frame(RGYFrameInfo *pOutputFrame,
+RGY_ERR transform_frame(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pInputFrame,
     const std::shared_ptr<NVEncFilterParamTransform> pParam,
     cudaStream_t stream
 ) {
-    cudaError_t cudaerr = cudaSuccess;
+    auto sts = RGY_ERR_NONE;
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -262,19 +262,19 @@ cudaError_t transform_frame(RGYFrameInfo *pOutputFrame,
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    cudaerr = transform_plane<TypePixel4>(&planeOutputY, &planeInputY, pParam, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = transform_plane<TypePixel4>(&planeOutputY, &planeInputY, pParam, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = transform_plane<TypePixel4>(&planeOutputU, &planeInputU, pParam, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = transform_plane<TypePixel4>(&planeOutputU, &planeInputU, pParam, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = transform_plane<TypePixel4>(&planeOutputV, &planeInputV, pParam, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = transform_plane<TypePixel4>(&planeOutputV, &planeInputV, pParam, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaerr;
+    return sts;
 }
 
 NVEncFilterTransform::NVEncFilterTransform() : m_weight0(), m_weight1() {
@@ -310,10 +310,10 @@ RGY_ERR NVEncFilterTransform::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         prm->frameOut.height = prm->frameIn.width;
     }
 
-    auto cudaerr = AllocFrameBuf(prm->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(prm->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -365,15 +365,14 @@ RGY_ERR NVEncFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    func_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
+    sts = func_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
         prm, stream
         );
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
+    if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at transform(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            get_err_mes(sts));
+        return sts;
     }
     return sts;
 }

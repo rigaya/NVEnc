@@ -91,10 +91,10 @@ RGY_ERR NVEncFilterOverlay::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
 
-    auto cudaerr = AllocFrameBuf(prm->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(prm->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -263,36 +263,40 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
     }
     if (!m_frame.dev) {
         m_frame.dev = std::make_unique<CUFrameBuf>(frameWidth, frameHeight, hostCsp);
-        if (m_frame.dev->alloc() != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame %s %dx%d.\n"), RGY_CSP_NAMES[m_frame.dev->frame.csp], frameWidth, frameHeight);
-            return RGY_ERR_MEMORY_ALLOC;
+        auto sts = m_frame.dev->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame %s %dx%d: %s.\n"), RGY_CSP_NAMES[m_frame.dev->frame.csp], frameWidth, frameHeight, get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Allocated frame(dev) %s %dx%d.\n"), RGY_CSP_NAMES[m_frame.dev->frame.csp], frameWidth, frameHeight);
     }
 
     if (!m_frame.host) {
         m_frame.host = std::make_unique<CUFrameBuf>(frameWidth, frameHeight, hostCsp);
-        if (m_frame.host->allocHost() != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame %s %dx%d.\n"), RGY_CSP_NAMES[m_frame.host->frame.csp], frameWidth, frameHeight);
-            return RGY_ERR_MEMORY_ALLOC;
+        auto sts = m_frame.host->allocHost();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame %s %dx%d: %s.\n"), RGY_CSP_NAMES[m_frame.host->frame.csp], frameWidth, frameHeight, get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Allocated frame(host) %s %dx%d.\n"), RGY_CSP_NAMES[m_frame.host->frame.csp], frameWidth, frameHeight);
     }
     
     if (!m_alpha.dev) {
         m_alpha.dev = std::make_unique<CUFrameBuf>(frameWidth, frameHeight, RGY_CSP_YUV444);
-        if (m_alpha.dev->alloc() != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate alpha frame %s %dx%d.\n"), RGY_CSP_NAMES[m_alpha.dev->frame.csp], frameWidth, frameHeight);
-            return RGY_ERR_MEMORY_ALLOC;
+        auto sts = m_alpha.dev->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate alpha frame %s %dx%d: %s.\n"), RGY_CSP_NAMES[m_alpha.dev->frame.csp], frameWidth, frameHeight, get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Allocated alpha frame(dev) %s %dx%d.\n"), RGY_CSP_NAMES[m_alpha.dev->frame.csp], frameWidth, frameHeight);
     }
 
     if (!m_alpha.host) {
         m_alpha.host = std::make_unique<CUFrameBuf>(frameWidth, frameHeight, RGY_CSP_YUV444);
-        if (m_alpha.host->allocHost() != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate alpha frame %s %dx%d.\n"), RGY_CSP_NAMES[m_alpha.host->frame.csp], frameWidth, frameHeight);
-            return RGY_ERR_MEMORY_ALLOC;
+        auto sts = m_alpha.host->allocHost();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate alpha frame %s %dx%d: %s.\n"), RGY_CSP_NAMES[m_alpha.host->frame.csp], frameWidth, frameHeight, get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Allocated alpha frame(host) %s %dx%d.\n"), RGY_CSP_NAMES[m_frame.host->frame.csp], frameWidth, frameHeight);
     }
@@ -524,7 +528,11 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
             dst_array, (const void **)frame->data,
             frameHost.width, frame->linesize[0], frame->linesize[1], frameHost.pitch,
             frameHost.height, frameHost.height, crop.c);
-        m_frame.dev->copyFrameAsync(&frameHost, stream);
+        auto sts = m_frame.dev->copyFrameAsync(&frameHost, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame (dev): %s.\n"), get_err_mes(sts));
+            return sts;
+        }
         if (m_inputFrames == 0) {
             AddMessage(RGY_LOG_DEBUG, _T("Copied frame to device.\n"));
         }
@@ -610,7 +618,11 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
                 memcpy(dst_array[iplane], dst_array[0], frameHostAlpha.pitch * frameHostAlpha.height);
             }
         }
-        m_alpha.dev->copyFrameAsync(&frameHostAlpha, stream);
+        auto sts = m_alpha.dev->copyFrameAsync(&frameHostAlpha, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame (alpha): %s.\n"), get_err_mes(sts));
+            return sts;
+        }
         if (m_inputFrames == 0) {
             AddMessage(RGY_LOG_DEBUG, _T("Copied alpha to device.\n"));
         }
@@ -689,10 +701,10 @@ RGY_ERR NVEncFilterOverlay::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     if (m_frame.inputPtr) {
         sts = overlayFrame(ppOutputFrames[0], pInputFrame, stream);
     } else {
-        auto cudaerr = copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
-        if (cudaerr != cudaSuccess) {
+        sts = copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
+        if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame.\n"));
-            return RGY_ERR_CUDA;
+            return sts;
         } 
     }
     return sts;

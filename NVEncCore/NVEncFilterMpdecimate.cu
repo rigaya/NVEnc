@@ -106,7 +106,7 @@ __global__ void kernel_block_diff(
 }
 
 template<typename Type4>
-cudaError calc_block_diff_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, cudaStream_t streamDiff) {
+RGY_ERR calc_block_diff_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, cudaStream_t streamDiff) {
     const int width = p0->width;
     const int height = p0->height;
     dim3 blockSize(MPDECIMATE_BLOCK_X, MPDECIMATE_BLOCK_Y);
@@ -116,21 +116,21 @@ cudaError calc_block_diff_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, 
         (const uint8_t *)p1->ptr, p1->pitch,
         width, height,
         (uint8_t *)tmp->ptr, tmp->pitch);
-    return cudaGetLastError();
+    return err_to_rgy(cudaGetLastError());
 }
 
 template<typename Type4>
-cudaError_t calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, cudaStream_t streamDiff) {
+RGY_ERR calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, cudaStream_t streamDiff) {
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
         auto planeTmp = getPlane(tmp, (RGY_PLANE)i);
-        auto cudaerr = calc_block_diff_plane<Type4>( &plane0, &plane1, &planeTmp, streamDiff);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = calc_block_diff_plane<Type4>( &plane0, &plane1, &planeTmp, streamDiff);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterMpdecimateFrameData::NVEncFilterMpdecimateFrameData(std::shared_ptr<RGYLog> log) :
@@ -154,10 +154,10 @@ RGY_ERR NVEncFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int
         m_tmp.alloc(divCeil(pInputFrame->width, 8), divCeil(pInputFrame->height, 8), RGY_CSP_YUV444_32);
     }
 
-    auto cudaerr = m_buf.copyFrameAsync(pInputFrame, stream);
-    if (cudaerr != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+    auto sts = m_buf.copyFrameAsync(pInputFrame, stream);
+    if (sts != RGY_ERR_NONE) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     copyFrameProp(&m_buf.frame, pInputFrame);
     return RGY_ERR_NONE;
@@ -175,23 +175,23 @@ RGY_ERR NVEncFilterMpdecimateFrameData::calcDiff(const NVEncFilterMpdecimateFram
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[ref->m_buf.frame.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto cudaerr = func_list.at(ref->m_buf.frame.csp)(&m_buf.frame, &ref->get()->frame, &m_tmp.frameDev, streamDiff);
-    if (cudaerr != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to run calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    auto sts = func_list.at(ref->m_buf.frame.csp)(&m_buf.frame, &ref->get()->frame, &m_tmp.frameDev, streamDiff);
+    if (sts != RGY_ERR_NONE) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to run calcDiff: %s.\n"), get_err_mes(sts));
         return RGY_ERR_CUDA;
     }
 
-    if ((cudaerr = cudaEventRecord(eventTransfer, streamDiff)) != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to cudaEventRecord in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+    if ((sts = err_to_rgy(cudaEventRecord(eventTransfer, streamDiff))) != RGY_ERR_NONE) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to cudaEventRecord in calcDiff: %s.\n"), get_err_mes(sts));
+        return sts;
     }
-    if ((cudaerr = cudaStreamWaitEvent(streamTransfer, eventTransfer, 0)) != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to cudaStreamWaitEvent in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+    if ((sts = err_to_rgy(cudaStreamWaitEvent(streamTransfer, eventTransfer, 0))) != RGY_ERR_NONE) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to cudaStreamWaitEvent in calcDiff: %s.\n"), get_err_mes(sts));
+        return sts;
     }
-    if ((cudaerr = m_tmp.copyDtoHAsync(streamTransfer)) != cudaSuccess) {
-        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to copyDtoHAsync in calcDiff: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+    if ((sts = m_tmp.copyDtoHAsync(streamTransfer)) != RGY_ERR_NONE) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to copyDtoHAsync in calcDiff: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -288,33 +288,31 @@ RGY_ERR NVEncFilterMpdecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_
 
         m_cache.init(2, m_pPrintMes);
 
-        auto cudaerr = cudaSuccess;
-
         m_eventDiff = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventDiff.get(), cudaEventDisableTiming))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(cudaEventCreateWithFlags(m_eventDiff.get(), cudaEventDisableTiming)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreateWithFlags for m_eventDiff: Success.\n"));
 
         m_eventTransfer = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventTransfer.get(), cudaEventDisableTiming))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(cudaEventCreateWithFlags(m_eventTransfer.get(), cudaEventDisableTiming)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreateWithFlags for m_eventTransfer: Success.\n"));
 
         m_streamDiff = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-        if (cudaSuccess != (cudaerr = cudaStreamCreateWithFlags(m_streamDiff.get(), 0/*cudaStreamNonBlocking*/))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamDiff.get(), 0/*cudaStreamNonBlocking*/)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamDiff: Success.\n"));
 
         m_streamTransfer = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-        if (cudaSuccess != (cudaerr = cudaStreamCreateWithFlags(m_streamTransfer.get(), 0/*cudaStreamNonBlocking*/))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamTransfer.get(), 0/*cudaStreamNonBlocking*/)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamTransfer: Success.\n"));
 

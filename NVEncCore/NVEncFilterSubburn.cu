@@ -128,7 +128,7 @@ __global__ void kernel_subburn(
 }
 
 template<typename TypePixel, int bit_depth>
-cudaError_t proc_frame(RGYFrameInfo *pFrame,
+RGY_ERR proc_frame(RGYFrameInfo *pFrame,
     const RGYFrameInfo *pSubImg,
     int pos_x, int pos_y,
     float transparency_offset, float brightness, float contrast,
@@ -137,7 +137,7 @@ cudaError_t proc_frame(RGYFrameInfo *pFrame,
     const int burnWidth  = std::min((pos_x & ~1) + pSubImg->width,  pFrame->width)  - (pos_x & ~1);
     const int burnHeight = std::min((pos_y & ~1) + pSubImg->height, pFrame->height) - (pos_y & ~1);
     if (burnWidth <= 0 || burnHeight <= 0) {
-        return cudaSuccess;
+        return RGY_ERR_NONE;
     }
 
     dim3 blockSize(32, 8);
@@ -161,7 +161,7 @@ cudaError_t proc_frame(RGYFrameInfo *pFrame,
     if (   planeSubY.pitch != planeSubU.pitch
         || planeSubY.pitch != planeSubV.pitch
         || planeSubY.pitch != planeSubA.pitch) {
-        return cudaErrorNotSupported;
+        return RGY_ERR_UNSUPPORTED;
     }
 
     cudaError_t cudaerr = cudaSuccess;
@@ -176,9 +176,9 @@ cudaError_t proc_frame(RGYFrameInfo *pFrame,
         burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStream_t stream) {
@@ -283,13 +283,13 @@ RGY_ERR NVEncFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t fr
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
             const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
-            auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
+            auto sts = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
                 prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, stream);
-            if (cudaerr != cudaSuccess) {
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
                     RGY_CSP_NAMES[pOutputFrame->csp],
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+                    get_err_mes(sts));
+                return sts;
             }
         }
     }
@@ -499,13 +499,13 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const in
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
             if (m_subImages[irect].image) {
                 const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
-                auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
+                auto sts = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
                     prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, stream);
-                if (cudaerr != cudaSuccess) {
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
                         RGY_CSP_NAMES[pOutputFrame->csp],
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_CUDA;
+                        get_err_mes(sts));
+                    return sts;
                 }
             }
         }

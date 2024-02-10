@@ -444,10 +444,10 @@ RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
     if (!m_pParam || std::dynamic_pointer_cast<NVEncFilterParamWarpsharp>(m_pParam)->warpsharp != prm->warpsharp) {
 
-        auto cudaerr = AllocFrameBuf(prm->frameOut, 1);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = AllocFrameBuf(prm->frameOut, 1);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
     }
@@ -460,9 +460,9 @@ RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_p
             m.frame.picstruct = prm->frameOut.picstruct;
             m.frame.deivce_mem = prm->frameOut.deivce_mem;
             m.frame.csp = prm->frameOut.csp;
-            auto cudaerr = m.alloc();
-            if (cudaerr != cudaSuccess) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            sts = m.alloc();
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
                 return RGY_ERR_MEMORY_ALLOC;
             }
         }

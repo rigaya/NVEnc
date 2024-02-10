@@ -54,8 +54,8 @@ class NVEncFilterYadifSource {
 public:
     NVEncFilterYadifSource();
     ~NVEncFilterYadifSource();
-    cudaError_t add(const RGYFrameInfo *pInputFrame, cudaStream_t stream = 0);
-    cudaError_t alloc(const RGYFrameInfo& frameInfo);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, cudaStream_t stream = 0);
+    RGY_ERR alloc(const RGYFrameInfo& frameInfo);
     void clear();
     CUFrameBuf *get(int iframe) {
         iframe = clamp(iframe, 0, m_nFramesInput-1);

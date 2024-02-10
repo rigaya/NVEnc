@@ -233,9 +233,9 @@ RGY_ERR NVEncFilterDenoisePmd::denoise(RGYFrameInfo *pOutputFrame[2], RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for denoise(pmd): %s\n"), RGY_CSP_NAMES[pPmdParam->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto cudaerr = denoise_func_list.at(pPmdParam->frameIn.csp).func[!!pPmdParam->pmd.useExp](pOutputFrame, pGauss, pInputFrame, pPmdParam->pmd.applyCount, pPmdParam->pmd.strength, pPmdParam->pmd.threshold, stream);
-    if (cudaerr != cudaSuccess) {
-        return RGY_ERR_CUDA;
+    auto sts = err_to_rgy(denoise_func_list.at(pPmdParam->frameIn.csp).func[!!pPmdParam->pmd.useExp](pOutputFrame, pGauss, pInputFrame, pPmdParam->pmd.applyCount, pPmdParam->pmd.strength, pPmdParam->pmd.threshold, stream));
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -274,10 +274,10 @@ RGY_ERR NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, shared_
         pPmdParam->pmd.threshold = clamp(pPmdParam->pmd.threshold, 0.0f, 255.0f);
     }
 
-    auto cudaerr = AllocFrameBuf(pPmdParam->frameOut, 2);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(pPmdParam->frameOut, 2);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     pPmdParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -288,10 +288,10 @@ RGY_ERR NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, shared_
         m_Gauss.frame.picstruct = pPmdParam->frameOut.picstruct;
         m_Gauss.frame.deivce_mem = pPmdParam->frameOut.deivce_mem;
         m_Gauss.frame.csp = pPmdParam->frameOut.csp;
-        cudaerr = m_Gauss.alloc();
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = m_Gauss.alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
     }
 

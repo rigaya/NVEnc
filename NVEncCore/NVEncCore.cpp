@@ -1289,9 +1289,9 @@ RGY_ERR NVEncCore::AllocateBufferRawOutput(const uint32_t uInputWidth, const uin
     outFrame.height = uInputHeight;
     outFrame.deivce_mem = false;
     m_outputFrameHostRaw = std::make_unique<CUFrameBuf>(outFrame);
-    if (auto cudaerr = m_outputFrameHostRaw->allocHost(); cudaerr != cudaSuccess) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to allocate raw output buffer: %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
-        return err_to_rgy(cudaerr);
+    if (auto sts = m_outputFrameHostRaw->allocHost(); sts != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to allocate raw output buffer: %s\n"), get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }

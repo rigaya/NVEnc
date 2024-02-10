@@ -232,10 +232,10 @@ RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto cudaerr = AllocFrameBuf(pKnnParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(pKnnParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     pKnnParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -290,13 +290,12 @@ RGY_ERR NVEncFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold, stream);
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
+    sts = err_to_rgy(denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold, stream));
+    if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at knn(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            get_err_mes(sts));
+        return sts;
     }
     return sts;
 }

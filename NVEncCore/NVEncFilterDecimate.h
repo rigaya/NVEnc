@@ -41,7 +41,7 @@ public:
     virtual tstring print() const override;
 };
 
-using funcCalcDiff = std::function<cudaError_t(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair&,
+using funcCalcDiff = std::function<RGY_ERR(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair&,
     const int, const int, const bool, cudaStream_t, cudaEvent_t, cudaStream_t)>;
 
 enum DecimateSelectResult : uint32_t {
@@ -82,9 +82,9 @@ public:
 
     CUFrameBuf *get() { return &m_buf; }
     const CUFrameBuf *get() const { return &m_buf; }
-    cudaError_t set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream);
+    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream);
     int id() const { return m_inFrameId; }
-    cudaError_t calcDiff(funcCalcDiff func, const NVEncFilterDecimateFrameData *target, const bool chroma,
+    RGY_ERR calcDiff(funcCalcDiff func, const NVEncFilterDecimateFrameData *target, const bool chroma,
         cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer);
     void calcDiffFromTmp();
 
@@ -106,7 +106,7 @@ public:
     NVEncFilterDecimateCache();
     ~NVEncFilterDecimateCache();
     void init(int bufCount, int blockX, int blockY);
-    cudaError_t add(const RGYFrameInfo *pInputFrame, cudaStream_t stream = 0);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, cudaStream_t stream = 0);
     NVEncFilterDecimateFrameData *frame(int iframe) {
         iframe = clamp(iframe, 0, m_inputFrames - 1);
         return m_frames[iframe % m_frames.size()].get();

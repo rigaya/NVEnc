@@ -79,10 +79,10 @@ RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     prm->frameOut.pitch = prm->frameIn.pitch;
 
     if (!m_pParam || cmpFrameInfoCspResolution(&m_pParam->frameOut, &prm->frameOut)) {
-        auto cudaerr = AllocFrameBuf(prm->frameOut, FRAME_BUF_SIZE + 1);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        sts = AllocFrameBuf(prm->frameOut, FRAME_BUF_SIZE + 1);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         if (prm->rff.log) {
             m_fpLog = std::unique_ptr<FILE, fp_deleter>(_tfopen((prm->outFilename + _T(".rff.log")).c_str(), _T("w")), fp_deleter());
@@ -108,7 +108,7 @@ std::tuple<RGY_ERR, int, bool> NVEncFilterRff::copyFieldFromBuffer(RGYFrameInfo 
     // m_cl->copyFrameはframe情報をsrcからコピーする
     // dst側の情報を維持するため、あらかじめdstの情報をコピーしておく
     copyFrameProp(&m_pFrameBuf[targetIdx]->frame, dst);
-    auto err = err_to_rgy(copyFrameFieldAsync(dst, &m_pFrameBuf[targetIdx]->frame, copyTopField, copyTopField, stream));
+    auto err = copyFrameFieldAsync(dst, &m_pFrameBuf[targetIdx]->frame, copyTopField, copyTopField, stream);
     m_nFieldBufPicStruct[targetIdx] = RGY_FRAME_FLAG_NONE;
     return { err, inputFrameId, copyTopField };
 }
@@ -120,7 +120,7 @@ RGY_ERR NVEncFilterRff::copyFieldToBuffer(const RGYFrameInfo *src, const bool co
     } else {
         m_nFieldBufPicStruct[targetIdx] = RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_BFF;
     }
-    auto err = err_to_rgy(copyFrameFieldAsync(&m_pFrameBuf[targetIdx]->frame, src, copyTopField, copyTopField, stream));
+    auto err = copyFrameFieldAsync(&m_pFrameBuf[targetIdx]->frame, src, copyTopField, copyTopField, stream);
     copyFrameProp(&m_pFrameBuf[targetIdx]->frame, src);
     return err;
 }
@@ -208,7 +208,7 @@ RGY_ERR NVEncFilterRff::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             // RFFがある場合、自分をコピー
             *pOutputFrameNum = 2;
             ppOutputFrames[1] = &m_pFrameBuf[FRAME_OUT_INDEX]->frame;
-            sts = err_to_rgy(copyFrameAsync(ppOutputFrames[1], pInputFrame, stream));
+            sts = copyFrameAsync(ppOutputFrames[1], pInputFrame, stream);
             if (sts != RGY_ERR_NONE) { return sts; }
 
             // m_nFieldBufPicStruct側をバッファからコピー

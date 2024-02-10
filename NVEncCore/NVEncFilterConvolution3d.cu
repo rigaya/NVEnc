@@ -257,10 +257,10 @@ RGY_ERR NVEncFilterConvolution3d::init(shared_ptr<NVEncFilterParam> pParam, shar
     }
     if (!m_pParam
         || std::dynamic_pointer_cast<NVEncFilterParamConvolution3d>(m_pParam)->convolution3d != param->convolution3d) {
-        auto cudaerr = AllocFrameBuf(param->frameOut, 1);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return err_to_rgy(cudaerr);
+        sts = AllocFrameBuf(param->frameOut, 1);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
     }
 
@@ -269,9 +269,9 @@ RGY_ERR NVEncFilterConvolution3d::init(shared_ptr<NVEncFilterParam> pParam, shar
         for (auto& f : m_prevFrames) {
             f.reset(new CUFrameBuf(param->frameOut));
             f->frame.ptr = nullptr;
-            auto ret = f->alloc();
-            if (ret != cudaSuccess) {
-                return err_to_rgy(ret);
+            sts = f->alloc();
+            if (sts != RGY_ERR_NONE) {
+                return sts;
             }
         }
         m_cacheIdx = 0;
@@ -367,7 +367,7 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error at convolution3d(%s): %s.\n"),
                 RGY_CSP_NAMES[frameNext->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                get_err_mes(err_to_rgy(cudaerr)));
             return err_to_rgy(cudaerr);
         }
         m_nFrameIdx++;
@@ -379,10 +379,10 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
     //sourceキャッシュにコピー
     if (pInputFrame->ptr) {
         auto cacheFrame = &m_prevFrames[m_cacheIdx++ % m_prevFrames.size()]->frame;
-        auto cudaerr = copyFrameAsync(cacheFrame, frameNext, stream);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set frame to data cache: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        sts = copyFrameAsync(cacheFrame, frameNext, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set frame to data cache: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         copyFrameProp(cacheFrame, frameNext);
     }

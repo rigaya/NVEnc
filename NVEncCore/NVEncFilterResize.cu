@@ -387,8 +387,8 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
     const int iy = blockIdx.y * block_y + threadIdx.y;
     if (ix < dstWidth && iy < dstHeight) {
         //ピクセルの中心を算出してからスケール
-        const float x = ((float)ix + 0.5f) * ratioX;
-        const float y = ((float)iy + 0.5f) * ratioY;
+        //const float x = ((float)ix + 0.5f) * ratioX;
+        //const float y = ((float)iy + 0.5f) * ratioY;
 
         const float srcX = ((float)(ix + 0.5f)) * ratioInvX;
         const int srcFirstX = max(0, (int)floorf(srcX - srcWindowX));
@@ -759,10 +759,10 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto cudaerr = AllocFrameBuf(pResizeParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(pResizeParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     pResizeParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -809,14 +809,14 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
 
         m_weightSpline = CUMemBuf(sizeof((*weight)[0]) * weight->size());
-        if (cudaSuccess != (cudaerr = m_weightSpline.alloc())) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_MEMORY_ALLOC;
+        if (RGY_ERR_NONE != (sts = m_weightSpline.alloc())) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
-        cudaerr = cudaMemcpy(m_weightSpline.ptr, weight->data(), m_weightSpline.nSize, cudaMemcpyHostToDevice);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to send weight to gpu memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        sts = err_to_rgy(cudaMemcpy(m_weightSpline.ptr, weight->data(), m_weightSpline.nSize, cudaMemcpyHostToDevice));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to send weight to gpu memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
     }
 
@@ -965,10 +965,10 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             }
         }
     } else {
-        auto cudaerr = copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame.\n"));
-            return RGY_ERR_CUDA;
+        sts = copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame: %s.\n"), get_err_mes(sts));
+            return sts;
         }
     }
     return sts;

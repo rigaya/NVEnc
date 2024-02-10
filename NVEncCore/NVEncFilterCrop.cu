@@ -273,10 +273,10 @@ RGY_ERR NVEncFilterCspCrop::convertYBitDepth(RGYFrameInfo *pOutputFrame, const R
     crop_y_list.at(bit_depth_conv)(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
+        auto sts = err_to_rgy(cudaerr);
         AddMessage(RGY_LOG_ERROR, _T("error at convertYBitDepth(%s -> %s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_INVALID_CALL;
+            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -1688,7 +1688,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice, stream);
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromNV12(%s -> %s)): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err_to_rgy(cudaerr)));
             return RGY_ERR_INVALID_CALL;
         }
     } else {
@@ -1735,10 +1735,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const
     convert_from_nv12_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
+        auto sts = err_to_rgy(cudaerr);
         AddMessage(RGY_LOG_ERROR, _T("error at convert_from_nv12_list(%s -> %s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_INVALID_CALL;
+            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -1793,10 +1793,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const
         convert_from_yv12_to_rgb_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, pCropParam->matrix, stream);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
+            auto sts = err_to_rgy(cudaerr);
             AddMessage(RGY_LOG_ERROR, _T("error at convert_from_yv12_to_rgb_list(%s -> %s): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_INVALID_CALL;
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+            return sts;
         }
         return RGY_ERR_NONE;
     }
@@ -1810,9 +1810,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pCropParam->frameOut.height, cudaMemcpyDeviceToDevice, stream);
         if (cudaerr != cudaSuccess) {
+            auto sts = err_to_rgy(cudaerr);
             AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromYV12(%s -> %s)): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_INVALID_CALL;
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+            return sts;
         }
     } else {
         auto ret = convertYBitDepth(pOutputFrame, pInputFrame, stream);
@@ -1848,10 +1849,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const
     crop_uv_yv12_nv12_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
+        auto sts = err_to_rgy(cudaerr);
         AddMessage(RGY_LOG_ERROR, _T("error at crop_uv_nv12_yv12_list(%s -> %s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_INVALID_CALL;
+            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 
@@ -1872,9 +1873,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(RGYFrameInfo *pOutputFrame, const
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice, stream);
         if (cudaerr != cudaSuccess) {
+            auto sts = err_to_rgy(cudaerr);
             AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromNV16(%s -> %s)): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_INVALID_CALL;
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+            return sts;
         }
     } else {
         auto ret = convertYBitDepth(pOutputFrame, pInputFrame, stream);
@@ -1926,10 +1928,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(RGYFrameInfo *pOutputFrame, const
     convert_from_nv16_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
+        auto sts = err_to_rgy(cudaerr);
         AddMessage(RGY_LOG_ERROR, _T("error at convert_from_nv16_list(%s -> %s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_INVALID_CALL;
+            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -1981,10 +1983,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, con
         convert_from_yuv444_to_rgb_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, pCropParam->matrix, stream);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
+            auto sts = err_to_rgy(cudaerr);
             AddMessage(RGY_LOG_ERROR, _T("error at convert_from_yuv444_to_rgb_list(%s -> %s): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_INVALID_CALL;
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+            return sts;
         }
         return RGY_ERR_NONE;
     }
@@ -1997,9 +1999,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, con
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice, stream);
         if (cudaerr != cudaSuccess) {
+            auto sts = err_to_rgy(cudaerr);
             AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromYUV444(%s -> %s)): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_INVALID_CALL;
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+            return sts;
         }
     } else {
         auto ret = convertYBitDepth(pOutputFrame, pInputFrame, stream);
@@ -2033,10 +2036,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, con
         convert_from_yuv444_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
+            auto sts = err_to_rgy(cudaerr);
             AddMessage(RGY_LOG_ERROR, _T("error at convert_from_yuv444(%s -> %s): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_INVALID_CALL;
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+            return sts;
         }
         return RGY_ERR_NONE;
     }
@@ -2274,10 +2277,10 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromRGB(RGYFrameInfo *pOutputFrame, const 
     convert_from_rgb_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, pCropParam->matrix, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
+        auto sts = err_to_rgy(cudaerr);
         AddMessage(RGY_LOG_ERROR, _T("error at convert_from_rgb_list(%s -> %s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_INVALID_CALL;
+            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -2331,10 +2334,10 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto cudaerr = AllocFrameBuf(pCropParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(pCropParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     pCropParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -2391,9 +2394,10 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (m_pParam->frameOut.csp == m_pParam->frameIn.csp) {
         auto cudaMemcpyErrMes = [&](cudaError_t cudaerr, const TCHAR *mes) {
+            auto sts = err_to_rgy(cudaerr);
             AddMessage(RGY_LOG_ERROR, _T("error at %s (filter(%s)): %s.\n"),
-                mes, RGY_CSP_NAMES[pInputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_INVALID_CALL;
+                mes, RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
+            return sts;
         };
 #if 1
         const auto frameOutInfoEx = getFrameInfoExtra(ppOutputFrames[0]);

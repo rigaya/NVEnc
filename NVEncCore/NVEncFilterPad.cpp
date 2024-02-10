@@ -74,10 +74,10 @@ RGY_ERR NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto cudaerr = AllocFrameBuf(pParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(pParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 

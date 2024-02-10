@@ -330,10 +330,10 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         if (prm->ssim) {
             for (size_t i = 0; i < m_streamCalcSsim.size(); i++) {
                 m_streamCalcSsim[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-                auto cudaerr = cudaStreamCreateWithFlags(m_streamCalcSsim[i].get(), cudaStreamDefault);
-                if (cudaerr != cudaSuccess) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                    return RGY_ERR_CUDA;
+                auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCalcSsim[i].get(), cudaStreamDefault));
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
+                    return sts;
                 }
                 AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamCalcSsim[%d]: Success.\n"), i);
             }
@@ -341,27 +341,27 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         if (prm->psnr) {
             for (size_t i = 0; i < m_streamCalcPsnr.size(); i++) {
                 m_streamCalcPsnr[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-                auto cudaerr = cudaStreamCreateWithFlags(m_streamCalcPsnr[i].get(), cudaStreamDefault);
-                if (cudaerr != cudaSuccess) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                    return RGY_ERR_CUDA;
+                auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCalcPsnr[i].get(), cudaStreamDefault));
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
+                    return sts;
                 }
                 AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamCalcPsnr[%d]: Success.\n"), i);
             }
         }
         m_streamCrop = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-        auto cudaerr = cudaStreamCreateWithFlags(m_streamCrop.get(), cudaStreamDefault);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCrop.get(), cudaStreamDefault));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamCrop: Success.\n"));
 
         m_cropEvent = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        cudaerr = cudaEventCreate(m_cropEvent.get());
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreate: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        sts = err_to_rgy(cudaEventCreate(m_cropEvent.get()));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreate: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreate for m_cropEvent: Success.\n"));
 
@@ -370,18 +370,18 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             const auto frameInfo = m_cropDToH->GetFilterParam()->frameOut;
             for (auto &frame : m_frameHostOrg) {
                 frame = std::make_unique<CUFrameBuf>(frameInfo.width, frameInfo.height, frameInfo.csp);
-                cudaerr = frame->allocHost();
-                if (cudaerr != cudaSuccess) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate host frame buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                    return RGY_ERR_CUDA;
+                sts = frame->allocHost();
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate host frame buffer: %s.\n"), get_err_mes(sts));
+                    return sts;
                 }
             }
             for (auto &frame : m_frameHostEnc) {
                 frame = std::make_unique<CUFrameBuf>(frameInfo.width, frameInfo.height, frameInfo.csp);
-                cudaerr = frame->allocHost();
-                if (cudaerr != cudaSuccess) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate host frame buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                    return RGY_ERR_CUDA;
+                sts = frame->allocHost();
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate host frame buffer: %s.\n"), get_err_mes(sts));
+                    return sts;
                 }
             }
 
@@ -466,10 +466,10 @@ RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         auto frameBuf = std::make_unique<CUFrameBuf>();
         copyFrameProp(&frameBuf->frame, (m_crop) ? &m_crop->GetFilterParam()->frameOut : pInputFrame);
         frameBuf->frame.deivce_mem = true;
-        auto curesult = frameBuf->alloc();
-        if (curesult != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
+        auto sts = frameBuf->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         m_unused.push_back(std::move(frameBuf));
     }
@@ -488,10 +488,10 @@ RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
             return sts_filter;
         }
     } else {
-        auto cuerr = copyFrameAsync(&copyFrame->frame, pInputFrame, stream);
-        if (cuerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame.\n"));
-            return RGY_ERR_CUDA;
+        auto sts = copyFrameAsync(&copyFrame->frame, pInputFrame, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame: %s.\n"), get_err_mes(sts));
+            return sts;
         }
     }
     cudaEventRecord(copyFrame->event, stream);
@@ -868,10 +868,10 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                 m_decFrameCopy = std::make_unique<CUFrameBuf>();
                 copyFrameProp(&m_decFrameCopy->frame, &m_crop->GetFilterParam()->frameOut);
                 m_decFrameCopy->frame.deivce_mem = true;
-                auto cuerr = m_decFrameCopy->alloc();
-                if (cuerr != cudaSuccess) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory.\n"));
-                    return RGY_ERR_MEMORY_ALLOC;
+                auto sts = m_decFrameCopy->alloc();
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+                    return sts;
                 }
             }
             targetFrame = m_decFrameCopy->frame;
@@ -911,18 +911,18 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                     AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDToH->name().c_str());
                     return sts_filter;
                 }
-                auto cudaerr = cudaGetLastError();
-                if (cudaerr != cudaSuccess) {
+                auto sts = err_to_rgy(cudaGetLastError());
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("error at m_cropDToH(Org)->filter: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_INVALID_CALL;
+                        get_err_mes(sts));
+                    return sts;
                 }
                 cudaEventRecord(frameHostOrg->event, *m_streamCrop.get());
-                cudaerr = cudaGetLastError();
-                if (cudaerr != cudaSuccess) {
+                sts = err_to_rgy(cudaGetLastError());
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("error at cudaEventRecord(Org)->filter: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_INVALID_CALL;
+                        get_err_mes(sts));
+                    return sts;
                 }
             }
 
@@ -935,18 +935,18 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                     AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDToH->name().c_str());
                     return sts_filter;
                 }
-                auto cudaerr = cudaGetLastError();
-                if (cudaerr != cudaSuccess) {
+                auto sts = err_to_rgy(cudaGetLastError());
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("error at m_cropDToH(Enc)->filter: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_INVALID_CALL;
+                        get_err_mes(sts));
+                    return sts;
                 }
                 cudaEventRecord(frameHostEnc->event, *m_streamCrop.get());
-                cudaerr = cudaGetLastError();
-                if (cudaerr != cudaSuccess) {
+                sts = err_to_rgy(cudaGetLastError());
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("error at cudaEventRecord(Enc)->filter: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_INVALID_CALL;
+                        get_err_mes(sts));
+                    return sts;
                 }
             }
             m_frameHostSendIndex++;

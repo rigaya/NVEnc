@@ -797,11 +797,11 @@ cudaError_t textureCreateSynthesize(cudaTextureObject_t& tex, cudaTextureFilterM
 }
 
 template<typename Type, typename Type2, typename Type4, typename Type8, int mode, bool yuv420>
-cudaError_t run_synthesize(RGYFrameInfo *pFrameOut,
+RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
     const RGYFrameInfo *pFrame0, const RGYFrameInfo *pFrame1, uint8_t *sip, const int sipPitch,
     const int tb_order, const uint8_t status, const RGY_CSP csp,
     cudaStream_t stream) {
-    auto cudaerr = cudaSuccess;
+    auto sts = RGY_ERR_NONE;
     auto pDstY = getPlane(pFrameOut, RGY_PLANE_Y);
     auto pDstU = getPlane(pFrameOut, RGY_PLANE_U);
     auto pDstV = getPlane(pFrameOut, RGY_PLANE_V);
@@ -816,18 +816,18 @@ cudaError_t run_synthesize(RGYFrameInfo *pFrameOut,
         || p0U.width != p1U.width || p0U.height != p1U.height
         || p0V.width != p1V.width || p0V.height != p1V.height
         || p0Y.pitch != p1Y.pitch || p0U.pitch  != p1U.pitch) {
-        return cudaErrorUnknown;
+        return RGY_ERR_UNSUPPORTED;
     }
     if (   pDstU.pitch != pDstV.pitch
         || p0U.pitch != p0V.pitch
         || p1U.pitch != p1V.pitch) {
-        return cudaErrorUnknown;
+        return RGY_ERR_UNSUPPORTED;
     }
     if (!yuv420) {
         if (   pDstY.pitch != pDstU.pitch
             || p0Y.pitch != p0U.pitch
             || p1Y.pitch != p1U.pitch) {
-            return cudaErrorUnknown;
+            return RGY_ERR_UNSUPPORTED;
         }
     }
 
@@ -857,14 +857,14 @@ cudaError_t run_synthesize(RGYFrameInfo *pFrameOut,
 
         if (yuv420) {
             cudaTextureObject_t texP0U0, texP0U1, texP0V0, texP0V1, texP1U0, texP1U1, texP1V0,texP1V1;
-            if (cudaSuccess != (cudaerr = textureCreateSynthesize<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 0, p0U.pitch * 2, p0U.width, p0U.height >> 1))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreateSynthesize<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 1, p0U.pitch * 2, p0U.width, p0U.height >> 1))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreateSynthesize<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 0, p0V.pitch * 2, p0V.width, p0V.height >> 1))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreateSynthesize<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 1, p0V.pitch * 2, p0V.width, p0V.height >> 1))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreateSynthesize<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 0, p1U.pitch * 2, p1U.width, p1U.height >> 1))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreateSynthesize<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 1, p1U.pitch * 2, p1U.width, p1U.height >> 1))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreateSynthesize<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 0, p1V.pitch * 2, p1V.width, p1V.height >> 1))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreateSynthesize<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 1, p1V.pitch * 2, p1V.width, p1V.height >> 1))) return cudaerr;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 0, p0U.pitch * 2, p0U.width, p0U.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 1, p0U.pitch * 2, p0U.width, p0U.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 0, p0V.pitch * 2, p0V.width, p0V.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 1, p0V.pitch * 2, p0V.width, p0V.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 0, p1U.pitch * 2, p1U.width, p1U.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 1, p1U.pitch * 2, p1U.width, p1U.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 0, p1V.pitch * 2, p1V.width, p1V.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 1, p1V.pitch * 2, p1V.width, p1V.height >> 1)))) return sts;
 
             kernel_synthesize_mode_1234_yuv420<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
                 pDstY.ptr, pDstU.ptr, pDstV.ptr,
@@ -873,9 +873,9 @@ cudaError_t run_synthesize(RGYFrameInfo *pFrameOut,
                 texP0V0, texP0V1, texP1V0, texP1V1,
                 p0Y.width, p0Y.height, p0Y.pitch, pDstY.pitch, pDstU.pitch, sipPitch,
                 tb_order, status);
-            cudaerr = cudaGetLastError();
-            if (cudaerr != cudaSuccess) {
-                return cudaerr;
+            sts = err_to_rgy(cudaGetLastError());
+            if (sts != RGY_ERR_NONE) {
+                return sts;
             }
 
             cudaDestroyTextureObject(texP0U0);
@@ -896,10 +896,10 @@ cudaError_t run_synthesize(RGYFrameInfo *pFrameOut,
                 tb_order, status);
         }
     }
-    return cudaGetLastError();
+    return err_to_rgy(cudaGetLastError());
 }
 
-cudaError_t NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream) {
+RGY_ERR NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream) {
     struct synthesize_func {
         decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2, 3, true>)* func[6];
         synthesize_func(
@@ -950,17 +950,17 @@ cudaError_t NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf 
     };
     if (synthesize_func_list.count(pAfsPrm->frameIn.csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_synthesize: %s\n"), RGY_CSP_NAMES[pAfsPrm->frameIn.csp]);
-        return cudaErrorNotSupported;
+        return RGY_ERR_UNSUPPORTED;
     }
     int mode = pAfsPrm->afs.analyze;
     if (pAfsPrm->afs.tune) {
         mode = -1;
     }
-    auto cudaerr = synthesize_func_list.at(pAfsPrm->frameIn.csp).func[mode+1](
+    auto sts = synthesize_func_list.at(pAfsPrm->frameIn.csp).func[mode+1](
         &pOut->frame, &p0->frame, &p1->frame, sip->map.frame.ptr, sip->map.frame.pitch,
         pAfsPrm->afs.tb_order, m_status[iframe], pOut->frame.csp, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }

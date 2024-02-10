@@ -553,23 +553,24 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 
         for (uint32_t i = 0; i < _countof(m_sProcessData); i++) {
             unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height));
-            auto cudaerr = uptr->alloc();
-            if (cudaerr != cudaSuccess) {
+            sts = uptr->alloc();
+            if (sts != RGY_ERR_NONE) {
                 m_pFrameBuf.clear();
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for logo data %d: %s.\n"),
-                    i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    i, get_err_mes(sts));
+                return sts;
             }
             m_sProcessData[i].pDevLogo = std::move(uptr);
             //ロゴデータをGPUに転送
-            cudaerr = cudaMemcpy2DAsync(m_sProcessData[i].pDevLogo->frame.ptr, m_sProcessData[i].pDevLogo->frame.pitch,
+            sts = err_to_rgy(cudaMemcpy2DAsync(m_sProcessData[i].pDevLogo->frame.ptr, m_sProcessData[i].pDevLogo->frame.pitch,
                 (void *)m_sProcessData[i].pLogoPtr.get(), m_sProcessData[i].width * sizeof(int16x2_t),
-                m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height, cudaMemcpyHostToDevice);
-            if (cudaerr != cudaSuccess) {
+                m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height, cudaMemcpyHostToDevice));
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at sending logo data %d cudaMemcpy2DAsync(%s): %s.\n"),
                     i,
                     getCudaMemcpyKindStr(cudaMemcpyHostToDevice),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                    get_err_mes(sts));
+                return sts;
             }
         }
 
@@ -602,40 +603,40 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             const int logo_h     = m_sProcessData[LOGO__Y].height;
 
             //自動フェード関連のメモリ確保
-            auto cudaerr = m_src.alloc(pDelogoParam->frameIn);
-            if (cudaerr != cudaSuccess) {
+            sts = m_src.alloc(pDelogoParam->frameIn);
+            if (sts != RGY_ERR_NONE) {
                 m_pFrameBuf.clear();
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for frame buffer: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                    get_err_mes(sts));
                 return RGY_ERR_MEMORY_ALLOC;
             }
             m_mask.reset(           new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
             m_maskAdjusted.reset(   new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
             m_maskNR.reset(         new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
             m_maskNRAdjusted.reset( new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
-            cudaerr = m_mask->alloc();
-            if (cudaerr != cudaSuccess) {
+            sts = m_mask->alloc();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_mask: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
-            cudaerr = m_maskAdjusted->alloc();
-            if (cudaerr != cudaSuccess) {
+            sts = m_maskAdjusted->alloc();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_maskAdjusted: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
-            cudaerr = m_maskNR->alloc();
-            if (cudaerr != cudaSuccess) {
+            sts = m_maskNR->alloc();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_maskNR: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
-            cudaerr = m_maskNRAdjusted->alloc();
-            if (cudaerr != cudaSuccess) {
+            sts = m_maskNRAdjusted->alloc();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_maskNRAdjusted: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
 
             const int mask_pitch = m_mask->frame.pitch;
@@ -651,26 +652,26 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             if (pitch_check(m_maskNRAdjusted->frame.pitch, _T("m_maskNRAdjusted")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
 
             m_adjMaskMinIndex.reset(new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y8));
-            cudaerr = m_adjMaskMinIndex->alloc();
-            if (cudaerr != cudaSuccess) {
+            sts = m_adjMaskMinIndex->alloc();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMaskMinIndex: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
 
             m_adjMaskThresholdTest.reset(new CUFrameBuf(logo_w, logo_h * DELOGO_ADJMASK_DIV_COUNT, RGY_CSP_Y16));
-            cudaerr = m_adjMaskThresholdTest->alloc();
-            if (cudaerr != cudaSuccess) {
+            sts = m_adjMaskThresholdTest->alloc();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMaskThresholdTest: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
 
             if (   m_bufDelogo.size() != m_bufDelogoNR.size()
                 || m_bufDelogo.size() != m_bufEval.size()
                 || m_bufDelogo.size() != m_evalCounter.size()) {
                 AddMessage(RGY_LOG_ERROR, _T("internal error, invalid array size\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                    get_err_mes(sts));
                 return RGY_ERR_INVALID_PARAM;
             }
 
@@ -678,152 +679,152 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                 m_bufDelogo[i].reset(  new CUFrameBuf(logo_w, logo_h * DELOGO_PARALLEL_FADE, RGY_CSP_Y16));
                 m_bufDelogoNR[i].reset(new CUFrameBuf(logo_w, logo_h * DELOGO_PARALLEL_FADE, RGY_CSP_Y16));
                 m_bufEval[i].reset(    new CUFrameBuf(logo_w, logo_h * DELOGO_PARALLEL_FADE, RGY_CSP_Y16));
-                cudaerr = m_bufDelogo[i]->alloc();
-                if (cudaerr != cudaSuccess) {
+                sts = m_bufDelogo[i]->alloc();
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_bufDelogo[%d]: %s.\n"),
-                        i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        i, get_err_mes(sts));
+                    return sts;
                 }
-                cudaerr = m_bufDelogoNR[i]->alloc();
-                if (cudaerr != cudaSuccess) {
+                sts = m_bufDelogoNR[i]->alloc();
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_bufDelogoNR[%d]: %s.\n"),
-                        i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        i, get_err_mes(sts));
+                    return sts;
                 }
-                cudaerr = m_bufEval[i]->alloc();
-                if (cudaerr != cudaSuccess) {
+                sts = m_bufEval[i]->alloc();
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_bufEval[%d]: %s.\n"),
-                        i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        i, get_err_mes(sts));
+                    return sts;
                 }
                 if (pitch_check(m_bufDelogo[i]->frame.pitch, _T("m_bufDelogo[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
                 if (pitch_check(m_bufDelogoNR[i]->frame.pitch, _T("m_bufDelogoNR[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
                 if (pitch_check(m_bufEval[i]->frame.pitch, _T("m_bufEval[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
 
                 const int maxBlocks = DELOGO_PARALLEL_FADE * divCeil(logo_w, DELOGO_BLOCK_X * 4) * divCeil(logo_h, DELOGO_BLOCK_Y * DELOGO_BLOCK_LOOP_Y);
-                cudaerr = m_evalCounter[i].alloc(sizeof(float) * maxBlocks);
-                if (cudaerr != cudaSuccess) {
+                sts = m_evalCounter[i].alloc(sizeof(float) * maxBlocks);
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_evalCounter[%d]: %s.\n"),
-                        i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        i, get_err_mes(sts));
+                    return sts;
                 }
 
-                cudaerr = m_evalStream[i].init(pDelogoParam->cudaSchedule);
-                if (cudaerr != cudaSuccess) {
+                sts = m_evalStream[i].init(pDelogoParam->cudaSchedule);
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to create stream or event for m_evalStream[%d]: %s.\n"),
-                        i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        i, get_err_mes(sts));
+                    return sts;
                 }
             }
             m_NRProcTemp.reset(new CUFrameBuf(logo_w, logo_h, RGY_CSP_BIT_DEPTH[pDelogoParam->frameIn.csp] > 8 ? RGY_CSP_Y16 : RGY_CSP_Y8));
-            cudaerr = m_NRProcTemp->alloc();
-            if (cudaerr != cudaSuccess) {
+            sts = m_NRProcTemp->alloc();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_NRProcTemp: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
 
             const int maxBlocks = divCeil(logo_w, DELOGO_BLOCK_X * 4) * divCeil(logo_h, DELOGO_BLOCK_Y);
-            cudaerr = m_adjMaskMinResAndValidMaskCount.alloc(sizeof(int2) * maxBlocks);
-            if (cudaerr != cudaSuccess) {
+            sts = m_adjMaskMinResAndValidMaskCount.alloc(sizeof(int2) * maxBlocks);
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMaskMinResAndValidMaskCount: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
-            cudaerr = m_adjMaskEachFadeCount.alloc(sizeof(int) * (DELOGO_PRE_DIV_COUNT+1));
-            if (cudaerr != cudaSuccess) {
+            sts = m_adjMaskEachFadeCount.alloc(sizeof(int) * (DELOGO_PRE_DIV_COUNT+1));
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMaskEachFadeCount: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
-            cudaerr = m_adjMask2ValidMaskCount.alloc(sizeof(int) * (1 + maxBlocks * DELOGO_ADJMASK_DIV_COUNT));
-            if (cudaerr != cudaSuccess) {
+            sts = m_adjMask2ValidMaskCount.alloc(sizeof(int) * (1 + maxBlocks * DELOGO_ADJMASK_DIV_COUNT));
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMask2ValidMaskCount: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
+                    get_err_mes(sts));
+                return sts;
             }
 
-            cudaerr = m_adjMaskStream.init(pDelogoParam->cudaSchedule, true);
-            if (cudaerr != cudaSuccess) {
+            sts = m_adjMaskStream.init(pDelogoParam->cudaSchedule, true);
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to create stream or event for m_adjMaskStream: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+                    get_err_mes(sts));
+                return sts;
             }
 
             if (!m_adjMask2TargetCount) {
                 void *ptr = nullptr;
-                cudaerr = cudaMalloc(&ptr, sizeof(int));
-                if (cudaerr != cudaSuccess) {
+                sts = err_to_rgy(cudaMalloc(&ptr, sizeof(int)));
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMask2TargetCount: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        get_err_mes(sts));
+                    return sts;
                 }
                 m_adjMask2TargetCount = unique_ptr<void, cudadevice_deleter>(ptr, cudadevice_deleter());
             }
 
             if (!m_smoothKernel) {
                 void *ptr = nullptr;
-                cudaerr = cudaMalloc(&ptr, sizeof(float) * (LOGO_NR_MAX * 2 + 1));
-                if (cudaerr != cudaSuccess) {
+                sts = err_to_rgy(cudaMalloc(&ptr, sizeof(float) * (LOGO_NR_MAX * 2 + 1)));
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_smoothKernel: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        get_err_mes(sts));
+                    return sts;
                 }
                 m_smoothKernel = unique_ptr<void, cudadevice_deleter>(ptr, cudadevice_deleter());
                 std::array<float, LOGO_NR_MAX * 2 + 1> smooth_kernel;
                 std::fill(smooth_kernel.begin(), smooth_kernel.end(), 1.0f);
-                cudaerr = cudaMemcpy(m_smoothKernel.get(), smooth_kernel.data(), smooth_kernel.size() * sizeof(smooth_kernel[0]), cudaMemcpyHostToDevice);
-                if (cudaerr != cudaSuccess) {
+                sts = err_to_rgy(cudaMemcpy(m_smoothKernel.get(), smooth_kernel.data(), smooth_kernel.size() * sizeof(smooth_kernel[0]), cudaMemcpyHostToDevice));
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy smooth_kernel: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_CUDA;
+                        get_err_mes(sts));
+                    return sts;
                 }
             }
 
             if (m_fadeValueAdjust.nSize == 0) {
-                cudaerr = m_fadeValueAdjust.alloc(sizeof(float) * (DELOGO_PRE_DIV_COUNT+1));
-                if (cudaerr != cudaSuccess) {
+                sts = m_fadeValueAdjust.alloc(sizeof(float) * (DELOGO_PRE_DIV_COUNT+1));
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_fadeValueAdjust: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        get_err_mes(sts));
+                    return sts;
                 }
             }
             auto fade_cpu = (float *)m_fadeValueAdjust.ptrHost;
             for (int i = 0; i <= DELOGO_PRE_DIV_COUNT; i++) {
                 fade_cpu[i] = (float)LOGO_FADE_MAX * m_sProcessData[LOGO__Y].depth * i / (DELOGO_PRE_DIV_COUNT - 1);
             }
-            cudaerr = m_fadeValueAdjust.copyHtoD();
-            if (cudaerr != cudaSuccess) {
+            sts = m_fadeValueAdjust.copyHtoD();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy fade_cpu: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+                    get_err_mes(sts));
+                return sts;
             }
 
             if (m_fadeValueParallel.nSize == 0) {
-                cudaerr = m_fadeValueParallel.alloc(sizeof(float) * DELOGO_PARALLEL_FADE);
-                if (cudaerr != cudaSuccess) {
+                sts = m_fadeValueParallel.alloc(sizeof(float) * DELOGO_PARALLEL_FADE);
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_fadeValueParallel: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        get_err_mes(sts));
+                    return sts;
                 }
             }
             auto parallel_fade = (float *)m_fadeValueParallel.ptrHost;
             for (int i = 0; i < DELOGO_PARALLEL_FADE; i++) {
                 parallel_fade[i] = (float)LOGO_FADE_MAX * m_sProcessData[LOGO__Y].depth * i * (1.0f / 16.0f);
             }
-            cudaerr = m_fadeValueParallel.copyHtoD();
-            if (cudaerr != cudaSuccess) {
+            sts = m_fadeValueParallel.copyHtoD();
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy parallel_fade: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+                    get_err_mes(sts));
+                return sts;
             }
 
             if (m_fadeValueTemp.nSize == 0) {
-                cudaerr = m_fadeValueTemp.alloc(sizeof(float));
-                if (cudaerr != cudaSuccess) {
+                sts = m_fadeValueTemp.alloc(sizeof(float));
+                if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_fadeValueTemp: %s.\n"),
-                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return RGY_ERR_MEMORY_ALLOC;
+                        get_err_mes(sts));
+                    return sts;
                 }
             }
             if (RGY_ERR_NONE != (sts = createLogoMask())) {
@@ -1227,11 +1228,11 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     int auto_nr = pDelogoParam->delogo.NRValue;
     if (pDelogoParam->delogo.autoFade || pDelogoParam->delogo.autoNR) {
         if (pInputFrame->ptr != nullptr) {
-            auto cudaerr = copyFrameAsync(&m_src[m_frameIn].frame, pInputFrame, stream);
-            if (cudaerr != cudaSuccess) {
+            sts = copyFrameAsync(&m_src[m_frameIn].frame, pInputFrame, stream);
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy input frame to buffer: %s.\n"),
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return err_to_rgy(cudaerr);
+                    get_err_mes(sts));
+                return sts;
             }
             copyFrameProp(&m_src[m_frameIn].frame, pInputFrame);
             m_frameIn++;

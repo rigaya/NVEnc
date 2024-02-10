@@ -1827,20 +1827,20 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
         if (additionalParams.size() > 0) {
             AddMessage(RGY_LOG_DEBUG, _T("additional param size: %llu.\n"), (uint64_t)additionalParams.size());
             additionalParamsDev = std::make_unique<CUMemBuf>(additionalParams.size());
-            auto cudaerr = additionalParamsDev->alloc();
-            if (cudaerr != cudaSuccess) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for additional params: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return err_to_rgy(cudaerr);
+            sts = additionalParamsDev->alloc();
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for additional params: %s.\n"), get_err_mes(sts));
+                return sts;
             }
             AddMessage(RGY_LOG_DEBUG, _T("transfer additional param to device.\n"));
-            cudaerr = cudaMemcpy(additionalParamsDev->ptr, additionalParams.data(), additionalParams.size(), cudaMemcpyHostToDevice);
-            if (cudaerr != cudaSuccess) {
+            sts = err_to_rgy(cudaMemcpy(additionalParamsDev->ptr, additionalParams.data(), additionalParams.size(), cudaMemcpyHostToDevice));
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to copy memory for additional params: %s.\n"));
-                return err_to_rgy(cudaerr);
+                return sts;
             }
         }
         if ((sts = setupCustomFilter(prmCsp->frameOut, prmCsp)) != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to setup custom filter.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to setup custom filter: %s.\n"), get_err_mes(sts));
             return sts;
         }
     }

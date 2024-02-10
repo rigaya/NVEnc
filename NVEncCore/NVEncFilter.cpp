@@ -48,7 +48,7 @@ NVEncFilter::~NVEncFilter() {
     m_pParam.reset();
 }
 
-cudaError_t NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
+RGY_ERR NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
     if ((int)m_pFrameBuf.size() == frames
         && !cmpFrameInfoCspResolution(&m_pFrameBuf[0]->frame, &frame)) {
         //すべて確保されているか確認
@@ -60,7 +60,7 @@ cudaError_t NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
             }
         }
         if (allocated) {
-            return cudaSuccess;
+            return RGY_ERR_NONE;
         }
     }
     m_pFrameBuf.clear();
@@ -69,22 +69,21 @@ cudaError_t NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
         unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(frame));
         uptr->frame.ptr = nullptr;
         auto ret = uptr->alloc();
-        if (ret != cudaSuccess) {
+        if (ret != RGY_ERR_NONE) {
             m_pFrameBuf.clear();
             return ret;
         }
         m_pFrameBuf.push_back(std::move(uptr));
     }
     m_nFrameIdx = 0;
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
-    cudaError_t cudaerr = cudaSuccess;
     if (m_bCheckPerformance) {
-        cudaerr = cudaEventRecord(*m_peFilterStart.get());
+        auto cudaerr = cudaEventRecord(*m_peFilterStart.get());
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventRecord(m_peFilterStart): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventRecord(m_peFilterStart): %s.\n"), get_err_mes(err_to_rgy(cudaerr)));
         }
     }
 
@@ -119,18 +118,18 @@ RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFr
         }
     }
     if (m_bCheckPerformance) {
-        cudaerr = cudaEventRecord(*m_peFilterFin.get());
+        auto cudaerr = cudaEventRecord(*m_peFilterFin.get());
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventRecord(m_peFilterFin): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventRecord(m_peFilterFin): %s.\n"), get_err_mes(err_to_rgy(cudaerr)));
         }
         cudaerr = cudaEventSynchronize(*m_peFilterFin.get());
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventSynchronize(m_peFilterFin): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventSynchronize(m_peFilterFin): %s.\n"), get_err_mes(err_to_rgy(cudaerr)));
         }
         float time_ms = 0.0f;
         cudaerr = cudaEventElapsedTime(&time_ms, *m_peFilterStart.get(), *m_peFilterFin.get());
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventElapsedTime(m_peFilterStart - m_peFilterFin): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventElapsedTime(m_peFilterStart - m_peFilterFin): %s.\n"), get_err_mes(err_to_rgy(cudaerr)));
         }
         m_dFilterTimeMs += time_ms;
         m_nFilterRunCount++;
@@ -147,9 +146,9 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
         uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
         uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
         auto ret = uptr->alloc();
-        if (ret != cudaSuccess) {
+        if (ret != RGY_ERR_NONE) {
             m_pFrameBuf.clear();
-            return RGY_ERR_MEMORY_ALLOC;
+            return ret;
         }
         m_pFieldPairIn = std::move(uptr);
     }
@@ -161,9 +160,9 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
         uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
         uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
         auto ret = uptr->alloc();
-        if (ret != cudaSuccess) {
+        if (ret != RGY_ERR_NONE) {
             m_pFrameBuf.clear();
-            return RGY_ERR_MEMORY_ALLOC;
+            return ret;
         }
         m_pFieldPairOut = std::move(uptr);
     }
@@ -171,27 +170,27 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
     const auto outputFrameInfoEx = getFrameInfoExtra(pOutputFrame);
 
     for (int i = 0; i < 2; i++) {
-        auto cudaerr = cudaMemcpy2DAsync(m_pFieldPairIn->frame.ptr, m_pFieldPairIn->frame.pitch,
+        auto err = err_to_rgy(cudaMemcpy2DAsync(m_pFieldPairIn->frame.ptr, m_pFieldPairIn->frame.pitch,
             pInputFrame->ptr + pInputFrame->pitch * i, pInputFrame->pitch * 2,
             inputFrameInfoEx.width_byte, inputFrameInfoEx.height_total >> 1,
-            cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to seprate field(0): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            cudaMemcpyDeviceToDevice, stream));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to seprate field(0): %s.\n"), get_err_mes(err));
             return RGY_ERR_CUDA;
         }
         int nFieldOut = 0;
         auto pFieldOut = &m_pFieldPairOut->frame;
-        auto err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut, stream);
+        err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut, stream);
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptr + pOutputFrame->pitch * i, pOutputFrame->pitch * 2,
+        err = err_to_rgy(cudaMemcpy2DAsync(pOutputFrame->ptr + pOutputFrame->pitch * i, pOutputFrame->pitch * 2,
             pFieldOut->ptr, pFieldOut->pitch,
             outputFrameInfoEx.width_byte, outputFrameInfoEx.height_total >> 1,
-            cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to merge field(1): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+            cudaMemcpyDeviceToDevice, stream));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to merge field(1): %s.\n"), get_err_mes(err));
+            return err;
         }
     }
     return RGY_ERR_NONE;
@@ -214,13 +213,13 @@ void NVEncFilter::CheckPerformance(bool flag) {
         m_peFilterFin = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         auto cudaerr = cudaEventCreate(m_peFilterStart.get());
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventCreate(m_peFilterStart): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventCreate(m_peFilterStart): %s.\n"), get_err_mes(err_to_rgy(cudaerr)));
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreate(m_peFilterStart)\n"));
 
         cudaerr = cudaEventCreate(m_peFilterFin.get());
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventCreate(m_peFilterFin): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventCreate(m_peFilterFin): %s.\n"), get_err_mes(err_to_rgy(cudaerr)));
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreate(m_peFilterFin)\n"));
         m_dFilterTimeMs = 0.0;

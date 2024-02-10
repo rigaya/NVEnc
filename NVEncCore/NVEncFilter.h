@@ -172,7 +172,7 @@ protected:
         va_end(args);
         AddMessage(log_level, buffer);
     }
-    cudaError_t AllocFrameBuf(const RGYFrameInfo& frame, int frames);
+    RGY_ERR AllocFrameBuf(const RGYFrameInfo& frame, int frames);
 
     tstring m_sFilterName;
     tstring m_sFilterInfo;

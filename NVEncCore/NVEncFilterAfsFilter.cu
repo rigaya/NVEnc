@@ -183,7 +183,7 @@ __global__ void kernel_afs_analyze_map_filter(
     }
 }
 
-cudaError_t run_analyze_map_filter(uint8_t *dst, uint8_t *sp,
+RGY_ERR run_analyze_map_filter(uint8_t *dst, uint8_t *sp,
     const int srcWidth, const int srcPitch, const int srcHeight,
     cudaStream_t stream) {
     dim3 blockSize(FILTER_BLOCK_INT_X, FILTER_BLOCK_Y);
@@ -192,23 +192,23 @@ cudaError_t run_analyze_map_filter(uint8_t *dst, uint8_t *sp,
     kernel_afs_analyze_map_filter<<<gridSize, blockSize, 0, stream>>>(
         (uint32_t *)dst, (uint32_t *)sp,
         divCeil(srcWidth, sizeof(uint32_t)), divCeil(srcPitch, sizeof(uint32_t)), srcHeight);
-    return cudaGetLastError();
+    return err_to_rgy(cudaGetLastError());
 }
 
-cudaError_t afsStripeCache::map_filter(AFS_STRIPE_DATA *dst, AFS_STRIPE_DATA *sp, cudaStream_t stream) {
+RGY_ERR afsStripeCache::map_filter(AFS_STRIPE_DATA *dst, AFS_STRIPE_DATA *sp, cudaStream_t stream) {
     dst->count0 = sp->count0;
     dst->count1 = sp->count1;
     dst->frame  = sp->frame;
     dst->status = 1;
     if (sp->map.frame.pitch % sizeof(uint32_t) != 0) {
-        return cudaErrorNotSupported;
+        return RGY_ERR_UNSUPPORTED;
     }
-    auto cudaerr = run_analyze_map_filter(
+    auto sts = run_analyze_map_filter(
         dst->map.frame.ptr, sp->map.frame.ptr,
         sp->map.frame.width, sp->map.frame.pitch, sp->map.frame.height,
         stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }

@@ -1103,7 +1103,7 @@ cudaError_t setTexFieldNnedi(cudaTextureObject_t& texSrc, const RGYFrameInfo *pF
 }
 
 template<typename TypePixel4, int bit_depth, typename TypeCalc>
-cudaError_t nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
+RGY_ERR nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
     cudaTextureObject_t texSrc,
     const TypeCalc *weight0,
     const VppNnediPreScreen pre_screen,
@@ -1112,7 +1112,7 @@ cudaError_t nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
 ) {
     dim3 blockSize(NNEDI_BLOCK_X, NNEDI_BLOCK_Y);
 
-    auto cudaerr = cudaSuccess;
+    auto sts = RGY_ERR_NONE;
     if ((pre_screen & VPP_NNEDI_PRE_SCREEN_MODE) == VPP_NNEDI_PRE_SCREEN_ORIGINAL) {
         const int thread_y_loop_org = 2;
         dim3 gridSize(
@@ -1125,7 +1125,7 @@ cudaError_t nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
             pOutputPlane->height,
             texSrc, //有効フィールドのみのテクスチャ(縦解像度は半分)
             weight0, targetField);
-        cudaerr = cudaGetLastError();
+        sts = err_to_rgy(cudaGetLastError());
     } else if ((pre_screen & VPP_NNEDI_PRE_SCREEN_MODE) >= VPP_NNEDI_PRE_SCREEN_NEW) {
         const int thread_y_loop_new = 2;
         dim3 gridSize(
@@ -1138,18 +1138,18 @@ cudaError_t nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
             pOutputPlane->height,
             texSrc, //有効フィールドのみのテクスチャ(縦解像度は半分)
             weight0, targetField);
-        cudaerr = cudaGetLastError();
+        sts = err_to_rgy(cudaGetLastError());
     } else {
-        cudaerr = setPlaneFieldAsync(pOutputPlane, -1, targetField == NNEDI_GEN_FIELD_TOP /* 生成するほうのフィールドを選択 */, stream);
+        sts = setPlaneFieldAsync(pOutputPlane, -1, targetField == NNEDI_GEN_FIELD_TOP /* 生成するほうのフィールドを選択 */, stream);
     }
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 template<typename TypePixel, int bit_depth, typename TypeCalc, int WEIGHT_LOOP_1>
-cudaError_t nnedi_compute_network_1(
+RGY_ERR nnedi_compute_network_1(
     RGYFrameInfo *pOutputFrame,
     cudaTextureObject_t texSrc,
     const TypeCalc *weight10,
@@ -1250,17 +1250,17 @@ cudaError_t nnedi_compute_network_1(
             nns, (int)quality, targetField, pre_screen);
         break;
     default:
-        return cudaErrorAssert;
+        return RGY_ERR_UNSUPPORTED;
     }
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 template<typename TypePixel, typename TypePixel4, int bit_depth, typename TypeCalc, int WEIGHT_LOOP_1>
-cudaError_t proc_plane(
+RGY_ERR proc_plane(
     RGYFrameInfo *pOutputPlane,
     const RGYFrameInfo *pInputPlane,
     const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam,
@@ -1271,27 +1271,27 @@ cudaError_t proc_plane(
     cudaStream_t stream
 ) {
     // 有効なほうのフィールドをコピー
-    auto cudaerr = copyPlaneFieldAsync(pOutputPlane, pInputPlane, targetField != NNEDI_GEN_FIELD_TOP, targetField != NNEDI_GEN_FIELD_TOP, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = copyPlaneFieldAsync(pOutputPlane, pInputPlane, targetField != NNEDI_GEN_FIELD_TOP, targetField != NNEDI_GEN_FIELD_TOP, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
 
     cudaTextureObject_t texSrc = 0;
-    cudaerr = setTexFieldNnedi<TypePixel>(texSrc, pInputPlane, targetField);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = err_to_rgy(setTexFieldNnedi<TypePixel>(texSrc, pInputPlane, targetField));
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = nnedi_compute_network_0<TypePixel4, bit_depth, TypeCalc>(pOutputPlane,
+    sts = nnedi_compute_network_0<TypePixel4, bit_depth, TypeCalc>(pOutputPlane,
         texSrc,
         weight0,
         (pNnediParam->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_MODE),
         targetField,
         stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     if (!(pNnediParam->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_ONLY)) {
-        cudaerr = nnedi_compute_network_1<TypePixel, bit_depth, TypeCalc, WEIGHT_LOOP_1>(
+        sts = nnedi_compute_network_1<TypePixel, bit_depth, TypeCalc, WEIGHT_LOOP_1>(
             pOutputPlane,
             texSrc,
             weight10,
@@ -1302,19 +1302,19 @@ cudaError_t proc_plane(
             pNnediParam->nnedi.quality,
             (pNnediParam->nnedi.pre_screen & (VPP_NNEDI_PRE_SCREEN_MODE | VPP_NNEDI_PRE_SCREEN_BLOCK)),
             stream);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = err_to_rgy(cudaDestroyTextureObject(texSrc));
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaerr;
+    return err_to_rgy(cudaGetLastError());
 }
 
 template<typename TypePixel, typename TypePixel4, int bit_depth, typename TypeCalc, int WEIGHT_LOOP_1>
-cudaError_t proc_frame(RGYFrameInfo *pOutputFrame,
+RGY_ERR proc_frame(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pInputFrame,
     const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam,
     const NnediTargetField targetField,
@@ -1324,7 +1324,7 @@ cudaError_t proc_frame(RGYFrameInfo *pOutputFrame,
     cudaStream_t stream
 ) {
     static_assert(sizeof(TypePixel4) == sizeof(TypePixel) * 4, "sizeof(TypePixel4) == sizeof(TypePixel) * 4");
-    cudaError_t cudaerr = cudaSuccess;
+    auto sts = RGY_ERR_NONE;
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -1332,19 +1332,19 @@ cudaError_t proc_frame(RGYFrameInfo *pOutputFrame,
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputY, &planeInputY, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputY, &planeInputY, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputU, &planeInputU, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputU, &planeInputU, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputV, &planeInputV, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputV, &planeInputV, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaerr;
+    return sts;
 }
 
 const int NVEncFilterNnedi::weight_loop_1 = 4;
@@ -1732,10 +1732,10 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         return sts;
     }
 
-    auto cudaerr = AllocFrameBuf(pNnediParam->frameOut, pNnediParam->nnedi.isbob() ? 2 : 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    sts = AllocFrameBuf(pNnediParam->frameOut, pNnediParam->nnedi.isbob() ? 2 : 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     pNnediParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -1843,37 +1843,35 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    func_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
+    sts = func_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
         pNnediParam, targetField,
         m_weight0.ptr,
         m_weight1[0].ptr,
         m_weight1[1].ptr,
         stream
         );
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
+    if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at nnedi(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            get_err_mes(sts));
+        return sts;
     }
     ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
 
     if (pNnediParam->nnedi.isbob()) {
         targetField = (targetField == NNEDI_GEN_FIELD_BOTTOM) ? NNEDI_GEN_FIELD_TOP : NNEDI_GEN_FIELD_BOTTOM;
-        func_list.at(pInputFrame->csp)(ppOutputFrames[1], pInputFrame,
+        sts = func_list.at(pInputFrame->csp)(ppOutputFrames[1], pInputFrame,
             pNnediParam, targetField,
             m_weight0.ptr,
             m_weight1[0].ptr,
             m_weight1[1].ptr,
             stream
             );
-        cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
+        if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at nnedi(%s): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+                get_err_mes(sts));
+            return sts;
         }
         ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
         ppOutputFrames[0]->timestamp = pInputFrame->timestamp;

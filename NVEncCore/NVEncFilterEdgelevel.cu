@@ -217,9 +217,9 @@ RGY_ERR NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         AddMessage(RGY_LOG_WARN, _T("white should be in range of %.1f - %.1f.\n"), 0.0f, 31.0f);
     }
 
-    auto cudaerr = AllocFrameBuf(pEdgelevelParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    sts = AllocFrameBuf(pEdgelevelParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return RGY_ERR_MEMORY_ALLOC;
     }
     pEdgelevelParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;

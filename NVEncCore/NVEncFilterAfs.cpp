@@ -55,27 +55,27 @@ afsSourceCache::afsSourceCache() :
     m_nFramesInput(0) {
 }
 
-cudaError_t afsSourceCache::alloc(const RGYFrameInfo& frameInfo) {
+RGY_ERR afsSourceCache::alloc(const RGYFrameInfo& frameInfo) {
     for (int i = 0; i < _countof(m_sourceArray); i++) {
         m_sourceArray[i].frame = frameInfo;
         auto ret = m_sourceArray[i].alloc();
-        if (ret != cudaSuccess) {
+        if (ret != RGY_ERR_NONE) {
             m_sourceArray[i].clear();
             return ret;
         }
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
-cudaError_t afsSourceCache::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR afsSourceCache::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
     auto ret = copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);
-    if (ret != cudaSuccess) {
+    if (ret != RGY_ERR_NONE) {
         return ret;
     }
     copyFrameProp(&pDstFrame->frame, pInputFrame);
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 void afsSourceCache::clear() {
@@ -115,19 +115,19 @@ void afsScanCache::initcache(int iframe) {
     cudaEventCreateWithFlags(data->cuevent.get(), cudaEventDisableTiming | cudaEventBlockingSync);
 }
 
-cudaError_t afsScanCache::alloc(const RGYFrameInfo& frameInfo) {
+RGY_ERR afsScanCache::alloc(const RGYFrameInfo& frameInfo) {
     for (int i = 0; i < _countof(m_scanArray); i++) {
         initcache(i);
         m_scanArray[i].map.frame = frameInfo;
         m_scanArray[i].map.frame.csp = RGY_CSP_NV12;
         auto ret = m_scanArray[i].map.alloc();
-        if (ret != cudaSuccess) {
+        if (ret != RGY_ERR_NONE) {
             m_scanArray[i].map.clear();
             return ret;
         }
         m_scanArray[i].status = 0;
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 void afsScanCache::clear() {
@@ -168,25 +168,25 @@ void afsStripeCache::expire(int iframe) {
     }
 }
 
-cudaError_t afsStripeCache::alloc(const RGYFrameInfo& frameInfo) {
+RGY_ERR afsStripeCache::alloc(const RGYFrameInfo& frameInfo) {
     for (int i = 0; i < _countof(m_stripeArray); i++) {
         initcache(i);
         m_stripeArray[i].map.frame = frameInfo;
         m_stripeArray[i].map.frame.csp = RGY_CSP_NV12;
         auto ret = m_stripeArray[i].map.alloc();
-        if (ret != cudaSuccess) {
+        if (ret != RGY_ERR_NONE) {
             m_stripeArray[i].map.clear();
             return ret;
         }
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
-AFS_STRIPE_DATA *afsStripeCache::filter(int iframe, int analyze, cudaStream_t stream, cudaError_t *pErr) {
+AFS_STRIPE_DATA *afsStripeCache::filter(int iframe, int analyze, cudaStream_t stream, RGY_ERR *pErr) {
     auto sip = get(iframe);
     if (analyze > 1) {
         auto sip_dst = getFiltered();
-        if (cudaSuccess != (*pErr = map_filter(sip_dst, sip, stream))) {
+        if (RGY_ERR_NONE != (*pErr = map_filter(sip_dst, sip, stream))) {
             sip_dst = nullptr;
         }
         sip = sip_dst;
@@ -512,65 +512,65 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto cudaerr = AllocFrameBuf(pAfsParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    auto err = AllocFrameBuf(pAfsParam->frameOut, 1);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
     pAfsParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, pitch %d, %s.\n"),
         m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
-    if (cudaSuccess != (cudaerr = m_source.alloc(pAfsParam->frameOut))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = m_source.alloc(pAfsParam->frameOut))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated source buffer: %dx%d, pitch %d, %s.\n"),
         m_source.get(0)->frame.width, m_source.get(0)->frame.height, m_source.get(0)->frame.pitch, RGY_CSP_NAMES[m_source.get(0)->frame.csp]);
 
-    if (cudaSuccess != (cudaerr = m_scan.alloc(pAfsParam->frameOut))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = m_scan.alloc(pAfsParam->frameOut))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated scan buffer: %dx%d, pitch %d, %s.\n"),
         m_scan.get(0)->map.frame.width, m_scan.get(0)->map.frame.height, m_scan.get(0)->map.frame.pitch, RGY_CSP_NAMES[m_scan.get(0)->map.frame.csp]);
 
-    if (cudaSuccess != (cudaerr = m_stripe.alloc(pAfsParam->frameOut))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = m_stripe.alloc(pAfsParam->frameOut))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated stripe buffer: %dx%d, pitch %d, %s.\n"),
         m_stripe.get(0)->map.frame.width, m_stripe.get(0)->map.frame.height, m_stripe.get(0)->map.frame.pitch, RGY_CSP_NAMES[m_stripe.get(0)->map.frame.csp]);
 
     m_streamAnalyze = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-    if (cudaSuccess != (cudaerr = cudaStreamCreateWithFlags(m_streamAnalyze.get(), cudaStreamNonBlocking))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaStreamCreateWithFlags(m_streamAnalyze.get(), cudaStreamNonBlocking)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
 
     m_streamCopy = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-    if (cudaSuccess != (cudaerr = cudaStreamCreateWithFlags(m_streamCopy.get(), cudaStreamNonBlocking))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaStreamCreateWithFlags(m_streamCopy.get(), cudaStreamNonBlocking)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
 
     const uint32_t cudaEventFlags = (pAfsParam->cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : 0;
 
     m_eventSrcAdd = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventSrcAdd.get(), cudaEventFlags | cudaEventDisableTiming))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaEventCreateWithFlags(m_eventSrcAdd.get(), cudaEventFlags | cudaEventDisableTiming)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
 
     m_eventScanFrame = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventScanFrame.get(), cudaEventFlags | cudaEventDisableTiming))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaEventCreateWithFlags(m_eventScanFrame.get(), cudaEventFlags | cudaEventDisableTiming)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
 
     m_eventMergeScan = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventMergeScan.get(), cudaEventFlags | cudaEventDisableTiming))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaEventCreateWithFlags(m_eventMergeScan.get(), cudaEventFlags | cudaEventDisableTiming)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
 
@@ -619,9 +619,9 @@ bool NVEncFilterAfs::scan_frame_result_cached(int frame, const VppAfs *pAfsPrm) 
         (mode == 1 && sp->mode == 1 && sp->thre_deint == pAfsPrm->thre_deint && sp->thre_Ymotion == pAfsPrm->thre_Ymotion && sp->thre_Cmotion == pAfsPrm->thre_Cmotion));
 }
 
-cudaError_t NVEncFilterAfs::scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream) {
+RGY_ERR NVEncFilterAfs::scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream) {
     if (!force && scan_frame_result_cached(iframe, &pAfsPrm->afs)) {
-        return cudaSuccess;
+        return RGY_ERR_NONE;
     }
     auto p1 = m_source.get(iframe-1);
     auto p0 = m_source.get(iframe);
@@ -635,42 +635,42 @@ cudaError_t NVEncFilterAfs::scan_frame(int iframe, int force, const NVEncFilterP
     sp->thre_shift = pAfsPrm->afs.thre_shift, sp->thre_deint = pAfsPrm->afs.thre_deint;
     sp->thre_Ymotion = pAfsPrm->afs.thre_Ymotion, sp->thre_Cmotion = pAfsPrm->afs.thre_Cmotion;
     sp->clip.top = sp->clip.bottom = sp->clip.left = sp->clip.right = -1;
-    auto cudaerr = analyze_stripe(p0, p1, sp, &m_count_motion, pAfsPrm, stream);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return cudaerr;
+    auto err = analyze_stripe(p0, p1, sp, &m_count_motion, pAfsPrm, stream);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), get_err_mes(err));
+        return err;
     }
     if (stream != cudaStreamDefault) {
         cudaEventRecord(*m_eventScanFrame.get(), stream);
         cudaStreamWaitEvent(*m_streamCopy.get(), *m_eventScanFrame.get(), 0);
-        cudaerr = m_count_motion.copyDtoHAsync(*m_streamCopy.get());
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoHAsync: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return cudaerr;
+        err = m_count_motion.copyDtoHAsync(*m_streamCopy.get());
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoHAsync: %s.\n"), get_err_mes(err));
+            return err;
         }
         cudaEventRecord(*sp->cuevent.get(), *m_streamCopy.get());
         sp = m_scan.get(iframe-1);
     }
 
-    cudaerr = count_motion(sp, &pAfsPrm->afs.clip);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return cudaerr;
+    err = count_motion(sp, &pAfsPrm->afs.clip);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), get_err_mes(err));
+        return err;
     }
-    return cudaerr;
+    return err;
 }
 
-cudaError_t NVEncFilterAfs::count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip) {
+RGY_ERR NVEncFilterAfs::count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip) {
     sp->clip = *clip;
 
-    auto cudaerr = cudaSuccess;
+    auto err = RGY_ERR_NONE;
     if (STREAM_OPT) {
         cudaEventSynchronize(*sp->cuevent.get());
     } else {
-        cudaerr = m_count_motion.copyDtoH();
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoH: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return cudaerr;
+        err = m_count_motion.copyDtoH();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoH: %s.\n"), get_err_mes(err));
+            return err;
         }
     }
 
@@ -688,46 +688,46 @@ cudaError_t NVEncFilterAfs::count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP 
     //AddMessage(RGY_LOG_INFO, _T("count_motion[%6d]: %6d - %6d (ff,lf)"), sp->frame, sp->ff_motion, sp->lf_motion);
 #if 0
     uint8_t *ptr = nullptr;
-    if (cudaSuccess != (cudaerr = cudaMallocHost(&ptr, sp->map.frame.pitch * sp->map.frame.height))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed cudaMallocHost: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaMallocHost(&ptr, sp->map.frame.pitch * sp->map.frame.height)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed cudaMallocHost: %s.\n"), get_err_mes(err));
         return cudaerr;
     }
-    if (cudaSuccess != (cudaerr = cudaMemcpy2D(ptr, sp->map.frame.pitch, sp->map.frame.ptr, sp->map.frame.pitch, sp->map.frame.width, sp->map.frame.height, cudaMemcpyDeviceToHost))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed cudaMemcpy2D: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaMemcpy2D(ptr, sp->map.frame.pitch, sp->map.frame.ptr, sp->map.frame.pitch, sp->map.frame.width, sp->map.frame.height, cudaMemcpyDeviceToHost)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed cudaMemcpy2D: %s.\n"), get_err_mes(err));
         return cudaerr;
     }
 
     int motion_count[2] = { 0, 0 };
     afs_get_motion_count(motion_count, ptr, &sp->clip, sp->map.frame.pitch, sp->map.frame.width, sp->map.frame.height, sp->tb_order);
     AddMessage((count0 == motion_count[0] && count1 == motion_count[1]) ? RGY_LOG_INFO : RGY_LOG_ERROR, _T("count_motion(ret, debug) = (%6d, %6d) / (%6d, %6d)\n"), count0, motion_count[0], count1, motion_count[1]);
-    if (cudaSuccess != (cudaerr = cudaFreeHost(ptr))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed cudaFreeHost: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaFreeHost(ptr)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed cudaFreeHost: %s.\n"), get_err_mes(err));
         return cudaerr;
     }
 #endif
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
-cudaError_t NVEncFilterAfs::get_stripe_info(int iframe, int mode, const NVEncFilterParamAfs *pAfsPrm) {
+RGY_ERR NVEncFilterAfs::get_stripe_info(int iframe, int mode, const NVEncFilterParamAfs *pAfsPrm) {
     AFS_STRIPE_DATA *sp = m_stripe.get(iframe);
     if (sp->status > mode && sp->status < 4 && sp->frame == iframe) {
         if (sp->status == 2) {
-            auto cudaerr = count_stripe(sp, &pAfsPrm->afs.clip, pAfsPrm->afs.tb_order);
-            if (cudaerr != cudaSuccess) {
-                AddMessage(RGY_LOG_ERROR, _T("failed count_stripe: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return cudaerr;
+            auto err = count_stripe(sp, &pAfsPrm->afs.clip, pAfsPrm->afs.tb_order);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed count_stripe: %s.\n"), get_err_mes(err));
+                return err;
             }
             sp->status = 3;
         }
-        return cudaSuccess;
+        return RGY_ERR_NONE;
     }
 
     AFS_SCAN_DATA *sp0 = m_scan.get(iframe);
     AFS_SCAN_DATA *sp1 = m_scan.get(iframe + 1);
-    auto cudaerr = merge_scan(sp, sp0, sp1, &sp->buf_count_stripe, pAfsPrm, (STREAM_OPT) ? *m_streamAnalyze.get() : cudaStreamDefault);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed merge_scan: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return cudaerr;
+    auto err = merge_scan(sp, sp0, sp1, &sp->buf_count_stripe, pAfsPrm, (STREAM_OPT) ? *m_streamAnalyze.get() : cudaStreamDefault);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed merge_scan: %s.\n"), get_err_mes(err));
+        return err;
     }
     sp->status = 2;
     sp->frame = iframe;
@@ -735,32 +735,32 @@ cudaError_t NVEncFilterAfs::get_stripe_info(int iframe, int mode, const NVEncFil
     if (STREAM_OPT) {
         cudaEventRecord(*m_eventMergeScan.get(), *m_streamAnalyze.get());
         cudaStreamWaitEvent(*m_streamCopy.get(), *m_eventMergeScan.get(), 0);
-        cudaerr = sp->buf_count_stripe.copyDtoHAsync(*m_streamCopy.get());
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoHAsync: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return cudaerr;
+        err = sp->buf_count_stripe.copyDtoHAsync(*m_streamCopy.get());
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoHAsync: %s.\n"), get_err_mes(err));
+            return err;
         }
         cudaEventRecord(*sp->cuevent.get(), *m_streamCopy.get());
     } else {
-        if (cudaSuccess != (cudaerr = count_stripe(sp, &pAfsPrm->afs.clip, pAfsPrm->afs.tb_order))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed count_stripe: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return cudaerr;
+        if (RGY_ERR_NONE != (err = count_stripe(sp, &pAfsPrm->afs.clip, pAfsPrm->afs.tb_order))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed count_stripe: %s.\n"), get_err_mes(err));
+            return err;
         }
         sp->status = 3;
     }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
-cudaError_t NVEncFilterAfs::count_stripe(AFS_STRIPE_DATA *sp, const AFS_SCAN_CLIP *clip, int tb_order) {
-    auto cudaerr = cudaSuccess;
+RGY_ERR NVEncFilterAfs::count_stripe(AFS_STRIPE_DATA *sp, const AFS_SCAN_CLIP *clip, int tb_order) {
+    auto err = RGY_ERR_NONE;
     if (STREAM_OPT) {
         cudaEventSynchronize(*sp->cuevent.get());
     } else {
         //cudaStreamSynchronize(*m_stream.get());
-        cudaerr = sp->buf_count_stripe.copyDtoH();
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed m_count_stripe.copyDtoH: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return cudaerr;
+        err = sp->buf_count_stripe.copyDtoH();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed m_count_stripe.copyDtoH: %s.\n"), get_err_mes(err));
+            return err;
         }
     }
 
@@ -778,57 +778,56 @@ cudaError_t NVEncFilterAfs::count_stripe(AFS_STRIPE_DATA *sp, const AFS_SCAN_CLI
     //AddMessage(RGY_LOG_INFO, _T("count_stripe[%6d]: %6d - %6d"), sp->frame, count0, count1);
 #if 0
     uint8_t *ptr = nullptr;
-    if (cudaSuccess != (cudaerr = cudaMallocHost(&ptr, sp->map.frame.pitch * sp->map.frame.height))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed cudaMallocHost: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaMallocHost(&ptr, sp->map.frame.pitch * sp->map.frame.height)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed cudaMallocHost: %s.\n"), get_err_mes(err));
         return cudaerr;
     }
-    if (cudaSuccess != (cudaerr = cudaMemcpy2D(ptr, sp->map.frame.pitch, sp->map.frame.ptr, sp->map.frame.pitch, sp->map.frame.width, sp->map.frame.height, cudaMemcpyDeviceToHost))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed cudaMemcpy2D: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaMemcpy2D(ptr, sp->map.frame.pitch, sp->map.frame.ptr, sp->map.frame.pitch, sp->map.frame.width, sp->map.frame.height, cudaMemcpyDeviceToHost)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed cudaMemcpy2D: %s.\n"), get_err_mes(err));
         return cudaerr;
     }
 
     int stripe_count[2] = { 0, 0 };
     afs_get_stripe_count(stripe_count, ptr, clip, sp->map.frame.pitch, sp->map.frame.width, sp->map.frame.height, tb_order);
     AddMessage((count0 == stripe_count[0] && count1 == stripe_count[1]) ? RGY_LOG_INFO : RGY_LOG_ERROR, _T("count_stripe(ret, debug) = (%6d, %6d) / (%6d, %6d)\n"), count0, stripe_count[0], count1, stripe_count[1]);
-    if (cudaSuccess != (cudaerr = cudaFreeHost(ptr))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed cudaFreeHost: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    if (RGY_ERR_NONE != (err = err_to_rgy(cudaFreeHost(ptr)))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed cudaFreeHost: %s.\n"), get_err_mes(err));
         return cudaerr;
     }
 #else
     UNREFERENCED_PARAMETER(tb_order);
     UNREFERENCED_PARAMETER(clip);
 #endif
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 int NVEncFilterAfs::detect_telecine_cross(int iframe, int coeff_shift) {
-    using std::max;
     const AFS_SCAN_DATA *sp1 = m_scan.get(iframe - 1);
     const AFS_SCAN_DATA *sp2 = m_scan.get(iframe + 0);
     const AFS_SCAN_DATA *sp3 = m_scan.get(iframe + 1);
     const AFS_SCAN_DATA *sp4 = m_scan.get(iframe + 2);
     int shift = 0;
 
-    if (max(absdiff(sp1->lf_motion + sp2->lf_motion, sp2->ff_motion),
+    if (std::max(absdiff(sp1->lf_motion + sp2->lf_motion, sp2->ff_motion),
         absdiff(sp3->ff_motion + sp4->ff_motion, sp3->lf_motion)) * coeff_shift >
         max3(absdiff(sp1->ff_motion + sp2->ff_motion, sp1->lf_motion),
             absdiff(sp2->ff_motion + sp3->ff_motion, sp2->lf_motion),
             absdiff(sp3->lf_motion + sp4->lf_motion, sp4->ff_motion)) * 256)
-        if (max(sp2->lf_motion, sp3->ff_motion) * coeff_shift > sp2->ff_motion * 256)
+        if (std::max(sp2->lf_motion, sp3->ff_motion) * coeff_shift > sp2->ff_motion * 256)
             shift = 1;
 
-    if (max(absdiff(sp1->lf_motion + sp2->lf_motion, sp2->ff_motion),
+    if (std::max(absdiff(sp1->lf_motion + sp2->lf_motion, sp2->ff_motion),
         absdiff(sp3->ff_motion + sp4->ff_motion, sp3->lf_motion)) * coeff_shift >
         max3(absdiff(sp1->ff_motion + sp2->ff_motion, sp1->lf_motion),
             absdiff(sp2->lf_motion + sp3->lf_motion, sp3->ff_motion),
             absdiff(sp3->lf_motion + sp4->lf_motion, sp4->ff_motion)) * 256)
-        if (max(sp2->lf_motion, sp3->ff_motion) * coeff_shift > sp3->lf_motion * 256)
+        if (std::max(sp2->lf_motion, sp3->ff_motion) * coeff_shift > sp3->lf_motion * 256)
             shift = 1;
 
     return shift;
 }
 
-cudaError_t NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4]) {
+RGY_ERR NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4]) {
     for (int i = 0; i < 4; i++) {
         assume_shift[i] = detect_telecine_cross(iframe + i, pAfsPrm->afs.coeff_shift);
     }
@@ -842,10 +841,10 @@ cudaError_t NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs 
     const int threshold = (total * pAfsPrm->afs.method_switch) >> 12;
 
     for (int i = 0; i < 4; i++) {
-        auto cudaerr = get_stripe_info(iframe + i, 0, pAfsPrm);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed on get_stripe_info(iframe=%d): %s.\n"), iframe + i, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return cudaerr;
+        auto err = get_stripe_info(iframe + i, 0, pAfsPrm);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed on get_stripe_info(iframe=%d): %s.\n"), iframe + i, get_err_mes(err));
+            return err;
         }
         AFS_STRIPE_DATA *stp = m_stripe.get(iframe + i);
         result_stat[i] = (stp->count0 * pAfsPrm->afs.coeff_shift > stp->count1 * 256) ? 1 : 0;
@@ -891,7 +890,7 @@ cudaError_t NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs 
     if (iframe < 1) status &= AFS_MASK_SHIFT0;
 
     m_status[iframe] = status;
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
@@ -921,10 +920,10 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return RGY_ERR_INVALID_PARAM;
         }
         //sourceキャッシュにコピー
-        auto cudaerr = m_source.add(pInputFrame, cudaStreamDefault);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to add frame to sorce buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        sts = m_source.add(pInputFrame, cudaStreamDefault);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to add frame to sorce buffer: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         if (STREAM_OPT) {
             cudaEventSynchronize(*m_eventSrcAdd.get());
@@ -933,23 +932,23 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         }
         if (iframe == 0) {
             // scan_frame(p1 = -2, p0 = -1)のscan_frameも必要
-            if (cudaSuccess != (cudaerr = scan_frame(iframe-1, false, pAfsParam.get(), cudaStreamDefault))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe-1=%d): %s.\n"), iframe-1, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+            if (RGY_ERR_NONE != (sts = scan_frame(iframe-1, false, pAfsParam.get(), cudaStreamDefault))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe-1=%d): %s.\n"), iframe-1, get_err_mes(sts));
+                return sts;
             }
         }
-        if (cudaSuccess != (cudaerr = scan_frame(iframe, false, pAfsParam.get(), (STREAM_OPT) ? *m_streamAnalyze.get() : cudaStreamDefault))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe=%d): %s.\n"), iframe, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = scan_frame(iframe, false, pAfsParam.get(), (STREAM_OPT) ? *m_streamAnalyze.get() : cudaStreamDefault))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe=%d): %s.\n"), iframe, get_err_mes(sts));
+            return sts;
         }
     }
 
     if (iframe >= 5) {
         int reverse[4] = { 0 }, assume_shift[4] = { 0 }, result_stat[4] = { 0 };
-        auto cudaerr = analyze_frame(iframe - 5, pAfsParam.get(), reverse, assume_shift, result_stat);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe=%d): %s.\n"), iframe - 5, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        sts = analyze_frame(iframe - 5, pAfsParam.get(), reverse, assume_shift, result_stat);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe=%d): %s.\n"), iframe - 5, get_err_mes(sts));
+            return sts;
         }
     }
     static const int preread_len = 3;
@@ -961,11 +960,11 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         //そのため、analyze_frameを使って、3フレーム先までstatusを計算しておく
         for (int i = preread_len; i >= 0; i--) {
             //ここでは、これまで発行したanalyze_frameの結果からstatusの更新を行う(analyze_frameの内部で行われる)
-            auto cudaerr = analyze_frame(m_nFrame + i, pAfsParam.get(), reverse, assume_shift, result_stat);
-            if (cudaerr != cudaSuccess) {
+            sts = analyze_frame(m_nFrame + i, pAfsParam.get(), reverse, assume_shift, result_stat);
+            if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error on analyze_frame(m_nFrame=%d, iframe=%d): %s.\n"),
-                    m_nFrame, m_nFrame + i, iframe, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+                    m_nFrame, m_nFrame + i, iframe, get_err_mes(sts));
+                return sts;
             }
         }
 
@@ -1025,21 +1024,21 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 
             //出力するフレームを作成
             get_stripe_info(m_nFrame, 1, pAfsParam.get());
-            cudaError_t cudaerr = cudaSuccess;
-            auto sip_filtered = m_stripe.filter(m_nFrame, pAfsParam->afs.analyze, cudaStreamDefault, &cudaerr);
-            if (sip_filtered == nullptr || cudaerr != cudaSuccess) {
-                AddMessage(RGY_LOG_ERROR, _T("failed m_stripe.filter(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return RGY_ERR_INVALID_CALL;
+            sts = RGY_ERR_NONE;
+            auto sip_filtered = m_stripe.filter(m_nFrame, pAfsParam->afs.analyze, cudaStreamDefault, &sts);
+            if (sip_filtered == nullptr || sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed m_stripe.filter(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), get_err_mes(sts));
+                return sts;
             }
 
             if (interlaced(m_source.get(m_nFrame)->frame) || pAfsParam->afs.tune) {
-                cudaerr = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), cudaStreamDefault);
+                sts = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), cudaStreamDefault);
             } else {
-                cudaerr = copyFrameAsync(&pOutFrame->frame, &m_source.get(m_nFrame)->frame, cudaStreamDefault);
+                sts = copyFrameAsync(&pOutFrame->frame, &m_source.get(m_nFrame)->frame, cudaStreamDefault);
             }
-            if (cudaerr != cudaSuccess) {
-                AddMessage(RGY_LOG_ERROR, _T("error on synthesize(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error on synthesize(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), get_err_mes(sts));
+                return sts;
             }
         }
 

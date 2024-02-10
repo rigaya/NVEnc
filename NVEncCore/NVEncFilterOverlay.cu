@@ -64,7 +64,7 @@ __global__ void kernel_run_overlay_plane(
 }
 
 template<typename Type, int bit_depth>
-void run_overlay_plane(
+RGY_ERR run_overlay_plane(
     uint8_t *pDst, const int dstPitch,
     const uint8_t *pSrc, const int srcPitch, const int width, const int height,
     const uint8_t *pOverlay, const int overlayPitch,
@@ -79,6 +79,7 @@ void run_overlay_plane(
         pOverlay, overlayPitch,
         pAlpha, alphaPitch, overlayWidth, overlayHeight,
         overlayPosX, overlayPosY);
+    return err_to_rgy(cudaGetLastError());
 }
 
 RGY_ERR NVEncFilterOverlay::overlayFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
@@ -107,18 +108,17 @@ RGY_ERR NVEncFilterOverlay::overlayFrame(RGYFrameInfo *pOutputFrame, const RGYFr
         const auto posX = (planeTarget != RGY_PLANE_Y && RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420) ? prm->overlay.posX >> 1 : prm->overlay.posX;
         const auto posY = (planeTarget != RGY_PLANE_Y && RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420) ? prm->overlay.posY >> 1 : prm->overlay.posY;
 
-        func_list.at(pInputFrame->csp)(
+        auto sts = func_list.at(pInputFrame->csp)(
             planeOut.ptr, planeOut.pitch,
             planeIn.ptr, planeIn.pitch, planeIn.width, planeIn.height,
             planeFrame.ptr, planeFrame.pitch,
             planeAlpha.ptr, planeAlpha.pitch, planeAlpha.width, planeAlpha.height,
             posX, posY, stream);
-        auto cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
+        if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at overlay(%s): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+                get_err_mes(sts));
+            return sts;
         }
     }
     return RGY_ERR_NONE;

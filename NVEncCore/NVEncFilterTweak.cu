@@ -112,7 +112,7 @@ __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restri
 }
 
 template<typename Type, typename Type4, int bit_depth>
-static cudaError_t tweak_frame(RGYFrameInfo *pFrame,
+static RGY_ERR tweak_frame(RGYFrameInfo *pFrame,
     float contrast, float brightness, float saturation, float gamma, float hue_degree, bool swapuv,
     cudaStream_t stream) {
     auto planeInputY = getPlane(pFrame, RGY_PLANE_Y);
@@ -129,9 +129,9 @@ static cudaError_t tweak_frame(RGYFrameInfo *pFrame,
         kernel_tweak_y<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
             planeInputY.ptr, planeInputY.pitch, planeInputY.width, planeInputY.height,
             contrast, brightness, 1.0f / gamma);
-        auto cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = err_to_rgy(cudaGetLastError());
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
 
@@ -142,7 +142,7 @@ static cudaError_t tweak_frame(RGYFrameInfo *pFrame,
         if (   planeInputU.width  != planeInputV.width
             || planeInputU.height != planeInputV.height
             || planeInputU.pitch  != planeInputV.pitch) {
-            return cudaErrorAssert;
+            return RGY_ERR_UNSUPPORTED;
         }
         dim3 blockSize(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
         dim3 gridSize(divCeil(planeInputU.width, blockSize.x * 4), divCeil(planeInputU.height, blockSize.y));
@@ -150,12 +150,12 @@ static cudaError_t tweak_frame(RGYFrameInfo *pFrame,
         kernel_tweak_uv<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
             planeInputU.ptr, planeInputV.ptr, planeInputU.pitch, planeInputU.width, planeInputU.height,
             saturation, std::sin(hue) * saturation, std::cos(hue) * saturation, swapuv);
-        auto cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = err_to_rgy(cudaGetLastError());
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterTweak::NVEncFilterTweak() {
@@ -253,7 +253,7 @@ RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    tweak_list.at(pInputFrame->csp)(ppOutputFrames[0],
+    sts = tweak_list.at(pInputFrame->csp)(ppOutputFrames[0],
         pTweakParam->tweak.contrast,
         pTweakParam->tweak.brightness,
         pTweakParam->tweak.saturation,
@@ -261,14 +261,13 @@ RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         pTweakParam->tweak.hue,
         pTweakParam->tweak.swapuv,
         stream);
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
+    if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at tweak(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            get_err_mes(sts));
+        return sts;
     }
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 void NVEncFilterTweak::close() {

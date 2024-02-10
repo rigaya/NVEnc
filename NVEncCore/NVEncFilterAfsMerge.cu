@@ -123,11 +123,11 @@ __global__ void kernel_afs_merge_scan(
 }
 
 template<typename Type>
-cudaError_t run_merge_scan(uint8_t *dst,
+RGY_ERR run_merge_scan(uint8_t *dst,
     uint8_t *sp0, uint8_t *sp1,
     const int srcWidth, const int srcPitch, const int srcHeight,
     CUMemBufPair *count_stripe, const VppAfs *pAfsPrm, cudaStream_t stream) {
-    auto cudaerr = cudaSuccess;
+    auto sts = RGY_ERR_NONE;
 
     dim3 blockSize(MERGE_BLOCK_INT_X, MERGE_BLOCK_Y);
     dim3 gridSize(divCeil(srcWidth, blockSize.x * sizeof(Type)), divCeil(srcHeight, blockSize.y * MERGE_BLOCK_LOOP_Y));
@@ -135,9 +135,9 @@ cudaError_t run_merge_scan(uint8_t *dst,
     const auto grid_count = gridSize.x * gridSize.y;
     if (count_stripe->nSize < grid_count) {
         count_stripe->clear();
-        cudaerr = count_stripe->alloc(grid_count * sizeof(int));
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        sts = count_stripe->alloc(grid_count * sizeof(int));
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
     const uint32_t scan_left   = pAfsPrm->clip.left / sizeof(Type);
@@ -150,16 +150,16 @@ cudaError_t run_merge_scan(uint8_t *dst,
         divCeil(srcWidth, sizeof(Type)), divCeil(srcPitch, sizeof(Type)), srcHeight,
         pAfsPrm->tb_order ? 1 : 0,
         scan_left, scan_top, scan_width, scan_height);
-    return cudaGetLastError();
+    return err_to_rgy(cudaGetLastError());
 }
 
-cudaError_t NVEncFilterAfs::merge_scan(AFS_STRIPE_DATA *sp, AFS_SCAN_DATA *sp0, AFS_SCAN_DATA *sp1, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsParam, cudaStream_t stream) {
-    auto cudaerr = run_merge_scan<uint32_t>(
+RGY_ERR NVEncFilterAfs::merge_scan(AFS_STRIPE_DATA *sp, AFS_SCAN_DATA *sp0, AFS_SCAN_DATA *sp1, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsParam, cudaStream_t stream) {
+    auto sts = run_merge_scan<uint32_t>(
         sp->map.frame.ptr, sp0->map.frame.ptr, sp1->map.frame.ptr,
         sp1->map.frame.width, sp1->map.frame.pitch, sp1->map.frame.height,
         count_motion, &pAfsParam->afs, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }

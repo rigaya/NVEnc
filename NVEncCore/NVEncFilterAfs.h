@@ -88,11 +88,11 @@ public:
     afsSourceCache();
     ~afsSourceCache();
 
-    cudaError_t alloc(const RGYFrameInfo& frameInfo);
+    RGY_ERR alloc(const RGYFrameInfo& frameInfo);
 
-    cudaError_t add(const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, cudaStream_t stream);
 
-    cudaError_t sep_field_uv(RGYFrameInfo *pDstFrame, const RGYFrameInfo *pSrcFrame, cudaStream_t stream);
+    RGY_ERR sep_field_uv(RGYFrameInfo *pDstFrame, const RGYFrameInfo *pSrcFrame, cudaStream_t stream);
 
     CUFrameBuf *get(int iframe) {
         iframe = clamp(iframe, 0, m_nFramesInput-1);
@@ -121,7 +121,7 @@ public:
     void clearcache(int iframe);
     void initcache(int iframe);
 
-    cudaError_t alloc(const RGYFrameInfo& frameInfo);
+    RGY_ERR alloc(const RGYFrameInfo& frameInfo);
 
     AFS_SCAN_DATA *get(int iframe) {
         return &m_scanArray[iframe & (AFS_SCAN_CACHE_NUM-1)];
@@ -148,16 +148,16 @@ public:
     void initcache(int iframe);
     void expire(int iframe);
 
-    cudaError_t alloc(const RGYFrameInfo& frameInfo);
+    RGY_ERR alloc(const RGYFrameInfo& frameInfo);
 
     AFS_STRIPE_DATA *get(int iframe) {
         return &m_stripeArray[iframe & (AFS_STRIPE_CACHE_NUM-1)];
     }
-    AFS_STRIPE_DATA *filter(int iframe, int analyze, cudaStream_t stream, cudaError_t *pErr);
+    AFS_STRIPE_DATA *filter(int iframe, int analyze, cudaStream_t stream, RGY_ERR *pErr);
 
     void clear();
 protected:
-    cudaError_t map_filter(AFS_STRIPE_DATA *dst, AFS_STRIPE_DATA *sp, cudaStream_t stream);
+    RGY_ERR map_filter(AFS_STRIPE_DATA *dst, AFS_STRIPE_DATA *sp, cudaStream_t stream);
 
     AFS_STRIPE_DATA *getFiltered() {
         return &m_stripeArray[AFS_STRIPE_CACHE_NUM];
@@ -236,19 +236,19 @@ protected:
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam);
 
-    cudaError_t analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_DATA *sp, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
+    RGY_ERR analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_DATA *sp, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     bool scan_frame_result_cached(int iframe, const VppAfs *pAfsPrm);
-    cudaError_t scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
-    cudaError_t count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip);
+    RGY_ERR scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
+    RGY_ERR count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip);
 
-    cudaError_t merge_scan(AFS_STRIPE_DATA *sp, AFS_SCAN_DATA *sp0, AFS_SCAN_DATA *sp1, CUMemBufPair *count_stripe, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
-    cudaError_t count_stripe(AFS_STRIPE_DATA *sp, const AFS_SCAN_CLIP *clip, int tb_order);
+    RGY_ERR merge_scan(AFS_STRIPE_DATA *sp, AFS_SCAN_DATA *sp0, AFS_SCAN_DATA *sp1, CUMemBufPair *count_stripe, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
+    RGY_ERR count_stripe(AFS_STRIPE_DATA *sp, const AFS_SCAN_CLIP *clip, int tb_order);
 
-    cudaError_t get_stripe_info(int frame, int mode, const NVEncFilterParamAfs *pAfsPrm);
+    RGY_ERR get_stripe_info(int frame, int mode, const NVEncFilterParamAfs *pAfsPrm);
     int detect_telecine_cross(int iframe, int coeff_shift);
-    cudaError_t analyze_frame(int iframe, const NVEncFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4]);
+    RGY_ERR analyze_frame(int iframe, const NVEncFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4]);
 
-    cudaError_t synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
+    RGY_ERR synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
 
     int open_timecode(tstring tc_filename);
     void write_timecode(int64_t pts, const rgy_rational<int>& timebase);

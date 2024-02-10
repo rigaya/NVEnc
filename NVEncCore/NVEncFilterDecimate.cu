@@ -313,7 +313,7 @@ __global__ void kernel_block_diff(
 }
 
 template<typename Type2, typename Type4>
-cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp,
+RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp,
     const int blockHalfX, const int blockHalfY, cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
     static_assert(std::is_integral<decltype(Type2::x)>::value && std::is_integral<decltype(Type4::x)>::value && sizeof(Type2::x) == sizeof(Type4::x),
         "Type2::x == Type4::x");
@@ -332,18 +332,18 @@ cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, co
     const size_t bufsize = (useKernel2) ? grid_count * sizeof(int2) : grid_count * sizeof(int);
     if (tmp.nSize < bufsize) {
         tmp.clear();
-        auto cudaerr = tmp.alloc(bufsize);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = tmp.alloc(bufsize);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
-        cudaerr = cudaMemset(tmp.ptrDevice, 0, tmp.nSize);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        sts = err_to_rgy(cudaMemset(tmp.ptrDevice, 0, tmp.nSize));
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = err_to_rgy(cudaGetLastError());
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     if (useKernel2) {
         switch (blockHalfX) {
@@ -390,7 +390,7 @@ cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, co
         }
     } else {
         if (blockHalfX < 4 || 64 < blockHalfX) {
-            return cudaErrorUnsupportedLimit;
+            return RGY_ERR_UNSUPPORTED;
         }
         kernel_block_diff<Type4><<< gridSize, blockSize, 0, streamDiff >>> (
             (const uint8_t *)p0->ptr, p0->pitch,
@@ -399,28 +399,28 @@ cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, co
             firstPlane,
             (int *)tmp.ptrDevice);
     }
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = err_to_rgy(cudaGetLastError());
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     cudaEventRecord(eventTransfer, streamDiff);
     cudaStreamWaitEvent(streamTransfer, eventTransfer, 0);
-    cudaerr = tmp.copyDtoHAsync(streamTransfer);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = tmp.copyDtoHAsync(streamTransfer);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaGetLastError();
+    return err_to_rgy(cudaGetLastError());
 }
 
 template<typename Type2, typename Type4>
-cudaError_t calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp,
+RGY_ERR calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp,
     const int blockX, const int blockY,  const bool chroma,
     cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
     if (tmp.ptrDevice) {
         //初期化
-        auto cudaerr = cudaMemset(tmp.ptrDevice, 0, tmp.nSize);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = err_to_rgy(cudaMemset(tmp.ptrDevice, 0, tmp.nSize));
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
     const bool useKernel2 = (blockX / 2 <= DECIMATE_KERNEL2_BLOCK_X_THRESHOLD);
@@ -435,12 +435,12 @@ cudaError_t calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1
             blockHalfX /= 2;
             blockHalfY /= 2;
         }
-        auto cudaerr = calc_block_diff_plane<Type2, Type4>(useKernel2, i==0, &plane0, &plane1, tmp, blockHalfX, blockHalfY, streamDiff, eventTransfer, streamTransfer);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = calc_block_diff_plane<Type2, Type4>(useKernel2, i==0, &plane0, &plane1, tmp, blockHalfX, blockHalfY, streamDiff, eventTransfer, streamTransfer);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterDecimateFrameData::NVEncFilterDecimateFrameData() :
@@ -458,7 +458,7 @@ NVEncFilterDecimateFrameData::~NVEncFilterDecimateFrameData() {
     m_buf.clear();
 }
 
-cudaError_t NVEncFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream) {
+RGY_ERR NVEncFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream) {
     m_inFrameId = inputFrameId;
     m_blockX = blockSizeX;
     m_blockY = blockSizeY;
@@ -467,20 +467,20 @@ cudaError_t NVEncFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, i
     if (m_buf.frame.ptr == nullptr) {
         m_buf.alloc(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
     }
-    auto cudaerr = m_buf.copyFrameAsync(pInputFrame, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = m_buf.copyFrameAsync(pInputFrame, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     copyFrameProp(&m_buf.frame, pInputFrame);
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
-cudaError_t NVEncFilterDecimateFrameData::calcDiff(funcCalcDiff func, const NVEncFilterDecimateFrameData *target, const bool chroma,
+RGY_ERR NVEncFilterDecimateFrameData::calcDiff(funcCalcDiff func, const NVEncFilterDecimateFrameData *target, const bool chroma,
     cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
     func(&m_buf.frame, &target->get()->frame, m_tmp,
         m_blockX, m_blockY, chroma,
         streamDiff, eventTransfer, streamTransfer);
-    return cudaGetLastError();
+    return err_to_rgy(cudaGetLastError());
 }
 
 void NVEncFilterDecimateFrameData::calcDiffFromTmp() {
@@ -539,7 +539,7 @@ void NVEncFilterDecimateCache::init(int bufCount, int blockX, int blockY) {
     }
 }
 
-cudaError_t NVEncFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int id = m_inputFrames++;
     return frame(id)->set(pInputFrame, id, m_blockX, m_blockY, stream);
 }
@@ -603,33 +603,31 @@ RGY_ERR NVEncFilterDecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
 
         pParam->baseFps *= rgy_rational<int>(prm->decimate.cycle - prm->decimate.drop, prm->decimate.cycle);
 
-        auto cudaerr = cudaSuccess;
-
         m_eventDiff = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventDiff.get(), cudaEventDisableTiming))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(cudaEventCreateWithFlags(m_eventDiff.get(), cudaEventDisableTiming)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreateWithFlags for m_eventDiff: Success.\n"));
 
         m_eventTransfer = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventTransfer.get(), cudaEventDisableTiming))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(cudaEventCreateWithFlags(m_eventTransfer.get(), cudaEventDisableTiming)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreateWithFlags for m_eventTransfer: Success.\n"));
 
         m_streamDiff = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-        if (cudaSuccess != (cudaerr = cudaStreamCreateWithFlags(m_streamDiff.get(), 0/*cudaStreamNonBlocking*/))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamDiff.get(), 0/*cudaStreamNonBlocking*/)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamDiff: Success.\n"));
 
         m_streamTransfer = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-        if (cudaSuccess != (cudaerr = cudaStreamCreateWithFlags(m_streamTransfer.get(), 0/*cudaStreamNonBlocking*/))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamTransfer.get(), 0/*cudaStreamNonBlocking*/)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
+            return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamTransfer: Success.\n"));
 
@@ -842,15 +840,13 @@ RGY_ERR NVEncFilterDecimate::calcDiffWithPrevFrameAndSetDiffToCurr(const int cur
         return RGY_ERR_UNSUPPORTED;
     }
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_pParam);
-    frameCurrent->calcDiff(func_list.at(csp), framePrev,
+    auto sts = frameCurrent->calcDiff(func_list.at(csp), framePrev,
         prm->decimate.chroma,
         *m_streamDiff.get(), *m_eventTransfer.get(), *m_streamTransfer.get());
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
+    if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at calc_block_diff_frame(%s): %s.\n"),
-            RGY_CSP_NAMES[csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            RGY_CSP_NAMES[csp], get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -884,11 +880,11 @@ RGY_ERR NVEncFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         }
     }
 
-    auto cudaerr = m_cache.add(pInputFrame, stream);
-    if (cudaerr != cudaSuccess) {
+    sts = m_cache.add(pInputFrame, stream);
+    if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to add frame to cache: %s.\n"),
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            get_err_mes(sts));
+        return sts;
     }
 
     if (inframeId > 0) {

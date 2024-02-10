@@ -101,10 +101,10 @@ RGY_ERR NVEncFilterCurves::procFrame(RGYFrameInfo *pFrame, cudaStream_t stream) 
                 plane.ptr, plane.pitch, plane.width, plane.height, lut, stream);
             auto cudaerr = cudaGetLastError();
             if (cudaerr != cudaSuccess) {
+                auto sts = err_to_rgy(cudaerr);
                 AddMessage(RGY_LOG_ERROR, _T("error at curves(%s): %s.\n"),
-                    RGY_CSP_NAMES[pFrame->csp],
-                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return err_to_rgy(cudaerr);
+                    RGY_CSP_NAMES[pFrame->csp], get_err_mes(sts));
+                return sts;
             }
         }
     }

@@ -286,7 +286,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
             return RGY_ERR_INVALID_PARAM;
         }
         m_state = std::make_unique<CUMemBuf>(m_stateSizeInBytes);
-        err = err_to_rgy(m_state->alloc());
+        err = m_state->alloc();
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer for state: %s.\n"), get_err_mes(err));
             return RGY_ERR_INVALID_PARAM;
@@ -307,9 +307,9 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto cudaerr = AllocFrameBuf(pParam->frameOut, 1);
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+    sts = AllocFrameBuf(pParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
     pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;

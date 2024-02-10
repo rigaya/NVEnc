@@ -197,7 +197,7 @@ __global__ void kernel_ssim(
 }
 
 template<typename Type4, int bit_depth>
-cudaError calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair& tmp, cudaStream_t stream) {
+RGY_ERR calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair& tmp, cudaStream_t stream) {
     const int width = p0->width & (~3);
     const int height = p0->height & (~3);
     dim3 blockSize(SSIM_BLOCK_X, SSIM_BLOCK_Y);
@@ -206,22 +206,22 @@ cudaError calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemB
     const int grid_count = gridSize.x * gridSize.y;
     if (tmp.nSize < grid_count * sizeof(float)) {
         tmp.clear();
-        auto cudaerr = tmp.alloc(grid_count * sizeof(float));
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = tmp.alloc(grid_count * sizeof(float));
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
         float *ptrHost = (float *)tmp.ptrHost;
         for (int i = 0; i < grid_count; i++) {
             ptrHost[i] = 0.0f;
         }
-        cudaerr = tmp.copyHtoDAsync(stream);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        sts = tmp.copyHtoDAsync(stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = err_to_rgy(cudaGetLastError());
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     kernel_ssim<Type4, bit_depth> <<< gridSize, blockSize, 0, stream >>> (
         (const uint8_t *)p0->ptr, p0->pitch,
@@ -229,28 +229,28 @@ cudaError calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemB
         width,
         height,
         (float *)tmp.ptrDevice);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = err_to_rgy(cudaGetLastError());
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = tmp.copyDtoHAsync(stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = tmp.copyDtoHAsync(stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaGetLastError();
+    return err_to_rgy(cudaGetLastError());
 }
 
 template<typename Type4, int bit_depth>
-cudaError calc_ssim_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::array<CUMemBufPair, 3> &tmp, std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> &streamCalc) {
+RGY_ERR calc_ssim_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::array<CUMemBufPair, 3> &tmp, std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> &streamCalc) {
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
-        auto cudaerr = calc_ssim_plane<Type4, bit_depth>(&plane0, &plane1, tmp[i], *streamCalc[i].get());
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = calc_ssim_plane<Type4, bit_depth>(&plane0, &plane1, tmp[i], *streamCalc[i].get());
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 __device__ __inline__
@@ -295,7 +295,7 @@ __global__ void kernel_psnr(
 }
 
 template<typename Type4, int bit_depth>
-cudaError calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp, cudaStream_t stream) {
+RGY_ERR calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp, cudaStream_t stream) {
     const int width = p0->width;
     const int height = p0->height;
     dim3 blockSize(SSIM_BLOCK_X, SSIM_BLOCK_Y);
@@ -304,22 +304,22 @@ cudaError calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemB
     const int grid_count = gridSize.x * gridSize.y;
     if (tmp.nSize < grid_count * sizeof(int)) {
         tmp.clear();
-        auto cudaerr = tmp.alloc(grid_count * sizeof(int));
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = tmp.alloc(grid_count * sizeof(int));
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
         int *ptrHost = (int *)tmp.ptrHost;
         for (int i = 0; i < grid_count; i++) {
             ptrHost[i] = 0;
         }
-        cudaerr = tmp.copyHtoDAsync(stream);
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        sts = tmp.copyHtoDAsync(stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto sts = err_to_rgy(cudaGetLastError());
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     kernel_psnr<Type4, bit_depth> << < gridSize, blockSize, 0, stream >> > (
         (const uint8_t *)p0->ptr, p0->pitch,
@@ -327,28 +327,28 @@ cudaError calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemB
         width,
         height,
         (int *)tmp.ptrDevice);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = err_to_rgy(cudaGetLastError());
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    cudaerr = tmp.copyDtoHAsync(stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    sts = tmp.copyDtoHAsync(stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    return cudaGetLastError();
+    return err_to_rgy(cudaGetLastError());
 }
 
 template<typename Type4, int bit_depth>
-cudaError calc_psnr_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::array<CUMemBufPair, 3> &tmp, std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> &streamCalc) {
+RGY_ERR calc_psnr_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::array<CUMemBufPair, 3> &tmp, std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> &streamCalc) {
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
-        auto cudaerr = calc_psnr_plane<Type4, bit_depth>(&plane0, &plane1, tmp[i], *streamCalc[i].get());
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto sts = calc_psnr_plane<Type4, bit_depth>(&plane0, &plane1, tmp[i], *streamCalc[i].get());
+        if (sts != RGY_ERR_NONE) {
+            return sts;
         }
     }
-    return cudaSuccess;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameInfo *p1) {
@@ -372,12 +372,12 @@ RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameIn
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[p0->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        auto cudaerr = ssim_list.at(p0->csp)(p0, p1, m_tmpSsim, m_streamCalcSsim);
-        if (cudaerr != cudaSuccess) {
+        auto sts = ssim_list.at(p0->csp)(p0, p1, m_tmpSsim, m_streamCalcSsim);
+        if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at ssim(%s): %s.\n"),
                 RGY_CSP_NAMES[p0->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+                get_err_mes(sts));
+            return sts;
         }
     }
 
@@ -396,12 +396,12 @@ RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameIn
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[p0->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        auto cudaerr = psnr_list.at(p0->csp)(p0, p1, m_tmpPsnr, m_streamCalcPsnr);
-        if (cudaerr != cudaSuccess) {
+        auto sts = psnr_list.at(p0->csp)(p0, p1, m_tmpPsnr, m_streamCalcPsnr);
+        if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at ssim(%s): %s.\n"),
                 RGY_CSP_NAMES[p0->csp],
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+                get_err_mes(sts));
+            return sts;
         }
     }
 
