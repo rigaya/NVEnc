@@ -31,7 +31,7 @@
 #include <array>
 #include "NVEncFilter.h"
 #include "NVEncFilterCustom.h"
-#include "NVEncParam.h"
+#include "rgy_prm.h"
 
 enum ColorspaceOpType {
     COLORSPACE_OP_TYPE_UNKNOWN,

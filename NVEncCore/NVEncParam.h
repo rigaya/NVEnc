@@ -39,25 +39,12 @@
 #include <npp.h>
 #include "nvEncodeAPI.h"
 #pragma warning (pop)
+#include "NVEncFilterParam.h"
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_simd.h"
 #include "rgy_prm.h"
 #include "convert_csp.h"
-
-using std::vector;
-
-static const TCHAR *FILTER_DEFAULT_CUSTOM_KERNEL_NAME = _T("kernel_filter");
-static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_X = 32;
-static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_Y = 8;
-static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_X = 1;
-static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_Y = 1;
-
-static const float FILTER_DEFAULT_NVVFX_DENOISE_STRENGTH = 0.0f;
-static const int FILTER_DEFAULT_NVVFX_ARTIFACT_REDUCTION_MODE = 0;
-static const float FILTER_DEFAULT_NVVFX_SUPER_RES_STRENGTH = 0.4f;
-static const int FILTER_DEFAULT_NVVFX_SUPER_RES_MODE = 1;
-static const float FILTER_DEFAULT_NVVFX_UPSCALER_STRENGTH = 0.4f;
 
 static const int MAX_DECODE_FRAMES = 16;
 
@@ -74,8 +61,6 @@ static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 0;
 
 static const int DEFAULT_QVBR_TARGET = 25;
-
-static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
 
 static const int PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;
@@ -530,25 +515,9 @@ const CX_DESC list_split_enc_mode[] = {
 
 static const int DYNAMIC_PARAM_NOT_SELECTED = -1;
 
-const CX_DESC list_nppi_gauss[] = {
-    { _T("disabled"), 0 },
-    { _T("3"), NPP_MASK_SIZE_3_X_3 },
-    { _T("5"), NPP_MASK_SIZE_5_X_5 },
-    { _T("7"), NPP_MASK_SIZE_7_X_7 },
-    { NULL, 0 }
-};
-
 const CX_DESC list_cuvid_mode[] = {
     { _T("native"), NV_ENC_AVCUVID_NATIVE },
     { _T("cuda"),   NV_ENC_AVCUVID_CUDA   },
-    { NULL, 0 }
-};
-
-const CX_DESC list_cuda_schedule[] = {
-    { _T("auto"),  CU_CTX_SCHED_AUTO },
-    { _T("spin"),  CU_CTX_SCHED_SPIN },
-    { _T("yield"), CU_CTX_SCHED_YIELD },
-    { _T("sync"),  CU_CTX_SCHED_BLOCKING_SYNC },
     { NULL, 0 }
 };
 
@@ -675,117 +644,6 @@ static int get_value(int id, const std::vector<NVEncCap>& capList) {
     return 0;
 }
 
-enum VppCustomInterface {
-    VPP_CUSTOM_INTERFACE_PER_PLANE,
-    VPP_CUSTOM_INTERFACE_PLANES,
-
-    VPP_CUSTOM_INTERFACE_MAX,
-};
-
-const CX_DESC list_vpp_custom_interface[] = {
-    { _T("per_plane"),    VPP_CUSTOM_INTERFACE_PER_PLANE },
-    { _T("planes"),       VPP_CUSTOM_INTERFACE_PLANES },
-    { NULL, 0 }
-};
-
-enum VppCustomInterlaceMode {
-    VPP_CUSTOM_INTERLACE_UNSUPPORTED,
-    VPP_CUSTOM_INTERLACE_PER_FIELD,
-    VPP_CUSTOM_INTERLACE_FRAME,
-
-    VPP_CUSTOM_INTERLACE_MAX,
-};
-
-const CX_DESC list_vpp_custom_interlace[] = {
-    { _T("unsupported"), VPP_CUSTOM_INTERLACE_UNSUPPORTED },
-    { _T("per_field"),   VPP_CUSTOM_INTERLACE_PER_FIELD },
-    { _T("frame"),       VPP_CUSTOM_INTERLACE_FRAME },
-    { NULL, 0 }
-};
-
-struct VppCustom {
-    bool enable;
-    tstring filter_name;
-    tstring kernel_name;
-    tstring kernel_path;
-    std::string kernel;
-    void *dev_params;
-    std::string compile_options;
-    VppCustomInterface kernel_interface;
-    VppCustomInterlaceMode interlace;
-    int threadPerBlockX;
-    int threadPerBlockY;
-    int pixelPerThreadX;
-    int pixelPerThreadY;
-    int dstWidth;
-    int dstHeight;
-    std::map<std::string, std::string> params;
-
-    VppCustom();
-    bool operator==(const VppCustom &x) const;
-    bool operator!=(const VppCustom &x) const;
-    tstring print() const;
-};
-
-const CX_DESC list_vpp_nvvfx_mode[] = {
-    { _T("conservative"), 0 },
-    { _T("aggressive"),   1 },
-    { NULL, 0 }
-};
-
-struct VppNvvfxDenoise {
-    bool enable;
-    float strength;
-
-    VppNvvfxDenoise();
-    bool operator==(const VppNvvfxDenoise &x) const;
-    bool operator!=(const VppNvvfxDenoise &x) const;
-    tstring print() const;
-};
-
-struct VppNvvfxArtifactReduction {
-    bool enable;
-    int mode; // 0: conservative, 1: aggressive
-
-    VppNvvfxArtifactReduction();
-    bool operator==(const VppNvvfxArtifactReduction &x) const;
-    bool operator!=(const VppNvvfxArtifactReduction &x) const;
-    tstring print() const;
-};
-
-struct VppNvvfxSuperRes {
-    bool enable;
-    int mode; // 0: conservative, 1: aggressive
-    float strength;
-
-    VppNvvfxSuperRes();
-    bool operator==(const VppNvvfxSuperRes &x) const;
-    bool operator!=(const VppNvvfxSuperRes &x) const;
-    tstring print() const;
-};
-
-struct VppNvvfxUpScaler {
-    bool enable;
-    float strength;
-
-    VppNvvfxUpScaler();
-    bool operator==(const VppNvvfxUpScaler &x) const;
-    bool operator!=(const VppNvvfxUpScaler &x) const;
-    tstring print() const;
-};
-
-struct VppParam {
-    cudaVideoDeinterlaceMode  deinterlace;
-    NppiMaskSize              gaussMaskSize;
-    VppNvvfxDenoise           nvvfxDenoise;
-    VppNvvfxArtifactReduction nvvfxArtifactReduction;
-    VppNvvfxSuperRes          nvvfxSuperRes;
-    VppNvvfxUpScaler          nvvfxUpScaler;
-    tstring                   nvvfxModelDir;
-
-    VppParam();
-};
-
 struct NVEncRCParam {
     int start;
     int end;
@@ -849,6 +707,8 @@ struct InEncodeVideoParam {
     int chromaQPOffset;
     int brefMode;
     NV_ENC_SPLIT_ENCODE_MODE splitEncMode;
+
+    cudaVideoDeinterlaceMode  deinterlace;
 
     RGYParamCommon common;
     RGYParamInput inprm;

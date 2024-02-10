@@ -630,7 +630,7 @@ SRC_NVENCCORE=" \
 CuvidDecode.cpp        FrameQueue.cpp              NVEncCmd.cpp                 NVEncCore.cpp \
 NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           NVEncFilterColorspace.cpp \
 NVEncFilterCurves.cpp  NVEncFilterCustom.cpp       NVEncFilterDelogo.cpp        NVEncFilterDenoiseGauss.cpp \
-NVEncFilterNvvfx.cpp   NVEncFilterOverlay.cpp      NVEncFilterPad.cpp \
+NVEncFilterNvvfx.cpp   NVEncFilterOverlay.cpp      NVEncFilterPad.cpp           NVEncFilterParam.cpp \
 NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
 NVEncFrameInfo.cpp     NVEncParam.cpp              NVEncUtil.cpp                cl_func.cpp \
 convert_csp.cpp        cpu_info.cpp                gpu_info.cpp \

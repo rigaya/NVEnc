@@ -31,15 +31,13 @@
 #include <stdint.h>
 #include <memory>
 #include <vector>
-#include "rgy_cuda_util.h"
 #include "rgy_frame.h"
-#include "NVEncUtil.h"
-#include "NVEncParam.h"
-#include "NVEncFrameInfo.h"
 #include "rgy_osdep.h"
 #include "rgy_tchar.h"
 #include "rgy_log.h"
+#include "rgy_prm.h"
 #include "convert_csp.h"
+#include "rgy_cuda_util.h"
 
 #pragma comment(lib, "cudart_static.lib")
 

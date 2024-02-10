@@ -32,7 +32,7 @@
 #include <cmath>
 #include "convert_csp.h"
 #include "NVEncFilterTweak.h"
-#include "NVEncParam.h"
+#include "rgy_prm.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"

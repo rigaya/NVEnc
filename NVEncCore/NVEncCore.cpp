@@ -4461,6 +4461,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 SetEvent((HANDLE)ptr);
             });
             for (auto &data : frame.dataList()) {
+#if ENABLE_VPP_SMOOTH_QP_FRAME
                 if (data->dataType() == RGY_FRAME_DATA_QP) {
                     auto dataqp = dynamic_cast<RGYFrameDataQP *>(data.get());
                     NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
@@ -4470,6 +4471,7 @@ NVENCSTATUS NVEncCore::Encode() {
                         nvStatus = err_to_nv(rgy_err);
                     }
                 }
+#endif
             }
             inputFrame.setHostFrameInfo(frame.getInfo(), heTransferFin);
             inputFrame.setInputFrameId(nInputFrame);

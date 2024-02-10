@@ -29,7 +29,7 @@
 #include <array>
 #include "convert_csp.h"
 #include "NVEncFilter.h"
-#include "NVEncParam.h"
+#include "NVEncFilterParam.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
@@ -37,9 +37,9 @@
 #pragma warning (pop)
 
 template<typename T, typename Tfunc>
-static NppStatus denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcGauss, NppiMaskSize masksize) {
-    const double factorX = pOutputFrame->width / (double)pInputFrame->width;
-    const double factorY = pOutputFrame->height / (double)pInputFrame->height;
+static RGY_ERR denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcGauss, NppiMaskSize masksize) {
+    //const double factorX = pOutputFrame->width / (double)pInputFrame->width;
+    //const double factorY = pOutputFrame->height / (double)pInputFrame->height;
     auto srcSize = nppisize(pInputFrame);
     auto dstSize = nppisize(pOutputFrame);
     NppiPoint srcOffset = { 0 };
@@ -49,9 +49,9 @@ static NppStatus denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYF
         (T *)pOutputFrame->ptr,
         pOutputFrame->pitch, dstSize, masksize, NPP_BORDER_REPLICATE);
     if (sts != NPP_SUCCESS) {
-        return sts;
+        return err_to_rgy(sts);
     }
-    return NPP_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
@@ -65,17 +65,16 @@ RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const 
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    NppStatus nppsts = NPP_SUCCESS;
     if (RGY_CSP_BIT_DEPTH[pGaussParam->frameIn.csp] <= 8) {
-        nppsts = denoise_nnpi_gauss_plane<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R, pGaussParam->masksize);
-        if (nppsts != NPP_SUCCESS) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
+        sts = denoise_nnpi_gauss_plane<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R, pGaussParam->masksize);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), sts, get_err_mes(sts));
             sts = RGY_ERR_UNKNOWN;
         }
     } else if (RGY_CSP_BIT_DEPTH[pGaussParam->frameIn.csp] <= 16) {
-        nppsts = denoise_nnpi_gauss_plane<Npp16u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_16u_C1R, pGaussParam->masksize);
-        if (nppsts != NPP_SUCCESS) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
+        sts = denoise_nnpi_gauss_plane<Npp16u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_16u_C1R, pGaussParam->masksize);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), sts, get_err_mes(sts));
             sts = RGY_ERR_UNKNOWN;
         }
     } else {

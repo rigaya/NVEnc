@@ -104,28 +104,32 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
             auto cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr, pOutputFrame->pitch,
                 (uint16_t)pad_color, pOutputFrame->width, pad->top, stream);
             if (cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"),
-                    char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+                const auto sts = err_to_rgy(cudaerr);
+                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"), get_err_mes(sts));
+                return sts;
             }
             cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr + (pad->top + pInputFrame->height) * pOutputFrame->pitch, pOutputFrame->pitch,
                 (uint16_t)pad_color, pOutputFrame->width, pad->bottom, stream);
             if (cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"),
-                    char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+                const auto sts = err_to_rgy(cudaerr);
+                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"), get_err_mes(sts));
+                return sts;
             }
         } else { //RGY_CSP_BIT_DEPTH[pOutputFrame->csp] == 8
             auto cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr, pOutputFrame->pitch,
                 (uint8_t)pad_color, pOutputFrame->width, pad->top, stream);
             if (cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"),
-                    char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+                const auto sts = err_to_rgy(cudaerr);
+                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"), get_err_mes(sts));
+                return sts;
             }
 
             cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr + (pad->top + pInputFrame->height) * pOutputFrame->pitch, pOutputFrame->pitch,
                 (uint8_t)pad_color, pOutputFrame->width, pad->bottom, stream);
             if (cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"),
-                    char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+                const auto sts = err_to_rgy(cudaerr);
+                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"), get_err_mes(sts));
+                return sts;
             }
         }
     } else {
@@ -133,15 +137,17 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
             auto cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr, pOutputFrame->pitch,
                 (uint16_t)pad_color, pOutputFrame->width, pOutputFrame->height, stream);
             if (cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"),
-                    char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+                const auto sts = err_to_rgy(cudaerr);
+                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"), get_err_mes(sts));
+                return sts;
             }
         } else {// RGY_CSP_BIT_DEPTH[pOutputFrame->csp] == 8
             auto cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr, pOutputFrame->pitch,
                 (uint8_t)pad_color, pOutputFrame->width, pOutputFrame->height, stream);
             if (cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"),
-                    char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+                const auto sts = err_to_rgy(cudaerr);
+                AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"), get_err_mes(sts));
+                return sts;
             }
         }
     }
@@ -151,8 +157,9 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
             pInputFrame->width * pixel_byte, pInputFrame->height,
             memcpyKind);
     if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync: %s.\n"),
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        const auto sts = err_to_rgy(cudaerr);
+        AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }

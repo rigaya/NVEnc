@@ -30,7 +30,7 @@
 #include <map>
 #include "convert_csp.h"
 #include "NVEncFilterDeband.h"
-#include "NVEncParam.h"
+#include "rgy_prm.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"

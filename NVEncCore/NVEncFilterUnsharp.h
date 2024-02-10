@@ -29,7 +29,7 @@
 #pragma once
 
 #include "NVEncFilter.h"
-#include "NVEncParam.h"
+#include "rgy_prm.h"
 
 class NVEncFilterParamUnsharp : public NVEncFilterParam {
 public:

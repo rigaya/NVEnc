@@ -31,7 +31,7 @@
 #include "convert_csp.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterNvvfx.h"
-#include "NVEncParam.h"
+#include "NVEncFilterParam.h"
 #include "rgy_filesystem.h"
 
 char *g_nvVFXSDKPath = nullptr;

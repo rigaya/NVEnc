@@ -38,7 +38,7 @@
 #include "convert_csp.h"
 #include "NVEncFilterColorspace.h"
 #include "NVEncFilterColorspaceFunc.h"
-#include "NVEncParam.h"
+#include "NVEncFilterParam.h"
 
 using std::pair;
 using std::make_pair;

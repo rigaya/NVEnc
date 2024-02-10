@@ -30,7 +30,8 @@
 
 #include <array>
 #include "NVEncFilter.h"
-#include "NVEncParam.h"
+#include "NVEncFilterParam.h"
+
 #if ENABLE_NVRTC
 #pragma warning (push)
 #pragma warning (disable: 4819)
@@ -46,7 +47,16 @@
 #define JITIFY_PRINT_PTX 1
 #define JITIFY_PRINT_LAUNCH 0
 #define DISABLE_DLFCN 1
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define DEF_CRT_SECURE_NO_WARNINGS 1
+#define _CRT_SECURE_NO_WARNINGS 1
+#else
+#define DEF_CRT_SECURE_NO_WARNINGS 0
+#endif
 #include "jitify.hpp"
+#if DEF_CRT_SECURE_NO_WARNINGS
+#undef _CRT_SECURE_NO_WARNINGS
+#endif
 #pragma warning (pop)
 #endif //#if ENABLE_NVRTC
 
@@ -64,7 +74,7 @@ public:
 
 class NVEncFilterCustom : public NVEncFilter {
 public:
-    static const std::string KERNEL_NAME;
+    static const char *KERNEL_NAME;
     NVEncFilterCustom();
     virtual ~NVEncFilterCustom();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;

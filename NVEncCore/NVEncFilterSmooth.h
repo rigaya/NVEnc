@@ -30,7 +30,7 @@
 
 #include <array>
 #include "NVEncFilter.h"
-#include "NVEncParam.h"
+#include "rgy_prm.h"
 
 static const int VPP_SMOOTH_MAX_QUALITY_LEVEL = 6;
 

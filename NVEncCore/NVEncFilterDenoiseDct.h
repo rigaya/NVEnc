@@ -29,8 +29,7 @@
 #pragma once
 
 #include "NVEncFilter.h"
-#include "NVEncParam.h"
-#include "logo.h"
+#include "rgy_prm.h"
 
 class NVEncFilterParamDenoiseDct : public NVEncFilterParam {
 public:

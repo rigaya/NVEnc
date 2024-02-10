@@ -34,23 +34,23 @@
 RGYFrameDataQP::RGYFrameDataQP() :
     m_frameType(0),
     m_qpScaleType(0),
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     m_qpDev(),
     m_event(std::unique_ptr<cudaEvent_t, cudaevent_deleter>(nullptr, cudaevent_deleter())),
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
     m_qpHost() {
     m_dataType = RGY_FRAME_DATA_QP;
 };
 
 RGYFrameDataQP::~RGYFrameDataQP() {
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     m_qpDev.reset();
     if (m_qpHost.ptr) {
         cudaFree(m_qpHost.ptr);
         m_qpHost.ptr = nullptr;
     }
     m_event.reset();
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
 };
 
 #pragma warning(push)
@@ -84,12 +84,12 @@ RGY_ERR RGYFrameDataQP::setQPTable(const int8_t *qpTable, int qpw, int qph, int 
     for (int y = 0; y < m_qpHost.height; y++) {
         memcpy(m_qpHost.ptr + y * m_qpHost.pitch, qpTable + y * qppitch, m_qpHost.width);
     }
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
     return RGY_ERR_NONE;
 }
 #pragma warning(pop)
 
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
 RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
     if (!m_qpDev) {
         m_qpDev = std::make_unique<CUFrameBuf>(m_qpHost.width, m_qpHost.height, m_qpHost.csp);
@@ -111,7 +111,7 @@ RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
     }
     return RGY_ERR_NONE;
 }
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
 
 
 RGYFrameDataMetadata::RGYFrameDataMetadata() : m_timestamp(-1), m_data() { m_dataType = RGY_FRAME_DATA_METADATA; };

@@ -30,7 +30,7 @@
 #include "rgy_version.h"
 #include "convert_csp.h"
 #include "NVEncFilter.h"
-#include "NVEncParam.h"
+#include "NVEncFilterParam.h"
 
 #if ENABLE_NVVFX
 #pragma warning (push)

@@ -34,9 +34,9 @@
 #include "rgy_version.h"
 #include "rgy_err.h"
 #include "convert_csp.h"
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
 #include "rgy_cuda_util.h"
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
 
 enum RGYFrameDataType {
     RGY_FRAME_DATA_NONE,
@@ -64,22 +64,22 @@ public:
     RGYFrameDataQP();
     virtual ~RGYFrameDataQP();
     RGY_ERR setQPTable(const int8_t *qpTable, int qpw, int qph, int qppitch, int scaleType, int frameType, int64_t timestamp);
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     RGY_ERR transferToGPU(cudaStream_t stream);
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
     int frameType() const { return m_frameType; }
     int qpScaleType() const { return m_qpScaleType; }
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     cudaEvent_t event() { return *m_event.get(); }
     CUFrameBuf *qpDev() { return m_qpDev.get(); }
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
 protected:
     int m_frameType;
     int m_qpScaleType;
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     std::unique_ptr<CUFrameBuf> m_qpDev;
     std::unique_ptr<cudaEvent_t, cudaevent_deleter> m_event;
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
     RGYFrameInfo m_qpHost;
 };
 
@@ -115,7 +115,7 @@ public:
     virtual std::vector<uint8_t> gen_nal() const override;
     virtual std::vector<uint8_t> gen_obu() const override;
 };
-#if !ENCODER_NVENC
+#if !ENCODER_NVENC && !CUFILTERS
 struct RGYFrame {
 public:
     RGYFrame() {};

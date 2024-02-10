@@ -32,6 +32,7 @@
 #include "rgy_filesystem.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncParam.h"
+#include "NVEncUtil.h"
 #include "afs_stg.h"
 #pragma warning (push)
 

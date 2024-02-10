@@ -32,14 +32,14 @@
 #include "convert_csp.h"
 #include "rgy_filesystem.h"
 #include "NVEncFilterCustom.h"
-#include "NVEncParam.h"
+#include "NVEncFilterParam.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 
-const std::string NVEncFilterCustom::KERNEL_NAME = "kernel_filter";
+const char *NVEncFilterCustom::KERNEL_NAME = "kernel_filter";
 
 NVEncFilterCustom::NVEncFilterCustom()
 #if ENABLE_NVRTC

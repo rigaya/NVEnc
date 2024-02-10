@@ -29,7 +29,7 @@
 #include <map>
 #include "convert_csp.h"
 #include "NVEncFilterSmooth.h"
-#include "NVEncParam.h"
+#include "rgy_prm.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
@@ -769,6 +769,7 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
     }
 
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     //入力フレームのQPテーブルへの参照を取得
     std::shared_ptr<RGYFrameDataQP> qpInput;
     if (prm->smooth.useQPTable) {
@@ -800,10 +801,17 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             m_qpTableErrCount = 0;
         }
     }
+#else
+    if (prm->smooth.useQPTable) {
+        AddMessage(RGY_LOG_ERROR, _T("QP table is not supported in this build.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+#endif
 
     //実際に計算用に使用するQPテーブルの選択、あるいは作成
     CUFrameBuf *targetQPTable = nullptr;
     float qpMul = 1.0f;
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     if (!!qpInput) {
         auto cudaerr = cudaStreamWaitEvent(stream, qpInput->event(), 0);
         if (cudaerr != cudaSuccess) {
@@ -829,7 +837,9 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             m_qpSrc = qpInput;
             targetQPTable = m_qpSrc->qpDev();
         }
-    } else {
+    } else
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
+    {
         targetQPTable = &m_qp;
         auto cudaerr = run_set_qp<uchar4>(&m_qp.frame, prm->smooth.qp, stream);
         if (cudaerr != cudaSuccess) {

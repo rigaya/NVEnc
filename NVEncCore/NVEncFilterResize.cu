@@ -33,7 +33,7 @@
 #include "convert_csp.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterNvvfx.h"
-#include "NVEncParam.h"
+#include "rgy_prm.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
@@ -302,14 +302,13 @@ __inline__ __device__
 float factor_spline(const float x_raw, const float *psCopyFactor) {
     const float x = fabs(x_raw);
     if (x >= (float)radius) return 0.0f;
-    const int pos = min((int)x, radius - 1);
-    const float *psWeight = psCopyFactor + min((int)x, radius - 1) * 4;
+    const float4 weight = ((const float4 *)psCopyFactor)[min((int)x, radius - 1)];
     //重みを計算
-    float w = psWeight[3];
-    w += x * psWeight[2];
+    float w = weight.w;
+    w += x * weight.z;
     const float x2 = x * x;
-    w += x2 * psWeight[1];
-    w += x2 * x * psWeight[0];
+    w += x2 * weight.y;
+    w += x2 * x * weight.x;
     return w;
 }
 
@@ -519,7 +518,7 @@ static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
 }
 
 template<typename T, typename Tfunc>
-static NppStatus resize_nppi_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
+static RGY_ERR resize_nppi_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
     const double factorX = pOutputFrame->width / (double)pInputFrame->width;
     const double factorY = pOutputFrame->height / (double)pInputFrame->height;
     auto srcSize = nppisize(pInputFrame);
@@ -539,7 +538,7 @@ static NppStatus resize_nppi_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
         planeOutputY.pitch, dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
     if (sts != NPP_SUCCESS) {
-        return sts;
+        return err_to_rgy(sts);
     }
     //U
     srcSize.width  >>= 1;
@@ -555,7 +554,7 @@ static NppStatus resize_nppi_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
         planeOutputU.pitch, dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
     if (sts != NPP_SUCCESS) {
-        return sts;
+        return err_to_rgy(sts);
     }
     //V
     sts = funcResize(
@@ -564,7 +563,7 @@ static NppStatus resize_nppi_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
         (T *)planeOutputV.ptr,
         planeOutputV.pitch, dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
-    return sts;
+    return err_to_rgy(sts);
 }
 
 RGY_ERR NVEncFilterResize::resizeNppiYV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
@@ -588,18 +587,17 @@ RGY_ERR NVEncFilterResize::resizeNppiYV12(RGYFrameInfo *pOutputFrame, const RGYF
         return RGY_ERR_UNSUPPORTED;
     }
     static const auto supportedCspYV12High = make_array<RGY_CSP>(RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
-    NppStatus nppsts = NPP_SUCCESS;
     if (m_pParam->frameIn.csp == RGY_CSP_YV12) {
-        nppsts = resize_nppi_yv12<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_C1R, interp);
-        if (nppsts != NPP_SUCCESS) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = RGY_ERR_CUDA;
+        sts = resize_nppi_yv12<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_C1R, interp);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), sts, get_err_mes(sts));
+            return sts;
         }
     } else if (std::find(supportedCspYV12High.begin(), supportedCspYV12High.end(), m_pParam->frameIn.csp) != supportedCspYV12High.end()) {
-        nppsts = resize_nppi_yv12<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_C1R, interp);
-        if (nppsts != NPP_SUCCESS) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = RGY_ERR_CUDA;
+        sts = resize_nppi_yv12<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_C1R, interp);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), sts, get_err_mes(sts));
+            return sts;
         }
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
@@ -610,7 +608,7 @@ RGY_ERR NVEncFilterResize::resizeNppiYV12(RGYFrameInfo *pOutputFrame, const RGYF
 }
 
 template<typename T, typename Tfunc>
-static NppStatus resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
+static RGY_ERR resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
     const double factorX = pOutputFrame->width / (double)pInputFrame->width;
     const double factorY = pOutputFrame->height / (double)pInputFrame->height;
     auto srcSize = nppisize(pInputFrame);
@@ -639,9 +637,9 @@ static NppStatus resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameIn
         planeOutputY.pitch, dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
     if (sts != NPP_SUCCESS) {
-        return sts;
+        return err_to_rgy(sts);
     }
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterResize::resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
@@ -665,18 +663,17 @@ RGY_ERR NVEncFilterResize::resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RG
         return RGY_ERR_UNSUPPORTED;
     }
     static const auto supportedCspYUV444High = make_array<RGY_CSP>(RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-    NppStatus nppsts = NPP_SUCCESS;
     if (m_pParam->frameIn.csp == RGY_CSP_YUV444) {
-        nppsts = resize_nppi_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R, interp);
-        if (nppsts != NPP_SUCCESS) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = RGY_ERR_CUDA;
+        sts = resize_nppi_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R, interp);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), sts, get_err_mes(sts));
+            return sts;
         }
     } else if (std::find(supportedCspYUV444High.begin(), supportedCspYUV444High.end(), m_pParam->frameIn.csp) != supportedCspYUV444High.end()) {
-        nppsts = resize_nppi_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_P3R, interp);
-        if (nppsts != NPP_SUCCESS) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = RGY_ERR_CUDA;
+        sts = resize_nppi_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_P3R, interp);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), sts, get_err_mes(sts));
+            return sts;
         }
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));

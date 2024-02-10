@@ -37,6 +37,7 @@
 #include "rgy_event.h"
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
+#include "NVEncUtil.h"
 
 #define ENABLE_SSIM (ENABLE_AVSW_READER)
 

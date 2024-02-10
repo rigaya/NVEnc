@@ -32,6 +32,7 @@
 #include <iomanip>
 #include "rgy_version.h"
 #include "NVEncParam.h"
+#include "NVEncUtil.h"
 #include "NVEncCmd.h"
 #include "NVEncFilterAfs.h"
 #include "rgy_osdep.h"

@@ -29,7 +29,7 @@
 #pragma once
 
 #include "NVEncFilter.h"
-#include "NVEncParam.h"
+#include "rgy_prm.h"
 
 enum NnediTargetField {
     NNEDI_GEN_FIELD_UNKNOWN = -1,

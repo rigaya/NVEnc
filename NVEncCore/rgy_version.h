@@ -89,6 +89,8 @@ const char *get_encoder_version();
 #define ENABLE_NVVFX 1
 #endif
 
+#define ENABLE_VPP_SMOOTH_QP_FRAME 0
+
 #ifdef NVENC_AUO
 #define ENCODER_NAME  "NVEnc"
 #define AUO_NAME      "NVEnc.auo"
@@ -128,6 +130,7 @@ const char *get_encoder_version();
 #define ENABLE_NVRTC              1
 #define ENABLE_NVVFX              0
 #define ENABLE_CAPTION2ASS        0
+#define ENABLE_VPP_SMOOTH_QP_FRAME 0
 #define ENABLE_VMAF               0
 #endif // #if defined(WIN32) || defined(WIN64)
 
