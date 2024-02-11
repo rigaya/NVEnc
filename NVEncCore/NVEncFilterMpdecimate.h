@@ -41,7 +41,7 @@ public:
     virtual tstring print() const override;
 };
 
-using funcCalcDiff = std::function<RGY_ERR(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair&,
+using funcCalcDiff = std::function<RGY_ERR(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair *,
     const int, const int, const bool, cudaStream_t, cudaEvent_t, cudaStream_t)>;
 
 class NVEncFilterMpdecimateFrameData {

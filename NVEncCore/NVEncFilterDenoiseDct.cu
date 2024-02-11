@@ -584,15 +584,15 @@ RGY_ERR denoise_dct_run(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFr
     auto planeOutputR = getPlane(pOutputFrame, RGY_PLANE_R);
     auto planeOutputG = getPlane(pOutputFrame, RGY_PLANE_G);
     auto planeOutputB = getPlane(pOutputFrame, RGY_PLANE_B);
-    if (planeInputR.pitch != planeInputG.pitch || planeInputR.pitch != planeInputB.pitch
-        || planeOutputR.pitch != planeOutputG.pitch || planeOutputR.pitch != planeOutputB.pitch) {
+    if (planeInputR.pitchArray[0] != planeInputG.pitchArray[0] || planeInputR.pitchArray[0] != planeInputB.pitchArray[0]
+        || planeOutputR.pitchArray[0] != planeOutputG.pitchArray[0] || planeOutputR.pitchArray[0] != planeOutputB.pitchArray[0]) {
         return RGY_ERR_UNKNOWN;
     }
     dim3 blockSize(BLOCK_SIZE, DENOISE_BLOCK_SIZE_X);
     dim3 gridSize(divCeil(planeInputR.width, blockSize.x * DENOISE_BLOCK_SIZE_X), divCeil(planeInputR.height, BLOCK_SIZE * DENOISE_LOOP_COUNT_BLOCK), 3);
     kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, STEP> << <gridSize, blockSize, 0, stream >>>(
-        (char *)planeOutputR.ptr, (char *)planeOutputG.ptr, (char *)planeOutputB.ptr, planeOutputR.pitch,
-        (const char *)planeInputR.ptr, (const char *)planeInputG.ptr, (const char *)planeInputB.ptr, planeInputR.pitch,
+        (char *)planeOutputR.ptrArray[0], (char *)planeOutputG.ptrArray[0], (char *)planeOutputB.ptrArray[0], planeOutputR.pitchArray[0],
+        (const char *)planeInputR.ptrArray[0], (const char *)planeInputG.ptrArray[0], (const char *)planeInputB.ptrArray[0], planeInputR.pitchArray[0],
         planeInputR.width, planeInputR.height, threshold);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
@@ -651,15 +651,15 @@ RGY_ERR NVEncFilterDenoiseDct::colorDecorrelation(RGYFrameInfo *pOutputFrame, co
         || cmpFrameInfoCspResolution(&planeInputR, &planeInputB)) {
         return RGY_ERR_UNKNOWN;
     }
-    if (planeInputR.pitch != planeInputG.pitch || planeInputR.pitch != planeInputB.pitch
-        || planeOutputR.pitch != planeOutputG.pitch || planeOutputR.pitch != planeOutputB.pitch) {
+    if (planeInputR.pitchArray[0] != planeInputG.pitchArray[0] || planeInputR.pitchArray[0] != planeInputB.pitchArray[0]
+        || planeOutputR.pitchArray[0] != planeOutputG.pitchArray[0] || planeOutputR.pitchArray[0] != planeOutputB.pitchArray[0]) {
         return RGY_ERR_UNKNOWN;
     }
     dim3 blockSize(64, 8);
     dim3 gridSize(divCeil(planeInputR.width, blockSize.x), divCeil(planeInputR.height, blockSize.y));
     kernel_color_decorrelation<float> << <gridSize, blockSize, 0, stream >> > (
-        planeOutputR.ptr, planeOutputG.ptr, planeOutputB.ptr, planeOutputR.pitch,
-        planeInputR.ptr, planeInputG.ptr, planeInputB.ptr, planeInputR.pitch,
+        planeOutputR.ptrArray[0], planeOutputG.ptrArray[0], planeOutputB.ptrArray[0], planeOutputR.pitchArray[0],
+        planeInputR.ptrArray[0], planeInputG.ptrArray[0], planeInputB.ptrArray[0], planeInputR.pitchArray[0],
         planeInputR.width, planeInputR.height);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
@@ -708,15 +708,15 @@ RGY_ERR NVEncFilterDenoiseDct::colorCorrelation(RGYFrameInfo *pOutputFrame, cons
         || cmpFrameInfoCspResolution(&planeInputR, &planeInputB)) {
         return RGY_ERR_UNKNOWN;
     }
-    if (planeInputR.pitch != planeInputG.pitch || planeInputR.pitch != planeInputB.pitch
-        || planeOutputR.pitch != planeOutputG.pitch || planeOutputR.pitch != planeOutputB.pitch) {
+    if (planeInputR.pitchArray[0] != planeInputG.pitchArray[0] || planeInputR.pitchArray[0] != planeInputB.pitchArray[0]
+        || planeOutputR.pitchArray[0] != planeOutputG.pitchArray[0] || planeOutputR.pitchArray[0] != planeOutputB.pitchArray[0]) {
         return RGY_ERR_UNKNOWN;
     }
     dim3 blockSize(64, 8);
     dim3 gridSize(divCeil(planeInputR.width, blockSize.x), divCeil(planeInputR.height, blockSize.y));
     kernel_color_correlation<float><<<gridSize, blockSize, 0, stream >>> (
-        planeOutputR.ptr, planeOutputG.ptr, planeOutputB.ptr, planeOutputR.pitch,
-        planeInputR.ptr, planeInputG.ptr, planeInputB.ptr, planeInputR.pitch,
+        planeOutputR.ptrArray[0], planeOutputG.ptrArray[0], planeOutputB.ptrArray[0], planeOutputR.pitchArray[0],
+        planeInputR.ptrArray[0], planeInputG.ptrArray[0], planeInputB.ptrArray[0], planeInputR.pitchArray[0],
         planeInputR.width, planeInputR.height);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
@@ -841,8 +841,8 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
             paramCrop->frameOut = paramCrop->frameIn;
             paramCrop->frameOut.csp = RGY_CSP_RGB_F32;
             paramCrop->baseFps = pParam->baseFps;
-            paramCrop->frameIn.deivce_mem = true;
-            paramCrop->frameOut.deivce_mem = true;
+            paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+            paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->bOutOverwrite = false;
             sts = filter->init(paramCrop, m_pPrintMes);
             if (sts != RGY_ERR_NONE) {
@@ -858,8 +858,8 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
             paramCrop->frameIn = m_srcCrop->GetFilterParam()->frameOut;
             paramCrop->frameOut = pParam->frameOut;
             paramCrop->baseFps = pParam->baseFps;
-            paramCrop->frameIn.deivce_mem = true;
-            paramCrop->frameOut.deivce_mem = true;
+            paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+            paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->bOutOverwrite = false;
             sts = filter->init(paramCrop, m_pPrintMes);
             if (sts != RGY_ERR_NONE) {
@@ -882,7 +882,9 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+        for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+            prm->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        }
 
         m_step = prm->dct.step;
         m_threshold = prm->dct.sigma * 3.0f / 255.0f;
@@ -899,7 +901,7 @@ tstring NVEncFilterParamDenoiseDct::print() const {
 
 RGY_ERR NVEncFilterDenoiseDct::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -913,7 +915,7 @@ RGY_ERR NVEncFilterDenoiseDct::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;

@@ -439,10 +439,10 @@ cudaError_t setTexFieldSmooth(cudaTextureObject_t& texSrc, const RGYFrameInfo *p
     memset(&resDescSrc, 0, sizeof(resDescSrc));
     resDescSrc.resType = cudaResourceTypePitch2D;
     resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<TypePixel>();
-    resDescSrc.res.pitch2D.pitchInBytes = pFrame->pitch;
+    resDescSrc.res.pitch2D.pitchInBytes = pFrame->pitchArray[0];
     resDescSrc.res.pitch2D.width = pFrame->width;
     resDescSrc.res.pitch2D.height = pFrame->height;
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pFrame->ptr;
+    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pFrame->ptrArray[0];
 
     cudaTextureDesc texDescSrc;
     memset(&texDescSrc, 0, sizeof(texDescSrc));
@@ -479,13 +479,13 @@ RGY_ERR run_spp(RGYFrameInfo *pOutputPlane,
     const float thresh_b = (W * W - threshold * threshold) / (2.0f * W);
 
     kernel_spp<TypePixel, bit_depth, TypeIO, TypeDct, usefp16, TypeQP><<<gridSize, blockSize, 0, stream>>>(
-        (char * )pOutputPlane->ptr,
+        (char * )pOutputPlane->ptrArray[0],
         texSrc,
-        pOutputPlane->pitch,
+        pOutputPlane->pitchArray[0],
         pOutputPlane->width,
         pOutputPlane->height,
-        (const char *)pQP->ptr,
-        pQP->pitch,
+        (const char *)pQP->ptrArray[0],
+        pQP->pitchArray[0],
         pQP->width,
         pQP->height,
         qpBlockShift, qpMul,
@@ -580,13 +580,13 @@ RGY_ERR run_gen_qp_table(
     dim3 gridSize(divCeil(pQPDst->width, 4 * blockSize.x), divCeil(pQPDst->height, blockSize.y));
 
     kernel_gen_qp_table<TypeQP4> << <gridSize, blockSize, 0, stream >> > (
-        (char *)pQPDst->ptr,
-        pQPDst->pitch,
+        (char *)pQPDst->ptrArray[0],
+        pQPDst->pitchArray[0],
         (pQPDst->width + 3) & (~3),
         pQPDst->height,
-        (char *)pQPSrc->ptr,
-        (char *)pQPSrcB->ptr,
-        pQPSrc->pitch,
+        (char *)pQPSrc->ptrArray[0],
+        (char *)pQPSrcB->ptrArray[0],
+        pQPSrc->pitchArray[0],
         (pQPSrc->width + 3) & (~3),
         pQPSrc->height,
         qpMul, bRatio);
@@ -625,8 +625,8 @@ RGY_ERR run_set_qp(
     dim3 gridSize(divCeil(pQP->width, 4 * blockSize.x), divCeil(pQP->height, blockSize.y));
 
     kernel_set_qp<TypeQP4> << <gridSize, blockSize, 0, stream >> > (
-        (char *)pQP->ptr,
-        pQP->pitch,
+        (char *)pQP->ptrArray[0],
+        pQP->pitchArray[0],
         (pQP->width + 3) & (~3),
         pQP->height,
         qp);
@@ -697,9 +697,11 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for output: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+        for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+            prm->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        }
         AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-            m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
+            m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitchArray[0], RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
         sts = m_qp.alloc(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8);
         if (sts != RGY_ERR_NONE) {
@@ -707,7 +709,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-            m_qp.frame.width, m_qp.frame.height, m_qp.frame.pitch, RGY_CSP_NAMES[m_qp.frame.csp]);
+            m_qp.frame.width, m_qp.frame.height, m_qp.frame.pitchArray[0], RGY_CSP_NAMES[m_qp.frame.csp]);
 
         setFilterInfo(pParam->print());
     }
@@ -740,14 +742,14 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         return RGY_ERR_INVALID_PARAM;
     }
 
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
         return sts;
     }
     //エラーチェック
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, m_pFrameBuf[0]->frame.deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_pFrameBuf[0]->frame.mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_CALL;

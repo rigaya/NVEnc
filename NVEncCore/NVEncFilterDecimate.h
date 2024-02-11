@@ -41,7 +41,7 @@ public:
     virtual tstring print() const override;
 };
 
-using funcCalcDiff = std::function<RGY_ERR(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair&,
+using funcCalcDiff = std::function<RGY_ERR(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair *,
     const int, const int, const bool, cudaStream_t, cudaEvent_t, cudaStream_t)>;
 
 enum DecimateSelectResult : uint32_t {
@@ -80,8 +80,8 @@ public:
     NVEncFilterDecimateFrameData();
     ~NVEncFilterDecimateFrameData();
 
-    CUFrameBuf *get() { return &m_buf; }
-    const CUFrameBuf *get() const { return &m_buf; }
+    CUFrameBuf *get() { return m_buf.get(); }
+    const CUFrameBuf *get() const { return m_buf.get(); }
     RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream);
     int id() const { return m_inFrameId; }
     RGY_ERR calcDiff(funcCalcDiff func, const NVEncFilterDecimateFrameData *target, const bool chroma,
@@ -94,8 +94,8 @@ private:
     int m_inFrameId;
     int m_blockX;
     int m_blockY;
-    CUFrameBuf m_buf;
-    CUMemBufPair m_tmp;
+    std::unique_ptr<CUFrameBuf> m_buf;
+    std::unique_ptr<CUMemBufPair> m_tmp;
     int64_t m_diffMaxBlock;
     int64_t m_diffTotal;
 };

@@ -200,12 +200,12 @@ RGY_ERR afsStripeCache::map_filter(AFS_STRIPE_DATA *dst, AFS_STRIPE_DATA *sp, cu
     dst->count1 = sp->count1;
     dst->frame  = sp->frame;
     dst->status = 1;
-    if (sp->map.frame.pitch % sizeof(uint32_t) != 0) {
+    if (sp->map.frame.pitchArray[0] % sizeof(uint32_t) != 0) {
         return RGY_ERR_UNSUPPORTED;
     }
     auto sts = run_analyze_map_filter(
-        dst->map.frame.ptr, sp->map.frame.ptr,
-        sp->map.frame.width, sp->map.frame.pitch, sp->map.frame.height,
+        dst->map.frame.ptrArray[0], sp->map.frame.ptrArray[0],
+        sp->map.frame.width, sp->map.frame.pitchArray[0], sp->map.frame.height,
         stream);
     if (sts != RGY_ERR_NONE) {
         return sts;

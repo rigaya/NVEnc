@@ -48,10 +48,10 @@ struct subtitle_deleter {
 struct SubImageData {
     unique_ptr<CUFrameBuf> image;
     unique_ptr<CUFrameBuf> imageTemp;
-    unique_ptr<void, decltype(&cudaFreeHost)> imageCPU;
+    unique_ptr<CUFrameBuf> imageCPU;
     int x, y;
 
-    SubImageData(unique_ptr<CUFrameBuf> img, unique_ptr<CUFrameBuf> imgTemp, unique_ptr<void, decltype(&cudaFreeHost)> imgCPU, int posX, int posY) :
+    SubImageData(unique_ptr<CUFrameBuf> img, unique_ptr<CUFrameBuf> imgTemp, unique_ptr<CUFrameBuf> imgCPU, int posX, int posY) :
         image(std::move(img)), imageTemp(std::move(imgTemp)), imageCPU(std::move(imgCPU)), x(posX), y(posY){ }
 };
 

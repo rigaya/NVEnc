@@ -155,8 +155,8 @@ RGY_ERR run_merge_scan(uint8_t *dst,
 
 RGY_ERR NVEncFilterAfs::merge_scan(AFS_STRIPE_DATA *sp, AFS_SCAN_DATA *sp0, AFS_SCAN_DATA *sp1, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsParam, cudaStream_t stream) {
     auto sts = run_merge_scan<uint32_t>(
-        sp->map.frame.ptr, sp0->map.frame.ptr, sp1->map.frame.ptr,
-        sp1->map.frame.width, sp1->map.frame.pitch, sp1->map.frame.height,
+        sp->map.frame.ptrArray[0], sp0->map.frame.ptrArray[0], sp1->map.frame.ptrArray[0],
+        sp1->map.frame.width, sp1->map.frame.pitchArray[0], sp1->map.frame.height,
         count_motion, &pAfsParam->afs, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;

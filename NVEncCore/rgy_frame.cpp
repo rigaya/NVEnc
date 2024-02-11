@@ -56,7 +56,7 @@ RGYFrameDataQP::~RGYFrameDataQP() {
 #pragma warning(push)
 #pragma warning(disable: 4100) //warning C4100: 'timestamp': 引数は関数の本体部で 1 度も参照されません。
 RGY_ERR RGYFrameDataQP::setQPTable(const int8_t *qpTable, int qpw, int qph, int qppitch, int scaleType, int frameType, int64_t timestamp) {
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     m_qpScaleType = scaleType;
     m_frameType = frameType;
     if (m_qpHost.ptr == nullptr
@@ -67,7 +67,7 @@ RGY_ERR RGYFrameDataQP::setQPTable(const int8_t *qpTable, int qpw, int qph, int 
         m_qpHost.height = qph;
         m_qpHost.flags = RGY_FRAME_FLAG_NONE;
         m_qpHost.pitch = ALIGN(m_qpHost.width, 128);
-        m_qpHost.deivce_mem = false;
+        m_qpHost.mem_type = RGY_MEM_TYPE_CPU;
         m_qpHost.duration = 0;
         m_qpHost.timestamp = timestamp;
         m_qpHost.picstruct = RGY_PICSTRUCT_FRAME;
@@ -176,8 +176,7 @@ std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_obu() const {
 #endif
 
 
-#if 0
-RGYSysFrame::RGYSysFrame() : frame(), allocatedFirstPlaneOnly(false) {}
+RGYSysFrame::RGYSysFrame() : frame() {}
 RGYSysFrame::RGYSysFrame(const RGYFrameInfo& frame_) : frame(frame_) {}
 RGYSysFrame::~RGYSysFrame() { deallocate(); }
 
@@ -189,9 +188,9 @@ RGY_ERR RGYSysFrame::allocate(const int width, const int height, const RGY_CSP c
 RGY_ERR RGYSysFrame::allocate(const RGYFrameInfo &info) {
     frame = info;
     frame.mem_type = RGY_MEM_TYPE_CPU;
-    for (int i = 0; i < _countof(frame.ptr); i++) {
-        frame.ptr[i] = nullptr;
-        frame.pitch[i] = 0;
+    for (int i = 0; i < _countof(frame.ptrArray); i++) {
+        frame.ptrArray[i] = nullptr;
+        frame.pitchArray[i] = 0;
     }
 
     int pixsize = (RGY_CSP_BIT_DEPTH[frame.csp] + 7) / 8;
@@ -233,25 +232,26 @@ RGY_ERR RGYSysFrame::allocate(const RGYFrameInfo &info) {
         auto mem = _aligned_malloc(size, image_pitch_alignment);
         if (mem == nullptr) {
             for (int j = i-1; j >= 0; j--) {
-                if (frame.ptr[j] != nullptr) {
-                    _aligned_free(frame.ptr[j]);
-                    frame.ptr[j] = nullptr;
+                if (frame.ptrArray[j] != nullptr) {
+                    _aligned_free(frame.ptrArray[j]);
+                    frame.ptrArray[j] = nullptr;
                 }
             }
             return RGY_ERR_NULL_PTR;
         }
-        frame.pitch[i] = memPitch;
-        frame.ptr[i] = (uint8_t *)mem;
+        frame.pitchArray[i] = memPitch;
+        frame.ptrArray[i] = (uint8_t *)mem;
     }
     return RGY_ERR_NONE;
 }
 void RGYSysFrame::deallocate() {
-    for (int i = 0; i < ((allocatedFirstPlaneOnly) ? 1 : _countof(frame.ptr)); i++) {
-        if (frame.ptr[i] != nullptr) {
-            _aligned_free(frame.ptr[i]);
-            frame.ptr[i] = nullptr;
+    for (int i = 0; i < ((frame.singleAlloc) ? 1 : _countof(frame.ptrArray)); i++) {
+        if (frame.ptrArray[i] != nullptr) {
+            _aligned_free(frame.ptrArray[i]);
+            frame.ptrArray[i] = nullptr;
         }
     }
 }
 
-#endif
+RGYFrameRef::RGYFrameRef(RGYFrameInfo& frame_) : frame(frame_) {}
+RGYFrameRef::~RGYFrameRef() { }

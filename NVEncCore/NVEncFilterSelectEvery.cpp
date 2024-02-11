@@ -54,7 +54,9 @@ RGY_ERR NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, shared
         return RGY_ERR_INVALID_PARAM;
     }
 
-    pSelectParam->frameOut.pitch = pSelectParam->frameIn.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pSelectParam->frameOut.pitchArray[i] = pSelectParam->frameIn.pitchArray[i];
+    }
     pParam->baseFps /= pSelectParam->selectevery.step;
 
     sts = AllocFrameBuf(pSelectParam->frameOut, 1);
@@ -85,7 +87,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
 
     ppOutputFrames[0] = nullptr;
     *pOutputFrameNum = 0;
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         if (m_totalDuration > 0
             && m_frames % pSelectParam->selectevery.step != (pSelectParam->selectevery.step-1)
             && m_frames % pSelectParam->selectevery.step >= (pSelectParam->selectevery.step / 2)) {
@@ -117,7 +119,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
 
     if (m_frames % pSelectParam->selectevery.step == pSelectParam->selectevery.offset) {
         auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
-        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, pOutFrame->frame.deivce_mem);
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, pOutFrame->frame.mem_type);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
             return RGY_ERR_INVALID_PARAM;

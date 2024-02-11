@@ -76,7 +76,9 @@ RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return RGY_ERR_INVALID_PARAM;
     }
 
-    prm->frameOut.pitch = prm->frameIn.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        prm->frameOut.pitchArray[i] = prm->frameIn.pitchArray[i];
+    }
 
     if (!m_pParam || cmpFrameInfoCspResolution(&m_pParam->frameOut, &prm->frameOut)) {
         sts = AllocFrameBuf(prm->frameOut, FRAME_BUF_SIZE + 1);
@@ -154,7 +156,7 @@ RGY_FRAME_FLAGS NVEncFilterRff::getPrevBufFlags() const {
 RGY_ERR NVEncFilterRff::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     UNREFERENCED_PARAMETER(pOutputFrameNum);
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 

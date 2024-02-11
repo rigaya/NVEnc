@@ -177,6 +177,7 @@ public:
         m_frameInfo.picstruct = (pInfo->progressive_frame) ? RGY_PICSTRUCT_FRAME : ((pInfo->top_field_first) ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF);
         //RFFに関するフラグを念のためクリア
         m_frameInfo.flags = RGY_FRAME_FLAG_NONE;
+        m_frameInfo.singleAlloc = true;
         //RFFフラグの有無
         if (pInfo->repeat_first_field == 1) {
             m_frameInfo.flags |= RGY_FRAME_FLAG_RFF;
@@ -1092,90 +1093,26 @@ RGY_ERR NVEncCore::AllocateBufferInputHost(const VideoInfo *pInputInfo) {
     const int align = 64 * (RGY_CSP_BIT_DEPTH[pInputInfo->csp] > 8 ? 2 : 1);
     const int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
     const int bufHeight = pInputInfo->srcHeight - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
-    int bufPitch = 0;
-    int bufSize = 0;
-    switch (pInputInfo->csp) {
-    case RGY_CSP_NV12:
-        bufPitch  = ALIGN(bufWidth, align);
-        bufSize = bufPitch * bufHeight * 3 / 2; break;
-    case RGY_CSP_P010:
-        bufPitch = ALIGN(bufWidth * 2, align);
-        bufSize = bufPitch * bufHeight * 3 / 2; break;
-    case RGY_CSP_YV12:
-        bufPitch = ALIGN(bufWidth, align);
-        bufSize = bufPitch * bufHeight * 2; break;
-    case RGY_CSP_YV12_09:
-    case RGY_CSP_YV12_10:
-    case RGY_CSP_YV12_12:
-    case RGY_CSP_YV12_14:
-    case RGY_CSP_YV12_16:
-        bufPitch = ALIGN(bufWidth * 2, align);
-        bufSize = bufPitch * bufHeight * 2; break;
-    case RGY_CSP_NV16:
-    case RGY_CSP_YUY2:
-        bufPitch = ALIGN(bufWidth, align);
-        bufSize = bufPitch * bufHeight * 2; break;
-    case RGY_CSP_YUV422:
-        bufPitch  = ALIGN(bufWidth, align);
-        bufSize = bufPitch * bufHeight * 3; break;
-    case RGY_CSP_P210:
-    case RGY_CSP_YUV422_09:
-    case RGY_CSP_YUV422_10:
-    case RGY_CSP_YUV422_12:
-    case RGY_CSP_YUV422_14:
-    case RGY_CSP_YUV422_16:
-        bufPitch = ALIGN(bufWidth * 2, align);
-        bufSize = bufPitch * bufHeight * 3; break;
-    case RGY_CSP_YUV444:
-        bufPitch  = ALIGN(bufWidth, align);
-        bufSize = bufPitch * bufHeight * 3; break;
-    case RGY_CSP_YUV444_09:
-    case RGY_CSP_YUV444_10:
-    case RGY_CSP_YUV444_12:
-    case RGY_CSP_YUV444_14:
-    case RGY_CSP_YUV444_16:
-        bufPitch = ALIGN(bufWidth * 2, align);
-        bufSize = bufPitch * bufHeight * 3; break;
-    case RGY_CSP_RGB24:
-    case RGY_CSP_RGB24R:
-        bufPitch = ALIGN(bufWidth * 3, align);
-        bufSize = bufPitch * bufHeight; break;
-    case RGY_CSP_RGB32:
-    case RGY_CSP_RGB32R:
-        bufPitch = ALIGN(bufWidth * 4, align);
-        bufSize = bufPitch * bufHeight; break;
-    case RGY_CSP_RGB:
-    case RGY_CSP_GBR:
-        bufPitch  = ALIGN(bufWidth, align);
-        bufSize = bufPitch * bufHeight * 3; break;
-    case RGY_CSP_RGBA:
-    case RGY_CSP_GBRA:
-        bufPitch  = ALIGN(bufWidth, align);
-        bufSize = bufPitch * bufHeight * 4; break;
-    default:
-        PrintMes(RGY_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
-    PrintMes(RGY_LOG_DEBUG, _T("Allocate Host buffers: %s %dx%d (pitch:%d), buffer count %d\n"),
-        RGY_CSP_NAMES[pInputInfo->csp], bufWidth, bufHeight, bufPitch, m_pipelineDepth);
+    PrintMes(RGY_LOG_DEBUG, _T("Allocate Host buffers: %s %dx%d, buffer count %d\n"),
+        RGY_CSP_NAMES[pInputInfo->csp], bufWidth, bufHeight, m_pipelineDepth);
 
     for (uint32_t i = 0; i < m_inputHostBuffer.size(); i++) {
+        m_inputHostBuffer[i].frameInfo.singleAlloc = true;
         m_inputHostBuffer[i].frameInfo.width = bufWidth;
         m_inputHostBuffer[i].frameInfo.height = bufHeight;
-        m_inputHostBuffer[i].frameInfo.pitch = bufPitch;
         m_inputHostBuffer[i].frameInfo.csp = pInputInfo->csp;
         m_inputHostBuffer[i].frameInfo.picstruct = pInputInfo->picstruct;
         m_inputHostBuffer[i].frameInfo.flags = RGY_FRAME_FLAG_NONE;
         m_inputHostBuffer[i].frameInfo.duration = 0;
         m_inputHostBuffer[i].frameInfo.timestamp = 0;
-        m_inputHostBuffer[i].frameInfo.deivce_mem = false;
+        m_inputHostBuffer[i].frameInfo.mem_type = RGY_MEM_TYPE_CPU;
         m_inputHostBuffer[i].heTransferFin = unique_ptr<void, handle_deleter>(CreateEvent(NULL, FALSE, TRUE, NULL), handle_deleter());
 
         CCtxAutoLock ctxLock(m_dev->vidCtxLock());
-        auto cudaret = cudaMallocHost(&m_inputHostBuffer[i].frameInfo.ptr, bufSize);
-        if (cudaret != cudaSuccess) {
-            PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
-            return err_to_rgy(cudaret);
+        auto err = CUFrameBuf::allocMemory(m_inputHostBuffer[i].frameInfo);
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Error CUFrameBuf::allocMemory: %s.\n"), get_err_mes(err));
+            return err;
         }
     }
     return RGY_ERR_NONE;
@@ -1287,7 +1224,7 @@ RGY_ERR NVEncCore::AllocateBufferRawOutput(const uint32_t uInputWidth, const uin
     outFrame.csp = csp;
     outFrame.width = uInputWidth;
     outFrame.height = uInputHeight;
-    outFrame.deivce_mem = false;
+    outFrame.mem_type = RGY_MEM_TYPE_CPU;
     m_outputFrameHostRaw = std::make_unique<CUFrameBuf>(outFrame);
     if (auto sts = m_outputFrameHostRaw->allocHost(); sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to allocate raw output buffer: %s\n"), get_err_mes(sts));
@@ -2206,7 +2143,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame.height = croppedHeight;
     }
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-        inputFrame.deivce_mem = true;
+        inputFrame.mem_type = RGY_MEM_TYPE_GPU;
     }
     m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     if (inputParam->vppnv.deinterlace == cudaVideoDeinterlaceMode_Bob) {
@@ -2315,7 +2252,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
             param->frameIn = inputFrame;
             param->frameOut.csp = param->frameIn.csp;
-            param->frameOut.deivce_mem = true;
+            param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
@@ -2385,7 +2322,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->crop = inputParam->input.crop;
             }
             param->baseFps = m_encFps;
-            param->frameOut.deivce_mem = true;
+            param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterCrop->init(param, m_pNVLog);
@@ -3049,7 +2986,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut.width = m_uEncWidth;
             param->frameOut.height = m_uEncHeight;
             param->encoderCsp = GetEncoderCSP(inputParam);
-            param->frameOut.pitch = 0;
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
@@ -3095,14 +3031,14 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     {
         //もし入力がCPUメモリで色空間が違うなら、一度そのままGPUに転送する必要がある
         const auto cropOutCsp = (inputParam->codec_rgy == RGY_CODEC_RAW) ? GetRawOutCSP(inputParam) : GetEncoderCSP(inputParam);
-        if (inputFrame.deivce_mem == false && inputFrame.csp != cropOutCsp) {
+        if (inputFrame.mem_type == RGY_MEM_TYPE_CPU && inputFrame.csp != cropOutCsp) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
             param->frameIn = inputFrame;
             param->frameOut.csp = param->frameIn.csp;
             //インタレ保持であれば、CPU側にフレームを戻す必要がある
             //色空間が同じなら、ここでやってしまう
-            param->frameOut.deivce_mem = true;
+            param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterCrop->init(param, m_pNVLog);
@@ -3114,14 +3050,14 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
         }
-        const bool bDeviceMemFinal = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && inputFrame.csp == cropOutCsp) ? false : true;
+        const auto deviceMemFinal = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && inputFrame.csp == cropOutCsp) ? RGY_MEM_TYPE_CPU : RGY_MEM_TYPE_GPU;
         unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->frameIn = inputFrame;
         param->frameOut.csp = cropOutCsp;
         //インタレ保持であれば、CPU側にフレームを戻す必要がある
         //色空間が同じなら、ここでやってしまう
-        param->frameOut.deivce_mem = bDeviceMemFinal;
+        param->frameOut.mem_type = deviceMemFinal;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filterCrop->init(param, m_pNVLog);
@@ -3137,12 +3073,12 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     //インタレ保持の場合、またエンコーダを行わない場合は、CPU側に戻す必要がある
     if ((m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME //インタレ保持の場合
         || !m_dev->encoder()) //エンコーダを行わない場合
-        && m_pLastFilterParam->frameOut.deivce_mem) {
+        && m_pLastFilterParam->frameOut.mem_type != RGY_MEM_TYPE_CPU) {
         unique_ptr<NVEncFilter> filterCopyDtoH(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
-        param->frameOut.deivce_mem = false;
+        param->frameOut.mem_type = RGY_MEM_TYPE_CPU;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filterCopyDtoH->init(param, m_pNVLog);
@@ -3496,8 +3432,8 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         param->frameIn = m_pLastFilterParam->frameOut;
         param->frameOut = param->frameIn;
         param->frameOut.csp = param->input.csp;
-        param->frameIn.deivce_mem = true;
-        param->frameOut.deivce_mem = true;
+        param->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         param->bOutOverwrite = false;
         param->streamtimebase = m_outputTimebase;
         param->vidctxlock = m_dev->vidCtxLock();
@@ -4161,7 +4097,7 @@ NVENCSTATUS NVEncCore::Encode() {
             if (inframe->inputIsHost()) {
                 memcpyKind = cudaMemcpyHostToDevice;
                 frameInfo = inframe->getFrameInfo();
-                deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
+                deviceFrame = shared_ptr<void>(frameInfo.ptrArray[0], [&](void *ptr) {
                     UNREFERENCED_PARAMETER(ptr);
                     //このメモリはm_inputHostBufferのメモリであり、使いまわすため、解放しない
                 });
@@ -4187,9 +4123,10 @@ NVENCSTATUS NVEncCore::Encode() {
                     return NV_ENC_ERR_GENERIC;
                 }
                 frameInfo = inframe->getFrameInfo();
-                frameInfo.pitch = pitch;
-                frameInfo.ptr = (uint8_t *)dMappedFrame;
-                deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
+                frameInfo.singleAlloc = true;
+                frameInfo.pitchArray[0] = pitch;
+                frameInfo.ptrArray[0] = (uint8_t *)dMappedFrame;
+                deviceFrame = shared_ptr<void>(frameInfo.ptrArray[0], [&](void *ptr) {
                     //ロック内で解放されるので、ここでのさらなるロックは不要
                     //NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                     cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
@@ -4285,11 +4222,12 @@ NVENCSTATUS NVEncCore::Encode() {
                 if (!m_dev->encoder()) {
                     encFrameInfo = m_outputFrameHostRaw->frame;
                 } else if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
-                    encFrameInfo.ptr = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
-                    encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
+                    encFrameInfo.ptrArray[0] = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
+                    encFrameInfo.pitchArray[0] = pEncodeBuffer->stInputBfr.uNV12Stride;
+                    encFrameInfo.singleAlloc = true;
                     encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
-                    encFrameInfo.deivce_mem = true;
+                    encFrameInfo.mem_type = RGY_MEM_TYPE_GPU;
                     encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
                     ssimTarget = encFrameInfo;
                 } else {
@@ -4297,11 +4235,12 @@ NVENCSTATUS NVEncCore::Encode() {
                     uint32_t lockedPitch = 0;
                     unsigned char *pInputSurface = nullptr;
                     m_dev->encoder()->NvEncLockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
-                    encFrameInfo.ptr = (uint8_t *)pInputSurface;
-                    encFrameInfo.pitch = lockedPitch;
+                    encFrameInfo.ptrArray[0] = (uint8_t *)pInputSurface;
+                    encFrameInfo.pitchArray[0] = lockedPitch;
+                    encFrameInfo.singleAlloc = true;
                     encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
-                    encFrameInfo.deivce_mem = false; //CPU側にフレームデータを戻す
+                    encFrameInfo.mem_type = RGY_MEM_TYPE_CPU; //CPU側にフレームデータを戻す
                     encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
                     ssimTarget = filterframes.front().first;
                 }
@@ -4333,7 +4272,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     dqEncFrames.push_back(std::move(frameEnc));
                 } else {
                     cudaEventSynchronize(*pCudaEvent);
-                    RGYFrame outFrame(encFrameInfo);
+                    RGYFrameRef outFrame(encFrameInfo);
                     m_pFileWriter->WriteNextFrame(&outFrame);
                 }
             }
@@ -4449,7 +4388,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
             }
             NVTXRANGE(LoadNextFrame);
-            RGYFrame frame = RGYFrame(inputFrameBuf.frameInfo);
+            RGYFrameRef frame(inputFrameBuf.frameInfo);
             auto rgy_err = m_pFileReader->LoadNextFrame(&frame);
             if (rgy_err != RGY_ERR_NONE) {
                 if (rgy_err != RGY_ERR_MORE_DATA) { //RGY_ERR_MORE_DATAは読み込みの正常終了を示す
@@ -4473,7 +4412,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
 #endif
             }
-            inputFrame.setHostFrameInfo(frame.getInfo(), heTransferFin);
+            inputFrame.setHostFrameInfo(inputFrameBuf.frameInfo, heTransferFin);
             inputFrame.setInputFrameId(nInputFrame);
             PrintMes(RGY_LOG_TRACE, _T("input frame (host) #%d, timestamp %lld, duration %lld\n"), nInputFrame, inputFrame.getTimeStamp(), inputFrame.getDuration());
         } else {

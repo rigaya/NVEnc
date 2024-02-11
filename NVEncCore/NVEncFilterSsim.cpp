@@ -134,8 +134,8 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         paramCrop->frameIn = pParam->frameIn;
         paramCrop->frameOut = pParam->frameOut;
         paramCrop->baseFps = pParam->baseFps;
-        paramCrop->frameIn.deivce_mem = true;
-        paramCrop->frameOut.deivce_mem = true;
+        paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_vidctxlock));
         sts = filterCrop->init(paramCrop, m_pPrintMes);
@@ -155,8 +155,8 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         paramCrop->frameIn = pParam->frameOut;
         paramCrop->frameOut = pParam->frameOut;
         paramCrop->baseFps = pParam->baseFps;
-        paramCrop->frameIn.deivce_mem = true;
-        paramCrop->frameOut.deivce_mem = false;
+        paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        paramCrop->frameOut.mem_type = RGY_MEM_TYPE_CPU;
         paramCrop->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_vidctxlock));
         sts = filterCrop->init(paramCrop, m_pPrintMes);
@@ -465,8 +465,8 @@ RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         //待機中のフレームバッファがなければ新たに作成する
         auto frameBuf = std::make_unique<CUFrameBuf>();
         copyFrameProp(&frameBuf->frame, (m_crop) ? &m_crop->GetFilterParam()->frameOut : pInputFrame);
-        frameBuf->frame.deivce_mem = true;
-        auto sts = frameBuf->alloc();
+        frameBuf->frame.mem_type = RGY_MEM_TYPE_GPU;
+        sts = frameBuf->alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
             return sts;
@@ -488,7 +488,7 @@ RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
             return sts_filter;
         }
     } else {
-        auto sts = copyFrameAsync(&copyFrame->frame, pInputFrame, stream);
+        sts = copyFrameAsync(&copyFrame->frame, pInputFrame, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame: %s.\n"), get_err_mes(sts));
             return sts;
@@ -564,7 +564,7 @@ void read_frame_vmaf2(VmafPicture *dst, const RGYFrameInfo *srcFrame) {
     const int pixsize = (RGY_CSP_BIT_DEPTH[srcPlane.csp] > 8) ? 2 : 1;
     for (int y = 0; y < srcPlane.height; y++) {
         void *ptrDstLine = (void *)((char *)dst->data[0] + dst->stride[0] * y);
-        const void *ptrSrcLine = (const void *)((char *)srcPlane.ptr + srcPlane.pitch * y);
+        const void *ptrSrcLine = (const void *)((char *)srcPlane.ptrArray[0] + srcPlane.pitchArray[0] * y);
         memcpy(ptrDstLine, ptrSrcLine, srcPlane.width * pixsize);
     }
 }
@@ -856,9 +856,9 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             return RGY_ERR_UNKNOWN;
         }
         auto frameInfo = m_decoder->GetDecFrameInfo();
-        frameInfo.pitch = pitch;
-        frameInfo.ptr = (uint8_t *)dMappedFrame;
-        auto deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
+        frameInfo.pitchArray[0] = pitch;
+        frameInfo.ptrArray[0] = (uint8_t *)dMappedFrame;
+        auto deviceFrame = shared_ptr<void>(frameInfo.ptrArray[0], [&](void *ptr) {
             cuvidUnmapVideoFrame(m_decoder->GetDecoder(), (CUdeviceptr)ptr);
             });
 
@@ -867,7 +867,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             if (!m_decFrameCopy) {
                 m_decFrameCopy = std::make_unique<CUFrameBuf>();
                 copyFrameProp(&m_decFrameCopy->frame, &m_crop->GetFilterParam()->frameOut);
-                m_decFrameCopy->frame.deivce_mem = true;
+                m_decFrameCopy->frame.mem_type = RGY_MEM_TYPE_GPU;
                 auto sts = m_decFrameCopy->alloc();
                 if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));

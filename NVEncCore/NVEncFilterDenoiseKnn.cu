@@ -141,12 +141,12 @@ static cudaError_t denoise_knn_plane(RGYFrameInfo *pOutputFrame, const RGYFrameI
     int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
     cudaStream_t stream) {
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = textureCreateDenoiseKnn<Type>(texSrc, cudaFilterModePoint, cudaReadModeElementType, pInputFrame->ptr, pInputFrame->pitch, pInputFrame->width, pInputFrame->height);
+    auto cudaerr = textureCreateDenoiseKnn<Type>(texSrc, cudaFilterModePoint, cudaReadModeElementType, pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+    denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptrArray[0],
+        pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
         texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -237,7 +237,9 @@ RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    pKnnParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pKnnParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
 
     setFilterInfo(pParam->print());
     m_pParam = pParam;
@@ -251,7 +253,7 @@ tstring NVEncFilterParamDenoiseKnn::print() const {
 RGY_ERR NVEncFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -265,7 +267,7 @@ RGY_ERR NVEncFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;

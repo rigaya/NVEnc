@@ -517,30 +517,32 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
-    pAfsParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pAfsParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, pitch %d, %s.\n"),
-        m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
+        m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitchArray[0], RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
     if (RGY_ERR_NONE != (err = m_source.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated source buffer: %dx%d, pitch %d, %s.\n"),
-        m_source.get(0)->frame.width, m_source.get(0)->frame.height, m_source.get(0)->frame.pitch, RGY_CSP_NAMES[m_source.get(0)->frame.csp]);
+        m_source.get(0)->frame.width, m_source.get(0)->frame.height, m_source.get(0)->frame.pitchArray[0], RGY_CSP_NAMES[m_source.get(0)->frame.csp]);
 
     if (RGY_ERR_NONE != (err = m_scan.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated scan buffer: %dx%d, pitch %d, %s.\n"),
-        m_scan.get(0)->map.frame.width, m_scan.get(0)->map.frame.height, m_scan.get(0)->map.frame.pitch, RGY_CSP_NAMES[m_scan.get(0)->map.frame.csp]);
+        m_scan.get(0)->map.frame.width, m_scan.get(0)->map.frame.height, m_scan.get(0)->map.frame.pitchArray[0], RGY_CSP_NAMES[m_scan.get(0)->map.frame.csp]);
 
     if (RGY_ERR_NONE != (err = m_stripe.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated stripe buffer: %dx%d, pitch %d, %s.\n"),
-        m_stripe.get(0)->map.frame.width, m_stripe.get(0)->map.frame.height, m_stripe.get(0)->map.frame.pitch, RGY_CSP_NAMES[m_stripe.get(0)->map.frame.csp]);
+        m_stripe.get(0)->map.frame.width, m_stripe.get(0)->map.frame.height, m_stripe.get(0)->map.frame.pitchArray[0], RGY_CSP_NAMES[m_stripe.get(0)->map.frame.csp]);
 
     m_streamAnalyze = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
     if (RGY_ERR_NONE != (err = err_to_rgy(cudaStreamCreateWithFlags(m_streamAnalyze.get(), cudaStreamNonBlocking)))) {
@@ -903,14 +905,14 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     }
 
     const int iframe = m_source.inframe();
-    if (pInputFrame->ptr == nullptr && m_nFrame >= iframe) {
+    if (pInputFrame->ptrArray[0] == nullptr && m_nFrame >= iframe) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
         return sts;
-    } else if (pInputFrame->ptr != nullptr) {
+    } else if (pInputFrame->ptrArray[0] != nullptr) {
         //エラーチェック
-        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, m_pFrameBuf[0]->frame.deivce_mem);
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_pFrameBuf[0]->frame.mem_type);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
             return RGY_ERR_INVALID_CALL;
@@ -953,7 +955,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     }
     static const int preread_len = 3;
     //十分な数のフレームがたまった、あるいはdrainモードならフレームを出力
-    if (iframe >= (5+preread_len+STREAM_OPT) || pInputFrame->ptr == nullptr) {
+    if (iframe >= (5+preread_len+STREAM_OPT) || pInputFrame->ptrArray[0] == nullptr) {
         int reverse[4] = { 0 }, assume_shift[4] = { 0 }, result_stat[4] = { 0 };
 
         //m_streamsts.get_durationを呼ぶには、3フレーム先までstatusをセットする必要がある
@@ -1045,7 +1047,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         m_nFrame++;
 
         // drain中にdropが発生した場合には、次のフレームを出力するようにする
-        if (pInputFrame->ptr == nullptr && afs_duration == afsStreamStatus::AFS_SSTS_DROP) {
+        if (pInputFrame->ptrArray[0] == nullptr && afs_duration == afsStreamStatus::AFS_SSTS_DROP) {
             return run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
         }
     } else {

@@ -594,7 +594,7 @@ RGY_ERR NVEncFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, cudaStream_t s
 
 RGY_ERR NVEncFilterSubburn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -603,11 +603,11 @@ RGY_ERR NVEncFilterSubburn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         AddMessage(RGY_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (!ppOutputFrames[0]->deivce_mem) {
+    if (!ppOutputFrames[0]->mem_type) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_UNSUPPORTED;

@@ -129,12 +129,12 @@ static RGY_ERR edgelevel_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *p
     white     /= (1<<(sizeof(Type) * 8));
 
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = textureCreateEdgelevel<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptr, pInputFrame->pitch, pInputFrame->width, pInputFrame->height);
+    auto cudaerr = textureCreateEdgelevel<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
     }
-    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>((uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>((uint8_t *)pOutputFrame->ptrArray[0],
+        pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
         texSrc, strength, threshold, black, white);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -222,7 +222,9 @@ RGY_ERR NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return RGY_ERR_MEMORY_ALLOC;
     }
-    pEdgelevelParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pEdgelevelParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
 
     setFilterInfo(pParam->print());
     m_pParam = pEdgelevelParam;
@@ -235,7 +237,7 @@ tstring NVEncFilterParamEdgelevel::print() const {
 
 RGY_ERR NVEncFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -249,7 +251,7 @@ RGY_ERR NVEncFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;

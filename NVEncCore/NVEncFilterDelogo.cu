@@ -187,26 +187,14 @@ template<typename Type, int bit_depth, bool target_y>
 void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const int target_yuv, const int mode, const float fade) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pDelego->width, blockSize.x), divCeil(pDelego->height, blockSize.y));
-    uint8_t *dptr = (uint8_t *)pFrame->ptr;
-    switch (target_yuv) {
-    case LOGO__U:
-    case LOGO_UV:
-        dptr += pFrame->pitch * pFrame->height;
-        break;
-    case LOGO__V:
-        dptr += pFrame->pitch * pFrame->height * 3 / 2;
-        break;
-    case LOGO__Y:
-    default:
-        break;
-    }
+    auto plane = getPlane(pFrame, (target_yuv == LOGO__Y) ? RGY_PLANE_Y : ((target_yuv == LOGO__V) ? RGY_PLANE_V : RGY_PLANE_U));
     if (mode == DELOGO_MODE_ADD) {
         kernel_logo_add<Type, bit_depth, target_y><<<gridSize, blockSize>>>(
-            dptr,
-            pFrame->pitch,
+            plane.ptrArray[0],
+            plane.pitchArray[0],
             pFrame->width,
-            (target_y) ? pFrame->height : (pFrame->height>>1),
-            (uint8_t *)pDelego->pDevLogo->frame.ptr, pDelego->pDevLogo->frame.pitch,
+            plane.height,
+            (uint8_t *)pDelego->pDevLogo->frame.ptrArray[0], pDelego->pDevLogo->frame.pitchArray[0],
             pDelego->i_start, pDelego->j_start, pDelego->width, pDelego->height, (float)pDelego->depth * fade);
     } else if (mode == DELOGO_MODE_ADD_MULTI) {
         const ProcessDataDelogo *pDelogoY = &pDelego[LOGO__Y - target_yuv];
@@ -234,21 +222,21 @@ void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const in
         }
         gridSize.z = logo_multi_data.block_x * logo_multi_data.block_y;
         kernel_delogo_add_multi<Type, bit_depth, target_y> << <gridSize, blockSize >> > (
-            dptr,
-            pFrame->pitch,
+            plane.ptrArray[0],
+            plane.pitchArray[0],
             pFrame->width,
-            (target_y) ? pFrame->height : (pFrame->height >> 1),
-            (uint8_t *)pDelego->pDevLogo->frame.ptr, pDelego->pDevLogo->frame.pitch,
+            plane.height,
+            (uint8_t *)pDelego->pDevLogo->frame.ptrArray[0], pDelego->pDevLogo->frame.pitchArray[0],
             pDelego->width, pDelego->height, logo_multi_data.block_width, logo_multi_data.block_height,
             logo_block_padding_x + logo_multi_data.block_offset_x, logo_block_padding_y + logo_multi_data.block_offset_y, logo_multi_data.block_x,
             (float *)pDelego->pBlockDepth->ptr, (float)pDelego->fade);
     } else {
         kernel_delogo<Type, bit_depth, target_y><<<gridSize, blockSize>>>(
-            dptr,
-            pFrame->pitch,
+            plane.ptrArray[0],
+            plane.pitchArray[0],
             pFrame->width,
-            (target_y) ? pFrame->height : (pFrame->height>>1),
-            (uint8_t *)pDelego->pDevLogo->frame.ptr, pDelego->pDevLogo->frame.pitch,
+            plane.height,
+            (uint8_t *)pDelego->pDevLogo->frame.ptrArray[0], pDelego->pDevLogo->frame.pitchArray[0],
             pDelego->i_start, pDelego->j_start, pDelego->width, pDelego->height, (float)pDelego->depth * fade);
     }
 }
@@ -1267,12 +1255,12 @@ RGY_ERR NVEncFilterDelogo::createLogoMask(int maskThreshold) {
         }
     }
     kernel_proc_prewitt<int16x2x4, short4, 1, true, false, false, true><<<gridSize, blockSize>>>(
-        (uint8_t *)m_mask->frame.ptr, nullptr, (int *)m_createLogoMaskValidMaskCount.ptrDevice,
-        (const uint8_t *)pLogoData->pDevLogo->frame.ptr, pLogoData->pDevLogo->frame.pitch,
+        (uint8_t *)m_mask->frame.ptrArray[0], nullptr, (int *)m_createLogoMaskValidMaskCount.ptrDevice,
+        (const uint8_t *)pLogoData->pDevLogo->frame.ptrArray[0], pLogoData->pDevLogo->frame.pitchArray[0],
         nullptr,
-        m_mask->frame.pitch,
+        m_mask->frame.pitchArray[0],
         pLogoData->width, pLogoData->height,
-        m_mask->frame.pitch * pLogoData->height,
+        m_mask->frame.pitchArray[0] * pLogoData->height,
         maskThreshold);
 
     auto sts = err_to_rgy(cudaGetLastError());
@@ -1314,9 +1302,9 @@ RGY_ERR run_erosion(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int mas
     dim3 gridSize(divCeil(ptr_mask->frame.width, blockSize.x * 4), divCeil(ptr_mask->frame.height, blockSize.y * DELOGO_BLOCK_LOOP_Y), 1);
 
     kernel_erosion<Type4, range><<<gridSize, blockSize>>>(
-        (uint8_t *)ptr_mask_nr->frame.ptr, ptr_mask->frame.pitch,
+        (uint8_t *)ptr_mask_nr->frame.ptrArray[0], ptr_mask->frame.pitchArray[0],
         ptr_mask->frame.width, ptr_mask->frame.height,
-        (const uint8_t *)ptr_mask->frame.ptr, mask_threshold);
+        (const uint8_t *)ptr_mask->frame.ptrArray[0], mask_threshold);
 
     return err_to_rgy(cudaGetLastError());
 }
@@ -1356,8 +1344,8 @@ RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBu
 #endif
     } else {
         //nrが必要なければ、そのままコピー
-        auto sts = err_to_rgy(cudaMemcpyAsync(ptr_mask_nr->frame.ptr, ptr_mask->frame.ptr,
-            ptr_mask->frame.pitch * ptr_mask->frame.height,
+        auto sts = err_to_rgy(cudaMemcpyAsync(ptr_mask_nr->frame.ptrArray[0], ptr_mask->frame.ptrArray[0],
+            ptr_mask->frame.pitchArray[0] * ptr_mask->frame.height,
             cudaMemcpyDeviceToDevice));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at createNRMask(cudaMemcpyAsync): %s.\n"),
@@ -1425,10 +1413,10 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
 
     static_assert(DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max(), "DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max()");
     kernel_create_adjust_mask1<char4, short4><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)m_adjMaskMinIndex->frame.ptr, m_adjMaskMinIndex->frame.pitch,
+        (uint8_t *)m_adjMaskMinIndex->frame.ptrArray[0], m_adjMaskMinIndex->frame.pitchArray[0],
         (int *)m_adjMaskEachFadeCount.ptrDevice, (int2 *)m_adjMaskMinResAndValidMaskCount.ptrDevice,
-        m_mask->frame.pitch, logo_w, logo_h, m_mask->frame.pitch * logo_h,
-        (const uint8_t *)m_mask->frame.ptr, (const uint8_t *)m_bufEval[0]->frame.ptr, m_maskThreshold);
+        m_mask->frame.pitchArray[0], logo_w, logo_h, m_mask->frame.pitchArray[0] * logo_h,
+        (const uint8_t *)m_mask->frame.ptrArray[0], (const uint8_t *)m_bufEval[0]->frame.ptrArray[0], m_maskThreshold);
     sts = err_to_rgy(cudaGetLastError());
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at createAdjustedMask(kernel_create_adjust_mask1): %s.\n"),
@@ -1520,13 +1508,13 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
     }
 
     kernel_create_adjust_mask2<char4, short4><<<gridSize2, blockSize, 0, stream>>>(
-        (uint8_t *)m_adjMaskThresholdTest->frame.ptr, //TypeMask4
+        (uint8_t *)m_adjMaskThresholdTest->frame.ptrArray[0], //TypeMask4
         (int *)m_adjMask2ValidMaskCount.ptrDevice,
         (int *)m_adjMask2TargetCount.get(),
-        (const uint8_t *)m_bufEval[0]->frame.ptr, //TypeMask4
-        m_bufEval[0]->frame.pitch, m_bufEval[0]->frame.pitch * logo_h,
+        (const uint8_t *)m_bufEval[0]->frame.ptrArray[0], //TypeMask4
+        m_bufEval[0]->frame.pitchArray[0], m_bufEval[0]->frame.pitchArray[0] * logo_h,
         logo_w, logo_h,
-        (const uint8_t *)m_adjMaskMinIndex->frame.ptr, m_adjMaskMinIndex->frame.pitch,
+        (const uint8_t *)m_adjMaskMinIndex->frame.ptrArray[0], m_adjMaskMinIndex->frame.pitchArray[0],
         m_maskThreshold,
         (const float *)m_evalCounter[0].ptrDevice, m_evalStream[0].evalBlocks,
         (const int2 *)m_adjMaskMinResAndValidMaskCount.ptrDevice, blockCount,
@@ -1549,10 +1537,10 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
 #endif
 #if 1
     kernel_create_adjust_mask3<short4><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)m_maskAdjusted->frame.ptr,  //TypeMask4
+        (uint8_t *)m_maskAdjusted->frame.ptrArray[0],  //TypeMask4
         (const int *)m_adjMask2ValidMaskCount.ptrDevice, blockCount,
-        (const uint8_t *)m_adjMaskThresholdTest->frame.ptr, //TypeMask4
-        m_maskAdjusted->frame.pitch, m_maskAdjusted->frame.pitch * logo_h,
+        (const uint8_t *)m_adjMaskThresholdTest->frame.ptrArray[0], //TypeMask4
+        m_maskAdjusted->frame.pitchArray[0], m_maskAdjusted->frame.pitchArray[0] * logo_h,
         logo_w, logo_h,
         (const int *)m_adjMask2TargetCount.get());
 #if DELOGO_DEBUG_CUDA
@@ -1618,11 +1606,11 @@ RGY_ERR runDelogoYMultiFadeKernel(
     const dim3 gridSize(divCeil(logo_data->width, blockSize.x), divCeil(logo_data->height, blockSize.y), fade_n);
 
     kernel_delogo_multi_fade<Type, short, bit_depth, true><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)pDevBufDst->frame.ptr, pDevBufDst->frame.pitch, pDevBufDst->frame.pitch * logo_data->height,
-        (const uint8_t *)srcFrame->ptr + logo_data->j_start * srcFrame->pitch + logo_data->i_start * sizeof(Type),
-        srcFrame->pitch, srcFrame->width,
-        (multi_src) ? srcFrame->pitch * srcFrame->height : 0,
-        (const uint8_t *)logo_data->pDevLogo->frame.ptr, logo_data->pDevLogo->frame.pitch,
+        (uint8_t *)pDevBufDst->frame.ptrArray[0], pDevBufDst->frame.pitchArray[0], pDevBufDst->frame.pitchArray[0] * logo_data->height,
+        (const uint8_t *)srcFrame->ptrArray[0] + logo_data->j_start * srcFrame->pitchArray[0] + logo_data->i_start * sizeof(Type),
+        srcFrame->pitchArray[0], srcFrame->width,
+        (multi_src) ? srcFrame->pitchArray[0] * srcFrame->height : 0,
+        (const uint8_t *)logo_data->pDevLogo->frame.ptrArray[0], logo_data->pDevLogo->frame.pitchArray[0],
         logo_data->width, logo_data->height,
         ptrDevFadeDepth);
     return err_to_rgy(cudaGetLastError());
@@ -1719,10 +1707,10 @@ RGY_ERR NVEncFilterDelogo::runSmooth(
         const int logo_h = m_mask->frame.height;
         const CUFrameBuf *ptr_mask = (nr_area > 0) ? m_maskNR.get() : m_mask.get();
         auto sts = smooth_func_list.at(nr_value)(
-            (uint8_t *)m_bufDelogoNR[nr_value]->frame.ptr, m_bufDelogoNR[nr_value]->frame.pitch, m_bufDelogoNR[nr_value]->frame.pitch * logo_h,
-            (const uint8_t *)m_bufDelogo[nr_value]->frame.ptr, m_bufDelogo[nr_value]->frame.pitch, m_bufDelogo[nr_value]->frame.pitch * logo_h,
+            (uint8_t *)m_bufDelogoNR[nr_value]->frame.ptrArray[0], m_bufDelogoNR[nr_value]->frame.pitchArray[0], m_bufDelogoNR[nr_value]->frame.pitchArray[0] * logo_h,
+            (const uint8_t *)m_bufDelogo[nr_value]->frame.ptrArray[0], m_bufDelogo[nr_value]->frame.pitchArray[0], m_bufDelogo[nr_value]->frame.pitchArray[0] * logo_h,
             logo_w, logo_h,
-            (const short4 *)ptr_mask->frame.ptr, ptr_mask->frame.pitch, m_maskThreshold,
+            (const short4 *)ptr_mask->frame.ptrArray[0], ptr_mask->frame.pitchArray[0], m_maskThreshold,
             (float *)m_smoothKernel.get(),
             smooth_n,
             stream);
@@ -1778,18 +1766,18 @@ RGY_ERR NVEncFilterDelogo::prewittEvaluateRun(
     if (store_pixel_result) {
         //ピクセルごとの評価結果をバッファに出力
         kernel_proc_prewitt<short4, short4, 2, true, true, true, false><<<gridSize, blockSize, 0, stream>>>(
-            (uint8_t *)m_bufEval[nr_value]->frame.ptr, (float *)m_evalCounter[nr_value].ptrDevice, nullptr,
-            (const uint8_t *)target->frame.ptr, target->frame.pitch,
-            (const uint8_t *)mask->frame.ptr, mask->frame.pitch,
-            logo_w, logo_h, mask->frame.pitch * logo_h,
+            (uint8_t *)m_bufEval[nr_value]->frame.ptrArray[0], (float *)m_evalCounter[nr_value].ptrDevice, nullptr,
+            (const uint8_t *)target->frame.ptrArray[0], target->frame.pitchArray[0],
+            (const uint8_t *)mask->frame.ptrArray[0], mask->frame.pitchArray[0],
+            logo_w, logo_h, mask->frame.pitchArray[0] * logo_h,
             m_maskThreshold);
     } else {
         //ピクセルごとの評価結果は出力しない
         kernel_proc_prewitt<short4, short4, 2, false, true, true, false><<<gridSize, blockSize, 0, stream>>>(
             nullptr, (float *)m_evalCounter[nr_value].ptrDevice, nullptr,
-            (const uint8_t *)target->frame.ptr, target->frame.pitch,
-            (const uint8_t *)mask->frame.ptr, mask->frame.pitch,
-            logo_w, logo_h, mask->frame.pitch * logo_h,
+            (const uint8_t *)target->frame.ptrArray[0], target->frame.pitchArray[0],
+            (const uint8_t *)mask->frame.ptrArray[0], mask->frame.pitchArray[0],
+            logo_w, logo_h, mask->frame.pitchArray[0] * logo_h,
             m_maskThreshold);
     }
     auto sts = err_to_rgy(cudaGetLastError());
@@ -1913,11 +1901,11 @@ RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value) {
         const auto logodata = &m_sProcessData[LOGO__Y];
         //入出力のバッファは、nr_valueに対応するものを使用する
         sts = smooth_func_list.at(key)(
-            (uint8_t *)m_NRProcTemp->frame.ptr, m_NRProcTemp->frame.pitch, m_NRProcTemp->frame.pitch * m_NRProcTemp->frame.height,
-            (const uint8_t *)pFrame->ptr + logodata->j_start * pFrame->pitch + logodata->i_start * src_pixel_size,
-            pFrame->pitch, pFrame->pitch * pFrame->height,
+            (uint8_t *)m_NRProcTemp->frame.ptrArray[0], m_NRProcTemp->frame.pitchArray[0], m_NRProcTemp->frame.pitchArray[0] * m_NRProcTemp->frame.height,
+            (const uint8_t *)pFrame->ptrArray[0] + logodata->j_start * pFrame->pitchArray[0] + logodata->i_start * src_pixel_size,
+            pFrame->pitchArray[0], pFrame->pitchArray[0] * pFrame->height,
             logodata->width, logodata->height,
-            (const short4 *)m_maskNRAdjusted->frame.ptr, m_maskNRAdjusted->frame.pitch, m_maskThreshold,
+            (const short4 *)m_maskNRAdjusted->frame.ptrArray[0], m_maskNRAdjusted->frame.pitchArray[0], m_maskThreshold,
             (float *)m_smoothKernel.get(),
             1, cudaStreamDefault);
         if (sts != RGY_ERR_NONE) {
@@ -1926,8 +1914,8 @@ RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value) {
             return sts;
         }
         sts = err_to_rgy(cudaMemcpy2DAsync(
-            (uint8_t *)pFrame->ptr + logodata->j_start * pFrame->pitch + logodata->i_start * src_pixel_size, pFrame->pitch,
-            m_NRProcTemp->frame.ptr, m_NRProcTemp->frame.pitch,
+            (uint8_t *)pFrame->ptrArray[0] + logodata->j_start * pFrame->pitchArray[0] + logodata->i_start * src_pixel_size, pFrame->pitchArray[0],
+            m_NRProcTemp->frame.ptrArray[0], m_NRProcTemp->frame.pitchArray[0],
             logodata->width, logodata->height,
             cudaMemcpyDeviceToDevice));
         if (sts != RGY_ERR_NONE) {

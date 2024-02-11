@@ -815,18 +815,18 @@ RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
     if (   p0Y.width != p1Y.width || p0Y.height != p1Y.height
         || p0U.width != p1U.width || p0U.height != p1U.height
         || p0V.width != p1V.width || p0V.height != p1V.height
-        || p0Y.pitch != p1Y.pitch || p0U.pitch  != p1U.pitch) {
+        || p0Y.pitchArray[0] != p1Y.pitchArray[0] || p0U.pitchArray[0] != p1U.pitchArray[0]) {
         return RGY_ERR_UNSUPPORTED;
     }
-    if (   pDstU.pitch != pDstV.pitch
-        || p0U.pitch != p0V.pitch
-        || p1U.pitch != p1V.pitch) {
+    if (   pDstU.pitchArray[0] != pDstV.pitchArray[0]
+        || p0U.pitchArray[0] != p0V.pitchArray[0]
+        || p1U.pitchArray[0] != p1V.pitchArray[0]) {
         return RGY_ERR_UNSUPPORTED;
     }
     if (!yuv420) {
-        if (   pDstY.pitch != pDstU.pitch
-            || p0Y.pitch != p0U.pitch
-            || p1Y.pitch != p1U.pitch) {
+        if (   pDstY.pitchArray[0] != pDstU.pitchArray[0]
+            || p0Y.pitchArray[0] != p0U.pitchArray[0]
+            || p1Y.pitchArray[0] != p1U.pitchArray[0]) {
             return RGY_ERR_UNSUPPORTED;
         }
     }
@@ -836,20 +836,20 @@ RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
         const dim3 gridSize(divCeil(pDstY.width, blockSize.x * 2), divCeil(pDstY.height, blockSize.y * 2));
 
         kernel_synthesize_mode_tune<Type, Type2, yuv420><<<gridSize, blockSize, 0, stream>>>(
-            pDstY.ptr, pDstU.ptr, pDstV.ptr, sip,
-            pDstY.width, pDstY.height, pDstY.pitch, pDstU.pitch, sipPitch, RGY_CSP_BIT_DEPTH[csp],
+            pDstY.ptrArray[0], pDstU.ptrArray[0], pDstV.ptrArray[0], sip,
+            pDstY.width, pDstY.height, pDstY.pitchArray[0], pDstU.pitchArray[0], sipPitch, RGY_CSP_BIT_DEPTH[csp],
             tb_order, status);
     } else if (mode == 0) {
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const dim3 gridSize(divCeil(pDstY.width, blockSize.x * 8), divCeil(pDstY.height, blockSize.y * 2));
 
         kernel_synthesize_mode_0<Type4, Type8, yuv420><<<gridSize, blockSize, 0, stream>>>(
-            pDstY.ptr, pDstU.ptr, pDstV.ptr,
-            p0Y.ptr, p0U.ptr, p0V.ptr,
-            p1Y.ptr, p1U.ptr, p1V.ptr,
+            pDstY.ptrArray[0], pDstU.ptrArray[0], pDstV.ptrArray[0],
+            p0Y.ptrArray[0], p0U.ptrArray[0], p0V.ptrArray[0],
+            p1Y.ptrArray[0], p1U.ptrArray[0], p1V.ptrArray[0],
             pDstY.width, pDstY.height,
-            pDstY.pitch, pDstU.pitch,
-            p0Y.pitch, p0U.pitch,
+            pDstY.pitchArray[0], pDstU.pitchArray[0],
+            p0Y.pitchArray[0], p0U.pitchArray[0],
             tb_order, status);
     } else {
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
@@ -857,21 +857,21 @@ RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
 
         if (yuv420) {
             cudaTextureObject_t texP0U0, texP0U1, texP0V0, texP0V1, texP1U0, texP1U1, texP1V0,texP1V1;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 0, p0U.pitch * 2, p0U.width, p0U.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 1, p0U.pitch * 2, p0U.width, p0U.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 0, p0V.pitch * 2, p0V.width, p0V.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 1, p0V.pitch * 2, p0V.width, p0V.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 0, p1U.pitch * 2, p1U.width, p1U.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 1, p1U.pitch * 2, p1U.width, p1U.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 0, p1V.pitch * 2, p1V.width, p1V.height >> 1)))) return sts;
-            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 1, p1V.pitch * 2, p1V.width, p1V.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptrArray[0] + p0U.pitchArray[0] * 0, p0U.pitchArray[0] * 2, p0U.width, p0U.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptrArray[0] + p0U.pitchArray[0] * 1, p0U.pitchArray[0] * 2, p0U.width, p0U.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptrArray[0] + p0V.pitchArray[0] * 0, p0V.pitchArray[0] * 2, p0V.width, p0V.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptrArray[0] + p0V.pitchArray[0] * 1, p0V.pitchArray[0] * 2, p0V.width, p0V.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptrArray[0] + p1U.pitchArray[0] * 0, p1U.pitchArray[0] * 2, p1U.width, p1U.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptrArray[0] + p1U.pitchArray[0] * 1, p1U.pitchArray[0] * 2, p1U.width, p1U.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptrArray[0] + p1V.pitchArray[0] * 0, p1V.pitchArray[0] * 2, p1V.width, p1V.height >> 1)))) return sts;
+            if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateSynthesize<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptrArray[0] + p1V.pitchArray[0] * 1, p1V.pitchArray[0] * 2, p1V.width, p1V.height >> 1)))) return sts;
 
             kernel_synthesize_mode_1234_yuv420<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
-                pDstY.ptr, pDstU.ptr, pDstV.ptr,
-                p0Y.ptr, p1Y.ptr, sip,
+                pDstY.ptrArray[0], pDstU.ptrArray[0], pDstV.ptrArray[0],
+                p0Y.ptrArray[0], p1Y.ptrArray[0], sip,
                 texP0U0, texP0U1, texP1U0, texP1U1,
                 texP0V0, texP0V1, texP1V0, texP1V1,
-                p0Y.width, p0Y.height, p0Y.pitch, pDstY.pitch, pDstU.pitch, sipPitch,
+                p0Y.width, p0Y.height, p0Y.pitchArray[0], pDstY.pitchArray[0], pDstU.pitchArray[0], sipPitch,
                 tb_order, status);
             sts = err_to_rgy(cudaGetLastError());
             if (sts != RGY_ERR_NONE) {
@@ -888,11 +888,11 @@ RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
             cudaDestroyTextureObject(texP1V1);
         } else {
             kernel_synthesize_mode_1234_yuv444<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
-                pDstY.ptr, pDstU.ptr, pDstV.ptr,
-                p0Y.ptr, p0U.ptr, p0V.ptr,
-                p1Y.ptr, p1U.ptr, p1V.ptr,
+                pDstY.ptrArray[0], pDstU.ptrArray[0], pDstV.ptrArray[0],
+                p0Y.ptrArray[0], p0U.ptrArray[0], p0V.ptrArray[0],
+                p1Y.ptrArray[0], p1U.ptrArray[0], p1V.ptrArray[0],
                 sip,
-                p0Y.width, p0Y.height, p0Y.pitch, pDstY.pitch, sipPitch,
+                p0Y.width, p0Y.height, p0Y.pitchArray[0], pDstY.pitchArray[0], sipPitch,
                 tb_order, status);
         }
     }
@@ -957,7 +957,7 @@ RGY_ERR NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0,
         mode = -1;
     }
     auto sts = synthesize_func_list.at(pAfsPrm->frameIn.csp).func[mode+1](
-        &pOut->frame, &p0->frame, &p1->frame, sip->map.frame.ptr, sip->map.frame.pitch,
+        &pOut->frame, &p0->frame, &p1->frame, sip->map.frame.ptrArray[0], sip->map.frame.pitchArray[0],
         pAfsPrm->afs.tb_order, m_status[iframe], pOut->frame.csp, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;

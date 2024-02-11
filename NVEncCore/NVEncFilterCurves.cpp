@@ -316,8 +316,8 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                 paramCrop->frameOut.csp = rgb_csp;
                 paramCrop->matrix = prm->vuiInfo.matrix;
                 paramCrop->baseFps = pParam->baseFps;
-                paramCrop->frameIn.deivce_mem = true;
-                paramCrop->frameOut.deivce_mem = true;
+                paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+                paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
                 paramCrop->bOutOverwrite = false;
                 sts = filter->init(paramCrop, m_pPrintMes);
                 if (sts != RGY_ERR_NONE) {
@@ -335,8 +335,8 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                 paramCrop->matrix = prm->vuiInfo.matrix;
                 paramCrop->frameOut = pParam->frameOut;
                 paramCrop->baseFps = pParam->baseFps;
-                paramCrop->frameIn.deivce_mem = true;
-                paramCrop->frameOut.deivce_mem = true;
+                paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+                paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
                 paramCrop->bOutOverwrite = false;
                 sts = filter->init(paramCrop, m_pPrintMes);
                 if (sts != RGY_ERR_NONE) {
@@ -352,7 +352,9 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        prm->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+        for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+            prm->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        }
     }
 
     tstring info = _T("curves: ");
@@ -372,7 +374,7 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 RGY_ERR NVEncFilterCurves::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -386,7 +388,7 @@ RGY_ERR NVEncFilterCurves::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;

@@ -130,7 +130,9 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
 
     std::string program_source;
     if (prm->custom.kernel.length() > 0) {
@@ -195,13 +197,13 @@ RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputPlane, const RGYFr
     if (RGY_CSP_BIT_DEPTH[pOutputPlane->csp] > 8) {
         AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint16_t]\n"));
         err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint16_t>()).configure(gridSize, blockSize, 0, stream).launch(
-            pOutputPlane->ptr, pOutputPlane->pitch, pOutputPlane->width, pOutputPlane->height,
-            pInpuPlane->ptr, pInpuPlane->pitch, pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), prm->custom.dev_params, plane);
+            pOutputPlane->ptrArray[0], pOutputPlane->pitchArray[0], pOutputPlane->width, pOutputPlane->height,
+            pInpuPlane->ptrArray[0], pInpuPlane->pitchArray[0], pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), prm->custom.dev_params, plane);
     } else {
         AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint8_t]\n"));
         err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint8_t>()).configure(gridSize, blockSize, 0, stream).launch(
-            pOutputPlane->ptr, pOutputPlane->pitch, pOutputPlane->width, pOutputPlane->height,
-            pInpuPlane->ptr, pInpuPlane->pitch, pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), prm->custom.dev_params, plane);
+            pOutputPlane->ptrArray[0], pOutputPlane->pitchArray[0], pOutputPlane->width, pOutputPlane->height,
+            pInpuPlane->ptrArray[0], pInpuPlane->pitchArray[0], pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), prm->custom.dev_params, plane);
     }
     if (err != CUDA_SUCCESS) {
         const char *ptr;
@@ -263,14 +265,14 @@ RGY_ERR NVEncFilterCustom::run_planes(RGYFrameInfo *pOutputFrame, const RGYFrame
     if (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) {
         AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint16_t]\n"));
         err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint16_t>()).configure(gridSize, blockSize, 0, stream).launch(
-            planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch, planeOutputY.width, planeOutputY.height,
-            planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch, planeInputY.width, planeInputY.height,
+            planeOutputY.ptrArray[0], planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], planeOutputY.pitchArray[0], planeOutputY.width, planeOutputY.height,
+            planeInputY.ptrArray[0], planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputY.pitchArray[0], planeInputY.width, planeInputY.height,
             interlacedFrame, prm->custom.dev_params);
     } else {
         AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint8_t]\n"));
         err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint8_t>()).configure(gridSize, blockSize, 0, stream).launch(
-            planeOutputY.ptr, planeOutputU.ptr, planeOutputV.ptr, planeOutputY.pitch, planeOutputY.width, planeOutputY.height,
-            planeInputY.ptr, planeInputU.ptr, planeInputV.ptr, planeInputY.pitch, planeInputY.width, planeInputY.height,
+            planeOutputY.ptrArray[0], planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], planeOutputY.pitchArray[0], planeOutputY.width, planeOutputY.height,
+            planeInputY.ptrArray[0], planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputY.pitchArray[0], planeInputY.width, planeInputY.height,
             interlacedFrame, prm->custom.dev_params);
     }
     if (err != CUDA_SUCCESS) {
@@ -296,7 +298,7 @@ RGY_ERR NVEncFilterCustom::run_planes(RGYFrameInfo *pOutputFrame, const RGYFrame
 RGY_ERR NVEncFilterCustom::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -307,7 +309,7 @@ RGY_ERR NVEncFilterCustom::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -320,10 +322,7 @@ RGY_ERR NVEncFilterCustom::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
     auto pOutputFrame = ppOutputFrames[0];
     if (false) {//for debug
-        const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
-        sts = err_to_rgy(cudaMemcpy2D((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
-            (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
-            frameOutInfoEx.width_byte, frameOutInfoEx.height_total, memcpyKind));
+        sts = copyFrameAsync(pOutputFrame, pInputFrame, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error to copy frames: %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));

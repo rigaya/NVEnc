@@ -143,9 +143,9 @@ static cudaError_t denoise_convolution3d_plane(RGYFrameInfo *pOutputPlane,
     dim3 blockSize(C3D_BLOCK_X, C3D_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputPlane->width, blockSize.x), divCeil(pOutputPlane->height, blockSize.y));
     kernel_denoise_convolution3d<Type, depth, fast, s0, s1, s2, t0, t1, t2><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)pOutputPlane->ptr, pOutputPlane->pitch,
-        (const uint8_t *)pPrevPlane->ptr, (const uint8_t *)pInputPlane->ptr, (const uint8_t *)pNextPlane->ptr,
-        pInputPlane->pitch, pInputPlane->width, pInputPlane->height,
+        (uint8_t *)pOutputPlane->ptrArray[0], pOutputPlane->pitchArray[0],
+        (const uint8_t *)pPrevPlane->ptrArray[0], (const uint8_t *)pInputPlane->ptrArray[0], (const uint8_t *)pNextPlane->ptrArray[0],
+        pInputPlane->pitchArray[0], pInputPlane->width, pInputPlane->height,
         threshold_spatial, threshold_temporal);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -268,7 +268,7 @@ RGY_ERR NVEncFilterConvolution3d::init(shared_ptr<NVEncFilterParam> pParam, shar
         cmpFrameInfoCspResolution(&m_prevFrames.front()->frame, &param->frameOut)) {
         for (auto& f : m_prevFrames) {
             f.reset(new CUFrameBuf(param->frameOut));
-            f->frame.ptr = nullptr;
+            f->releasePtr();
             sts = f->alloc();
             if (sts != RGY_ERR_NONE) {
                 return sts;
@@ -277,7 +277,9 @@ RGY_ERR NVEncFilterConvolution3d::init(shared_ptr<NVEncFilterParam> pParam, shar
         m_cacheIdx = 0;
     }
 
-    param->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        param->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
     m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
 
     setFilterInfo(pParam->print());
@@ -305,7 +307,7 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
         return RGY_ERR_INVALID_PARAM;
     }
 
-    if (pInputFrame->ptr == nullptr && m_nFrameIdx >= m_cacheIdx) {
+    if (pInputFrame->ptrArray[0] == nullptr && m_nFrameIdx >= m_cacheIdx) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
@@ -323,8 +325,8 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
             pOutFrame = m_pFrameBuf[0].get();
             ppOutputFrames[0] = &pOutFrame->frame;
         }
-        if (pInputFrame->ptr) {
-            const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+        if (pInputFrame->ptrArray[0]) {
+            const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
             if (memcpyKind != cudaMemcpyDeviceToDevice) {
                 AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
                 return RGY_ERR_INVALID_PARAM;
@@ -337,7 +339,7 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
 
         auto framePrev = &m_prevFrames[std::max(m_cacheIdx-2, 0) % m_prevFrames.size()]->frame;
         auto frameCur  = &m_prevFrames[        (m_cacheIdx-1)    % m_prevFrames.size()]->frame;
-        if (frameNext->ptr == nullptr) {
+        if (frameNext->ptrArray[0] == nullptr) {
             frameNext = frameCur;
         }
 
@@ -377,7 +379,7 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
         ppOutputFrames[0] = nullptr;
     }
     //sourceキャッシュにコピー
-    if (pInputFrame->ptr) {
+    if (pInputFrame->ptrArray[0]) {
         auto cacheFrame = &m_prevFrames[m_cacheIdx++ % m_prevFrames.size()]->frame;
         sts = copyFrameAsync(cacheFrame, frameNext, stream);
         if (sts != RGY_ERR_NONE) {

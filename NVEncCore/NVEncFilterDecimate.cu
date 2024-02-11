@@ -313,7 +313,7 @@ __global__ void kernel_block_diff(
 }
 
 template<typename Type2, typename Type4>
-RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp,
+RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair *tmp,
     const int blockHalfX, const int blockHalfY, cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
     static_assert(std::is_integral<decltype(Type2::x)>::value && std::is_integral<decltype(Type4::x)>::value && sizeof(Type2::x) == sizeof(Type4::x),
         "Type2::x == Type4::x");
@@ -330,13 +330,13 @@ RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, cons
 
     const int grid_count = gridSize.x * gridSize.y;
     const size_t bufsize = (useKernel2) ? grid_count * sizeof(int2) : grid_count * sizeof(int);
-    if (tmp.nSize < bufsize) {
-        tmp.clear();
-        auto sts = tmp.alloc(bufsize);
+    if (tmp->nSize < bufsize) {
+        tmp->clear();
+        auto sts = tmp->alloc(bufsize);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        sts = err_to_rgy(cudaMemset(tmp.ptrDevice, 0, tmp.nSize));
+        sts = err_to_rgy(cudaMemset(tmp->ptrDevice, 0, tmp->nSize));
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -349,43 +349,43 @@ RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, cons
         switch (blockHalfX) {
         case 1:
             kernel_block_diff2_1<decltype(Type4::x), DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 1> << < gridSize, blockSize, 0, streamDiff >> > (
-                (const uint8_t *)p0->ptr, p0->pitch,
-                (const uint8_t *)p1->ptr, p1->pitch,
+                (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
+                (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
                 width, height,
                 blockHalfX, firstPlane,
-                (int2 *)tmp.ptrDevice);
+                (int2 *)tmp->ptrDevice);
             break;
         case 2:
             kernel_block_diff2_2<Type2, DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 2> << < gridSize, blockSize, 0, streamDiff >> > (
-                (const uint8_t *)p0->ptr, p0->pitch,
-                (const uint8_t *)p1->ptr, p1->pitch,
+                (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
+                (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
                 width, height,
                 blockHalfX, firstPlane,
-                (int2 *)tmp.ptrDevice);
+                (int2 *)tmp->ptrDevice);
             break;
         case 4:
             kernel_block_diff2_4<Type4, DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 4> << < gridSize, blockSize, 0, streamDiff >> > (
-                (const uint8_t *)p0->ptr, p0->pitch,
-                (const uint8_t *)p1->ptr, p1->pitch,
+                (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
+                (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
                 width, height,
                 blockHalfX, firstPlane,
-                (int2 *)tmp.ptrDevice);
+                (int2 *)tmp->ptrDevice);
             break;
         case 8:
             kernel_block_diff2_4<Type4, DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 8> << < gridSize, blockSize, 0, streamDiff >> > (
-                (const uint8_t *)p0->ptr, p0->pitch,
-                (const uint8_t *)p1->ptr, p1->pitch,
+                (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
+                (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
                 width, height,
                 blockHalfX, firstPlane,
-                (int2 *)tmp.ptrDevice);
+                (int2 *)tmp->ptrDevice);
             break;
         case 16:
             kernel_block_diff2_4<Type4, DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 16> << < gridSize, blockSize, 0, streamDiff >> > (
-                (const uint8_t *)p0->ptr, p0->pitch,
-                (const uint8_t *)p1->ptr, p1->pitch,
+                (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
+                (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
                 width, height,
                 blockHalfX, firstPlane,
-                (int2 *)tmp.ptrDevice);
+                (int2 *)tmp->ptrDevice);
             break;
         }
     } else {
@@ -393,11 +393,11 @@ RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, cons
             return RGY_ERR_UNSUPPORTED;
         }
         kernel_block_diff<Type4><<< gridSize, blockSize, 0, streamDiff >>> (
-            (const uint8_t *)p0->ptr, p0->pitch,
-            (const uint8_t *)p1->ptr, p1->pitch,
+            (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
+            (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
             width, height,
             firstPlane,
-            (int *)tmp.ptrDevice);
+            (int *)tmp->ptrDevice);
     }
     sts = err_to_rgy(cudaGetLastError());
     if (sts != RGY_ERR_NONE) {
@@ -405,7 +405,7 @@ RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, cons
     }
     cudaEventRecord(eventTransfer, streamDiff);
     cudaStreamWaitEvent(streamTransfer, eventTransfer, 0);
-    sts = tmp.copyDtoHAsync(streamTransfer);
+    sts = tmp->copyDtoHAsync(streamTransfer);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -413,12 +413,12 @@ RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, cons
 }
 
 template<typename Type2, typename Type4>
-RGY_ERR calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp,
+RGY_ERR calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair *tmp,
     const int blockX, const int blockY,  const bool chroma,
     cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
-    if (tmp.ptrDevice) {
+    if (tmp->ptrDevice) {
         //初期化
-        auto sts = err_to_rgy(cudaMemset(tmp.ptrDevice, 0, tmp.nSize));
+        auto sts = err_to_rgy(cudaMemset(tmp->ptrDevice, 0, tmp->nSize));
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -448,14 +448,13 @@ NVEncFilterDecimateFrameData::NVEncFilterDecimateFrameData() :
     m_blockX(0),
     m_blockY(0),
     m_buf(),
-    m_tmp(),
+    m_tmp(std::make_unique<CUMemBufPair>()),
     m_diffMaxBlock(std::numeric_limits<int64_t>::max()),
     m_diffTotal(std::numeric_limits<int64_t>::max()) {
-
 }
 
 NVEncFilterDecimateFrameData::~NVEncFilterDecimateFrameData() {
-    m_buf.clear();
+    m_buf.reset();
 }
 
 RGY_ERR NVEncFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream) {
@@ -464,20 +463,21 @@ RGY_ERR NVEncFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int i
     m_blockY = blockSizeY;
     m_diffMaxBlock = std::numeric_limits<int64_t>::max();
     m_diffTotal = std::numeric_limits<int64_t>::max();
-    if (m_buf.frame.ptr == nullptr) {
-        m_buf.alloc(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
+    if (!m_buf) {
+        m_buf = std::make_unique<CUFrameBuf>();
+        m_buf->alloc(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
     }
-    auto sts = m_buf.copyFrameAsync(pInputFrame, stream);
+    auto sts = m_buf->copyFrameAsync(pInputFrame, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    copyFrameProp(&m_buf.frame, pInputFrame);
+    copyFrameProp(&m_buf->frame, pInputFrame);
     return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterDecimateFrameData::calcDiff(funcCalcDiff func, const NVEncFilterDecimateFrameData *target, const bool chroma,
     cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
-    func(&m_buf.frame, &target->get()->frame, m_tmp,
+    func(&m_buf->frame, &target->get()->frame, m_tmp.get(),
         m_blockX, m_blockY, chroma,
         streamDiff, eventTransfer, streamTransfer);
     return err_to_rgy(cudaGetLastError());
@@ -493,8 +493,8 @@ void NVEncFilterDecimateFrameData::calcDiffFromTmp() {
     const int blockHalfY = m_blockY / 2;
     const bool useKernel2 = (m_blockX / 2 <= DECIMATE_KERNEL2_BLOCK_X_THRESHOLD);
     if (useKernel2) {
-        int2 *const tmpHost = (int2 *)m_tmp.ptrHost;
-        const size_t count = m_tmp.nSize / sizeof(int2);
+        int2 *const tmpHost = (int2 *)m_tmp->ptrHost;
+        const size_t count = m_tmp->nSize / sizeof(int2);
         m_diffMaxBlock = -1;
         m_diffTotal = 0;
         for (size_t i = 0; i < count; i++) {
@@ -502,11 +502,11 @@ void NVEncFilterDecimateFrameData::calcDiffFromTmp() {
             m_diffMaxBlock = std::max<int64_t>(m_diffMaxBlock, tmpHost[i].y);
         }
     } else {
-        const int blockXHalfCount = divCeil(m_buf.frame.width, blockHalfX);
-        const int blockYHalfCount = divCeil(m_buf.frame.height, blockHalfY);
+        const int blockXHalfCount = divCeil(m_buf->frame.width, blockHalfX);
+        const int blockYHalfCount = divCeil(m_buf->frame.height, blockHalfY);
         const int blockXYHalfCount = blockXHalfCount * blockYHalfCount;
 
-        int *const tmpHost = (int *)m_tmp.ptrHost;
+        int *const tmpHost = (int *)m_tmp->ptrHost;
 
         m_diffMaxBlock = -1;
         for (int i = 0; i < blockYHalfCount - 1; i++) {
@@ -631,7 +631,9 @@ RGY_ERR NVEncFilterDecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamTransfer: Success.\n"));
 
-        prm->frameOut.pitch = prm->frameIn.pitch;
+        for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+            prm->frameOut.pitchArray[i] = prm->frameIn.pitchArray[i];
+        }
 
         m_fpLog.reset();
         if (prm->decimate.log) {
@@ -859,7 +861,7 @@ RGY_ERR NVEncFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         return RGY_ERR_INVALID_PARAM;
     }
 
-    if (pInputFrame->ptr == nullptr && m_flushed) {
+    if (pInputFrame->ptrArray[0] == nullptr && m_flushed) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
@@ -868,13 +870,13 @@ RGY_ERR NVEncFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 
     const int inframeId = m_cache.inframe();
     *pOutputFrameNum = 0;
-    if (m_cache.inframe() > 0 && (m_cache.inframe() % prm->decimate.cycle == 0 || pInputFrame->ptr == nullptr)) { //cycle分のフレームがそろったら
-        auto ret = setOutputFrame((pInputFrame && pInputFrame->ptr) ? pInputFrame->timestamp : AV_NOPTS_VALUE, ppOutputFrames, pOutputFrameNum);
+    if (m_cache.inframe() > 0 && (m_cache.inframe() % prm->decimate.cycle == 0 || pInputFrame->ptrArray[0] == nullptr)) { //cycle分のフレームがそろったら
+        auto ret = setOutputFrame((pInputFrame && pInputFrame->ptrArray[0]) ? pInputFrame->timestamp : AV_NOPTS_VALUE, ppOutputFrames, pOutputFrameNum);
         if (ret != RGY_ERR_NONE) {
             return ret;
         }
 
-        if (pInputFrame->ptr == nullptr) {
+        if (pInputFrame->ptrArray[0] == nullptr) {
             m_flushed = true;
             return sts;
         }

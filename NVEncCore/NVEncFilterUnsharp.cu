@@ -127,12 +127,12 @@ template<typename Type, int bit_depth>
 static cudaError_t unsharp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, CUMemBuf *pGaussWeight,
     const int radius, const float weight, const float threshold, cudaStream_t stream) {
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = textureCreateDenoiseUnsharp<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptr, pInputFrame->pitch, pInputFrame->width, pInputFrame->height);
+    auto cudaerr = textureCreateDenoiseUnsharp<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptrArray[0],
+        pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
         texSrc, (const float *)pGaussWeight->ptr, radius, weight, threshold / (1 << (sizeof(Type) * 8)),
         stream);
     cudaerr = cudaGetLastError();
@@ -254,7 +254,9 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    pUnsharpParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pUnsharpParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
 
     if (!m_pParam
         || std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_pParam)->unsharp.radius != pUnsharpParam->unsharp.radius) {
@@ -279,7 +281,7 @@ tstring NVEncFilterParamUnsharp::print() const {
 
 RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -293,7 +295,7 @@ RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;

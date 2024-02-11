@@ -112,10 +112,10 @@ RGY_ERR calc_block_diff_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RG
     dim3 blockSize(MPDECIMATE_BLOCK_X, MPDECIMATE_BLOCK_Y);
     dim3 gridSize(divCeil(width, blockSize.x * 8), divCeil(height, blockSize.y));
     kernel_block_diff<Type4><<< gridSize, blockSize, 0, streamDiff >>> (
-        (const uint8_t *)p0->ptr, p0->pitch,
-        (const uint8_t *)p1->ptr, p1->pitch,
+        (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
+        (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
         width, height,
-        (uint8_t *)tmp->ptr, tmp->pitch);
+        (uint8_t *)tmp->ptrArray[0], tmp->pitchArray[0]);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -147,10 +147,10 @@ NVEncFilterMpdecimateFrameData::~NVEncFilterMpdecimateFrameData() {
 
 RGY_ERR NVEncFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, cudaStream_t stream) {
     m_inFrameId = inputFrameId;
-    if (m_buf.frame.ptr == nullptr) {
+    if (m_buf.frame.ptrArray[0] == nullptr) {
         m_buf.alloc(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
     }
-    if (m_tmp.frameDev.ptr == nullptr) {
+    if (m_tmp.frameDev.ptrArray[0] == nullptr) {
         m_tmp.alloc(divCeil(pInputFrame->width, 8), divCeil(pInputFrame->height, 8), RGY_CSP_YUV444_32);
     }
 
@@ -203,8 +203,9 @@ bool NVEncFilterMpdecimateFrameData::checkIfFrameCanbeDropped(const int hi, cons
         const auto plane = getPlane(&m_buf.frame, (RGY_PLANE)iplane);
         const int blockw = divCeil(plane.width, 8);
         const int blockh = divCeil(plane.height, 8);
+        const auto planeHost = getPlane(&m_tmp.frameHost, (RGY_PLANE)iplane);
         for (int j = 0; j < blockh; j++) {
-            const int *ptrResult = (const int *)(m_tmp.frameHost.ptr + j * m_tmp.frameHost.pitch);
+            const int *ptrResult = (const int *)(planeHost.ptrArray[0] + j * planeHost.pitchArray[0]);
             for (int i = 0; i < blockw; i++) {
                 const int result = ptrResult[i];
                 if (result > hi) {
@@ -316,7 +317,9 @@ RGY_ERR NVEncFilterMpdecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamTransfer: Success.\n"));
 
-        prm->frameOut.pitch = prm->frameIn.pitch;
+        for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+            prm->frameOut.pitchArray[i] = prm->frameIn.pitchArray[i];
+        }
 
         m_fpLog.reset();
         if (prm->mpdecimate.log) {
@@ -366,7 +369,7 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pInputFrame->ptr == nullptr && m_ref < 0) {
+    if (pInputFrame->ptrArray[0] == nullptr && m_ref < 0) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
@@ -391,7 +394,7 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         //GPU->CPUの転送終了を待機
         cudaStreamSynchronize(*m_streamTransfer.get());
 
-        const bool drop = dropFrame(targetFrame) && pInputFrame->ptr != nullptr; //最終フレームは必ず出力する
+        const bool drop = dropFrame(targetFrame) && pInputFrame->ptrArray[0] != nullptr; //最終フレームは必ず出力する
         if (m_fpLog) {
             fprintf(m_fpLog.get(), "%s %8d: %10lld\n", (drop) ? "d" : " ", m_target, (long long)targetFrame->get()->frame.timestamp);
         }
@@ -410,7 +413,7 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
             ppOutputFrames[0] = &targetFrame->get()->frame;
         }
     }
-    if (pInputFrame->ptr != nullptr) {
+    if (pInputFrame->ptrArray[0] != nullptr) {
         m_target = m_cache.inframe();
         auto err = m_cache.add(pInputFrame, stream);
         if (err != RGY_ERR_NONE) {

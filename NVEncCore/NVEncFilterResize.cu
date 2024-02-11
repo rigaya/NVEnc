@@ -161,10 +161,10 @@ cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const RGYFrameInfo* p
     memset(&resDescSrc, 0, sizeof(resDescSrc));
     resDescSrc.resType = cudaResourceTypePitch2D;
     resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<TypePixel>();
-    resDescSrc.res.pitch2D.pitchInBytes = pFrame->pitch;
+    resDescSrc.res.pitch2D.pitchInBytes = pFrame->pitchArray[0];
     resDescSrc.res.pitch2D.width = pFrame->width;
     resDescSrc.res.pitch2D.height = pFrame->height;
-    resDescSrc.res.pitch2D.devPtr = (uint8_t*)pFrame->ptr;
+    resDescSrc.res.pitch2D.devPtr = (uint8_t*)pFrame->ptrArray[0];
 
     cudaTextureDesc texDescSrc;
     memset(&texDescSrc, 0, sizeof(texDescSrc));
@@ -209,8 +209,8 @@ RGY_ERR resize_texture_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pIn
     if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, (interp == RGY_VPP_RESIZE_BILINEAR) ? cudaFilterModeLinear : cudaFilterModePoint, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
         return err_to_rgy(cudaerr);
     }
-    resize_texture<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+    resize_texture<Type, bit_depth>((uint8_t *)pOutputFrame->ptrArray[0],
+        pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
         texSrc, ratioX, ratioY, stream);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -246,7 +246,7 @@ static RGY_ERR resize_texture_frame(RGYFrameInfo* pOutputFrame, const RGYFrameIn
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    if (planeOutputA.ptr != nullptr) {
+    if (RGY_CSP_PLANES[pOutputFrame->csp] == 4) {
         sts = resize_texture_plane<Type, bit_depth>(&planeOutputA, &planeSrcA, interp, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -450,8 +450,8 @@ void resize_plane(uint8_t *pDst, const int dstPitch, const int dstWidth, const i
 template<typename Type, int bit_depth, RESIZE_WEIGHT_TYPE algo, int radius>
 static RGY_ERR resize_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const float *pgFactor, cudaStream_t stream) {
     resize_plane<Type, bit_depth, algo, radius>(
-        (uint8_t*)pOutputPlane->ptr, pOutputPlane->pitch, pOutputPlane->width, pOutputPlane->height,
-        (uint8_t*)pInputPlane->ptr, pInputPlane->pitch, pInputPlane->width, pInputPlane->height,
+        (uint8_t*)pOutputPlane->ptrArray[0], pOutputPlane->pitchArray[0], pOutputPlane->width, pOutputPlane->height,
+        (uint8_t*)pInputPlane->ptrArray[0], pInputPlane->pitchArray[0], pInputPlane->width, pInputPlane->height,
         pgFactor, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -483,7 +483,7 @@ static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    if (planeOutputA.ptr != nullptr) {
+    if (RGY_CSP_PLANES[pOutputFrame->csp] == 4) {
         sts = resize_plane<Type, bit_depth, algo, radius>(&planeOutputA, &planeSrcA, pgFactor, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -532,10 +532,10 @@ static RGY_ERR resize_nppi_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     //Y
     NppStatus sts = funcResize(
-        (const T *)planeSrcY.ptr,
-        srcSize, planeSrcY.pitch, srcRect,
-        (T *)planeOutputY.ptr,
-        planeOutputY.pitch, dstRect,
+        (const T *)planeSrcY.ptrArray[0],
+        srcSize, planeSrcY.pitchArray[0], srcRect,
+        (T *)planeOutputY.ptrArray[0],
+        planeOutputY.pitchArray[0], dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
     if (sts != NPP_SUCCESS) {
         return err_to_rgy(sts);
@@ -548,20 +548,20 @@ static RGY_ERR resize_nppi_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *
     dstRect.width  >>= 1;
     dstRect.height >>= 1;
     sts = funcResize(
-        (const T *)planeSrcU.ptr,
-        srcSize, planeSrcU.pitch, srcRect,
-        (T *)planeOutputU.ptr,
-        planeOutputU.pitch, dstRect,
+        (const T *)planeSrcU.ptrArray[0],
+        srcSize, planeSrcU.pitchArray[0], srcRect,
+        (T *)planeOutputU.ptrArray[0],
+        planeOutputU.pitchArray[0], dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
     if (sts != NPP_SUCCESS) {
         return err_to_rgy(sts);
     }
     //V
     sts = funcResize(
-        (const T *)planeSrcV.ptr,
-        srcSize, planeSrcV.pitch, srcRect,
-        (T *)planeOutputV.ptr,
-        planeOutputV.pitch, dstRect,
+        (const T *)planeSrcV.ptrArray[0],
+        srcSize, planeSrcV.pitchArray[0], srcRect,
+        (T *)planeOutputV.ptrArray[0],
+        planeOutputV.pitchArray[0], dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
     return err_to_rgy(sts);
 }
@@ -621,20 +621,20 @@ static RGY_ERR resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     const T *pSrc[3] = {
-        (const T *)planeSrcY.ptr,
-        (const T *)planeSrcU.ptr,
-        (const T *)planeSrcV.ptr
+        (const T *)planeSrcY.ptrArray[0],
+        (const T *)planeSrcU.ptrArray[0],
+        (const T *)planeSrcV.ptrArray[0]
     };
     T *pDst[3] = {
-        (T *)planeOutputY.ptr,
-        (T *)planeOutputU.ptr,
-        (T *)planeOutputV.ptr
+        (T *)planeOutputY.ptrArray[0],
+        (T *)planeOutputU.ptrArray[0],
+        (T *)planeOutputV.ptrArray[0]
     };
     NppStatus sts = funcResize(
         pSrc,
-        srcSize, planeSrcY.pitch, srcRect,
+        srcSize, planeSrcY.pitchArray[0], srcRect,
         pDst,
-        planeOutputY.pitch, dstRect,
+        planeOutputY.pitchArray[0], dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
     if (sts != NPP_SUCCESS) {
         return err_to_rgy(sts);
@@ -721,8 +721,8 @@ RGY_ERR NVEncFilterResize::initNvvfxFilter(NVEncFilterParamResize *param) {
             param->nvvfxSuperRes->frameOut.width = param->frameIn.width * ratio.n() / ratio.d();
             param->nvvfxSuperRes->frameOut.height = param->frameIn.height * ratio.n() / ratio.d();
             param->nvvfxSuperRes->baseFps = param->baseFps;
-            param->nvvfxSuperRes->frameIn.deivce_mem = true;
-            param->nvvfxSuperRes->frameOut.deivce_mem = true;
+            param->nvvfxSuperRes->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+            param->nvvfxSuperRes->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             param->nvvfxSuperRes->bOutOverwrite = false;
             auto sts = filter->init(param->nvvfxSuperRes, m_pPrintMes);
             if (sts == RGY_ERR_NONE) {
@@ -764,7 +764,9 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    pResizeParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pResizeParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
 
     auto resizeInterp = pResizeParam->interp;
     if (isNvvfxResizeFiter(pResizeParam->interp)) {
@@ -881,7 +883,7 @@ tstring NVEncFilterParamResize::print() const {
 
 RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -895,7 +897,7 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_UNSUPPORTED;

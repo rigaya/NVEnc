@@ -478,8 +478,8 @@ RGY_ERR run_analyze_stripe(uint8_t *dst, const int dstPitch,
     auto sts = RGY_ERR_NONE;
     cudaTextureObject_t texP0Y = 0;
     cudaTextureObject_t texP1Y = 0;
-    if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0Y, cudaFilterModePoint, cudaReadModeElementType, p0Y.ptr, p0Y.pitch, (p0Y.width + 3) / 4, p0Y.height)))) return sts;
-    if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1Y, cudaFilterModePoint, cudaReadModeElementType, p1Y.ptr, p1Y.pitch, (p1Y.width + 3) / 4, p1Y.height)))) return sts;
+    if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0Y, cudaFilterModePoint, cudaReadModeElementType, p0Y.ptrArray[0], p0Y.pitchArray[0], (p0Y.width + 3) / 4, p0Y.height)))) return sts;
+    if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1Y, cudaFilterModePoint, cudaReadModeElementType, p1Y.ptrArray[0], p1Y.pitchArray[0], (p1Y.width + 3) / 4, p1Y.height)))) return sts;
 
     cudaTextureObject_t texP0U0 = 0;
     cudaTextureObject_t texP0U1 = 0; //yuv444では使用されない
@@ -490,19 +490,19 @@ RGY_ERR run_analyze_stripe(uint8_t *dst, const int dstPitch,
     cudaTextureObject_t texP1V0 = 0;
     cudaTextureObject_t texP1V1 = 0; //yuv444では使用されない
     if (yuv420) {
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 0, p0U.pitch * 2, p0U.width, p0U.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 1, p0U.pitch * 2, p0U.width, p0U.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 0, p0V.pitch * 2, p0V.width, p0V.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 1, p0V.pitch * 2, p0V.width, p0V.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 0, p1U.pitch * 2, p1U.width, p1U.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 1, p1U.pitch * 2, p1U.width, p1U.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 0, p1V.pitch * 2, p1V.width, p1V.height >> 1)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 1, p1V.pitch * 2, p1V.width, p1V.height >> 1)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptrArray[0] + p0U.pitchArray[0] * 0, p0U.pitchArray[0] * 2, p0U.width, p0U.height >> 1)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptrArray[0] + p0U.pitchArray[0] * 1, p0U.pitchArray[0] * 2, p0U.width, p0U.height >> 1)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptrArray[0] + p0V.pitchArray[0] * 0, p0V.pitchArray[0] * 2, p0V.width, p0V.height >> 1)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptrArray[0] + p0V.pitchArray[0] * 1, p0V.pitchArray[0] * 2, p0V.width, p0V.height >> 1)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptrArray[0] + p1U.pitchArray[0] * 0, p1U.pitchArray[0] * 2, p1U.width, p1U.height >> 1)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptrArray[0] + p1U.pitchArray[0] * 1, p1U.pitchArray[0] * 2, p1U.width, p1U.height >> 1)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptrArray[0] + p1V.pitchArray[0] * 0, p1V.pitchArray[0] * 2, p1V.width, p1V.height >> 1)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptrArray[0] + p1V.pitchArray[0] * 1, p1V.pitchArray[0] * 2, p1V.width, p1V.height >> 1)))) return sts;
     } else {
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, p0U.ptr, p0U.pitch, (p0U.width + 3) / 4, p0U.height)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, p0V.ptr, p0V.pitch, (p0V.width + 3) / 4, p0V.height)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, p1U.ptr, p1U.pitch, (p1U.width + 3) / 4, p1U.height)))) return sts;
-        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1V0, cudaFilterModePoint, cudaReadModeElementType, p1V.ptr, p1V.pitch, (p1V.width + 3) / 4, p1V.height)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, p0U.ptrArray[0], p0U.pitchArray[0], (p0U.width + 3) / 4, p0U.height)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, p0V.ptrArray[0], p0V.pitchArray[0], (p0V.width + 3) / 4, p0V.height)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, p1U.ptrArray[0], p1U.pitchArray[0], (p1U.width + 3) / 4, p1U.height)))) return sts;
+        if (RGY_ERR_NONE != (sts = err_to_rgy(textureCreateAnalyze<Type4>(texP1V0, cudaFilterModePoint, cudaReadModeElementType, p1V.ptrArray[0], p1V.pitchArray[0], (p1V.width + 3) / 4, p1V.height)))) return sts;
     }
 
     dim3 blockSize(BLOCK_INT_X, BLOCK_Y);
@@ -596,16 +596,18 @@ RGY_ERR NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_
         { RGY_CSP_YUV444,    analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, false>,  run_analyze_stripe<uint8_t,  uint32_t, 8, true, false>) },
         { RGY_CSP_YUV444_16, analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, false>,  run_analyze_stripe<uint16_t, uint2,   16, true, false>) },
     };
-    if (p1->frame.pitch % sizeof(int) != 0) {
-        AddMessage(RGY_LOG_ERROR, _T("frame pitch must be mod4\n"));
-        return RGY_ERR_UNSUPPORTED;
+    for (int i = 0; i < RGY_CSP_PLANES[p1->frame.csp]; i++) {
+        if (p1->frame.pitchArray[i] % sizeof(int) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("frame pitch must be mod4\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
     }
     if (analyze_stripe_func_list.count(pAfsParam->frameIn.csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_analyze_stripe: %s\n"), RGY_CSP_NAMES[pAfsParam->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
     auto sts = analyze_stripe_func_list.at(pAfsParam->frameIn.csp).func[!!pAfsParam->afs.tb_order](
-        sp->map.frame.ptr, sp->map.frame.pitch, &p0->frame, &p1->frame,
+        sp->map.frame.ptrArray[0], sp->map.frame.pitchArray[0], &p0->frame, &p1->frame,
         count_motion, &pAfsParam->afs, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;

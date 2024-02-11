@@ -852,21 +852,12 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         uint8_t *const ptrBuf = m_readBuffer.get();
 
         for (int iplane = 1; iplane < RGY_CSP_PLANES[pSurface->csp()]; iplane++) {
-#if ENCODER_NVENC
-            const auto frameInfo = pSurface->getInfo();
-            const auto plane = getPlane(&frameInfo, (RGY_PLANE)iplane);
-            for (uint32_t i = 0; i < plane.height; i++) {
-                loadLineToBuffer(ptrBuf, plane.ptr + (crop.e.up + i) * plane.pitch, plane.pitch);
-                WRITE_CHECK(fwrite(ptrBuf + (crop.e.left * pixSize >> 1), 1, plane.width * pixSize, m_fDest.get()), plane.width * pixSize);
-            }
-#elif ENCODER_QSV
             const uint32_t widthUV = pSurface->width() * pixSize >> (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420 ? 1 : 0);
             const uint32_t heightUV = pSurface->height() >> (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420 ? 1 : 0);
             for (uint32_t i = 0; i < heightUV; i++) {
                 loadLineToBuffer(ptrBuf, pSurface->ptrPlane((RGY_PLANE)iplane) + (crop.e.up + i) * pSurface->pitch(iplane), pSurface->pitch(iplane));
                 WRITE_CHECK(fwrite(ptrBuf + (crop.e.left * pixSize >> 1), 1, widthUV * pixSize, m_fDest.get()), widthUV * pixSize);
             }
-#endif
         }
     } else {
         return RGY_ERR_INVALID_COLOR_FORMAT;

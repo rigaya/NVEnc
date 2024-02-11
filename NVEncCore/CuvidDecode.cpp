@@ -561,13 +561,14 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
 
 RGYFrameInfo CuvidDecode::GetDecFrameInfo() {
     RGYFrameInfo frame;
-    frame.ptr = nullptr;
     frame.csp = m_videoInfo.csp;
     frame.width = m_videoDecodeCreateInfo.ulTargetWidth;
     frame.height = m_videoDecodeCreateInfo.ulTargetHeight;
-    frame.pitch = 0; //この段階では取得できない、cuvidMapVideoFrameで取得
+    memset(frame.ptrArray, 0, sizeof(frame.ptrArray));
+    memset(frame.pitchArray, 0, sizeof(frame.pitchArray)); //この段階では取得できない、cuvidMapVideoFrameで取得
+    frame.singleAlloc = true;
     frame.timestamp = (uint64_t)AV_NOPTS_VALUE;
-    frame.deivce_mem = true;
+    frame.mem_type = RGY_MEM_TYPE_GPU;
     return frame;
 }
 

@@ -154,25 +154,25 @@ RGY_ERR proc_frame(RGYFrameInfo *pFrame,
     const int subPosY_Y = (pos_y & ~1);
     const int subPosX_UV = (RGY_CSP_CHROMA_FORMAT[pFrame->csp] == RGY_CHROMAFMT_YUV420) ? (pos_x >> 1) : (pos_x & ~1);
     const int subPosY_UV = (RGY_CSP_CHROMA_FORMAT[pFrame->csp] == RGY_CHROMAFMT_YUV420) ? (pos_y >> 1) : (pos_y & ~1);
-    const int frameOffsetByteY = subPosY_Y  * planeFrameY.pitch + subPosX_Y  * sizeof(TypePixel);
-    const int frameOffsetByteU = subPosY_UV * planeFrameU.pitch + subPosX_UV * sizeof(TypePixel);
-    const int frameOffsetByteV = subPosY_UV * planeFrameV.pitch + subPosX_UV * sizeof(TypePixel);
+    const int frameOffsetByteY = subPosY_Y  * planeFrameY.pitchArray[0] + subPosX_Y  * sizeof(TypePixel);
+    const int frameOffsetByteU = subPosY_UV * planeFrameU.pitchArray[0] + subPosX_UV * sizeof(TypePixel);
+    const int frameOffsetByteV = subPosY_UV * planeFrameV.pitchArray[0] + subPosX_UV * sizeof(TypePixel);
 
-    if (   planeSubY.pitch != planeSubU.pitch
-        || planeSubY.pitch != planeSubV.pitch
-        || planeSubY.pitch != planeSubA.pitch) {
+    if (   planeSubY.pitchArray[0] != planeSubU.pitchArray[0]
+        || planeSubY.pitchArray[0] != planeSubV.pitchArray[0]
+        || planeSubY.pitchArray[0] != planeSubA.pitchArray[0]) {
         return RGY_ERR_UNSUPPORTED;
     }
 
     cudaError_t cudaerr = cudaSuccess;
     kernel_subburn<TypePixel, bit_depth, true> << <gridSize, blockSize, 0, stream >> > (
-        planeFrameY.ptr + frameOffsetByteY,
-        planeFrameU.ptr + frameOffsetByteU,
-        planeFrameV.ptr + frameOffsetByteV,
-        planeFrameY.pitch,
-        planeFrameU.pitch,
-        planeFrameV.pitch,
-        planeSubY.ptr, planeSubU.ptr, planeSubV.ptr, planeSubA.ptr, planeSubY.pitch,
+        planeFrameY.ptrArray[0] + frameOffsetByteY,
+        planeFrameU.ptrArray[0] + frameOffsetByteU,
+        planeFrameV.ptrArray[0] + frameOffsetByteV,
+        planeFrameY.pitchArray[0],
+        planeFrameU.pitchArray[0],
+        planeFrameV.pitchArray[0],
+        planeSubY.ptrArray[0], planeSubU.ptrArray[0], planeSubV.ptrArray[0], planeSubA.ptrArray[0], planeSubY.pitchArray[0],
         burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -189,35 +189,32 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
     img.csp = RGY_CSP_YUVA444;
     img.width  = ALIGN(image->w + x_offset, 2);
     img.height = ALIGN(image->h + y_offset, 2);
-    img.deivce_mem = false;
+    img.mem_type = RGY_MEM_TYPE_CPU;
     img.picstruct = RGY_PICSTRUCT_FRAME;
-    auto imgInfoEx = getFrameInfoExtra(&img);
-    img.pitch = ALIGN(imgInfoEx.width_byte, 64);
-    imgInfoEx = getFrameInfoExtra(&img);
-    cudaMallocHost(&img.ptr, imgInfoEx.frame_size);
-    unique_ptr<void, decltype(&cudaFreeHost)> bufCPU(img.ptr, cudaFreeHost);
+    auto bufCPU = std::make_unique<CUFrameBuf>(img);
+    bufCPU->alloc();
 
-    auto planeY = getPlane(&img, RGY_PLANE_Y);
-    auto planeU = getPlane(&img, RGY_PLANE_U);
-    auto planeV = getPlane(&img, RGY_PLANE_V);
-    auto planeA = getPlane(&img, RGY_PLANE_A);
+    auto planeY = getPlane(&bufCPU->frame, RGY_PLANE_Y);
+    auto planeU = getPlane(&bufCPU->frame, RGY_PLANE_U);
+    auto planeV = getPlane(&bufCPU->frame, RGY_PLANE_V);
+    auto planeA = getPlane(&bufCPU->frame, RGY_PLANE_A);
 
     //とりあえずすべて0で初期化しておく
-    memset(planeY.ptr, 0, (size_t)planeY.pitch * planeY.height);
+    memset(planeY.ptrArray[0], 0, (size_t)planeY.pitchArray[0] * planeY.height);
 
     //とりあえずすべて0で初期化しておく
     //Alpha=0で透明なので都合がよい
-    memset(planeA.ptr, 0, (size_t)planeA.pitch * planeA.height);
+    memset(planeA.ptrArray[0], 0, (size_t)planeA.pitchArray[0] * planeA.height);
 
     for (int j = 0; j < planeU.height; j++) {
-        auto ptr = planeU.ptr + j * planeU.pitch;
-        for (int i = 0; i < planeU.pitch / (int)sizeof(ptr[0]); i++) {
+        auto ptr = planeU.ptrArray[0] + j * planeU.pitchArray[0];
+        for (int i = 0; i < planeU.pitchArray[0] / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
     for (int j = 0; j < planeV.height; j++) {
-        auto ptr = planeV.ptr + j * planeV.pitch;
-        for (int i = 0; i < planeV.pitch / (int)sizeof(ptr[0]); i++) {
+        auto ptr = planeV.ptrArray[0] + j * planeV.pitchArray[0];
+        for (int i = 0; i < planeV.pitchArray[0] / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
@@ -238,7 +235,7 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
             const int src_idx = j * image->stride + i;
             const uint8_t alpha = image->bitmap[src_idx];
 
-            #define PLANE_DST(plane, x, y) (plane.ptr[(y) * plane.pitch + (x)])
+            #define PLANE_DST(plane, x, y) (plane.ptrArray[0][(y) * plane.pitchArray[0] + (x)])
             PLANE_DST(planeY, i + x_offset, j + y_offset) = subY;
             PLANE_DST(planeU, i + x_offset, j + y_offset) = subU;
             PLANE_DST(planeV, i + x_offset, j + y_offset) = subV;
@@ -247,11 +244,10 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
         }
     }
     //GPUへ転送
-    auto frame = std::make_unique<CUFrameBuf>(img.width, img.height, img.csp);
-    frame->copyFrameAsync(&img, stream);
+    auto frame = std::make_unique<CUFrameBuf>(bufCPU->frame.width, bufCPU->frame.height, bufCPU->frame.csp);
+    frame->copyFrameAsync(&bufCPU->frame, stream);
     return SubImageData(std::move(frame), std::unique_ptr<CUFrameBuf>(), std::move(bufCPU), image->dst_x, image->dst_y);
 }
-
 
 RGY_ERR NVEncFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, cudaStream_t stream) {
     int nDetectChange = 0;
@@ -304,35 +300,32 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     img.csp = RGY_CSP_YUVA444;
     img.width  = ALIGN(rect->w + x_offset, 2);
     img.height = ALIGN(rect->h + y_offset, 2);
-    img.deivce_mem = false;
+    img.mem_type = RGY_MEM_TYPE_CPU;
     img.picstruct = RGY_PICSTRUCT_FRAME;
-    auto imgInfoEx = getFrameInfoExtra(&img);
-    img.pitch = ALIGN(imgInfoEx.width_byte, 64);
-    imgInfoEx = getFrameInfoExtra(&img);
-    cudaMallocHost(&img.ptr, imgInfoEx.frame_size);
-    unique_ptr<void, decltype(&cudaFreeHost)> bufCPU(img.ptr, cudaFreeHost);
+    auto bufCPU = std::make_unique<CUFrameBuf>(img);
+    bufCPU->alloc();
 
-    auto planeY = getPlane(&img, RGY_PLANE_Y);
-    auto planeU = getPlane(&img, RGY_PLANE_U);
-    auto planeV = getPlane(&img, RGY_PLANE_V);
-    auto planeA = getPlane(&img, RGY_PLANE_A);
+    auto planeY = getPlane(&bufCPU->frame, RGY_PLANE_Y);
+    auto planeU = getPlane(&bufCPU->frame, RGY_PLANE_U);
+    auto planeV = getPlane(&bufCPU->frame, RGY_PLANE_V);
+    auto planeA = getPlane(&bufCPU->frame, RGY_PLANE_A);
 
     //とりあえずすべて0で初期化しておく
-    memset(planeY.ptr, 0, (size_t)planeY.pitch * planeY.height);
+    memset(planeY.ptrArray[0], 0, (size_t)planeY.pitchArray[0] * planeY.height);
 
     //とりあえずすべて0で初期化しておく
     //Alpha=0で透明なので都合がよい
-    memset(planeA.ptr, 0, (size_t)planeA.pitch * planeA.height);
+    memset(planeA.ptrArray[0], 0, (size_t)planeA.pitchArray[0] * planeA.height);
 
     for (int j = 0; j < planeU.height; j++) {
-        auto ptr = planeU.ptr + j * planeU.pitch;
-        for (int i = 0; i < planeU.pitch / (int)sizeof(ptr[0]); i++) {
+        auto ptr = planeU.ptrArray[0] + j * planeU.pitchArray[0];
+        for (int i = 0; i < planeU.pitchArray[0] / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
     for (int j = 0; j < planeV.height; j++) {
-        auto ptr = planeV.ptr + j * planeV.pitch;
-        for (int i = 0; i < planeV.pitch / (int)sizeof(ptr[0]); i++) {
+        auto ptr = planeV.ptrArray[0] + j * planeV.pitchArray[0];
+        for (int i = 0; i < planeV.pitchArray[0] / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
@@ -370,7 +363,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
             const uint8_t subU = (uint8_t)((subColor >>  8) & 0xff);
             const uint8_t subY = (uint8_t)(subColor        & 0xff);
 
-            #define PLANE_DST(plane, x, y) (plane.ptr[(y) * plane.pitch + (x)])
+            #define PLANE_DST(plane, x, y) (plane.ptrArray[0][(y) * plane.pitchArray[0] + (x)])
             PLANE_DST(planeY, i + x_offset, j + y_offset) = subY;
             PLANE_DST(planeU, i + x_offset, j + y_offset) = subU;
             PLANE_DST(planeV, i + x_offset, j + y_offset) = subV;
@@ -380,8 +373,8 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     }
 
     //GPUへ転送
-    auto frameTemp = std::make_unique<CUFrameBuf>(img.width, img.height, img.csp);
-    frameTemp->copyFrameAsync(&img, stream);
+    auto frameTemp = std::make_unique<CUFrameBuf>(bufCPU->frame.width, bufCPU->frame.height, bufCPU->frame.csp);
+    frameTemp->copyFrameAsync(&bufCPU->frame, stream);
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
 
     decltype(frameTemp) frame;
@@ -427,15 +420,15 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
 #endif
 
         frame = std::make_unique<CUFrameBuf>(
-            ALIGN((int)(img.width  * prm->subburn.scale + 0.5f), 4),
-            ALIGN((int)(img.height * prm->subburn.scale + 0.5f), 4), img.csp);
+            ALIGN((int)(bufCPU->frame.width  * prm->subburn.scale + 0.5f), 4),
+            ALIGN((int)(bufCPU->frame.height * prm->subburn.scale + 0.5f), 4), bufCPU->frame.csp);
         frame->alloc();
         unique_ptr<NVEncFilterResize> filterResize(new NVEncFilterResize());
         shared_ptr<NVEncFilterParamResize> paramResize(new NVEncFilterParamResize());
         paramResize->frameIn = frameTemp->frame;
         paramResize->frameOut = frame->frame;
         paramResize->baseFps = prm->baseFps;
-        paramResize->frameOut.deivce_mem = true;
+        paramResize->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramResize->bOutOverwrite = false;
         paramResize->interp = RGY_VPP_RESIZE_BILINEAR;
         filterResize->init(paramResize, m_pPrintMes);
@@ -466,12 +459,12 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const in
                     // 空の値をいれる
                     m_subImages.push_back(SubImageData(
                         std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
-                        std::unique_ptr<void, decltype(&cudaFreeHost)>(nullptr, nullptr), 0, 0));
+                        std::unique_ptr<CUFrameBuf>(), 0, 0));
                 } else if (rect->w == 0 || rect->h == 0) {
                     // 空の値をいれる
                     m_subImages.push_back(SubImageData(
                         std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
-                        std::unique_ptr<void, decltype(&cudaFreeHost)>(nullptr, nullptr), 0, 0));
+                        std::unique_ptr<CUFrameBuf>(), 0, 0));
                 } else {
                     m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, stream));
                 }

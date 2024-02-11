@@ -54,7 +54,7 @@ RGY_ERR NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
         //すべて確保されているか確認
         bool allocated = true;
         for (size_t i = 0; i < m_pFrameBuf.size(); i++) {
-            if (m_pFrameBuf[i]->frame.ptr == nullptr) {
+            if (m_pFrameBuf[i]->frame.ptrArray[0] == nullptr) {
                 allocated = false;
                 break;
             }
@@ -66,8 +66,8 @@ RGY_ERR NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
     m_pFrameBuf.clear();
 
     for (int i = 0; i < frames; i++) {
-        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(frame));
-        uptr->frame.ptr = nullptr;
+        auto uptr = std::make_unique<CUFrameBuf>(frame);
+        uptr->releasePtr();
         auto ret = uptr->alloc();
         if (ret != RGY_ERR_NONE) {
             m_pFrameBuf.clear();
@@ -93,7 +93,7 @@ RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFr
     }
     if (m_pParam
         && m_pParam->bOutOverwrite //上書きか?
-        && pInputFrame != nullptr && pInputFrame->ptr != nullptr //入力が存在するか?
+        && pInputFrame != nullptr && pInputFrame->ptrArray[0] != nullptr //入力が存在するか?
         && ppOutputFrames != nullptr && ppOutputFrames[0] == nullptr) { //出力先がセット可能か?
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;
@@ -139,9 +139,8 @@ RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFr
 
 RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, cudaStream_t stream) {
     if (!m_pFieldPairIn) {
-        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pInputFrame));
-        uptr->frame.ptr = nullptr;
-        uptr->frame.pitch = 0;
+        auto uptr = std::make_unique<CUFrameBuf>(*pInputFrame);
+        uptr->releasePtr();
         uptr->frame.height >>= 1;
         uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
         uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
@@ -153,9 +152,8 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
         m_pFieldPairIn = std::move(uptr);
     }
     if (!m_pFieldPairOut) {
-        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pOutputFrame));
-        uptr->frame.ptr = nullptr;
-        uptr->frame.pitch = 0;
+        auto uptr = std::make_unique<CUFrameBuf>(*pOutputFrame);
+        uptr->releasePtr();
         uptr->frame.height >>= 1;
         uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
         uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
@@ -166,14 +164,9 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
         }
         m_pFieldPairOut = std::move(uptr);
     }
-    const auto inputFrameInfoEx = getFrameInfoExtra(pInputFrame);
-    const auto outputFrameInfoEx = getFrameInfoExtra(pOutputFrame);
 
     for (int i = 0; i < 2; i++) {
-        auto err = err_to_rgy(cudaMemcpy2DAsync(m_pFieldPairIn->frame.ptr, m_pFieldPairIn->frame.pitch,
-            pInputFrame->ptr + pInputFrame->pitch * i, pInputFrame->pitch * 2,
-            inputFrameInfoEx.width_byte, inputFrameInfoEx.height_total >> 1,
-            cudaMemcpyDeviceToDevice, stream));
+        auto err = copyFrameFieldAsync(&m_pFieldPairIn->frame, pInputFrame, i == 0, i == 0, stream);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to seprate field(0): %s.\n"), get_err_mes(err));
             return RGY_ERR_CUDA;
@@ -184,10 +177,7 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        err = err_to_rgy(cudaMemcpy2DAsync(pOutputFrame->ptr + pOutputFrame->pitch * i, pOutputFrame->pitch * 2,
-            pFieldOut->ptr, pFieldOut->pitch,
-            outputFrameInfoEx.width_byte, outputFrameInfoEx.height_total >> 1,
-            cudaMemcpyDeviceToDevice, stream));
+        err = copyFrameFieldAsync(pOutputFrame, pFieldOut, i == 0, i == 0, stream);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to merge field(1): %s.\n"), get_err_mes(err));
             return err;

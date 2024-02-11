@@ -401,7 +401,7 @@ static inline RGYBitstream RGYBitstreamInit() {
 #ifndef __CUDACC__
 static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
 #endif
-
+#if 0
 struct RGYFrame {
 private:
     RGYFrameInfo info;
@@ -486,6 +486,7 @@ public:
     const std::vector<std::shared_ptr<RGYFrameData>> &dataList() const { return info.dataList; };
     std::vector<std::shared_ptr<RGYFrameData>> &dataList() { return info.dataList; };
 };
+#endif
 
 static inline RGY_FRAMETYPE frametype_enc_to_rgy(const NV_ENC_PIC_TYPE frametype) {
     RGY_FRAMETYPE type = RGY_FRAMETYPE_UNKNOWN;

@@ -127,7 +127,7 @@ static RGY_ERR tweak_frame(RGYFrameInfo *pFrame,
         dim3 blockSize(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
         dim3 gridSize(divCeil(planeInputY.width, blockSize.x * 4), divCeil(planeInputY.height, blockSize.y));
         kernel_tweak_y<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeInputY.ptr, planeInputY.pitch, planeInputY.width, planeInputY.height,
+            planeInputY.ptrArray[0], planeInputY.pitchArray[0], planeInputY.width, planeInputY.height,
             contrast, brightness, 1.0f / gamma);
         auto sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) {
@@ -141,14 +141,14 @@ static RGY_ERR tweak_frame(RGYFrameInfo *pFrame,
         || swapuv) {
         if (   planeInputU.width  != planeInputV.width
             || planeInputU.height != planeInputV.height
-            || planeInputU.pitch  != planeInputV.pitch) {
+            || planeInputU.pitchArray[0] != planeInputV.pitchArray[0]) {
             return RGY_ERR_UNSUPPORTED;
         }
         dim3 blockSize(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
         dim3 gridSize(divCeil(planeInputU.width, blockSize.x * 4), divCeil(planeInputU.height, blockSize.y));
         const float hue = hue_degree * (float)M_PI / 180.0f;
         kernel_tweak_uv<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeInputU.ptr, planeInputV.ptr, planeInputU.pitch, planeInputU.width, planeInputU.height,
+            planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputU.pitchArray[0], planeInputU.width, planeInputU.height,
             saturation, std::sin(hue) * saturation, std::cos(hue) * saturation, swapuv);
         auto sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) {
@@ -214,7 +214,7 @@ tstring NVEncFilterParamTweak::print() const {
 
 RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -223,11 +223,11 @@ RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (!ppOutputFrames[0]->deivce_mem) {
+    if (!ppOutputFrames[0]->mem_type) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    const auto memcpyKind = getCudaMemcpyKind(ppOutputFrames[0]->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(ppOutputFrames[0]->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;

@@ -540,32 +540,57 @@ const TCHAR *get_memtype_str(RGY_MEM_TYPE type);
 class RGYFrameData;
 
 struct RGYFrameInfo {
-    uint8_t *ptr;
+    uint8_t *ptrArray[RGY_MAX_PLANES];
     RGY_CSP csp;
-    int width, height, pitch;
+    int width, height, pitchArray[RGY_MAX_PLANES];
     int bitdepth;
     int64_t timestamp;
     int64_t duration;
-    bool deivce_mem;
+    RGY_MEM_TYPE mem_type;
     RGY_PICSTRUCT picstruct;
     RGY_FRAME_FLAGS flags;
     int inputFrameId;
     std::vector<std::shared_ptr<RGYFrameData>> dataList;
+    bool singleAlloc;
 
     RGYFrameInfo() :
-        ptr(nullptr),
+        ptrArray(),
         csp(RGY_CSP_NA),
         width(0),
         height(0),
-        pitch(0),
+        pitchArray(),
         bitdepth(0),
         timestamp(0),
         duration(0),
-        deivce_mem(false),
+        mem_type(RGY_MEM_TYPE_CPU),
         picstruct(RGY_PICSTRUCT_UNKNOWN),
         flags(RGY_FRAME_FLAG_NONE),
         inputFrameId(-1),
-        dataList() {};
+        dataList(),
+        singleAlloc(false) {
+        memset(ptrArray, 0, sizeof(ptrArray));
+        memset(pitchArray, 0, sizeof(pitchArray));
+    };
+
+    RGYFrameInfo(const int width_, const int height_, const RGY_CSP csp_, const int bitdepth_,
+        const RGY_PICSTRUCT picstruct_ = RGY_PICSTRUCT_UNKNOWN, const RGY_MEM_TYPE memtype_ = RGY_MEM_TYPE_CPU) :
+        ptrArray(),
+        csp(csp_),
+        width(width_),
+        height(height_),
+        pitchArray(),
+        bitdepth(bitdepth_),
+        timestamp(0),
+        duration(0),
+        mem_type(memtype_),
+        picstruct(picstruct_),
+        flags(RGY_FRAME_FLAG_NONE),
+        inputFrameId(-1),
+        dataList(),
+        singleAlloc(false) {
+        memset(ptrArray, 0, sizeof(ptrArray));
+        memset(pitchArray, 0, sizeof(pitchArray));
+    };
 
     std::basic_string<TCHAR> print() const;
 };
@@ -574,7 +599,7 @@ static bool cmpFrameInfoCspResolution(const RGYFrameInfo *pA, const RGYFrameInfo
     return pA->csp != pB->csp
         || pA->width != pB->width
         || pA->height != pB->height
-        || pA->deivce_mem != pB->deivce_mem;
+        || pA->mem_type != pB->mem_type;
 }
 
 static void copyFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) {
@@ -588,15 +613,48 @@ static void copyFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     dst->flags = src->flags;
 }
 
-struct FrameInfoExtra {
-    int width_byte, height_total, frame_size;
-};
+static int bytesPerPix(RGY_CSP csp) {
+    int pixsize = (RGY_CSP_BIT_DEPTH[csp] + 7) / 8;
+    switch (csp) {
+    case RGY_CSP_RGB24R:
+    case RGY_CSP_RGB24:
+    case RGY_CSP_BGR24:
+    case RGY_CSP_YC48:
+        pixsize *= 3;
+        break;
+    case RGY_CSP_RGB32R:
+    case RGY_CSP_RGB32:
+    case RGY_CSP_BGR32:
+        pixsize *= 4;
+        break;
+    case RGY_CSP_AYUV:
+    case RGY_CSP_AYUV_16:
+        pixsize *= 4;
+        break;
+    case RGY_CSP_YUY2:
+    case RGY_CSP_Y210:
+    case RGY_CSP_Y216:
+    case RGY_CSP_Y410:
+        pixsize *= 2;
+        break;
+    case RGY_CSP_Y416:
+        pixsize *= 4;
+        break;
+    default:
+        break;
+    }
+    return pixsize;
+}
+
+//struct FrameInfoExtra {
+//    int width_byte, height_total, frame_size;
+//};
 
 static bool interlaced(const RGYFrameInfo& RGYFrameInfo) {
     return (RGYFrameInfo.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
 }
 
-FrameInfoExtra getFrameInfoExtra(const RGYFrameInfo *pFrameInfo);
+//FrameInfoExtra getFrameInfoExtra(const RGYFrameInfo *pFrameInfo);
 
 RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, const RGY_PLANE plane);
 

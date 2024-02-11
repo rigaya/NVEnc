@@ -44,10 +44,10 @@ static RGY_ERR denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYFra
     auto dstSize = nppisize(pOutputFrame);
     NppiPoint srcOffset = { 0 };
     NppStatus sts = funcGauss(
-        (const T *)pInputFrame->ptr,
-        pInputFrame->pitch, srcSize, srcOffset,
-        (T *)pOutputFrame->ptr,
-        pOutputFrame->pitch, dstSize, masksize, NPP_BORDER_REPLICATE);
+        (const T *)pInputFrame->ptrArray[0],
+        pInputFrame->pitchArray[0], srcSize, srcOffset,
+        (T *)pOutputFrame->ptrArray[0],
+        pOutputFrame->pitchArray[0], dstSize, masksize, NPP_BORDER_REPLICATE);
     if (sts != NPP_SUCCESS) {
         return err_to_rgy(sts);
     }
@@ -138,7 +138,9 @@ RGY_ERR NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, share
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return RGY_ERR_MEMORY_ALLOC;
     }
-    pGaussParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pGaussParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
 
     setFilterInfo(pParam->print());
     m_pParam = pParam;
@@ -153,7 +155,7 @@ tstring NVEncFilterParamGaussDenoise::print() const {
 RGY_ERR NVEncFilterDenoiseGauss::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -167,7 +169,7 @@ RGY_ERR NVEncFilterDenoiseGauss::run_filter(const RGYFrameInfo *pInputFrame, RGY
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;

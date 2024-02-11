@@ -190,13 +190,13 @@ static cudaError_t denoise_pmd_frame(RGYFrameInfo *pOutputFrame[2], RGYFrameInfo
         const auto planeGauss = getPlane(pGauss, plane);
         RGYFrameInfo planeOutput[2] = { getPlane(pOutputFrame[0], plane), getPlane(pOutputFrame[1], plane) };
         uint8_t *pDst[2];
-        pDst[0] = planeOutput[0].ptr;
-        pDst[1] = planeOutput[1].ptr;
+        pDst[0] = planeOutput[0].ptrArray[0];
+        pDst[1] = planeOutput[1].ptrArray[0];
         auto cudaerr = denoise_pmd_plane<Type, bit_depth, useExp>(
-            pDst, planeGauss.ptr,
-            planeOutput[0].pitch, planeOutput[0].width, planeOutput[0].height,
-            planeInput.ptr,
-            planeInput.pitch, planeInput.width, planeInput.height,
+            pDst, planeGauss.ptrArray[0],
+            planeOutput[0].pitchArray[0], planeOutput[0].width, planeOutput[0].height,
+            planeInput.ptrArray[0],
+            planeInput.pitchArray[0], planeInput.width, planeInput.height,
             loop_count, strength, threshold, stream);
         if (cudaerr != cudaSuccess) {
             return cudaerr;
@@ -279,14 +279,18 @@ RGY_ERR NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    pPmdParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pPmdParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
 
     if (cmpFrameInfoCspResolution(&m_Gauss.frame, &pPmdParam->frameOut)) {
         m_Gauss.frame.width = pPmdParam->frameOut.width;
         m_Gauss.frame.height = pPmdParam->frameOut.height;
-        m_Gauss.frame.pitch = pPmdParam->frameOut.pitch;
+        for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+            m_Gauss.frame.pitchArray[i] = pPmdParam->frameOut.pitchArray[i];
+        }
         m_Gauss.frame.picstruct = pPmdParam->frameOut.picstruct;
-        m_Gauss.frame.deivce_mem = pPmdParam->frameOut.deivce_mem;
+        m_Gauss.frame.mem_type = pPmdParam->frameOut.mem_type;
         m_Gauss.frame.csp = pPmdParam->frameOut.csp;
         sts = m_Gauss.alloc();
         if (sts != RGY_ERR_NONE) {
@@ -306,7 +310,7 @@ tstring NVEncFilterParamDenoisePmd::print() const {
 
 RGY_ERR NVEncFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return RGY_ERR_NONE;
     }
     auto pPmdParam = std::dynamic_pointer_cast<NVEncFilterParamDenoisePmd>(m_pParam);
@@ -338,7 +342,7 @@ RGY_ERR NVEncFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;

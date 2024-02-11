@@ -122,11 +122,11 @@ RGY_ERR NVEncFilterNvvfxEffect::initEffect(const tstring& modelDir) {
 #endif
 }
 
-RGY_ERR NVEncFilterNvvfxEffect::checkParam(const NVEncFilterParam *param) {
+RGY_ERR NVEncFilterNvvfxEffect::checkParam([[maybe_unused]] const NVEncFilterParam *param) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterNvvfxEffect::setParam(const NVEncFilterParam *param) {
+RGY_ERR NVEncFilterNvvfxEffect::setParam([[maybe_unused]] const NVEncFilterParam *param) {
     return RGY_ERR_NONE;
 }
 
@@ -224,8 +224,8 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         paramCrop->frameOut.csp = RGY_CSP_BGR_F32;
         paramCrop->matrix = prm->vuiInfo.matrix;
         paramCrop->baseFps = pParam->baseFps;
-        paramCrop->frameIn.deivce_mem = true;
-        paramCrop->frameOut.deivce_mem = true;
+        paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
         sts = filter->init(paramCrop, m_pPrintMes);
         if (sts != RGY_ERR_NONE) {
@@ -243,8 +243,8 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         paramCrop->matrix = prm->vuiInfo.matrix;
         paramCrop->frameOut = pParam->frameOut;
         paramCrop->baseFps = pParam->baseFps;
-        paramCrop->frameIn.deivce_mem = true;
-        paramCrop->frameOut.deivce_mem = true;
+        paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
+        paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
         sts = filter->init(paramCrop, m_pPrintMes);
         if (sts != RGY_ERR_NONE) {
@@ -312,7 +312,9 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
         return RGY_ERR_MEMORY_ALLOC;
     }
-    pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+    }
 
     tstring info = m_sFilterName + _T(": ");
     if (m_srcCrop) {
@@ -335,7 +337,7 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
     AddMessage(RGY_LOG_ERROR, _T("nvvfx filters is not supported on x86 exec file, please use x64 exec file.\n"));
     return RGY_ERR_UNSUPPORTED;
 #else
-    if (pInputFrame->ptr == nullptr) {
+    if (pInputFrame->ptrArray[0] == nullptr) {
         return sts;
     }
 
@@ -349,7 +351,7 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -361,8 +363,9 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
 
     if (true) {
         RGYFrameInfo srcImgInfo = m_srcCrop->GetFilterParam()->frameOut;
-        srcImgInfo.ptr = (uint8_t *)m_srcImg->pixels;
-        srcImgInfo.pitch = m_srcImg->pitch;
+        srcImgInfo.singleAlloc = true;
+        srcImgInfo.ptrArray[0] = (uint8_t *)m_srcImg->pixels;
+        srcImgInfo.pitchArray[0] = m_srcImg->pitch;
 
         int cropFilterOutputNum = 0;
         RGYFrameInfo *outInfo[1] = { &srcImgInfo };
@@ -385,8 +388,8 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
         const auto nvcvPixFmt = RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420 ? NVCV_YUV420 : NVCV_YUV444;
         const auto nvcvElemType = bitdepth > 8 ? NVCV_U16 : NVCV_U8;
         sts = err_to_rgy(NvCVImage_TransferFromYUV(
-            planeY.ptr, pix_byte, planeY.pitch,
-            planeU.ptr, planeV.ptr, pix_byte, planeU.pitch,
+            planeY.ptrArray[0], pix_byte, planeY.pitchArray[0],
+            planeU.ptrArray[0], planeV.ptrArray[0], pix_byte, planeU.pitchArray[0],
             nvcvPixFmt, nvcvElemType, NVCV_PLANAR, NVCV_GPU,
             m_srcImg.get(), nullptr, 1.0f / (float)((1 << bitdepth) - 1), stream, nullptr));
         if (sts != RGY_ERR_NONE) {
@@ -411,8 +414,9 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
 
     {
         RGYFrameInfo dstImgInfo = m_dstCrop->GetFilterParam()->frameIn;
-        dstImgInfo.ptr = (uint8_t *)m_dstImg->pixels;
-        dstImgInfo.pitch = m_dstImg->pitch;
+        dstImgInfo.singleAlloc = true;
+        dstImgInfo.ptrArray[0] = (uint8_t *)m_dstImg->pixels;
+        dstImgInfo.pitchArray[0] = m_dstImg->pitch;
         RGYFrameInfo *outInfo[1] = { &dstImgInfo };
         auto sts_filter = m_dstCrop->filter(&dstImgInfo, ppOutputFrames, pOutputFrameNum, stream);
         if (outInfo[0] == nullptr || *pOutputFrameNum != 1) {
