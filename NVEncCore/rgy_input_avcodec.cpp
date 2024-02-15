@@ -2111,7 +2111,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_Demux.format.lowLatency = input_prm->lowLatency;
         m_Demux.thread.bAbortInput = false;
         auto nPrmInputThread = input_prm->threadInput;
-        m_Demux.thread.threadInput = (nPrmInputThread == RGY_INPUT_THREAD_AUTO) ? 1 : nPrmInputThread;
+        m_Demux.thread.threadInput = (nPrmInputThread == RGY_INPUT_THREAD_AUTO) ? (input_prm->lowLatency ? 0 : 1) : nPrmInputThread;
         if (m_Demux.thread.threadInput) {
             m_Demux.thread.thInput = std::thread(&RGYInputAvcodec::ThreadFuncRead, this, input_prm->threadParamInput);
             //はじめcapacityを無限大にセットしたので、この段階で制限をかける
