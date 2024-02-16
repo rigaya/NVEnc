@@ -127,12 +127,12 @@ template<typename Type, int bit_depth>
 static cudaError_t unsharp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, CUMemBuf *pGaussWeight,
     const int radius, const float weight, const float threshold, cudaStream_t stream) {
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = textureCreateDenoiseUnsharp<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pInputFrame->width, pInputFrame->height);
+    auto cudaerr = textureCreateDenoiseUnsharp<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptrArray[0],
-        pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
+    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptr[0],
+        pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
         texSrc, (const float *)pGaussWeight->ptr, radius, weight, threshold / (1 << (sizeof(Type) * 8)),
         stream);
     cudaerr = cudaGetLastError();
@@ -255,7 +255,7 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pUnsharpParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        pUnsharpParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
 
     if (!m_pParam
@@ -281,7 +281,7 @@ tstring NVEncFilterParamUnsharp::print() const {
 
 RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 

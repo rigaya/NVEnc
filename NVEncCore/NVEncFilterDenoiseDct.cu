@@ -584,15 +584,15 @@ RGY_ERR denoise_dct_run(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFr
     auto planeOutputR = getPlane(pOutputFrame, RGY_PLANE_R);
     auto planeOutputG = getPlane(pOutputFrame, RGY_PLANE_G);
     auto planeOutputB = getPlane(pOutputFrame, RGY_PLANE_B);
-    if (planeInputR.pitchArray[0] != planeInputG.pitchArray[0] || planeInputR.pitchArray[0] != planeInputB.pitchArray[0]
-        || planeOutputR.pitchArray[0] != planeOutputG.pitchArray[0] || planeOutputR.pitchArray[0] != planeOutputB.pitchArray[0]) {
+    if (planeInputR.pitch[0] != planeInputG.pitch[0] || planeInputR.pitch[0] != planeInputB.pitch[0]
+        || planeOutputR.pitch[0] != planeOutputG.pitch[0] || planeOutputR.pitch[0] != planeOutputB.pitch[0]) {
         return RGY_ERR_UNKNOWN;
     }
     dim3 blockSize(BLOCK_SIZE, DENOISE_BLOCK_SIZE_X);
     dim3 gridSize(divCeil(planeInputR.width, blockSize.x * DENOISE_BLOCK_SIZE_X), divCeil(planeInputR.height, BLOCK_SIZE * DENOISE_LOOP_COUNT_BLOCK), 3);
     kernel_denoise_dct<Type, bit_depth, float, float, BLOCK_SIZE, STEP> << <gridSize, blockSize, 0, stream >>>(
-        (char *)planeOutputR.ptrArray[0], (char *)planeOutputG.ptrArray[0], (char *)planeOutputB.ptrArray[0], planeOutputR.pitchArray[0],
-        (const char *)planeInputR.ptrArray[0], (const char *)planeInputG.ptrArray[0], (const char *)planeInputB.ptrArray[0], planeInputR.pitchArray[0],
+        (char *)planeOutputR.ptr[0], (char *)planeOutputG.ptr[0], (char *)planeOutputB.ptr[0], planeOutputR.pitch[0],
+        (const char *)planeInputR.ptr[0], (const char *)planeInputG.ptr[0], (const char *)planeInputB.ptr[0], planeInputR.pitch[0],
         planeInputR.width, planeInputR.height, threshold);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
@@ -651,15 +651,15 @@ RGY_ERR NVEncFilterDenoiseDct::colorDecorrelation(RGYFrameInfo *pOutputFrame, co
         || cmpFrameInfoCspResolution(&planeInputR, &planeInputB)) {
         return RGY_ERR_UNKNOWN;
     }
-    if (planeInputR.pitchArray[0] != planeInputG.pitchArray[0] || planeInputR.pitchArray[0] != planeInputB.pitchArray[0]
-        || planeOutputR.pitchArray[0] != planeOutputG.pitchArray[0] || planeOutputR.pitchArray[0] != planeOutputB.pitchArray[0]) {
+    if (planeInputR.pitch[0] != planeInputG.pitch[0] || planeInputR.pitch[0] != planeInputB.pitch[0]
+        || planeOutputR.pitch[0] != planeOutputG.pitch[0] || planeOutputR.pitch[0] != planeOutputB.pitch[0]) {
         return RGY_ERR_UNKNOWN;
     }
     dim3 blockSize(64, 8);
     dim3 gridSize(divCeil(planeInputR.width, blockSize.x), divCeil(planeInputR.height, blockSize.y));
     kernel_color_decorrelation<float> << <gridSize, blockSize, 0, stream >> > (
-        planeOutputR.ptrArray[0], planeOutputG.ptrArray[0], planeOutputB.ptrArray[0], planeOutputR.pitchArray[0],
-        planeInputR.ptrArray[0], planeInputG.ptrArray[0], planeInputB.ptrArray[0], planeInputR.pitchArray[0],
+        planeOutputR.ptr[0], planeOutputG.ptr[0], planeOutputB.ptr[0], planeOutputR.pitch[0],
+        planeInputR.ptr[0], planeInputG.ptr[0], planeInputB.ptr[0], planeInputR.pitch[0],
         planeInputR.width, planeInputR.height);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
@@ -708,15 +708,15 @@ RGY_ERR NVEncFilterDenoiseDct::colorCorrelation(RGYFrameInfo *pOutputFrame, cons
         || cmpFrameInfoCspResolution(&planeInputR, &planeInputB)) {
         return RGY_ERR_UNKNOWN;
     }
-    if (planeInputR.pitchArray[0] != planeInputG.pitchArray[0] || planeInputR.pitchArray[0] != planeInputB.pitchArray[0]
-        || planeOutputR.pitchArray[0] != planeOutputG.pitchArray[0] || planeOutputR.pitchArray[0] != planeOutputB.pitchArray[0]) {
+    if (planeInputR.pitch[0] != planeInputG.pitch[0] || planeInputR.pitch[0] != planeInputB.pitch[0]
+        || planeOutputR.pitch[0] != planeOutputG.pitch[0] || planeOutputR.pitch[0] != planeOutputB.pitch[0]) {
         return RGY_ERR_UNKNOWN;
     }
     dim3 blockSize(64, 8);
     dim3 gridSize(divCeil(planeInputR.width, blockSize.x), divCeil(planeInputR.height, blockSize.y));
     kernel_color_correlation<float><<<gridSize, blockSize, 0, stream >>> (
-        planeOutputR.ptrArray[0], planeOutputG.ptrArray[0], planeOutputB.ptrArray[0], planeOutputR.pitchArray[0],
-        planeInputR.ptrArray[0], planeInputG.ptrArray[0], planeInputB.ptrArray[0], planeInputR.pitchArray[0],
+        planeOutputR.ptr[0], planeOutputG.ptr[0], planeOutputB.ptr[0], planeOutputR.pitch[0],
+        planeInputR.ptr[0], planeInputG.ptr[0], planeInputB.ptr[0], planeInputR.pitch[0],
         planeInputR.width, planeInputR.height);
     auto err = err_to_rgy(cudaGetLastError());
     if (err != RGY_ERR_NONE) {
@@ -883,7 +883,7 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
             return sts;
         }
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            prm->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+            prm->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
         }
 
         m_step = prm->dct.step;
@@ -901,7 +901,7 @@ tstring NVEncFilterParamDenoiseDct::print() const {
 
 RGY_ERR NVEncFilterDenoiseDct::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 

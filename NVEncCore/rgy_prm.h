@@ -376,7 +376,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_AUTO,
     RGY_VPP_RESIZE_BILINEAR,
     RGY_VPP_RESIZE_BICUBIC,
-#if ENCODER_NVENC
+#if ENCODER_NVENC || CUFILTERS
     RGY_VPP_RESIZE_NEAREST,
 #endif
     RGY_VPP_RESIZE_SPLINE16,
@@ -392,7 +392,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_MFX_ADVANCED,
     RGY_VPP_RESIZE_MFX_MAX,
 #endif
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS
     RGY_VPP_RESIZE_NPPI_INTER_NN,        /**<  Nearest neighbor filtering. */
     RGY_VPP_RESIZE_NPPI_INTER_LINEAR,        /**<  Linear interpolation. */
     RGY_VPP_RESIZE_NPPI_INTER_CUBIC,        /**<  Cubic interpolation. */

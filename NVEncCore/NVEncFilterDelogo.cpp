@@ -563,7 +563,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             }
             m_sProcessData[i].pDevLogo = std::move(uptr);
             //ロゴデータをGPUに転送
-            sts = err_to_rgy(cudaMemcpy2DAsync(m_sProcessData[i].pDevLogo->frame.ptrArray[0], m_sProcessData[i].pDevLogo->frame.pitchArray[0],
+            sts = err_to_rgy(cudaMemcpy2DAsync(m_sProcessData[i].pDevLogo->frame.ptr[0], m_sProcessData[i].pDevLogo->frame.pitch[0],
                 (void *)m_sProcessData[i].pLogoPtr.get(), m_sProcessData[i].width * sizeof(int16x2_t),
                 m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height, cudaMemcpyHostToDevice));
             if (sts != RGY_ERR_NONE) {
@@ -644,7 +644,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                 return sts;
             }
 
-            const int mask_pitch = m_mask->frame.pitchArray[0];
+            const int mask_pitch = m_mask->frame.pitch[0];
             auto pitch_check = [=](int frame_pitch, const TCHAR *buf_name) {
                 if (mask_pitch != frame_pitch) {
                     AddMessage(RGY_LOG_ERROR, _T("%s pitch does not match mask pitch: logo=%d, %s=%d.\n"), buf_name, mask_pitch, buf_name, frame_pitch);
@@ -652,9 +652,9 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                 }
                 return RGY_ERR_NONE;
             };
-            if (pitch_check(m_maskAdjusted->frame.pitchArray[0], _T("m_maskAdjusted")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
-            if (pitch_check(m_maskNR->frame.pitchArray[0], _T("m_maskNR")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
-            if (pitch_check(m_maskNRAdjusted->frame.pitchArray[0], _T("m_maskNRAdjusted")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+            if (pitch_check(m_maskAdjusted->frame.pitch[0], _T("m_maskAdjusted")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+            if (pitch_check(m_maskNR->frame.pitch[0], _T("m_maskNR")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+            if (pitch_check(m_maskNRAdjusted->frame.pitch[0], _T("m_maskNRAdjusted")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
 
             m_adjMaskMinIndex.reset(new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y8));
             m_adjMaskMinIndex->frame.singleAlloc = true;
@@ -707,9 +707,9 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                         i, get_err_mes(sts));
                     return sts;
                 }
-                if (pitch_check(m_bufDelogo[i]->frame.pitchArray[0], _T("m_bufDelogo[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
-                if (pitch_check(m_bufDelogoNR[i]->frame.pitchArray[0], _T("m_bufDelogoNR[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
-                if (pitch_check(m_bufEval[i]->frame.pitchArray[0], _T("m_bufEval[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+                if (pitch_check(m_bufDelogo[i]->frame.pitch[0], _T("m_bufDelogo[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+                if (pitch_check(m_bufDelogoNR[i]->frame.pitch[0], _T("m_bufDelogoNR[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+                if (pitch_check(m_bufEval[i]->frame.pitch[0], _T("m_bufEval[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
 
                 const int maxBlocks = DELOGO_PARALLEL_FADE * divCeil(logo_w, DELOGO_BLOCK_X * 4) * divCeil(logo_h, DELOGO_BLOCK_Y * DELOGO_BLOCK_LOOP_Y);
                 sts = m_evalCounter[i].alloc(sizeof(float) * maxBlocks);
@@ -1238,7 +1238,7 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     float fade = (float)m_sProcessData[LOGO__Y].fade;
     int auto_nr = pDelogoParam->delogo.NRValue;
     if (pDelogoParam->delogo.autoFade || pDelogoParam->delogo.autoNR) {
-        if (pInputFrame->ptrArray[0] != nullptr) {
+        if (pInputFrame->ptr[0] != nullptr) {
             sts = copyFrameAsync(&m_src[m_frameIn].frame, pInputFrame, stream);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy input frame to buffer: %s.\n"),
@@ -1267,7 +1267,7 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         ppOutputFrames[0] = &m_src[m_frameOut].frame;
         m_frameOut++;
     } else {
-        if (pInputFrame->ptrArray[0] == nullptr) {
+        if (pInputFrame->ptr[0] == nullptr) {
             //自動フェードや自動NRを使用しない場合、入力フレームがないということはない
             *pOutputFrameNum = 0;
             ppOutputFrames[0] = nullptr;

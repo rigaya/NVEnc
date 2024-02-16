@@ -109,10 +109,10 @@ RGY_ERR NVEncFilterOverlay::overlayFrame(RGYFrameInfo *pOutputFrame, const RGYFr
         const auto posY = (planeTarget != RGY_PLANE_Y && RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420) ? prm->overlay.posY >> 1 : prm->overlay.posY;
 
         auto sts = func_list.at(pInputFrame->csp)(
-            planeOut.ptrArray[0], planeOut.pitchArray[0],
-            planeIn.ptrArray[0], planeIn.pitchArray[0], planeIn.width, planeIn.height,
-            planeFrame.ptrArray[0], planeFrame.pitchArray[0],
-            planeAlpha.ptrArray[0], planeAlpha.pitchArray[0], planeAlpha.width, planeAlpha.height,
+            planeOut.ptr[0], planeOut.pitch[0],
+            planeIn.ptr[0], planeIn.pitch[0], planeIn.width, planeIn.height,
+            planeFrame.ptr[0], planeFrame.pitch[0],
+            planeAlpha.ptr[0], planeAlpha.pitch[0], planeAlpha.width, planeAlpha.height,
             posX, posY, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at overlay(%s): %s.\n"),

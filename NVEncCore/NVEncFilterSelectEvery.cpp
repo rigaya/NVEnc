@@ -55,7 +55,7 @@ RGY_ERR NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, shared
     }
 
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pSelectParam->frameOut.pitchArray[i] = pSelectParam->frameIn.pitchArray[i];
+        pSelectParam->frameOut.pitch[i] = pSelectParam->frameIn.pitch[i];
     }
     pParam->baseFps /= pSelectParam->selectevery.step;
 
@@ -87,7 +87,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
 
     ppOutputFrames[0] = nullptr;
     *pOutputFrameNum = 0;
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         if (m_totalDuration > 0
             && m_frames % pSelectParam->selectevery.step != (pSelectParam->selectevery.step-1)
             && m_frames % pSelectParam->selectevery.step >= (pSelectParam->selectevery.step / 2)) {

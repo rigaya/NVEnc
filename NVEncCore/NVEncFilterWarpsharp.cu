@@ -241,8 +241,8 @@ static RGY_ERR warpsharp_sobel_plane(RGYFrameInfo *pOutputFrame, const RGYFrameI
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
     kernel_sobel<Type, bit_depth> << <gridSize, blockSize, 0, stream >> > (
-        (uint8_t*)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0],
-        (uint8_t*)pInputFrame->ptrArray[0], pInputFrame->pitchArray[0],
+        (uint8_t*)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+        (uint8_t*)pInputFrame->ptr[0], pInputFrame->pitch[0],
         pOutputFrame->width, pOutputFrame->height,
         (int)(threshold * (1<<(bit_depth - 8)) + 0.5f));
     auto cudaerr = cudaGetLastError();
@@ -258,8 +258,8 @@ static RGY_ERR warpsharp_blur_plane(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
     kernel_blur<Type, bit_depth, range> << <gridSize, blockSize, 0, stream >> > (
-        (uint8_t*)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0],
-        (uint8_t*)pInputFrame->ptrArray[0], pInputFrame->pitchArray[0],
+        (uint8_t*)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+        (uint8_t*)pInputFrame->ptr[0], pInputFrame->pitch[0],
         pOutputFrame->width, pOutputFrame->height);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -274,14 +274,14 @@ static RGY_ERR warpsharp_warp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = textureCreateWarpsharp<Type>(texSrc, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pInputFrame->width, pInputFrame->height);
+    auto cudaerr = textureCreateWarpsharp<Type>(texSrc, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pInputFrame->ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
     }
     kernel_warp<Type, bit_depth> << <gridSize, blockSize, 0, stream >> > (
-        (uint8_t*)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0],
+        (uint8_t*)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
         texSrc,
-        (uint8_t*)pMaskFrame->ptrArray[0], pMaskFrame->pitchArray[0],
+        (uint8_t*)pMaskFrame->ptr[0], pMaskFrame->pitch[0],
         pOutputFrame->width, pOutputFrame->height,
         depth);
     cudaerr = cudaGetLastError();
@@ -301,8 +301,8 @@ static RGY_ERR warpsharp_downscale_plane(RGYFrameInfo *pOutputFrame, const RGYFr
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
     kernel_downscale<Type> << <gridSize, blockSize, 0, stream >> > (
-        (uint8_t*)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        (uint8_t*)pInputFrame->ptrArray[0], pInputFrame->pitchArray[0]);
+        (uint8_t*)pOutputFrame->ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        (uint8_t*)pInputFrame->ptr[0], pInputFrame->pitch[0]);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
@@ -450,7 +450,7 @@ RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_p
             return sts;
         }
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            prm->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+            prm->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
         }
     }
 
@@ -459,7 +459,7 @@ RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_p
             m.frame.width = prm->frameOut.width;
             m.frame.height = prm->frameOut.height;
             for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-                m.frame.pitchArray[i] = prm->frameOut.pitchArray[i];
+                m.frame.pitch[i] = prm->frameOut.pitch[i];
             }
             m.frame.picstruct = prm->frameOut.picstruct;
             m.frame.mem_type = prm->frameOut.mem_type;
@@ -483,7 +483,7 @@ tstring NVEncFilterParamWarpsharp::print() const {
 
 RGY_ERR NVEncFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 

@@ -224,8 +224,8 @@ RGY_ERR calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBuf
         return sts;
     }
     kernel_ssim<Type4, bit_depth> <<< gridSize, blockSize, 0, stream >>> (
-        (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
-        (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
+        (const uint8_t *)p0->ptr[0], p0->pitch[0],
+        (const uint8_t *)p1->ptr[0], p1->pitch[0],
         width,
         height,
         (float *)tmp.ptrDevice);
@@ -322,8 +322,8 @@ RGY_ERR calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBuf
         return sts;
     }
     kernel_psnr<Type4, bit_depth> << < gridSize, blockSize, 0, stream >> > (
-        (const uint8_t *)p0->ptrArray[0], p0->pitchArray[0],
-        (const uint8_t *)p1->ptrArray[0], p1->pitchArray[0],
+        (const uint8_t *)p0->ptr[0], p0->pitch[0],
+        (const uint8_t *)p1->ptr[0], p1->pitch[0],
         width,
         height,
         (int *)tmp.ptrDevice);

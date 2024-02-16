@@ -540,9 +540,9 @@ const TCHAR *get_memtype_str(RGY_MEM_TYPE type);
 class RGYFrameData;
 
 struct RGYFrameInfo {
-    uint8_t *ptrArray[RGY_MAX_PLANES];
+    uint8_t *ptr[RGY_MAX_PLANES];
     RGY_CSP csp;
-    int width, height, pitchArray[RGY_MAX_PLANES];
+    int width, height, pitch[RGY_MAX_PLANES];
     int bitdepth;
     int64_t timestamp;
     int64_t duration;
@@ -554,11 +554,11 @@ struct RGYFrameInfo {
     bool singleAlloc;
 
     RGYFrameInfo() :
-        ptrArray(),
+        ptr(),
         csp(RGY_CSP_NA),
         width(0),
         height(0),
-        pitchArray(),
+        pitch(),
         bitdepth(0),
         timestamp(0),
         duration(0),
@@ -568,17 +568,17 @@ struct RGYFrameInfo {
         inputFrameId(-1),
         dataList(),
         singleAlloc(false) {
-        memset(ptrArray, 0, sizeof(ptrArray));
-        memset(pitchArray, 0, sizeof(pitchArray));
+        memset(ptr, 0, sizeof(ptr));
+        memset(pitch, 0, sizeof(pitch));
     };
 
     RGYFrameInfo(const int width_, const int height_, const RGY_CSP csp_, const int bitdepth_,
         const RGY_PICSTRUCT picstruct_ = RGY_PICSTRUCT_UNKNOWN, const RGY_MEM_TYPE memtype_ = RGY_MEM_TYPE_CPU) :
-        ptrArray(),
+        ptr(),
         csp(csp_),
         width(width_),
         height(height_),
-        pitchArray(),
+        pitch(),
         bitdepth(bitdepth_),
         timestamp(0),
         duration(0),
@@ -588,8 +588,8 @@ struct RGYFrameInfo {
         inputFrameId(-1),
         dataList(),
         singleAlloc(false) {
-        memset(ptrArray, 0, sizeof(ptrArray));
-        memset(pitchArray, 0, sizeof(pitchArray));
+        memset(ptr, 0, sizeof(ptr));
+        memset(pitch, 0, sizeof(pitch));
     };
 
     std::basic_string<TCHAR> print() const;

@@ -353,7 +353,7 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             return sts;
         }
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            prm->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+            prm->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
         }
     }
 
@@ -374,7 +374,7 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 RGY_ERR NVEncFilterCurves::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 

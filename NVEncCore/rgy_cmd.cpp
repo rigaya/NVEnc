@@ -37,7 +37,9 @@
 #include "rgy_perf_monitor.h"
 #include "rgy_osdep.h"
 
-#if !FOR_AUO
+#if FOR_AUO
+#pragma warning (disable: 4100)
+#else
 #if ENABLE_CPP_REGEX
 #include <regex>
 #endif //#if ENABLE_CPP_REGEX

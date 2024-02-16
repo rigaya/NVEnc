@@ -594,7 +594,7 @@ RGY_ERR NVEncFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, cudaStream_t s
 
 RGY_ERR NVEncFilterSubburn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 

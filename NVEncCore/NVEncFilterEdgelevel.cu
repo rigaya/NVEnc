@@ -129,12 +129,12 @@ static RGY_ERR edgelevel_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *p
     white     /= (1<<(sizeof(Type) * 8));
 
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = textureCreateEdgelevel<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pInputFrame->width, pInputFrame->height);
+    auto cudaerr = textureCreateEdgelevel<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
     }
-    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>((uint8_t *)pOutputFrame->ptrArray[0],
-        pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
+    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0],
+        pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
         texSrc, strength, threshold, black, white);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -164,11 +164,11 @@ static RGY_ERR edgelevel_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *p
     if (err != RGY_ERR_NONE) {
         return err;
     }
-    err = copyPlane(&planeOutputU, &planeInputU, stream);
+    err = copyPlaneAsync(&planeOutputU, &planeInputU, stream);
     if (err != RGY_ERR_NONE) {
         return err;
     }
-    err = copyPlane(&planeOutputV, &planeInputV, stream);
+    err = copyPlaneAsync(&planeOutputV, &planeInputV, stream);
     if (err != RGY_ERR_NONE) {
         return err;
     }
@@ -223,7 +223,7 @@ RGY_ERR NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         return RGY_ERR_MEMORY_ALLOC;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pEdgelevelParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        pEdgelevelParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
 
     setFilterInfo(pParam->print());
@@ -237,7 +237,7 @@ tstring NVEncFilterParamEdgelevel::print() const {
 
 RGY_ERR NVEncFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 

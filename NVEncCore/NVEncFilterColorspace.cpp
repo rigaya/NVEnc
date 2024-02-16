@@ -1846,10 +1846,10 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
 
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pParam->frameOut.pitchArray[i] = custom->GetFilterParam()->frameOut.pitchArray[i];
+        pParam->frameOut.pitch[i] = custom->GetFilterParam()->frameOut.pitch[i];
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, picth %d, %s.\n"),
-        pParam->frameOut.width, pParam->frameOut.height, pParam->frameOut.pitchArray[0], RGY_CSP_NAMES[pParam->frameOut.csp]);
+        pParam->frameOut.width, pParam->frameOut.height, pParam->frameOut.pitch[0], RGY_CSP_NAMES[pParam->frameOut.csp]);
 
     tstring filterInfo = _T("colorspace: ");
     if (crop) {
@@ -1874,7 +1874,7 @@ RGY_ERR NVEncFilterColorspace::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
 #if ENABLE_NVRTC
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 
@@ -1907,7 +1907,7 @@ RGY_ERR NVEncFilterColorspace::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         return sts_filter;
     }
     for (int i = 0; i < RGY_CSP_PLANES[ppOutputFrames[0]->csp]; i++) {
-        if (ppOutputFrames[0]->pitchArray[0] % 4 != 0) { // あとからでもチェックしておく
+        if (ppOutputFrames[0]->pitch[0] % 4 != 0) { // あとからでもチェックしておく
             AddMessage(RGY_LOG_ERROR, _T("Invalid pitch!\n"));
             return RGY_ERR_UNSUPPORTED;
         }

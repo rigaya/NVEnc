@@ -154,25 +154,25 @@ RGY_ERR proc_frame(RGYFrameInfo *pFrame,
     const int subPosY_Y = (pos_y & ~1);
     const int subPosX_UV = (RGY_CSP_CHROMA_FORMAT[pFrame->csp] == RGY_CHROMAFMT_YUV420) ? (pos_x >> 1) : (pos_x & ~1);
     const int subPosY_UV = (RGY_CSP_CHROMA_FORMAT[pFrame->csp] == RGY_CHROMAFMT_YUV420) ? (pos_y >> 1) : (pos_y & ~1);
-    const int frameOffsetByteY = subPosY_Y  * planeFrameY.pitchArray[0] + subPosX_Y  * sizeof(TypePixel);
-    const int frameOffsetByteU = subPosY_UV * planeFrameU.pitchArray[0] + subPosX_UV * sizeof(TypePixel);
-    const int frameOffsetByteV = subPosY_UV * planeFrameV.pitchArray[0] + subPosX_UV * sizeof(TypePixel);
+    const int frameOffsetByteY = subPosY_Y  * planeFrameY.pitch[0] + subPosX_Y  * sizeof(TypePixel);
+    const int frameOffsetByteU = subPosY_UV * planeFrameU.pitch[0] + subPosX_UV * sizeof(TypePixel);
+    const int frameOffsetByteV = subPosY_UV * planeFrameV.pitch[0] + subPosX_UV * sizeof(TypePixel);
 
-    if (   planeSubY.pitchArray[0] != planeSubU.pitchArray[0]
-        || planeSubY.pitchArray[0] != planeSubV.pitchArray[0]
-        || planeSubY.pitchArray[0] != planeSubA.pitchArray[0]) {
+    if (   planeSubY.pitch[0] != planeSubU.pitch[0]
+        || planeSubY.pitch[0] != planeSubV.pitch[0]
+        || planeSubY.pitch[0] != planeSubA.pitch[0]) {
         return RGY_ERR_UNSUPPORTED;
     }
 
     cudaError_t cudaerr = cudaSuccess;
     kernel_subburn<TypePixel, bit_depth, true> << <gridSize, blockSize, 0, stream >> > (
-        planeFrameY.ptrArray[0] + frameOffsetByteY,
-        planeFrameU.ptrArray[0] + frameOffsetByteU,
-        planeFrameV.ptrArray[0] + frameOffsetByteV,
-        planeFrameY.pitchArray[0],
-        planeFrameU.pitchArray[0],
-        planeFrameV.pitchArray[0],
-        planeSubY.ptrArray[0], planeSubU.ptrArray[0], planeSubV.ptrArray[0], planeSubA.ptrArray[0], planeSubY.pitchArray[0],
+        planeFrameY.ptr[0] + frameOffsetByteY,
+        planeFrameU.ptr[0] + frameOffsetByteU,
+        planeFrameV.ptr[0] + frameOffsetByteV,
+        planeFrameY.pitch[0],
+        planeFrameU.pitch[0],
+        planeFrameV.pitch[0],
+        planeSubY.ptr[0], planeSubU.ptr[0], planeSubV.ptr[0], planeSubA.ptr[0], planeSubY.pitch[0],
         burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -200,21 +200,21 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
     auto planeA = getPlane(&bufCPU->frame, RGY_PLANE_A);
 
     //とりあえずすべて0で初期化しておく
-    memset(planeY.ptrArray[0], 0, (size_t)planeY.pitchArray[0] * planeY.height);
+    memset(planeY.ptr[0], 0, (size_t)planeY.pitch[0] * planeY.height);
 
     //とりあえずすべて0で初期化しておく
     //Alpha=0で透明なので都合がよい
-    memset(planeA.ptrArray[0], 0, (size_t)planeA.pitchArray[0] * planeA.height);
+    memset(planeA.ptr[0], 0, (size_t)planeA.pitch[0] * planeA.height);
 
     for (int j = 0; j < planeU.height; j++) {
-        auto ptr = planeU.ptrArray[0] + j * planeU.pitchArray[0];
-        for (int i = 0; i < planeU.pitchArray[0] / (int)sizeof(ptr[0]); i++) {
+        auto ptr = planeU.ptr[0] + j * planeU.pitch[0];
+        for (int i = 0; i < planeU.pitch[0] / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
     for (int j = 0; j < planeV.height; j++) {
-        auto ptr = planeV.ptrArray[0] + j * planeV.pitchArray[0];
-        for (int i = 0; i < planeV.pitchArray[0] / (int)sizeof(ptr[0]); i++) {
+        auto ptr = planeV.ptr[0] + j * planeV.pitch[0];
+        for (int i = 0; i < planeV.pitch[0] / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
@@ -235,7 +235,7 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
             const int src_idx = j * image->stride + i;
             const uint8_t alpha = image->bitmap[src_idx];
 
-            #define PLANE_DST(plane, x, y) (plane.ptrArray[0][(y) * plane.pitchArray[0] + (x)])
+            #define PLANE_DST(plane, x, y) (plane.ptr[0][(y) * plane.pitch[0] + (x)])
             PLANE_DST(planeY, i + x_offset, j + y_offset) = subY;
             PLANE_DST(planeU, i + x_offset, j + y_offset) = subU;
             PLANE_DST(planeV, i + x_offset, j + y_offset) = subV;
@@ -311,21 +311,21 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     auto planeA = getPlane(&bufCPU->frame, RGY_PLANE_A);
 
     //とりあえずすべて0で初期化しておく
-    memset(planeY.ptrArray[0], 0, (size_t)planeY.pitchArray[0] * planeY.height);
+    memset(planeY.ptr[0], 0, (size_t)planeY.pitch[0] * planeY.height);
 
     //とりあえずすべて0で初期化しておく
     //Alpha=0で透明なので都合がよい
-    memset(planeA.ptrArray[0], 0, (size_t)planeA.pitchArray[0] * planeA.height);
+    memset(planeA.ptr[0], 0, (size_t)planeA.pitch[0] * planeA.height);
 
     for (int j = 0; j < planeU.height; j++) {
-        auto ptr = planeU.ptrArray[0] + j * planeU.pitchArray[0];
-        for (int i = 0; i < planeU.pitchArray[0] / (int)sizeof(ptr[0]); i++) {
+        auto ptr = planeU.ptr[0] + j * planeU.pitch[0];
+        for (int i = 0; i < planeU.pitch[0] / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
     for (int j = 0; j < planeV.height; j++) {
-        auto ptr = planeV.ptrArray[0] + j * planeV.pitchArray[0];
-        for (int i = 0; i < planeV.pitchArray[0] / (int)sizeof(ptr[0]); i++) {
+        auto ptr = planeV.ptr[0] + j * planeV.pitch[0];
+        for (int i = 0; i < planeV.pitch[0] / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
@@ -363,7 +363,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
             const uint8_t subU = (uint8_t)((subColor >>  8) & 0xff);
             const uint8_t subY = (uint8_t)(subColor        & 0xff);
 
-            #define PLANE_DST(plane, x, y) (plane.ptrArray[0][(y) * plane.pitchArray[0] + (x)])
+            #define PLANE_DST(plane, x, y) (plane.ptr[0][(y) * plane.pitch[0] + (x)])
             PLANE_DST(planeY, i + x_offset, j + y_offset) = subY;
             PLANE_DST(planeU, i + x_offset, j + y_offset) = subU;
             PLANE_DST(planeV, i + x_offset, j + y_offset) = subV;

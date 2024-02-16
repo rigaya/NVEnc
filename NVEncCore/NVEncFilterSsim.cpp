@@ -564,7 +564,7 @@ void read_frame_vmaf2(VmafPicture *dst, const RGYFrameInfo *srcFrame) {
     const int pixsize = (RGY_CSP_BIT_DEPTH[srcPlane.csp] > 8) ? 2 : 1;
     for (int y = 0; y < srcPlane.height; y++) {
         void *ptrDstLine = (void *)((char *)dst->data[0] + dst->stride[0] * y);
-        const void *ptrSrcLine = (const void *)((char *)srcPlane.ptrArray[0] + srcPlane.pitchArray[0] * y);
+        const void *ptrSrcLine = (const void *)((char *)srcPlane.ptr[0] + srcPlane.pitch[0] * y);
         memcpy(ptrDstLine, ptrSrcLine, srcPlane.width * pixsize);
     }
 }
@@ -856,9 +856,9 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             return RGY_ERR_UNKNOWN;
         }
         auto frameInfo = m_decoder->GetDecFrameInfo();
-        frameInfo.pitchArray[0] = pitch;
-        frameInfo.ptrArray[0] = (uint8_t *)dMappedFrame;
-        auto deviceFrame = shared_ptr<void>(frameInfo.ptrArray[0], [&](void *ptr) {
+        frameInfo.pitch[0] = pitch;
+        frameInfo.ptr[0] = (uint8_t *)dMappedFrame;
+        auto deviceFrame = shared_ptr<void>(frameInfo.ptr[0], [&](void *ptr) {
             cuvidUnmapVideoFrame(m_decoder->GetDecoder(), (CUdeviceptr)ptr);
             });
 

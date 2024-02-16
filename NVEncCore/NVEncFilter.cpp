@@ -54,7 +54,7 @@ RGY_ERR NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
         //すべて確保されているか確認
         bool allocated = true;
         for (size_t i = 0; i < m_pFrameBuf.size(); i++) {
-            if (m_pFrameBuf[i]->frame.ptrArray[0] == nullptr) {
+            if (m_pFrameBuf[i]->frame.ptr[0] == nullptr) {
                 allocated = false;
                 break;
             }
@@ -93,7 +93,7 @@ RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFr
     }
     if (m_pParam
         && m_pParam->bOutOverwrite //上書きか?
-        && pInputFrame != nullptr && pInputFrame->ptrArray[0] != nullptr //入力が存在するか?
+        && pInputFrame != nullptr && pInputFrame->ptr[0] != nullptr //入力が存在するか?
         && ppOutputFrames != nullptr && ppOutputFrames[0] == nullptr) { //出力先がセット可能か?
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;

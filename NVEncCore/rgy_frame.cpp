@@ -188,9 +188,9 @@ RGY_ERR RGYSysFrame::allocate(const int width, const int height, const RGY_CSP c
 RGY_ERR RGYSysFrame::allocate(const RGYFrameInfo &info) {
     frame = info;
     frame.mem_type = RGY_MEM_TYPE_CPU;
-    for (int i = 0; i < _countof(frame.ptrArray); i++) {
-        frame.ptrArray[i] = nullptr;
-        frame.pitchArray[i] = 0;
+    for (int i = 0; i < _countof(frame.ptr); i++) {
+        frame.ptr[i] = nullptr;
+        frame.pitch[i] = 0;
     }
 
     int pixsize = (RGY_CSP_BIT_DEPTH[frame.csp] + 7) / 8;
@@ -232,23 +232,23 @@ RGY_ERR RGYSysFrame::allocate(const RGYFrameInfo &info) {
         auto mem = _aligned_malloc(size, image_pitch_alignment);
         if (mem == nullptr) {
             for (int j = i-1; j >= 0; j--) {
-                if (frame.ptrArray[j] != nullptr) {
-                    _aligned_free(frame.ptrArray[j]);
-                    frame.ptrArray[j] = nullptr;
+                if (frame.ptr[j] != nullptr) {
+                    _aligned_free(frame.ptr[j]);
+                    frame.ptr[j] = nullptr;
                 }
             }
             return RGY_ERR_NULL_PTR;
         }
-        frame.pitchArray[i] = memPitch;
-        frame.ptrArray[i] = (uint8_t *)mem;
+        frame.pitch[i] = memPitch;
+        frame.ptr[i] = (uint8_t *)mem;
     }
     return RGY_ERR_NONE;
 }
 void RGYSysFrame::deallocate() {
-    for (int i = 0; i < ((frame.singleAlloc) ? 1 : _countof(frame.ptrArray)); i++) {
-        if (frame.ptrArray[i] != nullptr) {
-            _aligned_free(frame.ptrArray[i]);
-            frame.ptrArray[i] = nullptr;
+    for (int i = 0; i < ((frame.singleAlloc) ? 1 : _countof(frame.ptr)); i++) {
+        if (frame.ptr[i] != nullptr) {
+            _aligned_free(frame.ptr[i]);
+            frame.ptr[i] = nullptr;
         }
     }
 }

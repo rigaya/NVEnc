@@ -80,7 +80,7 @@ RGY_ERR NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        pParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
 
     setFilterInfo(pParam->print());
@@ -103,14 +103,14 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
     }
     if (pad->right == 0 && pad->left == 0) {
         if (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) {
-            auto cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0],
+            auto cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
                 (uint16_t)pad_color, pOutputFrame->width, pad->top, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 const auto sts = err_to_rgy(cudaerr);
                 AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"), get_err_mes(sts));
                 return sts;
             }
-            cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptrArray[0] + (pad->top + pInputFrame->height) * pOutputFrame->pitchArray[0], pOutputFrame->pitchArray[0],
+            cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr[0] + (pad->top + pInputFrame->height) * pOutputFrame->pitch[0], pOutputFrame->pitch[0],
                 (uint16_t)pad_color, pOutputFrame->width, pad->bottom, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 const auto sts = err_to_rgy(cudaerr);
@@ -118,7 +118,7 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
                 return sts;
             }
         } else { //RGY_CSP_BIT_DEPTH[pOutputFrame->csp] == 8
-            auto cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0],
+            auto cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
                 (uint8_t)pad_color, pOutputFrame->width, pad->top, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 const auto sts = err_to_rgy(cudaerr);
@@ -126,7 +126,7 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
                 return sts;
             }
 
-            cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptrArray[0] + (pad->top + pInputFrame->height) * pOutputFrame->pitchArray[0], pOutputFrame->pitchArray[0],
+            cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr[0] + (pad->top + pInputFrame->height) * pOutputFrame->pitch[0], pOutputFrame->pitch[0],
                 (uint8_t)pad_color, pOutputFrame->width, pad->bottom, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 const auto sts = err_to_rgy(cudaerr);
@@ -136,7 +136,7 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
         }
     } else {
         if (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) {
-            auto cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0],
+            auto cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
                 (uint16_t)pad_color, pOutputFrame->width, pOutputFrame->height, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 const auto sts = err_to_rgy(cudaerr);
@@ -144,7 +144,7 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
                 return sts;
             }
         } else {// RGY_CSP_BIT_DEPTH[pOutputFrame->csp] == 8
-            auto cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0],
+            auto cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
                 (uint8_t)pad_color, pOutputFrame->width, pOutputFrame->height, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 const auto sts = err_to_rgy(cudaerr);
@@ -153,8 +153,8 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
             }
         }
     }
-    auto cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptrArray[0] + pad->top * pOutputFrame->pitchArray[0] + pad->left * bytesPerPix(pOutputFrame->csp), pOutputFrame->pitchArray[0],
-            pInputFrame->ptrArray[0], pInputFrame->pitchArray[0],
+    auto cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptr[0] + pad->top * pOutputFrame->pitch[0] + pad->left * bytesPerPix(pOutputFrame->csp), pOutputFrame->pitch[0],
+            pInputFrame->ptr[0], pInputFrame->pitch[0],
             pInputFrame->width * bytesPerPix(pOutputFrame->csp), pInputFrame->height,
             memcpyKind);
     if (cudaerr != cudaSuccess) {
@@ -168,7 +168,7 @@ RGY_ERR NVEncFilterPad::padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
 RGY_ERR NVEncFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 

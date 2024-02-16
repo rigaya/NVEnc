@@ -98,7 +98,7 @@ RGY_ERR NVEncFilterCurves::procFrame(RGYFrameInfo *pFrame, cudaStream_t stream) 
         }
         if (lut != nullptr) {
             func_list.at(plane.csp)(
-                plane.ptrArray[0], plane.pitchArray[0], plane.width, plane.height, lut, stream);
+                plane.ptr[0], plane.pitch[0], plane.width, plane.height, lut, stream);
             auto cudaerr = cudaGetLastError();
             if (cudaerr != cudaSuccess) {
                 auto sts = err_to_rgy(cudaerr);

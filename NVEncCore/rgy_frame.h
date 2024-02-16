@@ -121,38 +121,37 @@ public:
     RGYFrame() {};
     virtual ~RGYFrame() { }
     virtual bool isempty() const = 0;
-    std::array<void*, _countof(RGYFrameInfo::ptrArray)> ptr() const {
+    std::array<void*, _countof(RGYFrameInfo::ptr)> ptr() const {
         auto frame = getInfo();
-        std::array<void*, _countof(RGYFrameInfo::ptrArray)> ptrarray;
+        std::array<void*, _countof(RGYFrameInfo::ptr)> ptrarray;
         for (size_t i = 0; i < ptrarray.size(); i++) {
-            ptrarray[i] = (void *)frame.ptrArray[i];
+            ptrarray[i] = (void *)frame.ptr[i];
         }
         return ptrarray;
     }
     void ptrArray(void *array[3], bool bRGB) {
-        auto frame = getInfo();
-        UNREFERENCED_PARAMETER(bRGB);
-        array[0] = (void *)frame.ptrArray[0];
-        array[1] = (void *)frame.ptrArray[1];
-        array[2] = (void *)frame.ptrArray[2];
+        auto frame = getInfo(); bRGB;
+        array[0] = (void *)frame.ptr[0];
+        array[1] = (void *)frame.ptr[1];
+        array[2] = (void *)frame.ptr[2];
     }
     uint8_t *ptrPlane(const RGY_PLANE plane) const {
-        return getInfo().ptrArray[plane];
+        return getInfo().ptr[plane];
     }
     uint8_t *ptrY() const {
-        return getInfo().ptrArray[0];
+        return getInfo().ptr[0];
     }
     uint8_t *ptrUV() const {
-        return getInfo().ptrArray[1];
+        return getInfo().ptr[1];
     }
     uint8_t *ptrU() const {
-        return getInfo().ptrArray[1];
+        return getInfo().ptr[1];
     }
     uint8_t *ptrV() const {
-        return getInfo().ptrArray[2];
+        return getInfo().ptr[2];
     }
     uint8_t *ptrRGB() const {
-        return getInfo().ptrArray[0];
+        return getInfo().ptr[0];
     }
     RGY_CSP csp() const {
         return getInfo().csp;
@@ -167,10 +166,10 @@ public:
         return getInfo().height;
     }
     uint32_t pitch(int index = 0) const {
-        return getInfo().pitchArray[index];
+        return getInfo().pitch[index];
     }
     uint32_t pitch(const RGY_PLANE plane) const {
-        return getInfo().pitchArray[plane];
+        return getInfo().pitch[plane];
     }
     uint64_t timestamp() const {
         return getInfo().timestamp;
@@ -218,7 +217,7 @@ public:
     virtual RGY_ERR allocate(const RGYFrameInfo &frame);
     virtual void deallocate();
     const RGYFrameInfo& frameInfo() { return frame; }
-    virtual bool isempty() const { return !frame.ptrArray[0]; }
+    virtual bool isempty() const { return !frame.ptr[0]; }
     virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
     virtual void setDuration(uint64_t duration) override { frame.duration = duration; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
@@ -242,7 +241,7 @@ public:
     RGYFrameRef(RGYFrameInfo& frame_);
     virtual ~RGYFrameRef();
     const RGYFrameInfo& frameInfo() { return frame; }
-    virtual bool isempty() const { return !frame.ptrArray[0]; }
+    virtual bool isempty() const { return !frame.ptr[0]; }
     virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
     virtual void setDuration(uint64_t duration) override { frame.duration = duration; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }

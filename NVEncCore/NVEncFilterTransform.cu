@@ -126,12 +126,12 @@ RGY_ERR transpose_plane(
         divCeil(pOutputFrame->height, TRASNPOSE_TILE_DIM));
 
     kernel_transpose_plane<TypePixel4, flipX, flipY><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)pOutputFrame->ptrArray[0],
-        pOutputFrame->pitchArray[0],
+        (uint8_t *)pOutputFrame->ptr[0],
+        pOutputFrame->pitch[0],
         pOutputFrame->width,  // = srcHeight
         pOutputFrame->height, // = srcWidth
-        (const uint8_t *)pInputFrame->ptrArray[0],
-        pInputFrame->pitchArray[0]);
+        (const uint8_t *)pInputFrame->ptr[0],
+        pInputFrame->pitch[0]);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
@@ -205,12 +205,12 @@ RGY_ERR flip_plane(
         divCeil(pOutputFrame->height, FLIP_BLOCK_DIM));
 
     kernel_flip_plane<TypePixel4, flipX, flipY> << <gridSize, blockSize, 0, stream >> > (
-        (uint8_t *)pOutputFrame->ptrArray[0],
-        pOutputFrame->pitchArray[0],
+        (uint8_t *)pOutputFrame->ptr[0],
+        pOutputFrame->pitch[0],
         pOutputFrame->width,
         pOutputFrame->height,
-        (const uint8_t *)pInputFrame->ptrArray[0],
-        pInputFrame->pitchArray[0]);
+        (const uint8_t *)pInputFrame->ptr[0],
+        pInputFrame->pitch[0]);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
@@ -316,7 +316,7 @@ RGY_ERR NVEncFilterTransform::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        prm->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        prm->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
 
     setFilterInfo(pParam->print());
@@ -330,7 +330,7 @@ tstring NVEncFilterParamTransform::print() const {
 
 RGY_ERR NVEncFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamTransform>(m_pParam);

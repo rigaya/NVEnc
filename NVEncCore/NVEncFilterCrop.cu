@@ -103,8 +103,8 @@ union RGY_CSP_2 {
     conv_bit_depth<in_bit_depth, out_bit_depth, 3>((int)a * i + (int)b * j)
 
 bool isAligned(const RGYFrameInfo& plane, const size_t align) {
-    static_assert(sizeof(plane.ptrArray[0]) == sizeof(size_t), "size mismatch");
-    return (((size_t)plane.ptrArray[0]) & (align - 1)) == 0 && (plane.pitchArray[0] & (align - 1)) == 0;
+    static_assert(sizeof(plane.ptr[0]) == sizeof(size_t), "size mismatch");
+    return (((size_t)plane.ptr[0]) & (align - 1)) == 0 && (plane.pitch[0] & (align - 1)) == 0;
 }
 bool isAlignedRGB(const RGYFrameInfo *plane, const size_t align) {
     return isAligned(getPlane(plane, RGY_PLANE_R), align)
@@ -226,8 +226,8 @@ void crop_y(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const s
     dim3 blockSize(64, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
     kernel_crop_y<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)pOutputFrame->ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        (uint8_t *)pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        (uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        (uint8_t *)pInputFrame->ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -237,8 +237,8 @@ void crop_uv(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const 
     dim3 blockSize(64, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(outPlaneC.height, blockSize.y));
     kernel_crop_y<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)outPlaneC.ptrArray[0], outPlaneC.pitchArray[0], pOutputFrame->width, outPlaneC.height,
-        (const uint8_t *)inPlaneC.ptrArray[0], inPlaneC.pitchArray[0], pCrop->e.left, pCrop->e.up >> 1);
+        (uint8_t *)outPlaneC.ptr[0], outPlaneC.pitch[0], pOutputFrame->width, outPlaneC.height,
+        (const uint8_t *)inPlaneC.ptr[0], inPlaneC.pitch[0], pCrop->e.left, pCrop->e.up >> 1);
 }
 
 RGY_ERR NVEncFilterCspCrop::convertYBitDepth(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
@@ -308,8 +308,8 @@ void crop_uv_nv12_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFra
     auto outPlaneV = getPlane(pOutputFrame, RGY_PLANE_V);
     const auto inPlaneC = getPlane(pInputFrame, RGY_PLANE_C);
     kernel_crop_uv_nv12_yv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-        outPlaneU.ptrArray[0], outPlaneV.ptrArray[0], outPlaneU.pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        inPlaneC.ptrArray[0], inPlaneC.pitchArray[0], pCrop->e.left, pCrop->e.up);
+        outPlaneU.ptr[0], outPlaneV.ptr[0], outPlaneU.pitch[0], pOutputFrame->width, pOutputFrame->height,
+        inPlaneC.ptr[0], inPlaneC.pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -430,12 +430,12 @@ void crop_uv_nv12_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
     const auto planeInputC = getPlane(pInputFrame, RGY_PLANE_C);
     if (interlaced(*pInputFrame)) {
         kernel_crop_uv_nv12_yuv444_i<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-            planeInputC.ptrArray[0], pInputFrame->pitchArray[0], pInputFrame->width, pInputFrame->height, pCrop->e.left, pCrop->e.up);
+            planeOutputU.ptr[0], planeOutputV.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+            planeInputC.ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height, pCrop->e.left, pCrop->e.up);
     } else {
         kernel_crop_uv_nv12_yuv444_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-            planeInputC.ptrArray[0], pInputFrame->pitchArray[0], pInputFrame->width, pInputFrame->height, pCrop->e.left, pCrop->e.up);
+            planeOutputU.ptr[0], planeOutputV.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+            planeInputC.ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height, pCrop->e.left, pCrop->e.up);
     }
 }
 
@@ -463,8 +463,8 @@ void crop_uv_yv12_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFra
     const auto inPlaneU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto inPlaneV = getPlane(pInputFrame, RGY_PLANE_V);
     kernel_crop_uv_yv12_nv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-        outPlaneC.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        inPlaneU.ptrArray[0], inPlaneV.ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        outPlaneC.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        inPlaneU.ptr[0], inPlaneV.ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -499,8 +499,8 @@ void crop_uv_nv16_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     const auto planeInputC = getPlane(pInputFrame, RGY_PLANE_C);
     kernel_crop_uv_nv16_yuv444<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        planeInputC.ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputU.ptr[0], planeOutputV.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        planeInputC.ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -539,8 +539,8 @@ void crop_uv_nv16_yv12_p(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
         auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
         const auto planeInputC = getPlane(pInputFrame, RGY_PLANE_C);
         kernel_crop_uv_nv16_yv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-            planeInputC.ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+            planeOutputU.ptr[0], planeOutputV.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+            planeInputC.ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
     }
 }
 
@@ -578,8 +578,8 @@ void crop_uv_nv16_nv12_p(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
         auto planeOutputC = getPlane(pOutputFrame, RGY_PLANE_C);
         const auto planeInputC = getPlane(pInputFrame, RGY_PLANE_C);
         kernel_crop_uv_nv16_nv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeOutputC.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-            planeInputC.ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+            planeOutputC.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+            planeInputC.ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
     }
 }
 
@@ -639,13 +639,13 @@ void crop_uv_yuv444_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
     if (interlaced(*pInputFrame)) {
         dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 2), divCeil(pOutputFrame->height, blockSize.y * 4));
         kernel_crop_uv_yuv444_nv12_i<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeOutputC.ptrArray[0], planeOutputC.pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-            planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputU.pitchArray[0], pCrop->e.left, pCrop->e.up);
+            planeOutputC.ptr[0], planeOutputC.pitch[0], pOutputFrame->width, pOutputFrame->height,
+            planeInputU.ptr[0], planeInputV.ptr[0], planeInputU.pitch[0], pCrop->e.left, pCrop->e.up);
     } else {
         dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 2), divCeil(pOutputFrame->height, blockSize.y * 2));
         kernel_crop_uv_yuv444_nv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeOutputC.ptrArray[0], planeOutputC.pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-            planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputU.pitchArray[0], pCrop->e.left, pCrop->e.up);
+            planeOutputC.ptr[0], planeOutputC.pitch[0], pOutputFrame->width, pOutputFrame->height,
+            planeInputU.ptr[0], planeInputV.ptr[0], planeInputU.pitch[0], pCrop->e.left, pCrop->e.up);
     }
 }
 
@@ -703,13 +703,13 @@ void crop_uv_yuv444_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
     if (interlaced(*pInputFrame)) {
         dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 2), divCeil(pOutputFrame->height, blockSize.y * 4));
         kernel_crop_uv_yuv444_yv12_i<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
-            planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], planeOutputU.pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-            planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputU.pitchArray[0], pCrop->e.left, pCrop->e.up);
+            planeOutputU.ptr[0], planeOutputV.ptr[0], planeOutputU.pitch[0], pOutputFrame->width, pOutputFrame->height,
+            planeInputU.ptr[0], planeInputV.ptr[0], planeInputU.pitch[0], pCrop->e.left, pCrop->e.up);
     } else {
         dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 2), divCeil(pOutputFrame->height, blockSize.y * 2));
         kernel_crop_uv_yuv444_yv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream >>>(
-            planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], planeOutputU.pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-            planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputU.pitchArray[0], pCrop->e.left, pCrop->e.up);
+            planeOutputU.ptr[0], planeOutputV.ptr[0], planeOutputU.pitch[0], pOutputFrame->width, pOutputFrame->height,
+            planeInputU.ptr[0], planeInputV.ptr[0], planeInputU.pitch[0], pCrop->e.left, pCrop->e.up);
     }
 }
 
@@ -936,8 +936,8 @@ void crop_rgb3_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFram
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     kernel_crop_rgb3_yuv444<TypeOut, out_bit_depth, TypeIn, in_bit_depth, matrix><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputY.ptrArray[0], planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputU.ptr[0], planeOutputV.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        pInputFrame->ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -989,8 +989,8 @@ void crop_rgb4_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFram
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     kernel_crop_rgb4_yuv444<TypeOut, out_bit_depth, TypeIn, in_bit_depth, matrix><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputY.ptrArray[0], planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputU.ptr[0], planeOutputV.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        pInputFrame->ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -1057,8 +1057,8 @@ void crop_rgb_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 4), divCeil(pOutputFrame->height, blockSize.y));
     kernel_crop_rgb_yuv444<TypeOut, out_bit_depth, TypeIn, in_bit_depth, aligned, matrix><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputY.ptrArray[0], planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], planeOutputY.pitchArray[0], planeOutputY.width, planeOutputY.height,
-        planeInputR.ptrArray[0], planeInputG.ptrArray[0], planeInputB.ptrArray[0], planeInputR.pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputU.ptr[0], planeOutputV.ptr[0], planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
+        planeInputR.ptr[0], planeInputG.ptr[0], planeInputB.ptr[0], planeInputR.pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth, CspMatrix matrix>
@@ -1133,8 +1133,8 @@ void crop_yuv444_rgb(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 4), divCeil(pOutputFrame->height, blockSize.y));
     kernel_crop_yuv444_rgb<TypeOut, out_bit_depth, TypeIn, in_bit_depth, aligned, matrix> << <gridSize, blockSize, 0, stream >> > (
-        planeOutputR.ptrArray[0], planeOutputG.ptrArray[0], planeOutputB.ptrArray[0], planeOutputR.pitchArray[0], planeOutputR.width, planeOutputR.height,
-        planeInputY.ptrArray[0], planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputY.pitchArray[0],
+        planeOutputR.ptr[0], planeOutputG.ptr[0], planeOutputB.ptr[0], planeOutputR.pitch[0], planeOutputR.width, planeOutputR.height,
+        planeInputY.ptr[0], planeInputU.ptr[0], planeInputV.ptr[0], planeInputY.pitch[0],
         pCrop->e.left, pCrop->e.up);
 }
 
@@ -1214,8 +1214,8 @@ void crop_rgb3_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     kernel_crop_rgb3_yv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth, matrix><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputY.ptrArray[0], planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputU.ptr[0], planeOutputV.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        pInputFrame->ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -1279,8 +1279,8 @@ void crop_rgb3_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputC = getPlane(pOutputFrame, RGY_PLANE_C);
     kernel_crop_rgb3_nv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth, matrix><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputY.ptrArray[0], planeOutputC.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputC.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        pInputFrame->ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -1340,8 +1340,8 @@ void crop_rgb4_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     kernel_crop_rgb4_yv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth, matrix><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputY.ptrArray[0], planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputU.ptr[0], planeOutputV.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        pInputFrame->ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -1389,8 +1389,8 @@ void crop_rgb4_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputC = getPlane(pOutputFrame, RGY_PLANE_C);
     kernel_crop_rgb4_nv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth, matrix><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputY.ptrArray[0], planeOutputC.ptrArray[0], pOutputFrame->pitchArray[0], pOutputFrame->width, pOutputFrame->height,
-        pInputFrame->ptrArray[0], pInputFrame->pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputC.ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        pInputFrame->ptr[0], pInputFrame->pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
@@ -1471,8 +1471,8 @@ void crop_rgb_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, 
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 4), divCeil(pOutputFrame->height, blockSize.y * 2));
     kernel_crop_rgb_yv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth, aligned, matrix><<<gridSize, blockSize, 0, stream >>>(
-        planeOutputY.ptrArray[0], planeOutputU.ptrArray[0], planeOutputV.ptrArray[0], planeOutputY.pitchArray[0], planeOutputY.width, planeOutputY.height,
-        planeInputR.ptrArray[0], planeInputG.ptrArray[0], planeInputB.ptrArray[0], planeInputR.pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputU.ptr[0], planeOutputV.ptr[0], planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
+        planeInputR.ptr[0], planeInputG.ptr[0], planeInputB.ptr[0], planeInputR.pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth, CspMatrix matrix>
@@ -1567,8 +1567,8 @@ void crop_yv12_rgb(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, 
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 2), divCeil(pOutputFrame->height, blockSize.y * 2));
     kernel_crop_yv12_rgb<TypeOut, out_bit_depth, TypeIn, in_bit_depth, aligned, matrix> << <gridSize, blockSize, 0, stream >> > (
-        planeOutputR.ptrArray[0], planeOutputG.ptrArray[0], planeOutputB.ptrArray[0], planeOutputR.pitchArray[0], planeOutputR.width, planeOutputR.height,
-        planeInputY.ptrArray[0], planeInputU.ptrArray[0], planeInputV.ptrArray[0], planeInputY.pitchArray[0],
+        planeOutputR.ptr[0], planeOutputG.ptr[0], planeOutputB.ptr[0], planeOutputR.pitch[0], planeOutputR.width, planeOutputR.height,
+        planeInputY.ptr[0], planeInputU.ptr[0], planeInputV.ptr[0], planeInputY.pitch[0],
         pCrop->e.left, pCrop->e.up);
 }
 
@@ -1651,8 +1651,8 @@ void crop_rgb_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, 
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 4), divCeil(pOutputFrame->height, blockSize.y * 2));
     kernel_crop_rgb_nv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth, aligned, matrix><<<gridSize, blockSize, 0, stream>>>(
-        planeOutputY.ptrArray[0], planeOutputC.ptrArray[0], planeOutputY.pitchArray[0], planeOutputY.width, planeOutputY.height,
-        planeInputR.ptrArray[0], planeInputG.ptrArray[0], planeInputB.ptrArray[0], planeInputR.pitchArray[0], pCrop->e.left, pCrop->e.up);
+        planeOutputY.ptr[0], planeOutputC.ptr[0], planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
+        planeInputR.ptr[0], planeInputG.ptr[0], planeInputB.ptr[0], planeInputR.pitch[0], pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth, CspMatrix matrix>
@@ -2319,7 +2319,7 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pCropParam->frameOut.pitchArray[0] = m_pFrameBuf[0]->frame.pitchArray[0];
+        pCropParam->frameOut.pitch[0] = m_pFrameBuf[0]->frame.pitch[0];
     }
 
     //フィルタ情報の調整
@@ -2356,7 +2356,7 @@ tstring NVEncFilterParamCrop::print() const {
 RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 
@@ -2394,18 +2394,18 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
                 auto planeOutputC = getPlane(ppOutputFrames[0], RGY_PLANE_C);
                 cudaError_t cudaerr;
                 //Y
-                cudaerr = cudaMemcpy2DAsync((uint8_t *)planeOutputY.ptrArray[0], planeOutputY.pitchArray[0],
-                    (uint8_t *)planeInputY.ptrArray[0] + pCropParam->crop.e.left + pCropParam->crop.e.up * planeInputY.pitchArray[0],
-                    planeInputY.pitchArray[0],
+                cudaerr = cudaMemcpy2DAsync((uint8_t *)planeOutputY.ptr[0], planeOutputY.pitch[0],
+                    (uint8_t *)planeInputY.ptr[0] + pCropParam->crop.e.left + pCropParam->crop.e.up * planeInputY.pitch[0],
+                    planeInputY.pitch[0],
                     planeInputY.width * bytesPerPix(planeInputY.csp), pCropParam->frameOut.height, memcpyKind, stream);
                 if (cudaerr != cudaSuccess) {
                     return cudaMemcpyErrMes(err_to_rgy(cudaerr), _T("cudaMemcpy2DAsync_Y"));
                 };
                 //UV
-                cudaerr = cudaMemcpy2DAsync((uint8_t *)planeOutputC.ptrArray[0], planeOutputC.pitchArray[0],
-                    (uint8_t *)planeInputC.ptrArray[0]
-                    + pCropParam->crop.e.left + (pCropParam->crop.e.up >> 1) * planeInputC.pitchArray[0],
-                    pInputFrame->pitchArray[0],
+                cudaerr = cudaMemcpy2DAsync((uint8_t *)planeOutputC.ptr[0], planeOutputC.pitch[0],
+                    (uint8_t *)planeInputC.ptr[0]
+                    + pCropParam->crop.e.left + (pCropParam->crop.e.up >> 1) * planeInputC.pitch[0],
+                    pInputFrame->pitch[0],
                     planeInputC.width * bytesPerPix(planeInputC.csp), pCropParam->frameOut.height >> 1, memcpyKind, stream);
                 if (cudaerr != cudaSuccess) {
                     return cudaMemcpyErrMes(err_to_rgy(cudaerr), _T("cudaMemcpy2DAsync_UV"));

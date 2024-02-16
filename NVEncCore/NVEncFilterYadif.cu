@@ -172,10 +172,10 @@ cudaError_t setTexFieldYadif(cudaTextureObject_t& texSrc, const RGYFrameInfo *pF
     memset(&resDescSrc, 0, sizeof(resDescSrc));
     resDescSrc.resType = cudaResourceTypePitch2D;
     resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<TypePixel>();
-    resDescSrc.res.pitch2D.pitchInBytes = pFrame->pitchArray[0];
+    resDescSrc.res.pitch2D.pitchInBytes = pFrame->pitch[0];
     resDescSrc.res.pitch2D.width = pFrame->width;
     resDescSrc.res.pitch2D.height = pFrame->height;
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pFrame->ptrArray[0];
+    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pFrame->ptr[0];
 
     cudaTextureDesc texDescSrc;
     memset(&texDescSrc, 0, sizeof(texDescSrc));
@@ -212,9 +212,9 @@ RGY_ERR run_yadif(RGYFrameInfo *pOutputPlane,
     dim3 gridSize(divCeil(pOutputPlane->width, blockSize.x), divCeil(pOutputPlane->height, blockSize.y));
 
     kernel_yadif<TypePixel, bit_depth, YADIF_BLOCK_X, YADIF_BLOCK_Y><<<gridSize, blockSize, 0, stream>>>(
-        (TypePixel * )pOutputPlane->ptrArray[0],
+        (TypePixel * )pOutputPlane->ptr[0],
         texSrc0, texSrc1, texSrc2,
-        pOutputPlane->pitchArray[0],
+        pOutputPlane->pitch[0],
         pOutputPlane->width,
         pOutputPlane->height,
         pSrc1->width,
@@ -285,7 +285,7 @@ RGY_ERR NVEncFilterYadifSource::alloc(const RGYFrameInfo& frameInfo) {
         //すべて確保されているか確認
         bool allocated = true;
         for (auto& buf : m_buf) {
-            if (buf.frame.ptrArray[0] == nullptr) {
+            if (buf.frame.ptr[0] == nullptr) {
                 allocated = false;
                 break;
             }
@@ -359,10 +359,10 @@ RGY_ERR NVEncFilterYadif::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        prmYadif->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        prmYadif->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-        m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitchArray[0], RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
+        m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
     sts = m_source.alloc(prmYadif->frameOut);
     if (sts != RGY_ERR_NONE) {
@@ -397,12 +397,12 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     }
 
     const int iframe = m_source.inframe();
-    if (pInputFrame->ptrArray[0] == nullptr && m_nFrame >= iframe) {
+    if (pInputFrame->ptr[0] == nullptr && m_nFrame >= iframe) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
         return sts;
-    } else if (pInputFrame->ptrArray[0] != nullptr) {
+    } else if (pInputFrame->ptr[0] != nullptr) {
         //エラーチェック
         const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_pFrameBuf[0]->frame.mem_type);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {

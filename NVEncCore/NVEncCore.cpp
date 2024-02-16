@@ -4097,7 +4097,7 @@ NVENCSTATUS NVEncCore::Encode() {
             if (inframe->inputIsHost()) {
                 memcpyKind = cudaMemcpyHostToDevice;
                 frameInfo = inframe->getFrameInfo();
-                deviceFrame = shared_ptr<void>(frameInfo.ptrArray[0], [&](void *ptr) {
+                deviceFrame = shared_ptr<void>(frameInfo.ptr[0], [&](void *ptr) {
                     UNREFERENCED_PARAMETER(ptr);
                     //このメモリはm_inputHostBufferのメモリであり、使いまわすため、解放しない
                 });
@@ -4124,9 +4124,9 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
                 frameInfo = inframe->getFrameInfo();
                 frameInfo.singleAlloc = true;
-                frameInfo.pitchArray[0] = pitch;
-                frameInfo.ptrArray[0] = (uint8_t *)dMappedFrame;
-                deviceFrame = shared_ptr<void>(frameInfo.ptrArray[0], [&](void *ptr) {
+                frameInfo.pitch[0] = pitch;
+                frameInfo.ptr[0] = (uint8_t *)dMappedFrame;
+                deviceFrame = shared_ptr<void>(frameInfo.ptr[0], [&](void *ptr) {
                     //ロック内で解放されるので、ここでのさらなるロックは不要
                     //NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                     cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
@@ -4222,8 +4222,8 @@ NVENCSTATUS NVEncCore::Encode() {
                 if (!m_dev->encoder()) {
                     encFrameInfo = m_outputFrameHostRaw->frame;
                 } else if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
-                    encFrameInfo.ptrArray[0] = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
-                    encFrameInfo.pitchArray[0] = pEncodeBuffer->stInputBfr.uNV12Stride;
+                    encFrameInfo.ptr[0] = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
+                    encFrameInfo.pitch[0] = pEncodeBuffer->stInputBfr.uNV12Stride;
                     encFrameInfo.singleAlloc = true;
                     encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
@@ -4235,8 +4235,8 @@ NVENCSTATUS NVEncCore::Encode() {
                     uint32_t lockedPitch = 0;
                     unsigned char *pInputSurface = nullptr;
                     m_dev->encoder()->NvEncLockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
-                    encFrameInfo.ptrArray[0] = (uint8_t *)pInputSurface;
-                    encFrameInfo.pitchArray[0] = lockedPitch;
+                    encFrameInfo.ptr[0] = (uint8_t *)pInputSurface;
+                    encFrameInfo.pitch[0] = lockedPitch;
                     encFrameInfo.singleAlloc = true;
                     encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;

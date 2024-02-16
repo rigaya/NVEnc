@@ -44,10 +44,10 @@ static RGY_ERR denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYFra
     auto dstSize = nppisize(pOutputFrame);
     NppiPoint srcOffset = { 0 };
     NppStatus sts = funcGauss(
-        (const T *)pInputFrame->ptrArray[0],
-        pInputFrame->pitchArray[0], srcSize, srcOffset,
-        (T *)pOutputFrame->ptrArray[0],
-        pOutputFrame->pitchArray[0], dstSize, masksize, NPP_BORDER_REPLICATE);
+        (const T *)pInputFrame->ptr[0],
+        pInputFrame->pitch[0], srcSize, srcOffset,
+        (T *)pOutputFrame->ptr[0],
+        pOutputFrame->pitch[0], dstSize, masksize, NPP_BORDER_REPLICATE);
     if (sts != NPP_SUCCESS) {
         return err_to_rgy(sts);
     }
@@ -139,7 +139,7 @@ RGY_ERR NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, share
         return RGY_ERR_MEMORY_ALLOC;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pGaussParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        pGaussParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
 
     setFilterInfo(pParam->print());
@@ -155,7 +155,7 @@ tstring NVEncFilterParamGaussDenoise::print() const {
 RGY_ERR NVEncFilterDenoiseGauss::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
 

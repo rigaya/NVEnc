@@ -564,8 +564,8 @@ RGYFrameInfo CuvidDecode::GetDecFrameInfo() {
     frame.csp = m_videoInfo.csp;
     frame.width = m_videoDecodeCreateInfo.ulTargetWidth;
     frame.height = m_videoDecodeCreateInfo.ulTargetHeight;
-    memset(frame.ptrArray, 0, sizeof(frame.ptrArray));
-    memset(frame.pitchArray, 0, sizeof(frame.pitchArray)); //この段階では取得できない、cuvidMapVideoFrameで取得
+    memset(frame.ptr, 0, sizeof(frame.ptr));
+    memset(frame.pitch, 0, sizeof(frame.pitch)); //この段階では取得できない、cuvidMapVideoFrameで取得
     frame.singleAlloc = true;
     frame.timestamp = (uint64_t)AV_NOPTS_VALUE;
     frame.mem_type = RGY_MEM_TYPE_GPU;

@@ -190,13 +190,13 @@ static cudaError_t denoise_pmd_frame(RGYFrameInfo *pOutputFrame[2], RGYFrameInfo
         const auto planeGauss = getPlane(pGauss, plane);
         RGYFrameInfo planeOutput[2] = { getPlane(pOutputFrame[0], plane), getPlane(pOutputFrame[1], plane) };
         uint8_t *pDst[2];
-        pDst[0] = planeOutput[0].ptrArray[0];
-        pDst[1] = planeOutput[1].ptrArray[0];
+        pDst[0] = planeOutput[0].ptr[0];
+        pDst[1] = planeOutput[1].ptr[0];
         auto cudaerr = denoise_pmd_plane<Type, bit_depth, useExp>(
-            pDst, planeGauss.ptrArray[0],
-            planeOutput[0].pitchArray[0], planeOutput[0].width, planeOutput[0].height,
-            planeInput.ptrArray[0],
-            planeInput.pitchArray[0], planeInput.width, planeInput.height,
+            pDst, planeGauss.ptr[0],
+            planeOutput[0].pitch[0], planeOutput[0].width, planeOutput[0].height,
+            planeInput.ptr[0],
+            planeInput.pitch[0], planeInput.width, planeInput.height,
             loop_count, strength, threshold, stream);
         if (cudaerr != cudaSuccess) {
             return cudaerr;
@@ -280,14 +280,14 @@ RGY_ERR NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, shared_
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pPmdParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        pPmdParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
 
     if (cmpFrameInfoCspResolution(&m_Gauss.frame, &pPmdParam->frameOut)) {
         m_Gauss.frame.width = pPmdParam->frameOut.width;
         m_Gauss.frame.height = pPmdParam->frameOut.height;
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            m_Gauss.frame.pitchArray[i] = pPmdParam->frameOut.pitchArray[i];
+            m_Gauss.frame.pitch[i] = pPmdParam->frameOut.pitch[i];
         }
         m_Gauss.frame.picstruct = pPmdParam->frameOut.picstruct;
         m_Gauss.frame.mem_type = pPmdParam->frameOut.mem_type;
@@ -310,7 +310,7 @@ tstring NVEncFilterParamDenoisePmd::print() const {
 
 RGY_ERR NVEncFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return RGY_ERR_NONE;
     }
     auto pPmdParam = std::dynamic_pointer_cast<NVEncFilterParamDenoisePmd>(m_pParam);

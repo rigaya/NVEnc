@@ -318,8 +318,8 @@ static RGY_ERR deband_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
         dim3 threads(GEN_RAND_THREAD_X, GEN_RAND_THREAD_Y, 1);
         dim3 grids(divCeil(pRandY->width >> 1, threads.x), divCeil(pRandY->height >> 1, threads.y * GEN_RAND_BLOCK_LOOP_Y), 1);
         kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false> << <grids, threads, 0, stream >> > (
-            (int8_t *)pRandY->ptrArray[0], (int8_t *)pRandUV->ptrArray[0],
-            pRandY->pitchArray[0], pRandUV->pitchArray[0],
+            (int8_t *)pRandY->ptr[0], (int8_t *)pRandUV->ptr[0],
+            pRandY->pitch[0], pRandUV->pitch[0],
             pRandY->width, pRandY->height,
             pState);
         auto err = cudaGetLastError();
@@ -336,9 +336,9 @@ static RGY_ERR deband_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
     auto err = deband_plane<Type, bit_depth, sample_mode, MODE_Y, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        planeOutputY.ptrArray[0], planeOutputY.pitchArray[0], planeOutputY.width, planeOutputY.height,
-        planeInputY.ptrArray[0], planeInputY.pitchArray[0], planeInputY.width, planeInputY.height,
-        pRandY->ptrArray[0], pRandY->pitchArray[0],
+        planeOutputY.ptr[0], planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
+        planeInputY.ptr[0], planeInputY.pitch[0], planeInputY.width, planeInputY.height,
+        pRandY->ptr[0], pRandY->pitch[0],
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherY, threY, interlaced(*pInputFrame),
         stream);
@@ -346,9 +346,9 @@ static RGY_ERR deband_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
         return err_to_rgy(err);
     }
     err = deband_plane<Type, bit_depth, sample_mode, MODE_U, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        planeOutputU.ptrArray[0], planeOutputU.pitchArray[0], planeOutputU.width, planeOutputU.height,
-        planeInputU.ptrArray[0], planeInputU.pitchArray[0], planeInputU.width, planeInputU.height,
-        pRandUV->ptrArray[0], pRandUV->pitchArray[0],
+        planeOutputU.ptr[0], planeOutputU.pitch[0], planeOutputU.width, planeOutputU.height,
+        planeInputU.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
+        pRandUV->ptr[0], pRandUV->pitch[0],
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherC, threCb, interlaced(*pInputFrame),
         stream);
@@ -356,9 +356,9 @@ static RGY_ERR deband_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
         return err_to_rgy(err);
     }
     err = deband_plane<Type, bit_depth, sample_mode, MODE_V, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        planeOutputV.ptrArray[0], planeOutputV.pitchArray[0], planeOutputV.width, planeOutputV.height,
-        planeInputV.ptrArray[0], planeInputV.pitchArray[0], planeInputV.width, planeInputV.height,
-        pRandUV->ptrArray[0], pRandUV->pitchArray[0],
+        planeOutputV.ptr[0], planeOutputV.pitch[0], planeOutputV.width, planeOutputV.height,
+        planeInputV.ptr[0], planeInputV.pitch[0], planeInputV.width, planeInputV.height,
+        pRandUV->ptr[0], pRandUV->pitch[0],
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherC, threCr, interlaced(*pInputFrame),
         stream);
@@ -490,7 +490,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pDebandParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        pDebandParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
 
     bool resChanged = cmpFrameInfoCspResolution(&m_RandUV.frame, &pDebandParam->frameOut);
@@ -498,7 +498,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_RandY.frame.width = pDebandParam->frameOut.width;
         m_RandY.frame.height = pDebandParam->frameOut.height;
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            m_RandY.frame.pitchArray[i] = pDebandParam->frameOut.pitchArray[i];
+            m_RandY.frame.pitch[i] = pDebandParam->frameOut.pitch[i];
         }
         m_RandY.frame.picstruct = pDebandParam->frameOut.picstruct;
         m_RandY.frame.mem_type = pDebandParam->frameOut.mem_type;
@@ -512,7 +512,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_RandUV.frame.width = pDebandParam->frameOut.width;
         m_RandUV.frame.height = pDebandParam->frameOut.height;
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            m_RandUV.frame.pitchArray[i] = pDebandParam->frameOut.pitchArray[i];
+            m_RandUV.frame.pitch[i] = pDebandParam->frameOut.pitch[i];
         }
         m_RandUV.frame.picstruct = pDebandParam->frameOut.picstruct;
         m_RandUV.frame.mem_type = pDebandParam->frameOut.mem_type;
@@ -544,8 +544,8 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
 
         kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false><<<grids, threads>>>(
-            (int8_t *)m_RandY.frame.ptrArray[0], (int8_t *)m_RandUV.frame.ptrArray[0],
-            m_RandY.frame.pitchArray[0], m_RandUV.frame.pitchArray[0],
+            (int8_t *)m_RandY.frame.ptr[0], (int8_t *)m_RandUV.frame.ptr[0],
+            m_RandY.frame.pitch[0], m_RandUV.frame.pitch[0],
             m_RandY.frame.width, m_RandY.frame.height,
             (curandState *)m_RandState.ptr);
         sts = err_to_rgy(cudaGetLastError());
@@ -566,7 +566,7 @@ tstring NVEncFilterParamDeband::print() const {
 
 RGY_ERR NVEncFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return RGY_ERR_NONE;
     }
     auto pDebandParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam);

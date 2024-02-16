@@ -1085,11 +1085,11 @@ cudaError_t setTexFieldNnedi(cudaTextureObject_t& texSrc, const RGYFrameInfo *pF
     memset(&resDescSrc, 0, sizeof(resDescSrc));
     resDescSrc.resType = cudaResourceTypePitch2D;
     resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<TypePixel>();
-    resDescSrc.res.pitch2D.pitchInBytes = pFrame->pitchArray[0] * 2; //1行おきなので通常の2倍
+    resDescSrc.res.pitch2D.pitchInBytes = pFrame->pitch[0] * 2; //1行おきなので通常の2倍
     resDescSrc.res.pitch2D.width = pFrame->width;
     resDescSrc.res.pitch2D.height = pFrame->height / 2; //フィールドなので半分
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pFrame->ptrArray[0]
-        + (pFrame->pitchArray[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 1 : 0)); //有効なほうのフィールドを選択
+    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pFrame->ptr[0]
+        + (pFrame->pitch[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 1 : 0)); //有効なほうのフィールドを選択
 
     cudaTextureDesc texDescSrc;
     memset(&texDescSrc, 0, sizeof(texDescSrc));
@@ -1119,8 +1119,8 @@ RGY_ERR nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
             divCeil(pOutputPlane->width, blockSize.x),
             divCeil(pOutputPlane->height / 2, blockSize.y * thread_y_loop_org));
         kernel_compute_network0<TypePixel4, bit_depth, TypeCalc, false, thread_y_loop_org, 2><<<gridSize, blockSize, 0, stream>>>(
-            (uint8_t *)pOutputPlane->ptrArray[0] + pOutputPlane->pitchArray[0] * (targetField == NNEDI_GEN_FIELD_TOP ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputPlane->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputPlane->ptr[0] + pOutputPlane->pitch[0] * (targetField == NNEDI_GEN_FIELD_TOP ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputPlane->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputPlane->width,
             pOutputPlane->height,
             texSrc, //有効フィールドのみのテクスチャ(縦解像度は半分)
@@ -1132,8 +1132,8 @@ RGY_ERR nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
             divCeil(pOutputPlane->width, blockSize.x * 4 /*4ピクセル分一度に処理する*/),
             divCeil(pOutputPlane->height / 2, blockSize.y * thread_y_loop_new));
         kernel_compute_network0<TypePixel4, bit_depth, TypeCalc, true, thread_y_loop_new, 2><<<gridSize, blockSize, 0, stream>>>(
-            (uint8_t *)pOutputPlane->ptrArray[0] + pOutputPlane->pitchArray[0] * (targetField == NNEDI_GEN_FIELD_TOP ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputPlane->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputPlane->ptr[0] + pOutputPlane->pitch[0] * (targetField == NNEDI_GEN_FIELD_TOP ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputPlane->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputPlane->width,
             pOutputPlane->height,
             texSrc, //有効フィールドのみのテクスチャ(縦解像度は半分)
@@ -1181,8 +1181,8 @@ RGY_ERR nnedi_compute_network_1(
     switch (nsize) {
     case VPP_NNEDI_NSIZE_8x6:
         kernel_comute_network1<TypePixel, bit_depth, TypeCalc, 8, 6, THREAD_Y_LOOP, WEIGHT_LOOP_1><<<gridSize, blockSize, shared_mem_size, stream>>>(
-            (uint8_t *)pOutputFrame->ptrArray[0] + pOutputFrame->pitchArray[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputFrame->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputFrame->ptr[0] + pOutputFrame->pitch[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputFrame->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputFrame->width,
             pOutputFrame->height,
             texSrc,
@@ -1191,8 +1191,8 @@ RGY_ERR nnedi_compute_network_1(
         break;
     case VPP_NNEDI_NSIZE_16x6:
         kernel_comute_network1<TypePixel, bit_depth, TypeCalc, 16, 6, THREAD_Y_LOOP, WEIGHT_LOOP_1><<<gridSize, blockSize, shared_mem_size, stream>>>(
-            (uint8_t *)pOutputFrame->ptrArray[0] + pOutputFrame->pitchArray[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputFrame->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputFrame->ptr[0] + pOutputFrame->pitch[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputFrame->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputFrame->width,
             pOutputFrame->height,
             texSrc,
@@ -1201,8 +1201,8 @@ RGY_ERR nnedi_compute_network_1(
         break;
     case VPP_NNEDI_NSIZE_32x6:
         kernel_comute_network1<TypePixel, bit_depth, TypeCalc, 32, 6, THREAD_Y_LOOP, WEIGHT_LOOP_1><<<gridSize, blockSize, shared_mem_size, stream>>>(
-            (uint8_t *)pOutputFrame->ptrArray[0] + pOutputFrame->pitchArray[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputFrame->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputFrame->ptr[0] + pOutputFrame->pitch[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputFrame->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputFrame->width,
             pOutputFrame->height,
             texSrc,
@@ -1211,8 +1211,8 @@ RGY_ERR nnedi_compute_network_1(
         break;
     case VPP_NNEDI_NSIZE_48x6:
         kernel_comute_network1<TypePixel, bit_depth, TypeCalc, 48, 6, THREAD_Y_LOOP, WEIGHT_LOOP_1><<<gridSize, blockSize, shared_mem_size, stream>>>(
-            (uint8_t *)pOutputFrame->ptrArray[0] + pOutputFrame->pitchArray[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputFrame->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputFrame->ptr[0] + pOutputFrame->pitch[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputFrame->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputFrame->width,
             pOutputFrame->height,
             texSrc,
@@ -1221,8 +1221,8 @@ RGY_ERR nnedi_compute_network_1(
         break;
     case VPP_NNEDI_NSIZE_8x4:
         kernel_comute_network1<TypePixel, bit_depth, TypeCalc, 8, 4, THREAD_Y_LOOP, WEIGHT_LOOP_1><<<gridSize, blockSize, shared_mem_size, stream>>>(
-            (uint8_t *)pOutputFrame->ptrArray[0] + pOutputFrame->pitchArray[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputFrame->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputFrame->ptr[0] + pOutputFrame->pitch[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputFrame->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputFrame->width,
             pOutputFrame->height,
             texSrc,
@@ -1231,8 +1231,8 @@ RGY_ERR nnedi_compute_network_1(
         break;
     case VPP_NNEDI_NSIZE_16x4:
         kernel_comute_network1<TypePixel, bit_depth, TypeCalc, 16, 4, THREAD_Y_LOOP, WEIGHT_LOOP_1><<<gridSize, blockSize, shared_mem_size, stream>>>(
-            (uint8_t *)pOutputFrame->ptrArray[0] + pOutputFrame->pitchArray[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputFrame->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputFrame->ptr[0] + pOutputFrame->pitch[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputFrame->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputFrame->width,
             pOutputFrame->height,
             texSrc,
@@ -1241,8 +1241,8 @@ RGY_ERR nnedi_compute_network_1(
         break;
     case VPP_NNEDI_NSIZE_32x4:
         kernel_comute_network1<TypePixel, bit_depth, TypeCalc, 32, 4, THREAD_Y_LOOP, WEIGHT_LOOP_1><<<gridSize, blockSize, shared_mem_size, stream>>>(
-            (uint8_t *)pOutputFrame->ptrArray[0] + pOutputFrame->pitchArray[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
-            pOutputFrame->pitchArray[0] * 2, //1行おきなので通常の2倍
+            (uint8_t *)pOutputFrame->ptr[0] + pOutputFrame->pitch[0] * ((targetField == NNEDI_GEN_FIELD_TOP) ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputFrame->pitch[0] * 2, //1行おきなので通常の2倍
             pOutputFrame->width,
             pOutputFrame->height,
             texSrc,
@@ -1738,7 +1738,7 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pNnediParam->frameOut.pitchArray[i] = m_pFrameBuf[0]->frame.pitchArray[i];
+        pNnediParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
     }
 
     auto pNnediParamPrev = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
@@ -1764,7 +1764,7 @@ tstring NVEncFilterParamNnedi::print() const {
 
 RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptrArray[0] == nullptr) {
+    if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
     auto pNnediParam = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
