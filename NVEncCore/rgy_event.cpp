@@ -126,6 +126,9 @@ uint32_t WaitForMultipleObjects(uint32_t count, HANDLE *pev, int dummy, uint32_t
 unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, void *pDummy2) {
     return unique_event(CreateEvent(pDummy, bManualReset, bInitialState, pDummy2), CloseEvent);
 }
+unique_event CreateEventUnique(void* pDummy, int bManualReset, int bInitialState) {
+    return unique_event(CreateEvent(pDummy, bManualReset, bInitialState, nullptr), CloseEvent);
+}
 
 #else
 
