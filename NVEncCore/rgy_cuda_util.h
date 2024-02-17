@@ -39,7 +39,26 @@
 #include "rgy_util.h"
 #include "rgy_err.h"
 #include "convert_csp.h"
-#include "rgy_frame.h"
+
+#define ENABLE_CUDA_DEBUG_SYNC (1)
+
+#if ENABLE_CUDA_DEBUG_SYNC
+#define CUDA_DEBUG_SYNC { \
+    cudaError_t cudaDebugSyncErr = cudaDeviceSynchronize(); \
+    if (cudaDebugSyncErr != cudaSuccess) { \
+        PrintMes(RGY_LOG_ERROR, _T("CUDA error: %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
+        return err_to_rgy(cudaDebugSyncErr); \
+    } \
+    cudaDebugSyncErr = cudaGetLastError(); \
+    if (cudaDebugSyncErr != cudaSuccess) { \
+        PrintMes(RGY_LOG_ERROR, _T("CUDA error: %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
+        return err_to_rgy(cudaDebugSyncErr); \
+    } \
+}
+#else
+#define CUDA_DEBUG_SYNC 
+#endif
+
 
 struct cudaevent_deleter {
     void operator()(cudaEvent_t *pEvent) const {
