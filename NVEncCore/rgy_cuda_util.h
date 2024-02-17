@@ -339,7 +339,11 @@ public:
             if (sts != RGY_ERR_NONE) {
                 for (int j = i - 1; j >= 0; j--) {
                     if (fi.ptr[j] != nullptr) {
-                        cudaFree(fi.ptr[i]);
+                        if (fi.mem_type == RGY_MEM_TYPE_CPU) {
+                            cudaFreeHost(fi.ptr[i]);
+                        } else {
+                            cudaFree(fi.ptr[i]);
+                        }
                         fi.ptr[j] = nullptr;
                     }
                 }
@@ -373,9 +377,13 @@ public:
         return allocHost();
     }
     static void clearMemory(RGYFrameInfo& fi) {
-        for (int i = 0; i < ((fi.singleAlloc) ? 1 : (int)_countof(fi.ptr)); i++) {
+        for (int i = 0; i < ((fi.singleAlloc) ? 1 : RGY_CSP_PLANES[fi.csp]); i++) {
             if (fi.ptr[i]) {
-                cudaFree(fi.ptr[i]);
+                if (fi.mem_type == RGY_MEM_TYPE_CPU) {
+                    cudaFreeHost(fi.ptr[i]);
+                } else {
+                    cudaFree(fi.ptr[i]);
+                }
             }
         }
         memset(fi.ptr, 0, sizeof(fi.ptr));
@@ -384,7 +392,7 @@ public:
     void clear() {
         CUFrameBuf::clearMemory(frame);
     }
-    ~CUFrameBuf() {
+    virtual ~CUFrameBuf() {
         clear();
         if (event) {
             cudaEventDestroy(event);
