@@ -5826,26 +5826,33 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                     tmp << _T(":");
                     tmp << get_cx_desc(list_colorrange, to.colorrange);
                 }
-                ADD_BOOL(_T("approx_gamma"), colorspace.convs[i].approx_gamma);
-                ADD_BOOL(_T("scene_ref"), colorspace.convs[i].scene_ref);
-                ADD_PATH(_T("lut3d"), colorspace.lut3d.table_file.c_str());
-                ADD_LST(_T("lut3d_interp"), colorspace.lut3d.interp, list_vpp_colorspace_lut3d_interp);
-                ADD_LST(_T("hdr2sdr"), colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
-                ADD_FLOAT(_T("ldr_nits"), colorspace.hdr2sdr.ldr_nits, 1);
-                ADD_FLOAT(_T("source_peak"), colorspace.hdr2sdr.hdr_source_peak, 1);
-                ADD_FLOAT(_T("a"), colorspace.hdr2sdr.hable.a, 3);
-                ADD_FLOAT(_T("b"), colorspace.hdr2sdr.hable.b, 3);
-                ADD_FLOAT(_T("c"), colorspace.hdr2sdr.hable.c, 3);
-                ADD_FLOAT(_T("d"), colorspace.hdr2sdr.hable.d, 3);
-                ADD_FLOAT(_T("e"), colorspace.hdr2sdr.hable.e, 3);
-                ADD_FLOAT(_T("f"), colorspace.hdr2sdr.hable.f, 3);
-                ADD_FLOAT(_T("transition"), colorspace.hdr2sdr.mobius.transition, 3);
-                ADD_FLOAT(_T("peak"), colorspace.hdr2sdr.mobius.peak, 3);
-                ADD_FLOAT(_T("contrast"), colorspace.hdr2sdr.reinhard.contrast, 3);
-                ADD_FLOAT(_T("desat_base"), colorspace.hdr2sdr.desat_base, 3);
-                ADD_FLOAT(_T("desat_strength"), colorspace.hdr2sdr.desat_strength, 3);
-                ADD_FLOAT(_T("desat_exp"), colorspace.hdr2sdr.desat_exp, 3);
+                ColorspaceConv convDefault;
+                if (param->colorspace.convs[i].approx_gamma != convDefault.approx_gamma) {
+                    tmp << _T(",approx_gamma=");
+                    tmp << param->colorspace.convs[i].approx_gamma ? _T("true") : _T("false");
+                }
+                if (param->colorspace.convs[i].scene_ref != convDefault.scene_ref) {
+                    tmp << _T(",scene_ref=");
+                    tmp << param->colorspace.convs[i].scene_ref ? _T("true") : _T("false");
+                }
             }
+            ADD_PATH(_T("lut3d"), colorspace.lut3d.table_file.c_str());
+            ADD_LST(_T("lut3d_interp"), colorspace.lut3d.interp, list_vpp_colorspace_lut3d_interp);
+            ADD_LST(_T("hdr2sdr"), colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
+            ADD_FLOAT(_T("ldr_nits"), colorspace.hdr2sdr.ldr_nits, 1);
+            ADD_FLOAT(_T("source_peak"), colorspace.hdr2sdr.hdr_source_peak, 1);
+            ADD_FLOAT(_T("a"), colorspace.hdr2sdr.hable.a, 3);
+            ADD_FLOAT(_T("b"), colorspace.hdr2sdr.hable.b, 3);
+            ADD_FLOAT(_T("c"), colorspace.hdr2sdr.hable.c, 3);
+            ADD_FLOAT(_T("d"), colorspace.hdr2sdr.hable.d, 3);
+            ADD_FLOAT(_T("e"), colorspace.hdr2sdr.hable.e, 3);
+            ADD_FLOAT(_T("f"), colorspace.hdr2sdr.hable.f, 3);
+            ADD_FLOAT(_T("transition"), colorspace.hdr2sdr.mobius.transition, 3);
+            ADD_FLOAT(_T("peak"), colorspace.hdr2sdr.mobius.peak, 3);
+            ADD_FLOAT(_T("contrast"), colorspace.hdr2sdr.reinhard.contrast, 3);
+            ADD_FLOAT(_T("desat_base"), colorspace.hdr2sdr.desat_base, 3);
+            ADD_FLOAT(_T("desat_strength"), colorspace.hdr2sdr.desat_strength, 3);
+            ADD_FLOAT(_T("desat_exp"), colorspace.hdr2sdr.desat_exp, 3);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-colorspace ") << tmp.str().substr(1);
