@@ -1605,6 +1605,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
+- [--vpp-curves](#--vpp-curves-param1value1param2value2)
 - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
