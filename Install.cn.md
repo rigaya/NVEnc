@@ -14,7 +14,7 @@
 ### 1. 安装 [NVIDIA Graphics driver](https://www.nvidia.com/Download/index.aspx)
 ### 2. 下载Windows版二进制文件  
 可从[这里](https://github.com/rigaya/NVEnc/releases)下载。
-NVEncC_x.xx_Win32.7z 包含32位程序, NVEncC_x.xx_x64.7z 包含64位程序。
+NVEncC_x.xx_Win32.7z 包含32位程序，NVEncC_x.xx_x64.7z 包含64位程序。
 
 NVEncC可以在文件夹中直接运行
 

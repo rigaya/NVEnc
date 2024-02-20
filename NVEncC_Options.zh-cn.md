@@ -604,7 +604,7 @@ P1为最快，P7为质量最高
 
 
 - none  
-  1pass mode. (fast)
+  1pass模式。 (最快)
 
 - 2pass-quarter  
   以1/4大小的分辨率进行1pass。由此，能够捕捉较大的运动矢量并传递到2pass。
@@ -992,16 +992,16 @@ av1 :  0, 1
     设置libvmaf的内部模型版本或外部模型文件路径。默认为内部的"vmaf_v0.6.1"。
     当使用模型文件，从[连接](https://github.com/Netflix/vmaf/tree/master/model)下载json格式模型，并使用此选项设定路径。
 
-  - threads=&lt;int&gt;  (default: 0)  
+  - threads=&lt;int&gt;  (默认: 0)  
     使用多少进程用于计算VMAF。默认使用所有物理核。
 
-  - subsample=&lt;int&gt;  (default: 1)  
+  - subsample=&lt;int&gt;  (默认: 1)  
     指定计算VMAF的帧子采样间隔。
 
-  - phone_model=&lt;bool&gt;  (default: false)  
+  - phone_model=&lt;bool&gt;  (默认: false)  
     使用phone模型，这可以产生更高的vmaf
     
-  - enable_transform=&lt;bool&gt;  (default: false)  
+  - enable_transform=&lt;bool&gt;  (默认: false)  
     计算vmaf时启用transform
     
 
@@ -1591,7 +1591,7 @@ matroska格式 (utf-8)
 示例: 输出 HLS
 -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
 
-示例: 在没有设定为“default”的字幕轨的情况下，抑制自动赋予“default”（仅mkv）
+示例: 在没有设定为“default”的字幕轨的情况下，抑制自动赋予"default"（仅mkv）
   -m default_mode:infer_no_subs
 ```
 
@@ -1600,30 +1600,29 @@ matroska格式 (utf-8)
   - copy  ... 如果可行，从输入复制metadata (默认)
   - clear ... 不复制metadata
 
-- Examples
-  ```
-  Example1: 从输入文件复制metadata
-  --metadata copy
+```
+例1: 从输入文件复制metadata
+--metadata copy
   
-  Example2: 清空输入文件的metadata
-  --metadata clear
+例2: 清空输入文件的metadata
+--metadata clear
   
-  Example3: 设定metadata
-  --metadata title="video title" --metadata language=jpn
-  ```
+例3: 设定metadata
+--metadata title="video title" --metadata language=jpn
+```
 
 ### --avsync &lt;string&gt;
-  - cfr (default)
+  - cfr (默认)  
     输入文件将会被认为是固定帧率，输入的PTS（Presentation Time Stamp）将不会被检查。
 
-  - forcecfr
+  - forcecfr  
     检查输入文件的PTS（Presentation Time Stamp），重复或者移除帧来保持固定帧率，以维持与音频的同步。无法和 --trim 一起使用。
 
   - vfr  
     遵循输入文件的时间戳并启用可变帧率输出。仅当使用 avsw/avhw 读取器时有效。
 
 ### --timecode [&lt;string&gt;]  
-  将时间码文件保存到指定路径，如果未设置路径，将保存为"&lt;output file path&gt;.timecode.txt"。
+将时间码文件保存到指定路径，如果未设置路径，将保存为"&lt;output file path&gt;.timecode.txt"。
 
 
 ### --tcfile-in &lt;string&gt;  
@@ -1906,7 +1905,10 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
 
 - drop=&lt;bool&gt;  
   丢弃显示时间小于1帧的帧。
-  注意：启用该选项会生成可变帧率视频。当混流由 NVEncC 完成时，时间码（timecode）将会被自动应用。但当使用未处理输出（Raw）时，你需要为 vpp-afs 添加 "timecode=true" 来输出时间码文件，然后混流。
+
+  注意：启用该选项会生成可变帧率视频。当混流由 NVEncC 完成时，时间码（timecode）将会被自动应用。
+  
+  但当使用未处理输出（Raw）时，你需要为 vpp-afs 添加 "timecode=true" 来输出时间码文件，然后混流。
 
 - smooth=&lt;bool&gt;  
   平滑图像显示时间
@@ -2085,7 +2087,7 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
     丢弃帧之间的最小间隔 (如果为负数)。
     
   - log=&lt;bool&gt;  
-    输出日志文件. (默认: off)
+    输出日志文件 (默认: off)
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 
@@ -2209,13 +2211,16 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
 
 - **参数**
   - step=&lt;int&gt;  
+
     影响过滤器的质量，较小的值会产生较高的质量，但有着较低的速度
+
     - 1 (高质量，慢)
     - 2 (默认)
     - 4
     - 8 (快)
   
   - sigma=&lt;float&gt;  (default=4.0)    
+
     过滤器的强度，更大的值有着较高的降噪效果，但会导致模糊
     
   - block_size=&lt;int&gt;  (default=8)  
@@ -2265,6 +2270,7 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
 ### --vpp-gauss &lt;int&gt;
 
 设置高斯滤镜的大小。可用3、5、7。
+
 需要NVEncC64所在文件夹下存在nppc64_10.dll, nppif64_10.dll, nppig64_10.dll。只在x64版本支持。
 
 npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/7.00) (npp64_10_dll_7zip.7z)下载。
