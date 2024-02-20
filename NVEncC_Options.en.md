@@ -537,7 +537,7 @@ Generally, it is recommended to set the QP value to be I &lt; P &lt; B.
 ## Other Options for Encoder
 
 ### -u, --preset
-Encode quality preset. P1～P7 preset is available from API v10.0
+Encode quality preset. P1～P7 preset is available from API v10.0.
 - default
 - performance
 - quality
