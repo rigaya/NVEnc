@@ -1613,7 +1613,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 Converts colorspace of the video. Available on x64 version.  
-Values for parameters will be copied from input file for "input".
+Values for parameters will be copied from input file for "input" when using avhw/avsw reader.
 
 - **parameters**
   - matrix=&lt;from&gt;:&lt;to&gt;  
