@@ -203,6 +203,7 @@
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
+  - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-tweak-param1value1param2value2)
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
@@ -1132,7 +1133,7 @@ av1 :  0, 1
 
 你也可以使用[&lt;int&gt;]选择要抽取的音频轨（1,2,...），或者使用[&lt;string&gt;]选择对应语言的音频轨。
 
-你也可以在":"后指定编码器参数。
+你可以在":"后指定编码器参数，在"#"后指定解码器参数。
 ```
 示例 1: 把所有音频轨编码为mp3
 --audio-codec libmp3lame
