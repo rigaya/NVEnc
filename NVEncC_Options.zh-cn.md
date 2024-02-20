@@ -177,7 +177,7 @@
   - [--input-hevc-bsf \<string\>](#--input-hevc-bsf-string)
   - [--allow-other-negative-pts](#--allow-other-negative-pts)
 - [Vpp 设置](#Vpp-设置)
-  - [Vpp Filtering order](#vpp-filtering-order)
+  - [Vpp 过滤顺序](#Vpp-过滤顺序)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-rff](#--vpp-rff)
@@ -1649,7 +1649,7 @@ matroska格式 (utf-8)
 
 用于在编码前添加过滤的选项。
 
-### Vpp Filtering order
+### Vpp 过滤顺序
 
 vpp过滤器的应用顺序是固定的，与命令行的顺序无关，将按以下顺序应用:
 
@@ -2545,7 +2545,7 @@ Example: 增强边缘的暗部
 --vpp-deband range=31,dither=12,rand_each_frame
 ```
 
-### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
+### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 
 为左、上、右、下边缘添加内边距，单位像素。
 
