@@ -108,8 +108,6 @@ struct RGYResourceData {
 };
 
 static const RGYResourceData RGY_RESOURCE_DATA[] = {
-    { _T("PERF_MONITOR_SRC"), _T("PERF_MONITOR_PYW"), _binary_PerfMonitor_perf_monitor_pyw_start, _binary_PerfMonitor_perf_monitor_pyw_end },
-    
     { _T("EXE_DATA"), _T("NNEDI_WEIGHTBIN"), _binary_resource_nnedi3_weights_bin_start, _binary_resource_nnedi3_weights_bin_end },
 
 #if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
@@ -166,6 +164,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
 #if ENCODER_NVENC
     { _T("EXE_DATA"), _T("NVENC_FILTER_COLRSPACE_FUNC_HEADER"), _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start, _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end }
 #endif //#if ENCODER_NVENC
+    { _T("PERF_MONITOR_SRC"), _T("PERF_MONITOR_PYW"), _binary_PerfMonitor_perf_monitor_pyw_start, _binary_PerfMonitor_perf_monitor_pyw_end }
 };
 #endif //#if !(defined(_WIN32) || defined(_WIN64))
 
