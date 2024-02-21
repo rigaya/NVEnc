@@ -392,7 +392,6 @@ static int getAttachmentTrackIdx(const RGYParamCommon *common, const int iTrack)
 int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData) {
     if (IS_OPTION("vpp-order") && ENABLE_VPP_ORDER) {
         i++;
-        int value = 0;
         const auto list_vpp_filters = get_list_vpp_filter();
         const auto vpp_list = split(strInput[i], _T(","));
         vpp->filterOrder.clear();
