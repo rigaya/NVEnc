@@ -5799,27 +5799,28 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->colorspace.enable || save_disabled_prm) {
             for (size_t i = 0; i < param->colorspace.convs.size(); i++) {
-                auto from = param->colorspace.convs[i].from;
-                auto to = param->colorspace.convs[i].to;
-                if (from.matrix != to.matrix) {
+                const auto& from = param->colorspace.convs[i].from;
+                const auto& to = param->colorspace.convs[i].to;
+                // CLFILTERS_AUFではエントリを省略してしまうと入力側の情報が不明になるため、省略しない
+                if (from.matrix != to.matrix || CLFILTERS_AUF) {
                     tmp << _T(",matrix=");
                     tmp << get_cx_desc(list_colormatrix, from.matrix);
                     tmp << _T(":");
                     tmp << get_cx_desc(list_colormatrix, to.matrix);
                 }
-                if (from.colorprim != to.colorprim) {
+                if (from.colorprim != to.colorprim || CLFILTERS_AUF) {
                     tmp << _T(",colorprim=");
                     tmp << get_cx_desc(list_colorprim, from.colorprim);
                     tmp << _T(":");
                     tmp << get_cx_desc(list_colorprim, to.colorprim);
                 }
-                if (from.transfer != to.transfer) {
+                if (from.transfer != to.transfer || CLFILTERS_AUF) {
                     tmp << _T(",transfer=");
                     tmp << get_cx_desc(list_transfer, from.transfer);
                     tmp << _T(":");
                     tmp << get_cx_desc(list_transfer, to.transfer);
                 }
-                if (from.colorrange != to.colorrange) {
+                if (from.colorrange != to.colorrange || CLFILTERS_AUF) {
                     tmp << _T(",range=");
                     tmp << get_cx_desc(list_colorrange, from.colorrange);
                     tmp << _T(":");
