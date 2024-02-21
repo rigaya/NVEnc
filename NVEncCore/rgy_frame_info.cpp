@@ -1,10 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// NVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
-//
 // The MIT License
 //
-// Copyright (c) 2014-2016 rigaya
+// Copyright (c) 2011-2016 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,139 +25,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "NVEncFrameInfo.h"
-
-#if 0
-FrameInfoExtra getFrameInfoExtra(const RGYFrameInfo *pFrameInfo) {
-    FrameInfoExtra exinfo = { 0 };
-    switch (pFrameInfo->csp) {
-    case RGY_CSP_NV12:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 3 / 2;
-        break;
-    case RGY_CSP_YV12:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 2;
-        break;
-    case RGY_CSP_YUY2:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height;
-        break;
-    case RGY_CSP_YUV422:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 2;
-        break;
-    case RGY_CSP_NV16:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 2;
-        break;
-    case RGY_CSP_YUV444:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 3;
-        break;
-    case RGY_CSP_YV12_09:
-    case RGY_CSP_YV12_10:
-    case RGY_CSP_YV12_12:
-    case RGY_CSP_YV12_14:
-    case RGY_CSP_YV12_16:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 2;
-        break;
-    case RGY_CSP_P010:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 3 / 2;
-        break;
-    case RGY_CSP_YUV422_09:
-    case RGY_CSP_YUV422_10:
-    case RGY_CSP_YUV422_12:
-    case RGY_CSP_YUV422_14:
-    case RGY_CSP_YUV422_16:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 3;
-        break;
-    case RGY_CSP_P210:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 2;
-        break;
-    case RGY_CSP_YUV444_09:
-    case RGY_CSP_YUV444_10:
-    case RGY_CSP_YUV444_12:
-    case RGY_CSP_YUV444_14:
-    case RGY_CSP_YUV444_16:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 3;
-        break;
-    case RGY_CSP_YUV444_32:
-        exinfo.width_byte = pFrameInfo->width * 4;
-        exinfo.height_total = pFrameInfo->height * 3;
-        break;
-    case RGY_CSP_YUVA444:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 4;
-        break;
-    case RGY_CSP_YUVA444_16:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 4;
-        break;
-    case RGY_CSP_RGB24:
-    case RGY_CSP_RGB24R:
-    case RGY_CSP_BGR24:
-        exinfo.width_byte = (pFrameInfo->width * 3 + 3) & (~3);
-        exinfo.height_total = pFrameInfo->height;
-        break;
-    case RGY_CSP_RGB32:
-    case RGY_CSP_RGB32R:
-    case RGY_CSP_BGR32:
-        exinfo.width_byte = pFrameInfo->width * 4;
-        exinfo.height_total = pFrameInfo->height;
-        break;
-    case RGY_CSP_RGB:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 3;
-        break;
-    case RGY_CSP_RGBA:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 4;
-        break;
-    case RGY_CSP_RGB_16:
-    case RGY_CSP_BGR_16:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 3;
-        break;
-    case RGY_CSP_RGBA_16:
-    case RGY_CSP_BGRA_16:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 4;
-        break;
-    case RGY_CSP_RGB_F32:
-    case RGY_CSP_BGR_F32:
-        exinfo.width_byte = pFrameInfo->width * 4;
-        exinfo.height_total = pFrameInfo->height * 3;
-        break;
-    case RGY_CSP_RGBA_F32:
-    case RGY_CSP_BGRA_F32:
-        exinfo.width_byte = pFrameInfo->width * 4;
-        exinfo.height_total = pFrameInfo->height * 4;
-        break;
-    case RGY_CSP_YC48:
-        exinfo.width_byte = pFrameInfo->width * 6;
-        exinfo.height_total = pFrameInfo->height;
-        break;
-    case RGY_CSP_Y8:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height;
-        break;
-    case RGY_CSP_Y16:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height;
-        break;
-    default:
-        break;
-    }
-    exinfo.frame_size = pFrameInfo->pitch[0] * exinfo.height_total;
-    return exinfo;
-}
-#endif
+#include "rgy_frame_info.h"
+#include "rgy_osdep.h"
 
 static RGYFrameInfo getPlaneSingleAlloc(const RGYFrameInfo *frameInfo, const RGY_PLANE plane) {
     RGYFrameInfo planeInfo = *frameInfo;

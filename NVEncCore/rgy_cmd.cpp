@@ -4986,8 +4986,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         int value = 0;
         if (get_list_value(list_hevc_bsf_mode, strInput[i], &value)) {
             common->hevcbsf = (RGYHEVCBsf)value;
-        }
-        else {
+        } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_bsf_mode);
             return -1;
         }
@@ -5258,6 +5257,37 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
             return -0;
         }
         ctrl->procSpeedLimit = (std::min)(value, std::numeric_limits<decltype(ctrl->procSpeedLimit)>::max());
+        return 0;
+    }
+    if (IS_OPTION("no-avoid-idle-clock")) {
+        ctrl->avoidIdleClock.mode = RGYParamAvoidIdleClockMode::Disabled;
+    }
+    if (IS_OPTION("avoid-idle-clock")) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        i++;
+        auto params = split(strInput[i], _T("="));
+        int value = 0;
+        if (get_list_value(list_avoid_idle_clock, params[0].c_str(), &value)) {
+            ctrl->avoidIdleClock.mode = (RGYParamAvoidIdleClockMode)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_avoid_idle_clock);
+            return -1;
+        }
+        if (params.size() > 1) {
+            float load = 0.0f;
+            if (1 != _stscanf_s(params[1].c_str(), _T("%f"), &load)) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return -1;
+            }
+            if (value < 0) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return -1;
+            }
+            ctrl->avoidIdleClock.loadPercent = load;
+        }
         return 0;
     }
     if (IS_OPTION("task-perf-monitor") && ENCODER_QSV) {
@@ -6740,6 +6770,13 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     }
     OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
+    if (param->avoidIdleClock != defaultPrm->avoidIdleClock) {
+        cmd << _T(" --avoid-idle-clock ") << get_chr_from_value(list_avoid_idle_clock, (int)param->avoidIdleClock.mode);
+        if (param->avoidIdleClock.mode != RGYParamAvoidIdleClockMode::Disabled
+            && param->avoidIdleClock.loadPercent != defaultPrm->avoidIdleClock.loadPercent) {
+            cmd << _T("=") << std::setprecision(2) << param->avoidIdleClock.loadPercent;
+        }
+    }
     OPT_BOOL(_T("--task-perf-monitor"), _T(""), taskPerfMonitor);
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
     OPT_STR_PATH(_T("--log"), logfile);
@@ -7595,6 +7632,15 @@ tstring gen_cmd_help_ctrl() {
     str += strsprintf(_T("")
         _T("   --max-procfps <int>          limit encoding speed for lower utilization.\n")
         _T("                                 default:0 (no limit)\n")
+        _T("   --avoid-idle-clock <string>[=<float>]\n")
+        _T("                                add dummy load to avoid idle GPU clock.\n")
+        _T("                                - off\n")
+        _T("                                - auto [default]\n")
+        _T("                                - on\n")
+        _T("                                 the optional value is target dummy load percentage,\n")
+        _T("                                 when number omitted: %.2f percent load\n"),
+        DEFAULT_DUMMY_LOAD_PERCENT);
+    str += strsprintf(_T("")
 #if ENCODER_QSV
         _T("   --task-perf-monitor          enable task performance monitoring.\n")
 #endif

@@ -37,9 +37,9 @@
 #pragma warning(pop)
 #include "FrameQueue.h"
 #include "NVEncParam.h"
-#include "NVEncFrameInfo.h"
 #include "rgy_log.h"
 #include "rgy_util.h"
+#include "rgy_frame_info.h"
 #include "rgy_avutil.h"
 
 #if ENABLE_AVSW_READER

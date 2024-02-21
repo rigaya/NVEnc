@@ -54,6 +54,7 @@ RGY_DISABLE_WARNING_STR("-Wswitch")
 RGY_DISABLE_WARNING_POP
 #pragma warning (pop)
 #include "convert_csp.h"
+#include "rgy_frame.h"
 #include "rgy_err.h"
 
 #define NVENCAPI_VERSION (NVENCAPI_MAJOR_VERSION | (NVENCAPI_MINOR_VERSION << 24))

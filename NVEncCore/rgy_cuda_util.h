@@ -38,6 +38,8 @@
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_err.h"
+#include "rgy_frame.h"
+#include "rgy_frame_info.h"
 #include "convert_csp.h"
 
 #define ENABLE_CUDA_DEBUG_SYNC (1)

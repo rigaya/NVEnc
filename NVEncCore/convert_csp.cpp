@@ -33,6 +33,7 @@
 #include "rgy_simd.h"
 #include "rgy_version.h"
 #include "convert_csp.h"
+#include "rgy_frame_info.h"
 #include "rgy_osdep.h"
 
 void copy_nv12_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
@@ -2323,14 +2324,6 @@ const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv
     }
     return convert;
 }
-
-std::basic_string<TCHAR> RGYFrameInfo::print() const {
-    TCHAR buf[1024];
-    _stprintf_s(buf, _T("%dx%d %s %dbit (%d, %d, %d, %d) %s %s f0x%x"),
-        width, height, RGY_CSP_NAMES[csp], bitdepth, pitch[0], pitch[1], pitch[2], pitch[3],
-        picstrcut_to_str(picstruct), get_memtype_str(mem_type), (uint32_t)flags);
-    return std::basic_string<TCHAR>(buf);
-};
 
 const TCHAR *get_simd_str(RGY_SIMD simd) {
     static std::vector<std::pair<RGY_SIMD, const TCHAR*>> simd_str_list = {

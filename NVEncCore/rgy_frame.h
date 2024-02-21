@@ -34,6 +34,7 @@
 #include "rgy_version.h"
 #include "rgy_err.h"
 #include "convert_csp.h"
+#include "rgy_frame_info.h"
 #if ENABLE_VPP_SMOOTH_QP_FRAME
 #include "rgy_cuda_util.h"
 #endif //#if ENABLE_VPP_SMOOTH_QP_FRAME

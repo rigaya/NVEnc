@@ -43,7 +43,6 @@
 #include "NVEncParam.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterSsim.h"
-#include "NVEncFrameInfo.h"
 #include "NvHWEncoder.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
@@ -52,6 +51,7 @@
 #include "rgy_status.h"
 #include "rgy_log.h"
 #include "rgy_bitstream.h"
+#include "rgy_frame_info.h"
 #include "rgy_hdr10plus.h"
 
 class RGYTimecode;
