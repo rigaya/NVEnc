@@ -56,7 +56,7 @@ chmod u+x NVIDIA-Linux-x86_64-xxx.xx.run
 sudo ./NVIDIA-Linux-x86_64-xxx.xx.run
 ```
 
-### 2. Install nvencc
+### 2. 安装 nvencc
 从[这里](https://github.com/rigaya/NVEnc/releases)下载deb包。
 使用如下命令安装nvencc，注意"x.xx"应替换为对应版本的名称。
 
@@ -68,7 +68,7 @@ sudo apt update
 sudo apt install ./nvencc_x.xx_Ubuntu18.04_amd64.deb
 ```
 
-### 3. Addtional Tools
+### 3. 额外工具
 
 一些功能需要额外安装程序才能使用
 

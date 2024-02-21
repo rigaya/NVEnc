@@ -32,7 +32,6 @@ Aviutl 1.00 or later (NVEnc.auo)
   ※ 由于GT 63x, 62x等是费米代的重命名，他们不能运行NVEnc。
 
 | NVEnc               | 支持的NVENC API  | 所需图形驱动程序版本 |
-
 |:----------------- |:------------------ |:----------------------------        |
 | NVEnc 0.00 or later | 4.0              | NVIDIA graphics driver 334.89 or later |
 | NVEnc 1.00 or later | 5.0              | NVIDIA graphics driver 347.09 or later |
@@ -50,7 +49,7 @@ Aviutl 1.00 or later (NVEnc.auo)
 | NVEnc 7.00 or later | 9.0 - 12.0       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 | NVEnc 7.26 or later | 9.0 - 12.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 
-| Supported NVENC API | Required graphics driver version |
+| 支持的NVENC API | 所需图形驱动程序版本 |
 |:-------------- |:--------------------------------- |
 | 9.0  | NVIDIA graphics driver (Win 418.81 / Linux 418.30) or later |
 | 9.1  | NVIDIA graphics driver (Win 436.15 / Linux 435.21) or later |
@@ -60,7 +59,7 @@ Aviutl 1.00 or later (NVEnc.auo)
 | 12.0 | ??? |
 | 12.1 | NVIDIA graphics driver (Win 531.61 / Linux 530.41.03) or later |
 
-| CUDA version | Required graphics driver version |
+| CUDA 版本 | 所需图形驱动程序版本 |
 |:------ |:--------------------------------- |
 | 10.1    | NVIDIA graphics driver (Win 418.96 / Linux 418.39)    or later |
 | 10.2.89 | NVIDIA graphics driver (Win 440.33 / Linux 441.22)    or later |
@@ -70,8 +69,10 @@ Aviutl 1.00 or later (NVEnc.auo)
 | 11.1.1  | NVIDIA graphics driver (Win 456.81 / Linux 455.32)    or later |
 | 11.2    | NVIDIA graphics driver (Win 460.89 / Linux 460.27.04) or later |
 
-## NVEncC的使用和选项
-[选项列表和详细的NVEncC](./NVEncC_Options.en.md)
+## NVEncC的使用方法和选项
+[NVEncC的选项列表](./NVEncC_Options.cn.md)
+
+注:中文文档更新可能不及时，不同之处请参考[其他语言](./NVEncC_Options.en.md)
 
 ## 支持的编码特性的示例  
 check-features的结果，驱动程序返回的功能列表。可能取决于驱动程序版本。
@@ -142,8 +143,8 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
       - bilinear
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
-      - various algorithms by npp library are available (x64 version only)
-      - nvvfx-superres
+      - 一系列npp库提供的算法 (x64 version only)
+      - nvvfx-superres (超分辨率)
     - transpose / rotate / flip
     - padding
     - select-every
