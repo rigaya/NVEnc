@@ -176,7 +176,7 @@ static RGY_ERR unsharp_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pIn
 }
 
 NVEncFilterUnsharp::NVEncFilterUnsharp() : m_bInterlacedWarn(false) {
-    m_sFilterName = _T("unsharp");
+    m_name = _T("unsharp");
 }
 
 NVEncFilterUnsharp::~NVEncFilterUnsharp() {
@@ -222,7 +222,7 @@ RGY_ERR NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf, int
 
 RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(pParam);
     if (!pUnsharpParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -255,11 +255,11 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pUnsharpParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pUnsharpParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    if (!m_pParam
-        || std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_pParam)->unsharp.radius != pUnsharpParam->unsharp.radius) {
+    if (!m_param
+        || std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_param)->unsharp.radius != pUnsharpParam->unsharp.radius) {
         float sigmaY = 0.8f + 0.3f * pUnsharpParam->unsharp.radius;
         float sigmaUV = (RGY_CSP_CHROMA_FORMAT[pUnsharpParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? 0.8f + 0.3f * (pUnsharpParam->unsharp.radius * 0.5f + 0.25f) : sigmaY;
 
@@ -271,7 +271,7 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pUnsharpParam;
+    m_param = pUnsharpParam;
     return sts;
 }
 
@@ -287,9 +287,9 @@ RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (interlaced(*pInputFrame)) {
@@ -300,11 +300,11 @@ RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_pParam);
+    auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_param);
     if (!pUnsharpParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -333,7 +333,7 @@ RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 }
 
 void NVEncFilterUnsharp::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_pGaussWeightBufY.reset();
     m_pGaussWeightBufUV.reset();
     m_bInterlacedWarn = false;

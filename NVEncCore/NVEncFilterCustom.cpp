@@ -46,7 +46,7 @@ NVEncFilterCustom::NVEncFilterCustom()
     : m_kernel_cache(), m_program()
 #endif //#if ENABLE_NVRTC
 {
-    m_sFilterName = _T("custom");
+    m_name = _T("custom");
 }
 
 NVEncFilterCustom::~NVEncFilterCustom() {
@@ -111,9 +111,9 @@ RGY_ERR NVEncFilterCustom::check_param(shared_ptr<NVEncFilterParamCustom> prm) {
 
 RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(pParam);
-    m_sFilterName = prm->custom.filter_name;
+    m_name = prm->custom.filter_name;
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -131,7 +131,7 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     std::string program_source;
@@ -148,7 +148,7 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("failed to build program source.\n%s\n"), char_to_tstring(e.what()).c_str());
         return RGY_ERR_CUDA;
     }
-    m_pPrintMes->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, char_to_tstring(m_program->getLog()).c_str());
+    m_pLog->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, char_to_tstring(m_program->getLog()).c_str());
 
     //test compile
     std::string compile_log;
@@ -160,13 +160,13 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
     } catch (const std::exception& e) {
         AddMessage(RGY_LOG_ERROR, _T("failed to instantiate program source.\n%s\n"), char_to_tstring(e.what()).c_str());
-        m_pPrintMes->write_log(RGY_LOG_ERROR, RGY_LOGT_VPP_BUILD, char_to_tstring(compile_log).c_str());
+        m_pLog->write_log(RGY_LOG_ERROR, RGY_LOGT_VPP_BUILD, char_to_tstring(compile_log).c_str());
         return RGY_ERR_CUDA;
     }
-    m_pPrintMes->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, char_to_tstring(compile_log).c_str());
+    m_pLog->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, char_to_tstring(compile_log).c_str());
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 #else
     AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) is not supported on this build.\n"), prm->custom.filter_name.c_str());
@@ -186,7 +186,7 @@ tstring NVEncFilterParamCustom::print() const {
 
 RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInpuPlane, RGY_PLANE plane, cudaStream_t stream) {
 #if ENABLE_NVRTC
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_param);
     const dim3 blockSize(prm->custom.threadPerBlockX, prm->custom.threadPerBlockY);
     const dim3 gridSize(
         divCeil(pOutputPlane->width, blockSize.x * prm->custom.pixelPerThreadX),
@@ -247,7 +247,7 @@ RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputFrame, const RGYFr
 
 RGY_ERR NVEncFilterCustom::run_planes(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
 #if ENABLE_NVRTC
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_param);
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -304,9 +304,9 @@ RGY_ERR NVEncFilterCustom::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
@@ -314,7 +314,7 @@ RGY_ERR NVEncFilterCustom::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -337,5 +337,5 @@ RGY_ERR NVEncFilterCustom::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 }
 
 void NVEncFilterCustom::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }

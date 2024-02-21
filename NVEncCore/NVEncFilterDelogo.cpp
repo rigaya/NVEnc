@@ -190,7 +190,7 @@ NVEncFilterDelogo::NVEncFilterDelogo() :
     m_yDepth(0),
     m_EnableAutoNR(false),
     m_logPath() {
-    m_sFilterName = _T("delogo");
+    m_name = _T("delogo");
 }
 
 NVEncFilterDelogo::~NVEncFilterDelogo() {
@@ -357,7 +357,7 @@ int NVEncFilterDelogo::selectLogo(const tstring& selectStr, const tstring& input
 
 RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(pParam);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -400,7 +400,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
     if (ret_logofile == 0 || m_nLogoIdx != logoidx) {
         m_nLogoIdx = logoidx;
-        m_pParam = pDelogoParam;
+        m_param = pDelogoParam;
 
         auto& logoData = m_sLogoDataList[m_nLogoIdx];
         if (pDelogoParam->delogo.posX || pDelogoParam->delogo.posY) {
@@ -556,7 +556,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             uptr->frame.singleAlloc = true;
             sts = uptr->alloc();
             if (sts != RGY_ERR_NONE) {
-                m_pFrameBuf.clear();
+                m_frameBuf.clear();
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for logo data %d: %s.\n"),
                     i, get_err_mes(sts));
                 return sts;
@@ -606,7 +606,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             //自動フェード関連のメモリ確保
             sts = m_src.alloc(pDelogoParam->frameIn);
             if (sts != RGY_ERR_NONE) {
-                m_pFrameBuf.clear();
+                m_frameBuf.clear();
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for frame buffer: %s.\n"),
                     get_err_mes(sts));
                 return RGY_ERR_MEMORY_ALLOC;
@@ -860,7 +860,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         if (pDelogoParam->delogo.log) {
             m_logPath = pDelogoParam->inputFileName + tstring(_T(".delogo_log.csv"));
             std::unique_ptr<FILE, decltype(&fclose)> fp(_tfopen(m_logPath.c_str(), _T("w")), fclose);
-            _ftprintf(fp.get(), _T("%s\n\n"), m_sFilterInfo.c_str());
+            _ftprintf(fp.get(), _T("%s\n\n"), m_infoStr.c_str());
             _ftprintf(fp.get(), _T(", NR, fade (adj), fade (raw)\n"));
             fp.reset();
         }
@@ -1056,7 +1056,7 @@ RGY_ERR NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, c
     auto sts = createAdjustedMask(pFrame);
     if (sts != RGY_ERR_NONE) return sts;
 
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1184,7 +1184,7 @@ RGY_ERR NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, const 
 #pragma warning (pop)
 
 RGY_ERR NVEncFilterDelogo::logAutoFadeNR() {
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1211,11 +1211,11 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1302,7 +1302,7 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
 void NVEncFilterDelogo::close() {
     m_LogoFilePath.clear();
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_sLogoDataList.clear();
     m_src.clear();
     m_mask.reset();

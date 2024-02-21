@@ -56,11 +56,11 @@ static RGY_ERR denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYFra
 
 RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto pGaussParam = std::dynamic_pointer_cast<NVEncFilterParamGaussDenoise>(m_pParam);
+    auto pGaussParam = std::dynamic_pointer_cast<NVEncFilterParamGaussDenoise>(m_param);
     if (!pGaussParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -108,7 +108,7 @@ RGY_ERR NVEncFilterDenoiseGauss::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
 }
 
 NVEncFilterDenoiseGauss::NVEncFilterDenoiseGauss() : m_bInterlacedWarn(false) {
-    m_sFilterName = _T("gauss");
+    m_name = _T("gauss");
 }
 
 NVEncFilterDenoiseGauss::~NVEncFilterDenoiseGauss() {
@@ -117,7 +117,7 @@ NVEncFilterDenoiseGauss::~NVEncFilterDenoiseGauss() {
 
 RGY_ERR NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pGaussParam = std::dynamic_pointer_cast<NVEncFilterParamGaussDenoise>(pParam);
     if (!pGaussParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -139,11 +139,11 @@ RGY_ERR NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, share
         return RGY_ERR_MEMORY_ALLOC;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pGaussParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pGaussParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -161,9 +161,9 @@ RGY_ERR NVEncFilterDenoiseGauss::run_filter(const RGYFrameInfo *pInputFrame, RGY
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (interlaced(*pInputFrame)) {
@@ -174,7 +174,7 @@ RGY_ERR NVEncFilterDenoiseGauss::run_filter(const RGYFrameInfo *pInputFrame, RGY
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
@@ -186,6 +186,6 @@ RGY_ERR NVEncFilterDenoiseGauss::run_filter(const RGYFrameInfo *pInputFrame, RGY
 }
 
 void NVEncFilterDenoiseGauss::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_bInterlacedWarn = false;
 }

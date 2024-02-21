@@ -71,7 +71,7 @@ void run_curves_plane(
 }
 
 RGY_ERR NVEncFilterCurves::procFrame(RGYFrameInfo *pFrame, cudaStream_t stream) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamCurves>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamCurves>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;

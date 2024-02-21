@@ -58,7 +58,7 @@ NVEncFilterOverlay::NVEncFilterOverlay() :
     m_frame(),
     m_alpha(),
     m_bInterlacedWarn(false) {
-    m_sFilterName = _T("overlay");
+    m_name = _T("overlay");
 }
 
 NVEncFilterOverlay::~NVEncFilterOverlay() {
@@ -67,7 +67,7 @@ NVEncFilterOverlay::~NVEncFilterOverlay() {
 
 RGY_ERR NVEncFilterOverlay::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamOverlay>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -97,11 +97,11 @@ RGY_ERR NVEncFilterOverlay::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        prm->frameOut.pitch[0] = m_pFrameBuf[0]->frame.pitch[0];
+        prm->frameOut.pitch[0] = m_frameBuf[0]->frame.pitch[0];
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -315,7 +315,7 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
         paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
-        if (auto sts = filterCrop->init(paramCrop, m_pPrintMes); sts != RGY_ERR_NONE) {
+        if (auto sts = filterCrop->init(paramCrop, m_pLog); sts != RGY_ERR_NONE) {
             return sts;
         }
         m_frame.crop = std::move(filterCrop);
@@ -335,7 +335,7 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
         paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
-        if (auto sts = filterCrop->init(paramCrop, m_pPrintMes); sts != RGY_ERR_NONE) {
+        if (auto sts = filterCrop->init(paramCrop, m_pLog); sts != RGY_ERR_NONE) {
             return sts;
         }
         m_alpha.crop = std::move(filterCrop);
@@ -370,7 +370,7 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
             paramResize->frameIn.mem_type = RGY_MEM_TYPE_GPU;
             paramResize->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramResize->bOutOverwrite = false;
-            if (auto sts = filterResize->init(paramResize, m_pPrintMes); sts != RGY_ERR_NONE) {
+            if (auto sts = filterResize->init(paramResize, m_pLog); sts != RGY_ERR_NONE) {
                 return sts;
             }
             m_frame.resize = std::move(filterResize);
@@ -392,7 +392,7 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
             paramResize->frameIn.mem_type = RGY_MEM_TYPE_GPU;
             paramResize->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramResize->bOutOverwrite = false;
-            if (auto sts = filterResize->init(paramResize, m_pPrintMes); sts != RGY_ERR_NONE) {
+            if (auto sts = filterResize->init(paramResize, m_pLog); sts != RGY_ERR_NONE) {
                 return sts;
             }
             m_alpha.resize = std::move(filterResize);
@@ -543,7 +543,7 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
     //不透明度データをコピー
     {
         const auto& frameHostAlpha = m_alpha.host->frame;
-        auto prm = std::dynamic_pointer_cast<NVEncFilterParamOverlay>(m_pParam);
+        auto prm = std::dynamic_pointer_cast<NVEncFilterParamOverlay>(m_param);
         if (!prm) {
             AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
             return RGY_ERR_INVALID_PARAM;
@@ -651,9 +651,9 @@ RGY_ERR NVEncFilterOverlay::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (interlaced(*pInputFrame)) {
@@ -664,11 +664,11 @@ RGY_ERR NVEncFilterOverlay::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamOverlay>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamOverlay>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -716,6 +716,6 @@ void NVEncFilterOverlay::close() {
     m_convert.reset();
     m_codecCtxDec.reset();
     m_formatCtx.reset();
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_bInterlacedWarn = false;
 }

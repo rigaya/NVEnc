@@ -180,7 +180,7 @@ static RGY_ERR edgelevel_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *p
 }
 
 NVEncFilterEdgelevel::NVEncFilterEdgelevel() {
-    m_sFilterName = _T("edgelevel");
+    m_name = _T("edgelevel");
 }
 
 NVEncFilterEdgelevel::~NVEncFilterEdgelevel() {
@@ -189,7 +189,7 @@ NVEncFilterEdgelevel::~NVEncFilterEdgelevel() {
 
 RGY_ERR NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pEdgelevelParam = std::dynamic_pointer_cast<NVEncFilterParamEdgelevel>(pParam);
     if (!pEdgelevelParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -223,11 +223,11 @@ RGY_ERR NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         return RGY_ERR_MEMORY_ALLOC;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pEdgelevelParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pEdgelevelParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pEdgelevelParam;
+    m_param = pEdgelevelParam;
     return sts;
 }
 
@@ -243,9 +243,9 @@ RGY_ERR NVEncFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (interlaced(*pInputFrame)) {
@@ -256,11 +256,11 @@ RGY_ERR NVEncFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto pEdgelevelParam = std::dynamic_pointer_cast<NVEncFilterParamEdgelevel>(m_pParam);
+    auto pEdgelevelParam = std::dynamic_pointer_cast<NVEncFilterParamEdgelevel>(m_param);
     if (!pEdgelevelParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -292,5 +292,5 @@ RGY_ERR NVEncFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
 }
 
 void NVEncFilterEdgelevel::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }

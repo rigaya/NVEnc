@@ -352,7 +352,7 @@ RGY_ERR calc_psnr_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::arr
 }
 
 RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameInfo *p1) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;

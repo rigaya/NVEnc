@@ -132,7 +132,7 @@ NVEncFilterSubburn::NVEncFilterSubburn() :
     m_resize(),
     m_poolPkt(nullptr),
     m_queueSubPackets() {
-    m_sFilterName = _T("subburn");
+    m_name = _T("subburn");
 }
 
 NVEncFilterSubburn::~NVEncFilterSubburn() {
@@ -340,7 +340,7 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
         AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass.\n"));
         return RGY_ERR_NULL_PTR;
     }
-    ass_set_message_cb(m_assLibrary.get(), ass_log, m_pPrintMes.get());
+    ass_set_message_cb(m_assLibrary.get(), ass_log, m_pLog.get());
 
     if (prm->subburn.fontsdir.length() > 0) {
         if (!std::filesystem::exists(std::filesystem::path(prm->subburn.fontsdir))) {
@@ -424,7 +424,7 @@ RGY_ERR NVEncFilterSubburn::readSubFile() {
 
 RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -453,7 +453,7 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
             return sts;
         }
     }
-    m_pParam = prm;
+    m_param = prm;
     if (prm->streamIn.stream == nullptr) {
         if ((sts = readSubFile()) != RGY_ERR_NONE) {
             return sts;
@@ -476,7 +476,7 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = prm;
+    m_param = prm;
     return sts;
 }
 
@@ -485,7 +485,7 @@ tstring NVEncFilterParamSubburn::print() const {
 }
 
 int NVEncFilterSubburn::targetTrackIdx() {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_param);
     if (!prm) {
         return 0;
     }
@@ -495,8 +495,8 @@ int NVEncFilterSubburn::targetTrackIdx() {
 RGY_ERR NVEncFilterSubburn::addStreamPacket(AVPacket *pkt) {
     m_queueSubPackets.push(pkt);
     const auto log_level = RGY_LOG_TRACE;
-    if (m_pPrintMes != nullptr && log_level >= m_pPrintMes->getLogLevel(RGY_LOGT_VPP)) {
-        auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+    if (m_pLog != nullptr && log_level >= m_pLog->getLogLevel(RGY_LOGT_VPP)) {
+        auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_param);
         if (!prm) {
             AddMessage(log_level, _T("Invalid parameter type.\n"));
             return RGY_ERR_INVALID_PARAM;
@@ -511,7 +511,7 @@ RGY_ERR NVEncFilterSubburn::addStreamPacket(AVPacket *pkt) {
 }
 
 RGY_ERR NVEncFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, cudaStream_t stream) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -612,7 +612,7 @@ RGY_ERR NVEncFilterSubburn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
@@ -632,7 +632,7 @@ void NVEncFilterSubburn::close() {
     m_outCodecDecodeCtx.reset();
     m_formatCtx.reset();
     m_subType = 0;
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }
 
 #endif //#if ENABLE_AVSW_READER

@@ -1353,7 +1353,7 @@ const int NVEncFilterNnedi::sizeNY[] = { 6, 6, 6, 6, 4, 4, 4 };
 const int NVEncFilterNnedi::sizeNN[] = { 16, 32, 64, 128, 256 };
 
 NVEncFilterNnedi::NVEncFilterNnedi() : m_weight0(), m_weight1() {
-    m_sFilterName = _T("nnedi");
+    m_name = _T("nnedi");
 }
 
 NVEncFilterNnedi::~NVEncFilterNnedi() {
@@ -1721,7 +1721,7 @@ void NVEncFilterNnedi::setWeight1(TypeCalc *ptrDst, const float *ptrW, const std
 
 RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pNnediParam = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(pParam);
     if (!pNnediParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1738,10 +1738,10 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pNnediParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pNnediParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    auto pNnediParamPrev = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
+    auto pNnediParamPrev = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_param);
     if (!pNnediParamPrev
         || pNnediParamPrev->nnedi != pNnediParam->nnedi) {
         if ((sts = initParams(pNnediParam)) != RGY_ERR_NONE) {
@@ -1750,11 +1750,11 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     }
     if (pNnediParam->nnedi.isbob()) {
         pParam->baseFps *= 2;
-        m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
+        m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pNnediParam;
+    m_param = pNnediParam;
     return sts;
 }
 
@@ -1767,7 +1767,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
-    auto pNnediParam = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
+    auto pNnediParam = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_param);
     if (!pNnediParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1775,15 +1775,15 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
         ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
         if (pNnediParam->nnedi.isbob()) {
-            pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+            pOutFrame = m_frameBuf[m_nFrameIdx].get();
             ppOutputFrames[1] = &pOutFrame->frame;
             ppOutputFrames[1]->picstruct = pInputFrame->picstruct;
-            m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+            m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
             *pOutputFrameNum = 2;
         }
     }
@@ -1793,7 +1793,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
@@ -1887,7 +1887,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void NVEncFilterNnedi::setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_param);
 
     auto frameDuration = pInputFrame->duration;
     if (frameDuration == 0) {
@@ -1903,5 +1903,5 @@ void NVEncFilterNnedi::setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrame
 }
 
 void NVEncFilterNnedi::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }

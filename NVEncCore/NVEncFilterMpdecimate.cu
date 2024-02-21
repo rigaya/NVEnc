@@ -245,7 +245,7 @@ RGY_ERR NVEncFilterMpdecimateCache::add(const RGYFrameInfo *pInputFrame, cudaStr
 }
 
 NVEncFilterMpdecimate::NVEncFilterMpdecimate() : m_dropCount(0), m_ref(-1), m_target(-1), m_cache(), m_eventDiff(), m_streamDiff(), m_streamTransfer() {
-    m_sFilterName = _T("mpdecimate");
+    m_name = _T("mpdecimate");
 }
 
 NVEncFilterMpdecimate::~NVEncFilterMpdecimate() {
@@ -274,7 +274,7 @@ RGY_ERR NVEncFilterMpdecimate::checkParam(const std::shared_ptr<NVEncFilterParam
 
 RGY_ERR NVEncFilterMpdecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamMpdecimate>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -285,9 +285,9 @@ RGY_ERR NVEncFilterMpdecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_
         return sts;
     }
 
-    if (!m_pParam || std::dynamic_pointer_cast<NVEncFilterParamMpdecimate>(m_pParam)->mpdecimate != prm->mpdecimate) {
+    if (!m_param || std::dynamic_pointer_cast<NVEncFilterParamMpdecimate>(m_param)->mpdecimate != prm->mpdecimate) {
 
-        m_cache.init(2, m_pPrintMes);
+        m_cache.init(2, m_pLog);
 
         m_eventDiff = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         if (RGY_ERR_NONE != (sts = err_to_rgy(cudaEventCreateWithFlags(m_eventDiff.get(), cudaEventDisableTiming)))) {
@@ -329,14 +329,14 @@ RGY_ERR NVEncFilterMpdecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_
         }
 
         const int max_value = (1 << RGY_CSP_BIT_DEPTH[prm->frameIn.csp]) - 1;
-        m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
+        m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
         m_dropCount = 0;
         m_ref = -1;
         m_target = -1;
 
         setFilterInfo(pParam->print());
     }
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -345,7 +345,7 @@ tstring NVEncFilterParamMpdecimate::print() const {
 }
 
 bool NVEncFilterMpdecimate::dropFrame(NVEncFilterMpdecimateFrameData *targetFrame) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamMpdecimate>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamMpdecimate>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return false;
@@ -364,7 +364,7 @@ bool NVEncFilterMpdecimate::dropFrame(NVEncFilterMpdecimateFrameData *targetFram
 
 RGY_ERR NVEncFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamMpdecimate>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamMpdecimate>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -432,7 +432,7 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
 }
 
 void NVEncFilterMpdecimate::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_eventDiff.reset();
     m_streamDiff.reset();
     m_streamTransfer.reset();

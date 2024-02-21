@@ -261,7 +261,7 @@ RGY_ERR NVEncFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t fr
             m_subImages.push_back(textRectToImage(image, stream));
         }
     }
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -375,7 +375,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     //GPUへ転送
     auto frameTemp = std::make_unique<CUFrameBuf>(bufCPU->frame.width, bufCPU->frame.height, bufCPU->frame.csp);
     frameTemp->copyFrameAsync(&bufCPU->frame, stream);
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_param);
 
     decltype(frameTemp) frame;
     if (prm->subburn.scale == 1.0f) {
@@ -431,7 +431,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         paramResize->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramResize->bOutOverwrite = false;
         paramResize->interp = RGY_VPP_RESIZE_BILINEAR;
-        filterResize->init(paramResize, m_pPrintMes);
+        filterResize->init(paramResize, m_pLog);
         m_resize = std::move(filterResize);
 
         int filterOutputNum = 0;
@@ -474,7 +474,7 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const in
             AddMessage(RGY_LOG_ERROR, _T("unexpected error.\n"));
             return RGY_ERR_UNKNOWN;
         }
-        auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+        auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_param);
         if (!prm) {
             AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
             return RGY_ERR_INVALID_PARAM;

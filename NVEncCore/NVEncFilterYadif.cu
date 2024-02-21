@@ -316,7 +316,7 @@ RGY_ERR NVEncFilterYadifSource::add(const RGYFrameInfo *pInputFrame, cudaStream_
 }
 
 NVEncFilterYadif::NVEncFilterYadif() : m_nFrame(0), m_pts(0), m_source() {
-    m_sFilterName = _T("yadif");
+    m_name = _T("yadif");
 }
 
 NVEncFilterYadif::~NVEncFilterYadif() {
@@ -342,7 +342,7 @@ RGY_ERR NVEncFilterYadif::check_param(shared_ptr<NVEncFilterParamYadif> pAfsPara
 
 RGY_ERR NVEncFilterYadif::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prmYadif = std::dynamic_pointer_cast<NVEncFilterParamYadif>(pParam);
     if (!prmYadif) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -359,10 +359,10 @@ RGY_ERR NVEncFilterYadif::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        prmYadif->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        prmYadif->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-        m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
+        m_frameBuf[0]->frame.width, m_frameBuf[0]->frame.height, m_frameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_frameBuf[0]->frame.csp]);
 
     sts = m_source.alloc(prmYadif->frameOut);
     if (sts != RGY_ERR_NONE) {
@@ -373,13 +373,13 @@ RGY_ERR NVEncFilterYadif::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     prmYadif->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
     m_nFrame = 0;
     m_pts = 0;
-    m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_TIMESTAMP));
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_TIMESTAMP));
     if (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) {
         prmYadif->baseFps *= 2;
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -390,7 +390,7 @@ tstring NVEncFilterParamYadif::print() const {
 RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    auto prmYadif = std::dynamic_pointer_cast<NVEncFilterParamYadif>(m_pParam);
+    auto prmYadif = std::dynamic_pointer_cast<NVEncFilterParamYadif>(m_param);
     if (!prmYadif) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -404,12 +404,12 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         return sts;
     } else if (pInputFrame->ptr[0] != nullptr) {
         //エラーチェック
-        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_pFrameBuf[0]->frame.mem_type);
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_frameBuf[0]->frame.mem_type);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
             return RGY_ERR_INVALID_CALL;
         }
-        if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+        if (m_param->frameOut.csp != m_param->frameIn.csp) {
             AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
@@ -427,15 +427,15 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         CUFrameBuf *pOutFrame = nullptr;
         *pOutputFrameNum = 1;
         if (ppOutputFrames[0] == nullptr) {
-            pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+            pOutFrame = m_frameBuf[m_nFrameIdx].get();
             ppOutputFrames[0] = &pOutFrame->frame;
             ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-            m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+            m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
             if (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) {
-                pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+                pOutFrame = m_frameBuf[m_nFrameIdx].get();
                 ppOutputFrames[1] = &pOutFrame->frame;
                 ppOutputFrames[1]->picstruct = pInputFrame->picstruct;
-                m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+                m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
                 *pOutputFrameNum = 2;
             }
         }
@@ -541,7 +541,7 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void NVEncFilterYadif::setBobTimestamp(const int iframe, RGYFrameInfo **ppOutputFrames) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamYadif>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamYadif>(m_param);
 
     auto frameDuration = m_source.get(m_nFrame + 0)->frame.duration;
     if (frameDuration == 0) {

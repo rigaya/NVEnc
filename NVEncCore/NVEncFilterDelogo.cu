@@ -259,7 +259,7 @@ RGY_ERR NVEncFilterDelogo::delogoY(RGYFrameInfo *pFrame, const float fade) {
         { RGY_CSP_YUV444_10, run_delogo<uint16_t, 10, true> },
         { RGY_CSP_YUV444_09, run_delogo<uint16_t,  9, true> },
     };
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -290,7 +290,7 @@ RGY_ERR NVEncFilterDelogo::delogoUV(RGYFrameInfo *pFrame, float fade) {
         { RGY_CSP_NV12,    run_delogo<uint8_t,   8, false> },
         { RGY_CSP_P010,    run_delogo<uint16_t, 16, false> },
     };
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1317,7 +1317,7 @@ RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBu
         { 4, run_erosion<short4, 4> },
     };
 
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1366,7 +1366,7 @@ RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBu
 
 RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
 
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1692,7 +1692,7 @@ RGY_ERR NVEncFilterDelogo::runSmooth(
         return RGY_ERR_UNSUPPORTED;
     }
 
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1882,7 +1882,7 @@ RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value) {
         { std::make_pair(RGY_CSP_Y16, 4), runSmoothKernel<ushort4, short4, 4> },
     };
 
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;

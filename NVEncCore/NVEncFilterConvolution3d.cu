@@ -219,7 +219,7 @@ static RGY_ERR denoise_convolution3d_frame(RGYFrameInfo *pOutputFrame,
 }
 
 NVEncFilterConvolution3d::NVEncFilterConvolution3d() : m_bInterlacedWarn(false), m_prevFrames(), m_cacheIdx(0) {
-    m_sFilterName = _T("convolution3d");
+    m_name = _T("convolution3d");
 }
 
 NVEncFilterConvolution3d::~NVEncFilterConvolution3d() {
@@ -228,7 +228,7 @@ NVEncFilterConvolution3d::~NVEncFilterConvolution3d() {
 
 RGY_ERR NVEncFilterConvolution3d::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto param = std::dynamic_pointer_cast<NVEncFilterParamConvolution3d>(pParam);
     if (!param) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -255,8 +255,8 @@ RGY_ERR NVEncFilterConvolution3d::init(shared_ptr<NVEncFilterParam> pParam, shar
         AddMessage(RGY_LOG_ERROR, _T("t_cthresh must be a positive value.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (!m_pParam
-        || std::dynamic_pointer_cast<NVEncFilterParamConvolution3d>(m_pParam)->convolution3d != param->convolution3d) {
+    if (!m_param
+        || std::dynamic_pointer_cast<NVEncFilterParamConvolution3d>(m_param)->convolution3d != param->convolution3d) {
         sts = AllocFrameBuf(param->frameOut, 1);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
@@ -278,12 +278,12 @@ RGY_ERR NVEncFilterConvolution3d::init(shared_ptr<NVEncFilterParam> pParam, shar
     }
 
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        param->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        param->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
-    m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -297,11 +297,11 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto param = std::dynamic_pointer_cast<NVEncFilterParamConvolution3d>(m_pParam);
+    auto param = std::dynamic_pointer_cast<NVEncFilterParamConvolution3d>(m_param);
     if (!param) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -322,7 +322,7 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
         CUFrameBuf *pOutFrame = nullptr;
         *pOutputFrameNum = 1;
         if (ppOutputFrames[0] == nullptr) {
-            pOutFrame = m_pFrameBuf[0].get();
+            pOutFrame = m_frameBuf[0].get();
             ppOutputFrames[0] = &pOutFrame->frame;
         }
         if (pInputFrame->ptr[0]) {
@@ -331,7 +331,7 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
                 AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
                 return RGY_ERR_INVALID_PARAM;
             }
-            if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+            if (m_param->frameOut.csp != m_param->frameIn.csp) {
                 AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
                 return RGY_ERR_INVALID_PARAM;
             }
@@ -392,7 +392,7 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
 }
 
 void NVEncFilterConvolution3d::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     for (auto& f : m_prevFrames) {
         f.reset();
     }

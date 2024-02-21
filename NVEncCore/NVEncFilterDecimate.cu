@@ -545,7 +545,7 @@ RGY_ERR NVEncFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, cudaStrea
 }
 
 NVEncFilterDecimate::NVEncFilterDecimate() : m_flushed(false), m_frameLastDropped(-1), m_frameLastInputDuration(0), m_cache(), m_eventDiff(), m_streamDiff(), m_streamTransfer() {
-    m_sFilterName = _T("decimate");
+    m_name = _T("decimate");
 }
 
 NVEncFilterDecimate::~NVEncFilterDecimate() {
@@ -586,7 +586,7 @@ RGY_ERR NVEncFilterDecimate::checkParam(const std::shared_ptr<NVEncFilterParamDe
 
 RGY_ERR NVEncFilterDecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -597,7 +597,7 @@ RGY_ERR NVEncFilterDecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
         return sts;
     }
 
-    if (!m_pParam || std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_pParam)->decimate != prm->decimate) {
+    if (!m_param || std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_param)->decimate != prm->decimate) {
 
         m_cache.init(prm->decimate.cycle + 1, prm->decimate.blockX, prm->decimate.blockY);
 
@@ -643,7 +643,7 @@ RGY_ERR NVEncFilterDecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
         }
 
         const int max_value = (1 << RGY_CSP_BIT_DEPTH[prm->frameIn.csp]) - 1;
-        m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
+        m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
         m_threSceneChange = (int64_t)(((double)max_value * prm->frameIn.width * prm->frameIn.height * (double)prm->decimate.threSceneChange) / 100);
         m_threDuplicate = (int64_t)(((double)max_value * prm->decimate.blockX * prm->decimate.blockY * (double)prm->decimate.threDuplicate) / 100);
         m_frameLastDropped = -1;
@@ -651,7 +651,7 @@ RGY_ERR NVEncFilterDecimate::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
 
         setFilterInfo(pParam->print());
     }
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -662,7 +662,7 @@ tstring NVEncFilterParamDecimate::print() const {
 std::vector<DecimateSelectResult> NVEncFilterDecimate::selectDropFrame(const int iframeStart) {
     std::vector<DecimateSelectResult> selectResults(m_cache.inframe() - iframeStart, DecimateSelectResult::NONE);
 
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_param);
     int cycle = prm->decimate.cycle;
     for (int idrop = 0; idrop < prm->decimate.drop; idrop++, cycle--) {
         int frameLowest = iframeStart;
@@ -705,7 +705,7 @@ std::vector<DecimateSelectResult> NVEncFilterDecimate::selectDropFrame(const int
 }
 
 RGY_ERR NVEncFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -841,7 +841,7 @@ RGY_ERR NVEncFilterDecimate::calcDiffWithPrevFrameAndSetDiffToCurr(const int cur
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_param);
     auto sts = frameCurrent->calcDiff(func_list.at(csp), framePrev,
         prm->decimate.chroma,
         *m_streamDiff.get(), *m_eventTransfer.get(), *m_streamTransfer.get());
@@ -855,7 +855,7 @@ RGY_ERR NVEncFilterDecimate::calcDiffWithPrevFrameAndSetDiffToCurr(const int cur
 
 RGY_ERR NVEncFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -899,7 +899,7 @@ RGY_ERR NVEncFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 }
 
 void NVEncFilterDecimate::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_eventDiff.reset();
     m_streamDiff.reset();
     m_streamTransfer.reset();

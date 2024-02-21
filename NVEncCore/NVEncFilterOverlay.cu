@@ -83,7 +83,7 @@ RGY_ERR run_overlay_plane(
 }
 
 RGY_ERR NVEncFilterOverlay::overlayFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamOverlay>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamOverlay>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;

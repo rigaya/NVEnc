@@ -726,11 +726,11 @@ RGY_ERR NVEncFilterDenoiseDct::colorCorrelation(RGYFrameInfo *pOutputFrame, cons
 }
 
 RGY_ERR NVEncFilterDenoiseDct::denoise(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseDct>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseDct>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -797,7 +797,7 @@ NVEncFilterDenoiseDct::NVEncFilterDenoiseDct() :
     m_srcCrop(),
     m_dstCrop(),
     m_bufImg() {
-    m_sFilterName = _T("denoise-dct");
+    m_name = _T("denoise-dct");
 }
 
 NVEncFilterDenoiseDct::~NVEncFilterDenoiseDct() {
@@ -823,7 +823,7 @@ RGY_ERR NVEncFilterDenoiseDct::checkParam(const NVEncFilterParamDenoiseDct *prm)
 
 RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseDct>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -832,7 +832,7 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
     if ((sts = checkParam(prm.get())) != RGY_ERR_NONE) {
         return sts;
     }
-    if (!m_pParam || m_pParam != pParam) {
+    if (!m_param || m_param != pParam) {
         {
             AddMessage(RGY_LOG_DEBUG, _T("Create input csp conversion filter.\n"));
             unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
@@ -844,7 +844,7 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
             paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->bOutOverwrite = false;
-            sts = filter->init(paramCrop, m_pPrintMes);
+            sts = filter->init(paramCrop, m_pLog);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -861,7 +861,7 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
             paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->bOutOverwrite = false;
-            sts = filter->init(paramCrop, m_pPrintMes);
+            sts = filter->init(paramCrop, m_pLog);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -883,7 +883,7 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
             return sts;
         }
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            prm->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+            prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
         }
 
         m_step = prm->dct.step;
@@ -891,7 +891,7 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -907,9 +907,9 @@ RGY_ERR NVEncFilterDenoiseDct::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     //if (interlaced(*pInputFrame)) {
@@ -920,7 +920,7 @@ RGY_ERR NVEncFilterDenoiseDct::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
@@ -935,6 +935,6 @@ RGY_ERR NVEncFilterDenoiseDct::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
 }
 
 void NVEncFilterDenoiseDct::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_bInterlacedWarn = false;
 }

@@ -31,30 +31,30 @@
 const TCHAR *NVEncFilter::INFO_INDENT = _T("               ");
 
 NVEncFilter::NVEncFilter() :
-    m_sFilterName(), m_sFilterInfo(), m_pPrintMes(), m_pFrameBuf(), m_nFrameIdx(0),
+    m_name(), m_infoStr(), m_pLog(), m_frameBuf(), m_nFrameIdx(0),
     m_pFieldPairIn(), m_pFieldPairOut(),
-    m_pParam(),
-    m_nPathThrough(FILTER_PATHTHROUGH_ALL), m_bCheckPerformance(false),
+    m_param(),
+    m_pathThrough(FILTER_PATHTHROUGH_ALL), m_bCheckPerformance(false),
     m_peFilterStart(), m_peFilterFin(), m_dFilterTimeMs(0.0), m_nFilterRunCount(0) {
 
 }
 
 NVEncFilter::~NVEncFilter() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_pFieldPairIn.reset();
     m_pFieldPairOut.reset();
     m_peFilterStart.reset();
     m_peFilterFin.reset();
-    m_pParam.reset();
+    m_param.reset();
 }
 
 RGY_ERR NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
-    if ((int)m_pFrameBuf.size() == frames
-        && !cmpFrameInfoCspResolution(&m_pFrameBuf[0]->frame, &frame)) {
+    if ((int)m_frameBuf.size() == frames
+        && !cmpFrameInfoCspResolution(&m_frameBuf[0]->frame, &frame)) {
         //すべて確保されているか確認
         bool allocated = true;
-        for (size_t i = 0; i < m_pFrameBuf.size(); i++) {
-            if (m_pFrameBuf[i]->frame.ptr[0] == nullptr) {
+        for (size_t i = 0; i < m_frameBuf.size(); i++) {
+            if (m_frameBuf[i]->frame.ptr[0] == nullptr) {
                 allocated = false;
                 break;
             }
@@ -63,17 +63,17 @@ RGY_ERR NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
             return RGY_ERR_NONE;
         }
     }
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 
     for (int i = 0; i < frames; i++) {
         auto uptr = std::make_unique<CUFrameBuf>(frame);
         uptr->releasePtr();
         auto ret = uptr->alloc();
         if (ret != RGY_ERR_NONE) {
-            m_pFrameBuf.clear();
+            m_frameBuf.clear();
             return ret;
         }
-        m_pFrameBuf.push_back(std::move(uptr));
+        m_frameBuf.push_back(std::move(uptr));
     }
     m_nFrameIdx = 0;
     return RGY_ERR_NONE;
@@ -91,8 +91,8 @@ RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFr
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
     }
-    if (m_pParam
-        && m_pParam->bOutOverwrite //上書きか?
+    if (m_param
+        && m_param->bOutOverwrite //上書きか?
         && pInputFrame != nullptr && pInputFrame->ptr[0] != nullptr //入力が存在するか?
         && ppOutputFrames != nullptr && ppOutputFrames[0] == nullptr) { //出力先がセット可能か?
         ppOutputFrames[0] = pInputFrame;
@@ -100,8 +100,8 @@ RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFr
     }
     const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
     const int nOutFrame = *pOutputFrameNum;
-    if (!m_pParam->bOutOverwrite && nOutFrame > 0) {
-        if (m_nPathThrough & FILTER_PATHTHROUGH_TIMESTAMP) {
+    if (!m_param->bOutOverwrite && nOutFrame > 0) {
+        if (m_pathThrough & FILTER_PATHTHROUGH_TIMESTAMP) {
             if (nOutFrame != 1) {
                 AddMessage(RGY_LOG_ERROR, _T("timestamp path through can only be applied to 1-in/1-out filter.\n"));
                 return RGY_ERR_INVALID_CALL;
@@ -112,9 +112,9 @@ RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFr
             }
         }
         for (int i = 0; i < nOutFrame; i++) {
-            if (m_nPathThrough & FILTER_PATHTHROUGH_FLAGS)     ppOutputFrames[i]->flags     = pInputFrame->flags;
-            if (m_nPathThrough & FILTER_PATHTHROUGH_PICSTRUCT) ppOutputFrames[i]->picstruct = pInputFrame->picstruct;
-            if (m_nPathThrough & FILTER_PATHTHROUGH_DATA)      ppOutputFrames[i]->dataList  = pInputFrame->dataList;
+            if (m_pathThrough & FILTER_PATHTHROUGH_FLAGS)     ppOutputFrames[i]->flags     = pInputFrame->flags;
+            if (m_pathThrough & FILTER_PATHTHROUGH_PICSTRUCT) ppOutputFrames[i]->picstruct = pInputFrame->picstruct;
+            if (m_pathThrough & FILTER_PATHTHROUGH_DATA)      ppOutputFrames[i]->dataList  = pInputFrame->dataList;
         }
     }
     if (m_bCheckPerformance) {
@@ -146,7 +146,7 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
         uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
         auto ret = uptr->alloc();
         if (ret != RGY_ERR_NONE) {
-            m_pFrameBuf.clear();
+            m_frameBuf.clear();
             return ret;
         }
         m_pFieldPairIn = std::move(uptr);
@@ -159,7 +159,7 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
         uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
         auto ret = uptr->alloc();
         if (ret != RGY_ERR_NONE) {
-            m_pFrameBuf.clear();
+            m_frameBuf.clear();
             return ret;
         }
         m_pFieldPairOut = std::move(uptr);

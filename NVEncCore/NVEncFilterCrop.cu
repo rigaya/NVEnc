@@ -267,7 +267,7 @@ RGY_ERR NVEncFilterCspCrop::convertYBitDepth(RGYFrameInfo *pOutputFrame, const R
         return RGY_ERR_UNSUPPORTED;
     }
 #undef CONV_DEPTH_TO_FROM
-    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1675,7 +1675,7 @@ void crop_rgb_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, 
 }
 
 RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1741,7 +1741,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const
     return RGY_ERR_NONE;
 }
 RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1851,7 +1851,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const
 }
 
 RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1923,7 +1923,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(RGYFrameInfo *pOutputFrame, const
 }
 
 RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -2038,7 +2038,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, con
 }
 
 RGY_ERR NVEncFilterCspCrop::convertCspFromRGB(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -2265,7 +2265,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromRGB(RGYFrameInfo *pOutputFrame, const 
 }
 
 NVEncFilterCspCrop::NVEncFilterCspCrop() {
-    m_sFilterName = _T("copy/cspconv/crop");
+    m_name = _T("copy/cspconv/crop");
 }
 
 NVEncFilterCspCrop::~NVEncFilterCspCrop() {
@@ -2274,23 +2274,23 @@ NVEncFilterCspCrop::~NVEncFilterCspCrop() {
 
 RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(pParam);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     //フィルタ名の調整
-    m_sFilterName = _T("");
+    m_name = _T("");
     if (cropEnabled(pCropParam->crop)) {
-        m_sFilterName += _T("crop");
+        m_name += _T("crop");
     }
     if (pCropParam->frameOut.csp != pCropParam->frameIn.csp) {
-        m_sFilterName += (m_sFilterName.length()) ? _T("/cspconv") : _T("cspconv");
+        m_name += (m_name.length()) ? _T("/cspconv") : _T("cspconv");
     }
-    if (m_sFilterName.length() == 0) {
+    if (m_name.length() == 0) {
         const auto memcpyKind = getCudaMemcpyKind(pParam->frameIn.mem_type, pParam->frameOut.mem_type);
-        m_sFilterName += getCudaMemcpyKindStr(memcpyKind);
+        m_name += getCudaMemcpyKindStr(memcpyKind);
     }
     //パラメータチェック
     for (int i = 0; i < _countof(pCropParam->crop.c); i++) {
@@ -2319,12 +2319,12 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pCropParam->frameOut.pitch[0] = m_pFrameBuf[0]->frame.pitch[0];
+        pCropParam->frameOut.pitch[0] = m_frameBuf[0]->frame.pitch[0];
     }
 
     //フィルタ情報の調整
     setFilterInfo(pCropParam->print());
-    m_pParam = pCropParam;
+    m_param = pCropParam;
     return sts;
 }
 
@@ -2362,18 +2362,18 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
-    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    if (m_pParam->frameOut.csp == m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp == m_param->frameIn.csp) {
         auto cudaMemcpyErrMes = [&](RGY_ERR sts, const TCHAR *mes) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (filter(%s)): %s.\n"),
                 mes, RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
@@ -2454,5 +2454,5 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 }
 
 void NVEncFilterCspCrop::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }

@@ -278,7 +278,7 @@ RGY_ERR transform_frame(RGYFrameInfo *pOutputFrame,
 }
 
 NVEncFilterTransform::NVEncFilterTransform() : m_weight0(), m_weight1() {
-    m_sFilterName = _T("transform");
+    m_name = _T("transform");
 }
 
 NVEncFilterTransform::~NVEncFilterTransform() {
@@ -295,7 +295,7 @@ RGY_ERR NVEncFilterTransform::checkParam(const std::shared_ptr<NVEncFilterParamT
 
 RGY_ERR NVEncFilterTransform::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamTransform>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -316,11 +316,11 @@ RGY_ERR NVEncFilterTransform::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        prm->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -333,7 +333,7 @@ RGY_ERR NVEncFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
     if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamTransform>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamTransform>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -341,10 +341,10 @@ RGY_ERR NVEncFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
         ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
 
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
@@ -352,7 +352,7 @@ RGY_ERR NVEncFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
@@ -380,5 +380,5 @@ RGY_ERR NVEncFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
 }
 
 void NVEncFilterTransform::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }

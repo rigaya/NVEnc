@@ -46,7 +46,7 @@ NVEncFilterRff::NVEncFilterRff() :
     m_prevInputTimestamp(-1),
     m_prevInputFlags(RGY_FRAME_FLAG_NONE),
     m_fpLog() {
-    m_sFilterName = _T("rff");
+    m_name = _T("rff");
 }
 
 NVEncFilterRff::~NVEncFilterRff() {
@@ -69,7 +69,7 @@ RGY_ERR NVEncFilterRff::checkParam(const NVEncFilterParam *param) {
 
 RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamRff>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -80,7 +80,7 @@ RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         prm->frameOut.pitch[i] = prm->frameIn.pitch[i];
     }
 
-    if (!m_pParam || cmpFrameInfoCspResolution(&m_pParam->frameOut, &prm->frameOut)) {
+    if (!m_param || cmpFrameInfoCspResolution(&m_param->frameOut, &prm->frameOut)) {
         sts = AllocFrameBuf(prm->frameOut, FRAME_BUF_SIZE + 1);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
@@ -96,21 +96,21 @@ RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         m_prevInputFlags = RGY_FRAME_FLAG_NONE;
     }
 
-    m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_TIMESTAMP));
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_TIMESTAMP));
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
 std::tuple<RGY_ERR, int, bool> NVEncFilterRff::copyFieldFromBuffer(RGYFrameInfo *dst, const int idx, cudaStream_t& stream) {
     const int targetIdx = idx % FRAME_BUF_SIZE;
     const bool copyTopField = (m_nFieldBufPicStruct[targetIdx] & RGY_FRAME_FLAG_RFF_TFF) != 0;
-    const int inputFrameId = m_pFrameBuf[targetIdx]->frame.inputFrameId;
+    const int inputFrameId = m_frameBuf[targetIdx]->frame.inputFrameId;
     // m_cl->copyFrameはframe情報をsrcからコピーする
     // dst側の情報を維持するため、あらかじめdstの情報をコピーしておく
-    copyFrameProp(&m_pFrameBuf[targetIdx]->frame, dst);
-    auto err = copyFrameFieldAsync(dst, &m_pFrameBuf[targetIdx]->frame, copyTopField, copyTopField, stream);
+    copyFrameProp(&m_frameBuf[targetIdx]->frame, dst);
+    auto err = copyFrameFieldAsync(dst, &m_frameBuf[targetIdx]->frame, copyTopField, copyTopField, stream);
     m_nFieldBufPicStruct[targetIdx] = RGY_FRAME_FLAG_NONE;
     return { err, inputFrameId, copyTopField };
 }
@@ -122,8 +122,8 @@ RGY_ERR NVEncFilterRff::copyFieldToBuffer(const RGYFrameInfo *src, const bool co
     } else {
         m_nFieldBufPicStruct[targetIdx] = RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_BFF;
     }
-    auto err = copyFrameFieldAsync(&m_pFrameBuf[targetIdx]->frame, src, copyTopField, copyTopField, stream);
-    copyFrameProp(&m_pFrameBuf[targetIdx]->frame, src);
+    auto err = copyFrameFieldAsync(&m_frameBuf[targetIdx]->frame, src, copyTopField, copyTopField, stream);
+    copyFrameProp(&m_frameBuf[targetIdx]->frame, src);
     return err;
 }
 
@@ -141,7 +141,7 @@ int64_t NVEncFilterRff::getInputDuration(const RGYFrameInfo *pInputFrame) {
         return est_duration.round();
     }
     // わからない場合はfpsから推定する
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamRff>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamRff>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return -1;
@@ -160,7 +160,7 @@ RGY_ERR NVEncFilterRff::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         return sts;
     }
 
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamRff>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamRff>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -209,7 +209,7 @@ RGY_ERR NVEncFilterRff::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         if (pInputFrame->flags & RGY_FRAME_FLAG_RFF) {
             // RFFがある場合、自分をコピー
             *pOutputFrameNum = 2;
-            ppOutputFrames[1] = &m_pFrameBuf[FRAME_OUT_INDEX]->frame;
+            ppOutputFrames[1] = &m_frameBuf[FRAME_OUT_INDEX]->frame;
             sts = copyFrameAsync(ppOutputFrames[1], pInputFrame, stream);
             if (sts != RGY_ERR_NONE) { return sts; }
 
@@ -267,6 +267,6 @@ RGY_ERR NVEncFilterRff::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 }
 
 void NVEncFilterRff::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_fpLog.reset();
 }

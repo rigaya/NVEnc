@@ -374,11 +374,11 @@ static RGY_ERR deband_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
 
 
 RGY_ERR NVEncFilterDeband::deband(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_CALL;
     }
-    auto pParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam);
+    auto pParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_param);
     if (!pParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -435,7 +435,7 @@ RGY_ERR NVEncFilterDeband::deband(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
 }
 
 NVEncFilterDeband::NVEncFilterDeband() : m_RandY(), m_RandUV() {
-    m_sFilterName = _T("deband");
+    m_name = _T("deband");
 }
 
 NVEncFilterDeband::~NVEncFilterDeband() {
@@ -444,7 +444,7 @@ NVEncFilterDeband::~NVEncFilterDeband() {
 
 RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pDebandParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(pParam);
     if (!pDebandParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -490,7 +490,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pDebandParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pDebandParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     bool resChanged = cmpFrameInfoCspResolution(&m_RandUV.frame, &pDebandParam->frameOut);
@@ -525,8 +525,8 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
 
     if (resChanged
-        || !m_pParam
-        || std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam)->deband.seed != pDebandParam->deband.seed) {
+        || !m_param
+        || std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_param)->deband.seed != pDebandParam->deband.seed) {
         dim3 threads(GEN_RAND_THREAD_X, GEN_RAND_THREAD_Y, 1);
         dim3 grids(divCeil(pDebandParam->frameOut.width >> 1, threads.x), divCeil(pDebandParam->frameOut.height >> 1, threads.y * GEN_RAND_BLOCK_LOOP_Y), 1);
         m_RandState.nSize = sizeof(curandState) * (threads.x * grids.x) * (threads.y * grids.y);
@@ -556,7 +556,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -569,7 +569,7 @@ RGY_ERR NVEncFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     if (pInputFrame->ptr[0] == nullptr) {
         return RGY_ERR_NONE;
     }
-    auto pDebandParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam);
+    auto pDebandParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_param);
     if (!pDebandParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -577,9 +577,9 @@ RGY_ERR NVEncFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
 
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
@@ -587,7 +587,7 @@ RGY_ERR NVEncFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_CALL;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_CALL;
     }

@@ -159,7 +159,7 @@ static RGY_ERR tweak_frame(RGYFrameInfo *pFrame,
 }
 
 NVEncFilterTweak::NVEncFilterTweak() {
-    m_sFilterName = _T("tweak");
+    m_name = _T("tweak");
 }
 
 NVEncFilterTweak::~NVEncFilterTweak() {
@@ -168,7 +168,7 @@ NVEncFilterTweak::~NVEncFilterTweak() {
 
 RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pTweakParam = std::dynamic_pointer_cast<NVEncFilterParamTweak>(pParam);
     if (!pTweakParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -204,7 +204,7 @@ RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pTweakParam;
+    m_param = pTweakParam;
     return sts;
 }
 
@@ -232,12 +232,12 @@ RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    auto pTweakParam = std::dynamic_pointer_cast<NVEncFilterParamTweak>(m_pParam);
+    auto pTweakParam = std::dynamic_pointer_cast<NVEncFilterParamTweak>(m_param);
     if (!pTweakParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -271,5 +271,5 @@ RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void NVEncFilterTweak::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }

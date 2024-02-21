@@ -394,7 +394,7 @@ static RGY_ERR warpsharp_frame(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFr
 }
 
 NVEncFilterWarpsharp::NVEncFilterWarpsharp() : m_mask() {
-    m_sFilterName = _T("warpsharp");
+    m_name = _T("warpsharp");
 }
 
 NVEncFilterWarpsharp::~NVEncFilterWarpsharp() {
@@ -432,7 +432,7 @@ RGY_ERR NVEncFilterWarpsharp::checkParam(const std::shared_ptr<NVEncFilterParamW
 
 RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamWarpsharp>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -442,7 +442,7 @@ RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
         return sts;
     }
-    if (!m_pParam || std::dynamic_pointer_cast<NVEncFilterParamWarpsharp>(m_pParam)->warpsharp != prm->warpsharp) {
+    if (!m_param || std::dynamic_pointer_cast<NVEncFilterParamWarpsharp>(m_param)->warpsharp != prm->warpsharp) {
 
         sts = AllocFrameBuf(prm->frameOut, 1);
         if (sts != RGY_ERR_NONE) {
@@ -450,7 +450,7 @@ RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_p
             return sts;
         }
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            prm->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+            prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
         }
     }
 
@@ -473,7 +473,7 @@ RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = prm;
+    m_param = prm;
     return sts;
 }
 
@@ -489,9 +489,9 @@ RGY_ERR NVEncFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (interlaced(*pInputFrame)) {
@@ -502,11 +502,11 @@ RGY_ERR NVEncFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamWarpsharp>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamWarpsharp>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -535,7 +535,7 @@ RGY_ERR NVEncFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
 }
 
 void NVEncFilterWarpsharp::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     for (auto& m : m_mask) {
         m.clear();
     }

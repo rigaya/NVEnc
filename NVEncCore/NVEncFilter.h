@@ -123,15 +123,15 @@ public:
     NVEncFilter();
     virtual ~NVEncFilter();
     tstring name() {
-        return m_sFilterName;
+        return m_name;
     }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) = 0;
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
     const tstring GetInputMessage() {
-        return m_sFilterInfo;
+        return m_infoStr;
     }
     const NVEncFilterParam *GetFilterParam() {
-        return m_pParam.get();
+        return m_param.get();
     }
     void CheckPerformance(bool flag);
     double GetAvgTimeElapsed();
@@ -144,22 +144,22 @@ protected:
 
     static const TCHAR *INFO_INDENT;
     void setFilterInfo(const tstring &info) {
-        m_sFilterInfo = info;
+        m_infoStr = info;
         AddMessage(RGY_LOG_DEBUG, info);
     }
     void AddMessage(RGYLogLevel log_level, const tstring& str) {
-        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel(RGY_LOGT_VPP)) {
+        if (m_pLog == nullptr || log_level < m_pLog->getLogLevel(RGY_LOGT_VPP)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto& line : lines) {
             if (line[0] != _T('\0')) {
-                m_pPrintMes->write(log_level, RGY_LOGT_VPP, (m_sFilterName + _T(": ") + line + _T("\n")).c_str());
+                m_pLog->write(log_level, RGY_LOGT_VPP, (m_name + _T(": ") + line + _T("\n")).c_str());
             }
         }
     }
     void AddMessage(RGYLogLevel log_level, const TCHAR *format, ... ) {
-        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel(RGY_LOGT_VPP)) {
+        if (m_pLog == nullptr || log_level < m_pLog->getLogLevel(RGY_LOGT_VPP)) {
             return;
         }
 
@@ -174,15 +174,15 @@ protected:
     }
     RGY_ERR AllocFrameBuf(const RGYFrameInfo& frame, int frames);
 
-    tstring m_sFilterName;
-    tstring m_sFilterInfo;
-    shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
-    vector<unique_ptr<CUFrameBuf>> m_pFrameBuf;
+    tstring m_name;
+    tstring m_infoStr;
+    shared_ptr<RGYLog> m_pLog;  //ログ出力
+    vector<unique_ptr<CUFrameBuf>> m_frameBuf;
     int m_nFrameIdx;
     unique_ptr<CUFrameBuf> m_pFieldPairIn;
     unique_ptr<CUFrameBuf> m_pFieldPairOut;
-    shared_ptr<NVEncFilterParam> m_pParam;
-    FILTER_PATHTHROUGH_FRAMEINFO m_nPathThrough;
+    shared_ptr<NVEncFilterParam> m_param;
+    FILTER_PATHTHROUGH_FRAMEINFO m_pathThrough;
 private:
     bool m_bCheckPerformance;
     unique_ptr<cudaEvent_t, cudaevent_deleter> m_peFilterStart;

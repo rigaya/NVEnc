@@ -1628,7 +1628,7 @@ __global__ void kernel_filter(
 )";
 
 NVEncFilterColorspace::NVEncFilterColorspace() : crop(), opCtrl(), custom(), additionalParams(), additionalParamsDev() {
-    m_sFilterName = _T("colorspace");
+    m_name = _T("colorspace");
 }
 
 NVEncFilterColorspace::~NVEncFilterColorspace() {
@@ -1708,7 +1708,7 @@ RGY_ERR NVEncFilterColorspace::setupCustomFilter(const RGYFrameInfo& frameInfo, 
     paramCustom->frameOut = frameInfo;
     paramCustom->baseFps = prm->baseFps;
     paramCustom->bOutOverwrite = false;
-    auto sts = filterCustom->init(paramCustom, m_pPrintMes);
+    auto sts = filterCustom->init(paramCustom, m_pLog);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -1721,7 +1721,7 @@ RGY_ERR NVEncFilterColorspace::setupCustomFilter(const RGYFrameInfo& frameInfo, 
 
 RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prmCsp = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(pParam);
     if (!prmCsp) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1755,7 +1755,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
             paramCrop->baseFps = pParam->baseFps;
             paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->bOutOverwrite = false;
-            sts = filterCrop->init(paramCrop, m_pPrintMes);
+            sts = filterCrop->init(paramCrop, m_pLog);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -1768,7 +1768,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
     auto &firstVUI = prmCsp->colorspace.convs.begin()->from;
     firstVUI.apply_auto(prmCsp->VuiIn, prmCsp->frameIn.height);
 
-    auto prmPrev = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_pParam);
+    auto prmPrev = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_param);
     if (!prmPrev || prmPrev->colorspace != prmCsp->colorspace) {
         additionalParams.resize(sizeof(RGYColorspaceDevParams));
         RGYColorspaceDevParams *addPrmPtr = (RGYColorspaceDevParams *)additionalParams.data();
@@ -1857,7 +1857,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
     filterInfo += opCtrl->printInfoAll();
     setFilterInfo(filterInfo);
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 #endif
 }
@@ -1878,7 +1878,7 @@ RGY_ERR NVEncFilterColorspace::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         return sts;
     }
 
-    auto prmCsp = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_pParam);
+    auto prmCsp = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_param);
     if (!prmCsp) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;

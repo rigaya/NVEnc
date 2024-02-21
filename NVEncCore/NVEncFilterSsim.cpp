@@ -105,7 +105,7 @@ NVEncFilterSsim::NVEncFilterSsim() :
     m_psnrTotalPlane(),
     m_psnrTotal(0.0),
     m_frames(0) {
-    m_sFilterName = _T("ssim/psnr/vmaf");
+    m_name = _T("ssim/psnr/vmaf");
 }
 
 NVEncFilterSsim::~NVEncFilterSsim() {
@@ -114,7 +114,7 @@ NVEncFilterSsim::~NVEncFilterSsim() {
 
 RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
 
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(pParam);
     if (!prm) {
@@ -138,7 +138,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_vidctxlock));
-        sts = filterCrop->init(paramCrop, m_pPrintMes);
+        sts = filterCrop->init(paramCrop, m_pLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -159,7 +159,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         paramCrop->frameOut.mem_type = RGY_MEM_TYPE_CPU;
         paramCrop->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_vidctxlock));
-        sts = filterCrop->init(paramCrop, m_pPrintMes);
+        sts = filterCrop->init(paramCrop, m_pLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -203,14 +203,14 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     m_psnrTotal = 0.0;
 
     setFilterInfo(pParam->print() + _T("(") + RGY_CSP_NAMES[pParam->frameOut.csp] + _T(")"));
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
 RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
     AddMessage(RGY_LOG_DEBUG, _T("initDecode() with bitstream size: %d.\n"), (int)bitstream->size());
 
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -298,7 +298,7 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
 }
 
 RGY_ERR NVEncFilterSsim::init_cuda_resources() {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -319,7 +319,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
     AddMessage(RGY_LOG_DEBUG, _T("cuvid output format %s.\n"), RGY_CSP_NAMES[vidInfo.csp]);
 
     m_decoder = std::make_unique<CuvidDecode>();
-    auto result = m_decoder->InitDecode(m_vidctxlock, &vidInfo, nullptr, av_make_q(prm->streamtimebase), m_pPrintMes, NV_ENC_AVCUVID_NATIVE, false);
+    auto result = m_decoder->InitDecode(m_vidctxlock, &vidInfo, nullptr, av_make_q(prm->streamtimebase), m_pLog, NV_ENC_AVCUVID_NATIVE, false);
     if (result != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init decoder.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -434,7 +434,7 @@ RGY_ERR NVEncFilterSsim::addBitstream(const RGYBitstream *bitstream) {
         return RGY_ERR_UNKNOWN;
     }
 
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -503,7 +503,7 @@ RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
 }
 
 void NVEncFilterSsim::showResult() {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return;
@@ -514,7 +514,7 @@ void NVEncFilterSsim::showResult() {
     }
     if (prm->ssim) {
         auto str = strsprintf(_T("\nSSIM YUV:"));
-        for (int i = 0; i < RGY_CSP_PLANES[m_pParam->frameOut.csp]; i++) {
+        for (int i = 0; i < RGY_CSP_PLANES[m_param->frameOut.csp]; i++) {
             str += strsprintf(_T(" %f (%f),"), m_ssimTotalPlane[i] / m_frames, ssim_db(m_ssimTotalPlane[i], (double)m_frames));
         }
         str += strsprintf(_T(" All: %f (%f), (Frames: %d)\n"), m_ssimTotal / m_frames, ssim_db(m_ssimTotal, (double)m_frames), m_frames);
@@ -522,7 +522,7 @@ void NVEncFilterSsim::showResult() {
     }
     if (prm->psnr) {
         auto str = strsprintf(_T("\nPSNR YUV:"));
-        for (int i = 0; i < RGY_CSP_PLANES[m_pParam->frameOut.csp]; i++) {
+        for (int i = 0; i < RGY_CSP_PLANES[m_param->frameOut.csp]; i++) {
             str += strsprintf(_T(" %f,"), get_psnr(m_psnrTotalPlane[i], m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1));
         }
         str += strsprintf(_T(" Avg: %f, (Frames: %d)\n"), get_psnr(m_psnrTotal, m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1), m_frames);
@@ -607,7 +607,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     }
     const int bitdepth = RGY_CSP_BIT_DEPTH[frameInfo.csp];
 
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -815,7 +815,7 @@ RGY_ERR NVEncFilterSsim::thread_func_ssim_psnr(RGYParamThread threadParam) {
 }
 
 RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;

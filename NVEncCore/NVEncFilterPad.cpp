@@ -38,7 +38,7 @@
 
 
 NVEncFilterPad::NVEncFilterPad() {
-    m_sFilterName = _T("pad");
+    m_name = _T("pad");
 }
 
 NVEncFilterPad::~NVEncFilterPad() {
@@ -47,7 +47,7 @@ NVEncFilterPad::~NVEncFilterPad() {
 
 RGY_ERR NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pPadParam = std::dynamic_pointer_cast<NVEncFilterParamPad>(pParam);
     if (!pPadParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -80,11 +80,11 @@ RGY_ERR NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return sts;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -174,9 +174,9 @@ RGY_ERR NVEncFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
@@ -184,11 +184,11 @@ RGY_ERR NVEncFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto pPadParam = std::dynamic_pointer_cast<NVEncFilterParamPad>(m_pParam);
+    auto pPadParam = std::dynamic_pointer_cast<NVEncFilterParamPad>(m_param);
     if (!pPadParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -201,31 +201,31 @@ RGY_ERR NVEncFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     auto planeOutputU = getPlane(ppOutputFrames[0], RGY_PLANE_U);
     auto planeOutputV = getPlane(ppOutputFrames[0], RGY_PLANE_V);
 
-    sts = padPlane(&planeOutputY, &planeInputY, (uint16_t)(16 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &pPadParam->pad, stream);
+    sts = padPlane(&planeOutputY, &planeInputY, (uint16_t)(16 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8)), &pPadParam->pad, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
     auto uvPad = pPadParam->pad;
-    if (RGY_CSP_CHROMA_FORMAT[m_pParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) {
+    if (RGY_CSP_CHROMA_FORMAT[m_param->frameIn.csp] == RGY_CHROMAFMT_YUV420) {
         uvPad.right >>= 1;
         uvPad.left >>= 1;
         uvPad.top >>= 1;
         uvPad.bottom >>= 1;
-    } else if (RGY_CSP_CHROMA_FORMAT[m_pParam->frameIn.csp] == RGY_CHROMAFMT_YUV444) {
+    } else if (RGY_CSP_CHROMA_FORMAT[m_param->frameIn.csp] == RGY_CHROMAFMT_YUV444) {
         //特に何もしない
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
         sts = RGY_ERR_UNSUPPORTED;
     }
 
-    sts = padPlane(&planeOutputU, &planeInputU, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &uvPad, stream);
+    sts = padPlane(&planeOutputU, &planeInputU, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8)), &uvPad, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
-    sts = padPlane(&planeOutputV, &planeInputV, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &uvPad, stream);
+    sts = padPlane(&planeOutputV, &planeInputV, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8)), &uvPad, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
     return sts;
 }
 
 void NVEncFilterPad::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }

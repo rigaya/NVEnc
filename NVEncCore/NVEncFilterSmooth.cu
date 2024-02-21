@@ -634,7 +634,7 @@ RGY_ERR run_set_qp(
 }
 
 NVEncFilterSmooth::NVEncFilterSmooth() : m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0) {
-    m_sFilterName = _T("smooth");
+    m_name = _T("smooth");
 }
 
 NVEncFilterSmooth::~NVEncFilterSmooth() {
@@ -665,7 +665,7 @@ RGY_ERR NVEncFilterSmooth::check_param(shared_ptr<NVEncFilterParamSmooth> prm) {
 
 RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSmooth>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -687,10 +687,10 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             VPP_FP_PRECISION_FP32;
 #endif
     }
-    if (!m_pParam
-        || cmpFrameInfoCspResolution(&m_pParam->frameIn, &pParam->frameIn)
-        || (std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam)
-            && std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam)->smooth != prm->smooth)) {
+    if (!m_param
+        || cmpFrameInfoCspResolution(&m_param->frameIn, &pParam->frameIn)
+        || (std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_param)
+            && std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_param)->smooth != prm->smooth)) {
 
         sts = AllocFrameBuf(prm->frameOut, 1);
         if (sts != RGY_ERR_NONE) {
@@ -698,10 +698,10 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             return sts;
         }
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-            prm->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+            prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
         }
         AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-            m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
+            m_frameBuf[0]->frame.width, m_frameBuf[0]->frame.height, m_frameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_frameBuf[0]->frame.csp]);
 
         sts = m_qp.alloc(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8);
         if (sts != RGY_ERR_NONE) {
@@ -714,7 +714,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         setFilterInfo(pParam->print());
     }
     m_qpTableRef = prm->qpTableRef;
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -736,7 +736,7 @@ float NVEncFilterSmooth::getQPMul(int qpScaleType) {
 RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -749,12 +749,12 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         return sts;
     }
     //エラーチェック
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_pFrameBuf[0]->frame.mem_type);
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_frameBuf[0]->frame.mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_CALL;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
@@ -763,10 +763,10 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     CUFrameBuf *pOutFrame = nullptr;
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
         ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
 
 #if ENABLE_VPP_SMOOTH_QP_FRAME

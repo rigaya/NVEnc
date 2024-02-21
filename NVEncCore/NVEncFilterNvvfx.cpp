@@ -132,7 +132,7 @@ RGY_ERR NVEncFilterNvvfxEffect::setParam([[maybe_unused]] const NVEncFilterParam
 
 RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
 #if !ENABLE_NVVFX
     AddMessage(RGY_LOG_ERROR, _T("nvvfx filters are not supported on x86 exec file, please use x64 exec file.\n"));
     return RGY_ERR_UNSUPPORTED;
@@ -162,7 +162,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         }
         if ((int)maxInputWidth < pParam->frameIn.width) {
             AddMessage(RGY_LOG_ERROR, _T("%s supports up to max width of %d, but input video has width of %d.\n"),
-                m_sFilterName.c_str(),
+                m_name.c_str(),
                 maxInputWidth, pParam->frameIn.width);
             return RGY_ERR_INVALID_PARAM;
         }
@@ -175,14 +175,14 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         }
         if ((int)maxInputHeight < pParam->frameIn.height) {
             AddMessage(RGY_LOG_ERROR, _T("%s supports up to max height of %d, but input video has height of %d.\n"),
-                m_sFilterName.c_str(),
+                m_name.c_str(),
                 maxInputHeight, pParam->frameIn.height);
             return RGY_ERR_INVALID_PARAM;
         }
     } else {
         if (m_maxHeight < pParam->frameIn.height) {
             AddMessage(RGY_LOG_ERROR, _T("%s supports up to max height of %d, but input video has height of %d.\n"),
-                m_sFilterName.c_str(),
+                m_name.c_str(),
                 m_maxHeight, pParam->frameIn.height);
             return RGY_ERR_INVALID_PARAM;
         }
@@ -227,7 +227,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
-        sts = filter->init(paramCrop, m_pPrintMes);
+        sts = filter->init(paramCrop, m_pLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -246,7 +246,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
-        sts = filter->init(paramCrop, m_pPrintMes);
+        sts = filter->init(paramCrop, m_pLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -313,20 +313,20 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         return RGY_ERR_MEMORY_ALLOC;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    tstring info = m_sFilterName + _T(": ");
+    tstring info = m_name + _T(": ");
     if (m_srcCrop) {
         info += m_srcCrop->GetInputMessage() + _T("\n");
     }
-    tstring nameBlank(m_sFilterName.length() + _tcslen(_T(": ")), _T(' '));
+    tstring nameBlank(m_name.length() + _tcslen(_T(": ")), _T(' '));
     info += tstring(INFO_INDENT) + nameBlank + pParam->print();
     if (m_dstCrop) {
         info += tstring(_T("\n")) + tstring(INFO_INDENT) + nameBlank + m_dstCrop->GetInputMessage();
     }
     setFilterInfo(info);
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 #endif
 }
@@ -343,9 +343,9 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (interlaced(*pInputFrame)) {
@@ -356,7 +356,7 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
@@ -437,7 +437,7 @@ tstring NVEncFilterParamNvvfxDenoise::print() const {
 }
 
 NVEncFilterNvvfxDenoise::NVEncFilterNvvfxDenoise() {
-    m_sFilterName = _T("nvvfx-denoise");
+    m_name = _T("nvvfx-denoise");
     m_maxHeight = 1080;
 #if ENABLE_NVVFX
     m_effectName = NVVFX_FX_DENOISING;
@@ -485,7 +485,7 @@ tstring NVEncFilterParamNvvfxArtifactReduction::print() const {
 }
 
 NVEncFilterNvvfxArtifactReduction::NVEncFilterNvvfxArtifactReduction() {
-    m_sFilterName = _T("nvvfx-artifact-reduction");
+    m_name = _T("nvvfx-artifact-reduction");
     m_maxHeight = 1080;
 #if ENABLE_NVVFX
     m_effectName = NVVFX_FX_ARTIFACT_REDUCTION;
@@ -533,7 +533,7 @@ tstring NVEncFilterParamNvvfxSuperRes::print() const {
 }
 
 NVEncFilterNvvfxSuperRes::NVEncFilterNvvfxSuperRes() {
-    m_sFilterName = _T("nvvfx-superres");
+    m_name = _T("nvvfx-superres");
     m_maxHeight = 2160;
 #if ENABLE_NVVFX
     m_effectName = NVVFX_FX_SUPER_RES;
@@ -590,7 +590,7 @@ tstring NVEncFilterParamNvvfxUpScaler::print() const {
 }
 
 NVEncFilterNvvfxUpScaler::NVEncFilterNvvfxUpScaler() {
-    m_sFilterName = _T("nvvfx-upscaler");
+    m_name = _T("nvvfx-upscaler");
 #if ENABLE_NVVFX
     m_effectName = NVVFX_FX_SR_UPSCALE;
 #endif

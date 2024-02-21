@@ -414,7 +414,7 @@ NVEncFilterAfs::NVEncFilterAfs() :
     m_streamsts(),
     m_count_motion(),
     m_fpTimecode() {
-    m_sFilterName = _T("afs");
+    m_name = _T("afs");
 }
 
 NVEncFilterAfs::~NVEncFilterAfs() {
@@ -501,7 +501,7 @@ RGY_ERR NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam) {
 
 RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pAfsParam = std::dynamic_pointer_cast<NVEncFilterParamAfs>(pParam);
     if (!pAfsParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -518,10 +518,10 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return RGY_ERR_MEMORY_ALLOC;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pAfsParam->frameOut.pitch[i] = m_pFrameBuf[0]->frame.pitch[i];
+        pAfsParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, pitch %d, %s.\n"),
-        m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
+        m_frameBuf[0]->frame.width, m_frameBuf[0]->frame.height, m_frameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_frameBuf[0]->frame.csp]);
 
     if (RGY_ERR_NONE != (err = m_source.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
@@ -579,7 +579,7 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     pAfsParam->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
     m_nFrame = 0;
     m_nPts = 0;
-    m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS));
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS));
     if (pAfsParam->afs.force24) {
         pAfsParam->baseFps *= rgy_rational<int>(4, 5);
     }
@@ -605,7 +605,7 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     }
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -835,8 +835,8 @@ RGY_ERR NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs *pAf
     }
 
     AFS_SCAN_DATA *scp = m_scan.get(iframe);
-    const int scan_w = m_pParam->frameIn.width;
-    const int scan_h = m_pParam->frameIn.height;
+    const int scan_w = m_param->frameIn.width;
+    const int scan_h = m_param->frameIn.height;
     int total = 0;
     if (scan_h - scp->clip.bottom - ((scan_h - scp->clip.top - scp->clip.bottom) & 1) > scp->clip.top && scan_w - scp->clip.right > scp->clip.left)
         total = (scan_h - scp->clip.bottom - ((scan_h - scp->clip.top - scp->clip.bottom) & 1) - scp->clip.top) * (scan_w - scp->clip.right - scp->clip.left);
@@ -898,7 +898,7 @@ RGY_ERR NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs *pAf
 RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    auto pAfsParam = std::dynamic_pointer_cast<NVEncFilterParamAfs>(m_pParam);
+    auto pAfsParam = std::dynamic_pointer_cast<NVEncFilterParamAfs>(m_param);
     if (!pAfsParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -912,12 +912,12 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         return sts;
     } else if (pInputFrame->ptr[0] != nullptr) {
         //エラーチェック
-        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_pFrameBuf[0]->frame.mem_type);
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_frameBuf[0]->frame.mem_type);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
             return RGY_ERR_INVALID_CALL;
         }
-        if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
+        if (m_param->frameOut.csp != m_param->frameIn.csp) {
             AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
@@ -1008,9 +1008,9 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             CUFrameBuf *pOutFrame = nullptr;
             *pOutputFrameNum = 1;
             if (ppOutputFrames[0] == nullptr) {
-                pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+                pOutFrame = m_frameBuf[m_nFrameIdx].get();
                 ppOutputFrames[0] = &pOutFrame->frame;
-                m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+                m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
             }
 
             if (pAfsParam->afs.timecode) {
@@ -1081,7 +1081,7 @@ void NVEncFilterAfs::close() {
     m_eventScanFrame.reset();
     m_eventMergeScan.reset();
     m_nFrame = 0;
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
     m_source.clear();
     m_scan.clear();
     m_stripe.clear();

@@ -38,7 +38,7 @@ NVEncFilterSelectEvery::NVEncFilterSelectEvery() :
     m_frames(0),
     m_totalDuration(0),
     m_outPts(-1) {
-    m_sFilterName = _T("selectevery");
+    m_name = _T("selectevery");
 }
 
 NVEncFilterSelectEvery::~NVEncFilterSelectEvery() {
@@ -47,7 +47,7 @@ NVEncFilterSelectEvery::~NVEncFilterSelectEvery() {
 
 RGY_ERR NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-    m_pPrintMes = pPrintMes;
+    m_pLog = pPrintMes;
     auto pSelectParam = std::dynamic_pointer_cast<NVEncFilterParamSelectEvery>(pParam);
     if (!pSelectParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -65,10 +65,10 @@ RGY_ERR NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, shared
         return sts;
     }
 
-    m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
 
     setFilterInfo(pParam->print());
-    m_pParam = pParam;
+    m_param = pParam;
     return sts;
 }
 
@@ -79,7 +79,7 @@ tstring NVEncFilterParamSelectEvery::print() const {
 RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    auto pSelectParam = std::dynamic_pointer_cast<NVEncFilterParamSelectEvery>(m_pParam);
+    auto pSelectParam = std::dynamic_pointer_cast<NVEncFilterParamSelectEvery>(m_param);
     if (!pSelectParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -91,7 +91,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
         if (m_totalDuration > 0
             && m_frames % pSelectParam->selectevery.step != (pSelectParam->selectevery.step-1)
             && m_frames % pSelectParam->selectevery.step >= (pSelectParam->selectevery.step / 2)) {
-            auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+            auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
             ppOutputFrames[0] = &pOutFrame->frame;
             ppOutputFrames[0]->duration = m_totalDuration * pSelectParam->selectevery.step / (m_frames % pSelectParam->selectevery.step);
             ppOutputFrames[0]->timestamp = m_outPts;
@@ -118,7 +118,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
     m_totalDuration += pInputFrame->duration;
 
     if (m_frames % pSelectParam->selectevery.step == pSelectParam->selectevery.offset) {
-        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
         const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, pOutFrame->frame.mem_type);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -133,9 +133,9 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
     }
     if (m_frames % pSelectParam->selectevery.step == (pSelectParam->selectevery.step-1)) {
         if (ppOutputFrames[0] == nullptr) {
-            auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+            auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
             ppOutputFrames[0] = &pOutFrame->frame;
-            m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+            m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
             ppOutputFrames[0]->duration = m_totalDuration;
             ppOutputFrames[0]->timestamp = m_outPts;
             *pOutputFrameNum = 1;
@@ -154,5 +154,5 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const RGYFrameInfo *pInputFrame, RGYF
 }
 
 void NVEncFilterSelectEvery::close() {
-    m_pFrameBuf.clear();
+    m_frameBuf.clear();
 }
