@@ -225,20 +225,22 @@ tstring RGYParamLogLevel::to_string() const {
     return tmp.str();
 }
 
-RGYLog::RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level, bool showTime) :
+RGYLog::RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level, bool showTime, bool addLogLevel) :
     m_nLogLevel(),
     m_pStrLog(nullptr),
     m_bHtml(false),
     m_showTime(showTime),
+    m_addLogLevel(addLogLevel),
     m_mtx() {
     init(pLogFile, RGYParamLogLevel(log_level));
 };
 
-RGYLog::RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level, bool showTime) :
+RGYLog::RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level, bool showTime, bool addLogLevel) :
     m_nLogLevel(),
     m_pStrLog(nullptr),
     m_bHtml(false),
     m_showTime(showTime),
+    m_addLogLevel(addLogLevel),
     m_mtx() {
     init(pLogFile, log_level);
 }
@@ -456,12 +458,29 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
         }
     }
     if (!file_only) {
+        if (m_addLogLevel) {
+            auto strLines = split(buffer, _T("\n"));
+            for (size_t i = 0; i < strLines.size(); i++) {
+                const bool lastLine = i == strLines.size() - 1;
+                if (lastLine && strLines[i].length() == 0) break;
+                auto line = tstring(rgy_log_level_to_str(log_level)) + _T(":") + strLines[i] + _T("\n");
 #ifdef UNICODE
-        if (!stderr_write_to_console) //出力先がリダイレクトされるならANSIで
-            fprintf(stderr, buffer_ptr);
-        if (stderr_write_to_console) //出力先がコンソールならWCHARで
+                if (!stderr_write_to_console) { //出力先がリダイレクトされるならANSIで
+                    buffer_char = wstring_to_string(tchar_to_wstring(line), CP_UTF8);
+                    fprintf(stderr, buffer_ptr);
+                }
+                if (stderr_write_to_console) //出力先がコンソールならWCHARで
 #endif
-            rgy_print_stderr(log_level, buffer, hStdErr);
+                    rgy_print_stderr(log_level, line.c_str(), hStdErr);
+            }
+        } else {
+#ifdef UNICODE
+            if (!stderr_write_to_console) //出力先がリダイレクトされるならANSIで
+                fprintf(stderr, buffer_ptr);
+            if (stderr_write_to_console) //出力先がコンソールならWCHARで
+#endif
+                rgy_print_stderr(log_level, buffer, hStdErr);
+        }
     }
 }
 

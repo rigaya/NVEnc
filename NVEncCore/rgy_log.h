@@ -156,11 +156,12 @@ protected:
     const TCHAR *m_pStrLog;
     bool m_bHtml;
     bool m_showTime;
+    bool m_addLogLevel;
     std::unique_ptr<std::mutex> m_mtx;
     static const char *HTML_FOOTER;
 public:
-    RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level = RGY_LOG_INFO, bool showTime = false);
-    RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level, bool showTime = false);
+    RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level = RGY_LOG_INFO, bool showTime = false, bool addLogLevel = false);
+    RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level, bool showTime = false, bool addLogLevel = false);
     virtual ~RGYLog();
     void init(const TCHAR *pLogFile, const RGYParamLogLevel& log_level);
     void writeHtmlHeader();
