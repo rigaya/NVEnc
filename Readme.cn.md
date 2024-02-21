@@ -70,7 +70,7 @@ Aviutl 1.00 or later (NVEnc.auo)
 | 11.2    | NVIDIA graphics driver (Win 460.89 / Linux 460.27.04) or later |
 
 ## NVEncC的使用方法和选项
-[NVEncC的选项列表](./NVEncC_Options.cn.md)
+[NVEncC的选项列表](./NVEncC_Options.zh-cn.md)
 
 注:中文文档更新可能不及时，不同之处请参考[其他语言](./NVEncC_Options.en.md)
 
