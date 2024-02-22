@@ -88,19 +88,19 @@ const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_111.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_112_0.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_112.dll");
 #elif __CUDACC_VER_MAJOR__ == 11 && __CUDACC_VER_MINOR__ == 3
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_113_0.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_112_0.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_113.dll");
 #elif __CUDACC_VER_MAJOR__ == 11 && __CUDACC_VER_MINOR__ == 4
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_114_0.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_112_0.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_114.dll");
 #elif __CUDACC_VER_MAJOR__ == 11 && __CUDACC_VER_MINOR__ == 5
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_115_0.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_112_0.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_115.dll");
 #elif __CUDACC_VER_MAJOR__ == 11 && __CUDACC_VER_MINOR__ == 6
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_116_0.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_112_0.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_116.dll");
 #elif __CUDACC_VER_MAJOR__ == 11 && __CUDACC_VER_MINOR__ == 7
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_117_0.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_112_0.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_117.dll");
 #elif __CUDACC_VER_MAJOR__ == 11 && __CUDACC_VER_MINOR__ == 8
 const TCHAR* NVRTC_DLL_NAME_TSTR = _T("nvrtc64_112_0.dll");
