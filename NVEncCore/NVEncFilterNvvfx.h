@@ -52,6 +52,8 @@ protected:
     virtual RGY_ERR setParam(const NVEncFilterParam *param);
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
+    virtual bool compareParam(const NVEncFilterParam *param) const = 0;
+    bool compareModelDir(const tstring& modelDir) const;
 
 #if ENABLE_NVVFX
     unique_nvvfx_handle m_effect;
@@ -116,6 +118,7 @@ public:
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
     virtual RGY_ERR setParam(const NVEncFilterParam *param) override;
+    virtual bool compareParam(const NVEncFilterParam *param) const override;
 };
 
 class NVEncFilterNvvfxArtifactReduction : public NVEncFilterNvvfxEffect {
@@ -125,6 +128,7 @@ public:
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
     virtual RGY_ERR setParam(const NVEncFilterParam *param) override;
+    virtual bool compareParam(const NVEncFilterParam *param) const override;
 };
 
 class NVEncFilterNvvfxSuperRes : public NVEncFilterNvvfxEffect {
@@ -134,6 +138,7 @@ public:
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
     virtual RGY_ERR setParam(const NVEncFilterParam *param) override;
+    virtual bool compareParam(const NVEncFilterParam *param) const override;
 };
 
 class NVEncFilterNvvfxUpScaler : public NVEncFilterNvvfxEffect {
@@ -143,4 +148,5 @@ public:
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
     virtual RGY_ERR setParam(const NVEncFilterParam *param) override;
+    virtual bool compareParam(const NVEncFilterParam *param) const override;
 };

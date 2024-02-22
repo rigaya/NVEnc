@@ -61,58 +61,67 @@ void NVEncFilterNvvfxEffect::close() {
 #endif
 }
 
+bool NVEncFilterNvvfxEffect::compareModelDir(const tstring& modelDir) const {
+    if (!m_param) return true;
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfx *>(m_param.get());
+    if (prm->modelDir.length() == 0 && modelDir.length() == 0) return false;
+    return !rgy_path_is_same(prm->modelDir, modelDir);
+}
+
 RGY_ERR NVEncFilterNvvfxEffect::initEffect(const tstring& modelDir) {
-    AddMessage(RGY_LOG_DEBUG, _T("initEffect %s.\n"), m_effectName.c_str());
+    if (!m_effect) {
+        AddMessage(RGY_LOG_DEBUG, _T("initEffect %s.\n"), m_effectName.c_str());
 #if !ENABLE_NVVFX
-    AddMessage(RGY_LOG_ERROR, _T("nvvfx filters are not supported on x86 exec file, please use x64 exec file.\n"));
-    return RGY_ERR_UNSUPPORTED;
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx filters are not supported on x86 exec file, please use x64 exec file.\n"));
+        return RGY_ERR_UNSUPPORTED;
 #else
-    NvVFX_Handle effHandle = nullptr;
-    auto err = err_to_rgy(NvVFX_CreateEffect(m_effectName.c_str(), &effHandle));
-    if (err != RGY_ERR_NONE) {
-        if (err == RGY_ERR_NVCV_LIBRARY) {
-            // エラーチェック
-            AddMessage(RGY_LOG_ERROR, _T("Failed load library for nvvfx.\n"));
-            TCHAR path[8192] = { 0 };
-            GetEnvironmentVariable(_T("NV_VIDEO_EFFECTS_PATH"), path, MAX_PATH);
-            tstring dllPath;
-            if (g_nvVFXSDKPath && g_nvVFXSDKPath[0]) {
-                dllPath = char_to_tstring(g_nvVFXSDKPath);
-            } else if (tstring(path) == _T("USE_APP_PATH")) {
-                // NV_VIDEO_EFFECTS_PATH が USE_APP_PATH だとカレントディレクトリを探すらしい
-                AddMessage(RGY_LOG_WARN, _T("env NV_VIDEO_EFFECTS_PATH = USE_APP_PATH.\n"));
-                dllPath = _T("NVVideoEffects.dll");
-            } else {
-                memset(path, 0, sizeof(path));
-                GetEnvironmentVariable(_T("ProgramFiles"), path, MAX_PATH);
-                dllPath = PathCombineS(path, _T("NVIDIA Corporation\\NVIDIA Video Effects\\NVVideoEffects.dll"));
-            }
-            if (!rgy_file_exists(dllPath)) {
-                AddMessage(RGY_LOG_ERROR, _T("target dll \"%s\" does not exist.\n"), dllPath.c_str());
-                AddMessage(RGY_LOG_ERROR, _T("Please make sure you have downloaded and installed Video Effect models and runtime dependencies.\n"));
-            } else {
-                HMODULE nvEffectsDLLHandle = nullptr;
-                if ((nvEffectsDLLHandle = RGY_LOAD_LIBRARY(dllPath.c_str())) == nullptr) {
-                    AddMessage(RGY_LOG_ERROR, _T("target dll \"%s\" exists, but cannot be loaded.\n"), dllPath.c_str());
-#if defined(_WIN32) || defined(_WIN64)
-                    AddMessage(RGY_LOG_ERROR, _T("Please try installing VC runtime and try again.\n"));
-#endif
+        NvVFX_Handle effHandle = nullptr;
+        auto err = err_to_rgy(NvVFX_CreateEffect(m_effectName.c_str(), &effHandle));
+        if (err != RGY_ERR_NONE) {
+            if (err == RGY_ERR_NVCV_LIBRARY) {
+                // エラーチェック
+                AddMessage(RGY_LOG_ERROR, _T("Failed load library for nvvfx.\n"));
+                TCHAR path[8192] = { 0 };
+                GetEnvironmentVariable(_T("NV_VIDEO_EFFECTS_PATH"), path, MAX_PATH);
+                tstring dllPath;
+                if (g_nvVFXSDKPath && g_nvVFXSDKPath[0]) {
+                    dllPath = char_to_tstring(g_nvVFXSDKPath);
+                } else if (tstring(path) == _T("USE_APP_PATH")) {
+                    // NV_VIDEO_EFFECTS_PATH が USE_APP_PATH だとカレントディレクトリを探すらしい
+                    AddMessage(RGY_LOG_WARN, _T("env NV_VIDEO_EFFECTS_PATH = USE_APP_PATH.\n"));
+                    dllPath = _T("NVVideoEffects.dll");
                 } else {
-                    AddMessage(RGY_LOG_ERROR, _T("Unknwon error: target dll \"%s\" exists, and can be loaded, but error is caused.\n"));
-                    RGY_FREE_LIBRARY(nvEffectsDLLHandle);
-                    nvEffectsDLLHandle = nullptr;
+                    memset(path, 0, sizeof(path));
+                    GetEnvironmentVariable(_T("ProgramFiles"), path, MAX_PATH);
+                    dllPath = PathCombineS(path, _T("NVIDIA Corporation\\NVIDIA Video Effects\\NVVideoEffects.dll"));
                 }
+                if (!rgy_file_exists(dllPath)) {
+                    AddMessage(RGY_LOG_ERROR, _T("target dll \"%s\" does not exist.\n"), dllPath.c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("Please make sure you have downloaded and installed Video Effect models and runtime dependencies.\n"));
+                } else {
+                    HMODULE nvEffectsDLLHandle = nullptr;
+                    if ((nvEffectsDLLHandle = RGY_LOAD_LIBRARY(dllPath.c_str())) == nullptr) {
+                        AddMessage(RGY_LOG_ERROR, _T("target dll \"%s\" exists, but cannot be loaded.\n"), dllPath.c_str());
+#if defined(_WIN32) || defined(_WIN64)
+                        AddMessage(RGY_LOG_ERROR, _T("Please try installing VC runtime and try again.\n"));
+#endif
+                    } else {
+                        AddMessage(RGY_LOG_ERROR, _T("Unknwon error: target dll \"%s\" exists, and can be loaded, but error is caused.\n"));
+                        RGY_FREE_LIBRARY(nvEffectsDLLHandle);
+                        nvEffectsDLLHandle = nullptr;
+                    }
+                }
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create effect %s: %s.\n"), m_effectName.c_str(), get_err_mes(err));
             }
-        } else {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to create effect %s: %s.\n"), m_effectName.c_str(), get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
         }
-        return RGY_ERR_INVALID_PARAM;
+        m_effect = unique_nvvfx_handle(effHandle, NvVFX_DestroyEffect);
     }
-    m_effect = unique_nvvfx_handle(effHandle, NvVFX_DestroyEffect);
-    if (!modelDir.empty()) {
+    if (!modelDir.empty() && compareModelDir(modelDir)) {
         AddMessage(RGY_LOG_DEBUG, _T("Set model dir \"%s\".\n"), modelDir.c_str());
         std::string model_dir = tchar_to_string(modelDir);
-        err = err_to_rgy(NvVFX_SetString(m_effect.get(), NVVFX_MODEL_DIRECTORY, model_dir.c_str()));
+        auto err = err_to_rgy(NvVFX_SetString(m_effect.get(), NVVFX_MODEL_DIRECTORY, model_dir.c_str()));
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to set model dir to \"%s\": %s.\n"), char_to_tstring(model_dir).c_str(), get_err_mes(err));
             return RGY_ERR_INVALID_PARAM;
@@ -188,34 +197,62 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         }
     }
 
-    // C++コンストラクタでのメモリ確保ではなく、デフォルトコンストラクタでNvCVImageを作成した後、
-    // NvCVImage_Allocでメモリ確保すること
-    // そうしないと128で割り切れないwidthの場合にエラーが出る
-    AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx input image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
-    m_srcImg = std::make_unique<NvCVImage>();
-    err = err_to_rgy(NvCVImage_Alloc(m_srcImg.get(), pParam->frameIn.width, pParam->frameIn.height,
-        NVCV_BGR, NVCV_F32, NVCV_PLANAR, NVCV_GPU, 1));
+    err = checkParam(pParam.get());
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx input image %dx%d: %s.\n"),
-            pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
-        return RGY_ERR_INVALID_PARAM;
+        return err;
     }
 
-    AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx output image %dx%d.\n"), pParam->frameOut.width, pParam->frameOut.height);
-    m_dstImg = std::make_unique<NvCVImage>();
-    err = err_to_rgy(NvCVImage_Alloc(m_dstImg.get(), pParam->frameOut.width, pParam->frameOut.height,
-        NVCV_BGR, NVCV_F32, NVCV_PLANAR, NVCV_GPU, 1));
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx output image %dx%d: %s.\n"),
-            pParam->frameOut.width, pParam->frameOut.height, get_err_mes(err));
-        return RGY_ERR_INVALID_PARAM;
+    if (!m_srcImg || m_srcImg->width != pParam->frameIn.width || m_srcImg->height != pParam->frameIn.height) {
+        // C++コンストラクタでのメモリ確保ではなく、デフォルトコンストラクタでNvCVImageを作成した後、
+        // NvCVImage_Allocでメモリ確保すること
+        // そうしないと128で割り切れないwidthの場合にエラーが出る
+        AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx input image %dx%d.\n"), pParam->frameIn.width, pParam->frameIn.height);
+        m_srcImg = std::make_unique<NvCVImage>();
+        err = err_to_rgy(NvCVImage_Alloc(m_srcImg.get(), pParam->frameIn.width, pParam->frameIn.height,
+            NVCV_BGR, NVCV_F32, NVCV_PLANAR, NVCV_GPU, 1));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx input image %dx%d: %s.\n"),
+                pParam->frameIn.width, pParam->frameIn.height, get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+
+        AddMessage(RGY_LOG_DEBUG, _T("NVVFX_INPUT_IMAGE: set input image.\n"));
+        err = err_to_rgy(NvVFX_SetImage(m_effect.get(), NVVFX_INPUT_IMAGE, m_srcImg.get()));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set input image: %s.\n"), get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+
+    if (!m_dstImg || m_dstImg->width != pParam->frameOut.width || m_dstImg->height != pParam->frameOut.height) {
+        // C++コンストラクタでのメモリ確保ではなく、デフォルトコンストラクタでNvCVImageを作成した後、
+        // NvCVImage_Allocでメモリ確保すること
+        // そうしないと128で割り切れないwidthの場合にエラーが出る
+        AddMessage(RGY_LOG_DEBUG, _T("Create nvvfx output image %dx%d.\n"), pParam->frameOut.width, pParam->frameOut.height);
+        m_dstImg = std::make_unique<NvCVImage>();
+        err = err_to_rgy(NvCVImage_Alloc(m_dstImg.get(), pParam->frameOut.width, pParam->frameOut.height,
+            NVCV_BGR, NVCV_F32, NVCV_PLANAR, NVCV_GPU, 1));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate nvvfx output image %dx%d: %s.\n"),
+                pParam->frameOut.width, pParam->frameOut.height, get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
+
+        AddMessage(RGY_LOG_DEBUG, _T("NVVFX_OUTPUT_IMAGE: set output image.\n"));
+        err = err_to_rgy(NvVFX_SetImage(m_effect.get(), NVVFX_OUTPUT_IMAGE, m_dstImg.get()));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set output image %s.\n"), get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
     }
 
     if (prm->vuiInfo.matrix == RGY_MATRIX_UNSPECIFIED) {
         prm->vuiInfo.matrix = (CspMatrix)COLOR_VALUE_AUTO_RESOLUTION;
     }
     prm->vuiInfo.apply_auto(prm->vuiInfo, pParam->frameIn.height);
-    {
+    if (!m_srcCrop
+        || m_srcCrop->GetFilterParam()->frameIn.width  != pParam->frameIn.width
+        || m_srcCrop->GetFilterParam()->frameIn.height != pParam->frameIn.height) {
         AddMessage(RGY_LOG_DEBUG, _T("Create input csp conversion filter.\n"));
         unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
@@ -234,7 +271,9 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         m_srcCrop = std::move(filter);
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_srcCrop->GetInputMessage().c_str());
     }
-    {
+    if (!m_dstCrop
+        || m_dstCrop->GetFilterParam()->frameOut.width  != pParam->frameOut.width
+        || m_srcCrop->GetFilterParam()->frameOut.height != pParam->frameOut.height) {
         AddMessage(RGY_LOG_DEBUG, _T("Create output csp conversion filter.\n"));
         unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
@@ -254,57 +293,41 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_dstCrop->GetInputMessage().c_str());
     }
 
-    AddMessage(RGY_LOG_DEBUG, _T("NVVFX_INPUT_IMAGE: set input image.\n"));
-    err = err_to_rgy(NvVFX_SetImage(m_effect.get(), NVVFX_INPUT_IMAGE,  m_srcImg.get()));
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to set input image: %s.\n"), get_err_mes(err));
-        return RGY_ERR_INVALID_PARAM;
-    }
-
-    AddMessage(RGY_LOG_DEBUG, _T("NVVFX_OUTPUT_IMAGE: set output image.\n"));
-    err = err_to_rgy(NvVFX_SetImage(m_effect.get(), NVVFX_OUTPUT_IMAGE, m_dstImg.get()));
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to set output image %s.\n"), get_err_mes(err));
-        return RGY_ERR_INVALID_PARAM;
-    }
-
-    err = checkParam(pParam.get());
-    if (err != RGY_ERR_NONE) {
-        return err;
-    }
-
     err = setParam(pParam.get());
     if (err != RGY_ERR_NONE) {
         return err;
     }
 
     if (m_effectName == NVVFX_FX_DENOISING) {
-        m_stateSizeInBytes = 0;
-        err = err_to_rgy(NvVFX_GetU32(m_effect.get(), NVVFX_STATE_SIZE, &m_stateSizeInBytes));
+        uint32_t stateSizeInBytes = 0;
+        err = err_to_rgy(NvVFX_GetU32(m_effect.get(), NVVFX_STATE_SIZE, &stateSizeInBytes));
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get state size: %s.\n"), get_err_mes(err));
             return RGY_ERR_INVALID_PARAM;
         }
-        m_state = std::make_unique<CUMemBuf>(m_stateSizeInBytes);
-        err = m_state->alloc();
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer for state: %s.\n"), get_err_mes(err));
-            return RGY_ERR_INVALID_PARAM;
-        }
-        cudaMemset(m_state->ptr, 0, m_stateSizeInBytes);
-        m_stateArray[0] = m_state->ptr;
-        err = err_to_rgy(NvVFX_SetObject(m_effect.get(), NVVFX_STATE, (void*)m_stateArray.data()));
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to set state array: %s.\n"), get_err_mes(err));
-            return RGY_ERR_INVALID_PARAM;
+        if (m_stateSizeInBytes != stateSizeInBytes) {
+            m_state = std::make_unique<CUMemBuf>(m_stateSizeInBytes);
+            err = m_state->alloc();
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer for state: %s.\n"), get_err_mes(err));
+                return RGY_ERR_INVALID_PARAM;
+            }
+            cudaMemset(m_state->ptr, 0, m_stateSizeInBytes);
+            m_stateArray[0] = m_state->ptr;
+            err = err_to_rgy(NvVFX_SetObject(m_effect.get(), NVVFX_STATE, (void*)m_stateArray.data()));
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to set state array: %s.\n"), get_err_mes(err));
+                return RGY_ERR_INVALID_PARAM;
+            }
         }
     }
-
-    AddMessage(RGY_LOG_DEBUG, _T("Loading effect...\n"));
-    err = err_to_rgy(NvVFX_Load(m_effect.get()));
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to load effect: %s.\n"), get_err_mes(err));
-        return RGY_ERR_INVALID_PARAM;
+    if (compareModelDir(prm->modelDir) || compareParam(pParam.get())) {
+        AddMessage(RGY_LOG_DEBUG, _T("Loading effect...\n"));
+        err = err_to_rgy(NvVFX_Load(m_effect.get()));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to load effect: %s.\n"), get_err_mes(err));
+            return RGY_ERR_INVALID_PARAM;
+        }
     }
 
     sts = AllocFrameBuf(pParam->frameOut, 1);
@@ -480,6 +503,15 @@ RGY_ERR NVEncFilterNvvfxDenoise::setParam(const NVEncFilterParam *param) {
 #endif
 }
 
+bool NVEncFilterNvvfxDenoise::compareParam(const NVEncFilterParam *param) const {
+    if (!m_param) return true;
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfxDenoise *>(m_param.get());
+    if (!prm) return true;
+    auto target = dynamic_cast<const NVEncFilterParamNvvfxDenoise *>(param);
+    if (!target) return true;
+    return prm->nvvfxDenoise != target->nvvfxDenoise;
+};
+
 tstring NVEncFilterParamNvvfxArtifactReduction::print() const {
     return nvvfxArtifactReduction.print();
 }
@@ -527,6 +559,15 @@ RGY_ERR NVEncFilterNvvfxArtifactReduction::setParam(const NVEncFilterParam *para
     return RGY_ERR_NONE;
 #endif
 }
+
+bool NVEncFilterNvvfxArtifactReduction::compareParam(const NVEncFilterParam *param) const {
+    if (!m_param) return true;
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfxArtifactReduction *>(m_param.get());
+    if (!prm) return true;
+    auto target = dynamic_cast<const NVEncFilterParamNvvfxArtifactReduction *>(param);
+    if (!target) return true;
+    return prm->nvvfxArtifactReduction != target->nvvfxArtifactReduction;
+};
 
 tstring NVEncFilterParamNvvfxSuperRes::print() const {
     return nvvfxSuperRes.print();
@@ -585,6 +626,15 @@ RGY_ERR NVEncFilterNvvfxSuperRes::setParam(const NVEncFilterParam *param) {
 #endif
 }
 
+bool NVEncFilterNvvfxSuperRes::compareParam(const NVEncFilterParam *param) const {
+    if (!m_param) return true;
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfxSuperRes *>(m_param.get());
+    if (!prm) return true;
+    auto target = dynamic_cast<const NVEncFilterParamNvvfxSuperRes *>(param);
+    if (!target) return true;
+    return prm->nvvfxSuperRes != target->nvvfxSuperRes;
+};
+
 tstring NVEncFilterParamNvvfxUpScaler::print() const {
     return nvvfxUpscaler.print();
 }
@@ -631,3 +681,12 @@ RGY_ERR NVEncFilterNvvfxUpScaler::setParam(const NVEncFilterParam *param) {
     return RGY_ERR_NONE;
 #endif
 }
+
+bool NVEncFilterNvvfxUpScaler::compareParam(const NVEncFilterParam *param) const {
+    if (!m_param) return true;
+    auto prm = dynamic_cast<const NVEncFilterParamNvvfxUpScaler *>(m_param.get());
+    if (!prm) return true;
+    auto target = dynamic_cast<const NVEncFilterParamNvvfxUpScaler *>(param);
+    if (!target) return true;
+    return prm->nvvfxUpscaler != target->nvvfxUpscaler;
+};

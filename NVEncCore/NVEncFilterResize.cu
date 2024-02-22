@@ -683,7 +683,7 @@ RGY_ERR NVEncFilterResize::resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RG
 #endif
 }
 
-NVEncFilterResize::NVEncFilterResize() : m_bInterlacedWarn(false), m_weightSpline(), m_nvvfxSuperRes() {
+NVEncFilterResize::NVEncFilterResize() : m_bInterlacedWarn(false), m_weightSpline(), m_weightSplineAlgo(RGY_VPP_RESIZE_UNKNOWN), m_nvvfxSuperRes() {
     m_name = _T("resize");
 }
 
@@ -782,7 +782,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         resizeInterp = pResizeParam->nvvfxSubAlgo;
     }
 
-    if (m_weightSpline.ptr == nullptr
+    if ((!m_weightSpline || m_weightSplineAlgo != resizeInterp)
         && (resizeInterp == RGY_VPP_RESIZE_SPLINE16 || resizeInterp == RGY_VPP_RESIZE_SPLINE36 || resizeInterp == RGY_VPP_RESIZE_SPLINE64)) {
         static const auto SPLINE16_WEIGHT = std::vector<float>{
             1.0f,       -9.0f/5.0f,  -1.0f/5.0f, 1.0f,
@@ -809,17 +809,17 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             return RGY_ERR_INVALID_PARAM;
         }
         }
-
-        m_weightSpline = CUMemBuf(sizeof((*weight)[0]) * weight->size());
-        if (RGY_ERR_NONE != (sts = m_weightSpline.alloc())) {
+        m_weightSpline = std::unique_ptr<CUMemBuf>(new CUMemBuf(sizeof((*weight)[0]) * weight->size()));
+        if (RGY_ERR_NONE != (sts = m_weightSpline->alloc())) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        sts = err_to_rgy(cudaMemcpy(m_weightSpline.ptr, weight->data(), m_weightSpline.nSize, cudaMemcpyHostToDevice));
+        sts = err_to_rgy(cudaMemcpy(m_weightSpline->ptr, weight->data(), m_weightSpline->nSize, cudaMemcpyHostToDevice));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to send weight to gpu memory: %s.\n"), get_err_mes(sts));
             return sts;
         }
+        m_weightSplineAlgo = resizeInterp;
     }
 
     tstring info;
@@ -958,7 +958,7 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
                 AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            sts = resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, resizeInterp, (float *)m_weightSpline.ptr, stream);
+            sts = resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, resizeInterp, (float *)m_weightSpline->ptr, stream);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
                     RGY_CSP_NAMES[pInputFrame->csp],
@@ -978,5 +978,8 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
 void NVEncFilterResize::close() {
     m_frameBuf.clear();
+    m_nvvfxSuperRes.reset();
+    m_weightSpline.reset();
+    m_weightSplineAlgo = RGY_VPP_RESIZE_UNKNOWN;
     m_bInterlacedWarn = false;
 }

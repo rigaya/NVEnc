@@ -688,6 +688,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 #endif
     }
     if (!m_param
+        || !m_qp
         || cmpFrameInfoCspResolution(&m_param->frameIn, &pParam->frameIn)
         || (std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_param)
             && std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_param)->smooth != prm->smooth)) {
@@ -703,13 +704,14 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
             m_frameBuf[0]->frame.width, m_frameBuf[0]->frame.height, m_frameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_frameBuf[0]->frame.csp]);
 
-        sts = m_qp.alloc(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8);
+        m_qp = std::unique_ptr<CUFrameBuf>(new CUFrameBuf());
+        sts = m_qp->alloc(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table: %s.\n"), get_err_mes(sts));
             return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-            m_qp.frame.width, m_qp.frame.height, m_qp.frame.pitch[0], RGY_CSP_NAMES[m_qp.frame.csp]);
+            m_qp->frame.width, m_qp->frame.height, m_qp->frame.pitch[0], RGY_CSP_NAMES[m_qp->frame.csp]);
 
         setFilterInfo(pParam->print());
     }
@@ -840,8 +842,8 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     } else
 #endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
     {
-        targetQPTable = &m_qp;
-        sts = run_set_qp<uchar4>(&m_qp.frame, prm->smooth.qp, stream);
+        targetQPTable = m_qp.get();
+        sts = run_set_qp<uchar4>(&m_qp->frame, prm->smooth.qp, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), get_err_mes(sts));
             return sts;

@@ -832,7 +832,8 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
     if ((sts = checkParam(prm.get())) != RGY_ERR_NONE) {
         return sts;
     }
-    if (!m_param || m_param != pParam) {
+    if (!m_param ||
+        cmpFrameInfoCspResolution(&m_param->frameOut, &prm->frameOut)) {
         {
             AddMessage(RGY_LOG_DEBUG, _T("Create input csp conversion filter.\n"));
             unique_ptr<NVEncFilterCspCrop> filter(new NVEncFilterCspCrop());
@@ -870,7 +871,7 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
         }
         for (auto& buf : m_bufImg) {
             if (!buf || cmpFrameInfoCspResolution(&buf->frame, &m_srcCrop->GetFilterParam()->frameOut)) {
-                buf = std::make_unique<CUFrameBuf>(m_srcCrop->GetFilterParam()->frameOut);
+                buf = std::unique_ptr<CUFrameBuf>(new CUFrameBuf(m_srcCrop->GetFilterParam()->frameOut));
                 if ((sts = buf->alloc()) != RGY_ERR_NONE) {
                     return sts;
                 }
@@ -885,10 +886,10 @@ RGY_ERR NVEncFilterDenoiseDct::init(shared_ptr<NVEncFilterParam> pParam, shared_
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
             prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
         }
-
-        m_step = prm->dct.step;
-        m_threshold = prm->dct.sigma * 3.0f / 255.0f;
     }
+
+    m_step = prm->dct.step;
+    m_threshold = prm->dct.sigma * 3.0f / 255.0f;
 
     setFilterInfo(pParam->print());
     m_param = pParam;

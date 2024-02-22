@@ -59,7 +59,7 @@ protected:
     RGY_ERR check_param(shared_ptr<NVEncFilterParamSmooth> prmYadif);
     float getQPMul(int qp_scale);
 
-    CUFrameBuf m_qp;
+    std::unique_ptr<CUFrameBuf> m_qp;
     std::shared_ptr<RGYFrameDataQP> m_qpSrc;
     std::shared_ptr<RGYFrameDataQP> m_qpSrcB;
     RGYListRef<RGYFrameDataQP> *m_qpTableRef;

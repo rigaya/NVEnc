@@ -464,6 +464,7 @@ RGY_ERR NVEncFilterWarpsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_p
             m.frame.picstruct = prm->frameOut.picstruct;
             m.frame.mem_type = prm->frameOut.mem_type;
             m.frame.csp = prm->frameOut.csp;
+            m.clear();
             sts = m.alloc();
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));

@@ -503,6 +503,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_RandY.frame.picstruct = pDebandParam->frameOut.picstruct;
         m_RandY.frame.mem_type = pDebandParam->frameOut.mem_type;
         m_RandY.frame.csp = RGY_CSP_RGB32;
+        m_RandY.clear();
         sts = m_RandY.alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
@@ -517,6 +518,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_RandUV.frame.picstruct = pDebandParam->frameOut.picstruct;
         m_RandUV.frame.mem_type = pDebandParam->frameOut.mem_type;
         m_RandUV.frame.csp = pDebandParam->frameOut.csp;
+        m_RandUV.clear();
         sts = m_RandUV.alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));

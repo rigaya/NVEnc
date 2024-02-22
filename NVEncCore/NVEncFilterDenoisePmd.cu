@@ -292,6 +292,7 @@ RGY_ERR NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, shared_
         m_Gauss.frame.picstruct = pPmdParam->frameOut.picstruct;
         m_Gauss.frame.mem_type = pPmdParam->frameOut.mem_type;
         m_Gauss.frame.csp = pPmdParam->frameOut.csp;
+        m_Gauss.clear();
         sts = m_Gauss.alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
