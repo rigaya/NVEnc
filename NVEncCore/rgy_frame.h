@@ -132,9 +132,9 @@ public:
     }
     void ptrArray(void *array[3], bool bRGB) {
         auto frame = getInfo(); bRGB;
-        array[0] = (void *)frame.ptr[0];
-        array[1] = (void *)frame.ptr[1];
-        array[2] = (void *)frame.ptr[2];
+        for (size_t i = 0; i < 3; i++) {
+            array[i] = (void *)getPlane(&frame, (RGY_PLANE)i).ptr[0];
+        }
     }
     uint8_t *ptrPlane(const RGY_PLANE plane) const {
         return getInfo().ptr[plane];
