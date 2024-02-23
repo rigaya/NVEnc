@@ -958,7 +958,7 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
                 AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            sts = resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, resizeInterp, (float *)m_weightSpline->ptr, stream);
+            sts = resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, resizeInterp, (m_weightSpline) ? (float *)m_weightSpline->ptr : nullptr, stream);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
                     RGY_CSP_NAMES[pInputFrame->csp],
