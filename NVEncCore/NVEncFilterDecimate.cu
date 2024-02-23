@@ -162,10 +162,10 @@ void func_calc_sum_max(int diff[DTB_Y+1][DTB_X+1], int2 *__restrict__ pDst, cons
     const int lid = ly * DTB_X + lx;
     if (lid == 0) {
         const int gid = blockIdx.y * gridDim.x + blockIdx.x;
-        int2 ret = pDst[gid];
+        int2 ret;
         ret.x = sum;
         ret.y = b2x2;
-        if (firstPlane) {
+        if (!firstPlane) {
             int2 dst = pDst[gid];
             ret.x += dst.x;
             ret.y = max(ret.y, dst.y);
@@ -305,7 +305,7 @@ __global__ void kernel_block_diff(
     const int lid = threadIdx.y * blockDim.x + threadIdx.x;
     if (lid == 0) {
         const int gid = blockIdx.y * gridDim.x + blockIdx.x;
-        if (firstPlane) {
+        if (!firstPlane) {
             diff += pDst[gid];
         }
         pDst[gid] = diff;
@@ -403,12 +403,14 @@ RGY_ERR calc_block_diff_plane(const bool useKernel2, const bool firstPlane, cons
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    CUDA_DEBUG_SYNC_ERR;
     cudaEventRecord(eventTransfer, streamDiff);
     cudaStreamWaitEvent(streamTransfer, eventTransfer, 0);
     sts = tmp->copyDtoHAsync(streamTransfer);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    CUDA_DEBUG_SYNC_ERR;
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -471,6 +473,7 @@ RGY_ERR NVEncFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int i
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    CUDA_DEBUG_SYNC_ERR;
     copyFrameProp(&m_buf->frame, pInputFrame);
     return RGY_ERR_NONE;
 }
