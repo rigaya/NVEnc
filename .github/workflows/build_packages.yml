@@ -58,7 +58,7 @@ jobs:
           echo "local_group_id=${LOCAL_GROUP_ID}" >> $GITHUB_OUTPUT
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 0
@@ -74,7 +74,7 @@ jobs:
 
       - name: Set up QEMU
         if: matrix.arch != 'x86_64'
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Build Exec
         id: build_exec
@@ -91,6 +91,11 @@ jobs:
           echo ${PKGFILE}
           echo "pkgfile=${PKGFILE}" >> $GITHUB_OUTPUT
 
+      - name: Calc hash
+        id: calc_hash
+        run: |
+          7z h -scrc* ${{ steps.build_exec.outputs.pkgfile }}
+
       - name: Upload Release Asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
@@ -101,7 +106,7 @@ jobs:
           files: ${{ steps.build_exec.outputs.pkgfile }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: nvencc_${{ matrix.dockerimg }}_${{ matrix.pkgtype }}
           path: ${{ steps.build_exec.outputs.pkgfile }}
