@@ -1722,8 +1722,8 @@ RGYParamControl::RGYParamControl() :
     skipHWDecodeCheck(false),
     avsdll(),
     enableOpenCL(true),
-    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT),
-    avoidIdleClock() {
+    avoidIdleClock(),
+    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {
 
 }
 RGYParamControl::~RGYParamControl() {};
