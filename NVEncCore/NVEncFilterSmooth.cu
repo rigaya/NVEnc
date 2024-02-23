@@ -701,7 +701,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
             prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
         }
-        AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
+        AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, pitch %d, %s.\n"),
             m_frameBuf[0]->frame.width, m_frameBuf[0]->frame.height, m_frameBuf[0]->frame.pitch[0], RGY_CSP_NAMES[m_frameBuf[0]->frame.csp]);
 
         m_qp = std::unique_ptr<CUFrameBuf>(new CUFrameBuf());
@@ -710,7 +710,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
+        AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%d, pitch %d, %s.\n"),
             m_qp->frame.width, m_qp->frame.height, m_qp->frame.pitch[0], RGY_CSP_NAMES[m_qp->frame.csp]);
 
         setFilterInfo(pParam->print());
