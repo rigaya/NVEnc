@@ -42,7 +42,11 @@
 #include "rgy_frame_info.h"
 #include "convert_csp.h"
 
+#ifdef _DEBUG
 #define ENABLE_CUDA_DEBUG_SYNC (1)
+#else
+#define ENABLE_CUDA_DEBUG_SYNC (0)
+#endif
 
 #if ENABLE_CUDA_DEBUG_SYNC
 #define CUDA_DEBUG_SYNC { \
@@ -57,8 +61,21 @@
         return err_to_rgy(cudaDebugSyncErr); \
     } \
 }
+#define CUDA_DEBUG_SYNC_ERR { \
+    cudaError_t cudaDebugSyncErr = cudaDeviceSynchronize(); \
+    if (cudaDebugSyncErr != cudaSuccess) { \
+        _ftprintf(stderr, _T("CUDA error: %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
+        return err_to_rgy(cudaDebugSyncErr); \
+    } \
+    cudaDebugSyncErr = cudaGetLastError(); \
+    if (cudaDebugSyncErr != cudaSuccess) { \
+        _ftprintf(stderr, _T("CUDA error: %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
+        return err_to_rgy(cudaDebugSyncErr); \
+    } \
+}
 #else
 #define CUDA_DEBUG_SYNC 
+#define CUDA_DEBUG_SYNC_ERR
 #endif
 
 
