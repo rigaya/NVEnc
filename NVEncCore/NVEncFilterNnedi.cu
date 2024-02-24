@@ -1459,16 +1459,6 @@ RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi
     if (!weights) {
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_AUTO) {
-        pNnediParam->nnedi.precision =
-#if ENABLE_CUDA_FP16_HOST
-            ((pNnediParam->compute_capability.first == 6 && pNnediParam->compute_capability.second == 0)
-                || pNnediParam->compute_capability.first >= 7)
-            ? VPP_FP_PRECISION_FP16 : VPP_FP_PRECISION_FP32;
-#else
-            VPP_FP_PRECISION_FP32;
-#endif
-    }
 
     const int weight1size = pNnediParam->nnedi.nns * 2 * (sizeNX[pNnediParam->nnedi.nsize] * sizeNY[pNnediParam->nnedi.nsize] + 1);
     const int sizeofweight = (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) ? 4 : 2;
@@ -1730,6 +1720,9 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     //パラメータチェック
     if ((sts = checkParam(pNnediParam)) != RGY_ERR_NONE) {
         return sts;
+    }
+    if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_AUTO) {
+        pNnediParam->nnedi.precision = VPP_FP_PRECISION_FP32;
     }
 
     sts = AllocFrameBuf(pNnediParam->frameOut, pNnediParam->nnedi.isbob() ? 2 : 1);
