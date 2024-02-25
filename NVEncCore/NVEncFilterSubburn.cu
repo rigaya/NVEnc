@@ -192,7 +192,13 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
     img.mem_type = RGY_MEM_TYPE_CPU;
     img.picstruct = RGY_PICSTRUCT_FRAME;
     auto bufCPU = std::make_unique<CUFrameBuf>(img);
-    bufCPU->alloc();
+    auto err = bufCPU->allocHost();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate host memory for subtitle image %dx%d: %s.\n"), image->w, image->h, get_err_mes(err));
+        return SubImageData(
+            std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
+            std::unique_ptr<CUFrameBuf>(), 0, 0);
+    }
 
     auto planeY = getPlane(&bufCPU->frame, RGY_PLANE_Y);
     auto planeU = getPlane(&bufCPU->frame, RGY_PLANE_U);
@@ -245,6 +251,13 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
     }
     //GPUへ転送
     auto frame = std::make_unique<CUFrameBuf>(bufCPU->frame.width, bufCPU->frame.height, bufCPU->frame.csp);
+    err = frame->alloc();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate device memory for subtitle image %dx%d: %s.\n"), image->w, image->h, get_err_mes(err));
+        return SubImageData(
+            std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
+            std::unique_ptr<CUFrameBuf>(), 0, 0);
+    }
     frame->copyFrameAsync(&bufCPU->frame, stream);
     return SubImageData(std::move(frame), std::unique_ptr<CUFrameBuf>(), std::move(bufCPU), image->dst_x, image->dst_y);
 }
@@ -303,7 +316,13 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     img.mem_type = RGY_MEM_TYPE_CPU;
     img.picstruct = RGY_PICSTRUCT_FRAME;
     auto bufCPU = std::make_unique<CUFrameBuf>(img);
-    bufCPU->alloc();
+    auto err = bufCPU->allocHost();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate host memory for subtitle image %dx%d: %s.\n"), rect->w, rect->h, get_err_mes(err));
+        return SubImageData(
+            std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
+            std::unique_ptr<CUFrameBuf>(), 0, 0);
+    }
 
     auto planeY = getPlane(&bufCPU->frame, RGY_PLANE_Y);
     auto planeU = getPlane(&bufCPU->frame, RGY_PLANE_U);
@@ -374,6 +393,13 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
 
     //GPUへ転送
     auto frameTemp = std::make_unique<CUFrameBuf>(bufCPU->frame.width, bufCPU->frame.height, bufCPU->frame.csp);
+    err = frameTemp->alloc();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate device memory for subtitle image %dx%d: %s.\n"), rect->w, rect->h, get_err_mes(err));
+        return SubImageData(
+            std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
+            std::unique_ptr<CUFrameBuf>(), 0, 0);
+    }
     frameTemp->copyFrameAsync(&bufCPU->frame, stream);
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_param);
 
@@ -422,7 +448,13 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         frame = std::make_unique<CUFrameBuf>(
             ALIGN((int)(bufCPU->frame.width  * prm->subburn.scale + 0.5f), 4),
             ALIGN((int)(bufCPU->frame.height * prm->subburn.scale + 0.5f), 4), bufCPU->frame.csp);
-        frame->alloc();
+        err = frame->alloc();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate device memory for scaled subtitle image %dx%d: %s.\n"), frame->width(), frame->height(), get_err_mes(err));
+            return SubImageData(
+                std::unique_ptr<CUFrameBuf>(), std::unique_ptr<CUFrameBuf>(),
+                std::unique_ptr<CUFrameBuf>(), 0, 0);
+        }
         unique_ptr<NVEncFilterResize> filterResize(new NVEncFilterResize());
         shared_ptr<NVEncFilterParamResize> paramResize(new NVEncFilterParamResize());
         paramResize->frameIn = frameTemp->frame;
