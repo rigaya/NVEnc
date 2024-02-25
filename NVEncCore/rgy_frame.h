@@ -126,7 +126,7 @@ public:
         auto frame = getInfo();
         std::array<void*, _countof(RGYFrameInfo::ptr)> ptrarray;
         for (size_t i = 0; i < ptrarray.size(); i++) {
-            ptrarray[i] = (void *)frame.ptr[i];
+            ptrarray[i] = (void *)getPlane(&frame, (RGY_PLANE)i).ptr[0];
         }
         return ptrarray;
     }
@@ -137,22 +137,23 @@ public:
         }
     }
     uint8_t *ptrPlane(const RGY_PLANE plane) const {
-        return getInfo().ptr[plane];
+        auto frame = getInfo();
+        return (uint8_t *)getPlane(&frame, plane).ptr[0];
     }
     uint8_t *ptrY() const {
-        return getInfo().ptr[0];
+        return ptrPlane(RGY_PLANE_Y);
     }
     uint8_t *ptrUV() const {
-        return getInfo().ptr[1];
+        return ptrPlane(RGY_PLANE_C);
     }
     uint8_t *ptrU() const {
-        return getInfo().ptr[1];
+        return ptrPlane(RGY_PLANE_U);
     }
     uint8_t *ptrV() const {
-        return getInfo().ptr[2];
+        return ptrPlane(RGY_PLANE_V);
     }
     uint8_t *ptrRGB() const {
-        return getInfo().ptr[0];
+        return ptrPlane(RGY_PLANE_R);
     }
     RGY_CSP csp() const {
         return getInfo().csp;
@@ -166,11 +167,9 @@ public:
     int height() const {
         return getInfo().height;
     }
-    uint32_t pitch(int index = 0) const {
-        return getInfo().pitch[index];
-    }
-    uint32_t pitch(const RGY_PLANE plane) const {
-        return getInfo().pitch[plane];
+    uint32_t pitch(const RGY_PLANE plane = RGY_PLANE_Y) const {
+        auto frame = getInfo();
+        return getPlane(&frame, plane).pitch[0];
     }
     uint64_t timestamp() const {
         return getInfo().timestamp;

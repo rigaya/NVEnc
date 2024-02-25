@@ -852,10 +852,10 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         uint8_t *const ptrBuf = m_readBuffer.get();
 
         for (int iplane = 1; iplane < RGY_CSP_PLANES[pSurface->csp()]; iplane++) {
-            const uint32_t widthUV = pSurface->width() * pixSize >> (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420 ? 1 : 0);
+            const uint32_t widthUV = pSurface->width() >> (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420 ? 1 : 0);
             const uint32_t heightUV = pSurface->height() >> (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420 ? 1 : 0);
             for (uint32_t i = 0; i < heightUV; i++) {
-                loadLineToBuffer(ptrBuf, pSurface->ptrPlane((RGY_PLANE)iplane) + (crop.e.up + i) * pSurface->pitch(iplane), pSurface->pitch(iplane));
+                loadLineToBuffer(ptrBuf, pSurface->ptrPlane((RGY_PLANE)iplane) + (crop.e.up + i) * pSurface->pitch((RGY_PLANE)iplane), pSurface->pitch((RGY_PLANE)iplane));
                 WRITE_CHECK(fwrite(ptrBuf + (crop.e.left * pixSize >> 1), 1, widthUV * pixSize, m_fDest.get()), widthUV * pixSize);
             }
         }
