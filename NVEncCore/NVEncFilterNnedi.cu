@@ -1745,6 +1745,7 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         pParam->baseFps *= 2;
         m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
     }
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT));
 
     setFilterInfo(pParam->print());
     m_param = pNnediParam;
