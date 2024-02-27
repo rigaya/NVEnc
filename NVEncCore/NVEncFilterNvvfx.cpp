@@ -69,12 +69,12 @@ bool NVEncFilterNvvfxEffect::compareModelDir(const tstring& modelDir) const {
 }
 
 RGY_ERR NVEncFilterNvvfxEffect::initEffect(const tstring& modelDir) {
+#if !ENABLE_NVVFX
+    AddMessage(RGY_LOG_ERROR, _T("nvvfx filters are not supported on x86 exec file, please use x64 exec file.\n"));
+    return RGY_ERR_UNSUPPORTED;
+#else
     if (!m_effect) {
         AddMessage(RGY_LOG_DEBUG, _T("initEffect %s.\n"), m_effectName.c_str());
-#if !ENABLE_NVVFX
-        AddMessage(RGY_LOG_ERROR, _T("nvvfx filters are not supported on x86 exec file, please use x64 exec file.\n"));
-        return RGY_ERR_UNSUPPORTED;
-#else
         NvVFX_Handle effHandle = nullptr;
         auto err = err_to_rgy(NvVFX_CreateEffect(m_effectName.c_str(), &effHandle));
         if (err != RGY_ERR_NONE) {

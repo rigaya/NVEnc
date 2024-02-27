@@ -122,16 +122,16 @@ public:
     RGYFrame() {};
     virtual ~RGYFrame() { }
     virtual bool isempty() const = 0;
-    std::array<void*, _countof(RGYFrameInfo::ptr)> ptr() const {
+    std::array<void*, RGY_MAX_PLANES> ptr() const {
         auto frame = getInfo();
-        std::array<void*, _countof(RGYFrameInfo::ptr)> ptrarray;
+        std::array<void*, RGY_MAX_PLANES> ptrarray;
         for (size_t i = 0; i < ptrarray.size(); i++) {
             ptrarray[i] = (void *)getPlane(&frame, (RGY_PLANE)i).ptr[0];
         }
         return ptrarray;
     }
     void ptrArray(void *array[3], bool bRGB) {
-        auto frame = getInfo(); bRGB;
+        auto frame = getInfo();
         for (size_t i = 0; i < 3; i++) {
             array[i] = (void *)getPlane(&frame, (RGY_PLANE)i).ptr[0];
         }
