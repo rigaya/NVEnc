@@ -1541,7 +1541,15 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         muxAudio->outCodecEncodeCtx->bits_per_raw_sample = muxAudio->outCodecDecodeCtx->bits_per_raw_sample;
         muxAudio->outCodecEncodeCtx->pkt_timebase        = av_make_q(1, muxAudio->outCodecDecodeCtx->sample_rate);
         if (!avcodecIsCopy(inputAudio->encodeCodec)) {
-            muxAudio->outCodecEncodeCtx->bit_rate        = ((inputAudio->bitrate) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
+            if (inputAudio->quality.first) {
+                muxAudio->outCodecEncodeCtx->flags |= AV_CODEC_FLAG_QSCALE;
+                muxAudio->outCodecEncodeCtx->global_quality = inputAudio->quality.second * FF_QP2LAMBDA;
+                if (inputAudio->bitrate) {
+                    muxAudio->outCodecEncodeCtx->bit_rate = inputAudio->bitrate;
+                }
+            } else {
+                muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
+            }
         }
         if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
             muxAudio->outCodecEncodeCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -2647,10 +2655,15 @@ tstring RGYOutputAvcodec::GetWriterMes() {
                     audiostr += filter_str;
                 }
                 //エンコード情報
-                audiostr += strsprintf(" -> %s/%s/%dkbps",
+                audiostr += strsprintf(" -> %s/%s",
                     audioStream.outCodecEncode->name,
-                    getChannelLayoutChar(audioStream.outCodecEncodeCtx).c_str(),
-                    audioStream.outCodecEncodeCtx->bit_rate / 1000);
+                    getChannelLayoutChar(audioStream.outCodecEncodeCtx).c_str());
+                if (audioStream.outCodecEncodeCtx->flags & AV_CODEC_FLAG_QSCALE) {
+                    audiostr += strsprintf("/q=%d", audioStream.outCodecEncodeCtx->global_quality / FF_QP2LAMBDA);
+                }
+                if (audioStream.outCodecEncodeCtx->bit_rate) {
+                    audiostr += strsprintf("/%dkbps", audioStream.outCodecEncodeCtx->bit_rate / 1000);
+                }
             } else {
                 audiostr += strsprintf("%s", avcodec_get_name(audioStream.streamIn->codecpar->codec_id));
             }

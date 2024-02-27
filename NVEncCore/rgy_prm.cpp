@@ -1480,6 +1480,7 @@ AudioSelect::AudioSelect() :
     encCodecPrm(),
     encCodecProfile(),
     encBitrate(0),
+    encQuality({ false, RGY_AUDIO_QUALITY_DEFAULT }),
     encSamplingRate(0),
     addDelayMs(0.0),
     extractFilename(),

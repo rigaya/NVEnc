@@ -44,6 +44,8 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 
 static const float DEFAULT_DUMMY_LOAD_PERCENT = 0.01f;
 
+static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
+
 #if ENCODER_NVENC
 #define ENABLE_VPP_FILTER_COLORSPACE   (ENABLE_NVRTC)
 #else
@@ -1474,6 +1476,7 @@ struct AudioSelect {
     tstring  encCodecPrm;     //音声エンコードのコーデックのパラメータ
     tstring  encCodecProfile; //音声エンコードのコーデックのプロファイル
     int      encBitrate;      //音声エンコードに選択した音声トラックのビットレート
+    std::pair<bool, int> encQuality;      //音声エンコードに選択した音声トラックの品質 <値が設定されているかと値のペア>
     int      encSamplingRate;      //サンプリング周波数
     double   addDelayMs;           //追加する音声の遅延(millisecond)
     tstring  extractFilename;      //抽出する音声のファイル名のリスト

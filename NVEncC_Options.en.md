@@ -143,6 +143,7 @@
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
+  - [--audio-quality \[\<int/string\>?\]\<int\>](#--audio-quality-intstringint)
   - [--audio-profile \[\<int/string\>?\]\<string\>](#--audio-profile-intstringstring)
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
   - [--audio-samplerate \[\<int/string\>?\]\<int\>](#--audio-samplerate-intstringint)
@@ -1092,6 +1093,11 @@ You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select a
 Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
+
+### --audio-quality [&lt;int/string&gt;?]&lt;int&gt;
+Specify the quality when encoding audio. The value depends on the codec used.
+
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ### --audio-profile [&lt;int/string&gt;?]&lt;string&gt;
 Specify audio codec profile when encoding audio.You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].

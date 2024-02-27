@@ -139,6 +139,7 @@
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
+  - [--audio-quality \[\<int/string\>?\]\<int\>](#--audio-quality-intstringint)
   - [--audio-profile \[\<int/string\>?\]\<string\>](#--audio-profile-intstringstring)
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
   - [--audio-samplerate \[\<int/string\>?\]\<int\>](#--audio-samplerate-intstringint)
@@ -1096,6 +1097,11 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
   例1: --audio-bitrate 192   (音声を192kbpsで変換)
   例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
   ```
+
+### --audio-quality [&lt;int/string&gt;?]&lt;int&gt;
+音声をエンコードする際の品質を指定する。値は使用するコーデックに依存する。
+
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 ### --audio-profile [&lt;int/string&gt;?]&lt;string&gt;
 音声をエンコードする際、そのプロファイルを指定する。

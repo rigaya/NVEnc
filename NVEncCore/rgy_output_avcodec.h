@@ -337,6 +337,7 @@ struct AVOutputStreamPrm {
     tstring encodeCodecPrm;     //音声をエンコードするコーデックのパラメータ
     tstring encodeCodecProfile; //音声をエンコードするコーデックのパラメータ
     int     bitrate;            //ビットレートの指定
+    std::pair<bool, int> quality; //品質の指定 (値が設定されているかと値)
     int     samplingRate;       //サンプリング周波数の指定
     tstring filter;             //音声フィルタ
     bool    asdata;             //バイナリデータとして転送する
@@ -351,6 +352,7 @@ struct AVOutputStreamPrm {
         encodeCodecPrm(),
         encodeCodecProfile(),
         bitrate(0),
+        quality({ false, RGY_AUDIO_QUALITY_DEFAULT }),
         samplingRate(0),
         filter(),
         asdata(false),

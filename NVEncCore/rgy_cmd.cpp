@@ -3487,7 +3487,7 @@ int parse_log_level_param(const TCHAR *option_name, const TCHAR *arg_value, RGYP
 }
 
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "copy" };
+    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "quality", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "copy" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -3498,6 +3498,13 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
             } else if (param_arg == _T("bitrate")) {
                 try {
                     chSel.encBitrate = std::stoi(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+            } else if (param_arg == _T("quality")) {
+                try {
+                    chSel.encQuality = { true, std::stoi(param_val) };
                 } catch (...) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                     return 1;
@@ -4188,6 +4195,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return ret;
         }
         return 0;
+    }
+    if (IS_OPTION("audio-quality")) {
+        try {
+            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || !pAudioSelect->encQuality.first) {
+                    pAudioSelect->encQuality = { true, std::stoi(prmstr) };
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
     }
     if (IS_OPTION("audio-bitrate")) {
         try {
@@ -6437,6 +6457,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T(" --audio-bitrate ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encBitrate;
         }
     }
+    for (int i = 0; i < param->nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
+            && pAudioSelect->encQuality.first) {
+            cmd << _T(" --audio-quality ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encQuality.second;
+        }
+    }
 #if !FOR_AUO
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         tmp.str(tstring());
@@ -6536,6 +6563,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     tmp << _T(";codec=") << sel.encCodec;
                     if (sel.encBitrate > 0) {
                         tmp << _T(";bitrate=") << sel.encBitrate;
+                    }
+                    if (sel.encQuality.first) {
+                        tmp << _T(";quality=") << sel.encQuality.second;
                     }
                     if (sel.addDelayMs > 0) {
                         tmp << _T(";delay=") << sel.addDelayMs;
@@ -7022,6 +7052,9 @@ tstring gen_cmd_help_common() {
         _T("                                  in [<int>?], specify track number to apply.\n")
         _T("   --audio-bitrate [<int>?]<int>\n")
         _T("                                set encode bitrate for audio (kbps).\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-quality [<int>?]<int>\n")
+        _T("                                set encode quality for audio.\n")
         _T("                                  in [<int>?], specify track number of audio.\n")
         _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
         _T("                                set numbers of continuous packets of audio decode\n")
