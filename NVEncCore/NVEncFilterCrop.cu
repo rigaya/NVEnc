@@ -1682,7 +1682,6 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const
     }
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
-        const int pixsize = RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? 2 : 1;
         auto sts = copyPlaneAsync(pOutputFrame, pInputFrame, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromNV12(%s -> %s)): %s.\n"),
