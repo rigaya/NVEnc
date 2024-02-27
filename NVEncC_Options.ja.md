@@ -475,10 +475,10 @@ avformat + cuvid decoderを使用して読み込む。
 読み込むフレーム数。 (注: 入力ベースである点に注意、出力ベースではない)
 
 ### --fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;
-入力フレームレートの設定。raw形式の場合は必須。
+入力フレームレートの設定。raw形式の場合のみ有効で、その他の場合は無視されるか、fps推定のヒントとしてのみ扱われる。
 
 ### --input-res &lt;int&gt;x&lt;int&gt;
-入力解像度の設定。raw形式の場合は必須。
+入力解像度の設定。raw形式の場合の場合のみ有効。
 
 ### --output-res &lt;int&gt;x&lt;int&gt;[,&lt;string&gt;=&lt;string&gt;]
 出力解像度の設定。入力解像度と異なる場合、自動的にHW/GPUリサイズを行う。

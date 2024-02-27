@@ -476,10 +476,10 @@ Number of pixels to cropped from left, top, right, bottom.
 Number of frames to input. (Note: input base, not output base)
 
 ### --fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;
-Set the input frame rate. Required for raw format.
+Set the input frame rate. Only valid for raw format, otherwise it will be ignored or only treated as a hint.
 
 ### --input-res &lt;int&gt;x&lt;int&gt;
-Set input resolution. Required for raw format.
+Set input resolution. Only valid for raw format, otherwise it will be ignored.
 
 ### --output-res &lt;int&gt;x&lt;int&gt;[,&lt;string&gt;=&lt;string&gt;]
 Set output resolution. When it is different from the input resolution, HW/GPU resizer will be activated automatically.
