@@ -2120,7 +2120,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (get_list_value(list_vpp_denoise_dct_step, param_val.c_str(), &value)) {
                         vpp->dct.step = value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_denoise_dct_step);
                         return 1;
                     }
                     continue;
@@ -2130,7 +2130,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (get_list_value(list_vpp_denoise_dct_block_size, param_val.c_str(), &value)) {
                         vpp->dct.block_size = value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_denoise_dct_block_size);
                         return 1;
                     }
                     continue;
