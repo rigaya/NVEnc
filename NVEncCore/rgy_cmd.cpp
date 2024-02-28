@@ -3217,6 +3217,62 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         vpp->overlay.push_back(overlay);
         return 0;
     }
+    if (IS_OPTION("vpp-fruc") && ENABLE_VPP_FILTER_FRUC) {
+        vpp->fruc.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "fps" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->fruc.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("fps")) {
+                    int a[2] = { 0 };
+                    if (   2 == _stscanf_s(param_val.c_str(), _T("%d/%d"), &a[0], &a[1])
+                        || 2 == _stscanf_s(param_val.c_str(), _T("%d:%d"), &a[0], &a[1])
+                        || 2 == _stscanf_s(param_val.c_str(), _T("%d,%d"), &a[0], &a[1])) {
+                        vpp->fruc.targetFps = rgy_rational<int>(a[0], a[1]);
+                    } else {
+                        double d;
+                        if (1 == _stscanf_s(param_val.c_str(), _T("%lf"), &d)) {
+                            int rate = (int)(d * 1001.0 + 0.5);
+                            if (rate % 1000 == 0) {
+                                vpp->fruc.targetFps = rgy_rational<int>(rate, 1001);
+                            } else {
+                                vpp->fruc.targetFps = rgy_rational<int>((int)(d * 100000 + 0.5), 100000);
+                            }
+                        } else {
+                            print_cmd_error_invalid_value(option_name, strInput[i]);
+                            return 1;
+                        }
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         vpp->checkPerformance = true;
         return 0;
@@ -6375,6 +6431,22 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         }
     }
+    if (param->fruc != defaultPrm->fruc) {
+        tmp.str(tstring());
+        if (!param->fruc.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->fruc.enable || save_disabled_prm) {
+            if (param->fruc.targetFps.is_valid()) {
+                tmp << _T(",fps=") << param->fruc.targetFps.printt();
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-fruc ") << tmp.str().substr(1);
+        } else if (param->fruc.enable) {
+            cmd << _T(" --vpp-fruc");
+        }
+    }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), checkPerformance);
     return cmd.str();
 }
@@ -7640,6 +7712,13 @@ tstring gen_cmd_help_vpp() {
         _T("      lumakey_threshold=<float> set the range of softness for lumakey\n")
         _T("      loop=<bool>\n")
     );
+#endif
+#if ENABLE_VPP_FILTER_FRUC
+    str += strsprintf(_T("\n")
+        _T("   --vpp-fruc [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable frame rate up conversion filter.\n")
+        _T("    params\n")
+        _T("      fps=<int>/<int> or <float> target frame rate\n"));
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-perf-monitor           check vpp perfromance (for debug)\n")

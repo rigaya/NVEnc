@@ -71,6 +71,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_FRUC         (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
 #define ENABLE_VPP_ORDER                   (CLFILTERS_AUF)
 
@@ -145,6 +146,8 @@ enum class VppType : int {
     CL_OVERLAY,
 
     CL_DEBAND,
+
+    CL_FRUC,
 
     CL_PAD,
 
@@ -1421,6 +1424,16 @@ struct VppOverlay {
     tstring print() const;
 };
 
+struct VppFruc {
+    bool enable;
+    rgy_rational<int> targetFps;
+
+    VppFruc();
+    bool operator==(const VppFruc &x) const;
+    bool operator!=(const VppFruc &x) const;
+    tstring print() const;
+};
+
 struct RGYParamVpp {
     std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
@@ -1449,6 +1462,7 @@ struct RGYParamVpp {
     VppTransform transform;
     VppDeband deband;
     std::vector<VppOverlay> overlay;
+    VppFruc fruc;
     bool checkPerformance;
 
     RGYParamVpp();

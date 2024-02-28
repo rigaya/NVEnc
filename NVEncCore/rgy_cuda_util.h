@@ -313,11 +313,12 @@ public:
     virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; };
     virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; };
     virtual RGYFrameInfo getInfo() const { return frame; }
+    void setSingleAlloc(bool singleAlloc) { frame.singleAlloc = singleAlloc; }
 protected:
     CUFrameBuf(const CUFrameBuf &) = delete;
     void operator =(const CUFrameBuf &) = delete;
 public:
-    static RGY_ERR allocMemory(RGYFrameInfo& fi) {
+    static RGY_ERR allocMemory(RGYFrameInfo& fi, const int align) {
         const int pixsize = bytesPerPix(fi.csp);
         clearMemory(fi);
         if (fi.singleAlloc) {
@@ -326,11 +327,13 @@ public:
                 totalHeight += getPlane(&fi, (RGY_PLANE)i).height;
             }
             const int widthByte = fi.width * pixsize;
-            size_t memPitch = ALIGN(widthByte, 128); //このアライメントはRGY_MEM_TYPE_CPUのとき、読み込み時の色変換の並列化のために必要
+            size_t memPitch = ALIGN(widthByte, (align) ? align : 128); //このアライメントはRGY_MEM_TYPE_CPUのとき、読み込み時の色変換の並列化のために必要
             void *mem = nullptr;
             auto sts = RGY_ERR_NONE;
             if (fi.mem_type == RGY_MEM_TYPE_CPU) {
                 sts = err_to_rgy(cudaMallocHost(&mem, totalHeight * memPitch));
+            } else if (align) {
+                sts = err_to_rgy(cudaMalloc((void **)&mem, totalHeight * memPitch));
             } else {
                 memPitch = 0;
                 sts = err_to_rgy(cudaMallocPitch((void **)&mem, &memPitch, widthByte, totalHeight));
@@ -346,11 +349,13 @@ public:
         for (int i = 0; i < RGY_CSP_PLANES[fi.csp]; i++) {
             const auto plane = getPlane(&fi, (RGY_PLANE)i);
             const int widthByte = plane.width * pixsize;
-            size_t memPitch = ALIGN(widthByte, 128); //このアライメントはRGY_MEM_TYPE_CPUのとき、読み込み時の色変換の並列化のために必要
+            size_t memPitch = ALIGN(widthByte, (align) ? align : 128); //このアライメントはRGY_MEM_TYPE_CPUのとき、読み込み時の色変換の並列化のために必要
             void *mem = nullptr;
             auto sts = RGY_ERR_NONE;
             if (fi.mem_type == RGY_MEM_TYPE_CPU) {
                 sts = err_to_rgy(cudaMallocHost(&mem, plane.height * memPitch));
+            } else if (align) {
+                sts = err_to_rgy(cudaMalloc((void **)&mem, plane.height * memPitch));
             } else {
                 memPitch = 0;
                 sts = err_to_rgy(cudaMallocPitch((void **)&mem, &memPitch, widthByte, plane.height));
@@ -373,27 +378,29 @@ public:
         }
         return RGY_ERR_NONE;
     }
-    RGY_ERR alloc() {
+    RGY_ERR alloc(bool singleAlloc = false, int align = 0) {
         frame.mem_type = RGY_MEM_TYPE_GPU;
-        return allocMemory(frame);
+        frame.singleAlloc = singleAlloc;
+        return allocMemory(frame, align);
     }
-    RGY_ERR alloc(int width, int height, RGY_CSP csp = RGY_CSP_NV12) {
+    RGY_ERR alloc(int width, int height, RGY_CSP csp = RGY_CSP_NV12, bool singleAlloc = false, int align = 0) {
         frame.width = width;
         frame.height = height;
         frame.csp = csp;
         frame.mem_type = RGY_MEM_TYPE_GPU;
-        return alloc();
+        return alloc(singleAlloc, align);
     }
-    RGY_ERR allocHost() {
+    RGY_ERR allocHost(bool singleAlloc = false, int align = 0) {
         frame.mem_type = RGY_MEM_TYPE_CPU;
-        return allocMemory(frame);
+        frame.singleAlloc = singleAlloc;
+        return allocMemory(frame, align);
     }
-    RGY_ERR allocHost(int width, int height, RGY_CSP csp = RGY_CSP_NV12) {
+    RGY_ERR allocHost(int width, int height, RGY_CSP csp = RGY_CSP_NV12, bool singleAlloc = false, int align = 0) {
         frame.width = width;
         frame.height = height;
         frame.csp = csp;
         frame.mem_type = RGY_MEM_TYPE_CPU;
-        return allocHost();
+        return allocHost(singleAlloc, align);
     }
     static void clearMemory(RGYFrameInfo& fi) {
         for (int i = 0; i < ((fi.singleAlloc) ? 1 : RGY_CSP_PLANES[fi.csp]); i++) {
@@ -447,11 +454,11 @@ protected:
 public:
     RGY_ERR allocHost() {
         frameHost.mem_type = RGY_MEM_TYPE_CPU;
-        return CUFrameBuf::allocMemory(frameHost);
+        return CUFrameBuf::allocMemory(frameHost, 0);
     }
     RGY_ERR allocDev() {
         frameDev.mem_type = RGY_MEM_TYPE_GPU;
-        return CUFrameBuf::allocMemory(frameDev);
+        return CUFrameBuf::allocMemory(frameDev, 0);
     }
     RGY_ERR alloc() {
         clearHost();

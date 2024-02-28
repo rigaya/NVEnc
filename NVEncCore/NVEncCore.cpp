@@ -94,6 +94,7 @@
 #include "NVEncFilterSubburn.h"
 #include "NVEncFilterSelectEvery.h"
 #include "NVEncFilterOverlay.h"
+#include "NVEncFilterNVOFFRUC.h"
 #include "helper_cuda.h"
 #include "helper_nvenc.h"
 
@@ -1109,7 +1110,7 @@ RGY_ERR NVEncCore::AllocateBufferInputHost(const VideoInfo *pInputInfo) {
         m_inputHostBuffer[i].heTransferFin = unique_ptr<void, handle_deleter>(CreateEvent(NULL, FALSE, TRUE, NULL), handle_deleter());
 
         CCtxAutoLock ctxLock(m_dev->vidCtxLock());
-        auto err = CUFrameBuf::allocMemory(m_inputHostBuffer[i].frameInfo);
+        auto err = CUFrameBuf::allocMemory(m_inputHostBuffer[i].frameInfo, 0);
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Error CUFrameBuf::allocMemory: %s.\n"), get_err_mes(err));
             return err;
@@ -1316,7 +1317,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.selectevery.enable
             || inputParam->vpp.decimate.enable
             || inputParam->vpp.mpdecimate.enable
-            || inputParam->vpp.overlay.size() > 0);
+            || inputParam->vpp.overlay.size() > 0
+            || inputParam->vpp.fruc.enable);
 }
 
 #pragma warning(push)
@@ -2245,6 +2247,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.mpdecimate.enable
         || inputParam->vpp.selectevery.enable
         || inputParam->vpp.overlay.size() > 0
+        || inputParam->vpp.fruc.enable
         ) {
         //swデコードならGPUに上げる必要がある
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -3025,6 +3028,29 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 inputFrame = param->frameOut;
                 m_encFps = param->baseFps;
             }
+        }
+        // fruc
+        if (inputParam->vpp.fruc.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterNVOFFRUC());
+            shared_ptr<NVEncFilterParamNVOFFRUC> param(new NVEncFilterParamNVOFFRUC());
+            param->fruc = inputParam->vpp.fruc;
+            param->compute_capability = m_dev->cc();
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
     }
     //最後のフィルタ

@@ -1,6 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="DebugNVOFFRUC|Win32">
+      <Configuration>DebugNVOFFRUC</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DebugNVOFFRUC|x64">
+      <Configuration>DebugNVOFFRUC</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="DebugStatic|Win32">
       <Configuration>DebugStatic</Configuration>
       <Platform>Win32</Platform>
@@ -15,6 +23,14 @@
     </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseNVOFFRUC|Win32">
+      <Configuration>ReleaseNVOFFRUC</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseNVOFFRUC|x64">
+      <Configuration>ReleaseNVOFFRUC</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
@@ -55,6 +71,12 @@
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -62,6 +84,12 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
@@ -88,7 +116,21 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
@@ -103,10 +145,16 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -118,7 +166,13 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -130,11 +184,19 @@
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
@@ -150,7 +212,15 @@
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
@@ -161,7 +231,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NVENC_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -212,7 +282,59 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalOptions>/Zc:__cplusplus /execution-charset:shift_jis </AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <CudaCompile />
+    <CudaCompile />
+    <CudaCompile>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
+      <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <UseHostDefines>true</UseHostDefines>
+    </CudaCompile>
+    <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter processid=$pid)){$ppid=$p.parentprocessid;}foreach($p in (get-wmiobject win32_process -filter processid=$ppid)){$p.parentprocessid;}"') do set PID=%%i
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.%PID%.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
+fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
+if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;ENABLE_NVOFFRUC_HEADER=1;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;C:\ProgramAnother\Optical_Flow_SDK_5.0.7\NvOFFRUC\Interface;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -264,7 +386,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NVENC_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -315,7 +437,59 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalOptions>/Zc:__cplusplus /execution-charset:shift_jis </AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
+      <FastMath>true</FastMath>
+      <GenerateLineInfo>false</GenerateLineInfo>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <UseHostDefines>true</UseHostDefines>
+    </CudaCompile>
+    <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter processid=$pid)){$ppid=$p.parentprocessid;}foreach($p in (get-wmiobject win32_process -filter processid=$ppid)){$p.parentprocessid;}"') do set PID=%%i
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.%PID%.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
+fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
+if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;ENABLE_NVOFFRUC_HEADER=1;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;C:\ProgramAnother\Optical_Flow_SDK_5.0.7\NvOFFRUC\Interface;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -369,7 +543,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NVENC_AUO;NVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -421,7 +595,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NVENC_AUO;NVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -473,7 +647,61 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>false</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <StringPooling>true</StringPooling>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
+      <AdditionalOptions>/Zc:__cplusplus /execution-charset:shift_jis </AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <CudaCompile>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
+      <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <UseHostDefines>true</UseHostDefines>
+    </CudaCompile>
+    <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter processid=$pid)){$ppid=$p.parentprocessid;}foreach($p in (get-wmiobject win32_process -filter processid=$ppid)){$p.parentprocessid;}"') do set PID=%%i
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.%PID%.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
+fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
+if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;ENABLE_NVOFFRUC_HEADER=1;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;C:\ProgramAnother\Optical_Flow_SDK_5.0.7\NvOFFRUC\Interface;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -527,7 +755,61 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>false</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <StringPooling>true</StringPooling>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalOptions>/Zc:__cplusplus /execution-charset:shift_jis </AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
+      <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <UseHostDefines>true</UseHostDefines>
+    </CudaCompile>
+    <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter processid=$pid)){$ppid=$p.parentprocessid;}foreach($p in (get-wmiobject win32_process -filter processid=$ppid)){$p.parentprocessid;}"') do set PID=%%i
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.%PID%.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
+fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
+if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;ENABLE_NVOFFRUC_HEADER=1;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;C:\ProgramAnother\Optical_Flow_SDK_5.0.7\NvOFFRUC\Interface;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -578,21 +860,29 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="convert_csp_avx.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="convert_csp_avx2.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="convert_csp_sse2.cpp" />
@@ -624,6 +914,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="NVEncFilterNVOFFRUC.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="NVEncFilterOverlay.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -635,21 +931,29 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="rgy_faw_avx2.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="rgy_faw_avx512bw.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="rgy_filter.cpp" />
@@ -736,11 +1040,15 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="rgy_bitstream_avx2.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -750,11 +1058,15 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="rgy_bitstream_avx512bw.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -819,21 +1131,29 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="rgy_memmem_avx2.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="rgy_memmem_avx512bw.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="rgy_nvrtc.cpp">
@@ -1028,6 +1348,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterCurves.h" />
     <ClInclude Include="NVEncFilterDenoiseDct.h" />
     <ClInclude Include="NVEncFilterNvvfx.h" />
+    <ClInclude Include="NVEncFilterNVOFFRUC.h" />
     <ClInclude Include="NVEncFilterOverlay.h" />
     <ClInclude Include="NVEncFilterParam.h" />
     <ClInclude Include="rgy_faw.h" />

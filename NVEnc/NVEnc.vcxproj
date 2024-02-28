@@ -1,6 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="DebugNVOFFRUC|Win32">
+      <Configuration>DebugNVOFFRUC</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DebugNVOFFRUC|x64">
+      <Configuration>DebugNVOFFRUC</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="DebugStatic|Win32">
       <Configuration>DebugStatic</Configuration>
       <Platform>Win32</Platform>
@@ -15,6 +23,14 @@
     </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseNVOFFRUC|Win32">
+      <Configuration>ReleaseNVOFFRUC</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseNVOFFRUC|x64">
+      <Configuration>ReleaseNVOFFRUC</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
@@ -58,6 +74,13 @@
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>true</CLRSupport>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>true</CLRSupport>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -66,6 +89,13 @@
     <CLRSupport>true</CLRSupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>true</CLRSupport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
@@ -96,7 +126,23 @@
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>true</CLRSupport>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>true</CLRSupport>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>true</CLRSupport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
@@ -112,10 +158,16 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -127,7 +179,13 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -143,6 +201,12 @@
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <TargetExt>.auo</TargetExt>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <TargetExt>.auo</TargetExt>
@@ -150,6 +214,12 @@
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <TargetExt>.auo</TargetExt>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">
     <LinkIncremental>true</LinkIncremental>
     <TargetExt>.auo</TargetExt>
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
@@ -173,7 +243,19 @@
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <TargetExt>.auo</TargetExt>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <TargetExt>.auo</TargetExt>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">
     <LinkIncremental>false</LinkIncremental>
     <TargetExt>.auo</TargetExt>
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
@@ -253,6 +335,43 @@ if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>NVEnc.def</ModuleDefinitionFile>
+      <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
+      <OptimizeReferences>false</OptimizeReferences>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
+    </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
+    </ResourceCompile>
+    <PostBuildEvent>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <PrecompiledHeader>
@@ -292,6 +411,43 @@ exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>NVEnc.def</ModuleDefinitionFile>
+      <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
+      <OptimizeReferences>false</OptimizeReferences>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
+    </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
+    </ResourceCompile>
+    <PostBuildEvent>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">
     <ClCompile>
       <PrecompiledHeader>
       </PrecompiledHeader>
@@ -473,7 +629,101 @@ if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <StringPooling>true</StringPooling>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>NVEnc.def</ModuleDefinitionFile>
+      <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
+    </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
+    </ResourceCompile>
+    <PostBuildEvent>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <StringPooling>true</StringPooling>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>NVEnc.def</ModuleDefinitionFile>
+      <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
+    </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
+    </ResourceCompile>
+    <PostBuildEvent>
+      <Command>echo "依存関係を確認..."
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
+if %ERRORLEVEL% == 0 exit /B 1
+exit /B 0</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <PrecompiledHeader>
@@ -524,179 +774,251 @@ exit /B 0</Command>
     <ClCompile Include="encode\auo_audio.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_audio_parallel.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_chapter.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_convert.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_encode.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_faw2aac.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_mux.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_pipe.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_runbat.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\auo_video.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\convert.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\convert_avx2.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="encode\exe_version.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\fawcheck.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="frm\auo_error.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="frm\auo_frm.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="frm\auo_mes.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="frm\frmConfig.cpp" />
@@ -704,43 +1026,59 @@ exit /B 0</Command>
     <ClCompile Include="NVEnc.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="prm\auo_conf.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="prm\auo_conf_convert.cpp" />
     <ClCompile Include="prm\auo_settings.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="prm\auo_util.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">false</CompileAsManaged>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -819,89 +1157,121 @@ exit /B 0</Command>
       <DependentUpon>frm\frmAutoSaveLogSettings.h</DependentUpon>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="frm\frmBitrateCalculator.resx">
       <DependentUpon>frm\frmBitrateCalculator.h</DependentUpon>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmBitrateCalculator.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">NVEnc.frmBitrateCalculator.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">NVEnc.frmBitrateCalculator.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NVEnc.frmBitrateCalculator.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">NVEnc.frmBitrateCalculator.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">NVEnc.frmBitrateCalculator.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmBitrateCalculator.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NVEnc.frmBitrateCalculator.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">NVEnc.frmBitrateCalculator.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">NVEnc.frmBitrateCalculator.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">NVEnc.frmBitrateCalculator.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">NVEnc.frmBitrateCalculator.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="frm\frmConfig.resx">
       <DependentUpon>frm\frmConfig.h</DependentUpon>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmConfig.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">NVEnc.frmConfig.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">NVEnc.frmConfig.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NVEnc.frmConfig.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">NVEnc.frmConfig.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">NVEnc.frmConfig.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmConfig.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NVEnc.frmConfig.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">NVEnc.frmConfig.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">NVEnc.frmConfig.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">NVEnc.frmConfig.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">NVEnc.frmConfig.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="frm\frmLog.resx">
       <DependentUpon>frm\frmLog.h</DependentUpon>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmLog.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">NVEnc.frmLog.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">NVEnc.frmLog.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NVEnc.frmLog.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">NVEnc.frmLog.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">NVEnc.frmLog.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmLog.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NVEnc.frmLog.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">NVEnc.frmLog.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">NVEnc.frmLog.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">NVEnc.frmLog.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">NVEnc.frmLog.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="frm\frmOtherSettings.resx">
       <DependentUpon>frm\frmOtherSettings.h</DependentUpon>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmOtherSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">NVEnc.frmOtherSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">NVEnc.frmOtherSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NVEnc.frmOtherSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">NVEnc.frmOtherSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">NVEnc.frmOtherSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmOtherSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NVEnc.frmOtherSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">NVEnc.frmOtherSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">NVEnc.frmOtherSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">NVEnc.frmOtherSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">NVEnc.frmOtherSettings.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="frm\frmSaveNewStg.resx">
       <DependentUpon>frm\frmSaveNewStg.h</DependentUpon>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmSaveNewSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">NVEnc.frmSaveNewSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">NVEnc.frmSaveNewSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NVEnc.frmSaveNewSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">NVEnc.frmSaveNewSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">NVEnc.frmSaveNewSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmSaveNewSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NVEnc.frmSaveNewSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">NVEnc.frmSaveNewSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">NVEnc.frmSaveNewSettings.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">NVEnc.frmSaveNewSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">NVEnc.frmSaveNewSettings.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="frm\frmSetLogColor.resx">
       <DependentUpon>frm\frmSetLogColor.h</DependentUpon>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmSetLogColor.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">NVEnc.frmSetLogColor.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">NVEnc.frmSetLogColor.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NVEnc.frmSetLogColor.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">NVEnc.frmSetLogColor.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">NVEnc.frmSetLogColor.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmSetLogColor.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NVEnc.frmSetLogColor.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">NVEnc.frmSetLogColor.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">NVEnc.frmSetLogColor.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">NVEnc.frmSetLogColor.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">NVEnc.frmSetLogColor.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="frm\frmSetTransparency.resx">
       <DependentUpon>frm\frmSetTransparency.h</DependentUpon>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmSetTransparentKey.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">NVEnc.frmSetTransparentKey.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|Win32'">NVEnc.frmSetTransparentKey.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NVEnc.frmSetTransparentKey.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">NVEnc.frmSetTransparentKey.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='DebugNVOFFRUC|x64'">NVEnc.frmSetTransparentKey.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmSetTransparentKey.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NVEnc.frmSetTransparentKey.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">NVEnc.frmSetTransparentKey.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|Win32'">NVEnc.frmSetTransparentKey.resources</LogicalName>
       <LogicalName Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">NVEnc.frmSetTransparentKey.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='ReleaseNVOFFRUC|x64'">NVEnc.frmSetTransparentKey.resources</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

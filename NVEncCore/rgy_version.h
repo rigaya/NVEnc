@@ -77,18 +77,22 @@ const char *get_encoder_version();
 #define ENABLE_PERF_COUNTER 1
 #define AV_CHANNEL_LAYOUT_STRUCT_AVAIL 1
 
+#ifndef ENABLE_NVOFFRUC_HEADER
+#define ENABLE_NVOFFRUC_HEADER 0
+#endif
+
 #ifdef _M_IX86
 #define ENABLE_NVML 0
 #define ENABLE_NVRTC 0
 #define ENABLE_VMAF 0
 #define ENABLE_NVVFX 0
-#define ENABLE_NVOPTFLOW 0
+#define ENABLE_NVOFFRUC 0
 #else
 #define ENABLE_NVML 1
 #define ENABLE_NVRTC 1
 #define ENABLE_VMAF 1
 #define ENABLE_NVVFX 1
-#define ENABLE_NVOPTFLOW 1
+#define ENABLE_NVOFFRUC 1
 #endif
 
 #define ENABLE_VPP_SMOOTH_QP_FRAME 0
