@@ -262,7 +262,7 @@ RGY_ERR RGYInputSM::LoadNextFrameInternal(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array);
 
     const void *src_array[3];
     src_array[0] = m_sm[m_encSatusInfo->m_sData.frameIn & 1]->ptr();

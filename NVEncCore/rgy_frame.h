@@ -130,7 +130,7 @@ public:
         }
         return ptrarray;
     }
-    void ptrArray(void *array[3], bool bRGB) {
+    void ptrArray(void *array[3]) {
         auto frame = getInfo();
         for (size_t i = 0; i < 3; i++) {
             array[i] = (void *)getPlane(&frame, (RGY_PLANE)i).ptr[0];

@@ -232,7 +232,7 @@ RGY_ERR RGYInputAvi::LoadNextFrameInternal(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array);
     const void *src_array[3] = { ptr_src, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 5 / 4, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight };
 
     m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,

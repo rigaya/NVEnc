@@ -582,7 +582,7 @@ RGY_ERR RGYInputAvs::LoadNextFrameInternal(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array);
     const void *src_array[3] = { m_sAvisynth->f_get_read_ptr_p(frame, AVS_PLANAR_Y), m_sAvisynth->f_get_read_ptr_p(frame, AVS_PLANAR_U), m_sAvisynth->f_get_read_ptr_p(frame, AVS_PLANAR_V) };
 
     m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,

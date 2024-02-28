@@ -2982,7 +2982,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         }
         //フレームデータをコピー
         void *dst_array[3];
-        pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
+        pSurface->ptrArray(dst_array);
         m_convert->run(m_Demux.video.frame->interlaced_frame != 0,
             dst_array, (const void **)m_Demux.video.frame->data,
             m_inputVideoInfo.srcWidth, m_Demux.video.frame->linesize[0], m_Demux.video.frame->linesize[1], pSurface->pitch(),
