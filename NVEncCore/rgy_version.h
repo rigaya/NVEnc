@@ -29,9 +29,9 @@
 #ifndef __RGY_CONFIG_H__
 #define __RGY_CONFIG_H__
 
-#define VER_FILEVERSION              0,7,42,3
-#define VER_STR_FILEVERSION          "7.42"
-#define VER_STR_FILEVERSION_TCHAR _T("7.42")
+#define VER_FILEVERSION              0,7,43,0
+#define VER_STR_FILEVERSION          "7.43"
+#define VER_STR_FILEVERSION_TCHAR _T("7.43")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -82,11 +82,13 @@ const char *get_encoder_version();
 #define ENABLE_NVRTC 0
 #define ENABLE_VMAF 0
 #define ENABLE_NVVFX 0
+#define ENABLE_NVOPTFLOW 0
 #else
 #define ENABLE_NVML 1
 #define ENABLE_NVRTC 1
 #define ENABLE_VMAF 1
 #define ENABLE_NVVFX 1
+#define ENABLE_NVOPTFLOW 1
 #endif
 
 #define ENABLE_VPP_SMOOTH_QP_FRAME 0
