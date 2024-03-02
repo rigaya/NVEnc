@@ -37,11 +37,13 @@
 
 struct NVEncNVOFFRUCFuncs {
     HMODULE hModule;
-    decltype(NVEncNVOptFlowCreate) *fcreate;
-    decltype(NVEncNVOptFlowDelete) *fdelete;
-    decltype(NVEncNVOptFlowCreateFURCHandle) *fcreateHandle;
-    decltype(NVEncNVOptFlowCloseFURCHandle) *fcloseHandle;
-    decltype(NVEncNVOptFlowProc) *fproc;
+    decltype(NVEncNVOFFRUCCreate) *fcreate;
+    decltype(NVEncNVOFFRUCLoad)   *fload;
+    decltype(NVEncNVOFFRUCDelete) *fdelete;
+    decltype(NVEncNVOFFRUCCreateFURCHandle) *fcreateHandle;
+    decltype(NVEncNVOFFRUCRegisterResource) *fregisterResource;
+    decltype(NVEncNVOFFRUCCloseFURCHandle) *fcloseHandle;
+    decltype(NVEncNVOFFRUCProc) *fproc;
     NVEncNVOFFRUCFuncs();
     ~NVEncNVOFFRUCFuncs();
     RGY_ERR load();
@@ -71,11 +73,13 @@ protected:
     virtual void close() override;
     std::pair<RGY_ERR, unique_fruc_handle> createFRUCHandle();
     RGYFrameInfo *getNextOutFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
-    RGY_ERR genFrame(RGYFrameInfo *outFrame, const CUFrameBuf *prev, const CUFrameBuf *curr, const int64_t genPts, cudaStream_t stream);
+    RGY_ERR setFirstFrame(const CUFrameDevPtr *prev);
+    RGY_ERR genFrame(RGYFrameInfo *outFrame, const CUFrameDevPtr *prev, const CUFrameDevPtr *curr, const int64_t genPts, cudaStream_t stream);
 
     std::unique_ptr<NVEncNVOFFRUCFuncs> m_func;
-    std::array<std::unique_ptr<CUFrameBuf>, 3> m_frucBuf;
+    std::array<std::unique_ptr<CUFrameDevPtr>, 3> m_frucBuf;
     unique_fruc_handle m_frucHandle;
+    RGY_CSP m_frucCsp;
 
     int64_t m_prevTimestamp;
     rgy_rational<int> m_targetFps;

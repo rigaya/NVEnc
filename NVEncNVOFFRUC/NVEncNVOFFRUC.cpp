@@ -37,12 +37,6 @@
 #if ENABLE_NVOFFRUC_HEADER
 #include "NvOFFRUC.h"
 
-#if defined(_WIN32) || defined(_WIN64)
-static const TCHAR * NVOFFRUC_MODULENAME = _T("NvOFFRUC.dll");
-#else
-static const TCHAR * NVOFFRUC_MODULENAME = _T("libNvOFFRUC.so");
-#endif
-
 
 struct RGYErrMapNVOFFRUC {
     RGY_ERR rgy;
@@ -107,7 +101,8 @@ class NVEncNVOFFRUC {
 public:
     NVEncNVOFFRUC();
     virtual ~NVEncNVOFFRUC();
-    RGY_ERR createFRUCHandle(int width, int height);
+    RGY_ERR load();
+    RGY_ERR createFRUCHandle(int width, int height, bool nv12);
     RGY_ERR registerResource(void *ptr0, void *ptr1, void *ptr2);
     RGY_ERR process(NVEncNVOFFRUCParams *prm);
     RGY_ERR closeFRUCHandle();
@@ -117,6 +112,7 @@ protected:
     unique_fruc_handle m_frucHandle;
     std::array<void*, 3> m_resource;
     int64_t m_firstTimestamp;
+    bool m_nv12;
 };
 
 NVOFFRUCFunc::NVOFFRUCFunc() :
@@ -166,7 +162,8 @@ NVEncNVOFFRUC::NVEncNVOFFRUC() :
     m_func(),
     m_frucHandle(unique_fruc_handle(nullptr, nullptr)),
     m_resource(),
-    m_firstTimestamp(-1) {
+    m_firstTimestamp(-1),
+    m_nv12(false) {
 }
 
 NVEncNVOFFRUC::~NVEncNVOFFRUC() {
@@ -178,7 +175,12 @@ void NVEncNVOFFRUC::close() {
     m_func.reset();
 }
 
-RGY_ERR NVEncNVOFFRUC::createFRUCHandle(int width, int height) {
+RGY_ERR NVEncNVOFFRUC::load() {
+    m_func = std::make_unique<NVOFFRUCFunc>();
+    return m_func->load();
+}
+
+RGY_ERR NVEncNVOFFRUC::createFRUCHandle(int width, int height, bool nv12) {
     closeFRUCHandle();
 
     NvOFFRUC_CREATE_PARAM create_param = { 0 };
@@ -186,7 +188,7 @@ RGY_ERR NVEncNVOFFRUC::createFRUCHandle(int width, int height) {
     create_param.uiHeight = height;
     create_param.pDevice = nullptr;
     create_param.eResourceType = CudaResource;
-    create_param.eSurfaceFormat = ARGBSurface;
+    create_param.eSurfaceFormat = (nv12) ? NV12Surface : ARGBSurface;
     create_param.eCUDAResourceType = CudaResourceCuDevicePtr;
     NvOFFRUCHandle handle = nullptr;
     auto sts = err_to_rgy(m_func->create(&create_param, &handle));
@@ -195,14 +197,15 @@ RGY_ERR NVEncNVOFFRUC::createFRUCHandle(int width, int height) {
     }
     m_frucHandle = unique_fruc_handle(handle, m_func->destroy);
     handle = nullptr;
+    m_nv12 = nv12;
     return sts;
 }
 
 RGY_ERR NVEncNVOFFRUC::registerResource(void *ptr0, void *ptr1, void *ptr2) {
     NvOFFRUC_REGISTER_RESOURCE_PARAM registerParam = { 0 };
-    registerParam.pArrResource[0] = m_resource[0];
-    registerParam.pArrResource[1] = m_resource[1];
-    registerParam.pArrResource[2] = m_resource[2];
+    registerParam.pArrResource[0] = ptr0;
+    registerParam.pArrResource[1] = ptr1;
+    registerParam.pArrResource[2] = ptr2;
     registerParam.uiCount = 3;
     auto sts = err_to_rgy(m_func->registerResource(m_frucHandle.get(), &registerParam));
     if (sts != RGY_ERR_NONE) {
@@ -266,7 +269,7 @@ BOOL APIENTRY DllMain([[maybe_unused]] HMODULE hModule, DWORD  ul_reason_for_cal
 extern "C" {
 #endif /* __cplusplus */
 
-NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowCreate(NVEncNVOFFRUCHandle *ppNVOptFlow) {
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCCreate(NVEncNVOFFRUCHandle *ppNVOptFlow) {
     if (ppNVOptFlow == nullptr) {
         return RGY_ERR_NULL_PTR;
     }
@@ -274,22 +277,30 @@ NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowCreate(NVEncNVOFFRUCHandle *p
     return RGY_ERR_NONE;
 }
 
-NVENC_NVOFFRUC_API void __stdcall NVEncNVOptFlowDelete(NVEncNVOFFRUCHandle pNVOptFlow) {
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCLoad(NVEncNVOFFRUCHandle pNVOptFlow) {
+    return ((NVEncNVOFFRUC *)pNVOptFlow)->load();
+}
+
+NVENC_NVOFFRUC_API void __stdcall NVEncNVOFFRUCDelete(NVEncNVOFFRUCHandle pNVOptFlow) {
     auto ptr = (NVEncNVOFFRUC *)pNVOptFlow;
     if (ptr) {
         delete ptr;
     }
 }
 
-NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowCreateFURCHandle(NVEncNVOFFRUCHandle pNVOptFlow, int width, int height) {
-    return ((NVEncNVOFFRUC *)pNVOptFlow)->createFRUCHandle(width, height);
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCCreateFURCHandle(NVEncNVOFFRUCHandle pNVOptFlow, int width, int height, bool nv12) {
+    return ((NVEncNVOFFRUC *)pNVOptFlow)->createFRUCHandle(width, height, nv12);
 }
 
-NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowCloseFURCHandle(NVEncNVOFFRUCHandle pNVOptFlow) {
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCRegisterResource(NVEncNVOFFRUCHandle pNVOptFlow, void *ptr0, void *ptr1, void *ptr2) {
+    return ((NVEncNVOFFRUC *)pNVOptFlow)->registerResource(ptr0, ptr1, ptr2);
+}
+
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCCloseFURCHandle(NVEncNVOFFRUCHandle pNVOptFlow) {
     return ((NVEncNVOFFRUC *)pNVOptFlow)->closeFRUCHandle();
 }
 
-NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowProc(NVEncNVOFFRUCHandle pNVOptFlow, NVEncNVOFFRUCParams *params) {
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCProc(NVEncNVOFFRUCHandle pNVOptFlow, NVEncNVOFFRUCParams *params) {
     return ((NVEncNVOFFRUC *)pNVOptFlow)->process(params);
 }
 

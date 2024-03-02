@@ -38,6 +38,14 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#if defined(_WIN32) || defined(_WIN64)
+    static const TCHAR * NVOFFRUC_MODULENAME = _T("NvOFFRUC.dll");
+    static const TCHAR * NVENC_NVOFFRUC_MODULENAME = _T("NVEncNVOFFRUC.dll");
+#else
+    static const TCHAR * NVOFFRUC_MODULENAME = _T("libNvOFFRUC.so");
+    static const TCHAR * NVENC_NVOFFRUC_MODULENAME = _T("libNVEncNVOFFRUC.so");
+#endif
+
 typedef void * NVEncNVOFFRUCHandle;
 
 typedef struct NVEncNVOFFRUCParams_ {
@@ -47,11 +55,13 @@ typedef struct NVEncNVOFFRUCParams_ {
     int64_t timestampOut;
 } NVEncNVOFFRUCParams;
 
-NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowCreate(NVEncNVOFFRUCHandle *ppNVOptFlow);
-NVENC_NVOFFRUC_API void    __stdcall NVEncNVOptFlowDelete(NVEncNVOFFRUCHandle pNVOptFlow);
-NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowCreateFURCHandle(NVEncNVOFFRUCHandle pNVOptFlow, int width, int height);
-NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowCloseFURCHandle(NVEncNVOFFRUCHandle pNVOptFlow);
-NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOptFlowProc(NVEncNVOFFRUCHandle pNVOptFlow, NVEncNVOFFRUCParams *params);
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCCreate(NVEncNVOFFRUCHandle *ppNVOptFlow);
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCLoad(NVEncNVOFFRUCHandle pNVOptFlow);
+NVENC_NVOFFRUC_API void    __stdcall NVEncNVOFFRUCDelete(NVEncNVOFFRUCHandle pNVOptFlow);
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCCreateFURCHandle(NVEncNVOFFRUCHandle pNVOptFlow, int width, int height, bool nv12);
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCRegisterResource(NVEncNVOFFRUCHandle pNVOptFlow, void *ptr0, void *ptr1, void *ptr2);
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCCloseFURCHandle(NVEncNVOFFRUCHandle pNVOptFlow);
+NVENC_NVOFFRUC_API RGY_ERR __stdcall NVEncNVOFFRUCProc(NVEncNVOFFRUCHandle pNVOptFlow, NVEncNVOFFRUCParams *params);
 
 #if defined(__cplusplus)
 }

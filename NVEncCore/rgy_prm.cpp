@@ -1422,7 +1422,7 @@ bool VppFruc::operator!=(const VppFruc &x) const {
 }
 
 tstring VppFruc::print() const {
-    return strsprintf(_T("%.3f(%d/%d) fps"), targetFps.qdouble(), targetFps.n(), targetFps.d());
+    return strsprintf(_T("fruc: %.3f(%d/%d) fps"), targetFps.qdouble(), targetFps.n(), targetFps.d());
 }
 
 RGYParamVpp::RGYParamVpp() :

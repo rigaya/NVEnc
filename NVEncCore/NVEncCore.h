@@ -59,7 +59,7 @@ class RGYTimecode;
 using std::vector;
 
 struct InputFrameBufInfo {
-    RGYFrameInfo frameInfo; //入力フレームへのポインタと情報
+    std::unique_ptr<CUFrameBuf> cubuf; //入力フレームへのポインタと情報
     std::unique_ptr<void, handle_deleter> heTransferFin; //入力フレームに関連付けられたイベント、このフレームが不要になったらSetする
 };
 

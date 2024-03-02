@@ -258,26 +258,152 @@ static RGY_ERR copyFrameFieldAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, c
     return RGY_ERR_NONE;
 }
 
-struct CUFrameBuf : public RGYFrame {
+enum class CUFrameBufType {
+    Unknown,
+    devPtr,      // cudaMalloc, cudaMallocPitch, cudaAllocHost, cudaFree, cudaFreeHost
+    CUdevivePtr, // cuMemAlloc, cuMemAllocPitch, cuMemAllocHost, cuMemFree, cuMemFreeHost
+};
+
+struct CUFrameBufBase : public RGYFrame {
 public:
     RGYFrameInfo frame;
     cudaEvent_t event;
-    CUFrameBuf()
-        : frame(), event() {
+    CUFrameBufType framebuftype;
+    CUFrameBufBase()
+        : frame(), event(), framebuftype(CUFrameBufType::Unknown) {
         cudaEventCreate(&event);
     };
-    CUFrameBuf(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
-        : frame(), event() {
+    CUFrameBufBase(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
+        : frame(), event(), framebuftype(CUFrameBufType::Unknown) {
         frame.width = width;
         frame.height = height;
         frame.csp = csp;
         frame.mem_type = RGY_MEM_TYPE_GPU;
         cudaEventCreate(&event);
     };
-    CUFrameBuf(const RGYFrameInfo& _info)
-        : frame(_info), event() {
+    CUFrameBufBase(const RGYFrameInfo& _info)
+        : frame(_info), event(), framebuftype(CUFrameBufType::Unknown) {
         cudaEventCreate(&event);
     };
+    virtual ~CUFrameBufBase() {
+        if (event) {
+            cudaEventDestroy(event);
+            event = nullptr;
+        }
+    }
+    void releasePtr() {
+        memset(frame.ptr, 0, sizeof(frame.ptr));
+        memset(frame.pitch, 0, sizeof(frame.pitch));
+    }
+    RGY_ERR alloc(bool singleAlloc = false, int align = 0) {
+        frame.mem_type = RGY_MEM_TYPE_GPU;
+        frame.singleAlloc = singleAlloc;
+        return allocMemory(align);
+    }
+    RGY_ERR alloc(int width, int height, RGY_CSP csp = RGY_CSP_NV12, bool singleAlloc = false, int align = 0) {
+        frame.width = width;
+        frame.height = height;
+        frame.csp = csp;
+        frame.mem_type = RGY_MEM_TYPE_GPU;
+        return alloc(singleAlloc, align);
+    }
+    RGY_ERR allocHost(bool singleAlloc = false, int align = 0) {
+        frame.mem_type = RGY_MEM_TYPE_CPU;
+        frame.singleAlloc = singleAlloc;
+        return allocMemory(align);
+    }
+    RGY_ERR allocHost(int width, int height, RGY_CSP csp = RGY_CSP_NV12, bool singleAlloc = false, int align = 0) {
+        frame.width = width;
+        frame.height = height;
+        frame.csp = csp;
+        frame.mem_type = RGY_MEM_TYPE_CPU;
+        return allocHost(singleAlloc, align);
+    }
+    void clear() {
+        clearMemory();
+    }
+    CUFrameBufType bufType() const { return framebuftype; };
+    virtual bool isempty() const { return !frame.ptr[0]; }
+    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
+    virtual void setDuration(uint64_t frame_duration) override { frame.duration = frame_duration; }
+    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
+    virtual void setInputFrameId(int inputFrameId) override { frame.inputFrameId = inputFrameId; }
+    virtual void setFlags(RGY_FRAME_FLAGS flag) override { frame.flags = flag; };
+    virtual void clearDataList() override { frame.dataList.clear(); };
+    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return frame.dataList; };
+    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; };
+    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; };
+    virtual RGYFrameInfo getInfo() const { return frame; }
+    void setSingleAlloc(bool singleAlloc) { frame.singleAlloc = singleAlloc; }
+protected:
+    CUFrameBufBase(const CUFrameBufBase &) = delete;
+    void operator =(const CUFrameBufBase &) = delete;
+
+    virtual RGY_ERR memmalloc(void **mem, size_t& memPitch, const int align, const int widthByte, const int totalHeight) = 0;
+    virtual RGY_ERR memfree(uint8_t **mem) = 0;
+    RGY_ERR allocMemory(const int align) {
+        const int pixsize = bytesPerPix(frame.csp);
+        clearMemory();
+        if (frame.singleAlloc) {
+            int totalHeight = 0;
+            for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+                totalHeight += getPlane(&frame, (RGY_PLANE)i).height;
+            }
+            const int widthByte = frame.width * pixsize;
+            size_t memPitch = ALIGN(widthByte, (align) ? align : 128); //このアライメントはRGY_MEM_TYPE_CPUのとき、読み込み時の色変換の並列化のために必要
+            void *mem = nullptr;
+            auto sts = memmalloc(&mem, memPitch, align, widthByte, totalHeight);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            frame.pitch[0] = (int)memPitch;
+            frame.ptr[0] = (uint8_t *)mem;
+            return RGY_ERR_NONE;
+        }
+
+        for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+            const auto plane = getPlane(&frame, (RGY_PLANE)i);
+            const int widthByte = plane.width * pixsize;
+            size_t memPitch = ALIGN(widthByte, (align) ? align : 128); //このアライメントはRGY_MEM_TYPE_CPUのとき、読み込み時の色変換の並列化のために必要
+            void *mem = nullptr;
+            auto sts = memmalloc(&mem, memPitch, align, widthByte, plane.height);
+            if (sts != RGY_ERR_NONE) {
+                for (int j = i - 1; j >= 0; j--) {
+                    memfree(&frame.ptr[i]);
+                }
+                return sts;
+            }
+            frame.pitch[i] = (int)memPitch;
+            frame.ptr[i] = (uint8_t *)mem;
+        }
+        return RGY_ERR_NONE;
+    }
+    void clearMemory() {
+        for (int i = 0; i < ((frame.singleAlloc) ? 1 : RGY_CSP_PLANES[frame.csp]); i++) {
+            memfree(&frame.ptr[i]);
+        }
+        memset(frame.ptr, 0, sizeof(frame.ptr));
+        memset(frame.pitch, 0, sizeof(frame.pitch));
+    }
+};
+
+struct CUFrameBuf : public CUFrameBufBase {
+public:
+    CUFrameBuf()
+        : CUFrameBufBase() {
+        framebuftype = CUFrameBufType::devPtr;
+    };
+    CUFrameBuf(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
+        : CUFrameBufBase(width, height, csp) {
+        framebuftype = CUFrameBufType::devPtr;
+    };
+    CUFrameBuf(const RGYFrameInfo& _info)
+        : CUFrameBufBase(_info) {
+        framebuftype = CUFrameBufType::devPtr;
+    };
+    virtual ~CUFrameBuf() {
+        clear();
+    }
     RGY_ERR copyFrame(const RGYFrameInfo *src) {
         if (frame.ptr[0] == nullptr || !cmpFrameInfoCspResolution(&frame, src)) {
 
@@ -298,139 +424,183 @@ public:
         }
         return RGY_ERR_NONE;
     }
-    void releasePtr() {
-        memset(frame.ptr, 0, sizeof(frame.ptr));
-        memset(frame.pitch, 0, sizeof(frame.pitch));
-    }
-    virtual bool isempty() const { return !frame.ptr[0]; }
-    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
-    virtual void setDuration(uint64_t frame_duration) override { frame.duration = frame_duration; }
-    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
-    virtual void setInputFrameId(int inputFrameId) override { frame.inputFrameId = inputFrameId; }
-    virtual void setFlags(RGY_FRAME_FLAGS flag) override { frame.flags = flag; };
-    virtual void clearDataList() override { frame.dataList.clear(); };
-    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return frame.dataList; };
-    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; };
-    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; };
-    virtual RGYFrameInfo getInfo() const { return frame; }
-    void setSingleAlloc(bool singleAlloc) { frame.singleAlloc = singleAlloc; }
 protected:
     CUFrameBuf(const CUFrameBuf &) = delete;
     void operator =(const CUFrameBuf &) = delete;
-public:
-    static RGY_ERR allocMemory(RGYFrameInfo& fi, const int align) {
-        const int pixsize = bytesPerPix(fi.csp);
-        clearMemory(fi);
-        if (fi.singleAlloc) {
-            int totalHeight = 0;
-            for (int i = 0; i < RGY_CSP_PLANES[fi.csp]; i++) {
-                totalHeight += getPlane(&fi, (RGY_PLANE)i).height;
-            }
-            const int widthByte = fi.width * pixsize;
-            size_t memPitch = ALIGN(widthByte, (align) ? align : 128); //このアライメントはRGY_MEM_TYPE_CPUのとき、読み込み時の色変換の並列化のために必要
-            void *mem = nullptr;
-            auto sts = RGY_ERR_NONE;
-            if (fi.mem_type == RGY_MEM_TYPE_CPU) {
-                sts = err_to_rgy(cudaMallocHost(&mem, totalHeight * memPitch));
-            } else if (align) {
-                sts = err_to_rgy(cudaMalloc((void **)&mem, totalHeight * memPitch));
-            } else {
-                memPitch = 0;
-                sts = err_to_rgy(cudaMallocPitch((void **)&mem, &memPitch, widthByte, totalHeight));
-            }
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
-            fi.pitch[0] = (int)memPitch;
-            fi.ptr[0] = (uint8_t *)mem;
-            return RGY_ERR_NONE;
+    virtual RGY_ERR memmalloc(void **mem, size_t& memPitch, const int align, const int widthByte, const int totalHeight) override {
+        auto sts = RGY_ERR_NONE;
+        if (frame.mem_type == RGY_MEM_TYPE_CPU) {
+            sts = err_to_rgy(cudaMallocHost(mem, totalHeight * memPitch));
+        } else if (align) {
+            sts = err_to_rgy(cudaMalloc(mem, totalHeight * memPitch));
+        } else {
+            memPitch = 0;
+            sts = err_to_rgy(cudaMallocPitch(mem, &memPitch, widthByte, totalHeight));
         }
-
-        for (int i = 0; i < RGY_CSP_PLANES[fi.csp]; i++) {
-            const auto plane = getPlane(&fi, (RGY_PLANE)i);
-            const int widthByte = plane.width * pixsize;
-            size_t memPitch = ALIGN(widthByte, (align) ? align : 128); //このアライメントはRGY_MEM_TYPE_CPUのとき、読み込み時の色変換の並列化のために必要
-            void *mem = nullptr;
-            auto sts = RGY_ERR_NONE;
-            if (fi.mem_type == RGY_MEM_TYPE_CPU) {
-                sts = err_to_rgy(cudaMallocHost(&mem, plane.height * memPitch));
-            } else if (align) {
-                sts = err_to_rgy(cudaMalloc((void **)&mem, plane.height * memPitch));
+        return sts;
+    }
+    virtual RGY_ERR memfree(uint8_t **mem) override {
+        auto sts = RGY_ERR_NONE;
+        if (mem && *mem) {
+            if (frame.mem_type == RGY_MEM_TYPE_CPU) {
+                cudaFreeHost(*mem);
             } else {
-                memPitch = 0;
-                sts = err_to_rgy(cudaMallocPitch((void **)&mem, &memPitch, widthByte, plane.height));
+                cudaFree(*mem);
             }
-            if (sts != RGY_ERR_NONE) {
-                for (int j = i - 1; j >= 0; j--) {
-                    if (fi.ptr[j] != nullptr) {
-                        if (fi.mem_type == RGY_MEM_TYPE_CPU) {
-                            cudaFreeHost(fi.ptr[i]);
-                        } else {
-                            cudaFree(fi.ptr[i]);
-                        }
-                        fi.ptr[j] = nullptr;
-                    }
-                }
-                return sts;
-            }
-            fi.pitch[i] = (int)memPitch;
-            fi.ptr[i] = (uint8_t *)mem;
+            *mem = nullptr;
+        }
+        return sts;
+    }
+public:
+};
+
+struct CUFrameDevPtr : public CUFrameBufBase {
+public:
+    CUFrameDevPtr()
+        : CUFrameBufBase() {
+        framebuftype = CUFrameBufType::CUdevivePtr;
+    };
+    CUFrameDevPtr(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
+        : CUFrameBufBase(width, height, csp) {
+        framebuftype = CUFrameBufType::CUdevivePtr;
+    };
+    CUFrameDevPtr(const RGYFrameInfo& _info)
+        : CUFrameBufBase(_info) {
+        framebuftype = CUFrameBufType::CUdevivePtr;
+    };
+    virtual ~CUFrameDevPtr() {
+        clear();
+    }
+    RGY_ERR copyFrame(const RGYFrameInfo *src) {
+        if (frame.ptr[0] == nullptr || !cmpFrameInfoCspResolution(&frame, src)) {
+
+        }
+        auto ret = ::copyFrame(&frame, src);
+        if (ret == RGY_ERR_NONE) {
+            copyFrameProp(&frame, src);
         }
         return RGY_ERR_NONE;
     }
-    RGY_ERR alloc(bool singleAlloc = false, int align = 0) {
-        frame.mem_type = RGY_MEM_TYPE_GPU;
-        frame.singleAlloc = singleAlloc;
-        return allocMemory(frame, align);
+    RGY_ERR copyFrameAsync(const RGYFrameInfo *src, cudaStream_t stream) {
+        if (frame.ptr[0] == nullptr || !cmpFrameInfoCspResolution(&frame, src)) {
+
+        }
+        auto ret = ::copyFrameAsync(&frame, src, stream);
+        if (ret == RGY_ERR_NONE) {
+            copyFrameProp(&frame, src);
+        }
+        return RGY_ERR_NONE;
     }
-    RGY_ERR alloc(int width, int height, RGY_CSP csp = RGY_CSP_NV12, bool singleAlloc = false, int align = 0) {
-        frame.width = width;
-        frame.height = height;
-        frame.csp = csp;
-        frame.mem_type = RGY_MEM_TYPE_GPU;
-        return alloc(singleAlloc, align);
+protected:
+    CUFrameDevPtr(const CUFrameDevPtr &) = delete;
+    void operator =(const CUFrameDevPtr &) = delete;
+    virtual RGY_ERR memmalloc(void **mem, size_t& memPitch, const int align, const int widthByte, const int totalHeight) override {
+        auto sts = RGY_ERR_NONE;
+        if (frame.mem_type == RGY_MEM_TYPE_CPU) {
+            sts = err_to_rgy(cuMemAllocHost(mem, totalHeight * memPitch));
+        } else if (align) {
+            CUdeviceptr ptr;
+            sts = err_to_rgy(cuMemAlloc(&ptr, totalHeight * memPitch));
+            *mem = (void *)ptr;
+        } else {
+            memPitch = 0;
+            CUdeviceptr ptr;
+            sts = err_to_rgy(cuMemAllocPitch(&ptr, &memPitch, widthByte, totalHeight, 1));
+            *mem = (void *)ptr;
+        }
+        return sts;
     }
-    RGY_ERR allocHost(bool singleAlloc = false, int align = 0) {
-        frame.mem_type = RGY_MEM_TYPE_CPU;
-        frame.singleAlloc = singleAlloc;
-        return allocMemory(frame, align);
-    }
-    RGY_ERR allocHost(int width, int height, RGY_CSP csp = RGY_CSP_NV12, bool singleAlloc = false, int align = 0) {
-        frame.width = width;
-        frame.height = height;
-        frame.csp = csp;
-        frame.mem_type = RGY_MEM_TYPE_CPU;
-        return allocHost(singleAlloc, align);
-    }
-    static void clearMemory(RGYFrameInfo& fi) {
-        for (int i = 0; i < ((fi.singleAlloc) ? 1 : RGY_CSP_PLANES[fi.csp]); i++) {
-            if (fi.ptr[i]) {
-                if (fi.mem_type == RGY_MEM_TYPE_CPU) {
-                    cudaFreeHost(fi.ptr[i]);
-                } else {
-                    cudaFree(fi.ptr[i]);
-                }
+    virtual RGY_ERR memfree(uint8_t **mem) override {
+        auto sts = RGY_ERR_NONE;
+        if (mem && *mem) {
+            if (frame.mem_type == RGY_MEM_TYPE_CPU) {
+                cuMemFreeHost(*mem);
+            } else {
+                cuMemFree((CUdeviceptr)(*mem));
             }
+            *mem = nullptr;
         }
-        memset(fi.ptr, 0, sizeof(fi.ptr));
-        memset(fi.pitch, 0, sizeof(fi.pitch));
-    }
-    void clear() {
-        CUFrameBuf::clearMemory(frame);
-    }
-    virtual ~CUFrameBuf() {
-        clear();
-        if (event) {
-            cudaEventDestroy(event);
-            event = nullptr;
-        }
+        return sts;
     }
 };
 
+#if 0
+struct CUFrameCUArray : public CUFrameBufBase {
+public:
+    CUFrameCUArray()
+        : CUFrameBufBase() {
+        framebuftype = CUFrameBufType::CUdevivePtr;
+    };
+    CUFrameCUArray(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
+        : CUFrameBufBase(width, height, csp) {
+        framebuftype = CUFrameBufType::CUdevivePtr;
+    };
+    CUFrameCUArray(const RGYFrameInfo& _info)
+        : CUFrameBufBase(_info) {
+        framebuftype = CUFrameBufType::CUdevivePtr;
+    };
+    virtual ~CUFrameCUArray() {
+        clear();
+    }
+    RGY_ERR copyFrame(const RGYFrameInfo *src) {
+        if (frame.ptr[0] == nullptr || !cmpFrameInfoCspResolution(&frame, src)) {
+
+        }
+        auto ret = ::copyFrame(&frame, src);
+        if (ret == RGY_ERR_NONE) {
+            copyFrameProp(&frame, src);
+        }
+        return RGY_ERR_NONE;
+    }
+    RGY_ERR copyFrameAsync(const RGYFrameInfo *src, cudaStream_t stream) {
+        if (frame.ptr[0] == nullptr || !cmpFrameInfoCspResolution(&frame, src)) {
+
+        }
+        auto ret = ::copyFrameAsync(&frame, src, stream);
+        if (ret == RGY_ERR_NONE) {
+            copyFrameProp(&frame, src);
+        }
+        return RGY_ERR_NONE;
+    }
+protected:
+    CUFrameCUArray(const CUFrameCUArray &) = delete;
+    void operator =(const CUFrameCUArray &) = delete;
+    virtual RGY_ERR memmalloc(void **mem, size_t& memPitch, const int align, const int widthByte, const int totalHeight) override {
+        auto sts = RGY_ERR_NONE;
+        if (frame.mem_type == RGY_MEM_TYPE_CPU || align) {
+            return RGY_ERR_UNSUPPORTED;
+        } else {
+            CUDA_ARRAY_DESCRIPTOR cuArrayDesc = { 0 };
+            cuArrayDesc.Format = RGY_CSP_BIT_DEPTH[frame.csp] == 32 ? CU_AD_FORMAT_FLOAT : (RGY_CSP_BIT_DEPTH[frame.csp] > 8 ? CU_AD_FORMAT_UNSIGNED_INT16 : CU_AD_FORMAT_UNSIGNED_INT8);
+            cuArrayDesc.Height = frame.height;
+            cuArrayDesc.NumChannels = 4;
+            cuArrayDesc.Width = frame.width;
+
+            CUarray ptr;
+            sts = err_to_rgy(cuArrayCreate(&ptr, &cuArrayDesc));
+            *mem = (void *)ptr;
+        }
+        return sts;
+    }
+    virtual RGY_ERR memfree(uint8_t **mem) override {
+        auto sts = RGY_ERR_NONE;
+        if (mem && *mem) {
+            if (frame.mem_type == RGY_MEM_TYPE_CPU) {
+                return RGY_ERR_UNSUPPORTED;
+            } else {
+                cuArrayDestroy((CUarray)(*mem));
+            }
+            *mem = nullptr;
+        }
+        return sts;
+    }
+};
+#endif
+
 struct CUFrameBufPair {
 public:
-    RGYFrameInfo frameDev;
-    RGYFrameInfo frameHost;
+    CUFrameBuf frameDev;
+    CUFrameBuf frameHost;
     cudaEvent_t event;
     CUFrameBufPair()
         : frameDev(), frameHost(), event() {
@@ -438,13 +608,13 @@ public:
     };
     CUFrameBufPair(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
         : frameDev(), frameHost(), event() {
-        frameDev.width = width;
-        frameDev.height = height;
-        frameDev.csp = csp;
-        frameDev.mem_type = RGY_MEM_TYPE_GPU;
+        frameDev.frame.width = width;
+        frameDev.frame.height = height;
+        frameDev.frame.csp = csp;
+        frameDev.frame.mem_type = RGY_MEM_TYPE_GPU;
 
-        frameHost = frameDev;
-        frameHost.mem_type = RGY_MEM_TYPE_CPU;
+        frameHost.frame = frameDev.frame;
+        frameHost.frame.mem_type = RGY_MEM_TYPE_CPU;
 
         cudaEventCreate(&event);
     };
@@ -453,12 +623,10 @@ protected:
     void operator =(const CUFrameBufPair &) = delete;
 public:
     RGY_ERR allocHost() {
-        frameHost.mem_type = RGY_MEM_TYPE_CPU;
-        return CUFrameBuf::allocMemory(frameHost, 0);
+        return frameHost.allocHost();
     }
     RGY_ERR allocDev() {
-        frameDev.mem_type = RGY_MEM_TYPE_GPU;
-        return CUFrameBuf::allocMemory(frameDev, 0);
+        return frameDev.alloc();
     }
     RGY_ERR alloc() {
         clearHost();
@@ -471,34 +639,34 @@ public:
         clearHost();
         clearDev();
 
-        frameDev.width = width;
-        frameDev.height = height;
-        frameDev.csp = csp;
-        frameDev.mem_type = RGY_MEM_TYPE_GPU;
+        frameDev.frame.width = width;
+        frameDev.frame.height = height;
+        frameDev.frame.csp = csp;
+        frameDev.frame.mem_type = RGY_MEM_TYPE_GPU;
 
-        frameHost = frameDev;
-        frameHost.mem_type = RGY_MEM_TYPE_CPU;
+        frameHost.frame = frameDev.frame;
+        frameHost.frame.mem_type = RGY_MEM_TYPE_CPU;
 
         return alloc();
     }
     RGY_ERR copyDtoHAsync(cudaStream_t stream = 0) {
-        return copyFrameAsync(&frameHost, &frameDev, stream);
+        return copyFrameAsync(&frameHost.frame, &frameDev.frame, stream);
     }
     RGY_ERR copyDtoH() {
-        return copyFrame(&frameHost, &frameDev);
+        return copyFrame(&frameHost.frame, &frameDev.frame);
     }
     RGY_ERR copyHtoDAsync(cudaStream_t stream = 0) {
-        return copyFrameAsync(&frameDev, &frameHost, stream);
+        return copyFrameAsync(&frameDev.frame, &frameHost.frame, stream);
     }
     RGY_ERR copyHtoD() {
-        return copyFrame(&frameDev, &frameHost);
+        return copyFrame(&frameDev.frame, &frameHost.frame);
     }
 public:
     void clearHost() {
-        CUFrameBuf::clearMemory(frameHost);
+        frameHost.clear();
     }
     void clearDev() {
-        CUFrameBuf::clearMemory(frameDev);
+        frameDev.clear();
     }
     void clear() {
         clearDev();

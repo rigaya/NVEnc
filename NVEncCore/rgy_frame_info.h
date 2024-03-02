@@ -95,15 +95,20 @@ static bool cmpFrameInfoCspResolution(const RGYFrameInfo *pA, const RGYFrameInfo
         || pA->mem_type != pB->mem_type;
 }
 
-static void copyFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) {
-    dst->width = src->width;
-    dst->height = src->height;
-    dst->csp = src->csp;
+static void copyFramePropWithoutRes(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     dst->picstruct = src->picstruct;
     dst->timestamp = src->timestamp;
     dst->duration = src->duration;
     dst->inputFrameId = src->inputFrameId;
     dst->flags = src->flags;
+    dst->dataList = src->dataList;
+}
+
+static void copyFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) {
+    copyFramePropWithoutRes(dst, src);
+    dst->width = src->width;
+    dst->height = src->height;
+    dst->csp = src->csp;
 }
 
 static int bytesPerPix(RGY_CSP csp) {

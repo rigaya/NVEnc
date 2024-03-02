@@ -150,7 +150,7 @@ RGY_ERR NVEncFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int
     if (m_buf.frame.ptr[0] == nullptr) {
         m_buf.alloc(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
     }
-    if (m_tmp.frameDev.ptr[0] == nullptr) {
+    if (m_tmp.frameDev.frame.ptr[0] == nullptr) {
         m_tmp.alloc(divCeil(pInputFrame->width, 8), divCeil(pInputFrame->height, 8), RGY_CSP_YUV444_32);
     }
 
@@ -175,7 +175,7 @@ RGY_ERR NVEncFilterMpdecimateFrameData::calcDiff(const NVEncFilterMpdecimateFram
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[ref->m_buf.frame.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto sts = func_list.at(ref->m_buf.frame.csp)(&m_buf.frame, &ref->get()->frame, &m_tmp.frameDev, streamDiff);
+    auto sts = func_list.at(ref->m_buf.frame.csp)(&m_buf.frame, &ref->get()->frame, &m_tmp.frameDev.frame, streamDiff);
     if (sts != RGY_ERR_NONE) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to run calcDiff: %s.\n"), get_err_mes(sts));
         return RGY_ERR_CUDA;
@@ -197,13 +197,13 @@ RGY_ERR NVEncFilterMpdecimateFrameData::calcDiff(const NVEncFilterMpdecimateFram
 }
 
 bool NVEncFilterMpdecimateFrameData::checkIfFrameCanbeDropped(const int hi, const int lo, const float factor) {
-    const int threshold = (int)((float)m_tmp.frameHost.width * m_tmp.frameHost.height * factor + 0.5f);
+    const int threshold = (int)((float)m_tmp.frameHost.frame.width * m_tmp.frameHost.frame.height * factor + 0.5f);
     int loCount = 0;
     for (int iplane = 0; iplane < RGY_CSP_PLANES[m_buf.frame.csp]; iplane++) {
         const auto plane = getPlane(&m_buf.frame, (RGY_PLANE)iplane);
         const int blockw = divCeil(plane.width, 8);
         const int blockh = divCeil(plane.height, 8);
-        const auto planeHost = getPlane(&m_tmp.frameHost, (RGY_PLANE)iplane);
+        const auto planeHost = getPlane(&m_tmp.frameHost.frame, (RGY_PLANE)iplane);
         for (int j = 0; j < blockh; j++) {
             const int *ptrResult = (const int *)(planeHost.ptr[0] + j * planeHost.pitch[0]);
             for (int i = 0; i < blockw; i++) {

@@ -1098,19 +1098,20 @@ RGY_ERR NVEncCore::AllocateBufferInputHost(const VideoInfo *pInputInfo) {
         RGY_CSP_NAMES[pInputInfo->csp], bufWidth, bufHeight, m_pipelineDepth);
 
     for (uint32_t i = 0; i < m_inputHostBuffer.size(); i++) {
-        m_inputHostBuffer[i].frameInfo.singleAlloc = true;
-        m_inputHostBuffer[i].frameInfo.width = bufWidth;
-        m_inputHostBuffer[i].frameInfo.height = bufHeight;
-        m_inputHostBuffer[i].frameInfo.csp = pInputInfo->csp;
-        m_inputHostBuffer[i].frameInfo.picstruct = pInputInfo->picstruct;
-        m_inputHostBuffer[i].frameInfo.flags = RGY_FRAME_FLAG_NONE;
-        m_inputHostBuffer[i].frameInfo.duration = 0;
-        m_inputHostBuffer[i].frameInfo.timestamp = 0;
-        m_inputHostBuffer[i].frameInfo.mem_type = RGY_MEM_TYPE_CPU;
+        m_inputHostBuffer[i].cubuf = std::make_unique<CUFrameBuf>();
+        m_inputHostBuffer[i].cubuf->frame.singleAlloc = true;
+        m_inputHostBuffer[i].cubuf->frame.width = bufWidth;
+        m_inputHostBuffer[i].cubuf->frame.height = bufHeight;
+        m_inputHostBuffer[i].cubuf->frame.csp = pInputInfo->csp;
+        m_inputHostBuffer[i].cubuf->frame.picstruct = pInputInfo->picstruct;
+        m_inputHostBuffer[i].cubuf->frame.flags = RGY_FRAME_FLAG_NONE;
+        m_inputHostBuffer[i].cubuf->frame.duration = 0;
+        m_inputHostBuffer[i].cubuf->frame.timestamp = 0;
+        m_inputHostBuffer[i].cubuf->frame.mem_type = RGY_MEM_TYPE_CPU;
         m_inputHostBuffer[i].heTransferFin = unique_ptr<void, handle_deleter>(CreateEvent(NULL, FALSE, TRUE, NULL), handle_deleter());
 
         CCtxAutoLock ctxLock(m_dev->vidCtxLock());
-        auto err = CUFrameBuf::allocMemory(m_inputHostBuffer[i].frameInfo, 0);
+        auto err = m_inputHostBuffer[i].cubuf->allocHost();
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Error CUFrameBuf::allocMemory: %s.\n"), get_err_mes(err));
             return err;
@@ -3039,6 +3040,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
+            param->timebase = m_outputTimebase;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
             if (sts != RGY_ERR_NONE) {
@@ -4414,7 +4416,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
             }
             NVTXRANGE(LoadNextFrame);
-            RGYFrameRef frame(inputFrameBuf.frameInfo);
+            RGYFrameRef frame(inputFrameBuf.cubuf->frame);
             auto rgy_err = m_pFileReader->LoadNextFrame(&frame);
             if (rgy_err != RGY_ERR_NONE) {
                 if (rgy_err != RGY_ERR_MORE_DATA) { //RGY_ERR_MORE_DATAは読み込みの正常終了を示す
@@ -4438,7 +4440,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
 #endif
             }
-            inputFrame.setHostFrameInfo(inputFrameBuf.frameInfo, heTransferFin);
+            inputFrame.setHostFrameInfo(inputFrameBuf.cubuf->frame, heTransferFin);
             inputFrame.setInputFrameId(nInputFrame);
             PrintMes(RGY_LOG_TRACE, _T("input frame (host) #%d, timestamp %lld, duration %lld\n"), nInputFrame, inputFrame.getTimeStamp(), inputFrame.getDuration());
         } else {
