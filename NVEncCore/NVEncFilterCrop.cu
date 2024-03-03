@@ -2645,7 +2645,7 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         if (!cropEnabled(pCropParam->crop)) {
             //cropがなければ、一度に転送可能
             sts = copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);;
-            if (sts != cudaSuccess) {
+            if (sts != RGY_ERR_NONE) {
                 return cudaMemcpyErrMes(sts, _T("cudaMemcpy2DAsyncAll"));
             };
             CUDA_DEBUG_SYNC_ERR;

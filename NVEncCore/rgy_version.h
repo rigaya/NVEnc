@@ -129,16 +129,17 @@ const char *get_encoder_version();
 #else //#if defined(WIN32) || defined(WIN64)
 #define NV_DRIVER_VER_MIN 418030
 #include "rgy_config.h"
-#define ENCODER_NAME              "NVEnc"
-#define DECODER_NAME              "cuvid"
-#define FOR_AUO                   0
-#define ENABLE_RAW_READER         1
-#define ENABLE_NVML               1
-#define ENABLE_NVRTC              1
-#define ENABLE_NVVFX              0
-#define ENABLE_CAPTION2ASS        0
+#define ENCODER_NAME               "NVEnc"
+#define DECODER_NAME               "cuvid"
+#define FOR_AUO                    0
+#define ENABLE_RAW_READER          1
+#define ENABLE_NVML                1
+#define ENABLE_NVRTC               1
+#define ENABLE_NVVFX               0
+#define ENABLE_CAPTION2ASS         0
 #define ENABLE_VPP_SMOOTH_QP_FRAME 0
-#define ENABLE_VMAF               0
+#define ENABLE_VMAF                0
+#define ENABLE_NVOFFRUC            0
 #endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__

@@ -28,10 +28,14 @@
 #ifndef __NVENC_NVOFFURC_H__
 #define __NVENC_NVOFFURC_H__
 
+#if defined(_WIN32) || defined(_WIN64)
 #ifdef NVENC_NVOFFRUC_EXPORTS
 #define NVENC_NVOFFRUC_API __declspec(dllexport) 
 #else
 #define NVENC_NVOFFRUC_API __declspec(dllimport)
+#endif
+#else
+#define NVENC_NVOFFRUC_API
 #endif
 
 #if defined(__cplusplus)

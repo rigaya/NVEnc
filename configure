@@ -300,7 +300,7 @@ fi
 
 CXXINC=" \
   -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS \
-  -I${SRCDIR} -I${SRCDIR}/NVEncSDK/Common/inc -I${SRCDIR}/NVEncCore \
+  -I${SRCDIR} -I${SRCDIR}/NVEncSDK/Common/inc -I${SRCDIR}/NVEncCore -I${SRCDIR}/NVEncNVOFFRUC \
   -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/cppcodec -I${SRCDIR}/ttmath \
 "
 CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused -Wno-missing-braces"
@@ -630,6 +630,7 @@ SRC_NVENCCORE=" \
 CuvidDecode.cpp        FrameQueue.cpp              NVEncCmd.cpp                 NVEncCore.cpp \
 NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           NVEncFilterColorspace.cpp \
 NVEncFilterCurves.cpp  NVEncFilterCustom.cpp       NVEncFilterDelogo.cpp        NVEncFilterDenoiseGauss.cpp \
+NVEncFilterNVOFFRUC.cpp \
 NVEncFilterNvvfx.cpp   NVEncFilterOverlay.cpp      NVEncFilterPad.cpp           NVEncFilterParam.cpp \
 NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
 NVEncParam.cpp         NVEncUtil.cpp               cl_func.cpp \

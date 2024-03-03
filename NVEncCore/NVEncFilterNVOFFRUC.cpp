@@ -340,7 +340,7 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             nextPts = m_prevTimestamp + (frameOffset.d() == 1 ? frameOffset.n() : (int64_t)(frameOffset.qdouble() + 0.5));
             duration = nextPts - prevTimestamp;
             const int64_t timestampDiff = nextPts - (int64_t)bufferIn->timestamp();
-            isNearToCurrentFrame = std::abs(timestampDiff) <= std::max((int64_t)((m_timebase.inv() / m_targetFps * rgy_rational<int>(1, 8)).qdouble() + 0.5), 1ll);
+            isNearToCurrentFrame = std::abs(timestampDiff) <= std::max<int64_t>((int64_t)((m_timebase.inv() / m_targetFps * rgy_rational<int>(1, 8)).qdouble() + 0.5), 1);
         } else {
             AddMessage(RGY_LOG_ERROR, _T("Invalid fruc mode: %d.\n"), prm->fruc.mode);
             return RGY_ERR_INVALID_PARAM;
