@@ -210,6 +210,7 @@
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
+  - [--vpp-fruc \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fruc-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [Other Options](#other-options)
@@ -1616,6 +1617,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
+- [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 Converts colorspace of the video. Available on x64 version.  
@@ -2536,6 +2538,29 @@ Overlay image on top of base video.
   ```
   --vpp-overlay file=logo.png,pos=1620x780,size=300x300
   --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
+  ```
+
+### --vpp-fruc [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+  Frame rate conversion based on [NVIDIA Optical Flow FRUC(Frame Rate Up Conversion)](https://docs.nvidia.com/video-technologies/optical-flow-sdk/nvfruc-programming-guide/index.html).
+
+  Requires Turing GPUs or later, and requires driver version 528.24 or higher. Supported on Windows system only.
+
+  Also, due to limitation of NVIDIA Optical Flow FRUC, this filter will be process in 8bit mode, even if input or output is 10bit.
+
+- **Parameters**
+  - double
+    Convert to double framerate, this mode will result in higher performance.
+
+  - fps=&lt;int&gt;/&lt;int&gt;
+    Convert to framerate specified, the performance will be low compared to ```double```.
+
+- Examples
+  ```
+  Example: Convert to double framerate
+  --vpp-fruc double
+  
+  Example: Convert to 59.94fps
+  --vpp-fruc fps=60000/1001
   ```
 
 ### --vpp-perf-monitor

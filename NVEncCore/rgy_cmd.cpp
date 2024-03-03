@@ -3219,6 +3219,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     }
     if (IS_OPTION("vpp-fruc") && ENABLE_VPP_FILTER_FRUC) {
         vpp->fruc.enable = true;
+        if (ENCODER_NVENC) {
+            vpp->fruc.mode = VppFrucMode::NVOFFRUCx2;
+        }
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -3257,6 +3260,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                             } else {
                                 vpp->fruc.targetFps = rgy_rational<int>((int)(d * 100000 + 0.5), 100000);
                             }
+                            vpp->fruc.mode = VppFrucMode::NVOFFRUCFps;
                         } else {
                             print_cmd_error_invalid_value(option_name, strInput[i]);
                             return 1;
@@ -3267,6 +3271,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
+                if (param == _T("double")) {
+                    vpp->fruc.mode = VppFrucMode::NVOFFRUCx2;
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
@@ -6437,8 +6445,12 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             tmp << _T(",enable=false");
         }
         if (param->fruc.enable || save_disabled_prm) {
-            if (param->fruc.targetFps.is_valid()) {
-                tmp << _T(",fps=") << param->fruc.targetFps.printt();
+            if (param->fruc.mode == VppFrucMode::NVOFFRUCx2) {
+                tmp << _T(",double");
+            } else if (param->fruc.mode == VppFrucMode::NVOFFRUCFps) {
+                if (param->fruc.targetFps.is_valid()) {
+                    tmp << _T(",fps=") << param->fruc.targetFps.printt();
+                }
             }
         }
         if (!tmp.str().empty()) {
@@ -7718,6 +7730,7 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-fruc [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable frame rate up conversion filter.\n")
         _T("    params\n")
+        _T("      double                     double frame rate (fast)")
         _T("      fps=<int>/<int> or <float> target frame rate\n"));
 #endif
     str += strsprintf(_T("\n")

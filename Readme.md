@@ -200,7 +200,7 @@ when there are multiple GPUs available which support NVENC.
 
 ## NVEnc source code
 - MIT license.
-- This program is based on NVIDA CUDA Samples and includes sample code.
+- This program is based on NVIDA CUDA Samples and includes sample code of NVENC SDK and NVIDIA Optical Flow SDK.
   This software contains source code provided by NVIDIA Corporation.
 - --vpp-nvvfx fiters are power by NVIDIA BROADCAST.  
   <img src="./data/powered-by-nvidia-broadcast-lockup-rgb-blk-for-screen.png" width="480px">

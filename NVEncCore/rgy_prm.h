@@ -1424,8 +1424,15 @@ struct VppOverlay {
     tstring print() const;
 };
 
+enum class VppFrucMode {
+    Disabled,
+    NVOFFRUCx2,
+    NVOFFRUCFps,
+};
+
 struct VppFruc {
     bool enable;
+    VppFrucMode mode;
     rgy_rational<int> targetFps;
 
     VppFruc();

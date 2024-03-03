@@ -206,6 +206,7 @@
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
+  - [--vpp-fruc \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fruc-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [制御系のオプション](#制御系のオプション)
@@ -1609,6 +1610,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
+- [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 色空間変換を行う。x64版のみ使用可能。  
@@ -2595,6 +2597,29 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   ```
   --vpp-overlay file=logo.png,pos=1620x780,size=300x300
   --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
+  ```
+
+### --vpp-fruc [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+  [NVIDIA Optical FlowのFRUC(Frame Rate Up Conversion)](https://docs.nvidia.com/video-technologies/optical-flow-sdk/nvfruc-programming-guide/index.html)ベースの動く予測に基づくフレームレート変換を行います。
+
+  Turing以降(RTX20xx以降)のGPUが必要なほか、NVIDIAドライバ528.24以降が必要です。また、現状Windowsのみ対応しています。
+
+  現状、NVIDIA Optical FlowのFRUCの制限により、8bitの処理のみに対応しているため、本処理を行うとその段階で8bitに落として処理することになります。
+
+- **パラメータ**
+  - double
+    フレームレートを倍にします。任意のフレームレートに変換する場合に比べ、非常に高速です。
+
+  - fps=&lt;int&gt;/&lt;int&gt;
+    フレームレートを指定の値に変換します。フレームレートを倍にする場合と比べ、パフォーマンスが低下する場合があります。
+
+- 使用例
+  ```
+  例: 倍のフレームレートに変換する場合
+  --vpp-fruc double
+  
+  例: 59.94fpsに変換する場合
+  --vpp-fruc fps=60000/1001
   ```
 
 ### --vpp-perf-monitor

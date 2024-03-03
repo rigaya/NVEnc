@@ -203,7 +203,17 @@ RGY_ERR NVEncFilterNVOFFRUC::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
             }
         }
     }
-    m_targetFps = prm->fruc.targetFps;
+    switch (prm->fruc.mode) {
+    case VppFrucMode::NVOFFRUCx2:
+        m_targetFps = pParam->baseFps * 2;
+        break;
+    case VppFrucMode::NVOFFRUCFps:
+        m_targetFps = prm->fruc.targetFps;
+        break;
+    default:
+        AddMessage(RGY_LOG_ERROR, _T("Invalid fruc mode: %d.\n"), prm->fruc.mode);
+        return RGY_ERR_INVALID_PARAM;
+    }
     m_timebase = prm->timebase;
     if (m_frameBuf.size() == 0
         || !cmpFrameInfoCspResolution(&m_frameBuf[0]->frame, &pParam->frameOut)) {
@@ -310,13 +320,32 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         return RGY_ERR_NONE;
     }
 
+    auto prm = dynamic_cast<NVEncFilterParamNVOFFRUC*>(m_param.get());
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
     auto prevTimestamp = m_prevTimestamp;
     for (int i = 1; ; i++) {
-        const auto frameOffset = m_timebase.inv() / m_targetFps * i;
-        const auto nextPts = m_prevTimestamp + (frameOffset.d() == 1 ? frameOffset.n() : (int64_t)(frameOffset.qdouble() + 0.5));
-        const auto duration = nextPts - prevTimestamp;
-        const int64_t timestampDiff = nextPts - (int64_t)bufferIn->timestamp();
-        const auto isNearToCurrentFrame = std::abs(timestampDiff) <= std::max((int64_t)((m_timebase.inv() / m_targetFps * rgy_rational<int>(1, 8)).qdouble() + 0.5), 1ll);
+        int64_t nextPts = -1;
+        int64_t duration = 0;
+        bool isNearToCurrentFrame = false;
+        if (prm->fruc.mode == VppFrucMode::NVOFFRUCx2) {
+            nextPts = m_prevTimestamp + i * (pInputFrame->timestamp - m_prevTimestamp) / 2;
+            duration = nextPts - prevTimestamp;
+            isNearToCurrentFrame = (i >= 2);
+        } else if (prm->fruc.mode == VppFrucMode::NVOFFRUCFps) {
+            const auto frameOffset = m_timebase.inv() / m_targetFps * i;
+            nextPts = m_prevTimestamp + (frameOffset.d() == 1 ? frameOffset.n() : (int64_t)(frameOffset.qdouble() + 0.5));
+            duration = nextPts - prevTimestamp;
+            const int64_t timestampDiff = nextPts - (int64_t)bufferIn->timestamp();
+            isNearToCurrentFrame = std::abs(timestampDiff) <= std::max((int64_t)((m_timebase.inv() / m_targetFps * rgy_rational<int>(1, 8)).qdouble() + 0.5), 1ll);
+        } else {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid fruc mode: %d.\n"), prm->fruc.mode);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        // 入力フレームよりも後のフレームを生成する場合は終了
         if (!isNearToCurrentFrame && nextPts > (int64_t)bufferIn->timestamp()) {
             break;
         }

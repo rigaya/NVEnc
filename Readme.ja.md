@@ -201,7 +201,7 @@ NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
 
 ## NVEncのソースコードについて
 - MITライセンスです。
-- 本プログラムは、NVIDA CUDA Samplesをベースに作成されており、サンプルコードを含みます。  
+- 本プログラムは、NVIDA CUDA Samplesをベースに作成されており、NVIDIA CUDA、NVENC SDK、NVIDIA Optical Flow SDKのサンプルコードを含みます。  
   This software contains source code provided by NVIDIA Corporation.  
 - --vpp-nvvfx フィルタは、NVIDIA BROADCASTを使用しています。
   <img src="./data/powered-by-nvidia-broadcast-lockup-rgb-blk-for-screen.png" width="480">

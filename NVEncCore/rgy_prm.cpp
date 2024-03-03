@@ -1409,12 +1409,14 @@ tstring VppDeband::print() const {
 
 VppFruc::VppFruc() :
     enable(false),
+    mode(VppFrucMode::Disabled),
     targetFps() {
 
 }
 
 bool VppFruc::operator==(const VppFruc &x) const {
     return enable == x.enable
+        && mode == x.mode
         && targetFps == x.targetFps;
 }
 bool VppFruc::operator!=(const VppFruc &x) const {
@@ -1422,7 +1424,13 @@ bool VppFruc::operator!=(const VppFruc &x) const {
 }
 
 tstring VppFruc::print() const {
-    return strsprintf(_T("fruc: %.3f(%d/%d) fps"), targetFps.qdouble(), targetFps.n(), targetFps.d());
+    if (mode == VppFrucMode::NVOFFRUCx2) {
+        return _T("nvof-fruc: double frames");
+    } else if (mode == VppFrucMode::NVOFFRUCFps) {
+        return strsprintf(_T("nvof-fruc: %.3f(%d/%d) fps"), targetFps.qdouble(), targetFps.n(), targetFps.d());
+    } else {
+        return _T("Unknown");
+    }
 }
 
 RGYParamVpp::RGYParamVpp() :
