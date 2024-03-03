@@ -148,7 +148,7 @@ RGY_ERR NVEncFilterNVOFFRUC::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    m_frucCsp = RGY_CSP_NV12;
+    m_frucCsp = (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_YUV444) ? RGY_CSP_RGB32 : RGY_CSP_NV12;
     if (!m_srcCrop
         || m_srcCrop->GetFilterParam()->frameIn.width  != pParam->frameIn.width
         || m_srcCrop->GetFilterParam()->frameIn.height != pParam->frameIn.height) {
@@ -307,7 +307,7 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         const auto duration = nextPts - prevTimestamp;
         const int64_t timestampDiff = nextPts - (int64_t)bufferIn->timestamp();
         const auto isNearToCurrentFrame = std::abs(timestampDiff) <= std::max((int64_t)((m_timebase.inv() / m_targetFps * rgy_rational<int>(1, 8)).qdouble() + 0.5), 1ll);
-        if (!isNearToCurrentFrame && nextPts > bufferIn->timestamp()) {
+        if (!isNearToCurrentFrame && nextPts > (int64_t)bufferIn->timestamp()) {
             break;
         }
         auto outFrame = getNextOutFrame(ppOutputFrames, pOutputFrameNum);
@@ -327,7 +327,7 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         // NVOF FRUCは 同じフレームペアからひとつのフレームしか生成できないので、
         // 同じフレームペアから複数のフレームを作る時は、再初期化が必要
         // 再初期化が必要な時は、bufferPrevを渡して再初期化を実行する
-        const bool resetRequired = (m_prevTimestamp == bufferPrev->timestamp() && i == 1);
+        const bool resetRequired = (m_prevTimestamp == (int64_t)bufferPrev->timestamp() && i == 1);
         sts = genFrame(outFrame, resetRequired ? nullptr : bufferPrev, bufferIn, nextPts, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -371,6 +371,7 @@ RGY_ERR NVEncFilterNVOFFRUC::setFirstFrame(const CUFrameDevPtr *firstframe) {
             return sts;
         }
     }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterNVOFFRUC::genFrame(RGYFrameInfo *outFrame, const CUFrameDevPtr *prev, const CUFrameDevPtr *curr, const int64_t genPts, cudaStream_t stream) {

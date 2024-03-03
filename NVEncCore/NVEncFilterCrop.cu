@@ -1086,7 +1086,7 @@ void crop_rgb3_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFram
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth, CspMatrix matrix>
 static __device__ void rgb4_2_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__restrict__ pDstU, uint8_t *__restrict__ pDstV, const uint8_t *ptr) {
-    struct TypeIn4 {
+    struct __align__(sizeof(TypeIn) * 4) TypeIn4 {
         TypeIn x, y, z, w;
     };
     TypeIn4 input = *(TypeIn4 *)ptr;
@@ -1212,6 +1212,65 @@ void crop_rgb_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame
     }
 }
 
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth, CspMatrix matrix>
+static __device__ void yuv444_2_rgb4(uint8_t *__restrict__ pDst, const uint8_t *__restrict__ pSrcY, const uint8_t *__restrict__ pSrcU, const uint8_t *__restrict__ pSrcV) {
+    struct __align__(sizeof(TypeOut) * 4) TypeOut4 {
+        TypeOut x, y, z, w;
+    };
+
+    TypeIn y = *(TypeIn *)pSrcY;
+    TypeIn u = *(TypeIn *)pSrcU;
+    TypeIn v = *(TypeIn *)pSrcV;
+    float3 rgb = yuv_2_rgb<matrix>(make_float_yuv3<TypeIn, in_bit_depth>(y,u,v));
+
+    TypeOut4 out;
+    out.x = (TypeOut)(scaleRGBFloatToPix<TypeOut, out_bit_depth>(rgb.x) + 0.5f);
+    out.y = (TypeOut)(scaleRGBFloatToPix<TypeOut, out_bit_depth>(rgb.y) + 0.5f);
+    out.z = (TypeOut)(scaleRGBFloatToPix<TypeOut, out_bit_depth>(rgb.z) + 0.5f);
+    out.w = 255 << (out_bit_depth - 8);
+
+    TypeOut4 *ptr_dst = (TypeOut4 *)(pDst);
+    ptr_dst[0] = out;
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth, CspMatrix matrix>
+__global__ void kernel_crop_yuv444_rgb4(uint8_t *__restrict__ pDst,
+    const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrcY, const uint8_t *__restrict__ pSrcU, const uint8_t *__restrict__ pSrcV,
+    const int srcPitch, const int offsetX, const int offsetY) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x; //スレッドはpixel数分立てる
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x < dstWidth && y < dstHeight) {
+        const int isrc = y * srcPitch + x * sizeof(TypeIn);
+        const int idst = y * dstPitch + x * 4 * sizeof(TypeOut);
+        yuv444_2_rgb4<TypeOut, out_bit_depth, TypeIn, in_bit_depth, matrix>(pDst + idst, pSrcY + isrc, pSrcU + isrc, pSrcV + isrc);
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth, CspMatrix matrix>
+void crop_yuv444_rgb4(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+    dim3 blockSize(32, 4);
+    dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
+    auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    kernel_crop_yuv444_rgb4<TypeOut, out_bit_depth, TypeIn, in_bit_depth, matrix> << <gridSize, blockSize, 0, stream >> > (
+        pOutputFrame->ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+        planeInputY.ptr[0], planeInputU.ptr[0], planeInputV.ptr[0], planeInputY.pitch[0], pCrop->e.left, pCrop->e.up);
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_yuv444_rgb4(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, const CspMatrix matrix, cudaStream_t stream) {
+    switch (matrix) {
+    case RGY_MATRIX_BT709:     crop_yuv444_rgb4<TypeOut, out_bit_depth, TypeIn, in_bit_depth, RGY_MATRIX_BT709>(pOutputFrame, pInputFrame, pCrop, stream); break;
+    case RGY_MATRIX_BT2020_NCL:
+    case RGY_MATRIX_BT2020_CL: crop_yuv444_rgb4<TypeOut, out_bit_depth, TypeIn, in_bit_depth, RGY_MATRIX_BT2020_NCL>(pOutputFrame, pInputFrame, pCrop, stream); break;
+    case RGY_MATRIX_BT470_BG:
+    case RGY_MATRIX_ST170_M:
+    default:                   crop_yuv444_rgb4<TypeOut, out_bit_depth, TypeIn, in_bit_depth, RGY_MATRIX_ST170_M>(pOutputFrame, pInputFrame, pCrop, stream); break;
+    }
+}
+
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth, bool aligned, CspMatrix matrix>
 __global__ void kernel_crop_yuv444_rgb(
     uint8_t *__restrict__ pDstR, uint8_t *__restrict__ pDstG, uint8_t *__restrict__ pDstB,
@@ -1304,7 +1363,7 @@ __global__ void kernel_crop_rgb3_yv12(uint8_t *__restrict__ pDstY, uint8_t *__re
     //ブロック内のスレッドは32x4
     //読み込み量は 64pixel(192要素) x 8
     __shared__ TypeIn ptrSharedIn[32 * 3 * 4 * 4];
-    struct TypeIn4 {
+    struct __align__(sizeof(TypeIn) * 4) TypeIn4 {
         TypeIn x, y, z, w;
     };
     const int shared_read = blockDim.x * 3 / 4;
@@ -1371,7 +1430,7 @@ __global__ void kernel_crop_rgb3_nv12(uint8_t *__restrict__ pDstY, uint8_t *__re
                                                    //ブロック内のスレッドは32x4
                                                    //読み込み量は 96x4だが、128x4とっておく
     __shared__ TypeIn ptrSharedIn[32 * 3 * 4 * 4];
-    struct TypeIn4 {
+    struct __align__(sizeof(TypeIn) * 4) TypeIn4 {
         TypeIn x, y, z, w;
     };
     const int shared_read = blockDim.x * 3 / 4;
@@ -1429,7 +1488,7 @@ void crop_rgb3_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
 
 template<typename TypeIn, int in_bit_depth, CspMatrix matrix>
 static __device__ float3 rgb4_2_yuv(const TypeIn *ptr) {
-    struct TypeIn4 {
+    struct __align__(sizeof(TypeIn) * 4) TypeIn4 {
         TypeIn x, y, z, w;
     };
     TypeIn4 input = *(TypeIn4 *)ptr;
@@ -2136,6 +2195,29 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, con
         if (cudaerr != cudaSuccess) {
             auto sts = err_to_rgy(cudaerr);
             AddMessage(RGY_LOG_ERROR, _T("error at convert_from_yuv444_to_rgb_list(%s -> %s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
+            return sts;
+        }
+        return RGY_ERR_NONE;
+    }
+    if (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_RGB_PACKED) {
+        static const std::map<uint64_t, decltype(&crop_yuv444_rgb4<uint8_t, 8, uint8_t, 8>)> convert_from_yuv444_to_rgb4_list = {
+            { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_RGB32  ).i, crop_yuv444_rgb4<uint8_t,   8, uint8_t,   8> },
+            { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_RGB32  ).i, crop_yuv444_rgb4<uint8_t,   8, uint16_t, 16> },
+            { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_RGB32  ).i, crop_yuv444_rgb4<uint8_t,   8, uint16_t, 14> },
+            { RGY_CSP_2(RGY_CSP_YUV444_12, RGY_CSP_RGB32  ).i, crop_yuv444_rgb4<uint8_t,   8, uint16_t, 12> },
+            { RGY_CSP_2(RGY_CSP_YUV444_10, RGY_CSP_RGB32  ).i, crop_yuv444_rgb4<uint8_t,   8, uint16_t, 10> },
+        };
+        const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
+        if (convert_from_yuv444_to_rgb4_list.count(cspconv.i) == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        convert_from_yuv444_to_rgb4_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop, pCropParam->matrix, stream);
+        auto cudaerr = cudaGetLastError();
+        if (cudaerr != cudaSuccess) {
+            auto sts = err_to_rgy(cudaerr);
+            AddMessage(RGY_LOG_ERROR, _T("error at convert_from_yuv444_to_rgb4_list(%s -> %s): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
             return sts;
         }
