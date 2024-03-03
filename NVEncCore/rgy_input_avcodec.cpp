@@ -81,7 +81,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     ppSubtitleSelect(nullptr),
     nDataSelectCount(0),
     ppDataSelect(nullptr),
-    AVSyncMode(RGY_AVSYNC_ASSUME_CFR),
+    AVSyncMode(RGY_AVSYNC_AUTO),
     procSpeedLimit(0),
     seekSec(0.0f),
     seekToSec(0.0f),

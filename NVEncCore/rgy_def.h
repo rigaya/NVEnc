@@ -756,7 +756,7 @@ struct VideoInfo {
 };
 
 enum RGYAVSync : uint32_t {
-    RGY_AVSYNC_ASSUME_CFR = 0x00,
+    RGY_AVSYNC_AUTO       = 0x00,
     RGY_AVSYNC_FORCE_CFR  = 0x01,
     RGY_AVSYNC_VFR        = 0x02,
 };
@@ -794,9 +794,10 @@ static bool is_list_empty(const CX_DESC *list) {
 extern const CX_DESC list_log_level[];
 
 const CX_DESC list_avsync[] = {
-    { _T("cfr"),      RGY_AVSYNC_ASSUME_CFR   },
-    { _T("vfr"),      RGY_AVSYNC_VFR       },
-    { _T("forcecfr"), RGY_AVSYNC_FORCE_CFR },
+    { _T("auto"),     RGY_AVSYNC_AUTO  },
+    { _T("cfr"),      RGY_AVSYNC_AUTO  },
+    { _T("vfr"),      RGY_AVSYNC_VFR         },
+    { _T("forcecfr"), RGY_AVSYNC_FORCE_CFR   },
     { NULL, 0 }
 };
 

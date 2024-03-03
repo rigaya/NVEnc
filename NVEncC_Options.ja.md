@@ -1542,8 +1542,7 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
   ```
 
 ### --avsync &lt;string&gt;
-  - cfr (default)  
-    入力はCFRを仮定し、入力ptsをチェックしない。
+  - auto (default)  
 
   - forcecfr  
     入力ptsを見ながら、CFRに合うようフレームの水増し・間引きを行い、音声との同期が維持できるようにする。主に、入力がvfrやRFFなどのときに音ズレしてしまう問題への対策。また、--trimとは併用できない。

@@ -394,7 +394,7 @@ static RGY_ERR initOtherReaders(
             inputInfoAVAudioReader.ppAudioSelect = (AudioSelect **)select.data();
         }
         inputInfoAVAudioReader.procSpeedLimit = ctrl->procSpeedLimit;
-        inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
+        inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_AUTO;
         inputInfoAVAudioReader.seekSec = common->seekSec;
         inputInfoAVAudioReader.seekToSec = common->seekToSec;
         inputInfoAVAudioReader.logFramePosList = ctrl->logFramePosList.getFilename(src.filename, _T(".framelist.csv"));
@@ -614,7 +614,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.ppAttachmentSelect = common->ppAttachmentSelectList;
         inputInfoAVCuvid.nAttachmentSelectCount = common->nAttachmentSelectCount;
         inputInfoAVCuvid.procSpeedLimit = ctrl->procSpeedLimit;
-        inputInfoAVCuvid.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
+        inputInfoAVCuvid.AVSyncMode = RGY_AVSYNC_AUTO;
         inputInfoAVCuvid.seekSec = common->seekSec;
         inputInfoAVCuvid.seekToSec = common->seekToSec;
         inputInfoAVCuvid.logFramePosList = ctrl->logFramePosList.getFilename(common->inputFilename, _T(".framelist.csv"));
@@ -623,7 +623,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
         inputInfoAVCuvid.queueInfo = (perfMonitor) ? perfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.HWDecCodecCsp = &HWDecCodecCsp;
-        inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_ASSUME_CFR;
+        inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_AUTO;
         inputInfoAVCuvid.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy;
         inputInfoAVCuvid.parseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource;
         inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;

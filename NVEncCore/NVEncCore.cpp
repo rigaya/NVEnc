@@ -310,7 +310,7 @@ NVEncCore::NVEncCore() :
     m_sar(),
     m_encVUI(),
     m_nProcSpeedLimit(0),
-    m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
+    m_nAVSyncMode(RGY_AVSYNC_AUTO),
     m_timestampPassThrough(false),
     m_inputFps(),
     m_outputTimebase(),
@@ -4960,7 +4960,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
         add_str(RGY_LOG_ERROR, _T("[offset: %d]\n"), m_trimParam.offset);
     }
-    if (m_nAVSyncMode != RGY_AVSYNC_ASSUME_CFR) {
+    if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) {
         add_str(RGY_LOG_ERROR, _T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     }
     tstring vppFilterMes;
