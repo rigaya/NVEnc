@@ -864,6 +864,15 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
                 continue;
             }
         }
+        if (inputParam->vpp.fruc.enable) {
+            //nvof-frucにはturing以降(CC7.0)が必要
+            const int nvvfxRequiredCCMajor = 7;
+            if ((*gpu)->cc().first < nvvfxRequiredCCMajor) {
+                message += strsprintf(_T("GPU #%d (%s) does not support fruc, CC 7.0 is required but GPU is CC %d.%d.\n"), (*gpu)->id(), (*gpu)->name().c_str(), (*gpu)->cc().first, (*gpu)->cc().second);
+                gpu = gpuList.erase(gpu);
+                continue;
+            }
+        }
 
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for encode.\n"), (*gpu)->id(), (*gpu)->name().c_str());
         gpu++;
