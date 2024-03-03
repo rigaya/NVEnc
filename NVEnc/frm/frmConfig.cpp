@@ -1327,6 +1327,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppNnediNns);
     LOAD_CLI_TEXT(fcgCBVppResize);
     LOAD_CLI_TEXT(fcgLBVppResize);
+    LOAD_CLI_TEXT(fcgCBVppFRUC);
     LOAD_CLI_TEXT(fcgLBPSNR);
     LOAD_CLI_TEXT(fcgLBSSIM);
     LOAD_CLI_TEXT(tabPageExOpt);
@@ -1601,6 +1602,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppTweakGamma,           (int)(encPrm.vpp.tweak.gamma * 100.0f));
         SetNUValue(fcgNUVppTweakSaturation,      (int)(encPrm.vpp.tweak.saturation * 100.0f));
         SetNUValue(fcgNUVppTweakHue,             (int) encPrm.vpp.tweak.hue);
+        fcgCBVppFRUC->Checked                  = encPrm.vpp.fruc.enable;
 
         //音声
         fcgCBAudioUseExt->Checked          = cnf->aud.use_internal == 0;
@@ -1889,6 +1891,9 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.tweak.gamma            = (float)fcgNUVppTweakGamma->Value * 0.01f;
     encPrm.vpp.tweak.saturation       = (float)fcgNUVppTweakSaturation->Value * 0.01f;
     encPrm.vpp.tweak.hue              = (float)fcgNUVppTweakHue->Value;
+
+    encPrm.vpp.fruc.enable            = fcgCBVppFRUC->Checked;
+    encPrm.vpp.fruc.mode              = (fcgCBVppFRUC->Checked) ? VppFrucMode::NVOFFRUCx2 : VppFrucMode::Disabled;
 
     //音声部
     cnf->oth.out_audio_only             = fcgCBAudioOnly->Checked;
@@ -2272,6 +2277,7 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgTBVppTweakSaturation);
     SET_TOOL_TIP_EX(fcgNUVppTweakHue);
     SET_TOOL_TIP_EX(fcgTBVppTweakHue);
+    SET_TOOL_TIP_EX(fcgCBVppFRUC);
 
     //拡張
     SET_TOOL_TIP_EX(fcgCBAFS);

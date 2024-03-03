@@ -706,6 +706,7 @@ enum AuoMes {
         AuofcgLBVppNnediNns,
         AuofcgCBVppResize,
         AuofcgLBVppResize,
+        AuofcgCBVppFRUC,
         AuofcgLBPSNR,
         AuofcgLBSSIM,
         AuotabPageExOpt,
@@ -1000,6 +1001,7 @@ enum AuoMes {
         AuofrmTTfcgTBVppTweakSaturation,
         AuofrmTTfcgNUVppTweakHue,
         AuofrmTTfcgTBVppTweakHue,
+        AuofrmTTfcgCBVppFRUC,
 
         AuofrmTTfcgTCIN,
         AuofrmTTfcgCBAFS,

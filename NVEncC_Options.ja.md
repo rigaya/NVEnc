@@ -2599,7 +2599,7 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   ```
 
 ### --vpp-fruc [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-  [NVIDIA Optical FlowのFRUC(Frame Rate Up Conversion)](https://docs.nvidia.com/video-technologies/optical-flow-sdk/nvfruc-programming-guide/index.html)ベースの動く予測に基づくフレームレート変換を行います。
+  [NVIDIA Optical FlowのFRUC(Frame Rate Up Conversion)](https://docs.nvidia.com/video-technologies/optical-flow-sdk/nvfruc-programming-guide/index.html)ベースの動く予測に基づくフレーム補間(フレームレート変換)を行います。
 
   Turing以降(RTX20xx以降)のGPUが必要なほか、NVIDIAドライバ528.24以降が必要です。また、現状Windowsのみ対応しています。
 
