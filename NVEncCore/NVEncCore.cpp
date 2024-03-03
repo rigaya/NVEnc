@@ -591,6 +591,24 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
         }
         PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
     }
+    if (inputParam->vpp.fruc.enable) {
+        rgy_rational<int> frucfps;
+        switch (inputParam->vpp.fruc.mode) {
+        case VppFrucMode::NVOFFRUCx2:
+            frucfps = m_inputFps * 2;
+            break;
+        case VppFrucMode::NVOFFRUCFps:
+            frucfps = inputParam->vpp.fruc.targetFps;
+            break;
+        default:
+            break;
+        }
+        if (frucfps.is_valid()) {
+            const auto timbeaselcm = rgy_lcm(m_outputTimebase.d(), frucfps.n() * 2);
+            m_outputTimebase *= rgy_rational<int>(1, timbeaselcm / m_outputTimebase.d());
+            PrintMes(RGY_LOG_DEBUG, _T("timebase changed to %d/%d, as vpp-fruc targets %d/%d fps\n"), m_outputTimebase.n(), m_outputTimebase.d(), frucfps.n(), frucfps.d());
+        }
+    }
 #if !FOR_AUO
     if (inputParam->common.dynamicHdr10plusJson.length() > 0) {
         m_hdr10plus = initDynamicHDR10Plus(inputParam->common.dynamicHdr10plusJson, m_pNVLog);
