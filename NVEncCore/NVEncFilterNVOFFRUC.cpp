@@ -216,7 +216,17 @@ RGY_ERR NVEncFilterNVOFFRUC::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
         pParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
-    setFilterInfo(prm->print());
+    tstring info = m_name + _T(": ");
+    if (m_srcCrop) {
+        info += m_srcCrop->GetInputMessage() + _T("\n");
+    }
+    tstring nameBlank(m_name.length() + _tcslen(_T(": ")), _T(' '));
+    info += tstring(INFO_INDENT) + nameBlank + pParam->print();
+    if (m_dstCrop) {
+        info += tstring(_T("\n")) + tstring(INFO_INDENT) + nameBlank + m_dstCrop->GetInputMessage();
+    }
+    setFilterInfo(info);
+    pParam->baseFps = m_targetFps;
     m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
     m_param = pParam;
     return sts;
@@ -375,8 +385,6 @@ RGY_ERR NVEncFilterNVOFFRUC::setFirstFrame(const CUFrameDevPtr *firstframe) {
 }
 
 RGY_ERR NVEncFilterNVOFFRUC::genFrame(RGYFrameInfo *outFrame, const CUFrameDevPtr *prev, const CUFrameDevPtr *curr, const int64_t genPts, cudaStream_t stream) {
-    bool ignored = false;
-
     CUFrameDevPtr *work = m_frucBuf.back().get();
     copyFramePropWithoutRes(&work->frame, &curr->frame);
     work->setTimestamp(genPts);
