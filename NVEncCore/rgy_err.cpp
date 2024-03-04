@@ -629,7 +629,6 @@ RGY_ERR err_to_rgy(NppStatus err) {
     return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
 }
 
-
 #endif //#if ENCODER_NVENC
 
 #if ENCODER_VCEENC
