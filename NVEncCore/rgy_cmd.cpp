@@ -3251,6 +3251,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         || 2 == _stscanf_s(param_val.c_str(), _T("%d:%d"), &a[0], &a[1])
                         || 2 == _stscanf_s(param_val.c_str(), _T("%d,%d"), &a[0], &a[1])) {
                         vpp->fruc.targetFps = rgy_rational<int>(a[0], a[1]);
+                        vpp->fruc.mode = VppFrucMode::NVOFFRUCFps;
                     } else {
                         double d;
                         if (1 == _stscanf_s(param_val.c_str(), _T("%lf"), &d)) {
