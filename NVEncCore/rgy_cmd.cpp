@@ -7730,7 +7730,7 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-fruc [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable frame rate up conversion filter.\n")
         _T("    params\n")
-        _T("      double                     double frame rate (fast)")
+        _T("      double                     double frame rate (fast)\n")
         _T("      fps=<int>/<int> or <float> target frame rate\n"));
 #endif
     str += strsprintf(_T("\n")
