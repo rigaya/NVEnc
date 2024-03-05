@@ -59,6 +59,10 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::MFX_PERC_ENC_PREFILTER,  _T("mfx_perc_enc_prefilter")),
     std::make_pair(VppType::MFX_COPY,                _T("mfx_copy")),
 #endif //#if ENCODER_QSV
+#if ENCODER_NVENC || CLFILTERS_AUF
+    std::make_pair(VppType::NVVFX_DENOISE,            _T("nvvfx_denoise")),
+    std::make_pair(VppType::NVVFX_ARTIFACT_REDUCTION, _T("nvvfx_artifact_reduction")),
+#endif
 #if ENCODER_VCEENC
     std::make_pair(VppType::AMF_CONVERTER,           _T("amf_perc_enc_prefilter")),
     std::make_pair(VppType::AMF_PREPROCESS,          _T("amf_preprocess")),
@@ -209,6 +213,10 @@ RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
     } else if (resize < RGY_VPP_RESIZE_NPPI_MAX) {
         return RGY_VPP_RESIZE_TYPE_NPPI;
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    } else if (resize < RGY_VPP_RESIZE_NVVFX_MAX) {
+        return RGY_VPP_RESIZE_TYPE_NVVFX;
 #endif
 #if ENCODER_VCEENC
     } else if (resize < RGY_VPP_RESIZE_AMF_MAX) {

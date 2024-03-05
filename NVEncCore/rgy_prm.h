@@ -93,6 +93,11 @@ enum class VppType : int {
     MFX_COPY,
 #endif //#if ENCODER_QSV
     MFX_MAX,
+#if ENCODER_NVENC || CLFILTERS_AUF
+    NVVFX_DENOISE,
+    NVVFX_ARTIFACT_REDUCTION,
+#endif
+    NVVFX_MAX,
 #if ENCODER_VCEENC
     AMF_CONVERTER,
     AMF_PREPROCESS,
@@ -154,13 +159,16 @@ enum class VppType : int {
     CL_MAX,
 };
 
-enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_NVVFX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
 
 static VppFilterType getVppFilterType(VppType vpptype) {
     if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
 #if ENCODER_QSV
     if (vpptype < VppType::MFX_MAX) return VppFilterType::FILTER_MFX;
 #endif // #if ENCODER_QSV
+#if ENCODER_NVENC || CLFILTERS_AUF
+    if (vpptype < VppType::NVVFX_MAX) return VppFilterType::FILTER_NVVFX;
+#endif // #if ENCODER_NVENC || CLFILTERS_AUF
 #if ENCODER_VCEENC
     if (vpptype < VppType::AMF_MAX) return VppFilterType::FILTER_AMF;
 #endif
@@ -399,7 +407,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_MFX_ADVANCED,
     RGY_VPP_RESIZE_MFX_MAX,
 #endif
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_NPPI_INTER_NN,        /**<  Nearest neighbor filtering. */
     RGY_VPP_RESIZE_NPPI_INTER_LINEAR,        /**<  Linear interpolation. */
     RGY_VPP_RESIZE_NPPI_INTER_CUBIC,        /**<  Cubic interpolation. */
@@ -411,7 +419,8 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NPPI_INTER_LANCZOS3_ADVANCED,       /**<  Generic Lanczos filtering with order 3. */
     RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE, /**<  Smooth edge filtering. */
     RGY_VPP_RESIZE_NPPI_MAX,
-
+#endif
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_NVVFX_SUPER_RES,
     RGY_VPP_RESIZE_NVVFX_MAX,
 #endif
@@ -432,24 +441,6 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_UNKNOWN,
 };
 
-static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
-    return RGY_VPP_RESIZE_OPENCL_CUDA_MAX < interp && interp < RGY_VPP_RESIZE_NPPI_MAX;
-#else
-    UNREFERENCED_PARAMETER(interp);
-    return false;
-#endif
-}
-
-static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
-    return RGY_VPP_RESIZE_NPPI_MAX < interp && interp < RGY_VPP_RESIZE_NVVFX_MAX;
-#else
-    UNREFERENCED_PARAMETER(interp);
-    return false;
-#endif
-}
-
 enum RGY_VPP_RESIZE_TYPE {
     RGY_VPP_RESIZE_TYPE_NONE,
     RGY_VPP_RESIZE_TYPE_AUTO,
@@ -457,8 +448,11 @@ enum RGY_VPP_RESIZE_TYPE {
 #if ENCODER_QSV
     RGY_VPP_RESIZE_TYPE_MFX,
 #endif
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_TYPE_NPPI,
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    RGY_VPP_RESIZE_TYPE_NVVFX,
 #endif
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_TYPE_AMF,
@@ -471,6 +465,23 @@ enum RGY_VPP_RESIZE_TYPE {
 
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize);
 
+
+static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_NPPI;
+#else
+    UNREFERENCED_PARAMETER(interp);
+    return false;
+#endif
+}
+
+static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_NVVFX;
+#else
+    return false;
+#endif
+}
 
 const CX_DESC list_vpp_resize_mode[] = {
     { _T("auto"),     RGY_VPP_RESIZE_MODE_DEFAULT },
@@ -504,7 +515,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
   #endif
 #endif
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
     { _T("npp_linear"),    RGY_VPP_RESIZE_NPPI_INTER_LINEAR },
     { _T("cubic"),         RGY_VPP_RESIZE_NPPI_INTER_CUBIC },
@@ -515,6 +526,8 @@ const CX_DESC list_vpp_resize[] = {
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
 #endif
 #if ENCODER_VCEENC
@@ -551,7 +564,7 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
 #endif
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
     { _T("npp_linear"),    RGY_VPP_RESIZE_NPPI_INTER_LINEAR },
     { _T("cubic"),         RGY_VPP_RESIZE_NPPI_INTER_CUBIC },
@@ -562,6 +575,8 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
 #endif
 #if ENCODER_VCEENC
