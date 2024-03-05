@@ -700,6 +700,23 @@ RGY_ERR NVEncFilterResize::initNvvfxFilter(NVEncFilterParamResize *param) {
         AddMessage(RGY_LOG_ERROR, _T("%s not supported for resize ratio below 1.0.\n"), filter_name.c_str());
         return RGY_ERR_UNSUPPORTED;
     }
+    if (m_nvvfxSuperRes
+        // モード変更には再初期化が必要
+        && std::dynamic_pointer_cast<NVEncFilterParamResize>(m_param)->nvvfxSuperRes->nvvfxSuperRes.mode != param->nvvfxSuperRes->nvvfxSuperRes.mode
+        && m_param->frameIn.width == param->frameIn.width
+        && m_param->frameIn.height == param->frameIn.height
+        && m_param->frameOut.width == param->frameOut.width
+        && m_param->frameOut.height == param->frameOut.height) {
+        auto newParam = param->nvvfxSuperRes->nvvfxSuperRes;
+        auto oldParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(m_param);
+        param->nvvfxSuperRes = oldParam->nvvfxSuperRes;
+        param->nvvfxSuperRes->nvvfxSuperRes = newParam;
+        auto sts = m_nvvfxSuperRes->init(param->nvvfxSuperRes, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        return RGY_ERR_NONE;
+    }
     static const auto nvvfx_scale_ratio = make_array<rgy_rational<int>>(
         rgy_rational<int>(4, 3),
         rgy_rational<int>(3, 2),
