@@ -2022,6 +2022,12 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const
     // NV12 - UV
     static const std::map<uint64_t, void (*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> crop_uv_from_yv12_list = {
         { RGY_CSP_2(RGY_CSP_YV12,    RGY_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YV12_16, RGY_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YV12_14, RGY_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint16_t, 14> },
+        { RGY_CSP_2(RGY_CSP_YV12_12, RGY_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint16_t, 12> },
+        { RGY_CSP_2(RGY_CSP_YV12_10, RGY_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint16_t, 10> },
+        { RGY_CSP_2(RGY_CSP_YV12_09, RGY_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint16_t,  9> },
+        { RGY_CSP_2(RGY_CSP_YV12,    RGY_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 16, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_YV12_16, RGY_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 16, uint16_t, 16> },
         { RGY_CSP_2(RGY_CSP_YV12_14, RGY_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 16, uint16_t, 14> },
         { RGY_CSP_2(RGY_CSP_YV12_12, RGY_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 16, uint16_t, 12> },
