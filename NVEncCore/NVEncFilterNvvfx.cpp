@@ -56,9 +56,20 @@ NVEncFilterNvvfxEffect::~NVEncFilterNvvfxEffect() {
 }
 
 void NVEncFilterNvvfxEffect::close() {
+    AddMessage(RGY_LOG_DEBUG, _T("Clear state buf.\n"));
+    m_state.reset();
 #if ENABLE_NVVFX
+    AddMessage(RGY_LOG_DEBUG, _T("Clear dst image buffer.\n"));
+    m_dstImg.reset();
+    AddMessage(RGY_LOG_DEBUG, _T("Clear src image buffer.\n"));
+    m_srcImg.reset();
+    AddMessage(RGY_LOG_DEBUG, _T("Close nvvfx effect handle.\n"));
     m_effect.reset();
 #endif
+    AddMessage(RGY_LOG_DEBUG, _T("Close src scp conversion filter.\n"));
+    m_srcCrop.reset();
+    AddMessage(RGY_LOG_DEBUG, _T("Close dst scp conversion filter.\n"));
+    m_dstCrop.reset();
 }
 
 bool NVEncFilterNvvfxEffect::compareModelDir(const tstring& modelDir) const {
