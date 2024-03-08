@@ -702,7 +702,7 @@ RGY_ERR NVEncFilterResize::initNvvfxFilter(NVEncFilterParamResize *param) {
     }
     if (m_nvvfxSuperRes
         // モード変更には再初期化が必要
-        && std::dynamic_pointer_cast<NVEncFilterParamResize>(m_param)->nvvfxSuperRes->nvvfxSuperRes.mode != param->nvvfxSuperRes->nvvfxSuperRes.mode
+        && std::dynamic_pointer_cast<NVEncFilterParamResize>(m_param)->nvvfxSuperRes->nvvfxSuperRes.mode == param->nvvfxSuperRes->nvvfxSuperRes.mode
         && m_param->frameIn.width == param->frameIn.width
         && m_param->frameIn.height == param->frameIn.height
         && m_param->frameOut.width == param->frameOut.width
