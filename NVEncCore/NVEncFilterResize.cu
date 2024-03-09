@@ -840,6 +840,9 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             return sts;
         }
         resizeInterp = pResizeParam->nvvfxSubAlgo;
+    } else {
+        m_nvvfxSuperRes.reset(); // 不要になったら解放
+        pResizeParam->nvvfxSuperRes.reset();
     }
 
     if ((!m_weightSpline || m_weightSplineAlgo != resizeInterp)
