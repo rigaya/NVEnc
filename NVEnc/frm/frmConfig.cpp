@@ -941,6 +941,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     const bool h264_mode = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value == RGY_CODEC_H264;
     const bool hevc_mode = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value == RGY_CODEC_HEVC;
     const bool av1_mode  = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value == RGY_CODEC_AV1;
+    const bool hevc_highbitdepth = list_bitdepth[fcgCXHEVCOutBitDepth->SelectedIndex].value != 0;
 
     bool qvbr_mode = false;
     int vce_rc_method = list_encmode[fcgCXEncMode->SelectedIndex].value;
@@ -967,7 +968,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgLBQPP->Enabled = cqp_mode;
     fcgLBQPB->Enabled = cqp_mode;
     // codec が RGY_CODEC_AV1 の時、CQPの上限は255、それ以外なら51
-    const int qp_max = (av1_mode) ? 255 : 51;
+    const int qp_max = (av1_mode) ? 255 : ((hevc_mode && hevc_highbitdepth) ? 63 : 51);
     fcgNUQPI->Maximum = qp_max;
     fcgNUQPP->Maximum = qp_max;
     fcgNUQPB->Maximum = qp_max;

@@ -122,6 +122,12 @@ RGYQPSet::RGYQPSet(int i, int p, int b) :
 
 };
 
+RGYQPSet::RGYQPSet(int i, int p, int b, bool enable_) :
+    enable(enable_),
+    qpI(i), qpP(p), qpB(b) {
+
+};
+
 int RGYQPSet::qp(int i) const {
     switch (i) {
     case 0: return qpI;

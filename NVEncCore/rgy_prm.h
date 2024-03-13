@@ -311,6 +311,7 @@ struct RGYQPSet {
 
     RGYQPSet();
     RGYQPSet(int i, int p, int b);
+    RGYQPSet(int i, int p, int b, bool enable);
     int qp(int i) const;
     int& qp(int i);
     bool operator==(const RGYQPSet &x) const;
