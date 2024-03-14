@@ -299,11 +299,12 @@ else
 fi
 
 CXXINC=" \
-  -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_FORMAT_MACROS \
   -I${SRCDIR} -I${SRCDIR}/NVEncSDK/Common/inc -I${SRCDIR}/NVEncCore -I${SRCDIR}/NVEncNVOFFRUC \
   -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/cppcodec -I${SRCDIR}/ttmath \
 "
-CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused -Wno-missing-braces"
+CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused -Wno-missing-braces \
+  -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_FORMAT_MACROS -D__STDC_CONSTANT_MACROS \
+"
 
 LDFLAGS="-L. -ldl -lstdc++ -lstdc++fs"
 if [ $ARM64 -ne 0 ]; then
