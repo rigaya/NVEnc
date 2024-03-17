@@ -480,6 +480,7 @@ static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_NVVFX;
 #else
+    UNREFERENCED_PARAMETER(interp);
     return false;
 #endif
 }

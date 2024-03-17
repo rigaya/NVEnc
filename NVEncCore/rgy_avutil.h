@@ -273,8 +273,22 @@ static inline int pktFlagGetTrackID(const AVPacket *pkt) {
 
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
 
+// AVCodecContext::ticks_per_frameの代わり
+// For some codecs, the time base is closer to the field rate than the frame rate.
+// Most notably, H.264 and MPEG-2 specify time_base as half of frame duration
+// if no telecine is used ...
+// Set to time_base ticks per frame. Default 1, e.g., H.264/MPEG-2 set it to 2.
+int getCodecTickPerFrames(const AVCodecID codecID);
+
 //NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
 AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct);
+
+//AVFrameのdurationを取得
+int64_t rgy_avframe_get_duration(const AVFrame *frame);
+
+//AVFrameのインタレ関連フラグの確認
+bool rgy_avframe_interlaced(const AVFrame *frame);
+bool rgy_avframe_tff_flag(const AVFrame *frame);
 
 //AVFrameの情報からRGY_PICSTRUCTを返す
 RGY_PICSTRUCT picstruct_avframe_to_rgy(const AVFrame *frame);

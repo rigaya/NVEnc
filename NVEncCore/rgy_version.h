@@ -76,6 +76,7 @@ const char *get_encoder_version();
 #define ENABLE_DTL 1
 #define ENABLE_PERF_COUNTER 1
 #define AV_CHANNEL_LAYOUT_STRUCT_AVAIL 1
+#define AV_FRAME_DURATION_AVAIL 1
 
 #ifndef ENABLE_NVOFFRUC_HEADER
 #define ENABLE_NVOFFRUC_HEADER 0
