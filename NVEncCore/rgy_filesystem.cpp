@@ -127,7 +127,11 @@ bool CreateDirectoryRecursive(const char *dir) {
     if (std::filesystem::exists(targetDir)) {
         return true;
     }
-    return std::filesystem::create_directories(targetDir);
+    try {
+        return std::filesystem::create_directories(targetDir);
+    } catch (...) {
+        return false;
+    }
 }
 #if defined(_WIN32) || defined(_WIN64)
 bool CreateDirectoryRecursive(const wchar_t *dir) {
@@ -135,7 +139,11 @@ bool CreateDirectoryRecursive(const wchar_t *dir) {
     if (std::filesystem::exists(targetDir)) {
         return true;
     }
-    return std::filesystem::create_directories(targetDir);
+    try {
+        return std::filesystem::create_directories(targetDir);
+    } catch (...) {
+        return false;
+    }
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
