@@ -404,6 +404,58 @@ tstring getTimestampString(int64_t ts, const AVRational& timebase);
 uint32_t tagFromStr(std::string tagstr);
 std::string tagToStr(uint32_t tag);
 
+//AVStreamのside data関連
+template<typename T>
+std::unique_ptr<T, decltype(&av_freep)> AVStreamGetSideData(const AVStream *stream, const AVPacketSideDataType type, size_t& side_data_size) {
+    std::unique_ptr<T, decltype(&av_freep)> side_data_copy(nullptr, av_freep);
+#if AVCODEC_PAR_CODED_SIDE_DATA_AVAIL
+    auto side_data = av_packet_side_data_get(stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data, type);
+    if (side_data) {
+        side_data_size = side_data->size;
+        side_data_copy = unique_ptr<T, decltype(&av_freep)>((T *)av_malloc(side_data->size + AV_INPUT_BUFFER_PADDING_SIZE), av_freep);
+        memcpy(side_data_copy.get(), side_data, side_data->size);
+    }
+#else
+    std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type size = 0;
+    auto side_data = av_stream_get_side_data(stream, type, &size);
+    side_data_size = size;
+    if (side_data) {
+        side_data_copy = unique_ptr<T, decltype(&av_freep)>((T *)av_malloc(side_data_size + AV_INPUT_BUFFER_PADDING_SIZE), av_freep);
+        memcpy(side_data_copy.get(), side_data, side_data_size);
+    }
+#endif
+    return side_data_copy;
+}
+
+template<typename T>
+int AVStreamAddSideData(AVStream *stream, const AVPacketSideDataType type, std::unique_ptr<T, decltype(&av_freep)>& side_data, const size_t side_data_size) {
+#if AVCODEC_PAR_CODED_SIDE_DATA_AVAIL
+    auto ptr = av_packet_side_data_add(&stream->codecpar->coded_side_data, &stream->codecpar->nb_coded_side_data, type, (void *)side_data.get(), side_data_size, 0);
+    int ret = ptr ? 0 : AVERROR(ENOMEM);
+#else
+    int ret = av_stream_add_side_data(stream, type, (uint8_t *)side_data.get(), side_data_size);
+#endif
+    if (ret == 0) {
+        side_data.release();
+    }
+    return ret;
+}
+
+static void AVStreamCopySideData(AVStream *streamDst, const AVStream *streamSrc) {
+#if AVCODEC_PAR_CODED_SIDE_DATA_AVAIL
+    for (int i = 0; i < streamSrc->codecpar->nb_coded_side_data; i++) {
+        const auto& side_data = streamSrc->codecpar->coded_side_data[i];
+        av_packet_side_data_add(&streamDst->codecpar->coded_side_data, &streamDst->codecpar->nb_coded_side_data, side_data.type, side_data.data, side_data.size, 0);
+    }
+#else
+    for (int i = 0; i < streamSrc->nb_side_data; i++) {
+        const AVPacketSideData *const sidedataSrc = &streamSrc->side_data[i];
+        uint8_t *const dst_data = av_stream_new_side_data(streamDst, sidedataSrc->type, sidedataSrc->size);
+        memcpy(dst_data, sidedataSrc->data, sidedataSrc->size);
+    }
+#endif
+}
+
 //利用可能なプロトコル情報のリストを取得
 vector<std::string> getAVProtocolList(int bOutput);
 

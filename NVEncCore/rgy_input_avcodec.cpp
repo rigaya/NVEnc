@@ -54,6 +54,163 @@ static inline void extend_array_size(VideoFrameData *dataset) {
     memset(dataset->frame + current_cap, 0, sizeof(dataset->frame[0]) * (dataset->capacity - current_cap));
 }
 
+#define CLOSE_LOG_DEBUG(x) { if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, (x)); }
+
+AVDemuxFormat::AVDemuxFormat() :
+    formatCtx(nullptr),
+    analyzeSec(0.0),
+    isPipe(false),
+    lowLatency(false),
+    timestampPassThrough(false),
+    preReadBufferIdx(0),
+    audioTracks(0),
+    subtitleTracks(0),
+    dataTracks(0),
+    attachmentTracks(0),
+    AVSyncMode(RGY_AVSYNC_AUTO),
+    formatOptions(nullptr),
+    fpInput(nullptr),
+    inputBuffer(nullptr),
+    inputBufferSize(0),
+    inputFilesize(0) {
+}
+
+void AVDemuxFormat::close(RGYLog *log) {
+    //close video file
+    if (fpInput) {
+        CLOSE_LOG_DEBUG(_T("Closing file pointer...\n"));
+        if (formatCtx) {
+            if (formatCtx->pb) {
+                if (formatCtx->pb->buffer) {
+                    CLOSE_LOG_DEBUG(_T("Closing pb->buffer...\n"));
+                    av_freep(&formatCtx->pb->buffer);
+                    CLOSE_LOG_DEBUG(_T("Closed pb->buffer.\n"));
+                }
+                CLOSE_LOG_DEBUG(_T("Closing avio context...\n"));
+                avio_context_free(&formatCtx->pb);
+                CLOSE_LOG_DEBUG(_T("Closed avio context.\n"));
+            }
+        }
+        fclose(fpInput);
+        CLOSE_LOG_DEBUG(_T("Closed file pointer.\n"));
+        fpInput = nullptr;
+    }
+    if (formatCtx) {
+        CLOSE_LOG_DEBUG(_T("Closing avformat context...\n"));
+        avformat_close_input(&formatCtx);
+        CLOSE_LOG_DEBUG(_T("Closed avformat context.\n"));
+        formatCtx = nullptr;
+    }
+    if (formatOptions) {
+        CLOSE_LOG_DEBUG(_T("Free formatOptions...\n"));
+        av_dict_free(&formatOptions);
+        CLOSE_LOG_DEBUG(_T("Freed formatOptions.\n"));
+        formatOptions = nullptr;
+    }
+}
+
+AVDemuxVideo::AVDemuxVideo() :
+    readVideo(false),
+    stream(nullptr),
+    codecDecode(nullptr),
+    codecCtxDecode(nullptr),
+    frame(nullptr),
+    index(-1),
+    streamFirstKeyPts(0),
+    firstPkt(nullptr),
+    streamPtsInvalid(0),
+    RFFEstimate(0),
+    gotFirstKeyframe(false),
+    bsfcCtx(nullptr),
+    extradata(nullptr),
+    extradataSize(0),
+    nAvgFramerate({ 0 }),
+    findPosLastIdx(0),
+    nSampleGetCount(0),
+    decRFFStatus(0),
+    pParserCtx(nullptr),
+    pCodecCtxParser(nullptr),
+    HWDecodeDeviceId(0),
+    hevcbsf(RGYHEVCBsf::INTERNAL),
+    bUseHEVCmp42AnnexB(false),
+    hevcNaluLengthSize(0),
+    hdr10plusMetadataCopy(false),
+    doviRpuCopy(false),
+    masteringDisplay(std::unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)>(nullptr, av_freep)),
+    contentLight(std::unique_ptr<AVContentLightMetadata, decltype(&av_freep)>(nullptr, av_freep)),
+    qpTableListRef(nullptr),
+    parse_nal_h264(get_parse_nal_unit_h264_func()),
+    parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
+}
+
+void AVDemuxVideo::close(RGYLog *log) {
+    //close parser
+    if (pParserCtx) {
+        CLOSE_LOG_DEBUG(_T("Close parser...\n"));
+        av_parser_close(pParserCtx);
+        CLOSE_LOG_DEBUG(_T("Closed parser.\n"));
+        pParserCtx = nullptr;
+    }
+    if (pCodecCtxParser) {
+        CLOSE_LOG_DEBUG(_T("Close codecCtx for parser...\n"));
+        avcodec_free_context(&pCodecCtxParser);
+        CLOSE_LOG_DEBUG(_T("Closed codecCtx for parser.\n"));
+        pCodecCtxParser = nullptr;
+    }
+    if (codecCtxDecode) {
+        CLOSE_LOG_DEBUG(_T("Close codecCtx...\n"));
+        avcodec_free_context(&codecCtxDecode);
+        CLOSE_LOG_DEBUG(_T("Closed codecCtx.\n"));
+        codecCtxDecode = nullptr;
+    }
+    if (contentLight) {
+        CLOSE_LOG_DEBUG(_T("Free content light metadata...\n"));
+        contentLight.reset();
+        CLOSE_LOG_DEBUG(_T("Freed content light metadata.\n"));
+    }
+    if (masteringDisplay) {
+        CLOSE_LOG_DEBUG(_T("Free mastering display metadata...\n"));
+        masteringDisplay.reset();
+        CLOSE_LOG_DEBUG(_T("Freed mastering display metadata.\n"));
+    }
+    //close bitstreamfilter
+    if (bsfcCtx) {
+        CLOSE_LOG_DEBUG(_T("Free bsf...\n"));
+        av_bsf_free(&bsfcCtx);
+        CLOSE_LOG_DEBUG(_T("Freed bsf.\n"));
+        bsfcCtx = nullptr;
+    }
+    if (frame) {
+        CLOSE_LOG_DEBUG(_T("Free video frame...\n"));
+        av_frame_free(&frame);
+        CLOSE_LOG_DEBUG(_T("Freed video frame.\n"));
+        frame = nullptr;
+    }
+    if (firstPkt) {
+        CLOSE_LOG_DEBUG(_T("Free first video packet...\n"));
+        av_packet_free(&firstPkt);
+        CLOSE_LOG_DEBUG(_T("Freed first video packet.\n"));
+        firstPkt = nullptr;
+    }
+
+    if (extradata) {
+        CLOSE_LOG_DEBUG(_T("Free extra data...\n"));
+        av_free(extradata);
+        CLOSE_LOG_DEBUG(_T("Freed extra data.\n"));
+        extradata = nullptr;
+    }
+    index = -1;
+}
+
+void AVDemuxThread::close(RGYLog *log) {
+    if (thInput.joinable()) {
+        CLOSE_LOG_DEBUG(_T("Closing Input thread.\n"));
+        thInput.join();
+        CLOSE_LOG_DEBUG(_T("Closed Input thread.\n"));
+    }
+    bAbortInput = false;
+}
+
 RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     RGYInputPrm(base),
     inputRetry(0),
@@ -72,6 +229,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     probesize(-1),
     nTrimCount(0),
     pTrimList(nullptr),
+    fileIndex(0),
     trackStartAudio(0),
     trackStartSubtitle(0),
     trackStartData(0),
@@ -81,6 +239,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     ppSubtitleSelect(nullptr),
     nDataSelectCount(0),
     ppDataSelect(nullptr),
+    nAttachmentSelectCount(0),
+    ppAttachmentSelect(nullptr),
     AVSyncMode(RGY_AVSYNC_AUTO),
     procSpeedLimit(0),
     seekSec(0.0f),
@@ -109,8 +269,6 @@ RGYInputAvcodec::RGYInputAvcodec() :
     m_logFramePosList(),
     m_fpPacketList(),
     m_hevcMp42AnnexbBuffer() {
-    memset(&m_Demux.format, 0, sizeof(m_Demux.format));
-    memset(&m_Demux.video,  0, sizeof(m_Demux.video));
     m_readerName = _T("av" DECODER_NAME "/avsw");
 }
 
@@ -120,100 +278,17 @@ RGYInputAvcodec::~RGYInputAvcodec() {
 
 void RGYInputAvcodec::CloseThread() {
     m_Demux.thread.bAbortInput = true;
-    if (m_Demux.thread.thInput.joinable()) {
-        AddMessage(RGY_LOG_DEBUG, _T("Closing Input thread.\n"));
-        m_Demux.qVideoPkt.set_capacity(SIZE_MAX);
-        m_Demux.qVideoPkt.set_keep_length(0);
-        m_Demux.thread.thInput.join();
-        AddMessage(RGY_LOG_DEBUG, _T("Closed Input thread.\n"));
-    }
-    m_Demux.thread.bAbortInput = false;
+    m_Demux.qVideoPkt.set_capacity(SIZE_MAX);
+    m_Demux.qVideoPkt.set_keep_length(0);
+    m_Demux.thread.close(m_printMes.get());
 }
 
 void RGYInputAvcodec::CloseFormat(AVDemuxFormat *format) {
-    //close video file
-    if (format->fpInput) {
-        AddMessage(RGY_LOG_DEBUG, _T("Closing file pointer...\n"));
-        if (format->formatCtx) {
-            if (format->formatCtx->pb) {
-                if (format->formatCtx->pb->buffer) {
-                    AddMessage(RGY_LOG_DEBUG, _T("Closing pb->buffer...\n"));
-                    av_freep(&format->formatCtx->pb->buffer);
-                    AddMessage(RGY_LOG_DEBUG, _T("Closed pb->buffer.\n"));
-                }
-                AddMessage(RGY_LOG_DEBUG, _T("Closing avio context...\n"));
-                avio_context_free(&format->formatCtx->pb);
-                AddMessage(RGY_LOG_DEBUG, _T("Closed avio context.\n"));
-            }
-        }
-        fclose(format->fpInput);
-        AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
-    }
-    if (format->formatCtx) {
-        AddMessage(RGY_LOG_DEBUG, _T("Closing avformat context...\n"));
-        avformat_close_input(&format->formatCtx);
-        AddMessage(RGY_LOG_DEBUG, _T("Closed avformat context.\n"));
-    }
-    if (format->formatOptions) {
-        AddMessage(RGY_LOG_DEBUG, _T("Free formatOptions...\n"));
-        av_dict_free(&format->formatOptions);
-        AddMessage(RGY_LOG_DEBUG, _T("Freed formatOptions.\n"));
-    }
-    memset(format, 0, sizeof(format[0]));
+    format->close(m_printMes.get());
 }
 
 void RGYInputAvcodec::CloseVideo(AVDemuxVideo *video) {
-    //close parser
-    if (video->pParserCtx) {
-        AddMessage(RGY_LOG_DEBUG, _T("Close parser...\n"));
-        av_parser_close(video->pParserCtx);
-        AddMessage(RGY_LOG_DEBUG, _T("Closed parser.\n"));
-    }
-    if (video->pCodecCtxParser) {
-        AddMessage(RGY_LOG_DEBUG, _T("Close codecCtx for parser...\n"));
-        avcodec_free_context(&video->pCodecCtxParser);
-        AddMessage(RGY_LOG_DEBUG, _T("Closed codecCtx for parser.\n"));
-    }
-    if (video->codecCtxDecode) {
-        AddMessage(RGY_LOG_DEBUG, _T("Close codecCtx...\n"));
-        avcodec_free_context(&video->codecCtxDecode);
-        AddMessage(RGY_LOG_DEBUG, _T("Closed codecCtx.\n"));
-    }
-    if (video->contentLight) {
-        AddMessage(RGY_LOG_DEBUG, _T("Free content light metadata...\n"));
-        av_freep(&video->contentLight);
-        AddMessage(RGY_LOG_DEBUG, _T("Freed content light metadata.\n"));
-    }
-    if (video->masteringDisplay) {
-        AddMessage(RGY_LOG_DEBUG, _T("Free mastering display metadata...\n"));
-        av_freep(&video->masteringDisplay);
-        AddMessage(RGY_LOG_DEBUG, _T("Freed mastering display metadata.\n"));
-    }
-    //close bitstreamfilter
-    if (video->bsfcCtx) {
-        AddMessage(RGY_LOG_DEBUG, _T("Free bsf...\n"));
-        av_bsf_free(&video->bsfcCtx);
-        AddMessage(RGY_LOG_DEBUG, _T("Freed bsf.\n"));
-    }
-    if (video->frame) {
-        AddMessage(RGY_LOG_DEBUG, _T("Free video frame...\n"));
-        av_frame_free(&video->frame);
-        AddMessage(RGY_LOG_DEBUG, _T("Freed video frame.\n"));
-    }
-    if (video->firstPkt) {
-        AddMessage(RGY_LOG_DEBUG, _T("Free first video packet...\n"));
-        av_packet_free(&video->firstPkt);
-        AddMessage(RGY_LOG_DEBUG, _T("Freed first video packet.\n"));
-    }
-
-    if (video->extradata) {
-        AddMessage(RGY_LOG_DEBUG, _T("Free extra data...\n"));
-        av_free(video->extradata);
-        AddMessage(RGY_LOG_DEBUG, _T("Freed extra data.\n"));
-    }
-
-    memset(video, 0, sizeof(video[0]));
-    video->index = -1;
+    video->close(m_printMes.get());
 }
 
 void RGYInputAvcodec::CloseStream(AVDemuxStream *stream) {
@@ -1016,11 +1091,9 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
 RGY_ERR RGYInputAvcodec::parseHDRData() {
     //まずはstreamのside_dataを探す
-    std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type size = 0;
-    auto data = av_stream_get_side_data(m_Demux.video.stream, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, &size);
-    if (data) {
-        m_Demux.video.masteringDisplay = av_mastering_display_metadata_alloc();
-        memcpy(m_Demux.video.masteringDisplay, data, size);
+    size_t size = 0;
+    m_Demux.video.masteringDisplay = AVStreamGetSideData<AVMasteringDisplayMetadata>(m_Demux.video.stream, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, size);
+    if (m_Demux.video.masteringDisplay) {
         AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
             av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][0]),
             av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][1]),
@@ -1031,11 +1104,8 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
             av_q2d(m_Demux.video.masteringDisplay->white_point[0]), av_q2d(m_Demux.video.masteringDisplay->white_point[1]),
             av_q2d(m_Demux.video.masteringDisplay->min_luminance), av_q2d(m_Demux.video.masteringDisplay->max_luminance));
     }
-    data = av_stream_get_side_data(m_Demux.video.stream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, &size);
-    if (data) {
-        size_t st_size = 0;
-        m_Demux.video.contentLight = av_content_light_metadata_alloc(&st_size);
-        memcpy(m_Demux.video.contentLight, data, st_size);
+    m_Demux.video.contentLight = AVStreamGetSideData<AVContentLightMetadata>(m_Demux.video.stream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, size);
+    if (m_Demux.video.contentLight) {
         AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"), m_Demux.video.contentLight->MaxCLL, m_Demux.video.contentLight->MaxFALL);
     }
     if (m_Demux.video.masteringDisplay || m_Demux.video.contentLight) {
@@ -1117,8 +1187,8 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
     if (got_frame) {
         auto side_data = av_frame_get_side_data(frameDec.get(), AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
         if (side_data) {
-            m_Demux.video.masteringDisplay = av_mastering_display_metadata_alloc();
-            memcpy(m_Demux.video.masteringDisplay, side_data->data, sizeof(AVMasteringDisplayMetadata));
+            m_Demux.video.masteringDisplay = std::unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)>(av_mastering_display_metadata_alloc(), av_freep);
+            memcpy(m_Demux.video.masteringDisplay.get(), side_data->data, sizeof(AVMasteringDisplayMetadata));
             AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
                 av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][0]),
                 av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][1]),
@@ -1132,8 +1202,8 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
         side_data = av_frame_get_side_data(frameDec.get(), AV_FRAME_DATA_CONTENT_LIGHT_LEVEL);
         if (side_data) {
             size_t st_size = 0;
-            m_Demux.video.contentLight = av_content_light_metadata_alloc(&st_size);
-            memcpy(m_Demux.video.contentLight, side_data->data, st_size);
+            m_Demux.video.contentLight = std::unique_ptr<AVContentLightMetadata, decltype(&av_freep)>(av_content_light_metadata_alloc(&st_size), av_freep);
+            memcpy(m_Demux.video.contentLight.get(), side_data->data, st_size);
             AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"), m_Demux.video.contentLight->MaxCLL, m_Demux.video.contentLight->MaxFALL);
         }
     }
@@ -1670,8 +1740,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_DEBUG, _T("Opened framepos log file: \"%s\"\n"), input_prm->logCopyFrameData.c_str());
         }
 
-        m_Demux.video.parse_nal_h264 = get_parse_nal_unit_h264_func();
-        m_Demux.video.parse_nal_hevc = get_parse_nal_unit_hevc_func();
         m_Demux.video.hdr10plusMetadataCopy = input_prm->hdr10plusMetadataCopy;
         AddMessage(RGY_LOG_DEBUG, _T("hdr10plusMetadataCopy: %s\n"), m_Demux.video.hdr10plusMetadataCopy ? _T("on") : _T("off"));
         if (ENCODER_VCEENC && m_Demux.video.hdr10plusMetadataCopy && m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
@@ -3029,10 +3097,10 @@ RGY_ERR RGYInputAvcodec::ThreadFuncRead(RGYParamThread threadParam) {
 }
 
 const AVMasteringDisplayMetadata *RGYInputAvcodec::getMasteringDisplay() const {
-    return m_Demux.video.masteringDisplay;
+    return m_Demux.video.masteringDisplay.get();
 };
 const AVContentLightMetadata *RGYInputAvcodec::getContentLight() const {
-    return m_Demux.video.contentLight;
+    return m_Demux.video.contentLight.get();
 };
 
 #endif //ENABLE_AVSW_READER

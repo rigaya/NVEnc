@@ -125,6 +125,7 @@ LIBAV_LIBS=""
 ENABLE_AVSW_READER=1
 AV_CHANNEL_LAYOUT_STRUCT_AVAIL=1
 AV_FRAME_DURATION_AVAIL=1
+AVCODEC_PAR_CODED_SIDE_DATA_AVAIL=1
 
 CHECK_VAPOURSYNTH_NAMES="vapoursynth vapoursynth-script"
 ENABLE_VAPOURSYNTH=1
@@ -515,6 +516,13 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
     else
         cnf_write "yes"
     fi
+    
+    if ! cxx_check "AVCodecParameters::coded_side_data" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavcodec/codec_par.h" "AVCodecParameters *codecpar; codecpar->coded_side_data = 0;" ; then
+        cnf_write "no"
+        AVCODEC_PAR_CODED_SIDE_DATA_AVAIL=0
+    else
+        cnf_write "yes"
+    fi
     if [ $ENABLE_AVSW_READER -eq 0 ]; then
         cnf_write "libavutil, libavcodec, libavformat, libavfilter, libswresample are required to build nvencc."
         exit 1
@@ -753,6 +761,7 @@ write_enc_config "#define ENABLE_VMAF                   $ENABLE_LIBVMAF"
 write_enc_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
 write_enc_config "#define AV_CHANNEL_LAYOUT_STRUCT_AVAIL $AV_CHANNEL_LAYOUT_STRUCT_AVAIL"
 write_enc_config "#define AV_FRAME_DURATION_AVAIL        $AV_FRAME_DURATION_AVAIL"
+write_enc_config "#define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL $AVCODEC_PAR_CODED_SIDE_DATA_AVAIL"
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
 write_enc_config "#define ENABLE_PERF_COUNTER           0"

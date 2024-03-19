@@ -682,7 +682,7 @@ typedef struct VideoFrameData {
     int64_t duration;     //合計の動画の長さ
 } VideoFrameData;
 
-typedef struct AVDemuxFormat {
+struct AVDemuxFormat {
     AVFormatContext          *formatCtx;             //動画ファイルのformatContext
     double                    analyzeSec;            //動画ファイルを先頭から分析する時間
     bool                      isPipe;                //入力がパイプ
@@ -700,9 +700,13 @@ typedef struct AVDemuxFormat {
     char                     *inputBuffer;           //入力バッファ
     int                       inputBufferSize;       //入力バッファサイズ
     uint64_t                  inputFilesize;         //入力ファイルサイズ
-} AVDemuxFormat;
 
-typedef struct AVDemuxVideo {
+    AVDemuxFormat();
+    ~AVDemuxFormat() { close(); }
+    void close(RGYLog *log = nullptr);
+};
+
+struct AVDemuxVideo {
                                                      //動画は音声のみ抽出する場合でも同期のため参照することがあり、
                                                      //pCodecCtxのチェックだけでは読み込むかどうか判定できないので、
                                                      //実際に使用するかどうかはこのフラグをチェックする
@@ -737,32 +741,42 @@ typedef struct AVDemuxVideo {
     bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
     bool                      doviRpuCopy;           //dovi rpuのメタ情報を取得する
 
-    AVMasteringDisplayMetadata *masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
-    AVContentLightMetadata   *contentLight;          //入力ファイルから抽出したHDRメタ情報
+    std::unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)> masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
+    std::unique_ptr<AVContentLightMetadata, decltype(&av_freep)> contentLight;          //入力ファイルから抽出したHDRメタ情報
 
     RGYListRef<RGYFrameDataQP> *qpTableListRef;      //qp tableを格納するときのベース構造体
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
-} AVDemuxVideo;
 
-typedef struct AVDemuxThread {
+    AVDemuxVideo();
+    ~AVDemuxVideo() { close(); }
+    void close(RGYLog *log = nullptr);
+};
+
+struct AVDemuxThread {
     int                          threadInput;        //入力スレッドを使用する
     std::atomic<bool>            bAbortInput;        //読み込みスレッドに停止を通知する
     std::thread                  thInput;            //読み込みスレッド
     PerfQueueInfo               *queueInfo;          //キューの情報を格納する構造体
-} AVDemuxThread;
 
-typedef struct AVDemuxer {
-    AVDemuxFormat            format;
-    AVDemuxVideo             video;
-    FramePosList             frames;
-    vector<AVDemuxStream>    stream;
-    vector<const AVChapter*> chapter;
-    AVDemuxThread            thread;
-    RGYQueueMPMP<AVPacket*>  qVideoPkt;
-    deque<AVPacket*>         qStreamPktL1;
-    RGYQueueMPMP<AVPacket*>  qStreamPktL2;
-} AVDemuxer;
+    AVDemuxThread() : threadInput(0), bAbortInput(false), thInput(), queueInfo(nullptr) {};
+    ~AVDemuxThread() { close(); }
+    void close(RGYLog *log = nullptr);
+};
+
+struct AVDemuxer {
+    AVDemuxFormat                 format;
+    AVDemuxVideo                  video;
+    FramePosList                  frames;
+    std::vector<AVDemuxStream>    stream;
+    std::vector<const AVChapter*> chapter;
+    AVDemuxThread                 thread;
+    RGYQueueMPMP<AVPacket*>       qVideoPkt;
+    std::deque<AVPacket*>         qStreamPktL1;
+    RGYQueueMPMP<AVPacket*>       qStreamPktL2;
+
+    AVDemuxer() : format(), video(), frames(), stream(), chapter(), thread(), qVideoPkt(), qStreamPktL1(), qStreamPktL2() {};
+};
 
 class RGYInputAvcodecPrm : public RGYInputPrm {
 public:
