@@ -43,7 +43,7 @@
 
 #define BLOCK_INT_X  (32) //blockDim(x) = スレッド数/ブロック
 #define BLOCK_Y       (8) //blockDim(y) = スレッド数/ブロック
-#define BLOCK_LOOP_Y (16) //ブロックのy方向反復数
+#define BLOCK_LOOP_Y (4) //ブロックのy方向反復数
 
 #define SHARED_INT_X (BLOCK_INT_X) //sharedメモリの幅
 #define SHARED_Y     (16) //sharedメモリの縦
