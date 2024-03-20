@@ -91,7 +91,7 @@ Flags analyze_motion(uint2 p0, uint2 p1, uint32_t thre_motion2, uint32_t thre_sh
 
 __inline__ __device__
 Flags analyze_motion(float p0, float p1, const float thre_motionf, const float thre_shiftf, int flag_offset) {
-    const float abs = std::abs(p0 - p1);
+    const float abs = fabsf(p0 - p1);
 
     Flags mask_motion = (thre_motionf > abs) ? u8x4(motion_flag)  & (0x000000ffu << flag_offset) : 0u;
     Flags mask_shift  = (thre_shiftf  > abs) ? u8x4(motion_shift) & (0x000000ffu << flag_offset) : 0u;
@@ -120,7 +120,7 @@ Flags analyze_stripe(uint2 p0, uint2 p1, uint8_t flag_sign, uint8_t flag_deint, 
 
 __inline__ __device__
 Flags analyze_stripe(float p0, float p1, uint8_t flag_sign, uint8_t flag_deint, uint8_t flag_shift, const float thre_deintf, const float thre_shiftf, int flag_offset) {
-    const float abs0 = std::abs(p1 - p0);
+    const float abs0 = fabsf(p1 - p0);
 
     Flags new_sign   = (p0 >= p1) ? (uint32_t)flag_sign  << flag_offset : 0u;
     Flags mask_deint = (abs0 > thre_deintf) ? (uint32_t)flag_deint << flag_offset : 0u;
