@@ -245,6 +245,8 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
+    // 幅が割り切れない場合に備え、変換時にAVX2等で読みすぎて異常終了しないようにあらかじめ多めに確保する
+    bufferSize += (ALIGN(m_inputVideoInfo.srcWidth, 128) - m_inputVideoInfo.srcWidth) * bytesPerPix(m_inputCsp);
     AddMessage(RGY_LOG_DEBUG, _T("%dx%d, pitch:%d, bufferSize:%d.\n"), m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcPitch, bufferSize);
 
     if (nOutputCSP != RGY_CSP_NA) {
