@@ -148,6 +148,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
     - select-every
     - deband
     - noise reduction
+      - smooth (dct based denoise)
+      - denoise-dct (another dct based denoise)
       - knn (K-nearest neighbor)
       - pmd (modified pmd method)
       - gauss (npp library, x64 version only)

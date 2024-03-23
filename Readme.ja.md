@@ -157,6 +157,8 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
     - フレーム間引き(select every)
     - バンディング低減
     - ノイズ除去
+      - smooth (dctベースのノイズ除去)
+      - denoise-dct (dctベースのノイズ除去)
       - knn (K-nearest neighbor)
       - pmd (正則化pmd法)
       - gauss (nppライブラリ、x64版のみ)
