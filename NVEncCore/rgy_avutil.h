@@ -406,13 +406,13 @@ std::string tagToStr(uint32_t tag);
 
 //AVStreamのside data関連
 template<typename T>
-std::unique_ptr<T, decltype(&av_freep)> AVStreamGetSideData(const AVStream *stream, const AVPacketSideDataType type, size_t& side_data_size) {
-    std::unique_ptr<T, decltype(&av_freep)> side_data_copy(nullptr, av_freep);
+std::unique_ptr<T, RGYAVDeleter<T>> AVStreamGetSideData(const AVStream *stream, const AVPacketSideDataType type, size_t& side_data_size) {
+    std::unique_ptr<T, RGYAVDeleter<T>> side_data_copy(nullptr, RGYAVDeleter<T>(av_freep));
 #if AVCODEC_PAR_CODED_SIDE_DATA_AVAIL
     auto side_data = av_packet_side_data_get(stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data, type);
     if (side_data) {
         side_data_size = side_data->size;
-        side_data_copy = unique_ptr<T, decltype(&av_freep)>((T *)av_malloc(side_data->size + AV_INPUT_BUFFER_PADDING_SIZE), av_freep);
+        side_data_copy = unique_ptr<T, RGYAVDeleter<T>>((T *)av_malloc(side_data->size + AV_INPUT_BUFFER_PADDING_SIZE), RGYAVDeleter<T>(av_freep));
         memcpy(side_data_copy.get(), side_data, side_data->size);
     }
 #else
@@ -420,7 +420,7 @@ std::unique_ptr<T, decltype(&av_freep)> AVStreamGetSideData(const AVStream *stre
     auto side_data = av_stream_get_side_data(stream, type, &size);
     side_data_size = size;
     if (side_data) {
-        side_data_copy = unique_ptr<T, decltype(&av_freep)>((T *)av_malloc(side_data_size + AV_INPUT_BUFFER_PADDING_SIZE), av_freep);
+        side_data_copy = unique_ptr<T, RGYAVDeleter<T>>((T *)av_malloc(side_data_size + AV_INPUT_BUFFER_PADDING_SIZE), RGYAVDeleter<T>(av_freep));
         memcpy(side_data_copy.get(), side_data, side_data_size);
     }
 #endif
@@ -428,7 +428,7 @@ std::unique_ptr<T, decltype(&av_freep)> AVStreamGetSideData(const AVStream *stre
 }
 
 template<typename T>
-int AVStreamAddSideData(AVStream *stream, const AVPacketSideDataType type, std::unique_ptr<T, decltype(&av_freep)>& side_data, const size_t side_data_size) {
+int AVStreamAddSideData(AVStream *stream, const AVPacketSideDataType type, std::unique_ptr<T, RGYAVDeleter<T>>& side_data, const size_t side_data_size) {
 #if AVCODEC_PAR_CODED_SIDE_DATA_AVAIL
     auto ptr = av_packet_side_data_add(&stream->codecpar->coded_side_data, &stream->codecpar->nb_coded_side_data, type, (void *)side_data.get(), side_data_size, 0);
     int ret = ptr ? 0 : AVERROR(ENOMEM);

@@ -136,8 +136,8 @@ AVDemuxVideo::AVDemuxVideo() :
     hevcNaluLengthSize(0),
     hdr10plusMetadataCopy(false),
     doviRpuCopy(false),
-    masteringDisplay(std::unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)>(nullptr, av_freep)),
-    contentLight(std::unique_ptr<AVContentLightMetadata, decltype(&av_freep)>(nullptr, av_freep)),
+    masteringDisplay(std::unique_ptr<AVMasteringDisplayMetadata, RGYAVDeleter<AVMasteringDisplayMetadata>>(nullptr, RGYAVDeleter<AVMasteringDisplayMetadata>(av_freep))),
+    contentLight(std::unique_ptr<AVContentLightMetadata, RGYAVDeleter<AVContentLightMetadata>>(nullptr, RGYAVDeleter<AVContentLightMetadata>(av_freep))),
     qpTableListRef(nullptr),
     parse_nal_h264(get_parse_nal_unit_h264_func()),
     parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
@@ -1187,7 +1187,7 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
     if (got_frame) {
         auto side_data = av_frame_get_side_data(frameDec.get(), AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
         if (side_data) {
-            m_Demux.video.masteringDisplay = std::unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)>(av_mastering_display_metadata_alloc(), av_freep);
+            m_Demux.video.masteringDisplay = std::unique_ptr<AVMasteringDisplayMetadata, RGYAVDeleter<AVMasteringDisplayMetadata>>(av_mastering_display_metadata_alloc(), RGYAVDeleter<AVMasteringDisplayMetadata>(av_freep));
             memcpy(m_Demux.video.masteringDisplay.get(), side_data->data, sizeof(AVMasteringDisplayMetadata));
             AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
                 av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][0]),
@@ -1202,7 +1202,7 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
         side_data = av_frame_get_side_data(frameDec.get(), AV_FRAME_DATA_CONTENT_LIGHT_LEVEL);
         if (side_data) {
             size_t st_size = 0;
-            m_Demux.video.contentLight = std::unique_ptr<AVContentLightMetadata, decltype(&av_freep)>(av_content_light_metadata_alloc(&st_size), av_freep);
+            m_Demux.video.contentLight = std::unique_ptr<AVContentLightMetadata, RGYAVDeleter<AVContentLightMetadata>>(av_content_light_metadata_alloc(&st_size), RGYAVDeleter<AVContentLightMetadata>(av_freep));
             memcpy(m_Demux.video.contentLight.get(), side_data->data, st_size);
             AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"), m_Demux.video.contentLight->MaxCLL, m_Demux.video.contentLight->MaxFALL);
         }

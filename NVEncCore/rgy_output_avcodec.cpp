@@ -948,7 +948,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 
         const auto HEVCHdrSeiPrm = prm->hdrMetadata->getprm();
         if (false && HEVCHdrSeiPrm.masterdisplay_set) {
-            std::unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)> mastering(av_mastering_display_metadata_alloc(), av_freep);
+            std::unique_ptr<AVMasteringDisplayMetadata, RGYAVDeleter<AVMasteringDisplayMetadata>> mastering(av_mastering_display_metadata_alloc(), RGYAVDeleter<AVMasteringDisplayMetadata>(av_freep));
 
             //streamのside dataとしてmasteringdisplay等を設定する
             mastering->display_primaries[1][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[0]); //G
@@ -984,7 +984,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 
         if (false && HEVCHdrSeiPrm.contentlight_set) {
             size_t coll_size = 0;
-            std::unique_ptr<AVContentLightMetadata, decltype(&av_freep)> coll(av_content_light_metadata_alloc(&coll_size), av_freep);
+            std::unique_ptr<AVContentLightMetadata, RGYAVDeleter<AVContentLightMetadata>> coll(av_content_light_metadata_alloc(&coll_size), RGYAVDeleter<AVContentLightMetadata>(av_freep));
             coll->MaxCLL = HEVCHdrSeiPrm.maxcll;
             coll->MaxFALL = HEVCHdrSeiPrm.maxfall;
             AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"),

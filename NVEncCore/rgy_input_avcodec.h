@@ -741,8 +741,8 @@ struct AVDemuxVideo {
     bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
     bool                      doviRpuCopy;           //dovi rpuのメタ情報を取得する
 
-    std::unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)> masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
-    std::unique_ptr<AVContentLightMetadata, decltype(&av_freep)> contentLight;          //入力ファイルから抽出したHDRメタ情報
+    std::unique_ptr<AVMasteringDisplayMetadata, RGYAVDeleter<AVMasteringDisplayMetadata>> masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
+    std::unique_ptr<AVContentLightMetadata, RGYAVDeleter<AVContentLightMetadata>> contentLight;          //入力ファイルから抽出したHDRメタ情報
 
     RGYListRef<RGYFrameDataQP> *qpTableListRef;      //qp tableを格納するときのベース構造体
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
