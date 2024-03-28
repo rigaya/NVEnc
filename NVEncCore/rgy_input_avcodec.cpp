@@ -1405,7 +1405,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
 
     //不正なオプションを渡していないかチェック
     for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Demux.format.formatOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
-        if (strcmp(t->key, "scan_all_pmts") != 0) {
+        if (strcmp(t->key, "scan_all_pmts") != 0 && strcmp(t->key, "framerate") != 0) {
             AddMessage(RGY_LOG_WARN, _T("Unknown input option: %s=%s, ignored.\n"),
                 char_to_tstring(t->key).c_str(),
                 char_to_tstring(t->value).c_str());
