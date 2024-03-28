@@ -1044,8 +1044,8 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             }
         }
         if (m_nvvfxSuperRes
-            && pResizeParam->nvvfxSuperRes->frameOut.width  != ppOutputFrames[0]->width
-            && pResizeParam->nvvfxSuperRes->frameOut.height != ppOutputFrames[0]->height) {
+            && pResizeParam->frameOut.width  != ppOutputFrames[0]->width
+            && pResizeParam->frameOut.height != ppOutputFrames[0]->height) {
             int nvvfxOutputNum = 0;
             RGYFrameInfo *outInfo[1] = { 0 };
             RGYFrameInfo inputFrame = *ppOutputFrames[0];
