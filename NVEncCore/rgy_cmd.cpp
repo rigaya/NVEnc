@@ -3369,12 +3369,25 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
                     }
                     continue;
                 }
+                if (param_arg == _T("ignore_sar")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        inprm->ignoreSAR = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
+            } else if (param == _T("ignore_sar")) {
+                inprm->ignoreSAR = true;
+                continue;
             } else {
                 int a[2] = { 0 };
-                if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
-                    || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])) {
+                if (   2 == _stscanf_s(param.c_str(), _T("%dx%d"), &a[0], &a[1])
+                    || 2 == _stscanf_s(param.c_str(), _T("%d:%d"), &a[0], &a[1])) {
                     input->dstWidth  = a[0];
                     input->dstHeight = a[1];
                     continue;
@@ -5884,6 +5897,9 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYPa
         if (inprm->resizeResMode != inprmDefault->resizeResMode) {
             cmd << _T(",preserve_aspect_ratio=") << get_chr_from_value(list_vpp_resize_res_mode, (int)(inprm->resizeResMode));
         }
+        if (inprm->ignoreSAR != inprmDefault->ignoreSAR) {
+            cmd << _T(",ignore_sar=") << (inprm->ignoreSAR ? (_T("true")) : (_T("false")));
+        }
     }
     return cmd.str();
 }
@@ -7064,6 +7080,7 @@ tstring gen_cmd_help_input() {
         _T("      preserve_aspect_ratio=<string>   preserve input aspect ratio.\n")
         _T("        decrease ... preserve aspect ratio by decreasing resolution specified.\n")
         _T("        increase ... preserve aspect ratio by increasing resolution specified.\n")
+        _T("      ignore_sar=<bool>                ignore sar when using negative value.\n")
         _T("\n")
         _T("   --frames <int>               frames to encode (based on input frames)\n")
         _T("   --fps <int>/<int> or <float> set framerate\n")

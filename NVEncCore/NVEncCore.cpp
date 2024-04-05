@@ -3365,7 +3365,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             outpar = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
         }
         set_auto_resolution(inputParam->input.dstWidth, inputParam->input.dstHeight, outpar.first, outpar.second,
-            inputParam->input.srcWidth, inputParam->input.srcHeight, inputParam->input.sar[0], inputParam->input.sar[1], 2, 2, inputParam->inprm.resizeResMode, inputParam->input.crop);
+            inputParam->input.srcWidth, inputParam->input.srcHeight, inputParam->input.sar[0], inputParam->input.sar[1], 2, 2, inputParam->inprm.resizeResMode, inputParam->inprm.ignoreSAR, inputParam->input.crop);
     }
 
     //必要ならデコーダを作成

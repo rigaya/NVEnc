@@ -498,6 +498,8 @@ If not specified, it will be same as the input resolution. (no resize)
     Resize to specified width **or** height, while preserving input aspect ratio.
     - increase ... preserve aspect ratio by increasing resolution.
     - decrease ... preserve aspect ratio by decreasing resolution.
+  - ignore_sar=&lt;bool&gt;  
+    When auto resizing with negative value, ignore in/out SAR ratio in calculation. Default = off.
 
 - Example
   ```

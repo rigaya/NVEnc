@@ -1637,6 +1637,7 @@ struct RGYDebugLogFile {
 
 struct RGYParamInput {
     RGYResizeResMode resizeResMode;
+    bool ignoreSAR;
 
     RGYParamInput();
     ~RGYParamInput();

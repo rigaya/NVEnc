@@ -135,7 +135,13 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
     return std::make_pair<int, int>(x / b, y / b);
 }
 
-void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, const int src_sar_w, const int src_sar_h, const int mod_w, const int mod_h, const RGYResizeResMode mode, const sInputCrop& crop) {
+void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, int src_sar_w, int src_sar_h, const int mod_w, const int mod_h, const RGYResizeResMode mode, const bool ignoreSAR, const sInputCrop& crop) {
+    if (ignoreSAR) {
+        dst_sar_w = 1;
+        dst_sar_h = 1;
+        src_sar_w = 1;
+        src_sar_h = 1;
+    }
     if (dst_w * dst_h < 0
         || mode == RGYResizeResMode::PreserveOrgAspectDec
         || mode == RGYResizeResMode::PreserveOrgAspectInc) {
