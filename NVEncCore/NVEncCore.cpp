@@ -4984,7 +4984,6 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(RGY_LOG_INFO, _T("\n"));
         return str;
     }
-    auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
     const auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     if (rgy_codec == RGY_CODEC_H264) {
@@ -5004,7 +5003,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     } else {
         return _T("Invalid codec");
     }
-    add_str(RGY_LOG_ERROR, _T("               %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
+    add_str(RGY_LOG_ERROR, _T("               %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), m_sar.n(), m_sar.d(), m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
     if (m_pFileWriter) {
         inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
         for (auto mes : inputMesSplitted) {
