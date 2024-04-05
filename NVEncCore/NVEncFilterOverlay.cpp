@@ -349,7 +349,7 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
         prm->overlay.width, prm->overlay.height, 1, 1,
         m_frame.dev->frame.width, m_frame.dev->frame.height,
         m_stream->codecpar->sample_aspect_ratio.num, m_stream->codecpar->sample_aspect_ratio.den, mod, mod,
-        RGYResizeResMode::Normal, crop);
+        RGYResizeResMode::Normal, false, crop);
 
     if (!m_frame.resize
         && ((prm->overlay.width  > 0 && m_frame.dev->frame.width  != prm->overlay.width)
@@ -526,7 +526,7 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
             getPlane(&frameHost, RGY_PLANE_U).ptr[0],
             getPlane(&frameHost, RGY_PLANE_V).ptr[0]
         };
-        m_convert->run(frame->interlaced_frame != 0,
+        m_convert->run(rgy_avframe_interlaced(frame.get()) ? 1 : 0,
             dst_array, (const void **)frame->data,
             frameHost.width, frame->linesize[0], frame->linesize[1], frameHost.pitch[0],
             frameHost.height, frameHost.height, crop.c);
