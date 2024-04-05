@@ -175,6 +175,7 @@ AVMuxAudio::AVMuxAudio() :
     filterAudioFormat(nullptr),
     filterGraph(nullptr),
     audioResampler(RGY_RESAMPLER_SWR),
+    audioResamplerPrm(),
     decodedFrameCache(nullptr),
     channelMapping(),
     streamChannelSelect(),
@@ -1201,7 +1202,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 #pragma warning (pop)
 
 //音声フィルタの初期化
-RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt) {
+RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt, const std::string resamplerPrm) {
     //時折channel_layoutが設定されていない場合や、OrderがUnspecの場合がある
     auto channel_layout_next = (channelLayoutSet(channel_layout) && !channelLayoutOrderUnspec(channel_layout)) ? createChannelLayoutCopy(channel_layout) : getDefaultChannelLayout(channels);
     //filterを初期化
@@ -1345,6 +1346,10 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, co
         std::string swr_opts = "";
         if (muxAudio->audioResampler == RGY_RESAMPLER_SOXR) {
             swr_opts = "resampler=soxr";
+        }
+        if (resamplerPrm.length() > 0) {
+            if (swr_opts.length() > 0) swr_opts += ";";
+            swr_opts += resamplerPrm;
         }
         muxAudio->filterGraph->scale_sws_opts = av_strdup(swr_opts.c_str());
         av_opt_set(muxAudio->filterGraph, "aresample_swr_opts", swr_opts.c_str(), 0);
@@ -1618,7 +1623,8 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                     char_to_tstring(t->value).c_str());
             }
         }
-
+        
+        muxAudio->audioResamplerPrm     = inputAudio->resamplerPrm;
         muxAudio->filterInChannels      = getChannelCount(muxAudio->outCodecEncodeCtx);
         muxAudio->filterInChannelLayout = getChannelLayout(muxAudio->outCodecEncodeCtx);
         muxAudio->filterInSampleRate    = muxAudio->outCodecEncodeCtx->sample_rate;
@@ -1632,7 +1638,8 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             // そのときにはとりあえずAV_SAMPLE_FMT_S16で適当にフィルタを初期化しておく
             // 実際のsample_fmtはAVFrameに設定されており、フィルタ実行前の再度のInitAudioFilterで
             // 必要に応じて再初期化されるので、ここでは仮の値でも問題はない
-            av_get_sample_fmt_name(muxAudio->outCodecDecodeCtx->sample_fmt) ? muxAudio->outCodecDecodeCtx->sample_fmt : AV_SAMPLE_FMT_FLTP);
+            av_get_sample_fmt_name(muxAudio->outCodecDecodeCtx->sample_fmt) ? muxAudio->outCodecDecodeCtx->sample_fmt : AV_SAMPLE_FMT_FLTP,
+            muxAudio->audioResamplerPrm);
         if (sts != RGY_ERR_NONE) return sts;
     } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && inputAudio->src.pktSample
         && (format_is_mp4(m_Mux.format.formatCtx) || format_is_mkv(m_Mux.format.formatCtx) || format_is_flv(m_Mux.format.formatCtx) || format_is_latm(m_Mux.format.formatCtx))) {
@@ -3569,9 +3576,9 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
             if (pktData.frame != nullptr) {
                 //音声入力フォーマットに変更がないか確認し、もしあればresamplerを再初期化する
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
-                auto sts = InitAudioFilter(muxAudio, getChannelCount(&pktData.frame->ch_layout), &pktData.frame->ch_layout, pktData.frame->sample_rate, (AVSampleFormat)pktData.frame->format);
+                auto sts = InitAudioFilter(muxAudio, getChannelCount(&pktData.frame->ch_layout), &pktData.frame->ch_layout, pktData.frame->sample_rate, (AVSampleFormat)pktData.frame->format, muxAudio->audioResamplerPrm);
 #else
-                auto sts = InitAudioFilter(muxAudio, pktData.frame->channels, &pktData.frame->channel_layout, pktData.frame->sample_rate, (AVSampleFormat)pktData.frame->format);
+                auto sts = InitAudioFilter(muxAudio, pktData.frame->channels, &pktData.frame->channel_layout, pktData.frame->sample_rate, (AVSampleFormat)pktData.frame->format, muxAudio->audioResamplerPrm);
 #endif
                 if (sts != RGY_ERR_NONE) {
                     m_Mux.format.streamError = true;

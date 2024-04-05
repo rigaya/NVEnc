@@ -1533,7 +1533,8 @@ AudioSelect::AudioSelect() :
     disposition(),
     lang(),
     selectCodec(),
-    metadata() {
+    metadata(),
+    resamplerPrm() {
 }
 
 AudioSource::AudioSource() :

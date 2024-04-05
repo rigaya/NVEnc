@@ -1527,6 +1527,7 @@ struct AudioSelect {
     std::string lang;              // 言語選択
     std::string selectCodec;       // 対象コーデック
     std::vector<tstring> metadata;
+    std::string resamplerPrm;
 
     AudioSelect();
     ~AudioSelect() {};

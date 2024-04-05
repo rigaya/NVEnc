@@ -1156,6 +1156,7 @@ RGY_ERR initWriters(
                         prm.bsf = pAudioSelect->bsf;
                         prm.disposition = pAudioSelect->disposition;
                         prm.metadata = pAudioSelect->metadata;
+                        prm.resamplerPrm = pAudioSelect->resamplerPrm;
                     }
                     if (pSubtitleSelect != nullptr) {
                         prm.decodeCodecPrm = pSubtitleSelect->decCodecPrm;
@@ -1281,6 +1282,7 @@ RGY_ERR initWriters(
                         prm.bsf = pAudioSelect->bsf;
                         prm.disposition = pAudioSelect->disposition;
                         prm.metadata = pAudioSelect->metadata;
+                        prm.resamplerPrm = pAudioSelect->resamplerPrm;
                     }
                     if (pSubtitleSelect != nullptr) {
                         prm.decodeCodecPrm = pSubtitleSelect->decCodecPrm;
@@ -1399,11 +1401,18 @@ RGY_ERR initWriters(
                 AVOutputStreamPrm prm;
                 prm.src = audioTrack;
                 //pAudioSelect == nullptrは "copyAll" によるもの
+                prm.decodeCodecPrm = pAudioSelect->decCodecPrm;
                 prm.bitrate = pAudioSelect->encBitrate;
                 prm.quality = pAudioSelect->encQuality;
-                prm.filter = pAudioSelect->filter;
-                prm.encodeCodec = pAudioSelect->encCodec;
                 prm.samplingRate = pAudioSelect->encSamplingRate;
+                prm.encodeCodec = pAudioSelect->encCodec;
+                prm.encodeCodecPrm = pAudioSelect->encCodecPrm;
+                prm.encodeCodecProfile = pAudioSelect->encCodecProfile;
+                prm.filter = pAudioSelect->filter;
+                prm.bsf = pAudioSelect->bsf;
+                prm.disposition = pAudioSelect->disposition;
+                prm.metadata = pAudioSelect->metadata;
+                prm.resamplerPrm = pAudioSelect->resamplerPrm;
 
                 AvcodecWriterPrm writerAudioPrm;
                 writerAudioPrm.threadOutput   = ctrl->threadOutput;

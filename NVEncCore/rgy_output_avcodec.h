@@ -196,6 +196,7 @@ struct AVMuxAudio {
 
     //resampler
     int                   audioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
+    std::string           audioResamplerPrm;
     AVFrame              *decodedFrameCache;   //デコードされたデータのキャッシュされたもの
     int                   channelMapping[MAX_SPLIT_CHANNELS];        //resamplerで使用するチャンネル割り当て(入力チャンネルの選択)
     std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelSelect; //入力音声の使用するチャンネル
@@ -344,6 +345,7 @@ struct AVOutputStreamPrm {
     tstring bsf;                //適用すべきbsfの名前
     tstring disposition;        //disposition
     std::vector<tstring> metadata; //metadata
+    std::string resamplerPrm;
 
     AVOutputStreamPrm() :
         src(),
@@ -358,7 +360,8 @@ struct AVOutputStreamPrm {
         asdata(false),
         bsf(),
         disposition(),
-        metadata() {
+        metadata(),
+        resamplerPrm() {
 
     }
 };
@@ -544,7 +547,7 @@ protected:
     RGY_ERR InitVideo(const VideoInfo *videoOutputInfo, const AvcodecWriterPrm *prm);
 
     //音声フィルタの初期化
-    RGY_ERR InitAudioFilter(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+    RGY_ERR InitAudioFilter(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt, const std::string resamplerPrm);
 
     //音声リサンプラの初期化
     RGY_ERR InitAudioResampler(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt);
