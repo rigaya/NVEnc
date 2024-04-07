@@ -534,7 +534,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     OPT_LST_HEVC(_T("--level"), _T(":hevc"), conf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.level, list_hevc_level);
     OPT_GUID_HEVC(_T("--profile"), _T(":hevc"), conf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.tier, h265_profile_names);
     OPT_NUM_HEVC(_T("--ref"), _T(""), conf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB);
-    cmd << _T(" --output-depth ") << conf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;
+    cmd << _T(" --output-depth ") << conf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.reserved3  /*pixelBitDepthMinus8*/ + 8;
     OPT_BOOL_HEVC(_T("--fullrange"), _T(""), _T(":hevc"), conf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag);
     OPT_LST_HEVC(_T("--videoformat"), _T(":hevc"), conf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat, list_videoformat);
     OPT_LST_HEVC(_T("--colormatrix"), _T(":hevc"), conf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix, list_colormatrix);

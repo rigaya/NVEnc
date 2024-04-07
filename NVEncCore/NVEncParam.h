@@ -40,6 +40,7 @@
 #include "nvEncodeAPI.h"
 #pragma warning (pop)
 #include "NVEncFilterParam.h"
+#include "NVEncUtil.h"
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_simd.h"
@@ -404,14 +405,29 @@ const CX_DESC list_adapt_transform[] = {
     { NULL, 0 }
 };
 const CX_DESC list_bitdepth[] = {
-    { _T("8bit"),    0 },
-    { _T("10bit"),   2 },
+    { _T("8bit"),    NV_ENC_BIT_DEPTH_8 },
+    { _T("10bit"),   NV_ENC_BIT_DEPTH_10 },
     { NULL, 0 }
 };
 
 const CX_DESC list_output_csp[] = {
     { _T("yuv420"), RGY_CSP_YV12   },
     { _T("yuv444"), RGY_CSP_YUV444 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_temporal_filter_level[] = {
+    { _T("0"), NV_ENC_TEMPORAL_FILTER_LEVEL_0 },
+    { _T("4"), NV_ENC_TEMPORAL_FILTER_LEVEL_4 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_lookahead_level[] = {
+    { _T("auto"), NV_ENC_LOOKAHEAD_LEVEL_AUTOSELECT },
+    { _T("0"), NV_ENC_LOOKAHEAD_LEVEL_0 },
+    { _T("1"), NV_ENC_LOOKAHEAD_LEVEL_1 },
+    { _T("2"), NV_ENC_LOOKAHEAD_LEVEL_2 },
+    { _T("3"), NV_ENC_LOOKAHEAD_LEVEL_3 },
     { NULL, 0 }
 };
 
@@ -692,7 +708,9 @@ struct InEncodeVideoParam {
     bool nonrefP;
     bool enableLookahead;
     int lookahead;
+    int lookaheadLevel;
     int aqStrength;
+    int temporalFilterLevel;
 
     NV_ENC_CONFIG encConfig;      //エンコード設定
 
@@ -831,7 +849,6 @@ static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, co
 
 NV_CODEC_PARAM_ALL(level, 0);
 NV_CODEC_PARAM_HEVC_AV1(tier, 0);
-NV_CODEC_PARAM_HEVC_AV1_RAW(pixelBitDepthMinus8, 0);
 NV_CODEC_PARAM_ALL(idrPeriod, 300);
 NV_CODEC_PARAM_ALL(useBFramesAsRef, NV_ENC_BFRAME_REF_MODE_DISABLED);
 NV_CODEC_PARAM_H264_HEVC(enableLTR, false);
@@ -845,6 +862,50 @@ NV_CODEC_PARAM_H264_HEVC(outputPictureTimingSEI, 0);
 NV_CODEC_PARAM_H264_HEVC(outputBufferingPeriodSEI, 0);
 NV_CODEC_PARAM_H264_HEVC(repeatSPSPPS, 0);
 
+static NV_ENC_BIT_DEPTH get_bitDepth(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const uint32_t apiver) {
+    if (nvenc_api_ver_check(apiver, nvenc_api_ver(12, 2))) {
+        switch (codec) {
+        case RGY_CODEC_HEVC: return codec_config.hevcConfig.outputBitDepth;
+        case RGY_CODEC_H264: return codec_config.h264Config.outputBitDepth;
+        case RGY_CODEC_AV1:  return codec_config.av1Config.outputBitDepth;
+        default: return NV_ENC_BIT_DEPTH_8;
+        }
+    } else {
+        switch (codec) {
+        case RGY_CODEC_HEVC: return (NV_ENC_BIT_DEPTH)(codec_config.hevcConfig.reserved3 /*pixelBitDepthMinus8*/ + 8);
+        case RGY_CODEC_H264: return NV_ENC_BIT_DEPTH_8;
+        case RGY_CODEC_AV1:  return (NV_ENC_BIT_DEPTH)(codec_config.av1Config.reserved4_2 /*pixelBitDepthMinus8*/ + 8);
+        default: return NV_ENC_BIT_DEPTH_8;
+        }
+    }
+}
+static void set_bitDepth(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const uint32_t apiver, const NV_ENC_BIT_DEPTH value) {
+    if (nvenc_api_ver_check(apiver, nvenc_api_ver(12, 2))) {
+        switch (codec) {
+        case RGY_CODEC_HEVC:
+            codec_config.hevcConfig.inputBitDepth = value;
+            codec_config.hevcConfig.outputBitDepth = value;
+            break;
+        case RGY_CODEC_H264:
+            codec_config.h264Config.inputBitDepth = value;
+            codec_config.h264Config.outputBitDepth = value;
+            break;
+        case RGY_CODEC_AV1:
+            codec_config.av1Config.inputBitDepth = value;
+            codec_config.av1Config.outputBitDepth = value;
+            break;
+        default: break;
+        }
+    } else {
+        switch (codec) {
+        case RGY_CODEC_HEVC: codec_config.hevcConfig.reserved3 /*pixelBitDepthMinus8*/ = value - 8; break;
+        case RGY_CODEC_H264: break;
+        case RGY_CODEC_AV1:  codec_config.av1Config.reserved4_2 /*pixelBitDepthMinus8*/ = value - 8; break;
+        default: break;
+        }
+    }
+};
+
 static NV_ENC_VUI_COLOR_PRIMARIES get_colorprim(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec) {
     switch (codec) {
     case RGY_CODEC_HEVC: return codec_config.hevcConfig.hevcVUIParameters.colourPrimaries;
@@ -853,7 +914,7 @@ static NV_ENC_VUI_COLOR_PRIMARIES get_colorprim(const NV_ENC_CODEC_CONFIG& codec
     default: return NV_ENC_VUI_COLOR_PRIMARIES_UNDEFINED;
     }
 };
-static void set_colorprim(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const int value) { \
+static void set_colorprim(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const int value) {
     switch (codec) {
     case RGY_CODEC_HEVC: codec_config.hevcConfig.hevcVUIParameters.colourPrimaries = (NV_ENC_VUI_COLOR_PRIMARIES)value; break;
     case RGY_CODEC_H264: codec_config.h264Config.h264VUIParameters.colourPrimaries = (NV_ENC_VUI_COLOR_PRIMARIES)value; break;

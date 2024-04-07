@@ -48,6 +48,7 @@ Aviutl 1.00 or later (NVEnc.auo)
 | NVEnc 5.36 or later | 9.0 - 11.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 | NVEnc 7.00 or later | 9.0 - 12.0       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 | NVEnc 7.26 or later | 9.0 - 12.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 7.49 or later | 9.0 - 12.2       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 
 | 支持的NVENC API | 所需图形驱动程序版本 |
 |:-------------- |:--------------------------------- |
@@ -58,6 +59,7 @@ Aviutl 1.00 or later (NVEnc.auo)
 | 11.1 | NVIDIA graphics driver (Win 471.41 / Linux 470.57.02) or later |
 | 12.0 | ??? |
 | 12.1 | NVIDIA graphics driver (Win 531.61 / Linux 530.41.03) or later |
+| 12.2 | NVIDIA graphics driver (Win 551.76 / Linux 550.54.144) or later |
 
 | CUDA 版本 | 所需图形驱动程序版本 |
 |:------ |:--------------------------------- |

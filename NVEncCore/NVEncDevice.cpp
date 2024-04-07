@@ -67,10 +67,11 @@ bool check_if_nvcuda_dll_available() {
 
 //前提とするAPIバージョンのチェック
 static_assert(NVENCAPI_MAJOR_VERSION == 12);
-static_assert(NVENCAPI_MINOR_VERSION == 1);
+static_assert(NVENCAPI_MINOR_VERSION == 2);
 //対応するAPIバージョンの管理
 static constexpr auto API_VER_LIST = make_array<uint32_t>(
     nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
+    nvenc_api_ver(12, 1),
     nvenc_api_ver(12, 0),
     nvenc_api_ver(11, 1),
     nvenc_api_ver(11, 0),
@@ -103,10 +104,13 @@ void NVEncoder::setStructVer(NV_ENCODE_API_FUNCTION_LIST& obj, const uint32_t ap
     }
 }
 void NVEncoder::setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const {
-    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 1))) {
-        static const int latest_ver = 6;
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 7;
         static_assert(NV_ENC_INITIALIZE_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
         obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    } else if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 1))) {
+        //API 12.1までは6
+        obj.version = NVENC_STRUCT_VER1(6, m_apiVer);
     } else {
         //API 12.0までは7
         obj.version = NVENC_STRUCT_VER1(5, m_apiVer);
@@ -114,10 +118,13 @@ void NVEncoder::setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const {
 }
 
 void NVEncoder::setStructVer(NV_ENC_CONFIG& obj) const {
-    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
-        static const int latest_ver = 8;
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 9;
         static_assert(NV_ENC_CONFIG_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
         obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    } else if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
+        //API 12.1までは8
+        obj.version = NVENC_STRUCT_VER1(8, m_apiVer);
     } else {
         //API 11.1までは7
         obj.version = NVENC_STRUCT_VER1(7, m_apiVer);
@@ -125,10 +132,13 @@ void NVEncoder::setStructVer(NV_ENC_CONFIG& obj) const {
 }
 
 void NVEncoder::setStructVer(NV_ENC_PIC_PARAMS& obj) const {
-    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
-        static const int latest_ver = 6;
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 7;
         static_assert(NV_ENC_PIC_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
         obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    } else if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
+        //API 12.1までは6
+        obj.version = NVENC_STRUCT_VER1(6, m_apiVer);
     } else {
         //API 11.1までは7
         obj.version = NVENC_STRUCT_VER1(4, m_apiVer);
@@ -136,12 +146,15 @@ void NVEncoder::setStructVer(NV_ENC_PIC_PARAMS& obj) const {
 }
 
 void NVEncoder::setStructVer(NV_ENC_LOCK_BITSTREAM& obj) const {
-    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 1))) {
-        static const int latest_ver = 1;
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 2;
         static_assert(NV_ENC_LOCK_BITSTREAM_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
         obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    } else if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 1))) {
+        //API 12.1は1
+        obj.version = NVENC_STRUCT_VER2(1, m_apiVer);
     } else if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
-        //API 12.0までは2
+        //API 12.0は2
         obj.version = NVENC_STRUCT_VER2(2, m_apiVer);
     } else {
         //API 11.1までは1
@@ -150,10 +163,13 @@ void NVEncoder::setStructVer(NV_ENC_LOCK_BITSTREAM& obj) const {
 }
 
 void NVEncoder::setStructVer(NV_ENC_REGISTER_RESOURCE& obj) const {
-    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
-        static const int latest_ver = 4;
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 5;
         static_assert(NV_ENC_REGISTER_RESOURCE_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
         obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    } else if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 0))) {
+        //API 12.1までは4
+        obj.version = NVENC_STRUCT_VER2(4, m_apiVer);
     } else {
         //API 11.1までは3
         obj.version = NVENC_STRUCT_VER2(3, m_apiVer);
@@ -161,14 +177,24 @@ void NVEncoder::setStructVer(NV_ENC_REGISTER_RESOURCE& obj) const {
 }
 
 void NVEncoder::setStructVer(NV_ENC_RECONFIGURE_PARAMS& obj) const {
-    static const int latest_ver = 1;
-    static_assert(NV_ENC_RECONFIGURE_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
-    obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 2;
+        static_assert(NV_ENC_RECONFIGURE_PARAMS_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    } else {
+        //API 12.1までは1
+        obj.version = NVENC_STRUCT_VER1(1, m_apiVer);
+    }
 }
 void NVEncoder::setStructVer(NV_ENC_CREATE_INPUT_BUFFER& obj) const {
-    static const int latest_ver = 1;
-    static_assert(NV_ENC_CREATE_INPUT_BUFFER_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
-    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 2;
+        static_assert(NV_ENC_CREATE_INPUT_BUFFER_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    } else {
+        //API 12.1までは1
+        obj.version = NVENC_STRUCT_VER2(1, m_apiVer);
+    }
 }
 void NVEncoder::setStructVer(NV_ENC_CREATE_BITSTREAM_BUFFER& obj) const {
     static const int latest_ver = 1;
@@ -181,9 +207,14 @@ void NVEncoder::setStructVer(NV_ENC_LOCK_INPUT_BUFFER& obj) const {
     obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
 }
 void NVEncoder::setStructVer(NV_ENC_EVENT_PARAMS& obj) const {
-    static const int latest_ver = 1;
-    static_assert(NV_ENC_EVENT_PARAMS_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
-    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 2;
+        static_assert(NV_ENC_EVENT_PARAMS_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+    } else {
+        //API 12.1までは1
+        obj.version = NVENC_STRUCT_VER2(1, m_apiVer);
+    }
 }
 void NVEncoder::setStructVer(NV_ENC_MAP_INPUT_RESOURCE& obj) const {
     static const int latest_ver = 4;
@@ -191,9 +222,14 @@ void NVEncoder::setStructVer(NV_ENC_MAP_INPUT_RESOURCE& obj) const {
     obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
 }
 void NVEncoder::setStructVer(NV_ENC_PRESET_CONFIG& obj) const {
-    static const int latest_ver = 4;
-    static_assert(NV_ENC_PRESET_CONFIG_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
-    obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        static const int latest_ver = 5;
+        static_assert(NV_ENC_PRESET_CONFIG_VER == NVENC_STRUCT_VER1(latest_ver, NVENCAPI_VERSION));
+        obj.version = NVENC_STRUCT_VER1(latest_ver, m_apiVer);
+    } else {
+        //API 12.1までは4
+        obj.version = NVENC_STRUCT_VER1(4, m_apiVer);
+    }
 }
 void NVEncoder::setStructVer(NV_ENC_CAPS_PARAM& obj) const {
     static const int latest_ver = 1;
@@ -893,6 +929,9 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD,            false, true,  _T("Lookahead"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ,          false, true,  _T("AQ (temporal)"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION,  false, true,  _T("Weighted Prediction"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_FILTER,      false, true,  _T("Temporal Filter"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD_LEVEL,      false, true,  _T("Lookahead Level"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_UNIDIRECTIONAL_B,     false, true,  _T("Undirectional B"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE,         false, true,  _T("10bit depth"));
     return nvStatus;
 }

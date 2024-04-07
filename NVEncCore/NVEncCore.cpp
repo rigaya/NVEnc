@@ -2056,8 +2056,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         set_sliceMode(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 3);
         set_sliceModeData(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 1);
     }
-
-    set_pixelBitDepthMinus8(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, clamp(inputParam->outputDepth - 8, 0, 4));
+    set_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver(), (NV_ENC_BIT_DEPTH)clamp(inputParam->outputDepth, 8, 10));
 
     auto require_repeat_headers = [this]() {
         return m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0);
@@ -2065,7 +2064,9 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
 
     if (inputParam->codec_rgy == RGY_CODEC_AV1) {
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.outputAnnexBFormat = 0; // とりあえず0で
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.inputPixelBitDepthMinus8 = m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.pixelBitDepthMinus8;
+        if (!m_dev->encoder()->checkAPIver(12, 2)) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.reserved4_1 /*inputPixelBitDepthMinus8*/ = m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.reserved4_2 /*pixelBitDepthMinus8*/;
+        }
 
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.disableSeqHdr = 0;
         // シーク性を確保するため、常に有効にする
@@ -2080,7 +2081,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
-        } else if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) {
+        } else if (!m_dev->encoder()->checkAPIver(12, 2) && m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.reserved3 /*pixelBitDepthMinus8*/ > 0) {
             m_stCreateEncodeParams.encodeConfig->profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
         }
         if (require_repeat_headers()) {
@@ -4986,6 +4987,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
     const auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
+    const int bitDepth = get_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, m_dev->encoder()->getAPIver());
     if (rgy_codec == RGY_CODEC_H264) {
         add_str(RGY_LOG_ERROR, _T("Output Info    %s %s @ Level %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
             get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),
@@ -4993,12 +4995,12 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     } else if (rgy_codec == RGY_CODEC_HEVC) {
         add_str(RGY_LOG_ERROR, _T("Output Info    %s %s%s @ Level %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
             get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),
-            (rgy_codec == RGY_CODEC_HEVC && 0 == memcmp(&NV_ENC_HEVC_PROFILE_FREXT_GUID, &m_stEncConfig.profileGUID, sizeof(GUID)) && m_stEncConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) ? _T(" 10bit") : _T(""),
+            (rgy_codec == RGY_CODEC_HEVC && 0 == memcmp(&NV_ENC_HEVC_PROFILE_FREXT_GUID, &m_stEncConfig.profileGUID, sizeof(GUID)) && bitDepth > 8) ? _T(" 10bit") : _T(""),
             get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.hevcConfig.level).c_str());
     } else if (rgy_codec == RGY_CODEC_AV1) {
         add_str(RGY_LOG_ERROR, _T("Output Info    %s %s%s @ Level %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
             get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),
-            (rgy_codec == RGY_CODEC_AV1 && m_stEncConfig.encodeCodecConfig.av1Config.pixelBitDepthMinus8 > 0) ? _T(" 10bit") : _T(""),
+            (rgy_codec == RGY_CODEC_AV1 && bitDepth > 8) ? _T(" 10bit") : _T(""),
             get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.av1Config.level).c_str());
     } else {
         return _T("Invalid codec");

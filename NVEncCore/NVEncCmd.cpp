@@ -1464,10 +1464,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     pParams->yuv444 = TRUE;
                 }
                 if (result == NV_ENC_PROFILE_HEVC_MAIN10) {
-                    codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8 = 2;
+                    pParams->outputDepth = 10;
                     pParams->yuv444 = FALSE;
                 } else if (result == NV_ENC_PROFILE_HEVC_MAIN) {
-                    codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8 = 0;
+                    pParams->outputDepth = 8;
                     pParams->yuv444 = FALSE;
                 }
                 flag = true;
@@ -1912,6 +1912,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM(_T("--gop-len"), gopLength);
     }
     OPT_NUM(_T("-b"), bFrames);
+    OPT_NUM(_T("--output-depth"), outputDepth);
     OPT_LST(_T("--bref-mode"), brefMode, list_bref_mode);
     OPT_BOOL(_T("--weightp"), _T(""), nWeightP);
     OPT_BOOL(_T("--nonrefp"), _T(""), nonrefP);
@@ -1935,9 +1936,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_AV1(_T("--level"), _T(":av1"), level, list_av1_level);
         OPT_GUID_AV1(_T("--profile"), _T(":av1"), tier & 0xffff, av1_profile_names);
         OPT_LST_AV1(_T("--tier"), _T(":av1"), tier >> 16, av1_tier_names);
-        if (codecPrm[RGY_CODEC_AV1].av1Config.pixelBitDepthMinus8 != codecPrmDefault[RGY_CODEC_AV1].av1Config.pixelBitDepthMinus8) {
-            cmd << _T(" --output-depth ") << codecPrm[RGY_CODEC_AV1].av1Config.pixelBitDepthMinus8 + 8;
-        }
         OPT_BOOL_AV1(_T("--repeat-headers"), _T(""), _T(":av1"), repeatSeqHdr);
         OPT_BOOL_AV1(_T("--av1-out-annexb"), _T(""), _T(""), outputAnnexBFormat);
 
@@ -1956,9 +1954,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM_HEVC(_T("--ref"), _T(""), maxNumRefFramesInDPB);
         OPT_NUM_HEVC(_T("--multiref-l0"), _T(""), numRefL0);
         OPT_NUM_HEVC(_T("--multiref-l1"), _T(""), numRefL1);
-        if (codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8 != codecPrmDefault[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8) {
-            cmd << _T(" --output-depth ") << codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;
-        }
         OPT_NUM_HEVC(_T("--slices"), _T(":hevc"), sliceModeData);
         OPT_BOOL_HEVC(_T("--aud"), _T(""), _T(":hevc"), outputAUD);
         OPT_BOOL_HEVC(_T("--repeat-headers"), _T(""), _T(":hevc"), repeatSPSPPS);

@@ -98,7 +98,7 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
     if (enc_prm.lossless) {
         enc_prm.yuv444 = true;
     }
-    use_highbit = get_pixelBitDepthMinus8(enc_prm.encConfig.encodeCodecConfig, enc_prm.codec_rgy) > 0;
+    use_highbit = enc_prm.outputDepth > 8;
     if (use_highbit) {
         csp = (enc_prm.yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
     } else {

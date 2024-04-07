@@ -849,10 +849,9 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fxgCXHEVCLevel,         list_hevc_level);
     setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
-    setComboBox(fcgCXHEVCOutBitDepth,   list_bitdepth);
+    setComboBox(fcgCXOutBitDepth,       list_bitdepth);
     setComboBox(fcgCXCodecProfileAV1,   av1_profile_names);
     setComboBox(fcgCXCodecLevelAV1,     list_av1_level);
-    setComboBox(fcgCXOutBitDepthAV1,    list_bitdepth);
     setComboBox(fcgCXAQ,                list_aq);
     setComboBox(fcgCXBrefMode,          list_bref_mode);
     setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
@@ -941,7 +940,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     const bool h264_mode = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value == RGY_CODEC_H264;
     const bool hevc_mode = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value == RGY_CODEC_HEVC;
     const bool av1_mode  = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value == RGY_CODEC_AV1;
-    const bool hevc_highbitdepth = list_bitdepth[fcgCXHEVCOutBitDepth->SelectedIndex].value != 0;
+    const bool highbitdepth = list_bitdepth[fcgCXOutBitDepth->SelectedIndex].value != 0;
 
     bool qvbr_mode = false;
     int vce_rc_method = list_encmode[fcgCXEncMode->SelectedIndex].value;
@@ -968,7 +967,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgLBQPP->Enabled = cqp_mode;
     fcgLBQPB->Enabled = cqp_mode;
     // codec が RGY_CODEC_AV1 の時、CQPの上限は255、それ以外なら51
-    const int qp_max = (av1_mode) ? 255 : ((hevc_mode && hevc_highbitdepth) ? 63 : 51);
+    const int qp_max = (av1_mode) ? 255 : ((hevc_mode && highbitdepth) ? 63 : 51);
     fcgNUQPI->Maximum = qp_max;
     fcgNUQPP->Maximum = qp_max;
     fcgNUQPB->Maximum = qp_max;
@@ -1206,7 +1205,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBQualityPreset);
     LOAD_CLI_TEXT(fcgLBEncCodec);
     LOAD_CLI_TEXT(fcgLBSlices);
-    LOAD_CLI_TEXT(fcgLBHEVCOutBitDepth);
+    LOAD_CLI_TEXT(fcgLBOutBitDepth);
     LOAD_CLI_TEXT(fcgLBMultiPass);
     LOAD_CLI_TEXT(fcgLBBrefMode);
     LOAD_CLI_TEXT(fcgLBWeightP);
@@ -1236,7 +1235,6 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBHEVCProfile);
     LOAD_CLI_TEXT(fcgLBCodecProfileAV1);
     LOAD_CLI_TEXT(fcgLBCodecLevelAV1);
-    LOAD_CLI_TEXT(fcgLBOutBitDepthAV1);
     LOAD_CLI_TEXT(tabPageVideoDetail);
     LOAD_CLI_TEXT(fcgLBLossless);
     LOAD_CLI_TEXT(fcgLBCudaSchdule);
@@ -1436,6 +1434,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXCudaSchdule, encPrm.cudaSchedule);
     fcgCBPerfMonitor->Checked = 0 != encPrm.ctrl.perfMonitorSelect;
     fcgCBLossless->Checked = 0 != encPrm.lossless;
+    SetCXIndex(fcgCXOutBitDepth, get_cx_index(list_bitdepth, encPrm.outputDepth));
 
     //QPDetail
     fcgCBQPMin->Checked = encPrm.qpMin.enable;
@@ -1465,14 +1464,12 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         codecPrm[RGY_CODEC_H264].h264Config.bdirectMode));
 
     //HEVC
-    SetCXIndex(fcgCXHEVCOutBitDepth,       get_cx_index(list_bitdepth, codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8));
     SetCXIndex(fcgCXHEVCTier,      get_index_from_value(codecPrm[RGY_CODEC_HEVC].hevcConfig.tier, h265_profile_names));
     SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   codecPrm[RGY_CODEC_HEVC].hevcConfig.level));
     SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, codecPrm[RGY_CODEC_HEVC].hevcConfig.maxCUSize));
     SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, codecPrm[RGY_CODEC_HEVC].hevcConfig.minCUSize));
 
     //AV1
-    SetCXIndex(fcgCXOutBitDepthAV1,    get_cx_index(list_bitdepth, codecPrm[RGY_CODEC_AV1].av1Config.pixelBitDepthMinus8));
     SetCXIndex(fcgCXCodecProfileAV1,   get_index_from_value(codecPrm[RGY_CODEC_AV1].av1Config.tier, av1_profile_names));
     SetCXIndex(fcgCXCodecLevelAV1,     get_cx_index(list_av1_level,   codecPrm[RGY_CODEC_AV1].av1Config.level));
 
@@ -1709,6 +1706,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.deviceID = (int)fcgCXDevice->SelectedIndex-1; //先頭は"Auto"なので-1
     encPrm.cudaSchedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
     encPrm.lossless = fcgCBLossless->Checked;
+    encPrm.outputDepth = list_bitdepth[fcgCXOutBitDepth->SelectedIndex].value;
 
     //QPDetail
     encPrm.qpMin.enable  = fcgCBQPMin->Checked;
@@ -1740,7 +1738,6 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     codecPrm[RGY_CODEC_H264].h264Config.disableDeblockingFilterIDC = false == fcgCBDeblock->Checked;
 
     //HEVC
-    codecPrm[RGY_CODEC_HEVC].hevcConfig.pixelBitDepthMinus8 = list_bitdepth[fcgCXHEVCOutBitDepth->SelectedIndex].value;
     codecPrm[RGY_CODEC_HEVC].hevcConfig.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
     codecPrm[RGY_CODEC_HEVC].hevcConfig.level = list_hevc_level[fxgCXHEVCLevel->SelectedIndex].value;
     codecPrm[RGY_CODEC_HEVC].hevcConfig.tier  = h265_profile_names[fcgCXHEVCTier->SelectedIndex].value;
@@ -1748,7 +1745,6 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     codecPrm[RGY_CODEC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
 
     //AV1
-    codecPrm[RGY_CODEC_AV1].av1Config.pixelBitDepthMinus8 = list_bitdepth[fcgCXOutBitDepthAV1->SelectedIndex].value;
     codecPrm[RGY_CODEC_AV1].av1Config.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
     codecPrm[RGY_CODEC_AV1].av1Config.level = list_av1_level[fcgCXCodecLevelAV1->SelectedIndex].value;
     codecPrm[RGY_CODEC_AV1].av1Config.tier = av1_profile_names[fcgCXCodecProfileAV1->SelectedIndex].value;
@@ -2146,10 +2142,9 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgNUMaxkbps);
     SET_TOOL_TIP_EX(fcgNUVBRTragetQuality);
     SET_TOOL_TIP_EX(fcgCXInterlaced);
-    SET_TOOL_TIP_EX(fcgCXHEVCOutBitDepth);
+    SET_TOOL_TIP_EX(fcgCXOutBitDepth);
     SET_TOOL_TIP_EX(fcgCXHEVCTier);
     SET_TOOL_TIP_EX(fxgCXHEVCLevel);
-    SET_TOOL_TIP_EX(fcgCXOutBitDepthAV1);
     SET_TOOL_TIP_EX(fcgCXCodecProfileAV1);
     SET_TOOL_TIP_EX(fcgCXCodecLevelAV1);
     SET_TOOL_TIP_EX(fcgCBBluray);

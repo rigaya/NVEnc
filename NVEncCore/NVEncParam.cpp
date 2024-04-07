@@ -144,6 +144,8 @@ NV_ENC_CODEC_CONFIG DefaultParamHEVC() {
     config.hevcConfig.sliceModeData = 0;
     config.hevcConfig.maxNumRefFramesInDPB = DEFAULT_REF_FRAMES;
     config.hevcConfig.chromaFormatIDC = 1;
+    config.hevcConfig.inputBitDepth = NV_ENC_BIT_DEPTH_8;
+    config.hevcConfig.outputBitDepth = NV_ENC_BIT_DEPTH_8;
 
     config.hevcConfig.hevcVUIParameters.overscanInfo = 0;
     set_colormatrix(config, RGY_CODEC_HEVC, get_cx_value(list_colormatrix, _T("undef")));
@@ -167,8 +169,8 @@ NV_ENC_CODEC_CONFIG DefaultParamAV1() {
     config.av1Config.enableBitstreamPadding = 0;
     config.av1Config.enableCustomTileConfig = 0;
     config.av1Config.enableFilmGrainParams = 0;
-    config.av1Config.inputPixelBitDepthMinus8 = 0;
-    config.av1Config.pixelBitDepthMinus8 = 0;
+    config.av1Config.inputBitDepth = NV_ENC_BIT_DEPTH_8;
+    config.av1Config.outputBitDepth = NV_ENC_BIT_DEPTH_8;
 
     config.av1Config.idrPeriod = DEFAULT_GOP_LENGTH;
 
@@ -255,7 +257,9 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nonrefP(false),
     enableLookahead(false),
     lookahead(DEFAULT_LOOKAHEAD),
+    lookaheadLevel(NV_ENC_LOOKAHEAD_LEVEL_AUTOSELECT),
     aqStrength(0),
+    temporalFilterLevel(0),
     encConfig(),
     dynamicRC(),
     codec_rgy(RGY_CODEC_H264),
