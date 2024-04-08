@@ -431,6 +431,16 @@ const CX_DESC list_lookahead_level[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_tuning_info[] = {
+    { _T("undef"),           NV_ENC_TUNING_INFO_UNDEFINED },
+    { _T("hq"),              NV_ENC_TUNING_INFO_HIGH_QUALITY },
+    { _T("lowlatency"),      NV_ENC_TUNING_INFO_LOW_LATENCY },
+    { _T("ultralowlatency"), NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY },
+    { _T("lossless"),        NV_ENC_TUNING_INFO_LOSSLESS },
+    { _T("uhq"),             NV_ENC_TUNING_INFO_ULTRA_HIGH_QUALITY },
+    { NULL, 0 }
+};
+
 enum : uint32_t {
     NV_ENC_AQ_DISABLED = 0x00,
     NV_ENC_AQ_SPATIAL  = 0x01,
@@ -708,9 +718,10 @@ struct InEncodeVideoParam {
     bool nonrefP;
     bool enableLookahead;
     int lookahead;
-    int lookaheadLevel;
+    NV_ENC_LOOKAHEAD_LEVEL lookaheadLevel;
     int aqStrength;
-    int temporalFilterLevel;
+    NV_ENC_TEMPORAL_FILTER_LEVEL temporalFilterLevel;
+    NV_ENC_TUNING_INFO tuningInfo;
 
     NV_ENC_CONFIG encConfig;      //エンコード設定
 

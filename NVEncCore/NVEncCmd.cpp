@@ -210,6 +210,10 @@ tstring encoder_help() {
         _T("   --gop-len <int>              set GOP Length / default: %d frames%s\n")
         _T("   --lookahead <int>            enable lookahead and set lookahead depth (1-32)\n")
         _T("                                  default: %d frames\n")
+        _T("   --lookahead-level <int>      set lookahead level (0 - 3) [HEVC only]\n")
+        _T("                                  default: auto\n")
+        _T("   --tune <string>              set tuning info (default: auto)\n")
+        _T("                                  undef, hq, uhq, lowlatency, ultralowlatency, lossless\n")
         _T("   --strict-gop                 avoid GOP len fluctuation\n")
         _T("   --no-i-adapt                 disable adapt. I frame insertion\n")
         _T("   --no-b-adapt                 disable adapt. B frame insertion\n")
@@ -256,6 +260,8 @@ tstring encoder_help() {
         _T("   --(no-)deblock               [H264] enable(disable) deblock filter\n"));
 
     str += strsprintf(_T("\n")
+        _T("   --tf-level <int>             [HEVC] set temporal filtering level (0 (default), 4)\n")
+        _T("                                  requires bframes >= 4\n")
         _T("   --cu-max <int>               [HEVC] set max CU size\n")
         _T("   --cu-min  <int>              [HEVC] set min CU size\n")
         _T("                                  8, 16, 32 are avaliable\n")
@@ -1020,6 +1026,28 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("lookahead-level")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_lookahead_level, strInput[i], &value)) {
+            pParams->lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_lookahead_level);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("tune")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_tuning_info, strInput[i], &value)) {
+            pParams->tuningInfo = (NV_ENC_TUNING_INFO)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_lookahead_level);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("no-i-adapt")) {
         pParams->disableIadapt = true;
         return 0;
@@ -1092,6 +1120,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("hierarchial-b")) {
         codecPrm[RGY_CODEC_H264].h264Config.hierarchicalBFrames = 1;
+        return 0;
+    }
+    if (IS_OPTION("tf-level")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_temporal_filter_level, strInput[i], &value)) {
+            pParams->temporalFilterLevel = (NV_ENC_TEMPORAL_FILTER_LEVEL)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_temporal_filter_level);
+            return 1;
+        }
         return 0;
     }
     if (IS_OPTION("temporal-layers")) {
@@ -1903,6 +1942,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     if (pParams->enableLookahead || save_disabled_prm) {
         OPT_NUM(_T("--lookahead"), lookahead);
     }
+    OPT_LST(_T("--lookahead-level"), lookaheadLevel, list_lookahead_level);
+    OPT_LST(_T("--tune"), tuningInfo, list_tuning_info);
     OPT_BOOL(_T("--no-i-adapt"), _T(""), disableIadapt);
     OPT_BOOL(_T("--no-b-adapt"), _T(""), disableBadapt);
     OPT_BOOL(_T("--strict-gop"), _T(""), strictGOP);
@@ -1931,6 +1972,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     if (pParams->yuv444) {
         cmd << _T(" --output-csp ") << get_cx_desc(list_output_csp, (int)RGY_CSP_YUV444);
     }
+    OPT_LST(_T("--tf-level"), temporalFilterLevel, list_temporal_filter_level);
 
     if (pParams->codec_rgy == RGY_CODEC_AV1 || save_disabled_prm) {
         OPT_LST_AV1(_T("--level"), _T(":av1"), level, list_av1_level);

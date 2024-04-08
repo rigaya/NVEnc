@@ -1499,6 +1499,9 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         //HEVCのプロファイル情報は、m_stEncConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
         if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
             m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
+            if (inputParam->outputDepth > 8) {
+                m_stEncConfig.profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
+            }
             m_stEncConfig.encodeCodecConfig.hevcConfig.tier >>= 16;
         } else if (inputParam->codec_rgy == RGY_CODEC_AV1) {
             m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.av1Config.tier & 0xffff, av1_profile_names);
@@ -1910,7 +1913,11 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.enableWeightedPrediction = 1;
         }
     }
-    m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+    m_stCreateEncodeParams.tuningInfo = (inputParam->tuningInfo == NV_ENC_TUNING_INFO_UNDEFINED) ? NV_ENC_TUNING_INFO_HIGH_QUALITY : inputParam->tuningInfo;
+    if (!m_dev->encoder()->checkAPIver(12, 2) && m_stCreateEncodeParams.tuningInfo == NV_ENC_TUNING_INFO_ULTRA_HIGH_QUALITY) {
+        PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires NVENC API 12.2.\n"));
+        m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+    }
 
     if (inputParam->ctrl.lowLatency
         && m_dev->encoder()->checkAPIver(10, 0)) {
@@ -2072,6 +2079,11 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         // シーク性を確保するため、常に有効にする
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.repeatSeqHdr = 1;
     } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
+        if (m_dev->encoder()->checkAPIver(12, 2)) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.tfLevel = (NV_ENC_TEMPORAL_FILTER_LEVEL)inputParam->temporalFilterLevel;
+            m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel;
+        }
+
         //整合性チェック (一般, H.265/HEVC)
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI = 1;
@@ -2081,7 +2093,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
-        } else if (!m_dev->encoder()->checkAPIver(12, 2) && m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.reserved3 /*pixelBitDepthMinus8*/ > 0) {
+        } else if (get_bitDepth(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver()) > 8) {
             m_stCreateEncodeParams.encodeConfig->profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
         }
         if (require_repeat_headers()) {
@@ -3678,7 +3690,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
         PrintMes(RGY_LOG_ERROR, _T("Invalid input frame ID %d sent to encoder.\n"), inputFrameId);
         return NV_ENC_ERR_GENERIC;
     }
-    m_encTimestamp->add(timestamp, inputFrameId, m_encodeFrameID++, duration, metadatalist);
+    m_encTimestamp->add(timestamp, inputFrameId, (encPicParams.frameIdx = m_encodeFrameID++), duration, metadatalist);
 
     NVENCSTATUS nvStatus = m_dev->encoder()->NvEncEncodePicture(&encPicParams);
     if (nvStatus != NV_ENC_SUCCESS && nvStatus != NV_ENC_ERR_NEED_MORE_INPUT) {
@@ -5088,9 +5100,13 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (m_dev->encoder()->checkAPIver(12, 1)) {
         add_str(RGY_LOG_INFO, _T("Split Enc Mode %s\n"), get_chr_from_value(list_split_enc_mode, m_stCreateEncodeParams.splitEncodeMode));
     }
+    add_str(RGY_LOG_INFO, _T("Tuning Info    "), get_chr_from_value(list_tuning_info, m_stCreateEncodeParams.tuningInfo));
     tstring strLookahead = _T("Lookahead      ");
     if (m_stEncConfig.rcParams.enableLookahead) {
         strLookahead += strsprintf(_T("on, %d frames"), m_stEncConfig.rcParams.lookaheadDepth);
+        if (rgy_codec == RGY_CODEC_HEVC && m_stEncConfig.rcParams.lookaheadLevel != NV_ENC_LOOKAHEAD_LEVEL_AUTOSELECT) {
+            strLookahead += tstring(_T(", Level ")) + get_chr_from_value(list_lookahead_level, m_stEncConfig.rcParams.lookaheadLevel);
+        }
         if (!m_stEncConfig.rcParams.disableBadapt || !m_stEncConfig.rcParams.disableIadapt) {
             strLookahead += _T(", Adaptive ");
             if (!m_stEncConfig.rcParams.disableIadapt) strLookahead += _T("I");
@@ -5244,6 +5260,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
         if (get_repeatSPSPPS(m_stEncConfig.encodeCodecConfig, rgy_codec)) {
             add_str(RGY_LOG_INFO, _T("repeat-headers "));
+        }
+    }
+    if (rgy_codec == RGY_CODEC_HEVC) {
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.tfLevel != NV_ENC_TEMPORAL_FILTER_LEVEL_0 && m_stCreateEncodeParams.encodeConfig->frameIntervalP >= 5) {
+            add_str(RGY_LOG_INFO, _T("tf%s "), get_chr_from_value(list_temporal_filter_level, m_stEncConfig.encodeCodecConfig.hevcConfig.tfLevel));
         }
     }
     if (rgy_codec == RGY_CODEC_AV1) {

@@ -66,6 +66,8 @@
   - [--vbr-quality \<float\>](#--vbr-quality-float)
   - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--lookahead \<int\>](#--lookahead-int)
+  - [--lookahead-level \<int\> \[HEVC\]](#--lookahead-level-int-hevc)
+  - [--tune \<string\>](#--tune-string)
   - [--no-i-adapt](#--no-i-adapt)
   - [--no-b-adapt](#--no-b-adapt)
   - [--strict-gop](#--strict-gop)
@@ -92,6 +94,7 @@
   - [--(no-)deblock \[H.264\]](#--no-deblock-h264)
   - [--cu-max \<int\> \[HEVC\]](#--cu-max-int-hevc)
   - [--cu-min \<int\> \[HEVC\]](#--cu-min-int-hevc)
+  - [--tf-level \<int\> \[HEVC\]](#--tf-level-int-hevc)
   - [--part-size-min \<int\> \[AV1\]](#--part-size-min-int-av1)
   - [--part-size-max \<int\> \[AV1\]](#--part-size-max-int-av1)
   - [--tile-columns \<int\> \[AV1\]](#--tile-columns-int-av1)
@@ -650,6 +653,19 @@ VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
 lookaheadを有効にし、その対象範囲をフレーム数で指定する。(0-32)
 画質の向上に役立つとともに、適応的なI,Bフレーム挿入が有効になる。
 
+### --lookahead-level &lt;int&gt; [HEVC]
+lookaheadのレベルの指定。(0 - 3, default = auto)  
+
+大きくするほど、品質が向上する代わりに速度が低下する。
+
+### --tune &lt;string&gt;
+チューニング用のパラメータを指定する。 ```--lossless```, ```--lowlatecy``` が使用された場合には自動的に変更(上書き)される。
+- hq
+- uhq
+- lowlatency
+- ultralowlatency
+- lossless
+
 ### --no-i-adapt
 lookahead有効時の適応的なIフレーム挿入を無効化する。
 
@@ -739,6 +755,12 @@ Bluray用出力を行う。(デフォルト: オフ)
 それぞれCUの最大、最小サイズを指定する。8, 16, 32 を指定可能。
 HEVCの規格では64まで存在するが、現状NVENCでは32までしかサポートされていない。  
 **画質が低下する恐れがあることがわかっているので、--cu-min / --cu-max の使用は非推奨。**
+
+### --tf-level &lt;int&gt; [HEVC]  
+HEVC temporal filterの指定。Bフレーム数が4以上である必要がある。(デフォルト: 0)
+```
+  0, 4
+```
 
 ### --part-size-min &lt;int&gt; [AV1]
 輝度成分の最小符号化ブロックサイズを指定する。 (デフォルト: 0 = auto)

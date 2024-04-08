@@ -69,6 +69,8 @@
   - [--vbr-quality \<float\>](#--vbr-quality-float)
   - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--lookahead \<int\>](#--lookahead-int)
+  - [--lookahead-level \<int\> \[HEVC\]](#--lookahead-level-int-hevc)
+  - [--tune \<string\>](#--tune-string)
   - [--no-i-adapt](#--no-i-adapt)
   - [--no-b-adapt](#--no-b-adapt)
   - [--strict-gop](#--strict-gop)
@@ -96,6 +98,7 @@
   - [--(no-)deblock \[H.264\]](#--no-deblock-h264)
   - [--cu-max \<int\> \[HEVC\]](#--cu-max-int-hevc)
   - [--cu-min \<int\> \[HEVC\]](#--cu-min-int-hevc)
+  - [--tf-level \<int\> \[HEVC\]](#--tf-level-int-hevc)
   - [--part-size-min \<int\> \[AV1\]](#--part-size-min-int-av1)
   - [--part-size-max \<int\> \[AV1\]](#--part-size-max-int-av1)
   - [--tile-columns \<int\> \[AV1\]](#--tile-columns-int-av1)
@@ -647,6 +650,17 @@ Change the rate control mode and rate control params within the specified range 
 Enable lookahead, and specify its target range by the number of frames. (0 - 32)  
 This is useful to improve image quality, allowing adaptive insertion of I and B frames.
 
+### --lookahead-level &lt;int&gt; [HEVC]
+Set level of lookahead, higher level may improve quality at the expense of performance. (0 - 3, default = auto)  
+
+### --tune &lt;string&gt;
+Set tuning info. Will be changed automatically if ```--lossless```, ```--lowlatecy``` is used.
+- hq
+- uhq
+- lowlatency
+- ultralowlatency
+- lossless
+
 ### --no-i-adapt
 Disable adaptive I frame insertion when lookahead is enabled.
 
@@ -735,6 +749,12 @@ Enable deblock filter. (Default: on)
 ### --cu-min &lt;int&gt; [HEVC]
 Specify the maximum and minimum size of CU respectively. 8, 16, 32 can be specified.
 **Since it is known that image quality may be degraded when this option is used, it is recommended not to use these options.**
+
+### --tf-level &lt;int&gt; [HEVC]  
+Set HEVC temporal filtering, requires bframes >= 4. (Default: 0)
+```
+  0, 4
+```
 
 ### --part-size-min &lt;int&gt; [AV1]
 Specifies the minimum size of luma coding block partition. (default: 0 = auto)
