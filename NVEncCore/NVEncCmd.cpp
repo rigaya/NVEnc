@@ -1043,7 +1043,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_tuning_info, strInput[i], &value)) {
             pParams->tuningInfo = (NV_ENC_TUNING_INFO)value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_lookahead_level);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_tuning_info);
             return 1;
         }
         return 0;
