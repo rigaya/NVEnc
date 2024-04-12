@@ -257,7 +257,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nonrefP(false),
     enableLookahead(false),
     lookahead(DEFAULT_LOOKAHEAD),
-    lookaheadLevel(NV_ENC_LOOKAHEAD_LEVEL_AUTOSELECT),
+    lookaheadLevel(NV_ENC_LOOKAHEAD_LEVEL_0),
     aqStrength(0),
     temporalFilterLevel(NV_ENC_TEMPORAL_FILTER_LEVEL_0),
     tuningInfo(NV_ENC_TUNING_INFO_UNDEFINED),

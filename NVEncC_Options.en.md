@@ -651,7 +651,7 @@ Enable lookahead, and specify its target range by the number of frames. (0 - 32)
 This is useful to improve image quality, allowing adaptive insertion of I and B frames.
 
 ### --lookahead-level &lt;int&gt; [HEVC]
-Set level of lookahead, higher level may improve quality at the expense of performance. (0 - 3, default = auto)  
+Set level of lookahead, higher level may improve quality at the expense of performance. (0 - 3, default = 0)  
 
 ### --tune &lt;string&gt;
 Set tuning info. Will be changed automatically if ```--lossless```, ```--lowlatecy``` is used.

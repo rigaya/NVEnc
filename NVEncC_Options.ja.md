@@ -654,7 +654,7 @@ lookaheadを有効にし、その対象範囲をフレーム数で指定する�
 画質の向上に役立つとともに、適応的なI,Bフレーム挿入が有効になる。
 
 ### --lookahead-level &lt;int&gt; [HEVC]
-lookaheadのレベルの指定。(0 - 3, default = auto)  
+lookaheadのレベルの指定。(0 - 3, default = 0)  
 
 大きくするほど、品質が向上する代わりに速度が低下する。
 

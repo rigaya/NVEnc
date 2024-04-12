@@ -211,7 +211,7 @@ tstring encoder_help() {
         _T("   --lookahead <int>            enable lookahead and set lookahead depth (1-32)\n")
         _T("                                  default: %d frames\n")
         _T("   --lookahead-level <int>      set lookahead level (0 - 3) [HEVC only]\n")
-        _T("                                  default: auto\n")
+        _T("                                  default: 0\n")
         _T("   --tune <string>              set tuning info (default: auto)\n")
         _T("                                  undef, hq, uhq, lowlatency, ultralowlatency, lossless\n")
         _T("   --strict-gop                 avoid GOP len fluctuation\n")
