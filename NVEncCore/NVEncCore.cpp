@@ -1914,9 +1914,20 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
     }
     m_stCreateEncodeParams.tuningInfo = (inputParam->tuningInfo == NV_ENC_TUNING_INFO_UNDEFINED) ? NV_ENC_TUNING_INFO_HIGH_QUALITY : inputParam->tuningInfo;
-    if (!m_dev->encoder()->checkAPIver(12, 2) && m_stCreateEncodeParams.tuningInfo == NV_ENC_TUNING_INFO_ULTRA_HIGH_QUALITY) {
-        PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires NVENC API 12.2.\n"));
-        m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+    if (m_stCreateEncodeParams.tuningInfo == NV_ENC_TUNING_INFO_ULTRA_HIGH_QUALITY) {
+        if (!m_dev->encoder()->checkAPIver(12, 2)) {
+            PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires NVENC API 12.2.\n"));
+            m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+        }
+        if (inputParam->codec_rgy != RGY_CODEC_HEVC) {
+            PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it is only supported with HEVC encoding.\n"));
+            m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+        }
+        if (m_dev->cc().first <= 6
+            || (m_dev->cc().first == 7 && m_dev->cc().second < 5)) {
+            PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires GPUs Turing or above.\n"));
+            m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+        }
     }
 
     if (inputParam->ctrl.lowLatency
