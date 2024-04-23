@@ -201,6 +201,7 @@
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
+  - [--vpp-nlmeans \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nlmeans-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
   - [--vpp-gauss \<int\>](#--vpp-gauss-int)
   - [--vpp-subburn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-subburn-param1value1param2value2)
@@ -1626,6 +1627,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
 - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
+- [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
 - [--vpp-gauss](#--vpp-gauss-int)
 - [--vpp-subburn](#--vpp-subburn-param1value1param2value2)
@@ -2209,6 +2211,34 @@ Strong noise reduction filter.
   ```
   Example: slightly stronger than default
   --vpp-knn radius=3,strength=0.10,lerp=0.1
+  ```
+
+### --vpp-nlmeans [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Non local means noise reduction filter.
+
+- **Parameters**
+  - sigma=&lt;float&gt;  (default=0.1, 0.0 - 1.0)   
+    Noise variance. Larger value will result stronger denosing.
+  
+  - h=&lt;float&gt;  (default=0.3, 0.0 - 1.0)   
+    Parameter. Larger value will result the weight to be more flat.
+  
+  - patch=&lt;int&gt;  (default=7, 3 - )  
+    Set patch size. Must be odd number.
+  
+  - search=&lt;int&gt;  (default=15, 3 - )  
+    Set search size. Must be odd number.
+  
+  - prec=&lt;string&gt;  (default=auto)  
+    Set weight calculation precision.
+    - auto
+    - fp32
+    - fp16
+  
+- Examples
+  ```
+  Example: faster than default
+  --vpp-nlmeans patch=5,search=11
   ```
 
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

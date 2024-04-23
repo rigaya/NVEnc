@@ -60,6 +60,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_DECIMATE     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_MPDECIMATE   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_PAD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_NLMEANS      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -133,6 +134,7 @@ enum class VppType : int {
 
     CL_CONVOLUTION3D,
     CL_DENOISE_KNN,
+    CL_DENOISE_NLMEANS,
     CL_DENOISE_PMD,
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
@@ -256,6 +258,11 @@ static const float FILTER_DEFAULT_KNN_LERPC = 0.20f;
 static const float FILTER_DEFAULT_KNN_WEIGHT_THRESHOLD = 0.01f;
 static const float FILTER_DEFAULT_KNN_LERPC_THRESHOLD = 0.80f;
 
+static const float FILTER_DEFAULT_NLMEANS_FILTER_SIGMA = 0.1f;
+static const int   FILTER_DEFAULT_NLMEANS_PATCH_SIZE = 7;
+static const int   FILTER_DEFAULT_NLMEANS_SEARCH_SIZE = 15;
+static const float FILTER_DEFAULT_NLMEANS_H = 0.1f;
+
 static const float FILTER_DEFAULT_PMD_STRENGTH = 100.0f;
 static const float FILTER_DEFAULT_PMD_THRESHOLD = 100.0f;
 static const int   FILTER_DEFAULT_PMD_APPLY_COUNT = 2;
@@ -337,6 +344,7 @@ const CX_DESC list_vpp_denoise[] = {
     { _T("denoise"), 4 },
 #endif
     { _T("knn"),     1 },
+    { _T("nlmeans"), 9 },
     { _T("pmd"),     2 },
     { _T("denoise-dct"), 8 },
     { _T("smooth"),  3 },
@@ -1200,6 +1208,20 @@ struct VppKnn {
     tstring print() const;
 };
 
+struct VppNLMeans {
+    bool  enable;
+    float sigma;
+    int   patchSize;
+    int   searchSize;
+    float h;
+    VppFpPrecision prec;
+
+    VppNLMeans();
+    bool operator==(const VppNLMeans &x) const;
+    bool operator!=(const VppNLMeans &x) const;
+    tstring print() const;
+};
+
 struct VppPmd {
     bool  enable;
     float strength;
@@ -1474,6 +1496,7 @@ struct RGYParamVpp {
     VppPad pad;
     VppConvolution3d convolution3d;
     VppKnn knn;
+    VppNLMeans nlmeans;
     VppPmd pmd;
     VppDenoiseDct dct;
     VppSmooth smooth;

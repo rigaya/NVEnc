@@ -73,6 +73,7 @@
 #include "NVEncFilterDelogo.h"
 #include "NVEncFilterConvolution3d.h"
 #include "NVEncFilterDenoiseKnn.h"
+#include "NVEncFilterDenoiseNLMeans.h"
 #include "NVEncFilterDenoisePmd.h"
 #include "NVEncFilterDenoiseDct.h"
 #include "NVEncFilterSmooth.h"
@@ -1325,6 +1326,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.unsharp.enable
             || inputParam->vpp.convolution3d.enable
             || inputParam->vpp.knn.enable
+            || inputParam->vpp.nlmeans.enable
             || inputParam->vpp.pmd.enable
             || inputParam->vpp.dct.enable
             || inputParam->vpp.smooth.enable
@@ -2277,6 +2279,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.unsharp.enable
         || inputParam->vpp.convolution3d.enable
         || inputParam->vpp.knn.enable
+        || inputParam->vpp.nlmeans.enable
         || inputParam->vpp.pmd.enable
         || inputParam->vpp.dct.enable
         || inputParam->vpp.smooth.enable
@@ -2736,6 +2739,29 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseKnn());
             shared_ptr<NVEncFilterParamDenoiseKnn> param(new NVEncFilterParamDenoiseKnn());
             param->knn = inputParam->vpp.knn;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //ノイズ除去 (nlmeans)
+        if (inputParam->vpp.nlmeans.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseNLMeans());
+            shared_ptr<NVEncFilterParamDenoiseNLMeans> param(new NVEncFilterParamDenoiseNLMeans());
+            param->nlmeans = inputParam->vpp.nlmeans;
+            param->compute_capability = m_dev->cc();
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
