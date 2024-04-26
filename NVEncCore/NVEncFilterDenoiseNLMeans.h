@@ -35,9 +35,6 @@
 // dxdyのペアを何並列で同時計算するか
 static const int RGY_NLMEANS_DXDY_STEP = 8;
 
-static const int NLEANS_BLOCK_X = 32;
-static const int NLEANS_BLOCK_Y = 8;
-
 class NVEncFilterParamDenoiseNLMeans : public NVEncFilterParam {
 public:
     std::pair<int, int> compute_capability;
