@@ -47,6 +47,9 @@
 #define ENABLE_CUDA_FP16_DEVICE (__CUDACC_VER_MAJOR__ >= 10 && __CUDA_ARCH__ >= 530)
 #define ENABLE_CUDA_FP16_HOST   (__CUDACC_VER_MAJOR__ >= 10)
 
+// atomic_addを試したが、___syncthreadsしたほうが速い
+#define ATOMIC_OPT 0
+
 static const int maxPatchRadius = 10;
 
 static bool shared_opt_avail(const int search_radius) {
@@ -299,7 +302,16 @@ __global__ void kernel_denoise_nlmeans_calc_weight(
 template<typename TmpWPType, typename TmpWPType2, int search_radius>
 __device__ __inline__ void add_tmpwp_local(TmpWPType2 tmpWP[search_radius + NLEANS_BLOCK_Y][search_radius * 2 + NLEANS_BLOCK_X], const TmpWPType pixNormalized, const TmpWPType weight, const int thx, const int thy) {
     TmpWPType2 tmp = { weight * pixNormalized, weight };
+#if ATOMIC_OPT
+#if __CUDA_ARCH__ >= 900
+    atomicAdd(&tmpWP[thy + search_radius][thx + search_radius], tmp);
+#else
+    atomicAdd(&tmpWP[thy + search_radius][thx + search_radius].x, tmp.x);
+    atomicAdd(&tmpWP[thy + search_radius][thx + search_radius].y, tmp.y);
+#endif
+#else
     tmpWP[thy + search_radius][thx + search_radius] += tmp;
+#endif
 }
 
 template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int search_radius>
@@ -376,22 +388,28 @@ __global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
         const Type pix = *(const Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
         pixNormalized = pix * (1.0f / ((1 << bit_depth) - 1));
     }
+#if ATOMIC_OPT
+#define SYNC_THREADS
+#else
+#define SYNC_THREADS __syncthreads()
+#endif
+
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s0, thx + xoffset.s0, thy + yoffset.s0);
-    __syncthreads();
+    SYNC_THREADS;
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s1, thx + xoffset.s1, thy + yoffset.s1);
-    __syncthreads();
+    SYNC_THREADS;
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s2, thx + xoffset.s2, thy + yoffset.s2);
-    __syncthreads();
+    SYNC_THREADS;
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s3, thx + xoffset.s3, thy + yoffset.s3);
-    __syncthreads();
+    SYNC_THREADS;
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s4, thx + xoffset.s4, thy + yoffset.s4);
-    __syncthreads();
+    SYNC_THREADS;
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s5, thx + xoffset.s5, thy + yoffset.s5);
-    __syncthreads();
+    SYNC_THREADS;
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s6, thx + xoffset.s6, thy + yoffset.s6);
-    __syncthreads();
+    SYNC_THREADS;
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s7, thx + xoffset.s7, thy + yoffset.s7);
-    __syncthreads();
+    SYNC_THREADS;
 
     // tmpWPからpImgWにコピー
     // y方向は、実際のyoffsetの最小値yoffsetminを考慮してロードして余分な書き込みをしないようにする
