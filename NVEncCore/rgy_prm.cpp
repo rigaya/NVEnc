@@ -918,7 +918,8 @@ VppNLMeans::VppNLMeans() :
     patchSize(FILTER_DEFAULT_NLMEANS_PATCH_SIZE),
     searchSize(FILTER_DEFAULT_NLMEANS_SEARCH_SIZE),
     h(FILTER_DEFAULT_NLMEANS_H),
-    prec(VppFpPrecision::VPP_FP_PRECISION_AUTO) {
+    prec(VppFpPrecision::VPP_FP_PRECISION_AUTO),
+    sharedMem(true) {
 }
 
 bool VppNLMeans::operator==(const VppNLMeans &x) const {
@@ -927,7 +928,8 @@ bool VppNLMeans::operator==(const VppNLMeans &x) const {
         && patchSize == x.patchSize
         && searchSize == x.searchSize
         && h == x.h
-        && prec == x.prec;
+        && prec == x.prec
+        && sharedMem == x.sharedMem;
 }
 bool VppNLMeans::operator!=(const VppNLMeans &x) const {
     return !(*this == x);

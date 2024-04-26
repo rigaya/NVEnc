@@ -42,8 +42,8 @@ struct __align__(sizeof(int) * 8) int8 {
 
 struct __align__(sizeof(float) * 8) float8 {
     float s0, s1, s2, s3, s4, s5, s6, s7;
-    float8() {};
-    __device__ float8(float val) {
+    __host__ __device__ float8() {};
+    __host__ __device__ float8(float val) {
         s0 = val;
         s1 = val;
         s2 = val;
@@ -53,7 +53,7 @@ struct __align__(sizeof(float) * 8) float8 {
         s6 = val;
         s7 = val;
     };
-    __device__ float8(float v0, float v1, float v2, float v3, float v4, float v5, float v6, float v7) {
+    __host__ __device__ float8(float v0, float v1, float v2, float v3, float v4, float v5, float v6, float v7) {
         this->s0 = v0;
         this->s1 = v1;
         this->s2 = v2;
@@ -63,12 +63,52 @@ struct __align__(sizeof(float) * 8) float8 {
         this->s6 = v6;
         this->s7 = v7;
     }
+    __host__ __device__ float8& operator=(const float8& src) {
+        this->s0 = src.s0;
+        this->s1 = src.s1;
+        this->s2 = src.s2;
+        this->s3 = src.s3;
+        this->s4 = src.s4;
+        this->s5 = src.s5;
+        this->s6 = src.s6;
+        this->s7 = src.s7;
+        return *this;
+    }
+    __host__ __device__ float8(const float8&src) {
+        *this = src;
+    }
+    static __host__ __device__ float8 load(const float8 *ptr) {
+        float4 *ptrf4 = (float4 *)ptr;
+        float4 f0 = ptrf4[0];
+        float4 f1 = ptrf4[1];
+        float8 f8;
+        f8.s0 = f0.x;
+        f8.s1 = f0.y;
+        f8.s2 = f0.z;
+        f8.s3 = f0.w;
+        f8.s4 = f1.x;
+        f8.s5 = f1.y;
+        f8.s6 = f1.z;
+        f8.s7 = f1.w;
+        return f8;
+    }
+};
+
+struct __align__(sizeof(__half) * 4) __half4 {
+    __half s0, s1, s2, s3;
+    __host__ __device__ __half4() {};
+    __host__ __device__ __half4(__half val) {
+        s0 = val;
+        s1 = val;
+        s2 = val;
+        s3 = val;
+    };
 };
 
 struct __align__(sizeof(__half) * 8) __half8 {
     __half s0, s1, s2, s3, s4, s5, s6, s7;
-    __half8() {};
-    __device__ __half8(__half val) {
+    __host__ __device__ __half8() {};
+    __host__ __device__ __half8(__half val) {
         s0 = val;
         s1 = val;
         s2 = val;
@@ -80,25 +120,78 @@ struct __align__(sizeof(__half) * 8) __half8 {
     };
 };
 
+struct __align__(sizeof(__half2) * 2) __half2x2 {
+    __half2 s0, s1;
+};
+
 struct __align__(sizeof(__half2) * 4) __half2x4 {
     __half2 s0, s1, s2, s3;
+};
+
+union __align__(sizeof(__half4)) half4 {
+    __half4 h;
+    __half2x2 h2;
+public:
+    __host__ __device__ half4() {};
+    __host__ __device__ half4(const half4 & src) {
+        this->h2.s0 = src.h2.s0;
+        this->h2.s1 = src.h2.s1;
+    }
+    __host__ __device__ half4(const __half4 & src) {
+        this->h = src;
+    }
+    __host__ __device__ half4(__half val) {
+        __half2 vh2 = { val, val };
+        this->h2.s0 = vh2;
+        this->h2.s1 = vh2;
+    }
+#if defined(__CUDACC__) && (__CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)) && !defined(__CUDA_NO_HALF2_OPERATORS__)
+    __device__ half4(float val) {
+        __half2 vh2 = __float2half2_rn(val);
+        this->h2.s0 = vh2;
+        this->h2.s1 = vh2;
+        this->h2.s0 = vh2;
+        this->h2.s1 = vh2;
+    }
+#else
+    __host__ __device__ half4(float val) { };
+#endif
+    __host__ __device__ half4(__half v0, __half v1, __half v2, __half v3) {
+        this->h.s0 = v0;
+        this->h.s1 = v1;
+        this->h.s2 = v2;
+        this->h.s3 = v3;
+    }
+    __host__ __device__ half4 &operator=(const half4 & src) {
+        this->h2.s0 = src.h2.s0;
+        this->h2.s1 = src.h2.s1;
+        return *this;
+    }
 };
 
 union __align__(sizeof(__half8)) half8 {
     __half8 h;
     __half2x4 h2;
+    float4 f;
 public:
-    half8() {};
-    __device__ half8(const half8& src) {
+    __host__ __device__ half8() {};
+    __host__ __device__ half8& operator=(const half8 & src) {
+        this->h2.s0 = src.h2.s0;
+        this->h2.s1 = src.h2.s1;
+        this->h2.s2 = src.h2.s2;
+        this->h2.s3 = src.h2.s3;
+        return *this;
+    }
+    __host__ __device__ half8(const half8& src) {
         this->h2.s0 = src.h2.s0;
         this->h2.s1 = src.h2.s1;
         this->h2.s2 = src.h2.s2;
         this->h2.s3 = src.h2.s3;
     }
-    __device__ half8(const __half8& src) {
+    __host__ __device__ half8(const __half8& src) {
         this->h = src;
     }
-    __device__ half8(__half val) {
+    __host__ __device__ half8(__half val) {
         __half2 vh2 = { val, val };
         this->h2.s0 = vh2;
         this->h2.s1 = vh2;
@@ -114,9 +207,9 @@ public:
         this->h2.s3 = vh2;
     }
 #else
-    __device__ half8(float val) { };
+    __host__ __device__ half8(float val) { };
 #endif
-    __device__ half8(__half v0, __half v1, __half v2, __half v3, __half v4, __half v5, __half v6, __half v7) {
+    __host__ __device__ half8(__half v0, __half v1, __half v2, __half v3, __half v4, __half v5, __half v6, __half v7) {
         this->h.s0 = v0;
         this->h.s1 = v1;
         this->h.s2 = v2;
@@ -126,14 +219,11 @@ public:
         this->h.s6 = v6;
         this->h.s7 = v7;
     }
-    __device__ half8 &operator=(const half8& src) {
-        this->h2.s0 = src.h2.s0;
-        this->h2.s1 = src.h2.s1;
-        this->h2.s2 = src.h2.s2;
-        this->h2.s3 = src.h2.s3;
-        return *this;
+    static __host__ __device__ half8 load(const half8 *ptr) {
+        half8 tmp;
+        tmp.f = *(float4 *)ptr;
+        return tmp;
     }
-
 };
 
 static __device__ float2 operator*(float2 a, float b) {
@@ -208,6 +298,22 @@ static __device__ float2& operator-=(float2& a, float2 b) {
     return a;
 }
 
+static __device__ float4 max(float4 a, float4 b) {
+    a.x = max(a.x, b.x);
+    a.y = max(a.y, b.y);
+    a.z = max(a.z, b.z);
+    a.w = max(a.w, b.w);
+    return a;
+}
+
+static __device__ float4 __expf(float4 a) {
+    a.x = __expf(a.x);
+    a.y = __expf(a.y);
+    a.z = __expf(a.z);
+    a.w = __expf(a.w);
+    return a;
+}
+
 static __device__ float8 max(float8 a, float8 b) {
     a.s0 = max(a.s0, b.s0);
     a.s1 = max(a.s1, b.s1);
@@ -229,6 +335,102 @@ static __device__ float8 __expf(float8 a) {
     a.s5 = __expf(a.s5);
     a.s6 = __expf(a.s6);
     a.s7 = __expf(a.s7);
+    return a;
+}
+
+static __device__ float4 operator*(float4 a, float b) {
+    a.x *= b;
+    a.y *= b;
+    a.z *= b;
+    a.w *= b;
+    return a;
+}
+
+static __device__ float4 operator*(float4 a, float4 b) {
+    a.x *= b.x;
+    a.y *= b.y;
+    a.z *= b.z;
+    a.w *= b.w;
+    return a;
+}
+
+static __device__ float4& operator*=(float4& a, float b) {
+    a.x *= b;
+    a.y *= b;
+    a.z *= b;
+    a.w *= b;
+    return a;
+}
+
+static __device__ float4& operator*=(float4& a, float4 b) {
+    a.x *= b.x;
+    a.y *= b.y;
+    a.z *= b.z;
+    a.w *= b.w;
+    return a;
+}
+
+static __device__ float4 operator+(float4 a, float b) {
+    a.x += b;
+    a.y += b;
+    a.z += b;
+    a.w += b;
+    return a;
+}
+
+static __device__ float4 operator+(float4 a, float4 b) {
+    a.x += b.x;
+    a.y += b.y;
+    a.z += b.z;
+    a.w += b.w;
+    return a;
+}
+
+static __device__ float4& operator+=(float4& a, float b) {
+    a.x += b;
+    a.y += b;
+    a.z += b;
+    a.w += b;
+    return a;
+}
+
+static __device__ float4& operator+=(float4& a, float4 b) {
+    a.x += b.x;
+    a.y += b.y;
+    a.z += b.z;
+    a.w += b.w;
+    return a;
+}
+
+static __device__ float4 operator-(float4 a, float b) {
+    a.x -= b;
+    a.y -= b;
+    a.z -= b;
+    a.w -= b;
+    return a;
+}
+
+static __device__ float4 operator-(float4 a, float4 b) {
+    a.x -= b.x;
+    a.y -= b.y;
+    a.z -= b.z;
+    a.w -= b.w;
+    return a;
+}
+
+static __device__ float4& operator-=(float4& a, float b) {
+    a.x -= b;
+    a.y -= b;
+    a.z -= b;
+    a.w -= b;
+    return a;
+}
+
+static __device__ float4& operator-=(float4& a, float4 b) {
+    a.x -= b.x;
+    a.y -= b.y;
+    a.z -= b.z;
+    a.w -= b.w;
     return a;
 }
 
@@ -378,6 +580,125 @@ static __device__ float8& operator-=(float8& a, float8 b) {
 
 #if defined(__CUDACC__) && (__CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)) && !defined(__CUDA_NO_HALF2_OPERATORS__)
 
+static __device__ half4 operator*(half4 a, float b) {
+    __half2 bh2 = __float2half2_rn(b);
+    a.h2.s0 *= bh2;
+    a.h2.s1 *= bh2;
+    return a;
+}
+
+static __device__ half4 operator*(half4 a, __half b) {
+    __half2 bh2 = { b, b };
+    a.h2.s0 *= bh2;
+    a.h2.s1 *= bh2;
+    return a;
+}
+
+static __device__ half4 operator*(half4 a, half4 b) {
+    a.h2.s0 *= b.h2.s0;
+    a.h2.s1 *= b.h2.s1;
+    return a;
+}
+
+static __device__ half4& operator*=(half4& a, float b) {
+    __half2 bh2 = __float2half2_rn(b);
+    a.h2.s0 *= bh2;
+    a.h2.s1 *= bh2;
+    return a;
+}
+
+static __device__ half4& operator*=(half4& a, __half b) {
+    __half2 bh2 = { b, b };
+    a.h2.s0 *= bh2;
+    a.h2.s1 *= bh2;
+    return a;
+}
+
+static __device__ half4& operator*=(half4& a, half4 b) {
+    a.h2.s0 *= b.h2.s0;
+    a.h2.s1 *= b.h2.s1;
+    return a;
+}
+
+static __device__ half4 operator+(half4 a, float b) {
+    __half2 bh2 = __float2half2_rn(b);
+    a.h2.s0 += bh2;
+    a.h2.s1 += bh2;
+    return a;
+}
+
+static __device__ half4 operator+(half4 a, __half b) {
+    __half2 bh2 = { b, b };
+    a.h2.s0 += bh2;
+    a.h2.s1 += bh2;
+    return a;
+}
+
+static __device__ half4 operator+(half4 a, half4 b) {
+    a.h2.s0 += b.h2.s0;
+    a.h2.s1 += b.h2.s1;
+    return a;
+}
+
+static __device__ half4& operator+=(half4& a, float b) {
+    __half2 bh2 = __float2half2_rn(b);
+    a.h2.s0 += bh2;
+    a.h2.s1 += bh2;
+    return a;
+}
+
+static __device__ half4& operator+=(half4& a, __half b) {
+    __half2 bh2 = { b, b };
+    a.h2.s0 += bh2;
+    a.h2.s1 += bh2;
+    return a;
+}
+
+static __device__ half4& operator+=(half4& a, half4 b) {
+    a.h2.s0 += b.h2.s0;
+    a.h2.s1 += b.h2.s1;
+    return a;
+}
+
+static __device__ half4 operator-(half4 a, float b) {
+    __half2 bh2 = __float2half2_rn(b);
+    a.h2.s0 -= bh2;
+    a.h2.s1 -= bh2;
+    return a;
+}
+
+static __device__ half4 operator-(half4 a, __half b) {
+    __half2 bh2 = { b, b };
+    a.h2.s0 -= bh2;
+    a.h2.s1 -= bh2;
+    return a;
+}
+
+static __device__ half4 operator-(half4 a, half4 b) {
+    a.h2.s0 -= b.h2.s0;
+    a.h2.s1 -= b.h2.s1;
+    return a;
+}
+
+static __device__ half4& operator-=(half4& a, float b) {
+    __half2 bh2 = __float2half2_rn(b);
+    a.h2.s0 -= bh2;
+    a.h2.s1 -= bh2;
+    return a;
+}
+
+static __device__ half4& operator-=(half4& a, __half b) {
+    __half2 bh2 = { b, b };
+    a.h2.s0 -= bh2;
+    a.h2.s1 -= bh2;
+    return a;
+}
+
+static __device__ half4& operator-=(half4& a, half4 b) {
+    a.h2.s0 -= b.h2.s0;
+    a.h2.s1 -= b.h2.s1;
+    return a;
+}
 static __device__ half8 operator*(half8 a, float b) {
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 *= bh2;

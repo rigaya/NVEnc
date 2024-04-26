@@ -2013,7 +2013,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "sigma", "patch", "search", "h", "prec"};
+        const auto paramList = std::vector<std::string>{ "sigma", "patch", "search", "h", "prec", "shared_mem" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2073,6 +2073,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         vpp->nlmeans.prec = (VppFpPrecision)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("shared_mem")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->nlmeans.sharedMem = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
                     continue;
@@ -6305,6 +6315,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("search"), nlmeans.searchSize);
             ADD_FLOAT(_T("h"), nlmeans.h, 3);
             ADD_LST(_T("prec"), nlmeans.prec, list_vpp_fp_prec);
+            ADD_BOOL(_T("shared_mem"), nlmeans.sharedMem);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-nlmeans ") << tmp.str().substr(1);

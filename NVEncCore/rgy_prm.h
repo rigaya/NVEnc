@@ -1215,6 +1215,7 @@ struct VppNLMeans {
     int   searchSize;
     float h;
     VppFpPrecision prec;
+    bool sharedMem;
 
     VppNLMeans();
     bool operator==(const VppNLMeans &x) const;

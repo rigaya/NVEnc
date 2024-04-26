@@ -49,6 +49,10 @@
 
 static const int maxPatchRadius = 10;
 
+static bool shared_opt_avail(const int search_radius) {
+    return search_radius * 2 <= NLEANS_BLOCK_X && search_radius <= NLEANS_BLOCK_Y;
+}
+
 enum RGYFilterDenoiseNLMeansTmpBufIdx {
     TMP_U,
     TMP_V,
@@ -165,8 +169,8 @@ __global__ void kernel_denoise_nlmeans_calc_v(
             const int srcy = clamp(iy + j, 0, height - 1);
             for (int i = - template_radius; i <= template_radius; i++) {
                 const int srcx = clamp(ix + i, 0, width - 1);
-                const TmpVType8 *ptr = (TmpVType8 *)(pSrc + srcy * srcPitch + srcx * sizeof(TmpVType8));
-                sum = calc_v_add(sum, ptr[0]);
+                const TmpVType8 vals = TmpVType8::load((TmpVType8 *)(pSrc + srcy * srcPitch + srcx * sizeof(TmpVType8)));
+                sum = calc_v_add(sum, vals);
             }
         }
         TmpVType8 *ptr = (TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
@@ -263,7 +267,7 @@ __global__ void kernel_denoise_nlmeans_calc_weight(
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (ix < width && iy < height) {
-        const TmpVType8 v_vt8 = *(const TmpVType8 *)(pV + iy * vPitch + ix * sizeof(TmpVType8));
+        const TmpVType8 v_vt8 = TmpVType8::load((const TmpVType8 *)(pV + iy * vPitch + ix * sizeof(TmpVType8)));
         const TmpWPType8 v_tmpv8 = to_float8(v_vt8); // expを使う前にfp32に変換
         const TmpWPType8 weight = __expf(max(v_tmpv8 - (2.0f * sigma), (TmpWPType8)0.0f) * -inv_param_h_h);
 
@@ -292,27 +296,149 @@ __global__ void kernel_denoise_nlmeans_calc_weight(
     }
 }
 
-template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8>
+template<typename TmpWPType, typename TmpWPType2, int search_radius>
+__device__ __inline__ void add_tmpwp_local(TmpWPType2 tmpWP[search_radius + NLEANS_BLOCK_Y][search_radius * 2 + NLEANS_BLOCK_X], const TmpWPType pixNormalized, const TmpWPType weight, const int thx, const int thy) {
+    TmpWPType2 tmp = { weight * pixNormalized, weight };
+    tmpWP[thy + search_radius][thx + search_radius] += tmp;
+}
+
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int search_radius>
+__global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
+    char *__restrict__ pImgW0, char *__restrict__ pImgW1, char *__restrict__ pImgW2, char *__restrict__ pImgW3,
+    const int tmpPitch,
+    const char *__restrict__ pV, const int vPitch,
+    const char *__restrict__ pSrc, const int srcPitch,
+    const int width, const int height, const float sigma, const float inv_param_h_h,
+    const int8 xoffset, const int8 yoffset, const int yoffsetmin
+) {
+    static_assert(sizeof(TmpWPType) * 2 == sizeof(TmpWPType2), "sizeof(TmpWPType) * 2 == sizeof(TmpWPType2)");
+    static_assert(sizeof(TmpWPType) * 8 == sizeof(TmpWPType8), "sizeof(TmpWPType) * 8 == sizeof(TmpWPType8)");
+    const int bx = blockIdx.x * NLEANS_BLOCK_X;
+    const int by = blockIdx.y * NLEANS_BLOCK_Y;
+    const int thx = threadIdx.x;
+    const int thy = threadIdx.y;
+    const int ix = bx + thx;
+    const int iy = by + thy;
+
+    char *__restrict__ pImgW;
+    // 対象のポインタを決める
+    // xoffset, yoffsetの分、最大x方向には+-search_radius, y方向には-search_radiusの分だけ広く書き込むため
+    // メモリへの書き込みが衝突しないよう、ブロックごとに書き込み先のバッファを分ける
+    if (blockIdx.y & 1) {
+        pImgW = (blockIdx.x & 1) ? pImgW3 : pImgW2;
+    } else {
+        pImgW = (blockIdx.x & 1) ? pImgW1 : pImgW0;
+    }
+
+    // x方向には+-search_radius, y方向には-search_radiusの分だけ広く確保する
+    __shared__ TmpWPType2 tmpWP[search_radius + NLEANS_BLOCK_Y][search_radius * 2 + NLEANS_BLOCK_X];
+    /*
+                          bx              bx+NLEANS_BLOCK_X
+    global                 |                        |
+    shared    |            |                        |                          |
+              0        search_radius  search_radius+NLEANS_BLOCK_X   2*search_radius+NLEANS_BLOCK_X
+    */
+    // tmpWPにpImgWの一部コピー
+    // y方向は、実際のyoffsetの最小値yoffsetminを考慮してロードして余分なロードをしないようにする
+    for (int j = thy + search_radius + yoffsetmin; j < search_radius + NLEANS_BLOCK_Y; j += NLEANS_BLOCK_Y) {
+        for (int i = thx; i < search_radius * 2 + NLEANS_BLOCK_X; i += NLEANS_BLOCK_X) {
+            const int srcx = bx + i - search_radius;
+            const int srcy = by + j - search_radius;
+            if (0 <= srcx && srcx < width && 0 <= srcy && srcy < height) {
+                const TmpWPType2 val = *(const TmpWPType2 *)(pImgW + srcy * tmpPitch + srcx * sizeof(TmpWPType2));
+                tmpWP[j][i] = val;
+            }
+        }
+    }
+
+    TmpWPType8 weight = TmpWPType8(0.0f);
+    if (ix < width && iy < height) {
+        const TmpVType8 v_vt8 = TmpVType8::load((const TmpVType8 *)(pV + iy * vPitch + ix * sizeof(TmpVType8)));
+        const TmpWPType8 v_tmpv8 = to_float8(v_vt8); // expを使う前にfp32に変換
+        weight = __expf(max(v_tmpv8 - (2.0f * sigma), (TmpWPType8)0.0f) * -inv_param_h_h);
+
+        // 自分のほうはここですべて同じバッファ(ptrImgW0)に足し込んでしまう
+        {
+            TmpWPType8 pix8 = getSrcPixXYOffset8<Type, bit_depth, TmpWPType, TmpWPType8>(pSrc, srcPitch, width, height, ix, iy, xoffset, yoffset);
+            TmpWPType8 weight_pix8 = weight * pix8;
+            TmpWPType2 weight_pix_2 = {
+                weight_pix8.s0 + weight_pix8.s1 + weight_pix8.s2 + weight_pix8.s3 + weight_pix8.s4 + weight_pix8.s5 + weight_pix8.s6 + weight_pix8.s7,
+                weight.s0 + weight.s1 + weight.s2 + weight.s3 + weight.s4 + weight.s5 + weight.s6 + weight.s7
+            };
+            tmpWP[thy + search_radius][thx + search_radius] += weight_pix_2;
+        }
+    }
+    // 共有メモリ上ですべて足し込んでしまう
+    // 計算が衝突しないよう、書き込みごとに同期する
+    __syncthreads();
+    TmpWPType pixNormalized = 0.0f;
+    if (ix < width && iy < height) {
+        const Type pix = *(const Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
+        pixNormalized = pix * (1.0f / ((1 << bit_depth) - 1));
+    }
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s0, thx + xoffset.s0, thy + yoffset.s0);
+    __syncthreads();
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s1, thx + xoffset.s1, thy + yoffset.s1);
+    __syncthreads();
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s2, thx + xoffset.s2, thy + yoffset.s2);
+    __syncthreads();
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s3, thx + xoffset.s3, thy + yoffset.s3);
+    __syncthreads();
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s4, thx + xoffset.s4, thy + yoffset.s4);
+    __syncthreads();
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s5, thx + xoffset.s5, thy + yoffset.s5);
+    __syncthreads();
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s6, thx + xoffset.s6, thy + yoffset.s6);
+    __syncthreads();
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s7, thx + xoffset.s7, thy + yoffset.s7);
+    __syncthreads();
+
+    // tmpWPからpImgWにコピー
+    // y方向は、実際のyoffsetの最小値yoffsetminを考慮してロードして余分な書き込みをしないようにする
+    for (int j = thy + search_radius + yoffsetmin; j < search_radius + NLEANS_BLOCK_Y; j += NLEANS_BLOCK_Y) {
+        for (int i = thx; i < search_radius * 2 + NLEANS_BLOCK_X; i += NLEANS_BLOCK_X) {
+            const int srcx = bx + i - search_radius;
+            const int srcy = by + j - search_radius;
+            if (0 <= srcx && srcx < width && 0 <= srcy && srcy < height) {
+                TmpWPType2 *ptr = (TmpWPType2 *)(pImgW + srcy * tmpPitch + srcx * sizeof(TmpWPType2));
+                ptr[0] = tmpWP[j][i];
+            }
+        }
+    }
+}
+
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int search_radius>
 RGY_ERR nlmeansCalcWeight(
     RGYFrameInfo *pTmpIWPlane,
     const RGYFrameInfo *pTmpVPlane,
     const RGYFrameInfo *pInputPlane,
     const float sigma, const float inv_param_h_h,
-    const int8 xoffset, const int8 yoffset,
+    const int8 xoffset, const int8 yoffset, const int yoffsetmin, const bool shared_opt,
     cudaStream_t stream
 ) {
     dim3 blockSize(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
     dim3 gridSize(divCeil(pInputPlane->width, NLEANS_BLOCK_X), divCeil(pInputPlane->height, NLEANS_BLOCK_Y));
-    kernel_denoise_nlmeans_calc_weight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8> <<<gridSize, blockSize, 0, stream>>> (
-        (char *)pTmpIWPlane[0].ptr[0],
-        (char *)pTmpIWPlane[1].ptr[0], (char *)pTmpIWPlane[2].ptr[0], (char *)pTmpIWPlane[3].ptr[0], (char *)pTmpIWPlane[4].ptr[0],
-        (char *)pTmpIWPlane[5].ptr[0], (char *)pTmpIWPlane[6].ptr[0], (char *)pTmpIWPlane[7].ptr[0], (char *)pTmpIWPlane[8].ptr[0],
-        pTmpIWPlane[0].pitch[0],
-        (const char *)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
-        (const char *)pInputPlane->ptr[0], pInputPlane->pitch[0],
-        pInputPlane->width, pInputPlane->height,
-        sigma, inv_param_h_h,
-        xoffset, yoffset);
+    if (shared_opt && shared_opt_avail(search_radius)) {
+        kernel_denoise_nlmeans_calc_weight_shared_opt<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius> <<<gridSize, blockSize, 0, stream >>> (
+            (char *)pTmpIWPlane[0].ptr[0], (char *)pTmpIWPlane[1].ptr[0], (char *)pTmpIWPlane[2].ptr[0], (char *)pTmpIWPlane[3].ptr[0],
+            pTmpIWPlane[0].pitch[0],
+            (const char *)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
+            (const char *)pInputPlane->ptr[0], pInputPlane->pitch[0],
+            pInputPlane->width, pInputPlane->height,
+            sigma, inv_param_h_h,
+            xoffset, yoffset, yoffsetmin);
+    } else {
+        kernel_denoise_nlmeans_calc_weight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8> << <gridSize, blockSize, 0, stream >> > (
+            (char *)pTmpIWPlane[0].ptr[0],
+            (char *)pTmpIWPlane[1].ptr[0], (char *)pTmpIWPlane[2].ptr[0], (char *)pTmpIWPlane[3].ptr[0], (char *)pTmpIWPlane[4].ptr[0],
+            (char *)pTmpIWPlane[5].ptr[0], (char *)pTmpIWPlane[6].ptr[0], (char *)pTmpIWPlane[7].ptr[0], (char *)pTmpIWPlane[8].ptr[0],
+            pTmpIWPlane[0].pitch[0],
+            (const char *)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
+            (const char *)pInputPlane->ptr[0], pInputPlane->pitch[0],
+            pInputPlane->width, pInputPlane->height,
+            sigma, inv_param_h_h,
+            xoffset, yoffset);
+    }
     CUDA_DEBUG_SYNC_ERR;
     return err_to_rgy(cudaGetLastError());
 }
@@ -347,20 +473,51 @@ __global__ void kernel_denoise_nlmeans_normalize(
 }
 
 template<typename Type, int bit_depth, typename TmpWPType2>
+__global__ void kernel_denoise_nlmeans_normalize_shared_opt(
+    char *__restrict__ pDst, const int dstPitch,
+    const char *__restrict__ pImgW0, const char *__restrict__ pImgW1, const char *__restrict__ pImgW2, const char *__restrict__ pImgW3,
+    const int tmpPitch,
+    const int width, const int height
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (ix < width && iy < height) {
+        const TmpWPType2 imgW0 = *(const TmpWPType2 *)(pImgW0 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const TmpWPType2 imgW1 = *(const TmpWPType2 *)(pImgW1 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const TmpWPType2 imgW2 = *(const TmpWPType2 *)(pImgW2 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const TmpWPType2 imgW3 = *(const TmpWPType2 *)(pImgW3 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const float imgW = imgW0.x + imgW1.x + imgW2.x + imgW3.x;
+        const float weight = imgW0.y + imgW1.y + imgW2.y + imgW3.y;
+        Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+        ptr[0] = (Type)clamp(imgW * __frcp_rn(weight) * ((1 << bit_depth) - 1), 0.0f, (1 << bit_depth) - 0.1f);
+    }
+}
+
+template<typename Type, int bit_depth, typename TmpWPType2>
 RGY_ERR nlmeansNormalize(
     RGYFrameInfo *pOutputPlane,
     const RGYFrameInfo *pTmpIWPlane,
+    const bool shared_opt,
     cudaStream_t stream
 ) {
     dim3 blockSize(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputPlane->width, NLEANS_BLOCK_X), divCeil(pOutputPlane->height, NLEANS_BLOCK_Y));
-    kernel_denoise_nlmeans_normalize<Type, bit_depth, TmpWPType2> <<<gridSize, blockSize, 0, stream >>> (
-        (char *)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
-        (const char *)pTmpIWPlane[0].ptr[0],
-        (const char *)pTmpIWPlane[1].ptr[0], (const char *)pTmpIWPlane[2].ptr[0], (const char *)pTmpIWPlane[3].ptr[0], (const char *)pTmpIWPlane[4].ptr[0],
-        (const char *)pTmpIWPlane[5].ptr[0], (const char *)pTmpIWPlane[6].ptr[0], (const char *)pTmpIWPlane[7].ptr[0], (const char *)pTmpIWPlane[8].ptr[0],
-        pTmpIWPlane[0].pitch[0],
-        pOutputPlane->width, pOutputPlane->height);
+    if (shared_opt) {
+        kernel_denoise_nlmeans_normalize_shared_opt<Type, bit_depth, TmpWPType2> << <gridSize, blockSize, 0, stream >> > (
+            (char *)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
+            (const char *)pTmpIWPlane[0].ptr[0], (const char *)pTmpIWPlane[1].ptr[0], (const char *)pTmpIWPlane[2].ptr[0], (const char *)pTmpIWPlane[3].ptr[0],
+            pTmpIWPlane[0].pitch[0],
+            pOutputPlane->width, pOutputPlane->height);
+    } else {
+        kernel_denoise_nlmeans_normalize<Type, bit_depth, TmpWPType2> << <gridSize, blockSize, 0, stream >> > (
+            (char *)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
+            (const char *)pTmpIWPlane[0].ptr[0],
+            (const char *)pTmpIWPlane[1].ptr[0], (const char *)pTmpIWPlane[2].ptr[0], (const char *)pTmpIWPlane[3].ptr[0], (const char *)pTmpIWPlane[4].ptr[0],
+            (const char *)pTmpIWPlane[5].ptr[0], (const char *)pTmpIWPlane[6].ptr[0], (const char *)pTmpIWPlane[7].ptr[0], (const char *)pTmpIWPlane[8].ptr[0],
+            pTmpIWPlane[0].pitch[0],
+            pOutputPlane->width, pOutputPlane->height);
+    }
     CUDA_DEBUG_SYNC_ERR;
     return err_to_rgy(cudaGetLastError());
 }
@@ -373,7 +530,7 @@ public:
 
     virtual decltype(nlmeansCalcDiffSquare<uint8_t, 8, float, float8>)* calcDiffSquare() = 0;
     virtual decltype(nlmeansCalcV<uint8_t, 1, float8>)* calcV(int template_radius) = 0;
-    virtual decltype(nlmeansCalcWeight<uint8_t, 8, float8, float, float2, float8>)* calcWeight() = 0;
+    virtual decltype(nlmeansCalcWeight<uint8_t, 8, float8, float, float2, float8, 1>)* calcWeight(int search_radius) = 0;
     virtual decltype(nlmeansNormalize<uint8_t, 8, float2>)* normalize() = 0;
 };
 
@@ -400,7 +557,19 @@ public:
         }
         
     }
-    virtual decltype(nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8>)* calcWeight() override { return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8>; }
+    virtual decltype(nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 1>)* calcWeight(int search_radius) override {
+        switch (search_radius) {
+        case 1:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  1>;
+        case 2:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  2>;
+        case 3:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  3>;
+        case 4:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  4>;
+        case 5:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  5>;
+        case 6:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  6>;
+        case 7:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  7>;
+        case 8:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  8>;
+        default: return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  9>;
+        }
+    }
     virtual decltype(nlmeansNormalize<Type, bit_depth, TmpWPType2>)* normalize() override { return nlmeansNormalize<Type, bit_depth, TmpWPType2>; }
 };
 
@@ -468,9 +637,11 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
     // nx-nyの組み合わせをRGY_NLMEANS_DXDY_STEP個ずつまとめて計算して高速化
     for (size_t inxny = 0; inxny < nxny.size(); inxny += RGY_NLMEANS_DXDY_STEP) {
         int nx0arr[RGY_NLMEANS_DXDY_STEP], ny0arr[RGY_NLMEANS_DXDY_STEP];
+        int nymin = 0;
         for (int i = 0; i < RGY_NLMEANS_DXDY_STEP; i++) {
             nx0arr[i] = (inxny + i < nxny.size()) ? nxny[inxny + i].first : 0;
             ny0arr[i] = (inxny + i < nxny.size()) ? nxny[inxny + i].second : 0;
+            nymin = std::min(nymin, ny0arr[i]);
         }
         //kernel引数に渡すために、int8に押し込む
         int8 nx0, ny0;
@@ -498,10 +669,10 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
             }
         }
         {
-            err = func->calcWeight()(
+            err = func->calcWeight(search_radius)(
                 pTmpIWPlane, pTmpVPlane, pInputPlane,
                 prm->nlmeans.sigma, 1.0f / (prm->nlmeans.h * prm->nlmeans.h),
-                nx0, ny0, stream);
+                nx0, ny0, nymin, prm->nlmeans.sharedMem, stream);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at calcWeight (denoisePlane(%s)): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
                 return err;
@@ -510,7 +681,7 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
     }
     // 最後に規格化
     {
-        err = func->normalize()(pOutputPlane, pTmpIWPlane, stream);
+        err = func->normalize()(pOutputPlane, pTmpIWPlane, prm->nlmeans.sharedMem, stream);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at normalize (denoisePlane(%s)): %s.\n"), RGY_CSP_NAMES[pOutputPlane->csp], get_err_mes(err));
             return err;
@@ -527,7 +698,11 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, cons
         auto planeTmpV = getPlane(&m_tmpBuf[TMP_V]->frame, (RGY_PLANE)i);
         std::array<RGYFrameInfo, RGY_NLMEANS_DXDY_STEP + 1> pTmpIWPlane;
         for (size_t j = 0; j < pTmpIWPlane.size(); j++) {
-            pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, (RGY_PLANE)i);
+            if (m_tmpBuf[TMP_IW0 + j]) {
+                pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, (RGY_PLANE)i);
+            } else {
+                memset(&pTmpIWPlane[j], 0, sizeof(pTmpIWPlane[j]));
+            }
         }
         auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc, stream);
         if (err != RGY_ERR_NONE) {
@@ -599,6 +774,12 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
             VPP_FP_PRECISION_FP32;
 #endif
     }
+    const int search_radius = prm->nlmeans.searchSize / 2;
+    // メモリへの書き込みが衝突しないよう、ブロックごとに書き込み先のバッファを分けるが、それがブロックサイズを超えてはいけない
+    // x方向は正負両方向にsearch_radius分はみ出し、y方向は負方向にのみsearch_radius分はみ出す
+    if (prm->nlmeans.sharedMem && !shared_opt_avail(search_radius)) {
+        prm->nlmeans.sharedMem = false;
+    }
 
     const bool use_vtype_fp16 = prm->nlmeans.prec != VPP_FP_PRECISION_FP32;
     for (size_t i = 0; i < m_tmpBuf.size(); i++) {
@@ -607,6 +788,11 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
             tmpBufWidth = prm->frameOut.width * ((use_vtype_fp16) ? 16 /*half8*/ : 32/*float8*/);
         } else {
             tmpBufWidth = prm->frameOut.width * 8 /*float2*/;
+        }
+        // sharedメモリを使う場合、TMP_U, TMP_VとTMP_IW0～TMP_IW3のみ使用する(TMP_IW4以降は不要)
+        if (prm->nlmeans.sharedMem && i >= 6) {
+            m_tmpBuf[i].reset();
+            continue;
         }
         const int tmpBufHeight = prm->frameOut.height;
         if (m_tmpBuf[i]
