@@ -54,6 +54,7 @@ static const int NLEANS_BLOCK_Y = 16;
 #define ATOMIC_OPT 0
 
 static const int maxPatchRadius = 10;
+static const int maxSearchRadius = 10;
 
 static bool shared_opt_avail(const int search_radius) {
     return search_radius * 2 <= NLEANS_BLOCK_X && search_radius <= NLEANS_BLOCK_Y;
@@ -103,7 +104,7 @@ __device__ __inline__ Type get_xyoffset_pix(
     return *(const Type *)ptr1;
 }
 
-template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8>
+template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8, int offset_count>
 __global__ void kernel_calc_diff_square(
     char *__restrict__ pDst, const int dstPitch,
     const char *__restrict__ pSrc, const int srcPitch,
@@ -118,21 +119,21 @@ __global__ void kernel_calc_diff_square(
 
         TmpVType8 val1 = TmpVType8(
             (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s0, yoffset.s0, width, height),
-            (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s1, yoffset.s1, width, height),
-            (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s2, yoffset.s2, width, height),
-            (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s3, yoffset.s3, width, height),
-            (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s4, yoffset.s4, width, height),
-            (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s5, yoffset.s5, width, height),
-            (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s6, yoffset.s6, width, height),
-            (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s7, yoffset.s7, width, height));
+            (offset_count >= 2) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s1, yoffset.s1, width, height) : 0.0f,
+            (offset_count >= 3) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s2, yoffset.s2, width, height) : 0.0f,
+            (offset_count >= 4) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s3, yoffset.s3, width, height) : 0.0f,
+            (offset_count >= 5) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s4, yoffset.s4, width, height) : 0.0f,
+            (offset_count >= 6) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s5, yoffset.s5, width, height) : 0.0f,
+            (offset_count >= 7) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s6, yoffset.s6, width, height) : 0.0f,
+            (offset_count >= 8) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s7, yoffset.s7, width, height) : 0.0f);
 
         TmpVType8 *ptrDst = (TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
         ptrDst[0] = calc_sqdiff<Type, bit_depth, TmpVType>(val0, val1);
     }
 }
 
-template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8>
-RGY_ERR nlmeansCalcDiffSquare(
+template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8, int offset_count>
+RGY_ERR nlmeansCalcDiffSquareOffsetCount(
     RGYFrameInfo *pTmpUPlane,
     const RGYFrameInfo *pInputPlane,
     const int8 xoffset, const int8 yoffset,
@@ -140,12 +141,33 @@ RGY_ERR nlmeansCalcDiffSquare(
 ) {
     dim3 blockSize(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
     dim3 gridSize(divCeil(pInputPlane->width, NLEANS_BLOCK_X), divCeil(pInputPlane->height, NLEANS_BLOCK_Y));
-    kernel_calc_diff_square<Type, bit_depth, TmpVType, TmpVType8><<<gridSize, blockSize, 0, stream >>>(
+    kernel_calc_diff_square<Type, bit_depth, TmpVType, TmpVType8, offset_count><<<gridSize, blockSize, 0, stream >>>(
         (char *)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
         (const char *)pInputPlane->ptr[0], pInputPlane->pitch[0],
         pInputPlane->width, pInputPlane->height, xoffset, yoffset);
     CUDA_DEBUG_SYNC_ERR;
     return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8>
+RGY_ERR nlmeansCalcDiffSquare(
+    RGYFrameInfo *pTmpUPlane,
+    const RGYFrameInfo *pInputPlane,
+    const int8 xoffset, const int8 yoffset,
+    const int offset_count,
+    cudaStream_t stream
+) {
+    switch (offset_count) {
+    case 1:  return nlmeansCalcDiffSquareOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 1>(pTmpUPlane, pInputPlane, xoffset, yoffset, stream);
+    case 2:  return nlmeansCalcDiffSquareOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 2>(pTmpUPlane, pInputPlane, xoffset, yoffset, stream);
+    case 3:  return nlmeansCalcDiffSquareOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 3>(pTmpUPlane, pInputPlane, xoffset, yoffset, stream);
+    case 4:  return nlmeansCalcDiffSquareOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 4>(pTmpUPlane, pInputPlane, xoffset, yoffset, stream);
+    case 5:  return nlmeansCalcDiffSquareOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 5>(pTmpUPlane, pInputPlane, xoffset, yoffset, stream);
+    case 6:  return nlmeansCalcDiffSquareOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 6>(pTmpUPlane, pInputPlane, xoffset, yoffset, stream);
+    case 7:  return nlmeansCalcDiffSquareOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 7>(pTmpUPlane, pInputPlane, xoffset, yoffset, stream);
+    case 8:
+    default: return nlmeansCalcDiffSquareOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 8>(pTmpUPlane, pInputPlane, xoffset, yoffset, stream);
+    }
 }
 
 template<typename Type, int template_radius, typename TmpVType8>
@@ -209,18 +231,18 @@ __device__ __inline__ TmpWPType getSrcPixXYOffset(const char *__restrict__ pSrc,
     return (TmpWPType)pix * (TmpWPType)(1.0f / ((1<<bit_depth) - 1));
 }
 
-template<typename Type, int bit_depth, typename TmpWPType, typename TmpWPType8>
+template<typename Type, int bit_depth, typename TmpWPType, typename TmpWPType8, int offset_count>
 __device__ TmpWPType8 getSrcPixXYOffset8(const char *__restrict__ pSrc, const int srcPitch, const int width, const int height, const int ix, const int iy, const int8 xoffset, const int8 yoffset) {
     static_assert(sizeof(TmpWPType) * 8 == sizeof(TmpWPType8), "sizeof(TmpWPType) * 8 == sizeof(TmpWPType8)");
     TmpWPType8 pix8 = TmpWPType8(
         getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s0, yoffset.s0),
-        getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s1, yoffset.s1),
-        getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s2, yoffset.s2),
-        getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s3, yoffset.s3),
-        getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s4, yoffset.s4),
-        getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s5, yoffset.s5),
-        getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s6, yoffset.s6),
-        getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s7, yoffset.s7));
+        (offset_count >= 2) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s1, yoffset.s1) : 0.0f,
+        (offset_count >= 3) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s2, yoffset.s2) : 0.0f,
+        (offset_count >= 4) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s3, yoffset.s3) : 0.0f,
+        (offset_count >= 5) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s4, yoffset.s4) : 0.0f,
+        (offset_count >= 6) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s5, yoffset.s5) : 0.0f,
+        (offset_count >= 7) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s6, yoffset.s6) : 0.0f,
+        (offset_count >= 8) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s7, yoffset.s7) : 0.0f);
     return pix8;
 }
 
@@ -250,7 +272,7 @@ __device__ __inline__ float8 toTmpWPType8<float8, half8>(half8 v) {
 #endif
 }
 
-template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8>
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int offset_count>
 __global__ void kernel_denoise_nlmeans_calc_weight(
     char *__restrict__ pImgW0,
     char *__restrict__ pImgW1, char *__restrict__ pImgW2, char *__restrict__ pImgW3, char *__restrict__ pImgW4,
@@ -274,7 +296,7 @@ __global__ void kernel_denoise_nlmeans_calc_weight(
         // 自分のほうはここですべて同じバッファ(ptrImgW0)に足し込んでしまう
         {
             TmpWPType2 *ptrImgW0 = (TmpWPType2 *)(pImgW0 + iy * tmpPitch + ix * sizeof(TmpWPType2));
-            TmpWPType8 pix8 = getSrcPixXYOffset8<Type, bit_depth, TmpWPType, TmpWPType8>(pSrc, srcPitch, width, height, ix, iy, xoffset, yoffset);
+            TmpWPType8 pix8 = getSrcPixXYOffset8<Type, bit_depth, TmpWPType, TmpWPType8, offset_count>(pSrc, srcPitch, width, height, ix, iy, xoffset, yoffset);
             TmpWPType8 weight_pix8 = weight * pix8;
             TmpWPType2 weight_pix_2 = { vec_sum(weight_pix8), vec_sum(weight) };
             ptrImgW0[0] += weight_pix_2;
@@ -283,13 +305,13 @@ __global__ void kernel_denoise_nlmeans_calc_weight(
         const Type pix = *(const Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
         const TmpWPType pixNormalized = (TmpWPType)pix * (TmpWPType)(1.0f / ((1<<bit_depth) - 1));
         add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW1, tmpPitch, width, height, ix, iy, xoffset.s0, yoffset.s0, pixNormalized, weight.f0());
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW2, tmpPitch, width, height, ix, iy, xoffset.s1, yoffset.s1, pixNormalized, weight.f1());
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW3, tmpPitch, width, height, ix, iy, xoffset.s2, yoffset.s2, pixNormalized, weight.f2());
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW4, tmpPitch, width, height, ix, iy, xoffset.s3, yoffset.s3, pixNormalized, weight.f3());
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW5, tmpPitch, width, height, ix, iy, xoffset.s4, yoffset.s4, pixNormalized, weight.f4());
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW6, tmpPitch, width, height, ix, iy, xoffset.s5, yoffset.s5, pixNormalized, weight.f5());
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW7, tmpPitch, width, height, ix, iy, xoffset.s6, yoffset.s6, pixNormalized, weight.f6());
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW8, tmpPitch, width, height, ix, iy, xoffset.s7, yoffset.s7, pixNormalized, weight.f7());
+        if (offset_count >= 2) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW2, tmpPitch, width, height, ix, iy, xoffset.s1, yoffset.s1, pixNormalized, weight.f1());
+        if (offset_count >= 3) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW3, tmpPitch, width, height, ix, iy, xoffset.s2, yoffset.s2, pixNormalized, weight.f2());
+        if (offset_count >= 4) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW4, tmpPitch, width, height, ix, iy, xoffset.s3, yoffset.s3, pixNormalized, weight.f3());
+        if (offset_count >= 5) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW5, tmpPitch, width, height, ix, iy, xoffset.s4, yoffset.s4, pixNormalized, weight.f4());
+        if (offset_count >= 6) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW6, tmpPitch, width, height, ix, iy, xoffset.s5, yoffset.s5, pixNormalized, weight.f5());
+        if (offset_count >= 7) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW7, tmpPitch, width, height, ix, iy, xoffset.s6, yoffset.s6, pixNormalized, weight.f6());
+        if (offset_count >= 8) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW8, tmpPitch, width, height, ix, iy, xoffset.s7, yoffset.s7, pixNormalized, weight.f7());
     }
 }
 
@@ -313,7 +335,7 @@ __device__ __inline__ void add_tmpwp_local(TmpWPType2 tmpWP[search_radius + NLEA
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, tmp, thx, thy, xoffset, yoffset);
 }
 
-template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int search_radius>
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int search_radius, int offset_count>
 __global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
     char *__restrict__ pImgW0, char *__restrict__ pImgW1, char *__restrict__ pImgW2, char *__restrict__ pImgW3,
     const int tmpPitch,
@@ -377,7 +399,7 @@ __global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
 
         // 自分のほうはここですべて同じバッファ(ptrImgW0)に足し込んでしまう
         {
-            TmpWPType8 pix8 = getSrcPixXYOffset8<Type, bit_depth, TmpWPType, TmpWPType8>(pSrc, srcPitch, width, height, ix, iy, xoffset, yoffset);
+            TmpWPType8 pix8 = getSrcPixXYOffset8<Type, bit_depth, TmpWPType, TmpWPType8, offset_count>(pSrc, srcPitch, width, height, ix, iy, xoffset, yoffset);
             TmpWPType8 weight_pix8 = weight * pix8;
             TmpWPType2 weight_pix_2 = { vec_sum(weight_pix8), vec_sum(weight) };
             add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, weight_pix_2, thx, thy, 0, 0);
@@ -392,31 +414,31 @@ __global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
         pixNormalized = pix * (1.0f / ((1 << bit_depth) - 1));
     }
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f0(), thx, thy, xoffset.s0, yoffset.s0);
-    if ((xoffset.s1 | yoffset.s1) != 0) {
+    if (offset_count >= 2) {
         SYNC_THREADS;
         add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f1(), thx, thy, xoffset.s1, yoffset.s1);
     }
-    if ((xoffset.s2 | yoffset.s2) != 0) {
+    if (offset_count >= 3) {
         SYNC_THREADS;
         add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f2(), thx, thy, xoffset.s2, yoffset.s2);
     }
-    if ((xoffset.s3 | yoffset.s3) != 0) {
+    if (offset_count >= 4) {
         SYNC_THREADS;
         add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f3(), thx, thy, xoffset.s3, yoffset.s3);
     }
-    if ((xoffset.s4 | yoffset.s4) != 0) {
+    if (offset_count >= 5) {
         SYNC_THREADS;
         add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f4(), thx, thy, xoffset.s4, yoffset.s4);
     }
-    if ((xoffset.s5 | yoffset.s5) != 0) {
+    if (offset_count >= 6) {
         SYNC_THREADS;
         add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f5(), thx, thy, xoffset.s5, yoffset.s5);
     }
-    if ((xoffset.s6 | yoffset.s6) != 0) {
+    if (offset_count >= 7) {
         SYNC_THREADS;
         add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f6(), thx, thy, xoffset.s6, yoffset.s6);
     }
-    if ((xoffset.s7 | yoffset.s7) != 0) {
+    if (offset_count >= 8) {
         SYNC_THREADS;
         add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f7(), thx, thy, xoffset.s7, yoffset.s7);
     }
@@ -436,8 +458,8 @@ __global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
     }
 }
 
-template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int search_radius>
-RGY_ERR nlmeansCalcWeight(
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int search_radius, int offset_count>
+RGY_ERR nlmeansCalcWeightOffsetCount(
     RGYFrameInfo *pTmpIWPlane,
     const RGYFrameInfo *pTmpVPlane,
     const RGYFrameInfo *pInputPlane,
@@ -448,7 +470,7 @@ RGY_ERR nlmeansCalcWeight(
     dim3 blockSize(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
     dim3 gridSize(divCeil(pInputPlane->width, NLEANS_BLOCK_X), divCeil(pInputPlane->height, NLEANS_BLOCK_Y));
     if (shared_opt && shared_opt_avail(search_radius)) {
-        kernel_denoise_nlmeans_calc_weight_shared_opt<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius> <<<gridSize, blockSize, 0, stream >>> (
+        kernel_denoise_nlmeans_calc_weight_shared_opt<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, offset_count> <<<gridSize, blockSize, 0, stream >>> (
             (char *)pTmpIWPlane[0].ptr[0], (char *)pTmpIWPlane[1].ptr[0], (char *)pTmpIWPlane[2].ptr[0], (char *)pTmpIWPlane[3].ptr[0],
             pTmpIWPlane[0].pitch[0],
             (const char *)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
@@ -457,7 +479,7 @@ RGY_ERR nlmeansCalcWeight(
             sigma, inv_param_h_h,
             xoffset, yoffset, yoffsetmin);
     } else {
-        kernel_denoise_nlmeans_calc_weight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8> << <gridSize, blockSize, 0, stream >> > (
+        kernel_denoise_nlmeans_calc_weight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, offset_count> << <gridSize, blockSize, 0, stream >> > (
             (char *)pTmpIWPlane[0].ptr[0],
             (char *)pTmpIWPlane[1].ptr[0], (char *)pTmpIWPlane[2].ptr[0], (char *)pTmpIWPlane[3].ptr[0], (char *)pTmpIWPlane[4].ptr[0],
             (char *)pTmpIWPlane[5].ptr[0], (char *)pTmpIWPlane[6].ptr[0], (char *)pTmpIWPlane[7].ptr[0], (char *)pTmpIWPlane[8].ptr[0],
@@ -470,6 +492,28 @@ RGY_ERR nlmeansCalcWeight(
     }
     CUDA_DEBUG_SYNC_ERR;
     return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int search_radius>
+RGY_ERR nlmeansCalcWeight(
+    RGYFrameInfo *pTmpIWPlane,
+    const RGYFrameInfo *pTmpVPlane,
+    const RGYFrameInfo *pInputPlane,
+    const float sigma, const float inv_param_h_h,
+    const int8 xoffset, const int8 yoffset, const int yoffsetmin, const int offset_count, const bool shared_opt,
+    cudaStream_t stream
+) {
+    switch (offset_count) {
+    case 1:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 1>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    case 2:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 2>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    case 3:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 3>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    case 4:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 4>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    case 5:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 5>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    case 6:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 6>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    case 7:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 7>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    case 8:
+    default: return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 8>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    }
 }
 
 template<typename Type, int bit_depth, typename TmpWPType2>
@@ -605,7 +649,9 @@ public:
         case 6:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  6>;
         case 7:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  7>;
         case 8:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  8>;
-        default: return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  9>;
+        case 9:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  9>;
+        case 10: return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 10>;
+        default: return nullptr;
         }
     }
     virtual decltype(nlmeansNormalize<Type, bit_depth, TmpWPType2>)* normalize() override { return nlmeansNormalize<Type, bit_depth, TmpWPType2>; }
@@ -674,6 +720,7 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
     }
     // nx-nyの組み合わせをRGY_NLMEANS_DXDY_STEP個ずつまとめて計算して高速化
     for (size_t inxny = 0; inxny < nxny.size(); inxny += RGY_NLMEANS_DXDY_STEP) {
+        const int offset_count = std::min((int)(nxny.size() - inxny), RGY_NLMEANS_DXDY_STEP);
         int nx0arr[RGY_NLMEANS_DXDY_STEP], ny0arr[RGY_NLMEANS_DXDY_STEP];
         int nymin = 0;
         for (int i = 0; i < RGY_NLMEANS_DXDY_STEP; i++) {
@@ -686,7 +733,7 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
         memcpy(&nx0, nx0arr, sizeof(nx0));
         memcpy(&ny0, ny0arr, sizeof(ny0));
         {
-            err = func->calcDiffSquare()(pTmpUPlane, pInputPlane, nx0, ny0, stream);
+            err = func->calcDiffSquare()(pTmpUPlane, pInputPlane, nx0, ny0, offset_count, stream);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at calcDiffSquare (denoisePlane(%s)): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
                 return err;
@@ -696,7 +743,7 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
             auto funcV = func->calcV(template_radius);
             if (!funcV) {
                 AddMessage(RGY_LOG_ERROR, _T("error at calcDiffSquare (denoisePlane(%s)): unsupported patchSize %d.\n"), RGY_CSP_NAMES[pInputPlane->csp], prm->nlmeans.patchSize);
-                return err;
+                return RGY_ERR_UNSUPPORTED;
             }
             err = funcV(
                 pTmpVPlane, pTmpUPlane,
@@ -707,10 +754,15 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
             }
         }
         {
-            err = func->calcWeight(search_radius)(
+            auto funcCalcWeight = func->calcWeight(search_radius);
+            if (!funcCalcWeight) {
+                AddMessage(RGY_LOG_ERROR, _T("error at calcWeight (denoisePlane(%s)): unsupported search size %d.\n"), RGY_CSP_NAMES[pInputPlane->csp], prm->nlmeans.searchSize);
+                return RGY_ERR_UNSUPPORTED;
+            }
+            err = funcCalcWeight(
                 pTmpIWPlane, pTmpVPlane, pInputPlane,
                 prm->nlmeans.sigma, 1.0f / (prm->nlmeans.h * prm->nlmeans.h),
-                nx0, ny0, nymin, prm->nlmeans.sharedMem, stream);
+                nx0, ny0, nymin, offset_count, prm->nlmeans.sharedMem, stream);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at calcWeight (denoisePlane(%s)): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
                 return err;
@@ -790,10 +842,10 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
         AddMessage(RGY_LOG_ERROR, _T("support must be a 3 or bigger.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    //if (pNLMeansParam->nlmeans.radius > KNN_RADIUS_MAX) {
-    //    AddMessage(RGY_LOG_ERROR, _T("radius must be <= %d.\n"), KNN_RADIUS_MAX);
-    //    return RGY_ERR_INVALID_PARAM;
-    //}
+    if (prm->nlmeans.searchSize / 2 > maxSearchRadius) {
+        AddMessage(RGY_LOG_ERROR, _T("search size too big: %d.\n"), prm->nlmeans.searchSize);
+        return RGY_ERR_UNSUPPORTED;
+    }
     if (prm->nlmeans.sigma <= 0.0) {
         AddMessage(RGY_LOG_ERROR, _T("sigma should be positive value.\n"));
         return RGY_ERR_INVALID_PARAM;

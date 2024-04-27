@@ -2280,10 +2280,10 @@ Non local meansを用いたノイズ除去フィルタ。
   - h=&lt;float&gt;  (default=0.05, 0.0 - )   
     パラメータ。 値を大きくすると重みがより均一になる。
   
-  - patch=&lt;int&gt;  (default=7, 3 - )  
+  - patch=&lt;int&gt;  (default=5, 3 - 21)  
     パッチのサイズ。奇数で指定。
   
-  - search=&lt;int&gt;  (default=15, 3 - )  
+  - search=&lt;int&gt;  (default=11, 3 - 21)  
     探索範囲。奇数で指定。 
   
   - fp16=&lt;string&gt;  (default=blockdiff)  

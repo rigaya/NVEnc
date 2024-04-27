@@ -2223,10 +2223,10 @@ Non local means noise reduction filter.
   - h=&lt;float&gt;  (default=0.05, 0.0 -)   
     Parameter. Larger value will result the weight to be more flat.
   
-  - patch=&lt;int&gt;  (default=7, 3 - )  
+  - patch=&lt;int&gt;  (default=5, 3 - 21)  
     Set patch size. Must be odd number.
   
-  - search=&lt;int&gt;  (default=15, 3 - )  
+  - search=&lt;int&gt;  (default=11, 3 - 21)  
     Set search size. Must be odd number.
   
   - fp16=&lt;string&gt;  (default=blockdiff)  
