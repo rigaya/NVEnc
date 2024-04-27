@@ -48,7 +48,7 @@
 #define ENABLE_CUDA_FP16_HOST   (__CUDACC_VER_MAJOR__ >= 10)
 
 static const int NLEANS_BLOCK_X = 32;
-static const int NLEANS_BLOCK_Y =  8;
+static const int NLEANS_BLOCK_Y = 16;
 
 // atomic_addを試したが、___syncthreadsしたほうが速い
 #define ATOMIC_OPT 0
