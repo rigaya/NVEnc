@@ -2013,7 +2013,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "sigma", "patch", "search", "h", "prec", "shared_mem" };
+        const auto paramList = std::vector<std::string>{ "sigma", "patch", "search", "h", "fp16", "shared_mem" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2067,10 +2067,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("prec")) {
+                if (param_arg == _T("fp16")) {
                     int value = 0;
-                    if (get_list_value(list_vpp_fp_prec, param_val.c_str(), &value)) {
-                        vpp->nlmeans.prec = (VppFpPrecision)value;
+                    if (get_list_value(list_vpp_nlmeans_fp16, param_val.c_str(), &value)) {
+                        vpp->nlmeans.fp16 = (VppNLMeansFP16Opt)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
                         return 1;
@@ -6309,12 +6309,12 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         if (!param->nlmeans.enable && save_disabled_prm) {
             tmp << _T(",enable=false");
         }
-        if (param->knn.enable || save_disabled_prm) {
+        if (param->nlmeans.enable || save_disabled_prm) {
             ADD_FLOAT(_T("sigma"), nlmeans.sigma, 3);
             ADD_NUM(_T("patch"), nlmeans.patchSize);
             ADD_NUM(_T("search"), nlmeans.searchSize);
             ADD_FLOAT(_T("h"), nlmeans.h, 3);
-            ADD_LST(_T("prec"), nlmeans.prec, list_vpp_fp_prec);
+            ADD_LST(_T("fp16"), nlmeans.fp16, list_vpp_nlmeans_fp16);
             ADD_BOOL(_T("shared_mem"), nlmeans.sharedMem);
         }
         if (!tmp.str().empty()) {

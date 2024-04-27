@@ -148,18 +148,6 @@ RGY_ERR nlmeansCalcDiffSquare(
     return err_to_rgy(cudaGetLastError());
 }
 
-__device__ __inline__ float8 calc_v_add(float8 val0, float8 val1) {
-    val0 += val1;
-    return val0;
-}
-
-__device__ __inline__ half8 calc_v_add(half8 val0, half8 val1) {
-#if ENABLE_CUDA_FP16_DEVICE
-    val0 += val1;
-#endif
-    return val0;
-}
-
 template<typename Type, int template_radius, typename TmpVType8>
 __global__ void kernel_denoise_nlmeans_calc_v(
     char *__restrict__ pDst, const int dstPitch,
@@ -176,7 +164,7 @@ __global__ void kernel_denoise_nlmeans_calc_v(
             for (int i = - template_radius; i <= template_radius; i++) {
                 const int srcx = clamp(ix + i, 0, width - 1);
                 const TmpVType8 vals = TmpVType8::load((TmpVType8 *)(pSrc + srcy * srcPitch + srcx * sizeof(TmpVType8)));
-                sum = calc_v_add(sum, vals);
+                sum += vals;
             }
         }
         TmpVType8 *ptr = (TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
@@ -218,7 +206,7 @@ template<typename Type, int bit_depth, typename TmpWPType>
 __device__ __inline__ TmpWPType getSrcPixXYOffset(const char *__restrict__ pSrc, const int srcPitch, const int width, const int height, const int ix, const int iy, const int xoffset, const int yoffset) {
     if ((xoffset | yoffset) == 0) return (TmpWPType)0.0f;
     const Type pix = *(const Type *)(pSrc + clamp(iy+yoffset, 0, height-1) * srcPitch + clamp(ix+xoffset,0,width-1) * sizeof(Type));
-    return (TmpWPType)pix * (1.0f / ((1<<bit_depth) - 1));
+    return (TmpWPType)pix * (TmpWPType)(1.0f / ((1<<bit_depth) - 1));
 }
 
 template<typename Type, int bit_depth, typename TmpWPType, typename TmpWPType8>
@@ -236,7 +224,13 @@ __device__ TmpWPType8 getSrcPixXYOffset8(const char *__restrict__ pSrc, const in
     return pix8;
 }
 
-__device__ __inline__ float8 to_float8(half8 v) {
+template<typename TmpWPType, typename TmpVType8>
+__device__ __inline__ TmpWPType toTmpWPType8(TmpVType8 v) {
+    return v;
+}
+
+template<>
+__device__ __inline__ float8 toTmpWPType8<float8, half8>(half8 v) {
 #if ENABLE_CUDA_FP16_DEVICE
     float2 f20 = __half22float2(v.h2.s0);
     float2 f21 = __half22float2(v.h2.s1);
@@ -254,10 +248,6 @@ __device__ __inline__ float8 to_float8(half8 v) {
 #else
     return float8(0.0f);
 #endif
-}
-
-__device__ __inline__ float8 to_float8(float8 v) {
-    return v;
 }
 
 template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8>
@@ -278,31 +268,28 @@ __global__ void kernel_denoise_nlmeans_calc_weight(
 
     if (ix < width && iy < height) {
         const TmpVType8 v_vt8 = TmpVType8::load((const TmpVType8 *)(pV + iy * vPitch + ix * sizeof(TmpVType8)));
-        const TmpWPType8 v_tmpv8 = to_float8(v_vt8); // expを使う前にfp32に変換
-        const TmpWPType8 weight = __expf(max(v_tmpv8 - (2.0f * sigma), (TmpWPType8)0.0f) * -inv_param_h_h);
+        const TmpWPType8 v_tmpv8 = toTmpWPType8<TmpWPType8, TmpVType8>(v_vt8); // expを使う前にfp32に変換
+        const TmpWPType8 weight = __expf(max(v_tmpv8 - (TmpWPType)(2.0f * sigma), (TmpWPType8)0.0f) * (TmpWPType)-inv_param_h_h);
 
         // 自分のほうはここですべて同じバッファ(ptrImgW0)に足し込んでしまう
         {
             TmpWPType2 *ptrImgW0 = (TmpWPType2 *)(pImgW0 + iy * tmpPitch + ix * sizeof(TmpWPType2));
             TmpWPType8 pix8 = getSrcPixXYOffset8<Type, bit_depth, TmpWPType, TmpWPType8>(pSrc, srcPitch, width, height, ix, iy, xoffset, yoffset);
             TmpWPType8 weight_pix8 = weight * pix8;
-            TmpWPType2 weight_pix_2 = {
-                weight_pix8.s0 + weight_pix8.s1 + weight_pix8.s2 + weight_pix8.s3 + weight_pix8.s4 + weight_pix8.s5 + weight_pix8.s6 + weight_pix8.s7,
-                weight.s0 + weight.s1 + weight.s2 + weight.s3 + weight.s4 + weight.s5 + weight.s6 + weight.s7
-            };
+            TmpWPType2 weight_pix_2 = { vec_sum(weight_pix8), vec_sum(weight) };
             ptrImgW0[0] += weight_pix_2;
         }
         // 反対側は衝突を避けるため、別々に足し込む
         const Type pix = *(const Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
-        const TmpWPType pixNormalized = (TmpWPType)pix * (1.0f / ((1<<bit_depth) - 1));
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW1, tmpPitch, width, height, ix, iy, xoffset.s0, yoffset.s0, pixNormalized, weight.s0);
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW2, tmpPitch, width, height, ix, iy, xoffset.s1, yoffset.s1, pixNormalized, weight.s1);
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW3, tmpPitch, width, height, ix, iy, xoffset.s2, yoffset.s2, pixNormalized, weight.s2);
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW4, tmpPitch, width, height, ix, iy, xoffset.s3, yoffset.s3, pixNormalized, weight.s3);
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW5, tmpPitch, width, height, ix, iy, xoffset.s4, yoffset.s4, pixNormalized, weight.s4);
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW6, tmpPitch, width, height, ix, iy, xoffset.s5, yoffset.s5, pixNormalized, weight.s5);
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW7, tmpPitch, width, height, ix, iy, xoffset.s6, yoffset.s6, pixNormalized, weight.s6);
-        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW8, tmpPitch, width, height, ix, iy, xoffset.s7, yoffset.s7, pixNormalized, weight.s7);
+        const TmpWPType pixNormalized = (TmpWPType)pix * (TmpWPType)(1.0f / ((1<<bit_depth) - 1));
+        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW1, tmpPitch, width, height, ix, iy, xoffset.s0, yoffset.s0, pixNormalized, weight.f0());
+        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW2, tmpPitch, width, height, ix, iy, xoffset.s1, yoffset.s1, pixNormalized, weight.f1());
+        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW3, tmpPitch, width, height, ix, iy, xoffset.s2, yoffset.s2, pixNormalized, weight.f2());
+        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW4, tmpPitch, width, height, ix, iy, xoffset.s3, yoffset.s3, pixNormalized, weight.f3());
+        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW5, tmpPitch, width, height, ix, iy, xoffset.s4, yoffset.s4, pixNormalized, weight.f4());
+        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW6, tmpPitch, width, height, ix, iy, xoffset.s5, yoffset.s5, pixNormalized, weight.f5());
+        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW7, tmpPitch, width, height, ix, iy, xoffset.s6, yoffset.s6, pixNormalized, weight.f6());
+        add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW8, tmpPitch, width, height, ix, iy, xoffset.s7, yoffset.s7, pixNormalized, weight.f7());
     }
 }
 
@@ -385,17 +372,14 @@ __global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
     TmpWPType8 weight = TmpWPType8(0.0f);
     if (ix < width && iy < height) {
         const TmpVType8 v_vt8 = TmpVType8::load((const TmpVType8 *)(pV + iy * vPitch + ix * sizeof(TmpVType8)));
-        const TmpWPType8 v_tmpv8 = to_float8(v_vt8); // expを使う前にfp32に変換
-        weight = __expf(max(v_tmpv8 - (2.0f * sigma), (TmpWPType8)0.0f) * -inv_param_h_h);
+        const TmpWPType8 v_tmpv8 = toTmpWPType8<TmpWPType8, TmpVType8>(v_vt8); // expを使う前にfp32に変換
+        weight = __expf(max(v_tmpv8 - (TmpWPType)(2.0f * sigma), (TmpWPType8)0.0f) * (TmpWPType)-inv_param_h_h);
 
         // 自分のほうはここですべて同じバッファ(ptrImgW0)に足し込んでしまう
         {
             TmpWPType8 pix8 = getSrcPixXYOffset8<Type, bit_depth, TmpWPType, TmpWPType8>(pSrc, srcPitch, width, height, ix, iy, xoffset, yoffset);
             TmpWPType8 weight_pix8 = weight * pix8;
-            TmpWPType2 weight_pix_2 = {
-                weight_pix8.s0 + weight_pix8.s1 + weight_pix8.s2 + weight_pix8.s3 + weight_pix8.s4 + weight_pix8.s5 + weight_pix8.s6 + weight_pix8.s7,
-                weight.s0 + weight.s1 + weight.s2 + weight.s3 + weight.s4 + weight.s5 + weight.s6 + weight.s7
-            };
+            TmpWPType2 weight_pix_2 = { vec_sum(weight_pix8), vec_sum(weight) };
             add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, weight_pix_2, thx, thy, 0, 0);
         }
     }
@@ -407,34 +391,34 @@ __global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
         const Type pix = *(const Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
         pixNormalized = pix * (1.0f / ((1 << bit_depth) - 1));
     }
-    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s0, thx, thy, xoffset.s0, yoffset.s0);
+    add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f0(), thx, thy, xoffset.s0, yoffset.s0);
     if ((xoffset.s1 | yoffset.s1) != 0) {
         SYNC_THREADS;
-        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s1, thx, thy, xoffset.s1, yoffset.s1);
+        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f1(), thx, thy, xoffset.s1, yoffset.s1);
     }
     if ((xoffset.s2 | yoffset.s2) != 0) {
         SYNC_THREADS;
-        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s2, thx, thy, xoffset.s2, yoffset.s2);
+        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f2(), thx, thy, xoffset.s2, yoffset.s2);
     }
     if ((xoffset.s3 | yoffset.s3) != 0) {
         SYNC_THREADS;
-        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s3, thx, thy, xoffset.s3, yoffset.s3);
+        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f3(), thx, thy, xoffset.s3, yoffset.s3);
     }
     if ((xoffset.s4 | yoffset.s4) != 0) {
         SYNC_THREADS;
-        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s4, thx, thy, xoffset.s4, yoffset.s4);
+        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f4(), thx, thy, xoffset.s4, yoffset.s4);
     }
     if ((xoffset.s5 | yoffset.s5) != 0) {
         SYNC_THREADS;
-        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s5, thx, thy, xoffset.s5, yoffset.s5);
+        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f5(), thx, thy, xoffset.s5, yoffset.s5);
     }
     if ((xoffset.s6 | yoffset.s6) != 0) {
         SYNC_THREADS;
-        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s6, thx, thy, xoffset.s6, yoffset.s6);
+        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f6(), thx, thy, xoffset.s6, yoffset.s6);
     }
     if ((xoffset.s7 | yoffset.s7) != 0) {
         SYNC_THREADS;
-        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.s7, thx, thy, xoffset.s7, yoffset.s7);
+        add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f7(), thx, thy, xoffset.s7, yoffset.s7);
     }
     __syncthreads();
 
@@ -512,8 +496,8 @@ __global__ void kernel_denoise_nlmeans_normalize(
         const TmpWPType2 imgW6 = *(const TmpWPType2 *)(pImgW6 + iy * tmpPitch + ix * sizeof(TmpWPType2));
         const TmpWPType2 imgW7 = *(const TmpWPType2 *)(pImgW7 + iy * tmpPitch + ix * sizeof(TmpWPType2));
         const TmpWPType2 imgW8 = *(const TmpWPType2 *)(pImgW8 + iy * tmpPitch + ix * sizeof(TmpWPType2));
-        const float imgW = imgW0.x + imgW1.x + imgW2.x + imgW3.x + imgW4.x + imgW5.x + imgW6.x + imgW7.x + imgW8.x;
-        const float weight = imgW0.y + imgW1.y + imgW2.y + imgW3.y + imgW4.y + imgW5.y + imgW6.y + imgW7.y + imgW8.y;
+        const float imgW = (float)imgW0.x + (float)imgW1.x + (float)imgW2.x + (float)imgW3.x + (float)imgW4.x + (float)imgW5.x + (float)imgW6.x + (float)imgW7.x + (float)imgW8.x;
+        const float weight = (float)imgW0.y + (float)imgW1.y + (float)imgW2.y + (float)imgW3.y + (float)imgW4.y + (float)imgW5.y + (float)imgW6.y + (float)imgW7.y + (float)imgW8.y;
         const float srcPixF = srcPix * (float)(1.0f / ((1 << bit_depth) - 1));
         Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
         ptr[0] = (Type)clamp((imgW + srcPixF) * __frcp_rn(weight + 1.0f) * ((1 << bit_depth) - 1), 0.0f, (1 << bit_depth) - 0.1f);
@@ -537,8 +521,8 @@ __global__ void kernel_denoise_nlmeans_normalize_shared_opt(
         const TmpWPType2 imgW1 = *(const TmpWPType2 *)(pImgW1 + iy * tmpPitch + ix * sizeof(TmpWPType2));
         const TmpWPType2 imgW2 = *(const TmpWPType2 *)(pImgW2 + iy * tmpPitch + ix * sizeof(TmpWPType2));
         const TmpWPType2 imgW3 = *(const TmpWPType2 *)(pImgW3 + iy * tmpPitch + ix * sizeof(TmpWPType2));
-        const float imgW = imgW0.x + imgW1.x + imgW2.x + imgW3.x;
-        const float weight = imgW0.y + imgW1.y + imgW2.y + imgW3.y;
+        const float imgW = (float)imgW0.x + (float)imgW1.x + (float)imgW2.x + (float)imgW3.x;
+        const float weight = (float)imgW0.y + (float)imgW1.y + (float)imgW2.y + (float)imgW3.y;
         const float srcPixF = srcPix * (float)(1.0f / ((1 << bit_depth) - 1));
         Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
         ptr[0] = (Type)clamp((imgW + srcPixF) * __frcp_rn(weight + 1.0f) * ((1 << bit_depth) - 1), 0.0f, (1 << bit_depth) - 0.1f);
@@ -627,18 +611,18 @@ public:
     virtual decltype(nlmeansNormalize<Type, bit_depth, TmpWPType2>)* normalize() override { return nlmeansNormalize<Type, bit_depth, TmpWPType2>; }
 };
 
-std::unique_ptr<NLMeansFuncsBase> getNLMeansFunc(const RGY_CSP csp, VppFpPrecision weightPrec) {
+std::unique_ptr<NLMeansFuncsBase> getNLMeansFunc(const RGY_CSP csp, const VppNLMeansFP16Opt fp16) {
     switch (csp) {
     case RGY_CSP_YV12:
     case RGY_CSP_YUV444:
-        return (weightPrec == VPP_FP_PRECISION_FP32)
-            ? std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, float, float8, float, float2, float8>())
-            : std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, __half, half8, float, float2, float8>());
+        if (fp16 == VppNLMeansFP16Opt::All)       return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, __half, half8, __half, __half2, half8>());
+        if (fp16 == VppNLMeansFP16Opt::BlockDiff) return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, __half, half8, float, float2, float8>());
+                                                  return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, float, float8, float, float2, float8>());
     case RGY_CSP_P010:
     case RGY_CSP_YUV444_16:
-        return (weightPrec == VPP_FP_PRECISION_FP32)
-            ? std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, float, float8, float, float2, float8>())
-            : std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, __half, half8, float, float2, float8>());
+        if (fp16 == VppNLMeansFP16Opt::All)       return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, __half, half8, __half, __half2, half8>());
+        if (fp16 == VppNLMeansFP16Opt::BlockDiff) return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, __half, half8, float, float2, float8>());
+                                                  return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, float, float8, float, float2, float8>());
     default:
         return nullptr;
     }
@@ -656,7 +640,7 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto func = getNLMeansFunc(pOutputPlane->csp, prm->nlmeans.prec);
+    auto func = getNLMeansFunc(pOutputPlane->csp, prm->nlmeans.fp16);
     if (!func) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid colorformat.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -818,15 +802,8 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
         AddMessage(RGY_LOG_ERROR, _T("h should be positive value.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->nlmeans.prec != VPP_FP_PRECISION_FP32) {
-        prm->nlmeans.prec =
-#if ENABLE_CUDA_FP16_HOST
-            ((prm->compute_capability.first == 6 && prm->compute_capability.second == 0)
-                || prm->compute_capability.first >= 7)
-            ? VPP_FP_PRECISION_FP16 : VPP_FP_PRECISION_FP32;
-#else
-            VPP_FP_PRECISION_FP32;
-#endif
+    if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::None && prm->compute_capability.first < 7) {
+        prm->nlmeans.fp16 = VppNLMeansFP16Opt::None;
     }
     const int search_radius = prm->nlmeans.searchSize / 2;
     // メモリへの書き込みが衝突しないよう、ブロックごとに書き込み先のバッファを分けるが、それがブロックサイズを超えてはいけない
@@ -835,13 +812,13 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
         prm->nlmeans.sharedMem = false;
     }
 
-    const bool use_vtype_fp16 = prm->nlmeans.prec != VPP_FP_PRECISION_FP32;
+    const bool use_vtype_fp16 = prm->nlmeans.fp16 != VppNLMeansFP16Opt::None;
     for (size_t i = 0; i < m_tmpBuf.size(); i++) {
         int tmpBufWidth = 0;
         if (i == TMP_U || i == TMP_V) {
-            tmpBufWidth = prm->frameOut.width * ((use_vtype_fp16) ? 16 /*half8*/ : 32/*float8*/);
+            tmpBufWidth = prm->frameOut.width * ((prm->nlmeans.fp16 != VppNLMeansFP16Opt::None) ? 16 /*half8*/ : 32/*float8*/);
         } else {
-            tmpBufWidth = prm->frameOut.width * 8 /*float2*/;
+            tmpBufWidth = prm->frameOut.width * ((prm->nlmeans.fp16 == VppNLMeansFP16Opt::All) ? 4 /*half2*/ : 8 /*float2*/);
         }
         // sharedメモリを使う場合、TMP_U, TMP_VとTMP_IW0～TMP_IW3のみ使用する(TMP_IW4以降は不要)
         if (prm->nlmeans.sharedMem && i >= 6) {

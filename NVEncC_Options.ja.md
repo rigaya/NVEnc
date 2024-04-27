@@ -2274,10 +2274,10 @@ yadifによるインタレ解除を行う。
 Non local meansを用いたノイズ除去フィルタ。
 
 - **パラメータ**
-  - sigma=&lt;float&gt;  (default=0.1, 0.0 - 1.0)   
+  - sigma=&lt;float&gt;  (default=0.005, 0.0 - )   
     ノイズの分散。 より大きな値にするとより強くノイズ除去を行う。
   
-  - h=&lt;float&gt;  (default=0.3, 0.0 - 1.0)   
+  - h=&lt;float&gt;  (default=0.05, 0.0 - )   
     パラメータ。 値を大きくすると重みがより均一になる。
   
   - patch=&lt;int&gt;  (default=7, 3 - )  
@@ -2286,11 +2286,15 @@ Non local meansを用いたノイズ除去フィルタ。
   - search=&lt;int&gt;  (default=15, 3 - )  
     探索範囲。奇数で指定。 
   
-  - prec=&lt;string&gt;  (default=auto)  
-    重み計算の精度。fp16のほうが精度が低いが高速。
-    - auto
-    - fp32
+  - fp16=&lt;string&gt;  (default=blockdiff)  
+    - none
+      fp16を使用せず、fp32を使用する。高精度だが遅い。
+
+    - blockdiff
+      ブロックの差分計算にのみfp16を使用する。精度と速度のバランスが良い。
+
     - fp16
+      重みの計算にもfp16を使用する。高速だが低精度。
   
 - 使用例
   ```

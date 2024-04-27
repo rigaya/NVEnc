@@ -36,6 +36,12 @@ static const int WARP_SIZE = (1<<WARP_SIZE_2N);
 
 #define RGY_FLT_EPS (1e-6)
 
+#if defined(__CUDACC__) && (__CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)) && !defined(__CUDA_NO_HALF2_OPERATORS__)
+#define ENABLE_CUDA_FP16_DEVICE 1
+#else
+#define ENABLE_CUDA_FP16_DEVICE 0
+#endif
+
 struct __align__(sizeof(int) * 8) int8 {
     int s0, s1, s2, s3, s4, s5, s6, s7;
 };
@@ -92,6 +98,14 @@ struct __align__(sizeof(float) * 8) float8 {
         f8.s7 = f1.w;
         return f8;
     }
+    __host__ __device__ float f0() const { return s0; }
+    __host__ __device__ float f1() const { return s1; }
+    __host__ __device__ float f2() const { return s2; }
+    __host__ __device__ float f3() const { return s3; }
+    __host__ __device__ float f4() const { return s4; }
+    __host__ __device__ float f5() const { return s5; }
+    __host__ __device__ float f6() const { return s6; }
+    __host__ __device__ float f7() const { return s7; }
 };
 
 struct __align__(sizeof(__half) * 4) __half4 {
@@ -145,17 +159,15 @@ public:
         this->h2.s0 = vh2;
         this->h2.s1 = vh2;
     }
-#if defined(__CUDACC__) && (__CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)) && !defined(__CUDA_NO_HALF2_OPERATORS__)
     __device__ half4(float val) {
+#if ENABLE_CUDA_FP16_DEVICE
         __half2 vh2 = __float2half2_rn(val);
         this->h2.s0 = vh2;
         this->h2.s1 = vh2;
         this->h2.s0 = vh2;
         this->h2.s1 = vh2;
-    }
-#else
-    __host__ __device__ half4(float val) { };
 #endif
+    }
     __host__ __device__ half4(__half v0, __half v1, __half v2, __half v3) {
         this->h.s0 = v0;
         this->h.s1 = v1;
@@ -198,17 +210,15 @@ public:
         this->h2.s2 = vh2;
         this->h2.s3 = vh2;
     }
-#if defined(__CUDACC__) && (__CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)) && !defined(__CUDA_NO_HALF2_OPERATORS__)
     __device__ half8(float val) {
+#if ENABLE_CUDA_FP16_DEVICE
         __half2 vh2 = __float2half2_rn(val);
         this->h2.s0 = vh2;
         this->h2.s1 = vh2;
         this->h2.s2 = vh2;
         this->h2.s3 = vh2;
-    }
-#else
-    __host__ __device__ half8(float val) { };
 #endif
+    }
     __host__ __device__ half8(__half v0, __half v1, __half v2, __half v3, __half v4, __half v5, __half v6, __half v7) {
         this->h.s0 = v0;
         this->h.s1 = v1;
@@ -224,6 +234,14 @@ public:
         tmp.f = *(float4 *)ptr;
         return tmp;
     }
+    __host__ __device__ float f0() const { return h.s0; }
+    __host__ __device__ float f1() const { return h.s1; }
+    __host__ __device__ float f2() const { return h.s2; }
+    __host__ __device__ float f3() const { return h.s3; }
+    __host__ __device__ float f4() const { return h.s4; }
+    __host__ __device__ float f5() const { return h.s5; }
+    __host__ __device__ float f6() const { return h.s6; }
+    __host__ __device__ float f7() const { return h.s7; }
 };
 
 static __device__ float2 operator*(float2 a, float b) {
@@ -326,6 +344,37 @@ static __device__ float8 max(float8 a, float8 b) {
     return a;
 }
 
+#ifndef __hmax2
+static __device__ __half2 __hmax2(__half2 a, __half2 b) {
+#if ENABLE_CUDA_FP16_DEVICE
+    __half2 one = { 1.0f, 1.0f };
+    __half2 cmp = __hgt2(a, b); // a > b ? 1 : 0
+    __half2 cmp_inv = one - cmp; // a > b ? 0 : 1
+    return a * cmp + b * cmp_inv;
+#else
+    return __half2();
+#endif
+}
+#endif
+
+static __device__ half8 max(half8 a, half8 b) {
+    a.h2.s0 = __hmax2(a.h2.s0, b.h2.s0);
+    a.h2.s1 = __hmax2(a.h2.s1, b.h2.s1);
+    a.h2.s2 = __hmax2(a.h2.s2, b.h2.s2);
+    a.h2.s3 = __hmax2(a.h2.s3, b.h2.s3);
+    return a;
+}
+
+static __device__ half8 __expf(half8 a) {
+#if ENABLE_CUDA_FP16_DEVICE
+    a.h2.s0 = h2exp(a.h2.s0);
+    a.h2.s1 = h2exp(a.h2.s1);
+    a.h2.s2 = h2exp(a.h2.s2);
+    a.h2.s3 = h2exp(a.h2.s3);
+#endif
+    return a;
+}
+
 static __device__ float8 __expf(float8 a) {
     a.s0 = __expf(a.s0);
     a.s1 = __expf(a.s1);
@@ -337,6 +386,7 @@ static __device__ float8 __expf(float8 a) {
     a.s7 = __expf(a.s7);
     return a;
 }
+
 
 static __device__ float4 operator*(float4 a, float b) {
     a.x *= b;
@@ -578,283 +628,407 @@ static __device__ float8& operator-=(float8& a, float8 b) {
     return a;
 }
 
-#if defined(__CUDACC__) && (__CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)) && !defined(__CUDA_NO_HALF2_OPERATORS__)
+static __device__ float vec_sum(float8 f) {
+    return f.s0 + f.s1 + f.s2 + f.s3 + f.s4 + f.s5 + f.s6 + f.s7;
+}
+
+static __device__ __half vec_sum(half8 f) {
+#if ENABLE_CUDA_FP16_DEVICE
+    __half2 h0 = f.h2.s0 + f.h2.s1;
+    __half2 h1 = f.h2.s2 + f.h2.s3;
+    h0 += h1;
+    return h0.x + h0.y;
+#else
+    return __half();
+#endif
+}
+
+
+#if !ENABLE_CUDA_FP16_DEVICE // dummy
+static __device__ __half operator*(__half a, __half b) {
+    return a;
+}
+static __device__ __half2 operator*(__half2 a, __half2 b) {
+    return a;
+}
+static __device__ __half operator+(__half a, __half b) {
+    return a;
+}
+static __device__ __half2 operator+(__half2 a, __half2 b) {
+    return a;
+}
+static __device__ __half operator-(__half a, __half b) {
+    return a;
+}
+static __device__ __half2 operator-(__half2 a, __half2 b) {
+    return a;
+}
+static __device__ __half operator*=(__half& a, __half b) {
+    return a;
+}
+static __device__ __half2 operator*=(__half2& a, __half2 b) {
+    return a;
+}
+static __device__ __half operator+=(__half& a, __half b) {
+    return a;
+}
+static __device__ __half2 operator+=(__half2& a, __half2 b) {
+    return a;
+}
+static __device__ __half operator-=(__half& a, __half b) {
+    return a;
+}
+static __device__ __half2 operator-=(__half2& a, __half2 b) {
+    return a;
+}
+#endif
 
 static __device__ half4 operator*(half4 a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 *= bh2;
     a.h2.s1 *= bh2;
+#endif
     return a;
 }
 
 static __device__ half4 operator*(half4 a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 *= bh2;
     a.h2.s1 *= bh2;
+#endif
     return a;
 }
 
 static __device__ half4 operator*(half4 a, half4 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 *= b.h2.s0;
     a.h2.s1 *= b.h2.s1;
+#endif
     return a;
 }
 
 static __device__ half4& operator*=(half4& a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 *= bh2;
     a.h2.s1 *= bh2;
+#endif
     return a;
 }
 
 static __device__ half4& operator*=(half4& a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 *= bh2;
     a.h2.s1 *= bh2;
+#endif
     return a;
 }
 
 static __device__ half4& operator*=(half4& a, half4 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 *= b.h2.s0;
     a.h2.s1 *= b.h2.s1;
+#endif
     return a;
 }
 
 static __device__ half4 operator+(half4 a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 += bh2;
     a.h2.s1 += bh2;
+#endif
     return a;
 }
 
 static __device__ half4 operator+(half4 a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 += bh2;
     a.h2.s1 += bh2;
+#endif
     return a;
 }
 
 static __device__ half4 operator+(half4 a, half4 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 += b.h2.s0;
     a.h2.s1 += b.h2.s1;
+#endif
     return a;
 }
 
 static __device__ half4& operator+=(half4& a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 += bh2;
     a.h2.s1 += bh2;
+#endif
     return a;
 }
 
 static __device__ half4& operator+=(half4& a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 += bh2;
     a.h2.s1 += bh2;
+#endif
     return a;
 }
 
 static __device__ half4& operator+=(half4& a, half4 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 += b.h2.s0;
     a.h2.s1 += b.h2.s1;
+#endif
     return a;
 }
 
 static __device__ half4 operator-(half4 a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 -= bh2;
     a.h2.s1 -= bh2;
+#endif
     return a;
 }
 
 static __device__ half4 operator-(half4 a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 -= bh2;
     a.h2.s1 -= bh2;
+#endif
     return a;
 }
 
 static __device__ half4 operator-(half4 a, half4 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 -= b.h2.s0;
     a.h2.s1 -= b.h2.s1;
+#endif
     return a;
 }
 
 static __device__ half4& operator-=(half4& a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 -= bh2;
     a.h2.s1 -= bh2;
+#endif
     return a;
 }
 
 static __device__ half4& operator-=(half4& a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 -= bh2;
     a.h2.s1 -= bh2;
+#endif
     return a;
 }
 
 static __device__ half4& operator-=(half4& a, half4 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 -= b.h2.s0;
     a.h2.s1 -= b.h2.s1;
+#endif
     return a;
 }
 static __device__ half8 operator*(half8 a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 *= bh2;
     a.h2.s1 *= bh2;
     a.h2.s2 *= bh2;
     a.h2.s3 *= bh2;
+#endif
     return a;
 }
 
 static __device__ half8 operator*(half8 a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 *= bh2;
     a.h2.s1 *= bh2;
     a.h2.s2 *= bh2;
     a.h2.s3 *= bh2;
+#endif
     return a;
 }
 
 static __device__ half8 operator*(half8 a, half8 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 *= b.h2.s0;
     a.h2.s1 *= b.h2.s1;
     a.h2.s2 *= b.h2.s2;
     a.h2.s3 *= b.h2.s3;
+#endif
     return a;
 }
 
 static __device__ half8& operator*=(half8& a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 *= bh2;
     a.h2.s1 *= bh2;
     a.h2.s2 *= bh2;
     a.h2.s3 *= bh2;
+#endif
     return a;
 }
 
 static __device__ half8& operator*=(half8& a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 *= bh2;
     a.h2.s1 *= bh2;
     a.h2.s2 *= bh2;
     a.h2.s3 *= bh2;
+#endif
     return a;
 }
 
 static __device__ half8& operator*=(half8& a, half8 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 *= b.h2.s0;
     a.h2.s1 *= b.h2.s1;
     a.h2.s2 *= b.h2.s2;
     a.h2.s3 *= b.h2.s3;
+#endif
     return a;
 }
 
 static __device__ half8 operator+(half8 a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 += bh2;
     a.h2.s1 += bh2;
     a.h2.s2 += bh2;
     a.h2.s3 += bh2;
+#endif
     return a;
 }
 
 static __device__ half8 operator+(half8 a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 += bh2;
     a.h2.s1 += bh2;
     a.h2.s2 += bh2;
     a.h2.s3 += bh2;
+#endif
     return a;
 }
 
 static __device__ half8 operator+(half8 a, half8 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 += b.h2.s0;
     a.h2.s1 += b.h2.s1;
     a.h2.s2 += b.h2.s2;
     a.h2.s3 += b.h2.s3;
+#endif
     return a;
 }
 
 static __device__ half8& operator+=(half8& a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 += bh2;
     a.h2.s1 += bh2;
     a.h2.s2 += bh2;
     a.h2.s3 += bh2;
+#endif
     return a;
 }
 
 static __device__ half8& operator+=(half8& a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 += bh2;
     a.h2.s1 += bh2;
     a.h2.s2 += bh2;
     a.h2.s3 += bh2;
+#endif
     return a;
 }
 
 static __device__ half8& operator+=(half8& a, half8 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 += b.h2.s0;
     a.h2.s1 += b.h2.s1;
     a.h2.s2 += b.h2.s2;
     a.h2.s3 += b.h2.s3;
+#endif
     return a;
 }
 
 static __device__ half8 operator-(half8 a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 -= bh2;
     a.h2.s1 -= bh2;
     a.h2.s2 -= bh2;
     a.h2.s3 -= bh2;
+#endif
     return a;
 }
 
 static __device__ half8 operator-(half8 a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 -= bh2;
     a.h2.s1 -= bh2;
     a.h2.s2 -= bh2;
     a.h2.s3 -= bh2;
+#endif
     return a;
 }
 
 static __device__ half8 operator-(half8 a, half8 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 -= b.h2.s0;
     a.h2.s1 -= b.h2.s1;
     a.h2.s2 -= b.h2.s2;
     a.h2.s3 -= b.h2.s3;
+#endif
     return a;
 }
 
 static __device__ half8& operator-=(half8& a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.h2.s0 -= bh2;
     a.h2.s1 -= bh2;
     a.h2.s2 -= bh2;
     a.h2.s3 -= bh2;
+#endif
     return a;
 }
 
 static __device__ half8& operator-=(half8& a, __half b) {
+#if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = { b, b };
     a.h2.s0 -= bh2;
     a.h2.s1 -= bh2;
     a.h2.s2 -= bh2;
     a.h2.s3 -= bh2;
+#endif
     return a;
 }
 
 static __device__ half8& operator-=(half8& a, half8 b) {
+#if ENABLE_CUDA_FP16_DEVICE
     a.h2.s0 -= b.h2.s0;
     a.h2.s1 -= b.h2.s1;
     a.h2.s2 -= b.h2.s2;
     a.h2.s3 -= b.h2.s3;
+#endif
     return a;
 }
-#endif
 
 #if __CUDACC_VER_MAJOR__ >= 9
 #define __shfl(x, y)     __shfl_sync(0xFFFFFFFFU, x, y)
@@ -1021,5 +1195,7 @@ static __device__ T *selectptr(T *ptr0, T *ptr1, T *ptr2, const int idx) {
     if (idx == 2) return ptr2;
     return ptr0;
 }
+
+#undef ENABLE_CUDA_FP16_DEVICE
 
 #endif //__RGY_CUDA_UTIL_KERNEL_H__
