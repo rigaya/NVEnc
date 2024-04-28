@@ -692,18 +692,15 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
         return RGY_ERR_UNSUPPORTED;
     }
     // 一時バッファを初期化
-    auto err = setPlaneAsync(&pTmpIWPlane[0], 0, stream);
-    CUDA_DEBUG_SYNC_ERR;
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error setPlane[IW0](%s): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
-        return err;
-    }
-    for (int i = 1; i < RGY_NLMEANS_DXDY_STEP+1; i++) {
-        err = setPlaneAsync(&pTmpIWPlane[i], 0, stream);
-        CUDA_DEBUG_SYNC_ERR;
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error setPlane[IW%d](%s): %s.\n"), i, RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
-            return err;
+    auto err = RGY_ERR_NONE;
+    for (int i = 0; i < RGY_NLMEANS_DXDY_STEP+1; i++) {
+        if (pTmpIWPlane[i].ptr[0]) {
+            err = setPlaneAsync(&pTmpIWPlane[i], 0, stream);
+            CUDA_DEBUG_SYNC_ERR;
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error setPlane[IW%d](%s): %s.\n"), i, RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+                return err;
+            }
         }
     }
     const int template_radius = prm->nlmeans.patchSize / 2;
