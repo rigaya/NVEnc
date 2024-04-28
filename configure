@@ -678,7 +678,7 @@ rgy_memmem_avx2.cpp    rgy_memmem_avx512bw.cpp \
 CU_NVENCCORE=" \
 NVEncFilterAfsAnalyze.cu  NVEncFilterAfsFilter.cu   NVEncFilterAfsMerge.cu   NVEncFilterAfsSynthesize.cu         NVEncFilterConvolution3d.cu \
 NVEncFilterCrop.cu        NVEncFilterCurves.cu      NVEncFilterDeband.cu     NVEncFilterDecimate.cu              NVEncFilterDelogo.cu \
-NVEncFilterDenoiseDct.cu  NVEncFilterDenoiseKnn.cu  NVEncFilterDenoisePmd.cu  \
+NVEncFilterDenoiseDct.cu  NVEncFilterDenoiseKnn.cu  NVEncFilterDenoiseNLMeans.cu NVEncFilterDenoisePmd.cu  \
 NVEncFilterEdgelevel.cu   NVEncFilterMpdecimate.cu  NVEncFilterNnedi.cu \
 NVEncFilterOverlay.cu     NVEncFilterResize.cu      NVEncFilterSmooth.cu     NVEncFilterSsim.cu                  NVEncFilterSubburn.cu \
 NVEncFilterTransform.cu   NVEncFilterTweak.cu       NVEncFilterUnsharp.cu    NVEncFilterWarpsharp.cu             NVEncFilterYadif.cu \
