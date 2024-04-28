@@ -2298,8 +2298,8 @@ Non local meansを用いたノイズ除去フィルタ。
   
 - 使用例
   ```
-  例: ややデフォルトより高速に
-  --vpp-nlmeans patch=5,search=11
+  例: 探索範囲を広げてより高精度に
+  --vpp-nlmeans patch=7,search=15
   ```
 
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

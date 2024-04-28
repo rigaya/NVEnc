@@ -2241,8 +2241,8 @@ Non local means noise reduction filter.
   
 - Examples
   ```
-  Example: faster than default
-  --vpp-nlmeans patch=5,search=11
+  Example: Use larger search area
+  --vpp-nlmeans patch=7,search=15
   ```
 
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
