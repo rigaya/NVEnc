@@ -76,22 +76,11 @@ enum RGYFilterDenoiseNLMeansTmpBufIdx {
     TMP_TOTAL,
 };
 
-template<typename Type, int bit_depth, typename TmpVType>
-__device__ __inline__ float8 calc_sqdiff(Type val0, float8 val1) {
-    float8 val0_1 = (float8)val0 - val1;
-    const float8 fdiff = val0_1 * (float)(1.0f / ((1 << bit_depth) - 1));
+template<typename Type, int bit_depth>
+__device__ __inline__ float calc_sqdiff(Type val0, Type val1) {
+    const int val0_1 = (int)val0 - (int)val1;
+    const float fdiff = val0_1 * (float)(1.0f / ((1 << bit_depth) - 1));
     return fdiff * fdiff;
-}
-
-template<typename Type, int bit_depth, typename TmpVType>
-__device__ __inline__ half8 calc_sqdiff(Type val0, half8 val1) {
-#if ENABLE_CUDA_FP16_DEVICE
-    half8 val0_1 = val1 - (TmpVType)val0;
-    const half8 fdiff = val0_1 * (__half)(1.0f / ((1 << bit_depth) - 1));
-    return fdiff * fdiff;
-#else
-    return half8(0.0f);
-#endif
 }
 
 template<typename Type>
@@ -117,18 +106,18 @@ __global__ void kernel_calc_diff_square(
         const char *ptr0 = pSrc + iy * srcPitch + ix * sizeof(Type);
         const Type val0 = *(const Type *)ptr0;
 
-        TmpVType8 val1 = TmpVType8(
-            (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s0, yoffset.s0, width, height),
-            (offset_count >= 2) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s1, yoffset.s1, width, height) : 0.0f,
-            (offset_count >= 3) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s2, yoffset.s2, width, height) : 0.0f,
-            (offset_count >= 4) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s3, yoffset.s3, width, height) : 0.0f,
-            (offset_count >= 5) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s4, yoffset.s4, width, height) : 0.0f,
-            (offset_count >= 6) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s5, yoffset.s5, width, height) : 0.0f,
-            (offset_count >= 7) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s6, yoffset.s6, width, height) : 0.0f,
-            (offset_count >= 8) ? (TmpVType)get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s7, yoffset.s7, width, height) : 0.0f);
+        TmpVType8 sqdiff = TmpVType8(
+                                  (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s0, yoffset.s0, width, height)),
+            (offset_count >= 2) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s1, yoffset.s1, width, height)) : 0.0f,
+            (offset_count >= 3) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s2, yoffset.s2, width, height)) : 0.0f,
+            (offset_count >= 4) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s3, yoffset.s3, width, height)) : 0.0f,
+            (offset_count >= 5) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s4, yoffset.s4, width, height)) : 0.0f,
+            (offset_count >= 6) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s5, yoffset.s5, width, height)) : 0.0f,
+            (offset_count >= 7) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s6, yoffset.s6, width, height)) : 0.0f,
+            (offset_count >= 8) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s7, yoffset.s7, width, height)) : 0.0f);
 
         TmpVType8 *ptrDst = (TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
-        ptrDst[0] = calc_sqdiff<Type, bit_depth, TmpVType>(val0, val1);
+        ptrDst[0] = sqdiff;
     }
 }
 
@@ -228,7 +217,7 @@ template<typename Type, int bit_depth, typename TmpWPType>
 __device__ __inline__ TmpWPType getSrcPixXYOffset(const char *__restrict__ pSrc, const int srcPitch, const int width, const int height, const int ix, const int iy, const int xoffset, const int yoffset) {
     if ((xoffset | yoffset) == 0) return (TmpWPType)0.0f;
     const Type pix = *(const Type *)(pSrc + clamp(iy+yoffset, 0, height-1) * srcPitch + clamp(ix+xoffset,0,width-1) * sizeof(Type));
-    return (TmpWPType)pix * (TmpWPType)(1.0f / ((1<<bit_depth) - 1));
+    return (TmpWPType)(pix * (float)(1.0f / ((1<<bit_depth) - 1)));
 }
 
 template<typename Type, int bit_depth, typename TmpWPType, typename TmpWPType8, int offset_count>
@@ -303,7 +292,7 @@ __global__ void kernel_denoise_nlmeans_calc_weight(
         }
         // 反対側は衝突を避けるため、別々に足し込む
         const Type pix = *(const Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
-        const TmpWPType pixNormalized = (TmpWPType)pix * (TmpWPType)(1.0f / ((1<<bit_depth) - 1));
+        const TmpWPType pixNormalized = (TmpWPType)(pix * (float)(1.0f / ((1<<bit_depth) - 1)));
         add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW1, tmpPitch, width, height, ix, iy, xoffset.s0, yoffset.s0, pixNormalized, weight.f0());
         if (offset_count >= 2) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW2, tmpPitch, width, height, ix, iy, xoffset.s1, yoffset.s1, pixNormalized, weight.f1());
         if (offset_count >= 3) add_reverse_side_offset<TmpWPType, TmpWPType2>(pImgW3, tmpPitch, width, height, ix, iy, xoffset.s2, yoffset.s2, pixNormalized, weight.f2());
@@ -411,7 +400,7 @@ __global__ void kernel_denoise_nlmeans_calc_weight_shared_opt(
     TmpWPType pixNormalized = 0.0f;
     if (ix < width && iy < height) {
         const Type pix = *(const Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
-        pixNormalized = pix * (1.0f / ((1 << bit_depth) - 1));
+        pixNormalized = (TmpWPType)(pix * (float)(1.0f / ((1 << bit_depth) - 1)));
     }
     add_tmpwp_local<TmpWPType, TmpWPType2, search_radius>(tmpWP, pixNormalized, weight.f0(), thx, thy, xoffset.s0, yoffset.s0);
     if (offset_count >= 2) {
