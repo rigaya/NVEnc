@@ -859,6 +859,8 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
     setComboBox(fcgCXVppDenoiseDctStep, list_vpp_denoise_dct_step_gui);
     setComboBox(fcgCXVppDenoiseDctBlockSize, list_vpp_denoise_dct_block_size);
+    setComboBox(fcgCXVppDenoiseNLMeansPatch, list_vpp_nlmeans_block_size);
+    setComboBox(fcgCXVppDenoiseNLMeansSearch, list_vpp_nlmeans_block_size);
     setComboBox(fcgCXVppDenoiseMethod, list_vpp_denoise);
     setComboBox(fcgCXVppDetailEnhance,  list_vpp_detail_enahance);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband_gui);
@@ -990,6 +992,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 
     fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
+    fcgPNVppDenoiseNLMeans->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nlmeans")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
     fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
     fcgPNVppDenoiseDct->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("denoise-dct")));
@@ -1296,6 +1299,10 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnThreshold);
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnStrength);
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnRadius);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseNLMeansPatch);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseNLMeansSearch);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseNLMeansSigma);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseNLMeansH);
     LOAD_CLI_TEXT(fcgLBVppDenoisePmdThreshold);
     LOAD_CLI_TEXT(fcgLBVppDenoisePmdStrength);
     LOAD_CLI_TEXT(fcgLBVppDenoisePmdApplyCount);
@@ -1497,6 +1504,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         int denoise_idx = 0;
         if (encPrm.vpp.knn.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
+        } else if (encPrm.vpp.nlmeans.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("nlmeans"));
         } else if (encPrm.vpp.pmd.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
         } else if (encPrm.vpp.smooth.enable) {
@@ -1535,6 +1544,10 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoiseKnnRadius,     encPrm.vpp.knn.radius);
         SetNUValue(fcgNUVppDenoiseKnnStrength,   encPrm.vpp.knn.strength);
         SetNUValue(fcgNUVppDenoiseKnnThreshold,  encPrm.vpp.knn.lerp_threshold);
+        SetCXIndex(fcgCXVppDenoiseNLMeansPatch,  get_cx_index(list_vpp_nlmeans_block_size, (int)encPrm.vpp.nlmeans.patchSize));
+        SetCXIndex(fcgCXVppDenoiseNLMeansSearch, get_cx_index(list_vpp_nlmeans_block_size, (int)encPrm.vpp.nlmeans.searchSize));
+        SetNUValue(fcgNUVppDenoiseNLMeansSigma,  encPrm.vpp.nlmeans.sigma);
+        SetNUValue(fcgNUVppDenoiseNLMeansH,      encPrm.vpp.nlmeans.h);
         SetNUValue(fcgNUVppDenoisePmdApplyCount, encPrm.vpp.pmd.applyCount);
         SetNUValue(fcgNUVppDenoisePmdStrength,   encPrm.vpp.pmd.strength);
         SetNUValue(fcgNUVppDenoisePmdThreshold,  encPrm.vpp.pmd.threshold);
@@ -1796,6 +1809,12 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.knn.radius             = (int)fcgNUVppDenoiseKnnRadius->Value;
     encPrm.vpp.knn.strength           = (float)fcgNUVppDenoiseKnnStrength->Value;
     encPrm.vpp.knn.lerp_threshold     = (float)fcgNUVppDenoiseKnnThreshold->Value;
+
+    encPrm.vpp.nlmeans.enable         = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nlmeans"));
+    encPrm.vpp.nlmeans.patchSize      = list_vpp_nlmeans_block_size[fcgCXVppDenoiseNLMeansPatch->SelectedIndex].value;
+    encPrm.vpp.nlmeans.searchSize     = list_vpp_nlmeans_block_size[fcgCXVppDenoiseNLMeansSearch->SelectedIndex].value;
+    encPrm.vpp.nlmeans.sigma          = (float)fcgNUVppDenoiseNLMeansSigma->Value;
+    encPrm.vpp.nlmeans.h              = (float)fcgNUVppDenoiseNLMeansH->Value;
 
     encPrm.vpp.pmd.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd"));
     encPrm.vpp.pmd.applyCount         = (int)fcgNUVppDenoisePmdApplyCount->Value;
@@ -2210,6 +2229,10 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnRadius);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnStrength);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnThreshold);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseNLMeansPatch);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseNLMeansSearch);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseNLMeansSigma);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseNLMeansH);
     SET_TOOL_TIP_EX(fcgCXVppDetailEnhance);
     SET_TOOL_TIP_EX(fcgNUVppWarpsharpBlur);
     SET_TOOL_TIP_EX(fcgNUVppWarpsharpThreshold);
