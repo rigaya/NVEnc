@@ -7684,12 +7684,17 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-nlmeans [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by non-local means.\n")
         _T("    params\n")
-        _T("      sigma=<float>  sigma (default=%.2, 0.0 - 1.0)\n")
-        _T("      h=<float>      h (default=%.2f, 0.0 - 1.0)\n")
+        _T("      sigma=<float>  sigma (default=%.3, 0.0 -)\n")
+        _T("      h=<float>      h (default=%.3f, 0.0 <)\n")
+#if ENCODER_NVENC
+        _T("      patch=<int>    patch size (default=%d, 3-21)\n")
+        _T("      search=<int>   search size (default=%d, 3-21)\n")
+#else
         _T("      patch=<int>    patch size (default=%d, 3-)\n")
         _T("      search=<int>   search size (default=%d, 3-)\n")
-        _T("      prec=<string>  select weight calculation precision.\n")
-        _T("                       auto (default), fp16, fp32\n")
+#endif
+        _T("      fp16=<string>  select fp16 usage.\n")
+        _T("                       none, blockdiff (default), all\n")
         ,
         FILTER_DEFAULT_NLMEANS_FILTER_SIGMA, FILTER_DEFAULT_NLMEANS_H,
         FILTER_DEFAULT_NLMEANS_PATCH_SIZE, FILTER_DEFAULT_NLMEANS_SEARCH_SIZE

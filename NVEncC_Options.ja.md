@@ -2274,10 +2274,10 @@ yadifによるインタレ解除を行う。
 Non local meansを用いたノイズ除去フィルタ。
 
 - **パラメータ**
-  - sigma=&lt;float&gt;  (default=0.005, 0.0 - )   
+  - sigma=&lt;float&gt;  (default=0.005, 0.0 -)   
     ノイズの分散。 より大きな値にするとより強くノイズ除去を行う。
   
-  - h=&lt;float&gt;  (default=0.05, 0.0 - )   
+  - h=&lt;float&gt;  (default=0.05, 0.0 <)   
     パラメータ。 値を大きくすると重みがより均一になる。
   
   - patch=&lt;int&gt;  (default=5, 3 - 21)  

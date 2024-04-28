@@ -2220,7 +2220,7 @@ Non local means noise reduction filter.
   - sigma=&lt;float&gt;  (default=0.005, 0.0 -)   
     Noise variance. Larger value will result stronger denosing.
   
-  - h=&lt;float&gt;  (default=0.05, 0.0 -)   
+  - h=&lt;float&gt;  (default=0.05, 0.0 <)   
     Parameter. Larger value will result the weight to be more flat.
   
   - patch=&lt;int&gt;  (default=5, 3 - 21)  

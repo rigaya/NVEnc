@@ -843,12 +843,12 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
         AddMessage(RGY_LOG_ERROR, _T("search size too big: %d.\n"), prm->nlmeans.searchSize);
         return RGY_ERR_UNSUPPORTED;
     }
-    if (prm->nlmeans.sigma <= 0.0) {
-        AddMessage(RGY_LOG_ERROR, _T("sigma should be positive value.\n"));
+    if (prm->nlmeans.sigma < 0.0) {
+        AddMessage(RGY_LOG_ERROR, _T("sigma should be 0 or larger.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->nlmeans.h <= 0.0) {
-        AddMessage(RGY_LOG_ERROR, _T("h should be positive value.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("h should be larger than 0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::None && prm->compute_capability.first < 7) {
