@@ -2230,13 +2230,13 @@ Non local means noise reduction filter.
     Set search size. Must be odd number.
   
   - fp16=&lt;string&gt;  (default=blockdiff)  
-    - none
+    - none  
       Do not use fp16 and use fp32. High precision but slow.
 
-    - blockdiff
+    - blockdiff  
       Use fp16 in block diff calculation. Balanced between performace and precision.
 
-    - fp16
+    - fp16  
       Additionally use fp16 in weight calculation. Fast but low precision.
   
 - Examples

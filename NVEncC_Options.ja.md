@@ -2287,13 +2287,13 @@ Non local meansを用いたノイズ除去フィルタ。
     探索範囲。奇数で指定。 
   
   - fp16=&lt;string&gt;  (default=blockdiff)  
-    - none
+    - none  
       fp16を使用せず、fp32を使用する。高精度だが遅い。
 
-    - blockdiff
+    - blockdiff  
       ブロックの差分計算にのみfp16を使用する。精度と速度のバランスが良い。
 
-    - fp16
+    - fp16  
       重みの計算にもfp16を使用する。高速だが低精度。
   
 - 使用例
