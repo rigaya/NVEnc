@@ -777,7 +777,7 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, cons
             if (m_tmpBuf[TMP_IW0 + j]) {
                 pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, (RGY_PLANE)i);
             } else {
-                memset(&pTmpIWPlane[j], 0, sizeof(pTmpIWPlane[j]));
+                pTmpIWPlane[j] = RGYFrameInfo();
             }
         }
         auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc, stream);
