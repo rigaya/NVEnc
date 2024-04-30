@@ -1,12 +1,14 @@
 FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive \
-    OSVER=ubuntu2404 \
+    OSVER=ubuntu2204 \
     LOCAL_USER_ID=1000 \
     LOCAL_GROUP_ID=1000 \
-    CUDA_DEB_URL=https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda-repo-ubuntu2204-11-8-local_11.8.0-520.61.05-1_amd64.deb \
-    CUDA_DEB_NAME=cuda-repo-ubuntu2204-11-8-local_11.8.0-520.61.05-1_amd64.deb \
-    CUDA_GPG_PATH=/var/cuda-repo-ubuntu2204-11-8-local
+    CUDA_VER_MAJOR=12 \
+    CUDA_VER_MINOR=4 \
+    CUDA_DEB_URL=https://developer.download.nvidia.com/compute/cuda/12.4.1/local_installers/cuda-repo-ubuntu2204-12-4-local_12.4.1-550.54.15-1_amd64.deb \
+    CUDA_DEB_NAME=cuda-repo-ubuntu2204-12-4-local_12.4.1-550.54.15-1_amd64.deb \
+    CUDA_GPG_PATH=/var/cuda-repo-ubuntu2204-12-4-local
 
 RUN apt update \
     && apt-get install -y \
@@ -33,7 +35,7 @@ RUN apt update \
     && dpkg -i ${CUDA_DEB_NAME} \
     && cp ${CUDA_GPG_PATH}/cuda-*-keyring.gpg /usr/share/keyrings/ \
     && apt-get update \
-    && apt-get -y install cuda \
+    && apt-get -y install cuda-drivers cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-cudart-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-driver-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvrtc-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libnpp-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
     && rm -f ${CUDA_DEB_NAME} \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
