@@ -108,13 +108,13 @@ __global__ void kernel_calc_diff_square(
 
         TmpVType8 sqdiff = TmpVType8(
                                   (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s0, yoffset.s0, width, height)),
-            (offset_count >= 2) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s1, yoffset.s1, width, height)) : 0.0f,
-            (offset_count >= 3) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s2, yoffset.s2, width, height)) : 0.0f,
-            (offset_count >= 4) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s3, yoffset.s3, width, height)) : 0.0f,
-            (offset_count >= 5) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s4, yoffset.s4, width, height)) : 0.0f,
-            (offset_count >= 6) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s5, yoffset.s5, width, height)) : 0.0f,
-            (offset_count >= 7) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s6, yoffset.s6, width, height)) : 0.0f,
-            (offset_count >= 8) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s7, yoffset.s7, width, height)) : 0.0f);
+            (offset_count >= 2) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s1, yoffset.s1, width, height)) : (TmpVType)0.0f,
+            (offset_count >= 3) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s2, yoffset.s2, width, height)) : (TmpVType)0.0f,
+            (offset_count >= 4) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s3, yoffset.s3, width, height)) : (TmpVType)0.0f,
+            (offset_count >= 5) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s4, yoffset.s4, width, height)) : (TmpVType)0.0f,
+            (offset_count >= 6) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s5, yoffset.s5, width, height)) : (TmpVType)0.0f,
+            (offset_count >= 7) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s6, yoffset.s6, width, height)) : (TmpVType)0.0f,
+            (offset_count >= 8) ? (TmpVType)calc_sqdiff<Type, bit_depth>(val0, get_xyoffset_pix<Type>(pSrc, srcPitch, ix, iy, xoffset.s7, yoffset.s7, width, height)) : (TmpVType)0.0f);
 
         TmpVType8 *ptrDst = (TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
         ptrDst[0] = sqdiff;
@@ -225,13 +225,13 @@ __device__ TmpWPType8 getSrcPixXYOffset8(const char *__restrict__ pSrc, const in
     static_assert(sizeof(TmpWPType) * 8 == sizeof(TmpWPType8), "sizeof(TmpWPType) * 8 == sizeof(TmpWPType8)");
     TmpWPType8 pix8 = TmpWPType8(
         getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s0, yoffset.s0),
-        (offset_count >= 2) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s1, yoffset.s1) : 0.0f,
-        (offset_count >= 3) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s2, yoffset.s2) : 0.0f,
-        (offset_count >= 4) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s3, yoffset.s3) : 0.0f,
-        (offset_count >= 5) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s4, yoffset.s4) : 0.0f,
-        (offset_count >= 6) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s5, yoffset.s5) : 0.0f,
-        (offset_count >= 7) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s6, yoffset.s6) : 0.0f,
-        (offset_count >= 8) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s7, yoffset.s7) : 0.0f);
+        (offset_count >= 2) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s1, yoffset.s1) : (TmpWPType)0.0f,
+        (offset_count >= 3) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s2, yoffset.s2) : (TmpWPType)0.0f,
+        (offset_count >= 4) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s3, yoffset.s3) : (TmpWPType)0.0f,
+        (offset_count >= 5) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s4, yoffset.s4) : (TmpWPType)0.0f,
+        (offset_count >= 6) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s5, yoffset.s5) : (TmpWPType)0.0f,
+        (offset_count >= 7) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s6, yoffset.s6) : (TmpWPType)0.0f,
+        (offset_count >= 8) ? getSrcPixXYOffset<Type, bit_depth, TmpWPType>(pSrc, srcPitch, width, height, ix, iy, xoffset.s7, yoffset.s7) : (TmpWPType)0.0f);
     return pix8;
 }
 
@@ -599,10 +599,10 @@ public:
     NLMeansFuncsBase() {};
     virtual ~NLMeansFuncsBase() {};
 
-    virtual decltype(nlmeansCalcDiffSquare<uint8_t, 8, float, float8>)* calcDiffSquare() = 0;
-    virtual decltype(nlmeansCalcV<uint8_t, 1, float8>)* calcV(int template_radius) = 0;
-    virtual decltype(nlmeansCalcWeight<uint8_t, 8, float8, float, float2, float8, 1>)* calcWeight(int search_radius) = 0;
-    virtual decltype(nlmeansNormalize<uint8_t, 8, float2>)* normalize() = 0;
+    virtual decltype(&nlmeansCalcDiffSquare<uint8_t, 8, float, float8>) calcDiffSquare() = 0;
+    virtual decltype(&nlmeansCalcV<uint8_t, 1, float8>) calcV(int template_radius) = 0;
+    virtual decltype(&nlmeansCalcWeight<uint8_t, 8, float8, float, float2, float8, 1>) calcWeight(int search_radius) = 0;
+    virtual decltype(&nlmeansNormalize<uint8_t, 8, float2>) normalize() = 0;
 };
 
 template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8>
@@ -611,8 +611,8 @@ public:
     NLMeansFuncs() {};
     virtual ~NLMeansFuncs() {};
 
-    virtual decltype(nlmeansCalcDiffSquare<Type, bit_depth, TmpVType, TmpVType8>)* calcDiffSquare() override { return nlmeansCalcDiffSquare<Type, bit_depth, TmpVType, TmpVType8>; }
-    virtual decltype(nlmeansCalcV<Type, 1, TmpVType8>)* calcV(int template_radius) override {
+    virtual decltype(&nlmeansCalcDiffSquare<Type, bit_depth, TmpVType, TmpVType8>) calcDiffSquare() override { return nlmeansCalcDiffSquare<Type, bit_depth, TmpVType, TmpVType8>; }
+    virtual decltype(&nlmeansCalcV<Type, 1, TmpVType8>) calcV(int template_radius) override {
         switch (template_radius) {
         case 1:  return nlmeansCalcV<Type,  1, TmpVType8>;
         case 2:  return nlmeansCalcV<Type,  2, TmpVType8>;
@@ -628,7 +628,7 @@ public:
         }
         
     }
-    virtual decltype(nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 1>)* calcWeight(int search_radius) override {
+    virtual decltype(&nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 1>) calcWeight(int search_radius) override {
         switch (search_radius) {
         case 1:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  1>;
         case 2:  return nlmeansCalcWeight<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8,  2>;
@@ -643,7 +643,7 @@ public:
         default: return nullptr;
         }
     }
-    virtual decltype(nlmeansNormalize<Type, bit_depth, TmpWPType2>)* normalize() override { return nlmeansNormalize<Type, bit_depth, TmpWPType2>; }
+    virtual decltype(&nlmeansNormalize<Type, bit_depth, TmpWPType2>) normalize() override { return nlmeansNormalize<Type, bit_depth, TmpWPType2>; }
 };
 
 std::unique_ptr<NLMeansFuncsBase> getNLMeansFunc(const RGY_CSP csp, const VppNLMeansFP16Opt fp16) {
