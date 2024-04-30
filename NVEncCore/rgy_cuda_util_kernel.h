@@ -344,7 +344,7 @@ static __device__ float8 max(float8 a, float8 b) {
     return a;
 }
 
-#ifndef __hmax2
+#if (__CUDACC_VER_MAJOR__ < 11)
 static __device__ __half2 __hmax2(__half2 a, __half2 b) {
 #if ENABLE_CUDA_FP16_DEVICE
     __half2 one = { 1.0f, 1.0f };
