@@ -7630,13 +7630,13 @@ tstring gen_cmd_help_vpp() {
         int length = 80;
         for (int ia = 0; list_vpp_resize[ia].desc; ia++) {
             if (length > 77) {
-                length = _tcslen(indent);
+                length = (int)_tcslen(indent);
                 str += tstring(_T("\n")) + indent;
             } else {
-                length += _tcslen(_T(", "));
+                length += (int)_tcslen(_T(", "));
                 str += _T(", ");
             }
-            length += _tcslen(list_vpp_resize[ia].desc);
+            length += (int)_tcslen(list_vpp_resize[ia].desc);
             str += list_vpp_resize[ia].desc;
         }
         str += _T("        default: auto\n");

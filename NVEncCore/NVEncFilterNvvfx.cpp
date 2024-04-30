@@ -213,7 +213,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         return err;
     }
 
-    if (!m_srcImg || m_srcImg->width != pParam->frameIn.width || m_srcImg->height != pParam->frameIn.height) {
+    if (!m_srcImg || (int)m_srcImg->width != pParam->frameIn.width || (int)m_srcImg->height != pParam->frameIn.height) {
         // C++コンストラクタでのメモリ確保ではなく、デフォルトコンストラクタでNvCVImageを作成した後、
         // NvCVImage_Allocでメモリ確保すること
         // そうしないと128で割り切れないwidthの場合にエラーが出る
@@ -235,7 +235,7 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
         }
     }
 
-    if (!m_dstImg || m_dstImg->width != pParam->frameOut.width || m_dstImg->height != pParam->frameOut.height) {
+    if (!m_dstImg || (int)m_dstImg->width != pParam->frameOut.width || (int)m_dstImg->height != pParam->frameOut.height) {
         // C++コンストラクタでのメモリ確保ではなく、デフォルトコンストラクタでNvCVImageを作成した後、
         // NvCVImage_Allocでメモリ確保すること
         // そうしないと128で割り切れないwidthの場合にエラーが出る
