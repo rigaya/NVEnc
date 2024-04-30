@@ -248,7 +248,7 @@ protected:
 
     decltype(find_header_c)* m_find_header;
     tstring m_filepath;
-    std::unique_ptr<FILE, decltype(&fclose)> m_fp;
+    std::unique_ptr<FILE, fp_deleter> m_fp;
     std::vector<uint8_t> m_buffer;
     int64_t m_datasize;
     int64_t m_dataoffset;

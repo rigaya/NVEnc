@@ -859,7 +859,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         setFilterInfo(delogoInfo);
         if (pDelogoParam->delogo.log) {
             m_logPath = pDelogoParam->inputFileName + tstring(_T(".delogo_log.csv"));
-            std::unique_ptr<FILE, decltype(&fclose)> fp(_tfopen(m_logPath.c_str(), _T("w")), fclose);
+            std::unique_ptr<FILE, fp_deleter> fp(_tfopen(m_logPath.c_str(), _T("w")), fp_deleter());
             _ftprintf(fp.get(), _T("%s\n\n"), m_infoStr.c_str());
             _ftprintf(fp.get(), _T(", NR, fade (adj), fade (raw)\n"));
             fp.reset();
@@ -1191,7 +1191,7 @@ RGY_ERR NVEncFilterDelogo::logAutoFadeNR() {
     }
     if (pDelogoParam->delogo.log
         && (pDelogoParam->delogo.autoFade || pDelogoParam->delogo.autoNR)) {
-        std::unique_ptr<FILE, decltype(&fclose)> fp(_tfopen(m_logPath.c_str(), _T("a")), fclose);
+        std::unique_ptr<FILE, fp_deleter> fp(_tfopen(m_logPath.c_str(), _T("a")), fp_deleter());
         if (fp) {
             _ftprintf(fp.get(), _T("%7d, %d, %9.3f, %9.3f\n"),
                 m_fadeArray[m_frameOut].frameId,

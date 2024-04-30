@@ -731,7 +731,7 @@ RGY_ERR NVEncFilterResize::initNvvfxFilter(NVEncFilterParamResize *param) {
     // 入力側からチェックする
     // allow_upscale_after_nvvfx は nvvfxの処理後に拡大リサイズを許可するかどうか?
     for (const bool allow_upscale_after_nvvfx : { false, true }) {
-        for (int iratio = 0; iratio < nvvfx_scale_ratio.size(); iratio++) {
+        for (int iratio = 0; iratio < (int)nvvfx_scale_ratio.size(); iratio++) {
             const auto ratio = nvvfx_scale_ratio[iratio];
             const double ratiod = ratio.qdouble();
             if ((param->frameIn.height * ratio.n()) % ratio.d() != 0) {

@@ -306,11 +306,15 @@ void RGYLog::writeHtmlHeader() {
             L"</style>\n"
             L"</head>\n"
             L"<body>\n";
+        RGY_DISABLE_WARNING_PUSH
+        RGY_DISABLE_WARNING_STR("-Wnonnull")
         fprintf(fp, "%s", wstring_to_string(header, CP_UTF8).c_str());
         fprintf(fp, "%s", HTML_FOOTER);
         fclose(fp);
+        RGY_DISABLE_WARNING_POP
     }
 }
+
 void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
     tstring fileHeader;
     int dstFilenameLen = (int)_tcslen(pDstFilename);

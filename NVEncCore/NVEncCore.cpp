@@ -1756,7 +1756,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers = 2;
         }
         // どうも最大3までしかうまく扱えていなさそう (4にするとエラーが発生)
-        const int maxTemporalLayersAvail = std::min(3, codecFeature->getCapLimit(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS));
+        const decltype(m_stEncConfig.encodeCodecConfig.h264Config.maxTemporalLayers) maxTemporalLayersAvail = std::min(3, codecFeature->getCapLimit(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS));
         if (m_stEncConfig.encodeCodecConfig.h264Config.maxTemporalLayers > maxTemporalLayersAvail) {
             PrintMes(RGY_LOG_WARN, _T("maxTemporalLayers is lowered %d -> %d.\n"), m_stEncConfig.encodeCodecConfig.h264Config.maxTemporalLayers, maxTemporalLayersAvail);
             m_stEncConfig.encodeCodecConfig.h264Config.maxTemporalLayers = maxTemporalLayersAvail;
@@ -1765,7 +1765,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_WARN, _T("numTemporalLayers is lowered %d -> %d.\n"), m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers, maxTemporalLayersAvail);
             m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers = maxTemporalLayersAvail;
 
-            const int requiredRef = (m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers >= 2) ? (m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers - 2) * 2 : 0;
+            const auto requiredRef = (m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers >= 2) ? (m_stEncConfig.encodeCodecConfig.h264Config.numTemporalLayers - 2) * 2 : 0;
             if (m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames != 0
                 && m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames < requiredRef) {
                 m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames = requiredRef;

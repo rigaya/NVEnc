@@ -426,7 +426,7 @@ std::vector<uint8_t> RGYHDRMetadata::gen_obu() const {
     return data;
 }
 
-DOVIRpu::DOVIRpu() : m_find_header(get_find_header_func()), m_filepath(), m_fp(nullptr, fclose), m_buffer(), m_datasize(0), m_dataoffset(0), m_count(0), m_rpus() {};
+DOVIRpu::DOVIRpu() : m_find_header(get_find_header_func()), m_filepath(), m_fp(nullptr, fp_deleter()), m_buffer(), m_datasize(0), m_dataoffset(0), m_count(0), m_rpus() {};
 DOVIRpu::~DOVIRpu() { m_fp.reset(); };
 
 const uint8_t DOVIRpu::rpu_header[4] = { 0, 0, 0, 1 };

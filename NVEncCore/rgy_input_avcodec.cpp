@@ -504,7 +504,7 @@ RGY_ERR RGYInputAvcodec::parseVideoExtraData(const AVPacket *pkt) {
             char_to_tstring(bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
-    std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type side_data_size = 0;
+    std::remove_pointer<RGYArgN<2U, decltype(av_packet_get_side_data)>::type>::type side_data_size = 0;
     auto side_data = av_packet_get_side_data(pktCopy.get(), AV_PKT_DATA_NEW_EXTRADATA, &side_data_size);
     if (side_data) {
         AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), side_data_size);
@@ -1252,7 +1252,7 @@ RGY_ERR RGYInputAvcodec::parseHDR10plus(AVPacket *pkt) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to set dictionary for key=%s\n"), char_to_tstring(HDR10PLUS_METADATA_KEY).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type frameDictSize = 0;
+            std::remove_pointer<RGYArgN<1U, decltype(av_packet_pack_dictionary)>::type>::type frameDictSize = 0;
             uint8_t *frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
             if (frameDictData == nullptr) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to pack dictionary for key=%s\n"), char_to_tstring(HDR10PLUS_METADATA_KEY).c_str());
@@ -1284,7 +1284,7 @@ RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVFrame *fram
 }
 
 RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVPacket *pkt) {
-    std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type side_data_size = 0;
+    std::remove_pointer<RGYArgN<2U, decltype(av_packet_get_side_data)>::type>::type side_data_size = 0;
     auto side_data = av_packet_get_side_data(pkt, AV_PKT_DATA_STRINGS_METADATA, &side_data_size);
     if (side_data) {
         AVDictionary *dict = nullptr;
