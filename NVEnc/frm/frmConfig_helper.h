@@ -299,20 +299,6 @@ static const ENC_OPTION_STR2 list_vpp_deband_gui[] = {
     { AUO_MES_UNKNOWN, NULL, 0 }
 };
 
-static const ENC_OPTION_STR2 list_vpp_nlmeans_block_size[] = {
-    { AUO_MES_UNKNOWN, L"3",   3 },
-    { AUO_MES_UNKNOWN, L"5",   5 },
-    { AUO_MES_UNKNOWN, L"7",   7 },
-    { AUO_MES_UNKNOWN, L"9",   9 },
-    { AUO_MES_UNKNOWN, L"11", 11 },
-    { AUO_MES_UNKNOWN, L"13", 13 },
-    { AUO_MES_UNKNOWN, L"15", 15 },
-    { AUO_MES_UNKNOWN, L"17", 17 },
-    { AUO_MES_UNKNOWN, L"19", 19 },
-    { AUO_MES_UNKNOWN, L"21", 21 },
-    { AUO_MES_UNKNOWN, NULL, 0 }
-};
-
 #if ENCODER_QSV
 static const ENC_OPTION_STR2 list_rotate_angle_ja[] = {
     { AUO_MES_UNKNOWN,   L"0°",  MFX_ANGLE_0    },

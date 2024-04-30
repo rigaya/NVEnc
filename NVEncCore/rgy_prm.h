@@ -1221,6 +1221,20 @@ const CX_DESC list_vpp_nlmeans_fp16[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_vpp_nlmeans_block_size[] = {
+    { _T("3"),   3 },
+    { _T("5"),   5 },
+    { _T("7"),   7 },
+    { _T("9"),   9 },
+    { _T("11"), 11 },
+    { _T("13"), 13 },
+    { _T("15"), 15 },
+    { _T("17"), 17 },
+    { _T("19"), 19 },
+    { _T("21"), 21 },
+    { NULL, 0 }
+};
+
 struct VppNLMeans {
     bool  enable;
     float sigma;
