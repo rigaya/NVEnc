@@ -344,24 +344,26 @@ static __device__ float8 max(float8 a, float8 b) {
     return a;
 }
 
-#if (__CUDACC_VER_MAJOR__ < 11)
-static __device__ __half2 __hmax2(__half2 a, __half2 b) {
+static __device__ __half2 max_half2(__half2 a, __half2 b) {
 #if ENABLE_CUDA_FP16_DEVICE
+#ifndef __hmax2
     __half2 one = { 1.0f, 1.0f };
     __half2 cmp = __hgt2(a, b); // a > b ? 1 : 0
     __half2 cmp_inv = one - cmp; // a > b ? 0 : 1
     return a * cmp + b * cmp_inv;
 #else
+    return __hmax2(a, b);
+#endif
+#else
     return __half2();
 #endif
 }
-#endif
 
 static __device__ half8 max(half8 a, half8 b) {
-    a.h2.s0 = __hmax2(a.h2.s0, b.h2.s0);
-    a.h2.s1 = __hmax2(a.h2.s1, b.h2.s1);
-    a.h2.s2 = __hmax2(a.h2.s2, b.h2.s2);
-    a.h2.s3 = __hmax2(a.h2.s3, b.h2.s3);
+    a.h2.s0 = max_half2(a.h2.s0, b.h2.s0);
+    a.h2.s1 = max_half2(a.h2.s1, b.h2.s1);
+    a.h2.s2 = max_half2(a.h2.s2, b.h2.s2);
+    a.h2.s3 = max_half2(a.h2.s3, b.h2.s3);
     return a;
 }
 
