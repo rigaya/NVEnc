@@ -644,7 +644,7 @@ static __device__ __half vec_sum(half8 f) {
 }
 
 
-#if !ENABLE_CUDA_FP16_DEVICE // dummy
+#if !ENABLE_CUDA_FP16_DEVICE && (__CUDACC_VER_MAJOR__ < 12) // dummy
 static __device__ __half operator*(__half a, __half b) {
     return a;
 }
