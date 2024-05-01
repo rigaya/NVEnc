@@ -32,6 +32,12 @@
 #include "rgy_prm.h"
 #include <array>
 
+#if (defined(WIN32) || defined(WIN64)) && defined(_M_IX86)
+#define ENABLE_VPP_NLMEANS 0
+#else
+#define ENABLE_VPP_NLMEANS 1
+#endif
+
 // dxdyのペアを何並列で同時計算するか
 static const int RGY_NLMEANS_DXDY_STEP = 8;
 
@@ -53,6 +59,7 @@ public:
     virtual ~NVEncFilterDenoiseNLMeans();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
+#if ENABLE_VPP_NLMEANS
     RGY_ERR denoisePlane(
         RGYFrameInfo *pOutputPlane,
         RGYFrameInfo *pTmpUPlane, RGYFrameInfo *pTmpVPlane,
@@ -60,6 +67,7 @@ protected:
         const RGYFrameInfo *pInputPlane,
         cudaStream_t stream);
     RGY_ERR denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+#endif
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     std::array<std::unique_ptr<CUFrameBuf>, 2 + 1 + RGY_NLMEANS_DXDY_STEP> m_tmpBuf;

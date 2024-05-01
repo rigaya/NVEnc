@@ -76,6 +76,8 @@ enum RGYFilterDenoiseNLMeansTmpBufIdx {
     TMP_TOTAL,
 };
 
+#if ENABLE_VPP_NLMEANS
+
 template<typename Type, int bit_depth>
 __device__ __inline__ float8 calc_sqdiff(Type val0, float8 val1) {
     float8 val0_1 = (float8)val0 - val1;
@@ -808,6 +810,8 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, cons
     return RGY_ERR_NONE;
 }
 
+#endif //ENABLE_VPP_NLMEANS
+
 NVEncFilterDenoiseNLMeans::NVEncFilterDenoiseNLMeans() : m_tmpBuf() {
     m_name = _T("nlmeans");
 }
@@ -817,6 +821,7 @@ NVEncFilterDenoiseNLMeans::~NVEncFilterDenoiseNLMeans() {
 }
 
 RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+#if ENABLE_VPP_NLMEANS
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseNLMeans>(pParam);
@@ -921,6 +926,10 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
     setFilterInfo(pParam->print());
     m_param = pParam;
     return sts;
+#else
+    AddMessage(RGY_LOG_ERROR, _T("nlmeans not compiled in this build.\n"));
+    return RGY_ERR_UNSUPPORTED;
+#endif //ENABLE_VPP_NLMEANS
 }
 
 tstring NVEncFilterParamDenoiseNLMeans::print() const {
@@ -928,6 +937,7 @@ tstring NVEncFilterParamDenoiseNLMeans::print() const {
 }
 
 RGY_ERR NVEncFilterDenoiseNLMeans::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+#if ENABLE_VPP_NLMEANS
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr[0] == nullptr) {
@@ -960,6 +970,10 @@ RGY_ERR NVEncFilterDenoiseNLMeans::run_filter(const RGYFrameInfo *pInputFrame, R
         return sts;
     }
     return sts;
+#else
+    AddMessage(RGY_LOG_ERROR, _T("nlmeans not compiled in this build.\n"));
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 void NVEncFilterDenoiseNLMeans::close() {

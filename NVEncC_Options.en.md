@@ -2205,7 +2205,7 @@ Strong noise reduction filter.
   ```
 
 ### --vpp-nlmeans [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
-Non local means noise reduction filter.
+Non local means noise reduction filter. Only supported in 64bit binary.
 
 - **Parameters**
   - sigma=&lt;float&gt;  (default=0.005, 0.0 -)   

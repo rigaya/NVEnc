@@ -2262,7 +2262,7 @@ yadifによるインタレ解除を行う。
   ```
 
 ### --vpp-nlmeans [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
-Non local meansを用いたノイズ除去フィルタ。
+Non local meansを用いたノイズ除去フィルタ。Windowsでは64bit版のみに対応。
 
 - **パラメータ**
   - sigma=&lt;float&gt;  (default=0.005, 0.0 -)   
