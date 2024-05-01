@@ -627,6 +627,19 @@ uniuqeRGYChannelLayout RGYOutputAvcodec::AutoSelectChannelLayout(const AVCodec *
             return createChannelLayoutCopy(&channelLayout[i]);
         }
     }
+    //一致するチャンネルが見つからない場合、最も近いチャンネル数のものを取得するようにする
+    int selectIdx = -1;
+    int selectIdxDiff = std::numeric_limits<int>::max();
+    for (int i = 0; channelLayoutSet(&channelLayout[i]); i++) {
+        const int absDiff = std::abs(srcChannels - getChannelCount(&channelLayout[i]));
+        if (absDiff < selectIdxDiff) {
+            selectIdx = i;
+            selectIdxDiff = absDiff;
+        }
+    }
+    if (selectIdx >= 0) {
+        return createChannelLayoutCopy(&channelLayout[selectIdx]);
+    }
     return createChannelLayoutCopy(&channelLayout[0]);
 }
 
