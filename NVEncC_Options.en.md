@@ -2227,7 +2227,7 @@ Non local means noise reduction filter.
     - blockdiff  
       Use fp16 in block diff calculation. Balanced between performace and precision.
 
-    - fp16  
+    - all  
       Additionally use fp16 in weight calculation. Fast but low precision.
   
 - Examples

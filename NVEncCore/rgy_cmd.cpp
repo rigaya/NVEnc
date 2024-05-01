@@ -2072,7 +2072,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (get_list_value(list_vpp_nlmeans_fp16, param_val.c_str(), &value)) {
                         vpp->nlmeans.fp16 = (VppNLMeansFP16Opt)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nlmeans_fp16);
                         return 1;
                     }
                     continue;
