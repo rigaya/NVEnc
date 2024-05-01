@@ -674,7 +674,7 @@ std::unique_ptr<NLMeansFuncsBase> getNLMeansFunc(const RGY_CSP csp, const VppNLM
         if (fp16 == VppNLMeansFP16Opt::All)       return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, __half, half8, __half, __half2, half8>());
         if (fp16 == VppNLMeansFP16Opt::BlockDiff) return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, __half, half8, float, float2, float8>());
                                                   return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, float, float8, float, float2, float8>());
-    case RGY_CSP_P010:
+    case RGY_CSP_YV12_16:
     case RGY_CSP_YUV444_16:
         if (fp16 == VppNLMeansFP16Opt::All)       return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, __half, half8, __half, __half2, half8>());
         if (fp16 == VppNLMeansFP16Opt::BlockDiff) return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, __half, half8, float, float2, float8>());
