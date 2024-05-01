@@ -12,7 +12,7 @@ PACKAGE_ARCH=`uname -m`
 PACKAGE_LICENSE=MIT
 
 if [ -e /etc/os-release ]; then
-    PACKAGE_OS_NAME=`cat /etc/os-release | grep NAME | cut -f 2 --delim="=" | head -n 1 `
+    PACKAGE_OS_NAME=`cat /etc/os-release | grep ID | cut -f 2 --delim="=" | head -n 1 `
     PACKAGE_OS_VER=`cat /etc/os-release | grep VERSION_ID | cut -f 2 --delim="=" | head -n 1 `
     PACKAGE_OS="${PACKAGE_OS_NAME}${PACKAGE_OS_VER}"
 fi
@@ -56,4 +56,6 @@ rm -rf ${WORK_DIR}
 
 rpmbuild -ba "${PACKAGE_SPEC_DIR}/${PACKAGE_NAME}.spec"
 
-cp ${RPMBUILD_DIR}/RPMS/${PACKAGE_ARCH}/${PACKAGE_NAME}*.rpm .
+TARGET_RPM=`ls ${RPMBUILD_DIR}/RPMS/${PACKAGE_ARCH}/${PACKAGE_NAME}*.rpm`
+TARGET_RPM_NAME=`basename ${TARGET_RPM} .rpm`
+cp ${TARGET_RPM} ./${TARGET_RPM_NAME}-${PACKAGE_OS}.rpm
