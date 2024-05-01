@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - dockerimg: ubuntu2404_cuda11
+          - dockerimg: ubuntu2404_cuda12
             pkgtype: deb
             arch: x86_64
           - dockerimg: ubuntu2204_cuda11

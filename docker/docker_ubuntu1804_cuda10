@@ -4,6 +4,8 @@ ARG DEBIAN_FRONTEND=noninteractive \
     OSVER=ubuntu1804 \
     LOCAL_USER_ID=1000 \
     LOCAL_GROUP_ID=1000 \
+    CUDA_VER_MAJOR=10 \
+    CUDA_VER_MINOR=2 \
     CUDA_DEB_URL=http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb \
     CUDA_DEB_NAME=cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb \
     CUDA_PUB_PATH=/var/cuda-repo-10-2-local-10.2.89-440.33.01/7fa2af80.pub
@@ -37,7 +39,7 @@ RUN apt update \
     && dpkg -i ${CUDA_DEB_NAME} \
     && apt-key add ${CUDA_PUB_PATH} \
     && apt-get update \
-    && apt-get -y install cuda \
+    && apt-get -y install cuda-drivers cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-cudart-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-driver-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvrtc-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libnpp-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
     && rm -f ${CUDA_DEB_NAME} \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
