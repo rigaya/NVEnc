@@ -212,8 +212,10 @@ tstring encoder_help() {
         _T("                                  default: %d frames\n")
         _T("   --lookahead-level <int>      set lookahead level (0 - 3) [HEVC only]\n")
         _T("                                  default: 0\n")
+#if ENABLE_NVENC_SDK_TUNE
         _T("   --tune <string>              set tuning info (default: auto)\n")
         _T("                                  undef, hq, uhq, lowlatency, ultralowlatency, lossless\n")
+#endif
         _T("   --strict-gop                 avoid GOP len fluctuation\n")
         _T("   --no-i-adapt                 disable adapt. I frame insertion\n")
         _T("   --no-b-adapt                 disable adapt. B frame insertion\n")
@@ -1037,7 +1039,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (IS_OPTION("tune")) {
+    if (IS_OPTION("tune") && ENABLE_NVENC_SDK_TUNE) {
         i++;
         int value = 0;
         if (get_list_value(list_tuning_info, strInput[i], &value)) {

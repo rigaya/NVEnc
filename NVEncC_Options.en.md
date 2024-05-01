@@ -70,7 +70,6 @@
   - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--lookahead \<int\>](#--lookahead-int)
   - [--lookahead-level \<int\> \[HEVC\]](#--lookahead-level-int-hevc)
-  - [--tune \<string\>](#--tune-string)
   - [--no-i-adapt](#--no-i-adapt)
   - [--no-b-adapt](#--no-b-adapt)
   - [--strict-gop](#--strict-gop)
@@ -653,14 +652,6 @@ This is useful to improve image quality, allowing adaptive insertion of I and B 
 
 ### --lookahead-level &lt;int&gt; [HEVC]
 Set level of lookahead, higher level may improve quality at the expense of performance. (0 - 3, default = 0)  
-
-### --tune &lt;string&gt;
-Set tuning info. Will be changed automatically if ```--lossless```, ```--lowlatecy``` is used.
-- hq
-- uhq
-- lowlatency
-- ultralowlatency
-- lossless
 
 ### --no-i-adapt
 Disable adaptive I frame insertion when lookahead is enabled.

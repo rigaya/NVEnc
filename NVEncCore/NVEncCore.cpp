@@ -5137,7 +5137,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (m_dev->encoder()->checkAPIver(12, 1)) {
         add_str(RGY_LOG_INFO, _T("Split Enc Mode %s\n"), get_chr_from_value(list_split_enc_mode, m_stCreateEncodeParams.splitEncodeMode));
     }
-    add_str(RGY_LOG_INFO, _T("Tuning Info    %s\n"), get_chr_from_value(list_tuning_info, m_stCreateEncodeParams.tuningInfo));
+    if (ENABLE_NVENC_SDK_TUNE) {
+        add_str(RGY_LOG_INFO, _T("Tuning Info    %s\n"), get_chr_from_value(list_tuning_info, m_stCreateEncodeParams.tuningInfo));
+    }
     tstring strLookahead = _T("Lookahead      ");
     if (m_stEncConfig.rcParams.enableLookahead) {
         strLookahead += strsprintf(_T("on, %d frames"), m_stEncConfig.rcParams.lookaheadDepth);

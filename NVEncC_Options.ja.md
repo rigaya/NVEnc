@@ -67,7 +67,6 @@
   - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--lookahead \<int\>](#--lookahead-int)
   - [--lookahead-level \<int\> \[HEVC\]](#--lookahead-level-int-hevc)
-  - [--tune \<string\>](#--tune-string)
   - [--no-i-adapt](#--no-i-adapt)
   - [--no-b-adapt](#--no-b-adapt)
   - [--strict-gop](#--strict-gop)
@@ -658,14 +657,6 @@ lookaheadを有効にし、その対象範囲をフレーム数で指定する�
 lookaheadのレベルの指定。(0 - 3, default = 0)  
 
 大きくするほど、品質が向上する代わりに速度が低下する。
-
-### --tune &lt;string&gt;
-チューニング用のパラメータを指定する。 ```--lossless```, ```--lowlatecy``` が使用された場合には自動的に変更(上書き)される。
-- hq
-- uhq
-- lowlatency
-- ultralowlatency
-- lossless
 
 ### --no-i-adapt
 lookahead有効時の適応的なIフレーム挿入を無効化する。
