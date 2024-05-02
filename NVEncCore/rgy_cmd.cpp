@@ -8029,7 +8029,7 @@ tstring gen_cmd_help_ctrl() {
         _T("   --avsdll <string>            specifies AviSynth DLL location to use.\n"));
 #if defined(_WIN32) || defined(_WIN64)
     str += strsprintf(_T("\n")
-        _T("   --vpydir <string>            specifies VapourSynth DLL directory to use.\n"));
+        _T("   --vpydir <string>            specifies VapourSynth portable directory to use.\n"));
     str += strsprintf(_T("\n")
         _T("   --process-codepage <string>  utf8 ... use UTF-8 (default)\n")
         _T("                                os   ... use the codepage set in Operating System.\n"));
