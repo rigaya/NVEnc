@@ -74,12 +74,6 @@ void RGYInputVpy::release_vapoursynth() {
     memset(&m_sVS, 0, sizeof(m_sVS));
 }
 
-#if defined(_WIN32) || defined(_WIN64)
-static const TCHAR *vsscript_dll_name = _T("vsscript.dll");
-#else
-static const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
-#endif
-
 int RGYInputVpy::load_vapoursynth(const tstring& vapoursynthpath) {
     release_vapoursynth();
 
@@ -96,8 +90,8 @@ int RGYInputVpy::load_vapoursynth(const tstring& vapoursynthpath) {
     if (NULL == (m_sVS.hVSScriptDLL = RGY_LOAD_LIBRARY(vpy_dll_target))) {
 #else
     //VapourSynthを介してpython3のsoをロードするにはdlopenにRTLD_GLOBALが必要。
-    const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
-    if (NULL == (m_sVS.hVSScriptDLL = vsscript(vpy_dll_target, RTLD_LAZY|RTLD_GLOBAL))) {
+    const TCHAR *vpy_dll_target = _T("libvapoursynth-script.so");
+    if (NULL == (m_sVS.hVSScriptDLL = dlopen(vpy_dll_target, RTLD_LAZY|RTLD_GLOBAL))) {
 #endif
         AddMessage(RGY_LOG_ERROR, _T("Failed to load %s.\n"), vpy_dll_target);
         return 1;
