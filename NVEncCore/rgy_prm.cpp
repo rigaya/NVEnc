@@ -1797,6 +1797,7 @@ RGYParamControl::RGYParamControl() :
     skipHWEncodeCheck(false),
     skipHWDecodeCheck(false),
     avsdll(),
+    vpydir(),
     enableOpenCL(true),
     avoidIdleClock(),
     outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {

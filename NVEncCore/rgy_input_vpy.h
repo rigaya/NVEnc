@@ -71,6 +71,14 @@ typedef struct {
     func_vs_getVSApi       getVSApi;
 } vsscript_t;
 
+class RGYInputVpyPrm : public RGYInputPrm {
+public:
+    tstring vpydir;
+    RGYInputVpyPrm(RGYInputPrm base);
+
+    virtual ~RGYInputVpyPrm() {};
+};
+
 class RGYInputVpy : public RGYInput {
 public:
     RGYInputVpy();
@@ -84,7 +92,7 @@ protected:
     virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
 
     void release_vapoursynth();
-    int load_vapoursynth();
+    int load_vapoursynth(const tstring& vpydir);
     int initAsyncEvents();
     void closeAsyncEvents();
     const VSFrameRef* getFrameFromAsyncBuffer(int n) {

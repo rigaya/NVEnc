@@ -26,11 +26,19 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_input_vpy.h"
+#include "rgy_filesystem.h"
 #if ENABLE_VAPOURSYNTH_READER
 #include <algorithm>
 #include <sstream>
 #include <map>
 #include <fstream>
+
+
+RGYInputVpyPrm::RGYInputVpyPrm(RGYInputPrm base) :
+    RGYInputPrm(base),
+    vpydir() {
+
+}
 
 RGYInputVpy::RGYInputVpy() :
     m_pAsyncBuffer(),
@@ -66,17 +74,32 @@ void RGYInputVpy::release_vapoursynth() {
     memset(&m_sVS, 0, sizeof(m_sVS));
 }
 
-int RGYInputVpy::load_vapoursynth() {
-    release_vapoursynth();
 #if defined(_WIN32) || defined(_WIN64)
-    const TCHAR *vsscript_dll_name = _T("vsscript.dll");
-    if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(vsscript_dll_name))) {
+static const TCHAR *vsscript_dll_name = _T("vsscript.dll");
+#else
+static const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
+#endif
+
+int RGYInputVpy::load_vapoursynth(const tstring& vapoursynthpath) {
+    release_vapoursynth();
+
+#if defined(_WIN32) || defined(_WIN64)
+    if (vapoursynthpath.length() > 0) {
+        if (rgy_directory_exists(vapoursynthpath)) {
+            SetDllDirectory(vapoursynthpath.c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("VapourSynth path \"%s\" set.\n"), vapoursynthpath.c_str());
+        } else {
+            AddMessage(RGY_LOG_WARN, _T("VapourSynth path \"%s\" does not exist, ignored.\n"), vapoursynthpath.c_str());
+        }
+    }
+    const TCHAR *vpy_dll_target = _T("vsscript.dll");
+    if (NULL == (m_sVS.hVSScriptDLL = RGY_LOAD_LIBRARY(vpy_dll_target))) {
 #else
     //VapourSynthを介してpython3のsoをロードするにはdlopenにRTLD_GLOBALが必要。
     const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
-    if (NULL == (m_sVS.hVSScriptDLL = dlopen(vsscript_dll_name, RTLD_LAZY|RTLD_GLOBAL))) {
+    if (NULL == (m_sVS.hVSScriptDLL = vsscript(vpy_dll_target, RTLD_LAZY|RTLD_GLOBAL))) {
 #endif
-        AddMessage(RGY_LOG_ERROR, _T("Failed to load %s.\n"), vsscript_dll_name);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to load %s.\n"), vpy_dll_target);
         return 1;
     }
 
@@ -168,7 +191,8 @@ int RGYInputVpy::getRevInfo(const char *vsVersionString) {
 RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     m_inputVideoInfo = *pInputInfo;
 
-    if (load_vapoursynth()) {
+    auto vpyPrm = reinterpret_cast<const RGYInputVpyPrm *>(prm);
+    if (load_vapoursynth(vpyPrm->vpydir)) {
         return RGY_ERR_NULL_PTR;
     }
 

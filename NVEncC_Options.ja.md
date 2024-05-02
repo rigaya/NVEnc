@@ -230,6 +230,7 @@
   - [--max-procfps \<int\>](#--max-procfps-int)
   - [--lowlatency](#--lowlatency)
   - [--avsdll \<string\>](#--avsdll-string)
+  - [--vpydir \<string\> \[Windows専用\]](#--vpydir-string-windows専用)
   - [--process-codepage \<string\>](#--process-codepage-string)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
   - [--perf-monitor-interval \<int\>](#--perf-monitor-interval-int)
@@ -2906,6 +2907,9 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 
 ### --avsdll &lt;string&gt;
 使用するAvsiynth.dllを指定するオプション。特に指定しない場合、システムのAvisynth.dllが使用される。
+
+### --vpydir &lt;string&gt; [Windows専用]
+VapoursynthのPortable版を使用する際に、インストールしたフォルダを指定する。特に指定しない場合、システムにインストールされたVapoursynthが使用される。
 
 ### --process-codepage &lt;string&gt;  
 - **パラメータ**  

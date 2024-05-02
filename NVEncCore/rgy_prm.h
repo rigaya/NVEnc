@@ -1808,6 +1808,7 @@ struct RGYParamControl {
     bool skipHWEncodeCheck;
     bool skipHWDecodeCheck;
     tstring avsdll;
+    tstring vpydir;
     bool enableOpenCL;
     RGYParamAvoidIdleClock avoidIdleClock;
 
