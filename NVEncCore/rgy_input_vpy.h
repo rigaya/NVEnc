@@ -73,7 +73,7 @@ typedef struct {
 
 class RGYInputVpyPrm : public RGYInputPrm {
 public:
-    tstring vpydir;
+    tstring vsdir;
     RGYInputVpyPrm(RGYInputPrm base);
 
     virtual ~RGYInputVpyPrm() {};
@@ -92,7 +92,7 @@ protected:
     virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
 
     void release_vapoursynth();
-    int load_vapoursynth(const tstring& vpydir);
+    int load_vapoursynth(const tstring& vsdir);
     int initAsyncEvents();
     void closeAsyncEvents();
     const VSFrameRef* getFrameFromAsyncBuffer(int n) {

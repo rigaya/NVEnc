@@ -36,7 +36,7 @@
 
 RGYInputVpyPrm::RGYInputVpyPrm(RGYInputPrm base) :
     RGYInputPrm(base),
-    vpydir() {
+    vsdir() {
 
 }
 
@@ -186,7 +186,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo = *pInputInfo;
 
     auto vpyPrm = reinterpret_cast<const RGYInputVpyPrm *>(prm);
-    if (load_vapoursynth(vpyPrm->vpydir)) {
+    if (load_vapoursynth(vpyPrm->vsdir)) {
         return RGY_ERR_NULL_PTR;
     }
 

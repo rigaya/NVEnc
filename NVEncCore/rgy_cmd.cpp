@@ -5789,9 +5789,9 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
 #if defined(_WIN32) || defined(_WIN64)
-    if (IS_OPTION("vpydir")) {
+    if (IS_OPTION("vsdir")) {
         i++;
-        ctrl->vpydir = strInput[i];
+        ctrl->vsdir = strInput[i];
         return 0;
     }
 #endif
@@ -7078,7 +7078,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--skip-hwenc-check"), _T(""), skipHWEncodeCheck);
     OPT_BOOL(_T("--skip-hwdec-check"), _T(""), skipHWDecodeCheck);
     OPT_STR_PATH(_T("--avsdll"), avsdll);
-    OPT_STR_PATH(_T("--vpydir"), vpydir);
+    OPT_STR_PATH(_T("--vsdir"), vsdir);
     if (param->perfMonitorSelect != defaultPrm->perfMonitorSelect) {
         auto select = (int)param->perfMonitorSelect;
         std::basic_stringstream<TCHAR> tmp;
@@ -8029,7 +8029,7 @@ tstring gen_cmd_help_ctrl() {
         _T("   --avsdll <string>            specifies AviSynth DLL location to use.\n"));
 #if defined(_WIN32) || defined(_WIN64)
     str += strsprintf(_T("\n")
-        _T("   --vpydir <string>            specifies VapourSynth portable directory to use.\n"));
+        _T("   --vsdir <string>            specifies VapourSynth portable directory to use.\n"));
     str += strsprintf(_T("\n")
         _T("   --process-codepage <string>  utf8 ... use UTF-8 (default)\n")
         _T("                                os   ... use the codepage set in Operating System.\n"));

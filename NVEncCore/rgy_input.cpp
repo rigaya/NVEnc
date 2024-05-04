@@ -579,7 +579,7 @@ RGY_ERR initReaders(
 #if ENABLE_VAPOURSYNTH_READER
     case RGY_INPUT_FMT_VPY:
     case RGY_INPUT_FMT_VPY_MT:
-        inputPrmVpy.vpydir = ctrl->vpydir;
+        inputPrmVpy.vsdir = ctrl->vsdir;
         pInputPrm = &inputPrmVpy;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("vpy reader selected.\n"));
         pFileReader.reset(new RGYInputVpy());
