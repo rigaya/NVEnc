@@ -929,9 +929,11 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD,            false, true,  _T("Lookahead"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ,          false, true,  _T("AQ (temporal)"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION,  false, true,  _T("Weighted Prediction"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_FILTER,      false, true,  _T("Temporal Filter"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD_LEVEL,      false, true,  _T("Lookahead Level"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_UNIDIRECTIONAL_B,     false, true,  _T("Undirectional B"));
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
+        add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_FILTER,  false, true, _T("Temporal Filter"));
+        add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD_LEVEL,  false, true, _T("Lookahead Level"));
+        add_cap_info(NV_ENC_CAPS_SUPPORT_UNIDIRECTIONAL_B, false, true, _T("Undirectional B"));
+    }
     add_cap_info(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE,         false, true,  _T("10bit depth"));
     return nvStatus;
 }
