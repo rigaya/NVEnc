@@ -1784,6 +1784,10 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         error_feature_unsupported(RGY_LOG_ERROR, _T("lossless"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    if (inputParam->lookaheadLevel != NV_ENC_LOOKAHEAD_LEVEL_0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_LOOKAHEAD_LEVEL)) {
+        error_feature_unsupported(RGY_LOG_WARN, _T("lookahead-level"));
+        inputParam->lookaheadLevel = NV_ENC_LOOKAHEAD_LEVEL_0;
+    }
     if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
         if (m_stEncConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_HIGH) {
             if (m_stEncConfig.encodeCodecConfig.hevcConfig.level != 0
@@ -1791,6 +1795,10 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
                 PrintMes(RGY_LOG_WARN, _T("HEVC Level %s does not support High tier, switching to Main tier.\n"), get_codec_level_name(inputParam->codec_rgy, m_stEncConfig.encodeCodecConfig.hevcConfig.level).c_str());
                 m_stEncConfig.encodeCodecConfig.hevcConfig.tier = NV_ENC_TIER_HEVC_MAIN;
             }
+        }
+        if (inputParam->temporalFilterLevel != NV_ENC_TEMPORAL_FILTER_LEVEL_0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_TEMPORAL_FILTER)) {
+            error_feature_unsupported(RGY_LOG_WARN, _T("tf-level"));
+            inputParam->temporalFilterLevel = NV_ENC_TEMPORAL_FILTER_LEVEL_0;
         }
     }
     if (m_dynamicRC.size() > 0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)) {
