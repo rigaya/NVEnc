@@ -85,7 +85,7 @@ static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
     RGYOutputAvcodec *writer = reinterpret_cast<RGYOutputAvcodec *>(opaque);
     return writer->readPacket(buf, buf_size);
 }
-static int funcWritePacket(void *opaque, uint8_t *buf, int buf_size) {
+static int funcWritePacket(void *opaque, const uint8_t *buf, int buf_size) {
     RGYOutputAvcodec *writer = reinterpret_cast<RGYOutputAvcodec *>(opaque);
     return writer->writePacket(buf, buf_size);
 }
@@ -323,8 +323,7 @@ RGYOutputAvcodec::~RGYOutputAvcodec() {
 void RGYOutputAvcodec::CloseOther(AVMuxOther *muxOther) {
     //close decoder
     if (muxOther->outCodecDecodeCtx) {
-        avcodec_close(muxOther->outCodecDecodeCtx);
-        av_free(muxOther->outCodecDecodeCtx);
+        avcodec_free_context(&muxOther->outCodecDecodeCtx);
         muxOther->outCodecDecodeCtx = nullptr;
         muxOther->outCodecDecode = nullptr;
         AddMessage(RGY_LOG_DEBUG, _T("Closed outCodecDecodeCtx.\n"));
@@ -332,8 +331,7 @@ void RGYOutputAvcodec::CloseOther(AVMuxOther *muxOther) {
 
     //close encoder
     if (muxOther->outCodecEncodeCtx) {
-        avcodec_close(muxOther->outCodecEncodeCtx);
-        av_free(muxOther->outCodecEncodeCtx);
+        avcodec_free_context(&muxOther->outCodecEncodeCtx);
         muxOther->outCodecEncodeCtx = nullptr;
         muxOther->outCodecEncode = nullptr;
         AddMessage(RGY_LOG_DEBUG, _T("Closed outCodecEncodeCtx.\n"));
@@ -355,8 +353,7 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
     //close decoder
     if (muxAudio->outCodecDecodeCtx
         && muxAudio->inSubStream == 0) { //サブストリームのものは単なるコピーなので開放不要
-        avcodec_close(muxAudio->outCodecDecodeCtx);
-        av_free(muxAudio->outCodecDecodeCtx);
+        avcodec_free_context(&muxAudio->outCodecDecodeCtx);
         muxAudio->outCodecDecodeCtx = nullptr;
         muxAudio->outCodecDecode = nullptr;
         AddMessage(RGY_LOG_DEBUG, _T("Closed outCodecDecodeCtx.\n"));
@@ -364,8 +361,7 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
 
     //close encoder
     if (muxAudio->outCodecEncodeCtx) {
-        avcodec_close(muxAudio->outCodecEncodeCtx);
-        av_free(muxAudio->outCodecEncodeCtx);
+        avcodec_free_context(&muxAudio->outCodecEncodeCtx);
         muxAudio->outCodecEncodeCtx = nullptr;
         muxAudio->outCodecEncode = nullptr;
         AddMessage(RGY_LOG_DEBUG, _T("Closed outCodecEncodeCtx.\n"));
@@ -2226,7 +2222,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
             setvbuf(m_Mux.format.fpOutput, m_Mux.format.outputBuffer, _IOFBF, m_Mux.format.outputBufferSize);
             AddMessage(RGY_LOG_DEBUG, _T("set external output buffer %d MB.\n"), m_Mux.format.outputBufferSize / (1024 * 1024));
         }
-        if (NULL == (m_Mux.format.formatCtx->pb = avio_alloc_context(m_Mux.format.AVOutBuffer, m_Mux.format.AVOutBufferSize, 1, this, funcReadPacket, funcWritePacket, funcSeek))) {
+        if (NULL == (m_Mux.format.formatCtx->pb = avio_alloc_context(m_Mux.format.AVOutBuffer, m_Mux.format.AVOutBufferSize, 1, this, funcReadPacket, (RGYArgN<5U, decltype(avio_alloc_context)>::type)funcWritePacket, funcSeek))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to alloc avio context.\n"));
             return RGY_ERR_NULL_PTR;
         }

@@ -462,7 +462,7 @@ public:
 
 #if USE_CUSTOM_IO
     int readPacket(uint8_t *buf, int buf_size);
-    int writePacket(uint8_t *buf, int buf_size);
+    int writePacket(const uint8_t *buf, int buf_size);
     int64_t seek(int64_t offset, int whence);
 #endif //USE_CUSTOM_IO
     //出力スレッドのハンドルを取得する
