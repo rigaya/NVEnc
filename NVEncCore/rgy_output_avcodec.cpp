@@ -1551,10 +1551,10 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                 muxAudio->outCodecEncodeCtx->flags |= AV_CODEC_FLAG_QSCALE;
                 muxAudio->outCodecEncodeCtx->global_quality = inputAudio->quality.second * FF_QP2LAMBDA;
                 if (inputAudio->bitrate) {
-                    muxAudio->outCodecEncodeCtx->bit_rate = inputAudio->bitrate;
+                    muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate >= 0) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
                 }
-            } else {
-                muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
+            } else if (inputAudio->bitrate) {
+                muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate >= 0) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
             }
         }
         if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
@@ -4590,7 +4590,7 @@ HANDLE RGYOutputAvcodec::getThreadHandleAudEncode() {
 int RGYOutputAvcodec::readPacket(uint8_t *buf, int buf_size) {
     return (int)_fread_nolock(buf, 1, buf_size, m_Mux.format.fpOutput);
 }
-int RGYOutputAvcodec::writePacket(uint8_t *buf, int buf_size) {
+int RGYOutputAvcodec::writePacket(const uint8_t *buf, int buf_size) {
     int res = (int)_fwrite_nolock(buf, 1, buf_size, m_Mux.format.fpOutput);
     if (res < buf_size) {
         AddMessage(RGY_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\""));
