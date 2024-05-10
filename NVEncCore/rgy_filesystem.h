@@ -30,6 +30,7 @@
 #define __RGY_FILESYSTEM_H__
 
 #include <vector>
+#include <cstdint>
 #include "rgy_tchar.h"
 
 #if defined(_WIN32) || defined(_WIN64)
