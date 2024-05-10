@@ -410,10 +410,10 @@ std::unique_ptr<T, RGYAVDeleter<T>> AVStreamGetSideData(const AVStream *stream, 
     std::unique_ptr<T, RGYAVDeleter<T>> side_data_copy(nullptr, RGYAVDeleter<T>(av_freep));
 #if AVCODEC_PAR_CODED_SIDE_DATA_AVAIL
     auto side_data = av_packet_side_data_get(stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data, type);
-    if (side_data) {
+    if (side_data && side_data->type == type) {
         side_data_size = side_data->size;
         side_data_copy = unique_ptr<T, RGYAVDeleter<T>>((T *)av_malloc(side_data->size + AV_INPUT_BUFFER_PADDING_SIZE), RGYAVDeleter<T>(av_freep));
-        memcpy(side_data_copy.get(), side_data, side_data->size);
+        memcpy(side_data_copy.get(), side_data->data, side_data->size);
     }
 #else
     std::remove_pointer<RGYArgN<2U, decltype(av_stream_get_side_data)>::type>::type size = 0;
