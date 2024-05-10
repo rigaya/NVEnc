@@ -2,8 +2,7 @@
 # How to build NVEnc
 
 - [Windows](./Build.en.md#windows)
-- [Linux (Ubuntu 22.04 - 23.04)](./Build.en.md#linux-ubuntu-2204---2304)
-- [Linux (Ubuntu 20.04)](./Build.en.md#linux-ubuntu-2004)
+- [Linux (Ubuntu 20.04 - 24.04)](./Build.en.md#linux-ubuntu-2004---2404)
 - [Linux (Ubuntu 18.04)](./Build.en.md#linux-ubuntu-1804)
 - [Linux (Fedora 33)](./Build.en.md#linux-fedora-33)
 
@@ -52,16 +51,16 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 |cufilters.auf (win32 only) | DebugFilters | RelFilters |
 
 
-## Linux (Ubuntu 22.04 - 23.04)
+## Linux (Ubuntu 20.04 - 24.04)
 
 ### 0. Requirements
 
 - GPU Driver 435.21 or later
 - C++17 Compiler
-- CUDA 10/11
+- CUDA 10-12
 - git
 - libraries
-  - ffmpeg 4.x/5.x libs (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
+  - ffmpeg 4.x-7.x libs (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
   - libass9
   - [Optional] AvisynthPlus
   - [Optional] VapourSynth
@@ -75,13 +74,33 @@ sudo apt install build-essential git
 ### 2. Install NVIDIA driver
 
 ### 3. Install CUDA
+Download CUDA deb file for each OS.
 ```Shell
+# For Ubuntu 20.04
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb
+# For Ubuntu 22.04
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+```
+
+Install CUDA.
+```Shell
 sudo dpkg -i cuda-keyring_1.1-1_all.deb
 sudo apt-get update
 sudo apt-get -y install --no-install-recommends cuda-toolkit
 export CUDA_PATH=/usr/local/cuda
 ```
+
+> [!NOTE]
+> When isntall failes on Ubuntu 24.04  using the command line above, selecting only the required packages as below would work.
+> CUDA_VER_MAJOR and CUDA_VER_MINOR might be needed to be chaged.
+> ```
+> CUDA_VER_MAJOR=12
+> CUDA_VER_MINOR=4
+> apt-get -y install cuda-drivers cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
+>   cuda-cudart-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-driver-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
+>   cuda-nvrtc-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
+>   libnpp-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR}
+> ```
 
 ### 4. Install required libraries
 
@@ -172,233 +191,6 @@ H.264/AVC
 H.265/HEVC
 AV1
 ```
-
-
-## Linux (Ubuntu 20.04)
-
-### 0. Requirements
-
-- GPU Driver 435.21 or later
-- C++17 Compiler
-- CUDA 10/11
-- git
-- libraries
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
-  - libass9
-  - [Optional] AvisynthPlus
-  - [Optional] VapourSynth
-
-### 1. Install build tools
-
-```Shell
-sudo apt install build-essential git
-```
-
-### 2. Install NVIDIA driver
-
-Check driver version which could be installed.
-```Shell
-ubuntu-drivers devices
-```
-
-You shall get the output like below.
-```Shell
-== /sys/devices/pci0000:00/0000:00:03.1/0000:0d:00.0 ==
-modalias : pci:v000010DEd00001B80sv000019DAsd00001426bc03sc00i00
-vendor   : NVIDIA Corporation
-model    : GP104 [GeForce GTX 1080]
-driver   : nvidia-driver-390 - distro non-free
-driver   : nvidia-driver-460 - distro non-free recommended
-driver   : nvidia-driver-450-server - distro non-free
-driver   : nvidia-driver-418-server - distro non-free
-driver   : nvidia-driver-450 - distro non-free
-driver   : xserver-xorg-video-nouveau - distro free builtin
-```
-
-Select and install the latest driver.
-```Shell
-sudo apt install nvidia-driver-460
-sudo reboot
-```
-
-After reboot, check if the driver has been installed properly.
-```Shell
-rigaya@rigaya6-linux:~$ nvidia-smi
-Sun Feb 21 13:49:17 2021
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 460.32.03    Driver Version: 460.32.03    CUDA Version: 11.2     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|                               |                      |               MIG M. |
-|===============================+======================+======================|
-|   0  GeForce GTX 1080    Off  | 00000000:0D:00.0  On |                  N/A |
-|  0%   33C    P8     8W / 230W |     46MiB /  8111MiB |      0%      Default |
-|                               |                      |                  N/A |
-+-------------------------------+----------------------+----------------------+
-
-+-----------------------------------------------------------------------------+
-| Processes:                                                                  |
-|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-|        ID   ID                                                   Usage      |
-|=============================================================================|
-|    0   N/A  N/A      1076      G   /usr/lib/xorg/Xorg                 36MiB |
-|    0   N/A  N/A      1274      G   /usr/bin/gnome-shell                7MiB |
-+-----------------------------------------------------------------------------+
-```
-
-### 3. Install CUDA
-```Shell
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb
-sudo dpkg -i cuda-keyring_1.1-1_all.deb
-sudo apt-get update
-sudo apt-get -y install --no-install-recommends cuda-toolkit
-export CUDA_PATH=/usr/local/cuda
-```
-
-### 4. Install required libraries
-
-Install ffmpeg and other required libraries.
-```Shell
-sudo apt install ffmpeg \
-  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
-  libass9 libass-dev
-```
-
-### 5. [Optional] Install AvisynthPlus
-AvisynthPlus is required only if you need AvisynthPlus(avs) reader support.  
-
-Please go on to [7. Build NVEncC] if you don't need avs reader.
-
-<details><summary>How to build AvisynthPlus</summary>
-
-#### 5.1 Install build tools for AvisynthPlus
-```Shell
-sudo apt install cmake
-```
-
-#### 5.2 Install AvisynthPlus
-```Shell
-git clone https://github.com/AviSynth/AviSynthPlus.git
-cd AviSynthPlus
-mkdir avisynth-build && cd avisynth-build 
-cmake ../
-make && sudo make install
-cd ../..
-```
-
-#### 5.3 [Option] Build lsmashsource
-```Shell
-# Install lsmash
-git clone https://github.com/l-smash/l-smash.git
-cd l-smash
-./configure --enable-shared
-make && sudo make install
-cd ..
- 
-# Install vslsmashsource
-git clone https://github.com/HolyWu/L-SMASH-Works.git
-cd L-SMASH-Works
-# Use older version to meet libavcodec lib version requirements
-git checkout -b 20200531 refs/tags/20200531
-cd VapourSynth
-meson build
-cd build
-ninja && sudo ninja install
-cd ../../../
-```
-</details>
-
-### 6. [Optional] Install VapourSynth
-VapourSynth is required only if you need VapourSynth(vpy) reader support.  
-
-Please go on to [7. Build NVEncC] if you don't need vpy reader.
-
-<details><summary>How to build VapourSynth</summary>
-
-#### 6.1 Install build tools for VapourSynth
-```Shell
-sudo apt install python3-pip autoconf automake libtool meson
-```
-
-#### 6.2 Install zimg
-```Shell
-git clone https://github.com/sekrit-twc/zimg.git --recursive
-cd zimg
-./autogen.sh
-./configure
-make && sudo make install
-cd ..
-```
-
-#### 6.3 Install cython
-```Shell
-sudo pip3 install Cython
-```
-
-#### 6.4 Install VapourSynth
-```Shell
-git clone https://github.com/vapoursynth/vapoursynth.git
-cd vapoursynth
-./autogen.sh
-./configure
-make && sudo make install
-
-# Make sure vapoursynth could be imported from python
-# Change "python3.x" depending on your environment
-sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
-sudo ldconfig
-```
-
-#### 6.5 Check if VapourSynth has been installed properly
-Make sure you get version number without errors.
-```Shell
-LD_LIBRARY_PATH=/usr/local/lib vspipe --version
-```
-
-#### 6.6 [Option] Build vslsmashsource
-```Shell
-# Install lsmash
-git clone https://github.com/l-smash/l-smash.git
-cd l-smash
-./configure --enable-shared
-make && sudo make install
-cd ..
- 
-# Install vslsmashsource
-git clone https://github.com/HolyWu/L-SMASH-Works.git
-cd L-SMASH-Works
-# Use older version to meet libavcodec lib version requirements
-git checkout -b 20200531 refs/tags/20200531
-cd VapourSynth
-meson build
-cd build
-ninja && sudo ninja install
-cd ../../../
-```
-
-</details>
-
-### 7. Build NVEncC
-```Shell
-git clone https://github.com/rigaya/NVEnc --recursive
-cd NVEnc
-./configure
-make
-```
-Check if it works properly.
-```Shell
-./nvencc --check-hw
-```
-
-You shall get information of the avaliable codecs supported by NVENC.
-```
-#0: GeForce GTX 1080 (2560 cores, 1822 MHz)[PCIe3x16][460.32]
-Avaliable Codec(s)
-H.264/AVC
-H.265/HEVC
-```
-
 
 ## Linux (Ubuntu 18.04)
 
