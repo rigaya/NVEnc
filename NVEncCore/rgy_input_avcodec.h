@@ -154,6 +154,8 @@ public:
         m_streamPtsStatus(RGY_PTS_UNKNOWN),
         m_lastPoc(0),
         m_firstKeyframePts(AV_NOPTS_VALUE),
+        m_ptsAllInvalidPtsStartPointPts(AV_NOPTS_VALUE),
+        m_ptsAllInvalidPtsStartPointIndex(0),
         m_maxPts(0),
         m_PAFFRewind(0),
         m_ptsWrapArroundThreshold(0xFFFFFFFF),
@@ -222,6 +224,8 @@ public:
         m_streamPtsStatus = RGY_PTS_UNKNOWN;
         m_lastPoc = 0;
         m_firstKeyframePts = AV_NOPTS_VALUE;
+        m_ptsAllInvalidPtsStartPointPts = AV_NOPTS_VALUE;
+        m_ptsAllInvalidPtsStartPointIndex = 0;
         m_maxPts = 0;
         m_PAFFRewind = 0;
         m_ptsWrapArroundThreshold = 0xFFFFFFFF;
@@ -399,6 +403,7 @@ public:
         int nInvalidPtsCountNonKeyFrame = 0;
         int nInvalidDuration = 0;
         bool bFractionExists = std::abs(durationHintifPtsAllInvalid - (int)(durationHintifPtsAllInvalid + 0.5)) > 1e-6;
+        m_ptsAllInvalidPtsStartPointPts = 0;
         vector<std::pair<int, int>> durationHistgram;
         for (int i = 0; i < nInputPacketCount; i++) {
             nInputFrames += (m_list[i].data.pic_struct & RGY_PICSTRUCT_FRAME) != 0;
@@ -483,6 +488,11 @@ public:
                 //durationのヒストグラムを作成
                 m_frameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
             }
+            // 先頭のフレームには時刻があれば、その時刻を先頭のptsとして計算するようにする "Hard Target.mkv"等
+            if (m_list[0].data.pts != AV_NOPTS_VALUE) {
+                m_ptsAllInvalidPtsStartPointPts = m_list[0].data.pts;
+                m_ptsAllInvalidPtsStartPointIndex = 0;
+            }
         }
         for (int i = m_nextFixNumIndex; i < nInputPacketCount; i++) {
             adjustFrameInfo(i);
@@ -520,6 +530,10 @@ protected:
     }
     //ptsの補正
     void adjustFrameInfo(uint32_t nIndex) {
+        if (m_list[nIndex].data.pts != AV_NOPTS_VALUE) {
+            m_ptsAllInvalidPtsStartPointPts = m_list[nIndex].data.pts;
+            m_ptsAllInvalidPtsStartPointIndex = nIndex;
+        }
         if (m_streamPtsStatus & RGY_PTS_SOMETIMES_INVALID) {
             if (m_streamPtsStatus & RGY_DTS_SOMETIMES_INVALID) {
                 //ptsもdtsはあてにならないので、durationから再構築する (ワンセグなど)
@@ -542,10 +556,10 @@ protected:
             if (nIndex == 0) {
                 m_list[nIndex].data.pts = 0;
                 m_list[nIndex].data.dts = 0;
-            } else if (m_streamPtsStatus & (RGY_PTS_ALL_INVALID | RGY_PTS_NONKEY_INVALID)) {
+            } else if (m_streamPtsStatus & RGY_PTS_ALL_INVALID) {
                 //AVPacketのもたらすptsが無効であれば、CFRを仮定して適当にptsとdurationを突っ込んでいく
-                double frameDuration = m_frameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 2.0 : 1.0);
-                m_list[nIndex].data.pts = (int64_t)(nIndex * frameDuration * ((m_list[nIndex].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
+                const double frameDuration = m_frameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 2.0 : 1.0);
+                m_list[nIndex].data.pts = m_ptsAllInvalidPtsStartPointPts + (int64_t)((nIndex - m_ptsAllInvalidPtsStartPointIndex) * frameDuration * ((m_list[nIndex].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
                 m_list[nIndex].data.dts = m_list[nIndex].data.pts;
             } else if (m_streamPtsStatus & RGY_PTS_NONKEY_INVALID) {
                 //キーフレーム以外のptsとdtsが無効な場合は、適当に推定する
@@ -666,6 +680,8 @@ protected:
     RGYPtsStatus m_streamPtsStatus; //入力から提供されるptsの状態 (RGY_PTS_xxx)
     uint32_t m_lastPoc; //ptsが確定したフレームのうち、直近のpoc
     int64_t m_firstKeyframePts; //最初のキーフレームのpts
+    int64_t m_ptsAllInvalidPtsStartPointPts; // RGY_PTS_ALL_INVALIDの時用の最初のpts
+    uint32_t m_ptsAllInvalidPtsStartPointIndex; // RGY_PTS_ALL_INVALIDの時用の最初のpts
     int64_t m_maxPts; //最大のpts
     int m_PAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
     uint32_t m_ptsWrapArroundThreshold; //wrap arroundを判定する閾値
