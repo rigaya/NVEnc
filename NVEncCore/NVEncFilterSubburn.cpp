@@ -123,7 +123,7 @@ NVEncFilterSubburn::NVEncFilterSubburn() :
     m_formatCtx(),
     m_subtitleStreamIndex(-1),
     m_outCodecDecode(nullptr),
-    m_outCodecDecodeCtx(unique_ptr<AVCodecContext, decltype(&avcodec_close)>(nullptr, avcodec_close)),
+    m_outCodecDecodeCtx(),
     m_subData(),
     m_subImages(),
     m_assLibrary(unique_ptr<ASS_Library, decltype(&ass_library_done)>(nullptr, ass_library_done)),
@@ -255,7 +255,7 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
         AddMessage(RGY_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
         return RGY_ERR_NULL_PTR;
     }
-    m_outCodecDecodeCtx = unique_ptr<AVCodecContext, decltype(&avcodec_close)>(avcodec_alloc_context3(m_outCodecDecode), avcodec_close);
+    m_outCodecDecodeCtx = unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>>(avcodec_alloc_context3(m_outCodecDecode), RGYAVDeleter<AVCodecContext>(avcodec_free_context));
     if (prm->streamIn.stream) {
         //設定されていない必須情報があれば設定する
 #define COPY_IF_ZERO(dst, src) { if ((dst)==0) (dst)=(src); }

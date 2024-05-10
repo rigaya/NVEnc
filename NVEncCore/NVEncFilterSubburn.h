@@ -97,7 +97,7 @@ protected:
     unique_ptr<AVFormatContext, RGYAVDeleter<AVFormatContext>> m_formatCtx;     //ファイル読み込みの際に使用する(トラックを受け取る場合はnullptr)
     int m_subtitleStreamIndex; //ファイル読み込みの際に使用する(トラックを受け取る場合は-1)
     const AVCodec *m_outCodecDecode; //変換する元のコーデック
-    unique_ptr<AVCodecContext, decltype(&avcodec_close)> m_outCodecDecodeCtx;     //変換する元のCodecContext
+    unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>> m_outCodecDecodeCtx;     //変換する元のCodecContext
 
     unique_ptr<AVSubtitle, subtitle_deleter> m_subData;
     vector<SubImageData> m_subImages;

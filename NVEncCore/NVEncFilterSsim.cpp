@@ -222,7 +222,7 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
         AddMessage(RGY_LOG_ERROR, _T("failed to find decoder for codec %s.\n"), CodecToStr(prm->input.codec).c_str());
         return RGY_ERR_NULL_PTR;
     }
-    auto codecCtx = std::unique_ptr<AVCodecContext, decltype(&avcodec_close)>(avcodec_alloc_context3(codec), &avcodec_close);
+    auto codecCtx = std::unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>>(avcodec_alloc_context3(codec), RGYAVDeleter<AVCodecContext>(avcodec_free_context));
     if (0 > (ret = avcodec_open2(codecCtx.get(), codec, nullptr))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to open codec %s: %s.\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_NULL_PTR;
