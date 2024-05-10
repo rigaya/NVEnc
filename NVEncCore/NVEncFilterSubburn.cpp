@@ -41,7 +41,7 @@
 #include "NVEncFilterSubburn.h"
 #include "NVEncParam.h"
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
 #pragma comment(lib, "libass-9.lib")
 
@@ -478,10 +478,6 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     setFilterInfo(pParam->print());
     m_param = prm;
     return sts;
-}
-
-tstring NVEncFilterParamSubburn::print() const {
-    return subburn.print();
 }
 
 int NVEncFilterSubburn::targetTrackIdx() {

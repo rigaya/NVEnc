@@ -39,7 +39,7 @@
 #pragma warning (pop)
 #include "rgy_cuda_util.h"
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
 static __device__ float lerpf(float a, float b, float c) {
     return a + (b - a) * c;

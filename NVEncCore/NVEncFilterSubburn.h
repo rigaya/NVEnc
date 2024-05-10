@@ -36,6 +36,27 @@
 
 #if ENABLE_AVSW_READER
 
+class NVEncFilterParamSubburn : public NVEncFilterParam {
+public:
+    VppSubburn      subburn;
+    AVRational      videoOutTimebase;
+    const AVStream *videoInputStream;
+    int64_t         videoInputFirstKeyPts;
+    VideoInfo       videoInfo;
+    AVDemuxStream   streamIn;
+    sInputCrop      crop;
+    RGYPoolAVPacket *poolPkt;
+    std::vector<const AVStream *> attachmentStreams;
+
+    NVEncFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams() {};
+    virtual ~NVEncFilterParamSubburn() {};
+    virtual tstring print() const override {
+        return subburn.print();
+    }
+};
+
+#if ENABLE_LIBASS_SUBBURN
+
 #include "ass/ass.h"
 
 struct subtitle_deleter {
@@ -52,24 +73,7 @@ struct SubImageData {
     int x, y;
 
     SubImageData(unique_ptr<CUFrameBuf> img, unique_ptr<CUFrameBuf> imgTemp, unique_ptr<CUFrameBuf> imgCPU, int posX, int posY) :
-        image(std::move(img)), imageTemp(std::move(imgTemp)), imageCPU(std::move(imgCPU)), x(posX), y(posY){ }
-};
-
-class NVEncFilterParamSubburn : public NVEncFilterParam {
-public:
-    VppSubburn      subburn;
-    AVRational      videoOutTimebase;
-    const AVStream *videoInputStream;
-    int64_t         videoInputFirstKeyPts;
-    VideoInfo       videoInfo;
-    AVDemuxStream   streamIn;
-    sInputCrop      crop;
-    RGYPoolAVPacket *poolPkt;
-    std::vector<const AVStream *> attachmentStreams;
-
-    NVEncFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams() {};
-    virtual ~NVEncFilterParamSubburn() {};
-    virtual tstring print() const override;
+        image(std::move(img)), imageTemp(std::move(imgTemp)), imageCPU(std::move(imgCPU)), x(posX), y(posY) { }
 };
 
 class NVEncFilterSubburn : public NVEncFilter {
@@ -111,5 +115,25 @@ protected:
     RGYPoolAVPacket *m_poolPkt;
     RGYQueueMPMP<AVPacket*> m_queueSubPackets; //入力から得られた字幕パケット
 };
+
+#else //#if ENABLE_LIBASS_SUBBURN
+
+class NVEncFilterSubburn : public NVEncFilter {
+public:
+    NVEncFilterSubburn() {};
+    virtual ~NVEncFilterSubburn() {};
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> prm, shared_ptr<RGYLog> pPrintMes) override {
+        AddMessage(RGY_LOG_ERROR, _T("subburn not supported in this build.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+protected:
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override {
+        AddMessage(RGY_LOG_ERROR, _T("subburn not supported in this build.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    virtual void close() override {};
+};
+
+#endif //#if ENABLE_LIBASS_SUBBURN
 
 #endif //#if ENABLE_AVSW_READER
