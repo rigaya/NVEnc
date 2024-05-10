@@ -1628,6 +1628,7 @@ struct DataSelect {
                          //  0 ... 全指定
                          //  TRACK_SELECT_BY_LANG ... langによる選択
                          //  TRACK_SELECT_BY_CODEC ... selectCodecによる選択
+    tstring encCodec;
     tstring disposition; // 指定のdisposition
     std::string lang;    // 言語選択
     std::string selectCodec; // 対象コーデック

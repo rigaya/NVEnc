@@ -4795,10 +4795,12 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         auto track = std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str));
                         trackSet[track].trackID = TRACK_SELECT_BY_LANG;
                         trackSet[track].lang = tchar_to_string(str);
+                        trackSet[track].encCodec = RGY_AVCODEC_COPY;
                     } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_DATA)) {
                         auto track = std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str));
                         trackSet[track].trackID = TRACK_SELECT_BY_CODEC;
                         trackSet[track].selectCodec = tchar_to_string(str);
+                        trackSet[track].encCodec = RGY_AVCODEC_COPY;
                     } else {
                         print_cmd_error_invalid_value(option_name, strInput[i], _T("invalid track ID."));
                         return 1;
@@ -4806,6 +4808,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 } else {
                     auto track = std::make_pair(iTrack, "");
                     trackSet[track].trackID = iTrack;
+                    trackSet[track].encCodec = RGY_AVCODEC_COPY;
                 }
             }
         } else {
@@ -4823,6 +4826,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 pDataSelect = common->ppDataSelectList[dataIdx];
             }
             pDataSelect[0] = it->second;
+            pDataSelect->encCodec = RGY_AVCODEC_COPY;
 
             if (dataIdx < 0) {
                 dataIdx = common->nDataSelectCount;
@@ -4873,6 +4877,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     return 1;
                 } else {
                     trackSet[iTrack].trackID = iTrack;
+                    trackSet[iTrack].encCodec = RGY_AVCODEC_COPY;
                 }
             }
         } else {
@@ -4889,6 +4894,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 pAttachmentSelect = common->ppAttachmentSelectList[dataIdx];
             }
             pAttachmentSelect[0] = it->second;
+            pAttachmentSelect->encCodec = RGY_AVCODEC_COPY;
 
             if (dataIdx < 0) {
                 dataIdx = common->nAttachmentSelectCount;

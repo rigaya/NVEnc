@@ -1599,7 +1599,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 || (srcStream->disposition & AV_DISPOSITION_ATTACHED_PIC) != 0) {
                 //Attachmentの場合
                 for (int i = 0; !useStream && i < input_prm->nAttachmentSelectCount; i++) {
-                    if (input_prm->ppAttachmentSelect[i]->trackID == 0 //特に指定なし = 全指定かどうか
+                    if ((input_prm->ppAttachmentSelect[i]->trackID == 0 && input_prm->ppAttachmentSelect[i]->encCodec.length() > 0) //特に指定なし = 全指定かどうか
                         || input_prm->ppAttachmentSelect[i]->trackID - 1 == (iTrack - m_Demux.format.audioTracks - m_Demux.format.subtitleTracks - m_Demux.format.dataTracks)) {
                         useStream = true;
                         mediaType = AVMEDIA_TYPE_ATTACHMENT;
@@ -1608,7 +1608,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             } else if (mediaType == AVMEDIA_TYPE_SUBTITLE) {
                 //字幕・データの場合
                 for (int i = 0; !useStream && i < input_prm->nSubtitleSelectCount; i++) {
-                    if (input_prm->ppSubtitleSelect[i]->trackID == 0 //特に指定なし = 全指定かどうか
+                    if ((input_prm->ppSubtitleSelect[i]->trackID == 0 && input_prm->ppSubtitleSelect[i]->encCodec.length() > 0) //特に指定なし = 全指定かどうか
                         || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppSubtitleSelect[i]->lang, srcStream))
                         || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_CODEC && isSelectedCodecTrack(input_prm->ppSubtitleSelect[i]->selectCodec, srcStream))
                         || input_prm->ppSubtitleSelect[i]->trackID - 1 == (iTrack - m_Demux.format.audioTracks)) {
@@ -1618,7 +1618,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             } else if (mediaType == AVMEDIA_TYPE_DATA) {
                 //データの場合
                 for (int i = 0; !useStream && i < input_prm->nDataSelectCount; i++) {
-                    if (input_prm->ppDataSelect[i]->trackID == 0 //特に指定なし = 全指定かどうか
+                    if ((input_prm->ppDataSelect[i]->trackID == 0 && input_prm->ppDataSelect[i]->encCodec.length() > 0) //特に指定なし = 全指定かどうか
                         || (input_prm->ppDataSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppDataSelect[i]->lang, srcStream))
                         || (input_prm->ppDataSelect[i]->trackID == TRACK_SELECT_BY_CODEC && isSelectedCodecTrack(input_prm->ppDataSelect[i]->selectCodec, srcStream))
                         || input_prm->ppDataSelect[i]->trackID - 1 == (iTrack - m_Demux.format.audioTracks - m_Demux.format.subtitleTracks)) {
@@ -1638,7 +1638,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 if (pAudioSelect == nullptr) {
                     //見つからなかったら、全指定(trackID = 0)のものを使用する
                     for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-                        if (input_prm->ppAudioSelect[i]->trackID == 0) {
+                        if (input_prm->ppAudioSelect[i]->trackID == 0 && input_prm->ppAudioSelect[i]->encCodec.length() > 0) {
                             useStream = true;
                             pAudioSelect = input_prm->ppAudioSelect[i];
                         }

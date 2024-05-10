@@ -1601,6 +1601,7 @@ SubSource::SubSource() :
 
 DataSelect::DataSelect() :
     trackID(0),
+    encCodec(),
     disposition(),
     lang(),
     selectCodec(),
