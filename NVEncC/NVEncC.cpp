@@ -191,7 +191,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const RGYPa
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC | RGY_AVCODEC_ENC), { AVMEDIA_TYPE_AUDIO }).c_str());
         _ftprintf(stdout, _T("\nSbutitles\n"));
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC | RGY_AVCODEC_ENC), { AVMEDIA_TYPE_SUBTITLE }).c_str());
-        _ftprintf(stdout, _T("\Data / Attachment\n"));
+        _ftprintf(stdout, _T("\nData / Attachment\n"));
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC | RGY_AVCODEC_ENC), { AVMEDIA_TYPE_DATA, AVMEDIA_TYPE_ATTACHMENT }).c_str());
         return 1;
     }
@@ -200,7 +200,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const RGYPa
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_ENC), { AVMEDIA_TYPE_AUDIO }).c_str());
         _ftprintf(stdout, _T("\nSbutitles\n"));
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_ENC), { AVMEDIA_TYPE_SUBTITLE }).c_str());
-        _ftprintf(stdout, _T("\Data / Attachment\n"));
+        _ftprintf(stdout, _T("\nData / Attachment\n"));
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_ENC), { AVMEDIA_TYPE_DATA, AVMEDIA_TYPE_ATTACHMENT }).c_str());
         return 1;
     }
@@ -211,7 +211,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const RGYPa
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC), { AVMEDIA_TYPE_AUDIO }).c_str());
         _ftprintf(stdout, _T("\nSbutitles\n"));
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC), { AVMEDIA_TYPE_SUBTITLE }).c_str());
-        _ftprintf(stdout, _T("\Data / Attachment\n"));
+        _ftprintf(stdout, _T("\nData / Attachment\n"));
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC), { AVMEDIA_TYPE_DATA, AVMEDIA_TYPE_ATTACHMENT }).c_str());
         return 1;
     }
