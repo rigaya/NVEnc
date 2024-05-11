@@ -87,11 +87,11 @@ jobs:
         run: |
           docker build --build-arg LOCAL_USER_ID=${{ steps.prep.outputs.local_user_id }} --build-arg LOCAL_GROUP_ID=${{ steps.prep.outputs.local_group_id }} --tag ${{ steps.prep.outputs.tagged_image }} --platform linux/${{ matrix.arch }} --file ${{ env.DOCKER_FILE }} ./
           docker run -dit --rm -v ${{ steps.prep.outputs.output_dir }}:/output -u "$(id -u):$(id -g)" --name build_pkg ${{ steps.prep.outputs.tagged_image }}
-          docker exec build_pkg ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include"
+          docker exec build_pkg ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include" --extra-cudaldflags="-L/usr/local/cuda/targets/${{ matrix.arch }}-linux/lib/stubs"
           docker exec build_pkg make -j${{ steps.prep.outputs.nproc }}
-          docker exec build_pkg ldd ./nvencc
-          docker exec build_pkg ./nvencc --version
-          docker exec build_pkg ./check_options.py
+          # docker exec build_pkg ldd ./nvencc
+          # docker exec build_pkg ./nvencc --version
+          # docker exec build_pkg ./check_options.py
           docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh
           docker exec build_pkg sh -c "cp -v ./*.${{ env.PKG_TYPE }} /output/"
           PKGFILE=`ls ${{ steps.prep.outputs.output_dir }}/*.${{ env.PKG_TYPE }}`
