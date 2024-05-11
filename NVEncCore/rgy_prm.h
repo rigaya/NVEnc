@@ -1690,6 +1690,7 @@ struct RGYDebugLogFile {
 struct RGYParamInput {
     RGYResizeResMode resizeResMode;
     bool ignoreSAR;
+    tstring avswDecoder; //avswデコーダの指定
 
     RGYParamInput();
     ~RGYParamInput();
@@ -1701,7 +1702,6 @@ struct RGYParamCommon {
     tstring muxOutputFormat;      //出力フォーマット
     VideoVUIInfo out_vui;
     RGYOptList inputOpt; //入力オプション
-
     std::string maxCll;
     std::string masterDisplay;
     CspTransfer atcSei;

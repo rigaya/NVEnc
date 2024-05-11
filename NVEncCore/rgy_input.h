@@ -151,6 +151,7 @@ public:
     RGYConvertCSP();
     RGYConvertCSP(int threads, RGYParamThread threadParam);
     ~RGYConvertCSP();
+    const ConvertCSP *getFunc(RGY_CSP csp_from, RGY_CSP csp_to, RGY_SIMD simd);
     const ConvertCSP *getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd);
     const ConvertCSP *getFunc() const { return m_csp; };
 
@@ -334,6 +335,7 @@ RGY_ERR initReaders(
     shared_ptr<RGYInput> &pFileReader,
     vector<shared_ptr<RGYInput>> &otherReaders,
     VideoInfo *input,
+    const RGYParamInput *inprm,
     const RGY_CSP inputCspOfRawReader,
     const shared_ptr<EncodeStatus> pStatus,
     const RGYParamCommon *common,

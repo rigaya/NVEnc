@@ -136,6 +136,7 @@ AVDemuxVideo::AVDemuxVideo() :
     hevcNaluLengthSize(0),
     hdr10plusMetadataCopy(false),
     doviRpuCopy(false),
+    simdCsp(RGY_SIMD::SIMD_ALL),
     masteringDisplay(std::unique_ptr<AVMasteringDisplayMetadata, RGYAVDeleter<AVMasteringDisplayMetadata>>(nullptr, RGYAVDeleter<AVMasteringDisplayMetadata>(av_freep))),
     contentLight(std::unique_ptr<AVContentLightMetadata, RGYAVDeleter<AVContentLightMetadata>>(nullptr, RGYAVDeleter<AVContentLightMetadata>(av_freep))),
     qpTableListRef(nullptr),
@@ -260,7 +261,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     lowLatency(false),
     timestampPassThrough(false),
     inputOpt(),
-    hevcbsf(RGYHEVCBsf::INTERNAL) {
+    hevcbsf(RGYHEVCBsf::INTERNAL),
+    avswDecoder() {
 
 }
 
@@ -1799,6 +1801,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 AddMessage(RGY_LOG_DEBUG, _T("can be decoded by %s.\n"), _T(DECODER_NAME));
             }
         }
+        tstring avswDecoder;
+        if (m_inputVideoInfo.codec == RGY_CODEC_UNKNOWN) { //swデコードの場合
+            avswDecoder = input_prm->avswDecoder;
+        }
         m_readerName = (m_Demux.video.HWDecodeDeviceId >= 0) ? _T("av" DECODER_NAME) : _T("avsw");
         m_inputVideoInfo.type = (m_Demux.video.HWDecodeDeviceId >= 0) ? RGY_INPUT_FMT_AVHW : RGY_INPUT_FMT_AVSW;
         //念のため初期化
@@ -1842,9 +1848,28 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 if (sts == RGY_ERR_MORE_DATA
                     && (m_Demux.video.bsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB)
                     && !m_Demux.video.hdr10plusMetadataCopy) {
-                    AddMessage(RGY_LOG_WARN, _T("Failed to get header for hardware decoder, switching to software decoder...\n"));
-                    m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
-                    m_Demux.video.HWDecodeDeviceId = -1;
+                    if (m_inputVideoInfo.codec != RGY_CODEC_UNKNOWN) { //hwデコードを使用していた場合
+                        AddMessage(RGY_LOG_WARN, _T("Failed to get header for hardware decoder, switching to software decoder...\n"));
+                        if (input_prm->avswDecoder.length() != 0) {
+                            avswDecoder = input_prm->avswDecoder;
+                        } else if (ENCODER_QSV) {
+                            switch (m_inputVideoInfo.codec) {
+                            case RGY_CODEC_H264: avswDecoder = _T("h264_qsv"); break;
+                            case RGY_CODEC_HEVC: avswDecoder = _T("hevc_qsv"); break;
+                            case RGY_CODEC_AV1:  avswDecoder = _T("av1_qsv"); break;
+                            default: break;
+                            }
+                        } else if (ENCODER_NVENC) {
+                            switch (m_inputVideoInfo.codec) {
+                            case RGY_CODEC_H264: avswDecoder = _T("h264_cuvid"); break;
+                            case RGY_CODEC_HEVC: avswDecoder = _T("hevc_cuvid"); break;
+                            case RGY_CODEC_AV1:  avswDecoder = _T("av1_cuvid"); break;
+                            default: break;
+                            }
+                        }
+                        m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
+                        m_Demux.video.HWDecodeDeviceId = -1;
+                    }
                     //close bitstreamfilter
                     if (m_Demux.video.bsfcCtx) {
                         AddMessage(RGY_LOG_DEBUG, _T("Free bsf...\n"));
@@ -2019,9 +2044,21 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         const bool bAspectRatioUnknown = aspectRatio.num * aspectRatio.den <= 0;
 
         if (!(m_Demux.video.HWDecodeDeviceId >= 0)) {
-            if (nullptr == (m_Demux.video.codecDecode = avcodec_find_decoder(m_Demux.video.stream->codecpar->codec_id))) {
-                AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
-                return RGY_ERR_NOT_FOUND;
+            if (avswDecoder.length() != 0) {
+                // swデコーダの指定がある場合はまずはそれを使用する
+                if (nullptr == (m_Demux.video.codecDecode = avcodec_find_decoder_by_name(tchar_to_string(avswDecoder).c_str()))) {
+                    AddMessage(RGY_LOG_WARN, _T("Failed to find decoder %s, switching to default decoder.\n"), avswDecoder.c_str());
+                } else if (m_Demux.video.codecDecode->id != m_Demux.video.stream->codecpar->codec_id) {
+                    AddMessage(RGY_LOG_WARN, _T("decoder %s cannot decode codec %s, switching to default decoder.\n"),
+                        avswDecoder.c_str(), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str());
+                    m_Demux.video.codecDecode = nullptr;
+                }
+            }
+            if (m_Demux.video.codecDecode == nullptr) {
+                if (nullptr == (m_Demux.video.codecDecode = avcodec_find_decoder(m_Demux.video.stream->codecpar->codec_id))) {
+                    AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
+                    return RGY_ERR_NOT_FOUND;
+                }
             }
             if (nullptr == (m_Demux.video.codecCtxDecode = avcodec_alloc_context3(m_Demux.video.codecDecode))) {
                 AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to allocate decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
@@ -2059,7 +2096,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNSUPPORTED;
             }
-
+            m_Demux.video.simdCsp = prm->simdCsp;
             const auto pixCspConv = csp_avpixfmt_to_rgy(m_Demux.video.codecCtxDecode->pix_fmt);
             if (pixCspConv == RGY_CSP_NA) {
                 AddMessage(RGY_LOG_ERROR, _T("invalid color format: %s\n"),
@@ -2073,7 +2110,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 //ロスレスの場合は、入力側で出力フォーマットを決める
                 m_inputVideoInfo.csp = pixfmtData->output_csp;
             } else {
-                m_inputVideoInfo.csp = (m_convert->getFunc(m_inputCsp, prefered_csp, false, prm->simdCsp) != nullptr) ? prefered_csp : pixfmtData->output_csp;
+                m_inputVideoInfo.csp = (m_convert->getFunc(m_inputCsp, prefered_csp, false, m_Demux.video.simdCsp) != nullptr) ? prefered_csp : pixfmtData->output_csp;
                 //QSVではNV16->P010がサポートされていない
                 if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
                     m_inputVideoInfo.csp = RGY_CSP_P210;
@@ -2081,14 +2118,14 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 //なるべく軽いフォーマットでGPUに転送するように
                 if (ENCODER_NVENC
                     && RGY_CSP_BIT_PER_PIXEL[pixfmtData->output_csp] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
-                    && m_convert->getFunc(m_inputCsp, pixfmtData->output_csp, false, prm->simdCsp) != nullptr) {
+                    && m_convert->getFunc(m_inputCsp, pixfmtData->output_csp, false, m_Demux.video.simdCsp) != nullptr) {
                     m_inputVideoInfo.csp = pixfmtData->output_csp;
                 }
             }
-            if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr && m_inputCsp == RGY_CSP_YUY2) {
+            if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, m_Demux.video.simdCsp) == nullptr && m_inputCsp == RGY_CSP_YUY2) {
                 //YUY2用の特別処理
                 m_inputVideoInfo.csp = RGY_CSP_CHROMA_FORMAT[pixfmtData->output_csp] == RGY_CHROMAFMT_YUV420 ? RGY_CSP_NV12 : RGY_CSP_YUV444;
-                m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp);
+                m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, m_Demux.video.simdCsp);
             }
             if (m_convert->getFunc() == nullptr) {
                 AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
@@ -2156,7 +2193,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_DEBUG, mes);
             m_inputInfo += mes;
         } else {
-            CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id))).c_str(),
+            CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(m_Demux.video.codecCtxDecode->codec->name)).c_str(),
                 RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
             if (input_prm->seekSec > 0.0f) {
                 m_inputInfo += strsprintf(_T("\n         seek: %s"), print_time(input_prm->seekSec).c_str());
@@ -3045,6 +3082,15 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 pSurface->dataList().push_back(dovirpu);
             }
         }
+
+        //実際には初期化時と異なるcspの場合があるので、ここで再度チェック
+        m_inputCsp = csp_avpixfmt_to_rgy((AVPixelFormat)m_Demux.video.frame->format);
+        if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, m_Demux.video.simdCsp) == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
+                RGY_CSP_NAMES[m_inputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
+            return RGY_ERR_INVALID_COLOR_FORMAT;
+        }
+
         //フレームデータをコピー
         void *dst_array[3];
         pSurface->ptrArray(dst_array);

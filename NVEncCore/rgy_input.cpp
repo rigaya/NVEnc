@@ -132,6 +132,10 @@ const ConvertCSP *RGYConvertCSP::getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool 
     return m_csp;
 }
 
+const ConvertCSP *RGYConvertCSP::getFunc(RGY_CSP csp_from, RGY_CSP csp_to, RGY_SIMD simd) {
+    return getFunc(csp_from, csp_to, m_uv_only, simd);
+}
+
 int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     if (m_threads == 0) {
         const int div = (m_csp->simd == RGY_SIMD::NONE) ? 2 : 4;
@@ -439,6 +443,7 @@ RGY_ERR initReaders(
     shared_ptr<RGYInput>& pFileReader,
     vector<shared_ptr<RGYInput>>& otherReaders,
     VideoInfo *input,
+    const RGYParamInput *inprm,
     const RGY_CSP inputCspOfRawReader,
     const shared_ptr<EncodeStatus> pStatus,
     const RGYParamCommon *common,
@@ -637,8 +642,9 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
         inputInfoAVCuvid.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVCuvid.hevcbsf = common->hevcbsf;
+        inputInfoAVCuvid.avswDecoder = inprm->avswDecoder;
         pInputPrm = &inputInfoAVCuvid;
-        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avhw reader selected.\n"));
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avhw/sw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());
         } break;
 #endif //#if ENABLE_AVSW_READER

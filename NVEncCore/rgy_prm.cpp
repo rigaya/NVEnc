@@ -1690,7 +1690,8 @@ tstring RGYDebugLogFile::getFilename(const tstring& outputFilename, const tstrin
 
 RGYParamInput::RGYParamInput() :
     resizeResMode(RGYResizeResMode::Normal),
-    ignoreSAR(false) {
+    ignoreSAR(false),
+    avswDecoder() {
 
 }
 

@@ -757,6 +757,8 @@ struct AVDemuxVideo {
     bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
     bool                      doviRpuCopy;           //dovi rpuのメタ情報を取得する
 
+    RGY_SIMD                  simdCsp;               //使用するSIMD
+
     std::unique_ptr<AVMasteringDisplayMetadata, RGYAVDeleter<AVMasteringDisplayMetadata>> masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
     std::unique_ptr<AVContentLightMetadata, RGYAVDeleter<AVContentLightMetadata>> contentLight;          //入力ファイルから抽出したHDRメタ情報
 
@@ -844,6 +846,7 @@ public:
     bool           timestampPassThrough;    //timestampをそのまま出力する
     RGYOptList     inputOpt;                //入力オプション
     RGYHEVCBsf     hevcbsf;
+    tstring        avswDecoder;             //avswデコーダの指定
 
     RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};

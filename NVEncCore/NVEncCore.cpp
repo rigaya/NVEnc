@@ -495,7 +495,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
     m_poolFrame = std::make_unique<RGYPoolAVFrame>();
 
     //入力モジュールの初期化
-    if (initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
+    if (initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, &inputParam->inprm, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
         inputParam->vpp.rff.enable, inputParam->vpp.afs.enable,
         m_poolPkt.get(), m_poolFrame.get(), m_qpTable.get(), m_pPerfMonitor.get(), m_pNVLog) != RGY_ERR_NONE) {

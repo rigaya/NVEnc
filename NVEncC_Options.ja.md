@@ -37,7 +37,7 @@
   - [--avi](#--avi)
   - [--avs](#--avs)
   - [--vpy](#--vpy)
-  - [--avsw](#--avsw)
+  - [--avsw \[\<string\>\]](#--avsw-string)
   - [--avhw](#--avhw)
   - [--interlace \<string\>](#--interlace-string)
   - [--crop \<int\>,\<int\>,\<int\>,\<int\>](#--crop-intintintint)
@@ -443,9 +443,10 @@ NVEncCはデフォルトではUTF-8モードで動作するため、Avisynthス�
 ### --vpy
 入力ファイルをVapourSynthで読み込む。
 
-### --avsw
-avformat + sw decoderを使用して読み込む。
-ffmpegの対応するほとんどのコーデックを読み込み可能。
+### --avsw [&lt;string&gt;]
+avformat + sw decoderを使用して読み込む。ffmpegの対応するほとんどのコーデックを読み込み可能。
+
+追加のパラメータで使用するデコーダ名を指定可能。特に指定のない場合、デコーダは自動的に選択される。
 
 ### --avhw
 avformat + cuvid decoderを使用して読み込む。
