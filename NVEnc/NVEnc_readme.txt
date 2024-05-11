@@ -215,6 +215,22 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2024.05.11 (7.53)
+- ffmpeg 7.0に更新。(Windows版)
+  - ffmpeg     6.1    -> 7.0
+  - libpng     1.4.0  -> 1.4.3
+  - expat      2.5.0  -> 2.6.2
+  - opus       1.4    -> 1.5.2
+  - libxml2    2.12.0 -> 2.12.6
+  - dav1d      1.3.0  -> 1.4.1
+  - libvpl     2.11.0 (new!)
+  - nv-codec-headers 12.2.72.0 (new!)
+- avswで使用するデコーダを指定可能に。
+- --audio-bitrateの指定がないとき、デフォルトのビットレートを設定するのではなく、コーデックに任せるように。
+- --audio-bitrateあるいは--audio-copyで指定のない音声/字幕/データトラックは処理しないように。
+- lookahead-level, tf-levelをサポートしていないGPUで実行した時は自動的に無効化するように。
+- NVEnc 7.47以降のside_dataの扱いが誤っており、--master-display  copy/--max-cll copyが正常に行われていなかった問題を修正。
+
 2024.05.04 (7.52)
 - VapourSynthのportable版に対応。(--vsdir) [Windowsのみ]
   R66のスクリプトにより導入された環境を想定。

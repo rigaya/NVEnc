@@ -208,7 +208,7 @@ tstring getHWDecSupportedCodecList() {
 }
 
 //利用可能な音声エンコーダ/デコーダを表示
-tstring getAVCodecs(RGYAVCodecType flag) {
+tstring getAVCodecs(RGYAVCodecType flag, const std::vector<AVMediaType> mediatype) {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
@@ -224,7 +224,7 @@ tstring getAVCodecs(RGYAVCodecType flag) {
     void *icodec = nullptr;
     const AVCodec *codec = nullptr;
     while (nullptr != (codec = av_codec_iterate(&icodec))) {
-        if (codec->type == AVMEDIA_TYPE_AUDIO || codec->type == AVMEDIA_TYPE_SUBTITLE || codec->type == AVMEDIA_TYPE_DATA) {
+        if (std::find(mediatype.begin(), mediatype.end(), codec->type) != mediatype.end()) {
             bool alreadyExists = false;
             for (uint32_t i = 0; i < list.size(); i++) {
                 if (0 == strcmp(list[i].name, codec->name)) {

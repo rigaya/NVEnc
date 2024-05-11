@@ -34,6 +34,7 @@
 
 #if ENABLE_AVSW_READER
 #include <algorithm>
+#include <vector>
 
 #pragma warning (push)
 #pragma warning (disable: 4244)
@@ -325,7 +326,7 @@ bool checkAvcodecLicense();
 tstring getHWDecSupportedCodecList();
 
 //利用可能な音声エンコーダ/デコーダを表示
-tstring getAVCodecs(RGYAVCodecType flag);
+tstring getAVCodecs(RGYAVCodecType flag, const std::vector<AVMediaType> mediatype);
 
 //音声エンコーダで利用可能なプロファイルのリストを作成
 std::vector<tstring> getAudioPofileList(const tstring& codec_name);
