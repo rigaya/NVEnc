@@ -1415,10 +1415,22 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
     }
 
     m_Demux.format.formatCtx->flags |= AVFMT_FLAG_NONBLOCK; // ffmpeg_opt.cのopen_input_file()と同様にフラグを立てる
-    if (avformat_find_stream_info(m_Demux.format.formatCtx, nullptr) < 0) {
+    // experimentalなコーデックを許可するために必要
+    auto findStreamInfoOpt = std::unique_ptr<AVDictionary *, StreamInfoOptDeleter>(
+        (AVDictionary **)av_calloc(m_Demux.format.formatCtx->nb_streams, sizeof(AVDictionary*)), StreamInfoOptDeleter(m_Demux.format.formatCtx->nb_streams));
+    for (uint32_t i = 0; i < m_Demux.format.formatCtx->nb_streams; i++) {
+        if (0 > (ret = av_dict_set_int(&findStreamInfoOpt.get()[i], "strict", FF_COMPLIANCE_EXPERIMENTAL, 0))) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set strict %d for avformat_find_stream_info (stream #%d, codec: %s): %s\n"), FF_COMPLIANCE_EXPERIMENTAL,
+                i, char_to_tstring(avcodec_get_name(m_Demux.format.formatCtx->streams[i]->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+    if (avformat_find_stream_info(m_Demux.format.formatCtx, findStreamInfoOpt.get()) < 0) {
         AddMessage(RGY_LOG_ERROR, _T("error finding stream information.\n"));
         return RGY_ERR_UNKNOWN; // Couldn't find stream information
     }
+    findStreamInfoOpt.reset();
+
     AddMessage(RGY_LOG_DEBUG, _T("got stream information.\n"));
     av_dump_format(m_Demux.format.formatCtx, 0, filename_char.c_str(), 0);
     //dump_format(dec.formatCtx, 0, argv[1], 0);
@@ -2085,6 +2097,20 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 av_dict_set_int(&pDict, "threads", std::min(cpu_info.logical_cores, 16), 0);
                 if (0 > (ret = av_opt_set_dict(m_Demux.video.codecCtxDecode, &pDict))) {
                     AddMessage(RGY_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
+                        char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+                    return RGY_ERR_UNKNOWN;
+                }
+                av_dict_free(&pDict);
+            }
+            if ((m_Demux.video.codecDecode->capabilities & AV_CODEC_CAP_EXPERIMENTAL)) {
+                AVDictionary *pDict = nullptr;
+                if (0 > (ret = av_dict_set_int(&pDict, "strict", FF_COMPLIANCE_EXPERIMENTAL, 0))) {
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to set opt strict %d for decode (codec: %s): %s\n"), FF_COMPLIANCE_EXPERIMENTAL,
+                        char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+                    return RGY_ERR_UNKNOWN;
+                }
+                if (0 > (ret = av_opt_set_dict(m_Demux.video.codecCtxDecode, &pDict))) {
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to set opt strict for decode (codec: %s): %s\n"),
                         char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }

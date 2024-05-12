@@ -100,6 +100,21 @@ struct RGYAVDeleter {
     std::function<void(T**)> deleter;
 };
 
+struct StreamInfoOptDeleter {
+    int streamCount;
+    StreamInfoOptDeleter(int streamCount_) : streamCount(streamCount_) {};
+    void operator()(AVDictionary **dictArray) const {
+        if (dictArray) {
+            for (int i = 0; i < streamCount; i++) {
+                if (dictArray[i]) {
+                    av_dict_free(&dictArray[i]);
+                }
+            }
+            av_freep(&dictArray);
+        }
+    }
+};
+
 #define RGYPOOLAV_DEBUG 0
 #define RGYPOOLAV_COUNT 0
 
