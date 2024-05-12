@@ -41,6 +41,9 @@ void copy_p010_to_p010_sse2(void **dst, const void **src, int width, int src_y_p
 void copy_nv12_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void copy_p010_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
+void copy_p010_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void copy_nv12_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+
 void convert_yuy2_to_nv12(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_yuy2_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_yuy2_to_nv12_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
@@ -238,6 +241,36 @@ void copy_nv12_to_nv12_c(void **dst, const void **src, int width, int src_y_pitc
 
 void copy_p010_to_p010_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     return copy_nv12_to_nv12_c_internal<true>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth>
+void copy_nv12p010_to_nv12p010_c_internal(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left = crop[0];
+    const int crop_up = crop[1];
+    const int crop_right = crop[2];
+    const int crop_bottom = crop[3];
+    for (int i = 0; i < 2; i++) {
+        const auto y_range = thread_y_range(crop_up >> i, (height - crop_bottom) >> i, thread_id, thread_n);
+        const uint8_t *srcYLine = ((const uint8_t *)src[i] + src_y_pitch_byte * y_range.start_src + crop_left * sizeof(uint16_t));
+        uint8_t *dstLine = (uint8_t *)dst[i] + dst_y_pitch_byte * y_range.start_dst;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            const int x_fin = width - crop_right - crop_left;
+            const Tin *ptrSrc = (const Tin *)srcYLine;
+            Tout *ptrDst = (Tout *)dstLine;
+            for (int x = 0; x < x_fin; x++) {
+                ptrDst[x] = (Tout)conv_bit_depth<out_bit_depth, in_bit_depth, 0>(ptrSrc[x]);
+            }
+        }
+    }
+}
+
+void copy_p010_to_nv12_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return copy_nv12p010_to_nv12p010_c_internal<uint8_t, 8, uint16_t, 16>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void copy_nv12_to_p010_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return copy_nv12p010_to_nv12p010_c_internal<uint16_t, 16, uint8_t, 8>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
 void convert_yuy2_to_nv12(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
@@ -1989,6 +2022,10 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX2( RGY_CSP_P010,      RGY_CSP_P010,      false,  copy_p010_to_p010_avx2,              copy_p010_to_p010_avx2,              AVX2|AVX)
     FUNC_SSE(  RGY_CSP_P010,      RGY_CSP_P010,      false,  copy_p010_to_p010_sse2,              copy_p010_to_p010_sse2,              SSE2 )
     FUNC__C_(  RGY_CSP_P010,      RGY_CSP_P010,      false,  copy_p010_to_p010_c,                 copy_p010_to_p010_c,                 NONE)
+    FUNC_AVX2( RGY_CSP_NV12,      RGY_CSP_P010,      false,  copy_nv12_to_p010_avx2,              copy_nv12_to_p010_avx2,              AVX2|AVX)
+    FUNC__C_(  RGY_CSP_NV12,      RGY_CSP_P010,      false,  copy_nv12_to_p010_c,                 copy_nv12_to_p010_c,                 NONE)
+    FUNC_AVX2( RGY_CSP_P010,      RGY_CSP_NV12,      false,  copy_p010_to_nv12_avx2,              copy_p010_to_nv12_avx2,              AVX2|AVX)
+    FUNC__C_(  RGY_CSP_P010,      RGY_CSP_NV12,      false,  copy_p010_to_nv12_c,                 copy_p010_to_nv12_c,                 NONE)
 #endif
 #if !CLFILTERS_AUF
     FUNC_AVX2( RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_avx2,           convert_yuy2_to_nv12_i_avx2,         AVX2|AVX)

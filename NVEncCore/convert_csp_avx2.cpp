@@ -166,6 +166,60 @@ void copy_nv12_to_nv12_avx2(void **dst, const void **src, int width, int src_y_p
 void copy_p010_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     return copy_nv12_to_nv12_avx2_internal<true>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
+void copy_nv12_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left = crop[0];
+    const int crop_up = crop[1];
+    const int crop_right = crop[2];
+    const int crop_bottom = crop[3];
+    for (int i = 0; i < 2; i++) {
+        const auto y_range = thread_y_range(crop_up >> i, (height - crop_bottom) >> i, thread_id, thread_n);
+        const uint8_t *srcYLine = (const uint8_t *)src[i] + src_y_pitch_byte * y_range.start_src + crop_left;
+        uint8_t *dstLine = (uint8_t *)dst[i] + dst_y_pitch_byte * y_range.start_dst;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            const uint8_t *src_ptr = (const uint8_t *)srcYLine;
+            uint16_t *dst_ptr = (uint16_t *)dstLine;
+            for (int x = 0; x < y_width; x += 32, dst_ptr += 32, src_ptr += 32) {
+                __m256i y0, y1;
+                y0 = _mm256_loadu_si256((const __m256i *)src_ptr);
+                y0 = _mm256_permute4x64_epi64(y0, _MM_SHUFFLE(3, 1, 2, 0));
+                y1 = _mm256_unpackhi_epi8(_mm256_setzero_si256(), y0);
+                y0 = _mm256_unpacklo_epi8(_mm256_setzero_si256(), y0);
+                _mm256_storeu_si256((__m256i *)(dst_ptr + 0), y0);
+                _mm256_storeu_si256((__m256i *)(dst_ptr + 16), y1);
+            }
+        }
+    }
+}
+void copy_p010_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left = crop[0];
+    const int crop_up = crop[1];
+    const int crop_right = crop[2];
+    const int crop_bottom = crop[3];
+    const int in_bit_depth = 16;
+    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    for (int i = 0; i < 2; i++) {
+        const auto y_range = thread_y_range(crop_up >> i, (height - crop_bottom) >> i, thread_id, thread_n);
+        const uint8_t *srcYLine = (const uint8_t *)src[i] + src_y_pitch_byte * y_range.start_src + crop_left;
+        uint8_t *dstLine = (uint8_t *)dst[i] + dst_y_pitch_byte * y_range.start_dst;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            const uint16_t *src_ptr = (const uint16_t *)srcYLine;
+            uint8_t *dst_ptr = dstLine;
+            for (int x = 0; x < y_width; x += 32, dst_ptr += 32, src_ptr += 32) {
+                __m256i y0 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 16), (const __m128i *)(src_ptr + 0));
+                __m256i y1 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 24), (const __m128i *)(src_ptr + 8));
+                y0 = _mm256_adds_epi16(y0, yrsftAdd);
+                y1 = _mm256_adds_epi16(y1, yrsftAdd);
+                y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
+                y1 = _mm256_srli_epi16(y1, in_bit_depth - 8);
+                y0 = _mm256_packus_epi16(y0, y1);
+                _mm256_storeu_si256((__m256i *)dst_ptr, y0);
+            }
+
+        }
+    }
+}
 
 void convert_yuy2_to_nv12_avx2(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];

@@ -840,6 +840,7 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
     std::make_pair(AV_PIX_FMT_YUVJ420P,    RGY_CSP_YV12),
     std::make_pair(AV_PIX_FMT_NV12,        RGY_CSP_NV12),
     std::make_pair(AV_PIX_FMT_NV21,        RGY_CSP_NV12),
+    std::make_pair(AV_PIX_FMT_P010LE,      RGY_CSP_P010),
     std::make_pair(AV_PIX_FMT_YUV422P,     RGY_CSP_YUV422),
     std::make_pair(AV_PIX_FMT_YUVJ422P,    RGY_CSP_YUV422),
     std::make_pair(AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2),
