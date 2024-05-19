@@ -54,6 +54,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_AFS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF_AVHW     (ENCODER_QSV   || ENCODER_NVENC                   || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_SELECT_EVERY (ENCODER_NVENC)
@@ -126,6 +127,7 @@ enum class VppType : int {
     CL_AFS,
     CL_NNEDI,
     CL_YADIF,
+    CL_DECOMB,
     CL_DECIMATE,
     CL_MPDECIMATE,
     CL_RFF,
@@ -230,6 +232,11 @@ static const bool  FILTER_DEFAULT_AFS_TUNE = false;
 static const bool  FILTER_DEFAULT_AFS_RFF = true;
 static const int   FILTER_DEFAULT_AFS_TIMECODE = 0;
 static const bool  FILTER_DEFAULT_AFS_LOG = false;
+
+static const bool  FILTER_DEFAULT_DECOMB_FULL = true;
+static const int   FILTER_DEFAULT_DECOMB_THRESHOLD = 20;
+static const int   FILTER_DEFAULT_DECOMB_DTHRESHOLD = 7;
+static const bool  FILTER_DEFAULT_DECOMB_BLEND = false;
 
 static const int   FILTER_DEFAULT_DECIMATE_CYCLE = 5;
 static const int   FILTER_DEFAULT_DECIMATE_DROP = 1;
@@ -1090,6 +1097,19 @@ struct VppYadif {
     tstring print() const;
 };
 
+struct VppDecomb {
+    bool enable;
+    bool full;
+    int threshold;
+    int dthreshold;
+    bool blend;
+
+    VppDecomb();
+    bool operator==(const VppDecomb& x) const;
+    bool operator!=(const VppDecomb& x) const;
+    tstring print() const;
+};
+
 struct VppNnedi {
     bool              enable;
     VppNnediField     field;
@@ -1517,6 +1537,7 @@ struct RGYParamVpp {
     VppAfs afs;
     VppNnedi nnedi;
     VppYadif yadif;
+    VppDecomb decomb;
     VppRff rff;
     VppSelectEvery selectevery;
     VppDecimate decimate;

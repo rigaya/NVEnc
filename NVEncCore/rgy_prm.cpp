@@ -79,6 +79,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
+    std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
     std::make_pair(VppType::CL_RFF,                  _T("rff")),
@@ -769,6 +770,34 @@ tstring VppYadif::print() const {
     return strsprintf(
         _T("yadif: mode %s"),
         get_cx_desc(list_vpp_yadif_mode, mode));
+}
+
+VppDecomb::VppDecomb() :
+    enable(false),
+    full(FILTER_DEFAULT_DECOMB_FULL),
+    threshold(FILTER_DEFAULT_DECOMB_THRESHOLD),
+    dthreshold(FILTER_DEFAULT_DECOMB_DTHRESHOLD),
+    blend(FILTER_DEFAULT_DECOMB_BLEND) {
+
+}
+
+bool VppDecomb::operator==(const VppDecomb& x) const {
+    return enable == x.enable
+        && full == x.full
+        && threshold == x.threshold
+        && dthreshold == x.dthreshold
+        && blend == x.blend;
+}
+bool VppDecomb::operator!=(const VppDecomb& x) const {
+    return !(*this == x);
+}
+
+tstring VppDecomb::print() const {
+    return strsprintf(
+        _T("decomb: full %s, threshold %d, dthreshold %d, blend %s"),
+        full ? _T("on") : _T("off"),
+        threshold, dthreshold,
+        blend ? _T("on") : _T("off"));
 }
 
 VppSelectEvery::VppSelectEvery() :
@@ -1486,6 +1515,7 @@ RGYParamVpp::RGYParamVpp() :
     afs(),
     nnedi(),
     yadif(),
+    decomb(),
     rff(),
     selectevery(),
     decimate(),
@@ -1519,6 +1549,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && afs == x.afs
         && nnedi == x.nnedi
         && yadif == x.yadif
+        && decomb == x.decomb
         && rff == x.rff
         && selectevery == x.selectevery
         && decimate == x.decimate

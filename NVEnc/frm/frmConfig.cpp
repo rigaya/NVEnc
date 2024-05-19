@@ -1006,6 +1006,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppAfs->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"自動フィールドシフト"));
     fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"nnedi"));
     fcgPNVppYadif->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));
+    fcgPNVppDecomb->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"decomb"));
     fcggroupBoxVppTweak->Enabled = fcgCBVppTweakEnable->Checked;
 
     this->ResumeLayout();
@@ -1325,6 +1326,10 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppAfsAnalyze);
     LOAD_CLI_TEXT(fcgLBVppAfsMethodSwitch);
     LOAD_CLI_TEXT(fcgLBVppYadifMode);
+    LOAD_CLI_TEXT(fcgCBVppDecombFull);
+    LOAD_CLI_TEXT(fcgCBVppDecombBlend);
+    LOAD_CLI_TEXT(fcgLBVppDecombThreshold);
+    LOAD_CLI_TEXT(fcgLBVppDecombDthreshold);
     LOAD_CLI_TEXT(fcgLBVppNnediErrorType);
     LOAD_CLI_TEXT(fcgLBVppNnediPrescreen);
     LOAD_CLI_TEXT(fcgLBVppNnediPrec);
@@ -1538,6 +1543,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"nnedi");
         } else if (encPrm.vpp.yadif.enable) {
             deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"yadif");
+        } else if (encPrm.vpp.decomb.enable) {
+            deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"decomb");
         }
         SetCXIndex(fcgCXVppDeinterlace, deinterlacer_idx);
 
@@ -1607,6 +1614,10 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXVppNnediQual,            get_cx_index(list_vpp_nnedi_quality, encPrm.vpp.nnedi.quality));
         SetCXIndex(fcgCXVppNnediErrorType,       get_cx_index(list_vpp_nnedi_error_type, encPrm.vpp.nnedi.errortype));
         SetCXIndex(fcgCXVppYadifMode,            get_cx_index(list_vpp_yadif_mode_gui, encPrm.vpp.yadif.mode));
+        fcgCBVppDecombFull->Checked            = encPrm.vpp.decomb.full != 0;
+        fcgCBVppDecombBlend->Checked           = encPrm.vpp.decomb.blend != 0;
+        SetNUValue(fcgNUVppDecombThreshold,      encPrm.vpp.decomb.threshold);
+        SetNUValue(fcgNUVppDecombDthreshold,     encPrm.vpp.decomb.dthreshold);
         fcgCBVppTweakEnable->Checked           = encPrm.vpp.tweak.enable;
         SetNUValue(fcgNUVppTweakBrightness,      (int)(encPrm.vpp.tweak.brightness * 100.0f));
         SetNUValue(fcgNUVppTweakContrast,        (int)(encPrm.vpp.tweak.contrast * 100.0f));
@@ -1898,8 +1909,14 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen_gui[fcgCXVppNnediPrescreen->SelectedIndex].value;
     encPrm.vpp.nnedi.errortype        = (VppNnediErrorType)list_vpp_nnedi_error_type[fcgCXVppNnediErrorType->SelectedIndex].value;
 
-    encPrm.vpp.yadif.enable = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));
-    encPrm.vpp.yadif.mode = (VppYadifMode)list_vpp_yadif_mode_gui[fcgCXVppYadifMode->SelectedIndex].value;
+    encPrm.vpp.yadif.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));
+    encPrm.vpp.yadif.mode             = (VppYadifMode)list_vpp_yadif_mode_gui[fcgCXVppYadifMode->SelectedIndex].value;
+
+    encPrm.vpp.decomb.enable          = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"decomb"));
+    encPrm.vpp.decomb.full            = fcgCBVppDecombFull->Checked;
+    encPrm.vpp.decomb.blend           = fcgCBVppDecombBlend->Checked;
+    encPrm.vpp.decomb.threshold       = (int)fcgNUVppDecombThreshold->Value;
+    encPrm.vpp.decomb.dthreshold      = (int)fcgNUVppDecombDthreshold->Value;
 
     encPrm.vpp.tweak.enable           = fcgCBVppTweakEnable->Checked;
     encPrm.vpp.tweak.brightness       = (float)fcgNUVppTweakBrightness->Value * 0.01f;
@@ -2279,6 +2296,10 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgCBVppAfsSmooth);
     SET_TOOL_TIP_EX(fcgCBVppAfsTune);
     SET_TOOL_TIP_EX(fcgCXVppYadifMode);
+    SET_TOOL_TIP_EX(fcgCBVppDecombFull);
+    SET_TOOL_TIP_EX(fcgCBVppDecombBlend);
+    SET_TOOL_TIP_EX(fcgNUVppDecombThreshold);
+    SET_TOOL_TIP_EX(fcgNUVppDecombDthreshold);
     SET_TOOL_TIP_EX(fcgCXVppNnediNns);
     SET_TOOL_TIP_EX(fcgCXVppNnediNsize);
     SET_TOOL_TIP_EX(fcgCXVppNnediQual);

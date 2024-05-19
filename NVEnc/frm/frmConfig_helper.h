@@ -224,6 +224,7 @@ static const ENC_OPTION_STR2 list_deinterlace_gui[] = {
     { AUO_CONFIG_CX_DEINTERLACE_AFS,    L"自動フィールドシフト",    100 },
     { AUO_CONFIG_CX_DEINTERLACE_NNEDI,  L"nnedi",                   101 },
     { AUO_CONFIG_CX_DEINTERLACE_YADIF,  L"yadif",                   102 },
+    { AUO_CONFIG_CX_DEINTERLACE_DECOMB, L"decomb",                  103 },
     { AUO_MES_UNKNOWN, NULL, NULL }
 };
 
