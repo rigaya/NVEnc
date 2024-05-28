@@ -893,12 +893,14 @@ System::Void frmConfig::InitComboBox() {
 #else
     setMuxerCmdExNames(fcgCXMPGCmdEx, MUXER_MPG);
 #endif
-    fcgCXDevice->Items->Clear();
-    fcgCXDevice->Items->Add(String(_T("Auto")).ToString());
-    //適当に追加しておく
-    //あとでデバイス情報を追加してから修正する
-    for (int i = 0; i < 8; i++) {
-        fcgCXDevice->Items->Add(_T("------"));
+    if (fcgCXDevice->Items->Count == 0) {
+        fcgCXDevice->Items->Clear();
+        fcgCXDevice->Items->Add(String(_T("Auto")).ToString());
+        //適当に追加しておく
+        //あとでデバイス情報を追加してから修正する
+        for (int i = 0; i < 8; i++) {
+            fcgCXDevice->Items->Add(_T("------"));
+        }
     }
 
     setAudioEncoderNames();
