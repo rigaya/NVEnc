@@ -242,7 +242,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     bFrames(DEFAULT_B_FRAMES),
     mvPrecision(NV_ENC_MV_PRECISION_DEFAULT),
     qpInit(RGYQPSet(DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B, false)),
-    qpMin(RGYQPSet(0, 0, 0, false)),
+    qpMin(RGYQPSet(0, 0, 0, true)),
     qpMax(RGYQPSet(255, 255, 255, false)),
     targetQuality(25),
     targetQualityLSB(0),
