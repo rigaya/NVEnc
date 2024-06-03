@@ -244,6 +244,8 @@ public:
     __host__ __device__ float f7() const { return h.s7; }
 };
 
+
+
 static __device__ float2 operator*(float2 a, float b) {
     a.x *= b;
     a.y *= b;
@@ -388,7 +390,6 @@ static __device__ float8 __expf(float8 a) {
     a.s7 = __expf(a.s7);
     return a;
 }
-
 
 static __device__ float4 operator*(float4 a, float b) {
     a.x *= b;
@@ -1032,6 +1033,174 @@ static __device__ half8& operator-=(half8& a, half8 b) {
     return a;
 }
 
+template<typename T>
+struct __align__(sizeof(T)) complex {
+    T v;
+    __host__ __device__ complex() {};
+    __host__ __device__ complex(float real, float img) {
+        v.x = real;
+        v.y = img;
+    }
+    __host__ __device__ complex(T val) {
+        v = val;
+    }
+    __host__ __device__ complex& operator=(const complex & src) {
+        this->v = src.v;
+        return *this;
+    }
+    __host__ __device__ complex(const complex & src) {
+        this->v = src.v;
+    }
+    __host__ __device__ decltype(T::x) square() const {
+        return v.x * v.x + v.y * v.y;
+    }
+    __host__ __device__ decltype(T::x) real() const {
+        return v.x;
+    }
+    __host__ __device__ decltype(T::x) imag() const {
+        return v.y;
+    }
+    __host__ __device__ float squaref() const {
+        return v.x * v.x + v.y * v.y;
+    }
+    __host__ __device__ float realf() const {
+        return v.x;
+    }
+    __host__ __device__ float imagf() const {
+        return v.y;
+    }
+};
+
+template<>
+__host__ __device__ complex<__half2>::complex(float real, float img) {
+#if ENABLE_CUDA_FP16_DEVICE
+    v = __float22half2_rn(make_float2(real, img));
+#endif
+};
+
+template<typename T>
+static __device__ complex<T> cexp(const complex<T>& c) {
+    complex<T> result;
+    result.v.x = std::exp(c.v.x) * std::cos(c.v.y);
+    result.v.y = std::exp(c.v.x) * std::sin(c.v.y);
+    return result;
+}
+
+template<typename T>
+static __device__ complex<T> operator*(complex<T> a, float b) {
+    a.v *= b;
+    return a;
+}
+
+template<>
+static __device__ complex<__half2> operator*(complex<__half2> a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
+    __half2 bh2 = __float2half2_rn(b);
+    a.v *= bh2;
+#endif
+    return a;
+}
+template<typename T>
+static __device__ complex<T> operator*(const complex<T>& a, const complex<T>& b) {
+    complex<T> result;
+    result.v.x = (a.v.x * b.v.x) - (a.v.y * b.v.y);
+    result.v.y = (a.v.x * b.v.y) + (a.v.y * b.v.x);
+    return result;
+}
+template<>
+static __device__ complex<__half2> operator*(const complex<__half2>& a, const complex<__half2>& b) {
+    complex<__half2> result;
+#if ENABLE_CUDA_FP16_DEVICE
+    __half2 a_x  = __half2(a.v.x, a.v.x);
+    __half2 a_y  = __half2(a.v.y, a.v.y);
+    __half2 b_yx = __half2(b.v.y, b.v.x);
+    result.v = __hfma2(a_x, b.v, a_y * b_yx);
+#endif
+    return result;
+}
+
+template<typename T>
+static __device__ complex<T>& operator*=(complex<T>& a, float b) {
+    a.v *= b;
+    return a;
+}
+
+template<>
+static __device__ complex<__half2>& operator*=(complex<__half2>& a, float b) {
+#if ENABLE_CUDA_FP16_DEVICE
+    __half2 bh2 = __float2half2_rn(b);
+    a.v *= bh2;
+#endif
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T>& operator*=(complex<T>& a, complex<T> b) {
+    complex<T> result;
+    result.v.x = (a.v.x * b.v.x) - (a.v.y * b.v.y);
+    result.v.y = (a.v.x * b.v.y) + (a.v.y * b.v.x);
+    a = result;
+    return a;
+}
+template<>
+static __device__ complex<__half2>& operator*=(complex<__half2>& a, complex<__half2> b) {
+#if ENABLE_CUDA_FP16_DEVICE
+    __half2 a_x = __half2(a.v.x, a.v.x);
+    __half2 a_y = __half2(a.v.y, a.v.y);
+    __half2 b_yx = __half2(b.v.y, b.v.x);
+    a.v = __hfma2(a_x, b.v, a_y * b_yx);
+#endif
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T> operator+(complex<T> a, float b) {
+    a.v += b;
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T> operator+(complex<T> a, complex<T> b) {
+    a.v += b.v;
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T>& operator+=(complex<T>& a, float b) {
+    a.v += b;
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T>& operator+=(complex<T>& a, complex<T> b) {
+    a.v += b.v;
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T> operator-(complex<T> a, float b) {
+    a.v -= b;
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T> operator-(complex<T> a, complex<T> b) {
+    a.v -= b.v;
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T>& operator-=(complex<T>& a, float b) {
+    a.v -= b;
+    return a;
+}
+
+template<typename T>
+static __device__ complex<T>& operator-=(complex<T>& a, complex<T> b) {
+    a.v -= b.v;
+    return a;
+}
+
 #if __CUDACC_VER_MAJOR__ >= 9
 #define __shfl(x, y)     __shfl_sync(0xFFFFFFFFU, x, y)
 #define __shfl_up(x, y)   __shfl_up_sync(0xFFFFFFFFU, x, y)
@@ -1195,6 +1364,12 @@ template<typename T>
 static __device__ T *selectptr(T *ptr0, T *ptr1, T *ptr2, const int idx) {
     if (idx == 1) return ptr1;
     if (idx == 2) return ptr2;
+    return ptr0;
+}
+
+template<typename T>
+static __device__ T *selectptr2(T *ptr0, T *ptr1, const int idx) {
+    if (idx == 1) return ptr1;
     return ptr0;
 }
 

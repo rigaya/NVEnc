@@ -1056,6 +1056,41 @@ tstring VppDenoiseDct::print() const {
     return str;
 }
 
+VppDenoiseFFT3D::VppDenoiseFFT3D() :
+    enable(false),
+    sigma(FILTER_DEFAULT_DENOISE_FFT_SIGMA),
+    amount(FILTER_DEFAULT_DENOISE_FFT_AMOUNT),
+    block_size(FILTER_DEFAULT_DENOISE_FFT_BLOCK_SIZE),
+    overlap(FILTER_DEFAULT_DENOISE_FFT_OVERLAP),
+    overlap2(FILTER_DEFAULT_DENOISE_FFT_OVERLAP2),
+    method(FILTER_DEFAULT_DENOISE_FFT_METHOD),
+    temporal(FILTER_DEFAULT_DENOISE_FFT_TEMPORAL),
+    precision(VppFpPrecision::VPP_FP_PRECISION_AUTO) {
+
+}
+
+bool VppDenoiseFFT3D::operator==(const VppDenoiseFFT3D &x) const {
+    return enable == x.enable
+        && sigma == x.sigma
+        && amount == x.amount
+        && block_size == x.block_size
+        && overlap == x.overlap
+        && overlap2 == x.overlap2
+        && method == x.method
+        && temporal == x.temporal
+        && precision == x.precision;
+}
+bool VppDenoiseFFT3D::operator!=(const VppDenoiseFFT3D &x) const {
+    return !(*this == x);
+}
+
+tstring VppDenoiseFFT3D::print() const {
+    tstring str = strsprintf(_T("denoise-fft3d: sigma %.2f, strength %.2f, block_size %d\n"
+        "                         overlap %d:%d, method %d, temporal %d, precision %s"),
+        sigma, amount, block_size, overlap, overlap2, method, temporal, get_cx_desc(list_vpp_fp_prec, precision));
+    return str;
+}
+
 VppConvolution3d::VppConvolution3d() :
     enable(false),
     fast(false),
@@ -1527,6 +1562,7 @@ RGYParamVpp::RGYParamVpp() :
     pmd(),
     dct(),
     smooth(),
+    fft3d(),
     subburn(),
     unsharp(),
     edgelevel(),

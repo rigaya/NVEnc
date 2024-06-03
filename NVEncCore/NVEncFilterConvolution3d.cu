@@ -280,7 +280,7 @@ RGY_ERR NVEncFilterConvolution3d::init(shared_ptr<NVEncFilterParam> pParam, shar
     for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
         param->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
-    m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP| FILTER_PATHTHROUGH_FLAGS| FILTER_PATHTHROUGH_DATA));
 
     setFilterInfo(pParam->print());
     m_param = pParam;
@@ -346,6 +346,8 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
         pOutFrame->frame.inputFrameId = frameCur->inputFrameId;
         pOutFrame->frame.duration     = frameCur->duration;
         pOutFrame->frame.timestamp    = frameCur->timestamp;
+        pOutFrame->frame.flags        = frameCur->flags;
+        pOutFrame->frame.dataList     = frameCur->dataList;
 
         static const std::map<RGY_CSP, decltype(denoise_convolution3d_frame<uint8_t, 8>)*> denoise_list = {
             { RGY_CSP_YV12,      denoise_convolution3d_frame<uint8_t,   8> },

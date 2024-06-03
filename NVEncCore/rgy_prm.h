@@ -65,6 +65,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV  || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -140,6 +141,7 @@ enum class VppType : int {
     CL_DENOISE_PMD,
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
+    CL_DENOISE_FFT3D,
 
     CL_RESIZE,
 
@@ -286,6 +288,15 @@ static const int   FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR = 10;
 static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA = 4.0f;
 static const int   FILTER_DEFAULT_DENOISE_DCT_STEP = 2;
 static const int   FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE = 8;
+
+static const float FILTER_DEFAULT_DENOISE_FFT_SIGMA = 1.0f;
+static const float FILTER_DEFAULT_DENOISE_FFT_AMOUNT = 1.0f;
+static const int   FILTER_DEFAULT_DENOISE_FFT_BLOCK_SIZE = 32;
+static const float FILTER_DEFAULT_DENOISE_FFT_OVERLAP  = 0.25;
+static const float FILTER_DEFAULT_DENOISE_FFT_OVERLAP2 = 0.25;
+static const int   FILTER_DEFAULT_DENOISE_FFT_METHOD = 0;
+static const int   FILTER_DEFAULT_DENOISE_FFT_TEMPORAL = 1;
+static const int   FILTER_DEFAULT_DENOISE_FFT_PRECISION = 1;
 
 static const float FILTER_DEFAULT_TWEAK_BRIGHTNESS = 0.0f;
 static const float FILTER_DEFAULT_TWEAK_CONTRAST = 1.0f;
@@ -1310,6 +1321,30 @@ struct VppDenoiseDct {
     tstring print() const;
 };
 
+const CX_DESC list_vpp_fft3d_block_size[] = {
+    { _T("8"),   8 },
+    { _T("16"), 16 },
+    { _T("32"), 32 },
+    { _T("64"), 64 },
+    { NULL, 0 }
+};
+
+struct VppDenoiseFFT3D {
+    bool enable;
+    float sigma;
+    float amount;
+    int block_size;
+    float overlap;
+    float overlap2;
+    int method;
+    int temporal;
+    VppFpPrecision precision;
+    VppDenoiseFFT3D();
+    bool operator==(const VppDenoiseFFT3D &x) const;
+    bool operator!=(const VppDenoiseFFT3D &x) const;
+    tstring print() const;
+};
+
 struct VppSubburn {
     bool  enable;
     tstring filename;
@@ -1549,6 +1584,7 @@ struct RGYParamVpp {
     VppPmd pmd;
     VppDenoiseDct dct;
     VppSmooth smooth;
+    VppDenoiseFFT3D fft3d;
     std::vector<VppSubburn> subburn;
     VppUnsharp unsharp;
     VppEdgelevel edgelevel;
