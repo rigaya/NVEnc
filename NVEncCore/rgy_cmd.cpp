@@ -2416,7 +2416,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{
-            "sigma", "strength", "block_size", "overlap", "overlap2", "method", "temporal", "prec" };
+            "sigma", "amount", "block_size", "overlap", "overlap2", "method", "temporal", "prec" };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -2443,7 +2443,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("strength")) {
+                if (param_arg == _T("amount")) {
                     try {
                         vpp->fft3d.amount = std::stof(param_val);
                     } catch (...) {
