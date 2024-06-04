@@ -1113,7 +1113,7 @@ static __device__ complex<__half2> operator*(const complex<__half2>& a, const co
 #if ENABLE_CUDA_FP16_DEVICE
     __half2 a_x  = __half2(a.v.x, a.v.x);
     __half2 a_y  = __half2(a.v.y, a.v.y);
-    __half2 b_yx = __half2(b.v.y, b.v.x);
+    __half2 b_yx = __half2(-b.v.y, b.v.x);
     result.v = __hfma2(a_x, b.v, a_y * b_yx);
 #endif
     return result;
