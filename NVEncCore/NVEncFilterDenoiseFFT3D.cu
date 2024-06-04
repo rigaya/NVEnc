@@ -161,7 +161,7 @@ static __device__ void dft(complex<T> *data) {
     for (int i = 0; i < N; i++) {
         #pragma unroll
         for (int k = 0; k < N; k++) {
-            work[k] += data[i * step] * fw<T, forward>(k, N);
+            work[k] += data[i * step] * fw<T, forward>(i*k, N);
         }
     }
     if (!forward) {
@@ -352,6 +352,7 @@ __device__ complex<TypeComplex> temporal_filter(
     if (temporalCount >= 2) { work[1] = ptrSrcB[0]; }
     if (temporalCount >= 3) { work[2] = ptrSrcC[0]; }
     if (temporalCount >= 4) { work[3] = ptrSrcD[0]; }
+
     if (temporalCount >= 2) {
         dft<TypeComplex, temporalCount, true, 1>(work);
     }
