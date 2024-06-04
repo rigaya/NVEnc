@@ -60,26 +60,20 @@ static __device__ constexpr int bitreverse(int x) {
     return y;
 }
 
-template<typename T>
+template<typename T, bool forward>
 static __device__ const complex<T> fw(const int k, const int N) {
     // cexp<T>(complex<T>(0.0f, -2.0f * FFT_M_PI * k / (float)N));
-    const float theta = -2.0f * FFT_M_PI * k / (float)N;
-    return complex<T>(std::cos(theta), std::sin(theta));
-}
-template<typename T>
-static __device__ const complex<T> ifw(const int k, const int N) {
-    // cexp<T>(complex<T>(0.0f, -2.0f * FFT_M_PI * k / (float)N));
-    const float theta = -2.0f * FFT_M_PI * k / (float)N;
+    const float theta = ((forward) ? -2.0f : +2.0f) * FFT_M_PI * k / (float)N;
     return complex<T>(std::cos(theta), std::sin(theta));
 }
 
-template<typename T>
+template<typename T, bool forward>
 static __device__ complex<T> fft_calc0(complex<T> c0, complex<T> c1, const int k, const int N) {
-    return c0 + fw<T>(k, N) * c1;
+    return c0 + fw<T, forward>(k, N) * c1;
 }
-template<typename T>
+template<typename T, bool forward>
 static __device__ complex<T> fft_calc1(complex<T> c0, complex<T> c1, const int k, const int N) {
-    return c0 - fw<T>(k, N) * c1;
+    return c0 - fw<T, forward>(k, N) * c1;
 }
 
 template<typename T, int N, int step>
@@ -99,11 +93,11 @@ static __device__ void fftpermute(complex<T> *data) {
     return;
 }
 
-template<typename T, int N, int step>
+template<typename T, int N, bool forward, int step>
 static __device__ void fft(complex<T> *data) {
     if (N >= 4) {
-        fft<T, N / 2, step>(data);
-        fft<T, N / 2, step>(data + N / 2);
+        fft<T, N / 2, forward, step>(data);
+        fft<T, N / 2, forward, step>(data + (N / 2) * step);
     }
     complex<T> work[N];
     #pragma unroll
@@ -113,27 +107,49 @@ static __device__ void fft(complex<T> *data) {
     
     #pragma unroll
     for (int i = 0; i < N / 2; i++) {
-        data[(i        ) * step] = fft_calc0<T>(work[i], work[i + N / 2], i, N);
-        data[(i + N / 2) * step] = fft_calc1<T>(work[i], work[i + N / 2], i, N);
+        data[(i        ) * step] = fft_calc0<T, forward>(work[i], work[i + N / 2], i, N);
+        data[(i + N / 2) * step] = fft_calc1<T, forward>(work[i], work[i + N / 2], i, N);
     }
 }
 
-template<> static __device__ void fft<float2,  1,  1>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1,  1>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1,  9>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1,  9>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, 17>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, 17>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, 33>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, 33>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, 65>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, 65>(complex<__half2> *data) { return; }
-
 template<typename T, int N, int step>
+static __device__ void ifft_normalize(complex<T> *data) {
+    const float invN = 1.0f / (float)N;
+    #pragma unroll
+    for (int i = 0; i < N; i++) {
+        data[i * step] *= invN;
+    }
+}
+
+template<> static __device__ void fft<float2,  1, true,   1>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, true,   1>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, true,   9>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, true,   9>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, true,  17>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, true,  17>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, true,  33>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, true,  33>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, true,  65>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, true,  65>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, false,  1>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, false,  1>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, false,  9>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, false,  9>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, false, 17>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, false, 17>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, false, 33>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, false, 33>(complex<__half2> *data) { return; }
+template<> static __device__ void fft<float2,  1, false, 65>(complex<float2> *data) { return; }
+template<> static __device__ void fft<__half2, 1, false, 65>(complex<__half2> *data) { return; }
+
+template<typename T, int N, bool forward, int step>
 static __device__ void dft(complex<T> *data) {
     if (N <= 2 || N == 4 || N == 8) {
         fftpermute<T, N, step>(data);
-        fft<T, N, step>(data);
+        fft<T, N, forward, step>(data);
+        if (!forward) {
+            ifft_normalize<T, N, step>(data);
+        }
         return;
     }
     complex<T> work[N];
@@ -145,115 +161,40 @@ static __device__ void dft(complex<T> *data) {
     for (int i = 0; i < N; i++) {
         #pragma unroll
         for (int k = 0; k < N; k++) {
-            work[k] += data[i * step] * fw<T>(k, N);
+            work[k] += data[i * step] * fw<T, forward>(k, N);
         }
     }
+    if (!forward) {
+        ifft_normalize<T, N, 1>(work);
+    }
     #pragma unroll
     for (int i = 0; i < N; i++) {
-        data[i* step] = work[i];
+        data[i * step] = work[i];
     }
 }
-
-template<typename T>
-static __device__ complex<T> ifft_calc0(complex<T> c0, complex<T> c1, const int k, const int N) {
-    return c0 + c1;
-}
-template<typename T>
-static __device__ complex<T> ifft_calc1(complex<T> c0, complex<T> c1, const int k, const int N) {
-    return (c0 - c1) * ifw<T>(k, N);
-}
-
-template<typename T, int N, int step>
-static __device__ void ifftpermute(complex<T> *data) {
-    const float mul = 1.0f / (float)N;
-    complex<T> work[N];
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        work[i] = data[i * step];
-    }
-    if (N > WARP_SIZE) {
-        __syncthreads();
-    }
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        data[i * step] = work[bitreverse<log2u(N)>(i)] * mul;
-    }
-    return;
-}
-
-template<typename T, int N, int step>
-static __device__ void ifft(complex<T> *data) {
-    complex<T> work[N];
-    #pragma unroll
-    for (int i = 0; i < N / 2; i++) {
-        work[i]         = ifft_calc0<T>(data[i * step], data[(i + N / 2) * step], i, N);
-        work[i + N / 2] = ifft_calc1<T>(data[i * step], data[(i + N / 2) * step], i, N);
-    }
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        data[i] = work[i];
-    }
-    if (N >= 4) {
-        ifft<T, N / 2, step>(data);
-        ifft<T, N / 2, step>(data + N / 2);
-    }
-}
-template<typename T, int N, int step>
-static __device__ void idft(complex<T> *data) {
-    if (N <= 2 || N == 4 || N == 8) {
-        ifft<T, N, step>(data);
-        ifftpermute<T, N, step>(data);
-        return;
-    }
-    complex<T> work[N];
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        work[i] = complex<T>(0.0f, 0.0f);
-    }
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        #pragma unroll
-        for (int k = 0; k < N; k++) {
-            work[k] += data[i * step] * ifw<T>(k, N);
-        }
-    }
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        data[i* step] = work[i] * (1.0f / (float)N);
-    }
-}
-
-template<> static __device__ void ifft<float2,  1,  1>(complex<float2> *data) { return; }
-template<> static __device__ void ifft<__half2, 1,  1>(complex<__half2> *data) { return; }
-template<> static __device__ void ifft<float2,  1,  9>(complex<float2> *data) { return; }
-template<> static __device__ void ifft<__half2, 1,  9>(complex<__half2> *data) { return; }
-template<> static __device__ void ifft<float2,  1, 17>(complex<float2> *data) { return; }
-template<> static __device__ void ifft<__half2, 1, 17>(complex<__half2> *data) { return; }
-template<> static __device__ void ifft<float2,  1, 33>(complex<float2> *data) { return; }
-template<> static __device__ void ifft<__half2, 1, 33>(complex<__half2> *data) { return; }
-template<> static __device__ void ifft<float2,  1, 65>(complex<float2> *data) { return; }
-template<> static __device__ void ifft<__half2, 1, 65>(complex<__half2> *data) { return; }
 
 #define BLOCK_SYNC { if (BLOCK_SIZE > WARP_SIZE) { __syncthreads(); } else { __syncwarp(); } }
 
 template<typename T, int BLOCK_SIZE>
 __device__ void fftBlock(complex<T> shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
     // x方向の変換
-    fftpermute<T, BLOCK_SIZE, 1>(&shared_tmp[thWorker][0]); BLOCK_SYNC;
-    fft<       T, BLOCK_SIZE, 1>(&shared_tmp[thWorker][0]); BLOCK_SYNC;
+    fftpermute<T, BLOCK_SIZE,       1>(&shared_tmp[thWorker][0]); BLOCK_SYNC;
+    fft<       T, BLOCK_SIZE, true, 1>(&shared_tmp[thWorker][0]); BLOCK_SYNC;
     // y方向の変換
-    fftpermute<T, BLOCK_SIZE, BLOCK_SIZE+1>(&shared_tmp[0][thWorker]); BLOCK_SYNC;
-    fft<       T, BLOCK_SIZE, BLOCK_SIZE+1>(&shared_tmp[0][thWorker]);
+    fftpermute<T, BLOCK_SIZE,       BLOCK_SIZE+1>(&shared_tmp[0][thWorker]); BLOCK_SYNC;
+    fft<       T, BLOCK_SIZE, true, BLOCK_SIZE+1>(&shared_tmp[0][thWorker]);
 }
 
 template<typename T, int BLOCK_SIZE>
 __device__ void ifftBlock(complex<T> shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
     // y方向の逆変換
-    ifft<       T, BLOCK_SIZE, BLOCK_SIZE + 1>(&shared_tmp[0][thWorker]); BLOCK_SYNC;
-    ifftpermute<T, BLOCK_SIZE, BLOCK_SIZE + 1>(&shared_tmp[0][thWorker]); BLOCK_SYNC;
+    fftpermute<T, BLOCK_SIZE,        BLOCK_SIZE + 1>(&shared_tmp[0][thWorker]); BLOCK_SYNC;
+    fft<       T, BLOCK_SIZE, false, BLOCK_SIZE + 1>(&shared_tmp[0][thWorker]); BLOCK_SYNC;
+    ifft_normalize<T, BLOCK_SIZE,    BLOCK_SIZE + 1>(&shared_tmp[0][thWorker]); BLOCK_SYNC;
     // x方向の逆変換
-    ifft<       T, BLOCK_SIZE, 1>(&shared_tmp[thWorker][0]); BLOCK_SYNC;
-    ifftpermute<T, BLOCK_SIZE, 1>(&shared_tmp[thWorker][0]);
+    fftpermute<T, BLOCK_SIZE,        1>(&shared_tmp[thWorker][0]); BLOCK_SYNC;
+    fft<       T, BLOCK_SIZE, false, 1>(&shared_tmp[thWorker][0]); BLOCK_SYNC;
+    ifft_normalize<T, BLOCK_SIZE,    1>(&shared_tmp[thWorker][0]);
 }
 
 template<typename TypeTmp, int BLOCK_SIZE>
@@ -296,28 +237,24 @@ __global__ void kernel_fft(
     char *const __restrict__ ptrDst = selectptr2(ptrDst0, ptrDst1, plane_idx);
     const char *const __restrict__ ptrSrc = selectptr2(ptrSrc0, ptrSrc1, plane_idx);
 #if 1
-
     __shared__ complex<TypeComplex> stmp[DENOISE_BLOCK_SIZE_X][BLOCK_SIZE][BLOCK_SIZE + 1];
 
-#define BLOCK_WINDOW(x, y) (1.0f)
-//#define BLOCK_WINDOW(x, y) ptrBlockWindow[(y) * BLOCK_SIZE + (x)]
     // stmpにptrSrcの該当位置からデータを読み込む
-    #pragma unroll
-    for (int y = 0; y < BLOCK_SIZE; y++) {
-        if (global_bx < block_count_x) {
-            //const int src_x = wrap_idx(block_x + thWorker, 0, width - 1);
-            //const int src_y = wrap_idx(block_y + y, 0, height - 1);
-            const int src_x = global_bx * BLOCK_SIZE + thWorker;
-            const int src_y = global_by * BLOCK_SIZE + y;
-            const TypePixel *ptr_src = (const TypePixel *)(ptrSrc + src_y * srcPitch + src_x * sizeof(TypePixel));
-            //stmp[local_bx][y][thWorker] = complex<TypeComplex>(pix * BLOCK_WINDOW(thWorker, y) * (1.0f / (float)((1 << bit_depth) - 1)), 0.0f);
-            stmp[local_bx][y][thWorker].v.x = ptr_src[0] * BLOCK_WINDOW(thWorker, y) * (1.0f / (float)((1 << bit_depth) - 1));
+    {
+        const float winFuncX = ptrBlockWindow[thWorker];
+        #pragma unroll
+        for (int y = 0; y < BLOCK_SIZE; y++) {
+            if (global_bx < block_count_x) {
+                const int src_x = wrap_idx(block_x + thWorker, 0, width - 1);
+                const int src_y = wrap_idx(block_y + y, 0, height - 1);
+                const TypePixel *ptr_src = (const TypePixel *)(ptrSrc + src_y * srcPitch + src_x * sizeof(TypePixel));
+                stmp[local_bx][y][thWorker] = complex<TypeComplex>((float)ptr_src[0] * winFuncX * ptrBlockWindow[y] * (1.0f / (float)((1 << bit_depth) - 1)), 0.0f);
+            }
         }
     }
     __syncthreads();
-#undef BLOCK_WINDOW
 
-    //fftBlock<TypeComplex, BLOCK_SIZE>(stmp[local_bx], thWorker);
+    fftBlock<TypeComplex, BLOCK_SIZE>(stmp[local_bx], thWorker);
 
     __syncthreads();
 
@@ -416,7 +353,7 @@ __device__ complex<TypeComplex> temporal_filter(
     if (temporalCount >= 3) { work[2] = ptrSrcC[0]; }
     if (temporalCount >= 4) { work[3] = ptrSrcD[0]; }
     if (temporalCount >= 2) {
-        dft<TypeComplex, temporalCount, 1>(work);
+        dft<TypeComplex, temporalCount, true, 1>(work);
     }
 
     #pragma unroll
@@ -433,7 +370,7 @@ __device__ complex<TypeComplex> temporal_filter(
     }
 
     if (temporalCount >= 2) {
-        idft<TypeComplex, temporalCount, 1>(work);
+        dft<TypeComplex, temporalCount, false, 1>(work);
     }
 
     return work[temporalCurrentIdx];
@@ -471,9 +408,9 @@ __global__ void kernel_tfft_filter_ifft(
     const char *const __restrict__ ptrSrcB = (temporalCount >= 2) ? selectptr2(ptrSrcB0, ptrSrcB1, plane_idx) : nullptr;
     const char *const __restrict__ ptrSrcC = (temporalCount >= 3) ? selectptr2(ptrSrcC0, ptrSrcC1, plane_idx) : nullptr;
     const char *const __restrict__ ptrSrcD = (temporalCount >= 4) ? selectptr2(ptrSrcD0, ptrSrcD1, plane_idx) : nullptr;
-#if 0
+#if 1
     __shared__ complex<TypeComplex> stmp[DENOISE_BLOCK_SIZE_X][BLOCK_SIZE][BLOCK_SIZE + 1];
-#if 0
+#if 1
     #pragma unroll
     for (int y = 0; y < BLOCK_SIZE; y++) {
         if (global_bx < block_count_x) {
@@ -488,36 +425,35 @@ __global__ void kernel_tfft_filter_ifft(
                 sigma, limit, filterMethod);
         }
     }
-    __syncthreads();
-
-    ifftBlock<TypeComplex, BLOCK_SIZE>(stmp[local_bx], thWorker);
 #else
-#pragma unroll
+    #pragma unroll
     for (int y = 0; y < BLOCK_SIZE; y++) {
         if (global_bx < block_count_x) {
             const int src_x = global_bx * BLOCK_SIZE + thWorker;
             const int src_y = global_by * BLOCK_SIZE + y;
-            const int src_idx = src_y * srcPitch + src_x * sizeof(complex<TypeComplex>);
-            stmp[local_bx][y][thWorker] = ((const complex<TypeComplex> *)(ptrSrcA + src_idx))[0];
+            const complex<TypeComplex> *ptr_src = (const complex<TypeComplex> *)(ptrSrcA + src_y * srcPitch + src_x * sizeof(complex<TypeComplex>));
+            stmp[local_bx][y][thWorker] = ptr_src[0];
         }
     }
 #endif
-
     __syncthreads();
 
-#define BLOCK_WINDOW_INV(x, y) (1.0f)
-//#define BLOCK_WINDOW_INV(x, y) ptrBlockWindowInverse[(y) * BLOCK_SIZE + (x)]
-    // 計算内容をptrDstに出力
-    #pragma unroll
-    for (int y = 0; y < BLOCK_SIZE; y++) {
-        if (global_bx < block_count_x) {
-            const int dst_x = global_bx * BLOCK_SIZE + thWorker;
-            const int dst_y = global_by * BLOCK_SIZE + y;
-            ((TypePixel *)(ptrDst + dst_y * dstPitch + dst_x * sizeof(TypePixel)))[0]
-                = (TypePixel)clamp(stmp[local_bx][y][thWorker].v.x * BLOCK_WINDOW_INV(thWorker, y) * (float)((1 << bit_depth) - 1), 0.0f, (1 << bit_depth) - 1e-6f);
+    ifftBlock<TypeComplex, BLOCK_SIZE>(stmp[local_bx], thWorker);
+
+    __syncthreads();
+    {
+        // 計算内容をptrDstに出力
+        const float winFuncInvX = ptrBlockWindowInverse[thWorker];
+        #pragma unroll
+        for (int y = 0; y < BLOCK_SIZE; y++) {
+            if (global_bx < block_count_x) {
+                const int dst_x = global_bx * BLOCK_SIZE + thWorker;
+                const int dst_y = global_by * BLOCK_SIZE + y;
+                TypePixel *ptr_dst = (TypePixel *)(ptrDst + dst_y * dstPitch + dst_x * sizeof(TypePixel));
+                ptr_dst[0] = (TypePixel)clamp(stmp[local_bx][y][thWorker].realf() * winFuncInvX * ptrBlockWindowInverse[y] * ((float)((1 << bit_depth) - 1)), 0.0f, (1 << bit_depth) - 1e-6f);
+            }
         }
     }
-#undef BLOCK_WINDOW_INV
 #else
     #pragma unroll
     for (int y = 0; y < BLOCK_SIZE; y++) {
@@ -615,6 +551,7 @@ __global__ void kernel_merge(
     const char *const __restrict__ ptrSrc1,
     const int srcPitch,
     const int width, const int height,
+    const int block_count_x, const int block_count_y,
     const int ov1, const int ov2
 ) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -632,24 +569,24 @@ __global__ void kernel_merge(
         const int block_local_pos_y = y - block_y * block_eff + ov1 + ov2;
         int shift = 0;
 #define BLOCK_VAL(x, y) (((TypePixel *)(ptrSrc + (y) * srcPitch + (x) * sizeof(TypePixel)))[0])
-#if 0
+#if 1
         int pix = BLOCK_VAL(block_x * BLOCK_SIZE + block_local_pos_x, block_y * BLOCK_SIZE + block_local_pos_y);
-        if (block_local_pos_x >= block_eff - ov2) {
+        if (block_local_pos_x >= block_eff + ov1 && (block_x + 1) < block_count_x) {
             pix += BLOCK_VAL((block_x + 1) * BLOCK_SIZE + block_local_pos_x - block_eff, block_y * BLOCK_SIZE + block_local_pos_y);
             shift++;
         }
-        if (block_local_pos_y >= block_eff - ov2) {
+        if (block_local_pos_y >= block_eff + ov1 && (block_y + 1) < block_count_y) {
             pix += BLOCK_VAL(block_x * BLOCK_SIZE + block_local_pos_x, (block_y + 1) * BLOCK_SIZE + block_local_pos_y - block_eff);
-            if (block_local_pos_x >= block_eff - ov2) {
+            shift++;
+            if (block_local_pos_x >= block_eff + ov1 && (block_x + 1) < block_count_x) {
                 pix += BLOCK_VAL((block_x + 1) * BLOCK_SIZE + block_local_pos_x - block_eff, (block_y + 1) * BLOCK_SIZE + block_local_pos_y - block_eff);
             }
-            shift++;
         }
 #else
         int pix = BLOCK_VAL(x, y);
 #endif
 #undef BLOCK_VAL
-        ((TypePixel *)(ptrDst + y * dstPitch + x * sizeof(TypePixel)))[0] = (TypePixel)((pix + (1 << shift) - 1) >> shift);
+        ((TypePixel *)(ptrDst + y * dstPitch + x * sizeof(TypePixel)))[0] = (TypePixel)((pix + shift) >> shift);
     }
 }
 
@@ -658,12 +595,13 @@ RGY_ERR denoise_merge(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFram
     {
         const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
         auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+        const auto block_count = getBlockCount(planeOutputY.width, planeOutputY.height, BLOCK_SIZE, ov1, ov2);
         dim3 blockSize(32, 8);
         dim3 gridSize(divCeil(planeOutputY.width, blockSize.x), divCeil(planeOutputY.height, blockSize.y), 1);
         kernel_merge<TypePixel, BLOCK_SIZE> << <gridSize, blockSize, 0, stream >> > (
             (char *)planeOutputY.ptr[0], nullptr, planeOutputY.pitch[0],
             (const char *)planeInputY.ptr[0], nullptr, planeInputY.pitch[0],
-            planeOutputY.width, planeOutputY.height, ov1, ov2);
+            planeOutputY.width, planeOutputY.height, block_count.first, block_count.second, ov1, ov2);
         CUDA_DEBUG_SYNC_ERR;
         auto err = err_to_rgy(cudaGetLastError());
         if (err != RGY_ERR_NONE) {
@@ -678,12 +616,13 @@ RGY_ERR denoise_merge(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFram
         if (planeOutputU.pitch[0] != planeOutputV.pitch[0]) {
             return RGY_ERR_UNKNOWN;
         }
+        const auto block_count = getBlockCount(planeOutputU.width, planeOutputU.height, BLOCK_SIZE, ov1, ov2);
         dim3 blockSize(32, 8);
         dim3 gridSize(divCeil(planeOutputU.width, blockSize.x), divCeil(planeOutputU.height, blockSize.y), 2);
         kernel_merge<TypePixel, BLOCK_SIZE> << <gridSize, blockSize, 0, stream >> > (
             (char *)planeOutputU.ptr[0], (char *)planeOutputV.ptr[0], planeOutputU.pitch[0],
             (const char *)planeInputU.ptr[0], (const char *)planeInputV.ptr[0], planeInputU.pitch[0],
-            planeOutputU.width, planeOutputU.height, ov1, ov2);
+            planeOutputU.width, planeOutputU.height, block_count.first, block_count.second, ov1, ov2);
         CUDA_DEBUG_SYNC_ERR;
         auto err = err_to_rgy(cudaGetLastError());
         if (err != RGY_ERR_NONE) {
@@ -736,13 +675,13 @@ std::unique_ptr<DenoiseFFT3DBase> getDenoiseFunc(const RGY_CSP csp, const int bl
             default: return nullptr;
             }
         } else {
-            //switch (block_size) {
-            //case  8: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint8_t, 8, __half2,  8, 8>());
-            //case 16: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint8_t, 8, __half2, 16, 4>());
-            //case 32: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint8_t, 8, __half2, 32, 2>());
-            //case 64: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint8_t, 8, __half2, 64, 1>());
-            //default: return nullptr;
-            //}
+            switch (block_size) {
+            case  8: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint8_t, 8, __half2,  8, 8>());
+            case 16: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint8_t, 8, __half2, 16, 4>());
+            case 32: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint8_t, 8, __half2, 32, 2>());
+            case 64: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint8_t, 8, __half2, 64, 1>());
+            default: return nullptr;
+            }
         }
     case RGY_CSP_YV12_16:
     case RGY_CSP_YUV444_16:
@@ -755,13 +694,13 @@ std::unique_ptr<DenoiseFFT3DBase> getDenoiseFunc(const RGY_CSP csp, const int bl
             default: return nullptr;
             }
         } else {
-            //switch (block_size) {
-            //case  8: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint16_t, 16, __half2,  8, 8>());
-            //case 16: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint16_t, 16, __half2, 16, 4>());
-            //case 32: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint16_t, 16, __half2, 32, 2>());
-            //case 64: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint16_t, 16, __half2, 64, 1>());
-            //default: return nullptr;
-            //}
+            switch (block_size) {
+            case  8: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint16_t, 16, __half2,  8, 8>());
+            case 16: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint16_t, 16, __half2, 16, 4>());
+            case 32: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint16_t, 16, __half2, 32, 2>());
+            case 64: return std::unique_ptr<DenoiseFFT3DBase>(new DenoiseFFT3DFuncs<uint16_t, 16, __half2, 64, 1>());
+            default: return nullptr;
+            }
         }
     default:
         return nullptr;
@@ -904,16 +843,12 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
         }
 
         if (!m_param || !m_windowBuf || prm->fft3d.block_size != std::dynamic_pointer_cast<NVEncFilterParamDenoiseFFT3D>(m_param)->fft3d.block_size) {
-            std::vector<float> blockWindow(prm->fft3d.block_size * prm->fft3d.block_size);
-            std::vector<float> blockWindowInv(prm->fft3d.block_size * prm->fft3d.block_size);
+            std::vector<float> blockWindow(prm->fft3d.block_size);
+            std::vector<float> blockWindowInv(prm->fft3d.block_size);
             auto winFunc = [block_size = prm->fft3d.block_size](const int x) { return 1e-6f + 0.5f * (1.0f - std::cos(2.0f * FFT_M_PI * x / (float)block_size)); };
-            for (int j = 0; j < prm->fft3d.block_size; j++) {
-                const float winY = winFunc(j);
-                for (int i = 0; i < prm->fft3d.block_size; i++) {
-                    const float winX = winFunc(i);
-                    blockWindow[j * prm->fft3d.block_size + i] = winX * winY;
-                    blockWindowInv[j * prm->fft3d.block_size + i] = 1.0f / (winX * winY);
-                }
+            for (int i = 0; i < prm->fft3d.block_size; i++) {
+                blockWindow[i] = winFunc(i);
+                blockWindowInv[i] = 1.0f / blockWindow[i];
             }
 
             m_windowBuf = std::unique_ptr<CUMemBuf>(new CUMemBuf(blockWindow.size() * sizeof(blockWindow[0])));
@@ -960,18 +895,6 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
         ppOutputFrames[0] = &pOutFrame->frame;
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    //if (interlaced(*pInputFrame)) {
-    //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
-    //}
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
-    if (memcpyKind != cudaMemcpyDeviceToDevice) {
-        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    if (m_param->frameOut.csp != m_param->frameIn.csp) {
-        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
 
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseFFT3D>(m_param);
     if (!prm) {
@@ -985,7 +908,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
     }
 
     const bool finalOutput = pInputFrame->ptr[0] == nullptr;
-    if (pInputFrame->ptr[0] == nullptr) {
+    if (finalOutput) {
         if (!prm->fft3d.temporal || m_nFrameIdx >= m_bufIdx) {
             //終了
             *pOutputFrameNum = 0;
@@ -993,6 +916,18 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
             return sts;
         }
     } else {
+        //if (interlaced(*pInputFrame)) {
+        //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
+        //}
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
+        if (memcpyKind != cudaMemcpyDeviceToDevice) {
+            AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (m_param->frameOut.csp != m_param->frameIn.csp) {
+            AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
         auto fftBuf = m_bufFFT.get(m_bufIdx++);
         if (!fftBuf || !fftBuf->frame.ptr[0]) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get fft buffer.\n"));
