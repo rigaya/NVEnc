@@ -8001,8 +8001,8 @@ tstring gen_cmd_help_vpp() {
         _T("      temporal=<int>        Enable temporal filtering (default=%d)\n")
         _T("      prec=<string>         Select calculation precision.\n")
         _T("                              auto (default), fp16, fp32\n"),
-        FILTER_DEFAULT_DENOISE_FFT_SIGMA, FILTER_DEFAULT_DENOISE_FFT_AMOUNT, FILTER_DEFAULT_DENOISE_FFT_BLOCK_SIZE,
-        FILTER_DEFAULT_DENOISE_FFT_OVERLAP, FILTER_DEFAULT_DENOISE_FFT_OVERLAP2, FILTER_DEFAULT_DENOISE_FFT_TEMPORAL);
+        FILTER_DEFAULT_DENOISE_FFT3D_SIGMA, FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT, FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE,
+        FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP, FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2, FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL);
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-subburn [<param1>=<value>][,<param2>=<value>][...]\n")
