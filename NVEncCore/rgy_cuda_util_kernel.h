@@ -1038,8 +1038,10 @@ struct __align__(sizeof(T)) complex {
     T v;
     __host__ __device__ complex() {};
     __host__ __device__ complex(float real, float img) {
-        v.x = real;
-        v.y = img;
+        T val;
+        val.x = real;
+        val.y = img;
+        v = val;
     }
     __host__ __device__ complex(T val) {
         v = val;
@@ -1077,14 +1079,6 @@ __host__ __device__ complex<__half2>::complex(float real, float img) {
     v = __float22half2_rn(make_float2(real, img));
 #endif
 };
-
-template<typename T>
-static __device__ complex<T> cexp(const complex<T>& c) {
-    complex<T> result;
-    result.v.x = std::exp(c.v.x) * std::cos(c.v.y);
-    result.v.y = std::exp(c.v.x) * std::sin(c.v.y);
-    return result;
-}
 
 template<typename T>
 static __device__ complex<T> operator*(complex<T> a, float b) {
