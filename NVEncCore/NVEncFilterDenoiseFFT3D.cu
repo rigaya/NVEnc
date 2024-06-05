@@ -496,7 +496,7 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
             block_count.first,
             ptrBlockWindowInverse,
             ov1, ov2,
-            sigma, limit, filterMethod
+            sigma * (1.0f / ((1 << 8) - 1)), limit, filterMethod
         );
         CUDA_DEBUG_SYNC_ERR;
         auto err = err_to_rgy(cudaGetLastError());
@@ -532,7 +532,7 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
             block_count.first,
             ptrBlockWindowInverse,
             ov1, ov2,
-            sigma, limit, filterMethod
+            sigma * (1.0f / ((1 << 8) - 1)), limit, filterMethod
         );
         CUDA_DEBUG_SYNC_ERR;
         auto err = err_to_rgy(cudaGetLastError());
@@ -726,7 +726,10 @@ NVEncFilterDenoiseFFT3D::NVEncFilterDenoiseFFT3D() :
     m_bufIdx(0),
     m_ov1(0),
     m_ov2(0),
-    m_bufFFT() {
+    m_bufFFT(),
+    m_filteredBlocks(),
+    m_windowBuf(),
+    m_windowBufInverse() {
     m_name = _T("denoise-fft");
 }
 
@@ -846,7 +849,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
         if (!m_param || !m_windowBuf || prm->fft3d.block_size != std::dynamic_pointer_cast<NVEncFilterParamDenoiseFFT3D>(m_param)->fft3d.block_size) {
             std::vector<float> blockWindow(prm->fft3d.block_size);
             std::vector<float> blockWindowInv(prm->fft3d.block_size);
-            auto winFunc = [block_size = prm->fft3d.block_size](const int x) { return 1e-6f + 0.5f * (1.0f - std::cos(2.0f * FFT_M_PI * x / (float)block_size)); };
+            auto winFunc = [block_size = prm->fft3d.block_size](const int x) { return 0.54f - 0.46f * std::cos(2.0f * FFT_M_PI * x / (float)block_size); };
             for (int i = 0; i < prm->fft3d.block_size; i++) {
                 blockWindow[i] = winFunc(i);
                 blockWindowInv[i] = 1.0f / blockWindow[i];
