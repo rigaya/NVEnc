@@ -1109,7 +1109,7 @@ static __device__ complex<__half2> operator*(const complex<__half2>& a, const co
     complex<__half2> result;
 #if ENABLE_CUDA_FP16_DEVICE
     if (true) { // こちらのほうがPRMT命令が減って若干高速
-        // b_yx = __half2(-b.v.y, b.v.x)を作りたいので、b.vのy,xを入れ替えて上位だけビット演算で符号反転
+        // b_yx = __half2(-b.v.y, b.v.x)を作りたいので、b.vのy,xを入れ替えて(__lowhigh2highlow)、そのあと上位だけビット演算で符号反転
         __half2 b_yx_h2 = __lowhigh2highlow(b.v);
         uint32_t b_yx_uint = (*(uint32_t *)(&b_yx_h2)) ^ (0x80000000);
         __half2 b_yx = *(__half2 *)(&b_yx_uint);
