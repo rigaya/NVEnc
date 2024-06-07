@@ -1063,7 +1063,8 @@ struct __align__(sizeof(T)) complex {
         return v.y;
     }
     __host__ __device__ float squaref() const {
-        return v.x * v.x + v.y * v.y;
+        float vx = v.x, vy = v.y;
+        return vx * vx + vy * vy;
     }
     __host__ __device__ float realf() const {
         return v.x;
