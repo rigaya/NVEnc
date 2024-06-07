@@ -849,7 +849,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
         if (!m_param || !m_windowBuf || prm->fft3d.block_size != std::dynamic_pointer_cast<NVEncFilterParamDenoiseFFT3D>(m_param)->fft3d.block_size) {
             std::vector<float> blockWindow(prm->fft3d.block_size);
             std::vector<float> blockWindowInv(prm->fft3d.block_size);
-            auto winFunc = [block_size = prm->fft3d.block_size](const int x) { return 0.54f - 0.46f * std::cos(2.0f * FFT_M_PI * x / (float)block_size); };
+            auto winFunc = [block_size = prm->fft3d.block_size](const int x) { return 0.50f - 0.50f * std::cos(2.0f * FFT_M_PI * x / (float)block_size); };
             for (int i = 0; i < prm->fft3d.block_size; i++) {
                 blockWindow[i] = winFunc(i);
                 blockWindowInv[i] = 1.0f / blockWindow[i];
