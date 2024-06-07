@@ -1076,7 +1076,10 @@ struct __align__(sizeof(T)) complex {
 template<>
 __host__ __device__ complex<__half2>::complex(float real, float img) {
 #if ENABLE_CUDA_FP16_DEVICE
-    v = __float22half2_rn(make_float2(real, img));
+    // half2の定数化を効率よく行うためには、__half2をuint32_tに変換してから代入する
+    __half2 c_h2 = __half2(__half(real), __half(img));
+    uint32_t c_uint = (*(uint32_t *)(&c_h2));
+    v = *(__half2 *)(&c_uint);
 #endif
 };
 
@@ -1105,10 +1108,21 @@ template<>
 static __device__ complex<__half2> operator*(const complex<__half2>& a, const complex<__half2>& b) {
     complex<__half2> result;
 #if ENABLE_CUDA_FP16_DEVICE
-    __half2 a_x  = __half2(a.v.x, a.v.x);
-    __half2 a_y  = __half2(a.v.y, a.v.y);
-    __half2 b_yx = __half2(-b.v.y, b.v.x);
-    result.v = __hfma2(a_x, b.v, a_y * b_yx);
+    if (true) { // こちらのほうがPRMT命令が減って若干高速
+        // b_yx = __half2(-b.v.y, b.v.x)を作りたいので、b.vのy,xを入れ替えて上位だけビット演算で符号反転
+        __half2 b_yx_h2 = __lowhigh2highlow(b.v);
+        uint32_t b_yx_uint = (*(uint32_t *)(&b_yx_h2)) ^ (0x80000000);
+        __half2 b_yx = *(__half2 *)(&b_yx_uint);
+
+        __half2 a_x = __low2half2(a.v);
+        __half2 a_y = __high2half2(a.v);
+        result.v = a_x * b.v + a_y * b_yx;
+    } else {
+        __half2 a_x  = __half2(a.v.x, a.v.x);
+        __half2 a_y  = __half2(a.v.y, a.v.y);
+        __half2 b_yx = __half2(-b.v.y, b.v.x);
+        result.v = __hfma2(a_x, b.v, a_y * b_yx);
+    }
 #endif
     return result;
 }
