@@ -861,6 +861,9 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppDenoiseDctBlockSize, list_vpp_denoise_dct_block_size);
     setComboBox(fcgCXVppDenoiseNLMeansPatch, list_vpp_nlmeans_block_size);
     setComboBox(fcgCXVppDenoiseNLMeansSearch, list_vpp_nlmeans_block_size);
+    setComboBox(fcgCXVppDenoiseFFT3DBlockSize, list_vpp_fft3d_block_size);
+    setComboBox(fcgCXVppDenoiseFFT3DTemporal, list_vpp_fft3d_temporal_gui);
+    setComboBox(fcgCXVppDenoiseFFT3DPrecision, list_vpp_fp_prec);
     setComboBox(fcgCXVppDenoiseMethod, list_vpp_denoise);
     setComboBox(fcgCXVppDetailEnhance,  list_vpp_detail_enahance);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband_gui);
@@ -998,6 +1001,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
     fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
     fcgPNVppDenoiseDct->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("denoise-dct")));
+    fcgPNVppDenoiseFFT3D->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("fft3d")));
     fcgPNVppDenoiseConv3D->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d")));
     fcgPNVppNvvfxDenoise->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-denoise")));
     fcgPNVppNvvfxArtifactReduction->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-artifact-reduction")));
@@ -1299,6 +1303,12 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppDenoiseDctStep);
     LOAD_CLI_TEXT(fcgLBVppDenoiseDctSigma);
     LOAD_CLI_TEXT(fcgLBVppDenoiseDctBlockSize);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseFFT3DSigma);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseFFT3DAmount);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseFFT3DBlockSize);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseFFT3DOverlap);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseFFT3DTemporal);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseFFT3DPrecision);
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnThreshold);
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnStrength);
     LOAD_CLI_TEXT(fcgLBVppDenoiseKnnRadius);
@@ -1519,6 +1529,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
         } else if (encPrm.vpp.dct.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("denoise-dct"));
+        } else if (encPrm.vpp.fft3d.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("fft3d"));
         } else if (encPrm.vpp.convolution3d.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("convolution3d"));
         } else if (encPrm.vppnv.nvvfxDenoise.enable) {
@@ -1565,6 +1577,12 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXVppDenoiseDctStep,       get_cx_index(list_vpp_denoise_dct_step_gui, (int)encPrm.vpp.dct.step));
         SetNUValue(fcgNUVppDenoiseDctSigma,      encPrm.vpp.dct.sigma);
         SetCXIndex(fcgCXVppDenoiseDctBlockSize,  get_cx_index(list_vpp_denoise_dct_block_size, (int)encPrm.vpp.dct.block_size));
+        SetNUValue(fcgNUVppDenoiseFFT3DSigma,     encPrm.vpp.fft3d.sigma);
+        SetNUValue(fcgNUVppDenoiseFFT3DAmount,    encPrm.vpp.fft3d.amount);
+        SetCXIndex(fcgCXVppDenoiseFFT3DBlockSize, get_cx_index(list_vpp_fft3d_block_size, (int)encPrm.vpp.fft3d.block_size));
+        SetNUValue(fcgNUVppDenoiseFFT3DOverlap,   encPrm.vpp.fft3d.overlap);
+        SetCXIndex(fcgCXVppDenoiseFFT3DTemporal,  get_cx_index(list_vpp_fft3d_temporal_gui, (int)encPrm.vpp.fft3d.temporal));
+        SetCXIndex(fcgCXVppDenoiseFFT3DPrecision, get_cx_index(list_vpp_fp_prec, (int)encPrm.vpp.fft3d.precision));
         SetCXIndex(fcgCXVppDenoiseConv3DMatrix,          get_cx_index(list_vpp_convolution3d_matrix, (int)encPrm.vpp.convolution3d.matrix));
         SetNUValue(fcgNUVppDenoiseConv3DThreshYSpatial,  encPrm.vpp.convolution3d.threshYspatial);
         SetNUValue(fcgNUVppDenoiseConv3DThreshCSpatial,  encPrm.vpp.convolution3d.threshCspatial);
@@ -1842,6 +1860,14 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.dct.step               = list_vpp_denoise_dct_step[fcgCXVppDenoiseDctStep->SelectedIndex].value;
     encPrm.vpp.dct.sigma              = (float)fcgNUVppDenoiseDctSigma->Value;
     encPrm.vpp.dct.block_size         = list_vpp_denoise_dct_block_size[fcgCXVppDenoiseDctBlockSize->SelectedIndex].value;
+
+    encPrm.vpp.fft3d.enable           = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("fft3d"));
+    encPrm.vpp.fft3d.sigma            = (float)fcgNUVppDenoiseFFT3DSigma->Value;
+    encPrm.vpp.fft3d.amount           = (float)fcgNUVppDenoiseFFT3DAmount->Value;
+    encPrm.vpp.fft3d.block_size       = list_vpp_fft3d_block_size[fcgCXVppDenoiseFFT3DBlockSize->SelectedIndex].value;
+    encPrm.vpp.fft3d.overlap          = (float)fcgNUVppDenoiseFFT3DOverlap->Value;
+    encPrm.vpp.fft3d.temporal         = list_vpp_fft3d_temporal_gui[fcgCXVppDenoiseFFT3DTemporal->SelectedIndex].value;
+    encPrm.vpp.fft3d.precision        = (VppFpPrecision)list_vpp_fp_prec[fcgCXVppDenoiseFFT3DPrecision->SelectedIndex].value;
 
     encPrm.vpp.convolution3d.enable          = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d"));
     encPrm.vpp.convolution3d.matrix          = (VppConvolution3dMatrix)list_vpp_convolution3d_matrix[fcgCXVppDenoiseConv3DMatrix->SelectedIndex].value;
@@ -2245,6 +2271,12 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgCXVppDenoiseDctStep);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseDctSigma);
     SET_TOOL_TIP_EX(fcgCXVppDenoiseDctBlockSize);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseFFT3DSigma);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseFFT3DAmount);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseFFT3DBlockSize);
+    SET_TOOL_TIP_EX(fcgNUVppDenoiseFFT3DOverlap);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseFFT3DTemporal);
+    SET_TOOL_TIP_EX(fcgCXVppDenoiseFFT3DPrecision);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnRadius);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnStrength);
     SET_TOOL_TIP_EX(fcgNUVppDenoiseKnnThreshold);

@@ -196,6 +196,7 @@
   - [--vpp-nvvfx-artifact-reduction \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
+  - [--vpp-fft3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fft3d-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
   - [--vpp-nlmeans \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nlmeans-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
@@ -2259,6 +2260,39 @@ decombによるインタレ解除を行う。
   - block_size=&lt;int&gt;  (default=8)  
     - 8
     - 16 (slow)
+
+### --vpp-fft3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+  FFTベースのノイズ除去フィルタ。
+
+- **パラメータ**
+  - sigma=&lt;float&gt;  
+    フィルタ強度。 (default=1.0, 0.0 - 100.0)
+  
+  - amount=&lt;float&gt;  (default=1.0, 0.0 - 1.0)    
+    ノイズ除去量。
+    
+  - block_size=&lt;int&gt;  (default=32)  
+    FFTの計算ブロックサイズ。
+    - 8
+    - 16
+    - 32
+    - 64
+
+  - overlap=&lt;float&gt;  (default=0.5, 0.2 - 0.8)    
+    FFTブロック同士のオーバーラップサイズ。アーティファクト発生を防ぐため、0.5以上が推奨。
+  
+  - method=&lt;int&gt; (default = 0)
+    - 0 ... wiener法
+    - 1 ... 閾値による打ち切り
+
+  - temporal=&lt;int&gt; (default = 1)
+    - 0 ... 空間方向のフィルタリングのみ
+    - 1 ... 時間方向のフィルタリングも行う
+
+  - prec=&lt;string&gt; (default = auto)
+    - auto ... 可能な場合fp16(半精度浮動小数点)で計算する (高速)
+    - fp32 ... 常にfp32(単精度浮動小数点)で計算する
 
   
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

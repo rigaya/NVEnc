@@ -366,6 +366,7 @@ const CX_DESC list_vpp_denoise[] = {
     { _T("denoise-dct"), 8 },
     { _T("smooth"),  3 },
     { _T("convolution3d"),  5 },
+    { _T("fft3d"), 10 },
 #if ENCODER_VCEENC
     { _T("preprocess"), 4 },
 #endif

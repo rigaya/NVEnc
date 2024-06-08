@@ -300,6 +300,12 @@ static const ENC_OPTION_STR2 list_vpp_deband_gui[] = {
     { AUO_MES_UNKNOWN, NULL, 0 }
 };
 
+static const ENC_OPTION_STR2 list_vpp_fft3d_temporal_gui[] = {
+    { AUO_MES_UNKNOWN, L"off",  0 },
+    { AUO_MES_UNKNOWN, L"on",  1 },
+    { AUO_MES_UNKNOWN, NULL, 0 }
+};
+
 #if ENCODER_QSV
 static const ENC_OPTION_STR2 list_rotate_angle_ja[] = {
     { AUO_MES_UNKNOWN,   L"0°",  MFX_ANGLE_0    },
