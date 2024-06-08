@@ -1039,15 +1039,26 @@ static __device__ half8& operator-=(half8& a, half8 b) {
     return a;
 }
 
+static __host__ __device__ __forceinline__ void set_complex(__half2& val, float real, float img) {
+#if ENABLE_CUDA_FP16_DEVICE
+    // half2の定数化を効率よく行うためには、__half2をuint32_tに変換してから代入する
+    __half2 c_h2 = __half2(__half(real), __half(img));
+    uint32_t c_uint = (*(uint32_t *)(&c_h2));
+    val = *(__half2 *)(&c_uint);
+#endif
+}
+
+static __host__ __device__ __forceinline__ void set_complex(float2& val, float real, float img) {
+    val.x = real;
+    val.y = img;
+}
+
 template<typename T>
 struct __align__(sizeof(T)) complex {
     T v;
     __host__ __device__ complex() {};
     __host__ __device__ complex(float real, float img) {
-        T val;
-        val.x = real;
-        val.y = img;
-        v = val;
+        set_complex(v, real, img);
     }
     __host__ __device__ complex(T val) {
         v = val;
@@ -1080,24 +1091,14 @@ struct __align__(sizeof(T)) complex {
     }
 };
 
-template<>
-__host__ __device__ complex<__half2>::complex(float real, float img) {
-#if ENABLE_CUDA_FP16_DEVICE
-    // half2の定数化を効率よく行うためには、__half2をuint32_tに変換してから代入する
-    __half2 c_h2 = __half2(__half(real), __half(img));
-    uint32_t c_uint = (*(uint32_t *)(&c_h2));
-    v = *(__half2 *)(&c_uint);
-#endif
-};
-
 template<typename T>
-static __device__ complex<T> operator*(complex<T> a, float b) {
+__device__ __forceinline__ complex<T> operator*(complex<T> a, float b) {
     a.v *= b;
     return a;
 }
 
 template<>
-static __device__ complex<__half2> operator*(complex<__half2> a, float b) {
+__device__ __forceinline__ complex<__half2> operator*(complex<__half2> a, float b) {
 #if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.v *= bh2;
@@ -1105,14 +1106,14 @@ static __device__ complex<__half2> operator*(complex<__half2> a, float b) {
     return a;
 }
 template<typename T>
-static __device__ complex<T> operator*(const complex<T>& a, const complex<T>& b) {
+__device__ __forceinline__ complex<T> operator*(const complex<T>& a, const complex<T>& b) {
     complex<T> result;
     result.v.x = (a.v.x * b.v.x) - (a.v.y * b.v.y);
     result.v.y = (a.v.x * b.v.y) + (a.v.y * b.v.x);
     return result;
 }
 template<>
-static __device__ complex<__half2> operator*(const complex<__half2>& a, const complex<__half2>& b) {
+__device__ __forceinline__ complex<__half2> operator*(const complex<__half2>& a, const complex<__half2>& b) {
     complex<__half2> result;
 #if ENABLE_CUDA_FP16_DEVICE
     if (true) { // こちらのほうがPRMT命令が減って若干高速
@@ -1135,13 +1136,13 @@ static __device__ complex<__half2> operator*(const complex<__half2>& a, const co
 }
 
 template<typename T>
-static __device__ complex<T>& operator*=(complex<T>& a, float b) {
+__device__ __forceinline__ complex<T>& operator*=(complex<T>& a, float b) {
     a.v *= b;
     return a;
 }
 
 template<>
-static __device__ complex<__half2>& operator*=(complex<__half2>& a, float b) {
+__device__ __forceinline__ complex<__half2>& operator*=(complex<__half2>& a, float b) {
 #if ENABLE_CUDA_FP16_DEVICE
     __half2 bh2 = __float2half2_rn(b);
     a.v *= bh2;
@@ -1150,7 +1151,7 @@ static __device__ complex<__half2>& operator*=(complex<__half2>& a, float b) {
 }
 
 template<typename T>
-static __device__ complex<T>& operator*=(complex<T>& a, complex<T> b) {
+__device__ __forceinline__ complex<T>& operator*=(complex<T>& a, complex<T> b) {
     complex<T> result;
     result.v.x = (a.v.x * b.v.x) - (a.v.y * b.v.y);
     result.v.y = (a.v.x * b.v.y) + (a.v.y * b.v.x);
@@ -1158,7 +1159,7 @@ static __device__ complex<T>& operator*=(complex<T>& a, complex<T> b) {
     return a;
 }
 template<>
-static __device__ complex<__half2>& operator*=(complex<__half2>& a, complex<__half2> b) {
+__device__ __forceinline__ complex<__half2>& operator*=(complex<__half2>& a, complex<__half2> b) {
 #if ENABLE_CUDA_FP16_DEVICE
     __half2 a_x = __half2(a.v.x, a.v.x);
     __half2 a_y = __half2(a.v.y, a.v.y);
@@ -1169,49 +1170,49 @@ static __device__ complex<__half2>& operator*=(complex<__half2>& a, complex<__ha
 }
 
 template<typename T>
-static __device__ complex<T> operator+(complex<T> a, float b) {
+__device__ __forceinline__ complex<T> operator+(complex<T> a, float b) {
     a.v += b;
     return a;
 }
 
 template<typename T>
-static __device__ complex<T> operator+(complex<T> a, complex<T> b) {
+__device__ __forceinline__ complex<T> operator+(complex<T> a, complex<T> b) {
     a.v += b.v;
     return a;
 }
 
 template<typename T>
-static __device__ complex<T>& operator+=(complex<T>& a, float b) {
+__device__ __forceinline__ complex<T>& operator+=(complex<T>& a, float b) {
     a.v += b;
     return a;
 }
 
 template<typename T>
-static __device__ complex<T>& operator+=(complex<T>& a, complex<T> b) {
+__device__ __forceinline__ complex<T>& operator+=(complex<T>& a, complex<T> b) {
     a.v += b.v;
     return a;
 }
 
 template<typename T>
-static __device__ complex<T> operator-(complex<T> a, float b) {
+__device__ __forceinline__ complex<T> operator-(complex<T> a, float b) {
     a.v -= b;
     return a;
 }
 
 template<typename T>
-static __device__ complex<T> operator-(complex<T> a, complex<T> b) {
+__device__ __forceinline__ complex<T> operator-(complex<T> a, complex<T> b) {
     a.v -= b.v;
     return a;
 }
 
 template<typename T>
-static __device__ complex<T>& operator-=(complex<T>& a, float b) {
+__device__ __forceinline__ complex<T>& operator-=(complex<T>& a, float b) {
     a.v -= b;
     return a;
 }
 
 template<typename T>
-static __device__ complex<T>& operator-=(complex<T>& a, complex<T> b) {
+__device__ __forceinline__ complex<T>& operator-=(complex<T>& a, complex<T> b) {
     a.v -= b.v;
     return a;
 }

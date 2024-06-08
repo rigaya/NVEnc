@@ -40,7 +40,7 @@
 
 #define FFT_M_PI (3.14159265358979323846f)
 
-static __device__ constexpr int log2u(int n) {
+static __device__ __forceinline__ constexpr int log2u(int n) {
     int x = -1;
     while (n > 0) {
         x++;
@@ -51,7 +51,7 @@ static __device__ constexpr int log2u(int n) {
 
 // intのbitを逆順に並び替える
 template<int N>
-static __device__ constexpr int bitreverse(int x) {
+static __device__ __forceinline__ constexpr int bitreverse(int x) {
     int y = 0;
     for (int i = 0; i < N; i++) {
         y = (y << 1) + (x & 1);
@@ -61,23 +61,23 @@ static __device__ constexpr int bitreverse(int x) {
 }
 
 template<typename T, bool forward>
-static __device__ const complex<T> fw(const int k, const int N) {
+static __device__ __forceinline__ const complex<T> fw(const int k, const int N) {
     // cexp<T>(complex<T>(0.0f, -2.0f * FFT_M_PI * k / (float)N));
     const float theta = ((forward) ? -2.0f : +2.0f) * FFT_M_PI * k / (float)N;
     return complex<T>(std::cos(theta), std::sin(theta));
 }
 
 template<typename T, bool forward>
-static __device__ complex<T> fft_calc0(complex<T> c0, complex<T> c1, const int k, const int N) {
+static __device__ __forceinline__ complex<T> fft_calc0(complex<T> c0, complex<T> c1, const int k, const int N) {
     return c0 + fw<T, forward>(k, N) * c1;
 }
 template<typename T, bool forward>
-static __device__ complex<T> fft_calc1(complex<T> c0, complex<T> c1, const int k, const int N) {
+static __device__ __forceinline__ complex<T> fft_calc1(complex<T> c0, complex<T> c1, const int k, const int N) {
     return c0 - fw<T, forward>(k, N) * c1;
 }
 
 template<typename T, int N, int step>
-static __device__ void fftpermute(complex<T> *data) {
+static __device__ __forceinline__ void fftpermute(complex<T> *data) {
     complex<T> work[N];
     #pragma unroll
     for (int i = 0; i < N; i++) {
@@ -94,7 +94,7 @@ static __device__ void fftpermute(complex<T> *data) {
 }
 
 template<typename T, int N, bool forward, int step>
-static __device__ void fft(complex<T> *data) {
+static __device__ __forceinline__ void fft(complex<T> *data) {
     if (N >= 4) {
         fft<T, N / 2, forward, step>(data);
         fft<T, N / 2, forward, step>(data + (N / 2) * step);
@@ -113,7 +113,7 @@ static __device__ void fft(complex<T> *data) {
 }
 
 template<typename T, int N, int step>
-static __device__ void ifft_normalize(complex<T> *data) {
+static __device__ __forceinline__ void ifft_normalize(complex<T> *data) {
     const float invN = 1.0f / (float)N;
     #pragma unroll
     for (int i = 0; i < N; i++) {
@@ -121,26 +121,26 @@ static __device__ void ifft_normalize(complex<T> *data) {
     }
 }
 
-template<> static __device__ void fft<float2,  1, true,   1>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, true,   1>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, true,   9>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, true,   9>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, true,  17>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, true,  17>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, true,  33>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, true,  33>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, true,  65>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, true,  65>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, false,  1>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, false,  1>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, false,  9>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, false,  9>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, false, 17>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, false, 17>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, false, 33>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, false, 33>(complex<__half2> *data) { return; }
-template<> static __device__ void fft<float2,  1, false, 65>(complex<float2> *data) { return; }
-template<> static __device__ void fft<__half2, 1, false, 65>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, true,   1>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, true,   1>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, true,   9>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, true,   9>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, true,  17>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, true,  17>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, true,  33>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, true,  33>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, true,  65>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, true,  65>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, false,  1>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, false,  1>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, false,  9>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, false,  9>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, false, 17>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, false, 17>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, false, 33>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, false, 33>(complex<__half2> *data) { return; }
+template<> __device__ __forceinline__ void fft<float2,  1, false, 65>(complex<float2> *data) { return; }
+template<> __device__ __forceinline__ void fft<__half2, 1, false, 65>(complex<__half2> *data) { return; }
 
 template<typename T, int N, bool forward, int step>
 static __device__ void dft(complex<T> *data) {
