@@ -42,6 +42,12 @@ static const int WARP_SIZE = (1<<WARP_SIZE_2N);
 #define ENABLE_CUDA_FP16_DEVICE 0
 #endif
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Weffc++"
+#endif /* defined(__GNUC__) */
+
 struct __align__(sizeof(int) * 8) int8 {
     int s0, s1, s2, s3, s4, s5, s6, s7;
 };
@@ -1381,6 +1387,10 @@ static __device__ T *selectptr2(T *ptr0, T *ptr1, const int idx) {
     if (idx == 1) return ptr1;
     return ptr0;
 }
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif /* defined(__GNUC__) */
 
 #undef ENABLE_CUDA_FP16_DEVICE
 
