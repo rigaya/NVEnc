@@ -646,8 +646,8 @@ dynlink_nvcuvid.cpp
 SRC_NVENCCORE=" \
 CuvidDecode.cpp        FrameQueue.cpp              NVEncCmd.cpp                 NVEncCore.cpp \
 NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           NVEncFilterColorspace.cpp \
-NVEncFilterCurves.cpp  NVEncFilterCustom.cpp       NVEncFilterDelogo.cpp        NVEncFilterDenoiseGauss.cpp \
-NVEncFilterNVOFFRUC.cpp \
+NVEncFilterCurves.cpp  NVEncFilterCustom.cpp       NVEncFilterDelogo.cpp        NVEncFilterDenoiseFFT3D.cpp \
+NVEncFilterDenoiseGauss.cpp NVEncFilterNVOFFRUC.cpp \
 NVEncFilterNvvfx.cpp   NVEncFilterOverlay.cpp      NVEncFilterPad.cpp           NVEncFilterParam.cpp \
 NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
 NVEncParam.cpp         NVEncUtil.cpp               cl_func.cpp \
@@ -678,8 +678,9 @@ rgy_memmem_avx2.cpp    rgy_memmem_avx512bw.cpp \
 CU_NVENCCORE=" \
 NVEncFilterAfsAnalyze.cu  NVEncFilterAfsFilter.cu   NVEncFilterAfsMerge.cu   NVEncFilterAfsSynthesize.cu         NVEncFilterConvolution3d.cu \
 NVEncFilterCrop.cu        NVEncFilterCurves.cu      NVEncFilterDeband.cu     NVEncFilterDecimate.cu              NVEncFilterDecomb.cu \
-NVEncFilterDelogo.cu      NVEncFilterDenoiseDct.cu  NVEncFilterDenoiseFFT3D.cu NVEncFilterDenoiseKnn.cu          NVEncFilterDenoiseNLMeans.cu \
-NVEncFilterDenoisePmd.cu  \
+NVEncFilterDelogo.cu      NVEncFilterDenoiseDct.cu  \
+NVEncFilterDenoiseFFT3D8FP16.cu NVEncFilterDenoiseFFT3D8FP32.cu NVEncFilterDenoiseFFT3D16FP16.cu NVEncFilterDenoiseFFT3D16FP32.cu \
+NVEncFilterDenoiseKnn.cu  NVEncFilterDenoiseNLMeans.cu NVEncFilterDenoisePmd.cu  \
 NVEncFilterEdgelevel.cu   NVEncFilterMpdecimate.cu  NVEncFilterNnedi.cu \
 NVEncFilterOverlay.cu     NVEncFilterResize.cu      NVEncFilterSmooth.cu     NVEncFilterSsim.cu                  NVEncFilterSubburn.cu \
 NVEncFilterTransform.cu   NVEncFilterTweak.cu       NVEncFilterUnsharp.cu    NVEncFilterWarpsharp.cu             NVEncFilterYadif.cu \

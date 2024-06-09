@@ -273,6 +273,9 @@
     <ClCompile Include="NVEncFilterNVOFFRUC.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="NVEncFilterDenoiseFFT3D.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gpu_info.h">
@@ -590,6 +593,9 @@
     <ClInclude Include="NVEncFilterDenoiseFFT3D.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterDenoiseFFT3D.cuh">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="NVEncFilterCrop.cu">
@@ -676,7 +682,16 @@
     <CudaCompile Include="NVEncFilterDecomb.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
-    <CudaCompile Include="NVEncFilterDenoiseFFT3D.cu">
+    <CudaCompile Include="NVEncFilterDenoiseFFT3D16FP32.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDenoiseFFT3D8FP16.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDenoiseFFT3D8FP32.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDenoiseFFT3D16FP16.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
   </ItemGroup>

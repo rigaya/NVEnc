@@ -43,6 +43,32 @@ public:
     virtual tstring print() const override;
 };
 
+static std::pair<int, int> getBlockCount(const int width, const int height, const int block_size, const int ov1, const int ov2) {
+    const int block_eff = block_size - ov1 * 2 - ov2;
+    const int block_count_x = (width + block_eff - 1) / block_eff;
+    const int block_count_y = (height + block_eff - 1) / block_eff;
+    return std::make_pair(block_count_x, block_count_y);
+}
+
+typedef RGY_ERR (*func_fft3d_fft)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2,
+    const float *ptrBlockWindow, cudaStream_t stream);
+typedef RGY_ERR (*func_fft3d_tfft_filter_ifft)(RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pInputFrameA, const RGYFrameInfo *pInputFrameB, const RGYFrameInfo *pInputFrameC, const RGYFrameInfo *pInputFrameD,
+    const float *ptrBlockWindowInverse,
+    const int widthY, const int heightY, const int widthUV, const int heightUV, const int ov1, const int ov2,
+    const float sigma, const float limit, const int filterMethod, cudaStream_t stream);
+typedef RGY_ERR (*func_fft3d_merge)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2, cudaStream_t stream);
+
+class DenoiseFFT3DBase {
+public:
+    DenoiseFFT3DBase() {};
+    virtual ~DenoiseFFT3DBase() {};
+
+    virtual func_fft3d_fft fft() = 0;
+    virtual func_fft3d_tfft_filter_ifft tfft_filter_ifft(int temporalCurrentIdx, int temporalCount) = 0;
+    virtual func_fft3d_merge merge() = 0;
+};
+
 class NVEncFilterDenoiseFFT3DBuffer {
 public:
     NVEncFilterDenoiseFFT3DBuffer() : m_bufFFT() {};
