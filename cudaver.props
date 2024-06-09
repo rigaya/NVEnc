@@ -4,6 +4,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V8_0)'" >
     <CUDA_MAJOR_VER>8</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_30,compute_30;compute_61,compute_61</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_80.dll</NVRTC_DLL_NAME>
@@ -11,6 +12,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V9_0)'" >
     <CUDA_MAJOR_VER>9</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_30,compute_30;compute_61,compute_61</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_90.dll</NVRTC_DLL_NAME>
@@ -18,6 +20,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V9_1)'" >
     <CUDA_MAJOR_VER>9</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>1</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_30,compute_30;compute_61,compute_61</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_91.dll</NVRTC_DLL_NAME>
@@ -25,6 +28,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V9_2)'" >
     <CUDA_MAJOR_VER>9</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>2</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_30,compute_30;compute_61,compute_61</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_92.dll</NVRTC_DLL_NAME>
@@ -32,6 +36,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V10_0)'" >
     <CUDA_MAJOR_VER>10</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_30,compute_30;compute_61,compute_61;compute_75,compute_75</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_100_0.dll</NVRTC_DLL_NAME>
@@ -39,6 +44,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V10_1)'" >
     <CUDA_MAJOR_VER>10</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>1</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_30,compute_30;compute_61,compute_61;compute_75,compute_75</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_101_0.dll</NVRTC_DLL_NAME>
@@ -46,6 +52,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V10_2)'" >
     <CUDA_MAJOR_VER>10</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>2</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_30,compute_30;compute_61,compute_61;compute_75,compute_75</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_102_0.dll</NVRTC_DLL_NAME>
@@ -53,6 +60,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_0)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_110_0.dll</NVRTC_DLL_NAME>
@@ -60,6 +68,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_1)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>1</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_111_0.dll</NVRTC_DLL_NAME>
@@ -67,6 +76,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_2)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>2</CUDA_MINOR_VER>
+    <CUDA_THREADS></CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
@@ -74,6 +84,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_3)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>3</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
@@ -81,6 +92,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_4)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>4</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
@@ -88,6 +100,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_5)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>5</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
@@ -95,6 +108,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_6)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>6</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
@@ -102,6 +116,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_7)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>7</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
@@ -109,6 +124,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V11_8)'" >
     <CUDA_MAJOR_VER>11</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>8</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_112_0.dll</NVRTC_DLL_NAME>
@@ -116,6 +132,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V12_0)'" >
     <CUDA_MAJOR_VER>12</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_120_0.dll</NVRTC_DLL_NAME>
@@ -123,6 +140,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V12_1)'" >
     <CUDA_MAJOR_VER>12</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>1</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_120_0.dll</NVRTC_DLL_NAME>
@@ -130,6 +148,7 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V12_2)'" >
     <CUDA_MAJOR_VER>12</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>2</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_120_0.dll</NVRTC_DLL_NAME>
@@ -137,6 +156,23 @@
   <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V12_3)'" >
     <CUDA_MAJOR_VER>12</CUDA_MAJOR_VER>
     <CUDA_MINOR_VER>3</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_120_0.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V12_4)'" >
+    <CUDA_MAJOR_VER>12</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>4</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_120_0.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V12_5)'" >
+    <CUDA_MAJOR_VER>12</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>5</CUDA_MINOR_VER>
+    <CUDA_THREADS>-t 0</CUDA_THREADS>
     <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
     <CUDA_CODE_GEN>compute_50,compute_50;compute_61,compute_61;compute_75,compute_75;compute_86,compute_86</CUDA_CODE_GEN>
     <NVRTC_DLL_NAME>nvrtc64_120_0.dll</NVRTC_DLL_NAME>
