@@ -29,11 +29,13 @@
 #pragma once
 
 #include "rgy_osdep.h"
+#include "rgy_device.h"
 #pragma warning(push)
 #pragma warning(disable: 4819)
 //ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。
 //データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include <cuda.h>
+#include <cudaD3D11.h>
 #include <cuda_runtime.h>
 #include "nvEncodeAPI.h"
 #include "CuvidDecode.h"
@@ -277,6 +279,9 @@ protected:
     unique_vidCtxLock m_vidCtxLock;
     std::unique_ptr<NVEncoder> m_encoder;
     std::shared_ptr<RGYLog> m_log;
+#if ENABLE_D3D11
+    std::unique_ptr<DeviceDX11> m_dx11;
+#endif
 public:
     NVGPUInfo(std::shared_ptr<RGYLog> log) :
         m_id(-1),
@@ -320,7 +325,7 @@ public:
 
     void close_device();
 
-    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool skipHWDecodeCheck, bool disableNVML);
+    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, bool skipHWDecodeCheck, bool disableNVML);
     RGY_ERR initEncoder();
     tstring infostr() const;
 protected:
@@ -375,7 +380,7 @@ protected:
     NVENCSTATUS InitCuda();
 
     //deviceリストを作成
-    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, const bool skipHWDecodeCheck, const int disableNVML);
+    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, const bool skipHWDecodeCheck, const int disableNVML);
 
     shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
     int                          m_nDeviceId;             //DeviceId

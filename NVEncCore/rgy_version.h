@@ -81,6 +81,7 @@ const char *get_encoder_version();
 #define AV_FRAME_DURATION_AVAIL 1
 #define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL 1
 #define ENABLE_LIBASS_SUBBURN 1
+#define ENABLE_D3D11 1
 
 #ifndef ENABLE_NVOFFRUC_HEADER
 #define ENABLE_NVOFFRUC_HEADER 0
@@ -145,6 +146,7 @@ const char *get_encoder_version();
 #define ENABLE_VPP_SMOOTH_QP_FRAME 0
 #define ENABLE_VMAF                0
 #define ENABLE_NVOFFRUC            0
+#define ENABLE_D3D11               0
 #endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__
