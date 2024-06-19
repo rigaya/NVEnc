@@ -2395,6 +2395,7 @@ Specify the resizing algorithm.
     | super          | So called "super sampling" by NPP library (downscale only) | ○ |
     | lanczos        | Lanczos interpolation                                      | ○ |
     | nvvfx-superres | Super Resolution based on nvvfx library (upscale only)     |   |
+    | ngx-vsr        | NVIDIA VSR (Video Super Resolution)     |   |
 
   - superres-mode=&lt;int&gt;  
     select mode for nvvfx-superres
@@ -2404,6 +2405,9 @@ Specify the resizing algorithm.
   - superres-strength=&lt;float&gt;  
     strength for nvvfx-superres (0.0 - 1.0)
 
+  - vsr-quality=&lt;int&gt;
+    quality for ngx-vsr (0 - 4)
+
 - Notes
   - Those with "○" in "npp dlls" on the table will use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only.
     To use those algorithms, you need to download nppc64_10.dll, nppif64_10.dll, nppig64_10.dll separately and place it in the same folder as NVEncC64.exe.
@@ -2411,6 +2415,8 @@ Specify the resizing algorithm.
 
   - ```nvvfx-superres``` is super resolution filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
     This mode is supported on Turing Gen GPU (RTX20xx) or later. Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this mode.
+
+  - ```ngx-vsr``` is supported on  x64 version only, and requires Turing Gen GPU (RTX20xx) or later.
 
 - **Examples**
   ```

@@ -6215,7 +6215,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         cmd << _T(" --vpp-order ") << tmp.str().substr(1);
     }
 
-    OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+    if (!isNvvfxResizeFiter(param->resize_algo) && !isNgxResizeFiter(param->resize_algo)) {
+        OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+    }
 #if ENCODER_QSV
     OPT_LST(_T("--vpp-resize-mode"), resize_mode, list_vpp_resize_mode);
 #endif
@@ -7868,7 +7870,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_MPDECIMATE_FRAC, FILTER_DEFAULT_MPDECIMATE_MAX,
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
 #endif
-#if ENABLE_NVVFX
+#if ENABLE_NVVFX || ENABLE_NVSDKNGX
     {
         str += strsprintf(_T("\n")
             _T("--vpp-resize <string> or [<param1>=<value>][,<param2>=<value>][...]")
@@ -7888,12 +7890,19 @@ tstring gen_cmd_help_vpp() {
             str += list_vpp_resize[ia].desc;
         }
         str += _T("        default: auto\n");
-        str += strsprintf(_T("\n")
-            _T("      superres-mode=<int>\n")
-            _T("        mode for nvvfx-superres     0 ... conservative (default)\n")
-            _T("                                    1 ... aggressive \n")
-            _T("      superres-strength=<float>\n")
-            _T("        strength for nvvfx-superres (0.0 - 1.0)\n"));
+        if (ENABLE_NVVFX) {
+            str += strsprintf(_T("\n")
+                _T("      superres-mode=<int>\n")
+                _T("        mode for nvvfx-superres     0 ... conservative (default)\n")
+                _T("                                    1 ... aggressive \n")
+                _T("      superres-strength=<float>\n")
+                _T("        strength for nvvfx-superres (0.0 - 1.0)\n"));
+        }
+        if (ENABLE_NVSDKNGX) {
+            str += strsprintf(_T("\n")
+                _T("      vsr-quality=<int>\n")
+                _T("        quality for ngx-vsr\n"));
+        }
     }
 #else
     str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize_help, 0);

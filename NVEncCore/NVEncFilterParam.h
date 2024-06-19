@@ -176,6 +176,29 @@ struct VppNvvfxUpScaler {
     tstring print() const;
 };
 
+struct VppNGXVSR {
+    bool enable;
+    int quality;
+
+    VppNGXVSR();
+    bool operator==(const VppNGXVSR &x) const;
+    bool operator!=(const VppNGXVSR &x) const;
+    tstring print() const;
+};
+
+struct VppNVSDKNGXTrueHDR {
+    bool enable;
+    uint32_t contrast;
+    uint32_t saturation;
+    uint32_t middleGray;
+    uint32_t maxLuminance;
+
+    VppNVSDKNGXTrueHDR();
+    bool operator==(const VppNVSDKNGXTrueHDR &x) const;
+    bool operator!=(const VppNVSDKNGXTrueHDR &x) const;
+    tstring print() const;
+};
+
 struct VppParam {
 #if ENCODER_NVENC
     cudaVideoDeinterlaceMode  deinterlace;
@@ -186,6 +209,8 @@ struct VppParam {
     VppNvvfxSuperRes          nvvfxSuperRes;
     VppNvvfxUpScaler          nvvfxUpScaler;
     tstring                   nvvfxModelDir;
+    VppNGXVSR            nvsdkngxVSR;
+    VppNVSDKNGXTrueHDR        nvsdkngxTrueHDR;
 
     VppParam();
 };

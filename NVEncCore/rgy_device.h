@@ -122,6 +122,7 @@ public:
 
     bool isValid() const;
     ID3D11Device *GetDevice();
+    ID3D11DeviceContext *GetDeviceContext();
     IDXGIAdapter *GetAdaptor();
     LUID getLUID() const { return m_devLUID; };
     int getVendorID() const { return m_vendorID; };
@@ -138,6 +139,7 @@ private:
     tstring                      m_name;
     ATL::CComPtr<IDXGIAdapter>   m_pAdapter;
     ATL::CComPtr<ID3D11Device>   m_pD3DDevice;
+    ATL::CComPtr<ID3D11DeviceContext> m_pD3DDeviceCtx;
     LUID                         m_devLUID;
     int                          m_vendorID;
     int                          m_deviceID;

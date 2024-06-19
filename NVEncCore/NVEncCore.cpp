@@ -79,6 +79,7 @@
 #include "NVEncFilterSmooth.h"
 #include "NVEncFilterDenoiseFFT3D.h"
 #include "NVEncFilterNvvfx.h"
+#include "NVEncFilterNgx.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterDecimate.h"
 #include "NVEncFilterMpdecimate.h"
@@ -748,6 +749,17 @@ bool NVEncCore::useNVVFX(const InEncodeVideoParam *inputParam) {
     return false;
 }
 
+bool NVEncCore::useNVNGX(const InEncodeVideoParam *inputParam) {
+#if (!defined(_M_IX86))
+    const auto& vppnv = inputParam->vppnv;
+    if (vppnv.nvsdkngxTrueHDR.enable
+        || inputParam->vpp.resize_algo == RGY_VPP_RESIZE_NGX_VSR) {
+        return true;
+    }
+#endif
+    return false;
+}
+
 NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam) {
     if (m_nDeviceId >= 0) {
         //手動で設定されている
@@ -860,7 +872,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
            }
         }
         //フィルタのチェック
-        if (useNVVFX(inputParam)) {
+        if (useNVVFX(inputParam) || useNVNGX(inputParam)) {
             //nvvfxにはturing以降(CC7.0)が必要
             const int nvvfxRequiredCCMajor = 7;
             if ((*gpu)->cc().first < nvvfxRequiredCCMajor) {
@@ -2971,6 +2983,11 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->nvvfxSuperRes->compute_capability = m_dev->cc();
                 param->nvvfxSuperRes->modelDir = inputParam->vppnv.nvvfxModelDir;
                 param->nvvfxSuperRes->vuiInfo = VuiFiltered;
+            } else if (isNgxResizeFiter(inputParam->vpp.resize_algo)) {
+                param->ngxvsr = std::make_shared<NVEncFilterParamNGXVSR>();
+                param->ngxvsr->ngxvsr = inputParam->vppnv.nvsdkngxVSR;
+                param->ngxvsr->compute_capability = m_dev->cc();
+                param->ngxvsr->dx11 = m_dev->dx11();
             }
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;

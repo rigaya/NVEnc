@@ -322,6 +322,9 @@ public:
     CUcontext cuCtx() const { return m_cuCtx.get(); }
     CUvideoctxlock vidCtxLock() const { return m_vidCtxLock.get(); }
     NVEncoder *encoder() const { return m_encoder.get(); }
+#if ENABLE_D3D11
+    DeviceDX11 *dx11() const { return m_dx11.get(); }
+#endif
 
     void close_device();
 

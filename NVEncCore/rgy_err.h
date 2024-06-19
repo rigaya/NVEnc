@@ -612,6 +612,27 @@ enum RGY_ERR {
     RGY_ERR_NvOFFRUC_PIPELINE_EXECUTION_FAILURE = RGY_ERR_NvOFFRUC_OFFSET - 14,
     RGY_ERR_NvOFFRUC_SYNC_WRITE_FAILED = RGY_ERR_NvOFFRUC_OFFSET - 15,
     RGY_ERR_NvOFFRUC_GENERIC = RGY_ERR_NvOFFRUC_OFFSET - 16,
+
+    // NVSDK_NGX error
+    RGY_ERR_NVSDK_NGX_Fail = -60000,
+    RGY_ERR_NVSDK_NGX_FeatureNotSupported = -60001,
+    RGY_ERR_NVSDK_NGX_PlatformError = -60002,
+    RGY_ERR_NVSDK_NGX_FeatureAlreadyExists = -60003,
+    RGY_ERR_NVSDK_NGX_FeatureNotFound = -60004,
+    RGY_ERR_NVSDK_NGX_InvalidParameter = -60005,
+    RGY_ERR_NVSDK_NGX_ScratchBufferTooSmall = -60006,
+    RGY_ERR_NVSDK_NGX_NotInitialized = -60007,
+    RGY_ERR_NVSDK_NGX_UnsupportedInputFormat = -60008,
+    RGY_ERR_NVSDK_NGX_RWFlagMissing = -60009,
+    RGY_ERR_NVSDK_NGX_MissingInput = -60010,
+    RGY_ERR_NVSDK_NGX_UnableToInitializeFeature = -60011,
+    RGY_ERR_NVSDK_NGX_OutOfDate = -60012,
+    RGY_ERR_NVSDK_NGX_OutOfGPUMemory = -60013,
+    RGY_ERR_NVSDK_NGX_UnsupportedFormat = -60014,
+    RGY_ERR_NVSDK_NGX_UnableToWriteToAppDataPath = -60015,
+    RGY_ERR_NVSDK_NGX_UnsupportedParameter = -60016,
+    RGY_ERR_NVSDK_NGX_Denied = -60017,
+    RGY_ERR_NVSDK_NGX_NotImplemented = -60018,
 };
 
 #if ENCODER_QSV

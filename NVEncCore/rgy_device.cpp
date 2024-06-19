@@ -371,6 +371,7 @@ DeviceDX11::DeviceDX11() :
     m_name(_T("devDX11")),
     m_pAdapter(),
     m_pD3DDevice(),
+    m_pD3DDeviceCtx(),
     m_devLUID(),
     m_vendorID(0),
     m_deviceID(0),
@@ -394,6 +395,15 @@ IDXGIAdapter *DeviceDX11::GetAdaptor() {
 
 ID3D11Device *DeviceDX11::GetDevice() {
     return m_pD3DDevice.p;
+}
+
+ID3D11DeviceContext *DeviceDX11::GetDeviceContext() {
+    if (!m_pD3DDeviceCtx) {
+        ID3D11DeviceContext *pD3D11DeviceContext = nullptr;
+        m_pD3DDevice->GetImmediateContext(&pD3D11DeviceContext);
+        m_pD3DDeviceCtx = pD3D11DeviceContext;
+    }
+    return m_pD3DDeviceCtx.p;
 }
 
 RGY_ERR DeviceDX11::Init(int adapterID, shared_ptr<RGYLog> log) {

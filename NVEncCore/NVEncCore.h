@@ -118,6 +118,9 @@ protected:
     //nvvfxを使用するかチェック
     bool useNVVFX(const InEncodeVideoParam *inputParam);
 
+    //ngxを使用するかチェック
+    bool useNVNGX(const InEncodeVideoParam *inputParam);
+
     //GPUListのGPUが必要なエンコードを行えるかチェック
     NVENCSTATUS CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
 

@@ -157,6 +157,51 @@ tstring VppNvvfxUpScaler::print() const {
         strength);
 }
 
+VppNGXVSR::VppNGXVSR() :
+    enable(false),
+    quality(0) {
+}
+
+bool VppNGXVSR::operator==(const VppNGXVSR& x) const {
+    return (enable == x.enable && quality == x.quality);
+}
+
+bool VppNGXVSR::operator!=(const VppNGXVSR& x) const {
+    return !(*this == x);
+}
+
+tstring VppNGXVSR::print() const {
+    return strsprintf(_T("nvsdk-ngx vsr: quality: %d"), quality);
+}
+
+VppNVSDKNGXTrueHDR::VppNVSDKNGXTrueHDR() :
+    enable(false),
+    contrast(0),
+    saturation(0),
+    middleGray(0),
+    maxLuminance(0) {
+}
+
+bool VppNVSDKNGXTrueHDR::operator==(const VppNVSDKNGXTrueHDR &x) const {
+    return enable == x.enable &&
+        contrast == x.contrast &&
+        saturation == x.saturation &&
+        middleGray == x.middleGray &&
+        maxLuminance == x.maxLuminance;
+}
+
+bool VppNVSDKNGXTrueHDR::operator!=(const VppNVSDKNGXTrueHDR &x) const {
+    return !(*this == x);
+}
+
+tstring VppNVSDKNGXTrueHDR::print() const {
+    return strsprintf(_T("nvsdk-ngx truehdr\n")
+        _T("contrast: %d\n")
+        _T("saturation: %d\n")
+        _T("middleGray: %d\n")
+        _T("maxLuminance: %d\n"),
+        contrast, saturation, middleGray, maxLuminance);
+}
 
 VppParam::VppParam() :
 #if ENCODER_NVENC
@@ -167,5 +212,7 @@ VppParam::VppParam() :
     nvvfxArtifactReduction(),
     nvvfxSuperRes(),
     nvvfxUpScaler(),
-    nvvfxModelDir() {
+    nvvfxModelDir(),
+    nvsdkngxVSR(),
+    nvsdkngxTrueHDR() {
 }

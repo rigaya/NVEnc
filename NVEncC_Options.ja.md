@@ -2453,6 +2453,7 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
     | lanczos       | Lanczos法                                   | ○ |
     | lanczos       | Lanczos法                                   | ○ |
     | nvvfx-superres | NVIDIA Video EffectsによるSuper Resolution (拡大のみ)  |  |
+    | ngx-vsr       | NVIDIA VSR (Video Super Resolution)  |  |
 
   - superres-mode=&lt;int&gt;
     nvvfx-superres のモードの選択。
@@ -2461,6 +2462,9 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
 
   - superres-strength=&lt;float&gt;
     nvvfx-superresの強さの指定。 (0.0 - 1.0)
+
+  - vsr-quality=&lt;int&gt;
+    ngx-vsr使用時の品質の設定。 (0 - 4)
 
 - **注意点**
   - 表の"要npp"に"○"のあるものを使用する場合  
@@ -2472,6 +2476,9 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
     このモードは、[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)によるAIによって拡大処理を行うので、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
 
     2160p までの入力解像度に対応している。
+
+  - ```ngx-vsr```を使用する場合  
+    このモードの実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。
 
 - **使用例**
   ```

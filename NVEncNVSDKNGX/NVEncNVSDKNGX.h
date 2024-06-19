@@ -28,24 +28,48 @@
 #ifndef _NVENC_NVSDKNGX_H__
 #define _NVENC_NVSDKNGX_H__
 
-#include "rgy_version.h"
+#include "rgy_err.h"
 
-#if ENABLE_NVSDKNGX
+#if defined(_WIN32) || defined(_WIN64)
+#ifdef NVENC_NVSDKNGX_EXPORTS
+#define NVENC_NVSDKNGX_API __declspec(dllexport) 
+#else
+#define NVENC_NVSDKNGX_API __declspec(dllimport)
+#endif
+#else
+#define NVENC_NVSDKNGX_API
+#endif
 
-#include <nvsdk_ngx_defs.h>
-#include <nvsdk_ngx_defs_truehdr.h>
-#include <nvsdk_ngx_helpers_truehdr.h>
-#include <nvsdk_ngx_defs_vsr.h>
-#include <nvsdk_ngx_helpers_vsr.h>
+struct ID3D11Device;
+struct ID3D11DeviceContext;
+struct ID3D11Texture2D;
 
-#define APP_ID      0
-#define APP_PATH    L"."
+#if defined(__cplusplus)
+extern "C" {
+#endif /* __cplusplus */
 
-class NVEncNVSDKNGX {
-public:
-    NVEncNVSDKNGX();
-    virtual ~NVEncNVSDKNGX();
+#if defined(_WIN32) || defined(_WIN64)
+static const TCHAR * NVENC_NVSDKNGX_MODULENAME = _T("NVEncNVSDKNGX.dll");
+#else
+static const TCHAR * NVENC_NVOFFRUC_MODULENAME = _T("NVEncNVSDKNGX.so");
+#endif
+
+typedef void * NVEncNVSDKNGXHandle;
+
+typedef struct {
+    int left;
+    int top;
+    int right;
+    int bottom;
+} NVEncNVSDKNGXRect;
+
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXCreate(NVEncNVSDKNGXHandle *ppNVSDKNGX);
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXInit(NVEncNVSDKNGXHandle pNVSDKNGX, ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext);
+NVENC_NVSDKNGX_API void    __stdcall NVEncNVSDKNGXDelete(NVEncNVSDKNGXHandle pNVSDKNGX);
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle pNVSDKNGX, ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const int quality);
+
+#if defined(__cplusplus)
 }
+#endif /* __cplusplus */
 
-#endif //#if ENABLE_NVSDKNGX
 #endif //#ifndef _NVENC_NVSDKNGX_H__

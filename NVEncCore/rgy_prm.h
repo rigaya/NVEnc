@@ -451,6 +451,10 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NVVFX_SUPER_RES,
     RGY_VPP_RESIZE_NVVFX_MAX,
 #endif
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO))
+    RGY_VPP_RESIZE_NGX_VSR,
+    RGY_VPP_RESIZE_NGX_MAX,
+#endif
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_AMF_BILINEAR,
     RGY_VPP_RESIZE_AMF_BICUBIC,
@@ -480,6 +484,7 @@ enum RGY_VPP_RESIZE_TYPE {
 #endif
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_TYPE_NVVFX,
+    RGY_VPP_RESIZE_TYPE_NGX,
 #endif
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_TYPE_AMF,
@@ -505,6 +510,15 @@ static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
 static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_NVVFX;
+#else
+    UNREFERENCED_PARAMETER(interp);
+    return false;
+#endif
+}
+
+static bool isNgxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_NGX;
 #else
     UNREFERENCED_PARAMETER(interp);
     return false;
@@ -557,6 +571,9 @@ const CX_DESC list_vpp_resize[] = {
 #endif
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    { _T("ngx-vsr"),      RGY_VPP_RESIZE_NGX_VSR },
 #endif
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },

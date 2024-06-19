@@ -227,6 +227,10 @@ RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     } else if (resize < RGY_VPP_RESIZE_NVVFX_MAX) {
         return RGY_VPP_RESIZE_TYPE_NVVFX;
 #endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    } else if (resize < RGY_VPP_RESIZE_NGX_MAX) {
+        return RGY_VPP_RESIZE_TYPE_NGX;
+#endif
 #if ENCODER_VCEENC
     } else if (resize < RGY_VPP_RESIZE_AMF_MAX) {
         return RGY_VPP_RESIZE_TYPE_AMF;
