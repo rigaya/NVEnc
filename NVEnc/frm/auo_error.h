@@ -78,8 +78,9 @@ void error_video_get_conv_func();
 void warning_auto_qpfile_failed();
 void warning_auo_tcfile_failed();
 void error_open_wavfile();
-void info_audio_length_changed(const double video_length, const double audio_length, const BOOL exedit_is_used);
-void warning_audio_length(const double video_length, const double audio_length, const BOOL exedit_is_used);
+void error_audio_length_zero(const BOOL exedit_is_used);
+void info_audio_length_changed(const double video_length, const double audio_length, const BOOL exedit_is_used, const double av_length_threshold);
+void error_audio_length(const double video_length, const double audio_length, const BOOL exedit_is_used, const double av_length_threshold);
 
 void error_malloc_pixel_data();
 void error_malloc_tc();

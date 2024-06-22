@@ -552,7 +552,9 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
     //音声エンコーダ
     if (oip->flag & OUTPUT_INFO_FLAG_AUDIO) {
         //音声長さチェック
-        check_audio_length(oip);
+        if (check_audio_length(oip, exstg->s_local.av_length_threshold)) {
+            check = FALSE;
+        }
 
         if (conf->aud.use_internal) {
             CONF_AUDIO_BASE *cnf_aud = &conf->aud.in;

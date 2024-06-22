@@ -56,6 +56,7 @@ static const BOOL   DEFAULT_FORCE_BLURAY          = 0;
 static const BOOL   DEFAULT_PERF_MONITOR          = 0;
 static const BOOL   DEFAULT_PERF_MONITOR_PLOT     = 0;
 #endif
+static const double DEFAULT_AV_LENGTH_DIFF_THRESOLD = 0.05;
 
 static const int    DEFAULT_LOG_LEVEL            = 0;
 static const BOOL   DEFAULT_LOG_WINE_COMPAT      = 0;
@@ -357,6 +358,7 @@ typedef struct LOCAL_SETTINGS {
     BOOL   default_audenc_use_in;               //デフォルトの音声エンコーダとして、内蔵エンコーダを選択する
     int    default_audio_encoder_ext;           //デフォルトの音声エンコーダ
     int    default_audio_encoder_in;            //デフォルトの音声エンコーダ
+    double av_length_threshold;                 //音声と映像の長さの差の割合がこの値を超える場合、エラー・警告を表示する
     BOOL   get_relative_path;                   //相対パスで保存する
     BOOL   run_bat_minimized;                   //エンコ前後バッチ処理を最小化で実行
 #if ENCODER_QSV

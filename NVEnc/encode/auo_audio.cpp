@@ -118,14 +118,42 @@ void auo_faw_check(CONF_AUDIO *aud, const OUTPUT_INFO *oip, PRM_ENC *pe, const g
     }
 }
 
-void check_audio_length(OUTPUT_INFO *oip) {
+int message_check_audio_length() {
+    std::wstring mes = g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT1_2) + std::wstring(L"\n\n");
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT1);
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT2) + std::wstring(L"\n\n");
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT3);
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT4) + std::wstring(L"\n\n");
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT5);
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT6) + std::wstring(L"\n\n");
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_PROMPT_YESNO1) + std::wstring(L"\n");
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_PROMPT_YESNO2) + std::wstring(L"\n");
+    mes += g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_PROMPT_YESNO3) + std::wstring(L"\n");
+    return MessageBox(NULL, wstring_to_string(mes).c_str(), AUO_NAME, MB_ICONERROR | MB_YESNO) == IDYES ? 1 : 0;
+}
+
+int check_audio_length(OUTPUT_INFO *oip, double av_length_threshold) {
+    if ((oip->flag & OUTPUT_INFO_FLAG_AUDIO) == 0) {
+        return 0;
+    }
     const double video_length = oip->n * (double)oip->scale / oip->rate;
     const double audio_length = oip->audio_n / (double)oip->audio_rate;
     if (video_length <= 1.0) { // 1秒未満はチェックしない
-        return;
+        return 0;
     }
+    if (oip->audio_n == 0) {
+        const BOOL exedit_is_used = check_if_exedit_is_used();
+        error_audio_length_zero(exedit_is_used);
+        if (oip->flag & OUTPUT_INFO_FLAG_BATCH) { // バッチ出力時は即エラー終了
+            return 1;
+        }
+        return message_check_audio_length();
+    }
+    av_length_threshold = std::abs(av_length_threshold);
+    av_length_threshold = std::max(1e-4, av_length_threshold);
+
     const double audio_ratio = audio_length / video_length;
-    if (!check_range(audio_ratio, 0.95, 1.05)) { // 5%以上 差がある場合
+    if (!check_range(audio_ratio, std::max(1.0 - av_length_threshold, 0.0), 1.0 + av_length_threshold)) {
         const BOOL exedit_is_used = check_if_exedit_is_used();
         int selected_audio_rate = 0;
         if (exedit_is_used
@@ -144,11 +172,19 @@ void check_audio_length(OUTPUT_INFO *oip) {
         }
         if (selected_audio_rate != 0) {
             oip->audio_n = (int)div_round((int64_t)oip->audio_n * (int64_t)oip->audio_rate, (int64_t)selected_audio_rate);
-            info_audio_length_changed(video_length, audio_length, exedit_is_used);
+            info_audio_length_changed(video_length, audio_length, exedit_is_used, av_length_threshold);
         } else { // 5%以上差がある場合
-            warning_audio_length(video_length, audio_length, exedit_is_used);
+            error_audio_length(video_length, audio_length, exedit_is_used, av_length_threshold);
+            // 拡張編集使用時には、意図しない出力である可能性が高く、エラー終了させる
+            if (exedit_is_used) {
+                if (oip->flag & OUTPUT_INFO_FLAG_BATCH) { // バッチ出力時は即エラー終了
+                    return 1;
+                }
+                return message_check_audio_length();
+            }
         }
     }
+    return 0;
 }
 
 static void build_wave_header(BYTE *head, const int audio_ch, const int audio_rate, BOOL use_8bit, int sample_n) {

@@ -390,7 +390,23 @@ void error_no_wavefile() {
     write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_WAVFILE));
 }
 
-static void message_audio_length_different(const double video_length, const double audio_length, const BOOL exedit_is_used, const BOOL audio_length_changed) {
+
+void error_audio_length_zero(const BOOL exedit_is_used) {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_ZERO1));
+    if (exedit_is_used) {
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT1));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT2));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT3));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT4));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT5));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT6));
+        write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT7));
+    }
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_ZERO2));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_ZERO3));
+}
+
+static void message_audio_length_different(const double video_length, const double audio_length, const BOOL exedit_is_used, const double av_length_threshold, const BOOL audio_length_changed) {
     const int vid_h = (int)(video_length / 3600);
     const int vid_m = (int)(video_length - vid_h * 3600) / 60;
     const int vid_s = (int)(video_length - vid_h * 3600 - vid_m * 60);
@@ -401,24 +417,36 @@ static void message_audio_length_different(const double video_length, const doub
     const int aud_s = (int)(audio_length - aud_h * 3600 - aud_m * 60);
     const int aud_ms = std::min((int)((audio_length - (double)(aud_h * 3600 + aud_m * 60 + aud_s)) * 1000.0), 999);
 
+    const double diff_ratio = std::abs(1.0 - (audio_length / video_length));
+
     if (audio_length_changed) {
-        write_log_auo_line(    LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT1));
+        write_log_auo_line_fmt(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT1), diff_ratio * 100.0, av_length_threshold * 100.0);
         write_log_auo_line_fmt(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT2),
             vid_h, vid_m, vid_s, vid_ms,
             aud_h, aud_m, aud_s, aud_ms);
         write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT3));
         if (exedit_is_used) {
-            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT4));
-            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT5));
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT1));
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT2));
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT3));
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT4));
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT5));
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT6));
+            write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT7));
         }
     } else {
-        write_log_auo_line(    LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT1));
+        write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT1), diff_ratio * 100.0, av_length_threshold * 100.0);
         write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT2),
             vid_h, vid_m, vid_s, vid_ms,
             aud_h, aud_m, aud_s, aud_ms);
         if (exedit_is_used) {
-            write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT4));
-            write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT5));
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT1));
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT2));
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT3));
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT4));
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT5));
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT6));
+            write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_EXEDIT7));
         } else {
             write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT6));
             write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_AUDIO_LENGTH_DIFFERENT7));
@@ -428,12 +456,12 @@ static void message_audio_length_different(const double video_length, const doub
     }
 }
 
-void info_audio_length_changed(const double video_length, const double audio_length, const BOOL exedit_is_used) {
-    message_audio_length_different(video_length, audio_length, exedit_is_used, TRUE);
+void info_audio_length_changed(const double video_length, const double audio_length, const BOOL exedit_is_used, const double av_length_threshold) {
+    message_audio_length_different(video_length, audio_length, exedit_is_used, av_length_threshold, TRUE);
 }
 
-void warning_audio_length(const double video_length, const double audio_length, const BOOL exedit_is_used) {
-    message_audio_length_different(video_length, audio_length, exedit_is_used, FALSE);
+void error_audio_length(const double video_length, const double audio_length, const BOOL exedit_is_used, const double av_length_threshold) {
+    message_audio_length_different(video_length, audio_length, exedit_is_used, av_length_threshold, FALSE);
 }
 
 void error_audenc_failed(const wchar_t *name, const char *args) {
