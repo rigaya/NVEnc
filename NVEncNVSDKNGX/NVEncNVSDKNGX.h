@@ -54,7 +54,15 @@ static const TCHAR * NVENC_NVSDKNGX_MODULENAME = _T("NVEncNVSDKNGX.dll");
 static const TCHAR * NVENC_NVOFFRUC_MODULENAME = _T("NVEncNVSDKNGX.so");
 #endif
 
+enum NVEncNVSDKNGXFeature {
+    NVSDK_NVX_NA = 0,
+    NVSDK_NVX_VSR,
+    NVSDK_NVX_TRUEHDR,
+    NVSDK_NVX_MAX,
+};
+
 typedef void * NVEncNVSDKNGXHandle;
+typedef void * NVEncNVSDKNGXParam;
 
 typedef struct {
     int left;
@@ -63,13 +71,32 @@ typedef struct {
     int bottom;
 } NVEncNVSDKNGXRect;
 
-NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXCreate(NVEncNVSDKNGXHandle *ppNVSDKNGX);
+typedef struct {
+    int quality;
+} NVEncNVSDKNGXParamVSR;
+
+typedef struct {
+    uint32_t contrast;
+    uint32_t saturation;
+    uint32_t middleGray;
+    uint32_t maxLuminance;
+} NVEncNVSDKNGXParamTrueHDR;
+
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXCreate(NVEncNVSDKNGXHandle *ppNVSDKNGX, const NVEncNVSDKNGXFeature feature);
 NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXInit(NVEncNVSDKNGXHandle pNVSDKNGX, ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext);
 NVENC_NVSDKNGX_API void    __stdcall NVEncNVSDKNGXDelete(NVEncNVSDKNGXHandle pNVSDKNGX);
-NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle pNVSDKNGX, ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const int quality);
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle pNVSDKNGX, ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param);
 
 #if defined(__cplusplus)
 }
 #endif /* __cplusplus */
+
+static const TCHAR *NVENC_NVSDKNGX_DLL_NAME[] = {
+    _T(""),
+    _T("nvngx_vsr.dll"),
+    _T("nvngx_truehdr.dll")
+};
+
+static_assert(_countof(NVENC_NVSDKNGX_DLL_NAME) == NVSDK_NVX_MAX, "NVENC_NVSDKNGX_DLL_NAME size mismatch");
 
 #endif //#ifndef _NVENC_NVSDKNGX_H__

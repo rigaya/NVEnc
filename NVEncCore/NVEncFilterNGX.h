@@ -75,24 +75,28 @@ public:
 
 using unique_nvsdkngx_handle = std::unique_ptr<std::remove_pointer<NVEncNVSDKNGXHandle>::type, decltype(&NVEncNVSDKNGXDelete)>;
 
-class NVEncFilterParamNGXVSR : public NVEncFilterParam {
+class NVEncFilterParamNGX : public NVEncFilterParam {
 public:
-    VppNGXVSR ngxvsr;
     std::pair<int, int> compute_capability;
     DeviceDX11 *dx11;
-    NVEncFilterParamNGXVSR() : ngxvsr(), compute_capability(), dx11(nullptr) {};
+    NVEncFilterParamNGX() : compute_capability(), dx11(nullptr) {};
+    virtual ~NVEncFilterParamNGX() {};
+};
+
+class NVEncFilterParamNGXVSR : public NVEncFilterParamNGX {
+public:
+    VppNGXVSR ngxvsr;
+    NVEncFilterParamNGXVSR() : NVEncFilterParamNGX(), ngxvsr() {};
     virtual ~NVEncFilterParamNGXVSR() {};
     virtual tstring print() const;
 };
 
-class NVEncFilterNGXVSR : public NVEncFilter {
+class NVEncFilterNGX : public NVEncFilter {
 public:
-    NVEncFilterNGXVSR();
-    virtual ~NVEncFilterNGXVSR();
-    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    NVEncFilterNGX();
+    virtual ~NVEncFilterNGX();
 protected:
-    virtual RGY_ERR checkParam(const NVEncFilterParam *param);
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual RGY_ERR initNGX(shared_ptr<NVEncFilterParam> pParam, const NVEncNVSDKNGXFeature feature, shared_ptr<RGYLog> pPrintMes);
     virtual void close() override;
 
     std::unique_ptr<NVEncNVSDKNGXFuncs> m_func;
@@ -102,11 +106,21 @@ protected:
     std::unique_ptr<CUFrameBuf> m_ngxFrameBufOut;
     std::unique_ptr<CUDADX11Texture> m_ngxTextIn;
     std::unique_ptr<CUDADX11Texture> m_ngxTextOut;
-    std::unique_ptr<NVEncFilterCspCrop> m_srcCrop;
-    std::unique_ptr<NVEncFilterCspCrop> m_dstCrop;
+    std::unique_ptr<NVEncFilter> m_srcCrop;
+    std::unique_ptr<NVEncFilter> m_dstCrop;
     int m_inputFrames;
 
     DeviceDX11 *m_dx11;
+};
+
+class NVEncFilterNGXVSR : public NVEncFilterNGX {
+public:
+    NVEncFilterNGXVSR();
+    virtual ~NVEncFilterNGXVSR();
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+protected:
+    virtual RGY_ERR checkParam(const NVEncFilterParam *param);
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
 };
 
 #endif //#ifndef __NVENC_FILTER_NV_OPT_FLOW_H__

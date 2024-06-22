@@ -173,7 +173,7 @@ tstring NVEncFilterParamNGXVSR::print() const {
     return ngxvsr.print();
 }
 
-NVEncFilterNGXVSR::NVEncFilterNGXVSR() :
+NVEncFilterNGX::NVEncFilterNGX() :
     m_func(),
     m_nvsdkNGX(unique_nvsdkngx_handle(nullptr, nullptr)),
     m_ngxCspIn(RGY_CSP_NA),
@@ -185,24 +185,20 @@ NVEncFilterNGXVSR::NVEncFilterNGXVSR() :
     m_dstCrop(),
     m_inputFrames(0),
     m_dx11(nullptr) {
-    m_name = _T("nvsdk-ngx-vsr");
+    m_name = _T("nvsdk-ngx");
 }
-NVEncFilterNGXVSR::~NVEncFilterNGXVSR() {
+NVEncFilterNGX::~NVEncFilterNGX() {
     close();
 }
 
-RGY_ERR NVEncFilterNGXVSR::checkParam([[maybe_unused]] const NVEncFilterParam *param) {
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR NVEncFilterNGXVSR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+RGY_ERR NVEncFilterNGX::initNGX(shared_ptr<NVEncFilterParam> pParam, const NVEncNVSDKNGXFeature feature, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
 #if !ENABLE_NVSDKNGX
     AddMessage(RGY_LOG_ERROR, _T("nv optical flow filters are not supported on x86 exec file, please use x64 exec file.\n"));
     return RGY_ERR_UNSUPPORTED;
 #else
-    auto prm = dynamic_cast<NVEncFilterParamNGXVSR*>(pParam.get());
+    auto prm = dynamic_cast<NVEncFilterParamNGX*>(pParam.get());
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -213,11 +209,6 @@ RGY_ERR NVEncFilterNGXVSR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
     AddMessage(RGY_LOG_DEBUG, _T("GPU CC: %d.%d.\n"),
         prm->compute_capability.first, prm->compute_capability.second);
-
-    sts = checkParam(pParam.get());
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
 
     m_dx11 = prm->dx11;
 
@@ -230,16 +221,16 @@ RGY_ERR NVEncFilterNGXVSR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_DEBUG, _T("Loaded dll %s.\n"), NVENC_NVSDKNGX_MODULENAME);
 
         NVEncNVSDKNGXHandle ngxHandle = nullptr;
-        if ((sts = m_func->fcreate(&ngxHandle)) != RGY_ERR_NONE) {
+        if ((sts = m_func->fcreate(&ngxHandle, feature)) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to create NVSDK NGX handle: %s.\n"), get_err_mes(sts));
             // RGY_LOAD_LIBRARYを使用して、nvngx_vsr.dll がロードできるかを確認する
             // できなければ、エラーを返す
-            auto hModule = RGY_LOAD_LIBRARY(_T("nvngx_vsr.dll"));
+            auto hModule = RGY_LOAD_LIBRARY(NVENC_NVSDKNGX_DLL_NAME[feature]);
             if (hModule) {
                 RGY_FREE_LIBRARY(hModule);
                 hModule = nullptr;
             } else {
-                AddMessage(RGY_LOG_ERROR, _T("To use ngx-vsr, nvngx_vsr.dll is required but not found.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("%s is required but not found.\n"), NVENC_NVSDKNGX_DLL_NAME[feature]);
             }
             return sts;
         }
@@ -250,6 +241,163 @@ RGY_ERR NVEncFilterNGXVSR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Initialized NVSDK NGX library %s: %s.\n"), get_err_mes(sts));
+    }
+    return sts;
+#endif
+}
+
+RGY_ERR NVEncFilterNGXVSR::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    RGY_ERR sts = RGY_ERR_NONE;
+    if (pInputFrame->ptr[0] == nullptr) {
+        return sts;
+    }
+    auto prm = dynamic_cast<NVEncFilterParamNGXVSR*>(m_param.get());
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    //const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
+    //if (memcpyKind != cudaMemcpyDeviceToDevice) {
+    //    AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+    //    return RGY_ERR_INVALID_PARAM;
+    //}
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
+        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    
+    RGYFrameInfo *ngxFrameBufIn = nullptr;
+    { // pInputFrame -> ngxFrameBufIn
+        int cropFilterOutputNum = 0;
+        RGYFrameInfo *outInfo[1] = { nullptr };
+        RGYFrameInfo cropInput = *pInputFrame;
+        auto sts_filter = m_srcCrop->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, stream);
+        ngxFrameBufIn = outInfo[0];
+        if (ngxFrameBufIn == nullptr || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_srcCrop->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_srcCrop->name().c_str());
+            return sts_filter;
+        }
+        copyFramePropWithoutRes(ngxFrameBufIn, pInputFrame);
+    }
+    //mapで同期がかかる
+    m_ngxTextIn->map();
+    // ngxFrameBufIn -> m_ngxTextIn
+    {
+        if (RGY_CSP_PLANES[ngxFrameBufIn->csp] != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufIn csp must have only 1 plane.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        sts = err_to_rgy(cudaMemcpy2DToArray(
+            m_ngxTextIn->getMappedArray(), 0, 0,
+            (uint8_t *)ngxFrameBufIn->ptr[0], ngxFrameBufIn->pitch[0],
+            ngxFrameBufIn->width * RGY_CSP_BIT_DEPTH[ngxFrameBufIn->csp] * 4 / 8, ngxFrameBufIn->height,
+            cudaMemcpyDeviceToDevice));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame to cudaArray: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    }
+    m_ngxTextIn->unmap();
+    // フィルタを適用
+    const NVEncNVSDKNGXParamVSR paramVSR = { prm->ngxvsr.quality };
+    const NVEncNVSDKNGXRect rectDst = { 0, 0, m_ngxTextOut->width, m_ngxTextOut->height };
+    const NVEncNVSDKNGXRect rectSrc = { 0, 0, m_ngxTextIn->width, m_ngxTextIn->height };
+    sts = m_func->fprocFrame(m_nvsdkNGX.get(),
+        m_ngxTextOut->pTexture, &rectDst,
+        m_ngxTextIn->pTexture, &rectSrc,
+        (NVEncNVSDKNGXParam *)&paramVSR);
+
+    //mapで同期がかかる
+    m_ngxTextOut->map();
+    // m_ngxTextOut -> ngxFrameBufOut
+    {
+        if (RGY_CSP_PLANES[m_ngxFrameBufOut->frame.csp] != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufOut csp must have only 1 plane.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        sts = err_to_rgy(cudaMemcpy2DFromArray(
+            (uint8_t *)m_ngxFrameBufOut->frame.ptr[0], m_ngxFrameBufOut->frame.pitch[0],
+            m_ngxTextOut->getMappedArray(), 0, 0,
+            m_ngxFrameBufOut->frame.width * RGY_CSP_BIT_DEPTH[m_ngxFrameBufOut->frame.csp] * 4 / 8, m_ngxFrameBufOut->frame.height,
+            cudaMemcpyDeviceToDevice));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame from cudaArray: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    }
+    m_ngxTextOut->unmap();
+    { // m_ngxFrameBufOut -> ppOutputFrames[0]
+        *pOutputFrameNum = 1;
+        if (ppOutputFrames[0] == nullptr) {
+            ppOutputFrames[0] = &m_frameBuf[0]->frame;
+        }
+        int cropFilterOutputNum = 0;
+        RGYFrameInfo *outInfo[1] = { ppOutputFrames[0] };
+        auto sts_filter = m_dstCrop->filter(&m_ngxFrameBufOut->frame, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, stream);
+        if (ppOutputFrames[0] == nullptr || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_srcCrop->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_srcCrop->name().c_str());
+            return sts_filter;
+        }
+        copyFramePropWithoutRes(ppOutputFrames[0], &m_ngxFrameBufOut->frame);
+    }
+    return RGY_ERR_NONE;
+}
+
+void NVEncFilterNGX::close() {
+    m_srcCrop.reset();
+    m_dstCrop.reset();
+    m_ngxFrameBufOut.reset();
+    m_nvsdkNGX.reset();
+    m_func.reset();
+    m_frameBuf.clear();
+    m_dx11 = nullptr;
+}
+
+NVEncFilterNGXVSR::NVEncFilterNGXVSR() : NVEncFilterNGX() {
+    m_name = _T("nvngx-vsr");
+}
+
+
+NVEncFilterNGXVSR::~NVEncFilterNGXVSR() {
+}
+
+RGY_ERR NVEncFilterNGXVSR::checkParam(const NVEncFilterParam *param) {
+    auto prm = dynamic_cast<NVEncFilterParamNGXVSR*>(m_param.get());
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->ngxvsr.quality < 0 || 4 < prm->ngxvsr.quality) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid quality value %d, must be in the range of 0 to 4.\n"), prm->ngxvsr.quality);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterNGXVSR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
+#if !ENABLE_NVSDKNGX
+    AddMessage(RGY_LOG_ERROR, _T("nv optical flow filters are not supported on x86 exec file, please use x64 exec file.\n"));
+    return RGY_ERR_UNSUPPORTED;
+#else
+
+    sts = checkParam(pParam.get());
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    sts = initNGX(pParam, NVSDK_NVX_VSR, pPrintMes);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
 
     m_ngxCspIn = RGY_CSP_RGB32;
@@ -359,119 +507,3 @@ RGY_ERR NVEncFilterNGXVSR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     return sts;
 #endif
 }
-
-RGY_ERR NVEncFilterNGXVSR::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
-    RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr[0] == nullptr) {
-        return sts;
-    }
-    auto prm = dynamic_cast<NVEncFilterParamNGXVSR*>(m_param.get());
-    if (!prm) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-
-    //const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
-    //if (memcpyKind != cudaMemcpyDeviceToDevice) {
-    //    AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-    //    return RGY_ERR_INVALID_PARAM;
-    //}
-    if (m_param->frameOut.csp != m_param->frameIn.csp) {
-        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    
-    RGYFrameInfo *ngxFrameBufIn = nullptr;
-    { // pInputFrame -> ngxFrameBufIn
-        int cropFilterOutputNum = 0;
-        RGYFrameInfo *outInfo[1] = { nullptr };
-        RGYFrameInfo cropInput = *pInputFrame;
-        auto sts_filter = m_srcCrop->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, stream);
-        ngxFrameBufIn = outInfo[0];
-        if (ngxFrameBufIn == nullptr || cropFilterOutputNum != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_srcCrop->name().c_str());
-            return sts_filter;
-        }
-        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_srcCrop->name().c_str());
-            return sts_filter;
-        }
-        copyFramePropWithoutRes(ngxFrameBufIn, pInputFrame);
-    }
-    //mapで同期がかかる
-    m_ngxTextIn->map();
-    // ngxFrameBufIn -> m_ngxTextIn
-    {
-        if (RGY_CSP_PLANES[ngxFrameBufIn->csp] != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufIn csp must have only 1 plane.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-        sts = err_to_rgy(cudaMemcpy2DToArray(
-            m_ngxTextIn->getMappedArray(), 0, 0,
-            (uint8_t *)ngxFrameBufIn->ptr[0], ngxFrameBufIn->pitch[0],
-            ngxFrameBufIn->width * RGY_CSP_BIT_DEPTH[ngxFrameBufIn->csp] * 4 / 8, ngxFrameBufIn->height,
-            cudaMemcpyDeviceToDevice));
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame to cudaArray: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-    }
-    m_ngxTextIn->unmap();
-    // フィルタを適用
-    const NVEncNVSDKNGXRect rectDst = { 0, 0, m_ngxTextOut->width, m_ngxTextOut->height };
-    const NVEncNVSDKNGXRect rectSrc = { 0, 0, m_ngxTextIn->width, m_ngxTextIn->height };
-    sts = m_func->fprocFrame(m_nvsdkNGX.get(),
-        m_ngxTextOut->pTexture, &rectDst,
-        m_ngxTextIn->pTexture, &rectSrc,
-        prm->ngxvsr.quality);
-
-    //mapで同期がかかる
-    m_ngxTextOut->map();
-    // m_ngxTextOut -> ngxFrameBufOut
-    {
-        if (RGY_CSP_PLANES[m_ngxFrameBufOut->frame.csp] != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufOut csp must have only 1 plane.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-        sts = err_to_rgy(cudaMemcpy2DFromArray(
-            (uint8_t *)m_ngxFrameBufOut->frame.ptr[0], m_ngxFrameBufOut->frame.pitch[0],
-            m_ngxTextOut->getMappedArray(), 0, 0,
-            m_ngxFrameBufOut->frame.width * RGY_CSP_BIT_DEPTH[m_ngxFrameBufOut->frame.csp] * 4 / 8, m_ngxFrameBufOut->frame.height,
-            cudaMemcpyDeviceToDevice));
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame from cudaArray: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-    }
-    m_ngxTextOut->unmap();
-    { // m_ngxFrameBufOut -> ppOutputFrames[0]
-        *pOutputFrameNum = 1;
-        if (ppOutputFrames[0] == nullptr) {
-            ppOutputFrames[0] = &m_frameBuf[0]->frame;
-        }
-        int cropFilterOutputNum = 0;
-        RGYFrameInfo *outInfo[1] = { ppOutputFrames[0] };
-        auto sts_filter = m_dstCrop->filter(&m_ngxFrameBufOut->frame, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, stream);
-        if (ppOutputFrames[0] == nullptr || cropFilterOutputNum != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_srcCrop->name().c_str());
-            return sts_filter;
-        }
-        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_srcCrop->name().c_str());
-            return sts_filter;
-        }
-        copyFramePropWithoutRes(ppOutputFrames[0], &m_ngxFrameBufOut->frame);
-    }
-    return RGY_ERR_NONE;
-}
-
-void NVEncFilterNGXVSR::close() {
-    m_srcCrop.reset();
-    m_dstCrop.reset();
-    m_ngxFrameBufOut.reset();
-    m_nvsdkNGX.reset();
-    m_func.reset();
-    m_frameBuf.clear();
-    m_dx11 = nullptr;
-}
-

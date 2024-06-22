@@ -47,20 +47,40 @@ public:
     NVEncNVSDKNGX();
     virtual ~NVEncNVSDKNGX();
 
-    RGY_ERR init(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext);
-    void close();
-    RGY_ERR procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const int quality);
+    virtual RGY_ERR init(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext) = 0;
+    virtual void close();
+    virtual RGY_ERR procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) = 0;
 protected:
     ID3D11Device*               m_pD3D11Device;
     ID3D11DeviceContext*        m_pD3D11DeviceContext;
     ID3D10Multithread*          m_pMultiThread;
 
     NVSDK_NGX_Parameter*        m_ngxParameters;
-    NVSDK_NGX_Handle*           m_VSRFeature;
+    NVSDK_NGX_Handle*           m_ngxFeature;
 
     ID3D11Texture2D*            m_pDstTmpNGX;
     UINT                        m_dstTmpWidth;
     UINT                        m_dstTmpHeight;
+};
+
+class NVEncNVSDKNGXVSR : public NVEncNVSDKNGX {
+public:
+    NVEncNVSDKNGXVSR();
+    virtual ~NVEncNVSDKNGXVSR();
+
+    virtual RGY_ERR init(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext) override;
+    virtual RGY_ERR procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) override;
+protected:
+};
+
+class NVEncNVSDKNGXTrueHDR : public NVEncNVSDKNGX {
+public:
+    NVEncNVSDKNGXTrueHDR();
+    virtual ~NVEncNVSDKNGXTrueHDR();
+
+    virtual RGY_ERR init(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext) override;
+    virtual RGY_ERR procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) override;
+protected:
 };
 
 // /MTでリンクするので、nvsdk_ngx_s.libをリンク
@@ -123,7 +143,7 @@ NVEncNVSDKNGX::NVEncNVSDKNGX() :
     m_pD3D11DeviceContext(nullptr),
     m_pMultiThread(nullptr),
     m_ngxParameters(nullptr),
-    m_VSRFeature(nullptr),
+    m_ngxFeature(nullptr),
     m_pDstTmpNGX(nullptr),
     m_dstTmpWidth(0),
     m_dstTmpHeight(0) {
@@ -136,8 +156,8 @@ NVEncNVSDKNGX::~NVEncNVSDKNGX() {
 
 void NVEncNVSDKNGX::close() {
     if (m_pD3D11Device) {
-        NVSDK_NGX_D3D11_ReleaseFeature(m_VSRFeature);
-        m_VSRFeature = nullptr;
+        NVSDK_NGX_D3D11_ReleaseFeature(m_ngxFeature);
+        m_ngxFeature = nullptr;
         NVSDK_NGX_D3D11_Shutdown1(m_pD3D11Device);
         NVSDK_NGX_D3D11_DestroyParameters(m_ngxParameters);
         m_ngxParameters = nullptr;
@@ -160,7 +180,10 @@ void NVEncNVSDKNGX::close() {
     }
 }
 
-RGY_ERR NVEncNVSDKNGX::init(ID3D11Device *pD3DDevice, ID3D11DeviceContext *pD3D11DeviceContext) {
+NVEncNVSDKNGXVSR::NVEncNVSDKNGXVSR() : NVEncNVSDKNGX() { }
+NVEncNVSDKNGXVSR::~NVEncNVSDKNGXVSR() { }
+
+RGY_ERR NVEncNVSDKNGXVSR::init(ID3D11Device *pD3DDevice, ID3D11DeviceContext *pD3D11DeviceContext) {
     HRESULT hr = S_OK;
 
     // init NGX SDK
@@ -188,7 +211,7 @@ RGY_ERR NVEncNVSDKNGX::init(ID3D11Device *pD3DDevice, ID3D11DeviceContext *pD3D1
     }
 
     NVSDK_NGX_Feature_Create_Params VSRCreateParams = {};
-    err = err_to_rgy(NGX_D3D11_CREATE_VSR_EXT(pD3D11DeviceContext, &m_VSRFeature, m_ngxParameters, &VSRCreateParams));
+    err = err_to_rgy(NGX_D3D11_CREATE_VSR_EXT(pD3D11DeviceContext, &m_ngxFeature, m_ngxParameters, &VSRCreateParams));
     if (err != RGY_ERR_NONE) return err;
 
     if (m_pMultiThread) {
@@ -198,7 +221,7 @@ RGY_ERR NVEncNVSDKNGX::init(ID3D11Device *pD3DDevice, ID3D11DeviceContext *pD3D1
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncNVSDKNGX::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const int quality) {
+RGY_ERR NVEncNVSDKNGXVSR::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) {
     if (!m_pD3D11Device) {
         return RGY_ERR_NOT_INITIALIZED;
     }
@@ -257,8 +280,143 @@ RGY_ERR NVEncNVSDKNGX::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXR
         }
     }
 
+    const NVEncNVSDKNGXParamVSR *vsrParam = (const NVEncNVSDKNGXParamVSR *)param;
+
     // setup VSR params
     NVSDK_NGX_D3D11_VSR_Eval_Params vsrEvalParams;
+    vsrEvalParams.pInput = frameSrc;
+    vsrEvalParams.pOutput = useDstTmp ? m_pDstTmpNGX : frameDst;
+    vsrEvalParams.InputSubrectBase.X = rectSrc->left;
+    vsrEvalParams.InputSubrectBase.Y = rectSrc->top;
+    vsrEvalParams.InputSubrectSize.Width = rectSrc->right - rectSrc->left;
+    vsrEvalParams.InputSubrectSize.Height = rectSrc->bottom - rectSrc->top;
+    vsrEvalParams.OutputSubrectBase.X = rectDst->left;
+    vsrEvalParams.OutputSubrectBase.Y = rectDst->top;
+    vsrEvalParams.OutputSubrectSize.Width = rectDst->right - rectDst->left;
+    vsrEvalParams.OutputSubrectSize.Height = rectDst->bottom - rectDst->top;
+    vsrEvalParams.QualityLevel = (NVSDK_NGX_VSR_QualityLevel)vsrParam->quality;
+
+    if (m_pMultiThread) {
+        m_pMultiThread->Enter();
+    }
+
+    auto err = err_to_rgy(NGX_D3D11_EVALUATE_VSR_EXT(m_pD3D11DeviceContext, m_ngxFeature, m_ngxParameters, &vsrEvalParams));
+    if (err != RGY_ERR_NONE) return err;
+
+    if (m_pDstTmpNGX) {
+        m_pD3D11DeviceContext->CopySubresourceRegion(frameDst, 0, 0, 0, 0, m_pDstTmpNGX, 0, nullptr);
+    }
+
+    if (m_pMultiThread) {
+        m_pMultiThread->Leave();
+    }
+
+    return RGY_ERR_NONE;
+}
+
+
+NVEncNVSDKNGXTrueHDR::NVEncNVSDKNGXTrueHDR() : NVEncNVSDKNGX() { }
+NVEncNVSDKNGXTrueHDR::~NVEncNVSDKNGXTrueHDR() { }
+
+RGY_ERR NVEncNVSDKNGXTrueHDR::init(ID3D11Device *pD3DDevice, ID3D11DeviceContext *pD3D11DeviceContext) {
+    HRESULT hr = S_OK;
+
+    // init NGX SDK
+    auto err = err_to_rgy(NVSDK_NGX_D3D11_Init(APP_ID, APP_PATH, pD3DDevice));
+    if (err != RGY_ERR_NONE) return err;
+
+    // Get NGX parameters interface (managed and released by NGX)
+    err = err_to_rgy(NVSDK_NGX_D3D11_GetCapabilityParameters(&m_ngxParameters));
+    if (err != RGY_ERR_NONE) return err;
+
+    // Now check if VSR is available on the system
+    int VSRAvailable = 0;
+    err = err_to_rgy(m_ngxParameters->Get(NVSDK_NGX_Parameter_TrueHDR_Available, &VSRAvailable));
+    if (err != RGY_ERR_NONE) return err;
+
+    pD3DDevice->AddRef();
+    pD3D11DeviceContext->AddRef();
+    m_pD3D11Device = pD3DDevice;
+    m_pD3D11DeviceContext = pD3D11DeviceContext;
+
+    hr = pD3D11DeviceContext->QueryInterface(__uuidof(ID3D10Multithread), (void**)&m_pMultiThread);
+    if (SUCCEEDED(hr)) {
+        m_pMultiThread->SetMultithreadProtected(TRUE);
+        m_pMultiThread->Enter();
+    }
+
+    NVSDK_NGX_Feature_Create_Params VSRCreateParams = {};
+    err = err_to_rgy(NGX_D3D11_CREATE_TRUEHDR_EXT(pD3D11DeviceContext, &m_ngxFeature, m_ngxParameters, &VSRCreateParams));
+    if (err != RGY_ERR_NONE) return err;
+
+    if (m_pMultiThread) {
+        m_pMultiThread->Leave();
+    }
+
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncNVSDKNGXTrueHDR::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) {
+    if (!m_pD3D11Device) {
+        return RGY_ERR_NOT_INITIALIZED;
+    }
+    HRESULT hr = S_OK;
+    bool useDstTmp = false;
+    // check formats
+    {
+        // check input is DXGI_FORMAT_R8G8B8A8_UNORM or DXGI_FORMAT_B8G8R8A8_UNORM
+        D3D11_TEXTURE2D_DESC inDesc = {};
+        frameSrc->GetDesc(&inDesc);
+        if (inDesc.Format != DXGI_FORMAT_R8G8B8A8_UNORM && inDesc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
+            return RGY_ERR_INVALID_FORMAT;
+        }
+        // verify input rect is within range
+        if (rectSrc->left < 0 || rectSrc->left >= rectSrc->right || rectSrc->right  >(LONG)inDesc.Width
+            || rectSrc->top  < 0 || rectSrc->top >= rectSrc->bottom || rectSrc->bottom >(LONG)inDesc.Height) {
+            return RGY_ERR_INVALID_FORMAT;
+        }
+        // check output is DXGI_FORMAT_R8G8B8A8_UNORM or DXGI_FORMAT_B8G8R8A8_UNORM
+        D3D11_TEXTURE2D_DESC outDesc = {};
+        frameDst->GetDesc(&outDesc);
+        if (outDesc.Format != DXGI_FORMAT_R8G8B8A8_UNORM && outDesc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
+            return RGY_ERR_INVALID_FORMAT;
+        }
+        // verify output rect is within range
+        if (rectDst->left < 0 || rectDst->left >= rectDst->right || rectDst->right  >(LONG)outDesc.Width
+            || rectDst->top  < 0 || rectDst->top >= rectDst->bottom || rectDst->bottom >(LONG)outDesc.Height) {
+            return RGY_ERR_INVALID_FORMAT;
+        }
+
+        // The NGX dst surface must be created with BIND_UNORDERED_ACCESS, which swap buffers are not.
+        // check for UNORDERED_ACCESS
+        useDstTmp = !(outDesc.BindFlags & D3D11_BIND_UNORDERED_ACCESS);
+
+        // verify DstTmp matches dest surface so copyRegion works
+        if (useDstTmp && (!m_pDstTmpNGX || outDesc.Width != m_dstTmpWidth || outDesc.Height != m_dstTmpHeight)) {
+            if (m_pDstTmpNGX) {
+                m_pDstTmpNGX->Release();
+                m_pDstTmpNGX = nullptr;
+            }
+            m_dstTmpWidth = outDesc.Width;
+            m_dstTmpHeight = outDesc.Height;
+            D3D11_TEXTURE2D_DESC texture2d_desc = { 0 };
+            texture2d_desc.Width = m_dstTmpWidth;
+            texture2d_desc.Height = m_dstTmpHeight;
+            texture2d_desc.MipLevels = 1;
+            texture2d_desc.ArraySize = 1;
+            texture2d_desc.SampleDesc.Count = 1;
+            texture2d_desc.MiscFlags = 0;
+            texture2d_desc.Format = outDesc.Format;
+            texture2d_desc.Usage = D3D11_USAGE_DEFAULT;
+            texture2d_desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+
+            hr = m_pD3D11Device->CreateTexture2D(&texture2d_desc, nullptr, &m_pDstTmpNGX);
+            if (FAILED(hr)) return RGY_ERR_NULL_PTR;
+        }
+    }
+
+    // setup params
+    NVSDK_NGX_D3D11_TrueHDR_Eval_Params vsrEvalParams;
     vsrEvalParams.pInput = frameSrc;
     vsrEvalParams.pOutput = useDstTmp ? m_pDstTmpNGX : frameDst;
     vsrEvalParams.InputSubrectBase.X = rectSrc->left;
@@ -275,7 +433,7 @@ RGY_ERR NVEncNVSDKNGX::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXR
         m_pMultiThread->Enter();
     }
 
-    auto err = err_to_rgy(NGX_D3D11_EVALUATE_VSR_EXT(m_pD3D11DeviceContext, m_VSRFeature, m_ngxParameters, &vsrEvalParams));
+    auto err = err_to_rgy(NGX_D3D11_EVALUATE_TRUEHDR_EXT(m_pD3D11DeviceContext, m_ngxFeature, m_ngxParameters, &vsrEvalParams));
     if (err != RGY_ERR_NONE) return err;
 
     if (m_pDstTmpNGX) {
@@ -289,16 +447,25 @@ RGY_ERR NVEncNVSDKNGX::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXR
     return RGY_ERR_NONE;
 }
 
-
 #if defined(__cplusplus)
 extern "C" {
 #endif /* __cplusplus */
 
-NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXCreate(NVEncNVSDKNGXHandle *ppNVSDKNGX) {
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXCreate(NVEncNVSDKNGXHandle *ppNVSDKNGX, const NVEncNVSDKNGXFeature feature) {
     if (ppNVSDKNGX == nullptr) {
         return RGY_ERR_NULL_PTR;
     }
-    *ppNVSDKNGX = new NVEncNVSDKNGX();
+    switch (feature)
+    {
+    case NVSDK_NVX_VSR:
+        *ppNVSDKNGX = new NVEncNVSDKNGXVSR();
+        break;
+    case NVSDK_NVX_TRUEHDR:
+        *ppNVSDKNGX = new NVEncNVSDKNGXTrueHDR();
+        break;
+    default:
+        break;
+    }
     return RGY_ERR_NONE;
 }
 
@@ -313,8 +480,8 @@ NVENC_NVSDKNGX_API void __stdcall NVEncNVSDKNGXDelete(NVEncNVSDKNGXHandle ppNVSD
     }
 }
 
-NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle ppNVSDKNGX, ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const int quality) {
-    return ((NVEncNVSDKNGX *)ppNVSDKNGX)->procFrame(frameDst, rectDst, frameSrc, rectSrc, quality);
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle ppNVSDKNGX, ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) {
+    return ((NVEncNVSDKNGX *)ppNVSDKNGX)->procFrame(frameDst, rectDst, frameSrc, rectSrc, param);
 }
 
 #if defined(__cplusplus)
