@@ -254,6 +254,11 @@ bool check_locale_is_ja() {
     return GetUserDefaultLangID() == LangID_ja_JP;
 }
 
+bool check_locale_is_chs() {
+	const WORD LangID_zh_CN = MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED);
+	return GetUserDefaultLangID() == LangID_zh_CN;
+}
+
 static tstring getErrorFmtStr(uint32_t err) {
     TCHAR errmes[4097];
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, err, NULL, errmes, _countof(errmes), NULL);
@@ -367,7 +372,10 @@ int _tmain(int argc, TCHAR **argv) {
 #if defined(_WIN32) || defined(_WIN64)
     if (check_locale_is_ja()) {
         _tsetlocale(LC_ALL, _T("Japanese"));
-    }
+	}
+	else if (check_locale_is_chs()) {
+		_tsetlocale(LC_ALL, _T(".UTF8"));
+	}
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
     if (argc == 1) {
