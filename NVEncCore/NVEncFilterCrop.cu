@@ -70,20 +70,27 @@ __device__
 static TypeOut conv_data_type(TypeIn c) {
     if (std::is_integral<TypeIn>::value) {
         if (std::is_integral<TypeOut>::value) {
+            // int -> int
             return (TypeOut)conv_bit_depth_<out_bit_depth, in_bit_depth, shift_offset>(c);
         } else {
+            // int -> float
             const float f = to_float<TypeIn>(c);
-            const float ret = ((float)f * (float)(1.0f / ((1 << out_bit_depth) - 1))) * (float)(1.0f / (1 << shift_offset));
+            const int high = (1 << in_bit_depth) - 1;
+            const float shift_mul = (float)(1.0f / (1 << shift_offset));
+            const float ret = (float)f * (float)(1.0f / high) * shift_mul;
             return (TypeOut)ret;
         }
     } else {
         const float f = to_float<TypeIn>(c);
         if (std::is_integral<TypeOut>::value) {
+            // float -> int
             const int low = 0;
             const int high = (1 << out_bit_depth) - 1;
-            const int x = (int)(f * high * (1.0f / (1 << shift_offset)) + 0.5f);
+            const float shift_mul = (float)(1.0f / (1 << shift_offset));
+            const int x = (int)(f * high * shift_mul + 0.5f);
             return (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high));
         } else if (std::is_floating_point<TypeOut>::value) {
+            // float -> float
             return f;
         } else { //half
             return to_pixOut<TypeOut, TypeIn>(c);
