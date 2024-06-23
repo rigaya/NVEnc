@@ -429,7 +429,7 @@ __global__ void kernel_crop_uv_yv12_yuv444_p(uint8_t *__restrict__ pDstU, uint8_
     int uv_y = blockIdx.y * blockDim.y + threadIdx.y;
     if (uv_x < (dstWidth >> 1) && uv_y < (dstHeight >> 1)) {
         int idst = (uv_y << 1) * dstPitch + (uv_x << 1) * sizeof(TypeOut); //YUV444
-        int isrc = (uv_y + (offsetY >> 1)) * srcPitch + ((uv_x << 1) + offsetX) * sizeof(TypeIn); //NV12
+        int isrc = (uv_y + (offsetY >> 1)) * srcPitch + (uv_x + (offsetX >> 1)) * sizeof(TypeIn); //NV12
         const TypeIn *ptr_src_u = (const TypeIn *)(pSrcU + isrc);
         const TypeIn *ptr_src_v = (const TypeIn *)(pSrcV + isrc);
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
