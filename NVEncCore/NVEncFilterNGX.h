@@ -79,7 +79,8 @@ class NVEncFilterParamNGX : public NVEncFilterParam {
 public:
     std::pair<int, int> compute_capability;
     DeviceDX11 *dx11;
-    NVEncFilterParamNGX() : compute_capability(), dx11(nullptr) {};
+    VideoVUIInfo vui;
+    NVEncFilterParamNGX() : compute_capability(), dx11(nullptr), vui() {};
     virtual ~NVEncFilterParamNGX() {};
 };
 
@@ -91,24 +92,37 @@ public:
     virtual tstring print() const;
 };
 
+class NVEncFilterParamNGXTrueHDR : public NVEncFilterParamNGX {
+public:
+    VppNGXTrueHDR trueHDR;
+    NVEncFilterParamNGXTrueHDR() : NVEncFilterParamNGX(), trueHDR() {};
+    virtual ~NVEncFilterParamNGXTrueHDR() {};
+    virtual tstring print() const;
+};
+
 class NVEncFilterNGX : public NVEncFilter {
 public:
     NVEncFilterNGX();
     virtual ~NVEncFilterNGX();
 protected:
     virtual RGY_ERR initNGX(shared_ptr<NVEncFilterParam> pParam, const NVEncNVSDKNGXFeature feature, shared_ptr<RGYLog> pPrintMes);
+    virtual RGY_ERR initCommon(shared_ptr<NVEncFilterParam> pParam);
     virtual void close() override;
 
     std::unique_ptr<NVEncNVSDKNGXFuncs> m_func;
     unique_nvsdkngx_handle m_nvsdkNGX;
+    NVEncNVSDKNGXFeature m_ngxFeature;
     RGY_CSP m_ngxCspIn;
     RGY_CSP m_ngxCspOut;
+    DXGI_FORMAT m_dxgiformatIn;
+    DXGI_FORMAT m_dxgiformatOut;
     std::unique_ptr<CUFrameBuf> m_ngxFrameBufOut;
     std::unique_ptr<CUDADX11Texture> m_ngxTextIn;
     std::unique_ptr<CUDADX11Texture> m_ngxTextOut;
+    std::unique_ptr<NVEncFilter> m_srcColorspace;
+    std::unique_ptr<NVEncFilter> m_dstColorspace;
     std::unique_ptr<NVEncFilter> m_srcCrop;
     std::unique_ptr<NVEncFilter> m_dstCrop;
-    int m_inputFrames;
 
     DeviceDX11 *m_dx11;
 };
@@ -117,6 +131,16 @@ class NVEncFilterNGXVSR : public NVEncFilterNGX {
 public:
     NVEncFilterNGXVSR();
     virtual ~NVEncFilterNGXVSR();
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+protected:
+    virtual RGY_ERR checkParam(const NVEncFilterParam *param);
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+};
+
+class NVEncFilterNGXTrueHDR : public NVEncFilterNGX {
+public:
+    NVEncFilterNGXTrueHDR();
+    virtual ~NVEncFilterNGXTrueHDR();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param);

@@ -41,6 +41,65 @@
 
 const char *NVEncFilterCustom::KERNEL_NAME = "kernel_filter";
 
+static jitify::KernelInstantiation jitify_instantiate(jitify::Program *program, const char *kernel_name, const RGY_CSP cspOut, const RGY_CSP cspIn) {
+    switch (RGY_CSP_DATA_TYPE[cspOut]) {
+    case RGY_DATA_TYPE_U8:
+        switch (RGY_CSP_DATA_TYPE[cspIn]) {
+        case RGY_DATA_TYPE_U8:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint8_t>(), jitify::reflection::Type<uint8_t>());
+        case RGY_DATA_TYPE_U16:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint8_t>(), jitify::reflection::Type<uint16_t>());
+        case RGY_DATA_TYPE_U32:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint8_t>(), jitify::reflection::Type<uint32_t>());
+        case RGY_DATA_TYPE_FP32:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint8_t>(), jitify::reflection::Type<float>());
+        default:
+            return program->kernel(kernel_name).instantiate();
+        }
+    case RGY_DATA_TYPE_U16:
+        switch (RGY_CSP_DATA_TYPE[cspIn]) {
+        case RGY_DATA_TYPE_U8:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint16_t>(), jitify::reflection::Type<uint8_t>());
+        case RGY_DATA_TYPE_U16:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint16_t>(), jitify::reflection::Type<uint16_t>());
+        case RGY_DATA_TYPE_U32:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint16_t>(), jitify::reflection::Type<uint32_t>());
+        case RGY_DATA_TYPE_FP32:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint16_t>(), jitify::reflection::Type<float>());
+        default:
+            return program->kernel(kernel_name).instantiate();
+        }
+    case RGY_DATA_TYPE_U32:
+        switch (RGY_CSP_DATA_TYPE[cspIn]) {
+        case RGY_DATA_TYPE_U8:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint32_t>(), jitify::reflection::Type<uint8_t>());
+        case RGY_DATA_TYPE_U16:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint32_t>(), jitify::reflection::Type<uint16_t>());
+        case RGY_DATA_TYPE_U32:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint32_t>(), jitify::reflection::Type<uint32_t>());
+        case RGY_DATA_TYPE_FP32:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<uint32_t>(), jitify::reflection::Type<float>());
+        default:
+            return program->kernel(kernel_name).instantiate();
+        }
+    case RGY_DATA_TYPE_FP32:
+        switch (RGY_CSP_DATA_TYPE[cspIn]) {
+        case RGY_DATA_TYPE_U8:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<float>(), jitify::reflection::Type<uint8_t>());
+        case RGY_DATA_TYPE_U16:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<float>(), jitify::reflection::Type<uint16_t>());
+        case RGY_DATA_TYPE_U32:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<float>(), jitify::reflection::Type<uint32_t>());
+        case RGY_DATA_TYPE_FP32:
+            return program->kernel(kernel_name).instantiate(jitify::reflection::Type<float>(), jitify::reflection::Type<float>());
+        default:
+            return program->kernel(kernel_name).instantiate();
+        }
+    default:
+        return program->kernel(kernel_name).instantiate();
+    }
+}
+
 NVEncFilterCustom::NVEncFilterCustom()
 #if ENABLE_NVRTC
     : m_kernel_cache(), m_program()
@@ -153,11 +212,7 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     //test compile
     std::string compile_log;
     try {
-        if (RGY_CSP_BIT_DEPTH[pParam->frameOut.csp] > 8) {
-            compile_log = m_program->kernel(KERNEL_NAME).instantiateLog(jitify::reflection::Type<uint16_t>());
-        } else {
-            compile_log = m_program->kernel(KERNEL_NAME).instantiateLog(jitify::reflection::Type<uint8_t>());
-        }
+        compile_log = jitify_instantiate(m_program.get(), KERNEL_NAME, prm->frameOut.csp, prm->frameIn.csp).getLog();
     } catch (const std::exception& e) {
         AddMessage(RGY_LOG_ERROR, _T("failed to instantiate program source.\n%s\n"), char_to_tstring(e.what()).c_str());
         m_pLog->write_log(RGY_LOG_ERROR, RGY_LOGT_VPP_BUILD, char_to_tstring(compile_log).c_str());
@@ -184,7 +239,7 @@ tstring NVEncFilterParamCustom::print() const {
     return info;
 }
 
-RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInpuPlane, RGY_PLANE plane, cudaStream_t stream) {
+RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGY_PLANE plane, cudaStream_t stream) {
 #if ENABLE_NVRTC
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_param);
     const dim3 blockSize(prm->custom.threadPerBlockX, prm->custom.threadPerBlockY);
@@ -193,30 +248,21 @@ RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputPlane, const RGYFr
         divCeil(pOutputPlane->height, blockSize.y * prm->custom.pixelPerThreadY));
     AddMessage(RGY_LOG_TRACE, _T("thread/block(%d,%d), grid(%d,%d)\n"), blockSize.x, blockSize.y, gridSize.x, gridSize.y);
 
-    CUresult err;
-    if (RGY_CSP_BIT_DEPTH[pOutputPlane->csp] > 8) {
-        AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint16_t]\n"));
-        err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint16_t>()).configure(gridSize, blockSize, 0, stream).launch(
-            pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
-            pInpuPlane->ptr[0], pInpuPlane->pitch[0], pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), prm->custom.dev_params, plane);
-    } else {
-        AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint8_t]\n"));
-        err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint8_t>()).configure(gridSize, blockSize, 0, stream).launch(
-            pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
-            pInpuPlane->ptr[0], pInpuPlane->pitch[0], pInpuPlane->width, pInpuPlane->height, interlaced(*pInpuPlane), prm->custom.dev_params, plane);
-    }
+    CUresult err = jitify_instantiate(m_program.get(), KERNEL_NAME, pOutputPlane->csp, pInputPlane->csp).configure(gridSize, blockSize, 0, stream).launch(
+        pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
+        pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height, interlaced(*pInputPlane), prm->custom.dev_params, plane);
     if (err != CUDA_SUCCESS) {
         const char *ptr;
         cuGetErrorString(err, &ptr);
         AddMessage(RGY_LOG_ERROR, _T("error at run_per_plane(%s): %s.\n"),
-            RGY_CSP_NAMES[pInpuPlane->csp], char_to_tstring(ptr).c_str());
+            RGY_CSP_NAMES[pInputPlane->csp], char_to_tstring(ptr).c_str());
         return err_to_rgy(err);
     }
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         auto sts = err_to_rgy(cudaerr);
         AddMessage(RGY_LOG_ERROR, _T("error at run_per_plane(%s) kernel_filter: %s.\n"),
-            RGY_CSP_NAMES[pInpuPlane->csp], get_err_mes(sts));
+            RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(sts));
         return sts;
     }
     return RGY_ERR_NONE;
@@ -261,20 +307,10 @@ RGY_ERR NVEncFilterCustom::run_planes(RGYFrameInfo *pOutputFrame, const RGYFrame
         divCeil(pOutputFrame->height, blockSize.y * prm->custom.pixelPerThreadY));
     AddMessage(RGY_LOG_TRACE, _T("thread/block(%d,%d), grid(%d,%d)\n"), blockSize.x, blockSize.y, gridSize.x, gridSize.y);
 
-    CUresult err;
-    if (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) {
-        AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint16_t]\n"));
-        err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint16_t>()).configure(gridSize, blockSize, 0, stream).launch(
+    CUresult err = jitify_instantiate(m_program.get(), KERNEL_NAME, pOutputFrame->csp, pInputFrame->csp).configure(gridSize, blockSize, 0, stream).launch(
             planeOutputY.ptr[0], planeOutputU.ptr[0], planeOutputV.ptr[0], planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
             planeInputY.ptr[0], planeInputU.ptr[0], planeInputV.ptr[0], planeInputY.pitch[0], planeInputY.width, planeInputY.height,
             interlacedFrame, prm->custom.dev_params);
-    } else {
-        AddMessage(RGY_LOG_TRACE, _T("run kernel_filter [type=uint8_t]\n"));
-        err = m_program->kernel(KERNEL_NAME).instantiate(jitify::reflection::Type<uint8_t>()).configure(gridSize, blockSize, 0, stream).launch(
-            planeOutputY.ptr[0], planeOutputU.ptr[0], planeOutputV.ptr[0], planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
-            planeInputY.ptr[0], planeInputU.ptr[0], planeInputV.ptr[0], planeInputY.pitch[0], planeInputY.width, planeInputY.height,
-            interlacedFrame, prm->custom.dev_params);
-    }
     if (err != CUDA_SUCCESS) {
         const char *ptr;
         cuGetErrorString(err, &ptr);

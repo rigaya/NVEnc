@@ -988,7 +988,7 @@ static void convert_yv12_high_to_nv12_simd(void **dst, const void **src, int wid
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     const int src_y_pitch = src_y_pitch_byte >> 1;
-    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
     //Y成分のコピー
     if (!uv_only) {
         const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
@@ -1271,7 +1271,7 @@ static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444(void **dst, const void *
     const int src_y_pitch = src_y_pitch_byte >> 1;
     const int src_uv_pitch = src_uv_pitch_byte >> 1;
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
-    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
     uint16_t *srcYLine = (uint16_t *)src[0] + src_y_pitch  * y_range.start_src + crop_left;
     uint16_t *srcULine = (uint16_t *)src[1] + src_uv_pitch * y_range.start_src + crop_left;
     uint16_t *srcVLine = (uint16_t *)src[2] + src_uv_pitch * y_range.start_src + crop_left;
@@ -1387,7 +1387,7 @@ void convert_yuv444_high_to_y410_simd(void** dst, const void** src, int width, i
     const int src_y_pitch = src_y_pitch_byte / sizeof(uint16_t);
     const int dst_y_pitch = dst_y_pitch_byte / sizeof(uint32_t);
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
-    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 10, 0>());
+    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add_<10, in_bit_depth, 0>());
     uint16_t* srcYLine = (uint16_t*)src[0] + src_y_pitch * y_range.start_src + crop_left;
     uint16_t* srcULine = (uint16_t*)src[1] + src_y_pitch * y_range.start_src + crop_left;
     uint16_t* srcVLine = (uint16_t*)src[2] + src_y_pitch * y_range.start_src + crop_left;
@@ -1524,7 +1524,7 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_simd(void **dst, const
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     const int src_y_pitch = src_y_pitch_byte >> 1;
-    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
     for (int i = 0; i < 3; i++) {
         uint16_t *srcYLine = (uint16_t *)src[i] + src_y_pitch * y_range.start_src + crop_left;

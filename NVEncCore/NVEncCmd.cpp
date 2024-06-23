@@ -516,7 +516,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
                 if (param_arg == _T("vsr-quality")) {
                     try {
-                        vppnv->nvsdkngxVSR.quality = std::stoi(param_val);
+                        vppnv->ngxVSR.quality = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -656,7 +656,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
     }
 
     if (IS_OPTION("vpp-ngx-truehdr") && (ENABLE_NVSDKNGX || FOR_AUO)) {
-        vppnv->nvsdkngxTrueHDR.enable = true;
+        vppnv->ngxTrueHDR.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -671,7 +671,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 if (param_arg == _T("enable")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        vppnv->nvsdkngxTrueHDR.enable = b;
+                        vppnv->ngxTrueHDR.enable = b;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -680,7 +680,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
                 if (param_arg == _T("contrast")) {
                     try {
-                        vppnv->nvsdkngxTrueHDR.contrast = std::stoi(param_val);
+                        vppnv->ngxTrueHDR.contrast = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -689,7 +689,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
                 if (param_arg == _T("saturation")) {
                     try {
-                        vppnv->nvsdkngxTrueHDR.saturation = std::stoi(param_val);
+                        vppnv->ngxTrueHDR.saturation = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -698,7 +698,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
                 if (param_arg == _T("middlegray")) {
                     try {
-                        vppnv->nvsdkngxTrueHDR.middleGray = std::stoi(param_val);
+                        vppnv->ngxTrueHDR.middleGray = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -707,7 +707,7 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
                 if (param_arg == _T("maxluminance")) {
                     try {
-                        vppnv->nvsdkngxTrueHDR.maxLuminance = std::stoi(param_val);
+                        vppnv->ngxTrueHDR.maxLuminance = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2192,8 +2192,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     if (pParams->vpp.resize_algo == RGY_VPP_RESIZE_NGX_VSR) {
         cmd << _T(" --vpp-resize ") << get_chr_from_value(list_vpp_resize, pParams->vpp.resize_algo);
-        if (pParams->vppnv.nvsdkngxVSR.quality != encPrmDefault.vppnv.nvsdkngxVSR.quality) {
-            cmd << _T(",quality=") << pParams->vppnv.nvsdkngxVSR.quality << std::endl;
+        if (pParams->vppnv.ngxVSR.quality != encPrmDefault.vppnv.ngxVSR.quality) {
+            cmd << _T(",quality=") << pParams->vppnv.ngxVSR.quality << std::endl;
         }
     } else if (pParams->vpp.resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
         cmd << _T(" --vpp-resize ") << get_chr_from_value(list_vpp_resize, pParams->vpp.resize_algo);
@@ -2205,20 +2205,20 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
 
-    if (pParams->vppnv.nvsdkngxTrueHDR != encPrmDefault.vppnv.nvsdkngxTrueHDR) {
+    if (pParams->vppnv.ngxTrueHDR != encPrmDefault.vppnv.ngxTrueHDR) {
         tmp.str(tstring());
-        if (!pParams->vppnv.nvsdkngxTrueHDR.enable && save_disabled_prm) {
+        if (!pParams->vppnv.ngxTrueHDR.enable && save_disabled_prm) {
             tmp << _T(",enable=false");
         }
-        if (pParams->vppnv.nvsdkngxTrueHDR.enable || save_disabled_prm) {
-            ADD_NUM(_T("contrast"), vppnv.nvsdkngxTrueHDR.contrast);
-            ADD_NUM(_T("saturation"), vppnv.nvsdkngxTrueHDR.saturation);
-            ADD_NUM(_T("middlegray"), vppnv.nvsdkngxTrueHDR.middleGray);
-            ADD_NUM(_T("maxluminance"), vppnv.nvsdkngxTrueHDR.maxLuminance);
+        if (pParams->vppnv.ngxTrueHDR.enable || save_disabled_prm) {
+            ADD_NUM(_T("contrast"), vppnv.ngxTrueHDR.contrast);
+            ADD_NUM(_T("saturation"), vppnv.ngxTrueHDR.saturation);
+            ADD_NUM(_T("middlegray"), vppnv.ngxTrueHDR.middleGray);
+            ADD_NUM(_T("maxluminance"), vppnv.ngxTrueHDR.maxLuminance);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-ngx-truehdr ") << tmp.str().substr(1);
-        } else if (pParams->vppnv.nvsdkngxTrueHDR.enable) {
+        } else if (pParams->vppnv.ngxTrueHDR.enable) {
             cmd << _T(" --vpp-ngx-truehdr");
         }
     }

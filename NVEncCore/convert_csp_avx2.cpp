@@ -197,7 +197,7 @@ void copy_p010_to_nv12_avx2(void **dst, const void **src, int width, int src_y_p
     const int crop_right = crop[2];
     const int crop_bottom = crop[3];
     const int in_bit_depth = 16;
-    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
     for (int i = 0; i < 2; i++) {
         const auto y_range = thread_y_range(crop_up >> i, (height - crop_bottom) >> i, thread_id, thread_n);
         const uint8_t *srcYLine = (const uint8_t *)src[i] + src_y_pitch_byte * y_range.start_src + crop_left;
@@ -623,7 +623,7 @@ static void convert_yv12_high_to_nv12_avx2_base(void **dst, const void **src, in
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     const int src_y_pitch = src_y_pitch_byte >> 1;
-    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
     //Y成分のコピー
     if (!uv_only) {
         const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
@@ -710,7 +710,7 @@ void RGY_FORCEINLINE copy_y_plane(void *dst, int dst_y_pitch_byte, const void*sr
     const int crop_right  = crop[2];
     const int src_y_pitch = src_y_pitch_byte / sizeof(Tin);
     const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
-    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
 
     const Tin* srcYLine = (const Tin*)src + src_y_pitch * y_range.start_src + crop_left;
     Tout* dstLine = (Tout*)dst + dst_y_pitch * y_range.start_dst;
@@ -730,8 +730,8 @@ void RGY_FORCEINLINE copy_y_plane(void *dst, int dst_y_pitch_byte, const void*sr
                 y0 = _mm256_adds_epi16(y0, yrsftAdd);
                 y1 = _mm256_adds_epi16(y1, yrsftAdd);
 
-                y0 = _mm256_srli_epi16(y0, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, 0>());
-                y1 = _mm256_srli_epi16(y1, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, 0>());
+                y0 = _mm256_srli_epi16(y0, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, 0>());
+                y1 = _mm256_srli_epi16(y1, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, 0>());
 
                 y0 = _mm256_packus_epi16(y0, y1);
 
@@ -745,8 +745,8 @@ void RGY_FORCEINLINE copy_y_plane(void *dst, int dst_y_pitch_byte, const void*sr
             for (; src_ptr < src_ptr_fin; dst_ptr += 32, src_ptr += 32) {
                 y0 = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i*)(src_ptr +  0)));
                 y1 = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i*)(src_ptr + 16)));
-                y0 = _mm256_slli_epi16(y0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
-                y1 = _mm256_slli_epi16(y1, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+                y0 = _mm256_slli_epi16(y0, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, 0>());
+                y1 = _mm256_slli_epi16(y1, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, 0>());
                 _mm256_storeu_si256((__m256i*)(dst_ptr +  0), y0);
                 _mm256_storeu_si256((__m256i*)(dst_ptr + 16), y1);
             }
@@ -758,14 +758,14 @@ void RGY_FORCEINLINE copy_y_plane(void *dst, int dst_y_pitch_byte, const void*sr
                 __m256i y0 = _mm256_loadu_si256((const __m256i*)(src_ptr +  0));
                 __m256i y1 = _mm256_loadu_si256((const __m256i*)(src_ptr + 16));
                 if (out_bit_depth > in_bit_depth) {
-                    y0 = _mm256_slli_epi16(y0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
-                    y1 = _mm256_slli_epi16(y1, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+                    y0 = _mm256_slli_epi16(y0, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, 0>());
+                    y1 = _mm256_slli_epi16(y1, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, 0>());
                 } else if (out_bit_depth < in_bit_depth) {
-                    const __m256i rsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, 0>());
+                    const __m256i rsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add_<out_bit_depth, in_bit_depth, 0>());
                     y0 = _mm256_add_epi16(y0, rsftAdd);
                     y1 = _mm256_add_epi16(y1, rsftAdd);
-                    y0 = _mm256_srli_epi16(y0, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, 0>());
-                    y1 = _mm256_srli_epi16(y1, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, 0>());
+                    y0 = _mm256_srli_epi16(y0, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, 0>());
+                    y1 = _mm256_srli_epi16(y1, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, 0>());
                 }
                 _mm256_storeu_si256((__m256i*)(dst_ptr +  0), y0);
                 _mm256_storeu_si256((__m256i*)(dst_ptr + 16), y1);
@@ -784,7 +784,7 @@ void RGY_FORCEINLINE convert_yuv444_to_nv12_p_avx2_base(void** dst, const void**
     const int crop_bottom = crop[3];
     const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
-    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
     //Y成分のコピー
     if (!uv_only) {
         copy_y_plane<Tin, in_bit_depth, Tout, out_bit_depth>(dst[0], dst_y_pitch_byte, src[0], src_y_pitch_byte, width, crop, y_range);
@@ -827,15 +827,15 @@ void RGY_FORCEINLINE convert_yuv444_to_nv12_p_avx2_base(void** dst, const void**
                     v00 = _mm256_add_epi32(v00, v10);
                     v01 = _mm256_add_epi32(v01, v11);
                     const int shift_offset = 1;
-                    const __m256i rsftAdd = _mm256_set1_epi32((short)conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, shift_offset>());
+                    const __m256i rsftAdd = _mm256_set1_epi32((short)conv_bit_depth_rsft_add_<out_bit_depth, in_bit_depth, shift_offset>());
                     u00 = _mm256_add_epi32(u00, rsftAdd); // 14 -  0
                     u01 = _mm256_add_epi32(u01, rsftAdd); // 30 - 16
                     v00 = _mm256_add_epi32(v00, rsftAdd);
                     v01 = _mm256_add_epi32(v01, rsftAdd);
-                    u00 = _mm256_srli_epi32(u00, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
-                    u01 = _mm256_srli_epi32(u01, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
-                    v00 = _mm256_srli_epi32(v00, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
-                    v01 = _mm256_srli_epi32(v01, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                    u00 = _mm256_srli_epi32(u00, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                    u01 = _mm256_srli_epi32(u01, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                    v00 = _mm256_srli_epi32(v00, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                    v01 = _mm256_srli_epi32(v01, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>());
                     u00 = _mm256_packus_epi32(u00, u01); // 30 - 24 | 14 -  8 | 22 - 16 | 6 - 0
                     v00 = _mm256_packus_epi32(v00, v01); // 30 - 24 | 14 -  8 | 22 - 16 | 6 - 0
                     u0 = _mm256_permute4x64_epi64(u00, _MM_SHUFFLE(3, 1, 2, 0));
@@ -856,18 +856,18 @@ void RGY_FORCEINLINE convert_yuv444_to_nv12_p_avx2_base(void** dst, const void**
 #if 0
                     const int shift_offset = 1;
                     if (out_bit_depth > in_bit_depth + shift_offset) {
-                        u0 = _mm256_slli_epi16(u0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        v0 = _mm256_slli_epi16(v0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        u1 = _mm256_slli_epi16(u1, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        v1 = _mm256_slli_epi16(v1, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        u0 = _mm256_slli_epi16(u0, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        v0 = _mm256_slli_epi16(v0, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        u1 = _mm256_slli_epi16(u1, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        v1 = _mm256_slli_epi16(v1, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>());
                     }
                     u0 = _mm256_adds_epu16(u0, u1); // 30 - 0
                     v0 = _mm256_adds_epu16(v0, v1); // 30 - 0
 #else
                     u0 = _mm256_avg_epu8(u0, u1); // 30 - 0
                     v0 = _mm256_avg_epu8(v0, v1); // 30 - 0
-                    u0 = _mm256_slli_epi16(u0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
-                    v0 = _mm256_slli_epi16(v0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+                    u0 = _mm256_slli_epi16(u0, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, 0>());
+                    v0 = _mm256_slli_epi16(v0, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, 0>());
 #endif
                 } else {
                     const auto mask0000ffff = _mm256_set1_epi32(0x0000ffff);
@@ -885,20 +885,20 @@ void RGY_FORCEINLINE convert_yuv444_to_nv12_p_avx2_base(void** dst, const void**
                     v01 = _mm256_add_epi32(v01, v11);
                     const int shift_offset = 1;
                     if (out_bit_depth > in_bit_depth + shift_offset) {
-                        u00 = _mm256_slli_epi32(u00, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        u01 = _mm256_slli_epi32(u01, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        v00 = _mm256_slli_epi32(v00, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        v01 = _mm256_slli_epi32(v01, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        u00 = _mm256_slli_epi32(u00, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        u01 = _mm256_slli_epi32(u01, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        v00 = _mm256_slli_epi32(v00, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        v01 = _mm256_slli_epi32(v01, conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>());
                     } else if (out_bit_depth < in_bit_depth + shift_offset) {
-                        const __m256i rsftAdd = _mm256_set1_epi32((short)conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, shift_offset>());
+                        const __m256i rsftAdd = _mm256_set1_epi32((short)conv_bit_depth_rsft_add_<out_bit_depth, in_bit_depth, shift_offset>());
                         u00 = _mm256_add_epi32(u00, rsftAdd); // 14 -  0
                         u01 = _mm256_add_epi32(u01, rsftAdd); // 30 - 16
                         v00 = _mm256_add_epi32(v00, rsftAdd);
                         v01 = _mm256_add_epi32(v01, rsftAdd);
-                        u00 = _mm256_srli_epi32(u00, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        u01 = _mm256_srli_epi32(u01, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        v00 = _mm256_srli_epi32(v00, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
-                        v01 = _mm256_srli_epi32(v01, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        u00 = _mm256_srli_epi32(u00, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        u01 = _mm256_srli_epi32(u01, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        v00 = _mm256_srli_epi32(v00, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>());
+                        v01 = _mm256_srli_epi32(v01, conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>());
                     }
                     u00 = _mm256_packus_epi32(u00, u01); // 30 - 24 | 14 -  8 | 22 - 16 | 6 - 0
                     v00 = _mm256_packus_epi32(v00, v01); // 30 - 24 | 14 -  8 | 22 - 16 | 6 - 0
@@ -1087,7 +1087,7 @@ static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444_avx2(void **dst, const v
     const int src_y_pitch = src_y_pitch_byte >> 1;
     const int src_uv_pitch = src_uv_pitch_byte >> 1;
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
-    const __m256i xrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m256i xrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
     uint16_t *srcYLine = (uint16_t *)src[0] + src_y_pitch  * y_range.start_src + crop_left;
     uint16_t *srcULine = (uint16_t *)src[1] + src_uv_pitch * y_range.start_src + crop_left;
     uint16_t *srcVLine = (uint16_t *)src[2] + src_uv_pitch * y_range.start_src + crop_left;
@@ -1226,7 +1226,7 @@ void convert_yuv444_high_to_y410_avx2(void** dst, const void** src, int width, i
     const int src_y_pitch = src_y_pitch_byte / sizeof(uint16_t);
     const int dst_y_pitch = dst_y_pitch_byte / sizeof(uint32_t);
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
-    const __m256i xrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 10, 0>());
+    const __m256i xrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add_<10, in_bit_depth, 0>());
     uint16_t* srcYLine = (uint16_t*)src[0] + src_y_pitch * y_range.start_src + crop_left;
     uint16_t* srcULine = (uint16_t*)src[1] + src_y_pitch * y_range.start_src + crop_left;
     uint16_t* srcVLine = (uint16_t*)src[2] + src_y_pitch * y_range.start_src + crop_left;
@@ -1407,7 +1407,7 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_avx2_base(void **dst, 
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     const int src_y_pitch = src_y_pitch_byte >> 1;
-    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add_<8, in_bit_depth, 0>());
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
     for (int i = 0; i < 3; i++) {
         uint16_t *srcYLine = (uint16_t *)src[i] + src_y_pitch * y_range.start_src + crop_left;

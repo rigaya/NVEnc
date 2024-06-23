@@ -884,6 +884,10 @@ struct ColorspaceConv {
     bool scene_ref;
 
     ColorspaceConv();
+    ColorspaceConv(const VideoVUIInfo& csp_from, const VideoVUIInfo &csp_to) : ColorspaceConv() {
+        from = csp_from;
+        to = csp_to;
+    }
     void set(const VideoVUIInfo& csp_from, const VideoVUIInfo &csp_to) {
         from = csp_from;
         to = csp_to;

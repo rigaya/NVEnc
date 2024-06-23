@@ -143,7 +143,7 @@ public:
     NVEncFilterColorspace();
     virtual ~NVEncFilterColorspace();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
-    virtual RGY_ERR setupCustomFilter(const RGYFrameInfo &frameInfo, shared_ptr<NVEncFilterParamColorspace> prm);
+    virtual RGY_ERR setupCustomFilter(const RGY_CSP cspIn, const RGYFrameInfo &frameInfo, shared_ptr<NVEncFilterParamColorspace> prm);
     virtual std::string genKernelCode();
     VideoVUIInfo VuiOut() const;
 protected:

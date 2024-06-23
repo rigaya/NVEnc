@@ -861,6 +861,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             AddMessage(RGY_LOG_ERROR, _T("Failed to init ngx vsr filter.\n"));
             return sts;
         }
+        pResizeParam->frameOut = pResizeParam->ngxvsr->frameOut;
     } else {
         m_nvvfxSuperRes.reset(); // 不要になったら解放
         pResizeParam->nvvfxSuperRes.reset();
@@ -1009,10 +1010,6 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (m_param->frameOut.csp != m_param->frameIn.csp) {
-        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
 
     auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(m_param);
     if (!pResizeParam) {
@@ -1057,6 +1054,11 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         }
         ppOutputFrames[0] = outInfo[0];
         return RGY_ERR_NONE;
+    }
+
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
+        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
+        return RGY_ERR_UNSUPPORTED;
     }
 
     static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);

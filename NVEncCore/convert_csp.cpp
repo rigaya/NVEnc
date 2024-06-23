@@ -259,7 +259,7 @@ void copy_nv12p010_to_nv12p010_c_internal(void **dst, const void **src, int widt
             const Tin *ptrSrc = (const Tin *)srcYLine;
             Tout *ptrDst = (Tout *)dstLine;
             for (int x = 0; x < x_fin; x++) {
-                ptrDst[x] = (Tout)conv_bit_depth<out_bit_depth, in_bit_depth, 0>(ptrSrc[x]);
+                ptrDst[x] = (Tout)conv_bit_depth_<out_bit_depth, in_bit_depth, 0>(ptrSrc[x]);
             }
         }
     }
@@ -385,7 +385,7 @@ static void convert_yv12_high_to_nv12_c_base(void **dst, const void **src, int w
             uint8_t *dst_ptr = dstLine;
             uint16_t *src_ptr = srcYLine;
             for (int x = 0; x < y_width; x++) {
-                dst_ptr[x] = (uint8_t)conv_bit_depth<in_bit_depth, 8, 0>(src_ptr[x]);
+                dst_ptr[x] = (uint8_t)conv_bit_depth_<8, in_bit_depth, 0>(src_ptr[x]);
             }
         }
     }
@@ -401,8 +401,8 @@ static void convert_yv12_high_to_nv12_c_base(void **dst, const void **src, int w
         uint16_t *src_v_ptr = srcVLine;
         uint8_t *dst_ptr = dstLine;
         for (int x = 0; x < x_fin; x++) {
-            dst_ptr[2*x+0] = (uint8_t)conv_bit_depth<in_bit_depth, 8, 0>(src_u_ptr[x]);
-            dst_ptr[2*x+1] = (uint8_t)conv_bit_depth<in_bit_depth, 8, 0>(src_v_ptr[x]);
+            dst_ptr[2*x+0] = (uint8_t)conv_bit_depth_<8, in_bit_depth, 0>(src_u_ptr[x]);
+            dst_ptr[2*x+1] = (uint8_t)conv_bit_depth_<8, in_bit_depth, 0>(src_v_ptr[x]);
         }
     }
 }
@@ -449,7 +449,7 @@ static void RGY_FORCEINLINE convert_yv12_high_to_p010_c_base(void **dst, const v
                 uint16_t *src_ptr = srcYLine;
                 uint16_t *dst_ptr = dstLine;
                 for (int x = 0; x < y_width; x++) {
-                    dst_ptr[x] = (uint16_t)conv_bit_depth<in_bit_depth, 16, 0>(src_ptr[x]);
+                    dst_ptr[x] = (uint16_t)conv_bit_depth_<16, in_bit_depth, 0>(src_ptr[x]);
                 }
             }
         }
@@ -466,8 +466,8 @@ static void RGY_FORCEINLINE convert_yv12_high_to_p010_c_base(void **dst, const v
         uint16_t *src_v_ptr = srcVLine;
         uint16_t *dst_ptr = dstLine;
         for (int x = 0; x < x_fin; x++) {
-            dst_ptr[2 * x + 0] = (uint16_t)conv_bit_depth<in_bit_depth, 16, 0>(src_u_ptr[x]);
-            dst_ptr[2 * x + 1] = (uint16_t)conv_bit_depth<in_bit_depth, 16, 0>(src_v_ptr[x]);
+            dst_ptr[2 * x + 0] = (uint16_t)conv_bit_depth_<16, in_bit_depth, 0>(src_u_ptr[x]);
+            dst_ptr[2 * x + 1] = (uint16_t)conv_bit_depth_<16, in_bit_depth, 0>(src_v_ptr[x]);
         }
     }
 }
@@ -498,7 +498,7 @@ void convert_yv12_09_to_p010_c(void **dst, const void **src, int width, int src_
 #endif
 
 #define CHANGE_BIT_DEPTH_1(c0, offset) \
-    conv_bit_depth<in_bit_depth, out_bit_depth, offset>(c0)
+    conv_bit_depth_<out_bit_depth, in_bit_depth, offset>(c0)
 
 #define CHANGE_BIT_DEPTH_2(c0, c1, offset) \
     c0 = CHANGE_BIT_DEPTH_1(c0, offset); \
@@ -1162,7 +1162,7 @@ static void convert_yuv422_to_p210_c(void **dst, const void **src, int width, in
         uint8_t *src_ptr = srcYLine;
         uint16_t *dst_ptr = dstLine;
         for (int x = 0; x < y_width; x++) {
-            dst_ptr[x] = (uint16_t)conv_bit_depth<8, 16, 0>(src_ptr[x]);
+            dst_ptr[x] = (uint16_t)conv_bit_depth_<16, 8, 0>(src_ptr[x]);
         }
     }
     //UV成分のコピー
@@ -1176,8 +1176,8 @@ static void convert_yuv422_to_p210_c(void **dst, const void **src, int width, in
         uint8_t *src_v_ptr = srcVLine;
         uint16_t *dst_ptr = dstLine;
         for (int x = 0; x < x_fin; x++) {
-            dst_ptr[2*x+0] = (uint16_t)conv_bit_depth<8, 16, 0>(src_u_ptr[x]);
-            dst_ptr[2*x+1] = (uint16_t)conv_bit_depth<8, 16, 0>(src_v_ptr[x]);
+            dst_ptr[2*x+0] = (uint16_t)conv_bit_depth_<16, 8, 0>(src_u_ptr[x]);
+            dst_ptr[2*x+1] = (uint16_t)conv_bit_depth_<16, 8, 0>(src_v_ptr[x]);
         }
     }
 }
@@ -1203,7 +1203,7 @@ static void RGY_FORCEINLINE convert_yuv422_high_to_p210_c_base(void **dst, const
             uint16_t *src_ptr = srcYLine;
             uint16_t *dst_ptr = dstLine;
             for (int x = 0; x < y_width; x++) {
-                dst_ptr[x] = (uint16_t)conv_bit_depth<in_bit_depth, 16, 0>(src_ptr[x]);
+                dst_ptr[x] = (uint16_t)conv_bit_depth_<16, in_bit_depth, 0>(src_ptr[x]);
             }
         }
     }
@@ -1218,8 +1218,8 @@ static void RGY_FORCEINLINE convert_yuv422_high_to_p210_c_base(void **dst, const
         uint16_t *src_v_ptr = srcVLine;
         uint16_t *dst_ptr = dstLine;
         for (int x = 0; x < x_fin; x++) {
-            dst_ptr[2*x + 0] = (uint16_t)conv_bit_depth<in_bit_depth, 16, 0>(src_u_ptr[x]);
-            dst_ptr[2*x + 1] = (uint16_t)conv_bit_depth<in_bit_depth, 16, 0>(src_v_ptr[x]);
+            dst_ptr[2*x + 0] = (uint16_t)conv_bit_depth_<16, in_bit_depth, 0>(src_u_ptr[x]);
+            dst_ptr[2*x + 1] = (uint16_t)conv_bit_depth_<16, in_bit_depth, 0>(src_v_ptr[x]);
         }
     }
 }
@@ -1281,7 +1281,7 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_16_c_base(void **dst, 
                 const uint16_t *src_ptr = srcYLine;
                 uint16_t *dst_ptr = dstLine;
                 for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
-                    dst_ptr[x] = (uint16_t)conv_bit_depth<in_bit_depth, 16, 0>(src_ptr[x]);
+                    dst_ptr[x] = (uint16_t)conv_bit_depth_<16, in_bit_depth, 0>(src_ptr[x]);
                 }
             }
         }
@@ -1323,7 +1323,7 @@ void convert_yuv444_to_yuv444_16_c(void **dst, const void **src, int width, int 
             uint8_t *src_ptr = srcYLine;
             uint16_t *dst_ptr = dstLine;
             for (int x = 0; x < y_width; x++) {
-                dst_ptr[x] = (uint16_t)conv_bit_depth<8, 16, 0>(src_ptr[x]);
+                dst_ptr[x] = (uint16_t)conv_bit_depth_<16, 8, 0>(src_ptr[x]);
             }
         }
     }
@@ -1346,7 +1346,7 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_c_base(void **dst, con
             uint16_t *src_ptr = srcYLine;
             uint8_t *dst_ptr = dstLine;
             for (int x = 0; x < y_width; x++) {
-                dst_ptr[x] = (uint8_t)conv_bit_depth<in_bit_depth, 8, 0>(src_ptr[x]);
+                dst_ptr[x] = (uint8_t)conv_bit_depth_<8, in_bit_depth, 0>(src_ptr[x]);
             }
         }
     }
@@ -1605,7 +1605,7 @@ static void RGY_FORCEINLINE convert_yv12_i_to_yuv444_c(void **dst, const void **
                 memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
             } else {
                 for (int x = 0; x < y_width; x++) {
-                    dstLine[x] = (Tout)conv_bit_depth<in_bit_depth, out_bit_depth, 0>(srcYLine[x]);
+                    dstLine[x] = (Tout)conv_bit_depth_<out_bit_depth, in_bit_depth, 0>(srcYLine[x]);
                 }
             }
         }

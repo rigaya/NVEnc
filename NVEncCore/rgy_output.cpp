@@ -835,11 +835,11 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
                 uint16_t *ptrU = (uint16_t *)ptrLineU;
                 uint16_t *ptrV = (uint16_t *)ptrLineV;
                 switch (RGY_CSP_BIT_DEPTH[pSurface->csp()]) {
-                case 10: convert_nv12_to_yv12_line_c<uint16_t, uint16_t, 16, 10>(ptrU, ptrV, ptrUV, widthUV); break;
-                case 12: convert_nv12_to_yv12_line_c<uint16_t, uint16_t, 16, 12>(ptrU, ptrV, ptrUV, widthUV); break;
-                case 14: convert_nv12_to_yv12_line_c<uint16_t, uint16_t, 16, 14>(ptrU, ptrV, ptrUV, widthUV); break;
+                case 10: convert_nv12_to_yv12_line_c<uint16_t, 10, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV); break;
+                case 12: convert_nv12_to_yv12_line_c<uint16_t, 12, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV); break;
+                case 14: convert_nv12_to_yv12_line_c<uint16_t, 14, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV); break;
                 case 16:
-                default: convert_nv12_to_yv12_line_c<uint16_t, uint16_t, 16, 16>(ptrU, ptrV, ptrUV, widthUV); break;
+                default: convert_nv12_to_yv12_line_c<uint16_t, 16, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV); break;
                 }
             } else {
                 return RGY_ERR_INVALID_COLOR_FORMAT;

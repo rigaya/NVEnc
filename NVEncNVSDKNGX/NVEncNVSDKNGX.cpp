@@ -282,25 +282,25 @@ RGY_ERR NVEncNVSDKNGXVSR::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKN
 
     const NVEncNVSDKNGXParamVSR *vsrParam = (const NVEncNVSDKNGXParamVSR *)param;
 
-    // setup VSR params
-    NVSDK_NGX_D3D11_VSR_Eval_Params vsrEvalParams;
-    vsrEvalParams.pInput = frameSrc;
-    vsrEvalParams.pOutput = useDstTmp ? m_pDstTmpNGX : frameDst;
-    vsrEvalParams.InputSubrectBase.X = rectSrc->left;
-    vsrEvalParams.InputSubrectBase.Y = rectSrc->top;
-    vsrEvalParams.InputSubrectSize.Width = rectSrc->right - rectSrc->left;
-    vsrEvalParams.InputSubrectSize.Height = rectSrc->bottom - rectSrc->top;
-    vsrEvalParams.OutputSubrectBase.X = rectDst->left;
-    vsrEvalParams.OutputSubrectBase.Y = rectDst->top;
-    vsrEvalParams.OutputSubrectSize.Width = rectDst->right - rectDst->left;
-    vsrEvalParams.OutputSubrectSize.Height = rectDst->bottom - rectDst->top;
-    vsrEvalParams.QualityLevel = (NVSDK_NGX_VSR_QualityLevel)vsrParam->quality;
+    // setup params
+    NVSDK_NGX_D3D11_VSR_Eval_Params evalParams;
+    evalParams.pInput = frameSrc;
+    evalParams.pOutput = useDstTmp ? m_pDstTmpNGX : frameDst;
+    evalParams.InputSubrectBase.X = rectSrc->left;
+    evalParams.InputSubrectBase.Y = rectSrc->top;
+    evalParams.InputSubrectSize.Width = rectSrc->right - rectSrc->left;
+    evalParams.InputSubrectSize.Height = rectSrc->bottom - rectSrc->top;
+    evalParams.OutputSubrectBase.X = rectDst->left;
+    evalParams.OutputSubrectBase.Y = rectDst->top;
+    evalParams.OutputSubrectSize.Width = rectDst->right - rectDst->left;
+    evalParams.OutputSubrectSize.Height = rectDst->bottom - rectDst->top;
+    evalParams.QualityLevel = (NVSDK_NGX_VSR_QualityLevel)vsrParam->quality;
 
     if (m_pMultiThread) {
         m_pMultiThread->Enter();
     }
 
-    auto err = err_to_rgy(NGX_D3D11_EVALUATE_VSR_EXT(m_pD3D11DeviceContext, m_ngxFeature, m_ngxParameters, &vsrEvalParams));
+    auto err = err_to_rgy(NGX_D3D11_EVALUATE_VSR_EXT(m_pD3D11DeviceContext, m_ngxFeature, m_ngxParameters, &evalParams));
     if (err != RGY_ERR_NONE) return err;
 
     if (m_pDstTmpNGX) {
@@ -375,10 +375,10 @@ RGY_ERR NVEncNVSDKNGXTrueHDR::procFrame(ID3D11Texture2D* frameDst, const NVEncNV
             || rectSrc->top  < 0 || rectSrc->top >= rectSrc->bottom || rectSrc->bottom >(LONG)inDesc.Height) {
             return RGY_ERR_INVALID_FORMAT;
         }
-        // check output is DXGI_FORMAT_R8G8B8A8_UNORM or DXGI_FORMAT_B8G8R8A8_UNORM
+        // check output is DXGI_FORMAT_R10G10B10A2_UNORM or DXGI_FORMAT_R16G16B16A16_FLOAT
         D3D11_TEXTURE2D_DESC outDesc = {};
         frameDst->GetDesc(&outDesc);
-        if (outDesc.Format != DXGI_FORMAT_R8G8B8A8_UNORM && outDesc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
+        if (outDesc.Format != DXGI_FORMAT_R10G10B10A2_UNORM && outDesc.Format != DXGI_FORMAT_R16G16B16A16_FLOAT) {
             return RGY_ERR_INVALID_FORMAT;
         }
         // verify output rect is within range
@@ -415,25 +415,30 @@ RGY_ERR NVEncNVSDKNGXTrueHDR::procFrame(ID3D11Texture2D* frameDst, const NVEncNV
         }
     }
 
+    const auto truehdrParam = (const NVEncNVSDKNGXParamTrueHDR *)param;
+
     // setup params
-    NVSDK_NGX_D3D11_TrueHDR_Eval_Params vsrEvalParams;
-    vsrEvalParams.pInput = frameSrc;
-    vsrEvalParams.pOutput = useDstTmp ? m_pDstTmpNGX : frameDst;
-    vsrEvalParams.InputSubrectBase.X = rectSrc->left;
-    vsrEvalParams.InputSubrectBase.Y = rectSrc->top;
-    vsrEvalParams.InputSubrectSize.Width = rectSrc->right - rectSrc->left;
-    vsrEvalParams.InputSubrectSize.Height = rectSrc->bottom - rectSrc->top;
-    vsrEvalParams.OutputSubrectBase.X = rectDst->left;
-    vsrEvalParams.OutputSubrectBase.Y = rectDst->top;
-    vsrEvalParams.OutputSubrectSize.Width = rectDst->right - rectDst->left;
-    vsrEvalParams.OutputSubrectSize.Height = rectDst->bottom - rectDst->top;
-    vsrEvalParams.QualityLevel = (NVSDK_NGX_VSR_QualityLevel)quality;
+    NVSDK_NGX_D3D11_TRUEHDR_Eval_Params evalParams;
+    evalParams.pInput = frameSrc;
+    evalParams.pOutput = useDstTmp ? m_pDstTmpNGX : frameDst;
+    evalParams.InputSubrectTL.X = rectSrc->left;
+    evalParams.InputSubrectTL.Y = rectSrc->top;
+    evalParams.InputSubrectBR.Width = rectSrc->right;
+    evalParams.InputSubrectBR.Height = rectSrc->bottom;
+    evalParams.OutputSubrectTL.X = rectDst->left;
+    evalParams.OutputSubrectTL.Y = rectDst->top;
+    evalParams.OutputSubrectBR.Width = rectDst->right;
+    evalParams.OutputSubrectBR.Height = rectDst->bottom;
+    evalParams.Contrast = truehdrParam->contrast;
+    evalParams.Saturation = truehdrParam->saturation;
+    evalParams.MiddleGray = truehdrParam->middleGray;
+    evalParams.MaxLuminance = truehdrParam->maxLuminance;
 
     if (m_pMultiThread) {
         m_pMultiThread->Enter();
     }
 
-    auto err = err_to_rgy(NGX_D3D11_EVALUATE_TRUEHDR_EXT(m_pD3D11DeviceContext, m_ngxFeature, m_ngxParameters, &vsrEvalParams));
+    auto err = err_to_rgy(NGX_D3D11_EVALUATE_TRUEHDR_EXT(m_pD3D11DeviceContext, m_ngxFeature, m_ngxParameters, &evalParams));
     if (err != RGY_ERR_NONE) return err;
 
     if (m_pDstTmpNGX) {

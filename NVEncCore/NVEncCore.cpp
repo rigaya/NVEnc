@@ -752,7 +752,7 @@ bool NVEncCore::useNVVFX(const InEncodeVideoParam *inputParam) {
 bool NVEncCore::useNVNGX(const InEncodeVideoParam *inputParam) {
 #if (!defined(_M_IX86))
     const auto& vppnv = inputParam->vppnv;
-    if (vppnv.nvsdkngxTrueHDR.enable
+    if (vppnv.ngxTrueHDR.enable
         || inputParam->vpp.resize_algo == RGY_VPP_RESIZE_NGX_VSR) {
         return true;
     }
@@ -2985,9 +2985,10 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->nvvfxSuperRes->vuiInfo = VuiFiltered;
             } else if (isNgxResizeFiter(inputParam->vpp.resize_algo)) {
                 param->ngxvsr = std::make_shared<NVEncFilterParamNGXVSR>();
-                param->ngxvsr->ngxvsr = inputParam->vppnv.nvsdkngxVSR;
+                param->ngxvsr->ngxvsr = inputParam->vppnv.ngxVSR;
                 param->ngxvsr->compute_capability = m_dev->cc();
                 param->ngxvsr->dx11 = m_dev->dx11();
+                param->ngxvsr->vui = VuiFiltered;
             }
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;

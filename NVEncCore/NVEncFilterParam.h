@@ -59,6 +59,12 @@ static const float FILTER_DEFAULT_NVVFX_SUPER_RES_STRENGTH = 0.4f;
 static const int FILTER_DEFAULT_NVVFX_SUPER_RES_MODE = 1;
 static const float FILTER_DEFAULT_NVVFX_UPSCALER_STRENGTH = 0.4f;
 
+static const int FILTER_DEFAULT_NGX_VSR_QUALITY = 1;
+static const int FILTER_DEFAULT_NGX_TRUEHDR_CONTRAST = 100;
+static const int FILTER_DEFAULT_NGX_TRUEHDR_SATURATION = 100;
+static const int FILTER_DEFAULT_NGX_TRUEHDR_MIDDLE_GRAY = 50;
+static const int FILTER_DEFAULT_NGX_TRUEHDR_MAX_LUMINANCE = 1000;
+
 static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
 
 const CX_DESC list_nppi_gauss[] = {
@@ -186,16 +192,16 @@ struct VppNGXVSR {
     tstring print() const;
 };
 
-struct VppNVSDKNGXTrueHDR {
+struct VppNGXTrueHDR {
     bool enable;
     uint32_t contrast;
     uint32_t saturation;
     uint32_t middleGray;
     uint32_t maxLuminance;
 
-    VppNVSDKNGXTrueHDR();
-    bool operator==(const VppNVSDKNGXTrueHDR &x) const;
-    bool operator!=(const VppNVSDKNGXTrueHDR &x) const;
+    VppNGXTrueHDR();
+    bool operator==(const VppNGXTrueHDR &x) const;
+    bool operator!=(const VppNGXTrueHDR &x) const;
     tstring print() const;
 };
 
@@ -209,8 +215,8 @@ struct VppParam {
     VppNvvfxSuperRes          nvvfxSuperRes;
     VppNvvfxUpScaler          nvvfxUpScaler;
     tstring                   nvvfxModelDir;
-    VppNGXVSR            nvsdkngxVSR;
-    VppNVSDKNGXTrueHDR        nvsdkngxTrueHDR;
+    VppNGXVSR                 ngxVSR;
+    VppNGXTrueHDR             ngxTrueHDR;
 
     VppParam();
 };

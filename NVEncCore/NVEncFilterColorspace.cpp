@@ -1543,8 +1543,10 @@ RGY_ERR ColorspaceOpCtrl::setOperation(RGY_CSP csp_in, RGY_CSP csp_out) {
         const auto to = m_path.back().to;
 
         //先頭にfloatでの規格化式を追加する
-        auto begin = ColorspaceOpInfo(from, from, make_unique<ColorspaceOpRange>(from, RGY_CSP_BIT_DEPTH[csp_in], true));
-        addOperation(begin);
+        if (!isDataTypeFP(csp_in)) {
+            auto begin = ColorspaceOpInfo(from, from, make_unique<ColorspaceOpRange>(from, RGY_CSP_BIT_DEPTH[csp_in], true));
+            addOperation(begin);
+        }
 
         AddMessage(RGY_LOG_DEBUG, _T("Set path...\n"));
         AddMessage(RGY_LOG_DEBUG, _T("  node: %s\n"), m_path.begin()->from.print_main().c_str());
@@ -1554,16 +1556,22 @@ RGY_ERR ColorspaceOpCtrl::setOperation(RGY_CSP csp_in, RGY_CSP csp_out) {
         }
 
         //最後にfloat->intの式を追加する
-        auto end = ColorspaceOpInfo(to, to, make_unique<ColorspaceOpRange>(to, RGY_CSP_BIT_DEPTH[csp_out], false));
-        addOperation(end);
+        if (!isDataTypeFP(csp_out)) {
+            auto end = ColorspaceOpInfo(to, to, make_unique<ColorspaceOpRange>(to, RGY_CSP_BIT_DEPTH[csp_out], false));
+            addOperation(end);
+        }
     } else if (false) { //for debug
         VideoVUIInfo dummy = VideoVUIInfo().to(RGY_MATRIX_BT709);
         //先頭にfloatでの規格化式を追加する
-        auto begin = ColorspaceOpInfo(dummy, dummy, make_unique<ColorspaceOpRange>(dummy, RGY_CSP_BIT_DEPTH[csp_in], true));
-        addOperation(begin);
+        if (!isDataTypeFP(csp_in)) {
+            auto begin = ColorspaceOpInfo(dummy, dummy, make_unique<ColorspaceOpRange>(dummy, RGY_CSP_BIT_DEPTH[csp_in], true));
+            addOperation(begin);
+        }
         //最後にfloat->intの式を追加する
-        auto end = ColorspaceOpInfo(dummy, dummy, make_unique<ColorspaceOpRange>(dummy, RGY_CSP_BIT_DEPTH[csp_out], false));
-        addOperation(end);
+        if (!isDataTypeFP(csp_out)) {
+            auto end = ColorspaceOpInfo(dummy, dummy, make_unique<ColorspaceOpRange>(dummy, RGY_CSP_BIT_DEPTH[csp_out], false));
+            addOperation(end);
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -1583,9 +1591,10 @@ const char *kernel_base2 = R"(
 
 static const int PIX_PER_THREAD = 4;
 
-#define toPix(x) (T)clamp((x) + 0.5f, 0.0f, (1<<(sizeof(T)*8)) - 0.5f)
+template<typename T> __device__ __inline__ T toPix(float x) { return (T)clamp((x) + 0.5f, 0.0f, (1<<(sizeof(T)*8)) - 0.5f); }
+template<> __device__ __inline__ float  toPix<float> (float x) { return x; }
 
-template<typename T>
+template<typename TypeOut, typename TypeIn>
 __global__ void kernel_filter(
     uint8_t *__restrict__ pDstY, uint8_t *__restrict__ pDstU, uint8_t *__restrict__ pDstV,
     const int dstPitch, const int dstWidth, const int dstHeight,
@@ -1594,11 +1603,20 @@ __global__ void kernel_filter(
     const RGYColorspaceDevParams *__restrict__ params) {
     const int ix = (blockIdx.x * blockDim.x + threadIdx.x) * PIX_PER_THREAD;
     const int iy =  blockIdx.y * blockDim.y + threadIdx.y;
+
+    struct __align__(sizeof(TypeIn) * 4) TypeIn4 {
+        TypeIn x, y, z, w;
+    };
+
+    struct __align__(sizeof(TypeOut) * 4) TypeOut4 {
+        TypeOut x, y, z, w;
+    };
+
     if (ix < dstWidth && iy < dstHeight) {
 
-        TYPE4 srcY = *(TYPE4 *)(pSrcY + iy * srcPitch + ix * sizeof(T));
-        TYPE4 srcU = *(TYPE4 *)(pSrcU + iy * srcPitch + ix * sizeof(T));
-        TYPE4 srcV = *(TYPE4 *)(pSrcV + iy * srcPitch + ix * sizeof(T));
+        TypeIn4 srcY = *(TypeIn4 *)(pSrcY + iy * srcPitch + ix * sizeof(TypeIn));
+        TypeIn4 srcU = *(TypeIn4 *)(pSrcU + iy * srcPitch + ix * sizeof(TypeIn));
+        TypeIn4 srcV = *(TypeIn4 *)(pSrcV + iy * srcPitch + ix * sizeof(TypeIn));
 
         float3 pix0 = make_float3((float)srcY.x, (float)srcU.x, (float)srcV.x);
         float3 pix1 = make_float3((float)srcY.y, (float)srcU.y, (float)srcV.y);
@@ -1610,15 +1628,15 @@ __global__ void kernel_filter(
         pix2 = convert_colorspace_custom(pix2, params);
         pix3 = convert_colorspace_custom(pix3, params);
 
-        TYPE4 dstY, dstU, dstV;
-        dstY.x = toPix(pix0.x); dstU.x = toPix(pix0.y); dstV.x = toPix(pix0.z);
-        dstY.y = toPix(pix1.x); dstU.y = toPix(pix1.y); dstV.y = toPix(pix1.z);
-        dstY.z = toPix(pix2.x); dstU.z = toPix(pix2.y); dstV.z = toPix(pix2.z);
-        dstY.w = toPix(pix3.x); dstU.w = toPix(pix3.y); dstV.w = toPix(pix3.z);
+        TypeOut4 dstY, dstU, dstV;
+        dstY.x = toPix<TypeOut>(pix0.x); dstU.x = toPix<TypeOut>(pix0.y); dstV.x = toPix<TypeOut>(pix0.z);
+        dstY.y = toPix<TypeOut>(pix1.x); dstU.y = toPix<TypeOut>(pix1.y); dstV.y = toPix<TypeOut>(pix1.z);
+        dstY.z = toPix<TypeOut>(pix2.x); dstU.z = toPix<TypeOut>(pix2.y); dstV.z = toPix<TypeOut>(pix2.z);
+        dstY.w = toPix<TypeOut>(pix3.x); dstU.w = toPix<TypeOut>(pix3.y); dstV.w = toPix<TypeOut>(pix3.z);
 
-        TYPE4 *ptrDstY = (TYPE4 *)(pDstY + iy * dstPitch + ix * sizeof(T));
-        TYPE4 *ptrDstU = (TYPE4 *)(pDstU + iy * dstPitch + ix * sizeof(T));
-        TYPE4 *ptrDstV = (TYPE4 *)(pDstV + iy * dstPitch + ix * sizeof(T));
+        TypeOut4 *ptrDstY = (TypeOut4 *)(pDstY + iy * dstPitch + ix * sizeof(TypeOut));
+        TypeOut4 *ptrDstU = (TypeOut4 *)(pDstU + iy * dstPitch + ix * sizeof(TypeOut));
+        TypeOut4 *ptrDstV = (TypeOut4 *)(pDstV + iy * dstPitch + ix * sizeof(TypeOut));
 
         ptrDstY[0] = dstY;
         ptrDstU[0] = dstU;
@@ -1686,11 +1704,11 @@ std::string NVEncFilterColorspace::genKernelCode() {
 #endif
 }
 
-RGY_ERR NVEncFilterColorspace::setupCustomFilter(const RGYFrameInfo& frameInfo, shared_ptr<NVEncFilterParamColorspace> prm) {
+RGY_ERR NVEncFilterColorspace::setupCustomFilter(const RGY_CSP cspIn, const RGYFrameInfo& frameInfo, shared_ptr<NVEncFilterParamColorspace> prm) {
 #if ENABLE_NVRTC
     VppCustom customPrms;
     customPrms.enable = true;
-    customPrms.compile_options = "--use_fast_math -DTYPE4=" + std::string((RGY_CSP_BIT_DEPTH[frameInfo.csp] > 8) ? "ushort4" : "uchar4");
+    customPrms.compile_options = "--use_fast_math";
     customPrms.filter_name = _T("colorspace_conv");
     customPrms.kernel_interface = VPP_CUSTOM_INTERFACE_PLANES;
     customPrms.interlace = VPP_CUSTOM_INTERLACE_FRAME;
@@ -1705,6 +1723,7 @@ RGY_ERR NVEncFilterColorspace::setupCustomFilter(const RGYFrameInfo& frameInfo, 
     shared_ptr<NVEncFilterParamCustom> paramCustom(new NVEncFilterParamCustom());
     paramCustom->custom = customPrms;
     paramCustom->frameIn = frameInfo;
+    paramCustom->frameIn.csp = cspIn;
     paramCustom->frameOut = frameInfo;
     paramCustom->baseFps = prm->baseFps;
     paramCustom->bOutOverwrite = false;
@@ -1741,17 +1760,24 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
         return RGY_ERR_INVALID_PARAM;
     }
 
+    const auto outCsp = prmCsp->frameOut.csp;
     prmCsp->frameOut = pParam->frameIn;
     if (!crop || cmpFrameInfoCspResolution(&crop->GetFilterParam()->frameIn, &pParam->frameIn)) {
         crop.reset();
         if (pParam->frameIn.csp != RGY_CSP_YUV444_16
             && pParam->frameIn.csp != RGY_CSP_YUV444
-            && RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] != RGY_CHROMAFMT_RGB) {
+            && pParam->frameIn.csp != RGY_CSP_RGB
+            && pParam->frameIn.csp != RGY_CSP_RGB_16
+            && pParam->frameIn.csp != RGY_CSP_RGB_F32) {
             unique_ptr<NVEncFilterCspCrop> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
             paramCrop->frameIn = pParam->frameIn;
             paramCrop->frameOut = pParam->frameIn;
-            paramCrop->frameOut.csp = (std::max(RGY_CSP_BIT_DEPTH[paramCrop->frameIn.csp], RGY_CSP_BIT_DEPTH[prmCsp->encCsp]) > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+            if (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_RGB_PACKED) {
+                paramCrop->frameOut.csp = RGY_CSP_RGB_F32;
+            } else {
+                paramCrop->frameOut.csp = (std::max(RGY_CSP_BIT_DEPTH[paramCrop->frameIn.csp], RGY_CSP_BIT_DEPTH[prmCsp->encCsp]) > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+            }
             paramCrop->baseFps = pParam->baseFps;
             paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->bOutOverwrite = false;
@@ -1781,12 +1807,17 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 AddMessage(RGY_LOG_ERROR, _T("source matrix must be \"GBR\" when input is in RGB format.\n"));
                 return RGY_ERR_INVALID_PARAM;
             }
-            if (prmCsp->colorspace.convs.back().to.matrix == RGY_MATRIX_RGB) {
-                AddMessage(RGY_LOG_ERROR, _T("output matrix to \"GBR\" is not supported.\n"));
-                return RGY_ERR_INVALID_PARAM;
-            }
-            prmCsp->frameOut.csp = RGY_CSP_YUV444;
         }
+        if (prmCsp->colorspace.convs.back().to.matrix == RGY_MATRIX_RGB) {
+            if (RGY_CSP_CHROMA_FORMAT[outCsp] == RGY_CHROMAFMT_RGB) {
+                prmCsp->frameOut.csp = outCsp;
+            } else {
+                prmCsp->frameOut.csp = (RGY_CSP_BIT_DEPTH[outCsp] > 8) ? RGY_CSP_RGB_16 : RGY_CSP_RGB;
+            }
+        } else {
+            prmCsp->frameOut.csp = (std::max(RGY_CSP_BIT_DEPTH[filterInCsp], RGY_CSP_BIT_DEPTH[prmCsp->encCsp]) > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+        }
+
         opCtrl = std::make_unique<ColorspaceOpCtrl>(pPrintMes);
         if (prmCsp->colorspace.lut3d.table_file.length() > 0) {
             if (prmCsp->colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED) {
@@ -1823,7 +1854,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 }
             }
         }
-        opCtrl->setOperation(filterInCsp, filterInCsp);
+        opCtrl->setOperation(filterInCsp, prmCsp->frameOut.csp);
         if (additionalParams.size() > 0) {
             AddMessage(RGY_LOG_DEBUG, _T("additional param size: %llu.\n"), (uint64_t)additionalParams.size());
             additionalParamsDev = std::make_unique<CUMemBuf>(additionalParams.size());
@@ -1839,7 +1870,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 return sts;
             }
         }
-        if ((sts = setupCustomFilter(prmCsp->frameOut, prmCsp)) != RGY_ERR_NONE) {
+        if ((sts = setupCustomFilter(filterInCsp, prmCsp->frameOut, prmCsp)) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to setup custom filter: %s.\n"), get_err_mes(sts));
             return sts;
         }

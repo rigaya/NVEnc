@@ -244,6 +244,83 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
 };
 static_assert(sizeof(RGY_CSP_BIT_DEPTH) / sizeof(RGY_CSP_BIT_DEPTH[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_DEPTH) == RGY_CSP_COUNT");
 
+enum RGY_DATA_TYPE {
+    RGY_DATA_TYPE_INVALID = 0,
+    RGY_DATA_TYPE_U8,
+    RGY_DATA_TYPE_U16,
+    RGY_DATA_TYPE_U32,
+    RGY_DATA_TYPE_FP16,
+    RGY_DATA_TYPE_FP32,
+    RGY_DATA_TYPE_COUNT,
+};
+
+static const RGY_DATA_TYPE RGY_CSP_DATA_TYPE[] = {
+     RGY_DATA_TYPE_INVALID, //RGY_CSP_NA
+     RGY_DATA_TYPE_U8, //RGY_CSP_NV12
+     RGY_DATA_TYPE_U8, //RGY_CSP_YV12
+     RGY_DATA_TYPE_U8, //RGY_CSP_YUY2
+     RGY_DATA_TYPE_U8, //RGY_CSP_YUV422
+     RGY_DATA_TYPE_U8, //RGY_CSP_NV16
+     RGY_DATA_TYPE_U8, //RGY_CSP_NV24
+     RGY_DATA_TYPE_U8, //RGY_CSP_YUV444
+     RGY_DATA_TYPE_U16, //RGY_CSP_YV12_09
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16, //RGY_CSP_YV12_16
+     RGY_DATA_TYPE_U16, //RGY_CSP_P010
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUV422_09
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUV422_16
+     RGY_DATA_TYPE_U16, //RGY_CSP_P210
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUV444_09
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16,
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUV444_16
+     RGY_DATA_TYPE_U32, //RGY_CSP_YUV444_32
+     RGY_DATA_TYPE_U8, //RGY_CSP_YUVA444
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA444_16
+     RGY_DATA_TYPE_U8, //RGY_CSP_AYUV444
+     RGY_DATA_TYPE_U16, //RGY_CSP_AYUV444_16
+     RGY_DATA_TYPE_U16, //RGY_CSP_Y210
+     RGY_DATA_TYPE_U16, //RGY_CSP_Y216
+     RGY_DATA_TYPE_U16, //RGY_CSP_Y410
+     RGY_DATA_TYPE_U16, //RGY_CSP_Y416
+     RGY_DATA_TYPE_U8, //RGY_CSP_RGB24R
+     RGY_DATA_TYPE_U8, //RGY_CSP_RGB32R
+     RGY_DATA_TYPE_U8, //RGY_CSP_RGB24
+     RGY_DATA_TYPE_U8, //RGY_CSP_RGB32
+     RGY_DATA_TYPE_U8, //RGY_CSP_BGR24
+     RGY_DATA_TYPE_U8, //RGY_CSP_BGR32
+     RGY_DATA_TYPE_FP16, //RGY_CSP_RGBA_FP16_P
+     RGY_DATA_TYPE_U8, //RGY_CSP_RGB
+     RGY_DATA_TYPE_U8, //RGY_CSP_RGBA
+     RGY_DATA_TYPE_U8, //RGY_CSP_GBR
+     RGY_DATA_TYPE_U8, //RGY_CSP_GBRA
+     RGY_DATA_TYPE_U16, //RGY_CSP_RGB_16
+     RGY_DATA_TYPE_U16, //RGY_CSP_RGBA_16
+     RGY_DATA_TYPE_U16, //RGY_CSP_BGR_16
+     RGY_DATA_TYPE_U16, //RGY_CSP_BGRA_16
+     RGY_DATA_TYPE_FP32, //RGY_CSP_RGB_F32
+     RGY_DATA_TYPE_FP32, //RGY_CSP_RGBA_F32
+     RGY_DATA_TYPE_FP32, //RGY_CSP_BGR_F32
+     RGY_DATA_TYPE_FP32, //RGY_CSP_BGRA_F32
+     RGY_DATA_TYPE_U16, //RGY_CSP_YC48
+     RGY_DATA_TYPE_U8, //RGY_CSP_Y8
+     RGY_DATA_TYPE_U16, //RGY_CSP_Y16
+};
+static_assert(sizeof(RGY_CSP_DATA_TYPE) / sizeof(RGY_CSP_DATA_TYPE[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_DATA_TYPE) == RGY_CSP_COUNT");
+
+static const bool isDataTypeFP(const RGY_DATA_TYPE type) {
+    return type == RGY_DATA_TYPE_FP16 || type == RGY_DATA_TYPE_FP32;
+}
+static const bool isDataTypeFP(const RGY_CSP csp) {
+    return isDataTypeFP(RGY_CSP_DATA_TYPE[csp]);
+}
+
 static const uint8_t RGY_CSP_PLANES[] = {
      0, //RGY_CSP_NA
      2, //RGY_CSP_NV12
@@ -594,34 +671,34 @@ static inline THREAD_Y_RANGE thread_y_range(int y_start, int y_end, int thread_i
 #define CU_DEV_HOST_CODE inline
 #endif
 
-template<int in_bit_depth, int out_bit_depth, int shift_offset>
+template<int out_bit_depth, int in_bit_depth, int shift_offset>
 CU_DEV_HOST_CODE
-static int conv_bit_depth_lsft() {
+static int conv_bit_depth_lsft_() {
     const int lsft = out_bit_depth - (in_bit_depth + shift_offset);
     return lsft < 0 ? 0 : lsft;
 }
 
-template<int in_bit_depth, int out_bit_depth, int shift_offset>
+template<int out_bit_depth, int in_bit_depth, int shift_offset>
 CU_DEV_HOST_CODE
-static int conv_bit_depth_rsft() {
+static int conv_bit_depth_rsft_() {
     const int rsft = in_bit_depth + shift_offset - out_bit_depth;
     return rsft < 0 ? 0 : rsft;
 }
 
-template<int in_bit_depth, int out_bit_depth, int shift_offset>
+template<int out_bit_depth, int in_bit_depth, int shift_offset>
 CU_DEV_HOST_CODE
-static int conv_bit_depth_rsft_add() {
-    const int rsft = conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>();
+static int conv_bit_depth_rsft_add_() {
+    const int rsft = conv_bit_depth_rsft_<in_bit_depth, out_bit_depth, shift_offset>();
     return (rsft - 1 >= 0) ? 1 << (rsft - 1) : 0;
 }
 
-template<int in_bit_depth, int out_bit_depth, int shift_offset>
+template<int out_bit_depth, int in_bit_depth, int shift_offset>
 CU_DEV_HOST_CODE
-static int conv_bit_depth(int c) {
+static int conv_bit_depth_(int c) {
     if (out_bit_depth > in_bit_depth + shift_offset) {
-        return c << conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>();
+        return c << conv_bit_depth_lsft_<out_bit_depth, in_bit_depth, shift_offset>();
     } else if (out_bit_depth < in_bit_depth + shift_offset) {
-        const int x = (c + conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, shift_offset>()) >> conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>();
+        const int x = (c + conv_bit_depth_rsft_add_<out_bit_depth, in_bit_depth, shift_offset>()) >> conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>();
         const int low = 0;
         const int high = (1 << out_bit_depth) - 1;
         return (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high));
@@ -630,11 +707,11 @@ static int conv_bit_depth(int c) {
     }
 }
 
-template<typename Tout, typename Tin, int in_bit_depth, int out_bit_depth>
+template<typename Tout, int out_bit_depth, typename Tin, int in_bit_depth>
 static void convert_nv12_to_yv12_line_c(Tout *dst_ptr_u, Tout *dst_ptr_v, const Tin *src_uv_ptr, const int x_fin) {
     for (int x = 0; x < x_fin; x++) {
-        dst_ptr_u[x] = (Tout)conv_bit_depth<in_bit_depth, out_bit_depth, 0>(src_uv_ptr[2 * x + 0]);
-        dst_ptr_v[x] = (Tout)conv_bit_depth<in_bit_depth, out_bit_depth, 0>(src_uv_ptr[2 * x + 1]);
+        dst_ptr_u[x] = (Tout)conv_bit_depth_<out_bit_depth, in_bit_depth, 0>(src_uv_ptr[2 * x + 0]);
+        dst_ptr_v[x] = (Tout)conv_bit_depth_<out_bit_depth, in_bit_depth, 0>(src_uv_ptr[2 * x + 1]);
     }
 }
 

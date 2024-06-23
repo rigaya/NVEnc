@@ -159,7 +159,7 @@ tstring VppNvvfxUpScaler::print() const {
 
 VppNGXVSR::VppNGXVSR() :
     enable(false),
-    quality(0) {
+    quality(FILTER_DEFAULT_NGX_VSR_QUALITY) {
 }
 
 bool VppNGXVSR::operator==(const VppNGXVSR& x) const {
@@ -174,15 +174,15 @@ tstring VppNGXVSR::print() const {
     return strsprintf(_T("nvsdk-ngx vsr: quality: %d"), quality);
 }
 
-VppNVSDKNGXTrueHDR::VppNVSDKNGXTrueHDR() :
+VppNGXTrueHDR::VppNGXTrueHDR() :
     enable(false),
-    contrast(0),
-    saturation(0),
-    middleGray(0),
-    maxLuminance(0) {
+    contrast(FILTER_DEFAULT_NGX_TRUEHDR_CONTRAST),
+    saturation(FILTER_DEFAULT_NGX_TRUEHDR_SATURATION),
+    middleGray(FILTER_DEFAULT_NGX_TRUEHDR_MIDDLE_GRAY),
+    maxLuminance(FILTER_DEFAULT_NGX_TRUEHDR_MAX_LUMINANCE) {
 }
 
-bool VppNVSDKNGXTrueHDR::operator==(const VppNVSDKNGXTrueHDR &x) const {
+bool VppNGXTrueHDR::operator==(const VppNGXTrueHDR &x) const {
     return enable == x.enable &&
         contrast == x.contrast &&
         saturation == x.saturation &&
@@ -190,11 +190,11 @@ bool VppNVSDKNGXTrueHDR::operator==(const VppNVSDKNGXTrueHDR &x) const {
         maxLuminance == x.maxLuminance;
 }
 
-bool VppNVSDKNGXTrueHDR::operator!=(const VppNVSDKNGXTrueHDR &x) const {
+bool VppNGXTrueHDR::operator!=(const VppNGXTrueHDR &x) const {
     return !(*this == x);
 }
 
-tstring VppNVSDKNGXTrueHDR::print() const {
+tstring VppNGXTrueHDR::print() const {
     return strsprintf(_T("nvsdk-ngx truehdr\n")
         _T("contrast: %d\n")
         _T("saturation: %d\n")
@@ -213,6 +213,6 @@ VppParam::VppParam() :
     nvvfxSuperRes(),
     nvvfxUpScaler(),
     nvvfxModelDir(),
-    nvsdkngxVSR(),
-    nvsdkngxTrueHDR() {
+    ngxVSR(),
+    ngxTrueHDR() {
 }

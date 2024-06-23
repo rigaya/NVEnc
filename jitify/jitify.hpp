@@ -2265,12 +2265,6 @@ class Kernel {
     return this->instantiate(
         std::vector<std::string>({reflection::reflect(targs)...}));
   }
-  template <typename... TemplateArgs>
-  inline std::string instantiateLog(TemplateArgs... targs) const {
-      auto instans = this->instantiate(
-          std::vector<std::string>({ reflection::reflect(targs)... }));
-      return instans.getLog();
-  }
 #endif
 };
 
