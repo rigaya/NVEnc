@@ -1125,6 +1125,7 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
 void NVEncFilterResize::close() {
     m_frameBuf.clear();
+    m_ngxVSR.reset();
     m_nvvfxSuperRes.reset();
     m_weightSpline.reset();
     m_weightSplineAlgo = RGY_VPP_RESIZE_UNKNOWN;
