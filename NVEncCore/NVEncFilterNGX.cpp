@@ -47,6 +47,10 @@ CUDADX11Texture::CUDADX11Texture() :
     offsetInShader(0) {
 }
 
+CUDADX11Texture::~CUDADX11Texture() {
+    release();
+}
+
 RGY_ERR CUDADX11Texture::create(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3DDeviceCtx, const int w, const int h, const DXGI_FORMAT dxgiformat) {
     this->width = w;
     this->height = h;

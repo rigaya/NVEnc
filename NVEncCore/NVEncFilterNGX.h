@@ -63,6 +63,7 @@ public:
     int height;
     int offsetInShader;
     CUDADX11Texture();
+    ~CUDADX11Texture();
     RGY_ERR create(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3DDeviceCtx, const int width, const int height, const DXGI_FORMAT dxgiformat);
     RGY_ERR registerTexture();
     RGY_ERR map();
