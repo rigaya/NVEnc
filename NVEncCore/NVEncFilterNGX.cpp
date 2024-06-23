@@ -470,12 +470,12 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     return sts;
 }
 
-RGY_ERR NVEncFilterNGXVSR::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr[0] == nullptr) {
         return sts;
     }
-    auto prm = dynamic_cast<NVEncFilterParamNGXVSR*>(m_param.get());
+    auto prm = dynamic_cast<NVEncFilterParamNGX*>(m_param.get());
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -521,6 +521,7 @@ RGY_ERR NVEncFilterNGXVSR::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         }
         copyFramePropWithoutRes(ngxFrameBufIn, pInputFrame);
     }
+#if 1
     //mapで同期がかかる
     m_ngxTextIn->map();
     // ngxFrameBufIn -> m_ngxTextIn
@@ -541,13 +542,12 @@ RGY_ERR NVEncFilterNGXVSR::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     }
     m_ngxTextIn->unmap();
     // フィルタを適用
-    const NVEncNVSDKNGXParamVSR paramVSR = { prm->ngxvsr.quality };
     const NVEncNVSDKNGXRect rectDst = { 0, 0, m_ngxTextOut->width, m_ngxTextOut->height };
     const NVEncNVSDKNGXRect rectSrc = { 0, 0, m_ngxTextIn->width, m_ngxTextIn->height };
     sts = m_func->fprocFrame(m_nvsdkNGX.get(),
         m_ngxTextOut->pTexture, &rectDst,
         m_ngxTextIn->pTexture, &rectSrc,
-        (NVEncNVSDKNGXParam *)&paramVSR);
+        getNGXParam());
 
     //mapで同期がかかる
     m_ngxTextOut->map();
@@ -568,6 +568,21 @@ RGY_ERR NVEncFilterNGXVSR::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         }
     }
     m_ngxTextOut->unmap();
+#else // for debug
+    // cudaMemcpy2DAsyncでngxFrameBufInからm_ngxFrameBufOutにコピーする
+    // ngxFrameBufIn -> m_ngxFrameBufOut
+    {
+        sts = err_to_rgy(cudaMemcpy2DAsync(
+            m_ngxFrameBufOut->frame.ptr[0], m_ngxFrameBufOut->frame.pitch[0],
+            ngxFrameBufIn->ptr[0], ngxFrameBufIn->pitch[0],
+            ngxFrameBufIn->width * RGY_CSP_BIT_DEPTH[ngxFrameBufIn->csp] * 4 / 8, ngxFrameBufIn->height,
+            cudaMemcpyDeviceToDevice, stream));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    }
+#endif
     // m_ngxFrameBufOut -> dstCropOut
     RGYFrameInfo *dstCropOut = nullptr;
     {
@@ -653,6 +668,7 @@ RGY_ERR NVEncFilterNGXVSR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    m_paramVSR.quality = dynamic_cast<NVEncFilterParamNGXVSR*>(pParam.get())->ngxvsr.quality;
 
     sts = initCommon(pParam);
     if (sts != RGY_ERR_NONE) {
@@ -670,7 +686,7 @@ NVEncFilterNGXTrueHDR::~NVEncFilterNGXTrueHDR() {
 }
 
 RGY_ERR NVEncFilterNGXTrueHDR::checkParam(const NVEncFilterParam *param) {
-    auto prm = dynamic_cast<NVEncFilterParamNGXTrueHDR*>(m_param.get());
+    auto prm = dynamic_cast<const NVEncFilterParamNGXTrueHDR*>(param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -711,22 +727,17 @@ RGY_ERR NVEncFilterNGXTrueHDR::init(shared_ptr<NVEncFilterParam> pParam, shared_
         return sts;
     }
 
-    m_ngxCspIn = RGY_CSP_RGB;
-    m_ngxCspOut = RGY_CSP_RGB_F32;
-    m_dxgiformatIn = DXGI_FORMAT_R8G8B8A8_UNORM;
-    m_dxgiformatOut = DXGI_FORMAT_R16G16B16A16_FLOAT;
+    auto prm = dynamic_cast<NVEncFilterParamNGXTrueHDR*>(pParam.get());
+    m_vuiOut = prm->vui;
+    m_paramTrueHDR.contrast = prm->trueHDR.contrast;
+    m_paramTrueHDR.saturation = prm->trueHDR.saturation;
+    m_paramTrueHDR.middleGray = prm->trueHDR.middleGray;
+    m_paramTrueHDR.maxLuminance = prm->trueHDR.maxLuminance;
+
     sts = initCommon(pParam);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
     return sts;
 #endif
-}
-
-RGY_ERR NVEncFilterNGXTrueHDR::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
-    RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr[0] == nullptr) {
-        return sts;
-    }
-    return sts;
 }

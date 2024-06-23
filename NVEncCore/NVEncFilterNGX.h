@@ -108,7 +108,9 @@ public:
 protected:
     virtual RGY_ERR initNGX(shared_ptr<NVEncFilterParam> pParam, const NVEncNVSDKNGXFeature feature, shared_ptr<RGYLog> pPrintMes);
     virtual RGY_ERR initCommon(shared_ptr<NVEncFilterParam> pParam);
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
+    virtual NVEncNVSDKNGXParam *getNGXParam() = 0;
 
     std::unique_ptr<NVEncNVSDKNGXFuncs> m_func;
     unique_nvsdkngx_handle m_nvsdkNGX;
@@ -135,7 +137,9 @@ public:
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param);
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual NVEncNVSDKNGXParam *getNGXParam() override { return (NVEncNVSDKNGXParam *)&m_paramVSR; }
+
+    NVEncNVSDKNGXParamVSR m_paramVSR;
 };
 
 class NVEncFilterNGXTrueHDR : public NVEncFilterNGX {
@@ -143,9 +147,13 @@ public:
     NVEncFilterNGXTrueHDR();
     virtual ~NVEncFilterNGXTrueHDR();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    VideoVUIInfo VuiOut() const { return m_vuiOut; }
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param);
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual NVEncNVSDKNGXParam *getNGXParam() override { return (NVEncNVSDKNGXParam *)&m_paramTrueHDR; }
+
+    VideoVUIInfo m_vuiOut;
+    NVEncNVSDKNGXParamTrueHDR m_paramTrueHDR;
 };
 
 #endif //#ifndef __NVENC_FILTER_NV_OPT_FLOW_H__
