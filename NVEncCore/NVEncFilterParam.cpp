@@ -195,11 +195,11 @@ bool VppNGXTrueHDR::operator!=(const VppNGXTrueHDR &x) const {
 }
 
 tstring VppNGXTrueHDR::print() const {
-    return strsprintf(_T("nvsdk-ngx truehdr\n")
-        _T("contrast: %d\n")
-        _T("saturation: %d\n")
-        _T("middleGray: %d\n")
-        _T("maxLuminance: %d\n"),
+    return strsprintf(_T("ngx-truehdr:")
+        _T(" contrast: %d,")
+        _T(" saturation: %d,")
+        _T(" middleGray: %d,")
+        _T(" maxLuminance: %d"),
         contrast, saturation, middleGray, maxLuminance);
 }
 
