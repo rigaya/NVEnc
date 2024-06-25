@@ -416,6 +416,7 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         colorspace.enable = true;
         if (getNGXFeature() == NVSDK_NVX_TRUEHDR) {
             // TrueHDRの出力DXGI_FORMAT_R16G16B16A16_FLOATはLinearRGBになっている
+            // LinearRGBからBT.2020に変換する
             colorspace.convs.push_back(ColorspaceConv(vui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR), vui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020)));
         } else {
             // DXGI_FORMAT_R8G8B8A8_UNORMのRGBから変換する
@@ -730,7 +731,7 @@ RGY_ERR NVEncFilterNGXTrueHDR::checkParam(const NVEncFilterParam *param) {
 
 void NVEncFilterNGXTrueHDR::setNGXParam(const NVEncFilterParam *param) {
     auto prm = dynamic_cast<const NVEncFilterParamNGXTrueHDR*>(param);
-    m_vuiOut = prm->vui;
+    m_vuiOut = prm->vui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020);
     m_paramTrueHDR.contrast = prm->trueHDR.contrast;
     m_paramTrueHDR.saturation = prm->trueHDR.saturation;
     m_paramTrueHDR.middleGray = prm->trueHDR.middleGray;

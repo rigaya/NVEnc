@@ -2650,7 +2650,8 @@ Overlay image on top of base video.
   ```
 
 ### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-AI enhanced SDR to HDR conversion using RTX Video SDK.
+AI enhanced SDR to HDR conversion using RTX Video SDK, and converts colormatrix to bt.2020.
+Adding ```--colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084``` is recommended.
 
 - **Parameters**
   - contrast=&lt;int&gt;  (default=100, 0 - 200)  

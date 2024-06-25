@@ -2712,7 +2712,8 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   ```
 
 ### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-RTX Video SDKを使用したAIベースのSDR→HDR変換を行う。
+RTX Video SDKを使用したAIベースのSDR→HDR変換を行い、色空間をBT.2020に変更する。
+合わせて ```--colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084``` の指定を推奨。
 
 - **パラメータ**
   - contrast=&lt;int&gt;  (デフォルト=100, 0 - 200)  
