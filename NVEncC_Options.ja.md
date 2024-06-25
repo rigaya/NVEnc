@@ -179,7 +179,6 @@
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
-  - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-rff](#--vpp-rff)
@@ -212,6 +211,7 @@
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
+  - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-fruc \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fruc-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
@@ -1603,7 +1603,6 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
 - [--vpp-deinterlace](#--vpp-deinterlace-string)
 - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
-- [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-rff](#--vpp-rff)
 - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
@@ -1633,6 +1632,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
+- [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
@@ -1731,27 +1731,6 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   
   例4: lut3dの使用
   --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
-  ```
-
-### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-RTX Video SDKを使用したAIベースのSDR→HDR変換を行う。
-
-- **パラメータ**
-  - contrast=&lt;int&gt;  (デフォルト=100, 0 - 200)  
-    明暗のコントラスト比の調整。
-
-  - saturation=&lt;int&gt;  (デフォルト=100, 0 - 200)  
-    色の濃さの調整。
-
-  - middlegray=&lt;int&gt;  (デフォルト=50, 10 - 100)  
-    平均の明るさの調整。
-
-  - maxluminance=&lt;int&gt;  (デフォルト=1000, 400 - 2000)  
-    最大輝度(nits)の指定。
-
-- 使用例
-  ```
-  --vpp-ngx-truehdr maxluminance=1200
   ```
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -2730,6 +2709,27 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   ```
   --vpp-overlay file=logo.png,pos=1620x780,size=300x300
   --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
+  ```
+
+### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+RTX Video SDKを使用したAIベースのSDR→HDR変換を行う。
+
+- **パラメータ**
+  - contrast=&lt;int&gt;  (デフォルト=100, 0 - 200)  
+    明暗のコントラスト比の調整。
+
+  - saturation=&lt;int&gt;  (デフォルト=100, 0 - 200)  
+    色の濃さの調整。
+
+  - middlegray=&lt;int&gt;  (デフォルト=50, 10 - 100)  
+    平均の明るさの調整。
+
+  - maxluminance=&lt;int&gt;  (デフォルト=1000, 400 - 2000)  
+    最大輝度(nits)の指定。
+
+- 使用例
+  ```
+  --vpp-ngx-truehdr maxluminance=1200
   ```
 
 ### --vpp-fruc [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

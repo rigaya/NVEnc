@@ -1360,13 +1360,13 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.curves.enable
             || inputParam->vpp.transform.enable
             || inputParam->vpp.colorspace.enable
-            || inputParam->vppnv.ngxTrueHDR.enable
             || inputParam->vpp.subburn.size() > 0
             || inputParam->vpp.pad.enable
             || inputParam->vpp.selectevery.enable
             || inputParam->vpp.decimate.enable
             || inputParam->vpp.mpdecimate.enable
             || inputParam->vpp.overlay.size() > 0
+            || inputParam->vppnv.ngxTrueHDR.enable
             || inputParam->vpp.fruc.enable);
 }
 
@@ -2329,7 +2329,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.curves.enable
         || inputParam->vpp.transform.enable
         || inputParam->vpp.colorspace.enable
-        || inputParam->vppnv.ngxTrueHDR.enable
         || inputParam->vpp.pad.enable
         || inputParam->vpp.subburn.size() > 0
         || inputParam->vpp.rff.enable
@@ -2337,6 +2336,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.mpdecimate.enable
         || inputParam->vpp.selectevery.enable
         || inputParam->vpp.overlay.size() > 0
+        || inputParam->vppnv.ngxTrueHDR.enable
         || inputParam->vpp.fruc.enable
         ) {
         //swデコードならGPUに上げる必要がある
@@ -2424,32 +2424,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             }
             //フィルタチェーンに追加
             m_vpFilters.push_back(std::move(filterCrop));
-            //パラメータ情報を更新
-            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
-            //入力フレーム情報を更新
-            inputFrame = param->frameOut;
-            m_encFps = param->baseFps;
-        }
-        //truehdr
-        if (inputParam->vppnv.ngxTrueHDR.enable) {
-            unique_ptr<NVEncFilterNGXTrueHDR> filter(new NVEncFilterNGXTrueHDR());
-            shared_ptr<NVEncFilterParamNGXTrueHDR> param(new NVEncFilterParamNGXTrueHDR());
-            param->trueHDR = inputParam->vppnv.ngxTrueHDR;
-            param->compute_capability = m_dev->cc();
-            param->dx11 = m_dev->dx11();
-            param->vui = VuiFiltered;
-            param->frameIn = inputFrame;
-            param->frameOut = inputFrame;
-            param->baseFps = m_encFps;
-            param->bOutOverwrite = true;
-            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
-            auto sts = filter->init(param, m_pNVLog);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
-            VuiFiltered = filter->VuiOut();
-            //フィルタチェーンに追加
-            m_vpFilters.push_back(std::move(filter));
             //パラメータ情報を更新
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
@@ -3218,6 +3192,32 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 inputFrame = param->frameOut;
                 m_encFps = param->baseFps;
             }
+        }
+        //truehdr
+        if (inputParam->vppnv.ngxTrueHDR.enable) {
+            unique_ptr<NVEncFilterNGXTrueHDR> filter(new NVEncFilterNGXTrueHDR());
+            shared_ptr<NVEncFilterParamNGXTrueHDR> param(new NVEncFilterParamNGXTrueHDR());
+            param->trueHDR = inputParam->vppnv.ngxTrueHDR;
+            param->compute_capability = m_dev->cc();
+            param->dx11 = m_dev->dx11();
+            param->vui = VuiFiltered;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = true;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            VuiFiltered = filter->VuiOut();
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         // fruc
         if (inputParam->vpp.fruc.enable) {

@@ -183,7 +183,6 @@
 - [Vpp Options](#vpp-options)
   - [Vpp Filtering order](#vpp-filtering-order)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
-  - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-rff](#--vpp-rff)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
@@ -216,6 +215,7 @@
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
+  - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-fruc \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fruc-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
@@ -1607,7 +1607,6 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 
 - [--vpp-deinterlace](#--vpp-deinterlace-string)
 - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
-- [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-rff](#--vpp-rff)
 - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
@@ -1638,6 +1637,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
+- [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
@@ -1737,27 +1737,6 @@ Values for parameters will be copied from input file for "input" when using avhw
   
   example4: using lut3d
   --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
-  ```
-
-### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-AI enhanced SDR to HDR conversion using RTX Video SDK.
-
-- **Parameters**
-  - contrast=&lt;int&gt;  (default=100, 0 - 200)  
-    adjusts the difference between lights and darks.
-
-  - saturation=&lt;int&gt;  (default=100, 0 - 200)  
-    adjusts color intensity.
-
-  - middlegray=&lt;int&gt;  (default=50, 10 - 100)  
-    adjusts average brightness.
-
-  - maxluminance=&lt;int&gt;  (default=1000, 400 - 2000)  
-    adjusts peak brightness in nits.
-
-- Examples
-  ```
-  --vpp-ngx-truehdr maxluminance=1200
   ```
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -2668,6 +2647,27 @@ Overlay image on top of base video.
   ```
   --vpp-overlay file=logo.png,pos=1620x780,size=300x300
   --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
+  ```
+
+### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+AI enhanced SDR to HDR conversion using RTX Video SDK.
+
+- **Parameters**
+  - contrast=&lt;int&gt;  (default=100, 0 - 200)  
+    adjusts the difference between lights and darks.
+
+  - saturation=&lt;int&gt;  (default=100, 0 - 200)  
+    adjusts color intensity.
+
+  - middlegray=&lt;int&gt;  (default=50, 10 - 100)  
+    adjusts average brightness.
+
+  - maxluminance=&lt;int&gt;  (default=1000, 400 - 2000)  
+    adjusts peak brightness in nits.
+
+- Examples
+  ```
+  --vpp-ngx-truehdr maxluminance=1200
   ```
 
 ### --vpp-fruc [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
