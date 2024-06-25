@@ -34,6 +34,12 @@
 #include "device_launch_parameters.h"
 #include "rgy_cuda_util_kernel.h"
 
+#if defined(__CUDACC__) && (__CUDA_ARCH__ >= 530 || !defined(__CUDA_ARCH__)) && !defined(__CUDA_NO_HALF2_OPERATORS__)
+#define ENABLE_CROP_CUDA_FP16_DEVICE 1
+#else
+#define ENABLE_CROP_CUDA_FP16_DEVICE 0
+#endif
+
 template<typename TypeIn>
 __device__
 float to_float(TypeIn v) {
@@ -43,8 +49,8 @@ float to_float(TypeIn v) {
 template<>
 __device__
 float to_float<__half>(__half v) {
-#if ENABLE_CUDA_FP16_DEVICE
-    return __half2float(f);
+#if ENABLE_CROP_CUDA_FP16_DEVICE
+    return __half2float(v);
 #else
     return 0.0f;
 #endif
@@ -55,10 +61,8 @@ __device__
 TypeOut to_pixOut(TypeIn v) {
     return (TypeOut)v;
 }
-template<>
-__device__
-uint8_t to_pixOut<uint8_t, __half>(__half v) {
-#if ENABLE_CUDA_FP16_DEVICE
+template<> __device__ uint8_t to_pixOut<uint8_t, __half>(__half v) {
+#if ENABLE_CROP_CUDA_FP16_DEVICE
     return __half2ushort_rn(v);
 #else
     return 0;
@@ -92,7 +96,7 @@ static TypeOut conv_data_type(TypeIn c) {
         } else if (std::is_floating_point<TypeOut>::value) {
             // float -> float
             return f;
-        } else { //half
+        } else {
             return to_pixOut<TypeOut, TypeIn>(c);
         }
     }
@@ -3053,7 +3057,7 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
         static const auto supportedCspNV16   = make_array<RGY_CSP>(RGY_CSP_NV16, RGY_CSP_P210);
         static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32, RGY_CSP_RGB, RGY_CSP_GBR, RGY_CSP_RGB_16, RGY_CSP_BGR_16, RGY_CSP_RGB_F32, RGY_CSP_BGR_F32);
+        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32, RGY_CSP_RGB, RGY_CSP_GBR, RGY_CSP_RGB_16, RGY_CSP_BGR_16, RGY_CSP_RGB_F32, RGY_CSP_BGR_F32, RGY_CSP_RGBA_FP16_P);
         if (std::find(supportedCspNV12.begin(), supportedCspNV12.end(), pCropParam->frameIn.csp) != supportedCspNV12.end()) {
             sts = convertCspFromNV12(ppOutputFrames[0], pInputFrame, stream);
         } else if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameIn.csp) != supportedCspYV12.end()) {
