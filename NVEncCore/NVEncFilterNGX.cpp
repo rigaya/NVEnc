@@ -64,7 +64,8 @@ RGY_ERR CUDADX11Texture::create(ID3D11Device* pD3DDevice, ID3D11DeviceContext* p
     desc.Format = dxgiformat;
     desc.SampleDesc.Count = 1;
     desc.Usage = D3D11_USAGE_DEFAULT;
-    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.MiscFlags = 0;
+    desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
 
     if (FAILED(pD3DDevice->CreateTexture2D(&desc, NULL, &pTexture))) {
         return RGY_ERR_NULL_PTR;
@@ -186,7 +187,6 @@ tstring NVEncFilterParamNGXTrueHDR::print() const {
 NVEncFilterNGX::NVEncFilterNGX() :
     m_func(),
     m_nvsdkNGX(unique_nvsdkngx_handle(nullptr, nullptr)),
-    m_ngxFeature(NVSDK_NVX_NA),
     m_ngxCspIn(RGY_CSP_NA),
     m_ngxCspOut(RGY_CSP_NA),
     m_dxgiformatIn(DXGI_FORMAT_UNKNOWN),
@@ -203,7 +203,34 @@ NVEncFilterNGX::~NVEncFilterNGX() {
     close();
 }
 
-RGY_ERR NVEncFilterNGX::initNGX(shared_ptr<NVEncFilterParam> pParam, const NVEncNVSDKNGXFeature feature, shared_ptr<RGYLog> pPrintMes) {
+RGY_ERR NVEncFilterNGX::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
+#if !ENABLE_NVSDKNGX
+    AddMessage(RGY_LOG_ERROR, _T("ngx filters are not supported on x86 exec file, please use x64 exec file.\n"));
+    return RGY_ERR_UNSUPPORTED;
+#else
+
+    sts = checkParam(pParam.get());
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    sts = initNGX(pParam, pPrintMes);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    setNGXParam(pParam.get());
+
+    sts = initCommon(pParam);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    return sts;
+#endif
+}
+
+RGY_ERR NVEncFilterNGX::initNGX(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
 #if !ENABLE_NVSDKNGX
@@ -224,18 +251,6 @@ RGY_ERR NVEncFilterNGX::initNGX(shared_ptr<NVEncFilterParam> pParam, const NVEnc
 
     m_dx11 = prm->dx11;
 
-    if (m_ngxFeature != feature) {
-        m_srcColorspace.reset();
-        m_dstColorspace.reset();
-        m_srcCrop.reset();
-        m_dstCrop.reset();
-        m_ngxFrameBufOut.reset();
-        m_ngxTextIn.reset();
-        m_ngxTextOut.reset();
-        m_func.reset();
-        m_ngxFeature = feature;
-    }
-
     if (!m_func) {
         m_func = std::make_unique<NVEncNVSDKNGXFuncs>();
         if ((sts = m_func->load()) != RGY_ERR_NONE) {
@@ -245,16 +260,16 @@ RGY_ERR NVEncFilterNGX::initNGX(shared_ptr<NVEncFilterParam> pParam, const NVEnc
         AddMessage(RGY_LOG_DEBUG, _T("Loaded dll %s.\n"), NVENC_NVSDKNGX_MODULENAME);
 
         NVEncNVSDKNGXHandle ngxHandle = nullptr;
-        if ((sts = m_func->fcreate(&ngxHandle, feature)) != RGY_ERR_NONE) {
+        if ((sts = m_func->fcreate(&ngxHandle, getNGXFeature())) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to create NVSDK NGX handle: %s.\n"), get_err_mes(sts));
             // RGY_LOAD_LIBRARYを使用して、nvngx_xxx.dll がロードできるかを確認する
             // できなければ、エラーを返す
-            auto hModule = RGY_LOAD_LIBRARY(NVENC_NVSDKNGX_DLL_NAME[feature]);
+            auto hModule = RGY_LOAD_LIBRARY(NVENC_NVSDKNGX_DLL_NAME[getNGXFeature()]);
             if (hModule) {
                 RGY_FREE_LIBRARY(hModule);
                 hModule = nullptr;
             } else {
-                AddMessage(RGY_LOG_ERROR, _T("%s is required but not found.\n"), NVENC_NVSDKNGX_DLL_NAME[feature]);
+                AddMessage(RGY_LOG_ERROR, _T("%s is required but not found.\n"), NVENC_NVSDKNGX_DLL_NAME[getNGXFeature()]);
             }
             return sts;
         }
@@ -280,24 +295,6 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         return RGY_ERR_INVALID_PARAM;
     }
 
-    switch (m_ngxFeature) {
-    case NVSDK_NVX_VSR:
-        m_ngxCspIn = RGY_CSP_RGB32;
-        m_ngxCspOut = RGY_CSP_RGB32;
-        m_dxgiformatIn = DXGI_FORMAT_R8G8B8A8_UNORM;
-        m_dxgiformatOut = DXGI_FORMAT_R8G8B8A8_UNORM;
-        break;
-    case NVSDK_NVX_TRUEHDR:
-        m_ngxCspIn = RGY_CSP_RGB32;
-        m_ngxCspOut = RGY_CSP_RGBA_FP16_P;
-        m_dxgiformatIn = DXGI_FORMAT_R8G8B8A8_UNORM;
-        m_dxgiformatOut = DXGI_FORMAT_R16G16B16A16_FLOAT;
-        break;
-    default:
-        AddMessage(RGY_LOG_ERROR, _T("Unknown feature.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
-
     VideoVUIInfo vui = prm->vui;
     vui.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
     vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
@@ -308,6 +305,7 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         AddMessage(RGY_LOG_DEBUG, _T("Create input csp conversion filter.\n"));
         VppColorspace colorspace;
         colorspace.enable = true;
+        // DXGI_FORMAT_R8G8B8A8_UNORM に合わせてRGBに変換する
         colorspace.convs.push_back(ColorspaceConv(vui, vui.to(RGY_MATRIX_RGB)));
 
         unique_ptr<NVEncFilterColorspace> filter(new NVEncFilterColorspace());
@@ -416,7 +414,13 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         AddMessage(RGY_LOG_DEBUG, _T("Create output csp conversion filter.\n"));
         VppColorspace colorspace;
         colorspace.enable = true;
-        colorspace.convs.push_back(ColorspaceConv(vui.to(RGY_MATRIX_RGB), vui));
+        if (getNGXFeature() == NVSDK_NVX_TRUEHDR) {
+            // TrueHDRの出力DXGI_FORMAT_R16G16B16A16_FLOATはLinearRGBになっている
+            colorspace.convs.push_back(ColorspaceConv(vui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR), vui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020)));
+        } else {
+            // DXGI_FORMAT_R8G8B8A8_UNORMのRGBから変換する
+            colorspace.convs.push_back(ColorspaceConv(vui.to(RGY_MATRIX_RGB), vui));
+        }
 
         unique_ptr<NVEncFilterColorspace> filter(new NVEncFilterColorspace());
         shared_ptr<NVEncFilterParamColorspace> paramColorspace(new NVEncFilterParamColorspace());
@@ -530,10 +534,15 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufIn csp must have only 1 plane.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
+        const int bytePerPix = getTextureBytePerPix(m_dxgiformatIn);
+        if (bytePerPix == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dxgiformatIn);
+            return RGY_ERR_UNSUPPORTED;
+        }
         sts = err_to_rgy(cudaMemcpy2DToArray(
             m_ngxTextIn->getMappedArray(), 0, 0,
             (uint8_t *)ngxFrameBufIn->ptr[0], ngxFrameBufIn->pitch[0],
-            ngxFrameBufIn->width * RGY_CSP_BIT_DEPTH[ngxFrameBufIn->csp] * 4 / 8, ngxFrameBufIn->height,
+            ngxFrameBufIn->width * bytePerPix, ngxFrameBufIn->height,
             cudaMemcpyDeviceToDevice));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame to cudaArray: %s.\n"), get_err_mes(sts));
@@ -548,6 +557,10 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         m_ngxTextOut->pTexture, &rectDst,
         m_ngxTextIn->pTexture, &rectSrc,
         getNGXParam());
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to process frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
 
     //mapで同期がかかる
     m_ngxTextOut->map();
@@ -557,10 +570,15 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufOut csp must have only 1 plane.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
+        const int bytePerPix = getTextureBytePerPix(m_dxgiformatOut);
+        if (bytePerPix == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dxgiformatOut);
+            return RGY_ERR_UNSUPPORTED;
+        }
         sts = err_to_rgy(cudaMemcpy2DFromArray(
             (uint8_t *)m_ngxFrameBufOut->frame.ptr[0], m_ngxFrameBufOut->frame.pitch[0],
             m_ngxTextOut->getMappedArray(), 0, 0,
-            m_ngxFrameBufOut->frame.width * RGY_CSP_BIT_DEPTH[m_ngxFrameBufOut->frame.csp] * 4 / 8, m_ngxFrameBufOut->frame.height,
+            m_ngxFrameBufOut->frame.width * bytePerPix, m_ngxFrameBufOut->frame.height,
             cudaMemcpyDeviceToDevice));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame from cudaArray: %s.\n"), get_err_mes(sts));
@@ -572,10 +590,15 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     // cudaMemcpy2DAsyncでngxFrameBufInからm_ngxFrameBufOutにコピーする
     // ngxFrameBufIn -> m_ngxFrameBufOut
     {
+        const int bytePerPix = getTextureBytePerPix(m_dxgiformatOut);
+        if (bytePerPix == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dxgiformatOut);
+            return RGY_ERR_UNSUPPORTED;
+        }
         sts = err_to_rgy(cudaMemcpy2DAsync(
             m_ngxFrameBufOut->frame.ptr[0], m_ngxFrameBufOut->frame.pitch[0],
             ngxFrameBufIn->ptr[0], ngxFrameBufIn->pitch[0],
-            ngxFrameBufIn->width * RGY_CSP_BIT_DEPTH[ngxFrameBufIn->csp] * 4 / 8, ngxFrameBufIn->height,
+            ngxFrameBufIn->width * bytePerPix, ngxFrameBufIn->height,
             cudaMemcpyDeviceToDevice, stream));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame: %s.\n"), get_err_mes(sts));
@@ -618,6 +641,17 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     return RGY_ERR_NONE;
 }
 
+int NVEncFilterNGX::getTextureBytePerPix(const DXGI_FORMAT format) const {
+    switch (format) {
+    case DXGI_FORMAT_R8G8B8A8_UNORM:
+        return 4;
+    case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        return 8;
+    default:
+        return 0;
+    }
+}
+
 void NVEncFilterNGX::close() {
     m_srcColorspace.reset();
     m_dstColorspace.reset();
@@ -632,7 +666,7 @@ void NVEncFilterNGX::close() {
     m_dx11 = nullptr;
 }
 
-NVEncFilterNGXVSR::NVEncFilterNGXVSR() : NVEncFilterNGX() {
+NVEncFilterNGXVSR::NVEncFilterNGXVSR() : NVEncFilterNGX(), m_paramVSR() {
     m_name = _T("ngx-vsr");
 }
 
@@ -652,33 +686,17 @@ RGY_ERR NVEncFilterNGXVSR::checkParam(const NVEncFilterParam *param) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterNGXVSR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    RGY_ERR sts = RGY_ERR_NONE;
-#if !ENABLE_NVSDKNGX
-    AddMessage(RGY_LOG_ERROR, _T("ngx filters are not supported on x86 exec file, please use x64 exec file.\n"));
-    return RGY_ERR_UNSUPPORTED;
-#else
+void NVEncFilterNGXVSR::setNGXParam(const NVEncFilterParam *param) {
+    auto prm = dynamic_cast<const NVEncFilterParamNGXVSR*>(param);
+    m_paramVSR.quality = prm->ngxvsr.quality;
 
-    sts = checkParam(pParam.get());
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-
-    sts = initNGX(pParam, NVSDK_NVX_VSR, pPrintMes);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    m_paramVSR.quality = dynamic_cast<NVEncFilterParamNGXVSR*>(pParam.get())->ngxvsr.quality;
-
-    sts = initCommon(pParam);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    return sts;
-#endif
+    m_ngxCspIn = RGY_CSP_RGB32;
+    m_ngxCspOut = RGY_CSP_RGB32;
+    m_dxgiformatIn = DXGI_FORMAT_R8G8B8A8_UNORM;
+    m_dxgiformatOut = DXGI_FORMAT_R8G8B8A8_UNORM;
 }
 
-NVEncFilterNGXTrueHDR::NVEncFilterNGXTrueHDR() : NVEncFilterNGX() {
+NVEncFilterNGXTrueHDR::NVEncFilterNGXTrueHDR() : NVEncFilterNGX(), m_vuiOut(), m_paramTrueHDR() {
     m_name = _T("ngx-truehdr");
 }
 
@@ -710,34 +728,16 @@ RGY_ERR NVEncFilterNGXTrueHDR::checkParam(const NVEncFilterParam *param) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterNGXTrueHDR::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    RGY_ERR sts = RGY_ERR_NONE;
-#if !ENABLE_NVSDKNGX
-    AddMessage(RGY_LOG_ERROR, _T("ngx filters are not supported on x86 exec file, please use x64 exec file.\n"));
-    return RGY_ERR_UNSUPPORTED;
-#else
-
-    sts = checkParam(pParam.get());
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-
-    sts = initNGX(pParam, NVSDK_NVX_VSR, pPrintMes);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-
-    auto prm = dynamic_cast<NVEncFilterParamNGXTrueHDR*>(pParam.get());
+void NVEncFilterNGXTrueHDR::setNGXParam(const NVEncFilterParam *param) {
+    auto prm = dynamic_cast<const NVEncFilterParamNGXTrueHDR*>(param);
     m_vuiOut = prm->vui;
     m_paramTrueHDR.contrast = prm->trueHDR.contrast;
     m_paramTrueHDR.saturation = prm->trueHDR.saturation;
     m_paramTrueHDR.middleGray = prm->trueHDR.middleGray;
     m_paramTrueHDR.maxLuminance = prm->trueHDR.maxLuminance;
 
-    sts = initCommon(pParam);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    return sts;
-#endif
+    m_ngxCspIn = RGY_CSP_RGB32;
+    m_ngxCspOut = RGY_CSP_RGBA_FP16_P;
+    m_dxgiformatIn = DXGI_FORMAT_R8G8B8A8_UNORM;
+    m_dxgiformatOut = DXGI_FORMAT_R16G16B16A16_FLOAT;
 }
