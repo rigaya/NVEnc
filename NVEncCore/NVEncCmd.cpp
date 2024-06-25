@@ -323,10 +323,10 @@ tstring encoder_help() {
             _T("   --vpp-ngx-truehdr [<param1>=<value>][,<param2>=<value>][...]\n")
             _T("     enable ngx truehdr filter.\n")
             _T("    params\n")
-            _T("      contrast=<int>\n")
-            _T("      saturation=<int>\n")
-            _T("      middlegray=<int>\n")
-            _T("      maxluminance=<int>\n"));
+            _T("      contrast=<int>     the difference between lights and darks (default 100, 0 - 200).\n")
+            _T("      saturation=<int>   color intensity (default 100, 0 - 200).\n")
+            _T("      middlegray=<int>   average brightness (default 50, 10 - 100).\n")
+            _T("      maxluminance=<int> peak brightness in nits (default 1000, 400 - 2000).\n"));
     }
 
     str += _T("\n");

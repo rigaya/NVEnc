@@ -179,6 +179,7 @@
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-rff](#--vpp-rff)
@@ -1602,6 +1603,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
 - [--vpp-deinterlace](#--vpp-deinterlace-string)
 - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+- [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-rff](#--vpp-rff)
 - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
@@ -1731,6 +1733,26 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
   ```
 
+### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+RTX Video SDKを使用したAIベースのSDR→HDR変換を行う。
+
+- **パラメータ**
+  - contrast=&lt;int&gt;  (デフォルト=100, 0 - 200)  
+    明暗のコントラスト比の調整。
+
+  - saturation=&lt;int&gt;  (デフォルト=100, 0 - 200)  
+    色の濃さの調整。
+
+  - middlegray=&lt;int&gt;  (デフォルト=50, 10 - 100)  
+    平均の明るさの調整。
+
+  - maxluminance=&lt;int&gt;  (デフォルト=1000, 400 - 2000)  
+    最大輝度(nits)の指定。
+
+- 使用例
+  ```
+  --vpp-ngx-truehdr maxluminance=1200
+  ```
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。
@@ -2464,7 +2486,8 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
     nvvfx-superresの強さの指定。 (0.0 - 1.0)
 
   - vsr-quality=&lt;int&gt;
-    ngx-vsr使用時の品質の設定。 (0 - 4)
+    ngx-vsr使用時の品質の設定。 (デフォルト=1, 1 - 4)
+    数字が大きいほど高品質。
 
 - **注意点**
   - 表の"要npp"に"○"のあるものを使用する場合  

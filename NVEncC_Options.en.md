@@ -183,6 +183,7 @@
 - [Vpp Options](#vpp-options)
   - [Vpp Filtering order](#vpp-filtering-order)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-rff](#--vpp-rff)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
@@ -1606,6 +1607,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 
 - [--vpp-deinterlace](#--vpp-deinterlace-string)
 - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+- [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-rff](#--vpp-rff)
 - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
@@ -1735,6 +1737,27 @@ Values for parameters will be copied from input file for "input" when using avhw
   
   example4: using lut3d
   --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
+  ```
+
+### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+AI enhanced SDR to HDR conversion using RTX Video SDK.
+
+- **Parameters**
+  - contrast=&lt;int&gt;  (default=100, 0 - 200)  
+    adjusts the difference between lights and darks.
+
+  - saturation=&lt;int&gt;  (default=100, 0 - 200)  
+    adjusts color intensity.
+
+  - middlegray=&lt;int&gt;  (default=50, 10 - 100)  
+    adjusts average brightness.
+
+  - maxluminance=&lt;int&gt;  (default=1000, 400 - 2000)  
+    adjusts peak brightness in nits.
+
+- Examples
+  ```
+  --vpp-ngx-truehdr maxluminance=1200
   ```
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -2406,7 +2429,8 @@ Specify the resizing algorithm.
     strength for nvvfx-superres (0.0 - 1.0)
 
   - vsr-quality=&lt;int&gt;
-    quality for ngx-vsr (0 - 4)
+    quality for ngx-vsr (default=1, 1 - 4)
+    larger value results higher quality.
 
 - Notes
   - Those with "○" in "npp dlls" on the table will use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only.
