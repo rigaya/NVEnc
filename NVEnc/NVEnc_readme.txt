@@ -215,6 +215,12 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2024.06.29 (7.56)
+[NVEncC]
+- NVIDIA VSR (Video Super Resolution)によるリサイズフィルタを追加。(--vpp-resize ngx-vsr)
+- RTX Video SDKを使用したAIベースのSDR→HDR変換フィルタを追加。(--vpp-ngx-truehdr)
+  いずれもWindowsのx64版専用。
+
 2024.06.26 (7.55)
 [NVEncC]
 - 新たなノイズ除去フィルタを追加。(--vpp-fft3d)
