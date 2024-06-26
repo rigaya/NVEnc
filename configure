@@ -651,7 +651,7 @@ SRC_NVENCCORE=" \
 CuvidDecode.cpp        FrameQueue.cpp              NVEncCmd.cpp                 NVEncCore.cpp \
 NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           NVEncFilterColorspace.cpp \
 NVEncFilterCurves.cpp  NVEncFilterCustom.cpp       NVEncFilterDelogo.cpp        NVEncFilterDenoiseFFT3D.cpp \
-NVEncFilterDenoiseGauss.cpp NVEncFilterNVOFFRUC.cpp \
+NVEncFilterDenoiseGauss.cpp NVEncFilterNGX.cpp NVEncFilterNVOFFRUC.cpp \
 NVEncFilterNvvfx.cpp   NVEncFilterOverlay.cpp      NVEncFilterPad.cpp           NVEncFilterParam.cpp \
 NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
 NVEncParam.cpp         NVEncUtil.cpp               cl_func.cpp \
@@ -659,6 +659,7 @@ convert_csp.cpp        cpu_info.cpp                gpu_info.cpp \
 gpuz_info.cpp          logo.cpp \
 rgy_aspect_ratio.cpp   rgy_avlog.cpp               rgy_avutil.cpp               rgy_bitstream.cpp \
 rgy_chapter.cpp        rgy_cmd.cpp                 rgy_codepage.cpp             rgy_def.cpp \
+rgy_device.cpp         rgy_device_info_wmi.cpp \
 rgy_env.cpp            rgy_err.cpp                 rgy_event.cpp \
 rgy_faw.cpp            rgy_filesystem.cpp          rgy_filter.cpp               rgy_frame.cpp                rgy_frame_info.cpp \
 rgy_hdr10plus.cpp      rgy_ini.cpp                 rgy_input.cpp                rgy_input_avcodec.cpp        rgy_input_avi.cpp \
