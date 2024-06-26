@@ -2468,6 +2468,8 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
     ngx-vsr使用時の品質の設定。 (デフォルト=1, 1 - 4)
     数字が大きいほど高品質。
 
+    実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPU、そして550.58以降のドライバが必要。
+
 - **注意点**
   - 表の"要npp"に"○"のあるものを使用する場合  
     これらは[NPPライブラリ](https://developer.nvidia.com/npp)を使用しているため、使用には別途nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。また、x64版のみ対応。
@@ -2712,8 +2714,9 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   ```
 
 ### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-RTX Video SDKを使用したAIベースのSDR→HDR変換を行い、色空間をBT.2020に変更する。
-合わせて ```--colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084``` の指定を推奨。
+RTX Video SDKを使用したAIベースのSDR→HDR変換を行う。出力はcolormatrix BT.2020に変換される。合わせて ```--colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084``` の指定を推奨。
+
+Turing以降のGPUかつ、Windows x64版で550.58以降のドライバが必要。
 
 - **パラメータ**
   - contrast=&lt;int&gt;  (デフォルト=100, 0 - 200)  

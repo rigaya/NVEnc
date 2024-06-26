@@ -2411,6 +2411,8 @@ Specify the resizing algorithm.
     quality for ngx-vsr (default=1, 1 - 4)
     larger value results higher quality.
 
+    Requires Turing GPUs or later, and requires driver version 550.58 or higher. Supported on Windows system only.
+
 - Notes
   - Those with "○" in "npp dlls" on the table will use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only.
     To use those algorithms, you need to download nppc64_10.dll, nppif64_10.dll, nppig64_10.dll separately and place it in the same folder as NVEncC64.exe.
@@ -2650,8 +2652,10 @@ Overlay image on top of base video.
   ```
 
 ### --vpp-ngx-truehdr [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-AI enhanced SDR to HDR conversion using RTX Video SDK, and converts colormatrix to bt.2020.
+AI enhanced SDR to HDR conversion using RTX Video SDK. Output will be converted to colormatrix bt.2020.
 Adding ```--colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084``` is recommended.
+
+Requires Turing GPUs or later, and requires driver version 550.58 or higher. Supported on Windows system only.
 
 - **Parameters**
   - contrast=&lt;int&gt;  (default=100, 0 - 200)  
