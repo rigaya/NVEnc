@@ -311,7 +311,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
         auto fftNext = m_bufFFT.get(m_bufIdx - 1);
         sts = denosieFunc->tfft_filter_ifft(1, 3)(&m_filteredBlocks->frame, &fftPrev->frame, &fftCur->frame, &fftNext->frame, nullptr, (const float *)m_windowBufInverse->ptr,
             prm->frameOut.width, prm->frameOut.height, planeUV.width, planeUV.height, m_ov1, m_ov2,
-            prm->fft3d.sigma, prm->fft3d.amount, prm->fft3d.method, stream);
+            prm->fft3d.sigma, 1.0f - prm->fft3d.amount, prm->fft3d.method, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run tfft_filter_ifft(1, 3): %s.\n"), get_err_mes(sts));
             return RGY_ERR_NONE;
