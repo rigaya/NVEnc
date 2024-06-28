@@ -51,7 +51,7 @@ extern "C" {
 #if defined(_WIN32) || defined(_WIN64)
 static const TCHAR * NVENC_NVSDKNGX_MODULENAME = _T("NVEncNVSDKNGX.dll");
 #else
-static const TCHAR * NVENC_NVOFFRUC_MODULENAME = _T("NVEncNVSDKNGX.so");
+static const TCHAR * NVENC_NVSDKNGX_MODULENAME = _T("NVEncNVSDKNGX.so");
 #endif
 
 enum NVEncNVSDKNGXFeature {

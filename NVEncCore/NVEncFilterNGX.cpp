@@ -34,8 +34,20 @@
 #include "NVEncFilterColorspace.h"
 #include "NVEncFilterNGX.h"
 #include "rgy_device.h"
+#if ENABLE_D3D11
 #include <cuda_d3d11_interop.h>
+#endif
 
+
+tstring NVEncFilterParamNGXVSR::print() const {
+    return ngxvsr.print();
+}
+
+tstring NVEncFilterParamNGXTrueHDR::print() const {
+    return trueHDR.print();
+}
+
+#if ENABLE_NVSDKNGX
 
 CUDADX11Texture::CUDADX11Texture() :
     pTexture(nullptr),
@@ -176,14 +188,6 @@ void NVEncNVSDKNGXFuncs::close() {
     }
 }
 
-tstring NVEncFilterParamNGXVSR::print() const {
-    return ngxvsr.print();
-}
-
-tstring NVEncFilterParamNGXTrueHDR::print() const {
-    return trueHDR.print();
-}
-
 NVEncFilterNGX::NVEncFilterNGX() :
     m_func(),
     m_nvsdkNGX(unique_nvsdkngx_handle(nullptr, nullptr)),
@@ -205,11 +209,6 @@ NVEncFilterNGX::~NVEncFilterNGX() {
 
 RGY_ERR NVEncFilterNGX::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
-#if !ENABLE_NVSDKNGX
-    AddMessage(RGY_LOG_ERROR, _T("ngx filters are not supported on x86 exec file, please use x64 exec file.\n"));
-    return RGY_ERR_UNSUPPORTED;
-#else
-
     sts = checkParam(pParam.get());
     if (sts != RGY_ERR_NONE) {
         return sts;
@@ -227,16 +226,11 @@ RGY_ERR NVEncFilterNGX::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return sts;
     }
     return sts;
-#endif
 }
 
 RGY_ERR NVEncFilterNGX::initNGX(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
-#if !ENABLE_NVSDKNGX
-    AddMessage(RGY_LOG_ERROR, _T("nv optical flow filters are not supported on x86 exec file, please use x64 exec file.\n"));
-    return RGY_ERR_UNSUPPORTED;
-#else
     auto prm = dynamic_cast<NVEncFilterParamNGX*>(pParam.get());
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -284,7 +278,6 @@ RGY_ERR NVEncFilterNGX::initNGX(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_DEBUG, _T("Initialized NVSDK NGX library.\n"));
     }
     return sts;
-#endif
 }
 
 RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
@@ -742,3 +735,14 @@ void NVEncFilterNGXTrueHDR::setNGXParam(const NVEncFilterParam *param) {
     m_dxgiformatIn = DXGI_FORMAT_R8G8B8A8_UNORM;
     m_dxgiformatOut = DXGI_FORMAT_R16G16B16A16_FLOAT;
 }
+
+#else
+
+NVEncFilterNGXVSR::NVEncFilterNGXVSR() : NVEncFilterDisabled() { m_name = _T("ngx-vsr"); }
+NVEncFilterNGXVSR::~NVEncFilterNGXVSR() {};
+
+NVEncFilterNGXTrueHDR::NVEncFilterNGXTrueHDR() : NVEncFilterDisabled() { m_name = _T("ngx-truehdr"); }
+NVEncFilterNGXTrueHDR::~NVEncFilterNGXTrueHDR() { }
+VideoVUIInfo NVEncFilterNGXTrueHDR::VuiOut() const { return VideoVUIInfo(); }
+
+#endif //#if ENABLE_NVSDKNGX

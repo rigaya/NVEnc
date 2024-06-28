@@ -48,9 +48,12 @@ struct NVEncNVSDKNGXFuncs {
     void close();
 };
 
+
 class DeviceDX11;
 struct ID3D11Texture2D;
 struct ID3D11ShaderResourceView;
+
+#if ENABLE_NVSDKNGX
 enum DXGI_FORMAT;
 
 struct CUDADX11Texture {
@@ -73,6 +76,8 @@ public:
 
     RGY_ERR release();
 };
+
+#endif
 
 using unique_nvsdkngx_handle = std::unique_ptr<std::remove_pointer<NVEncNVSDKNGXHandle>::type, decltype(&NVEncNVSDKNGXDelete)>;
 
@@ -100,6 +105,8 @@ public:
     virtual ~NVEncFilterParamNGXTrueHDR() {};
     virtual tstring print() const;
 };
+
+#if ENABLE_NVSDKNGX
 
 class NVEncFilterNGX : public NVEncFilter {
 public:
@@ -161,5 +168,22 @@ protected:
     VideoVUIInfo m_vuiOut;
     NVEncNVSDKNGXParamTrueHDR m_paramTrueHDR;
 };
+
+#else
+
+class NVEncFilterNGXVSR : public NVEncFilterDisabled {
+public:
+    NVEncFilterNGXVSR();
+    virtual ~NVEncFilterNGXVSR();
+};
+
+class NVEncFilterNGXTrueHDR : public NVEncFilterDisabled {
+public:
+    NVEncFilterNGXTrueHDR();
+    virtual ~NVEncFilterNGXTrueHDR();
+    VideoVUIInfo VuiOut() const;
+};
+
+#endif
 
 #endif //#ifndef __NVENC_FILTER_NV_OPT_FLOW_H__

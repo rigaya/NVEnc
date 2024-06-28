@@ -106,6 +106,16 @@ protected:
     std::unique_ptr<cudaEvent_t, cudaevent_deleter> m_peFilterFin;
 };
 
+class NVEncFilterDisabled : public NVEncFilter {
+public:
+    NVEncFilterDisabled() : NVEncFilter() {};
+    virtual ~NVEncFilterDisabled() {};
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+protected:
+    virtual void close() override;
+};
+
 class NVEncFilterParamCrop : public NVEncFilterParam {
 public:
     sInputCrop crop;

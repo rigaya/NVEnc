@@ -35,7 +35,9 @@
 //ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。
 //データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include <cuda.h>
+#if ENABLE_D3D11
 #include <cudaD3D11.h>
+#endif
 #include <cuda_runtime.h>
 #include "nvEncodeAPI.h"
 #include "CuvidDecode.h"
@@ -60,6 +62,7 @@ static const TCHAR *NVENCODE_API_DLL  = _T("libnvidia-encode.so");
 static const TCHAR *NVENCODE_API_DLL2 = _T("libnvidia-encode.so.1");
 #endif
 
+class DeviceDX11;
 
 #if defined(_WIN32) || defined(_WIN64)
 #define ENABLE_ASYNC 1
@@ -324,6 +327,8 @@ public:
     NVEncoder *encoder() const { return m_encoder.get(); }
 #if ENABLE_D3D11
     DeviceDX11 *dx11() const { return m_dx11.get(); }
+#else
+    DeviceDX11 *dx11() const { return nullptr; }
 #endif
 
     void close_device();

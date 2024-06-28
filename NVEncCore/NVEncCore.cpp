@@ -79,7 +79,7 @@
 #include "NVEncFilterSmooth.h"
 #include "NVEncFilterDenoiseFFT3D.h"
 #include "NVEncFilterNvvfx.h"
-#include "NVEncFilterNgx.h"
+#include "NVEncFilterNGX.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterDecimate.h"
 #include "NVEncFilterMpdecimate.h"

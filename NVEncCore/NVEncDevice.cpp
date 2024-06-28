@@ -997,6 +997,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     CUdevice cuDevice = 0;
     CUresult cuResult = CUDA_SUCCESS;
     const auto error_level = (error_if_fail) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
+#if ENABLE_D3D11
     if (initDX11) {
         writeLog(RGY_LOG_DEBUG, _T("checking for DX11 device #%d.\n"), deviceID);
         m_dx11 = std::make_unique<DeviceDX11>();
@@ -1013,7 +1014,9 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
             return RGY_ERR_CUDA;
         }
         writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGet:DX11(%d): success: %d\n"), deviceID, cuDevice);
-    } else {
+    } else
+#endif // #if ENABLE_D3D11
+    {
         writeLog(RGY_LOG_DEBUG, _T("checking for CUDA device #%d.\n"), deviceID);
         cuResult = cuDeviceGet(&cuDevice, deviceID);
         if (cuResult != CUDA_SUCCESS) {

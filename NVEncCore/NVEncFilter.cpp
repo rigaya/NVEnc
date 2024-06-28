@@ -212,6 +212,22 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
     return RGY_ERR_NONE;
 }
 
+
+RGY_ERR NVEncFilterDisabled::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    m_pLog = pPrintMes;
+    AddMessage(RGY_LOG_ERROR, _T("This build doesn't support this filter.\n"));
+    return RGY_ERR_UNSUPPORTED;
+}
+
+RGY_ERR NVEncFilterDisabled::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    AddMessage(RGY_LOG_ERROR, _T("This build doesn't support this filter.\n"));
+    return RGY_ERR_UNSUPPORTED;
+}
+
+void NVEncFilterDisabled::close() {
+    m_pLog.reset();
+}
+
 NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()), matrix(RGY_MATRIX_ST170_M) {};
 NVEncFilterParamCrop::~NVEncFilterParamCrop() {};
 

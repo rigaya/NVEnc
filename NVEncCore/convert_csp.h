@@ -314,10 +314,10 @@ static const RGY_DATA_TYPE RGY_CSP_DATA_TYPE[] = {
 };
 static_assert(sizeof(RGY_CSP_DATA_TYPE) / sizeof(RGY_CSP_DATA_TYPE[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_DATA_TYPE) == RGY_CSP_COUNT");
 
-static const bool isDataTypeFP(const RGY_DATA_TYPE type) {
+static bool isDataTypeFP(const RGY_DATA_TYPE type) {
     return type == RGY_DATA_TYPE_FP16 || type == RGY_DATA_TYPE_FP32;
 }
-static const bool isDataTypeFP(const RGY_CSP csp) {
+static bool isDataTypeFP(const RGY_CSP csp) {
     return isDataTypeFP(RGY_CSP_DATA_TYPE[csp]);
 }
 
