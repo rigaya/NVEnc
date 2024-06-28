@@ -442,7 +442,7 @@ void convert_rgb24r_to_rgb32_avx2(void **dst, const void **src, int width, int s
     const int crop_bottom = crop[3];
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
     uint8_t *srcLine = (uint8_t *)src[0] + src_y_pitch_byte * ((y_range.start_src + y_range.len) - 1) + crop_left * 3;
-    uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * (height - (y_range.start_dst + y_range.len));
     alignas(32) const char MASK_RGB3_TO_RGB4[] = {
         0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1,
         0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1
