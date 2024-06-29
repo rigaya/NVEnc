@@ -41,6 +41,7 @@
 
 const char *NVEncFilterCustom::KERNEL_NAME = "kernel_filter";
 
+#if ENABLE_NVRTC
 static jitify::KernelInstantiation jitify_instantiate(jitify::Program *program, const char *kernel_name, const RGY_CSP cspOut, const RGY_CSP cspIn) {
     switch (RGY_CSP_DATA_TYPE[cspOut]) {
     case RGY_DATA_TYPE_U8:
@@ -99,6 +100,7 @@ static jitify::KernelInstantiation jitify_instantiate(jitify::Program *program, 
         return program->kernel(kernel_name).instantiate();
     }
 }
+#endif
 
 NVEncFilterCustom::NVEncFilterCustom()
 #if ENABLE_NVRTC

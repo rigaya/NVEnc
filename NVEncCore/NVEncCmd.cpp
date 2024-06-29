@@ -2192,6 +2192,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_STR_PATH(_T("--vpp-nvvfx-model-dir"), vppnv.nvvfxModelDir);
 
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     if (pParams->vpp.resize_algo == RGY_VPP_RESIZE_NGX_VSR) {
         cmd << _T(" --vpp-resize ") << get_chr_from_value(list_vpp_resize, pParams->vpp.resize_algo);
         if (pParams->vppnv.ngxVSR.quality != encPrmDefault.vppnv.ngxVSR.quality) {
@@ -2206,6 +2207,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(",superres-strength=") << pParams->vppnv.nvvfxSuperRes.strength << std::endl;
         }
     }
+#endif
 
     if (pParams->vppnv.ngxTrueHDR != encPrmDefault.vppnv.ngxTrueHDR) {
         tmp.str(tstring());
