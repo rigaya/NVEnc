@@ -1091,8 +1091,8 @@ bool VppDenoiseFFT3D::operator!=(const VppDenoiseFFT3D &x) const {
 
 tstring VppDenoiseFFT3D::print() const {
     tstring str = strsprintf(_T("denoise-fft3d: sigma %.2f, strength %.2f, block_size %d\n"
-        "                         overlap %.2f:%.2f, method %d, temporal %d, precision %s"),
-        sigma, amount, block_size, overlap, overlap2, method, temporal, get_cx_desc(list_vpp_fp_prec, precision));
+        "                         overlap %.2f, method %d, temporal %d, precision %s"),
+        sigma, amount, block_size, overlap, method, temporal, get_cx_desc(list_vpp_fp_prec, precision));
     return str;
 }
 

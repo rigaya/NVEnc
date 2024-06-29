@@ -2416,7 +2416,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{
-            "sigma", "amount", "block_size", "overlap", "overlap2", "method", "temporal", "prec" };
+            "sigma", "amount", "block_size", "overlap",/*"overlap2",*/ "method", "temporal", "prec"};
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -8002,16 +8002,16 @@ tstring gen_cmd_help_vpp() {
         _T("      amount=<float>        amount of denoising (default=%.2f, 0 - 1)\n")
         _T("      block_size=<int>      block size of calculation.\n")
         _T("                              8, 16, 32 (default), 64\n")
-        _T("      overlap=<float>       block overlap (default=%.2f, 0 - 0.8)\n")
-        _T("      overlap2=<float>      block overlap to be averaged (default=%.2f, 0 - 0.8)\n")
-        _T("                              overlap + overlap2 must be below 0.8.\n")
+        _T("      overlap=<float>       block overlap (default=%.2f, 0.2 - 0.8)\n")
+        //_T("      overlap2=<float>      block overlap to be averaged (default=%.2f, 0 - 0.8)\n")
+        //_T("                              overlap + overlap2 must be below 0.8.\n")
         _T("      method=<int>          method of denoising\n")
         _T("                              0 (default), 1\n")
         _T("      temporal=<int>        Enable temporal filtering (default=%d)\n")
         _T("      prec=<string>         Select calculation precision.\n")
         _T("                              auto (default), fp16, fp32\n"),
         FILTER_DEFAULT_DENOISE_FFT3D_SIGMA, FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT, FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE,
-        FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP, FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2, FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL);
+        FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP, /* FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2,*/ FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL);
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-subburn [<param1>=<value>][,<param2>=<value>][...]\n")

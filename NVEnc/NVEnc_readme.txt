@@ -215,6 +215,9 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2024.06.29 (7.57)
+- --vpp-colorspace, --vpp-resize ngx-vsr, --vpp-ngx-truehdr が一部の言語のOSで正常に動作しない問題を修正。
+
 2024.06.29 (7.56)
 [NVEncC]
 - NVIDIA VSR (Video Super Resolution)によるリサイズフィルタを追加。(--vpp-resize ngx-vsr)
