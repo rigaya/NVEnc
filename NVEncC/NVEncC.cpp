@@ -370,7 +370,7 @@ static int set_signal_handler() {
 
 int _tmain(int argc, TCHAR **argv) {
 #if defined(_WIN32) || defined(_WIN64)
-    _tsetlocale(LC_ALL, _T(".UTF8"));
+    _tsetlocale(LC_CTYPE, _T(".UTF8"));
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
     if (argc == 1) {
