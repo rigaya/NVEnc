@@ -73,6 +73,8 @@ typedef struct {
     HANDLE h_p_videnc;                     //動画エンコーダのハンドル
     char **opened_aviutl_files;            //Aviutlの開いているファイルリスト
     int n_opened_aviutl_files;             //Aviutlの開いているファイルリストの数
+    char *org_save_file_name;              //オリジナルの保存ファイル名
+    char save_file_name[MAX_PATH_LEN];     //保存ファイル名
     char temp_filename[MAX_PATH_LEN];      //一時ファイル名
     char muxed_vid_filename[MAX_PATH_LEN]; //mux後に退避された動画のみファイル
     int  aud_count;                        //音声ファイル数...音声エンコード段階で設定する

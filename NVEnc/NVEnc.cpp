@@ -250,6 +250,11 @@ BOOL func_output( OUTPUT_INFO *oip ) {
     }
     free_enc_prm(&pe);
 
+    // 元に戻す
+    if (pe.org_save_file_name) {
+        oip->savefile = pe.org_save_file_name;
+    }
+
     return (ret & AUO_RESULT_ERROR) ? FALSE : TRUE;
 }
 
