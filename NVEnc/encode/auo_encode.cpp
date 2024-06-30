@@ -270,7 +270,6 @@ const MUXER_CMD_EX *get_muxer_mode(const CONF_GUIEX *conf, const SYSTEM_DATA *sy
     case MUXER_TC2MP4:
     case MUXER_MP4:      mode = conf->mux.mp4_mode; break;
     case MUXER_MKV:      mode = conf->mux.mkv_mode; break;
-    case MUXER_MPG:      mode = conf->mux.mpg_mode; break;
     case MUXER_INTERNAL: mode = conf->mux.internal_mode; break;
     default: break;
     }
@@ -347,7 +346,6 @@ static BOOL muxer_supports_audio_format(const int muxer_to_be_used, const AUDIO_
     case MUXER_MP4:
         return aud_stg->unsupported_mp4 == 0;
     case MUXER_MKV:
-    case MUXER_MPG:
     case MUXER_DISABLED:
     case MUXER_INTERNAL:
         return TRUE;
@@ -1008,7 +1006,6 @@ int get_mux_excmd_mode(const CONF_GUIEX *conf, const PRM_ENC *pe) {
     switch (pe->muxer_to_be_used) {
     case MUXER_INTERNAL: mode = conf->mux.internal_mode; break;
     case MUXER_MKV:      mode = conf->mux.mkv_mode; break;
-    case MUXER_MPG:      mode = conf->mux.mpg_mode; break;
     case MUXER_MP4:
     case MUXER_TC2MP4:
     case MUXER_MP4_RAW:  mode = conf->mux.mp4_mode; break;
@@ -1306,10 +1303,6 @@ DWORD GetExePriority(DWORD set, HANDLE h_aviutl) {
 int check_video_ouput(const char *filename) {
     if (check_ext(filename, ".mp4"))  return VIDEO_OUTPUT_MP4;
     if (check_ext(filename, ".mkv"))  return VIDEO_OUTPUT_MKV;
-#if ENCODER_QSV    
-    if (check_ext(filename, ".mpg"))  return VIDEO_OUTPUT_MPEG2;
-    if (check_ext(filename, ".mpeg")) return VIDEO_OUTPUT_MPEG2;
-#endif
     return VIDEO_OUTPUT_RAW;
 }
 
@@ -1333,8 +1326,6 @@ int check_muxer_to_be_used(const CONF_GUIEX *conf, const PRM_ENC *pe, const SYST
         muxer_to_be_used = MUXER_INTERNAL; // MUXER_MP4;
     else if (video_output_type == VIDEO_OUTPUT_MKV && !conf->mux.disable_mkvext)
         muxer_to_be_used = MUXER_INTERNAL; // MUXER_MKV;
-    else if (video_output_type == VIDEO_OUTPUT_MPEG2 && !conf->mux.disable_mpgext)
-        muxer_to_be_used = MUXER_INTERNAL; // MUXER_MPG;
 
     //muxerが必要ないかどうかチェック
     BOOL no_muxer = TRUE;

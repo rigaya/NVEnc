@@ -557,14 +557,13 @@ void guiEx_settings::load_mux() {
     char muxer_section[INI_KEY_MAX_LEN];
     char key[INI_KEY_MAX_LEN];
 
-    static const int MUX_COUNT = 6;
-    static const char * MUXER_TYPE[MUX_COUNT]    = { "MUXER_MP4", "MUXER_MKV", "MUXER_TC2MP4", "MUXER_MPG", "MUXER_MP4_RAW", "MUXER_INTERNAL" };
-    static const char * MUXER_OUT_EXT[MUX_COUNT] = {      ".mp4",      ".mkv",         ".mp4",      ".mpg",          ".mp4",             ".*" };
+    static const char * MUXER_TYPE[MUXER_MAX_COUNT]    = { "MUXER_MP4", "MUXER_MKV", "MUXER_TC2MP4", "MUXER_MP4_RAW", "MUXER_INTERNAL" };
+    static const char * MUXER_OUT_EXT[MUXER_MAX_COUNT] = {      ".mp4",      ".mkv",         ".mp4",          ".mp4",             ".*" };
 
     clear_mux();
 
 
-    s_mux_count = MUX_COUNT;
+    s_mux_count = MUXER_MAX_COUNT;
     s_mux_mc.init(ini_filesize + s_mux_count * sizeof(MUXER_SETTINGS));
     s_mux = (MUXER_SETTINGS *)s_mux_mc.CutMem(s_mux_count * sizeof(MUXER_SETTINGS));
     for (i = 0; i < s_mux_count; i++) {

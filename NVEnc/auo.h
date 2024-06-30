@@ -48,7 +48,6 @@ enum {
     VIDEO_OUTPUT_RAW      = -1,
     VIDEO_OUTPUT_MP4      = 0,
     VIDEO_OUTPUT_MKV      = 1,
-    VIDEO_OUTPUT_MPEG2    = 3,
 };
 
 #if ENCODER_QSV
@@ -82,9 +81,9 @@ enum {
     MUXER_MP4      = VIDEO_OUTPUT_MP4,
     MUXER_MKV      = VIDEO_OUTPUT_MKV,
     MUXER_TC2MP4   = VIDEO_OUTPUT_MP4 + 2,
-    MUXER_MPG      = VIDEO_OUTPUT_MPEG2,
-    MUXER_MP4_RAW  = VIDEO_OUTPUT_MP4 + 4,
+    MUXER_MP4_RAW,
     MUXER_INTERNAL,
+    MUXER_MAX_COUNT,
 };
 
 enum {

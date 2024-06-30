@@ -33,8 +33,6 @@ using namespace System::Threading;
 using namespace System::IO;
 using namespace System::Collections::Generic;
 
-#define HIDE_MPEG2
-
 namespace NVEnc {
 
     ref class LocalSettings
@@ -318,9 +316,6 @@ static const ENC_OPTION_STR2 list_rotate_angle_ja[] = {
 static const ENC_OPTION_STR2 list_out_enc_codec[] = {
     { AUO_MES_UNKNOWN, L"H.264 / AVC",  MFX_CODEC_AVC  },
     { AUO_MES_UNKNOWN, L"H.265 / HEVC", MFX_CODEC_HEVC },
-#ifndef HIDE_MPEG2
-    { AUO_MES_UNKNOWN, L"MPEG2", MFX_CODEC_MPEG2 },
-#endif
     //{ AUO_MES_UNKNOWN,"VC-1", MFX_CODEC_VC1 },
     { AUO_MES_UNKNOWN, L"VP9", MFX_CODEC_VP9 },
     { AUO_MES_UNKNOWN, L"AV1", MFX_CODEC_AV1 },

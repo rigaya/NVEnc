@@ -207,8 +207,8 @@ typedef struct CONF_MUX {
     int  priority;        //mux優先度(インデックス)
     int  mp4_temp_dir;    //mp4box用一時ディレクトリ
     BOOL apple_mode;      //Apple用モード(mp4系専用)
-    BOOL disable_mpgext;  //mpg出力時、外部muxerを使用する
-    int  mpg_mode;        //mpg 外部muxer用追加コマンドの設定
+    BOOL unused;
+    int  unused2;
     BOOL use_internal;    //内蔵muxerの使用
     int  internal_mode;   //内蔵muxer用のオプション
 } CONF_MUX; //muxer用設定
