@@ -196,6 +196,8 @@ BOOL func_output( OUTPUT_INFO *oip ) {
     }
     conf_out = g_conf;
 
+    init_enc_prm(&conf_out, &pe, oip, &g_sys_dat);
+
     //ログウィンドウを開く
     open_log_window(oip, &g_sys_dat, 1, 1);
     if (conf_not_initialized) {

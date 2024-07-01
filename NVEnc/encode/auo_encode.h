@@ -60,7 +60,8 @@ void open_log_window(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, int cur
 void auto_save_log(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
 void warn_video_length(const OUTPUT_INFO *oip);
 int get_total_path(const CONF_GUIEX *conf);
-void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat);
+void init_enc_prm(const CONF_GUIEX *conf, PRM_ENC *pe, OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat);
+void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat);
 void free_enc_prm(PRM_ENC *pe);
 
 bool is_afsvfr(const CONF_GUIEX *conf);
