@@ -903,6 +903,20 @@ void init_enc_prm(const CONF_GUIEX *conf, PRM_ENC *pe, OUTPUT_INFO *oip, const S
         }
         // 拡張子を付与
         strcat_s(pe->save_file_name, OUTPUT_FILE_EXT[out_ext_idx]);
+        // ファイル名が重複していた場合、連番を付与する
+        if (PathFileExists(pe->save_file_name)) {
+            char tmp[MAX_PATH_LEN];
+            for (int i = 0; i < 1000000; i++) {
+                char new_ext[32];
+                sprintf_s(new_ext, ".%d%s", i, OUTPUT_FILE_EXT[out_ext_idx]);
+                strcpy_s(tmp, pe->save_file_name);
+                change_ext(tmp, _countof(tmp), new_ext);
+                if (!PathFileExists(tmp)) {
+                    strcpy_s(pe->save_file_name, tmp);
+                    break;
+                }
+            }
+        }
         // オリジナルのsavefileのポインタを保存
         pe->org_save_file_name = oip->savefile;
         // 保存先のファイル名を変更
