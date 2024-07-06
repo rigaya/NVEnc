@@ -36,7 +36,7 @@ setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```Batchfile
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20231123/ffmpeg_dlls_for_hwenc_20231123.7z
+curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240511/ffmpeg_dlls_for_hwenc_20240511.7z
 7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
 ```
 
