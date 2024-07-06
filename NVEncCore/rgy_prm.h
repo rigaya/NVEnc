@@ -1426,6 +1426,18 @@ struct VppWarpsharp {
     tstring print() const;
 };
 
+struct VppTweakChannel {
+    float offset;
+    float gain;
+    float gamma;
+
+    VppTweakChannel();
+    bool enabled() const;
+    bool operator==(const VppTweakChannel &x) const;
+    bool operator!=(const VppTweakChannel &x) const;
+    tstring print(const bool print_gamma = true) const;
+};
+
 struct VppTweak {
     bool  enable;
     float brightness; // -1.0 - 1.0 (0.0)
@@ -1435,10 +1447,13 @@ struct VppTweak {
     float hue;        // -180 - 180 (0.0)
     bool swapuv;
 
+    VppTweakChannel y, cb, cr;
+    VppTweakChannel r, g, b;
+
     VppTweak();
     bool operator==(const VppTweak &x) const;
     bool operator!=(const VppTweak &x) const;
-    tstring print() const;
+    tstring print(const bool print_rgb = true) const;
 };
 
 struct VppTransform {

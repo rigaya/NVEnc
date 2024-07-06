@@ -34,8 +34,9 @@
 class NVEncFilterParamTweak : public NVEncFilterParam {
 public:
     VppTweak tweak;
+    VideoVUIInfo vui;
 
-    NVEncFilterParamTweak() : tweak() {};
+    NVEncFilterParamTweak() : tweak(), vui() {};
     virtual ~NVEncFilterParamTweak() {};
     virtual tstring print() const override;
 };
@@ -48,4 +49,7 @@ public:
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
+
+    std::unique_ptr<NVEncFilter> m_convSrc;
+    std::unique_ptr<NVEncFilter> m_convDst;
 };

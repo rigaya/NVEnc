@@ -2938,7 +2938,12 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "swapuv", "hue" };
+        auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "swapuv", "hue" };
+        for (auto& channel : { "y", "cb", "cr", "r", "g", "b" }) {
+            paramList.push_back(std::string(channel) + "offset");
+            paramList.push_back(std::string(channel) + "gain");
+            paramList.push_back(std::string(channel) + "gamma");
+        }
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -3010,6 +3015,55 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         return 1;
                     }
                     continue;
+                }
+                bool parse_gamma = false; // gammaのパラメータをパースのは r, g, b のみで、 y, cb, crは対象外
+                auto param_subopt = param_arg;
+                VppTweakChannel *tweak_channel = nullptr;
+                if (param_arg.length() > 2 && param_arg[1] == _T('_')) {
+                    param_subopt = param_arg.substr(2);
+                    switch (param_arg[0]) {
+                    case _T('r'): tweak_channel = &vpp->tweak.r; parse_gamma = true; break;
+                    case _T('g'): tweak_channel = &vpp->tweak.g; parse_gamma = true; break;
+                    case _T('b'): tweak_channel = &vpp->tweak.b; parse_gamma = true; break;
+                    case _T('y'): tweak_channel = &vpp->tweak.y; break;
+                    default: break;
+                    }
+                }
+                if (!tweak_channel && param_arg.length() > 3 && param_arg[2] == _T('_')) {
+                    param_subopt = param_arg.substr(3);
+                    if (param_arg.substr(0, 2) == _T("cb")) {
+                        tweak_channel = &vpp->tweak.cb;
+                    } else if (param_arg.substr(0, 2) == _T("cr")) {
+                        tweak_channel = &vpp->tweak.cr;
+                    }
+                }
+                if (tweak_channel) {
+                    // param_subopt から、 offset, gain, gammaを取り出す
+                    if (param_subopt == _T("offset")) {
+                        try {
+                            tweak_channel->offset = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    } else if (param_subopt == _T("gain")) {
+                        try {
+                            tweak_channel->gain = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    } else if (param_subopt == _T("gamma") && parse_gamma) {
+                        try {
+                            tweak_channel->gamma = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }   
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
@@ -6724,6 +6778,24 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("saturation"), tweak.saturation, 3);
             ADD_FLOAT(_T("hue"), tweak.hue, 3);
             ADD_BOOL(_T("swapuv"), tweak.swapuv);
+            ADD_FLOAT(_T("y_offset"),  tweak.y.offset, 3);
+            ADD_FLOAT(_T("y_gain"),    tweak.y.gain, 3);
+            //ADD_FLOAT(_T("y_gamma"),   tweak.y.gamma, 3);
+            ADD_FLOAT(_T("cb_offset"), tweak.cb.offset, 3);
+            ADD_FLOAT(_T("cb_gain"),   tweak.cb.gain, 3);
+            //ADD_FLOAT(_T("cb_gamma"),  tweak.cb.gamma, 3);
+            ADD_FLOAT(_T("cr_offset"), tweak.cr.offset, 3);
+            ADD_FLOAT(_T("cr_gain"),   tweak.cr.gain, 3);
+            //ADD_FLOAT(_T("cr_gamma"),  tweak.cr.gamma, 3);
+            ADD_FLOAT(_T("r_offset"),  tweak.r.offset, 3);
+            ADD_FLOAT(_T("r_gain"),    tweak.r.gain, 3);
+            ADD_FLOAT(_T("r_gamma"),   tweak.r.gamma, 3);
+            ADD_FLOAT(_T("g_offset"),  tweak.g.offset, 3);
+            ADD_FLOAT(_T("g_gain"),    tweak.g.gain, 3);
+            ADD_FLOAT(_T("g_gamma"),   tweak.g.gamma, 3);
+            ADD_FLOAT(_T("b_offset"),  tweak.b.offset, 3);
+            ADD_FLOAT(_T("b_gain"),    tweak.b.gain, 3);
+            ADD_FLOAT(_T("b_gamma"),   tweak.b.gamma, 3);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-tweak ") << tmp.str().substr(1);
@@ -8102,12 +8174,20 @@ tstring gen_cmd_help_vpp() {
         _T("      contrast=<float>          (default=%.1f, -2.0 - 2.0)\n")
         _T("      gamma=<float>             (default=%.1f,  0.1 - 10.0)\n")
         _T("      saturation=<float>        (default=%.1f,  0.0 - 3.0)\n")
-        _T("      hue=<float>               (default=%.1f, -180 - 180)\n"),
+        _T("      hue=<float>               (default=%.1f, -180 - 180)\n")
+        _T("\n")
+        _T("      [y,cb,cr,r,g,b]_offset=<float> (default=%.1f, -1.0 - 1.0)\n")
+        _T("      [y,cb,cr,r,g,b]_gain=<float>   (default=%.1f, -2.0 - 2.0)\n")
+        _T("              [r,g,b]_gamma=<float>  (default=%.1f,  0.1 - 10.0)\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS,
         FILTER_DEFAULT_TWEAK_CONTRAST,
         FILTER_DEFAULT_TWEAK_GAMMA,
         FILTER_DEFAULT_TWEAK_SATURATION,
-        FILTER_DEFAULT_TWEAK_HUE);
+        FILTER_DEFAULT_TWEAK_HUE,
+        FILTER_DEFAULT_TWEAK_BRIGHTNESS,
+        FILTER_DEFAULT_TWEAK_CONTRAST,
+        FILTER_DEFAULT_TWEAK_GAMMA
+        );
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-rotate <int>           rotate video (90, 180, 270)\n")

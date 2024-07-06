@@ -2621,6 +2621,27 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   - hue=&lt;float&gt; (default=0.0, -180 - 180)  
   
   - swapuv=&lt;bool&gt;  (default=false)
+
+  - y_offset=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  - y_gain=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+
+  - cb_offset=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  - cb_gain=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+
+  - cr_offset=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  - cr_gain=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+
+  - r_offset=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  - r_gain=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+  - r_gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
+
+  - g_offset=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  - g_gain=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+  - g_gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
+
+  - b_offset=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  - b_gain=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+  - b_gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
   
 - 使用例
   ```

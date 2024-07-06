@@ -1264,6 +1264,33 @@ tstring VppWarpsharp::print() const {
         threshold, blur, type, depth, chroma);
 }
 
+VppTweakChannel::VppTweakChannel() :
+    offset(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
+    gain(FILTER_DEFAULT_TWEAK_CONTRAST),
+    gamma(FILTER_DEFAULT_TWEAK_GAMMA) {
+}
+
+bool VppTweakChannel::enabled() const {
+    return *this != VppTweakChannel();
+}
+
+bool VppTweakChannel::operator==(const VppTweakChannel &x) const {
+    return offset == x.offset
+        && gain == x.gain
+        && gamma == x.gamma;
+}
+bool VppTweakChannel::operator!=(const VppTweakChannel &x) const {
+    return !(*this == x);
+}
+
+tstring VppTweakChannel::print(const bool print_gamma) const {
+    auto str = strsprintf(_T("offset %.2f, gain %.2f"), offset, gain);
+    if (print_gamma) {
+        str += strsprintf(_T(", gamma %.2f"), gamma);
+    }
+    return str;
+}
+
 VppTweak::VppTweak() :
     enable(false),
     brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
@@ -1271,7 +1298,13 @@ VppTweak::VppTweak() :
     gamma(FILTER_DEFAULT_TWEAK_GAMMA),
     saturation(FILTER_DEFAULT_TWEAK_SATURATION),
     hue(FILTER_DEFAULT_TWEAK_HUE),
-    swapuv(false) {
+    swapuv(false),
+    y(),
+    cb(),
+    cr(),
+    r(),
+    g(),
+    b() {
 }
 
 bool VppTweak::operator==(const VppTweak &x) const {
@@ -1281,15 +1314,31 @@ bool VppTweak::operator==(const VppTweak &x) const {
         && gamma == x.gamma
         && saturation == x.saturation
         && hue == x.hue
-        && swapuv == x.swapuv;
+        && swapuv == x.swapuv
+        && y == x.y
+        && cb == x.cb
+        && cr == x.cr
+        && r == x.r
+        && g == x.g
+        && b == x.b;
 }
 bool VppTweak::operator!=(const VppTweak &x) const {
     return !(*this == x);
 }
 
-tstring VppTweak::print() const {
-    return strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f, swapuv %s"),
+tstring VppTweak::print(const bool print_rgb) const {
+    auto str = strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f, swapuv %s"),
         brightness, contrast, saturation, gamma, hue, swapuv ? _T("on") : _T("off"));
+    tstring indent = _T("         ");
+    if (y.enabled())  { str += _T("\n") + indent + _T("y: ")  + y.print(false); }
+    if (cb.enabled()) { str += _T("\n") + indent + _T("cb: ") + cb.print(false); }
+    if (cr.enabled()) { str += _T("\n") + indent + _T("cr: ") + cr.print(false); }
+    if (print_rgb) {
+        if (r.enabled()) { str += _T("\n") + indent + _T("r: ") + r.print(); }
+        if (g.enabled()) { str += _T("\n") + indent + _T("g: ") + g.print(); }
+        if (b.enabled()) { str += _T("\n") + indent + _T("b: ") + b.print(); }
+    }
+    return str;
 }
 
 VppCurveParams::VppCurveParams() : r(), g(), b(), m() {};
