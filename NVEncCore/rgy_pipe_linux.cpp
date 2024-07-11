@@ -163,9 +163,12 @@ int RGYPipeProcessLinux::stdInFpFlush() {
 }
 
 int RGYPipeProcessLinux::stdInFpClose() {
-    const int ret = fclose(m_pipe.stdIn.fp);
-    m_pipe.stdIn.fp = nullptr;
-    m_pipe.stdIn.h_write = 0;
+    int ret = 0;
+    if (m_pipe.stdIn.fp) {
+        ret = fclose(m_pipe.stdIn.fp);
+        m_pipe.stdIn.fp = nullptr;
+        m_pipe.stdIn.h_write = 0;
+    }
     return ret;
 }
 
@@ -211,9 +214,12 @@ size_t RGYPipeProcessLinux::stdOutFpRead(void *data, const size_t dataSize) {
 }
 
 int RGYPipeProcessLinux::stdOutFpClose() {
-    const int ret = fclose(m_pipe.stdOut.fp);
-    m_pipe.stdOut.fp = nullptr;
-    m_pipe.stdOut.h_read = 0;
+    int ret = 0;
+    if (m_pipe.stdOut.fp) {
+        ret = fclose(m_pipe.stdOut.fp);
+        m_pipe.stdOut.fp = nullptr;
+        m_pipe.stdOut.h_read = 0;
+    }
     return ret;
 }
 
@@ -222,9 +228,12 @@ size_t RGYPipeProcessLinux::stdErrFpRead(void *data, const size_t dataSize) {
 }
 
 int RGYPipeProcessLinux::stdErrFpClose() {
-    const int ret = fclose(m_pipe.stdErr.fp);
-    m_pipe.stdErr.fp = nullptr;
-    m_pipe.stdErr.h_read = 0;
+    int ret = 0;
+    if (m_pipe.stdErr.fp) {
+        ret = fclose(m_pipe.stdErr.fp);
+        m_pipe.stdErr.fp = nullptr;
+        m_pipe.stdErr.h_read = 0;
+    }
     return ret;
 }
 

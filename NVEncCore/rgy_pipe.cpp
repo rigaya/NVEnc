@@ -89,7 +89,7 @@ int RGYPipeProcessWin::run(const std::vector<tstring>& args, const TCHAR *exedir
     if (m_pipe.stdOut.mode)
         si.hStdOutput = m_pipe.stdOut.h_write;
     if (m_pipe.stdErr.mode)
-        si.hStdError = (m_pipe.stdErr.mode & (PIPE_MODE_ENABLE|PIPE_MODE_MUXED)) ? m_pipe.stdOut.h_write : m_pipe.stdErr.h_write;
+        si.hStdError = ((m_pipe.stdErr.mode & (PIPE_MODE_ENABLE|PIPE_MODE_MUXED)) == (PIPE_MODE_ENABLE | PIPE_MODE_MUXED)) ? m_pipe.stdOut.h_write : m_pipe.stdErr.h_write;
     if (m_pipe.stdIn.mode)
         si.hStdInput = m_pipe.stdIn.h_read;
     si.dwFlags |= STARTF_USESTDHANDLES;
@@ -150,9 +150,12 @@ int RGYPipeProcessWin::stdInFpFlush() {
 }
 
 int RGYPipeProcessWin::stdInFpClose() {
-    int ret = fclose(m_pipe.stdIn.fp);
-    m_pipe.stdIn.fp = nullptr;
-    m_pipe.stdIn.h_write = nullptr;
+    int ret = 0;
+    if (m_pipe.stdIn.fp) {
+        ret = fclose(m_pipe.stdIn.fp);
+        m_pipe.stdIn.fp = nullptr;
+        m_pipe.stdIn.h_write = nullptr;
+    }
     return ret;
 }
 
@@ -161,9 +164,12 @@ size_t RGYPipeProcessWin::stdOutFpRead(void *data, const size_t dataSize) {
 }
 
 int RGYPipeProcessWin::stdOutFpClose() {
-    int ret = fclose(m_pipe.stdOut.fp);
-    m_pipe.stdOut.fp = nullptr;
-    m_pipe.stdOut.h_read = nullptr;
+    int ret = 0;
+    if (m_pipe.stdOut.fp) {
+        ret = fclose(m_pipe.stdOut.fp);
+        m_pipe.stdOut.fp = nullptr;
+        m_pipe.stdOut.h_read = nullptr;
+    }
     return ret;
 }
 
@@ -172,9 +178,12 @@ size_t RGYPipeProcessWin::stdErrFpRead(void *data, const size_t dataSize) {
 }
 
 int RGYPipeProcessWin::stdErrFpClose() {
-    int ret = fclose(m_pipe.stdErr.fp);
-    m_pipe.stdErr.fp = nullptr;
-    m_pipe.stdErr.h_read = nullptr;
+    int ret = 0;
+    if (m_pipe.stdErr.fp) {
+        ret = fclose(m_pipe.stdErr.fp);
+        m_pipe.stdErr.fp = nullptr;
+        m_pipe.stdErr.h_read = nullptr;
+    }
     return ret;
 }
 
