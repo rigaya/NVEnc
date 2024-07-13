@@ -239,19 +239,31 @@ int RGYPipeProcessLinux::stdErrFpClose() {
 
 tstring RGYPipeProcessLinux::getOutput() {
     std::string outstr;
-    auto read_from_pipe = [&]() {
-        char read_buf[4096];
-        int ret = (int)read(m_pipe.stdOut.h_read, read_buf, _countof(read_buf));
-        if (ret == -1) return -1;
-        outstr += std::string(read_buf, read_buf+ret);
-        return (int)ret;
-    };
-    for (;;) {
-        if (read_from_pipe() < 0) {
-            break;
+    std::vector<uint8_t> bufferOut, bufferErr;
+    while (stdOutRead(bufferOut) >= 0
+        || ((m_pipe.stdErr.mode & (PIPE_MODE_ENABLE | PIPE_MODE_MUXED)) == (PIPE_MODE_ENABLE | PIPE_MODE_MUXED) && stdErrRead(bufferErr) >= 0)) {
+        if (bufferOut.size() > 0) {
+            outstr += (const char *)bufferOut.data();
+            bufferOut.clear();
+        }
+        if (bufferErr.size() > 0) {
+            outstr += (const char *)bufferErr.data();
+            bufferErr.clear();
         }
     }
-    return outstr;
+    stdOutRead(bufferOut);
+    if ((m_pipe.stdErr.mode & (PIPE_MODE_ENABLE | PIPE_MODE_MUXED)) == (PIPE_MODE_ENABLE | PIPE_MODE_MUXED)) {
+        stdErrRead(bufferErr);
+    }
+    if (bufferOut.size() > 0) {
+        outstr += (const char *)bufferOut.data();
+        bufferOut.clear();
+    }
+    if (bufferErr.size() > 0) {
+        outstr += (const char *)bufferErr.data();
+        bufferErr.clear();
+    }
+    return char_to_tstring(outstr);
 }
 
 bool RGYPipeProcessLinux::processAlive() {
