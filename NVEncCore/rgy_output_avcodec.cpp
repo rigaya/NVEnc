@@ -4442,7 +4442,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
                 && false != (bAudioExists = m_Mux.thread.thOutput->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
                 if (pktData.muxAudio && pktData.muxAudio->streamIn && pktData.pkt) {
-                    audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt->duration) + 0.5));
+                    audPacketsPerSec = (pktData.pkt->duration <= 0) ? pktData.muxAudio->streamIn->codecpar->sample_rate * 8 : std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt->duration) + 0.5));
                     const auto videoDelay = (audioDts - videoDts) * av_q2d(QUEUE_DTS_TIMEBASE);
                     const auto streamQueueCapacity = (int)(audPacketsPerSec * std::max(5.0, videoDelay * 1.5) * std::max((int)m_Mux.audio.size(), 1) + 0.5);
                     if ((int)m_Mux.thread.thOutput->qPackets.capacity() < streamQueueCapacity) {
@@ -4465,7 +4465,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             //一定以上の動画フレームがキューにたまっており、音声キューになにもなければ、
             //音声を無視して動画フレームの処理を開始させる
             //音声が途中までしかなかったり、途中からしかなかったりする場合にこうした処理が必要
-            const size_t videoPacketThreshold = std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()) - nWaitThreshold;
+            const size_t videoPacketThreshold = std::max<size_t>(std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()), nWaitThreshold) - nWaitThreshold;
             if (m_Mux.thread.thOutput->qPackets.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
                 nWaitAudio++;
                 if (nWaitAudio <= nWaitThreshold) {
@@ -4477,11 +4477,11 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
                     break;
                 }
                 audioDts = videoDts;
-                AddMessage(RGY_LOG_TRACE, _T("audio not coming.\n"));
+                AddMessage(RGY_LOG_TRACE, _T("audio not coming: %d.\n"), nWaitAudio);
             }
             //一定以上の音声フレームがキューにたまっており、動画キューになにもなければ、
             //動画を無視して音声フレームの処理を開始させる
-            const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.thOutput->qPackets.capacity()) - nWaitThreshold;
+            const size_t audioPacketThreshold = std::max<size_t>(std::min<size_t>(10 * 1024 * 1024, m_Mux.thread.thOutput->qPackets.capacity()), nWaitThreshold) - nWaitThreshold;
             if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.thOutput->qPackets.size() > audioPacketThreshold) {
                 nWaitVideo++;
                 if (nWaitVideo <= nWaitThreshold) {
@@ -4493,7 +4493,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
                     break;
                 }
                 videoDts = audioDts;
-                AddMessage(RGY_LOG_TRACE, _T("video not coming.\n"));
+                AddMessage(RGY_LOG_TRACE, _T("video not coming: %d\n"), nWaitVideo);
             }
         } while (bAudioExists || bVideoExists); //両方のキューがひとまず空になるか、映像・音声の同期待ちが必要になるまで回す
                                                 //次のフレーム・パケットが送られてくるまで待機する
