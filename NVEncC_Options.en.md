@@ -2705,10 +2705,10 @@ Requires Turing GPUs or later, and requires driver version 550.58 or higher. Sup
 
 - **Parameters**
   - double
-    Convert to double framerate, this mode will result in higher performance.
+    Convert to double framerate.
 
   - fps=&lt;int&gt;/&lt;int&gt;
-    Convert to framerate specified, the performance will be low compared to ```double```.
+    Convert to framerate specified.
 
 - Examples
   ```

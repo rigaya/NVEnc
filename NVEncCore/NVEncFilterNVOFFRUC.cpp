@@ -85,7 +85,7 @@ tstring NVEncFilterParamNVOFFRUC::print() const {
 NVEncFilterNVOFFRUC::NVEncFilterNVOFFRUC() :
     m_func(),
     m_frucBuf(),
-    m_frucHandle(unique_fruc_handle(nullptr, nullptr)),
+    m_frucHandles(),
     m_frucCsp(RGY_CSP_NV12),
     m_prevTimestamp(-1),
     m_targetFps(),
@@ -129,19 +129,20 @@ RGY_ERR NVEncFilterNVOFFRUC::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
             return RGY_ERR_NULL_PTR;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Loaded NVOF FRUC library %s.\n"), NVENC_NVOFFRUC_MODULENAME);
-
+    }
+    if (m_frucHandles.size() == 0) {
         NVEncNVOFFRUCHandle frucHandle = nullptr;
         if ((sts = m_func->fcreate(&frucHandle)) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to create FRUC handle: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        m_frucHandle = unique_fruc_handle(frucHandle, m_func->fcloseHandle);
 
-        if ((sts = m_func->fload(m_frucHandle.get())) != RGY_ERR_NONE) {
+        if ((sts = m_func->fload(frucHandle)) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to load NVOF FRUC library %s: %s.\n"), NVOFFRUC_MODULENAME, get_err_mes(sts));
             return sts;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Loaded NVOF FRUC library %s: %s.\n"), NVOFFRUC_MODULENAME, get_err_mes(sts));
+        m_frucHandles.push_back(NVEncFilterFRUCHandle(unique_fruc_handle(frucHandle, m_func->fcloseHandle)));
     }
 
     sts = checkParam(pParam.get());
@@ -312,9 +313,11 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             return sts;
         }
         copyFramePropWithoutRes(outFrame, pInputFrame);
-        sts = setFirstFrame(bufferIn);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
+        for (auto& frucHandle : m_frucHandles) {
+            sts = setFirstFrame(frucHandle, bufferIn);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
         }
         m_prevTimestamp = pInputFrame->timestamp;
         return RGY_ERR_NONE;
@@ -326,6 +329,7 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         return RGY_ERR_INVALID_PARAM;
     }
 
+    size_t frucHandleIdx = 0;
     auto prevTimestamp = m_prevTimestamp;
     for (int i = 1; ; i++) {
         int64_t nextPts = -1;
@@ -363,11 +367,7 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             break;
         }
         // 途中のフレームを生成
-        // NVOF FRUCは 同じフレームペアからひとつのフレームしか生成できないので、
-        // 同じフレームペアから複数のフレームを作る時は、再初期化が必要
-        // 再初期化が必要な時は、bufferPrevを渡して再初期化を実行する
-        const bool resetRequired = (m_prevTimestamp == (int64_t)bufferPrev->timestamp() && i == 1);
-        sts = genFrame(outFrame, resetRequired ? nullptr : bufferPrev, bufferIn, nextPts, stream);
+        sts = genFrame(frucHandleIdx++, outFrame, bufferPrev, bufferIn, nextPts, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -379,10 +379,10 @@ RGY_ERR NVEncFilterNVOFFRUC::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterNVOFFRUC::setFirstFrame(const CUFrameDevPtr *firstframe) {
+RGY_ERR NVEncFilterNVOFFRUC::setFirstFrame(NVEncFilterFRUCHandle& frucHandle, const CUFrameDevPtr *firstframe) {
     CUFrameDevPtr *work = m_frucBuf.back().get();
     if (firstframe) {
-        auto sts = m_func->fcreateHandle(m_frucHandle.get(), firstframe->width(), firstframe->height(), m_frucCsp == RGY_CSP_NV12);
+        auto sts = m_func->fcreateHandle(frucHandle.handle.get(), firstframe->width(), firstframe->height(), m_frucCsp == RGY_CSP_NV12);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to create fruc handle: %s.\n"), get_err_mes(sts));
             return sts;
@@ -390,7 +390,7 @@ RGY_ERR NVEncFilterNVOFFRUC::setFirstFrame(const CUFrameDevPtr *firstframe) {
 
         // NVOF FRUCにデバイスポインタを渡すときは、デバイスポインタそのものでなく、
         // デバイスポインタのあるアドレスを指定する必要がある
-        sts = m_func->fregisterResource(m_frucHandle.get(), &m_frucBuf[0]->frame.ptr[0], &m_frucBuf[1]->frame.ptr[0], &m_frucBuf[2]->frame.ptr[0]);
+        sts = m_func->fregisterResource(frucHandle.handle.get(), &m_frucBuf[0]->frame.ptr[0], &m_frucBuf[1]->frame.ptr[0], &m_frucBuf[2]->frame.ptr[0]);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to register resources: %s.\n"), get_err_mes(sts));
             return sts;
@@ -402,24 +402,43 @@ RGY_ERR NVEncFilterNVOFFRUC::setFirstFrame(const CUFrameDevPtr *firstframe) {
         procParam.frameIn = (void *)&firstframe->frame.ptr[0];
         procParam.timestampIn = firstframe->timestamp();
         procParam.frameOut = (void *)&work->frame.ptr[0];
-        procParam.timestampOut = work->timestamp();
-        sts = m_func->fproc(m_frucHandle.get(), &procParam);
+        procParam.timestampOut = (frucHandle.prevFramePts >= 0) ? ((frucHandle.prevFramePts + firstframe->timestamp()) / 2) : work->timestamp();
+        sts = m_func->fproc(frucHandle.handle.get(), &procParam);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("FRUC: Process(0) %lld: %s.\n"),
                 firstframe->timestamp(), get_err_mes(sts));
             return sts;
         }
+        frucHandle.prevFramePts = firstframe->timestamp();
     }
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterNVOFFRUC::genFrame(RGYFrameInfo *outFrame, const CUFrameDevPtr *prev, const CUFrameDevPtr *curr, const int64_t genPts, cudaStream_t stream) {
+RGY_ERR NVEncFilterNVOFFRUC::genFrame(const size_t frucHandleIdx, RGYFrameInfo *outFrame, const CUFrameDevPtr *prev, const CUFrameDevPtr *curr, const int64_t genPts, cudaStream_t stream) {
     CUFrameDevPtr *work = m_frucBuf.back().get();
     copyFramePropWithoutRes(&work->frame, &curr->frame);
     work->setTimestamp(genPts);
     work->setInputFrameId(curr->inputFrameId());
-    if (prev) {
-        auto sts = setFirstFrame(prev);
+    if (frucHandleIdx > m_frucHandles.size()) {
+        return RGY_ERR_UNKNOWN;
+    } else if (frucHandleIdx == m_frucHandles.size()) {
+        auto sts = RGY_ERR_NONE;
+        NVEncNVOFFRUCHandle frucHandle = nullptr;
+        if ((sts = m_func->fcreate(&frucHandle)) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to create FRUC handle: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+
+        if ((sts = m_func->fload(frucHandle)) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to load NVOF FRUC library %s: %s.\n"), NVOFFRUC_MODULENAME, get_err_mes(sts));
+            return sts;
+        }
+        m_frucHandles.push_back(NVEncFilterFRUCHandle(unique_fruc_handle(frucHandle, m_func->fcloseHandle)));
+        AddMessage(RGY_LOG_DEBUG, _T("Loaded NVOF FRUC library %s: %s.\n"), NVOFFRUC_MODULENAME, get_err_mes(sts));
+    }
+    auto& frucHandle = m_frucHandles[frucHandleIdx];
+    if (frucHandle.prevFramePts < (int64_t)prev->timestamp()) {
+        auto sts = setFirstFrame(frucHandle, prev);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -432,12 +451,13 @@ RGY_ERR NVEncFilterNVOFFRUC::genFrame(RGYFrameInfo *outFrame, const CUFrameDevPt
         procParam.timestampIn = curr->timestamp();
         procParam.frameOut = (void *)&work->frame.ptr[0];
         procParam.timestampOut = work->timestamp();
-        auto sts = m_func->fproc(m_frucHandle.get(), &procParam);
+        auto sts = m_func->fproc(frucHandle.handle.get(), &procParam);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("FRUC: Process(1) error %lld - %lld -> %lld: %s.\n"),
                 prev->timestamp(), curr->timestamp(), work->timestamp(), get_err_mes(sts));
             return sts;
         }
+        frucHandle.prevFramePts = curr->timestamp();
     }
     {
         int outputFrames = 0;
@@ -462,7 +482,7 @@ void NVEncFilterNVOFFRUC::close() {
     for (auto& buf : m_frucBuf) {
         buf.reset();
     }
-    m_frucHandle.reset();
+    m_frucHandles.clear();
     m_func.reset();
     m_frameBuf.clear();
 }

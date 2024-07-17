@@ -62,6 +62,13 @@ public:
     virtual tstring print() const;
 };
 
+struct NVEncFilterFRUCHandle {
+    unique_fruc_handle handle;
+    int64_t prevFramePts;
+
+    NVEncFilterFRUCHandle(unique_fruc_handle h) : handle(std::move(h)), prevFramePts(-1) { };
+};
+
 class NVEncFilterNVOFFRUC : public NVEncFilter {
 public:
     NVEncFilterNVOFFRUC();
@@ -73,12 +80,12 @@ protected:
     virtual void close() override;
     std::pair<RGY_ERR, unique_fruc_handle> createFRUCHandle();
     RGYFrameInfo *getNextOutFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
-    RGY_ERR setFirstFrame(const CUFrameDevPtr *prev);
-    RGY_ERR genFrame(RGYFrameInfo *outFrame, const CUFrameDevPtr *prev, const CUFrameDevPtr *curr, const int64_t genPts, cudaStream_t stream);
+    RGY_ERR setFirstFrame(NVEncFilterFRUCHandle& frucHandle, const CUFrameDevPtr *prev);
+    RGY_ERR genFrame(const size_t frucHandleIdx, RGYFrameInfo *outFrame, const CUFrameDevPtr *prev, const CUFrameDevPtr *curr, const int64_t genPts, cudaStream_t stream);
 
     std::unique_ptr<NVEncNVOFFRUCFuncs> m_func;
+    std::vector<NVEncFilterFRUCHandle> m_frucHandles;
     std::array<std::unique_ptr<CUFrameDevPtr>, 3> m_frucBuf;
-    unique_fruc_handle m_frucHandle;
     RGY_CSP m_frucCsp;
 
     int64_t m_prevTimestamp;
