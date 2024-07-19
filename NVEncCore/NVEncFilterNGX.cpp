@@ -619,8 +619,6 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     }
     // dstCropOut -> ppOutputFrames[0]
     {
-        ppOutputFrames[0] = nullptr;
-        pOutputFrameNum[0] = 0;
         auto sts_filter = m_dstColorspace->filter(dstCropOut, ppOutputFrames, pOutputFrameNum, stream);
         if (ppOutputFrames[0] == nullptr || pOutputFrameNum[0] != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_srcColorspace->name().c_str());

@@ -1046,19 +1046,16 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             ppOutputFrames[0]->height = pResizeParam->nvvfxSuperRes->frameIn.height;
         }
     } else if (m_ngxVSR) {
-        int vsrOutputNum = 0;
-        RGYFrameInfo *outInfo[1] = { 0 };
         RGYFrameInfo inputFrame = *pInputFrame;
-        auto sts_filter = m_ngxVSR->filter(&inputFrame, (RGYFrameInfo **)&outInfo, &vsrOutputNum, stream);
-        if (outInfo[0] == nullptr || vsrOutputNum != 1) {
+        auto sts_filter = m_ngxVSR->filter(&inputFrame, ppOutputFrames, pOutputFrameNum, stream);
+        if (ppOutputFrames[0] == nullptr || *pOutputFrameNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_ngxVSR->name().c_str());
             return sts_filter;
         }
-        if (sts_filter != RGY_ERR_NONE || vsrOutputNum != 1) {
+        if (sts_filter != RGY_ERR_NONE || *pOutputFrameNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_ngxVSR->name().c_str());
             return sts_filter;
         }
-        ppOutputFrames[0] = outInfo[0];
         return RGY_ERR_NONE;
     }
 
