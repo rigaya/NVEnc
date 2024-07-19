@@ -45,7 +45,9 @@
 #endif
 #if ENABLE_D3D11
 #include <d3d11.h>
+#if ENABLE_D3D11_DEVINFO_WMI
 #include "rgy_device_info_wmi.h"
+#endif
 #endif
 #include "rgy_err.h"
 #include "rgy_log.h"
@@ -129,7 +131,9 @@ public:
     int getDeviceID() const { return m_deviceID; };
     std::wstring GetDisplayDeviceName() const { return m_displayDeviceName; }
     tstring getDriverVersion();
+#if ENABLE_D3D11_DEVINFO_WMI
     const RGYDeviceInfoWMI *getDeviceInfo();
+#endif
     static int adapterCount();
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str);
@@ -144,9 +148,10 @@ private:
     int                          m_vendorID;
     int                          m_deviceID;
 
+#if ENABLE_D3D11_DEVINFO_WMI
     std::unique_ptr<RGYDeviceInfoWMI> m_deviceInfo;
     std::future<std::tuple<RGY_ERR, std::unique_ptr<RGYDeviceInfoWMI>>> m_fDeviceInfo;
-
+#endif
     std::wstring                 m_displayDeviceName;
     std::shared_ptr<RGYLog>      m_log;
 };

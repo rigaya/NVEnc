@@ -93,6 +93,7 @@ const char *get_encoder_version();
 #define ENABLE_NVVFX 0
 #define ENABLE_NVOFFRUC 0
 #define ENABLE_D3D11 0
+#define ENABLE_D3D11_DEVINFO_WMI 0
 #define ENABLE_NVSDKNGX 0
 #else
 #define ENABLE_NVML 1
@@ -101,6 +102,7 @@ const char *get_encoder_version();
 #define ENABLE_NVVFX 1
 #define ENABLE_NVOFFRUC 1
 #define ENABLE_D3D11 1
+#define ENABLE_D3D11_DEVINFO_WMI 1
 #define ENABLE_NVSDKNGX 1
 #endif
 
@@ -150,6 +152,7 @@ const char *get_encoder_version();
 #define ENABLE_VMAF                0
 #define ENABLE_NVOFFRUC            0
 #define ENABLE_D3D11               0
+#define ENABLE_D3D11_DEVINFO_WMI   0
 #define ENABLE_NVSDKNGX            0
 #endif // #if defined(WIN32) || defined(WIN64)
 

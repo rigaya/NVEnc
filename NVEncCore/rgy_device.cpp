@@ -43,7 +43,7 @@
 
 #if ENCODER_QSV
 static const unsigned int ENCODER_VENDOR_ID = 0x00008086; // Intel
-#elif ENCODER_NVENC
+#elif ENCODER_NVENC || CUFILTERS
 static const unsigned int ENCODER_VENDOR_ID = 0x000010de; // NVIDIA
 #elif ENCODER_VCEENC
 static const unsigned int ENCODER_VENDOR_ID = 0x00001002; // AMD
@@ -375,8 +375,10 @@ DeviceDX11::DeviceDX11() :
     m_devLUID(),
     m_vendorID(0),
     m_deviceID(0),
+#if ENABLE_D3D11_DEVINFO_WMI
     m_deviceInfo(),
     m_fDeviceInfo(),
+#endif
     m_displayDeviceName(),
     m_log() {
 }
@@ -438,7 +440,9 @@ RGY_ERR DeviceDX11::Init(int adapterID, shared_ptr<RGYLog> log) {
     m_vendorID = desc.VendorId;
     m_deviceID = desc.DeviceId;
 
+#if ENABLE_D3D11_DEVINFO_WMI
     m_fDeviceInfo = std::async(GetDeviceInfoWMI, m_vendorID, m_deviceID);
+#endif
 
     ATL::CComPtr<IDXGIOutput> pOutput;
     if (SUCCEEDED(m_pAdapter->EnumOutputs(0, &pOutput))) {
@@ -472,30 +476,30 @@ RGY_ERR DeviceDX11::Init(int adapterID, shared_ptr<RGYLog> log) {
     }
 #endif
     if (FAILED(hr)) {
-        AddMessage(RGY_LOG_ERROR, L"InitDX11() failed to create HW DX11.1 device\n");
+        AddMessage(RGY_LOG_ERROR, _T("InitDX11() failed to create HW DX11.1 device\n"));
         hr = D3D11CreateDevice(m_pAdapter, eDriverType, NULL, createDeviceFlags, featureLevels + 1, _countof(featureLevels) - 1,
             D3D11_SDK_VERSION, &pD3D11Device, &featureLevel, &pD3D11Context);
     }
     if (FAILED(hr)) {
-        AddMessage(RGY_LOG_ERROR, L"InitDX11() failed to create HW DX11 device\n");
+        AddMessage(RGY_LOG_ERROR, _T("InitDX11() failed to create HW DX11 device\n"));
         hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_SOFTWARE, NULL, createDeviceFlags, featureLevels, _countof(featureLevels),
             D3D11_SDK_VERSION, &pD3D11Device, &featureLevel, &pD3D11Context);
     }
 
     if (FAILED(hr)) {
-        AddMessage(RGY_LOG_ERROR, L"InitDX11() failed to create SW DX11.1 device\n");
+        AddMessage(RGY_LOG_ERROR, _T("InitDX11() failed to create SW DX11.1 device\n"));
         hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_SOFTWARE, NULL, createDeviceFlags, featureLevels + 1, _countof(featureLevels) - 1,
             D3D11_SDK_VERSION, &pD3D11Device, &featureLevel, &pD3D11Context);
     }
     if (FAILED(hr)) {
-        AddMessage(RGY_LOG_ERROR, L"InitDX11() failed to create SW DX11 device\n");
+        AddMessage(RGY_LOG_ERROR, _T("InitDX11() failed to create SW DX11 device\n"));
     }
     AddMessage(RGY_LOG_DEBUG, _T("InitDX11() success.\n"));
 
     ATL::CComPtr<ID3D10Multithread> pMultithread = NULL;
     hr = pD3D11Device->QueryInterface(__uuidof(ID3D10Multithread), reinterpret_cast<void **>(&pMultithread));
     if (FAILED(hr)) {
-        AddMessage(RGY_LOG_ERROR, L"QueryInterface() failed\n");
+        AddMessage(RGY_LOG_ERROR, _T("QueryInterface() failed\n"));
     }
     if (pMultithread) {
         //        amf_bool isSafe = pMultithread->GetMultithreadProtected() ? true : false;
@@ -514,11 +518,16 @@ RGY_ERR DeviceDX11::Terminate() {
 }
 
 tstring DeviceDX11::getDriverVersion() {
+#if ENABLE_D3D11_DEVINFO_WMI
     auto info = getDeviceInfo();
     if (!info) return _T("");
     return wstring_to_tstring(info->DriverVersion);
+#else
+    return _T("");
+#endif
 }
 
+#if ENABLE_D3D11_DEVINFO_WMI
 const RGYDeviceInfoWMI *DeviceDX11::getDeviceInfo() {
     if (!m_deviceInfo) {
         if (m_fDeviceInfo.valid()) {
@@ -530,6 +539,7 @@ const RGYDeviceInfoWMI *DeviceDX11::getDeviceInfo() {
     }
     return m_deviceInfo.get();
 }
+#endif
 
 int DeviceDX11::adapterCount() {
     return DX11AdapterManager::getInstance()->adapterCount();
