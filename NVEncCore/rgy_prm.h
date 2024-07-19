@@ -65,7 +65,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
-#define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV  || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -90,6 +90,7 @@ enum class VppType : int {
     MFX_MCTF,
     MFX_DENOISE,
     MFX_RESIZE,
+    MFX_AISUPRERES,
     MFX_DETAIL_ENHANCE,
     MFX_FPS_CONV,
     MFX_PERC_ENC_PREFILTER,
@@ -101,11 +102,16 @@ enum class VppType : int {
     NVVFX_ARTIFACT_REDUCTION,
 #endif
     NVVFX_MAX,
+#if ENCODER_NVENC || CLFILTERS_AUF
+    NGX_TRUEHDR,
+#endif
+    NGX_MAX,
 #if ENCODER_VCEENC
     AMF_CONVERTER,
     AMF_PREPROCESS,
     AMF_RESIZE,
     AMF_VQENHANCE,
+    AMF_FRC,
 #endif
     AMF_MAX,
 #if ENCODER_MPP
@@ -165,7 +171,7 @@ enum class VppType : int {
     CL_MAX,
 };
 
-enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_NVVFX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_NVVFX, FILTER_NGX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
 
 static VppFilterType getVppFilterType(VppType vpptype) {
     if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
@@ -174,6 +180,9 @@ static VppFilterType getVppFilterType(VppType vpptype) {
 #endif // #if ENCODER_QSV
 #if ENCODER_NVENC || CLFILTERS_AUF
     if (vpptype < VppType::NVVFX_MAX) return VppFilterType::FILTER_NVVFX;
+#endif // #if ENCODER_NVENC || CLFILTERS_AUF
+#if ENCODER_NVENC || CLFILTERS_AUF
+    if (vpptype < VppType::NGX_MAX) return VppFilterType::FILTER_NGX;
 #endif // #if ENCODER_NVENC || CLFILTERS_AUF
 #if ENCODER_VCEENC
     if (vpptype < VppType::AMF_MAX) return VppFilterType::FILTER_AMF;
@@ -432,6 +441,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR,
     RGY_VPP_RESIZE_MFX_BILINEAR,
     RGY_VPP_RESIZE_MFX_ADVANCED,
+    RGY_VPP_RESIZE_MFX_AI_SUPRERES,
     RGY_VPP_RESIZE_MFX_MAX,
 #endif
 #if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
@@ -451,7 +461,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NVVFX_SUPER_RES,
     RGY_VPP_RESIZE_NVVFX_MAX,
 #endif
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO))
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_NGX_VSR,
     RGY_VPP_RESIZE_NGX_MAX,
 #endif
@@ -552,6 +562,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
   #endif
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
+    { _T("mfx_ai_superres"), RGY_VPP_RESIZE_MFX_AI_SUPRERES },
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
   #if !FOR_AUO
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
@@ -606,6 +617,7 @@ const CX_DESC list_vpp_resize_help[] = {
 #if ENCODER_QSV
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
+    { _T("mfx_ai_superres"), RGY_VPP_RESIZE_MFX_AI_SUPRERES },
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
 #endif
@@ -1261,13 +1273,13 @@ struct VppKnn {
 };
 
 enum VppNLMeansFP16Opt {
-    None,
+    NoOpt,
     BlockDiff,
     All
 };
 
 const CX_DESC list_vpp_nlmeans_fp16[] = {
-    { _T("none"),      (int)VppNLMeansFP16Opt::None      },
+    { _T("none"),      (int)VppNLMeansFP16Opt::NoOpt     },
     { _T("blockdiff"), (int)VppNLMeansFP16Opt::BlockDiff },
     { _T("all"),       (int)VppNLMeansFP16Opt::All       },
     { NULL, 0 }
