@@ -32,20 +32,21 @@
 #include <limits.h>
 #include <vector>
 #include "rgy_osdep.h"
+#include "rgy_version.h"
+#if ENCODER_NVENC
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #pragma warning (disable: 4201)
 #include <npp.h>
 #pragma warning (pop)
+#include "cuda.h"
+#include "dynlink_cuviddec.h"
+#endif //#if ENCODER_NVENC
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_simd.h"
 #include "rgy_prm.h"
 #include "convert_csp.h"
-#include "cuda.h"
-#if ENCODER_NVENC
-#include "dynlink_cuviddec.h"
-#endif //#if ENCODER_NVENC
 
 static const TCHAR *FILTER_DEFAULT_CUSTOM_KERNEL_NAME = _T("kernel_filter");
 static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_X = 32;
@@ -65,7 +66,16 @@ static const int FILTER_DEFAULT_NGX_TRUEHDR_SATURATION = 100;
 static const int FILTER_DEFAULT_NGX_TRUEHDR_MIDDLE_GRAY = 50;
 static const int FILTER_DEFAULT_NGX_TRUEHDR_MAX_LUMINANCE = 1000;
 
+#if ENCODER_NVENC
 static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
+
+const CX_DESC list_deinterlace[] = {
+    { _T("none"),     cudaVideoDeinterlaceMode_Weave    },
+    { _T("bob"),      cudaVideoDeinterlaceMode_Bob      },
+    { _T("adaptive"), cudaVideoDeinterlaceMode_Adaptive },
+    { _T("normal"),   cudaVideoDeinterlaceMode_Adaptive },
+    { NULL, 0 }
+};
 
 const CX_DESC list_nppi_gauss[] = {
     { _T("disabled"), 0 },
@@ -82,6 +92,7 @@ const CX_DESC list_cuda_schedule[] = {
     { _T("sync"),  CU_CTX_SCHED_BLOCKING_SYNC },
     { NULL, 0 }
 };
+#endif
 
 enum VppCustomInterface {
     VPP_CUSTOM_INTERFACE_PER_PLANE,
@@ -208,8 +219,8 @@ struct VppNGXTrueHDR {
 struct VppParam {
 #if ENCODER_NVENC
     cudaVideoDeinterlaceMode  deinterlace;
-#endif //#if ENCODER_NVENC
     NppiMaskSize              gaussMaskSize;
+#endif //#if ENCODER_NVENC
     VppNvvfxDenoise           nvvfxDenoise;
     VppNvvfxArtifactReduction nvvfxArtifactReduction;
     VppNvvfxSuperRes          nvvfxSuperRes;
@@ -219,6 +230,12 @@ struct VppParam {
     VppNGXTrueHDR             ngxTrueHDR;
 
     VppParam();
+    bool operator==(const VppParam &x) const;
+    bool operator!=(const VppParam &x) const;
 };
+
+struct sArgsData;
+int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, [[maybe_unused]] int nArgNum, VppParam* vppnv, [[maybe_unused]] sArgsData* argData, RGY_VPP_RESIZE_ALGO& resize_algo);
+tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZE_ALGO resize_algo, bool save_disabled_prm);
 
 #endif //_NVENC_FILTER_PARAM_H_

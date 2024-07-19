@@ -471,14 +471,6 @@ const CX_DESC list_preset_ja[] = {
 };
 #endif
 
-const CX_DESC list_deinterlace[] = {
-    { _T("none"),     cudaVideoDeinterlaceMode_Weave    },
-    { _T("bob"),      cudaVideoDeinterlaceMode_Bob      },
-    { _T("adaptive"), cudaVideoDeinterlaceMode_Adaptive },
-    { _T("normal"),   cudaVideoDeinterlaceMode_Adaptive },
-    { NULL, 0 }
-};
-
 const CX_DESC list_num_refs[] = {
     { _T("auto"),     NV_ENC_NUM_REF_FRAMES_AUTOSELECT },
     { _T("1"),        NV_ENC_NUM_REF_FRAMES_1          },
