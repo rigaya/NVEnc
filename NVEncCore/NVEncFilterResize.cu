@@ -852,8 +852,14 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             return sts;
         }
         resizeInterp = pResizeParam->nvvfxSubAlgo;
-    } else if (isNgxResizeFiter(pResizeParam->interp)) {
-        m_ngxVSR = std::make_unique<NVEncFilterNGXVSR>();
+    } else {
+        m_nvvfxSuperRes.reset(); // 不要になったら解放
+        pResizeParam->nvvfxSuperRes.reset();
+    }
+    if (isNgxResizeFiter(pResizeParam->interp)) {
+        if (!m_ngxVSR) {
+            m_ngxVSR = std::make_unique<NVEncFilterNGXVSR>();
+        }
         pResizeParam->ngxvsr->frameIn = pResizeParam->frameIn;
         pResizeParam->ngxvsr->frameOut = pResizeParam->frameOut;
         sts = m_ngxVSR->init(pResizeParam->ngxvsr, m_pLog);
@@ -863,7 +869,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
         pResizeParam->frameOut = pResizeParam->ngxvsr->frameOut;
     } else {
-        m_nvvfxSuperRes.reset(); // 不要になったら解放
+        m_ngxVSR.reset(); // 不要になったら解放
         pResizeParam->nvvfxSuperRes.reset();
     }
 
