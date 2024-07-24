@@ -870,7 +870,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         pResizeParam->frameOut = pResizeParam->ngxvsr->frameOut;
     } else {
         m_ngxVSR.reset(); // 不要になったら解放
-        pResizeParam->nvvfxSuperRes.reset();
+        pResizeParam->ngxvsr.reset();
     }
 
     if ((!m_weightSpline || m_weightSplineAlgo != resizeInterp)
