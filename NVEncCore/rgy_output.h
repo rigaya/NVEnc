@@ -159,6 +159,47 @@ public:
     }
 };
 
+class RGYOutputBSF {
+public:
+    RGYOutputBSF(AVBSFContext *bsf, RGY_CODEC codec, tstring strWriterName, shared_ptr<RGYLog> log);
+    virtual ~RGYOutputBSF();
+    RGY_ERR applyBitstreamFilter(RGYBitstream *bitstream);
+protected:
+    void AddMessage(RGYLogLevel log_level, const tstring& str) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_OUT)) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto& line : lines) {
+            if (line[0] != _T('\0')) {
+                m_log->write(log_level, RGY_LOGT_OUT, (m_strWriterName + _T(": ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_OUT)) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        AddMessage(log_level, buffer);
+    }
+    tstring m_strWriterName;
+    shared_ptr<RGYLog> m_log;  //ログ出力
+    RGY_CODEC m_codec;
+    std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_bsfc;
+    std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> m_pkt;
+    std::vector<uint8_t> m_bsfBuffer;
+    decltype(parse_nal_unit_h264_c) *m_parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
+    decltype(parse_nal_unit_hevc_c) *m_parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
+};
+ 
 class RGYOutput {
 public:
     RGYOutput();
@@ -174,6 +215,8 @@ public:
         }
         return Init(strFileName, videoOutputInfo, prm);
     }
+
+    RGY_ERR InitVideoBsf(const VideoInfo *videoOutputInfo);
 
     virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) = 0;
     virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) = 0;
@@ -228,10 +271,10 @@ protected:
     RGY_ERR readRawDebug(RGYBitstream *pBitstream);
 
     tstring     m_outFilename;
-    shared_ptr<EncodeStatus> m_encSatusInfo;
-    unique_ptr<FILE, fp_deleter> m_fDest;
-    unique_ptr<FILE, fp_deleter> m_fpDebug;
-    unique_ptr<FILE, fp_deleter> m_fpOutReplay;
+    std::shared_ptr<EncodeStatus> m_encSatusInfo;
+    std::unique_ptr<FILE, fp_deleter> m_fDest;
+    std::unique_ptr<FILE, fp_deleter> m_fpDebug;
+    std::unique_ptr<FILE, fp_deleter> m_fpOutReplay;
     bool        m_outputIsStdout;
     bool        m_inited;
     bool        m_noOutput;
@@ -241,10 +284,11 @@ protected:
     tstring     m_strWriterName;
     tstring     m_strOutputInfo;
     VideoInfo   m_VideoOutputInfo;
-    shared_ptr<RGYLog> m_printMes;  //ログ出力
-    unique_ptr<char, malloc_deleter>            m_outputBuffer;
-    unique_ptr<uint8_t, aligned_malloc_deleter> m_readBuffer;
-    unique_ptr<uint8_t, aligned_malloc_deleter> m_UVBuffer;
+    std::shared_ptr<RGYLog> m_printMes;  //ログ出力
+    std::unique_ptr<char, malloc_deleter>            m_outputBuffer;
+    std::unique_ptr<uint8_t, aligned_malloc_deleter> m_readBuffer;
+    std::unique_ptr<uint8_t, aligned_malloc_deleter> m_UVBuffer;
+    std::unique_ptr<RGYOutputBSF> m_bsf;
 };
 
 struct RGYOutputRawPrm {
@@ -278,14 +322,6 @@ protected:
     int64_t m_prevInputFrameId;
     int64_t m_prevEncodeFrameId;
     bool m_debugDirectAV1Out;
-#if ENABLE_AVSW_READER
-    std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
-    std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> m_pkt;
-#endif //#if ENABLE_AVSW_READER
-    uint8_t *bsfcBuffer;           //bitstreamfilter用のバッファ
-    size_t   bsfcBufferLength;     //bitstreamfilter用のバッファの長さ
-    decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
-    decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
 
 std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);

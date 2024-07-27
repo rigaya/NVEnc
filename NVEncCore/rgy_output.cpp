@@ -89,7 +89,8 @@ RGYOutput::RGYOutput() :
     m_printMes(),
     m_outputBuffer(),
     m_readBuffer(),
-    m_UVBuffer() {
+    m_UVBuffer(),
+    m_bsf() {
 }
 
 RGYOutput::~RGYOutput() {
@@ -110,6 +111,7 @@ void RGYOutput::Close() {
     m_outputBuffer.reset();
     m_readBuffer.reset();
     m_UVBuffer.reset();
+    m_bsf.reset();
 
     m_noOutput = false;
     m_inited = false;
@@ -157,6 +159,269 @@ RGY_ERR RGYOutput::readRawDebug(RGYBitstream *pBitstream) {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
+    // bsfの作成
+    std::unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
+
+    codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+    codecpar->codec_id = getAVCodecId(videoOutputInfo->codec);
+    codecpar->width = videoOutputInfo->dstWidth;
+    codecpar->height = videoOutputInfo->dstHeight;
+    codecpar->format = csp_rgy_to_avpixfmt(videoOutputInfo->csp);
+    codecpar->level = videoOutputInfo->codecLevel;
+    codecpar->profile = videoOutputInfo->codecProfile;
+    codecpar->sample_aspect_ratio.num = videoOutputInfo->sar[0];
+    codecpar->sample_aspect_ratio.den = videoOutputInfo->sar[1];
+    codecpar->chroma_location = (AVChromaLocation)videoOutputInfo->vui.chromaloc;
+    codecpar->field_order = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
+    codecpar->video_delay = (m_VideoOutputInfo.codec == RGY_CODEC_AV1 && AV1_TIMESTAMP_OVERRIDE) ? 0 : videoOutputInfo->videoDelay;
+    if (videoOutputInfo->vui.descriptpresent) {
+        codecpar->color_space = (AVColorSpace)videoOutputInfo->vui.matrix;
+        codecpar->color_primaries = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
+        codecpar->color_range = (AVColorRange)videoOutputInfo->vui.colorrange;
+        codecpar->color_trc = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
+    }
+
+    std::vector<std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>> bsfList;
+
+    // VUI情報設定用
+    if ((ENCODER_NVENC
+        && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
+        && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0)
+        || (ENCODER_QSV
+            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1)
+            && videoOutputInfo->vui.chromaloc != 0)
+        || (ENCODER_VCEENC
+            && (videoOutputInfo->codec == RGY_CODEC_HEVC // HEVCの時は常に上書き
+                || (videoOutputInfo->vui.format != 5
+                    || videoOutputInfo->vui.colorprim != 2
+                    || videoOutputInfo->vui.transfer != 2
+                    || videoOutputInfo->vui.matrix != 2
+                    || videoOutputInfo->vui.chromaloc != 0)
+                || (videoOutputInfo->codec == RGY_CODEC_AV1 && videoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL)))
+        || (ENCODER_MPP
+            && ((videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
+                || (videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0
+                    || (videoOutputInfo->vui.format != 5
+                        || videoOutputInfo->vui.colorprim != 2
+                        || videoOutputInfo->vui.transfer != 2
+                        || videoOutputInfo->vui.matrix != 2
+                        || videoOutputInfo->vui.chromaloc != 0))))) {
+        const char *bsf_name = nullptr;
+        switch (videoOutputInfo->codec) {
+        case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
+        case RGY_CODEC_HEVC: bsf_name = "hevc_metadata"; break;
+        case RGY_CODEC_AV1:  bsf_name = "av1_metadata"; break;
+        default:
+            break;
+        }
+        if (bsf_name == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid codec to set metadata filter.\n"));
+            return RGY_ERR_INVALID_CALL;
+        }
+        const auto bsf_tname = char_to_tstring(bsf_name);
+        AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsf_tname.c_str());
+        auto filter = av_bsf_get_by_name(bsf_name);
+        if (filter == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_tname.c_str());
+            return RGY_ERR_NOT_FOUND;
+        }
+        AVBSFContext *bsfctx = nullptr;
+        int ret = 0;
+        if (0 > (ret = av_bsf_alloc(filter, &bsfctx))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_NULL_PTR;
+        }
+        std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> bsfCtx(bsfctx, RGYAVDeleter<AVBSFContext>(av_bsf_free));
+        bsfctx = nullptr;
+
+        if (0 > (ret = avcodec_parameters_copy(bsfCtx->par_in, codecpar.get()))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        AVDictionary *bsfPrm = nullptr;
+        std::unique_ptr<AVDictionary*, decltype(&av_dict_free)> bsfPrmDictDeleter(&bsfPrm, av_dict_free);
+        if (ENCODER_MPP) {
+            const auto level_str = get_cx_desc(get_level_list(videoOutputInfo->codec), videoOutputInfo->codecLevel);
+            av_dict_set(&bsfPrm, "level", tchar_to_string(level_str).c_str(), 0);
+            AddMessage(RGY_LOG_DEBUG, _T("set level %s by %s filter\n"), level_str, bsf_tname.c_str());
+        }
+        if ((ENCODER_NVENC || ENCODER_MPP) && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0) {
+            char sar[128];
+            sprintf_s(sar, "%d/%d", videoOutputInfo->sar[0], videoOutputInfo->sar[1]);
+            av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
+            AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), videoOutputInfo->sar[0], videoOutputInfo->sar[1], bsf_tname.c_str());
+        }
+        if (ENCODER_VCEENC || ENCODER_MPP) {
+            // HEVCの10bitの時、エンコーダがおかしなVUIを設定することがあるのでこれを常に上書き
+            const bool override_always = ENCODER_VCEENC && (videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1);
+            if (override_always || videoOutputInfo->vui.format != 5 /*undef*/) {
+                if (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) {
+                    av_dict_set_int(&bsfPrm, "video_format", videoOutputInfo->vui.format, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), videoOutputInfo->vui.format, bsf_tname.c_str());
+                }
+            }
+            if (override_always || videoOutputInfo->vui.colorprim != 2 /*undef*/) {
+                av_dict_set_int(&bsfPrm, (videoOutputInfo->codec == RGY_CODEC_AV1) ? "color_primaries" : "colour_primaries", videoOutputInfo->vui.colorprim, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), videoOutputInfo->vui.colorprim, bsf_tname.c_str());
+            }
+            if (override_always || videoOutputInfo->vui.transfer != 2 /*undef*/) {
+                av_dict_set_int(&bsfPrm, "transfer_characteristics", videoOutputInfo->vui.transfer, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), videoOutputInfo->vui.transfer, bsf_tname.c_str());
+            }
+            if (override_always || videoOutputInfo->vui.matrix != 2 /*undef*/) {
+                av_dict_set_int(&bsfPrm, "matrix_coefficients", videoOutputInfo->vui.matrix, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), videoOutputInfo->vui.matrix, bsf_tname.c_str());
+            }
+            if (override_always || videoOutputInfo->vui.colorrange != RGY_COLORRANGE_UNSPECIFIED /*undef*/) {
+                if (videoOutputInfo->codec == RGY_CODEC_AV1) {
+                    av_dict_set(&bsfPrm, "color_range", videoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL ? "pc" : "tv", 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set color_range %s by %s filter\n"), videoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL ? _T("full") : _T("limited"), bsf_tname.c_str());
+                } else if (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) {
+                    av_dict_set_int(&bsfPrm, "video_full_range_flag", videoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL ? 1 : 0, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set color_range %s by %s filter\n"), videoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL ? _T("full") : _T("limited"), bsf_tname.c_str());
+                }
+            }
+        }
+        if (ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP) {
+            if (videoOutputInfo->vui.chromaloc != 0) {
+                if (videoOutputInfo->codec == RGY_CODEC_AV1) {
+                    if (videoOutputInfo->vui.chromaloc == RGY_CHROMALOC_TOPLEFT) {
+                        av_dict_set(&bsfPrm, "chroma_sample_position", "colocated", 0);
+                    } else {
+                        av_dict_set(&bsfPrm, "chroma_sample_position", "vertical", 0);
+                    }
+                    AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), videoOutputInfo->vui.chromaloc - 1, bsf_tname.c_str());
+                } else if (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) {
+                    av_dict_set_int(&bsfPrm, "chroma_sample_loc_type", videoOutputInfo->vui.chromaloc - 1, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), videoOutputInfo->vui.chromaloc - 1, bsf_tname.c_str());
+                }
+            }
+        }
+        if (0 > (ret = av_opt_set_dict2(bsfCtx.get(), &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        if (0 > (ret = av_bsf_init(bsfCtx.get()))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_tname.c_str());
+        bsfList.push_back(std::move(bsfCtx));
+    }
+
+    if (bsfList.size() > 0) {
+        int ret = 0;
+        std::unique_ptr<AVBSFList, RGYAVDeleter<AVBSFList>> avBsfList(av_bsf_list_alloc(), RGYAVDeleter<AVBSFList>(av_bsf_list_free));
+        for (auto& bsf : bsfList) {
+            if (0 > (ret = av_bsf_list_append(avBsfList.get(), bsf.release()))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to append bsf %s: %s.\n"), char_to_tstring(bsf->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+        }
+        AVBSFContext *bsfc = nullptr;
+        auto bsfPtr = avBsfList.release();
+        if (0 > (ret = av_bsf_list_finalize(&bsfPtr, &bsfc))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to finalize bsf list: %s.\n"), qsv_av_err2str(ret).c_str());
+            av_bsf_list_free(&bsfPtr);
+            return RGY_ERR_UNKNOWN;
+        }
+        m_bsf = std::make_unique<RGYOutputBSF>(bsfc, videoOutputInfo->codec, m_strWriterName, m_printMes);
+    }
+    return RGY_ERR_NONE;
+}
+
+RGYOutputBSF::RGYOutputBSF(AVBSFContext *bsf, RGY_CODEC codec, tstring strWriterName, shared_ptr<RGYLog> log) :
+    m_strWriterName(strWriterName),
+    m_log(log),
+    m_codec(codec),
+    m_bsfc(std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>(bsf, RGYAVDeleter<AVBSFContext>(av_bsf_free))),
+    m_pkt(std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>(av_packet_alloc(), RGYAVDeleter<AVPacket>(av_packet_free))),
+    m_bsfBuffer(codec),
+    m_parse_nal_h264(get_parse_nal_unit_h264_func()),
+    m_parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
+
+}
+
+RGYOutputBSF::~RGYOutputBSF() { }
+
+RGY_ERR RGYOutputBSF::applyBitstreamFilter(RGYBitstream *bitstream) {
+    if (m_codec == RGY_CODEC_H264 || m_codec == RGY_CODEC_HEVC) {
+        int target_nal = 0;
+        std::vector<nal_info> nal_list;
+        if (m_codec == RGY_CODEC_HEVC) {
+            target_nal = NALU_HEVC_SPS;
+            nal_list = m_parse_nal_hevc(bitstream->data(), bitstream->size());
+        } else if (m_codec == RGY_CODEC_H264) {
+            target_nal = NALU_H264_SPS;
+            nal_list = m_parse_nal_h264(bitstream->data(), bitstream->size());
+        }
+        auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [target_nal](nal_info info) { return info.type == target_nal; });
+        if (sps_nal != nal_list.end()) {
+            AVPacket *pkt = m_pkt.get();
+            av_new_packet(pkt, (int)sps_nal->size);
+            memcpy(pkt->data, sps_nal->ptr, sps_nal->size);
+            int ret = 0;
+            if (0 > (ret = av_bsf_send_packet(m_bsfc.get(), pkt))) {
+                av_packet_unref(pkt);
+                AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
+                    char_to_tstring(m_bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            ret = av_bsf_receive_packet(m_bsfc.get(), pkt);
+            if (ret == AVERROR(EAGAIN)) {
+                return RGY_ERR_NONE;
+            } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
+                    char_to_tstring(m_bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            const auto new_data_size = bitstream->size() + pkt->size - sps_nal->size;
+            const auto sps_nal_offset = sps_nal->ptr - bitstream->data();
+            const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
+            const auto next_nal_new_offset = sps_nal_offset + pkt->size;
+            const auto stream_orig_length = bitstream->size();
+            m_bsfBuffer.resize(new_data_size);
+            if (sps_nal_offset > 0) {
+                memcpy(m_bsfBuffer.data(), bitstream->data(), sps_nal_offset);
+            }
+            memcpy(m_bsfBuffer.data() + sps_nal_offset, pkt->data, pkt->size);
+            memcpy(m_bsfBuffer.data() + next_nal_new_offset, bitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+            bitstream->copy(m_bsfBuffer.data(), new_data_size);
+            av_packet_unref(pkt);
+
+            av_bsf_flush(m_bsfc.get());
+        }
+    } else if (m_codec == RGY_CODEC_AV1) {
+        AVPacket *pkt = m_pkt.get();
+        av_new_packet(pkt, (int)bitstream->size());
+        memcpy(pkt->data, bitstream->data(), bitstream->size());
+        int ret = 0;
+        if (0 > (ret = av_bsf_send_packet(m_bsfc.get(), pkt))) {
+            av_packet_unref(pkt);
+            AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
+                char_to_tstring(m_bsfc.get()->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        ret = av_bsf_receive_packet(m_bsfc.get(), pkt);
+        if (ret == AVERROR(EAGAIN)) {
+            return RGY_ERR_NONE;
+        } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
+                char_to_tstring(m_bsfc.get()->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        bitstream->clear();
+        bitstream->append(pkt->data, pkt->size);
+        av_bsf_flush(m_bsfc.get());
+        av_packet_unref(pkt);
+    } else {
+        AddMessage(RGY_LOG_ERROR, _T("bitstream filter not supported for %s.\n"), CodecToStr(m_codec).c_str());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
     m_hdrBitstream(),
@@ -164,15 +429,7 @@ RGYOutputRaw::RGYOutputRaw() :
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
     m_prevEncodeFrameId(-1),
-    m_debugDirectAV1Out(false),
-#if ENABLE_AVSW_READER
-    m_pBsfc(),
-    m_pkt(),
-#endif //#if ENABLE_AVSW_READER
-    bsfcBuffer(nullptr),
-    bsfcBufferLength(0),
-    parse_nal_h264(get_parse_nal_unit_h264_func()),
-    parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
+    m_debugDirectAV1Out(false) {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
@@ -180,13 +437,6 @@ RGYOutputRaw::RGYOutputRaw() :
 RGYOutputRaw::~RGYOutputRaw() {
     if (m_fpDebug) {
         m_fpDebug.reset();
-    }
-#if ENABLE_AVSW_READER
-    m_pBsfc.reset();
-    m_pkt.reset();
-#endif //#if ENABLE_AVSW_READER
-    if (bsfcBuffer) {
-        free(bsfcBuffer);
     }
 }
 
@@ -230,143 +480,11 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                 }
             }
         }
-#if ENABLE_AVSW_READER
-        if ((ENCODER_NVENC
-            && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
-            && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0)
-            || (ENCODER_QSV
-                && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
-                && pVideoOutputInfo->vui.chromaloc != 0)
-            || (ENCODER_VCEENC
-                && (pVideoOutputInfo->codec == RGY_CODEC_HEVC // HEVCの時は常に上書き
-                    || (pVideoOutputInfo->vui.format != 5
-                    || pVideoOutputInfo->vui.colorprim != 2
-                    || pVideoOutputInfo->vui.transfer != 2
-                    || pVideoOutputInfo->vui.matrix != 2
-                    || pVideoOutputInfo->vui.chromaloc != 0)))
-            || (ENCODER_MPP
-                && ((pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
-                    || (pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0
-                    || (pVideoOutputInfo->vui.format != 5
-                        || pVideoOutputInfo->vui.colorprim != 2
-                        || pVideoOutputInfo->vui.transfer != 2
-                        || pVideoOutputInfo->vui.matrix != 2
-                        || pVideoOutputInfo->vui.chromaloc != 0))))) {
-            if (!check_avcodec_dll()) {
-                AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
-                return RGY_ERR_NULL_PTR;
-            }
 
-            const char *bsf_name = nullptr;
-            switch (pVideoOutputInfo->codec) {
-            case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
-            case RGY_CODEC_HEVC: bsf_name = "hevc_metadata"; break;
-            case RGY_CODEC_AV1:  bsf_name = "av1_metadata"; break;
-            default:
-                break;
-            }
-            if (bsf_name == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("invalid codec to set metadata filter.\n"));
-                return RGY_ERR_INVALID_CALL;
-            }
-            const auto bsf_tname = char_to_tstring(bsf_name);
-            AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsf_tname.c_str());
-            auto filter = av_bsf_get_by_name(bsf_name);
-            if (filter == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_tname.c_str());
-                return RGY_ERR_NOT_FOUND;
-            }
-            unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
-
-            codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
-            codecpar->codec_id                = getAVCodecId(pVideoOutputInfo->codec);
-            codecpar->width                   = pVideoOutputInfo->dstWidth;
-            codecpar->height                  = pVideoOutputInfo->dstHeight;
-            codecpar->format                  = csp_rgy_to_avpixfmt(pVideoOutputInfo->csp);
-            codecpar->level                   = pVideoOutputInfo->codecLevel;
-            codecpar->profile                 = pVideoOutputInfo->codecProfile;
-            codecpar->sample_aspect_ratio.num = pVideoOutputInfo->sar[0];
-            codecpar->sample_aspect_ratio.den = pVideoOutputInfo->sar[1];
-            codecpar->chroma_location         = (AVChromaLocation)pVideoOutputInfo->vui.chromaloc;
-            codecpar->field_order             = picstrcut_rgy_to_avfieldorder(pVideoOutputInfo->picstruct);
-            codecpar->video_delay             = pVideoOutputInfo->videoDelay;
-            if (pVideoOutputInfo->vui.descriptpresent) {
-                codecpar->color_space         = (AVColorSpace)pVideoOutputInfo->vui.matrix;
-                codecpar->color_primaries     = (AVColorPrimaries)pVideoOutputInfo->vui.colorprim;
-                codecpar->color_range         = (AVColorRange)pVideoOutputInfo->vui.colorrange;
-                codecpar->color_trc           = (AVColorTransferCharacteristic)pVideoOutputInfo->vui.transfer;
-            }
-            int ret = 0;
-            AVBSFContext *bsfc = nullptr;
-            if (0 > (ret = av_bsf_alloc(filter, &bsfc))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_NULL_PTR;
-            }
-            if (0 > (ret = avcodec_parameters_copy(bsfc->par_in, codecpar.get()))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            m_pBsfc = unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>(bsfc, RGYAVDeleter<AVBSFContext>(av_bsf_free));
-            AVDictionary *bsfPrm = nullptr;
-            if (ENCODER_MPP) {
-                const auto level_str = get_cx_desc(get_level_list(pVideoOutputInfo->codec), pVideoOutputInfo->codecLevel);
-                av_dict_set(&bsfPrm, "level", tchar_to_string(level_str).c_str(), 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set level %s by %s filter\n"), level_str, bsf_tname.c_str());
-            }
-            if ((ENCODER_NVENC || ENCODER_MPP) && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0) {
-                char sar[128];
-                sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
-                av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1], bsf_tname.c_str());
-            }
-            if (ENCODER_VCEENC) {
-                // HEVCの10bitの時、エンコーダがおかしなVUIを設定することがあるのでこれを常に上書き
-                const bool override_always = pVideoOutputInfo->codec == RGY_CODEC_HEVC || pVideoOutputInfo->codec == RGY_CODEC_AV1;
-                if (override_always || pVideoOutputInfo->vui.format != 5 /*undef*/) {
-                    av_dict_set_int(&bsfPrm, "video_format", pVideoOutputInfo->vui.format, 0);
-                    AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), pVideoOutputInfo->vui.format, bsf_tname.c_str());
-                }
-                if (override_always || pVideoOutputInfo->vui.colorprim != 2 /*undef*/) {
-                    av_dict_set_int(&bsfPrm, "colour_primaries", pVideoOutputInfo->vui.colorprim, 0);
-                    AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), pVideoOutputInfo->vui.colorprim, bsf_tname.c_str());
-                }
-                if (override_always || pVideoOutputInfo->vui.transfer != 2 /*undef*/) {
-                    av_dict_set_int(&bsfPrm, "transfer_characteristics", pVideoOutputInfo->vui.transfer, 0);
-                    AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), pVideoOutputInfo->vui.transfer, bsf_tname.c_str());
-                }
-                if (override_always || pVideoOutputInfo->vui.matrix != 2 /*undef*/) {
-                    av_dict_set_int(&bsfPrm, "matrix_coefficients", pVideoOutputInfo->vui.matrix, 0);
-                    AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), pVideoOutputInfo->vui.matrix, bsf_tname.c_str());
-                }
-                if (override_always || pVideoOutputInfo->vui.colorrange != RGY_COLORRANGE_UNSPECIFIED /*undef*/) {
-                    if (pVideoOutputInfo->codec == RGY_CODEC_AV1) {
-                        av_dict_set(&bsfPrm, "color_range", pVideoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL ? "pc" : "tv", 0);
-                        AddMessage(RGY_LOG_DEBUG, _T("set color_range %s by %s filter\n"), pVideoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL ? "full" : "limited", bsf_tname.c_str());
-                    } else if (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC) {
-                        av_dict_set_int(&bsfPrm, "video_full_range_flag", pVideoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL ? 1 : 0, 0);
-                        AddMessage(RGY_LOG_DEBUG, _T("set color_range %s by %s filter\n"), pVideoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL ? "full" : "limited", bsf_tname.c_str());
-                    }
-                }
-            }
-            if (ENCODER_QSV || ENCODER_VCEENC) {
-                if (pVideoOutputInfo->vui.chromaloc != 0) {
-                    av_dict_set_int(&bsfPrm, "chroma_sample_loc_type", pVideoOutputInfo->vui.chromaloc-1, 0);
-                    AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), pVideoOutputInfo->vui.chromaloc-1, bsf_tname.c_str());
-                }
-            }
-            if (0 > (ret = av_opt_set_dict2(m_pBsfc.get(), &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            if (0 > (ret = av_bsf_init(m_pBsfc.get()))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_tname.c_str());
-
-            m_pkt = std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>(av_packet_alloc(), RGYAVDeleter<AVPacket>(av_packet_free));
+        if (auto sts = InitVideoBsf(pVideoOutputInfo); sts != RGY_ERR_NONE) {
+            return sts;
         }
-#endif //#if ENABLE_AVSW_READER
+
         if (rawPrm->hdrMetadata != nullptr && rawPrm->hdrMetadata->getprm().hasPrmSet()) {
             AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hdrMetadata->print()));
             if (rawPrm->codecId == RGY_CODEC_HEVC) {
@@ -421,82 +539,12 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
 
     size_t nBytesWritten = 0;
     if (!m_noOutput) {
-#if ENABLE_AVSW_READER
-        if (m_pBsfc) {
-            if (m_VideoOutputInfo.codec == RGY_CODEC_H264 || m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
-                uint8_t nal_type = 0;
-                std::vector<nal_info> nal_list;
-                if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
-                    nal_type = NALU_HEVC_SPS;
-                    nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
-                } else if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
-                    nal_type = NALU_H264_SPS;
-                    nal_list = parse_nal_h264(pBitstream->data(), pBitstream->size());
-                }
-                auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [nal_type](nal_info info) { return info.type == nal_type; });
-                if (sps_nal != nal_list.end()) {
-                    AVPacket *pkt = m_pkt.get();
-                    av_new_packet(pkt, (int)sps_nal->size);
-                    memcpy(pkt->data, sps_nal->ptr, sps_nal->size);
-                    int ret = 0;
-                    if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), pkt))) {
-                        av_packet_unref(pkt);
-                        AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
-                            char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-                        return RGY_ERR_UNKNOWN;
-                    }
-                    ret = av_bsf_receive_packet(m_pBsfc.get(), pkt);
-                    if (ret == AVERROR(EAGAIN)) {
-                        return RGY_ERR_NONE;
-                    } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
-                        AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
-                            char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-                        return RGY_ERR_UNKNOWN;
-                    }
-                    const auto new_data_size = pBitstream->size() + pkt->size - sps_nal->size;
-                    const auto sps_nal_offset = sps_nal->ptr - pBitstream->data();
-                    const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-                    const auto next_nal_new_offset = sps_nal_offset + pkt->size;
-                    const auto stream_orig_length = pBitstream->size();
-                    if (bsfcBufferLength < new_data_size) {
-                        free(bsfcBuffer);
-                        bsfcBufferLength = new_data_size * 2;
-                        bsfcBuffer = (uint8_t *)malloc(bsfcBufferLength);
-                    }
-                    if (sps_nal_offset > 0) {
-                        memcpy(bsfcBuffer, pBitstream->data(), sps_nal_offset);
-                    }
-                    memcpy(bsfcBuffer + sps_nal_offset, pkt->data, pkt->size);
-                    memcpy(bsfcBuffer + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-                    pBitstream->copy(bsfcBuffer, new_data_size);
-                    av_packet_unref(pkt);
-                }
-            } else if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
-                AVPacket *pkt = m_pkt.get();
-                av_new_packet(pkt, (int)pBitstream->size());
-                memcpy(pkt->data, pBitstream->data(), pBitstream->size());
-                int ret = 0;
-                if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), pkt))) {
-                    av_packet_unref(pkt);
-                    AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
-                        char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-                    return RGY_ERR_UNKNOWN;
-                }
-                ret = av_bsf_receive_packet(m_pBsfc.get(), pkt);
-                if (ret == AVERROR(EAGAIN)) {
-                    return RGY_ERR_NONE;
-                } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
-                        char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-                    return RGY_ERR_UNKNOWN;
-                }
-                pBitstream->clear();
-                pBitstream->append(pkt->data, pkt->size);
-                av_bsf_flush(m_pBsfc.get());
-                av_packet_unref(pkt);
+        if (m_bsf) {
+            auto sts = m_bsf->applyBitstreamFilter(pBitstream);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
             }
         }
-#endif //#if ENABLE_AVSW_READER
         const bool isIDR = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
         writeRawDebug(pBitstream);
         if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
