@@ -513,11 +513,11 @@ RGY_ERR nlmeansCalcWeight(
     const int8 xoffset, const int8 yoffset, const int yoffsetmin, const int offset_count, const bool shared_opt,
     cudaStream_t stream
 ) {
-    // 今のところ、offset_countは4か8しかない
+    // 今のところ、offset_countは3か4か8しかない
     switch (offset_count) {
     //case 1:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 1>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
     //case 2:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 2>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
-    //case 3:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 3>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
+    case 3:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 3>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
     case 4:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 4>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
     //case 5:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 5>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
     //case 6:  return nlmeansCalcWeightOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, search_radius, 6>(pTmpIWPlane, pTmpVPlane, pInputPlane, sigma, inv_param_h_h, xoffset, yoffset, yoffsetmin, shared_opt, stream);
@@ -869,8 +869,8 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
         AddMessage(RGY_LOG_ERROR, _T("h should be larger than 0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::None && prm->compute_capability.first < 7) {
-        prm->nlmeans.fp16 = VppNLMeansFP16Opt::None;
+    if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::NoOpt && prm->compute_capability.first < 7) {
+        prm->nlmeans.fp16 = VppNLMeansFP16Opt::NoOpt;
     }
     const int search_radius = prm->nlmeans.searchSize / 2;
     // メモリへの書き込みが衝突しないよう、ブロックごとに書き込み先のバッファを分けるが、それがブロックサイズを超えてはいけない
@@ -879,11 +879,11 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
         prm->nlmeans.sharedMem = false;
     }
 
-    const bool use_vtype_fp16 = prm->nlmeans.fp16 != VppNLMeansFP16Opt::None;
+    const bool use_vtype_fp16 = prm->nlmeans.fp16 != VppNLMeansFP16Opt::NoOpt;
     for (size_t i = 0; i < m_tmpBuf.size(); i++) {
         int tmpBufWidth = 0;
         if (i == TMP_U || i == TMP_V) {
-            tmpBufWidth = prm->frameOut.width * ((prm->nlmeans.fp16 != VppNLMeansFP16Opt::None) ? 16 /*half8*/ : 32/*float8*/);
+            tmpBufWidth = prm->frameOut.width * ((prm->nlmeans.fp16 != VppNLMeansFP16Opt::NoOpt) ? 16 /*half8*/ : 32/*float8*/);
         } else {
             tmpBufWidth = prm->frameOut.width * ((prm->nlmeans.fp16 == VppNLMeansFP16Opt::All) ? 4 /*half2*/ : 8 /*float2*/);
         }
