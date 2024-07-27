@@ -41,6 +41,8 @@ struct nal_info {
     const uint8_t *ptr;
     uint8_t type;
     size_t size;
+    int nuh_layer_id;
+    int temporal_id;
 };
 
 struct unit_info {

@@ -35,7 +35,7 @@ std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t * data, size_t size
     std::vector<nal_info> nal_list;
     if (size >= 3) {
         static const uint8_t header[3] = { 0, 0, 1 };
-        nal_info nal_start = { nullptr, 0, 0 };
+        nal_info nal_start = { nullptr, 0, 0, 0, 0 };
         int64_t i = 0;
         for (;;) {
             const auto next = rgy_memmem_avx2_imp((const void *)(data + i), size - i, (const void *)header, sizeof(header));
@@ -66,7 +66,7 @@ std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size)
     std::vector<nal_info> nal_list;
     if (size >= 3) {
         static const uint8_t header[3] = { 0, 0, 1 };
-        nal_info nal_start = { nullptr, 0, 0 };
+        nal_info nal_start = { nullptr, 0, 0, 0, 0 };
         int64_t i = 0;
         for (;;) {
             const auto next = rgy_memmem_avx2_imp((const void *)(data + i), size - i, (const void *)header, sizeof(header));
@@ -78,6 +78,8 @@ std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size)
             }
             nal_start.ptr = data + i - (i > 0 && data[i - 1] == 0);
             nal_start.type = (data[i + 3] & 0x7f) >> 1;
+            nal_start.nuh_layer_id = ((data[i+3] & 1) << 5) | ((data[i+4] & 0xf8) >> 3);
+            nal_start.temporal_id = (data[i+4] & 0x07) - 1;
             nal_start.size = data + size - nal_start.ptr;
             if (nal_list.size()) {
                 auto prev = nal_list.end() - 1;
