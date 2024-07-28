@@ -31,6 +31,17 @@
 #include "rgy_bitstream.h"
 #endif
 
+const TCHAR *RGYFrameDataTypeToStr(const RGYFrameDataType type) {
+    switch (type) {
+    case RGY_FRAME_DATA_NONE: return _T("none");
+    case RGY_FRAME_DATA_QP: return _T("qp");
+    case RGY_FRAME_DATA_METADATA: return _T("metadata");
+    case RGY_FRAME_DATA_HDR10PLUS: return _T("hdr10plus");
+    case RGY_FRAME_DATA_DOVIRPU: return _T("dovirpu");
+    default: return _T("Unknown");
+    }
+}
+
 RGYFrameDataQP::RGYFrameDataQP() :
     m_frameType(0),
     m_qpScaleType(0),

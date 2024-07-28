@@ -199,6 +199,14 @@ protected:
     decltype(parse_nal_unit_h264_c) *m_parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *m_parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
+
+struct RGYOutputInsertMetadata {
+    std::vector<uint8_t> mdata;
+    bool onSequenceHeader;
+    bool written;
+
+    RGYOutputInsertMetadata(std::vector<uint8_t>& data, bool onSeqHeader) : mdata(data), onSequenceHeader(onSeqHeader), written(false) {};
+};
  
 class RGYOutput {
 public:
@@ -217,6 +225,11 @@ public:
     }
 
     RGY_ERR InitVideoBsf(const VideoInfo *videoOutputInfo);
+
+    RGY_ERR InsertMetadata(RGYBitstream *bitstream, std::vector<std::unique_ptr<RGYOutputInsertMetadata>>& metadataList);
+
+    template<typename T>
+    std::pair<RGY_ERR, std::vector<uint8_t>> getMetadata(const RGYFrameDataType metadataType, const RGYTimestampMapVal& bs_framedata);
 
     virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) = 0;
     virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) = 0;
@@ -289,6 +302,7 @@ protected:
     std::unique_ptr<uint8_t, aligned_malloc_deleter> m_readBuffer;
     std::unique_ptr<uint8_t, aligned_malloc_deleter> m_UVBuffer;
     std::unique_ptr<RGYOutputBSF> m_bsf;
+    decltype(parse_nal_unit_hevc_c) *m_parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
 
 struct RGYOutputRawPrm {
@@ -314,6 +328,7 @@ public:
     virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) override;
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
+    virtual RGY_ERR WriteNextOneFrame(RGYBitstream *pBitstream);
 
     vector<uint8_t> m_outputBuf2;
     vector<uint8_t> m_hdrBitstream;

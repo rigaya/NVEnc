@@ -49,6 +49,8 @@ enum RGYFrameDataType {
     RGY_FRAME_DATA_MAX,
 };
 
+const TCHAR *RGYFrameDataTypeToStr(const RGYFrameDataType type);
+
 class RGYFrameData {
 public:
     RGYFrameData() : m_dataType(RGY_FRAME_DATA_NONE) {};
