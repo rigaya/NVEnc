@@ -5360,6 +5360,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
 #if ENABLE_DOVI_METADATA_OPTIONS
+    if (IS_OPTION("dolby-vision-rpu-copy")) {
+        common->doviRpuMetadataCopy = true;
+        return 0;
+    }
     if (IS_OPTION("dolby-vision-profile")) {
         i++;
         int value = 0;

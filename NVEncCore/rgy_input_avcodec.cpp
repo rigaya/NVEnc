@@ -135,7 +135,7 @@ AVDemuxVideo::AVDemuxVideo() :
     bUseHEVCmp42AnnexB(false),
     hevcNaluLengthSize(0),
     hdr10plusMetadataCopy(false),
-    doviRpuCopy(false),
+    doviRpuMetadataCopy(false),
     simdCsp(RGY_SIMD::SIMD_ALL),
     masteringDisplay(std::unique_ptr<AVMasteringDisplayMetadata, RGYAVDeleter<AVMasteringDisplayMetadata>>(nullptr, RGYAVDeleter<AVMasteringDisplayMetadata>(av_freep))),
     contentLight(std::unique_ptr<AVContentLightMetadata, RGYAVDeleter<AVContentLightMetadata>>(nullptr, RGYAVDeleter<AVContentLightMetadata>(av_freep))),
@@ -256,6 +256,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     videoDetectPulldown(false),
     parseHDRmetadata(false),
     hdr10plusMetadataCopy(false),
+    doviRpuMetadataCopy(false),
     interlaceAutoFrame(false),
     qpTableListRef(nullptr),
     lowLatency(false),
@@ -1283,6 +1284,63 @@ RGY_ERR RGYInputAvcodec::parseHDR10plus(AVPacket *pkt) {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYInputAvcodec::parseDOVIRpu(AVPacket *pkt) {
+    if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_HEVC) {
+        return RGY_ERR_NONE;
+    }
+    const auto nal_list = m_Demux.video.parse_nal_hevc(pkt->data, pkt->size);
+    for (const auto& nal_unit : nal_list) {
+        if (nal_unit.type != NALU_HEVC_UNSPECIFIED) {
+            continue;
+        }
+        const uint8_t *ptr = nal_unit.ptr;
+        int header_size = 0;
+        //nal header
+        if (ptr[0] == 0x00
+            && ptr[1] == 0x00
+            && ptr[2] == 0x01) {
+            header_size = 3;
+        } else if (ptr[0] == 0x00
+            && ptr[1] == 0x00
+            && ptr[2] == 0x00
+            && ptr[3] == 0x01) {
+            header_size = 4;
+        } else {
+            continue;
+        }
+        ptr += header_size;
+        if (nal_unit.size > header_size + 2
+            && !nal_unit.nuh_layer_id
+            && !nal_unit.temporal_id) {
+            const auto size = nal_unit.ptr + nal_unit.size - ptr - 2;
+            const auto data_unnal = unnal(ptr + 2, size);
+            //AVDictionaryに格納するため、base64 encodeを行う
+            const auto encoded = cppcodec::base64_rfc4648::encode(data_unnal.data(), data_unnal.size());
+            AVDictionary *frameDict = nullptr;
+            int ret = av_dict_set(&frameDict, DOVI_RPU_METADATA_KEY, encoded.c_str(), 0);
+            if (ret < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to set dictionary for key=%s\n"), char_to_tstring(DOVI_RPU_METADATA_KEY).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            std::remove_pointer<RGYArgN<1U, decltype(av_packet_pack_dictionary)>::type>::type frameDictSize = 0;
+            uint8_t *frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
+            if (frameDictData == nullptr) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to pack dictionary for key=%s\n"), char_to_tstring(DOVI_RPU_METADATA_KEY).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            ret = av_packet_add_side_data(pkt, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
+            if (ret < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to add side packet hdr10plus metadata.\n"), char_to_tstring(DOVI_RPU_METADATA_KEY).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            av_dict_free(&frameDict);
+            AddMessage(RGY_LOG_TRACE, _T("Added dovi rpu metadata to packet timestamp %lld (%s), size %d, encoded size %d\n"), pkt->pts,
+                getTimestampString(pkt->pts, m_Demux.format.formatCtx->streams[pkt->stream_index]->time_base).c_str(), size, (int)encoded.size());
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
 RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVFrame *frame) {
     auto ptrDictMetadata = av_dict_get(frame->metadata, HDR10PLUS_METADATA_KEY, nullptr, 0);
     if (ptrDictMetadata) {
@@ -1315,15 +1373,35 @@ RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVPacket *pkt
     return nullptr;
 }
 
-RGYFrameDataDOVIRpu *RGYInputAvcodec::getDoviRpu(const AVFrame *frame) {
-#if ENAVLE_LIBAV_DOVI_PARSER
-    auto side_data = av_frame_get_side_data(frame, AV_FRAME_DATA_DOVI_RPU_BUFFER);
-    if (side_data) {
-        return new RGYFrameDataDOVIRpu(side_data->data, side_data->size, frame->pts);
+RGYFrameDataDOVIRpu *RGYInputAvcodec::getDoviRpuMetaData(const AVFrame *frame) {
+    auto ptrDictMetadata = av_dict_get(frame->metadata, DOVI_RPU_METADATA_KEY, nullptr, 0);
+    if (ptrDictMetadata) {
+        const auto ptrDictMetadataValLen = strlen(ptrDictMetadata->value);
+        const auto decoded = cppcodec::base64_rfc4648::decode(ptrDictMetadata->value, ptrDictMetadataValLen);
+        AddMessage(RGY_LOG_TRACE, _T("Got dovi rpu metadata to packet timestamp %lld (%s), size %d, decoded size %d\n"), frame->pts,
+            getTimestampString(frame->pts, m_Demux.video.stream->time_base).c_str(), ptrDictMetadataValLen, (int)decoded.size());
+        return new RGYFrameDataDOVIRpu(decoded.data(), decoded.size(), frame->pts);
     }
-#else
-    UNREFERENCED_PARAMETER(frame);
-#endif
+    return nullptr;
+}
+
+RGYFrameDataDOVIRpu *RGYInputAvcodec::getDoviRpuMetaData(const AVPacket *pkt) {
+    std::remove_pointer<RGYArgN<2U, decltype(av_packet_get_side_data)>::type>::type side_data_size = 0;
+    auto side_data = av_packet_get_side_data(pkt, AV_PKT_DATA_STRINGS_METADATA, &side_data_size);
+    if (side_data) {
+        AVDictionary *dict = nullptr;
+        auto ret = av_packet_unpack_dictionary(side_data, side_data_size, &dict);
+        if (ret == 0) {
+            const auto ptrDictMetadata = av_dict_get(dict, DOVI_RPU_METADATA_KEY, nullptr, 0);
+            if (ptrDictMetadata) {
+                const auto ptrDictMetadataValLen = strlen(ptrDictMetadata->value);
+                const auto decoded = cppcodec::base64_rfc4648::decode(ptrDictMetadata->value, ptrDictMetadataValLen);
+                AddMessage(RGY_LOG_TRACE, _T("Got dovi rpu metadata to packet timestamp %lld (%s), size %d, decoded size %d\n"), pkt->pts,
+                    getTimestampString(pkt->pts, m_Demux.video.stream->time_base).c_str(), ptrDictMetadataValLen, (int)decoded.size());
+                return new RGYFrameDataDOVIRpu(decoded.data(), decoded.size(), pkt->pts);
+            }
+        }
+    }
     return nullptr;
 }
 
@@ -1765,8 +1843,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
 
         m_Demux.video.hdr10plusMetadataCopy = input_prm->hdr10plusMetadataCopy;
+        m_Demux.video.doviRpuMetadataCopy = input_prm->doviRpuMetadataCopy;
         AddMessage(RGY_LOG_DEBUG, _T("hdr10plusMetadataCopy: %s\n"), m_Demux.video.hdr10plusMetadataCopy ? _T("on") : _T("off"));
-        if (ENCODER_VCEENC && m_Demux.video.hdr10plusMetadataCopy && m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
+        AddMessage(RGY_LOG_DEBUG, _T("doviRpuMetadataCopy:   %s\n"), m_Demux.video.doviRpuMetadataCopy ? _T("on") : _T("off"));
+        if (ENCODER_VCEENC && m_Demux.video.hdr10plusMetadataCopy && m_Demux.video.doviRpuMetadataCopy && m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
             AddMessage((m_inputVideoInfo.type == RGY_INPUT_FMT_AVHW) ? RGY_LOG_WARN : RGY_LOG_INFO, _T("--dhdr10-info copy is only supported with sw deocde in %s, switching to --avsw.\n"), _T(ENCODER_NAME));
             m_inputVideoInfo.type = RGY_INPUT_FMT_AVSW;
         }
@@ -1834,7 +1914,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_trimParam.offset = 0;
 
         //必要ならbitstream filterを初期化
-        if ((m_inputVideoInfo.codec != RGY_CODEC_UNKNOWN || m_Demux.video.hdr10plusMetadataCopy)
+        if ((m_inputVideoInfo.codec != RGY_CODEC_UNKNOWN || m_Demux.video.hdr10plusMetadataCopy || m_Demux.video.doviRpuMetadataCopy)
             && m_Demux.video.stream->codecpar->extradata && m_Demux.video.stream->codecpar->extradata[0] == 1) {
             RGY_ERR sts = initVideoBsfs();
             if (sts != RGY_ERR_NONE) {
@@ -1869,7 +1949,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 //一方、swデコーダではbsfsは不要であることから、とりあえずそちらに切り替えてしまって動作させることにした
                 if (sts == RGY_ERR_MORE_DATA
                     && (m_Demux.video.bsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB)
-                    && !m_Demux.video.hdr10plusMetadataCopy) {
+                    && !m_Demux.video.hdr10plusMetadataCopy
+                    && !m_Demux.video.doviRpuMetadataCopy) {
                     if (m_inputVideoInfo.codec != RGY_CODEC_UNKNOWN) { //hwデコードを使用していた場合
                         AddMessage(RGY_LOG_WARN, _T("Failed to get header for hardware decoder, switching to software decoder...\n"));
                         if (input_prm->avswDecoder.length() != 0) {
@@ -2577,6 +2658,9 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
                 if (m_Demux.video.hdr10plusMetadataCopy) {
                     parseHDR10plus(pkt.get());
                 }
+                if (m_Demux.video.doviRpuMetadataCopy) {
+                    parseDOVIRpu(pkt.get());
+                }
             }
             FramePos pos = { 0 };
             pos.pts = pkt->pts;
@@ -2724,8 +2808,13 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
             auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt->pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt->data, pkt->size, pkt->dts, pts);
         }
-        if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC && m_Demux.video.hdr10plusMetadataCopy) {
-            pBitstream->addFrameData(getHDR10plusMetaData(pkt));
+        if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+            if (m_Demux.video.hdr10plusMetadataCopy) {
+                pBitstream->addFrameData(getHDR10plusMetaData(pkt));
+            }
+            if (m_Demux.video.doviRpuMetadataCopy) {
+                pBitstream->addFrameData(getDoviRpuMetaData(pkt));
+            }
         }
         auto flags = RGY_FRAME_FLAG_NONE;
         const auto findPos = m_Demux.frames.findpts(pBitstream->pts(), &m_Demux.video.findPosLastIdx);
@@ -3150,7 +3239,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
             }
         }
         {
-            auto dovirpu = std::shared_ptr<RGYFrameData>(getDoviRpu(m_Demux.video.frame));
+            auto dovirpu = std::shared_ptr<RGYFrameData>(getDoviRpuMetaData(m_Demux.video.frame));
             if (dovirpu) {
                 pSurface->dataList().push_back(dovirpu);
             }

@@ -300,6 +300,7 @@ NVEncCore::NVEncCore() :
     m_hdr10plus(),
     m_hdrsei(),
     m_dovirpu(),
+    m_dovirpuMetadataCopy(false),
     m_encTimestamp(),
     m_encodeFrameID(0),
     m_videoIgnoreTimestampError(DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR),
@@ -631,6 +632,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
             PrintMes(RGY_LOG_ERROR, _T("Failed to open dovi rpu \"%s\".\n"), inputParam->common.doviRpuFile.c_str());
             return NV_ENC_ERR_GENERIC;
         }
+    } else if (inputParam->common.doviRpuMetadataCopy) {
+        m_dovirpuMetadataCopy = true;
     }
 #endif
 
@@ -2110,7 +2113,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     set_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver(), (NV_ENC_BIT_DEPTH)clamp(inputParam->outputDepth, 8, 10));
 
     auto require_repeat_headers = [this]() {
-        return m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0);
+        return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0);
     };
 
     if (inputParam->codec_rgy == RGY_CODEC_AV1) {
@@ -4010,11 +4013,11 @@ NVENCSTATUS NVEncCore::Encode() {
     };
 
     int64_t hwDecFirstPts = AV_NOPTS_VALUE;
-    RGYQueueMPMP<RGYFrameDataHDR10plus*> queueHDR10plusMetadata;
-    queueHDR10plusMetadata.init(256);
+    RGYQueueMPMP<RGYFrameDataMetadata*> queueMetadata;
+    queueMetadata.init(256);
     std::thread th_input;
     if (m_cuvidDec) {
-        th_input = std::thread([this, streamIn, &hwDecFirstPts, &queueHDR10plusMetadata, &nvStatus]() {
+        th_input = std::thread([this, streamIn, &hwDecFirstPts, &queueMetadata, &nvStatus]() {
             CUresult curesult = CUDA_SUCCESS;
             RGYBitstream bitstream = RGYBitstreamInit();
             RGY_ERR sts = RGY_ERR_NONE;
@@ -4030,7 +4033,12 @@ NVENCSTATUS NVEncCore::Encode() {
                     if (frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
                         auto ptr = dynamic_cast<RGYFrameDataHDR10plus*>(frameData);
                         if (ptr) {
-                            queueHDR10plusMetadata.push(new RGYFrameDataHDR10plus(*ptr));
+                            queueMetadata.push(new RGYFrameDataHDR10plus(*ptr));
+                        }
+                    } else if (frameData->dataType() == RGY_FRAME_DATA_DOVIRPU) {
+                        auto ptr = dynamic_cast<RGYFrameDataDOVIRpu*>(frameData);
+                        if (ptr) {
+                            queueMetadata.push(new RGYFrameDataDOVIRpu(*ptr));
                         }
                     }
                 }
@@ -4054,22 +4062,32 @@ NVENCSTATUS NVEncCore::Encode() {
         });
         PrintMes(RGY_LOG_DEBUG, _T("Started Encode thread\n"));
     }
-    auto getHDR10plusMetadata = [&queueHDR10plusMetadata](int64_t timestamp) {
+    auto getMetadata = [&queueMetadata](int64_t timestamp) {
         std::shared_ptr<RGYFrameData> frameData;
-        RGYFrameDataHDR10plus *frameDataPtr = nullptr;
-        while (queueHDR10plusMetadata.front_copy_no_lock(&frameDataPtr)) {
+        RGYFrameDataMetadata *frameDataPtr = nullptr;
+        while (queueMetadata.front_copy_no_lock(&frameDataPtr)) {
             if (frameDataPtr->timestamp() < timestamp) {
-                queueHDR10plusMetadata.pop();
+                queueMetadata.pop();
                 delete frameDataPtr;
             } else {
                 break;
             }
         }
-        size_t queueSize = queueHDR10plusMetadata.size();
+        size_t queueSize = queueMetadata.size();
         for (uint32_t i = 0; i < queueSize; i++) {
-            if (queueHDR10plusMetadata.copy(&frameDataPtr, i, &queueSize)) {
+            if (queueMetadata.copy(&frameDataPtr, i, &queueSize)) {
                 if (frameDataPtr->timestamp() == timestamp) {
-                    frameData = std::make_shared<RGYFrameDataHDR10plus>(*frameDataPtr);
+                    if (frameDataPtr->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
+                        auto ptr = dynamic_cast<RGYFrameDataHDR10plus*>(frameDataPtr);
+                        if (ptr) {
+                            frameData = std::make_shared<RGYFrameDataHDR10plus>(*ptr);
+                        }
+                    } else if (frameDataPtr->dataType() == RGY_FRAME_DATA_DOVIRPU) {
+                        auto ptr = dynamic_cast<RGYFrameDataDOVIRpu*>(frameDataPtr);
+                        if (ptr) {
+                            frameData = std::make_shared<RGYFrameDataDOVIRpu>(*ptr);
+                        }
+                    }
                     break;
                 }
             }
@@ -4575,7 +4593,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     delete ptr;
                 }), m_cuvidDec->GetDecFrameInfo());
                 inputFrame.setInputFrameId(nInputFrame);
-                if (m_hdr10plusMetadataCopy && streamIn) {
+                if ((m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy) && streamIn) {
                     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
                     if (pAVCodecReader != nullptr) {
                         const auto timestamp_status = pAVCodecReader->GetFramePosList()->getStreamPtsStatus();
@@ -4586,7 +4604,7 @@ NVENCSTATUS NVEncCore::Encode() {
                         }
                         //cuvidのtimestampはかならず分子が1になっているのでもとに戻す
                         const auto orig_pts = rational_rescale(dispInfo.timestamp, srcTimebase, to_rgy(streamIn->time_base));
-                        inputFrame.addFrameData(getHDR10plusMetadata(orig_pts));
+                        inputFrame.addFrameData(getMetadata(orig_pts));
                     }
                 }
                 PrintMes(RGY_LOG_TRACE, _T("input frame (dev) #%d, pic_idx %d, timestamp %lld\n"), nInputFrame, dispInfo.picture_index, dispInfo.timestamp);
@@ -4758,7 +4776,7 @@ NVENCSTATUS NVEncCore::Encode() {
     if (m_ssim) {
         m_ssim->showResult();
     }
-    queueHDR10plusMetadata.close([](RGYFrameDataHDR10plus **ptr) { if (*ptr) { delete *ptr; *ptr = nullptr; }; });
+    queueMetadata.close([](RGYFrameDataMetadata **ptr) { if (*ptr) { delete *ptr; *ptr = nullptr; }; });
     vector<std::pair<tstring, double>> filter_result;
     for (auto& filter : m_vpFilters) {
         auto avgtime = filter->GetAvgTimeElapsed();
@@ -5373,6 +5391,8 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
     if (m_dovirpu) {
         add_str(RGY_LOG_INFO, _T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());
+    } else if (m_dovirpuMetadataCopy) {
+        add_str(RGY_LOG_INFO, _T("dovi rpu       copy\n"));
     }
     if (rgy_codec == RGY_CODEC_H264) {
         if (m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames || m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames) {

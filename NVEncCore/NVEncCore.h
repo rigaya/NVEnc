@@ -208,6 +208,7 @@ protected:
     unique_ptr<RGYHDR10Plus>      m_hdr10plus;
     unique_ptr<RGYHDRMetadata>    m_hdrsei;
     unique_ptr<DOVIRpu>           m_dovirpu;
+    bool                          m_dovirpuMetadataCopy;
     std::unique_ptr<RGYTimestamp> m_encTimestamp;
     int64_t                       m_encodeFrameID;
     int                           m_videoIgnoreTimestampError;

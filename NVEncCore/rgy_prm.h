@@ -1812,6 +1812,7 @@ struct RGYParamCommon {
     CspTransfer atcSei;
     bool hdr10plusMetadataCopy;
     tstring dynamicHdr10plusJson;
+    bool doviRpuMetadataCopy;
     tstring doviRpuFile;
     int doviProfile;
     std::string videoCodecTag;

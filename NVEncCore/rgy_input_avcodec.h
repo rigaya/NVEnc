@@ -52,6 +52,7 @@ static const uint32_t AV_FRAME_MAX_REORDER = 16;
 static const int FRAMEPOS_POC_INVALID = -1;
 
 static const char* HDR10PLUS_METADATA_KEY = "rgy_hdr10plus_metadata";
+static const char* DOVI_RPU_METADATA_KEY = "rgy_dovi_rpu_metadata";
 
 enum RGYPtsStatus : uint32_t {
     RGY_PTS_UNKNOWN           = 0x00,
@@ -755,7 +756,7 @@ struct AVDemuxVideo {
     bool                      bUseHEVCmp42AnnexB;
     int                       hevcNaluLengthSize;
     bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
-    bool                      doviRpuCopy;           //dovi rpuのメタ情報を取得する
+    bool                      doviRpuMetadataCopy;   //dovi rpuのメタ情報を取得する
 
     RGY_SIMD                  simdCsp;               //使用するSIMD
 
@@ -839,7 +840,8 @@ public:
     DeviceCodecCsp *HWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
     bool           videoDetectPulldown;     //pulldownの検出を試みるかどうか
     bool           parseHDRmetadata;        //HDR関連のmeta情報を取得する
-    bool           hdr10plusMetadataCopy;  //HDR10plus関連のmeta情報を取得する
+    bool           hdr10plusMetadataCopy;   //HDR10plus関連のmeta情報を取得する
+    bool           doviRpuMetadataCopy;     //dovi rpuのmeta情報を取得する
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     bool           lowLatency;
@@ -921,7 +923,8 @@ public:
 
     RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVFrame* frame);
     RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVPacket* pkt);
-    RGYFrameDataDOVIRpu *getDoviRpu(const AVFrame *frame);
+    RGYFrameDataDOVIRpu *getDoviRpuMetaData(const AVPacket *frame);
+    RGYFrameDataDOVIRpu *getDoviRpuMetaData(const AVFrame *frame);
 
     //seektoで指定された時刻の範囲内かチェックする
     bool checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, float marginSec) override;
@@ -941,6 +944,7 @@ protected:
     RGY_ERR parseHDRData();
 
     RGY_ERR parseHDR10plus(AVPacket *pkt);
+    RGY_ERR parseDOVIRpu(AVPacket *pkt);
 
     RGY_ERR initFormatCtx(const TCHAR *strFileName, const RGYInputAvcodecPrm *input_prm, const int iretry);
     RGY_ERR initVideoBsfs();

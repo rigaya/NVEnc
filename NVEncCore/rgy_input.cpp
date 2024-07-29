@@ -636,6 +636,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_AUTO;
         inputInfoAVCuvid.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy;
         inputInfoAVCuvid.parseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource;
+        inputInfoAVCuvid.doviRpuMetadataCopy = common->doviRpuMetadataCopy;
         inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
