@@ -377,7 +377,7 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
         bitstream->setOffset(0);
         if (!header_check) {
             for (auto& metadata : metadataList) {
-                if (!metadata->written) {
+                if (!metadata->written && !metadata->appendix) {
                     bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                     metadata->written = true;
                 }
@@ -389,12 +389,18 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
                 if (i + 1 < (int)nal_list.size()
                     && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
                     for (auto& metadata : metadataList) {
-                        if (!metadata->written) {
+                        if (!metadata->written && !metadata->appendix) {
                             bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                             metadata->written = true;
                         }
                     }
                 }
+            }
+        }
+        for (auto& metadata : metadataList) {
+            if (!metadata->written && metadata->appendix) {
+                bitstream->append(metadata->mdata.data(), metadata->mdata.size());
+                metadata->written = true;
             }
         }
         bsCopy.clear();
@@ -421,7 +427,7 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
 
         if (!has_seq_header && !has_td) {
             for (auto& metadata : metadataList) {
-                if (!metadata->written) {
+                if (!metadata->written && !metadata->appendix) {
                     bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                     metadata->written = true;
                 }
@@ -434,12 +440,18 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
                 if (i + 1 < (int)av1_units.size()
                     && (av1_units[i + 1]->type != OBU_TEMPORAL_DELIMITER && av1_units[i + 1]->type != OBU_SEQUENCE_HEADER)) {
                     for (auto& metadata : metadataList) {
-                        if (!metadata->written) {
+                        if (!metadata->written && !metadata->appendix) {
                             bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                             metadata->written = true;
                         }
                     }
                 }
+            }
+        }
+        for (auto& metadata : metadataList) {
+            if (!metadata->written && metadata->appendix) {
+                bitstream->append(metadata->mdata.data(), metadata->mdata.size());
+                metadata->written = true;
             }
         }
         for (auto& metadata : metadataList) {
@@ -713,7 +725,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
     std::vector<std::unique_ptr<RGYOutputInsertMetadata>> metadataList;
     if (m_hdrBitstream.size() > 0) {
         std::vector<uint8_t> data(m_hdrBitstream.data(), m_hdrBitstream.data() + m_hdrBitstream.size());
-        metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true));
+        metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true, false));
     }
     {
         auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata);
@@ -721,7 +733,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
             return err_hdr10plus;
         }
         if (metadata_hdr10plus.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_hdr10plus, false));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_hdr10plus, false, false));
         }
     }
     {
@@ -730,7 +742,16 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
             return err_dovirpu;
         }
         if (metadata_dovi_rpu.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_dovi_rpu, false));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_dovi_rpu, false, true));
+        }
+    }
+    if (m_doviRpu) {
+        std::vector<uint8_t> dovi_nal;
+        if (m_doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
+        }
+        if (dovi_nal.size() > 0) {
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, true));
         }
     }
 
@@ -741,21 +762,6 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
 
     nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
     WRITE_CHECK(nBytesWritten, pBitstream->size());
-
-    if (m_doviRpu) {
-        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
-            std::vector<uint8_t> dovi_nal;
-            if (m_doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
-            }
-            if (dovi_nal.size() > 0) {
-                nBytesWritten += _fwrite_nolock(dovi_nal.data(), 1, dovi_nal.size(), m_fDest.get());
-            }
-        } else {
-            AddMessage(RGY_LOG_ERROR, _T("Adding dovi rpu not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
-            return RGY_ERR_UNSUPPORTED;
-        }
-    }
 
     m_encSatusInfo->SetOutputData(pBitstream->frametype(), nBytesWritten, 0);
     pBitstream->setSize(0);

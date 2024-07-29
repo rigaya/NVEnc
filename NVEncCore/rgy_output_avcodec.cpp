@@ -2683,7 +2683,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
     std::vector<std::unique_ptr<RGYOutputInsertMetadata>> metadataList;
     if (m_Mux.video.hdrBitstream.size() > 0) {
         std::vector<uint8_t> data(m_Mux.video.hdrBitstream.data(), m_Mux.video.hdrBitstream.data() + m_Mux.video.hdrBitstream.size());
-        metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true));
+        metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true, false));
     }
     {
         auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata);
@@ -2691,7 +2691,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
             return err_hdr10plus;
         }
         if (metadata_hdr10plus.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_hdr10plus, false));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_hdr10plus, false, false));
         }
     }
     {
@@ -2700,32 +2700,22 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
             return err_dovirpu;
         }
         if (metadata_dovi_rpu.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_dovi_rpu, false));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_dovi_rpu, false, true));
+        }
+    }
+    if (m_Mux.video.doviRpu) {
+        std::vector<uint8_t> dovi_nal;
+        if (m_Mux.video.doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
+        }
+        if (dovi_nal.size() > 0) {
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, true));
         }
     }
 
     auto err = InsertMetadata(bitstream, metadataList);
     if (err != RGY_ERR_NONE) {
         return err;
-    }
-
-    if (m_Mux.video.doviRpu) {
-        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
-            if (bs_framedata.inputFrameId < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get frame ID for pts %lld (%lld).\n"), bitstream->pts(), bs_framedata.inputFrameId);
-                return RGY_ERR_UNDEFINED_BEHAVIOR;
-            }
-            std::vector<uint8_t> dovi_nal;
-            if (m_Mux.video.doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
-            }
-            if (dovi_nal.size() > 0) {
-                bitstream->append(dovi_nal.data(), dovi_nal.size());
-            }
-        } else {
-            AddMessage(RGY_LOG_ERROR, _T("Adding dovi rpu not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
-            return RGY_ERR_UNSUPPORTED;
-        }
     }
 
     AVPacket *pkt = m_Mux.video.pktOut;

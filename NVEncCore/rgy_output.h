@@ -203,9 +203,10 @@ protected:
 struct RGYOutputInsertMetadata {
     std::vector<uint8_t> mdata;
     bool onSequenceHeader;
+    bool appendix;
     bool written;
 
-    RGYOutputInsertMetadata(std::vector<uint8_t>& data, bool onSeqHeader) : mdata(data), onSequenceHeader(onSeqHeader), written(false) {};
+    RGYOutputInsertMetadata(std::vector<uint8_t>& data, bool onSeqHeader, bool appendix_) : mdata(data), onSequenceHeader(onSeqHeader), appendix(appendix_), written(false) {};
 };
  
 class RGYOutput {

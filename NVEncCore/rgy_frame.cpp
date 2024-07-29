@@ -179,7 +179,19 @@ RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu(const uint8_t *data, size_t size, int64
 RGYFrameDataDOVIRpu::~RGYFrameDataDOVIRpu() { }
 
 std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_nal() const {
-    return m_data;
+    std::vector<uint8_t> buf;
+    uint16_t u16 = 0x00;
+    u16 |= (NALU_HEVC_UNSPECIFIED << 9) | 1;
+    add_u16(buf, u16);
+    vector_cat(buf, m_data);
+    if (buf.back() == 0x00) { // 最後が0x00の場合
+        buf.push_back(0x03);
+    }
+    to_nal(buf);
+
+    std::vector<uint8_t> ret = { 0x00, 0x00, 0x00, 0x01 }; // ヘッダ
+    vector_cat(ret, buf);
+    return ret;
 }
 std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_obu() const {
     return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, m_data);
