@@ -121,8 +121,9 @@
   - [--atc-sei \<string\> or \<int\> \[HEVC only\]](#--atc-sei-string-or-int-hevc-only)
   - [--dhdr10-info \<string\> \[HEVC, AV1\]](#--dhdr10-info-string-hevc-av1)
   - [--dhdr10-info copy \[HEVC, AV1\]](#--dhdr10-info-copy-hevc-av1)
-  - [--dolby-vision-profile \<float\>](#--dolby-vision-profile-float)
-  - [--dolby-vision-rpu \<string\>](#--dolby-vision-rpu-string)
+  - [--dolby-vision-profile \<string\> \[HEVC, AV1\]](#--dolby-vision-profile-string-hevc-av1)
+  - [--dolby-vision-rpu \<string\> \[HEVC, AV1\]](#--dolby-vision-rpu-string-hevc-av1)
+  - [--dolby-vision-rpu copy \[HEVC\]](#--dolby-vision-rpu-copy-hevc)
   - [--aud \[H.264/HEVC\]](#--aud-h264hevc)
   - [--repeat-headers](#--repeat-headers)
   - [--pic-struct \[H.264/HEVC\]](#--pic-struct-h264hevc)
@@ -887,16 +888,23 @@ Copy HDR10+ dynamic metadata from input file.
 Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
 Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
 
-### --dolby-vision-profile &lt;float&gt;
-Output file which is specified in Dolby Vision profile.
+### --dolby-vision-profile &lt;string&gt; [HEVC, AV1]
+Output file which is specified in Dolby Vision profile. Recommended to be used with [--dolby-vision-rpu](#--dolby-vision-rpu-string).
+
+"copy" will use dolby vision profile from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
+
 ```
-5.0, 8.1, 8.2, 8.4
+unset, copy, 5.0, 8.1, 8.2, 8.4
 ```
 
-### --dolby-vision-rpu &lt;string&gt;
-Interleave Dolby Vision RPU metadata from the specified file into the output file.
+### --dolby-vision-rpu &lt;string&gt; [HEVC, AV1]
+Interleave Dolby Vision RPU metadata from the specified file into the output file. Recommended to be used with [--dolby-vision-profile](#--dolby-vision-profile-string).
 
-Currently, the Dolby Vision info in the re-encoded file will not be detected by MediaInfo. In order to be able to detect the Dolby Vision info by MediaInfo, you will need to re-mux the output file by [tsMuxeR](https://github.com/justdan96/tsMuxer/releases) (nightly).
+### --dolby-vision-rpu copy [HEVC]
+Interleave Dolby Vision RPU metadata copied from HEVC input file. Recommended to be used with [--dolby-vision-profile](#--dolby-vision-profile-string).
+
+Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
+Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
 
 ### --aud [H.264/HEVC]
 Insert Access Unit Delimiter NAL.

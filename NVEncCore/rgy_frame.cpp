@@ -169,7 +169,22 @@ std::vector<uint8_t> RGYFrameDataHDR10plus::gen_nal() const {
 }
 
 std::vector<uint8_t> RGYFrameDataHDR10plus::gen_obu() const {
-    return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, m_data);
+    // https://aomediacodec.github.io/av1-hdr10plus/#hdr10-metadata
+    static const uint8_t itut_t35_header[] = {
+        0xB5, // country code
+        0x00, 0x3C, // provider_code
+        0x00, 0x01, // provider_oriented_code
+        0x04, // application_identifier
+        0x01  // application_mode
+    };
+    std::vector<uint8_t> buf;
+    if (m_data.size() > sizeof(itut_t35_header) && memcmp(m_data.data(), itut_t35_header, sizeof(itut_t35_header)) == 0) {
+        buf = m_data;
+    } else {
+        buf = make_vector<uint8_t>(itut_t35_header);
+        vector_cat(buf, m_data);
+    }
+    return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, buf);
 }
 
 RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu() : RGYFrameDataMetadata() { m_dataType = RGY_FRAME_DATA_DOVIRPU; };
@@ -194,7 +209,19 @@ std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_nal() const {
     return ret;
 }
 std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_obu() const {
-    return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, m_data);
+    static const uint8_t itut_t35_header[] = {
+        0xB5, // country code
+        0x00, 0x3B, // provider_code
+        0x00, 0x00, 0x08, 0x00 // provider_oriented_code
+    };
+    std::vector<uint8_t> buf;
+    if (m_data.size() > sizeof(itut_t35_header) && memcmp(m_data.data(), itut_t35_header, sizeof(itut_t35_header)) == 0) {
+        buf = m_data;
+    } else {
+        buf = make_vector<uint8_t>(itut_t35_header);
+        vector_cat(buf, m_data);
+    }
+    return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, buf);
 }
 #endif
 

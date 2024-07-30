@@ -209,6 +209,7 @@ protected:
     unique_ptr<RGYHDRMetadata>    m_hdrsei;
     unique_ptr<DOVIRpu>           m_dovirpu;
     bool                          m_dovirpuMetadataCopy;
+    RGYDOVIProfile                m_doviProfile;
     std::unique_ptr<RGYTimestamp> m_encTimestamp;
     int64_t                       m_encodeFrameID;
     int                           m_videoIgnoreTimestampError;

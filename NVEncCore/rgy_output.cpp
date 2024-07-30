@@ -357,6 +357,9 @@ std::pair<RGY_ERR, std::vector<uint8_t>> RGYOutput::getMetadata(const RGYFrameDa
 }
 
 RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::unique_ptr<RGYOutputInsertMetadata>>& metadataList) {
+    if (metadataList.size() == 0) {
+        return RGY_ERR_NONE;
+    }
     if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
         RGYBitstream bsCopy = RGYBitstreamInit();
         bsCopy.copy(bitstream);
@@ -679,12 +682,11 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             return sts;
         }
     }
-    const bool isIDR = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
     writeRawDebug(pBitstream);
 
     if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
         const auto av1_units = parse_unit_av1(pBitstream->data(), pBitstream->size());
-        const int td_count = std::count_if(av1_units.begin(), av1_units.end(), [](const std::unique_ptr<unit_info>& info) { return info->type == OBU_TEMPORAL_DELIMITER; });
+        const auto td_count = std::count_if(av1_units.begin(), av1_units.end(), [](const std::unique_ptr<unit_info>& info) { return info->type == OBU_TEMPORAL_DELIMITER; });
         if (td_count > 1) {
             RGYBitstream bsCopy = RGYBitstreamInit();
             for (int i = 0; i < (int)av1_units.size(); i++) {
@@ -736,15 +738,6 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
             metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_hdr10plus, false, false));
         }
     }
-    {
-        auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata);
-        if (err_dovirpu != RGY_ERR_NONE) {
-            return err_dovirpu;
-        }
-        if (metadata_dovi_rpu.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_dovi_rpu, false, true));
-        }
-    }
     if (m_doviRpu) {
         std::vector<uint8_t> dovi_nal;
         if (m_doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
@@ -752,6 +745,14 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         }
         if (dovi_nal.size() > 0) {
             metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, true));
+        }
+    } else {
+        auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata);
+        if (err_dovirpu != RGY_ERR_NONE) {
+            return err_dovirpu;
+        }
+        if (metadata_dovi_rpu.size() > 0) {
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_dovi_rpu, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
         }
     }
 
@@ -1131,6 +1132,8 @@ RGY_ERR initWriters(
         writerPrm.attachments             = common->attachmentSource;
         writerPrm.hdrMetadata             = hdrMetadata;
         writerPrm.doviRpu                 = doviRpu;
+        writerPrm.doviRpuMetadataCopy     = common->doviRpuMetadataCopy;
+        writerPrm.doviProfile             = common->doviProfile;
         writerPrm.vidTimestamp            = vidTimestamp;
         writerPrm.videoCodecTag           = common->videoCodecTag;
         writerPrm.videoMetadata           = common->videoMetadata;

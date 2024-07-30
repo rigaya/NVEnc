@@ -3279,6 +3279,10 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
 }
 #pragma warning(pop)
 
+RGYDOVIProfile RGYInputAvcodec::getInputDOVIProfile() {
+    return getStreamDOVIProfile(m_Demux.video.stream);
+}
+
 int RGYInputAvcodec::GetHWDecDeviceID() {
     return m_Demux.video.HWDecodeDeviceId;
 }

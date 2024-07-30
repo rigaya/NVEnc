@@ -286,15 +286,16 @@ InEncodeVideoParam::InEncodeVideoParam() :
     input.vui = VideoVUIInfo();
 }
 
-void InEncodeVideoParam::applyDOVIProfile() {
+void InEncodeVideoParam::applyDOVIProfile(const RGYDOVIProfile inputProfile) {
 #if !FOR_AUO
     if (codec_rgy != RGY_CODEC_HEVC) {
         return;
     }
-    if (common.doviProfile == 0) {
+    auto targetDoviProfile = (common.doviProfile == RGY_DOVI_PROFILE_COPY) ? inputProfile : common.doviProfile;
+    if (targetDoviProfile == 0) {
         return;
     }
-    auto profile = getDOVIProfile(common.doviProfile);
+    auto profile = getDOVIProfile(targetDoviProfile);
     if (profile == nullptr) {
         return;
     }

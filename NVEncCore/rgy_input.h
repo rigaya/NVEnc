@@ -299,6 +299,9 @@ public:
     RGY_CODEC getInputCodec() {
         return m_inputVideoInfo.codec;
     }
+    virtual RGYDOVIProfile getInputDOVIProfile() {
+        return RGY_DOVI_PROFILE_UNSET;
+    }
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) = 0;
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);

@@ -474,12 +474,23 @@ const CX_DESC list_videoformat[] = {
     { NULL, 0 }
 };
 
+
+enum RGYDOVIProfile {
+    RGY_DOVI_PROFILE_UNSET = 0,
+    RGY_DOVI_PROFILE_COPY  = -1,
+    RGY_DOVI_PROFILE_50    = 50,
+    RGY_DOVI_PROFILE_81    = 81,
+    RGY_DOVI_PROFILE_82    = 82,
+    RGY_DOVI_PROFILE_84    = 84,
+};
+
 const CX_DESC list_dovi_profile[] = {
-    { _T("unset"), 0 },
-    { _T("5.0"),  50 },
-    { _T("8.1"),  81 },
-    { _T("8.2"),  82 },
-    { _T("8.4"),  84 },
+    { _T("unset"), RGY_DOVI_PROFILE_UNSET },
+    { _T("copy"),  RGY_DOVI_PROFILE_COPY },
+    { _T("5.0"),   RGY_DOVI_PROFILE_50 },
+    { _T("8.1"),   RGY_DOVI_PROFILE_81 },
+    { _T("8.2"),   RGY_DOVI_PROFILE_82 },
+    { _T("8.4"),   RGY_DOVI_PROFILE_84 },
     { NULL, 0 }
 };
 

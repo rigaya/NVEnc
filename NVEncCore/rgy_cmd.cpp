@@ -5364,11 +5364,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         i++;
         int value = 0;
         if (get_list_value(list_dovi_profile, strInput[i], &value)) {
-            common->doviProfile = value;
+            common->doviProfile = (RGYDOVIProfile)value;
         } else if (_stscanf_s(strInput[i], _T("%d"), &value) == 1) {
-            common->doviProfile = value;
+            common->doviProfile = (RGYDOVIProfile)value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_colorprim);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_dovi_profile);
             return 1;
         }
         return 0;
@@ -7287,7 +7287,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
     }
     OPT_LST(_T("--dolby-vision-profile"), doviProfile, list_dovi_profile);
-    OPT_STR_PATH(_T("--dolby-vision-rpu"), doviRpuFile);
+    if (param->doviRpuMetadataCopy) {
+        cmd << _T("--dolby-vision-rpu copy");
+    } else {
+        OPT_STR_PATH(_T("--dolby-vision-rpu"), doviRpuFile);
+    }
     if (param->timecode || param->timecodeFile.length() > 0) {
         cmd << (param->timecode ? _T("--timecode ") : _T("--no-timecode "));
         if (param->timecodeFile.length() > 0) {
@@ -7536,7 +7540,8 @@ tstring gen_cmd_help_common() {
 #if ENABLE_DOVI_METADATA_OPTIONS
     str += print_list_options(_T("--dolby-vision-profile <int>"), list_dovi_profile, 0);
     str += strsprintf(
-        _T("   --dolby-vision-rpu <string>  Copy dolby vision metadata from input rpu file.\n"));
+        _T("   --dolby-vision-rpu <string>  Copy dolby vision metadata from input rpu file.\n")
+        _T("   --dolby-vision-rpu copy      Copy dolby vision metadata from input file.\n"));
 #endif //#if ENABLE_DOVI_METADATA_OPTIONS
     str += strsprintf(
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")

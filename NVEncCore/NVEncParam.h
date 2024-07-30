@@ -739,7 +739,7 @@ struct InEncodeVideoParam {
 
     InEncodeVideoParam();
 
-    void applyDOVIProfile();
+    void applyDOVIProfile(const RGYDOVIProfile inputProfile);
 };
 
 static void setQP(NV_ENC_QP& nvencqp, const RGYQPSet& qp) {

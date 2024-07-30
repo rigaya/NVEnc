@@ -117,8 +117,9 @@
   - [--atc-sei \<string\> or \<int\> \[HEVCのみ\]](#--atc-sei-string-or-int-hevcのみ)
   - [--dhdr10-info \<string\> \[HEVC, AV1\]](#--dhdr10-info-string-hevc-av1)
   - [--dhdr10-info copy \[HEVC, AV1\]](#--dhdr10-info-copy-hevc-av1)
-  - [--dolby-vision-profile \<float\> \[HEVC\]](#--dolby-vision-profile-float-hevc)
-  - [--dolby-vision-rpu \<string\> \[HEVC\]](#--dolby-vision-rpu-string-hevc)
+  - [--dolby-vision-profile \<string\> \[HEVC, AV1\]](#--dolby-vision-profile-string-hevc-av1)
+  - [--dolby-vision-rpu \<string\> \[HEVC, AV1\]](#--dolby-vision-rpu-string-hevc-av1)
+  - [--dolby-vision-rpu copy \[HEVC, AV1\]](#--dolby-vision-rpu-copy-hevc-av1)
   - [--aud \[H.264/HEVC\]](#--aud-h264hevc)
   - [--repeat-headers](#--repeat-headers)
   - [--pic-struct \[H.264/HEVC\]](#--pic-struct-h264hevc)
@@ -893,18 +894,24 @@ HDR10+のメタデータを入力ファイルからそのままコピーしま�
 avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
 こうした場合には、avsw読み込みを使用してください。 
 
-### --dolby-vision-profile &lt;float&gt; [HEVC]
-指定されたdolby visionプロファイルを適用します。
+### --dolby-vision-profile &lt;string&gt; [HEVC, AV1]
+指定されたdolby visionプロファイルを適用します。[--dolby-vision-rpu](#--dolby-vision-rpu-string)との併用が推奨です。
+
+"copy" は、入力ファイルのdolby visionプロファイルを適用します。 ([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
+
 ```
-5.0, 8.1, 8.2, 8.4
+unset, copy, 5.0, 8.1, 8.2, 8.4
 ```
 
-### --dolby-vision-rpu &lt;string&gt; [HEVC]
+### --dolby-vision-rpu &lt;string&gt; [HEVC, AV1]
 指定のrpuファイルに含まれるdolby visionのmetadataを出力ファイルに挿入します。
 
-現時点(2022年1月実装時点)では、このオプションを使用して出力した動画ファイルは、MediaInfoによりDolby Vision情報が検出されません。
+### --dolby-vision-rpu copy [HEVC, AV1]
+HEVCの入力ファイルから読み取ったdolby visionのmetadataを出力ファイルに挿入します。 [--dolby-vision-profile](#--dolby-vision-profile-string)との併用が推奨です。
 
-MediaInfoによるDolby Vision情報の検出を可能とするには、[tsMuxeR](https://github.com/justdan96/tsMuxer/releases) (nightly版) による再muxが必要です。
+avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
+こうした場合には、avsw読み込みを使用してください。 
+
 
 ### --aud [H.264/HEVC]
 Access Unit Delimiter NALを挿入する。

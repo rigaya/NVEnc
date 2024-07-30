@@ -393,6 +393,8 @@ struct AvcodecWriterPrm {
     tstring                      muxVidTsLogFile;         //mux timestampログファイル
     const RGYHDRMetadata        *hdrMetadata;             //HDR関連のmetadata
     DOVIRpu                     *doviRpu;                 //DOVIRpu
+    bool                         doviRpuMetadataCopy;     //doviのmetadataのコピー
+    RGYDOVIProfile               doviProfile;             //doviのprofile
     RGYTimestamp                *vidTimestamp;            //動画のtimestampの情報
     std::string                  videoCodecTag;           //動画タグ
     std::vector<tstring>         videoMetadata;           //動画のmetadata
@@ -430,6 +432,8 @@ struct AvcodecWriterPrm {
         muxVidTsLogFile(),
         hdrMetadata(nullptr),
         doviRpu(nullptr),
+        doviRpuMetadataCopy(false),
+        doviProfile(RGY_DOVI_PROFILE_UNSET),
         vidTimestamp(nullptr),
         videoCodecTag(),
         videoMetadata(),

@@ -301,6 +301,7 @@ NVEncCore::NVEncCore() :
     m_hdrsei(),
     m_dovirpu(),
     m_dovirpuMetadataCopy(false),
+    m_doviProfile(RGY_DOVI_PROFILE_UNSET),
     m_encTimestamp(),
     m_encodeFrameID(0),
     m_videoIgnoreTimestampError(DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR),
@@ -635,6 +636,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
     } else if (inputParam->common.doviRpuMetadataCopy) {
         m_dovirpuMetadataCopy = true;
     }
+    m_doviProfile = inputParam->common.doviProfile;
 #endif
 
     m_hdrsei = createHEVCHDRSei(inputParam->common.maxCll, inputParam->common.masterDisplay, inputParam->common.atcSei, m_pFileReader.get());
@@ -3421,7 +3423,6 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_DEBUG, _T("Set Process priority: %s.\n"), rgy_thread_priority_mode_to_str(priority));
     }
 
-    inputParam->applyDOVIProfile();
     m_nAVSyncMode = inputParam->common.AVSyncMode;
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
     m_videoIgnoreTimestampError = inputParam->common.videoIgnoreTimestampError;
@@ -3475,6 +3476,8 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
+
+    inputParam->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
 
     bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
     if (inputParam->lossless && inputParam->losslessIgnoreInputCsp == 0) {
@@ -5385,9 +5388,16 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
     }
     if (m_hdr10plus) {
-        add_str(RGY_LOG_INFO, _T("Dynamic HDR10     %s\n"), m_hdr10plus->inputJson().c_str());
+        add_str(RGY_LOG_INFO, _T("Dynamic HDR10  %s\n"), m_hdr10plus->inputJson().c_str());
     } else if (m_hdr10plusMetadataCopy) {
-        add_str(RGY_LOG_INFO, _T("Dynamic HDR10     copy\n"));
+        add_str(RGY_LOG_INFO, _T("Dynamic HDR10  copy\n"));
+    }
+    if (m_doviProfile != RGY_DOVI_PROFILE_UNSET) {
+        tstring profile_copy;
+        if (m_doviProfile == RGY_DOVI_PROFILE_COPY) {
+            profile_copy = tstring(_T(" (")) + get_cx_desc(list_dovi_profile, m_pFileReader->getInputDOVIProfile()) + tstring(_T(")"));
+        }
+        add_str(RGY_LOG_INFO, _T("dovi profile   %s%s\n"), get_cx_desc(list_dovi_profile, m_doviProfile), profile_copy.c_str());
     }
     if (m_dovirpu) {
         add_str(RGY_LOG_INFO, _T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());

@@ -215,8 +215,18 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
-2024.07.2x (7.58)
-- --vpp-frucでfps指定の時の処理速度を大幅に向上。
+2024.08.01 (7.58)
+[NVEncC]
+- Dolby Vision profileのコピー機能を追加。(--dolby-vision-profile copy)
+- Dolby Vision rpu metadataのコピー機能を追加。(--dolby-vision-rpu copy)
+- --vpp-frucでfps指定の時の処理速度を大幅に向上。( #586 )
+- --vpp-tweakにチャネルごとの制御を追加。
+- H.264/HEVCのヘッダがうまく取得できない場合、最初のパケットから取得するように。( #604 )
+- --vpp-nlmeansで search=3 にするとエラー終了していた問題を修正。
+- 音声のmux用のバッファ不足になり、音声が同時刻の映像と違うfragmentにmuxされる問題を修正。
+
+[NVEnc.auo]
+- Windowsの登録拡張子の状況によっては、意図せず出力拡張子が設定されず、muxされなくなってしまう問題を回避。
 
 2024.06.29 (7.57)
 - --vpp-colorspace, --vpp-resize ngx-vsr, --vpp-ngx-truehdr が一部の言語のOSで正常に動作しない問題を修正。

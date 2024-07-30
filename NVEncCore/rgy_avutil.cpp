@@ -921,4 +921,29 @@ tstring getDispositionStr(uint32_t disposition) {
     return str;
 }
 
+RGYDOVIProfile getStreamDOVIProfile(const AVStream *stream) {
+#if LIBAVUTIL_DOVI_META_AVAIL
+    size_t side_data_size = 0;
+    auto doviconf = AVStreamGetSideData<AVDOVIDecoderConfigurationRecord>(stream, AV_PKT_DATA_DOVI_CONF, side_data_size);
+    if (!doviconf) {
+        return RGY_DOVI_PROFILE_UNSET;
+    }
+    switch (doviconf->dv_profile) {
+    case 5:
+        return RGY_DOVI_PROFILE_50;
+    case 8:
+        switch (doviconf->dv_bl_signal_compatibility_id) {
+        case 1:  return RGY_DOVI_PROFILE_81;
+        case 2:  return RGY_DOVI_PROFILE_82;
+        case 4:  return RGY_DOVI_PROFILE_84;
+        default: return RGY_DOVI_PROFILE_UNSET;
+        }
+    default:
+        return RGY_DOVI_PROFILE_UNSET;
+    }
+#else
+    return RGY_DOVI_PROFILE_UNSET;
+#endif
+}
+
 #endif //ENABLE_AVSW_READER
