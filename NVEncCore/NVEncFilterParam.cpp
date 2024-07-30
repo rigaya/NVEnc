@@ -603,6 +603,7 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
         }
     }
 
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     if (param->nvvfxSuperRes != defaultPrm->nvvfxSuperRes && resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
         tmp.str(tstring());
         //if (!param->nvvfxSuperRes.enable && save_disabled_prm) {
@@ -617,6 +618,7 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
             cmd << tmp.str();
         }
     }
+#endif
 
     if (param->nvvfxUpScaler != defaultPrm->nvvfxUpScaler) {
         tmp.str(tstring());
