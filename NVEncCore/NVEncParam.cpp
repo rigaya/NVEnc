@@ -288,7 +288,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
 
 void InEncodeVideoParam::applyDOVIProfile() {
 #if !FOR_AUO
-    if (codec_rgy != RGY_CODEC_H264) {
+    if (codec_rgy != RGY_CODEC_HEVC) {
         return;
     }
     if (common.doviProfile == 0) {
