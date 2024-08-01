@@ -740,11 +740,11 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
     }
     if (m_doviRpu) {
         std::vector<uint8_t> dovi_nal;
-        if (m_doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
+        if (m_doviRpu->get_next_rpu(dovi_nal, bs_framedata.inputFrameId, m_VideoOutputInfo.codec) != 0) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
         }
         if (dovi_nal.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, true));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
         }
     } else {
         auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata);

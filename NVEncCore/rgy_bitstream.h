@@ -274,6 +274,8 @@ public:
     ~DOVIRpu();
     int init(const TCHAR *rpu_file);
     int get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id);
+    int get_next_rpu_obu(std::vector<uint8_t>& bytes, const int64_t id);
+    int get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id, const RGY_CODEC codec);
     const tstring& get_filepath() const;
 
 protected:

@@ -525,7 +525,7 @@ int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id) {
     if (int ret = get_next_rpu(rpu, id); ret != 0) {
         return ret;
     }
-    //to_nal(rpu); // NALU_HEVC_UNSPECIFIEDの場合は不要
+    //to_nal(rpu); // get_next_rpuはすでにこの処理を実施済みのものを返す
     if (rpu.back() == 0x00) { // 最後が0x00の場合
         rpu.push_back(0x03);
     }
@@ -538,6 +538,38 @@ int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id) {
     add_u16(bytes, u16);
     vector_cat(bytes, rpu);
     return 0;
+}
+
+int DOVIRpu::get_next_rpu_obu(std::vector<uint8_t>& bytes, const int64_t id) {
+    std::vector<uint8_t> tmp;
+    if (int ret = get_next_rpu(tmp, id); ret != 0) {
+        return ret;
+    }
+
+    auto rpu = unnal(tmp.data(), tmp.size());
+
+    static const uint8_t itut_t35_header[] = {
+        0xB5, // country code
+        0x00, 0x3B, // provider_code
+        0x00, 0x00, 0x08, 0x00 // provider_oriented_code
+    };
+    std::vector<uint8_t> buf;
+    if (rpu.size() > sizeof(itut_t35_header) && memcmp(rpu.data(), itut_t35_header, sizeof(itut_t35_header)) == 0) {
+        buf = rpu;
+    } else {
+        buf = make_vector<uint8_t>(itut_t35_header);
+        vector_cat(buf, rpu);
+    }
+    bytes = gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, buf);
+    return 0;
+}
+
+int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id, const RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_HEVC: return get_next_rpu_nal(bytes, id);
+    case RGY_CODEC_AV1: return get_next_rpu_obu(bytes, id);
+    default: return 1;
+    }
 }
 
 const DOVIProfile *getDOVIProfile(const int id) {

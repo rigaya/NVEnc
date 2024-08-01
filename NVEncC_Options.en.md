@@ -123,7 +123,7 @@
   - [--dhdr10-info copy \[HEVC, AV1\]](#--dhdr10-info-copy-hevc-av1)
   - [--dolby-vision-profile \<string\> \[HEVC, AV1\]](#--dolby-vision-profile-string-hevc-av1)
   - [--dolby-vision-rpu \<string\> \[HEVC, AV1\]](#--dolby-vision-rpu-string-hevc-av1)
-  - [--dolby-vision-rpu copy \[HEVC\]](#--dolby-vision-rpu-copy-hevc)
+  - [--dolby-vision-rpu copy \[HEVC, AV1\]](#--dolby-vision-rpu-copy-hevc-av1)
   - [--aud \[H.264/HEVC\]](#--aud-h264hevc)
   - [--repeat-headers](#--repeat-headers)
   - [--pic-struct \[H.264/HEVC\]](#--pic-struct-h264hevc)
@@ -900,7 +900,7 @@ unset, copy, 5.0, 8.1, 8.2, 8.4
 ### --dolby-vision-rpu &lt;string&gt; [HEVC, AV1]
 Interleave Dolby Vision RPU metadata from the specified file into the output file. Recommended to be used with [--dolby-vision-profile](#--dolby-vision-profile-string).
 
-### --dolby-vision-rpu copy [HEVC]
+### --dolby-vision-rpu copy [HEVC, AV1]
 Interleave Dolby Vision RPU metadata copied from HEVC input file. Recommended to be used with [--dolby-vision-profile](#--dolby-vision-profile-string).
 
 Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
