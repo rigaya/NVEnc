@@ -778,6 +778,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
     // m_Demux.qVideoPktに入っているパケットがあれば、まずはそれを解析する
     auto qVideoPktCheckCount = (int)m_Demux.qVideoPkt.size();
+    int iVideoPktCheck = 0;
 
     for (int i_retry = 0; ; i_retry++) {
         if (i_retry > 0) {
@@ -795,10 +796,9 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         int ret = 0;
         for (; i_samples < maxCheckFrames; i_samples++) {
             AVPacket *pkt = nullptr;
-            if (qVideoPktCheckCount > 0) {
+            if (iVideoPktCheck < qVideoPktCheckCount) {
                 // m_Demux.qVideoPktに入っているパケットがあれば、まずはそれを解析する
-                qVideoPktCheckCount--;
-                pkt = m_Demux.qVideoPkt.get(qVideoPktCheckCount)->data;
+                pkt = m_Demux.qVideoPkt.get(iVideoPktCheck++)->data;
             } else {
                 auto [ret_sample, spkt] = getSample();
                 if (ret_sample) {
@@ -3065,48 +3065,52 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
             //vc1FixHeader(lengthFix);
         }
         AddMessage(RGY_LOG_DEBUG, _T("GetHeader: %d bytes.\n"), m_Demux.video.extradataSize);
-        if (m_Demux.video.extradataSize == 0 && m_Demux.video.extradata != nullptr) {
+        if (m_Demux.video.extradataSize == 0
+            && m_Demux.video.extradata != nullptr
+            && (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_H264 || m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC)) {
             av_free(m_Demux.video.extradata);
             m_Demux.video.extradata = nullptr;
-            AddMessage(RGY_LOG_WARN, _T("Failed to get header from extradata: 0 byte, retry checking first packet."));
-            // ヘッダをextra dataからうまく取得できなかった場合、最初のパケットから取得する
-            auto [ret_sample, spkt] = getSample();
-            if (ret_sample != 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get first packet."));
-                return RGY_ERR_MORE_DATA;
-            }
-            auto pkt = spkt.release();
-            if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_H264) {
-                const auto nals = m_Demux.video.parse_nal_h264(pkt->data, pkt->size);
-                const auto nal_sps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_H264_SPS; });
-                const auto nal_pps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_H264_PPS; });
-                if (nal_sps != nals.end() && nal_pps != nals.end()) {
-                    m_Demux.video.extradataSize = (int)(nal_sps->size + nal_pps->size);
-                    m_Demux.video.extradata = (uint8_t *)av_malloc(m_Demux.video.extradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
-                    memcpy(m_Demux.video.extradata, nal_sps->ptr, nal_sps->size);
-                    memcpy(m_Demux.video.extradata + nal_sps->size, nal_pps->ptr, nal_pps->size);
-                    memset(m_Demux.video.extradata + m_Demux.video.extradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+            AddMessage(RGY_LOG_DEBUG, _T("Failed to get header from extradata: 0 byte, retry checking actual packets."));
+            // ヘッダをextra dataからうまく取得できなかった場合、実際のパケットから取得する
+            for (int i = 0; i < 10000 && m_Demux.video.extradataSize == 0; i++) {
+                auto [ret_sample, spkt] = getSample();
+                if (ret_sample != 0) {
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to get packet."));
+                    return RGY_ERR_MORE_DATA;
                 }
-            } else if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
-                const auto nals = m_Demux.video.parse_nal_hevc(pkt->data, pkt->size);
-                const auto nal_vps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_HEVC_VPS; });
-                const auto nal_sps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_HEVC_SPS; });
-                const auto nal_pps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_HEVC_PPS; });
-                if (nal_vps != nals.end() && nal_sps != nals.end() && nal_pps != nals.end()) {
-                    m_Demux.video.extradataSize = (int)(nal_vps->size + nal_sps->size + nal_pps->size);
-                    m_Demux.video.extradata = (uint8_t *)av_malloc(m_Demux.video.extradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
-                    memcpy(m_Demux.video.extradata, nal_vps->ptr, nal_vps->size);
-                    memcpy(m_Demux.video.extradata + nal_vps->size, nal_sps->ptr, nal_sps->size);
-                    memcpy(m_Demux.video.extradata + nal_vps->size + nal_sps->size, nal_pps->ptr, nal_pps->size);
-                    memset(m_Demux.video.extradata + m_Demux.video.extradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+                auto pkt = spkt.release();
+                m_Demux.qVideoPkt.push(pkt);
+                if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_H264) {
+                    const auto nals = m_Demux.video.parse_nal_h264(pkt->data, pkt->size);
+                    const auto nal_sps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_H264_SPS; });
+                    const auto nal_pps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_H264_PPS; });
+                    if (nal_sps != nals.end() && nal_pps != nals.end()) {
+                        m_Demux.video.extradataSize = (int)(nal_sps->size + nal_pps->size);
+                        m_Demux.video.extradata = (uint8_t *)av_malloc(m_Demux.video.extradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
+                        memcpy(m_Demux.video.extradata, nal_sps->ptr, nal_sps->size);
+                        memcpy(m_Demux.video.extradata + nal_sps->size, nal_pps->ptr, nal_pps->size);
+                        memset(m_Demux.video.extradata + m_Demux.video.extradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+                    }
+                } else if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+                    const auto nals = m_Demux.video.parse_nal_hevc(pkt->data, pkt->size);
+                    const auto nal_vps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_HEVC_VPS; });
+                    const auto nal_sps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_HEVC_SPS; });
+                    const auto nal_pps = std::find_if(nals.begin(), nals.end(), [](const nal_info &nal) { return nal.type == NALU_HEVC_PPS; });
+                    if (nal_vps != nals.end() && nal_sps != nals.end() && nal_pps != nals.end()) {
+                        m_Demux.video.extradataSize = (int)(nal_vps->size + nal_sps->size + nal_pps->size);
+                        m_Demux.video.extradata = (uint8_t *)av_malloc(m_Demux.video.extradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
+                        memcpy(m_Demux.video.extradata, nal_vps->ptr, nal_vps->size);
+                        memcpy(m_Demux.video.extradata + nal_vps->size, nal_sps->ptr, nal_sps->size);
+                        memcpy(m_Demux.video.extradata + nal_vps->size + nal_sps->size, nal_pps->ptr, nal_pps->size);
+                        memset(m_Demux.video.extradata + m_Demux.video.extradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+                    }
                 }
             }
-            m_Demux.qVideoPkt.push(pkt);
             if (m_Demux.video.extradataSize == 0) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to get header: 0 byte, no SPS/PPS found."));
                 return RGY_ERR_MORE_DATA;
             }
-            AddMessage(RGY_LOG_WARN, _T("Got header from first packet: %d byte."), m_Demux.video.extradataSize);
+            AddMessage(RGY_LOG_WARN, _T("Got header from actual packet: %d byte."), m_Demux.video.extradataSize);
         }
     }
     if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_AV1
