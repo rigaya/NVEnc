@@ -121,6 +121,7 @@ enum RGY_CODEC {
     RGY_CODEC_VP9,
     RGY_CODEC_VC1,
     RGY_CODEC_AV1,
+    RGY_CODEC_VVC,
     RGY_CODEC_RAW,
 
     RGY_CODEC_NUM,
@@ -137,6 +138,7 @@ static tstring CodecToStr(RGY_CODEC codec) {
     case RGY_CODEC_VP8:   return _T("VP8");
     case RGY_CODEC_VP9:   return _T("VP9");
     case RGY_CODEC_AV1:   return _T("AV1");
+    case RGY_CODEC_VVC:   return _T("VVC");
     case RGY_CODEC_RAW:   return _T("RAW");
     default: return _T("unknown");
     }
@@ -270,6 +272,7 @@ static const CX_DESC list_rgy_codec[] = {
     { _T("vp8"),   RGY_CODEC_VP8 },
     { _T("vp9"),   RGY_CODEC_VP9 },
     { _T("av1"),   RGY_CODEC_AV1 },
+    { _T("vvc"),   RGY_CODEC_VVC },
     { NULL, 0 }
 };
 
