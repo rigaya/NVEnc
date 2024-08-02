@@ -103,6 +103,7 @@ RGYConvertCSP::RGYConvertCSP(int threads, RGYParamThread threadParam) :
     m_csp_from(RGY_CSP_NA),
     m_csp_to(RGY_CSP_NA),
     m_uv_only(false),
+    m_alpha(nullptr),
     m_threads(threads),
     m_th(), m_heStart(), m_heFin(), m_heFinCopy(),
     m_threadParam(threadParam), m_prm() {
@@ -127,6 +128,7 @@ const ConvertCSP *RGYConvertCSP::getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool 
         m_csp_from = csp_from;
         m_csp_to = csp_to;
         m_uv_only = uv_only;
+        m_alpha = get_copy_alpha_func(csp_from, csp_to);
         m_csp = get_convert_csp_func(csp_from, csp_to, uv_only, simd);
     }
     return m_csp;
@@ -149,13 +151,21 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
         for (int ith = 0; ith < m_threads; ith++) {
             auto heStart = std::unique_ptr<void, handle_deleter>(CreateEvent(nullptr, false, false, nullptr), handle_deleter());
             auto heFin = std::unique_ptr<void, handle_deleter>(CreateEvent(nullptr, false, false, nullptr), handle_deleter());
-            m_th.push_back(std::thread([heStart = heStart.get(), heFin = heFin.get(), ithId = ith, threadN = m_threads, threadParam = m_threadParam, prm = &m_prm, cspfunc = &m_csp]() {
+            m_th.push_back(std::thread([heStart = heStart.get(), heFin = heFin.get(), ithId = ith, threadN = m_threads, threadParam = m_threadParam,
+                prm = &m_prm, cspfunc = &m_csp, alphafunc = m_alpha, csp_from = m_csp_from, csp_to = m_csp_to]() {
                 threadParam.apply(GetCurrentThread());
                 WaitForSingleObject((HANDLE)heStart, INFINITE);
                 while (!prm->abort) {
                     (*cspfunc)->func[prm->interlaced](prm->dst, prm->src,
                         prm->width, prm->src_y_pitch_byte, prm->src_uv_pitch_byte, prm->dst_y_pitch_byte,
                         prm->height, prm->dst_height, ithId, threadN, prm->crop);
+                    if (alphafunc) {
+                        const int dstPlaneOffset = RGY_CSP_PLANES[csp_from] - 1;
+                        const int srcPlaneOffset = RGY_CSP_PLANES[csp_to] - 1;
+                        alphafunc(prm->dst + dstPlaneOffset, prm->src + srcPlaneOffset,
+                            prm->width, prm->src_y_pitch_byte, 0, prm->dst_y_pitch_byte,
+                            prm->height, prm->dst_height, ithId, threadN, prm->crop);
+                    }
                     SetEvent((HANDLE)heFin);
                     WaitForSingleObject((HANDLE)heStart, INFINITE);
                 }
@@ -183,6 +193,13 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
         m_csp->func[interlaced](dst, src,
             width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte,
             height, dst_height, 0, 1, crop);
+        if (m_alpha) {
+            const int dstPlaneOffset = RGY_CSP_PLANES[m_csp_from] - 1;
+            const int srcPlaneOffset = RGY_CSP_PLANES[m_csp_to] - 1;
+            m_alpha(dst + dstPlaneOffset, src + srcPlaneOffset,
+                width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte,
+                height, dst_height, 0, 1, crop);
+        }
     }
     if (m_th.size() > 0) {
         WaitForMultipleObjects((uint32_t)m_heFinCopy.size(), m_heFinCopy.data(), TRUE, INFINITE);

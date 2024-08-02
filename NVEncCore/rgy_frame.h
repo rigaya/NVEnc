@@ -132,9 +132,9 @@ public:
         }
         return ptrarray;
     }
-    void ptrArray(void *array[3]) {
+    void ptrArray(void *array[RGY_MAX_PLANES]) {
         auto frame = getInfo();
-        for (size_t i = 0; i < 3; i++) {
+        for (size_t i = 0; i < RGY_MAX_PLANES; i++) {
             array[i] = (void *)getPlane(&frame, (RGY_PLANE)i).ptr[0];
         }
     }

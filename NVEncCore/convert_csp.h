@@ -78,12 +78,22 @@ enum RGY_CSP {
     RGY_CSP_YV12_12,
     RGY_CSP_YV12_14,
     RGY_CSP_YV12_16,
+    RGY_CSP_YUVA420,
+    RGY_CSP_YUVA420_10,
+    RGY_CSP_YUVA420_12,
+    RGY_CSP_YUVA420_16,
     RGY_CSP_P010,
+    RGY_CSP_NV12A,
+    RGY_CSP_P010A,
     RGY_CSP_YUV422_09,
     RGY_CSP_YUV422_10,
     RGY_CSP_YUV422_12,
     RGY_CSP_YUV422_14,
     RGY_CSP_YUV422_16,
+    RGY_CSP_YUVA422,
+    RGY_CSP_YUVA422_10,
+    RGY_CSP_YUVA422_12,
+    RGY_CSP_YUVA422_16,
     RGY_CSP_P210,
     RGY_CSP_YUV444_09,
     RGY_CSP_YUV444_10,
@@ -92,6 +102,8 @@ enum RGY_CSP {
     RGY_CSP_YUV444_16,
     RGY_CSP_YUV444_32,
     RGY_CSP_YUVA444,
+    RGY_CSP_YUVA444_10,
+    RGY_CSP_YUVA444_12,
     RGY_CSP_YUVA444_16,
     RGY_CSP_AYUV,
     RGY_CSP_AYUV_16,
@@ -138,12 +150,22 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yv12(12bit)"),
     _T("yv12(14bit)"),
     _T("yv12(16bit)"),
+    _T("yuv420a"),
+    _T("yuv420a(10bit)"),
+    _T("yuv420a(12bit)"),
+    _T("yuv420a(16bit)"),
     _T("p010"),
+    _T("nv12a"),
+    _T("p010a"),
     _T("yuv422(9bit)"),
     _T("yuv422(10bit)"),
     _T("yuv422(12bit)"),
     _T("yuv422(14bit)"),
     _T("yuv422(16bit)"),
+    _T("yuva422"),
+    _T("yuva422(10bit)"),
+    _T("yuva422(12bit)"),
+    _T("yuva422(16bit)"),
     _T("p210"),
     _T("yuv444(9bit)"),
     _T("yuv444(10bit)"),
@@ -152,6 +174,8 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yuv444(16bit)"),
     _T("yuv444(32bit)"),
     _T("yuva444"),
+    _T("yuva444(10bit)"),
+    _T("yuva444(12bit)"),
     _T("yuva444(16bit)"),
     _T("ayuv444"),
     _T("ayuv444(16bit)"),
@@ -198,12 +222,22 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     12,
     14,
     16, //RGY_CSP_YV12_16
+     8, //RGY_CSP_YUVA420
+    10, //RGY_CSP_YUVA420_10 
+    12, //RGY_CSP_YUVA420_12
+    16, //RGY_CSP_YUVA420_16
     16, //RGY_CSP_P010
+     8, //RGY_CSP_NV12A
+    16, //RGY_CSP_P010A
      9, //RGY_CSP_YUV422_09
     10,
     12,
     14,
     16, //RGY_CSP_YUV422_16
+     8, //RGY_CSP_YUVA422
+    10, //RGY_CSP_YUVA422_10
+    12, //RGY_CSP_YUVA422_12
+    16, //RGY_CSP_YUVA422_16
     16, //RGY_CSP_P210
      9, //RGY_CSP_YUV444_09
     10,
@@ -212,6 +246,8 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     16, //RGY_CSP_YUV444_16
     32, //RGY_CSP_YUV444_32
      8, //RGY_CSP_YUVA444
+    10, //RGY_CSP_YUVA444_10
+    12, //RGY_CSP_YUVA444_12
     16, //RGY_CSP_YUVA444_16
      8, //RGY_CSP_AYUV444
     16, //RGY_CSP_AYUV444_16
@@ -268,12 +304,22 @@ static const RGY_DATA_TYPE RGY_CSP_DATA_TYPE[] = {
      RGY_DATA_TYPE_U16,
      RGY_DATA_TYPE_U16,
      RGY_DATA_TYPE_U16, //RGY_CSP_YV12_16
+     RGY_DATA_TYPE_U8,  //RGY_CSP_YUVA420
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA420_10
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA420_12
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA420_16
      RGY_DATA_TYPE_U16, //RGY_CSP_P010
+     RGY_DATA_TYPE_U8,  //RGY_CSP_NV12A
+     RGY_DATA_TYPE_U16, //RGY_CSP_P010A
      RGY_DATA_TYPE_U16, //RGY_CSP_YUV422_09
      RGY_DATA_TYPE_U16,
      RGY_DATA_TYPE_U16,
      RGY_DATA_TYPE_U16,
      RGY_DATA_TYPE_U16, //RGY_CSP_YUV422_16
+     RGY_DATA_TYPE_U8,  //RGY_CSP_YUVA422
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA422_10
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA422_12
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA422_16
      RGY_DATA_TYPE_U16, //RGY_CSP_P210
      RGY_DATA_TYPE_U16, //RGY_CSP_YUV444_09
      RGY_DATA_TYPE_U16,
@@ -281,7 +327,9 @@ static const RGY_DATA_TYPE RGY_CSP_DATA_TYPE[] = {
      RGY_DATA_TYPE_U16,
      RGY_DATA_TYPE_U16, //RGY_CSP_YUV444_16
      RGY_DATA_TYPE_U32, //RGY_CSP_YUV444_32
-     RGY_DATA_TYPE_U8, //RGY_CSP_YUVA444
+     RGY_DATA_TYPE_U8,  //RGY_CSP_YUVA444
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA444_10
+     RGY_DATA_TYPE_U16, //RGY_CSP_YUVA444_12
      RGY_DATA_TYPE_U16, //RGY_CSP_YUVA444_16
      RGY_DATA_TYPE_U8, //RGY_CSP_AYUV444
      RGY_DATA_TYPE_U16, //RGY_CSP_AYUV444_16
@@ -335,12 +383,22 @@ static const uint8_t RGY_CSP_PLANES[] = {
      3,
      3,
      3, //RGY_CSP_YV12_16
+     4, //RGY_CSP_YUVA420
+     4, //RGY_CSP_YUVA420_10
+     4, //RGY_CSP_YUVA420_12
+     4, //RGY_CSP_YUVA420_16
      2, //RGY_CSP_P010
+     3, //RGY_CSP_NV12A
+     3, //RGY_CSP_P010A
      3, //RGY_CSP_YUV422_09
      3,
      3,
      3,
      3, //RGY_CSP_YUV422_16
+     4, //RGY_CSP_YUVA422
+     4, //RGY_CSP_YUVA422_10
+     4, //RGY_CSP_YUVA422_12
+     4, //RGY_CSP_YUVA422_16
      2, //RGY_CSP_P210
      3, //RGY_CSP_YUV444_09
      3,
@@ -349,6 +407,8 @@ static const uint8_t RGY_CSP_PLANES[] = {
      3, //RGY_CSP_YUV444_16
      3, //RGY_CSP_YUV444_32
      4, //RGY_CSP_YUVA444
+     4, //RGY_CSP_YUVA444_10
+     4, //RGY_CSP_YUVA444_12
      4, //RGY_CSP_YUVA444_16
      1, //RGY_CSP_AYUV444
      1, //RGY_CSP_AYUV444_16
@@ -387,7 +447,6 @@ enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_YUV420,
     RGY_CHROMAFMT_YUV422,
     RGY_CHROMAFMT_YUV444,
-    RGY_CHROMAFMT_YUVA444,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_COUNT,
@@ -398,7 +457,6 @@ static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
     _T("yuv420"),
     _T("yuv422"),
     _T("yuv444"),
-    _T("yuva444"),
     _T("rgbp"),
     _T("rgb")
 };
@@ -406,6 +464,38 @@ static_assert(sizeof(RGY_CHROMAFMT_NAMES) / sizeof(RGY_CHROMAFMT_NAMES[0]) == RG
 
 static bool rgy_chromafmt_is_rgb(RGY_CHROMAFMT fmt) {
     return fmt == RGY_CHROMAFMT_RGB || fmt == RGY_CHROMAFMT_RGB_PACKED;
+}
+
+static RGY_CSP rgy_csp_alpha_base(const RGY_CSP csp) {
+    switch (csp) {
+    case RGY_CSP_NV12A:      return RGY_CSP_NV12;
+    case RGY_CSP_P010A:      return RGY_CSP_P010;
+    case RGY_CSP_YUVA420:    return RGY_CSP_YV12;
+    case RGY_CSP_YUVA420_10: return RGY_CSP_YV12_10;
+    case RGY_CSP_YUVA420_12: return RGY_CSP_YV12_12;
+    case RGY_CSP_YUVA420_16: return RGY_CSP_YV12_16;
+    case RGY_CSP_YUVA422:    return RGY_CSP_YUV422;
+    case RGY_CSP_YUVA422_10: return RGY_CSP_YUV422_10;
+    case RGY_CSP_YUVA422_12: return RGY_CSP_YUV422_12;
+    case RGY_CSP_YUVA422_16: return RGY_CSP_YUV422_16;
+    case RGY_CSP_YUVA444:    return RGY_CSP_YUV444;
+    case RGY_CSP_YUVA444_10: return RGY_CSP_YUV444_10;
+    case RGY_CSP_YUVA444_12: return RGY_CSP_YUV444_12;
+    case RGY_CSP_YUVA444_16: return RGY_CSP_YUV444_16;
+    case RGY_CSP_RGBA:       return RGY_CSP_RGB;
+    case RGY_CSP_RGBA_16:    return RGY_CSP_RGB_16;
+    case RGY_CSP_RGBA_F32:   return RGY_CSP_RGB_F32;
+    default: return RGY_CSP_NA;
+    }
+}
+
+static bool rgy_csp_has_alpha(const RGY_CSP csp) {
+    return rgy_csp_alpha_base(csp) != RGY_CSP_NA;
+}
+
+static RGY_CSP rgy_csp_no_alpha(const RGY_CSP csp) {
+    auto base = rgy_csp_alpha_base(csp);
+    return base != RGY_CSP_NA ? base : csp;
 }
 
 static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
@@ -422,12 +512,22 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV420,
     RGY_CHROMAFMT_YUV420,
     RGY_CHROMAFMT_YUV420, //RGY_CSP_YV12_16
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_YUVA420
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_YUVA420_10
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_YUVA420_12
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_YUVA420_16
     RGY_CHROMAFMT_YUV420, //RGY_CSP_P010
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_NV12A
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_P010A
     RGY_CHROMAFMT_YUV422, //RGY_CSP_YUV422_09
     RGY_CHROMAFMT_YUV422,
     RGY_CHROMAFMT_YUV422,
     RGY_CHROMAFMT_YUV422,
     RGY_CHROMAFMT_YUV422, //RGY_CSP_YUV422_16
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_YUVA422
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_YUVA422_10
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_YUVA422_12
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_YUVA422_16
     RGY_CHROMAFMT_YUV422, //RGY_CSP_P210
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_09
     RGY_CHROMAFMT_YUV444,
@@ -435,10 +535,12 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_16
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_32
-    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444
-    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444_16
-    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444
-    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444_16
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUVA444
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUVA444_10
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUVA444_12
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUVA444_16
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUVA444
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUVA444_16
     RGY_CHROMAFMT_YUV422, //RGY_CSP_Y210
     RGY_CHROMAFMT_YUV422, //RGY_CSP_Y216
     RGY_CHROMAFMT_YUV444, //RGY_CSP_Y410
@@ -482,12 +584,22 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     24,
     24,
     24, //RGY_CSP_YV12_16
+    20, //RGY_CSP_YUVA420
+    40, //RGY_CSP_YUVA420_10
+    40, //RGY_CSP_YUVA420_12
+    40, //RGY_CSP_YUVA420_16
     24, //RGY_CSP_P010
+    20, //RGY_CSP_NV12A
+    32, //RGY_CSP_P010A
     32, //RGY_CSP_YUV422_09
     32,
     32,
     32,
     32, //RGY_CSP_YUV422_16
+    24, //RGY_CSP_YUVA422
+    48, //RGY_CSP_YUVA422_10
+    48, //RGY_CSP_YUVA422_12
+    48, //RGY_CSP_YUVA422_16
     32, //RGY_CSP_P210
     48, //RGY_CSP_YUV444_09
     48,
@@ -496,6 +608,8 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     48, //RGY_CSP_YUV444_16
     96, //RGY_CSP_YUV444_32
     32, //RGY_CSP_YUVA444
+    64, //RGY_CSP_YUVA444_10
+    64, //RGY_CSP_YUVA444_12
     64, //RGY_CSP_YUVA444_16
     32, //RGY_CSP_AYUV444
     64, //RGY_CSP_AYUV444_16
@@ -577,6 +691,7 @@ typedef struct ConvertCSP {
 } ConvertCSP;
 
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd);
+const funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to);
 const TCHAR *get_simd_str(RGY_SIMD simd);
 
 enum RGY_FRAME_FLAGS : uint32_t {

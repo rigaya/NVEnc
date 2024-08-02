@@ -342,15 +342,18 @@ RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
+    if (rgy_csp_has_alpha(m_convert->getFunc()->csp_from)) {
+        frameSize += m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight;
+    }
     if (frameSize != _fread_nolock(m_pBuffer.get(), 1, frameSize, m_fSource)) {
         AddMessage(RGY_LOG_DEBUG, _T("fread: finish: %d.\n"), frameSize);
         return RGY_ERR_MORE_DATA;
     }
 
-    void *dst_array[3];
+    void *dst_array[RGY_MAX_PLANES];
     pSurface->ptrArray(dst_array);
 
-    const void *src_array[3];
+    const void *src_array[RGY_MAX_PLANES];
     src_array[0] = m_pBuffer.get();
     src_array[1] = (uint8_t *)src_array[0] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
     switch (m_convert->getFunc()->csp_from) {
@@ -383,6 +386,7 @@ RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
     default:
         break;
     }
+    src_array[3] = (rgy_csp_has_alpha(m_convert->getFunc()->csp_from)) ? (uint8_t *)src_array[2] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight : nullptr;
 
     int src_uv_pitch = m_inputVideoInfo.srcPitch;
     switch (RGY_CSP_CHROMA_FORMAT[m_convert->getFunc()->csp_from]) {

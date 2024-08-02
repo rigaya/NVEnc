@@ -413,6 +413,7 @@ const CX_DESC list_bitdepth[] = {
 const CX_DESC list_output_csp[] = {
     { _T("yuv420"), RGY_CSP_YV12   },
     { _T("yuv444"), RGY_CSP_YUV444 },
+    { _T("yuva420"), RGY_CSP_YUVA420 },
     { NULL, 0 }
 };
 
@@ -724,6 +725,7 @@ struct InEncodeVideoParam {
     int yuv444;                   //YUV444出力
     int lossless;                 //ロスレス出力
     int losslessIgnoreInputCsp;
+    bool alphaChannel;
     int nWeightP;
     int chromaQPOffset;
     int brefMode;

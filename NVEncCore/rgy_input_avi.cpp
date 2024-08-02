@@ -231,9 +231,14 @@ RGY_ERR RGYInputAvi::LoadNextFrameInternal(RGYFrame *pSurface) {
         ptr_src = m_pBuffer.get();
     }
 
-    void *dst_array[3];
+    void *dst_array[RGY_MAX_PLANES];
     pSurface->ptrArray(dst_array);
-    const void *src_array[3] = { ptr_src, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 5 / 4, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight };
+    const void *src_array[RGY_MAX_PLANES] = {
+        ptr_src,
+        ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 5 / 4,
+        ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight,
+        nullptr
+    };
 
     m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array,

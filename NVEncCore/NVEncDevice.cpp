@@ -892,6 +892,7 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, false, _T("RC Modes"), nullptr, list_nvenc_rc_method_en);
     add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       false, false, _T("Field Encoding"), list_nvenc_caps_field_encoding);
     add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           false, true,  _T("MonoChrome"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_ALPHA_LAYER_ENCODING, false, true,  _T("Alpha Channel"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_FMO,                  true,  true,  _T("FMO"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_QPELMV,               false, true,  _T("Quater-Pel MV"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE,         false, true,  _T("B Direct Mode"));

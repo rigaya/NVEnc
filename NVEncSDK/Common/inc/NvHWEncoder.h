@@ -116,6 +116,7 @@ typedef struct _EncodeBuffer
 {
     EncodeOutputBuffer      stOutputBfr;
     EncodeInputBuffer       stInputBfr;
+    EncodeInputBuffer       stInputBfrAlpha;
 }EncodeBuffer;
 
 typedef struct _MotionEstimationBuffer

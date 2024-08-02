@@ -349,10 +349,18 @@ void NVEncCore::SetAbortFlagPointer(bool *abortFlag) {
 RGY_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) {
     const bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
     const bool yuv444 = inputParam->yuv444;
-    if (bOutputHighBitDepth) {
-        return (yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+    if (inputParam->alphaChannel) {
+        if (bOutputHighBitDepth) {
+            return (yuv444) ? RGY_CSP_YUVA444_16 : RGY_CSP_P010A;
+        } else {
+            return (yuv444) ? RGY_CSP_YUVA444 : RGY_CSP_NV12A;
+        }
     } else {
-        return (yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+        if (bOutputHighBitDepth) {
+            return (yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+        } else {
+            return (yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+        }
     }
 }
 
@@ -840,6 +848,11 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
             gpu = gpuList.erase(gpu);
             continue;
         }
+        if (inputParam->alphaChannel && !get_value(NV_ENC_CAPS_SUPPORT_ALPHA_LAYER_ENCODING, codec->caps)) {
+            message += strsprintf(_T("GPU #%d (%s) does not support %s alpha channel encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
+            gpu = gpuList.erase(gpu);
+            continue;
+        }
         const bool highbitdepth = encodeIsHighBitDepth(inputParam);
         if (highbitdepth && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps)) {
             message += strsprintf(_T("GPU #%d (%s) does not support %s 10bit depth encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
@@ -1039,7 +1052,7 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
             }
             m_ssim->addBitstream(&bitstream);
         }
-        PrintMes(RGY_LOG_TRACE, _T("Output frame %d: size %zu, pts %lld, dts %lld\n"), m_pStatus->m_sData.frameOut, bitstream.size(), bitstream.pts(), bitstream.dts());
+        PrintMes(RGY_LOG_TRACE, _T("Output frame %d: size %zu (%d), pts %lld, dts %lld\n"), m_pStatus->m_sData.frameOut, bitstream.size(), lockBitstreamData.alphaLayerSizeInBytes, bitstream.pts(), bitstream.dts());
         auto outErr = m_pFileWriter->WriteNextFrame(&bitstream);
         nvStatus = m_dev->encoder()->NvEncUnlockBitstream(pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
         if (nvStatus == NV_ENC_SUCCESS && outErr != RGY_ERR_NONE) {
@@ -1169,7 +1182,7 @@ RGY_ERR NVEncCore::AllocateBufferInputHost(const VideoInfo *pInputInfo) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncCore::AllocateBufferEncoder(const uint32_t uInputWidth, const uint32_t uInputHeight, const NV_ENC_BUFFER_FORMAT inputFormat) {
+RGY_ERR NVEncCore::AllocateBufferEncoder(const uint32_t uInputWidth, const uint32_t uInputHeight, const NV_ENC_BUFFER_FORMAT inputFormat, const bool alphaChannel) {
     m_stEOSOutputBfr.bEOSFlag = TRUE;
     if (!m_dev->encoder()) {
         return RGY_ERR_NONE;
@@ -1215,8 +1228,15 @@ RGY_ERR NVEncCore::AllocateBufferEncoder(const uint32_t uInputWidth, const uint3
     for (int i = 0; i < m_encodeBufferCount; i++) {
         if (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME) {
             cuvidCtxLock(m_dev->vidCtxLock(), 0);
+            const auto allocHeight = uInputHeightTotal * (alphaChannel ? 2 : 1);
             auto cudaerr = cudaMallocPitch((void **)&m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
-                (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidthByte, uInputHeightTotal);
+                (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidthByte, allocHeight);
+            //初期化
+            auto sts = err_to_rgy(cudaMemset2D((void *)m_stEncodeBuffer[i].stInputBfr.pNV12devPtr, m_stEncodeBuffer[i].stInputBfr.uNV12Stride, -128, uInputWidthByte, allocHeight));
+            if (sts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to init alpha buffer: %s\n"), get_err_mes(sts));
+                return sts;
+            }
             cuvidCtxUnlock(m_dev->vidCtxLock(), 0);
             if (cudaerr != cudaSuccess) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to cuMemAllocPitch, %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
@@ -1231,8 +1251,29 @@ RGY_ERR NVEncCore::AllocateBufferEncoder(const uint32_t uInputWidth, const uint3
                 PrintMes(RGY_LOG_ERROR, _T("Failed to register input device memory.\n"));
                 return err_to_rgy(nvStatus);
             }
+            // alpha channelが必要な場合、メモリ確保は連続で行い、NvEncRegisterResourceを分割する
+            if (alphaChannel) {
+                m_stEncodeBuffer[i].stInputBfrAlpha.pNV12devPtr = (CUdeviceptr)nullptr;
+                m_stEncodeBuffer[i].stInputBfrAlpha.dwHeight = uInputWidth;
+                m_stEncodeBuffer[i].stInputBfrAlpha.dwHeight = uInputHeight;
+                m_stEncodeBuffer[i].stInputBfrAlpha.bufferFmt = inputFormat;
+                m_stEncodeBuffer[i].stInputBfrAlpha.uNV12Stride = m_stEncodeBuffer[i].stInputBfr.uNV12Stride;
+                uint8_t *ptr = (uint8_t *)m_stEncodeBuffer[i].stInputBfr.pNV12devPtr;
+                ptr += m_stEncodeBuffer[i].stInputBfr.uNV12Stride * uInputHeightTotal;
+                nvStatus = m_dev->encoder()->NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
+                    (void*)ptr, uInputWidth, uInputHeight, m_stEncodeBuffer[i].stInputBfrAlpha.uNV12Stride, inputFormat,
+                    &m_stEncodeBuffer[i].stInputBfrAlpha.nvRegisteredResource);
+                if (nvStatus != NV_ENC_SUCCESS) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to register input device memory.\n"));
+                    return err_to_rgy(nvStatus);
+                }
+            }
         } else {
             //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
+            if (alphaChannel) {
+                PrintMes(RGY_LOG_ERROR, _T("alpha channel encoding not supported with interlaced encoding.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
             auto nvStatus = m_dev->encoder()->NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, inputFormat);
             if (nvStatus != NV_ENC_SUCCESS) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
@@ -1825,6 +1866,16 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             inputParam->temporalFilterLevel = NV_ENC_TEMPORAL_FILTER_LEVEL_0;
         }
     }
+    if (inputParam->alphaChannel) {
+        if (inputParam->codec_rgy != RGY_CODEC_HEVC) {
+            PrintMes(RGY_LOG_ERROR, _T("Alpha channel encoding only supported in HEVC codec.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+        if (!codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_ALPHA_LAYER_ENCODING)) {
+            error_feature_unsupported(RGY_LOG_ERROR, _T("alpha channel"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+    }
     if (m_dynamicRC.size() > 0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)) {
         error_feature_unsupported(RGY_LOG_ERROR, _T("dynamic RC Change"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -2145,6 +2196,12 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         } else if (get_bitDepth(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver()) > 8) {
             m_stCreateEncodeParams.encodeConfig->profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
         }
+        if (inputParam->alphaChannel) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.enableAlphaLayerEncoding = 1;
+            //m_stCreateEncodeParams.encodeConfig->rcParams.alphaLayerBitrateRatio = 4;
+            m_stCreateEncodeParams.enableWeightedPrediction = 0;
+            m_stCreateEncodeParams.splitEncodeMode = NV_ENC_SPLIT_AUTO_MODE;
+        }
         if (require_repeat_headers()) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
         }
@@ -2369,8 +2426,10 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         const auto encCsp = GetEncoderCSP(inputParam);
         auto filterCsp = encCsp;
         switch (filterCsp) {
-        case RGY_CSP_NV12: filterCsp = RGY_CSP_YV12; break;
-        case RGY_CSP_P010: filterCsp = RGY_CSP_YV12_16; break;
+        case RGY_CSP_NV12:  filterCsp = RGY_CSP_YV12; break;
+        case RGY_CSP_P010:  filterCsp = RGY_CSP_YV12_16; break;
+        case RGY_CSP_NV12A: filterCsp = RGY_CSP_YUVA420; break;
+        case RGY_CSP_P010A: filterCsp = RGY_CSP_YUVA420_16; break;
         default: break;
         }
         if (inputParam->vpp.afs.enable && RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV444) {
@@ -2407,12 +2466,10 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut.csp = encCsp;
             switch (param->frameOut.csp) {
-            case RGY_CSP_NV12:
-                param->frameOut.csp = RGY_CSP_YV12;
-                break;
-            case RGY_CSP_P010:
-                param->frameOut.csp = RGY_CSP_YV12_16;
-                break;
+            case RGY_CSP_NV12: param->frameOut.csp = RGY_CSP_YV12; break;
+            case RGY_CSP_P010: param->frameOut.csp = RGY_CSP_YV12_16; break;
+            case RGY_CSP_NV12A: param->frameOut.csp = RGY_CSP_YUVA420; break;
+            case RGY_CSP_P010A: param->frameOut.csp = RGY_CSP_YUVA420_16; break;
             default:
                 break;
             }
@@ -3494,6 +3551,20 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             }
         }
     }
+    if (inputParam->alphaChannel) {
+        if (rgy_csp_alpha_base(inputParam->input.csp) == RGY_CSP_NA) {
+            PrintMes(RGY_LOG_ERROR, _T("Input file does not have alpha channel.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+        if (inputParam->codec_rgy != RGY_CODEC_HEVC) {
+            PrintMes(RGY_LOG_ERROR, _T("alpha channel encoding only supported with HEVC encoding.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+        if (bOutputHighBitDepth || inputParam->yuv444) {
+            PrintMes(RGY_LOG_ERROR, _T("alpha channel encoding only supported with 8bit YUVA420 HEVC encoding.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+    }
 
     if (gpuList.size() > 1 && m_nDeviceId < 0) {
 #if ENABLE_AVSW_READER
@@ -3589,7 +3660,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     } else {
         encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
     }
-    err = AllocateBufferEncoder(m_uEncWidth, m_uEncHeight, encBufferFormat);
+    err = AllocateBufferEncoder(m_uEncWidth, m_uEncHeight, encBufferFormat, inputParam->alphaChannel);
     if (err != RGY_ERR_NONE) return NV_ENC_ERR_INVALID_PARAM;
 
     err = AllocateBufferRawOutput(m_uEncWidth, m_uEncHeight, GetRawOutCSP(inputParam));
@@ -3819,6 +3890,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
     encPicParams.inputTimeStamp = timestamp;
     encPicParams.inputDuration = duration;
     encPicParams.pictureStruct = m_stPicStruct;
+    encPicParams.alphaBuffer = pEncodeBuffer->stInputBfrAlpha.hInputSurface;
     //encPicParams.qpDeltaMap = qpDeltaMapArray;
     //encPicParams.qpDeltaMapSize = qpDeltaMapArraySize;
 
@@ -4434,6 +4506,14 @@ NVENCSTATUS NVEncCore::Encode() {
                             }
                             pEncodeBuffer->stInputBfr.hInputSurface = nullptr;
                         }
+                        if (pEncodeBuffer->stInputBfrAlpha.hInputSurface) {
+                            auto nvencret = m_dev->encoder()->NvEncUnmapInputResource(pEncodeBuffer->stInputBfrAlpha.hInputSurface);
+                            if (nvencret != NV_ENC_SUCCESS) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to Unmap input alpha buffer %p: %s\n"), pEncodeBuffer->stInputBfrAlpha.hInputSurface, char_to_tstring(_nvencGetErrorEnum(nvencret)).c_str());
+                                return nvencret;
+                            }
+                            pEncodeBuffer->stInputBfrAlpha.hInputSurface = nullptr;
+                        }
                     }
                     pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
                     if (!pEncodeBuffer) {
@@ -4467,7 +4547,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
                     encFrameInfo.mem_type = RGY_MEM_TYPE_GPU;
-                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt, pEncodeBuffer->stInputBfrAlpha.nvRegisteredResource != nullptr);
                     ssimTarget = encFrameInfo;
                 } else {
                     //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
@@ -4480,7 +4560,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
                     encFrameInfo.mem_type = RGY_MEM_TYPE_CPU; //CPU側にフレームデータを戻す
-                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt, pEncodeBuffer->stInputBfrAlpha.nvRegisteredResource != nullptr);
                     ssimTarget = filterframes.front().first;
                 }
                 //エンコードバッファのポインタを渡す
@@ -4531,6 +4611,13 @@ NVENCSTATUS NVEncCore::Encode() {
             if (nvencret != NV_ENC_SUCCESS) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfr.hInputSurface);
                 return nvencret;
+            }
+            if (pEncodeBuffer->stInputBfrAlpha.nvRegisteredResource) {
+                nvencret = m_dev->encoder()->NvEncMapInputResource(pEncodeBuffer->stInputBfrAlpha.nvRegisteredResource, &pEncodeBuffer->stInputBfrAlpha.hInputSurface);
+                if (nvencret != NV_ENC_SUCCESS) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfrAlpha.hInputSurface);
+                    return nvencret;
+                }
             }
         } else {
             m_dev->encoder()->NvEncUnlockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface);
@@ -5172,14 +5259,15 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     const int bitDepth = get_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, m_dev->encoder()->getAPIver());
     if (rgy_codec == RGY_CODEC_H264) {
-        add_str(RGY_LOG_ERROR, _T("Output Info    %s %s @ Level %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
+        add_str(RGY_LOG_ERROR, _T("Output Info    %s %s @ Level %s%s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
             get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),
             get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.h264Config.level).c_str());
     } else if (rgy_codec == RGY_CODEC_HEVC) {
-        add_str(RGY_LOG_ERROR, _T("Output Info    %s %s%s @ Level %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
+        add_str(RGY_LOG_ERROR, _T("Output Info    %s %s%s @ Level %s%s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
             get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),
             (rgy_codec == RGY_CODEC_HEVC && 0 == memcmp(&NV_ENC_HEVC_PROFILE_FREXT_GUID, &m_stEncConfig.profileGUID, sizeof(GUID)) && bitDepth > 8) ? _T(" 10bit") : _T(""),
-            get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.hevcConfig.level).c_str());
+            get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.hevcConfig.level).c_str(),
+            m_stEncConfig.encodeCodecConfig.hevcConfig.enableAlphaLayerEncoding ? _T(" + alpha") : _T(""));
     } else if (rgy_codec == RGY_CODEC_AV1) {
         add_str(RGY_LOG_ERROR, _T("Output Info    %s %s%s @ Level %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
             get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),

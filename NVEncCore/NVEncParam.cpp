@@ -269,6 +269,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     yuv444(0),                   //YUV444出力
     lossless(0),                 //ロスレス出力
     losslessIgnoreInputCsp(0),
+    alphaChannel(false),
     nWeightP(0),
     chromaQPOffset(0),
     brefMode(NV_ENC_BFRAME_REF_MODE_AUTO),

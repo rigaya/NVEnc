@@ -140,6 +140,7 @@ private:
     RGY_CSP m_csp_from;
     RGY_CSP m_csp_to;
     bool m_uv_only;
+    funcConvertCSP m_alpha;
     int m_threads;
     std::vector<std::thread> m_th;
     std::vector<std::unique_ptr<void, handle_deleter>> m_heStart;

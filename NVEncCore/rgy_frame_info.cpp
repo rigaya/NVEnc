@@ -64,7 +64,7 @@ static RGYFrameInfo getPlaneSingleAlloc(const RGYFrameInfo *frameInfo, const RGY
     } else {
         switch (plane) {
         case RGY_PLANE_A:
-            if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] != RGY_CHROMAFMT_YUVA444) {
+            if (rgy_csp_alpha_base(frameInfo->csp) == RGY_CSP_NA) {
                 planeInfo.ptr[0] = nullptr;
                 break;
             }
@@ -77,23 +77,37 @@ static RGYFrameInfo getPlaneSingleAlloc(const RGYFrameInfo *frameInfo, const RGY
                 || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_RGB_PACKED
                 || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_MONOCHROME) {
                 ; //なにもしない
-            } else if (frameInfo->csp == RGY_CSP_NV12 || frameInfo->csp == RGY_CSP_P010) {
+            } else if (frameInfo->csp == RGY_CSP_NV12 || frameInfo->csp == RGY_CSP_P010
+                || frameInfo->csp == RGY_CSP_NV12A || frameInfo->csp == RGY_CSP_P010A) {
                 planeInfo.ptr[0] += frameInfo->pitch[0] * frameInfo->height;
                 planeInfo.height >>= 1;
+                if (plane == RGY_PLANE_A) {
+                    planeInfo.ptr[0] += planeInfo.pitch[0] * planeInfo.height;
+                    planeInfo.height <<= 1;
+                }
             } else if (frameInfo->csp == RGY_CSP_NV16 || frameInfo->csp == RGY_CSP_P210) {
                 planeInfo.ptr[0] += frameInfo->pitch[0] * frameInfo->height;
             } else if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_YUV420) {
                 planeInfo.ptr[0] += frameInfo->pitch[0] * frameInfo->height;
                 planeInfo.width >>= 1;
                 planeInfo.height >>= 1;
-                if (plane == RGY_PLANE_V) {
+                if (plane == RGY_PLANE_V || plane == RGY_PLANE_A) {
                     planeInfo.ptr[0] += planeInfo.pitch[0] * planeInfo.height;
+                    if (plane == RGY_PLANE_A) {
+                        planeInfo.ptr[0] += planeInfo.pitch[0] * planeInfo.height;
+                        planeInfo.width <<= 1;
+                        planeInfo.height <<= 1;
+                    }
                 }
             } else if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_YUV422) {
                 planeInfo.ptr[0] += plane * frameInfo->pitch[0] * frameInfo->height;
                 planeInfo.width >>= 1;
-                if (plane == RGY_PLANE_V) {
+                if (plane == RGY_PLANE_V || plane == RGY_PLANE_A) {
                     planeInfo.ptr[0] += planeInfo.pitch[0] * planeInfo.height;
+                    if (plane == RGY_PLANE_A) {
+                        planeInfo.ptr[0] += planeInfo.pitch[0] * planeInfo.height;
+                        planeInfo.width <<= 1;
+                    }
                 }
             } else { //RGY_CHROMAFMT_YUV444 & RGY_CHROMAFMT_YUVA444 & RGY_CHROMAFMT_RGB
                 planeInfo.ptr[0] += plane * planeInfo.pitch[0] * planeInfo.height;
@@ -145,8 +159,9 @@ RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, RGY_PLANE plane) {
         }
         return planeInfo;
     }
-    auto const ptr = planeInfo.ptr[plane];
-    const auto pitch = planeInfo.pitch[plane];
+    const int planeIdx = (plane == RGY_PLANE_A) ? RGY_CSP_PLANES[planeInfo.csp] - 1 : plane;
+    auto const ptr = planeInfo.ptr[planeIdx];
+    const auto pitch = planeInfo.pitch[planeIdx];
     for (int i = 0; i < RGY_MAX_PLANES; i++) {
         planeInfo.ptr[i] = nullptr;
         planeInfo.pitch[i] = 0;

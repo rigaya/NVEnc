@@ -1372,6 +1372,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_output_csp, strInput[i], &value)) {
             const RGY_CSP csp = (RGY_CSP)value;
             pParams->yuv444 = csp == RGY_CSP_YUV444;
+            pParams->alphaChannel = csp == RGY_CSP_YUVA420;
             if (pParams->yuv444) {
                 //H264
                 memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(pParams->encConfig.profileGUID));

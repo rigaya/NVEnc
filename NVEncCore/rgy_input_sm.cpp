@@ -261,10 +261,10 @@ RGY_ERR RGYInputSM::LoadNextFrameInternal(RGYFrame *pSurface) {
         return RGY_ERR_MORE_DATA;
     }
 
-    void *dst_array[3];
+    void *dst_array[RGY_MAX_PLANES];
     pSurface->ptrArray(dst_array);
 
-    const void *src_array[3];
+    const void *src_array[RGY_MAX_PLANES];
     src_array[0] = m_sm[m_encSatusInfo->m_sData.frameIn & 1]->ptr();
     src_array[1] = (uint8_t *)src_array[0] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
     switch (m_convert->getFunc()->csp_from) {
@@ -297,6 +297,7 @@ RGY_ERR RGYInputSM::LoadNextFrameInternal(RGYFrame *pSurface) {
     default:
         break;
     }
+    src_array[3] = nullptr;
 
     int src_uv_pitch = m_inputVideoInfo.srcPitch;
     switch (RGY_CSP_CHROMA_FORMAT[m_convert->getFunc()->csp_from]) {

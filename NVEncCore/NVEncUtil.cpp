@@ -92,6 +92,8 @@ static const auto RGY_CSP_TO_NVENC = make_array<std::pair<RGY_CSP, NV_ENC_BUFFER
     std::make_pair(RGY_CSP_YV12_14,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YV12_16,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_P010,      NV_ENC_BUFFER_FORMAT_YUV420_10BIT),
+    std::make_pair(RGY_CSP_NV12A,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_P010A,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422_09, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422_10, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422_12, NV_ENC_BUFFER_FORMAT_UNDEFINED),
@@ -141,19 +143,19 @@ RGY_PICSTRUCT picstruct_enc_to_rgy(NV_ENC_PIC_STRUCT picstruct) {
     return RGY_PICSTRUCT_FRAME;
 }
 
-RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
+RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format, const bool alphaChannel) {
     switch (enc_buffer_format) {
     case NV_ENC_BUFFER_FORMAT_NV12:
-        return RGY_CSP_NV12;
+        return (alphaChannel) ? RGY_CSP_NV12A : RGY_CSP_NV12;
     case NV_ENC_BUFFER_FORMAT_YV12:
     case NV_ENC_BUFFER_FORMAT_IYUV:
-        return RGY_CSP_YV12;
+        return (alphaChannel) ? RGY_CSP_YUVA420 : RGY_CSP_YV12;
     case NV_ENC_BUFFER_FORMAT_YUV444:
-        return RGY_CSP_YUV444;
+        return (alphaChannel) ? RGY_CSP_YUVA444 : RGY_CSP_YUV444;
     case NV_ENC_BUFFER_FORMAT_YUV420_10BIT:
-        return RGY_CSP_P010;
+        return (alphaChannel) ? RGY_CSP_P010A : RGY_CSP_P010;
     case NV_ENC_BUFFER_FORMAT_YUV444_10BIT:
-        return RGY_CSP_YUV444_16;
+        return (alphaChannel) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUV444_16;
     case NV_ENC_BUFFER_FORMAT_ARGB:
         return RGY_CSP_RGB32;
     case NV_ENC_BUFFER_FORMAT_UNDEFINED:
