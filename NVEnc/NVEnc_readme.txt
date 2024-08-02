@@ -215,6 +215,10 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2024.08.02 (7.59)
+- AV1からのDolby Vision rpu metadataのコピーに対応。
+- 7.58でnfx-truehdrが正常に動作しない問題を修正。
+
 2024.08.01 (7.58)
 [NVEncC]
 - Dolby Vision profileのコピー機能を追加。(--dolby-vision-profile copy)

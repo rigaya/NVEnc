@@ -945,8 +945,10 @@ protected:
 
     RGY_ERR parseHDRData();
 
-    RGY_ERR parseHDR10plus(AVPacket *pkt);
-    RGY_ERR parseDOVIRpu(AVPacket *pkt);
+    RGY_ERR packMetadataToPacket(AVPacket *pkt, const char *key, const uint8_t *data, const size_t size);
+    RGY_ERR parseHDR10plusDOVIRpu(AVPacket *pkt, const bool hdr10plus, const bool doviRpu);
+    RGY_ERR parseHDR10plusDOVIRpuHEVC(AVPacket *pkt, const bool hdr10plus, const bool doviRpu);
+    RGY_ERR parseHDR10plusDOVIRpuAV1(AVPacket *pkt, const bool hdr10plus, const bool doviRpu);
 
     RGY_ERR initFormatCtx(const TCHAR *strFileName, const RGYInputAvcodecPrm *input_prm, const int iretry);
     RGY_ERR initVideoBsfs();

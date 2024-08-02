@@ -548,16 +548,11 @@ int DOVIRpu::get_next_rpu_obu(std::vector<uint8_t>& bytes, const int64_t id) {
 
     auto rpu = unnal(tmp.data(), tmp.size());
 
-    static const uint8_t itut_t35_header[] = {
-        0xB5, // country code
-        0x00, 0x3B, // provider_code
-        0x00, 0x00, 0x08, 0x00 // provider_oriented_code
-    };
     std::vector<uint8_t> buf;
-    if (rpu.size() > sizeof(itut_t35_header) && memcmp(rpu.data(), itut_t35_header, sizeof(itut_t35_header)) == 0) {
+    if (rpu.size() > sizeof(av1_itut_t35_header_dovirpu) && memcmp(rpu.data(), av1_itut_t35_header_dovirpu, sizeof(av1_itut_t35_header_dovirpu)) == 0) {
         buf = rpu;
     } else {
-        buf = make_vector<uint8_t>(itut_t35_header);
+        buf = make_vector<uint8_t>(av1_itut_t35_header_dovirpu);
         vector_cat(buf, rpu);
     }
     bytes = gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, buf);
@@ -732,6 +727,8 @@ static std::unique_ptr<unit_info> get_unit(const uint8_t *data, const size_t siz
 
     unit = std::make_unique<unit_info>();
     unit->type = type;
+    unit->extension_flag = extension_flag;
+    unit->has_size_flag = has_size_flag;
 
     if (extension_flag) {
         data++;
@@ -751,6 +748,7 @@ static std::unique_ptr<unit_info> get_unit(const uint8_t *data, const size_t siz
         const size_t ret = obu_size + (data - start_pos);
         unit->unit_data.resize(ret);
     }
+    unit->obu_offset = (int)(data - start_pos);
     if (unit->unit_data.size() > 0) {
         memcpy(unit->unit_data.data(), start_pos, unit->unit_data.size());
     }

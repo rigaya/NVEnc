@@ -1223,74 +1223,49 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYInputAvcodec::parseHDR10plus(AVPacket *pkt) {
-    if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_HEVC) {
-        return RGY_ERR_NONE;
+RGY_ERR RGYInputAvcodec::packMetadataToPacket(AVPacket *pkt, const char *key, const uint8_t *data, const size_t size) {
+    //AVDictionaryに格納するため、base64 encodeを行う
+    const auto encoded = cppcodec::base64_rfc4648::encode(data, size);
+    AVDictionary *frameDict = nullptr;
+    int ret = av_dict_set(&frameDict, key, encoded.c_str(), 0);
+    if (ret < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set dictionary for key=%s\n"), char_to_tstring(key).c_str());
+        return RGY_ERR_UNKNOWN;
     }
-    const auto nal_list = m_Demux.video.parse_nal_hevc(pkt->data, pkt->size);
-    for (const auto& nal_unit : nal_list) {
-        if (nal_unit.type != NALU_HEVC_PREFIX_SEI) {
-            continue;
-        }
-        const uint8_t *ptr = nal_unit.ptr;
-        //nal header
-        if (ptr[0] == 0x00
-            && ptr[1] == 0x00
-            && ptr[2] == 0x01) {
-            ptr += 3;
-        } else if (ptr[0] == 0x00
-            && ptr[1] == 0x00
-            && ptr[2] == 0x00
-            && ptr[3] == 0x01) {
-            ptr += 4;
-        } else {
-            continue;
-        }
-        if (ptr[0] == ((uint8_t)NALU_HEVC_PREFIX_SEI << 1)
-            && ptr[1] == 0x01
-            && ptr[2] == USER_DATA_REGISTERED_ITU_T_T35) {
-            ptr += 3;
-            const auto data_unnal = unnal(ptr, nal_unit.ptr + nal_unit.size - ptr);
-            ptr = data_unnal.data();
-            size_t size = 0;
-            while (*ptr == 0xff) {
-                size += *ptr++;
-            }
-            size += *ptr++;
-            //AVDictionaryに格納するため、base64 encodeを行う
-            const auto encoded = cppcodec::base64_rfc4648::encode(ptr, size);
-            AVDictionary *frameDict = nullptr;
-            int ret = av_dict_set(&frameDict, HDR10PLUS_METADATA_KEY, encoded.c_str(), 0);
-            if (ret < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to set dictionary for key=%s\n"), char_to_tstring(HDR10PLUS_METADATA_KEY).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            std::remove_pointer<RGYArgN<1U, decltype(av_packet_pack_dictionary)>::type>::type frameDictSize = 0;
-            uint8_t *frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
-            if (frameDictData == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to pack dictionary for key=%s\n"), char_to_tstring(HDR10PLUS_METADATA_KEY).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            ret = av_packet_add_side_data(pkt, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
-            if (ret < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to add side packet hdr10plus metadata.\n"), char_to_tstring(HDR10PLUS_METADATA_KEY).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            av_dict_free(&frameDict);
-            AddMessage(RGY_LOG_TRACE, _T("Added hdr10plus metadata to packet timestamp %lld (%s), size %d, encoded size %d\n"), pkt->pts,
-                getTimestampString(pkt->pts, m_Demux.format.formatCtx->streams[pkt->stream_index]->time_base).c_str(), size, (int)encoded.size());
-        }
+    std::remove_pointer<RGYArgN<1U, decltype(av_packet_pack_dictionary)>::type>::type frameDictSize = 0;
+    uint8_t *frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
+    if (frameDictData == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to pack dictionary for key=%s\n"), char_to_tstring(key).c_str());
+        return RGY_ERR_UNKNOWN;
     }
+    ret = av_packet_add_side_data(pkt, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
+    if (ret < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to add side packet %s.\n"), char_to_tstring(key).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    av_dict_free(&frameDict);
+    AddMessage(RGY_LOG_TRACE, _T("Added %s to packet timestamp %lld (%s), size %d, encoded size %d\n"), char_to_tstring(key).c_str(), pkt->pts,
+        getTimestampString(pkt->pts, m_Demux.format.formatCtx->streams[pkt->stream_index]->time_base).c_str(), size, (int)encoded.size());
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYInputAvcodec::parseDOVIRpu(AVPacket *pkt) {
+RGY_ERR RGYInputAvcodec::parseHDR10plusDOVIRpu(AVPacket *pkt, const bool hdr10plus, const bool doviRpu) {
+    switch (m_Demux.video.stream->codecpar->codec_id) {
+    case AV_CODEC_ID_HEVC: return parseHDR10plusDOVIRpuHEVC(pkt, hdr10plus, doviRpu);
+    case AV_CODEC_ID_AV1:  return parseHDR10plusDOVIRpuAV1(pkt, hdr10plus, doviRpu);
+    default:
+        return RGY_ERR_UNSUPPORTED;
+    }
+}
+
+RGY_ERR RGYInputAvcodec::parseHDR10plusDOVIRpuHEVC(AVPacket *pkt, const bool hdr10plus, const bool doviRpu) {
     if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_HEVC) {
-        return RGY_ERR_NONE;
+        return RGY_ERR_UNSUPPORTED;
     }
     const auto nal_list = m_Demux.video.parse_nal_hevc(pkt->data, pkt->size);
     for (const auto& nal_unit : nal_list) {
-        if (nal_unit.type != NALU_HEVC_UNSPECIFIED) {
+        if (!(nal_unit.type == NALU_HEVC_PREFIX_SEI && hdr10plus)
+            && !(nal_unit.type == NALU_HEVC_UNSPECIFIED && doviRpu)) {
             continue;
         }
         const uint8_t *ptr = nal_unit.ptr;
@@ -1309,33 +1284,77 @@ RGY_ERR RGYInputAvcodec::parseDOVIRpu(AVPacket *pkt) {
             continue;
         }
         ptr += header_size;
-        if (nal_unit.size > header_size + 2
+        if (hdr10plus
+            && nal_unit.type == NALU_HEVC_PREFIX_SEI
+            && ptr[0] == ((uint8_t)NALU_HEVC_PREFIX_SEI << 1)
+            && ptr[1] == 0x01
+            && ptr[2] == USER_DATA_REGISTERED_ITU_T_T35) {
+            ptr += 3;
+            const auto data_unnal = unnal(ptr, nal_unit.ptr + nal_unit.size - ptr);
+            ptr = data_unnal.data();
+            size_t size = 0;
+            while (*ptr == 0xff) {
+                size += *ptr++;
+            }
+            size += *ptr++;
+            auto sts = packMetadataToPacket(pkt, HDR10PLUS_METADATA_KEY, ptr, size);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        if (doviRpu
+            && nal_unit.type == NALU_HEVC_UNSPECIFIED
+            && nal_unit.size > header_size + 2
             && !nal_unit.nuh_layer_id
             && !nal_unit.temporal_id) {
             const auto size = nal_unit.ptr + nal_unit.size - ptr - 2;
             const auto data_unnal = unnal(ptr + 2, size);
-            //AVDictionaryに格納するため、base64 encodeを行う
-            const auto encoded = cppcodec::base64_rfc4648::encode(data_unnal.data(), data_unnal.size());
-            AVDictionary *frameDict = nullptr;
-            int ret = av_dict_set(&frameDict, DOVI_RPU_METADATA_KEY, encoded.c_str(), 0);
-            if (ret < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to set dictionary for key=%s\n"), char_to_tstring(DOVI_RPU_METADATA_KEY).c_str());
-                return RGY_ERR_UNKNOWN;
+            auto sts = packMetadataToPacket(pkt, DOVI_RPU_METADATA_KEY, data_unnal.data(), data_unnal.size());
+            if (sts != RGY_ERR_NONE) {
+                return sts;
             }
-            std::remove_pointer<RGYArgN<1U, decltype(av_packet_pack_dictionary)>::type>::type frameDictSize = 0;
-            uint8_t *frameDictData = av_packet_pack_dictionary(frameDict, &frameDictSize);
-            if (frameDictData == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to pack dictionary for key=%s\n"), char_to_tstring(DOVI_RPU_METADATA_KEY).c_str());
-                return RGY_ERR_UNKNOWN;
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYInputAvcodec::parseHDR10plusDOVIRpuAV1(AVPacket *pkt, const bool hdr10plus, const bool doviRpu) {
+    if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_AV1) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    const auto av1_unit_list = parse_unit_av1(pkt->data, pkt->size);
+    for (const auto& av1_unit : av1_unit_list) {
+        if (av1_unit->type != OBU_METADATA) {
+            continue;
+        }
+        const uint8_t *const start_pos = av1_unit->unit_data.data();
+        const uint8_t *const fin_pos = start_pos + av1_unit->unit_data.size();
+        const uint8_t *const start_obu = start_pos + av1_unit->obu_offset;
+        if (start_obu[0] == AV1_METADATA_TYPE_ITUT_T35) { // metadata type
+            const uint8_t *const start_metadata = start_obu + 1 /*metadata type*/;
+            int metadata_size = av1_unit->unit_data.size() - av1_unit->obu_offset - 1/*metadata type*/;
+            if (hdr10plus
+                && metadata_size > sizeof(av1_itut_t35_header_hdr10plus)
+                && memcmp(start_metadata, av1_itut_t35_header_hdr10plus, sizeof(av1_itut_t35_header_hdr10plus)) == 0) {
+                if (fin_pos[-1] == 0x80) {
+                    metadata_size--;
+                }
+                auto sts = packMetadataToPacket(pkt, HDR10PLUS_METADATA_KEY, start_metadata, metadata_size);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
             }
-            ret = av_packet_add_side_data(pkt, AV_PKT_DATA_STRINGS_METADATA, frameDictData, frameDictSize);
-            if (ret < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to add side packet hdr10plus metadata.\n"), char_to_tstring(DOVI_RPU_METADATA_KEY).c_str());
-                return RGY_ERR_UNKNOWN;
+            if (doviRpu
+                && metadata_size > sizeof(av1_itut_t35_header_dovirpu)
+                && memcmp(start_metadata, av1_itut_t35_header_dovirpu, sizeof(av1_itut_t35_header_dovirpu)) == 0) {
+                if (fin_pos[-1] == 0x80) {
+                    metadata_size--;
+                }
+                auto sts = packMetadataToPacket(pkt, DOVI_RPU_METADATA_KEY, start_metadata + sizeof(av1_itut_t35_header_dovirpu), metadata_size - sizeof(av1_itut_t35_header_dovirpu));
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
             }
-            av_dict_free(&frameDict);
-            AddMessage(RGY_LOG_TRACE, _T("Added dovi rpu metadata to packet timestamp %lld (%s), size %d, encoded size %d\n"), pkt->pts,
-                getTimestampString(pkt->pts, m_Demux.format.formatCtx->streams[pkt->stream_index]->time_base).c_str(), size, (int)encoded.size());
         }
     }
     return RGY_ERR_NONE;
@@ -2654,12 +2673,9 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
             if (m_Demux.video.bUseHEVCmp42AnnexB) {
                 hevcMp42Annexb(pkt.get());
             }
-            if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
-                if (m_Demux.video.hdr10plusMetadataCopy) {
-                    parseHDR10plus(pkt.get());
-                }
-                if (m_Demux.video.doviRpuMetadataCopy) {
-                    parseDOVIRpu(pkt.get());
+            if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC || m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_AV1) {
+                if (m_Demux.video.hdr10plusMetadataCopy || m_Demux.video.doviRpuMetadataCopy) {
+                    parseHDR10plusDOVIRpu(pkt.get(), m_Demux.video.hdr10plusMetadataCopy, m_Demux.video.doviRpuMetadataCopy);
                 }
             }
             FramePos pos = { 0 };
@@ -2808,13 +2824,11 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
             auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt->pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt->data, pkt->size, pkt->dts, pts);
         }
-        if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
-            if (m_Demux.video.hdr10plusMetadataCopy) {
-                pBitstream->addFrameData(getHDR10plusMetaData(pkt));
-            }
-            if (m_Demux.video.doviRpuMetadataCopy) {
-                pBitstream->addFrameData(getDoviRpuMetaData(pkt));
-            }
+        if (m_Demux.video.hdr10plusMetadataCopy) {
+            pBitstream->addFrameData(getHDR10plusMetaData(pkt));
+        }
+        if (m_Demux.video.doviRpuMetadataCopy) {
+            pBitstream->addFrameData(getDoviRpuMetaData(pkt));
         }
         auto flags = RGY_FRAME_FLAG_NONE;
         const auto findPos = m_Demux.frames.findpts(pBitstream->pts(), &m_Demux.video.findPosLastIdx);

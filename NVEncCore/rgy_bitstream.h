@@ -47,6 +47,9 @@ struct nal_info {
 
 struct unit_info {
     uint8_t type;
+    uint8_t extension_flag;
+    uint8_t has_size_flag;
+    int obu_offset;
     std::vector<uint8_t> unit_data;
 };
 
@@ -262,6 +265,20 @@ struct DOVIProfile {
     bool aud;
 
     VideoVUIInfo vui;
+};
+
+static const uint8_t av1_itut_t35_header_hdr10plus[] = {
+    0xB5, // country code
+    0x00, 0x3C, // provider_code
+    0x00, 0x01, // provider_oriented_code
+    0x04, // application_identifier
+    0x01  // application_mode
+};
+
+static const uint8_t av1_itut_t35_header_dovirpu[] = {
+    0xB5, // country code
+    0x00, 0x3B, // provider_code
+    0x00, 0x00, 0x08, 0x00 // provider_oriented_code
 };
 
 const DOVIProfile *getDOVIProfile(const int id);
