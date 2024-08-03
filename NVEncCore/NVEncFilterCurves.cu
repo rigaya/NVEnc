@@ -76,11 +76,11 @@ RGY_ERR NVEncFilterCurves::procFrame(RGYFrameInfo *pFrame, cudaStream_t stream) 
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    static const std::map<RGY_CSP, decltype(run_curves_plane<uint8_t, 8>)*> func_list = {
-        { RGY_CSP_RGB,       run_curves_plane<uint8_t,   8> },
-        { RGY_CSP_RGB_16,    run_curves_plane<uint16_t, 16> },
+    static const std::map<RGY_DATA_TYPE, decltype(run_curves_plane<uint8_t, 8>)*> func_list = {
+        { RGY_DATA_TYPE_U8,  run_curves_plane<uint8_t,   8> },
+        { RGY_DATA_TYPE_U16, run_curves_plane<uint16_t, 16> },
     };
-    if (func_list.count(pFrame->csp) == 0) {
+    if (func_list.count(RGY_CSP_DATA_TYPE[pFrame->csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
@@ -97,7 +97,7 @@ RGY_ERR NVEncFilterCurves::procFrame(RGYFrameInfo *pFrame, cudaStream_t stream) 
             break;
         }
         if (lut != nullptr) {
-            func_list.at(plane.csp)(
+            func_list.at(RGY_CSP_DATA_TYPE[plane.csp])(
                 plane.ptr[0], plane.pitch[0], plane.width, plane.height, lut, stream);
             auto cudaerr = cudaGetLastError();
             if (cudaerr != cudaSuccess) {

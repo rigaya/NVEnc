@@ -214,6 +214,11 @@ RGY_ERR NVEncFilterNGX::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return sts;
     }
 
+    if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
+        AddMessage(RGY_LOG_ERROR, _T("nfx filters does not support alpha channel.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     sts = initNGX(pParam, pPrintMes);
     if (sts != RGY_ERR_NONE) {
         return sts;

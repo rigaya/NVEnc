@@ -169,6 +169,11 @@ RGY_ERR NVEncFilterNvvfxEffect::init(shared_ptr<NVEncFilterParam> pParam, shared
     AddMessage(RGY_LOG_DEBUG, _T("GPU CC: %d.%d.\n"),
         prm->compute_capability.first, prm->compute_capability.second);
 
+    if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx filters does not support alpha channel.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     auto err = initEffect(prm->modelDir);
     if (err != RGY_ERR_NONE) {
         return err;

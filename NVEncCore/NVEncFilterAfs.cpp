@@ -511,6 +511,10 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     if (check_param(pAfsParam) != RGY_ERR_NONE) {
         return RGY_ERR_INVALID_PARAM;
     }
+    if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
+        AddMessage(RGY_LOG_ERROR, _T("vpp-afs does not support alpha channel.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
 
     auto err = AllocFrameBuf(pAfsParam->frameOut, 1);
     if (err != RGY_ERR_NONE) {

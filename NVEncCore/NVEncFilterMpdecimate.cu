@@ -121,7 +121,8 @@ RGY_ERR calc_block_diff_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RG
 
 template<typename Type4>
 RGY_ERR calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, cudaStream_t streamDiff) {
-    for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
+    const int targetPlanes = RGY_CSP_PLANES[p0->csp] - (rgy_csp_has_alpha(p0->csp) ? 1 : 0);
+    for (int i = 0; i < targetPlanes; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
         auto planeTmp = getPlane(tmp, (RGY_PLANE)i);
@@ -165,17 +166,15 @@ RGY_ERR NVEncFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int
 
 RGY_ERR NVEncFilterMpdecimateFrameData::calcDiff(const NVEncFilterMpdecimateFrameData *ref,
     cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
-    static const std::map<RGY_CSP, decltype(calc_block_diff_frame<uchar4>)*> func_list = {
-        { RGY_CSP_YV12,      calc_block_diff_frame<uchar4>  },
-        { RGY_CSP_YV12_16,   calc_block_diff_frame<ushort4> },
-        { RGY_CSP_YUV444,    calc_block_diff_frame<uchar4>  },
-        { RGY_CSP_YUV444_16, calc_block_diff_frame<ushort4> }
+    static const std::map<RGY_DATA_TYPE, decltype(calc_block_diff_frame<uchar4>)*> func_list = {
+        { RGY_DATA_TYPE_U8,  calc_block_diff_frame<uchar4>  },
+        { RGY_DATA_TYPE_U16, calc_block_diff_frame<ushort4> }
     };
-    if (func_list.count(ref->m_buf.frame.csp) == 0) {
+    if (func_list.count(RGY_CSP_DATA_TYPE[ref->m_buf.frame.csp]) == 0) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[ref->m_buf.frame.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto sts = func_list.at(ref->m_buf.frame.csp)(&m_buf.frame, &ref->get()->frame, &m_tmp.frameDev.frame, streamDiff);
+    auto sts = func_list.at(RGY_CSP_DATA_TYPE[ref->m_buf.frame.csp])(&m_buf.frame, &ref->get()->frame, &m_tmp.frameDev.frame, streamDiff);
     if (sts != RGY_ERR_NONE) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to run calcDiff: %s.\n"), get_err_mes(sts));
         return RGY_ERR_CUDA;
@@ -199,7 +198,8 @@ RGY_ERR NVEncFilterMpdecimateFrameData::calcDiff(const NVEncFilterMpdecimateFram
 bool NVEncFilterMpdecimateFrameData::checkIfFrameCanbeDropped(const int hi, const int lo, const float factor) {
     const int threshold = (int)((float)m_tmp.frameHost.frame.width * m_tmp.frameHost.frame.height * factor + 0.5f);
     int loCount = 0;
-    for (int iplane = 0; iplane < RGY_CSP_PLANES[m_buf.frame.csp]; iplane++) {
+    const int targetPlanes = RGY_CSP_PLANES[m_buf.frame.csp] - (rgy_csp_has_alpha(m_buf.frame.csp) ? 1 : 0);
+    for (int iplane = 0; iplane < targetPlanes; iplane++) {
         const auto plane = getPlane(&m_buf.frame, (RGY_PLANE)iplane);
         const int blockw = divCeil(plane.width, 8);
         const int blockh = divCeil(plane.height, 8);

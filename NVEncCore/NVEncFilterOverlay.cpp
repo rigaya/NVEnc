@@ -86,6 +86,12 @@ RGY_ERR NVEncFilterOverlay::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         AddMessage(RGY_LOG_ERROR, _T("alpha should be 0.0 - 1.0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+
+    if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
+        AddMessage(RGY_LOG_ERROR, _T("nvvfx filters does not support alpha channel.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     sts = initInput(prm.get());
     if (sts != RGY_ERR_NONE) {
         return sts;

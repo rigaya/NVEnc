@@ -223,17 +223,15 @@ RGY_ERR NVEncFilterDenoisePmd::denoise(RGYFrameInfo *pOutputFrame[2], RGYFrameIn
         };
     };
 
-    static const std::map<RGY_CSP, pmd_func> denoise_func_list = {
-        { RGY_CSP_YV12,      pmd_func(denoise_pmd_frame<uint8_t,   8, true>, denoise_pmd_frame<uint8_t,   8, false>) },
-        { RGY_CSP_YV12_16,   pmd_func(denoise_pmd_frame<uint16_t, 16, true>, denoise_pmd_frame<uint16_t, 16, false>) },
-        { RGY_CSP_YUV444,    pmd_func(denoise_pmd_frame<uint8_t,   8, true>, denoise_pmd_frame<uint8_t,   8, false>) },
-        { RGY_CSP_YUV444_16, pmd_func(denoise_pmd_frame<uint16_t, 16, true>, denoise_pmd_frame<uint16_t, 16, false>) },
+    static const std::map<RGY_DATA_TYPE, pmd_func> denoise_func_list = {
+        { RGY_DATA_TYPE_U8,  pmd_func(denoise_pmd_frame<uint8_t,   8, true>, denoise_pmd_frame<uint8_t,   8, false>) },
+        { RGY_DATA_TYPE_U16, pmd_func(denoise_pmd_frame<uint16_t, 16, true>, denoise_pmd_frame<uint16_t, 16, false>) }
     };
-    if (denoise_func_list.count(pPmdParam->frameIn.csp) == 0) {
+    if (denoise_func_list.count(RGY_CSP_DATA_TYPE[pPmdParam->frameIn.csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for denoise(pmd): %s\n"), RGY_CSP_NAMES[pPmdParam->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto sts = err_to_rgy(denoise_func_list.at(pPmdParam->frameIn.csp).func[!!pPmdParam->pmd.useExp](pOutputFrame, pGauss, pInputFrame, pPmdParam->pmd.applyCount, pPmdParam->pmd.strength, pPmdParam->pmd.threshold, stream));
+    auto sts = err_to_rgy(denoise_func_list.at(RGY_CSP_DATA_TYPE[pPmdParam->frameIn.csp]).func[!!pPmdParam->pmd.useExp](pOutputFrame, pGauss, pInputFrame, pPmdParam->pmd.applyCount, pPmdParam->pmd.strength, pPmdParam->pmd.threshold, stream));
     if (sts != RGY_ERR_NONE) {
         return sts;
     }

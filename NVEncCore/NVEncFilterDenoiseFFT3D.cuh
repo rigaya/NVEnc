@@ -288,12 +288,14 @@ RGY_ERR denoise_fft(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     {
         auto block_count = getBlockCount(pInputFrame->width, pInputFrame->height, BLOCK_SIZE, ov1, ov2);
         const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+        const auto planeInputA = getPlane(pInputFrame, RGY_PLANE_A);
         auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+        auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
         dim3 blockSize(BLOCK_SIZE, DENOISE_BLOCK_SIZE_X);
-        dim3 gridSize(divCeil(block_count.first, DENOISE_BLOCK_SIZE_X), block_count.second, 1);
+        dim3 gridSize(divCeil(block_count.first, DENOISE_BLOCK_SIZE_X), block_count.second, rgy_csp_has_alpha(pInputFrame->csp) ? 2 : 1);
         kernel_fft<Type, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X> << <gridSize, blockSize, 0, stream >> > (
-            (char *)planeOutputY.ptr[0], nullptr, planeOutputY.pitch[0],
-            (const char *)planeInputY.ptr[0], nullptr, planeInputY.pitch[0],
+            (char *)planeOutputY.ptr[0], (char *)planeOutputA.ptr[0], planeOutputY.pitch[0],
+            (const char *)planeInputY.ptr[0], (const char *)planeInputA.ptr[0], planeInputY.pitch[0],
             planeInputY.width, planeInputY.height, block_count.first,
             ptrBlockWindow,
             ov1, ov2
@@ -472,19 +474,24 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
     {
         const auto block_count = getBlockCount(widthY, heightY, BLOCK_SIZE, ov1, ov2);
         const auto planeInputYA = (pInputFrameA) ? getPlane(pInputFrameA, RGY_PLANE_Y) : RGYFrameInfo();
+        const auto planeInputAA = (pInputFrameA) ? getPlane(pInputFrameA, RGY_PLANE_A) : RGYFrameInfo();
         const auto planeInputYB = (pInputFrameB) ? getPlane(pInputFrameB, RGY_PLANE_Y) : RGYFrameInfo();
+        const auto planeInputAB = (pInputFrameB) ? getPlane(pInputFrameB, RGY_PLANE_A) : RGYFrameInfo();
         const auto planeInputYC = (pInputFrameC) ? getPlane(pInputFrameC, RGY_PLANE_Y) : RGYFrameInfo();
+        const auto planeInputAC = (pInputFrameC) ? getPlane(pInputFrameC, RGY_PLANE_A) : RGYFrameInfo();
         const auto planeInputYD = (pInputFrameD) ? getPlane(pInputFrameD, RGY_PLANE_Y) : RGYFrameInfo();
+        const auto planeInputAD = (pInputFrameD) ? getPlane(pInputFrameD, RGY_PLANE_A) : RGYFrameInfo();
         auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+        auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
         dim3 blockSize(BLOCK_SIZE, DENOISE_BLOCK_SIZE_X);
-        dim3 gridSize(divCeil(block_count.first, DENOISE_BLOCK_SIZE_X), block_count.second, 1);
+        dim3 gridSize(divCeil(block_count.first, DENOISE_BLOCK_SIZE_X), block_count.second, rgy_csp_has_alpha(pInputFrameA->csp) ? 2 : 1);
         kernel_tfft_filter_ifft<TypePixel, bit_depth, TypeComplex, BLOCK_SIZE, DENOISE_BLOCK_SIZE_X, temporalCurrentIdx, temporalCount> << <gridSize, blockSize, 0, stream >> > (
-            (char *)planeOutputY.ptr[0], nullptr,
+            (char *)planeOutputY.ptr[0], (char *)planeOutputA.ptr[0],
             planeOutputY.pitch[0],
-            (const char *)planeInputYA.ptr[0], nullptr,
-            (const char *)planeInputYB.ptr[0], nullptr,
-            (const char *)planeInputYC.ptr[0], nullptr,
-            (const char *)planeInputYD.ptr[0], nullptr,
+            (const char *)planeInputYA.ptr[0], (const char *)planeInputAA.ptr[0],
+            (const char *)planeInputYB.ptr[0], (const char *)planeInputAB.ptr[0],
+            (const char *)planeInputYC.ptr[0], (const char *)planeInputAC.ptr[0],
+            (const char *)planeInputYD.ptr[0], (const char *)planeInputAD.ptr[0],
             planeInputYA.pitch[0],
             block_count.first,
             ptrBlockWindowInverse,
@@ -588,13 +595,15 @@ template<typename TypePixel, int BLOCK_SIZE>
 RGY_ERR denoise_merge(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2, cudaStream_t stream) {
     {
         const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+        const auto planeInputA = getPlane(pInputFrame, RGY_PLANE_A);
         auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+        auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
         const auto block_count = getBlockCount(planeOutputY.width, planeOutputY.height, BLOCK_SIZE, ov1, ov2);
         dim3 blockSize(32, 8);
-        dim3 gridSize(divCeil(planeOutputY.width, blockSize.x), divCeil(planeOutputY.height, blockSize.y), 1);
+        dim3 gridSize(divCeil(planeOutputY.width, blockSize.x), divCeil(planeOutputY.height, blockSize.y), rgy_csp_has_alpha(pInputFrame->csp) ? 2 : 1);
         kernel_merge<TypePixel, BLOCK_SIZE> << <gridSize, blockSize, 0, stream >> > (
-            (char *)planeOutputY.ptr[0], nullptr, planeOutputY.pitch[0],
-            (const char *)planeInputY.ptr[0], nullptr, planeInputY.pitch[0],
+            (char *)planeOutputY.ptr[0], (char *)planeOutputA.ptr[0], planeOutputY.pitch[0],
+            (const char *)planeInputY.ptr[0], (const char *)planeInputA.ptr[0], planeInputY.pitch[0],
             planeOutputY.width, planeOutputY.height, block_count.first, block_count.second, ov1, ov2);
         CUDA_DEBUG_SYNC_ERR;
         auto err = err_to_rgy(cudaGetLastError());

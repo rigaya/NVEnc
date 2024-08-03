@@ -256,27 +256,16 @@ RGY_ERR transform_frame(RGYFrameInfo *pOutputFrame,
     const std::shared_ptr<NVEncFilterParamTransform> pParam,
     cudaStream_t stream
 ) {
-    auto sts = RGY_ERR_NONE;
-    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-
-    sts = transform_plane<TypePixel4>(&planeOutputY, &planeInputY, pParam, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+        const auto plane = (RGY_PLANE)iplane;
+        const auto planeInput = getPlane(pInputFrame, plane);
+        auto planeOutput = getPlane(pOutputFrame, plane);
+        auto sts = transform_plane<TypePixel4>(&planeOutput, &planeInput, pParam, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
     }
-    sts = transform_plane<TypePixel4>(&planeOutputU, &planeInputU, pParam, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    sts = transform_plane<TypePixel4>(&planeOutputV, &planeInputV, pParam, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterTransform::NVEncFilterTransform() : m_weight0(), m_weight1() {

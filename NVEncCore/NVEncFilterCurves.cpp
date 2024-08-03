@@ -302,7 +302,9 @@ RGY_ERR NVEncFilterCurves::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
 
         if (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] != RGY_CHROMAFMT_RGB) {
-            const RGY_CSP rgb_csp = RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] > 8 ? RGY_CSP_RGB_16 : RGY_CSP_RGB;
+            const RGY_CSP rgb_csp = (rgy_csp_has_alpha(pParam->frameIn.csp))
+                ? (RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] > 8 ? RGY_CSP_RGBA_16 : RGY_CSP_RGBA)
+                : (RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] > 8 ? RGY_CSP_RGB_16  : RGY_CSP_RGB);
             if (prm->vuiInfo.matrix == RGY_MATRIX_UNSPECIFIED) {
                 prm->vuiInfo.matrix = (CspMatrix)COLOR_VALUE_AUTO_RESOLUTION;
             }

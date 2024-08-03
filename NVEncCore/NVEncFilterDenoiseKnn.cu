@@ -163,27 +163,15 @@ template<typename Type, int bit_depth>
 static cudaError_t denoise_knn_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
     cudaStream_t stream) {
-    cudaError_t cudaerr = cudaSuccess;
-    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-
-    cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutputY, &planeInputY, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+        const auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)iplane);
+        auto planeOutput = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        auto cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutput, &planeSrc, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);;
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
     }
-    cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutputU, &planeInputU, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutputV, &planeInputV, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
+    return cudaSuccess;
 }
 
 NVEncFilterDenoiseKnn::NVEncFilterDenoiseKnn() : m_bInterlacedWarn(false) {

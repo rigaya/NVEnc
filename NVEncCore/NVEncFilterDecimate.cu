@@ -427,7 +427,7 @@ RGY_ERR calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CU
     }
     const bool useKernel2 = (blockX / 2 <= DECIMATE_KERNEL2_BLOCK_X_THRESHOLD);
 
-    const int targetPlanes = (chroma) ? (int)(RGY_CSP_PLANES[p0->csp]) : 1;
+    const int targetPlanes = (chroma) ? (int)(RGY_CSP_PLANES[rgy_csp_no_alpha(p0->csp)]) : 1;
     for (int i = 0; i < targetPlanes; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
@@ -834,18 +834,16 @@ RGY_ERR NVEncFilterDecimate::calcDiffWithPrevFrameAndSetDiffToCurr(const int cur
     cudaEventRecord(*m_eventDiff.get(), stream);
     cudaStreamWaitEvent(*m_streamDiff.get(), *m_eventDiff.get(), 0);
 
-    static const std::map<RGY_CSP, funcCalcDiff> func_list = {
-        { RGY_CSP_YV12,      calc_block_diff_frame<uchar2,  uchar4>  },
-        { RGY_CSP_YV12_16,   calc_block_diff_frame<ushort2, ushort4> },
-        { RGY_CSP_YUV444,    calc_block_diff_frame<uchar2,  uchar4>  },
-        { RGY_CSP_YUV444_16, calc_block_diff_frame<ushort2, ushort4> }
+    static const std::map<RGY_DATA_TYPE, funcCalcDiff> func_list = {
+        { RGY_DATA_TYPE_U8,  calc_block_diff_frame<uchar2,  uchar4>  },
+        { RGY_DATA_TYPE_U16, calc_block_diff_frame<ushort2, ushort4> }
     };
-    if (func_list.count(csp) == 0) {
+    if (func_list.count(RGY_CSP_DATA_TYPE[csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[csp]);
         return RGY_ERR_UNSUPPORTED;
     }
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_param);
-    auto sts = frameCurrent->calcDiff(func_list.at(csp), framePrev,
+    auto sts = frameCurrent->calcDiff(func_list.at(RGY_CSP_DATA_TYPE[csp]), framePrev,
         prm->decimate.chroma,
         *m_streamDiff.get(), *m_eventTransfer.get(), *m_streamTransfer.get());
     if (sts != RGY_ERR_NONE) {

@@ -590,11 +590,9 @@ RGY_ERR NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_
         };
     };
 
-    static const std::map<RGY_CSP, analyze_func> analyze_stripe_func_list = {
-        { RGY_CSP_YV12,      analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, true>,   run_analyze_stripe<uint8_t,  uint32_t, 8, true, true>)  },
-        { RGY_CSP_YV12_16,   analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, true>,   run_analyze_stripe<uint16_t, uint2,   16, true, true>)  },
-        { RGY_CSP_YUV444,    analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, false>,  run_analyze_stripe<uint8_t,  uint32_t, 8, true, false>) },
-        { RGY_CSP_YUV444_16, analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, false>,  run_analyze_stripe<uint16_t, uint2,   16, true, false>) },
+    static const std::map<RGY_DATA_TYPE, analyze_func> analyze_stripe_func_list = {
+        { RGY_DATA_TYPE_U8,  analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, true>,   run_analyze_stripe<uint8_t,  uint32_t, 8, true, true>)  },
+        { RGY_DATA_TYPE_U16, analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, true>,   run_analyze_stripe<uint16_t, uint2,   16, true, true>)  }
     };
     for (int i = 0; i < RGY_CSP_PLANES[p1->frame.csp]; i++) {
         if (p1->frame.pitch[i] % sizeof(int) != 0) {
@@ -602,11 +600,11 @@ RGY_ERR NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_
             return RGY_ERR_UNSUPPORTED;
         }
     }
-    if (analyze_stripe_func_list.count(pAfsParam->frameIn.csp) == 0) {
+    if (analyze_stripe_func_list.count(RGY_CSP_DATA_TYPE[pAfsParam->frameIn.csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_analyze_stripe: %s\n"), RGY_CSP_NAMES[pAfsParam->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto sts = analyze_stripe_func_list.at(pAfsParam->frameIn.csp).func[!!pAfsParam->afs.tb_order](
+    auto sts = analyze_stripe_func_list.at(RGY_CSP_DATA_TYPE[pAfsParam->frameIn.csp]).func[!!pAfsParam->afs.tb_order](
         sp->map.frame.ptr[0], sp->map.frame.pitch[0], &p0->frame, &p1->frame,
         count_motion, &pAfsParam->afs, stream);
     if (sts != RGY_ERR_NONE) {

@@ -64,8 +64,9 @@ static RGYFrameInfo getPlaneSingleAlloc(const RGYFrameInfo *frameInfo, const RGY
     } else {
         switch (plane) {
         case RGY_PLANE_A:
-            if (rgy_csp_alpha_base(frameInfo->csp) == RGY_CSP_NA) {
+            if (!rgy_csp_has_alpha(frameInfo->csp)) {
                 planeInfo.ptr[0] = nullptr;
+                planeInfo.pitch[0] = 0;
                 break;
             }
             //フォールスルー
@@ -157,6 +158,11 @@ RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, RGY_PLANE plane) {
             planeInfo.ptr[i] = nullptr;
             planeInfo.pitch[i] = 0;
         }
+        return planeInfo;
+    }
+    if (plane == RGY_PLANE_A && !rgy_csp_has_alpha(planeInfo.csp)) {
+        planeInfo.ptr[0] = nullptr;
+        planeInfo.pitch[0] = 0;
         return planeInfo;
     }
     const int planeIdx = (plane == RGY_PLANE_A) ? RGY_CSP_PLANES[planeInfo.csp] - 1 : plane;

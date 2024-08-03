@@ -436,6 +436,12 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
         return sts;
     }
+
+    if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
+        AddMessage(RGY_LOG_ERROR, _T("vpp-subburn does not support alpha channel.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     //subburnは常に元のフレームを書き換え
     if (!prm->bOutOverwrite) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid param, subburn will overwrite input frame.\n"));

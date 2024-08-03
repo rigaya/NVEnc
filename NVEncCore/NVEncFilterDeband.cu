@@ -258,7 +258,7 @@ __global__ void kernel_deband(uint8_t * __restrict__ pDst, const int dstPitch, c
 }
 
 template<typename Type, int bit_depth, int sample_mode, DebandPlane mode_yuv, bool blur_first, int block_loop_x_inner, int block_loop_y_inner, int block_loop_x_outer, int block_loop_y_outer>
-cudaError_t deband_plane(
+RGY_ERR deband_plane(
     uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     uint8_t *pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
     uint8_t *pRand, const int randPitch,
@@ -289,7 +289,7 @@ cudaError_t deband_plane(
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
     dim3 blockSize(DEBAND_BLOCK_THREAD_X, DEBAND_BLOCK_THREAD_Y);
     dim3 gridSize(
@@ -303,11 +303,11 @@ cudaError_t deband_plane(
         range_plane, dither_range, threshold_float, field_mask);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
 
     cudaerr = cudaDestroyTextureObject(texSrc);
-    return cudaSuccess;
+    return err_to_rgy(cudaerr);
 }
 
 template<typename Type, int bit_depth, int sample_mode, bool blur_first>
@@ -335,39 +335,39 @@ static RGY_ERR deband_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    auto err = deband_plane<Type, bit_depth, sample_mode, MODE_Y, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
+    auto sts = deband_plane<Type, bit_depth, sample_mode, MODE_Y, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
         planeOutputY.ptr[0], planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
         planeInputY.ptr[0], planeInputY.pitch[0], planeInputY.width, planeInputY.height,
         pRandY->ptr[0], pRandY->pitch[0],
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherY, threY, interlaced(*pInputFrame),
         stream);
-    if (err != cudaSuccess) {
-        return err_to_rgy(err);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    err = deband_plane<Type, bit_depth, sample_mode, MODE_U, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
+    sts = deband_plane<Type, bit_depth, sample_mode, MODE_U, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
         planeOutputU.ptr[0], planeOutputU.pitch[0], planeOutputU.width, planeOutputU.height,
         planeInputU.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
         pRandUV->ptr[0], pRandUV->pitch[0],
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherC, threCb, interlaced(*pInputFrame),
         stream);
-    if (err != cudaSuccess) {
-        return err_to_rgy(err);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    err = deband_plane<Type, bit_depth, sample_mode, MODE_V, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
+    sts = deband_plane<Type, bit_depth, sample_mode, MODE_V, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
         planeOutputV.ptr[0], planeOutputV.pitch[0], planeOutputV.width, planeOutputV.height,
         planeInputV.ptr[0], planeInputV.pitch[0], planeInputV.width, planeInputV.height,
         pRandUV->ptr[0], pRandUV->pitch[0],
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherC, threCr, interlaced(*pInputFrame),
         stream);
-    if (err != cudaSuccess) {
-        return err_to_rgy(err);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        return err_to_rgy(err);
+    sts = copyPlaneAlphaAsync(pOutputFrame, pInputFrame, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -402,29 +402,21 @@ RGY_ERR NVEncFilterDeband::deband(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
         };
     };
 
-    static const std::map<RGY_CSP, deband_func> deband_func_list = {
-        { RGY_CSP_YV12,      deband_func(
+    static const std::map<RGY_DATA_TYPE, deband_func> deband_func_list = {
+        { RGY_DATA_TYPE_U8, deband_func(
             deband_frame<uint8_t,   8, 0, false>, deband_frame<uint8_t,   8, 0, true>,
             deband_frame<uint8_t,   8, 1, false>, deband_frame<uint8_t,   8, 1, true>,
             deband_frame<uint8_t,   8, 2, false>, deband_frame<uint8_t,   8, 2, true>) },
-        { RGY_CSP_YV12_16,   deband_func(
+        { RGY_DATA_TYPE_U16, deband_func(
             deband_frame<uint16_t, 16, 0, false>, deband_frame<uint16_t, 16, 0, true>,
             deband_frame<uint16_t, 16, 1, false>, deband_frame<uint16_t, 16, 1, true>,
-            deband_frame<uint16_t, 16, 2, false>, deband_frame<uint16_t, 16, 2, true>) },
-        { RGY_CSP_YUV444,    deband_func(
-            deband_frame<uint8_t,   8, 0, false>, deband_frame<uint8_t,   8, 0, true>,
-            deband_frame<uint8_t,   8, 1, false>, deband_frame<uint8_t,   8, 1, true>,
-            deband_frame<uint8_t,   8, 2, false>, deband_frame<uint8_t,   8, 2, true>) },
-        { RGY_CSP_YUV444_16, deband_func(
-            deband_frame<uint16_t, 16, 0, false>, deband_frame<uint16_t, 16, 0, true>,
-            deband_frame<uint16_t, 16, 1, false>, deband_frame<uint16_t, 16, 1, true>,
-            deband_frame<uint16_t, 16, 2, false>, deband_frame<uint16_t, 16, 2, true>) },
+            deband_frame<uint16_t, 16, 2, false>, deband_frame<uint16_t, 16, 2, true>) }
     };
-    if (deband_func_list.count(pParam->frameIn.csp) == 0) {
+    if (deband_func_list.count(RGY_CSP_DATA_TYPE[pParam->frameIn.csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for deband: %s\n"), RGY_CSP_NAMES[pParam->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto err = deband_func_list.at(pParam->frameIn.csp).func[pParam->deband.sample][pParam->deband.blurFirst ? 1 : 0](
+    auto err = deband_func_list.at(RGY_CSP_DATA_TYPE[pParam->frameIn.csp]).func[pParam->deband.sample][pParam->deband.blurFirst ? 1 : 0](
         pOutputFrame, pInputFrame, &m_RandY.frame, &m_RandUV.frame,
         pParam->deband.range, pParam->deband.threY, pParam->deband.threCb, pParam->deband.threCr, pParam->deband.ditherY, pParam->deband.ditherC, pParam->deband.randEachFrame,
         (curandState *)m_RandState.ptr, stream);

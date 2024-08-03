@@ -302,8 +302,9 @@ RGY_ERR run_decomb_frame(
     for (int iplane = 0; iplane < RGY_CSP_PLANES[pSrcFrame->csp]; iplane++) {
         const auto planeSrc = getPlane(pSrcFrame, (RGY_PLANE)iplane);
         auto planeOutput = getPlane(pOutputFrame, (RGY_PLANE)iplane);
-        sts = deinterlace_plane<TypePixel>(&planeOutput, &planeSrc, pDmaskFrame, pResultIsCombed,
-            blend, iplane > 0 && RGY_CSP_CHROMA_FORMAT[pSrcFrame->csp] == RGY_CHROMAFMT_YUV420, stream);
+        const bool uv420 = RGY_CSP_CHROMA_FORMAT[pSrcFrame->csp] == RGY_CHROMAFMT_YUV420
+            && ((RGY_PLANE)iplane == RGY_PLANE_U || ((RGY_PLANE)iplane == RGY_PLANE_V));
+        sts = deinterlace_plane<TypePixel>(&planeOutput, &planeSrc, pDmaskFrame, pResultIsCombed, blend, uv420, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -429,17 +430,15 @@ RGY_ERR NVEncFilterDecomb::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     }
     
     if (interlaced(*pInputFrame)) {
-        static const std::map<RGY_CSP, decltype(run_decomb_frame<uint8_t>)*> func_list = {
-            { RGY_CSP_YV12,      run_decomb_frame<uint8_t > },
-            { RGY_CSP_YV12_16,   run_decomb_frame<uint16_t> },
-            { RGY_CSP_YUV444,    run_decomb_frame<uint8_t > },
-            { RGY_CSP_YUV444_16, run_decomb_frame<uint16_t> }
+        static const std::map<RGY_DATA_TYPE, decltype(run_decomb_frame<uint8_t>)*> func_list = {
+            { RGY_DATA_TYPE_U8,  run_decomb_frame<uint8_t > },
+            { RGY_DATA_TYPE_U16, run_decomb_frame<uint16_t> }
         };
-        if (func_list.count(pInputFrame->csp) == 0) {
+        if (func_list.count(RGY_CSP_DATA_TYPE[pInputFrame->csp]) == 0) {
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        sts = func_list.at(pInputFrame->csp)(ppOutputFrames[0],
+        sts = func_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0],
             &m_dmask->frame, &m_fmask->frame, m_isCombed.get(), pInputFrame,
             prm->decomb.threshold, prm->decomb.dthreshold,
             prm->decomb.blend, prm->decomb.full, stream);

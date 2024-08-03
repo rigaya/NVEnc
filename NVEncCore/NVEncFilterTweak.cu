@@ -386,18 +386,20 @@ RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-
-    static const std::map<RGY_CSP, decltype(tweak_frame<uint8_t, uchar4, 8>)*> tweak_list = {
-        { RGY_CSP_YV12,      tweak_frame<uint8_t,  uchar4,   8> },
-        { RGY_CSP_YV12_16,   tweak_frame<uint16_t, ushort4, 16> },
-        { RGY_CSP_YUV444,    tweak_frame<uint8_t,  uchar4,   8> },
-        { RGY_CSP_YUV444_16, tweak_frame<uint16_t, ushort4, 16> }
-    };
-    if (tweak_list.count(pInputFrame->csp) == 0) {
+    if (RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] != RGY_CHROMAFMT_YUV420 && RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] != RGY_CHROMAFMT_YUV444) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    sts = tweak_list.at(pInputFrame->csp)(ppOutputFrames[0], prm.get(), stream);
+
+    static const std::map<RGY_DATA_TYPE, decltype(tweak_frame<uint8_t, uchar4, 8>)*> tweak_list = {
+        { RGY_DATA_TYPE_U8,  tweak_frame<uint8_t,  uchar4,   8> },
+        { RGY_DATA_TYPE_U16, tweak_frame<uint16_t, ushort4, 16> }
+    };
+    if (tweak_list.count(RGY_CSP_DATA_TYPE[pInputFrame->csp]) == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
+    sts = tweak_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], prm.get(), stream);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at tweak(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
@@ -444,6 +446,11 @@ RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             }
             ppOutputFrames[0] = pCropFilterOutput[0];
         }
+    }
+    sts = copyPlaneAlphaAsync(ppOutputFrames[0], pInputFrame, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to copy alpha plane: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     return RGY_ERR_NONE;
 }

@@ -160,30 +160,18 @@ static cudaError_t denoise_convolution3d_frame_weight(RGYFrameInfo *pOutputFrame
     const float threshYspatial, const float threshCspatial, const float threshYtemporal, const float threshCtemporal,
     cudaStream_t stream) {
     cudaError_t cudaerr = cudaSuccess;
-    const auto planePrevY  = getPlane(pPrevFrame,   RGY_PLANE_Y);
-    const auto planePrevU  = getPlane(pPrevFrame,   RGY_PLANE_U);
-    const auto planePrevV  = getPlane(pPrevFrame,   RGY_PLANE_V);
-    const auto planeInputY = getPlane(pInputFrame,  RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame,  RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame,  RGY_PLANE_V);
-    const auto planeNextY  = getPlane(pNextFrame,   RGY_PLANE_Y);
-    const auto planeNextU  = getPlane(pNextFrame,   RGY_PLANE_U);
-    const auto planeNextV  = getPlane(pNextFrame,   RGY_PLANE_V);
-    auto planeOutputY      = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU      = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV      = getPlane(pOutputFrame, RGY_PLANE_V);
-
-    cudaerr = denoise_convolution3d_plane<Type, depth, fast, s0, s1, s2, t0, t1, t2>(&planeOutputY, &planePrevY, &planeInputY, &planeNextY, threshYspatial, threshYtemporal, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = denoise_convolution3d_plane<Type, depth, fast, s0, s1, s2, t0, t1, t2>(&planeOutputU, &planePrevU, &planeInputU, &planeNextU, threshCspatial, threshCtemporal, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = denoise_convolution3d_plane<Type, depth, fast, s0, s1, s2, t0, t1, t2>(&planeOutputV, &planePrevV, &planeInputV, &planeNextV, threshCspatial, threshCtemporal, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    for (int ip = 0; ip < RGY_CSP_PLANES[pOutputFrame->csp]; ip++) {
+        const auto plane = (RGY_PLANE)ip;
+        const auto planePrev  = getPlane(pPrevFrame,   plane);
+        const auto planeInput = getPlane(pInputFrame,  plane);
+        const auto planeNext  = getPlane(pNextFrame,   plane);
+        auto planeOutput      = getPlane(pOutputFrame, plane);
+        const auto threshSpatial  = (plane == RGY_PLANE_U || plane == RGY_PLANE_V) ? threshCspatial : threshYspatial;
+        const auto threshTemporal = (plane == RGY_PLANE_U || plane == RGY_PLANE_V) ? threshCtemporal : threshYtemporal;
+        cudaerr = denoise_convolution3d_plane<Type, depth, fast, s0, s1, s2, t0, t1, t2>(&planeOutput, &planePrev, &planeInput, &planeNext, threshSpatial, threshTemporal, stream);
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
     }
     return cudaerr;
 }
@@ -349,18 +337,16 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
         pOutFrame->frame.flags        = frameCur->flags;
         pOutFrame->frame.dataList     = frameCur->dataList;
 
-        static const std::map<RGY_CSP, decltype(denoise_convolution3d_frame<uint8_t, 8>)*> denoise_list = {
-            { RGY_CSP_YV12,      denoise_convolution3d_frame<uint8_t,   8> },
-            { RGY_CSP_YV12_16,   denoise_convolution3d_frame<uint16_t, 16> },
-            { RGY_CSP_YUV444,    denoise_convolution3d_frame<uint8_t,   8> },
-            { RGY_CSP_YUV444_16, denoise_convolution3d_frame<uint16_t, 16> },
+        static const std::map<RGY_DATA_TYPE, decltype(denoise_convolution3d_frame<uint8_t, 8>)*> denoise_list = {
+            { RGY_DATA_TYPE_U8,  denoise_convolution3d_frame<uint8_t,   8> },
+            { RGY_DATA_TYPE_U16, denoise_convolution3d_frame<uint16_t, 16> }
         };
-        if (denoise_list.count(frameNext->csp) == 0) {
+        if (denoise_list.count(RGY_CSP_DATA_TYPE[frameNext->csp]) == 0) {
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[frameNext->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
         const float thresholdMul = (float)(1 << (RGY_CSP_BIT_DEPTH[frameNext->csp] - 8));
-        denoise_list.at(frameNext->csp)(&pOutFrame->frame, framePrev, frameCur, frameNext,
+        denoise_list.at(RGY_CSP_DATA_TYPE[frameNext->csp])(&pOutFrame->frame, framePrev, frameCur, frameNext,
             param->convolution3d.fast, param->convolution3d.matrix,
             param->convolution3d.threshYspatial  * thresholdMul,
             param->convolution3d.threshCspatial  * thresholdMul,

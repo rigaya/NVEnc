@@ -244,20 +244,28 @@ void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const in
 RGY_ERR NVEncFilterDelogo::delogoY(RGYFrameInfo *pFrame, const float fade) {
     //Y
     static const std::map<RGY_CSP, decltype(&run_delogo<uint8_t, 8, true>)> delogo_y_list ={
-        { RGY_CSP_YV12,      run_delogo<uint8_t,   8, true> },
-        { RGY_CSP_YV12_16,   run_delogo<uint16_t, 16, true> },
-        { RGY_CSP_YV12_14,   run_delogo<uint16_t, 14, true> },
-        { RGY_CSP_YV12_12,   run_delogo<uint16_t, 12, true> },
-        { RGY_CSP_YV12_10,   run_delogo<uint16_t, 10, true> },
-        { RGY_CSP_YV12_09,   run_delogo<uint16_t,  9, true> },
-        { RGY_CSP_NV12,      run_delogo<uint8_t,   8, true> },
-        { RGY_CSP_P010,      run_delogo<uint16_t, 16, true> },
-        { RGY_CSP_YUV444,    run_delogo<uint8_t,   8, true> },
-        { RGY_CSP_YUV444_16, run_delogo<uint16_t, 16, true> },
-        { RGY_CSP_YUV444_14, run_delogo<uint16_t, 14, true> },
-        { RGY_CSP_YUV444_12, run_delogo<uint16_t, 12, true> },
-        { RGY_CSP_YUV444_10, run_delogo<uint16_t, 10, true> },
-        { RGY_CSP_YUV444_09, run_delogo<uint16_t,  9, true> },
+        { RGY_CSP_YV12,       run_delogo<uint8_t,   8, true> },
+        { RGY_CSP_YV12_16,    run_delogo<uint16_t, 16, true> },
+        { RGY_CSP_YV12_14,    run_delogo<uint16_t, 14, true> },
+        { RGY_CSP_YV12_12,    run_delogo<uint16_t, 12, true> },
+        { RGY_CSP_YV12_10,    run_delogo<uint16_t, 10, true> },
+        { RGY_CSP_YUVA420,    run_delogo<uint8_t,   8, true> },
+        { RGY_CSP_YUVA420_16, run_delogo<uint16_t, 16, true> },
+        { RGY_CSP_YUVA420_12, run_delogo<uint16_t, 12, true> },
+        { RGY_CSP_YUVA420_10, run_delogo<uint16_t, 10, true> },
+        { RGY_CSP_NV12,       run_delogo<uint8_t,   8, true> },
+        { RGY_CSP_P010,       run_delogo<uint16_t, 16, true> },
+        { RGY_CSP_NV12A,      run_delogo<uint8_t,   8, true> },
+        { RGY_CSP_P010A,      run_delogo<uint16_t, 16, true> },
+        { RGY_CSP_YUV444,     run_delogo<uint8_t,   8, true> },
+        { RGY_CSP_YUV444_16,  run_delogo<uint16_t, 16, true> },
+        { RGY_CSP_YUV444_14,  run_delogo<uint16_t, 14, true> },
+        { RGY_CSP_YUV444_12,  run_delogo<uint16_t, 12, true> },
+        { RGY_CSP_YUV444_10,  run_delogo<uint16_t, 10, true> },
+        { RGY_CSP_YUVA444,    run_delogo<uint8_t,   8, true> },
+        { RGY_CSP_YUVA444_16, run_delogo<uint16_t, 16, true> },
+        { RGY_CSP_YUVA444_12, run_delogo<uint16_t, 12, true> },
+        { RGY_CSP_YUVA444_10, run_delogo<uint16_t, 10, true> }
     };
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
@@ -280,15 +288,20 @@ RGY_ERR NVEncFilterDelogo::delogoUV(RGYFrameInfo *pFrame, float fade) {
     const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     //const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     //UV
-    static const std::map<RGY_CSP, decltype(&run_delogo<uint8_t, 8, false>)> delogo_uv_list ={
-        { RGY_CSP_YV12,    run_delogo<uint8_t,   8, false> },
-        { RGY_CSP_YV12_16, run_delogo<uint16_t, 16, false> },
-        { RGY_CSP_YV12_14, run_delogo<uint16_t, 14, false> },
-        { RGY_CSP_YV12_12, run_delogo<uint16_t, 12, false> },
-        { RGY_CSP_YV12_10, run_delogo<uint16_t, 10, false> },
-        { RGY_CSP_YV12_09, run_delogo<uint16_t,  9, false> },
-        { RGY_CSP_NV12,    run_delogo<uint8_t,   8, false> },
-        { RGY_CSP_P010,    run_delogo<uint16_t, 16, false> },
+    static const std::map<RGY_CSP, decltype(&run_delogo<uint8_t, 8, false>)> delogo_uv_list = {
+        { RGY_CSP_YV12,       run_delogo<uint8_t,   8, false> },
+        { RGY_CSP_YV12_16,    run_delogo<uint16_t, 16, false> },
+        { RGY_CSP_YV12_14,    run_delogo<uint16_t, 14, false> },
+        { RGY_CSP_YV12_12,    run_delogo<uint16_t, 12, false> },
+        { RGY_CSP_YV12_10,    run_delogo<uint16_t, 10, false> },
+        { RGY_CSP_YUVA420,    run_delogo<uint8_t,   8, false> },
+        { RGY_CSP_YUVA420_16, run_delogo<uint16_t, 16, false> },
+        { RGY_CSP_YUVA420_12, run_delogo<uint16_t, 12, false> },
+        { RGY_CSP_YUVA420_10, run_delogo<uint16_t, 10, false> },
+        { RGY_CSP_NV12,       run_delogo<uint8_t,   8, false> },
+        { RGY_CSP_P010,       run_delogo<uint16_t, 16, false> },
+        { RGY_CSP_NV12A,      run_delogo<uint8_t,   8, false> },
+        { RGY_CSP_P010A,      run_delogo<uint16_t, 16, false> },
     };
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {

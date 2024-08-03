@@ -670,14 +670,12 @@ public:
 };
 
 std::unique_ptr<NLMeansFuncsBase> getNLMeansFunc(const RGY_CSP csp, const VppNLMeansFP16Opt fp16) {
-    switch (csp) {
-    case RGY_CSP_YV12:
-    case RGY_CSP_YUV444:
+    switch (RGY_CSP_DATA_TYPE[csp]) {
+    case RGY_DATA_TYPE_U8:
         if (fp16 == VppNLMeansFP16Opt::All)       return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, __half, half8, __half, __half2, half8>());
         if (fp16 == VppNLMeansFP16Opt::BlockDiff) return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, __half, half8, float, float2, float8>());
                                                   return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint8_t, 8, float, float8, float, float2, float8>());
-    case RGY_CSP_YV12_16:
-    case RGY_CSP_YUV444_16:
+    case RGY_DATA_TYPE_U16:
         if (fp16 == VppNLMeansFP16Opt::All)       return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, __half, half8, __half, __half2, half8>());
         if (fp16 == VppNLMeansFP16Opt::BlockDiff) return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, __half, half8, float, float2, float8>());
                                                   return std::unique_ptr<NLMeansFuncsBase>(new NLMeansFuncs<uint16_t, 16, float, float8, float, float2, float8>());
@@ -901,10 +899,10 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
             auto bufCsp = RGY_CSP_NA;
             switch (RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp]) {
             case RGY_CHROMAFMT_YUV444:
-                bufCsp = RGY_CSP_YUV444;
+                bufCsp = (rgy_csp_has_alpha(prm->frameOut.csp)) ? RGY_CSP_YUVA444 : RGY_CSP_YUV444;
                 break;
             case RGY_CHROMAFMT_YUV420:
-                bufCsp = RGY_CSP_YV12;
+                bufCsp = (rgy_csp_has_alpha(prm->frameOut.csp)) ? RGY_CSP_YUVA420 : RGY_CSP_YV12;
                 break;
             default:
                 AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));

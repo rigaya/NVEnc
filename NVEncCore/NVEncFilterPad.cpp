@@ -223,6 +223,13 @@ RGY_ERR NVEncFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     sts = padPlane(&planeOutputV, &planeInputV, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8)), &uvPad, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
+    if (rgy_csp_has_alpha(m_param->frameIn.csp)) {
+        const auto planeInputA = getPlane(pInputFrame, RGY_PLANE_A);
+        auto planeOutputA = getPlane(ppOutputFrames[0], RGY_PLANE_A);
+        sts = padPlane(&planeOutputA, &planeInputA, (uint16_t)((1 << RGY_CSP_BIT_DEPTH[m_param->frameIn.csp]) - 1), &pPadParam->pad, stream);
+        if (sts != RGY_ERR_NONE) return sts;
+    }
+
     return sts;
 }
 

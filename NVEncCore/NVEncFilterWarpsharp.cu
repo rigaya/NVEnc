@@ -390,6 +390,10 @@ static RGY_ERR warpsharp_frame(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFr
             return err;
         }
     }
+    err = copyPlaneAlphaAsync(pOutputFrame, pInputFrame, stream);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
     return RGY_ERR_NONE;
 }
 
@@ -513,17 +517,15 @@ RGY_ERR NVEncFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         return RGY_ERR_INVALID_PARAM;
     }
 
-    static const std::map<RGY_CSP, decltype(warpsharp_frame<uint8_t, 8>)*> warpsharp_list = {
-        { RGY_CSP_YV12,      warpsharp_frame<uint8_t,   8> },
-        { RGY_CSP_YV12_16,   warpsharp_frame<uint16_t, 16> },
-        { RGY_CSP_YUV444,    warpsharp_frame<uint8_t,   8> },
-        { RGY_CSP_YUV444_16, warpsharp_frame<uint16_t, 16> }
+    static const std::map<RGY_DATA_TYPE, decltype(warpsharp_frame<uint8_t, 8>)*> warpsharp_list = {
+        { RGY_DATA_TYPE_U8,  warpsharp_frame<uint8_t,   8> },
+        { RGY_DATA_TYPE_U16, warpsharp_frame<uint16_t, 16> }
     };
-    if (warpsharp_list.count(pInputFrame->csp) == 0) {
+    if (warpsharp_list.count(RGY_CSP_DATA_TYPE[pInputFrame->csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    sts = warpsharp_list.at(pInputFrame->csp)(ppOutputFrames[0], &m_mask[0].frame, &m_mask[1].frame, pInputFrame,
+    sts = warpsharp_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], &m_mask[0].frame, &m_mask[1].frame, pInputFrame,
         prm->warpsharp.threshold, prm->warpsharp.depth, prm->warpsharp.blur, prm->warpsharp.type, prm->warpsharp.chroma,
         stream);
     if (sts != RGY_ERR_NONE) {

@@ -40,16 +40,14 @@ std::unique_ptr<DenoiseFFT3DBase> getDenoiseFFT3DFunc16FP16(const int block_size
 std::unique_ptr<DenoiseFFT3DBase> getDenoiseFFT3DFunc16FP32(const int block_size);
 
 std::unique_ptr<DenoiseFFT3DBase> getDenoiseFunc(const RGY_CSP csp, const int block_size, VppFpPrecision prec) {
-    switch (csp) {
-    case RGY_CSP_YV12:
-    case RGY_CSP_YUV444:
+    switch (RGY_CSP_DATA_TYPE[csp]) {
+    case RGY_DATA_TYPE_U8:
         if (prec == VppFpPrecision::VPP_FP_PRECISION_FP32) {
             return getDenoiseFFT3DFunc8FP32(block_size);
         } else {
             return getDenoiseFFT3DFunc8FP16(block_size);
         }
-    case RGY_CSP_YV12_16:
-    case RGY_CSP_YUV444_16:
+    case RGY_DATA_TYPE_U16:
         if (prec == VppFpPrecision::VPP_FP_PRECISION_FP32) {
             return getDenoiseFFT3DFunc16FP32(block_size);
         } else {

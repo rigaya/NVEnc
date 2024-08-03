@@ -149,28 +149,15 @@ static cudaError_t unsharp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
 template<typename Type, int bit_depth>
 static RGY_ERR unsharp_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, CUMemBuf *pGaussWeightY, CUMemBuf *pGaussWeightUV,
     const int radius, const float weight, const float threshold, cudaStream_t stream) {
-    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-
-    auto err = unsharp_plane<Type, bit_depth>(&planeOutputY, &planeInputY, pGaussWeightY, radius, weight, threshold, stream);
-    if (err != cudaSuccess) {
-        return err_to_rgy(err);
-    }
-    err = unsharp_plane<Type, bit_depth>(&planeOutputU, &planeInputU, pGaussWeightUV, radius, weight, threshold, stream);
-    if (err != cudaSuccess) {
-        return err_to_rgy(err);
-    }
-    err = unsharp_plane<Type, bit_depth>(&planeOutputV, &planeInputV, pGaussWeightUV, radius, weight, threshold, stream);
-    if (err != cudaSuccess) {
-        return err_to_rgy(err);
-    }
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        return err_to_rgy(err);
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+        const auto plane = (RGY_PLANE)iplane;
+        const auto planeInput = getPlane(pInputFrame, plane);
+        auto planeOutput = getPlane(pOutputFrame, plane);
+        const bool isUV = (RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420) && (plane == RGY_PLANE_U || plane == RGY_PLANE_V);
+        auto err = unsharp_plane<Type, bit_depth>(&planeOutput, &planeInput, isUV ? pGaussWeightUV : pGaussWeightY, radius, weight, threshold, stream);
+        if (err != cudaSuccess) {
+            return err_to_rgy(err);
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -310,17 +297,15 @@ RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         return RGY_ERR_INVALID_PARAM;
     }
 
-    static const std::map<RGY_CSP, decltype(unsharp_frame<uint8_t, 8>)*> denoise_list = {
-        { RGY_CSP_YV12,      unsharp_frame<uint8_t,   8> },
-        { RGY_CSP_YV12_16,   unsharp_frame<uint16_t, 16> },
-        { RGY_CSP_YUV444,    unsharp_frame<uint8_t,   8> },
-        { RGY_CSP_YUV444_16, unsharp_frame<uint16_t, 16> }
+    static const std::map<RGY_DATA_TYPE, decltype(unsharp_frame<uint8_t, 8>)*> denoise_list = {
+        { RGY_DATA_TYPE_U8,  unsharp_frame<uint8_t,   8> },
+        { RGY_DATA_TYPE_U16, unsharp_frame<uint16_t, 16> }
     };
-    if (denoise_list.count(pInputFrame->csp) == 0) {
+    if (denoise_list.count(RGY_CSP_DATA_TYPE[pInputFrame->csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    sts = denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, m_pGaussWeightBufY.get(), m_pGaussWeightBufUV.get(),
+    sts = denoise_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], pInputFrame, m_pGaussWeightBufY.get(), m_pGaussWeightBufUV.get(),
         pUnsharpParam->unsharp.radius, pUnsharpParam->unsharp.weight, pUnsharpParam->unsharp.threshold,
         stream);
     if (sts != RGY_ERR_NONE) {

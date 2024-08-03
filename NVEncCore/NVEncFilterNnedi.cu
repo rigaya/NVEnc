@@ -1324,27 +1324,16 @@ RGY_ERR proc_frame(RGYFrameInfo *pOutputFrame,
     cudaStream_t stream
 ) {
     static_assert(sizeof(TypePixel4) == sizeof(TypePixel) * 4, "sizeof(TypePixel4) == sizeof(TypePixel) * 4");
-    auto sts = RGY_ERR_NONE;
-    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-
-    sts = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputY, &planeInputY, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+        const auto plane = (RGY_PLANE)iplane;
+        const auto planeInput = getPlane(pInputFrame, plane);
+        auto planeOutput = getPlane(pOutputFrame, plane);
+        auto sts = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutput, &planeInput, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
     }
-    sts = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputU, &planeInputU, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    sts = proc_plane<TypePixel, TypePixel4, bit_depth, TypeCalc, WEIGHT_LOOP_1>(&planeOutputV, &planeInputV, pNnediParam, targetField, (const TypeCalc *)weight0, (const TypeCalc *)weight10, (const TypeCalc *)weight11, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 const int NVEncFilterNnedi::weight_loop_1 = 4;
@@ -1818,28 +1807,24 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         return RGY_ERR_INVALID_PARAM;
     }
 
-    static const std::map<RGY_CSP, decltype(proc_frame<uint8_t, uchar4, 8, float, weight_loop_1>)*> func_list_fp32 ={
-        { RGY_CSP_YV12,      proc_frame<uint8_t,  uchar4,   8, float, weight_loop_1> },
-        { RGY_CSP_YV12_16,   proc_frame<uint16_t, ushort4, 16, float, weight_loop_1> },
-        { RGY_CSP_YUV444,    proc_frame<uint8_t,  uchar4,   8, float, weight_loop_1> },
-        { RGY_CSP_YUV444_16, proc_frame<uint16_t, ushort4, 16, float, weight_loop_1> }
+    static const std::map<RGY_DATA_TYPE, decltype(proc_frame<uint8_t, uchar4, 8, float, weight_loop_1>)*> func_list_fp32 ={
+        { RGY_DATA_TYPE_U8,  proc_frame<uint8_t,  uchar4,   8, float, weight_loop_1> },
+        { RGY_DATA_TYPE_U16, proc_frame<uint16_t, ushort4, 16, float, weight_loop_1> }
     };
 #if ENABLE_CUDA_FP16_HOST
-    static const std::map<RGY_CSP, decltype(proc_frame<uint8_t, uchar4, 8, __half2, weight_loop_1>)*> func_list_fp16 ={
-        { RGY_CSP_YV12,      proc_frame<uint8_t,  uchar4,   8, __half2, weight_loop_1> },
-        { RGY_CSP_YV12_16,   proc_frame<uint16_t, ushort4, 16, __half2, weight_loop_1> },
-        { RGY_CSP_YUV444,    proc_frame<uint8_t,  uchar4,   8, __half2, weight_loop_1> },
-        { RGY_CSP_YUV444_16, proc_frame<uint16_t, ushort4, 16, __half2, weight_loop_1> }
+    static const std::map<RGY_DATA_TYPE, decltype(proc_frame<uint8_t, uchar4, 8, __half2, weight_loop_1>)*> func_list_fp16 ={
+        { RGY_DATA_TYPE_U8,  proc_frame<uint8_t,  uchar4,   8, __half2, weight_loop_1> },
+        { RGY_DATA_TYPE_U16, proc_frame<uint16_t, ushort4, 16, __half2, weight_loop_1> }
     };
     const auto& func_list = (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
 #else
     const auto& func_list = func_list_fp32;
 #endif
-    if (func_list.count(pInputFrame->csp) == 0) {
+    if (func_list.count(RGY_CSP_DATA_TYPE[pInputFrame->csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    sts = func_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
+    sts = func_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], pInputFrame,
         pNnediParam, targetField,
         m_weight0.ptr,
         m_weight1[0].ptr,
@@ -1856,7 +1841,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 
     if (pNnediParam->nnedi.isbob()) {
         targetField = (targetField == NNEDI_GEN_FIELD_BOTTOM) ? NNEDI_GEN_FIELD_TOP : NNEDI_GEN_FIELD_BOTTOM;
-        sts = func_list.at(pInputFrame->csp)(ppOutputFrames[1], pInputFrame,
+        sts = func_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[1], pInputFrame,
             pNnediParam, targetField,
             m_weight0.ptr,
             m_weight1[0].ptr,

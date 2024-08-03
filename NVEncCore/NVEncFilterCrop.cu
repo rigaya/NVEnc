@@ -3053,15 +3053,10 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
             AddMessage(RGY_LOG_ERROR, _T("converting csp from %s is not supported.\n"), RGY_CSP_NAMES[pCropParam->frameIn.csp]);
             sts = RGY_ERR_UNSUPPORTED;
         }
-        if (rgy_csp_alpha_base(ppOutputFrames[0]->csp) != RGY_CSP_NA && rgy_csp_alpha_base(pInputFrame->csp) != RGY_CSP_NA) {
-            const auto planeInputA = getPlane(pInputFrame, RGY_PLANE_A);
-            auto planeOutputA = getPlane(ppOutputFrames[0], RGY_PLANE_A);
-            sts = copyPlaneAsync(&planeOutputA, &planeInputA, stream);
-            if (sts != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to copy alpha plane: %s.\n"), get_err_mes(sts));
-                return sts;
-            };
-            CUDA_DEBUG_SYNC_ERR;
+        sts = copyPlaneAlphaAsync(ppOutputFrames[0], pInputFrame, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy alpha plane: %s.\n"), get_err_mes(sts));
+            return sts;
         }
     }
     return sts;

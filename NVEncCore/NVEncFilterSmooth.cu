@@ -850,28 +850,24 @@ RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         }
     }
 
-    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, float, false, uint8_t>)*> func_list_fp32 = {
-        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, float, float, false, uint8_t> },
-        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, float, float, false, uint8_t> },
-        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, float, float, false, uint8_t> },
-        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, float, float, false, uint8_t> }
+    static const std::map<RGY_DATA_TYPE, decltype(run_spp_frame<uint8_t, 8, float, float, false, uint8_t>)*> func_list_fp32 = {
+        { RGY_DATA_TYPE_U8,  run_spp_frame<uint8_t,   8, float, float, false, uint8_t> },
+        { RGY_DATA_TYPE_U16, run_spp_frame<uint16_t, 16, float, float, false, uint8_t> }
     };
 #if ENABLE_CUDA_FP16_HOST
-    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, float, false, uint8_t>) *> func_list_fp16 = {
-        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, __half, __half2, true, uint8_t> },
-        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, __half, __half2, true, uint8_t> },
-        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, __half, __half2, true, uint8_t> },
-        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, __half, __half2, true, uint8_t> },
+    static const std::map<RGY_DATA_TYPE, decltype(run_spp_frame<uint8_t, 8, float, float, false, uint8_t>) *> func_list_fp16 = {
+        { RGY_DATA_TYPE_U8,  run_spp_frame<uint8_t,   8, __half, __half2, true, uint8_t> },
+        { RGY_DATA_TYPE_U16, run_spp_frame<uint16_t, 16, __half, __half2, true, uint8_t> }
     };
     const auto &func_list = (prm->smooth.prec == VPP_FP_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
 #else
     const auto &func_list = func_list_fp32;
 #endif
-    if (func_list.count(pInputFrame->csp) == 0) {
+    if (func_list.count(RGY_CSP_DATA_TYPE[pInputFrame->csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    sts = func_list.at(pInputFrame->csp)(ppOutputFrames[0],
+    sts = func_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0],
         pInputFrame,
         targetQPTable,
         qpMul,

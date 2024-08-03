@@ -5259,7 +5259,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     const int bitDepth = get_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, m_dev->encoder()->getAPIver());
     if (rgy_codec == RGY_CODEC_H264) {
-        add_str(RGY_LOG_ERROR, _T("Output Info    %s %s @ Level %s%s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
+        add_str(RGY_LOG_ERROR, _T("Output Info    %s %s @ Level %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
             get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),
             get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.h264Config.level).c_str());
     } else if (rgy_codec == RGY_CODEC_HEVC) {

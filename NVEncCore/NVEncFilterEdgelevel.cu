@@ -172,6 +172,10 @@ static RGY_ERR edgelevel_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *p
     if (err != RGY_ERR_NONE) {
         return err;
     }
+    err = copyPlaneAlphaAsync(pOutputFrame, pInputFrame, stream);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);

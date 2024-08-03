@@ -146,6 +146,18 @@ static RGY_ERR copyPlaneAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaSt
     return err_to_rgy(cudaMemcpy2DAsync(dst->ptr[0], dst->pitch[0], src->ptr[0], src->pitch[0], width_byte, dst->height, getCudaMemcpyKind(src->mem_type, dst->mem_type), stream));
 }
 
+static RGY_ERR copyPlaneAlphaAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaStream_t stream) {
+    if (rgy_csp_has_alpha(dst->csp) && rgy_csp_has_alpha(src->csp)) {
+        const auto planeInputA = getPlane(src, RGY_PLANE_A);
+        auto planeOutputA = getPlane(dst, RGY_PLANE_A);
+        auto sts = copyPlaneAsync(&planeOutputA, &planeInputA, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        };
+    }
+    return RGY_ERR_NONE;
+}
+
 static RGY_ERR copyPlaneAsyncWithCrop(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *crop, cudaStream_t stream) {
     const int width_byte = dst->width * bytesPerPix(dst->csp);
     uint8_t *srcPtr = src->ptr[0] + crop->e.up * src->pitch[0] + crop->e.left * bytesPerPix(dst->csp);

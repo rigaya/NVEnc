@@ -787,6 +787,10 @@ RGY_ERR NVEncFilterDenoiseDct::denoise(RGYFrameInfo *pOutputFrame, const RGYFram
             return sts_filter;
         }
     }
+    sts = copyPlaneAlphaAsync(pOutputFrame, pInputFrame, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
     return RGY_ERR_NONE;
 }
 

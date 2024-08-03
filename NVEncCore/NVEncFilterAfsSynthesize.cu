@@ -918,37 +918,23 @@ RGY_ERR NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0,
         };
     };
 
-    static const std::map<RGY_CSP, synthesize_func> synthesize_func_list = {
-        { RGY_CSP_YV12, synthesize_func(
+    static const std::map<RGY_DATA_TYPE, synthesize_func> synthesize_func_list = {
+        { RGY_DATA_TYPE_U8, synthesize_func(
             run_synthesize<uint8_t, uchar2, uint32_t, uint2, -1, true>,
             run_synthesize<uint8_t, uchar2, uint32_t, uint2,  0, true>,
             run_synthesize<uint8_t, uchar2, uint32_t, uint2,  1, true>,
             run_synthesize<uint8_t, uchar2, uint32_t, uint2,  2, true>,
             run_synthesize<uint8_t, uchar2, uint32_t, uint2,  3, true>,
             run_synthesize<uint8_t, uchar2, uint32_t, uint2,  4, true>) },
-        { RGY_CSP_YV12_16, synthesize_func(
+        { RGY_DATA_TYPE_U16, synthesize_func(
             run_synthesize<uint16_t, ushort2, uint64_t, uint4, -1, true>,
             run_synthesize<uint16_t, ushort2, uint64_t, uint4,  0, true>,
             run_synthesize<uint16_t, ushort2, uint64_t, uint4,  1, true>,
             run_synthesize<uint16_t, ushort2, uint64_t, uint4,  2, true>,
             run_synthesize<uint16_t, ushort2, uint64_t, uint4,  3, true>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  4, true>) },
-        { RGY_CSP_YUV444, synthesize_func(
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2, -1, false>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  0, false>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  1, false>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  2, false>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  3, false>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  4, false>) },
-        { RGY_CSP_YUV444_16, synthesize_func(
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4, -1, false>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  0, false>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  1, false>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  2, false>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  3, false>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  4, false>) }
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  4, true>) }
     };
-    if (synthesize_func_list.count(pAfsPrm->frameIn.csp) == 0) {
+    if (synthesize_func_list.count(RGY_CSP_DATA_TYPE[pAfsPrm->frameIn.csp]) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_synthesize: %s\n"), RGY_CSP_NAMES[pAfsPrm->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
@@ -956,7 +942,7 @@ RGY_ERR NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0,
     if (pAfsPrm->afs.tune) {
         mode = -1;
     }
-    auto sts = synthesize_func_list.at(pAfsPrm->frameIn.csp).func[mode+1](
+    auto sts = synthesize_func_list.at(RGY_CSP_DATA_TYPE[pAfsPrm->frameIn.csp]).func[mode+1](
         &pOut->frame, &p0->frame, &p1->frame, sip->map.frame.ptr[0], sip->map.frame.pitch[0],
         pAfsPrm->afs.tb_order, m_status[iframe], pOut->frame.csp, stream);
     if (sts != RGY_ERR_NONE) {

@@ -122,6 +122,11 @@ RGY_ERR NVEncFilterNVOFFRUC::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
     AddMessage(RGY_LOG_DEBUG, _T("GPU CC: %d.%d.\n"),
         prm->compute_capability.first, prm->compute_capability.second);
 
+    if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
+        AddMessage(RGY_LOG_ERROR, _T("vpp-fruc does not support alpha channel.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     if (!m_func) {
         m_func = std::make_unique<NVEncNVOFFRUCFuncs>();
         if ((sts = m_func->load()) != RGY_ERR_NONE) {

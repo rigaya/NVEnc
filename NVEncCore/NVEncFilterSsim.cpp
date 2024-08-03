@@ -122,6 +122,11 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         return RGY_ERR_INVALID_PARAM;
     }
 
+    if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
+        AddMessage(RGY_LOG_ERROR, _T("this filter does not support alpha channel.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     m_vidctxlock = prm->vidctxlock;
     m_deviceId = prm->deviceId;
     m_crop.reset();

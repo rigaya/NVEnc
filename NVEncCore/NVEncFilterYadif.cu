@@ -236,32 +236,18 @@ RGY_ERR run_yadif_frame(RGYFrameInfo *pOutputFrame,
     const YadifTargetField targetField,
     const RGY_PICSTRUCT picstruct,
     cudaStream_t stream) {
-    const auto planeSrc0Y = getPlane(pSrc0, RGY_PLANE_Y);
-    const auto planeSrc0U = getPlane(pSrc0, RGY_PLANE_U);
-    const auto planeSrc0V = getPlane(pSrc0, RGY_PLANE_V);
-    const auto planeSrc1Y = getPlane(pSrc1, RGY_PLANE_Y);
-    const auto planeSrc1U = getPlane(pSrc1, RGY_PLANE_U);
-    const auto planeSrc1V = getPlane(pSrc1, RGY_PLANE_V);
-    const auto planeSrc2Y = getPlane(pSrc2, RGY_PLANE_Y);
-    const auto planeSrc2U = getPlane(pSrc2, RGY_PLANE_U);
-    const auto planeSrc2V = getPlane(pSrc2, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-
-    auto sts = run_yadif<TypePixel, bit_depth>(&planeOutputY, &planeSrc0Y, &planeSrc1Y, &planeSrc2Y, targetField, picstruct, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pOutputFrame->csp]; iplane++) {
+        const auto plane = (RGY_PLANE)iplane;
+        const auto planeSrc0 = getPlane(pSrc0, plane);
+        const auto planeSrc1 = getPlane(pSrc1, plane);
+        const auto planeSrc2 = getPlane(pSrc2, plane);
+        auto planeOutput = getPlane(pOutputFrame, plane);
+        auto sts = run_yadif<TypePixel, bit_depth>(&planeOutput, &planeSrc0, &planeSrc1, &planeSrc2, targetField, picstruct, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
     }
-    sts = run_yadif<TypePixel, bit_depth>(&planeOutputU, &planeSrc0U, &planeSrc1U, &planeSrc2U, targetField, picstruct, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    sts = run_yadif<TypePixel, bit_depth>(&planeOutputV, &planeSrc0V, &planeSrc1V, &planeSrc2V, targetField, picstruct, stream);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterYadifSource::NVEncFilterYadifSource() : m_nFramesInput(0), m_nFramesOutput(0), m_buf() {
@@ -484,17 +470,15 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             return RGY_ERR_INVALID_PARAM;
         }
 
-        static const std::map<RGY_CSP, decltype(run_yadif_frame<uint8_t, 8>)*> func_list = {
-            { RGY_CSP_YV12,      run_yadif_frame<uint8_t,   8> },
-            { RGY_CSP_YV12_16,   run_yadif_frame<uint16_t, 16> },
-            { RGY_CSP_YUV444,    run_yadif_frame<uint8_t,   8> },
-            { RGY_CSP_YUV444_16, run_yadif_frame<uint16_t, 16> }
+        static const std::map<RGY_DATA_TYPE, decltype(run_yadif_frame<uint8_t, 8>)*> func_list = {
+            { RGY_DATA_TYPE_U8,  run_yadif_frame<uint8_t,   8> },
+            { RGY_DATA_TYPE_U16, run_yadif_frame<uint16_t, 16> }
         };
-        if (func_list.count(pSourceFrame->csp) == 0) {
+        if (func_list.count(RGY_CSP_DATA_TYPE[pSourceFrame->csp]) == 0) {
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pSourceFrame->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        sts = func_list.at(pSourceFrame->csp)(ppOutputFrames[0],
+        sts = func_list.at(RGY_CSP_DATA_TYPE[pSourceFrame->csp])(ppOutputFrames[0],
             &m_source.get(m_nFrame-1)->frame,
             &m_source.get(m_nFrame+0)->frame,
             &m_source.get(m_nFrame+1)->frame,
@@ -513,11 +497,11 @@ RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         if (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) {
             targetField = (targetField == YADIF_GEN_FIELD_BOTTOM) ? YADIF_GEN_FIELD_TOP : YADIF_GEN_FIELD_BOTTOM;
 
-            if (func_list.count(pSourceFrame->csp) == 0) {
+            if (func_list.count(RGY_CSP_DATA_TYPE[pSourceFrame->csp]) == 0) {
                 AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pSourceFrame->csp]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            sts = func_list.at(pSourceFrame->csp)(ppOutputFrames[1],
+            sts = func_list.at(RGY_CSP_DATA_TYPE[pSourceFrame->csp])(ppOutputFrames[1],
                 &m_source.get(m_nFrame-1)->frame,
                 &m_source.get(m_nFrame+0)->frame,
                 &m_source.get(m_nFrame+1)->frame,

@@ -85,26 +85,15 @@ RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const 
 }
 
 RGY_ERR NVEncFilterDenoiseGauss::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
-    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-
-    auto err = denoisePlane(&planeOutputY, &planeInputY);
-    if (err != RGY_ERR_NONE) {
-        return err;
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+        const auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)iplane);
+        auto planeOutput = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        auto sts = denoisePlane(&planeOutput, &planeSrc);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
     }
-    err = denoisePlane(&planeOutputU, &planeInputU);
-    if (err != RGY_ERR_NONE) {
-        return err;
-    }
-    err = denoisePlane(&planeOutputV, &planeInputV);
-    if (err != RGY_ERR_NONE) {
-        return err;
-    }
-    return err;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterDenoiseGauss::NVEncFilterDenoiseGauss() : m_bInterlacedWarn(false) {
