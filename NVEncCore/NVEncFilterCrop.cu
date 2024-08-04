@@ -3033,21 +3033,15 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     } else {
         //色空間変換
         static const auto supportedCspNV12   = make_array<RGY_CSP>(RGY_CSP_NV12, RGY_CSP_P010, RGY_CSP_NV12A, RGY_CSP_P010A);
-        static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16,
-                                                                   RGY_CSP_YUVA420, RGY_CSP_YUVA420_10, RGY_CSP_YUVA420_12, RGY_CSP_YUVA420_16);
-        static const auto supportedCspNV16   = make_array<RGY_CSP>(RGY_CSP_NV16, RGY_CSP_P210);
-        static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16,
-                                                                   RGY_CSP_YUVA444, RGY_CSP_YUVA444_10, RGY_CSP_YUVA444_12, RGY_CSP_YUVA444_16);
-        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32, RGY_CSP_RGB, RGY_CSP_GBR, RGY_CSP_RGB_16, RGY_CSP_BGR_16, RGY_CSP_RGB_F32, RGY_CSP_BGR_F32, RGY_CSP_RGBA_FP16_P);
         if (std::find(supportedCspNV12.begin(), supportedCspNV12.end(), pCropParam->frameIn.csp) != supportedCspNV12.end()) {
             sts = convertCspFromNV12(ppOutputFrames[0], pInputFrame, stream);
-        } else if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameIn.csp) != supportedCspYV12.end()) {
+        } else if (RGY_CSP_CHROMA_FORMAT[pCropParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) {
             sts = convertCspFromYV12(ppOutputFrames[0], pInputFrame, stream);
-        } else if (std::find(supportedCspNV16.begin(), supportedCspNV16.end(), pCropParam->frameIn.csp) != supportedCspNV16.end()) {
+        } else if (RGY_CSP_CHROMA_FORMAT[pCropParam->frameIn.csp] == RGY_CHROMAFMT_YUV422) {
             sts = convertCspFromNV16(ppOutputFrames[0], pInputFrame, stream);
-        } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pCropParam->frameIn.csp) != supportedCspYUV444.end()) {
+        } else if (RGY_CSP_CHROMA_FORMAT[pCropParam->frameIn.csp] == RGY_CHROMAFMT_YUV444) {
             sts = convertCspFromYUV444(ppOutputFrames[0], pInputFrame, stream);
-        } else if (std::find(supportedCspRGB.begin(), supportedCspRGB.end(), pCropParam->frameIn.csp) != supportedCspRGB.end()) {
+        } else if (RGY_CSP_CHROMA_FORMAT[pCropParam->frameIn.csp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[pCropParam->frameIn.csp] == RGY_CHROMAFMT_RGB_PACKED) {
             sts = convertCspFromRGB(ppOutputFrames[0], pInputFrame, stream);
         } else {
             AddMessage(RGY_LOG_ERROR, _T("converting csp from %s is not supported.\n"), RGY_CSP_NAMES[pCropParam->frameIn.csp]);

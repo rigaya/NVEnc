@@ -485,6 +485,9 @@ static RGY_CSP rgy_csp_alpha_base(const RGY_CSP csp) {
     case RGY_CSP_RGBA:       return RGY_CSP_RGB;
     case RGY_CSP_RGBA_16:    return RGY_CSP_RGB_16;
     case RGY_CSP_RGBA_F32:   return RGY_CSP_RGB_F32;
+    case RGY_CSP_GBRA:       return RGY_CSP_GBR;
+    case RGY_CSP_BGRA_16:    return RGY_CSP_BGR_16;
+    case RGY_CSP_BGRA_F32:   return RGY_CSP_BGR_F32;
     default: return RGY_CSP_NA;
     }
 }
