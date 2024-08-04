@@ -2079,7 +2079,7 @@ __global__ void kernel_crop_rgb_rgb(uint8_t *__restrict__ pDst, const int dstPit
         TypeOut x, y, z, w;
     };
     if (x < dstWidth && y < dstHeight) {
-        TypeIn4 src = kernel_crop_load4<TypeIn, TypeIn4, aligned>(pSrc + (y + offsetY) * srcPitch + (x * 4 + offsetX) * sizeof(TypeIn));
+        TypeIn4 src = kernel_crop_load4<TypeIn, TypeIn4, aligned>(pSrc + (y + offsetY) * srcPitch + (x + offsetX) * sizeof(TypeIn));
 
         TypeOut4 pix;
         pix.x = conv_data_type<TypeOut, out_bit_depth, TypeIn, in_bit_depth, 0>(src.x);
@@ -2087,7 +2087,7 @@ __global__ void kernel_crop_rgb_rgb(uint8_t *__restrict__ pDst, const int dstPit
         pix.z = conv_data_type<TypeOut, out_bit_depth, TypeIn, in_bit_depth, 0>(src.z);
         pix.w = conv_data_type<TypeOut, out_bit_depth, TypeIn, in_bit_depth, 0>(src.w);
 
-        TypeOut4 *ptr_dst = (TypeOut4 *)(pDst + (y * dstPitch) + x * 4 * sizeof(TypeOut));
+        TypeOut4 *ptr_dst = (TypeOut4 *)(pDst + (y * dstPitch) + x * sizeof(TypeOut));
         kernel_crop_store4<TypeOut, TypeOut4, aligned>(ptr_dst, pix);
     }
 }
