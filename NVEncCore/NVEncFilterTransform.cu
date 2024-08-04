@@ -58,7 +58,7 @@ __global__ void kernel_transpose_plane(
     const uint8_t *__restrict__ pSrc,
     const int srcPitch
     ) {
-    __shared__ decltype(TypePixel4::x) stemp[TRASNPOSE_TILE_DIM][TRASNPOSE_TILE_DIM + 4];
+    __shared__ __align__(sizeof(TypePixel4)) decltype(TypePixel4::x) stemp[TRASNPOSE_TILE_DIM][TRASNPOSE_TILE_DIM + 4];
     const int srcHeight = dstWidth;
     const int srcWidth  = dstHeight;
     const int dstBlockX = blockIdx.x;
@@ -72,7 +72,7 @@ __global__ void kernel_transpose_plane(
             const int srcX = srcBlockX * TRASNPOSE_TILE_DIM + threadIdx.x * 4 + offsetX;
             const int srcY = srcBlockY * TRASNPOSE_TILE_DIM + j + offsetY;
             TypePixel4 val = { 128, 128, 128, 128 };
-            if (srcX < srcWidth && srcY < srcHeight) {
+            if (0 <= srcX && srcX < srcWidth && 0 <= srcY && srcY < srcHeight) {
                 TypePixel4 *ptr_src = (TypePixel4 *)(pSrc + srcY * srcPitch + srcX * sizeof(TypePixel4::x));
                 if ((offsetX & 3) == 0) {
                     val = ptr_src[0];
@@ -136,6 +136,7 @@ RGY_ERR transpose_plane(
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
     }
+    CUDA_DEBUG_SYNC_ERR;
     return RGY_ERR_NONE;
 }
 
@@ -148,7 +149,7 @@ __global__ void kernel_flip_plane(
     const uint8_t *__restrict__ pSrc,
     const int srcPitch
 ) {
-    __shared__ decltype(TypePixel4::x) stemp[FLIP_BLOCK_DIM][FLIP_BLOCK_DIM*4];
+    __shared__ __align__(sizeof(TypePixel4)) decltype(TypePixel4::x) stemp[FLIP_BLOCK_DIM][FLIP_BLOCK_DIM*4];
     const int dstBlockX = blockIdx.x;
     const int dstBlockY = blockIdx.y;
     const int srcBlockX = (flipX) ? gridDim.x - 1 - blockIdx.x : blockIdx.x;
@@ -159,7 +160,7 @@ __global__ void kernel_flip_plane(
     const int srcY = srcBlockY * FLIP_BLOCK_DIM + threadIdx.y + offsetY;
 
     TypePixel4 val = { 128, 128, 128, 128 };
-    if (srcX < dstWidth && srcY < dstHeight) {
+    if (0 <= srcX && srcX < dstWidth && 0 <= srcY && srcY < dstHeight) {
         TypePixel4 *ptr_src = (TypePixel4 *)(pSrc + srcY * srcPitch + srcX * sizeof(TypePixel4::x));
         if ((offsetX & 3) == 0) {
             val = ptr_src[0];
@@ -215,6 +216,7 @@ RGY_ERR flip_plane(
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
     }
+    CUDA_DEBUG_SYNC_ERR;
     return RGY_ERR_NONE;
 }
 
