@@ -78,6 +78,9 @@ static bool format_is_flv(const AVFormatContext *formatCtx) {
 static bool format_is_latm(const AVFormatContext *formatCtx) {
     return _stricmp(formatCtx->oformat->name, "latm") == 0;
 }
+static bool format_is_ivf(const AVFormatContext *formatCtx) {
+    return _stricmp(formatCtx->oformat->name, "ivf") == 0;
+}
 
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
@@ -861,6 +864,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.streamOut->time_base = (av_isvalid_q(prm->bitstreamTimebase)) ? prm->bitstreamTimebase : av_inv_q(m_Mux.video.outputFps);
     if (m_Mux.format.isMatroska) {
         m_Mux.video.streamOut->time_base = av_make_q(1, 1000);
+    } else if (format_is_ivf(m_Mux.format.formatCtx)) { // ivf形式の時は、time_baseをfpsの逆数にしないといけない
+        m_Mux.video.streamOut->time_base = av_make_q(videoOutputInfo->fpsD, videoOutputInfo->fpsN);
     }
     m_Mux.video.streamOut->sample_aspect_ratio.num = videoOutputInfo->sar[0]; //mkvではこちらの指定も必要
     m_Mux.video.streamOut->sample_aspect_ratio.den = videoOutputInfo->sar[1];
