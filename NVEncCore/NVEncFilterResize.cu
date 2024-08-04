@@ -831,15 +831,6 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         return RGY_ERR_INVALID_PARAM;
     }
 
-    sts = AllocFrameBuf(pResizeParam->frameOut, 1);
-    if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
-        return sts;
-    }
-    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
-        pResizeParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
-    }
-
     auto resizeInterp = pResizeParam->interp;
     if (isNvvfxResizeFiter(pResizeParam->interp)) {
         if (!pResizeParam->nvvfxSuperRes) {
@@ -871,6 +862,15 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     } else {
         m_ngxVSR.reset(); // 不要になったら解放
         pResizeParam->ngxvsr.reset();
+    }
+
+    sts = AllocFrameBuf(pResizeParam->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[pParam->frameOut.csp]; i++) {
+        pResizeParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     if ((!m_weightSpline || m_weightSplineAlgo != resizeInterp)
