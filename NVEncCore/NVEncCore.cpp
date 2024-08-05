@@ -1875,6 +1875,14 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             error_feature_unsupported(RGY_LOG_ERROR, _T("alpha channel"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
+        if (inputParam->yuv444) {
+            PrintMes(RGY_LOG_ERROR, _T("Alpha channel encoding not supported with YUV444 encoding.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+        if (encodeIsHighBitDepth(inputParam)) {
+            PrintMes(RGY_LOG_ERROR, _T("Alpha channel encoding not supported with high bitdepth encoding.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
     }
     if (m_dynamicRC.size() > 0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)) {
         error_feature_unsupported(RGY_LOG_ERROR, _T("dynamic RC Change"));
@@ -2199,8 +2207,14 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         if (inputParam->alphaChannel) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.enableAlphaLayerEncoding = 1;
             //m_stCreateEncodeParams.encodeConfig->rcParams.alphaLayerBitrateRatio = 4;
-            m_stCreateEncodeParams.enableWeightedPrediction = 0;
-            m_stCreateEncodeParams.splitEncodeMode = NV_ENC_SPLIT_AUTO_MODE;
+            if (m_stCreateEncodeParams.enableWeightedPrediction) {
+                PrintMes(RGY_LOG_WARN, _T("weighted prediction disabled as not supported with alpha channel encoding.\n"));
+                m_stCreateEncodeParams.enableWeightedPrediction = 0;
+            }
+            if (m_stCreateEncodeParams.splitEncodeMode != NV_ENC_SPLIT_AUTO_MODE) {
+                PrintMes(RGY_LOG_WARN, _T("split encode mode disabled as not supported with alpha channel encoding.\n"));
+                m_stCreateEncodeParams.splitEncodeMode = NV_ENC_SPLIT_AUTO_MODE;
+            }
         }
         if (require_repeat_headers()) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
