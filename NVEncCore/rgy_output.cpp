@@ -568,7 +568,10 @@ RGYOutputRaw::RGYOutputRaw() :
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
     m_prevEncodeFrameId(-1),
-    m_debugDirectAV1Out(false) {
+    m_fDestHEVCLayer1(),
+    m_debugDirectAV1Out(false),
+    m_separateHEVCLayer1(false),
+    m_parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
@@ -576,6 +579,9 @@ RGYOutputRaw::RGYOutputRaw() :
 RGYOutputRaw::~RGYOutputRaw() {
     if (m_fpDebug) {
         m_fpDebug.reset();
+    }
+    if (m_fDestHEVCLayer1) {
+        m_fDestHEVCLayer1.reset();
     }
 }
 
@@ -638,6 +644,17 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         m_doviRpu = rawPrm->doviRpu;
         m_timestamp = rawPrm->vidTimestamp;
         m_debugDirectAV1Out = rawPrm->debugDirectAV1Out;
+        m_separateHEVCLayer1 = false;
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && m_separateHEVCLayer1) {
+            const auto filename_layer1 = m_outFilename + _T(".layer1.hevc");
+            m_fDestHEVCLayer1 = std::unique_ptr<FILE, fp_deleter>(
+                _tfopen(filename_layer1.c_str(), _T("wb")), fp_deleter());
+            if (!m_fDestHEVCLayer1) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to open raw frame HEVC layer1 file \"%s\".\n"), filename_layer1.c_str());
+                return RGY_ERR_FILE_OPEN;
+            }
+            AddMessage(RGY_LOG_INFO, _T("Raw frame HEVC layer1 to file \"%s\".\n"), filename_layer1.c_str());
+        }
         if (rawPrm->debugRawOut) {
             const auto filename_debug = m_outFilename + _T(".debug");
             m_fpDebug = std::unique_ptr<FILE, fp_deleter>(
@@ -708,6 +725,15 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
     size_t nBytesWritten = 0;
     if (m_noOutput) {
         return RGY_ERR_NONE;
+    }
+
+    if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && m_separateHEVCLayer1) {
+        auto nal_units = m_parse_nal_hevc(pBitstream->data(), pBitstream->size());
+        for (auto& unit : nal_units) {
+            if (unit.type == NALU_HEVC_VPS || unit.nuh_layer_id == 1) {
+                _fwrite_nolock(unit.ptr, 1, unit.size, m_fDestHEVCLayer1.get());
+            }
+        }
     }
 
     RGYTimestampMapVal bs_framedata;
