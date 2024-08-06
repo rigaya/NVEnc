@@ -708,7 +708,7 @@ typedef struct ConvertCSP {
 } ConvertCSP;
 
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd);
-const funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to);
+funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to);
 const TCHAR *get_simd_str(RGY_SIMD simd);
 
 enum RGY_FRAME_FLAGS : uint32_t {

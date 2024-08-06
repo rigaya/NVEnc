@@ -2449,7 +2449,7 @@ const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv
     return convert;
 }
 
-const funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to) {
+funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to) {
     const auto csp_base_from = rgy_csp_alpha_base(csp_from);
     const auto csp_base_to = rgy_csp_alpha_base(csp_to);
     if (csp_base_from != RGY_CSP_NA && csp_base_to != RGY_CSP_NA) {
