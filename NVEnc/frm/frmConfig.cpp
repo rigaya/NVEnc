@@ -844,6 +844,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXOutBitDepth,       list_bitdepth);
+    setComboBox(fcgCXOutputCsp,         list_output_csp, "yuva420");
     setComboBox(fcgCXCodecProfileAV1,   av1_profile_names);
     setComboBox(fcgCXCodecLevelAV1,     list_av1_level);
     setComboBox(fcgCXAQ,                list_aq);
@@ -1198,6 +1199,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBEncCodec);
     LOAD_CLI_TEXT(fcgLBSlices);
     LOAD_CLI_TEXT(fcgLBOutBitDepth);
+    LOAD_CLI_TEXT(fcgLBOutputCsp);
     LOAD_CLI_TEXT(fcgLBMultiPass);
     LOAD_CLI_TEXT(fcgLBBrefMode);
     LOAD_CLI_TEXT(fcgLBWeightP);
@@ -1441,6 +1443,14 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBPerfMonitor->Checked = 0 != encPrm.ctrl.perfMonitorSelect;
     fcgCBLossless->Checked = 0 != encPrm.lossless;
     SetCXIndex(fcgCXOutBitDepth, get_cx_index(list_bitdepth, encPrm.outputDepth));
+
+    RGY_CSP outputCsp = RGY_CSP_YV12;
+    if (encPrm.rgb) {
+        outputCsp = RGY_CSP_RGB;
+    } else if (encPrm.yuv444) {
+        outputCsp = RGY_CSP_YUV444;
+    }
+    SetCXIndex(fcgCXOutputCsp, get_cx_index(list_output_csp, outputCsp));
 
     //QPDetail
     fcgCBQPMin->Checked = encPrm.qpMin.enable;
@@ -1704,6 +1714,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.preset = list_nvenc_preset_names_ver10[fcgCXQualityPreset->SelectedIndex].value;
     encPrm.multipass = (NV_ENC_MULTI_PASS)list_nvenc_multipass_mode[fcgCXMultiPass->SelectedIndex].value;
     encPrm.brefMode = list_bref_mode[fcgCXBrefMode->SelectedIndex].value;
+    encPrm.yuv444 = list_output_csp[fcgCXOutputCsp->SelectedIndex].value == RGY_CSP_YUV444 || list_output_csp[fcgCXOutputCsp->SelectedIndex].value == RGY_CSP_RGB;
+    encPrm.rgb = list_output_csp[fcgCXOutputCsp->SelectedIndex].value == RGY_CSP_RGB;
 
     int nLookaheadDepth = (int)fcgNULookaheadDepth->Value;
     if (nLookaheadDepth > 0) {
@@ -2185,6 +2197,7 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgNUVBRTragetQuality);
     SET_TOOL_TIP_EX(fcgCXInterlaced);
     SET_TOOL_TIP_EX(fcgCXOutBitDepth);
+    SET_TOOL_TIP_EX(fcgCXOutputCsp);
     SET_TOOL_TIP_EX(fcgCXHEVCTier);
     SET_TOOL_TIP_EX(fxgCXHEVCLevel);
     SET_TOOL_TIP_EX(fcgCXCodecProfileAV1);

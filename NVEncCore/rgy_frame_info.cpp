@@ -34,7 +34,8 @@ static RGYFrameInfo getPlaneSingleAlloc(const RGYFrameInfo *frameInfo, const RGY
         planeInfo.ptr[i] = nullptr;
         planeInfo.pitch[i] = 0;
     }
-    if (frameInfo->csp == RGY_CSP_GBR || frameInfo->csp == RGY_CSP_GBRA) {
+    if (frameInfo->csp == RGY_CSP_GBR || frameInfo->csp == RGY_CSP_GBRA
+        || frameInfo->csp == RGY_CSP_GBR_16 || frameInfo->csp == RGY_CSP_GBRA_16) {
         switch (plane) {
         case RGY_PLANE_G: break;
         case RGY_PLANE_B: planeInfo.ptr[0] += frameInfo->pitch[0] * frameInfo->height; break;
@@ -136,7 +137,8 @@ RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, RGY_PLANE plane) {
         || RGY_CSP_PLANES[frameInfo->csp] == 1) {
         return planeInfo; //何もしない
     }
-    if (frameInfo->csp == RGY_CSP_GBR || frameInfo->csp == RGY_CSP_GBRA) {
+    if (frameInfo->csp == RGY_CSP_GBR || frameInfo->csp == RGY_CSP_GBR_16
+        || frameInfo->csp == RGY_CSP_GBRA || frameInfo->csp == RGY_CSP_GBRA_16) {
         switch (plane) {
         case RGY_PLANE_R: plane = RGY_PLANE_G; break;
         case RGY_PLANE_G: plane = RGY_PLANE_R; break;

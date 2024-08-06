@@ -1371,8 +1371,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         if (get_list_value(list_output_csp, strInput[i], &value)) {
             const RGY_CSP csp = (RGY_CSP)value;
-            pParams->yuv444 = csp == RGY_CSP_YUV444;
+            pParams->yuv444 = csp == RGY_CSP_YUV444 || csp == RGY_CSP_RGB;
             pParams->alphaChannel = csp == RGY_CSP_YUVA420;
+            pParams->rgb = csp == RGY_CSP_RGB;
             if (pParams->yuv444) {
                 //H264
                 memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(pParams->encConfig.profileGUID));
@@ -1772,8 +1773,12 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_BOOL(_T("--lossless"), _T(""), lossless);
     OPT_BOOL(_T("--lossless-ignore-input-csp"), _T(""), losslessIgnoreInputCsp);
 
-    if (pParams->yuv444) {
+    if (pParams->rgb) {
+        cmd << _T(" --output-csp ") << get_cx_desc(list_output_csp, (int)RGY_CSP_RGB);
+    } else if (pParams->yuv444) {
         cmd << _T(" --output-csp ") << get_cx_desc(list_output_csp, (int)RGY_CSP_YUV444);
+    } else if (pParams->alphaChannel) {
+        cmd << _T(" --output-csp ") << get_cx_desc(list_output_csp, (int)RGY_CSP_YUVA420);
     }
     OPT_LST(_T("--tf-level"), temporalFilterLevel, list_temporal_filter_level);
 

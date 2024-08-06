@@ -92,6 +92,11 @@ RGY_ERR NVEncFilterOverlay::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return RGY_ERR_UNSUPPORTED;
     }
 
+    if (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] != RGY_CHROMAFMT_YUV420 && RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] != RGY_CHROMAFMT_YUV444) {
+        AddMessage(RGY_LOG_ERROR, _T("this filter does not support csp %s.\n"), RGY_CSP_NAMES[pParam->frameIn.csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     sts = initInput(prm.get());
     if (sts != RGY_ERR_NONE) {
         return sts;

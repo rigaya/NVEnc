@@ -154,7 +154,7 @@ RGY_ERR NVEncFilterNVOFFRUC::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    m_frucCsp = (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_YUV444) ? RGY_CSP_RGB32 : RGY_CSP_NV12;
+    m_frucCsp = (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? RGY_CSP_NV12 : RGY_CSP_RGB32;
     if (!m_srcCrop
         || m_srcCrop->GetFilterParam()->frameIn.width  != pParam->frameIn.width
         || m_srcCrop->GetFilterParam()->frameIn.height != pParam->frameIn.height) {

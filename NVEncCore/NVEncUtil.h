@@ -125,7 +125,7 @@ MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, surfacefmt, cudaVideoSurfaceFormat);
 NV_ENC_PIC_STRUCT picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct);
 RGY_PICSTRUCT picstruct_enc_to_rgy(NV_ENC_PIC_STRUCT picstruct);
 
-RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format, const bool alphaChannel);
+RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format, const bool alphaChannel, const bool yuv444_as_rgb);
 
 VideoInfo videooutputinfo(
     const GUID& encCodecGUID,

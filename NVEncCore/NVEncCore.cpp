@@ -315,6 +315,7 @@ NVEncCore::NVEncCore() :
     m_uEncHeight(0),
     m_sar(),
     m_encVUI(),
+    m_rgbAsYUV444(),
     m_nProcSpeedLimit(0),
     m_nAVSyncMode(RGY_AVSYNC_AUTO),
     m_timestampPassThrough(false),
@@ -348,6 +349,9 @@ void NVEncCore::SetAbortFlagPointer(bool *abortFlag) {
 //エンコーダが出力使用する色空間を入力パラメータをもとに取得
 RGY_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) {
     const bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
+    if (inputParam->rgb) {
+        return (bOutputHighBitDepth) ? RGY_CSP_GBR_16 : RGY_CSP_GBR;
+    }
     const bool yuv444 = inputParam->yuv444;
     if (inputParam->alphaChannel) {
         if (bOutputHighBitDepth) {
@@ -485,7 +489,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
 
     //入力モジュールが、エンコーダに返すべき色空間をセット
     const bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
-    if (inputParam->lossless || inputParam->vpp.colorspace.enable) {
+    if (inputParam->lossless || inputParam->rgb || inputParam->alphaChannel || inputParam->vpp.colorspace.enable) {
         inputParam->input.csp = RGY_CSP_NA; //なるべくそのままの色空間のままGPUへ転送する
     } else {
         if (bOutputHighBitDepth) {
@@ -3330,6 +3334,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
             param->frameIn = inputFrame;
             param->frameOut.csp = param->frameIn.csp;
+            param->matrix = VuiFiltered.matrix;
             //インタレ保持であれば、CPU側にフレームを戻す必要がある
             //色空間が同じなら、ここでやってしまう
             param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
@@ -3394,6 +3399,17 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
     }
     m_encVUI = inputParam->common.out_vui;
+    if (m_rgbAsYUV444) {
+        m_encVUI.descriptpresent = 1;
+        if (m_encVUI.matrix == RGY_MATRIX_UNSPECIFIED) m_encVUI.matrix = RGY_MATRIX_AUTO;
+        if (m_encVUI.colorprim == RGY_PRIM_UNSPECIFIED) m_encVUI.colorprim = RGY_PRIM_AUTO;
+        if (m_encVUI.transfer == RGY_TRANSFER_UNSPECIFIED) m_encVUI.transfer = RGY_TRANSFER_AUTO;
+        if (m_encVUI.colorrange == RGY_COLORRANGE_UNSPECIFIED) m_encVUI.colorrange = RGY_COLORRANGE_AUTO;
+        VuiFiltered.matrix = RGY_MATRIX_RGB;
+        VuiFiltered.colorprim = RGY_PRIM_BT709;
+        VuiFiltered.transfer = RGY_TRANSFER_IEC61966_2_1;
+        VuiFiltered.colorrange = RGY_COLORRANGE_FULL;
+    }
     m_encVUI.apply_auto(VuiFiltered, m_uEncHeight);
     return RGY_ERR_NONE;
 }
@@ -3579,6 +3595,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
     }
+    m_rgbAsYUV444 = inputParam->rgb != 0;
 
     if (gpuList.size() > 1 && m_nDeviceId < 0) {
 #if ENABLE_AVSW_READER
@@ -4561,7 +4578,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
                     encFrameInfo.mem_type = RGY_MEM_TYPE_GPU;
-                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt, pEncodeBuffer->stInputBfrAlpha.nvRegisteredResource != nullptr);
+                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt, pEncodeBuffer->stInputBfrAlpha.nvRegisteredResource != nullptr, m_rgbAsYUV444);
                     ssimTarget = encFrameInfo;
                 } else {
                     //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
@@ -4574,7 +4591,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
                     encFrameInfo.mem_type = RGY_MEM_TYPE_CPU; //CPU側にフレームデータを戻す
-                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt, pEncodeBuffer->stInputBfrAlpha.nvRegisteredResource != nullptr);
+                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt, pEncodeBuffer->stInputBfrAlpha.nvRegisteredResource != nullptr, m_rgbAsYUV444);
                     ssimTarget = filterframes.front().first;
                 }
                 //エンコードバッファのポインタを渡す

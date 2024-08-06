@@ -2161,7 +2161,7 @@ static const ConvertCSP funcList[] = {
     FUNC__C_(  RGY_CSP_BGR32,  RGY_CSP_RGB24, false, convert_bgr32_to_rgb24_c,         convert_bgr32_to_rgb24_c,       NONE )
     FUNC__C_(  RGY_CSP_RGB32,  RGY_CSP_BGR24, false, convert_rgb32_to_bgr24_c,         convert_rgb32_to_bgr24_c,       NONE )
     FUNC__C_(  RGY_CSP_BGR32,  RGY_CSP_BGR24, false, convert_bgr32_to_bgr24_c,         convert_bgr32_to_bgr24_c,       NONE )
-
+#endif
     FUNC__C_(  RGY_CSP_RGB24,  RGY_CSP_RGB,   false, convert_rgb24_to_rgb_c,           convert_rgb24_to_rgb_c,         NONE )
     FUNC__C_(  RGY_CSP_BGR24,  RGY_CSP_RGB,   false, convert_bgr24_to_rgb_c,           convert_bgr24_to_rgb_c,         NONE )
     FUNC__C_(  RGY_CSP_RGB32,  RGY_CSP_RGB,   false, convert_rgb32_to_rgb_c,           convert_rgb32_to_rgb_c,         NONE )
@@ -2178,6 +2178,7 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_BGR32,  RGY_CSP_RGBA,  false, convert_bgr32_to_rgba_sse2,       convert_bgr32_to_rgba_sse2,     SSE2 )
     FUNC_SSE(  RGY_CSP_RGB32R, RGY_CSP_RGBA,  false, convert_rgb32r_to_rgba_sse2,      convert_rgb32r_to_rgba_sse2,    SSE2 )
 
+#if ENABLE_AVSW_READER || ENABLE_AVI_READER || ENABLE_AVISYNTH_READER || ENABLE_VAPOURSYNTH_READER || ENABLE_AVI_READER || ENABLE_RAW_READER
     FUNC_SSE(  RGY_CSP_GBR,    RGY_CSP_RGB24, false, convert_gbr_to_rgb24_ssse3,       convert_gbr_to_rgb24_ssse3,     SSSE3|SSE2)
     FUNC_SSE(  RGY_CSP_GBRA,   RGY_CSP_RGB24, false, convert_gbr_to_rgb24_ssse3,       convert_gbr_to_rgb24_ssse3,     SSSE3|SSE2)
     FUNC_SSE(  RGY_CSP_GBR,    RGY_CSP_RGB32, false, convert_gbr_to_rgb32_sse2,        convert_gbr_to_rgb32_sse2,      SSE2 )
@@ -2421,8 +2422,11 @@ const TCHAR *get_memtype_str(RGY_MEM_TYPE type) {
 }
 
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd) {
-    if (rgy_csp_alpha_base(csp_from) != RGY_CSP_NA && rgy_csp_alpha_base(csp_to) != RGY_CSP_NA) {
+    if (rgy_csp_has_alpha(csp_from) && rgy_csp_has_alpha(csp_to)) {
         return get_convert_csp_func(rgy_csp_alpha_base(csp_from), rgy_csp_alpha_base(csp_to), uv_only, simd);
+    }
+    if (rgy_csp_has_alpha(csp_from)) {
+        return get_convert_csp_func(rgy_csp_alpha_base(csp_from), csp_to, uv_only, simd);
     }
     RGY_SIMD availableSIMD = get_availableSIMD() & simd;
     const ConvertCSP *convert = nullptr;

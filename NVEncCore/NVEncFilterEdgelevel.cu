@@ -149,30 +149,47 @@ static RGY_ERR edgelevel_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *p
 template<typename Type, int bit_depth>
 static RGY_ERR edgelevel_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     float strength, float threshold, float black, float white, cudaStream_t stream) {
-    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
-    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
-    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
-    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-    auto err = edgelevel_plane<Type, bit_depth>(&planeOutputY, &planeInputY,
-        strength,
-        threshold,
-        black,
-        white,
-        stream);
-    if (err != RGY_ERR_NONE) {
-        return err;
+    if (RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_RGB) {
+        for (int iplane = 0; iplane < RGY_CSP_PLANES[rgy_csp_no_alpha(pInputFrame->csp)]; iplane++) {
+            auto plane = (RGY_PLANE)iplane;
+            const auto planeInput = getPlane(pInputFrame, plane);
+            auto planeOutput = getPlane(pOutputFrame, plane);
+            auto err = edgelevel_plane<Type, bit_depth>(&planeOutput, &planeInput,
+                strength,
+                threshold,
+                black,
+                white,
+                stream);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+        }
+    } else {
+        const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+        const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+        const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+        auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+        auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
+        auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+        auto err = edgelevel_plane<Type, bit_depth>(&planeOutputY, &planeInputY,
+            strength,
+            threshold,
+            black,
+            white,
+            stream);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        err = copyPlaneAsync(&planeOutputU, &planeInputU, stream);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        err = copyPlaneAsync(&planeOutputV, &planeInputV, stream);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
     }
-    err = copyPlaneAsync(&planeOutputU, &planeInputU, stream);
-    if (err != RGY_ERR_NONE) {
-        return err;
-    }
-    err = copyPlaneAsync(&planeOutputV, &planeInputV, stream);
-    if (err != RGY_ERR_NONE) {
-        return err;
-    }
-    err = copyPlaneAlphaAsync(pOutputFrame, pInputFrame, stream);
+    auto err = copyPlaneAlphaAsync(pOutputFrame, pInputFrame, stream);
     if (err != RGY_ERR_NONE) {
         return err;
     }

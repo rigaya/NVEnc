@@ -143,7 +143,7 @@ RGY_PICSTRUCT picstruct_enc_to_rgy(NV_ENC_PIC_STRUCT picstruct) {
     return RGY_PICSTRUCT_FRAME;
 }
 
-RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format, const bool alphaChannel) {
+RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format, const bool alphaChannel, const bool yuv444_as_rgb) {
     switch (enc_buffer_format) {
     case NV_ENC_BUFFER_FORMAT_NV12:
         return (alphaChannel) ? RGY_CSP_NV12A : RGY_CSP_NV12;
@@ -151,11 +151,23 @@ RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format, const bool alphaChanne
     case NV_ENC_BUFFER_FORMAT_IYUV:
         return (alphaChannel) ? RGY_CSP_YUVA420 : RGY_CSP_YV12;
     case NV_ENC_BUFFER_FORMAT_YUV444:
-        return (alphaChannel) ? RGY_CSP_YUVA444 : RGY_CSP_YUV444;
+        if (alphaChannel) {
+            return RGY_CSP_YUVA444;
+        }
+        if (yuv444_as_rgb) {
+            return RGY_CSP_GBR;
+        }
+        return RGY_CSP_YUV444;
     case NV_ENC_BUFFER_FORMAT_YUV420_10BIT:
         return (alphaChannel) ? RGY_CSP_P010A : RGY_CSP_P010;
     case NV_ENC_BUFFER_FORMAT_YUV444_10BIT:
-        return (alphaChannel) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUV444_16;
+        if (alphaChannel) {
+            return RGY_CSP_YUVA444_16;
+        }
+        if (yuv444_as_rgb) {
+            return RGY_CSP_GBR_16;
+        }
+        return RGY_CSP_YUV444_16;
     case NV_ENC_BUFFER_FORMAT_ARGB:
         return RGY_CSP_RGB32;
     case NV_ENC_BUFFER_FORMAT_UNDEFINED:

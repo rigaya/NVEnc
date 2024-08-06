@@ -293,8 +293,13 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         return RGY_ERR_INVALID_PARAM;
     }
 
+    const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp];
     VideoVUIInfo vui = prm->vui;
-    vui.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+    if (inChromaFmt == RGY_CHROMAFMT_RGB || inChromaFmt == RGY_CHROMAFMT_RGB_PACKED) {
+        vui.setIfUnset(VideoVUIInfo().to(RGY_MATRIX_RGB).to(RGY_PRIM_BT709).to(RGY_TRANSFER_IEC61966_2_1));
+    } else {
+        vui.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+    }
     vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
 
     if (!m_srcColorspace
@@ -415,7 +420,11 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         if (getNGXFeature() == NVSDK_NVX_TRUEHDR) {
             // TrueHDRの出力DXGI_FORMAT_R16G16B16A16_FLOATはLinearRGBになっている
             // LinearRGBからBT.2020に変換する
-            colorspace.convs.push_back(ColorspaceConv(vui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR), vui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020)));
+            if (inChromaFmt == RGY_CHROMAFMT_RGB || inChromaFmt == RGY_CHROMAFMT_RGB_PACKED) {
+                colorspace.convs.push_back(ColorspaceConv(vui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR), vui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020)));
+            } else {
+                colorspace.convs.push_back(ColorspaceConv(vui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR), vui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020)));
+            }
         } else {
             // DXGI_FORMAT_R8G8B8A8_UNORMのRGBから変換する
             colorspace.convs.push_back(ColorspaceConv(vui.to(RGY_MATRIX_RGB), vui));

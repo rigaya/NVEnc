@@ -180,6 +180,11 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
         bufferSize = m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight * 6;
         output_csp_if_lossless = RGY_CSP_YUV444_16;
         break;
+    case RGY_CSP_RGB:
+        bufferSize = m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight * 3;
+        output_csp_if_lossless = RGY_CSP_RGB;
+        nOutputCSP = RGY_CSP_RGB;
+        break;
     default:
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
@@ -290,6 +295,7 @@ RGY_ERR RGYInputSM::LoadNextFrameInternal(RGYFrame *pSurface) {
     case RGY_CSP_YUV444_12:
     case RGY_CSP_YUV444_14:
     case RGY_CSP_YUV444_16:
+    case RGY_CSP_RGB:
         src_array[2] = (uint8_t *)src_array[1] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
         break;
     case RGY_CSP_NV12:
