@@ -570,9 +570,11 @@ Set output bit depth.
 Set output colorspace.
 - yuv420 (default)
 - yuv444
+- rgb
+- yuva420
 
   :::note info
-  There is no plan to add other colorspaces such as yuv422 and rgb.
+  There is no plan to add other colorspaces such as yuv422.
   :::
 
 ### --multipass &lt;string&gt;
