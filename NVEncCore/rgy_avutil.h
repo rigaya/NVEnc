@@ -418,6 +418,8 @@ uniuqeRGYChannelLayout getDefaultChannelLayout(const int nb_channels);
 int getChannelLayoutIndexFromChannel(const RGYChannelLayout *ch_layout, const RGYChannel channel);
 RGYChannel getChannelLayoutChannelFromIndex(const RGYChannelLayout *ch_layout, const int index);
 
+bool ChannelLayoutExists(const RGYChannelLayout *target, const AVCodec *codec);
+
 //時刻を表示
 std::string getTimestampChar(int64_t ts, const AVRational& timebase);
 tstring getTimestampString(int64_t ts, const AVRational& timebase);

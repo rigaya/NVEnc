@@ -94,9 +94,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 ### Common to NVEnc / NVEncC
 - Encoding using NVENC
    - H.264 / AVC
-      - YUV420 / YUV444
+      - YUV420 / YUV444 / RGB
    - H.265 / HEVC (2nd Gen Maxwell or later)
-      - YUV420 / YUV444
+      - YUV420 / YUV444 / RGB / YUVA420 (YUV + alpha channel)
       - 10 bits
    - AV1 (Ada Lovelace or later)
 - Each encode mode of NVENC
@@ -132,10 +132,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
       - afs (Automatic field shift)
       - nnedi
       - yadif
+      - decomb
     - decimate
     - mpdecimate
     - colorspace conversion (x64 version only)
       - hdr2sdr
+      - sdr2hdr (NGX TrueHDR)
       - lut3d
     - delogo
     - subburn
@@ -145,6 +147,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
       - lanczos2, lanczos3, lanczos4
       - various algorithms by npp library are available (x64 version only)
       - nvvfx-superres
+      - ngx-vsr
     - transpose / rotate / flip
     - padding
     - select-every
@@ -152,6 +155,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
     - noise reduction
       - smooth (dct based denoise)
       - denoise-dct (another dct based denoise)
+      - fft3d (fft based 3D denoise)
       - knn (K-nearest neighbor)
       - pmd (modified pmd method)
       - gauss (npp library, x64 version only)

@@ -612,6 +612,27 @@ uniuqeRGYChannelLayout getChannelLayoutFromString(const std::string& channel_lay
     return ch_layout;
 }
 
+bool ChannelLayoutExists(const RGYChannelLayout *target, const AVCodec *codec) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    if (codec->ch_layouts == nullptr) return false;
+    RGYChannelLayout zero;
+    memset(&zero, 0, sizeof(RGYChannelLayout));
+    for (auto ptr = codec->ch_layouts; memcmp(ptr, &zero, sizeof(RGYChannelLayout)) != 0; ptr++) {
+        if (av_channel_layout_compare(target, ptr) == 0) {
+            return true;
+        }
+    }
+#else
+    if (codec->channel_layouts == nullptr) return false;
+    for (auto ptr = codec->channel_layouts; *ptr; ptr++) {
+        if (*ptr == *target) {
+            return true;
+        }
+    }
+#endif
+    return false;
+}
+
 uniuqeRGYChannelLayout getDefaultChannelLayout(const int nb_channels) {
     auto ch_layout = createChannelLayoutEmpty();
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL

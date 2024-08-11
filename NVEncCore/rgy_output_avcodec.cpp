@@ -1438,10 +1438,12 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             enc_channel_layout = getChannelLayoutFromString(muxAudio->streamChannelOut[muxAudio->inSubStream]);
             if (muxAudio->streamChannelOut[muxAudio->inSubStream] == RGY_CHANNEL_AUTO) {
                 //チャンネル選択の自動設定を反映
-                uniuqeRGYChannelLayout channelSelect = (muxAudio->streamChannelSelect[muxAudio->inSubStream] == RGY_CHANNEL_AUTO)
-                    ? getChannelLayout(muxAudio->outCodecDecodeCtx)
-                    : getChannelLayoutFromString(muxAudio->streamChannelSelect[muxAudio->inSubStream]);
-                enc_channel_layout = getDefaultChannelLayout(getChannelCount(channelSelect.get()));
+                uniuqeRGYChannelLayout channelSelect = (muxAudio->streamChannelSelect[muxAudio->inSubStream] == RGY_CHANNEL_AUTO) ? getChannelLayout(muxAudio->outCodecDecodeCtx) : getChannelLayoutFromString(muxAudio->streamChannelSelect[muxAudio->inSubStream]);
+                if (ChannelLayoutExists(channelSelect.get(), muxAudio->outCodecEncode)) {
+                    enc_channel_layout = std::move(channelSelect);
+                } else {
+                    enc_channel_layout = getDefaultChannelLayout(getChannelCount(channelSelect.get()));
+                }
             }
         }
         int enc_sample_rate = (inputAudio->samplingRate) ? inputAudio->samplingRate : muxAudio->outCodecDecodeCtx->sample_rate;

@@ -94,9 +94,9 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
 ### NVEnc/NVEncC共通
 - NVENCを使用したエンコード
    - H.264/AVC
-      - YUV4:4:4対応
+      - YUV420 / YUV444 / RGB
    - H.265/HEVC (第2世代Maxwell以降)
-      - YUV4:4:4対応
+      - YUV420 / YUV444 / RGB / YUVA420 (YUV + alpha channel)
       - 10bit
    - AV1 (Ada Lovelace以降)
 - NVENCの各エンコードモード
@@ -141,12 +141,14 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
       - afs (自動フィールドシフト)
       - nnedi
       - yadif
+      - decomb
     - decimate
     - mpdecimate
     - delogo
     - 字幕焼きこみ
     - 色空間変換 (x64版のみ)
       - hdr2sdr
+      - sdr2hdr (NGX TrueHDR)
       - lut3d
     - リサイズ  
       - bilinear
@@ -154,6 +156,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
       - lanczos2, lanczos3, lanczos4
       - nppライブラリによる各種アルゴリズム (x64版のみ)
       - nvvfx-superres
+      - ngx-vsr
     - 回転 / 反転
     - パディング(黒帯)の追加
     - フレーム間引き(select every)
@@ -161,6 +164,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
     - ノイズ除去
       - smooth (dctベースのノイズ除去)
       - denoise-dct (dctベースのノイズ除去)
+      - fft3d (FFTベースの3Dノイズ除去)
       - knn (K-nearest neighbor)
       - pmd (正則化pmd法)
       - gauss (nppライブラリ、x64版のみ)
