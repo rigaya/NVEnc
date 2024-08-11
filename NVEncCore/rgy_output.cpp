@@ -83,6 +83,7 @@ RGYOutput::RGYOutput() :
     m_OutType(OUT_TYPE_BITSTREAM),
     m_sourceHWMem(false),
     m_y4mHeaderWritten(false),
+    m_enableHEVCAlphaChannelInfoSEIFix(false),
     m_strWriterName(),
     m_strOutputInfo(),
     m_VideoOutputInfo(),
@@ -354,6 +355,48 @@ std::pair<RGY_ERR, std::vector<uint8_t>> RGYOutput::getMetadata(const RGYFrameDa
         }
     }
     return { RGY_ERR_NONE, metadata };
+}
+
+
+RGY_ERR RGYOutput::FixHEVCAlphaChannelInfoSEI(RGYBitstream *bitstream) {
+    if (m_VideoOutputInfo.codec != RGY_CODEC_HEVC || !m_enableHEVCAlphaChannelInfoSEIFix) {
+        return RGY_ERR_NONE;
+    }
+    RGYBitstream bsCopy = RGYBitstreamInit();
+    bsCopy.copy(bitstream);
+    const auto nal_list = m_parse_nal_hevc(bsCopy.data(), bsCopy.size());
+    const bool has_prefix_sei = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.nuh_layer_id == 0 && info.type == NALU_HEVC_PREFIX_SEI; }) != nal_list.end();
+    if (!has_prefix_sei) {
+        return RGY_ERR_NONE;
+    }
+
+    bitstream->setSize(0);
+    bitstream->setOffset(0);
+    for (const auto& nal : nal_list) {
+        if (nal.nuh_layer_id == 0 && nal.type == NALU_HEVC_PREFIX_SEI) {
+            auto ptr = nal.ptr;
+            int nal_header_size = 0;
+            static const uint8_t nal_header[4] = { 0x00, 0x00, 0x00, 0x01 };
+            if (memcmp(ptr, nal_header, 4) == 0) {
+                nal_header_size += 4;
+            } else if (memcmp(ptr, nal_header + 1, 3) == 0) {
+                nal_header_size += 3;
+            }
+            nal_header_size += 2;
+            ptr += nal_header_size;
+            const auto sei_data = unnal(ptr, nal.size - nal_header_size);
+            const auto sei_type = sei_data[0];
+            if (sei_type == ALPHA_CHANNEL_INFO) { // alpha_channel_information
+                const auto nalbuf = gen_hevc_alpha_channel_info_sei();
+                bitstream->append(nalbuf.data(), nalbuf.size());
+            } else {
+                bitstream->append(nal.ptr, nal.size);
+            }
+        } else {
+            bitstream->append(nal.ptr, nal.size);
+        }
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::unique_ptr<RGYOutputInsertMetadata>>& metadataList) {
@@ -645,6 +688,10 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         m_timestamp = rawPrm->vidTimestamp;
         m_debugDirectAV1Out = rawPrm->debugDirectAV1Out;
         m_separateHEVCLayer1 = false;
+        m_enableHEVCAlphaChannelInfoSEIFix = ENCODER_NVENC && rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->HEVCAlphaChannel;
+        if (m_enableHEVCAlphaChannelInfoSEIFix) {
+            AddMessage(RGY_LOG_DEBUG, _T("enableHEVCAlphaChannelInfoSEIFix : on\n"));
+        }
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && m_separateHEVCLayer1) {
             const auto filename_layer1 = m_outFilename + _T(".layer1.hevc");
             m_fDestHEVCLayer1 = std::unique_ptr<FILE, fp_deleter>(
@@ -736,6 +783,12 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         }
     }
 
+    // NVENCのalpha_channel_info SEIの出力は変なので、適切なものに置き換える
+    auto err = FixHEVCAlphaChannelInfoSEI(pBitstream);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
     RGYTimestampMapVal bs_framedata;
     if (m_timestamp) {
         bs_framedata = m_timestamp->get(pBitstream->pts());
@@ -782,7 +835,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         }
     }
 
-    auto err = InsertMetadata(pBitstream, metadataList);
+    err = InsertMetadata(pBitstream, metadataList);
     if (err != RGY_ERR_NONE) {
         return err;
     }
@@ -1097,6 +1150,7 @@ RGY_ERR initWriters(
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
     const bool benchmark,
+    const bool HEVCAlphaChannel,
     RGYPoolAVPacket *poolPkt,
     RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,
@@ -1168,6 +1222,7 @@ RGY_ERR initWriters(
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
         writerPrm.lowlatency              = ctrl->lowLatency;
         writerPrm.debugDirectAV1Out       = common->debugDirectAV1Out;
+        writerPrm.HEVCAlphaChannel        = HEVCAlphaChannel;
         writerPrm.muxOpt                  = common->muxOpt;
         writerPrm.poolPkt                 = poolPkt;
         writerPrm.poolFrame               = poolFrame;
@@ -1471,6 +1526,7 @@ RGY_ERR initWriters(
             rawPrm.doviRpu = doviRpu;
             rawPrm.vidTimestamp = vidTimestamp;
             rawPrm.debugDirectAV1Out = common->debugDirectAV1Out;
+            rawPrm.HEVCAlphaChannel = HEVCAlphaChannel;
             rawPrm.debugRawOut = common->debugRawOut;
             rawPrm.outReplayFile = common->outReplayFile;
             rawPrm.outReplayCodec = common->outReplayCodec;

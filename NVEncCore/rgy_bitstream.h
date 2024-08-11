@@ -182,6 +182,28 @@ enum PayloadType {
     CUBEMAP_PROJECTION                   = 151,
     REGION_WISE_PACKING                  = 155,
     REGIONAL_NESTING                     = 157,
+    MCTS_EXTRACTION_INFO_SETS                   = 158,
+    MCTS_EXTRACTION_INFO_NESTING                = 159,
+    LAYERS_NOT_PRESENT_5                        = 160,
+    INTER_LAYER_CONSTRAINED_TILE_SETS           = 161,
+    BSP_NESTING                                 = 162,
+    BSP_INITIAL_ARRIVAL_TIME                    = 163,
+    SUB_BITSTREAM_PROPERTY                      = 164,
+    ALPHA_CHANNEL_INFO                          = 165,
+    OVERLAY_INFO                                = 166,
+    TEMPORAL_MV_PREDICTION_CONSTRAINTS          = 167,
+    FRAME_FIELD_INFO                            = 168,
+    THREE_DIMENSIONAL_REFERENCE_DISPLAYS_INFO   = 176,
+    DEPTH_REPRESENTATION_INFO_5                 = 177,
+    MULTIVIEW_SCENE_INFO_5                      = 178,
+    MULTIVIEW_ACQUISITION_INFO_5                = 179,
+    MULTIVIEW_VIEW_POSITION_5                   = 180,
+    ALTERNATIVE_DEPTH_INFO                      = 181,
+    SEI_MANIFEST                                = 200,
+    SEI_PREFIX_INDICATION                       = 201,
+    ANNOTATED_REGIONS                           = 202,
+    SUBPIC_LEVEL_INFO                           = 203,
+    SAMPLE_ASPECT_RATIO_INFO                    = 204,
 };
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len);
@@ -211,6 +233,8 @@ uint8_t gen_obu_header(const uint8_t obu_type);
 size_t get_av1_uleb_size_bytes(uint64_t value);
 std::vector<uint8_t> get_av1_uleb_size_data(uint64_t value);
 std::vector<uint8_t> gen_av1_obu_metadata(const uint8_t metadata_type, const std::vector<uint8_t>& metadata);
+int get_hevc_sei_size(size_t& size, const uint8_t *ptr);
+std::vector<uint8_t> gen_hevc_alpha_channel_info_sei();
 
 struct RGYHDRMetadataPrm {
     int maxcll;

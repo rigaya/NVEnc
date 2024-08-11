@@ -813,6 +813,11 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.outputFps = av_make_q(videoOutputInfo->fpsN, videoOutputInfo->fpsD);
     AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), m_Mux.video.outputFps.num, m_Mux.video.outputFps.den);
 
+    m_enableHEVCAlphaChannelInfoSEIFix = ENCODER_NVENC && videoOutputInfo->codec == RGY_CODEC_HEVC && prm->HEVCAlphaChannel;
+    if (m_enableHEVCAlphaChannelInfoSEIFix) {
+        AddMessage(RGY_LOG_DEBUG, _T("enableHEVCAlphaChannelInfoSEIFix : on\n"));
+    }
+
     m_Mux.video.codecCtx->codec_type              = AVMEDIA_TYPE_VIDEO;
     m_Mux.video.codecCtx->codec_id                = m_Mux.format.formatCtx->video_codec_id;
     m_Mux.video.codecCtx->width                   = videoOutputInfo->dstWidth;
@@ -2366,22 +2371,49 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataH264(const RGYBitstream *bitstream
 
 //extradataにHEVCのヘッダーを追加する
 RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream) {
-    std::vector<nal_info> nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
+    const auto nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
     const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
     const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
     const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
     const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
     if (header_check) {
-        std::vector<uint8_t> buf_sps;
-        auto err = applyBsfToHeader(buf_sps, hevc_sps_nal->ptr, hevc_sps_nal->size);
-        if (err != RGY_ERR_NONE) {
-            return err;
+        std::vector<uint8_t> hevc_header;
+        for (const auto& nal : nal_list) {
+            if (nal.type == NALU_HEVC_SPS) {
+                std::vector<uint8_t> buf_sps;
+                auto err = applyBsfToHeader(buf_sps, nal.ptr, nal.size);
+                if (err != RGY_ERR_NONE) {
+                    return err;
+                }
+                vector_cat(hevc_header, buf_sps);
+            } else if (nal.type == NALU_HEVC_VPS || nal.type == NALU_HEVC_PPS) {
+                vector_cat(hevc_header, nal.ptr, nal.size);
+            } else if (nal.nuh_layer_id == 0 && nal.type == NALU_HEVC_PREFIX_SEI) {
+                auto ptr = nal.ptr;
+                int nal_header_size = 0;
+                static const uint8_t nal_header[4] = { 0x00, 0x00, 0x00, 0x01 };
+                if (memcmp(ptr, nal_header, 4) == 0) {
+                    nal_header_size += 4;
+                } else if (memcmp(ptr, nal_header + 1, 3) == 0) {
+                    nal_header_size += 3;
+                }
+                nal_header_size += 2;
+                ptr += nal_header_size;
+                const auto sei_data = unnal(ptr, nal.size - nal_header_size);
+                const auto sei_type = sei_data[0];
+                // alpha_channel_infoもextradataに追加しておく必要がある
+                if (sei_type == ALPHA_CHANNEL_INFO) {
+                    if (m_enableHEVCAlphaChannelInfoSEIFix) { // NVENCのalpha_channel_info SEIの出力は変なので、適切なものを追加しておく
+                        vector_cat(hevc_header, gen_hevc_alpha_channel_info_sei());
+                    } else {
+                        vector_cat(hevc_header, nal.ptr, nal.size);
+                    }
+                }
+            }
         }
-        m_Mux.video.streamOut->codecpar->extradata_size = (int)(hevc_vps_nal->size + buf_sps.size() + hevc_pps_nal->size);
+        m_Mux.video.streamOut->codecpar->extradata_size = (int)hevc_header.size();
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
-        memcpy(new_ptr + hevc_vps_nal->size, buf_sps.data(), buf_sps.size());
-        memcpy(new_ptr + hevc_vps_nal->size + buf_sps.size(), hevc_pps_nal->ptr, hevc_pps_nal->size);
+        memcpy(new_ptr, hevc_header.data(), hevc_header.size());
         if (m_Mux.video.streamOut->codecpar->extradata) {
             av_free(m_Mux.video.streamOut->codecpar->extradata);
         }
@@ -2733,6 +2765,12 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         }
     }
 
+    // NVENCのalpha_channel_info SEIの出力は変なので、適切なものに置き換える
+    auto err = FixHEVCAlphaChannelInfoSEI(bitstream);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
     bool isIDR = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0; //IDRかどうかのフラグ
     bool isKey = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR | RGY_FRAMETYPE_I | RGY_FRAMETYPE_xI)) != 0; //Keyフレームかどうかのフラグ
     if (m_Mux.video.streamOut->codecpar->field_order != AV_FIELD_PROGRESSIVE) {
@@ -2780,7 +2818,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         }
     }
 
-    auto err = InsertMetadata(bitstream, metadataList);
+    err = InsertMetadata(bitstream, metadataList);
     if (err != RGY_ERR_NONE) {
         return err;
     }

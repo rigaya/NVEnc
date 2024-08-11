@@ -402,6 +402,7 @@ struct AvcodecWriterPrm {
     bool                         afs;                     //入力が自動フィールドシフト
     bool                         disableMp4Opt;           //mp4出力時のmuxの最適化を無効にする
     bool                         debugDirectAV1Out;       //AV1出力のデバッグ用
+    bool                         HEVCAlphaChannel;        //HEVCのalphaチェンネルを使用するか
     RGYPoolAVPacket             *poolPkt;                 //読み込み側からわたってきたパケットの返却先
     RGYPoolAVFrame              *poolFrame;               //読み込み側からわたってきたパケットの返却先
 
@@ -441,6 +442,7 @@ struct AvcodecWriterPrm {
         afs(false),
         disableMp4Opt(false),
         debugDirectAV1Out(false),
+        HEVCAlphaChannel(false),
         poolPkt(nullptr),
         poolFrame(nullptr) {
     }

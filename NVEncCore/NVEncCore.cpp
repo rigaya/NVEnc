@@ -736,7 +736,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     if (initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
         m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), m_dovirpu.get(), m_encTimestamp.get(),
-        false, false, m_poolPkt.get(), m_poolFrame.get(), m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
+        false, false, inputParams->alphaChannel, m_poolPkt.get(), m_poolFrame.get(), m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
     }

@@ -229,6 +229,8 @@ public:
 
     RGY_ERR InsertMetadata(RGYBitstream *bitstream, std::vector<std::unique_ptr<RGYOutputInsertMetadata>>& metadataList);
 
+    RGY_ERR FixHEVCAlphaChannelInfoSEI(RGYBitstream *bitstream);
+
     template<typename T>
     std::pair<RGY_ERR, std::vector<uint8_t>> getMetadata(const RGYFrameDataType metadataType, const RGYTimestampMapVal& bs_framedata);
 
@@ -295,6 +297,7 @@ protected:
     OutputType  m_OutType;
     bool        m_sourceHWMem;
     bool        m_y4mHeaderWritten;
+    bool        m_enableHEVCAlphaChannelInfoSEIFix;
     tstring     m_strWriterName;
     tstring     m_strOutputInfo;
     VideoInfo   m_VideoOutputInfo;
@@ -310,6 +313,7 @@ struct RGYOutputRawPrm {
     bool benchmark;
     bool debugDirectAV1Out;
     bool debugRawOut;
+    bool HEVCAlphaChannel;
     tstring outReplayFile;
     RGY_CODEC outReplayCodec;
     int bufSizeMB;
@@ -364,6 +368,7 @@ RGY_ERR initWriters(
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
     const bool benchmark,
+    const bool HEVCAlphaChannel,
     RGYPoolAVPacket *poolPkt,
     RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,

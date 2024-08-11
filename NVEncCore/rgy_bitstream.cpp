@@ -67,6 +67,41 @@ void add_u32(std::vector<uint8_t>& data, uint32_t u32) {
     data.push_back((uint8_t)((u32 & 0x000000ff) >>  0));
 }
 
+int get_hevc_sei_size(size_t& size, const uint8_t *ptr) {
+    const auto orig_ptr = ptr;
+    size = 0;
+    while (ptr[0] == 0xff) {
+        size += 0xff;
+        ptr++;
+    }
+    size += ptr[0];
+    return ptr - orig_ptr;
+}
+
+std::vector<uint8_t> gen_hevc_alpha_channel_info_sei() {
+    // NVENCの作成するalpha_channel_info_seiはなんか変
+    // 下記資料に基づいて、適切なものを再生成する
+    // https://developer.apple.com/av-foundation/HEVC-Video-with-Alpha-Interoperability-Profile.pdf
+    std::vector<uint8_t> header = { 0x00, 0x00, 0x00, 0x01 };
+    std::vector<uint8_t> buf;
+    uint16_t u16 = 0x00;
+    u16 |= (NALU_HEVC_PREFIX_SEI << 9) | 1;
+    add_u16(buf, u16);
+    buf.push_back(ALPHA_CHANNEL_INFO);
+    buf.push_back(4); // size
+    buf.push_back(0);
+    buf.push_back(0);
+    buf.push_back(0xff);
+    buf.push_back(1 << 7);
+    to_nal(buf);
+
+    std::vector<uint8_t> nalbuf;
+    vector_cat(nalbuf, header);
+    vector_cat(nalbuf, buf);
+    nalbuf.push_back(0x80);
+    return nalbuf;
+}
+
 uint8_t gen_obu_header(const uint8_t obu_type) {
     const uint8_t extension_flag = 0;
     const uint8_t has_size_flag = 1;
@@ -770,3 +805,269 @@ std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const
     }
     return list;
 }
+
+#if 0
+
+
+class RGYBitStreamReader {
+public:
+    RGYBitStreamReader() : data_(nullptr), size_(0), pos_(0) {}
+
+    void set(const uint8_t *data, size_t size) {
+        data_ = data;
+        size_ = size;
+        pos_ = 0;
+    }
+
+    uint8_t getBit() {
+        if (pos_ >= size_ * 8) {
+            throw std::runtime_error("ビットストリームの終端を超えています。");
+        }
+        uint8_t bit = (data_[pos_ / 8] >> (7 - (pos_ % 8))) & 1;
+        pos_++;
+        return bit;
+    }
+
+    uint32_t getBits(size_t numBits) {
+        uint32_t result = 0;
+        for (size_t i = 0; i < numBits; i++) {
+            result |= getBit() << (numBits - 1 - i);
+        }
+        return result;
+    }
+
+    uint32_t getUEGolomb() {
+        uint32_t zero_count = 0;
+        while (getBit() == 0) {
+            zero_count++;
+        }
+        uint32_t result = (1 << zero_count) - 1;
+        for (uint32_t i = 0; i < zero_count; i++) {
+            result |= getBit() << (zero_count - 1 - i);
+        }
+        return result;
+    }
+
+    void getBytes(uint8_t *data, size_t size) {
+        memcpy(data, data_ + pos_/8, size);
+        pos_ += size * 8;
+    }
+
+private:
+    const uint8_t *data_;
+    size_t size_;
+    size_t pos_;
+};
+
+static const int HEVC_MAX_SUB_LAYERS = 7;
+struct RGYHEVCSublayerHdrParams {
+    uint32_t bit_rate_value_minus1[32];
+    uint32_t cpb_size_value_minus1[32];
+    uint32_t cpb_size_du_value_minus1[32];
+    uint32_t bit_rate_du_value_minus1[32];
+    uint32_t cbr_flag;
+};
+
+struct RGYHEVCHdrFlags {
+    uint8_t fixed_pic_rate_general_flag;
+    uint8_t fixed_pic_rate_within_cvs_flag;
+    uint8_t low_delay_hrd_flag;
+};
+
+struct RGYHEVCHdrParams {
+    RGYHEVCHdrFlags flags;
+    uint8_t nal_hrd_parameters_present_flag;
+    uint8_t vcl_hrd_parameters_present_flag;
+    uint8_t sub_pic_hrd_params_present_flag;
+    uint8_t sub_pic_cpb_params_in_pic_timing_sei_flag;
+
+    uint8_t tick_divisor_minus2;
+    uint8_t du_cpb_removal_delay_increment_length_minus1;
+    uint8_t dpb_output_delay_du_length_minus1;
+    uint8_t bit_rate_scale;
+    uint8_t cpb_size_scale;
+    uint8_t cpb_size_du_scale;
+    uint8_t initial_cpb_removal_delay_length_minus1;
+    uint8_t au_cpb_removal_delay_length_minus1;
+    uint8_t dpb_output_delay_length_minus1;
+    uint8_t cpb_cnt_minus1[HEVC_MAX_SUB_LAYERS];
+    uint16_t elemental_duration_in_tc_minus1[HEVC_MAX_SUB_LAYERS];
+
+    RGYHEVCSublayerHdrParams nal_params[HEVC_MAX_SUB_LAYERS];
+    RGYHEVCSublayerHdrParams vcl_params[HEVC_MAX_SUB_LAYERS];
+};
+
+struct RGYHEVCVPSProfileLevelTierData {
+    uint8_t profile_space;
+    uint8_t tier_flag;
+    uint8_t profile_idc;
+    uint8_t data[10];
+    uint8_t level_idc;
+};
+
+
+struct RGYHEVCVPSProfileLevelTier {
+    RGYHEVCVPSProfileLevelTierData ptl;
+    RGYHEVCVPSProfileLevelTierData sub_layer_ptl[HEVC_MAX_SUB_LAYERS];
+
+    uint8_t sub_layer_profile_present_flag[HEVC_MAX_SUB_LAYERS];
+    uint8_t sub_layer_level_present_flag[HEVC_MAX_SUB_LAYERS];
+};
+
+class RGYHEVCVPSReader {
+    RGYBitStreamReader m_reader;
+public:
+    RGYHEVCVPSReader() : m_reader() {}
+
+    void parseProfileLevelTier(RGYHEVCVPSProfileLevelTierData &profileLevelTier) {
+        profileLevelTier.profile_space = m_reader.getBits(2);
+        profileLevelTier.tier_flag = m_reader.getBit();
+        profileLevelTier.profile_idc = m_reader.getBits(5);
+        m_reader.getBytes(profileLevelTier.data, 10);
+    }
+
+    void parseProfileLevelTier(RGYHEVCVPSProfileLevelTier &profileLevelTier, int max_num_sub_layers) {
+        parseProfileLevelTier(profileLevelTier.ptl);
+        profileLevelTier.ptl.level_idc = m_reader.getBits(8);
+        for (int i = 0; i < max_num_sub_layers - 1; i++) {
+            profileLevelTier.sub_layer_profile_present_flag[i] = m_reader.getBit();
+            profileLevelTier.sub_layer_level_present_flag[i] = m_reader.getBit();
+        }
+        if (max_num_sub_layers - 1 > 0) {
+            for (int i = max_num_sub_layers - 1; i < 8; i++) {
+                m_reader.getBits(2); //skip
+            }
+        }
+        for (int i = 0; i < max_num_sub_layers - 1; i++) {
+            if (profileLevelTier.sub_layer_profile_present_flag[i]) {
+                parseProfileLevelTier(profileLevelTier.sub_layer_ptl[i]);
+            }
+            if (profileLevelTier.sub_layer_level_present_flag[i]) {
+                profileLevelTier.sub_layer_ptl[i].level_idc = m_reader.getBits(8);
+            }
+        }
+    }
+
+    void parseSubLayerHRD(RGYHEVCSublayerHdrParams &hdr, const int cpb_cnt_minus1, const int subpic_params_present) {
+        for (int i = 0; i <= cpb_cnt_minus1; i++) {
+            hdr.bit_rate_value_minus1[i] = m_reader.getUEGolomb();
+            hdr.cpb_size_value_minus1[i] = m_reader.getUEGolomb();
+            if (subpic_params_present) {
+                hdr.cpb_size_du_value_minus1[i] = m_reader.getUEGolomb();
+                hdr.bit_rate_du_value_minus1[i] = m_reader.getUEGolomb();
+            }
+            hdr.cbr_flag |= m_reader.getBit() << i;
+        }
+    }
+
+    void parseHEVCHRD(RGYHEVCHdrParams &hdr, uint8_t cprms_present_flag, int max_num_sub_layers) {
+        if (cprms_present_flag) {
+            hdr.nal_hrd_parameters_present_flag = m_reader.getBit();
+            hdr.vcl_hrd_parameters_present_flag = m_reader.getBit();
+            if (hdr.nal_hrd_parameters_present_flag || hdr.vcl_hrd_parameters_present_flag) {
+                hdr.sub_pic_hrd_params_present_flag = m_reader.getBit();
+                if (hdr.sub_pic_hrd_params_present_flag) {
+                    hdr.tick_divisor_minus2 = m_reader.getBits(8);
+                    hdr.du_cpb_removal_delay_increment_length_minus1 = m_reader.getBits(5);
+                    hdr.sub_pic_cpb_params_in_pic_timing_sei_flag = m_reader.getBit();
+                    hdr.dpb_output_delay_du_length_minus1 = m_reader.getBits(5);
+                }
+                hdr.bit_rate_scale = m_reader.getBits(4);
+                hdr.cpb_size_scale = m_reader.getBits(4);
+                if (hdr.sub_pic_hrd_params_present_flag) {
+                    hdr.cpb_size_du_scale = m_reader.getBits(4);
+                }
+                hdr.initial_cpb_removal_delay_length_minus1 = m_reader.getBits(5);
+                hdr.au_cpb_removal_delay_length_minus1 = m_reader.getBits(5);
+                hdr.dpb_output_delay_length_minus1 = m_reader.getBits(5);
+            }
+        }
+
+        for (int i = 0; i < max_num_sub_layers; i++) {
+            uint32_t fixed_pic_rate_general_flag = m_reader.getBit();
+            uint32_t fixed_pic_rate_within_cvs_flag = 0;
+            if (!fixed_pic_rate_general_flag) {
+                fixed_pic_rate_within_cvs_flag = m_reader.getBit();
+            }
+
+            uint32_t low_delay_hrd_flag = 0;
+            if (fixed_pic_rate_within_cvs_flag || fixed_pic_rate_general_flag) {
+                hdr.elemental_duration_in_tc_minus1[i] = m_reader.getUEGolomb();
+            } else {
+                low_delay_hrd_flag = m_reader.getBit();
+            }
+            hdr.flags.fixed_pic_rate_general_flag |= fixed_pic_rate_general_flag << i;
+            hdr.flags.fixed_pic_rate_within_cvs_flag |= fixed_pic_rate_within_cvs_flag << i;
+            hdr.flags.low_delay_hrd_flag |= low_delay_hrd_flag << i;
+
+            if (!low_delay_hrd_flag) {
+                hdr.cpb_cnt_minus1[i] = m_reader.getUEGolomb();
+            }
+
+            if (hdr.nal_hrd_parameters_present_flag) {
+                parseSubLayerHRD(hdr.nal_params[i], hdr.cpb_cnt_minus1[i], hdr.sub_pic_hrd_params_present_flag);
+            }
+
+            if (hdr.vcl_hrd_parameters_present_flag) {
+                parseSubLayerHRD(hdr.vcl_params[i], hdr.cpb_cnt_minus1[i], hdr.sub_pic_hrd_params_present_flag);
+            }
+        }
+    }
+
+    void parseHEVCVPS(const uint8_t *data, size_t size) {
+        const auto vps = unnal(data + 6, size - 6);
+
+        m_reader.set(vps.data(), vps.size());
+
+        uint8_t vps_video_parameter_set_id = m_reader.getBits(4);
+        uint8_t vps_base_layer_internal_flag = m_reader.getBit();
+        uint8_t vps_base_layer_available_flag = m_reader.getBit();
+        uint8_t vps_max_layers_minus1 = m_reader.getBits(6);
+        uint8_t vps_max_sub_layers_minus1 = m_reader.getBits(3);
+        uint8_t vps_temporal_id_nesting_flag = m_reader.getBit();
+        uint16_t vps_reserved_0xffff_16bits = m_reader.getBits(16);
+
+        RGYHEVCVPSProfileLevelTier vps_profile_level_tier = { 0 };
+        parseProfileLevelTier(vps_profile_level_tier, vps_max_sub_layers_minus1 + 1);
+
+        uint8_t vps_sub_layer_ordering_info_present_flag = m_reader.getBit();
+        for (int i = (vps_sub_layer_ordering_info_present_flag ? 0 : vps_max_sub_layers_minus1); i <= vps_max_sub_layers_minus1; i++) {
+            uint8_t vps_max_dec_pic_buffering_minus1 = m_reader.getUEGolomb();
+            uint8_t vps_max_num_reorder_pics = m_reader.getUEGolomb();
+            uint8_t vps_max_latency_increase_plus1 = m_reader.getUEGolomb();
+            vps_max_latency_increase_plus1 = vps_max_latency_increase_plus1;
+        }
+        uint8_t vps_max_layer_id = m_reader.getBits(6);
+        uint16_t vps_num_layer_sets_minus1 = m_reader.getUEGolomb();
+
+        std::vector<uint8_t> layer_id_included_flag(vps_num_layer_sets_minus1 + 1);
+        for (int i = 1; i < vps_num_layer_sets_minus1+1; i++) {
+            for (int j = 0; j <= vps_max_layer_id; j++) {
+                layer_id_included_flag[i] |= m_reader.getBit() << j;
+            }
+        }
+
+        RGYHEVCHdrParams hdr = { 0 };
+        uint8_t vps_timing_info_present_flag = m_reader.getBit();
+        if (vps_timing_info_present_flag) {
+            uint32_t vps_num_units_in_tick = m_reader.getBits(32);
+            uint32_t vps_time_scale = m_reader.getBits(32);
+            uint8_t vps_poc_proportional_to_timing_flag = m_reader.getBit();
+            if (vps_poc_proportional_to_timing_flag) {
+                uint32_t vps_num_ticks_poc_diff_one_minus1 = m_reader.getUEGolomb();
+            }
+            uint32_t vps_num_hrd_parameters = m_reader.getUEGolomb();
+            for (int i = 0; i < vps_num_hrd_parameters; i++) {
+                uint32_t vps_hrd_layer_set_id = m_reader.getUEGolomb();
+                uint8_t cprms_present_flag = 1;
+                if (i > 0) {
+                    cprms_present_flag = m_reader.getBit();
+                }
+                parseHEVCHRD(hdr, cprms_present_flag, vps_max_sub_layers_minus1 + 1);
+            }
+        }
+        uint8_t vps_extension_flag = m_reader.getBit();
+        vps_extension_flag = vps_extension_flag;
+    }
+};
+#endif
