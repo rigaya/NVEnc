@@ -242,6 +242,8 @@ RGY_ERR RGYSysFrame::allocate(const RGYFrameInfo &info) {
     case RGY_CSP_RGB32R:
     case RGY_CSP_RGB32:
     case RGY_CSP_BGR32:
+    case RGY_CSP_ARGB32:
+    case RGY_CSP_ABGR32:
     case RGY_CSP_RGBA_FP16_P:
         pixsize *= 4;
         break;

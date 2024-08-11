@@ -117,6 +117,8 @@ enum RGY_CSP {
     RGY_CSP_RGB32, //packed
     RGY_CSP_BGR24, //packed
     RGY_CSP_BGR32, //packed
+    RGY_CSP_ARGB32, //packed
+    RGY_CSP_ABGR32, //packed
     RGY_CSP_RGBA_FP16_P, //packed
     RGY_CSP_RGB,   //planar
     RGY_CSP_RGBA,  //planar
@@ -191,6 +193,8 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("rgb32"),
     _T("bgr24"),
     _T("bgr32"),
+    _T("argb32"),
+    _T("abgr32"),
     _T("rgba(fp16)"),
     _T("rgb"),
     _T("rgba"),
@@ -265,6 +269,8 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_RGB32
      8, //RGY_CSP_BGR24
      8, //RGY_CSP_BGR32
+     8, //RGY_CSP_ARGB32
+     8, //RGY_CSP_ABGR32
     16, //RGY_CSP_RGBA_FP16_P
      8, //RGY_CSP_RGB
      8, //RGY_CSP_RGBA
@@ -349,6 +355,8 @@ static const RGY_DATA_TYPE RGY_CSP_DATA_TYPE[] = {
      RGY_DATA_TYPE_U8, //RGY_CSP_RGB32
      RGY_DATA_TYPE_U8, //RGY_CSP_BGR24
      RGY_DATA_TYPE_U8, //RGY_CSP_BGR32
+     RGY_DATA_TYPE_U8, //RGY_CSP_ARGB32
+     RGY_DATA_TYPE_U8, //RGY_CSP_ABGR32
      RGY_DATA_TYPE_FP16, //RGY_CSP_RGBA_FP16_P
      RGY_DATA_TYPE_U8, //RGY_CSP_RGB
      RGY_DATA_TYPE_U8, //RGY_CSP_RGBA
@@ -430,6 +438,8 @@ static const uint8_t RGY_CSP_PLANES[] = {
      1, //RGY_CSP_RGB32
      1, //RGY_CSP_BGR24
      1, //RGY_CSP_BGR32
+     1, //RGY_CSP_ARGB32
+     1, //RGY_CSP_ABGR32
      1, //RGY_CSP_RGBA_FP16_P
      3, //RGY_CSP_RGB
      4, //RGY_CSP_RGBA
@@ -564,6 +574,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB_PACKED,
+    RGY_CHROMAFMT_RGB_PACKED, //RGY_CSP_ARGB32
+    RGY_CHROMAFMT_RGB_PACKED, //RGY_CSP_ABGR32
     RGY_CHROMAFMT_RGB_PACKED, //RGY_CSP_RGBA_FP16_P
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
@@ -638,6 +650,8 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     32, //RGY_CSP_RGB32
     24, //RGY_CSP_BGR24
     32, //RGY_CSP_BGR32
+    32, //RGY_CSP_ARGB32
+    32, //RGY_CSP_ABGR32
     64, //RGY_CSP_RGBA_FP16_P
     24, //RGY_CSP_RGB
     32, //RGY_CSP_RGBA

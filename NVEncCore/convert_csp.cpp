@@ -73,6 +73,11 @@ void convert_rgb32_to_rgba_sse2(void **dst, const void **src, int width, int src
 void convert_bgr32_to_rgba_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_rgb32r_to_rgba_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
+void convert_argb32_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_abgr32_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_argb32_to_rgba_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_abgr32_to_rgba_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+
 void convert_gbr_to_rgb24_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_gbr_to_rgb32_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
@@ -2177,6 +2182,11 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_RGB32,  RGY_CSP_RGBA,  false, convert_rgb32_to_rgba_sse2,       convert_rgb32_to_rgba_sse2,     SSE2 )
     FUNC_SSE(  RGY_CSP_BGR32,  RGY_CSP_RGBA,  false, convert_bgr32_to_rgba_sse2,       convert_bgr32_to_rgba_sse2,     SSE2 )
     FUNC_SSE(  RGY_CSP_RGB32R, RGY_CSP_RGBA,  false, convert_rgb32r_to_rgba_sse2,      convert_rgb32r_to_rgba_sse2,    SSE2 )
+    
+    FUNC_SSE(  RGY_CSP_ARGB32, RGY_CSP_RGB,   false, convert_argb32_to_rgb_sse2,       convert_argb32_to_rgb_sse2,     SSE2 )
+    FUNC_SSE(  RGY_CSP_ABGR32, RGY_CSP_RGB,   false, convert_abgr32_to_rgb_sse2,       convert_abgr32_to_rgb_sse2,     SSE2 )
+    FUNC_SSE(  RGY_CSP_ARGB32, RGY_CSP_RGBA,  false, convert_argb32_to_rgba_sse2,      convert_argb32_to_rgba_sse2,    SSE2 )
+    FUNC_SSE(  RGY_CSP_ABGR32, RGY_CSP_RGBA,  false, convert_abgr32_to_rgba_sse2,      convert_abgr32_to_rgba_sse2,    SSE2 )
 
 #if ENABLE_AVSW_READER || ENABLE_AVI_READER || ENABLE_AVISYNTH_READER || ENABLE_VAPOURSYNTH_READER || ENABLE_AVI_READER || ENABLE_RAW_READER
     FUNC_SSE(  RGY_CSP_GBR,    RGY_CSP_RGB24, false, convert_gbr_to_rgb24_ssse3,       convert_gbr_to_rgb24_ssse3,     SSSE3|SSE2)
