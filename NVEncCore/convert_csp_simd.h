@@ -642,7 +642,7 @@ static void RGY_FORCEINLINE convert_rgb32_to_rgba_simd(void **dst, const void **
         uint8_t *ptr_dst2 = dst2Line;
         uint8_t *ptr_dst3 = dst3Line;
         int x = 0, x_fin = width - crop_left - crop_right - 16;
-        for (; x < x_fin; x += 16, ptr_src += 64, ptr_dst0 += 16, ptr_dst1 += 16, ptr_dst2 += 16) {
+        for (; x < x_fin; x += 16, ptr_src += 64, ptr_dst0 += 16, ptr_dst1 += 16, ptr_dst2 += 16, ptr_dst3 += 16) {
             __m128i xSrc0 = _mm_loadu_si128((__m128i *)(ptr_src +  0));
             __m128i xSrc1 = _mm_loadu_si128((__m128i *)(ptr_src + 16));
             __m128i xSrc2 = _mm_loadu_si128((__m128i *)(ptr_src + 32));
