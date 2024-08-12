@@ -1,0 +1,60 @@
+<html>
+<head>
+<title>NVEncC HEVC + alpha layer test</title>
+<style type="text/css">
+body {
+    background: azure;
+}
+h1 {
+    color: #4169e1;
+    font-family: sans-serif;
+    font-size: xx-large;
+}
+.message {
+    color: #5a4fcf;
+    font-family: sans-serif;
+    font-size: xx-large;
+}
+.video_wrapper {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.video_wrapper > video {
+    position: absolute;
+    min-width: 100%;
+}
+.bg_pattern {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: azure;
+  opacity: 0.4;
+  z-index: -1;
+}
+.Diagonal {
+  background: repeating-linear-gradient( 45deg, #87cefa, #87cefa 2px, azure 2px, azure 20px );
+}
+</style>
+</head>
+<body>
+<div class="bg_pattern Diagonal"></div>
+<h1>ÅyNVEncC HEVC + alpha layer testÅz</h1>
+<hr>
+<br>
+<div class="message">
+HEVC YUVA420 (-c hevc --output-csp yuva420)
+</div>
+<br>
+<div class="video_wrapper">
+    <video controls autoplay playsinline loop name="media">
+        <source src="test.mp4" type="video/mp4">
+    </video>
+</div>
+</div>
+</body>
+</html>

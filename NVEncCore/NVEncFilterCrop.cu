@@ -360,7 +360,7 @@ void crop_uv(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const 
         (const uint8_t *)inPlaneC.ptr[0], inPlaneC.pitch[0], pCrop->e.left, pCrop->e.up >> 1);
 }
 
-RGY_ERR NVEncFilterCspCrop::convertYBitDepth(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR convertPlaneBitDepth(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
 #define CONV_DEPTH_TO_FROM(to, from) ((to) << 8 | (from))
     static const std::map<int, void (*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> crop_y_list = {
         { CONV_DEPTH_TO_FROM(16,  8), crop_y<uint16_t, 16, uint8_t,   8> },
@@ -382,19 +382,44 @@ RGY_ERR NVEncFilterCspCrop::convertYBitDepth(RGYFrameInfo *pOutputFrame, const R
     };
     const auto bit_depth_conv = CONV_DEPTH_TO_FROM(RGY_CSP_BIT_DEPTH[pOutputFrame->csp], RGY_CSP_BIT_DEPTH[pInputFrame->csp]);
     if (crop_y_list.count(bit_depth_conv) == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("unsupported bit depth conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
 #undef CONV_DEPTH_TO_FROM
+    crop_y_list.at(bit_depth_conv)(pOutputFrame, pInputFrame, pCrop, stream);
+    return err_to_rgy(cudaGetLastError());
+}
+
+RGY_ERR copyPlaneAlphaAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaStream_t stream) {
+    if (rgy_csp_has_alpha(dst->csp) && rgy_csp_has_alpha(src->csp)) {
+        const auto planeInputA = getPlane(src, RGY_PLANE_A);
+        auto planeOutputA = getPlane(dst, RGY_PLANE_A);
+        if (RGY_CSP_BIT_DEPTH[planeInputA.csp] == RGY_CSP_BIT_DEPTH[planeOutputA.csp]) {
+            auto sts = copyPlaneAsync(&planeOutputA, &planeInputA, stream);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        } else {
+            const sInputCrop crop = initCrop();
+            auto sts = convertPlaneBitDepth(&planeOutputA, &planeInputA, &crop, stream);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterCspCrop::convertYBitDepth(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    crop_y_list.at(bit_depth_conv)(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        auto sts = err_to_rgy(cudaerr);
+    auto sts = convertPlaneBitDepth(pOutputFrame, pInputFrame, &pCropParam->crop, stream);
+    if (sts == RGY_ERR_UNSUPPORTED) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported bit depth conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
+        return sts;
+    } else if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at convertYBitDepth(%s -> %s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(sts));
         return sts;
