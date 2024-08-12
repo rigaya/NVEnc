@@ -2210,7 +2210,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
         if (inputParam->alphaChannel) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.enableAlphaLayerEncoding = 1;
-            //m_stCreateEncodeParams.encodeConfig->rcParams.alphaLayerBitrateRatio = 4;
+            m_stCreateEncodeParams.encodeConfig->rcParams.alphaLayerBitrateRatio = inputParam->alphaBitrateRatio;
             if (m_stCreateEncodeParams.enableWeightedPrediction) {
                 PrintMes(RGY_LOG_WARN, _T("weighted prediction disabled as not supported with alpha channel encoding.\n"));
                 m_stCreateEncodeParams.enableWeightedPrediction = 0;
@@ -5360,6 +5360,12 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             add_str(RGY_LOG_ERROR, _T("Target Quality %.2f\n"), targetQuality);
         } else {
             add_str(RGY_LOG_ERROR, _T("Target Quality auto\n"));
+        }
+        if (rgy_codec == RGY_CODEC_HEVC && m_stEncConfig.encodeCodecConfig.hevcConfig.enableAlphaLayerEncoding) {
+            const int alpharatio = m_stCreateEncodeParams.encodeConfig->rcParams.alphaLayerBitrateRatio;
+            if (alpharatio > 0) {
+                add_str(RGY_LOG_INFO, _T("Alpha Bitrate  %d (%.2f)\n"), alpharatio, 1.0f / (float)(1 + alpharatio));
+            }
         }
         if (m_stEncConfig.rcParams.enableInitialRCQP) {
             add_str(RGY_LOG_INFO,  _T("Initial QP     I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.initialRCQP.qpIntra, m_stEncConfig.rcParams.initialRCQP.qpInterP, m_stEncConfig.rcParams.initialRCQP.qpInterB);

@@ -728,6 +728,7 @@ struct InEncodeVideoParam {
     int lossless;                 //ロスレス出力
     int losslessIgnoreInputCsp;
     bool alphaChannel;
+    int alphaBitrateRatio;
     int nWeightP;
     int chromaQPOffset;
     int brefMode;
