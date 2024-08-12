@@ -1226,7 +1226,17 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
 RGY_ERR RGYInputAvcodec::packMetadataToPacket(AVPacket *pkt, const char *key, const uint8_t *data, const size_t size) {
     //AVDictionaryに格納するため、base64 encodeを行う
     const auto encoded = cppcodec::base64_rfc4648::encode(data, size);
+
     AVDictionary *frameDict = nullptr;
+    std::remove_pointer<RGYArgN<2U, decltype(av_packet_get_side_data)>::type>::type side_data_size = 0;
+    auto side_data = av_packet_get_side_data(pkt, AV_PKT_DATA_STRINGS_METADATA, &side_data_size);
+    if (side_data) {
+        AVDictionary *dict = nullptr;
+        auto ret = av_packet_unpack_dictionary(side_data, side_data_size, &dict);
+        if (ret == 0) {
+            frameDict = dict;
+        }
+    }
     int ret = av_dict_set(&frameDict, key, encoded.c_str(), 0);
     if (ret < 0) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to set dictionary for key=%s\n"), char_to_tstring(key).c_str());
