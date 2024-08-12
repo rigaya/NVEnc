@@ -341,10 +341,7 @@ protected:
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
     int64_t m_prevEncodeFrameId;
-    std::unique_ptr<FILE, fp_deleter> m_fDestHEVCLayer1;
     bool m_debugDirectAV1Out;
-    bool m_separateHEVCLayer1;
-    decltype(parse_nal_unit_hevc_c) *m_parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
 
 std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);
