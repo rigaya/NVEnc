@@ -709,7 +709,7 @@ void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
             m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC + 4);
             m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr + size); ptr += size;
         }
-        if (pkt->buf->size < (int)m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE) {
+        if (pkt->buf->size < m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE) {
             av_grow_packet(pkt, (int)m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE);
         }
         memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
@@ -1279,7 +1279,7 @@ RGY_ERR RGYInputAvcodec::parseHDR10plusDOVIRpuHEVC(AVPacket *pkt, const bool hdr
             continue;
         }
         const uint8_t *ptr = nal_unit.ptr;
-        int header_size = 0;
+        size_t header_size = 0;
         //nal header
         if (ptr[0] == 0x00
             && ptr[1] == 0x00
@@ -1344,7 +1344,7 @@ RGY_ERR RGYInputAvcodec::parseHDR10plusDOVIRpuAV1(AVPacket *pkt, const bool hdr1
             const uint8_t *const start_metadata = start_obu + 1 /*metadata type*/;
             int metadata_size = av1_unit->unit_data.size() - av1_unit->obu_offset - 1/*metadata type*/;
             if (hdr10plus
-                && metadata_size > sizeof(av1_itut_t35_header_hdr10plus)
+                && metadata_size > (int)sizeof(av1_itut_t35_header_hdr10plus)
                 && memcmp(start_metadata, av1_itut_t35_header_hdr10plus, sizeof(av1_itut_t35_header_hdr10plus)) == 0) {
                 if (fin_pos[-1] == 0x80) {
                     metadata_size--;
@@ -1355,7 +1355,7 @@ RGY_ERR RGYInputAvcodec::parseHDR10plusDOVIRpuAV1(AVPacket *pkt, const bool hdr1
                 }
             }
             if (doviRpu
-                && metadata_size > sizeof(av1_itut_t35_header_dovirpu)
+                && metadata_size > (int)sizeof(av1_itut_t35_header_dovirpu)
                 && memcmp(start_metadata, av1_itut_t35_header_dovirpu, sizeof(av1_itut_t35_header_dovirpu)) == 0) {
                 if (fin_pos[-1] == 0x80) {
                     metadata_size--;
