@@ -98,6 +98,7 @@
   - [--cu-max \<int\> \[HEVC\]](#--cu-max-int-hevc)
   - [--cu-min \<int\> \[HEVC\]](#--cu-min-int-hevc)
   - [--alpha-bitrate-ratio \<int\> \[HEVC\]](#--alpha-bitrate-ratio-int-hevc)
+  - [--alpha-channel-mode \<string\> \[HEVC\]](#--alpha-channel-mode-string-hevc)
   - [--tf-level \<int\> \[HEVC\]](#--tf-level-int-hevc)
   - [--part-size-min \<int\> \[AV1\]](#--part-size-min-int-av1)
   - [--part-size-max \<int\> \[AV1\]](#--part-size-max-int-av1)
@@ -754,6 +755,11 @@ Specify the maximum and minimum size of CU respectively. 8, 16, 32 can be specif
 Set bitrate ratio for alpha channel which can be used with ```--output-csp yuva420```. Default value is 0 (for "auto").
 
 When the value is set to "x", then approximately "1 / (x+1)" of the bitrate will be used for alpha channel. Therefore, smaller value will result more bitrate to be spent for alpha layer.
+
+### --alpha-channel-mode &lt;string&gt; [HEVC]
+Set alpha channel mode. (default: straight)
+- straight
+- premultiplied
 
 ### --tf-level &lt;int&gt; [HEVC]  
 Set HEVC temporal filtering, requires bframes >= 4. (Default: 0)

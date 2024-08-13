@@ -646,6 +646,12 @@ const CX_DESC list_nvenc_caps_me_only[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_hevc_alpha_channel_mode[] = {
+    { _T("straight"),       0 },
+    { _T("premultiplied"),  1 },
+    { NULL, 0 }
+};
+
 typedef struct NVEncCap {
     int id;              //feature ID
     const TCHAR *name;   //feature名
@@ -729,6 +735,7 @@ struct InEncodeVideoParam {
     int losslessIgnoreInputCsp;
     bool alphaChannel;
     int alphaBitrateRatio;
+    int alphaChannelMode;
     int nWeightP;
     int chromaQPOffset;
     int brefMode;

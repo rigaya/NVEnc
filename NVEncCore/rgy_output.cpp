@@ -83,7 +83,8 @@ RGYOutput::RGYOutput() :
     m_OutType(OUT_TYPE_BITSTREAM),
     m_sourceHWMem(false),
     m_y4mHeaderWritten(false),
-    m_enableHEVCAlphaChannelInfoSEIFix(false),
+    m_enableHEVCAlphaChannelInfoSEIOverwrite(false),
+    m_HEVCAlphaChannelMode(0),
     m_strWriterName(),
     m_strOutputInfo(),
     m_VideoOutputInfo(),
@@ -358,8 +359,8 @@ std::pair<RGY_ERR, std::vector<uint8_t>> RGYOutput::getMetadata(const RGYFrameDa
 }
 
 
-RGY_ERR RGYOutput::FixHEVCAlphaChannelInfoSEI(RGYBitstream *bitstream) {
-    if (m_VideoOutputInfo.codec != RGY_CODEC_HEVC || !m_enableHEVCAlphaChannelInfoSEIFix) {
+RGY_ERR RGYOutput::OverwriteHEVCAlphaChannelInfoSEI(RGYBitstream *bitstream) {
+    if (m_VideoOutputInfo.codec != RGY_CODEC_HEVC || !m_enableHEVCAlphaChannelInfoSEIOverwrite) {
         return RGY_ERR_NONE;
     }
     RGYBitstream bsCopy = RGYBitstreamInit();
@@ -387,7 +388,7 @@ RGY_ERR RGYOutput::FixHEVCAlphaChannelInfoSEI(RGYBitstream *bitstream) {
             const auto sei_data = unnal(ptr, nal.size - nal_header_size);
             const auto sei_type = sei_data[0];
             if (sei_type == ALPHA_CHANNEL_INFO) { // alpha_channel_information
-                const auto nalbuf = gen_hevc_alpha_channel_info_sei();
+                const auto nalbuf = gen_hevc_alpha_channel_info_sei(m_HEVCAlphaChannelMode);
                 bitstream->append(nalbuf.data(), nalbuf.size());
             } else {
                 bitstream->append(nal.ptr, nal.size);
@@ -681,8 +682,9 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         m_doviRpu = rawPrm->doviRpu;
         m_timestamp = rawPrm->vidTimestamp;
         m_debugDirectAV1Out = rawPrm->debugDirectAV1Out;
-        m_enableHEVCAlphaChannelInfoSEIFix = ENCODER_NVENC && rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->HEVCAlphaChannel;
-        if (m_enableHEVCAlphaChannelInfoSEIFix) {
+        m_HEVCAlphaChannelMode = rawPrm->HEVCAlphaChannelMode;
+        m_enableHEVCAlphaChannelInfoSEIOverwrite = rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->HEVCAlphaChannel;
+        if (m_enableHEVCAlphaChannelInfoSEIOverwrite) {
             AddMessage(RGY_LOG_DEBUG, _T("enableHEVCAlphaChannelInfoSEIFix : on\n"));
         }
         if (rawPrm->debugRawOut) {
@@ -758,7 +760,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
     }
 
     // NVENCのalpha_channel_info SEIの出力は変なので、適切なものに置き換える
-    auto err = FixHEVCAlphaChannelInfoSEI(pBitstream);
+    auto err = OverwriteHEVCAlphaChannelInfoSEI(pBitstream);
     if (err != RGY_ERR_NONE) {
         return err;
     }
@@ -1125,6 +1127,7 @@ RGY_ERR initWriters(
     const bool videoDtsUnavailable,
     const bool benchmark,
     const bool HEVCAlphaChannel,
+    const int HEVCAlphaChannelMode,
     RGYPoolAVPacket *poolPkt,
     RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,
@@ -1197,6 +1200,7 @@ RGY_ERR initWriters(
         writerPrm.lowlatency              = ctrl->lowLatency;
         writerPrm.debugDirectAV1Out       = common->debugDirectAV1Out;
         writerPrm.HEVCAlphaChannel        = HEVCAlphaChannel;
+        writerPrm.HEVCAlphaChannelMode    = HEVCAlphaChannelMode;
         writerPrm.muxOpt                  = common->muxOpt;
         writerPrm.poolPkt                 = poolPkt;
         writerPrm.poolFrame               = poolFrame;
@@ -1501,6 +1505,7 @@ RGY_ERR initWriters(
             rawPrm.vidTimestamp = vidTimestamp;
             rawPrm.debugDirectAV1Out = common->debugDirectAV1Out;
             rawPrm.HEVCAlphaChannel = HEVCAlphaChannel;
+            rawPrm.HEVCAlphaChannelMode = HEVCAlphaChannelMode;
             rawPrm.debugRawOut = common->debugRawOut;
             rawPrm.outReplayFile = common->outReplayFile;
             rawPrm.outReplayCodec = common->outReplayCodec;

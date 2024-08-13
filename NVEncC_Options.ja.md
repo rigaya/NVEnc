@@ -94,6 +94,7 @@
   - [--cu-max \<int\> \[HEVC\]](#--cu-max-int-hevc)
   - [--cu-min \<int\> \[HEVC\]](#--cu-min-int-hevc)
   - [--alpha-bitrate-ratio \<int\> \[HEVC\]](#--alpha-bitrate-ratio-int-hevc)
+  - [--alpha-channel-mode \<string\> \[HEVC\]](#--alpha-channel-mode-string-hevc)
   - [--tf-level \<int\> \[HEVC\]](#--tf-level-int-hevc)
   - [--part-size-min \<int\> \[AV1\]](#--part-size-min-int-av1)
   - [--part-size-max \<int\> \[AV1\]](#--part-size-max-int-av1)
@@ -758,9 +759,14 @@ HEVCの規格では64まで存在するが、現状NVENCでは32までしかサ�
 **画質が低下する恐れがあることがわかっているので、--cu-min / --cu-max の使用は非推奨。**
 
 ### --alpha-bitrate-ratio &lt;int&gt; [HEVC]
-```--output-csp yuva420```でAlphaチャンネルエンコードを行う際に、Alphaチャンネルに割り当てるビットレートの割合を指定する。デフォルトは0で「自動」。
+```--output-csp yuva420```でalphaチャンネルエンコードを行う際に、alphaチャンネルに割り当てるビットレートの割合を指定する。デフォルトは0で「自動」。
 
-この値を"x"に設定すると、ビットレートの約 "1/(x+1)" がAlphaチャンネルに割り当てられる。つまり、値が小さいほど、Alphaチャンネルに多くのビットレートが使用される。
+この値を"x"に設定すると、ビットレートの約 "1/(x+1)" がalphaチャンネルに割り当てられる。つまり、値が小さいほど、alphaチャンネルに多くのビットレートが使用される。
+
+### --alpha-channel-mode &lt;string&gt; [HEVC]
+```--output-csp yuva420```でalphaチャンネルエンコードを行う際のalphaチャンネルのモードを指定する。(デフォルト: straight)
+- straight
+- premultiplied
 
 ### --tf-level &lt;int&gt; [HEVC]  
 HEVC temporal filterの指定。Bフレーム数が4以上である必要がある。(デフォルト: 0)

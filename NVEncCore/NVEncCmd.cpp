@@ -270,7 +270,10 @@ tstring encoder_help() {
         _T("    warning: it is not recommended to use --cu-max or --cu-min,\n")
         _T("             leaving it auto will enhance video quality.\n")
         _T("   --alpha-bitrate-ratio  <int> [HEVC] set ratio for alpha bitrate.\n")
-        _T("                                       smaller value will use more bitrate for alpha.\n"));
+        _T("                                       smaller value will use more bitrate for alpha.\n")
+        _T("   --alpha-channel-mode <string> [HEVC] set alpha channel mode.\n")
+        _T("                                  - straight (default)\n")
+        _T("                                  - premultiplied\n"));
 
     str += strsprintf(_T("\n")
         _T("   --part-size-min <int>        [AV1] min size of luma coding block partition.\n")
@@ -1441,6 +1444,19 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("alpha-channel-mode")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_hevc_alpha_channel_mode, strInput[i], &value)) {
+            pParams->alphaChannelMode = value;
+        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->alphaChannelMode = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("split-enc")) {
         i++;
         int value = 0;
@@ -1824,6 +1840,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_HEVC(_T("--cu-max"), _T(""), maxCUSize, list_hevc_cu_size);
         OPT_LST_HEVC(_T("--cu-min"), _T(""), minCUSize, list_hevc_cu_size);
         OPT_NUM(_T("--alpha-bitrate-ratio"), alphaBitrateRatio);
+        OPT_LST(_T("--alpha-channel-mode"), alphaChannelMode, list_hevc_alpha_channel_mode);
     }
     if (pParams->codec_rgy == RGY_CODEC_H264 || save_disabled_prm) {
         OPT_LST_H264(_T("--level"), _T(":h264"), level, list_avc_level);

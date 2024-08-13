@@ -78,9 +78,8 @@ int get_hevc_sei_size(size_t& size, const uint8_t *ptr) {
     return ptr - orig_ptr;
 }
 
-std::vector<uint8_t> gen_hevc_alpha_channel_info_sei() {
-    // NVENCの作成するalpha_channel_info_seiはなんか変
-    // 下記資料に基づいて、適切なものを再生成する
+std::vector<uint8_t> gen_hevc_alpha_channel_info_sei(const int mode) {
+    // 下記資料に基づいて生成する
     // https://developer.apple.com/av-foundation/HEVC-Video-with-Alpha-Interoperability-Profile.pdf
     std::vector<uint8_t> header = { 0x00, 0x00, 0x00, 0x01 };
     std::vector<uint8_t> buf;
@@ -89,16 +88,15 @@ std::vector<uint8_t> gen_hevc_alpha_channel_info_sei() {
     add_u16(buf, u16);
     buf.push_back(ALPHA_CHANNEL_INFO);
     buf.push_back(4); // size
+    buf.push_back((mode & 0x07) << 4);
     buf.push_back(0);
-    buf.push_back(0);
-    buf.push_back(0xff);
-    buf.push_back(1 << 7);
+    buf.push_back(0x7f);
+    buf.push_back(0x90);
     to_nal(buf);
 
     std::vector<uint8_t> nalbuf;
     vector_cat(nalbuf, header);
     vector_cat(nalbuf, buf);
-    nalbuf.push_back(0x80);
     return nalbuf;
 }
 

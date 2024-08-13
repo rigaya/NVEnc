@@ -234,7 +234,7 @@ size_t get_av1_uleb_size_bytes(uint64_t value);
 std::vector<uint8_t> get_av1_uleb_size_data(uint64_t value);
 std::vector<uint8_t> gen_av1_obu_metadata(const uint8_t metadata_type, const std::vector<uint8_t>& metadata);
 int get_hevc_sei_size(size_t& size, const uint8_t *ptr);
-std::vector<uint8_t> gen_hevc_alpha_channel_info_sei();
+std::vector<uint8_t> gen_hevc_alpha_channel_info_sei(const int mode);
 
 struct RGYHDRMetadataPrm {
     int maxcll;

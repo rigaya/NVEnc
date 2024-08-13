@@ -813,8 +813,9 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.outputFps = av_make_q(videoOutputInfo->fpsN, videoOutputInfo->fpsD);
     AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), m_Mux.video.outputFps.num, m_Mux.video.outputFps.den);
 
-    m_enableHEVCAlphaChannelInfoSEIFix = ENCODER_NVENC && videoOutputInfo->codec == RGY_CODEC_HEVC && prm->HEVCAlphaChannel;
-    if (m_enableHEVCAlphaChannelInfoSEIFix) {
+    m_HEVCAlphaChannelMode = prm->HEVCAlphaChannelMode;
+    m_enableHEVCAlphaChannelInfoSEIOverwrite = videoOutputInfo->codec == RGY_CODEC_HEVC && prm->HEVCAlphaChannel;
+    if (m_enableHEVCAlphaChannelInfoSEIOverwrite) {
         AddMessage(RGY_LOG_DEBUG, _T("enableHEVCAlphaChannelInfoSEIFix : on\n"));
     }
 
@@ -2405,8 +2406,8 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream
                 const auto sei_type = sei_data[0];
                 // alpha_channel_infoもextradataに追加しておく必要がある
                 if (sei_type == ALPHA_CHANNEL_INFO) {
-                    if (m_enableHEVCAlphaChannelInfoSEIFix) { // NVENCのalpha_channel_info SEIの出力は変なので、適切なものを追加しておく
-                        vector_cat(hevc_header, gen_hevc_alpha_channel_info_sei());
+                    if (m_enableHEVCAlphaChannelInfoSEIOverwrite) {
+                        vector_cat(hevc_header, gen_hevc_alpha_channel_info_sei(m_HEVCAlphaChannelMode));
                     } else {
                         vector_cat(hevc_header, nal.ptr, nal.size);
                     }
@@ -2768,7 +2769,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
     }
 
     // NVENCのalpha_channel_info SEIの出力は変なので、適切なものに置き換える
-    auto err = FixHEVCAlphaChannelInfoSEI(bitstream);
+    auto err = OverwriteHEVCAlphaChannelInfoSEI(bitstream);
     if (err != RGY_ERR_NONE) {
         return err;
     }
