@@ -1465,7 +1465,9 @@ struct VppTweak {
     VppTweak();
     bool operator==(const VppTweak &x) const;
     bool operator!=(const VppTweak &x) const;
-    tstring print(const bool print_rgb = true) const;
+    tstring print(const bool print_rgb = true, const bool print_header = true) const;
+    bool yuv_filter_enabled() const;
+    bool rgb_filter_enabled() const;
 };
 
 struct VppTransform {

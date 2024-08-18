@@ -50,6 +50,7 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
-    std::unique_ptr<NVEncFilter> m_convSrc;
-    std::unique_ptr<NVEncFilter> m_convDst;
+    std::unique_ptr<NVEncFilter> m_convA;
+    std::unique_ptr<NVEncFilter> m_convB;
+    std::unique_ptr<NVEncFilter> m_convC;
 };
