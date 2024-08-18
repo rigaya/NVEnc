@@ -898,6 +898,9 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
         if (!m_tmpBuf[i]) {
             auto bufCsp = RGY_CSP_NA;
             switch (RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp]) {
+            case RGY_CHROMAFMT_RGB:
+                bufCsp = (rgy_csp_has_alpha(prm->frameOut.csp)) ? RGY_CSP_RGBA : RGY_CSP_RGB;
+                break;
             case RGY_CHROMAFMT_YUV444:
                 bufCsp = (rgy_csp_has_alpha(prm->frameOut.csp)) ? RGY_CSP_YUVA444 : RGY_CSP_YUV444;
                 break;
