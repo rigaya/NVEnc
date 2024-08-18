@@ -201,7 +201,10 @@ RGY_ERR NVEncFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     auto planeOutputU = getPlane(ppOutputFrames[0], RGY_PLANE_U);
     auto planeOutputV = getPlane(ppOutputFrames[0], RGY_PLANE_V);
 
-    sts = padPlane(&planeOutputY, &planeInputY, (uint16_t)(16 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8)), &pPadParam->pad, stream);
+    const int padColorY = (RGY_CSP_CHROMA_FORMAT[m_param->frameIn.csp] == RGY_CHROMAFMT_RGB) ? 0 : (uint16_t)(16 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8));
+    const int padColorC = (RGY_CSP_CHROMA_FORMAT[m_param->frameIn.csp] == RGY_CHROMAFMT_RGB) ? 0 : (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8));
+
+    sts = padPlane(&planeOutputY, &planeInputY, padColorY, &pPadParam->pad, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
     auto uvPad = pPadParam->pad;
@@ -217,10 +220,10 @@ RGY_ERR NVEncFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         sts = RGY_ERR_UNSUPPORTED;
     }
 
-    sts = padPlane(&planeOutputU, &planeInputU, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8)), &uvPad, stream);
+    sts = padPlane(&planeOutputU, &planeInputU, padColorC, &uvPad, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
-    sts = padPlane(&planeOutputV, &planeInputV, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_param->frameIn.csp] - 8)), &uvPad, stream);
+    sts = padPlane(&planeOutputV, &planeInputV, padColorC, &uvPad, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
     if (rgy_csp_has_alpha(m_param->frameIn.csp)) {
