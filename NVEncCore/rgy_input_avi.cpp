@@ -123,7 +123,7 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 continue;
             }
             if (bih[i].biCompression == BI_RGB) {
-                m_inputCsp = (bih[i].biBitCount == 24) ? RGY_CSP_RGB24R : RGY_CSP_RGB32R;
+                m_inputCsp = (bih[i].biBitCount == 24) ? RGY_CSP_BGR24R : RGY_CSP_BGR32R;
             } else {
                 m_inputCsp = codec_fcc_to_rgy(bih[i].biCompression);
                 if (m_inputCsp == RGY_CSP_NA) {
@@ -146,22 +146,22 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 return RGY_ERR_MORE_DATA;
             }
 
-            m_inputCsp = (bmpInfoHeader->biBitCount == 24) ? RGY_CSP_RGB24R : RGY_CSP_RGB32R;
+            m_inputCsp = (bmpInfoHeader->biBitCount == 24) ? RGY_CSP_BGR24R : RGY_CSP_BGR32R;
         }
     }
 
     switch (m_inputCsp) {
     case RGY_CSP_YUY2:   m_nYPitchMultiplizer = 2; break;
-    case RGY_CSP_RGB24R: m_nYPitchMultiplizer = 3; break;
-    case RGY_CSP_RGB32R: m_nYPitchMultiplizer = 4; break;
+    case RGY_CSP_BGR24R: m_nYPitchMultiplizer = 3; break;
+    case RGY_CSP_BGR32R: m_nYPitchMultiplizer = 4; break;
     case RGY_CSP_YV12:
     default: m_nYPitchMultiplizer = 1; break;
     }
 
-    if (m_inputCsp == RGY_CSP_RGB32R) {
-        m_inputVideoInfo.csp = RGY_CSP_RGB32;
-    } else if (m_inputCsp == RGY_CSP_RGB24R) {
-        m_inputVideoInfo.csp = (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32;
+    if (m_inputCsp == RGY_CSP_BGR32R) {
+        m_inputVideoInfo.csp = RGY_CSP_BGR32;
+    } else if (m_inputCsp == RGY_CSP_BGR24R) {
+        m_inputVideoInfo.csp = (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_BGR32;
     } else {
         m_inputVideoInfo.csp = RGY_CSP_NV12;
     }

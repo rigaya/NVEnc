@@ -65,13 +65,13 @@ void convert_uv_yv12_to_nv12_avx2(void **dst, const void **src, int width, int s
 
 void convert_rgb24_to_rgb_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_bgr24_to_rgb_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb24r_to_rgb_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr24r_to_rgb_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_rgb32_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_bgr32_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb32r_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr32r_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_rgb32_to_rgba_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_bgr32_to_rgba_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb32r_to_rgba_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr32r_to_rgba_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
 void convert_argb32_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_abgr32_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
@@ -85,23 +85,23 @@ void convert_bgr24_to_rgb24_ssse3(void **dst, const void **src, int width, int s
 void convert_bgr32_to_rgb32_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
 void convert_rgb24_to_rgb32_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb24r_to_rgb32_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr24r_to_bgr32_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_rgb24_to_rgb32_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb24r_to_rgb32_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr24r_to_bgr32_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_rgb24_to_rgb32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb24r_to_rgb32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr24r_to_bgr32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
 void convert_rgb32_to_rgb32_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb32r_to_rgb32_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr32r_to_bgr32_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_rgb32_to_rgb32_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb32r_to_rgb32_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr32r_to_bgr32_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_rgb32_to_rgb32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb32r_to_rgb32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr32r_to_bgr32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
 void convert_rgb24_to_rgb24_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb24r_to_rgb24_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr24r_to_bgr24_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_rgb24_to_rgb24_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
-void convert_rgb24r_to_rgb24_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
+void convert_bgr24r_to_bgr24_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
 void copy_rgb_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void copy_gbr_to_rgb_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
@@ -334,7 +334,6 @@ void copy_nv12p010_to_nv12p010_c_internal(void **dst, const void **src, int widt
         const auto y_range = thread_y_range(crop_up >> i, (height - crop_bottom) >> i, thread_id, thread_n);
         const uint8_t *srcYLine = ((const uint8_t *)src[i] + src_y_pitch_byte * y_range.start_src + crop_left * sizeof(uint16_t));
         uint8_t *dstLine = (uint8_t *)dst[i] + dst_y_pitch_byte * y_range.start_dst;
-        const int y_width = width - crop_right - crop_left;
         for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
             const int x_fin = width - crop_right - crop_left;
             const Tin *ptrSrc = (const Tin *)srcYLine;
@@ -2056,6 +2055,10 @@ void convert_gbr_to_rgb32_c(void **dst, const void **src, int width, int src_y_p
     return convert_rgb_to_rgb_packed_c<4, 0, 1, 2, 2, 0, 1>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
+void convert_gbr_to_gbr32_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_to_rgb_packed_c<4, 2, 0, 1, 2, 0, 1>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
 void convert_rgb_to_bgr24_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     return convert_rgb_to_rgb_packed_c<3, 2, 1, 0, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
@@ -2070,6 +2073,10 @@ void convert_rgb_to_rgb24_c(void **dst, const void **src, int width, int src_y_p
 
 void convert_rgb_to_rgb32_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     return convert_rgb_to_rgb_packed_c<4, 0, 1, 2, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_rgb_to_gbr32_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_rgb_to_rgb_packed_c<4, 2, 0, 1, 0, 1, 2>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
 
@@ -2174,14 +2181,14 @@ static const ConvertCSP funcList[] = {
 
     FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB,   false, convert_rgb24_to_rgb_ssse3,       convert_rgb24_to_rgb_ssse3,     SSSE3|SSE2)
     FUNC_SSE(  RGY_CSP_BGR24,  RGY_CSP_RGB,   false, convert_bgr24_to_rgb_ssse3,       convert_bgr24_to_rgb_ssse3,     SSSE3|SSE2)
-    FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB,   false, convert_rgb24r_to_rgb_ssse3,      convert_rgb24r_to_rgb_ssse3,    SSSE3|SSE2)
+    FUNC_SSE(  RGY_CSP_BGR24R, RGY_CSP_RGB,   false, convert_bgr24r_to_rgb_ssse3,      convert_bgr24r_to_rgb_ssse3,    SSSE3|SSE2)
     FUNC_SSE(  RGY_CSP_RGB32,  RGY_CSP_RGB,   false, convert_rgb32_to_rgb_sse2,        convert_rgb32_to_rgb_sse2,      SSE2 )
     FUNC_SSE(  RGY_CSP_BGR32,  RGY_CSP_RGB,   false, convert_bgr32_to_rgb_sse2,        convert_bgr32_to_rgb_sse2,      SSE2 )
-    FUNC_SSE(  RGY_CSP_RGB32R, RGY_CSP_RGB,   false, convert_rgb32r_to_rgb_sse2,       convert_rgb32r_to_rgb_sse2,     SSE2 )
+    FUNC_SSE(  RGY_CSP_BGR32R, RGY_CSP_RGB,   false, convert_bgr32r_to_rgb_sse2,       convert_bgr32r_to_rgb_sse2,     SSE2 )
 
     FUNC_SSE(  RGY_CSP_RGB32,  RGY_CSP_RGBA,  false, convert_rgb32_to_rgba_sse2,       convert_rgb32_to_rgba_sse2,     SSE2 )
     FUNC_SSE(  RGY_CSP_BGR32,  RGY_CSP_RGBA,  false, convert_bgr32_to_rgba_sse2,       convert_bgr32_to_rgba_sse2,     SSE2 )
-    FUNC_SSE(  RGY_CSP_RGB32R, RGY_CSP_RGBA,  false, convert_rgb32r_to_rgba_sse2,      convert_rgb32r_to_rgba_sse2,    SSE2 )
+    FUNC_SSE(  RGY_CSP_BGR32R, RGY_CSP_RGBA,  false, convert_bgr32r_to_rgba_sse2,      convert_bgr32r_to_rgba_sse2,    SSE2 )
     
     FUNC_SSE(  RGY_CSP_ARGB32, RGY_CSP_RGB,   false, convert_argb32_to_rgb_sse2,       convert_argb32_to_rgb_sse2,     SSE2 )
     FUNC_SSE(  RGY_CSP_ABGR32, RGY_CSP_RGB,   false, convert_abgr32_to_rgb_sse2,       convert_abgr32_to_rgb_sse2,     SSE2 )
@@ -2198,31 +2205,44 @@ static const ConvertCSP funcList[] = {
     FUNC__C_(  RGY_CSP_GBRA,   RGY_CSP_RGB24, false, convert_gbr_to_rgb24_c,           convert_gbr_to_rgb24_c,         NONE )
     FUNC__C_(  RGY_CSP_GBR,    RGY_CSP_RGB32, false, convert_gbr_to_rgb32_c,           convert_gbr_to_rgb32_c,         NONE )
     FUNC__C_(  RGY_CSP_GBRA,   RGY_CSP_RGB32, false, convert_gbr_to_rgb32_c,           convert_gbr_to_rgb32_c,         NONE )
+    FUNC__C_(  RGY_CSP_GBR,    RGY_CSP_BGR32, false, convert_gbr_to_bgr32_c,           convert_gbr_to_bgr32_c,         NONE )
+    FUNC__C_(  RGY_CSP_GBRA,   RGY_CSP_BGR32, false, convert_gbr_to_bgr32_c,           convert_gbr_to_bgr32_c,         NONE )
 
     FUNC__C_(  RGY_CSP_RGB,    RGY_CSP_RGB24, false, convert_rgb_to_rgb24_c,           convert_rgb_to_rgb24_c,         NONE )
     FUNC__C_(  RGY_CSP_RGBA,   RGY_CSP_RGB24, false, convert_rgb_to_rgb24_c,           convert_rgb_to_rgb24_c,         NONE )
     FUNC__C_(  RGY_CSP_RGB,    RGY_CSP_RGB32, false, convert_rgb_to_rgb32_c,           convert_rgb_to_rgb32_c,         NONE )
     FUNC__C_(  RGY_CSP_RGBA,   RGY_CSP_RGB32, false, convert_rgb_to_rgb32_c,           convert_rgb_to_rgb32_c,         NONE )
+    FUNC__C_(  RGY_CSP_RGB,    RGY_CSP_RGB32, false, convert_rgb_to_bgr32_c,           convert_rgb_to_bgr32_c,         NONE )
+    FUNC__C_(  RGY_CSP_RGBA,   RGY_CSP_RGB32, false, convert_rgb_to_bgr32_c,           convert_rgb_to_bgr32_c,         NONE )
 
     FUNC_SSE(  RGY_CSP_RGB,    RGY_CSP_RGB,   false, copy_rgb_to_rgb_sse2,             copy_rgb_to_rgb_sse2,           SSE2 )
     FUNC_SSE(  RGY_CSP_GBR,    RGY_CSP_RGB,   false, copy_gbr_to_rgb_sse2,             copy_gbr_to_rgb_sse2,           SSE2 )
 
     FUNC_AVX2( RGY_CSP_RGB24,  RGY_CSP_RGB32, false, convert_rgb24_to_rgb32_avx2,      convert_rgb24_to_rgb32_avx2,      AVX2|AVX )
-    FUNC_AVX2( RGY_CSP_RGB24R, RGY_CSP_RGB32, false, convert_rgb24r_to_rgb32_avx2,     convert_rgb24r_to_rgb32_avx2,     AVX2|AVX )
     FUNC_AVX(  RGY_CSP_RGB24,  RGY_CSP_RGB32, false, convert_rgb24_to_rgb32_avx,       convert_rgb24_to_rgb32_avx,       AVX )
-    FUNC_AVX(  RGY_CSP_RGB24R, RGY_CSP_RGB32, false, convert_rgb24r_to_rgb32_avx,      convert_rgb24r_to_rgb32_avx,      AVX )
     FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB32, false, convert_rgb24_to_rgb32_ssse3,     convert_rgb24_to_rgb32_ssse3,     SSSE3|SSE2 )
-    FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB32, false, convert_rgb24r_to_rgb32_ssse3,    convert_rgb24r_to_rgb32_ssse3,    SSSE3|SSE2 )
     FUNC_AVX2( RGY_CSP_RGB32,  RGY_CSP_RGB32, false, convert_rgb32_to_rgb32_avx2,      convert_rgb32_to_rgb32_avx2,      AVX2|AVX )
-    FUNC_AVX2( RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_avx2,     convert_rgb32r_to_rgb32_avx2,     AVX2|AVX )
     FUNC_AVX(  RGY_CSP_RGB32,  RGY_CSP_RGB32, false, convert_rgb32_to_rgb32_avx,       convert_rgb32_to_rgb32_avx,       AVX )
-    FUNC_AVX(  RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_avx,      convert_rgb32r_to_rgb32_avx,      AVX )
     FUNC_SSE(  RGY_CSP_RGB32,  RGY_CSP_RGB32, false, convert_rgb32_to_rgb32_sse2,      convert_rgb32_to_rgb32_sse2,      SSE2 )
-    FUNC_SSE(  RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_sse2,     convert_rgb32r_to_rgb32_sse2,     SSE2 )
     FUNC_AVX2( RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_avx2,      convert_rgb24_to_rgb24_avx2,      AVX2|AVX)
-    FUNC_AVX2( RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_avx2,     convert_rgb24r_to_rgb24_avx2,     AVX2|AVX)
     FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_sse2,      convert_rgb24_to_rgb24_sse2,      SSE2 )
-    FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_sse2,     convert_rgb24r_to_rgb24_sse2,     SSE2 )
+    FUNC_AVX2( RGY_CSP_BGR24,  RGY_CSP_BGR32, false, convert_rgb24_to_rgb32_avx2,      convert_rgb24_to_rgb32_avx2,      AVX2|AVX )
+    FUNC_AVX(  RGY_CSP_BGR24,  RGY_CSP_BGR32, false, convert_rgb24_to_rgb32_avx,       convert_rgb24_to_rgb32_avx,       AVX )
+    FUNC_SSE(  RGY_CSP_BGR24,  RGY_CSP_BGR32, false, convert_rgb24_to_rgb32_ssse3,     convert_rgb24_to_rgb32_ssse3,     SSSE3|SSE2 )
+    FUNC_AVX2( RGY_CSP_BGR32,  RGY_CSP_BGR32, false, convert_rgb32_to_rgb32_avx2,      convert_rgb32_to_rgb32_avx2,      AVX2|AVX )
+    FUNC_AVX(  RGY_CSP_BGR32,  RGY_CSP_BGR32, false, convert_rgb32_to_rgb32_avx,       convert_rgb32_to_rgb32_avx,       AVX )
+    FUNC_SSE(  RGY_CSP_BGR32,  RGY_CSP_BGR32, false, convert_rgb32_to_rgb32_sse2,      convert_rgb32_to_rgb32_sse2,      SSE2 )
+    FUNC_AVX2( RGY_CSP_BGR24,  RGY_CSP_BGR24, false, convert_rgb24_to_rgb24_avx2,      convert_rgb24_to_rgb24_avx2,      AVX2|AVX)
+    FUNC_SSE(  RGY_CSP_BGR24,  RGY_CSP_BGR24, false, convert_rgb24_to_rgb24_sse2,      convert_rgb24_to_rgb24_sse2,      SSE2 )
+
+    FUNC_AVX2( RGY_CSP_BGR24R, RGY_CSP_BGR32, false, convert_bgr24r_to_bgr32_avx2,     convert_bgr24r_to_bgr32_avx2,     AVX2|AVX )
+    FUNC_AVX(  RGY_CSP_BGR24R, RGY_CSP_BGR32, false, convert_bgr24r_to_bgr32_avx,      convert_bgr24r_to_bgr32_avx,      AVX )
+    FUNC_SSE(  RGY_CSP_BGR24R, RGY_CSP_BGR32, false, convert_bgr24r_to_bgr32_ssse3,    convert_bgr24r_to_bgr32_ssse3,    SSSE3|SSE2 )
+    FUNC_AVX2( RGY_CSP_BGR32R, RGY_CSP_BGR32, false, convert_bgr32r_to_bgr32_avx2,     convert_bgr32r_to_bgr32_avx2,     AVX2|AVX )
+    FUNC_AVX(  RGY_CSP_BGR32R, RGY_CSP_BGR32, false, convert_bgr32r_to_bgr32_avx,      convert_bgr32r_to_bgr32_avx,      AVX )
+    FUNC_SSE(  RGY_CSP_BGR32R, RGY_CSP_BGR32, false, convert_bgr32r_to_bgr32_sse2,     convert_bgr32r_to_bgr32_sse2,     SSE2 )
+    FUNC_AVX2( RGY_CSP_BGR24R, RGY_CSP_BGR24, false, convert_bgr24r_to_bgr24_avx2,     convert_bgr24r_to_bgr24_avx2,     AVX2|AVX)
+    FUNC_SSE(  RGY_CSP_BGR24R, RGY_CSP_BGR24, false, convert_bgr24r_to_bgr24_sse2,     convert_bgr24r_to_bgr24_sse2,     SSE2 )
 
     FUNC_AVX2( RGY_CSP_YV12,      RGY_CSP_P010,      false, convert_yv12_to_p010_avx2,           convert_yv12_to_p010_avx2,    AVX2|AVX )
     FUNC_AVX(  RGY_CSP_YV12,      RGY_CSP_P010,      false, convert_yv12_to_p010_avx,            convert_yv12_to_p010_avx,     AVX )
@@ -2306,18 +2326,18 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX2( RGY_CSP_YUV444,    RGY_CSP_YUV444,    false, copy_yuv444_to_yuv444_avx2,          copy_yuv444_to_yuv444_avx2,      AVX2|AVX )
     FUNC_SSE(  RGY_CSP_YUV444,    RGY_CSP_YUV444,    false, copy_yuv444_to_yuv444_sse2,          copy_yuv444_to_yuv444_sse2,      SSE2 )
     FUNC__C_(  RGY_CSP_YUV444,    RGY_CSP_YUV444,    false, copy_yuv444_to_yuv444_c,             copy_yuv444_to_yuv444_c,         NONE )
-    FUNC_AVX2( RGY_CSP_YUV444_16, RGY_CSP_AYUV,      false, copy_yuv444_16_to_ayuv444_avx2,      copy_yuv444_16_to_ayuv444_avx2,  AVX2|AVX )
-    FUNC_SSE(  RGY_CSP_YUV444_16, RGY_CSP_AYUV,      false, copy_yuv444_16_to_ayuv444_sse2,      copy_yuv444_16_to_ayuv444_sse2,  SSE2 )
-    FUNC_AVX2( RGY_CSP_YUV444_14, RGY_CSP_AYUV,      false, copy_yuv444_14_to_ayuv444_avx2,      copy_yuv444_14_to_ayuv444_avx2,  AVX2|AVX )
-    FUNC_SSE(  RGY_CSP_YUV444_14, RGY_CSP_AYUV,      false, copy_yuv444_14_to_ayuv444_sse2,      copy_yuv444_14_to_ayuv444_sse2,  SSE2 )
-    FUNC_AVX2( RGY_CSP_YUV444_12, RGY_CSP_AYUV,      false, copy_yuv444_12_to_ayuv444_avx2,      copy_yuv444_12_to_ayuv444_avx2,  AVX2|AVX )
-    FUNC_SSE(  RGY_CSP_YUV444_12, RGY_CSP_AYUV,      false, copy_yuv444_12_to_ayuv444_sse2,      copy_yuv444_12_to_ayuv444_sse2,  SSE2 )
-    FUNC_AVX2( RGY_CSP_YUV444_10, RGY_CSP_AYUV,      false, copy_yuv444_10_to_ayuv444_avx2,      copy_yuv444_10_to_ayuv444_avx2,  AVX2|AVX )
-    FUNC_SSE(  RGY_CSP_YUV444_10, RGY_CSP_AYUV,      false, copy_yuv444_10_to_ayuv444_sse2,      copy_yuv444_10_to_ayuv444_sse2,  SSE2 )
-    FUNC_AVX2( RGY_CSP_YUV444_09, RGY_CSP_AYUV,      false, copy_yuv444_09_to_ayuv444_avx2,      copy_yuv444_09_to_ayuv444_avx2,  AVX2|AVX )
-    FUNC_SSE(  RGY_CSP_YUV444_09, RGY_CSP_AYUV,      false, copy_yuv444_09_to_ayuv444_sse2,      copy_yuv444_09_to_ayuv444_sse2,  SSE2 )
-    FUNC_AVX2( RGY_CSP_YUV444,    RGY_CSP_AYUV,      false, copy_yuv444_to_ayuv444_avx2,         copy_yuv444_to_ayuv444_avx2,     AVX2|AVX )
-    FUNC_SSE(  RGY_CSP_YUV444,    RGY_CSP_AYUV,      false, copy_yuv444_to_ayuv444_sse2,         copy_yuv444_to_ayuv444_sse2,     SSE2 )
+    FUNC_AVX2( RGY_CSP_YUV444_16, RGY_CSP_VUYA,      false, copy_yuv444_16_to_ayuv444_avx2,      copy_yuv444_16_to_ayuv444_avx2,  AVX2|AVX )
+    FUNC_SSE(  RGY_CSP_YUV444_16, RGY_CSP_VUYA,      false, copy_yuv444_16_to_ayuv444_sse2,      copy_yuv444_16_to_ayuv444_sse2,  SSE2 )
+    FUNC_AVX2( RGY_CSP_YUV444_14, RGY_CSP_VUYA,      false, copy_yuv444_14_to_ayuv444_avx2,      copy_yuv444_14_to_ayuv444_avx2,  AVX2|AVX )
+    FUNC_SSE(  RGY_CSP_YUV444_14, RGY_CSP_VUYA,      false, copy_yuv444_14_to_ayuv444_sse2,      copy_yuv444_14_to_ayuv444_sse2,  SSE2 )
+    FUNC_AVX2( RGY_CSP_YUV444_12, RGY_CSP_VUYA,      false, copy_yuv444_12_to_ayuv444_avx2,      copy_yuv444_12_to_ayuv444_avx2,  AVX2|AVX )
+    FUNC_SSE(  RGY_CSP_YUV444_12, RGY_CSP_VUYA,      false, copy_yuv444_12_to_ayuv444_sse2,      copy_yuv444_12_to_ayuv444_sse2,  SSE2 )
+    FUNC_AVX2( RGY_CSP_YUV444_10, RGY_CSP_VUYA,      false, copy_yuv444_10_to_ayuv444_avx2,      copy_yuv444_10_to_ayuv444_avx2,  AVX2|AVX )
+    FUNC_SSE(  RGY_CSP_YUV444_10, RGY_CSP_VUYA,      false, copy_yuv444_10_to_ayuv444_sse2,      copy_yuv444_10_to_ayuv444_sse2,  SSE2 )
+    FUNC_AVX2( RGY_CSP_YUV444_09, RGY_CSP_VUYA,      false, copy_yuv444_09_to_ayuv444_avx2,      copy_yuv444_09_to_ayuv444_avx2,  AVX2|AVX )
+    FUNC_SSE(  RGY_CSP_YUV444_09, RGY_CSP_VUYA,      false, copy_yuv444_09_to_ayuv444_sse2,      copy_yuv444_09_to_ayuv444_sse2,  SSE2 )
+    FUNC_AVX2( RGY_CSP_YUV444,    RGY_CSP_VUYA,      false, copy_yuv444_to_ayuv444_avx2,         copy_yuv444_to_ayuv444_avx2,     AVX2|AVX )
+    FUNC_SSE(  RGY_CSP_YUV444,    RGY_CSP_VUYA,      false, copy_yuv444_to_ayuv444_sse2,         copy_yuv444_to_ayuv444_sse2,     SSE2 )
     FUNC_AVX2( RGY_CSP_YUV444_16, RGY_CSP_Y410,      false, convert_yuv444_16_to_y410_avx2,      convert_yuv444_16_to_y410_avx2,  AVX2|AVX)
     FUNC_SSE(  RGY_CSP_YUV444_16, RGY_CSP_Y410,      false, convert_yuv444_16_to_y410_sse41,     convert_yuv444_16_to_y410_sse41, SSE41)
     FUNC_SSE(  RGY_CSP_YUV444_16, RGY_CSP_Y410,      false, convert_yuv444_16_to_y410_sse2,      convert_yuv444_16_to_y410_sse2,  SSE2)
@@ -2524,4 +2544,35 @@ const TCHAR *get_simd_str(RGY_SIMD simd) {
         }
     }
     return _T("-");
+}
+
+
+
+const TCHAR *rgb_order_str(RGY_RGB_ORDER order, bool include_alpha) {
+    if (!include_alpha) {
+        switch (order) {
+        case RGY_RGB_ORDER_RGBA: order = RGY_RGB_ORDER_RGB; break;
+        case RGY_RGB_ORDER_BGRA: order = RGY_RGB_ORDER_BGR; break;
+        case RGY_RGB_ORDER_GBRA: order = RGY_RGB_ORDER_GBR; break;
+        case RGY_RGB_ORDER_RBGA: order = RGY_RGB_ORDER_RBG; break;
+        case RGY_RGB_ORDER_ARGB: return nullptr;
+        case RGY_RGB_ORDER_ABGR: return nullptr;
+        case RGY_RGB_ORDER_AGBR: return nullptr;
+        default: break;
+        }
+    }
+    switch (order) {
+    case RGY_RGB_ORDER_RGB: return _T("rgb");
+    case RGY_RGB_ORDER_BGR: return _T("bgr");
+    case RGY_RGB_ORDER_GBR: return _T("gbr");
+    case RGY_RGB_ORDER_RBG: return _T("rbg");
+    case RGY_RGB_ORDER_RGBA: return _T("rgba");
+    case RGY_RGB_ORDER_BGRA: return _T("bgra");
+    case RGY_RGB_ORDER_GBRA: return _T("gbra");
+    case RGY_RGB_ORDER_RBGA: return _T("rbga");
+    case RGY_RGB_ORDER_ARGB: return _T("argb");
+    case RGY_RGB_ORDER_ABGR: return _T("abgr");
+    case RGY_RGB_ORDER_AGBR: return _T("agbr");
+    default: return nullptr;
+    }
 }

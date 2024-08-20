@@ -233,22 +233,26 @@ RGY_ERR RGYSysFrame::allocate(const RGYFrameInfo &info) {
 
     int pixsize = (RGY_CSP_BIT_DEPTH[frame.csp] + 7) / 8;
     switch (frame.csp) {
-    case RGY_CSP_RGB24R:
+    case RGY_CSP_BGR24R:
     case RGY_CSP_RGB24:
     case RGY_CSP_BGR24:
     case RGY_CSP_YC48:
         pixsize *= 3;
         break;
-    case RGY_CSP_RGB32R:
+    case RGY_CSP_BGR32R:
     case RGY_CSP_RGB32:
     case RGY_CSP_BGR32:
     case RGY_CSP_ARGB32:
     case RGY_CSP_ABGR32:
-    case RGY_CSP_RGBA_FP16_P:
+    case RGY_CSP_RBGA32:
         pixsize *= 4;
         break;
-    case RGY_CSP_AYUV:
-    case RGY_CSP_AYUV_16:
+    case RGY_CSP_RBGA64:
+    case RGY_CSP_RGBA_FP16_P:
+        pixsize *= 8;
+        break;
+    case RGY_CSP_VUYA:
+    case RGY_CSP_VUYA_16:
         pixsize *= 4;
         break;
     case RGY_CSP_YUY2:

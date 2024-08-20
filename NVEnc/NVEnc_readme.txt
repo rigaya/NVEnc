@@ -215,6 +215,15 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2024.08.21 (7.65)
+- ffmpeg 7.0に更新。(Windows版)
+  - ffmpeg     7.0    -> 20240820
+  - dav1d      1.4.1  -> 1.4.3
+  - libvpl     2.11.0 -> 2.12.0
+  - nv-codec-headers 12.2.72.0 (new!)
+  - MMT/TLV対応パッチを組み込み
+- vpp-nlmeans, vpp-tweak, vpp-padをRGB処理に対応。
+
 2024.08.13 (7.64)
 - --dhdr10-info copyと--dolby-vision-rpu copyを併用すると、--dhdr10-info copyが効かなくなっていた問題を修正。
 - alphaチャンネルのモードを指定するオプションを追加。
