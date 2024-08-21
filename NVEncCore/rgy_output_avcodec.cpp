@@ -2500,9 +2500,11 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
     }
     //不正なオプションを渡していないかチェック
     for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Mux.format.headerOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
-        AddMessage(RGY_LOG_WARN, _T("Unknown option to muxer: %s=%s, this will be ignored\n"),
-            char_to_tstring(t->key).c_str(),
-            char_to_tstring(t->value).c_str());
+        if (strcmp(t->key, "strict") != 0) {
+            AddMessage(RGY_LOG_WARN, _T("Unknown option to muxer: %s=%s, this will be ignored\n"),
+                char_to_tstring(t->key).c_str(),
+                char_to_tstring(t->value).c_str());
+        }
     }
 
     av_dump_format(m_Mux.format.formatCtx, 0, tchar_to_string(m_Mux.format.filename, CP_UTF8).c_str(), 1);
