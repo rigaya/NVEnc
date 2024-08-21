@@ -530,20 +530,39 @@ RGYOutputBSF::~RGYOutputBSF() { }
 
 RGY_ERR RGYOutputBSF::applyBitstreamFilter(RGYBitstream *bitstream) {
     if (m_codec == RGY_CODEC_H264 || m_codec == RGY_CODEC_HEVC) {
-        int target_nal = 0;
+        int target_nal_start = -1;
+        int target_nal_end = -1;
         std::vector<nal_info> nal_list;
         if (m_codec == RGY_CODEC_HEVC) {
-            target_nal = NALU_HEVC_SPS;
             nal_list = m_parse_nal_hevc(bitstream->data(), bitstream->size());
+            for (int i = 0; i < (int)nal_list.size(); i++) {
+                if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
+                    if (target_nal_start < 0) target_nal_start = i;
+                    target_nal_end = i;
+                } else if (target_nal_start >= 0) {
+                    break;
+                }
+            }
         } else if (m_codec == RGY_CODEC_H264) {
-            target_nal = NALU_H264_SPS;
             nal_list = m_parse_nal_h264(bitstream->data(), bitstream->size());
+            for (int i = 0; i < (int)nal_list.size(); i++) {
+                if (nal_list[i].type == NALU_H264_SPS || nal_list[i].type == NALU_H264_PPS) {
+                    if (target_nal_start < 0) target_nal_start = i;
+                    target_nal_end = i;
+                } else if (target_nal_start >= 0) {
+                    break;
+                }
+            }
         }
-        auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [target_nal](nal_info info) { return info.type == target_nal; });
-        if (sps_nal != nal_list.end()) {
+        if (target_nal_start > 0) {
+            const ptrdiff_t header_size = (ptrdiff_t)(nal_list[target_nal_end].ptr - nal_list[target_nal_start].ptr) + nal_list[target_nal_end].size;
+            if (header_size <= 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Unexpected error occured running bitstream filter.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
             AVPacket *pkt = m_pkt.get();
-            av_new_packet(pkt, (int)sps_nal->size);
-            memcpy(pkt->data, sps_nal->ptr, sps_nal->size);
+            av_new_packet(pkt, (int)header_size);
+            memcpy(pkt->data, nal_list[target_nal_start].ptr, header_size);
             int ret = 0;
             if (0 > (ret = av_bsf_send_packet(m_bsfc.get(), pkt))) {
                 av_packet_unref(pkt);
@@ -559,17 +578,23 @@ RGY_ERR RGYOutputBSF::applyBitstreamFilter(RGYBitstream *bitstream) {
                     char_to_tstring(m_bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            const auto new_data_size = bitstream->size() + pkt->size - sps_nal->size;
-            const auto sps_nal_offset = sps_nal->ptr - bitstream->data();
-            const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-            const auto next_nal_new_offset = sps_nal_offset + pkt->size;
-            const auto stream_orig_length = bitstream->size();
+            const auto new_data_size = bitstream->size() + pkt->size - header_size;
             m_bsfBuffer.resize(new_data_size);
-            if (sps_nal_offset > 0) {
-                memcpy(m_bsfBuffer.data(), bitstream->data(), sps_nal_offset);
+            size_t offset = 0;
+            for (int i = 0; i < target_nal_start; i++) {
+                memcpy(m_bsfBuffer.data() + offset, nal_list[i].ptr, nal_list[i].size);
+                offset += nal_list[i].size;
             }
-            memcpy(m_bsfBuffer.data() + sps_nal_offset, pkt->data, pkt->size);
-            memcpy(m_bsfBuffer.data() + next_nal_new_offset, bitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+            memcpy(m_bsfBuffer.data() + offset, pkt->data, pkt->size);
+            offset += pkt->size;
+            for (int i = target_nal_end+1; i < (int)nal_list.size(); i++) {
+                memcpy(m_bsfBuffer.data() + offset, nal_list[i].ptr, nal_list[i].size);
+                offset += nal_list[i].size;
+            }
+            if (new_data_size != offset) {
+                AddMessage(RGY_LOG_ERROR, _T("Unexpected error occured after running bitstream filter.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
             bitstream->copy(m_bsfBuffer.data(), new_data_size);
             av_packet_unref(pkt);
 
