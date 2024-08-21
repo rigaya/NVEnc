@@ -75,7 +75,7 @@ int get_hevc_sei_size(size_t& size, const uint8_t *ptr) {
         ptr++;
     }
     size += ptr[0];
-    return ptr - orig_ptr;
+    return (int)(ptr - orig_ptr);
 }
 
 std::vector<uint8_t> gen_hevc_alpha_channel_info_sei(const int mode) {

@@ -1342,7 +1342,7 @@ RGY_ERR RGYInputAvcodec::parseHDR10plusDOVIRpuAV1(AVPacket *pkt, const bool hdr1
         const uint8_t *const start_obu = start_pos + av1_unit->obu_offset;
         if (start_obu[0] == AV1_METADATA_TYPE_ITUT_T35) { // metadata type
             const uint8_t *const start_metadata = start_obu + 1 /*metadata type*/;
-            int metadata_size = av1_unit->unit_data.size() - av1_unit->obu_offset - 1/*metadata type*/;
+            int metadata_size = (int)av1_unit->unit_data.size() - av1_unit->obu_offset - 1/*metadata type*/;
             if (hdr10plus
                 && metadata_size > (int)sizeof(av1_itut_t35_header_hdr10plus)
                 && memcmp(start_metadata, av1_itut_t35_header_hdr10plus, sizeof(av1_itut_t35_header_hdr10plus)) == 0) {
