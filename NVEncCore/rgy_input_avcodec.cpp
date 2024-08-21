@@ -1515,6 +1515,13 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
             return RGY_ERR_INVALID_FORMAT;
         }
     }
+    //コーデックの指定があれば、それを渡す
+    if (m_inputVideoInfo.type == RGY_INPUT_FMT_AVSW && input_prm->avswDecoder.length() != 0) {
+        auto codec = avcodec_find_decoder_by_name(tchar_to_string(input_prm->avswDecoder).c_str());
+        if (codec) {
+            m_Demux.format.formatCtx->video_codec = codec;
+        }
+    }
     //ファイルのオープン
     if ((ret = avformat_open_input(&(m_Demux.format.formatCtx), filename_char.c_str(), inFormat, &m_Demux.format.formatOptions)) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("error opening file \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
