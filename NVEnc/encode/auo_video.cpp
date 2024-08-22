@@ -390,7 +390,7 @@ static int send_frame(
                 simd = RGY_SIMD::AVX | RGY_SIMD::POPCNT | RGY_SIMD::SSE42 | RGY_SIMD::SSE41 | RGY_SIMD::SSSE3 | RGY_SIMD::SSE2;
             } else {
                 //SIMDの要求する値で割り切れない場合は、一時バッファを使用してpitchがあるようにする
-                tempBufForNonModWidthPitch = ALIGN(oip->w, 128) * ((input_csp == RGY_CSP_YC48) ? 6 : ((input_csp == RGY_CSP_RGB24R) ? 3 : 2));
+                tempBufForNonModWidthPitch = ALIGN(oip->w, 128) * ((input_csp == RGY_CSP_YC48) ? 6 : ((input_csp == RGY_CSP_BGR24R) ? 3 : 2));
                 tempBufForNonModWidth = std::unique_ptr<uint8_t, aligned_malloc_deleter>(
                     (uint8_t*)_aligned_malloc(tempBufForNonModWidthPitch * oip->h, 128), aligned_malloc_deleter());
             }
@@ -441,7 +441,7 @@ static int send_frame(
     //コピーフレームの場合は、映像バッファの中身を更新せず、そのままパイプに流す
     if (!copy_frame) {
         uint8_t* ptr_src = (uint8_t*)frame;
-        int src_pitch = (input_csp == RGY_CSP_YC48) ? oip->w * 6 : ((input_csp == RGY_CSP_RGB24R) ? oip->w * 3 : oip->w * 2);
+        int src_pitch = (input_csp == RGY_CSP_YC48) ? oip->w * 6 : ((input_csp == RGY_CSP_BGR24R) ? oip->w * 3 : oip->w * 2);
         if (tempBufForNonModWidth) { //SIMDの要求する値で割り切れない場合は、一時バッファを使用してpitchがあるようにする
             for (int j = 0; j < oip->h; j++) {
                 auto dst = tempBufForNonModWidth.get() + tempBufForNonModWidthPitch * j;
@@ -455,7 +455,7 @@ static int send_frame(
         convert->run((enc_prm.input.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
             dst_array, (const void**)&ptr_src, oip->w,
             src_pitch,
-            (input_csp == RGY_CSP_YC48) ? src_pitch : ((input_csp == RGY_CSP_RGB24R) ? src_pitch : src_pitch >> 1),
+            (input_csp == RGY_CSP_YC48) ? src_pitch : ((input_csp == RGY_CSP_BGR24R) ? src_pitch : src_pitch >> 1),
             prmsm->pitch, oip->h, oip->h, dummy);
     }
     prmsm->timestamp[sendFrame & 1] = (int64_t)i * 4;
@@ -589,7 +589,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
     //YUY2/YC48->NV12/YUV444, RGBコピー用関数
     const int input_csp_idx = get_aviutl_color_format(output_highbit_depth, rgy_output_csp);
-    const RGY_CSP input_csp = (input_csp_idx == CF_YC48) ? RGY_CSP_YC48 : ((input_csp_idx == CF_RGB) ? RGY_CSP_RGB24R : RGY_CSP_YUY2);
+    const RGY_CSP input_csp = (input_csp_idx == CF_YC48) ? RGY_CSP_YC48 : ((input_csp_idx == CF_RGB) ? RGY_CSP_BGR24R : RGY_CSP_YUY2);
 
     //自動フィールドシフト関連
     if (pe->muxer_to_be_used != MUXER_DISABLED) {
