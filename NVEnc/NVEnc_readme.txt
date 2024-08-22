@@ -215,13 +215,14 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
-2024.08.21 (7.65)
+2024.08.22 (7.65)
 - ffmpeg 7.0に更新。(Windows版)
-  - ffmpeg     7.0    -> 20240820
+  - ffmpeg     7.0    -> 20240822
   - dav1d      1.4.1  -> 1.4.3
   - libvpl     2.11.0 -> 2.12.0
-  - nv-codec-headers 12.2.72.0 (new!)
-  - MMT/TLV対応パッチを組み込み
+  - libvpx     2.14.0
+  - MMT/TLV対応パッチを組み込み (mmtsを読み込み可能に)
+- --avsw libvpx-vp9で、VP9のYUVA420を読み込めるように。
 - vpp-nlmeans, vpp-tweak, vpp-padをRGB処理に対応。
 
 2024.08.13 (7.64)
