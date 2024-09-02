@@ -13,7 +13,8 @@ RUN dnf update -y \
 
 RUN dnf config-manager --add-repo ${CUDA_REPO_URL} \
     && dnf clean all \
-    && dnf -y install cuda-drivers cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-runtime-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-cudart-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libnpp-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvrtc-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR}
+    && dnf -y module install nvidia-driver:latest-dkms \
+    && dnf -y install cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-runtime-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-cudart-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libnpp-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvrtc-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR}
 ENV CUDA_PATH=/usr/local/cuda
 
 RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
