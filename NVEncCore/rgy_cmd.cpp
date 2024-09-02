@@ -8057,7 +8057,7 @@ tstring gen_cmd_help_vpp() {
         _T("    params\n")
         _T("      quality=<int>         quality of filter (high=higher quality but slow)\n")
         _T("                             (default=%d, 1-6)\n")
-        _T("      qp=<float>            strength of filter (default=%.2f, 0.0-100.0)\n")
+        _T("      qp=<float>            strength of filter (default=%.2f, 0.0-63.0)\n")
         _T("      prec=<string>         Select calculation precision.\n")
         _T("                              auto (default), fp16, fp32\n"),
         FILTER_DEFAULT_SMOOTH_QUALITY, FILTER_DEFAULT_SMOOTH_QP);
