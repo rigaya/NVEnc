@@ -68,7 +68,7 @@ jobs:
         run: |
           curl -s -o hdr10plus_gen_0.00_${{ matrix.platform }}.7z -L https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_${{ matrix.platform }}.7z
           7z x -ohdr10plus_gen\ hdr10plus_gen_0.00_${{ matrix.platform }}.7z
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240822/ffmpeg_dlls_for_hwenc_20240822.7z
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240902/ffmpeg_dlls_for_hwenc_20240902.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           if "${{ matrix.arch }}" == "x64" curl -s -o NVEncNVOFFRUC_x64.7z -L https://github.com/rigaya/NVEnc/releases/download/7.42/NVEncNVOFFRUC_20240303_x64.7z
           if "${{ matrix.arch }}" == "x64" 7z x -oNVEncNVOFFRUCBin -y NVEncNVOFFRUC_x64.7z
@@ -171,7 +171,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240822/ffmpeg_dlls_for_hwenc_20240822.7z
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240902/ffmpeg_dlls_for_hwenc_20240902.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
