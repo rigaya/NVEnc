@@ -983,13 +983,13 @@ const NVEncCodecFeature *NVEncoder::getCodecFeature(const GUID &codec) {
 
 RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, bool skipHWDecodeCheck, bool disableNVML) {
 #define GETATTRIB_CHECK(val, attrib, dev) { \
-        cudaError_t cuErr = cudaDeviceGetAttribute(&(val), (attrib), (dev)); \
-        if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) { \
-            writeLog(error_level, _T("  Error: cudaDeviceGetAttribute(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str()); \
-            return RGY_ERR_CUDA; \
+        auto cuGetAttResult = cuDeviceGetAttribute(&(val), (attrib), (dev)); \
+        if (cuGetAttResult == CUDA_ERROR_INVALID_DEVICE || cuGetAttResult == CUDA_ERROR_INVALID_VALUE) { \
+            writeLog(error_level, _T("  Error: cuDeviceGetAttribute(%s): %s\n"), char_to_tstring(#attrib).c_str(), char_to_tstring(_cudaGetErrorEnum(cuGetAttResult)).c_str()); \
+            return err_to_rgy(cuGetAttResult); \
         } \
-        if (cuErr != cudaSuccess) { \
-            writeLog(error_level, _T("  Warn: cudaDeviceGetAttribute(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str()); \
+        if (cuGetAttResult != CUDA_SUCCESS) { \
+            writeLog(error_level, _T("  Warn: cuDeviceGetAttribute(%s): %s\n"), char_to_tstring(#attrib).c_str(), char_to_tstring(_cudaGetErrorEnum(cuGetAttResult)).c_str()); \
             val = 0; \
         } \
     }
@@ -1033,8 +1033,8 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     }
     writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGetName(%d): %s\n"), deviceID, char_to_tstring(dev_name).c_str());
     int cudaDevMajor = 0, cudaDevMinor = 0;
-    GETATTRIB_CHECK(cudaDevMajor, cudaDevAttrComputeCapabilityMajor, deviceID);
-    GETATTRIB_CHECK(cudaDevMinor, cudaDevAttrComputeCapabilityMinor, deviceID);
+    GETATTRIB_CHECK(cudaDevMajor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, cuDevice);
+    GETATTRIB_CHECK(cudaDevMinor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, cuDevice);
 
     if (((cudaDevMajor << 4) + cudaDevMinor) < 0x30) {
         writeLog(error_level, _T("  Error: device does not satisfy required CUDA version (>=3.0): %d.%d\n"), cudaDevMajor, cudaDevMinor);
@@ -1043,17 +1043,17 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     writeLog(RGY_LOG_DEBUG, _T("  cudaDeviceGetAttribute: CUDA %d.%d\n"), cudaDevMajor, cudaDevMinor);
 
     if (!disableNVML) {
-        auto cuErr = cudaDeviceGetPCIBusId(pci_bus_name, sizeof(pci_bus_name), deviceID);
-        if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) {
-            writeLog((error_if_fail) ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("  Warn: cudaDeviceGetPCIBusId(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
+        cuResult = cuDeviceGetPCIBusId(pci_bus_name, sizeof(pci_bus_name), cuDevice);
+        if (cuResult == CUDA_ERROR_INVALID_DEVICE || cuResult == CUDA_ERROR_INVALID_VALUE) {
+            writeLog((error_if_fail) ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("  Warn: cuDeviceGetPCIBusId(): %s\n"), char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         } else {
             writeLog(RGY_LOG_DEBUG, _T("  PCIBusId: %s\n"), char_to_tstring(pci_bus_name).c_str());
         }
     }
 
     int clockRate = 0, multiProcessorCount = 0;
-    GETATTRIB_CHECK(clockRate, cudaDevAttrClockRate, deviceID);
-    GETATTRIB_CHECK(multiProcessorCount, cudaDevAttrMultiProcessorCount, deviceID);
+    GETATTRIB_CHECK(clockRate, CU_DEVICE_ATTRIBUTE_CLOCK_RATE, cuDevice);
+    GETATTRIB_CHECK(multiProcessorCount, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, cuDevice);
 
     m_id = deviceID;
     m_cudevice = cuDevice;
