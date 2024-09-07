@@ -34,6 +34,7 @@
 #include "convert_csp.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterParam.h"
+#include "NVEncFilterD3D11.h"
 #include "NVEncNVSDKNGX.h"
 
 struct NVEncNVSDKNGXFuncs {
@@ -47,37 +48,6 @@ struct NVEncNVSDKNGXFuncs {
     RGY_ERR load();
     void close();
 };
-
-
-class DeviceDX11;
-struct ID3D11Texture2D;
-struct ID3D11ShaderResourceView;
-
-#if ENABLE_NVSDKNGX
-enum DXGI_FORMAT;
-
-struct CUDADX11Texture {
-public:
-    ID3D11Texture2D *pTexture;
-    ID3D11ShaderResourceView *pSRView;
-    cudaGraphicsResource *cudaResource;
-    cudaArray *cuArray;
-    int width;
-    int height;
-    int offsetInShader;
-    CUDADX11Texture();
-    ~CUDADX11Texture();
-    RGY_ERR create(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3DDeviceCtx, const int width, const int height, const DXGI_FORMAT dxgiformat);
-    RGY_ERR registerTexture();
-    RGY_ERR map();
-    RGY_ERR unmap();
-    cudaArray *getMappedArray();
-    RGY_ERR unregisterTexture();
-
-    RGY_ERR release();
-};
-
-#endif
 
 using unique_nvsdkngx_handle = std::unique_ptr<std::remove_pointer<NVEncNVSDKNGXHandle>::type, decltype(&NVEncNVSDKNGXDelete)>;
 
