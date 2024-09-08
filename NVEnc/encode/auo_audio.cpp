@@ -694,7 +694,7 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
     PathGetDirectory(auddir, _countof(auddir), aud_stg->fullpath);
 
     //wav出力
-    ret |= wav_output(aud_dat, oip, pe, aud_stg->mode[cnf_aud->enc_mode].use_8bit, aud_stg->enable_rf64, sys_dat->exstg->s_local.audio_buffer_size, aud_stg->dispname, auddir, encoder_priority, aud_stg->disable_log);
+    ret |= wav_output(aud_dat, oip, pe, aud_stg->mode[cnf_aud->enc_mode].use_8bit, conf->aud.use_internal || aud_stg->enable_rf64, sys_dat->exstg->s_local.audio_buffer_size, aud_stg->dispname, auddir, encoder_priority, aud_stg->disable_log);
 
     //音声エンコード前バッチ処理
     if (!ret) ret |= run_bat_file(conf, oip, pe, sys_dat, RUN_BAT_BEFORE_AUDIO);
