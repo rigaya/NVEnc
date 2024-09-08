@@ -269,6 +269,7 @@ typedef struct AUDIO_SETTINGS {
     int pipe_input;              //パイプ入力が可能
     DWORD disable_log;           //ログ表示を禁止 (DISABLE_LOG_xxx)
     BOOL  unsupported_mp4;       //mp4非対応
+    BOOL  enable_rf64;           //必要に応じてRF64出力を行う
     char *cmd_base;              //1st pass用コマンドライン
     char *cmd_2pass;             //2nd pass用コマンドライン
     char *cmd_raw;               //raw出力用コマンドライン
