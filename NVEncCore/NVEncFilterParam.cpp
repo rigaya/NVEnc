@@ -559,7 +559,7 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
     if (resize_algo == RGY_VPP_RESIZE_NGX_VSR) {
         cmd << _T(" --vpp-resize ") << get_chr_from_value(list_vpp_resize, resize_algo);
         if (param->ngxVSR.quality != defaultPrm->ngxVSR.quality) {
-            cmd << _T(",quality=") << param->ngxVSR.quality;
+            cmd << _T(",vsr-quality=") << param->ngxVSR.quality;
         }
     } else if (resize_algo == RGY_VPP_RESIZE_NVVFX_SUPER_RES) {
         cmd << _T(" --vpp-resize ") << get_chr_from_value(list_vpp_resize, resize_algo);
