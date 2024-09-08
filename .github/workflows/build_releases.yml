@@ -200,7 +200,7 @@ jobs:
       - name: Download auo_setup
         id: download_auosetup
         run: |
-          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.01/auo_setup_2.01.zip
+          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.01/auo_setup_2.01v2.zip
 
       - name: Download NVEncC Win32
         uses: actions/download-artifact@v4
