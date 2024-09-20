@@ -74,6 +74,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_LIBPLACEBO   (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_FRUC         (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
 #define ENABLE_VPP_ORDER                   (CLFILTERS_AUF)
@@ -200,6 +201,13 @@ VppType vppfilter_str_to_type(tstring str);
 std::vector<CX_DESC> get_list_vpp_filter();
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
+
+static const float FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_RADIUS = -1.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_CLAMP = 0.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_TAPER = 0.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_BLUR = 0.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_ANTIRING = 0.0f;
+static const int   FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_CPLACE = 0;
 
 static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
 static const double FILTER_DEFAULT_COLORSPACE_NOMINAL_SOURCE_PEAK = 100.0;
@@ -465,6 +473,35 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NGX_VSR,
     RGY_VPP_RESIZE_NGX_MAX,
 #endif
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+    RGY_VPP_RESIZE_LIBPLACEBO_SPLINE16,
+    RGY_VPP_RESIZE_LIBPLACEBO_SPLINE36,
+    RGY_VPP_RESIZE_LIBPLACEBO_SPLINE64,
+    RGY_VPP_RESIZE_LIBPLACEBO_NEAREST,
+    RGY_VPP_RESIZE_LIBPLACEBO_BILINEAR,
+    RGY_VPP_RESIZE_LIBPLACEBO_GAUSSIAN,
+    RGY_VPP_RESIZE_LIBPLACEBO_SINC,
+    RGY_VPP_RESIZE_LIBPLACEBO_LANCZOS,
+    RGY_VPP_RESIZE_LIBPLACEBO_GINSENG,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_JINC,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOS,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOSSHARP,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOS4SHARPEST,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_GINSENG,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_HANN,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_HANNING,
+    RGY_VPP_RESIZE_LIBPLACEBO_BICUBIC,
+    RGY_VPP_RESIZE_LIBPLACEBO_TRIANGLE,
+    RGY_VPP_RESIZE_LIBPLACEBO_HERMITE,
+    RGY_VPP_RESIZE_LIBPLACEBO_CATMULL_ROM,
+    RGY_VPP_RESIZE_LIBPLACEBO_MITCHELL,
+    RGY_VPP_RESIZE_LIBPLACEBO_MITCHELL_CLAMP,
+    RGY_VPP_RESIZE_LIBPLACEBO_ROBIDOUX,
+    RGY_VPP_RESIZE_LIBPLACEBO_ROBIDOUXSHARP,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_ROBIDOUX,
+    RGY_VPP_RESIZE_LIBPLACEBO_EWA_ROBIDOUXSHARP,
+    RGY_VPP_RESIZE_LIBPLACEBO_MAX,
+#endif
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_AMF_BILINEAR,
     RGY_VPP_RESIZE_AMF_BICUBIC,
@@ -495,6 +532,9 @@ enum RGY_VPP_RESIZE_TYPE {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_TYPE_NVVFX,
     RGY_VPP_RESIZE_TYPE_NGX,
+#endif
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+    RGY_VPP_RESIZE_TYPE_LIBPLACEBO,
 #endif
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_TYPE_AMF,
@@ -529,6 +569,15 @@ static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
 static bool isNgxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_NGX;
+#else
+    UNREFERENCED_PARAMETER(interp);
+    return false;
+#endif
+}
+
+static bool isLibplaceboResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+    return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_LIBPLACEBO;
 #else
     UNREFERENCED_PARAMETER(interp);
     return false;
@@ -586,6 +635,34 @@ const CX_DESC list_vpp_resize[] = {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("ngx-vsr"),      RGY_VPP_RESIZE_NGX_VSR },
 #endif
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+    { _T("libplacebo-spline16"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE16 },
+    { _T("libplacebo-spline36"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE36 },
+    { _T("libplacebo-spline64"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE64 },
+    { _T("libplacebo-nearest"),  RGY_VPP_RESIZE_LIBPLACEBO_NEAREST },
+    { _T("libplacebo-bilinear"), RGY_VPP_RESIZE_LIBPLACEBO_BILINEAR },
+    { _T("libplacebo-gaussian"), RGY_VPP_RESIZE_LIBPLACEBO_GAUSSIAN },
+    { _T("libplacebo-sinc"),     RGY_VPP_RESIZE_LIBPLACEBO_SINC },
+    { _T("libplacebo-lanczos"),  RGY_VPP_RESIZE_LIBPLACEBO_LANCZOS },
+    { _T("libplacebo-ginseng"),  RGY_VPP_RESIZE_LIBPLACEBO_GINSENG },
+    { _T("libplacebo-ewa_jinc"), RGY_VPP_RESIZE_LIBPLACEBO_EWA_JINC },
+    { _T("libplacebo-ewa_lanczos"),          RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOS },
+    { _T("libplacebo-ewa_lanczossharp"),     RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOSSHARP },
+    { _T("libplacebo-ewa_lanczos4sharpest"), RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOS4SHARPEST },
+    { _T("libplacebo-ewa_ginseng"),          RGY_VPP_RESIZE_LIBPLACEBO_EWA_GINSENG },
+    { _T("libplacebo-ewa_hann"),             RGY_VPP_RESIZE_LIBPLACEBO_EWA_HANN },
+    { _T("libplacebo-ewa_hanning"),          RGY_VPP_RESIZE_LIBPLACEBO_EWA_HANNING },
+    { _T("libplacebo-bicubic"),              RGY_VPP_RESIZE_LIBPLACEBO_BICUBIC },
+    { _T("libplacebo-triangle"),             RGY_VPP_RESIZE_LIBPLACEBO_TRIANGLE },
+    { _T("libplacebo-hermite"),              RGY_VPP_RESIZE_LIBPLACEBO_HERMITE },
+    { _T("libplacebo-catmull_rom"),          RGY_VPP_RESIZE_LIBPLACEBO_CATMULL_ROM },
+    { _T("libplacebo-mitchell"),             RGY_VPP_RESIZE_LIBPLACEBO_MITCHELL },
+    { _T("libplacebo-mitchell_clamp"),       RGY_VPP_RESIZE_LIBPLACEBO_MITCHELL_CLAMP },
+    { _T("libplacebo-robidoux"),             RGY_VPP_RESIZE_LIBPLACEBO_ROBIDOUX },
+    { _T("libplacebo-robidouxsharp"),        RGY_VPP_RESIZE_LIBPLACEBO_ROBIDOUXSHARP },
+    { _T("libplacebo-ewa_robidoux"),         RGY_VPP_RESIZE_LIBPLACEBO_EWA_ROBIDOUX },
+    { _T("libplacebo-ewa_robidouxsharp"),    RGY_VPP_RESIZE_LIBPLACEBO_EWA_ROBIDOUXSHARP },
+#endif
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
     { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
@@ -636,6 +713,37 @@ const CX_DESC list_vpp_resize_help[] = {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
 #endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    { _T("ngx-vsr"),      RGY_VPP_RESIZE_NGX_VSR },
+#endif
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+    { _T("libplacebo-spline16"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE16 },
+    { _T("libplacebo-spline36"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE36 },
+    { _T("libplacebo-spline64"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE64 },
+    { _T("libplacebo-nearest"),  RGY_VPP_RESIZE_LIBPLACEBO_NEAREST },
+    { _T("libplacebo-bilinear"), RGY_VPP_RESIZE_LIBPLACEBO_BILINEAR },
+    { _T("libplacebo-gaussian"), RGY_VPP_RESIZE_LIBPLACEBO_GAUSSIAN },
+    { _T("libplacebo-sinc"),     RGY_VPP_RESIZE_LIBPLACEBO_SINC },
+    { _T("libplacebo-lanczos"),  RGY_VPP_RESIZE_LIBPLACEBO_LANCZOS },
+    { _T("libplacebo-ginseng"),  RGY_VPP_RESIZE_LIBPLACEBO_GINSENG },
+    { _T("libplacebo-ewa_jinc"), RGY_VPP_RESIZE_LIBPLACEBO_EWA_JINC },
+    { _T("libplacebo-ewa_lanczos"),          RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOS },
+    { _T("libplacebo-ewa_lanczossharp"),     RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOSSHARP },
+    { _T("libplacebo-ewa_lanczos4sharpest"), RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOS4SHARPEST },
+    { _T("libplacebo-ewa_ginseng"),          RGY_VPP_RESIZE_LIBPLACEBO_EWA_GINSENG },
+    { _T("libplacebo-ewa_hann"),             RGY_VPP_RESIZE_LIBPLACEBO_EWA_HANN },
+    { _T("libplacebo-ewa_hanning"),          RGY_VPP_RESIZE_LIBPLACEBO_EWA_HANNING },
+    { _T("libplacebo-bicubic"),              RGY_VPP_RESIZE_LIBPLACEBO_BICUBIC },
+    { _T("libplacebo-triangle"),             RGY_VPP_RESIZE_LIBPLACEBO_TRIANGLE },
+    { _T("libplacebo-hermite"),              RGY_VPP_RESIZE_LIBPLACEBO_HERMITE },
+    { _T("libplacebo-catmull_rom"),          RGY_VPP_RESIZE_LIBPLACEBO_CATMULL_ROM },
+    { _T("libplacebo-mitchell"),             RGY_VPP_RESIZE_LIBPLACEBO_MITCHELL },
+    { _T("libplacebo-mitchell_clamp"),       RGY_VPP_RESIZE_LIBPLACEBO_MITCHELL_CLAMP },
+    { _T("libplacebo-robidoux"),             RGY_VPP_RESIZE_LIBPLACEBO_ROBIDOUX },
+    { _T("libplacebo-robidouxsharp"),        RGY_VPP_RESIZE_LIBPLACEBO_ROBIDOUXSHARP },
+    { _T("libplacebo-ewa_robidoux"),         RGY_VPP_RESIZE_LIBPLACEBO_EWA_ROBIDOUX },
+    { _T("libplacebo-ewa_robidouxsharp"),    RGY_VPP_RESIZE_LIBPLACEBO_EWA_ROBIDOUXSHARP },
+#endif
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
     { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
@@ -652,6 +760,9 @@ const CX_DESC list_vpp_resize_help[] = {
 #endif
     { NULL, 0 }
 };
+
+static const char *paramsResizeLibPlacebo[] = { "algo", "pl-radius", "pl-clamp", "pl-taper", "pl-blur", "pl-antiring"/*, "pl-cplace"*/ };
+static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality" };
 
 const CX_DESC list_vpp_resize_res_mode[] = {
     { _T("normal"),   (int)RGYResizeResMode::Normal },
@@ -888,6 +999,20 @@ const CX_DESC list_vpp_1_to_10[] = {
     { NULL, 0 }
 };
 
+struct VppLibplaceboResample {
+    bool enable;
+    float radius;
+    float clamp_;
+    float taper;
+    float blur;
+    float antiring;
+    int cplace;
+
+    VppLibplaceboResample();
+    bool operator==(const VppLibplaceboResample &x) const;
+    bool operator!=(const VppLibplaceboResample &x) const;
+    tstring print() const;
+};
 
 struct ColorspaceConv {
     VideoVUIInfo from, to;
@@ -1617,6 +1742,7 @@ struct RGYParamVpp {
     std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
     RGY_VPP_RESIZE_MODE resize_mode;
+    VppLibplaceboResample resize_libplacebo;
     VppColorspace colorspace;
     VppDelogo delogo;
     VppAfs afs;

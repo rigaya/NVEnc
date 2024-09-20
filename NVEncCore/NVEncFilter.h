@@ -144,6 +144,7 @@ protected:
 
 class NVEncFilterParamNvvfxSuperRes;
 class NVEncFilterParamNGXVSR;
+class NVEncFilterParamLibplaceboResample;
 class DeviceDX11;
 
 class NVEncFilterParamResize : public NVEncFilterParam {
@@ -152,6 +153,7 @@ public:
     RGY_VPP_RESIZE_ALGO nvvfxSubAlgo;
     std::shared_ptr<NVEncFilterParamNvvfxSuperRes> nvvfxSuperRes;
     std::shared_ptr<NVEncFilterParamNGXVSR> ngxvsr;
+    std::shared_ptr<NVEncFilterParamLibplaceboResample> libplaceboResample;
     NVEncFilterParamResize();
     virtual ~NVEncFilterParamResize();
     virtual tstring print() const override;
@@ -159,6 +161,7 @@ public:
 
 class NVEncFilterNvvfxSuperRes;
 class NVEncFilterNGXVSR;
+class NVEncFilterLibplaceboResample;
 
 class NVEncFilterResize : public NVEncFilter {
 public:
@@ -178,6 +181,7 @@ protected:
     RGY_VPP_RESIZE_ALGO m_weightSplineAlgo;
     std::unique_ptr<NVEncFilterNvvfxSuperRes> m_nvvfxSuperRes;
     std::unique_ptr<NVEncFilterNGXVSR> m_ngxVSR;
+    std::unique_ptr<NVEncFilterLibplaceboResample> m_libplaceboResample;
 };
 
 

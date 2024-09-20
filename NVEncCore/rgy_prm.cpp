@@ -231,6 +231,10 @@ RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     } else if (resize < RGY_VPP_RESIZE_NGX_MAX) {
         return RGY_VPP_RESIZE_TYPE_NGX;
 #endif
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+    } else if (resize < RGY_VPP_RESIZE_LIBPLACEBO_MAX) {
+        return RGY_VPP_RESIZE_TYPE_LIBPLACEBO;
+#endif
 #if ENCODER_VCEENC
     } else if (resize < RGY_VPP_RESIZE_AMF_MAX) {
         return RGY_VPP_RESIZE_TYPE_AMF;
@@ -242,6 +246,42 @@ RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     } else {
         return RGY_VPP_RESIZE_TYPE_UNKNOWN;
     }
+}
+
+VppLibplaceboResample::VppLibplaceboResample() :
+    enable(false),
+    radius(FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_RADIUS),
+    clamp_(FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_CLAMP),
+    taper(FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_TAPER),
+    blur(FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_BLUR),
+    antiring(FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_ANTIRING),
+    cplace(FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_CPLACE) {
+}
+
+bool VppLibplaceboResample::operator==(const VppLibplaceboResample &x) const {
+    return enable == x.enable
+        && radius == x.radius
+        && clamp_ == x.clamp_
+        && taper == x.taper
+        && blur == x.blur
+        && antiring == x.antiring
+        && cplace == x.cplace;
+}
+bool VppLibplaceboResample::operator!=(const VppLibplaceboResample &x) const {
+    return !(*this == x);
+}
+
+tstring VppLibplaceboResample::print() const {
+    tstring str;
+    if (radius >= 0.0f) {
+        str += strsprintf(_T("radius=%.2f, "), radius);
+    }
+    str += strsprintf(_T("clamp=%.2f"), clamp_);
+    str += strsprintf(_T(", taper=%.2f"), taper);
+    str += strsprintf(_T(", blur=%.2f"), blur);
+    str += strsprintf(_T(", antiring=%.2f"), antiring);
+    //str += strsprintf(_T(", cplace=%d"), cplace);
+    return str;
 }
 
 ColorspaceConv::ColorspaceConv() :

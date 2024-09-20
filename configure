@@ -651,7 +651,7 @@ SRC_NVENCCORE=" \
 CuvidDecode.cpp        FrameQueue.cpp              NVEncCmd.cpp                 NVEncCore.cpp \
 NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           NVEncFilterColorspace.cpp \
 NVEncFilterCurves.cpp  NVEncFilterCustom.cpp       NVEncFilterDelogo.cpp        NVEncFilterDenoiseFFT3D.cpp \
-NVEncFilterDenoiseGauss.cpp NVEncFilterNGX.cpp NVEncFilterNVOFFRUC.cpp \
+NVEncFilterDenoiseGauss.cpp NVEncFilterLibplacebo.cpp NVEncFilterNGX.cpp NVEncFilterNVOFFRUC.cpp \
 NVEncFilterNvvfx.cpp   NVEncFilterOverlay.cpp      NVEncFilterPad.cpp           NVEncFilterParam.cpp \
 NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
 NVEncParam.cpp         NVEncUtil.cpp               cl_func.cpp \

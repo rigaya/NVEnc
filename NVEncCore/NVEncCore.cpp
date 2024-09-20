@@ -80,6 +80,7 @@
 #include "NVEncFilterDenoiseFFT3D.h"
 #include "NVEncFilterNvvfx.h"
 #include "NVEncFilterNGX.h"
+#include "NVEncFilterLibplacebo.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterDecimate.h"
 #include "NVEncFilterMpdecimate.h"
@@ -3072,6 +3073,12 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->ngxvsr->compute_capability = m_dev->cc();
                 param->ngxvsr->dx11 = m_dev->dx11();
                 param->ngxvsr->vui = VuiFiltered;
+            } else if (isLibplaceboResizeFiter(inputParam->vpp.resize_algo)) {
+                param->libplaceboResample = std::make_shared<NVEncFilterParamLibplaceboResample>();
+                param->libplaceboResample->resample = inputParam->vpp.resize_libplacebo;
+                param->libplaceboResample->vui = VuiFiltered;
+                param->libplaceboResample->dx11 = m_dev->dx11();
+                param->libplaceboResample->resize_algo = inputParam->vpp.resize_algo;
             }
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;

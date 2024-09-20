@@ -34,6 +34,7 @@
 #include "NVEncFilter.h"
 #include "NVEncFilterNvvfx.h"
 #include "NVEncFilterNGX.h"
+#include "NVEncFilterLibplacebo.h"
 #include "rgy_prm.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
@@ -663,7 +664,8 @@ NVEncFilterResize::NVEncFilterResize() :
     m_weightSpline(),
     m_weightSplineAlgo(RGY_VPP_RESIZE_UNKNOWN),
     m_nvvfxSuperRes(),
-    m_ngxVSR() {
+    m_ngxVSR(),
+    m_libplaceboResample() {
     m_name = _T("resize");
 }
 
@@ -807,7 +809,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
         sts = initNvvfxFilter(pResizeParam.get());
         if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to init nvvfx filter.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to init nvvfx filter: %s.\n"), get_err_mes(sts));
             return sts;
         }
         resizeInterp = pResizeParam->nvvfxSubAlgo;
@@ -823,13 +825,28 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         pResizeParam->ngxvsr->frameOut = pResizeParam->frameOut;
         sts = m_ngxVSR->init(pResizeParam->ngxvsr, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to init ngx vsr filter.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to init ngx vsr filter: %s.\n"), get_err_mes(sts));
             return sts;
         }
         pResizeParam->frameOut = pResizeParam->ngxvsr->frameOut;
     } else {
         m_ngxVSR.reset(); // 不要になったら解放
         pResizeParam->ngxvsr.reset();
+    }
+    if (isLibplaceboResizeFiter(pResizeParam->interp)) {
+        if (!m_libplaceboResample) {
+            m_libplaceboResample = std::make_unique<NVEncFilterLibplaceboResample>();
+        }
+        pResizeParam->libplaceboResample->frameIn = pResizeParam->frameIn;
+        pResizeParam->libplaceboResample->frameOut = pResizeParam->frameOut;
+        sts = m_libplaceboResample->init(pResizeParam->libplaceboResample, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to init libplacebo resample filter: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    } else {
+        m_libplaceboResample.reset(); // 不要になったら解放
+        pResizeParam->libplaceboResample.reset();
     }
 
     sts = AllocFrameBuf(pResizeParam->frameOut, 1);
@@ -937,7 +954,8 @@ NVEncFilterParamResize::NVEncFilterParamResize() :
     interp(RGY_VPP_RESIZE_SPLINE36),
     nvvfxSubAlgo(RGY_VPP_RESIZE_SPLINE36),
     nvvfxSuperRes(),
-    ngxvsr() {
+    ngxvsr(),
+    libplaceboResample() {
 }
 
 NVEncFilterParamResize::~NVEncFilterParamResize() {};
@@ -957,10 +975,15 @@ tstring NVEncFilterParamResize::print() const {
         }
         return str;
     }
-    return strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
+    auto str = strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
         get_chr_from_value(list_vpp_resize, interp),
         frameIn.width, frameIn.height,
         frameOut.width, frameOut.height);
+    if (libplaceboResample) {
+        str += _T("\n                 ");
+        str += libplaceboResample->print();
+    }
+    return str;
 }
 
 RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
@@ -1013,15 +1036,20 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             ppOutputFrames[0]->width = pResizeParam->nvvfxSuperRes->frameIn.width;
             ppOutputFrames[0]->height = pResizeParam->nvvfxSuperRes->frameIn.height;
         }
-    } else if (m_ngxVSR) {
+    } else if (m_ngxVSR || m_libplaceboResample) {
         RGYFrameInfo inputFrame = *pInputFrame;
-        auto sts_filter = m_ngxVSR->filter(&inputFrame, ppOutputFrames, pOutputFrameNum, stream);
+        NVEncFilter *filter = (m_ngxVSR) ? (NVEncFilter *)m_ngxVSR.get() : (NVEncFilter *)m_libplaceboResample.get();
+        if (filter == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get filter to be applied.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        auto sts_filter = filter->filter(&inputFrame, ppOutputFrames, pOutputFrameNum, stream);
         if (ppOutputFrames[0] == nullptr || *pOutputFrameNum != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_ngxVSR->name().c_str());
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), filter->name().c_str());
             return sts_filter;
         }
         if (sts_filter != RGY_ERR_NONE || *pOutputFrameNum != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_ngxVSR->name().c_str());
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), filter->name().c_str());
             return sts_filter;
         }
         return RGY_ERR_NONE;
@@ -1089,6 +1117,7 @@ void NVEncFilterResize::close() {
     m_frameBuf.clear();
     m_ngxVSR.reset();
     m_nvvfxSuperRes.reset();
+    m_libplaceboResample.reset();
     m_weightSpline.reset();
     m_weightSplineAlgo = RGY_VPP_RESIZE_UNKNOWN;
     m_bInterlacedWarn = false;

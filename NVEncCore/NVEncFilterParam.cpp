@@ -274,7 +274,19 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "superres-mode", "superres-strength", "vsr-quality" };
+        int ret = 0;
+        ///////////////////////////////////////////////////////////////////////////////////////
+        // パラメータを追加したら、paramsResizeNVEncにも追加する！！
+        ///////////////////////////////////////////////////////////////////////////////////////
+        std::vector<std::string> paramListResizeLibPlacebo;
+        for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
+            paramListResizeLibPlacebo.push_back(paramsResizeLibPlacebo[ielem]);
+        }
+        std::vector<std::string> paramList = paramListResizeLibPlacebo;
+        for (size_t ielem = 0; ielem < _countof(paramsResizeNVEnc); ielem++) {
+            paramList.push_back(paramsResizeNVEnc[ielem]);
+        }
+
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -328,6 +340,12 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                     }
                     continue;
                 }
+                if (ENABLE_LIBPLACEBO && std::find_if(paramListResizeLibPlacebo.begin(), paramListResizeLibPlacebo.end(), [param_arg](const std::string& str) {
+                    return param_arg == char_to_tstring(str);
+                    }) != paramListResizeLibPlacebo.end()) {
+                    ret = -1;
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
@@ -341,7 +359,8 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 }
             }
         }
-        return 0;
+        i += ret;
+        return ret;
     }
     if (IS_OPTION("vpp-nvvfx-denoise") && (ENABLE_NVVFX || FOR_AUO)) {
         vppnv->nvvfxDenoise.enable = true;

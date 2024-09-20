@@ -408,12 +408,113 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     if (IS_OPTION("vpp-resize")
         || (IS_OPTION("vpp-scaling") && ENCODER_QSV)) {
         i++;
-        int value;
-        if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_vpp_resize, strInput[i]))) {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_resize_help);
-            return 1;
+        if (ENABLE_LIBPLACEBO) {
+            ///////////////////////////////////////////////////////////////////////////////////////
+            // パラメータを追加したら、paramsResizeLibPlaceboにも追加する！！
+            ///////////////////////////////////////////////////////////////////////////////////////
+            std::vector<std::string> paramListResizeNVEnc;
+            for (size_t ielem = 0; ielem < _countof(paramsResizeNVEnc); ielem++) {
+                paramListResizeNVEnc.push_back(paramsResizeNVEnc[ielem]);
+            }
+            std::vector<std::string> paramList = paramListResizeNVEnc;
+            for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
+                paramList.push_back(paramsResizeLibPlacebo[ielem]);
+            }
+            for (const auto& param : split(strInput[i], _T(","))) {
+                auto pos = param.find_first_of(_T("="));
+                if (pos != std::string::npos) {
+                    auto param_arg = param.substr(0, pos);
+                    auto param_val = param.substr(pos + 1);
+                    param_arg = tolowercase(param_arg);
+                    if (param_arg == _T("algo")) {
+                        int value = 0;
+                        if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) {
+                            vpp->resize_algo = (RGY_VPP_RESIZE_ALGO)value;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("pl-radius")) {
+                        try {
+                            vpp->resize_libplacebo.radius = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("pl-clamp")) {
+                        try {
+                            vpp->resize_libplacebo.clamp_ = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("pl-taper")) {
+                        try {
+                            vpp->resize_libplacebo.taper = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("pl-blur")) {
+                        try {
+                            vpp->resize_libplacebo.blur = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("pl-antiring")) {
+                        try {
+                            vpp->resize_libplacebo.antiring = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("pl-cplace")) {
+                        try {
+                            vpp->resize_libplacebo.cplace = std::stoi(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (ENCODER_NVENC && std::find_if(paramListResizeNVEnc.begin(), paramListResizeNVEnc.end(), [param_arg](const std::string& str) {
+                        return param_arg == char_to_tstring(str);
+                        }) != paramListResizeNVEnc.end()) {
+                        continue;
+                    }
+                    print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                    return 1;
+                } else {
+                    int value = 0;
+                    if (get_list_value(list_vpp_resize, param.c_str(), &value)) {
+                        vpp->resize_algo = (RGY_VPP_RESIZE_ALGO)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name), param, list_vpp_resize);
+                        return 1;
+                    }
+                }
+            }
+        } else {
+            int value;
+            if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_vpp_resize, strInput[i]))) {
+                print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_resize_help);
+                return 1;
+            }
+            vpp->resize_algo = (RGY_VPP_RESIZE_ALGO)value;
         }
-        vpp->resize_algo = (RGY_VPP_RESIZE_ALGO)value;
         return 0;
     }
     if (IS_OPTION("vpp-resize-mode") && ENCODER_QSV) {
@@ -6274,7 +6375,29 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     }
 
     if (!isNvvfxResizeFiter(param->resize_algo) && !isNgxResizeFiter(param->resize_algo)) {
-        OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+        if (isLibplaceboResizeFiter(param->resize_algo)) {
+            OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+            if (param->resize_libplacebo.radius != defaultPrm->resize_libplacebo.radius) {
+                cmd << _T(",radius=") << std::setprecision(3) << param->resize_libplacebo.radius;
+            }
+            if (param->resize_libplacebo.clamp_ != defaultPrm->resize_libplacebo.clamp_) {
+                cmd << _T(",clamp=") << std::setprecision(3) << param->resize_libplacebo.clamp_;
+            }
+            if (param->resize_libplacebo.taper != defaultPrm->resize_libplacebo.taper) {
+                cmd << _T(",taper=") << std::setprecision(3) << param->resize_libplacebo.taper;
+            }
+            if (param->resize_libplacebo.blur != defaultPrm->resize_libplacebo.blur) {
+                cmd << _T(",blur=") << std::setprecision(3) << param->resize_libplacebo.blur;
+            }
+            if (param->resize_libplacebo.antiring != defaultPrm->resize_libplacebo.antiring) {
+                cmd << _T(",antiring=") << std::setprecision(3) << param->resize_libplacebo.antiring;
+            }
+            if (param->resize_libplacebo.cplace != defaultPrm->resize_libplacebo.cplace) {
+                cmd << _T(",cplace=") << param->resize_libplacebo.cplace;
+            }
+        } else {
+            OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+        }
     }
 #if ENCODER_QSV
     OPT_LST(_T("--vpp-resize-mode"), resize_mode, list_vpp_resize_mode);
@@ -7954,7 +8077,7 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_NVVFX || ENABLE_NVSDKNGX
     {
         str += strsprintf(_T("\n")
-            _T("--vpp-resize <string> or [<param1>=<value>][,<param2>=<value>][...]")
+            _T("--vpp-resize <string> or [<param1>=<value>][,<param2>=<value>][...]\n")
             _T("    params\n")
             _T("      algo=<string>             select algorithm"));
         const TCHAR *indent = _T("        ");
@@ -7970,7 +8093,7 @@ tstring gen_cmd_help_vpp() {
             length += (int)_tcslen(list_vpp_resize[ia].desc);
             str += list_vpp_resize[ia].desc;
         }
-        str += _T("        default: auto\n");
+        str += _T("\n        default: auto\n");
         if (ENABLE_NVVFX) {
             str += strsprintf(_T("\n")
                 _T("      superres-mode=<int>\n")
@@ -7983,6 +8106,21 @@ tstring gen_cmd_help_vpp() {
             str += strsprintf(_T("\n")
                 _T("      vsr-quality=<int>\n")
                 _T("        quality for ngx-vsr\n"));
+        }
+        if (ENABLE_LIBPLACEBO) {
+            str += strsprintf(_T("\n")
+                _T("      pl-radius=<float>\n")
+                _T("        radius for libplacebo resample (0.0 - 16.0, default unspecified)\n")
+                _T("      pl-clamp=<float>\n")
+                _T("        clamp for libplacebo resample (0.0 - 1.0, default = %.1f)\n")
+                _T("      pl-taper=<float>\n")
+                _T("        taper for libplacebo resample (0.0 - 1.0, default = %.1f)\n")
+                _T("      pl-blur=<float>\n")
+                _T("        blur for libplacebo resample (0.0 - 100.0, default = %.1f)\n")
+                _T("      pl-antiring=<float>\n")
+                _T("        antiring for libplacebo resample (0.0 - 1.0, default = %.1f)\n"),
+                FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_CLAMP, FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_TAPER,
+                FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_BLUR, FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_ANTIRING);
         }
     }
 #else
