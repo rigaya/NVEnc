@@ -2400,95 +2400,117 @@ Specify the resizing algorithm.
 
 - **options**
   - algo=&lt;string&gt;  
+    When unspecified, it will be auto selected.
     select which algorithm to use.
 
-    | name | description | require npp dlls |
-    |:---|:---|:---:|
-    | auto           | auto select                                                |   |
-    | bilinear       | linear interpolation                                       |   |
-    | bicubic        | bicubic interpolation                                      |   |
-    | spline16       | 4x4 spline curve interpolation                             |   |
-    | spline36       | 6x6 spline curve interpolation                             |   |
-    | spline64       | 8x8 spline curve interpolation                             |   |
-    | lanczos2       | 4x4 Lanczos resampling                                     |   |
-    | lanczos3       | 6x6 Lanczos resampling                                     |   |
-    | lanczos4       | 8x8 Lanczos resampling                                     |   |
-    | nn             | nearest neighbor                                           | ○ |
-    | npp_linear     | linear interpolation by NPP library                        | ○ |
-    | cubic          | 4x4 cubic interpolation                                    | ○ |
-    | super          | So called "super sampling" by NPP library (downscale only) | ○ |
-    | lanczos        | Lanczos interpolation                                      | ○ |
-    | nvvfx-superres | Super Resolution based on nvvfx library (upscale only)     |   |
-    | ngx-vsr        | NVIDIA VSR (Video Super Resolution)     |   |
-    | libplacebo-spline16       | 4x4 spline curve interpolation (libplacebo)                     |   |
-    | libplacebo-spline36       | 6x6 spline curve interpolation (libplacebo)                     |   |
-    | libplacebo-spline64       | 8x8 spline curve interpolation (libplacebo)                     |   |
-    | libplacebo-nearest        | nearest neighbor (libplacebo)                                   |   |
-    | libplacebo-bilinear       | linear interpolation (libplacebo)                               |   |
-    | libplacebo-gaussian       | Gaussian filter (libplacebo)                                    |   |
-    | libplacebo-sinc           | Sinc filter (libplacebo)                                        |   |
-    | libplacebo-lanczos        | Lanczos resampling (libplacebo)                                 |   |
-    | libplacebo-ginseng        | Ginseng filter (libplacebo)                                     |   |
-    | libplacebo-ewa_jinc       | EWA Jinc resampling (libplacebo)                                |   |
-    | libplacebo-ewa_lanczos    | EWA Lanczos resampling (libplacebo)                             |   |
-    | libplacebo-ewa_lanczossharp | EWA Lanczos sharp resampling (libplacebo)                     |   |
-    | libplacebo-ewa_lanczos4sharpest | EWA Lanczos 4 sharpest resampling (libplacebo)           |   |
-    | libplacebo-ewa_ginseng    | EWA Ginseng resampling (libplacebo)                             |   |
-    | libplacebo-ewa_hann       | EWA Hann filter (libplacebo)                                    |   |
-    | libplacebo-ewa_hanning    | EWA Hanning filter (libplacebo)                                 |   |
-    | libplacebo-bicubic        | Bicubic interpolation (libplacebo)                              |   |
-    | libplacebo-triangle       | Triangle filter (libplacebo)                                    |   |
-    | libplacebo-hermite        | Hermite filter (libplacebo)                                     |   |
-    | libplacebo-catmull_rom    | Catmull-Rom spline interpolation (libplacebo)                   |   |
-    | libplacebo-mitchell       | Mitchell-Netravali filter (libplacebo)                          |   |
-    | libplacebo-mitchell_clamp | Mitchell-Netravali filter with clamping (libplacebo)            |   |
-    | libplacebo-robidoux       | Robidoux filter (libplacebo)                                    |   |
-    | libplacebo-robidouxsharp  | Robidoux sharp filter (libplacebo)                              |   |
-    | libplacebo-ewa_robidoux   | EWA Robidoux filter (libplacebo)                                |   |
-    | libplacebo-ewa_robidouxsharp | EWA Robidoux sharp filter (libplacebo)                      |   |
+    - CUDA based resize filters.
 
+      | name | description |
+      |:---|:---|
+      | auto           | auto select                                                |
+      | bilinear       | linear interpolation                                       |
+      | bicubic        | bicubic interpolation                                      |
+      | spline16       | 4x4 spline curve interpolation                             |
+      | spline36       | 6x6 spline curve interpolation                             |
+      | spline64       | 8x8 spline curve interpolation                             |
+      | lanczos2       | 4x4 Lanczos resampling                                     |
+      | lanczos3       | 6x6 Lanczos resampling                                     |
+      | lanczos4       | 8x8 Lanczos resampling                                     |
 
+    - npp library resize filters
 
-  - superres-mode=&lt;int&gt;  
-    select mode for nvvfx-superres
-    - 0 ... conservative (default)
-    - 1 ... aggressive
+      | name | description |
+      |:---|:---|
+      | nn             | nearest neighbor                                           |
+      | npp_linear     | linear interpolation by NPP library                        |
+      | cubic          | 4x4 cubic interpolation                                    |
+      | super          | So called "super sampling" by NPP library (downscale only) |
+      | lanczos        | Lanczos interpolation                                      |
+      
+       Filters on the table will use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only.
+       To use those algorithms, you need to download nppc64_10.dll, nppif64_10.dll, nppig64_10.dll separately and place it in the same folder as NVEncC64.exe.
+       The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/7.00) (npp64_10_dll_7zip.7z).
 
-  - superres-strength=&lt;float&gt;  
-    strength for nvvfx-superres (0.0 - 1.0)
+    - nvvfx library resize filters
 
-  - vsr-quality=&lt;int&gt;
-    quality for ngx-vsr (1 - 4, default=1)
-    larger value results higher quality.
+      | name | description |
+      |:---|:---|
+      | nvvfx-superres | Super Resolution based on nvvfx library (upscale only)     |
 
-    Requires Turing GPUs or later, and requires driver version 550.58 or higher. Supported on Windows system only.
+      ```nvvfx-superres``` is super resolution filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
+      This mode is supported on Turing Gen GPU (RTX20xx) or later. Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this mode.
 
-  - pl-radius=&lt;float&gt;
-    Radius used for resizable algorithm in libplacebo-resample. (0.0 - 16.0, default = 自動)
+      - Additional parameters
+        - superres-mode=&lt;int&gt;  
+          select mode for nvvfx-superres
+          - 0 ... conservative (default)
+          - 1 ... aggressive
+      
+        - superres-strength=&lt;float&gt;  
+          strength for nvvfx-superres (0.0 - 1.0)
 
-  - pl-clamp=&lt;float&gt;
-    Clamp coefficient for negative weights used in libplacebo-resample, 1.0 will make weight 0 for negative weights. (0.0 - 1.0, default = 0.0)
+    - NGX library resize filters
 
-  - pl-taper=&lt;float&gt;
-    Taper will flatten weight function in the center for libplacebo-resample. (0.0 - 1.0, default = 0.0)
+      | name | description |
+      |:---|:---|
+      | ngx-vsr        | NVIDIA VSR (Video Super Resolution)     |   |
 
-  - pl-blur=&lt;float&gt;
-    Additional blur coefficient for libplacebo-resample. (0.0 - 100.0, default = 0.0)
+      Requires Turing GPUs or later, and requires driver version 550.58 or higher. Supported on Windows system only.
 
-  - pl-antiring=&lt;float&gt;
-    Antiringing strength for libplacebo-resample. (0.0 - 1.0, default = 0.0)
+      - Additional parameters
+        - vsr-quality=&lt;int&gt;
+          quality for ngx-vsr (1 - 4, default=1)
+          larger value results higher quality.
+      
+    - libplacebo library resize filters
 
-- Notes
-  - Those with "○" in "npp dlls" on the table will use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only.
-    To use those algorithms, you need to download nppc64_10.dll, nppif64_10.dll, nppig64_10.dll separately and place it in the same folder as NVEncC64.exe.
-    The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/7.00) (npp64_10_dll_7zip.7z).
+      | name | description | resizable |
+      |:---|:---|:---:|
+      | libplacebo-spline16       | 4x4 spline curve interpolation                      | |
+      | libplacebo-spline36       | 6x6 spline curve interpolation                      | |
+      | libplacebo-spline64       | 8x8 spline curve interpolation                      | |
+      | libplacebo-nearest        | nearest neighbor                                    | |
+      | libplacebo-bilinear       | linear interpolation                                | &check; |
+      | libplacebo-gaussian       | Gaussian filter                                     | &check; |
+      | libplacebo-sinc           | Sinc filter                                         | &check; |
+      | libplacebo-lanczos        | Lanczos resampling                                  | &check; |
+      | libplacebo-ginseng        | Ginseng filter                                      | &check; |
+      | libplacebo-ewa-jinc       | EWA Jinc resampling                                 | &check; |
+      | libplacebo-ewa-lanczos    | EWA Lanczos resampling                              | &check; |
+      | libplacebo-ewa-lanczossharp | EWA Lanczos sharp resampling                      | &check; |
+      | libplacebo-ewa-lanczos4sharpest | EWA Lanczos 4 sharpest resampling             | &check; |
+      | libplacebo-ewa-ginseng    | EWA Ginseng resampling                              | &check; |
+      | libplacebo-ewa-hann       | EWA Hann filter                                     | &check; |
+      | libplacebo-ewa-hanning    | EWA Hanning filter                                  | &check; |
+      | libplacebo-bicubic        | Bicubic interpolation                               | |
+      | libplacebo-triangle       | Triangle filter                                     | |
+      | libplacebo-hermite        | Hermite filter                                      | |
+      | libplacebo-catmull-rom    | Catmull-Rom spline interpolation                    | |
+      | libplacebo-mitchell       | Mitchell-Netravali filter                           | |
+      | libplacebo-mitchell-clamp | Mitchell-Netravali filter with clamping             | |
+      | libplacebo-robidoux       | Robidoux filter                                     | |
+      | libplacebo-robidouxsharp  | Robidoux sharp filter                               | |
+      | libplacebo-ewa-robidoux   | EWA Robidoux filter                                 | |
+      | libplacebo-ewa-robidouxsharp | EWA Robidoux sharp filter                        | |
 
-  - ```nvvfx-superres``` is super resolution filter from [NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK), which is supported on  x64 version only.
-    This mode is supported on Turing Gen GPU (RTX20xx) or later. Please download and install [Video Effect models and runtime dependencies](https://www.nvidia.com/broadcast-sdk-resources) to use this mode.
+      These filters are supported on Windows x64 version only.
 
-  - ```ngx-vsr``` is supported on Windows x64 version only, and requires Turing Gen GPU (RTX20xx) or later.
-
-  - ```libplacebo-xxx``` is supported on Windows x64 version only.
+      - Additional parameters
+      
+        - pl-radius=&lt;float&gt;
+          Radius used for resizable algorithm in libplacebo-resample. (0.0 - 16.0, default = 自動)
+      
+        - pl-clamp=&lt;float&gt;
+          Clamp coefficient for negative weights used in libplacebo-resample, 1.0 will make weight 0 for negative weights. (0.0 - 1.0, default = 0.0)
+      
+        - pl-taper=&lt;float&gt;
+          Taper will flatten weight function in the center for libplacebo-resample. (0.0 - 1.0, default = 0.0)
+      
+        - pl-blur=&lt;float&gt;
+          Additional blur coefficient for libplacebo-resample. (0.0 - 100.0, default = 0.0)
+      
+        - pl-antiring=&lt;float&gt;
+          Antiringing strength for libplacebo-resample. (0.0 - 1.0, default = 0.0)
 
 - **Examples**
   ```
@@ -2500,6 +2522,12 @@ Specify the resizing algorithm.
 
   Examples: Use nvvfx-superres in mode 1
   --vpp-resize algo=nvvfx-superres,superres-mode=1
+
+  Examples: Use ngx-vsr in best quality
+  --vpp-resize algo=ngx-vsr,vsr-quality=4
+
+  Examples: Use libplacebo resize filters
+  --vpp-resize algo=libplacebo-sinc,pl-radius=3.0,pl-antiring=0.5
   ```
 
 

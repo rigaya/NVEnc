@@ -2457,97 +2457,121 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
 
 - **オプション**
   - algo=&lt;string&gt;  
-    | 名前 | 説明 | 要npp |
-    |:---|:---|:---:|
-    | auto          | 自動的に適切なものを選択                     | |
-    | bilinear      | 線形補間                                    | |
-    | bicubic       | 双3次補間                                   | |
-    | spline16      | 4x4 Spline補間                             | |
-    | spline36      | 6x6 Spline補間                             | |
-    | spline64      | 8x8 Spline補間                             | |
-    | lanczos2      | 4x4 lanczos補間                            | |
-    | lanczos3      | 6x6 lanczos補間                            | |
-    | lanczos4      | 8x8 lanczos補間                            | |
-    | nn            | 最近傍点選択                                | ○ |
-    | npp_linear    | nppの線形補間                               | ○ |
-    | cubic         | 4x4 3次補間                                 | ○ |
-    | super         | nppのsuper sampling (縮小のみ)               | ○ |
-    | lanczos       | Lanczos法                                   | ○ |
-    | lanczos       | Lanczos法                                   | ○ |
-    | nvvfx-superres | NVIDIA Video EffectsによるSuper Resolution (拡大のみ)  |  |
-    | ngx-vsr       | NVIDIA VSR (Video Super Resolution)  |  |
-    | libplacebo-spline16      | 4x4 Spline補間 (libplacebo)                     | |
-    | libplacebo-spline36      | 6x6 Spline補間 (libplacebo)                     | |
-    | libplacebo-spline64      | 8x8 Spline補間 (libplacebo)                     | |
-    | libplacebo-nearest       | 最近傍点選択 (libplacebo)                        | |
-    | libplacebo-bilinear      | 線形補間 (libplacebo)                            | |
-    | libplacebo-gaussian      | ガウス補間 (libplacebo)                          | |
-    | libplacebo-sinc          | Sinc補間 (libplacebo)                            | |
-    | libplacebo-lanczos       | Lanczos補間 (libplacebo)                         | |
-    | libplacebo-ginseng       | Ginseng補間 (libplacebo)                         | |
-    | libplacebo-ewa_jinc      | EWA Jinc補間 (libplacebo)                        | |
-    | libplacebo-ewa_lanczos   | EWA Lanczos補間 (libplacebo)                     | |
-    | libplacebo-ewa_lanczossharp | EWA Lanczos Sharp補間 (libplacebo)            | |
-    | libplacebo-ewa_lanczos4sharpest | EWA Lanczos 4 Sharpest補間 (libplacebo)  | |
-    | libplacebo-ewa_ginseng  | EWA Ginseng補間 (libplacebo)                     | |
-    | libplacebo-ewa_hann     | EWA Hann補間 (libplacebo)                        | |
-    | libplacebo-ewa_hanning  | EWA Hanning補間 (libplacebo)                     | |
-    | libplacebo-bicubic      | 双3次補間 (libplacebo)                           | |
-    | libplacebo-triangle     | 三角補間 (libplacebo)                            | |
-    | libplacebo-hermite      | Hermite補間 (libplacebo)                         | |
-    | libplacebo-catmull_rom  | Catmull-Rom補間 (libplacebo)                     | |
-    | libplacebo-mitchell     | Mitchell補間 (libplacebo)                        | |
-    | libplacebo-mitchell_clamp | Mitchell Clamp補間 (libplacebo)                | |
-    | libplacebo-robidoux     | Robidoux補間 (libplacebo)                        | |
-    | libplacebo-robidouxsharp | Robidoux Sharp補間 (libplacebo)                 | |
-    | libplacebo-ewa_robidoux | EWA Robidoux補間 (libplacebo)                    | |
-    | libplacebo-ewa_robidouxsharp | EWA Robidoux Sharp補間 (libplacebo)         | |
+    デフォルトは "auto" で自動的に適切なものを選択する。
 
-  - superres-mode=&lt;int&gt;
-    nvvfx-superres のモードの選択。
-    - 0 ... 弱め (default)
-    - 1 ... 強め
+    - CUDAで実装したリサイズフィルタ
+  
+      | 名前 | 説明 |
+      |:---|:---|
+      | bilinear      | 線形補間                                   |
+      | bicubic       | 双3次補間                                  |
+      | spline16      | 4x4 Spline補間                             |
+      | spline36      | 6x6 Spline補間                             |
+      | spline64      | 8x8 Spline補間                             |
+      | lanczos2      | 4x4 lanczos補間                            |
+      | lanczos3      | 6x6 lanczos補間                            |
+      | lanczos4      | 8x8 lanczos補間                            |
 
-  - superres-strength=&lt;float&gt;
-    nvvfx-superresの強さの指定。 (0.0 - 1.0)
+    - nppライブラリのリサイズフィルタ
+ 
+      | 名前 | 説明 |
+      |:---|:---|
+      | nn            | 最近傍点選択                                |
+      | npp_linear    | nppの線形補間                               |
+      | cubic         | 4x4 3次補間                                 |
+      | super         | nppのsuper sampling (縮小のみ)              |
+      | lanczos       | Lanczos法                                   |
+      
+      これらは[NPPライブラリ](https://developer.nvidia.com/npp)を使用しているため、使用には別途nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。また、x64版のみ対応。
 
-  - vsr-quality=&lt;int&gt;
-    ngx-vsr使用時の品質の設定。 (デフォルト=1, 1 - 4)
-    数字が大きいほど高品質。
+      必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/7.00)からダウンロードできます。 (npp64_10_dll_7zip.7z)
 
-    実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPU、そして550.58以降のドライバが必要。
+    - nvvfxライブラリのリサイズフィルタ
 
-  - pl-radius=&lt;float&gt;
-    libplacebo-resampleで使用される拡大縮小アルゴリズムの半径。(0.0 - 16.0、デフォルト = 自動)
+      | 名前 | 説明 |
+      |:---|:---|
+      | nvvfx-superres | NVIDIA Video EffectsによるSuper Resolution (拡大のみ)  |  |
 
-  - pl-clamp=&lt;float&gt;
-    libplacebo-resampleで使用される負の重みに対するクランプ係数。1.0にすると負の重みが0になります。(0.0 - 1.0、デフォルト = 0.0)
+      このモードは、[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)によるAIによって拡大処理を行うので、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
 
-  - pl-taper=&lt;float&gt;
-    libplacebo-resampleの重み関数の中心部分を平坦化します。(0.0 - 1.0、デフォルト = 0.0)
+      2160p までの入力解像度に対応している。
+      
+      - 追加パラメータ
+        - superres-mode=&lt;int&gt;
+          nvvfx-superres のモードの選択。
+          - 0 ... 弱め (default)
+          - 1 ... 強め
+      
+        - superres-strength=&lt;float&gt;
+          nvvfx-superresの強さの指定。 (0.0 - 1.0)
 
-  - pl-blur=&lt;float&gt;
-    libplacebo-resampleの追加のぼかし係数。(0.0 - 100.0、デフォルト = 0.0)
+    - NGXライブラリのリサイズフィルタ
+  
+      実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPU、そして550.58以降のドライバが必要。
+ 
+      | 名前 | 説明 |
+      |:---|:---|
+      | ngx-vsr       | NVIDIA VSR (Video Super Resolution)  |  |
 
-  - pl-antiring=&lt;float&gt;
-    libplacebo-resampleのアンチリンギング強度。(0.0 - 1.0、デフォルト = 0.0)
+      - 追加パラメータ
+        - vsr-quality=&lt;int&gt;
+          ngx-vsr使用時の品質の設定。 (デフォルト=1, 1 - 4)
+          数字が大きいほど高品質。
 
-- **注意点**
-  - 表の"要npp"に"○"のあるものを使用する場合  
-    これらは[NPPライブラリ](https://developer.nvidia.com/npp)を使用しているため、使用には別途nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。また、x64版のみ対応。
+    - libplaceboライブラリのリサイズフィルタ
+    
+      | 名前 | 説明 | resizable |
+      |:---|:---|:---:|
+      | libplacebo-spline16      | 4x4 Spline補間                       | |
+      | libplacebo-spline36      | 6x6 Spline補間                       | |
+      | libplacebo-spline64      | 8x8 Spline補間                       | |
+      | libplacebo-nearest       | 最近傍点選択                         | |
+      | libplacebo-bilinear      | 線形補間                             | &check; |
+      | libplacebo-gaussian      | ガウス補間                           | &check; |
+      | libplacebo-sinc          | Sinc補間                             | &check; |
+      | libplacebo-lanczos       | Lanczos補間                          | &check; |
+      | libplacebo-ginseng       | Ginseng補間                          | &check; |
+      | libplacebo-ewa-jinc      | EWA Jinc補間                         | &check; |
+      | libplacebo-ewa-lanczos   | EWA Lanczos補間                      | &check; |
+      | libplacebo-ewa-lanczossharp | EWA Lanczos Sharp補間             | &check; |
+      | libplacebo-ewa-lanczos4sharpest | EWA Lanczos 4 Sharpest補間    | &check; |
+      | libplacebo-ewa-ginseng  | EWA Ginseng補間                       | &check; |
+      | libplacebo-ewa-hann     | EWA Hann補間                          | &check; |
+      | libplacebo-ewa-hanning  | EWA Hanning補間                       | &check; |
+      | libplacebo-bicubic      | 双3次補間                             | |
+      | libplacebo-triangle     | 三角補間                              | |
+      | libplacebo-hermite      | Hermite補間                           | |
+      | libplacebo-catmull-rom  | Catmull-Rom補間                       | |
+      | libplacebo-mitchell     | Mitchell補間                          | |
+      | libplacebo-mitchell-clamp | Mitchell Clamp補間                  | |
+      | libplacebo-robidoux     | Robidoux補間                          | |
+      | libplacebo-robidouxsharp | Robidoux Sharp補間                   | |
+      | libplacebo-ewa-robidoux | EWA Robidoux補間                      | |
+      | libplacebo-ewa-robidouxsharp | EWA Robidoux Sharp補間           | |
+    
+      Windowsのx64版のみ対応です。
 
-    必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/7.00)からダウンロードできます。 (npp64_10_dll_7zip.7z)
+      - 追加パラメータ
 
-  - ```nvvfx-superres```を使用する場合  
-    このモードは、[NVIDIA MAXINE VideoEffects SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)によるAIによって拡大処理を行うので、実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要。また、あわせて[MAXINE VideoEffects 用のモデルと実行モジュール](https://www.nvidia.com/broadcast-sdk-resources)をダウンロード・インストールしてからお使いください。
+        - pl-radius=&lt;float&gt;
 
-    2160p までの入力解像度に対応している。
+          libplacebo-resampleで使用される拡大縮小アルゴリズムの半径。表で "resizable" にチェックが入っているもののみ有効。 (0.0 - 16.0、デフォルト = 自動)
+      
+        - pl-clamp=&lt;float&gt;
 
-  - ```ngx-vsr```を使用する場合  
-    このモードの実行にはWindowsのx64版の実行ファイルとTuring世代(RTX20xx)以降のGPUが必要です。
+          libplacebo-resampleで使用される負の重みに対するクランプ係数。1.0にすると負の重みが0になります。(0.0 -   1.    0、デフォルト = 0.0)
+      
+        - pl-taper=&lt;float&gt;
 
-  - ```libplacebo-xxx```を使用する場合
-    Windowsのx64版の実行ファイルが必要です。
+          libplacebo-resampleの重み関数の中心部分を平坦化します。(0.0 - 1.0、デフォルト = 0.0)
+      
+        - pl-blur=&lt;float&gt;
+
+          libplacebo-resampleの追加のぼかし係数。(0.0 - 100.0、デフォルト = 0.0)
+      
+        - pl-antiring=&lt;float&gt;
+
+          libplacebo-resampleのアンチリンギング強度。(0.0 - 1.0、デフォルト = 0.0)
 
 - **使用例**
   ```
@@ -2559,6 +2583,12 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
 
   例: nvvfx-superresを効果強めで使用する
   --vpp-resize algo=nvvfx-superres,superres-mode=1
+
+  例: ngx-vsrを最高品質で使用する
+  --vpp-resize algo=ngx-vsr,vsr-quality=4
+
+  例: libplaceboのリサイズフィルタを使用する
+  --vpp-resize algo=libplacebo-sinc,pl-radius=3.0,pl-antiring=0.5
   ```
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
