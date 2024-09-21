@@ -2499,7 +2499,7 @@ Specify the resizing algorithm.
       
         - pl-radius=&lt;float&gt;
 
-          Radius used for resizable algorithm in libplacebo-resample. (0.0 - 16.0, default = 自動)
+          Radius used for resizable algorithm in libplacebo-resample. (0.0 - 16.0, default = auto)
       
         - pl-clamp=&lt;float&gt;
 
