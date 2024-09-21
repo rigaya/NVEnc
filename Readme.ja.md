@@ -154,9 +154,10 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
       - bilinear
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
-      - nppライブラリによる各種アルゴリズム (x64版のみ)
-      - nvvfx-superres
-      - ngx-vsr
+      - [npp](https://developer.nvidia.com/npp)ライブラリによる各種アルゴリズム (x64版のみ)
+      - [nvvfx-superres](https://github.com/NVIDIA/MAXINE-VFX-SDK)
+      - [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html)
+      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
     - 回転 / 反転
     - パディング(黒帯)の追加
     - フレーム間引き(select every)
@@ -167,7 +168,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
       - fft3d (FFTベースの3Dノイズ除去)
       - knn (K-nearest neighbor)
       - pmd (正則化pmd法)
-      - gauss (nppライブラリ、x64版のみ)
+      - gauss ([npp](https://developer.nvidia.com/npp)ライブラリ、x64版のみ)
       - convolution3d
       - nvvfx-artifact-reduction
       - nvvfx-denoise

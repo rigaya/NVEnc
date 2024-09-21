@@ -2417,7 +2417,7 @@ Specify the resizing algorithm.
       | lanczos3       | 6x6 Lanczos resampling                                     |
       | lanczos4       | 8x8 Lanczos resampling                                     |
 
-    - npp library resize filters
+    - [npp](https://developer.nvidia.com/npp) library resize filters
 
       | name | description |
       |:---|:---|
@@ -2431,7 +2431,7 @@ Specify the resizing algorithm.
        To use those algorithms, you need to download nppc64_10.dll, nppif64_10.dll, nppig64_10.dll separately and place it in the same folder as NVEncC64.exe.
        The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/7.00) (npp64_10_dll_7zip.7z).
 
-    - nvvfx library resize filters
+    - [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK) library resize filters
 
       | name | description |
       |:---|:---|
@@ -2449,7 +2449,7 @@ Specify the resizing algorithm.
         - superres-strength=&lt;float&gt;  
           strength for nvvfx-superres (0.0 - 1.0)
 
-    - NGX library resize filters
+    - [NGX](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html) library resize filters
 
       | name | description |
       |:---|:---|
@@ -2462,7 +2462,7 @@ Specify the resizing algorithm.
           quality for ngx-vsr (1 - 4, default=1)
           larger value results higher quality.
       
-    - libplacebo library resize filters
+    - [libplacebo](https://code.videolan.org/videolan/libplacebo) library resize filters
 
       | name | description | resizable |
       |:---|:---|:---:|
@@ -2498,18 +2498,23 @@ Specify the resizing algorithm.
       - Additional parameters
       
         - pl-radius=&lt;float&gt;
+
           Radius used for resizable algorithm in libplacebo-resample. (0.0 - 16.0, default = 自動)
       
         - pl-clamp=&lt;float&gt;
+
           Clamp coefficient for negative weights used in libplacebo-resample, 1.0 will make weight 0 for negative weights. (0.0 - 1.0, default = 0.0)
       
         - pl-taper=&lt;float&gt;
+
           Taper will flatten weight function in the center for libplacebo-resample. (0.0 - 1.0, default = 0.0)
       
         - pl-blur=&lt;float&gt;
+
           Additional blur coefficient for libplacebo-resample. (0.0 - 100.0, default = 0.0)
       
         - pl-antiring=&lt;float&gt;
+
           Antiringing strength for libplacebo-resample. (0.0 - 1.0, default = 0.0)
 
 - **Examples**

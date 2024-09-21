@@ -2486,7 +2486,7 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
 
       必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/7.00)からダウンロードできます。 (npp64_10_dll_7zip.7z)
 
-    - nvvfxライブラリのリサイズフィルタ
+    - [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK)ライブラリのリサイズフィルタ
 
       | 名前 | 説明 |
       |:---|:---|
@@ -2505,7 +2505,7 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
         - superres-strength=&lt;float&gt;
           nvvfx-superresの強さの指定。 (0.0 - 1.0)
 
-    - NGXライブラリのリサイズフィルタ
+    - [NGX](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html)ライブラリのリサイズフィルタ
   
       実行にはx64版の実行ファイルとTuring世代(RTX20xx)以降のGPU、そして550.58以降のドライバが必要。
  
@@ -2518,7 +2518,7 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
           ngx-vsr使用時の品質の設定。 (デフォルト=1, 1 - 4)
           数字が大きいほど高品質。
 
-    - libplaceboライブラリのリサイズフィルタ
+    - [libplacebo](https://code.videolan.org/videolan/libplacebo)ライブラリのリサイズフィルタ
     
       | 名前 | 説明 | resizable |
       |:---|:---|:---:|

@@ -145,8 +145,10 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
       - bilinear
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
-      - 一系列npp库提供的算法 (x64 version only)
-      - nvvfx-superres (超分辨率)
+      - 一系列[npp](https://developer.nvidia.com/npp)库提供的算法 (x64 version only)
+      - [nvvfx-superres](https://github.com/NVIDIA/MAXINE-VFX-SDK) (超分辨率)
+      - [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html)
+      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
     - transpose / rotate / flip
     - padding
     - select-every
@@ -154,7 +156,7 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
     - noise reduction
       - knn (K-nearest neighbor)
       - pmd (modified pmd method)
-      - gauss (npp library, x64 version only)
+      - gauss ([npp](https://developer.nvidia.com/npp) library, x64 version only)
       - convolution3d
       - nvvfx-artifact-reduction
       - nvvfx-denoise

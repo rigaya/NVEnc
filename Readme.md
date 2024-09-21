@@ -145,9 +145,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
       - bilinear
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
-      - various algorithms by npp library are available (x64 version only)
-      - nvvfx-superres
-      - ngx-vsr
+      - various algorithms by [npp](https://developer.nvidia.com/npp) library are available (x64 version only)
+      - [nvvfx-superres](https://github.com/NVIDIA/MAXINE-VFX-SDK)
+      - [ngx-vsr](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html)
+      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
     - transpose / rotate / flip
     - padding
     - select-every
@@ -158,7 +159,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
       - fft3d (fft based 3D denoise)
       - knn (K-nearest neighbor)
       - pmd (modified pmd method)
-      - gauss (npp library, x64 version only)
+      - gauss ([npp](https://developer.nvidia.com/npp) library, x64 version only)
       - convolution3d
       - nvvfx-artifact-reduction
       - nvvfx-denoise
