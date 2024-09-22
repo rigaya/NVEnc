@@ -366,7 +366,7 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         m_textFrameBufOut = std::make_unique<CUFrameBuf>();
         sts = m_textFrameBufOut->alloc(m_dstCrop->GetFilterParam()->frameIn.width, m_dstCrop->GetFilterParam()->frameIn.height, m_textCspOut);
         if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_DEBUG, _T("failed to allocate memory for ngx output: %s.\n"), get_err_mes(sts));
+            AddMessage(RGY_LOG_DEBUG, _T("failed to allocate memory for libplacebo output: %s.\n"), get_err_mes(sts));
             return sts;
         }
     }
@@ -596,7 +596,7 @@ void NVEncFilterLibplacebo::close() {
     m_dx11 = nullptr;
 }
 
-NVEncFilterLibplaceboResample::NVEncFilterLibplaceboResample() : NVEncFilterLibplacebo() {
+NVEncFilterLibplaceboResample::NVEncFilterLibplaceboResample() : NVEncFilterLibplacebo(), m_filter_params() {
     m_name = _T("libplacebo-resample");
 }
 
@@ -808,4 +808,4 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
 NVEncFilterLibplaceboResample::NVEncFilterLibplaceboResample() : NVEncFilterDisabled() { m_name = _T("libplacebo-resample"); }
 NVEncFilterLibplaceboResample::~NVEncFilterLibplaceboResample() {};
 
-#endif //#if ENABLE_NVSDKNGX
+#endif //#if ENABLE_LIBPLACEBO
