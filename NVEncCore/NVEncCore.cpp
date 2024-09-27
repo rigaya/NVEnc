@@ -1402,6 +1402,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vppnv.nvvfxDenoise.enable
             || inputParam->vppnv.nvvfxArtifactReduction.enable
             || inputParam->vpp.deband.enable
+            || inputParam->vpp.libplacebo_deband.enable
             || inputParam->vpp.edgelevel.enable
             || inputParam->vpp.warpsharp.enable
             || inputParam->vpp.afs.enable
@@ -2401,6 +2402,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vppnv.nvvfxDenoise.enable
         || inputParam->vppnv.nvvfxArtifactReduction.enable
         || inputParam->vpp.deband.enable
+        || inputParam->vpp.libplacebo_deband.enable
         || inputParam->vpp.edgelevel.enable
         || inputParam->vpp.warpsharp.enable
         || inputParam->vpp.afs.enable
@@ -3217,6 +3219,29 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->deband = inputParam->vpp.deband;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        // libplacebo deband
+        if (inputParam->vpp.libplacebo_deband.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterLibplaceboDeband());
+            shared_ptr<NVEncFilterParamLibplaceboDeband> param(new NVEncFilterParamLibplaceboDeband());
+            param->deband = inputParam->vpp.libplacebo_deband;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->dx11 = m_dev->dx11();
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));

@@ -53,6 +53,14 @@ public:
     virtual tstring print() const override;
 };
 
+class NVEncFilterParamLibplaceboDeband : public NVEncFilterParamLibplacebo {
+public:
+    VppLibplaceboDeband deband;
+    NVEncFilterParamLibplaceboDeband() : NVEncFilterParamLibplacebo(), deband() {};
+    virtual ~NVEncFilterParamLibplaceboDeband() {};
+    virtual tstring print() const override;
+};
+
 #if ENABLE_LIBPLACEBO
 
 #pragma warning (push)
@@ -93,7 +101,7 @@ protected:
     virtual void close() override;
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) = 0;
     virtual RGY_ERR setLibplaceboParam(const NVEncFilterParam *param) = 0;
-    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane) = 0;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, const RGY_PLANE planeIdx) = 0;
     int getTextureBytePerPix(const DXGI_FORMAT format) const;
     virtual RGY_ERR initLibplacebo(const NVEncFilterParam *param);
     RGY_CSP getTextureCsp(const RGY_CSP csp);
@@ -108,7 +116,7 @@ protected:
     std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>> m_d3d11;
     std::unique_ptr<std::remove_pointer<pl_dispatch>::type, RGYLibplaceboDeleter<pl_dispatch>> m_dispatch;
     std::unique_ptr<std::remove_pointer<pl_renderer>::type, RGYLibplaceboDeleter<pl_renderer>> m_renderer;
-    std::unique_ptr<std::remove_pointer<pl_shader_obj>::type, RGYLibplaceboDeleter<pl_shader_obj>> m_dither_state;
+    std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)> m_dither_state;
 
     std::unique_ptr<CUFrameBuf> m_textFrameBufOut;
     std::vector<std::unique_ptr<CUDADX11Texture>> m_textIn;
@@ -126,9 +134,24 @@ public:
 protected:
     virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
     virtual RGY_ERR setLibplaceboParam(const NVEncFilterParam *param) override;
-    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane) override;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, const RGY_PLANE planeIdx) override;
 
     std::unique_ptr<pl_sample_filter_params> m_filter_params;
+};
+
+class NVEncFilterLibplaceboDeband : public NVEncFilterLibplacebo {
+public:
+    NVEncFilterLibplaceboDeband();
+    virtual ~NVEncFilterLibplaceboDeband();
+protected:
+    virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
+    virtual RGY_ERR setLibplaceboParam(const NVEncFilterParam *param) override;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, const RGY_PLANE planeIdx) override;
+
+    std::unique_ptr<pl_deband_params> m_filter_params;
+    std::unique_ptr<pl_deband_params> m_filter_params_c;
+    std::unique_ptr<pl_dither_params> m_dither_params;
+    int m_frame_index;
 };
 
 #else
@@ -137,6 +160,12 @@ class NVEncFilterLibplaceboResample : public NVEncFilterDisabled {
 public:
     NVEncFilterLibplaceboResample();
     virtual ~NVEncFilterLibplaceboResample();
+};
+
+class NVEncFilterLibplaceboDeband : public NVEncFilterDisabled {
+public:
+    NVEncFilterLibplaceboDeband();
+    virtual ~NVEncFilterLibplaceboDeband();
 };
 
 #endif

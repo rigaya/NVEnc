@@ -216,6 +216,7 @@
   - [--vpp-tweak \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-tweak-param1value1param2value2)
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deband-param1value1param2value2)
+  - [--vpp-libplacebo-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
@@ -2730,6 +2731,44 @@ Apply color adjustments using curves.
   ```
   Example:
   --vpp-deband range=31,dither=12,rand_each_frame
+  ```
+
+### --vpp-libplacebo-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+  Deband filter by [libplacebo](https://code.videolan.org/videolan/libplacebo).
+
+- **Parameters**
+  - iterations=&lt;int&gt;  
+    iterations (default=1, 0-)
+
+  - threshold=&lt;float&gt;  
+    cut-off threshold (default=4.0, 0-)
+
+  - radius=&lt;float&gt;  
+    initial radius (default=16.0, 0-)
+
+  - grain_y=&lt;float&gt;  
+    extra noise for luma (default=6.0, 0-)
+
+  - grain_c=&lt;float&gt;  
+    extra noise for chroma (default=grain_y, 0-)
+
+  - dither=&lt;string&gt;  
+    dither mode, only for 8bit.
+    - none
+    - blue_noise (default)
+    - ordered_lut
+    - ordered_fixed
+    - white_noise
+
+  - lut_size=&lt;int&gt;  
+    size of LUT. (default=64)
+    ```2, 4, 8, 16, 32, 64, 128, 256 ```
+  
+- Examples
+  ```
+  Example:
+  --vpp-libplacebo-deband iterations=1,radius=32
   ```
 
 ### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;

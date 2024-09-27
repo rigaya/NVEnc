@@ -209,6 +209,14 @@ static const float FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_BLUR = 0.0f;
 static const float FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_ANTIRING = 0.0f;
 static const int   FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_CPLACE = 0;
 
+static const int   FILTER_DEFAULT_LIBPLACEBO_DEBAND_ITERATIONS = 1;
+static const float FILTER_DEFAULT_LIBPLACEBO_DEBAND_THRESHOLD = 4.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_DEBAND_RADIUS = 16.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_DEBAND_GRAINY = 6.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_DEBAND_GRAINC = -1.0f;
+static const int   FILTER_DEFAULT_LIBPLACEBO_DEBAND_DITHER = 1;
+static const int   FILTER_DEFAULT_LIBPLACEBO_DEBAND_LUT_SIZE = 6;
+
 static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
 static const double FILTER_DEFAULT_COLORSPACE_NOMINAL_SOURCE_PEAK = 100.0;
 static const double FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK = 1000.0;
@@ -402,6 +410,13 @@ const CX_DESC list_vpp_detail_enahance[] = {
     { _T("unsharp"),    1 },
     { _T("edgelevel"),  2 },
     { _T("warpsharp"),  3 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_deband_names[] = {
+    { _T("none"),       0 },
+    { _T("deband"),    1 },
+    { _T("libplacebo-deband"), 2 },
     { NULL, 0 }
 };
 
@@ -978,7 +993,7 @@ const CX_DESC list_vpp_smooth_quality[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_vpp_deband[] = {
+const CX_DESC list_vpp_deband_sample[] = {
     { _T("0"),  0 },
     { _T("1"),  1 },
     { _T("2"),  2 },
@@ -1011,6 +1026,51 @@ struct VppLibplaceboResample {
     VppLibplaceboResample();
     bool operator==(const VppLibplaceboResample &x) const;
     bool operator!=(const VppLibplaceboResample &x) const;
+    tstring print() const;
+};
+
+enum class VppLibplaceboDebandDitherMode {
+    None,
+    BlueNoise,
+    OrderedLUT,
+    OrderedFixed,
+    WhiteNoise,
+};
+
+const CX_DESC list_vpp_libplacebo_deband_dither_mode[] = {
+    { _T("none"),          (int)VppLibplaceboDebandDitherMode::None },
+    { _T("blue_noise"),    (int)VppLibplaceboDebandDitherMode::BlueNoise },
+    { _T("ordered_lut"),   (int)VppLibplaceboDebandDitherMode::OrderedLUT },
+    { _T("ordered_fixed"), (int)VppLibplaceboDebandDitherMode::OrderedFixed },
+    { _T("white_noise"),   (int)VppLibplaceboDebandDitherMode::WhiteNoise },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_libplacebo_deband_lut_size[] = {
+    { _T("2"),   1 },
+    { _T("4"),   2 },
+    { _T("8"),   3 },
+    { _T("16"),  4 },
+    { _T("32"),  5 },
+    { _T("64"),  6 },
+    { _T("128"), 7 },
+    { _T("256"), 8 },
+    { NULL, 0 }
+};
+
+struct VppLibplaceboDeband {
+    bool enable;
+    int iterations;
+    float threshold;
+    float radius;
+    float grainY;
+    float grainC;
+    VppLibplaceboDebandDitherMode dither;
+    int lut_size;
+
+    VppLibplaceboDeband();
+    bool operator==(const VppLibplaceboDeband &x) const;
+    bool operator!=(const VppLibplaceboDeband &x) const;
     tstring print() const;
 };
 
@@ -1769,6 +1829,7 @@ struct RGYParamVpp {
     VppTweak tweak;
     VppTransform transform;
     VppDeband deband;
+    VppLibplaceboDeband libplacebo_deband;
     std::vector<VppOverlay> overlay;
     VppFruc fruc;
     bool checkPerformance;

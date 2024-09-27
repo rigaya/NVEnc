@@ -284,6 +284,47 @@ tstring VppLibplaceboResample::print() const {
     return str;
 }
 
+VppLibplaceboDeband::VppLibplaceboDeband() :
+    enable(false),
+    iterations(FILTER_DEFAULT_LIBPLACEBO_DEBAND_ITERATIONS),
+    threshold(FILTER_DEFAULT_LIBPLACEBO_DEBAND_THRESHOLD),
+    radius(FILTER_DEFAULT_LIBPLACEBO_DEBAND_RADIUS),
+    grainY(FILTER_DEFAULT_LIBPLACEBO_DEBAND_GRAINY),
+    grainC(FILTER_DEFAULT_LIBPLACEBO_DEBAND_GRAINC),
+    dither((VppLibplaceboDebandDitherMode)FILTER_DEFAULT_LIBPLACEBO_DEBAND_DITHER),
+    lut_size(FILTER_DEFAULT_LIBPLACEBO_DEBAND_LUT_SIZE) {
+
+}
+
+bool VppLibplaceboDeband::operator==(const VppLibplaceboDeband &x) const {
+    return enable == x.enable
+        && iterations == x.iterations
+        && threshold == x.threshold
+        && radius == x.radius
+        && grainY == x.grainY
+        && grainC == x.grainC
+        && dither == x.dither
+        && lut_size == x.lut_size;
+}
+bool VppLibplaceboDeband::operator!=(const VppLibplaceboDeband &x) const {
+    return !(*this == x);
+}
+tstring VppLibplaceboDeband::print() const {
+    tstring str;
+    str += strsprintf(_T("iterations=%d, "), iterations);
+    str += strsprintf(_T("threshold=%.2f, "), threshold);
+    str += strsprintf(_T("radius=%.2f, "), radius);
+    str += strsprintf(_T("grainY=%.2f, "), grainY);
+    if (grainC >= 0.0f) {
+        str += strsprintf(_T("grainC=%.2f, "), grainC);
+    }
+    str += strsprintf(_T("dither=%d, "), dither);
+    if (dither != VppLibplaceboDebandDitherMode::None) {
+        str += strsprintf(_T("lut_size=%d"), lut_size);
+    }
+    return str;
+}
+
 ColorspaceConv::ColorspaceConv() :
     from(),
     to(),
@@ -1684,6 +1725,7 @@ RGYParamVpp::RGYParamVpp() :
     tweak(),
     transform(),
     deband(),
+    libplacebo_deband(),
     overlay(),
     fruc(),
     checkPerformance(false) {
@@ -1718,6 +1760,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && tweak == x.tweak
         && transform == x.transform
         && deband == x.deband
+        && libplacebo_deband == x.libplacebo_deband
         && overlay == x.overlay
         && checkPerformance == x.checkPerformance;
 }

@@ -3464,6 +3464,107 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-libplacebo-deband") && ENABLE_VPP_FILTER_LIBPLACEBO) {
+        vpp->libplacebo_deband.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{
+            "iterations", "threshold", "radius", "thre_cb",
+            "grainY", "grainC", "dither", "lut_size" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->libplacebo_deband.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("iterations")) {
+                    try {
+                        vpp->libplacebo_deband.iterations = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("threshold")) {
+                    try {
+                        vpp->libplacebo_deband.threshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("radius")) {
+                    try {
+                        vpp->libplacebo_deband.radius = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("grainY")) {
+                    try {
+                        vpp->libplacebo_deband.grainY = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("grainC")) {
+                    try {
+                        vpp->libplacebo_deband.grainC = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("dither")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_libplacebo_deband_dither_mode, param_val.c_str(), &value)) {
+                        vpp->libplacebo_deband.dither = (VppLibplaceboDebandDitherMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_ass_shaping);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lut_size")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_libplacebo_deband_lut_size, param_val.c_str(), &value)) {
+                        vpp->libplacebo_deband.lut_size = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_ass_shaping);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-overlay") && ENABLE_VPP_FILTER_OVERLAY) {
         VppOverlay overlay;
         overlay.enable = true;
@@ -6980,6 +7081,30 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-deband");
         }
     }
+    if (param->libplacebo_deband != defaultPrm->libplacebo_deband) {
+        tmp.str(tstring());
+        if (!param->libplacebo_deband.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->libplacebo_deband.enable || save_disabled_prm) {
+            ADD_NUM(_T("iterations"), libplacebo_deband.iterations);
+            ADD_FLOAT(_T("threshold"), libplacebo_deband.threshold, 3);
+            ADD_FLOAT(_T("radius"), libplacebo_deband.radius, 3);
+            ADD_FLOAT(_T("grain_y"), libplacebo_deband.grainY, 3);
+            if (param->libplacebo_deband.grainC >= 0.0f && param->libplacebo_deband.grainY != param->libplacebo_deband.grainC) {
+                ADD_FLOAT(_T("grain_c"), libplacebo_deband.grainC, 3);
+            }
+            ADD_LST(_T("dither"), libplacebo_deband.dither, list_vpp_libplacebo_deband_dither_mode);
+            if (param->libplacebo_deband.lut_size != defaultPrm->libplacebo_deband.lut_size) {
+                tmp << _T(",lut_size=") << rgy_pow_int<int>(2, param->libplacebo_deband.lut_size);
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-libplacebo-deband ") << tmp.str().substr(1);
+        } else if (param->libplacebo_deband.enable) {
+            cmd << _T(" --vpp-libplacebo-deband");
+        }
+    }
     for (size_t i = 0; i < param->overlay.size(); i++) {
         const auto overlayDefault = VppOverlay();
         if (param->overlay[i] != overlayDefault) {
@@ -8369,6 +8494,23 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DEBAND_SEED,
         FILTER_DEFAULT_DEBAND_BLUR_FIRST ? _T("on") : _T("off"),
         FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME ? _T("on") : _T("off"));
+#endif
+#if ENABLE_LIBPLACEBO
+    str += strsprintf(_T("\n")
+        _T("   --vpp-libplacebo-deband [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable deband filter.\n")
+        _T("    params\n")
+        _T("      iterations=<int>          iterations (default=%d, 0-)\n")
+        _T("      threshold=<float>         cut-off threshold (default=%.1f, 0-)\n")
+        _T("      radius=<float>            initial radius (default=%.1f, 0-)\n")
+        _T("      grain_y=<float>           extra noise for luma (default=%.1f, 0-)\n")
+        _T("      grain_c=<float>           extra noise for chroma (default=%.1f, 0-)\n")
+        _T("      dither=<string>           dither mode, only for 8bit\n")
+        _T("                                  none, blue_noise, ordered_lut, ordered_fixed, white_noise\n")
+        _T("      lut_size=<int>            size of LUT. (default=%d, 1-8)\n"),
+        FILTER_DEFAULT_LIBPLACEBO_DEBAND_ITERATIONS, FILTER_DEFAULT_LIBPLACEBO_DEBAND_THRESHOLD, FILTER_DEFAULT_LIBPLACEBO_DEBAND_RADIUS,
+        FILTER_DEFAULT_LIBPLACEBO_DEBAND_GRAINY, FILTER_DEFAULT_LIBPLACEBO_DEBAND_GRAINC, FILTER_DEFAULT_LIBPLACEBO_DEBAND_DITHER,
+        rgy_pow_int<FILTER_DEFAULT_LIBPLACEBO_DEBAND_LUT_SIZE>(2));
 #endif
 #if ENABLE_VPP_FILTER_PAD
     str += strsprintf(_T("\n")
