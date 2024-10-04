@@ -236,6 +236,19 @@ std::vector<uint8_t> gen_av1_obu_metadata(const uint8_t metadata_type, const std
 int get_hevc_sei_size(size_t& size, const uint8_t *ptr);
 std::vector<uint8_t> gen_hevc_alpha_channel_info_sei(const int mode);
 
+enum RGYHDRMetadataPrmIndex {
+    G_X,
+    G_Y,
+    B_X,
+    B_Y,
+    R_X,
+    R_Y,
+    WP_X,
+    WP_Y,
+    L_Max,
+    L_Min,
+};
+
 struct RGYHDRMetadataPrm {
     int maxcll;
     int maxfall;

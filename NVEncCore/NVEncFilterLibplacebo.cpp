@@ -28,12 +28,15 @@
 
 #include <array>
 #include <numeric>
+#include <iostream>
+#include <fstream>
 #include "convert_csp.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterParam.h"
 #include "NVEncFilterD3D11.h"
 #include "NVEncFilterColorspace.h"
 #include "NVEncFilterLibplacebo.h"
+#include "rgy_libdovi.h"
 
 tstring NVEncFilterParamLibplaceboResample::print() const {
     return resample.print();
@@ -43,6 +46,10 @@ tstring NVEncFilterParamLibplaceboDeband::print() const {
     return deband.print();
 }
 
+tstring NVEncFilterParamLibplaceboToneMapping::print() const {
+    return toneMapping.print();
+}
+
 #if ENABLE_LIBPLACEBO
 
 #include "rgy_device.h"
@@ -50,6 +57,83 @@ tstring NVEncFilterParamLibplaceboDeband::print() const {
 #pragma comment(lib, "libplacebo-349.lib")
 
 static const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-349.dll");
+
+class LibplaceboLoader {
+private:
+    HMODULE m_hModule;
+
+    pl_color_space *m_pl_color_space_bt2020_hlg;
+    pl_color_space *m_pl_color_space_bt709;
+    pl_color_space *m_pl_color_space_srgb;
+    pl_color_space *m_pl_color_space_hdr10;
+    pl_hdr_metadata *m_pl_hdr_metadata_empty;
+    pl_peak_detect_params *m_pl_peak_detect_default_params;
+
+public:
+    LibplaceboLoader();
+    ~LibplaceboLoader();
+
+    bool load();
+    void close();
+
+    pl_color_space pl_color_space_bt2020_hlg() const { return *m_pl_color_space_bt2020_hlg; }
+    pl_color_space pl_color_space_bt709() const { return *m_pl_color_space_bt709; }
+    pl_color_space pl_color_space_srgb() const { return *m_pl_color_space_srgb; }
+    pl_color_space pl_color_space_hdr10() const { return *m_pl_color_space_hdr10; }
+    pl_hdr_metadata pl_hdr_metadata_empty() const { return *m_pl_hdr_metadata_empty; }
+    pl_peak_detect_params  pl_peak_detect_default_params() const { return *m_pl_peak_detect_default_params; }
+};
+
+LibplaceboLoader::LibplaceboLoader() : m_hModule(nullptr),
+m_pl_color_space_bt2020_hlg(nullptr),
+m_pl_color_space_bt709(nullptr),
+m_pl_color_space_srgb(nullptr),
+m_pl_color_space_hdr10(nullptr),
+m_pl_hdr_metadata_empty(nullptr),
+m_pl_peak_detect_default_params(nullptr) {
+}
+
+LibplaceboLoader::~LibplaceboLoader() {
+    close();
+}
+
+bool LibplaceboLoader::load() {
+    if (m_hModule) {
+        return true;
+    }
+
+    if ((m_hModule = RGY_LOAD_LIBRARY(RGY_LIBPLACEBO_DLL_NAME)) == nullptr) {
+        return false;
+    }
+
+    auto loadFunc = [this](const char *funcName, void **func) {
+        if ((*func = RGY_GET_PROC_ADDRESS(m_hModule, funcName)) == nullptr) {
+            return false;
+        }
+        return true;
+    };
+
+    if (!loadFunc("pl_color_space_bt2020_hlg", (void**)&m_pl_color_space_bt2020_hlg)) return false;
+    if (!loadFunc("pl_color_space_bt709", (void**)&m_pl_color_space_bt709)) return false;
+    if (!loadFunc("pl_color_space_srgb", (void**)&m_pl_color_space_srgb)) return false;
+    if (!loadFunc("pl_color_space_hdr10", (void**)&m_pl_color_space_hdr10)) return false;
+    if (!loadFunc("pl_hdr_metadata_empty", (void**)&m_pl_hdr_metadata_empty)) return false;
+    if (!loadFunc("pl_peak_detect_default_params", (void**)&m_pl_peak_detect_default_params)) return false;
+
+    return true;
+}
+
+void LibplaceboLoader::close() {
+    if (m_hModule) {
+        RGY_FREE_LIBRARY(m_hModule);
+        m_hModule = nullptr;
+    }
+
+    m_pl_color_space_bt2020_hlg = nullptr;
+    m_pl_color_space_bt709 = nullptr;
+    m_pl_color_space_srgb = nullptr;
+    m_pl_color_space_hdr10 = nullptr;
+}
 
 static const RGYLogType RGY_LOGT_LIBPLACEBO = RGY_LOGT_VPP;
 
@@ -95,6 +179,48 @@ static const auto RGY_RESIZE_ALGO_TO_LIBPLACEBO = make_array<std::pair<RGY_VPP_R
 
 MAP_PAIR_0_1(resize_algo, rgy, RGY_VPP_RESIZE_ALGO, libplacebo, const char*, RGY_RESIZE_ALGO_TO_LIBPLACEBO, RGY_VPP_RESIZE_UNKNOWN, nullptr);
 
+ static const auto RGY_TONEMAP_METADATA_TO_LIBPLACEBO = make_array<std::pair<VppLibplaceboToneMappingMetadata, pl_hdr_metadata_type>>(
+    std::make_pair(VppLibplaceboToneMappingMetadata::ANY, PL_HDR_METADATA_ANY),
+    std::make_pair(VppLibplaceboToneMappingMetadata::NONE, PL_HDR_METADATA_NONE),
+    std::make_pair(VppLibplaceboToneMappingMetadata::HDR10, PL_HDR_METADATA_HDR10),
+    std::make_pair(VppLibplaceboToneMappingMetadata::HDR10PLUS, PL_HDR_METADATA_HDR10PLUS),
+    std::make_pair(VppLibplaceboToneMappingMetadata::CIE_Y, PL_HDR_METADATA_CIE_Y)
+);
+
+MAP_PAIR_0_1(tone_map_metadata, rgy, VppLibplaceboToneMappingMetadata, libplacebo, pl_hdr_metadata_type, RGY_TONEMAP_METADATA_TO_LIBPLACEBO, VppLibplaceboToneMappingMetadata::ANY, PL_HDR_METADATA_ANY);
+
+static const auto RGY_TRANSFER_TO_LIBPLACEBO = make_array<std::pair<CspTransfer, pl_color_transfer>>(
+    std::make_pair(RGY_TRANSFER_UNKNOWN,      PL_COLOR_TRC_UNKNOWN),
+    std::make_pair(RGY_TRANSFER_BT709,        PL_COLOR_TRC_BT_1886),
+    std::make_pair(RGY_TRANSFER_BT601,        PL_COLOR_TRC_BT_1886),
+    std::make_pair(RGY_TRANSFER_BT2020_10,    PL_COLOR_TRC_BT_1886),
+    std::make_pair(RGY_TRANSFER_BT2020_12,    PL_COLOR_TRC_BT_1886),
+    std::make_pair(RGY_TRANSFER_IEC61966_2_1, PL_COLOR_TRC_SRGB),
+    std::make_pair(RGY_TRANSFER_LINEAR,       PL_COLOR_TRC_LINEAR),
+    std::make_pair(RGY_TRANSFER_ST2084,       PL_COLOR_TRC_PQ),
+    std::make_pair(RGY_TRANSFER_ARIB_B67,     PL_COLOR_TRC_HLG)
+);
+
+MAP_PAIR_0_1(transfer, rgy, CspTransfer, libplacebo, pl_color_transfer, RGY_TRANSFER_TO_LIBPLACEBO, RGY_TRANSFER_UNKNOWN, PL_COLOR_TRC_UNKNOWN);
+
+static const auto RGY_COLORPRIM_TO_LIBPLACEBO = make_array<std::pair<CspColorprim, pl_color_primaries>>(
+    std::make_pair(RGY_PRIM_UNKNOWN,     PL_COLOR_PRIM_UNKNOWN),
+    std::make_pair(RGY_PRIM_BT709,       PL_COLOR_PRIM_BT_709),
+    std::make_pair(RGY_PRIM_UNSPECIFIED, PL_COLOR_PRIM_UNKNOWN),
+    std::make_pair(RGY_PRIM_BT470_M,     PL_COLOR_PRIM_BT_470M),
+    std::make_pair(RGY_PRIM_BT470_BG,    PL_COLOR_PRIM_BT_601_625),
+    std::make_pair(RGY_PRIM_ST170_M,     PL_COLOR_PRIM_BT_601_525),
+    std::make_pair(RGY_PRIM_ST240_M,     PL_COLOR_PRIM_BT_601_525), // 近似値
+    std::make_pair(RGY_PRIM_FILM,        PL_COLOR_PRIM_FILM_C),
+    std::make_pair(RGY_PRIM_BT2020,      PL_COLOR_PRIM_BT_2020),
+    std::make_pair(RGY_PRIM_ST428,       PL_COLOR_PRIM_CIE_1931),
+    std::make_pair(RGY_PRIM_ST431_2,     PL_COLOR_PRIM_DCI_P3),
+    std::make_pair(RGY_PRIM_ST432_1,     PL_COLOR_PRIM_DISPLAY_P3),
+    std::make_pair(RGY_PRIM_EBU3213_E,   PL_COLOR_PRIM_EBU_3213)
+);
+
+MAP_PAIR_0_1(colorprim, rgy, CspColorprim, libplacebo, pl_color_primaries, RGY_COLORPRIM_TO_LIBPLACEBO, RGY_PRIM_UNKNOWN, PL_COLOR_PRIM_UNKNOWN);
+
 std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter> rgy_pl_tex_recreate(pl_gpu gpu, const pl_tex_params& tex_params) {
     pl_tex tex_tmp = { 0 };
     if (!pl_tex_recreate(gpu, &tex_tmp, &tex_params)) {
@@ -114,6 +240,7 @@ static void libplacebo_log_func(void *private_data, pl_log_level level, const ch
 }
 
 NVEncFilterLibplacebo::NVEncFilterLibplacebo() :
+    m_procByFrame(true),
     m_textCspIn(RGY_CSP_NA),
     m_textCspOut(RGY_CSP_NA),
     m_dxgiformatIn(DXGI_FORMAT_UNKNOWN),
@@ -143,11 +270,10 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
         AddMessage(RGY_LOG_ERROR, _T("DX11 device not set\n"));
         return RGY_ERR_NULL_PTR;
     }
-    if (auto hModule = RGY_LOAD_LIBRARY(RGY_LIBPLACEBO_DLL_NAME); hModule == nullptr) {
+    m_libplaceboLoader = std::make_unique<LibplaceboLoader>();
+    if (!m_libplaceboLoader->load()) {
         AddMessage(RGY_LOG_ERROR, _T("%s is required but not found.\n"), RGY_LIBPLACEBO_DLL_NAME);
         return RGY_ERR_UNKNOWN;
-    } else {
-        RGY_FREE_LIBRARY(hModule);
     }
     const pl_log_params log_params = {libplacebo_log_func, m_pLog.get(), loglevel_rgy_to_libplacebo(m_pLog->getLogLevel(RGY_LOGT_LIBPLACEBO))};
     m_log = std::unique_ptr<std::remove_pointer<pl_log>::type, RGYLibplaceboDeleter<pl_log>>(pl_log_create(0, &log_params), RGYLibplaceboDeleter<pl_log>(pl_log_destroy));
@@ -245,6 +371,10 @@ RGY_ERR NVEncFilterLibplacebo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     return sts;
 }
 
+tstring NVEncFilterLibplacebo::printParams(const NVEncFilterParamLibplacebo *prm) const {
+    return prm->print();
+}
+
 RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     RGY_ERR sts = RGY_ERR_NONE;
     auto prm = dynamic_cast<NVEncFilterParamLibplacebo*>(pParam.get());
@@ -262,6 +392,7 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     }
     vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
 
+    auto textInFrameInfo = pParam->frameIn;
     if (!m_srcCrop
         || m_srcCrop->GetFilterParam()->frameIn.width != pParam->frameIn.width
         || m_srcCrop->GetFilterParam()->frameIn.height != pParam->frameIn.height) {
@@ -281,8 +412,10 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         }
         m_srcCrop = std::move(filter);
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_srcCrop->GetInputMessage().c_str());
+        textInFrameInfo = m_srcCrop->GetFilterParam()->frameOut;
     }
-    const int numPlanes = RGY_CSP_PLANES[pParam->frameIn.csp];
+    const int numPlanes = RGY_CSP_PLANES[textInFrameInfo.csp];
+    pParam->frameOut.csp = m_textCspOut;
     if (numPlanes != RGY_CSP_PLANES[pParam->frameOut.csp]) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp, int out plane count does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -290,8 +423,8 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     bool textInReset = m_textIn.size() != numPlanes;
     if (!textInReset) {
         for (auto &txt : m_textIn) {
-            if (txt->width != pParam->frameIn.width
-            || txt->height != pParam->frameIn.height) {
+            if (txt->width != textInFrameInfo.width
+            || txt->height != textInFrameInfo.height) {
                 textInReset = true;
                 break;
             }
@@ -300,7 +433,7 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     if (textInReset) {
         m_textIn.clear();
         for (int iplane = 0; iplane < numPlanes; iplane++) {
-            const auto planeIn = getPlane(&pParam->frameIn, (RGY_PLANE)iplane);
+            const auto planeIn = getPlane(&textInFrameInfo, (RGY_PLANE)iplane);
 
             auto txt = std::make_unique<CUDADX11Texture>();
             sts = txt->create(m_dx11->GetDevice(), m_dx11->GetDeviceContext(), planeIn.width, planeIn.height, m_dxgiformatIn);
@@ -392,7 +525,22 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         info += m_srcCrop->GetInputMessage() + _T("\n");
         indent = tstring(INFO_INDENT) + nameBlank;
     }
-    info += indent + pParam->print() + _T("\n");
+    auto prm_print = printParams(prm);
+    const size_t MAX_LINE_LENGTH = 90;
+    std::vector<tstring> prm_print_lines;
+    tstring current_line = indent;
+    for (const auto& token : split(prm_print, _T(","))) {
+        current_line += trim(token) + _T(", ");
+        if (current_line.length() > MAX_LINE_LENGTH) {
+            info += current_line + _T("\n");
+            current_line = indent;
+            indent = tstring(INFO_INDENT) + nameBlank;
+        }
+    }
+    current_line = lstrip(current_line, _T(", "));
+    if (current_line.size() > 0) {
+        info += current_line + _T("\n");
+    }
     indent = tstring(INFO_INDENT) + nameBlank;
     if (m_dstCrop) {
         info += indent + m_dstCrop->GetInputMessage() + _T("\n");
@@ -411,6 +559,11 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+
+    sts = setFrameParam(pInputFrame);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
 
     //const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
@@ -473,6 +626,7 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     }
 
     // フィルタを適用
+    std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_in, pl_tex_planes_out;
     for (int iplane = 0; iplane < (int)m_textIn.size(); iplane++) {
         pl_d3d11_wrap_params d3d11_wrap_in = { 0 };
         d3d11_wrap_in.tex = m_textIn[iplane]->pTexture;
@@ -499,15 +653,33 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap output d3d11 plane(%d) to pl_tex.\n"), iplane);
             return RGY_ERR_NULL_PTR;
         }
-
-        const RGY_PLANE planeIdx = (RGY_PLANE)iplane;
-        auto planeIn = getPlane(pInputFrame, planeIdx);
-        auto planeOut = getPlane(ppOutputFrames[0], planeIdx);
-        sts = procPlane(pl_tex_out.get(), &planeOut, pl_tex_in.get(), &planeIn, planeIdx);
+        if (m_procByFrame) {
+            pl_tex_planes_in.push_back(std::move(pl_tex_in));
+            pl_tex_planes_out.push_back(std::move(pl_tex_out));
+        } else {
+            const RGY_PLANE planeIdx = (RGY_PLANE)iplane;
+            auto planeIn = getPlane(pInputFrame, planeIdx);
+            auto planeOut = getPlane(ppOutputFrames[0], planeIdx);
+            sts = procPlane(pl_tex_out.get(), &planeOut, pl_tex_in.get(), &planeIn, planeIdx);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to process plane(%d): %s.\n"), iplane, get_err_mes(sts));
+                return sts;
+            }
+        }
+    }
+    if (m_procByFrame) {
+        pl_tex texOut[RGY_MAX_PLANES], texIn[RGY_MAX_PLANES];
+        for (int iplane = 0; iplane < (int)m_textIn.size(); iplane++) {
+            texOut[iplane] = pl_tex_planes_out[iplane].get();
+            texIn[iplane] = pl_tex_planes_in[iplane].get();
+        }
+        sts = procFrame(texOut, ppOutputFrames[0], texIn, txtFrameBufIn);
         if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to process plane(%d): %s.\n"), iplane, get_err_mes(sts));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to process frame.\n"));
             return sts;
         }
+        pl_tex_planes_in.clear();
+        pl_tex_planes_out.clear();
     }
 
     RGYFrameInfo *txtFrameBufOut = (m_dstCrop) ? &m_textFrameBufOut->frame : ppOutputFrames[0];
@@ -569,8 +741,8 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
             AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_dstCrop->name().c_str());
             return sts_filter;
         }
-        copyFramePropWithoutRes(ppOutputFrames[0], pInputFrame);
     }
+    setFrameProp(ppOutputFrames[0], pInputFrame);
     return RGY_ERR_NONE;
 }
 
@@ -597,6 +769,7 @@ void NVEncFilterLibplacebo::close() {
     m_renderer.reset();
     m_dispatch.reset();
     m_d3d11.reset();
+    m_libplaceboLoader.reset();
     m_log.reset();
 
     m_frameBuf.clear();
@@ -930,6 +1103,638 @@ RGY_ERR NVEncFilterLibplaceboDeband::procPlane(pl_tex texOut, [[maybe_unused]] c
     return RGY_ERR_NONE;
 }
 
+NVEncFilterLibplaceboToneMapping::NVEncFilterLibplaceboToneMapping() : NVEncFilterLibplacebo(), m_tonemap() {
+    m_name = _T("libplacebo-tonemapping");
+    m_procByFrame = true;
+}
+NVEncFilterLibplaceboToneMapping::~NVEncFilterLibplaceboToneMapping() {};
+
+RGY_CSP NVEncFilterLibplaceboToneMapping::getTextureCsp(const RGY_CSP csp) {
+    const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[csp];
+    return (inChromaFmt == RGY_CHROMAFMT_RGB) ? RGY_CSP_RGB_16 : RGY_CSP_YUV444_16;
+}
+
+DXGI_FORMAT NVEncFilterLibplaceboToneMapping::getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp) {
+    return DXGI_FORMAT_R16_UNORM;
+}
+
+RGY_ERR NVEncFilterLibplaceboToneMapping::checkParam(const NVEncFilterParam *param) {
+    auto prm = dynamic_cast<const NVEncFilterParamLibplaceboToneMapping*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->toneMapping.src_max >= 0.0f && prm->toneMapping.src_min >= 0.0f && prm->toneMapping.src_min >= prm->toneMapping.src_max) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid source luminance range.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->toneMapping.dst_max >= 0.0f && prm->toneMapping.dst_min >= 0.0f && prm->toneMapping.dst_min >= prm->toneMapping.dst_max) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid destination luminance range.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->toneMapping.smooth_period <= 0.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid smoothing period.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->toneMapping.scene_threshold_low < 0.0f || prm->toneMapping.scene_threshold_high < prm->toneMapping.scene_threshold_low) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid scene change threshold.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->toneMapping.percentile < 0.0f || prm->toneMapping.percentile > 100.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid percentile for peak detection.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->toneMapping.black_cutoff < 0.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid black cutoff value.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (   prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::st2094_10
+        || prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::st2094_40
+        || prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::spline) {
+        if (prm->toneMapping.tone_constants.st2094.knee_adaptation < 0.0f || prm->toneMapping.tone_constants.st2094.knee_adaptation > 1.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid knee adaptation value. Must be between 0.0 and 1.0.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (prm->toneMapping.tone_constants.st2094.knee_min < 0.0f || prm->toneMapping.tone_constants.st2094.knee_min > 0.5f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid knee minimum value. Must be between 0.0 and 0.5.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (prm->toneMapping.tone_constants.st2094.knee_max < 0.5f || prm->toneMapping.tone_constants.st2094.knee_max > 1.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid knee maximum value. Must be between 0.5 and 1.0.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (prm->toneMapping.tone_constants.st2094.knee_default < prm->toneMapping.tone_constants.st2094.knee_min || prm->toneMapping.tone_constants.st2094.knee_default > prm->toneMapping.tone_constants.st2094.knee_max) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid knee default value. Must be between knee minimum and knee maximum.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::bt2390) {
+        if (prm->toneMapping.tone_constants.bt2390.knee_offset < 0.5f || prm->toneMapping.tone_constants.bt2390.knee_offset > 2.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid knee offset value. Must be between 0.5 and 2.0.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::spline) {
+        if (prm->toneMapping.tone_constants.spline.slope_tuning < 0.0f || prm->toneMapping.tone_constants.spline.slope_tuning > 10.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid slope tuning value. Must be between 0.0 and 10.0.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (prm->toneMapping.tone_constants.spline.slope_offset < 0.0f || prm->toneMapping.tone_constants.spline.slope_offset > 1.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid slope offset value. Must be between 0.0 and 1.0.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (prm->toneMapping.tone_constants.spline.spline_contrast < 0.0f || prm->toneMapping.tone_constants.spline.spline_contrast > 1.5f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid spline contrast value. Must be between 0.0 and 1.5.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::reinhard) {
+        if (prm->toneMapping.tone_constants.reinhard.contrast < 0.0f || prm->toneMapping.tone_constants.reinhard.contrast > 1.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid reinhard contrast value. Must be between 0.0 and 1.0.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (   prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::mobius
+        || prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::gamma) {
+        if (prm->toneMapping.tone_constants.mobius.linear_knee < 0.0f || prm->toneMapping.tone_constants.mobius.linear_knee > 1.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid linear knee value. Must be between 0.0 and 1.0.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (   prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::linear
+        || prm->toneMapping.tonemapping_function == VppLibplaceboToneMappingFunction::linearlight) {
+        if (prm->toneMapping.tone_constants.linear.exposure < 0.0f || prm->toneMapping.tone_constants.linear.exposure > 10.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid exposure value. Must be between 0.0 and 10.0.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (prm->toneMapping.contrast_recovery < 0.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid contrast recovery strength.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->toneMapping.contrast_smoothness < 0.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid contrast recovery smoothness.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterParam *param) {
+    auto prm = dynamic_cast<const NVEncFilterParamLibplaceboToneMapping*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    m_tonemap.cspSrc = prm->toneMapping.src_csp;
+    m_tonemap.cspDst = prm->toneMapping.dst_csp;
+
+    m_tonemap.reprSrc = std::make_unique<pl_color_repr>();
+    m_tonemap.reprSrc->bits.sample_depth = 16;
+    m_tonemap.reprSrc->bits.color_depth = 16;
+    m_tonemap.reprSrc->bits.bit_shift = 0;
+
+    m_tonemap.reprDst = std::make_unique<pl_color_repr>();
+    m_tonemap.reprDst->bits.sample_depth = 16;
+    m_tonemap.reprDst->bits.color_depth = 16;
+    m_tonemap.reprDst->bits.bit_shift = 0;
+
+    const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[param->frameIn.csp];
+    VideoVUIInfo vuiSrc = prm->vui;
+    if (inChromaFmt == RGY_CHROMAFMT_RGB || inChromaFmt == RGY_CHROMAFMT_RGB_PACKED) {
+        vuiSrc.setIfUnset(VideoVUIInfo().to(RGY_MATRIX_RGB).to(RGY_PRIM_BT709).to(RGY_TRANSFER_IEC61966_2_1));
+    } else {
+        vuiSrc.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+    }
+    vuiSrc.apply_auto(VideoVUIInfo(), param->frameIn.height);
+
+    if (m_tonemap.cspSrc == VppLibplaceboToneMappingCSP::Auto) {
+        if (vuiSrc.transfer == RGY_TRANSFER_ARIB_B67) {
+            m_tonemap.cspSrc = VppLibplaceboToneMappingCSP::HLG;
+        } else if (vuiSrc.transfer == RGY_TRANSFER_ST2084) {
+            m_tonemap.cspSrc = VppLibplaceboToneMappingCSP::HDR10;
+        } else if (vuiSrc.transfer == RGY_TRANSFER_IEC61966_2_1) {
+            m_tonemap.cspSrc = VppLibplaceboToneMappingCSP::RGB;
+        } else {
+            m_tonemap.cspSrc = VppLibplaceboToneMappingCSP::SDR;
+        }
+    }
+
+    switch (m_tonemap.cspSrc) {
+        case VppLibplaceboToneMappingCSP::SDR:
+            m_tonemap.plCspSrc = m_libplaceboLoader->pl_color_space_bt709();
+            m_tonemap.reprSrc->sys = (vuiSrc.matrix == RGY_MATRIX_BT470_BG) ? PL_COLOR_SYSTEM_BT_601 : PL_COLOR_SYSTEM_BT_709;
+            m_tonemap.reprSrc->levels = (vuiSrc.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
+            break;
+        case VppLibplaceboToneMappingCSP::HDR10:
+        case VppLibplaceboToneMappingCSP::DOVI:
+            m_tonemap.plCspSrc = m_libplaceboLoader->pl_color_space_hdr10();
+            m_tonemap.reprSrc->sys = PL_COLOR_SYSTEM_BT_2020_NC;
+            m_tonemap.reprSrc->levels = (vuiSrc.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
+            break;
+        case VppLibplaceboToneMappingCSP::HLG:
+            m_tonemap.plCspSrc = m_libplaceboLoader->pl_color_space_bt2020_hlg();
+            m_tonemap.reprSrc->sys = PL_COLOR_SYSTEM_BT_2020_NC;
+            m_tonemap.reprSrc->levels = (vuiSrc.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
+            break;
+        case VppLibplaceboToneMappingCSP::RGB:
+            m_tonemap.plCspSrc = m_libplaceboLoader->pl_color_space_srgb();
+            m_tonemap.reprSrc->sys = PL_COLOR_SYSTEM_RGB;
+            m_tonemap.reprSrc->levels = PL_COLOR_LEVELS_FULL;
+            break;
+        default:
+            AddMessage(RGY_LOG_ERROR, _T("Invalid source color space.\n"));
+            return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->toneMapping.dst_pl_colorprim != VppLibplaceboToneMappingColorprim::Unknown && prm->toneMapping.dst_pl_transfer != VppLibplaceboToneMappingTransfer::Unknown) {
+        m_tonemap.plCspDst.primaries = (pl_color_primaries)prm->toneMapping.dst_pl_colorprim;
+        m_tonemap.plCspDst.transfer = (pl_color_transfer)prm->toneMapping.dst_pl_transfer;
+        m_tonemap.plCspDst.hdr = m_libplaceboLoader->pl_hdr_metadata_empty();
+
+        switch (m_tonemap.plCspDst.transfer) {
+        case PL_COLOR_TRC_SRGB:
+            m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_RGB;
+            m_tonemap.reprDst->levels = PL_COLOR_LEVELS_FULL;
+            m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_IEC61966_2_1).to(RGY_PRIM_BT709);
+            m_tonemap.outVui.colorrange = RGY_COLORRANGE_FULL;
+            m_tonemap.outVui.descriptpresent = 1;
+            break;
+        case PL_COLOR_TRC_BT_1886:
+        case PL_COLOR_TRC_LINEAR:
+        case PL_COLOR_TRC_GAMMA18:
+        case PL_COLOR_TRC_GAMMA20:
+        case PL_COLOR_TRC_GAMMA22:
+        case PL_COLOR_TRC_GAMMA24:
+        case PL_COLOR_TRC_GAMMA26:
+        case PL_COLOR_TRC_GAMMA28:
+        case PL_COLOR_TRC_PRO_PHOTO:
+        case PL_COLOR_TRC_ST428:
+            m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_709;
+            m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
+            m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
+            m_tonemap.outVui.colorrange = RGY_COLORRANGE_LIMITED;
+            m_tonemap.outVui.descriptpresent = 1;
+            break;
+        case PL_COLOR_TRC_HLG:
+            m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_2020_NC;
+            m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
+            m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ARIB_B67).to(RGY_PRIM_BT2020);
+            m_tonemap.outVui.colorrange = RGY_COLORRANGE_LIMITED;
+            m_tonemap.outVui.descriptpresent = 1;
+            break;
+        case PL_COLOR_TRC_PQ:
+        case PL_COLOR_TRC_V_LOG:
+        case PL_COLOR_TRC_S_LOG1:
+        case PL_COLOR_TRC_S_LOG2:
+            m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_2020_NC;
+            m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
+            m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020);
+            m_tonemap.outVui.colorrange = RGY_COLORRANGE_LIMITED;
+            m_tonemap.outVui.descriptpresent = 1;
+            break;
+        default:
+            AddMessage(RGY_LOG_ERROR, _T("Invalid destination color space.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
+    } else {
+        switch (prm->toneMapping.dst_csp) {
+            case VppLibplaceboToneMappingCSP::SDR:
+                m_tonemap.plCspDst = m_libplaceboLoader->pl_color_space_bt709();
+                m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_709;
+                m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
+                m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
+                m_tonemap.outVui.colorrange = RGY_COLORRANGE_LIMITED;
+                m_tonemap.outVui.descriptpresent = 1;
+                break;
+            case VppLibplaceboToneMappingCSP::HDR10:
+            case VppLibplaceboToneMappingCSP::DOVI:
+                m_tonemap.plCspDst = m_libplaceboLoader->pl_color_space_hdr10();
+                m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_2020_NC;
+                m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
+                m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020);
+                m_tonemap.outVui.colorrange = RGY_COLORRANGE_LIMITED;
+                m_tonemap.outVui.descriptpresent = 1;
+                break;
+            case VppLibplaceboToneMappingCSP::HLG:
+                m_tonemap.plCspDst = m_libplaceboLoader->pl_color_space_bt2020_hlg();
+                m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_2020_NC;
+                m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
+                m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ARIB_B67).to(RGY_PRIM_BT2020);
+                m_tonemap.outVui.colorrange = RGY_COLORRANGE_LIMITED;
+                m_tonemap.outVui.descriptpresent = 1;
+                break;
+            case VppLibplaceboToneMappingCSP::RGB:
+                m_tonemap.plCspDst = m_libplaceboLoader->pl_color_space_srgb();
+                m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_RGB;
+                m_tonemap.reprDst->levels = PL_COLOR_LEVELS_FULL;
+                m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_IEC61966_2_1).to(RGY_PRIM_BT709);
+                m_tonemap.outVui.colorrange = RGY_COLORRANGE_FULL;
+                m_tonemap.outVui.descriptpresent = 1;
+                break;
+            default:
+                AddMessage(RGY_LOG_ERROR, _T("Invalid destination color space.\n"));
+                return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (!prm->toneMapping.lut_path.empty()) {
+        if (!PathFileExists(prm->toneMapping.lut_path.c_str())) {
+            AddMessage(RGY_LOG_ERROR, _T("LUT file not found.\n"));
+            return RGY_ERR_FILE_OPEN;
+        }
+        // prm->toneMapping.lut_path をバイナリモードでオープンし、中のデータをstd::vector<uint8_t>に読み込む
+        std::ifstream lut_file(prm->toneMapping.lut_path, std::ios::binary | std::ios_base::in);
+        if (!lut_file.is_open()) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to open LUT file.\n"));
+            return RGY_ERR_FILE_OPEN;
+        }
+        lut_file.seekg(0, std::ios::end);
+        std::vector<char> lut_data(lut_file.tellg());
+        lut_file.seekg(0, std::ios::beg);
+        lut_file.read(reinterpret_cast<char*>(lut_data.data()), lut_data.size());
+        if (lut_data.size() == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to read LUT file.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+
+        m_tonemap.renderParams = std::make_unique<pl_render_params>();
+        m_tonemap.renderParams->lut = pl_lut_parse_cube(m_log.get(), lut_data.data(), lut_data.size());
+        if (!m_tonemap.renderParams->lut) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to parse LUT file.\n"));
+            return RGY_ERR_INVALID_DATA_TYPE;
+        }
+        m_tonemap.renderParams->lut_type = (pl_lut_type)prm->toneMapping.lut_type;
+    } else {
+        if (prm->toneMapping.src_csp == VppLibplaceboToneMappingCSP::DOVI) {
+            m_tonemap.plDoviMeta = std::make_unique<pl_dovi_metadata>();
+        }
+        if (prm->toneMapping.src_max < 0.0f) {
+            m_tonemap.src_max_org = prm->toneMapping.src_max;
+            m_tonemap.plCspSrc.hdr.max_luma = (m_tonemap.cspSrc == VppLibplaceboToneMappingCSP::SDR) ? FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MAX_SDR : FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MAX_HDR;
+        } else if (prm->toneMapping.src_max > 0.0f) {
+            m_tonemap.src_max_org = prm->toneMapping.src_max;
+            m_tonemap.plCspSrc.hdr.max_luma = m_tonemap.src_max_org;
+        }
+        if (prm->toneMapping.src_min < 0.0f) {
+            m_tonemap.src_min_org = prm->toneMapping.src_min;
+            m_tonemap.plCspSrc.hdr.min_luma = (m_tonemap.cspSrc == VppLibplaceboToneMappingCSP::SDR) ? FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MIN_SDR : FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MIN_HDR;
+        } else if (prm->toneMapping.src_min > 0.0f) {
+            m_tonemap.src_min_org = prm->toneMapping.src_min;
+            m_tonemap.plCspSrc.hdr.min_luma = m_tonemap.src_min_org;
+        }
+        if (prm->toneMapping.dst_max < 0.0f) {
+            m_tonemap.dst_max_org = prm->toneMapping.dst_max;
+            m_tonemap.plCspDst.hdr.max_luma = (m_tonemap.cspDst == VppLibplaceboToneMappingCSP::SDR) ? FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MAX_SDR : FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MAX_HDR;
+        } else if (prm->toneMapping.dst_max > 0.0f) {
+            m_tonemap.dst_max_org = prm->toneMapping.dst_max;
+            m_tonemap.plCspDst.hdr.max_luma = prm->toneMapping.dst_max;
+        }
+        if (prm->toneMapping.dst_min < 0.0f) {
+            m_tonemap.dst_min_org = prm->toneMapping.dst_min;
+            m_tonemap.plCspDst.hdr.min_luma = (m_tonemap.cspDst == VppLibplaceboToneMappingCSP::SDR) ? FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MIN_SDR : FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MIN_HDR;
+        } else if (prm->toneMapping.dst_min > 0.0f) {
+            m_tonemap.dst_min_org = prm->toneMapping.dst_min;
+            m_tonemap.plCspDst.hdr.min_luma = prm->toneMapping.dst_min;
+        }
+        m_tonemap.colorMapParams = std::make_unique<pl_color_map_params>(pl_color_map_default_params);
+        m_tonemap.colorMapParams->tone_constants.knee_adaptation = prm->toneMapping.tone_constants.st2094.knee_adaptation;
+        m_tonemap.colorMapParams->tone_constants.knee_minimum = prm->toneMapping.tone_constants.st2094.knee_min;
+        m_tonemap.colorMapParams->tone_constants.knee_maximum = prm->toneMapping.tone_constants.st2094.knee_max;
+        m_tonemap.colorMapParams->tone_constants.knee_default = prm->toneMapping.tone_constants.st2094.knee_default;
+        m_tonemap.colorMapParams->tone_constants.knee_offset = prm->toneMapping.tone_constants.bt2390.knee_offset;
+        m_tonemap.colorMapParams->tone_constants.slope_tuning = prm->toneMapping.tone_constants.spline.slope_tuning;
+        m_tonemap.colorMapParams->tone_constants.slope_offset = prm->toneMapping.tone_constants.spline.slope_offset;
+        m_tonemap.colorMapParams->tone_constants.spline_contrast = prm->toneMapping.tone_constants.spline.spline_contrast;
+        m_tonemap.colorMapParams->tone_constants.reinhard_contrast = prm->toneMapping.tone_constants.reinhard.contrast;
+        m_tonemap.colorMapParams->tone_constants.linear_knee = prm->toneMapping.tone_constants.mobius.linear_knee;
+        m_tonemap.colorMapParams->tone_constants.exposure = prm->toneMapping.tone_constants.linear.exposure;
+
+        m_tonemap.colorMapParams->gamut_mapping = pl_find_gamut_map_function(tchar_to_string(get_cx_desc(list_vpp_libplacebo_tone_mapping_gamut_mapping, (int)prm->toneMapping.gamut_mapping)).c_str());
+        if (!m_tonemap.colorMapParams->gamut_mapping) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid gamut mapping.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        m_tonemap.colorMapParams->metadata = tone_map_metadata_rgy_to_libplacebo(prm->toneMapping.metadata);
+        m_tonemap.colorMapParams->visualize_lut = prm->toneMapping.visualize_lut;
+        m_tonemap.colorMapParams->show_clipping = prm->toneMapping.show_clipping;
+        m_tonemap.colorMapParams->contrast_recovery = prm->toneMapping.contrast_recovery;
+        m_tonemap.colorMapParams->contrast_smoothness = prm->toneMapping.contrast_smoothness;
+
+        m_tonemap.peakDetectParams = std::make_unique<pl_peak_detect_params>(m_libplaceboLoader->pl_peak_detect_default_params());
+        m_tonemap.peakDetectParams->smoothing_period = prm->toneMapping.smooth_period;
+        m_tonemap.peakDetectParams->scene_threshold_low = prm->toneMapping.scene_threshold_low;
+        m_tonemap.peakDetectParams->scene_threshold_high = prm->toneMapping.scene_threshold_high;
+        m_tonemap.peakDetectParams->percentile = prm->toneMapping.percentile;
+        m_tonemap.peakDetectParams->black_cutoff = prm->toneMapping.black_cutoff;
+
+        m_tonemap.use_dovi = prm->toneMapping.use_dovi >= 0 ? prm->toneMapping.use_dovi : m_tonemap.cspSrc == VppLibplaceboToneMappingCSP::DOVI;
+    }
+
+    auto setHdrMetadata = [](pl_color_space& plCsp, const VppLibplaceboToneMappingCSP prm_csp, const float max_org, const float min_org, const RGYHDRMetadata *hdrMetadata) {
+        const auto hdrMetadataPrm = hdrMetadata->getprm();
+        if (hdrMetadataPrm.contentlight_set) {
+            plCsp.hdr.max_cll = (float)hdrMetadataPrm.maxcll;
+            plCsp.hdr.max_fall = (float)hdrMetadataPrm.maxfall;
+        }
+        if (hdrMetadataPrm.masterdisplay_set) {
+            if (max_org < 1.0f) {
+                plCsp.hdr.max_luma = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::L_Max].qfloat();
+            }
+            if (min_org < 0.0f) {
+                plCsp.hdr.min_luma = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::L_Min].qfloat();
+            }
+            plCsp.hdr.prim.red.x = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::R_X].qfloat();
+            plCsp.hdr.prim.red.y = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::R_Y].qfloat();
+            plCsp.hdr.prim.green.x = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::G_X].qfloat();
+            plCsp.hdr.prim.green.y = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::G_Y].qfloat();
+            plCsp.hdr.prim.blue.x = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::B_X].qfloat();
+            plCsp.hdr.prim.blue.y = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::B_Y].qfloat();
+            plCsp.hdr.prim.white.x = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::WP_X].qfloat();
+            plCsp.hdr.prim.white.y = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::WP_Y].qfloat();
+        } else {
+            pl_raw_primaries_merge(&plCsp.hdr.prim, pl_raw_primaries_get((prm_csp == VppLibplaceboToneMappingCSP::SDR) ? plCsp.primaries : PL_COLOR_PRIM_DISPLAY_P3));
+        }
+    };
+
+    if (prm->hdrMetadataIn) {
+        setHdrMetadata(m_tonemap.plCspSrc, m_tonemap.cspSrc, m_tonemap.src_max_org, m_tonemap.src_min_org, prm->hdrMetadataIn);
+    }
+    if (prm->hdrMetadataOut) {
+        setHdrMetadata(m_tonemap.plCspDst, m_tonemap.cspDst, m_tonemap.dst_max_org, m_tonemap.dst_min_org, prm->hdrMetadataOut);
+    }
+    m_pathThrough &= (~FILTER_PATHTHROUGH_DATA);
+    return RGY_ERR_NONE;
+}
+
+tstring NVEncFilterLibplaceboToneMapping::printParams(const NVEncFilterParamLibplacebo *prm) const {
+    tstring str;
+    for (const auto& token : split(prm->print(), _T(","))) {
+        auto tok2 = split(trim(token), _T("="));
+        if (tok2.size() == 2) {
+            try {
+                if (tok2[0] == _T("src_csp") && tok2[1] == get_cx_desc(list_vpp_libplacebo_tone_mapping_csp, (int)VppLibplaceboToneMappingCSP::Auto)) {
+                    str += strsprintf(_T("src_csp=auto (%s),"), get_cx_desc(list_vpp_libplacebo_tone_mapping_csp, (int)m_tonemap.cspSrc));
+                    continue;
+                } else if (tok2[0] == _T("dst_csp") && tok2[1] == get_cx_desc(list_vpp_libplacebo_tone_mapping_csp, (int)VppLibplaceboToneMappingCSP::Auto)) {
+                    str += strsprintf(_T("dst_csp=auto (%s),"), get_cx_desc(list_vpp_libplacebo_tone_mapping_csp, (int)m_tonemap.cspDst));
+                    continue;
+                } else if (tok2[0] == _T("src_max") && std::stof(tok2[1]) < 0) {
+                    str += strsprintf(_T("src_max=auto (%.2f),"), m_tonemap.plCspSrc.hdr.max_luma);
+                    continue;
+                } else if (tok2[0] == _T("src_min") && std::stof(tok2[1]) < 0) {
+                    str += strsprintf(_T("src_min=auto (%.2f),"), m_tonemap.plCspSrc.hdr.min_luma);
+                    continue;
+                } else if (tok2[0] == _T("dst_max") && std::stof(tok2[1]) < 0) {
+                    str += strsprintf(_T("dst_max=auto (%.2f),"), m_tonemap.plCspDst.hdr.max_luma);
+                    continue;
+                } else if (tok2[0] == _T("dst_min") && std::stof(tok2[1]) < 0) {
+                    str += strsprintf(_T("dst_min=auto (%.2f),"), m_tonemap.plCspDst.hdr.min_luma);
+                    continue;
+                } else if (tok2[0] == _T("use_dovi") && (tok2[1] == _T("auto") || std::stoi(tok2[1]) < 0)) {
+                    str += strsprintf(_T("use_dovi=auto (%s),"), m_tonemap.use_dovi ? _T("on") : _T("off"));
+                    continue;
+                }
+            } catch (...) {
+                ; //なにもしない
+            }
+        }
+        str += token + _T(",");
+    }
+    return str;
+}
+
+static std::unique_ptr<pl_dovi_metadata> createDOVIMeta(const DoviRpuOpaque *rpu, const DoviRpuDataHeader *hdr) {
+    auto dovi_meta = std::make_unique<pl_dovi_metadata>();
+    if (hdr->use_prev_vdr_rpu_flag) {
+        return dovi_meta;
+    }
+    if (std::unique_ptr<const DoviRpuDataMapping, decltype(&dovi_rpu_free_data_mapping)> mapping(dovi_rpu_get_data_mapping(rpu), dovi_rpu_free_data_mapping);
+        mapping) {
+        const auto scale = 1.0f / (float)(1 << hdr->coefficient_log2_denom);
+
+        for (size_t ic = 0; ic < _countof(mapping->curves); ic++) {
+            const DoviReshapingCurve& curve = mapping->curves[ic];
+            auto& cmp = dovi_meta->comp[ic];
+            cmp.num_pivots = (decltype(cmp.num_pivots))curve.pivots.len;
+            for (size_t i = 0; i < _countof(cmp.method); i++) {
+                cmp.method[i] = curve.mapping_idc;
+            }
+            {
+                uint32_t pivot = 0;
+                for (int ip = 0; ip < (int)cmp.num_pivots; ip++) {
+                    pivot += curve.pivots.data[ip];
+                    cmp.pivots[ip] = pivot / (float)((1 << (hdr->bl_bit_depth_minus8 + 8)) - 1);
+                }
+            }
+
+            memset(cmp.poly_coeffs, 0, sizeof(cmp.poly_coeffs));
+
+            for (int ip = 0; ip < (int)cmp.num_pivots - 1; ip++) {
+                if (curve.polynomial) {
+                    for (int64_t i = 0; i <= (int64_t)curve.polynomial->poly_order_minus1.data[ip] + 1; i++) {
+                        cmp.poly_coeffs[ip][i] = curve.polynomial->poly_coef_int.list[ip]->data[i] + curve.polynomial->poly_coef.list[ip]->data[i] * scale;
+                    }
+                } else if (curve.mmr) {
+                    cmp.mmr_order[ip] = curve.mmr->mmr_order_minus1.data[ip] + 1;
+                    cmp.mmr_constant[ip] = curve.mmr->mmr_constant_int.data[ip] + curve.mmr->mmr_constant.data[ip] * scale;
+                    for (size_t j = 0; j < cmp.mmr_order[ip]; j++) {
+                        for (size_t k = 0; k < _countof(cmp.mmr_coeffs[ip][j]); k++) {
+                            cmp.mmr_coeffs[ip][j][k] = curve.mmr->mmr_coef_int.list[ip]->list[j]->data[k] + curve.mmr->mmr_coef.list[ip]->list[j]->data[k] * scale;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (hdr->vdr_dm_metadata_present_flag) {
+        std::unique_ptr<const DoviVdrDmData, decltype(&dovi_rpu_free_vdr_dm_data)> vdr_dm_data(dovi_rpu_get_vdr_dm_data(rpu), dovi_rpu_free_vdr_dm_data);
+        if (vdr_dm_data) {
+            dovi_meta->nonlinear_offset[0] = (float)(vdr_dm_data->ycc_to_rgb_offset0 * (1.0 / (double)(1 << 28)));
+            dovi_meta->nonlinear_offset[1] = (float)(vdr_dm_data->ycc_to_rgb_offset1 * (1.0 / (double)(1 << 28)));
+            dovi_meta->nonlinear_offset[2] = (float)(vdr_dm_data->ycc_to_rgb_offset2 * (1.0 / (double)(1 << 28)));
+
+            dovi_meta->nonlinear.m[0][0] = (float)(vdr_dm_data->ycc_to_rgb_coef0 * (1.0 / (double)(1 << 13)));
+            dovi_meta->nonlinear.m[0][1] = (float)(vdr_dm_data->ycc_to_rgb_coef1 * (1.0 / (double)(1 << 13)));
+            dovi_meta->nonlinear.m[0][2] = (float)(vdr_dm_data->ycc_to_rgb_coef2 * (1.0 / (double)(1 << 13)));
+            dovi_meta->nonlinear.m[1][0] = (float)(vdr_dm_data->ycc_to_rgb_coef3 * (1.0 / (double)(1 << 13)));
+            dovi_meta->nonlinear.m[1][1] = (float)(vdr_dm_data->ycc_to_rgb_coef4 * (1.0 / (double)(1 << 13)));
+            dovi_meta->nonlinear.m[1][2] = (float)(vdr_dm_data->ycc_to_rgb_coef5 * (1.0 / (double)(1 << 13)));
+            dovi_meta->nonlinear.m[2][0] = (float)(vdr_dm_data->ycc_to_rgb_coef6 * (1.0 / (double)(1 << 13)));
+            dovi_meta->nonlinear.m[2][1] = (float)(vdr_dm_data->ycc_to_rgb_coef7 * (1.0 / (double)(1 << 13)));
+            dovi_meta->nonlinear.m[2][2] = (float)(vdr_dm_data->ycc_to_rgb_coef8 * (1.0 / (double)(1 << 13)));
+
+            dovi_meta->linear.m[0][0] = (float)(vdr_dm_data->rgb_to_lms_coef0 * (1.0 / (double)(1 << 14)));
+            dovi_meta->linear.m[0][1] = (float)(vdr_dm_data->rgb_to_lms_coef1 * (1.0 / (double)(1 << 14)));
+            dovi_meta->linear.m[0][2] = (float)(vdr_dm_data->rgb_to_lms_coef2 * (1.0 / (double)(1 << 14)));
+            dovi_meta->linear.m[1][0] = (float)(vdr_dm_data->rgb_to_lms_coef3 * (1.0 / (double)(1 << 14)));
+            dovi_meta->linear.m[1][1] = (float)(vdr_dm_data->rgb_to_lms_coef4 * (1.0 / (double)(1 << 14)));
+            dovi_meta->linear.m[1][2] = (float)(vdr_dm_data->rgb_to_lms_coef5 * (1.0 / (double)(1 << 14)));
+            dovi_meta->linear.m[2][0] = (float)(vdr_dm_data->rgb_to_lms_coef6 * (1.0 / (double)(1 << 14)));
+            dovi_meta->linear.m[2][1] = (float)(vdr_dm_data->rgb_to_lms_coef7 * (1.0 / (double)(1 << 14)));
+            dovi_meta->linear.m[2][2] = (float)(vdr_dm_data->rgb_to_lms_coef8 * (1.0 / (double)(1 << 14)));
+        }
+    }
+    return dovi_meta;
+}
+
+RGY_ERR NVEncFilterLibplaceboToneMapping::setFrameParam(const RGYFrameInfo *pInputFrame) {
+    for (const auto& frameData : pInputFrame->dataList) {
+        if (frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
+
+        } else if (frameData->dataType() == RGY_FRAME_DATA_DOVIRPU && m_tonemap.use_dovi) {
+            auto dovi_rpu = dynamic_cast<const RGYFrameDataDOVIRpu*>(frameData.get());
+            if (!dovi_rpu) {
+                AddMessage(RGY_LOG_ERROR, _T("Invalid frame data type.\n"));
+                return RGY_ERR_INVALID_DATA_TYPE;
+            }
+            const auto& rpu_data = dovi_rpu->getData();
+            if (rpu_data.size() > 0) {
+                std::unique_ptr<DoviRpuOpaque, decltype(&dovi_rpu_free)> rpu(dovi_parse_rpu(rpu_data.data(), rpu_data.size()), dovi_rpu_free);
+                if (!rpu) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed parsing RPU\n"));
+                    return RGY_ERR_INVALID_PARAM;
+                }
+                std::unique_ptr<const DoviRpuDataHeader, decltype(&dovi_rpu_free_header)> header(dovi_rpu_get_header(rpu.get()), dovi_rpu_free_header);
+                if (!header) {
+                    auto errstr = char_to_tstring(dovi_rpu_get_error(rpu.get()));
+                    AddMessage(RGY_LOG_ERROR, _T("failed parsing RPU: %s\n"), errstr.c_str());
+                    return RGY_ERR_INVALID_PARAM;
+                }
+                const auto dovi_profile = header->guessed_profile;
+                m_tonemap.plDoviMeta = createDOVIMeta(rpu.get(), header.get());
+
+                m_tonemap.reprSrc->sys = PL_COLOR_SYSTEM_DOLBYVISION;
+                m_tonemap.reprSrc->dovi = m_tonemap.plDoviMeta.get();
+
+                if (dovi_profile == 5) {
+                    m_tonemap.reprDst->levels = PL_COLOR_LEVELS_FULL;
+                }
+
+                // Update mastering display from RPU
+                if (header->vdr_dm_metadata_present_flag) {
+                    std::unique_ptr<const DoviVdrDmData, decltype(&dovi_rpu_free_vdr_dm_data)> vdr_dm_data(dovi_rpu_get_vdr_dm_data(rpu.get()), dovi_rpu_free_vdr_dm_data);
+                    if (!vdr_dm_data) {
+                        AddMessage(RGY_LOG_ERROR, _T("failed parsing VDR DM data\n"));
+                        return RGY_ERR_INVALID_PARAM;
+                    }
+
+                    m_tonemap.plCspDst.hdr.min_luma = (m_tonemap.cspDst == VppLibplaceboToneMappingCSP::HDR10) ? m_tonemap.plCspSrc.hdr.min_luma : pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, vdr_dm_data->source_min_pq / 4095.0f);
+                    m_tonemap.plCspSrc.hdr.max_luma = pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, vdr_dm_data->source_max_pq / 4095.0f);
+
+                    if (vdr_dm_data->dm_data.level1) {
+                        const DoviExtMetadataBlockLevel1* extL1 = vdr_dm_data->dm_data.level1;
+                        m_tonemap.plCspSrc.hdr.avg_pq_y = extL1->avg_pq / 4095.0f;
+                        m_tonemap.plCspSrc.hdr.max_pq_y = extL1->max_pq / 4095.0f;
+                        m_tonemap.plCspSrc.hdr.scene_avg = pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, extL1->avg_pq / 4095.0f);
+                        m_tonemap.plCspSrc.hdr.scene_max[0] = pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, extL1->max_pq / 4095.0f);
+                        m_tonemap.plCspSrc.hdr.scene_max[1] = m_tonemap.plCspSrc.hdr.scene_max[0];
+                        m_tonemap.plCspSrc.hdr.scene_max[2] = m_tonemap.plCspSrc.hdr.scene_max[0];
+                    }
+
+                    if (vdr_dm_data->dm_data.level6) {
+                        const DoviExtMetadataBlockLevel6* extL6 = vdr_dm_data->dm_data.level6;
+                        m_tonemap.plCspSrc.hdr.max_cll = extL6->max_content_light_level;
+                        m_tonemap.plCspSrc.hdr.max_fall = extL6->max_frame_average_light_level;
+                    }
+                }
+            }
+        }
+    }
+
+    pl_color_space_infer_map(&m_tonemap.plCspSrc, &m_tonemap.plCspDst);
+
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterLibplaceboToneMapping::procFrame(pl_tex texOut[RGY_MAX_PLANES], [[maybe_unused]] const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], [[maybe_unused]] const RGYFrameInfo *pSrcFrame) {
+
+    pl_frame frameIn = { 0 };
+    frameIn.num_planes = 3;
+    frameIn.repr = *m_tonemap.reprSrc.get();
+    frameIn.color = m_tonemap.plCspSrc;
+    for (int iplane = 0; iplane < 3; iplane++) {
+        frameIn.planes[iplane].texture = texIn[iplane];
+        frameIn.planes[iplane].components = 1;
+        frameIn.planes[iplane].component_mapping[0] = iplane;
+    }
+
+    pl_frame frameOut = { 0 };
+    frameOut.num_planes = 3;
+    frameOut.repr = * m_tonemap.reprDst.get();
+    frameOut.color = m_tonemap.plCspDst;
+    for (int iplane = 0; iplane < 3; iplane++) {
+        frameOut.planes[iplane].texture = texOut[iplane];
+        frameOut.planes[iplane].components = 1;
+        frameOut.planes[iplane].component_mapping[0] = iplane;
+    }
+
+    if (!pl_render_image(m_renderer.get(), &frameIn, &frameOut, m_tonemap.renderParams.get())) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to render image.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
+}
+
+void NVEncFilterLibplaceboToneMapping::setFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) const {
+    dst->picstruct = src->picstruct;
+    dst->timestamp = src->timestamp;
+    dst->duration = src->duration;
+    dst->inputFrameId = src->inputFrameId;
+    dst->flags = src->flags;
+    for (const auto& frameData : src->dataList) {
+        if ((m_tonemap.cspDst == VppLibplaceboToneMappingCSP::SDR || m_tonemap.cspDst == VppLibplaceboToneMappingCSP::RGB)
+            && (frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS || frameData->dataType() == RGY_FRAME_DATA_DOVIRPU)) {
+            // skip HDR data
+        } else {
+            dst->dataList.push_back(frameData);
+        }
+    }
+}
+
+VideoVUIInfo NVEncFilterLibplaceboToneMapping::VuiOut() const {
+    return m_tonemap.outVui;
+}
+
 #else
 
 NVEncFilterLibplaceboResample::NVEncFilterLibplaceboResample() : NVEncFilterDisabled() { m_name = _T("libplacebo-resample"); }
@@ -937,5 +1742,8 @@ NVEncFilterLibplaceboResample::~NVEncFilterLibplaceboResample() {};
 
 NVEncFilterLibplaceboDeband::NVEncFilterLibplaceboDeband() : NVEncFilterDisabled() { m_name = _T("libplacebo-deband"); }
 NVEncFilterLibplaceboDeband::~NVEncFilterLibplaceboDeband() {};
+
+NVEncFilterLibplaceboToneMapping::NVEncFilterLibplaceboToneMapping() : NVEncFilterDisabled() { m_name = _T("libplacebo-tonemapping"); }
+NVEncFilterLibplaceboToneMapping::~NVEncFilterLibplaceboToneMapping() {};
 
 #endif //#if ENABLE_LIBPLACEBO

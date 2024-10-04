@@ -81,6 +81,9 @@ const char *get_encoder_version();
 #define AV_FRAME_DURATION_AVAIL 1
 #define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL 1
 #define ENABLE_LIBASS_SUBBURN 1
+#define ENABLE_D3D11 1
+#define ENABLE_D3D11_DEVINFO_WMI 1
+#define ENABLE_LIBPLACEBO 1
 
 #ifndef ENABLE_NVOFFRUC_HEADER
 #define ENABLE_NVOFFRUC_HEADER 0
@@ -92,20 +95,14 @@ const char *get_encoder_version();
 #define ENABLE_VMAF 0
 #define ENABLE_NVVFX 0
 #define ENABLE_NVOFFRUC 0
-#define ENABLE_D3D11 0
-#define ENABLE_D3D11_DEVINFO_WMI 0
 #define ENABLE_NVSDKNGX 0
-#define ENABLE_LIBPLACEBO 0
 #else
 #define ENABLE_NVML 1
 #define ENABLE_NVRTC 1
 #define ENABLE_VMAF 1
 #define ENABLE_NVVFX 1
 #define ENABLE_NVOFFRUC 1
-#define ENABLE_D3D11 1
-#define ENABLE_D3D11_DEVINFO_WMI 1
 #define ENABLE_NVSDKNGX 1
-#define ENABLE_LIBPLACEBO 1
 #endif
 
 #define ENABLE_VPP_SMOOTH_QP_FRAME 0

@@ -186,6 +186,8 @@
 - [Vpp Options](#vpp-options)
   - [Vpp Filtering order](#vpp-filtering-order)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-libplacebo-tonemapping \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-tonemapping-param1value1param2value2)
+  - [--vpp-libplacebo-tonemapping-lut \<string\>](#--vpp-libplacebo-tonemapping-lut-string)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-rff](#--vpp-rff)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
@@ -1630,6 +1632,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 
 - [--vpp-deinterlace](#--vpp-deinterlace-string)
 - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+- [--vpp-libplacebo-tonemapping](#--vpp-libplacebo-tonemapping-param1value1param2value2)
 - [--vpp-rff](#--vpp-rff)
 - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
@@ -1658,6 +1661,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-curves](#--vpp-curves-param1value1param2value2)
 - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
+- [--vpp-libplacebo-deband](#--vpp-libplacebo-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
@@ -1761,6 +1765,156 @@ Values for parameters will be copied from input file for "input" when using avhw
   example4: using lut3d
   --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
   ```
+
+### --vpp-libplacebo-tonemapping [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+Performs tone mapping using [libplacebo](https://code.videolan.org/videolan/libplacebo).
+
+- **Parameters**
+  - src_csp=&lt;string&gt;  
+    Input color space.
+    ```
+    auto, sdr, hdr10, hlg, dovi, rgb
+    ```
+  
+  - dst_csp=&lt;string&gt;  
+    Output color space.
+    ```
+    auto, sdr, hdr10, hlg, dovi, rgb
+    ```
+
+  - src_max=&lt;float&gt;  
+    Input maximum luminance (nits). (Default: auto, tries to get info from input file if possible, otherwise 1000.0 (HDR) / 203.0 (SDR))
+
+  - src_min=&lt;float&gt;  
+    Input minimum luminance (nits). (Default: auto, tries to get info from input file if possible, otherwise 0.005 (HDR) / 0.2023 (SDR))
+
+  - dst_max=&lt;float&gt;  
+    Output maximum luminance (nits). (Default: auto, tries to get info from parameters if possible, otherwise 1000.0 (HDR) / 203.0 (SDR))
+
+  - dst_min=&lt;float&gt;  
+    Output minimum luminance (nits). (Default: auto, tries to get info from parameters if possible, otherwise 0.005 (HDR) / 0.2023 (SDR))
+
+  - dynamic_peak_detection=&lt;bool&gt;  
+    Enables computation of signal stats to optimize HDR tone mapping quality. Default: true
+
+  - smooth_period=&lt;float&gt;  
+    Smoothing coefficient for detected values. Default: 20.0
+
+  - scene_threshold_low=&lt;float&gt;  
+    Lower threshold for scene change detection (dB). Default: 1.0
+
+  - scene_threshold_high=&lt;float&gt;  
+    Upper threshold for scene change detection (dB). Default: 3.0
+
+  - percentile=&lt;float&gt;  
+    Percentile to consider for luminance histogram. Default: 99.995
+
+  - black_cutoff=&lt;float&gt;  
+    Black level cutoff intensity (PQ%). Default: 1.0
+
+  - gamut_mapping=&lt;string&gt;  
+    Gamut mapping mode. (Default: perceptual)
+    ```
+    clip, perceptual, softclip, relative, saturation, absolute, desaturate, darken, highlight, linear
+    ```
+
+  - tonemapping_function=&lt;string&gt;  
+    Tone mapping function. (Default: bt2390)
+    ```
+    clip, st2094-40, st2094-10, bt2390, bt2446a, spline, reinhard, mobius, hable, gamma, linear, linearlight
+    ```
+
+  - for tonemapping_function=st2094-40, st2094-10, spline  
+  
+    - knee_adaptation=&lt;float&gt;   (float, 0.0 - 1.0, default: 0.4)  
+      Configures the knee point as a ratio between the source and target average brightness in PQ space.
+      - 1.0: Always adapts source scene average to scaled target average
+      - 0.0: Never modifies scene brightness
+    
+    - knee_min=&lt;float&gt;   (0.0 - 0.5, default: 0.1)  
+      Minimum knee point in ratio of PQ luminance range.
+    
+    - knee_max=&lt;float&gt;   (0.5 - 1.0, default: 0.8)  
+      Maximum knee point in ratio of PQ luminance range.
+    
+    - knee_default=&lt;float&gt;   (knee_min - knee_max, default: 0.4)  
+      Default knee point used when source scene average metadata is unavailable.
+  
+  - for tonemapping_function=bt2390
+
+    - knee_offset=&lt;float&gt;   (0.5 - 2.0, default: 1.0)  
+      Knee point offset.
+  
+  - for tonemapping_function=spline
+
+    - slope_tuning=&lt;float&gt;   (0.0 - 10.0, default: 1.5)  
+      Coefficient for the slope of the spline curve.
+    
+    - slope_offset=&lt;float&gt;   (0.0 - 1.0, default: 0.2)  
+      Slope offset of the spline curve.
+    
+    - spline_contrast=&lt;float&gt;   (0.0 - 1.5, default: 0.5)  
+      Contrast for the spline function. Higher values preserve midtones but may lose shadow/highlight details.
+  
+  - for tonemapping_function=reinhard
+
+    - reinhard_contrast=&lt;float&gt;   (0.0 - 1.0, default: 0.5)  
+      contrast coefficient at display peak for the reinhard function.
+  
+  - for tonemapping_function=mobius, gamma
+
+    - linear_knee=&lt;float&gt;   (0.0 - 1.0, default: 0.3)  
+  
+  - for tonemapping_function=linear, linearlight
+
+    - exposure=&lt;float&gt;   (0.0 - 10.0, default: 1.0)  
+      Linear exposure/gain applied.
+
+  - metadata=&lt;int&gt;  
+    Data source to use for tone mapping.
+    ```
+    any, none, hdr10, hdr10plus, cie_y
+    ```
+
+  - contrast_recovery=&lt;float&gt;  
+    Contrast recovery strength. Default: 0.3
+
+  - contrast_smoothness=&lt;float&gt;  
+    Contrast recovery lowpass kernel size. Default: 3.5
+
+  - visualize_lut=&lt;bool&gt;  
+    Visualize tone mapping curve/LUT. Default: false
+
+  - show_clipping=&lt;bool&gt;  
+    Graphically highlight hard-clipped pixels. Default: false
+
+  - use_dovi=&lt;bool&gt;  
+    Whether to use Dolby Vision RPU as ST2086 metadata. Default: auto (enabled when tone mapping from Dolby Vision)
+
+  - dst_pl_transfer=&lt;string&gt;  
+    Output transfer function. Must be used with ```dst_pl_colorprim```.
+    ```
+    unknown, srgb, bt1886, linear, gamma18, gamma20, gamma22, gamma24, gamma26, gamma28,
+    prophoto, st428, pq, hlg, vlog, slog1, slog2
+    ```
+
+  - dst_pl_colorprim=&lt;string&gt;  
+    Output color primaries. Must be used with ```dst_pl_transfer```.
+    ```
+    unknown, bt601_525, bt601_625, bt709, bt470m, ebu_3213, bt2020, apple, adobe,
+    prophoto, cie_1931, dci_p3, display_p3, v_gamut, s_gamut, film_c, aces_ap0, aces_ap1
+    ```
+
+- **Examples**
+  ```
+  Example: Dolby Vision to SDR tone mapping
+  --vpp-libplacebo-tonemapping src_csp=dovi,dst_csp=sdr
+  ```
+
+### --vpp-libplacebo-tonemapping-lut &lt;string&gt;
+
+  lut file path used in --vpp-libplacebo-tonemapping.
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Specify the logo file and settings for the logo to be eliminated. The logo file supports ". lgd", ". ldp", and ". ldp2" formats.

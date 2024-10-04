@@ -74,7 +74,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
-#define ENABLE_VPP_FILTER_LIBPLACEBO   (ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_LIBPLACEBO   (ENABLE_LIBPLACEBO && ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_FRUC         (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
 #define ENABLE_VPP_ORDER                   (CLFILTERS_AUF)
@@ -216,6 +216,47 @@ static const float FILTER_DEFAULT_LIBPLACEBO_DEBAND_GRAINY = 6.0f;
 static const float FILTER_DEFAULT_LIBPLACEBO_DEBAND_GRAINC = -1.0f;
 static const int   FILTER_DEFAULT_LIBPLACEBO_DEBAND_DITHER = 1;
 static const int   FILTER_DEFAULT_LIBPLACEBO_DEBAND_LUT_SIZE = 6;
+
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_KNEES_ADAPTATION = 0.4f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_KNEES_MIN = 0.1f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_KNEES_MAX = 0.8f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_KNEES_DEFAULT = 0.4f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_KNEES_OFFSET = 1.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SLOPE_TUNING = 1.5f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SLOPE_OFFSET = 0.2f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SPLINE_CONTRAST = 0.5f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_REINHARD_CONTRAST = 0.5f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_LINEAR_KNEE = 0.3f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_EXPOSURE = 1.0f;
+
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SRC_CSP = 1;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_CSP = 0;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SRC_MAX = -1.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SRC_MIN = -1.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_MAX = -1.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_MIN = -1.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MAX_HDR = 1000.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MIN_HDR = 0.005f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MAX_SDR = 203.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_NIT_MIN_SDR = 0.2023f;
+static const bool  FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DYNAMIC_PEAK_DETECTION = true;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SMOOTH_PERIOD = 20.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SCENE_THRESHOLD_LOW = 1.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SCENE_THRESHOLD_HIGH = 3.0f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_PERCENTILE = 99.995f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_BLACK_CUTOFF = 1.0f;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_GAMUT_MAPPING = 1;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_TONEMAPPING_FUNCTION = 3;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_TONE_CONSTANTS = 1;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_METADATA = 0;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_CONTRAST_RECOVERY = 0.3f;
+static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_CONTRAST_SMOOTHNESS = 3.5f;
+static const bool  FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_VISUALIZE_LUT = false;
+static const bool  FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SHOW_CLIPPING = false;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_USE_DOVI = -1;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_LUT_TYPE = 3;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_TRANSFER = 0;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_COLORPRIM = 0;
 
 static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
 static const double FILTER_DEFAULT_COLORSPACE_NOMINAL_SOURCE_PEAK = 100.0;
@@ -488,7 +529,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NGX_VSR,
     RGY_VPP_RESIZE_NGX_MAX,
 #endif
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+#if (ENCODER_NVENC && (ENABLE_VPP_FILTER_LIBPLACEBO || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_LIBPLACEBO_SPLINE16,
     RGY_VPP_RESIZE_LIBPLACEBO_SPLINE36,
     RGY_VPP_RESIZE_LIBPLACEBO_SPLINE64,
@@ -548,7 +589,7 @@ enum RGY_VPP_RESIZE_TYPE {
     RGY_VPP_RESIZE_TYPE_NVVFX,
     RGY_VPP_RESIZE_TYPE_NGX,
 #endif
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+#if (ENCODER_NVENC && (ENABLE_VPP_FILTER_LIBPLACEBO || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_TYPE_LIBPLACEBO,
 #endif
 #if ENCODER_VCEENC
@@ -591,7 +632,7 @@ static bool isNgxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
 }
 
 static bool isLibplaceboResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+#if (ENCODER_NVENC && (ENABLE_VPP_FILTER_LIBPLACEBO || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_LIBPLACEBO;
 #else
     UNREFERENCED_PARAMETER(interp);
@@ -650,7 +691,7 @@ const CX_DESC list_vpp_resize[] = {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("ngx-vsr"),      RGY_VPP_RESIZE_NGX_VSR },
 #endif
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+#if (ENCODER_NVENC && (ENABLE_VPP_FILTER_LIBPLACEBO || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     { _T("libplacebo-spline16"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE16 },
     { _T("libplacebo-spline36"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE36 },
     { _T("libplacebo-spline64"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE64 },
@@ -731,7 +772,7 @@ const CX_DESC list_vpp_resize_help[] = {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("ngx-vsr"),      RGY_VPP_RESIZE_NGX_VSR },
 #endif
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+#if (ENCODER_NVENC && (ENABLE_VPP_FILTER_LIBPLACEBO || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     { _T("libplacebo-spline16"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE16 },
     { _T("libplacebo-spline36"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE36 },
     { _T("libplacebo-spline64"), RGY_VPP_RESIZE_LIBPLACEBO_SPLINE64 },
@@ -1071,6 +1112,304 @@ struct VppLibplaceboDeband {
     VppLibplaceboDeband();
     bool operator==(const VppLibplaceboDeband &x) const;
     bool operator!=(const VppLibplaceboDeband &x) const;
+    tstring print() const;
+};
+
+enum class VppLibplaceboToneMappingCSP {
+    Auto = -1,
+    SDR,
+    HDR10,
+    HLG,
+    DOVI,
+    RGB,
+};
+
+enum class VppLibplaceboToneMappingGamutMapping {
+    clip,
+    perceptual,
+    softclip,
+    relative,
+    saturation,
+    absolute,
+    desaturate,
+    darken,
+    highlight,
+    linear,
+};
+
+enum class VppLibplaceboToneMappingFunction {
+    clip,
+    st2094_40,
+    st2094_10,
+    bt2390,
+    bt2446a,
+    spline,
+    reinhard,
+    mobius,
+    hable,
+    gamma,
+    linear,
+    linearlight,
+};
+
+enum class VppLibplaceboToneMappingMetadata {
+    ANY,
+    NONE,
+    HDR10,
+    HDR10PLUS,
+    CIE_Y,
+};
+
+const CX_DESC list_vpp_libplacebo_tone_mapping_csp[] = {
+    { _T("auto"),  (int)VppLibplaceboToneMappingCSP::Auto },
+    { _T("sdr"),   (int)VppLibplaceboToneMappingCSP::SDR },
+    { _T("hdr10"), (int)VppLibplaceboToneMappingCSP::HDR10 },
+    { _T("hlg"),   (int)VppLibplaceboToneMappingCSP::HLG },
+    { _T("dovi"),  (int)VppLibplaceboToneMappingCSP::DOVI },
+    { _T("rgb"),   (int)VppLibplaceboToneMappingCSP::RGB },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_libplacebo_tone_mapping_gamut_mapping[] = {
+    { _T("clip"),           (int)VppLibplaceboToneMappingGamutMapping::clip },
+    { _T("perceptual"),     (int)VppLibplaceboToneMappingGamutMapping::perceptual },
+    { _T("softclip"),       (int)VppLibplaceboToneMappingGamutMapping::softclip },
+    { _T("relative"),       (int)VppLibplaceboToneMappingGamutMapping::relative },
+    { _T("saturation"),     (int)VppLibplaceboToneMappingGamutMapping::saturation },
+    { _T("absolute"),       (int)VppLibplaceboToneMappingGamutMapping::absolute },
+    { _T("desaturate"),     (int)VppLibplaceboToneMappingGamutMapping::desaturate },
+    { _T("darken"),         (int)VppLibplaceboToneMappingGamutMapping::darken },
+    { _T("highlight"),      (int)VppLibplaceboToneMappingGamutMapping::highlight },
+    { _T("linear"),         (int)VppLibplaceboToneMappingGamutMapping::linear },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_libplacebo_tone_mapping_function[] = {
+    { _T("clip"),        (int)VppLibplaceboToneMappingFunction::clip },
+    { _T("st2094_40"),   (int)VppLibplaceboToneMappingFunction::st2094_40 },
+    { _T("st2094_10"),   (int)VppLibplaceboToneMappingFunction::st2094_10 },
+    { _T("bt2390"),      (int)VppLibplaceboToneMappingFunction::bt2390 },
+    { _T("bt2446a"),     (int)VppLibplaceboToneMappingFunction::bt2446a },
+    { _T("spline"),      (int)VppLibplaceboToneMappingFunction::spline },
+    { _T("reinhard"),    (int)VppLibplaceboToneMappingFunction::reinhard },
+    { _T("mobius"),      (int)VppLibplaceboToneMappingFunction::mobius },
+    { _T("hable"),       (int)VppLibplaceboToneMappingFunction::hable },
+    { _T("gamma"),       (int)VppLibplaceboToneMappingFunction::gamma },
+    { _T("linear"),      (int)VppLibplaceboToneMappingFunction::linear },
+    { _T("linearlight"), (int)VppLibplaceboToneMappingFunction::linearlight },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_libplacebo_tone_mapping_metadata[] = {
+    { _T("any"),       (int)VppLibplaceboToneMappingMetadata::ANY },
+    { _T("none"),      (int)VppLibplaceboToneMappingMetadata::NONE },
+    { _T("hdr10"),     (int)VppLibplaceboToneMappingMetadata::HDR10 },
+    { _T("hdr10plus"), (int)VppLibplaceboToneMappingMetadata::HDR10PLUS },
+    { _T("cie_y"),     (int)VppLibplaceboToneMappingMetadata::CIE_Y },
+    { NULL, 0 }
+};
+
+enum class VppLibplaceboToneMappingLUTType {
+    Native,
+    Normalized,
+    Conversion,
+};
+
+const CX_DESC list_vpp_libplacebo_tone_mapping_lut_type[] = {
+    { _T("native"),      (int)VppLibplaceboToneMappingLUTType::Native },
+    { _T("normalized"),  (int)VppLibplaceboToneMappingLUTType::Normalized },
+    { _T("conversion"),  (int)VppLibplaceboToneMappingLUTType::Conversion },
+    { NULL, 0 }
+};
+
+struct VppLibplaceboToneMappingConstantsST2094 {
+    float knee_adaptation;
+    float knee_min;
+    float knee_max;
+    float knee_default;
+
+    VppLibplaceboToneMappingConstantsST2094();
+    bool operator==(const VppLibplaceboToneMappingConstantsST2094 &x) const;
+    bool operator!=(const VppLibplaceboToneMappingConstantsST2094 &x) const;
+    tstring print() const;
+};
+
+struct VppLibplaceboToneMappingConstantsBT2390 {
+    float knee_offset;
+
+    VppLibplaceboToneMappingConstantsBT2390();
+    bool operator==(const VppLibplaceboToneMappingConstantsBT2390 &x) const;
+    bool operator!=(const VppLibplaceboToneMappingConstantsBT2390 &x) const;
+    tstring print() const;
+};
+
+struct VppLibplaceboToneMappingConstantsSpline {
+    float slope_tuning;
+    float slope_offset;
+    float spline_contrast;
+
+    VppLibplaceboToneMappingConstantsSpline();
+    bool operator==(const VppLibplaceboToneMappingConstantsSpline &x) const;
+    bool operator!=(const VppLibplaceboToneMappingConstantsSpline &x) const;
+    tstring print() const;
+};
+
+struct VppLibplaceboToneMappingConstantsReinhard {
+    float contrast;
+
+    VppLibplaceboToneMappingConstantsReinhard();
+    bool operator==(const VppLibplaceboToneMappingConstantsReinhard &x) const;
+    bool operator!=(const VppLibplaceboToneMappingConstantsReinhard &x) const;
+    tstring print() const;
+};
+
+struct VppLibplaceboToneMappingConstantsMobius {
+    float linear_knee;
+
+    VppLibplaceboToneMappingConstantsMobius();
+    bool operator==(const VppLibplaceboToneMappingConstantsMobius &x) const;
+    bool operator!=(const VppLibplaceboToneMappingConstantsMobius &x) const;
+    tstring print() const;
+};
+
+struct VppLibplaceboToneMappingConstantsLinear {
+    float exposure;
+
+    VppLibplaceboToneMappingConstantsLinear();
+    bool operator==(const VppLibplaceboToneMappingConstantsLinear &x) const;
+    bool operator!=(const VppLibplaceboToneMappingConstantsLinear &x) const;
+    tstring print() const;
+};
+
+enum class VppLibplaceboToneMappingTransfer {
+    Unknown,
+    BT1886,
+    sRGB,
+    Linear,
+    Gamma18,
+    Gamma20,
+    Gamma22,
+    Gamma24,
+    Gamma26,
+    Gamma28,
+    ProPhoto,
+    ST428,
+    PQ,
+    HLG,
+    VLog,
+    SLog1,
+    SLog2,  
+};
+
+const CX_DESC list_vpp_libplacebo_tone_mapping_transfer[] = {
+    { _T("unknown"),    (int)VppLibplaceboToneMappingTransfer::Unknown },
+    { _T("srgb"),       (int)VppLibplaceboToneMappingTransfer::sRGB },
+    { _T("bt1886"),     (int)VppLibplaceboToneMappingTransfer::BT1886 },
+    { _T("linear"),     (int)VppLibplaceboToneMappingTransfer::Linear },
+    { _T("gamma18"),    (int)VppLibplaceboToneMappingTransfer::Gamma18 },
+    { _T("gamma20"),    (int)VppLibplaceboToneMappingTransfer::Gamma20 },
+    { _T("gamma22"),    (int)VppLibplaceboToneMappingTransfer::Gamma22 },
+    { _T("gamma24"),    (int)VppLibplaceboToneMappingTransfer::Gamma24 },
+    { _T("gamma26"),    (int)VppLibplaceboToneMappingTransfer::Gamma26 },
+    { _T("gamma28"),    (int)VppLibplaceboToneMappingTransfer::Gamma28 },
+    { _T("prophoto"),   (int)VppLibplaceboToneMappingTransfer::ProPhoto },
+    { _T("st428"),      (int)VppLibplaceboToneMappingTransfer::ST428 },
+    { _T("pq"),         (int)VppLibplaceboToneMappingTransfer::PQ },
+    { _T("hlg"),        (int)VppLibplaceboToneMappingTransfer::HLG },
+    { _T("vlog"),       (int)VppLibplaceboToneMappingTransfer::VLog },
+    { _T("slog1"),      (int)VppLibplaceboToneMappingTransfer::SLog1 },
+    { _T("slog2"),      (int)VppLibplaceboToneMappingTransfer::SLog2 },
+    { NULL, 0 }
+};
+
+enum class VppLibplaceboToneMappingColorprim {
+    Unknown,
+    BT601_525,
+    BT601_625,
+    BT709,
+    BT470M,
+    EBU_3213,
+    BT2020,
+    Apple,
+    Adobe,
+    ProPhoto,
+    CIE_1931,
+    DCI_P3,
+    Display_P3,
+    V_Gamut,
+    S_Gamut,
+    Film_C,
+    ACES_AP0,
+    ACES_AP1,
+};
+
+const CX_DESC list_vpp_libplacebo_tone_mapping_colorprim[] = {
+    { _T("unknown"),   (int)VppLibplaceboToneMappingColorprim::Unknown },
+    { _T("bt601_525"), (int)VppLibplaceboToneMappingColorprim::BT601_525 },
+    { _T("bt601_625"), (int)VppLibplaceboToneMappingColorprim::BT601_625 },
+    { _T("bt709"),     (int)VppLibplaceboToneMappingColorprim::BT709 },
+    { _T("bt470m"),    (int)VppLibplaceboToneMappingColorprim::BT470M },
+    { _T("ebu_3213"),  (int)VppLibplaceboToneMappingColorprim::EBU_3213 },
+    { _T("bt2020"),    (int)VppLibplaceboToneMappingColorprim::BT2020 },
+    { _T("apple"),     (int)VppLibplaceboToneMappingColorprim::Apple },
+    { _T("adobe"),     (int)VppLibplaceboToneMappingColorprim::Adobe },
+    { _T("prophoto"),  (int)VppLibplaceboToneMappingColorprim::ProPhoto },
+    { _T("cie_1931"),  (int)VppLibplaceboToneMappingColorprim::CIE_1931 },
+    { _T("dci_p3"),    (int)VppLibplaceboToneMappingColorprim::DCI_P3 },
+    { _T("display_p3"),(int)VppLibplaceboToneMappingColorprim::Display_P3 },
+    { _T("v_gamut"),   (int)VppLibplaceboToneMappingColorprim::V_Gamut },
+    { _T("s_gamut"),   (int)VppLibplaceboToneMappingColorprim::S_Gamut },
+    { _T("film_c"),    (int)VppLibplaceboToneMappingColorprim::Film_C },
+    { _T("aces_ap0"),  (int)VppLibplaceboToneMappingColorprim::ACES_AP0 },
+    { _T("aces_ap1"),  (int)VppLibplaceboToneMappingColorprim::ACES_AP1 },
+    { NULL, 0 }
+};
+
+struct VppLibplaceboToneMappingConstants {
+    VppLibplaceboToneMappingConstantsST2094 st2094;
+    VppLibplaceboToneMappingConstantsBT2390 bt2390;
+    VppLibplaceboToneMappingConstantsSpline spline;
+    VppLibplaceboToneMappingConstantsReinhard reinhard;
+    VppLibplaceboToneMappingConstantsMobius mobius;
+    VppLibplaceboToneMappingConstantsLinear linear;
+
+    VppLibplaceboToneMappingConstants();
+    bool operator==(const VppLibplaceboToneMappingConstants &x) const;
+    bool operator!=(const VppLibplaceboToneMappingConstants &x) const;
+    tstring print(const VppLibplaceboToneMappingFunction tonemapping_function) const;
+};
+
+struct VppLibplaceboToneMapping {
+    bool enable;
+    VppLibplaceboToneMappingCSP src_csp;
+    VppLibplaceboToneMappingCSP dst_csp;
+    float src_max;
+    float src_min;
+    float dst_max;
+    float dst_min;
+    bool dynamic_peak_detection;
+    float smooth_period;
+    float scene_threshold_low;
+    float scene_threshold_high;
+    float percentile;
+    float black_cutoff;
+    VppLibplaceboToneMappingGamutMapping gamut_mapping;
+    VppLibplaceboToneMappingFunction tonemapping_function;
+    VppLibplaceboToneMappingConstants tone_constants;
+    VppLibplaceboToneMappingMetadata metadata;
+    float contrast_recovery;
+    float contrast_smoothness;
+    bool visualize_lut;
+    bool show_clipping;
+    int use_dovi;
+    tstring lut_path;
+    VppLibplaceboToneMappingLUTType lut_type;
+    VppLibplaceboToneMappingTransfer dst_pl_transfer;
+    VppLibplaceboToneMappingColorprim dst_pl_colorprim;
+
+    VppLibplaceboToneMapping();
+    bool operator==(const VppLibplaceboToneMapping &x) const;
+    bool operator!=(const VppLibplaceboToneMapping &x) const;
     tstring print() const;
 };
 
@@ -1804,6 +2143,7 @@ struct RGYParamVpp {
     RGY_VPP_RESIZE_MODE resize_mode;
     VppLibplaceboResample resize_libplacebo;
     VppColorspace colorspace;
+    VppLibplaceboToneMapping libplacebo_tonemapping;
     VppDelogo delogo;
     VppAfs afs;
     VppNnedi nnedi;

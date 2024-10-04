@@ -182,6 +182,8 @@
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-libplacebo-tonemapping \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-tonemapping-param1value1param2value2)
+  - [--vpp-libplacebo-tonemapping-lut \<string\>](#--vpp-libplacebo-tonemapping-lut-string)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-rff](#--vpp-rff)
@@ -1625,6 +1627,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
 - [--vpp-deinterlace](#--vpp-deinterlace-string)
 - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+- [--vpp-libplacebo-tonemapping](#--vpp-libplacebo-tonemapping-param1value1param2value2)
 - [--vpp-rff](#--vpp-rff)
 - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
@@ -1652,6 +1655,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-curves](#--vpp-curves-param1value1param2value2)
 - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
 - [--vpp-deband](#--vpp-deband-param1value1param2value2)
+- [--vpp-libplacebo-deband](#--vpp-libplacebo-deband-param1value1param2value2)
 - [--vpp-padding](#--vpp-pad-intintintint)
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
@@ -1754,6 +1758,157 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   例4: lut3dの使用
   --vpp-colorspace lut3d="example.cube",lut3d_interp=trilinear
   ```
+
+
+### --vpp-libplacebo-tonemapping [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+[libplacebo](https://code.videolan.org/videolan/libplacebo)を使用したトーンマッピングを行います。
+
+- **パラメータ**
+  - src_csp=&lt;string&gt;  
+    入力の色空間を指定します。
+    ```
+    auto, sdr, hdr10, hlg, dovi, rgb
+    ```
+  
+  - dst_csp=&lt;string&gt;  
+    出力の色空間を指定します。
+    ```
+    auto, sdr, hdr10, hlg, dovi, rgb
+    ```
+
+  - src_max=&lt;float&gt;  
+    入力の最大輝度 (nits)。(デフォルト: 自動、可能なら入力ファイルから情報を取得、できない場合は 1000.0 (HDR) / 203.0 (SDR))
+
+  - src_min=&lt;float&gt;  
+    入力の最小輝度 (nits)。(デフォルト: 自動、可能なら入力ファイルから情報を取得、できない場合は 0.005 (HDR) / 0.2023 (SDR))
+
+  - dst_max=&lt;float&gt;  
+    出力の最大輝度 (nits)。(デフォルト: 自動、可能ならパラメータから情報を取得、できない場合は 1000.0 (HDR) / 203.0 (SDR))
+
+  - dst_min=&lt;float&gt;  
+    出力の最小輝度 (nits)。(デフォルト: 自動、可能ならパラメータから情報を取得、できない場合は 0.005 (HDR) / 0.2023 (SDR))
+
+  - dynamic_peak_detection=&lt;bool&gt;  
+    HDRトーンマッピングの品質を最適化するための統計の計算を有効にします。デフォルト: true
+
+  - smooth_period=&lt;float&gt;  
+    スムージング係数。デフォルト: 20.0
+
+  - scene_threshold_low=&lt;float&gt;  
+    シーン変更検出の下限閾値 (dB)。デフォルト: 1.0
+
+  - scene_threshold_high=&lt;float&gt;  
+    シーン変更検出の上限閾値 (dB)。デフォルト: 3.0
+
+  - percentile=&lt;float&gt;  
+    輝度ヒストグラムの考慮するパーセンタイル。デフォルト: 99.995
+
+  - black_cutoff=&lt;float&gt;  
+    黒レベルのカットオフ強度 (PQ%)。デフォルト: 1.0
+
+  - gamut_mapping=&lt;string&gt;  
+    ガンママッピングモード。 (デフォルト: perceptual)
+    ```
+    clip, perceptual, softclip, relative, saturation, absolute, desaturate, darken, highlight, linear
+    ```
+
+  - tonemapping_function=&lt;string&gt;  
+    トーンマッピング関数。 (デフォルト: bt2390)
+    ```
+    clip, st2094-40, st2094-10, bt2390, bt2446a, spline, reinhard, mobius, hable, gamma, linear, linearlight
+    ```
+
+  - tonemapping_function=st2094-40, st2094-10, splineの場合  
+  
+    - knee_adaptation=&lt;float&gt;   (float, 0.0 - 1.0, デフォルト: 0.4)  
+      PQ空間における入力と出力の平均輝度の比率としてニーポイントを設定します。
+      - 1.0: 常に入力シーンの平均を調整された出力の平均に適応させます
+      - 0.0: シーンの輝度を一切変更しません
+    
+    - knee_min=&lt;float&gt;   (0.0 - 0.5, デフォルト: 0.1)  
+      PQ輝度範囲の比率における最小ニーポイント。
+    
+    - knee_max=&lt;float&gt;   (0.5 - 1.0, デフォルト: 0.8)  
+      PQ輝度範囲の比率における最大ニーポイント。
+    
+    - knee_default=&lt;float&gt;   (knee_min - knee_max, デフォルト: 0.4)  
+      入力シーンの平均メタデータが利用できない場合に使用されるデフォルトのニーポイント。
+  
+  - tonemapping_function=bt2390の場合
+
+    - knee_offset=&lt;float&gt;   (0.5 - 2.0, デフォルト: 1.0)  
+      ニーポイントのオフセット。
+  
+  - tonemapping_function=splineの場合
+
+    - slope_tuning=&lt;float&gt;   (0.0 - 10.0, デフォルト: 1.5)  
+      スプライン曲線の傾きの係数。
+    
+    - slope_offset=&lt;float&gt;   (0.0 - 1.0, デフォルト: 0.2)  
+      スプライン曲線の傾きのオフセット。
+    
+    - spline_contrast=&lt;float&gt;   (0.0 - 1.5, デフォルト: 0.5)  
+      スプライン関数のコントラスト。高い値は中間調を保持しますが、影や高輝度部分の詳細を失う可能性があります。
+  
+  - tonemapping_function=reinhardの場合
+
+    - reinhard_contrast=&lt;float&gt;   (0.0 - 1.0, デフォルト: 0.5)  
+      reinhard関数のディスプレイピークにおけるコントラスト係数。
+  
+  - tonemapping_function=mobius, gammaの場合
+
+    - linear_knee=&lt;float&gt;   (0.0 - 1.0, デフォルト: 0.3)  
+  
+  - tonemapping_function=linear, linearlightの場合
+
+    - exposure=&lt;float&gt;   (0.0 - 10.0, デフォルト: 1.0)  
+      適用される線形露出/ゲイン。
+
+  - metadata=&lt;int&gt;  
+    トーンマッピングに使用するデータソース。
+    ```
+    any, none, hdr10, hdr10plus, cie_y
+    ```
+
+  - contrast_recovery=&lt;float&gt;  
+    コントラスト回復強度。デフォルト: 0.3
+
+  - contrast_smoothness=&lt;float&gt;  
+    コントラスト回復のローパスカーネルサイズ。デフォルト: 3.5
+
+  - visualize_lut=&lt;bool&gt;  
+    トーンマッピングカーブ/LUTを可視化します。デフォルト: false
+
+  - show_clipping=&lt;bool&gt;  
+    クリップされたピクセルを可視化します。デフォルト: false
+
+  - use_dovi=&lt;bool&gt;  
+    Dolby Vision RPUをST2086メタデータとして使用するかどうか。デフォルト: auto (Dolby Visionからトーンマッピングする場合に有効)
+
+  - dst_pl_transfer=&lt;string&gt;  
+    出力の転送関数。```dst_pl_colorprim```と一緒に使用する必要があります。
+    ```
+    unknown, srgb, bt1886, linear, gamma18, gamma20, gamma22, gamma24, gamma26, gamma28,
+    prophoto, st428, pq, hlg, vlog, slog1, slog2
+    ```
+
+  - dst_pl_colorprim=&lt;string&gt;  
+    出力の色域。```dst_pl_transfer```と一緒に使用する必要があります。
+    ```
+    unknown, bt601_525, bt601_625, bt709, bt470m, ebu_3213, bt2020, apple, adobe,
+    prophoto, cie_1931, dci_p3, display_p3, v_gamut, s_gamut, film_c, aces_ap0, aces_ap1
+    ```
+
+- **使用例**
+  ```
+  例: Dolby VisionからSDRへのトーンマッピング
+  --vpp-libplacebo-tonemapping src_csp=dovi,dst_csp=sdr
+  ```
+
+### --vpp-libplacebo-tonemapping-lut &lt;string&gt;
+
+  --vpp-libplacebo-tonemapping で使用するlutファイルの指定。
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。

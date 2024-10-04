@@ -134,7 +134,9 @@ AVMuxVideo::AVMuxVideo() :
     fpsBaseNextDts(0),
     fpTsLogFile(),
     hdrBitstream(),
+    hdr10plusMetadataCopy(false),
     doviRpu(nullptr),
+    doviRpuMetadataCopy(false),
     bsfc(nullptr),
     bsfcBuffer(nullptr),
     bsfcBufferLength(0),
@@ -841,7 +843,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     if (videoOutputInfo->vui.descriptpresent
         //atcSeiを設定する場合は、コンテナ側にはVUI情報をもたせないようにする
         //コンテナ側にはatcの情報をもたせられないので、勝ちあってしまう
-        && prm->hdrMetadata->getprm().atcSei == RGY_TRANSFER_UNKNOWN) {
+        && prm->hdrMetadataIn->getprm().atcSei == RGY_TRANSFER_UNKNOWN) {
         m_Mux.video.codecCtx->colorspace          = (AVColorSpace)videoOutputInfo->vui.matrix;
         m_Mux.video.codecCtx->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
         m_Mux.video.codecCtx->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
@@ -890,6 +892,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.doviRpu           = prm->doviRpu;
     m_Mux.video.bsfcBuffer        = nullptr;
     m_Mux.video.bsfcBufferLength  = 0;
+    m_Mux.video.hdr10plusMetadataCopy = prm->hdr10plusMetadataCopy;
+    m_Mux.video.doviRpuMetadataCopy = prm->doviRpuMetadataCopy;
 
     auto retm = SetMetadata(&m_Mux.video.streamOut->metadata, (prm->videoInputStream) ? prm->videoInputStream->metadata : nullptr, prm->videoMetadata, RGY_METADATA_DEFAULT_COPY_LANG_ONLY, _T("Video"));
     if (retm != RGY_ERR_NONE) {
@@ -910,7 +914,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             AddMessage(RGY_LOG_DEBUG, _T("copied rotation %d from input\n"), rotation);
             side_data_rotation.reset();
         }
-        if (videoOutputInfo->codec == RGY_CODEC_AV1 && prm->hdrMetadata != nullptr) {
+        if (videoOutputInfo->codec == RGY_CODEC_AV1 && prm->hdrMetadataIn != nullptr) {
             side_data_size = 0;
             auto side_data_coll = AVStreamGetSideData<AVContentLightMetadata>(prm->videoInputStream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, side_data_size);
             if (side_data_coll) {
@@ -976,25 +980,25 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 
     m_Mux.video.timestampList.clear();
 
-    if (prm->hdrMetadata != nullptr && prm->hdrMetadata->getprm().hasPrmSet()) {
+    if (prm->hdrMetadataIn != nullptr && prm->hdrMetadataIn->getprm().hasPrmSet()) {
         if (videoOutputInfo->codec == RGY_CODEC_HEVC) {
-            auto hdrBitstream = prm->hdrMetadata->gen_nal();
+            auto hdrBitstream = prm->hdrMetadataIn->gen_nal();
             if (hdrBitstream.size() > 0) {
                 m_Mux.video.hdrBitstream.copy(hdrBitstream.data(), (uint32_t)hdrBitstream.size());
-                AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->hdrMetadata->print()));
+                AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->hdrMetadataIn->print()));
             }
         } else if (videoOutputInfo->codec == RGY_CODEC_AV1) {
-            auto hdrBitstream = prm->hdrMetadata->gen_obu();
+            auto hdrBitstream = prm->hdrMetadataIn->gen_obu();
             if (hdrBitstream.size() > 0) {
                 m_Mux.video.hdrBitstream.copy(hdrBitstream.data(), (uint32_t)hdrBitstream.size());
-                AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->hdrMetadata->print()));
+                AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->hdrMetadataIn->print()));
             }
         } else {
             AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(videoOutputInfo->codec).c_str());
             return RGY_ERR_UNSUPPORTED;
         }
 
-        const auto HEVCHdrSeiPrm = prm->hdrMetadata->getprm();
+        const auto HEVCHdrSeiPrm = prm->hdrMetadataIn->getprm();
         if (false && HEVCHdrSeiPrm.masterdisplay_set) {
             std::unique_ptr<AVMasteringDisplayMetadata, RGYAVDeleter<AVMasteringDisplayMetadata>> mastering(av_mastering_display_metadata_alloc(), RGYAVDeleter<AVMasteringDisplayMetadata>(av_freep));
 
@@ -2796,7 +2800,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         std::vector<uint8_t> data(m_Mux.video.hdrBitstream.data(), m_Mux.video.hdrBitstream.data() + m_Mux.video.hdrBitstream.size());
         metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true, false));
     }
-    {
+    if (m_Mux.video.hdr10plusMetadataCopy) {
         auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata);
         if (err_hdr10plus != RGY_ERR_NONE) {
             return err_hdr10plus;
@@ -2813,7 +2817,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         if (dovi_nal.size() > 0) {
             metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
         }
-    } else {
+    } else if (m_Mux.video.doviRpuMetadataCopy) {
         auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata);
         if (err_dovirpu != RGY_ERR_NONE) {
             return err_dovirpu;

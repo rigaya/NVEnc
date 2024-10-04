@@ -633,7 +633,9 @@ RGY_ERR RGYOutputBSF::applyBitstreamFilter(RGYBitstream *bitstream) {
 RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
     m_hdrBitstream(),
+    m_hdr10plusMetadataCopy(false),
     m_doviRpu(nullptr),
+    m_doviRpuMetadataCopy(false),
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
     m_prevEncodeFrameId(-1),
@@ -693,18 +695,20 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             return sts;
         }
 
-        if (rawPrm->hdrMetadata != nullptr && rawPrm->hdrMetadata->getprm().hasPrmSet()) {
-            AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hdrMetadata->print()));
+        if (rawPrm->hdrMetadataIn != nullptr && rawPrm->hdrMetadataIn->getprm().hasPrmSet()) {
+            AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hdrMetadataIn->print()));
             if (rawPrm->codecId == RGY_CODEC_HEVC) {
-                m_hdrBitstream = rawPrm->hdrMetadata->gen_nal();
+                m_hdrBitstream = rawPrm->hdrMetadataIn->gen_nal();
             } else if (rawPrm->codecId == RGY_CODEC_AV1) {
-                m_hdrBitstream = rawPrm->hdrMetadata->gen_obu();
+                m_hdrBitstream = rawPrm->hdrMetadataIn->gen_obu();
             } else {
                 AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(rawPrm->codecId).c_str());
                 return RGY_ERR_UNSUPPORTED;
             }
         }
+        m_hdr10plusMetadataCopy = rawPrm->hdr10plusMetadataCopy;
         m_doviRpu = rawPrm->doviRpu;
+        m_doviRpuMetadataCopy = rawPrm->doviRpuMetadataCopy;
         m_timestamp = rawPrm->vidTimestamp;
         m_debugDirectAV1Out = rawPrm->debugDirectAV1Out;
         m_HEVCAlphaChannelMode = rawPrm->HEVCAlphaChannelMode;
@@ -809,7 +813,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         std::vector<uint8_t> data(m_hdrBitstream.data(), m_hdrBitstream.data() + m_hdrBitstream.size());
         metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true, false));
     }
-    {
+    if (m_hdr10plusMetadataCopy) {
         auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata);
         if (err_hdr10plus != RGY_ERR_NONE) {
             return err_hdr10plus;
@@ -826,7 +830,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         if (dovi_nal.size() > 0) {
             metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
         }
-    } else {
+    } else if (m_doviRpuMetadataCopy) {
         auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata);
         if (err_dovirpu != RGY_ERR_NONE) {
             return err_dovirpu;
@@ -1051,7 +1055,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #include "rgy_output_avcodec.h"
 
 std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string& maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader) {
-    auto hdrMetadata = std::make_unique<RGYHDRMetadata>();
+    auto hdrMetadataIn = std::make_unique<RGYHDRMetadata>();
     const AVMasteringDisplayMetadata *masteringDisplaySrc = nullptr;
     const AVContentLightMetadata *contentLightSrc = nullptr;
     { auto avcodecReader = dynamic_cast<const RGYInputAvcodec *>(reader);
@@ -1063,36 +1067,36 @@ std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string& maxCll, cons
     int ret = 0;
     if (maxCll == maxCLLSource) {
         if (contentLightSrc != nullptr) {
-            hdrMetadata->set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
+            hdrMetadataIn->set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
         }
     } else {
-        ret = hdrMetadata->parse_maxcll(maxCll);
+        ret = hdrMetadataIn->parse_maxcll(maxCll);
     }
     if (masterDisplay == masterDisplaySource) {
         if (masteringDisplaySrc != nullptr) {
             rgy_rational<int> masterdisplay[10];
-            masterdisplay[0] = to_rgy(masteringDisplaySrc->display_primaries[1][0]); //G
-            masterdisplay[1] = to_rgy(masteringDisplaySrc->display_primaries[1][1]); //G
-            masterdisplay[2] = to_rgy(masteringDisplaySrc->display_primaries[2][0]); //B
-            masterdisplay[3] = to_rgy(masteringDisplaySrc->display_primaries[2][1]); //B
-            masterdisplay[4] = to_rgy(masteringDisplaySrc->display_primaries[0][0]); //R
-            masterdisplay[5] = to_rgy(masteringDisplaySrc->display_primaries[0][1]); //R
-            masterdisplay[6] = to_rgy(masteringDisplaySrc->white_point[0]);
-            masterdisplay[7] = to_rgy(masteringDisplaySrc->white_point[1]);
-            masterdisplay[8] = to_rgy(masteringDisplaySrc->max_luminance);
-            masterdisplay[9] = to_rgy(masteringDisplaySrc->min_luminance);
-            hdrMetadata->set_masterdisplay(masterdisplay);
+            masterdisplay[RGYHDRMetadataPrmIndex::G_X] = to_rgy(masteringDisplaySrc->display_primaries[1][0]); //G
+            masterdisplay[RGYHDRMetadataPrmIndex::G_Y] = to_rgy(masteringDisplaySrc->display_primaries[1][1]); //G
+            masterdisplay[RGYHDRMetadataPrmIndex::B_X] = to_rgy(masteringDisplaySrc->display_primaries[2][0]); //B
+            masterdisplay[RGYHDRMetadataPrmIndex::B_Y] = to_rgy(masteringDisplaySrc->display_primaries[2][1]); //B
+            masterdisplay[RGYHDRMetadataPrmIndex::R_X] = to_rgy(masteringDisplaySrc->display_primaries[0][0]); //R
+            masterdisplay[RGYHDRMetadataPrmIndex::R_Y] = to_rgy(masteringDisplaySrc->display_primaries[0][1]); //R
+            masterdisplay[RGYHDRMetadataPrmIndex::WP_X] = to_rgy(masteringDisplaySrc->white_point[0]);
+            masterdisplay[RGYHDRMetadataPrmIndex::WP_Y] = to_rgy(masteringDisplaySrc->white_point[1]);
+            masterdisplay[RGYHDRMetadataPrmIndex::L_Max] = to_rgy(masteringDisplaySrc->max_luminance);
+            masterdisplay[RGYHDRMetadataPrmIndex::L_Min] = to_rgy(masteringDisplaySrc->min_luminance);
+            hdrMetadataIn->set_masterdisplay(masterdisplay);
         }
     } else {
-        ret = hdrMetadata->parse_masterdisplay(masterDisplay);
+        ret = hdrMetadataIn->parse_masterdisplay(masterDisplay);
     }
     if (atcSei != RGY_TRANSFER_UNKNOWN) {
-        hdrMetadata->set_atcsei(atcSei);
+        hdrMetadataIn->set_atcsei(atcSei);
     }
     if (ret) {
-        hdrMetadata.reset();
+        hdrMetadataIn.reset();
     }
-    return hdrMetadata;
+    return hdrMetadataIn;
 }
 
 static bool audioSelected(const AudioSelect *sel, const AVDemuxStream *stream) {
@@ -1146,7 +1150,7 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     const vector<unique_ptr<AVChapter>>& chapters,
 #endif //#if ENABLE_AVSW_READER
-    const RGYHDRMetadata *hdrMetadata,
+    const RGYHDRMetadata *hdrMetadataIn,
     DOVIRpu *doviRpu,
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
@@ -1212,7 +1216,8 @@ RGY_ERR initWriters(
         writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
         writerPrm.chapterNoTrim           = common->chapterNoTrim;
         writerPrm.attachments             = common->attachmentSource;
-        writerPrm.hdrMetadata             = hdrMetadata;
+        writerPrm.hdrMetadataIn           = hdrMetadataIn;
+        writerPrm.hdr10plusMetadataCopy   = common->hdr10plusMetadataCopy;
         writerPrm.doviRpu                 = doviRpu;
         writerPrm.doviRpuMetadataCopy     = common->doviRpuMetadataCopy;
         writerPrm.doviProfile             = common->doviProfile;
@@ -1525,8 +1530,10 @@ RGY_ERR initWriters(
             rawPrm.bufSizeMB = ctrl->outputBufSizeMB;
             rawPrm.benchmark = benchmark;
             rawPrm.codecId = outputVideoInfo.codec;
-            rawPrm.hdrMetadata = hdrMetadata;
+            rawPrm.hdrMetadataIn = hdrMetadataIn;
+            rawPrm.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy;
             rawPrm.doviRpu = doviRpu;
+            rawPrm.doviRpuMetadataCopy = common->doviRpuMetadataCopy;
             rawPrm.vidTimestamp = vidTimestamp;
             rawPrm.debugDirectAV1Out = common->debugDirectAV1Out;
             rawPrm.HEVCAlphaChannel = HEVCAlphaChannel;

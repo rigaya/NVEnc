@@ -299,7 +299,8 @@ NVEncCore::NVEncCore() :
 #endif //#if ENABLE_AVSW_READER
     m_timecode(),
     m_hdr10plus(),
-    m_hdrsei(),
+    m_hdrseiIn(),
+    m_hdrseiOut(),
     m_dovirpu(),
     m_dovirpuMetadataCopy(false),
     m_doviProfile(RGY_DOVI_PROFILE_UNSET),
@@ -516,7 +517,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
     //入力モジュールの初期化
     if (initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, &inputParam->inprm, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
-        inputParam->vpp.rff.enable, inputParam->vpp.afs.enable,
+        inputParam->vpp.rff.enable, inputParam->vpp.afs.enable, inputParam->vpp.libplacebo_tonemapping.enable,
         m_poolPkt.get(), m_poolFrame.get(), m_qpTable.get(), m_pPerfMonitor.get(), m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
@@ -652,8 +653,14 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
     m_doviProfile = inputParam->common.doviProfile;
 #endif
 
-    m_hdrsei = createHEVCHDRSei(inputParam->common.maxCll, inputParam->common.masterDisplay, inputParam->common.atcSei, m_pFileReader.get());
-    if (!m_hdrsei) {
+    m_hdrseiIn = createHEVCHDRSei(maxCLLSource, masterDisplaySource, RGY_TRANSFER_UNKNOWN, m_pFileReader.get());
+    if (!m_hdrseiIn) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
+        return NV_ENC_ERR_GENERIC;
+    }
+
+    m_hdrseiOut = createHEVCHDRSei(inputParam->common.maxCll, inputParam->common.masterDisplay, inputParam->common.atcSei, m_pFileReader.get());
+    if (!m_hdrseiOut) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
         return NV_ENC_ERR_GENERIC;
     }
@@ -736,7 +743,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
 
     if (initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
-        m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), m_dovirpu.get(), m_encTimestamp.get(),
+        m_trimParam, m_outputTimebase, m_Chapters, m_hdrseiOut.get(), m_dovirpu.get(), m_encTimestamp.get(),
         false, false, inputParams->alphaChannel, inputParams->alphaChannelMode,
         m_poolPkt.get(), m_poolFrame.get(), m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
@@ -1101,7 +1108,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_ssim.reset();
     m_dovirpu.reset();
     m_hdr10plus.reset();
-    m_hdrsei.reset();
+    m_hdrseiOut.reset();
     m_AudioReaders.clear();
     m_pFileReader.reset();
     m_pFileWriter.reset();
@@ -1413,6 +1420,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.curves.enable
             || inputParam->vpp.transform.enable
             || inputParam->vpp.colorspace.enable
+            || inputParam->vpp.libplacebo_tonemapping.enable
             || inputParam->vpp.subburn.size() > 0
             || inputParam->vpp.pad.enable
             || inputParam->vpp.selectevery.enable
@@ -2181,7 +2189,7 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     set_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver(), (NV_ENC_BIT_DEPTH)clamp(inputParam->outputDepth, 8, 10));
 
     auto require_repeat_headers = [this]() {
-        return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0);
+        return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0);
     };
 
     if (inputParam->codec_rgy == RGY_CODEC_AV1) {
@@ -2413,6 +2421,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.curves.enable
         || inputParam->vpp.transform.enable
         || inputParam->vpp.colorspace.enable
+        || inputParam->vpp.libplacebo_tonemapping.enable
         || inputParam->vpp.pad.enable
         || inputParam->vpp.subburn.size() > 0
         || inputParam->vpp.rff.enable
@@ -2464,6 +2473,32 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->colorspace = inputParam->vpp.colorspace;
             param->encCsp = encCsp;
             param->VuiIn = VuiFiltered;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            VuiFiltered = filter->VuiOut();
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //libplacebo_tonemapping
+        if (inputParam->vpp.libplacebo_tonemapping.enable) {
+            unique_ptr<NVEncFilterLibplaceboToneMapping> filter(new NVEncFilterLibplaceboToneMapping());
+            shared_ptr<NVEncFilterParamLibplaceboToneMapping> param(new NVEncFilterParamLibplaceboToneMapping());
+            param->toneMapping = inputParam->vpp.libplacebo_tonemapping;
+            param->vui = VuiFiltered;
+            param->dx11 = m_dev->dx11();
+            param->hdrMetadataIn = m_hdrseiIn.get();
+            param->hdrMetadataOut = m_hdrseiOut.get();
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
@@ -4747,7 +4782,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     delete ptr;
                 }), m_cuvidDec->GetDecFrameInfo());
                 inputFrame.setInputFrameId(nInputFrame);
-                if ((m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy) && streamIn) {
+                if (streamIn && queueMetadata.size() > 0) {
                     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
                     if (pAVCodecReader != nullptr) {
                         const auto timestamp_status = pAVCodecReader->GetFramePosList()->getStreamPtsStatus();
@@ -5527,9 +5562,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             add_str(RGY_LOG_INFO,  _T("VUI            %s\n"), vui_str.c_str());
         }
     }
-    if (m_hdrsei) {
-        const auto masterdisplay = m_hdrsei->print_masterdisplay();
-        const auto maxcll = m_hdrsei->print_maxcll();
+    if (m_hdrseiOut) {
+        const auto masterdisplay = m_hdrseiOut->print_masterdisplay();
+        const auto maxcll = m_hdrseiOut->print_maxcll();
         if (masterdisplay.length() > 0) {
             const tstring tstr = char_to_tstring(masterdisplay);
             const auto splitpos = tstr.find(_T("WP("));

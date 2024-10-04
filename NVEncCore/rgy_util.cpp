@@ -444,7 +444,7 @@ std::wstring rstrip(const std::wstring& string, const WCHAR* trim) {
     auto result = string;
     auto right = string.find_last_not_of(trim);
     if (right != std::string::npos) {
-        result = string.substr(0, right);
+        result = string.substr(0, right+1);
     }
     return result;
 }
