@@ -232,7 +232,7 @@ public:
     RGY_ERR OverwriteHEVCAlphaChannelInfoSEI(RGYBitstream *bitstream);
 
     template<typename T>
-    std::pair<RGY_ERR, std::vector<uint8_t>> getMetadata(const RGYFrameDataType metadataType, const RGYTimestampMapVal& bs_framedata);
+    std::pair<RGY_ERR, std::vector<uint8_t>> getMetadata(const RGYFrameDataType metadataType, const RGYTimestampMapVal& bs_framedata, const RGYFrameDataMetadataConvertParam *convPrm);
 
     virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) = 0;
     virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) = 0;
@@ -322,6 +322,7 @@ struct RGYOutputRawPrm {
     RGY_CODEC codecId;
     const RGYHDRMetadata *hdrMetadataIn;
     bool hdr10plusMetadataCopy;   //hdr10plusのmetadataをコピー
+    RGYDOVIProfile doviProfile;
     DOVIRpu *doviRpu;
     bool doviRpuMetadataCopy;     //doviのmetadataのコピー
     RGYTimestamp *vidTimestamp;
@@ -342,6 +343,7 @@ protected:
     vector<uint8_t> m_outputBuf2;
     vector<uint8_t> m_hdrBitstream;
     bool m_hdr10plusMetadataCopy;
+    RGYDOVIProfile m_doviProfileDst;
     DOVIRpu *m_doviRpu;
     bool m_doviRpuMetadataCopy;
     RGYTimestamp *m_timestamp;

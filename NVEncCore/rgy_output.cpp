@@ -335,7 +335,7 @@ RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
 }
 
 template<typename T>
-std::pair<RGY_ERR, std::vector<uint8_t>> RGYOutput::getMetadata(const RGYFrameDataType metadataType, const RGYTimestampMapVal& bs_framedata) {
+std::pair<RGY_ERR, std::vector<uint8_t>> RGYOutput::getMetadata(const RGYFrameDataType metadataType, const RGYTimestampMapVal& bs_framedata, const RGYFrameDataMetadataConvertParam *convPrm) {
     const auto frameDataMetadata = std::find_if(bs_framedata.dataList.begin(), bs_framedata.dataList.end(), [metadataType](const std::shared_ptr<RGYFrameData>& data) {
         return data->dataType() == metadataType;
         });
@@ -345,6 +345,10 @@ std::pair<RGY_ERR, std::vector<uint8_t>> RGYOutput::getMetadata(const RGYFrameDa
         if (!frameDataPtr) {
             AddMessage(RGY_LOG_ERROR, _T("Invalid cast to %s metadata.\n"));
             return { RGY_ERR_UNSUPPORTED, metadata };
+        }
+        if (auto sts = frameDataPtr->convert(convPrm); sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to convert metadata: %s.\n"), get_err_mes(sts));
+            return { sts, metadata };
         }
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
             metadata = frameDataPtr->gen_nal();
@@ -634,6 +638,7 @@ RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
     m_hdrBitstream(),
     m_hdr10plusMetadataCopy(false),
+    m_doviProfileDst(RGY_DOVI_PROFILE_UNSET),
     m_doviRpu(nullptr),
     m_doviRpuMetadataCopy(false),
     m_timestamp(nullptr),
@@ -707,6 +712,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             }
         }
         m_hdr10plusMetadataCopy = rawPrm->hdr10plusMetadataCopy;
+        m_doviProfileDst = rawPrm->doviProfile;
         m_doviRpu = rawPrm->doviRpu;
         m_doviRpuMetadataCopy = rawPrm->doviRpuMetadataCopy;
         m_timestamp = rawPrm->vidTimestamp;
@@ -814,7 +820,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true, false));
     }
     if (m_hdr10plusMetadataCopy) {
-        auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata);
+        auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata, nullptr);
         if (err_hdr10plus != RGY_ERR_NONE) {
             return err_hdr10plus;
         }
@@ -831,7 +837,8 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
             metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
         }
     } else if (m_doviRpuMetadataCopy) {
-        auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata);
+        auto doviRpuConvPrm = (m_doviProfileDst == RGY_DOVI_PROFILE_COPY) ? std::make_unique<RGYFrameDataDOVIRpuConvertParam>(m_doviProfileDst) : nullptr;
+        auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata, doviRpuConvPrm.get());
         if (err_dovirpu != RGY_ERR_NONE) {
             return err_dovirpu;
         }
@@ -1532,6 +1539,7 @@ RGY_ERR initWriters(
             rawPrm.codecId = outputVideoInfo.codec;
             rawPrm.hdrMetadataIn = hdrMetadataIn;
             rawPrm.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy;
+            rawPrm.doviProfile = common->doviProfile;
             rawPrm.doviRpu = doviRpu;
             rawPrm.doviRpuMetadataCopy = common->doviRpuMetadataCopy;
             rawPrm.vidTimestamp = vidTimestamp;

@@ -33,6 +33,7 @@
 #include <array>
 #include "rgy_version.h"
 #include "rgy_err.h"
+#include "rgy_def.h"
 #include "convert_csp.h"
 #include "rgy_frame_info.h"
 #if ENABLE_VPP_SMOOTH_QP_FRAME
@@ -86,12 +87,21 @@ protected:
     RGYFrameInfo m_qpHost;
 };
 
+class RGYFrameDataMetadataConvertParam {
+public:
+    bool enable;
+
+    RGYFrameDataMetadataConvertParam() : enable(false) {}
+    virtual ~RGYFrameDataMetadataConvertParam() {};
+};
+
 class RGYFrameDataMetadata : public RGYFrameData {
 public:
     RGYFrameDataMetadata();
     RGYFrameDataMetadata(const uint8_t* data, size_t size, int64_t timestamp);
     virtual ~RGYFrameDataMetadata();
 
+    virtual RGY_ERR convert([[maybe_unused]] const RGYFrameDataMetadataConvertParam *prm) { return RGY_ERR_NONE; }
     virtual std::vector<uint8_t> gen_nal() const = 0;
     virtual std::vector<uint8_t> gen_obu() const = 0;
     const std::vector<uint8_t>& getData() const { return m_data; }
@@ -110,11 +120,21 @@ public:
     virtual std::vector<uint8_t> gen_obu() const override;
 };
 
+class RGYFrameDataDOVIRpuConvertParam : public RGYFrameDataMetadataConvertParam {
+public:
+    RGYDOVIProfile doviProfileDst;
+
+    RGYFrameDataDOVIRpuConvertParam() : RGYFrameDataMetadataConvertParam(), doviProfileDst(RGY_DOVI_PROFILE_UNSET) {}
+    RGYFrameDataDOVIRpuConvertParam(RGYDOVIProfile profile) : RGYFrameDataMetadataConvertParam(), doviProfileDst(profile) { enable = true; }
+    virtual ~RGYFrameDataDOVIRpuConvertParam() {};
+};
+
 class RGYFrameDataDOVIRpu : public RGYFrameDataMetadata {
 public:
     RGYFrameDataDOVIRpu();
     RGYFrameDataDOVIRpu(const uint8_t* data, size_t size, int64_t timestamp);
     virtual ~RGYFrameDataDOVIRpu();
+    virtual RGY_ERR convert(const RGYFrameDataMetadataConvertParam *prm);
     virtual std::vector<uint8_t> gen_nal() const override;
     virtual std::vector<uint8_t> gen_obu() const override;
 };

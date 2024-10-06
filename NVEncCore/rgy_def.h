@@ -485,6 +485,7 @@ enum RGYDOVIProfile {
     RGY_DOVI_PROFILE_81    = 81,
     RGY_DOVI_PROFILE_82    = 82,
     RGY_DOVI_PROFILE_84    = 84,
+    RGY_DOVI_PROFILE_OTHER = 100,
 };
 
 const CX_DESC list_dovi_profile[] = {

@@ -145,6 +145,8 @@ struct AVMuxVideo {
     std::unique_ptr<FILE, fp_deleter> fpTsLogFile; //mux timestampログファイル
     RGYBitstream          hdrBitstream;         //追加のsei nal
     bool                  hdr10plusMetadataCopy; //hdr10plusをコピー
+    RGYDOVIProfile        doviProfileSrc;       //dovi profile input
+    RGYDOVIProfile        doviProfileDst;       //dovi profile output
     DOVIRpu              *doviRpu;              //dovi rpu 追加用
     bool                  doviRpuMetadataCopy;  //dovi rpuをコピー
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
