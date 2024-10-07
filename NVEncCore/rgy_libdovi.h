@@ -29,6 +29,8 @@
 #ifndef __RGY_LIBDOVI_H__
 #define __RGY_LIBDOVI_H__
 
+#if ENABLE_LIBDOVI
+
 extern "C"
 #include "libdovi/rpu_parser.h"
 
@@ -78,5 +80,7 @@ public:
     void close();
 };
 #endif
+
+#endif // ENABLE_LIBDOVI
 
 #endif // __RGY_LIBDOVI_H__

@@ -188,6 +188,7 @@ RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu(const uint8_t *data, size_t size, int64
 RGYFrameDataDOVIRpu::~RGYFrameDataDOVIRpu() { }
 
 RGY_ERR RGYFrameDataDOVIRpu::convert(const RGYFrameDataMetadataConvertParam *metadataprm) {
+#if ENABLE_LIBDOVI
     auto prm = dynamic_cast<const RGYFrameDataDOVIRpuConvertParam*>(metadataprm);
     if (!prm || !prm->enable) {
         return RGY_ERR_NONE;
@@ -220,6 +221,7 @@ RGY_ERR RGYFrameDataDOVIRpu::convert(const RGYFrameDataMetadataConvertParam *met
     }
     m_data.resize(rpu_data->len);
     memcpy(m_data.data(), rpu_data->data, rpu_data->len);
+#endif // ENABLE_LIBDOVI
     return RGY_ERR_NONE;
 }
 

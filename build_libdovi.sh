@@ -18,5 +18,5 @@ if [ ! -e ${LIBDOVI_INSTALL_DIR} ]; then
     mkdir $LIBDOVI_INSTALL_DIR
 fi
 cd ${DOVI_SRC}/dolby_vision && \
-  cargo cinstall --release --prefix=$LIBDOVI_INSTALL_DIR && \
+  ${CARGO} cinstall --release --prefix=$LIBDOVI_INSTALL_DIR && \
   find ${LIBDOVI_INSTALL_DIR} -name "libdovi.so*" | xargs rm

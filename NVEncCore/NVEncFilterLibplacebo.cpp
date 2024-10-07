@@ -1466,7 +1466,15 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
         m_tonemap.peakDetectParams->percentile = prm->toneMapping.percentile;
         m_tonemap.peakDetectParams->black_cutoff = prm->toneMapping.black_cutoff;
 
-        m_tonemap.use_dovi = prm->toneMapping.use_dovi >= 0 ? prm->toneMapping.use_dovi : m_tonemap.cspSrc == VppLibplaceboToneMappingCSP::DOVI;
+        if (!ENABLE_LIBDOVI) {
+            if (prm->toneMapping.use_dovi > 0) {
+                AddMessage(RGY_LOG_ERROR, _T("use_dovi is not supported without libdovi.\n"));
+                return RGY_ERR_INVALID_PARAM;
+            }
+            m_tonemap.use_dovi = 0;
+        } else {
+            m_tonemap.use_dovi = prm->toneMapping.use_dovi >= 0 ? prm->toneMapping.use_dovi : m_tonemap.cspSrc == VppLibplaceboToneMappingCSP::DOVI;
+        }
     }
 
     auto setHdrMetadata = [](pl_color_space& plCsp, const VppLibplaceboToneMappingCSP prm_csp, const float max_org, const float min_org, const RGYHDRMetadata *hdrMetadata) {
@@ -1542,6 +1550,7 @@ tstring NVEncFilterLibplaceboToneMapping::printParams(const NVEncFilterParamLibp
     return str;
 }
 
+#if ENABLE_LIBDOVI
 static std::unique_ptr<pl_dovi_metadata> createDOVIMeta(const DoviRpuOpaque *rpu, const DoviRpuDataHeader *hdr) {
     auto dovi_meta = std::make_unique<pl_dovi_metadata>();
     if (hdr->use_prev_vdr_rpu_flag) {
@@ -1616,12 +1625,14 @@ static std::unique_ptr<pl_dovi_metadata> createDOVIMeta(const DoviRpuOpaque *rpu
     }
     return dovi_meta;
 }
+#endif // ENABLE_LIBDOVI
 
 RGY_ERR NVEncFilterLibplaceboToneMapping::setFrameParam(const RGYFrameInfo *pInputFrame) {
     for (const auto& frameData : pInputFrame->dataList) {
         if (frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
 
         } else if (frameData->dataType() == RGY_FRAME_DATA_DOVIRPU && m_tonemap.use_dovi) {
+#if ENABLE_LIBDOVI
             auto dovi_rpu = dynamic_cast<const RGYFrameDataDOVIRpu*>(frameData.get());
             if (!dovi_rpu) {
                 AddMessage(RGY_LOG_ERROR, _T("Invalid frame data type.\n"));
@@ -1678,6 +1689,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setFrameParam(const RGYFrameInfo *pInp
                     }
                 }
             }
+#endif // ENABLE_LIBDOVI
         }
     }
 
