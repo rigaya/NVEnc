@@ -533,6 +533,24 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
     fi
 fi
 
+./build_libdovi.sh
+LIBDOVI_PC=$(find `pwd`/build_libdovi -name 'dovi.pc')
+cnf_print "checking libdovi with pkg-config..."
+if ! ${PKGCONFIG} --exists ${LIBDOVI_PC} ; then
+    cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+else
+    cnf_write "OK"
+    LIBDOVI_LIBS=`${PKGCONFIG} --libs --static ${LIBDOVI_PC}`
+    LIBDOVI_CFLAGS=`${PKGCONFIG} --cflags ${LIBDOVI_PC}`
+fi
+if ! cxx_check "rpu_parser.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBDOVI_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBDOVI_LIBS}" "libdovi/rpu_parser.h" "" "dovi_parse_rpu(nullptr, 0);" ; then
+    cnf_write "no"
+    cnf_write "Failed to build libdovi." 
+    exit 1
+else
+    cnf_write "yes"
+fi
+
 if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
     cnf_print "checking vapoursynth with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_VAPOURSYNTH_NAMES} ; then
@@ -752,9 +770,9 @@ write_config_mak "NVCC = $NVCC"
 write_config_mak "LD   = $CXX"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS -std=c++17 $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
-write_config_mak "NVCCFLAGS = $NVCCFLAGS -std=c++14 -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS} $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS \""
-write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBVMAF_LIBS"
+write_config_mak "CXXFLAGS = $CXXFLAGS -std=c++17 $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $LIBDOVI_CFLAGS $DTL_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS -std=c++14 -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS} $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $LIBDOVI_CFLAGS $DTL_CFLAGS \""
+write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBVMAF_LIBS $LIBDOVI_LIBS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
 write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""

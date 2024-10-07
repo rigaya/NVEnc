@@ -84,8 +84,8 @@ tstring NVEncFilterParamNVOFFRUC::print() const {
 
 NVEncFilterNVOFFRUC::NVEncFilterNVOFFRUC() :
     m_func(),
-    m_frucBuf(),
     m_frucHandles(),
+    m_frucBuf(),
     m_frucCsp(RGY_CSP_NV12),
     m_prevTimestamp(-1),
     m_targetFps(),

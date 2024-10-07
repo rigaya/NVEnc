@@ -2507,7 +2507,9 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
+#if ENABLE_LIBPLACEBO
             VuiFiltered = filter->VuiOut();
+#endif
             //フィルタチェーンに追加
             m_vpFilters.push_back(std::move(filter));
             //パラメータ情報を更新
