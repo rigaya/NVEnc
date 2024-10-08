@@ -149,6 +149,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
     - 色空間変換 (x64版のみ)
       - hdr2sdr
       - sdr2hdr (NGX TrueHDR)
+      - tonemap ([libplacebo](https://code.videolan.org/videolan/libplacebo))
       - lut3d
     - リサイズ  
       - bilinear
@@ -162,6 +163,8 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
     - パディング(黒帯)の追加
     - フレーム間引き(select every)
     - バンディング低減
+      - deband
+      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
     - ノイズ除去
       - smooth (dctベースのノイズ除去)
       - denoise-dct (dctベースのノイズ除去)
@@ -217,6 +220,8 @@ NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
 - 本ソフトウェアでは、
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
+  [libplacebo](https://code.videolan.org/videolan/libplacebo),
+  [libdovi](https://github.com/quietvoid/dovi_tool),
   [vmaf](https://github.com/Netflix/vmaf),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),

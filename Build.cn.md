@@ -70,6 +70,10 @@ curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/rel
 
 ```Shell
 sudo apt install build-essential git
+sudo apt install libssl-dev curl
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+  && . ~/.cargo/env \
+  && cargo install cargo-c
 ```
 
 ### 2. 安装 NVIDIA 驱动
@@ -192,6 +196,10 @@ AV1
 
 ```Shell
 sudo apt install build-essential git
+sudo apt install libssl-dev curl
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+  && . ~/.cargo/env \
+  && cargo install cargo-c
 ```
 
 ### 2. 安装 NVIDIA 驱动
@@ -417,6 +425,10 @@ H.265/HEVC
 
 ```Shell
 sudo apt install git g++-8
+sudo apt install libssl-dev curl
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+  && . ~/.cargo/env \
+  && cargo install cargo-c
 ```
 
 ### 2. 安装 NVIDIA 驱动和 CUDA 10.2
@@ -568,6 +580,10 @@ H.265/HEVC
 
 ```Shell
 sudo dnf install @development-tools
+sudo apt install libssl-dev curl
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+  && . ~/.cargo/env \
+  && cargo install cargo-c
 ```
 
 ### 2. 准备安装 CUDA 和 NVIDIA driver

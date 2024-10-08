@@ -58,6 +58,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 - GPU Driver 435.21 or later
 - C++17 Compiler
 - CUDA 10-12
+- rust + cargo-c
 - git
 - libraries
   - ffmpeg 4.x-7.x libs (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
@@ -67,9 +68,20 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 
 ### 1. Install build tools
 
-```Shell
-sudo apt install build-essential git
-```
+- Install build tools
+
+  ```Shell
+  sudo apt install build-essential git
+  ```
+
+- Install rust + cargo-c (for libdovi build)
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. Install NVIDIA driver
 
@@ -207,9 +219,20 @@ AV1
 
 ### 1. Install build tools
 
-```Shell
-sudo apt install git g++-8
-```
+- Install build tools
+
+  ```Shell
+  sudo apt install git g++-8
+  ```
+
+- Install rust + cargo-c (for libdovi build)
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. Install NVIDIA driver and CUDA 10.2
 ```Shell
@@ -358,9 +381,20 @@ H.265/HEVC
 
 ### 1. Install build tools
 
-```Shell
-sudo dnf install @development-tools
-```
+- Install build tools
+
+  ```Shell
+  sudo dnf install @development-tools
+  ```
+
+- Install rust + cargo-c (for libdovi build)
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. Getting ready to install CUDA and NVIDIA driver
 

@@ -138,6 +138,8 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
     - mpdecimate
     - colorspace conversion (x64 version only)
       - hdr2sdr
+      - sdr2hdr (NGX TrueHDR)
+      - tonemap ([libplacebo](https://code.videolan.org/videolan/libplacebo))
       - lut3d
     - delogo
     - subburn
@@ -153,6 +155,8 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
     - padding
     - select-every
     - deband
+      - deband
+      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
     - noise reduction
       - knn (K-nearest neighbor)
       - pmd (modified pmd method)
@@ -217,6 +221,8 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
 - 这个软件依赖于
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
+  [libplacebo](https://code.videolan.org/videolan/libplacebo),
+  [libdovi](https://github.com/quietvoid/dovi_tool),
   [vmaf](https://github.com/Netflix/vmaf),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),

@@ -59,6 +59,7 @@ NVEnc.slnを開き、ビルドします。
 ### 0. ビルドに必要なもの
 - C++17 コンパイラ
 - CUDA 10-12
+- rust + cargo-c (libdoviビルド用)
 - git
 - ライブラリ群
   - ffmpeg 4.x-7.x ライブラリ群 (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
@@ -68,9 +69,20 @@ NVEnc.slnを開き、ビルドします。
 
 ### 1. コンパイラ等のインストール
 
-```Shell
-sudo apt install build-essential git
-```
+- ビルドツールのインストール
+
+  ```Shell
+  sudo apt install build-essential git
+  ```
+
+- rust + cargo-cのインストール
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. NVIDIA ドライバのインストール
 
@@ -214,9 +226,21 @@ AV1
 
 ### 1. コンパイラ等のインストール
 
-```Shell
-sudo apt install git g++-8
-```
+
+- ビルドツールのインストール
+
+  ```Shell
+  sudo apt install git g++-8
+  ```
+
+- rust + cargo-cのインストール
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. NVIDIA ドライバ + CUDA のインストール
 
@@ -366,9 +390,20 @@ H.265/HEVC
 
 ### 1. コンパイラ等のインストール
 
-```Shell
-sudo dnf install @development-tools
-```
+- コンパイラ等のインストール
+
+  ```Shell
+  sudo dnf install @development-tools
+  ```
+
+- rust + cargo-cのインストール
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. CUDA・ドライバインストールの準備
 
