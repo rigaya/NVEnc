@@ -670,13 +670,12 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
         PrintMes(RGY_LOG_DEBUG, _T("Failed to open Encode Session as API ver %d.%d\n"), nvenc_api_ver_major(apiver), nvenc_api_ver_minor(apiver));
     }
 
-    if (nvStatus == NV_ENC_ERR_OUT_OF_MEMORY) {
+    if (nvStatus == NV_ENC_ERR_OUT_OF_MEMORY || nvStatus == NV_ENC_ERR_INCOMPATIBLE_CLIENT_KEY) {
         static const int retry_millisec = 500;
         static const int retry_max = sessionRetry * 1000 / retry_millisec;
         std::this_thread::sleep_for(std::chrono::milliseconds(retry_millisec));
-        for (int retry = 0; (m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder)) == NV_ENC_ERR_OUT_OF_MEMORY; retry++) {
-            if (nvStatus != NV_ENC_SUCCESS) {
-            }
+        nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder);
+        for (int retry = 0; nvStatus == NV_ENC_ERR_OUT_OF_MEMORY || nvStatus == NV_ENC_ERR_INCOMPATIBLE_CLIENT_KEY; retry++) {
             if (retry >= retry_max) {
                 NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
                 PrintMes(RGY_LOG_ERROR,
@@ -690,6 +689,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
                 PrintMes(RGY_LOG_INFO, _T("Waiting for other encode to finish...\n"));
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(retry_millisec));
+            nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder);
         }
     }
     if (nvStatus == NV_ENC_SUCCESS) {
