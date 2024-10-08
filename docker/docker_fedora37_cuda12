@@ -9,7 +9,7 @@ ARG OSVER=fc37 \
 
 RUN dnf update -y \
     && dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-    && dnf install -y @development-tools kernel-devel make wget pciutils acpid libglvnd-devel dkms ffmpeg ffmpeg-devel libass libass-devel rpm-build 'dnf-command(config-manager)'
+    && dnf install -y @development-tools kernel-devel make wget curl pciutils acpid libglvnd-devel dkms ffmpeg ffmpeg-devel libass libass-devel rpm-build 'dnf-command(config-manager)'
 
 RUN dnf config-manager --add-repo ${CUDA_REPO_URL} \
     && dnf clean all \

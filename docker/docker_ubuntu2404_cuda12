@@ -13,6 +13,7 @@ ARG DEBIAN_FRONTEND=noninteractive \
 RUN apt update \
     && apt-get install -y \
       wget \
+      curl \
       git \
       build-essential \
       libavcodec60 \

@@ -16,6 +16,7 @@ RUN apt update \
     && apt update \
     && apt-get install -y \
       wget \
+      curl \
       git \
       build-essential \
       gcc-8 g++-8 \
