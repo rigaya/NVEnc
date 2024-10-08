@@ -34,6 +34,8 @@ RUN apt update \
       libavdevice-dev \
       libass9 \
       libass-dev \
+      openssl \
+      libssl-dev \
     && wget -q https://developer.download.nvidia.com/compute/cuda/repos/${OSVER}/x86_64/cuda-${OSVER}.pin \
     && mv cuda-${OSVER}.pin /etc/apt/preferences.d/cuda-repository-pin-600 \
     && wget -q ${CUDA_DEB_URL} \
