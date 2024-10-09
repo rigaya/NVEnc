@@ -980,6 +980,8 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("Failed to dispatch (2).\n"));
         return RGY_ERR_UNKNOWN;
     }
+    pl_shader_obj_destroy(filter_params->lut);
+    filter_params->lut = nullptr;
     return RGY_ERR_NONE;
 }
 
