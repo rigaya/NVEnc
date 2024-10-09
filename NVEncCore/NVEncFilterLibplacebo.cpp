@@ -240,7 +240,7 @@ static void libplacebo_log_func(void *private_data, pl_log_level level, const ch
 }
 
 NVEncFilterLibplacebo::NVEncFilterLibplacebo() :
-    m_procByFrame(true),
+    m_procByFrame(false),
     m_textCspIn(RGY_CSP_NA),
     m_textCspOut(RGY_CSP_NA),
     m_dxgiformatIn(DXGI_FORMAT_UNKNOWN),
