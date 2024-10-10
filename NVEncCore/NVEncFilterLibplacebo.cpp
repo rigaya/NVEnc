@@ -37,6 +37,7 @@
 #include "NVEncFilterColorspace.h"
 #include "NVEncFilterLibplacebo.h"
 #include "rgy_libdovi.h"
+#include "rgy_filesystem.h"
 
 tstring NVEncFilterParamLibplaceboResample::print() const {
     return resample.print();
@@ -1379,7 +1380,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
         }
     }
     if (!prm->toneMapping.lut_path.empty()) {
-        if (!PathFileExists(prm->toneMapping.lut_path.c_str())) {
+        if (!rgy_file_exists(prm->toneMapping.lut_path.c_str())) {
             AddMessage(RGY_LOG_ERROR, _T("LUT file not found.\n"));
             return RGY_ERR_FILE_OPEN;
         }
