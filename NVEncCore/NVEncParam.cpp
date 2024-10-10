@@ -112,7 +112,7 @@ NV_ENC_CODEC_CONFIG DefaultParamH264() {
     NV_ENC_CODEC_CONFIG config = { 0 };
 
     config.h264Config.level     = NV_ENC_LEVEL_AUTOSELECT;
-    config.h264Config.idrPeriod = DEFAULT_GOP_LENGTH;
+    config.h264Config.idrPeriod = 0;
 
     config.h264Config.chromaFormatIDC            = 1;
     config.h264Config.disableDeblockingFilterIDC = 0;
@@ -137,6 +137,7 @@ NV_ENC_CODEC_CONFIG DefaultParamHEVC() {
     NV_ENC_CODEC_CONFIG config = { 0 };
 
     config.hevcConfig.level = NV_ENC_LEVEL_AUTOSELECT;
+    config.hevcConfig.idrPeriod = 0;
     config.hevcConfig.tier  = NV_ENC_TIER_HEVC_MAIN;
     config.hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
     config.hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
@@ -172,7 +173,7 @@ NV_ENC_CODEC_CONFIG DefaultParamAV1() {
     config.av1Config.inputBitDepth = NV_ENC_BIT_DEPTH_8;
     config.av1Config.outputBitDepth = NV_ENC_BIT_DEPTH_8;
 
-    config.av1Config.idrPeriod = DEFAULT_GOP_LENGTH;
+    config.av1Config.idrPeriod = 0;
 
     config.av1Config.enableCustomTileConfig = 0;
     config.av1Config.numTileColumns = 0;
