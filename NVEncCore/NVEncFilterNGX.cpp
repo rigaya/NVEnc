@@ -202,7 +202,7 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     if (!m_srcColorspace
         || m_srcColorspace->GetFilterParam()->frameIn.width != pParam->frameIn.width
         || m_srcColorspace->GetFilterParam()->frameIn.height != pParam->frameIn.height) {
-        AddMessage(RGY_LOG_DEBUG, _T("Create input csp conversion filter.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Create input colorspace conversion filter.\n"));
         VppColorspace colorspace;
         colorspace.enable = true;
         // DXGI_FORMAT_R8G8B8A8_UNORM に合わせてRGBに変換する
@@ -311,7 +311,7 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     if (!m_dstColorspace
         || m_dstColorspace->GetFilterParam()->frameOut.width != m_dstCrop->GetFilterParam()->frameIn.width
         || m_dstColorspace->GetFilterParam()->frameOut.height != m_dstCrop->GetFilterParam()->frameIn.height) {
-        AddMessage(RGY_LOG_DEBUG, _T("Create output csp conversion filter.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Create output colorspace conversion filter.\n"));
         VppColorspace colorspace;
         colorspace.enable = true;
         if (getNGXFeature() == NVSDK_NVX_TRUEHDR) {

@@ -1706,6 +1706,8 @@ std::string NVEncFilterColorspace::genKernelCode() {
 
 RGY_ERR NVEncFilterColorspace::setupCustomFilter(const RGY_CSP cspIn, const RGYFrameInfo& frameInfo, shared_ptr<NVEncFilterParamColorspace> prm) {
 #if ENABLE_NVRTC
+    AddMessage(RGY_LOG_DEBUG, _T("setupCustomFilter\n%s\n"), opCtrl->printInfoAll().c_str());
+
     VppCustom customPrms;
     customPrms.enable = true;
     customPrms.compile_options = "--use_fast_math";
