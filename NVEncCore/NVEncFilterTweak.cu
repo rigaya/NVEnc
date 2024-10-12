@@ -358,7 +358,7 @@ RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
                 || m_convC->GetFilterParam()->frameIn.csp  != csp_rgb
                 || m_convC->GetFilterParam()->frameOut.csp != pParam->frameIn.csp) {
                 VideoVUIInfo vui = prm->vui;
-                vui.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+                vui.setIfUnsetUnknwonAuto(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
                 vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
 
                 {

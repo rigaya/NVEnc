@@ -652,6 +652,34 @@ struct VideoVUIInfo {
         setDescriptPreset();
     }
 
+    void setIfUnsetUnknwonAuto(const VideoVUIInfo &x) {
+        const auto defaultVUI = VideoVUIInfo();
+        if (   colorprim == RGY_PRIM_UNSPECIFIED
+            || colorprim == RGY_PRIM_UNKNOWN
+            || colorprim == RGY_PRIM_AUTO) {
+            colorprim = x.colorprim;
+        }
+        if (   matrix == RGY_MATRIX_UNSPECIFIED
+            || matrix == RGY_MATRIX_AUTO) {
+            matrix = x.matrix;
+        }
+        if (   transfer == RGY_TRANSFER_UNKNOWN
+            || transfer == RGY_TRANSFER_UNSPECIFIED
+            || transfer == RGY_TRANSFER_AUTO) {
+            transfer = x.transfer;
+        }
+        if (format == defaultVUI.format) {
+            format = x.format;
+        }
+        if (colorrange == defaultVUI.colorrange) {
+            colorrange = x.colorrange;
+        }
+        if (chromaloc == defaultVUI.chromaloc) {
+            chromaloc = x.chromaloc;
+        }
+        setDescriptPreset();
+    }
+
     bool operator==(const VideoVUIInfo &x) const {
         return descriptpresent == x.descriptpresent
             && colorprim == x.colorprim
