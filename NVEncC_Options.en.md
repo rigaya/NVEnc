@@ -228,6 +228,7 @@
 - [Other Options](#other-options)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
+  - [--disable-nvml](#--disable-nvml)
   - [--output-buf \<int\>](#--output-buf-int)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--log \<string\>](#--log-string)
@@ -3048,6 +3049,9 @@ Disable NVML GPU monitoring。
 
   - 2
     Always disable NVML.
+
+### --disable-nvml
+Skip DX11 initilization. NGX and libplacebo filters cannot be used with this option.
 
 ### --output-buf &lt;int&gt;
 Specify the output buffer size in MB. The default is 8 and the maximum value is 128.

@@ -350,6 +350,7 @@ tstring encoder_help() {
         _T("                especially on HW decode mode.\n"));
     str += _T("")
         _T("   --disable-nvml <int>        disable NVML GPU monitoring (default 0, 0-2)\n");
+        _T("   --disable-dx11              disable DX11 initilization.\n");
     str += gen_cmd_help_ctrl();
     return str;
 }
@@ -1507,6 +1508,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->disableNVML = value;
         return 0;
     }
+    if (IS_OPTION("disable-dx11")) {
+        pParams->disableDX11 = true;
+        return 0;
+    }
 
     auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, &pParams->inprm, argData);
     if (ret >= 0) return ret;
@@ -1882,6 +1887,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_LST(_T("--cuda-schedule"), cudaSchedule, list_cuda_schedule);
     OPT_NUM(_T("--session-retry"), sessionRetry);
     OPT_NUM(_T("--disable-nvml"), disableNVML);
+    OPT_BOOL(_T("--disable-dx11"), _T(""), disableDX11);
 
     cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);
 

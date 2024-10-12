@@ -692,6 +692,7 @@ struct InEncodeVideoParam {
     int cudaSchedule;
     int sessionRetry;
     int disableNVML;
+    bool disableDX11;
 
     VideoInfo input;              //入力する動画の情報
     int preset;                   //出力プリセット

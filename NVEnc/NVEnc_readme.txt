@@ -215,6 +215,15 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2024.10.12 (7.70)
+[NVEncC]
+- libplaceboによるバンディング低減フィルタを追加。(--vpp-libplacebo-deband)
+- libplaceboによるtone mappingフィルタを追加。(--vpp-libplacebo-tonemapping)
+- libplaceboによるリサイズフィルタ(--vpp-resize libplacebo-xxx)を使用した場合のメモリリークを修正。
+- --vpp-ngx-truehdr使用時に、colorspaceフィルタでコンパイルエラーになる場合があったのを修正。
+- --dolby-vision-rpu copy使用時に、入力ファイルのdolby vision profile 7のとき、
+  libdoviを使用して自動的にdolby vision profile 8に変換するように。 
+
 2024.09.23 (7.69)
 [NVEncC]
 - --output-csp yuv444でvpp-afsを使用すると意図しない出力となる問題を修正。

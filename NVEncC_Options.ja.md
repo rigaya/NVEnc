@@ -224,6 +224,7 @@
 - [制御系のオプション](#制御系のオプション)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
+  - [--disable-dx11](#--disable-dx11)
   - [--output-buf \<int\>](#--output-buf-int)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--log \<string\>](#--log-string)
@@ -3106,6 +3107,9 @@ NVMLによるGPUモニタリングの無効化について指定する。デフ�
 
   - 2
     常にNVMLを無効化する。
+
+### --disable-dx11
+DirectX11の初期化をスキップする。NGX, libplacebo等のDX11依存のフィルタが使用できなくなる。
 
 ### --output-buf &lt;int&gt;
 出力バッファサイズをMB単位で指定する。デフォルトは8、最大値は128。0で使用しない。
