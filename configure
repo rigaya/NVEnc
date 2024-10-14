@@ -150,6 +150,7 @@ CHECK_LIBPLACEBO_NAMES="libplacebo"
 LIBPLACEBO_CFLAGS=""
 LIBPLACEBO_LIBS=""
 ENABLE_LIBPLACEBO=1
+LIBPLACEBO_API_VER=338
 
 LIBDOVI_CFLAGS=""
 LIBDOVI_LIBS=""
@@ -585,6 +586,20 @@ if [ $ENABLE_LIBPLACEBO -ne 0 ]; then
         ENABLE_LIBPLACEBO=0
     else
         cnf_write "yes"
+    fi
+    cnf_print "checking for libplacebo API version..."
+    PL_API_VER=`echo "#include <iostream>" > cxx_check.c; echo "#include <libplacebo/config.h>" >> cxx_check.c; echo "int main(void){ std::cout << PL_API_VER << std::endl; return 0;}" >> cxx_check.c; $CXX cxx_check.c ${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LIBPLACEBO_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${LIBPLACEBO_LIBS} -o cxx_check 2>/dev/null; ./cxx_check 2>/dev/null; rm -f cxx_check*`
+    if [ -z "$PL_API_VER" ]; then
+        cnf_write "fail"
+        ENABLE_LIBPLACEBO=0
+    else
+        if [ $PL_API_VER -lt $LIBPLACEBO_API_VER ]; then
+            cnf_write "fail (${PL_API_VER})"
+            cnf_write "libplacebo API version >= ${LIBPLACEBO_API_VER} required."
+            ENABLE_LIBPLACEBO=0
+        else
+            cnf_write "OK (${PL_API_VER})"
+        fi
     fi
     if [ $ENABLE_LIBPLACEBO -eq 0 ]; then
         LIBPLACEBO_CFLAGS=""
