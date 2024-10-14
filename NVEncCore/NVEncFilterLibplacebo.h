@@ -95,12 +95,18 @@ public:
 #if ENABLE_D3D11
 using pl_device = pl_d3d11;
 using PLDevice = DeviceDX11;
+#define pl_tex_wrap pl_d3d11_wrap
+using pl_tex_wrap_params = pl_d3d11_wrap_params;
 using CUDAInteropTexture = CUDADX11Texture;
+using CUDAInteropDataFormat = DXGI_FORMAT;
 static const TCHAR *RGY_LIBPLACEBO_DEV_API = _T("d3d11");
 #elif ENABLE_VULKAN
 using pl_device = pl_vulkan;
-using CUDAInteropTexture = CUDAVulkanFrame;
 using PLDevice = DeviceVulkan;
+#define pl_tex_wrap pl_vulkan_wrap
+using pl_tex_wrap_params = pl_vulkan_wrap_params;
+using CUDAInteropTexture = CUDAVulkanFrame;
+using CUDAInteropDataFormat = VkFormat;
 static const TCHAR *RGY_LIBPLACEBO_DEV_API = _T("vulkan");
 #endif
 
@@ -139,7 +145,7 @@ protected:
     virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) = 0;
     virtual RGY_ERR initLibplacebo(const NVEncFilterParam *param);
     virtual RGY_CSP getTextureCsp(const RGY_CSP csp);
-    virtual DXGI_FORMAT getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp);
+    virtual CUDAInteropDataFormat getTextureDataFormat([[maybe_unused]] const RGY_CSP csp);
     virtual tstring printParams(const NVEncFilterParamLibplacebo *prm) const;
     virtual void setFrameProp(RGYFrameInfo *pFrame, const RGYFrameInfo *pSrcFrame) const { copyFramePropWithoutRes(pFrame, pSrcFrame); }
 
@@ -147,8 +153,8 @@ protected:
 
     RGY_CSP m_textCspIn;
     RGY_CSP m_textCspOut;
-    DXGI_FORMAT m_dxgiformatIn;
-    DXGI_FORMAT m_dxgiformatOut;
+    CUDAInteropDataFormat m_dataformatIn;
+    CUDAInteropDataFormat m_dataformatOut;
 
     std::unique_ptr<std::remove_pointer<pl_log>::type, RGYLibplaceboDeleter<pl_log>> m_log;
     std::unique_ptr<std::remove_pointer<pl_device>::type, RGYLibplaceboDeleter<pl_device>> m_pldevice;
@@ -241,7 +247,7 @@ protected:
     virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) override;
 
     virtual RGY_CSP getTextureCsp(const RGY_CSP csp) override;
-    virtual DXGI_FORMAT getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp) override;
+    virtual CUDAInteropDataFormat getTextureDataFormat([[maybe_unused]] const RGY_CSP csp) override;
     virtual tstring printParams(const NVEncFilterParamLibplacebo *prm) const override;
     virtual void setFrameProp(RGYFrameInfo *pFrame, const RGYFrameInfo *pSrcFrame) const override;
 

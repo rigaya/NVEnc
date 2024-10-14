@@ -215,7 +215,7 @@ RGY_ERR DeviceVulkan::CreateInstance(const std::vector<const char*> &extInstance
 
     VkApplicationInfo applicationInfo = {};
     applicationInfo.sType               = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    applicationInfo.apiVersion          = VK_API_VERSION_1_0;
+    applicationInfo.apiVersion          = RGY_VK_API_VER;
     applicationInfo.applicationVersion  = VK_MAKE_VERSION(1, 0, 0);
     applicationInfo.engineVersion       = VK_MAKE_VERSION(1, 0, 0);
     applicationInfo.pApplicationName    = ENCODER_NAME;

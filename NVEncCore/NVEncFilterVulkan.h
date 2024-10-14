@@ -37,35 +37,41 @@ class DeviceVulkan;
 #include "rgy_err.h"
 
 class DeviceVulkan;
-struct cudaArray;
 
 class CUDAVulkanFrame {
     DeviceVulkan *m_vk;
 
-    VkBuffer m_buffer;
+    VkFormat m_format;
+    VkBufferUsageFlags m_usage;
+    VkImage m_image;
     VkDeviceMemory m_bufferMemory;
-    VkDeviceSize m_bufferSize;
 
     cudaExternalMemory_t m_cudaMem;
-    void *m_cudaPtr;
+    cudaArray *m_cudaArray;
+    cudaMipmappedArray *m_cudaMipmappedArray;
 
     int m_width;
     int m_height;
     int m_pitch;
+    uint64_t m_bufferSize;
 public:
     CUDAVulkanFrame();
     ~CUDAVulkanFrame();
-    RGY_ERR create(DeviceVulkan *vk, const int width, const int height, const RGY_DATA_TYPE dataType);
+    RGY_ERR create(DeviceVulkan *vk, const int width, const int height, const VkFormat dataType);
     RGY_ERR registerTexture();
     RGY_ERR unregisterTexture();
-    void *getCudaPtr() { return m_cudaPtr; }
-    cudaArray *getMappedArray() { return nullptr; }
+    cudaArray *getMappedArray() { return m_cudaArray; }
+
+    VkImage image() { return m_image; }
+    VkFormat format() const { return m_format; }
+    VkBufferUsageFlags usage() const { return m_usage; }
 
     void release();
 
     int width() const { return m_width; }
     int height() const { return m_height; }
     int pitch() const { return m_pitch; }
+    int getTextureBytePerPix() const;
 protected:
     VkExternalMemoryHandleTypeFlagBits getDefaultMemHandleType() const;
     RGY_ERR importCudaExternalMemory(VkExternalMemoryHandleTypeFlagBits handleType);

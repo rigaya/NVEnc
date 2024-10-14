@@ -37,9 +37,8 @@ class DeviceDX11;
 struct ID3D11Texture2D;
 struct ID3D11ShaderResourceView;
 
-enum DXGI_FORMAT;
-
 #if ENABLE_D3D11
+enum DXGI_FORMAT;
 
 class CUDADX11Texture {
 public:

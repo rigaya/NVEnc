@@ -39,6 +39,8 @@
 #if ENABLE_VULKAN
 #include "rgy_vulkan.h"
 
+#define RGY_VK_API_VER (VK_API_VERSION_1_2)
+
 #if ENCODER_VCEENC
 namespace amf {
     class AMFVulkanDevice;

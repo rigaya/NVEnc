@@ -37,6 +37,7 @@
 #include "NVEncFilterVulkan.h"
 #include "NVEncFilterColorspace.h"
 #include "NVEncFilterLibplacebo.h"
+#include "rgy_device_vulkan.h"
 #include "rgy_libdovi.h"
 #include "rgy_filesystem.h"
 
@@ -53,6 +54,10 @@ tstring NVEncFilterParamLibplaceboToneMapping::print() const {
 }
 
 #if ENABLE_LIBPLACEBO
+
+#if ENABLE_VULKAN
+static_assert(RGY_VK_API_VER >= PL_VK_MIN_VERSION, "RGY_VK_API_VER >= PL_VK_MIN_VERSION");
+#endif
 
 #include "rgy_device.h"
 
@@ -304,13 +309,10 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
         pl_d3d11_create(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(pl_d3d11_destroy));
 #elif ENABLE_VULKAN
-    pl_vulkan_params gpu_params;
+    pl_vulkan_params gpu_params = { 0 };
     gpu_params.instance = m_device->GetInstance();
-    gpu_params.physical_device = m_device->GetPhysicalDevice();
-    gpu_params.device = m_device->GetDevice();
-    gpu_params.queue_family = m_device->GetQueueFamily();
-    gpu_params.queue = m_device->GetQueue();
-    gpu_params.flags = 0;
+    gpu_params.get_proc_addr = m_device->GetVulkan()->vkGetInstanceProcAddr;
+    gpu_params.device = m_device->GetPhysicalDevice();
 
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_vulkan>::type, RGYLibplaceboDeleter<pl_vulkan>>(
         pl_vulkan_create(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_vulkan>(pl_vulkan_destroy));
@@ -338,7 +340,7 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo renderer.\n"));
 #if ENABLE_VULKAN
     m_vkSemaphore = std::make_unique<CUDAVulkanSemaphore>();
-    auto sts = m_vkSemaphore->create(m_vk);
+    auto sts = m_vkSemaphore->create(m_device);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
         return sts;
@@ -359,8 +361,14 @@ RGY_CSP NVEncFilterLibplacebo::getTextureCsp(const RGY_CSP csp) {
     return RGY_CSP_NA;
 }
 
-DXGI_FORMAT NVEncFilterLibplacebo::getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp) {
+CUDAInteropDataFormat NVEncFilterLibplacebo::getTextureDataFormat([[maybe_unused]] const RGY_CSP csp) {
+#if ENABLE_D3D11
     return (RGY_CSP_DATA_TYPE[csp] != RGY_DATA_TYPE_U8) ? DXGI_FORMAT_R16_UNORM : DXGI_FORMAT_R8_UNORM;
+#elif ENABLE_VULKAN
+    return (RGY_CSP_DATA_TYPE[csp] != RGY_DATA_TYPE_U8) ? VK_FORMAT_R16_UNORM : VK_FORMAT_R8_UNORM;
+#else
+    static_assert(false);
+#endif
 }
 
 RGY_ERR NVEncFilterLibplacebo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -389,8 +397,8 @@ RGY_ERR NVEncFilterLibplacebo::init(shared_ptr<NVEncFilterParam> pParam, shared_
 
     m_textCspIn = getTextureCsp(pParam->frameIn.csp);
     m_textCspOut = getTextureCsp(pParam->frameOut.csp);
-    m_dxgiformatIn = getTextureDXGIFormat(pParam->frameIn.csp);
-    m_dxgiformatOut = getTextureDXGIFormat(pParam->frameOut.csp);
+    m_dataformatIn = getTextureDataFormat(pParam->frameIn.csp);
+    m_dataformatOut = getTextureDataFormat(pParam->frameOut.csp);
 
     sts = initCommon(pParam);
     if (sts != RGY_ERR_NONE) {
@@ -464,7 +472,7 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
             const auto planeIn = getPlane(&textInFrameInfo, (RGY_PLANE)iplane);
 
             auto txt = std::make_unique<CUDAInteropTexture>();
-            sts = txt->create(m_device, planeIn.width, planeIn.height, m_dxgiformatIn);
+            sts = txt->create(m_device, planeIn.width, planeIn.height, m_dataformatIn);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_DEBUG, _T("failed to create input texture: %s.\n"), get_err_mes(sts));
                 return sts;
@@ -493,7 +501,7 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
             const auto planeOut = getPlane(&pParam->frameOut, (RGY_PLANE)iplane);
 
             auto txt = std::make_unique<CUDAInteropTexture>();
-            sts = txt->create(m_device, planeOut.width, planeOut.height, m_dxgiformatOut);
+            sts = txt->create(m_device, planeOut.width, planeOut.height, m_dataformatOut);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_DEBUG, _T("failed to create output texture: %s.\n"), get_err_mes(sts));
                 return sts;
@@ -624,9 +632,14 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp, txtFrameBufIn and m_textIn plane count mismatch.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+#if ENABLE_VULKAN
+    m_vkSemaphore->wait(stream);
+#endif
     for (int iplane = 0; iplane < RGY_CSP_PLANES[txtFrameBufIn->csp]; iplane++) {
+#if ENABLE_D3D11
         //mapで同期がかかる
         m_textIn[iplane]->map();
+#endif
         // ngxFrameBufIn -> m_textIn
         {
             const auto plane = getPlane(txtFrameBufIn, (RGY_PLANE)iplane);
@@ -640,8 +653,13 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
                 return sts;
             }
         }
+#if ENABLE_D3D11
         m_textIn[iplane]->unmap();
+#endif
     }
+#if ENABLE_VULKAN
+    m_vkSemaphore->signal(stream);
+#endif
 
     if (!ppOutputFrames[0]) {
         ppOutputFrames[0] = &m_frameBuf[0]->frame;
@@ -651,29 +669,43 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     // フィルタを適用
     std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_in, pl_tex_planes_out;
     for (int iplane = 0; iplane < (int)m_textIn.size(); iplane++) {
-        pl_d3d11_wrap_params d3d11_wrap_in = { 0 };
-        d3d11_wrap_in.tex = m_textIn[iplane]->texture();
-        d3d11_wrap_in.array_slice = 0;
-        d3d11_wrap_in.fmt = m_textIn[iplane]->getTextureDXGIFormat();
-        d3d11_wrap_in.w = m_textIn[iplane]->width();
-        d3d11_wrap_in.h = m_textIn[iplane]->height();
+        pl_tex_wrap_params tex_wrap_in = { 0 };
+#if ENABLE_D3D11
+        tex_wrap_in.tex = m_textIn[iplane]->texture();
+        tex_wrap_in.fmt = m_textIn[iplane]->getTextureDXGIFormat();
+        tex_wrap_in.w = m_textIn[iplane]->width();
+        tex_wrap_in.h = m_textIn[iplane]->height();
+#elif ENABLE_VULKAN
+        tex_wrap_in.image = m_textOut[iplane]->image();
+        tex_wrap_in.format = m_textOut[iplane]->format();
+        tex_wrap_in.usage = m_textOut[iplane]->usage();
+        tex_wrap_in.width = m_textIn[iplane]->width();
+        tex_wrap_in.height = m_textIn[iplane]->height();
+#endif
         auto pl_tex_in = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-            pl_d3d11_wrap(m_pldevice->gpu, &d3d11_wrap_in), RGYLibplaceboTexDeleter(m_pldevice->gpu));
+            pl_tex_wrap(m_pldevice->gpu, &tex_wrap_in), RGYLibplaceboTexDeleter(m_pldevice->gpu));
         if (!pl_tex_in) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to wrap input d3d11 plane(%d) to pl_tex.\n"), iplane);
+            AddMessage(RGY_LOG_ERROR, _T("Failed to wrap input %s plane(%d) to pl_tex.\n"), RGY_LIBPLACEBO_DEV_API, iplane);
             return RGY_ERR_NULL_PTR;
         }
 
-        pl_d3d11_wrap_params d3d11_wrap_out = { 0 };
-        d3d11_wrap_out.tex = m_textOut[iplane]->texture();
-        d3d11_wrap_out.array_slice = 0;
-        d3d11_wrap_out.fmt = m_textOut[iplane]->getTextureDXGIFormat();
-        d3d11_wrap_out.w = m_textOut[iplane]->width();
-        d3d11_wrap_out.h = m_textOut[iplane]->height();
+        pl_tex_wrap_params tex_wrap_out = { 0 };
+#if ENABLE_D3D11
+        tex_wrap_out.tex = m_textOut[iplane]->texture();
+        tex_wrap_out.fmt = m_textOut[iplane]->getTextureDXGIFormat();
+        tex_wrap_out.w = m_textOut[iplane]->width();
+        tex_wrap_out.h = m_textOut[iplane]->height();
+#elif ENABLE_VULKAN
+        tex_wrap_out.image = m_textOut[iplane]->image();
+        tex_wrap_out.format = m_textOut[iplane]->format();
+        tex_wrap_out.usage = m_textOut[iplane]->usage();
+        tex_wrap_out.width = m_textOut[iplane]->width();
+        tex_wrap_out.height = m_textOut[iplane]->height();
+#endif
         auto pl_tex_out = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-            pl_d3d11_wrap(m_pldevice->gpu, &d3d11_wrap_out), RGYLibplaceboTexDeleter(m_pldevice->gpu));
+            pl_tex_wrap(m_pldevice->gpu, &tex_wrap_out), RGYLibplaceboTexDeleter(m_pldevice->gpu));
         if (!pl_tex_out) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to wrap output d3d11 plane(%d) to pl_tex.\n"), iplane);
+            AddMessage(RGY_LOG_ERROR, _T("Failed to wrap output %s plane(%d) to pl_tex.\n"), RGY_LIBPLACEBO_DEV_API, iplane);
             return RGY_ERR_NULL_PTR;
         }
         if (m_procByFrame) {
@@ -710,9 +742,14 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp, txtFrameBufOut and m_textOut plane count mismatch.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+#if ENABLE_VULKAN
+    m_vkSemaphore->wait(stream);
+#endif
     for (int iplane = 0; iplane < RGY_CSP_PLANES[txtFrameBufOut->csp]; iplane++) {
+#if ENABLE_D3D11
         //mapで同期がかかる
         m_textOut[iplane]->map();
+#endif
         // m_textOut -> ngxFrameBufOut
         {
             const auto plane = getPlane(txtFrameBufOut, (RGY_PLANE)iplane);
@@ -726,15 +763,20 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
                 return sts;
             }
         }
+#if ENABLE_D3D11
         m_textOut[iplane]->unmap();
+#endif
     }
+#if ENABLE_VULKAN
+    m_vkSemaphore->signal(stream);
+#endif
 #else // for debug
     // cudaMemcpy2DAsyncでngxFrameBufInからm_ngxFrameBufOutにコピーする
     // ngxFrameBufIn -> m_ngxFrameBufOut
     {
-        const int bytePerPix = getTextureBytePerPix(m_dxgiformatOut);
+        const int bytePerPix = getTextureBytePerPix(m_dataformatOut);
         if (bytePerPix == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dxgiformatOut);
+            AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dataformatOut);
             return RGY_ERR_UNSUPPORTED;
         }
         sts = err_to_rgy(cudaMemcpy2DAsync(
@@ -1121,8 +1163,14 @@ RGY_CSP NVEncFilterLibplaceboToneMapping::getTextureCsp(const RGY_CSP csp) {
     return (inChromaFmt == RGY_CHROMAFMT_RGB) ? RGY_CSP_RGB_16 : RGY_CSP_YUV444_16;
 }
 
-DXGI_FORMAT NVEncFilterLibplaceboToneMapping::getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp) {
+CUDAInteropDataFormat NVEncFilterLibplaceboToneMapping::getTextureDataFormat([[maybe_unused]] const RGY_CSP csp) {
+#if ENABLE_D3D11
     return DXGI_FORMAT_R16_UNORM;
+#elif ENABLE_VULKAN
+    return VK_FORMAT_R16_UNORM;
+#else
+    static_assert(false);
+#endif
 }
 
 RGY_ERR NVEncFilterLibplaceboToneMapping::checkParam(const NVEncFilterParam *param) {
@@ -1471,7 +1519,9 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
         m_tonemap.peakDetectParams->scene_threshold_low = prm->toneMapping.scene_threshold_low;
         m_tonemap.peakDetectParams->scene_threshold_high = prm->toneMapping.scene_threshold_high;
         m_tonemap.peakDetectParams->percentile = prm->toneMapping.percentile;
+#if PL_API_VER >= 349 
         m_tonemap.peakDetectParams->black_cutoff = prm->toneMapping.black_cutoff;
+#endif
 
         if (!ENABLE_LIBDOVI) {
             if (prm->toneMapping.use_dovi > 0) {

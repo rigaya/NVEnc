@@ -32,13 +32,17 @@
 
 CUDAVulkanFrame::CUDAVulkanFrame() :
     m_vk(nullptr),
-    m_buffer(nullptr),
+    m_format(VK_FORMAT_UNDEFINED),
+    m_usage(0),
+    m_image(nullptr),
     m_bufferMemory(nullptr),
-    m_bufferSize(0),
     m_cudaMem(nullptr),
-    m_cudaPtr(nullptr),
+    m_cudaArray(nullptr),
+    m_cudaMipmappedArray(nullptr),
     m_width(0),
-    m_height(0) {
+    m_height(0),
+    m_pitch(0),
+    m_bufferSize(0) {
 }
 
 CUDAVulkanFrame::~CUDAVulkanFrame() {
@@ -119,46 +123,89 @@ RGY_ERR CUDAVulkanFrame::importCudaExternalMemory(VkExternalMemoryHandleTypeFlag
         return err_to_rgy(err);
     }
 
-    cudaExternalMemoryBufferDesc externalMemBufferDesc = {};
-    externalMemBufferDesc.offset = 0;
-    externalMemBufferDesc.size = m_bufferSize;
-    externalMemBufferDesc.flags = 0;
+    cudaExternalMemoryMipmappedArrayDesc externalMemoryMipmappedArrayDesc = { 0 };
 
-	if (auto err = cudaExternalMemoryGetMappedBuffer(&m_cudaPtr, m_cudaMem, &externalMemBufferDesc); err != cudaSuccess) {
+    cudaChannelFormatDesc formatDesc;
+    switch (m_format) {
+    case VK_FORMAT_R8_UNORM:
+        formatDesc.x = 8;
+        formatDesc.y = 0;
+        formatDesc.z = 0;
+        formatDesc.w = 0;
+        formatDesc.f = cudaChannelFormatKindUnsignedNormalized8X1;
+        break;
+    case VK_FORMAT_R16_UNORM:
+        formatDesc.x = 16;
+        formatDesc.y = 0;
+        formatDesc.z = 0;
+        formatDesc.w = 0;
+        formatDesc.f = cudaChannelFormatKindUnsignedNormalized16X1;
+        break;
+    default:
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    externalMemoryMipmappedArrayDesc.offset = 0;
+    externalMemoryMipmappedArrayDesc.formatDesc = formatDesc;
+    externalMemoryMipmappedArrayDesc.extent = make_cudaExtent(m_width, m_height, 0);
+    externalMemoryMipmappedArrayDesc.flags = 0;
+    externalMemoryMipmappedArrayDesc.numLevels = 1;
+
+    if (auto err = cudaExternalMemoryGetMappedMipmappedArray(&m_cudaMipmappedArray, m_cudaMem, &externalMemoryMipmappedArrayDesc); err != cudaSuccess) {
+        return err_to_rgy(err);
+    }
+
+    if (auto err = cudaGetMipmappedArrayLevel(&m_cudaArray, m_cudaMipmappedArray, 0); err != cudaSuccess) {
         return err_to_rgy(err);
     }
 	return RGY_ERR_NONE;
 }
 
-RGY_ERR CUDAVulkanFrame::create(DeviceVulkan *vk, const int width, const int height, const RGY_DATA_TYPE dataType) {
+RGY_ERR CUDAVulkanFrame::create(DeviceVulkan *vk, const int width, const int height, const VkFormat format) {
     m_vk = vk;
+    m_format = format;
     m_width = width;
     m_height = height;
-    m_pitch = ALIGN(width, 128) * bytesPerPix(dataType);
-	m_bufferSize = m_pitch * height;
+    m_pitch = 0;
 
-    const VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    m_usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     const VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
     const auto extMemHandleType = getDefaultMemHandleType();
 
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = VK_IMAGE_TILING_LINEAR;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = m_usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkExternalMemoryBufferCreateInfo externalMemoryBufferInfo = {};
-    externalMemoryBufferInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO;
-    externalMemoryBufferInfo.handleTypes = extMemHandleType;
-    bufferInfo.pNext = &externalMemoryBufferInfo;
+    VkExternalMemoryImageCreateInfo vkExternalMemImageCreateInfo = {};
+    vkExternalMemImageCreateInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+    vkExternalMemImageCreateInfo.pNext = NULL;
+#if defined(_WIN32) || defined(_WIN64)
+    vkExternalMemImageCreateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#else
+    vkExternalMemImageCreateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+#endif
+
+    imageInfo.pNext = &vkExternalMemImageCreateInfo;
   
-    if (auto err = m_vk->GetVulkan()->vkCreateBuffer(m_vk->GetDevice(), &bufferInfo, nullptr, &m_buffer); err != VK_SUCCESS) {
+    if (auto err = m_vk->GetVulkan()->vkCreateImage(m_vk->GetDevice(), &imageInfo, nullptr, &m_image); err != VK_SUCCESS) {
         return err_to_rgy(err);
     }
   
     VkMemoryRequirements memRequirements;
-    m_vk->GetVulkan()->vkGetBufferMemoryRequirements(m_vk->GetDevice(), m_buffer, &memRequirements);
+    m_vk->GetVulkan()->vkGetImageMemoryRequirements(m_vk->GetDevice(), m_image, &memRequirements);
+    m_bufferSize = memRequirements.size;
 
     VkExportMemoryAllocateInfoKHR vulkanExportMemoryAllocateInfoKHR = {};
     vulkanExportMemoryAllocateInfoKHR.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR;
@@ -189,34 +236,52 @@ RGY_ERR CUDAVulkanFrame::create(DeviceVulkan *vk, const int width, const int hei
     if (auto err = m_vk->GetVulkan()->vkAllocateMemory(m_vk->GetDevice(), &allocInfo, nullptr, &m_bufferMemory); err != VK_SUCCESS) {
         return err_to_rgy(err);
     }
-    m_vk->GetVulkan()->vkBindBufferMemory(m_vk->GetDevice(), m_buffer, m_bufferMemory, 0);
+    if (auto err = m_vk->GetVulkan()->vkBindImageMemory(m_vk->GetDevice(), m_image, m_bufferMemory, 0); err != VK_SUCCESS) {
+        return err_to_rgy(err);
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR CUDAVulkanFrame::registerTexture() {
-    if (auto err = importCudaExternalMemory(extMemHandleType); err != RGY_ERR_NONE) {
+    if (auto err = importCudaExternalMemory(getDefaultMemHandleType()); err != RGY_ERR_NONE) {
         return err;
     }
     return RGY_ERR_NONE;
 }
 
 RGY_ERR CUDAVulkanFrame::unregisterTexture() {
-    if (m_cudaMem) {
-        cudaDestroyExternalMemory(m_cudaMem);
-        m_cudaMem = nullptr;
+    if (m_cudaMipmappedArray) {
+        cudaFreeMipmappedArray(m_cudaMipmappedArray);
+        m_cudaMipmappedArray = nullptr;
     }
-    m_cudaPtr = nullptr;
+    m_cudaArray = nullptr;
     return RGY_ERR_NONE;
 }
 
 void CUDAVulkanFrame::release() {
     unregisterTexture();
-    if (m_buffer) {
-        m_vk->GetVulkan()->vkDestroyBuffer(m_vk->GetDevice(), m_buffer, nullptr);
-        m_buffer = nullptr;
+    if (m_image) {
+        m_vk->GetVulkan()->vkDestroyImage(m_vk->GetDevice(), m_image, nullptr);
+        m_image = nullptr;
     }
     if (m_bufferMemory) {
         m_vk->GetVulkan()->vkFreeMemory(m_vk->GetDevice(), m_bufferMemory, nullptr);
         m_bufferMemory = nullptr;
+    }
+}
+
+int CUDAVulkanFrame::getTextureBytePerPix() const {
+    switch (m_format) {
+    case VK_FORMAT_R8_UNORM:
+        return 1;
+    case VK_FORMAT_R16_UNORM:
+        return 2;
+    case VK_FORMAT_R8G8B8A8_UNORM:
+        return 4;
+    case VK_FORMAT_R16G16B16A16_SFLOAT:
+        return 8;
+    default:
+        return 0;
     }
 }
 
