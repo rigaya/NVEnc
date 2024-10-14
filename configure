@@ -146,6 +146,11 @@ LIBVMAF_CFLAGS=""
 LIBVMAF_LIBS=""
 ENABLE_LIBVMAF=0
 
+CHECK_LIBPLACEBO_NAMES="libplacebo"
+LIBPLACEBO_CFLAGS=""
+LIBPLACEBO_LIBS=""
+ENABLE_LIBPLACEBO=1
+
 LIBDOVI_CFLAGS=""
 LIBDOVI_LIBS=""
 ENABLE_LIBDOVI=1
@@ -566,6 +571,27 @@ if [ $ENABLE_LIBDOVI -ne 0 ]; then
     fi
 fi
 
+if [ $ENABLE_LIBPLACEBO -ne 0 ]; then
+    cnf_print "checking libplacebo with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_LIBPLACEBO_NAMES} ; then
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        cnf_write "OK"
+        LIBPLACEBO_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBPLACEBO_NAMES}`
+        LIBPLACEBO_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBPLACEBO_NAMES}`
+    fi
+    if ! cxx_check "libplacebo/dispatch.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LIBPLACEBO_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${LIBPLACEBO_LIBS}" "" "libplacebo/dispatch.h" "pl_dispatch_destroy(0);" ; then
+        cnf_write "no"
+        ENABLE_LIBPLACEBO=0
+    else
+        cnf_write "yes"
+    fi
+    if [ $ENABLE_LIBPLACEBO -eq 0 ]; then
+        LIBPLACEBO_CFLAGS=""
+        LIBPLACEBO_LIBS=""
+    fi
+fi
+
 if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
     cnf_print "checking vapoursynth with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_VAPOURSYNTH_NAMES} ; then
@@ -687,12 +713,12 @@ NVEncFilterCurves.cpp  NVEncFilterCustom.cpp       NVEncFilterDelogo.cpp        
 NVEncFilterDenoiseGauss.cpp NVEncFilterLibplacebo.cpp NVEncFilterNGX.cpp NVEncFilterNVOFFRUC.cpp \
 NVEncFilterNvvfx.cpp   NVEncFilterOverlay.cpp      NVEncFilterPad.cpp           NVEncFilterParam.cpp \
 NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
-NVEncParam.cpp         NVEncUtil.cpp               cl_func.cpp \
+NVEncParam.cpp         NVEncUtil.cpp               NVEncFilterVulkan.cpp        cl_func.cpp \
 convert_csp.cpp        cpu_info.cpp                gpu_info.cpp \
 gpuz_info.cpp          logo.cpp \
 rgy_aspect_ratio.cpp   rgy_avlog.cpp               rgy_avutil.cpp               rgy_bitstream.cpp \
 rgy_chapter.cpp        rgy_cmd.cpp                 rgy_codepage.cpp             rgy_def.cpp \
-rgy_device.cpp         rgy_device_info_wmi.cpp \
+rgy_device.cpp         rgy_device_info_wmi.cpp     rgy_device_vulkan.cpp \
 rgy_env.cpp            rgy_err.cpp                 rgy_event.cpp \
 rgy_faw.cpp            rgy_filesystem.cpp          rgy_filter.cpp               rgy_frame.cpp                rgy_frame_info.cpp \
 rgy_hdr10plus.cpp      rgy_ini.cpp                 rgy_input.cpp                rgy_input_avcodec.cpp        rgy_input_avi.cpp \
@@ -702,7 +728,7 @@ rgy_log.cpp            rgy_memmem.cpp              rgy_nvrtc.cpp \
 rgy_output.cpp         rgy_output_avcodec.cpp      rgy_perf_counter.cpp \
 rgy_perf_monitor.cpp   rgy_pipe.cpp                rgy_pipe_linux.cpp           rgy_prm.cpp                  rgy_resource.cpp \
 rgy_simd.cpp           rgy_status.cpp              rgy_thread_affinity.cpp      rgy_timecode.cpp             rgy_util.cpp \
-rgy_version.cpp        rgy_wav_parser.cpp \
+rgy_version.cpp        rgy_vulkan.cpp              rgy_wav_parser.cpp \
 "
 
 SRC_NVENCCORE_X86="\
@@ -785,9 +811,9 @@ write_config_mak "NVCC = $NVCC"
 write_config_mak "LD   = $CXX"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS -std=c++17 $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $LIBDOVI_CFLAGS $DTL_CFLAGS"
-write_config_mak "NVCCFLAGS = $NVCCFLAGS -std=c++14 -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS} $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $LIBDOVI_CFLAGS $DTL_CFLAGS \""
-write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBVMAF_LIBS $LIBDOVI_LIBS"
+write_config_mak "CXXFLAGS = $CXXFLAGS -std=c++17 $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $LIBDOVI_CFLAGS $DTL_CFLAGS $LIBPLACEBO_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS -std=c++14 -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS} $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $LIBDOVI_CFLAGS $DTL_CFLAGS $LIBPLACEBO_CFLAGS \""
+write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBVMAF_LIBS $LIBDOVI_LIBS $LIBPLACEBO_LIBS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
 write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
@@ -805,6 +831,7 @@ write_enc_config "#define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL $AVCODEC_PAR_CODED_S
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
 write_enc_config "#define ENABLE_LIBDOVI                $ENABLE_LIBDOVI"
+write_enc_config "#define ENABLE_LIBPLACEBO             $ENABLE_LIBPLACEBO"
 write_enc_config "#define ENABLE_PERF_COUNTER           0"
 
 cnf_write "successfully generated config.mak, rgy_config.h"

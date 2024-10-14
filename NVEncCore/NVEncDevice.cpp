@@ -981,7 +981,7 @@ const NVEncCodecFeature *NVEncoder::getCodecFeature(const GUID &codec) {
     return nullptr;
 }
 
-RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, bool skipHWDecodeCheck, bool disableNVML) {
+RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, [[maybe_unused]] bool initDX11, [[maybe_unused]] bool initVulkan, bool skipHWDecodeCheck, bool disableNVML) {
 #define GETATTRIB_CHECK(val, attrib, dev) { \
         auto cuGetAttResult = cuDeviceGetAttribute(&(val), (attrib), (dev)); \
         if (cuGetAttResult == CUDA_ERROR_INVALID_DEVICE || cuGetAttResult == CUDA_ERROR_INVALID_VALUE) { \
@@ -1011,12 +1011,67 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
         //DX11デバイスの初期化に成功したら、そのデバイスのCUDAをcudaD3D11GetDeviceを使って初期化
         cuResult = cuD3D11GetDevice(&cuDevice, m_dx11->GetAdaptor());
         if (cuResult != CUDA_SUCCESS) {
-            writeLog(RGY_LOG_DEBUG, _T("Failed to init CUDA device #%d from DX11 device.\n"), deviceID);
-            return RGY_ERR_CUDA;
+            writeLog(RGY_LOG_ERROR, _T("Failed to init CUDA device #%d from DX11 device.\n"), deviceID);
+            return err_to_rgy(cuResult);
         }
         writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGet:DX11(%d): success: %d\n"), deviceID, cuDevice);
     } else
 #endif // #if ENABLE_D3D11
+#if ENABLE_VULKAN
+    if (initVulkan) {
+        m_vulkan = std::make_unique<DeviceVulkan>();
+        std::vector<const char *> extInstance;
+        extInstance.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
+        extInstance.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
+        
+        std::vector<const char *> extDevice;
+        extDevice.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+        extDevice.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
+        extDevice.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+#if defined(_WIN32) || defined(_WIN64)
+        extDevice.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+        extDevice.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+#else
+        extDevice.push_back(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
+        extDevice.push_back(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
+#endif /* _WIN64 */
+        auto err = m_vulkan->Init(deviceID, extInstance, extDevice, m_log);
+        if (err != RGY_ERR_NONE) {
+            writeLog(RGY_LOG_DEBUG, _T("Failed to init Vulkan device #%d: %s\n"), deviceID, get_err_mes(err));
+            return err;
+        }
+        writeLog(RGY_LOG_DEBUG, _T("Init Vulkan device %d, name %s, uuid %s.\n"), deviceID, char_to_tstring(m_vulkan->GetDisplayDeviceName()).c_str(), char_to_tstring(m_vulkan->GetUUID()).c_str());
+        
+        int deviceCount = 0;
+        cuResult = cuDeviceGetCount(&deviceCount);
+        if (cuResult != CUDA_SUCCESS) {
+            writeLog(error_level, _T("  Error: cuDeviceGetCount(): %s\n"), char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+            return err_to_rgy(cuResult);
+        }
+        for (int idev = 0; idev < deviceCount; idev++) {
+            cuResult = cuDeviceGet(&cuDevice, idev);
+            if (cuResult != CUDA_SUCCESS) {
+                writeLog(error_level, _T("  Error: cuDeviceGet(%d): %s\n"), idev, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+                return err_to_rgy(cuResult);
+            }
+            CUuuid cuuuid;
+            cuResult = cuDeviceGetUuid(&cuuuid, cuDevice);
+            if (cuResult != CUDA_SUCCESS) {
+                writeLog(error_level, _T("  Error: cuDeviceGetUuid(%d): %s\n"), idev, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+                return err_to_rgy(cuResult);
+            }
+            writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGetUuid(%d): success: %s\n"), idev, char_to_tstring(cuuuid.bytes).c_str());
+            if (m_vulkan->GetUUID() == cuuuid.bytes) {
+                break;
+            }
+            cuDevice = 0;
+        }
+        if (!cuDevice) {
+            writeLog(RGY_LOG_ERROR, _T("Failed to init CUDA device #%d from Vulkan device.\n"), deviceID);
+            return RGY_ERR_DEVICE_NOT_FOUND;
+        }
+    } else
+#endif // #if ENABLE_VULKAN
     {
         writeLog(RGY_LOG_DEBUG, _T("checking for CUDA device #%d.\n"), deviceID);
         cuResult = cuDeviceGet(&cuDevice, deviceID);
@@ -1308,7 +1363,7 @@ NVENCSTATUS NVEncCtrl::InitCuda() {
 NVENCSTATUS NVEncCtrl::ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, true, skipHWDecodeCheck, false))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, true, true, skipHWDecodeCheck, false))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
@@ -1327,7 +1382,7 @@ NVENCSTATUS NVEncCtrl::ShowDeviceList(const int cudaSchedule, const bool skipHWD
 NVENCSTATUS NVEncCtrl::ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, true, skipHWDecodeCheck, false))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, true, true, skipHWDecodeCheck, false))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
@@ -1357,7 +1412,7 @@ NVENCSTATUS NVEncCtrl::ShowCodecSupport(const int cudaSchedule, const bool skipH
 NVENCSTATUS NVEncCtrl::ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, true, skipHWDecodeCheck, false))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, cudaSchedule, true, true, skipHWDecodeCheck, false))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
@@ -1432,7 +1487,7 @@ NVENCSTATUS NVEncCtrl::ShowNVEncFeatures(const int cudaSchedule, const bool skip
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, bool initDX11, const bool skipHWDecodeCheck, const int disableNVML) {
+NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, bool initDX11, bool initVulkan, const bool skipHWDecodeCheck, const int disableNVML) {
     int deviceCount = 0;
 #if ENABLE_D3D11
     if (initDX11) {
@@ -1444,6 +1499,18 @@ NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& g
     }
 #else
     initDX11 = false;
+#endif
+#if ENABLE_VULKAN
+    if (initVulkan) {
+        DeviceVulkan vulkan;
+        deviceCount = vulkan.adapterCount();
+        if (deviceCount == 0) {
+            PrintMes(RGY_LOG_WARN, _T("Failed to get device count from Vulkan interface.\n"));
+            initVulkan = false;
+        }
+    }
+#else
+    initVulkan = false;
 #endif
     if (deviceCount == 0) {
         auto cuResult = cuDeviceGetCount(&deviceCount);
@@ -1469,7 +1536,7 @@ NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& g
         cudaGetLastError(); //これまでのエラーを初期化
         if ((m_nDeviceId < 0 || m_nDeviceId == currentDevice)) {
             auto gpu = std::make_unique<NVGPUInfo>(m_pNVLog);
-            if (gpu->initDevice(currentDevice, (CUctx_flags)cudaSchedule, m_nDeviceId == currentDevice, initDX11, skipHWDecodeCheck, disableNVMLCheck) == RGY_ERR_NONE) {
+            if (gpu->initDevice(currentDevice, (CUctx_flags)cudaSchedule, m_nDeviceId == currentDevice, initDX11, initVulkan, skipHWDecodeCheck, disableNVMLCheck) == RGY_ERR_NONE) {
                 gpuList.push_back(std::move(gpu));
             }
         }

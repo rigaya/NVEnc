@@ -34,26 +34,18 @@
 #include "convert_csp.h"
 
 class DeviceDX11;
-struct ID3D11Device;
-struct ID3D11DeviceContext;
 struct ID3D11Texture2D;
 struct ID3D11ShaderResourceView;
 
-#if ENABLE_D3D11
 enum DXGI_FORMAT;
 
-struct CUDADX11Texture {
+#if ENABLE_D3D11
+
+class CUDADX11Texture {
 public:
-    ID3D11Texture2D *pTexture;
-    ID3D11ShaderResourceView *pSRView;
-    cudaGraphicsResource *cudaResource;
-    cudaArray *cuArray;
-    int width;
-    int height;
-    int offsetInShader;
     CUDADX11Texture();
     ~CUDADX11Texture();
-    RGY_ERR create(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3DDeviceCtx, const int width, const int height, const DXGI_FORMAT dxgiformat);
+    RGY_ERR create(DeviceDX11 *dx11, const int width, const int height, const DXGI_FORMAT format);
     RGY_ERR registerTexture();
     RGY_ERR map();
     RGY_ERR unmap();
@@ -61,6 +53,24 @@ public:
     RGY_ERR unregisterTexture();
 
     RGY_ERR release();
+    int width() const { return m_width; }
+    int height() const { return m_height; }
+    int pitch() const { return m_pitch; }
+    int offsetInShader() const { return m_offsetInShader; }
+    ID3D11Texture2D *texture() const { return m_pTexture; }
+
+    DXGI_FORMAT getTextureDXGIFormat() const;
+    int getTextureBytePerPix() const;
+protected:
+    ID3D11Texture2D *m_pTexture;
+    ID3D11ShaderResourceView *m_pSRView;
+    cudaGraphicsResource *m_cudaResource;
+    cudaArray *m_cuArray;
+    int m_width;
+    int m_height;
+    int m_pitch;
+    DXGI_FORMAT m_dxgiFormat;
+    int m_offsetInShader;
 };
 
 #endif //#if ENABLE_D3D11

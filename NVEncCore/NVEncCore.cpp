@@ -2497,6 +2497,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->toneMapping = inputParam->vpp.libplacebo_tonemapping;
             param->vui = VuiFiltered;
             param->dx11 = m_dev->dx11();
+            param->vk = m_dev->vulkan();
             param->hdrMetadataIn = m_hdrseiIn.get();
             param->hdrMetadataOut = m_hdrseiOut.get();
             param->frameIn = inputFrame;
@@ -3117,6 +3118,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->libplaceboResample->resample = inputParam->vpp.resize_libplacebo;
                 param->libplaceboResample->vui = VuiFiltered;
                 param->libplaceboResample->dx11 = m_dev->dx11();
+                param->libplaceboResample->vk = m_dev->vulkan();
                 param->libplaceboResample->resize_algo = inputParam->vpp.resize_algo;
             }
             param->frameIn = inputFrame;
@@ -3279,6 +3281,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->dx11 = m_dev->dx11();
+            param->vk = m_dev->vulkan();
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
@@ -3594,7 +3597,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
 
     //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, !inputParam->disableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }

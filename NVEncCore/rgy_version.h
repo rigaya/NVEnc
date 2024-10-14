@@ -85,6 +85,7 @@ const char *get_encoder_version();
 #define ENABLE_D3D11_DEVINFO_WMI 1
 #define ENABLE_LIBPLACEBO 1
 #define ENABLE_LIBDOVI 1
+#define ENABLE_VULKAN 0
 
 #ifndef ENABLE_NVOFFRUC_HEADER
 #define ENABLE_NVOFFRUC_HEADER 0
@@ -154,7 +155,7 @@ const char *get_encoder_version();
 #define ENABLE_D3D11               0
 #define ENABLE_D3D11_DEVINFO_WMI   0
 #define ENABLE_NVSDKNGX            0
-#define ENABLE_LIBPLACEBO          0
+#define ENABLE_VULKAN              1
 #endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__

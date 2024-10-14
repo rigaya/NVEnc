@@ -36,22 +36,25 @@
 #include <cuda_d3d11_interop.h>
 
 CUDADX11Texture::CUDADX11Texture() :
-    pTexture(nullptr),
-    pSRView(nullptr),
-    cudaResource(nullptr),
-    cuArray(nullptr),
-    width(0),
-    height(0),
-    offsetInShader(0) {
+    m_pTexture(nullptr),
+    m_pSRView(nullptr),
+    m_cudaResource(nullptr),
+    m_cuArray(nullptr),
+    m_width(0),
+    m_height(0),
+    m_dxgiFormat(DXGI_FORMAT_UNKNOWN),
+    m_offsetInShader(0) {
 }
 
 CUDADX11Texture::~CUDADX11Texture() {
     release();
 }
 
-RGY_ERR CUDADX11Texture::create(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3DDeviceCtx, const int w, const int h, const DXGI_FORMAT dxgiformat) {
-    this->width = w;
-    this->height = h;
+RGY_ERR CUDADX11Texture::create(DeviceDX11 *dx11, const int w, const int h, const DXGI_FORMAT format) {
+    m_dxgiFormat = format;
+    m_width = w;
+    m_height = h;
+    m_pitch = w * getTextureBytePerPix();
 
     D3D11_TEXTURE2D_DESC desc;
     ZeroMemory(&desc, sizeof(D3D11_TEXTURE2D_DESC));
@@ -59,27 +62,29 @@ RGY_ERR CUDADX11Texture::create(ID3D11Device* pD3DDevice, ID3D11DeviceContext* p
     desc.Height = h;
     desc.MipLevels = 1;
     desc.ArraySize = 1;
-    desc.Format = dxgiformat;
+    desc.Format = format;
     desc.SampleDesc.Count = 1;
     desc.Usage = D3D11_USAGE_DEFAULT;
     desc.MiscFlags = 0;
     desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
 
-    if (FAILED(pD3DDevice->CreateTexture2D(&desc, NULL, &pTexture))) {
+    auto pD3DDevice = dx11->GetDevice();
+    if (FAILED(pD3DDevice->CreateTexture2D(&desc, NULL, &m_pTexture))) {
         return RGY_ERR_NULL_PTR;
     }
 
-    if (FAILED(pD3DDevice->CreateShaderResourceView(pTexture, NULL, &pSRView))) {
+    if (FAILED(pD3DDevice->CreateShaderResourceView(m_pTexture, NULL, &m_pSRView))) {
         return RGY_ERR_NULL_PTR;
     }
 
-    offsetInShader = 0;  // to be clean we should look for the offset from the shader code
-    pD3DDeviceCtx->PSSetShaderResources(offsetInShader, 1, &pSRView);
+    auto pD3DDeviceCtx = dx11->GetDeviceContext();
+    m_offsetInShader = 0;  // to be clean we should look for the offset from the shader code
+    pD3DDeviceCtx->PSSetShaderResources(m_offsetInShader, 1, &m_pSRView);
     return RGY_ERR_NONE;
 }
 
 RGY_ERR CUDADX11Texture::registerTexture() {
-    auto sts = err_to_rgy(cudaGraphicsD3D11RegisterResource(&cudaResource, pTexture, cudaGraphicsRegisterFlagsNone));
+    auto sts = err_to_rgy(cudaGraphicsD3D11RegisterResource(&m_cudaResource, m_pTexture, cudaGraphicsRegisterFlagsNone));
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -87,7 +92,7 @@ RGY_ERR CUDADX11Texture::registerTexture() {
 }
 
 RGY_ERR CUDADX11Texture::map() {
-    auto sts = err_to_rgy(cudaGraphicsMapResources(1, &cudaResource, 0));
+    auto sts = err_to_rgy(cudaGraphicsMapResources(1, &m_cudaResource, 0));
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -96,18 +101,18 @@ RGY_ERR CUDADX11Texture::map() {
 
 RGY_ERR CUDADX11Texture::unmap() {
     auto sts = RGY_ERR_NONE;
-    if (cuArray) {
-        sts = err_to_rgy(cudaGraphicsUnmapResources(1, &cudaResource, 0));
-        cuArray = nullptr;
+    if (m_cuArray) {
+        sts = err_to_rgy(cudaGraphicsUnmapResources(1, &m_cudaResource, 0));
+        m_cuArray = nullptr;
     }
     return sts;
 }
 
 cudaArray *CUDADX11Texture::getMappedArray() {
-    if (cuArray == nullptr) {
-        cudaGraphicsSubResourceGetMappedArray(&cuArray, cudaResource, 0, 0);
+    if (m_cuArray == nullptr) {
+        cudaGraphicsSubResourceGetMappedArray(&m_cuArray, m_cudaResource, 0, 0);
     }
-    return cuArray;
+    return m_cuArray;
 }
 
 RGY_ERR CUDADX11Texture::unregisterTexture() {
@@ -115,24 +120,41 @@ RGY_ERR CUDADX11Texture::unregisterTexture() {
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    if (cudaResource) {
-        sts = err_to_rgy(cudaGraphicsUnregisterResource(cudaResource));
-        cudaResource = nullptr;
+    if (m_cudaResource) {
+        sts = err_to_rgy(cudaGraphicsUnregisterResource(m_cudaResource));
+        m_cudaResource = nullptr;
     }
     return sts;
 }
 
 RGY_ERR CUDADX11Texture::release() {
     unregisterTexture();
-    if (pSRView) {
-        pSRView->Release();
-        pSRView = nullptr;
+    if (m_pSRView) {
+        m_pSRView->Release();
+        m_pSRView = nullptr;
     }
-    if (pTexture) {
-        pTexture->Release();
-        pTexture = nullptr;
+    if (m_pTexture) {
+        m_pTexture->Release();
+        m_pTexture = nullptr;
     }
     return RGY_ERR_NONE;
+}
+
+DXGI_FORMAT CUDADX11Texture::getTextureDXGIFormat() const { return m_dxgiFormat; }
+
+int CUDADX11Texture::getTextureBytePerPix() const {
+    switch (m_dxgiFormat) {
+    case DXGI_FORMAT_R8_UNORM:
+        return 1;
+    case DXGI_FORMAT_R16_UNORM:
+        return 2;
+    case DXGI_FORMAT_R8G8B8A8_UNORM:
+        return 4;
+    case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        return 8;
+    default:
+        return 0;
+    }
 }
 
 #endif //#if ENABLE_D3D11

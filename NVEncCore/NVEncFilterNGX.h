@@ -92,7 +92,6 @@ protected:
     virtual void setNGXParam(const NVEncFilterParam *param) = 0;
     virtual NVEncNVSDKNGXParam *getNGXParam() = 0;
     virtual NVEncNVSDKNGXFeature getNGXFeature() = 0;
-    int getTextureBytePerPix(const DXGI_FORMAT format) const;
 
     std::unique_ptr<NVEncNVSDKNGXFuncs> m_func;
     unique_nvsdkngx_handle m_nvsdkNGX;

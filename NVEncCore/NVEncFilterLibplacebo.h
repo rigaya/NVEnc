@@ -36,12 +36,14 @@
 #include "NVEncFilter.h"
 #include "NVEncFilterParam.h"
 #include "NVEncFilterD3D11.h"
+#include "NVEncFilterVulkan.h"
 
 class NVEncFilterParamLibplacebo : public NVEncFilterParam {
 public:
     DeviceDX11 *dx11;
+    DeviceVulkan *vk;
     VideoVUIInfo vui;
-    NVEncFilterParamLibplacebo() : dx11(nullptr), vui() {};
+    NVEncFilterParamLibplacebo() : dx11(nullptr), vk(nullptr), vui() {};
     virtual ~NVEncFilterParamLibplacebo() {};
 };
 
@@ -82,8 +84,25 @@ public:
 #include <libplacebo/renderer.h>
 #include <libplacebo/shaders.h>
 #include <libplacebo/utils/upload.h>
+#if ENABLE_D3D11
 #include <libplacebo/d3d11.h>
+#elif ENABLE_VULKAN
+#include <libplacebo/vulkan.h>
+#endif
 #pragma warning (pop)
+
+
+#if ENABLE_D3D11
+using pl_device = pl_d3d11;
+using PLDevice = DeviceDX11;
+using CUDAInteropTexture = CUDADX11Texture;
+static const TCHAR *RGY_LIBPLACEBO_DEV_API = _T("d3d11");
+#elif ENABLE_VULKAN
+using pl_device = pl_vulkan;
+using CUDAInteropTexture = CUDAVulkanFrame;
+using PLDevice = DeviceVulkan;
+static const TCHAR *RGY_LIBPLACEBO_DEV_API = _T("vulkan");
+#endif
 
 class LibplaceboLoader;
 
@@ -120,8 +139,7 @@ protected:
     virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) = 0;
     virtual RGY_ERR initLibplacebo(const NVEncFilterParam *param);
     virtual RGY_CSP getTextureCsp(const RGY_CSP csp);
-    virtual DXGI_FORMAT getTextureDXGIFormat(const RGY_CSP csp);
-    int getTextureBytePerPix(const DXGI_FORMAT format) const;
+    virtual DXGI_FORMAT getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp);
     virtual tstring printParams(const NVEncFilterParamLibplacebo *prm) const;
     virtual void setFrameProp(RGYFrameInfo *pFrame, const RGYFrameInfo *pSrcFrame) const { copyFramePropWithoutRes(pFrame, pSrcFrame); }
 
@@ -133,19 +151,22 @@ protected:
     DXGI_FORMAT m_dxgiformatOut;
 
     std::unique_ptr<std::remove_pointer<pl_log>::type, RGYLibplaceboDeleter<pl_log>> m_log;
-    std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>> m_d3d11;
+    std::unique_ptr<std::remove_pointer<pl_device>::type, RGYLibplaceboDeleter<pl_device>> m_pldevice;
     std::unique_ptr<std::remove_pointer<pl_dispatch>::type, RGYLibplaceboDeleter<pl_dispatch>> m_dispatch;
     std::unique_ptr<std::remove_pointer<pl_renderer>::type, RGYLibplaceboDeleter<pl_renderer>> m_renderer;
     std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)> m_dither_state;
 
     std::unique_ptr<CUFrameBuf> m_textFrameBufOut;
-    std::vector<std::unique_ptr<CUDADX11Texture>> m_textIn;
-    std::vector<std::unique_ptr<CUDADX11Texture>> m_textOut;
+    std::vector<std::unique_ptr<CUDAInteropTexture>> m_textIn;
+    std::vector<std::unique_ptr<CUDAInteropTexture>> m_textOut;
+#if ENABLE_VULKAN
+    std::unique_ptr<CUDAVulkanSemaphore> m_vkSemaphore;
+#endif
     std::unique_ptr<NVEncFilter> m_srcCrop;
     std::unique_ptr<NVEncFilter> m_dstCrop;
     std::unique_ptr<LibplaceboLoader> m_libplaceboLoader;
 
-    DeviceDX11 *m_dx11;
+    PLDevice *m_device;
 };
 
 class NVEncFilterLibplaceboResample : public NVEncFilterLibplacebo {
@@ -220,7 +241,7 @@ protected:
     virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) override;
 
     virtual RGY_CSP getTextureCsp(const RGY_CSP csp) override;
-    virtual DXGI_FORMAT getTextureDXGIFormat(const RGY_CSP csp) override;
+    virtual DXGI_FORMAT getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp) override;
     virtual tstring printParams(const NVEncFilterParamLibplacebo *prm) const override;
     virtual void setFrameProp(RGYFrameInfo *pFrame, const RGYFrameInfo *pSrcFrame) const override;
 

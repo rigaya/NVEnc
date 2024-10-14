@@ -688,6 +688,8 @@ RGY_ERR err_to_rgy(AMF_RESULT err) {
     });
     return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
 }
+#endif //#if ENCODER_VCEENC
+
 
 #include "rgy_vulkan.h"
 
@@ -761,7 +763,6 @@ RGY_ERR err_to_rgy(VkResult err) {
     return (ret == ERR_MAP_VK_FIN) ? RGY_ERR_VK_UNKNOWN : ret->rgy;
 }
 #endif //#if ENABLE_VULKAN
-#endif //#if ENCODER_VCEENC
 
 #if ENCODER_MPP
 

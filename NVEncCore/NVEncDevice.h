@@ -38,6 +38,9 @@
 #if ENABLE_D3D11
 #include <cudaD3D11.h>
 #endif
+#if ENABLE_VULKAN
+#include "rgy_device_vulkan.h"
+#endif
 #include <cuda_runtime.h>
 #include "nvEncodeAPI.h"
 #include "CuvidDecode.h"
@@ -63,6 +66,7 @@ static const TCHAR *NVENCODE_API_DLL2 = _T("libnvidia-encode.so.1");
 #endif
 
 class DeviceDX11;
+class DeviceVulkan;
 
 #if defined(_WIN32) || defined(_WIN64)
 #define ENABLE_ASYNC 1
@@ -281,10 +285,13 @@ protected:
     unique_cuCtx m_cuCtx;
     unique_vidCtxLock m_vidCtxLock;
     std::unique_ptr<NVEncoder> m_encoder;
-    std::shared_ptr<RGYLog> m_log;
 #if ENABLE_D3D11
     std::unique_ptr<DeviceDX11> m_dx11;
 #endif
+#if ENABLE_VULKAN
+    std::unique_ptr<DeviceVulkan> m_vulkan;
+#endif
+    std::shared_ptr<RGYLog> m_log;
 public:
     NVGPUInfo(std::shared_ptr<RGYLog> log) :
         m_id(-1),
@@ -303,6 +310,12 @@ public:
         m_cuCtx(unique_cuCtx(nullptr, cuCtxDestroy)),
         m_vidCtxLock(unique_vidCtxLock(nullptr, cuvidCtxLockDestroy)),
         m_encoder(),
+#if ENABLE_D3D11
+        m_dx11(),
+#endif
+#if ENABLE_VULKAN
+        m_vulkan(),
+#endif
         m_log(log) {}
 
     ~NVGPUInfo() {
@@ -330,10 +343,15 @@ public:
 #else
     DeviceDX11 *dx11() const { return nullptr; }
 #endif
+#if ENABLE_VULKAN
+    DeviceVulkan *vulkan() const { return m_vulkan.get(); }
+#else
+    DeviceVulkan *vulkan() const { return nullptr; }
+#endif
 
     void close_device();
 
-    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, bool skipHWDecodeCheck, bool disableNVML);
+    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, bool initVulkan, bool skipHWDecodeCheck, bool disableNVML);
     RGY_ERR initEncoder();
     tstring infostr() const;
 protected:
@@ -388,7 +406,7 @@ protected:
     NVENCSTATUS InitCuda();
 
     //deviceリストを作成
-    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, const bool skipHWDecodeCheck, const int disableNVML);
+    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, bool initVulkan, const bool skipHWDecodeCheck, const int disableNVML);
 
     shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
     int                          m_nDeviceId;             //DeviceId

@@ -54,6 +54,8 @@
 #endif
 #if ENCODER_VCEENC
 #include "core/Result.h"
+#endif
+#if ENABLE_VULKAN
 #include "rgy_vulkan.h"
 #endif
 #if ENCODER_MPP
@@ -663,12 +665,12 @@ RGY_ERR err_to_rgy(NppStatus err);
 #if ENCODER_VCEENC
 AMF_RESULT err_to_amf(RGY_ERR err);
 RGY_ERR err_to_rgy(AMF_RESULT err);
+#endif //#if ENCODER_VCEENC
 
 #if ENABLE_VULKAN
 VkResult err_to_vk(RGY_ERR err);
 RGY_ERR err_to_rgy(VkResult err);
 #endif //#if ENABLE_VULKAN
-#endif //#if ENCODER_VCEENC
 
 #if ENCODER_MPP
 MPP_RET err_to_mpp(RGY_ERR err);

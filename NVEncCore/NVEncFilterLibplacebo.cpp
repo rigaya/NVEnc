@@ -34,6 +34,7 @@
 #include "NVEncFilter.h"
 #include "NVEncFilterParam.h"
 #include "NVEncFilterD3D11.h"
+#include "NVEncFilterVulkan.h"
 #include "NVEncFilterColorspace.h"
 #include "NVEncFilterLibplacebo.h"
 #include "rgy_libdovi.h"
@@ -244,16 +245,17 @@ NVEncFilterLibplacebo::NVEncFilterLibplacebo() :
     m_procByFrame(false),
     m_textCspIn(RGY_CSP_NA),
     m_textCspOut(RGY_CSP_NA),
-    m_dxgiformatIn(DXGI_FORMAT_UNKNOWN),
-    m_dxgiformatOut(DXGI_FORMAT_UNKNOWN),
     m_log(),
-    m_d3d11(),
+    m_pldevice(),
     m_dispatch(),
     m_renderer(),
     m_dither_state(std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)>(nullptr, pl_shader_obj_destroy)),
     m_textIn(),
     m_textOut(),
-    m_dx11(nullptr) {
+#if ENABLE_VULKAN
+    m_vkSemaphore(),
+#endif
+    m_device(nullptr) {
     m_name = _T("libplacebo");
 }
 NVEncFilterLibplacebo::~NVEncFilterLibplacebo() {
@@ -266,9 +268,13 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    m_dx11 = prm->dx11;
-    if (!m_dx11) {
-        AddMessage(RGY_LOG_ERROR, _T("DX11 device not set\n"));
+#if ENABLE_D3D11
+    m_device = prm->dx11;
+#elif ENABLE_VULKAN
+    m_device = prm->vk;
+#endif
+    if (!m_device) {
+        AddMessage(RGY_LOG_ERROR, _T("%s device not set.\n"), RGY_LIBPLACEBO_DEV_API);
         return RGY_ERR_NULL_PTR;
     }
     m_libplaceboLoader = std::make_unique<LibplaceboLoader>();
@@ -284,9 +290,10 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     }
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo log.\n"));
 
+#if ENABLE_D3D11
     pl_d3d11_params gpu_params;
-    gpu_params.device = m_dx11->GetDevice();
-    gpu_params.adapter = m_dx11->GetAdaptor();
+    gpu_params.device = m_device->GetDevice();
+    gpu_params.adapter = m_device->GetAdaptor();
     gpu_params.min_feature_level = D3D_FEATURE_LEVEL_11_0;
     gpu_params.max_feature_level = D3D_FEATURE_LEVEL_11_1;
     gpu_params.allow_software = true;
@@ -294,16 +301,28 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     gpu_params.debug = true;
     gpu_params.flags = 0;
 
-    m_d3d11 = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
+    m_pldevice = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
         pl_d3d11_create(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(pl_d3d11_destroy));
-    if (!m_d3d11) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo D3D11 device.\n"));
+#elif ENABLE_VULKAN
+    pl_vulkan_params gpu_params;
+    gpu_params.instance = m_device->GetInstance();
+    gpu_params.physical_device = m_device->GetPhysicalDevice();
+    gpu_params.device = m_device->GetDevice();
+    gpu_params.queue_family = m_device->GetQueueFamily();
+    gpu_params.queue = m_device->GetQueue();
+    gpu_params.flags = 0;
+
+    m_pldevice = std::unique_ptr<std::remove_pointer<pl_vulkan>::type, RGYLibplaceboDeleter<pl_vulkan>>(
+        pl_vulkan_create(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_vulkan>(pl_vulkan_destroy));
+#endif
+    if (!m_pldevice) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo %s device.\n"), RGY_LIBPLACEBO_DEV_API);
         return RGY_ERR_UNKNOWN;
     }
-    AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo D3D11 device.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo %s device.\n"), RGY_LIBPLACEBO_DEV_API);
 
     m_dispatch = std::unique_ptr<std::remove_pointer<pl_dispatch>::type, RGYLibplaceboDeleter<pl_dispatch>>(
-        pl_dispatch_create(m_log.get(), m_d3d11->gpu), RGYLibplaceboDeleter<pl_dispatch>(pl_dispatch_destroy));
+        pl_dispatch_create(m_log.get(), m_pldevice->gpu), RGYLibplaceboDeleter<pl_dispatch>(pl_dispatch_destroy));
     if (!m_dispatch) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo dispatch.\n"));
         return RGY_ERR_UNKNOWN;
@@ -311,12 +330,20 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo dispatch.\n"));
 
     m_renderer = std::unique_ptr<std::remove_pointer<pl_renderer>::type, RGYLibplaceboDeleter<pl_renderer>>(
-        pl_renderer_create(m_log.get(), m_d3d11->gpu), RGYLibplaceboDeleter<pl_renderer>(pl_renderer_destroy));
+        pl_renderer_create(m_log.get(), m_pldevice->gpu), RGYLibplaceboDeleter<pl_renderer>(pl_renderer_destroy));
     if (!m_renderer) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo renderer.\n"));
         return RGY_ERR_UNKNOWN;
     }
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo renderer.\n"));
+#if ENABLE_VULKAN
+    m_vkSemaphore = std::make_unique<CUDAVulkanSemaphore>();
+    auto sts = m_vkSemaphore->create(m_vk);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+        return sts;
+    }
+#endif
     return RGY_ERR_NONE;
 }
 
@@ -332,7 +359,7 @@ RGY_CSP NVEncFilterLibplacebo::getTextureCsp(const RGY_CSP csp) {
     return RGY_CSP_NA;
 }
 
-DXGI_FORMAT NVEncFilterLibplacebo::getTextureDXGIFormat(const RGY_CSP csp) {
+DXGI_FORMAT NVEncFilterLibplacebo::getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp) {
     return (RGY_CSP_DATA_TYPE[csp] != RGY_DATA_TYPE_U8) ? DXGI_FORMAT_R16_UNORM : DXGI_FORMAT_R8_UNORM;
 }
 
@@ -346,7 +373,7 @@ RGY_ERR NVEncFilterLibplacebo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
 
     if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
-        AddMessage(RGY_LOG_ERROR, _T("nfx filters does not support alpha channel.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("libplacebo filters does not support alpha channel.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
 
@@ -424,8 +451,8 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     bool textInReset = m_textIn.size() != numPlanes;
     if (!textInReset) {
         for (auto &txt : m_textIn) {
-            if (txt->width != textInFrameInfo.width
-            || txt->height != textInFrameInfo.height) {
+            if (txt->width() != textInFrameInfo.width
+            || txt->height() != textInFrameInfo.height) {
                 textInReset = true;
                 break;
             }
@@ -436,8 +463,8 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         for (int iplane = 0; iplane < numPlanes; iplane++) {
             const auto planeIn = getPlane(&textInFrameInfo, (RGY_PLANE)iplane);
 
-            auto txt = std::make_unique<CUDADX11Texture>();
-            sts = txt->create(m_dx11->GetDevice(), m_dx11->GetDeviceContext(), planeIn.width, planeIn.height, m_dxgiformatIn);
+            auto txt = std::make_unique<CUDAInteropTexture>();
+            sts = txt->create(m_device, planeIn.width, planeIn.height, m_dxgiformatIn);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_DEBUG, _T("failed to create input texture: %s.\n"), get_err_mes(sts));
                 return sts;
@@ -453,8 +480,8 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     bool textOutReset = m_textOut.size() != numPlanes;
     if (!textOutReset) {
         for (auto &txt : m_textOut) {
-            if (txt->width != pParam->frameOut.width
-            || txt->height != pParam->frameOut.height) {
+            if (txt->width() != pParam->frameOut.width
+            || txt->height() != pParam->frameOut.height) {
                 textOutReset = true;
                 break;
             }
@@ -465,8 +492,8 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         for (int iplane = 0; iplane < numPlanes; iplane++) {
             const auto planeOut = getPlane(&pParam->frameOut, (RGY_PLANE)iplane);
 
-            auto txt = std::make_unique<CUDADX11Texture>();
-            sts = txt->create(m_dx11->GetDevice(), m_dx11->GetDeviceContext(), planeOut.width, planeOut.height, m_dxgiformatOut);
+            auto txt = std::make_unique<CUDAInteropTexture>();
+            sts = txt->create(m_device, planeOut.width, planeOut.height, m_dxgiformatOut);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_DEBUG, _T("failed to create output texture: %s.\n"), get_err_mes(sts));
                 return sts;
@@ -603,15 +630,10 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         // ngxFrameBufIn -> m_textIn
         {
             const auto plane = getPlane(txtFrameBufIn, (RGY_PLANE)iplane);
-            const int bytePerPix = getTextureBytePerPix(m_dxgiformatIn);
-            if (bytePerPix == 0) {
-                AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dxgiformatIn);
-                return RGY_ERR_UNSUPPORTED;
-            }
             sts = err_to_rgy(cudaMemcpy2DToArray(
                 m_textIn[iplane]->getMappedArray(), 0, 0,
                 (uint8_t *)plane.ptr[0], plane.pitch[0],
-                plane.width * bytePerPix, plane.height,
+                plane.width * m_textIn[iplane]->getTextureBytePerPix(), plane.height,
                 cudaMemcpyDeviceToDevice));
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to copy plane(%d) to cudaArray: %s.\n"), iplane, get_err_mes(sts));
@@ -630,26 +652,26 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_in, pl_tex_planes_out;
     for (int iplane = 0; iplane < (int)m_textIn.size(); iplane++) {
         pl_d3d11_wrap_params d3d11_wrap_in = { 0 };
-        d3d11_wrap_in.tex = m_textIn[iplane]->pTexture;
+        d3d11_wrap_in.tex = m_textIn[iplane]->texture();
         d3d11_wrap_in.array_slice = 0;
-        d3d11_wrap_in.fmt = m_dxgiformatIn;
-        d3d11_wrap_in.w = m_textIn[iplane]->width;
-        d3d11_wrap_in.h = m_textIn[iplane]->height;
+        d3d11_wrap_in.fmt = m_textIn[iplane]->getTextureDXGIFormat();
+        d3d11_wrap_in.w = m_textIn[iplane]->width();
+        d3d11_wrap_in.h = m_textIn[iplane]->height();
         auto pl_tex_in = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-            pl_d3d11_wrap(m_d3d11->gpu, &d3d11_wrap_in), RGYLibplaceboTexDeleter(m_d3d11->gpu));
+            pl_d3d11_wrap(m_pldevice->gpu, &d3d11_wrap_in), RGYLibplaceboTexDeleter(m_pldevice->gpu));
         if (!pl_tex_in) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap input d3d11 plane(%d) to pl_tex.\n"), iplane);
             return RGY_ERR_NULL_PTR;
         }
 
         pl_d3d11_wrap_params d3d11_wrap_out = { 0 };
-        d3d11_wrap_out.tex = m_textOut[iplane]->pTexture;
+        d3d11_wrap_out.tex = m_textOut[iplane]->texture();
         d3d11_wrap_out.array_slice = 0;
-        d3d11_wrap_out.fmt = m_dxgiformatOut;
-        d3d11_wrap_out.w = m_textOut[iplane]->width;
-        d3d11_wrap_out.h = m_textOut[iplane]->height;
+        d3d11_wrap_out.fmt = m_textOut[iplane]->getTextureDXGIFormat();
+        d3d11_wrap_out.w = m_textOut[iplane]->width();
+        d3d11_wrap_out.h = m_textOut[iplane]->height();
         auto pl_tex_out = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-            pl_d3d11_wrap(m_d3d11->gpu, &d3d11_wrap_out), RGYLibplaceboTexDeleter(m_d3d11->gpu));
+            pl_d3d11_wrap(m_pldevice->gpu, &d3d11_wrap_out), RGYLibplaceboTexDeleter(m_pldevice->gpu));
         if (!pl_tex_out) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap output d3d11 plane(%d) to pl_tex.\n"), iplane);
             return RGY_ERR_NULL_PTR;
@@ -694,15 +716,10 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         // m_textOut -> ngxFrameBufOut
         {
             const auto plane = getPlane(txtFrameBufOut, (RGY_PLANE)iplane);
-            const int bytePerPix = getTextureBytePerPix(m_dxgiformatOut);
-            if (bytePerPix == 0) {
-                AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dxgiformatOut);
-                return RGY_ERR_UNSUPPORTED;
-            }
             sts = err_to_rgy(cudaMemcpy2DFromArray(
                 (uint8_t *)plane.ptr[0], plane.pitch[0],
                 m_textOut[iplane]->getMappedArray(), 0, 0,
-                plane.width * bytePerPix, plane.height,
+                plane.width * bytesPerPix(plane.csp), plane.height,
                 cudaMemcpyDeviceToDevice));
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame from cudaArray: %s.\n"), get_err_mes(sts));
@@ -747,19 +764,6 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     return RGY_ERR_NONE;
 }
 
-int NVEncFilterLibplacebo::getTextureBytePerPix(const DXGI_FORMAT format) const {
-    switch (format) {
-    case DXGI_FORMAT_R8_UINT:
-    case DXGI_FORMAT_R8_UNORM:
-        return 1;
-    case DXGI_FORMAT_R16_UINT:
-    case DXGI_FORMAT_R16_UNORM:
-        return 2;
-    default:
-        return 0;
-    }
-}
-
 void NVEncFilterLibplacebo::close() {
     m_textIn.clear();
     m_textOut.clear();
@@ -769,12 +773,12 @@ void NVEncFilterLibplacebo::close() {
     
     m_renderer.reset();
     m_dispatch.reset();
-    m_d3d11.reset();
+    m_pldevice.reset();
     m_libplaceboLoader.reset();
     m_log.reset();
 
     m_frameBuf.clear();
-    m_dx11 = nullptr;
+    m_device = nullptr;
 }
 
 NVEncFilterLibplaceboResample::NVEncFilterLibplaceboResample() : NVEncFilterLibplacebo(), m_filter_params() {
@@ -877,7 +881,7 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
         tex_params.sampleable = true;
         tex_params.format = src.tex->params.format;
 
-        tex_tmp1 = rgy_pl_tex_recreate(m_d3d11->gpu, tex_params);
+        tex_tmp1 = rgy_pl_tex_recreate(m_pldevice->gpu, tex_params);
         if (!tex_tmp1) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to recreate texture.\n"));
             return RGY_ERR_UNKNOWN;
@@ -938,7 +942,7 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
             tex_params.renderable = true;
             tex_params.sampleable = true;
             tex_params.format = src.tex->params.format;
-            tex_tmp2 = rgy_pl_tex_recreate(m_d3d11->gpu, tex_params);
+            tex_tmp2 = rgy_pl_tex_recreate(m_pldevice->gpu, tex_params);
             if (!tex_tmp2) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to recreate temp texture.\n"));
                 return RGY_ERR_UNKNOWN;
@@ -1079,7 +1083,7 @@ RGY_ERR NVEncFilterLibplaceboDeband::procPlane(pl_tex texOut, [[maybe_unused]] c
     }
 
     pl_shader_params shader_params = { 0 };
-    shader_params.gpu = m_d3d11->gpu;
+    shader_params.gpu = m_pldevice->gpu;
     shader_params.index = (decltype(shader_params.index))m_frame_index++;
 
     pl_shader_reset(shader, &shader_params);

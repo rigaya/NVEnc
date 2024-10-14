@@ -248,10 +248,10 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_srcCrop->GetInputMessage().c_str());
     }
     if (!m_ngxTextIn
-        || m_ngxTextIn->width != pParam->frameIn.width
-        || m_ngxTextIn->height != pParam->frameIn.height) {
+        || m_ngxTextIn->width() != pParam->frameIn.width
+        || m_ngxTextIn->height() != pParam->frameIn.height) {
         m_ngxTextIn = std::make_unique<CUDADX11Texture>();
-        sts = m_ngxTextIn->create(m_dx11->GetDevice(), m_dx11->GetDeviceContext(), pParam->frameIn.width, pParam->frameIn.height, m_dxgiformatIn);
+        sts = m_ngxTextIn->create(m_dx11, pParam->frameIn.width, pParam->frameIn.height, m_dxgiformatIn);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_DEBUG, _T("failed to create input texture: %s.\n"), get_err_mes(sts));
             return sts;
@@ -264,10 +264,10 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
     }
 
     if (!m_ngxTextOut
-        || m_ngxTextOut->width != pParam->frameOut.width
-        || m_ngxTextOut->height != pParam->frameOut.height) {
+        || m_ngxTextOut->width() != pParam->frameOut.width
+        || m_ngxTextOut->height() != pParam->frameOut.height) {
         m_ngxTextOut = std::make_unique<CUDADX11Texture>();
-        sts = m_ngxTextOut->create(m_dx11->GetDevice(), m_dx11->GetDeviceContext(), pParam->frameOut.width, pParam->frameOut.height, m_dxgiformatOut);
+        sts = m_ngxTextOut->create(m_dx11, pParam->frameOut.width, pParam->frameOut.height, m_dxgiformatOut);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_DEBUG, _T("failed to create output texture: %s.\n"), get_err_mes(sts));
             return sts;
@@ -439,15 +439,10 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufIn csp must have only 1 plane.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        const int bytePerPix = getTextureBytePerPix(m_dxgiformatIn);
-        if (bytePerPix == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dxgiformatIn);
-            return RGY_ERR_UNSUPPORTED;
-        }
         sts = err_to_rgy(cudaMemcpy2DToArray(
             m_ngxTextIn->getMappedArray(), 0, 0,
             (uint8_t *)ngxFrameBufIn->ptr[0], ngxFrameBufIn->pitch[0],
-            ngxFrameBufIn->width * bytePerPix, ngxFrameBufIn->height,
+            ngxFrameBufIn->width * m_ngxTextIn->getTextureBytePerPix(), ngxFrameBufIn->height,
             cudaMemcpyDeviceToDevice));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame to cudaArray: %s.\n"), get_err_mes(sts));
@@ -456,11 +451,11 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     }
     m_ngxTextIn->unmap();
     // フィルタを適用
-    const NVEncNVSDKNGXRect rectDst = { 0, 0, m_ngxTextOut->width, m_ngxTextOut->height };
-    const NVEncNVSDKNGXRect rectSrc = { 0, 0, m_ngxTextIn->width, m_ngxTextIn->height };
+    const NVEncNVSDKNGXRect rectDst = { 0, 0, m_ngxTextOut->width(), m_ngxTextOut->height() };
+    const NVEncNVSDKNGXRect rectSrc = { 0, 0, m_ngxTextIn->width(), m_ngxTextIn->height() };
     sts = m_func->fprocFrame(m_nvsdkNGX.get(),
-        m_ngxTextOut->pTexture, &rectDst,
-        m_ngxTextIn->pTexture, &rectSrc,
+        m_ngxTextOut->texture(), &rectDst,
+        m_ngxTextIn->texture(), &rectSrc,
         getNGXParam());
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to process frame: %s.\n"), get_err_mes(sts));
@@ -475,15 +470,10 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufOut csp must have only 1 plane.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        const int bytePerPix = getTextureBytePerPix(m_dxgiformatOut);
-        if (bytePerPix == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("unsupported dxgiformat: %d.\n"), m_dxgiformatOut);
-            return RGY_ERR_UNSUPPORTED;
-        }
         sts = err_to_rgy(cudaMemcpy2DFromArray(
             (uint8_t *)m_ngxFrameBufOut->frame.ptr[0], m_ngxFrameBufOut->frame.pitch[0],
             m_ngxTextOut->getMappedArray(), 0, 0,
-            m_ngxFrameBufOut->frame.width * bytePerPix, m_ngxFrameBufOut->frame.height,
+            m_ngxFrameBufOut->frame.width * m_ngxTextOut->getTextureBytePerPix(), m_ngxFrameBufOut->frame.height,
             cudaMemcpyDeviceToDevice));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame from cudaArray: %s.\n"), get_err_mes(sts));
@@ -542,17 +532,6 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         copyFramePropWithoutRes(ppOutputFrames[0], dstCropOut);
     }
     return RGY_ERR_NONE;
-}
-
-int NVEncFilterNGX::getTextureBytePerPix(const DXGI_FORMAT format) const {
-    switch (format) {
-    case DXGI_FORMAT_R8G8B8A8_UNORM:
-        return 4;
-    case DXGI_FORMAT_R16G16B16A16_FLOAT:
-        return 8;
-    default:
-        return 0;
-    }
 }
 
 void NVEncFilterNGX::close() {
