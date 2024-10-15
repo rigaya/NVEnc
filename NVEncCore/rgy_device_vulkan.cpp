@@ -75,9 +75,10 @@ int DeviceVulkan::adapterCount() {
     return (int)physicalDeviceCount;
 }
 
-RGY_ERR DeviceVulkan::Init(int adapterID, const std::vector<const char*> &extInstance, const std::vector<const char*> &extDevice, std::shared_ptr<RGYLog> log) {
+RGY_ERR DeviceVulkan::Init(int adapterID, const std::vector<const char*> &extInstance, const std::vector<const char*> &extDevice, std::shared_ptr<RGYLog> log, bool logTryMode) {
     RGY_ERR res = RGY_ERR_NONE;
     m_log = log;
+    m_logTryMode = logTryMode;
 
     if (m_vk.init() != 0) {
         AddMessage(RGY_LOG_ERROR, _T("LoadFunctionsTable() failed - check if the proper Vulkan SDK is installed\n"));
@@ -367,7 +368,7 @@ void DeviceVulkan::AddMessage(RGYLogLevel log_level, const tstring &str) {
     auto lines = split(str, _T("\n"));
     for (const auto &line : lines) {
         if (line[0] != _T('\0')) {
-            m_log->write(log_level, RGY_LOGT_DEV, (m_name + _T(": ") + line + _T("\n")).c_str());
+            m_log->write((m_logTryMode && log_level > RGY_LOG_DEBUG) ? RGY_LOG_DEBUG : log_level, RGY_LOGT_DEV, (m_name + _T(": ") + line + _T("\n")).c_str());
         }
     }
 }

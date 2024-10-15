@@ -52,7 +52,7 @@ public:
     DeviceVulkan();
     virtual ~DeviceVulkan();
 
-    RGY_ERR Init(int adapterID, const std::vector<const char*> &extInstance, const std::vector<const char*> &extDevice, std::shared_ptr<RGYLog> log);
+    RGY_ERR Init(int adapterID, const std::vector<const char*> &extInstance, const std::vector<const char*> &extDevice, std::shared_ptr<RGYLog> log, bool logTryMode);
     RGY_ERR Terminate();
 
     RGYVulkanFuncs *GetVulkan();
@@ -103,6 +103,7 @@ private:
     VkQueue m_hQueueCompute;
 
     std::shared_ptr<RGYLog> m_log;
+    bool m_logTryMode;
 };
 #endif //#if ENABLE_VULKAN
 

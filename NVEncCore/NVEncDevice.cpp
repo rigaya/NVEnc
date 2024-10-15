@@ -1044,7 +1044,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
             return str;
         };
 
-        auto err = m_vulkan->Init(deviceID, extInstance, extDevice, m_log);
+        auto err = m_vulkan->Init(deviceID, extInstance, extDevice, m_log, !error_if_fail);
         if (err != RGY_ERR_NONE) {
             writeLog(RGY_LOG_DEBUG, _T("Failed to init Vulkan device #%d: %s\n"), deviceID, get_err_mes(err));
             return err;
@@ -1519,6 +1519,7 @@ NVENCSTATUS NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& g
             PrintMes(RGY_LOG_WARN, _T("Failed to get device count from Vulkan interface.\n"));
             initVulkan = false;
         }
+        PrintMes(RGY_LOG_DEBUG, _T("vulkan.adapterCount: Success, %d.\n"), deviceCount);
     }
 #else
     initVulkan = false;
