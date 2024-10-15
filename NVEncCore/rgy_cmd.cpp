@@ -965,13 +965,23 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         return 1;
                     }
                     continue;
-                }   
+                }
                 if (param_arg == _T("tonemapping_function")) {
                     int value = 0;
                     if (get_list_value(list_vpp_libplacebo_tone_mapping_function, param_val.c_str(), &value)) {
                         vpp->libplacebo_tonemapping.tonemapping_function = (VppLibplaceboToneMappingFunction)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_libplacebo_tone_mapping_function);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("metadata")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_libplacebo_tone_mapping_metadata, param_val.c_str(), &value)) {
+                        vpp->libplacebo_tonemapping.metadata = (VppLibplaceboToneMappingMetadata)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_libplacebo_tone_mapping_metadata);
                         return 1;
                     }
                     continue;
