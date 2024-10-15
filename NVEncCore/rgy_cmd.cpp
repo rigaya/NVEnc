@@ -6982,6 +6982,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("black_cutoff"), libplacebo_tonemapping.black_cutoff, 3);
             ADD_LST(_T("gamut_mapping"), libplacebo_tonemapping.gamut_mapping, list_vpp_libplacebo_tone_mapping_gamut_mapping);
             ADD_LST(_T("tonemapping_function"), libplacebo_tonemapping.tonemapping_function, list_vpp_libplacebo_tone_mapping_function);
+            ADD_LST(_T("metadata"), libplacebo_tonemapping.metadata, list_vpp_libplacebo_tone_mapping_metadata);
             ADD_FLOAT(_T("contrast_recovery"), libplacebo_tonemapping.contrast_recovery, 3);
             ADD_FLOAT(_T("contrast_smoothness"), libplacebo_tonemapping.contrast_smoothness, 3);
             ADD_BOOL(_T("visualize_lut"), libplacebo_tonemapping.visualize_lut);
@@ -8467,12 +8468,12 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-libplacebo-tonemapping [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Converts colorspace of the video.\n")
         _T("    params\n")
-        _T("      src_csp=<int>            input colorspace (default: %s)\n")
-        _T("      dst_csp=<int>            output colorspace (default: %s)\n"),
+        _T("      src_csp=<string>         input colorspace (default: %s)\n")
+        _T("      dst_csp=<string>         output colorspace (default: %s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_csp, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SRC_CSP),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_csp, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_CSP))
         + print_list(list_vpp_libplacebo_tone_mapping_csp) + _T("\n");
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("      src_max=<float>          input max (nits) (default: %d(HDR)/%d(SDR))\n")
         _T("      src_min=<float>          input min (nits) (default: %.4f(HDR)/%.4f(SDR))\n")
         _T("      dst_max=<float>          output max (nits) (default: %d(HDR)/%d(SDR))\n")
@@ -8499,18 +8500,18 @@ tstring gen_cmd_help_vpp() {
         _T("                                (default:%s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_gamut_mapping, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_GAMUT_MAPPING));
     str += print_list(list_vpp_libplacebo_tone_mapping_gamut_mapping);
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("      tonemapping_function=<string>   Tone mapping function\n")
         _T("                                (default:%s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_function, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_TONEMAPPING_FUNCTION));
     str += print_list(list_vpp_libplacebo_tone_mapping_function);
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("      tone_constants=<string>  Tone mapping constants (e.g. \"exposure=0.25\")\n")
-        _T("      metadata=<int>           Metadata source to use\n")
+        _T("      metadata=<string>        Metadata source to use\n")
         _T("                                (default:%s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_metadata, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_METADATA));
     str += print_list(list_vpp_libplacebo_tone_mapping_metadata);
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("      contrast_recovery=<float> Contrast recovery strength (default:%.1f)\n")
         _T("      contrast_smoothness=<float> Contrast recovery lowpass kernel size (default:%.1f)\n")
         _T("      visualize_lut=<bool>     Visualize tone mapping curve (default:%s)\n")
@@ -8526,17 +8527,17 @@ tstring gen_cmd_help_vpp() {
         _T("                                (default:%s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_lut_type, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_LUT_TYPE));
     str += print_list(list_vpp_libplacebo_tone_mapping_lut_type);
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("      dst_pl_transfer=<string>     Output transfer function (must be used with dst_colorprim)\n")
         _T("                                (default:%s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_transfer, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_TRANSFER));
     str += print_list(list_vpp_libplacebo_tone_mapping_transfer);
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("      dst_pl_colorprim=<string>    Output primaries (must be used with dst_transfer)\n")
         _T("                                (default:%s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_colorprim, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_COLORPRIM));
     str += print_list(list_vpp_libplacebo_tone_mapping_colorprim);
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("      knee_adaptation=<float>    Knee adaptation speed (default:%.2f)\n")
         _T("      knee_min=<float>           Minimum knee point (default:%.2f)\n")
         _T("      knee_max=<float>           Maximum knee point (default:%.2f)\n")
