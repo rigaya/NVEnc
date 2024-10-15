@@ -351,7 +351,7 @@ RGY_ERR DeviceVulkan::CreateDeviceAndFindQueues(int adapterID, const std::vector
 
     GetVulkan()->vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &physicalDeviceProperties2);
     AddMessage(RGY_LOG_DEBUG, _T("vkGetPhysicalDeviceProperties2 #%d success.\n"), adapterID);
-    m_uuid = (const char *)physicalDeviceIDProperties.deviceUUID;
+    memcpy(m_uuid, physicalDeviceIDProperties.deviceUUID, VK_UUID_SIZE);
 
     return RGY_ERR_NONE;
 }

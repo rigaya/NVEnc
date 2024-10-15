@@ -92,6 +92,7 @@ public:
     void release();
     RGY_ERR wait(cudaStream_t stream);
     RGY_ERR signal(cudaStream_t stream);
+    VkSemaphore get() { return m_semaphore; }
 protected:
     VkExternalSemaphoreHandleTypeFlagBits getDefaultSemaphoreHandleType() const;
     RGY_ERR importCudaExternalSemaphore(VkExternalSemaphoreHandleTypeFlagBits handleType);

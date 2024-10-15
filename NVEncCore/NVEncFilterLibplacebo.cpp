@@ -61,9 +61,13 @@ static_assert(RGY_VK_API_VER >= PL_VK_MIN_VERSION, "RGY_VK_API_VER >= PL_VK_MIN_
 
 #include "rgy_device.h"
 
+#if defined(_WIN32) || defined(_WIN64)
 #pragma comment(lib, "libplacebo-349.lib")
 
 static const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-349.dll");
+#else
+static const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo.so");
+#endif // #if defined(_WIN32) || defined(_WIN64)
 
 class LibplaceboLoader {
 private:
@@ -258,7 +262,10 @@ NVEncFilterLibplacebo::NVEncFilterLibplacebo() :
     m_textIn(),
     m_textOut(),
 #if ENABLE_VULKAN
-    m_vkSemaphore(),
+    m_semInVKWait(),
+    m_semInVKStart(),
+    m_semOutVKWait(),
+    m_semOutVKStart(),
 #endif
     m_device(nullptr) {
     m_name = _T("libplacebo");
@@ -338,14 +345,6 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
         return RGY_ERR_UNKNOWN;
     }
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo renderer.\n"));
-#if ENABLE_VULKAN
-    m_vkSemaphore = std::make_unique<CUDAVulkanSemaphore>();
-    auto sts = m_vkSemaphore->create(m_device);
-    if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
-        return sts;
-    }
-#endif
     return RGY_ERR_NONE;
 }
 
@@ -483,6 +482,22 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
                 return sts;
             }
             m_textIn.push_back(std::move(txt));
+#if ENABLE_VULKAN
+            auto semWait = std::make_unique<CUDAVulkanSemaphore>();
+            sts = semWait->create(m_device);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+                return sts;
+            }
+            m_semInVKWait.push_back(std::move(semWait));
+            auto semStart = std::make_unique<CUDAVulkanSemaphore>();
+            sts = semStart->create(m_device);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+                return sts;
+            }
+            m_semInVKStart.push_back(std::move(semStart));
+#endif
         }
     }
     bool textOutReset = m_textOut.size() != numPlanes;
@@ -512,6 +527,22 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
                 return sts;
             }
             m_textOut.push_back(std::move(txt));
+#if ENABLE_VULKAN
+            auto semWait = std::make_unique<CUDAVulkanSemaphore>();
+            sts = semWait->create(m_device);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+                return sts;
+            }
+            m_semOutVKWait.push_back(std::move(semWait));
+            auto semStart = std::make_unique<CUDAVulkanSemaphore>();
+            sts = semStart->create(m_device);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+                return sts;
+            }
+            m_semOutVKStart.push_back(std::move(semStart));
+#endif
         }
     }
 
@@ -632,43 +663,10 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp, txtFrameBufIn and m_textIn plane count mismatch.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-#if ENABLE_VULKAN
-    m_vkSemaphore->wait(stream);
 #endif
+#if 1
+    std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_in;
     for (int iplane = 0; iplane < RGY_CSP_PLANES[txtFrameBufIn->csp]; iplane++) {
-#if ENABLE_D3D11
-        //mapで同期がかかる
-        m_textIn[iplane]->map();
-#endif
-        // ngxFrameBufIn -> m_textIn
-        {
-            const auto plane = getPlane(txtFrameBufIn, (RGY_PLANE)iplane);
-            sts = err_to_rgy(cudaMemcpy2DToArray(
-                m_textIn[iplane]->getMappedArray(), 0, 0,
-                (uint8_t *)plane.ptr[0], plane.pitch[0],
-                plane.width * m_textIn[iplane]->getTextureBytePerPix(), plane.height,
-                cudaMemcpyDeviceToDevice));
-            if (sts != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to copy plane(%d) to cudaArray: %s.\n"), iplane, get_err_mes(sts));
-                return sts;
-            }
-        }
-#if ENABLE_D3D11
-        m_textIn[iplane]->unmap();
-#endif
-    }
-#if ENABLE_VULKAN
-    m_vkSemaphore->signal(stream);
-#endif
-
-    if (!ppOutputFrames[0]) {
-        ppOutputFrames[0] = &m_frameBuf[0]->frame;
-        *pOutputFrameNum = 1;
-    }
-
-    // フィルタを適用
-    std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_in, pl_tex_planes_out;
-    for (int iplane = 0; iplane < (int)m_textIn.size(); iplane++) {
         pl_tex_wrap_params tex_wrap_in = { 0 };
 #if ENABLE_D3D11
         tex_wrap_in.tex = m_textIn[iplane]->texture();
@@ -676,9 +674,9 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         tex_wrap_in.w = m_textIn[iplane]->width();
         tex_wrap_in.h = m_textIn[iplane]->height();
 #elif ENABLE_VULKAN
-        tex_wrap_in.image = m_textOut[iplane]->image();
-        tex_wrap_in.format = m_textOut[iplane]->format();
-        tex_wrap_in.usage = m_textOut[iplane]->usage();
+        tex_wrap_in.image = m_textIn[iplane]->image();
+        tex_wrap_in.format = m_textIn[iplane]->format();
+        tex_wrap_in.usage = m_textIn[iplane]->usage();
         tex_wrap_in.width = m_textIn[iplane]->width();
         tex_wrap_in.height = m_textIn[iplane]->height();
 #endif
@@ -688,7 +686,49 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap input %s plane(%d) to pl_tex.\n"), RGY_LIBPLACEBO_DEV_API, iplane);
             return RGY_ERR_NULL_PTR;
         }
+#if ENABLE_D3D11
+        //mapで同期がかかる
+        m_textIn[iplane]->map();
+#elif ENABLE_VULKAN
+        // pl_vulkan_wrap したものはhold状態なので、再度holdする必要はない
+#endif
+        // ngxFrameBufIn -> m_textIn
+        {
+            const auto plane = getPlane(txtFrameBufIn, (RGY_PLANE)iplane);
+            sts = err_to_rgy(cudaMemcpy2DToArrayAsync(
+                m_textIn[iplane]->getMappedArray(), 0, 0,
+                (uint8_t *)plane.ptr[0], plane.pitch[0],
+                plane.width * m_textIn[iplane]->getTextureBytePerPix(), plane.height,
+                cudaMemcpyDeviceToDevice, stream));
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to copy plane(%d) to cudaArray: %s.\n"), iplane, get_err_mes(sts));
+                return sts;
+            }
+        }
+#if ENABLE_D3D11
+        m_textIn[iplane]->unmap();
+#elif ENABLE_VULKAN
+        // semaphoreがsignal状態になったら、texのhold状態を解除して、vulkan(libplacebo)の処理を始める
+        pl_vulkan_release_params release_params = { 0 };
+        release_params.tex = pl_tex_in.get();
+        release_params.semaphore = (pl_vulkan_sem){ m_semInVKStart[iplane]->get(), };
+        release_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
+        pl_vulkan_release_ex(m_pldevice->gpu, &release_params);
+        // streamの処理(cudaMemcpy2DToArrayAsync)が終わったら、semaphoreをsignal状態にする
+        // これにより、vulkan(libplacebo)の処理が始められる
+        m_semInVKStart[iplane]->signal(stream);
+#endif
+        pl_tex_planes_in.push_back(std::move(pl_tex_in));
+    }
 
+    if (!ppOutputFrames[0]) {
+        ppOutputFrames[0] = &m_frameBuf[0]->frame;
+        *pOutputFrameNum = 1;
+    }
+
+    // フィルタを適用
+    std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_out;
+    for (int iplane = 0; iplane < (int)m_textIn.size(); iplane++) {
         pl_tex_wrap_params tex_wrap_out = { 0 };
 #if ENABLE_D3D11
         tex_wrap_out.tex = m_textOut[iplane]->texture();
@@ -708,14 +748,18 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap output %s plane(%d) to pl_tex.\n"), RGY_LIBPLACEBO_DEV_API, iplane);
             return RGY_ERR_NULL_PTR;
         }
-        if (m_procByFrame) {
-            pl_tex_planes_in.push_back(std::move(pl_tex_in));
-            pl_tex_planes_out.push_back(std::move(pl_tex_out));
-        } else {
+#if ENABLE_VULKAN
+        // pl_tex_wrapしたものはhold状態なのでいったん開放する
+        pl_vulkan_release_params release_params = { 0 };
+        release_params.tex = pl_tex_out.get();
+        pl_vulkan_release_ex(m_pldevice->gpu, &release_params);
+#endif
+        pl_tex_planes_out.push_back(std::move(pl_tex_out));
+        if (!m_procByFrame) {
             const RGY_PLANE planeIdx = (RGY_PLANE)iplane;
             auto planeIn = getPlane(pInputFrame, planeIdx);
             auto planeOut = getPlane(ppOutputFrames[0], planeIdx);
-            sts = procPlane(pl_tex_out.get(), &planeOut, pl_tex_in.get(), &planeIn, planeIdx);
+            sts = procPlane(pl_tex_planes_out[iplane].get(), &planeOut, pl_tex_planes_in[iplane].get(), &planeIn, planeIdx);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to process plane(%d): %s.\n"), iplane, get_err_mes(sts));
                 return sts;
@@ -733,31 +777,39 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
             AddMessage(RGY_LOG_ERROR, _T("Failed to process frame.\n"));
             return sts;
         }
-        pl_tex_planes_in.clear();
-        pl_tex_planes_out.clear();
     }
+    pl_tex_planes_in.clear();
 
     RGYFrameInfo *txtFrameBufOut = (m_dstCrop) ? &m_textFrameBufOut->frame : ppOutputFrames[0];
     if (RGY_CSP_PLANES[txtFrameBufOut->csp] != (int)m_textOut.size()) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp, txtFrameBufOut and m_textOut plane count mismatch.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-#if ENABLE_VULKAN
-    m_vkSemaphore->wait(stream);
-#endif
     for (int iplane = 0; iplane < RGY_CSP_PLANES[txtFrameBufOut->csp]; iplane++) {
 #if ENABLE_D3D11
         //mapで同期がかかる
         m_textOut[iplane]->map();
+#elif ENABLE_VULKAN
+        // semaphoreがsignal状態になるまで、streamがvulkan関連の動作終了を待つ
+        m_semOutVKWait[iplane]->wait(stream);
+        // vulkan関連の処理が終わったら、semaphoreをsignal状態にする
+        pl_vulkan_hold_params hold_params = { 0 };
+        hold_params.tex = pl_tex_planes_out[iplane].get();
+        hold_params.semaphore = (pl_vulkan_sem){ m_semOutVKWait[iplane]->get(), };
+        hold_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
+        if (!pl_vulkan_hold_ex(m_pldevice->gpu, &hold_params)) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to hold vulkan texture.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
 #endif
         // m_textOut -> ngxFrameBufOut
         {
             const auto plane = getPlane(txtFrameBufOut, (RGY_PLANE)iplane);
-            sts = err_to_rgy(cudaMemcpy2DFromArray(
+            sts = err_to_rgy(cudaMemcpy2DFromArrayAsync(
                 (uint8_t *)plane.ptr[0], plane.pitch[0],
                 m_textOut[iplane]->getMappedArray(), 0, 0,
                 plane.width * bytesPerPix(plane.csp), plane.height,
-                cudaMemcpyDeviceToDevice));
+                cudaMemcpyDeviceToDevice, stream));
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame from cudaArray: %s.\n"), get_err_mes(sts));
                 return sts;
@@ -765,11 +817,18 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         }
 #if ENABLE_D3D11
         m_textOut[iplane]->unmap();
+#elif ENABLE_VULKAN
+        // semaphoreがsignal状態になったら、texのhold状態を解除して、vulkan(libplacebo)の処理を始める
+        pl_vulkan_release_params release_params = { 0 };
+        release_params.tex = pl_tex_planes_out[iplane].get();
+        release_params.semaphore = (pl_vulkan_sem){ m_semOutVKStart[iplane]->get(), };
+        release_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
+        pl_vulkan_release_ex(m_pldevice->gpu, &release_params);
+        // streamの処理が終わったら、semaphoreをsignal状態にする
+        m_semOutVKStart[iplane]->signal(stream);
 #endif
     }
-#if ENABLE_VULKAN
-    m_vkSemaphore->signal(stream);
-#endif
+    pl_tex_planes_out.clear();
 #else // for debug
     // cudaMemcpy2DAsyncでngxFrameBufInからm_ngxFrameBufOutにコピーする
     // ngxFrameBufIn -> m_ngxFrameBufOut
@@ -812,7 +871,13 @@ void NVEncFilterLibplacebo::close() {
     m_textFrameBufOut.reset();
     m_srcCrop.reset();
     m_dstCrop.reset();
-    
+#if ENABLE_VULKAN
+    m_semInVKWait.clear();
+    m_semInVKStart.clear();
+    m_semOutVKWait.clear();
+    m_semOutVKStart.clear();
+#endif
+    m_dither_state.reset();
     m_renderer.reset();
     m_dispatch.reset();
     m_pldevice.reset();

@@ -168,7 +168,8 @@ RGY_ERR CUDAVulkanFrame::create(DeviceVulkan *vk, const int width, const int hei
     m_height = height;
     m_pitch = 0;
 
-    m_usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    m_usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     const VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
     const auto extMemHandleType = getDefaultMemHandleType();
@@ -182,7 +183,7 @@ RGY_ERR CUDAVulkanFrame::create(DeviceVulkan *vk, const int width, const int hei
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
     imageInfo.format = format;
-    imageInfo.tiling = VK_IMAGE_TILING_LINEAR;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = m_usage;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -308,18 +309,29 @@ VkExternalSemaphoreHandleTypeFlagBits CUDAVulkanSemaphore::getDefaultSemaphoreHa
 RGY_ERR CUDAVulkanSemaphore::create(DeviceVulkan *vk) {
     m_vk = vk;
 
-    VkSemaphoreCreateInfo semaphoreInfo = {};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
     VkExportSemaphoreCreateInfoKHR exportSemaphoreCreateInfo = {};
     exportSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO_KHR;
+    exportSemaphoreCreateInfo.pNext = nullptr;
+#ifdef _WIN64
+    WindowsSecurityAttributes winSecurityAttributes;
 
-    VkSemaphoreTypeCreateInfo timelineCreateInfo;
-    timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
-    timelineCreateInfo.pNext = NULL;
-    timelineCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
-    timelineCreateInfo.initialValue = 0;
-    exportSemaphoreCreateInfo.pNext = &timelineCreateInfo;
+    VkExportSemaphoreWin32HandleInfoKHR vulkanExportSemaphoreWin32HandleInfoKHR = {};
+    vulkanExportSemaphoreWin32HandleInfoKHR.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR;
+    vulkanExportSemaphoreWin32HandleInfoKHR.pNext = nullptr;
+    vulkanExportSemaphoreWin32HandleInfoKHR.pAttributes = &winSecurityAttributes;
+    vulkanExportSemaphoreWin32HandleInfoKHR.dwAccess = DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE;
+    vulkanExportSemaphoreWin32HandleInfoKHR.name = (LPCWSTR)NULL;
+
+    exportSemaphoreCreateInfo.pNext = &vulkanExportSemaphoreWin32HandleInfoKHR;
+    exportSemaphoreCreateInfo.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#else
+    exportSemaphoreCreateInfo.pNext = nullptr;
+    exportSemaphoreCreateInfo.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
+#endif
+
+    VkSemaphoreCreateInfo semaphoreInfo = {};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphoreInfo.pNext = &exportSemaphoreCreateInfo;
 
     if (auto err = m_vk->GetVulkan()->vkCreateSemaphore(m_vk->GetDevice(), &semaphoreInfo, nullptr, &m_semaphore); err != VK_SUCCESS) {
         return err_to_rgy(err);
@@ -391,6 +403,7 @@ void *CUDAVulkanSemaphore::getSemaphoreHandle(VkExternalSemaphoreHandleTypeFlagB
     vkSemaphoreGetFdInfoKHR.semaphore = m_semaphore;
     vkSemaphoreGetFdInfoKHR.handleType = handleType;
     if (m_vk->GetVulkan()->vkGetSemaphoreFdKHR(m_vk->GetDevice(), &vkSemaphoreGetFdInfoKHR, &fd) != VK_SUCCESS) {
+        fprintf(stderr, "failed to get semaphore fd\n");
         return nullptr;
     }
     return (void *)(uintptr_t)fd;
@@ -398,10 +411,9 @@ void *CUDAVulkanSemaphore::getSemaphoreHandle(VkExternalSemaphoreHandleTypeFlagB
 }
 
 RGY_ERR CUDAVulkanSemaphore::wait(cudaStream_t stream) {
-    cudaExternalSemaphoreWaitParams waitParams = {};
+    cudaExternalSemaphoreWaitParams waitParams = { 0 };
     waitParams.flags = 0;
-    waitParams.params.fence.value = m_waitValue;
-    m_waitValue += 2;
+    waitParams.params.fence.value = 0;
 
     if (auto err = cudaWaitExternalSemaphoresAsync(&m_cudaSem, &waitParams, 1, stream); err != cudaSuccess) {
         return err_to_rgy(err);
@@ -410,10 +422,9 @@ RGY_ERR CUDAVulkanSemaphore::wait(cudaStream_t stream) {
 }
 
 RGY_ERR CUDAVulkanSemaphore::signal(cudaStream_t stream) {
-    cudaExternalSemaphoreSignalParams signalParams = {};
+    cudaExternalSemaphoreSignalParams signalParams = { 0 };
     signalParams.flags = 0;
-    signalParams.params.fence.value = m_signalValue;
-    m_signalValue += 2;
+    signalParams.params.fence.value = 0;
     if (auto err = cudaSignalExternalSemaphoresAsync(&m_cudaSem, &signalParams, 1, stream); err != cudaSuccess) {
         return err_to_rgy(err);
     }

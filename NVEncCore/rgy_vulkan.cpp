@@ -31,8 +31,10 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 static const TCHAR *VULKAN_DLL = _T("vulkan-1.dll");
+static const TCHAR *VULKAN_DLL2 = nullptr;
 #else
 static const TCHAR *VULKAN_DLL = _T("libvulkan.so.1");
+static const TCHAR *VULKAN_DLL2 = _T("libvulkan.so");
 #endif
 
 RGYVulkanFuncs::RGYVulkanFuncs() :
@@ -211,9 +213,19 @@ int RGYVulkanFuncs::init() {
         return 0;
     }
     m_hVulkanDll = RGY_LOAD_LIBRARY(VULKAN_DLL);
+    if (!m_hVulkanDll) {
+        fprintf(stderr, "Failed to load %s.\n", VULKAN_DLL);
+        if (VULKAN_DLL2) {
+            m_hVulkanDll = RGY_LOAD_LIBRARY(VULKAN_DLL2);
+        }
+        if (!m_hVulkanDll) {
+            fprintf(stderr, "Failed to load %s.\n", VULKAN_DLL2);
+            return 1;
+        }
+    }
 
 #define LOAD(w) w = reinterpret_cast<PFN_##w>(RGY_GET_PROC_ADDRESS(m_hVulkanDll, #w)); if(w==nullptr) \
-    { RGY_FREE_LIBRARY(m_hVulkanDll); m_hVulkanDll = nullptr; return 1; };
+    { RGY_FREE_LIBRARY(m_hVulkanDll); m_hVulkanDll = nullptr; fprintf(stderr, "Failed to load %s.\n", #w); return 1; };
     LOAD(vkCreateInstance);
     LOAD(vkCreateInstance);
     LOAD(vkDestroyInstance);
@@ -362,12 +374,8 @@ int RGYVulkanFuncs::init() {
 
 #ifdef WIN32
     LOAD(vkCreateWin32SurfaceKHR);
-    LOAD(vkGetMemoryWin32HandleKHR);
-    LOAD(vkGetSemaphoreWin32HandleKHR);
 #else
     LOAD(vkCreateXlibSurfaceKHR);
-    LOAD(vkGetMemoryFdKHR);
-    LOAD(vkGetSemaphoreFdKHR);
 #endif
     return 0;
 
@@ -393,6 +401,13 @@ int RGYVulkanFuncs::load(VkDevice device) {
     LOAD(vkGetSwapchainImagesKHR);
     LOAD(vkAcquireNextImageKHR);
     LOAD(vkQueuePresentKHR);
+#ifdef WIN32
+    LOAD(vkGetMemoryWin32HandleKHR);
+    LOAD(vkGetSemaphoreWin32HandleKHR);
+#else
+    LOAD(vkGetMemoryFdKHR);
+    LOAD(vkGetSemaphoreFdKHR);
+#endif
     return 0;
 #undef LOAD
 }

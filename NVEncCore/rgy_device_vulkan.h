@@ -59,8 +59,8 @@ public:
 #if ENCODER_VCEENC
     amf::AMFVulkanDevice *GetDevice();
 #endif
-    const std::string& GetDisplayDeviceName() { return m_displayDeviceName; }
-    const std::string& GetUUID() { return m_uuid; }
+    const std::string& GetDisplayDeviceName() const { return m_displayDeviceName; }
+    const uint8_t *GetUUID() const { return m_uuid; }
 
     int GetQueueGraphicFamilyIndex() { return m_uQueueGraphicsFamilyIndex; }
     VkQueue GetQueueGraphicQueue() { return m_hQueueGraphics; }
@@ -93,7 +93,7 @@ private:
     amf::AMFVulkanDevice m_VulkanDev;
 #endif
     std::string m_displayDeviceName;
-    std::string m_uuid;
+    uint8_t m_uuid[VK_UUID_SIZE];
     RGYVulkanFuncs m_vk;
 
     int m_uQueueGraphicsFamilyIndex;

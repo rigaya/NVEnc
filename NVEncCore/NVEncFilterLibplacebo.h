@@ -166,7 +166,10 @@ protected:
     std::vector<std::unique_ptr<CUDAInteropTexture>> m_textIn;
     std::vector<std::unique_ptr<CUDAInteropTexture>> m_textOut;
 #if ENABLE_VULKAN
-    std::unique_ptr<CUDAVulkanSemaphore> m_vkSemaphore;
+    std::vector<std::unique_ptr<CUDAVulkanSemaphore>> m_semInVKWait;
+    std::vector<std::unique_ptr<CUDAVulkanSemaphore>> m_semInVKStart;
+    std::vector<std::unique_ptr<CUDAVulkanSemaphore>> m_semOutVKWait;
+    std::vector<std::unique_ptr<CUDAVulkanSemaphore>> m_semOutVKStart;
 #endif
     std::unique_ptr<NVEncFilter> m_srcCrop;
     std::unique_ptr<NVEncFilter> m_dstCrop;
