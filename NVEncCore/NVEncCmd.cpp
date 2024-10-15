@@ -40,7 +40,7 @@
 #include "rgy_avutil.h"
 
 tstring GetNVEncVersion() {
-    static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
+    static const TCHAR *const ENABLED_INFO[] = { _T("no"), _T("yes") };
     tstring version;
     version += get_encoder_version();
     version += _T("\n");
@@ -56,6 +56,18 @@ tstring GetNVEncVersion() {
     version += strsprintf(_T(", avhw [%s]"), getHWDecSupportedCodecList().c_str());
 #endif //#if ENABLE_AVSW_READER
     version += _T("\n");
+    version += _T(" others\n");
+    version += strsprintf(_T("  nvml       : %s\n"), ENABLED_INFO[ENABLE_NVML]);
+    version += strsprintf(_T("  nvrtc      : %s\n"), ENABLED_INFO[ENABLE_NVRTC]);
+    version += strsprintf(_T("  nvvfx      : %s\n"), ENABLED_INFO[ENABLE_NVVFX]);
+    version += strsprintf(_T("  ngx        : %s\n"), ENABLED_INFO[ENABLE_NVSDKNGX]);
+    version += strsprintf(_T("  nvof fruc  : %s\n"), ENABLED_INFO[ENABLE_NVOFFRUC]);
+    version += strsprintf(_T("  libass     : %s\n"), ENABLED_INFO[ENABLE_LIBASS_SUBBURN]);
+    version += strsprintf(_T("  libdovi    : %s\n"), ENABLED_INFO[ENABLE_LIBDOVI]);
+    version += strsprintf(_T("  d3d11      : %s\n"), ENABLED_INFO[ENABLE_D3D11]);
+    version += strsprintf(_T("  vulkan     : %s\n"), ENABLED_INFO[ENABLE_VULKAN]);
+    version += strsprintf(_T("  libplacebo : %s\n"), ENABLED_INFO[ENABLE_LIBPLACEBO]);
+    version += strsprintf(_T("  vmaf       : %s\n"), ENABLED_INFO[ENABLE_VMAF]);
     return version;
 }
 
