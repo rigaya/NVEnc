@@ -152,6 +152,10 @@ LIBPLACEBO_LIBS=""
 ENABLE_LIBPLACEBO=1
 LIBPLACEBO_API_VER=338
 
+CHECK_VULKAN_NAMES="vulkan"
+VULKAN_CFLAGS=""
+ENABLE_VULKAN=1
+
 LIBDOVI_CFLAGS=""
 LIBDOVI_LIBS=""
 ENABLE_LIBDOVI=1
@@ -571,6 +575,24 @@ if [ $ENABLE_LIBDOVI -ne 0 ]; then
         cnf_write "yes"
     fi
 fi
+if [ $ENABLE_VULKAN -ne 0 ]; then
+    cnf_print "checking vulkan with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_VULKAN_NAMES} ; then
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        cnf_write "OK"
+        VULKAN_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_VULKAN_NAMES}`
+    fi
+    if ! cxx_check "vulkan/vulkan.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VULKAN_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "vulkan/vulkan.h" "std::cout << VK_HEADER_VERSION << std::endl;" ; then
+        cnf_write "no"
+        ENABLE_VULKAN=0
+    else
+        cnf_write "yes"
+    fi
+fi
+if [ $ENABLE_VULKAN -eq 0 ]; then
+    ENABLE_LIBPLACEBO=0
+fi
 
 if [ $ENABLE_LIBPLACEBO -ne 0 ]; then
     cnf_print "checking libplacebo with pkg-config..."
@@ -846,6 +868,7 @@ write_enc_config "#define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL $AVCODEC_PAR_CODED_S
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
 write_enc_config "#define ENABLE_LIBDOVI                $ENABLE_LIBDOVI"
+write_enc_config "#define ENABLE_VULKAN                 $ENABLE_VULKAN"
 write_enc_config "#define ENABLE_LIBPLACEBO             $ENABLE_LIBPLACEBO"
 write_enc_config "#define ENABLE_PERF_COUNTER           0"
 
