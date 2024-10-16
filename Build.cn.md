@@ -93,7 +93,7 @@ export CUDA_PATH=/usr/local/cuda
 ```Shell
 sudo apt install ffmpeg \
   libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
-  libass-dev
+  libass-dev libx11-dev libplacebo-dev
 ```
 
 ### 5. [可选] 安装 AvisynthPlus 

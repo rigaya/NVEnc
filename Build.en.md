@@ -120,7 +120,7 @@ Install ffmpeg and other required libraries.
 ```Shell
 sudo apt install ffmpeg \
   libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
-  libass-dev
+  libass-dev libx11-dev libplacebo-dev
 ```
 
 ### 5. [Optional] Install AvisynthPlus

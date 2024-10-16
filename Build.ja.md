@@ -122,7 +122,7 @@ ffmpegと関連ライブラリを導入します。
 ```Shell
 sudo apt install \
   libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
-  libass-dev
+  libass-dev libx11-dev libplacebo-dev
 ```
 
 ### 5. [オプション] AvisynthPlusのビルド
