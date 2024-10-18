@@ -77,25 +77,12 @@ public:
 
 #if ENABLE_LIBPLACEBO
 
-#pragma warning (push)
-#pragma warning (disable: 4244)
-#pragma warning (disable: 4819)
-#include <libplacebo/dispatch.h>
-#include <libplacebo/renderer.h>
-#include <libplacebo/shaders.h>
-#include <libplacebo/utils/upload.h>
-#if ENABLE_D3D11
-#include <libplacebo/d3d11.h>
-#elif ENABLE_VULKAN
-#include <libplacebo/vulkan.h>
-#endif
-#pragma warning (pop)
-
+#include "rgy_libplacebo.h"
 
 #if ENABLE_D3D11
 using pl_device = pl_d3d11;
 using PLDevice = DeviceDX11;
-#define pl_tex_wrap pl_d3d11_wrap
+#define p_tex_wrap p_d3d11_wrap
 using pl_tex_wrap_params = pl_d3d11_wrap_params;
 using CUDAInteropTexture = CUDADX11Texture;
 using CUDAInteropDataFormat = DXGI_FORMAT;
@@ -103,31 +90,12 @@ static const TCHAR *RGY_LIBPLACEBO_DEV_API = _T("d3d11");
 #elif ENABLE_VULKAN
 using pl_device = pl_vulkan;
 using PLDevice = DeviceVulkan;
-#define pl_tex_wrap pl_vulkan_wrap
+#define p_tex_wrap p_vulkan_wrap
 using pl_tex_wrap_params = pl_vulkan_wrap_params;
 using CUDAInteropTexture = CUDAVulkanFrame;
 using CUDAInteropDataFormat = VkFormat;
 static const TCHAR *RGY_LIBPLACEBO_DEV_API = _T("vulkan");
 #endif
-
-class LibplaceboLoader;
-
-template<typename T>
-struct RGYLibplaceboDeleter {
-    RGYLibplaceboDeleter() : deleter(nullptr) {};
-    RGYLibplaceboDeleter(std::function<void(T*)> deleter) : deleter(deleter) {};
-    void operator()(T p) { deleter(&p); }
-    std::function<void(T*)> deleter;
-};
-
-struct RGYLibplaceboTexDeleter {
-    RGYLibplaceboTexDeleter() : gpu(nullptr) {};
-    RGYLibplaceboTexDeleter(pl_gpu gpu_) : gpu(gpu_) {};
-    void operator()(pl_tex p) { if (p) pl_tex_destroy(gpu, &p); }
-    pl_gpu gpu;
-};
-
-std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter> rgy_pl_tex_recreate(pl_gpu gpu, const pl_tex_params& tex_params);
 
 class NVEncFilterLibplacebo : public NVEncFilter {
 public:
@@ -173,7 +141,7 @@ protected:
 #endif
     std::unique_ptr<NVEncFilter> m_srcCrop;
     std::unique_ptr<NVEncFilter> m_dstCrop;
-    std::unique_ptr<LibplaceboLoader> m_libplaceboLoader;
+    std::unique_ptr<RGYLibplaceboLoader> m_pl;
 
     PLDevice *m_device;
 };

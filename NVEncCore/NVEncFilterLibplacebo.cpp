@@ -39,6 +39,7 @@
 #include "NVEncFilterLibplacebo.h"
 #include "rgy_device_vulkan.h"
 #include "rgy_libdovi.h"
+#include "rgy_libplacebo.h"
 #include "rgy_filesystem.h"
 
 tstring NVEncFilterParamLibplaceboResample::print() const {
@@ -61,195 +62,6 @@ static_assert(RGY_VK_API_VER >= PL_VK_MIN_VERSION, "RGY_VK_API_VER >= PL_VK_MIN_
 
 #include "rgy_device.h"
 
-#if defined(_WIN32) || defined(_WIN64)
-#pragma comment(lib, "libplacebo-349.lib")
-
-static const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-349.dll");
-#else
-static const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo.so");
-#endif // #if defined(_WIN32) || defined(_WIN64)
-
-class LibplaceboLoader {
-private:
-    HMODULE m_hModule;
-
-    pl_color_space *m_pl_color_space_bt2020_hlg;
-    pl_color_space *m_pl_color_space_bt709;
-    pl_color_space *m_pl_color_space_srgb;
-    pl_color_space *m_pl_color_space_hdr10;
-    pl_hdr_metadata *m_pl_hdr_metadata_empty;
-    pl_peak_detect_params *m_pl_peak_detect_default_params;
-
-public:
-    LibplaceboLoader();
-    ~LibplaceboLoader();
-
-    bool load();
-    void close();
-
-    pl_color_space pl_color_space_bt2020_hlg() const { return *m_pl_color_space_bt2020_hlg; }
-    pl_color_space pl_color_space_bt709() const { return *m_pl_color_space_bt709; }
-    pl_color_space pl_color_space_srgb() const { return *m_pl_color_space_srgb; }
-    pl_color_space pl_color_space_hdr10() const { return *m_pl_color_space_hdr10; }
-    pl_hdr_metadata pl_hdr_metadata_empty() const { return *m_pl_hdr_metadata_empty; }
-    pl_peak_detect_params  pl_peak_detect_default_params() const { return *m_pl_peak_detect_default_params; }
-};
-
-LibplaceboLoader::LibplaceboLoader() : m_hModule(nullptr),
-m_pl_color_space_bt2020_hlg(nullptr),
-m_pl_color_space_bt709(nullptr),
-m_pl_color_space_srgb(nullptr),
-m_pl_color_space_hdr10(nullptr),
-m_pl_hdr_metadata_empty(nullptr),
-m_pl_peak_detect_default_params(nullptr) {
-}
-
-LibplaceboLoader::~LibplaceboLoader() {
-    close();
-}
-
-bool LibplaceboLoader::load() {
-    if (m_hModule) {
-        return true;
-    }
-
-    if ((m_hModule = RGY_LOAD_LIBRARY(RGY_LIBPLACEBO_DLL_NAME)) == nullptr) {
-        return false;
-    }
-
-    auto loadFunc = [this](const char *funcName, void **func) {
-        if ((*func = RGY_GET_PROC_ADDRESS(m_hModule, funcName)) == nullptr) {
-            return false;
-        }
-        return true;
-    };
-
-    if (!loadFunc("pl_color_space_bt2020_hlg", (void**)&m_pl_color_space_bt2020_hlg)) return false;
-    if (!loadFunc("pl_color_space_bt709", (void**)&m_pl_color_space_bt709)) return false;
-    if (!loadFunc("pl_color_space_srgb", (void**)&m_pl_color_space_srgb)) return false;
-    if (!loadFunc("pl_color_space_hdr10", (void**)&m_pl_color_space_hdr10)) return false;
-    if (!loadFunc("pl_hdr_metadata_empty", (void**)&m_pl_hdr_metadata_empty)) return false;
-    if (!loadFunc("pl_peak_detect_default_params", (void**)&m_pl_peak_detect_default_params)) return false;
-
-    return true;
-}
-
-void LibplaceboLoader::close() {
-    if (m_hModule) {
-        RGY_FREE_LIBRARY(m_hModule);
-        m_hModule = nullptr;
-    }
-
-    m_pl_color_space_bt2020_hlg = nullptr;
-    m_pl_color_space_bt709 = nullptr;
-    m_pl_color_space_srgb = nullptr;
-    m_pl_color_space_hdr10 = nullptr;
-}
-
-static const RGYLogType RGY_LOGT_LIBPLACEBO = RGY_LOGT_VPP;
-
-static const auto RGY_LOG_LEVEL_TO_LIBPLACEBO = make_array<std::pair<RGYLogLevel, pl_log_level>>(
-    std::make_pair(RGYLogLevel::RGY_LOG_QUIET, PL_LOG_NONE),
-    std::make_pair(RGYLogLevel::RGY_LOG_ERROR, PL_LOG_ERR),
-    std::make_pair(RGYLogLevel::RGY_LOG_WARN,  PL_LOG_WARN),
-    std::make_pair(RGYLogLevel::RGY_LOG_INFO,  PL_LOG_INFO),
-    std::make_pair(RGYLogLevel::RGY_LOG_DEBUG, PL_LOG_DEBUG),
-    std::make_pair(RGYLogLevel::RGY_LOG_TRACE, PL_LOG_TRACE)
-);
-
-MAP_PAIR_0_1(loglevel, rgy, RGYLogLevel, libplacebo, pl_log_level, RGY_LOG_LEVEL_TO_LIBPLACEBO, RGYLogLevel::RGY_LOG_INFO, PL_LOG_INFO);
-
-static const auto RGY_RESIZE_ALGO_TO_LIBPLACEBO = make_array<std::pair<RGY_VPP_RESIZE_ALGO, const char*>>(
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_SPLINE16, "spline16"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_SPLINE36, "spline36"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_SPLINE64, "spline64"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_NEAREST, "nearest"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_BILINEAR, "bilinear"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_GAUSSIAN, "gaussian"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_SINC, "sinc"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_LANCZOS, "lanczos"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_GINSENG, "ginseng"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_JINC, "ewa_jinc"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOS, "ewa_lanczos"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOSSHARP, "ewa_lanczossharp"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_LANCZOS4SHARPEST, "ewa_lanczos4sharpest"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_GINSENG, "ewa_ginseng"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_HANN, "ewa_hann"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_HANNING, "ewa_hanning"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_BICUBIC, "bicubic"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_TRIANGLE, "triangle"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_HERMITE, "hermite"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_CATMULL_ROM, "catmull_rom"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_MITCHELL, "mitchell"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_MITCHELL_CLAMP, "mitchell_clamp"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_ROBIDOUX, "robidoux"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_ROBIDOUXSHARP, "robidouxsharp"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_ROBIDOUX, "ewa_robidoux"),
-    std::make_pair(RGY_VPP_RESIZE_LIBPLACEBO_EWA_ROBIDOUXSHARP, "ewa_robidouxsharp")
-);
-
-MAP_PAIR_0_1(resize_algo, rgy, RGY_VPP_RESIZE_ALGO, libplacebo, const char*, RGY_RESIZE_ALGO_TO_LIBPLACEBO, RGY_VPP_RESIZE_UNKNOWN, nullptr);
-
- static const auto RGY_TONEMAP_METADATA_TO_LIBPLACEBO = make_array<std::pair<VppLibplaceboToneMappingMetadata, pl_hdr_metadata_type>>(
-    std::make_pair(VppLibplaceboToneMappingMetadata::ANY, PL_HDR_METADATA_ANY),
-    std::make_pair(VppLibplaceboToneMappingMetadata::NONE, PL_HDR_METADATA_NONE),
-    std::make_pair(VppLibplaceboToneMappingMetadata::HDR10, PL_HDR_METADATA_HDR10),
-    std::make_pair(VppLibplaceboToneMappingMetadata::HDR10PLUS, PL_HDR_METADATA_HDR10PLUS),
-    std::make_pair(VppLibplaceboToneMappingMetadata::CIE_Y, PL_HDR_METADATA_CIE_Y)
-);
-
-MAP_PAIR_0_1(tone_map_metadata, rgy, VppLibplaceboToneMappingMetadata, libplacebo, pl_hdr_metadata_type, RGY_TONEMAP_METADATA_TO_LIBPLACEBO, VppLibplaceboToneMappingMetadata::ANY, PL_HDR_METADATA_ANY);
-
-static const auto RGY_TRANSFER_TO_LIBPLACEBO = make_array<std::pair<CspTransfer, pl_color_transfer>>(
-    std::make_pair(RGY_TRANSFER_UNKNOWN,      PL_COLOR_TRC_UNKNOWN),
-    std::make_pair(RGY_TRANSFER_BT709,        PL_COLOR_TRC_BT_1886),
-    std::make_pair(RGY_TRANSFER_BT601,        PL_COLOR_TRC_BT_1886),
-    std::make_pair(RGY_TRANSFER_BT2020_10,    PL_COLOR_TRC_BT_1886),
-    std::make_pair(RGY_TRANSFER_BT2020_12,    PL_COLOR_TRC_BT_1886),
-    std::make_pair(RGY_TRANSFER_IEC61966_2_1, PL_COLOR_TRC_SRGB),
-    std::make_pair(RGY_TRANSFER_LINEAR,       PL_COLOR_TRC_LINEAR),
-    std::make_pair(RGY_TRANSFER_ST2084,       PL_COLOR_TRC_PQ),
-    std::make_pair(RGY_TRANSFER_ARIB_B67,     PL_COLOR_TRC_HLG)
-);
-
-MAP_PAIR_0_1(transfer, rgy, CspTransfer, libplacebo, pl_color_transfer, RGY_TRANSFER_TO_LIBPLACEBO, RGY_TRANSFER_UNKNOWN, PL_COLOR_TRC_UNKNOWN);
-
-static const auto RGY_COLORPRIM_TO_LIBPLACEBO = make_array<std::pair<CspColorprim, pl_color_primaries>>(
-    std::make_pair(RGY_PRIM_UNKNOWN,     PL_COLOR_PRIM_UNKNOWN),
-    std::make_pair(RGY_PRIM_BT709,       PL_COLOR_PRIM_BT_709),
-    std::make_pair(RGY_PRIM_UNSPECIFIED, PL_COLOR_PRIM_UNKNOWN),
-    std::make_pair(RGY_PRIM_BT470_M,     PL_COLOR_PRIM_BT_470M),
-    std::make_pair(RGY_PRIM_BT470_BG,    PL_COLOR_PRIM_BT_601_625),
-    std::make_pair(RGY_PRIM_ST170_M,     PL_COLOR_PRIM_BT_601_525),
-    std::make_pair(RGY_PRIM_ST240_M,     PL_COLOR_PRIM_BT_601_525), // 近似値
-    std::make_pair(RGY_PRIM_FILM,        PL_COLOR_PRIM_FILM_C),
-    std::make_pair(RGY_PRIM_BT2020,      PL_COLOR_PRIM_BT_2020),
-    std::make_pair(RGY_PRIM_ST428,       PL_COLOR_PRIM_CIE_1931),
-    std::make_pair(RGY_PRIM_ST431_2,     PL_COLOR_PRIM_DCI_P3),
-    std::make_pair(RGY_PRIM_ST432_1,     PL_COLOR_PRIM_DISPLAY_P3),
-    std::make_pair(RGY_PRIM_EBU3213_E,   PL_COLOR_PRIM_EBU_3213)
-);
-
-MAP_PAIR_0_1(colorprim, rgy, CspColorprim, libplacebo, pl_color_primaries, RGY_COLORPRIM_TO_LIBPLACEBO, RGY_PRIM_UNKNOWN, PL_COLOR_PRIM_UNKNOWN);
-
-std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter> rgy_pl_tex_recreate(pl_gpu gpu, const pl_tex_params& tex_params) {
-    pl_tex tex_tmp = { 0 };
-    if (!pl_tex_recreate(gpu, &tex_tmp, &tex_params)) {
-        return std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>();
-    }
-    return std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-        tex_tmp, RGYLibplaceboTexDeleter(gpu));
-}
-
-static void libplacebo_log_func(void *private_data, pl_log_level level, const char* msg) {
-    auto log = static_cast<RGYLog*>(private_data);
-    auto log_level = loglevel_libplacebo_to_rgy(level);
-    if (log == nullptr || log_level < log->getLogLevel(RGY_LOGT_LIBPLACEBO)) {
-        return;
-    }
-    log->write_log(log_level, RGY_LOGT_LIBPLACEBO, (tstring(_T("libplacebo: ")) + char_to_tstring(msg) + _T("\n")).c_str());
-}
-
 NVEncFilterLibplacebo::NVEncFilterLibplacebo() :
     m_procByFrame(false),
     m_textCspIn(RGY_CSP_NA),
@@ -258,7 +70,7 @@ NVEncFilterLibplacebo::NVEncFilterLibplacebo() :
     m_pldevice(),
     m_dispatch(),
     m_renderer(),
-    m_dither_state(std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)>(nullptr, pl_shader_obj_destroy)),
+    m_dither_state(std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)>(nullptr, nullptr)),
     m_textIn(),
     m_textOut(),
 #if ENABLE_VULKAN
@@ -289,18 +101,20 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
         AddMessage(RGY_LOG_ERROR, _T("%s device not set.\n"), RGY_LIBPLACEBO_DEV_API);
         return RGY_ERR_NULL_PTR;
     }
-    m_libplaceboLoader = std::make_unique<LibplaceboLoader>();
-    if (!m_libplaceboLoader->load()) {
+    m_pl = std::make_unique<RGYLibplaceboLoader>();
+    if (!m_pl->load()) {
         AddMessage(RGY_LOG_ERROR, _T("%s is required but not found.\n"), RGY_LIBPLACEBO_DLL_NAME);
         return RGY_ERR_UNKNOWN;
     }
-    const pl_log_params log_params = {libplacebo_log_func, m_pLog.get(), loglevel_rgy_to_libplacebo(m_pLog->getLogLevel(RGY_LOGT_LIBPLACEBO))};
-    m_log = std::unique_ptr<std::remove_pointer<pl_log>::type, RGYLibplaceboDeleter<pl_log>>(pl_log_create(0, &log_params), RGYLibplaceboDeleter<pl_log>(pl_log_destroy));
-    if (!m_log) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo log.\n"));
-        return RGY_ERR_UNKNOWN;
+    if (m_pl->p_log_create()) {
+        const pl_log_params log_params = { libplacebo_log_func, m_pLog.get(), loglevel_rgy_to_libplacebo(m_pLog->getLogLevel(RGY_LOGT_LIBPLACEBO)) };
+        m_log = std::unique_ptr<std::remove_pointer<pl_log>::type, RGYLibplaceboDeleter<pl_log>>(m_pl->p_log_create()(0, &log_params), RGYLibplaceboDeleter<pl_log>(m_pl->p_log_destroy()));
+        if (!m_log) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo log.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo log.\n"));
     }
-    AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo log.\n"));
 
 #if ENABLE_D3D11
     pl_d3d11_params gpu_params;
@@ -314,7 +128,7 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     gpu_params.flags = 0;
 
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
-        pl_d3d11_create(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(pl_d3d11_destroy));
+        m_pl->p_d3d11_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(m_pl->p_d3d11_destroy()));
 #elif ENABLE_VULKAN
     pl_vulkan_params gpu_params = { 0 };
     gpu_params.instance = m_device->GetInstance();
@@ -322,7 +136,7 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     gpu_params.device = m_device->GetPhysicalDevice();
 
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_vulkan>::type, RGYLibplaceboDeleter<pl_vulkan>>(
-        pl_vulkan_create(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_vulkan>(pl_vulkan_destroy));
+        m_pl->p_vulkan_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_vulkan>(m_pl->p_vulkan_destroy()));
 #endif
     if (!m_pldevice) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo %s device.\n"), RGY_LIBPLACEBO_DEV_API);
@@ -331,7 +145,7 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo %s device.\n"), RGY_LIBPLACEBO_DEV_API);
 
     m_dispatch = std::unique_ptr<std::remove_pointer<pl_dispatch>::type, RGYLibplaceboDeleter<pl_dispatch>>(
-        pl_dispatch_create(m_log.get(), m_pldevice->gpu), RGYLibplaceboDeleter<pl_dispatch>(pl_dispatch_destroy));
+        m_pl->p_dispatch_create()(m_log.get(), m_pldevice->gpu), RGYLibplaceboDeleter<pl_dispatch>(m_pl->p_dispatch_destroy()));
     if (!m_dispatch) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo dispatch.\n"));
         return RGY_ERR_UNKNOWN;
@@ -339,7 +153,7 @@ RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo dispatch.\n"));
 
     m_renderer = std::unique_ptr<std::remove_pointer<pl_renderer>::type, RGYLibplaceboDeleter<pl_renderer>>(
-        pl_renderer_create(m_log.get(), m_pldevice->gpu), RGYLibplaceboDeleter<pl_renderer>(pl_renderer_destroy));
+        m_pl->p_renderer_create()(m_log.get(), m_pldevice->gpu), RGYLibplaceboDeleter<pl_renderer>(m_pl->p_renderer_destroy()));
     if (!m_renderer) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo renderer.\n"));
         return RGY_ERR_UNKNOWN;
@@ -681,7 +495,7 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         tex_wrap_in.height = m_textIn[iplane]->height();
 #endif
         auto pl_tex_in = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-            pl_tex_wrap(m_pldevice->gpu, &tex_wrap_in), RGYLibplaceboTexDeleter(m_pldevice->gpu));
+            m_pl->p_tex_wrap()(m_pldevice->gpu, &tex_wrap_in), RGYLibplaceboTexDeleter(m_pl.get(), m_pldevice->gpu));
         if (!pl_tex_in) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap input %s plane(%d) to pl_tex.\n"), RGY_LIBPLACEBO_DEV_API, iplane);
             return RGY_ERR_NULL_PTR;
@@ -713,7 +527,7 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         release_params.tex = pl_tex_in.get();
         release_params.semaphore = (pl_vulkan_sem){ m_semInVKStart[iplane]->get(), };
         release_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
-        pl_vulkan_release_ex(m_pldevice->gpu, &release_params);
+        m_pl->p_vulkan_release_ex()(m_pldevice->gpu, &release_params);
         // streamの処理(cudaMemcpy2DToArrayAsync)が終わったら、semaphoreをsignal状態にする
         // これにより、vulkan(libplacebo)の処理が始められる
         m_semInVKStart[iplane]->signal(stream);
@@ -743,7 +557,7 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         tex_wrap_out.height = m_textOut[iplane]->height();
 #endif
         auto pl_tex_out = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-            pl_tex_wrap(m_pldevice->gpu, &tex_wrap_out), RGYLibplaceboTexDeleter(m_pldevice->gpu));
+            m_pl->p_tex_wrap()(m_pldevice->gpu, &tex_wrap_out), RGYLibplaceboTexDeleter(m_pl.get(), m_pldevice->gpu));
         if (!pl_tex_out) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap output %s plane(%d) to pl_tex.\n"), RGY_LIBPLACEBO_DEV_API, iplane);
             return RGY_ERR_NULL_PTR;
@@ -752,7 +566,7 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         // pl_tex_wrapしたものはhold状態なのでいったん開放する
         pl_vulkan_release_params release_params = { 0 };
         release_params.tex = pl_tex_out.get();
-        pl_vulkan_release_ex(m_pldevice->gpu, &release_params);
+        m_pl->p_vulkan_release_ex()(m_pldevice->gpu, &release_params);
 #endif
         pl_tex_planes_out.push_back(std::move(pl_tex_out));
         if (!m_procByFrame) {
@@ -797,7 +611,7 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         hold_params.tex = pl_tex_planes_out[iplane].get();
         hold_params.semaphore = (pl_vulkan_sem){ m_semOutVKWait[iplane]->get(), };
         hold_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
-        if (!pl_vulkan_hold_ex(m_pldevice->gpu, &hold_params)) {
+        if (!m_pl->p_vulkan_hold_ex()(m_pldevice->gpu, &hold_params)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to hold vulkan texture.\n"));
             return RGY_ERR_UNKNOWN;
         }
@@ -823,7 +637,7 @@ RGY_ERR NVEncFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         release_params.tex = pl_tex_planes_out[iplane].get();
         release_params.semaphore = (pl_vulkan_sem){ m_semOutVKStart[iplane]->get(), };
         release_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
-        pl_vulkan_release_ex(m_pldevice->gpu, &release_params);
+        m_pl->p_vulkan_release_ex()(m_pldevice->gpu, &release_params);
         // streamの処理が終わったら、semaphoreをsignal状態にする
         m_semOutVKStart[iplane]->signal(stream);
 #endif
@@ -881,8 +695,8 @@ void NVEncFilterLibplacebo::close() {
     m_renderer.reset();
     m_dispatch.reset();
     m_pldevice.reset();
-    m_libplaceboLoader.reset();
     m_log.reset();
+    m_pl.reset();
 
     m_frameBuf.clear();
     m_device = nullptr;
@@ -944,7 +758,7 @@ RGY_ERR NVEncFilterLibplaceboResample::setLibplaceboParam(const NVEncFilterParam
         return RGY_ERR_UNSUPPORTED;
     }
 
-    auto filter_config = pl_find_filter_config(resample_filter_name, PL_FILTER_UPSCALING);
+    auto filter_config = m_pl->p_find_filter_config()(resample_filter_name, PL_FILTER_UPSCALING);
     if (!filter_config) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported filter type.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -979,7 +793,7 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
     pl_sample_src src = { 0 };
     src.tex = texIn;
     {
-        pl_shader shader1 = pl_dispatch_begin(m_dispatch.get());
+        pl_shader shader1 = m_pl->p_dispatch_begin()(m_dispatch.get());
 
         pl_tex_params tex_params = { 0 };
         tex_params.w = src.tex->params.w;
@@ -988,13 +802,13 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
         tex_params.sampleable = true;
         tex_params.format = src.tex->params.format;
 
-        tex_tmp1 = rgy_pl_tex_recreate(m_pldevice->gpu, tex_params);
+        tex_tmp1 = rgy_pl_tex_recreate(m_pl.get(), m_pldevice->gpu, tex_params);
         if (!tex_tmp1) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to recreate texture.\n"));
             return RGY_ERR_UNKNOWN;
         }
 
-        pl_shader_sample_direct(shader1, &src);
+        m_pl->p_shader_sample_direct()(shader1, &src);
 
         //if (d->linear) {
         //    pl_color_space colorspace;
@@ -1010,7 +824,7 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
         dispatch_params.target = tex_tmp1.get();
         dispatch_params.shader = &shader1;
 
-        if (!pl_dispatch_finish(m_dispatch.get(), &dispatch_params)) {
+        if (!m_pl->p_dispatch_finish()(m_dispatch.get(), &dispatch_params)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to dispatch (1).\n"));
             return RGY_ERR_UNKNOWN;
         }
@@ -1021,10 +835,10 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
     src.new_h = pDstPlane->height;
     src.new_w = pDstPlane->width;
 
-    pl_shader shader2 = pl_dispatch_begin(m_dispatch.get());
+    pl_shader shader2 = m_pl->p_dispatch_begin()(m_dispatch.get());
     std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter> tex_tmp2;
     if (filter_params->filter.polar) {
-        if (!pl_shader_sample_polar(shader2, &src, filter_params)) {
+        if (!m_pl->p_shader_sample_polar()(shader2, &src, filter_params)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to sample polar.\n"));
             return RGY_ERR_UNKNOWN;
         }
@@ -1036,9 +850,9 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
         src1.rect.y0 = 0.0f;
         src1.rect.y1 = (float)src.new_h;
         {
-            pl_shader shader3 = pl_dispatch_begin(m_dispatch.get());
-            if (!pl_shader_sample_ortho2(shader3, &src, filter_params)) {
-                pl_dispatch_abort(m_dispatch.get(), &shader3);
+            pl_shader shader3 = m_pl->p_dispatch_begin()(m_dispatch.get());
+            if (!m_pl->p_shader_sample_ortho2()(shader3, &src, filter_params)) {
+                m_pl->p_dispatch_abort()(m_dispatch.get(), &shader3);
                 AddMessage(RGY_LOG_ERROR, _T("Failed to sample ortho2(1).\n"));
                 return RGY_ERR_UNKNOWN;
             }
@@ -1049,7 +863,7 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
             tex_params.renderable = true;
             tex_params.sampleable = true;
             tex_params.format = src.tex->params.format;
-            tex_tmp2 = rgy_pl_tex_recreate(m_pldevice->gpu, tex_params);
+            tex_tmp2 = rgy_pl_tex_recreate(m_pl.get(), m_pldevice->gpu, tex_params);
             if (!tex_tmp2) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to recreate temp texture.\n"));
                 return RGY_ERR_UNKNOWN;
@@ -1059,7 +873,7 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
             dispatch_params.target = tex_tmp2.get();
             dispatch_params.shader = &shader3;
 
-            if (!pl_dispatch_finish(m_dispatch.get(), &dispatch_params)) {
+            if (!m_pl->p_dispatch_finish()(m_dispatch.get(), &dispatch_params)) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to sample polar.\n"));
                 return RGY_ERR_UNKNOWN;
             }
@@ -1068,7 +882,7 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
         src1.tex = tex_tmp2.get();
         src1.scale = 1.0f;
 
-        if (!pl_shader_sample_ortho2(shader2, &src1, filter_params)) {
+        if (!m_pl->p_shader_sample_ortho2()(shader2, &src1, filter_params)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to sample ortho2(2).\n"));
             return RGY_ERR_UNKNOWN;
         }
@@ -1088,11 +902,11 @@ RGY_ERR NVEncFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameIn
     dispatch_params.target = texOut;
     dispatch_params.shader = &shader2;
 
-    if (!pl_dispatch_finish(m_dispatch.get(), &dispatch_params)) {
+    if (!m_pl->p_dispatch_finish()(m_dispatch.get(), &dispatch_params)) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to dispatch (2).\n"));
         return RGY_ERR_UNKNOWN;
     }
-    pl_shader_obj_destroy(filter_params->lut);
+    m_pl->p_shader_obj_destroy()(filter_params->lut);
     filter_params->lut = nullptr;
     return RGY_ERR_NONE;
 }
@@ -1160,7 +974,7 @@ RGY_ERR NVEncFilterLibplaceboDeband::setLibplaceboParam(const NVEncFilterParam *
             m_dither_params->lut_size = prm->deband.lut_size;
         }
         if (!m_dither_state) {
-            m_dither_state = std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)>(new pl_shader_obj, pl_shader_obj_destroy);
+            m_dither_state = std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)>(new pl_shader_obj, m_pl->p_shader_obj_destroy());
             memset(m_dither_state.get(), 0, sizeof(pl_shader_obj));
         }
     }
@@ -1183,7 +997,7 @@ RGY_ERR NVEncFilterLibplaceboDeband::procPlane(pl_tex texOut, [[maybe_unused]] c
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    pl_shader shader = pl_dispatch_begin(m_dispatch.get());
+    pl_shader shader = m_pl->p_dispatch_begin()(m_dispatch.get());
     if (!shader) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to begin shader.\n"));
         return RGY_ERR_UNKNOWN;
@@ -1193,24 +1007,24 @@ RGY_ERR NVEncFilterLibplaceboDeband::procPlane(pl_tex texOut, [[maybe_unused]] c
     shader_params.gpu = m_pldevice->gpu;
     shader_params.index = (decltype(shader_params.index))m_frame_index++;
 
-    pl_shader_reset(shader, &shader_params);
+    m_pl->p_shader_reset()(shader, &shader_params);
 
     pl_sample_src src = { 0 };
     src.tex = texIn;
 
     pl_deband_params *filter_params = (m_filter_params_c && RGY_CSP_CHROMA_FORMAT[pSrcPlane->csp] != RGY_CHROMAFMT_RGB && (planeIdx == RGY_PLANE_U || planeIdx == RGY_PLANE_V))
         ? m_filter_params_c.get() : m_filter_params.get();
-    pl_shader_deband(shader, &src, filter_params);
+    m_pl->p_shader_deband()(shader, &src, filter_params);
 
     if (m_dither_params) {
-        pl_shader_dither(shader, texOut->params.format->component_depth[0], m_dither_state.get(), m_dither_params.get());
+        m_pl->p_shader_dither()(shader, texOut->params.format->component_depth[0], m_dither_state.get(), m_dither_params.get());
     }
 
     pl_dispatch_params dispatch_params = { 0 };
     dispatch_params.target = texOut;
     dispatch_params.shader = &shader;
 
-    if (!pl_dispatch_finish(m_dispatch.get(), &dispatch_params)) {
+    if (!m_pl->p_dispatch_finish()(m_dispatch.get(), &dispatch_params)) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to dispatch.\n"));
         return RGY_ERR_UNKNOWN;
     }
@@ -1381,23 +1195,23 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
 
     switch (m_tonemap.cspSrc) {
         case VppLibplaceboToneMappingCSP::SDR:
-            m_tonemap.plCspSrc = m_libplaceboLoader->pl_color_space_bt709();
+            m_tonemap.plCspSrc = m_pl->p_color_space_bt709();
             m_tonemap.reprSrc->sys = (vuiSrc.matrix == RGY_MATRIX_BT470_BG) ? PL_COLOR_SYSTEM_BT_601 : PL_COLOR_SYSTEM_BT_709;
             m_tonemap.reprSrc->levels = (vuiSrc.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
             break;
         case VppLibplaceboToneMappingCSP::HDR10:
         case VppLibplaceboToneMappingCSP::DOVI:
-            m_tonemap.plCspSrc = m_libplaceboLoader->pl_color_space_hdr10();
+            m_tonemap.plCspSrc = m_pl->p_color_space_hdr10();
             m_tonemap.reprSrc->sys = PL_COLOR_SYSTEM_BT_2020_NC;
             m_tonemap.reprSrc->levels = (vuiSrc.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
             break;
         case VppLibplaceboToneMappingCSP::HLG:
-            m_tonemap.plCspSrc = m_libplaceboLoader->pl_color_space_bt2020_hlg();
+            m_tonemap.plCspSrc = m_pl->p_color_space_bt2020_hlg();
             m_tonemap.reprSrc->sys = PL_COLOR_SYSTEM_BT_2020_NC;
             m_tonemap.reprSrc->levels = (vuiSrc.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
             break;
         case VppLibplaceboToneMappingCSP::RGB:
-            m_tonemap.plCspSrc = m_libplaceboLoader->pl_color_space_srgb();
+            m_tonemap.plCspSrc = m_pl->p_color_space_srgb();
             m_tonemap.reprSrc->sys = PL_COLOR_SYSTEM_RGB;
             m_tonemap.reprSrc->levels = PL_COLOR_LEVELS_FULL;
             break;
@@ -1408,7 +1222,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
     if (prm->toneMapping.dst_pl_colorprim != VppLibplaceboToneMappingColorprim::Unknown && prm->toneMapping.dst_pl_transfer != VppLibplaceboToneMappingTransfer::Unknown) {
         m_tonemap.plCspDst.primaries = (pl_color_primaries)prm->toneMapping.dst_pl_colorprim;
         m_tonemap.plCspDst.transfer = (pl_color_transfer)prm->toneMapping.dst_pl_transfer;
-        m_tonemap.plCspDst.hdr = m_libplaceboLoader->pl_hdr_metadata_empty();
+        m_tonemap.plCspDst.hdr = m_pl->p_hdr_metadata_empty();
 
         switch (m_tonemap.plCspDst.transfer) {
         case PL_COLOR_TRC_SRGB:
@@ -1459,7 +1273,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
     } else {
         switch (prm->toneMapping.dst_csp) {
             case VppLibplaceboToneMappingCSP::SDR:
-                m_tonemap.plCspDst = m_libplaceboLoader->pl_color_space_bt709();
+                m_tonemap.plCspDst = m_pl->p_color_space_bt709();
                 m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_709;
                 m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
                 m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
@@ -1468,7 +1282,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
                 break;
             case VppLibplaceboToneMappingCSP::HDR10:
             case VppLibplaceboToneMappingCSP::DOVI:
-                m_tonemap.plCspDst = m_libplaceboLoader->pl_color_space_hdr10();
+                m_tonemap.plCspDst = m_pl->p_color_space_hdr10();
                 m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_2020_NC;
                 m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
                 m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084).to(RGY_PRIM_BT2020);
@@ -1476,7 +1290,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
                 m_tonemap.outVui.descriptpresent = 1;
                 break;
             case VppLibplaceboToneMappingCSP::HLG:
-                m_tonemap.plCspDst = m_libplaceboLoader->pl_color_space_bt2020_hlg();
+                m_tonemap.plCspDst = m_pl->p_color_space_bt2020_hlg();
                 m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_BT_2020_NC;
                 m_tonemap.reprDst->levels = PL_COLOR_LEVELS_LIMITED;
                 m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ARIB_B67).to(RGY_PRIM_BT2020);
@@ -1484,7 +1298,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
                 m_tonemap.outVui.descriptpresent = 1;
                 break;
             case VppLibplaceboToneMappingCSP::RGB:
-                m_tonemap.plCspDst = m_libplaceboLoader->pl_color_space_srgb();
+                m_tonemap.plCspDst = m_pl->p_color_space_srgb();
                 m_tonemap.reprDst->sys = PL_COLOR_SYSTEM_RGB;
                 m_tonemap.reprDst->levels = PL_COLOR_LEVELS_FULL;
                 m_tonemap.outVui = m_tonemap.outVui.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_IEC61966_2_1).to(RGY_PRIM_BT709);
@@ -1517,7 +1331,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
         }
 
         m_tonemap.renderParams = std::make_unique<pl_render_params>();
-        m_tonemap.renderParams->lut = pl_lut_parse_cube(m_log.get(), lut_data.data(), lut_data.size());
+        m_tonemap.renderParams->lut = m_pl->p_lut_parse_cube()(m_log.get(), lut_data.data(), lut_data.size());
         if (!m_tonemap.renderParams->lut) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to parse LUT file.\n"));
             return RGY_ERR_INVALID_DATA_TYPE;
@@ -1555,7 +1369,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
             m_tonemap.dst_min_org = prm->toneMapping.dst_min;
             m_tonemap.plCspDst.hdr.min_luma = prm->toneMapping.dst_min;
         }
-        m_tonemap.colorMapParams = std::make_unique<pl_color_map_params>(pl_color_map_default_params);
+        m_tonemap.colorMapParams = std::make_unique<pl_color_map_params>(m_pl->p_color_map_default_params());
         m_tonemap.colorMapParams->tone_constants.knee_adaptation = prm->toneMapping.tone_constants.st2094.knee_adaptation;
         m_tonemap.colorMapParams->tone_constants.knee_minimum = prm->toneMapping.tone_constants.st2094.knee_min;
         m_tonemap.colorMapParams->tone_constants.knee_maximum = prm->toneMapping.tone_constants.st2094.knee_max;
@@ -1568,7 +1382,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
         m_tonemap.colorMapParams->tone_constants.linear_knee = prm->toneMapping.tone_constants.mobius.linear_knee;
         m_tonemap.colorMapParams->tone_constants.exposure = prm->toneMapping.tone_constants.linear.exposure;
 
-        m_tonemap.colorMapParams->gamut_mapping = pl_find_gamut_map_function(tchar_to_string(get_cx_desc(list_vpp_libplacebo_tone_mapping_gamut_mapping, (int)prm->toneMapping.gamut_mapping)).c_str());
+        m_tonemap.colorMapParams->gamut_mapping = m_pl->p_find_gamut_map_function()(tchar_to_string(get_cx_desc(list_vpp_libplacebo_tone_mapping_gamut_mapping, (int)prm->toneMapping.gamut_mapping)).c_str());
         if (!m_tonemap.colorMapParams->gamut_mapping) {
             AddMessage(RGY_LOG_ERROR, _T("Invalid gamut mapping.\n"));
             return RGY_ERR_INVALID_PARAM;
@@ -1579,7 +1393,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
         m_tonemap.colorMapParams->contrast_recovery = prm->toneMapping.contrast_recovery;
         m_tonemap.colorMapParams->contrast_smoothness = prm->toneMapping.contrast_smoothness;
 
-        m_tonemap.peakDetectParams = std::make_unique<pl_peak_detect_params>(m_libplaceboLoader->pl_peak_detect_default_params());
+        m_tonemap.peakDetectParams = std::make_unique<pl_peak_detect_params>(m_pl->p_peak_detect_default_params());
         m_tonemap.peakDetectParams->smoothing_period = prm->toneMapping.smooth_period;
         m_tonemap.peakDetectParams->scene_threshold_low = prm->toneMapping.scene_threshold_low;
         m_tonemap.peakDetectParams->scene_threshold_high = prm->toneMapping.scene_threshold_high;
@@ -1599,7 +1413,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
         }
     }
 
-    auto setHdrMetadata = [](pl_color_space& plCsp, const VppLibplaceboToneMappingCSP prm_csp, const float max_org, const float min_org, const RGYHDRMetadata *hdrMetadata) {
+    auto setHdrMetadata = [pl = m_pl.get()](pl_color_space& plCsp, const VppLibplaceboToneMappingCSP prm_csp, const float max_org, const float min_org, const RGYHDRMetadata *hdrMetadata) {
         const auto hdrMetadataPrm = hdrMetadata->getprm();
         if (hdrMetadataPrm.contentlight_set) {
             plCsp.hdr.max_cll = (float)hdrMetadataPrm.maxcll;
@@ -1621,7 +1435,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
             plCsp.hdr.prim.white.x = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::WP_X].qfloat();
             plCsp.hdr.prim.white.y = hdrMetadataPrm.masterdisplay[RGYHDRMetadataPrmIndex::WP_Y].qfloat();
         } else {
-            pl_raw_primaries_merge(&plCsp.hdr.prim, pl_raw_primaries_get((prm_csp == VppLibplaceboToneMappingCSP::SDR) ? plCsp.primaries : PL_COLOR_PRIM_DISPLAY_P3));
+            pl->p_raw_primaries_merge()(&plCsp.hdr.prim, pl->p_raw_primaries_get()((prm_csp == VppLibplaceboToneMappingCSP::SDR) ? plCsp.primaries : PL_COLOR_PRIM_DISPLAY_P3));
         }
     };
 
@@ -1791,15 +1605,15 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setFrameParam(const RGYFrameInfo *pInp
                         return RGY_ERR_INVALID_PARAM;
                     }
 
-                    m_tonemap.plCspDst.hdr.min_luma = (m_tonemap.cspDst == VppLibplaceboToneMappingCSP::HDR10) ? m_tonemap.plCspSrc.hdr.min_luma : pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, vdr_dm_data->source_min_pq / 4095.0f);
-                    m_tonemap.plCspSrc.hdr.max_luma = pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, vdr_dm_data->source_max_pq / 4095.0f);
+                    m_tonemap.plCspDst.hdr.min_luma = (m_tonemap.cspDst == VppLibplaceboToneMappingCSP::HDR10) ? m_tonemap.plCspSrc.hdr.min_luma : m_pl->p_hdr_rescale()(PL_HDR_PQ, PL_HDR_NITS, vdr_dm_data->source_min_pq / 4095.0f);
+                    m_tonemap.plCspSrc.hdr.max_luma = m_pl->p_hdr_rescale()(PL_HDR_PQ, PL_HDR_NITS, vdr_dm_data->source_max_pq / 4095.0f);
 
                     if (vdr_dm_data->dm_data.level1) {
                         const DoviExtMetadataBlockLevel1* extL1 = vdr_dm_data->dm_data.level1;
                         m_tonemap.plCspSrc.hdr.avg_pq_y = extL1->avg_pq / 4095.0f;
                         m_tonemap.plCspSrc.hdr.max_pq_y = extL1->max_pq / 4095.0f;
-                        m_tonemap.plCspSrc.hdr.scene_avg = pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, extL1->avg_pq / 4095.0f);
-                        m_tonemap.plCspSrc.hdr.scene_max[0] = pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, extL1->max_pq / 4095.0f);
+                        m_tonemap.plCspSrc.hdr.scene_avg = m_pl->p_hdr_rescale()(PL_HDR_PQ, PL_HDR_NITS, extL1->avg_pq / 4095.0f);
+                        m_tonemap.plCspSrc.hdr.scene_max[0] = m_pl->p_hdr_rescale()(PL_HDR_PQ, PL_HDR_NITS, extL1->max_pq / 4095.0f);
                         m_tonemap.plCspSrc.hdr.scene_max[1] = m_tonemap.plCspSrc.hdr.scene_max[0];
                         m_tonemap.plCspSrc.hdr.scene_max[2] = m_tonemap.plCspSrc.hdr.scene_max[0];
                     }
@@ -1815,7 +1629,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setFrameParam(const RGYFrameInfo *pInp
         }
     }
 
-    pl_color_space_infer_map(&m_tonemap.plCspSrc, &m_tonemap.plCspDst);
+    m_pl->p_color_space_infer_map()(&m_tonemap.plCspSrc, &m_tonemap.plCspDst);
 
     return RGY_ERR_NONE;
 }
@@ -1842,7 +1656,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::procFrame(pl_tex texOut[RGY_MAX_PLANES
         frameOut.planes[iplane].component_mapping[0] = iplane;
     }
 
-    if (!pl_render_image(m_renderer.get(), &frameIn, &frameOut, m_tonemap.renderParams.get())) {
+    if (!m_pl->p_render_image()(m_renderer.get(), &frameIn, &frameOut, m_tonemap.renderParams.get())) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to render image.\n"));
         return RGY_ERR_UNKNOWN;
     }

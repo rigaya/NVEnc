@@ -600,10 +600,10 @@ if [ $ENABLE_LIBPLACEBO -ne 0 ]; then
         cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
     else
         cnf_write "OK"
-        LIBPLACEBO_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBPLACEBO_NAMES}`
+        #LIBPLACEBO_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBPLACEBO_NAMES}`
         LIBPLACEBO_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBPLACEBO_NAMES}`
     fi
-    if ! cxx_check "libplacebo/dispatch.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LIBPLACEBO_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${LIBPLACEBO_LIBS}" "" "libplacebo/dispatch.h" "pl_dispatch_destroy(0);" ; then
+    if ! cxx_check "libplacebo/config.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LIBPLACEBO_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${LIBPLACEBO_LIBS}" "" "libplacebo/config.h" "std::cout << PL_API_VER << std::endl;" ; then
         cnf_write "no"
         ENABLE_LIBPLACEBO=0
     else
@@ -760,7 +760,7 @@ rgy_env.cpp            rgy_err.cpp                 rgy_event.cpp \
 rgy_faw.cpp            rgy_filesystem.cpp          rgy_filter.cpp               rgy_frame.cpp                rgy_frame_info.cpp \
 rgy_hdr10plus.cpp      rgy_ini.cpp                 rgy_input.cpp                rgy_input_avcodec.cpp        rgy_input_avi.cpp \
 rgy_input_avs.cpp      rgy_input_raw.cpp           rgy_input_sm.cpp             rgy_input_vpy.cpp            rgy_language.cpp \
-rgy_level_av1.cpp      rgy_level_h264.cpp          rgy_level_hevc.cpp \
+rgy_level_av1.cpp      rgy_level_h264.cpp          rgy_level_hevc.cpp           rgy_libplacebo.cpp \
 rgy_log.cpp            rgy_memmem.cpp              rgy_nvrtc.cpp \
 rgy_output.cpp         rgy_output_avcodec.cpp      rgy_perf_counter.cpp \
 rgy_perf_monitor.cpp   rgy_pipe.cpp                rgy_pipe_linux.cpp           rgy_prm.cpp                  rgy_resource.cpp \
