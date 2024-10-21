@@ -868,7 +868,7 @@ write_enc_config "#define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL $AVCODEC_PAR_CODED_S
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
 write_enc_config "#define ENABLE_LIBDOVI                $ENABLE_LIBDOVI"
-write_enc_config "#define ENABLE_VULKAN                 $ENABLE_VULKAN"
+write_enc_config "#define ENABLE_VULKAN                 ($ENABLE_VULKAN && $ENABLE_LIBPLACEBO)"
 write_enc_config "#define ENABLE_LIBPLACEBO             $ENABLE_LIBPLACEBO"
 write_enc_config "#define ENABLE_PERF_COUNTER           0"
 
