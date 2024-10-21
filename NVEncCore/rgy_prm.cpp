@@ -76,6 +76,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::RGA_RESIZE,              _T("rga_resize")),
 #endif //#if ENCODER_VCEENC
     std::make_pair(VppType::CL_COLORSPACE,           _T("colorspace")),
+    std::make_pair(VppType::CL_LIBPLACEBO_TONEMAP,   _T("libplacebo-tonemapping")),
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
@@ -99,6 +100,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_CURVES,               _T("curves")),
     std::make_pair(VppType::CL_TWEAK,                _T("tweak")),
     std::make_pair(VppType::CL_DEBAND,               _T("deband")),
+    std::make_pair(VppType::CL_LIBPLACEBO_DEBAND,    _T("libplacebo-deband")),
     std::make_pair(VppType::CL_PAD,                  _T("pad"))
 );
 MAP_PAIR_0_1(vppfilter, type, VppType, str, tstring, VPPTYPE_TO_STR, VppType::VPP_NONE, _T("none"));
@@ -231,7 +233,7 @@ RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     } else if (resize < RGY_VPP_RESIZE_NGX_MAX) {
         return RGY_VPP_RESIZE_TYPE_NGX;
 #endif
-#if (ENCODER_NVENC && (ENABLE_VPP_FILTER_LIBPLACEBO || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
+#if ((ENCODER_NVENC || ENCODER_QSV) && (ENABLE_VPP_FILTER_LIBPLACEBO || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     } else if (resize < RGY_VPP_RESIZE_LIBPLACEBO_MAX) {
         return RGY_VPP_RESIZE_TYPE_LIBPLACEBO;
 #endif
@@ -2287,6 +2289,7 @@ RGYParamControl::RGYParamControl() :
     avsdll(),
     vsdir(),
     enableOpenCL(true),
+    enableVulkan(true),
     avoidIdleClock(),
     outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {
 

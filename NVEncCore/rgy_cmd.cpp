@@ -6768,6 +6768,14 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
 #endif
+    if (IS_OPTION("disable-vulkan")) {
+        ctrl->enableVulkan = false;
+        return 0;
+    }
+    if (IS_OPTION("enable-vulkan")) {
+        ctrl->enableVulkan = true;
+        return 0;
+    }
     return -10;
 }
 
@@ -8111,6 +8119,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
 #if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     OPT_BOOL(_T("--enable-opencl"), _T("--disable-opencl"), enableOpenCL);
 #endif
+    OPT_BOOL(_T("--enable-vulkan"), _T("--disable-vulkan"), enableVulkan);
     return cmd.str();
 }
 
@@ -9217,6 +9226,8 @@ tstring gen_cmd_help_ctrl() {
     str += strsprintf(_T("\n")
         _T("   --disable-opencl             disable opencl features.\n"));
 #endif
+    str += strsprintf(_T("\n")
+        _T("   --disable-vulkan             disable vulkan features.\n"));
     str += strsprintf(_T("\n")
         _T("   --perf-monitor [<string>][,<string>]...\n")
         _T("       check performance info of encoder and output to log file\n")
