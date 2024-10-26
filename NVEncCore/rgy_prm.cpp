@@ -93,6 +93,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
+    std::make_pair(VppType::CL_LIBPLACEBO_SHADER,    _T("libplacebo-shader")),
     std::make_pair(VppType::CL_RESIZE,               _T("resize")),
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
@@ -584,6 +585,69 @@ tstring VppLibplaceboToneMapping::print() const {
         str += strsprintf(_T("dst_pl_transfer=%s, "), get_cx_desc(list_vpp_libplacebo_tone_mapping_transfer, (int)dst_pl_transfer));
         str += strsprintf(_T("dst_pl_colorprim=%s"), get_cx_desc(list_vpp_libplacebo_tone_mapping_colorprim, (int)dst_pl_colorprim));
     }
+    return str;
+}
+
+VppLibplaceboShader::VppLibplaceboShader() :
+    enable(false),
+    shader(),
+    width(0),
+    height(0),
+    params(),
+    resize_algo((RGY_VPP_RESIZE_ALGO)get_cx_value(list_vpp_resize, FILTER_DEFAULT_LIBPLACEBO_SHADER_RESAMPLER_NAME)),
+    colorsystem((VppLibplaceboColorsystem)FILTER_DEFAULT_LIBPLACEBO_SHADER_COLORSYSTEM),
+    transfer((VppLibplaceboToneMappingTransfer)FILTER_DEFAULT_LIBPLACEBO_SHADER_TRANSFER),
+    chromaloc((CspChromaloc)FILTER_DEFAULT_LIBPLACEBO_SHADER_CHROMALOC),
+    radius(FILTER_DEFAULT_LIBPLACEBO_SHADER_RADIUS),
+    clamp_(FILTER_DEFAULT_LIBPLACEBO_SHADER_CLAMP),
+    taper(FILTER_DEFAULT_LIBPLACEBO_SHADER_TAPER),
+    blur(FILTER_DEFAULT_LIBPLACEBO_SHADER_BLUR),
+    antiring(FILTER_DEFAULT_LIBPLACEBO_SHADER_ANTIRING),
+    linear(FILTER_DEFAULT_LIBPLACEBO_SHADER_LINEAR) {
+}
+
+bool VppLibplaceboShader::operator==(const VppLibplaceboShader &x) const {
+    return enable == x.enable
+        && shader == x.shader
+        && width == x.width
+        && height == x.height
+        && params == x.params
+        && resize_algo == x.resize_algo
+        && colorsystem == x.colorsystem
+        && transfer == x.transfer
+        && chromaloc == x.chromaloc
+        && radius == x.radius
+        && clamp_ == x.clamp_
+        && taper == x.taper
+        && blur == x.blur
+        && antiring == x.antiring
+        && linear == x.linear;
+}
+
+bool VppLibplaceboShader::operator!=(const VppLibplaceboShader &x) const {
+    return !(*this == x);
+}
+
+tstring VppLibplaceboShader::print() const {
+    tstring str;
+    str += strsprintf(_T("%s, "), shader.c_str());
+    for (const auto& param : params) {
+        str += strsprintf(_T("%s=%s, "), param.first.c_str(), param.second.c_str());
+    }
+    if (width > 0 && height > 0) {
+        str += strsprintf(_T("res=%dx%d, "), width, height);
+    }
+    str += strsprintf(_T("resampler=%s, "), get_cx_desc(list_vpp_resize, (int)resize_algo));
+    str += strsprintf(_T("colorsystem=%s, "), get_cx_desc(list_vpp_libplacebo_colorsystem, (int)colorsystem));
+    str += strsprintf(_T("transfer=%s, "), get_cx_desc(list_vpp_libplacebo_tone_mapping_transfer, (int)transfer));
+    str += strsprintf(_T("chromaloc=%s, "), get_cx_desc(list_chromaloc_str, (int)chromaloc));
+    str += strsprintf(_T("radius=%.2f, "), radius);
+    str += strsprintf(_T("clamp=%.2f, "), clamp_);
+    str += strsprintf(_T("taper=%.2f, "), taper);
+    str += strsprintf(_T("blur=%.2f, "), blur);
+    str += strsprintf(_T("antiring=%.2f, "), antiring);
+    str += strsprintf(_T("linear=%s"), linear ? _T("on") : _T("off"));
+
     return str;
 }
 
@@ -1981,6 +2045,7 @@ RGYParamVpp::RGYParamVpp() :
     smooth(),
     fft3d(),
     subburn(),
+    libplacebo_shader(),
     unsharp(),
     edgelevel(),
     warpsharp(),
@@ -2018,6 +2083,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && smooth == x.smooth
         && subburn == x.subburn
         && unsharp == x.unsharp
+        && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel
         && warpsharp == x.warpsharp
         && curves == x.curves

@@ -75,6 +75,14 @@ public:
     virtual tstring print() const override;
 };
 
+class NVEncFilterParamLibplaceboShader : public NVEncFilterParamLibplacebo {
+public:
+    VppLibplaceboShader shader;
+    NVEncFilterParamLibplaceboShader() : NVEncFilterParamLibplacebo(), shader() {};
+    virtual ~NVEncFilterParamLibplaceboShader() {};
+    virtual tstring print() const override;
+};
+
 #if ENABLE_LIBPLACEBO
 
 #include "rgy_libplacebo.h"
@@ -225,6 +233,32 @@ protected:
     RGYLibplaceboToneMappingParams m_tonemap;
 };
 
+class NVEncFilterLibplaceboShader : public NVEncFilterLibplacebo {
+public:
+    NVEncFilterLibplaceboShader();
+    virtual ~NVEncFilterLibplaceboShader();
+protected:
+    virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
+    virtual RGY_ERR setLibplaceboParam(const NVEncFilterParam *param) override;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, const RGY_PLANE planeIdx) override {
+        UNREFERENCED_PARAMETER(texOut); UNREFERENCED_PARAMETER(pDstPlane); UNREFERENCED_PARAMETER(texIn); UNREFERENCED_PARAMETER(pSrcPlane); UNREFERENCED_PARAMETER(planeIdx);
+        return RGY_ERR_UNSUPPORTED;
+    };
+    virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame)  override;
+
+    virtual RGY_CSP getTextureCsp(const RGY_CSP csp) override;
+    virtual CUDAInteropDataFormat getTextureDataFormat([[maybe_unused]] const RGY_CSP csp) override;
+
+    std::unique_ptr<pl_hook, RGYLibplaceboDeleter<const pl_hook*>> m_shader;
+    pl_color_system m_colorsystem;
+    pl_color_transfer m_transfer;
+    pl_color_levels m_range;
+    pl_chroma_location m_chromaloc;
+    std::unique_ptr<pl_sample_filter_params> m_sample_params;
+    std::unique_ptr<pl_sigmoid_params> m_sigmoid_params;
+    int m_linear;
+};
+
 #else
 
 class NVEncFilterLibplaceboResample : public NVEncFilterDisabled {
@@ -243,6 +277,12 @@ class NVEncFilterLibplaceboToneMapping : public NVEncFilterDisabled {
 public:
     NVEncFilterLibplaceboToneMapping();
     virtual ~NVEncFilterLibplaceboToneMapping();
+};
+
+class NVEncFilterLibplaceboShader : public NVEncFilterDisabled {
+public:
+    NVEncFilterLibplaceboShader();
+    virtual ~NVEncFilterLibplaceboShader();
 };
 
 #endif

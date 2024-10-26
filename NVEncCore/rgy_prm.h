@@ -151,6 +151,8 @@ enum class VppType : int {
     CL_DENOISE_SMOOTH,
     CL_DENOISE_FFT3D,
 
+    CL_LIBPLACEBO_SHADER,
+
     CL_RESIZE,
 
     CL_SUBBURN,
@@ -231,8 +233,8 @@ static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_REINHARD_CONTRAST = 0.5
 static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_LINEAR_KNEE = 0.3f;
 static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_EXPOSURE = 1.0f;
 
-static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SRC_CSP = 1;
-static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_CSP = 0;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SRC_CSP = -1;
+static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_CSP = -1;
 static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SRC_MAX = -1.0f;
 static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SRC_MIN = -1.0f;
 static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_MAX = -1.0f;
@@ -375,6 +377,17 @@ static const float FILTER_DEFAULT_EDGELEVEL_STRENGTH = 5.0f;
 static const float FILTER_DEFAULT_EDGELEVEL_THRESHOLD = 20.0f;
 static const float FILTER_DEFAULT_EDGELEVEL_BLACK = 0.0f;
 static const float FILTER_DEFAULT_EDGELEVEL_WHITE = 0.0f;
+
+static const TCHAR *FILTER_DEFAULT_LIBPLACEBO_SHADER_RESAMPLER_NAME = _T("libplacebo-ewa-lanczos");
+static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_COLORSYSTEM = 0;
+static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_TRANSFER = 0;
+static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_CHROMALOC = 0;
+static const float FILTER_DEFAULT_LIBPLACEBO_SHADER_RADIUS = FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_RADIUS;
+static const float FILTER_DEFAULT_LIBPLACEBO_SHADER_CLAMP = FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_CLAMP;
+static const float FILTER_DEFAULT_LIBPLACEBO_SHADER_TAPER = FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_TAPER;
+static const float FILTER_DEFAULT_LIBPLACEBO_SHADER_BLUR = FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_BLUR;
+static const float FILTER_DEFAULT_LIBPLACEBO_SHADER_ANTIRING = FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_ANTIRING;
+static const bool  FILTER_DEFAULT_LIBPLACEBO_SHADER_LINEAR = false;
 
 static const int   FILTER_DEFAULT_UNSHARP_RADIUS = 3;
 static const float FILTER_DEFAULT_UNSHARP_WEIGHT = 0.5f;
@@ -1117,6 +1130,38 @@ struct VppLibplaceboDeband {
     tstring print() const;
 };
 
+enum class VppLibplaceboColorsystem {
+    UNKNOWN,
+    BT_601,
+    BT_709,
+    SMPTE_240M,
+    BT_2020_NC,
+    BT_2020_C,
+    BT_2100_PQ,
+    BT_2100_HLG,
+    DOLBYVISION,
+    YCGCO,
+    RGB,
+    XYZ,
+    COUNT
+};
+
+const CX_DESC list_vpp_libplacebo_colorsystem[] = {
+    { _T("unknown"),     (int)VppLibplaceboColorsystem::UNKNOWN },
+    { _T("bt601"),       (int)VppLibplaceboColorsystem::BT_601 },
+    { _T("bt709"),       (int)VppLibplaceboColorsystem::BT_709 },
+    { _T("smpte240m"),   (int)VppLibplaceboColorsystem::SMPTE_240M },
+    { _T("bt2020nc"),    (int)VppLibplaceboColorsystem::BT_2020_NC },
+    { _T("bt2020c"),     (int)VppLibplaceboColorsystem::BT_2020_C },
+    { _T("bt2100pq"),    (int)VppLibplaceboColorsystem::BT_2100_PQ },
+    { _T("bt2100hlg"),   (int)VppLibplaceboColorsystem::BT_2100_HLG },
+    { _T("dolbyvision"), (int)VppLibplaceboColorsystem::DOLBYVISION },
+    { _T("ycgco"),       (int)VppLibplaceboColorsystem::YCGCO },
+    { _T("rgb"),         (int)VppLibplaceboColorsystem::RGB },
+    { _T("xyz"),         (int)VppLibplaceboColorsystem::XYZ },
+    { NULL, 0 }
+};
+
 enum class VppLibplaceboToneMappingCSP {
     Auto = -1,
     SDR,
@@ -1412,6 +1457,29 @@ struct VppLibplaceboToneMapping {
     VppLibplaceboToneMapping();
     bool operator==(const VppLibplaceboToneMapping &x) const;
     bool operator!=(const VppLibplaceboToneMapping &x) const;
+    tstring print() const;
+};
+
+struct VppLibplaceboShader {
+    bool enable;
+    tstring shader;
+    int width;
+    int height;
+    std::vector<std::pair<tstring, tstring>> params;
+    RGY_VPP_RESIZE_ALGO resize_algo;
+    VppLibplaceboColorsystem colorsystem;
+    VppLibplaceboToneMappingTransfer transfer;
+    CspChromaloc chromaloc;
+    float radius;
+    float clamp_;
+    float taper;
+    float blur;
+    float antiring;
+    bool linear;
+
+    VppLibplaceboShader();
+    bool operator==(const VppLibplaceboShader &x) const;
+    bool operator!=(const VppLibplaceboShader &x) const;
     tstring print() const;
 };
 
@@ -2164,6 +2232,7 @@ struct RGYParamVpp {
     VppSmooth smooth;
     VppDenoiseFFT3D fft3d;
     std::vector<VppSubburn> subburn;
+    std::vector<VppLibplaceboShader> libplacebo_shader;
     VppUnsharp unsharp;
     VppEdgelevel edgelevel;
     VppWarpsharp warpsharp;

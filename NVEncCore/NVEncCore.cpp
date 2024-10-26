@@ -1422,6 +1422,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.colorspace.enable
             || inputParam->vpp.libplacebo_tonemapping.enable
             || inputParam->vpp.subburn.size() > 0
+            || inputParam->vpp.libplacebo_shader.size() > 0
             || inputParam->vpp.pad.enable
             || inputParam->vpp.selectevery.enable
             || inputParam->vpp.decimate.enable
@@ -2329,28 +2330,21 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
 
     //リサイザの出力すべきサイズ
-    int resizeWidth  = croppedWidth;
-    int resizeHeight = croppedHeight;
-    m_uEncWidth = resizeWidth;
-    m_uEncHeight = resizeHeight;
-    if (inputParam->vpp.pad.enable) {
-        m_uEncWidth  += inputParam->vpp.pad.right + inputParam->vpp.pad.left;
-        m_uEncHeight += inputParam->vpp.pad.bottom + inputParam->vpp.pad.top;
-    }
+    int resizeWidth  = 0;
+    int resizeHeight = 0;
 
     //指定のリサイズがあればそのサイズに設定する
     if (inputParam->input.dstWidth > 0 && inputParam->input.dstHeight > 0) {
-        m_uEncWidth = inputParam->input.dstWidth;
-        m_uEncHeight = inputParam->input.dstHeight;
-        resizeWidth = m_uEncWidth;
-        resizeHeight = m_uEncHeight;
+        resizeWidth = inputParam->input.dstWidth;
+        resizeHeight = inputParam->input.dstHeight;
         if (inputParam->vpp.pad.enable) {
             resizeWidth -= (inputParam->vpp.pad.right + inputParam->vpp.pad.left);
             resizeHeight -= (inputParam->vpp.pad.bottom + inputParam->vpp.pad.top);
         }
     }
     bool resizeRequired = false;
-    if (croppedWidth != resizeWidth || croppedHeight != resizeHeight) {
+    if ((resizeWidth > 0 && resizeHeight > 0) &&
+        (croppedWidth != resizeWidth || croppedHeight != resizeHeight)) {
         resizeRequired = true;
     }
     //avhw読みではデコード直後にリサイズが可能
@@ -2424,6 +2418,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.libplacebo_tonemapping.enable
         || inputParam->vpp.pad.enable
         || inputParam->vpp.subburn.size() > 0
+        || inputParam->vpp.libplacebo_shader.size() > 0
         || inputParam->vpp.rff.enable
         || inputParam->vpp.decimate.enable
         || inputParam->vpp.mpdecimate.enable
@@ -3088,8 +3083,40 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             return RGY_ERR_UNSUPPORTED;
 #endif
         }
+        //libplacebo-shader
+        for (const auto& shader : inputParam->vpp.libplacebo_shader) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterLibplaceboShader());
+            shared_ptr<NVEncFilterParamLibplaceboShader> param(new NVEncFilterParamLibplaceboShader());
+            param->shader = shader;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            if (shader.width > 0) {
+                param->frameOut.width = shader.width;
+            }
+            if (shader.height > 0) {
+                param->frameOut.height = shader.height;
+            }
+            param->dx11 = m_dev->dx11();
+            param->vk = m_dev->vulkan();
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        
         //リサイズ
-        if (resizeRequired) {
+        if (resizeWidth > 0 && resizeHeight > 0 &&
+            (inputFrame.width != resizeWidth || inputFrame.height != resizeHeight)) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterResize());
             shared_ptr<NVEncFilterParamResize> param(new NVEncFilterParamResize());
             if (inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO) {
@@ -3471,6 +3498,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             filter->setCheckPerformance(inputParam->vpp.checkPerformance);
         }
     }
+    m_uEncWidth = inputFrame.width;
+    m_uEncHeight = inputFrame.height;
     m_encVUI = inputParam->common.out_vui;
     if (m_rgbAsYUV444) {
         m_encVUI.descriptpresent = 1;

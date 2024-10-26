@@ -211,6 +211,7 @@
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
   - [--vpp-gauss \<int\>](#--vpp-gauss-int)
   - [--vpp-subburn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-subburn-param1value1param2value2)
+  - [--vpp-libplacebo-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-shader-param1value1param2value2)
   - [--vpp-resize \<string\> or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-resize-string-or-param1value1param2value2)
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
@@ -1655,6 +1656,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
 - [--vpp-gauss](#--vpp-gauss-int)
 - [--vpp-subburn](#--vpp-subburn-param1value1param2value2)
+- [--vpp-libplacebo-shader](#--vpp-libplacebo-shader-param1value1param2value2)
 - [--vpp-resize](#--vpp-resize-string-or-param1value1param2value2)
 - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
@@ -2551,6 +2553,68 @@ The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/
   --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
   ```
 
+### --vpp-libplacebo-shader [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+Apply custom shaders in the specified path using [libplacebo](https://code.videolan.org/videolan/libplacebo).
+
+- **Parameters**
+    - shader=&lt;string&gt;  
+      Target shader file path.
+
+    - res=&lt;int&gt;x&lt;int&gt;  
+      Output resolution of the filter.
+
+    - colorsystem=&lt;int&gt;  
+      Color system to use. Default: bt709.
+      ```
+      unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz
+      ```
+
+    - transfer=&lt;string&gt;  
+      Output transfer function. 
+      ```
+      unknown, srgb, bt1886, linear,
+      gamma18, gamma20, gamma22, gamma24, gamma26, gamma28,
+      prophoto, st428, pq, hlg, vlog, slog1, slog2
+      ```
+
+    - resampler=&lt;string&gt;  
+      Filter function to use when resample is required. Default: libplacebo-ewa-lanczos.
+      ```
+      libplacebo-spline16, libplacebo-spline36, libplacebo-spline64, libplacebo-nearest,
+      libplacebo-bilinear, libplacebo-gaussian, libplacebo-sinc, libplacebo-lanczos, 
+      libplacebo-ginseng, libplacebo-ewa-jinc, libplacebo-ewa-lanczos, 
+      libplacebo-ewa-lanczossharp, libplacebo-ewa-lanczos4sharpest, 
+      libplacebo-ewa-ginseng, libplacebo-ewa-hann, libplacebo-ewa-hanning, 
+      libplacebo-bicubic, libplacebo-triangle, libplacebo-hermite, libplacebo-catmull-rom, 
+      libplacebo-mitchell, libplacebo-mitchell-clamp, libplacebo-robidoux, 
+      libplacebo-robidouxsharp, libplacebo-ewa-robidoux, libplacebo-ewa-robidouxsharp
+      ```
+
+    - radius=&lt;float&gt;  
+      Adjust the function's radius. Default: auto. Must be between 0.0 and 16.0.
+
+    - clamp=&lt;float&gt;  
+      Clamping coefficient for negative weights. Default: 0.0. Must be between 0.0 and 1.0.
+
+    - taper=&lt;float&gt;  
+      Additional taper coefficient. Default: 0.0. Must be between 0.0 and 1.0.
+
+    - blur=&lt;float&gt;  
+      Additional blur coefficient. Default: 0.0. Must be between 0.0 and 100.0.
+
+    - antiring=&lt;float&gt;  
+      Antiringing strength. Default: 0.0. Must be between 0.0 and 1.0.
+    
+    - linear=&lt;bool&gt;  
+      linearize image bdfore processing.
+
+- **Examples**
+    ``` 
+    Example: Apply a custom shader with specific parameters
+    --vpp-libplacebo-shader-params 
+    ```
+
 ### --vpp-resize &lt;string&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Specify the resizing algorithm.
 
@@ -2690,7 +2754,6 @@ Specify the resizing algorithm.
   Examples: Use libplacebo resize filters
   --vpp-resize algo=libplacebo-sinc,pl-radius=3.0,pl-antiring=0.5
   ```
-
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 unsharp filter, for edge and detail enhancement.

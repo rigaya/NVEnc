@@ -85,7 +85,12 @@ RGYLibplaceboLoader::RGYLibplaceboLoader() :
     m_pl_find_gamut_map_function(nullptr),
     m_pl_raw_primaries_get(nullptr),
     m_pl_raw_primaries_merge(nullptr),
-    m_pl_color_space_infer_map(nullptr) {
+    m_pl_color_space_infer_map(nullptr),
+    m_pl_frame_set_chroma_location(nullptr),
+    m_pl_shader_custom(nullptr),
+    m_pl_mpv_user_shader_parse(nullptr),
+    m_pl_mpv_user_shader_destroy(nullptr)
+{
 }
 
 RGYLibplaceboLoader::~RGYLibplaceboLoader() {
@@ -161,6 +166,12 @@ bool RGYLibplaceboLoader::load() {
     if (!loadFunc("pl_raw_primaries_get", (void**)&m_pl_raw_primaries_get)) return false;
     if (!loadFunc("pl_raw_primaries_merge", (void**)&m_pl_raw_primaries_merge)) return false;
     if (!loadFunc("pl_color_space_infer_map", (void**)&m_pl_color_space_infer_map)) return false;
+
+    if (!loadFunc("pl_frame_set_chroma_location", (void**)&m_pl_frame_set_chroma_location)) return false;
+
+    if (!loadFunc("pl_shader_custom", (void**)&m_pl_shader_custom)) return false;
+    if (!loadFunc("pl_mpv_user_shader_parse", (void**)&m_pl_mpv_user_shader_parse)) return false;
+    if (!loadFunc("pl_mpv_user_shader_destroy", (void**)&m_pl_mpv_user_shader_destroy)) return false;
 
     return true;
 }
@@ -260,6 +271,18 @@ static const auto RGY_COLORPRIM_TO_LIBPLACEBO = make_array<std::pair<CspColorpri
 );
 
 MAP_PAIR_0_1(colorprim, rgy, CspColorprim, libplacebo, pl_color_primaries, RGY_COLORPRIM_TO_LIBPLACEBO, RGY_PRIM_UNKNOWN, PL_COLOR_PRIM_UNKNOWN);
+
+static const auto RGY_CHROMALOC_TO_LIBPLACEBO = make_array<std::pair<CspChromaloc, pl_chroma_location>>(
+    std::make_pair(RGY_CHROMALOC_UNSPECIFIED, PL_CHROMA_UNKNOWN),
+    std::make_pair(RGY_CHROMALOC_LEFT, PL_CHROMA_LEFT),
+    std::make_pair(RGY_CHROMALOC_CENTER, PL_CHROMA_CENTER),
+    std::make_pair(RGY_CHROMALOC_TOPLEFT, PL_CHROMA_TOP_LEFT),
+    std::make_pair(RGY_CHROMALOC_TOP, PL_CHROMA_TOP_CENTER),
+    std::make_pair(RGY_CHROMALOC_BOTTOMLEFT, PL_CHROMA_BOTTOM_LEFT),
+    std::make_pair(RGY_CHROMALOC_BOTTOM, PL_CHROMA_BOTTOM_CENTER)
+);
+
+MAP_PAIR_0_1(chromaloc, rgy, CspChromaloc, libplacebo, pl_chroma_location, RGY_CHROMALOC_TO_LIBPLACEBO, RGY_CHROMALOC_UNSPECIFIED, PL_CHROMA_UNKNOWN);
 
 std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter> rgy_pl_tex_recreate(const RGYLibplaceboLoader *pl, pl_gpu gpu, const pl_tex_params& tex_params) {
     pl_tex tex_tmp = { 0 };

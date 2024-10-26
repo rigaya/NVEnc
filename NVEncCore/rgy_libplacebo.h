@@ -45,7 +45,7 @@
 #include <libplacebo/dispatch.h>
 #include <libplacebo/renderer.h>
 #include <libplacebo/shaders.h>
-#include <libplacebo/utils/upload.h>
+#include <libplacebo/shaders/custom.h>
 #if ENABLE_D3D11
 #include <libplacebo/d3d11.h>
 #elif ENABLE_VULKAN
@@ -117,6 +117,12 @@ private:
     decltype(&pl_raw_primaries_merge) m_pl_raw_primaries_merge;
     decltype(&pl_color_space_infer_map) m_pl_color_space_infer_map;
 
+    decltype(&pl_frame_set_chroma_location) m_pl_frame_set_chroma_location;
+
+    decltype(&pl_shader_custom) m_pl_shader_custom;
+    decltype(&pl_mpv_user_shader_parse) m_pl_mpv_user_shader_parse;
+    decltype(&pl_mpv_user_shader_destroy) m_pl_mpv_user_shader_destroy;
+
 public:
     RGYLibplaceboLoader();
     ~RGYLibplaceboLoader();
@@ -171,6 +177,12 @@ public:
     auto p_raw_primaries_get() const { return m_pl_raw_primaries_get; }
     auto p_raw_primaries_merge() const { return m_pl_raw_primaries_merge; }
     auto p_color_space_infer_map() const { return m_pl_color_space_infer_map; }
+
+    auto p_frame_set_chroma_location() const { return m_pl_frame_set_chroma_location; }
+
+    auto p_shader_custom() const { return m_pl_shader_custom; }
+    auto p_mpv_user_shader_parse() const { return m_pl_mpv_user_shader_parse; }
+    auto p_mpv_user_shader_destroy() const { return m_pl_mpv_user_shader_destroy; }
 };
 
 
@@ -197,6 +209,7 @@ MAP_PAIR_0_1_PROTO(resize_algo, rgy, RGY_VPP_RESIZE_ALGO, libplacebo, const char
 MAP_PAIR_0_1_PROTO(tone_map_metadata, rgy, VppLibplaceboToneMappingMetadata, libplacebo, pl_hdr_metadata_type);
 MAP_PAIR_0_1_PROTO(transfer, rgy, CspTransfer, libplacebo, pl_color_transfer);
 MAP_PAIR_0_1_PROTO(colorprim, rgy, CspColorprim, libplacebo, pl_color_primaries);
+MAP_PAIR_0_1_PROTO(chromaloc, rgy, CspChromaloc, libplacebo, pl_chroma_location);
 
 static void libplacebo_log_func(void *private_data, pl_log_level level, const char* msg) {
     auto log = static_cast<RGYLog*>(private_data);
