@@ -68,6 +68,7 @@ typedef char TCHAR;
 #define _trename rename
 #define _istalpha isalpha
 #define _tcsftime strftime
+#define _tcsncmp strncmp
 
 #define _SH_DENYRW      0x10    // deny read/write mode
 #define _SH_DENYWR      0x20    // deny write mode
