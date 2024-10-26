@@ -151,6 +151,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
       - sdr2hdr (NGX TrueHDR)
       - tonemap ([libplacebo](https://code.videolan.org/videolan/libplacebo))
       - lut3d
+    - custom shader ([libplacebo](https://code.videolan.org/videolan/libplacebo))
     - リサイズ  
       - bilinear
       - spline16, spline36, spline64

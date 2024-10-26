@@ -2617,7 +2617,7 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
 
 - **パラメータ**
     - shader=&lt;string&gt;  
-      対象のshaderファイルのパス。
+      対象のshaderファイルのパス。(glslファイル)
 
     - res=&lt;int&gt;x&lt;int&gt;  
       フィルタの出力解像度。
@@ -2650,27 +2650,28 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
       ```
 
     - radius=&lt;float&gt;  
-      Adjust the function's radius. Default: auto. Must be between 0.0 and 16.0.
+      拡大縮小アルゴリズムの半径。vpp-resizeの表で "resizable" にチェックが入っているもののみ有効。 (0.0 - 16.0、デフォルト = 自動)
 
     - clamp=&lt;float&gt;  
-      Clamping coefficient for negative weights. Default: 0.0. Must be between 0.0 and 1.0.
+      負の重みに対するクランプ係数。1.0にすると負の重みが0になります。(0.0 -   1.    0、デフォルト = 0.0)
 
     - taper=&lt;float&gt;  
-      Additional taper coefficient. Default: 0.0. Must be between 0.0 and 1.0.
+     重み関数の中心部分を平坦化します。(0.0 - 1.0、デフォルト = 0.0)
 
     - blur=&lt;float&gt;  
-      Additional blur coefficient. Default: 0.0. Must be between 0.0 and 100.0.
+      追加のぼかし係数。(0.0 - 100.0、デフォルト = 0.0)
 
     - antiring=&lt;float&gt;  
-      Antiringing strength. Default: 0.0. Must be between 0.0 and 1.0.
+      アンチリンギング強度。(0.0 - 1.0、デフォルト = 0.0)
     
     - linear=&lt;bool&gt;  
       linearize image before processing.
 
+
 - 使用例
     ``` 
-    Example: Apply a custom shader with specific parameters
-    --vpp-libplacebo-shader-params 
+    例: カスタムシェーダを使用した 1280x720 -> 2560x1440 へのリサイズ。
+    --vpp-libplacebo-shader shader=default-shader-pack-2.1.0\Anime4K_Upscale_CNN_x2_L.glsl,res=2560x1440
     ```
   
 ### --vpp-resize &lt;string&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

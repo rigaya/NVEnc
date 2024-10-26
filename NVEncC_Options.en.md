@@ -2559,7 +2559,7 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
 
 - **Parameters**
     - shader=&lt;string&gt;  
-      Target shader file path.
+      Target shader file path. (glsl file)
 
     - res=&lt;int&gt;x&lt;int&gt;  
       Output resolution of the filter.
@@ -2611,8 +2611,8 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
 
 - **Examples**
     ``` 
-    Example: Apply a custom shader with specific parameters
-    --vpp-libplacebo-shader-params 
+    Example: Apply a custom shader (1280x720 -> 2560x1440)
+    --vpp-libplacebo-shader shader=default-shader-pack-2.1.0\Anime4K_Upscale_CNN_x2_L.glsl,res=2560x1440
     ```
 
 ### --vpp-resize &lt;string&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

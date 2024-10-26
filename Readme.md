@@ -142,6 +142,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
       - lut3d
     - delogo
     - subburn
+    - custom shader ([libplacebo](https://code.videolan.org/videolan/libplacebo))
     - resize
       - bilinear
       - spline16, spline36, spline64

@@ -143,6 +143,7 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
       - lut3d
     - delogo
     - subburn
+    - custom shader ([libplacebo](https://code.videolan.org/videolan/libplacebo))
     - resize
       - bilinear
       - spline16, spline36, spline64
