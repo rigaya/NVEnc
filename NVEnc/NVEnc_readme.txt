@@ -218,7 +218,6 @@ NVIDIA グラフィックドライバ 551.23
 2024.10.26 (7.71)
 [NVEncC]
 - Linuxでのlibplaceboフィルタの使用に対応。(配布バイナリではUbuntu 24.04のみ対応)
-- libplaceboによるバンディング低減フィルタを追加。(--vpp-libplacebo-deband)
 - libplaceboのcustom shaderを使用したフィルタを追加。 (--vpp-libplacebo-shader)
 - --vpp-libplacebo-tonemappingのhelpを修正。
 
