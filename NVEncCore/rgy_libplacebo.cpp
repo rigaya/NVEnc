@@ -58,6 +58,7 @@ RGYLibplaceboLoader::RGYLibplaceboLoader() :
     m_pl_vulkan_release_ex(nullptr),
     m_pl_vulkan_wrap(nullptr),
 #endif
+    m_pl_gpu_finish(nullptr),
     m_pl_tex_destroy(nullptr),
     m_pl_tex_recreate(nullptr),
     m_pl_log_create(nullptr),
@@ -135,6 +136,8 @@ bool RGYLibplaceboLoader::load() {
 #endif
     if (!loadFunc("pl_tex_destroy", (void**)&m_pl_tex_destroy)) return false;
     if (!loadFunc("pl_tex_recreate", (void**)&m_pl_tex_recreate)) return false;
+
+    if (!loadFunc("pl_gpu_finish", (void**)&m_pl_gpu_finish)) return false;
 
     char pl_log_create_str[256] = { 0 };
     sprintf_s(pl_log_create_str, "pl_log_create_%d", PL_API_VER);

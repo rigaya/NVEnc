@@ -100,6 +100,8 @@ public:
     PFN_vkWaitForFences                                     vkWaitForFences;
     PFN_vkCreateSemaphore                                   vkCreateSemaphore;
     PFN_vkDestroySemaphore                                  vkDestroySemaphore;
+    PFN_vkWaitSemaphores                                    vkWaitSemaphores;
+    PFN_vkSignalSemaphore                                   vkSignalSemaphore;
     PFN_vkCreateEvent                                       vkCreateEvent;
     PFN_vkDestroyEvent                                      vkDestroyEvent;
     PFN_vkGetEventStatus                                    vkGetEventStatus;
