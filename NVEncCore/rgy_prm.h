@@ -1147,6 +1147,7 @@ enum class VppLibplaceboColorsystem {
 };
 
 const CX_DESC list_vpp_libplacebo_colorsystem[] = {
+    { _T("auto"),        (int)VppLibplaceboColorsystem::UNKNOWN },
     { _T("unknown"),     (int)VppLibplaceboColorsystem::UNKNOWN },
     { _T("bt601"),       (int)VppLibplaceboColorsystem::BT_601 },
     { _T("bt709"),       (int)VppLibplaceboColorsystem::BT_709 },

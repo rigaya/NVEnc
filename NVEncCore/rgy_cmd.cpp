@@ -9159,7 +9159,7 @@ tstring gen_cmd_help_vpp() {
         ) + print_list(list_vpp_libplacebo_colorsystem) + _T("\n");
     str += strsprintf(_T("")
         _T("      transfer=<string>         Output transfer function.\n")
-        _T("                                  default: %s\n"), get_cx_desc(list_vpp_libplacebo_tone_mapping_transfer, FILTER_DEFAULT_LIBPLACEBO_SHADER_TRANSFER)
+        _T("                                  default: auto detect\n")
         ) + print_list(list_vpp_libplacebo_tone_mapping_transfer) + _T("\n");
     str += strsprintf(_T("")
         _T("      resampler=<string>         Filter function to use when resample is required.\n")

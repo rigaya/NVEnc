@@ -1799,11 +1799,43 @@ RGY_ERR NVEncFilterLibplaceboShader::setLibplaceboParam(const NVEncFilterParam *
         return RGY_ERR_UNKNOWN;
     }
 
-    const auto vuiIn = prm->vui;
+    const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[param->frameIn.csp];
+    auto vui = prm->vui;
+    if (inChromaFmt == RGY_CHROMAFMT_RGB || inChromaFmt == RGY_CHROMAFMT_RGB_PACKED) {
+        vui.setIfUnsetUnknwonAuto(VideoVUIInfo().to(RGY_MATRIX_RGB).to(RGY_PRIM_BT709).to(RGY_TRANSFER_IEC61966_2_1));
+    } else {
+        vui.setIfUnsetUnknwonAuto(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+    }
+    vui.apply_auto(VideoVUIInfo(), param->frameIn.height);
 
     m_colorsystem = (pl_color_system)prm->shader.colorsystem;
+    if (m_colorsystem == PL_COLOR_SYSTEM_UNKNOWN) {
+        switch (vui.matrix) {
+        case RGY_MATRIX_RGB: m_colorsystem = PL_COLOR_SYSTEM_RGB; break;
+        case RGY_MATRIX_YCGCO: m_colorsystem = PL_COLOR_SYSTEM_YCGCO; break;
+        case RGY_MATRIX_BT470_BG:
+        case RGY_MATRIX_ST170_M: m_colorsystem = PL_COLOR_SYSTEM_BT_601; break;
+        case RGY_MATRIX_BT2020_CL: m_colorsystem = PL_COLOR_SYSTEM_BT_2020_C; break;
+        case RGY_MATRIX_BT2020_NCL: {
+            m_colorsystem = PL_COLOR_SYSTEM_BT_2020_NC;
+            if (vui.transfer == RGY_TRANSFER_ST2084) {
+                m_colorsystem = PL_COLOR_SYSTEM_BT_2100_PQ; break;
+            } else if (vui.transfer == RGY_TRANSFER_ARIB_B67) {
+                m_colorsystem = PL_COLOR_SYSTEM_BT_2100_HLG; break;
+            }
+            break;
+        }
+        case RGY_MATRIX_BT709:
+        default:
+            m_colorsystem = PL_COLOR_SYSTEM_BT_709; break;
+        }
+    }
+
     m_transfer = (pl_color_transfer)(prm->shader.transfer);
-    m_range = (vuiIn.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
+    if (m_transfer == PL_COLOR_TRC_UNKNOWN) {
+        m_transfer = transfer_rgy_to_libplacebo(vui.transfer);
+    }
+    m_range = (vui.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
     m_linear = prm->shader.linear;
     m_chromaloc = chromaloc_rgy_to_libplacebo(prm->shader.chromaloc);
 
