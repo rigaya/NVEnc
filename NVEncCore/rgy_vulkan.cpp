@@ -81,6 +81,8 @@ RGYVulkanFuncs::RGYVulkanFuncs() :
     vkWaitForFences(nullptr),
     vkCreateSemaphore(nullptr),
     vkDestroySemaphore(nullptr),
+    vkWaitSemaphores(nullptr),
+    vkSignalSemaphore(nullptr),
     vkCreateEvent(nullptr),
     vkDestroyEvent(nullptr),
     vkGetEventStatus(nullptr),
@@ -270,6 +272,8 @@ int RGYVulkanFuncs::init() {
     LOAD(vkWaitForFences);
     LOAD(vkCreateSemaphore);
     LOAD(vkDestroySemaphore);
+    LOAD(vkWaitSemaphores);
+    LOAD(vkSignalSemaphore);
     LOAD(vkCreateEvent);
     LOAD(vkDestroyEvent);
     LOAD(vkGetEventStatus);

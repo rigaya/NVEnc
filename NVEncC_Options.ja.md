@@ -2623,13 +2623,13 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
       フィルタの出力解像度。
 
     - colorsystem=&lt;string&gt;  
-      使用する色空間を指定。デフォルトはbt709。
+      使用する色空間を指定。デフォルトでは入力ファイルから自動的に設定される。
       ```
       unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz
       ```
 
     - transfer=&lt;string&gt;  
-      出力のトランスファ関数を指定。
+      出力のトランスファ関数を指定。デフォルトでは入力ファイルから自動的に設定される。
       ```
       unknown, srgb, bt1886, linear,
       gamma18, gamma20, gamma22, gamma24, gamma26, gamma28,

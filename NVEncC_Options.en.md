@@ -2565,13 +2565,13 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
       Output resolution of the filter.
 
     - colorsystem=&lt;string&gt;  
-      Color system to use. Default: bt709.
+      Color system to use. Default: auto detect.
       ```
       unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz
       ```
 
     - transfer=&lt;string&gt;  
-      Output transfer function. 
+      Output transfer function. Default: auto detect.
       ```
       unknown, srgb, bt1886, linear,
       gamma18, gamma20, gamma22, gamma24, gamma26, gamma28,

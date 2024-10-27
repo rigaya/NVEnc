@@ -215,10 +215,15 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2024.10.27 (7.72)
+[NVEncC]
+- --vpp-libplacebo-shaderでlumaに対して処理を行うshaderが正常に動作しなかった問題を修正。
+- --vpp-libplacebo-shaderのcolorsytem, transferを入力ファイルの情報に基づき自動的に設定するように。
+- --dhdr10-infoが動作しなくなっていたのを修正。
+
 2024.10.26 (7.71)
 [NVEncC]
 - Linuxでのlibplaceboフィルタの使用に対応。(配布バイナリではUbuntu 24.04のみ対応)
-- libplaceboによるバンディング低減フィルタを追加。(--vpp-libplacebo-deband)
 - libplaceboのcustom shaderを使用したフィルタを追加。 (--vpp-libplacebo-shader)
 - --vpp-libplacebo-tonemappingのhelpを修正。
 

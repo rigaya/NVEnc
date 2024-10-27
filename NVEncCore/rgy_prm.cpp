@@ -640,7 +640,7 @@ tstring VppLibplaceboShader::print() const {
     str += strsprintf(_T("resampler=%s, "), get_cx_desc(list_vpp_resize, (int)resize_algo));
     str += strsprintf(_T("colorsystem=%s, "), get_cx_desc(list_vpp_libplacebo_colorsystem, (int)colorsystem));
     str += strsprintf(_T("transfer=%s, "), get_cx_desc(list_vpp_libplacebo_tone_mapping_transfer, (int)transfer));
-    str += strsprintf(_T("chromaloc=%s, "), get_cx_desc(list_chromaloc_str, (int)chromaloc));
+    //str += strsprintf(_T("chromaloc=%s, "), get_cx_desc(list_chromaloc_str, (int)chromaloc));
     str += strsprintf(_T("radius=%.2f, "), radius);
     str += strsprintf(_T("clamp=%.2f, "), clamp_);
     str += strsprintf(_T("taper=%.2f, "), taper);

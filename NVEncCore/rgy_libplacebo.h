@@ -84,6 +84,8 @@ private:
     decltype(&pl_tex_destroy) m_pl_tex_destroy;
     decltype(&pl_tex_recreate) m_pl_tex_recreate;
 
+    decltype(&pl_gpu_finish) m_pl_gpu_finish;
+
     decltype(&pl_log_create) m_pl_log_create;
     decltype(&pl_log_destroy) m_pl_log_destroy;
 
@@ -151,6 +153,7 @@ public:
 #endif
     auto p_tex_destroy() const { return m_pl_tex_destroy; }
     auto p_tex_recreate() const { return m_pl_tex_recreate; }
+    auto p_gpu_finish() const { return m_pl_gpu_finish; }
     auto p_log_create() const { return m_pl_log_create; }
     auto p_log_destroy() const { return m_pl_log_destroy; }
     auto p_dispatch_create() const { return m_pl_dispatch_create; }
