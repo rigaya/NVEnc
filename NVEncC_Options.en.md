@@ -2564,7 +2564,7 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
     - res=&lt;int&gt;x&lt;int&gt;  
       Output resolution of the filter.
 
-    - colorsystem=&lt;int&gt;  
+    - colorsystem=&lt;string&gt;  
       Color system to use. Default: auto detect.
       ```
       unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz
