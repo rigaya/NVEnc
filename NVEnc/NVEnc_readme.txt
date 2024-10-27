@@ -217,7 +217,9 @@ NVIDIA グラフィックドライバ 551.23
 【メモ】
 2024.10.27 (7.72)
 [NVEncC]
-- --vpp-libplacebp-shaderでlumaに対して処理を行うshaderが正常に動作しなかった問題を修正。
+- --vpp-libplacebo-shaderでlumaに対して処理を行うshaderが正常に動作しなかった問題を修正。
+- --vpp-libplacebo-shaderのcolorsytem, transferを入力ファイルの情報に基づき自動的に設定するように。
+- --dhdr10-infoが動作しなくなっていたのを修正。
 
 2024.10.26 (7.71)
 [NVEncC]

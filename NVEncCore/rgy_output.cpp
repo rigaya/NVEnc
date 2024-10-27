@@ -1224,7 +1224,7 @@ RGY_ERR initWriters(
         writerPrm.chapterNoTrim           = common->chapterNoTrim;
         writerPrm.attachments             = common->attachmentSource;
         writerPrm.hdrMetadataIn           = hdrMetadataIn;
-        writerPrm.hdr10plusMetadataCopy   = common->hdr10plusMetadataCopy;
+        writerPrm.hdr10plusMetadataCopy   = common->hdr10plusMetadataCopy || common->dynamicHdr10plusJson.length() > 0;
         writerPrm.doviRpu                 = doviRpu;
         writerPrm.doviRpuMetadataCopy     = common->doviRpuMetadataCopy;
         writerPrm.doviProfile             = common->doviProfile;
