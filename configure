@@ -547,34 +547,46 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
     fi
 fi
 
-cnf_print "checking for $CARGO..."
-type -p $CARGO 2>/dev/null 1>/dev/null
-if [ $? -ne 0 ]; then
-    cnf_write "${CARGO} does not exist."
-    ENABLE_LIBDOVI=0
-else
-    cnf_write "OK"
-fi
-if [ $ENABLE_LIBDOVI -ne 0 ]; then
-    CARGO=${CARGO} ./build_libdovi.sh
-    LIBDOVI_PC=$(find `pwd`/build_libdovi -name 'dovi.pc')
-    cnf_print "checking libdovi with pkg-config..."
-    if ! ${PKGCONFIG} --exists ${LIBDOVI_PC} ; then
-        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+cnf_print "Checking for dovi..."
+if ! ${PKGCONFIG} --exists dovi ; then
+    cnf_write "couldn't find system wide libdovi, trying included one."
+    cnf_print "checking for $CARGO..."
+    type -p $CARGO 2>/dev/null 1>/dev/null
+    if [ $? -ne 0 ]; then
+        cnf_write "${CARGO} does not exist."
+        ENABLE_LIBDOVI=0
     else
         cnf_write "OK"
-        LIBDOVI_LIBS=`${PKGCONFIG} --libs --static ${LIBDOVI_PC}`
-        LIBDOVI_CFLAGS=`${PKGCONFIG} --cflags ${LIBDOVI_PC}`
     fi
+    if [ $ENABLE_LIBDOVI -ne 0 ]; then
+        CARGO=${CARGO} ./build_libdovi.sh
+        LIBDOVI_PC=$(find `pwd`/build_libdovi -name 'dovi.pc')
+        cnf_print "checking libdovi with pkg-config..."
+        if ! ${PKGCONFIG} --exists ${LIBDOVI_PC} ; then
+            cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+	    ENABLE_LIBDOVI=0
+        else
+            cnf_write "OK"
+            LIBDOVI_LIBS=`${PKGCONFIG} --libs --static ${LIBDOVI_PC}`
+            LIBDOVI_CFLAGS=`${PKGCONFIG} --cflags ${LIBDOVI_PC}`
+        fi
+    fi
+else
+    cnf_write "OK"
+    LIBDOVI_LIBS=`${PKGCONFIG} --libs --static dovi`
+    LIBDOVI_CFLAGS=`${PKGCONFIG} --cflags dovi`
+fi
+if [ $ENABLE_LIBDOVI -ne 0 ]; then
     if ! cxx_check "rpu_parser.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBDOVI_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBDOVI_LIBS}" "libdovi/rpu_parser.h" "" "dovi_parse_rpu(nullptr, 0);" ; then
         cnf_write "no"
-        ENABLE_LIBDOVI=0
-        LIBDOVI_LIBS=""
-        LIBDOVI_CFLAGS=""
+            ENABLE_LIBDOVI=0
+            LIBDOVI_LIBS=""
+            LIBDOVI_CFLAGS=""
     else
         cnf_write "yes"
     fi
 fi
+
 if [ $ENABLE_VULKAN -ne 0 ]; then
     cnf_print "checking vulkan with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_VULKAN_NAMES} ; then
