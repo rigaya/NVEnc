@@ -1921,6 +1921,17 @@ RGY_ERR NVEncFilterLibplaceboShader::procFrame(pl_tex texOut[RGY_MAX_PLANES], co
     return RGY_ERR_NONE;
 }
 
+tstring NVEncFilterLibplaceboShader::printParams(const NVEncFilterParamLibplacebo *param) const {
+    auto prm = dynamic_cast<const NVEncFilterParamLibplaceboShader*>(param);
+    if (!prm) {
+        return param->print();
+    }
+    NVEncFilterParamLibplaceboShader current = *prm;
+    current.shader.colorsystem = (VppLibplaceboColorsystem)m_colorsystem;
+    current.shader.transfer = (VppLibplaceboToneMappingTransfer)m_transfer;
+    return current.print();
+}
+
 #else
 
 NVEncFilterLibplaceboResample::NVEncFilterLibplaceboResample() : NVEncFilterDisabled() { m_name = _T("libplacebo-resample"); }
