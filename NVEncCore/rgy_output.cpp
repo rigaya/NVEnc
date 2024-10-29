@@ -1538,7 +1538,7 @@ RGY_ERR initWriters(
             rawPrm.benchmark = benchmark;
             rawPrm.codecId = outputVideoInfo.codec;
             rawPrm.hdrMetadataIn = hdrMetadataIn;
-            rawPrm.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy;
+            rawPrm.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy || common->dynamicHdr10plusJson.length() > 0;
             rawPrm.doviProfile = common->doviProfile;
             rawPrm.doviRpu = doviRpu;
             rawPrm.doviRpuMetadataCopy = common->doviRpuMetadataCopy;
