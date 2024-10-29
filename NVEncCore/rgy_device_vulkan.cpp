@@ -79,16 +79,19 @@ RGY_ERR DeviceVulkan::Init(int adapterID, const std::vector<const char*> &extIns
     RGY_ERR res = RGY_ERR_NONE;
     m_log = log;
     m_logTryMode = logTryMode;
+    AddMessage(RGY_LOG_DEBUG, _T("Init Vulkan device...\n"));
 
     if (m_vk.init() != 0) {
         AddMessage(RGY_LOG_ERROR, _T("LoadFunctionsTable() failed - check if the proper Vulkan SDK is installed\n"));
         return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("LoadFunctionsTable() success.\n"));
 
     if ((res = CreateInstance(extInstance)) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("CreateInstance() failed\n"));
         return res;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("CreateInstance() success.\n"));
 
 #if defined(_DEBUG) && defined(ENABLE_VALIDATION)
     const bool bDebug = true;
@@ -99,17 +102,20 @@ RGY_ERR DeviceVulkan::Init(int adapterID, const std::vector<const char*> &extIns
         AddMessage(RGY_LOG_ERROR, _T("LoadInstanceFunctionsTableExt() failed - check if the proper Vulkan SDK is installed\n"));
         return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("LoadInstanceFunctionsTableExt() success.\n"));
 
     // load instance based functions
     if (CreateDeviceAndFindQueues(adapterID, extDevice) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("CreateDeviceAndFindQueues() failed\n"));
         return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("CreateDeviceAndFindQueues() success.\n"));
 
     if (m_vk.load(m_vkDevice) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("LoadDeviceFunctionsTableExt() failed - check if the proper Vulkan SDK is installed\n"));
         return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("LoadDeviceFunctionsTableExt() success.\n"));
 
     return RGY_ERR_NONE;
 }
@@ -387,4 +393,47 @@ void DeviceVulkan::AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
     va_end(args);
     AddMessage(log_level, buffer);
 }
+
+#if defined(_WIN32) || defined(_WIN64)
+HANDLE DeviceVulkan::getMemHandle(VkDeviceMemory memory) {
+    HANDLE                        handle = NULL;
+    VkMemoryGetWin32HandleInfoKHR win32_handle_info{};
+    win32_handle_info.sType      = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+    win32_handle_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
+    win32_handle_info.memory     = memory;
+    GetVulkan()->vkGetMemoryWin32HandleKHR(m_device, &win32_handle_info, &handle);
+    return handle;
+}
+
+HANDLE DeviceVulkan::getSemaphoreHandle(VkSemaphore &sempahore) {
+    HANDLE                           handle = NULL;
+    VkSemaphoreGetWin32HandleInfoKHR win32_handle_info{};
+    win32_handle_info.sType      = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
+    win32_handle_info.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+    win32_handle_info.semaphore  = sempahore;
+    GetVulkan()->vkGetSemaphoreWin32HandleKHR(m_device, &win32_handle_info, &handle);
+    return handle;
+}
+#else
+int DeviceVulkan::getMemHandle(VkDeviceMemory memory) {
+    int fd = 0;
+    VkMemoryGetFdInfoKHR fd_info{};
+    fd_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
+    fd_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+    fd_info.memory = memory;
+    GetVulkan()->vkGetMemoryFdKHR(m_vkDevice, &fd_info, &fd);
+    return fd;
+}
+
+int DeviceVulkan::getSemaphoreHandle(VkSemaphore &sempahore) {
+    int fd = 0;
+    VkSemaphoreGetFdInfoKHR fd_info{};
+    fd_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR;
+    fd_info.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+    fd_info.semaphore = sempahore;
+    GetVulkan()->vkGetSemaphoreFdKHR(m_vkDevice, &fd_info, &fd);
+    return fd;
+}
+#endif
+
 #endif

@@ -36,6 +36,8 @@
 #include "rgy_log.h"
 #include "rgy_err.h"
 
+class DeviceVulkan;
+
 #if ENABLE_VULKAN
 #include "rgy_vulkan.h"
 
@@ -74,6 +76,14 @@ public:
     VkPhysicalDevice GetPhysicalDevice() { return m_vkPhysicalDevice; }
     VkInstance GetInstance() { return m_vkInstance; }
 
+#if defined(_WIN32) || defined(_WIN64)
+    HANDLE getMemHandle(VkDeviceMemory memory);
+    HANDLE getSemaphoreHandle(VkSemaphore &sempahore);
+#else
+    int getMemHandle(VkDeviceMemory memory);
+    int getSemaphoreHandle(VkSemaphore &sempahore);
+#endif
+
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str);
     void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...);
@@ -105,6 +115,7 @@ private:
     std::shared_ptr<RGYLog> m_log;
     bool m_logTryMode;
 };
+
 #endif //#if ENABLE_VULKAN
 
 #endif //#if __RGY_DEVICE_VULKAN_H__
