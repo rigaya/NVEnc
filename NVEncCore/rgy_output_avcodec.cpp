@@ -996,22 +996,24 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                     return RGY_ERR_UNSUPPORTED;
                 }
             }
-            doviconf->el_present_flag = 0;
-            doviconf->rpu_present_flag = prm->doviRpu || prm->doviRpuMetadataCopy ? 1 : 0;
-            tstring bl_el_rpu;
-            if (doviconf->bl_present_flag) bl_el_rpu += _T("+BL");
-            if (doviconf->rpu_present_flag) bl_el_rpu += _T("+RPU");
-            AddMessage(RGY_LOG_DEBUG, _T("dovi config ver %d.%d, %d.%d:%d %s\n"),
-                doviconf->dv_version_major, doviconf->dv_version_minor,
-                doviconf->dv_profile, doviconf->dv_level, doviconf->dv_bl_signal_compatibility_id,
-                (bl_el_rpu.size() > 0) ? bl_el_rpu.substr(1).c_str() : _T(""));
-            int err = AVStreamAddSideData(m_Mux.video.streamOut, AV_PKT_DATA_DOVI_CONF, doviconf, side_data_size);
-            if (err < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to copy AV_PKT_DATA_DOVI_CONF\n"));
-                return RGY_ERR_INVALID_CALL;
+            if (doviconf) {
+                doviconf->el_present_flag = 0;
+                doviconf->rpu_present_flag = prm->doviRpu || prm->doviRpuMetadataCopy ? 1 : 0;
+                tstring bl_el_rpu;
+                if (doviconf->bl_present_flag) bl_el_rpu += _T("+BL");
+                if (doviconf->rpu_present_flag) bl_el_rpu += _T("+RPU");
+                AddMessage(RGY_LOG_DEBUG, _T("dovi config ver %d.%d, %d.%d:%d %s\n"),
+                    doviconf->dv_version_major, doviconf->dv_version_minor,
+                    doviconf->dv_profile, doviconf->dv_level, doviconf->dv_bl_signal_compatibility_id,
+                    (bl_el_rpu.size() > 0) ? bl_el_rpu.substr(1).c_str() : _T(""));
+                int err = AVStreamAddSideData(m_Mux.video.streamOut, AV_PKT_DATA_DOVI_CONF, doviconf, side_data_size);
+                if (err < 0) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to copy AV_PKT_DATA_DOVI_CONF\n"));
+                    return RGY_ERR_INVALID_CALL;
+                }
+                AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_DOVI_CONF from input\n"));
+                doviconf.reset();
             }
-            AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_DOVI_CONF from input\n"));
-            doviconf.reset();
 #else
             AddMessage(RGY_LOG_WARN, _T("dovi-profile copy noy supported in this build!\n"));
 #endif //#if LIBAVUTIL_DOVI_META_AVAIL
