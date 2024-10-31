@@ -1067,6 +1067,7 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
         }
         PrintMes(RGY_LOG_TRACE, _T("Output frame %d: size %zu (%d), pts %lld, dts %lld\n"), m_pStatus->m_sData.frameOut, bitstream.size(), lockBitstreamData.alphaLayerSizeInBytes, bitstream.pts(), bitstream.dts());
         auto outErr = m_pFileWriter->WriteNextFrame(&bitstream);
+        bitstream.clear();
         nvStatus = m_dev->encoder()->NvEncUnlockBitstream(pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
         if (nvStatus == NV_ENC_SUCCESS && outErr != RGY_ERR_NONE) {
             nvStatus = NV_ENC_ERR_GENERIC;
