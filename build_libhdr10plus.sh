@@ -19,4 +19,4 @@ if [ ! -e ${LIBHDR10PLUS_INSTALL_DIR} ]; then
 fi
 cd ${HDR10PLUS_SRC}/hdr10plus && \
   ${CARGO} cinstall --release --prefix=$LIBHDR10PLUS_INSTALL_DIR && \
-  find ${LIBHDR10PLUS_INSTALL_DIR} -name "libhdr10plus.so*" | xargs rm
+  find ${LIBHDR10PLUS_INSTALL_DIR} -name "libhdr10plus-rs.so*" | xargs rm
