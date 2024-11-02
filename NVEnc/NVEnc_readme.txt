@@ -215,6 +215,14 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2024.11.02 (7.73)
+[NVEncC]
+- HEVC, AV1でraw出力時のメモリリークを修正。
+- --dhdr10-infoの実装を変更し、Linuxでの動作に対応。
+  hdr10plus_gen.exeを使用する代わりにlibhdr10plusを使用するように変更。
+- 入力ファイルにdoviがない場合に、--dolby-vision-rpuを指定するとエラー終了する問題を修正。
+- --dhdr10-infoがraw出力時に動作しなくなっていたのを修正。
+
 2024.10.27 (7.72)
 [NVEncC]
 - --vpp-libplacebo-shaderでlumaに対して処理を行うshaderが正常に動作しなかった問題を修正。
