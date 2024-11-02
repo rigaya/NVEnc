@@ -28,66 +28,61 @@
 #include "rgy_osdep.h"
 #include "rgy_hdr10plus.h"
 #include "rgy_filesystem.h"
+#include "rgy_util.h"
+#if ENABLE_LIBHDR10PLUS
+#include <libhdr10plus-rs/hdr10plus.h>
 
 #if defined(_WIN32) || defined(_WIN64)
-#include <fcntl.h>
-const TCHAR *RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME =  _T("hdr10plus_gen.exe");
-#else
-const TCHAR *RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME =  _T("hdr10plus_gen");
+#pragma comment(lib, "hdr10plus-rs.lib")
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "ntdll.lib")
+#pragma comment(lib, "Userenv.lib")
+#endif
+
 #endif
 
 RGYHDR10Plus::RGYHDR10Plus() :
-    m_proc(),
-    m_buffer(std::make_pair(-1, vector<uint8_t>())) {
+    m_inputJson(),
+    m_hdr10plusJson(std::unique_ptr<Hdr10PlusRsJsonOpaque, funcHdr10PlusRsJsonOpaqueDelete>(nullptr, nullptr)) {
 }
 
 RGYHDR10Plus::~RGYHDR10Plus() {
-    m_proc.reset();
 }
 
 RGY_ERR RGYHDR10Plus::init(const tstring &inputJson) {
+#if ENABLE_LIBHDR10PLUS
     if (!(rgy_file_exists(inputJson))) {
         return RGY_ERR_NOT_FOUND;
     }
     m_inputJson = inputJson;
-#if defined(_WIN32) || defined(_WIN64)
-    tstring HDR10PlusGenExePath = getExeDir() + _T("\\") + HDR10PLUS_GEN_EXE_NAME;
-#else
-    tstring HDR10PlusGenExePath = getExeDir() + _T("/") + HDR10PLUS_GEN_EXE_NAME;
-#endif
-    if (!rgy_file_exists(HDR10PLUS_GEN_EXE_NAME)) {
-        HDR10PlusGenExePath = HDR10PLUS_GEN_EXE_NAME;
-    }
-    const tstring HDR10PlusGenExePathWithQuotes = tstring(_T("\"")) + HDR10PlusGenExePath + _T("\"");
-    const tstring inputJsonWithQuotes = tstring(_T("\"")) + inputJson + _T("\"");
-    const std::vector<tstring> args = {
-        HDR10PlusGenExePathWithQuotes,
-        _T("-i"), inputJsonWithQuotes,
-        _T("-o"), _T("-")
-    };
 
-    m_proc = createRGYPipeProcess();
-    m_proc->init(PIPE_MODE_DISABLE, PIPE_MODE_ENABLE | PIPE_MODE_ENABLE_FP, PIPE_MODE_DISABLE);
-    if (m_proc->run(args, nullptr, 0, true, true)) {
-        return RGY_ERR_RUN_PROCESS;
+    auto inputJsonStr = tchar_to_string(inputJson);
+    m_hdr10plusJson = std::unique_ptr<Hdr10PlusRsJsonOpaque, funcHdr10PlusRsJsonOpaqueDelete>(
+        hdr10plus_rs_parse_json(inputJsonStr.c_str()), hdr10plus_rs_json_free);
+    if (!m_hdr10plusJson) {
+        return RGY_ERR_INVALID_FORMAT;
     }
     return RGY_ERR_NONE;
+#else
+    reutnr RGY_ERR_UNSUPPORTED;
+#endif
 }
 
-const vector<uint8_t> *RGYHDR10Plus::getData(int iframe) {
-    while (m_buffer.first != iframe) {
-        m_buffer.second.clear();
-        int header[2];
-        if (m_proc->stdOutFpRead(header, sizeof(header)) != sizeof(header)) {
-            return nullptr;
-        }
-        const int frameNum = header[0];
-        const int dataSize = header[1];
-        m_buffer.second.resize(dataSize, 0);
-        if (m_proc->stdOutFpRead(m_buffer.second.data(), m_buffer.second.size()) != m_buffer.second.size()) {
-            return nullptr;
-        }
-        m_buffer.first = frameNum;
+tstring RGYHDR10Plus::getError() {
+    return (m_hdr10plusJson) ? char_to_tstring(hdr10plus_rs_json_get_error(m_hdr10plusJson.get())) : tstring();
+}
+
+const std::vector<uint8_t> RGYHDR10Plus::getData(int iframe) {
+#if ENABLE_LIBHDR10PLUS
+    std::unique_ptr<const Hdr10PlusRsData, decltype(&hdr10plus_rs_data_free)> av1_metadata(
+        hdr10plus_rs_write_av1_metadata_obu_t35_complete(m_hdr10plusJson.get(), iframe), hdr10plus_rs_data_free);
+    if (!av1_metadata) {
+        return std::vector<uint8_t>();
     }
-    return &m_buffer.second;
+    std::vector<uint8_t> buffer(av1_metadata->len);
+    memcpy(buffer.data(), av1_metadata->data, av1_metadata->len);
+    return buffer;
+#else
+    return std::vector<uint8_t>();
+#endif
 }

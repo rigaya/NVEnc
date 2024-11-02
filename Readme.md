@@ -221,6 +221,7 @@ when there are multiple GPUs available which support NVENC.
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
   [libplacebo](https://code.videolan.org/videolan/libplacebo),
+  [libhdr10plus](https://github.com/quietvoid/hdr10plus_tool),
   [libdovi](https://github.com/quietvoid/dovi_tool),
   [vmaf](https://github.com/Netflix/vmaf),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),

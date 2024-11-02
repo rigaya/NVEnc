@@ -85,6 +85,7 @@ const char *get_encoder_version();
 #define ENABLE_D3D11_DEVINFO_WMI 1
 #define ENABLE_LIBPLACEBO 1
 #define ENABLE_LIBDOVI 1
+#define ENABLE_LIBHDR10PLUS 1
 #define ENABLE_VULKAN 0
 
 #ifndef ENABLE_NVOFFRUC_HEADER

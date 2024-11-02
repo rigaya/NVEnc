@@ -31,9 +31,10 @@
 
 #include "rgy_def.h"
 #include "rgy_log.h"
-#include "rgy_hdr10plus.h"
+#include "rgy_util.h"
 #include "rgy_thread_affinity.h"
 #include "rgy_simd.h"
+#include "rgy_hdr10plus.h"
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -1575,7 +1576,7 @@ struct VppColorspace {
     bool enable;
     HDR2SDRParams hdr2sdr;
     LUT3DParams lut3d;
-    vector<ColorspaceConv> convs;
+    std::vector<ColorspaceConv> convs;
 
     VppColorspace();
     bool operator==(const VppColorspace &x) const;

@@ -31,23 +31,26 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 #include "rgy_err.h"
-#include "rgy_pipe.h"
-#include "rgy_util.h"
+#include "rgy_tchar.h"
+
+struct Hdr10PlusRsJsonOpaque;
+
+typedef void (*funcHdr10PlusRsJsonOpaqueDelete)(Hdr10PlusRsJsonOpaque *ptr);
 
 class RGYHDR10Plus {
 public:
-    static const TCHAR *HDR10PLUS_GEN_EXE_NAME;
     RGYHDR10Plus();
     virtual ~RGYHDR10Plus();
 
     RGY_ERR init(const tstring& inputJson);
-    const vector<uint8_t> *getData(int iframe);
+    const std::vector<uint8_t> getData(int iframe);
     const tstring &inputJson() const { return m_inputJson; };
+    tstring getError();
 protected:
+    std::unique_ptr<Hdr10PlusRsJsonOpaque, funcHdr10PlusRsJsonOpaqueDelete> m_hdr10plusJson;
     tstring m_inputJson;
-    std::unique_ptr<RGYPipeProcess> m_proc;
-    std::pair<int, std::vector<uint8_t>> m_buffer;
 };
 
 #endif //__RGY_HDR10PLUS_H__

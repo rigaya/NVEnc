@@ -3993,8 +3993,8 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
     std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
     if (codec == RGY_CODEC_HEVC || codec == RGY_CODEC_AV1) {
         if (m_hdr10plus) {
-            if (const auto data = m_hdr10plus->getData(inputFrameId); data) {
-                metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data->data(), data->size(), timestamp));
+            if (const auto data = m_hdr10plus->getData(inputFrameId); data.size() > 0) {
+                metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), timestamp));
             }
         } else if (frameDataList.size() > 0) {
             if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
