@@ -415,7 +415,11 @@ RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     }
     if (m_convC) str += indent + m_convC->GetInputMessage();
     if (str.length() > 0 && str.back() == _T('\n')) str = str.substr(0, str.length() - 1);
-    setFilterInfo(tstring(_T("tweak: ")) + str);
+    if (str.length() > _tcslen(_T("tweak:                "))) {
+        setFilterInfo(tstring(_T("tweak: ") + str.substr(_tcslen(_T("tweak:                ")))));
+    } else {
+        setFilterInfo(tstring(_T("tweak: ") + str));
+    }
     m_param = prm;
     return sts;
 }
