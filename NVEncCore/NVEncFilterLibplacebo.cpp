@@ -92,6 +92,9 @@ NVEncFilterLibplacebo::~NVEncFilterLibplacebo() {
 }
 
 RGY_ERR NVEncFilterLibplacebo::initLibplacebo(const NVEncFilterParam *param) {
+    if (m_renderer) {
+        return RGY_ERR_NONE;
+    }
     auto prm = dynamic_cast<const NVEncFilterParamLibplacebo*>(param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -751,6 +754,15 @@ RGY_ERR NVEncFilterLibplaceboResample::checkParam(const NVEncFilterParam *param)
 
 RGY_ERR NVEncFilterLibplaceboResample::setLibplaceboParam(const NVEncFilterParam *param) {
     auto prm = dynamic_cast<const NVEncFilterParamLibplaceboResample*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto prmPrev = dynamic_cast<NVEncFilterParamLibplaceboResample*>(m_param.get());
+    if (m_filter_params && prmPrev && prmPrev->resample == prm->resample && prmPrev->resize_algo == prm->resize_algo) {
+        return RGY_ERR_NONE;
+    }
 
     m_filter_params = std::make_unique<pl_sample_filter_params>();
     m_filter_params->no_widening = false;
@@ -964,10 +976,14 @@ RGY_ERR NVEncFilterLibplaceboDeband::setLibplaceboParam(const NVEncFilterParam *
         return RGY_ERR_INVALID_PARAM;
     }
 
+    auto prmPrev = dynamic_cast<NVEncFilterParamLibplaceboDeband*>(m_param.get());
+    if (m_filter_params && prmPrev && prmPrev->deband == prm->deband) {
+        return RGY_ERR_NONE;
+    }
+
     m_dither_params.reset();
     m_filter_params.reset();
     m_filter_params_c.reset();
-    auto prmPrev = dynamic_cast<NVEncFilterParamLibplaceboDeband*>(m_param.get());
     if (prmPrev && prmPrev->deband.dither != prm->deband.dither) {
         m_dither_params.reset();
         m_dither_state.reset();
@@ -1163,6 +1179,11 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto prmPrev = dynamic_cast<NVEncFilterParamLibplaceboToneMapping*>(m_param.get());
+    if (m_tonemap.reprSrc && prmPrev && prmPrev->toneMapping == prm->toneMapping) {
+        return RGY_ERR_NONE;
     }
     m_tonemap.cspSrc = prm->toneMapping.src_csp;
     m_tonemap.cspDst = prm->toneMapping.dst_csp;
@@ -1768,6 +1789,10 @@ RGY_ERR NVEncFilterLibplaceboShader::setLibplaceboParam(const NVEncFilterParam *
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+    auto prmPrev = dynamic_cast<NVEncFilterParamLibplaceboShader*>(m_param.get());
+    if (m_shader && prmPrev && prmPrev->shader == prm->shader) {
+        return RGY_ERR_NONE;
     }
 
     std::ifstream shader_file(prm->shader.shader, std::ios::binary | std::ios_base::in);
