@@ -690,9 +690,6 @@ RGY_ERR err_to_rgy(AMF_RESULT err) {
 }
 #endif //#if ENCODER_VCEENC
 
-
-#include "rgy_vulkan.h"
-
 #if ENABLE_VULKAN
 
 struct RGYErrMapVK {
