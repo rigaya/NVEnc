@@ -42,8 +42,8 @@
 #endif
 
 RGYHDR10Plus::RGYHDR10Plus() :
-    m_inputJson(),
-    m_hdr10plusJson(std::unique_ptr<Hdr10PlusRsJsonOpaque, funcHdr10PlusRsJsonOpaqueDelete>(nullptr, nullptr)) {
+    m_hdr10plusJson(std::unique_ptr<Hdr10PlusRsJsonOpaque, funcHdr10PlusRsJsonOpaqueDelete>(nullptr, nullptr)),
+    m_inputJson() {
 }
 
 RGYHDR10Plus::~RGYHDR10Plus() {
@@ -64,12 +64,16 @@ RGY_ERR RGYHDR10Plus::init(const tstring &inputJson) {
     }
     return RGY_ERR_NONE;
 #else
-    reutnr RGY_ERR_UNSUPPORTED;
+    return RGY_ERR_UNSUPPORTED;
 #endif
 }
 
 tstring RGYHDR10Plus::getError() {
+#if ENABLE_LIBHDR10PLUS
     return (m_hdr10plusJson) ? char_to_tstring(hdr10plus_rs_json_get_error(m_hdr10plusJson.get())) : tstring();
+#else
+    return tstring();
+#endif
 }
 
 const std::vector<uint8_t> RGYHDR10Plus::getData(int iframe) {
