@@ -63,6 +63,9 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::NVVFX_DENOISE,            _T("nvvfx_denoise")),
     std::make_pair(VppType::NVVFX_ARTIFACT_REDUCTION, _T("nvvfx_artifact_reduction")),
 #endif
+#if ENCODER_NVENC || CLFILTERS_AUF
+    std::make_pair(VppType::NGX_TRUEHDR,              _T("ngx_truehdr")),
+#endif
 #if ENCODER_VCEENC
     std::make_pair(VppType::AMF_CONVERTER,           _T("amf_perc_enc_prefilter")),
     std::make_pair(VppType::AMF_PREPROCESS,          _T("amf_preprocess")),
@@ -93,6 +96,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
+    std::make_pair(VppType::CL_SUBBURN,              _T("subburn")),
     std::make_pair(VppType::CL_LIBPLACEBO_SHADER,    _T("libplacebo-shader")),
     std::make_pair(VppType::CL_RESIZE,               _T("resize")),
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
@@ -100,8 +104,10 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
     std::make_pair(VppType::CL_CURVES,               _T("curves")),
     std::make_pair(VppType::CL_TWEAK,                _T("tweak")),
+    std::make_pair(VppType::CL_OVERLAY,              _T("overlay")),
     std::make_pair(VppType::CL_DEBAND,               _T("deband")),
     std::make_pair(VppType::CL_LIBPLACEBO_DEBAND,    _T("libplacebo-deband")),
+    std::make_pair(VppType::CL_FRUC,                 _T("fruc")),
     std::make_pair(VppType::CL_PAD,                  _T("pad"))
 );
 MAP_PAIR_0_1(vppfilter, type, VppType, str, tstring, VPPTYPE_TO_STR, VppType::VPP_NONE, _T("none"));
