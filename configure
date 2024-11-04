@@ -592,7 +592,7 @@ if [ $ENABLE_LIBDOVI -ne 0 ]; then
 fi
 
 cnf_print "Checking for hdr10plus..."
-if ! ${PKGCONFIG} --exists hdr10plus ; then
+if ! ${PKGCONFIG} --exists hdr10plus-rs ; then
     cnf_write "couldn't find system wide libhdr10plus, trying included one."
     cnf_print "checking for $CARGO..."
     type -p $CARGO 2>/dev/null 1>/dev/null
