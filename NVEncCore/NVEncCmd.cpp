@@ -642,7 +642,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("cqp")) {
-                    int ret = rcPrm.qp.parse(strInput[i]);
+                    int ret = rcPrm.qp.parse(param_val.c_str());
                     if (ret != 0) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
