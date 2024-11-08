@@ -2856,6 +2856,7 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
             auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt->pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt->data, pkt->size, pkt->dts, pts);
         }
+        pBitstream->clearFrameDataList();
         if (m_Demux.video.hdr10plusMetadataCopy) {
             pBitstream->addFrameData(getHDR10plusMetaData(pkt));
         }
