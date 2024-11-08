@@ -8422,7 +8422,8 @@ tstring gen_cmd_help_input() {
         _T("      ignore_sar=<bool>                ignore sar when using negative value.\n")
         _T("\n")
         _T("   --frames <int>               frames to encode (based on input frames)\n")
-        _T("   --fps <int>/<int> or <float> set framerate\n")
+        _T("   --fps <int>/<int> or <float> set framerate when --raw is used.\n")
+        _T("                                  not recommended for other readers.\n");
         _T("   --interlace <string>         set input as interlaced\n")
         _T("                                  tff, bff\n");
     str += print_list_options(_T("--input-csp <string>           set input colorspace for raw reader"),
