@@ -386,7 +386,7 @@ static int getAttachmentTrackIdx(const RGYParamCommon *common, const int iTrack)
     return -1;
 }
 
-static std::vector<CX_DESC> get_libplacebo_only_resize_list() {
+std::vector<CX_DESC> get_libplacebo_only_resize_list() {
     std::vector<CX_DESC> libplacebo_resize_list;
     for (size_t i = 0; list_vpp_resize[i].desc; i++) {
         if (_tcsncmp(list_vpp_resize[i].desc, _T("libplacebo-"), _tcslen(_T("libplacebo-"))) == 0) {
