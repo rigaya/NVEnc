@@ -1310,7 +1310,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             GUID result_guid = get_guid_from_name(strInput[i], h264_profile_names);
             if (0 != memcmp(&result_guid, &zero, sizeof(result_guid))) {
                 pParams->encConfig.profileGUID = result_guid;
-                pParams->yuv444 = memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid)) == 0;
+                if (!FOR_AUO) pParams->yuv444 = memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid)) == 0;
                 flag = true;
             }
         }
@@ -1320,15 +1320,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 //下位16bitを使用する
                 uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_HEVC].hevcConfig.tier;
                 ptr[0] = (uint16_t)result;
-                if (result == NV_ENC_PROFILE_HEVC_MAIN444) {
-                    pParams->yuv444 = TRUE;
-                }
-                if (result == NV_ENC_PROFILE_HEVC_MAIN10) {
-                    pParams->outputDepth = 10;
-                    pParams->yuv444 = FALSE;
-                } else if (result == NV_ENC_PROFILE_HEVC_MAIN) {
-                    pParams->outputDepth = 8;
-                    pParams->yuv444 = FALSE;
+                if (!FOR_AUO) {
+                    if (result == NV_ENC_PROFILE_HEVC_MAIN444) {
+                        pParams->yuv444 = TRUE;
+                    }
+                    if (result == NV_ENC_PROFILE_HEVC_MAIN10) {
+                        pParams->outputDepth = 10;
+                        pParams->yuv444 = FALSE;
+                    } else if (result == NV_ENC_PROFILE_HEVC_MAIN) {
+                        pParams->outputDepth = 8;
+                        pParams->yuv444 = FALSE;
+                    }
                 }
                 flag = true;
             }
@@ -1393,7 +1395,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->yuv444 = csp == RGY_CSP_YUV444 || csp == RGY_CSP_RGB;
             pParams->alphaChannel = csp == RGY_CSP_YUVA420;
             pParams->rgb = csp == RGY_CSP_RGB;
-            if (pParams->yuv444) {
+            if (!FOR_AUO && pParams->yuv444) {
                 //H264
                 memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(pParams->encConfig.profileGUID));
                 //HEVC
