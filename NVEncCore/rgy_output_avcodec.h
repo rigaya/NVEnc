@@ -247,6 +247,7 @@ struct AVMuxOther {
     AVBSFContext         *bsfc;              //必要なら使用するbitstreamfilter
 
     std::vector<AVSubtitleData> decodedSub; //字幕データ
+    int64_t               lastPtsOut;           //出力音声の前パケットのpts
 
     AVMuxOther();
 };

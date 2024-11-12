@@ -219,7 +219,8 @@ AVMuxOther::AVMuxOther() :
     outCodecEncodeCtx(nullptr),
     bufConvert(nullptr),
     bsfc(nullptr),
-    decodedSub() {
+    decodedSub(),
+    lastPtsOut(AV_NOPTS_VALUE) {
 
 }
 
@@ -1945,6 +1946,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
     muxSub->streamIndexIn = inputStream->src.index;
     muxSub->streamIn      = inputStream->src.stream;
     muxSub->streamInTimebase = inputStream->src.timebase;
+    muxSub->lastPtsOut = AV_NOPTS_VALUE;
 
     if (muxSub->outCodecEncodeCtx) {
         avcodec_parameters_from_context(srcCodecParam.get(), muxSub->outCodecEncodeCtx);
@@ -3624,15 +3626,40 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
         return SubtitleTranscode(pMuxOther, pkt);
     }
     //字幕を処理する
+    const bool ptsInvalid = pkt->pts == AV_NOPTS_VALUE;
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.outputFps);
     const int64_t pts_offset = (m_Mux.format.timestampPassThrough) ? 0ll : av_rescale_q(m_Mux.video.inputFirstKeyPts, vid_pkt_timebase, pMuxOther->streamInTimebase);
     const AVRational timebase_conv = (pMuxOther->outCodecDecodeCtx) ? pMuxOther->outCodecDecodeCtx->pkt_timebase : pMuxOther->streamOut->time_base;
     if (pkt->pts != AV_NOPTS_VALUE) pkt->pts = av_rescale_q(std::max<int64_t>(0, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
     if (pkt->dts != AV_NOPTS_VALUE) pkt->dts = av_rescale_q(std::max<int64_t>(0, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
+    if (pMuxOther->lastPtsOut != AV_NOPTS_VALUE) {
+        //以前のptsより前になりそうになったら修正する
+        const auto maxPts = pMuxOther->lastPtsOut + ((m_Mux.format.formatCtx->oformat->flags & AVFMT_TS_NONSTRICT) ? 0 : 1);
+        if (pkt->pts < maxPts) {
+            auto loglevel = (maxPts - pkt->pts > 2) ? RGY_LOG_WARN : RGY_LOG_DEBUG;
+            if (loglevel >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
+                AddMessage(loglevel, _T("Timestamp error in stream %d, previous: %lld, current: %lld [timebase: %d/%d].\n"),
+                    pMuxOther->streamOut->index,
+                    (long long int)pMuxOther->lastPtsOut,
+                    (long long int)pkt->pts,
+                    pMuxOther->streamOut->time_base.num, pMuxOther->streamOut->time_base.den);
+                AddMessage(loglevel, _T("                              previous: %s current: %s\n"),
+                    getTimestampString(pMuxOther->lastPtsOut, pMuxOther->streamOut->time_base).c_str(),
+                    getTimestampString(pkt->pts, pMuxOther->streamOut->time_base).c_str());
+                AddMessage(loglevel, _T("Changing timestamp to %lld(%s), this may corrupt synchronization of the stream.\n"),
+                    (long long int)maxPts, getTimestampString(maxPts, pMuxOther->streamOut->time_base).c_str());
+            }
+            pkt->pts = maxPts;
+            pkt->dts = maxPts;
+        }
+    }
     if (WRITE_PTS_DEBUG) {
         AddMessage((pkt->pts == AV_NOPTS_VALUE) ? RGY_LOG_ERROR : RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
             pMuxOther->streamOut->index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pMuxOther->streamOut->index]->codecpar->codec_id)).c_str(),
             pkt->pts, timebase_conv.num, timebase_conv.den, getTimestampString(pkt->pts, timebase_conv).c_str());
+    }
+    if (!ptsInvalid) {
+        pMuxOther->lastPtsOut = pkt->pts;
     }
     pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
     pkt->duration = (int)av_rescale_q(pkt->duration, pMuxOther->streamInTimebase, pMuxOther->streamOut->time_base);
