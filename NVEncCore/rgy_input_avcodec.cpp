@@ -72,7 +72,8 @@ AVDemuxFormat::AVDemuxFormat() :
     fpInput(nullptr),
     inputBuffer(nullptr),
     inputBufferSize(0),
-    inputFilesize(0) {
+    inputFilesize(0),
+    subPacketTemporalBufferIntervalCount(-1) {
 }
 
 void AVDemuxFormat::close(RGYLog *log) {
@@ -2657,6 +2658,47 @@ AVDemuxStream *RGYInputAvcodec::getPacketStreamData(const AVPacket *pkt) {
     return nullptr;
 }
 
+//subPacketTemporalBufferにたまっている字幕パケットをソートして送出する
+void RGYInputAvcodec::sortAndPushSubtitlePacket() {
+    for (auto& st : m_Demux.stream) {
+        std::vector<int64_t> ptsList; // オリジナルのptsを保存しておく
+        ptsList.reserve(st.subPacketTemporalBuffer.size());
+        for (const auto& pkt : st.subPacketTemporalBuffer) {
+            ptsList.push_back(pkt->pts);
+        }
+        std::sort(st.subPacketTemporalBuffer.begin(), st.subPacketTemporalBuffer.end(), [](const auto pkt1, const auto pkt2) {
+            return pkt1->pts < pkt2->pts;
+        });
+        int ptsMismatchStart = -1;
+        int ptsMismatchFin = -1;
+        for (int i = 0; i < (int)ptsList.size(); ++i) {
+            if (ptsList[i] != st.subPacketTemporalBuffer[i]->pts) {
+                if (ptsMismatchStart < 0) ptsMismatchStart = i;
+                ptsMismatchFin = i;
+            }
+        }
+        if (ptsMismatchStart >= 0) {
+            tstring sortMes;
+            sortMes += strsprintf(_T("subtitle packet pts sorted for track #%d\nsubtitle input  pts :"), st.index);
+            for (int i = ptsMismatchStart; i <= ptsMismatchFin; ++i) {
+                sortMes += strsprintf(_T("%lld "), (long long int)ptsList[i]);
+            }
+            sortMes += strsprintf(_T("\nsubtitle sorted pts :"));
+            for (int i = ptsMismatchStart; i <= ptsMismatchFin; ++i) {
+                sortMes += strsprintf(_T("%lld "), (long long int)st.subPacketTemporalBuffer[i]->pts);
+            }
+            sortMes += _T("\n");
+            AddMessage(RGY_LOG_WARN, sortMes);
+        }
+        
+        for (auto& pkt : st.subPacketTemporalBuffer) {
+            m_Demux.qStreamPktL1.push_back(pkt);
+        }
+        st.subPacketTemporalBuffer.clear();
+    }
+    m_Demux.format.subPacketTemporalBufferIntervalCount = -1;
+}
+
 std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcodec::getSample(bool bTreatFirstPacketAsKeyframe) {
     int i_samples = 0;
     int ret_read_frame = 0;
@@ -2677,6 +2719,19 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
                 pkt->pts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", (long long int)pkt->pts).c_str(),
                 pkt->dts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", (long long int)pkt->dts).c_str(),
                 (long long int)pkt->duration, pkt->flags, (long long int)pkt->pos);
+        }
+        if (m_Demux.format.subPacketTemporalBufferIntervalCount >= 0) { // 字幕パケットがバッファにある
+            m_Demux.format.subPacketTemporalBufferIntervalCount += m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO ? 1 : 0;
+            // 字幕パケットの場合、パケットのタイムスタンプの順序が入れ替わっている場合がある
+            // これを修正するため、いったんバッファにためておき、
+            // 一定期間すぎたり(m_Demux.format.subPacketTemporalBufferIntervalCount >= subSortPacketIntervalByVideoFrames)
+            // バッファに字幕パケットがたくさんたまってきたらソートして出力するようにする
+            static const int subSortPacketIntervalByVideoFrames = 10;
+            static const size_t subSortPacketTemporalBufferThreshold = 50;
+            if (m_Demux.format.subPacketTemporalBufferIntervalCount >= subSortPacketIntervalByVideoFrames
+                || std::accumulate(m_Demux.stream.begin(), m_Demux.stream.end(), (size_t)0, [](size_t sum, const AVDemuxStream& st) { return sum + st.subPacketTemporalBuffer.size(); }) >= subSortPacketTemporalBufferThreshold) {
+                sortAndPushSubtitlePacket();
+            }
         }
         if (pkt->stream_index == m_Demux.video.index) {
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
@@ -2782,14 +2837,21 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
             CheckAndMoveStreamPacketList();
             return { 0, std::move(pkt) };
         }
-        const auto *stream = getPacketStreamData(pkt.get());
+        auto *stream = getPacketStreamData(pkt.get());
         if (stream != nullptr) {
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
                 const auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
                 AddMessage(RGY_LOG_WARN, _T("corrupt packet in stream %d: %lld (%s)\n"), pkt->stream_index, (long long int)timestamp, getTimestampString(timestamp, stream->stream->time_base).c_str());
             }
-            //音声/字幕パケットはひとまずすべてバッファに格納する
-            m_Demux.qStreamPktL1.push_back(pkt.release());
+            if (stream->stream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+                // 字幕パケットの場合、パケットのタイムスタンプの順序が入れ替わっている場合がある
+                // これを修正するため、いったんバッファにためておき、一定期間すぎたらソートして出力するようにする
+                stream->subPacketTemporalBuffer.push_back(pkt.release());
+                m_Demux.format.subPacketTemporalBufferIntervalCount = 0; // カウンタをリセット
+            } else {
+                //音声/字幕パケットはひとまずすべてバッファに格納する
+                m_Demux.qStreamPktL1.push_back(pkt.release());
+            }
         }
     }
     pkt.reset();
@@ -2799,6 +2861,8 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
         return { 1, nullptr };
     }
     AddMessage(RGY_LOG_DEBUG, _T("%d frames, %s\n"), m_Demux.frames.frameNum(), qsv_av_err2str(ret_read_frame).c_str());
+    //たまっている字幕があれば送出する
+    sortAndPushSubtitlePacket();
     //動画の終端を表す最後のptsを挿入する
     int64_t videoFinPts = 0;
     const int nFrameNum = m_Demux.frames.frameNum();

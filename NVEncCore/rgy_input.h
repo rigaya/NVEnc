@@ -81,6 +81,7 @@ struct AVDemuxStream {
     void                     *subtitleHeader;         //stream = nullptrの場合 caption2assのヘッダー情報 (srt形式でもass用のヘッダーが入っている)
     int                       subtitleHeaderSize;     //stream = nullptrの場合 caption2assのヘッダー情報のサイズ
     char                      lang[4];                //trackの言語情報(3文字)
+    std::vector<AVPacket*>    subPacketTemporalBuffer; //字幕のタイムスタンプが入れ違いになっているのを解決する一時的なキュー
 
     AVDemuxStream() :
         index(0),
@@ -100,7 +101,8 @@ struct AVDemuxStream {
         timebase({ 0, 0 }),
         subtitleHeader(nullptr),
         subtitleHeaderSize(0),
-        lang() {
+        lang(),
+        subPacketTemporalBuffer() {
     };
 };
 

@@ -718,6 +718,8 @@ struct AVDemuxFormat {
     int                       inputBufferSize;       //入力バッファサイズ
     uint64_t                  inputFilesize;         //入力ファイルサイズ
 
+    int64_t                   subPacketTemporalBufferIntervalCount; //字幕のタイムスタンプが入れ違いになっているのを解決する一時的なキューに登録を行ってから他のパケットを取得した数
+
     AVDemuxFormat();
     ~AVDemuxFormat() { close(); }
     void close(RGYLog *log = nullptr);
@@ -1011,6 +1013,9 @@ protected:
 
     //ptsを動画のtimebaseから音声のtimebaseに変換する
     int64_t convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *stream);
+
+    //subPacketTemporalBufferにたまっている字幕パケットをソートして送出する
+    void sortAndPushSubtitlePacket();
 
     void hevcMp42Annexb(AVPacket *pkt);
 
