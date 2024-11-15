@@ -1994,6 +1994,12 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
+    // AV1の場合、levelは強制的に自動選択
+    if (inputParam->codec_rgy == RGY_CODEC_AV1 && m_stEncConfig.encodeCodecConfig.av1Config.level != NV_ENC_LEVEL_AV1_AUTOSELECT) {
+        m_stEncConfig.encodeCodecConfig.av1Config.level = NV_ENC_LEVEL_AV1_AUTOSELECT;
+        PrintMes(RGY_LOG_WARN, _T("AV1 encoding will select level by auto.\n"));
+    }
+
     m_stCreateEncodeParams.encodeConfig        = &m_stEncConfig;
     m_stCreateEncodeParams.encodeHeight        = m_uEncHeight;
     m_stCreateEncodeParams.encodeWidth         = m_uEncWidth;
