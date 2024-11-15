@@ -263,7 +263,7 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             remaining_time -= hh * (60*60*1000);
             const int mm = remaining_time / (60*1000);
             remaining_time -= mm * (60*1000);
-            const int ss = (remaining_time + 500) / 1000;
+            const int ss = remaining_time / 1000;
 
             chunks[MES_PROGRESS_PERCENT].len = _stprintf_s(chunks[MES_PROGRESS_PERCENT].str, _T("[%.1lf%%] "), progressPercent);
             chunks[MES_REMAIN].len           = _stprintf_s(chunks[MES_REMAIN].str, _T(", remain %d:%02d:%02d"), hh, mm, ss);
