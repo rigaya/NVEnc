@@ -176,7 +176,7 @@ tstring encoder_help() {
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
           { _T("HEVC"),  list_hevc_level,  0 },
-          { _T("AV1"),   list_av1_level,   0 }
+          { _T("AV1"),   list_av1_level_help,   0 }
     });
     str += strsprintf(_T("")
         _T("   --output-depth <int>         set output bit depth ( 8(default), 10 )\n")
@@ -1293,7 +1293,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             print_cmd_error_invalid_value(option_name, strInput[i], std::vector < std::pair<RGY_CODEC, const CX_DESC *>>{
                 { RGY_CODEC_H264, list_avc_level },
                 { RGY_CODEC_HEVC, list_hevc_level },
-                { RGY_CODEC_AV1,  list_av1_level }
+                { RGY_CODEC_AV1,  list_av1_level_help }
             });
             return 1;
         }
