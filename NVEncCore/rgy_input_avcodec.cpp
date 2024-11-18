@@ -2688,7 +2688,7 @@ void RGYInputAvcodec::sortAndPushSubtitlePacket() {
                 sortMes += strsprintf(_T("%lld "), (long long int)st.subPacketTemporalBuffer[i]->pts);
             }
             sortMes += _T("\n");
-            AddMessage(RGY_LOG_WARN, sortMes);
+            AddMessage(RGY_LOG_DEBUG, sortMes);
         }
         
         for (auto& pkt : st.subPacketTemporalBuffer) {
