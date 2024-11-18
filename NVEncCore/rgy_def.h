@@ -498,6 +498,17 @@ const CX_DESC list_dovi_profile[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_dovi_profile_parse[] = {
+    { _T("unset"), RGY_DOVI_PROFILE_UNSET },
+    { _T("copy"),  RGY_DOVI_PROFILE_COPY },
+    { _T("5.0"),   RGY_DOVI_PROFILE_50 },
+    { _T("5"),     RGY_DOVI_PROFILE_50 },
+    { _T("8.1"),   RGY_DOVI_PROFILE_81 },
+    { _T("8.2"),   RGY_DOVI_PROFILE_82 },
+    { _T("8.4"),   RGY_DOVI_PROFILE_84 },
+    { NULL, 0 }
+};
+
 
 // 1st luma line > |X   X ...    |3 4 X ...     X が輝度ピクセル位置
 //                 |             |1 2           1-6 are possible chroma positions

@@ -6138,9 +6138,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     if (IS_OPTION("dolby-vision-profile")) {
         i++;
         int value = 0;
-        if (get_list_value(list_dovi_profile, strInput[i], &value)) {
-            common->doviProfile = (RGYDOVIProfile)value;
-        } else if (_stscanf_s(strInput[i], _T("%d"), &value) == 1) {
+        if (get_list_value(list_dovi_profile_parse, strInput[i], &value)) {
             common->doviProfile = (RGYDOVIProfile)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_dovi_profile);
