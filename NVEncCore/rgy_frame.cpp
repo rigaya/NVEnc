@@ -30,7 +30,6 @@
 #if !CLFILTERS_AUF
 #include "rgy_bitstream.h"
 #endif
-#include "rgy_libdovi.h"
 
 const TCHAR *RGYFrameDataTypeToStr(const RGYFrameDataType type) {
     switch (type) {
@@ -188,40 +187,12 @@ RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu(const uint8_t *data, size_t size, int64
 RGYFrameDataDOVIRpu::~RGYFrameDataDOVIRpu() { }
 
 RGY_ERR RGYFrameDataDOVIRpu::convert(const RGYFrameDataMetadataConvertParam *metadataprm) {
-#if ENABLE_LIBDOVI
     auto prm = dynamic_cast<const RGYFrameDataDOVIRpuConvertParam*>(metadataprm);
-    if (!prm || !prm->enable) {
-        return RGY_ERR_NONE;
-    }
-    if (prm->doviProfileDst != RGY_DOVI_PROFILE_81 && prm->doviProfileDst != RGY_DOVI_PROFILE_COPY) {
-        return RGY_ERR_NONE;
-    }
-    if (m_data.size() == 0) {
-        return RGY_ERR_NONE;
-    }
-    std::unique_ptr<DoviRpuOpaque, decltype(&dovi_rpu_free)> rpu(dovi_parse_rpu(m_data.data(), m_data.size()), dovi_rpu_free);
-    if (!rpu) {
-        return RGY_ERR_INVALID_BINARY;
-    }
-    std::unique_ptr<const DoviRpuDataHeader, decltype(&dovi_rpu_free_header)> header(dovi_rpu_get_header(rpu.get()), dovi_rpu_free_header);
-    if (!header) {
+
+    int ret = convert_dovi_rpu(m_data, prm->doviProfileDst, prm->doviRpu());
+    if (ret) {
         return RGY_ERR_UNKNOWN;
     }
-    const auto dovi_profile = header->guessed_profile;
-    if (dovi_profile != 7) {
-        return RGY_ERR_NONE;
-    }
-    const int ret = dovi_convert_rpu_with_mode(rpu.get(), 2);
-    if (ret != 0) {
-        return RGY_ERR_INVALID_OPERATION;
-    }
-    std::unique_ptr<const DoviData, decltype(&dovi_data_free)> rpu_data(dovi_write_rpu(rpu.get()), dovi_data_free);
-    if (!rpu_data) {
-        return RGY_ERR_NULL_PTR;
-    }
-    m_data.resize(rpu_data->len);
-    memcpy(m_data.data(), rpu_data->data, rpu_data->len);
-#endif // ENABLE_LIBDOVI
     return RGY_ERR_NONE;
 }
 

@@ -139,6 +139,7 @@ AVMuxVideo::AVMuxVideo() :
     doviProfileDst(RGY_DOVI_PROFILE_UNSET),
     doviRpu(nullptr),
     doviRpuMetadataCopy(false),
+    doviRpuConvertParam(),
     bsfc(nullptr),
     bsfcBuffer(nullptr),
     bsfcBufferLength(0),
@@ -897,6 +898,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.bsfcBufferLength  = 0;
     m_Mux.video.hdr10plusMetadataCopy = prm->hdr10plusMetadataCopy;
     m_Mux.video.doviRpuMetadataCopy = prm->doviRpuMetadataCopy;
+    m_Mux.video.doviRpuConvertParam = prm->doviRpuConvertParam;
 
     auto retm = SetMetadata(&m_Mux.video.streamOut->metadata, (prm->videoInputStream) ? prm->videoInputStream->metadata : nullptr, prm->videoMetadata, RGY_METADATA_DEFAULT_COPY_LANG_ONLY, _T("Video"));
     if (retm != RGY_ERR_NONE) {
@@ -974,9 +976,6 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                     } else if (doviconf->dv_bl_signal_compatibility_id == 4) {
                         m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_84;
                     }
-                }
-                if (m_Mux.video.doviProfileDst == RGY_DOVI_PROFILE_COPY) {
-                    m_Mux.video.doviProfileDst = m_Mux.video.doviProfileSrc;
                 }
             }
             if (!doviconf && prm->doviProfile != RGY_DOVI_PROFILE_COPY) {
@@ -2819,14 +2818,14 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
     }
     if (m_Mux.video.doviRpu) {
         std::vector<uint8_t> dovi_nal;
-        if (m_Mux.video.doviRpu->get_next_rpu(dovi_nal, bs_framedata.inputFrameId, m_VideoOutputInfo.codec) != 0) {
+        if (m_Mux.video.doviRpu->get_next_rpu(dovi_nal, m_Mux.video.doviProfileDst, &m_Mux.video.doviRpuConvertParam, bs_framedata.inputFrameId, m_VideoOutputInfo.codec) != 0) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
         }
         if (dovi_nal.size() > 0) {
             metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
         }
     } else if (m_Mux.video.doviRpuMetadataCopy) {
-        auto doviRpuConvPrm = (m_Mux.video.doviProfileSrc != m_Mux.video.doviProfileDst) ? std::make_unique<RGYFrameDataDOVIRpuConvertParam>(m_Mux.video.doviProfileDst) : nullptr;
+        auto doviRpuConvPrm = (m_Mux.video.doviProfileSrc != m_Mux.video.doviProfileDst) ? std::make_unique<RGYFrameDataDOVIRpuConvertParam>(m_Mux.video.doviProfileDst, m_Mux.video.doviRpuConvertParam) : nullptr;
         auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata, doviRpuConvPrm.get());
         if (err_dovirpu != RGY_ERR_NONE) {
             return err_dovirpu;

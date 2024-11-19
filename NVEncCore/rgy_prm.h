@@ -2416,6 +2416,7 @@ struct RGYParamCommon {
     tstring dynamicHdr10plusJson;
     bool doviRpuMetadataCopy;
     tstring doviRpuFile;
+    RGYDOVIRpuConvertParam doviRpuParams;
     RGYDOVIProfile doviProfile;
     std::string videoCodecTag;
     std::vector<tstring> videoMetadata;

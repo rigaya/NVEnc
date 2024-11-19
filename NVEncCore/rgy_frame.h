@@ -88,11 +88,13 @@ protected:
 };
 
 class RGYFrameDataMetadataConvertParam {
+    RGYDOVIRpuConvertParam dovirpu;
 public:
-    bool enable;
-
-    RGYFrameDataMetadataConvertParam() : enable(false) {}
+    RGYFrameDataMetadataConvertParam() : dovirpu() {};
+    RGYFrameDataMetadataConvertParam(const RGYDOVIRpuConvertParam& dovirpu_) : dovirpu(dovirpu_) {};
     virtual ~RGYFrameDataMetadataConvertParam() {};
+
+    const RGYDOVIRpuConvertParam *doviRpu() const { return &dovirpu; }
 };
 
 class RGYFrameDataMetadata : public RGYFrameData {
@@ -125,7 +127,9 @@ public:
     RGYDOVIProfile doviProfileDst;
 
     RGYFrameDataDOVIRpuConvertParam() : RGYFrameDataMetadataConvertParam(), doviProfileDst(RGY_DOVI_PROFILE_UNSET) {}
-    RGYFrameDataDOVIRpuConvertParam(RGYDOVIProfile profile) : RGYFrameDataMetadataConvertParam(), doviProfileDst(profile) { enable = true; }
+    RGYFrameDataDOVIRpuConvertParam(RGYDOVIProfile profile, const RGYDOVIRpuConvertParam& param) :
+        RGYFrameDataMetadataConvertParam(param), doviProfileDst(profile) {
+    }
     virtual ~RGYFrameDataDOVIRpuConvertParam() {};
 };
 

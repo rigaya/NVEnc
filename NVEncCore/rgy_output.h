@@ -325,6 +325,7 @@ struct RGYOutputRawPrm {
     RGYDOVIProfile doviProfile;
     DOVIRpu *doviRpu;
     bool doviRpuMetadataCopy;     //doviのmetadataのコピー
+    RGYDOVIRpuConvertParam doviRpuConvertParam;
     RGYTimestamp *vidTimestamp;
 };
 
@@ -346,6 +347,7 @@ protected:
     RGYDOVIProfile m_doviProfileDst;
     DOVIRpu *m_doviRpu;
     bool m_doviRpuMetadataCopy;
+    RGYDOVIRpuConvertParam m_doviRpuConvertParam;
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
     int64_t m_prevEncodeFrameId;

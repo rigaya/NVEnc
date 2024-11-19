@@ -2269,6 +2269,7 @@ RGYParamCommon::RGYParamCommon() :
     dynamicHdr10plusJson(),
     doviRpuMetadataCopy(false),
     doviRpuFile(),
+    doviRpuParams(),
     doviProfile(RGY_DOVI_PROFILE_UNSET),
     videoCodecTag(),
     videoMetadata(),

@@ -126,6 +126,7 @@
   - [--dolby-vision-profile \<string\> \[HEVC, AV1\]](#--dolby-vision-profile-string-hevc-av1)
   - [--dolby-vision-rpu \<string\> \[HEVC, AV1\]](#--dolby-vision-rpu-string-hevc-av1)
   - [--dolby-vision-rpu copy \[HEVC, AV1\]](#--dolby-vision-rpu-copy-hevc-av1)
+  - [--dolby-vision-rpu-prm \<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...](#--dolby-vision-rpu-prm-param1value1param2value2)
   - [--aud \[H.264/HEVC\]](#--aud-h264hevc)
   - [--repeat-headers](#--repeat-headers)
   - [--pic-struct \[H.264/HEVC\]](#--pic-struct-h264hevc)
@@ -927,6 +928,21 @@ Interleave Dolby Vision RPU metadata copied from HEVC input file. Recommended to
 
 Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
 Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
+
+### --dolby-vision-rpu-prm &lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...  
+
+Set parameters for ```--dolby-vision-rpu```.
+
+- **parameters**
+  
+  - crop=&lt;bool&gt;
+
+    Set active area offsets to 0 (no letterbox bars).
+
+- Examples
+  ```
+  Example:  --dolby-vision-rpu-prm crop=true
+  ```
 
 ### --aud [H.264/HEVC]
 Insert Access Unit Delimiter NAL.

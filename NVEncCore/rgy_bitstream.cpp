@@ -27,8 +27,10 @@
 
 #include <regex>
 #include "rgy_util.h"
+#include "rgy_def.h"
 #include "rgy_bitstream.h"
 #include "rgy_memmem.h"
+#include "rgy_libdovi.h"
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     std::vector<uint8_t> data;
@@ -459,6 +461,52 @@ std::vector<uint8_t> RGYHDRMetadata::gen_obu() const {
     return data;
 }
 
+int convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm) {
+#if ENABLE_LIBDOVI
+    if (!prm) {
+        return 0;
+    }
+    if (data.size() == 0) {
+        return 0;
+    }
+    if (prm->convertProfile || prm->activeAreaOffsets.enable || prm->removeMapping) {
+        std::unique_ptr<DoviRpuOpaque, decltype(&dovi_rpu_free)> rpu(dovi_parse_rpu(data.data(), data.size()), dovi_rpu_free);
+        if (!rpu) {
+            return 1;
+        }
+        std::unique_ptr<const DoviRpuDataHeader, decltype(&dovi_rpu_free_header)> header(dovi_rpu_get_header(rpu.get()), dovi_rpu_free_header);
+        if (!header) {
+            return 1;
+        }
+        const auto dovi_profile = header->guessed_profile;
+        if (prm->convertProfile
+            && dovi_profile == 7
+            && (doviProfileDst == RGY_DOVI_PROFILE_81 || doviProfileDst == RGY_DOVI_PROFILE_COPY)) {
+            const int ret = dovi_convert_rpu_with_mode(rpu.get(), 2);
+            if (ret != 0) {
+                return 1;
+            }
+        }
+        if (prm->activeAreaOffsets.enable) {
+            dovi_rpu_set_active_area_offsets(rpu.get(),
+                prm->activeAreaOffsets.left, prm->activeAreaOffsets.right, prm->activeAreaOffsets.top, prm->activeAreaOffsets.bottom);
+        }
+        if (prm->removeMapping) {
+            dovi_rpu_remove_mapping(rpu.get());
+        }
+        std::unique_ptr<const DoviData, decltype(&dovi_data_free)> rpu_data(dovi_write_rpu(rpu.get()), dovi_data_free);
+        if (!rpu_data) {
+            return 1;
+        }
+        data.resize(rpu_data->len);
+        memcpy(data.data(), rpu_data->data, rpu_data->len);
+    }
+    return 0;
+#else
+    return (prm) ? 1 : 0;
+#endif // ENABLE_LIBDOVI
+}
+
 DOVIRpu::DOVIRpu() : m_find_header(get_find_header_func()), m_filepath(), m_fp(nullptr, fp_deleter()), m_buffer(), m_datasize(0), m_dataoffset(0), m_count(0), m_rpus() {};
 DOVIRpu::~DOVIRpu() { m_fp.reset(); };
 
@@ -497,7 +545,7 @@ int DOVIRpu::fillBuffer() {
     return bytes_read;
 }
 
-int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes) {
+int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm) {
     if (m_datasize <= 4) {
         if (fillBuffer() == 0) {
             return 1; //EOF
@@ -532,14 +580,14 @@ int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes) {
     memcpy(bytes.data(), dataptr, next_size);
     m_dataoffset += next_size;
     m_datasize -= next_size;
-    return 0;
+    return convert_dovi_rpu(bytes, doviProfileDst, prm);
 }
 
-int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id) {
+int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id) {
     bytes.clear();
     for (; m_count <= id; m_count++) {
         std::vector<uint8_t> rpu;
-        if (int ret = get_next_rpu(rpu); ret != 0) {
+        if (int ret = get_next_rpu(rpu, doviProfileDst, prm); ret != 0) {
             return ret;
         }
         m_rpus[m_count] = rpu;
@@ -553,9 +601,9 @@ int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id) {
     return 0;
 }
 
-int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id) {
+int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id) {
     std::vector<uint8_t> rpu;
-    if (int ret = get_next_rpu(rpu, id); ret != 0) {
+    if (int ret = get_next_rpu(rpu, doviProfileDst, prm, id); ret != 0) {
         return ret;
     }
     //to_nal(rpu); // get_next_rpuはすでにこの処理を実施済みのものを返す
@@ -573,9 +621,9 @@ int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id) {
     return 0;
 }
 
-int DOVIRpu::get_next_rpu_obu(std::vector<uint8_t>& bytes, const int64_t id) {
+int DOVIRpu::get_next_rpu_obu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id) {
     std::vector<uint8_t> tmp;
-    if (int ret = get_next_rpu(tmp, id); ret != 0) {
+    if (int ret = get_next_rpu(tmp, doviProfileDst, prm, id); ret != 0) {
         return ret;
     }
 
@@ -592,10 +640,10 @@ int DOVIRpu::get_next_rpu_obu(std::vector<uint8_t>& bytes, const int64_t id) {
     return 0;
 }
 
-int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id, const RGY_CODEC codec) {
+int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id, const RGY_CODEC codec) {
     switch (codec) {
-    case RGY_CODEC_HEVC: return get_next_rpu_nal(bytes, id);
-    case RGY_CODEC_AV1: return get_next_rpu_obu(bytes, id);
+    case RGY_CODEC_HEVC: return get_next_rpu_nal(bytes, doviProfileDst, prm, id);
+    case RGY_CODEC_AV1: return get_next_rpu_obu(bytes, doviProfileDst, prm, id);
     default: return 1;
     }
 }

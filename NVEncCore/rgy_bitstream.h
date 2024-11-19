@@ -320,6 +320,8 @@ static const uint8_t av1_itut_t35_header_dovirpu[] = {
 
 const DOVIProfile *getDOVIProfile(const int id);
 
+int convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm);
+
 class DOVIRpu {
 public:
     static const uint8_t rpu_header[4];
@@ -327,15 +329,15 @@ public:
     DOVIRpu();
     ~DOVIRpu();
     int init(const TCHAR *rpu_file);
-    int get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id);
-    int get_next_rpu_obu(std::vector<uint8_t>& bytes, const int64_t id);
-    int get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id, const RGY_CODEC codec);
+    int get_next_rpu_nal(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id);
+    int get_next_rpu_obu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id);
+    int get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id, const RGY_CODEC codec);
     const tstring& get_filepath() const;
 
 protected:
     int fillBuffer();
-    int get_next_rpu(std::vector<uint8_t>& bytes);
-    int get_next_rpu(std::vector<uint8_t>& bytes, const int64_t id);
+    int get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm);
+    int get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id);
 
     decltype(find_header_c)* m_find_header;
     tstring m_filepath;

@@ -149,6 +149,7 @@ struct AVMuxVideo {
     RGYDOVIProfile        doviProfileDst;       //dovi profile output
     DOVIRpu              *doviRpu;              //dovi rpu 追加用
     bool                  doviRpuMetadataCopy;  //dovi rpuをコピー
+    RGYDOVIRpuConvertParam doviRpuConvertParam; //dovi rpuの変換パラメータ
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
     uint8_t              *bsfcBuffer;           //bitstreamfilter用のバッファ
     size_t                bsfcBufferLength;     //bitstreamfilter用のバッファの長さ
@@ -401,6 +402,7 @@ struct AvcodecWriterPrm {
     DOVIRpu                     *doviRpu;                 //DOVIRpu
     bool                         doviRpuMetadataCopy;     //doviのmetadataのコピー
     RGYDOVIProfile               doviProfile;             //doviのprofile
+    RGYDOVIRpuConvertParam       doviRpuConvertParam;     //dovi rpuの変換パラメータ
     RGYTimestamp                *vidTimestamp;            //動画のtimestampの情報
     std::string                  videoCodecTag;           //動画タグ
     std::vector<tstring>         videoMetadata;           //動画のmetadata
@@ -443,6 +445,7 @@ struct AvcodecWriterPrm {
         doviRpu(nullptr),
         doviRpuMetadataCopy(false),
         doviProfile(RGY_DOVI_PROFILE_UNSET),
+        doviRpuConvertParam(),
         vidTimestamp(nullptr),
         videoCodecTag(),
         videoMetadata(),

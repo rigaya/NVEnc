@@ -6155,6 +6155,37 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("dolby-vision-rpu-prm")) {
+        i++;
+        const auto paramList = std::vector<std::string>{ "crop" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("crop")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        common->doviRpuParams.activeAreaOffsets.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("crop")) {
+                    common->doviRpuParams.activeAreaOffsets.enable = true;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
 #endif //#if ENABLE_DOVI_METADATA_OPTIONS
     if (IS_OPTION("timecode")) {
         common->timecode = true;
@@ -8200,6 +8231,16 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     } else {
         OPT_STR_PATH(_T("--dolby-vision-rpu"), doviRpuFile);
     }
+
+    if (param->doviRpuParams != defaultPrm->doviRpuParams) {
+        tmp.str(tstring());
+        if (param->doviRpuParams.activeAreaOffsets.enable) {
+            tmp << ",crop=on";
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --dolby-vision-rpu-prm ") << tmp.str().substr(1);
+        }
+    }
     if (param->timecode || param->timecodeFile.length() > 0) {
         cmd << (param->timecode ? _T("--timecode ") : _T("--no-timecode "));
         if (param->timecodeFile.length() > 0) {
@@ -8451,7 +8492,12 @@ tstring gen_cmd_help_common() {
     str += print_list_options(_T("--dolby-vision-profile <int>"), list_dovi_profile, 0);
     str += strsprintf(
         _T("   --dolby-vision-rpu <string>  Copy dolby vision metadata from input rpu file.\n")
-        _T("   --dolby-vision-rpu copy      Copy dolby vision metadata from input file.\n"));
+        _T("   --dolby-vision-rpu copy      Copy dolby vision metadata from input file.\n")
+        _T("   --dolby-vision-rpu-prm <param1>=<value>[,<param2>=<value>][...]\n")
+        _T("     parameters for --dolby-vision-rpu.\n")
+        _T("    params\n")
+        _T("      crop=<bool>               Set active area offsets to 0 (no letterbox bars).\n")
+    );
 #endif //#if ENABLE_DOVI_METADATA_OPTIONS
     str += strsprintf(
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
