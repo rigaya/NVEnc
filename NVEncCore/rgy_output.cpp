@@ -921,7 +921,13 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 
     if (m_bY4m) {
         if (!m_y4mHeaderWritten) {
-            WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo, pSurface->csp());
+            auto csp = pSurface->csp();
+            if (csp == RGY_CSP_NV12) {
+                csp = RGY_CSP_YV12;
+            } else if (csp == RGY_CSP_P010) {
+                csp = RGY_CSP_YV12_16;
+            }
+            WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo, csp);
             m_y4mHeaderWritten = true;
         }
         WRITE_CHECK(fwrite("FRAME\n", 1, strlen("FRAME\n"), m_fDest.get()), strlen("FRAME\n"));
