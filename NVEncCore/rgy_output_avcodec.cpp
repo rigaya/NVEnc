@@ -1014,6 +1014,9 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                 AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_DOVI_CONF from input\n"));
                 doviconf.reset();
             }
+            if (m_Mux.video.doviProfileSrc == m_Mux.video.doviProfileDst) {
+                m_Mux.video.doviRpuConvertParam.convertProfile = false;
+            }
 #else
             AddMessage(RGY_LOG_WARN, _T("dovi-profile copy noy supported in this build!\n"));
 #endif //#if LIBAVUTIL_DOVI_META_AVAIL
@@ -2825,7 +2828,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
             metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
         }
     } else if (m_Mux.video.doviRpuMetadataCopy) {
-        auto doviRpuConvPrm = (m_Mux.video.doviProfileSrc != m_Mux.video.doviProfileDst) ? std::make_unique<RGYFrameDataDOVIRpuConvertParam>(m_Mux.video.doviProfileDst, m_Mux.video.doviRpuConvertParam) : nullptr;
+        auto doviRpuConvPrm = std::make_unique<RGYFrameDataDOVIRpuConvertParam>(m_Mux.video.doviProfileDst, m_Mux.video.doviRpuConvertParam);
         auto [err_dovirpu, metadata_dovi_rpu] = getMetadata<RGYFrameDataDOVIRpu>(RGY_FRAME_DATA_DOVIRPU, bs_framedata, doviRpuConvPrm.get());
         if (err_dovirpu != RGY_ERR_NONE) {
             return err_dovirpu;
