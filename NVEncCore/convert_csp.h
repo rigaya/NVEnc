@@ -953,7 +953,7 @@ static int conv_bit_depth_rsft_() {
 template<int out_bit_depth, int in_bit_depth, int shift_offset>
 CU_DEV_HOST_CODE
 static int conv_bit_depth_rsft_add_() {
-    const int rsft = conv_bit_depth_rsft_<in_bit_depth, out_bit_depth, shift_offset>();
+    const int rsft = conv_bit_depth_rsft_<out_bit_depth, in_bit_depth, shift_offset>();
     return (rsft - 1 >= 0) ? 1 << (rsft - 1) : 0;
 }
 
