@@ -217,6 +217,8 @@ NVIDIA グラフィックドライバ 551.23
 【メモ】
 2024.11.24 (7.76)
 - --dolby-vision-rpuをファイルから読む場合に壊してしまっていたのを修正。
+- --vpp-libplacebo-debandのgrain_y, grain_cの読み取りが行われない問題を修正。
+- --vpp-libplacebo-debandのgrain_cのヘルプを修正。
 
 2024.11.22 (7.75)
 - AV1ではLevelを常に自動選択させるよう変更。
