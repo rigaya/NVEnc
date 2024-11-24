@@ -4044,7 +4044,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "iterations", "threshold", "radius", "thre_cb",
-            "grainY", "grainC", "dither", "lut_size" };
+            "grain_y", "grain_c", "dither", "lut_size" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -4089,7 +4089,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("grainY")) {
+                if (param_arg == _T("grain_y")) {
                     try {
                         vpp->libplacebo_deband.grainY = std::stof(param_val);
                     } catch (...) {
@@ -4098,7 +4098,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("grainC")) {
+                if (param_arg == _T("grain_c")) {
                     try {
                         vpp->libplacebo_deband.grainC = std::stof(param_val);
                     } catch (...) {
