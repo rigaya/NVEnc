@@ -578,9 +578,10 @@ int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile dovi
     bytes.resize(next_size);
     const auto dataptr = m_buffer.data() + m_dataoffset;
     memcpy(bytes.data(), dataptr, next_size);
+    auto output = unnal(bytes.data(), bytes.size());
     m_dataoffset += next_size;
     m_datasize -= next_size;
-    return convert_dovi_rpu(bytes, doviProfileDst, prm);
+    return convert_dovi_rpu(output, doviProfileDst, prm);
 }
 
 int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id) {
@@ -606,10 +607,10 @@ int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const RGYDOVIProfile 
     if (int ret = get_next_rpu(rpu, doviProfileDst, prm, id); ret != 0) {
         return ret;
     }
-    //to_nal(rpu); // get_next_rpuはすでにこの処理を実施済みのものを返す
     if (rpu.back() == 0x00) { // 最後が0x00の場合
         rpu.push_back(0x03);
     }
+    to_nal(rpu);
 
     bytes.resize(sizeof(DOVIRpu::rpu_header));
     memcpy(bytes.data(), &DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header));
