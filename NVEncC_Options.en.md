@@ -3054,14 +3054,16 @@ Adding ```--colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084``` is r
 
 Requires Turing GPUs or later, and requires driver version 550.58 or higher. Supported on Windows system only.
 
+Default paramters are based on the values on [the link](https://www.reddit.com/r/nvidia/comments/1b03yfg/rtx_hdr_paper_white_gamma_reference_settings/). Please note that the parameter range for contrast and saturation differs from the link, you will need to add "+100" for ```contrast``` and ```saturation``` written in the link.
+
 - **Parameters**
-  - contrast=&lt;int&gt;  (default=100, 0 - 200)  
+  - contrast=&lt;int&gt;  (default=125, 0 - 200)  
     adjusts the difference between lights and darks.
 
-  - saturation=&lt;int&gt;  (default=100, 0 - 200)  
+  - saturation=&lt;int&gt;  (default=75, 0 - 200)  
     adjusts color intensity.
 
-  - middlegray=&lt;int&gt;  (default=50, 10 - 100)  
+  - middlegray=&lt;int&gt;  (default=44, 10 - 100)  
     adjusts average brightness.
 
   - maxluminance=&lt;int&gt;  (default=1000, 400 - 2000)  

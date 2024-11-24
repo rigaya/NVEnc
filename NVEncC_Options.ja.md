@@ -3112,14 +3112,16 @@ RTX Video SDKを使用したAIベースのSDR→HDR変換を行う。出力はco
 
 Turing以降のGPUかつ、Windows x64版で550.58以降のドライバが必要。
 
+デフォルト値は[リンク先](https://www.reddit.com/r/nvidia/comments/1b03yfg/rtx_hdr_paper_white_gamma_reference_settings/)の値。なお、　```contrast``` と ```saturation``` の値は、リンク先表記とは値の範囲にずれがあり、それぞれ "+100" して設定する必要があります。
+
 - **パラメータ**
-  - contrast=&lt;int&gt;  (デフォルト=100, 0 - 200)  
+  - contrast=&lt;int&gt;  (デフォルト=125, 0 - 200)  
     明暗のコントラスト比の調整。
 
-  - saturation=&lt;int&gt;  (デフォルト=100, 0 - 200)  
+  - saturation=&lt;int&gt;  (デフォルト=75, 0 - 200)  
     色の濃さの調整。
 
-  - middlegray=&lt;int&gt;  (デフォルト=50, 10 - 100)  
+  - middlegray=&lt;int&gt;  (デフォルト=44, 10 - 100)  
     平均の明るさの調整。
 
   - maxluminance=&lt;int&gt;  (デフォルト=1000, 400 - 2000)  

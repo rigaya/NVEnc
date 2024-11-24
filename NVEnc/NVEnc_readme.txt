@@ -220,6 +220,7 @@ NVIDIA グラフィックドライバ 551.23
 - --vpp-libplacebo-debandのgrain_y, grain_cの読み取りが行われない問題を修正。
 - --vpp-libplacebo-debandのgrain_cのヘルプを修正。
 - --dolby-vision-rpuと--dhdr10-infoの併用に対応。
+- --vpp-ngx-truehdrのデフォルト値を変更。
 
 2024.11.22 (7.75)
 - AV1ではLevelを常に自動選択させるよう変更。
