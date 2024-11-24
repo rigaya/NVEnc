@@ -237,6 +237,11 @@ public:
             m_frameInfo.dataList.push_back(data);
         }
     }
+    void addFrameData(std::vector<std::shared_ptr<RGYFrameData>> data) {
+        for (auto& d : data) {
+            addFrameData(d);
+        }
+    }
 private:
     shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
     CUVIDPROCPARAMS m_oVPP;
@@ -3998,21 +4003,30 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
     const auto codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
     if (codec == RGY_CODEC_HEVC || codec == RGY_CODEC_AV1) {
+        metadatalist = frameDataList;
         if (m_hdr10plus) {
+            // 外部からHDR10+を読み込む場合、metadatalist 内のHDR10+の削除
+            for (auto it = metadatalist.begin(); it != metadatalist.end(); ) {
+                if ((*it)->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
+                    it = metadatalist.erase(it);
+                } else {
+                    it++;
+                }
+            }
+            // 外部からHDR10+を読み込む
             if (const auto data = m_hdr10plus->getData(inputFrameId); data.size() > 0) {
                 metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), timestamp));
             }
-        } else if (frameDataList.size() > 0) {
-            if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
-                return frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
-            }); data != frameDataList.end()) {
-                metadatalist.push_back(*data);
-            }
         }
-        if (auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
-            return frameData->dataType() == RGY_FRAME_DATA_DOVIRPU;
-        }); data != frameDataList.end()) {
-            metadatalist.push_back(*data);
+        if (m_dovirpu) {
+            // 外部からdoviを読み込む場合、metadatalist 内のdovi rpuの削除
+            for (auto it = metadatalist.begin(); it != metadatalist.end(); ) {
+                if ((*it)->dataType() == RGY_FRAME_DATA_DOVIRPU) {
+                    it = metadatalist.erase(it);
+                } else {
+                    it++;
+                }
+            }
         }
     }
 
@@ -4278,7 +4292,7 @@ NVENCSTATUS NVEncCore::Encode() {
         PrintMes(RGY_LOG_DEBUG, _T("Started Encode thread\n"));
     }
     auto getMetadata = [&queueMetadata](int64_t timestamp) {
-        std::shared_ptr<RGYFrameData> frameData;
+        std::vector<std::shared_ptr<RGYFrameData>> frameData;
         RGYFrameDataMetadata *frameDataPtr = nullptr;
         while (queueMetadata.front_copy_no_lock(&frameDataPtr)) {
             if (frameDataPtr->timestamp() < timestamp) {
@@ -4295,15 +4309,14 @@ NVENCSTATUS NVEncCore::Encode() {
                     if (frameDataPtr->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
                         auto ptr = dynamic_cast<RGYFrameDataHDR10plus*>(frameDataPtr);
                         if (ptr) {
-                            frameData = std::make_shared<RGYFrameDataHDR10plus>(*ptr);
+                            frameData.emplace_back(std::make_shared<RGYFrameDataHDR10plus>(*ptr));
                         }
                     } else if (frameDataPtr->dataType() == RGY_FRAME_DATA_DOVIRPU) {
                         auto ptr = dynamic_cast<RGYFrameDataDOVIRpu*>(frameDataPtr);
                         if (ptr) {
-                            frameData = std::make_shared<RGYFrameDataDOVIRpu>(*ptr);
+                            frameData.emplace_back(std::make_shared<RGYFrameDataDOVIRpu>(*ptr));
                         }
                     }
-                    break;
                 }
             }
         }
