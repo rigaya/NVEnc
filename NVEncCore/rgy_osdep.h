@@ -64,6 +64,15 @@ static bool RGYThreadStillActive(HANDLE handle) {
     return GetExitCodeThread(handle, &exitCode) == STILL_ACTIVE;
 }
 
+static bool RGYProcessExists(DWORD pid) {
+    HANDLE hProcess = OpenProcess(SYNCHRONIZE, FALSE, pid);
+    if (hProcess == NULL) {
+        return false;
+    }
+    CloseHandle(hProcess);
+    return true;
+}
+
 static int getStdInKey() {
     static HANDLE hStdInHandle = NULL;
     static bool stdin_from_console = false;
@@ -85,6 +94,7 @@ static int getStdInKey() {
 #include <sys/times.h>
 #include <sys/types.h>
 #include <sys/select.h>
+#include <signal.h>
 #include <unistd.h>
 #include <cstdarg>
 #include <cstdlib>
@@ -284,6 +294,15 @@ static size_t SetThreadAffinityMask(pthread_t thread, size_t mask) {
 static bool RGYThreadStillActive(pthread_t thread) {
     return pthread_tryjoin_np(thread, nullptr) != 0;
 }
+
+static bool RGYProcessExists(uint32_t pid) {
+    if (kill(pid, 0) == 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 
 enum {
     THREAD_PRIORITY_NORMAL,

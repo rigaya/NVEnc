@@ -963,6 +963,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_device_usage.cpp" />
     <ClCompile Include="rgy_faw.cpp" />
     <ClCompile Include="rgy_faw_avx2.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
@@ -1433,6 +1434,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterParam.h" />
     <ClInclude Include="rgy_device.h" />
     <ClInclude Include="rgy_device_info_wmi.h" />
+    <ClInclude Include="rgy_device_usage.h" />
     <ClInclude Include="rgy_faw.h" />
     <ClInclude Include="rgy_filter.h" />
     <ClInclude Include="rgy_frame_info.h" />

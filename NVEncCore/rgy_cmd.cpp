@@ -6988,6 +6988,14 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->enableVulkan = true;
         return 0;
     }
+    if (IS_OPTION("process-monitor-dev-usage")) {
+        ctrl->processMonitorDevUsage = true;
+        return 0;
+    }
+    if (IS_OPTION("process-monitor-dev-usage-reset")) {
+        ctrl->processMonitorDevUsageReset = true;
+        return 0;
+    }
     return -10;
 }
 
@@ -8357,7 +8365,9 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         }
     }
     OPT_NUM(_T("--perf-monitor-interval"), perfMonitorInterval);
-    OPT_NUM(_T("--parent-pid"), parentProcessID);
+    if (param->parentProcessID != defaultPrm->parentProcessID) {
+        cmd << strsprintf(_T(" --parent-pid %x"), param->parentProcessID);
+    }
     if (param->gpuSelect != defaultPrm->gpuSelect) {
         std::basic_stringstream<TCHAR> tmp;
         tmp.str(tstring());
@@ -8373,6 +8383,8 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--enable-opencl"), _T("--disable-opencl"), enableOpenCL);
 #endif
     OPT_BOOL(_T("--enable-vulkan"), _T("--disable-vulkan"), enableVulkan);
+    OPT_BOOL(_T("--process-monitor-dev-usage"), _T(""), processMonitorDevUsage);
+    OPT_BOOL(_T("--process-monitor-dev-usage-reset"), _T(""), processMonitorDevUsageReset);
     return cmd.str();
 }
 

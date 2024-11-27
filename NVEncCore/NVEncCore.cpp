@@ -977,8 +977,23 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gp
         m_nDeviceId = gpuList.front()->id();
         return NV_ENC_SUCCESS;
     }
+    int maxDeviceUsageCount = 1;
+    std::vector<std::pair<int, int64_t>> deviceUsage;
+    if (gpuList.size() > 1) {
+        RGYDeviceUsage devUsage;
+        deviceUsage = devUsage.getUsage();
+        for (size_t i = 0; i < deviceUsage.size(); i++) {
+            maxDeviceUsageCount = std::max(maxDeviceUsageCount, deviceUsage[i].first);
+            if (deviceUsage[i].first > 0) {
+                PrintMes(RGY_LOG_DEBUG, _T("Device #%d: %d usage.\n"), i, deviceUsage[i].first);
+            }
+        }
+    }
+
     std::map<int, double> gpuscore;
     for (const auto& gpu : gpuList) {
+        const int deviceUsageCount = (int)gpu->id() < (int)deviceUsage.size() ? deviceUsage[gpu->id()].first : 0;
+        double usage_score = 100.0 * (maxDeviceUsageCount - deviceUsageCount) / (double)maxDeviceUsageCount;
         double core_score = gpu->cuda_cores() * inputParam->ctrl.gpuSelect.cores;
         double cc_score = (gpu->cc().first * 10.0 + gpu->cc().second) * inputParam->ctrl.gpuSelect.gen;
         double ve_score = 0.0;
@@ -999,9 +1014,9 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gp
             gpu_score = 100.0 * (1.0 - std::pow(info.GPULoad / 100.0, 1.5)) * inputParam->ctrl.gpuSelect.gpu;
             PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) Load: GPU %.1f, VE: %.1f.\n"), gpu->id(), gpu->name().c_str(), info.GPULoad, info.VEELoad);
         }
-        gpuscore[gpu->id()] = cc_score + ve_score + gpu_score + core_score;
-        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: VE %.1f, GPU %.1f, CC %.1f, Core %.1f.\n"), gpu->id(), gpu->name().c_str(),
-            gpuscore[gpu->id()], ve_score, gpu_score, cc_score, core_score);
+        gpuscore[gpu->id()] = usage_score + cc_score + ve_score + gpu_score + core_score;
+        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: Use %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f.\n"), gpu->id(), gpu->name().c_str(),
+            gpuscore[gpu->id()], usage_score, ve_score, gpu_score, cc_score, core_score);
     }
     std::sort(gpuList.begin(), gpuList.end(), [&](const std::unique_ptr<NVGPUInfo>& a, const std::unique_ptr<NVGPUInfo>& b) {
         if (gpuscore.at(a->id()) != gpuscore.at(b->id())) {
@@ -3642,6 +3657,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
+    const int gpuCount = (int)gpuList.size();
     PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
 
     //リスト中のGPUのうち、まずは指定されたHWエンコードが可能なもののみを選択
@@ -3730,6 +3746,10 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             m_nDeviceId = gpuList.front()->id();
             PrintMes(RGY_LOG_DEBUG, _T("device #%d (%s) selected.\n"), gpuList.front()->id(), gpuList.front()->name().c_str());
         }
+    }
+    if (gpuCount > 1) {
+        RGYDeviceUsage devUsage;
+        devUsage.startProcessMonitor(gpuList.front()->id());
     }
 
     if (NV_ENC_SUCCESS != (nvStatus = InitDevice(gpuList, inputParam))) {

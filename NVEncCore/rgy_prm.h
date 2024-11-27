@@ -2522,6 +2522,8 @@ struct RGYParamControl {
     bool enableOpenCL;
     bool enableVulkan;
     RGYParamAvoidIdleClock avoidIdleClock;
+    bool processMonitorDevUsage;
+    bool processMonitorDevUsageReset;
 
     int outputBufSizeMB;         //出力バッファサイズ
 

@@ -2364,6 +2364,8 @@ RGYParamControl::RGYParamControl() :
     enableOpenCL(true),
     enableVulkan(true),
     avoidIdleClock(),
+    processMonitorDevUsage(false),
+    processMonitorDevUsageReset(false),
     outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {
 
 }

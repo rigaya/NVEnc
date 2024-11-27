@@ -505,6 +505,12 @@ int _tmain(int argc, TCHAR **argv) {
         }
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+    if (encPrm.ctrl.processMonitorDevUsageReset) {
+        return processMonitorRGYDeviceResetEntry();
+    }
+    if (encPrm.ctrl.processMonitorDevUsage) {
+        return processMonitorRGYDeviceUsage(encPrm.ctrl.parentProcessID, encPrm.deviceID);
+    }
 
     encPrm.encConfig.encodeCodecConfig = codecPrm[encPrm.codec_rgy];
 

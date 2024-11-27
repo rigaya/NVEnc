@@ -53,6 +53,7 @@
 #include "rgy_bitstream.h"
 #include "rgy_frame_info.h"
 #include "rgy_hdr10plus.h"
+#include "rgy_device_usage.h"
 
 class RGYTimecode;
 
