@@ -277,6 +277,7 @@ NVEncCore::NVEncCore() :
 #if ENABLE_AVSW_READER
     m_cuvidDec(),
 #endif //#if ENABLE_AVSW_READER
+    m_deviceUsage(),
     m_pAbortByUser(nullptr),
     m_cudaSchedule(CU_CTX_SCHED_AUTO),
     m_stCreateEncodeParams(),
@@ -1162,7 +1163,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_dynamicRC.clear();
     m_ssim.reset();
     m_pLastFilterParam.reset();
-
+    m_deviceUsage.reset();
     m_pStatus.reset();
     PrintMes(RGY_LOG_DEBUG, _T("Closed EncodeStatus.\n"));
 
@@ -3748,8 +3749,8 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         }
     }
     if (gpuCount > 1) {
-        RGYDeviceUsage devUsage;
-        devUsage.startProcessMonitor(gpuList.front()->id());
+        m_deviceUsage = std::make_unique<RGYDeviceUsage>();
+        m_deviceUsage->startProcessMonitor(gpuList.front()->id());
     }
 
     if (NV_ENC_SUCCESS != (nvStatus = InitDevice(gpuList, inputParam))) {
@@ -5035,6 +5036,7 @@ NVENCSTATUS NVEncCore::Encode() {
     }
     m_pFileWriter->Close();
     m_pFileReader->Close();
+    m_deviceUsage->close();
     m_pStatus->WriteResults();
     if (m_ssim) {
         m_ssim->showResult();

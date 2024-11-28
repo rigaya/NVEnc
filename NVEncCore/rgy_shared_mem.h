@@ -193,6 +193,7 @@ public:
         }
         buffer = shmat(segment_id, 0, 0);
         shared_size = size;
+        return 0;
     }
     void detach() override {
         if (buffer != nullptr) {

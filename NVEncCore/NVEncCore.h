@@ -175,6 +175,7 @@ protected:
 #if ENABLE_AVSW_READER
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
 #endif //#if ENABLE_AVSW_READER
+    std::unique_ptr<RGYDeviceUsage> m_deviceUsage;
 
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
 

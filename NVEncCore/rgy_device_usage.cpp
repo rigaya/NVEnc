@@ -76,6 +76,13 @@ RGYDeviceUsage::~RGYDeviceUsage() {
 }
 
 void RGYDeviceUsage::close() {
+    if (m_monitorProcess) {
+        char buf = 0;
+        m_monitorProcess->stdInFpWrite(&buf, sizeof(buf));
+        m_monitorProcess->stdInFpFlush();
+        m_monitorProcess->wait(INFINITE);
+        m_monitorProcess.reset();
+    }
     release();
     m_header = nullptr;
     m_entries = nullptr;
@@ -83,7 +90,6 @@ void RGYDeviceUsage::close() {
         m_sharedMem->detach();
     }
     m_sharedMem.reset();
-    m_monitorProcess.reset();
 }
 
 RGY_ERR RGYDeviceUsage::open() {
@@ -91,12 +97,13 @@ RGY_ERR RGYDeviceUsage::open() {
         return RGY_ERR_NONE;
     }
 #if defined(_WIN32) || defined(_WIN64)
+    const char *sm_key = RGY_DEVICE_USAGE_SHARED_MEM_NAME;
     m_sharedMem = std::make_unique<RGYSharedMemWin>();
 #else
+    const int sm_key = RGY_DEVICE_USAGE_SHARED_MEM_KEY_ID;
     m_sharedMem = std::make_unique<RGYSharedMemLinux>();
 #endif
-    const char *sm_name = RGY_DEVICE_USAGE_SHARED_MEM_NAME;
-    m_sharedMem->open(sm_name, sizeof(RGYDeviceUsageHeader) + sizeof(RGYDeviceUsageEntry) * RGY_DEVICE_USAGE_MAX_ENTRY);
+    m_sharedMem->open(sm_key, sizeof(RGYDeviceUsageHeader) + sizeof(RGYDeviceUsageEntry) * RGY_DEVICE_USAGE_MAX_ENTRY);
     if (!m_sharedMem->is_open()) {
         return RGY_ERR_DEVICE_NOT_FOUND;
     }
@@ -227,7 +234,7 @@ void RGYDeviceUsage::release() {
 
 RGY_ERR RGYDeviceUsage::startProcessMonitor(int32_t device_id) {
     m_monitorProcess = createRGYPipeProcess();
-    m_monitorProcess->init(PIPE_MODE_DISABLE, PIPE_MODE_DISABLE, PIPE_MODE_DISABLE);
+    m_monitorProcess->init(PIPE_MODE_ENABLE | PIPE_MODE_ENABLE_FP, PIPE_MODE_DISABLE, PIPE_MODE_DISABLE);
 
     std::vector<tstring> args = {
         getExePath(),
@@ -249,12 +256,6 @@ RGY_ERR RGYDeviceUsage::startProcessMonitor(int32_t device_id) {
 }
 
 int processMonitorRGYDeviceUsage(const uint32_t ppid, const int32_t deviceID) {
-#if defined(_WIN32) || defined(_WIN64)
-    auto parentHandle = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>(OpenProcess(SYNCHRONIZE, FALSE, ppid), handle_deleter());
-    if (!parentHandle) {
-        fprintf(stderr, "Failed to open parent process (pid: %d)\n", ppid);
-        return 1;
-    }
     int ret = 0;
     RGYDeviceUsage deviceUsage;
     if (deviceUsage.open() != RGY_ERR_NONE) {
@@ -262,17 +263,10 @@ int processMonitorRGYDeviceUsage(const uint32_t ppid, const int32_t deviceID) {
     } else if (deviceUsage.add(deviceID) != RGY_ERR_NONE) {
         fprintf(stderr, "Failed to add entry\n"); ret = 1;
     } else {
-        WaitForSingleObject(parentHandle.get(), INFINITE);
+        char buf = 0;
+        auto read_ret = fread(&buf, 1, 1, stdin);
     }
-    parentHandle.reset();
     return ret;
-#else
-    // Linuxで指定のpidのプロセスの終了を待機
-    int status = 0;
-    auto parent_pid = (pid_t)ppid;
-    if (waitpid(parent_pid, &status, 0) == -1) { perror("waitpid"); return 1; }
-    return 0;
-#endif
 }
 
 int processMonitorRGYDeviceResetEntry() {

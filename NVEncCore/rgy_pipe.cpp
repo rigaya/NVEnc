@@ -260,6 +260,10 @@ std::string RGYPipeProcessWin::getOutput() {
     return outstr;
 }
 
+int RGYPipeProcessWin::wait(uint32_t timeout) {
+    return WaitForSingleObject(m_phandle, timeout);
+}
+
 const PROCESS_INFORMATION& RGYPipeProcessWin::getProcessInfo() {
     return m_pi;
 }
