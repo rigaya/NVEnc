@@ -34,6 +34,7 @@
 #include <atomic>
 #include <climits>
 #include <memory>
+#include <mutex>
 #include "rgy_arch.h"
 #include "rgy_osdep.h"
 #include "rgy_event.h"
@@ -366,5 +367,124 @@ protected:
     alignas(64) std::atomic<bool> m_bPush; //push用のロックの数
 };
 #pragma warning (pop)
+
+class RGYQueueBuffer {
+public:
+    RGYQueueBuffer() :
+        m_ptr(nullptr),
+        m_size(0),
+        m_capacity(0),
+        m_maxCapacity(1 * 1024 * 1024),
+        m_offset(0),
+        m_heEventPushed(nullptr),
+        m_EOF(false),
+        m_mutex() {
+        m_heEventPoped = CreateEvent(NULL, TRUE, TRUE, NULL);
+        m_heEventPushed = CreateEvent(NULL, TRUE, TRUE, NULL);
+    }
+    ~RGYQueueBuffer() {
+        close();
+        if (m_heEventPoped) CloseEvent(m_heEventPoped);
+        if (m_heEventPushed) CloseEvent(m_heEventPushed);
+    }
+    void clear() {
+        m_size = 0;
+        m_capacity = 0;
+        m_offset = 0;
+    }
+    void close() {
+        clear();
+        if (m_ptr) {
+            free(m_ptr);
+            m_ptr = nullptr;
+        }
+    }
+    void init(int64_t bufSize = 1 * 1024 * 1024) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_ptr = (uint8_t *)malloc((size_t)bufSize);
+        m_capacity = bufSize;
+    }
+    int64_t size() const {
+        return m_size;
+    }
+    bool empty() const {
+        return m_size == 0;
+    }
+    bool pushData(const uint8_t *data, int64_t addSize, int timeout) {
+        //最初に決めた容量分までキューにデータがたまっていたら、キューに空きができるまで待機する
+        int wait = 0;
+        while (m_size >= m_maxCapacity) {
+            ResetEvent(m_heEventPoped);
+            const int wait_time = 16;
+            WaitForSingleObject(m_heEventPoped, wait_time);
+            wait += wait_time;
+            if (wait > timeout) {
+                return false;
+            }
+        }
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_size + addSize > m_capacity) {
+            m_capacity = (std::max)(m_capacity * 2, m_size + addSize);
+            auto tmp = (uint8_t *)malloc((size_t)m_capacity);
+            if (m_size > 0) {
+                memcpy(tmp, m_ptr + m_offset, (size_t)m_size);
+            }
+            free(m_ptr);
+            m_ptr = tmp;
+            m_offset = 0;
+        } else if (m_size + m_offset + addSize > m_capacity) {
+            if (m_size > 0) {
+                memmove(m_ptr, m_ptr + m_offset, (size_t)m_size);
+            }
+            m_offset = 0;
+        }
+        memcpy(m_ptr + m_offset + m_size, data, (size_t)addSize);
+        m_size += addSize;
+        SetEvent(m_heEventPushed);
+        return true;
+    }
+    int64_t popDataBlock(uint8_t *data, const int64_t maxSize) {
+        int64_t copy_size = popData(data, maxSize);
+        while (copy_size == 0) {
+            WaitForSingleObject(m_heEventPushed, 16);
+            copy_size = popData(data, maxSize);
+        }
+        return copy_size;
+    }
+    void setEOF() {
+        m_EOF = true;
+    }
+    void setMaxCapacity(int64_t maxCapacity) {
+        m_maxCapacity = maxCapacity;
+    }
+    int64_t getMaxCapacity() const {
+        return m_maxCapacity;
+    }
+protected:
+    int64_t popData(uint8_t *data, const int64_t maxSize) {
+        if (m_size == 0) return (m_EOF) ? -1 : 0;
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        int64_t copy_size = (std::min)(maxSize, m_size);
+        memcpy(data, m_ptr + m_offset, (size_t)copy_size);
+        m_offset += copy_size;
+        m_size -= copy_size;
+        if (m_size == 0) {
+            m_offset = 0;
+        }
+        SetEvent(m_heEventPoped);
+        ResetEvent(m_heEventPushed);
+        return copy_size;
+    }
+    uint8_t *m_ptr;
+    int64_t m_size;
+    int64_t m_capacity;
+    int64_t m_maxCapacity;
+    int64_t m_offset;
+    HANDLE m_heEventPoped; //キューからデータを取り出したときセットする
+    HANDLE m_heEventPushed; //キューにデータが追加されたときセットする
+    bool m_EOF;
+    std::mutex m_mutex;
+};
 
 #endif //__RGY_QUEUE_H__
