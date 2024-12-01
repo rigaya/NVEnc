@@ -30,7 +30,9 @@
 #include "rgy_def.h"
 #include "rgy_bitstream.h"
 #include "rgy_memmem.h"
+#if ENABLE_LIBDOVI
 #include "rgy_libdovi.h"
+#endif
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     std::vector<uint8_t> data;
