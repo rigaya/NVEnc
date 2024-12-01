@@ -85,7 +85,7 @@ protected:
     bool m_addedEntry;
 };
 
-int processMonitorRGYDeviceUsage(const uint32_t ppid, const int32_t deviceID);
+int processMonitorRGYDeviceUsage(const int32_t deviceID);
 int processMonitorRGYDeviceResetEntry();
 
 #endif //#if __RGY_DEVICE_USAGE_H__

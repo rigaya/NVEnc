@@ -80,7 +80,7 @@ void RGYDeviceUsage::close() {
         char buf = 0;
         m_monitorProcess->stdInFpWrite(&buf, sizeof(buf));
         m_monitorProcess->stdInFpFlush();
-        m_monitorProcess->wait(INFINITE);
+        m_monitorProcess->waitAndGetExitCode();
         m_monitorProcess.reset();
     }
     release();
@@ -255,7 +255,7 @@ RGY_ERR RGYDeviceUsage::startProcessMonitor(int32_t device_id) {
     return RGY_ERR_NONE;
 }
 
-int processMonitorRGYDeviceUsage(const uint32_t ppid, const int32_t deviceID) {
+int processMonitorRGYDeviceUsage(const int32_t deviceID) {
     int ret = 0;
     RGYDeviceUsage deviceUsage;
     if (deviceUsage.open() != RGY_ERR_NONE) {
@@ -264,7 +264,7 @@ int processMonitorRGYDeviceUsage(const uint32_t ppid, const int32_t deviceID) {
         fprintf(stderr, "Failed to add entry\n"); ret = 1;
     } else {
         char buf = 0;
-        auto read_ret = fread(&buf, 1, 1, stdin);
+        ret = (int)fread(&buf, 1, 1, stdin);
     }
     return ret;
 }

@@ -264,6 +264,16 @@ int RGYPipeProcessWin::wait(uint32_t timeout) {
     return WaitForSingleObject(m_phandle, timeout);
 }
 
+int RGYPipeProcessWin::waitAndGetExitCode() {
+    if (WaitForSingleObject(m_phandle, INFINITE) == WAIT_OBJECT_0) {
+        DWORD exitCode = 0;
+        if (GetExitCodeProcess(m_phandle, &exitCode)) {
+            return (int)exitCode;
+        }
+    }
+    return -1;
+}
+
 const PROCESS_INFORMATION& RGYPipeProcessWin::getProcessInfo() {
     return m_pi;
 }

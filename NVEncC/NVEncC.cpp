@@ -509,7 +509,7 @@ int _tmain(int argc, TCHAR **argv) {
         return processMonitorRGYDeviceResetEntry();
     }
     if (encPrm.ctrl.processMonitorDevUsage) {
-        return processMonitorRGYDeviceUsage(encPrm.ctrl.parentProcessID, encPrm.deviceID);
+        return processMonitorRGYDeviceUsage(encPrm.deviceID);
     }
 
     encPrm.encConfig.encodeCodecConfig = codecPrm[encPrm.codec_rgy];

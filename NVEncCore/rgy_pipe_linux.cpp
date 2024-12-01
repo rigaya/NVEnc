@@ -271,6 +271,18 @@ bool RGYPipeProcessLinux::processAlive() {
     return 0 == waitpid(m_phandle, &status, WNOHANG);
 }
 
+int RGYPipeProcessLinux::waitAndGetExitCode() {
+    int status = 0;
+    if (waitpid(m_phandle, &status, 0) == -1) {
+        return 1; // waitpid() failed
+    }
+    int ret = 0;
+    if (WIFEXITED(status)) {
+        ret = WEXITSTATUS(status);
+    }
+    return ret;
+}
+
 int RGYPipeProcessLinux::wait(uint32_t timeout) {
     int status = 0;
     if (timeout == INFINITE) {
