@@ -212,7 +212,8 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, 
     return RGY_ERR_NONE;
 }
 
-
+#pragma warning(push)
+#pragma warning(disable:4100)
 RGY_ERR NVEncFilterDisabled::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     m_pLog = pPrintMes;
     AddMessage(RGY_LOG_ERROR, _T("This build doesn't support this filter.\n"));
@@ -223,6 +224,7 @@ RGY_ERR NVEncFilterDisabled::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     AddMessage(RGY_LOG_ERROR, _T("This build doesn't support this filter.\n"));
     return RGY_ERR_UNSUPPORTED;
 }
+#pragma warning(pop)
 
 void NVEncFilterDisabled::close() {
     m_pLog.reset();

@@ -269,7 +269,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>/FS /execution-charset:shift_jis %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -306,7 +306,7 @@ exit /B 0</Command>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -343,7 +343,7 @@ exit /B 0</Command>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -380,7 +380,7 @@ exit /B 0</Command>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>/FS /execution-charset:shift_jis %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -418,7 +418,7 @@ exit /B 0</Command>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -455,7 +455,7 @@ exit /B 0</Command>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -501,7 +501,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <FloatingPointModel>Fast</FloatingPointModel>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
       <AdditionalOptions>/FS /execution-charset:shift_jis %(AdditionalOptions)</AdditionalOptions>
@@ -550,7 +550,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <FloatingPointModel>Fast</FloatingPointModel>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
       <AdditionalOptions>/FS /execution-charset:shift_jis %(AdditionalOptions)</AdditionalOptions>
@@ -599,7 +599,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -646,7 +646,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -693,7 +693,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -740,7 +740,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>

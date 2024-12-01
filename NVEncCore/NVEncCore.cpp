@@ -1187,8 +1187,6 @@ RGY_ERR NVEncCore::AllocateBufferInputHost(const VideoInfo *pInputInfo) {
     }
 
     m_inputHostBuffer.resize(m_pipelineDepth);
-    //このアライメントは読み込み時の色変換の並列化のために必要
-    const int align = 64 * (RGY_CSP_BIT_DEPTH[pInputInfo->csp] > 8 ? 2 : 1);
     const int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
     const int bufHeight = pInputInfo->srcHeight - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
     PrintMes(RGY_LOG_DEBUG, _T("Allocate Host buffers: %s %dx%d, buffer count %d\n"),
@@ -4093,7 +4091,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, const int i
         PrintMes(RGY_LOG_ERROR, _T("Invalid input frame ID %d sent to encoder.\n"), inputFrameId);
         return NV_ENC_ERR_GENERIC;
     }
-    m_encTimestamp->add(timestamp, inputFrameId, (encPicParams.frameIdx = m_encodeFrameID++), duration, metadatalist);
+    m_encTimestamp->add(timestamp, inputFrameId, (encPicParams.frameIdx = (uint32_t)(m_encodeFrameID++)), duration, metadatalist);
 
     NVENCSTATUS nvStatus = m_dev->encoder()->NvEncEncodePicture(&encPicParams);
     if (nvStatus != NV_ENC_SUCCESS && nvStatus != NV_ENC_ERR_NEED_MORE_INPUT) {
@@ -4899,8 +4897,8 @@ NVENCSTATUS NVEncCore::Encode() {
             auto heTransferFin = shared_ptr<void>(inputFrameBuf.heTransferFin.get(), [&](void *ptr) {
                 SetEvent((HANDLE)ptr);
             });
-            for (auto &data : frame.dataList()) {
 #if ENABLE_VPP_SMOOTH_QP_FRAME
+            for (auto &data : frame.dataList()) {
                 if (data->dataType() == RGY_FRAME_DATA_QP) {
                     auto dataqp = dynamic_cast<RGYFrameDataQP *>(data.get());
                     NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
@@ -4910,8 +4908,8 @@ NVENCSTATUS NVEncCore::Encode() {
                         nvStatus = err_to_nv(rgy_err);
                     }
                 }
-#endif
             }
+#endif
             inputFrame.setHostFrameInfo(inputFrameBuf.cubuf->frame, heTransferFin);
             inputFrame.setInputFrameId(nInputFrame);
             PrintMes(RGY_LOG_TRACE, _T("input frame (host) #%d, timestamp %lld, duration %lld\n"), nInputFrame, inputFrame.getTimeStamp(), inputFrame.getDuration());
