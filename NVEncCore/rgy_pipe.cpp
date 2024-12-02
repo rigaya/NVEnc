@@ -323,9 +323,15 @@ void RGYPipeProcessWin::close() {
     memset(&m_pi, 0, sizeof(m_pi));
 }
 
+int RGYPipeProcessWin::pid() const {
+    return m_pi.dwProcessId;
+}
+
 bool RGYPipeProcessWin::processAlive() {
     return WAIT_TIMEOUT == WaitForSingleObject(m_phandle, 0);
 }
+
+
 #endif //defined(_WIN32) || defined(_WIN64)
 
 

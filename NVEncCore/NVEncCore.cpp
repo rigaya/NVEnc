@@ -972,7 +972,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam) {
+NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam, const RGYDeviceUsageLockManager *devUsageLock) {
     UNREFERENCED_PARAMETER(inputParam);
     if (gpuList.size() <= 1) {
         m_nDeviceId = gpuList.front()->id();
@@ -981,8 +981,7 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gp
     int maxDeviceUsageCount = 1;
     std::vector<std::pair<int, int64_t>> deviceUsage;
     if (gpuList.size() > 1) {
-        RGYDeviceUsage devUsage;
-        deviceUsage = devUsage.getUsage();
+        deviceUsage = m_deviceUsage->getUsage(devUsageLock);
         for (size_t i = 0; i < deviceUsage.size(); i++) {
             maxDeviceUsageCount = std::max(maxDeviceUsageCount, deviceUsage[i].first);
             if (deviceUsage[i].first > 0) {
@@ -3656,8 +3655,13 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
-    const int gpuCount = (int)gpuList.size();
     PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+
+    std::unique_ptr<RGYDeviceUsageLockManager> devUsageLock;
+    if (gpuList.size() > 1) {
+        m_deviceUsage = std::make_unique<RGYDeviceUsage>();
+        devUsageLock = m_deviceUsage->lock(); // ロックは親プロセス側でとる
+    }
 
     //リスト中のGPUのうち、まずは指定されたHWエンコードが可能なもののみを選択
     if (NV_ENC_SUCCESS != (nvStatus = CheckGPUListByEncoder(gpuList, inputParam))) {
@@ -3673,7 +3677,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("CheckGPUListByEncoder: Success.\n"));
 
     //使用するGPUの優先順位を決定
-    if (NV_ENC_SUCCESS != (nvStatus = GPUAutoSelect(gpuList, inputParam))) {
+    if (NV_ENC_SUCCESS != (nvStatus = GPUAutoSelect(gpuList, inputParam, devUsageLock.get()))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("GPUの自動選択に失敗しました。\n") : _T("Failed to select gpu.\n"));
         return nvStatus;
     }
@@ -3746,10 +3750,16 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_DEBUG, _T("device #%d (%s) selected.\n"), gpuList.front()->id(), gpuList.front()->name().c_str());
         }
     }
-    if (gpuCount > 1) {
-        m_deviceUsage = std::make_unique<RGYDeviceUsage>();
-        m_deviceUsage->startProcessMonitor(gpuList.front()->id());
+    if (m_deviceUsage) {
+        const int devID = gpuList.front()->id();
+        // 登録を解除するプロセスを起動
+        const auto [err_run_proc, child_pid] = m_deviceUsage->startProcessMonitor(devID);
+        if (err_run_proc == RGY_ERR_NONE) {
+            // プロセスが起動できたら、その子プロセスのIDを登録する
+            m_deviceUsage->add(devID, child_pid, devUsageLock.get());
+        }
     }
+    devUsageLock.reset();
 
     if (NV_ENC_SUCCESS != (nvStatus = InitDevice(gpuList, inputParam))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("NVENCのインスタンス作成に失敗しました。\n") : _T("Failed to create NVENC instance.\n"));

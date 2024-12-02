@@ -114,6 +114,7 @@ public:
     virtual int stdErrFpClose() = 0;
     virtual int wait(uint32_t timeout) = 0;
     virtual int waitAndGetExitCode() = 0;
+    virtual int pid() const = 0;
 protected:
     virtual int startPipes() = 0;
     PROCESS_HANDLE m_phandle;
@@ -141,6 +142,7 @@ public:
     virtual int stdErrFpClose() override;
     virtual int wait(uint32_t timeout) override;
     virtual int waitAndGetExitCode() override;
+    virtual int pid() const override;
     const PROCESS_INFORMATION& getProcessInfo();
 protected:
     virtual int startPipes() override;
@@ -171,6 +173,7 @@ public:
     virtual int stdErrFpClose() override;
     virtual int wait(uint32_t timeout) override;
     virtual int waitAndGetExitCode() override;
+    virtual int pid() const override;
 protected:
     virtual int startPipes() override;
 };

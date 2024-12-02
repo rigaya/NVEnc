@@ -299,4 +299,9 @@ int RGYPipeProcessLinux::wait(uint32_t timeout) {
     return status;
     
 }
+
+int RGYPipeProcessLinux::pid() const {
+    return (int)m_phandle;
+}
+
 #endif //#if !(defined(_WIN32) || defined(_WIN64))

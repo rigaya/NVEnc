@@ -70,19 +70,19 @@ public:
     ~RGYDeviceUsage();
 
     RGY_ERR open();
-    RGY_ERR add(int32_t device_id);
+    RGY_ERR add(const int32_t device_id, const int pid, const RGYDeviceUsageLockManager *lock);
     void check(const time_t now_time_from_epoch);
     void release();
     void close();
     void resetEntry();
-    RGY_ERR startProcessMonitor(int32_t device_id);
-    std::vector<std::pair<int, int64_t>> getUsage();
+    std::pair<RGY_ERR, int> startProcessMonitor(int32_t device_id);
+    std::vector<std::pair<int, int64_t>> getUsage(const RGYDeviceUsageLockManager *lock);
+    std::unique_ptr<RGYDeviceUsageLockManager> lock();
 protected:
     std::unique_ptr<RGYSharedMem> m_sharedMem;
     RGYDeviceUsageHeader *m_header;
     RGYDeviceUsageEntry *m_entries;
     std::unique_ptr<RGYPipeProcess> m_monitorProcess;
-    bool m_addedEntry;
 };
 
 int processMonitorRGYDeviceUsage(const int32_t deviceID);
