@@ -5034,7 +5034,9 @@ NVENCSTATUS NVEncCore::Encode() {
     }
     m_pFileWriter->Close();
     m_pFileReader->Close();
-    m_deviceUsage->close();
+    if (m_deviceUsage) {
+        m_deviceUsage->close();
+    }
     m_pStatus->WriteResults();
     if (m_ssim) {
         m_ssim->showResult();
