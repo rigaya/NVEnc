@@ -67,6 +67,7 @@
 #include "rgy_level_h264.h"
 #include "rgy_level_hevc.h"
 #include "rgy_level_av1.h"
+#include "rgy_device_info_cache.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
 #include "NVEncFilter.h"
@@ -470,14 +471,8 @@ NVENCSTATUS NVEncCore::InitChapters(const InEncodeVideoParam *inputParam) {
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vector<std::unique_ptr<NVGPUInfo>> &gpuList) {
+NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWDecCodecCsp) {
 #if ENABLE_RAW_READER
-#if ENABLE_AVSW_READER
-    DeviceCodecCsp HWDecCodecCsp;
-    for (const auto &gpu : gpuList) {
-        HWDecCodecCsp.push_back(std::make_pair(gpu->id(), gpu->cuvid_csp()));
-    }
-#endif
     m_pStatus.reset(new EncodeStatus());
 
     int subburnTrackId = 0;
@@ -3600,7 +3595,15 @@ bool NVEncCore::encodeIsHighBitDepth(const InEncodeVideoParam *inputParam) {
     return inputParam->outputDepth > 8;
 }
 
-NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
+DeviceCodecCsp NVEncCore::GetHWDecCodecCsp(const bool skipHWDecodeCheck, std::vector<std::unique_ptr<NVGPUInfo>>& gpuList) {
+    DeviceCodecCsp HWDecCodecCsp;
+    for (const auto &gpu : gpuList) {
+        HWDecCodecCsp.push_back(std::make_pair(gpu->id(), (skipHWDecodeCheck) ? getHWDecCodecCsp(skipHWDecodeCheck) : gpu->cuvid_csp()));
+    }
+    return HWDecCodecCsp;
+}
+
+NVENCSTATUS NVEncCore::Init(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     InitLog(inputParam);
@@ -3619,11 +3622,6 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitCuda: Success.\n"));
-    return nvStatus;
-}
-
-NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
-    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     //入力などにも渡すため、まずはインスタンスを作っておく必要がある
     m_pPerfMonitor = std::make_unique<CPerfMonitor>();
@@ -3648,14 +3646,58 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             return NV_ENC_ERR_INVALID_CALL;
         }
     }
-
-    //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
-    std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, !inputParam->disableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
-        return nvStatus;
+    
+    DeviceCodecCsp HWDecCodecCsp;
+    auto deviceInfoCache = std::make_shared<RGYDeviceInfoCache>();
+    if (auto sts = deviceInfoCache->loadCacheFile(); sts != RGY_ERR_NONE) {
+        if (sts == RGY_ERR_FILE_OPEN) { // ファイルは存在するが開けない
+            deviceInfoCache.reset(); // キャッシュの存在を無視して進める
+        }
+    } else {
+        HWDecCodecCsp = deviceInfoCache->getDeviceDecCodecCsp();
+        PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support read from cache file.\n"));
     }
-    PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+    std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
+    auto getDevIdName = [&gpuList]() {
+        std::map<int, std::string> devIdName;
+        for (const auto& gpu : gpuList) {
+            devIdName[gpu->id()] = tchar_to_string(gpu->name());
+        }
+        return devIdName;
+    };
+    if (deviceInfoCache
+        && (deviceInfoCache->getDeviceIds().size() == 0
+            ||deviceInfoCache->getDeviceIds().size() != HWDecCodecCsp.size())) {
+        if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, !inputParam->disableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to initialize devices.\n"));
+            return nvStatus;
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+        HWDecCodecCsp = GetHWDecCodecCsp(inputParam->ctrl.skipHWDecodeCheck, gpuList);
+        deviceInfoCache->setDecCodecCsp(getDevIdName(), HWDecCodecCsp);
+        deviceInfoCache->saveCacheFile();
+        PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support saved to cache file.\n"));
+    }
+
+    //入力ファイルを開き、入力情報も取得
+    //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
+    auto input_ret = std::async(std::launch::async, [&] {
+        auto sts = InitInput(inputParam, HWDecCodecCsp);
+        if (sts == RGY_ERR_NONE) {
+            inputParam->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
+        }
+        return sts;
+    });
+
+    if (gpuList.size() == 0) {
+        if (NV_ENC_SUCCESS != (nvStatus = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, !inputParam->disableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to initialize devices.\n"));
+            return nvStatus;
+        }
+        if (deviceInfoCache) {
+            deviceInfoCache->setDeviceIds(getDevIdName());
+        }
+    }
 
     std::unique_ptr<RGYDeviceUsageLockManager> devUsageLock;
     if (gpuList.size() > 1) {
@@ -3689,15 +3731,8 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
-    //入力ファイルを開き、入力情報も取得
-    //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
-    if (NV_ENC_SUCCESS != (nvStatus = InitInput(inputParam, gpuList))) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("入力ファイルを開けませんでした。\n") : _T("Failed to open input file.\n"));
-        return nvStatus;
-    }
+    if (auto sts = input_ret.get(); sts < RGY_ERR_NONE) return NV_ENC_ERR_UNSUPPORTED_PARAM;
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
-
-    inputParam->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
 
     bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
     if (inputParam->lossless && inputParam->losslessIgnoreInputCsp == 0) {
@@ -3766,6 +3801,9 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitNVEncInstance: Success.\n"));
+    if (deviceInfoCache) {
+        deviceInfoCache->updateCacheFile();
+    }
 
     { //出力解像度の自動設定 decoderの初期化前に実施
         if (inputParam->input.dstWidth < 0 && inputParam->input.dstHeight < 0) {

@@ -72,10 +72,7 @@ public:
     NVEncCore();
     virtual ~NVEncCore();
 
-    virtual NVENCSTATUS Initialize(InEncodeVideoParam *inputParam);
-
-    //エンコードの初期化 (デバイスの初期化(Initialize())後に行うこと)
-    virtual NVENCSTATUS InitEncode(InEncodeVideoParam *inputParam);
+    virtual NVENCSTATUS Init(InEncodeVideoParam *inputParam);
 
     //エンコードを実行
     virtual NVENCSTATUS Encode();
@@ -101,6 +98,9 @@ protected:
     RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
     RGY_CSP GetRawOutCSP(const InEncodeVideoParam *inputParam);
 
+    //hwデコーダが出力する色空間を取得
+    DeviceCodecCsp GetHWDecCodecCsp(const bool skipHWDecodeCheck, std::vector<std::unique_ptr<NVGPUInfo>>& gpuList);
+
     //チャプターファイルを読み込み
     NVENCSTATUS readChapterFile(const tstring& chapfile);
 
@@ -108,7 +108,7 @@ protected:
     virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
 
     //エンコーダへの入力を初期化
-    virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam, const std::vector<std::unique_ptr<NVGPUInfo>> &gpuList);
+    virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWDecCodecCsp);
 
     //エンコーダへの入力を初期化
     virtual NVENCSTATUS InitOutput(InEncodeVideoParam *inputParam, NV_ENC_BUFFER_FORMAT encBufferFormat);

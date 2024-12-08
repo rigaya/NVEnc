@@ -517,8 +517,7 @@ int _tmain(int argc, TCHAR **argv) {
     int ret = 1;
 
     NVEncCore nvEnc;
-    if (   NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
-        && NV_ENC_SUCCESS == nvEnc.InitEncode(&encPrm)) {
+    if (   NV_ENC_SUCCESS == nvEnc.Init(&encPrm)) {
         nvEnc.SetAbortFlagPointer(&g_signal_abort);
         set_signal_handler();
         nvEnc.PrintEncodingParamsInfo(RGY_LOG_INFO);
