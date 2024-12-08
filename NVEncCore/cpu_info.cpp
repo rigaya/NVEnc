@@ -788,7 +788,7 @@ cpu_info_t get_cpu_info() {
 }
 
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
-const int TEST_COUNT = 5000;
+const int TEST_COUNT = 4000;
 RGY_NOINLINE
 int64_t runl_por(int loop_count, int& dummy_dep) {
     unsigned int dummy;
@@ -824,7 +824,7 @@ bool check_rdtscp_available() {
 }
 
 static double get_tick_per_clock() {
-    const int outer_loop_count = 100;
+    const int outer_loop_count = 20;
     const int inner_loop_count = TEST_COUNT;
     int dummy = 0;
     auto tick_min = runl_por(inner_loop_count, dummy);
