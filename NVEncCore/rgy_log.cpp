@@ -348,7 +348,7 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
         write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("OS        %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
 #endif
         write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CPU Info  %s\n"), cpuInfo);
-#if ENCODER_QSV
+#if 0
         TCHAR gpu_info[1024] = { 0 };
         getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
         write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("GPU Info  %s\n"), gpu_info);
