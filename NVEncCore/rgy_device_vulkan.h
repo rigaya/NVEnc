@@ -44,9 +44,7 @@ class DeviceVulkan;
 #define RGY_VK_API_VER (VK_API_VERSION_1_2)
 
 #if ENCODER_VCEENC
-namespace amf {
-    class AMFVulkanDevice;
-}
+#include "core/VulkanAMF.h"
 #endif // #if ENCODER_VCEENC
 
 class DeviceVulkan {
@@ -59,7 +57,7 @@ public:
 
     RGYVulkanFuncs *GetVulkan();
 #if ENCODER_VCEENC
-    amf::AMFVulkanDevice *GetDevice();
+    amf::AMFVulkanDevice *GetAMFDevice();
 #endif
     const std::string& GetDisplayDeviceName() const { return m_displayDeviceName; }
     const uint8_t *GetUUID() const { return m_uuid; }

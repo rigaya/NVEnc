@@ -151,7 +151,7 @@ protected:
 #else
 
 #ifndef INFINITE
-#define INFINITE UINT32_MAX
+#define INFINITE (UINT_MAX)
 #endif
 class RGYPipeProcessLinux : public RGYPipeProcess {
 public:

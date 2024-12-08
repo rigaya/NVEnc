@@ -48,10 +48,10 @@ DeviceVulkan::~DeviceVulkan() {
 }
 
 #if ENCODER_VCEENC
-amf::AMFVulkanDevice* DeviceVulkan::GetDevice() {
-    m_VulkanDev.hDevice_ = m_vkDevice;
-    m_VulkanDev.hInstance_ = m_vkInstance;
-    m_VulkanDev.hPhysicalDevice_ = m_vkPhysicalDevice;
+amf::AMFVulkanDevice* DeviceVulkan::GetAMFDevice() {
+    m_VulkanDev.hDevice = m_vkDevice;
+    m_VulkanDev.hInstance = m_vkInstance;
+    m_VulkanDev.hPhysicalDevice = m_vkPhysicalDevice;
     m_VulkanDev.cbSizeof = sizeof(amf::AMFVulkanDevice);
     m_VulkanDev.pNext = nullptr;
     return &m_VulkanDev;

@@ -44,7 +44,9 @@ enum : uint32_t {
     WAIT_ABANDONED_0 = 0x00000080L
 };
 
-static const uint32_t INFINITE = UINT_MAX;
+#ifndef INFINITE
+#define INFINITE (UINT_MAX)
+#endif
 
 void ResetEvent(HANDLE ev);
 
