@@ -396,7 +396,8 @@ int64_t afsStreamStatus::get_duration(int64_t iframe) {
         //iframe + 1がdropならその先のフレームを参照
         next_pos = m_pos[(iframe + 3) & 15].pos;
     }
-    return next_pos - iframe_pos;
+    const auto duration = next_pos - iframe_pos;
+    return (duration > 0) ? duration : AFS_SSTS_DROP;
 }
 
 NVEncFilterAfs::NVEncFilterAfs() :
