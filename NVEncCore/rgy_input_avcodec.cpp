@@ -807,6 +807,11 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                     break;
                 }
                 pkt = spkt.release();
+                if (pkt->pts == AV_NOPTS_VALUE || pkt->dts == AV_NOPTS_VALUE) {
+                    // ptsやdtsがAV_NOPTS_VALUEの場合、少数のフレームでcheckPtsStatusを行うと適切な結果が得られない場合があるので、
+                    // maxCheckFramesが小さい場合は、もう少しフレームを取得してからcheckPtsStatusを行う
+                    maxCheckFrames = std::max(maxCheckFrames, ((m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : 24));
+                }
                 m_Demux.qVideoPkt.push(pkt);
             }
             if (bCheckDuration) {
