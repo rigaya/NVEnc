@@ -202,6 +202,9 @@ static const CodecMap HW_DECODE_LIST[] = {
     { AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4 },
 #endif
     { AV_CODEC_ID_AV1,        RGY_CODEC_AV1 },
+#if ENCODER_QSV
+    { AV_CODEC_ID_VVC,        RGY_CODEC_VVC },
+#endif
     //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
 };
 
