@@ -577,13 +577,13 @@ int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile dovi
         return 1;
     }
 
-    bytes.resize(next_size);
+    std::vector<uint8_t> tmpbuf(next_size);
     const auto dataptr = m_buffer.data() + m_dataoffset;
-    memcpy(bytes.data(), dataptr, next_size);
-    auto output = unnal(bytes.data(), bytes.size());
+    memcpy(tmpbuf.data(), dataptr, next_size);
+    bytes = unnal(tmpbuf.data(), tmpbuf.size());
     m_dataoffset += next_size;
     m_datasize -= next_size;
-    return convert_dovi_rpu(output, doviProfileDst, prm);
+    return convert_dovi_rpu(bytes, doviProfileDst, prm);
 }
 
 int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id) {
