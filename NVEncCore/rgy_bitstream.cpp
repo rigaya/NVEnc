@@ -480,28 +480,40 @@ int convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfil
         if (!header) {
             return 1;
         }
+        bool converted = false;
         const auto dovi_profile = header->guessed_profile;
+        auto doviProfileSrc = RGY_DOVI_PROFILE_OTHER;
+        switch (dovi_profile) {
+        case 5: doviProfileSrc = RGY_DOVI_PROFILE_50; break;
+        case 8: doviProfileSrc = RGY_DOVI_PROFILE_81; break;
+        default: doviProfileSrc = RGY_DOVI_PROFILE_OTHER; break;
+        }
         if (prm->convertProfile
-            && dovi_profile == 7
-            && (doviProfileDst == RGY_DOVI_PROFILE_81 || doviProfileDst == RGY_DOVI_PROFILE_COPY)) {
+            && ((doviProfileDst != doviProfileSrc && doviProfileDst == RGY_DOVI_PROFILE_81)
+             || (dovi_profile == 7 && doviProfileDst == RGY_DOVI_PROFILE_COPY))) {
             const int ret = dovi_convert_rpu_with_mode(rpu.get(), 2);
             if (ret != 0) {
                 return 1;
             }
+            converted = true;
         }
         if (prm->activeAreaOffsets.enable) {
             dovi_rpu_set_active_area_offsets(rpu.get(),
                 prm->activeAreaOffsets.left, prm->activeAreaOffsets.right, prm->activeAreaOffsets.top, prm->activeAreaOffsets.bottom);
+            converted = true;
         }
         if (prm->removeMapping) {
             dovi_rpu_remove_mapping(rpu.get());
+            converted = true;
         }
-        std::unique_ptr<const DoviData, decltype(&dovi_data_free)> rpu_data(dovi_write_rpu(rpu.get()), dovi_data_free);
-        if (!rpu_data) {
-            return 1;
+        if (converted) {
+            std::unique_ptr<const DoviData, decltype(&dovi_data_free)> rpu_data(dovi_write_rpu(rpu.get()), dovi_data_free);
+            if (!rpu_data) {
+                return 1;
+            }
+            data.resize(rpu_data->len);
+            memcpy(data.data(), rpu_data->data, rpu_data->len);
         }
-        data.resize(rpu_data->len);
-        memcpy(data.data(), rpu_data->data, rpu_data->len);
     }
     return 0;
 #else
