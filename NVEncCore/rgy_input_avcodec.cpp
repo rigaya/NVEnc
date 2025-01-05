@@ -756,7 +756,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 maxCheckSec = 1e99;
                 fpsOverride = rgy_rational<int>(fpsDecoder.num, fpsDecoder.den);
             } else { // なるべく短く判定を行う
-                maxCheckFrames = (m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : 24;
+                maxCheckFrames = (m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : ((nTrimCount > 0) ? 32 : 24);
                 maxCheckSec = std::max(m_Demux.format.analyzeSec, 1.0);
             }
         } else {
@@ -780,6 +780,9 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
     // m_Demux.qVideoPktに入っているパケットがあれば、まずはそれを解析する
     auto qVideoPktCheckCount = (int)m_Demux.qVideoPkt.size();
     int iVideoPktCheck = 0;
+    // trimがある場合、offsetを適切に取得するため、最初のキーフレームの次のフレームまでを読み込む必要がある
+    // それが完了したかどうかを示すフラグ
+    bool gotNextFrameOfFirstKeyFrame = false;
 
     for (int i_retry = 0; ; i_retry++) {
         if (i_retry > 0) {
@@ -813,6 +816,11 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                     maxCheckFrames = std::max(maxCheckFrames, ((m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : 24));
                 }
                 m_Demux.qVideoPkt.push(pkt);
+            }
+            if (m_Demux.video.gotFirstKeyframe && !gotNextFrameOfFirstKeyFrame) {
+                if (pkt->pts != AV_NOPTS_VALUE && pkt->pts > m_Demux.video.streamFirstKeyPts) {
+                    gotNextFrameOfFirstKeyFrame = true;
+                }
             }
             if (bCheckDuration) {
                 int64_t diff = 0;
@@ -912,7 +920,11 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
             }
 
             //ここでやめてよいか判定する
-            if (i_retry == 0) {
+            if (nTrimCount > 0 // trimがある場合、offsetを適切に取得するため、最初のキーフレームの次のフレームまでを読み込む必要がある
+                && !gotNextFrameOfFirstKeyFrame
+                && (m_Demux.frames.getStreamPtsStatus() & (RGY_PTS_ALL_INVALID | RGY_PTS_NONKEY_INVALID)) == 0) {
+                ; // retryへ
+            } else if (i_retry == 0) {
                 //初回は、唯一のdurationが得られている場合を除き再解析する
                 if (durationHistgram.size() <= 1) {
                     break;
@@ -2835,6 +2847,11 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
                     AddMessage(RGY_LOG_DEBUG, _T("found first key frame: timestamp %lld (%s), offset %d\n"),
                         (long long int)m_Demux.video.streamFirstKeyPts, getTimestampString(m_Demux.video.streamFirstKeyPts, m_Demux.video.stream->time_base).c_str(),
                         m_trimParam.offset);
+                } else if (auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts; timestamp != AV_NOPTS_VALUE && timestamp < m_Demux.video.streamFirstKeyPts) {
+                    // OpenGOP等で、最初のキーフレームより前にBフレームがある場合がある
+                    // こうした場合にoffsetを加算しておかないとtrimがずれる
+                    // PAFF等でAV_NOPTS_VALUEが一部のフレームで来る場合( RGY_PTS_HALF_INVALID )はきちんと考慮できていないが、そこはあきらめる
+                    m_trimParam.offset++;
                 }
                 m_Demux.frames.add(pos);
             }
