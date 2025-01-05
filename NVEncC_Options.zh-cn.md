@@ -2358,10 +2358,10 @@ npp dll可以在[这里](https://github.com/rigaya/NVEnc/releases/tag/7.00) (npp
 
   - superres-mode=&lt;int&gt;  
     选择nvvfx-superres的模式
-    - 0 ... 保守 (default)
-    - 1 ... 激进
+    - 0 ... 保守
+    - 1 ... 激进 (default)
   - superres-strength=&lt;float&gt;  
-    nvvfx-superres的强度(0.0 - 1.0)
+    nvvfx-superres的强度(0.0 - 1.0, default = 0.4)
 
 - 注意事项
   - 标记为"○"的算法需要[NPP library](https://developer.nvidia.com/npp)，仅在 x64 版本支持。要使用这些算法，需要另外下载 nppc64_10.dll, nppif64_10.dll, nppig64_10.dll并把它和 NVEncC64.exe 放置在同一目录。

@@ -2682,11 +2682,11 @@ Specify the resizing algorithm.
       - Additional parameters
         - superres-mode=&lt;int&gt;  
           select mode for nvvfx-superres
-          - 0 ... conservative (default)
-          - 1 ... aggressive
+          - 0 ... conservative
+          - 1 ... aggressive (default)
       
         - superres-strength=&lt;float&gt;  
-          strength for nvvfx-superres (0.0 - 1.0)
+          strength for nvvfx-superres (0.0 - 1.0, default = 0.4)
 
     - [NGX](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html) library resize filters
 

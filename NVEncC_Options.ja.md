@@ -2740,11 +2740,11 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
       - 追加パラメータ
         - superres-mode=&lt;int&gt;
           nvvfx-superres のモードの選択。
-          - 0 ... 弱め (default)
-          - 1 ... 強め
+          - 0 ... 弱め
+          - 1 ... 強め (default)
       
         - superres-strength=&lt;float&gt;
-          nvvfx-superresの強さの指定。 (0.0 - 1.0)
+          nvvfx-superresの強さの指定。 (0.0 - 1.0, デフォルト = 0.4)
 
     - [NGX](https://docs.nvidia.com/rtx/ngx/programming-guide/index.html)ライブラリのリサイズフィルタ
   

@@ -9043,10 +9043,10 @@ tstring gen_cmd_help_vpp() {
         if (ENABLE_NVVFX) {
             str += strsprintf(_T("\n")
                 _T("      superres-mode=<int>\n")
-                _T("        mode for nvvfx-superres     0 ... conservative (default)\n")
-                _T("                                    1 ... aggressive \n")
+                _T("        mode for nvvfx-superres     0 ... conservative\n")
+                _T("                                    1 ... aggressive (default)\n")
                 _T("      superres-strength=<float>\n")
-                _T("        strength for nvvfx-superres (0.0 - 1.0)\n"));
+                _T("        strength for nvvfx-superres (0.0 - 1.0, default = 0.4)\n"));
         }
         if (ENABLE_NVSDKNGX) {
             str += strsprintf(_T("\n")
