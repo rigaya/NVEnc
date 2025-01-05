@@ -4880,7 +4880,17 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     }
     if (IS_OPTION("trim")) {
         i++;
-        auto trim_str_list = split(strInput[i], _T(","));
+        tstring trim_arg_str = strInput[i];
+        // strInput[i]が "Trim" で始まるかで判定し、AviSynthのTrim形式を変換する
+        if (0 == _tcsncmp(tolowercase(trim_arg_str).c_str(), _T("trim"), _tcslen(_T("trim")))) {
+            trim_arg_str = tolowercase(trim_arg_str);
+            trim_arg_str = str_replace(trim_arg_str, _T(" "), _T("")); // 空白除去
+            trim_arg_str = str_replace(trim_arg_str, _T(","), _T(":")); // "," -> ":"
+            trim_arg_str = str_replace(trim_arg_str, _T(")++trim("), _T(",")); // ")++trim(" -> ","
+            trim_arg_str = str_replace(trim_arg_str, _T("trim("), _T(""));
+            trim_arg_str = str_replace(trim_arg_str, _T(")"), _T(""));
+        }
+        auto trim_str_list = split(trim_arg_str, _T(","));
         std::vector<sTrim> trim_list;
         for (auto trim_str : trim_str_list) {
             sTrim trim;
