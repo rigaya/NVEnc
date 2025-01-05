@@ -66,8 +66,11 @@ private:
     pl_color_space *m_pl_color_space_srgb;
     pl_color_space *m_pl_color_space_hdr10;
     pl_hdr_metadata *m_pl_hdr_metadata_empty;
+    pl_render_params *m_pl_render_default_params;
     pl_peak_detect_params *m_pl_peak_detect_default_params;
     pl_color_map_params *m_pl_color_map_default_params;
+    pl_sigmoid_params *m_pl_sigmoid_default_params;
+    pl_dither_params *m_pl_dither_default_params;
 
 #if ENABLE_D3D11
     decltype(&pl_d3d11_create) m_pl_d3d11_create;
@@ -114,6 +117,7 @@ private:
     decltype(&pl_hdr_rescale) m_pl_hdr_rescale;
 
     decltype(&pl_lut_parse_cube) m_pl_lut_parse_cube;
+    decltype(&pl_find_tone_map_function) m_pl_find_tone_map_function;
     decltype(&pl_find_gamut_map_function) m_pl_find_gamut_map_function;
     decltype(&pl_raw_primaries_get) m_pl_raw_primaries_get;
     decltype(&pl_raw_primaries_merge) m_pl_raw_primaries_merge;
@@ -137,8 +141,11 @@ public:
     pl_color_space p_color_space_srgb() const { return *m_pl_color_space_srgb; }
     pl_color_space p_color_space_hdr10() const { return *m_pl_color_space_hdr10; }
     pl_hdr_metadata p_hdr_metadata_empty() const { return *m_pl_hdr_metadata_empty; }
+    pl_render_params p_render_default_params() const { return *m_pl_render_default_params; }
     pl_peak_detect_params p_peak_detect_default_params() const { return *m_pl_peak_detect_default_params; }
     pl_color_map_params p_color_map_default_params() const { return *m_pl_color_map_default_params; }
+    pl_sigmoid_params p_sigmoid_default_params() const { return *m_pl_sigmoid_default_params; }
+    pl_dither_params p_dither_default_params() const { return *m_pl_dither_default_params; }
 
 #if ENABLE_D3D11
     auto p_d3d11_create() const { return m_pl_d3d11_create; }
@@ -176,6 +183,7 @@ public:
     auto p_find_filter_config() const { return m_pl_find_filter_config; }
     auto p_hdr_rescale() const { return m_pl_hdr_rescale; }
     auto p_lut_parse_cube() const { return m_pl_lut_parse_cube; }
+    auto p_find_tone_map_function() const { return m_pl_find_tone_map_function; }
     auto p_find_gamut_map_function() const { return m_pl_find_gamut_map_function; }
     auto p_raw_primaries_get() const { return m_pl_raw_primaries_get; }
     auto p_raw_primaries_merge() const { return m_pl_raw_primaries_merge; }

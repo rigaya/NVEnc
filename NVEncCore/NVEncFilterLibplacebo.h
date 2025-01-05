@@ -204,6 +204,8 @@ struct RGYLibplaceboToneMappingParams {
     bool use_dovi;
     std::unique_ptr<pl_color_map_params> colorMapParams;
     std::unique_ptr<pl_peak_detect_params> peakDetectParams;
+    std::unique_ptr<pl_sigmoid_params> sigmoidParams;
+    std::unique_ptr<pl_dither_params> ditherParams;
     std::unique_ptr<pl_dovi_metadata> plDoviMeta;
     std::unique_ptr<pl_color_repr> reprSrc;
     std::unique_ptr<pl_color_repr> reprDst;

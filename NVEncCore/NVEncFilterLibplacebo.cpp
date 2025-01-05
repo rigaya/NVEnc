@@ -1395,7 +1395,14 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
             m_tonemap.dst_min_org = prm->toneMapping.dst_min;
             m_tonemap.plCspDst.hdr.min_luma = prm->toneMapping.dst_min;
         }
+
         m_tonemap.colorMapParams = std::make_unique<pl_color_map_params>(m_pl->p_color_map_default_params());
+        m_tonemap.colorMapParams->tone_mapping_function = m_pl->p_find_tone_map_function()(tchar_to_string(get_cx_desc(list_vpp_libplacebo_tone_mapping_function, (int)prm->toneMapping.tonemapping_function)).c_str());
+        if (!m_tonemap.colorMapParams->tone_mapping_function) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid tone mapping function.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        m_tonemap.colorMapParams->metadata = tone_map_metadata_rgy_to_libplacebo(prm->toneMapping.metadata);
         m_tonemap.colorMapParams->tone_constants.knee_adaptation = prm->toneMapping.tone_constants.st2094.knee_adaptation;
         m_tonemap.colorMapParams->tone_constants.knee_minimum = prm->toneMapping.tone_constants.st2094.knee_min;
         m_tonemap.colorMapParams->tone_constants.knee_maximum = prm->toneMapping.tone_constants.st2094.knee_max;
@@ -1427,6 +1434,16 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
 #if PL_API_VER >= 349 
         m_tonemap.peakDetectParams->black_cutoff = prm->toneMapping.black_cutoff;
 #endif
+        m_tonemap.sigmoidParams = std::make_unique<pl_sigmoid_params>(m_pl->p_sigmoid_default_params());
+        m_tonemap.ditherParams = std::make_unique<pl_dither_params>(m_pl->p_dither_default_params());
+        m_tonemap.renderParams = std::make_unique<pl_render_params>(m_pl->p_render_default_params());
+        m_tonemap.renderParams->color_map_params = m_tonemap.colorMapParams.get();
+        m_tonemap.renderParams->peak_detect_params = (prm->toneMapping.dynamic_peak_detection) ? m_tonemap.peakDetectParams.get() : nullptr;
+        m_tonemap.renderParams->sigmoid_params = m_tonemap.sigmoidParams.get();
+        m_tonemap.renderParams->dither_params = m_tonemap.ditherParams.get();
+        m_tonemap.renderParams->cone_params = nullptr;
+        m_tonemap.renderParams->color_adjustment = nullptr;
+        m_tonemap.renderParams->deband_params = nullptr;
 
         if (!ENABLE_LIBDOVI) {
             if (prm->toneMapping.use_dovi > 0) {

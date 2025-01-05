@@ -45,8 +45,11 @@ RGYLibplaceboLoader::RGYLibplaceboLoader() :
     m_pl_color_space_srgb(nullptr),
     m_pl_color_space_hdr10(nullptr),
     m_pl_hdr_metadata_empty(nullptr),
+    m_pl_render_default_params(nullptr),
     m_pl_peak_detect_default_params(nullptr),
     m_pl_color_map_default_params(nullptr),
+    m_pl_sigmoid_default_params(nullptr),
+    m_pl_dither_default_params(nullptr),
 #if ENABLE_D3D11
     m_pl_d3d11_create(nullptr),
     m_pl_d3d11_destroy(nullptr),
@@ -83,6 +86,7 @@ RGYLibplaceboLoader::RGYLibplaceboLoader() :
     m_pl_find_filter_config(nullptr),
     m_pl_hdr_rescale(nullptr),
     m_pl_lut_parse_cube(nullptr),
+    m_pl_find_tone_map_function(nullptr),
     m_pl_find_gamut_map_function(nullptr),
     m_pl_raw_primaries_get(nullptr),
     m_pl_raw_primaries_merge(nullptr),
@@ -119,8 +123,11 @@ bool RGYLibplaceboLoader::load() {
     if (!loadFunc("pl_color_space_srgb", (void**)&m_pl_color_space_srgb)) return false;
     if (!loadFunc("pl_color_space_hdr10", (void**)&m_pl_color_space_hdr10)) return false;
     if (!loadFunc("pl_hdr_metadata_empty", (void**)&m_pl_hdr_metadata_empty)) return false;
+    if (!loadFunc("pl_render_default_params", (void**)&m_pl_render_default_params)) return false;
     if (!loadFunc("pl_peak_detect_default_params", (void**)&m_pl_peak_detect_default_params)) return false;
     if (!loadFunc("pl_color_map_default_params", (void**)&m_pl_color_map_default_params)) return false;
+    if (!loadFunc("pl_sigmoid_default_params", (void**)&m_pl_sigmoid_default_params)) return false;
+    if (!loadFunc("pl_dither_default_params", (void**)&m_pl_dither_default_params)) return false;
 
     // 新しいメンバ変数の関数ポインタを取得して格納するコードを追加
 #if ENABLE_D3D11
@@ -165,6 +172,7 @@ bool RGYLibplaceboLoader::load() {
 
     if (!loadFunc("pl_hdr_rescale", (void**)&m_pl_hdr_rescale)) return false;
     if (!loadFunc("pl_lut_parse_cube", (void**)&m_pl_lut_parse_cube)) return false;
+    if (!loadFunc("pl_find_tone_map_function", (void**)&m_pl_find_tone_map_function)) return false;
     if (!loadFunc("pl_find_gamut_map_function", (void**)&m_pl_find_gamut_map_function)) return false;
     if (!loadFunc("pl_raw_primaries_get", (void**)&m_pl_raw_primaries_get)) return false;
     if (!loadFunc("pl_raw_primaries_merge", (void**)&m_pl_raw_primaries_merge)) return false;
