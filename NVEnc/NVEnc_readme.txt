@@ -215,7 +215,7 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
-2025.01.07 (7.81)
+2025.01.08 (7.81)
 - SAR比が設定されていない(例えば0:0)と、mp4 muxerの出力する"tkhd: Track Header Box"(L-SMASH boxdumper)、
   "Visual Track layout"(mp4box -info)のwidthは0になってしまう問題を回避。
 

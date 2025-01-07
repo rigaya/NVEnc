@@ -882,7 +882,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     }
     m_Mux.video.streamOut->sample_aspect_ratio.num = videoOutputInfo->sar[0]; //mkvではこちらの指定も必要
     m_Mux.video.streamOut->sample_aspect_ratio.den = videoOutputInfo->sar[1];
-    if (format_is_mp4(m_Mux.format.formatCtx) && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0) {
+    if (format_is_mp4(m_Mux.format.formatCtx) && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] <= 0) {
         // mp4 muxerではsample_aspect_ratioが設定されていない(例えば0:0)だと、L-SMASHの"tkhd: Track Header Box" (mp4boxでは"Visual Track layout")のwidthは0になってしまう
         m_Mux.video.streamOut->sample_aspect_ratio.num = 1;
         m_Mux.video.streamOut->sample_aspect_ratio.den = 1;
