@@ -51,7 +51,8 @@ static bool format_is_mp4(const AVFormatContext *formatCtx) {
         "3g2",
         "ipod",
         "ismv",
-        "f4v"
+        "f4v",
+        "avif"
     };
     for (int i = 0; i < _countof(FORMAT_NAME_MP4); i++) {
         if (0 == _stricmp(formatCtx->oformat->name, FORMAT_NAME_MP4[i])) {
