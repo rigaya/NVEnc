@@ -1011,7 +1011,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
         //DX11デバイスの初期化に成功したら、そのデバイスのCUDAをcudaD3D11GetDeviceを使って初期化
         cuResult = cuD3D11GetDevice(&cuDevice, m_dx11->GetAdaptor());
         if (cuResult != CUDA_SUCCESS) {
-            writeLog(RGY_LOG_ERROR, _T("Failed to init CUDA device #%d from DX11 device.\n"), deviceID);
+            writeLog(RGY_LOG_WARN, _T("Failed to init CUDA device #%d from DX11 device.\n"), deviceID);
             return err_to_rgy(cuResult);
         }
         writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGet:DX11(%d): success: %d\n"), deviceID, cuDevice);
