@@ -247,7 +247,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -266,7 +266,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -285,7 +285,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(RTX_VIDEO_SDK)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(RTX_VIDEO_SDK)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -307,7 +307,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -330,7 +330,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -353,7 +353,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(RTX_VIDEO_SDK)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(RTX_VIDEO_SDK)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -375,7 +375,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -394,7 +394,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -413,7 +413,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(RTX_VIDEO_SDK)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(RTX_VIDEO_SDK)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -435,7 +435,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -458,7 +458,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -481,7 +481,7 @@
       </PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(RTX_VIDEO_SDK)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncCore;$(CUDA_PATH)\include;$(RTX_VIDEO_SDK)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>

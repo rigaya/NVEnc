@@ -7,6 +7,3 @@
 [submodule "build_pkg"]
 	path = build_pkg
 	url = https://github.com/rigaya/build_pkg.git
-[submodule "MAXINE-VFX-SDK"]
-	path = MAXINE-VFX-SDK
-	url = https://github.com/NVIDIA/MAXINE-VFX-SDK.git

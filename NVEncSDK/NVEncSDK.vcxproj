@@ -60,6 +60,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include=".\Common\src\dynlink_nvcuvid.cpp" />
+    <ClCompile Include="Common\src\nvCVImageProxy.cpp" />
+    <ClCompile Include="Common\src\NVVideoEffectsProxy.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}</ProjectGuid>

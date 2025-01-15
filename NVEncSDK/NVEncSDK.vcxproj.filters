@@ -18,6 +18,12 @@
     <ClCompile Include=".\Common\src\dynlink_nvcuvid.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="Common\src\nvCVImageProxy.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\src\NVVideoEffectsProxy.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include=".\Common\inc\dynlink_cuviddec.h">

@@ -268,7 +268,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>/FS /execution-charset:shift_jis %(AdditionalOptions)</AdditionalOptions>
@@ -305,7 +305,7 @@ exit /B 0</Command>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -342,7 +342,7 @@ exit /B 0</Command>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -379,7 +379,7 @@ exit /B 0</Command>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>/FS /execution-charset:shift_jis %(AdditionalOptions)</AdditionalOptions>
@@ -417,7 +417,7 @@ exit /B 0</Command>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -454,7 +454,7 @@ exit /B 0</Command>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -493,7 +493,7 @@ exit /B 0</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -542,7 +542,7 @@ exit /B 0</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -591,7 +591,7 @@ exit /B 0</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -638,7 +638,7 @@ exit /B 0</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -685,7 +685,7 @@ exit /B 0</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -732,7 +732,7 @@ exit /B 0</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(SolutionDir)\MAXINE-VFX-SDK\nvvfx\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <StringPooling>true</StringPooling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
