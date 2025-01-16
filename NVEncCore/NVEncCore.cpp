@@ -1970,6 +1970,15 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stEncConfig.rcParams.maxBitRate = DEFAULT_MAX_BITRATE;
         }
     }
+    // AV1の4Kでのqvbrはなぜか624230kbpsを超えるとよくわからない挙動を示し、qvbr51でも高ビットレートになってしまうので対策。
+    static const int AV1_MAX_QVBR_BITRATE_KBPS = 624230;
+    if ((m_stEncConfig.rcParams.targetQuality > 0 || m_stEncConfig.rcParams.targetQualityLSB > 0)
+        && m_stEncConfig.rcParams.averageBitRate == 0
+        && inputParam->codec_rgy == RGY_CODEC_AV1
+        && (int)m_stEncConfig.rcParams.maxBitRate >= AV1_MAX_QVBR_BITRATE_KBPS * 1000) {
+        PrintMes(RGY_LOG_INFO, _T("AV1 qvbr max bitrate = %d kbps.\n"), AV1_MAX_QVBR_BITRATE_KBPS);
+        m_stEncConfig.rcParams.maxBitRate = AV1_MAX_QVBR_BITRATE_KBPS * 1000;
+    }
     if (inputParam->yuv444) {
         if (inputParam->codec_rgy == RGY_CODEC_H264 || inputParam->codec_rgy == RGY_CODEC_HEVC) {
             set_chromaSampleLocationFlag(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, 0);
