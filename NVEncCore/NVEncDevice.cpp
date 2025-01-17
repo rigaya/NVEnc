@@ -131,6 +131,12 @@ void NVEncoder::setStructVer(NV_ENC_CONFIG& obj) const {
     }
 }
 
+void NVEncoder::setStructVer(NV_ENC_RC_PARAMS& obj) const {
+    static const int latest_ver = 1;
+    static_assert(NV_ENC_RC_PARAMS_VER == NVENC_STRUCT_VER2(latest_ver, NVENCAPI_VERSION));
+    obj.version = NVENC_STRUCT_VER2(latest_ver, m_apiVer);
+}
+
 void NVEncoder::setStructVer(NV_ENC_PIC_PARAMS& obj) const {
     if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(12, 2))) {
         static const int latest_ver = 7;

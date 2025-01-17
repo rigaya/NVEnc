@@ -232,6 +232,7 @@ public:
     uint32_t getAPIver() const { return m_apiVer; }
     void setStructVer(NV_ENC_INITIALIZE_PARAMS& obj) const;
     void setStructVer(NV_ENC_CONFIG& obj) const;
+    void setStructVer(NV_ENC_RC_PARAMS& obj) const;
     void setStructVer(NV_ENC_PIC_PARAMS& obj) const;
     void setStructVer(NV_ENC_LOCK_BITSTREAM& obj) const;
     void setStructVer(NV_ENC_REGISTER_RESOURCE& obj) const;
