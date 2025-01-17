@@ -318,7 +318,17 @@ NVENCSTATUS NVEncoder::DestroyEncoder() {
 }
 
 void NVEncoder::NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus) {
-    PrintMes(RGY_LOG_ERROR, _T("Error on %s: %d (%s)\n"), funcName, nvStatus, char_to_tstring(_nvencGetErrorEnum(nvStatus)).c_str());
+    tstring err_mes;
+    if (m_hEncoder && m_pEncodeAPI->nvEncGetLastErrorString) {
+        auto ptr = m_pEncodeAPI->nvEncGetLastErrorString(m_hEncoder);
+        if (ptr && strlen(ptr) > 0) {
+            err_mes = char_to_tstring(ptr);
+        }
+    }
+    if (err_mes.empty()) {
+        err_mes = char_to_tstring(_nvencGetErrorEnum(nvStatus));
+    }
+    PrintMes(RGY_LOG_ERROR, _T("Error on %s: %d (%s)\n"), funcName, nvStatus, err_mes.c_str());
 }
 
 void NVEncoder::NVPrintFuncError(const TCHAR *funcName, CUresult code) {
@@ -636,7 +646,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
 
     m_pEncodeAPI = std::make_unique<NV_ENCODE_API_FUNCTION_LIST>();
     if (!m_pEncodeAPI) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("NV_ENCODE_API_FUNCTION_LIST用のメモリ確保に失敗しました。\n") : _T("Failed to allocate memory for NV_ENCODE_API_FUNCTION_LIST.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to allocate memory for NV_ENCODE_API_FUNCTION_LIST.\n"));
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
 
@@ -749,9 +759,7 @@ NVENCSTATUS NVEncoder::InitSession() {
 NVENCSTATUS NVEncoder::CreateEncoder(NV_ENC_INITIALIZE_PARAMS *initParams) {
     NVENCSTATUS nvStatus;
     if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncInitializeEncoder(m_hEncoder, initParams))) {
-        PrintMes(RGY_LOG_ERROR,
-            _T("%s: %d (%s)\n"), FOR_AUO ? _T("エンコーダの初期化に失敗しました。\n") : _T("Failed to Initialize the encoder\n."),
-            nvStatus, char_to_tstring(_nvencGetErrorEnum(nvStatus)).c_str());
+        NVPrintFuncError(_T("nvEncInitializeEncoder"), nvStatus);
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("m_pEncodeAPI->nvEncInitializeEncoder: Success.\n"));
