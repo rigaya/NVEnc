@@ -403,12 +403,11 @@ RGY_ERR RGYInputAvcodec::initVideoBsfs() {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
-        m_Demux.video.bsfcCtx->time_base_in = av_stream_get_codec_timebase(m_Demux.video.stream);
+        m_Demux.video.bsfcCtx->time_base_in = m_Demux.video.stream->time_base;
         if (0 > (ret = avcodec_parameters_copy(m_Demux.video.bsfcCtx->par_in, m_Demux.video.stream->codecpar))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to set parameter for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
-        m_Demux.video.bsfcCtx->time_base_in = m_Demux.video.stream->time_base;
         if (0 > (ret = av_bsf_init(m_Demux.video.bsfcCtx))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
@@ -454,7 +453,7 @@ RGY_ERR RGYInputAvcodec::initVideoParser() {
             AddMessage(RGY_LOG_ERROR, _T("failed to set codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
-        m_Demux.video.pCodecCtxParser->time_base = av_stream_get_codec_timebase(m_Demux.video.stream);
+        m_Demux.video.pCodecCtxParser->time_base = m_Demux.video.stream->time_base;
         m_Demux.video.pCodecCtxParser->pkt_timebase = m_Demux.video.stream->time_base;
         AddMessage(RGY_LOG_DEBUG, _T("initialized %s codec context for parser: time_base: %d/%d, pkt_timebase: %d/%d.\n"),
             char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(),
@@ -911,7 +910,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
             //多い順にソートする
             std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
 
-            const auto codec_timebase = av_stream_get_codec_timebase(m_Demux.video.stream);
+            const auto codec_timebase = m_Demux.video.stream->time_base;
             AddMessage(RGY_LOG_DEBUG, _T("stream timebase %d/%d\n"), codec_timebase.num, codec_timebase.den);
             AddMessage(RGY_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
             AddMessage(RGY_LOG_DEBUG, _T("duration histgram of %d frames\n"), durationHistgram.size());
@@ -1004,7 +1003,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
         //フレームレートが2000fpsを超えることは考えにくいので、誤判定
         //ほかのなにか使えそうな値で代用する
-        const auto codec_timebase = av_stream_get_codec_timebase(m_Demux.video.stream);
+        const auto codec_timebase = m_Demux.video.stream->time_base;
         if (nAvgFramerate64.num / (double)nAvgFramerate64.den > 2000.0) {
             if (fpsDecoder.den > 0 && fpsDecoder.num > 0) {
                 nAvgFramerate64.num = fpsDecoder.num;
@@ -1188,7 +1187,6 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
     }
     av_dict_free(&pDict);
 
-    codecCtxDec->time_base = av_stream_get_codec_timebase(m_Demux.video.stream);
     codecCtxDec->pkt_timebase = m_Demux.video.stream->time_base;
     if (0 > (ret = avcodec_open2(codecCtxDec.get(), codecDecode, nullptr))) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
@@ -1888,11 +1886,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_ERROR, _T("Consider increasing the value for the --input-analyze and/or --input-probesize!\n"), input_prm->analyzeSec, input_prm->probesize);
             return RGY_ERR_NOT_FOUND;
         }
-        AddMessage(RGY_LOG_DEBUG, _T("use video stream #%d for input, codec %s, stream time_base %d/%d, codec_timebase %d/%d.\n"),
+        AddMessage(RGY_LOG_DEBUG, _T("use video stream #%d for input, codec %s, stream time_base %d/%d.\n"),
             m_Demux.video.stream->index,
             char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(),
-            m_Demux.video.stream->time_base.num, m_Demux.video.stream->time_base.den,
-            av_stream_get_codec_timebase(m_Demux.video.stream).num, av_stream_get_codec_timebase(m_Demux.video.stream).den);
+            m_Demux.video.stream->time_base.num, m_Demux.video.stream->time_base.den);
 
         m_Demux.video.decRFFStatus = 0;
         m_Demux.video.findPosLastIdx = 0;
@@ -2282,7 +2279,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 }
                 av_dict_free(&pDict);
             }
-            m_Demux.video.codecCtxDecode->time_base = av_stream_get_codec_timebase(m_Demux.video.stream);
             m_Demux.video.codecCtxDecode->pkt_timebase = m_Demux.video.stream->time_base;
             if (0 > (ret = avcodec_open2(m_Demux.video.codecCtxDecode, m_Demux.video.codecDecode, nullptr))) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());

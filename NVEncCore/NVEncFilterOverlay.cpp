@@ -183,7 +183,6 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
         }
         av_dict_free(&pDict);
     }
-    m_codecCtxDec->time_base = av_stream_get_codec_timebase(m_stream);
     m_codecCtxDec->pkt_timebase = m_stream->time_base;
     if (0 > (ret = avcodec_open2(m_codecCtxDec.get(), codecDecode, nullptr))) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
