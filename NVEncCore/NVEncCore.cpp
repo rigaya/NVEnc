@@ -1964,8 +1964,8 @@ NVENCSTATUS NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
                 level = calc_auto_level_av1(m_uEncWidth, m_uEncHeight, numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy),
                     m_encFps.n(), m_encFps.d(), profile, prefered_bitrate_kbps, m_stEncConfig.encodeCodecConfig.av1Config.numTileColumns, m_stEncConfig.encodeCodecConfig.av1Config.numTileRows);
             }
-            //ぎりぎりを指定するとエラー終了するので、すこし減らす
-            m_stEncConfig.rcParams.maxBitRate = get_max_bitrate_av1(level, profile) * 960;
+            //なぜか制限値の2/3を指定する必要がある (そうしないとエラーになる)
+            m_stEncConfig.rcParams.maxBitRate = (uint32_t)(get_max_bitrate_av1(level, profile) * 2.0 / 3.0);
         } else {
             m_stEncConfig.rcParams.maxBitRate = DEFAULT_MAX_BITRATE;
         }
