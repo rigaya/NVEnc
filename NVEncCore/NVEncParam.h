@@ -333,11 +333,6 @@ const CX_DESC list_av1_level[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_av1_level_help[] = {
-    { _T("auto"), NV_ENC_LEVEL_AV1_AUTOSELECT },
-    { NULL, 0 }
-};
-
 static const CX_DESC *get_level_list(RGY_CODEC codec) {
     switch (codec) {
     case RGY_CODEC_H264: return list_avc_level;
