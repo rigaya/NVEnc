@@ -1088,7 +1088,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 if (pktList.size() <= 5 /*適当*/) {
                     //それで見つからなかったら、L1キューを探す
                     for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
-                        auto pktAud = m_Demux.qStreamPktL2.get(j)->data;
+                        const auto pktAud = m_Demux.qStreamPktL1[j];
                         if (pktAud->stream_index == streamInfo->index && (pktAud->flags & (AV_PKT_FLAG_CORRUPT | AV_PKT_FLAG_DISCARD)) == 0) {
                             pktList.push_back(pktAud);
                         }
