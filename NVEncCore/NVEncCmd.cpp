@@ -1249,43 +1249,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         const bool for_hevc = IS_OPTION("level") || IS_OPTION("level:hevc");
         const bool for_av1  = IS_OPTION("level") || IS_OPTION("level:av1");
         i++;
-        auto getLevel = [](const CX_DESC *desc, const TCHAR *argvstr, int *levelValue) {
-            int value = 0;
-            bool bParsed = false;
-            if (desc != nullptr) {
-                if (PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, argvstr))) {
-                    *levelValue = value;
-                    bParsed = true;
-                } else {
-                    double val_float = 0.0;
-                    if (1 == _stscanf_s(argvstr, _T("%lf"), &val_float)) {
-                        value = (int)(val_float * 10 + 0.5);
-                        if (value == desc[get_cx_index(desc, value)].value) {
-                            *levelValue = value;
-                            bParsed = true;
-                        } else {
-                            value = (int)(val_float + 0.5);
-                            if (value == desc[get_cx_index(desc, value)].value) {
-                                *levelValue = value;
-                                bParsed = true;
-                            }
-                        }
-                    }
-                }
-            }
-            return bParsed;
-        };
         bool flag = false;
         int value = 0;
-        if (for_h264 && getLevel(list_avc_level, strInput[i], &value)) {
+        if (for_h264 && (value = get_value_from_chr(list_avc_level_parse, strInput[i])) != PARSE_ERROR_FLAG) {
             codecPrm[RGY_CODEC_H264].h264Config.level = value;
             flag = true;
         }
-        if (for_hevc && getLevel(list_hevc_level, strInput[i], &value)) {
+        if (for_hevc && (value = get_value_from_chr(list_hevc_level_parse, strInput[i])) != PARSE_ERROR_FLAG) {
             codecPrm[RGY_CODEC_HEVC].hevcConfig.level = value;
             flag = true;
         }
-        if (for_av1 && getLevel(list_av1_level, strInput[i], &value)) {
+        if (for_av1 && (value = get_value_from_chr(list_av1_level_parse, strInput[i])) != PARSE_ERROR_FLAG) {
             codecPrm[RGY_CODEC_AV1].av1Config.level = value;
             flag = true;
         }
