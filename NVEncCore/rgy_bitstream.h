@@ -350,4 +350,26 @@ protected:
     std::unordered_map<int64_t, std::vector<uint8_t>> m_rpus;
 };
 
+struct RGYAACHeader {
+    static const int HEADER_BYTE_SIZE = 7;
+    bool id;
+    bool protection;
+    int profile;     // 00 ... main, 01 ... lc, 10 ... ssr
+    int samplerate;
+    bool private_bit;
+    uint32_t channel;
+    bool original;
+    bool home;
+    bool copyright;
+    bool copyright_start;
+    uint32_t aac_frame_length; // AACヘッダを含む
+    int adts_buffer_fullness;
+    int no_raw_data_blocks_in_frame;
+
+    static bool is_adts_sync(const uint16_t *ptr);
+    static bool is_valid(const uint8_t *buf, const size_t size);
+    int parse(const uint8_t *buf, const size_t size);
+    int sampleRateIdxToRate(const uint32_t idx);
+};
+
 #endif //__RGY_BITSTREAM_H__

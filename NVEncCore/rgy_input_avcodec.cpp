@@ -1076,34 +1076,40 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         for (auto streamInfo = m_Demux.stream.begin(); streamInfo != m_Demux.stream.end(); streamInfo++) {
             if (streamInfo->stream && avcodec_get_type(streamInfo->stream->codecpar->codec_id) == AVMEDIA_TYPE_AUDIO) {
                 AddMessage(RGY_LOG_DEBUG, _T("checking for stream #%d\n"), streamInfo->index);
-                const AVPacket *pkt1 = nullptr; //最初のパケット
-                const AVPacket *pkt2 = nullptr; //2番目のパケット
+                std::vector<const AVPacket *> pktList;
                 //まず、L2キューを探す
                 for (int j = 0; j < (int)m_Demux.qStreamPktL2.size(); j++) {
                     if (m_Demux.qStreamPktL2.get(j)->data->stream_index == streamInfo->index) {
-                        if (pkt1) {
-                            pkt2 = m_Demux.qStreamPktL2.get(j)->data;
-                            break;
+                        auto pktAud = m_Demux.qStreamPktL2.get(j)->data;
+                        if ((pktAud->flags & (AV_PKT_FLAG_CORRUPT | AV_PKT_FLAG_DISCARD)) == 0) {
+                            pktList.push_back(pktAud);
                         }
-                        pkt1 = m_Demux.qStreamPktL2.get(j)->data;
                     }
                 }
-                if (pkt2 == nullptr) {
+                if (pktList.size() <= 5 /*適当*/) {
                     //それで見つからなかったら、L1キューを探す
                     for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
-                        if (m_Demux.qStreamPktL1[j]->stream_index == streamInfo->index) {
-                            if (pkt1) {
-                                pkt2 = m_Demux.qStreamPktL1[j];
-                                break;
-                            }
-                            pkt1 = m_Demux.qStreamPktL1[j];
+                        auto pktAud = m_Demux.qStreamPktL2.get(j)->data;
+                        if (pktAud->stream_index == streamInfo->index && (pktAud->flags & (AV_PKT_FLAG_CORRUPT | AV_PKT_FLAG_DISCARD)) == 0) {
+                            pktList.push_back(pktAud);
                         }
                     }
                 }
-                if (pkt1 != nullptr) {
-                    //1パケット目はたまにおかしいので、可能なら2パケット目を使用する
-                    streamInfo->pktSample = av_packet_clone((pkt2) ? pkt2 : pkt1);
-                } else {
+                // AACでextradataがない(=ADTS?)の場合は、実際にデータを解析して有効なデータか確認する
+                if (streamInfo->stream->codecpar->codec_id == AV_CODEC_ID_AAC
+                    && (streamInfo->stream->codecpar->extradata == nullptr || streamInfo->stream->codecpar->extradata_size == RGYAACHeader::HEADER_BYTE_SIZE)) {
+                    for (int i = (int)pktList.size() - 1; i >= 0; i--) {
+                        auto pktAud = pktList[i];
+                        if (RGYAACHeader::is_valid(pktAud->data, pktAud->size) != 0) {
+                            streamInfo->pktSample = av_packet_clone(pktAud);
+                            break;
+                        }
+                    }
+                }
+                if (!streamInfo->pktSample && pktList.size() > 0) {
+                    streamInfo->pktSample = av_packet_clone(pktList.back());
+                }
+                if (!streamInfo->pktSample) {
                     //音声の最初のサンプルを取得できていない
                     AddMessage(RGY_LOG_WARN, _T("failed to find stream #%d in preread.\n"), streamInfo->index);
                     streamInfo = m_Demux.stream.erase(streamInfo) - 1;
