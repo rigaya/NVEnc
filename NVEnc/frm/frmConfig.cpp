@@ -979,7 +979,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgNUQPMinP->Maximum = qp_max;
     fcgNUQPMinB->Maximum = qp_max;
 
-    fcgPNBitrate->Visible = !cqp_mode && !qvbr_mode;
+    fcgPNBitrate->Visible = !cqp_mode;
     fcgNUBitrate->Enabled = !cqp_mode && !qvbr_mode;
     fcgLBBitrate->Enabled = !cqp_mode && !qvbr_mode;
     fcgNUMaxkbps->Enabled = cbr_vbr_mode;
