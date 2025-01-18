@@ -3114,14 +3114,6 @@ RGY_ERR RGYOutputAvcodec::applyBitstreamFilterOther(AVPacket *pkt, const AVMuxOt
 RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *muxAudio) {
     int ret = 0;
     const tstring filterName = char_to_tstring(muxAudio->bsfc->filter->name);
-    if (strcmp(muxAudio->bsfc->filter->name, "aac_adtstoasc") == 0) {
-        //毎回bitstream filterを初期化して、extradataに新しいヘッダを供給する
-        //動画とmuxする際に必須
-        av_bsf_free(&muxAudio->bsfc);
-        if ((muxAudio->bsfc = InitStreamBsf(filterName, muxAudio->streamIn)) == nullptr) {
-            return RGY_ERR_UNKNOWN;
-        }
-    }
     if (0 > (ret = av_bsf_send_packet(muxAudio->bsfc, pkt))) {
         m_Mux.poolPkt->returnFree(&pkt);
         AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), filterName.c_str(), qsv_av_err2str(ret).c_str());
