@@ -1160,11 +1160,11 @@ bool RGYAACHeader::is_adts_sync(const uint16_t *ptr) {
 
 bool RGYAACHeader::is_valid(const uint8_t *buf, const size_t size) {
     RGYAACHeader aacHeader;
-    return aacHeader.parse(buf, size) == 0;
+    return aacHeader.parse(buf, size) == 0 && aacHeader.aac_frame_length == size;
 }
 
 int RGYAACHeader::parse(const uint8_t *buf, const size_t size) {
-    if (size < 7) {
+    if (size < RGYAACHeader::HEADER_BYTE_SIZE) {
         return 1;
     }
     const uint8_t buf0 = buf[0];
@@ -1190,5 +1190,5 @@ int RGYAACHeader::parse(const uint8_t *buf, const size_t size) {
     aac_frame_length = ((buf3 & 0x03) << 11) | (buf4 << 3) | (buf5 >> 5);
     adts_buffer_fullness = ((buf5 & 0x1f) << 6) | (buf6 >> 2);
     no_raw_data_blocks_in_frame = buf6 & 0x03;
-    return (samplerate != 0) && (channel != 0) && (size == aac_frame_length) ? 0 : 1;
+    return (samplerate != 0) && (channel != 0) ? 0 : 1;
 }
