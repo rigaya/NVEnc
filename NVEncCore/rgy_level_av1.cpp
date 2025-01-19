@@ -32,7 +32,7 @@
 #include "rgy_level_av1.h"
 
 const int MAX_REF_FRAMES = 16;
-const int LEVEL_COLUMNS  = 12;
+const int LEVEL_COLUMNS  = 13;
 const int COLUMN_MAX_BITRATE_MAIN = 6;
 const int COLUMN_MAX_BITRATE_HIGH = 7;
 
@@ -65,43 +65,35 @@ const int LEVEL_INDEX_AV1[] = {
 };
 
 static const int64_t LEVEL_LIMITS_AV1[_countof(LEVEL_INDEX_AV1)+1][LEVEL_COLUMNS] =
-{   //MaxPicSize, MaxHSize, MaxVSize, MaxDisplayRate, MaxDecodeRate, MaxHeaderRate, MainKbps, HighKbps, MainCR HighCR MaxTiles MaxTileCols
-    {          0,        0,        0,            0,            0,    0,        0,        0,   0,   0,     0,    0,  }, // auto
-    {     147456,     2048,     1152,      4423680,      5529600,  150,     1500,        0,   2,   0,     8,    4   }, // 2.0
-    {     278784,     2816,     1584,      8363520,     10454400,  150,     3000,        0,   2,   0,     8,    4   }, // 2.1
-    {     278784,     2816,     1584,      8363520,     10454400,  150,     3000,        0,   2,   0,     8,    4   }, // 2.2 dummy
-    {     278784,     2816,     1584,      8363520,     10454400,  150,     3000,        0,   2,   0,     8,    4   }, // 2.3 dummy
-    {     665856,     4352,     2448,     19975680,     24969600,  150,     6000,        0,   2,   0,    16,    6   }, // 3.0
-    {    1065024,     5504,     3096,     31950720,     39938400,  150,    10000,        0,   2,   0,    16,    6   }, // 3.1
-    {    1065024,     5504,     3096,     31950720,     39938400,  150,    10000,        0,   2,   0,    16,    6   }, // 3.2 dummy
-    {    1065024,     5504,     3096,     31950720,     39938400,  150,    10000,        0,   2,   0,    16,    6   }, // 3.3 dummy
-    {    2359296,     6144,     3456,     70778880,     77856768,  300,    12000,    30000,   4,   4,    32,    8   }, // 4.0
-    {    2359296,     6144,     3456,    141557760,    155713536,  300,    20000,    50000,   4,   4,    32,    8   }, // 4.1
-    {    2359296,     6144,     3456,    141557760,    155713536,  300,    20000,    50000,   4,   4,    32,    8   }, // 4.2 dummy
-    {    2359296,     6144,     3456,    141557760,    155713536,  300,    20000,    50000,   4,   4,    32,    8   }, // 4.3 dummy
-    {    8912896,     8192,     4352,    267386880,    273715200,  300,    30000,   100000,   6,   4,    64,    8   }, // 5.0
-    {    8912896,     8192,     4352,    534773760,    547430400,  300,    40000,   160000,   8,   4,    64,    8   }, // 5.1
-    {    8912896,     8192,     4352,   1069547520,   1094860800,  300,    60000,   240000,   8,   4,    64,    8   }, // 5.2
-    {    8912896,     8192,     4352,   1069547520,   1176502272,  300,    60000,   240000,   8,   4,    64,    8   }, // 5.3
-    {   35651584,    16384,     8704,   1069547520,   1176502272,  300,    60000,   240000,   8,   4,   128,   16   }, // 6.0
-    {   35651584,    16384,     8704,   2139095040,   2189721600,  300,   100000,   480000,   8,   4,   128,   16   }, // 6.1
-    {   35651584,    16384,     8704,   4278190080,   4379443200,  300,   160000,   800000,   8,   4,   128,   16   }, // 6.2
-    {   35651584,    16384,     8704,   4278190080,   4706009088,  300,   160000,   800000,   8,   4,   128,   16   }, // 6.3
-    {          0,        0,        0,            0,            0,    0,        0,        0,   0,   0,     0,    0,  }, // end
+{   //MaxPicSize, MaxHSize, MaxVSize, MaxDisplayRate, MaxDecodeRate, MaxHeaderRate, MainKbps, HighKbps, MainCR HighCR MaxTiles MaxTileCols end
+    {          0,        0,        0,              0,             0,             0,        0,        0,     0,     0,     0,    0, 0  }, // auto
+    {     147456,     2048,     1152,        4423680,       5529600,           150,     1500,        0,     2,     0,     8,    4, 0  }, // 2.0
+    {     278784,     2816,     1584,        8363520,      10454400,           150,     3000,        0,     2,     0,     8,    4, 0  }, // 2.1
+    {     278784,     2816,     1584,        8363520,      10454400,           150,     3000,        0,     2,     0,     8,    4, 0  }, // 2.2 dummy
+    {     278784,     2816,     1584,        8363520,      10454400,           150,     3000,        0,     2,     0,     8,    4, 0  }, // 2.3 dummy
+    {     665856,     4352,     2448,       19975680,      24969600,           150,     6000,        0,     2,     0,    16,    6, 0  }, // 3.0
+    {    1065024,     5504,     3096,       31950720,      39938400,           150,    10000,        0,     2,     0,    16,    6, 0  }, // 3.1
+    {    1065024,     5504,     3096,       31950720,      39938400,           150,    10000,        0,     2,     0,    16,    6, 0  }, // 3.2 dummy
+    {    1065024,     5504,     3096,       31950720,      39938400,           150,    10000,        0,     2,     0,    16,    6, 0  }, // 3.3 dummy
+    {    2359296,     6144,     3456,       70778880,      77856768,           300,    12000,    30000,     4,     4,    32,    8, 0  }, // 4.0
+    {    2359296,     6144,     3456,      141557760,     155713536,           300,    20000,    50000,     4,     4,    32,    8, 0  }, // 4.1
+    {    2359296,     6144,     3456,      141557760,     155713536,           300,    20000,    50000,     4,     4,    32,    8, 0  }, // 4.2 dummy
+    {    2359296,     6144,     3456,      141557760,     155713536,           300,    20000,    50000,     4,     4,    32,    8, 0  }, // 4.3 dummy
+    {    8912896,     8192,     4352,      267386880,     273715200,           300,    30000,   100000,     6,     4,    64,    8, 0  }, // 5.0
+    {    8912896,     8192,     4352,      534773760,     547430400,           300,    40000,   160000,     8,     4,    64,    8, 0  }, // 5.1
+    {    8912896,     8192,     4352,     1069547520,    1094860800,           300,    60000,   240000,     8,     4,    64,    8, 0  }, // 5.2
+    {    8912896,     8192,     4352,     1069547520,    1176502272,           300,    60000,   240000,     8,     4,    64,    8, 0  }, // 5.3
+    {   35651584,    16384,     8704,     1069547520,    1176502272,           300,    60000,   240000,     8,     4,   128,   16, 0  }, // 6.0
+    {   35651584,    16384,     8704,     2139095040,    2189721600,           300,   100000,   480000,     8,     4,   128,   16, 0  }, // 6.1
+    {   35651584,    16384,     8704,     4278190080,    4379443200,           300,   160000,   800000,     8,     4,   128,   16, 0  }, // 6.2
+    {   35651584,    16384,     8704,     4278190080,    4706009088,           300,   160000,   800000,     8,     4,   128,   16, 0  }, // 6.3
+    {          0,        0,        0,              0,             0,             0,        0,        0,     0,     0,     0,    0, 0  }, // end
 };
+
+#pragma warning(disable:4100) //引数は関数の本体部で 1 度も参照されません。
 
 //必要なLevelを計算する, 適合するLevelがなければ 0 を返す
 int calc_auto_level_av1(int width, int height, int ref, int fps_num, int fps_den, int profile, int max_bitrate, int tile_col, int tile_row) {
-    int ref_mul_x3 = 3; //refのためにsample数にかけたい数を3倍したもの(あとで3で割る)
-    if (ref > 12) {
-        ref_mul_x3 = 4*3;
-    } else if (ref > 8) {
-        ref_mul_x3 = 2*3;
-    } else if (ref > 6) {
-        ref_mul_x3 = 4;
-    } else {
-        ref_mul_x3 = 3;
-    }
     const int64_t data[] = {
         (int64_t)width * height, //MaxPicSize
         (int64_t)width,          //MaxHSize
@@ -114,7 +106,8 @@ int calc_auto_level_av1(int width, int height, int ref, int fps_num, int fps_den
         0, //MainCR
         0, //HighCR
         tile_col * tile_row, //MaxTiles
-        tile_col          //MaxTileCols
+        tile_col,          //MaxTileCols
+        0
     };
     static_assert(_countof(data) == LEVEL_COLUMNS);
 
@@ -142,4 +135,20 @@ bool is_avail_high_profile_av1(int level) {
         level_idx = 0;
     }
     return (level_idx > 0 && LEVEL_LIMITS_AV1[level_idx][0] > 0) ? (LEVEL_LIMITS_AV1[level_idx][COLUMN_MAX_BITRATE_HIGH] > 1) : false;
+}
+
+int RGYCodecLevelAV1::calc_auto_level(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, bool high_tier, int max_bitrate, int vbv_buf, int tile_col, int tile_row) {
+    return calc_auto_level_av1(width, height, ref, fps_num, fps_den, profile, max_bitrate, tile_col, tile_row);
+}
+
+int RGYCodecLevelAV1::get_max_bitrate(int level, int profile, bool high_tier) {
+    return get_max_bitrate_av1(level, profile);
+}
+
+int RGYCodecLevelAV1::get_max_vbv_buf(int level, int profile) {
+    return 0;
+}
+
+int RGYCodecLevelAV1::get_max_ref(int width, int height, int level, bool interlaced) {
+    return 16;
 }

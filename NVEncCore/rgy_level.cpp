@@ -25,23 +25,26 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __RGY_LEVEL_H264_H__
-#define __RGY_LEVEL_H264_H__
+#include "rgy_level_h264.h"
+#include "rgy_level_hevc.h"
+#include "rgy_level_av1.h"
+#if ENCODER_NVENC
+#include "NVEncParam.h"
+#endif
 
-#include "rgy_level.h"
+std::unique_ptr<RGYCodecLevel> createCodecLevel(RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_H264:
+        return std::unique_ptr<RGYCodecLevel>(new RGYCodecLevelH264());
+    case RGY_CODEC_HEVC:
+        return std::unique_ptr<RGYCodecLevel>(new RGYCodecLevelHEVC());
+    case RGY_CODEC_AV1:
+        return std::unique_ptr<RGYCodecLevel>(new RGYCodecLevelAV1());
+    default:
+        return nullptr;
+    }
+}
 
-int calc_auto_level_h264(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, int vbv_max, int vbv_buf);
-void get_vbv_value_h264(int *vbv_max, int *vbv_buf, int level, int profile);
-
-class RGYCodecLevelH264 : public RGYCodecLevel {
-public:
-    RGYCodecLevelH264() : RGYCodecLevel() { m_codec = RGY_CODEC_H264; };
-    virtual ~RGYCodecLevelH264() {};
-    virtual int calc_auto_level(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, bool high_tier, int max_bitrate, int vbv_buf, int tile_col, int tile_row) override;
-    virtual int get_max_bitrate(int level, int profile, bool high_tier) override;
-    virtual int get_max_vbv_buf(int level, int profile) override;
-    virtual int get_max_ref(int width, int height, int level, bool interlaced) override;
-protected:
-};
-
-#endif //__RGY_LEVEL_H264_H__
+int RGYCodecLevel::level_auto() {
+    return get_cx_value(get_level_list(m_codec), _T("auto"));
+}

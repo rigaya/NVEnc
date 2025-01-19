@@ -996,6 +996,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </ClCompile>
     <ClCompile Include="rgy_filter.cpp" />
     <ClCompile Include="rgy_frame_info.cpp" />
+    <ClCompile Include="rgy_level.cpp" />
     <ClCompile Include="rgy_level_h264.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -1440,6 +1441,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_faw.h" />
     <ClInclude Include="rgy_filter.h" />
     <ClInclude Include="rgy_frame_info.h" />
+    <ClInclude Include="rgy_level.h" />
     <ClInclude Include="rgy_level_h264.h" />
     <ClInclude Include="rgy_level_hevc.h" />
     <ClInclude Include="logo.h" />

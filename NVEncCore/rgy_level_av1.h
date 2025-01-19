@@ -28,8 +28,21 @@
 #ifndef __RGY_LEVEL_AV1_H__
 #define __RGY_LEVEL_AV1_H__
 
+#include "rgy_level.h"
+
 int calc_auto_level_av1(int width, int height, int ref, int fps_num, int fps_den, int profile, int max_bitrate, int tile_col, int tile_row);
 int get_max_bitrate_av1(int level, int profile);
 bool is_avail_high_profile_av1(int level);
+
+class RGYCodecLevelAV1 : public RGYCodecLevel {
+public:
+    RGYCodecLevelAV1() : RGYCodecLevel() { m_codec = RGY_CODEC_AV1; };
+    virtual ~RGYCodecLevelAV1() {};
+    virtual int calc_auto_level(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, bool high_tier, int max_bitrate, int vbv_buf, int tile_col, int tile_row) override;
+    virtual int get_max_bitrate(int level, int profile, bool high_tier) override;
+    virtual int get_max_vbv_buf(int level, int profile) override;
+    virtual int get_max_ref(int width, int height, int level, bool interlaced) override;
+protected:
+};
 
 #endif //__RGY_LEVEL_AV1_H__

@@ -35,6 +35,7 @@ const int MAX_REF_FRAMES = 16;
 const int PROGRESSIVE    = 1;
 const int INTERLACED     = 2;
 const int LEVEL_COLUMNS  = 7;
+const int COLUMN_MAX_DPB_MBS = 3;
 const int COLUMN_VBVMAX  = 4;
 const int COLUMN_VBVBUF  = 5;
 
@@ -140,4 +141,31 @@ void get_vbv_value_h264(int *vbv_max, int *vbv_buf, int level, int profile) {
             *vbv_buf = 0;
     }
     return;
+}
+
+#pragma warning(disable:4100) //引数は関数の本体部で 1 度も参照されません。
+
+int RGYCodecLevelH264::calc_auto_level(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, bool high_tier, int max_bitrate, int vbv_buf, int tile_col, int tile_row) {
+    return calc_auto_level_h264(width, height, ref, interlaced, fps_num, fps_den, profile, max_bitrate, vbv_buf);
+}
+int RGYCodecLevelH264::get_max_bitrate(int level, int profile, bool high_tier) {
+    int vbv_max = 0, vbv_buf = 0;
+    get_vbv_value_h264(&vbv_max, &vbv_buf, level, profile);
+    return vbv_max;
+}
+
+int RGYCodecLevelH264::get_max_vbv_buf(int level, int profile) {
+    int vbv_max = 0, vbv_buf = 0;
+    get_vbv_value_h264(&vbv_max, &vbv_buf, level, profile);
+    return vbv_buf;
+}
+
+int RGYCodecLevelH264::get_max_ref(int width, int height, int level, bool interlaced) {
+    int level_idx = (int)(std::find(H264_LEVEL_INDEX, H264_LEVEL_INDEX + _countof(H264_LEVEL_INDEX), level) - H264_LEVEL_INDEX);
+    if (level_idx == _countof(H264_LEVEL_INDEX)) {
+        level_idx = 0;
+    }
+    int j = (interlaced) ? INTERLACED : PROGRESSIVE;
+    int MB_frame = ceil_div_int(width, 16) * (j * ceil_div_int(height, 16 * j));
+    return H264_LEVEL_LIMITS[level_idx][COLUMN_MAX_DPB_MBS] / MB_frame;
 }

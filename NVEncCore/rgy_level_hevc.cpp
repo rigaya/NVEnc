@@ -87,8 +87,8 @@ int calc_auto_level_hevc(int width, int height, int ref, int fps_num, int fps_de
     const int64_t data[LEVEL_COLUMNS] = {
         (int64_t)width * height * fps_num / fps_den,
         (int64_t)width * height * ref_mul_x3 / 3,
-        (high_tier) ? 0 : max_bitrate,
-        (high_tier) ? max_bitrate : 0,
+        (high_tier) ? -1 : max_bitrate,
+        (high_tier) ? max_bitrate : -1,
         0
     };
 
@@ -116,4 +116,42 @@ bool is_avail_high_tier_hevc(int level) {
         level_idx = 0;
     }
     return (level_idx > 0 && HEVC_LEVEL_LIMITS[level_idx][1] > 0) ? (HEVC_LEVEL_LIMITS[level_idx][COLUMN_MAX_BITRATE_HIGH] > 1) : false;
+}
+
+#pragma warning(disable:4100) //引数は関数の本体部で 1 度も参照されません。
+
+int RGYCodecLevelHEVC::calc_auto_level(int width, int height, int ref, bool interlaced, int fps_num, int fps_den, int profile, bool high_tier, int max_bitrate, int vbv_buf, int tile_col, int tile_row) {
+    return calc_auto_level_hevc(width, height, ref, fps_num, fps_den, high_tier, max_bitrate);
+}
+
+int RGYCodecLevelHEVC::get_max_bitrate(int level, int profile, bool high_tier) {
+    return get_max_bitrate_hevc(level, high_tier);
+}
+
+int RGYCodecLevelHEVC::get_max_vbv_buf(int level, int profile) {
+    return 0;
+}
+
+int RGYCodecLevelHEVC::get_max_ref(int width, int height, int level, bool interlaced) {
+    int level_idx = (int)(std::find(HEVC_LEVEL_INDEX, HEVC_LEVEL_INDEX + _countof(HEVC_LEVEL_INDEX), level) - HEVC_LEVEL_INDEX);
+    if (level_idx == _countof(HEVC_LEVEL_INDEX)) {
+        level_idx = 0;
+    }
+    // width * height * ref_mul_x3 / 3 < HEVC_LEVEL_LIMITS[level_idx][1]
+    // ref_mul_x3 < HEVC_LEVEL_LIMITS[level_idx][1] * 3 / (width * height)
+    const int ref_mul_x3_limit = (int)(HEVC_LEVEL_LIMITS[level_idx][1] * 3 / (width * height));
+
+    // ref 13 - 16 -> ref_mul_x3 = 12
+    // ref  9 - 12 -> ref_mul_x3 =  6
+    // ref  7 -  8 -> ref_mul_x3 =  4
+    // ref  0 -  6 -> ref_mul_x3 =  3
+    if (ref_mul_x3_limit >= 12) {
+        return 15;
+    } else if (ref_mul_x3_limit >= 6) {
+        return 11;
+    } else if (ref_mul_x3_limit >= 4) {
+        return 7;
+    } else {
+        return 5;
+    }
 }

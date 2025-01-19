@@ -670,6 +670,15 @@ static int get_value_from_guid(GUID guid, const guid_desc (&desc)[count]) {
     return 0;
 };
 
+static int get_value_from_guid(GUID guid, const std::vector<guid_desc>& desc) {
+    for (size_t i = 0; i < desc.size(); i++) {
+        if (0 == memcmp(&desc[i].id, &guid, sizeof(GUID))) {
+            return desc[i].value;
+        }
+    }
+    return 0;
+};
+
 template<size_t count>
 static GUID get_guid_from_value(int value, const guid_desc (&desc)[count]) {
     for (size_t i = 0; i < count; i++) {
