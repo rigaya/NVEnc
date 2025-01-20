@@ -558,7 +558,7 @@ RGY_ERR RGYOutputBSF::applyBitstreamFilter(RGYBitstream *bitstream) {
                 }
             }
         }
-        if (target_nal_start > 0) {
+        if (target_nal_start >= 0) {
             const ptrdiff_t header_size = (ptrdiff_t)(nal_list[target_nal_end].ptr - nal_list[target_nal_start].ptr) + nal_list[target_nal_end].size;
             if (header_size <= 0) {
                 AddMessage(RGY_LOG_ERROR, _T("Unexpected error occured running bitstream filter.\n"));
