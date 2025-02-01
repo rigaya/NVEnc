@@ -356,7 +356,7 @@ template<typename T>
 class rgy_rational {
     static_assert(std::is_integral<T>::value, "rgy_rational is defined only for integer.");
 private:
-    T num, den;
+    T num, den; // 分子、分母
 public:
     rgy_rational() : num(0), den(1) {}
     rgy_rational(T _num) : num(_num), den(1) { }
@@ -364,10 +364,10 @@ public:
     rgy_rational(const rgy_rational<T>& r) : num(r.num), den(r.den) { reduce(); }
     rgy_rational<T>& operator=(const rgy_rational<T> &r) { num = r.num; den = r.den; reduce(); return *this; }
     bool is_valid() const { return den != 0; };
-    T n() const {
+    T n() const { // 分子
         return this->num;
     }
-    T d() const {
+    T d() const { // 分母
         return this->den;
     }
     float qfloat() const {
@@ -1068,8 +1068,13 @@ public:
     ~RGYListRef() {
         clear();
     }
-    void clear() {
+    void clear(std::function<void(T*)> deleteFunc = nullptr) {
         m_refCounts.clear();
+        if (deleteFunc) {
+            for (auto &obj : m_objs) {
+                deleteFunc(obj.get());
+            }
+        }
         m_objs.clear();
     }
     std::shared_ptr<T> get(T *ptr) {

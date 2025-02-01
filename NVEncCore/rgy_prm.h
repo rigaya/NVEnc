@@ -108,6 +108,10 @@ enum class VppType : int {
     NGX_TRUEHDR,
 #endif
     NGX_MAX,
+#if ENCODER_NVENC
+    NPP_GAUSS,
+#endif
+    NPP_MAX,
 #if ENCODER_VCEENC
     AMF_CONVERTER,
     AMF_PREPROCESS,
@@ -142,6 +146,7 @@ enum class VppType : int {
     CL_MPDECIMATE,
     CL_RFF,
     CL_DELOGO,
+    CL_SELECT_EVERY,
     CL_TRANSFORM,
 
     CL_CONVOLUTION3D,
@@ -177,7 +182,7 @@ enum class VppType : int {
     CL_MAX,
 };
 
-enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_NVVFX, FILTER_NGX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_NVVFX, FILTER_NGX, FILTER_NPP, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL, FILTER_CUDA = FILTER_OPENCL };
 
 static VppFilterType getVppFilterType(VppType vpptype) {
     if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
@@ -190,6 +195,9 @@ static VppFilterType getVppFilterType(VppType vpptype) {
 #if ENCODER_NVENC || CLFILTERS_AUF
     if (vpptype < VppType::NGX_MAX) return VppFilterType::FILTER_NGX;
 #endif // #if ENCODER_NVENC || CLFILTERS_AUF
+#if ENCODER_NVENC
+    if (vpptype < VppType::NPP_MAX) return VppFilterType::FILTER_NPP;
+#endif // #if ENCODER_NVENC
 #if ENCODER_VCEENC
     if (vpptype < VppType::AMF_MAX) return VppFilterType::FILTER_AMF;
 #endif

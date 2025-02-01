@@ -1396,6 +1396,8 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="NVEncCore.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="NVEncParam.cpp" />
     <CudaCompile Include="NVEncFilterWarpsharp.cu">
@@ -1434,6 +1436,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterNVOFFRUC.h" />
     <ClInclude Include="NVEncFilterOverlay.h" />
     <ClInclude Include="NVEncFilterParam.h" />
+    <ClInclude Include="NVEncPipeline.h" />
     <ClInclude Include="rgy_device.h" />
     <ClInclude Include="rgy_device_info_cache.h" />
     <ClInclude Include="rgy_device_info_wmi.h" />

@@ -650,6 +650,9 @@
     <ClInclude Include="rgy_level.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncPipeline.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="NVEncFilterCrop.cu">

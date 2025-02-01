@@ -28,31 +28,8 @@
 
 #pragma once
 
-#include <stdint.h>
-#pragma warning (push)
-#pragma warning (disable: 4819)
-#pragma warning (disable: 4201)
-#include "nvEncodeAPI.h"
-#pragma warning (pop)
-#include <vector>
-#include <list>
-#include <string>
-#include "CuvidDecode.h"
-#include "NVEncDevice.h"
-#include "NVEncUtil.h"
-#include "NVEncParam.h"
-#include "NVEncFilter.h"
+#include "NVEncPipeline.h"
 #include "NVEncFilterSsim.h"
-#include "NvHWEncoder.h"
-#include "rgy_input.h"
-#include "rgy_output.h"
-#include "rgy_osdep.h"
-#include "rgy_tchar.h"
-#include "rgy_status.h"
-#include "rgy_log.h"
-#include "rgy_bitstream.h"
-#include "rgy_frame_info.h"
-#include "rgy_hdr10plus.h"
 #include "rgy_device_usage.h"
 
 class RGYTimecode;
@@ -72,13 +49,13 @@ public:
     NVEncCore();
     virtual ~NVEncCore();
 
-    virtual NVENCSTATUS Init(InEncodeVideoParam *inputParam);
+    virtual RGY_ERR Init(InEncodeVideoParam *inputParam);
 
     //エンコードを実行
-    virtual NVENCSTATUS Encode();
+    virtual RGY_ERR Encode();
 
     //エンコーダのClose・リソース開放
-    virtual NVENCSTATUS Deinitialize();
+    virtual RGY_ERR Deinitialize();
 
     //エンコードの設定を取得
     virtual tstring GetEncodingParamsInfo(int output_level);
@@ -89,62 +66,81 @@ public:
     //ユーザーからの中断を知らせるフラグへのポインタをセット
     void SetAbortFlagPointer(bool *abortFlag);
 protected:
-    bool encodeIsHighBitDepth(const InEncodeVideoParam *inputParam);
+    bool encodeIsHighBitDepth(const InEncodeVideoParam *inputParam) const;
+
+    int GetEncoderBitDepth(const InEncodeVideoParam *inputParam) const;
+
+    NV_ENC_BUFFER_FORMAT GetEncBufferFormat(const InEncodeVideoParam *inputParam) const;
 
     //メインメソッド
     RGY_ERR CheckDynamicRCParams(std::vector<NVEncRCParam> &dynamicRC);
 
     //エンコーダが出力使用する色空間を入力パラメータをもとに取得
-    RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
-    RGY_CSP GetRawOutCSP(const InEncodeVideoParam *inputParam);
+    RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam) const;
+    RGY_CSP GetRawOutCSP(const InEncodeVideoParam *inputParam) const;
 
     //hwデコーダが出力する色空間を取得
     DeviceCodecCsp GetHWDecCodecCsp(const bool skipHWDecodeCheck, std::vector<std::unique_ptr<NVGPUInfo>>& gpuList);
 
     //チャプターファイルを読み込み
-    NVENCSTATUS readChapterFile(const tstring& chapfile);
+    RGY_ERR readChapterFile(const tstring& chapfile);
 
     //ログを初期化
-    virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
+    virtual RGY_ERR InitLog(const InEncodeVideoParam *inputParam);
 
     //エンコーダへの入力を初期化
-    virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWDecCodecCsp);
+    virtual RGY_ERR InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWDecCodecCsp);
 
     //エンコーダへの入力を初期化
-    virtual NVENCSTATUS InitOutput(InEncodeVideoParam *inputParam, NV_ENC_BUFFER_FORMAT encBufferFormat);
+    virtual RGY_ERR InitOutput(InEncodeVideoParam *inputParam, NV_ENC_BUFFER_FORMAT encBufferFormat);
 
     //perfMonitorの初期化
-    virtual NVENCSTATUS InitPerfMonitor(const InEncodeVideoParam *inputParam);
+    virtual RGY_ERR InitPerfMonitor(const InEncodeVideoParam *inputParam);
 
     //nvvfxを使用するかチェック
-    bool useNVVFX(const InEncodeVideoParam *inputParam);
+    bool useNVVFX(const InEncodeVideoParam *inputParam) const;
 
     //ngxを使用するかチェック
-    bool useNVNGX(const InEncodeVideoParam *inputParam);
+    bool useNVNGX(const InEncodeVideoParam *inputParam) const;
 
     //GPUListのGPUが必要なエンコードを行えるかチェック
-    NVENCSTATUS CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
+    RGY_ERR CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
 
     //GPUを自動的に選択する
-    NVENCSTATUS GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam, const RGYDeviceUsageLockManager *devUsageLock);
+    RGY_ERR GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam, const RGYDeviceUsageLockManager *devUsageLock);
 
     //デバイスの初期化
-    virtual NVENCSTATUS InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
+    virtual RGY_ERR InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
 
     //inputParamからエンコーダに渡すパラメータを設定
-    NVENCSTATUS SetInputParam(InEncodeVideoParam *inputParam);
+    RGY_ERR SetInputParam(InEncodeVideoParam *inputParam);
 
     //デコーダインスタンスを作成
-    NVENCSTATUS InitDecoder(const InEncodeVideoParam *inputParam);
+    RGY_ERR InitDecoder(const InEncodeVideoParam *inputParam);
 
-    //デコーダインスタンスを作成
+    //フィルタリストを作成
+    std::vector<VppType> InitFiltersCreateVppList(const InEncodeVideoParam *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired);
+
+    //フィルタをひとつ作成
+    RGY_ERR AddFilterCUDA(
+        std::vector<std::unique_ptr<NVEncFilter>>& cufilters,
+        RGYFrameInfo& inputFrame, const VppType vppType, const InEncodeVideoParam *inputParam, const sInputCrop *crop, const std::pair<int, int> resize, VideoVUIInfo& vuiInfo);
+
+    //フィルタを作成
     RGY_ERR InitFilters(const InEncodeVideoParam *inputParam);
 
     //power throttoling設定の自動設定
     RGY_ERR InitPowerThrottoling(InEncodeVideoParam *inputParam);
 
     //チャプター読み込み等
-    NVENCSTATUS InitChapters(const InEncodeVideoParam *inputParam);
+    RGY_ERR InitChapters(const InEncodeVideoParam *inputParam);
+
+    //SSIMフィルタの初期化
+    RGY_ERR InitSsimFilter(const InEncodeVideoParam *inputParam);
+
+    RGY_ERR initPipeline(const InEncodeVideoParam *prm);
+
+    RGY_ERR allocatePiplelineFrames(const InEncodeVideoParam *prm);
 
     //入出力用バッファを確保
     RGY_ERR AllocateBufferInputHost(const VideoInfo *pInputInfo);
@@ -163,7 +159,7 @@ protected:
     NVENCSTATUS ProcessOutput(const EncodeBuffer *pEncodeBuffer);
 
     //cuvidでのリサイズを有効にするか
-    bool enableCuvidResize(const InEncodeVideoParam *inputParam);
+    bool enableCuvidResize(const InEncodeVideoParam *inputParam) const;
 
     //vpp-rffが使用されているか
     bool VppRffEnabled();
@@ -172,10 +168,9 @@ protected:
     bool VppAfsRffAware();
 
     std::unique_ptr<NVGPUInfo>   m_dev;
-#if ENABLE_AVSW_READER
-    unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
-#endif //#if ENABLE_AVSW_READER
+    std::unique_ptr<CuvidDecode>      m_pDecoder;              //デコード
     std::unique_ptr<RGYDeviceUsage> m_deviceUsage;
+    std::unique_ptr<NVEncRunCtx>    m_encRunCtx;
 
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
 
@@ -186,41 +181,39 @@ protected:
     int                          m_appliedDynamicRC;      //今適用されているパラメータ(未適用なら-1)
 
     int                          m_pipelineDepth;
-    vector<InputFrameBufInfo>    m_inputHostBuffer;
+    std::vector<InputFrameBufInfo> m_inputHostBuffer;
     std::unique_ptr<CUFrameBuf>  m_outputFrameHostRaw;
 
     sTrimParam                    m_trimParam;
     std::unique_ptr<RGYPoolAVPacket> m_poolPkt;
     std::unique_ptr<RGYPoolAVFrame> m_poolFrame;
-    shared_ptr<RGYInput>          m_pFileReader;           //動画読み込み
-    vector<shared_ptr<RGYInput>>  m_AudioReaders;
-    shared_ptr<RGYOutput>         m_pFileWriter;           //動画書き出し
-    vector<shared_ptr<RGYOutput>> m_pFileWriterListAudio;
-    shared_ptr<EncodeStatus>      m_pStatus;               //エンコードステータス管理
-    shared_ptr<CPerfMonitor>      m_pPerfMonitor;
+    std::shared_ptr<RGYInput>          m_pFileReader;           //動画読み込み
+    std::vector<shared_ptr<RGYInput>>  m_AudioReaders;
+    std::shared_ptr<RGYOutput>         m_pFileWriter;           //動画書き出し
+    std::vector<shared_ptr<RGYOutput>> m_pFileWriterListAudio;
+    std::shared_ptr<EncodeStatus>      m_pStatus;               //エンコードステータス管理
+    std::shared_ptr<CPerfMonitor>      m_pPerfMonitor;
     NV_ENC_PIC_STRUCT             m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                 m_stEncConfig;           //エンコード設定
-#if ENABLE_AVSW_READER
     bool                          m_keyOnChapter;        //チャプター上にキーフレームを配置する
-    vector<int>                   m_keyFile;             //キーフレームの指定
-    vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
+    std::vector<int>                   m_keyFile;             //キーフレームの指定
+    std::vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
     bool                          m_hdr10plusMetadataCopy;
-#endif //#if ENABLE_AVSW_READER
-    unique_ptr<RGYTimecode>       m_timecode;
-    unique_ptr<RGYHDR10Plus>      m_hdr10plus;
-    unique_ptr<RGYHDRMetadata>    m_hdrseiIn;
-    unique_ptr<RGYHDRMetadata>    m_hdrseiOut;
-    unique_ptr<DOVIRpu>           m_dovirpu;
+    std::unique_ptr<RGYTimecode>       m_timecode;
+    std::unique_ptr<RGYHDR10Plus>      m_hdr10plus;
+    std::unique_ptr<RGYHDRMetadata>    m_hdrseiIn;
+    std::unique_ptr<RGYHDRMetadata>    m_hdrseiOut;
+    std::unique_ptr<DOVIRpu>           m_dovirpu;
     bool                          m_dovirpuMetadataCopy;
     RGYDOVIProfile                m_doviProfile;
     std::unique_ptr<RGYTimestamp> m_encTimestamp;
     int64_t                       m_encodeFrameID;
     int                           m_videoIgnoreTimestampError;
 
-    vector<unique_ptr<NVEncFilter>> m_vpFilters;
-    shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
+    std::vector<VppVilterBlock> m_vpFilters;
+    std::shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
 #if ENABLE_SSIM
-    unique_ptr<NVEncFilterSsim>  m_ssim;
+    std::unique_ptr<NVEncFilterSsim>  m_videoQualityMetric;
 #endif //#if ENABLE_SSIM
 
     unique_ptr<RGYListRef<RGYFrameDataQP>> m_qpTable;
@@ -239,8 +232,10 @@ protected:
     rgy_rational<int>            m_outputTimebase;        //出力のtimebase
     rgy_rational<int>            m_encFps;                //エンコードのフレームレート
 
+    std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
+
     int                          m_encodeBufferCount;                 //入力バッファ数 (16以上、MAX_ENCODE_QUEUE以下)
     CNvQueue<EncodeBuffer>       m_EncodeBufferQueue;                 //エンコーダへのフレーム投入キュー
-    EncodeOutputBuffer           m_stEOSOutputBfr;                    //エンコーダからの出力バッファ
     EncodeBuffer                 m_stEncodeBuffer[MAX_ENCODE_QUEUE];  //エンコーダへのフレームバッファ
+    EncodeOutputBuffer           m_stEOSOutputBfr;                    //エンコーダからの出力バッファ
 };

@@ -47,6 +47,8 @@
 #include "rgy_prm.h"
 #include "convert_csp.h"
 
+static const TCHAR *NVENCC_ABORT_EVENT = _T("NVEncC_abort_%u");
+
 static const int MAX_DECODE_FRAMES = 16;
 
 static const int DEFAULT_GOP_LENGTH  = 0;

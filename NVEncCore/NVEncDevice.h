@@ -199,6 +199,7 @@ public:
     NVENCSTATUS NvEncUnmapInputResource(NV_ENC_INPUT_PTR mappedInputBuffer);
     NVENCSTATUS NvEncFlushEncoderQueue(void *hEOSEvent);
     NVENCSTATUS NvEncDestroyEncoder();
+    NVENCSTATUS NvEncSetIOCudaStreams(cudaStream_t streamIn, cudaStream_t streamOut);
 
     NVENCSTATUS SetEncodeCodecList();
 
@@ -353,7 +354,7 @@ public:
     void close_device();
 
     RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, bool initVulkan, bool skipHWDecodeCheck, bool disableNVML);
-    RGY_ERR initEncoder();
+    RGY_ERR initEncoder(cudaStream_t streamIn, cudaStream_t streamOut);
     tstring infostr() const;
 protected:
     void writeLog(RGYLogLevel log_level, const tstring &str) {
@@ -389,11 +390,11 @@ public:
     virtual ~NVEncCtrl();
 
     //CUDAインターフェース・デバイスの初期化
-    virtual NVENCSTATUS Initialize(const int deviceID, RGYLogLevel logLevel);
+    virtual RGY_ERR Initialize(const int deviceID, RGYLogLevel logLevel);
 
-    NVENCSTATUS ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck);
-    NVENCSTATUS ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck);
-    NVENCSTATUS ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck);
+    RGY_ERR ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck);
+    RGY_ERR ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck);
+    RGY_ERR ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck);
 
 protected:
     //既定の出力先に情報をメッセージを出力
@@ -404,11 +405,11 @@ protected:
     RGY_ERR initLogLevel(const RGYParamLogLevel& loglevel);
 
     //CUDAインターフェースを初期化
-    NVENCSTATUS InitCuda();
+    RGY_ERR InitCuda();
 
     //deviceリストを作成
-    NVENCSTATUS InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, bool initVulkan, const bool skipHWDecodeCheck, const int disableNVML);
+    RGY_ERR InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, bool initVulkan, const bool skipHWDecodeCheck, const int disableNVML);
 
-    shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
+    std::shared_ptr<RGYLog>      m_pLog;                //ログ出力管理
     int                          m_nDeviceId;             //DeviceId
 };

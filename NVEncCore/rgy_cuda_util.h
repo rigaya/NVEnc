@@ -272,6 +272,9 @@ enum class CUFrameBufType {
     Unknown,
     devPtr,      // cudaMalloc, cudaMallocPitch, cudaAllocHost, cudaFree, cudaFreeHost
     CUdevivePtr, // cuMemAlloc, cuMemAllocPitch, cuMemAllocHost, cuMemFree, cuMemFreeHost
+    CUVID,       // CUVIDPARSERDISPINFO
+    EncDevWrap,
+    EncHostWrap,
 };
 
 struct CUFrameBufBase : public RGYFrame {
@@ -279,12 +282,13 @@ public:
     RGYFrameInfo frame;
     cudaEvent_t event;
     CUFrameBufType framebuftype;
+    std::unique_ptr<CUFrameBufBase> refFrameHost;
     CUFrameBufBase()
-        : frame(), event(), framebuftype(CUFrameBufType::Unknown) {
+        : frame(), event(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {
         cudaEventCreate(&event);
     };
     CUFrameBufBase(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
-        : frame(), event(), framebuftype(CUFrameBufType::Unknown) {
+        : frame(), event(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {
         frame.width = width;
         frame.height = height;
         frame.csp = csp;
@@ -292,15 +296,17 @@ public:
         cudaEventCreate(&event);
     };
     CUFrameBufBase(const RGYFrameInfo& _info)
-        : frame(_info), event(), framebuftype(CUFrameBufType::Unknown) {
+        : frame(_info), event(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {
         cudaEventCreate(&event);
     };
     virtual ~CUFrameBufBase() {
+        refFrameHost.reset();
         if (event) {
             cudaEventDestroy(event);
             event = nullptr;
         }
     }
+    cudaEvent_t getEvent() const { return event; }
     void releasePtr() {
         memset(frame.ptr, 0, sizeof(frame.ptr));
         memset(frame.pitch, 0, sizeof(frame.pitch));
@@ -329,20 +335,55 @@ public:
         frame.mem_type = RGY_MEM_TYPE_CPU;
         return allocHost(singleAlloc, align);
     }
+    virtual std::pair<RGY_ERR, std::unique_ptr<CUFrameBufBase>> createHost(const RGYFrameInfo& info) const = 0;
+    RGY_ERR allocRefHost(const bool singleAlloc = false, int align = 0) {
+        if (frame.mem_type == RGY_MEM_TYPE_CPU) {
+            return RGY_ERR_INVALID_CALL;
+        }
+        auto [sts, hostFrame] = createHost(frame);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        refFrameHost = std::move(hostFrame);
+        return refFrameHost->allocHost(singleAlloc, align);
+    }
+    RGYFrame *getRefHostFrame() { return refFrameHost.get(); }
+    RGY_ERR copyFrameFromHostRef(cudaStream_t stream) {
+        if (!refFrameHost) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        auto ret = copyFrameAsync(&frame, &refFrameHost->frame, stream);
+        if (ret != RGY_ERR_NONE) {
+            return ret;
+        }
+        setPropertyFrom(refFrameHost.get());
+        return RGY_ERR_NONE;
+    }
+    RGY_ERR copyFrameToHostRef(cudaStream_t stream) {
+        if (!refFrameHost) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        auto ret = copyFrameAsync(&refFrameHost->frame, &frame, stream);
+        if (ret != RGY_ERR_NONE) {
+            return ret;
+        }
+        refFrameHost->setPropertyFrom(this);
+        return RGY_ERR_NONE;
+    }
     void clear() {
         clearMemory();
     }
     CUFrameBufType bufType() const { return framebuftype; };
     virtual bool isempty() const { return !frame.ptr[0]; }
-    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
-    virtual void setDuration(uint64_t frame_duration) override { frame.duration = frame_duration; }
-    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
-    virtual void setInputFrameId(int inputFrameId) override { frame.inputFrameId = inputFrameId; }
-    virtual void setFlags(RGY_FRAME_FLAGS flag) override { frame.flags = flag; };
-    virtual void clearDataList() override { frame.dataList.clear(); };
+    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; if (refFrameHost) refFrameHost->setTimestamp(timestamp); }
+    virtual void setDuration(uint64_t frame_duration) override { frame.duration = frame_duration; if (refFrameHost) refFrameHost->setDuration(frame_duration); }
+    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; if (refFrameHost) refFrameHost->setPicstruct(picstruct); }
+    virtual void setInputFrameId(int inputFrameId) override { frame.inputFrameId = inputFrameId; if (refFrameHost) refFrameHost->setInputFrameId(inputFrameId); }
+    virtual void setFlags(RGY_FRAME_FLAGS flag) override { frame.flags = flag; if (refFrameHost) refFrameHost->setFlags(flag); };
+    virtual void clearDataList() override { frame.dataList.clear(); if (refFrameHost) refFrameHost->clearDataList(); };
     virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return frame.dataList; };
     virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; };
-    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; };
+    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; if (refFrameHost) refFrameHost->setDataList(dataList); };
     virtual RGYFrameInfo getInfo() const { return frame; }
     void setSingleAlloc(bool singleAlloc) { frame.singleAlloc = singleAlloc; }
 protected:
@@ -414,6 +455,9 @@ public:
     virtual ~CUFrameBuf() {
         clear();
     }
+    virtual std::pair<RGY_ERR, std::unique_ptr<CUFrameBufBase>> createHost(const RGYFrameInfo& info) const override {
+        return std::make_pair(RGY_ERR_NONE, std::unique_ptr<CUFrameBufBase>(new CUFrameBuf(info)));
+    }
     RGY_ERR copyFrame(const RGYFrameInfo *src) {
         if (frame.ptr[0] == nullptr || !cmpFrameInfoCspResolution(&frame, src)) {
 
@@ -481,6 +525,9 @@ public:
     virtual ~CUFrameDevPtr() {
         clear();
     }
+    virtual std::pair<RGY_ERR, std::unique_ptr<CUFrameBufBase>> createHost(const RGYFrameInfo& info) const override {
+        return std::make_pair(RGY_ERR_NONE, std::unique_ptr<CUFrameBufBase>(new CUFrameDevPtr(info)));
+    }
     RGY_ERR copyFrame(const RGYFrameInfo *src) {
         if (frame.ptr[0] == nullptr || !cmpFrameInfoCspResolution(&frame, src)) {
 
@@ -533,6 +580,7 @@ protected:
         return sts;
     }
 };
+
 
 #if 0
 struct CUFrameCUArray : public CUFrameBufBase {
