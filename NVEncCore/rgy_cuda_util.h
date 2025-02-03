@@ -340,11 +340,11 @@ public:
         if (frame.mem_type == RGY_MEM_TYPE_CPU) {
             return RGY_ERR_INVALID_CALL;
         }
-        auto [sts, hostFrame] = createHost(frame);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
+        auto ret = createHost(frame);
+        if (ret.first != RGY_ERR_NONE) {
+            return ret.first;
         }
-        refFrameHost = std::move(hostFrame);
+        refFrameHost = std::move(ret.second);
         return refFrameHost->allocHost(singleAlloc, align);
     }
     RGYFrame *getRefHostFrame() { return refFrameHost.get(); }

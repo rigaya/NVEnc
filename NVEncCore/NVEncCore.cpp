@@ -1022,7 +1022,7 @@ RGY_ERR NVEncCore::InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, 
         PrintMes(RGY_LOG_ERROR, _T("Failed to init EncoderRunCtx error: %s\n"), get_err_mes(err));
         return err;
     }
-    if (auto err = m_dev->initEncoder(m_encRunCtx->streamIn(), m_encRunCtx->streamOut()); err != RGY_ERR_NONE) {
+    if (auto err = m_dev->initEncoder(); err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to init Encoder error: %s\n"), get_err_mes(err));
         return err;
     }
@@ -2487,9 +2487,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame.width = croppedWidth;
         inputFrame.height = croppedHeight;
     }
-    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-        inputFrame.mem_type = RGY_MEM_TYPE_GPU;
-    }
+    // 読み込み時に同時にGPUに転送されるので、スタートは常にGPU
+    inputFrame.mem_type = RGY_MEM_TYPE_GPU;
     m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     if (inputParam->vppnv.deinterlace == cudaVideoDeinterlaceMode_Bob) {
         m_encFps *= 2;
@@ -2562,10 +2561,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
 
     std::vector<VppType> filterPipeline = InitFiltersCreateVppList(inputParam, cspConvRequired, cropRequired, resizeRequired);
-    if (filterPipeline.size() == 0) {
-        PrintMes(RGY_LOG_DEBUG, _T("No filters required.\n"));
-        return RGY_ERR_NONE;
-    }
     //読み込み時のcrop
     const sInputCrop *inputCrop = (cropRequired) ? &inputParam->input.crop : nullptr;
     const auto resize = std::make_pair(resizeWidth, resizeHeight);
@@ -2573,7 +2568,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     std::vector<std::unique_ptr<NVEncFilter>> vppCUDAFilters;
     const auto encCsp = GetEncoderCSP(inputParam);
     size_t ifilter = 0;
-    if (filterPipeline.front() == VppType::CL_CROP) {
+    if (filterPipeline.size() > 0 && filterPipeline.front() == VppType::CL_CROP) {
         auto filterCsp = encCsp;
         switch (filterCsp) {
         case RGY_CSP_NV12:  filterCsp = RGY_CSP_YV12; break;
@@ -2617,15 +2612,18 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             return RGY_ERR_UNSUPPORTED;
         }
     }
-    //最後のフィルタ
+    //最後のフィルタ (かならず一つはコピーが必要)
     {
-        //もし入力がCPUメモリで色空間が違うなら、一度そのままGPUに転送する必要がある
         const auto cropOutCsp = (inputParam->codec_rgy == RGY_CODEC_RAW) ? GetRawOutCSP(inputParam) : GetEncoderCSP(inputParam);
-        if (inputFrame.mem_type == RGY_MEM_TYPE_CPU && inputFrame.csp != cropOutCsp) {
+        //インタレ保持の場合、またエンコーダを行わない場合は、CPU側に戻す必要がある
+        const auto outMemType = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME || !m_dev->encoder()) ? RGY_MEM_TYPE_CPU : RGY_MEM_TYPE_GPU;
+        // cspとmemtypeが両方一致しなかったら、まずはcspを変換
+        if (inputFrame.csp != cropOutCsp && inputFrame.mem_type != outMemType) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
             param->frameIn = inputFrame;
-            param->frameOut.csp = param->frameIn.csp;
+            param->frameOut = inputFrame;
+            param->frameOut.csp = cropOutCsp;
             param->matrix = VuiFiltered.matrix;
             //インタレ保持であれば、CPU側にフレームを戻す必要がある
             //色空間が同じなら、ここでやってしまう
@@ -2641,14 +2639,15 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
         }
-        const auto deviceMemFinal = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && inputFrame.csp == cropOutCsp) ? RGY_MEM_TYPE_CPU : RGY_MEM_TYPE_GPU;
+
+        // cspとmemtypeをこれで一致させる
         unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
         param->frameOut.csp = cropOutCsp;
-        //インタレ保持であれば、CPU側にフレームを戻す必要がある
-        //色空間が同じなら、ここでやってしまう
-        param->frameOut.mem_type = deviceMemFinal;
+        param->frameOut.mem_type = outMemType;
+        param->matrix = VuiFiltered.matrix;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filterCrop->init(param, m_pLog);
@@ -2656,29 +2655,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             return sts;
         }
         vppCUDAFilters.push_back(std::move(filterCrop));
-        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
-        //入力フレーム情報を更新
-        inputFrame = param->frameOut;
-    }
-
-    //インタレ保持の場合、またエンコーダを行わない場合は、CPU側に戻す必要がある
-    if ((m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME //インタレ保持の場合
-        || !m_dev->encoder()) //エンコーダを行わない場合
-        && m_pLastFilterParam->frameOut.mem_type != RGY_MEM_TYPE_CPU) {
-        unique_ptr<NVEncFilter> filterCopyDtoH(new NVEncFilterCspCrop());
-        shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
-        param->frameIn = inputFrame;
-        param->frameOut = inputFrame;
-        param->frameOut.mem_type = RGY_MEM_TYPE_CPU;
-        param->bOutOverwrite = false;
-        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
-        auto sts = filterCopyDtoH->init(param, m_pLog);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        //フィルタチェーンに追加
-        vppCUDAFilters.push_back(std::move(filterCopyDtoH));
-        //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -2715,7 +2691,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 }
 
 RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufilters,
-    RGYFrameInfo & inputFrame, const VppType vppType, const InEncodeVideoParam *inputParam, const sInputCrop *crop, const std::pair<int, int> resize, VideoVUIInfo& vuiInfo) {
+    RGYFrameInfo & inputFrame, const VppType vppType, const InEncodeVideoParam *inputParam, [[maybe_unused]] const sInputCrop *crop, const std::pair<int, int> resize, VideoVUIInfo& vuiInfo) {
     //フィルタが必要
     //colorspace
     if (vppType == VppType::CL_COLORSPACE) {
@@ -4070,6 +4046,10 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         if (RGY_ERR_NONE != (sts = err_to_rgy(m_dev->encoder()->CreateEncoder(&m_stCreateEncodeParams)))) {
             return sts;
         }
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        if (RGY_ERR_NONE != (sts = err_to_rgy(m_dev->encoder()->NvEncSetIOCudaStreams(m_encRunCtx->streamIn(), m_encRunCtx->streamOut())))) {
+            return sts;
+        }
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
 
@@ -4176,7 +4156,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
 
     for (auto& vppblock : m_vpFilters) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCUDAVpp>(m_dev.get(), vppblock.vppnv, m_videoQualityMetric.get(),
-            m_encRunCtx->qEncodeBufferUsed(), m_rgbAsYUV444, 0, m_pLog));
+            m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, 0, m_pLog));
     }
 #if 0
     if (m_videoQualityMetric) {
@@ -4282,12 +4262,12 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
             return RGY_ERR_UNSUPPORTED;
         }
         if (t1->taskType() == PipelineTaskType::NVENC) {
-            auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, m_rgbAsYUV444, t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
+            auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, m_rgbAsYUV444, m_encodeBufferCount + t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
             if (sts != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
                 return sts;
             }
-            t1->setWorkSurfaces(m_encRunCtx->stEncodeBuffer(), m_dev->encoder(), m_rgbAsYUV444);
+            t0->setWorkSurfaces(m_encRunCtx->stEncodeBuffer(), m_encRunCtx->qEncodeBufferFree(), m_dev->encoder(), m_rgbAsYUV444);
         } else {
             const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
             PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, %s %dx%d, request %d frames\n"),

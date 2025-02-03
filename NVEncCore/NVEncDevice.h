@@ -199,7 +199,7 @@ public:
     NVENCSTATUS NvEncUnmapInputResource(NV_ENC_INPUT_PTR mappedInputBuffer);
     NVENCSTATUS NvEncFlushEncoderQueue(void *hEOSEvent);
     NVENCSTATUS NvEncDestroyEncoder();
-    NVENCSTATUS NvEncSetIOCudaStreams(cudaStream_t streamIn, cudaStream_t streamOut);
+    NVENCSTATUS NvEncSetIOCudaStreams(cudaStream_t& streamIn, cudaStream_t& streamOut);
 
     NVENCSTATUS SetEncodeCodecList();
 
@@ -354,7 +354,7 @@ public:
     void close_device();
 
     RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, bool initVulkan, bool skipHWDecodeCheck, bool disableNVML);
-    RGY_ERR initEncoder(cudaStream_t streamIn, cudaStream_t streamOut);
+    RGY_ERR initEncoder();
     tstring infostr() const;
 protected:
     void writeLog(RGYLogLevel log_level, const tstring &str) {

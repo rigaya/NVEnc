@@ -81,6 +81,7 @@ static const int RGY_WAIT_INTERVAL = 60000;
 
 using unique_cuevent = unique_ptr<cudaEvent_t, cudaevent_deleter>;
 
+// cuvidフレームのラッパー
 struct CUFrameCuvid : public CUFrameBufBase {
     CUFrameCuvid() : CUFrameBufBase(),
         m_decoder(nullptr),
@@ -113,6 +114,8 @@ struct CUFrameCuvid : public CUFrameBufBase {
     RGY_ERR mapFrame() {
         CUdeviceptr dMappedFrame = 0;
         uint32_t pitch = 0;
+        // cuvidMapVideoFrameは複数のフレーム対して連続で実行できないので注意
+        // 必ず mapFrameを読んだら次にmapFrameを呼ぶ前にunmapFrameを呼ぶこと
         auto sts = err_to_rgy(cuvidMapVideoFrame(m_decoder, m_dispInfo->picture_index, &dMappedFrame, &pitch, &m_oVPP));
         if (sts == RGY_ERR_NONE) {
             frame.singleAlloc = true;
@@ -120,6 +123,12 @@ struct CUFrameCuvid : public CUFrameBufBase {
             frame.pitch[0] = pitch;
         }
         return sts;
+    }
+    // unmapする
+    // 基本的にはmap前に明示的に呼ぶように
+    // あるいはデストラクタ->memfree経由でも呼ばれる
+    void unmapFrame() {
+        memfree(frame.ptr);
     }
 protected:
     CUFrameCuvid(const CUFrameCuvid &) = delete;
@@ -154,6 +163,8 @@ struct CUFrameEnc : public CUFrameBufBase {
         frame.singleAlloc = true;
         frame.width = encBuffer->stInputBfr.dwWidth;
         frame.height = encBuffer->stInputBfr.dwHeight;
+        frame.pitch[0] = encBuffer->stInputBfr.uNV12Stride;
+        frame.mem_type = RGY_MEM_TYPE_GPU;
         frame.csp = getEncCsp(encBuffer->stInputBfr.bufferFmt, encBuffer->stInputBfrAlpha.nvRegisteredResource != nullptr, rgbAsYUV444);
     };
     virtual ~CUFrameEnc() {
@@ -187,10 +198,14 @@ struct CUFrameEncDevWrap : public CUFrameEnc {
     CUFrameEncDevWrap() : CUFrameEnc() {
         framebuftype = CUFrameBufType::EncDevWrap;
         frame.mem_type = RGY_MEM_TYPE_GPU;
+        frame.singleAlloc = true;
     };
     CUFrameEncDevWrap(EncodeBuffer *encBuffer, NVEncoder *encoder, bool rgbAsYUV444) : CUFrameEnc(encBuffer, encoder, rgbAsYUV444) {
         framebuftype = CUFrameBufType::EncDevWrap;
         frame.mem_type = RGY_MEM_TYPE_GPU;
+        frame.ptr[0] = (uint8_t *)encBuffer->stInputBfr.pNV12devPtr;
+        frame.pitch[0] = m_encBuffer->stInputBfr.uNV12Stride;
+        frame.singleAlloc = true;
     };
     virtual ~CUFrameEncDevWrap() {
         clear();
@@ -227,10 +242,12 @@ struct CUFrameEncHostWrap : public CUFrameEnc {
     CUFrameEncHostWrap() : CUFrameEnc() {
         framebuftype = CUFrameBufType::EncHostWrap;
         frame.mem_type = RGY_MEM_TYPE_CPU;
+        frame.singleAlloc = true;
     };
     CUFrameEncHostWrap(EncodeBuffer *encBuffer, NVEncoder *encoder, bool rgbAsYUV444) : CUFrameEnc(encBuffer, encoder, rgbAsYUV444) {
         framebuftype = CUFrameBufType::EncHostWrap;
         frame.mem_type = RGY_MEM_TYPE_CPU;
+        frame.singleAlloc = true;
     };
     virtual ~CUFrameEncHostWrap() {
         clear();
@@ -351,19 +368,13 @@ private:
     std::vector<std::unique_ptr<PipelineTaskSurfacesPair>> m_surfaces; // フレームと参照カウンタ
 public:
     PipelineTaskSurfaces() : m_surfaces() {};
-    ~PipelineTaskSurfaces() {}
+    virtual ~PipelineTaskSurfaces() {}
 
     void clear() {
         m_surfaces.clear();
     }
-    void setSurfaces(std::vector<std::unique_ptr<CUFrameBuf>>& frames) {
-        clear();
-        m_surfaces.resize(frames.size());
-        for (size_t i = 0; i < m_surfaces.size(); i++) {
-            m_surfaces[i] = std::make_unique<PipelineTaskSurfacesPair>(std::move(frames[i]));
-        }
-    }
-    void setSurfaces(std::vector<std::unique_ptr<RGYFrame>>& frames) {
+    template<typename T>
+    void setSurfaces(std::vector<std::unique_ptr<T>>& frames) {
         clear();
         m_surfaces.resize(frames.size());
         for (size_t i = 0; i < m_surfaces.size(); i++) {
@@ -817,13 +828,19 @@ public:
         m_workSurfs.setSurfaces(frames);
         return RGY_ERR_NONE;
     }
-    RGY_ERR setWorkSurfaces(std::vector<std::unique_ptr<EncodeBuffer>>& m_stEncodeBuffer, NVEncoder *encoder, const bool rgbAsYUV444) {
-        std::vector<std::unique_ptr<RGYFrame>> frames;
+    RGY_ERR setWorkSurfaces(std::vector<std::unique_ptr<EncodeBuffer>>& m_stEncodeBuffer, RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, NVEncoder *encoder, const bool rgbAsYUV444) {
+        std::vector<std::unique_ptr<CUFrameEnc>> frames;
         for (auto& bfr : m_stEncodeBuffer) {
-            frames.push_back(std::unique_ptr<RGYFrame>((bfr->stInputBfr.pNV12devPtr)
-                ? (RGYFrame *)new CUFrameEncDevWrap(bfr.get(), encoder, rgbAsYUV444)
-                : (RGYFrame *)new CUFrameEncHostWrap(bfr.get(), encoder, rgbAsYUV444)));
+            frames.push_back(std::unique_ptr<CUFrameEnc>((bfr->stInputBfr.pNV12devPtr)
+                ? (CUFrameEnc *)new CUFrameEncDevWrap(bfr.get(), encoder, rgbAsYUV444)
+                : (CUFrameEnc *)new CUFrameEncHostWrap(bfr.get(), encoder, rgbAsYUV444)));
         }
+        // qEncodeBufferFreeにフレームのポインタのみを登録しておく
+        for (auto& f : frames) {
+            qEncodeBufferFree.push(f.get());
+        }
+        // フレームをm_workSurfsに登録する
+        // 実体としてはこっちで、qEncodeBufferFreeから取得したポインタから実体をPipelineTaskSurfaces::getで取得する
         m_workSurfs.setSurfaces(frames);
         return RGY_ERR_NONE;
     }
@@ -1024,10 +1041,11 @@ public:
             RGY_ERR sts = RGY_ERR_NONE;
             for (int i = 0; sts == RGY_ERR_NONE && m_state == RGY_STATE_RUNNING && !m_dec->GetError(); i++) {
                 if ((  (sts = m_input->LoadNextFrame(nullptr)) != RGY_ERR_NONE //進捗表示のため
-                    || (sts = m_input->GetNextBitstream(&bitstream)) != RGY_ERR_NONE)
-                    && sts != RGY_ERR_MORE_DATA) {
-                    m_state = RGY_STATE_ERROR;
-                    return sts;
+                    || (sts = m_input->GetNextBitstream(&bitstream)) != RGY_ERR_NONE)) {
+                    if (sts != RGY_ERR_MORE_DATA && sts != RGY_ERR_MORE_BITSTREAM) {
+                        m_state = RGY_STATE_ERROR;
+                    }
+                    break; // エラーないしEOFなら終了
                 }
 
                 for (auto& frameData : bitstream.getFrameDataList()) {
@@ -1060,12 +1078,13 @@ public:
                 bitstream.clearFrameDataList();
             }
             // flush
+            PrintMes(RGY_LOG_DEBUG, _T("Decode thread: flush.\n"));
             if (CUDA_SUCCESS != (curesult = m_dec->DecodePacket(nullptr, 0, AV_NOPTS_VALUE, av_make_q(m_input->getInputTimebase())))) {
                 PrintMes(RGY_LOG_ERROR, _T("Error in DecodePacketFin: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
                 m_state = RGY_STATE_ERROR;
                 sts = err_to_rgy(curesult);
             }
-            PrintMes(RGY_LOG_DEBUG, _T("Finished Decode thread.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("Decode thread: finished: %s.\n"), get_err_mes(sts));
             return RGY_ERR_MORE_BITSTREAM;
         });
         return RGY_ERR_NONE;
@@ -1084,6 +1103,9 @@ protected:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to start Decode thread: %s.\n"), get_err_mes(ret));
                 return ret;
             }
+        }
+        if (m_state != RGY_STATE_RUNNING) {
+            return (m_state == RGY_STATE_EOF) ? RGY_ERR_MORE_BITSTREAM : RGY_ERR_UNKNOWN;
         }
 
         CUVIDPARSERDISPINFO dispInfo = { 0 };
@@ -1111,8 +1133,9 @@ protected:
         }
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
-        auto surfDecOut = std::make_unique<CUFrameCuvid>(m_dec, m_dec->GetDecFrameInfo(),
+        auto surfDecOut = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), m_dec->GetDecFrameInfo(),
             std::shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
+            // CUFrameCuvidのデストラクト時にreleaseFrameが呼ばれるようにしておく
             m_dec->frameQueue()->releaseFrame(ptr);
             delete ptr;
         }));
@@ -1721,8 +1744,10 @@ public:
         m_qEncodeBufferUsed.clear();
         m_qEncodeBufferFree.clear();
     }
-    cudaStream_t streamIn() const { return m_streamIn; }
-    cudaStream_t streamOut() const { return m_streamOut; }
+    const cudaStream_t& streamIn() const { return m_streamIn; }
+    const cudaStream_t& streamOut() const { return m_streamOut; }
+    cudaStream_t& streamIn() { return m_streamIn; }
+    cudaStream_t& streamOut() { return m_streamOut; }
     RGYQueueMPMP<CUFrameEnc *> &qEncodeBufferUsed() { return m_qEncodeBufferUsed; }
     RGYQueueMPMP<CUFrameEnc *> &qEncodeBufferFree() { return m_qEncodeBufferFree; }
     EncodeBuffer &stEOSOutputBfr() { return m_stEOSOutputBfr; }
@@ -1842,17 +1867,18 @@ protected:
         const uint32_t uInputWidthByte, const uint32_t uInputHeightTotal, const NV_ENC_BUFFER_FORMAT inputFormat, const bool alphaChannel) {
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         const auto allocHeight = uInputHeightTotal * (alphaChannel ? 2 : 1);
-        auto cudaerr = cudaMallocPitch((void **)bfr->stInputBfr.pNV12devPtr,
-            (size_t *)&bfr->stInputBfr.uNV12Stride, uInputWidthByte, allocHeight);
-        //初期化
-        auto sts = err_to_rgy(cudaMemset2D((void *)bfr->stInputBfr.pNV12devPtr, bfr->stInputBfr.uNV12Stride, -128, uInputWidthByte, allocHeight));
-        if (sts != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to init alpha buffer: %s\n"), get_err_mes(sts));
-            return sts;
-        }
+        size_t allocPitch = 0;
+        auto cudaerr = cudaMallocPitch((void **)&bfr->stInputBfr.pNV12devPtr, &allocPitch, uInputWidthByte, allocHeight);
         if (cudaerr != cudaSuccess) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to cuMemAllocPitch, %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
             return err_to_rgy(cudaerr);
+        }
+        bfr->stInputBfr.uNV12Stride = (uint32_t)allocPitch;
+        //初期化
+        auto sts = err_to_rgy(cudaMemset2D((void *)bfr->stInputBfr.pNV12devPtr, bfr->stInputBfr.uNV12Stride, -128, uInputWidthByte, allocHeight));
+        if (sts != RGY_ERR_NONE) {
+            log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to init buffer: %s\n"), get_err_mes(sts));
+            return sts;
         }
 
         auto nvStatus = m_dev->encoder()->NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
@@ -2233,11 +2259,15 @@ public:
         }
         m_runCtx->qEncodeBufferUsed().push(&flushBuffer);
 
-        if (m_runCtx->stEOSOutputBfr().stOutputBfr.hOutputEvent && WaitForSingleObject(m_runCtx->stEOSOutputBfr().stOutputBfr.hOutputEvent, 1000) != WAIT_OBJECT_0) {
-            PrintMes(RGY_LOG_ERROR, _T("m_stEOSOutputBfr.hOutputEvent%s"), (FOR_AUO) ? _T("が終了しません。") : _T(" does not finish within proper time."));
-            return RGY_ERR_UNKNOWN;
+        //if (m_runCtx->stEOSOutputBfr().stOutputBfr.hOutputEvent && WaitForSingleObject(m_runCtx->stEOSOutputBfr().stOutputBfr.hOutputEvent, 1000) != WAIT_OBJECT_0) {
+        //    PrintMes(RGY_LOG_ERROR, _T("m_stEOSOutputBfr.hOutputEvent%s"), (FOR_AUO) ? _T("が終了しません。") : _T(" does not finish within proper time."));
+        //    return RGY_ERR_UNKNOWN;
+        //}
+        // flushしたらそれを受けて出力スレッドが終了するのを待つ
+        if (m_threadOutput.joinable()) {
+            m_threadOutput.join();
         }
-        return RGY_ERR_NONE;
+        return RGY_ERR_MORE_DATA;
     }
 
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
@@ -2276,7 +2306,9 @@ public:
             // フレームがない場合は、エンコーダのキューをフラッシュ
             auto sts = flushEncoder();
             if (sts != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to flush encoder queue: %s.\n"), get_err_mes(sts));
+                if (sts != RGY_ERR_MORE_DATA) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to flush encoder queue: %s.\n"), get_err_mes(sts));
+                }
                 return sts;
             }
         }
@@ -2293,11 +2325,12 @@ protected:
     RGYQueueMPMP<CUFrameEnc *>& m_qEncodeBufferFree;
     bool m_rgbAsYUV444;
     cudaStream_t m_streamFilter;
+    std::unique_ptr<PipelineTaskOutput> m_cuvidPrev;
 public:
     PipelineTaskCUDAVpp(NVGPUInfo *dev, std::vector<std::unique_ptr<NVEncFilter>>& vppfilters, NVEncFilterSsim *videoMetric,
     RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
-        m_frameReleaseData(), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444), m_streamFilter(nullptr) {
+        m_frameReleaseData(), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444), m_streamFilter(nullptr), m_cuvidPrev() {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         auto ret = cudaStreamCreateWithFlags(&m_streamFilter, cudaStreamNonBlocking);
@@ -2307,6 +2340,7 @@ public:
         runFrameReleaseThread();
     };
     virtual ~PipelineTaskCUDAVpp() {
+        m_cuvidPrev.reset();
         m_frameReleaseData.finish();
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         if (m_streamFilter) {
@@ -2339,12 +2373,18 @@ public:
                 return RGY_ERR_NULL_PTR;
             }
             if (auto surfVppInCuvid = taskSurf->surf().cuvid(); surfVppInCuvid != nullptr) {
+                // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放(unmap)する
+                if (m_cuvidPrev) {
+                    m_cuvidPrev->depend_clear();
+                    dynamic_cast<PipelineTaskOutputSurf *>(m_cuvidPrev.get())->surf().cuvid()->unmapFrame();
+                    m_cuvidPrev.reset();
+                }
+                PrintMes(RGY_LOG_TRACE, _T("filter_frame: map video frame: %d, %lld.\n"), surfVppInCuvid->dispInfo()->picture_index, surfVppInCuvid->dispInfo()->timestamp);
                 auto sts = surfVppInCuvid->mapFrame();
                 if (sts != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to map frame: %s.\n"), get_err_mes(sts));
                     return sts;
                 }
-                PrintMes(RGY_LOG_TRACE, _T("filter_frame: mapped video frame.\n"));
                 filterframes.push_back(std::make_pair(surfVppInCuvid->getInfo(), 0u));
             } else if (auto surfVppInCU = taskSurf->surf().cubuf(); surfVppInCU != nullptr) {
                 filterframes.push_back(std::make_pair(surfVppInCU->getInfo(), 0u));
@@ -2389,7 +2429,13 @@ public:
                     cudaEventRecord(*cudaEvent, m_streamFilter);
                     //ここでinput frameの参照を m_prevInputFrame で保持するようにして、CUDAによるフレームの処理が完了しているかを確認できるようにする
                     //これを行わないとこのフレームが再度使われてしまうことになる
-                    m_frameReleaseData.addFrame(frame, cudaEvent);
+                    if (auto surfVppInCuvid = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().cuvid(); surfVppInCuvid != nullptr) {
+                        // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、1フレームずつ検証するので、m_frameReleaseDataは使わない
+                        dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->addCUEvent(cudaEvent);
+                        m_cuvidPrev = std::move(frame);
+                    } else {
+                        m_frameReleaseData.addFrame(frame, cudaEvent);
+                    }
                 }
                 drain = false; //途中でフレームが出てきたら、drain完了していない
 
@@ -2411,6 +2457,10 @@ public:
                     m_qEncodeBufferFree.wait_for_push(); // 最大16ms待機
                 }
                 frameVppOut = m_workSurfs.get(encBuffer);
+                if (!frameVppOut) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get work surface for vpp output.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
                 if (frameVppOut.enc()->bufType() == CUFrameBufType::EncHostWrap) {
                     frameVppOut.enc()->map(); // NvEncLockInputBuffer
                 }
@@ -2425,6 +2475,7 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
                 return RGY_ERR_INVALID_PARAM;
             }
+            NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
             int nOutFrames = 0;
             RGYFrameInfo *outInfo[16] = { 0 };
             //エンコードバッファの情報を設定
@@ -2456,7 +2507,13 @@ public:
             if (frame) {
                 //ここでinput frameの参照を m_prevInputFrame で保持するようにして、CUDAによるフレームの処理が完了しているかを確認できるようにする
                 //これを行わないとこのフレームが再度使われてしまうことになる
-                m_frameReleaseData.addFrame(frame, cudaEvent);
+                if (auto surfVppInCuvid = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().cuvid(); surfVppInCuvid != nullptr) {
+                    // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、1フレームずつ検証するので、m_frameReleaseDataは使わない
+                    dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->addCUEvent(cudaEvent);
+                    m_cuvidPrev = std::move(frame);
+                } else {
+                    m_frameReleaseData.addFrame(frame, cudaEvent);
+                }
             }
             filterframes.pop_front();
 

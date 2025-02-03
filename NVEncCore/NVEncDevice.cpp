@@ -622,8 +622,8 @@ NVENCSTATUS NVEncoder::NvEncDestroyEncoder() {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncoder::NvEncSetIOCudaStreams(cudaStream_t streamIn, cudaStream_t streamOut) {
-    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncSetIOCudaStreams(m_hEncoder, streamIn, streamOut);
+NVENCSTATUS NVEncoder::NvEncSetIOCudaStreams(cudaStream_t& streamIn, cudaStream_t& streamOut) {
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncSetIOCudaStreams(m_hEncoder, &streamIn, &streamOut);
     if (nvStatus != NV_ENC_SUCCESS) {
         NVPrintFuncError(_T("nvEncSetIOCudaStreams"), nvStatus);
         return nvStatus;
@@ -1240,7 +1240,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVGPUInfo::initEncoder(cudaStream_t streamIn, cudaStream_t streamOut) {
+RGY_ERR NVGPUInfo::initEncoder() {
     m_encoder = std::make_unique<NVEncoder>(m_cuCtx.get(), m_log);
     auto nvsts = m_encoder->InitSession();
     if (nvsts != NV_ENC_SUCCESS) {
@@ -1250,11 +1250,6 @@ RGY_ERR NVGPUInfo::initEncoder(cudaStream_t streamIn, cudaStream_t streamOut) {
     nvsts = m_encoder->createDeviceFeatureList();
     if (nvsts != NV_ENC_SUCCESS) {
         writeLog(RGY_LOG_ERROR, _T("Failed to create device codec list.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
-    nvsts = m_encoder->NvEncSetIOCudaStreams(streamIn, streamOut);
-    if (nvsts != NV_ENC_SUCCESS) {
-        writeLog(RGY_LOG_ERROR, _T("Failed to set IO CUDA streams.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     return RGY_ERR_NONE;
