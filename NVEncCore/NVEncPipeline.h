@@ -108,6 +108,7 @@ struct CUFrameCuvid : public CUFrameBufBase {
     virtual std::pair<RGY_ERR, std::unique_ptr<CUFrameBufBase>> createHost([[maybe_unused]] const RGYFrameInfo& info) const override {
         return std::make_pair(RGY_ERR_UNSUPPORTED, nullptr);
     }
+    void *decoder() { return m_decoder; }
     std::shared_ptr<CUVIDPARSERDISPINFO>& dispInfo() { return m_dispInfo; }
     const CUVIDPROCPARAMS& oVPP() const { return m_oVPP; }
     void setOVPP(const CUVIDPROCPARAMS& oVPP) { m_oVPP = oVPP; }
@@ -1239,14 +1240,15 @@ protected:
     int64_t m_tsPrev;         //(m_outputTimebase基準)
     uint32_t m_inputFramePosIdx;
     FramePosList *m_framePosList;
+    CuvidDecode *m_dec;
 public:
-    PipelineTaskCheckPTS(NVGPUInfo *dev, rgy_rational<int> srcTimebase, rgy_rational<int> streamTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, cudaVideoDeinterlaceMode deinterlaceMode,
+    PipelineTaskCheckPTS(NVGPUInfo *dev, CuvidDecode *dec, rgy_rational<int> srcTimebase, rgy_rational<int> streamTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, cudaVideoDeinterlaceMode deinterlaceMode,
         bool timestampPassThrough, bool vpp_rff, bool vpp_afs_rff_aware, bool interlaceAuto, FramePosList *framePosList, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CHECKPTS, dev, /*outMaxQueueSize = */ 0 /*常に0である必要がある*/, false, log),
         m_srcTimebase(srcTimebase), m_streamTimebase(streamTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync),
         m_timestampPassThrough(timestampPassThrough), m_vpp_rff(vpp_rff), m_vpp_afs_rff_aware(vpp_afs_rff_aware), m_interlaceAuto(interlaceAuto), m_deinterlaceMode(deinterlaceMode),
         m_outFrameDuration(outFrameDuration),
-        m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_inputFramePosIdx(std::numeric_limits<decltype(m_inputFramePosIdx)>::max()), m_framePosList(framePosList) {
+        m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_inputFramePosIdx(std::numeric_limits<decltype(m_inputFramePosIdx)>::max()), m_framePosList(framePosList), m_dec(dec) {
     };
     virtual ~PipelineTaskCheckPTS() {};
 
@@ -1420,14 +1422,21 @@ public:
                 PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), outSurf));
                 {
-                    PipelineTaskSurface outSurf2 = taskSurf->surf();
-                    outSurf2.cuvid()->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
-                    outSurf2.cuvid()->setTimestamp(outPts + (outDuration >> 1));
-                    outSurf2.cuvid()->setDuration(taskSurf->surf().frame()->duration() - (outDuration >> 1));
+                    auto surfCopy = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), outSurf.cuvid()->getInfo(),
+                        std::shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(*outSurf.cuvid()->dispInfo()), [&](CUVIDPARSERDISPINFO *ptr) {
+                            // CUFrameCuvidのデストラクト時にreleaseFrameが呼ばれるようにしておく
+                            m_dec->frameQueue()->releaseFrame(ptr);
+                            delete ptr;
+                    }));
+
+                    surfCopy->setPropertyFrom(outSurf.cuvid());
+                    surfCopy->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
+                    surfCopy->setTimestamp(outPts + (outDuration >> 1));
+                    surfCopy->setDuration(taskSurf->surf().frame()->duration() - (outDuration >> 1));
                     oVPP.second_field = 1;
-                    outSurf2.cuvid()->setOVPP(oVPP);
-                    PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf2.frame()->inputFrameId(), outSurf2.frame()->timestamp(), outSurf2.frame()->duration(), oVPP.progressive_frame);
-                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), outSurf2));
+                    surfCopy->setOVPP(oVPP);
+                    PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), surfCopy->inputFrameId(), surfCopy->timestamp(), surfCopy->duration(), oVPP.progressive_frame);
+                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), m_workSurfs.addSurface(surfCopy)));
                 }
                 break;
             case cudaVideoDeinterlaceMode_Adaptive:

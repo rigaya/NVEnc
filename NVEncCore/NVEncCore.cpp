@@ -4155,7 +4155,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_dev.get(), m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_pLog));
         }
         const bool interlaceAutoDetect = pReader && pReader->GetInputFrameInfo().picstruct == RGY_PICSTRUCT_AUTO;
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(m_dev.get(),
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(m_dev.get(), m_pDecoder.get(),
             srcTimebase, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, (m_pDecoder) ? m_pDecoder->getDeinterlaceMode() : cudaVideoDeinterlaceMode_Weave,
             m_timestampPassThrough, VppRffEnabled() && m_pFileReader->rffAware(), VppAfsRffAware() && m_pFileReader->rffAware(),
             interlaceAutoDetect, (pReader) ? pReader->GetFramePosList() : nullptr, m_pLog));
@@ -4311,7 +4311,7 @@ RGY_ERR NVEncCore::Encode() {
 
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
 
-    auto requireSync = [this](const size_t itask) {
+    auto requireSync = [this]([[maybe_unused]] const size_t itask) {
 #if ENCODER_NVENC
         return false;
 #else
