@@ -1144,6 +1144,20 @@ protected:
             break;
         }
 
+        //cuvidのtimestampはかならず分子が1になっているのでもとに戻す
+        auto cuvidTimebase = rgy_rational<int>(1, m_input->getInputTimebase().d());
+        dispInfo.timestamp = rational_rescale(dispInfo.timestamp, cuvidTimebase, m_input->getInputTimebase());
+        PrintMes(RGY_LOG_TRACE, _T("input frame (dev) #%d, pic_idx %d, timestamp %lld\n"), m_decOutFrames, dispInfo.picture_index, dispInfo.timestamp);
+
+        auto inputPicstruct = m_input->GetInputFrameInfo().picstruct;
+        if (inputPicstruct == RGY_PICSTRUCT_AUTO || inputPicstruct == RGY_PICSTRUCT_UNKNOWN) {
+            inputPicstruct == (dispInfo.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((dispInfo.top_field_first) ? RGY_PICSTRUCT_FIELD_TOP : RGY_PICSTRUCT_FIELD_BOTTOM);
+        }
+        auto flags = RGY_FRAME_FLAG_NONE;
+        if (dispInfo.repeat_first_field == 1) {
+            flags |= (dispInfo.top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
+        }
+
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         auto surfDecOut = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), m_dec->GetDecFrameInfo(),
             std::shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
@@ -1151,11 +1165,8 @@ protected:
             m_dec->frameQueue()->releaseFrame(ptr);
             delete ptr;
         }));
-        //cuvidのtimestampはかならず分子が1になっているのでもとに戻す
-        auto cuvidTimebase = rgy_rational<int>(1, m_input->getInputTimebase().d());
-        dispInfo.timestamp = rational_rescale(dispInfo.timestamp, cuvidTimebase, m_input->getInputTimebase());
-        PrintMes(RGY_LOG_TRACE, _T("input frame (dev) #%d, pic_idx %d, timestamp %lld\n"), m_decOutFrames, dispInfo.picture_index, dispInfo.timestamp);
-
+        surfDecOut->setFlags(flags);
+        surfDecOut->setPicstruct(inputPicstruct);
         surfDecOut->setTimestamp(dispInfo.timestamp);
         surfDecOut->setInputFrameId(m_decOutFrames++);
         surfDecOut->setFlags(getDataFlag(surfDecOut->timestamp()));
