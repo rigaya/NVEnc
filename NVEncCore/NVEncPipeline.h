@@ -762,7 +762,7 @@ public:
     }
     // mfx関連とそうでないtaskのやり取りでロックが必要
     bool requireSync(const PipelineTaskType nextTaskType) const {
-        return isNVTask(m_type) != isNVTask(nextTaskType);
+        return (ENCODER_NVENC) ? false : isNVTask(m_type) != isNVTask(nextTaskType);
     }
     int workSurfacesAllocPriority() const {
         return getPipelineTaskAllocPriority(m_type);
@@ -815,15 +815,32 @@ public:
         }
         PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   cleared old surfaces: %s.\n"), get_err_mes(sts));
 
+        NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+        CUDA_DEBUG_SYNC_ERR;
+
         // フレームの確保
         std::vector<std::unique_ptr<CUFrameBuf>> frames;
         for (int i = 0; i < numFrames; i++) {
             auto uptr = std::make_unique<CUFrameBuf>(frame);
-            auto ret = uptr->alloc();
+            // 先にhost側のフレームを確保してしまうこと
+            // そうしないと cudaGetLastError()等で謎のエラーが発生する
+            auto ret = uptr->allocRefHost(true);
             if (ret != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("failed to alloc host frame: %s.\n"), get_err_mes(ret));
                 return ret;
             }
+            CUDA_DEBUG_SYNC_ERR;
             frames.push_back(std::move(uptr));
+        }
+
+        for (auto& f : frames) {
+            // 後でデバイス側のフレームを確保する
+            auto ret = f->alloc(true);
+            if (ret != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("failed to alloc frame: %s.\n"), get_err_mes(ret));
+                return ret;
+            }
+            CUDA_DEBUG_SYNC_ERR;
         }
         m_workSurfs.setSurfaces(frames);
         return RGY_ERR_NONE;
@@ -912,14 +929,6 @@ public:
         }
         auto cuframe = surfWork.cubuf();
         auto hostFrame = cuframe->getRefHostFrame(); // CPUが書き込むための領域を取得
-        if (!hostFrame) {
-            NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
-            auto err = cuframe->allocRefHost();
-            if (err != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("failed to alloc host frame: %s.\n"), get_err_mes(err));
-                return err;
-            }
-        }
         hostFrame = cuframe->getRefHostFrame();
         if (!hostFrame) {
             PrintMes(RGY_LOG_ERROR, _T("failed to get host frame.\n"));
@@ -933,7 +942,9 @@ public:
             } else {
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
+            return err;
         }
+        hostFrame->setInputFrameId(m_inFrames++);
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         err = cuframe->copyFrameFromHostRef(m_streamUpload);
@@ -2389,6 +2400,8 @@ public:
             } else if (auto surfVppInCU = taskSurf->surf().cubuf(); surfVppInCU != nullptr) {
                 filterframes.push_back(std::make_pair(surfVppInCU->getInfo(), 0u));
             } else if (auto surfVppInCUDev = taskSurf->surf().cudev(); surfVppInCUDev != nullptr) {
+                // filterを実行するm_streamFilterが、taskSurfの依存する処理を待つように指示する
+                taskSurf->setDependCUStream(m_streamFilter);
                 filterframes.push_back(std::make_pair(surfVppInCUDev->getInfo(), 0u));
             } else {
                 PrintMes(RGY_LOG_ERROR, _T("Invalid task surface (not opencl or amf).\n"));

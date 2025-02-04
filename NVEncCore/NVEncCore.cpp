@@ -2567,26 +2567,27 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 
     std::vector<std::unique_ptr<NVEncFilter>> vppCUDAFilters;
     const auto encCsp = GetEncoderCSP(inputParam);
-    size_t ifilter = 0;
-    if (filterPipeline.size() > 0 && filterPipeline.front() == VppType::CL_CROP) {
-        auto filterCsp = encCsp;
-        switch (filterCsp) {
-        case RGY_CSP_NV12:  filterCsp = RGY_CSP_YV12; break;
-        case RGY_CSP_P010:  filterCsp = RGY_CSP_YV12_16; break;
-        case RGY_CSP_NV12A: filterCsp = RGY_CSP_YUVA420; break;
-        case RGY_CSP_P010A: filterCsp = RGY_CSP_YUVA420_16; break;
-        default: break;
-        }
-        if (inputParam->vpp.afs.enable && RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV444) {
-            filterCsp = (RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
-        }
+    auto filterCsp = encCsp;
+    switch (filterCsp) {
+    case RGY_CSP_NV12:  filterCsp = RGY_CSP_YV12; break;
+    case RGY_CSP_P010:  filterCsp = RGY_CSP_YV12_16; break;
+    case RGY_CSP_NV12A: filterCsp = RGY_CSP_YUVA420; break;
+    case RGY_CSP_P010A: filterCsp = RGY_CSP_YUVA420_16; break;
+    default: break;
+    }
+    if (inputParam->vpp.afs.enable && RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV444) {
+        filterCsp = (RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+    }
 
+    size_t ifilter = 0;
+    if (filterPipeline.size() > 0 && (inputFrame.csp != filterCsp || filterPipeline.front() == VppType::CL_CROP)) {
         unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.csp = filterCsp;
         param->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[param->frameOut.csp];
+        param->baseFps = m_encFps;
         if (inputCrop) {
             param->crop = *inputCrop;
             inputCrop = nullptr;
@@ -2603,7 +2604,9 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         vppCUDAFilters.push_back(std::move(filterCrop));
-        ifilter++;
+        if (filterPipeline.front() == VppType::CL_CROP) {
+            ifilter++;
+        }
     }
     for (; ifilter < filterPipeline.size(); ifilter++) {
         auto err = AddFilterCUDA(vppCUDAFilters, inputFrame, filterPipeline[ifilter], inputParam, inputCrop, resize, VuiFiltered);
@@ -2624,6 +2627,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->frameOut.csp = cropOutCsp;
+            param->baseFps = m_encFps;
             param->matrix = VuiFiltered.matrix;
             //インタレ保持であれば、CPU側にフレームを戻す必要がある
             //色空間が同じなら、ここでやってしまう
@@ -2638,6 +2642,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
 
         // cspとmemtypeをこれで一致させる
@@ -2647,6 +2652,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         param->frameOut = inputFrame;
         param->frameOut.csp = cropOutCsp;
         param->frameOut.mem_type = outMemType;
+        param->baseFps = m_encFps;
         param->matrix = VuiFiltered.matrix;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
@@ -2658,6 +2664,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
     }
 
     m_vpFilters.push_back(VppVilterBlock(vppCUDAFilters));
@@ -4149,7 +4156,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         }
         const bool interlaceAutoDetect = pReader && pReader->GetInputFrameInfo().picstruct == RGY_PICSTRUCT_AUTO;
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(m_dev.get(),
-            srcTimebase, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_pDecoder->getDeinterlaceMode(),
+            srcTimebase, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, (m_pDecoder) ? m_pDecoder->getDeinterlaceMode() : cudaVideoDeinterlaceMode_Weave,
             m_timestampPassThrough, VppRffEnabled() && m_pFileReader->rffAware(), VppAfsRffAware() && m_pFileReader->rffAware(),
             interlaceAutoDetect, (pReader) ? pReader->GetFramePosList() : nullptr, m_pLog));
     }
@@ -4278,6 +4285,7 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
                 return sts;
             }
+            CUDA_DEBUG_SYNC_ERR;
         }
         t0 = t1;
     }
@@ -4304,6 +4312,9 @@ RGY_ERR NVEncCore::Encode() {
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
 
     auto requireSync = [this](const size_t itask) {
+#if ENCODER_NVENC
+        return false;
+#else
         if (itask + 1 >= m_pipelineTasks.size()) return true; // 次が最後のタスクの時
 
         size_t srctask = itask;
@@ -4321,6 +4332,7 @@ RGY_ERR NVEncCore::Encode() {
             }
         }
         return true;
+#endif
     };
 
     RGY_ERR err = RGY_ERR_NONE;

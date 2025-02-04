@@ -52,24 +52,24 @@
 #define CUDA_DEBUG_SYNC { \
     cudaError_t cudaDebugSyncErr = cudaDeviceSynchronize(); \
     if (cudaDebugSyncErr != cudaSuccess) { \
-        PrintMes(RGY_LOG_ERROR, _T("CUDA error: %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
+        PrintMes(RGY_LOG_ERROR, _T("CUDA error(1): %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
         return err_to_rgy(cudaDebugSyncErr); \
     } \
     cudaDebugSyncErr = cudaGetLastError(); \
     if (cudaDebugSyncErr != cudaSuccess) { \
-        PrintMes(RGY_LOG_ERROR, _T("CUDA error: %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
+        PrintMes(RGY_LOG_ERROR, _T("CUDA error(2): %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
         return err_to_rgy(cudaDebugSyncErr); \
     } \
 }
 #define CUDA_DEBUG_SYNC_ERR { \
     cudaError_t cudaDebugSyncErr = cudaDeviceSynchronize(); \
     if (cudaDebugSyncErr != cudaSuccess) { \
-        _ftprintf(stderr, _T("CUDA error: %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
+        _ftprintf(stderr, _T("CUDA error(1): %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
         return err_to_rgy(cudaDebugSyncErr); \
     } \
     cudaDebugSyncErr = cudaGetLastError(); \
     if (cudaDebugSyncErr != cudaSuccess) { \
-        _ftprintf(stderr, _T("CUDA error: %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
+        _ftprintf(stderr, _T("CUDA error(2): %s(%d): %s: %s\n"), char_to_tstring(__FILE__).c_str(), __LINE__, char_to_tstring(__func__).c_str(), get_err_mes(err_to_rgy(cudaDebugSyncErr))); \
         return err_to_rgy(cudaDebugSyncErr); \
     } \
 }
