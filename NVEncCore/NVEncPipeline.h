@@ -473,7 +473,7 @@ public:
     virtual void depend_clear() {};
     PipelineTaskOutputType type() const { return m_type; }
     const PipelineTaskOutputDataCustom *customdata() const { return m_customData.get(); }
-    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] NVGPUInfo *dev, [[maybe_unused]] cudaStream_t custream, [[maybe_unused]] NVEncFilterSsim *videoQualityMetric) {
+    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] NVEncFilterSsim *videoQualityMetric) {
         return RGY_ERR_UNSUPPORTED;
     }
     virtual ~PipelineTaskOutput() {};
@@ -555,11 +555,18 @@ public:
         m_cuevents.clear();
     }
 
-    RGY_ERR writeCU(RGYOutput *writer, NVGPUInfo *dev, cudaStream_t custream) {
-        NVEncCtxAutoLock(ctxlock(dev->vidCtxLock()));
-        return RGY_ERR_UNSUPPORTED;
+    RGY_ERR writeCU(RGYOutput *writer) {
+        auto cubuf = m_surf.cubuf();
+        if (!cubuf) {
+            return RGY_ERR_NULL_PTR;
+        }
+        if (cubuf->mem_type() != RGY_MEM_TYPE_CPU) {
+            return RGY_ERR_UNSUPPORTED;
+        }
+        return writer->WriteNextFrame(cubuf);
     }
 #if 0
+
     RGY_ERR writeCL(RGYOutput *writer, RGYOpenCLQueue *clqueue) {
         if (clqueue == nullptr) {
             return RGY_ERR_NULL_PTR;
@@ -576,14 +583,14 @@ public:
         return err;
     }
 #endif
-    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] NVGPUInfo *dev, [[maybe_unused]] cudaStream_t custream, [[maybe_unused]] NVEncFilterSsim *videoQualityMetric) override {
+    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] NVEncFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
         if (writer->getOutType() != OUT_TYPE_SURFACE) {
             return RGY_ERR_INVALID_OPERATION;
         }
-        auto err = writeCU(writer, dev, custream);
+        auto err = writeCU(writer);
         return err;
     }
 };
@@ -597,7 +604,7 @@ public:
 
     std::shared_ptr<RGYBitstream>& bitstream() { return m_bs; }
 
-    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] NVGPUInfo *dev, [[maybe_unused]] cudaStream_t custream, [[maybe_unused]] NVEncFilterSsim *videoQualityMetric) override {
+    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] NVEncFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
@@ -808,7 +815,7 @@ protected:
         return RGY_ERR_NONE;
     }
 public:
-    RGY_ERR workSurfacesAllocCUBuf(const int numFrames, const RGYFrameInfo &frame) {
+    virtual RGY_ERR workSurfacesAllocCUBuf(const int numFrames, const RGYFrameInfo &frame) {
         auto sts = workSurfacesClear();
         if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to clear old surfaces: %s.\n"), get_err_mes(sts));
@@ -823,25 +830,13 @@ public:
         std::vector<std::unique_ptr<CUFrameBuf>> frames;
         for (int i = 0; i < numFrames; i++) {
             auto uptr = std::make_unique<CUFrameBuf>(frame);
-            // 先にhost側のフレームを確保してしまうこと
-            // そうしないと cudaGetLastError()等で謎のエラーが発生する
-            auto ret = uptr->allocRefHost(true);
+            auto ret = (frame.mem_type == RGY_MEM_TYPE_CPU) ? uptr->allocHost() : uptr->alloc();
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("failed to alloc host frame: %s.\n"), get_err_mes(ret));
                 return ret;
             }
             CUDA_DEBUG_SYNC_ERR;
             frames.push_back(std::move(uptr));
-        }
-
-        for (auto& f : frames) {
-            // 後でデバイス側のフレームを確保する
-            auto ret = f->alloc(true);
-            if (ret != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("failed to alloc frame: %s.\n"), get_err_mes(ret));
-                return ret;
-            }
-            CUDA_DEBUG_SYNC_ERR;
         }
         m_workSurfs.setSurfaces(frames);
         return RGY_ERR_NONE;
@@ -922,6 +917,44 @@ public:
         RGYFrameInfo info(inputFrameInfo.srcWidth, inputFrameInfo.srcHeight, inputFrameInfo.csp, inputFrameInfo.bitdepth, inputFrameInfo.picstruct, RGY_MEM_TYPE_GPU);
         return std::make_pair(info, m_outMaxQueueSize);
     };
+    virtual RGY_ERR workSurfacesAllocCUBuf(const int numFrames, const RGYFrameInfo &frame) override {
+        auto sts = workSurfacesClear();
+        if (sts != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to clear old surfaces: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   cleared old surfaces: %s.\n"), get_err_mes(sts));
+
+        NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+        CUDA_DEBUG_SYNC_ERR;
+
+        // フレームの確保
+        std::vector<std::unique_ptr<CUFrameBuf>> frames;
+        for (int i = 0; i < numFrames; i++) {
+            auto uptr = std::make_unique<CUFrameBuf>(frame);
+            // 先にhost側のフレームを確保してしまうこと
+            // そうしないと cudaGetLastError()等で謎のエラーが発生する
+            auto ret = uptr->allocRefHost(true);
+            if (ret != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("failed to alloc host frame: %s.\n"), get_err_mes(ret));
+                return ret;
+            }
+            CUDA_DEBUG_SYNC_ERR;
+            frames.push_back(std::move(uptr));
+        }
+
+        for (auto& f : frames) {
+            // 後でデバイス側のフレームを確保する
+            auto ret = f->alloc(true);
+            if (ret != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("failed to alloc frame: %s.\n"), get_err_mes(ret));
+                return ret;
+            }
+            CUDA_DEBUG_SYNC_ERR;
+        }
+        m_workSurfs.setSurfaces(frames);
+        return RGY_ERR_NONE;
+    }
     RGY_ERR LoadNextFrame() {
         auto surfWork = getWorkSurf();
         if (surfWork == nullptr) {
@@ -1149,10 +1182,7 @@ protected:
         dispInfo.timestamp = rational_rescale(dispInfo.timestamp, cuvidTimebase, m_input->getInputTimebase());
         PrintMes(RGY_LOG_TRACE, _T("input frame (dev) #%d, pic_idx %d, timestamp %lld\n"), m_decOutFrames, dispInfo.picture_index, dispInfo.timestamp);
 
-        auto inputPicstruct = m_input->GetInputFrameInfo().picstruct;
-        if (inputPicstruct == RGY_PICSTRUCT_AUTO || inputPicstruct == RGY_PICSTRUCT_UNKNOWN) {
-            inputPicstruct == (dispInfo.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((dispInfo.top_field_first) ? RGY_PICSTRUCT_FIELD_TOP : RGY_PICSTRUCT_FIELD_BOTTOM);
-        }
+        auto inputPicstruct = (dispInfo.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((dispInfo.top_field_first) ? RGY_PICSTRUCT_FIELD_TOP : RGY_PICSTRUCT_FIELD_BOTTOM);
         auto flags = RGY_FRAME_FLAG_NONE;
         if (dispInfo.repeat_first_field == 1) {
             flags |= (dispInfo.top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
@@ -1837,7 +1867,7 @@ public:
 
         for (int i = 0; i < numFrames; i++) {
             auto bfr = std::make_unique<EncodeBuffer>();
-            if (picStruct == NV_ENC_PIC_STRUCT_FRAME) {
+            if (ENABLE_INTERLACE_FROM_HWMEM && picStruct == NV_ENC_PIC_STRUCT_FRAME) {
                 auto sts = allocateEncodeBufferFrame(bfr.get(), uInputWidth, uInputHeight, uInputWidthByte, uInputHeightTotal, inputFormat, alphaChannel);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
@@ -2356,20 +2386,26 @@ protected:
     RGYQueueMPMP<CUFrameEnc *>& m_qEncodeBufferFree;
     bool m_rgbAsYUV444;
     cudaStream_t m_streamFilter;
+    cudaStream_t m_streamDownload;
     std::unique_ptr<PipelineTaskOutput> m_cuvidPrev;
 public:
     PipelineTaskCUDAVpp(NVGPUInfo *dev, std::vector<std::unique_ptr<NVEncFilter>>& vppfilters, NVEncFilterSsim *videoMetric,
     RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
-        m_frameReleaseData(), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444), m_streamFilter(nullptr), m_cuvidPrev() {
+        m_frameReleaseData(), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444), m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev() {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         auto ret = cudaStreamCreateWithFlags(&m_streamFilter, cudaStreamNonBlocking);
         if (ret != cudaSuccess) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to create upload stream: %s.\n"), char_to_tstring(cudaGetErrorString(ret)).c_str());
         }
+        ret = cudaStreamCreateWithFlags(&m_streamDownload, cudaStreamNonBlocking);
+        if (ret != cudaSuccess) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to create download stream: %s.\n"), char_to_tstring(cudaGetErrorString(ret)).c_str());
+        }
         runFrameReleaseThread();
     };
+
     virtual ~PipelineTaskCUDAVpp() {
         m_cuvidPrev.reset();
         m_frameReleaseData.finish();
@@ -2378,15 +2414,23 @@ public:
             cudaStreamDestroy(m_streamFilter);
             m_streamFilter = nullptr;
         }
+        if (m_streamDownload) {
+            cudaStreamDestroy(m_streamDownload);
+            m_streamDownload = nullptr;
+        }
         m_inFrameUseFinEvent.clear([](cudaEvent_t *event) { cudaEventDestroy(*event); });
     };
+
 
     void setVideoQualityMetricFilter(NVEncFilterSsim *videoMetric) {
         m_videoMetric = videoMetric;
     }
 
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
-    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
+    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override {
+        auto lastFilterFrame = m_vpFilters.back()->GetFilterParam()->frameOut;
+        return std::make_pair(lastFilterFrame, 0);
+    };
 
     virtual void runFrameReleaseThread() {
         m_frameReleaseData.start();
@@ -2494,11 +2538,16 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get work surface for vpp output.\n"));
                     return RGY_ERR_NULL_PTR;
                 }
+                if (!frameVppOut.enc()) {
+                    PrintMes(RGY_LOG_ERROR, _T("Encoder enabled but frame type for vpp output is not for encoder.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
                 if (frameVppOut.enc()->bufType() == CUFrameBufType::EncHostWrap) {
                     frameVppOut.enc()->map(); // NvEncLockInputBuffer
                 }
+
             } else {
-                return RGY_ERR_UNSUPPORTED; // TODO: 実装する
+                frameVppOut = m_workSurfs.getFreeSurf();
             }
 
             //エンコードバッファにコピー
@@ -2512,11 +2561,46 @@ public:
             int nOutFrames = 0;
             RGYFrameInfo *outInfo[16] = { 0 };
             //エンコードバッファの情報を設定
-            RGYFrameInfo frameVppOutInfo = frameVppOut.enc()->getInfo();
-            RGYFrameInfo& ssimTarget = (frameVppOut.enc()->bufType() == CUFrameBufType::EncDevWrap) ? frameVppOutInfo : filterframes.front().first;
-            //エンコードバッファのポインタを渡す
+            RGYFrameInfo frameVppOutInfo;
+            if (frameVppOut.enc()) {
+                frameVppOutInfo = frameVppOut.enc()->getInfo();
+            } else if (frameVppOut.cubuf()) {
+                frameVppOutInfo = frameVppOut.cubuf()->getInfo();
+            } else if (frameVppOut.cudev()) {
+                frameVppOutInfo = frameVppOut.cudev()->getInfo();
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("Invalid frame type for vpp output.\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            std::shared_ptr<cudaEvent_t> cudaEventFilterToDownload;
+            auto streamLastFilter = m_streamFilter;
+            RGYFrameInfo& ssimTarget = (frameVppOutInfo.mem_type == RGY_MEM_TYPE_CPU) ? filterframes.front().first : frameVppOutInfo;
+            if (frameVppOutInfo.mem_type == RGY_MEM_TYPE_CPU) {
+                if (m_vpFilters.size() > 1) {
+                    // 最後のフィルタ(=copyDtoH)だけではに場合は、専用のstream(m_streamDownload)を使用するようにして高速化
+                    streamLastFilter = m_streamDownload;
+                    // 最後のフィルタではm_streamFilterではなくm_streamDownloadを使用するため、
+                    // メモリをダウンロードするためのイベントを作成する
+                    cudaEventFilterToDownload = m_inFrameUseFinEvent.get([](cudaEvent_t *event) { return cudaEventCreateWithFlags(event, cudaEventDefault) != cudaSuccess ? 1 : 0; });
+                    if (!cudaEventFilterToDownload) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to get cuda event .\n"));
+                        return RGY_ERR_UNKNOWN;
+                    }
+                    auto err = cudaEventRecord(*cudaEventFilterToDownload, m_streamFilter);
+                    if (err != cudaSuccess) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to record cuda event for m_streamFilter -> m_streamDownload.\n"));
+                        return err_to_rgy(err);
+                    }
+                    err = cudaStreamWaitEvent(m_streamDownload, *cudaEventFilterToDownload, 0);
+                    if (err != cudaSuccess) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to set wait for cuda event for m_streamFilter -> m_streamDownload.\n"));
+                        return err_to_rgy(err);
+                    }
+                }
+            }
+            // エンコードバッファのポインタを渡す
             outInfo[0] = &frameVppOutInfo;
-            auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_streamFilter);
+            auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, streamLastFilter);
             if (sts_filter != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
                 return sts_filter;
@@ -2533,10 +2617,14 @@ public:
             // 処理の終了を示すイベント
             auto cudaEvent = m_inFrameUseFinEvent.get([](cudaEvent_t *event) { return cudaEventCreateWithFlags(event, cudaEventDefault) != cudaSuccess ? 1 : 0; });
             if (!cudaEvent) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to get cuda event.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get filter finish cuda event.\n"));
                 return RGY_ERR_UNKNOWN;
             }
-            cudaEventRecord(*cudaEvent, m_streamFilter);
+            auto err = cudaEventRecord(*cudaEvent, streamLastFilter);
+            if (err != cudaSuccess) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to record filter finish cuda event.\n"));
+                return err_to_rgy(err);
+            }
             if (frame) {
                 //ここでinput frameの参照を m_prevInputFrame で保持するようにして、CUDAによるフレームの処理が完了しているかを確認できるようにする
                 //これを行わないとこのフレームが再度使われてしまうことになる
@@ -2550,16 +2638,21 @@ public:
             }
             filterframes.pop_front();
 
-            frameVppOut.enc()->setDuration(frameVppOutInfo.duration);
-            frameVppOut.enc()->setTimestamp(frameVppOutInfo.timestamp);
-            frameVppOut.enc()->setInputFrameId(frameVppOutInfo.inputFrameId);
-            frameVppOut.enc()->setPicstruct(frameVppOutInfo.picstruct);
-            frameVppOut.enc()->setFlags(frameVppOutInfo.flags);
-            frameVppOut.enc()->setDataList(frameVppOutInfo.dataList);
+            frameVppOut.frame()->setDuration(frameVppOutInfo.duration);
+            frameVppOut.frame()->setTimestamp(frameVppOutInfo.timestamp);
+            frameVppOut.frame()->setInputFrameId(frameVppOutInfo.inputFrameId);
+            frameVppOut.frame()->setPicstruct(frameVppOutInfo.picstruct);
+            frameVppOut.frame()->setFlags(frameVppOutInfo.flags);
+            frameVppOut.frame()->setDataList(frameVppOutInfo.dataList);
 
-            outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), frameVppOut, frame, cudaEvent));
+            auto outputSurf = std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), frameVppOut, frame, cudaEvent);
+            if (cudaEventFilterToDownload) {
+                outputSurf->addCUEvent(cudaEventFilterToDownload);
+            }
+            outputSurfs.push_back(std::move(outputSurf));
 
             #undef clFrameOutInteropRelease
+
         }
         m_outQeueue.insert(m_outQeueue.end(),
             std::make_move_iterator(outputSurfs.begin()),

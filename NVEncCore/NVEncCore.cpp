@@ -2619,7 +2619,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     {
         const auto cropOutCsp = (inputParam->codec_rgy == RGY_CODEC_RAW) ? GetRawOutCSP(inputParam) : GetEncoderCSP(inputParam);
         //インタレ保持の場合、またエンコーダを行わない場合は、CPU側に戻す必要がある
-        const auto outMemType = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME || !m_dev->encoder()) ? RGY_MEM_TYPE_CPU : RGY_MEM_TYPE_GPU;
+        const auto outMemType = ((!ENABLE_INTERLACE_FROM_HWMEM && m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME) || !m_dev->encoder()) ? RGY_MEM_TYPE_CPU : RGY_MEM_TYPE_GPU;
         // cspとmemtypeが両方一致しなかったら、まずはcspを変換
         if (inputFrame.csp != cropOutCsp && inputFrame.mem_type != outMemType) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
@@ -4275,7 +4275,7 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
                 return sts;
             }
             t0->setWorkSurfaces(m_encRunCtx->stEncodeBuffer(), m_encRunCtx->qEncodeBufferFree(), m_dev->encoder(), m_rgbAsYUV444);
-        } else {
+        } else if (t0->taskType() != PipelineTaskType::NVDEC) {
             const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
             PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, %s %dx%d, request %d frames\n"),
                 t0->print().c_str(), t1->print().c_str(), RGY_CSP_NAMES[allocateFrameInfo.csp],
@@ -4288,6 +4288,25 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
             CUDA_DEBUG_SYNC_ERR;
         }
         t0 = t1;
+    }
+    // 最後がエンコーダでない場合の特例
+    if (m_pipelineTasks.back()->taskType() != PipelineTaskType::NVENC) {
+        const auto t1Alloc = m_pipelineTasks.back()->requiredSurfOut();
+        if (!t1Alloc.has_value()) {
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from last element!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        RGYFrameInfo allocateFrameInfo = t1Alloc.value().first;
+        const int requestNumFrames = asyncdepth + 1;
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s, type: CL, %s %dx%d, request %d frames\n"),
+            m_pipelineTasks.back()->print().c_str(), RGY_CSP_NAMES[allocateFrameInfo.csp],
+            allocateFrameInfo.width, allocateFrameInfo.height, requestNumFrames);
+        auto sts = m_pipelineTasks.back()->workSurfacesAllocCUBuf(requestNumFrames, allocateFrameInfo);
+        if (sts != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s: %s."), m_pipelineTasks.back()->print().c_str(), get_err_mes(sts));
+            return sts;
+        }
+        CUDA_DEBUG_SYNC_ERR;
     }
     return RGY_ERR_NONE;
 }
@@ -4378,7 +4397,7 @@ RGY_ERR NVEncCore::Encode() {
                             });
                     }
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_dev.get(), nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
@@ -4435,7 +4454,7 @@ RGY_ERR NVEncCore::Encode() {
                         });
                     if (err == RGY_ERR_MORE_DATA) err = RGY_ERR_NONE; //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_dev.get(), nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
@@ -4495,7 +4514,9 @@ RGY_ERR NVEncCore::Encode() {
         PrintMes(RGY_LOG_DEBUG, _T("Write video quality metric results...\n"));
         m_videoQualityMetric->showResult();
     }
-    m_encRunCtx->releaseEncodeBuffer();
+    if (m_encRunCtx) {
+        m_encRunCtx->releaseEncodeBuffer();
+    }
     
     if (m_deviceUsage) {
         m_deviceUsage->close();

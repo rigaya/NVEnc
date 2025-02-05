@@ -110,6 +110,7 @@ const char *get_encoder_version();
 
 #define ENABLE_VPP_SMOOTH_QP_FRAME 0
 #define ENABLE_AVOID_IDLE_CLOCK 0
+#define ENABLE_INTERLACE_FROM_HWMEM 1
 
 #ifdef NVENC_AUO
 #define ENCODER_NAME  "NVEnc"
