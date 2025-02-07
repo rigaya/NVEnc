@@ -4138,9 +4138,9 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
     m_pipelineTasks.clear();
 
     if (m_pDecoder) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 1, m_pFileReader.get(), m_pLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 0, m_pFileReader.get(), m_pLog));
     } else {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 0, m_pFileReader.get(), m_pLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 4, m_pFileReader.get(), m_pLog));
     }
     if (m_pFileWriterListAudio.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_dev.get(), m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_pLog));
