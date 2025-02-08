@@ -3026,6 +3026,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
     }
     //ノイズ除去 (nvvfx-denoise)
     if (vppType == VppType::NVVFX_DENOISE) {
