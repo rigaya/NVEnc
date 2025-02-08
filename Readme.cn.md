@@ -28,8 +28,7 @@ Windows 10/11 (x86 / x64)
 Linux (x64/aarch64)  
 Aviutl 1.00 or later (NVEnc.auo)  
 支持NVENC的硬件  
-  NVIDIA GPU GeForce Kepler gen或更新(GT / GTX 6xx或更新)  
-  ※ 由于GT 63x, 62x等是费米代的重命名，他们不能运行NVEnc。
+  NVIDIA GPU GeForce Late Kepler gen或更新 (GK110, GK208, GK210 or later)  
 
 | NVEnc               | 支持的NVENC API  | 所需图形驱动程序版本 |
 |:----------------- |:------------------ |:----------------------------        |
@@ -49,6 +48,7 @@ Aviutl 1.00 or later (NVEnc.auo)
 | NVEnc 7.00 or later | 9.0 - 12.0       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 | NVEnc 7.26 or later | 9.0 - 12.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 | NVEnc 7.49 or later | 9.0 - 12.2       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 8.00 or later | 10.0 - 13.0      | NVIDIA graphics driver 452.39 or later |
 
 | 支持的NVENC API | 所需图形驱动程序版本 |
 |:-------------- |:--------------------------------- |
@@ -60,6 +60,7 @@ Aviutl 1.00 or later (NVEnc.auo)
 | 12.0 | ??? |
 | 12.1 | NVIDIA graphics driver (Win 531.61 / Linux 530.41.03) or later |
 | 12.2 | NVIDIA graphics driver (Win 551.76 / Linux 550.54.144) or later |
+| 13.0 | NVIDIA graphics driver (Win 570.00 / Linux 570.00) or later |
 
 | CUDA 版本 | 所需图形驱动程序版本 |
 |:------ |:--------------------------------- |
@@ -70,6 +71,7 @@ Aviutl 1.00 or later (NVEnc.auo)
 | 11.1.0  | NVIDIA graphics driver (Win 456.38 / Linux 455.23)    or later |
 | 11.1.1  | NVIDIA graphics driver (Win 456.81 / Linux 455.32)    or later |
 | 11.2    | NVIDIA graphics driver (Win 460.89 / Linux 460.27.04) or later |
+| 11.8    | NVIDIA graphics driver (Win 452.39 / Linux 450.80.02) or later |
 
 ## NVEncC的使用方法和选项
 [NVEncC的选项列表](./NVEncC_Options.zh-cn.md)

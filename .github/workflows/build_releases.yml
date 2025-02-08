@@ -49,13 +49,13 @@ jobs:
           - arch: x86
             platform: Win32
             cuda_ver_major: 11
-            cuda_ver_minor: 1
-            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.1.1/network_installers/cuda_11.1.1_win10_network.exe
+            cuda_ver_minor: 8
+            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.8.0/network_installers/cuda_11.8.0_windows_network.exe
           - arch: x64
             platform: x64
-            cuda_ver_major: 10
-            cuda_ver_minor: 1
-            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/10.1/Prod/network_installers/cuda_10.1.243_win10_network.exe
+            cuda_ver_major: 11
+            cuda_ver_minor: 8
+            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.8.0/network_installers/cuda_11.8.0_windows_network.exe
     
     steps:
       - name: Checkout
@@ -93,8 +93,7 @@ jobs:
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
           set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
-          if "${{ matrix.cuda_ver_major }}" == "10" set CUDA_PATH_V10_1=%CUDA_PATH%
-          if "${{ matrix.cuda_ver_major }}" == "11" set CUDA_PATH_V11_1=%CUDA_PATH%
+          set CUDA_PATH_V11_8=%CUDA_PATH%
           msbuild NVEnc.sln /t:build /p:configuration=RelStatic /p:Platform=${{ matrix.platform }} -maxcpucount
 
       - name: Create Archieve
@@ -156,8 +155,8 @@ jobs:
           - arch: x86
             platform: Win32
             cuda_ver_major: 11
-            cuda_ver_minor: 1
-            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.1.1/network_installers/cuda_11.1.1_win10_network.exe
+            cuda_ver_minor: 8
+            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.8.0/network_installers/cuda_11.8.0_windows_network.exe
 
     steps:
       - name: Checkout

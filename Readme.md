@@ -28,7 +28,7 @@ Windows 10/11 (x86 / x64)
 Linux (x64/aarch64)  
 Aviutl 1.00 or later (NVEnc.auo)  
 Hardware which supports NVENC  
-  NVIDIA GPU GeForce Kepler gen or later (GT / GTX 6xx or later)  
+  NVIDIA GPU GeForce Late Kepler gen or later (GK110, GK208, GK210 or later)  
   ※ Since GT 63x, 62x etc. are renames of the Fermi generation, they cannot run NVEnc.
 
 | NVEnc               | Supported NVENC API | Required graphics driver version       |
@@ -49,6 +49,7 @@ Hardware which supports NVENC
 | NVEnc 7.00 or later | 9.0 - 12.0       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 | NVEnc 7.26 or later | 9.0 - 12.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
 | NVEnc 7.49 or later | 9.0 - 12.2       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 8.00 or later | 10.0 - 13.0      | NVIDIA graphics driver 452.39 or later |
 
 | Supported NVENC API | Required graphics driver version |
 |:-------------- |:--------------------------------- |
@@ -60,6 +61,7 @@ Hardware which supports NVENC
 | 12.0 | ??? |
 | 12.1 | NVIDIA graphics driver (Win 531.61 / Linux 530.41.03) or later |
 | 12.2 | NVIDIA graphics driver (Win 551.76 / Linux 550.54.144) or later |
+| 13.0 | NVIDIA graphics driver (Win 570.00 / Linux 570.00) or later |
 
 | CUDA version | Required graphics driver version |
 |:------ |:--------------------------------- |
@@ -70,6 +72,7 @@ Hardware which supports NVENC
 | 11.1.0  | NVIDIA graphics driver (Win 456.38 / Linux 455.23)    or later |
 | 11.1.1  | NVIDIA graphics driver (Win 456.81 / Linux 455.32)    or later |
 | 11.2    | NVIDIA graphics driver (Win 460.89 / Linux 460.27.04) or later |
+| 11.8    | NVIDIA graphics driver (Win 452.39 / Linux 450.80.02) or later |
 
 ## Usage and options of NVEncC
 [Option list and details of NVEncC](./NVEncC_Options.en.md)
