@@ -627,13 +627,19 @@ public:
 template<typename T>
 class FrameReleaseData {
     using TaskOutputEvent = std::pair<std::unique_ptr<PipelineTaskOutput>, std::shared_ptr<T>>;
+    CUvideoctxlock m_vidCtxLock;
     std::deque<TaskOutputEvent> m_prevInputFrame; //前回投入されたフレーム、完了通知を待ってから解放するため、参照を保持する
     std::mutex m_mtx;
     unique_event m_heFrameAdded;
+    unique_event m_heQueueEmpty;
     std::thread m_thread;
     bool m_abort;
 public:
-    FrameReleaseData() : m_prevInputFrame(), m_mtx(), m_heFrameAdded(std::move(CreateEventUnique(nullptr, FALSE, FALSE))), m_thread(), m_abort(false) {}
+    FrameReleaseData(CUvideoctxlock vidCtxLock) : m_vidCtxLock(vidCtxLock), m_prevInputFrame(), m_mtx(),
+        m_heFrameAdded(std::move(CreateEventUnique(nullptr, FALSE, FALSE))),
+        m_heQueueEmpty(std::move(CreateEventUnique(nullptr, FALSE, FALSE))),
+        m_thread(), m_abort(false) {}
+
     ~FrameReleaseData() {
         finish();
     }
@@ -643,19 +649,44 @@ public:
             m_thread.join();
         }
     }
+    void waitUntilEmpty() {
+        size_t queueSize = 0;
+        {
+            std::unique_lock<std::mutex> lock(m_mtx);
+            queueSize = m_prevInputFrame.size();
+        }
+        while (queueSize > 0) {
+            if (WaitForSingleObject(m_heQueueEmpty.get(), 10) == WAIT_OBJECT_0) {
+                return;
+            }
+            std::unique_lock<std::mutex> lock(m_mtx);
+            queueSize = m_prevInputFrame.size();
+        }
+    }
+
     void start() {
         m_thread = std::thread([&]() {
             while (!m_abort) {
+                size_t queueSize = 0;
                 TaskOutputEvent prevframe;
                 { // m_mtx のロックを取得
                     std::lock_guard<std::mutex> lock(m_mtx);
-                    if (m_prevInputFrame.size() > 0) {
+                    if ((queueSize = m_prevInputFrame.size()) > 0) {
                         prevframe = std::move(m_prevInputFrame.front());
                         m_prevInputFrame.pop_front();
+                        queueSize--;
                     }
                 }
                 if (prevframe.first) {
                     prevframe.first->depend_clear();
+                    if (auto surfVppInCuvid = dynamic_cast<PipelineTaskOutputSurf *>(prevframe.first.get())->surf().cuvid(); surfVppInCuvid != nullptr) {
+                        // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放(unmap)する
+                        NVEncCtxAutoLock(ctxlock(m_vidCtxLock));
+                        surfVppInCuvid->unmapFrame();
+                    }
+                    if (queueSize == 0) {
+                        SetEvent(m_heQueueEmpty.get());
+                    }
                 } else {
                     WaitForSingleObject(m_heFrameAdded.get(), 100);
                 }
@@ -1195,6 +1226,7 @@ protected:
         auto surfDecOut = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), m_dec->GetDecFrameInfo(),
             std::shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
             // CUFrameCuvidのデストラクト時にreleaseFrameが呼ばれるようにしておく
+            PrintMes(RGY_LOG_TRACE, _T("Free input frame pic_idx %d, timestamp %lld\n"), ptr->picture_index, ptr->timestamp);
             m_dec->frameQueue()->releaseFrame(ptr);
             delete ptr;
         }));
@@ -2396,7 +2428,7 @@ public:
     PipelineTaskCUDAVpp(NVGPUInfo *dev, std::vector<std::unique_ptr<NVEncFilter>>& vppfilters, NVEncFilterSsim *videoMetric,
     RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
-        m_frameReleaseData(), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
+        m_frameReleaseData(dev->vidCtxLock()), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
         m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev() {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
@@ -2418,7 +2450,6 @@ public:
 
 
     virtual ~PipelineTaskCUDAVpp() {
-        m_cuvidPrev.reset();
         m_frameReleaseData.finish();
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         if (m_streamFilter) {
@@ -2464,13 +2495,8 @@ public:
                 return RGY_ERR_NULL_PTR;
             }
             if (auto surfVppInCuvid = taskSurf->surf().cuvid(); surfVppInCuvid != nullptr) {
-                // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放(unmap)する
-                if (m_cuvidPrev) {
-                    m_cuvidPrev->depend_clear();
-                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
-                    dynamic_cast<PipelineTaskOutputSurf *>(m_cuvidPrev.get())->surf().cuvid()->unmapFrame();
-                    m_cuvidPrev.reset();
-                }
+                // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放を待つ
+                m_frameReleaseData.waitUntilEmpty();
                 PrintMes(RGY_LOG_TRACE, _T("filter_frame: map video frame: %d, %lld.\n"), surfVppInCuvid->dispInfo()->picture_index, surfVppInCuvid->dispInfo()->timestamp);
                 NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                 auto sts = surfVppInCuvid->mapFrame();
@@ -2527,13 +2553,7 @@ public:
                     cudaEventRecord(*cudaEvent, streamFilter);
                     //ここでinput frameの参照を m_prevInputFrame で保持するようにして、CUDAによるフレームの処理が完了しているかを確認できるようにする
                     //これを行わないとこのフレームが再度使われてしまうことになる
-                    if (auto surfVppInCuvid = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().cuvid(); surfVppInCuvid != nullptr) {
-                        // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、1フレームずつ検証するので、m_frameReleaseDataは使わない
-                        dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->addCUEvent(cudaEvent);
-                        m_cuvidPrev = std::move(frame);
-                    } else {
-                        m_frameReleaseData.addFrame(frame, cudaEvent);
-                    }
+                    m_frameReleaseData.addFrame(frame, cudaEvent);
                 }
                 // cuvidとの同期のため、cudaStreamPerThreadを最初に使った場合でも、その次のフィルタはm_streamFilterを使用するようにする
                 if (streamFilter != m_streamFilter) {
@@ -2665,13 +2685,7 @@ public:
             if (frame) {
                 //ここでinput frameの参照を m_prevInputFrame で保持するようにして、CUDAによるフレームの処理が完了しているかを確認できるようにする
                 //これを行わないとこのフレームが再度使われてしまうことになる
-                if (auto surfVppInCuvid = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().cuvid(); surfVppInCuvid != nullptr) {
-                    // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、1フレームずつ検証するので、m_frameReleaseDataは使わない
-                    dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->addCUEvent(cudaEvent);
-                    m_cuvidPrev = std::move(frame);
-                } else {
-                    m_frameReleaseData.addFrame(frame, cudaEvent);
-                }
+                m_frameReleaseData.addFrame(frame, cudaEvent);
             }
             filterframes.pop_front();
 
