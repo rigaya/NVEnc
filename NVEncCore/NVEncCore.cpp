@@ -3176,6 +3176,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
     }
     //ノイズ除去 (nlmeans)
     if (vppType == VppType::CL_DENOISE_NLMEANS) {
@@ -3444,6 +3445,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
     }
     //warpsharp
     if (vppType == VppType::CL_WARPSHARP) {
