@@ -1486,7 +1486,7 @@ public:
             case cudaVideoDeinterlaceMode_Weave:
                 oVPP.progressive_frame = surf->dispInfo()->progressive_frame;
                 oVPP.unpaired_field = 0;// oVPP.progressive_frame;
-                PrintMes(RGY_LOG_INFO, _T("add_dec_vpp_param[dev](%d): idx %d, outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), surf->dispInfo()->picture_index, outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
+                PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[dev](%d): idx %d, outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), surf->dispInfo()->picture_index, outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
                 if (createCopy) { // timestamp等を別として登録するため、新しいフレームを作成する
                     auto surfCopy = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), outSurf.cuvid()->getInfo(), outSurf.cuvid()->dispInfo());
                     surfCopy->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
