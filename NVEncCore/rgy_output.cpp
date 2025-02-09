@@ -194,14 +194,8 @@ RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
         || (ENCODER_QSV
             && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1)
             && videoOutputInfo->vui.chromaloc != 0)
-        || (ENCODER_VCEENC
-            && (videoOutputInfo->codec == RGY_CODEC_HEVC // HEVCの時は常に上書き
-                || (videoOutputInfo->vui.format != 5
-                    || videoOutputInfo->vui.colorprim != 2
-                    || videoOutputInfo->vui.transfer != 2
-                    || videoOutputInfo->vui.matrix != 2
-                    || videoOutputInfo->vui.chromaloc != 0)
-                || (videoOutputInfo->codec == RGY_CODEC_AV1 && videoOutputInfo->vui.colorrange == RGY_COLORRANGE_FULL)))
+        || (ENCODER_VCEENC // VCEEncの場合、常に上書き
+            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1))
         || (ENCODER_MPP
             && ((videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
                 || (videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0
@@ -257,7 +251,7 @@ RGY_ERR RGYOutput::InitVideoBsf(const VideoInfo *videoOutputInfo) {
         }
         if (ENCODER_VCEENC || ENCODER_MPP) {
             // HEVCの10bitの時、エンコーダがおかしなVUIを設定することがあるのでこれを常に上書き
-            const bool override_always = ENCODER_VCEENC && (videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1);
+            const bool override_always = ENCODER_VCEENC;
             if (override_always || videoOutputInfo->vui.format != 5 /*undef*/) {
                 if (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) {
                     av_dict_set_int(&bsfPrm, "video_format", videoOutputInfo->vui.format, 0);

@@ -150,9 +150,6 @@ struct AVMuxVideo {
     DOVIRpu              *doviRpu;              //dovi rpu 追加用
     bool                  doviRpuMetadataCopy;  //dovi rpuをコピー
     RGYDOVIRpuConvertParam doviRpuConvertParam; //dovi rpuの変換パラメータ
-    AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
-    uint8_t              *bsfcBuffer;           //bitstreamfilter用のバッファ
-    size_t                bsfcBufferLength;     //bitstreamfilter用のバッファの長さ
     RGYTimestamp         *timestamp;            //timestampの情報
     AVPacket             *pktOut;               //出力用のAVPacket
     AVPacket             *pktParse;             //parser用のAVPacket
@@ -635,9 +632,6 @@ protected:
 
     //パケットを実際に書き出す
     void WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts);
-
-    //ヘッダにbsfを適用する
-    RGY_ERR applyBsfToHeader(std::vector<uint8_t>& result, const uint8_t *target, const size_t target_size);
 
     //extradataにH264のヘッダーを追加する
     RGY_ERR AddHeaderToExtraDataH264(const RGYBitstream *pBitstream);

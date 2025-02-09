@@ -141,9 +141,6 @@ AVMuxVideo::AVMuxVideo() :
     doviRpu(nullptr),
     doviRpuMetadataCopy(false),
     doviRpuConvertParam(),
-    bsfc(nullptr),
-    bsfcBuffer(nullptr),
-    bsfcBufferLength(0),
     timestamp(nullptr),
     pktOut(nullptr),
     pktParse(nullptr),
@@ -408,9 +405,6 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
     muxVideo->streamOut = nullptr;
     muxVideo->fpTsLogFile.reset();
     m_Mux.video.timestampList.clear();
-    if (m_Mux.video.bsfc) {
-        av_bsf_free(&m_Mux.video.bsfc);
-    }
     if (m_Mux.video.pktOut) {
         av_packet_unref(m_Mux.video.pktOut);
         av_packet_free(&m_Mux.video.pktOut);
@@ -418,11 +412,6 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
     if (m_Mux.video.pktParse) {
         av_packet_unref(m_Mux.video.pktParse);
         av_packet_free(&m_Mux.video.pktParse);
-    }
-    if (m_Mux.video.bsfcBuffer) {
-        free(m_Mux.video.bsfcBuffer);
-        m_Mux.video.bsfcBuffer = nullptr;
-        m_Mux.video.bsfcBufferLength = 0;
     }
     m_Mux.video.doviRpu = nullptr;
     m_Mux.video.timestamp = nullptr;
@@ -900,8 +889,6 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.afs               = prm->afs;
     m_Mux.video.debugDirectAV1Out = prm->debugDirectAV1Out;
     m_Mux.video.doviRpu           = prm->doviRpu;
-    m_Mux.video.bsfcBuffer        = nullptr;
-    m_Mux.video.bsfcBufferLength  = 0;
     m_Mux.video.hdr10plusMetadataCopy = prm->hdr10plusMetadataCopy;
     m_Mux.video.doviRpuMetadataCopy = prm->doviRpuMetadataCopy;
     m_Mux.video.doviRpuConvertParam = prm->doviRpuConvertParam;
@@ -2335,66 +2322,52 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::applyBsfToHeader(std::vector<uint8_t>& result, const uint8_t *target, const size_t target_size) {
-    if (!target || target_size == 0) {
-        return RGY_ERR_NONE;
-    }
-    if (!m_Mux.video.bsfc) {
-        result.resize(target_size);
-        memcpy(result.data(), target, target_size);
-        return RGY_ERR_NONE;
-    }
-    AVPacket *pkt = m_Mux.video.pktOut;
-    av_new_packet(pkt, (int)target_size);
-    memcpy(pkt->data, target, target_size);
-    int ret = 0;
-    if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, pkt))) {
-        av_packet_unref(pkt);
-        AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
-            char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-        return RGY_ERR_UNKNOWN;
-    }
-    ret = av_bsf_receive_packet(m_Mux.video.bsfc, pkt);
-    if (ret == AVERROR(EAGAIN)) {
-        return RGY_ERR_NONE;
-    } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
-            char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-        return RGY_ERR_UNKNOWN;
-    }
-    result.resize(pkt->size);
-    memcpy(result.data(), pkt->data, pkt->size);
-    av_packet_unref(pkt);
-    av_bsf_flush(m_Mux.video.bsfc);
-    return RGY_ERR_NONE;
-}
-
 RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataH264(const RGYBitstream *bitstream) {
-    std::vector<nal_info> nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
+    const RGYBitstream *bs_target = bitstream;
+    RGYBitstream bitstream_copy = RGYBitstreamInit();
+    if (m_bsf) {
+        bitstream_copy.copy(bitstream);
+        auto err = m_bsf->applyBitstreamFilter(&bitstream_copy);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to apply bitstream filter to AV1 header.\n"));
+            return err;
+        }
+        bs_target = &bitstream_copy;
+    }
+
+    std::vector<nal_info> nal_list = m_Mux.video.parse_nal_h264(bs_target->data(), bs_target->size());
     const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
     const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
     const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
     if (header_check) {
-        std::vector<uint8_t> buf_sps;
-        auto err = applyBsfToHeader(buf_sps, h264_sps_nal->ptr, h264_sps_nal->size);
-        if (err != RGY_ERR_NONE) {
-            return err;
-        }
-        m_Mux.video.streamOut->codecpar->extradata_size = (int)(buf_sps.size() + h264_pps_nal->size);
+        m_Mux.video.streamOut->codecpar->extradata_size = (int)(h264_sps_nal->size + h264_pps_nal->size);
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        memcpy(new_ptr, buf_sps.data(), buf_sps.size());
-        memcpy(new_ptr + buf_sps.size(), h264_pps_nal->ptr, h264_pps_nal->size);
+        memcpy(new_ptr, h264_sps_nal->ptr, h264_sps_nal->size);
+        memcpy(new_ptr + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
         if (m_Mux.video.streamOut->codecpar->extradata) {
             av_free(m_Mux.video.streamOut->codecpar->extradata);
         }
         m_Mux.video.streamOut->codecpar->extradata = new_ptr;
     }
+    bitstream_copy.clear();
     return RGY_ERR_NONE;
 }
 
 //extradataにHEVCのヘッダーを追加する
 RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream) {
-    const auto nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
+    const RGYBitstream *bs_target = bitstream;
+    RGYBitstream bitstream_copy = RGYBitstreamInit();
+    if (m_bsf) {
+        bitstream_copy.copy(bitstream);
+        auto err = m_bsf->applyBitstreamFilter(&bitstream_copy);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to apply bitstream filter to AV1 header.\n"));
+            return err;
+        }
+        bs_target = &bitstream_copy;
+    }
+
+    const auto nal_list = m_Mux.video.parse_nal_hevc(bs_target->data(), bs_target->size());
     const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
     const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
     const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
@@ -2402,14 +2375,7 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream
     if (header_check) {
         std::vector<uint8_t> hevc_header;
         for (const auto& nal : nal_list) {
-            if (nal.type == NALU_HEVC_SPS) {
-                std::vector<uint8_t> buf_sps;
-                auto err = applyBsfToHeader(buf_sps, nal.ptr, nal.size);
-                if (err != RGY_ERR_NONE) {
-                    return err;
-                }
-                vector_cat(hevc_header, buf_sps);
-            } else if (nal.type == NALU_HEVC_VPS || nal.type == NALU_HEVC_PPS) {
+            if (nal.type == NALU_HEVC_SPS || nal.type == NALU_HEVC_VPS || nal.type == NALU_HEVC_PPS) {
                 vector_cat(hevc_header, nal.ptr, nal.size);
             } else if (nal.nuh_layer_id == 0 && nal.type == NALU_HEVC_PREFIX_SEI) {
                 auto ptr = nal.ptr;
@@ -2442,15 +2408,28 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream
         }
         m_Mux.video.streamOut->codecpar->extradata = new_ptr;
     }
+    bitstream_copy.clear();
     return RGY_ERR_NONE;
 }
 
 //extradataにAV1のヘッダーを追加する
 RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataAV1(const RGYBitstream *bitstream) {
-    const auto unit_list = parse_unit_av1(bitstream->data(), bitstream->size());
+    const RGYBitstream *bs_target = bitstream;
+    RGYBitstream bitstream_copy = RGYBitstreamInit();
+    if (m_bsf) {
+        bitstream_copy.copy(bitstream);
+        auto err = m_bsf->applyBitstreamFilter(&bitstream_copy);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to apply bitstream filter to AV1 header.\n"));
+            return err;
+        }
+        bs_target = &bitstream_copy;
+    }
+
+    const auto unit_list = parse_unit_av1(bs_target->data(), bs_target->size());
     auto it_seq_header = std::find_if(unit_list.begin(), unit_list.end(), [](const std::unique_ptr<unit_info>& unit) {
         return unit->type == OBU_SEQUENCE_HEADER;
-    });
+        });
     if (it_seq_header != unit_list.end()) {
         const auto& seq_header = (it_seq_header->get())->unit_data;
         m_Mux.video.streamOut->codecpar->extradata_size = (int)seq_header.size();
@@ -2461,6 +2440,7 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataAV1(const RGYBitstream *bitstream)
         }
         m_Mux.video.streamOut->codecpar->extradata = new_ptr;
     }
+    bitstream_copy.clear();
     return RGY_ERR_NONE;
 }
 
