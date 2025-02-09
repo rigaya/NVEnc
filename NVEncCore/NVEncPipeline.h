@@ -1286,7 +1286,7 @@ protected:
                         if (ptr) {
                             frameData = std::make_shared<RGYFrameDataHDR10plus>(*ptr);
                         }
-                    } else if (frameData->dataType() == RGY_FRAME_DATA_DOVIRPU) {
+                    } else if (frameDataPtr->dataType() == RGY_FRAME_DATA_DOVIRPU) {
                         auto ptr = dynamic_cast<RGYFrameDataDOVIRpu*>(frameDataPtr);
                         if (ptr) {
                             frameData = std::make_shared<RGYFrameDataDOVIRpu>(*ptr);
