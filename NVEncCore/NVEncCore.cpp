@@ -4140,8 +4140,10 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
     m_pipelineTasks.clear();
 
+    PipelineTaskNVDecode *taskNVDec = nullptr;
     if (m_pDecoder) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 0, m_pFileReader.get(), m_pLog));
+        taskNVDec = (PipelineTaskNVDecode *)m_pipelineTasks.back().get();
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 4, m_pFileReader.get(), m_pLog));
     }
@@ -4158,7 +4160,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_dev.get(), m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_pLog));
         }
         const bool interlaceAutoDetect = pReader && pReader->GetInputFrameInfo().picstruct == RGY_PICSTRUCT_AUTO;
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(m_dev.get(), m_pDecoder.get(),
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(m_dev.get(), m_pDecoder.get(), taskNVDec,
             srcTimebase, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, (m_pDecoder) ? m_pDecoder->getDeinterlaceMode() : cudaVideoDeinterlaceMode_Weave,
             m_timestampPassThrough, VppRffEnabled() && m_pFileReader->rffAware(), VppAfsRffAware() && m_pFileReader->rffAware(),
             interlaceAutoDetect, (pReader) ? pReader->GetFramePosList() : nullptr, m_pLog));

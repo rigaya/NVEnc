@@ -1169,6 +1169,10 @@ public:
     virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
         return getOutput();
     }
+    PipelineTaskSurface addTaskSurface(std::unique_ptr<CUFrameCuvid>& surf) {
+        return m_workSurfs.addSurface(surf);
+    }
+    
 protected:
     RGY_ERR getOutput() {
         auto ret = RGY_ERR_NONE;
@@ -1314,14 +1318,15 @@ protected:
     uint32_t m_inputFramePosIdx;
     FramePosList *m_framePosList;
     CuvidDecode *m_dec;
+    PipelineTaskNVDecode *m_taskNVDec;
 public:
-    PipelineTaskCheckPTS(NVGPUInfo *dev, CuvidDecode *dec, rgy_rational<int> srcTimebase, rgy_rational<int> streamTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, cudaVideoDeinterlaceMode deinterlaceMode,
+    PipelineTaskCheckPTS(NVGPUInfo *dev, CuvidDecode *dec, PipelineTaskNVDecode *taskNVDec, rgy_rational<int> srcTimebase, rgy_rational<int> streamTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, cudaVideoDeinterlaceMode deinterlaceMode,
         bool timestampPassThrough, bool vpp_rff, bool vpp_afs_rff_aware, bool interlaceAuto, FramePosList *framePosList, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CHECKPTS, dev, /*outMaxQueueSize = */ 0 /*常に0である必要がある*/, false, log),
         m_srcTimebase(srcTimebase), m_streamTimebase(streamTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync),
         m_timestampPassThrough(timestampPassThrough), m_vpp_rff(vpp_rff), m_vpp_afs_rff_aware(vpp_afs_rff_aware), m_interlaceAuto(interlaceAuto), m_deinterlaceMode(deinterlaceMode),
         m_outFrameDuration(outFrameDuration),
-        m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_inputFramePosIdx(std::numeric_limits<decltype(m_inputFramePosIdx)>::max()), m_framePosList(framePosList), m_dec(dec) {
+        m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_inputFramePosIdx(std::numeric_limits<decltype(m_inputFramePosIdx)>::max()), m_framePosList(framePosList), m_dec(dec), m_taskNVDec(taskNVDec) {
     };
     virtual ~PipelineTaskCheckPTS() {};
 
@@ -1432,7 +1437,7 @@ public:
             }
             while (ptsDiff >= std::max<int64_t>(1, m_outFrameDuration * 7 / 8)) {
                 PrintMes(RGY_LOG_DEBUG, _T("Insert frame: framepts %lld, estimated next %lld, diff %lld [%.1f]\n"), outPtsSource, m_tsOutEstimated, ptsDiff, ptsDiff / (double)m_outFrameDuration);
-                add_dec_vpp_param(taskSurf, m_tsOutEstimated, m_outFrameDuration);
+                add_dec_vpp_param(taskSurf, m_tsOutEstimated, m_outFrameDuration, true /* timestamp等を別として登録するため、新しいフレームを作成する*/);
                 m_tsOutEstimated += m_outFrameDuration;
                 ptsDiff = outPtsSource - m_tsOutEstimated;
             }
@@ -1463,45 +1468,70 @@ public:
         m_inFrames++;
         m_tsOutEstimated += outDuration;
         m_tsPrev = outPtsSource;
-        add_dec_vpp_param(taskSurf, outPtsSource, outDuration);
+        add_dec_vpp_param(taskSurf, outPtsSource, outDuration, false);
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR add_dec_vpp_param(PipelineTaskOutputSurf *taskSurf, int64_t outPts, int64_t outDuration) {
+    RGY_ERR add_dec_vpp_param(PipelineTaskOutputSurf *taskSurf, const int64_t outPts, const int64_t outDuration, const bool createCopy) {
         if (auto surf = taskSurf->surf().cuvid(); surf != nullptr) {
+            if (!m_taskNVDec) {
+                PrintMes(RGY_LOG_ERROR, _T("detected cuvid frame, but null pointer for taskNVDec.\n"));
+                return RGY_ERR_NULL_PTR;
+            }
             auto frameinfo = surf->getInfo();
             PipelineTaskSurface outSurf = taskSurf->surf();
-            outSurf.cuvid()->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
-            outSurf.cuvid()->setTimestamp(outPts);
-            outSurf.cuvid()->setDuration(outDuration);
             CUVIDPROCPARAMS oVPP = { 0 };
             oVPP.top_field_first = surf->dispInfo()->top_field_first;
             switch (m_deinterlaceMode) {
             case cudaVideoDeinterlaceMode_Weave:
                 oVPP.progressive_frame = surf->dispInfo()->progressive_frame;
                 oVPP.unpaired_field = 0;// oVPP.progressive_frame;
-                outSurf.cuvid()->setOVPP(oVPP);
-                PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[dev](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
-                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), outSurf));
+                PrintMes(RGY_LOG_INFO, _T("add_dec_vpp_param[dev](%d): idx %d, outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), surf->dispInfo()->picture_index, outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
+                if (createCopy) { // timestamp等を別として登録するため、新しいフレームを作成する
+                    auto surfCopy = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), outSurf.cuvid()->getInfo(), outSurf.cuvid()->dispInfo());
+                    surfCopy->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
+                    surfCopy->setTimestamp(outPts);
+                    surfCopy->setDuration(outDuration);
+                    surfCopy->setOVPP(oVPP);
+                    // m_taskNVDecのtask surfaceとして登録する (そうしないとデコーダで必要なタイミングでdeleteFreedSurfaceが呼ばれず、フリーズしてしまう場合がある)
+                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), m_taskNVDec->addTaskSurface(surfCopy)));
+                } else {
+                    outSurf.cuvid()->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
+                    outSurf.cuvid()->setTimestamp(outPts);
+                    outSurf.cuvid()->setDuration(outDuration);
+                    outSurf.cuvid()->setOVPP(oVPP);
+                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), outSurf));
+                }
                 break;
             case cudaVideoDeinterlaceMode_Bob:
                 oVPP.progressive_frame = (m_interlaceAuto) ? surf->dispInfo()->progressive_frame : 0;
                 oVPP.second_field = 0;
-                outSurf.cuvid()->setOVPP(oVPP);
-                //RFFに関するフラグを念のためクリア
-                outSurf.cuvid()->setFlags(outSurf.frame()->flags() & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF)));
-                outSurf.cuvid()->setPicstruct(RGY_PICSTRUCT_FRAME);
-                outSurf.cuvid()->setDuration(outDuration >> 1);
-                PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
-                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), outSurf));
-                {
-                    auto surfCopy = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), outSurf.cuvid()->getInfo(),
-                        std::shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(*outSurf.cuvid()->dispInfo()), [&](CUVIDPARSERDISPINFO *ptr) {
-                            // CUFrameCuvidのデストラクト時にreleaseFrameが呼ばれるようにしておく
-                            m_dec->frameQueue()->releaseFrame(ptr);
-                            delete ptr;
-                    }));
-
+                if (createCopy) { // timestamp等を別として登録するため、新しいフレームを作成する
+                    auto surfCopy = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), outSurf.cuvid()->getInfo(), outSurf.cuvid()->dispInfo());
+                    surfCopy->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
+                    surfCopy->setTimestamp(outPts);
+                    surfCopy->setDuration(outDuration);
+                    surfCopy->setOVPP(oVPP);
+                    //RFFに関するフラグを念のためクリア
+                    surfCopy->setFlags(outSurf.frame()->flags() & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF)));
+                    surfCopy->setPicstruct(RGY_PICSTRUCT_FRAME);
+                    surfCopy->setDuration(outDuration >> 1);
+                    // m_taskNVDecのtask surfaceとして登録する (そうしないとデコーダで必要なタイミングでdeleteFreedSurfaceが呼ばれず、フリーズしてしまう場合がある)
+                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), m_taskNVDec->addTaskSurface(surfCopy)));
+                } else {
+                    outSurf.cuvid()->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
+                    outSurf.cuvid()->setTimestamp(outPts);
+                    outSurf.cuvid()->setDuration(outDuration);
+                    outSurf.cuvid()->setOVPP(oVPP);
+                    //RFFに関するフラグを念のためクリア
+                    outSurf.cuvid()->setFlags(outSurf.frame()->flags() & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF)));
+                    outSurf.cuvid()->setPicstruct(RGY_PICSTRUCT_FRAME);
+                    outSurf.cuvid()->setDuration(outDuration >> 1);
+                    PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
+                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), outSurf));
+                }
+                { // timestamp等を別として登録するため、新しいフレームを作成する
+                    auto surfCopy = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), outSurf.cuvid()->getInfo(), outSurf.cuvid()->dispInfo());
                     surfCopy->setPropertyFrom(outSurf.cuvid());
                     surfCopy->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
                     surfCopy->setTimestamp(outPts + (outDuration >> 1));
@@ -1509,22 +1539,44 @@ public:
                     oVPP.second_field = 1;
                     surfCopy->setOVPP(oVPP);
                     PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), surfCopy->inputFrameId(), surfCopy->timestamp(), surfCopy->duration(), oVPP.progressive_frame);
-                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), m_workSurfs.addSurface(surfCopy)));
+                    // m_taskNVDecのtask surfaceとして登録する (そうしないとデコーダで必要なタイミングでdeleteFreedSurfaceが呼ばれず、フリーズしてしまう場合がある)
+                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), m_taskNVDec->addTaskSurface(surfCopy)));
                 }
                 break;
             case cudaVideoDeinterlaceMode_Adaptive:
-                oVPP.progressive_frame = (m_interlaceAuto) ? surf->dispInfo()->progressive_frame : 0;
-                //RFFに関するフラグを念のためクリア
-                outSurf.cuvid()->setFlags(outSurf.frame()->flags() & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF)));
-                outSurf.cuvid()->setPicstruct(RGY_PICSTRUCT_FRAME);
-                outSurf.cuvid()->setOVPP(oVPP);
-                PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[adp](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
-                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), outSurf));
+                if (createCopy) { // timestamp等を別として登録するため、新しいフレームを作成する
+                    auto surfCopy = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), outSurf.cuvid()->getInfo(), outSurf.cuvid()->dispInfo());
+                    surfCopy->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
+                    surfCopy->setTimestamp(outPts);
+                    surfCopy->setDuration(outDuration);
+                    oVPP.progressive_frame = (m_interlaceAuto) ? surf->dispInfo()->progressive_frame : 0;
+                    //RFFに関するフラグを念のためクリア
+                    surfCopy->setFlags(outSurf.frame()->flags() & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF)));
+                    surfCopy->setPicstruct(RGY_PICSTRUCT_FRAME);
+                    surfCopy->setOVPP(oVPP);
+                    PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[adp](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
+                    // m_taskNVDecのtask surfaceとして登録する (そうしないとデコーダで必要なタイミングでdeleteFreedSurfaceが呼ばれず、フリーズしてしまう場合がある)
+                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), m_taskNVDec->addTaskSurface(surfCopy)));
+                } else {
+                    outSurf.cuvid()->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
+                    outSurf.cuvid()->setTimestamp(outPts);
+                    outSurf.cuvid()->setDuration(outDuration);
+                    oVPP.progressive_frame = (m_interlaceAuto) ? surf->dispInfo()->progressive_frame : 0;
+                    //RFFに関するフラグを念のためクリア
+                    outSurf.cuvid()->setFlags(outSurf.frame()->flags() & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF)));
+                    outSurf.cuvid()->setPicstruct(RGY_PICSTRUCT_FRAME);
+                    outSurf.cuvid()->setOVPP(oVPP);
+                    PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[adp](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), outSurf.frame()->inputFrameId(), outSurf.frame()->timestamp(), outSurf.frame()->duration(), oVPP.progressive_frame);
+                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), outSurf));
+                }
                 break;
             default:
                 PrintMes(RGY_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
                 break;
             }
+        } else if (createCopy) {
+            PrintMes(RGY_LOG_ERROR, _T("Not implmented yet!\n"));
+            return RGY_ERR_UNSUPPORTED;
         } else {
             PipelineTaskSurface outSurf = taskSurf->surf();
             outSurf.frame()->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
