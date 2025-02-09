@@ -632,13 +632,15 @@ class FrameReleaseData {
     std::mutex m_mtx;
     unique_event m_heFrameAdded;
     unique_event m_heQueueEmpty;
+    std::atomic<int> m_queueSize;
     std::thread m_thread;
     bool m_abort;
 public:
+
     FrameReleaseData(CUvideoctxlock vidCtxLock) : m_vidCtxLock(vidCtxLock), m_prevInputFrame(), m_mtx(),
         m_heFrameAdded(std::move(CreateEventUnique(nullptr, FALSE, FALSE))),
         m_heQueueEmpty(std::move(CreateEventUnique(nullptr, FALSE, FALSE))),
-        m_thread(), m_abort(false) {}
+        m_queueSize(0), m_thread(), m_abort(false) {}
 
     ~FrameReleaseData() {
         finish();
@@ -650,31 +652,21 @@ public:
         }
     }
     void waitUntilEmpty() {
-        size_t queueSize = 0;
-        {
-            std::unique_lock<std::mutex> lock(m_mtx);
-            queueSize = m_prevInputFrame.size();
-        }
-        while (queueSize > 0) {
-            if (WaitForSingleObject(m_heQueueEmpty.get(), 10) == WAIT_OBJECT_0) {
-                return;
-            }
-            std::unique_lock<std::mutex> lock(m_mtx);
-            queueSize = m_prevInputFrame.size();
+        while (m_queueSize > 0) {
+            WaitForSingleObject(m_heQueueEmpty.get(), 10);
         }
     }
 
     void start() {
         m_thread = std::thread([&]() {
             while (!m_abort) {
-                size_t queueSize = 0;
+                int queueSize = -1;
                 TaskOutputEvent prevframe;
                 { // m_mtx のロックを取得
                     std::lock_guard<std::mutex> lock(m_mtx);
-                    if ((queueSize = m_prevInputFrame.size()) > 0) {
+                    if ((queueSize = (int)m_prevInputFrame.size()) > 0) {
                         prevframe = std::move(m_prevInputFrame.front());
                         m_prevInputFrame.pop_front();
-                        queueSize--;
                     }
                 }
                 if (prevframe.first) {
@@ -684,10 +676,13 @@ public:
                         NVEncCtxAutoLock(ctxlock(m_vidCtxLock));
                         surfVppInCuvid->unmapFrame();
                     }
-                    if (queueSize == 0) {
+                    if ((m_queueSize = queueSize) == 0) {
                         SetEvent(m_heQueueEmpty.get());
                     }
                 } else {
+                    if ((m_queueSize = queueSize) == 0) {
+                        SetEvent(m_heQueueEmpty.get());
+                    }
                     WaitForSingleObject(m_heFrameAdded.get(), 100);
                 }
             }
@@ -695,6 +690,7 @@ public:
     }
     void addFrame(std::unique_ptr<PipelineTaskOutput>& frame, std::shared_ptr<T> event) {
         dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->addCUEvent(event);
+        m_queueSize++;
         std::lock_guard<std::mutex> lock(m_mtx);
         m_prevInputFrame.push_back(std::make_pair(std::move(frame), event));
         SetEvent(m_heFrameAdded.get());
