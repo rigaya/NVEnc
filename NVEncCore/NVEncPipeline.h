@@ -939,6 +939,7 @@ public:
         }
         m_streamUpload = nullptr;
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+        m_outQeueue.clear(); // m_frameUseFinEvent解放前に行うこと
         m_frameUseFinEvent.clear([](cudaEvent_t *event) { cudaEventDestroy(*event); });
     };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
@@ -2460,6 +2461,7 @@ public:
             cudaEventDestroy(m_eventDefaultToFilter);
             m_eventDefaultToFilter = nullptr;
         }
+        m_outQeueue.clear(); // m_inFrameUseFinEvent解放前に行うこと
         m_inFrameUseFinEvent.clear([](cudaEvent_t *event) { cudaEventDestroy(*event); });
     };
 
