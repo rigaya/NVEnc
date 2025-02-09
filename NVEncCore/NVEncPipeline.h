@@ -1213,7 +1213,7 @@ protected:
         dispInfo.timestamp = rational_rescale(dispInfo.timestamp, cuvidTimebase, m_input->getInputTimebase());
         PrintMes(RGY_LOG_TRACE, _T("input frame (dev) #%d, pic_idx %d, timestamp %lld\n"), m_decOutFrames, dispInfo.picture_index, dispInfo.timestamp);
 
-        auto inputPicstruct = (dispInfo.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((dispInfo.top_field_first) ? RGY_PICSTRUCT_FIELD_TOP : RGY_PICSTRUCT_FIELD_BOTTOM);
+        auto inputPicstruct = (dispInfo.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((dispInfo.top_field_first) ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF);
         auto flags = RGY_FRAME_FLAG_NONE;
         if (dispInfo.repeat_first_field == 1) {
             flags |= (dispInfo.top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
