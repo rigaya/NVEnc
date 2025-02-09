@@ -176,8 +176,9 @@ RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, RGY_PLANE plane) {
     }
     planeInfo.ptr[0] = ptr;
     planeInfo.pitch[0] = pitch;
-
-    if (frameInfo->csp == RGY_CSP_NV12 || frameInfo->csp == RGY_CSP_P010) {
+    if (plane == RGY_PLANE_A) {
+        ;
+    } else if (frameInfo->csp == RGY_CSP_NV12 || frameInfo->csp == RGY_CSP_P010) {
         planeInfo.height >>= 1;
     } else if (frameInfo->csp == RGY_CSP_NV16 || frameInfo->csp == RGY_CSP_P210) {
         ;

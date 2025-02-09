@@ -4270,7 +4270,7 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
             return RGY_ERR_UNSUPPORTED;
         }
         if (t1->taskType() == PipelineTaskType::NVENC) {
-            auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, m_rgbAsYUV444, m_encodeBufferCount + t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
+            auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, prm->alphaChannel, m_encodeBufferCount + t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
             if (sts != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
                 return sts;
