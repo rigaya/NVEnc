@@ -485,11 +485,14 @@ int convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfil
         auto doviProfileSrc = RGY_DOVI_PROFILE_OTHER;
         switch (dovi_profile) {
         case 5: doviProfileSrc = RGY_DOVI_PROFILE_50; break;
+        case 7: doviProfileSrc = RGY_DOVI_PROFILE_70; break;
         case 8: doviProfileSrc = RGY_DOVI_PROFILE_81; break;
         default: doviProfileSrc = RGY_DOVI_PROFILE_OTHER; break;
         }
         if (prm->convertProfile
-            && ((doviProfileDst != doviProfileSrc && doviProfileDst == RGY_DOVI_PROFILE_81)
+            && ((doviProfileDst != doviProfileSrc
+                && doviProfileDst == RGY_DOVI_PROFILE_81
+                && doviProfileSrc != RGY_DOVI_PROFILE_OTHER) // dovi_convert_rpu_with_modeのmode=2が対応しているのは profile 5, 7, 8 のみ
              || (dovi_profile == 7 && doviProfileDst == RGY_DOVI_PROFILE_COPY))) {
             const int ret = dovi_convert_rpu_with_mode(rpu.get(), 2);
             if (ret != 0) {
