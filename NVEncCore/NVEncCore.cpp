@@ -2581,11 +2581,25 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 
     size_t ifilter = 0;
     if (filterPipeline.size() > 0 && (inputFrame.csp != filterCsp || filterPipeline.front() == VppType::CL_CROP)) {
+        if (filterPipeline.front() == VppType::CL_CROP) {
+            ifilter++;
+        }
         unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.csp = filterCsp;
+        if (filterPipeline.size() > ifilter && filterPipeline[ifilter] == VppType::CL_COLORSPACE) { // 次のフィルタがcolorpaceの時
+            if (RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_RGB_PACKED) {
+                param->frameOut.csp = (rgy_csp_has_alpha(inputFrame.csp))
+                    ? ((RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_RGBA_16 : RGY_CSP_RGBA)
+                    : ((RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_RGB_16  : RGY_CSP_RGB);
+            } else if (RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV422) {
+                param->frameOut.csp = (rgy_csp_has_alpha(inputFrame.csp))
+                    ? ((RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUVA444)
+                    : ((RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUV444_16  : RGY_CSP_YUV444);
+            }
+        }
         param->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[param->frameOut.csp];
         param->baseFps = m_encFps;
         if (inputCrop) {
@@ -2604,9 +2618,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         vppCUDAFilters.push_back(std::move(filterCrop));
-        if (filterPipeline.front() == VppType::CL_CROP) {
-            ifilter++;
-        }
     }
     for (; ifilter < filterPipeline.size(); ifilter++) {
         auto err = AddFilterCUDA(vppCUDAFilters, inputFrame, filterPipeline[ifilter], inputParam, inputCrop, resize, VuiFiltered);
