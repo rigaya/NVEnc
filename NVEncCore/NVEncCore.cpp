@@ -4167,7 +4167,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
         const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
         const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-        if (m_trimParam.list.size() > 0) {
+        if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_dev.get(), m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_pLog));
         }
         const bool interlaceAutoDetect = pReader && pReader->GetInputFrameInfo().picstruct == RGY_PICSTRUCT_AUTO;
