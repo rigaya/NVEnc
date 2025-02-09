@@ -1626,10 +1626,13 @@ protected:
     const sTrimParam &m_trimParam;
     RGYInput *m_input;
     rgy_rational<int> m_srcTimebase;
+    rgy_rational<int> m_outTimebase;
+    int64_t m_trimTimestampOffset;
+    int64_t m_lastTrimFramePts;
 public:
-    PipelineTaskTrim(NVGPUInfo *dev, const sTrimParam &trimParam, RGYInput *input, const rgy_rational<int>& srcTimebase, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
+    PipelineTaskTrim(NVGPUInfo *dev, const sTrimParam &trimParam, RGYInput *input, const rgy_rational<int>& srcTimebase, const rgy_rational<int>& outTimebase, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::TRIM, dev, outMaxQueueSize, false, log),
-        m_trimParam(trimParam), m_input(input), m_srcTimebase(srcTimebase) {
+        m_trimParam(trimParam), m_input(input), m_srcTimebase(srcTimebase), m_outTimebase(outTimebase), m_trimTimestampOffset(0), m_lastTrimFramePts(AV_NOPTS_VALUE) {
     };
     virtual ~PipelineTaskTrim() {};
 
@@ -1637,15 +1640,25 @@ public:
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
 
+    int64_t trimTimestampOffset() const { return m_trimTimestampOffset; }
+
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (!frame) {
             return RGY_ERR_MORE_DATA;
         }
         m_inFrames++;
         PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
-        if (!frame_inside_range(taskSurf->surf().frame()->inputFrameId(), m_trimParam.list).first) {
+        const auto trimSts = frame_inside_range(taskSurf->surf().frame()->inputFrameId(), m_trimParam.list);
+        const auto inputFramePts = rational_rescale(taskSurf->surf().frame()->timestamp(), m_srcTimebase, m_outTimebase);
+        if ((trimSts.second > 0) //check_pts内で最初のフレームのptsを0とするようnOutFirstPtsが設定されるので、先頭のtrim blockについてはここでは処理しない
+            && (m_lastTrimFramePts != AV_NOPTS_VALUE)) { //前のフレームがtrimで脱落させたフレームなら
+            m_trimTimestampOffset += inputFramePts - m_lastTrimFramePts; //trimで脱落させたフレームの分の時間を加算
+        }
+        if (!trimSts.first) {
+            m_lastTrimFramePts = inputFramePts; //脱落させたフレームの時間を記憶
             return RGY_ERR_NONE;
         }
+        m_lastTrimFramePts = AV_NOPTS_VALUE;
         if (!m_input->checkTimeSeekTo(taskSurf->surf().frame()->timestamp(), m_srcTimebase)) {
             return RGY_ERR_NONE; //seektoにより脱落させるフレーム
         }
