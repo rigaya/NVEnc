@@ -2192,15 +2192,24 @@ public:
     RGY_ERR runThreadOutput() {
         m_threadOutput = std::thread([this]() {
             while (!m_threadOutputAbort) {
-                CUFrameEnc *frameEnc = nullptr;
-                while (!m_runCtx->qEncodeBufferUsed().front_copy_and_pop_no_lock(&frameEnc)) {
-                    m_runCtx->qEncodeBufferUsed().wait_for_push(); // 最大16ms待機
-                    if (m_threadOutputAbort) {
-                        return RGY_ERR_ABORTED;
+                struct CUFrameEncAutoDelete {
+                    RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree;
+                    CUFrameEncAutoDelete(RGYQueueMPMP<CUFrameEnc *>& q) : qEncodeBufferFree(q) {};;
+                    void operator()(CUFrameEnc* p) { if (p) qEncodeBufferFree.push(p); }
+                };
+                std::unique_ptr<CUFrameEnc, CUFrameEncAutoDelete> frameEnc(nullptr, CUFrameEncAutoDelete(m_runCtx->qEncodeBufferFree()));
+                {
+                    CUFrameEnc *frameEncPtr = nullptr;
+                    while (!m_runCtx->qEncodeBufferUsed().front_copy_and_pop_no_lock(&frameEncPtr)) {
+                        m_runCtx->qEncodeBufferUsed().wait_for_push(); // 最大16ms待機
+                        if (m_threadOutputAbort) {
+                            return RGY_ERR_ABORTED;
+                        }
                     }
-                }
-                if (!frameEnc) {
-                    continue;
+                    if (!frameEncPtr) {
+                        continue;
+                    }
+                    frameEnc.reset(frameEncPtr);
                 }
                 auto outBs = getOutputBitstream(frameEnc->encBuffer());
                 if (outBs.first != RGY_ERR_NONE) {
@@ -2211,7 +2220,7 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get output bitstream: %s.\n"), get_err_mes(outBs.first));
                     return outBs.first;
                 }
-                m_runCtx->qEncodeBufferFree().push(frameEnc);
+                frameEnc.reset();
                 {
                     // m_outQeueueへのロックが必要ならロックを取得
                     std::optional<std::lock_guard<std::mutex>> lock;
@@ -2541,7 +2550,7 @@ public:
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override {
         auto lastFilterFrame = m_vpFilters.back()->GetFilterParam()->frameOut;
-        return std::make_pair(lastFilterFrame, 0);
+        return std::make_pair(lastFilterFrame, m_outMaxQueueSize);
     };
 
     virtual void runFrameReleaseThread() {
@@ -2642,15 +2651,23 @@ public:
             if (drain) {
                 return RGY_ERR_MORE_DATA; //最後までdrain = trueなら、drain完了
             }
-
+            struct CUFrameEncAutoDelete {
+                RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree;
+                CUFrameEncAutoDelete(RGYQueueMPMP<CUFrameEnc *>& q) : qEncodeBufferFree(q) {};;
+                void operator()(CUFrameEnc* p) { if (p) qEncodeBufferFree.push(p); }
+            };
+            std::unique_ptr<CUFrameEnc, CUFrameEncAutoDelete> encBuffer(nullptr, CUFrameEncAutoDelete(m_qEncodeBufferFree));
             PipelineTaskSurface frameVppOut; 
             if (m_dev->encoder()) {
-                // 使用していないエンコードバッファを取得
-                CUFrameEnc *encBuffer = nullptr;
-                while (!m_qEncodeBufferFree.front_copy_and_pop_no_lock(&encBuffer)) {
-                    m_qEncodeBufferFree.wait_for_push(); // 最大16ms待機
+                { // 使用していないエンコードバッファを取得
+                    CUFrameEnc *encBufferPtr = nullptr;
+                    while (!m_qEncodeBufferFree.front_copy_and_pop_no_lock(&encBufferPtr)) {
+                        m_qEncodeBufferFree.wait_for_push(); // 最大16ms待機
+                    }
+                    encBuffer.reset(encBufferPtr);
                 }
-                frameVppOut = m_workSurfs.get(encBuffer);
+                frameVppOut = m_workSurfs.get(encBuffer.get());
+
                 if (!frameVppOut) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get work surface for vpp output.\n"));
                     return RGY_ERR_NULL_PTR;
