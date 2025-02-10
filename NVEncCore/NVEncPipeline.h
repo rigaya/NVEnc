@@ -2585,9 +2585,6 @@ public:
                 return RGY_ERR_NULL_PTR;
             }
         }
-#define FRAME_COPY_ONLY 0
-#if !FRAME_COPY_ONLY
-        std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
         while (filterframes.size() > 0 || drain) {
             //フィルタリングするならここ
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
@@ -2766,48 +2763,9 @@ public:
             if (cudaEventFilterToDownload) {
                 outputSurf->addCUEvent(cudaEventFilterToDownload);
             }
-            outputSurfs.push_back(std::move(outputSurf));
-
-            #undef clFrameOutInteropRelease
-
+            m_outQeueue.push_back(std::move(outputSurf));
+            encBuffer.release();
         }
-        m_outQeueue.insert(m_outQeueue.end(),
-            std::make_move_iterator(outputSurfs.begin()),
-            std::make_move_iterator(outputSurfs.end())
-        );
-#else
-        auto surfVppOut = getWorkSurf();
-        if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {
-            m_surfVppOutInterop[surfVppOut.get()] = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
-        }
-        auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.get()].get();
-        if (!clFrameOutInterop) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
-            return RGY_ERR_NULL_PTR;
-        }
-        auto err = clFrameOutInterop->acquire(m_cl->queue());
-        if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
-            return RGY_ERR_NULL_PTR;
-        }
-        auto inputSurface = clFrameInInterop->frameInfo();
-        surfVppOut->Data.TimeStamp = inputSurface.timestamp;
-        surfVppOut->Data.FrameOrder = inputSurface.inputFrameId;
-        surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(inputSurface.picstruct);
-        surfVppOut->Data.DataFlag = (mfxU16)inputSurface.flags;
-
-        auto encSurfaceInfo = clFrameOutInterop->frameInfo();
-        RGYOpenCLEvent clevent;
-        m_cl->copyFrame(&encSurfaceInfo, &inputSurface, nullptr, m_cl->queue(), &clevent);
-        if (clFrameInInterop) {
-            clFrameInInterop->release(&clevent);
-            if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
-                dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(clevent);
-            }
-        }
-        clFrameOutInterop->release(&clevent);
-        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
-#endif
         return RGY_ERR_NONE;
     }
 };
