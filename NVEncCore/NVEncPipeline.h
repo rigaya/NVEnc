@@ -1300,6 +1300,51 @@ protected:
     };
 };
 
+class PipelineTaskTrim : public PipelineTask {
+protected:
+    const sTrimParam &m_trimParam;
+    RGYInput *m_input;
+    rgy_rational<int> m_srcTimebase;
+    rgy_rational<int> m_outTimebase;
+    int64_t m_trimTimestampOffset;
+    int64_t m_lastTrimFramePts;
+public:
+    PipelineTaskTrim(NVGPUInfo *dev, const sTrimParam &trimParam, RGYInput *input, const rgy_rational<int>& srcTimebase, const rgy_rational<int>& outTimebase, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::TRIM, dev, outMaxQueueSize, false, log),
+        m_trimParam(trimParam), m_input(input), m_srcTimebase(srcTimebase), m_outTimebase(outTimebase), m_trimTimestampOffset(0), m_lastTrimFramePts(AV_NOPTS_VALUE) {};
+    virtual ~PipelineTaskTrim() {};
+
+    virtual bool isPassThrough() const override { return true; }
+    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
+
+    int64_t trimTimestampOffset() const { return m_trimTimestampOffset; }
+
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (!frame) {
+            return RGY_ERR_MORE_DATA;
+        }
+        m_inFrames++;
+        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+        const auto trimSts = frame_inside_range(taskSurf->surf().frame()->inputFrameId(), m_trimParam.list);
+        const auto inputFramePts = rational_rescale(taskSurf->surf().frame()->timestamp(), m_srcTimebase, m_outTimebase);
+        if ((trimSts.second > 0) //check_pts内で最初のフレームのptsを0とするようnOutFirstPtsが設定されるので、先頭のtrim blockについてはここでは処理しない
+            && (m_lastTrimFramePts != AV_NOPTS_VALUE)) { //前のフレームがtrimで脱落させたフレームなら
+            m_trimTimestampOffset += inputFramePts - m_lastTrimFramePts; //trimで脱落させたフレームの分の時間を加算
+        }
+        if (!trimSts.first) {
+            m_lastTrimFramePts = inputFramePts; //脱落させたフレームの時間を記憶
+            return RGY_ERR_NONE;
+        }
+        m_lastTrimFramePts = AV_NOPTS_VALUE;
+        if (!m_input->checkTimeSeekTo(taskSurf->surf().frame()->timestamp(), m_srcTimebase)) {
+            return RGY_ERR_NONE; //seektoにより脱落させるフレーム
+        }
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), taskSurf->surf()));
+        return RGY_ERR_NONE;
+    }
+};
+
 class PipelineTaskCheckPTS : public PipelineTask {
 protected:
     rgy_rational<int> m_srcTimebase;
@@ -1319,14 +1364,15 @@ protected:
     FramePosList *m_framePosList;
     CuvidDecode *m_dec;
     PipelineTaskNVDecode *m_taskNVDec;
+    const PipelineTaskTrim *m_taskTrim;
 public:
-    PipelineTaskCheckPTS(NVGPUInfo *dev, CuvidDecode *dec, PipelineTaskNVDecode *taskNVDec, rgy_rational<int> srcTimebase, rgy_rational<int> streamTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, cudaVideoDeinterlaceMode deinterlaceMode,
+    PipelineTaskCheckPTS(NVGPUInfo *dev, CuvidDecode *dec, PipelineTaskNVDecode *taskNVDec, const PipelineTaskTrim *taskTrim, rgy_rational<int> srcTimebase, rgy_rational<int> streamTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, cudaVideoDeinterlaceMode deinterlaceMode,
         bool timestampPassThrough, bool vpp_rff, bool vpp_afs_rff_aware, bool interlaceAuto, FramePosList *framePosList, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CHECKPTS, dev, /*outMaxQueueSize = */ 0 /*常に0である必要がある*/, false, log),
         m_srcTimebase(srcTimebase), m_streamTimebase(streamTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync),
         m_timestampPassThrough(timestampPassThrough), m_vpp_rff(vpp_rff), m_vpp_afs_rff_aware(vpp_afs_rff_aware), m_interlaceAuto(interlaceAuto), m_deinterlaceMode(deinterlaceMode),
         m_outFrameDuration(outFrameDuration),
-        m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_inputFramePosIdx(std::numeric_limits<decltype(m_inputFramePosIdx)>::max()), m_framePosList(framePosList), m_dec(dec), m_taskNVDec(taskNVDec) {
+        m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_inputFramePosIdx(std::numeric_limits<decltype(m_inputFramePosIdx)>::max()), m_framePosList(framePosList), m_dec(dec), m_taskNVDec(taskNVDec), m_taskTrim(taskTrim) {
     };
     virtual ~PipelineTaskCheckPTS() {};
 
@@ -1376,6 +1422,9 @@ public:
                 if (taskSurf->surf().frame()->duration() > 0) {
                     outDuration = rational_rescale(taskSurf->surf().frame()->duration(), m_srcTimebase, m_outputTimebase);
                     taskSurf->surf().frame()->setDuration(outDuration);
+                }
+                if (m_taskTrim) {
+                    outPtsSource -= m_taskTrim->trimTimestampOffset();
                 }
             }
         }
@@ -1619,52 +1668,6 @@ public:
         return output;
     }
 #endif
-};
-
-class PipelineTaskTrim : public PipelineTask {
-protected:
-    const sTrimParam &m_trimParam;
-    RGYInput *m_input;
-    rgy_rational<int> m_srcTimebase;
-    rgy_rational<int> m_outTimebase;
-    int64_t m_trimTimestampOffset;
-    int64_t m_lastTrimFramePts;
-public:
-    PipelineTaskTrim(NVGPUInfo *dev, const sTrimParam &trimParam, RGYInput *input, const rgy_rational<int>& srcTimebase, const rgy_rational<int>& outTimebase, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::TRIM, dev, outMaxQueueSize, false, log),
-        m_trimParam(trimParam), m_input(input), m_srcTimebase(srcTimebase), m_outTimebase(outTimebase), m_trimTimestampOffset(0), m_lastTrimFramePts(AV_NOPTS_VALUE) {
-    };
-    virtual ~PipelineTaskTrim() {};
-
-    virtual bool isPassThrough() const override { return true; }
-    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
-    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
-
-    int64_t trimTimestampOffset() const { return m_trimTimestampOffset; }
-
-    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
-        if (!frame) {
-            return RGY_ERR_MORE_DATA;
-        }
-        m_inFrames++;
-        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
-        const auto trimSts = frame_inside_range(taskSurf->surf().frame()->inputFrameId(), m_trimParam.list);
-        const auto inputFramePts = rational_rescale(taskSurf->surf().frame()->timestamp(), m_srcTimebase, m_outTimebase);
-        if ((trimSts.second > 0) //check_pts内で最初のフレームのptsを0とするようnOutFirstPtsが設定されるので、先頭のtrim blockについてはここでは処理しない
-            && (m_lastTrimFramePts != AV_NOPTS_VALUE)) { //前のフレームがtrimで脱落させたフレームなら
-            m_trimTimestampOffset += inputFramePts - m_lastTrimFramePts; //trimで脱落させたフレームの分の時間を加算
-        }
-        if (!trimSts.first) {
-            m_lastTrimFramePts = inputFramePts; //脱落させたフレームの時間を記憶
-            return RGY_ERR_NONE;
-        }
-        m_lastTrimFramePts = AV_NOPTS_VALUE;
-        if (!m_input->checkTimeSeekTo(taskSurf->surf().frame()->timestamp(), m_srcTimebase)) {
-            return RGY_ERR_NONE; //seektoにより脱落させるフレーム
-        }
-        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), taskSurf->surf()));
-        return RGY_ERR_NONE;
-    }
 };
 
 class PipelineTaskAudio : public PipelineTask {

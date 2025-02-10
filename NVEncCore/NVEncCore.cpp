@@ -4154,7 +4154,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
     PipelineTaskNVDecode *taskNVDec = nullptr;
     if (m_pDecoder) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 0, m_pFileReader.get(), m_pLog));
-        taskNVDec = (PipelineTaskNVDecode *)m_pipelineTasks.back().get();
+        taskNVDec = dynamic_cast<PipelineTaskNVDecode *>(m_pipelineTasks.back().get());
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 4, m_pFileReader.get(), m_pLog));
     }
@@ -4162,6 +4162,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_dev.get(), m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_pLog));
     }
     { // checkpts
+        const PipelineTaskTrim *taskTrim = nullptr;
         RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
         const int64_t outFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
         const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
@@ -4169,9 +4170,10 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
         if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_dev.get(), m_trimParam, m_pFileReader.get(), srcTimebase, m_outputTimebase, 0, m_pLog));
+            taskTrim = dynamic_cast<PipelineTaskTrim *>(m_pipelineTasks.back().get());
         }
         const bool interlaceAutoDetect = pReader && pReader->GetInputFrameInfo().picstruct == RGY_PICSTRUCT_AUTO;
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(m_dev.get(), m_pDecoder.get(), taskNVDec,
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(m_dev.get(), m_pDecoder.get(), taskNVDec, taskTrim,
             srcTimebase, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, (m_pDecoder) ? m_pDecoder->getDeinterlaceMode() : cudaVideoDeinterlaceMode_Weave,
             m_timestampPassThrough, VppRffEnabled() && m_pFileReader->rffAware(), VppAfsRffAware() && m_pFileReader->rffAware(),
             interlaceAutoDetect, (pReader) ? pReader->GetFramePosList() : nullptr, m_pLog));
