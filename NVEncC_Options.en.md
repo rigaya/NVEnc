@@ -88,7 +88,7 @@
   - [--(no-)adapt-transform \[H.264\]](#--no-adapt-transform-h264)
   - [--hierarchial-p \[H.264\]](#--hierarchial-p-h264)
   - [--hierarchial-b \[H.264\]](#--hierarchial-b-h264)
-  - [--temporal-layers \<int\> \[H.264\]](#--temporal-layers-int-h264)
+  - [--temporal-layers \<int\>](#--temporal-layers-int)
   - [--mv-precision \<string\>](#--mv-precision-string)
   - [--slices \<int\> \[H.264/HEVC\]](#--slices-int-h264hevc)
   - [--cabac \[H.264\]](#--cabac-h264)
@@ -99,12 +99,11 @@
   - [--cu-min \<int\> \[HEVC\]](#--cu-min-int-hevc)
   - [--alpha-bitrate-ratio \<int\> \[HEVC\]](#--alpha-bitrate-ratio-int-hevc)
   - [--alpha-channel-mode \<string\> \[HEVC\]](#--alpha-channel-mode-string-hevc)
-  - [--tf-level \<int\> \[HEVC\]](#--tf-level-int-hevc)
+  - [--tf-level \<int\>](#--tf-level-int)
   - [--part-size-min \<int\> \[AV1\]](#--part-size-min-int-av1)
   - [--part-size-max \<int\> \[AV1\]](#--part-size-max-int-av1)
   - [--tile-columns \<int\> \[AV1\]](#--tile-columns-int-av1)
   - [--tile-rows \<int\> \[AV1\]](#--tile-rows-int-av1)
-  - [--max-temporal-layers \<int\> \[AV1\]](#--max-temporal-layers-int-av1)
   - [--refs-forward \<int\> \[AV1\]](#--refs-forward-int-av1)
   - [--refs-backward \<int\> \[AV1\]](#--refs-backward-int-av1)
   - [--level \<string\>](#--level-string)
@@ -729,7 +728,7 @@ Enable hierarchial P frames.
 ### --hierarchial-b [H.264]
 Enable hierarchial B frames.
 
-### --temporal-layers &lt;int&gt; [H.264]
+### --temporal-layers &lt;int&gt;  
 Specifies number of temporal layers to be used for hierarchical coding.
 
 ### --mv-precision &lt;string&gt;
@@ -769,8 +768,8 @@ Set alpha channel mode. (default: straight)
 - straight
 - premultiplied
 
-### --tf-level &lt;int&gt; [HEVC]  
-Set HEVC temporal filtering, requires bframes >= 4. (Default: 0)
+### --tf-level &lt;int&gt;  
+Set temporal filtering, requires bframes >= 4. (Default: 0)
 ```
   0, 4
 ```
@@ -801,9 +800,6 @@ Set number of tile rows. (default: 0 = auto)
   0 (auto), 1, 2, 4, 8, 16, 32, 64
 ```
 
-### --max-temporal-layers &lt;int&gt; [AV1]
-Specifies the max temporal layer used for hierarchical coding.
-
 ### --refs-forward &lt;int&gt; [AV1]
 Specifies max number of forward reference frame used for prediction of a frame. (default: 0 = auto)
 
@@ -825,7 +821,7 @@ av1 :  auto, 2, 2.1, 3, 3.1, 4, 4.1, 5, 5.1, 5.2, 5.3, 6, 6.1
 ### --profile &lt;string&gt;
 Specify the profile of the codec to be encoded. If not specified, it will be automatically set.
 ```
-h264:  auto, baseline, main, high, high444
+h264:  auto, baseline, main, high, high10, high422, high444
 hevc:  auto, main, main10, main444
 av1 :  auto, main, high
 ```
@@ -965,6 +961,9 @@ Insert picture timing SEI.
 
   - forced_3  
     Forced 3-strip split frame encoding (if NVENC number > 2, NVENC number of strips otherwise).
+
+  - forced_4  
+    Forced 4-strip split frame encoding (if NVENC number > 3, NVENC number of strips otherwise).
 
   - disable  
     Both split frame auto mode and forced mode are disabled.

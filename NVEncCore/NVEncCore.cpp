@@ -1890,6 +1890,12 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         error_feature_unsupported(RGY_LOG_ERROR, _T("dynamic RC Change"));
         return RGY_ERR_UNSUPPORTED;
     }
+    if (!m_dev->encoder()->checkAPIver(13, 0)) {
+        if (inputParam->splitEncMode == NV_ENC_SPLIT_FOUR_FORCED_MODE) {
+            error_feature_unsupported(RGY_LOG_WARN, _T("split-enc = forced_4"));
+            inputParam->splitEncMode = NV_ENC_SPLIT_THREE_FORCED_MODE;
+        }
+    }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
         m_stEncConfig.gopLength = (int)(m_encFps.n() / (double)m_encFps.d() + 0.5) * 10;
@@ -2232,6 +2238,20 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         set_sliceModeData(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 1);
     }
     set_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver(), (NV_ENC_BIT_DEPTH)clamp(inputParam->outputDepth, 8, 10));
+    
+    if (inputParam->codec_rgy == RGY_CODEC_HEVC || inputParam->codec_rgy == RGY_CODEC_AV1) {
+        if (!m_dev->encoder()->checkAPIver(13, 0)) {
+            set_enableTemporalSVC(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalSVC ? 1 : 0);
+        }
+    }
+    
+    if ((inputParam->codec_rgy == RGY_CODEC_HEVC && m_dev->encoder()->checkAPIver(12, 2))
+        || ((inputParam->codec_rgy == RGY_CODEC_AV1 || inputParam->codec_rgy == RGY_CODEC_H264) && m_dev->encoder()->checkAPIver(13, 0))) {
+        set_tfLevel(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalFilterLevel);
+        m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel;
+    }
+
+    set_temporalLayers(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalLayers, m_dev->encoder()->getAPIver());
 
     auto require_repeat_headers = [this]() {
         return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0);
@@ -2239,16 +2259,12 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
 
     if (inputParam->codec_rgy == RGY_CODEC_AV1) {
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.outputAnnexBFormat = 0; // とりあえず0で
-        if (!m_dev->encoder()->checkAPIver(12, 2)) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.reserved4_1 /*inputPixelBitDepthMinus8*/ = m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.reserved4_2 /*pixelBitDepthMinus8*/;
-        }
 
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.disableSeqHdr = 0;
         // シーク性を確保するため、常に有効にする
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.repeatSeqHdr = 1;
     } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
         if (m_dev->encoder()->checkAPIver(12, 2)) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.tfLevel = (NV_ENC_TEMPORAL_FILTER_LEVEL)inputParam->temporalFilterLevel;
             m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel;
         }
 
@@ -6169,18 +6185,22 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             add_str(RGY_LOG_INFO, _T("repeat-headers "));
         }
     }
-    if (rgy_codec == RGY_CODEC_HEVC) {
-        if (m_stEncConfig.encodeCodecConfig.hevcConfig.tfLevel != NV_ENC_TEMPORAL_FILTER_LEVEL_0 && m_stCreateEncodeParams.encodeConfig->frameIntervalP >= 5) {
-            add_str(RGY_LOG_INFO, _T("tf%s "), get_chr_from_value(list_temporal_filter_level, m_stEncConfig.encodeCodecConfig.hevcConfig.tfLevel));
-        }
+    if (get_tfLevel(m_stEncConfig.encodeCodecConfig, rgy_codec) != NV_ENC_TEMPORAL_FILTER_LEVEL_0 && m_stCreateEncodeParams.encodeConfig->frameIntervalP >= 5) {
+        add_str(RGY_LOG_INFO, _T("tf%s "), get_chr_from_value(list_temporal_filter_level, get_tfLevel(m_stEncConfig.encodeCodecConfig, rgy_codec)));
     }
     if (rgy_codec == RGY_CODEC_AV1) {
         if (m_stEncConfig.encodeCodecConfig.av1Config.outputAnnexBFormat) {
             add_str(RGY_LOG_INFO, _T("annexb "));
         }
     }
+    if (rgy_codec == RGY_CODEC_HEVC || rgy_codec == RGY_CODEC_AV1) {
+        if (get_enableTemporalSVC(m_stEncConfig.encodeCodecConfig, rgy_codec)) {
+            add_str(RGY_LOG_INFO, _T("temporal-svc "));
+        }
+    }
     add_str(RGY_LOG_INFO, _T("\n"));
     return str;
+
 }
 
 void NVEncCore::PrintEncodingParamsInfo(int output_level) {

@@ -120,6 +120,11 @@ static const GUID NV_ENC_PRESET_LOSSLESS_HP_GUID =
 
 #define NV_ENC_PARAMS_RC_QVBR ((NV_ENC_PARAMS_RC_MODE)0x1000)
 
+#define NV_ENC_BUFFER_FORMAT_NV12_PL NV_ENC_BUFFER_FORMAT_NV12
+#define NV_ENC_BUFFER_FORMAT_YV12_PL NV_ENC_BUFFER_FORMAT_YV12
+#define NV_ENC_BUFFER_FORMAT_IYUV_PL NV_ENC_BUFFER_FORMAT_IYUV
+#define NV_ENC_BUFFER_FORMAT_YUV444_PL NV_ENC_BUFFER_FORMAT_YUV444
+
 // --------------------------------------------------------------------------------
 
 
@@ -141,6 +146,8 @@ const guid_desc h264_profile_names[] = {
     { NV_ENC_H264_PROFILE_BASELINE_GUID,    _T("baseline"), 66 },
     { NV_ENC_H264_PROFILE_MAIN_GUID,        _T("main"),     77 },
     { NV_ENC_H264_PROFILE_HIGH_GUID,        _T("high"),    100 },
+    { NV_ENC_H264_PROFILE_HIGH_10_GUID,     _T("high10"),  110 },
+    { NV_ENC_H264_PROFILE_HIGH_422_GUID,    _T("high422"), 122 },
     { NV_ENC_H264_PROFILE_HIGH_444_GUID,    _T("high444"), 244 },
     //{ NV_ENC_H264_PROFILE_STEREO_GUID,   _T("Stereo"),  128 }
 };
@@ -621,8 +628,10 @@ const CX_DESC list_split_enc_mode[] = {
     { _T("auto_forced"), NV_ENC_SPLIT_AUTO_FORCED_MODE },
     { _T("forced_2"),    NV_ENC_SPLIT_TWO_FORCED_MODE },
     { _T("forced_3"),    NV_ENC_SPLIT_THREE_FORCED_MODE },
+    { _T("forced_4"),    NV_ENC_SPLIT_FOUR_FORCED_MODE },
     { _T("disable"),     NV_ENC_SPLIT_DISABLE_MODE },
     {},
+
 };
 
 static const int DYNAMIC_PARAM_NOT_SELECTED = -1;
@@ -825,6 +834,7 @@ struct InEncodeVideoParam {
     int aqStrength;
     NV_ENC_TEMPORAL_FILTER_LEVEL temporalFilterLevel;
     NV_ENC_TUNING_INFO tuningInfo;
+    int temporalLayers;
 
     NV_ENC_CONFIG encConfig;      //エンコード設定
 
@@ -837,6 +847,7 @@ struct InEncodeVideoParam {
     int lossless;                 //ロスレス出力
     int losslessIgnoreInputCsp;
     bool alphaChannel;
+    bool temporalSVC;
     int alphaBitrateRatio;
     int alphaChannelMode;
     int nWeightP;
@@ -967,9 +978,10 @@ static void set_##x(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, co
 
 NV_CODEC_PARAM_ALL(level, 0);
 NV_CODEC_PARAM_HEVC_AV1(tier, 0);
+NV_CODEC_PARAM_HEVC_AV1(enableTemporalSVC, false);
 NV_CODEC_PARAM_ALL(idrPeriod, 300);
 NV_CODEC_PARAM_ALL(useBFramesAsRef, NV_ENC_BFRAME_REF_MODE_DISABLED);
-NV_CODEC_PARAM_H264_HEVC(enableLTR, false);
+NV_CODEC_PARAM_ALL(enableLTR, false);
 NV_CODEC_PARAM_H264_HEVC(ltrNumFrames, 0);
 NV_CODEC_PARAM_H264_HEVC(sliceMode, 0);
 NV_CODEC_PARAM_H264_HEVC(sliceModeData, 0);
@@ -979,6 +991,111 @@ NV_CODEC_PARAM_H264_HEVC(outputAUD, 0);
 NV_CODEC_PARAM_H264_HEVC(outputPictureTimingSEI, 0);
 NV_CODEC_PARAM_H264_HEVC(outputBufferingPeriodSEI, 0);
 NV_CODEC_PARAM_H264_HEVC(repeatSPSPPS, 0);
+NV_CODEC_PARAM_ALL(tfLevel, NV_ENC_TEMPORAL_FILTER_LEVEL_0);
+
+static void set_temporalLayers(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, int value, const uint32_t apiver) {
+    switch (codec) {
+    case RGY_CODEC_H264:
+        codec_config.h264Config.maxTemporalLayers = value;
+        break;
+    case RGY_CODEC_HEVC:
+        if (nvenc_api_ver_check(apiver, nvenc_api_ver(13, 0))) {
+            codec_config.hevcConfig.numTemporalLayers = value;
+        }
+        break;
+    case RGY_CODEC_AV1:
+        if (nvenc_api_ver_check(apiver, nvenc_api_ver(12, 0))) {
+            codec_config.av1Config.maxTemporalLayersMinus1 = value-1;
+        }
+        if (nvenc_api_ver_check(apiver, nvenc_api_ver(13, 0))) {
+            codec_config.av1Config.numTemporalLayers = value;
+        }
+        break;
+    default: break;
+
+    }
+}
+
+static int get_temporalLayers(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const uint32_t apiver) {
+    switch (codec) {
+    case RGY_CODEC_H264:
+        return codec_config.h264Config.maxTemporalLayers;
+    case RGY_CODEC_HEVC:
+        if (nvenc_api_ver_check(apiver, nvenc_api_ver(13, 0))) {
+            return codec_config.hevcConfig.numTemporalLayers;
+        }
+        return 0;
+    case RGY_CODEC_AV1:
+        if (nvenc_api_ver_check(apiver, nvenc_api_ver(13, 0))) {
+            return codec_config.av1Config.numTemporalLayers;
+        }
+        if (nvenc_api_ver_check(apiver, nvenc_api_ver(12, 0))) {
+            return codec_config.av1Config.maxTemporalLayersMinus1 + 1;
+        }
+        return 0;
+    default: return 0;
+    }
+}
+
+typedef struct _NV_ENC_CONFIG_AV1_OLD
+{
+    uint32_t level;                                                 /**< [in]: Specifies the level of the encoded bitstream.*/
+    uint32_t tier;                                                  /**< [in]: Specifies the level tier of the encoded bitstream.*/
+    NV_ENC_AV1_PART_SIZE minPartSize;                               /**< [in]: Specifies the minimum size of luma coding block partition.*/
+    NV_ENC_AV1_PART_SIZE maxPartSize;                               /**< [in]: Specifies the maximum size of luma coding block partition.*/
+    uint32_t outputAnnexBFormat             : 1;                    /**< [in]: Set 1 to use Annex B format for bitstream output.*/
+    uint32_t enableTimingInfo               : 1;                    /**< [in]: Set 1 to write Timing Info into sequence/frame headers */
+    uint32_t enableDecoderModelInfo         : 1;                    /**< [in]: Set 1 to write Decoder Model Info into sequence/frame headers */
+    uint32_t enableFrameIdNumbers           : 1;                    /**< [in]: Set 1 to write Frame id numbers in  bitstream */
+    uint32_t disableSeqHdr                  : 1;                    /**< [in]: Set 1 to disable Sequence Header signaling in the bitstream. */
+    uint32_t repeatSeqHdr                   : 1;                    /**< [in]: Set 1 to output Sequence Header for every Key frame.*/
+    uint32_t enableIntraRefresh             : 1;                    /**< [in]: Set 1 to enable gradual decoder refresh or intra refresh. If the GOP structure uses B frames this will be ignored */
+    uint32_t chromaFormatIDC                : 2;                    /**< [in]: Specifies the chroma format. Should be set to 1 for yuv420 input (yuv444 input currently not supported).*/
+    uint32_t enableBitstreamPadding         : 1;                    /**< [in]: Set 1 to enable bitstream padding. */
+    uint32_t enableCustomTileConfig         : 1;                    /**< [in]: Set 1 to enable custom tile configuration: numTileColumns and numTileRows must have non zero values and tileWidths and tileHeights must point to a valid address  */
+    uint32_t enableFilmGrainParams          : 1;                    /**< [in]: Set 1 to enable custom film grain parameters: filmGrainParams must point to a valid address  */
+    uint32_t inputPixelBitDepthMinus8       : 3;                    /**< [in]: Reserved and must be set to 0.*/
+    uint32_t pixelBitDepthMinus8            : 3;                    /**< [in]: Reserved and must be set to 0.*/
+    uint32_t reserved                       : 14;                   /**< [in]: Reserved bitfields.*/
+    uint32_t idrPeriod;                                             /**< [in]: Specifies the IDR/Key frame interval. If not set, this is made equal to gopLength in NV_ENC_CONFIG.Low latency application client can set IDR interval to NVENC_INFINITE_GOPLENGTH so that IDR frames are not inserted automatically. */
+    uint32_t intraRefreshPeriod;                                    /**< [in]: Specifies the interval between successive intra refresh if enableIntrarefresh is set. Requires enableIntraRefresh to be set.
+                                                                               Will be disabled if NV_ENC_CONFIG::gopLength is not set to NVENC_INFINITE_GOPLENGTH. */
+    uint32_t intraRefreshCnt;                                       /**< [in]: Specifies the length of intra refresh in number of frames for periodic intra refresh. This value should be smaller than intraRefreshPeriod */
+    uint32_t maxNumRefFramesInDPB;                                  /**< [in]: Specifies the maximum number of references frames in the DPB.*/
+    uint32_t numTileColumns;                                        /**< [in]: This parameter in conjunction with the flag enableCustomTileConfig and the array tileWidths[] specifies the way in which the picture is divided into tile columns.
+                                                                               When enableCustomTileConfig == 0, the picture will be uniformly divided into numTileColumns tile columns. If numTileColumns is not a power of 2,
+                                                                               it will be rounded down to the next power of 2 value. If numTileColumns == 0, the picture will be coded with the smallest number of vertical tiles as allowed by standard.
+                                                                               When enableCustomTileConfig == 1, numTileColumns must be > 0 and <= NV_MAX_TILE_COLS_AV1 and tileWidths must point to a valid array of numTileColumns entries.
+                                                                               Entry i specifies the width in 64x64 CTU unit of tile colum i. The sum of all the entries should be equal to the picture width in 64x64 CTU units. */
+    uint32_t numTileRows;                                           /**< [in]: This parameter in conjunction with the flag enableCustomTileConfig and the array tileHeights[] specifies the way in which the picture is divided into tiles rows
+                                                                               When enableCustomTileConfig == 0, the picture will be uniformly divided into numTileRows tile rows. If numTileRows is not a power of 2,
+                                                                               it will be rounded down to the next power of 2 value. If numTileRows == 0, the picture will be coded with the smallest number of horizontal tiles as allowed by standard.
+                                                                               When enableCustomTileConfig == 1, numTileRows must be > 0 and <= NV_MAX_TILE_ROWS_AV1 and tileHeights must point to a valid array of numTileRows entries.
+                                                                               Entry i specifies the height in 64x64 CTU unit of tile row i. The sum of all the entries should be equal to the picture hieght in 64x64 CTU units. */
+    uint32_t reserved2;                                             /**< [in]: Reserved and must be set to 0.*/ 
+    uint32_t *tileWidths;                                           /**< [in]: If enableCustomTileConfig == 1, tileWidths[i] specifies the width of tile column i in 64x64 CTU unit, with 0 <= i <= numTileColumns -1. */
+    uint32_t *tileHeights;                                          /**< [in]: If enableCustomTileConfig == 1, tileHeights[i] specifies the height of tile row i in 64x64 CTU unit, with 0 <= i <= numTileRows -1. */
+    uint32_t maxTemporalLayersMinus1;                               /**< [in]: Specifies the max temporal layer used for hierarchical coding. Cannot be reconfigured and must be specified during encoder creation if temporal layer is considered. */
+    NV_ENC_VUI_COLOR_PRIMARIES colorPrimaries;                      /**< [in]: as defined in section of ISO/IEC 23091-4/ITU-T H.273 */
+    NV_ENC_VUI_TRANSFER_CHARACTERISTIC transferCharacteristics;     /**< [in]: as defined in section of ISO/IEC 23091-4/ITU-T H.273 */
+    NV_ENC_VUI_MATRIX_COEFFS matrixCoefficients;                    /**< [in]: as defined in section of ISO/IEC 23091-4/ITU-T H.273 */
+    uint32_t colorRange;                                            /**< [in]: 0: studio swing representation - 1: full swing representation */
+    uint32_t chromaSamplePosition;                                  /**< [in]: 0: unknown
+                                                                               1: Horizontally collocated with luma (0,0) sample, between two vertical samples
+                                                                               2: Co-located with luma (0,0) sample */
+    NV_ENC_BFRAME_REF_MODE useBFramesAsRef;                         /**< [in]: Specifies the B-Frame as reference mode. Check support for useBFramesAsRef mode using  ::NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE caps.*/
+    NV_ENC_FILM_GRAIN_PARAMS_AV1 *filmGrainParams;                  /**< [in]: If enableFilmGrainParams == 1, filmGrainParams must point to a valid NV_ENC_FILM_GRAIN_PARAMS_AV1 structure */
+    NV_ENC_NUM_REF_FRAMES  numFwdRefs;                              /**< [in]: Specifies max number of forward reference frame used for prediction of a frame. It must be in range 1-4 (Last, Last2, last3 and Golden). It's a suggestive value not necessarily be honored always. */
+    NV_ENC_NUM_REF_FRAMES  numBwdRefs;                              /**< [in]: Specifies max number of L1 list reference frame used for prediction of a frame. It must be in range 1-3 (Backward, Altref2, Altref). It's a suggestive value not necessarily be honored always. */
+   NV_ENC_BIT_DEPTH outputBitDepth;                                 /**< [in]: Specifies pixel bit depth of encoded video. Should be set to NV_ENC_BIT_DEPTH_8 for 8 bit, NV_ENC_BIT_DEPTH_10 for 10 bit.
+                                                                               HW will do the bitdepth conversion internally from inputBitDepth -> outputBitDepth if bit depths differ
+                                                                               Support for 8 bit input to 10 bit encode conversion only */
+   NV_ENC_BIT_DEPTH inputBitDepth;                                  /**< [in]: Specifies pixel bit depth of video input. Should be set to NV_ENC_BIT_DEPTH_8 for 8 bit input, NV_ENC_BIT_DEPTH_10 for 10 bit input. */
+    uint32_t reserved1[233];                                        /**< [in]: Reserved and must be set to 0.*/
+    void*    reserved3[62];                                         /**< [in]: Reserved and must be set to NULL */
+} NV_ENC_CONFIG_AV1_OLD;
+
+static_assert(sizeof(NV_ENC_CONFIG_AV1_OLD) == sizeof(NV_ENC_CONFIG_AV1), "size mismatch NV_ENC_CONFIG_AV1_OLD - NV_ENC_CONFIG_AV1");
 
 static NV_ENC_BIT_DEPTH get_bitDepth(const NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC codec, const uint32_t apiver) {
     if (nvenc_api_ver_check(apiver, nvenc_api_ver(12, 2))) {
@@ -992,8 +1109,12 @@ static NV_ENC_BIT_DEPTH get_bitDepth(const NV_ENC_CODEC_CONFIG& codec_config, co
         switch (codec) {
         case RGY_CODEC_HEVC: return (NV_ENC_BIT_DEPTH)(codec_config.hevcConfig.reserved3 /*pixelBitDepthMinus8*/ + 8);
         case RGY_CODEC_H264: return NV_ENC_BIT_DEPTH_8;
-        case RGY_CODEC_AV1:  return (NV_ENC_BIT_DEPTH)(codec_config.av1Config.reserved4_2 /*pixelBitDepthMinus8*/ + 8);
+        case RGY_CODEC_AV1:  {
+            NV_ENC_CONFIG_AV1_OLD *old_codec_config = (NV_ENC_CONFIG_AV1_OLD *)&codec_config.av1Config;
+            return (NV_ENC_BIT_DEPTH)(old_codec_config->pixelBitDepthMinus8 + 8);
+        }
         default: return NV_ENC_BIT_DEPTH_8;
+
         }
     }
 }
@@ -1018,7 +1139,11 @@ static void set_bitDepth(NV_ENC_CODEC_CONFIG& codec_config, const RGY_CODEC code
         switch (codec) {
         case RGY_CODEC_HEVC: codec_config.hevcConfig.reserved3 /*pixelBitDepthMinus8*/ = value - 8; break;
         case RGY_CODEC_H264: break;
-        case RGY_CODEC_AV1:  codec_config.av1Config.reserved4_2 /*pixelBitDepthMinus8*/ = value - 8; break;
+        case RGY_CODEC_AV1: {
+            NV_ENC_CONFIG_AV1_OLD *old_codec_config = (NV_ENC_CONFIG_AV1_OLD *)&codec_config.av1Config;
+            old_codec_config->inputPixelBitDepthMinus8 = value - 8;
+            old_codec_config->pixelBitDepthMinus8 = value - 8;
+            break; }
         default: break;
         }
     }

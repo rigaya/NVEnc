@@ -66,11 +66,12 @@ bool check_if_nvcuda_dll_available() {
 }
 
 //前提とするAPIバージョンのチェック
-static_assert(NVENCAPI_MAJOR_VERSION == 12);
-static_assert(NVENCAPI_MINOR_VERSION == 2);
+static_assert(NVENCAPI_MAJOR_VERSION == 13);
+static_assert(NVENCAPI_MINOR_VERSION == 0);
 //対応するAPIバージョンの管理
 static constexpr auto API_VER_LIST = make_array<uint32_t>(
     nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
+    nvenc_api_ver(12, 2),
     nvenc_api_ver(12, 1),
     nvenc_api_ver(12, 0),
     nvenc_api_ver(11, 1),
@@ -927,6 +928,9 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    false, false, _T("Max Level"), get_level_list(codec));
     add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    false, false, _T("Min Level"), get_level_list(codec));
     add_cap_info(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE,        false, true,  _T("4:4:4"));
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(13, 0))) {
+        add_cap_info(NV_ENC_CAPS_SUPPORT_YUV422_ENCODE,    false, true,  _T("4:2:2"));
+    }
     add_cap_info(NV_ENC_CAPS_WIDTH_MIN,                    false, false, _T("Min Width"));
     add_cap_info(NV_ENC_CAPS_WIDTH_MAX,                    false, false, _T("Max Width"));
     add_cap_info(NV_ENC_CAPS_HEIGHT_MIN,                   false, false, _T("Min Height"));
@@ -957,6 +961,12 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
         add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_FILTER,  false, true, _T("Temporal Filter"));
         add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD_LEVEL,  false, true, _T("Lookahead Level"));
         add_cap_info(NV_ENC_CAPS_SUPPORT_UNIDIRECTIONAL_B, false, true, _T("Undirectional B"));
+    }
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(11, 0))) {
+        add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_SVC,   false, true, _T("Temporal SVC"));
+    }
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(13, 0))) {
+        add_cap_info(NV_ENC_CAPS_SUPPORT_MVHEVC_ENCODE,  false, true, _T("MV-HEVC"));
     }
     add_cap_info(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE,         false, true,  _T("10bit depth"));
     return nvStatus;

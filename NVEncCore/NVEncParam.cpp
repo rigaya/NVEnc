@@ -274,6 +274,8 @@ InEncodeVideoParam::InEncodeVideoParam() :
     lossless(0),                 //ロスレス出力
     losslessIgnoreInputCsp(0),
     alphaChannel(false),
+    temporalSVC(false),
+    temporalLayers(0),
     alphaBitrateRatio(0),
     alphaChannelMode(0),
     nWeightP(0),

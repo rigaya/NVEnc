@@ -81,10 +81,10 @@
   - [--aq-temporal](#--aq-temporal)
   - [--aq-strength \<int\>](#--aq-strength-int)
   - [--bref-mode \<string\>](#--bref-mode-string)
+  - [--temporal-layers \<int\>](#--temporal-layers-int)
   - [--direct \<string\> \[H.264\]](#--direct-string-h264)
   - [--hierarchial-p \[H.264\]](#--hierarchial-p-h264)
   - [--hierarchial-b \[H.264\]](#--hierarchial-b-h264)
-  - [--temporal-layers \<int\> \[H.264\]](#--temporal-layers-int-h264)
   - [--mv-precision \<string\>](#--mv-precision-string)
   - [--slices \<int\> \[H.264/HEVC\]](#--slices-int-h264hevc)
   - [--cabac \[H.264\]](#--cabac-h264)
@@ -95,12 +95,11 @@
   - [--cu-min \<int\> \[HEVC\]](#--cu-min-int-hevc)
   - [--alpha-bitrate-ratio \<int\> \[HEVC\]](#--alpha-bitrate-ratio-int-hevc)
   - [--alpha-channel-mode \<string\> \[HEVC\]](#--alpha-channel-mode-string-hevc)
-  - [--tf-level \<int\> \[HEVC\]](#--tf-level-int-hevc)
+  - [--tf-level \<int\>](#--tf-level-int)
   - [--part-size-min \<int\> \[AV1\]](#--part-size-min-int-av1)
   - [--part-size-max \<int\> \[AV1\]](#--part-size-max-int-av1)
   - [--tile-columns \<int\> \[AV1\]](#--tile-columns-int-av1)
   - [--tile-rows \<int\> \[AV1\]](#--tile-rows-int-av1)
-  - [--max-temporal-layers \<int\> \[AV1\]](#--max-temporal-layers-int-av1)
   - [--refs-forward \<int\> \[AV1\]](#--refs-forward-int-av1)
   - [--refs-backward \<int\> \[AV1\]](#--refs-backward-int-av1)
   - [--level \<string\>](#--level-string)
@@ -722,6 +721,9 @@ Bフレームの参照モードを指定する。
 - each ... すべてのBフレームを参照フレームとして利用する  
 - middle ... 偶数番目のBフレームのみが参照フレームとして利用できる  
 
+### --temporal-layers &lt;int&gt;  
+hierarchialフレームの階層数を指定する。
+
 ### --direct &lt;string&gt; [H.264]
 H.264のBDirect modeを指定する。
 - auto(default)
@@ -734,9 +736,6 @@ H.264のhierarchial Pフレームを有効にする。
 
 ### --hierarchial-b [H.264]
 H.264のhierarchial Bフレームを有効にする。
-
-### --temporal-layers &lt;int&gt; [H.264]
-H.264のhierarchialフレームの階層数を指定する。
 
 ### --mv-precision &lt;string&gt;
 動きベクトル精度 / デフォルト: auto
@@ -776,8 +775,8 @@ HEVCの規格では64まで存在するが、現状NVENCでは32までしかサ�
 - straight
 - premultiplied
 
-### --tf-level &lt;int&gt; [HEVC]  
-HEVC temporal filterの指定。Bフレーム数が4以上である必要がある。(デフォルト: 0)
+### --tf-level &lt;int&gt;  
+temporal filterの指定。Bフレーム数が4以上である必要がある。(デフォルト: 0)
 ```
   0, 4
 ```
@@ -808,9 +807,6 @@ HEVC temporal filterの指定。Bフレーム数が4以上である必要があ�
   0 (auto), 1, 2, 4, 8, 16, 32, 64
 ```
 
-### --max-temporal-layers &lt;int&gt; [AV1]
-Specifies the max temporal layer used for hierarchical coding.
-
 ### --refs-forward &lt;int&gt; [AV1]
 フレーム予測に使用する順方向の参照フレームの最大数を指定する。 (デフォルト: 0 = auto)
 
@@ -832,7 +828,7 @@ av1 :  auto, 2, 2.1, 3, 3.1, 4, 4.1, 5, 5.1, 5.2, 5.3, 6, 6.1
 ### --profile &lt;string&gt;
 エンコードするコーデックのプロファイルを指定する。指定しない場合は自動的に決定される。
 ```
-h264:  auto, baseline, main, high, high444
+h264:  auto, baseline, main, high, high10, high422, high444
 hevc:  auto, main, main10, main444
 av1 :  auto, main, high
 ```
@@ -972,6 +968,9 @@ picture timing SEIを挿入する。
 
   - forced_3  
     NVENCの数に応じて、最大で3-stripのフレーム分割エンコードを行う。
+
+  - forced_4  
+    NVENCの数に応じて、最大で4-stripのフレーム分割エンコードを行う。
 
   - disable  
     フレーム分割のforced modeとauto modeをともに無効にする。
