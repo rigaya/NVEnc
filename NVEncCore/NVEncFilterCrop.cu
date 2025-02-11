@@ -989,6 +989,35 @@ void crop_uv_yuv444_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
     }
 }
 
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+__global__ void kernel_crop_uv_yuv444_nv16(uint8_t *__restrict__ pDstC, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrcU, const uint8_t *__restrict__ pSrcV, const int srcPitch, const int offsetX, const int offsetY) {
+    int uv_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int uv_y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (uv_x < (dstWidth >> 1) && uv_y < dstHeight) {
+        int idst = uv_y * dstPitch + uv_x * sizeof(TypeOut) * 2; //nv16
+        int isrc = (uv_y + offsetY) * srcPitch + ((uv_x << 1) + offsetX) * sizeof(TypeIn); //yuv444
+
+        const TypeIn src_u0 = *(const TypeIn *)(pSrcU + isrc);
+        const TypeIn src_v0 = *(const TypeIn *)(pSrcV + isrc);
+
+        struct TypeOut2 { TypeOut a, b; };
+        TypeOut2 dst = { (TypeOut)BIT_DEPTH_CONV(src_u0), (TypeOut)BIT_DEPTH_CONV(src_v0) };
+        *(TypeOut2 *)(pDstC + idst) = dst;
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_uv_yuv444_nv16(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputC = getPlane(pOutputFrame, RGY_PLANE_C);
+    dim3 blockSize(32, 4);
+    dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x * 2), divCeil(pOutputFrame->height, blockSize.y));
+    kernel_crop_uv_yuv444_nv16<TypeOut, out_bit_depth, TypeIn, in_bit_depth> << <gridSize, blockSize, 0, stream >> > (
+        planeOutputC.ptr[0], planeOutputC.pitch[0], pOutputFrame->width, pOutputFrame->height,
+        planeInputU.ptr[0], planeInputV.ptr[0], planeInputU.pitch[0], pCrop->e.left, pCrop->e.up);
+}
 
 static __device__ __inline__
 float mat_det(const float mat[3][3]) {
@@ -2750,7 +2779,12 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, con
         { RGY_CSP_2(RGY_CSP_YUV444,     RGY_CSP_YV12).i,    crop_uv_yuv444_yv12<uint8_t,   8, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_YUV444,     RGY_CSP_YV12_16).i, crop_uv_yuv444_yv12<uint16_t, 16, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_YUV444_16,  RGY_CSP_YV12).i,    crop_uv_yuv444_yv12<uint8_t,   8, uint16_t, 16> },
-        { RGY_CSP_2(RGY_CSP_YUV444_16,  RGY_CSP_YV12_16).i, crop_uv_yuv444_yv12<uint16_t, 16, uint16_t, 16> }
+        { RGY_CSP_2(RGY_CSP_YUV444_16,  RGY_CSP_YV12_16).i, crop_uv_yuv444_yv12<uint16_t, 16, uint16_t, 16> },
+
+        { RGY_CSP_2(RGY_CSP_YUV444,     RGY_CSP_NV16).i, crop_uv_yuv444_nv16<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444,     RGY_CSP_P210).i, crop_uv_yuv444_nv16<uint16_t, 16, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_16,  RGY_CSP_NV16).i, crop_uv_yuv444_nv16<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_16,  RGY_CSP_P210).i, crop_uv_yuv444_nv16<uint16_t, 16, uint16_t, 16> },
     };
     const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
     if (convert_from_yuv444_list.count(cspconv.i) != 0) {

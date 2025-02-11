@@ -578,13 +578,10 @@ Set output bit depth.
 ### --output-csp &lt;string&gt;
 Set output colorspace.
 - yuv420 (default)
+- yuv422
 - yuv444
 - rgb
 - yuva420
-
-  :::note info
-  There is no plan to add other colorspaces such as yuv422.
-  :::
 
 ### --multipass &lt;string&gt;
 Multi pass mode. Available only for --vbr and --cbr. [API v10.0]  

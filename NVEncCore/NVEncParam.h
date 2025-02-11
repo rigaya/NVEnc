@@ -511,6 +511,7 @@ const CX_DESC list_bitdepth[] = {
 
 const CX_DESC list_output_csp[] = {
     { _T("yuv420"),  RGY_CSP_YV12    },
+    { _T("yuv422"),  RGY_CSP_YUV422  },
     { _T("yuv444"),  RGY_CSP_YUV444  },
     { _T("rgb"),     RGY_CSP_RGB     },
     { _T("yuva420"), RGY_CSP_YUVA420 },
@@ -842,11 +843,9 @@ struct InEncodeVideoParam {
     RGY_CODEC codec_rgy;          //出力コーデック
     int bluray;                   //bluray出力
     int outputDepth;              //出力ビット深度
-    int yuv444;                   //YUV444出力
-    int rgb;
+    RGY_CSP outputCsp;
     int lossless;                 //ロスレス出力
     int losslessIgnoreInputCsp;
-    bool alphaChannel;
     bool temporalSVC;
     int alphaBitrateRatio;
     int alphaChannelMode;

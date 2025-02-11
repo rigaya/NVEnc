@@ -269,11 +269,9 @@ InEncodeVideoParam::InEncodeVideoParam() :
     codec_rgy(RGY_CODEC_H264),
     bluray(0),                   //bluray出力
     outputDepth(8),
-    yuv444(0),                   //YUV444出力
-    rgb(0),
+    outputCsp(RGY_CSP_YV12),
     lossless(0),                 //ロスレス出力
     losslessIgnoreInputCsp(0),
-    alphaChannel(false),
     temporalSVC(false),
     temporalLayers(0),
     alphaBitrateRatio(0),

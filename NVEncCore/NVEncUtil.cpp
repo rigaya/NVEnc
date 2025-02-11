@@ -60,7 +60,9 @@ static const auto RGY_CODEC_PROFILE_TO_GUID = make_array<std::pair<RGY_CODEC_DAT
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 77),  NV_ENC_H264_PROFILE_BASELINE_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 88),  NV_ENC_H264_PROFILE_MAIN_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 100), NV_ENC_H264_PROFILE_HIGH_GUID),
-    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 144), NV_ENC_H264_PROFILE_HIGH_444_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 110), NV_ENC_H264_PROFILE_HIGH_10_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 122), NV_ENC_H264_PROFILE_HIGH_422_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 244), NV_ENC_H264_PROFILE_HIGH_444_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 1),   NV_ENC_HEVC_PROFILE_MAIN_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 2),   NV_ENC_HEVC_PROFILE_MAIN10_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 4),   NV_ENC_HEVC_PROFILE_FREXT_GUID),
@@ -94,12 +96,13 @@ static const auto RGY_CSP_TO_NVENC = make_array<std::pair<RGY_CSP, NV_ENC_BUFFER
     std::make_pair(RGY_CSP_P010,      NV_ENC_BUFFER_FORMAT_YUV420_10BIT),
     std::make_pair(RGY_CSP_NV12A,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_P010A,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_NV16,      NV_ENC_BUFFER_FORMAT_NV16),
     std::make_pair(RGY_CSP_YUV422_09, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422_10, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422_12, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422_14, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422_16, NV_ENC_BUFFER_FORMAT_UNDEFINED),
-    std::make_pair(RGY_CSP_P210,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_P210,      NV_ENC_BUFFER_FORMAT_P210),
     std::make_pair(RGY_CSP_YUV444_09, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV444_10, NV_ENC_BUFFER_FORMAT_YUV444_10BIT),
     std::make_pair(RGY_CSP_YUV444_12, NV_ENC_BUFFER_FORMAT_UNDEFINED),
@@ -123,6 +126,8 @@ MAP_PAIR_0_1(csp, rgy, RGY_CSP, enc, NV_ENC_BUFFER_FORMAT, RGY_CSP_TO_NVENC, RGY
 static const auto RGY_CSP_TO_SURFACEFMT = make_array<std::pair<RGY_CSP, cudaVideoSurfaceFormat>>(
     std::make_pair(RGY_CSP_NV12,      cudaVideoSurfaceFormat_NV12),
     std::make_pair(RGY_CSP_P010,      cudaVideoSurfaceFormat_P016),
+    std::make_pair(RGY_CSP_NV16,      cudaVideoSurfaceFormat_NV16),
+    std::make_pair(RGY_CSP_P210,      cudaVideoSurfaceFormat_P216),
     std::make_pair(RGY_CSP_YUV444,    cudaVideoSurfaceFormat_YUV444),
     std::make_pair(RGY_CSP_YUV444_16, cudaVideoSurfaceFormat_YUV444_16Bit),
     std::make_pair(RGY_CSP_YUV444_12, cudaVideoSurfaceFormat_YUV444_16Bit),
@@ -150,6 +155,10 @@ RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format, const bool alphaChanne
     case NV_ENC_BUFFER_FORMAT_YV12:
     case NV_ENC_BUFFER_FORMAT_IYUV:
         return (alphaChannel) ? RGY_CSP_YUVA420 : RGY_CSP_YV12;
+    case NV_ENC_BUFFER_FORMAT_NV16:
+        return RGY_CSP_NV16;
+    case NV_ENC_BUFFER_FORMAT_P210:
+        return RGY_CSP_P210;
     case NV_ENC_BUFFER_FORMAT_YUV444:
         if (alphaChannel) {
             return RGY_CSP_YUVA444;

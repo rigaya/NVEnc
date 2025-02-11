@@ -180,7 +180,7 @@ tstring encoder_help() {
     });
     str += strsprintf(_T("")
         _T("   --output-depth <int>         set output bit depth ( 8(default), 10 )\n")
-        _T("   --output-csp <string>        set output csp ( yuv420(default), yuv444 )\n")
+        _T("   --output-csp <string>        set output csp ( yuv420(default), yuv422, yuv444, yuva420 )\n")
         _T("   --sar <int>:<int>            set Sample  Aspect Ratio\n")
         _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
         _T("\n")
@@ -1249,7 +1249,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             GUID result_guid = get_guid_from_name(strInput[i], h264_profile_names);
             if (0 != memcmp(&result_guid, &zero, sizeof(result_guid))) {
                 pParams->encConfig.profileGUID = result_guid;
-                if (!FOR_AUO) pParams->yuv444 = memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid)) == 0;
+                if (!FOR_AUO) {
+                    if (memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid)) == 0) {
+                        pParams->outputCsp = RGY_CSP_YUV444;
+                    } else if (memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_422_GUID, sizeof(result_guid)) == 0) {
+                        pParams->outputCsp = RGY_CSP_YUV422;
+                    } else if(memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_10_GUID, sizeof(result_guid)) == 0) {
+                        pParams->outputDepth = 10;
+                        pParams->outputCsp = RGY_CSP_YV12;
+                    }
+                }
                 flag = true;
             }
         }
@@ -1261,14 +1270,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 ptr[0] = (uint16_t)result;
                 if (!FOR_AUO) {
                     if (result == NV_ENC_PROFILE_HEVC_MAIN444) {
-                        pParams->yuv444 = TRUE;
+                        pParams->outputCsp = RGY_CSP_YUV444;
                     }
                     if (result == NV_ENC_PROFILE_HEVC_MAIN10) {
                         pParams->outputDepth = 10;
-                        pParams->yuv444 = FALSE;
+                        pParams->outputCsp = RGY_CSP_YV12;
                     } else if (result == NV_ENC_PROFILE_HEVC_MAIN) {
                         pParams->outputDepth = 8;
-                        pParams->yuv444 = FALSE;
+                        pParams->outputCsp = RGY_CSP_YV12;
                     }
                 }
                 flag = true;
@@ -1330,16 +1339,18 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_output_csp, strInput[i], &value)) {
-            const RGY_CSP csp = (RGY_CSP)value;
-            pParams->yuv444 = csp == RGY_CSP_YUV444 || csp == RGY_CSP_RGB;
-            pParams->alphaChannel = csp == RGY_CSP_YUVA420;
-            pParams->rgb = csp == RGY_CSP_RGB;
-            if (!FOR_AUO && pParams->yuv444) {
-                //H264
-                memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(pParams->encConfig.profileGUID));
-                //HEVC
-                uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_HEVC].hevcConfig.tier;
-                ptr[0] = (uint16_t)NV_ENC_PROFILE_HEVC_MAIN444;
+            pParams->outputCsp = (RGY_CSP)value;
+            if (!FOR_AUO) {
+                if (RGY_CSP_CHROMA_FORMAT[pParams->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[pParams->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[pParams->outputCsp] == RGY_CHROMAFMT_RGB_PACKED) {
+                    //H264
+                    memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(pParams->encConfig.profileGUID));
+                    //HEVC
+                    uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_HEVC].hevcConfig.tier;
+                    ptr[0] = (uint16_t)NV_ENC_PROFILE_HEVC_MAIN444;
+                } else if (RGY_CSP_CHROMA_FORMAT[pParams->outputCsp] == RGY_CHROMAFMT_YUV422) {
+                    //H264
+                    memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_422_GUID, sizeof(pParams->encConfig.profileGUID));
+                }
             }
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_output_csp);
@@ -1765,13 +1776,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_BOOL(_T("--lossless"), _T(""), lossless);
     OPT_BOOL(_T("--lossless-ignore-input-csp"), _T(""), losslessIgnoreInputCsp);
 
-    if (pParams->rgb) {
-        cmd << _T(" --output-csp ") << get_cx_desc(list_output_csp, (int)RGY_CSP_RGB);
-    } else if (pParams->yuv444) {
-        cmd << _T(" --output-csp ") << get_cx_desc(list_output_csp, (int)RGY_CSP_YUV444);
-    } else if (pParams->alphaChannel) {
-        cmd << _T(" --output-csp ") << get_cx_desc(list_output_csp, (int)RGY_CSP_YUVA420);
-    }
+    OPT_LST(_T("--output-csp"), outputCsp, list_output_csp);
     OPT_LST(_T("--tf-level"), temporalFilterLevel, list_temporal_filter_level);
     OPT_NUM(_T("--temporal-layers"), temporalLayers);
 

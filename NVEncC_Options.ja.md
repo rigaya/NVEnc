@@ -579,13 +579,10 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 ### --output-csp &lt;string&gt;
 出力色空間を設定。
 - yuv420 (デフォルト)
+- yuv422
 - yuv444
 - rgb
 - yuva420
-
-  :::note info
-  他の色空間(yuv422)のサポートの予定はありません。
-  :::
 
 ### --lossless  [H.264/HEVC]
 ロスレス出力を行う。(デフォルト: オフ)

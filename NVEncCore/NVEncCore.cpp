@@ -351,21 +351,23 @@ void NVEncCore::SetAbortFlagPointer(bool *abortFlag) {
 //エンコーダが出力使用する色空間を入力パラメータをもとに取得
 RGY_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) const {
     const bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
-    if (inputParam->rgb) {
+    if (   RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB
+        || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED) {
         return (bOutputHighBitDepth) ? RGY_CSP_GBR_16 : RGY_CSP_GBR;
     }
-    const bool yuv444 = inputParam->yuv444;
-    if (inputParam->alphaChannel) {
+    const bool yuv422 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV422;
+    const bool yuv444 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED;
+    if (rgy_csp_has_alpha(inputParam->outputCsp)) {
         if (bOutputHighBitDepth) {
-            return (yuv444) ? RGY_CSP_YUVA444_16 : RGY_CSP_P010A;
+            return (yuv444) ? RGY_CSP_YUVA444_16 : ((yuv422) ? RGY_CSP_NA : RGY_CSP_P010A);
         } else {
-            return (yuv444) ? RGY_CSP_YUVA444 : RGY_CSP_NV12A;
+            return (yuv444) ? RGY_CSP_YUVA444 : ((yuv422) ? RGY_CSP_NA : RGY_CSP_NV12A);
         }
     } else {
         if (bOutputHighBitDepth) {
-            return (yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+            return (yuv444) ? RGY_CSP_YUV444_16 : ((yuv422) ? RGY_CSP_P210 : RGY_CSP_P010);
         } else {
-            return (yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+            return (yuv444) ? RGY_CSP_YUV444 : ((yuv422) ? RGY_CSP_NV16 : RGY_CSP_NV12);
         }
     }
 }
@@ -374,14 +376,15 @@ RGY_CSP NVEncCore::GetRawOutCSP(const InEncodeVideoParam *inputParam) const {
     if (inputParam->codec_rgy != RGY_CODEC_RAW) {
         return GetEncoderCSP(inputParam);
     }
-    const bool yuv444 = inputParam->yuv444;
+    const bool yuv422 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV422;
+    const bool yuv444 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED;
     switch (inputParam->outputDepth) {
-    case 10: return (yuv444) ? RGY_CSP_YUV444_10 : RGY_CSP_YV12_10;
-    case 12: return (yuv444) ? RGY_CSP_YUV444_12 : RGY_CSP_YV12_12;
-    case 14: return (yuv444) ? RGY_CSP_YUV444_14 : RGY_CSP_YV12_14;
-    case 16: return (yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_YV12_16;
+    case 10: return (yuv444) ? RGY_CSP_YUV444_10 : ((yuv422) ? RGY_CSP_YUV422_10 : RGY_CSP_YV12_10);
+    case 12: return (yuv444) ? RGY_CSP_YUV444_12 : ((yuv422) ? RGY_CSP_YUV422_12 : RGY_CSP_YV12_12);
+    case 14: return (yuv444) ? RGY_CSP_YUV444_14 : ((yuv422) ? RGY_CSP_YUV422_14 : RGY_CSP_YV12_14);
+    case 16: return (yuv444) ? RGY_CSP_YUV444_16 : ((yuv422) ? RGY_CSP_YUV422_16 : RGY_CSP_YV12_16);
     case 8:
-    default: return (yuv444) ? RGY_CSP_YUV444 : RGY_CSP_YV12;
+    default: return (yuv444) ? RGY_CSP_YUV444 : ((yuv422) ? RGY_CSP_YUV422 : RGY_CSP_YV12);
     }
 }
 
@@ -477,13 +480,30 @@ RGY_ERR NVEncCore::InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWD
 
     //入力モジュールが、エンコーダに返すべき色空間をセット
     const bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
-    if (inputParam->lossless || inputParam->rgb || inputParam->alphaChannel || inputParam->vpp.colorspace.enable) {
+    if (inputParam->lossless
+        || (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED)
+        || rgy_csp_has_alpha(inputParam->outputCsp)
+        || inputParam->vpp.colorspace.enable) {
         inputParam->input.csp = RGY_CSP_NA; //なるべくそのままの色空間のままGPUへ転送する
     } else {
         if (bOutputHighBitDepth) {
-            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+            switch (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp]) {
+            case RGY_CHROMAFMT_YUV444:
+            case RGY_CHROMAFMT_RGB:
+            case RGY_CHROMAFMT_RGB_PACKED:
+                inputParam->input.csp = RGY_CSP_YUV444_16; break;
+            case RGY_CHROMAFMT_YUV422: inputParam->input.csp = RGY_CSP_P210; break;
+            default: inputParam->input.csp = RGY_CSP_P010; break;
+            }
         } else {
-            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+            switch (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp]) {
+            case RGY_CHROMAFMT_YUV444:
+            case RGY_CHROMAFMT_RGB:
+            case RGY_CHROMAFMT_RGB_PACKED:
+                inputParam->input.csp = RGY_CSP_YUV444; break;
+            case RGY_CHROMAFMT_YUV422: inputParam->input.csp = RGY_CSP_NV16; break;
+            default: inputParam->input.csp = RGY_CSP_NV12; break;
+            }
         }
     }
     // インタレ解除が指定され、かつインタレの指定がない場合は、自動的にインタレの情報取得を行う
@@ -721,7 +741,7 @@ RGY_ERR NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FOR
     if (auto sts = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
         m_trimParam, m_outputTimebase, m_Chapters, m_hdrseiOut.get(), m_dovirpu.get(), m_encTimestamp.get(),
-        false, false, inputParams->alphaChannel, inputParams->alphaChannelMode,
+        false, false, rgy_csp_has_alpha(inputParams->outputCsp), inputParams->alphaChannelMode,
         m_poolPkt.get(), m_poolFrame.get(), m_pStatus, m_pPerfMonitor, m_pLog); sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s): %s.\n"), get_err_mes(sts));
         return sts;
@@ -801,14 +821,20 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             //デフォルトではH.264のプロファイル情報
             //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
             codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
-            if (inputParam->yuv444) {
+            if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
                 codecProfileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
             } else if (inputParam->outputDepth > 8) {
-                codecProfileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
+                codecProfileGUID = (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
             }
         } else if (inputParam->codec_rgy == RGY_CODEC_H264) {
-            if (inputParam->yuv444) {
+            if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED) {
                 codecProfileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
+            } else if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV422) {
+                codecProfileGUID = NV_ENC_H264_PROFILE_HIGH_422_GUID;
+            } else if (inputParam->outputDepth > 8) {
+                codecProfileGUID = NV_ENC_H264_PROFILE_HIGH_10_GUID;
+            } else {
+                codecProfileGUID = NV_ENC_H264_PROFILE_HIGH_GUID;
             }
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
@@ -833,12 +859,18 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             gpu = gpuList.erase(gpu);
             continue;
         }
-        if (inputParam->yuv444 && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps)) {
+        if ((RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED)
+            && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps)) {
             message += strsprintf(_T("GPU #%d (%s) does not support %s yuv444 encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
             gpu = gpuList.erase(gpu);
             continue;
         }
-        if (inputParam->alphaChannel && !get_value(NV_ENC_CAPS_SUPPORT_ALPHA_LAYER_ENCODING, codec->caps)) {
+        if ((RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV422) && !get_value(NV_ENC_CAPS_SUPPORT_YUV422_ENCODE, codec->caps)) {
+            message += strsprintf(_T("GPU #%d (%s) does not support %s yuv422 encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
+            gpu = gpuList.erase(gpu);
+            continue;
+        }
+        if (rgy_csp_has_alpha(inputParam->outputCsp) && !get_value(NV_ENC_CAPS_SUPPORT_ALPHA_LAYER_ENCODING, codec->caps)) {
             message += strsprintf(_T("GPU #%d (%s) does not support %s alpha channel encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
             gpu = gpuList.erase(gpu);
             continue;
@@ -870,8 +902,10 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
                gpu = gpuList.erase(gpu);
                continue;
            }
-           const auto targetCsp = (highbitdepth) ? ((inputParam->yuv444) ? RGY_CSP_YUV444_10 : RGY_CSP_YV12_10)
-                                                 : ((inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_YV12);
+           const bool yuv444 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED;
+           const bool yuv422 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV422;
+           const auto targetCsp = (highbitdepth) ? ((yuv444) ? RGY_CSP_YUV444_10 : (yuv422 ? RGY_CSP_YUV422_10 : RGY_CSP_YV12_10))
+                                                 : ((yuv444) ? RGY_CSP_YUV444    : (yuv422 ? RGY_CSP_YUV422    : RGY_CSP_YV12));
            const auto& cuvid_codec_csp = cuvid_csp.at(inputParam->codec_rgy);
            if (std::find(cuvid_codec_csp.begin(), cuvid_codec_csp.end(), targetCsp) == cuvid_codec_csp.end()) {
                message += strsprintf(_T("GPU #%d (%s) does not support %s %s decoding required for ssim/psnr/vmaf calculation.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str(), RGY_CSP_NAMES[targetCsp]);
@@ -1569,7 +1603,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
             m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
             if (inputParam->outputDepth > 8) {
-                m_stEncConfig.profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
+                m_stEncConfig.profileGUID = (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
             }
             m_stEncConfig.encodeCodecConfig.hevcConfig.tier >>= 16;
         } else if (inputParam->codec_rgy == RGY_CODEC_AV1) {
@@ -1868,7 +1902,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             inputParam->temporalFilterLevel = NV_ENC_TEMPORAL_FILTER_LEVEL_0;
         }
     }
-    if (inputParam->alphaChannel) {
+    if (rgy_csp_has_alpha(inputParam->outputCsp)) {
         if (inputParam->codec_rgy != RGY_CODEC_HEVC) {
             PrintMes(RGY_LOG_ERROR, _T("Alpha channel encoding only supported in HEVC codec.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -1877,8 +1911,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             error_feature_unsupported(RGY_LOG_ERROR, _T("alpha channel"));
             return RGY_ERR_UNSUPPORTED;
         }
-        if (inputParam->yuv444) {
-            PrintMes(RGY_LOG_ERROR, _T("Alpha channel encoding not supported with YUV444 encoding.\n"));
+        if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
+            PrintMes(RGY_LOG_ERROR, _T("Alpha channel encoding only supported with YUV420 encoding.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
         if (encodeIsHighBitDepth(inputParam)) {
@@ -2006,14 +2040,11 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_INFO, _T("using AV1 qvbr max bitrate %d kbps.\n"), AV1_MAX_QVBR_BITRATE_KBPS);
         m_stEncConfig.rcParams.maxBitRate = AV1_MAX_QVBR_BITRATE_KBPS * 1000;
     }
-    if (inputParam->yuv444) {
+    if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
         if (inputParam->codec_rgy == RGY_CODEC_H264 || inputParam->codec_rgy == RGY_CODEC_HEVC) {
             set_chromaSampleLocationFlag(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, 0);
             set_chromaSampleLocationTop(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, 0);
             set_chromaSampleLocationBot(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, 0);
-        } else {
-            PrintMes(RGY_LOG_ERROR, _T("yuv444 encoding not supported with this codec.\n"));
-            return RGY_ERR_UNSUPPORTED;
         }
     }
 
@@ -2272,15 +2303,25 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI = 1;
         }
-        //YUV444出力
-        if (inputParam->yuv444) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
+        //YUV422/444出力
+        if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
+            switch (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp]) {
+            case RGY_CHROMAFMT_YUV444:
+            case RGY_CHROMAFMT_RGB:
+            case RGY_CHROMAFMT_RGB_PACKED:
+                m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
+                break;
+            case RGY_CHROMAFMT_YUV422:
+                m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 2;
+                break;
+                
+            }
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
         } else if (get_bitDepth(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver()) > 8) {
-            m_stCreateEncodeParams.encodeConfig->profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
+            m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_MAIN10_GUID;
         }
-        if (inputParam->alphaChannel) {
+        if (rgy_csp_has_alpha(inputParam->outputCsp)) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.enableAlphaLayerEncoding = 1;
             m_stCreateEncodeParams.encodeConfig->rcParams.alphaLayerBitrateRatio = inputParam->alphaBitrateRatio;
             if (m_stCreateEncodeParams.enableWeightedPrediction) {
@@ -2341,11 +2382,23 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputBufferingPeriodSEI = 1;
         }
-        //YUV444出力
-        if (inputParam->yuv444) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.chromaFormatIDC = 3;
+        //YUV422/444出力
+        if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
+            switch (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp]) {
+            case RGY_CHROMAFMT_YUV444:
+            case RGY_CHROMAFMT_RGB:
+            case RGY_CHROMAFMT_RGB_PACKED:
+                m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.chromaFormatIDC = 3;
+                m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
+                break;
+            case RGY_CHROMAFMT_YUV422:
+                m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.chromaFormatIDC = 2;
+                m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_H264_PROFILE_HIGH_422_GUID;
+                break;
+            }
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
-            m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
+        } else if (get_bitDepth(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver()) > 8) {
+            m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_H264_PROFILE_HIGH_10_GUID;
         }
 
         //整合性チェック (一般, H.264/AVC)
@@ -2587,6 +2640,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     switch (filterCsp) {
     case RGY_CSP_NV12:  filterCsp = RGY_CSP_YV12; break;
     case RGY_CSP_P010:  filterCsp = RGY_CSP_YV12_16; break;
+    case RGY_CSP_NV16:  filterCsp = RGY_CSP_YUV444; break;
+    case RGY_CSP_P210:  filterCsp = RGY_CSP_YUV444_16; break;
     case RGY_CSP_NV12A: filterCsp = RGY_CSP_YUVA420; break;
     case RGY_CSP_P010A: filterCsp = RGY_CSP_YUVA420_16; break;
     default: break;
@@ -2605,7 +2660,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.csp = filterCsp;
-        if (filterPipeline.size() > ifilter && filterPipeline[ifilter] == VppType::CL_COLORSPACE) { // 次のフィルタがcolorpaceの時
+        if (filterPipeline.size() > ifilter && filterPipeline[ifilter] == VppType::CL_COLORSPACE) { // 次のフィルタがcolorpaceの時はなるべくそのまま転送するように
             if (RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_RGB_PACKED) {
                 param->frameOut.csp = (rgy_csp_has_alpha(inputFrame.csp))
                     ? ((RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_RGBA_16 : RGY_CSP_RGBA)
@@ -3820,9 +3875,33 @@ bool NVEncCore::encodeIsHighBitDepth(const InEncodeVideoParam *inputParam) const
 NV_ENC_BUFFER_FORMAT NVEncCore::GetEncBufferFormat(const InEncodeVideoParam *inputParam) const {
     NV_ENC_BUFFER_FORMAT encBufferFormat;
     if (encodeIsHighBitDepth(inputParam)) {
-        encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_10BIT : NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
+        switch (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp]) {
+        case RGY_CHROMAFMT_YUV444:
+        case RGY_CHROMAFMT_RGB:
+        case RGY_CHROMAFMT_RGB_PACKED:
+            encBufferFormat = NV_ENC_BUFFER_FORMAT_YUV444_10BIT;
+            break;
+        case RGY_CHROMAFMT_YUV422:
+            encBufferFormat = NV_ENC_BUFFER_FORMAT_P210;
+            break;
+        default:
+            encBufferFormat = NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
+            break;
+        }
     } else {
-        encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+        switch (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp]) {
+        case RGY_CHROMAFMT_YUV444:
+        case RGY_CHROMAFMT_RGB:
+        case RGY_CHROMAFMT_RGB_PACKED:
+            encBufferFormat = NV_ENC_BUFFER_FORMAT_YUV444_PL;
+            break;
+        case RGY_CHROMAFMT_YUV422:
+            encBufferFormat = NV_ENC_BUFFER_FORMAT_NV16;
+            break;
+        default:
+            encBufferFormat = NV_ENC_BUFFER_FORMAT_NV12_PL;
+            break;
+        }
     }
     return encBufferFormat;
 }
@@ -3971,7 +4050,21 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
         //入力ファイルの情報をもとに修正
         //なるべくオリジナルに沿ったものにエンコードする
-        inputParam->yuv444 = (RGY_CSP_CHROMA_FORMAT[inputFrameInfo.csp] != RGY_CHROMAFMT_YUV420);
+        switch (RGY_CSP_CHROMA_FORMAT[inputFrameInfo.csp]) {
+        case RGY_CHROMAFMT_RGB:
+        case RGY_CHROMAFMT_RGB_PACKED:
+            inputParam->outputCsp = RGY_CSP_RGB;
+            break;
+        case RGY_CHROMAFMT_YUV444:
+            inputParam->outputCsp = RGY_CSP_YUV444;
+            break;
+        case RGY_CHROMAFMT_YUV422:
+            inputParam->outputCsp = RGY_CSP_YUV422;
+            break;
+        default:
+            inputParam->outputCsp = RGY_CSP_YV12;
+            break;
+        }
 
         if (RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
             if (inputParam->codec_rgy != RGY_CODEC_H264) {
@@ -3981,7 +4074,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
             }
         }
     }
-    if (inputParam->alphaChannel) {
+    if (rgy_csp_has_alpha(inputParam->outputCsp)) {
         if (rgy_csp_alpha_base(inputParam->input.csp) == RGY_CSP_NA) {
             PrintMes(RGY_LOG_ERROR, _T("Input file does not have alpha channel.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -3990,12 +4083,12 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("alpha channel encoding only supported with HEVC encoding.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        if (bOutputHighBitDepth || inputParam->yuv444) {
+        if (bOutputHighBitDepth || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
             PrintMes(RGY_LOG_ERROR, _T("alpha channel encoding only supported with 8bit YUVA420 HEVC encoding.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
     }
-    m_rgbAsYUV444 = inputParam->rgb != 0;
+    m_rgbAsYUV444 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED;
 
     if (gpuList.size() > 1 && m_nDeviceId < 0) {
         RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
@@ -4303,7 +4396,7 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
             return RGY_ERR_UNSUPPORTED;
         }
         if (t1->taskType() == PipelineTaskType::NVENC) {
-            auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, prm->alphaChannel, m_encodeBufferCount + t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
+            auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, rgy_csp_has_alpha(prm->outputCsp), m_encodeBufferCount + t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
             if (sts != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
                 return sts;
