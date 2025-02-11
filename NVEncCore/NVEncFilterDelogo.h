@@ -239,16 +239,16 @@ protected:
     int selectLogo(const tstring& selectStr, const tstring& inputFilename);
     std::string logoNameList();
 
-    RGY_ERR delogoY(RGYFrameInfo *pFrame, float fade);
-    RGY_ERR delogoUV(RGYFrameInfo *pFrame, float fade);
-    RGY_ERR logoNR(RGYFrameInfo *pFrame, int nr_value);
+    RGY_ERR delogoY(RGYFrameInfo *pFrame, float fade, cudaStream_t stream);
+    RGY_ERR delogoUV(RGYFrameInfo *pFrame, float fade, cudaStream_t stream);
+    RGY_ERR logoNR(RGYFrameInfo *pFrame, int nr_value, cudaStream_t stream);
 
-    RGY_ERR createLogoMask();
-    RGY_ERR createLogoMask(int maskThreshold);
-    RGY_ERR createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int nr_value);
-    RGY_ERR calcAutoFadeNR(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame);
-    RGY_ERR calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame);
-    RGY_ERR createAdjustedMask(const RGYFrameInfo *frame_logo);
+    RGY_ERR createLogoMask(cudaStream_t stream);
+    RGY_ERR createLogoMask(int maskThreshold, cudaStream_t stream);
+    RGY_ERR createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int nr_value, cudaStream_t stream);
+    RGY_ERR calcAutoFadeNR(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame, cudaStream_t stream);
+    RGY_ERR calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame, cudaStream_t stream);
+    RGY_ERR createAdjustedMask(const RGYFrameInfo *frame_logo, cudaStream_t stream);
     RGY_ERR runDelogoYMultiFade(const RGYFrameInfo *frame_logo, const bool multi_src, const int nr_value, const float *fade, const int fade_n, cudaStream_t stream);
     RGY_ERR runSmooth(const int smooth_n, const int nr_value, const int nr_area, cudaStream_t stream);
     RGY_ERR prewittEvaluateRun(const bool store_pixel_result, const CUFrameBuf *target, const CUFrameBuf *mask, const int nr_value, const int eval_n, DelogoEvalStreams& evalst);

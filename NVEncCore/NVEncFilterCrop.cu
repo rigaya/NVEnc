@@ -3274,7 +3274,7 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         if (pCropParam->frameOut.csp == RGY_CSP_NV12) {
             dim3 blockSize(32, 4);
             dim3 gridSize(divCeil(pCropParam->frameOut.width, blockSize.x), divCeil(pCropParam->frameOut.height, blockSize.y));
-            kernel_crop_nv12_nv12<uint8_t><<<gridSize, blockSize>>>((uint8_t *)ppOutputFrames[0]->ptr, (uint8_t *)pInputFrame->ptr, pInputFrame->pitch);
+            kernel_crop_nv12_nv12<uint8_t><<<gridSize, blockSize, 0, stream>>>((uint8_t *)ppOutputFrames[0]->ptr, (uint8_t *)pInputFrame->ptr, pInputFrame->pitch);
         } else {
             AddMessage(RGY_LOG_ERROR, _T("unsupported output csp.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;

@@ -283,7 +283,7 @@ RGY_ERR NVEncFilterConvolution3d::run_filter(const RGYFrameInfo *pInputFrame, RG
     RGY_ERR sts = RGY_ERR_NONE;
 
     //if (interlaced(*pInputFrame)) {
-    //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
+    //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
     //}
     if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));

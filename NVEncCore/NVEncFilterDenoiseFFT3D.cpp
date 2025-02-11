@@ -271,7 +271,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
         }
     } else {
         //if (interlaced(*pInputFrame)) {
-        //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
+        //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
         //}
         const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {

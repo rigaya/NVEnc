@@ -838,10 +838,10 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
                     return sts;
                 }
             }
-            if (RGY_ERR_NONE != (sts = createLogoMask())) {
+            if (RGY_ERR_NONE != (sts = createLogoMask(cudaStreamPerThread))) {
                 return sts;
             }
-            if (RGY_ERR_NONE != (sts = createNRMask(m_maskNR.get(), m_mask.get(), pDelogoParam->delogo.NRArea))) {
+            if (RGY_ERR_NONE != (sts = createNRMask(m_maskNR.get(), m_mask.get(), pDelogoParam->delogo.NRArea, cudaStreamPerThread))) {
                 return sts;
             }
         }
@@ -873,10 +873,10 @@ tstring NVEncFilterParamDelogo::print() const {
     return delogo.print();
 }
 
-RGY_ERR NVEncFilterDelogo::createLogoMask() {
+RGY_ERR NVEncFilterDelogo::createLogoMask(cudaStream_t stream) {
     for (float target_ratio = 0.1f; target_ratio >= 0.01f; target_ratio -= 0.01f) {
         for (float threshold = (float)DELOGO_MASK_THRESHOLD_DEFAULT; threshold >= 200.0f; threshold *= 0.95f) {
-            auto sts = createLogoMask((int)(threshold + 0.5f));
+            auto sts = createLogoMask((int)(threshold + 0.5f), stream);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             };
@@ -1051,9 +1051,9 @@ NVENCSTATUS NVEncFilterDelogo::autoFade4(float& auto_fade, const RGYFrameInfo *f
 }
 #endif
 
-RGY_ERR NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame) {
+RGY_ERR NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame, cudaStream_t stream) {
     // Frame毎に調整したMaskの作成
-    auto sts = createAdjustedMask(pFrame);
+    auto sts = createAdjustedMask(pFrame, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
@@ -1097,8 +1097,8 @@ RGY_ERR NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, c
 
 #pragma warning (push)
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
-RGY_ERR NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame) {
-    auto sts = calcAutoFadeNRFrame(auto_nr, auto_fade, pFrame);
+RGY_ERR NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame, cudaStream_t stream) {
+    auto sts = calcAutoFadeNRFrame(auto_nr, auto_fade, pFrame, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
     m_fadeArray[m_frameOut].frameId = m_frameOut;
@@ -1255,7 +1255,7 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         } else {
             pInputFrame = &m_src[m_frameIn].frame;
         }
-        if (RGY_ERR_NONE != (sts = calcAutoFadeNR(auto_nr, fade, pInputFrame))) {
+        if (RGY_ERR_NONE != (sts = calcAutoFadeNR(auto_nr, fade, pInputFrame, stream))) {
             return sts;
         }
         if (m_frameIn < 3) {
@@ -1281,15 +1281,15 @@ RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         m_frameOut++;
     }
 
-    if (RGY_ERR_NONE != (sts = delogoY(ppOutputFrames[0], fade))) {
+    if (RGY_ERR_NONE != (sts = delogoY(ppOutputFrames[0], fade, stream))) {
         return sts;
     }
 
-    if (RGY_ERR_NONE != (sts = delogoUV(ppOutputFrames[0], fade))) {
+    if (RGY_ERR_NONE != (sts = delogoUV(ppOutputFrames[0], fade, stream))) {
         return sts;
     }
 
-    if (RGY_ERR_NONE != (sts = logoNR(ppOutputFrames[0], pDelogoParam->delogo.NRValue))) {
+    if (RGY_ERR_NONE != (sts = logoNR(ppOutputFrames[0], pDelogoParam->delogo.NRValue, stream))) {
         return sts;
     }
 

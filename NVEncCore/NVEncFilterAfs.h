@@ -244,9 +244,9 @@ protected:
     RGY_ERR merge_scan(AFS_STRIPE_DATA *sp, AFS_SCAN_DATA *sp0, AFS_SCAN_DATA *sp1, CUMemBufPair *count_stripe, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     RGY_ERR count_stripe(AFS_STRIPE_DATA *sp, const AFS_SCAN_CLIP *clip, int tb_order);
 
-    RGY_ERR get_stripe_info(int frame, int mode, const NVEncFilterParamAfs *pAfsPrm);
+    RGY_ERR get_stripe_info(int frame, int mode, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     int detect_telecine_cross(int iframe, int coeff_shift);
-    RGY_ERR analyze_frame(int iframe, const NVEncFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4]);
+    RGY_ERR analyze_frame(int iframe, const NVEncFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4], cudaStream_t stream);
 
     RGY_ERR synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
 

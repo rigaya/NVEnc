@@ -530,14 +530,14 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             return sts;
         }
 
-        kernel_rand_init<<<grids, threads>>>((curandState *)m_RandState.ptr, pDebandParam->deband.seed);
+        kernel_rand_init<<<grids, threads, 0, cudaStreamPerThread>>>((curandState *)m_RandState.ptr, pDebandParam->deband.seed);
         sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run kernel_rand_init: %s.\n"), get_err_mes(sts));
             return sts;
         }
 
-        kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false><<<grids, threads>>>(
+        kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false><<<grids, threads, 0, cudaStreamPerThread>>>(
             (int8_t *)m_RandY.frame.ptr[0], (int8_t *)m_RandUV.frame.ptr[0],
             m_RandY.frame.pitch[0], m_RandUV.frame.pitch[0],
             m_RandY.frame.width, m_RandY.frame.height,
@@ -545,6 +545,11 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run kernel_gen_rand: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        sts = err_to_rgy(cudaStreamSynchronize(cudaStreamPerThread));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to sync stream: %s.\n"), get_err_mes(sts));
             return sts;
         }
     }

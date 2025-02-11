@@ -340,7 +340,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         if (prm->ssim) {
             for (size_t i = 0; i < m_streamCalcSsim.size(); i++) {
                 m_streamCalcSsim[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-                auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCalcSsim[i].get(), cudaStreamDefault));
+                auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCalcSsim[i].get(), 0));
                 if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
                     return sts;
@@ -351,7 +351,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         if (prm->psnr) {
             for (size_t i = 0; i < m_streamCalcPsnr.size(); i++) {
                 m_streamCalcPsnr[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-                auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCalcPsnr[i].get(), cudaStreamDefault));
+                auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCalcPsnr[i].get(), 0));
                 if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
                     return sts;
@@ -360,7 +360,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             }
         }
         m_streamCrop = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-        auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCrop.get(), cudaStreamDefault));
+        auto sts = err_to_rgy(cudaStreamCreateWithFlags(m_streamCrop.get(), 0));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), get_err_mes(sts));
             return sts;

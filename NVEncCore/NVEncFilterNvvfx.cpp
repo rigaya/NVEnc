@@ -389,7 +389,7 @@ RGY_ERR NVEncFilterNvvfxEffect::run_filter(const RGYFrameInfo *pInputFrame, RGYF
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (interlaced(*pInputFrame)) {
-        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
+        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {

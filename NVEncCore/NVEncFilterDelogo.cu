@@ -184,12 +184,12 @@ __global__ void kernel_delogo_add_multi(
 }
 
 template<typename Type, int bit_depth, bool target_y>
-void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const int target_yuv, const int mode, const float fade) {
+void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const int target_yuv, const int mode, const float fade, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pDelego->width, blockSize.x), divCeil(pDelego->height, blockSize.y));
     auto plane = getPlane(pFrame, (target_yuv == LOGO__Y) ? RGY_PLANE_Y : ((target_yuv == LOGO__V) ? RGY_PLANE_V : RGY_PLANE_U));
     if (mode == DELOGO_MODE_ADD) {
-        kernel_logo_add<Type, bit_depth, target_y><<<gridSize, blockSize>>>(
+        kernel_logo_add<Type, bit_depth, target_y><<<gridSize, blockSize, 0, stream>>>(
             plane.ptr[0],
             plane.pitch[0],
             pFrame->width,
@@ -221,7 +221,7 @@ void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const in
             break;
         }
         gridSize.z = logo_multi_data.block_x * logo_multi_data.block_y;
-        kernel_delogo_add_multi<Type, bit_depth, target_y> << <gridSize, blockSize >> > (
+        kernel_delogo_add_multi<Type, bit_depth, target_y> <<<gridSize, blockSize, 0, stream>>> (
             plane.ptr[0],
             plane.pitch[0],
             pFrame->width,
@@ -231,7 +231,7 @@ void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const in
             logo_block_padding_x + logo_multi_data.block_offset_x, logo_block_padding_y + logo_multi_data.block_offset_y, logo_multi_data.block_x,
             (float *)pDelego->pBlockDepth->ptr, (float)pDelego->fade);
     } else {
-        kernel_delogo<Type, bit_depth, target_y><<<gridSize, blockSize>>>(
+        kernel_delogo<Type, bit_depth, target_y><<<gridSize, blockSize, 0, stream>>>(
             plane.ptr[0],
             plane.pitch[0],
             pFrame->width,
@@ -241,7 +241,7 @@ void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const in
     }
 }
 
-RGY_ERR NVEncFilterDelogo::delogoY(RGYFrameInfo *pFrame, const float fade) {
+RGY_ERR NVEncFilterDelogo::delogoY(RGYFrameInfo *pFrame, const float fade, cudaStream_t stream) {
     //Y
     static const std::map<RGY_CSP, decltype(&run_delogo<uint8_t, 8, true>)> delogo_y_list ={
         { RGY_CSP_YV12,       run_delogo<uint8_t,   8, true> },
@@ -272,7 +272,7 @@ RGY_ERR NVEncFilterDelogo::delogoY(RGYFrameInfo *pFrame, const float fade) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    delogo_y_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__Y], LOGO__Y, pDelogoParam->delogo.mode, fade);
+    delogo_y_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__Y], LOGO__Y, pDelogoParam->delogo.mode, fade, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         auto sts = err_to_rgy(cudaerr);
@@ -284,7 +284,7 @@ RGY_ERR NVEncFilterDelogo::delogoY(RGYFrameInfo *pFrame, const float fade) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDelogo::delogoUV(RGYFrameInfo *pFrame, float fade) {
+RGY_ERR NVEncFilterDelogo::delogoUV(RGYFrameInfo *pFrame, float fade, cudaStream_t stream) {
     const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     //const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     //UV
@@ -314,7 +314,7 @@ RGY_ERR NVEncFilterDelogo::delogoUV(RGYFrameInfo *pFrame, float fade) {
     }
     if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pFrame->csp) != supportedCspYV12.end()) {
         //YV12
-        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__U], LOGO__U, pDelogoParam->delogo.mode, fade);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__U], LOGO__U, pDelogoParam->delogo.mode, fade, stream);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             auto sts = err_to_rgy(cudaerr);
@@ -323,7 +323,7 @@ RGY_ERR NVEncFilterDelogo::delogoUV(RGYFrameInfo *pFrame, float fade) {
                 get_err_mes(sts));
             return sts;
         }
-        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__V], LOGO__V, pDelogoParam->delogo.mode, fade);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__V], LOGO__V, pDelogoParam->delogo.mode, fade, stream);
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             auto sts = err_to_rgy(cudaerr);
@@ -334,7 +334,7 @@ RGY_ERR NVEncFilterDelogo::delogoUV(RGYFrameInfo *pFrame, float fade) {
         }
     } else {
         //NV12
-        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO_UV], LOGO_UV, pDelogoParam->delogo.mode, fade);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO_UV], LOGO_UV, pDelogoParam->delogo.mode, fade, stream);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             auto sts = err_to_rgy(cudaerr);
@@ -1248,7 +1248,7 @@ __global__ void kernel_create_adjust_mask3(
     }
 }
 
-RGY_ERR NVEncFilterDelogo::createLogoMask(int maskThreshold) {
+RGY_ERR NVEncFilterDelogo::createLogoMask(int maskThreshold, cudaStream_t stream) {
     const auto pLogoData = &m_sProcessData[LOGO__Y];
     if (pLogoData->width % 4 != 0) {
         AddMessage(RGY_LOG_ERROR, _T("frame width must be mod4\n"));
@@ -1267,7 +1267,7 @@ RGY_ERR NVEncFilterDelogo::createLogoMask(int maskThreshold) {
             return sts;
         }
     }
-    kernel_proc_prewitt<int16x2x4, short4, 1, true, false, false, true><<<gridSize, blockSize>>>(
+    kernel_proc_prewitt<int16x2x4, short4, 1, true, false, false, true><<<gridSize, blockSize, 0, stream>>>(
         (uint8_t *)m_mask->frame.ptr[0], nullptr, (int *)m_createLogoMaskValidMaskCount.ptrDevice,
         (const uint8_t *)pLogoData->pDevLogo->frame.ptr[0], pLogoData->pDevLogo->frame.pitch[0],
         nullptr,
@@ -1310,11 +1310,11 @@ RGY_ERR NVEncFilterDelogo::createLogoMask(int maskThreshold) {
 }
 
 template<typename Type4, int range>
-RGY_ERR run_erosion(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int mask_threshold) {
+RGY_ERR run_erosion(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int mask_threshold, cudaStream_t stream) {
     dim3 blockSize(DELOGO_BLOCK_X, DELOGO_BLOCK_Y);
     dim3 gridSize(divCeil(ptr_mask->frame.width, blockSize.x * 4), divCeil(ptr_mask->frame.height, blockSize.y * DELOGO_BLOCK_LOOP_Y), 1);
 
-    kernel_erosion<Type4, range><<<gridSize, blockSize>>>(
+    kernel_erosion<Type4, range><<<gridSize, blockSize, 0, stream>>>(
         (uint8_t *)ptr_mask_nr->frame.ptr[0], ptr_mask->frame.pitch[0],
         ptr_mask->frame.width, ptr_mask->frame.height,
         (const uint8_t *)ptr_mask->frame.ptr[0], mask_threshold);
@@ -1322,7 +1322,7 @@ RGY_ERR run_erosion(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int mas
     return err_to_rgy(cudaGetLastError());
 }
 
-RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int nr_value) {
+RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int nr_value, cudaStream_t stream) {
     static const std::map<int, decltype(&run_erosion<short4, 1>)> create_nr_func_list = {
         { 1, run_erosion<short4, 1> },
         { 2, run_erosion<short4, 2> },
@@ -1340,7 +1340,7 @@ RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBu
             AddMessage(RGY_LOG_ERROR, _T("unsupported NRValue for create_nr_func_list: %d\n"), nr_value);
             return RGY_ERR_UNSUPPORTED;
         }
-        auto sts = create_nr_func_list.at(nr_value)(ptr_mask_nr, ptr_mask, m_maskThreshold);
+        auto sts = create_nr_func_list.at(nr_value)(ptr_mask_nr, ptr_mask, m_maskThreshold, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at createNRMask(kernel_erosion): %s.\n"),
                 get_err_mes(sts));
@@ -1359,7 +1359,7 @@ RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBu
         //nrが必要なければ、そのままコピー
         auto sts = err_to_rgy(cudaMemcpyAsync(ptr_mask_nr->frame.ptr[0], ptr_mask->frame.ptr[0],
             ptr_mask->frame.pitch[0] * ptr_mask->frame.height,
-            cudaMemcpyDeviceToDevice));
+            cudaMemcpyDeviceToDevice, stream));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at createNRMask(cudaMemcpyAsync): %s.\n"),
                 get_err_mes(sts));
@@ -1377,7 +1377,7 @@ RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBu
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
+RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo, cudaStream_t stream) {
 
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_param);
     if (!pDelogoParam) {
@@ -1387,7 +1387,7 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
 
     // NR=0で評価する
     std::vector<float> eval_results(DELOGO_PRE_DIV_COUNT+1);
-    cudaEventRecord(*m_adjMaskStream.heEval.get(), cudaStreamDefault);
+    cudaEventRecord(*m_adjMaskStream.heEval.get(), stream);
     cudaStreamWaitEvent(*m_adjMaskStream.stEval.get(), *m_adjMaskStream.heEval.get(), 0);
 
     if (m_fadeValueAdjust.nSize < sizeof(float) * eval_results.size()) {
@@ -1401,7 +1401,7 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
         return sts;
     }
 
-    const auto stream = *m_adjMaskStream.stEval.get();
+    const auto streamAdjMask = *m_adjMaskStream.stEval.get();
     const int logo_w = m_mask->frame.width;
     const int logo_h = m_mask->frame.height;
     const dim3 blockSize(DELOGO_BLOCK_X, DELOGO_BLOCK_Y);
@@ -1413,7 +1413,7 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
         AddMessage(RGY_LOG_ERROR, _T("error: not enough buffer m_adjMaskEachFadeCount.\n"));
         return RGY_ERR_UNKNOWN;
     }
-    sts = err_to_rgy(cudaMemsetAsync(m_adjMaskEachFadeCount.ptrDevice, 0, sizeof(int) * (DELOGO_PRE_DIV_COUNT+1), stream));
+    sts = err_to_rgy(cudaMemsetAsync(m_adjMaskEachFadeCount.ptrDevice, 0, sizeof(int) * (DELOGO_PRE_DIV_COUNT+1), streamAdjMask));
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at createAdjustedMask(cudaMemset): %s.\n"),
             get_err_mes(sts));
@@ -1425,7 +1425,7 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
     }
 
     static_assert(DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max(), "DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max()");
-    kernel_create_adjust_mask1<char4, short4><<<gridSize, blockSize, 0, stream>>>(
+    kernel_create_adjust_mask1<char4, short4><<<gridSize, blockSize, 0, streamAdjMask >>>(
         (uint8_t *)m_adjMaskMinIndex->frame.ptr[0], m_adjMaskMinIndex->frame.pitch[0],
         (int *)m_adjMaskEachFadeCount.ptrDevice, (int2 *)m_adjMaskMinResAndValidMaskCount.ptrDevice,
         m_mask->frame.pitch[0], logo_w, logo_h, m_mask->frame.pitch[0] * logo_h,
@@ -1447,13 +1447,13 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
 #endif
 #if 0
     //計算結果をCPUに転送
-    sts = m_adjMaskEachFadeCount.copyDtoHAsync(stream);
+    sts = m_adjMaskEachFadeCount.copyDtoHAsync(streamAdjMask);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy data from GPU(m_adjMaskEachFadeCount): %s.\n"),
             get_err_mes(sts));
         return sts;
     }
-    sts = m_adjMaskMinResAndValidMaskCount.copyDtoHAsync(stream);
+    sts = m_adjMaskMinResAndValidMaskCount.copyDtoHAsync(streamAdjMask);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy data from GPU(m_adjMaskMinResAndValidMaskCount): %s.\n"),
             get_err_mes(sts));
@@ -1461,7 +1461,7 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
     }
     sts = autoFadeCoef2Collect(eval_results, 0, *m_adjMaskStream.heEvalCopyFin.get());
     if (sts != RGY_ERR_NONE) return sts;
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize(streamAdjMask);
 
     //GPUでの計算結果はブロックごとの値なので、最終的な集計はCPUで行う
     auto temp_whole_min_result_valid_mask_count = (const int2 *)m_adjMaskMinResAndValidMaskCount.ptrHost;
@@ -1520,7 +1520,7 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
         return RGY_ERR_UNKNOWN;
     }
 
-    kernel_create_adjust_mask2<char4, short4><<<gridSize2, blockSize, 0, stream>>>(
+    kernel_create_adjust_mask2<char4, short4><<<gridSize2, blockSize, 0, streamAdjMask>>>(
         (uint8_t *)m_adjMaskThresholdTest->frame.ptr[0], //TypeMask4
         (int *)m_adjMask2ValidMaskCount.ptrDevice,
         (int *)m_adjMask2TargetCount.get(),
@@ -1549,7 +1549,7 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
     debug_out_csv<char>(m_adjMaskThresholdTest.get(), _T("m_adjMaskThresholdTest.csv"));
 #endif
 #if 1
-    kernel_create_adjust_mask3<short4><<<gridSize, blockSize, 0, stream>>>(
+    kernel_create_adjust_mask3<short4><<<gridSize, blockSize, 0, streamAdjMask>>>(
         (uint8_t *)m_maskAdjusted->frame.ptr[0],  //TypeMask4
         (const int *)m_adjMask2ValidMaskCount.ptrDevice, blockCount,
         (const uint8_t *)m_adjMaskThresholdTest->frame.ptr[0], //TypeMask4
@@ -1564,7 +1564,7 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
         return sts;
     }
 #endif
-    cudaEventRecord(*m_adjMaskStream.heEvalCopyFin.get(), stream);
+    cudaEventRecord(*m_adjMaskStream.heEvalCopyFin.get(), streamAdjMask);
 #else
     sts = m_adjMask2ValidMaskCount.copyDtoH();
     if (sts != RGY_ERR_NONE) {
@@ -1883,7 +1883,7 @@ RGY_ERR NVEncFilterDelogo::autoFadeCoef2Collect(
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value) {
+RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value, cudaStream_t stream) {
     static const std::map<std::pair<RGY_CSP, int>, decltype(&runSmoothKernel<uchar4, short4, 1>)> smooth_func_list = {
         { std::make_pair(RGY_CSP_Y8,  1), runSmoothKernel<uchar4,  short4, 1> },
         { std::make_pair(RGY_CSP_Y8,  2), runSmoothKernel<uchar4,  short4, 2> },
@@ -1901,7 +1901,7 @@ RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value) {
         return RGY_ERR_INVALID_PARAM;
     }
     if (nr_value > 0) {
-        auto sts = createNRMask(m_maskNRAdjusted.get(), m_maskAdjusted.get(), pDelogoParam->delogo.NRArea);
+        auto sts = createNRMask(m_maskNRAdjusted.get(), m_maskAdjusted.get(), pDelogoParam->delogo.NRArea, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -1920,7 +1920,7 @@ RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value) {
             logodata->width, logodata->height,
             (const short4 *)m_maskNRAdjusted->frame.ptr[0], m_maskNRAdjusted->frame.pitch[0], m_maskThreshold,
             (float *)m_smoothKernel.get(),
-            1, cudaStreamDefault);
+            1, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at logoNR(kernel_proc_symmetry): %s.\n"),
                 get_err_mes(sts));
@@ -1930,7 +1930,7 @@ RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value) {
             (uint8_t *)pFrame->ptr[0] + logodata->j_start * pFrame->pitch[0] + logodata->i_start * src_pixel_size, pFrame->pitch[0],
             m_NRProcTemp->frame.ptr[0], m_NRProcTemp->frame.pitch[0],
             logodata->width, logodata->height,
-            cudaMemcpyDeviceToDevice));
+            cudaMemcpyDeviceToDevice, stream));
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at logoNR(cudaMemcpy2DAsync): %s.\n"),
                 get_err_mes(sts));

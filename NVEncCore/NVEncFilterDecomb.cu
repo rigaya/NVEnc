@@ -189,7 +189,7 @@ RGY_ERR is_combed(
     dim3 blockSize(1 << BOX_Y_LOG2, 64);
     dim3 gridSize(divCeil(pFmaskPlane->width, blockSize.x), divCeil(pFmaskPlane->height, blockSize.y));
 
-    kernel_is_combed<uchar4, BOX_X_LOG2, BOX_Y_LOG2><<<gridSize, blockSize>>>(
+    kernel_is_combed<uchar4, BOX_X_LOG2, BOX_Y_LOG2><<<gridSize, blockSize, 0, stream>>>(
         (int *)pResultIsCombed->ptr,
         pFmaskPlane->ptr[0], pFmaskPlane->pitch[0],
         pFmaskPlane->width, pFmaskPlane->height,
