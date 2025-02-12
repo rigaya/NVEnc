@@ -759,7 +759,7 @@ protected:
 public:
     PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_dev(nullptr), m_outQeueue(), m_workSurfs(), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0), m_log() {};
     PipelineTask(PipelineTaskType type, NVGPUInfo *dev, int outMaxQueueSize, bool useOutQueueMtx, std::shared_ptr<RGYLog> log) :
-        m_type(type), m_dev(dev), m_outQeueue(), m_workSurfs(), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_log(log), m_outQeueueMtx(useOutQueueMtx ? std::make_unique<std::mutex>() : nullptr) {
+        m_type(type), m_dev(dev), m_outQeueue(), m_workSurfs(), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_outQeueueMtx(useOutQueueMtx ? std::make_unique<std::mutex>() : nullptr), m_log(log) {
     };
     virtual ~PipelineTask() {
         m_workSurfs.clear();
@@ -1168,14 +1168,14 @@ public:
     }
 
     virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
-        return getOutput();
+        return getOutputFrame();
     }
     PipelineTaskSurface addTaskSurface(std::unique_ptr<CUFrameCuvid>& surf) {
         return m_workSurfs.addSurface(surf);
     }
     
 protected:
-    RGY_ERR getOutput() {
+    RGY_ERR getOutputFrame() {
         auto ret = RGY_ERR_NONE;
         if (m_state == RGY_STATE_STOPPED) {
             m_state = RGY_STATE_RUNNING;
@@ -1403,7 +1403,7 @@ public:
 
         if ((m_srcTimebase.n() > 0 && m_srcTimebase.is_valid())
             && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || m_vpp_rff || m_vpp_afs_rff_aware || m_timestampPassThrough)) {
-            const auto srcTimestamp = taskSurf->surf().frame()->timestamp();
+            const int64_t srcTimestamp = taskSurf->surf().frame()->timestamp();
             if (srcTimestamp < 0) {
                 // timestampを修正
                 outPtsSource = m_tsOutEstimated;
@@ -2013,7 +2013,7 @@ public:
         return RGY_ERR_NONE;
     }
     void releaseEncodeBuffer() {
-        for (int i = 0; i < m_stEncodeBuffer.size(); i++) {
+        for (size_t i = 0; i < m_stEncodeBuffer.size(); i++) {
             releaseEncodeBufferFrame(m_stEncodeBuffer[i].get());
         }
         m_stEncodeBuffer.clear();

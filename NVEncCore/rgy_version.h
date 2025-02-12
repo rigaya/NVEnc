@@ -157,6 +157,7 @@ const char *get_encoder_version();
 #define ENABLE_D3D11               0
 #define ENABLE_D3D11_DEVINFO_WMI   0
 #define ENABLE_NVSDKNGX            0
+#define ENABLE_INTERLACE_FROM_HWMEM 1
 #endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__

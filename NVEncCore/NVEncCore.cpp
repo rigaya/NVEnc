@@ -2314,7 +2314,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             case RGY_CHROMAFMT_YUV422:
                 m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 2;
                 break;
-                
+            default:
+                break;
             }
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
@@ -2394,6 +2395,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             case RGY_CHROMAFMT_YUV422:
                 m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.chromaFormatIDC = 2;
                 m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_H264_PROFILE_HIGH_422_GUID;
+                break;
+            default:
                 break;
             }
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
