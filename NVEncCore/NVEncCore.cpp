@@ -4265,7 +4265,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 0, m_pFileReader.get(), m_pLog));
         taskNVDec = dynamic_cast<PipelineTaskNVDecode *>(m_pipelineTasks.back().get());
     } else {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 4, m_pFileReader.get(), m_pLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 1, m_pFileReader.get(), m_pLog));
     }
     if (m_pFileWriterListAudio.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_dev.get(), m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_pLog));
@@ -4290,7 +4290,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
 
     for (auto& vppblock : m_vpFilters) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCUDAVpp>(m_dev.get(), vppblock.vppnv, m_videoQualityMetric.get(),
-            m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, 0, m_pLog));
+            m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, 1, m_pLog));
     }
 #if 0
     if (m_videoQualityMetric) {
@@ -4644,7 +4644,6 @@ RGY_ERR NVEncCore::Encode() {
     if (m_encRunCtx) {
         m_encRunCtx->releaseEncodeBuffer();
     }
-    
     if (m_deviceUsage) {
         m_deviceUsage->close();
     }

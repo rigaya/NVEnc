@@ -648,6 +648,7 @@ public:
     void finish() {
         m_abort = true;
         if (m_thread.joinable()) {
+            SetEvent(m_heFrameAdded.get());
             m_thread.join();
         }
     }
@@ -2137,6 +2138,7 @@ public:
         m_outQeueue.clear(); // m_bitStreamOutが解放されるより前にこちらを解放する
         m_threadOutputAbort = true;
         if (m_threadOutput.joinable()) {
+            m_runCtx->qEncodeBufferUsed().push(nullptr);
             m_threadOutput.join();
         }
     };
