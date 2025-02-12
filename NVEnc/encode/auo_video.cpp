@@ -97,16 +97,16 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
     parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec_rgy];
     if (enc_prm.lossless) {
-        enc_prm.yuv444 = true;
+        enc_prm.outputCsp = RGY_CSP_YUV444;
     }
     use_highbit = enc_prm.outputDepth > 8;
-    if (enc_prm.rgb) {
+    if (RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_RGB_PACKED) {
         csp = RGY_CSP_RGB;
     } else {
         if (use_highbit) {
-            csp = (enc_prm.yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+            csp = (RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_YUV444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
         } else {
-            csp = (enc_prm.yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+            csp = (RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_YUV444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
         }
     }
 }
