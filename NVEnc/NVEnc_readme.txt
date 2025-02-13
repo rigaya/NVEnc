@@ -222,6 +222,7 @@ NVIDIA グラフィックドライバ 551.23
   - --split-encにforced_4を追加。
   - HEVCの--temporal-layersの指定に対応。
   - yuv422出力に仮対応。
+- 「CPU→GPUへのフレーム転送」「フィルタ処理」「エンコーダへのフレーム投入」をすべて並行して実行できるよう拡張。
 - AV1の--max-temporal-layersを--temporal-layersに統合。
 - WindowsのビルドをCUDA 11.8ベースに変更。ドライバ452.39以降が必要。
 - Ubuntu 18.04向けビルドを廃止。

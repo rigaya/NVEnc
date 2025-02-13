@@ -110,8 +110,24 @@ static const TCHAR *avisynth_dll_name = _T("libavisynth.so");
 #endif
 
 static const int RGY_AVISYNTH_INTERFACE_25 = 2;
-static const int RGY_AVISYNTH_INTERFACE_6  = 6; 
-
+static const int RGY_AVISYNTH_INTERFACE_6  = 6;
+#if AVS_INTERF_VER >= 11
+int AVSC_CC rgy_avs_get_pitch_p(const AVS_VideoFrame * p, int plane) {
+    switch (plane) {
+    case AVS_PLANAR_U:
+    case AVS_PLANAR_V:
+        return p->_pitchUV;
+    }
+    return p->_pitch;
+}
+const uint8_t* AVSC_CC rgy_avs_get_read_ptr_p(const AVS_VideoFrame * p, int plane) {
+    switch (plane) {
+    case AVS_PLANAR_U: return p->_vfb->data + p->_offsetU;
+    case AVS_PLANAR_V: return p->_vfb->data + p->_offsetV;
+    default:           return p->_vfb->data + p->_offset;
+    }
+}
+#else
 int AVSC_CC rgy_avs_get_pitch_p(const AVS_VideoFrame * p, int plane) {
     switch (plane) {
     case AVS_PLANAR_U:
@@ -120,7 +136,6 @@ int AVSC_CC rgy_avs_get_pitch_p(const AVS_VideoFrame * p, int plane) {
     }
     return p->pitch;
 }
-
 const uint8_t* AVSC_CC rgy_avs_get_read_ptr_p(const AVS_VideoFrame * p, int plane) {
     switch (plane) {
     case AVS_PLANAR_U: return p->vfb->data + p->offsetU;
@@ -128,6 +143,8 @@ const uint8_t* AVSC_CC rgy_avs_get_read_ptr_p(const AVS_VideoFrame * p, int plan
     default:           return p->vfb->data + p->offset;
     }
 }
+#endif
+
 
 RGYInputAvsPrm::RGYInputAvsPrm(RGYInputPrm base) :
     RGYInputPrm(base),

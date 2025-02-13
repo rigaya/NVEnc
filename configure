@@ -73,6 +73,43 @@ cxx_check()
     return $ret
 }
 
+cxx_get_stdout()
+{
+    echo "" >> ${CNF_LOG}
+    if [ -n "$1" ]; then
+        echo "### - checking for $1... --------------" >> ${CNF_LOG}
+    else 
+        echo "### - test start --------------" >> ${CNF_LOG}
+    fi
+    echo "#include <iostream>" > cxx_check.c
+    if [ -n "$3" ]; then
+        echo "#include <$3>" >> cxx_check.c
+    fi 
+    if [ -n "$4" ]; then
+        echo "extern \"C\" {" >> cxx_check.c
+        echo "#include <$4>" >> cxx_check.c
+        echo "}" >> cxx_check.c
+    fi 
+    echo "int main(void){ $5; return 0;}" >> cxx_check.c
+    CXX_CMD="$CXX -w cxx_check.c $2 -o cxx_check"
+    echo "------ command ------------" >> ${CNF_LOG}
+    echo ${CXX_CMD} >> ${CNF_LOG}
+    echo "------ test ---------------" >> ${CNF_LOG}
+    cat cxx_check.c >> ${CNF_LOG}
+    echo "---------------------------" >> ${CNF_LOG}
+    $CXX_CMD 2>> ${CNF_LOG}
+    #$CXX cxx_check.c $1 -o cxx_check
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        rm -f cxx_check*
+        return -1
+    fi
+    ret=`./cxx_check`
+    rm -f cxx_check*
+    echo "### - test fin -> ${ret} ----------" >> ${CNF_LOG}
+    echo $ret
+}
+
 regex_check()
 {
     echo "#include <iostream>" > cxx_check.c
@@ -135,6 +172,7 @@ VAPOURSYNTH_CFLAGS=""
 CHECK_AVISYNTH_NAMES="avisynth"
 ENABLE_AVISYNTH=1
 AVISYNTH_CFLAGS=""
+AVS_INTERF_VER=0
 
 CHECK_LIBASS_NAMES="libass"
 LIBASS_CFLAGS=""
@@ -730,6 +768,10 @@ if [ $ENABLE_AVISYNTH -ne 0 ]; then
     if [ $ENABLE_AVISYNTH -eq 0 ]; then
         AVISYNTH_CFLAGS=""
         AVISYNTH_LIBS=""
+    else
+        printf "checking for AVS_INTERF_VER..."
+        AVS_INTERF_VER=$(cxx_get_stdout "AVS_INTERF_VER" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVISYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVISYNTH_LIBS}" "avisynth_c.h" "" "std::cout << AVISYNTH_INTERFACE_VERSION << std::endl;")
+        cnf_write "${AVS_INTERF_VER}"
     fi
 fi
 
@@ -922,6 +964,7 @@ write_enc_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
 write_enc_config "#define AV_CHANNEL_LAYOUT_STRUCT_AVAIL $AV_CHANNEL_LAYOUT_STRUCT_AVAIL"
 write_enc_config "#define AV_FRAME_DURATION_AVAIL        $AV_FRAME_DURATION_AVAIL"
 write_enc_config "#define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL $AVCODEC_PAR_CODED_SIDE_DATA_AVAIL"
+write_enc_config "#define AVS_INTERF_VER                $AVS_INTERF_VER"
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
 write_enc_config "#define ENABLE_LIBDOVI                $ENABLE_LIBDOVI"
