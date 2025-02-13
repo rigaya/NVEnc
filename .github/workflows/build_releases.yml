@@ -189,8 +189,7 @@ jobs:
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
           set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
-          if "${{ matrix.cuda_ver_major }}" == "10" set CUDA_PATH_V10_1=%CUDA_PATH%
-          if "${{ matrix.cuda_ver_major }}" == "11" set CUDA_PATH_V11_1=%CUDA_PATH%
+          set CUDA_PATH_V11_8=%CUDA_PATH%
           msbuild NVEnc.sln /t:build /p:configuration=Release /p:Platform=${{ matrix.platform }} -maxcpucount
 
       - name: Download auo_setup
