@@ -4552,6 +4552,7 @@ RGY_ERR NVEncCore::Encode() {
         }
     }
     // flush
+    PrintMes(RGY_LOG_DEBUG, _T("Flushing start....\n"));
     if (err == RGY_ERR_MORE_BITSTREAM) { // 読み込みの完了を示すフラグ
         err = RGY_ERR_NONE;
         for (auto& task : m_pipelineTasks) {
@@ -4638,14 +4639,16 @@ RGY_ERR NVEncCore::Encode() {
     m_pipelineTasks.clear();
     PrintMes(RGY_LOG_DEBUG, _T("Waiting for writer to finish...\n"));
     m_pFileWriter->WaitFin();
-    PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Close reader...\n"));
     m_pFileReader->Close();
+    PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));
     m_pStatus->WriteResults();
     if (m_videoQualityMetric) {
         PrintMes(RGY_LOG_DEBUG, _T("Write video quality metric results...\n"));
         m_videoQualityMetric->showResult();
     }
     if (m_encRunCtx) {
+        PrintMes(RGY_LOG_DEBUG, _T("Release encode buffer....\n"));
         m_encRunCtx->releaseEncodeBuffer();
     }
     if (m_deviceUsage) {
