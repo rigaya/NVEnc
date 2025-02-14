@@ -4177,6 +4177,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     //エンコーダにパラメータを渡し、初期化
     if (m_dev->encoder()) {
         if (RGY_ERR_NONE != (sts = err_to_rgy(m_dev->encoder()->CreateEncoder(&m_stCreateEncodeParams)))) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to create encoder\n%s.\n"), GetEncoderParamsInfo(RGY_LOG_ERROR, false).c_str());
             return sts;
         }
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
@@ -5905,9 +5906,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             va_list args;
             va_start(args, fmt);
             const size_t append_len = _vsctprintf(fmt, args) + 1;
-            size_t current_len = _tcslen(str.c_str());
-            str.resize(current_len + append_len, 0);
-            _vstprintf_s(&str[current_len], append_len, fmt, args);
+            std::vector<TCHAR> buf(append_len, 0);
+            _vstprintf_s(buf.data(), append_len, fmt, args);
+            str += buf.data();
         }
     };
 
@@ -5996,6 +5997,38 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(RGY_LOG_INFO, _T("\n"));
         return str;
     }
+    str += GetEncoderParamsInfo(output_level, true);
+    return str;
+}
+
+tstring NVEncCore::GetEncoderParamsInfo(int output_level, bool add_output_info) {
+    tstring str;
+    auto add_str =[output_level, &str](int info_level, const TCHAR *fmt, ...) {
+        if (info_level >= output_level) {
+            va_list args;
+            va_start(args, fmt);
+            const size_t append_len = _vsctprintf(fmt, args) + 1;
+            std::vector<TCHAR> buf(append_len, 0);
+            _vstprintf_s(buf.data(), append_len, fmt, args);
+            str += buf.data();
+        }
+    };
+
+    auto value_or_auto =[](int value, int value_auto, const TCHAR *unit) {
+        tstring str;
+        if (value == value_auto) {
+            str = _T("auto");
+        } else {
+            TCHAR buf[256];
+            _stprintf_s(buf, _countof(buf), _T("%d %s"), value, unit);
+            str = buf;
+        }
+        return str;
+    };
+
+    auto on_off =[](int value) {
+        return (value) ? _T("on") : _T("off");
+    };
     const auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     const int bitDepth = get_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, m_dev->encoder()->getAPIver());
@@ -6018,20 +6051,22 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         return _T("Invalid codec");
     }
     add_str(RGY_LOG_ERROR, _T("               %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), m_sar.n(), m_sar.d(), m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
-    if (m_pFileWriter) {
-        inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
-        for (auto mes : inputMesSplitted) {
-            if (mes.length()) {
-                add_str(RGY_LOG_ERROR,_T("%s%s\n"), _T("               "), mes.c_str());
-            }
-        }
-    }
-    for (auto pWriter : m_pFileWriterListAudio) {
-        if (pWriter && pWriter != m_pFileWriter) {
-            inputMesSplitted = split(pWriter->GetOutputMessage(), _T("\n"));
+    if (add_output_info) {
+        if (m_pFileWriter) {
+            auto inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
             for (auto mes : inputMesSplitted) {
                 if (mes.length()) {
                     add_str(RGY_LOG_ERROR,_T("%s%s\n"), _T("               "), mes.c_str());
+                }
+            }
+        }
+        for (auto pWriter : m_pFileWriterListAudio) {
+            if (pWriter && pWriter != m_pFileWriter) {
+                auto inputMesSplitted = split(pWriter->GetOutputMessage(), _T("\n"));
+                for (auto mes : inputMesSplitted) {
+                    if (mes.length()) {
+                        add_str(RGY_LOG_ERROR,_T("%s%s\n"), _T("               "), mes.c_str());
+                    }
                 }
             }
         }
@@ -6062,7 +6097,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     } else {
         add_str(RGY_LOG_ERROR, _T("\n"));
         if (m_dev->encoder()->checkAPIver(10, 0)) {
-            add_str(RGY_LOG_ERROR, _T("Multipass      %s\n"), get_chr_from_value(list_nvenc_multipass_mode, m_stEncConfig.rcParams.multiPass));
+            add_str(RGY_LOG_INFO, _T("Multipass      %s\n"), get_chr_from_value(list_nvenc_multipass_mode, m_stEncConfig.rcParams.multiPass));
         }
         add_str(RGY_LOG_ERROR, _T("Bitrate        %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
         if (m_stEncConfig.rcParams.targetQuality) {
@@ -6129,7 +6164,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(RGY_LOG_INFO,  _T("%s\n"), strLookahead.c_str());
     add_str(RGY_LOG_INFO,  _T("GOP length     %d frames\n"), m_stEncConfig.gopLength);
     const auto bref_mode = get_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, rgy_codec);
-    add_str(RGY_LOG_INFO,  _T("B frames       %d frames [ref mode: %s]\n"), m_stEncConfig.frameIntervalP - 1, get_chr_from_value(list_bref_mode, bref_mode));
+    add_str(RGY_LOG_ERROR,  _T("B frames       %d frames [ref mode: %s]\n"), m_stEncConfig.frameIntervalP - 1, get_chr_from_value(list_bref_mode, bref_mode));
     if (rgy_codec == RGY_CODEC_H264) {
         add_str(RGY_LOG_DEBUG, _T("Output         "));
         TCHAR bitstream_info[256] ={ 0 };
@@ -6159,7 +6194,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (bEnableLTR) {
         strRef += _T(", LTR:on");
     }
-    add_str(RGY_LOG_INFO,  _T("Ref frames     %s\n"), strRef.c_str());
+    add_str(RGY_LOG_ERROR,  _T("Ref frames     %s\n"), strRef.c_str());
 
     tstring strAQ;
     if (m_stEncConfig.rcParams.enableAQ || m_stEncConfig.rcParams.enableTemporalAQ) {
@@ -6295,7 +6330,6 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
     add_str(RGY_LOG_INFO, _T("\n"));
     return str;
-
 }
 
 void NVEncCore::PrintEncodingParamsInfo(int output_level) {

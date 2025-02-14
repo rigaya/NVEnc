@@ -59,6 +59,7 @@ public:
 
     //エンコードの設定を取得
     virtual tstring GetEncodingParamsInfo(int output_level);
+    virtual tstring GetEncoderParamsInfo(int output_level, bool add_output_info);
 
     //エンコードの設定を表示
     virtual void PrintEncodingParamsInfo(int output_level);
