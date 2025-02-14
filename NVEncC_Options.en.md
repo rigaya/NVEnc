@@ -3292,6 +3292,7 @@ Set priority to the process or threads of the application. [Windows OS only]
   - decoder ... avhw decode thread
   - csp ... colorspace conversion threads (CPU)
   - input ... input thread
+  - filter ... filter thread
   - encoder ... background encoder threads
   - output ... output thread
   - audio ... audio processing threads

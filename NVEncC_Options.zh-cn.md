@@ -2793,6 +2793,7 @@ Example: 增强边缘的暗部
   - decoder ... avhw decode thread
   - csp ... colorspace conversion threads (CPU)
   - input ... input thread
+  - filter ... filter thread
   - encoder ... background encoder threads
   - output ... output thread
   - audio ... audio processing threads

@@ -1215,7 +1215,7 @@ RGY_ERR initWriters(
         writerPrm.bVideoDtsUnavailable    = videoDtsUnavailable;
         writerPrm.threadOutput            = ctrl->threadOutput;
         writerPrm.threadAudio             = ctrl->threadAudio;
-        writerPrm.threadParamOutput       = ctrl->threadParams.get(RGYThreadType::OUTUT);
+        writerPrm.threadParamOutput       = ctrl->threadParams.get(RGYThreadType::OUTPUT);
         writerPrm.threadParamAudio        = ctrl->threadParams.get(RGYThreadType::AUDIO);
         writerPrm.bufSizeMB               = ctrl->outputBufSizeMB;
         writerPrm.audioResampler          = common->audioResampler;
@@ -1621,7 +1621,7 @@ RGY_ERR initWriters(
                 AvcodecWriterPrm writerAudioPrm;
                 writerAudioPrm.threadOutput   = ctrl->threadOutput;
                 writerAudioPrm.threadAudio    = ctrl->threadAudio;
-                writerAudioPrm.threadParamOutput = ctrl->threadParams.get(RGYThreadType::OUTUT);
+                writerAudioPrm.threadParamOutput = ctrl->threadParams.get(RGYThreadType::OUTPUT);
                 writerAudioPrm.threadParamAudio  = ctrl->threadParams.get(RGYThreadType::AUDIO);
                 writerAudioPrm.bufSizeMB      = ctrl->outputBufSizeMB;
                 writerAudioPrm.outputFormat   = pAudioSelect->extractFormat;

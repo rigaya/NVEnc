@@ -137,7 +137,8 @@ enum class RGYThreadType {
     ENC,
     CSP,
     INPUT,
-    OUTUT,
+    FILTER,
+    OUTPUT,
     AUDIO,
     PERF_MONITOR,
     VIDEO_QUALITY,
@@ -153,7 +154,8 @@ static const std::array<std::pair<RGYThreadType, const TCHAR *>, (int)RGYThreadT
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::ENC,           _T("encoder")},
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::CSP,           _T("csp")},
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::INPUT,         _T("input")},
-    std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::OUTUT,         _T("output")},
+    std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::FILTER,        _T("filter")},
+    std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::OUTPUT,        _T("output")},
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::AUDIO,         _T("audio")},
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::PERF_MONITOR,  _T("perfmonitor")},
     std::pair<RGYThreadType, const TCHAR *>{ RGYThreadType::VIDEO_QUALITY, _T("videoquality")}
@@ -190,6 +192,7 @@ struct RGYParamThreads {
     RGYParamThread enc;
     RGYParamThread csp;
     RGYParamThread input;
+    RGYParamThread filter;
     RGYParamThread output;
     RGYParamThread audio;
     RGYParamThread perfmonitor;

@@ -290,6 +290,7 @@ RGYParamThreads::RGYParamThreads() :
     enc(),
     csp(),
     input(),
+    filter(),
     output(),
     audio(),
     perfmonitor(),
@@ -302,7 +303,8 @@ RGYParamThreads::RGYParamThreads() :
         //DEC,ENC,OUTPUT,VIDEO_QUALITYは実行時に決める
         if (   targetType != RGYThreadType::DEC
             && targetType != RGYThreadType::ENC
-            && targetType != RGYThreadType::OUTUT
+            && targetType != RGYThreadType::FILTER
+            && targetType != RGYThreadType::OUTPUT
             && targetType != RGYThreadType::VIDEO_QUALITY
             && targetType != RGYThreadType::PERF_MONITOR) {
             get(targetType).throttling = RGYThreadPowerThrottlingMode::Auto;
@@ -324,7 +326,8 @@ RGYParamThread& RGYParamThreads::get(RGYThreadType type) {
     case RGYThreadType::ENC:  return enc;
     case RGYThreadType::CSP:  return csp;
     case RGYThreadType::INPUT: return input;
-    case RGYThreadType::OUTUT: return output;
+    case RGYThreadType::FILTER: return filter;
+    case RGYThreadType::OUTPUT: return output;
     case RGYThreadType::AUDIO: return audio;
     case RGYThreadType::PERF_MONITOR: return perfmonitor;
     case RGYThreadType::VIDEO_QUALITY: return videoquality;
@@ -341,7 +344,8 @@ const RGYParamThread& RGYParamThreads::get(RGYThreadType type) const {
     case RGYThreadType::ENC:  return enc;
     case RGYThreadType::CSP:  return csp;
     case RGYThreadType::INPUT: return input;
-    case RGYThreadType::OUTUT: return output;
+    case RGYThreadType::FILTER: return filter;
+    case RGYThreadType::OUTPUT: return output;
     case RGYThreadType::AUDIO: return audio;
     case RGYThreadType::PERF_MONITOR: return perfmonitor;
     case RGYThreadType::VIDEO_QUALITY: return videoquality;
@@ -389,7 +393,8 @@ tstring RGYParamThreads::to_string(RGYParamThreadType type) const {
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::DEC, dec);
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::ENC, enc);
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::INPUT, input);
-    RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::OUTUT, output);
+    RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::FILTER, filter);
+    RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::OUTPUT, output);
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::AUDIO, audio);
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::PERF_MONITOR, perfmonitor);
     RGY_THREAD_AFF_ADD_TYPE(RGYThreadType::VIDEO_QUALITY, videoquality);
@@ -404,6 +409,7 @@ bool RGYParamThreads::operator==(const RGYParamThreads&x) const {
         && enc == x.enc
         && csp == x.csp
         && input == x.input
+        && filter == x.filter
         && output == x.output
         && audio == x.audio
         && perfmonitor == x.perfmonitor

@@ -51,6 +51,7 @@
 #include "rgy_output_avcodec.h"
 #include "rgy_filter.h"
 #include "rgy_thread.h"
+#include "rgy_thread_affinity.h"
 #include "rgy_timecode.h"
 
 #include "NVEncParam.h"
@@ -634,13 +635,13 @@ class FrameReleaseData {
     unique_event m_heQueueEmpty;
     std::atomic<int> m_queueSize;
     std::thread m_thread;
+    RGYParamThread m_threadParam;
     bool m_abort;
 public:
-
-    FrameReleaseData(CUvideoctxlock vidCtxLock) : m_vidCtxLock(vidCtxLock), m_prevInputFrame(), m_mtx(),
+    FrameReleaseData(CUvideoctxlock vidCtxLock, RGYParamThread threadParam) : m_vidCtxLock(vidCtxLock), m_prevInputFrame(), m_mtx(),
         m_heFrameAdded(std::move(CreateEventUnique(nullptr, FALSE, FALSE))),
         m_heQueueEmpty(std::move(CreateEventUnique(nullptr, FALSE, FALSE))),
-        m_queueSize(0), m_thread(), m_abort(false) {}
+        m_queueSize(0), m_thread(), m_threadParam(threadParam), m_abort(false) {}
 
     ~FrameReleaseData() {
         finish();
@@ -660,6 +661,7 @@ public:
 
     void start() {
         m_thread = std::thread([&]() {
+            m_threadParam.apply(GetCurrentThread());
             while (!m_abort) {
                 int queueSize = -1;
                 TaskOutputEvent prevframe;
@@ -755,11 +757,13 @@ protected:
     int m_outFrames;
     int m_outMaxQueueSize;
     std::unique_ptr<std::mutex> m_outQeueueMtx;
+    RGYParamThread m_threadParam;
     std::shared_ptr<RGYLog> m_log;
 public:
     PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_dev(nullptr), m_outQeueue(), m_workSurfs(), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0), m_log() {};
-    PipelineTask(PipelineTaskType type, NVGPUInfo *dev, int outMaxQueueSize, bool useOutQueueMtx, std::shared_ptr<RGYLog> log) :
-        m_type(type), m_dev(dev), m_outQeueue(), m_workSurfs(), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_outQeueueMtx(useOutQueueMtx ? std::make_unique<std::mutex>() : nullptr), m_log(log) {
+    PipelineTask(PipelineTaskType type, NVGPUInfo *dev, int outMaxQueueSize, bool useOutQueueMtx, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
+        m_type(type), m_dev(dev), m_outQeueue(), m_workSurfs(), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize),
+        m_outQeueueMtx(useOutQueueMtx ? std::make_unique<std::mutex>() : nullptr), m_threadParam(threadParam), m_log(log) {
     };
     virtual ~PipelineTask() {
         m_workSurfs.clear();
@@ -925,8 +929,8 @@ class PipelineTaskInput : public PipelineTask {
     cudaStream_t m_streamUpload;
     RGYListRef<cudaEvent_t> m_frameUseFinEvent;
 public:
-    PipelineTaskInput(NVGPUInfo *dev, int outMaxQueueSize, RGYInput *input, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::INPUT, dev, outMaxQueueSize, false, log), m_input(input), m_streamUpload(nullptr), m_frameUseFinEvent() {
+    PipelineTaskInput(NVGPUInfo *dev, int outMaxQueueSize, RGYInput *input, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::INPUT, dev, outMaxQueueSize, false, threadParam, log), m_input(input), m_streamUpload(nullptr), m_frameUseFinEvent() {
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         auto ret = cudaStreamCreateWithFlags(&m_streamUpload, cudaStreamNonBlocking);
         if (ret != cudaSuccess) {
@@ -1061,8 +1065,8 @@ protected:
     std::thread m_thDecoder;
 #endif //#if THREAD_DEC_USE_FUTURE
 public:
-    PipelineTaskNVDecode(NVGPUInfo *dev, CuvidDecode *dec, int outMaxQueueSize, RGYInput *input, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::NVDEC, dev, outMaxQueueSize, false, log), m_input(input), m_dec(dec),
+    PipelineTaskNVDecode(NVGPUInfo *dev, CuvidDecode *dec, int outMaxQueueSize, RGYInput *input, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::NVDEC, dev, outMaxQueueSize, false, threadParam, log), m_input(input), m_dec(dec),
         m_queueHDR10plusMetadata(), m_dataFlag(),
         m_state(RGY_STATE_STOPPED), m_decOutFrames(0), m_hwDecFirstPts(AV_NOPTS_VALUE), m_thDecoder() {
         m_queueHDR10plusMetadata.init(256);
@@ -1115,6 +1119,7 @@ public:
         m_thDecoder = std::thread([this]() {
             CUresult curesult = CUDA_SUCCESS;
             RGYBitstream bitstream = RGYBitstreamInit();
+            m_threadParam.apply(GetCurrentThread());
             RGY_ERR sts = RGY_ERR_NONE;
             for (int i = 0; sts == RGY_ERR_NONE && m_state == RGY_STATE_RUNNING && !m_dec->GetError(); i++) {
                 if ((  (sts = m_input->LoadNextFrame(nullptr)) != RGY_ERR_NONE //進捗表示のため
@@ -1310,8 +1315,8 @@ protected:
     int64_t m_trimTimestampOffset;
     int64_t m_lastTrimFramePts;
 public:
-    PipelineTaskTrim(NVGPUInfo *dev, const sTrimParam &trimParam, RGYInput *input, const rgy_rational<int>& srcTimebase, const rgy_rational<int>& outTimebase, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::TRIM, dev, outMaxQueueSize, false, log),
+    PipelineTaskTrim(NVGPUInfo *dev, const sTrimParam &trimParam, RGYInput *input, const rgy_rational<int>& srcTimebase, const rgy_rational<int>& outTimebase, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::TRIM, dev, outMaxQueueSize, false, threadParam, log),
         m_trimParam(trimParam), m_input(input), m_srcTimebase(srcTimebase), m_outTimebase(outTimebase), m_trimTimestampOffset(0), m_lastTrimFramePts(AV_NOPTS_VALUE) {};
     virtual ~PipelineTaskTrim() {};
 
@@ -1368,8 +1373,8 @@ protected:
     const PipelineTaskTrim *m_taskTrim;
 public:
     PipelineTaskCheckPTS(NVGPUInfo *dev, CuvidDecode *dec, PipelineTaskNVDecode *taskNVDec, const PipelineTaskTrim *taskTrim, rgy_rational<int> srcTimebase, rgy_rational<int> streamTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, cudaVideoDeinterlaceMode deinterlaceMode,
-        bool timestampPassThrough, bool vpp_rff, bool vpp_afs_rff_aware, bool interlaceAuto, FramePosList *framePosList, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::CHECKPTS, dev, /*outMaxQueueSize = */ 0 /*常に0である必要がある*/, false, log),
+        bool timestampPassThrough, bool vpp_rff, bool vpp_afs_rff_aware, bool interlaceAuto, FramePosList *framePosList, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::CHECKPTS, dev, /*outMaxQueueSize = */ 0 /*常に0である必要がある*/, false, threadParam, log),
         m_srcTimebase(srcTimebase), m_streamTimebase(streamTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync),
         m_timestampPassThrough(timestampPassThrough), m_vpp_rff(vpp_rff), m_vpp_afs_rff_aware(vpp_afs_rff_aware), m_interlaceAuto(interlaceAuto), m_deinterlaceMode(deinterlaceMode),
         m_outFrameDuration(outFrameDuration),
@@ -1678,8 +1683,8 @@ protected:
     std::map<int, NVEncFilter *> m_filterForStreams;
     std::vector<std::shared_ptr<RGYInput>> m_audioReaders;
 public:
-    PipelineTaskAudio(NVGPUInfo *dev, RGYInput *input, std::vector<std::shared_ptr<RGYInput>>& audioReaders, std::vector<std::shared_ptr<RGYOutput>>& fileWriterListAudio, std::vector<VppVilterBlock>& vpFilters, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::AUDIO, dev, outMaxQueueSize, false, log),
+    PipelineTaskAudio(NVGPUInfo *dev, RGYInput *input, std::vector<std::shared_ptr<RGYInput>>& audioReaders, std::vector<std::shared_ptr<RGYOutput>>& fileWriterListAudio, std::vector<VppVilterBlock>& vpFilters, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::AUDIO, dev, outMaxQueueSize, false, threadParam, log),
         m_input(input), m_audioReaders(audioReaders) {
         //streamのindexから必要なwriteへのポインタを返すテーブルを作成
         for (auto writer : fileWriterListAudio) {
@@ -1805,8 +1810,8 @@ private:
     cudaStream_t m_stream;
     RGYListRef<cudaEvent_t> m_frameUseFinEvent;
 public:
-    PipelineTaskVideoQualityMetric(NVGPUInfo *dev, NVEncFilterSsim *videoMetric, int outMaxQueueSize, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::VIDEOMETRIC, dev, outMaxQueueSize, false, log), m_videoMetric(videoMetric), m_stream(nullptr), m_frameUseFinEvent() {
+    PipelineTaskVideoQualityMetric(NVGPUInfo *dev, NVEncFilterSsim *videoMetric, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::VIDEOMETRIC, dev, outMaxQueueSize, false, threadParam, log), m_videoMetric(videoMetric), m_stream(nullptr), m_frameUseFinEvent() {
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         auto ret = cudaStreamCreateWithFlags(&m_stream, cudaStreamNonBlocking);
         if (ret != cudaSuccess) {
@@ -2124,8 +2129,8 @@ public:
         const NV_ENC_CONFIG& stEncConfig, const NV_ENC_INITIALIZE_PARAMS& stCreateEncodeParams,
         RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu,
         std::vector<NVEncRCParam>& dynamicRC, std::vector<int>& keyFile, bool keyOnChapter, std::vector<std::unique_ptr<AVChapter>>& chapters,
-         int outMaxQueueSize, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::NVENC, dev, outMaxQueueSize, true, log),
+         int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::NVENC, dev, outMaxQueueSize, true, threadParam, log),
         m_runCtx(runCtx), m_encCodec(encCodec), m_encWidth(encWidth), m_encHeight(encHeight), m_encCsp(encCsp), m_encBitdepth(encBitdepth), m_encPicStruct(encPicStruct),
         m_stEncConfig(stEncConfig), m_stCreateEncodeParams(stCreateEncodeParams),
         m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
@@ -2193,6 +2198,7 @@ public:
 
     RGY_ERR runThreadOutput() {
         m_threadOutput = std::thread([this]() {
+            m_threadParam.apply(GetCurrentThread());
             while (!m_threadOutputAbort) {
                 struct CUFrameEncAutoDelete {
                     RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree;
@@ -2502,9 +2508,9 @@ protected:
     std::unique_ptr<PipelineTaskOutput> m_cuvidPrev;
 public:
     PipelineTaskCUDAVpp(NVGPUInfo *dev, std::vector<std::unique_ptr<NVEncFilter>>& vppfilters, NVEncFilterSsim *videoMetric,
-    RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
-        m_frameReleaseData(dev->vidCtxLock()), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
+    RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, threadParam, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
+        m_frameReleaseData(dev->vidCtxLock(), threadParam), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
         m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev() {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));

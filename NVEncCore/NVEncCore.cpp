@@ -4266,13 +4266,13 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
 
     PipelineTaskNVDecode *taskNVDec = nullptr;
     if (m_pDecoder) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 0, m_pFileReader.get(), m_pLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 0, m_pFileReader.get(), prm->ctrl.threadParams.get(RGYThreadType::DEC), m_pLog));
         taskNVDec = dynamic_cast<PipelineTaskNVDecode *>(m_pipelineTasks.back().get());
     } else {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 1, m_pFileReader.get(), m_pLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 1, m_pFileReader.get(), prm->ctrl.threadParams.get(RGYThreadType::INPUT), m_pLog));
     }
     if (m_pFileWriterListAudio.size() > 0) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_dev.get(), m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_pLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_dev.get(), m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, prm->ctrl.threadParams.get(RGYThreadType::AUDIO), m_pLog));
     }
     { // checkpts
         const PipelineTaskTrim *taskTrim = nullptr;
@@ -4282,20 +4282,27 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
         const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
         if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f) {
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_dev.get(), m_trimParam, m_pFileReader.get(), srcTimebase, m_outputTimebase, 0, m_pLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_dev.get(), m_trimParam, m_pFileReader.get(), srcTimebase, m_outputTimebase, 0, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
             taskTrim = dynamic_cast<PipelineTaskTrim *>(m_pipelineTasks.back().get());
         }
         const bool interlaceAutoDetect = pReader && pReader->GetInputFrameInfo().picstruct == RGY_PICSTRUCT_AUTO;
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(m_dev.get(), m_pDecoder.get(), taskNVDec, taskTrim,
             srcTimebase, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, (m_pDecoder) ? m_pDecoder->getDeinterlaceMode() : cudaVideoDeinterlaceMode_Weave,
             m_timestampPassThrough, VppRffEnabled() && m_pFileReader->rffAware(), VppAfsRffAware() && m_pFileReader->rffAware(),
-            interlaceAutoDetect, (pReader) ? pReader->GetFramePosList() : nullptr, m_pLog));
+            interlaceAutoDetect, (pReader) ? pReader->GetFramePosList() : nullptr, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
     }
 
     for (auto& vppblock : m_vpFilters) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCUDAVpp>(m_dev.get(), vppblock.vppnv, m_videoQualityMetric.get(),
-            m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, 1, m_pLog));
+            m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, 1, prm->ctrl.threadParams.get(RGYThreadType::FILTER), m_pLog));
     }
+    tstring vppFilterMes;
+    for (const auto& vppblock : m_vpFilters) {
+        for (const auto& filter : vppblock.vppnv) {
+            vppFilterMes += strsprintf(_T("%s%s\n"), (vppFilterMes.length()) ? _T("               ") : _T("Vpp Filters    "), filter->GetInputMessage().c_str());
+        }
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("Filter list\n%s.\n"), vppFilterMes.c_str());
 #if 0
     if (m_videoQualityMetric) {
         int prevtask = -1;
@@ -4333,7 +4340,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVEncode>(m_dev.get(), m_encRunCtx.get(),
             codec_guid_enc_to_rgy(m_stCodecGUID), m_uEncWidth, m_uEncHeight, GetEncoderCSP(prm), GetEncoderBitDepth(prm), picstruct_enc_to_rgy(m_stPicStruct),
             m_stEncConfig, m_stCreateEncodeParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_hdr10plus.get(), m_dovirpu.get(),
-            m_dynamicRC, m_keyFile, m_keyOnChapter, m_Chapters, 1, m_pLog));
+            m_dynamicRC, m_keyFile, m_keyOnChapter, m_Chapters, 1, prm->ctrl.threadParams.get(RGYThreadType::ENC), m_pLog));
     }
 
     if (m_pipelineTasks.size() == 0) {
