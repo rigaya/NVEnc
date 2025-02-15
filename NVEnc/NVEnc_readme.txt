@@ -229,6 +229,7 @@ NVIDIA グラフィックドライバ 551.23
   - Ubuntu 18.04向けビルドを廃止。
 - 「CPU→GPUへのフレーム転送」「フィルタ処理」「エンコーダへのフレーム投入」をすべて並行して実行できるよう拡張。
 - AV1の--max-temporal-layersを--temporal-layersに統合。
+- --dolby-vision-rpuの取り扱いを改善。
 
 2025.01.19 (7.82)
 - AV1のlevelを指定可能に。
