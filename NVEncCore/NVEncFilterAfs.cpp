@@ -939,7 +939,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         }
         if (iframe == 0) {
             // scan_frame(p1 = -2, p0 = -1)のscan_frameも必要
-            if (RGY_ERR_NONE != (sts = scan_frame(iframe-1, false, pAfsParam.get(), stream))) {
+            if (RGY_ERR_NONE != (sts = scan_frame(iframe-1, false, pAfsParam.get(), (STREAM_OPT) ? *m_streamAnalyze.get() : stream))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe-1=%d): %s.\n"), iframe-1, get_err_mes(sts));
                 return sts;
             }

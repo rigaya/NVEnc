@@ -18,10 +18,8 @@ https://github.com/rigaya/NVEnc/blob/master/NVEncC_Options.ja.md
 Windows 10 (x86/x64)
 Aviutl 1.00 以降
 NVEncが載ったハードウェア
-  NVIDIA製 GPU GeForce Kepler世代以降 (GT/GTX 6xx 以降)
-  ※GT 63x, 62x等はFermi世代のリネームであるため非対応なものがあります。
-NVIDIA グラフィックドライバ 418.81以降 (x64版)
-NVIDIA グラフィックドライバ 456.81以降 (x86版)
+  NVIDIA製 GPU GeForce Maxwell世代以降とKeplerの一部(GTX Titan, 780(Ti), 730-710)
+NVIDIA グラフィックドライバ 452.39以降
 
 【NVEnc 使用にあたっての注意事項】
 無保証です。自己責任で使用してください。
@@ -215,17 +213,22 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
-2025.02.12 (8.00 beta1)
+2025.02.15 (8.00 beta1)
 - NVENC SDK 13.0に対応。
   使用には、ドライバ570.00以降が必要。
   - --tf-levelをH.264/AV1にも対応。
   - --split-encにforced_4を追加。
   - HEVCの--temporal-layersの指定に対応。
   - yuv422出力に仮対応。
+- WindowsのビルドをCUDA 11.8ベースに変更。
+  - ドライバ452.39以降が必要。
+  - CC3.5以降のGPUが必要
+    - NVIDIA製 GPU GeForce Maxwell世代以降とKeplerの一部(GTX Titan, 780(Ti), 730-710)
+  - CC3.5非対応のGPU(GTX770, 760, 740, 6xx)は非対応に
+- CUDA 10以前でのビルド対応を廃止。
+  - Ubuntu 18.04向けビルドを廃止。
 - 「CPU→GPUへのフレーム転送」「フィルタ処理」「エンコーダへのフレーム投入」をすべて並行して実行できるよう拡張。
 - AV1の--max-temporal-layersを--temporal-layersに統合。
-- WindowsのビルドをCUDA 11.8ベースに変更。ドライバ452.39以降が必要。
-- Ubuntu 18.04向けビルドを廃止。
 
 2025.01.19 (7.82)
 - AV1のlevelを指定可能に。
