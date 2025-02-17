@@ -894,6 +894,17 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             gpu = gpuList.erase(gpu);
             continue;
         }
+        // デコードのチェック
+        if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
+            if (RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get()); pReader) {
+                if (pReader->GetHWDecDeviceID().size() > 0 && !pReader->GetHWDecDeviceID().count((*gpu)->id())) {
+                    message += strsprintf(_T("GPU #%d (%s) does not support required hw decoding.\n"), (*gpu)->id(), (*gpu)->name().c_str());
+                    gpu = gpuList.erase(gpu);
+                    continue;
+                }
+            }
+        }
+
         if (inputParam->common.metric.enabled()) {
             //デコードのほうもチェックしてあげないといけない
            const auto& cuvid_csp = (*gpu)->cuvid_csp();
@@ -4020,31 +4031,6 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         devUsageLock = m_deviceUsage->lock(); // ロックは親プロセス側でとる
     }
 
-    //リスト中のGPUのうち、まずは指定されたHWエンコードが可能なもののみを選択
-    if ((sts = CheckGPUListByEncoder(gpuList, inputParam)) != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Unknown erro occurred during checking GPU.\n"));
-        return sts;
-    }
-    if (0 == gpuList.size()) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO
-            ? _T("指定されたコーデック/プロファイルをエンコード可能なGPUがみつかりまえせんでした。\n")
-            : _T("No suitable GPU found for codec / profile specified.\n"));
-        return err_to_rgy(NV_ENC_ERR_NO_ENCODE_DEVICE);
-    }
-    PrintMes(RGY_LOG_DEBUG, _T("CheckGPUListByEncoder: Success.\n"));
-
-    //使用するGPUの優先順位を決定
-    if ((sts = GPUAutoSelect(gpuList, inputParam, devUsageLock.get())) != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("GPUの自動選択に失敗しました。\n") : _T("Failed to select gpu.\n"));
-        return sts;
-    }
-    PrintMes(RGY_LOG_DEBUG, _T("GPUAutoSelect: Success.\n"));
-
-    if ((sts = CheckDynamicRCParams(inputParam->dynamicRC)) != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_DEBUG, _T("Error in dynamic rate control params.\n"));
-        return sts;
-    }
-
     if ((sts = input_ret.get()) < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
@@ -4093,23 +4079,34 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
     m_rgbAsYUV444 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED;
 
+    //リスト中のGPUのうち、まずは指定されたHWエンコードが可能なもののみを選択
+    if ((sts = CheckGPUListByEncoder(gpuList, inputParam)) != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("Unknown erro occurred during checking GPU.\n"));
+        return sts;
+    }
+    if (0 == gpuList.size()) {
+        PrintMes(RGY_LOG_ERROR, FOR_AUO
+            ? _T("指定されたコーデック/プロファイルをエンコード可能なGPUがみつかりまえせんでした。\n")
+            : _T("No suitable GPU found for codec / profile specified.\n"));
+        return err_to_rgy(NV_ENC_ERR_NO_ENCODE_DEVICE);
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("CheckGPUListByEncoder: Success.\n"));
+
+    //使用するGPUの優先順位を決定
+    if ((sts = GPUAutoSelect(gpuList, inputParam, devUsageLock.get())) != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("GPUの自動選択に失敗しました。\n") : _T("Failed to select gpu.\n"));
+        return sts;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("GPUAutoSelect: Success.\n"));
+
+    if ((sts = CheckDynamicRCParams(inputParam->dynamicRC)) != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_DEBUG, _T("Error in dynamic rate control params.\n"));
+        return sts;
+    }
+
     if (gpuList.size() > 1 && m_nDeviceId < 0) {
-        RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
-        if (pReader != nullptr) {
-            m_nDeviceId = pReader->GetHWDecDeviceID();
-            if (m_nDeviceId >= 0) {
-                const auto gpu = std::find_if(gpuList.begin(), gpuList.end(), [device_id = m_nDeviceId](const std::unique_ptr<NVGPUInfo> & gpuinfo) {
-                    return gpuinfo->id() == device_id;
-                });
-                PrintMes(RGY_LOG_DEBUG, _T("device #%d (%s) selected by reader.\n"), (*gpu)->id(), (*gpu)->name().c_str());
-            } else {
-                PrintMes(RGY_LOG_DEBUG, _T("reader has not selected device.\n"));
-            }
-        }
-        if (m_nDeviceId < 0) {
-            m_nDeviceId = gpuList.front()->id();
-            PrintMes(RGY_LOG_DEBUG, _T("device #%d (%s) selected.\n"), gpuList.front()->id(), gpuList.front()->name().c_str());
-        }
+        m_nDeviceId = gpuList.front()->id();
+        PrintMes(RGY_LOG_DEBUG, _T("device #%d (%s) selected.\n"), gpuList.front()->id(), gpuList.front()->name().c_str());
     }
     if (m_deviceUsage) {
         const int devID = gpuList.front()->id();

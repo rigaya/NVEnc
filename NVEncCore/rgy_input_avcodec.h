@@ -39,6 +39,7 @@
 #include "rgy_bitstream.h"
 #include "convert_csp.h"
 #include <deque>
+#include <set>
 #include <atomic>
 #include <thread>
 #include <cassert>
@@ -752,7 +753,7 @@ struct AVDemuxVideo {
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
 
-    int                       HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
+    std::set<int>             HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
 
     RGYHEVCBsf                hevcbsf;               //HEVCのbsfの選択
     bool                      bUseHEVCmp42AnnexB;
@@ -915,8 +916,8 @@ public:
     //動画の最初のフレームのptsを取得する
     int64_t GetVideoFirstKeyPts();
 
-    //入力に使用する予定のdeviceIDを取得する
-    int GetHWDecDeviceID();
+    //入力に使用可能なdeviceIDを取得する
+    const std::set<int>& GetHWDecDeviceID() const;
 
     //入力スレッドのハンドルを取得する
     HANDLE getThreadHandleInput();

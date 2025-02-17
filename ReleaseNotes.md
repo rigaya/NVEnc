@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 8.00beta2
+
+- Improve auto gpu selection for multi (NVIDIA) GPU environments.
+
 ## 8.00beta1
 
 - Add support for NVENC SDK 13.0.

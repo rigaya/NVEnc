@@ -131,7 +131,7 @@ AVDemuxVideo::AVDemuxVideo() :
     decRFFStatus(0),
     pParserCtx(nullptr),
     pCodecCtxParser(nullptr),
-    HWDecodeDeviceId(0),
+    HWDecodeDeviceId(),
     hevcbsf(RGYHEVCBsf::INTERNAL),
     bUseHEVCmp42AnnexB(false),
     hevcNaluLengthSize(0),
@@ -459,7 +459,7 @@ RGY_ERR RGYInputAvcodec::initVideoParser() {
             char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(),
             m_Demux.video.pCodecCtxParser->time_base.num, m_Demux.video.pCodecCtxParser->time_base.den,
             m_Demux.video.pCodecCtxParser->pkt_timebase.num, m_Demux.video.pCodecCtxParser->pkt_timebase.den);
-    } else if (m_Demux.video.HWDecodeDeviceId >= 0) {
+    } else if (m_Demux.video.HWDecodeDeviceId.size() >= 0) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str());
         return RGY_ERR_NULL_PTR;
     }
@@ -1913,7 +1913,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_inputVideoInfo.type = RGY_INPUT_FMT_AVSW;
         }
 #endif
-        m_Demux.video.HWDecodeDeviceId = -1;
+        m_Demux.video.HWDecodeDeviceId.clear();
         if (input_prm->tcfileIn.length() > 0) {
             if (input_prm->seekSec > 0.0f) {
                 AddMessage(RGY_LOG_ERROR, _T("--seek not supported with --tcfile-in.\n"));
@@ -1939,11 +1939,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 m_inputVideoInfo.codec = checkHWDecoderAvailable(
                     m_Demux.video.stream->codecpar->codec_id, (AVPixelFormat)m_Demux.video.stream->codecpar->format, &devCodecCsp.second);
                 if (m_inputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
-                    m_Demux.video.HWDecodeDeviceId = devCodecCsp.first;
-                    break;
-                }
-                if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVHW) {
-                    break; //RGY_INPUT_FMT_AVANYのときは、HWデコードできなくても優先度の高いGPUを使用する
+                    m_Demux.video.HWDecodeDeviceId.insert(devCodecCsp.first);
                 }
             }
             if (m_inputVideoInfo.codec == RGY_CODEC_UNKNOWN
@@ -1964,8 +1960,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         if (m_inputVideoInfo.codec == RGY_CODEC_UNKNOWN) { //swデコードの場合
             avswDecoder = input_prm->avswDecoder;
         }
-        m_readerName = (m_Demux.video.HWDecodeDeviceId >= 0) ? _T("av" DECODER_NAME) : _T("avsw");
-        m_inputVideoInfo.type = (m_Demux.video.HWDecodeDeviceId >= 0) ? RGY_INPUT_FMT_AVHW : RGY_INPUT_FMT_AVSW;
+        m_readerName = (m_Demux.video.HWDecodeDeviceId.size() > 0) ? _T("av" DECODER_NAME) : _T("avsw");
+        m_inputVideoInfo.type = (m_Demux.video.HWDecodeDeviceId.size() > 0) ? RGY_INPUT_FMT_AVHW : RGY_INPUT_FMT_AVSW;
         //念のため初期化
         m_trimParam.list.clear();
         m_trimParam.offset = 0;
@@ -1979,7 +1975,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 return sts;
             }
         //HWデコードする場合には、ヘッダーが必要
-        } else if (m_Demux.video.HWDecodeDeviceId >= 0
+        } else if (m_Demux.video.HWDecodeDeviceId.size() > 0
             && (m_inputVideoInfo.codec != RGY_CODEC_VP8 && m_inputVideoInfo.codec != RGY_CODEC_VP9)
             && m_Demux.video.stream->codecpar->extradata == nullptr
             && m_Demux.video.stream->codecpar->extradata_size == 0) {
@@ -2028,7 +2024,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                             }
                         }
                         m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
-                        m_Demux.video.HWDecodeDeviceId = -1;
+                        m_Demux.video.HWDecodeDeviceId.clear();
                     }
                     //close bitstreamfilter
                     if (m_Demux.video.bsfcCtx) {
@@ -2218,7 +2214,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         const auto aspectRatio = m_Demux.video.stream->codecpar->sample_aspect_ratio;
         const bool bAspectRatioUnknown = aspectRatio.num * aspectRatio.den <= 0;
 
-        if (!(m_Demux.video.HWDecodeDeviceId >= 0)) {
+        if (!(m_Demux.video.HWDecodeDeviceId.size() > 0)) {
             if (avswDecoder.length() != 0) {
                 // swデコーダの指定がある場合はまずはそれを使用する
                 if (nullptr == (m_Demux.video.codecDecode = avcodec_find_decoder_by_name(tchar_to_string(avswDecoder).c_str()))) {
@@ -2362,7 +2358,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_inputVideoInfo.vui.colorrange = (CspColorRange)m_Demux.video.stream->codecpar->color_range;
         m_inputVideoInfo.vui.descriptpresent = 1;
 
-        if (m_Demux.video.HWDecodeDeviceId >= 0) {
+        if (m_Demux.video.HWDecodeDeviceId.size() > 0) {
             tstring mes = strsprintf(_T("av" DECODER_NAME ": %s, %dx%d, %d/%d fps"),
                 CodecToStr(m_inputVideoInfo.codec).c_str(),
                 m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
@@ -3422,7 +3418,7 @@ RGYDOVIProfile RGYInputAvcodec::getInputDOVIProfile() {
     return getStreamDOVIProfile(m_Demux.video.stream);
 }
 
-int RGYInputAvcodec::GetHWDecDeviceID() {
+const std::set<int>& RGYInputAvcodec::GetHWDecDeviceID() const {
     return m_Demux.video.HWDecodeDeviceId;
 }
 
