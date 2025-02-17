@@ -47,7 +47,8 @@ class RGYInputAvsPrm : public RGYInputPrm {
 public:
     int            nAudioSelectCount;       //muxする音声のトラック数
     AudioSelect **ppAudioSelect;            //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
-    tstring avsdll;
+    tstring avsdll;                         //読み込むavisynth.dllのパス
+    float seekRatio;                        //開始位置を指定する場合の割合 (0.0～1.0)、並列エンコード時に使用
     RGYInputAvsPrm(RGYInputPrm base);
 
     virtual ~RGYInputAvsPrm() {};
@@ -70,6 +71,11 @@ public:
     virtual vector<AVDemuxStream> GetInputStreamInfo() override { return m_audio; };
 #endif // #if ENABLE_AVSW_READER
 
+    virtual int64_t GetVideoFirstKeyPts() const override;
+    virtual bool seekable() const override {
+        return true;
+    }
+
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
     virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
@@ -81,6 +87,7 @@ protected:
     const AVS_VideoInfo *m_sAVSinfo;
 
     std::unique_ptr<avs_dll_t> m_sAvisynth;
+    int m_startFrame;
 
 #if ENABLE_AVSW_READER
     RGY_ERR InitAudio(const RGYInputAvsPrm *input_prm);

@@ -296,6 +296,7 @@ static inline int pktFlagGetTrackID(const AVPacket *pkt) {
     return (int)((uint32_t)pkt->flags >> 16);
 }
 
+// av_rescale_qのラッパー (v * from / to)
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
 
 // AVCodecContext::ticks_per_frameの代わり

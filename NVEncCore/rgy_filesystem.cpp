@@ -305,6 +305,16 @@ tstring getExePath() {
 }
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+void rgy_file_remove(const char *path) {
+    ::remove(path);
+}
+#if defined(_WIN32) || defined(_WIN64)
+void rgy_file_remove(const wchar_t *path) {
+    _wremove(path);
+}
+#endif
+
 tstring getExeDir() {
     return PathRemoveFileSpecFixed(getExePath()).second;
 }

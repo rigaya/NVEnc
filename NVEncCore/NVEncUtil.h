@@ -388,6 +388,19 @@ public:
     RGY_ERR append(RGYBitstream *pBitstream) {
         return append(pBitstream->data(), pBitstream->size());
     }
+
+    RGY_ERR resize(size_t nNewSize) {
+        if (nNewSize > maxLength) {
+            return changeSize(nNewSize);
+        }
+        if (nNewSize + dataOffset > maxLength) {
+            memmove(dataptr, dataptr + dataOffset, dataLength);
+            dataOffset = 0;
+        }
+        dataLength = nNewSize;
+        return RGY_ERR_NONE;
+    }
+
     void addFrameData(RGYFrameData *frameData);
     void clearFrameDataList();
     std::vector<RGYFrameData *> getFrameDataList();

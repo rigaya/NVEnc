@@ -53,6 +53,8 @@ static const auto CODEPAGE_CMDARG = _T("--process-codepage");
 static const auto CODEPAGE_CMDARG_APPLIED = _T("--process-codepage-applied");
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+std::vector<tstring> splitCommandLine(const TCHAR *cmd);
+
 tstring encoder_help();
 const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
 int cmd_string_to_bool(bool *b, const tstring &str);

@@ -416,6 +416,7 @@ static RGY_ERR initOtherReaders(
         }
         inputInfoAVAudioReader.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_AUTO;
+        inputInfoAVAudioReader.seekRatio = common->seekRatio;
         inputInfoAVAudioReader.seekSec = common->seekSec;
         inputInfoAVAudioReader.seekToSec = common->seekToSec;
         inputInfoAVAudioReader.logFramePosList = ctrl->logFramePosList.getFilename(src.filename, _T(".framelist.csv"));
@@ -594,6 +595,7 @@ RGY_ERR initReaders(
         inputPrmAvs.nAudioSelectCount = common->nAudioSelectCount;
         inputPrmAvs.ppAudioSelect = common->ppAudioSelectList;
         inputPrmAvs.avsdll = ctrl->avsdll;
+        inputPrmAvs.seekRatio = common->seekRatio;
         pInputPrm = &inputPrmAvs;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avs reader selected.\n"));
         pFileReader.reset(new RGYInputAvs());
@@ -603,6 +605,7 @@ RGY_ERR initReaders(
     case RGY_INPUT_FMT_VPY:
     case RGY_INPUT_FMT_VPY_MT:
         inputPrmVpy.vsdir = ctrl->vsdir;
+        inputPrmVpy.seekRatio = common->seekRatio;
         pInputPrm = &inputPrmVpy;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("vpy reader selected.\n"));
         pFileReader.reset(new RGYInputVpy());
@@ -643,6 +646,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.nAttachmentSelectCount = common->nAttachmentSelectCount;
         inputInfoAVCuvid.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVCuvid.AVSyncMode = RGY_AVSYNC_AUTO;
+        inputInfoAVCuvid.seekRatio = common->seekRatio;
         inputInfoAVCuvid.seekSec = common->seekSec;
         inputInfoAVCuvid.seekToSec = common->seekToSec;
         inputInfoAVCuvid.logFramePosList = ctrl->logFramePosList.getFilename(common->inputFilename, _T(".framelist.csv"));
@@ -659,6 +663,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
+        inputInfoAVCuvid.parallelEncParent = ctrl->parallelEnc.isParent();
         inputInfoAVCuvid.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVCuvid.hevcbsf = common->hevcbsf;
         inputInfoAVCuvid.avswDecoder = inprm->avswDecoder;

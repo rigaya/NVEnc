@@ -377,7 +377,8 @@ struct AvcodecWriterPrm {
     bool                         allowOtherNegativePts;   //音声・字幕の負のptsを許可するかどうか
     bool                         timestampPassThrough;    //タイムスタンプをそのまま出力するかどうか
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
-    bool                         lowlatency;              //低遅延モード 
+    bool                         lowlatency;              //低遅延モード
+    bool                         parallelEncode;          //並列エンコードを使用する
     const AVStream              *videoInputStream;        //入力映像のストリーム
     AVRational                   bitstreamTimebase;       //エンコーダのtimebase
     int64_t                      videoInputFirstKeyPts;   //入力映像の最初のpts
@@ -422,6 +423,7 @@ struct AvcodecWriterPrm {
         timestampPassThrough(false),
         bVideoDtsUnavailable(),
         lowlatency(false),
+        parallelEncode(false),
         videoInputStream(nullptr),
         bitstreamTimebase(av_make_q(0, 1)),
         videoInputFirstKeyPts(0),

@@ -66,6 +66,7 @@
 #include "rgy_level.h"
 #include "rgy_level_hevc.h"
 #include "rgy_device_info_cache.h"
+#include "rgy_parallel_enc.h"
 #include "NVEncPipeline.h"
 #include "NVEncCore.h"
 #include "NVEncFilterDelogo.h"
@@ -275,6 +276,7 @@ NVEncCore::NVEncCore() :
     m_pDecoder(),
     m_deviceUsage(),
     m_encRunCtx(),
+    m_parallelEnc(),
     m_pAbortByUser(nullptr),
     m_cudaSchedule(CU_CTX_SCHED_AUTO),
     m_stCreateEncodeParams(),
@@ -724,6 +726,49 @@ RGY_ERR NVEncCore::InitPerfMonitor(const InEncodeVideoParam *inputParam) {
         m_pLog, &perfMonitorPrm)) {
         PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
         m_pPerfMonitor.reset();
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam) {
+    if (!inputParam->ctrl.parallelEnc.isEnabled()) {
+        return RGY_ERR_NONE;
+    }
+    auto [sts, errmes] = RGYParallelEnc::isParallelEncPossible(inputParam, m_pFileReader.get());
+    if (sts != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_WARN, _T("%s.\n"), errmes);
+        inputParam->ctrl.parallelEnc.parallelCount = 0;
+        inputParam->ctrl.parallelEnc.parallelId = -1;
+        return sts;
+    }
+    // 並列処理が有効の場合、メインスレッドではエンコードは行わないので、m_deviceUsageは解放する
+    if (inputParam->ctrl.parallelEnc.isParent() && m_deviceUsage) {
+        m_deviceUsage->close();
+    }
+    m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pLog);
+    RGYParallelEncDevInfo devInfo;
+    devInfo.id = (int)m_dev->id();
+    devInfo.name = m_dev->name();
+    devInfo.type = 0;
+    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_pStatus.get(), devInfo)) != RGY_ERR_NONE) {
+        if (inputParam->ctrl.parallelEnc.isChild()) {
+            return sts;
+        }
+        // うまくいかなかった場合、並列処理を無効化して続行する
+        PrintMes(RGY_LOG_WARN, _T("Failed to initialize parallel encoding, disabled.\n"));
+        m_parallelEnc.reset();
+        // m_deviceUsageはいったん解放したので、登録を再追加
+        if (m_deviceUsage) {
+            m_deviceUsage = std::make_unique<RGYDeviceUsage>();
+            auto devUsageLock = m_deviceUsage->lock(); // ロックは親プロセス側でとる
+            // 登録を解除するプロセスを起動
+            const auto [err_run_proc, child_pid] = m_deviceUsage->startProcessMonitor(m_dev->id());
+            if (err_run_proc == RGY_ERR_NONE) {
+                // プロセスが起動できたら、その子プロセスのIDを登録する
+                m_deviceUsage->add(m_dev->id(), child_pid, devUsageLock.get());
+            }
+        }
+        return sts;
     }
     return RGY_ERR_NONE;
 }
@@ -2296,7 +2341,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     set_temporalLayers(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalLayers, m_dev->encoder()->getAPIver());
 
     auto require_repeat_headers = [this]() {
-        return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0);
+        return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0) || m_parallelEnc;
     };
 
     if (inputParam->codec_rgy == RGY_CODEC_AV1) {
@@ -4184,7 +4229,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
 
-    m_encTimestamp = std::make_unique<RGYTimestamp>(inputParam->common.timestampPassThrough);
+    m_encTimestamp = std::make_unique<RGYTimestamp>(inputParam->common.timestampPassThrough, inputParam->ctrl.parallelEnc.isParent() /*durationは子エンコーダで修正済み*/);
     m_encodeFrameID = 0;
 
     if ((sts = InitPowerThrottoling(inputParam)) != RGY_ERR_NONE) {
@@ -4231,6 +4276,9 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitPerfMonitor: Success.\n"));
 
+    sts = InitParallelEncode(inputParam);
+    if (sts < RGY_ERR_NONE) return sts;
+
     //出力ファイルを開く
     if ((sts = InitOutput(inputParam, encBufferFormat)) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("出力ファイルのオープンに失敗しました。: \"%s\"\n") : _T("Failed to open output file: \"%s\"\n"), inputParam->common.outputFilename.c_str());
@@ -4261,12 +4309,26 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
     m_pipelineTasks.clear();
 
+    if (m_parallelEnc && m_parallelEnc->id() < 0) {
+        // 親プロセスの子プロセスのデータ回収用
+        std::unique_ptr<PipelineTaskAudio> taskAudio;
+        if (m_pFileWriterListAudio.size() > 0) {
+            taskAudio = std::make_unique<PipelineTaskAudio>(m_dev.get(), m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, prm->ctrl.threadParams.get(RGYThreadType::AUDIO), m_pLog);
+        }
+        const auto encOutputTimebase = (ENCODER_QSV) ? to_rgy(HW_NATIVE_TIMEBASE) : m_outputTimebase;
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_dev.get(), m_pFileReader.get(), m_encTimestamp.get(), m_hdr10plus.get(), m_parallelEnc.get(),
+            m_pStatus.get(), encOutputTimebase, taskAudio, 0, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
+        return RGY_ERR_NONE;
+    }
+
+    // 並列処理時用の終了時刻 (この時刻は含まないようにする) -1の場合は制限なし(最後まで)
+    const auto parallelEncEndPts = (m_parallelEnc) ? m_parallelEnc->getVideoEndKeyPts() : -1ll;
     PipelineTaskNVDecode *taskNVDec = nullptr;
     if (m_pDecoder) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 0, m_pFileReader.get(), prm->ctrl.threadParams.get(RGYThreadType::DEC), m_pLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskNVDecode>(m_dev.get(), m_pDecoder.get(), 0, m_pFileReader.get(), parallelEncEndPts, prm->ctrl.threadParams.get(RGYThreadType::DEC), m_pLog));
         taskNVDec = dynamic_cast<PipelineTaskNVDecode *>(m_pipelineTasks.back().get());
     } else {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 1, m_pFileReader.get(), prm->ctrl.threadParams.get(RGYThreadType::INPUT), m_pLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(m_dev.get(), 1, m_pFileReader.get(), parallelEncEndPts, prm->ctrl.threadParams.get(RGYThreadType::INPUT), m_pLog));
     }
     if (m_pFileWriterListAudio.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_dev.get(), m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, prm->ctrl.threadParams.get(RGYThreadType::AUDIO), m_pLog));
@@ -4279,7 +4341,8 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
         const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
         if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f) {
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_dev.get(), m_trimParam, m_pFileReader.get(), srcTimebase, m_outputTimebase, 0, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_dev.get(), m_trimParam, m_pFileReader.get(), m_parallelEnc.get(),
+                srcTimebase, m_outputTimebase, 0, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
             taskTrim = dynamic_cast<PipelineTaskTrim *>(m_pipelineTasks.back().get());
         }
         const bool interlaceAutoDetect = pReader && pReader->GetInputFrameInfo().picstruct == RGY_PICSTRUCT_AUTO;
@@ -4425,7 +4488,8 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
         t0 = t1;
     }
     // 最後がエンコーダでない場合の特例
-    if (m_pipelineTasks.back()->taskType() != PipelineTaskType::NVENC) {
+    if (   m_pipelineTasks.back()->taskType() != PipelineTaskType::NVENC
+        && m_pipelineTasks.back()->taskType() != PipelineTaskType::PECOLLECT) {
         const auto t1Alloc = m_pipelineTasks.back()->requiredSurfOut();
         if (!t1Alloc.has_value()) {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from last element!\n"));
@@ -4672,7 +4736,11 @@ RGY_ERR NVEncCore::Encode() {
         }
     }
     PrintMes(RGY_LOG_DEBUG, _T("RunEncode2: finished.\n"));
-    return (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
+    err = (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
+    if (m_parallelEnc) {
+        m_parallelEnc->close(err == RGY_ERR_NONE);
+    }
+    return err;
 }
 
 #if 0
@@ -5951,6 +6019,20 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(RGY_LOG_INFO,  _T("OS Version     %s\n"), getOSVersion().c_str());
 #endif
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
+    {
+        std::vector<RGYParallelEncDevInfo> parallelEncDevInfo;
+        if (m_parallelEnc) {
+            parallelEncDevInfo = m_parallelEnc->devInfo();
+        }
+        if (parallelEncDevInfo.size() > 0) {
+            add_str(RGY_LOG_INFO, _T("GPU            %s\n"), parallelEncDevInfo[0].name.c_str());
+            for (size_t i = 1; i < parallelEncDevInfo.size(); i++) {
+                add_str(RGY_LOG_INFO, _T("               %s\n"), parallelEncDevInfo[i].name.c_str());
+            }
+        } else {
+            add_str(RGY_LOG_INFO, _T("GPU            %s\n"), gpu_info.c_str());
+        }
+    }
     add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info.c_str());
     if (m_dev->encoder()) {
         const auto encAPIver = m_dev->encoder()->getAPIver();

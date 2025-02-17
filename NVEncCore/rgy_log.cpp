@@ -227,7 +227,7 @@ tstring RGYParamLogLevel::to_string() const {
 
 RGYLog::RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level, bool showTime, bool addLogLevel) :
     m_nLogLevel(),
-    m_pStrLog(nullptr),
+    m_pStrLog(),
     m_bHtml(false),
     m_showTime(showTime),
     m_addLogLevel(addLogLevel),
@@ -237,7 +237,7 @@ RGYLog::RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level, bool showTime
 
 RGYLog::RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level, bool showTime, bool addLogLevel) :
     m_nLogLevel(),
-    m_pStrLog(nullptr),
+    m_pStrLog(),
     m_bHtml(false),
     m_showTime(showTime),
     m_addLogLevel(addLogLevel),
@@ -249,10 +249,12 @@ RGYLog::~RGYLog() {
 }
 
 void RGYLog::init(const TCHAR *pLogFile, const RGYParamLogLevel& log_level) {
-    m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
-    m_mtx.reset(new std::mutex());
+    if (!m_mtx) {
+        m_mtx = std::make_shared<std::mutex>();
+    }
     if (pLogFile != nullptr && _tcslen(pLogFile) > 0) {
+        m_pStrLog = pLogFile;
         CreateDirectoryRecursive(PathRemoveFileSpecFixed(pLogFile).second.c_str());
         FILE *fp = NULL;
         if (_tfopen_s(&fp, pLogFile, _T("a+")) || fp == NULL) {
@@ -280,7 +282,7 @@ void RGYLog::init(const TCHAR *pLogFile, const RGYParamLogLevel& log_level) {
 
 void RGYLog::writeHtmlHeader() {
     FILE *fp = NULL;
-    if (_tfopen_s(&fp, m_pStrLog, _T("wb"))) {
+    if (_tfopen_s(&fp, m_pStrLog.c_str(), _T("wb"))) {
         std::wstring header =
             L"<!DOCTYPE html>\n"
             L"<html lang = \"ja\">\n"
@@ -426,7 +428,7 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
     char *buffer_ptr = NULL;
     DWORD mode = 0;
     bool stderr_write_to_console = 0 != GetConsoleMode(hStdErr, &mode); //stderrの出力先がコンソールかどうか
-    if (m_pStrLog || !stderr_write_to_console) {
+    if (m_pStrLog.length() > 0 || !stderr_write_to_console) {
         buffer_char = tchar_to_string(buffer, (m_bHtml) ? CP_UTF8 : CP_THREAD_ACP);
         if (m_bHtml) {
             buffer_char = convert_to_html(buffer_char);
@@ -444,10 +446,10 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
     }
 #endif
     std::lock_guard<std::mutex> lock(*m_mtx.get());
-    if (m_pStrLog) {
+    if (m_pStrLog.length() > 0) {
         FILE *fp_log = NULL;
         //logはANSI(まあようはShift-JIS)で保存する
-        if (0 == _tfopen_s(&fp_log, m_pStrLog, (m_bHtml) ? _T("rb+") : _T("a")) && fp_log) {
+        if (0 == _tfopen_s(&fp_log, m_pStrLog.c_str(), (m_bHtml) ? _T("rb+") : _T("a")) && fp_log) {
             if (m_bHtml) {
                 _fseeki64(fp_log, 0, SEEK_END);
                 int64_t pos = _ftelli64(fp_log);

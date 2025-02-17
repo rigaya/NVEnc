@@ -45,6 +45,7 @@ bool CreateDirectoryRecursive(const wchar_t *dir);
 std::wstring PathGetFilename(const std::wstring& path);
 std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
 tstring getModulePath(void *module);
+void rgy_file_remove(const wchar_t *path);
 #endif //#if defined(_WIN32) || defined(_WIN64)
 tstring getExePath();
 tstring getExeDir();
@@ -61,6 +62,7 @@ std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
 std::string PathRemoveExtensionS(const std::string& path);
 bool CreateDirectoryRecursive(const char *dir);
 std::string PathGetFilename(const std::string& path);
+void rgy_file_remove(const char *path);
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
 bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list);

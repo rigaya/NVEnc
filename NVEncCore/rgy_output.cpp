@@ -30,6 +30,7 @@
 #include "rgy_bitstream.h"
 #include "rgy_language.h"
 #include "convert_csp.h"
+#include "rgy_parallel_enc.h"
 #include <filesystem>
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #include <smmintrin.h>
@@ -656,12 +657,19 @@ RGYOutputRaw::RGYOutputRaw() :
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
     m_prevEncodeFrameId(-1),
-    m_debugDirectAV1Out(false) {
+    m_debugDirectAV1Out(false),
+    m_extPERaw(false),
+    m_qFirstProcessData(nullptr),
+    m_qFirstProcessDataFree(nullptr) {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
 
 RGYOutputRaw::~RGYOutputRaw() {
+    if (m_qFirstProcessData) {
+        m_qFirstProcessData->push(nullptr);
+        m_qFirstProcessData = nullptr;
+    }
     if (m_fpDebug) {
         m_fpDebug.reset();
     }
@@ -681,7 +689,9 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         m_noOutput = true;
         AddMessage(RGY_LOG_DEBUG, _T("no output for benchmark mode.\n"));
     } else {
-        if (_tcscmp(strFileName, _T("-")) == 0) {
+        if (rawPrm->qFirstProcessData) {
+            AddMessage(RGY_LOG_DEBUG, _T("using parallel queue\n"));
+        } else if (_tcscmp(strFileName, _T("-")) == 0) {
             m_fDest.reset(stdout);
             m_outputIsStdout = true;
             AddMessage(RGY_LOG_DEBUG, _T("using stdout\n"));
@@ -723,6 +733,10 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                 return RGY_ERR_UNSUPPORTED;
             }
         }
+        m_extPERaw = rawPrm->extPERaw;
+        m_qFirstProcessData = rawPrm->qFirstProcessData;
+        m_qFirstProcessDataFree = rawPrm->qFirstProcessDataFree;
+        m_qFirstProcessDataFreeLarge = rawPrm->qFirstProcessDataFreeLarge;
         m_hdr10plusMetadataCopy = rawPrm->hdr10plusMetadataCopy;
         m_doviProfileDst = rawPrm->doviProfile;
         m_doviRpu = rawPrm->doviRpu;
@@ -802,7 +816,6 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
 }
 
 RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
-    size_t nBytesWritten = 0;
     if (m_noOutput) {
         return RGY_ERR_NONE;
     }
@@ -865,8 +878,51 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         return err;
     }
 
-    nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
-    WRITE_CHECK(nBytesWritten, pBitstream->size());
+    size_t nBytesWritten = 0;
+    if (m_qFirstProcessData || m_extPERaw) {
+        RGYOutputRawPEExtHeader peHeader;
+        peHeader.pts = pBitstream->pts();
+        peHeader.dts = pBitstream->dts();
+        peHeader.duration = (ENCODER_QSV) ? bs_framedata.duration : pBitstream->duration(); // QSVではdurationを取得できないので、別途取得する
+        peHeader.frameType = pBitstream->frametype();
+        peHeader.picstruct = pBitstream->picstruct();
+        peHeader.frameIdx = bs_framedata.encodeFrameId;
+        peHeader.flags = pBitstream->dataflag();
+        peHeader.size = pBitstream->size();
+        if (m_qFirstProcessData) { // 並列エンコード用のキューが指定されている場合は、ファイル出力せず、キューにデータを渡す
+            RGYOutputRawPEExtHeader *ptr = nullptr;
+            //空きポインタを保持するキューから取得
+            RGYQueueMPMP<RGYOutputRawPEExtHeader*> *freeQueue = (sizeof(peHeader) + pBitstream->size() <= RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE) ? m_qFirstProcessDataFree : m_qFirstProcessDataFreeLarge;
+            if (!freeQueue->front_copy_and_pop_no_lock(&ptr)) {
+                ptr = nullptr;
+            }
+            auto allocSize = (ptr) ? ptr->allocSize : 0;
+            // 実際のサイズか、RGY_PE_EXT_HEADER_DATA_BUF_SIZEの大きい方のサイズで確保
+            const auto newAllocSize = std::max(sizeof(peHeader) + pBitstream->size(), RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE);
+            if (ptr == nullptr || ptr->allocSize < newAllocSize) {
+                if (ptr) free(ptr);
+                ptr = (RGYOutputRawPEExtHeader *)malloc(newAllocSize);
+                if (ptr == nullptr) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for parallel encoding header.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
+                allocSize = newAllocSize;
+            }
+            memcpy(ptr, &peHeader, sizeof(peHeader));
+            memcpy(ptr + 1, pBitstream->data(), pBitstream->size());
+            ptr->allocSize = allocSize; // allocsizeはpeHeaderで上書きされているので、ここで再設定
+            m_qFirstProcessData->push(ptr);
+            nBytesWritten += pBitstream->size();
+        } else {
+            auto ret = _fwrite_nolock(&peHeader, 1, sizeof(peHeader), m_fDest.get());
+            WRITE_CHECK(ret, sizeof(peHeader));
+        }
+    }
+    if (!m_qFirstProcessData) {
+        const auto dataSize = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+        WRITE_CHECK(dataSize, pBitstream->size());
+        nBytesWritten += dataSize;
+    }
 
     m_encSatusInfo->SetOutputData(pBitstream->frametype(), nBytesWritten, 0);
     pBitstream->setSize(0);
@@ -1215,13 +1271,18 @@ RGY_ERR initWriters(
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->AVMuxTarget &= ~RGY_MUX_VIDEO;
     //}
-    pStatus->Init(outputVideoInfo.fpsN, outputVideoInfo.fpsD, input->frames, inputFileDuration, trimParam, log, pPerfMonitor);
+    auto encSts = (ctrl->parallelEnc.sendData) ? &ctrl->parallelEnc.sendData->encStatus : nullptr;
+    pStatus->Init(outputVideoInfo.fpsN, outputVideoInfo.fpsD, input->frames, inputFileDuration, trimParam, log, pPerfMonitor, encSts);
     if (ctrl->perfMonitorSelect || ctrl->perfMonitorSelectMatplot) {
         pPerfMonitor->SetEncStatus(pStatus);
     }
 
     bool audioCopyAll = false;
     if (common->AVMuxTarget & RGY_MUX_VIDEO) {
+        if (ctrl->parallelEnc.isChild()) {
+            log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Output: child process should not use muxer.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
         log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Using avformat writer.\n"));
         pFileWriter = std::make_shared<RGYOutputAvcodec>();
         AvcodecWriterPrm writerPrm;
@@ -1256,6 +1317,7 @@ RGY_ERR initWriters(
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
         writerPrm.lowlatency              = ctrl->lowLatency;
+        writerPrm.parallelEncode          = ctrl->parallelEnc.isEnabled();
         writerPrm.debugDirectAV1Out       = common->debugDirectAV1Out;
         writerPrm.HEVCAlphaChannel        = HEVCAlphaChannel;
         writerPrm.HEVCAlphaChannelMode    = HEVCAlphaChannelMode;
@@ -1568,6 +1630,10 @@ RGY_ERR initWriters(
             rawPrm.debugDirectAV1Out = common->debugDirectAV1Out;
             rawPrm.HEVCAlphaChannel = HEVCAlphaChannel;
             rawPrm.HEVCAlphaChannelMode = HEVCAlphaChannelMode;
+            rawPrm.qFirstProcessData = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessData : nullptr;
+            rawPrm.qFirstProcessDataFree = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessDataFree : nullptr;
+            rawPrm.qFirstProcessDataFreeLarge = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessDataFreeLarge : nullptr;
+            rawPrm.extPERaw = ctrl->parallelEnc.isChild();
             rawPrm.debugRawOut = common->debugRawOut;
             rawPrm.outReplayFile = common->outReplayFile;
             rawPrm.outReplayCodec = common->outReplayCodec;

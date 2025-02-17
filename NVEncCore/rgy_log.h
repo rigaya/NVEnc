@@ -153,11 +153,11 @@ int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle = NULL);
 class RGYLog {
 protected:
     RGYParamLogLevel m_nLogLevel;
-    const TCHAR *m_pStrLog;
+    tstring m_pStrLog;
     bool m_bHtml;
     bool m_showTime;
     bool m_addLogLevel;
-    std::unique_ptr<std::mutex> m_mtx;
+    std::shared_ptr<std::mutex> m_mtx;
     static const char *HTML_FOOTER;
 public:
     RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level = RGY_LOG_INFO, bool showTime = false, bool addLogLevel = false);
@@ -182,11 +182,14 @@ public:
         return m_nLogLevel.set(newLogLevel, type);
     }
     bool logFileAvail() {
-        return m_pStrLog != nullptr;
+        return m_pStrLog.length() > 0;
     }
     void setLogFile(const TCHAR *pLogFile) {
-        m_pStrLog = pLogFile;
+        m_pStrLog.clear();
+        if (pLogFile) m_pStrLog = pLogFile;
     }
+    void setLock(std::shared_ptr<std::mutex> mtx) { m_mtx = mtx; }
+    std::shared_ptr<std::mutex> getLock() { return m_mtx; }
     virtual void write_log(RGYLogLevel log_level, const RGYLogType logtype, const TCHAR *buffer, bool file_only = false);
     virtual void write(RGYLogLevel log_level, const RGYLogType logtype, const TCHAR *format, ...);
     virtual void write(RGYLogLevel log_level, const RGYLogType logtype, const wchar_t *format, va_list args);

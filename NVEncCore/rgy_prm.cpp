@@ -2274,6 +2274,7 @@ RGYParamCommon::RGYParamCommon() :
     videoCodecTag(),
     videoMetadata(),
     formatMetadata(),
+    seekRatio(0.0f),
     seekSec(0.0f),               //指定された秒数分先頭を飛ばす
     seekToSec(0.0f),
     nSubtitleSelectCount(0),
@@ -2335,6 +2336,20 @@ bool RGYParamAvoidIdleClock::operator!=(const RGYParamAvoidIdleClock &x) const {
     return !(*this == x);
 }
 
+RGYParamParallelEnc::RGYParamParallelEnc() :
+    parallelCount(0),
+    parallelId(-1),
+    sendData(nullptr) {
+
+};
+bool RGYParamParallelEnc::operator==(const RGYParamParallelEnc &x) const {
+    return parallelCount == x.parallelCount
+        && parallelId == x.parallelId;
+}
+bool RGYParamParallelEnc::operator!=(const RGYParamParallelEnc &x) const {
+    return !(*this == x);
+}
+
 RGYParamCommon::~RGYParamCommon() {};
 
 RGYParamControl::RGYParamControl() :
@@ -2367,7 +2382,8 @@ RGYParamControl::RGYParamControl() :
     avoidIdleClock(),
     processMonitorDevUsage(false),
     processMonitorDevUsageReset(false),
-    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {
+    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT),
+    parallelEnc() {
 
 }
 RGYParamControl::~RGYParamControl() {};

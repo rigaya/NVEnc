@@ -73,7 +73,7 @@ public:
     virtual ~RGYInputSM();
 
     virtual void Close() override;
-    virtual rgy_rational<int> getInputTimebase() override;
+    virtual rgy_rational<int> getInputTimebase() const override;
 
     bool isAfs();
     int droppedFrames() const { return m_droppedInAviutl; }

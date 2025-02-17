@@ -1026,6 +1026,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="rgy_libplacebo.cpp" />
+    <ClCompile Include="rgy_parallel_enc.cpp" />
     <ClCompile Include="rgy_wav_parser.cpp" />
     <CudaCompile Include="NVEncFilterConvolution3d.cu">
       <FileType>Document</FileType>
@@ -1511,6 +1512,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_osdep.h" />
     <ClInclude Include="rgy_output.h" />
     <ClInclude Include="rgy_output_avcodec.h" />
+    <ClInclude Include="rgy_parallel_enc.h" />
     <ClInclude Include="rgy_perf_counter.h" />
     <ClInclude Include="rgy_perf_monitor.h" />
     <ClInclude Include="rgy_pipe.h" />

@@ -37,6 +37,7 @@
 #include <mutex>
 #include "rgy_arch.h"
 #include "rgy_osdep.h"
+#include "rgy_util.h"
 #include "rgy_event.h"
 
 #ifndef clamp

@@ -245,6 +245,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     ppAttachmentSelect(nullptr),
     AVSyncMode(RGY_AVSYNC_AUTO),
     procSpeedLimit(0),
+    seekRatio(0.0f),
     seekSec(0.0f),
     seekToSec(0.0f),
     logFramePosList(),
@@ -259,9 +260,10 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     hdr10plusMetadataCopy(false),
     doviRpuMetadataCopy(false),
     interlaceAutoFrame(false),
-    qpTableListRef(nullptr),
+    parallelEncParent(false),
     lowLatency(false),
     timestampPassThrough(false),
+    qpTableListRef(nullptr),
     inputOpt(),
     hevcbsf(RGYHEVCBsf::INTERNAL),
     avswDecoder() {
@@ -2050,25 +2052,32 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_inputVideoInfo.codecExtraSize = m_Demux.video.extradataSize;
             bitstream.clear();
         }
-        if (input_prm->seekSec > 0.0f) {
+        if (input_prm->seekSec > 0.0f || input_prm->seekRatio > 0.0f) {
             auto [ret, firstpkt] = getSample();
             if (ret) { //現在のtimestampを取得する
                 AddMessage(RGY_LOG_ERROR, _T("Failed to get firstpkt of video!\n"));
                 return RGY_ERR_UNKNOWN;
             }
-            const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->seekSec, 1<<24), m_Demux.video.stream->time_base);
+            double seek_sec = input_prm->seekSec;
+            if (input_prm->seekRatio > 0.0f) {
+                const auto duration_sec = GetInputVideoDuration();
+                seek_sec = duration_sec * input_prm->seekRatio;
+            }
+            const auto seek_time = av_rescale_q(1, av_d2q(seek_sec, 1<<24), m_Demux.video.stream->time_base);
             int seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt->pts + seek_time, 0);
             if (0 > seek_ret) {
                 seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt->pts + seek_time, AVSEEK_FLAG_ANY);
             }
             if (0 > seek_ret) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to seek %s.\n"), print_time(input_prm->seekSec).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to seek %s.\n"), print_time(seek_sec).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            AddMessage(RGY_LOG_DEBUG, _T("set seek %s.\n"), print_time(input_prm->seekSec).c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("set seek %s.\n"), print_time(seek_sec).c_str());
             //seekのために行ったgetSampleの結果は破棄する
             m_Demux.frames.clear();
-            m_seek.first = input_prm->seekSec;
+            m_seek.first = (float)seek_sec;
+            m_Demux.video.gotFirstKeyframe = false;
+            m_Demux.video.streamFirstKeyPts = 0;
         }
 
         //parserはseek後に初期化すること
@@ -2391,6 +2400,15 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_DEBUG, _T("sar %d:%d, bitdepth %d\n"),
                 m_inputVideoInfo.sar[0], m_inputVideoInfo.sar[1], m_inputVideoInfo.bitdepth);
         }
+        // 並列エンコードの親の場合、デコーダは不要なので解放する
+        if (input_prm->parallelEncParent && m_Demux.video.codecCtxDecode) {
+            if (m_Demux.video.codecCtxDecode) {
+                AddMessage(RGY_LOG_DEBUG, _T("PEParent: Close codecCtx...\n"));
+                avcodec_free_context(&m_Demux.video.codecCtxDecode);
+                AddMessage(RGY_LOG_DEBUG, _T("PEParent: Closed codecCtx.\n"));
+                m_Demux.video.codecCtxDecode = nullptr;
+            }
+        }
 
         *inputInfo = m_inputVideoInfo;
 
@@ -2470,7 +2488,7 @@ int RGYInputAvcodec::GetAudioTrackCount() {
     return m_Demux.format.audioTracks;
 }
 
-int64_t RGYInputAvcodec::GetVideoFirstKeyPts() {
+int64_t RGYInputAvcodec::GetVideoFirstKeyPts() const {
     return m_Demux.video.streamFirstKeyPts;
 }
 
@@ -3076,7 +3094,7 @@ const AVDictionary *RGYInputAvcodec::GetInputFormatMetadata() {
     return m_Demux.format.formatCtx->metadata;
 }
 
-const AVStream *RGYInputAvcodec::GetInputVideoStream() {
+const AVStream *RGYInputAvcodec::GetInputVideoStream() const {
     return m_Demux.video.stream;
 }
 
@@ -3091,12 +3109,16 @@ double RGYInputAvcodec::GetInputVideoDuration() {
     return duration;
 }
 
-rgy_rational<int> RGYInputAvcodec::getInputTimebase() {
+rgy_rational<int> RGYInputAvcodec::getInputTimebase() const {
     return to_rgy(GetInputVideoStream()->time_base);
 }
 
-bool RGYInputAvcodec::rffAware() {
+bool RGYInputAvcodec::rffAware() const {
     return ENCODER_NVENC != 0;
+}
+
+bool RGYInputAvcodec::seekable() const {
+    return (m_Demux.format.formatCtx->ctx_flags & AVFMTCTX_UNSEEKABLE) == 0;
 }
 
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、

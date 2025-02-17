@@ -98,6 +98,9 @@ protected:
     //perfMonitorの初期化
     virtual RGY_ERR InitPerfMonitor(const InEncodeVideoParam *inputParam);
 
+    //並列エンコードの開始
+    RGY_ERR InitParallelEncode(InEncodeVideoParam *inputParam);
+
     //nvvfxを使用するかチェック
     bool useNVVFX(const InEncodeVideoParam *inputParam) const;
 
@@ -172,6 +175,7 @@ protected:
     std::unique_ptr<CuvidDecode>      m_pDecoder;              //デコード
     std::unique_ptr<RGYDeviceUsage> m_deviceUsage;
     std::unique_ptr<NVEncRunCtx>    m_encRunCtx;
+    std::unique_ptr<RGYParallelEnc> m_parallelEnc;
 
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
 

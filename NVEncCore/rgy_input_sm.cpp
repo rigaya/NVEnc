@@ -64,7 +64,7 @@ void RGYInputSM::Close() {
     RGYInput::Close();
 }
 
-rgy_rational<int> RGYInputSM::getInputTimebase() {
+rgy_rational<int> RGYInputSM::getInputTimebase() const {
     return rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).inv() * rgy_rational<int>(1, 4);
 }
 
