@@ -947,12 +947,15 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                 side_data_mastering.reset();
             }
         }
-        m_Mux.video.doviProfileDst = prm->doviProfile;
-        m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_UNSET;
-        if (prm->doviProfile != RGY_DOVI_PROFILE_UNSET) {
+    }
+    m_Mux.video.doviProfileDst = prm->doviProfile;
+    m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_UNSET;
+    if (prm->doviProfile != RGY_DOVI_PROFILE_UNSET) {
 #if LIBAVUTIL_DOVI_META_AVAIL
-            side_data_size = 0;
-            auto doviconf = AVStreamGetSideData<AVDOVIDecoderConfigurationRecord>(prm->videoInputStream, AV_PKT_DATA_DOVI_CONF, side_data_size);
+        std::unique_ptr<AVDOVIDecoderConfigurationRecord, RGYAVDeleter<AVDOVIDecoderConfigurationRecord>> doviconf;
+        if (prm->videoInputStream) {
+            size_t side_data_size = 0;
+            doviconf = AVStreamGetSideData<AVDOVIDecoderConfigurationRecord>(prm->videoInputStream, AV_PKT_DATA_DOVI_CONF, side_data_size);
             if (doviconf) {
                 m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_OTHER;
                 if (doviconf->dv_profile == 5) {
@@ -971,49 +974,50 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                     }
                 }
             }
-            if (!doviconf && prm->doviProfile != RGY_DOVI_PROFILE_COPY) {
-                size_t conf_size = 0;
-                doviconf = std::unique_ptr<AVDOVIDecoderConfigurationRecord, RGYAVDeleter<AVDOVIDecoderConfigurationRecord>>(av_dovi_alloc(&conf_size), RGYAVDeleter<AVDOVIDecoderConfigurationRecord>(av_freep));
-                doviconf->dv_version_major = 1;
-                doviconf->dv_version_minor = 0;
-                doviconf->dv_level = 10;
-                doviconf->bl_present_flag = 1;
-                switch (prm->doviProfile) {
-                case RGY_DOVI_PROFILE_50: doviconf->dv_profile = 5; doviconf->dv_bl_signal_compatibility_id = 0; break;
-                case RGY_DOVI_PROFILE_81: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 1; break;
-                case RGY_DOVI_PROFILE_82: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 2; break;
-                case RGY_DOVI_PROFILE_84: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 4; break;
-                case RGY_DOVI_PROFILE_COPY: break; //ここには来ない
-                default:
-                    AddMessage(RGY_LOG_ERROR, _T("Unsupported dolby vision profile: %d\n"), prm->doviProfile);
-                    return RGY_ERR_UNSUPPORTED;
-                }
-            }
-            if (doviconf) {
-                doviconf->el_present_flag = 0;
-                doviconf->rpu_present_flag = prm->doviRpu || prm->doviRpuMetadataCopy ? 1 : 0;
-                tstring bl_el_rpu;
-                if (doviconf->bl_present_flag) bl_el_rpu += _T("+BL");
-                if (doviconf->rpu_present_flag) bl_el_rpu += _T("+RPU");
-                AddMessage(RGY_LOG_DEBUG, _T("dovi config ver %d.%d, %d.%d:%d %s\n"),
-                    doviconf->dv_version_major, doviconf->dv_version_minor,
-                    doviconf->dv_profile, doviconf->dv_level, doviconf->dv_bl_signal_compatibility_id,
-                    (bl_el_rpu.size() > 0) ? bl_el_rpu.substr(1).c_str() : _T(""));
-                int err = AVStreamAddSideData(m_Mux.video.streamOut, AV_PKT_DATA_DOVI_CONF, doviconf, side_data_size);
-                if (err < 0) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to copy AV_PKT_DATA_DOVI_CONF\n"));
-                    return RGY_ERR_INVALID_CALL;
-                }
-                AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_DOVI_CONF from input\n"));
-                doviconf.reset();
-            }
-            if (m_Mux.video.doviProfileSrc == m_Mux.video.doviProfileDst) {
-                m_Mux.video.doviRpuConvertParam.convertProfile = false;
-            }
-#else
-            AddMessage(RGY_LOG_WARN, _T("dovi-profile copy noy supported in this build!\n"));
-#endif //#if LIBAVUTIL_DOVI_META_AVAIL
         }
+        if (!doviconf && prm->doviProfile != RGY_DOVI_PROFILE_COPY) {
+            size_t conf_size = 0;
+            doviconf = std::unique_ptr<AVDOVIDecoderConfigurationRecord, RGYAVDeleter<AVDOVIDecoderConfigurationRecord>>(av_dovi_alloc(&conf_size), RGYAVDeleter<AVDOVIDecoderConfigurationRecord>(av_freep));
+            doviconf->dv_version_major = 1;
+            doviconf->dv_version_minor = 0;
+            doviconf->dv_level = 10;
+            doviconf->bl_present_flag = 1;
+            switch (prm->doviProfile) {
+            case RGY_DOVI_PROFILE_50: doviconf->dv_profile = 5; doviconf->dv_bl_signal_compatibility_id = 0; break;
+            case RGY_DOVI_PROFILE_81: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 1; break;
+            case RGY_DOVI_PROFILE_82: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 2; break;
+            case RGY_DOVI_PROFILE_84: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 4; break;
+            case RGY_DOVI_PROFILE_COPY: break; //ここには来ない
+            default:
+                AddMessage(RGY_LOG_ERROR, _T("Unsupported dolby vision profile: %d\n"), prm->doviProfile);
+                return RGY_ERR_UNSUPPORTED;
+            }
+        }
+        if (doviconf) {
+            doviconf->el_present_flag = 0;
+            doviconf->rpu_present_flag = prm->doviRpu || prm->doviRpuMetadataCopy ? 1 : 0;
+            tstring bl_el_rpu;
+            if (doviconf->bl_present_flag) bl_el_rpu += _T("+BL");
+            if (doviconf->rpu_present_flag) bl_el_rpu += _T("+RPU");
+            AddMessage(RGY_LOG_DEBUG, _T("dovi config ver %d.%d, %d.%d:%d %s\n"),
+                doviconf->dv_version_major, doviconf->dv_version_minor,
+                doviconf->dv_profile, doviconf->dv_level, doviconf->dv_bl_signal_compatibility_id,
+                (bl_el_rpu.size() > 0) ? bl_el_rpu.substr(1).c_str() : _T(""));
+            size_t side_data_size = 0;
+            int err = AVStreamAddSideData(m_Mux.video.streamOut, AV_PKT_DATA_DOVI_CONF, doviconf, side_data_size);
+            if (err < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy AV_PKT_DATA_DOVI_CONF\n"));
+                return RGY_ERR_INVALID_CALL;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_DOVI_CONF from input\n"));
+            doviconf.reset();
+        }
+        if (m_Mux.video.doviProfileSrc == m_Mux.video.doviProfileDst) {
+            m_Mux.video.doviRpuConvertParam.convertProfile = false;
+        }
+#else
+        AddMessage(RGY_LOG_WARN, _T("dovi-profile copy noy supported in this build!\n"));
+#endif //#if LIBAVUTIL_DOVI_META_AVAIL
     }
 
     m_Mux.video.timestampList.clear();
