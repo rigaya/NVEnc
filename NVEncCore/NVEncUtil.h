@@ -391,7 +391,9 @@ public:
 
     RGY_ERR resize(size_t nNewSize) {
         if (nNewSize > maxLength) {
-            return changeSize(nNewSize);
+            auto err = changeSize(nNewSize);
+            dataLength = (err == RGY_ERR_NONE) ? nNewSize : 0;
+            return err;
         }
         if (nNewSize + dataOffset > maxLength) {
             memmove(dataptr, dataptr + dataOffset, dataLength);
