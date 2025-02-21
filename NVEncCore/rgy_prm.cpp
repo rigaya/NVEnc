@@ -2339,12 +2339,14 @@ bool RGYParamAvoidIdleClock::operator!=(const RGYParamAvoidIdleClock &x) const {
 RGYParamParallelEnc::RGYParamParallelEnc() :
     parallelCount(0),
     parallelId(-1),
+    cacheMode(RGYParamParallelEncCache::Mem),
     sendData(nullptr) {
 
 };
 bool RGYParamParallelEnc::operator==(const RGYParamParallelEnc &x) const {
     return parallelCount == x.parallelCount
-        && parallelId == x.parallelId;
+        && parallelId == x.parallelId
+        && cacheMode == x.cacheMode;
 }
 bool RGYParamParallelEnc::operator!=(const RGYParamParallelEnc &x) const {
     return !(*this == x);

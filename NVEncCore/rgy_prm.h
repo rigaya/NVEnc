@@ -2506,9 +2506,21 @@ struct RGYParamAvoidIdleClock {
 
 struct RGYParallelEncSendData;
 
+enum class RGYParamParallelEncCache {
+    Mem,
+    File,
+};
+
+const CX_DESC list_parallel_enc_cache[] = {
+    { _T("mem"),  (int)RGYParamParallelEncCache::Mem  },
+    { _T("file"), (int)RGYParamParallelEncCache::File },
+    { NULL, 0 }
+};
+
 struct RGYParamParallelEnc {
     int parallelCount; // 並列処理数
     int parallelId; // 親=-1, 子=0～
+    RGYParamParallelEncCache cacheMode;
     RGYParallelEncSendData *sendData; // 並列処理時に親-子間のデータやり取り用
     RGYParamParallelEnc();
     bool operator==(const RGYParamParallelEnc &x) const;

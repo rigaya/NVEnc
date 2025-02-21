@@ -73,6 +73,7 @@ RGYParallelEncProcess::RGYParallelEncProcess(const int id, const tstring& tmpfil
     m_qFirstProcessData(),
     m_qFirstProcessDataFree(),
     m_qFirstProcessDataFreeLarge(),
+    m_cacheMode(RGYParamParallelEncCache::Mem),
     m_sendData(),
     m_tmpfile(tmpfile),
     m_thRunProcess(),
@@ -113,6 +114,7 @@ RGY_ERR RGYParallelEncProcess::close(const bool deleteTempFiles) {
 
 RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
     m_process = std::make_unique<encCore>();
+    m_cacheMode = peParams.ctrl.parallelEnc.cacheMode;
 
     encParams encParam = peParams;
     encParam.ctrl.parallelEnc.sendData = &m_sendData;
@@ -142,8 +144,8 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
     m_sendData.eventChildHasSentFirstKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
     m_sendData.eventParentHasSentFinKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
     m_processFinished = CreateEventUnique(nullptr, FALSE, FALSE); // 処理終了の通知用
-    if (peParams.ctrl.parallelEnc.parallelId == 0) {
-        // 最初のプロセスのみ、キューを介してデータをやり取りする
+    if (peParams.ctrl.parallelEnc.parallelId == 0 || peParams.ctrl.parallelEnc.cacheMode == RGYParamParallelEncCache::Mem) {
+        // 最初のプロセスあるいはキャッシュメモリモードでは、キューを介してデータをやり取りする
         m_qFirstProcessData = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
         m_qFirstProcessDataFree = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
         m_qFirstProcessDataFreeLarge = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
@@ -241,35 +243,41 @@ void RGYParallelEnc::close(const bool deleteTempFiles) {
     m_videoEndKeyPts = -1;
 }
 
-int64_t RGYParallelEnc::getVideofirstKeyPts(const int processID) {
-    if (processID >= m_encProcess.size()) {
+int64_t RGYParallelEnc::getVideofirstKeyPts(const int ichunk) const {
+    if (ichunk >= m_encProcess.size()) {
         return -1;
     }
-    return m_encProcess[processID]->getVideoFirstKeyPts();
+    return m_encProcess[ichunk]->getVideoFirstKeyPts();
 }
 
-std::vector<RGYParallelEncProcessData> RGYParallelEnc::peRawFilePaths() const {
-    std::vector<RGYParallelEncProcessData> files;
-    for (const auto &proc : m_encProcess) {
-        files.push_back(proc->tmpfile());
+tstring RGYParallelEnc::tmpPath(const int ichunk) const {
+    if (ichunk >= m_encProcess.size()) {
+        return _T("");
     }
-    return files;
+    return m_encProcess[ichunk]->tmpPath();
 }
 
-RGY_ERR RGYParallelEnc::getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr) {
+RGYParamParallelEncCache RGYParallelEnc::cacheMode(const int ichunk) const {
+    if (ichunk >= m_encProcess.size()) {
+        return RGYParamParallelEncCache::Mem;
+    }
+    return m_encProcess[ichunk]->cacheMode();
+}
+
+RGY_ERR RGYParallelEnc::getNextPacket(const int ichunk, RGYOutputRawPEExtHeader **ptr) {
     if (m_encProcess.size() == 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call for getNextPacketFromFirst.\n"));
         return RGY_ERR_UNKNOWN;
     }
-    return m_encProcess.front()->getNextPacket(ptr);
+    return m_encProcess[ichunk]->getNextPacket(ptr);
 }
 
-RGY_ERR RGYParallelEnc::putFreePacket(RGYOutputRawPEExtHeader *ptr) {
+RGY_ERR RGYParallelEnc::putFreePacket(const int ichunk, RGYOutputRawPEExtHeader *ptr) {
     if (m_encProcess.size() == 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call for pushNextPacket.\n"));
         return RGY_ERR_UNKNOWN;
     }
-    return m_encProcess.front()->putFreePacket(ptr);
+    return m_encProcess[ichunk]->putFreePacket(ptr);
 }
 
 int RGYParallelEnc::waitProcessFinished(const int id, const uint32_t timeout) {
@@ -359,6 +367,7 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.ctrl.parallelEnc.parallelId = ip;
     prmParallel.ctrl.parentProcessID = GetCurrentProcessId();
     prmParallel.ctrl.loglevel = RGY_LOG_WARN;
+    prmParallel.ctrl.parallelEnc.cacheMode = (ip == 0) ? RGYParamParallelEncCache::Mem : prm->ctrl.parallelEnc.cacheMode; // parallelId = 0 は必ずMem キャッシュモード
     prmParallel.common.muxOutputFormat = _T("raw");
     prmParallel.common.outputFilename = tmpfile; // ip==0の場合のみ、実際にはキューを介してデータをやり取りするがとりあえずファイル名はそのまま入れる
     prmParallel.common.AVMuxTarget = RGY_MUX_NONE;

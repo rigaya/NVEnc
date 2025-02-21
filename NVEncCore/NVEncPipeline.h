@@ -1453,7 +1453,7 @@ public:
 class PipelineTaskParallelEncBitstream : public PipelineTask {
 protected:
     RGYInput *m_input;
-    int m_currentFile; // いま並列処理の何番目を処理中か
+    int m_currentChunk; // いま並列処理の何番目を処理中か
     RGYTimestamp *m_encTimestamp;
     RGYHDR10Plus *m_hdr10plus;
     RGYParallelEnc *m_parallelEnc;
@@ -1471,7 +1471,7 @@ public:
     PipelineTaskParallelEncBitstream(NVGPUInfo *dev, RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, rgy_rational<int> outputTimebase,
         std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, dev, outMaxQueueSize, false, threadParam, log),
-        m_input(input), m_currentFile(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
+        m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)),
         m_ptsOffset(0), m_encFrameOffset(0), m_lastEncFrameIdx(-1),
@@ -1487,36 +1487,59 @@ public:
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
 protected:
+    RGY_ERR checkEncodeResult() {
+        // まずそのエンコーダの終了を待機
+        while (m_parallelEnc->waitProcessFinished(m_currentChunk, UPDATE_INTERVAL) != WAIT_OBJECT_0) {
+            // 進捗表示の更新
+            auto currentData = m_encStatus->GetEncodeData();
+            m_encStatus->UpdateDisplay(currentData.progressPercent);
+        }
+        // 戻り値を確認
+        auto procsts = m_parallelEnc->processReturnCode(m_currentChunk);
+        if (!procsts.has_value()) { // そんなはずはないのだが、一応
+            PrintMes(RGY_LOG_ERROR, _T("Unknown error in parallel enc: %d.\n"), m_currentChunk);
+            return RGY_ERR_UNKNOWN;
+        }
+        if (procsts.value() != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Error in parallel enc %d: %s\n"), m_currentChunk, get_err_mes(procsts.value()));
+            return procsts.value();
+        }
+        return RGY_ERR_NONE;
+    }
+
     RGY_ERR openNextFile() {
-        m_currentFile++;
-        const auto files = m_parallelEnc->peRawFilePaths();
-        if (m_currentFile >= (int)files.size()) {
+        if (m_currentChunk >= 0 && m_parallelEnc->cacheMode(m_currentChunk) == RGYParamParallelEncCache::Mem) {
+            // メモリモードの場合は、まだそのエンコーダの戻り値をチェックしていないので、ここでチェック
+            auto procsts = checkEncodeResult();
+            if (procsts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Error in parallel enc %d: %s\n"), m_currentChunk, get_err_mes(procsts));
+                return procsts;
+            }
+        }
+
+        m_currentChunk++;
+        if (m_currentChunk >= (int)m_parallelEnc->parallelCount()) {
             return RGY_ERR_MORE_BITSTREAM;
         }
-        // m_currentFile == 0の場合は、getBitstreamOneFrameFromQueueでキューから取得するので、ファイルを開かない
-        if (m_currentFile > 0) {
-            // m_currentFile > 0の場合は、そのエンコーダの終了を待機
-            while (m_parallelEnc->waitProcessFinished(m_currentFile, UPDATE_INTERVAL) != WAIT_OBJECT_0) {
-                // 進捗表示の更新
-                auto currentData = m_encStatus->GetEncodeData();
-                m_encStatus->UpdateDisplay(currentData.progressPercent);
-            }
+        
+        if (m_parallelEnc->cacheMode(m_currentChunk) == RGYParamParallelEncCache::File) {
             // 戻り値を確認
-            auto procsts = m_parallelEnc->processReturnCode(m_currentFile);
-            if (!procsts.has_value()) { // そんなはずはないのだが、一応
-                PrintMes(RGY_LOG_ERROR, _T("Unknown error in parallel enc.\n"));
-                return RGY_ERR_UNKNOWN;
-            }
-            if (procsts.value() != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Error in parallel enc: %s\n"), get_err_mes(procsts.value()));
-                return procsts.value();
+            auto procsts = checkEncodeResult();
+            if (procsts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Error in parallel enc %d: %s\n"), m_currentChunk, get_err_mes(procsts));
+                return procsts;
             }
             // muxを開始したら、そのファイルに関する進捗表示は削除
-            m_parallelEnc->encStatusReset(m_currentFile);
+            m_parallelEnc->encStatusReset(m_currentChunk);
             // ファイルを開く
-            m_fReader = std::unique_ptr<FILE, decltype(&fclose)>(_tfopen(files[m_currentFile].tmppath.c_str(), _T("rb")), fclose);
+            auto tmpPath = m_parallelEnc->tmpPath(m_currentChunk);
+            if (tmpPath.empty()) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get tmp path for parallel enc %d.\n"), m_currentChunk);
+                return RGY_ERR_UNKNOWN;
+            }
+            m_fReader = std::unique_ptr<FILE, decltype(&fclose)>(_tfopen(tmpPath.c_str(), _T("rb")), fclose);
             if (m_fReader == nullptr) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to open file: %s\n"), files[m_currentFile].tmppath.c_str());
+                PrintMes(RGY_LOG_ERROR, _T("Failed to open file: %s\n"), tmpPath.c_str());
                 return RGY_ERR_FILE_OPEN;
             }
         }
@@ -1524,8 +1547,8 @@ protected:
         const auto inputFrameInfo = m_input->GetInputFrameInfo();
         const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
         const auto srcTimebase = (m_input->getInputTimebase().n() > 0 && m_input->getInputTimebase().is_valid()) ? m_input->getInputTimebase() : inputFpsTimebase;
-        m_ptsOffset = rational_rescale(files[m_currentFile].ptsOffset - files[0].ptsOffset, srcTimebase, m_outputTimebase);
-        m_encFrameOffset = (m_currentFile > 0) ? m_lastEncFrameIdx + 1 : 0;
+        m_ptsOffset = rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk) - m_parallelEnc->getVideofirstKeyPts(0), srcTimebase, m_outputTimebase);
+        m_encFrameOffset = (m_currentChunk > 0) ? m_lastEncFrameIdx + 1 : 0;
         PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld, frame offset %d.\n"), m_ptsOffset, m_encFrameOffset);
         return RGY_ERR_NONE;
     }
@@ -1542,7 +1565,7 @@ protected:
 
     RGY_ERR getBitstreamOneFrameFromQueue(RGYBitstream *bsOut, RGYOutputRawPEExtHeader& header) {
         RGYOutputRawPEExtHeader *packet = nullptr;
-        auto err = m_parallelEnc->getNextPacketFromFirst(&packet);
+        auto err = m_parallelEnc->getNextPacket(m_currentChunk, &packet);
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -1558,7 +1581,7 @@ protected:
             memcpy(bsOut->data(), (void *)(packet + 1), packet->size);
         }
         // メモリを使いまわすため、使い終わったパケットを回収する
-        m_parallelEnc->putFreePacket(packet);
+        m_parallelEnc->putFreePacket(m_currentChunk, packet);
         PrintMes(RGY_LOG_TRACE, _T("Q: pts %08lld, dts %08lld, size %d.\n"), bsOut->pts(), bsOut->dts(), bsOut->size());
         return RGY_ERR_NONE;
     }
@@ -1581,14 +1604,18 @@ protected:
     }
 
     RGY_ERR getBitstreamOneFrame(RGYBitstream *bsOut, RGYOutputRawPEExtHeader& header) {
-        return (m_currentFile == 0) ? getBitstreamOneFrameFromQueue(bsOut, header) : getBitstreamOneFrameFromFile(m_fReader.get(), bsOut, header);
+        return (m_parallelEnc->cacheMode(m_currentChunk) == RGYParamParallelEncCache::File)
+            ? getBitstreamOneFrameFromFile(m_fReader.get(), bsOut, header)
+            : getBitstreamOneFrameFromQueue(bsOut, header);
     }
 
     virtual RGY_ERR getBitstream(RGYBitstream *bsOut, RGYOutputRawPEExtHeader& header) {
-        if (!m_fReader && m_currentFile != 0) {
+        if (m_currentChunk < 0) {
             if (auto err = openNextFile(); err != RGY_ERR_NONE) {
                 return err;
             }
+        } else if (m_currentChunk >= (int)m_parallelEnc->parallelCount()) {
+            return RGY_ERR_MORE_BITSTREAM;
         }
         auto err = getBitstreamOneFrame(bsOut, header);
         if (err == RGY_ERR_MORE_BITSTREAM) {

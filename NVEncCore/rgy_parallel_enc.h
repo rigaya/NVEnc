@@ -36,6 +36,7 @@
 #include "rgy_err.h"
 #include "rgy_event.h"
 #include "rgy_log.h"
+#include "rgy_prm.h"
 #include "rgy_queue.h"
 
 struct RGYOutputRawPEExtHeader;
@@ -101,11 +102,6 @@ struct RGYParallelEncSendData {
         qFirstProcessData(nullptr),
         qFirstProcessDataFree(nullptr),
         qFirstProcessDataFreeLarge(nullptr) {};
-};;
-
-struct RGYParallelEncProcessData {
-    tstring tmppath;
-    int64_t ptsOffset;
 };
 
 class RGYParallelEncProcess {
@@ -117,7 +113,8 @@ public:
     int id() const { return m_id; }
     RGY_ERR sendEndPts(const int64_t endPts);
     RGY_ERR close(const bool deleteTempFile);
-    RGYParallelEncProcessData tmpfile() const { return { m_tmpfile, m_sendData.videoFirstKeyPts }; }
+    tstring tmpPath() const { return m_tmpfile; }
+    RGYParamParallelEncCache cacheMode() const { return m_cacheMode; }
     RGY_ERR getNextPacket(RGYOutputRawPEExtHeader **ptr);
     RGY_ERR putFreePacket(RGYOutputRawPEExtHeader *ptr);
 
@@ -159,6 +156,7 @@ protected:
     std::unique_ptr<RGYQueueMPMP<RGYOutputRawPEExtHeader*>> m_qFirstProcessData;
     std::unique_ptr<RGYQueueMPMP<RGYOutputRawPEExtHeader*>> m_qFirstProcessDataFree;
     std::unique_ptr<RGYQueueMPMP<RGYOutputRawPEExtHeader*>> m_qFirstProcessDataFreeLarge;
+    RGYParamParallelEncCache m_cacheMode;
     RGYParallelEncSendData m_sendData;
     tstring m_tmpfile;
     std::thread m_thRunProcess;
@@ -175,19 +173,21 @@ public:
     static std::pair<RGY_ERR, const TCHAR *> isParallelEncPossible(const encParams *prm, const RGYInput *input);
     RGY_ERR parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo);
     void close(const bool deleteTempFiles);
-    int64_t getVideofirstKeyPts(const int processID);
     int64_t getVideoEndKeyPts() const { return m_videoEndKeyPts; }
     void setVideoFinished() { m_videoFinished = true; }
     bool videoFinished() const { return m_videoFinished; }
     int id() const { return m_id; }
-    size_t parallelCount() const { return m_encProcess.size(); }
-    std::vector<RGYParallelEncProcessData> peRawFilePaths() const;
-    RGY_ERR getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr);
-    RGY_ERR putFreePacket(RGYOutputRawPEExtHeader *ptr);
     int waitProcessFinished(const int id, const uint32_t timeout);
     std::optional<RGY_ERR> processReturnCode(const int id);
     std::vector<RGYParallelEncDevInfo> devInfo() const;
     void encStatusReset(const int id);
+    
+    int64_t getVideofirstKeyPts(const int ichunk) const;
+    RGY_ERR getNextPacket(const int ichunk, RGYOutputRawPEExtHeader **ptr);
+    RGY_ERR putFreePacket(const int ichunk, RGYOutputRawPEExtHeader *ptr);
+    RGYParamParallelEncCache cacheMode(const int ichunk) const;
+    tstring tmpPath(const int ichunk) const;
+    size_t parallelCount() const { return m_encProcess.size(); }
 protected:
     encParams genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const tstring& tmpfile);
     RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);

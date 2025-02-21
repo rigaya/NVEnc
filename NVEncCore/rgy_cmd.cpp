@@ -7095,6 +7095,16 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                     }
                     continue;
                 }
+                if (param_arg == _T("cache")) {
+                    int value = 0;
+                    if (get_list_value(list_parallel_enc_cache, param_val.c_str(), &value)) {
+                        ctrl->parallelEnc.cacheMode = (RGYParamParallelEncCache)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_parallel_enc_cache);
+                        return 1;
+                    }
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
@@ -8509,13 +8519,11 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--process-monitor-dev-usage-reset"), _T(""), processMonitorDevUsageReset);
 
     if (param->parallelEnc != defaultPrm->parallelEnc) {
-        cmd << _T(" --parallel-enc ");
-    }
-    if (param->parallelEnc != defaultPrm->parallelEnc) {
         std::basic_stringstream<TCHAR> tmp;
         tmp.str(tstring());
         ADD_NUM(_T("mp"), parallelEnc.parallelCount);
         ADD_NUM(_T("id"), parallelEnc.parallelId);
+        ADD_LST(_T("cache"), parallelEnc.cacheMode, list_parallel_enc_cache);
         if (!tmp.str().empty()) {
             cmd << _T(" --parallel ") << tmp.str().substr(1);
         }
