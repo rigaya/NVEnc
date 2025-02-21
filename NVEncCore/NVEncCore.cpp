@@ -608,9 +608,10 @@ RGY_ERR NVEncCore::InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWD
     } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
         m_nAVSyncMode |= RGY_AVSYNC_VFR;
         const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
-        if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
+        if (!inputParam->common.timebase.is_valid()
+            && (timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
             if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff.enable) {
-                m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 8);
+                m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
             }
         }
         PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
@@ -750,7 +751,7 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam) {
     devInfo.id = (int)m_dev->id();
     devInfo.name = m_dev->name();
     devInfo.type = 0;
-    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_pStatus.get(), devInfo)) != RGY_ERR_NONE) {
+    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get(), devInfo)) != RGY_ERR_NONE) {
         if (inputParam->ctrl.parallelEnc.isChild()) {
             return sts;
         }

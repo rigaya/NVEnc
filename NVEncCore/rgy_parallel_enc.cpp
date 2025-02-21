@@ -354,7 +354,7 @@ RGY_ERR RGYParallelEnc::parallelChild(const encParams *prm, const RGYInput *inpu
     return RGY_ERR_NONE;
 }
 
-encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, const tstring& tmpfile) {
+encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const tstring& tmpfile) {
     encParams prmParallel = *prm;
     prmParallel.ctrl.parallelEnc.parallelId = ip;
     prmParallel.ctrl.parentProcessID = GetCurrentProcessId();
@@ -376,15 +376,16 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, const t
     prmParallel.common.outReplayCodec = RGY_CODEC_UNKNOWN;
     prmParallel.common.outReplayFile.clear();
     prmParallel.common.seekRatio = ip / (float)prmParallel.ctrl.parallelEnc.parallelCount;
+    prmParallel.common.timebase = outputTimebase; // timebaseがずれると致命的なので、強制的に上書きする
     return prmParallel;
 }
 
-RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus) {
+RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus) {
     const auto parentFirstKeyPts = input->GetVideoFirstKeyPts();
     m_encProcess.clear();
     for (int ip = 0; ip < prm->ctrl.parallelEnc.parallelCount; ip++) {
         const auto tmpfile = prm->common.outputFilename + _T(".pe") + std::to_tstring(ip);
-        const auto peParam = genPEParam(ip, prm, tmpfile);
+        const auto peParam = genPEParam(ip, prm, outputTimebase, tmpfile);
         auto process = std::make_unique<RGYParallelEncProcess>(ip, tmpfile, m_log);
         if (auto err = process->startThread(peParam); err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to run PE%d: %s.\n"), ip, get_err_mes(err));
@@ -433,7 +434,7 @@ RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInpu
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo) {
+RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo) {
     if (!prm->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
@@ -443,7 +444,7 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, Encod
     }
     auto [sts, errmes ] = isParallelEncPossible(prm, input);
     if (sts != RGY_ERR_NONE
-        || (sts = startParallelThreads(prm, input, encStatus)) != RGY_ERR_NONE) {
+        || (sts = startParallelThreads(prm, input, outputTimebase, encStatus)) != RGY_ERR_NONE) {
         // 並列処理を無効化して続行する
         m_encProcess.clear();
         prm->ctrl.parallelEnc.parallelCount = 0;

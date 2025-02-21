@@ -1559,6 +1559,7 @@ protected:
         }
         // メモリを使いまわすため、使い終わったパケットを回収する
         m_parallelEnc->putFreePacket(packet);
+        PrintMes(RGY_LOG_TRACE, _T("Q: pts %08lld, dts %08lld, size %d.\n"), bsOut->pts(), bsOut->dts(), bsOut->size());
         return RGY_ERR_NONE;
     }
 
@@ -1571,6 +1572,7 @@ protected:
         }
         setHeaderProperties(bsOut, &header);
         bsOut->resize(header.size);
+        PrintMes(RGY_LOG_TRACE, _T("F: pts %08lld, dts %08lld, size %d.\n"), bsOut->pts(), bsOut->dts(), bsOut->size());
 
         if (fread(bsOut->data(), 1, bsOut->size(), fp) != bsOut->size()) {
             return RGY_ERR_UNDEFINED_BEHAVIOR;
