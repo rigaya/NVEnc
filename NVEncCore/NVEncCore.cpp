@@ -6045,7 +6045,7 @@ tstring NVEncCore::GetEncoderParamsInfo(int output_level, bool add_output_info) 
             get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.h264Config.level).c_str());
     } else if (rgy_codec == RGY_CODEC_HEVC) {
         add_str(RGY_LOG_ERROR, _T("Output Info    %s %s%s @ Level %s%s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
-            get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),
+            memcmp(&NV_ENC_HEVC_PROFILE_FREXT_GUID, &m_stEncConfig.profileGUID, sizeof(GUID)) == 0 ? _T("main444/422") : get_codec_profile_name_from_guid(rgy_codec, m_stEncConfig.profileGUID).c_str(),
             (rgy_codec == RGY_CODEC_HEVC && 0 == memcmp(&NV_ENC_HEVC_PROFILE_FREXT_GUID, &m_stEncConfig.profileGUID, sizeof(GUID)) && bitDepth > 8) ? _T(" 10bit") : _T(""),
             get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.hevcConfig.level).c_str(),
             m_stEncConfig.encodeCodecConfig.hevcConfig.enableAlphaLayerEncoding ? _T(" + alpha") : _T(""));
