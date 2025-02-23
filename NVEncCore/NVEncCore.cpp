@@ -2341,8 +2341,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
 
     set_temporalLayers(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalLayers, m_dev->encoder()->getAPIver());
 
-    auto require_repeat_headers = [this]() {
-        return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0) || m_parallelEnc;
+    auto require_repeat_headers = [this, inputParam]() {
+        return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0) || inputParam->ctrl.parallelEnc.isEnabled();
     };
 
     if (inputParam->codec_rgy == RGY_CODEC_AV1) {
@@ -2467,6 +2467,9 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 <= 0) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.hierarchicalBFrames = 0;
+        }
+        if (require_repeat_headers()) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.repeatSPSPPS = 1;
         }
     } else {
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
