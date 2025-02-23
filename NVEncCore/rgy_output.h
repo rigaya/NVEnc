@@ -239,7 +239,7 @@ struct RGYOutputRawPEExtHeader {
 
 static_assert(std::is_trivially_copyable<RGYOutputRawPEExtHeader>::value);
 
-static const size_t RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE = 1 * 1024 * 1024;
+static const size_t RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE = 32 * 1024;
  
 class RGYOutput {
 public:

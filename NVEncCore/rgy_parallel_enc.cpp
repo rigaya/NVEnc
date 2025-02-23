@@ -203,6 +203,11 @@ RGY_ERR RGYParallelEncProcess::putFreePacket(RGYOutputRawPEExtHeader *ptr) {
     if (ptr->allocSize == 0) {
         return RGY_ERR_UNKNOWN;
     }
+    // もう終了していた場合は再利用する必要はないのでメモリを解放する
+    if (m_sendData.processStatus == RGYParallelEncProcessStatus::Finished) {
+        free(ptr);
+        return RGY_ERR_NONE;
+    }
     RGYQueueMPMP<RGYOutputRawPEExtHeader*> *freeQueue = (ptr->allocSize <= RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE) ? m_qFirstProcessDataFree.get() : m_qFirstProcessDataFreeLarge.get();
     freeQueue->push(ptr);
     return RGY_ERR_NONE;
