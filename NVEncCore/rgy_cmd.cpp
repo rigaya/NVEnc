@@ -7095,6 +7095,15 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                     }
                     continue;
                 }
+                if (param_arg == _T("chunks")) {
+                    try {
+                        ctrl->parallelEnc.chunks = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("cache")) {
                     int value = 0;
                     if (get_list_value(list_parallel_enc_cache, param_val.c_str(), &value)) {

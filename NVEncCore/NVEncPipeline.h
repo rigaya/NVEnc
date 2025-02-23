@@ -1529,8 +1529,6 @@ protected:
                 PrintMes(RGY_LOG_ERROR, _T("Error in parallel enc %d: %s\n"), m_currentChunk, get_err_mes(procsts));
                 return procsts;
             }
-            // muxを開始したら、そのファイルに関する進捗表示は削除
-            m_parallelEnc->encStatusReset(m_currentChunk);
             // ファイルを開く
             auto tmpPath = m_parallelEnc->tmpPath(m_currentChunk);
             if (tmpPath.empty()) {

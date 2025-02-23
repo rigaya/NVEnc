@@ -2339,6 +2339,7 @@ bool RGYParamAvoidIdleClock::operator!=(const RGYParamAvoidIdleClock &x) const {
 RGYParamParallelEnc::RGYParamParallelEnc() :
     parallelCount(0),
     parallelId(-1),
+    chunks(0),
     cacheMode(RGYParamParallelEncCache::Mem),
     sendData(nullptr) {
 
@@ -2346,6 +2347,7 @@ RGYParamParallelEnc::RGYParamParallelEnc() :
 bool RGYParamParallelEnc::operator==(const RGYParamParallelEnc &x) const {
     return parallelCount == x.parallelCount
         && parallelId == x.parallelId
+        && chunks == x.chunks
         && cacheMode == x.cacheMode;
 }
 bool RGYParamParallelEnc::operator!=(const RGYParamParallelEnc &x) const {

@@ -76,7 +76,16 @@ struct RGYParallelEncDevInfo {
     tstring name;
 };
 
+enum class RGYParallelEncProcessStatus {
+    Init,
+    Running,
+    Finished,
+    Error,
+};
+
 struct RGYParallelEncSendData {
+    RGYParallelEncProcessStatus processStatus;
+
     std::shared_ptr<std::mutex> logMutex;
 
     unique_event eventChildHasSentFirstKeyPts; // 子→親へ最初のキーフレームのptsを通知するためのイベント
@@ -92,6 +101,7 @@ struct RGYParallelEncSendData {
     RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFreeLarge; // 転送し終わった(不要になった)ポインタを回収するキュー(大きいサイズ用)
 
     RGYParallelEncSendData() :
+        processStatus(RGYParallelEncProcessStatus::Init),
         logMutex(),
         eventChildHasSentFirstKeyPts(unique_event(nullptr, nullptr)),
         videoFirstKeyPts(-1),
@@ -125,6 +135,8 @@ public:
     int64_t getVideoFirstKeyPts() const { return m_sendData.videoFirstKeyPts; } // waitProcessStarted してから呼ぶこと
     RGYParallelEncodeStatusData *getEncodeStatus() { return &m_sendData.encStatus; } // waitProcessStarted してから呼ぶこと
     const RGYParallelEncDevInfo& devInfo() const { return m_sendData.devInfo; } // waitProcessStarted してから呼ぶこと
+    RGYParallelEncProcessStatus processStatus() const { return m_sendData.processStatus; }
+    HANDLE eventProcessFinished() const { return m_processFinished.get(); }
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
@@ -190,6 +202,7 @@ public:
     size_t parallelCount() const { return m_encProcess.size(); }
 protected:
     encParams genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const tstring& tmpfile);
+    RGY_ERR startChunkProcess(int ichunk, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
     RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
     RGY_ERR parallelChild(const encParams *prm, const RGYInput *input, const RGYParallelEncDevInfo& devInfo);
 
@@ -222,6 +235,8 @@ protected:
     int m_id;
     std::vector<std::unique_ptr<RGYParallelEncProcess>> m_encProcess;
     std::shared_ptr<RGYLog> m_log;
+    std::thread m_thParallelRun;
+    bool m_thParallelRunAbort;
     int64_t m_videoEndKeyPts;
     bool m_videoFinished;
 };

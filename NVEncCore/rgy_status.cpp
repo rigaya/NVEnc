@@ -262,7 +262,7 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         };
         struct mes_data {
             int len;
-            TCHAR str[64];
+            TCHAR str[256];
         };
         std::array<mes_data, MES_ID_MAX> chunks;
         for (auto &c : chunks) {

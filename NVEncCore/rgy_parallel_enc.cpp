@@ -92,6 +92,7 @@ RGY_ERR RGYParallelEncProcess::close(const bool deleteTempFiles) {
     if (m_thRunProcess.joinable()) {
         m_thAbort = true;
         m_thRunProcess.join();
+        m_sendData.processStatus = RGYParallelEncProcessStatus::Finished;
         if (m_qFirstProcessData) {
             m_qFirstProcessData->close([](RGYOutputRawPEExtHeader **ptr) { if (*ptr) free(*ptr); });
             m_qFirstProcessData.reset();
@@ -143,7 +144,7 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
     m_sendData.logMutex = m_log->getLock();
     m_sendData.eventChildHasSentFirstKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
     m_sendData.eventParentHasSentFinKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
-    m_processFinished = CreateEventUnique(nullptr, FALSE, FALSE); // 処理終了の通知用
+    m_processFinished = CreateEventUnique(nullptr, TRUE, FALSE); // 処理終了の通知用
     if (peParams.ctrl.parallelEnc.parallelId == 0 || peParams.ctrl.parallelEnc.cacheMode == RGYParamParallelEncCache::Mem) {
         // 最初のプロセスあるいはキャッシュメモリモードでは、キューを介してデータをやり取りする
         m_qFirstProcessData = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
@@ -169,7 +170,10 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
             m_sendData.encStatus.set(encStatusData);
         }
         SetEvent(m_processFinished.get()); // 処理終了を通知するのを忘れないように
-        AddMessage(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
+        AddMessage(RGY_LOG_ERROR, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
+        m_sendData.processStatus = RGYParallelEncProcessStatus::Finished;
+        // 終了したら、そのチャンクに関する進捗表示は削除
+        m_sendData.encStatus.reset();
     });
     return RGY_ERR_NONE;
 }
@@ -213,6 +217,7 @@ RGY_ERR RGYParallelEncProcess::sendEndPts(const int64_t endPts) {
         return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
     m_sendData.videoFinKeyPts = endPts;
+    m_sendData.processStatus = RGYParallelEncProcessStatus::Running;
     SetEvent(m_sendData.eventParentHasSentFinKeyPts.get());
     return RGY_ERR_NONE;
 }
@@ -228,6 +233,8 @@ RGYParallelEnc::RGYParallelEnc(std::shared_ptr<RGYLog> log) :
     m_id(-1),
     m_encProcess(),
     m_log(log),
+    m_thParallelRun(),
+    m_thParallelRunAbort(false),
     m_videoEndKeyPts(-1),
     m_videoFinished(false) {}
 
@@ -236,6 +243,10 @@ RGYParallelEnc::~RGYParallelEnc() {
 }
 
 void RGYParallelEnc::close(const bool deleteTempFiles) {
+    if (m_thParallelRun.joinable()) {
+        m_thParallelRunAbort = true;
+        m_thParallelRun.join();
+    }
     for (auto &proc : m_encProcess) {
         proc->close(deleteTempFiles);
     }
@@ -359,6 +370,8 @@ RGY_ERR RGYParallelEnc::parallelChild(const encParams *prm, const RGYInput *inpu
     // 親プロセスから終了時刻を受け取る
     WaitForSingleObject(sendData->eventParentHasSentFinKeyPts.get(), INFINITE);
     m_videoEndKeyPts = sendData->videoFinKeyPts;
+    sendData->processStatus = RGYParallelEncProcessStatus::Running;
+    AddMessage(RGY_LOG_ERROR, _T("Start chunk process %d.\n"), prm->ctrl.parallelEnc.parallelId);
     return RGY_ERR_NONE;
 }
 
@@ -384,61 +397,112 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.common.ppAttachmentSelectList = nullptr;
     prmParallel.common.outReplayCodec = RGY_CODEC_UNKNOWN;
     prmParallel.common.outReplayFile.clear();
-    prmParallel.common.seekRatio = ip / (float)prmParallel.ctrl.parallelEnc.parallelCount;
+    prmParallel.common.seekRatio = ip / (float)prmParallel.ctrl.parallelEnc.chunks;
     prmParallel.common.timebase = outputTimebase; // timebaseがずれると致命的なので、強制的に上書きする
     return prmParallel;
+}
+
+RGY_ERR RGYParallelEnc::startChunkProcess(const int ip, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, EncodeStatus *encStatus) {
+    const auto tmpfile = prm->common.outputFilename + _T(".pe") + std::to_tstring(ip);
+    const auto peParam = genPEParam(ip, prm, outputTimebase, tmpfile);
+    auto process = std::make_unique<RGYParallelEncProcess>(ip, tmpfile, m_log);
+    if (auto err = process->startThread(peParam); err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to run PE%d: %s.\n"), ip, get_err_mes(err));
+        return err;
+    }
+    // 起動したプロセスから最初のキーフレームのptsを取得
+    process->waitProcessStarted(INFINITE);
+    const auto firstKeyPts = process->getVideoFirstKeyPts();
+    if (firstKeyPts < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to get first key pts from PE%d.\n"), ip);
+        return RGY_ERR_UNKNOWN;
+    }
+    if (ip == 0) {
+        if (firstKeyPts != parentFirstKeyPts) {
+            AddMessage(RGY_LOG_ERROR, _T("First key pts mismatch: parent %lld, PE0 %lld.\n"), parentFirstKeyPts, firstKeyPts);
+            return RGY_ERR_UNKNOWN;
+        }
+    } else if (firstKeyPts <= m_encProcess.back()->getVideoFirstKeyPts()) {
+        AddMessage(RGY_LOG_ERROR, _T("First key pts (%lld) for PE%d same or smaller than previous first key pts (%lld).\n"), firstKeyPts, ip, m_encProcess.back()->getVideoFirstKeyPts());
+        return RGY_ERR_UNKNOWN;
+
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("PE%d: Got first key pts: raw %lld, offset %lld.\n"), ip, firstKeyPts, firstKeyPts - parentFirstKeyPts);
+    encStatus->addChildStatus({ 1.0f / prm->ctrl.parallelEnc.parallelCount, process->getEncodeStatus() });
+
+    // 起動したプロセスの最初のキーフレームはひとつ前のプロセスのエンコード終了時刻
+    if (ip > 0) {
+        // ひとつ前のプロセスの終了時刻として転送
+        AddMessage(RGY_LOG_DEBUG, _T("Send PE%d end key pts %lld.\n"), ip - 1, firstKeyPts);
+        auto err = m_encProcess.back()->sendEndPts(firstKeyPts);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to send end pts to PE%d: %s.\n"), ip - 1, get_err_mes(err));
+            return err;
+        }
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Started encoder PE%d.\n"), ip);
+    m_encProcess.push_back(std::move(process));
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus) {
     const auto parentFirstKeyPts = input->GetVideoFirstKeyPts();
     m_encProcess.clear();
-    for (int ip = 0; ip < prm->ctrl.parallelEnc.parallelCount; ip++) {
-        const auto tmpfile = prm->common.outputFilename + _T(".pe") + std::to_tstring(ip);
-        const auto peParam = genPEParam(ip, prm, outputTimebase, tmpfile);
-        auto process = std::make_unique<RGYParallelEncProcess>(ip, tmpfile, m_log);
-        if (auto err = process->startThread(peParam); err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to run PE%d: %s.\n"), ip, get_err_mes(err));
+    // とりあえず、並列数分起動する
+    int startId = 0;
+    for (; startId < prm->ctrl.parallelEnc.parallelCount; startId++) {
+        if (auto err = startChunkProcess(startId, prm, parentFirstKeyPts, outputTimebase, encStatus); err != RGY_ERR_NONE) {
             return err;
         }
-        // 起動したプロセスから最初のキーフレームのptsを取得
-        process->waitProcessStarted(INFINITE);
-        const auto firstKeyPts = process->getVideoFirstKeyPts();
-        if (firstKeyPts < 0) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to get first key pts from PE%d.\n"), ip);
-            return RGY_ERR_UNKNOWN;
-        }
-        if (ip == 0) {
-            if (firstKeyPts != parentFirstKeyPts) {
-                AddMessage(RGY_LOG_ERROR, _T("First key pts mismatch: parent %lld, PE0 %lld.\n"), parentFirstKeyPts, firstKeyPts);
-                return RGY_ERR_UNKNOWN;
-            }
-        } else if (firstKeyPts <= parentFirstKeyPts) {
-            AddMessage(RGY_LOG_ERROR, _T("First key pts (%lld) for PE%d same or smaller than parent first key pts (%lld).\n"), firstKeyPts, ip, parentFirstKeyPts);
-            return RGY_ERR_UNKNOWN;
-
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("PE%d: Got first key pts: raw %lld, offset %lld.\n"), ip, firstKeyPts, firstKeyPts - parentFirstKeyPts);
-        encStatus->addChildStatus({ 1.0f / prm->ctrl.parallelEnc.parallelCount, process->getEncodeStatus() });
-
-        // 起動したプロセスの最初のキーフレームはひとつ前のプロセスのエンコード終了時刻
-        if (ip > 0) {
-            // ひとつ前のプロセスの終了時刻として転送
-            AddMessage(RGY_LOG_DEBUG, _T("Send PE%d end key pts %lld.\n"), ip - 1, firstKeyPts);
-            auto err = m_encProcess.back()->sendEndPts(firstKeyPts);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to send end pts to PE%d: %s.\n"), ip - 1, get_err_mes(err));
-                return err;
-            }
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("Started encoder PE%d.\n"), ip);
-        m_encProcess.push_back(std::move(process));
     }
-    //最後のプロセスの終了時刻(=終わりまで)を転送
-    AddMessage(RGY_LOG_DEBUG, _T("Send PE%d end key pts -1.\n"), (int)m_encProcess.size() - 1);
-    auto err = m_encProcess.back()->sendEndPts(-1);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to send end pts to encoder PE%d: %s.\n"), (int)m_encProcess.size() - 1, get_err_mes(err));
-        return err;
+    // 並列数とチャック数が同じなら、これで起動は完了
+    if (prm->ctrl.parallelEnc.parallelCount >= prm->ctrl.parallelEnc.chunks) {
+        //最後のプロセスの終了時刻(=終わりまで)を転送
+        AddMessage(RGY_LOG_DEBUG, _T("Send PE%d end key pts -1.\n"), (int)m_encProcess.size() - 1);
+        auto err = m_encProcess.back()->sendEndPts(-1);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to send end pts to encoder PE%d: %s.\n"), (int)m_encProcess.size() - 1, get_err_mes(err));
+            return err;
+        }
+    } else {
+        // プロセス起動用のスレッドを開始する
+        m_thParallelRun = std::thread([this](int startId, const int parallelCount, const int chunkCount,
+            encParams prm, rgy_rational<int> outputTimebase, EncodeStatus *encStatus) {
+            int runCount = startId - 1; // 実行したチャック数
+            while (!m_thParallelRunAbort && runCount < chunkCount) {
+                // 実行中のプロセス数を取得
+                const auto runningCount = std::count_if(m_encProcess.begin(), m_encProcess.end(), [](const auto& proc) {
+                    return proc->processStatus() == RGYParallelEncProcessStatus::Running;
+                });
+                if (runningCount < parallelCount) {
+                    // 実行中のプロセス数が並列数より少ない場合、新しいプロセスを起動する
+                    if (startId < chunkCount) {
+                        // まだチャックが残っている場合、新しいプロセスを起動する
+                        if (auto err = startChunkProcess(startId++, &prm, -1, outputTimebase, encStatus); err != RGY_ERR_NONE) {
+                            return err;
+                        }
+                    } else {
+                        // チャックがない場合、最後のプロセスに終了通知を送る
+                        auto err = m_encProcess.back()->sendEndPts(-1);
+                        if (err != RGY_ERR_NONE) {
+                            AddMessage(RGY_LOG_ERROR, _T("Failed to send end pts to encoder PE%d: %s.\n"), (int)m_encProcess.size() - 1, get_err_mes(err));
+                            return err;
+                        }
+                    }
+                    runCount++; // 実行したチャック数をインクリメント
+                } else {
+                    // 実行中のプロセス数が並列数と同じ場合、いずれかのプロセスが終了するまで待つ
+                    std::vector<HANDLE> eventProcessFinished;
+                    for (const auto& proc : m_encProcess) {
+                        if (proc->processStatus() != RGYParallelEncProcessStatus::Finished) {
+                            eventProcessFinished.push_back(proc->eventProcessFinished());
+                        }
+                    }
+                    WaitForMultipleObjects((DWORD)eventProcessFinished.size(), eventProcessFinished.data(), FALSE, 16);
+                }
+            }
+            return RGY_ERR_NONE;
+        }, startId, prm->ctrl.parallelEnc.parallelCount, prm->ctrl.parallelEnc.chunks, *prm, outputTimebase, encStatus);
     }
     return RGY_ERR_NONE;
 }
@@ -450,6 +514,9 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
     m_id = prm->ctrl.parallelEnc.parallelId;
     if (prm->ctrl.parallelEnc.isChild()) { // 子プロセスから呼ばれた
         return parallelChild(prm, input, devInfo); // 子プロセスの処理
+    }
+    if (prm->ctrl.parallelEnc.chunks <= 0) {
+        prm->ctrl.parallelEnc.chunks = prm->ctrl.parallelEnc.parallelCount;
     }
     auto [sts, errmes ] = isParallelEncPossible(prm, input);
     if (sts != RGY_ERR_NONE
