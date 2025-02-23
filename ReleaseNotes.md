@@ -1,5 +1,11 @@
 # NVEnc Release Notes
 
+
+## 8.00beta3
+
+- Fix [--dolby-vision-profile](https://github.com/rigaya/NVEnc/blob/master/NVEncC_Options.en.md#--dolby-vision-profile-string-hevc-av1) not working with readers other than avhw/avsw. ( #663 )
+- Fix memory allocation failure when using yuv422 output. ( #670 )
+
 ## 8.00beta2
 
 - Improve auto gpu selection for multi (NVIDIA) GPU environments.

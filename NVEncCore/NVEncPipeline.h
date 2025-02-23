@@ -1951,6 +1951,14 @@ public:
             uInputWidthByte = uInputWidth * 2;
             uInputHeightTotal = uInputHeight * 3 / 2;
             break;
+        case NV_ENC_BUFFER_FORMAT_NV16:
+            uInputWidthByte = uInputWidth;
+            uInputHeightTotal = uInputHeight * 2;
+            break;
+        case NV_ENC_BUFFER_FORMAT_P210:
+            uInputWidthByte = uInputWidth * 2;
+            uInputHeightTotal = uInputHeight * 2;
+            break;
         case NV_ENC_BUFFER_FORMAT_YUV444_10BIT: /**< 10 bit Planar YUV444 [Y plane followed by U and V planes]. Each pixel of size 2 bytes. Most Significant 10 bits contain pixel data.  */
             uInputWidthByte = uInputWidth * 2;
             uInputHeightTotal = uInputHeight * 3;
