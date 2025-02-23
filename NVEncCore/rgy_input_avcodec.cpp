@@ -1936,10 +1936,11 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                         char_to_tstring(av_get_pix_fmt_name((AVPixelFormat)m_Demux.video.stream->codecpar->format)).c_str());
                     m_Demux.video.stream->codecpar->format = AV_PIX_FMT_YUV420P;
                 }
-                m_inputVideoInfo.codec = checkHWDecoderAvailable(
+                const auto hwCodec = checkHWDecoderAvailable(
                     m_Demux.video.stream->codecpar->codec_id, (AVPixelFormat)m_Demux.video.stream->codecpar->format, &devCodecCsp.second);
-                if (m_inputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
+                if (hwCodec != RGY_CODEC_UNKNOWN) {
                     m_Demux.video.HWDecodeDeviceId.insert(devCodecCsp.first);
+                    m_inputVideoInfo.codec = hwCodec;
                 }
             }
             if (m_inputVideoInfo.codec == RGY_CODEC_UNKNOWN
