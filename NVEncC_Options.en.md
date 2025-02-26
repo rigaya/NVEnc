@@ -909,7 +909,7 @@ Output file which is specified in Dolby Vision profile. Recommended to be used w
 "copy" will use dolby vision profile from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 
 ```
-unset, copy, 5.0, 8.1, 8.2, 8.4
+unset, copy, 5.0, 8.1, 8.2, 8.4, 10.0, 10.1, 10.2, 10.4
 ```
 
 ### --dolby-vision-rpu &lt;string&gt; [HEVC, AV1]

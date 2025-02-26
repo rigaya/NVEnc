@@ -958,6 +958,25 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             doviconf = AVStreamGetSideData<AVDOVIDecoderConfigurationRecord>(prm->videoInputStream, AV_PKT_DATA_DOVI_CONF, side_data_size);
             if (doviconf) {
                 m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_OTHER;
+                if (videoOutputInfo->codec == RGY_CODEC_AV1 && doviconf->dv_profile != 10) {
+                    // 出力がAV1の場合は、profile=10に読み替える
+                    doviconf->dv_profile = 10;
+                    if (   doviconf->dv_bl_signal_compatibility_id != 1
+                        && doviconf->dv_bl_signal_compatibility_id != 2
+                        && doviconf->dv_bl_signal_compatibility_id != 4) {
+                        doviconf->dv_bl_signal_compatibility_id = 0;
+                    }
+                } else if (videoOutputInfo->codec == RGY_CODEC_HEVC && doviconf->dv_profile == 10) {
+                    // 出力がHEVCの場合は、profile=10の場合はprofile=8に読み替える
+                    if (doviconf->dv_bl_signal_compatibility_id == 1
+                     || doviconf->dv_bl_signal_compatibility_id == 2
+                     || doviconf->dv_bl_signal_compatibility_id == 4) {
+                        doviconf->dv_profile = 8;
+                    } else {
+                        doviconf->dv_profile = 5;
+                        doviconf->dv_bl_signal_compatibility_id = 0;
+                    }
+                }
                 if (doviconf->dv_profile == 5) {
                     m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_50;
                 } else if (doviconf->dv_profile == 7) {
@@ -972,10 +991,20 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                     } else if (doviconf->dv_bl_signal_compatibility_id == 4) {
                         m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_84;
                     }
+                } else if (doviconf->dv_profile == 10) {
+                    if (doviconf->dv_bl_signal_compatibility_id == 1) {
+                        m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_101;
+                    } else if (doviconf->dv_bl_signal_compatibility_id == 2) {
+                        m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_102;
+                    } else if (doviconf->dv_bl_signal_compatibility_id == 4) {
+                        m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_104;
+                    } else {
+                        m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_100;
+                    }
                 }
             }
         }
-        if (!doviconf && prm->doviProfile != RGY_DOVI_PROFILE_COPY) {
+        if (prm->doviProfile != RGY_DOVI_PROFILE_COPY) {
             size_t conf_size = 0;
             doviconf = std::unique_ptr<AVDOVIDecoderConfigurationRecord, RGYAVDeleter<AVDOVIDecoderConfigurationRecord>>(av_dovi_alloc(&conf_size), RGYAVDeleter<AVDOVIDecoderConfigurationRecord>(av_freep));
             doviconf->dv_version_major = 1;
@@ -983,10 +1012,14 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             doviconf->dv_level = 10;
             doviconf->bl_present_flag = 1;
             switch (prm->doviProfile) {
-            case RGY_DOVI_PROFILE_50: doviconf->dv_profile = 5; doviconf->dv_bl_signal_compatibility_id = 0; break;
-            case RGY_DOVI_PROFILE_81: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 1; break;
-            case RGY_DOVI_PROFILE_82: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 2; break;
-            case RGY_DOVI_PROFILE_84: doviconf->dv_profile = 8; doviconf->dv_bl_signal_compatibility_id = 4; break;
+            case RGY_DOVI_PROFILE_50:  doviconf->dv_profile = 5;  doviconf->dv_bl_signal_compatibility_id = 0; break;
+            case RGY_DOVI_PROFILE_81:  doviconf->dv_profile = 8;  doviconf->dv_bl_signal_compatibility_id = 1; break;
+            case RGY_DOVI_PROFILE_82:  doviconf->dv_profile = 8;  doviconf->dv_bl_signal_compatibility_id = 2; break;
+            case RGY_DOVI_PROFILE_84:  doviconf->dv_profile = 8;  doviconf->dv_bl_signal_compatibility_id = 4; break;
+            case RGY_DOVI_PROFILE_100: doviconf->dv_profile = 10; doviconf->dv_bl_signal_compatibility_id = 0; break;
+            case RGY_DOVI_PROFILE_101: doviconf->dv_profile = 10; doviconf->dv_bl_signal_compatibility_id = 1; break;
+            case RGY_DOVI_PROFILE_102: doviconf->dv_profile = 10; doviconf->dv_bl_signal_compatibility_id = 2; break;
+            case RGY_DOVI_PROFILE_104: doviconf->dv_profile = 10; doviconf->dv_bl_signal_compatibility_id = 4; break;
             case RGY_DOVI_PROFILE_COPY: break; //ここには来ない
             default:
                 AddMessage(RGY_LOG_ERROR, _T("Unsupported dolby vision profile: %d\n"), prm->doviProfile);

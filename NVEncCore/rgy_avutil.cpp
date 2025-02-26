@@ -972,6 +972,13 @@ RGYDOVIProfile getStreamDOVIProfile(const AVStream *stream) {
         case 4:  return RGY_DOVI_PROFILE_84;
         default: return RGY_DOVI_PROFILE_UNSET;
         }
+    case 10:
+        switch (doviconf->dv_bl_signal_compatibility_id) {
+        case 1:  return RGY_DOVI_PROFILE_101;
+        case 2:  return RGY_DOVI_PROFILE_102;
+        case 4:  return RGY_DOVI_PROFILE_104;
+        default: return RGY_DOVI_PROFILE_100;
+        }
     default:
         return RGY_DOVI_PROFILE_UNSET;
     }
