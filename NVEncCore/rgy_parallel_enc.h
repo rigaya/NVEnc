@@ -70,12 +70,6 @@ public:
     void reset();
 };
 
-struct RGYParallelEncDevInfo {
-    int id;
-    int type;
-    tstring name;
-};
-
 enum class RGYParallelEncProcessStatus {
     Init,
     Running,
@@ -90,7 +84,6 @@ struct RGYParallelEncSendData {
 
     unique_event eventChildHasSentFirstKeyPts; // 子→親へ最初のキーフレームのptsを通知するためのイベント
     int64_t videoFirstKeyPts; // 子の最初のキーフレームのpts
-    RGYParallelEncDevInfo devInfo; // 子のデバイス情報
     RGYParallelEncodeStatusData encStatus; // 子のエンコード状態を共有用 (親へはEncodeStatus::addChildStatusで渡す、子へはEncodeStatus::initで渡す)
 
     unique_event eventParentHasSentFinKeyPts; // 親→子へ最後のptsを通知するためのイベント
@@ -105,7 +98,6 @@ struct RGYParallelEncSendData {
         logMutex(),
         eventChildHasSentFirstKeyPts(unique_event(nullptr, nullptr)),
         videoFirstKeyPts(-1),
-        devInfo(),
         encStatus(),
         eventParentHasSentFinKeyPts(unique_event(nullptr, nullptr)),
         videoFinKeyPts(-1),
@@ -134,7 +126,6 @@ public:
     int waitProcessStarted(const uint32_t timeout);
     int64_t getVideoFirstKeyPts() const { return m_sendData.videoFirstKeyPts; } // waitProcessStarted してから呼ぶこと
     RGYParallelEncodeStatusData *getEncodeStatus() { return &m_sendData.encStatus; } // waitProcessStarted してから呼ぶこと
-    const RGYParallelEncDevInfo& devInfo() const { return m_sendData.devInfo; } // waitProcessStarted してから呼ぶこと
     RGYParallelEncProcessStatus processStatus() const { return m_sendData.processStatus; }
     HANDLE eventProcessFinished() const { return m_processFinished.get(); }
 protected:
@@ -183,7 +174,7 @@ public:
     RGYParallelEnc(std::shared_ptr<RGYLog> log);
     virtual ~RGYParallelEnc();
     static std::pair<RGY_ERR, const TCHAR *> isParallelEncPossible(const encParams *prm, const RGYInput *input);
-    RGY_ERR parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo);
+    RGY_ERR parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
     void close(const bool deleteTempFiles);
     int64_t getVideoEndKeyPts() const { return m_videoEndKeyPts; }
     void setVideoFinished() { m_videoFinished = true; }
@@ -191,7 +182,6 @@ public:
     int id() const { return m_id; }
     int waitProcessFinished(const int id, const uint32_t timeout);
     std::optional<RGY_ERR> processReturnCode(const int id);
-    std::vector<RGYParallelEncDevInfo> devInfo() const;
     void encStatusReset(const int id);
     
     int64_t getVideofirstKeyPts(const int ichunk) const;
@@ -204,7 +194,7 @@ protected:
     encParams genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const tstring& tmpfile);
     RGY_ERR startChunkProcess(int ichunk, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
     RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
-    RGY_ERR parallelChild(const encParams *prm, const RGYInput *input, const RGYParallelEncDevInfo& devInfo);
+    RGY_ERR parallelChild(const encParams *prm, const RGYInput *input);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {

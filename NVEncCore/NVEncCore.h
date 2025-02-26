@@ -176,6 +176,7 @@ protected:
     std::unique_ptr<RGYDeviceUsage> m_deviceUsage;
     std::unique_ptr<NVEncRunCtx>    m_encRunCtx;
     std::unique_ptr<RGYParallelEnc> m_parallelEnc;
+    std::vector<tstring>         m_devNames;
 
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
 

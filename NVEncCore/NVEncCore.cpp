@@ -277,6 +277,7 @@ NVEncCore::NVEncCore() :
     m_deviceUsage(),
     m_encRunCtx(),
     m_parallelEnc(),
+    m_devNames(),
     m_pAbortByUser(nullptr),
     m_cudaSchedule(CU_CTX_SCHED_AUTO),
     m_stCreateEncodeParams(),
@@ -747,11 +748,7 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam) {
         m_deviceUsage->close();
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pLog);
-    RGYParallelEncDevInfo devInfo;
-    devInfo.id = (int)m_dev->id();
-    devInfo.name = m_dev->name();
-    devInfo.type = 0;
-    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get(), devInfo)) != RGY_ERR_NONE) {
+    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {
         if (inputParam->ctrl.parallelEnc.isChild()) {
             return sts;
         }
@@ -4074,14 +4071,20 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         }
     }
 
+    if ((sts = input_ret.get()) < RGY_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
+
+    // 並列動作の子は読み込みが終了したらすぐに並列動作を呼び出し
+    if (inputParam->ctrl.parallelEnc.isChild()) {
+        sts = InitParallelEncode(inputParam);
+        if (sts < RGY_ERR_NONE) return sts;
+    }
+
     std::unique_ptr<RGYDeviceUsageLockManager> devUsageLock;
     if (gpuList.size() > 1) {
         m_deviceUsage = std::make_unique<RGYDeviceUsage>();
         devUsageLock = m_deviceUsage->lock(); // ロックは親プロセス側でとる
     }
-
-    if ((sts = input_ret.get()) < RGY_ERR_NONE) return sts;
-    PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
     bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
     if (inputParam->lossless && inputParam->losslessIgnoreInputCsp == 0) {
@@ -4140,6 +4143,11 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         return err_to_rgy(NV_ENC_ERR_NO_ENCODE_DEVICE);
     }
     PrintMes(RGY_LOG_DEBUG, _T("CheckGPUListByEncoder: Success.\n"));
+
+    m_devNames.clear();
+    for (const auto& dev : gpuList) {
+        m_devNames.push_back(dev->infostr());
+    }
 
     //使用するGPUの優先順位を決定
     if ((sts = GPUAutoSelect(gpuList, inputParam, devUsageLock.get())) != RGY_ERR_NONE) {
@@ -4280,8 +4288,11 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitPerfMonitor: Success.\n"));
 
-    sts = InitParallelEncode(inputParam);
-    if (sts < RGY_ERR_NONE) return sts;
+    // 親はエンコード設定が完了してから並列動作を呼び出し
+    if (inputParam->ctrl.parallelEnc.isParent()) {
+        sts = InitParallelEncode(inputParam);
+        if (sts < RGY_ERR_NONE) return sts;
+    }
 
     //出力ファイルを開く
     if ((sts = InitOutput(inputParam, encBufferFormat)) != RGY_ERR_NONE) {
@@ -6024,20 +6035,15 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 #endif
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
     {
-        std::vector<RGYParallelEncDevInfo> parallelEncDevInfo;
-        if (m_parallelEnc) {
-            parallelEncDevInfo = m_parallelEnc->devInfo();
-        }
-        if (parallelEncDevInfo.size() > 0) {
-            add_str(RGY_LOG_INFO, _T("GPU            %s\n"), parallelEncDevInfo[0].name.c_str());
-            for (size_t i = 1; i < parallelEncDevInfo.size(); i++) {
-                add_str(RGY_LOG_INFO, _T("               %s\n"), parallelEncDevInfo[i].name.c_str());
+        if (m_parallelEnc && m_devNames.size() > 1) {
+            add_str(RGY_LOG_INFO, _T("GPU            %s\n"), m_devNames[0].c_str());
+            for (size_t i = 1; i < m_devNames.size(); i++) {
+                add_str(RGY_LOG_INFO, _T("               %s\n"), m_devNames[i].c_str());
             }
         } else {
             add_str(RGY_LOG_INFO, _T("GPU            %s\n"), gpu_info.c_str());
         }
     }
-    add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info.c_str());
     if (m_dev->encoder()) {
         const auto encAPIver = m_dev->encoder()->getAPIver();
         add_str(RGY_LOG_INFO, _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
