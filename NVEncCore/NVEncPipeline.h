@@ -1981,7 +1981,7 @@ public:
 
         for (int i = 0; i < numFrames; i++) {
             auto bfr = std::make_unique<EncodeBuffer>();
-            if (ENABLE_INTERLACE_FROM_HWMEM && picStruct == NV_ENC_PIC_STRUCT_FRAME) {
+            if (ENABLE_INTERLACE_FROM_HWMEM || picStruct == NV_ENC_PIC_STRUCT_FRAME) {
                 auto sts = allocateEncodeBufferFrame(bfr.get(), uInputWidth, uInputHeight, uInputWidthByte, uInputHeightTotal, inputFormat, alphaChannel);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
