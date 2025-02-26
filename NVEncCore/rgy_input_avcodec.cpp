@@ -459,7 +459,7 @@ RGY_ERR RGYInputAvcodec::initVideoParser() {
             char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(),
             m_Demux.video.pCodecCtxParser->time_base.num, m_Demux.video.pCodecCtxParser->time_base.den,
             m_Demux.video.pCodecCtxParser->pkt_timebase.num, m_Demux.video.pCodecCtxParser->pkt_timebase.den);
-    } else if (m_Demux.video.HWDecodeDeviceId.size() >= 0) {
+    } else if (m_Demux.video.HWDecodeDeviceId.size() > 0) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str());
         return RGY_ERR_NULL_PTR;
     }
