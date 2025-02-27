@@ -260,21 +260,21 @@ void RGYParallelEnc::close(const bool deleteTempFiles) {
 }
 
 int64_t RGYParallelEnc::getVideofirstKeyPts(const int ichunk) const {
-    if (ichunk >= m_encProcess.size()) {
+    if (ichunk >= (int)m_encProcess.size()) {
         return -1;
     }
     return m_encProcess[ichunk]->getVideoFirstKeyPts();
 }
 
 tstring RGYParallelEnc::tmpPath(const int ichunk) const {
-    if (ichunk >= m_encProcess.size()) {
+    if (ichunk >= (int)m_encProcess.size()) {
         return _T("");
     }
     return m_encProcess[ichunk]->tmpPath();
 }
 
 RGYParamParallelEncCache RGYParallelEnc::cacheMode(const int ichunk) const {
-    if (ichunk >= m_encProcess.size()) {
+    if (ichunk >= (int)m_encProcess.size()) {
         return RGYParamParallelEncCache::Mem;
     }
     return m_encProcess[ichunk]->cacheMode();
@@ -297,7 +297,7 @@ RGY_ERR RGYParallelEnc::putFreePacket(const int ichunk, RGYOutputRawPEExtHeader 
 }
 
 int RGYParallelEnc::waitProcessFinished(const int id, const uint32_t timeout) {
-    if (id >= m_encProcess.size()) {
+    if (id >= (int)m_encProcess.size()) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parallel id #%d for waitProcess.\n"), id);
         return -1;
     }
@@ -305,7 +305,7 @@ int RGYParallelEnc::waitProcessFinished(const int id, const uint32_t timeout) {
 }
 
 std::optional<RGY_ERR> RGYParallelEnc::processReturnCode(const int id) {
-    if (id >= m_encProcess.size()) {
+    if (id >= (int)m_encProcess.size()) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parallel id #%d for processReturnCode.\n"), id);
         return std::nullopt;
     }
@@ -313,7 +313,7 @@ std::optional<RGY_ERR> RGYParallelEnc::processReturnCode(const int id) {
 }
 
 void RGYParallelEnc::encStatusReset(const int id) {
-    if (id >= m_encProcess.size()) {
+    if (id >= (int)m_encProcess.size()) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parallel id #%d for encStatusReset.\n"), id);
         return;
     }
@@ -504,7 +504,7 @@ RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInpu
                             eventProcessFinished.push_back(proc->eventProcessFinished());
                         }
                     }
-                    WaitForMultipleObjects((DWORD)eventProcessFinished.size(), eventProcessFinished.data(), FALSE, 16);
+                    WaitForMultipleObjects((uint32_t)eventProcessFinished.size(), eventProcessFinished.data(), FALSE, 16);
                 }
             }
             return RGY_ERR_NONE;

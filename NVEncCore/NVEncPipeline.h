@@ -1460,7 +1460,7 @@ protected:
     EncodeStatus *m_encStatus;
     rgy_rational<int> m_outputTimebase;
     std::unique_ptr<PipelineTaskAudio> m_taskAudio;
-    std::unique_ptr<FILE, decltype(&fclose)> m_fReader;
+    std::unique_ptr<FILE, fp_deleter> m_fReader;
     int64_t m_ptsOffset; // 分割出力間の(2分割目以降の)ptsのオフセット
     int m_encFrameOffset; // 分割出力間の(2分割目以降の)エンコードフレームのオフセット
     int m_lastEncFrameIdx; // 最後にエンコードしたフレームのindex
@@ -1473,7 +1473,7 @@ public:
         PipelineTask(PipelineTaskType::PECOLLECT, dev, outMaxQueueSize, false, threadParam, log),
         m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
-        m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)),
+        m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
         m_ptsOffset(0), m_encFrameOffset(0), m_lastEncFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
@@ -1535,7 +1535,7 @@ protected:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get tmp path for parallel enc %d.\n"), m_currentChunk);
                 return RGY_ERR_UNKNOWN;
             }
-            m_fReader = std::unique_ptr<FILE, decltype(&fclose)>(_tfopen(tmpPath.c_str(), _T("rb")), fclose);
+            m_fReader = std::unique_ptr<FILE, fp_deleter>(_tfopen(tmpPath.c_str(), _T("rb")), fp_deleter());
             if (m_fReader == nullptr) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to open file: %s\n"), tmpPath.c_str());
                 return RGY_ERR_FILE_OPEN;
