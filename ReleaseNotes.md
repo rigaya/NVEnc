@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 8.00beta4
+
+- Fix some codecs not being able to decode with avsw since 8.00b2.
+- Fix interlaced encoding not working when using filters since 8.00b1.
+- Add 10.0, 10.1, 10.2, 10.4 options to [--dolby-vision-profile](https://github.com/rigaya/NVEnc/blob/master/NVEncC_Options.en.md#--dolby-vision-profile-string-hevc-av1). ( #672 )
 
 ## 8.00beta3
 

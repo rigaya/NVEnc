@@ -266,7 +266,7 @@ int processMonitorRGYDeviceUsage(const int32_t deviceID) {
         fprintf(stderr, "Failed to open shared memory\n"); ret = 1;
     } else {
         char buf = 0;
-        ret = (int)fread(&buf, 1, 1, stdin);
+        fread(&buf, 1, 1, stdin);
         // 親プロセスが行った登録を解除 (子プロセスのIDで登録されている)
         deviceUsage.release();
     }
