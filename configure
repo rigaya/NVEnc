@@ -861,7 +861,7 @@ rgy_input_avs.cpp      rgy_input_raw.cpp           rgy_input_sm.cpp             
 rgy_level.cpp          rgy_level_av1.cpp           rgy_level_h264.cpp           rgy_level_hevc.cpp \
 rgy_libplacebo.cpp \
 rgy_log.cpp            rgy_memmem.cpp              rgy_nvrtc.cpp \
-rgy_output.cpp         rgy_output_avcodec.cpp      rgy_perf_counter.cpp \
+rgy_output.cpp         rgy_output_avcodec.cpp      rgy_perf_counter.cpp         rgy_parallel_enc.cpp \
 rgy_perf_monitor.cpp   rgy_pipe.cpp                rgy_pipe_linux.cpp           rgy_prm.cpp                  rgy_resource.cpp \
 rgy_simd.cpp           rgy_status.cpp              rgy_thread_affinity.cpp      rgy_timecode.cpp             rgy_util.cpp \
 rgy_version.cpp        rgy_vulkan.cpp              rgy_wav_parser.cpp \
