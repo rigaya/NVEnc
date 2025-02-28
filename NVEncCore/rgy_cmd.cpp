@@ -7078,11 +7078,15 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 auto param_val = param.substr(pos + 1);
                 param_arg = tolowercase(param_arg);
                 if (param_arg == _T("mp")) {
-                    try {
-                        ctrl->parallelEnc.parallelCount = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
+                    if (param == _T("auto")) {
+                        ctrl->parallelEnc.parallelCount = -1;
+                    } else {
+                        try {
+                            ctrl->parallelEnc.parallelCount = std::stoi(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
                     }
                     continue;
                 }
@@ -7117,11 +7121,15 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
-                try {
-                    ctrl->parallelEnc.parallelCount = std::stoi(param);
-                } catch (...) {
-                    print_cmd_error_invalid_value(tstring(option_name), param);
-                    return 1;
+                if (param == _T("auto")) {
+                    ctrl->parallelEnc.parallelCount = -1;
+                } else {
+                    try {
+                        ctrl->parallelEnc.parallelCount = std::stoi(param);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name), param);
+                        return 1;
+                    }
                 }
                 continue;
             }

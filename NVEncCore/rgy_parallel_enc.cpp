@@ -170,7 +170,7 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
             m_sendData.encStatus.set(encStatusData);
         }
         SetEvent(m_processFinished.get()); // 処理終了を通知するのを忘れないように
-        AddMessage(RGY_LOG_ERROR, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
+        AddMessage(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
         m_sendData.processStatus = RGYParallelEncProcessStatus::Finished;
         // 終了したら、そのチャンクに関する進捗表示は削除
         m_sendData.encStatus.reset();
@@ -241,7 +241,9 @@ RGYParallelEnc::RGYParallelEnc(std::shared_ptr<RGYLog> log) :
     m_thParallelRun(),
     m_thParallelRunAbort(false),
     m_videoEndKeyPts(-1),
-    m_videoFinished(false) {}
+    m_videoFinished(false),
+    m_parallelCount(0),
+    m_chunks(0) {}
 
 RGYParallelEnc::~RGYParallelEnc() {
     close(false);
@@ -367,7 +369,7 @@ RGY_ERR RGYParallelEnc::parallelChild(const encParams *prm, const RGYInput *inpu
     WaitForSingleObject(sendData->eventParentHasSentFinKeyPts.get(), INFINITE);
     m_videoEndKeyPts = sendData->videoFinKeyPts;
     sendData->processStatus = RGYParallelEncProcessStatus::Running;
-    AddMessage(RGY_LOG_ERROR, _T("Start chunk process %d.\n"), prm->ctrl.parallelEnc.parallelId);
+    AddMessage(RGY_LOG_DEBUG, _T("Start chunk process %d.\n"), prm->ctrl.parallelEnc.parallelId);
     return RGY_ERR_NONE;
 }
 
@@ -518,12 +520,15 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
         return RGY_ERR_NONE;
     }
     m_id = prm->ctrl.parallelEnc.parallelId;
+    m_parallelCount = prm->ctrl.parallelEnc.parallelCount;
     if (prm->ctrl.parallelEnc.isChild()) { // 子プロセスから呼ばれた
         return parallelChild(prm, input); // 子プロセスの処理
     }
     if (prm->ctrl.parallelEnc.chunks <= 0) {
         prm->ctrl.parallelEnc.chunks = prm->ctrl.parallelEnc.parallelCount;
     }
+    m_chunks = prm->ctrl.parallelEnc.chunks;
+    AddMessage(RGY_LOG_DEBUG, _T("parallelRun: parallel count %d, chunks %d\n"), prm->ctrl.parallelEnc.parallelCount, prm->ctrl.parallelEnc.chunks);
     auto [sts, errmes ] = isParallelEncPossible(prm, input);
     if (sts != RGY_ERR_NONE
         || (sts = startParallelThreads(prm, input, outputTimebase, encStatus)) != RGY_ERR_NONE) {

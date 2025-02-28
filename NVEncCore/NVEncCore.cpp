@@ -732,7 +732,7 @@ RGY_ERR NVEncCore::InitPerfMonitor(const InEncodeVideoParam *inputParam) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam) {
+RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vector<std::unique_ptr<NVGPUInfo>>& gpuList) {
     if (!inputParam->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
@@ -746,6 +746,22 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam) {
     // 並列処理が有効の場合、メインスレッドではエンコードは行わないので、m_deviceUsageは解放する
     if (inputParam->ctrl.parallelEnc.isParent() && m_deviceUsage) {
         m_deviceUsage->close();
+    }
+    if (inputParam->ctrl.parallelEnc.parallelCount < 0) {
+        auto get_codec_encoder_count = [](NVGPUInfo *gpu, const GUID& codecGUID) {
+            if (!gpu) return 0;
+            const auto codecFeatures = gpu->nvenc_codec_features();
+            for (const auto& codecFeature : codecFeatures) {
+                if (codecFeature.codec == codecGUID) {
+                    return std::max(codecFeature.getCapLimit(NV_ENC_CAPS_NUM_ENCODER_ENGINES), 1);
+                }
+            }
+            return 0;
+        };
+        inputParam->ctrl.parallelEnc.parallelCount = std::max(std::accumulate(gpuList.begin(), gpuList.end(), 0, [&](int sum, const auto& gpu) {
+            return sum + get_codec_encoder_count(gpu.get(), m_stCodecGUID);
+        }) + get_codec_encoder_count(m_dev.get(), m_stCodecGUID), (int)gpuList.size());
+        PrintMes(RGY_LOG_DEBUG, _T("parallelCount set to %d\n"), inputParam->ctrl.parallelEnc.parallelCount);
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pLog);
     if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {
@@ -4076,7 +4092,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 
     // 並列動作の子は読み込みが終了したらすぐに並列動作を呼び出し
     if (inputParam->ctrl.parallelEnc.isChild()) {
-        sts = InitParallelEncode(inputParam);
+        sts = InitParallelEncode(inputParam, gpuList);
         if (sts < RGY_ERR_NONE) return sts;
     }
 
@@ -4290,7 +4306,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 
     // 親はエンコード設定が完了してから並列動作を呼び出し
     if (inputParam->ctrl.parallelEnc.isParent()) {
-        sts = InitParallelEncode(inputParam);
+        sts = InitParallelEncode(inputParam, gpuList);
         if (sts < RGY_ERR_NONE) return sts;
     }
 
@@ -6128,6 +6144,13 @@ tstring NVEncCore::GetEncoderParamsInfo(int output_level, bool add_output_info) 
     auto on_off =[](int value) {
         return (value) ? _T("on") : _T("off");
     };
+    if (m_parallelEnc) {
+        tstring parallelEncMes = strsprintf(_T("%d"), m_parallelEnc->parallelCount());
+        if (m_parallelEnc->chunks() != m_parallelEnc->parallelCount()) {
+            parallelEncMes += strsprintf(_T(" [chunks: %d]"), m_parallelEnc->chunks());
+        }
+        add_str(RGY_LOG_ERROR, _T("Parallel Enc   %s\n"), parallelEncMes.c_str());
+    }
     const auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     const int bitDepth = get_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, rgy_codec, m_dev->encoder()->getAPIver());

@@ -189,7 +189,8 @@ public:
     RGY_ERR putFreePacket(const int ichunk, RGYOutputRawPEExtHeader *ptr);
     RGYParamParallelEncCache cacheMode(const int ichunk) const;
     tstring tmpPath(const int ichunk) const;
-    size_t parallelCount() const { return m_encProcess.size(); }
+    int parallelCount() const { return m_parallelCount; }
+    int chunks() const { return m_chunks; }
 protected:
     encParams genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const tstring& tmpfile);
     RGY_ERR startChunkProcess(int ichunk, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
@@ -229,6 +230,8 @@ protected:
     bool m_thParallelRunAbort;
     int64_t m_videoEndKeyPts;
     bool m_videoFinished;
+    int m_parallelCount;
+    int m_chunks;
 };
 
 

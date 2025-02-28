@@ -2526,9 +2526,9 @@ struct RGYParamParallelEnc {
     RGYParamParallelEnc();
     bool operator==(const RGYParamParallelEnc &x) const;
     bool operator!=(const RGYParamParallelEnc &x) const;
-    bool isParent() const { return parallelCount > 1 && parallelId < 0; }
+    bool isParent() const { return (parallelCount > 1 || parallelCount == -1) && parallelId < 0; }
     bool isChild()  const { return parallelCount > 1 && parallelId >= 0; }
-    bool isEnabled() const { return parallelCount > 1; }
+    bool isEnabled() const { return parallelCount > 1 || parallelCount == -1; }
 };
 
 struct RGYParamControl {

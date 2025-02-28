@@ -99,7 +99,7 @@ protected:
     virtual RGY_ERR InitPerfMonitor(const InEncodeVideoParam *inputParam);
 
     //並列エンコードの開始
-    RGY_ERR InitParallelEncode(InEncodeVideoParam *inputParam);
+    RGY_ERR InitParallelEncode(InEncodeVideoParam *inputParam, std::vector<std::unique_ptr<NVGPUInfo>>& gpuList);
 
     //nvvfxを使用するかチェック
     bool useNVVFX(const InEncodeVideoParam *inputParam) const;
