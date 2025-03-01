@@ -76,7 +76,7 @@ tstring RGYHDR10Plus::getError() {
 #endif
 }
 
-const std::vector<uint8_t> RGYHDR10Plus::getData(int iframe) {
+const std::vector<uint8_t> RGYHDR10Plus::getData(int64_t iframe) {
 #if ENABLE_LIBHDR10PLUS
     std::unique_ptr<const Hdr10PlusRsData, decltype(&hdr10plus_rs_data_free)> av1_metadata(
         hdr10plus_rs_write_av1_metadata_obu_t35_complete(m_hdr10plusJson.get(), iframe), hdr10plus_rs_data_free);

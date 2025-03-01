@@ -228,10 +228,10 @@ struct RGYOutputRawPEExtHeader {
     size_t allocSize; // ヘッダを含んだメモリの確保サイズ
     int64_t pts;
     int64_t dts;
-    int duration;
+    int64_t duration;
+    int64_t frameIdx;
     RGY_PICSTRUCT picstruct;
     RGY_FRAMETYPE frameType;
-    int32_t frameIdx;
     uint32_t flags;
     size_t size; // この後のデータのサイズ
 };
@@ -356,6 +356,7 @@ struct RGYOutputRawPrm {
     int bufSizeMB;
     RGY_CODEC codecId;
     const RGYHDRMetadata *hdrMetadataIn;
+    RGYHDR10Plus *hdr10plus;
     bool hdr10plusMetadataCopy;   //hdr10plusのmetadataをコピー
     RGYDOVIProfile doviProfile;
     DOVIRpu *doviRpu;
@@ -381,6 +382,7 @@ protected:
 
     vector<uint8_t> m_outputBuf2;
     vector<uint8_t> m_hdrBitstream;
+    RGYHDR10Plus *m_hdr10plus;
     bool m_hdr10plusMetadataCopy;
     RGYDOVIProfile m_doviProfileDst;
     DOVIRpu *m_doviRpu;
@@ -413,6 +415,7 @@ RGY_ERR initWriters(
     const vector<unique_ptr<AVChapter>> &chapters,
 #endif //#if ENABLE_AVSW_READER
     const RGYHDRMetadata *hdrMetadataIn,
+    RGYHDR10Plus *hdr10plus,
     DOVIRpu *doviRpu,
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,

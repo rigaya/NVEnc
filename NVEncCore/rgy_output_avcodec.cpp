@@ -139,6 +139,7 @@ AVMuxVideo::AVMuxVideo() :
     fpsBaseNextDts(0),
     fpTsLogFile(),
     hdrBitstream(),
+    hdr10plus(nullptr),
     hdr10plusMetadataCopy(false),
     doviProfileSrc(RGY_DOVI_PROFILE_UNSET),
     doviProfileDst(RGY_DOVI_PROFILE_UNSET),
@@ -417,6 +418,7 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
         av_packet_unref(m_Mux.video.pktParse);
         av_packet_free(&m_Mux.video.pktParse);
     }
+    m_Mux.video.hdr10plus = nullptr;
     m_Mux.video.doviRpu = nullptr;
     m_Mux.video.timestamp = nullptr;
 
@@ -895,8 +897,9 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.pktParse          = av_packet_alloc();
     m_Mux.video.afs               = prm->afs;
     m_Mux.video.debugDirectAV1Out = prm->debugDirectAV1Out;
-    m_Mux.video.doviRpu           = prm->doviRpu;
+    m_Mux.video.hdr10plus         = prm->hdr10plus;
     m_Mux.video.hdr10plusMetadataCopy = prm->hdr10plusMetadataCopy;
+    m_Mux.video.doviRpu           = prm->doviRpu;
     m_Mux.video.doviRpuMetadataCopy = prm->doviRpuMetadataCopy;
     m_Mux.video.doviRpuConvertParam = prm->doviRpuConvertParam;
 
@@ -2855,7 +2858,11 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         std::vector<uint8_t> data(m_Mux.video.hdrBitstream.data(), m_Mux.video.hdrBitstream.data() + m_Mux.video.hdrBitstream.size());
         metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true, RGYOutputInsertMetadataPosition::Prefix));
     }
-    if (m_Mux.video.hdr10plusMetadataCopy) {
+    if (m_Mux.video.hdr10plus) {
+        if (auto data = m_Mux.video.hdr10plus->getData(bs_framedata.inputFrameId); data.size() > 0) {
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, false, false));
+        }
+    } else if (m_Mux.video.hdr10plusMetadataCopy) {
         auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata, nullptr);
         if (err_hdr10plus != RGY_ERR_NONE) {
             return err_hdr10plus;

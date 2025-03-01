@@ -649,6 +649,7 @@ RGY_ERR RGYOutputBSF::applyBitstreamFilter(RGYBitstream *bitstream) {
 RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
     m_hdrBitstream(),
+    m_hdr10plus(nullptr),
     m_hdr10plusMetadataCopy(false),
     m_doviProfileDst(RGY_DOVI_PROFILE_UNSET),
     m_doviRpu(nullptr),
@@ -738,6 +739,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         m_qFirstProcessDataFree = rawPrm->qFirstProcessDataFree;
         m_qFirstProcessDataFreeLarge = rawPrm->qFirstProcessDataFreeLarge;
         m_hdr10plusMetadataCopy = rawPrm->hdr10plusMetadataCopy;
+        m_hdr10plus = rawPrm->hdr10plus;
         m_doviProfileDst = rawPrm->doviProfile;
         m_doviRpu = rawPrm->doviRpu;
         m_doviRpuMetadataCopy = rawPrm->doviRpuMetadataCopy;
@@ -845,7 +847,11 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         std::vector<uint8_t> data(m_hdrBitstream.data(), m_hdrBitstream.data() + m_hdrBitstream.size());
         metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true, RGYOutputInsertMetadataPosition::Prefix));
     }
-    if (m_hdr10plusMetadataCopy) {
+    if (m_hdr10plus) {
+        if (auto data = m_hdr10plus->getData(bs_framedata.inputFrameId); data.size() > 0) {
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, false, false));
+        }
+    } else if (m_hdr10plusMetadataCopy) {
         auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata, nullptr);
         if (err_hdr10plus != RGY_ERR_NONE) {
             return err_hdr10plus;
@@ -1233,6 +1239,7 @@ RGY_ERR initWriters(
     const vector<unique_ptr<AVChapter>>& chapters,
 #endif //#if ENABLE_AVSW_READER
     const RGYHDRMetadata *hdrMetadataIn,
+    RGYHDR10Plus *hdr10plus,
     DOVIRpu *doviRpu,
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
@@ -1305,6 +1312,7 @@ RGY_ERR initWriters(
         writerPrm.chapterNoTrim           = common->chapterNoTrim;
         writerPrm.attachments             = common->attachmentSource;
         writerPrm.hdrMetadataIn           = hdrMetadataIn;
+        writerPrm.hdr10plus               = hdr10plus;
         writerPrm.hdr10plusMetadataCopy   = common->hdr10plusMetadataCopy || common->dynamicHdr10plusJson.length() > 0;
         writerPrm.doviRpu                 = doviRpu;
         writerPrm.doviRpuMetadataCopy     = common->doviRpuMetadataCopy;
@@ -1621,6 +1629,7 @@ RGY_ERR initWriters(
             rawPrm.benchmark = benchmark;
             rawPrm.codecId = outputVideoInfo.codec;
             rawPrm.hdrMetadataIn = hdrMetadataIn;
+            rawPrm.hdr10plus = hdr10plus;
             rawPrm.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy || common->dynamicHdr10plusJson.length() > 0;
             rawPrm.doviProfile = common->doviProfile;
             rawPrm.doviRpu = doviRpu;

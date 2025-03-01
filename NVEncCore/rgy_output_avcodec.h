@@ -145,6 +145,7 @@ struct AVMuxVideo {
     int                   fpsBaseNextDts;       //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     std::unique_ptr<FILE, fp_deleter> fpTsLogFile; //mux timestampログファイル
     RGYBitstream          hdrBitstream;         //追加のsei nal
+    RGYHDR10Plus         *hdr10plus;          //追加のhdr10plus
     bool                  hdr10plusMetadataCopy; //hdr10plusをコピー
     RGYDOVIProfile        doviProfileSrc;       //dovi profile input
     RGYDOVIProfile        doviProfileDst;       //dovi profile output
@@ -398,6 +399,7 @@ struct AvcodecWriterPrm {
     PerfQueueInfo               *queueInfo;               //キューの情報を格納する構造体
     tstring                      muxVidTsLogFile;         //mux timestampログファイル
     const RGYHDRMetadata        *hdrMetadataIn;           //HDR関連のmetadata
+    RGYHDR10Plus                *hdr10plus;                //追加のhdr10plus
     bool                         hdr10plusMetadataCopy;   //hdr10plusのmetadataをコピー
     DOVIRpu                     *doviRpu;                 //DOVIRpu
     bool                         doviRpuMetadataCopy;     //doviのmetadataのコピー
@@ -443,6 +445,7 @@ struct AvcodecWriterPrm {
         queueInfo(nullptr),
         muxVidTsLogFile(),
         hdrMetadataIn(nullptr),
+        hdr10plus(nullptr),
         hdr10plusMetadataCopy(false),
         doviRpu(nullptr),
         doviRpuMetadataCopy(false),

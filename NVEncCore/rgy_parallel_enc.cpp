@@ -397,6 +397,8 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.common.outReplayFile.clear();
     prmParallel.common.seekRatio = ip / (float)prmParallel.ctrl.parallelEnc.chunks;
     prmParallel.common.timebase = outputTimebase; // timebaseがずれると致命的なので、強制的に上書きする
+    prmParallel.common.dynamicHdr10plusJson.clear(); // hdr10plusのファイルからの読み込みは親プロセスでmux時に行う
+    prmParallel.common.doviRpuFile.clear(); // doviRpuのファイルからの読み込みは親プロセスでmux時に行う
     return prmParallel;
 }
 

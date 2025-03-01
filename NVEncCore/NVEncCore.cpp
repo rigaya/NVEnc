@@ -799,7 +799,7 @@ RGY_ERR NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FOR
 
     if (auto sts = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
-        m_trimParam, m_outputTimebase, m_Chapters, m_hdrseiOut.get(), m_dovirpu.get(), m_encTimestamp.get(),
+        m_trimParam, m_outputTimebase, m_Chapters, m_hdrseiOut.get(), m_hdr10plus.get(), m_dovirpu.get(), m_encTimestamp.get(),
         false, false, rgy_csp_has_alpha(inputParams->outputCsp), inputParams->alphaChannelMode,
         m_poolPkt.get(), m_poolFrame.get(), m_pStatus, m_pPerfMonitor, m_pLog); sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s): %s.\n"), get_err_mes(sts));
@@ -4347,7 +4347,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
             taskAudio = std::make_unique<PipelineTaskAudio>(m_dev.get(), m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, prm->ctrl.threadParams.get(RGYThreadType::AUDIO), m_pLog);
         }
         const auto encOutputTimebase = (ENCODER_QSV) ? to_rgy(HW_NATIVE_TIMEBASE) : m_outputTimebase;
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_dev.get(), m_pFileReader.get(), m_encTimestamp.get(), m_hdr10plus.get(), m_parallelEnc.get(),
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_dev.get(), m_pFileReader.get(), m_encTimestamp.get(), m_parallelEnc.get(),
             m_pStatus.get(), encOutputTimebase, taskAudio, 0, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
         return RGY_ERR_NONE;
     }

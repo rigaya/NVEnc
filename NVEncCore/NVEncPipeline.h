@@ -1455,7 +1455,6 @@ protected:
     RGYInput *m_input;
     int m_currentChunk; // いま並列処理の何番目を処理中か
     RGYTimestamp *m_encTimestamp;
-    RGYHDR10Plus *m_hdr10plus;
     RGYParallelEnc *m_parallelEnc;
     EncodeStatus *m_encStatus;
     rgy_rational<int> m_outputTimebase;
@@ -1463,16 +1462,16 @@ protected:
     std::unique_ptr<FILE, fp_deleter> m_fReader;
     int64_t m_maxPts; // 最後のpts
     int64_t m_ptsOffset; // 分割出力間の(2分割目以降の)ptsのオフセット
-    int m_encFrameOffset; // 分割出力間の(2分割目以降の)エンコードフレームのオフセット
-    int m_lastEncFrameIdx; // 最後にエンコードしたフレームのindex
+    int64_t m_encFrameOffset; // 分割出力間の(2分割目以降の)エンコードフレームのオフセット
+    int64_t m_lastEncFrameIdx; // 最後にエンコードしたフレームのindex
     RGYBitstream m_decInputBitstream; // 映像読み込み (ダミー)
     bool m_inputBitstreamEOF; // 映像側の読み込み終了フラグ (音声処理の終了も確認する必要があるため)
     RGYListRef<RGYBitstream> m_bitStreamOut;
 public:
-    PipelineTaskParallelEncBitstream(NVGPUInfo *dev, RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, rgy_rational<int> outputTimebase,
+    PipelineTaskParallelEncBitstream(NVGPUInfo *dev, RGYInput *input, RGYTimestamp *encTimestamp, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, rgy_rational<int> outputTimebase,
         std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, dev, outMaxQueueSize, false, threadParam, log),
-        m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
+        m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp),
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
         m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_lastEncFrameIdx(-1),
@@ -1672,11 +1671,6 @@ public:
         }
         if (ret == RGY_ERR_NONE && bsOut->size() > 0) {
             std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
-            if (m_hdr10plus) {
-                if (const auto data = m_hdr10plus->getData(m_inFrames); data.size() > 0) {
-                    metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->timestamp()));
-                }
-            }
             m_lastEncFrameIdx = bsOut->frameIdx();
             const auto duration = (ENCODER_QSV) ? header.duration : bsOut->duration(); // QSVの場合、Bitstreamにdurationの値がないため、durationはheaderから取得する
             m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), bsOut->frameIdx(), duration, metadatalist);
@@ -2389,7 +2383,7 @@ protected:
     RGYTimestamp *m_encTimestamp;
     rgy_rational<int> m_outputTimebase;
     RGYListRef<RGYBitstream> m_bitStreamOut;
-    RGYHDR10Plus *m_hdr10plus;
+    const RGYHDR10Plus *m_hdr10plus;
     const DOVIRpu *m_doviRpu;
     std::vector<NVEncRCParam>& m_dynamicRC;
     int m_appliedDynamicRC;
@@ -2402,7 +2396,7 @@ public:
     PipelineTaskNVEncode(
         NVGPUInfo *dev, NVEncRunCtx *runCtx, RGY_CODEC encCodec, int encWidth, int encHeight, RGY_CSP encCsp, int encBitdepth, RGY_PICSTRUCT encPicStruct,
         const NV_ENC_CONFIG& stEncConfig, const NV_ENC_INITIALIZE_PARAMS& stCreateEncodeParams,
-        RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu,
+        RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, const RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu,
         std::vector<NVEncRCParam>& dynamicRC, std::vector<int>& keyFile, bool keyOnChapter, std::vector<std::unique_ptr<AVChapter>>& chapters,
          int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::NVENC, dev, outMaxQueueSize, true, threadParam, log),
@@ -2630,10 +2624,6 @@ public:
                     } else {
                         it++;
                     }
-                }
-                // 外部からHDR10+を読み込む
-                if (const auto data = m_hdr10plus->getData(inputFrameId); data.size() > 0) {
-                    metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), timestamp));
                 }
             }
             if (m_doviRpu) {

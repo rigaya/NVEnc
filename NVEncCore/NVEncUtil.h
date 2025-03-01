@@ -150,7 +150,7 @@ private:
     uint32_t dataAvgQP;
     RGY_FRAMETYPE dataFrametype;
     RGY_PICSTRUCT dataPicstruct;
-    int dataFrameIdx;
+    int64_t dataFrameIdx;
     int64_t dataDuration;
     RGYFrameData **frameDataList;
     int frameDataNum;
@@ -204,11 +204,11 @@ public:
         dataDuration = duration;
     }
 
-    int frameIdx() {
+    int64_t frameIdx() {
         return dataFrameIdx;
     }
 
-    void setFrameIdx(int frameIdx) {
+    void setFrameIdx(int64_t frameIdx) {
         dataFrameIdx = frameIdx;
     }
 
