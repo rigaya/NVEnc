@@ -892,7 +892,8 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         peHeader.duration = (ENCODER_QSV) ? bs_framedata.duration : pBitstream->duration(); // QSVではdurationを取得できないので、別途取得する
         peHeader.frameType = pBitstream->frametype();
         peHeader.picstruct = pBitstream->picstruct();
-        peHeader.frameIdx = bs_framedata.encodeFrameId;
+        peHeader.inputFrameIdx = bs_framedata.inputFrameId;
+        peHeader.encodeFrameIdx = bs_framedata.encodeFrameId;
         peHeader.flags = pBitstream->dataflag();
         peHeader.size = pBitstream->size();
         if (m_qFirstProcessData) { // 並列エンコード用のキューが指定されている場合は、ファイル出力せず、キューにデータを渡す

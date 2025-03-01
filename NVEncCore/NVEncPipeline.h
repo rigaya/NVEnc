@@ -1463,7 +1463,9 @@ protected:
     int64_t m_maxPts; // 最後のpts
     int64_t m_ptsOffset; // 分割出力間の(2分割目以降の)ptsのオフセット
     int64_t m_encFrameOffset; // 分割出力間の(2分割目以降の)エンコードフレームのオフセット
-    int64_t m_lastEncFrameIdx; // 最後にエンコードしたフレームのindex
+    int64_t m_inputFrameOffset; // 分割出力間の(2分割目以降の)エンコードフレームのオフセット
+    int64_t m_maxEncFrameIdx; // 最後にエンコードしたフレームのindex
+    int64_t m_maxInputFrameIdx; // 最後にエンコードしたフレームのindex
     RGYBitstream m_decInputBitstream; // 映像読み込み (ダミー)
     bool m_inputBitstreamEOF; // 映像側の読み込み終了フラグ (音声処理の終了も確認する必要があるため)
     RGYListRef<RGYBitstream> m_bitStreamOut;
@@ -1474,7 +1476,7 @@ public:
         m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp),
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
-        m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_lastEncFrameIdx(-1),
+        m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
     };
@@ -1552,18 +1554,23 @@ protected:
         // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
         // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
         m_ptsOffset = (ptsOffsetOrig > ptsOffsetMax && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, inputFpsTimebase, m_outputTimebase)) ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, inputFpsTimebase, m_outputTimebase));
-        m_encFrameOffset = (m_currentChunk > 0) ? m_lastEncFrameIdx + 1 : 0;
+        m_encFrameOffset = (m_currentChunk > 0) ? m_maxEncFrameIdx + 1 : 0;
+        m_inputFrameOffset = (m_currentChunk > 0) ? m_maxInputFrameIdx + 1 : 0;
         PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld, frame offset %d.\n"), m_ptsOffset, m_encFrameOffset);
         return RGY_ERR_NONE;
     }
 
-    void setHeaderProperties(RGYBitstream *bsOut, const RGYOutputRawPEExtHeader *header) {
-        bsOut->setPts(header->pts + m_ptsOffset);
-        bsOut->setDts(header->dts + m_ptsOffset);
+    void updateAndSetHeaderProperties(RGYBitstream *bsOut, RGYOutputRawPEExtHeader *header) {
+        header->pts += m_ptsOffset;
+        header->dts += m_ptsOffset;
+        header->encodeFrameIdx += m_encFrameOffset;
+        header->inputFrameIdx += m_inputFrameOffset;
+        bsOut->setPts(header->pts);
+        bsOut->setDts(header->dts);
         bsOut->setDuration(header->duration);
         bsOut->setFrametype(header->frameType);
         bsOut->setPicstruct(header->picstruct);
-        bsOut->setFrameIdx(header->frameIdx + m_encFrameOffset);
+        bsOut->setFrameIdx(header->encodeFrameIdx);
         bsOut->setDataflag((RGY_FRAME_FLAGS)header->flags);
     }
 
@@ -1576,7 +1583,7 @@ protected:
         if (packet == nullptr) {
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
-        setHeaderProperties(bsOut, packet);
+        updateAndSetHeaderProperties(bsOut, packet);
         if (packet->size <= 0) {
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         } else {
@@ -1597,7 +1604,7 @@ protected:
         if (header.size <= 0) {
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
-        setHeaderProperties(bsOut, &header);
+        updateAndSetHeaderProperties(bsOut, &header);
         bsOut->resize(header.size);
         PrintMes(RGY_LOG_TRACE, _T("F: pts %08lld, dts %08lld, size %d.\n"), bsOut->pts(), bsOut->dts(), bsOut->size());
 
@@ -1671,11 +1678,12 @@ public:
         }
         if (ret == RGY_ERR_NONE && bsOut->size() > 0) {
             std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
-            m_lastEncFrameIdx = bsOut->frameIdx();
             const auto duration = (ENCODER_QSV) ? header.duration : bsOut->duration(); // QSVの場合、Bitstreamにdurationの値がないため、durationはheaderから取得する
-            m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), bsOut->frameIdx(), duration, metadatalist);
+            m_encTimestamp->add(bsOut->pts(), header.inputFrameIdx, header.encodeFrameIdx, duration, metadatalist);
             m_maxPts = std::max(m_maxPts, bsOut->pts());
-            PrintMes(RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, idx: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, bsOut->frameIdx(), bsOut->size());
+            m_maxEncFrameIdx = std::max(m_maxEncFrameIdx, header.encodeFrameIdx);
+            m_maxInputFrameIdx = std::max(m_maxInputFrameIdx, header.inputFrameIdx);
+            PrintMes(RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, input idx: %lld, encode idx: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, header.inputFrameIdx, header.encodeFrameIdx, bsOut->size());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(bsOut));
         }
         if (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM && m_taskAudio) {

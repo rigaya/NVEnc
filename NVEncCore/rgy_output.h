@@ -229,7 +229,8 @@ struct RGYOutputRawPEExtHeader {
     int64_t pts;
     int64_t dts;
     int64_t duration;
-    int64_t frameIdx;
+    int64_t inputFrameIdx;
+    int64_t encodeFrameIdx;
     RGY_PICSTRUCT picstruct;
     RGY_FRAMETYPE frameType;
     uint32_t flags;
