@@ -216,8 +216,7 @@ std::vector<uint8_t> RGYFrameDataDOVIRpu::gen_obu() const {
     if (m_data.size() > sizeof(av1_itut_t35_header_dovirpu) && memcmp(m_data.data(), av1_itut_t35_header_dovirpu, sizeof(av1_itut_t35_header_dovirpu)) == 0) {
         buf = m_data;
     } else {
-        buf = make_vector<uint8_t>(av1_itut_t35_header_dovirpu);
-        vector_cat(buf, m_data);
+        buf = DOVIRpu::wrap_rpu_av1_obu(m_data);
     }
     return gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, buf);
 }

@@ -639,6 +639,35 @@ int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const RGYDOVIProfile 
     return 0;
 }
 
+std::vector<uint8_t> DOVIRpu::wrap_rpu_av1_obu(const std::vector<uint8_t>& rpu) {
+    int data_fin_size = (int)rpu.size();
+    while (data_fin_size > 0 && rpu[data_fin_size - 1] == 0) {
+        data_fin_size--;
+    }
+
+    RGYBitWriter writer;
+    writer.write_n(0, 2);
+    writer.write_n(6, 3);
+    writer.write_n(31, 5);
+    write_av1_variable_bits(writer, 225, 5);
+    writer.write_n(0, 4);
+    writer.write(true);
+    write_av1_variable_bits(writer, data_fin_size - 1, 8);
+    for (int i = 1; i < data_fin_size; i++) {
+        writer.write_n(rpu[i], 8);
+    }
+    writer.write_n(0, 5);
+    writer.write_n(1, 2);
+    writer.write_n(0, 2);
+    writer.write_n(0, 8);
+    while (!writer.aligned()) {
+        writer.write(true);
+    }
+    auto buf = make_vector<uint8_t>(av1_itut_t35_header_dovirpu);
+    vector_cat(buf, writer.get_data());
+    return buf;
+}
+
 int DOVIRpu::get_next_rpu_obu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id) {
     std::vector<uint8_t> tmp;
     if (int ret = get_next_rpu(tmp, doviProfileDst, prm, id); ret != 0) {
@@ -651,8 +680,7 @@ int DOVIRpu::get_next_rpu_obu(std::vector<uint8_t>& bytes, const RGYDOVIProfile 
     if (rpu.size() > sizeof(av1_itut_t35_header_dovirpu) && memcmp(rpu.data(), av1_itut_t35_header_dovirpu, sizeof(av1_itut_t35_header_dovirpu)) == 0) {
         buf = rpu;
     } else {
-        buf = make_vector<uint8_t>(av1_itut_t35_header_dovirpu);
-        vector_cat(buf, rpu);
+        buf = wrap_rpu_av1_obu(rpu);
     }
     bytes = gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, buf);
     return 0;

@@ -422,7 +422,7 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
         bitstream->setOffset(0);
         if (!header_check) {
             for (auto& metadata : metadataList) {
-                if (!metadata->written && !metadata->appendix) {
+                if (!metadata->written && metadata->pos == RGYOutputInsertMetadataPosition::Prefix) {
                     bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                     metadata->written = true;
                 }
@@ -434,7 +434,7 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
                 if (i + 1 < (int)nal_list.size()
                     && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
                     for (auto& metadata : metadataList) {
-                        if (!metadata->written && !metadata->appendix) {
+                        if (!metadata->written && metadata->pos == RGYOutputInsertMetadataPosition::Prefix) {
                             bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                             metadata->written = true;
                         }
@@ -443,7 +443,7 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
             }
         }
         for (auto& metadata : metadataList) {
-            if (!metadata->written && metadata->appendix) {
+            if (!metadata->written && metadata->pos == RGYOutputInsertMetadataPosition::Appendix) {
                 bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                 metadata->written = true;
             }
@@ -472,20 +472,37 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
 
         if (!has_seq_header && !has_td) {
             for (auto& metadata : metadataList) {
-                if (!metadata->written && !metadata->appendix) {
+                if (!metadata->written && metadata->pos == RGYOutputInsertMetadataPosition::Prefix) {
                     bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                     metadata->written = true;
                 }
             }
         }
 
-        for (size_t i = 0; i < av1_units.size(); i++) {
+        //最後のFRAME/FRAME_HEADER OBUの位置
+        int lastFrameIdx = -1;
+        for (int i = (int)av1_units.size()-1; i >= 0; i--) {
+            if (av1_units[i]->type == OBU_FRAME || av1_units[i]->type == OBU_FRAME_HEADER) {
+                lastFrameIdx = i;
+                break;
+            }
+        }
+
+        for (int i = 0; i < (int)av1_units.size(); i++) {
+            if (i == lastFrameIdx) {
+                for (auto& metadata : metadataList) {
+                    if (!metadata->written && metadata->pos == RGYOutputInsertMetadataPosition::FrontOfLastFrame) {
+                        bitstream->append(metadata->mdata.data(), metadata->mdata.size());
+                        metadata->written = true;
+                    }
+                }
+            }
             bitstream->append(av1_units[i]->unit_data.data(), av1_units[i]->unit_data.size());
             if (av1_units[i]->type == OBU_TEMPORAL_DELIMITER || av1_units[i]->type == OBU_SEQUENCE_HEADER) {
                 if (i + 1 < av1_units.size()
                     && (av1_units[i + 1]->type != OBU_TEMPORAL_DELIMITER && av1_units[i + 1]->type != OBU_SEQUENCE_HEADER)) {
                     for (auto& metadata : metadataList) {
-                        if (!metadata->written && !metadata->appendix) {
+                        if (!metadata->written && metadata->pos == RGYOutputInsertMetadataPosition::Prefix) {
                             bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                             metadata->written = true;
                         }
@@ -494,7 +511,7 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
             }
         }
         for (auto& metadata : metadataList) {
-            if (!metadata->written && metadata->appendix) {
+            if (!metadata->written && metadata->pos == RGYOutputInsertMetadataPosition::Appendix) {
                 bitstream->append(metadata->mdata.data(), metadata->mdata.size());
                 metadata->written = true;
             }
@@ -813,7 +830,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
     std::vector<std::unique_ptr<RGYOutputInsertMetadata>> metadataList;
     if (m_hdrBitstream.size() > 0) {
         std::vector<uint8_t> data(m_hdrBitstream.data(), m_hdrBitstream.data() + m_hdrBitstream.size());
-        metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, (m_VideoOutputInfo.codec == RGY_CODEC_AV1) ? false : true, false));
+        metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, (m_VideoOutputInfo.codec == RGY_CODEC_AV1) ? false : true, RGYOutputInsertMetadataPosition::Prefix));
     }
     if (m_hdr10plusMetadataCopy) {
         auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata, nullptr);
@@ -821,7 +838,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
             return err_hdr10plus;
         }
         if (metadata_hdr10plus.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_hdr10plus, false, false));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_hdr10plus, false, RGYOutputInsertMetadata::dhdr10plus_pos(m_VideoOutputInfo.codec)));
         }
     }
     if (m_doviRpu) {
@@ -830,7 +847,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
         }
         if (dovi_nal.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(dovi_nal, false, RGYOutputInsertMetadata::dovirpu_pos(m_VideoOutputInfo.codec)));
         }
     } else if (m_doviRpuMetadataCopy) {
         auto doviRpuConvPrm = std::make_unique<RGYFrameDataDOVIRpuConvertParam>(m_doviProfileDst, m_doviRpuConvertParam);
@@ -839,7 +856,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
             return err_dovirpu;
         }
         if (metadata_dovi_rpu.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_dovi_rpu, false, m_VideoOutputInfo.codec == RGY_CODEC_HEVC ? true : false));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(metadata_dovi_rpu, false, RGYOutputInsertMetadata::dovirpu_pos(m_VideoOutputInfo.codec)));
         }
     }
 

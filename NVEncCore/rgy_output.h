@@ -200,13 +200,26 @@ protected:
     decltype(parse_nal_unit_hevc_c) *m_parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
 
+enum class RGYOutputInsertMetadataPosition {
+    Prefix,
+    FrontOfLastFrame,
+    Appendix
+};
+
+
 struct RGYOutputInsertMetadata {
     std::vector<uint8_t> mdata;
     bool onSequenceHeader;
-    bool appendix;
+    RGYOutputInsertMetadataPosition pos;
     bool written;
 
-    RGYOutputInsertMetadata(std::vector<uint8_t>& data, bool onSeqHeader, bool appendix_) : mdata(data), onSequenceHeader(onSeqHeader), appendix(appendix_), written(false) {};
+    static RGYOutputInsertMetadataPosition dhdr10plus_pos(const RGY_CODEC codec) {
+        return codec == RGY_CODEC_HEVC ? RGYOutputInsertMetadataPosition::Prefix : RGYOutputInsertMetadataPosition::FrontOfLastFrame;
+    };
+    static RGYOutputInsertMetadataPosition dovirpu_pos(const RGY_CODEC codec) {
+        return codec == RGY_CODEC_HEVC ? RGYOutputInsertMetadataPosition::Appendix : RGYOutputInsertMetadataPosition::FrontOfLastFrame;
+    };
+    RGYOutputInsertMetadata(std::vector<uint8_t>& data, bool onSeqHeader, RGYOutputInsertMetadataPosition pos_) : mdata(data), onSequenceHeader(onSeqHeader), pos(pos_), written(false) {};
 };
  
 class RGYOutput {

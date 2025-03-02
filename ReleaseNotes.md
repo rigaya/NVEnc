@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+
+## 8.00beta5
+
+- Improved processing when using [--dolby-vision-rpu](https://github.com/rigaya/NVEnc/blob/master/NVEncC_Options.en.md#--dolby-vision-rpu-string) in AV1 encoding. ( #672 )
+
 ## 8.00beta4
 
 - Fix some codecs not being able to decode with avsw since 8.00b2.
