@@ -427,6 +427,8 @@ public:
                     && m_list[i].data.duration > 0
                     && m_list[i].data.pts != AV_NOPTS_VALUE
                     && m_list[i].data.dts != AV_NOPTS_VALUE
+                    && m_list[i-1].data.pts != AV_NOPTS_VALUE // mkvでは、最初の負のdtsがAV_NOPTS_VALUEで返ることがあるので判定から除外
+                    && m_list[i-1].data.dts != AV_NOPTS_VALUE // mkvでは、最初の負のdtsがAV_NOPTS_VALUEで返ることがあるので判定から除外
                     && m_list[i].data.pts - m_list[i-1].data.pts <= (std::min)(m_list[i].data.duration / 10, 1)
                     && m_list[i].data.dts - m_list[i-1].data.dts <= (std::min)(m_list[i].data.duration / 10, 1)
                     && m_list[i].data.duration == m_list[i-1].data.duration) {
