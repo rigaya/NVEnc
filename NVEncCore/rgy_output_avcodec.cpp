@@ -839,7 +839,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     } else if (videoOutputInfo->codec == RGY_CODEC_HEVC) {
         // 特に指定の場合、HEVCでは再生互換性改善のため、 "hvc1"をデフォルトとする (libavformatのデフォルトは"hev1")
         // ただし、parallelEncodeが有効な場合は、"hve1"を使用する
-        m_Mux.video.codecCtx->codec_tag = (prm->parallelEncode) ? tagFromStr("hve1") : tagFromStr("hvc1");
+        m_Mux.video.codecCtx->codec_tag = (prm->parallelEncode) ? tagFromStr("hev1") : tagFromStr("hvc1");
     } else if (videoOutputInfo->codec == RGY_CODEC_H264) {
         m_Mux.video.codecCtx->codec_tag = (prm->parallelEncode) ? tagFromStr("avc3") : tagFromStr("avc1");
     }
