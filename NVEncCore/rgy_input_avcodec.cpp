@@ -3118,7 +3118,12 @@ bool RGYInputAvcodec::rffAware() const {
 }
 
 bool RGYInputAvcodec::seekable() const {
-    return (m_Demux.format.formatCtx->ctx_flags & AVFMTCTX_UNSEEKABLE) == 0;
+    if ((m_Demux.format.formatCtx->ctx_flags & AVFMTCTX_UNSEEKABLE) == AVFMTCTX_UNSEEKABLE) {
+        return false;
+    }
+    return (m_Demux.format.formatCtx->iformat
+        && m_Demux.format.formatCtx->iformat->long_name
+        && strncmp(m_Demux.format.formatCtx->iformat->long_name, "raw", 3) == 0) ? false : true;
 }
 
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、

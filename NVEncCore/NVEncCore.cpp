@@ -741,7 +741,7 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
         PrintMes(RGY_LOG_WARN, _T("%s.\n"), errmes);
         inputParam->ctrl.parallelEnc.parallelCount = 0;
         inputParam->ctrl.parallelEnc.parallelId = -1;
-        return sts;
+        return RGY_ERR_NONE;
     }
     // 並列処理が有効の場合、メインスレッドではエンコードは行わないので、m_deviceUsageは解放する
     if (inputParam->ctrl.parallelEnc.isParent() && m_deviceUsage) {
