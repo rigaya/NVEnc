@@ -2860,7 +2860,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
     }
     if (m_Mux.video.hdr10plus) {
         if (auto data = m_Mux.video.hdr10plus->getData(bs_framedata.inputFrameId); data.size() > 0) {
-            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, false, false));
+            metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, false, RGYOutputInsertMetadata::dhdr10plus_pos(m_VideoOutputInfo.codec)));
         }
     } else if (m_Mux.video.hdr10plusMetadataCopy) {
         auto [err_hdr10plus, metadata_hdr10plus] = getMetadata<RGYFrameDataHDR10plus>(RGY_FRAME_DATA_HDR10PLUS, bs_framedata, nullptr);
