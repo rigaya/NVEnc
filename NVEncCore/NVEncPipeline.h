@@ -1460,6 +1460,7 @@ protected:
     rgy_rational<int> m_outputTimebase;
     std::unique_ptr<PipelineTaskAudio> m_taskAudio;
     std::unique_ptr<FILE, fp_deleter> m_fReader;
+    int64_t m_firstPts; //最初のpts
     int64_t m_maxPts; // 最後のpts
     int64_t m_ptsOffset; // 分割出力間の(2分割目以降の)ptsのオフセット
     int64_t m_encFrameOffset; // 分割出力間の(2分割目以降の)エンコードフレームのオフセット
@@ -1476,7 +1477,7 @@ public:
         m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp),
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
-        m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
+        m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
     };
@@ -1548,15 +1549,20 @@ protected:
         const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
         const auto srcTimebase = (m_input->getInputTimebase().n() > 0 && m_input->getInputTimebase().is_valid()) ? m_input->getInputTimebase() : inputFpsTimebase;
         // seek結果による入力ptsを用いて計算した本来のpts offset
-        const auto ptsOffsetOrig = rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk) - m_parallelEnc->getVideofirstKeyPts(0), srcTimebase, m_outputTimebase);
+        const auto ptsOffsetOrig = (m_firstPts < 0) ? 0 : rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk), srcTimebase, m_outputTimebase) - m_firstPts;
         // 直前のフレームから計算したpts offset(-1フレーム分) 最低でもこれ以上のoffsetがないといけない
-        const auto ptsOffsetMax = m_maxPts - rational_rescale(m_parallelEnc->getVideofirstKeyPts(0), srcTimebase, m_outputTimebase);
+        const auto ptsOffsetMax = (m_firstPts < 0) ? 0 : m_maxPts - m_firstPts;
         // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
         // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
-        m_ptsOffset = (ptsOffsetOrig > ptsOffsetMax && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, inputFpsTimebase, m_outputTimebase)) ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, inputFpsTimebase, m_outputTimebase));
+        m_ptsOffset = (std::abs(ptsOffsetOrig - ptsOffsetMax) <= rational_rescale(2, inputFpsTimebase, m_outputTimebase)) ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, inputFpsTimebase, m_outputTimebase));
         m_encFrameOffset = (m_currentChunk > 0) ? m_maxEncFrameIdx + 1 : 0;
         m_inputFrameOffset = (m_currentChunk > 0) ? m_maxInputFrameIdx + 1 : 0;
-        PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld, frame offset %d.\n"), m_ptsOffset, m_encFrameOffset);
+        PrintMes(RGY_LOG_TRACE, _T("Switch to next file: pts offset %lld, frame offset %d.\n")
+            _T("  firstKeyPts 0: % lld, %d : % lld.\n")
+            _T("  ptsOffsetOrig: %lld, ptsOffsetMax: %lld, m_maxPts: %lld\n"),
+            m_ptsOffset, m_encFrameOffset,
+            m_firstPts, m_currentChunk, rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk), srcTimebase, m_outputTimebase),
+            ptsOffsetOrig, ptsOffsetMax, m_maxPts);
         return RGY_ERR_NONE;
     }
 
@@ -1680,6 +1686,7 @@ public:
             std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
             const auto duration = (ENCODER_QSV) ? header.duration : bsOut->duration(); // QSVの場合、Bitstreamにdurationの値がないため、durationはheaderから取得する
             m_encTimestamp->add(bsOut->pts(), header.inputFrameIdx, header.encodeFrameIdx, duration, metadatalist);
+            if (m_firstPts < 0) m_firstPts = bsOut->pts();
             m_maxPts = std::max(m_maxPts, bsOut->pts());
             m_maxEncFrameIdx = std::max(m_maxEncFrameIdx, header.encodeFrameIdx);
             m_maxInputFrameIdx = std::max(m_maxInputFrameIdx, header.inputFrameIdx);
