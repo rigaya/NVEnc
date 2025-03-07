@@ -82,6 +82,9 @@ static bool format_is_latm(const AVFormatContext *formatCtx) {
 static bool format_is_ivf(const AVFormatContext *formatCtx) {
     return _stricmp(formatCtx->oformat->name, "ivf") == 0;
 }
+static bool format_is_mpegts(const AVFormatContext *formatCtx) {
+    return _stricmp(formatCtx->oformat->name, "mpegts") == 0;
+}
 
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
@@ -118,6 +121,7 @@ AVMuxFormat::AVMuxFormat() :
     headerOptions(nullptr),
     disableMp4Opt(false),
     lowlatency(false),
+    offsetVideoDtsAdvance(false),
     allowOtherNegativePts(false),
     timestampPassThrough(false) {
 }
@@ -2110,6 +2114,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     m_Mux.format.isMatroska = format_is_mkv(m_Mux.format.formatCtx);
     m_Mux.format.disableMp4Opt = prm->disableMp4Opt;
     m_Mux.format.lowlatency = prm->lowlatency;
+    m_Mux.format.offsetVideoDtsAdvance = prm->offsetVideoDtsAdvance;
     m_Mux.format.allowOtherNegativePts = prm->allowOtherNegativePts;
     m_Mux.format.timestampPassThrough = prm->timestampPassThrough;
 
@@ -2527,6 +2532,20 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
         }
     }
     av_dict_set(&m_Mux.format.headerOptions, "strict", "experimental", 0);
+    if (m_Mux.format.offsetVideoDtsAdvance && m_VideoOutputInfo.videoDelay > 0) {
+        // output_ts_offset で補正する
+        // まず、output_ts_offsetの指定があるかを検索
+        double orig_offset = 0.0;
+        auto entry = av_dict_get(m_Mux.format.headerOptions, "output_ts_offset", nullptr, AV_DICT_MATCH_CASE | AV_DICT_IGNORE_SUFFIX);
+        if (!entry || sscanf_s(entry->value, "%lf", &orig_offset) != 1) {
+            orig_offset = 0.0;
+        }
+        const AVRational fpsTimebase = (m_Mux.video.afs) ? av_inv_q(av_mul_q(m_Mux.video.outputFps, av_make_q(4, 5))) : av_inv_q(m_Mux.video.outputFps);
+        const auto new_offset = orig_offset + m_VideoOutputInfo.videoDelay * av_q2d(fpsTimebase);
+        const auto new_offset_str = strsprintf("%.17lf", new_offset);
+        AddMessage(RGY_LOG_DEBUG, _T("Change output_ts_offset for %lf to avoid negative dts: %.17lf -> %.17lf.\n"), -1.0 * bitstream->dts() * av_q2d(m_Mux.video.streamOut->time_base), orig_offset, new_offset);
+        av_dict_set(&m_Mux.format.headerOptions, "output_ts_offset", new_offset_str.c_str(), AV_DICT_MATCH_CASE);
+    }
 
     //なんらかの問題があると、ここでよく死ぬ
     int ret = 0;
@@ -2930,10 +2949,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 #else
         m_Mux.video.dtsUnavailable = true;
 #endif
-        RGY_ERR sts = WriteFileHeader(bitstream);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
 
         //dts生成を初期化
         //何フレーム前からにすればよいかは、b-pyramid次第で異なるので、可能な限りエンコーダの情報を使用する
@@ -2943,12 +2958,19 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
             m_VideoOutputInfo.videoDelay = (m_VideoOutputInfo.codec == RGY_CODEC_AV1 && AV1_TIMESTAMP_OVERRIDE) ? 0 : -1 * (int)av_rescale_q(bitstream->dts() - bitstream->pts(), srcTimebase, av_inv_q(m_Mux.video.outputFps));
         }
 #endif
+        RGY_ERR sts = WriteFileHeader(bitstream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+
+        // WriteFileHeaderでstreamOut->time_baseが変わることがあるので、まずWriteFileHeaderを先に行ってから、この処理を行う
         m_Mux.video.fpsBaseNextDts = 0 - m_VideoOutputInfo.videoDelay;
         AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.fpsBaseNextDts);
 
         const AVRational fpsTimebase = (m_Mux.video.afs) ? av_inv_q(av_mul_q(m_Mux.video.outputFps, av_make_q(4, 5))) : av_inv_q(m_Mux.video.outputFps);
         const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
         const auto firstPacketPts = av_rescale_q(bitstream->pts(), srcTimebase, streamTimebase);
+        bitstream->setDts(firstPacketPts + av_rescale_q(m_Mux.video.fpsBaseNextDts, fpsTimebase, streamTimebase));
         for (int i = m_Mux.video.fpsBaseNextDts; i < 0; i++) {
             m_Mux.video.timestampList.add(firstPacketPts + av_rescale_q(i, fpsTimebase, streamTimebase));
         }

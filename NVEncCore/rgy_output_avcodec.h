@@ -125,6 +125,7 @@ struct AVMuxFormat {
     AVDictionary         *headerOptions;        //ヘッダオプション
     bool                  disableMp4Opt;        //mp4出力時のmuxの最適化(faststart)を無効にする
     bool                  lowlatency;           //低遅延モード
+    bool                  offsetVideoDtsAdvance; //映像の負のdtsを避ける (ts_output_offsetを使う)
     bool                  allowOtherNegativePts; //音声・字幕の負のptsを許可するかどうか
     bool                  timestampPassThrough;  //タイムスタンプをそのまま出力するかどうか
 
@@ -372,6 +373,7 @@ struct AVOutputStreamPrm {
 struct AvcodecWriterPrm {
     const AVDictionary          *inputFormatMetadata;     //入力ファイルのグローバルメタデータ
     tstring                      outputFormat;            //出力のフォーマット
+    bool                         offsetVideoDtsAdvance;   //映像のdtsを進める (ts_output_offsetを使う)
     bool                         allowOtherNegativePts;   //音声・字幕の負のptsを許可するかどうか
     bool                         timestampPassThrough;    //タイムスタンプをそのまま出力するかどうか
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
@@ -415,6 +417,7 @@ struct AvcodecWriterPrm {
     AvcodecWriterPrm() :
         inputFormatMetadata(nullptr),
         outputFormat(),
+        offsetVideoDtsAdvance(false),
         allowOtherNegativePts(false),
         timestampPassThrough(false),
         bVideoDtsUnavailable(),

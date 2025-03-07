@@ -2457,6 +2457,7 @@ struct RGYParamCommon {
     int audioIgnoreDecodeError;
     int videoIgnoreTimestampError;
     RGYOptList muxOpt;
+    bool offsetVideoDtsAdvance;
     bool allowOtherNegativePts;
     bool disableMp4Opt;
     bool debugDirectAV1Out;

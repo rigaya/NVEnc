@@ -2302,6 +2302,7 @@ RGYParamCommon::RGYParamCommon() :
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     videoIgnoreTimestampError(DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR),
     muxOpt(),
+    offsetVideoDtsAdvance(false),
     allowOtherNegativePts(false),
     disableMp4Opt(false),
     debugDirectAV1Out(false),

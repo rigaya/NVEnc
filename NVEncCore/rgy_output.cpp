@@ -1226,6 +1226,7 @@ RGY_ERR initWriters(
         pFileWriter = std::make_shared<RGYOutputAvcodec>();
         AvcodecWriterPrm writerPrm;
         writerPrm.outputFormat            = common->muxOutputFormat;
+        writerPrm.offsetVideoDtsAdvance   = common->offsetVideoDtsAdvance;
         writerPrm.allowOtherNegativePts   = common->allowOtherNegativePts;
         writerPrm.timestampPassThrough    = common->timestampPassThrough;
         writerPrm.trimList                = trimParam.list;
