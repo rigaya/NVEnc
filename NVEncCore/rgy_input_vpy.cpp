@@ -50,7 +50,8 @@ RGYInputVpy::RGYInputVpy() :
     m_sVSapi(nullptr),
     m_sVSscript(nullptr),
     m_sVSnode(nullptr),
-    m_nAsyncFrames(0),
+    m_asyncThreads(0),
+    m_asyncFrames(0),
     m_startFrame(0),
     m_sVS() {
     memset(m_pAsyncBuffer, 0, sizeof(m_pAsyncBuffer));
@@ -132,7 +133,7 @@ int RGYInputVpy::initAsyncEvents() {
 
 void RGYInputVpy::closeAsyncEvents() {
     m_bAbortAsync = true;
-    for (int i_frame = m_nCopyOfInputFrames; i_frame < m_nAsyncFrames; i_frame++) {
+    for (int i_frame = m_nCopyOfInputFrames; i_frame < m_asyncFrames; i_frame++) {
         const VSFrameRef *src_frame = getFrameFromAsyncBuffer(i_frame);
         m_sVSapi->freeFrame(src_frame);
     }
@@ -159,9 +160,9 @@ void RGYInputVpy::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
     m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)] = f;
     SetEvent(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)]);
 
-    if (m_nAsyncFrames < m_inputVideoInfo.frames && !m_bAbortAsync) {
-        m_sVSapi->getFrameAsync(m_nAsyncFrames, m_sVSnode, frameDoneCallback, this);
-        m_nAsyncFrames++;
+    if (m_asyncFrames < m_inputVideoInfo.frames && !m_bAbortAsync) {
+        m_sVSapi->getFrameAsync(m_asyncFrames, m_sVSnode, frameDoneCallback, this);
+        m_asyncFrames++;
     }
 }
 
@@ -365,19 +366,20 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
     }
 
-    m_nAsyncFrames = vsvideoinfo->numFrames;
-    m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo.numThreads);
-    m_nAsyncFrames = (std::min)(m_nAsyncFrames, ASYNC_BUFFER_SIZE-1);
-    if (m_inputVideoInfo.type != RGY_INPUT_FMT_VPY_MT) {
-        m_nAsyncFrames = 1;
-    }
-
-    for (int i = 0; i < m_nAsyncFrames; i++) {
-        m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
-    }
-
+    m_startFrame = 0;
     if (vpyPrm->seekRatio > 0.0f) {
-        m_startFrame = m_encSatusInfo->m_sData.frameIn = (int)(vpyPrm->seekRatio * m_inputVideoInfo.frames);
+        m_startFrame = (int)(vpyPrm->seekRatio * m_inputVideoInfo.frames);
+    }
+    m_asyncThreads = vsvideoinfo->numFrames - m_startFrame;
+    m_asyncThreads = (std::min)(m_asyncThreads, vscoreinfo.numThreads);
+    m_asyncThreads = (std::min)(m_asyncThreads, ASYNC_BUFFER_SIZE-1);
+    if (m_inputVideoInfo.type != RGY_INPUT_FMT_VPY_MT) {
+        m_asyncThreads = 1;
+    }
+    m_asyncFrames = m_startFrame + m_asyncThreads;
+
+    for (int i = m_startFrame; i < m_asyncFrames; i++) {
+        m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
     }
 
     tstring vs_ver = _T("VapourSynth");
@@ -419,20 +421,21 @@ void RGYInputVpy::Close() {
     m_sVSapi = nullptr;
     m_sVSscript = nullptr;
     m_sVSnode = nullptr;
-    m_nAsyncFrames = 0;
+    m_asyncThreads = 0;
+    m_asyncFrames = 0;
     m_encSatusInfo.reset();
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
 RGY_ERR RGYInputVpy::LoadNextFrameInternal(RGYFrame *pSurface) {
-    if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
+    if ((int)(m_encSatusInfo->m_sData.frameIn + m_startFrame) >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
+        || getVideoTrimMaxFramIdx() < (int)(m_encSatusInfo->m_sData.frameIn + m_startFrame) - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
-    const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_encSatusInfo->m_sData.frameIn);
+    const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_encSatusInfo->m_sData.frameIn + m_startFrame);
     if (src_frame == nullptr) {
         return RGY_ERR_MORE_DATA;
     }
@@ -447,12 +450,12 @@ RGY_ERR RGYInputVpy::LoadNextFrameInternal(RGYFrame *pSurface) {
 
         auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
         pSurface->setDuration(rational_rescale(1, getInputTimebase().inv(), inputFps));
-        pSurface->setTimestamp(rational_rescale(m_encSatusInfo->m_sData.frameIn, getInputTimebase().inv(), inputFps));
+        pSurface->setTimestamp(rational_rescale(m_encSatusInfo->m_sData.frameIn + m_startFrame, getInputTimebase().inv(), inputFps));
     }
     m_sVSapi->freeFrame(src_frame);
 
     m_encSatusInfo->m_sData.frameIn++;
-    m_nCopyOfInputFrames = m_encSatusInfo->m_sData.frameIn;
+    m_nCopyOfInputFrames = m_encSatusInfo->m_sData.frameIn + m_startFrame;
 
     return m_encSatusInfo->UpdateDisplay();
 }

@@ -120,7 +120,8 @@ protected:
     const VSAPI *m_sVSapi;
     VSScript *m_sVSscript;
     VSNodeRef *m_sVSnode;
-    int m_nAsyncFrames;
+    int m_asyncThreads;
+    int m_asyncFrames;
     int m_startFrame;
 
     vsscript_t m_sVS;

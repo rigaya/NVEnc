@@ -1554,7 +1554,9 @@ protected:
         const auto ptsOffsetMax = (m_firstPts < 0) ? 0 : m_maxPts - m_firstPts;
         // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
         // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
-        m_ptsOffset = (std::abs(ptsOffsetOrig - ptsOffsetMax) <= rational_rescale(2, inputFpsTimebase, m_outputTimebase)) ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, inputFpsTimebase, m_outputTimebase));
+        m_ptsOffset = (m_firstPts < 0) ? 0 : 
+            ((ptsOffsetOrig - ptsOffsetMax > 0 && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, inputFpsTimebase, m_outputTimebase))
+                ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, inputFpsTimebase, m_outputTimebase)));
         m_encFrameOffset = (m_currentChunk > 0) ? m_maxEncFrameIdx + 1 : 0;
         m_inputFrameOffset = (m_currentChunk > 0) ? m_maxInputFrameIdx + 1 : 0;
         PrintMes(RGY_LOG_TRACE, _T("Switch to next file: pts offset %lld, frame offset %d.\n")

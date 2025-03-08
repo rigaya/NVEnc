@@ -522,7 +522,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
     if (avsPrm->seekRatio > 0.0f) {
-        m_startFrame = m_encSatusInfo->m_sData.frameIn = (int)(avsPrm->seekRatio * m_inputVideoInfo.frames);
+        m_startFrame = (int)(avsPrm->seekRatio * m_inputVideoInfo.frames);
     }
 
     if (avsPrm != nullptr && avsPrm->nAudioSelectCount > 0) {
@@ -592,14 +592,14 @@ void RGYInputAvs::Close() {
 }
 
 RGY_ERR RGYInputAvs::LoadNextFrameInternal(RGYFrame *pSurface) {
-    if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
+    if ((int)(m_startFrame + m_encSatusInfo->m_sData.frameIn) >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
+        || getVideoTrimMaxFramIdx() < (int)(m_startFrame + m_encSatusInfo->m_sData.frameIn) - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
     if (pSurface) {
-        AVS_VideoFrame *frame = m_sAvisynth->f_get_frame(m_sAVSclip, m_encSatusInfo->m_sData.frameIn);
+        AVS_VideoFrame *frame = m_sAvisynth->f_get_frame(m_sAVSclip, m_startFrame + m_encSatusInfo->m_sData.frameIn);
         if (frame == nullptr) {
             return RGY_ERR_MORE_DATA;
         }
@@ -627,7 +627,7 @@ RGY_ERR RGYInputAvs::LoadNextFrameInternal(RGYFrame *pSurface) {
 
         auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
         pSurface->setDuration(rational_rescale(1, getInputTimebase().inv(), inputFps));
-        pSurface->setTimestamp(rational_rescale(m_encSatusInfo->m_sData.frameIn, getInputTimebase().inv(), inputFps));
+        pSurface->setTimestamp(rational_rescale(m_startFrame + m_encSatusInfo->m_sData.frameIn, getInputTimebase().inv(), inputFps));
     }
 
     m_encSatusInfo->m_sData.frameIn++;
