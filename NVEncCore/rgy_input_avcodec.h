@@ -849,7 +849,6 @@ public:
     bool           hdr10plusMetadataCopy;   //HDR10plus関連のmeta情報を取得する
     bool           doviRpuMetadataCopy;     //dovi rpuのmeta情報を取得する
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
-    bool           parallelEncParent;       //並列処理の親プロセス (映像デコード不要になる)
     bool           lowLatency;
     bool           timestampPassThrough;    //timestampをそのまま出力する
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
@@ -910,6 +909,8 @@ public:
 
     virtual bool seekable() const override;
 
+    virtual bool timestampStable() const override;
+
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
 
@@ -939,6 +940,9 @@ public:
 
     //seektoで指定された時刻の範囲内かチェックする
     bool checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, float marginSec) override;
+
+    //並列エンコードの親側で不要なデコーダを終了させる
+    void CloseVideoDecoder();
 
 #if USE_CUSTOM_INPUT
     int readPacket(uint8_t *buf, int buf_size);

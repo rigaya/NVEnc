@@ -1004,7 +1004,6 @@ public:
         }
         auto cuframe = surfWork.cubuf();
         auto hostFrame = cuframe->getRefHostFrame(); // CPUが書き込むための領域を取得
-        hostFrame = cuframe->getRefHostFrame();
         if (!hostFrame) {
             PrintMes(RGY_LOG_ERROR, _T("failed to get host frame.\n"));
             return RGY_ERR_NULL_PTR;
@@ -1480,6 +1479,11 @@ public:
         m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
+        auto reader = dynamic_cast<RGYInputAvcodec*>(input);
+        if (reader) {
+            // 親側で不要なデコーダを終了させる、こうしないとavsw使用時に映像が無駄にデコードされてしまう
+            reader->CloseVideoDecoder();
+        }
     };
     virtual ~PipelineTaskParallelEncBitstream() {
         m_decInputBitstream.clear();
@@ -1538,10 +1542,13 @@ protected:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get tmp path for parallel enc %d.\n"), m_currentChunk);
                 return RGY_ERR_UNKNOWN;
             }
-            m_fReader = std::unique_ptr<FILE, fp_deleter>(_tfopen(tmpPath.c_str(), _T("rb")), fp_deleter());
-            if (m_fReader == nullptr) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to open file: %s\n"), tmpPath.c_str());
-                return RGY_ERR_FILE_OPEN;
+            {
+                FILE *fp = nullptr;
+                if (_tfopen_s(&fp, tmpPath.c_str(), _T("rb")) != 0 || fp == nullptr) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to open file: %s\n"), tmpPath.c_str());
+                    return RGY_ERR_FILE_OPEN;
+                }
+                m_fReader = std::unique_ptr<FILE, fp_deleter>(fp, fp_deleter());
             }
         }
         //最初のファイルに対するptsの差を取り、それをtimebaseを変換して適用する

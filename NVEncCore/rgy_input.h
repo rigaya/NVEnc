@@ -245,6 +245,9 @@ public:
     virtual bool seekable() const {
         return false;
     }
+    virtual bool timestampStable() const {
+        return false;
+    }
 
 #if ENABLE_AVSW_READER
 #pragma warning(push)

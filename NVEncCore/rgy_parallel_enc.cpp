@@ -326,6 +326,9 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
     if (!input->seekable()) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: input does not support parallel encoding or input is not seekable.\n") };
     }
+    if (!input->timestampStable()) {
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: input frame timestamp (sometimes) unclear.\n") };
+    }
     if (input->GetVideoFirstKeyPts() < 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: invalid first key PTS.\n") };
     }

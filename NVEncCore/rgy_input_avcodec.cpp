@@ -260,7 +260,6 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     hdr10plusMetadataCopy(false),
     doviRpuMetadataCopy(false),
     interlaceAutoFrame(false),
-    parallelEncParent(false),
     lowLatency(false),
     timestampPassThrough(false),
     qpTableListRef(nullptr),
@@ -368,6 +367,16 @@ void RGYInputAvcodec::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Cleared frame pos list.\n"));
     m_fpPacketList.reset();
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
+}
+
+//並列エンコードの親側で不要なデコーダを終了させる
+void RGYInputAvcodec::CloseVideoDecoder() {
+    if (m_Demux.video.codecCtxDecode) {
+        AddMessage(RGY_LOG_DEBUG, _T("Close video codecCtx...\n"));
+        avcodec_free_context(&m_Demux.video.codecCtxDecode);
+        AddMessage(RGY_LOG_DEBUG, _T("Closed video codecCtx.\n"));
+        m_Demux.video.codecCtxDecode = nullptr;
+    }
 }
 
 RGY_ERR RGYInputAvcodec::initVideoBsfs() {
@@ -2400,15 +2409,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_DEBUG, _T("sar %d:%d, bitdepth %d\n"),
                 m_inputVideoInfo.sar[0], m_inputVideoInfo.sar[1], m_inputVideoInfo.bitdepth);
         }
-        // 並列エンコードの親の場合、デコーダは不要なので解放する
-        if (input_prm->parallelEncParent && m_Demux.video.codecCtxDecode) {
-            if (m_Demux.video.codecCtxDecode) {
-                AddMessage(RGY_LOG_DEBUG, _T("PEParent: Close codecCtx...\n"));
-                avcodec_free_context(&m_Demux.video.codecCtxDecode);
-                AddMessage(RGY_LOG_DEBUG, _T("PEParent: Closed codecCtx.\n"));
-                m_Demux.video.codecCtxDecode = nullptr;
-            }
-        }
 
         *inputInfo = m_inputVideoInfo;
 
@@ -3121,9 +3121,15 @@ bool RGYInputAvcodec::seekable() const {
     if ((m_Demux.format.formatCtx->ctx_flags & AVFMTCTX_UNSEEKABLE) == AVFMTCTX_UNSEEKABLE) {
         return false;
     }
-    return (m_Demux.format.formatCtx->iformat
+    return true;
+}
+
+bool RGYInputAvcodec::timestampStable() const {
+    if (m_Demux.format.formatCtx->iformat
         && m_Demux.format.formatCtx->iformat->long_name
-        && strncmp(m_Demux.format.formatCtx->iformat->long_name, "raw", 3) == 0) ? false : true;
+        && strncmp(m_Demux.format.formatCtx->iformat->long_name, "raw", 3) == 0) return false;
+    // ptsが正常であることを確認する
+    return (m_Demux.frames.getStreamPtsStatus() & ~(RGY_PTS_NORMAL)) == RGY_PTS_UNKNOWN;
 }
 
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、

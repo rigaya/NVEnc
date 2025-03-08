@@ -663,7 +663,6 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
-        inputInfoAVCuvid.parallelEncParent = ctrl->parallelEnc.isParent();
         inputInfoAVCuvid.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVCuvid.hevcbsf = common->hevcbsf;
         inputInfoAVCuvid.avswDecoder = inprm->avswDecoder;

@@ -4257,9 +4257,6 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
 
-    m_encTimestamp = std::make_unique<RGYTimestamp>(inputParam->common.timestampPassThrough, inputParam->ctrl.parallelEnc.isParent() /*durationは子エンコーダで修正済み*/);
-    m_encodeFrameID = 0;
-
     if ((sts = InitPowerThrottoling(inputParam)) != RGY_ERR_NONE) {
         return sts;
     }
@@ -4309,6 +4306,9 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         sts = InitParallelEncode(inputParam, gpuList);
         if (sts < RGY_ERR_NONE) return sts;
     }
+
+    m_encTimestamp = std::make_unique<RGYTimestamp>(inputParam->common.timestampPassThrough, inputParam->ctrl.parallelEnc.isParent() /*durationは子エンコーダで修正済み*/);
+    m_encodeFrameID = 0;
 
     //出力ファイルを開く
     if ((sts = InitOutput(inputParam, encBufferFormat)) != RGY_ERR_NONE) {

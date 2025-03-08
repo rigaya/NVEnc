@@ -93,6 +93,9 @@ public:
     virtual bool seekable() const override {
         return true;
     }
+    virtual bool timestampStable() const override {
+        return true;
+    }
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
