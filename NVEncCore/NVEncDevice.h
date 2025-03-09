@@ -335,6 +335,7 @@ public:
     int pcie_link() const { return m_pcie_link; } //PCIe接続情報
     CodecCsp cuvid_csp() const { return m_cuvid_csp; }     //デコード機能
     const std::vector<NVEncCodecFeature> &nvenc_codec_features() const { return m_nvenc_codec_features; }//エンコード機能
+    int encoder_count(const GUID& codecGUID) const;
 
     CUdevice cudevicetx() const { return m_cudevice; }
     CUcontext cuCtx() const { return m_cuCtx.get(); }

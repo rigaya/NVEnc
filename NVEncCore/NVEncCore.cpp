@@ -748,19 +748,9 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
         m_deviceUsage->close();
     }
     if (inputParam->ctrl.parallelEnc.parallelCount < 0) {
-        auto get_codec_encoder_count = [](NVGPUInfo *gpu, const GUID& codecGUID) {
-            if (!gpu) return 0;
-            const auto codecFeatures = gpu->nvenc_codec_features();
-            for (const auto& codecFeature : codecFeatures) {
-                if (codecFeature.codec == codecGUID) {
-                    return std::max(codecFeature.getCapLimit(NV_ENC_CAPS_NUM_ENCODER_ENGINES), 1);
-                }
-            }
-            return 0;
-        };
         inputParam->ctrl.parallelEnc.parallelCount = std::max(std::accumulate(gpuList.begin(), gpuList.end(), 0, [&](int sum, const auto& gpu) {
-            return sum + get_codec_encoder_count(gpu.get(), m_stCodecGUID);
-        }) + get_codec_encoder_count(m_dev.get(), m_stCodecGUID), (int)gpuList.size());
+            return sum + ((gpu) ? gpu->encoder_count(m_stCodecGUID) : 0);
+        }) + m_dev->encoder_count(m_stCodecGUID), (int)gpuList.size());
         PrintMes(RGY_LOG_DEBUG, _T("parallelCount set to %d\n"), inputParam->ctrl.parallelEnc.parallelCount);
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pLog);
@@ -1067,11 +1057,12 @@ RGY_ERR NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuLis
 
     std::map<int, double> gpuscore;
     for (const auto& gpu : gpuList) {
+        const auto encoderCount = gpu->encoder_count(m_stCodecGUID);
         const int deviceUsageCount = (int)gpu->id() < (int)deviceUsage.size() ? deviceUsage[gpu->id()].first : 0;
         double usage_score = 100.0 * (maxDeviceUsageCount - deviceUsageCount) / (double)maxDeviceUsageCount;
         double core_score = gpu->cuda_cores() * inputParam->ctrl.gpuSelect.cores;
         double cc_score = (gpu->cc().first * 10.0 + gpu->cc().second) * inputParam->ctrl.gpuSelect.gen;
-        double ve_score = 0.0;
+        double ve_score = std::max(encoderCount - 1, 0) * 25.0 * inputParam->ctrl.gpuSelect.ve;
         double gpu_score = 0.0;
 
         NVMLMonitorInfo info;

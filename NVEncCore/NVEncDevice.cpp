@@ -1265,6 +1265,16 @@ RGY_ERR NVGPUInfo::initEncoder() {
     return RGY_ERR_NONE;
 }
 
+int NVGPUInfo::encoder_count(const GUID& codecGUID) const {
+    const auto codecFeatures = nvenc_codec_features();
+    for (const auto& codecFeature : codecFeatures) {
+        if (codecFeature.codec == codecGUID) {
+            return std::max(codecFeature.getCapLimit(NV_ENC_CAPS_NUM_ENCODER_ENGINES), 1);
+        }
+    }
+    return 0;
+}
+
 void NVGPUInfo::close_device() {
     writeLog(RGY_LOG_DEBUG, _T("Closing device #%d: %s...\n"), m_id, m_name.c_str());
     if (m_encoder) {
