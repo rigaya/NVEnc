@@ -782,7 +782,7 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
                 m_deviceUsage->add(m_dev->id(), child_pid, devUsageLock.get());
             }
         }
-        return sts;
+        return RGY_ERR_NONE;
     }
     return RGY_ERR_NONE;
 }

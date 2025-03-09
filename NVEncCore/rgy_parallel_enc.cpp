@@ -414,7 +414,12 @@ RGY_ERR RGYParallelEnc::startChunkProcess(const int ip, const encParams *prm, in
         return err;
     }
     // 起動したプロセスから最初のキーフレームのptsを取得
-    process->waitProcessStarted(INFINITE);
+    while (process->waitProcessStarted(16)) {
+        if (process->processStatus() == RGYParallelEncProcessStatus::Finished) {
+            process->waitProcessFinished(INFINITE);
+            return process->processReturnCode().value_or(RGY_ERR_UNKNOWN);
+        }
+    }
     const auto firstKeyPts = process->getVideoFirstKeyPts();
     if (firstKeyPts < 0) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to get first key pts from PE%d.\n"), ip);
@@ -538,6 +543,10 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
     if (sts != RGY_ERR_NONE
         || (sts = startParallelThreads(prm, input, outputTimebase, encStatus)) != RGY_ERR_NONE) {
         // 並列処理を無効化して続行する
+        // まず終了させるため、スレッドの処理を続行させる
+        if (m_encProcess.size() > 0) {
+            m_encProcess.back()->sendEndPts(-1);
+        }
         m_encProcess.clear();
         prm->ctrl.parallelEnc.parallelCount = 0;
         prm->ctrl.parallelEnc.parallelId = -1;
