@@ -369,6 +369,9 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
     if (prm->vpp.subburn.size() != 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --vpp-subburn is specified.\n") };
     }
+    if (prm->vpp.fruc.enable != 0) {
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --vpp-fruc is enabled.\n") };
+    }
     return { RGY_ERR_NONE, _T("") };
 }
 
