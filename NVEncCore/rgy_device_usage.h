@@ -60,7 +60,7 @@ struct RGYDeviceUsageEntry {
 class RGYDeviceUsageLockManager {
     RGYDeviceUsageHeader *m_header;
 public:
-    RGYDeviceUsageLockManager(RGYDeviceUsageHeader *header);
+    RGYDeviceUsageLockManager(RGYDeviceUsageHeader *header, const bool force = false);
     ~RGYDeviceUsageLockManager();
 };
 
@@ -72,7 +72,7 @@ public:
     RGY_ERR open();
     RGY_ERR add(const int32_t device_id, const int pid, const RGYDeviceUsageLockManager *lock);
     void check(const time_t now_time_from_epoch);
-    void release();
+    void release(const bool force);
     void close();
     void resetEntry();
     std::pair<RGY_ERR, int> startProcessMonitor(int32_t device_id);

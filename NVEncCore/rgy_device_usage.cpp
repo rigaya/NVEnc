@@ -36,10 +36,14 @@
 #include "rgy_util.h"
 #include "rgy_filesystem.h"
 
-RGYDeviceUsageLockManager::RGYDeviceUsageLockManager(RGYDeviceUsageHeader *header) : m_header(header) {
+RGYDeviceUsageLockManager::RGYDeviceUsageLockManager(RGYDeviceUsageHeader *header, const bool force) : m_header(header) {
     int32_t expected = 0;
     int32_t desired = 1;
 
+    std::chrono::system_clock::time_point start;
+    if (force) {
+        start = std::chrono::system_clock::now();
+    }
 #if 0
     std::atomic_ref<int32_t> lock(m_header->lock);
     while (!lock.atomic_compare_exchange_weak(&expected, desired)) {
@@ -53,10 +57,22 @@ RGYDeviceUsageLockManager::RGYDeviceUsageLockManager(RGYDeviceUsageHeader *heade
         if (_InterlockedCompareExchange((long *)&m_header->lock, (long)desired, (long)expected) == expected) {
             break;
         }
+        if (force) {
+            if (std::chrono::system_clock::now() - start > std::chrono::seconds(5)) {
+                m_header->lock = 1;
+                break;
+            }
+        }
         std::this_thread::yield();
     }
 #else
     while (__sync_val_compare_and_swap(&m_header->lock, expected, desired) != expected) {
+        if (force) {
+            if (std::chrono::system_clock::now() - start > std::chrono::seconds(5)) {
+                m_header->lock = 1;
+                break;
+            }
+        }
         std::this_thread::yield();
     }
 #endif
@@ -83,7 +99,7 @@ void RGYDeviceUsage::close() {
         m_monitorProcess->waitAndGetExitCode();
         m_monitorProcess.reset();
     }
-    release();
+    release(false);
     m_header = nullptr;
     m_entries = nullptr;
     if (m_sharedMem) {
@@ -207,12 +223,12 @@ std::vector<std::pair<int, int64_t>> RGYDeviceUsage::getUsage(const RGYDeviceUsa
     return usage;
 }
 
-void RGYDeviceUsage::release() {
+void RGYDeviceUsage::release(const bool force) {
     if (!m_entries) {
         return;
     }
     const auto process_id = GetCurrentProcessId();
-    RGYDeviceUsageLockManager lock(m_header);
+    RGYDeviceUsageLockManager lock(m_header, force);
     for (int i = 0; i < RGY_DEVICE_USAGE_MAX_ENTRY; i++) {
         if (m_entries[i].process_id == 0) {
             break;
@@ -266,9 +282,13 @@ int processMonitorRGYDeviceUsage(const int32_t deviceID) {
         fprintf(stderr, "Failed to open shared memory\n"); ret = 1;
     } else {
         char buf = 0;
-        fread(&buf, 1, 1, stdin);
+        const auto recv = fread(&buf, 1, 1, stdin);
         // 親プロセスが行った登録を解除 (子プロセスのIDで登録されている)
-        deviceUsage.release();
+        // recv != 1の場合、正常に取得できていない(親はエラー終了)なので、
+        // 親がロックしたままの状態でエラー終了している可能性がある
+        // その場合は、一定時間ロックを取得できなかったら強制的にロックを取得し、登録解除を行う
+        const bool force = recv != 1;
+        deviceUsage.release(force);
     }
     return ret;
 }
