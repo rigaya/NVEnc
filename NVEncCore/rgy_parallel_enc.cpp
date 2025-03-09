@@ -314,6 +314,16 @@ std::optional<RGY_ERR> RGYParallelEnc::processReturnCode(const int id) {
     return m_encProcess[id]->processReturnCode();
 }
 
+RGY_ERR RGYParallelEnc::checkAllProcessErrors() const {
+    for (const auto& proc : m_encProcess) {
+        auto returnCode = proc->processReturnCode();
+        if (returnCode.has_value() && returnCode.value() != RGY_ERR_NONE) {
+            return returnCode.value();
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
 void RGYParallelEnc::encStatusReset(const int id) {
     if (id >= (int)m_encProcess.size()) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parallel id #%d for encStatusReset.\n"), id);

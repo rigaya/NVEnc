@@ -1679,6 +1679,13 @@ public:
             }
         }
 
+        // 定期的に全スレッドでエラー終了したものがないかチェックする
+        if ((m_inFrames & 15) == 0) {
+            if ((ret = m_parallelEnc->checkAllProcessErrors()) != RGY_ERR_NONE) {
+                return ret; //エラー
+            }
+        }
+
         auto bsOut = m_bitStreamOut.get([](RGYBitstream *bs) {
             *bs = RGYBitstreamInit();
             return 0;

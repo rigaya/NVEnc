@@ -182,6 +182,7 @@ public:
     int id() const { return m_id; }
     int waitProcessFinished(const int id, const uint32_t timeout);
     std::optional<RGY_ERR> processReturnCode(const int id);
+    RGY_ERR checkAllProcessErrors() const;
     void encStatusReset(const int id);
     
     int64_t getVideofirstKeyPts(const int ichunk) const;
