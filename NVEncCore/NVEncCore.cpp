@@ -4718,7 +4718,7 @@ RGY_ERR NVEncCore::Encode() {
             }
         }
     }
-    // エラー終了の場合も含めキューをすべて開放する
+    // エラー終了の場合も含めキューをすべて開放する (m_pipelineTasksを解放する前に行う)
     dataqueue.clear();
 
     if (m_videoQualityMetric) {
