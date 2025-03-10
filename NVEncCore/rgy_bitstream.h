@@ -49,6 +49,8 @@ struct unit_info {
     uint8_t type;
     uint8_t extension_flag;
     uint8_t has_size_flag;
+    int temporal_id;
+    int spatial_id;
     int obu_offset;
     std::vector<uint8_t> unit_data;
 };

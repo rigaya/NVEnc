@@ -865,9 +865,12 @@ static std::unique_ptr<unit_info> get_unit(const uint8_t *data, const size_t siz
     unit->type = type;
     unit->extension_flag = extension_flag;
     unit->has_size_flag = has_size_flag;
-
+    unit->temporal_id = 0;
+    unit->spatial_id = 0;
     if (extension_flag) {
-        data++;
+        const uint8_t byte2 = *data++;
+        unit->temporal_id = (byte2 & (0xE0)) >> 5;
+        unit->spatial_id = (byte2 & (0x18)) >> 3;
     }
     if (!has_size_flag) {
         size_t ret = size - 1 - extension_flag;
@@ -876,7 +879,7 @@ static std::unique_ptr<unit_info> get_unit(const uint8_t *data, const size_t siz
         size_t obu_size = 0;
         for (int i = 0; i < 8; i++) {
             uint8_t byte = *data++;
-            obu_size |= (int64_t)(byte & 0x7f) << (i * 7);
+            obu_size |= (uint64_t)(byte & 0x7f) << (i * 7);
             if (!(byte & 0x80))
                 break;
         }
@@ -895,7 +898,7 @@ std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const
     std::deque<std::unique_ptr<unit_info>> list;
     int64_t size_remain = (int64_t)size;
     while (size_remain > 0) {
-        auto unit = get_unit(data, size);
+        auto unit = get_unit(data, size_remain);
         const auto unit_size = unit->unit_data.size();
         if (unit_size == 0) {
             break;
