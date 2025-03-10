@@ -115,7 +115,8 @@ RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
 RGYInputRaw::RGYInputRaw() :
     m_fSource(NULL),
     m_nBufSize(0),
-    m_pBuffer() {
+    m_pBuffer(),
+    m_isPipe(false) {
     m_readerName = _T("raw");
 }
 
@@ -139,8 +140,8 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadParamCsp);
 
-    bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
-    if (use_stdin) {
+    m_isPipe = _tcscmp(strFileName, _T("-")) == 0;
+    if (m_isPipe) {
         m_fSource = stdin;
 #if defined(_WIN32) || defined(_WIN64)
         if (_setmode(_fileno(stdin), _O_BINARY) < 0) {

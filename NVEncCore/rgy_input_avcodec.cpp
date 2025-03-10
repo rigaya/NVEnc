@@ -3132,6 +3132,10 @@ bool RGYInputAvcodec::timestampStable() const {
     return (m_Demux.frames.getStreamPtsStatus() & ~(RGY_PTS_NORMAL)) == RGY_PTS_UNKNOWN;
 }
 
+bool RGYInputAvcodec::isPipe() const {
+    return m_Demux.format.isPipe;
+}
+
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
 //必要ならqStreamPktL2に移し、不要ならパケットを開放する
 void RGYInputAvcodec::CheckAndMoveStreamPacketList() {

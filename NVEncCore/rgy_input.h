@@ -248,6 +248,9 @@ public:
     virtual bool timestampStable() const {
         return false;
     }
+    virtual bool isPipe() const {
+        return false;
+    }
 
 #if ENABLE_AVSW_READER
 #pragma warning(push)

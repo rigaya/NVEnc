@@ -50,6 +50,10 @@ public:
 
     virtual void Close() override;
 
+    virtual bool isPipe() const override {
+        return m_isPipe;
+    }
+
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
     virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
@@ -59,6 +63,7 @@ protected:
 
     uint32_t m_nBufSize;
     shared_ptr<uint8_t> m_pBuffer;
+    bool m_isPipe;
 };
 
 #endif //ENABLE_RAW_READER

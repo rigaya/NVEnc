@@ -911,6 +911,8 @@ public:
 
     virtual bool timestampStable() const override;
 
+    virtual bool isPipe() const override;
+
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
 

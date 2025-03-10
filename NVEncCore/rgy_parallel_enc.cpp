@@ -333,6 +333,9 @@ void RGYParallelEnc::encStatusReset(const int id) {
 }
 
 std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const encParams *prm, const RGYInput *input) {
+    if (input->isPipe()) {
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: input is pipe.\n") };
+    }
     if (!input->seekable()) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: input does not support parallel encoding or input is not seekable.\n") };
     }
