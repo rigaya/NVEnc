@@ -29,6 +29,7 @@
 #include "rgy_hdr10plus.h"
 #include "rgy_filesystem.h"
 #include "rgy_util.h"
+#include "rgy_frame.h"
 #if ENABLE_LIBHDR10PLUS
 #include <libhdr10plus-rs/hdr10plus.h>
 
@@ -76,17 +77,19 @@ tstring RGYHDR10Plus::getError() {
 #endif
 }
 
-const std::vector<uint8_t> RGYHDR10Plus::getData(int64_t iframe) {
+const std::vector<uint8_t> RGYHDR10Plus::getData(int64_t iframe, const RGY_CODEC codec) {
 #if ENABLE_LIBHDR10PLUS
     std::unique_ptr<const Hdr10PlusRsData, decltype(&hdr10plus_rs_data_free)> av1_metadata(
         hdr10plus_rs_write_av1_metadata_obu_t35_complete(m_hdr10plusJson.get(), iframe), hdr10plus_rs_data_free);
     if (!av1_metadata) {
         return std::vector<uint8_t>();
     }
-    std::vector<uint8_t> buffer(av1_metadata->len);
-    memcpy(buffer.data(), av1_metadata->data, av1_metadata->len);
-    return buffer;
-#else
-    return std::vector<uint8_t>();
+    RGYFrameDataHDR10plus hdr10plus(av1_metadata->data, av1_metadata->len, -1);
+    if (codec == RGY_CODEC_HEVC) {
+        return hdr10plus.gen_nal();
+    } else if (codec == RGY_CODEC_AV1) {
+        return hdr10plus.gen_obu();
+    }
 #endif
+    return std::vector<uint8_t>();
 }

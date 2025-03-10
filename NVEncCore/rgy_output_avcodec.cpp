@@ -2859,7 +2859,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, true, RGYOutputInsertMetadataPosition::Prefix));
     }
     if (m_Mux.video.hdr10plus) {
-        if (auto data = m_Mux.video.hdr10plus->getData(bs_framedata.inputFrameId); data.size() > 0) {
+        if (auto data = m_Mux.video.hdr10plus->getData(bs_framedata.inputFrameId, m_VideoOutputInfo.codec); data.size() > 0) {
             metadataList.push_back(std::make_unique<RGYOutputInsertMetadata>(data, false, RGYOutputInsertMetadata::dhdr10plus_pos(m_VideoOutputInfo.codec)));
         }
     } else if (m_Mux.video.hdr10plusMetadataCopy) {

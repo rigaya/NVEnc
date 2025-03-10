@@ -33,6 +33,7 @@
 #include <memory>
 #include <vector>
 #include "rgy_err.h"
+#include "rgy_def.h"
 #include "rgy_tchar.h"
 
 struct Hdr10PlusRsJsonOpaque;
@@ -45,7 +46,7 @@ public:
     virtual ~RGYHDR10Plus();
 
     RGY_ERR init(const tstring& inputJson);
-    const std::vector<uint8_t> getData(int64_t iframe);
+    const std::vector<uint8_t> getData(int64_t iframe, const RGY_CODEC codec);
     const tstring &inputJson() const { return m_inputJson; };
     tstring getError();
 protected:
