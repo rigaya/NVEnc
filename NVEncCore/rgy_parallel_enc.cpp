@@ -420,6 +420,8 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.common.doviRpuFile.clear(); // doviRpuのファイルからの読み込みは親プロセスでmux時に行う
     prmParallel.common.masterDisplay.clear(); // 親プロセスでmux時に行う
     prmParallel.common.maxCll.clear(); // 親プロセスでmux時に行う
+    prmParallel.common.timecode = false; // 親プロセスでmux時に行う
+    prmParallel.common.timecodeFile.clear(); // 親プロセスでmux時に行う
     return prmParallel;
 }
 
