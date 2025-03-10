@@ -415,6 +415,8 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.common.timebase = outputTimebase; // timebaseがずれると致命的なので、強制的に上書きする
     prmParallel.common.dynamicHdr10plusJson.clear(); // hdr10plusのファイルからの読み込みは親プロセスでmux時に行う
     prmParallel.common.doviRpuFile.clear(); // doviRpuのファイルからの読み込みは親プロセスでmux時に行う
+    prmParallel.common.masterDisplay.clear(); // 親プロセスでmux時に行う
+    prmParallel.common.maxCll.clear(); // 親プロセスでmux時に行う
     return prmParallel;
 }
 
@@ -564,6 +566,10 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
         prm->ctrl.parallelEnc.parallelCount = 0;
         prm->ctrl.parallelEnc.parallelId = -1;
         return sts;
+    }
+    if (m_encProcess.size() > 0) {
+        prm->common.doviRpuMetadataCopy = false; // 子スレッド側で行う
+        prm->common.hdr10plusMetadataCopy = false; // 子スレッド側で行う
     }
     return RGY_ERR_NONE;
 }
