@@ -68,6 +68,7 @@ enum RGYLogType {
     RGY_LOGT_CORE_PROGRESS,
     RGY_LOGT_CORE_RESULT,
     RGY_LOGT_HDR10PLUS = RGY_LOGT_CORE_RESULT,
+    RGY_LOGT_CORE_PARALLEL,
     RGY_LOGT_DEV,
     RGY_LOGT_DEC,
     RGY_LOGT_IN,
@@ -89,6 +90,7 @@ static const std::array<std::pair<RGYLogType, const TCHAR *>, RGY_LOGT_CAPION2AS
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE,          _T("core")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_PROGRESS, _T("core_progress")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_RESULT,   _T("core_result")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_PARALLEL, _T("parallel")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_DEC,           _T("decoder")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_IN,            _T("input")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OUT,           _T("output")},
@@ -106,6 +108,7 @@ private:
     RGYLogLevel appcore_;
     RGYLogLevel appcoreprogress_;
     RGYLogLevel appcoreresult_;
+    RGYLogLevel appcoreparallel_;
     RGYLogLevel appdevice_;
     RGYLogLevel appdecode_;
     RGYLogLevel appinput_;
@@ -127,6 +130,7 @@ public:
         switch (type) {
         case RGY_LOGT_CORE_PROGRESS: return appcoreprogress_;
         case RGY_LOGT_CORE_RESULT: return appcoreresult_;
+        case RGY_LOGT_CORE_PARALLEL: return appcoreparallel_;
         case RGY_LOGT_DEC: return appdecode_;
         case RGY_LOGT_DEV: return appdevice_;
         case RGY_LOGT_IN: return appinput_;

@@ -199,18 +199,18 @@ protected:
     RGY_ERR parallelChild(const encParams *prm, const RGYInput *input);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
-        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_CORE_PARALLEL)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto &line : lines) {
             if (line[0] != _T('\0')) {
-                m_log->write(log_level, RGY_LOGT_APP, (_T("replace: ") + line + _T("\n")).c_str());
+                m_log->write(log_level, RGY_LOGT_CORE_PARALLEL, (_T("parallel: ") + line + _T("\n")).c_str());
             }
         }
     }
     void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
-        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_CORE_PARALLEL)) {
             return;
         }
 
