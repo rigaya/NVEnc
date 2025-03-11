@@ -1020,8 +1020,8 @@ public:
         }
         hostFrame->setInputFrameId(m_inFrames++);
         if (m_endPts >= 0
-            && (int64_t)surfWork.frame()->timestamp() != AV_NOPTS_VALUE // timestampが設定されていない場合は無視
-            && (int64_t)surfWork.frame()->timestamp() >= m_endPts) { // m_endPtsは含まないようにする(重要)
+            && (int64_t)hostFrame->timestamp() != AV_NOPTS_VALUE // timestampが設定されていない場合は無視
+            && (int64_t)hostFrame->timestamp() >= m_endPts) { // m_endPtsは含まないようにする(重要)
             return RGY_ERR_MORE_BITSTREAM; //入力ビットストリームは終了
         }
 
