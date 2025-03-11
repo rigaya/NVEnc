@@ -4357,7 +4357,7 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         }
         const auto encOutputTimebase = (ENCODER_QSV) ? to_rgy(HW_NATIVE_TIMEBASE) : m_outputTimebase;
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_dev.get(), m_pFileReader.get(), m_encTimestamp.get(), m_timecode.get(), m_parallelEnc.get(),
-            m_pStatus.get(), encOutputTimebase, taskAudio, 0, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
+            m_pStatus.get(), m_encFps, encOutputTimebase, taskAudio, 0, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
         return RGY_ERR_NONE;
     }
 

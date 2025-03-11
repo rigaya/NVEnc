@@ -1457,6 +1457,7 @@ protected:
     RGYTimecode *m_timecode;
     RGYParallelEnc *m_parallelEnc;
     EncodeStatus *m_encStatus;
+    rgy_rational<int> m_encFps;
     rgy_rational<int> m_outputTimebase;
     std::unique_ptr<PipelineTaskAudio> m_taskAudio;
     std::unique_ptr<FILE, fp_deleter> m_fReader;
@@ -1472,11 +1473,12 @@ protected:
     RGYListRef<RGYBitstream> m_bitStreamOut;
     bool m_tsDebug;
 public:
-    PipelineTaskParallelEncBitstream(NVGPUInfo *dev, RGYInput *input, RGYTimestamp *encTimestamp, RGYTimecode *timecode, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, rgy_rational<int> outputTimebase,
+    PipelineTaskParallelEncBitstream(NVGPUInfo *dev, RGYInput *input, RGYTimestamp *encTimestamp, RGYTimecode *timecode, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus,
+        rgy_rational<int> encFps, rgy_rational<int> outputTimebase,
         std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, dev, outMaxQueueSize, false, threadParam, log),
         m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_timecode(timecode),
-        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
+        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase), m_encFps(encFps),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
         m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut(), m_tsDebug(false) {
@@ -1564,8 +1566,8 @@ protected:
         // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
         // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
         m_ptsOffset = (m_firstPts < 0) ? 0 : 
-            ((ptsOffsetOrig - ptsOffsetMax > 0 && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, inputFpsTimebase, m_outputTimebase))
-                ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, inputFpsTimebase, m_outputTimebase)));
+            ((ptsOffsetOrig - ptsOffsetMax > 0 && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, m_encFps.inv(), m_outputTimebase))
+                ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, m_encFps.inv(), m_outputTimebase)));
         m_encFrameOffset = (m_currentChunk > 0) ? m_maxEncFrameIdx + 1 : 0;
         m_inputFrameOffset = (m_currentChunk > 0) ? m_maxInputFrameIdx + 1 : 0;
         PrintMes(m_tsDebug ? RGY_LOG_ERROR : RGY_LOG_TRACE, _T("Switch to next file: pts offset %lld, frame offset %d.\n")
