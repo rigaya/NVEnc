@@ -39,6 +39,14 @@
 
 static const int RGY_PARALLEL_ENC_TIMEOUT = 10000;
 
+static RGY_CODEC enc_codec(const encParams *prm) {
+#if ENCODER_NVENC
+    return prm->codec_rgy;
+#else
+    return prm->codec;
+#endif
+}
+
 RGYParallelEncodeStatusData::RGYParallelEncodeStatusData() : encStatusData(), mtx_() {};
 
 void RGYParallelEncodeStatusData::set(const EncodeStatusData& data) {
@@ -346,6 +354,9 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
     }
     if (input->GetVideoFirstKeyPts() < 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: invalid first key PTS.\n") };
+    }
+    if (enc_codec(prm) == RGY_CODEC_RAW) {
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: encoding is not activated.\n") };
     }
     if (prm->common.seekSec != 0.0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --seek is eanbled.\n") };
