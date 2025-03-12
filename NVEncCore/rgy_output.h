@@ -160,6 +160,47 @@ public:
     }
 };
 
+class RGYDurationCheck {
+private:
+    std::array<int64_t, 64> m_ts;
+    int m_idx;
+    std::unordered_map<int, int64_t> m_duration;
+public:
+    RGYDurationCheck() : m_ts(), m_idx(0), m_duration() {};
+    void add(int64_t ts) {
+        m_ts[m_idx] = ts;
+        m_idx++;
+        if (m_idx >= m_ts.size()) {
+            std::sort(m_ts.begin(), m_ts.end());
+            // [ 0 - 1 ] ... [ 30 - 31 ] までのフレーム長さをチェック
+            for (size_t i = 1; i < m_ts.size() / 2; i++) {
+                const int duration = (int)(m_ts[i] - m_ts[i - 1]);
+                if (m_duration.count(duration) > 0) {
+                    m_duration[duration]++;
+                } else {
+                    m_duration[duration] = 1;
+                }
+            }
+            // [ 31 - 63 ] までを先頭に移動
+            memmove(m_ts.data(), m_ts.data() + (m_ts.size() / 2 - 1), (m_ts.size() / 2 + 1) * sizeof(int64_t));
+            m_idx = (int)(m_ts.size() / 2) + 1;
+        }
+    }
+    std::unordered_map<int, int64_t> getDuration() {
+        std::sort(m_ts.begin(), m_ts.begin() + m_idx);
+        for (int i = 1; i < m_idx; i++) {
+            const int duration = (int)(m_ts[i] - m_ts[i - 1]);
+            if (m_duration.count(duration) > 0) {
+                m_duration[duration]++;
+            } else {
+                m_duration[duration] = 1;
+            }
+        }
+        m_idx = 0;
+        return m_duration;
+    }
+};
+
 class RGYOutputBSF {
 public:
     RGYOutputBSF(AVBSFContext *bsf, RGY_CODEC codec, tstring strWriterName, shared_ptr<RGYLog> log);

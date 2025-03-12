@@ -1471,6 +1471,7 @@ protected:
     RGYBitstream m_decInputBitstream; // 映像読み込み (ダミー)
     bool m_inputBitstreamEOF; // 映像側の読み込み終了フラグ (音声処理の終了も確認する必要があるため)
     RGYListRef<RGYBitstream> m_bitStreamOut;
+    RGYDurationCheck m_durationCheck;
     bool m_tsDebug;
 public:
     PipelineTaskParallelEncBitstream(NVGPUInfo *dev, RGYInput *input, RGYTimestamp *encTimestamp, RGYTimecode *timecode, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus,
@@ -1481,7 +1482,7 @@ public:
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase), m_encFps(encFps),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
         m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
-        m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut(), m_tsDebug(false) {
+        m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut(), m_durationCheck(), m_tsDebug(false) {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         auto reader = dynamic_cast<RGYInputAvcodec*>(input);
         if (reader) {
@@ -1563,11 +1564,29 @@ protected:
         const auto ptsOffsetOrig = (m_firstPts < 0) ? 0 : rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk), srcTimebase, m_outputTimebase) - m_firstPts;
         // 直前のフレームから計算したpts offset(-1フレーム分) 最低でもこれ以上のoffsetがないといけない
         const auto ptsOffsetMax = (m_firstPts < 0) ? 0 : m_maxPts - m_firstPts;
-        // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
-        // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
-        m_ptsOffset = (m_firstPts < 0) ? 0 : 
-            ((ptsOffsetOrig - ptsOffsetMax > 0 && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, m_encFps.inv(), m_outputTimebase))
-                ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, m_encFps.inv(), m_outputTimebase)));
+        // フレームの長さを決める
+        const auto frameDuration = m_durationCheck.getDuration();
+        // frameDuration のうち、登場回数が最も多いものを探す
+        int mostFrequentDuration = 0;
+        int64_t mostFrequentDurationCount = 0;
+        int64_t totalFrameCount = 0;
+        for (const auto& [duration, count] : frameDuration) {
+            if (count > mostFrequentDurationCount) {
+                mostFrequentDuration = duration;
+                mostFrequentDurationCount = count;
+            }
+            totalFrameCount += count;
+        }
+        // フレーム長が1つしかない場合、あるいは登場頻度の高いフレーム長がある場合、そのフレーム長を採用する
+        if (frameDuration.size() == 1 || ((totalFrameCount * 9 / 10) < mostFrequentDurationCount)) {
+            m_ptsOffset = ptsOffsetMax + mostFrequentDuration;
+        } else {
+            // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
+            // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
+            m_ptsOffset = (m_firstPts < 0) ? 0 :
+                ((ptsOffsetOrig - ptsOffsetMax > 0 && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, m_encFps.inv(), m_outputTimebase))
+                    ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, m_encFps.inv(), m_outputTimebase)));
+        }
         m_encFrameOffset = (m_currentChunk > 0) ? m_maxEncFrameIdx + 1 : 0;
         m_inputFrameOffset = (m_currentChunk > 0) ? m_maxInputFrameIdx + 1 : 0;
         PrintMes(m_tsDebug ? RGY_LOG_ERROR : RGY_LOG_TRACE, _T("Switch to next file: pts offset %lld, frame offset %d.\n")
@@ -1715,6 +1734,7 @@ public:
             if (m_timecode) {
                 m_timecode->write(bsOut->pts(), m_outputTimebase);
             }
+            m_durationCheck.add(bsOut->pts());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(bsOut));
         }
         if (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM && m_taskAudio) {
