@@ -158,6 +158,7 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
         m_sendData.qFirstProcessDataFreeLarge = m_qFirstProcessDataFreeLarge.get(); // キューのポインタを渡す
     }
     m_thRunProcess = std::thread([&]() {
+        AddMessage(RGY_LOG_DEBUG, _T("\nPE%d[%d]: Start thread...\n"), m_id, GetCurrentThreadId());
         try {
             m_thRunProcessRet = run(peParams);
         } catch (...) {
@@ -170,7 +171,8 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
             m_sendData.encStatus.set(encStatusData);
         }
         SetEvent(m_processFinished.get()); // 処理終了を通知するのを忘れないように
-        AddMessage(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
+        AddMessage(m_thRunProcessRet.value_or(RGY_ERR_UNKNOWN) == RGY_ERR_NONE ? RGY_LOG_DEBUG : RGY_LOG_ERROR,
+            _T("\nPE%d[%d]: Processing finished: %s\n"), m_id, GetCurrentThreadId(), get_err_mes(m_thRunProcessRet.value()));
         m_sendData.processStatus = RGYParallelEncProcessStatus::Finished;
         // 終了したら、そのチャンクに関する進捗表示は削除
         m_sendData.encStatus.reset();
