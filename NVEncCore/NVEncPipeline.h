@@ -2450,6 +2450,7 @@ protected:
     bool m_keyOnChapter;
     std::vector<std::unique_ptr<AVChapter>>& m_Chapters;
     std::thread m_threadOutput;
+    std::future<RGY_ERR> m_threadOutputFuture;
     bool m_threadOutputAbort;
 public:
     PipelineTaskNVEncode(
@@ -2463,7 +2464,7 @@ public:
         m_stEncConfig(stEncConfig), m_stCreateEncodeParams(stCreateEncodeParams),
         m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
         m_bitStreamOut(), m_hdr10plus(hdr10plus), m_doviRpu(doviRpu), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1), m_keyFile(keyFile), m_keyOnChapter(keyOnChapter), m_Chapters(chapters),
-        m_threadOutput(), m_threadOutputAbort(false) {
+        m_threadOutput(), m_threadOutputFuture(), m_threadOutputAbort(false) {
         runThreadOutput();
     };
     virtual ~PipelineTaskNVEncode() {
@@ -2482,6 +2483,15 @@ public:
     }
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
 
+    std::optional<RGY_ERR> getOutputThreadResult() {
+        std::optional<RGY_ERR> result;
+        auto status = m_threadOutputFuture.wait_for(std::chrono::milliseconds(0));
+        if (status == std::future_status::ready) {
+            result = m_threadOutputFuture.get();
+        }
+        return result;
+    }
+protected:
     std::pair<RGY_ERR, std::shared_ptr<RGYBitstream>> getOutputBitstream(const EncodeBuffer *pEncodeBuffer) {
         if (!pEncodeBuffer->stOutputBfr.hBitstreamBuffer && !pEncodeBuffer->stOutputBfr.bEOSFlag) {
             return { RGY_ERR_INVALID_PARAM, nullptr };
@@ -2525,7 +2535,7 @@ public:
     }
 
     RGY_ERR runThreadOutput() {
-        m_threadOutput = std::thread([this]() {
+        m_threadOutputFuture = std::async(std::launch::async, [this]() {
             m_threadParam.apply(GetCurrentThread());
             while (!m_threadOutputAbort) {
                 struct CUFrameEncAutoDelete {
@@ -2551,9 +2561,9 @@ public:
                 if (outBs.first != RGY_ERR_NONE) {
                     if (outBs.first == RGY_ERR_MORE_DATA) {
                         PrintMes(RGY_LOG_DEBUG, _T("Output thread reached EOS.\n"));
-                        return outBs.first;
+                    } else {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to get output bitstream: %s.\n"), get_err_mes(outBs.first));
                     }
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to get output bitstream: %s.\n"), get_err_mes(outBs.first));
                     return outBs.first;
                 }
                 frameEnc.reset();
@@ -2771,11 +2781,14 @@ public:
         }
         return RGY_ERR_MORE_DATA;
     }
-
+public:
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
             PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
+        }
+        if (auto err = getOutputThreadResult(); err.has_value()) {
+            return err.value();
         }
 
         auto surfEncodeIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().enc() : nullptr;
@@ -2830,12 +2843,13 @@ protected:
     cudaStream_t m_streamFilter;
     cudaStream_t m_streamDownload;
     std::unique_ptr<PipelineTaskOutput> m_cuvidPrev;
+    PipelineTaskNVEncode *m_encode;
 public:
     PipelineTaskCUDAVpp(NVGPUInfo *dev, std::vector<std::unique_ptr<NVEncFilter>>& vppfilters, NVEncFilterSsim *videoMetric,
     RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, threadParam, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
         m_frameReleaseData(dev->vidCtxLock(), threadParam), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
-        m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev() {
+        m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev(), m_encode(nullptr) {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         auto ret = cudaStreamCreateWithFlags(&m_streamFilter, cudaStreamNonBlocking);
@@ -2874,6 +2888,9 @@ public:
         m_inFrameUseFinEvent.clear([](cudaEvent_t *event) { cudaEventDestroy(*event); });
     };
 
+    void setEncodeTask(PipelineTaskNVEncode *encode) {
+        m_encode = encode;
+    }
 
     void setVideoQualityMetricFilter(NVEncFilterSsim *videoMetric) {
         m_videoMetric = videoMetric;
@@ -2995,6 +3012,13 @@ public:
                     CUFrameEnc *encBufferPtr = nullptr;
                     while (!m_qEncodeBufferFree.front_copy_and_pop_no_lock(&encBufferPtr)) {
                         m_qEncodeBufferFree.wait_for_push(); // 最大16ms待機
+                        // エンコーダの出力スレッドがここで終了してしまっているのは想定外なのでエラー終了
+                        // ここで検知しておかないとずっとここで待ち続けてしまう
+                        if (m_encode) {
+                            if (auto err = m_encode->getOutputThreadResult(); err.has_value()) {
+                                return err.value() == RGY_ERR_NONE ? RGY_ERR_ABORTED : err.value();
+                            }
+                        }
                     }
                     encBuffer.reset(encBufferPtr);
                 }
