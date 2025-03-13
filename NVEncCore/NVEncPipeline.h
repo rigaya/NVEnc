@@ -2475,6 +2475,8 @@ public:
             m_runCtx->qEncodeBufferUsed().push(nullptr);
             m_threadOutput.join();
         }
+        auto ret = getOutputThreadResult();
+        m_outQeueue.clear(); // m_bitStreamOutが解放されるより前にこちらを解放する
     };
 
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override {
