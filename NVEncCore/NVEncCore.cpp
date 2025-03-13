@@ -689,6 +689,9 @@ RGY_ERR NVEncCore::InitPowerThrottoling(InEncodeVideoParam *inputParam) {
     } else if (outputResolution <= 2560 * 1440) {
         score_resolution += 1;
     }
+    if (inputParam->ctrl.parallelEnc.isEnabled()) {
+        score_resolution *= inputParam->ctrl.parallelEnc.parallelCount;
+    }
     const bool speedLimit = inputParam->ctrl.procSpeedLimit > 0 && inputParam->ctrl.procSpeedLimit <= 240;
     const int score = (speedLimit) ? 0 : score_resolution;
 
@@ -697,6 +700,18 @@ RGY_ERR NVEncCore::InitPowerThrottoling(InEncodeVideoParam *inputParam) {
     const auto mode = (score >= score_threshold) ? RGYThreadPowerThrottlingMode::Auto : RGYThreadPowerThrottlingMode::Enabled;
     PrintMes(RGY_LOG_DEBUG, _T("selected mode %s : score %d: resolution %d, speed limit %s.\n"),
         rgy_thread_power_throttoling_mode_to_str(mode), score, score_resolution, speedLimit ? _T("on") : _T("off"));
+
+    if (inputParam->ctrl.parallelEnc.isEnabled()) {
+        // 並列エンコード時には音声スレッドと出力スレッドが重要なので、throttolingを有効にはならないように
+        auto& target = inputParam->ctrl.threadParams.get(RGYThreadType::AUDIO);
+        if (target.throttling == RGYThreadPowerThrottlingMode::Unset) {
+            target.throttling = RGYThreadPowerThrottlingMode::Auto;
+        }
+        target = inputParam->ctrl.threadParams.get(RGYThreadType::OUTPUT);
+        if (target.throttling == RGYThreadPowerThrottlingMode::Unset) {
+            target.throttling = RGYThreadPowerThrottlingMode::Auto;
+        }
+    }
 
     for (int i = (int)RGYThreadType::ALL + 1; i < (int)RGYThreadType::END; i++) {
         auto& target = inputParam->ctrl.threadParams.get((RGYThreadType)i);
