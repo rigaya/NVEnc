@@ -2451,6 +2451,7 @@ protected:
     std::vector<std::unique_ptr<AVChapter>>& m_Chapters;
     std::thread m_threadOutput;
     std::future<RGY_ERR> m_threadOutputFuture;
+    std::optional<RGY_ERR> m_threadOutputResult;
     bool m_threadOutputAbort;
 public:
     PipelineTaskNVEncode(
@@ -2464,7 +2465,7 @@ public:
         m_stEncConfig(stEncConfig), m_stCreateEncodeParams(stCreateEncodeParams),
         m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
         m_bitStreamOut(), m_hdr10plus(hdr10plus), m_doviRpu(doviRpu), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1), m_keyFile(keyFile), m_keyOnChapter(keyOnChapter), m_Chapters(chapters),
-        m_threadOutput(), m_threadOutputFuture(), m_threadOutputAbort(false) {
+        m_threadOutput(), m_threadOutputFuture(), m_threadOutputResult(), m_threadOutputAbort(false) {
         runThreadOutput();
     };
     virtual ~PipelineTaskNVEncode() {
@@ -2486,12 +2487,12 @@ public:
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
 
     std::optional<RGY_ERR> getOutputThreadResult() {
-        std::optional<RGY_ERR> result;
+        if (m_threadOutputResult.has_value()) return m_threadOutputResult;
         auto status = m_threadOutputFuture.wait_for(std::chrono::milliseconds(0));
         if (status == std::future_status::ready) {
-            result = m_threadOutputFuture.get();
+            m_threadOutputResult = m_threadOutputFuture.get();
         }
-        return result;
+        return m_threadOutputResult;
     }
 protected:
     std::pair<RGY_ERR, std::shared_ptr<RGYBitstream>> getOutputBitstream(const EncodeBuffer *pEncodeBuffer) {
