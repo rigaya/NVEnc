@@ -186,7 +186,7 @@ public:
             m_idx = (int)(m_ts.size() / 2) + 1;
         }
     }
-    std::unordered_map<int, int64_t> getDuration() {
+    std::unordered_map<int, int64_t> getDuration(int64_t& lastDuration) {
         std::sort(m_ts.begin(), m_ts.begin() + m_idx);
         for (int i = 1; i < m_idx; i++) {
             const int duration = (int)(m_ts[i] - m_ts[i - 1]);
@@ -196,6 +196,7 @@ public:
                 m_duration[duration] = 1;
             }
         }
+        lastDuration = (m_idx >= 2) ? m_ts[m_idx - 1] - m_ts[m_idx - 2] : 0;
         m_idx = 0;
         return m_duration;
     }

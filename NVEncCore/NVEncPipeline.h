@@ -1579,7 +1579,8 @@ protected:
         // 直前のフレームから計算したpts offset(-1フレーム分) 最低でもこれ以上のoffsetがないといけない
         const auto ptsOffsetMax = (m_firstPts < 0) ? 0 : m_maxPts - m_firstPts;
         // フレームの長さを決める
-        const auto frameDuration = m_durationCheck.getDuration();
+        int64_t lastDuration = 0;
+        const auto frameDuration = m_durationCheck.getDuration(lastDuration);
         // frameDuration のうち、登場回数が最も多いものを探す
         int mostFrequentDuration = 0;
         int64_t mostFrequentDurationCount = 0;
@@ -1594,6 +1595,19 @@ protected:
         // フレーム長が1つしかない場合、あるいは登場頻度の高いフレーム長がある場合、そのフレーム長を採用する
         if (frameDuration.size() == 1 || ((totalFrameCount * 9 / 10) < mostFrequentDurationCount)) {
             m_ptsOffset = ptsOffsetMax + mostFrequentDuration;
+        } else if (frameDuration.size() == 2) {
+            if ((totalFrameCount * 7 / 10) < mostFrequentDurationCount || lastDuration != mostFrequentDuration) {
+                m_ptsOffset = ptsOffsetMax + mostFrequentDuration;
+            } else {
+                int otherDuration = mostFrequentDuration;
+                for (auto itr = frameDuration.begin(); itr != frameDuration.end(); itr++) {
+                    if (itr->first != mostFrequentDuration) {
+                        otherDuration = itr->first;
+                        break;
+                    }
+                }
+                m_ptsOffset = ptsOffsetMax + otherDuration;
+            }
         } else {
             // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
             // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
