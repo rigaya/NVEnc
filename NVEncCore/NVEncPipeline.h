@@ -2462,7 +2462,6 @@ protected:
     std::vector<int>& m_keyFile;
     bool m_keyOnChapter;
     std::vector<std::unique_ptr<AVChapter>>& m_Chapters;
-    std::thread m_threadOutput;
     std::future<RGY_ERR> m_threadOutputFuture;
     std::optional<RGY_ERR> m_threadOutputResult;
     bool m_threadOutputAbort;
@@ -2478,18 +2477,13 @@ public:
         m_stEncConfig(stEncConfig), m_stCreateEncodeParams(stCreateEncodeParams),
         m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
         m_bitStreamOut(), m_hdr10plus(hdr10plus), m_doviRpu(doviRpu), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1), m_keyFile(keyFile), m_keyOnChapter(keyOnChapter), m_Chapters(chapters),
-        m_threadOutput(), m_threadOutputFuture(), m_threadOutputResult(), m_threadOutputAbort(false) {
+        m_threadOutputFuture(), m_threadOutputResult(), m_threadOutputAbort(false) {
         runThreadOutput();
     };
     virtual ~PipelineTaskNVEncode() {
         flushEncoder();
-        m_outQeueue.clear(); // m_bitStreamOutが解放されるより前にこちらを解放する
         m_threadOutputAbort = true;
-        if (m_threadOutput.joinable()) {
-            m_runCtx->qEncodeBufferUsed().push(nullptr);
-            m_threadOutput.join();
-        }
-        auto ret = getOutputThreadResult();
+        getOutputThreadResult(30 * 1000);
         m_outQeueue.clear(); // m_bitStreamOutが解放されるより前にこちらを解放する
     };
 
@@ -2499,9 +2493,9 @@ public:
     }
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
 
-    std::optional<RGY_ERR> getOutputThreadResult() {
+    std::optional<RGY_ERR> getOutputThreadResult(int timeout) {
         if (m_threadOutputResult.has_value()) return m_threadOutputResult;
-        auto status = m_threadOutputFuture.wait_for(std::chrono::milliseconds(0));
+        auto status = m_threadOutputFuture.wait_for(std::chrono::milliseconds(timeout));
         if (status == std::future_status::ready) {
             m_threadOutputResult = m_threadOutputFuture.get();
         }
@@ -2592,6 +2586,7 @@ protected:
                     m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(outBs.second));
                 }
             }
+            PrintMes(RGY_LOG_DEBUG, _T("Output thread finished.\n"));
             return RGY_ERR_NONE;
         });
         return RGY_ERR_NONE;
@@ -2792,9 +2787,7 @@ protected:
         //    return RGY_ERR_UNKNOWN;
         //}
         // flushしたらそれを受けて出力スレッドが終了するのを待つ
-        if (m_threadOutput.joinable()) {
-            m_threadOutput.join();
-        }
+        getOutputThreadResult(300 * 1000);
         return RGY_ERR_MORE_DATA;
     }
 public:
@@ -2803,7 +2796,7 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        if (auto err = getOutputThreadResult(); err.has_value()) {
+        if (auto err = getOutputThreadResult(0); err.has_value()) {
             return err.value();
         }
 
@@ -3031,7 +3024,7 @@ public:
                         // エンコーダの出力スレッドがここで終了してしまっているのは想定外なのでエラー終了
                         // ここで検知しておかないとずっとここで待ち続けてしまう
                         if (m_encode) {
-                            if (auto err = m_encode->getOutputThreadResult(); err.has_value()) {
+                            if (auto err = m_encode->getOutputThreadResult(0); err.has_value()) {
                                 return err.value() == RGY_ERR_NONE ? RGY_ERR_ABORTED : err.value();
                             }
                         }
