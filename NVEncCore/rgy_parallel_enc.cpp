@@ -585,9 +585,5 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
         prm->ctrl.parallelEnc.parallelId = -1;
         return sts;
     }
-    if (m_encProcess.size() > 0) {
-        prm->common.doviRpuMetadataCopy = false; // 子スレッド側で行う
-        prm->common.hdr10plusMetadataCopy = false; // 子スレッド側で行う
-    }
     return RGY_ERR_NONE;
 }
