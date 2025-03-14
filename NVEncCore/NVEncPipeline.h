@@ -1070,6 +1070,7 @@ protected:
     RGYRunState m_state;
     int m_decOutFrames;
     int64_t m_hwDecFirstPts;
+    int m_preFirstFrameOut; //最初のフレームより前のptsで出てきたフレームのカウント
 #if THREAD_DEC_USE_FUTURE
     std::future m_thDecoder;
 #else
@@ -1079,7 +1080,7 @@ public:
     PipelineTaskNVDecode(NVGPUInfo *dev, CuvidDecode *dec, int outMaxQueueSize, RGYInput *input, int64_t endPts, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::NVDEC, dev, outMaxQueueSize, false, threadParam, log), m_input(input), m_endPts(endPts), m_dec(dec),
         m_queueHDR10plusMetadata(), m_dataFlag(),
-        m_state(RGY_STATE_STOPPED), m_decOutFrames(0), m_hwDecFirstPts(AV_NOPTS_VALUE), m_thDecoder() {
+        m_state(RGY_STATE_STOPPED), m_decOutFrames(0), m_hwDecFirstPts(AV_NOPTS_VALUE), m_preFirstFrameOut(0), m_thDecoder() {
         m_queueHDR10plusMetadata.init(256);
         m_dataFlag.init();
     };
@@ -1221,8 +1222,19 @@ protected:
                 m_dec->frameQueue()->waitForQueueUpdate();
                 continue;
             }
-            // OpenGOP等でキーフレームより前のフレームが出てくることがあるのを削除
+            // OpenGOP等でキーフレームより前のフレームのptsで出てくることがあるのを調整
+            // 実際に前のフレームが出ているのではなく、前のフレームのptsで出てきているだけ
+            // 次のフレームからはptsが正常に戻る
             if (dispInfo.timestamp < m_hwDecFirstPts) {
+                if (m_preFirstFrameOut > 0) { // (ないと思うが)2回目以降はdropするしかない
+                    m_dec->frameQueue()->releaseFrame(&dispInfo);
+                    continue;
+                }
+                // 先頭のフレームとして扱う
+                dispInfo.timestamp = m_hwDecFirstPts;
+                m_preFirstFrameOut++;
+            } else if (m_preFirstFrameOut > 0 && dispInfo.timestamp <= m_hwDecFirstPts) {
+                // (ここに来ることはないと思うが)dropするしかない
                 m_dec->frameQueue()->releaseFrame(&dispInfo);
                 continue;
             }
