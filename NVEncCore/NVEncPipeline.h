@@ -763,11 +763,12 @@ protected:
     std::unique_ptr<std::mutex> m_outQeueueMtx;
     RGYParamThread m_threadParam;
     std::shared_ptr<RGYLog> m_log;
+    RGYLogType m_logType;
 public:
     PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_dev(nullptr), m_outQeueue(), m_workSurfs(), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0), m_log() {};
     PipelineTask(PipelineTaskType type, NVGPUInfo *dev, int outMaxQueueSize, bool useOutQueueMtx, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
         m_type(type), m_dev(dev), m_outQeueue(), m_workSurfs(), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize),
-        m_outQeueueMtx(useOutQueueMtx ? std::make_unique<std::mutex>() : nullptr), m_threadParam(threadParam), m_log(log) {
+        m_outQeueueMtx(useOutQueueMtx ? std::make_unique<std::mutex>() : nullptr), m_threadParam(threadParam), m_log(log), m_logType(RGY_LOGT_CORE) {
     };
     virtual ~PipelineTask() {
         m_workSurfs.clear();
@@ -823,7 +824,7 @@ public:
             if (log_level <= RGY_LOG_INFO) {
                 return;
             }
-        } else if (log_level < m_log->getLogLevel(RGY_LOGT_CORE)) {
+        } else if (log_level < m_log->getLogLevel(m_logType)) {
             return;
         }
 
@@ -838,7 +839,7 @@ public:
         tstring mes = getPipelineTaskTypeName(m_type) + tstring(_T(": ")) + buffer.data();
 
         if (m_log.get() != nullptr) {
-            m_log->write(log_level, RGY_LOGT_CORE, mes.c_str());
+            m_log->write(log_level, m_logType, mes.c_str());
         } else {
             _ftprintf(stderr, _T("%s"), mes.c_str());
         }
@@ -1489,6 +1490,7 @@ public:
             // 親側で不要なデコーダを終了させる、こうしないとavsw使用時に映像が無駄にデコードされてしまう
             reader->CloseVideoDecoder();
         }
+        m_logType = RGY_LOGT_CORE_PARALLEL;
     };
     virtual ~PipelineTaskParallelEncBitstream() {
         m_decInputBitstream.clear();
