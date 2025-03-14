@@ -1603,7 +1603,7 @@ protected:
         }
         m_encFrameOffset = (m_currentChunk > 0) ? m_maxEncFrameIdx + 1 : 0;
         m_inputFrameOffset = (m_currentChunk > 0) ? m_maxInputFrameIdx + 1 : 0;
-        PrintMes(m_tsDebug ? RGY_LOG_ERROR : RGY_LOG_TRACE, _T("Switch to next file: pts offset %lld, frame offset %d.\n")
+        PrintMes(m_tsDebug ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld, frame offset %d.\n")
             _T("  firstKeyPts 0: % lld, %d : % lld.\n")
             _T("  ptsOffsetOrig: %lld, ptsOffsetMax: %lld, m_maxPts: %lld\n"),
             m_ptsOffset, m_encFrameOffset,
@@ -1743,8 +1743,7 @@ public:
             m_maxPts = std::max(m_maxPts, bsOut->pts());
             m_maxEncFrameIdx = std::max(m_maxEncFrameIdx, header.encodeFrameIdx);
             m_maxInputFrameIdx = std::max(m_maxInputFrameIdx, header.inputFrameIdx);
-            PrintMes(RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, input idx: %lld, encode idx: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, header.inputFrameIdx, header.encodeFrameIdx, bsOut->size());
-            PrintMes(m_tsDebug ? RGY_LOG_WARN : RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, input idx: %lld, encode idx: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, header.inputFrameIdx, header.encodeFrameIdx, bsOut->size());
+            PrintMes(m_tsDebug ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("Packet: pts %lld, dts: %lld, duration: %d, input idx: %lld, encode idx: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, header.inputFrameIdx, header.encodeFrameIdx, bsOut->size());
             if (m_timecode) {
                 m_timecode->write(bsOut->pts(), m_outputTimebase);
             }
@@ -1899,7 +1898,7 @@ public:
         PrintMes(RGY_LOG_TRACE, _T("check_pts(%d/%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
         if (m_tsOutFirst < 0) {
             m_tsOutFirst = outPtsSource; //最初のpts
-            PrintMes(RGY_LOG_TRACE, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
+            PrintMes(RGY_LOG_DEBUG, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
         }
         //最初のptsを0に修正
         if (!m_timestampPassThrough) {
