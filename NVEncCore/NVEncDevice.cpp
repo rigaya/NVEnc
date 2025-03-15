@@ -1045,10 +1045,12 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
         cuResult = cuD3D11GetDevice(&cuDevice, m_dx11->GetAdaptor());
         if (cuResult != CUDA_SUCCESS) {
             writeLog(RGY_LOG_WARN, _T("Failed to init CUDA device #%d from DX11 device.\n"), deviceID);
-            return err_to_rgy(cuResult);
+            m_dx11.reset();
+        } else {
+            writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGet:DX11(%d): success: %d\n"), deviceID, cuDevice);
         }
-        writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGet:DX11(%d): success: %d\n"), deviceID, cuDevice);
-    } else
+    }
+    if (!m_dx11)
 #endif // #if ENABLE_D3D11
 #if ENABLE_VULKAN
     if (initVulkan) {
@@ -1079,42 +1081,45 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
 
         auto err = m_vulkan->Init(deviceID, extInstance, extDevice, m_log, !error_if_fail);
         if (err != RGY_ERR_NONE) {
-            writeLog(RGY_LOG_DEBUG, _T("Failed to init Vulkan device #%d: %s\n"), deviceID, get_err_mes(err));
-            return err;
-        }
-        writeLog(RGY_LOG_DEBUG, _T("Init Vulkan device %d, name %s, uuid %s.\n"), deviceID, char_to_tstring(m_vulkan->GetDisplayDeviceName()).c_str(), hexString(m_vulkan->GetUUID()).c_str());
-        
-        int deviceCount = 0;
-        cuResult = cuDeviceGetCount(&deviceCount);
-        if (cuResult != CUDA_SUCCESS) {
-            writeLog(error_level, _T("  Error: cuDeviceGetCount(): %s\n"), char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-            return err_to_rgy(cuResult);
-        }
-        bool deviceFound = false;
-        for (int idev = 0; idev < deviceCount; idev++) {
-            cuResult = cuDeviceGet(&cuDevice, idev);
+            writeLog(RGY_LOG_WARN, _T("Failed to init Vulkan device #%d: %s\n"), deviceID, get_err_mes(err));
+            m_vulkan.reset();
+        } else {
+            writeLog(RGY_LOG_DEBUG, _T("Init Vulkan device %d, name %s, uuid %s.\n"), deviceID, char_to_tstring(m_vulkan->GetDisplayDeviceName()).c_str(), hexString(m_vulkan->GetUUID()).c_str());
+
+            int deviceCount = 0;
+            cuResult = cuDeviceGetCount(&deviceCount);
             if (cuResult != CUDA_SUCCESS) {
-                writeLog(error_level, _T("  Error: cuDeviceGet(%d): %s\n"), idev, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-                return err_to_rgy(cuResult);
+                writeLog(error_level, _T("  Error: cuDeviceGetCount(): %s\n"), char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+                m_vulkan.reset();
+            } else {
+                bool deviceFound = false;
+                for (int idev = 0; idev < deviceCount; idev++) {
+                    cuResult = cuDeviceGet(&cuDevice, idev);
+                    if (cuResult != CUDA_SUCCESS) {
+                        writeLog(error_level, _T("  Error: cuDeviceGet(%d): %s\n"), idev, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+                        break;
+                    }
+                    CUuuid cuuuid;
+                    cuResult = cuDeviceGetUuid(&cuuuid, cuDevice);
+                    if (cuResult != CUDA_SUCCESS) {
+                        writeLog(error_level, _T("  Error: cuDeviceGetUuid(%d): %s\n"), idev, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+                        break;
+                    }
+                    writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGetUuid(%d): success: %s\n"), idev, hexString(cuuuid.bytes).c_str());
+                    if (memcmp(m_vulkan->GetUUID(), cuuuid.bytes, VK_UUID_SIZE) == 0) {
+                        deviceFound = true;
+                        break;
+                    }
+                    cuDevice = 0;
+                }
+                if (!deviceFound) {
+                    writeLog(error_level, _T("Failed to init CUDA device #%d from Vulkan device.\n"), deviceID);
+                    m_vulkan.reset();
+                }
             }
-            CUuuid cuuuid;
-            cuResult = cuDeviceGetUuid(&cuuuid, cuDevice);
-            if (cuResult != CUDA_SUCCESS) {
-                writeLog(error_level, _T("  Error: cuDeviceGetUuid(%d): %s\n"), idev, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-                return err_to_rgy(cuResult);
-            }
-            writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGetUuid(%d): success: %s\n"), idev, hexString(cuuuid.bytes).c_str());
-            if (memcmp(m_vulkan->GetUUID(), cuuuid.bytes, VK_UUID_SIZE) == 0) {
-                deviceFound = true;
-                break;
-            }
-            cuDevice = 0;
         }
-        if (!deviceFound) {
-            writeLog(error_level, _T("Failed to init CUDA device #%d from Vulkan device.\n"), deviceID);
-            return RGY_ERR_DEVICE_NOT_FOUND;
-        }
-    } else
+    }
+    if (!m_vulkan)
 #endif // #if ENABLE_VULKAN
     {
         writeLog(RGY_LOG_DEBUG, _T("checking for CUDA device #%d.\n"), deviceID);
