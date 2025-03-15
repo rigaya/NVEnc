@@ -2069,8 +2069,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             }
             double seek_sec = input_prm->seekSec;
             if (input_prm->seekRatio > 0.0f) {
-                const auto duration_sec = GetInputVideoDuration();
-                seek_sec = duration_sec * input_prm->seekRatio;
+                double seek_start_sec = (input_prm->seekSec > 0.0f) ? (double)input_prm->seekSec : 0.0;
+                auto duration_fin_sec = GetInputVideoDuration();
+                if (input_prm->seekToSec > 0.0f) {
+                    duration_fin_sec = std::min(duration_fin_sec, (double)input_prm->seekToSec);
+                }
+                seek_sec = seek_start_sec + (duration_fin_sec - seek_start_sec) * input_prm->seekRatio;
             }
             const auto seek_time = av_rescale_q(1, av_d2q(seek_sec, 1<<24), m_Demux.video.stream->time_base);
             int seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt->pts + seek_time, 0);

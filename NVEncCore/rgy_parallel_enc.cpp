@@ -358,12 +358,6 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
     if (enc_codec(prm) == RGY_CODEC_RAW) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: encoding is not activated.\n") };
     }
-    if (prm->common.seekSec != 0.0) {
-        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --seek is eanbled.\n") };
-    }
-    if (prm->common.seekToSec != 0.0) {
-        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --seek-to is eanbled.\n") };
-    }
     if (prm->common.nTrimCount != 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --trim is eanbled.\n") };
     }

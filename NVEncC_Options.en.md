@@ -3118,8 +3118,6 @@ Enables parallel encoding by file splitting. Divides the input file into multipl
   - Input is not seekable
   - Frame timestamps are unstable
   - No encoding is performed (-c raw)
-  - --seek option is enabled
-  - --seek-to option is enabled
   - --trim option is enabled
   - --timecode option is specified
   - --tcfile-in option is specified
