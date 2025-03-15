@@ -754,7 +754,7 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
     const bool isChild = inputParam->ctrl.parallelEnc.isChild();
     auto [sts, errmes] = RGYParallelEnc::isParallelEncPossible(inputParam, m_pFileReader.get());
     if (sts != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_WARN, _T("%s.\n"), errmes);
+        PrintMes(RGY_LOG_WARN, _T("%s"), errmes);
         inputParam->ctrl.parallelEnc.parallelCount = 0;
         inputParam->ctrl.parallelEnc.parallelId = -1;
         return (isChild) ? sts : RGY_ERR_NONE; // 子スレッド側でエラーが起こった場合はエラー、親の場合は正常終了(並列動作を無効化して継続)を返す
