@@ -223,6 +223,7 @@
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [制御系のオプション](#制御系のオプション)
+  - [--parallel \[\<int\>\] or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--parallel-int-or-param1value1param2value2)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
   - [--disable-dx11](#--disable-dx11)
@@ -3160,6 +3161,46 @@ NVIDIA MAXINE VideoEffects のモデルを格納しているフォルダの場�
 
 ## 制御系のオプション
 
+### --parallel [&lt;int&gt;] or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+ファイル分割による並列エンコードを行う。入力ファイルを複数のチャンクに分割し、それぞれを別スレッドで並列にエンコードすることで、処理を高速化する。
+
+- **パラメータ**
+  
+  - mp=&lt;int&gt;
+    並列実行するスレッド数。
+  
+  - chunks=&lt;int&gt;
+    入力ファイルの分割数。
+
+- **制約事項**
+  以下の場合、並列エンコードは利用できず、自動的に無効化されます。
+  - 入力がパイプの場合
+  - 入力がシーク不可能な場合
+  - フレームのタイムスタンプが不安定な場合
+  - エンコードしない場合 (-c raw)
+  - --seekオプションが指定されている場合
+  - --seek-toオプションが指定されている場合
+  - --trimオプションが指定されている場合
+  - --timecodeオプションが指定されている場合
+  - --tcfile-inオプションが指定されている場合
+  - --keyfileオプションが指定されている場合
+  - --key-on-chapterオプションが有効な場合
+  - ssim/psnr/vmafが有効な場合
+  - --vpp-subburn（字幕焼きこみ）が指定されている場合
+  - --vpp-fruc（フレーム補間）が有効な場合
+
+- **使用例**
+  ```
+  例: 自動で並列数を決定
+  --parallel auto
+
+  例: 3並列で実行
+  --parallel 3
+
+  例: 6分割3並列で実行
+  --parallel mp=3,chunks=6
+  ```
+
 ### --cuda-schedule &lt;string&gt;
   主に、GPUのタスク終了を待機する際のCPUの挙動を決める。デフォルトはauto。
 
@@ -3236,6 +3277,7 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
   - core ... アプリケーションのコア部分 (core_progress, core_result含む)
   - core_progress ... 進捗表示
   - core_result ... 結果表示
+  - parallel ... 並列エンコード関連
   - decoder ... デコーダ関連
   - input ... ファイル読み込み関連
   - output ... ファイル書き出し関連

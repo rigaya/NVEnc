@@ -1,6 +1,17 @@
 # NVEnc Release Notes
 
-# 8.00beta5
+# 8.00beta6
+
+- Add parallel encoding feature with file splitting. ([--parallel](./NVEncC_Options.en.md#--parallel-int-or-param1value1param2value2))
+- Add support for ISO 639-2 T-codes in language code specification. ( #674 )
+- Continue processing even when DirectX11/Vulkan initialization fails. ( #675 )
+- Fix timestamps occasionally becoming incorrect when using --seek with certain input files.
+- Increase priority of GPUs with multiple encoders in auto GPU selection.
+- Fix potential freeze when encoder output thread encounters an error.
+- Fix potential freeze when encoder terminates with an error.
+- Fix incorrect handling of pts for frames before keyframe when decoding from middle of OpenGOP encoded files.
+
+## 8.00beta5
 
 - Fix [--dolby-vision-rpu](https://github.com/rigaya/NVEnc/blob/master/NVEncC_Options.en.md#--dolby-vision-rpu-string) in AV1 encoding. ( #672 )
 

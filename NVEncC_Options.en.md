@@ -227,6 +227,7 @@
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [Other Options](#other-options)
+  - [--parallel \[\<int\>\] or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--parallel-int-or-param1value1param2value2)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
   - [--disable-nvml](#--disable-nvml)
@@ -3100,6 +3101,46 @@ Set path to the model folder of Video Effect models.
 
 ## Other Options
 
+### --parallel [&lt;int&gt;] or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Enables parallel encoding by file splitting. Divides the input file into multiple chunks and encodes them in parallel using separate threads to accelerate processing.
+
+- **Parameters**
+  
+  - mp=&lt;int&gt;
+    Number of parallel threads to run.
+  
+  - chunks=&lt;int&gt;
+    Number of chunks to split the input file into.
+
+- **Restrictions**
+  Parallel encoding will be automatically disabled in the following cases:
+  - Input is from pipe
+  - Input is not seekable
+  - Frame timestamps are unstable
+  - No encoding is performed (-c raw)
+  - --seek option is enabled
+  - --seek-to option is enabled
+  - --trim option is enabled
+  - --timecode option is specified
+  - --tcfile-in option is specified
+  - --keyfile option is specified
+  - --key-on-chapter option is enabled
+  - ssim/psnr/vmaf is enabled
+  - --vpp-subburn (subtitle burn-in) is specified
+  - --vpp-fruc (frame interpolation) is enabled
+
+- **Examples**
+  ```
+  Example: Auto-determine number of parallel processes
+  --parallel auto
+
+  Example: Run with 3 parallel threads
+  --parallel 3
+
+  Example: Run with 3 parallel threads and 6 chunks
+  --parallel mp=3,chunks=6
+  ```
+
 ### --cuda-schedule &lt;string&gt;
   Change the behavior of the CPU when waiting for GPU task completion. The default is auto.
 
@@ -3170,6 +3211,7 @@ Select the level of log output.
   - core ... Application core logs, including core_progress and core_result
   - core_progress ... Progress indicator
   - core_result ... Encode result
+  - parallel ... Parallel encode related logs
   - decoder ... decoder logs
   - input ... File input logs
   - output ... File output logs
