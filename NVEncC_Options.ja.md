@@ -223,7 +223,7 @@
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [制御系のオプション](#制御系のオプション)
-  - [--parallel \[\<int\>\] or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--parallel-int-or-param1value1param2value2)
+  - [--parallel \[\<int\>\] or \[\<string\>\]](#--parallel-int-or-string)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
   - [--disable-dx11](#--disable-dx11)
@@ -3161,7 +3161,7 @@ NVIDIA MAXINE VideoEffects のモデルを格納しているフォルダの場�
 
 ## 制御系のオプション
 
-### --parallel [&lt;int&gt;] or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+### --parallel [&lt;int&gt;] or [&lt;string&gt;]
 ファイル分割による並列エンコードを行う。入力ファイルを複数のチャンクに分割し、それぞれを別スレッドで並列にエンコードすることで、処理を高速化する。
 
 - **パラメータ**
@@ -3194,9 +3194,6 @@ NVIDIA MAXINE VideoEffects のモデルを格納しているフォルダの場�
 
   例: 3並列で実行
   --parallel 3
-
-  例: 6分割3並列で実行
-  --parallel mp=3,chunks=6
   ```
 
 ### --cuda-schedule &lt;string&gt;

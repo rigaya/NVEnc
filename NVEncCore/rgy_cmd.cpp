@@ -9572,6 +9572,9 @@ tstring gen_cmd_help_vpp() {
 
 tstring gen_cmd_help_ctrl() {
     tstring str = strsprintf(_T("\n")
+#if ENCODER_QSV || ENCODER_NVENC || ENCODER_VCEENC
+        _T("   --parallel <int> or auto     Enable parallel encoding by file splitting.\n")
+#endif
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error, quiet\n")
