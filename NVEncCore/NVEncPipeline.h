@@ -1070,7 +1070,7 @@ protected:
     RGYRunState m_state;
     int m_decOutFrames;
     int64_t m_hwDecFirstPts;
-    int m_preFirstFrameOut; //最初のフレームより前のptsで出てきたフレームのカウント
+    bool m_gotFrameAfterFirstPts; //最初のフレームより前のptsで出てきたフレームのカウント
 #if THREAD_DEC_USE_FUTURE
     std::future m_thDecoder;
 #else
@@ -1080,7 +1080,7 @@ public:
     PipelineTaskNVDecode(NVGPUInfo *dev, CuvidDecode *dec, int outMaxQueueSize, RGYInput *input, int64_t endPts, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::NVDEC, dev, outMaxQueueSize, false, threadParam, log), m_input(input), m_endPts(endPts), m_dec(dec),
         m_queueHDR10plusMetadata(), m_dataFlag(),
-        m_state(RGY_STATE_STOPPED), m_decOutFrames(0), m_hwDecFirstPts(AV_NOPTS_VALUE), m_preFirstFrameOut(0), m_thDecoder() {
+        m_state(RGY_STATE_STOPPED), m_decOutFrames(0), m_hwDecFirstPts(AV_NOPTS_VALUE), m_gotFrameAfterFirstPts(false), m_thDecoder() {
         m_queueHDR10plusMetadata.init(256);
         m_dataFlag.init();
     };
@@ -1206,7 +1206,8 @@ protected:
             return (m_state == RGY_STATE_EOF) ? RGY_ERR_MORE_BITSTREAM : RGY_ERR_UNKNOWN;
         }
 
-        CUVIDPARSERDISPINFO dispInfo = { 0 };
+        int istart = 0; // dispInfoListのうち、デコードを行う(m_outQeueueに追加する)フレームの開始idx
+        std::vector<CUVIDPARSERDISPINFO> dispInfoList;
         while (m_state == RGY_STATE_RUNNING) {
             if (m_dec->GetError()) {
                 m_state = RGY_STATE_ERROR;
@@ -1217,25 +1218,9 @@ protected:
                 return RGY_ERR_MORE_BITSTREAM;
             }
 
-            dispInfo = CUVIDPARSERDISPINFO{ 0 };
+            auto dispInfo = CUVIDPARSERDISPINFO{ 0 };
             if (!m_dec->frameQueue()->dequeue(&dispInfo)) {
                 m_dec->frameQueue()->waitForQueueUpdate();
-                continue;
-            }
-            // OpenGOP等でキーフレームより前のフレームのptsで出てくることがあるのを調整
-            // 実際に前のフレームが出ているのではなく、前のフレームのptsで出てきているだけ
-            // 次のフレームからはptsが正常に戻る
-            if (dispInfo.timestamp < m_hwDecFirstPts) {
-                if (m_preFirstFrameOut > 0) { // (ないと思うが)2回目以降はdropするしかない
-                    m_dec->frameQueue()->releaseFrame(&dispInfo);
-                    continue;
-                }
-                // 先頭のフレームとして扱う
-                dispInfo.timestamp = m_hwDecFirstPts;
-                m_preFirstFrameOut++;
-            } else if (m_preFirstFrameOut > 0 && dispInfo.timestamp <= m_hwDecFirstPts) {
-                // (ここに来ることはないと思うが)dropするしかない
-                m_dec->frameQueue()->releaseFrame(&dispInfo);
                 continue;
             }
             //cuvidのtimestampはかならず分子が1になっているのでもとに戻す
@@ -1248,37 +1233,65 @@ protected:
                 m_state = RGY_STATE_EOF;
                 return RGY_ERR_MORE_BITSTREAM;
             }
-            break;
+            dispInfoList.push_back(dispInfo);
+            // 一度でもフレームが出ている場合は、それ以降のフレームはチェックをskipする (wrap対策)
+            if (m_gotFrameAfterFirstPts) {
+                break;
+            }
+            // OpenGOP等でキーフレームより前のフレームのptsで出てくることがあるのを調整
+            // 実際に前のフレームが出ているのではなく、前のフレームのptsで出てきているだけの場合(パターンA[例: "Beauty_3840x2160_120fps_420_8bit_HEVC_MP4.mp4"の--seek 6.66667])もあるので注意が必要
+            // そうでなくキーフレームより前のフレームがたくさん出てきてしまう場合もある(パターンB [例: "720p - AVC - MP2 2.0 - ZDF HD.ts"の先頭から])
+            if (dispInfo.timestamp >= m_hwDecFirstPts || m_hwDecFirstPts == AV_NOPTS_VALUE) {
+                if (dispInfoList.size() > 1) {
+                    // 最終フレームがFirstPtsに一致していたらそこからデコード
+                    // 最終フレームがFirstPtsを超えていたらそのひとつ前からデコード
+                    const bool lastFrameIsOverFirstPts = dispInfo.timestamp > m_hwDecFirstPts;
+                    const int targetStart = (int)dispInfoList.size() - (lastFrameIsOverFirstPts ? 2 : 1);
+                    for (; istart < targetStart; istart++) {
+                        m_dec->frameQueue()->releaseFrame(&dispInfoList[istart]);
+                    }
+                }
+                m_gotFrameAfterFirstPts = true;
+                break;
+            }
+            // m_hwDecFirstPtsより前のフレームがたくさん出てきてしまうことがある
+            // m_hwDecFirstPtsより前のフレームはdropするしかない (そうしないとデコードがフレームバッファ不足で止まってしまう)
+            // 最後のフレームは、m_hwDecFirstPtsが出てこない場合に備えて残しておく
+            for (; istart < (int)dispInfoList.size() - 1; istart++) {
+                m_dec->frameQueue()->releaseFrame(&dispInfoList[istart]);
+            }
         }
+        for (; istart < (int)dispInfoList.size(); istart++) {
+            const auto& dispInfo = dispInfoList[istart];
+            auto inputPicstruct = (dispInfo.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((dispInfo.top_field_first) ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF);
+            auto flags = RGY_FRAME_FLAG_NONE;
+            if (dispInfo.repeat_first_field == 1) {
+                flags |= (dispInfo.top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
+            }
 
-        auto inputPicstruct = (dispInfo.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((dispInfo.top_field_first) ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF);
-        auto flags = RGY_FRAME_FLAG_NONE;
-        if (dispInfo.repeat_first_field == 1) {
-            flags |= (dispInfo.top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
-        }
+            NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+            auto surfDecOut = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), m_dec->GetDecFrameInfo(),
+                std::shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
+                // CUFrameCuvidのデストラクト時にreleaseFrameが呼ばれるようにしておく
+                PrintMes(RGY_LOG_TRACE, _T("Free input frame pic_idx %d, timestamp %lld\n"), ptr->picture_index, ptr->timestamp);
+                m_dec->frameQueue()->releaseFrame(ptr);
+                delete ptr;
+            }));
+            surfDecOut->setFlags(flags);
+            surfDecOut->setPicstruct(inputPicstruct);
+            surfDecOut->setTimestamp(dispInfo.timestamp);
+            surfDecOut->setInputFrameId(m_decOutFrames++);
+            surfDecOut->setFlags(getDataFlag(surfDecOut->timestamp()));
 
-        NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
-        auto surfDecOut = std::make_unique<CUFrameCuvid>(m_dec->GetDecoder(), m_dec->GetDecFrameInfo(),
-            std::shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
-            // CUFrameCuvidのデストラクト時にreleaseFrameが呼ばれるようにしておく
-            PrintMes(RGY_LOG_TRACE, _T("Free input frame pic_idx %d, timestamp %lld\n"), ptr->picture_index, ptr->timestamp);
-            m_dec->frameQueue()->releaseFrame(ptr);
-            delete ptr;
-        }));
-        surfDecOut->setFlags(flags);
-        surfDecOut->setPicstruct(inputPicstruct);
-        surfDecOut->setTimestamp(dispInfo.timestamp);
-        surfDecOut->setInputFrameId(m_decOutFrames++);
-        surfDecOut->setFlags(getDataFlag(surfDecOut->timestamp()));
-
-        surfDecOut->clearDataList();
-        if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOut->timestamp()); data) {
-            surfDecOut->dataList().push_back(data);
+            surfDecOut->clearDataList();
+            if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOut->timestamp()); data) {
+                surfDecOut->dataList().push_back(data);
+            }
+            if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOut->timestamp()); data) {
+                surfDecOut->dataList().push_back(data);
+            }
+            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), m_workSurfs.addSurface(surfDecOut)));
         }
-        if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOut->timestamp()); data) {
-            surfDecOut->dataList().push_back(data);
-        }
-        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_dev->vidCtxLock(), m_workSurfs.addSurface(surfDecOut)));
         return ret;
     }
     RGY_FRAME_FLAGS getDataFlag(const int64_t timestamp) {
