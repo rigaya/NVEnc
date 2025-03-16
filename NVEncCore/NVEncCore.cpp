@@ -1266,6 +1266,7 @@ RGY_ERR NVEncCore::Deinitialize() {
     m_pLastFilterParam.reset();
     m_deviceUsage.reset();
     m_pStatus.reset();
+    m_parallelEnc.reset();
     PrintMes(RGY_LOG_DEBUG, _T("Closed EncodeStatus.\n"));
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
