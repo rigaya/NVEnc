@@ -241,6 +241,10 @@ static uint32_t GetCurrentProcessId() {
     return (uint32_t)pid;
 }
 
+static uint32_t GetCurrentThreadId() {
+    return (uint32_t)pthread_self();
+}
+
 static pid_t GetCurrentProcess() {
     return getpid();
 }

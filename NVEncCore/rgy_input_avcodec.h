@@ -739,6 +739,7 @@ struct AVDemuxVideo {
     AVFrame                  *frame;                 //動画デコード用のフレーム
     int                       index;                 //動画のストリームID
     int64_t                   streamFirstKeyPts;     //動画ファイルの最初のpts
+    int64_t                   beforeSeekStreamFirstKeyPts; //シーク前の動画ファイルの最初のpts (checkTimeSeekToでしか使わないはず)
     AVPacket                 *firstPkt;              //動画の最初のpacket
     uint32_t                  streamPtsInvalid;      //動画ファイルのptsが無効 (H.264/ES, 等)
     int                       RFFEstimate;           //動画がRFFの可能性がある

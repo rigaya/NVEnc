@@ -118,6 +118,7 @@ AVDemuxVideo::AVDemuxVideo() :
     frame(nullptr),
     index(-1),
     streamFirstKeyPts(0),
+    beforeSeekStreamFirstKeyPts(0),
     firstPkt(nullptr),
     streamPtsInvalid(0),
     RFFEstimate(0),
@@ -2092,6 +2093,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_Demux.frames.clear();
             m_seek.first = (float)seek_sec;
             m_Demux.video.gotFirstKeyframe = false;
+            m_Demux.video.beforeSeekStreamFirstKeyPts = m_Demux.video.streamFirstKeyPts;
             m_Demux.video.streamFirstKeyPts = 0;
         }
 
@@ -2510,7 +2512,7 @@ bool RGYInputAvcodec::checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, f
     }
     const float pts_sec = pts * timebase.qfloat();
     const AVRational vid_pkt_timebase = (m_Demux.video.stream) ? m_Demux.video.stream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
-    const float vid_first_pts_sec = m_Demux.video.streamFirstKeyPts * vid_pkt_timebase.num / (float)vid_pkt_timebase.den;
+    const float vid_first_pts_sec = m_Demux.video.beforeSeekStreamFirstKeyPts * vid_pkt_timebase.num / (float)vid_pkt_timebase.den;
     return (pts_sec - vid_first_pts_sec) < m_seek.second + marginSec;
 }
 
