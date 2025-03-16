@@ -500,7 +500,7 @@ RGY_ERR RGYOutput::InsertMetadata(RGYBitstream *bitstream, std::vector<std::uniq
             }
             bitstream->append(av1_units[i]->unit_data.data(), av1_units[i]->unit_data.size());
             if (av1_units[i]->type == OBU_TEMPORAL_DELIMITER || av1_units[i]->type == OBU_SEQUENCE_HEADER) {
-                if (i + 1 < av1_units.size()
+                if (i + 1 < (int)av1_units.size()
                     && (av1_units[i + 1]->type != OBU_TEMPORAL_DELIMITER && av1_units[i + 1]->type != OBU_SEQUENCE_HEADER)) {
                     for (auto& metadata : metadataList) {
                         if (!metadata->written && metadata->pos == RGYOutputInsertMetadataPosition::Prefix) {

@@ -170,7 +170,7 @@ public:
     void add(int64_t ts) {
         m_ts[m_idx] = ts;
         m_idx++;
-        if (m_idx >= m_ts.size()) {
+        if (m_idx >= (int)m_ts.size()) {
             std::sort(m_ts.begin(), m_ts.end());
             // [ 0 - 1 ] ... [ 30 - 31 ] までのフレーム長さをチェック
             for (size_t i = 1; i < m_ts.size() / 2; i++) {
