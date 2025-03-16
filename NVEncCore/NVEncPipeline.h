@@ -1250,6 +1250,10 @@ protected:
                     for (; istart < targetStart; istart++) {
                         m_dec->frameQueue()->releaseFrame(&dispInfoList[istart]);
                     }
+                    if (targetStart >= 0 && lastFrameIsOverFirstPts) {
+                        // パターンAなので、最初のフレームのtimestampを修正する
+                        dispInfoList[targetStart].timestamp = m_hwDecFirstPts;
+                    }
                 }
                 m_gotFrameAfterFirstPts = true;
                 break;
