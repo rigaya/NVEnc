@@ -56,6 +56,11 @@ using encParams = InEncodeVideoParam;
 class NVEncCore;
 using encCore = NVEncCore;
 #elif ENCODER_VCEENC
+struct VCEParam;
+using encParams = VCEParam;
+
+class VCECore;
+using encCore = VCECore;
 #elif ENCODER_RKMPP
 #endif
 

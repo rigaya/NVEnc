@@ -34,6 +34,7 @@
 #elif ENCODER_NVENC
 #include "NVEncCore.h"
 #elif ENCODER_VCEENC
+#include "vce_core.h"
 #elif ENCODER_RKMPP
 #endif
 
@@ -127,7 +128,11 @@ RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
 
     encParams encParam = peParams;
     encParam.ctrl.parallelEnc.sendData = &m_sendData;
+#if ENCODER_QSV || ENCODER_NVENC
     auto sts = m_process->Init(&encParam);
+#elif ENCODER_VCEENC
+    auto sts = m_process->init(&encParam);
+#endif
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -141,6 +146,10 @@ RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
 #elif ENCODER_NVENC
     if ((sts = m_process->Encode()) == RGY_ERR_NONE) {
         m_process->Deinitialize();
+    }
+#elif ENCODER_VCEENC
+    if ((sts = m_process->run2()) == RGY_ERR_NONE) {
+        m_process->Terminate();
     }
 #endif
     m_process.reset();
