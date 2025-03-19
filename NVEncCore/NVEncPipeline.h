@@ -1115,7 +1115,7 @@ public:
                     m_dec->frameQueue()->releaseFrame(&pInfo);
                 }
             }
-            while (RGYThreadStillActive(m_thDecoder.native_handle())) {
+            while (m_thDecoder.native_handle() && RGYThreadStillActive(m_thDecoder.native_handle())) {
 #endif
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
             }
@@ -1221,6 +1221,11 @@ protected:
             auto dispInfo = CUVIDPARSERDISPINFO{ 0 };
             if (!m_dec->frameQueue()->dequeue(&dispInfo)) {
                 m_dec->frameQueue()->waitForQueueUpdate();
+                if (m_thDecoder.native_handle() && !RGYThreadStillActive(m_thDecoder.native_handle())) {
+                    PrintMes(RGY_LOG_ERROR, _T("Decode thread is not responding.\n"));
+                    m_state = RGY_STATE_ERROR;
+                    return RGY_ERR_UNKNOWN;
+                }
                 continue;
             }
             //cuvidのtimestampはかならず分子が1になっているのでもとに戻す
@@ -2493,6 +2498,8 @@ protected:
     std::vector<int>& m_keyFile;
     bool m_keyOnChapter;
     std::vector<std::unique_ptr<AVChapter>>& m_Chapters;
+    std::thread m_threadOutput;
+    std::promise<RGY_ERR> m_threadOutputPromise;
     std::future<RGY_ERR> m_threadOutputFuture;
     std::optional<RGY_ERR> m_threadOutputResult;
     bool m_threadOutputAbort;
@@ -2508,13 +2515,16 @@ public:
         m_stEncConfig(stEncConfig), m_stCreateEncodeParams(stCreateEncodeParams),
         m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
         m_bitStreamOut(), m_hdr10plus(hdr10plus), m_doviRpu(doviRpu), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1), m_keyFile(keyFile), m_keyOnChapter(keyOnChapter), m_Chapters(chapters),
-        m_threadOutputFuture(), m_threadOutputResult(), m_threadOutputAbort(false) {
+        m_threadOutput(), m_threadOutputPromise(), m_threadOutputFuture(), m_threadOutputResult(), m_threadOutputAbort(false) {
         runThreadOutput();
     };
     virtual ~PipelineTaskNVEncode() {
         flushEncoder();
         m_threadOutputAbort = true;
         getOutputThreadResult(30 * 1000);
+        if (m_threadOutput.joinable()) {
+            m_threadOutput.join();
+        }
         m_outQeueue.clear(); // m_bitStreamOutが解放されるより前にこちらを解放する
     };
 
@@ -2526,9 +2536,14 @@ public:
 
     std::optional<RGY_ERR> getOutputThreadResult(int timeout) {
         if (m_threadOutputResult.has_value()) return m_threadOutputResult;
-        auto status = m_threadOutputFuture.wait_for(std::chrono::milliseconds(timeout));
+        const auto status = m_threadOutputFuture.wait_for(std::chrono::milliseconds(timeout));
         if (status == std::future_status::ready) {
             m_threadOutputResult = m_threadOutputFuture.get();
+        } else if (m_threadOutput.native_handle()) {
+            const bool threadActive = RGYThreadStillActive(m_threadOutput.native_handle());
+            if (!threadActive) {
+                m_threadOutputResult = RGY_ERR_UNKNOWN;
+            }
         }
         return m_threadOutputResult;
     }
@@ -2575,50 +2590,68 @@ protected:
         return { RGY_ERR_NONE, output };
     }
 
-    RGY_ERR runThreadOutput() {
-        m_threadOutputFuture = std::async(std::launch::async, [this]() {
-            m_threadParam.apply(GetCurrentThread());
-            while (!m_threadOutputAbort) {
-                struct CUFrameEncAutoDelete {
-                    RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree;
-                    CUFrameEncAutoDelete(RGYQueueMPMP<CUFrameEnc *>& q) : qEncodeBufferFree(q) {};;
-                    void operator()(CUFrameEnc* p) { if (p) qEncodeBufferFree.push(p); }
-                };
-                std::unique_ptr<CUFrameEnc, CUFrameEncAutoDelete> frameEnc(nullptr, CUFrameEncAutoDelete(m_runCtx->qEncodeBufferFree()));
-                {
-                    CUFrameEnc *frameEncPtr = nullptr;
-                    while (!m_runCtx->qEncodeBufferUsed().front_copy_and_pop_no_lock(&frameEncPtr)) {
-                        m_runCtx->qEncodeBufferUsed().wait_for_push(); // 最大16ms待機
-                        if (m_threadOutputAbort) {
-                            return RGY_ERR_ABORTED;
-                        }
+    RGY_ERR outputThreadFunc() {
+        m_threadParam.apply(GetCurrentThread());
+        while (!m_threadOutputAbort) {
+            struct CUFrameEncAutoDelete {
+                RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree;
+                CUFrameEncAutoDelete(RGYQueueMPMP<CUFrameEnc *>& q) : qEncodeBufferFree(q) {};;
+                void operator()(CUFrameEnc* p) { if (p) qEncodeBufferFree.push(p); }
+            };
+            std::unique_ptr<CUFrameEnc, CUFrameEncAutoDelete> frameEnc(nullptr, CUFrameEncAutoDelete(m_runCtx->qEncodeBufferFree()));
+            {
+                CUFrameEnc *frameEncPtr = nullptr;
+                while (!m_runCtx->qEncodeBufferUsed().front_copy_and_pop_no_lock(&frameEncPtr)) {
+                    m_runCtx->qEncodeBufferUsed().wait_for_push(); // 最大16ms待機
+                    if (m_threadOutputAbort) {
+                        return RGY_ERR_ABORTED;
                     }
-                    if (!frameEncPtr) {
-                        continue;
-                    }
-                    frameEnc.reset(frameEncPtr);
                 }
-                auto outBs = getOutputBitstream(frameEnc->encBuffer());
-                if (outBs.first != RGY_ERR_NONE) {
-                    if (outBs.first == RGY_ERR_MORE_DATA) {
-                        PrintMes(RGY_LOG_DEBUG, _T("Output thread reached EOS.\n"));
-                    } else {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to get output bitstream: %s.\n"), get_err_mes(outBs.first));
-                    }
-                    return outBs.first;
+                if (!frameEncPtr) {
+                    continue;
                 }
-                frameEnc.reset();
-                {
-                    // m_outQeueueへのロックが必要ならロックを取得
-                    std::optional<std::lock_guard<std::mutex>> lock;
-                    if (m_outQeueueMtx) {
-                        lock.emplace(*m_outQeueueMtx);
-                    }
-                    m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(outBs.second));
-                }
+                frameEnc.reset(frameEncPtr);
             }
-            PrintMes(RGY_LOG_DEBUG, _T("Output thread finished.\n"));
-            return RGY_ERR_NONE;
+            auto outBs = getOutputBitstream(frameEnc->encBuffer());
+            if (outBs.first != RGY_ERR_NONE) {
+                if (outBs.first == RGY_ERR_MORE_DATA) {
+                    PrintMes(RGY_LOG_DEBUG, _T("Output thread reached EOS.\n"));
+                } else {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get output bitstream: %s.\n"), get_err_mes(outBs.first));
+                }
+                return outBs.first;
+            }
+            frameEnc.reset();
+            {
+                // m_outQeueueへのロックが必要ならロックを取得
+                std::optional<std::lock_guard<std::mutex>> lock;
+                if (m_outQeueueMtx) {
+                    lock.emplace(*m_outQeueueMtx);
+                }
+                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(outBs.second));
+            }
+        }
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR runThreadOutput() {
+        m_threadOutputFuture = m_threadOutputPromise.get_future();
+        m_threadOutput = std::thread([this]() {
+            auto err = RGY_ERR_NONE;
+            try {
+                err = outputThreadFunc();
+            } catch (const std::exception &e) {
+                PrintMes(RGY_LOG_ERROR, _T("Output thread failed: %s.\n"), e.what());
+                err = RGY_ERR_UNKNOWN;
+            } catch (...) {
+                PrintMes(RGY_LOG_ERROR, _T("Output thread failed.\n"));
+                err = RGY_ERR_UNKNOWN;
+            }
+            if (err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_BITSTREAM) {
+                err = RGY_ERR_NONE;
+            }
+            m_threadOutputPromise.set_value(err);
+            PrintMes(err == RGY_ERR_NONE ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("Output thread finished: %s.\n"), get_err_mes(err));
         });
         return RGY_ERR_NONE;
     }

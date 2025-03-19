@@ -246,6 +246,18 @@ RGY_ERR RGYParallelEncProcess::sendEndPts(const int64_t endPts) {
     return RGY_ERR_NONE;
 }
 
+std::optional<RGY_ERR> RGYParallelEncProcess::getThreadRunResult() {
+    if (!m_thRunProcessRet.has_value() && m_thRunProcess.native_handle()) {
+        const bool threadActive = RGYThreadStillActive(m_thRunProcess.native_handle());
+        if (!threadActive) {
+            m_thRunProcessRet = RGY_ERR_UNKNOWN;
+            m_sendData.processStatus = RGYParallelEncProcessStatus::Finished;
+            SetEvent(m_processFinished.get());
+        }
+    }
+    return m_thRunProcessRet;
+}
+
 int RGYParallelEncProcess::waitProcessFinished(const uint32_t timeout) {
     if (!m_processFinished) {
         return -1;
@@ -330,12 +342,12 @@ std::optional<RGY_ERR> RGYParallelEnc::processReturnCode(const int id) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parallel id #%d for processReturnCode.\n"), id);
         return std::nullopt;
     }
-    return m_encProcess[id]->processReturnCode();
+    return m_encProcess[id]->getThreadRunResult();
 }
 
-RGY_ERR RGYParallelEnc::checkAllProcessErrors() const {
+RGY_ERR RGYParallelEnc::checkAllProcessErrors() {
     for (const auto& proc : m_encProcess) {
-        auto returnCode = proc->processReturnCode();
+        auto returnCode = proc->getThreadRunResult();
         if (returnCode.has_value() && returnCode.value() != RGY_ERR_NONE) {
             return returnCode.value();
         }
@@ -451,9 +463,9 @@ RGY_ERR RGYParallelEnc::startChunkProcess(const int ip, const encParams *prm, in
     }
     // 起動したプロセスから最初のキーフレームのptsを取得
     while (process->waitProcessStarted(16)) {
-        if (process->processStatus() == RGYParallelEncProcessStatus::Finished) {
-            process->waitProcessFinished(INFINITE);
-            return process->processReturnCode().value_or(RGY_ERR_UNKNOWN);
+        const auto ret = process->getThreadRunResult();
+        if (ret.has_value() || process->processStatus() == RGYParallelEncProcessStatus::Finished) {
+            return ret.value_or(RGY_ERR_UNKNOWN);
         }
     }
     const auto firstKeyPts = process->getVideoFirstKeyPts();
