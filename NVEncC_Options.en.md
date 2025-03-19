@@ -3104,6 +3104,8 @@ Set path to the model folder of Video Effect models.
 ### --parallel [&lt;int&gt;] or [&lt;string&gt;]
 Enables parallel encoding by file splitting. Divides the input file into multiple chunks and encodes them in parallel using separate threads to accelerate processing.
 
+Max parallel counts available is ```max((NVENC encoder num available on system)*2, 4)```.
+
 - **Restrictions**
 
   Parallel encoding will be automatically disabled in the following cases:
@@ -3136,6 +3138,7 @@ Enables parallel encoding by file splitting. Divides the input file into multipl
   |                   | --split-enc <br> (Frame-split encoding) | --parallel <br> (File-split encoding) |
   | :--:              |:--:                                     |:--:                                   |
   | Parallel          |Encode only                             | Read/Decode<br>Filter/Encode         | 
+  | Supported readers |All                                     | avsw / avhw / avs / vpy              |
   | Supported codecs  |HEVC/AV1                                | All                                  | 
   | Multi-GPU         |Not supported                           | Supported                            | 
   | Compression loss  |Small                                   | Minimal                              | 
