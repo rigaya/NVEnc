@@ -3105,6 +3105,7 @@ Set path to the model folder of Video Effect models.
 Enables parallel encoding by file splitting. Divides the input file into multiple chunks and encodes them in parallel using separate threads to accelerate processing.
 
 - **Restrictions**
+
   Parallel encoding will be automatically disabled in the following cases:
   - Input is from pipe
   - Input is not seekable
@@ -3127,6 +3128,21 @@ Enables parallel encoding by file splitting. Divides the input file into multipl
   Example: Run with 3 parallel threads
   --parallel 3
   ```
+
+- **Compared to --split-enc (Frame-split encoding)**
+
+  <img width="720" src="./data/nvencc_parallel_encode_20250320_en.png">
+  
+  |                   | --split-enc <br> (Frame-split encoding) | --parallel <br> (File-split encoding) |
+  | :--:              |:--:                                     |:--:                                   |
+  | Parallel          |Encode only                             | Read/Decode<br>Filter/Encode         | 
+  | Supported codecs  |HEVC/AV1                                | All                                  | 
+  | Multi-GPU         |Not supported                           | Supported                            | 
+  | Compression loss  |Small                                   | Minimal                              | 
+  | Restrictions      |None                                    | Many (as mentioned above)            |
+  | RAM Usage         |Normal                                  | High                                 |
+
+
 
 ### --cuda-schedule &lt;string&gt;
   Change the behavior of the CPU when waiting for GPU task completion. The default is auto.
