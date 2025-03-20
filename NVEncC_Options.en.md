@@ -3104,7 +3104,8 @@ Set path to the model folder of Video Effect models.
 ### --parallel [&lt;int&gt;] or [&lt;string&gt;]
 Enables parallel encoding by file splitting. Divides the input file into multiple chunks and encodes them in parallel using separate threads to accelerate processing.
 
-Max parallel counts available is ```max((NVENC encoder num available on system)*2, 4)```.
+
+In most cases, it is recommended to use parallel counts below the encoder count available on system. Max parallel counts available is ```max((NVENC encoder num available on system)*2, 4)```.
 
 - **Restrictions**
 
