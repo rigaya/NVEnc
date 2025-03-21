@@ -3114,6 +3114,7 @@ In most cases, it is recommended to use parallel counts below the encoder count 
   - Input is not seekable
   - Frame timestamps are unstable
   - No encoding is performed (-c raw)
+  - --dynamic-rc is enabled
   - --trim option is enabled
   - --timecode option is specified
   - --tcfile-in option is specified

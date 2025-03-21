@@ -387,6 +387,11 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
     if (prm->common.nTrimCount != 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --trim is eanbled.\n") };
     }
+#if ENCODER_QSV || ENCODER_NVENC
+    if (prm->dynamicRC.size() > 0) {
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --dynamic-rc is eanbled.\n") };
+    }
+#endif
     if (prm->common.timecodeFile.length() != 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --timecode is specified.\n") };
     }
