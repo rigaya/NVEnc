@@ -463,40 +463,44 @@ std::vector<uint8_t> RGYHDRMetadata::gen_obu() const {
     return data;
 }
 
-int convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm) {
+std::pair<int, std::string> convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm) {
+    std::string err_mes;
 #if ENABLE_LIBDOVI
     if (!prm) {
-        return 0;
+        return { 0, err_mes };
     }
     if (data.size() == 0) {
-        return 0;
+        return { 0, err_mes };
     }
     if (prm->convertProfile || prm->activeAreaOffsets.enable || prm->removeMapping) {
         std::unique_ptr<DoviRpuOpaque, decltype(&dovi_rpu_free)> rpu(dovi_parse_rpu(data.data(), data.size()), dovi_rpu_free);
         if (!rpu) {
-            return 1;
+            return { 1, dovi_rpu_get_error(rpu.get()) };
         }
         std::unique_ptr<const DoviRpuDataHeader, decltype(&dovi_rpu_free_header)> header(dovi_rpu_get_header(rpu.get()), dovi_rpu_free_header);
         if (!header) {
-            return 1;
+            return { 1, dovi_rpu_get_error(rpu.get()) };
         }
         bool converted = false;
         const auto dovi_profile = header->guessed_profile;
         auto doviProfileSrc = RGY_DOVI_PROFILE_OTHER;
         switch (dovi_profile) {
-        case 5: doviProfileSrc = RGY_DOVI_PROFILE_50; break;
-        case 7: doviProfileSrc = RGY_DOVI_PROFILE_70; break;
-        case 8: doviProfileSrc = RGY_DOVI_PROFILE_81; break;
+        case 5:  doviProfileSrc = RGY_DOVI_PROFILE_50; break;
+        case 7:  doviProfileSrc = RGY_DOVI_PROFILE_70; break;
+        case 8:  doviProfileSrc = RGY_DOVI_PROFILE_81; break;
+        case 10: doviProfileSrc = RGY_DOVI_PROFILE_100; break;
         default: doviProfileSrc = RGY_DOVI_PROFILE_OTHER; break;
         }
         if (prm->convertProfile
             && ((doviProfileDst != doviProfileSrc
                 && doviProfileDst == RGY_DOVI_PROFILE_81
-                && doviProfileSrc != RGY_DOVI_PROFILE_OTHER) // dovi_convert_rpu_with_modeのmode=2が対応しているのは profile 5, 7, 8 のみ
+                && (doviProfileSrc != RGY_DOVI_PROFILE_OTHER
+                 && doviProfileSrc != RGY_DOVI_PROFILE_81
+                 && doviProfileSrc != RGY_DOVI_PROFILE_100)) // dovi_convert_rpu_with_modeのmode=2が対応しているのは profile 5, 7, 8 のみ
              || (dovi_profile == 7 && doviProfileDst == RGY_DOVI_PROFILE_COPY))) {
             const int ret = dovi_convert_rpu_with_mode(rpu.get(), 2);
             if (ret != 0) {
-                return 1;
+                return { 1, dovi_rpu_get_error(rpu.get()) };
             }
             converted = true;
         }
@@ -512,15 +516,15 @@ int convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfil
         if (converted) {
             std::unique_ptr<const DoviData, decltype(&dovi_data_free)> rpu_data(dovi_write_rpu(rpu.get()), dovi_data_free);
             if (!rpu_data) {
-                return 1;
+                return { 1, dovi_rpu_get_error(rpu.get()) };
             }
             data.resize(rpu_data->len);
             memcpy(data.data(), rpu_data->data, rpu_data->len);
         }
     }
-    return 0;
+    return { 0, err_mes };
 #else
-    return (prm) ? 1 : 0;
+    return (prm) ? { 1, "libdovi not supported with this build." } : { 0, err_mes };
 #endif // ENABLE_LIBDOVI
 }
 
@@ -598,7 +602,7 @@ int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile dovi
     bytes = unnal(tmpbuf.data(), tmpbuf.size());
     m_dataoffset += next_size;
     m_datasize -= next_size;
-    return convert_dovi_rpu(bytes, doviProfileDst, prm);
+    return convert_dovi_rpu(bytes, doviProfileDst, prm).first;
 }
 
 int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id) {

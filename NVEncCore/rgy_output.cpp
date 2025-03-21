@@ -341,7 +341,7 @@ std::pair<RGY_ERR, std::vector<uint8_t>> RGYOutput::getMetadata(const RGYFrameDa
             AddMessage(RGY_LOG_ERROR, _T("Invalid cast to %s metadata.\n"));
             return { RGY_ERR_UNSUPPORTED, metadata };
         }
-        if (auto sts = frameDataPtr->convert(convPrm); sts != RGY_ERR_NONE) {
+        if (auto sts = frameDataPtr->convert(convPrm, m_printMes.get()); sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to convert metadata: %s.\n"), get_err_mes(sts));
             return { sts, metadata };
         }

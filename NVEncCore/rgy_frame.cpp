@@ -27,6 +27,7 @@
 
 #include "rgy_util.h"
 #include "rgy_frame.h"
+#include "rgy_log.h"
 #if !CLFILTERS_AUF
 #include "rgy_bitstream.h"
 #endif
@@ -186,11 +187,12 @@ RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu(const uint8_t *data, size_t size, int64
 
 RGYFrameDataDOVIRpu::~RGYFrameDataDOVIRpu() { }
 
-RGY_ERR RGYFrameDataDOVIRpu::convert(const RGYFrameDataMetadataConvertParam *metadataprm) {
+RGY_ERR RGYFrameDataDOVIRpu::convert(const RGYFrameDataMetadataConvertParam *metadataprm, RGYLog *log) {
     auto prm = dynamic_cast<const RGYFrameDataDOVIRpuConvertParam*>(metadataprm);
 
-    int ret = convert_dovi_rpu(m_data, prm->doviProfileDst, prm->doviRpu());
+    auto [ ret, err_mes ] = convert_dovi_rpu(m_data, prm->doviProfileDst, prm->doviRpu());
     if (ret) {
+        log->write_log(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Failed to convert dovi rpu: %s\n"), char_to_tstring(err_mes).c_str());
         return RGY_ERR_UNKNOWN;
     }
     return RGY_ERR_NONE;

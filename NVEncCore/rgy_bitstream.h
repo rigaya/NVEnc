@@ -322,7 +322,7 @@ static const uint8_t av1_itut_t35_header_dovirpu[] = {
 
 const DOVIProfile *getDOVIProfile(const int id);
 
-int convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm);
+std::pair<int, std::string> convert_dovi_rpu(std::vector<uint8_t>& data, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm);
 
 class DOVIRpu {
 public:
