@@ -964,6 +964,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 #if LIBAVUTIL_DOVI_META_AVAIL
         std::unique_ptr<AVDOVIDecoderConfigurationRecord, RGYAVDeleter<AVDOVIDecoderConfigurationRecord>> doviconf;
         if (prm->videoInputStream) {
+            // まず入力ファイルのdovi profileを読み取る
             size_t side_data_size = 0;
             doviconf = AVStreamGetSideData<AVDOVIDecoderConfigurationRecord>(prm->videoInputStream, AV_PKT_DATA_DOVI_CONF, side_data_size);
             if (doviconf) {
@@ -1015,6 +1016,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             }
         }
         if (prm->doviProfile != RGY_DOVI_PROFILE_COPY) {
+            // コピーでない場合はコンテナに設定するdovi profileを新規作成あるいは上書きする
             size_t conf_size = 0;
             doviconf = std::unique_ptr<AVDOVIDecoderConfigurationRecord, RGYAVDeleter<AVDOVIDecoderConfigurationRecord>>(av_dovi_alloc(&conf_size), RGYAVDeleter<AVDOVIDecoderConfigurationRecord>(av_freep));
             doviconf->dv_version_major = 1;
@@ -1055,7 +1057,14 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_DOVI_CONF from input\n"));
             doviconf.reset();
         }
-        if (m_Mux.video.doviProfileSrc == m_Mux.video.doviProfileDst) {
+        if (   m_Mux.video.doviProfileSrc == m_Mux.video.doviProfileDst // 入出力が同じなら変換しない
+            || (    m_Mux.video.doviProfileSrc == RGY_DOVI_PROFILE_81 //profile 8.x(HEVC) や 10.x(AV1) は変換しない
+                 || m_Mux.video.doviProfileSrc == RGY_DOVI_PROFILE_82
+                 || m_Mux.video.doviProfileSrc == RGY_DOVI_PROFILE_84
+                 || m_Mux.video.doviProfileSrc == RGY_DOVI_PROFILE_100
+                 || m_Mux.video.doviProfileSrc == RGY_DOVI_PROFILE_101
+                 || m_Mux.video.doviProfileSrc == RGY_DOVI_PROFILE_102
+                 || m_Mux.video.doviProfileSrc == RGY_DOVI_PROFILE_104)) {
             m_Mux.video.doviRpuConvertParam.convertProfile = false;
         }
 #else
