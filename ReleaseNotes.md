@@ -1,6 +1,10 @@
 # NVEnc Release Notes
 
-# 8.00beta6
+## 8.00beta7
+
+- Fix crush when using ([--parallel](./NVEncC_Options.en.md#--parallel-int-or-param1value1param2value2)).
+
+## 8.00beta6
 
 - Add parallel encoding feature with file splitting. ([--parallel](./NVEncC_Options.en.md#--parallel-int-or-param1value1param2value2))
 - Add support for ISO 639-2 T-codes in language code specification. ( #674 )

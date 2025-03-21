@@ -763,32 +763,34 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
     if (inputParam->ctrl.parallelEnc.isParent() && m_deviceUsage) {
         m_deviceUsage->close();
     }
-    const int encoderCount = std::max(std::accumulate(gpuList.begin(), gpuList.end(), 0, [&](int sum, const auto& gpu) {
-                return sum + ((gpu) ? gpu->encoder_count(m_stCodecGUID) : 0);
-            }) + m_dev->encoder_count(m_stCodecGUID), (int)gpuList.size());
-    // とんでもなく大きい値にする人がいそうなので、適当に制限する
-    const int maxParallelCount = std::max(4, encoderCount * 2);
-    // nvvfx, ngx使用時はGPUメモリ使用量の問題があるため、GPUにつき1スレッドに制限する
-    const bool limitOnePerGPU = inputParam->vppnv.nvvfxArtifactReduction.enable
-        || inputParam->vppnv.nvvfxDenoise.enable
-        || inputParam->vppnv.ngxTrueHDR.enable
-        || isNvvfxResizeFiter(inputParam->vpp.resize_algo)
-        || isNgxResizeFiter(inputParam->vpp.resize_algo);
-    if (inputParam->ctrl.parallelEnc.parallelCount < 0) {
-        inputParam->ctrl.parallelEnc.parallelCount = (limitOnePerGPU) ? (int)gpuList.size() : encoderCount;
-        PrintMes(RGY_LOG_DEBUG, _T("parallelCount set to %d\n"), inputParam->ctrl.parallelEnc.parallelCount);
-    } else if (limitOnePerGPU && inputParam->ctrl.parallelEnc.parallelCount > (int)gpuList.size()) {
-        inputParam->ctrl.parallelEnc.parallelCount = (int)gpuList.size();
-        if (inputParam->ctrl.parallelEnc.parallelCount <= 1) {
-            PrintMes(RGY_LOG_WARN, _T("Parallel encoding disabled, as nvvfx/ngx filter is enabled, which has large GPU RAM usage.\n"));
-            inputParam->ctrl.parallelEnc.parallelCount = 0;
-            inputParam->ctrl.parallelEnc.parallelId = -1;
-            return RGY_ERR_NONE;
+    if (inputParam->ctrl.parallelEnc.isParent()) {
+        const int encoderCount = std::max(std::accumulate(gpuList.begin(), gpuList.end(), 0, [&](int sum, const auto& gpu) {
+            return sum + ((gpu) ? gpu->encoder_count(codec_guid_rgy_to_enc(inputParam->codec_rgy)) : 0);
+            }) + m_dev->encoder_count(codec_guid_rgy_to_enc(inputParam->codec_rgy)), (int)gpuList.size());
+        // とんでもなく大きい値にする人がいそうなので、適当に制限する
+        const int maxParallelCount = std::max(4, encoderCount * 2);
+        // nvvfx, ngx使用時はGPUメモリ使用量の問題があるため、GPUにつき1スレッドに制限する
+        const bool limitOnePerGPU = inputParam->vppnv.nvvfxArtifactReduction.enable
+            || inputParam->vppnv.nvvfxDenoise.enable
+            || inputParam->vppnv.ngxTrueHDR.enable
+            || isNvvfxResizeFiter(inputParam->vpp.resize_algo)
+            || isNgxResizeFiter(inputParam->vpp.resize_algo);
+        if (inputParam->ctrl.parallelEnc.parallelCount < 0) {
+            inputParam->ctrl.parallelEnc.parallelCount = (limitOnePerGPU) ? (int)gpuList.size() : encoderCount;
+            PrintMes(RGY_LOG_DEBUG, _T("parallelCount set to %d\n"), inputParam->ctrl.parallelEnc.parallelCount);
+        } else if (limitOnePerGPU && inputParam->ctrl.parallelEnc.parallelCount > (int)gpuList.size()) {
+            inputParam->ctrl.parallelEnc.parallelCount = (int)gpuList.size();
+            if (inputParam->ctrl.parallelEnc.parallelCount <= 1) {
+                PrintMes(RGY_LOG_WARN, _T("Parallel encoding disabled, as nvvfx/ngx filter is enabled, which has large GPU RAM usage.\n"));
+                inputParam->ctrl.parallelEnc.parallelCount = 0;
+                inputParam->ctrl.parallelEnc.parallelId = -1;
+                return RGY_ERR_NONE;
+            }
+            PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d, as nvvfx/ngx filter is enabled, which has large GPU RAM usage.\n"), inputParam->ctrl.parallelEnc.parallelCount);
+        } else if (inputParam->ctrl.parallelEnc.parallelCount > maxParallelCount) {
+            inputParam->ctrl.parallelEnc.parallelCount = maxParallelCount;
+            PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d.\n"), inputParam->ctrl.parallelEnc.parallelCount);
         }
-        PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d, as nvvfx/ngx filter is enabled, which has large GPU RAM usage.\n"), inputParam->ctrl.parallelEnc.parallelCount);
-    } else if (inputParam->ctrl.parallelEnc.parallelCount > maxParallelCount) {
-        inputParam->ctrl.parallelEnc.parallelCount = maxParallelCount;
-        PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d.\n"), inputParam->ctrl.parallelEnc.parallelCount);
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pLog);
     if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {
