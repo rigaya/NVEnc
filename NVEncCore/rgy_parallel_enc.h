@@ -61,7 +61,12 @@ using encParams = VCEParam;
 
 class VCECore;
 using encCore = VCECore;
-#elif ENCODER_RKMPP
+#elif ENCODER_MPP
+struct MPPParam;
+using encParams = MPPParam;
+
+class MPPCore;
+using encCore = MPPCore;
 #endif
 
 class RGYParallelEncodeStatusData {

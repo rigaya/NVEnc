@@ -7065,7 +7065,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->enableVulkan = true;
         return 0;
     }
-    if (IS_OPTION("parallel")) {
+    if (IS_OPTION("parallel") && ENABLE_PARALLEL_ENC) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -9572,7 +9572,7 @@ tstring gen_cmd_help_vpp() {
 
 tstring gen_cmd_help_ctrl() {
     tstring str = strsprintf(_T("\n")
-#if ENCODER_QSV || ENCODER_NVENC || ENCODER_VCEENC
+#if ENABLE_PARALLEL_ENC
         _T("   --parallel <int> or auto     Enable parallel encoding by file splitting.\n")
 #endif
         _T("   --log <string>               set log file name\n")

@@ -35,7 +35,8 @@
 #include "NVEncCore.h"
 #elif ENCODER_VCEENC
 #include "vce_core.h"
-#elif ENCODER_RKMPP
+#elif ENCODER_MPP
+#include "mpp_core.h"
 #endif
 
 static const int RGY_PARALLEL_ENC_TIMEOUT = 10000;
@@ -123,6 +124,7 @@ RGY_ERR RGYParallelEncProcess::close(const bool deleteTempFiles) {
 }
 
 RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
+#if ENABLE_PARALLEL_ENC
     m_process = std::make_unique<encCore>();
     m_cacheMode = peParams.ctrl.parallelEnc.cacheMode;
 
@@ -155,6 +157,9 @@ RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
     m_process.reset();
     m_sendData.logMutex.reset();
     return sts;
+#else
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
