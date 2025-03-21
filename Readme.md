@@ -29,50 +29,8 @@ Linux (x64/aarch64)
 Aviutl 1.00 or later (NVEnc.auo)  
 Hardware which supports NVENC  
   NVIDIA GPU GeForce Late Kepler gen or later (GK110, GK208, GK210 or later)  
-  ※ Since GT 63x, 62x etc. are renames of the Fermi generation, they cannot run NVEnc.
-
-| NVEnc               | Supported NVENC API | Required graphics driver version       |
-|:----------------- |:------------------ |:----------------------------        |
-| NVEnc 0.00 or later | 4.0              | NVIDIA graphics driver 334.89 or later |
-| NVEnc 1.00 or later | 5.0              | NVIDIA graphics driver 347.09 or later |
-| NVEnc 2.00 or later | 6.0              | NVIDIA graphics driver 358 or later    |
-| NVEnc 2.08 or later | 7.0              | NVIDIA graphics driver 368.69 or later |
-| NVEnc 3.02 or later | 7.0              | NVIDIA graphics driver 369.30 or later |
-| NVEnc 3.08 or later | 8.0              | NVIDIA graphics driver 378.66 or later |
-| NVEnc 4.00 or later | 8.1              | NVIDIA graphics driver 390.77 or later |
-| NVEnc 4.31 or later | 9.0              | NVIDIA graphics driver 418.81 or later |
-| NVEnc 4.51 or later | 9.1              | NVIDIA graphics driver 436.15 or later |
-| NVEnc 5.10 or later | 9.0 - 10.0       | NVIDIA graphics driver 418.81 or later |
-| NVEnc 5.18 or later | 9.0 - 11.0       | NVIDIA graphics driver 418.81 or later |
-| NVEnc 5.24 or later | 9.0 - 11.0       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
-| NVEnc 5.36 or later | 9.0 - 11.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
-| NVEnc 7.00 or later | 9.0 - 12.0       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
-| NVEnc 7.26 or later | 9.0 - 12.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
-| NVEnc 7.49 or later | 9.0 - 12.2       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
-| NVEnc 8.00 or later | 10.0 - 13.0      | NVIDIA graphics driver 452.39 or later |
-
-| Supported NVENC API | Required graphics driver version |
-|:-------------- |:--------------------------------- |
-| 9.0  | NVIDIA graphics driver (Win 418.81 / Linux 418.30) or later |
-| 9.1  | NVIDIA graphics driver (Win 436.15 / Linux 435.21) or later |
-| 10.0 | NVIDIA graphics driver (Win 445.87 / Linux 450.51) or later |
-| 11.0 | NVIDIA graphics driver (Win 456.71 / Linux 455.28) or later |
-| 11.1 | NVIDIA graphics driver (Win 471.41 / Linux 470.57.02) or later |
-| 12.0 | ??? |
-| 12.1 | NVIDIA graphics driver (Win 531.61 / Linux 530.41.03) or later |
-| 12.2 | NVIDIA graphics driver (Win 551.76 / Linux 550.54.144) or later |
-| 13.0 | NVIDIA graphics driver (Win 570.00 / Linux 570.00) or later |
-
-| CUDA version | Required graphics driver version |
-|:------ |:--------------------------------- |
-| 10.1    | NVIDIA graphics driver (Win 418.96 / Linux 418.39)    or later |
-| 10.2.89 | NVIDIA graphics driver (Win 440.33 / Linux 441.22)    or later |
-| 11.0.2  | NVIDIA graphics driver (Win 451.48 / Linux 450.51.05) or later |
-| 11.0.3  | NVIDIA graphics driver (Win 451.82 / Linux 450.51.06) or later |
-| 11.1.0  | NVIDIA graphics driver (Win 456.38 / Linux 455.23)    or later |
-| 11.1.1  | NVIDIA graphics driver (Win 456.81 / Linux 455.32)    or later |
-| 11.2    | NVIDIA graphics driver (Win 460.89 / Linux 460.27.04) or later |
-| 11.8    | NVIDIA graphics driver (Win 452.39 / Linux 450.80.02) or later |
+  ※ Since GT 63x, 62x etc. are renames of the Fermi generation, they cannot run NVEnc.  
+NVIDIA graphics driver 452.39 or later
 
 ## Usage and options of NVEncC
 [Option list and details of NVEncC](./NVEncC_Options.en.md)
@@ -89,6 +47,7 @@ Result of --check-features, a feature list returned from the driver. May depend 
 | Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt), [Tesla T4G @ aarch64](./GPUFeatures/teslaT4G_linux_arm.txt)  |
 | Ampere | [RTX3090](./GPUFeatures/rtx3090.txt), [RTX3080](./GPUFeatures/rtx3080.txt), [RTX3050Ti](./GPUFeatures/rtx3050ti.txt)  | |
 | Ada Lovelace | [RTX4090](./GPUFeatures/rtx4090.txt), [RTX4080](./GPUFeatures/rtx4080.txt) | |
+| Blackwell | [RTX5090](./GPUFeatures/rtx5090.txt) | |
 
 ## Precautions for using NVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
@@ -213,6 +172,51 @@ when there are multiple GPUs available which support NVENC.
   Please note that VE and GPU ulitization are check at the initialization pahse of the app,
   and there are delays in values taken. Therefore, it is likely that the multiple tasks started at the same time
   to run on the same GPU, and divided into multiple GPUs, even if the options are supported in every GPUs.
+
+## NVIDIA Driver Requirements of previous versions
+
+| NVEnc               | Supported NVENC API | Required graphics driver version       |
+|:----------------- |:------------------ |:----------------------------        |
+| NVEnc 0.00 or later | 4.0              | NVIDIA graphics driver 334.89 or later |
+| NVEnc 1.00 or later | 5.0              | NVIDIA graphics driver 347.09 or later |
+| NVEnc 2.00 or later | 6.0              | NVIDIA graphics driver 358 or later    |
+| NVEnc 2.08 or later | 7.0              | NVIDIA graphics driver 368.69 or later |
+| NVEnc 3.02 or later | 7.0              | NVIDIA graphics driver 369.30 or later |
+| NVEnc 3.08 or later | 8.0              | NVIDIA graphics driver 378.66 or later |
+| NVEnc 4.00 or later | 8.1              | NVIDIA graphics driver 390.77 or later |
+| NVEnc 4.31 or later | 9.0              | NVIDIA graphics driver 418.81 or later |
+| NVEnc 4.51 or later | 9.1              | NVIDIA graphics driver 436.15 or later |
+| NVEnc 5.10 or later | 9.0 - 10.0       | NVIDIA graphics driver 418.81 or later |
+| NVEnc 5.18 or later | 9.0 - 11.0       | NVIDIA graphics driver 418.81 or later |
+| NVEnc 5.24 or later | 9.0 - 11.0       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 5.36 or later | 9.0 - 11.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 7.00 or later | 9.0 - 12.0       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 7.26 or later | 9.0 - 12.1       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 7.49 or later | 9.0 - 12.2       | NVIDIA graphics driver 418.81 or later (x64) <br> NVIDIA graphics driver 456.81 or later (x86) |
+| NVEnc 8.00 or later | 10.0 - 13.0      | NVIDIA graphics driver 452.39 or later |
+
+| Supported NVENC API | Required graphics driver version |
+|:-------------- |:--------------------------------- |
+| 9.0  | NVIDIA graphics driver (Win 418.81 / Linux 418.30) or later |
+| 9.1  | NVIDIA graphics driver (Win 436.15 / Linux 435.21) or later |
+| 10.0 | NVIDIA graphics driver (Win 445.87 / Linux 450.51) or later |
+| 11.0 | NVIDIA graphics driver (Win 456.71 / Linux 455.28) or later |
+| 11.1 | NVIDIA graphics driver (Win 471.41 / Linux 470.57.02) or later |
+| 12.0 | ??? |
+| 12.1 | NVIDIA graphics driver (Win 531.61 / Linux 530.41.03) or later |
+| 12.2 | NVIDIA graphics driver (Win 551.76 / Linux 550.54.144) or later |
+| 13.0 | NVIDIA graphics driver (Win 570.00 / Linux 570.00) or later |
+
+| CUDA version | Required graphics driver version |
+|:------ |:--------------------------------- |
+| 10.1    | NVIDIA graphics driver (Win 418.96 / Linux 418.39)    or later |
+| 10.2.89 | NVIDIA graphics driver (Win 440.33 / Linux 441.22)    or later |
+| 11.0.2  | NVIDIA graphics driver (Win 451.48 / Linux 450.51.05) or later |
+| 11.0.3  | NVIDIA graphics driver (Win 451.82 / Linux 450.51.06) or later |
+| 11.1.0  | NVIDIA graphics driver (Win 456.38 / Linux 455.23)    or later |
+| 11.1.1  | NVIDIA graphics driver (Win 456.81 / Linux 455.32)    or later |
+| 11.2    | NVIDIA graphics driver (Win 460.89 / Linux 460.27.04) or later |
+| 11.8    | NVIDIA graphics driver (Win 452.39 / Linux 450.80.02) or later |
 
 ## NVEnc source code
 - MIT license.
