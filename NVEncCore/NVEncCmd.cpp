@@ -64,7 +64,7 @@ tstring GetNVEncVersion() {
     version += strsprintf(_T("  nvof fruc  : %s\n"), ENABLED_INFO[ENABLE_NVOFFRUC]);
     version += strsprintf(_T("  libass     : %s\n"), ENABLED_INFO[ENABLE_LIBASS_SUBBURN]);
     version += strsprintf(_T("  libdovi    : %s\n"), ENABLED_INFO[ENABLE_LIBDOVI]);
-#if !(defined(_WIN32) || defined(_WIN64))
+#if (defined(_WIN32) || defined(_WIN64))
     version += strsprintf(_T("  d3d11      : %s\n"), ENABLED_INFO[ENABLE_D3D11]);
 #else
     version += strsprintf(_T("  vulkan     : %s\n"), ENABLED_INFO[ENABLE_VULKAN]);
