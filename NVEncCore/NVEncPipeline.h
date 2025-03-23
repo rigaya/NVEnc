@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 //
@@ -82,6 +82,16 @@ RGY_DISABLE_WARNING_POP
 static const int RGY_WAIT_INTERVAL = 60000;
 
 using unique_cuevent = unique_ptr<cudaEvent_t, cudaevent_deleter>;
+
+
+#if defined(_WIN32) || defined(_WIN64)
+#define THREAD_DEC_USE_FUTURE 0
+#else
+// linuxではスレッド周りの使用の違いにより、従来の実装ではVCECore解放時に異常終了するので、
+// std::futureを使った実装に切り替える
+// std::threadだとtry joinのようなことができないのが問題
+#define THREAD_DEC_USE_FUTURE 1
+#endif
 
 // cuvidフレームのラッパー
 struct CUFrameCuvid : public CUFrameBufBase {
@@ -1072,7 +1082,7 @@ protected:
     int64_t m_hwDecFirstPts;
     bool m_gotFrameAfterFirstPts; //最初のフレームより前のptsで出てきたフレームのカウント
 #if THREAD_DEC_USE_FUTURE
-    std::future m_thDecoder;
+    std::future<RGY_ERR> m_thDecoder;
 #else
     std::thread m_thDecoder;
 #endif //#if THREAD_DEC_USE_FUTURE
@@ -1102,9 +1112,9 @@ public:
         PrintMes(RGY_LOG_DEBUG, _T("Flushing Decoder\n"));
 #if THREAD_DEC_USE_FUTURE
         if (m_thDecoder.valid()) {
-            while (m_thDecoder.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
 #else
         if (m_thDecoder.joinable()) {
+#endif
             //エンコード中断時の処理
             //ここでフレームをすべて吐き出し切らないと、中断時にデコードスレッドが終了しない
             while (!m_dec->GetError()
@@ -1115,6 +1125,9 @@ public:
                     m_dec->frameQueue()->releaseFrame(&pInfo);
                 }
             }
+#if THREAD_DEC_USE_FUTURE
+            while (m_thDecoder.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+#else
             while (m_thDecoder.native_handle() && RGYThreadStillActive(m_thDecoder.native_handle())) {
 #endif
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -1128,7 +1141,11 @@ public:
     }
     RGY_ERR startThread() {
         m_state = RGY_STATE_RUNNING;
+#if THREAD_DEC_USE_FUTURE
+        m_thDecoder = std::async(std::launch::async, [this]() {
+#else
         m_thDecoder = std::thread([this]() {
+#endif //#if THREAD_DEC_USE_FUTURE
             CUresult curesult = CUDA_SUCCESS;
             RGYBitstream bitstream = RGYBitstreamInit();
             m_threadParam.apply(GetCurrentThread());
@@ -1221,7 +1238,11 @@ protected:
             auto dispInfo = CUVIDPARSERDISPINFO{ 0 };
             if (!m_dec->frameQueue()->dequeue(&dispInfo)) {
                 m_dec->frameQueue()->waitForQueueUpdate();
+#if THREAD_DEC_USE_FUTURE
+                if (m_thDecoder.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+#else
                 if (m_thDecoder.native_handle() && !RGYThreadStillActive(m_thDecoder.native_handle())) {
+#endif
                     PrintMes(RGY_LOG_ERROR, _T("Decode thread is not responding.\n"));
                     m_state = RGY_STATE_ERROR;
                     return RGY_ERR_UNKNOWN;
