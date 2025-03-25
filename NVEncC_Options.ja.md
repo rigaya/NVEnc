@@ -66,7 +66,7 @@
   - [--vbr-quality \<float\>](#--vbr-quality-float)
   - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--lookahead \<int\>](#--lookahead-int)
-  - [--lookahead-level \<int\> \[HEVC\]](#--lookahead-level-int-hevc)
+  - [--lookahead-level \<int\>](#--lookahead-level-int)
   - [--no-i-adapt](#--no-i-adapt)
   - [--no-b-adapt](#--no-b-adapt)
   - [--strict-gop](#--strict-gop)
@@ -668,7 +668,7 @@ VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
 lookaheadを有効にし、その対象範囲をフレーム数で指定する。(0-32)
 画質の向上に役立つとともに、適応的なI,Bフレーム挿入が有効になる。
 
-### --lookahead-level &lt;int&gt; [HEVC]
+### --lookahead-level &lt;int&gt;  
 lookaheadのレベルの指定。(0 - 3, default = 0)  
 
 大きくするほど、品質が向上する代わりに速度が低下する。

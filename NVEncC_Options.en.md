@@ -69,7 +69,7 @@
   - [--vbr-quality \<float\>](#--vbr-quality-float)
   - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--lookahead \<int\>](#--lookahead-int)
-  - [--lookahead-level \<int\> \[HEVC\]](#--lookahead-level-int-hevc)
+  - [--lookahead-level \<int\>](#--lookahead-level-int)
   - [--no-i-adapt](#--no-i-adapt)
   - [--no-b-adapt](#--no-b-adapt)
   - [--strict-gop](#--strict-gop)
@@ -664,7 +664,7 @@ Change the rate control mode and rate control params within the specified range 
 Enable lookahead, and specify its target range by the number of frames. (0 - 32)  
 This is useful to improve image quality, allowing adaptive insertion of I and B frames.
 
-### --lookahead-level &lt;int&gt; [HEVC]
+### --lookahead-level &lt;int&gt;  
 Set level of lookahead, higher level may improve quality at the expense of performance. (0 - 3, default = 0)  
 
 ### --no-i-adapt

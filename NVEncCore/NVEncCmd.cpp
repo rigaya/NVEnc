@@ -225,7 +225,7 @@ tstring encoder_help() {
         _T("   --gop-len <int>              set GOP Length / default: %d frames%s\n")
         _T("   --lookahead <int>            enable lookahead and set lookahead depth (1-32)\n")
         _T("                                  default: %d frames\n")
-        _T("   --lookahead-level <int>      set lookahead level (0 - 3) [HEVC only]\n")
+        _T("   --lookahead-level <int>      set lookahead level (0 - 3)\n")
         _T("                                  default: 0\n")
 #if ENABLE_NVENC_SDK_TUNE
         _T("   --tune <string>              set tuning info (default: auto)\n")
