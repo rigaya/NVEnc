@@ -391,7 +391,7 @@ public:
     virtual ~NVEncCtrl();
 
     //CUDAインターフェース・デバイスの初期化
-    virtual RGY_ERR Initialize(const int deviceID, RGYLogLevel logLevel);
+    virtual RGY_ERR Initialize(const int deviceID, const RGYParamInitVulkan enableVulkan, RGYLogLevel logLevel);
 
     RGY_ERR ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck);
     RGY_ERR ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck);

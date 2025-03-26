@@ -1079,10 +1079,6 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
             return str;
         };
 
-        if (initVulkan == RGYParamInitVulkan::TargetVendor) {
-            setenv("VK_LOADER_DRIVERS_SELECT", "*nvidia*", 1);
-        }
-
         auto err = m_vulkan->Init(deviceID, extInstance, extDevice, m_log, !error_if_fail);
         if (err != RGY_ERR_NONE) {
             writeLog(RGY_LOG_WARN, _T("Failed to init Vulkan device #%d: %s\n"), deviceID, get_err_mes(err));
@@ -1360,10 +1356,16 @@ void NVEncCtrl::PrintMes(RGYLogLevel logLevel, const TCHAR *format, ...) {
     }
 }
 
-RGY_ERR NVEncCtrl::Initialize(const int deviceID, RGYLogLevel logLevel) {
+RGY_ERR NVEncCtrl::Initialize(const int deviceID, const RGYParamInitVulkan enableVulkan, RGYLogLevel logLevel) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     initLogLevel(logLevel);
+
+#if ENABLE_VULKAN
+    if (enableVulkan == RGYParamInitVulkan::TargetVendor) {
+        setenv("VK_LOADER_DRIVERS_SELECT", "*nvidia*", 1);
+    }
+#endif
 
     //m_pDeviceを初期化
     if (!check_if_nvcuda_dll_available()) {
@@ -1564,6 +1566,9 @@ RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuLi
     initDX11 = false;
 #endif
 #if ENABLE_VULKAN
+    if (inputParam->ctrl.enableVulkan == RGYParamInitVulkan::TargetVendor) {
+        setenv("VK_LOADER_DRIVERS_SELECT", "*nvidia*", 1);
+    }
     if (initVulkan != RGYParamInitVulkan::Disable) {
         DeviceVulkan vulkan;
         deviceCount = vulkan.adapterCount();

@@ -71,7 +71,7 @@ static void show_device_list() {
     const bool skipHWDecodeCheck = false;
 
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceID, loglevel)
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceID, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevel)
         && NV_ENC_SUCCESS == nvEnc.ShowDeviceList(cudaSchedule, skipHWDecodeCheck)) {
         return;
     }
@@ -84,7 +84,7 @@ static int show_hw(int deviceid, const RGYParamLogLevel& loglevelPrint) {
     const bool skipHWDecodeCheck = false;
 
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, loglevelPrint.get(RGY_LOGT_APP))
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
         && NV_ENC_SUCCESS == nvEnc.ShowCodecSupport(cudaSchedule, skipHWDecodeCheck)) {
         return 0;
     }
@@ -104,7 +104,7 @@ static int show_nvenc_features(int deviceid, const RGYParamLogLevel& loglevelPri
     const bool skipHWDecodeCheck = false;
 
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, loglevelPrint.get(RGY_LOGT_APP))
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
         && NV_ENC_SUCCESS == nvEnc.ShowNVEncFeatures(cudaSchedule, skipHWDecodeCheck)) {
         return 0;
     }

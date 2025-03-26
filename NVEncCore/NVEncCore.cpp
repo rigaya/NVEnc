@@ -4027,6 +4027,12 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         return sts;
     }
 
+#if ENABLE_VULKAN
+    if (inputParam->ctrl.enableVulkan == RGYParamInitVulkan::TargetVendor) {
+        setenv("VK_LOADER_DRIVERS_SELECT", "*nvidia*", 1);
+    }
+#endif // ENABLE_VULKAN
+
     //m_pDeviceを初期化
     if (!check_if_nvcuda_dll_available()) {
         PrintMes(RGY_LOG_ERROR,

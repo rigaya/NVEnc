@@ -3012,7 +3012,10 @@ public:
         m_videoMetric = videoMetric;
     }
 
-    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override {
+        auto firstFilterFrame = m_vpFilters.front()->GetFilterParam()->frameIn;
+        return std::make_pair(firstFilterFrame, m_outMaxQueueSize);
+    };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override {
         auto lastFilterFrame = m_vpFilters.back()->GetFilterParam()->frameOut;
         return std::make_pair(lastFilterFrame, m_outMaxQueueSize);
