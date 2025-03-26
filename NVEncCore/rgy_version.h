@@ -72,7 +72,7 @@ const char *get_encoder_version();
 #define ENABLE_KEYFRAME_INSERT 1
 
 #if defined(_WIN32) || defined(_WIN64)
-#define NV_DRIVER_VER_MIN 418081
+#define NV_DRIVER_VER_MIN 452039
 #define ENABLE_OPENCL 1
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
@@ -142,7 +142,7 @@ const char *get_encoder_version();
 #endif
 
 #else //#if defined(WIN32) || defined(WIN64)
-#define NV_DRIVER_VER_MIN 418030
+#define NV_DRIVER_VER_MIN 452039
 #include "rgy_config.h"
 #define ENCODER_NAME               "NVEnc"
 #define DECODER_NAME               "cuvid"
