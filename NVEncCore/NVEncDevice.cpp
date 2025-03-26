@@ -1569,7 +1569,7 @@ RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuLi
         deviceCount = vulkan.adapterCount();
         if (deviceCount == 0) {
             PrintMes(RGY_LOG_WARN, _T("Failed to get device count from Vulkan interface.\n"));
-            initVulkan = false;
+            initVulkan = RGYParamInitVulkan::Disable;
         }
         PrintMes(RGY_LOG_DEBUG, _T("vulkan.adapterCount: Success, %d.\n"), deviceCount);
     }
