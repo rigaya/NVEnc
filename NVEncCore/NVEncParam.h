@@ -804,7 +804,6 @@ struct InEncodeVideoParam {
     int sessionRetry;
     int disableNVML;
     bool disableDX11;
-    bool disableVulkan;
 
     VideoInfo input;              //入力する動画の情報
     int preset;                   //出力プリセット

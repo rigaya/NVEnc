@@ -1480,10 +1480,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->disableDX11 = true;
         return 0;
     }
-    if (IS_OPTION("disable-vulkan")) {
-        pParams->disableVulkan = true;
-        return 0;
-    }
 
     auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, &pParams->inprm, argData);
     if (ret >= 0) return ret;
@@ -1852,7 +1848,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_NUM(_T("--session-retry"), sessionRetry);
     OPT_NUM(_T("--disable-nvml"), disableNVML);
     OPT_BOOL(_T("--disable-dx11"), _T(""), disableDX11);
-    OPT_BOOL(_T("--disable-vulkan"), _T(""), disableVulkan);
 
     cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);
 

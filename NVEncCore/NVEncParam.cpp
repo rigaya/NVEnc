@@ -235,7 +235,6 @@ InEncodeVideoParam::InEncodeVideoParam() :
     sessionRetry(0),
     disableNVML(0),
     disableDX11(false),
-    disableVulkan(false),
     input(),
     preset(0),
     nHWDecType(0),

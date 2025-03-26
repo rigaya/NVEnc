@@ -7058,11 +7058,15 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
     }
 #endif
     if (IS_OPTION("disable-vulkan")) {
-        ctrl->enableVulkan = false;
+        ctrl->enableVulkan = RGYParamInitVulkan::Disable;
         return 0;
     }
     if (IS_OPTION("enable-vulkan")) {
-        ctrl->enableVulkan = true;
+        ctrl->enableVulkan = RGYParamInitVulkan::TargetVendor;
+        return 0;
+    }
+    if (IS_OPTION("enable-vulkan-all")) {
+        ctrl->enableVulkan = RGYParamInitVulkan::All;
         return 0;
     }
     if (IS_OPTION("parallel") && ENABLE_PARALLEL_ENC) {
@@ -8531,7 +8535,15 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
 #if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     OPT_BOOL(_T("--enable-opencl"), _T("--disable-opencl"), enableOpenCL);
 #endif
-    OPT_BOOL(_T("--enable-vulkan"), _T("--disable-vulkan"), enableVulkan);
+    if (param->enableVulkan != defaultPrm->enableVulkan) {
+        if (param->enableVulkan == RGYParamInitVulkan::Disable) {
+            cmd << _T(" --disable-vulkan");
+        } else if (param->enableVulkan == RGYParamInitVulkan::TargetVendor) {
+            cmd << _T(" --enable-vulkan");
+        } else if (param->enableVulkan == RGYParamInitVulkan::All) {
+            cmd << _T(" --enable-vulkan-all");
+        }
+    }
     OPT_BOOL(_T("--process-monitor-dev-usage"), _T(""), processMonitorDevUsage);
     OPT_BOOL(_T("--process-monitor-dev-usage-reset"), _T(""), processMonitorDevUsageReset);
 

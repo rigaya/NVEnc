@@ -354,7 +354,7 @@ public:
 
     void close_device();
 
-    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, bool initVulkan, bool skipHWDecodeCheck, bool disableNVML);
+    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, RGYParamInitVulkan initVulkan, bool skipHWDecodeCheck, bool disableNVML);
     RGY_ERR initEncoder();
     tstring infostr() const;
 protected:
@@ -409,7 +409,7 @@ protected:
     RGY_ERR InitCuda();
 
     //deviceリストを作成
-    RGY_ERR InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, bool initVulkan, const bool skipHWDecodeCheck, const int disableNVML);
+    RGY_ERR InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML);
 
     std::shared_ptr<RGYLog>      m_pLog;                //ログ出力管理
     int                          m_nDeviceId;             //DeviceId
