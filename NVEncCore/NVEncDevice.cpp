@@ -1566,7 +1566,7 @@ RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuLi
     initDX11 = false;
 #endif
 #if ENABLE_VULKAN
-    if (inputParam->ctrl.enableVulkan == RGYParamInitVulkan::TargetVendor) {
+    if (initVulkan == RGYParamInitVulkan::TargetVendor) {
         setenv("VK_LOADER_DRIVERS_SELECT", "*nvidia*", 1);
     }
     if (initVulkan != RGYParamInitVulkan::Disable) {
