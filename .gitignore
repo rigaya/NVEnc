@@ -38,6 +38,7 @@ _build/
 [Bb]uild[Ll]og.*
 
 *.o
+*.d
 *.cpp.d
 *.c.d
 *_i.c
