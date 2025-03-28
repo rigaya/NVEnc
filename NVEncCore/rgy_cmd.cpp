@@ -4893,6 +4893,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("input-pixel-format")) {
+        i++;
+        common->inputPixFmtStr = strInput[i];
+        return 0;
+    }
     if (IS_OPTION("input-retry")) {
         i++;
         int v = 0;
@@ -8021,6 +8026,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
 
     OPT_FLOAT(_T("--input-analyze"), demuxAnalyzeSec, 6);
     OPT_NUM(_T("--input-probesize"), demuxProbesize);
+    OPT_TSTR(_T("--input-pixel-format"), inputPixFmtStr);
     OPT_NUM(_T("--input-retry"), inputRetry);
     if (param->nTrimCount > 0) {
         cmd << _T(" --trim ");
@@ -8692,6 +8698,7 @@ tstring gen_cmd_help_common() {
         //_T("   --input-retry <int>          set retry count for openning input file.\n")
         //_T("                                 could useful for streaming input.\n")
         //_T("                                  default: disabled.\n")
+        _T("   --input-pixel-format <string>  set input pixel format\n")
         _T("   --video-track <int>          set video track to encode in track id\n")
         _T("                                 1 (default)  highest resolution video track\n")
         _T("                                 2            next high resolution video track\n")

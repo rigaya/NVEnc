@@ -629,6 +629,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.videoAvgFramerate = rgy_rational<int>(input->fpsN, input->fpsD);
         inputInfoAVCuvid.analyzeSec = common->demuxAnalyzeSec;
         inputInfoAVCuvid.probesize = common->demuxProbesize;
+        inputInfoAVCuvid.pixFmtStr = common->inputPixFmtStr;
         inputInfoAVCuvid.inputRetry = common->inputRetry;
         inputInfoAVCuvid.nTrimCount = common->nTrimCount;
         inputInfoAVCuvid.pTrimList = common->pTrimList;

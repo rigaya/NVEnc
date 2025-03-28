@@ -136,6 +136,7 @@
 - [IO / Audio / Subtitle Options](#io--audio--subtitle-options)
   - [--input-analyze \<float\>](#--input-analyze-float)
   - [--input-probesize \<int\>](#--input-probesize-int)
+  - [--input-pixel-format \<string\>](#--input-pixel-format-string)
   - [--trim \<int\>:\<int\>\[,\<int\>:\<int\>\]\[,\<int\>:\<int\>\]...](#--trim-intintintintintint)
   - [--seek \[\<int\>:\]\[\<int\>:\]\<int\>\[.\<int\>\]](#--seek-intintintint)
   - [--seekto \[\<int\>:\]\[\<int\>:\]\<int\>\[.\<int\>\]](#--seekto-intintintint)
@@ -1011,6 +1012,9 @@ If audio / subtitle tracks etc. are not detected properly, try increasing this v
 
 ### --input-probesize &lt;int&gt;
 Set the maximum size in bytes that libav parses for file analysis.
+
+### --input-pixel-format &lt;string&gt;
+Set "pixel_format" for avdevice. (no effect on other situations)
 
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 Encode only frames in the specified range.

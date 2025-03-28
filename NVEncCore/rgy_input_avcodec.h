@@ -821,6 +821,7 @@ public:
     int64_t        probesize;               //probeするデータサイズ
     int            nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
+    tstring        pixFmtStr;               //入力ファイルのピクセルフォーマット
     int            fileIndex;               //audio-source, sub-source等のファイルインデックス、動画と同じファイルなら-1
     int            trackStartAudio;         //音声のトラック番号の開始点
     int            trackStartSubtitle;      //字幕のトラック番号の開始点

@@ -132,6 +132,7 @@
 - [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
   - [--input-analyze \<float\>](#--input-analyze-float)
   - [--input-probesize \<int\>](#--input-probesize-int)
+  - [--input-pixel-format \<string\>](#--input-pixel-format-string)
   - [--trim \<int\>:\<int\>\[,\<int\>:\<int\>\]\[,\<int\>:\<int\>\]...](#--trim-intintintintintint)
   - [--seek \[\[\<int\>:\]\<int\>:\]\<int\>\[.\<int\>\]](#--seek-intintintint)
   - [--seekto \[\[\<int\>:\]\<int\>:\]\<int\>\[.\<int\>\]](#--seekto-intintintint)
@@ -1018,6 +1019,9 @@ libavが読み込み時に解析するファイルの時間を秒で指定。デ
 
 ### --input-probesize &lt;int&gt;
 libavが読み込み時に解析する最大のサイズをbyte単位で指定。
+
+### --input-pixel-format &lt;string&gt;
+avdeviceで使用する "pixel_format" の設定。(それ以外には効果なし)
 
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 指定した範囲のフレームのみをエンコードする。

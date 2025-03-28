@@ -232,6 +232,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     probesize(-1),
     nTrimCount(0),
     pTrimList(nullptr),
+    pixFmtStr(),
     fileIndex(0),
     trackStartAudio(0),
     trackStartSubtitle(0),
@@ -1504,6 +1505,19 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
             AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %.2f sec\n"), value / (double)AV_TIME_BASE);
         }
     }
+    if (input_prm->pixFmtStr.length() > 0) {
+        const auto pixFmt = av_get_pix_fmt(tchar_to_string(input_prm->pixFmtStr.c_str(), CP_UTF8).c_str());
+        if (pixFmt == AV_PIX_FMT_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown input pixel format: %s.\n"), input_prm->pixFmtStr.c_str());
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (0 != (ret = av_dict_set_int(&m_Demux.format.formatOptions, "pixel_format", pixFmt, 0))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set pixel_format to %s, error %s\n"), input_prm->pixFmtStr.c_str(), qsv_av_err2str(ret).c_str());
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("set pixel_format: %s\n"), input_prm->pixFmtStr.c_str());
+        }
+    }
+
     if (0 == strcmp(filename_char.c_str(), "-")) {
 #if defined(_WIN32) || defined(_WIN64)
         if (_setmode(_fileno(stdin), _O_BINARY) < 0) {

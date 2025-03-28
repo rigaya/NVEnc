@@ -2449,6 +2449,7 @@ struct RGYParamCommon {
     int inputRetry;
     double demuxAnalyzeSec;
     int64_t demuxProbesize;
+    tstring inputPixFmtStr;
     int AVMuxTarget;                       //RGY_MUX_xxx
     int videoTrack;
     int videoStreamId;

@@ -2292,6 +2292,7 @@ RGYParamCommon::RGYParamCommon() :
     inputRetry(0),
     demuxAnalyzeSec(-1),
     demuxProbesize(-1),
+    inputPixFmtStr(),
     AVMuxTarget(RGY_MUX_NONE),                       //RGY_MUX_xxx
     videoTrack(0),
     videoStreamId(0),
