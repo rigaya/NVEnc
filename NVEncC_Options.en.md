@@ -136,7 +136,6 @@
 - [IO / Audio / Subtitle Options](#io--audio--subtitle-options)
   - [--input-analyze \<float\>](#--input-analyze-float)
   - [--input-probesize \<int\>](#--input-probesize-int)
-  - [--input-pixel-format \<string\>](#--input-pixel-format-string)
   - [--trim \<int\>:\<int\>\[,\<int\>:\<int\>\]\[,\<int\>:\<int\>\]...](#--trim-intintintintintint)
   - [--seek \[\<int\>:\]\[\<int\>:\]\<int\>\[.\<int\>\]](#--seek-intintintint)
   - [--seekto \[\<int\>:\]\[\<int\>:\]\<int\>\[.\<int\>\]](#--seekto-intintintint)
@@ -183,6 +182,8 @@
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
   - [--input-hevc-bsf \<string\>](#--input-hevc-bsf-string)
+  - [--input-pixel-format \<string\>](#--input-pixel-format-string)
+  - [--offset-video-dts-advance](#--offset-video-dts-advance)
   - [--allow-other-negative-pts](#--allow-other-negative-pts)
 - [Vpp Options](#vpp-options)
   - [Vpp Filtering order](#vpp-filtering-order)
@@ -1013,9 +1014,6 @@ If audio / subtitle tracks etc. are not detected properly, try increasing this v
 ### --input-probesize &lt;int&gt;
 Set the maximum size in bytes that libav parses for file analysis.
 
-### --input-pixel-format &lt;string&gt;
-Set "pixel_format" for avdevice. (no effect on other situations)
-
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 Encode only frames in the specified range.
 
@@ -1639,6 +1637,12 @@ switch hevc bitstream filter used for hw decoder input. (for debug purpose)
 
   - libavcodec  
     use hevc_mp4toannexb bitstream filter.
+
+### --input-pixel-format &lt;string&gt;
+Set "pixel_format" for input avdevice. (not intended on other situations)
+
+### --offset-video-dts-advance  
+Offset timestamp to cancel bframe delay.
 
 ### --allow-other-negative-pts  
 Allow negative timestamps for audio, subtitles. Intended for debug purpose only.

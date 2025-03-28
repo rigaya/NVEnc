@@ -8698,7 +8698,6 @@ tstring gen_cmd_help_common() {
         //_T("   --input-retry <int>          set retry count for openning input file.\n")
         //_T("                                 could useful for streaming input.\n")
         //_T("                                  default: disabled.\n")
-        _T("   --input-pixel-format <string>  set input pixel format\n")
         _T("   --video-track <int>          set video track to encode in track id\n")
         _T("                                 1 (default)  highest resolution video track\n")
         _T("                                 2            next high resolution video track\n")
@@ -8859,6 +8858,8 @@ tstring gen_cmd_help_common() {
         _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
     str += _T("\n")
+        _T("   --input-pixel-format <string>  set input pixel format for avdevice\n")
+        _T("   --offset-video-dts-advance  offset timestamp to cancel bframe delay\n")
         _T("   --allow-other-negative-pts  for debug\n")
         _T("\n");
 #endif

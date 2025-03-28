@@ -132,7 +132,6 @@
 - [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
   - [--input-analyze \<float\>](#--input-analyze-float)
   - [--input-probesize \<int\>](#--input-probesize-int)
-  - [--input-pixel-format \<string\>](#--input-pixel-format-string)
   - [--trim \<int\>:\<int\>\[,\<int\>:\<int\>\]\[,\<int\>:\<int\>\]...](#--trim-intintintintintint)
   - [--seek \[\[\<int\>:\]\<int\>:\]\<int\>\[.\<int\>\]](#--seek-intintintint)
   - [--seekto \[\[\<int\>:\]\<int\>:\]\<int\>\[.\<int\>\]](#--seekto-intintintint)
@@ -179,6 +178,8 @@
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
   - [--input-hevc-bsf \<string\>](#--input-hevc-bsf-string)
+  - [--input-pixel-format \<string\>](#--input-pixel-format-string)
+  - [--offset-video-dts-advance](#--offset-video-dts-advance)
   - [--allow-other-negative-pts](#--allow-other-negative-pts)
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
@@ -1020,9 +1021,6 @@ libavが読み込み時に解析するファイルの時間を秒で指定。デ
 ### --input-probesize &lt;int&gt;
 libavが読み込み時に解析する最大のサイズをbyte単位で指定。
 
-### --input-pixel-format &lt;string&gt;
-avdeviceで使用する "pixel_format" の設定。(それ以外には効果なし)
-
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 指定した範囲のフレームのみをエンコードする。
 
@@ -1634,6 +1632,12 @@ switch hevc bitstream filter used for hw decoder input. (for debug purpose)
 
   - libavcodec  
     libavcodec の hevc_mp4toannexb bitstream filter を使用する。
+
+### --input-pixel-format &lt;string&gt;
+avdeviceで使用する "pixel_format" の設定。(それ以外での用途での使用は想定していません)
+
+### --offset-video-dts-advance  
+先頭のdtsが0になるよう、Bフレームによる遅延の分だけtimestampを補正します。
 
 ### --allow-other-negative-pts  
 音声・字幕において負のtimestampを許容する。原則デバッグ用。
