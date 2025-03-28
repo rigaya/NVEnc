@@ -4753,6 +4753,11 @@ RGY_ERR NVEncCore::Encode() {
             }
         }
     }
+    if (!(err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM)) {
+        for (auto& p : m_pipelineTasks) {
+            p->printStatus();
+        }
+    }
     // エラー終了の場合も含めキューをすべて開放する (m_pipelineTasksを解放する前に行う)
     dataqueue.clear();
 

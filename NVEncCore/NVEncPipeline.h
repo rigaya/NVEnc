@@ -530,6 +530,8 @@ public:
     void addCUEvent(std::shared_ptr<cudaEvent_t>& cuevent) {
         m_cuevents.push_back(cuevent);
     }
+
+    bool hasDependencyFrame() const { return m_dependencyFrame != nullptr; }
     
     virtual RGY_ERR setDependCUStream(cudaStream_t stream) {
         auto sts = m_dependencyFrame->setDependCUStream(stream);
@@ -561,9 +563,9 @@ public:
     }
     
     void streamWaitCuEvents(cudaStream_t stream) {
-        NVEncCtxAutoLock(ctxlock(m_vidCtxLock));
         for (auto& cuevent : m_cuevents) {
             if (cuevent != nullptr) {
+                NVEncCtxAutoLock(ctxlock(m_vidCtxLock));
                 cudaStreamWaitEvent(stream, *cuevent.get(), 0);
             }
         }
@@ -645,14 +647,15 @@ class FrameReleaseData {
     unique_event m_heFrameAdded;
     unique_event m_heQueueEmpty;
     std::atomic<int> m_queueSize;
+    int m_queueSizeMax;
     std::thread m_thread;
     RGYParamThread m_threadParam;
     bool m_abort;
 public:
-    FrameReleaseData(CUvideoctxlock vidCtxLock, RGYParamThread threadParam) : m_vidCtxLock(vidCtxLock), m_prevInputFrame(), m_mtx(),
+    FrameReleaseData(CUvideoctxlock vidCtxLock, int queueSizeMax, RGYParamThread threadParam) : m_vidCtxLock(vidCtxLock), m_prevInputFrame(), m_mtx(),
         m_heFrameAdded(std::move(CreateEventUnique(nullptr, FALSE, FALSE))),
         m_heQueueEmpty(std::move(CreateEventUnique(nullptr, FALSE, FALSE))),
-        m_queueSize(0), m_thread(), m_threadParam(threadParam), m_abort(false) {}
+        m_queueSize(0), m_queueSizeMax(std::max(1, queueSizeMax)), m_thread(), m_threadParam(threadParam), m_abort(false) {}
 
     ~FrameReleaseData() {
         finish();
@@ -669,6 +672,7 @@ public:
             WaitForSingleObject(m_heQueueEmpty.get(), 10);
         }
     }
+    int queueSizeMax() const { return m_queueSizeMax; }
 
     void start() {
         m_thread = std::thread([&]() {
@@ -696,18 +700,34 @@ public:
                 } else {
                     if ((m_queueSize = queueSize) == 0) {
                         SetEvent(m_heQueueEmpty.get());
+                        WaitForSingleObject(m_heFrameAdded.get(), 16);
                     }
-                    WaitForSingleObject(m_heFrameAdded.get(), 100);
                 }
             }
         });
     }
     void addFrame(std::unique_ptr<PipelineTaskOutput>& frame, std::shared_ptr<T> event) {
         dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->addCUEvent(event);
+        while (m_queueSize >= m_queueSizeMax) {
+            SetEvent(m_heFrameAdded.get());
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
         m_queueSize++;
         std::lock_guard<std::mutex> lock(m_mtx);
         m_prevInputFrame.push_back(std::make_pair(std::move(frame), event));
         SetEvent(m_heFrameAdded.get());
+    }
+
+    size_t queueSize() {
+        std::lock_guard<std::mutex> lock(m_mtx);
+        size_t total = 0;
+        for (auto& f : m_prevInputFrame) {
+            total++;
+            if (auto surf = dynamic_cast<PipelineTaskOutputSurf *>(f.first.get()); surf != nullptr) {
+                total += surf->hasDependencyFrame() ? 1 : 0;
+            }
+        }
+        return total;
     }
 };
 
@@ -782,6 +802,25 @@ public:
     };
     virtual ~PipelineTask() {
         m_workSurfs.clear();
+    }
+    virtual size_t getOutQueueFrames() const {
+        size_t total = 0;
+        { // m_outQeueueにアクセスする場合、必要なら m_outQeueueMtx のロックを取得
+            std::optional<std::lock_guard<std::mutex>> lock;
+            if (m_outQeueueMtx) {
+                lock.emplace(*m_outQeueueMtx);
+            }
+            for (auto& f : m_outQeueue) {
+                total++;
+                if (auto surf = dynamic_cast<PipelineTaskOutputSurf *>(f.get()); surf != nullptr) {
+                    total += surf->hasDependencyFrame() ? 1 : 0;
+                }
+            }
+        }
+        return total;
+    }
+    virtual void printStatus() {
+        PrintMes(RGY_LOG_INFO, _T("in %d, out %d, outQeueue size: %d.\n"), m_inFrames, m_outFrames, (int)getOutQueueFrames());
     }
     virtual bool isPassThrough() const { return false; }
     virtual tstring print() const { return getPipelineTaskTypeName(m_type); }
@@ -2964,7 +3003,7 @@ public:
     PipelineTaskCUDAVpp(NVGPUInfo *dev, std::vector<std::unique_ptr<NVEncFilter>>& vppfilters, NVEncFilterSsim *videoMetric,
     RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, threadParam, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
-        m_frameReleaseData(dev->vidCtxLock(), threadParam), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
+        m_frameReleaseData(dev->vidCtxLock(), 4, threadParam), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
         m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev(), m_encode(nullptr) {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
@@ -3004,6 +3043,11 @@ public:
         m_inFrameUseFinEvent.clear([](cudaEvent_t *event) { cudaEventDestroy(*event); });
     };
 
+    virtual void printStatus() override {
+        PrintMes(RGY_LOG_INFO, _T("in %d, out %d, outQeueue size: %d, frame release: %d.\n"),
+            m_inFrames, m_outFrames, getOutQueueFrames(), m_frameReleaseData.queueSize());
+    }
+
     void setEncodeTask(PipelineTaskNVEncode *encode) {
         m_encode = encode;
     }
@@ -3014,7 +3058,7 @@ public:
 
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override {
         auto firstFilterFrame = m_vpFilters.front()->GetFilterParam()->frameIn;
-        return std::make_pair(firstFilterFrame, m_outMaxQueueSize);
+        return std::make_pair(firstFilterFrame, m_outMaxQueueSize + m_frameReleaseData.queueSizeMax());
     };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override {
         auto lastFilterFrame = m_vpFilters.back()->GetFilterParam()->frameOut;
