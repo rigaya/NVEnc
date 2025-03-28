@@ -83,6 +83,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 - Supports various formats such as avs, vpy, y4m, and raw
 - Supports demux/muxing using libavformat
 - Supports decode using libavcodec
+- Parallel encoding supporting multi GPU
 - Calculation of ssim/psnr/vmaf of the encode
 - High performance filtering (VPP, Video Pre-Processing)
   - cuvid built-in hw processing
