@@ -4753,7 +4753,7 @@ RGY_ERR NVEncCore::Encode() {
             }
         }
     }
-    if (!(err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM)) {
+    if (!(err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err == RGY_ERR_ABORTED)) {
         for (auto& p : m_pipelineTasks) {
             p->printStatus();
         }
