@@ -70,7 +70,7 @@ curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/rel
 
 ```Shell
 sudo apt install build-essential git
-sudo apt install libssl-dev curl
+sudo apt install libssl-dev curl pkgconf
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
   && . ~/.cargo/env \
   && cargo install cargo-c

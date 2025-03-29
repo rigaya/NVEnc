@@ -77,7 +77,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 - Install rust + cargo-c (for libdovi build)
 
   ```Shell
-  sudo apt install libssl-dev curl
+  sudo apt install libssl-dev curl pkgconf
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
     && . ~/.cargo/env \
     && cargo install cargo-c
