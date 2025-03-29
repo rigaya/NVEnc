@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 8.02
+
+- Fix vpp-resize ngx-vsr, libplaceo* not working in 8.01. ( #683 )
+
 ## 8.01
 
 - Fix insufficient frame buffer causing error termination when using readers other than avhw (issue since 8.00beta1).

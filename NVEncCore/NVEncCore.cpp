@@ -4115,7 +4115,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     });
 
     if (gpuList.size() == 0) {
-        if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, m_cudaSchedule, inputParam->disableDX11, inputParam->ctrl.enableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
+        if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, inputParam->ctrl.enableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to initialize devices.\n"));
             return sts;
         }

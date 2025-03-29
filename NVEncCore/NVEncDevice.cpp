@@ -1561,6 +1561,7 @@ RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuLi
             PrintMes(RGY_LOG_WARN, _T("Failed to get device count from DX11 interface.\n"));
             initDX11 = false;
         }
+        PrintMes(RGY_LOG_DEBUG, _T("DX11 device count: %d.\n"), deviceCount);
     }
 #else
     initDX11 = false;
