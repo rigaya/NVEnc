@@ -129,6 +129,9 @@ struct AVMuxFormat {
     bool                  allowOtherNegativePts; //音声・字幕の負のptsを許可するかどうか
     bool                  timestampPassThrough;  //タイムスタンプをそのまま出力するかどうか
 
+    std::mutex            fpTsLogMtx;              //mux timestampログファイル用のロック
+    std::unique_ptr<FILE, fp_deleter> fpTsLogFile; //mux timestampログファイル
+
     AVMuxFormat();
 };
 

@@ -123,7 +123,9 @@ AVMuxFormat::AVMuxFormat() :
     lowlatency(false),
     offsetVideoDtsAdvance(false),
     allowOtherNegativePts(false),
-    timestampPassThrough(false) {
+    timestampPassThrough(false),
+    fpTsLogMtx(),
+    fpTsLogFile() {
 }
 
 AVMuxVideo::AVMuxVideo() :
@@ -442,6 +444,7 @@ void RGYOutputAvcodec::CloseFormat(AVMuxFormat *muxFormat) {
         muxFormat->formatCtx = nullptr;
         AddMessage(RGY_LOG_DEBUG, _T("Closed avformat context.\n"));
     }
+    muxFormat->fpTsLogFile.reset();
 #if USE_CUSTOM_IO
     if (muxFormat->fpOutput) {
         fflush(muxFormat->fpOutput);
@@ -1160,12 +1163,13 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     }
 
     if (prm->muxVidTsLogFile.length() > 0) {
+        const auto logfileName = PathRemoveExtensionS(prm->muxVidTsLogFile) + _T("_vid") + rgy_get_extension(prm->muxVidTsLogFile);
         FILE *fp = nullptr;
-        if (_tfopen_s(&fp, prm->muxVidTsLogFile.c_str(), _T("a"))) {
-            AddMessage(RGY_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), prm->muxVidTsLogFile.c_str());
+        if (_tfopen_s(&fp, logfileName.c_str(), _T("a"))) {
+            AddMessage(RGY_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), logfileName.c_str());
         } else {
             m_Mux.video.fpTsLogFile = std::unique_ptr<FILE, fp_deleter>(fp, fp_deleter());
-            AddMessage(RGY_LOG_DEBUG, _T("Opened mux timestamp log file: \"%s\""), prm->muxVidTsLogFile.c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("Opened mux timestamp log file: \"%s\""), logfileName.c_str());
             tstring strFileHeadSep;
             for (int i = 0; i < 78; i++) {
                 strFileHeadSep += _T("-");
@@ -2308,6 +2312,25 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     m_strOutputInfo += mes;
     m_Mux.format.streamError = false;
 
+    if (prm->muxVidTsLogFile.length() > 0) {
+        FILE *fp = nullptr;
+        if (_tfopen_s(&fp, prm->muxVidTsLogFile.c_str(), _T("a"))) {
+            AddMessage(RGY_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), prm->muxVidTsLogFile.c_str());
+        } else {
+            m_Mux.format.fpTsLogFile = std::unique_ptr<FILE, fp_deleter>(fp, fp_deleter());
+            AddMessage(RGY_LOG_DEBUG, _T("Opened mux timestamp log file: \"%s\""), prm->muxVidTsLogFile.c_str());
+            tstring strFileHeadSep;
+            for (int i = 0; i < 78; i++) {
+                strFileHeadSep += _T("-");
+            }
+            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("%s\n"), strFileHeadSep.c_str());
+            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("%s\n"), m_Mux.format.filename);
+            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("%s\n"), strFileHeadSep.c_str());
+            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("Type,StreamIdx,FrameType,out pts,              out dts,                  pts,                dts, length,    size\n"));
+            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("%s\n"), strFileHeadSep.c_str());
+        }
+    }
+
 #if ENABLE_AVCODEC_OUT_THREAD
     m_Mux.thread.streamOutMaxDts = 0;
     m_Mux.thread.queueInfo = prm->queueInfo;
@@ -2955,6 +2978,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         const TCHAR *pFrameTypeStr =
             (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? _T("I") : (((frameType & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
         _ftprintf(m_Mux.video.fpTsLogFile.get(), _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pFrameTypeStr, (lls)bitstream->pts(), (lls)bitstream->dts(), (lls)pts, (lls)dts, (int)duration, bitstream->size());
+        {
+            std::lock_guard<std::mutex> lock(m_Mux.format.fpTsLogMtx);
+            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("v, %d, %s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pkt->stream_index, pFrameTypeStr, (lls)bitstream->pts(), (lls)bitstream->dts(), (lls)pts, (lls)dts, (int)duration, bitstream->size());
+        }
     }
     m_encSatusInfo->SetOutputData(frameType, bitstream->size(), bitstream->avgQP());
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
@@ -3232,6 +3259,8 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
         }
         return;
     }
+    const auto orig_pts = pkt->pts;
+    const auto orig_dts = pkt->dts;
     //durationについて、sample数から出力ストリームのtimebaseに変更する
     pkt->stream_index = muxAudio->streamOut->index;
     pkt->flags = AV_PKT_FLAG_KEY; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
@@ -3296,6 +3325,10 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     }
     if (muxAudio->fpTsLogFile) {
         _ftprintf(muxAudio->fpTsLogFile.get(), _T(" , %20lld, %8d, %d\n"), (lls)pkt->pts, (int)pkt->duration, pkt->size);
+        {
+            std::lock_guard<std::mutex> lock(m_Mux.format.fpTsLogMtx);
+            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("a, %d,  , %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pkt->stream_index, (lls)orig_pts, (lls)orig_dts, (lls)pkt->pts, (lls)pkt->dts, (int)pkt->duration, (lls)pkt->size);
+        }
     }
     if (pkt->pts >= 0 || m_Mux.format.allowOtherNegativePts) {
         //av_interleaved_write_frameに渡ったパケットは開放する必要がない
