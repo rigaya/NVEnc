@@ -267,6 +267,7 @@ RGY_ERR RGYSysFrame::allocate(const RGYFrameInfo &info) {
         pixsize *= 4;
         break;
     case RGY_CSP_YUY2:
+    case RGY_CSP_UYVY:
     case RGY_CSP_Y210:
     case RGY_CSP_Y216:
     case RGY_CSP_Y410:

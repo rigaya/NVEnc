@@ -353,7 +353,8 @@ void copy_nv12_to_p010_c(void **dst, const void **src, int width, int src_y_pitc
     return copy_nv12p010_to_nv12p010_c_internal<uint16_t, 16, uint8_t, 8>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
-void convert_yuy2_to_nv12(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+template<bool yuy2>
+void convert_yuy2_uyvy_to_nv12(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     int crop_left   = crop[0];
     int crop_up     = crop[1];
     int crop_right  = crop[2];
@@ -361,6 +362,10 @@ void convert_yuy2_to_nv12(void **dst_array, const void **src_array, int width, i
     void *dst = dst_array[0];
     const void *src = src_array[0];
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    const int y0_idx = (yuy2) ? 0 : 1;
+    const int y1_idx = (yuy2) ? 2 : 3;
+    const int u_idx  = (yuy2) ? 1 : 0;
+    const int v_idx  = (yuy2) ? 3 : 2;
     uint8_t *srcFrame = (uint8_t *)src;
     uint8_t *dstYFrame = (uint8_t *)dst;
     uint8_t *dstCFrame = dstYFrame + dst_y_pitch_byte * dst_height;
@@ -370,24 +375,35 @@ void convert_yuy2_to_nv12(void **dst_array, const void **src_array, int width, i
         uint8_t *srcP = srcFrame  +   src_y_pitch_byte * (y + crop_up) + crop_left;
         const int x_fin = width - crop_right - crop_left;
         for (int x = 0; x < x_fin; x += 2, dstY += 2, dstC += 2, srcP += 4) {
-            dstY[0*dst_y_pitch_byte  + 0] = srcP[0*src_y_pitch_byte + 0];
-            dstY[0*dst_y_pitch_byte  + 1] = srcP[0*src_y_pitch_byte + 2];
-            dstY[1*dst_y_pitch_byte  + 0] = srcP[1*src_y_pitch_byte + 0];
-            dstY[1*dst_y_pitch_byte  + 1] = srcP[1*src_y_pitch_byte + 2];
-            dstC[0*dst_y_pitch_byte/2+ 0] =(srcP[0*src_y_pitch_byte + 1] + srcP[1*src_y_pitch_byte + 1] + 1)/2;
-            dstC[0*dst_y_pitch_byte/2+ 1] =(srcP[0*src_y_pitch_byte + 3] + srcP[1*src_y_pitch_byte + 3] + 1)/2;
+            dstY[0*dst_y_pitch_byte  + 0] = srcP[0*src_y_pitch_byte + y0_idx];
+            dstY[0*dst_y_pitch_byte  + 1] = srcP[0*src_y_pitch_byte + y1_idx];
+            dstY[1*dst_y_pitch_byte  + 0] = srcP[1*src_y_pitch_byte + y0_idx];
+            dstY[1*dst_y_pitch_byte  + 1] = srcP[1*src_y_pitch_byte + y1_idx];
+            dstC[0*dst_y_pitch_byte/2+ 0] =(srcP[0*src_y_pitch_byte + u_idx] + srcP[1*src_y_pitch_byte + u_idx] + 1)/2;
+            dstC[0*dst_y_pitch_byte/2+ 1] =(srcP[0*src_y_pitch_byte + v_idx] + srcP[1*src_y_pitch_byte + v_idx] + 1)/2;
         }
     }
 }
+void convert_yuy2_to_nv12(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_yuy2_uyvy_to_nv12<true>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_uyvy_to_nv12(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_yuy2_uyvy_to_nv12<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
 
 //これも適当。
-void convert_yuy2_to_nv12_i(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+template<bool yuy2>
+void convert_yuy2_uyvy_to_nv12_i(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     int crop_left   = crop[0];
     int crop_up     = crop[1];
     int crop_right  = crop[2];
     int crop_bottom = crop[3];
     void *dst = dst_array[0];
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    const int y0_idx = (yuy2) ? 0 : 1;
+    const int y1_idx = (yuy2) ? 2 : 3;
+    const int u_idx  = (yuy2) ? 1 : 0;
+    const int v_idx  = (yuy2) ? 3 : 2;
     const void *src = src_array[0];
     uint8_t *srcFrame = (uint8_t *)src;
     uint8_t *dstYFrame = (uint8_t *)dst;
@@ -398,20 +414,26 @@ void convert_yuy2_to_nv12_i(void **dst_array, const void **src_array, int width,
         uint8_t *srcP = srcFrame  +   src_y_pitch_byte * (y + crop_up) + crop_left;
         const int x_fin = width - crop_right - crop_left;
         for (int x = 0; x < x_fin; x += 2, dstY += 2, dstC += 2, srcP += 4) {
-            dstY[0*dst_y_pitch_byte   + 0] = srcP[0*src_y_pitch_byte + 0];
-            dstY[0*dst_y_pitch_byte   + 1] = srcP[0*src_y_pitch_byte + 2];
-            dstY[1*dst_y_pitch_byte   + 0] = srcP[1*src_y_pitch_byte + 0];
-            dstY[1*dst_y_pitch_byte   + 1] = srcP[1*src_y_pitch_byte + 2];
-            dstY[2*dst_y_pitch_byte   + 0] = srcP[2*src_y_pitch_byte + 0];
-            dstY[2*dst_y_pitch_byte   + 1] = srcP[2*src_y_pitch_byte + 2];
-            dstY[3*dst_y_pitch_byte   + 0] = srcP[3*src_y_pitch_byte + 0];
-            dstY[3*dst_y_pitch_byte   + 1] = srcP[3*src_y_pitch_byte + 2];
-            dstC[0*dst_y_pitch_byte/2 + 0] =(srcP[0*src_y_pitch_byte + 1] * 3 + srcP[2*src_y_pitch_byte + 1] * 1 + 2)>>2;
-            dstC[0*dst_y_pitch_byte/2 + 1] =(srcP[0*src_y_pitch_byte + 3] * 3 + srcP[2*src_y_pitch_byte + 3] * 1 + 2)>>2;
-            dstC[1*dst_y_pitch_byte/2 + 0] =(srcP[1*src_y_pitch_byte + 1] * 1 + srcP[3*src_y_pitch_byte + 1] * 3 + 2)>>2;
-            dstC[1*dst_y_pitch_byte/2 + 1] =(srcP[1*src_y_pitch_byte + 3] * 1 + srcP[3*src_y_pitch_byte + 3] * 3 + 2)>>2;
+            dstY[0*dst_y_pitch_byte   + 0] = srcP[0*src_y_pitch_byte + y0_idx];
+            dstY[0*dst_y_pitch_byte   + 1] = srcP[0*src_y_pitch_byte + y1_idx];
+            dstY[1*dst_y_pitch_byte   + 0] = srcP[1*src_y_pitch_byte + y0_idx];
+            dstY[1*dst_y_pitch_byte   + 1] = srcP[1*src_y_pitch_byte + y1_idx];
+            dstY[2*dst_y_pitch_byte   + 0] = srcP[2*src_y_pitch_byte + y0_idx];
+            dstY[2*dst_y_pitch_byte   + 1] = srcP[2*src_y_pitch_byte + y1_idx];
+            dstY[3*dst_y_pitch_byte   + 0] = srcP[3*src_y_pitch_byte + y0_idx];
+            dstY[3*dst_y_pitch_byte   + 1] = srcP[3*src_y_pitch_byte + y1_idx];
+            dstC[0*dst_y_pitch_byte/2 + 0] =(srcP[0*src_y_pitch_byte + u_idx] * 3 + srcP[2*src_y_pitch_byte + u_idx] * 1 + 2)>>2;
+            dstC[0*dst_y_pitch_byte/2 + 1] =(srcP[0*src_y_pitch_byte + v_idx] * 3 + srcP[2*src_y_pitch_byte + v_idx] * 1 + 2)>>2;
+            dstC[1*dst_y_pitch_byte/2 + 0] =(srcP[1*src_y_pitch_byte + u_idx] * 1 + srcP[3*src_y_pitch_byte + u_idx] * 3 + 2)>>2;
+            dstC[1*dst_y_pitch_byte/2 + 1] =(srcP[1*src_y_pitch_byte + v_idx] * 1 + srcP[3*src_y_pitch_byte + v_idx] * 3 + 2)>>2;
         }
     }
+}
+void convert_yuy2_to_nv12_i(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_yuy2_uyvy_to_nv12_i<true>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_uyvy_to_nv12_i(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    return convert_yuy2_uyvy_to_nv12_i<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
 void convert_yv12_to_nv12_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
@@ -1528,12 +1550,17 @@ static void convert_yuv422_16_to_yuv444_16(void **dst, const void **src, int wid
     convert_yuv422_to_yuv444_c<uint16_t, 16, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
-static void convert_yuy2_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+template<bool yuy2>
+static void convert_yuy2_uyvy_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    const int y0_idx = (yuy2) ? 0 : 1;
+    const int y1_idx = (yuy2) ? 2 : 3;
+    const int u_idx  = (yuy2) ? 1 : 0;
+    const int v_idx  = (yuy2) ? 3 : 2;
     uint8_t *srcLine = (uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left * 2;
     uint8_t *dstYLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
     uint8_t *dstULine = (uint8_t *)dst[1] + dst_y_pitch_byte * y_range.start_dst;
@@ -1546,19 +1573,25 @@ static void convert_yuy2_to_yuv444(void **dst, const void **src, int width, int 
         const int x_fin = width - crop_right - crop_left;
         for (int x = 0; x < x_fin; x += 2, srcP += 4, dstY += 2, dstU += 2, dstV += 2) {
             int cxplus = (x + 2 < x_fin) ? 4 : 0;
-            dstY[0] = srcP[0];
-            dstY[1] = srcP[2];
+            dstY[0] = srcP[y0_idx];
+            dstY[1] = srcP[y1_idx];
 
-            int ux0 = srcP[1];
-            int vx0 = srcP[3];
-            int ux2 = srcP[1+cxplus];
-            int vx2 = srcP[3+cxplus];
+            int ux0 = srcP[u_idx];
+            int vx0 = srcP[v_idx];
+            int ux2 = srcP[u_idx+cxplus];
+            int vx2 = srcP[v_idx+cxplus];
             dstU[0] = (uint8_t)ux0;
             dstU[1] = (uint8_t)((ux0 + ux2 + 1) >> 1);
             dstV[0] = (uint8_t)vx0;
             dstV[1] = (uint8_t)((vx2 + vx2 + 1) >> 1);
         }
     }
+}
+static void convert_yuy2_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_yuy2_uyvy_to_yuv444<true>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+static void convert_uyvy_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    convert_yuy2_uyvy_to_yuv444<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
@@ -2120,8 +2153,10 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_avx,            convert_yuy2_to_nv12_i_avx,          AVX )
     FUNC_SSE(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_sse2,           convert_yuy2_to_nv12_i_ssse3,        SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_sse2,           convert_yuy2_to_nv12_i_sse2,         SSE2 )
-    FUNC__C_(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12,                convert_yuy2_to_nv12,                NONE )
+    FUNC__C_(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12,                convert_yuy2_to_nv12_i,              NONE )
     FUNC__C_(  RGY_CSP_YUY2,      RGY_CSP_YUV444,    false,  convert_yuy2_to_yuv444,              convert_yuy2_to_yuv444,              NONE )
+    FUNC__C_(  RGY_CSP_UYVY,      RGY_CSP_NV12,      false,  convert_uyvy_to_nv12,                convert_uyvy_to_nv12_i,              NONE )
+    FUNC__C_(  RGY_CSP_UYVY,      RGY_CSP_YUV444,    false,  convert_uyvy_to_yuv444,              convert_uyvy_to_yuv444,              NONE )
 #endif
 #if FOR_AUO && !CLFILTERS_AUF
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444,    false,  convert_yc48_to_yuv444_avx,          convert_yc48_to_yuv444_avx,          AVX )

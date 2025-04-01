@@ -149,6 +149,7 @@ static int bytesPerPix(RGY_CSP csp) {
         pixsize *= 4;
         break;
     case RGY_CSP_YUY2:
+    case RGY_CSP_UYVY:
     case RGY_CSP_Y210:
     case RGY_CSP_Y216:
     case RGY_CSP_Y410:
@@ -168,7 +169,7 @@ RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, const RGY_PLANE plane);
 static sInputCrop getPlane(const sInputCrop *crop, const RGY_CSP csp, const RGY_PLANE plane) {
     sInputCrop planeCrop = *crop;
     if (plane == RGY_PLANE_Y
-        || csp == RGY_CSP_YUY2
+        || csp == RGY_CSP_YUY2 || csp == RGY_CSP_UYVY
         || csp == RGY_CSP_Y210 || csp == RGY_CSP_Y216
         || csp == RGY_CSP_Y410 || csp == RGY_CSP_Y416
         || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB

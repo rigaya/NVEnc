@@ -75,7 +75,7 @@ static RGYFrameInfo getPlaneSingleAlloc(const RGYFrameInfo *frameInfo, const RGY
         case RGY_PLANE_V:
             //case RGY_PLANE_G:
             //case RGY_PLANE_B:
-            if (frameInfo->csp == RGY_CSP_YUY2
+            if (frameInfo->csp == RGY_CSP_YUY2 || frameInfo->csp == RGY_CSP_UYVY
                 || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_RGB_PACKED
                 || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_MONOCHROME) {
                 ; //なにもしない
@@ -129,7 +129,7 @@ RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, RGY_PLANE plane) {
         return getPlaneSingleAlloc(frameInfo, plane);
     }
     RGYFrameInfo planeInfo = *frameInfo;
-    if (frameInfo->csp == RGY_CSP_YUY2
+    if (frameInfo->csp == RGY_CSP_YUY2 || frameInfo->csp == RGY_CSP_UYVY
         || frameInfo->csp == RGY_CSP_Y210 || frameInfo->csp == RGY_CSP_Y216
         || frameInfo->csp == RGY_CSP_Y410 || frameInfo->csp == RGY_CSP_Y416
         || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_RGB_PACKED

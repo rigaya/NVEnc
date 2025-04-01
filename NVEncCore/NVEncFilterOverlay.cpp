@@ -196,7 +196,7 @@ RGY_ERR NVEncFilterOverlay::initInput(NVEncFilterParamOverlay *prm) {
         { AV_PIX_FMT_NV21,        RGY_CSP_NV12 },
         { AV_PIX_FMT_YUVJ422P,    RGY_CSP_NA },
         { AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2 },
-        { AV_PIX_FMT_UYVY422,     RGY_CSP_NA },
+        { AV_PIX_FMT_UYVY422,     RGY_CSP_UYVY },
 #if ENCODER_QSV || ENCODER_VCEENC     
         { AV_PIX_FMT_YUV422P,     RGY_CSP_NV12 },
         { AV_PIX_FMT_NV16,        RGY_CSP_NV12 },
