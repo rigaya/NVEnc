@@ -722,6 +722,7 @@ struct AVDemuxFormat {
     uint64_t                  inputFilesize;         //入力ファイルサイズ
 
     int64_t                   subPacketTemporalBufferIntervalCount; //字幕のタイムスタンプが入れ違いになっているのを解決する一時的なキューに登録を行ってから他のパケットを取得した数
+    RGY_ERR                   inputError;
 
     AVDemuxFormat();
     ~AVDemuxFormat() { close(); }
