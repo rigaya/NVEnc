@@ -1,5 +1,13 @@
 # NVEnc Release Notes
 
+## 8.03
+
+- Improve audio and video synchronization to achieve more uniform mixing when muxing with subtitles or data tracks.
+- Improve invalid input data hadling to avoid freeze when "failed to run h264_mp4toannexb bitstream filter" error occurs.
+  Now properly exits with error.
+- Add support for uyvy as input color format. ( #678 )
+- Fix application freezing when using readers other than avhw.
+
 ## 8.02
 
 - Fix vpp-resize ngx-vsr, libplaceo* not working in 8.01. ( #683 )

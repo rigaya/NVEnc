@@ -685,6 +685,7 @@ public:
                     if ((queueSize = (int)m_prevInputFrame.size()) > 0) {
                         prevframe = std::move(m_prevInputFrame.front());
                         m_prevInputFrame.pop_front();
+                        queueSize--;
                     }
                 }
                 if (prevframe.first) {
@@ -3111,15 +3112,16 @@ public:
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
                 // コピーを作ってそれをfilter関数に渡す
                 // vpp-rffなどoverwirteするフィルタのときに、filterframes.pop_front -> push がうまく動作しない
-                RGYFrameInfo input = filterframes.front().first;
-
-                NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                 int nOutFrames = 0;
                 RGYFrameInfo *outInfo[16] = { 0 };
-                auto sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames, streamFilter);
-                if (sts_filter != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
-                    return sts_filter;
+                RGYFrameInfo input = filterframes.front().first;
+                {
+                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                    auto sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames, streamFilter);
+                    if (sts_filter != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
+                        return sts_filter;
+                    }
                 }
                 if (nOutFrames == 0) {
                     if (drain) {
@@ -3129,18 +3131,24 @@ public:
                     return RGY_ERR_NONE;
                 }
                 if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
-                    auto cudaEvent = m_inFrameUseFinEvent.get([](cudaEvent_t *event) { return cudaEventCreateWithFlags(event, cudaEventDefault) != cudaSuccess ? 1 : 0; });
-                    if (!cudaEvent) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to get cuda event.\n"));
-                        return RGY_ERR_UNKNOWN;
+                    std::shared_ptr<cudaEvent_t> cudaEvent;
+                    {
+                        NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                        cudaEvent = m_inFrameUseFinEvent.get([](cudaEvent_t *event) { return cudaEventCreateWithFlags(event, cudaEventDefault) != cudaSuccess ? 1 : 0; });
+                        if (!cudaEvent) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to get cuda event.\n"));
+                            return RGY_ERR_UNKNOWN;
+                        }
+                        cudaEventRecord(*cudaEvent, streamFilter);
                     }
-                    cudaEventRecord(*cudaEvent, streamFilter);
                     //ここでinput frameの参照を m_prevInputFrame で保持するようにして、CUDAによるフレームの処理が完了しているかを確認できるようにする
                     //これを行わないとこのフレームが再度使われてしまうことになる
+                    //NVEncCtxAutoLockは内部で行われるため不要
                     m_frameReleaseData.addFrame(frame, cudaEvent);
                 }
                 // cuvidとの同期のため、cudaStreamPerThreadを最初に使った場合でも、その次のフィルタはm_streamFilterを使用するようにする
                 if (streamFilter != m_streamFilter) {
+                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                     auto err = cudaEventRecord(m_eventDefaultToFilter, streamFilter);
                     if (err != cudaSuccess) {
                         PrintMes(RGY_LOG_ERROR, _T("Failed to record cuda event for default to filter.\n"));
@@ -3217,7 +3225,6 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
                 return RGY_ERR_INVALID_PARAM;
             }
-            NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
             int nOutFrames = 0;
             RGYFrameInfo *outInfo[16] = { 0 };
             //エンコードバッファの情報を設定
@@ -3243,7 +3250,7 @@ public:
                     }
                     // 最後のフィルタではm_streamFilterではなくm_streamDownloadを使用するため、
                     // メモリをダウンロードするためのイベントを作成する
-
+                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                     cudaEventFilterToDownload = m_inFrameUseFinEvent.get([](cudaEvent_t *event) { return cudaEventCreateWithFlags(event, cudaEventDefault) != cudaSuccess ? 1 : 0; });
                     if (!cudaEventFilterToDownload) {
                         PrintMes(RGY_LOG_ERROR, _T("Failed to get cuda event .\n"));
@@ -3261,36 +3268,41 @@ public:
                     }
                 }
             }
-            // エンコードバッファのポインタを渡す
-            outInfo[0] = &frameVppOutInfo;
-            auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, streamLastFilter);
-            if (sts_filter != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
-                return sts_filter;
-            }
-            if (m_videoMetric) {
-                //フレームを転送
-                int dummy = 0;
-                auto err = m_videoMetric->filter(&ssimTarget, nullptr, &dummy, m_streamFilter);
-                if (err != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
-                    return err;
+            std::shared_ptr<cudaEvent_t> cudaEvent;
+            {
+                NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                // エンコードバッファのポインタを渡す
+                outInfo[0] = &frameVppOutInfo;
+                auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, streamLastFilter);
+                if (sts_filter != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
+                    return sts_filter;
                 }
-            }
-            // 処理の終了を示すイベント
-            auto cudaEvent = m_inFrameUseFinEvent.get([](cudaEvent_t *event) { return cudaEventCreateWithFlags(event, cudaEventDefault) != cudaSuccess ? 1 : 0; });
-            if (!cudaEvent) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to get filter finish cuda event.\n"));
-                return RGY_ERR_UNKNOWN;
-            }
-            auto err = cudaEventRecord(*cudaEvent, streamLastFilter);
-            if (err != cudaSuccess) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to record filter finish cuda event.\n"));
-                return err_to_rgy(err);
+                if (m_videoMetric) {
+                    //フレームを転送
+                    int dummy = 0;
+                    auto err = m_videoMetric->filter(&ssimTarget, nullptr, &dummy, m_streamFilter);
+                    if (err != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
+                        return err;
+                    }
+                }
+                // 処理の終了を示すイベント
+                cudaEvent = m_inFrameUseFinEvent.get([](cudaEvent_t *event) { return cudaEventCreateWithFlags(event, cudaEventDefault) != cudaSuccess ? 1 : 0; });
+                if (!cudaEvent) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get filter finish cuda event.\n"));
+                    return RGY_ERR_UNKNOWN;
+                }
+                auto err = cudaEventRecord(*cudaEvent, streamLastFilter);
+                if (err != cudaSuccess) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to record filter finish cuda event.\n"));
+                    return err_to_rgy(err);
+                }
             }
             if (frame) {
                 //ここでinput frameの参照を m_prevInputFrame で保持するようにして、CUDAによるフレームの処理が完了しているかを確認できるようにする
                 //これを行わないとこのフレームが再度使われてしまうことになる
+                //NVEncCtxAutoLockは内部で行われるため不要
                 m_frameReleaseData.addFrame(frame, cudaEvent);
             }
             filterframes.pop_front();
