@@ -791,6 +791,12 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
             inputParam->ctrl.parallelEnc.parallelCount = maxParallelCount;
             PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d.\n"), inputParam->ctrl.parallelEnc.parallelCount);
         }
+        if (inputParam->ctrl.parallelEnc.parallelCount <= 1) { // 並列数が1以下ならparallelを無効化
+            inputParam->ctrl.parallelEnc.parallelCount = 0;
+            inputParam->ctrl.parallelEnc.parallelId = -1;
+            PrintMes(RGY_LOG_DEBUG, _T("Parallel encoding disabled, as parallel count id set to %d.\n"), inputParam->ctrl.parallelEnc.parallelCount);
+            return RGY_ERR_NONE;
+        }
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pLog);
     if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {
