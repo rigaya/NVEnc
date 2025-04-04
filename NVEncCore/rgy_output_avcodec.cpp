@@ -4309,10 +4309,10 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     if (MUX_DEBUG) {
         fpMuxDebug = std::unique_ptr<FILE, fp_deleter>(_tfopen(_T("mux_debug.txt"), _T("w")));
         fprintf(fpMuxDebug.get(), "mux_debug\n");
-        fprintf(fpMuxDebug.get(), "dtsThreshold : %20lld\n", dtsThreshold);
-        fprintf(fpMuxDebug.get(), "syncIgnoreDts: %20lld\n", syncIgnoreDts);
-        fprintf(fpMuxDebug.get(), "audioDts     : %20lld\n", audioDts);
-        fprintf(fpMuxDebug.get(), "videoDts     : %20lld\n", videoDts);
+        fprintf(fpMuxDebug.get(), "dtsThreshold : %20lld\n", (lls)dtsThreshold);
+        fprintf(fpMuxDebug.get(), "syncIgnoreDts: %20lld\n", (lls)syncIgnoreDts);
+        fprintf(fpMuxDebug.get(), "audioDts     : %20lld\n", (lls)audioDts);
+        fprintf(fpMuxDebug.get(), "videoDts     : %20lld\n", (lls)videoDts);
         fprintf(fpMuxDebug.get(), "\n");
     }
     bool bThAudProcess = false;
@@ -4361,9 +4361,9 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
                 nWaitVideo = 0;
                 const auto log_level = RGY_LOG_TRACE;
                 if (m_printMes && log_level >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
-                    AddMessage(log_level, _T("videoDts=%8lld: %s.\n"), videoDts, getTimestampString(videoDts, QUEUE_DTS_TIMEBASE).c_str());
+                    AddMessage(log_level, _T("videoDts=%8lld: %s.\n"), (lls)videoDts, getTimestampString(videoDts, QUEUE_DTS_TIMEBASE).c_str());
                 }
-                if (fpMuxDebug) fprintf(fpMuxDebug.get(), "video: v %3d, a %3d, [videoDts=%16lld],  audioDts=%16lld .\n", (int)m_Mux.thread.qVideobitstream.size(), (int)m_Mux.thread.thOutput->qPackets.size(), videoDts, audioDts);
+                if (fpMuxDebug) fprintf(fpMuxDebug.get(), "video: v %3d, a %3d, [videoDts=%16lld],  audioDts=%16lld .\n", (int)m_Mux.thread.qVideobitstream.size(), (int)m_Mux.thread.thOutput->qPackets.size(), (lls)videoDts, (lls)audioDts);
             }
             AVPktMuxData pktData = { 0 };
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
@@ -4390,9 +4390,9 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
                 nWaitAudio = 0;
                 const auto log_level = RGY_LOG_TRACE;
                 if (m_printMes && log_level >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
-                    AddMessage(log_level, _T("audioDts=%8lld: %s, maxDst=%8lld.\n"), audioDts, getTimestampString(audioDts, QUEUE_DTS_TIMEBASE).c_str(), maxDts);
+                    AddMessage(log_level, _T("audioDts=%8lld: %s, maxDst=%8lld.\n"), (lls)audioDts, getTimestampString(audioDts, QUEUE_DTS_TIMEBASE).c_str(), (lls)maxDts);
                 }
-                if (fpMuxDebug) fprintf(fpMuxDebug.get(), "audio: v %3d, a %3d,  videoDts=%16lld , [audioDts=%16lld].\n", (int)m_Mux.thread.qVideobitstream.size(), (int)m_Mux.thread.thOutput->qPackets.size(), videoDts, audioDts);
+                if (fpMuxDebug) fprintf(fpMuxDebug.get(), "audio: v %3d, a %3d,  videoDts=%16lld , [audioDts=%16lld].\n", (int)m_Mux.thread.qVideobitstream.size(), (int)m_Mux.thread.thOutput->qPackets.size(), (lls)videoDts, (lls)audioDts);
             }
             //一定以上の動画フレームがキューにたまっており、音声キューになにもなければ、
             //音声を無視して動画フレームの処理を開始させる
