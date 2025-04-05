@@ -4283,7 +4283,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     bool bAudioExists = false;
     bool bVideoExists = false;
     const auto fpsTimebase = av_inv_q(m_Mux.video.outputFps);
-    const int VideoAudioPickSwitchThresholdFrames = m_Mux.format.lowlatency ? 1 : 4; // 映像-音声の切り替え間隔(フレーム数)
+    const int VideoAudioPickSwitchThresholdFrames = m_Mux.format.lowlatency ? 1 : 2; // 映像-音声の切り替え間隔(フレーム数)
     const auto dtsThreshold = std::max<int64_t>(av_rescale_q(VideoAudioPickSwitchThresholdFrames, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);
     //syncIgnoreDtsは映像と音声の同期を行う必要がないことを意味する
     //dtsThresholdを加算したときにオーバーフローしないよう、dtsThresholdを引いておく

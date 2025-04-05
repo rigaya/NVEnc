@@ -7,6 +7,7 @@
   Now properly exits with error.
 - Add support for uyvy as input color format. ( #678 )
 - Fix application freezing when using readers other than avhw.
+- Automatically disable --parallel when number of encoders is 1 when using ```--parallel auto```.
 
 ## 8.02
 
