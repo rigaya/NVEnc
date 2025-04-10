@@ -2575,9 +2575,9 @@ Non local meansを用いたノイズ除去フィルタ。Windowsでは64bit版�
 ### --vpp-gauss &lt;int&gt;
 適用サイズを指定してガウスフィルタをかける。サイズは3,5,7のどれか。
 
-nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに配置する必要があり、x64版のみ使用可。
+nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに配置する必要があり、x64版のみ使用可。
 
-必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/7.00)からダウンロードできます。 (npp64_10_dll_7zip.7z)
+必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/8.01)からダウンロードできます。 (npp64_11_dll.7z)
 
 ### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 指定した字幕の焼きこみを行う。テキスト形式の字幕については、[libass](https://github.com/libass/libass)を用いたレンダリングを行う。
@@ -2727,9 +2727,9 @@ nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをNVEncC64と同じフォルダに
       | super         | nppのsuper sampling (縮小のみ)              |
       | lanczos       | Lanczos法                                   |
       
-      これらは[NPPライブラリ](https://developer.nvidia.com/npp)を使用しているため、使用には別途nppc64_10.dll, nppif64_10.dll, nppig64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。また、x64版のみ対応。
+      これらは[NPPライブラリ](https://developer.nvidia.com/npp)を使用しているため、使用には別途nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。また、x64版のみ対応。
 
-      必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/7.00)からダウンロードできます。 (npp64_10_dll_7zip.7z)
+      必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/8.01)からダウンロードできます。 (npp64_11_dll.7z)
 
     - [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK)ライブラリのリサイズフィルタ
 
