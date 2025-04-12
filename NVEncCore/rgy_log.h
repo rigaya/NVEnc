@@ -69,6 +69,7 @@ enum RGYLogType {
     RGY_LOGT_CORE_RESULT,
     RGY_LOGT_HDR10PLUS = RGY_LOGT_CORE_RESULT,
     RGY_LOGT_CORE_PARALLEL,
+    RGY_LOGT_CORE_GPU_SELECT,
     RGY_LOGT_DEV,
     RGY_LOGT_DEC,
     RGY_LOGT_IN,
@@ -81,6 +82,7 @@ enum RGYLogType {
     RGY_LOGT_LIBASS,
     RGY_LOGT_PERF_MONITOR,
     RGY_LOGT_CAPION2ASS,
+    RGY_LOGT_FIN,
 };
 
 static const std::array<std::pair<RGYLogType, const TCHAR *>, RGY_LOGT_CAPION2ASS - RGY_LOGT_ALL + 1> RGY_LOG_TYPE_STR = {
@@ -91,6 +93,7 @@ static const std::array<std::pair<RGYLogType, const TCHAR *>, RGY_LOGT_CAPION2AS
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_PROGRESS, _T("core_progress")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_RESULT,   _T("core_result")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_PARALLEL, _T("parallel")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_CORE_GPU_SELECT, _T("gpu_select")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_DEC,           _T("decoder")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_IN,            _T("input")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OUT,           _T("output")},
@@ -109,6 +112,7 @@ private:
     RGYLogLevel appcoreprogress_;
     RGYLogLevel appcoreresult_;
     RGYLogLevel appcoreparallel_;
+    RGYLogLevel appcoregpuselect_;
     RGYLogLevel appdevice_;
     RGYLogLevel appdecode_;
     RGYLogLevel appinput_;
@@ -131,6 +135,7 @@ public:
         case RGY_LOGT_CORE_PROGRESS: return appcoreprogress_;
         case RGY_LOGT_CORE_RESULT: return appcoreresult_;
         case RGY_LOGT_CORE_PARALLEL: return appcoreparallel_;
+        case RGY_LOGT_CORE_GPU_SELECT: return appcoregpuselect_;
         case RGY_LOGT_DEC: return appdecode_;
         case RGY_LOGT_DEV: return appdevice_;
         case RGY_LOGT_IN: return appinput_;

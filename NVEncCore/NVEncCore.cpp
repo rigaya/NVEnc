@@ -821,6 +821,9 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
         }
         return RGY_ERR_NONE; // 親の場合は正常終了(並列動作を無効化して継続)を返す
     }
+    if (inputParam->ctrl.parallelEnc.isChild()) {
+        m_pLog->write(RGY_LOG_DEBUG, RGY_LOGT_CORE_GPU_SELECT, _T("Parallel Enc %d: Selected GPU #%d (%s)\n"), inputParam->ctrl.parallelEnc.parallelId, m_dev->id(), m_dev->name().c_str());
+    }
     return RGY_ERR_NONE;
 }
 
@@ -1102,6 +1105,7 @@ RGY_ERR NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuLis
         }
     }
 
+    const tstring PEPrefix = (inputParam->ctrl.parallelEnc.isChild()) ? strsprintf(_T("Parallel Enc %d: "), inputParam->ctrl.parallelEnc.parallelId) : _T("");
     std::map<int, double> gpuscore;
     for (const auto& gpu : gpuList) {
         const auto encoderCount = gpu->encoder_count(m_stCodecGUID);
@@ -1128,7 +1132,7 @@ RGY_ERR NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuLis
             PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) Load: GPU %.1f, VE: %.1f.\n"), gpu->id(), gpu->name().c_str(), info.GPULoad, info.VEELoad);
         }
         gpuscore[gpu->id()] = usage_score + cc_score + ve_score + gpu_score + core_score;
-        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: Use %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f.\n"), gpu->id(), gpu->name().c_str(),
+        m_pLog->write(RGY_LOG_DEBUG, RGY_LOGT_CORE_GPU_SELECT, _T("%sGPU #%d (%s) score: %.1f: Use %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f.\n"), PEPrefix.c_str(), gpu->id(), gpu->name().c_str(),
             gpuscore[gpu->id()], usage_score, ve_score, gpu_score, cc_score, core_score);
     }
     std::sort(gpuList.begin(), gpuList.end(), [&](const std::unique_ptr<NVGPUInfo>& a, const std::unique_ptr<NVGPUInfo>& b) {
@@ -1140,7 +1144,7 @@ RGY_ERR NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuLis
 
     PrintMes(RGY_LOG_DEBUG, _T("GPU Priority\n"));
     for (const auto& gpu : gpuList) {
-        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s): score %.1f\n"), gpu->id(), gpu->name().c_str(), gpuscore[gpu->id()]);
+        PrintMes(RGY_LOG_DEBUG, _T("%sGPU #%d (%s): score %.1f\n"), PEPrefix.c_str(), gpu->id(), gpu->name().c_str(), gpuscore[gpu->id()]);
     }
     return RGY_ERR_NONE;
 }

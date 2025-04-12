@@ -430,11 +430,23 @@ RGY_ERR RGYParallelEnc::parallelChild(const encParams *prm, const RGYInput *inpu
     return RGY_ERR_NONE;
 }
 
+RGYParamLogLevel RGYParallelEnc::setChildLogLevel(const RGYParamLogLevel& logLevel) {
+    RGYParamLogLevel logLevelChild = logLevel;
+    for (int i = 0; i < RGY_LOGT_FIN; i++) {
+        const auto logType = (RGYLogType)(i);
+        if (logType != RGY_LOGT_APP && logType != RGY_LOGT_ALL) { // 一括設定のものは除く
+            const auto level = logLevel.get(logType);
+            logLevelChild.set(level == RGY_LOG_INFO ? RGY_LOG_WARN : level, logType); // INFO->WARNに変更
+        }
+    }
+    return logLevelChild;
+}
+
 encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const bool delayChildSync, const tstring& tmpfile) {
     encParams prmParallel = *prm;
     prmParallel.ctrl.parallelEnc.parallelId = ip;
     prmParallel.ctrl.parentProcessID = GetCurrentProcessId();
-    prmParallel.ctrl.loglevel = RGY_LOG_WARN;
+    prmParallel.ctrl.loglevel = setChildLogLevel(prm->ctrl.loglevel);
     prmParallel.ctrl.parallelEnc.cacheMode = (ip == 0) ? RGYParamParallelEncCache::Mem : prm->ctrl.parallelEnc.cacheMode; // parallelId = 0 は必ずMem キャッシュモード
     prmParallel.ctrl.parallelEnc.delayChildSync = delayChildSync;
 #if __has_include("rgy_opencl.h")

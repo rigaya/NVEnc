@@ -207,6 +207,7 @@ protected:
     RGY_ERR startChunkProcess(int ichunk, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus);
     RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus);
     RGY_ERR parallelChild(const encParams *prm, const RGYInput *input);
+    RGYParamLogLevel setChildLogLevel(const RGYParamLogLevel& logLevel);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_CORE_PARALLEL)) {

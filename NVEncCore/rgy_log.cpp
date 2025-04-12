@@ -110,6 +110,7 @@ RGYParamLogLevel::RGYParamLogLevel() :
     appcoreprogress_(RGY_LOG_INFO),
     appcoreresult_(RGY_LOG_INFO),
     appcoreparallel_(RGY_LOG_INFO),
+    appcoregpuselect_(RGY_LOG_INFO),
     appdevice_(RGY_LOG_INFO),
     appdecode_(RGY_LOG_INFO),
     appinput_(RGY_LOG_INFO),
@@ -132,6 +133,7 @@ bool RGYParamLogLevel::operator==(const RGYParamLogLevel &x) const {
         && appcoreprogress_ == x.appcoreprogress_
         && appcoreresult_ == x.appcoreresult_
         && appcoreparallel_ == x.appcoreparallel_
+        && appcoregpuselect_ == x.appcoregpuselect_
         && appdevice_ == x.appdevice_
         && appdecode_ == x.appdecode_
         && appinput_ == x.appinput_
@@ -155,6 +157,7 @@ RGYLogLevel RGYParamLogLevel::set(const RGYLogLevel newLogLevel, const RGYLogTyp
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_CORE_PROGRESS, appcoreprogress_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_CORE_RESULT, appcoreresult_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_CORE_PARALLEL, appcoreparallel_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_CORE_GPU_SELECT, appcoregpuselect_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_DEV,   appdevice_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_DEC,  appdecode_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_IN,    appinput_);
@@ -173,6 +176,7 @@ RGYLogLevel RGYParamLogLevel::set(const RGYLogLevel newLogLevel, const RGYLogTyp
         appcoreprogress_ = newLogLevel;
         appcoreresult_   = newLogLevel;
         appcoreparallel_ = newLogLevel;
+        appcoregpuselect_ = newLogLevel;
         } break;
     case RGY_LOGT_APP: {
         prevLevel        = appcore_;
@@ -180,6 +184,7 @@ RGYLogLevel RGYParamLogLevel::set(const RGYLogLevel newLogLevel, const RGYLogTyp
         appcoreprogress_ = newLogLevel;
         appcoreresult_   = newLogLevel;
         appcoreparallel_ = newLogLevel;
+        appcoregpuselect_ = newLogLevel;
         appdevice_       = newLogLevel;
         appdecode_       = newLogLevel;
         appinput_        = newLogLevel;
@@ -194,6 +199,7 @@ RGYLogLevel RGYParamLogLevel::set(const RGYLogLevel newLogLevel, const RGYLogTyp
         appcoreprogress_ = newLogLevel;
         appcoreresult_   = newLogLevel;
         appcoreparallel_ = newLogLevel;
+        appcoregpuselect_ = newLogLevel;
         appdevice_       = newLogLevel;
         appdecode_       = newLogLevel;
         appinput_        = newLogLevel;

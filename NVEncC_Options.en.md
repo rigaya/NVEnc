@@ -3227,7 +3227,8 @@ Select the level of log output.
   - core ... Application core logs, including core_progress and core_result
   - core_progress ... Progress indicator
   - core_result ... Encode result
-  - parallel ... Parallel encode related logs
+  - parallel ... Parallel
+  - gpu_select ... GPU auto select
   - decoder ... decoder logs
   - input ... File input logs
   - output ... File output logs
