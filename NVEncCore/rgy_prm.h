@@ -2568,6 +2568,7 @@ struct RGYParamControl {
     tstring vsdir;
     bool enableOpenCL;
     RGYParamInitVulkan enableVulkan;
+    int openclBuildThreads;
     RGYParamAvoidIdleClock avoidIdleClock;
     bool processMonitorDevUsage;
     bool processMonitorDevUsageReset;

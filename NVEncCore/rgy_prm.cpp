@@ -2385,6 +2385,7 @@ RGYParamControl::RGYParamControl() :
     vsdir(),
     enableOpenCL(true),
     enableVulkan(RGYParamInitVulkan::TargetVendor),
+    openclBuildThreads(0),
     avoidIdleClock(),
     processMonitorDevUsage(false),
     processMonitorDevUsageReset(false),

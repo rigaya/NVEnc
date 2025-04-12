@@ -1536,6 +1536,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_tchar.h" />
     <ClInclude Include="rgy_thread.h" />
     <ClInclude Include="rgy_thread_affinity.h" />
+    <ClInclude Include="rgy_thread_pool.h" />
     <ClInclude Include="rgy_timecode.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="rgy_version.h" />

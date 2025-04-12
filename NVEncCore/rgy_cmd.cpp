@@ -7074,6 +7074,16 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->enableVulkan = RGYParamInitVulkan::All;
         return 0;
     }
+    if (IS_OPTION("opencl-build-threads")) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        ctrl->openclBuildThreads = value;
+        return 0;
+    }
     if (IS_OPTION("parallel") && ENABLE_PARALLEL_ENC) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -8550,6 +8560,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
             cmd << _T(" --enable-vulkan-all");
         }
     }
+    OPT_NUM(_T("--opencl-build-threads"), openclBuildThreads);
     OPT_BOOL(_T("--process-monitor-dev-usage"), _T(""), processMonitorDevUsage);
     OPT_BOOL(_T("--process-monitor-dev-usage-reset"), _T(""), processMonitorDevUsageReset);
 

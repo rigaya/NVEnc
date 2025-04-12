@@ -437,6 +437,9 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.ctrl.loglevel = RGY_LOG_WARN;
     prmParallel.ctrl.parallelEnc.cacheMode = (ip == 0) ? RGYParamParallelEncCache::Mem : prm->ctrl.parallelEnc.cacheMode; // parallelId = 0 は必ずMem キャッシュモード
     prmParallel.ctrl.parallelEnc.delayChildSync = delayChildSync;
+#if __has_include("rgy_opencl.h")
+    prmParallel.ctrl.openclBuildThreads = std::max(1, (prm->ctrl.openclBuildThreads > 0 ? prm->ctrl.openclBuildThreads : std::min(RGY_OPENCL_BUILD_THREAD_DEFAULT_MAX, (int)std::thread::hardware_concurrency())) / prm->ctrl.parallelEnc.parallelCount); // 並列数の制限
+#endif
     prmParallel.common.muxOutputFormat = _T("raw");
     prmParallel.common.outputFilename = tmpfile; // ip==0の場合のみ、実際にはキューを介してデータをやり取りするがとりあえずファイル名はそのまま入れる
     prmParallel.common.AVMuxTarget = RGY_MUX_NONE;
