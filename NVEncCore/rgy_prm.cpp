@@ -2342,6 +2342,7 @@ RGYParamParallelEnc::RGYParamParallelEnc() :
     parallelId(-1),
     chunks(0),
     cacheMode(RGYParamParallelEncCache::Mem),
+    delayChildSync(false),
     sendData(nullptr) {
 
 };

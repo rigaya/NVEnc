@@ -184,7 +184,7 @@ public:
     RGYParallelEnc(std::shared_ptr<RGYLog> log);
     virtual ~RGYParallelEnc();
     static std::pair<RGY_ERR, const TCHAR *> isParallelEncPossible(const encParams *prm, const RGYInput *input);
-    RGY_ERR parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
+    RGY_ERR parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus);
     void close(const bool deleteTempFiles);
     int64_t getVideoEndKeyPts() const { return m_videoEndKeyPts; }
     void setVideoFinished() { m_videoFinished = true; }
@@ -203,9 +203,9 @@ public:
     int parallelCount() const { return m_parallelCount; }
     int chunks() const { return m_chunks; }
 protected:
-    encParams genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const tstring& tmpfile);
-    RGY_ERR startChunkProcess(int ichunk, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
-    RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, EncodeStatus *encStatus);
+    encParams genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const bool delayChildSync, const tstring& tmpfile);
+    RGY_ERR startChunkProcess(int ichunk, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus);
+    RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus);
     RGY_ERR parallelChild(const encParams *prm, const RGYInput *input);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {

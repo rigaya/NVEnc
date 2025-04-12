@@ -2525,6 +2525,7 @@ struct RGYParamParallelEnc {
     int parallelId; // 親=-1, 子=0～
     int chunks; // 分割数
     RGYParamParallelEncCache cacheMode;
+    bool delayChildSync; // 親-子間のデータやり取りを少し遅らせる
     RGYParallelEncSendData *sendData; // 並列処理時に親-子間のデータやり取り用
     RGYParamParallelEnc();
     bool operator==(const RGYParamParallelEnc &x) const;
