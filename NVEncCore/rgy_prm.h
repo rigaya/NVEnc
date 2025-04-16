@@ -1245,8 +1245,8 @@ const CX_DESC list_vpp_libplacebo_tone_mapping_gamut_mapping[] = {
 
 const CX_DESC list_vpp_libplacebo_tone_mapping_function[] = {
     { _T("clip"),        (int)VppLibplaceboToneMappingFunction::clip },
-    { _T("st2094_40"),   (int)VppLibplaceboToneMappingFunction::st2094_40 },
-    { _T("st2094_10"),   (int)VppLibplaceboToneMappingFunction::st2094_10 },
+    { _T("st2094-40"),   (int)VppLibplaceboToneMappingFunction::st2094_40 },
+    { _T("st2094-10"),   (int)VppLibplaceboToneMappingFunction::st2094_10 },
     { _T("bt2390"),      (int)VppLibplaceboToneMappingFunction::bt2390 },
     { _T("bt2446a"),     (int)VppLibplaceboToneMappingFunction::bt2446a },
     { _T("spline"),      (int)VppLibplaceboToneMappingFunction::spline },
