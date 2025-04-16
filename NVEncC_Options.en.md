@@ -2518,7 +2518,7 @@ Rather weak noise reduction by modified pmd method, aimed to preserve edge while
 Specify the size of Gaussian filter, from 3, 5 or 7.  
 It is necessary to add nppc64_11.dll, nppif64_11.dll, nppig64_11.dll in the same folder of NVEncC64, and could be used only in x64 version.
 
-The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp64_11_dll.7z).
+The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp64_11_dll.7z). It can also be found under ```<CUDA Install Path>\bin``` if you install CUDA 11.
 
 ### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 "Burn in" specified subtitle to the video. Text type subtitles will be rendered by [libass](https://github.com/libass/libass).
@@ -2672,7 +2672,7 @@ Specify the resizing algorithm.
       
        Filters on the table will use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only.
        To use those algorithms, you need to download nppc64_11.dll, nppif64_11.dll, nppig64_11.dll separately and place it in the same folder as NVEncC64.exe.
-       The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp64_11_dll.7z).
+       The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp64_11_dll.7z). It can also be found under ```<CUDA Install Path>\bin``` if you install CUDA 11.
 
     - [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK) library resize filters
 

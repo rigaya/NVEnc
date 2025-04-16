@@ -2579,6 +2579,8 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
 
 必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/8.01)からダウンロードできます。 (npp64_11_dll.7z)
 
+または、CUDA 11をインストールし、```<CUDA 11 インストール先>\bin``` から取得することもできます。
+
 ### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 指定した字幕の焼きこみを行う。テキスト形式の字幕については、[libass](https://github.com/libass/libass)を用いたレンダリングを行う。
 
@@ -2729,7 +2731,7 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
       
       これらは[NPPライブラリ](https://developer.nvidia.com/npp)を使用しているため、使用には別途nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。また、x64版のみ対応。
 
-      必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/8.01)からダウンロードできます。 (npp64_11_dll.7z)
+      必要なdllは[こちらのリンク](https://github.com/rigaya/NVEnc/releases/tag/8.01)からダウンロードできます。 (npp64_11_dll.7z) または、CUDA 11をインストールし、```<CUDAインストール先>\bin``` から取得することもできます。
 
     - [nvvfx](https://github.com/NVIDIA/MAXINE-VFX-SDK)ライブラリのリサイズフィルタ
 
