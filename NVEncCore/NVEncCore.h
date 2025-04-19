@@ -232,6 +232,7 @@ protected:
     bool                         m_rgbAsYUV444;           //YUV444でRGB出力を行う
 
     int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)
+    bool                         m_taskPerfMonitor;       //タスクパフォーマンスモニタリングを有効にする
     RGYAVSync                    m_nAVSyncMode;           //映像音声同期設定
     bool                         m_timestampPassThrough;  //timestampをそのまま転送する
     rgy_rational<int>            m_inputFps;              //入力フレームレート

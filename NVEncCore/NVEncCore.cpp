@@ -323,6 +323,7 @@ NVEncCore::NVEncCore() :
     m_encVUI(),
     m_rgbAsYUV444(),
     m_nProcSpeedLimit(0),
+    m_taskPerfMonitor(false),
     m_nAVSyncMode(RGY_AVSYNC_AUTO),
     m_timestampPassThrough(false),
     m_inputFps(),
@@ -4074,6 +4075,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 
     m_nAVSyncMode = inputParam->common.AVSyncMode;
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
+    m_taskPerfMonitor = inputParam->ctrl.taskPerfMonitor;
     m_videoIgnoreTimestampError = inputParam->common.videoIgnoreTimestampError;
     if (inputParam->ctrl.lowLatency) {
         m_pipelineDepth = 1;
@@ -4615,6 +4617,18 @@ RGY_ERR NVEncCore::Encode() {
     m_pStatus->SetStart();
 
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
+    for (auto& task : m_pipelineTasks) {
+        if (m_taskPerfMonitor) {
+            task->setStopWatch();
+        }
+    }
+    std::unique_ptr<PipelineTaskStopWatch> stopwatchOutput;
+    if (m_taskPerfMonitor) {
+        stopwatchOutput = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("") },
+            std::vector<tstring>{_T("")}
+        );
+    }
 
     auto requireSync = [this]([[maybe_unused]] const size_t itask) {
 #if ENCODER_NVENC
@@ -4683,10 +4697,12 @@ RGY_ERR NVEncCore::Encode() {
                             });
                     }
                 } else { // pipelineの最終的なデータを出力
+                    if (stopwatchOutput) stopwatchOutput->set(0);
                     if ((err = d.data->write(m_pFileWriter.get(), m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
+                    if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
             }
             if (dataqueue.empty()) {
@@ -4741,10 +4757,12 @@ RGY_ERR NVEncCore::Encode() {
                         });
                     if (err == RGY_ERR_MORE_DATA) err = RGY_ERR_NONE; //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
+                    if (stopwatchOutput) stopwatchOutput->set(0);
                     if ((err = d.data->write(m_pFileWriter.get(), m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
+                    if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
             }
             if (dataqueue.empty()) {
@@ -4793,6 +4811,31 @@ RGY_ERR NVEncCore::Encode() {
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_vpFilters.clear();
     PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
+    // taskの集計結果を表示
+    if (m_taskPerfMonitor) {
+        PrintMes(RGY_LOG_INFO, _T("\nTask Performance\n"));
+        static const TCHAR *TASK_OUTPUT = _T("OUTPUT");
+        const int64_t totalTicks = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), 0LL, [](int64_t total, const std::unique_ptr<PipelineTask>& task) {
+            return total + task->getStopWatchTotal();
+        }) + stopwatchOutput->totalTicks();
+        if (totalTicks > 0) {
+            const size_t maxWorkStrLenLen = std::max(std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), (size_t)0, [](size_t maxStrLength, const std::unique_ptr<PipelineTask>& task) {
+                return std::max(maxStrLength, task->getStopWatchMaxWorkStrLen());
+            }), stopwatchOutput->maxWorkStrLen());
+            const size_t maxTaskStrLen = std::max(std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), (size_t)0, [](size_t maxStrLength, const std::unique_ptr<PipelineTask>& task) {
+                return std::max(maxStrLength, _tcslen(getPipelineTaskTypeName(task->taskType())));
+            }), _tcslen(TASK_OUTPUT));
+            for (auto& task : m_pipelineTasks) {
+                task->printStopWatch(totalTicks, maxWorkStrLenLen + maxTaskStrLen - _tcslen(getPipelineTaskTypeName(task->taskType())));
+            }
+            const auto strlines = split(stopwatchOutput->print(totalTicks, maxWorkStrLenLen + maxTaskStrLen - _tcslen(TASK_OUTPUT)), _T("\n"));
+            for (auto& str : strlines) {
+                if (str.length() > 0) {
+                    PrintMes(RGY_LOG_INFO, _T("%s: %s\n"), TASK_OUTPUT, str.c_str());
+                }
+            }
+        }
+    }
 
     //この中でフレームの解放がなされる
     PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
