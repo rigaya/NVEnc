@@ -1909,6 +1909,9 @@ Performs tone mapping using [libplacebo](https://code.videolan.org/videolan/libp
   - contrast_smoothness=&lt;float&gt;  
     Contrast recovery lowpass kernel size. Default: 3.5
 
+  - inverse_tone_mapping=&lt;bool&gt;  
+    Inverse tone mapping. Default: false
+
   - visualize_lut=&lt;bool&gt;  
     Visualize tone mapping curve/LUT. Default: false
 

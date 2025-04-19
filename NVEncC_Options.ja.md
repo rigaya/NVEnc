@@ -1903,6 +1903,9 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   - contrast_smoothness=&lt;float&gt;  
     コントラスト回復のローパスカーネルサイズ。デフォルト: 3.5
 
+  - inverse_tone_mapping=&lt;bool&gt;  
+    Inverse tone mapping. デフォルト: false
+
   - visualize_lut=&lt;bool&gt;  
     トーンマッピングカーブ/LUTを可視化します。デフォルト: false
 

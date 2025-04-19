@@ -576,7 +576,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (get_list_value(list_vpp_resize, param.c_str(), &value)) {
                         vpp->resize_algo = (RGY_VPP_RESIZE_ALGO)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name), param, list_vpp_resize);
+                        print_cmd_error_invalid_value(tstring(option_name), param, list_vpp_resize_help);
                         return 1;
                     }
                 }
@@ -897,7 +897,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         const auto paramList = std::vector<std::string>{
             "src_csp", "dst_csp", "src_max", "src_min", "dst_max", "dst_min", "dynamic_peak_detection", "smooth_period",
             "scene_threshold_low", "scene_threshold_high", "percentile", "black_cutoff", "gamut_mapping",
-            "tonemapping_function", "contrast_recovery", "contrast_smoothness", "visualize_lut", "show_clipping",
+            "tonemapping_function", "contrast_recovery", "contrast_smoothness", "inverse_tone_mapping", "visualize_lut", "show_clipping",
             "use_dovi", "lut_path", "lut_type", "dst_matrix", "dst_transfer", "dst_colorprim",
             "knee_adaptation", "knee_min", "knee_max", "knee_default", "knee_offset", "slope_tuning",
             "slope_offset", "spline_contrast", "reinhard_contrast", "linear_knee", "exposure"
@@ -1076,6 +1076,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
+                    continue;
+                }
+                if (param_arg == _T("inverse_tone_mapping")) {
+                    bool b = false;
+                    if (cmd_string_to_bool(&b, param_val) != 0) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    vpp->libplacebo_tonemapping.inverse_tone_mapping = b;
                     continue;
                 }
                 if (param_arg == _T("visualize_lut")) {
@@ -7380,6 +7389,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_LST(_T("metadata"), libplacebo_tonemapping.metadata, list_vpp_libplacebo_tone_mapping_metadata);
             ADD_FLOAT(_T("contrast_recovery"), libplacebo_tonemapping.contrast_recovery, 3);
             ADD_FLOAT(_T("contrast_smoothness"), libplacebo_tonemapping.contrast_smoothness, 3);
+            ADD_BOOL(_T("inverse_tone_mapping"), libplacebo_tonemapping.inverse_tone_mapping);
             ADD_BOOL(_T("visualize_lut"), libplacebo_tonemapping.visualize_lut);
             ADD_BOOL(_T("show_clipping"), libplacebo_tonemapping.show_clipping);
             ADD_NUM(_T("use_dovi"), libplacebo_tonemapping.use_dovi);
@@ -8985,11 +8995,13 @@ tstring gen_cmd_help_vpp() {
     str += strsprintf(_T("\n")
         _T("      contrast_recovery=<float> Contrast recovery strength (default:%.1f)\n")
         _T("      contrast_smoothness=<float> Contrast recovery lowpass kernel size (default:%.1f)\n")
+        _T("      inverse_tone_mapping=<bool> Inverse tone mapping (default:%s)\n")
         _T("      visualize_lut=<bool>     Visualize tone mapping curve (default:%s)\n")
         _T("      show_clipping=<bool>     Highlight clipped pixels (default:%s)\n")
         _T("      use_dovi=<bool>          Use Dolby Vision RPU (default:%s)\n"),
         FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_CONTRAST_RECOVERY,
         FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_CONTRAST_SMOOTHNESS,
+        FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_INVERSE_TONE_MAPPING ? _T("true") : _T("false"),
         FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_VISUALIZE_LUT ? _T("true") : _T("false"),
         FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SHOW_CLIPPING ? _T("true") : _T("false"),
         FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_USE_DOVI < 0 ? _T("auto") : (FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_USE_DOVI ? _T("true") : _T("false")));
@@ -9343,7 +9355,7 @@ tstring gen_cmd_help_vpp() {
         _T("     enable dct based denoise filter.\n")
         _T("    params\n")
         _T("      step=<int>            quality of filter (smaller value will result higher quality)\n")
-        _T("                             1, 2 (default), 4, 8\n")
+        _T("                              1, 2 (default), 4, 8\n")
         _T("      sigma=<float>         strength of filter (default=%.2f)\n")
         _T("      block_size=<int>      block size of calculation.\n")
         _T("                              8 (default), 16\n"),

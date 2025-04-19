@@ -518,6 +518,7 @@ VppLibplaceboToneMapping::VppLibplaceboToneMapping() :
     metadata((VppLibplaceboToneMappingMetadata)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_METADATA),
     contrast_recovery(FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_CONTRAST_RECOVERY),
     contrast_smoothness(FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_CONTRAST_SMOOTHNESS),
+    inverse_tone_mapping(FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_INVERSE_TONE_MAPPING),
     visualize_lut(FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_VISUALIZE_LUT),
     show_clipping(FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SHOW_CLIPPING),
     use_dovi(FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_USE_DOVI),
@@ -548,6 +549,7 @@ bool VppLibplaceboToneMapping::operator==(const VppLibplaceboToneMapping &x) con
         && metadata == x.metadata
         && contrast_recovery == x.contrast_recovery
         && contrast_smoothness == x.contrast_smoothness
+        && inverse_tone_mapping == x.inverse_tone_mapping
         && visualize_lut == x.visualize_lut
         && show_clipping == x.show_clipping
         && use_dovi == x.use_dovi
@@ -556,9 +558,11 @@ bool VppLibplaceboToneMapping::operator==(const VppLibplaceboToneMapping &x) con
         && dst_pl_transfer == x.dst_pl_transfer
         && dst_pl_colorprim == x.dst_pl_colorprim;
 }
+
 bool VppLibplaceboToneMapping::operator!=(const VppLibplaceboToneMapping &x) const {
     return !(*this == x);
 }
+
 tstring VppLibplaceboToneMapping::print() const {
     tstring str;
     str += strsprintf(_T("src_csp=%s, "), get_cx_desc(list_vpp_libplacebo_tone_mapping_csp, (int)src_csp));
@@ -579,6 +583,7 @@ tstring VppLibplaceboToneMapping::print() const {
     str += strsprintf(_T("metadata=%s, "), get_cx_desc(list_vpp_libplacebo_tone_mapping_metadata, (int)metadata));
     str += strsprintf(_T("contrast_recovery=%.2f, "), contrast_recovery);
     str += strsprintf(_T("contrast_smoothness=%.2f, "), contrast_smoothness);
+    str += strsprintf(_T("inverse_tone_mapping=%s, "), inverse_tone_mapping ? _T("on") : _T("off"));
     str += strsprintf(_T("visualize_lut=%d, "), visualize_lut);
     str += strsprintf(_T("show_clipping=%d, "), show_clipping);
     str += strsprintf(_T("use_dovi=%s, "), use_dovi < 0 ? _T("auto") : ((use_dovi > 0) ?  _T("on") : _T("off")));

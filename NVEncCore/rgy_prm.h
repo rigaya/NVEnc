@@ -266,6 +266,7 @@ static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_TONE_CONSTANTS = 1;
 static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_METADATA = 0;
 static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_CONTRAST_RECOVERY = 0.3f;
 static const float FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_CONTRAST_SMOOTHNESS = 3.5f;
+static const bool  FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_INVERSE_TONE_MAPPING = false;
 static const bool  FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_VISUALIZE_LUT = false;
 static const bool  FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_SHOW_CLIPPING = false;
 static const int   FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_USE_DOVI = -1;
@@ -751,6 +752,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR_10 },
     { _T("amf_fsr_11"),   RGY_VPP_RESIZE_AMF_FSR_11 },
     { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
+    { _T("amf_max"),      RGY_VPP_RESIZE_AMF_MAX },
 #endif
 #if ENCODER_MPP
     { _T("rga_nearest"),  RGY_VPP_RESIZE_RGA_NEAREST },
@@ -1458,6 +1460,7 @@ struct VppLibplaceboToneMapping {
     VppLibplaceboToneMappingMetadata metadata;
     float contrast_recovery;
     float contrast_smoothness;
+    bool inverse_tone_mapping;
     bool visualize_lut;
     bool show_clipping;
     int use_dovi;

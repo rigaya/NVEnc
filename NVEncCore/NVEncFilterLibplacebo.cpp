@@ -1425,6 +1425,7 @@ RGY_ERR NVEncFilterLibplaceboToneMapping::setLibplaceboParam(const NVEncFilterPa
         m_tonemap.colorMapParams->show_clipping = prm->toneMapping.show_clipping;
         m_tonemap.colorMapParams->contrast_recovery = prm->toneMapping.contrast_recovery;
         m_tonemap.colorMapParams->contrast_smoothness = prm->toneMapping.contrast_smoothness;
+        m_tonemap.colorMapParams->inverse_tone_mapping = prm->toneMapping.inverse_tone_mapping;
 
         m_tonemap.peakDetectParams = std::make_unique<pl_peak_detect_params>(m_pl->p_peak_detect_default_params());
         m_tonemap.peakDetectParams->smoothing_period = prm->toneMapping.smooth_period;
