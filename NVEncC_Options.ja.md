@@ -246,6 +246,7 @@
   - [--avsdll \<string\>](#--avsdll-string)
   - [--vsdir \<string\> \[Windows専用\]](#--vsdir-string-windows専用)
   - [--process-codepage \<string\>](#--process-codepage-string)
+  - [--task-perf-monitor](#--task-perf-monitor)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
   - [--perf-monitor-interval \<int\>](#--perf-monitor-interval-int)
 
@@ -3469,6 +3470,10 @@ VapoursynthのPortable版を使用する際に、インストールしたフォ�
     実行ファイルに埋め込まれているmanifestという情報を変更する必要がある。
     このオプションを指定すると自動的に実行ファイルをコピーしてmanifestを書き換えた一時的な実行ファイルを作成し、
     それを実行するようになっている。
+
+### --task-perf-monitor
+
+メインスレッドの各処理ごとの待機時間を含んだおおまかな所要時間を出力する。
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 エンコーダのパフォーマンス情報を出力する。パラメータとして出力したい情報名を下記から選択できる。デフォルトはall (すべての情報)。
