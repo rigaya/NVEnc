@@ -549,7 +549,7 @@ __global__ void kernel_crop_uv_yv12_yuv444_i(uint8_t *__restrict__ pDstU, uint8_
     int uv_y = (blockIdx.y * blockDim.y + threadIdx.y) << 1;
     if (uv_x < (dstWidth >> 1) && uv_y < (dstHeight >> 1)) {
         int idst = (uv_y << 1) * dstPitch + (uv_x << 1) * sizeof(TypeOut); //YUV444
-        int isrc = (uv_y + (offsetY >> 1)) * srcPitch + ((uv_x << 1) + offsetX) * sizeof(TypeIn); //NV12
+        int isrc = (uv_y + (offsetY >> 1)) * srcPitch + (uv_x + (offsetX >> 1)) * sizeof(TypeIn); //YV12
         const TypeIn *ptr_src_u = (const TypeIn *)(pSrcU + isrc);
         const TypeIn *ptr_src_v = (const TypeIn *)(pSrcV + isrc);
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
@@ -687,6 +687,7 @@ void crop_uv_yv12_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputF
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
     if (interlaced(*pInputFrame)) {
+        gridSize = dim3(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 2, blockSize.y));
         kernel_crop_uv_yv12_yuv444_i<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
             planeOutputU.ptr[0], planeOutputV.ptr[0], planeOutputU.pitch[0], pOutputFrame->width, pOutputFrame->height,
             planeInputU.ptr[0], planeInputV.ptr[0], planeInputU.pitch[0], pInputFrame->width, pInputFrame->height, pCrop->e.left, pCrop->e.up);
