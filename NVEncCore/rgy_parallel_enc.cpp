@@ -38,6 +38,7 @@
 #elif ENCODER_MPP
 #include "mpp_core.h"
 #endif
+#include "rgy_perf_monitor.h"
 
 static const int RGY_PARALLEL_ENC_TIMEOUT = 10000;
 
@@ -162,10 +163,15 @@ RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
 #endif
 }
 
-RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
+RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams, CPerfMonitor *perfMonitor) {
     m_sendData.logMutex = m_log->getLock();
     m_sendData.eventChildHasSentFirstKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
     m_sendData.eventParentHasSentFinKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
+#if ENABLE_PERF_COUNTER
+    if (perfMonitor) {
+        m_sendData.perfCounter = perfMonitor->perfCounter();
+    }
+#endif
     m_processFinished = CreateEventUnique(nullptr, TRUE, FALSE); // 処理終了の通知用
     if (peParams.ctrl.parallelEnc.parallelId == 0 || peParams.ctrl.parallelEnc.cacheMode == RGYParamParallelEncCache::Mem) {
         // 最初のプロセスあるいはキャッシュメモリモードでは、キューを介してデータをやり取りする
@@ -479,11 +485,11 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     return prmParallel;
 }
 
-RGY_ERR RGYParallelEnc::startChunkProcess(const int ip, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus) {
+RGY_ERR RGYParallelEnc::startChunkProcess(const int ip, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus, CPerfMonitor *perfMonitor) {
     const auto tmpfile = prm->common.outputFilename + _T(".pe") + std::to_tstring(ip);
     const auto peParam = genPEParam(ip, prm, outputTimebase, delayChildSync, tmpfile);
     auto process = std::make_unique<RGYParallelEncProcess>(ip, tmpfile, m_log);
-    if (auto err = process->startThread(peParam); err != RGY_ERR_NONE) {
+    if (auto err = process->startThread(peParam, perfMonitor); err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to run PE%d: %s.\n"), ip, get_err_mes(err));
         return err;
     }
@@ -513,13 +519,13 @@ RGY_ERR RGYParallelEnc::startChunkProcess(const int ip, const encParams *prm, in
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus) {
+RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus, CPerfMonitor *perfMonitor) {
     const auto parentFirstKeyPts = input->GetVideoFirstKeyPts();
     m_encProcess.clear();
     // とりあえず、並列数分起動する
     int startId = 0;
     for (; startId < prm->ctrl.parallelEnc.parallelCount; startId++) {
-        if (auto err = startChunkProcess(startId, prm, parentFirstKeyPts, outputTimebase, delayChildSync, encStatus); err != RGY_ERR_NONE) {
+        if (auto err = startChunkProcess(startId, prm, parentFirstKeyPts, outputTimebase, delayChildSync, encStatus, perfMonitor); err != RGY_ERR_NONE) {
             return err;
         }
 
@@ -547,13 +553,13 @@ RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInpu
     } else {
         // プロセス起動用のスレッドを開始する
         m_thParallelRun = std::thread([this](int startId, const int parallelCount, const int chunkCount,
-            encParams prm, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus) {
+            encParams prm, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus, CPerfMonitor *perfMonitor) {
 
             int runCount = startId-1; // 実行したチャック数
 
             // とりあえず並列数分開始準備
             for (; startId < chunkCount; startId++) {
-                if (auto err = startChunkProcess(startId, &prm, -1, outputTimebase, delayChildSync, encStatus); err != RGY_ERR_NONE) {
+                if (auto err = startChunkProcess(startId, &prm, -1, outputTimebase, delayChildSync, encStatus, perfMonitor); err != RGY_ERR_NONE) {
                     return err;
                 }
             }
@@ -594,12 +600,12 @@ RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInpu
                 }
             }
             return RGY_ERR_NONE;
-        }, startId, prm->ctrl.parallelEnc.parallelCount, prm->ctrl.parallelEnc.chunks, *prm, outputTimebase, delayChildSync, encStatus);
+        }, startId, prm->ctrl.parallelEnc.parallelCount, prm->ctrl.parallelEnc.chunks, *prm, outputTimebase, delayChildSync, encStatus, perfMonitor);
     }
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus) {
+RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus, CPerfMonitor *perfMonitor) {
     if (!prm->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
@@ -615,7 +621,7 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
     AddMessage(RGY_LOG_DEBUG, _T("parallelRun: parallel count %d, chunks %d\n"), prm->ctrl.parallelEnc.parallelCount, prm->ctrl.parallelEnc.chunks);
     auto [sts, errmes ] = isParallelEncPossible(prm, input);
     if (sts != RGY_ERR_NONE
-        || (sts = startParallelThreads(prm, input, outputTimebase, delayChildSync, encStatus)) != RGY_ERR_NONE) {
+        || (sts = startParallelThreads(prm, input, outputTimebase, delayChildSync, encStatus, perfMonitor)) != RGY_ERR_NONE) {
         // 並列処理を無効化して続行する
         // まず終了させるため、スレッドの処理を続行させる
         if (m_encProcess.size() > 0) {

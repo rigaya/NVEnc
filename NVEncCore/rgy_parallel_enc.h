@@ -69,6 +69,9 @@ class MPPCore;
 using encCore = MPPCore;
 #endif
 
+class CPerfMonitor;
+class RGYGPUCounterWin;
+
 class RGYParallelEncodeStatusData {
 protected:
     std::unique_ptr<EncodeStatusData> encStatusData;
@@ -103,6 +106,8 @@ struct RGYParallelEncSendData {
     RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFree; // 転送し終わった(不要になった)ポインタを回収するキュー
     RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFreeLarge; // 転送し終わった(不要になった)ポインタを回収するキュー(大きいサイズ用)
 
+    std::shared_ptr<RGYGPUCounterWin> perfCounter; // 親 → 子にperfCounterのインスタンスを渡す
+
     RGYParallelEncSendData() :
         processStatus(RGYParallelEncProcessStatus::Init),
         logMutex(),
@@ -113,14 +118,15 @@ struct RGYParallelEncSendData {
         videoFinKeyPts(-1),
         qFirstProcessData(nullptr),
         qFirstProcessDataFree(nullptr),
-        qFirstProcessDataFreeLarge(nullptr) {};
+        qFirstProcessDataFreeLarge(nullptr),
+        perfCounter() {};
 };
 
 class RGYParallelEncProcess {
 public:
     RGYParallelEncProcess(const int id, const tstring& tmpfile, std::shared_ptr<RGYLog> log);
     ~RGYParallelEncProcess();
-    RGY_ERR startThread(const encParams& peParams);
+    RGY_ERR startThread(const encParams& peParams, CPerfMonitor *perfMonitor);
     RGY_ERR run(const encParams& peParams);
     int id() const { return m_id; }
     RGY_ERR sendEndPts(const int64_t endPts);
@@ -184,7 +190,7 @@ public:
     RGYParallelEnc(std::shared_ptr<RGYLog> log);
     virtual ~RGYParallelEnc();
     static std::pair<RGY_ERR, const TCHAR *> isParallelEncPossible(const encParams *prm, const RGYInput *input);
-    RGY_ERR parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus);
+    RGY_ERR parallelRun(encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus, CPerfMonitor *perfMonitor);
     void close(const bool deleteTempFiles);
     int64_t getVideoEndKeyPts() const { return m_videoEndKeyPts; }
     void setVideoFinished() { m_videoFinished = true; }
@@ -204,8 +210,8 @@ public:
     int chunks() const { return m_chunks; }
 protected:
     encParams genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const bool delayChildSync, const tstring& tmpfile);
-    RGY_ERR startChunkProcess(int ichunk, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus);
-    RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus);
+    RGY_ERR startChunkProcess(int ichunk, const encParams *prm, int64_t parentFirstKeyPts, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus, CPerfMonitor *perfMonitor);
+    RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, rgy_rational<int> outputTimebase, const bool delayChildSync, EncodeStatus *encStatus, CPerfMonitor *perfMonitor);
     RGY_ERR parallelChild(const encParams *prm, const RGYInput *input);
     RGYParamLogLevel setChildLogLevel(const RGYParamLogLevel& logLevel);
 

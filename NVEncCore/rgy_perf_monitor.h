@@ -399,6 +399,7 @@ public:
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_PERF_COUNTER
     void runCounterThread();
+    void setCounter(std::shared_ptr<RGYGPUCounterWin>& perfCounter);
     bool isPerfCounterRefreshed() const {
         return (m_perfCounter) ? m_perfCounter->refreshed() : false;
     }
@@ -421,6 +422,7 @@ public:
         }
         return counters;
     }
+    std::shared_ptr<RGYGPUCounterWin> perfCounter() { return m_perfCounter; }
 #endif //#if ENABLE_PERF_COUNTER
 #if ENABLE_NVML
     bool GetNVMLInfo(NVMLMonitorInfo *info) {
@@ -521,7 +523,7 @@ protected:
     bool m_bGPUZInfoValid;
 
 #if ENABLE_PERF_COUNTER
-    std::unique_ptr<RGYGPUCounterWin> m_perfCounter;
+    std::shared_ptr<RGYGPUCounterWin> m_perfCounter;
 #endif
     bool m_prefCounterValid;
 };

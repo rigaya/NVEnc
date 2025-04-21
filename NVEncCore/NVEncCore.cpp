@@ -802,7 +802,9 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
         delayChildSync = inputParam->ctrl.parallelEnc.parallelCount > encoderCount;
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pLog);
-    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, delayChildSync, m_pStatus.get())) != RGY_ERR_NONE) {
+    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, delayChildSync, m_pStatus.get(),
+        // 子スレッドの場合はパフォーマンスカウンタは親と共有する
+        inputParam->ctrl.parallelEnc.isParent() ? m_pPerfMonitor.get() : nullptr)) != RGY_ERR_NONE) {
         if (inputParam->ctrl.parallelEnc.isChild()) {
             return sts; // 子スレッド側でエラーが起こった場合はエラー
         }
@@ -4063,6 +4065,14 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 
     //入力などにも渡すため、まずはインスタンスを作っておく必要がある
     m_pPerfMonitor = std::make_unique<CPerfMonitor>();
+ #if ENABLE_PERF_COUNTER
+    if (inputParam->ctrl.parallelEnc.isChild()) {
+        // 子スレッドの場合はパフォーマンスカウンタは親と共有するので初期化不要
+        m_pPerfMonitor->setCounter(inputParam->ctrl.parallelEnc.sendData->perfCounter);
+    } else {
+        m_pPerfMonitor->runCounterThread();
+    }
+ #endif
 
     if (const auto affinity = inputParam->ctrl.threadParams.get(RGYThreadType::PROCESS).affinity; affinity.mode != RGYThreadAffinityMode::ALL) {
         SetProcessAffinityMask(GetCurrentProcess(), affinity.getMask());

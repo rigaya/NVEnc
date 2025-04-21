@@ -550,9 +550,7 @@ void CPerfMonitor::clear() {
 void CPerfMonitor::send_thread_fin() {
     m_bAbort = true;
 #if ENABLE_PERF_COUNTER
-    if (m_perfCounter) {
-        m_perfCounter->send_thread_fin();
-    }
+    m_perfCounter.reset();
 #endif //#if ENABLE_PERF_COUNTER
 }
 
@@ -684,10 +682,14 @@ void CPerfMonitor::runCounterThread() {
         OSVERSIONINFOEXW osver;
         getOSVersion(&osver);
         if (osver.dwMajorVersion > 6 || (osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 4)) { //Windows10
-            m_perfCounter = std::make_unique<RGYGPUCounterWin>();
+            m_perfCounter = std::make_shared<RGYGPUCounterWin>();
             m_perfCounter->thread_run(m_threadParam.affinity.getMask(), (int)m_threadParam.priority, m_threadParam.throttling == RGYThreadPowerThrottlingMode::Enabled);
         }
     }
+}
+
+void CPerfMonitor::setCounter(std::shared_ptr<RGYGPUCounterWin>& perfCounter) {
+    m_perfCounter = perfCounter;
 }
 #endif //#if ENABLE_PERF_COUNTER
 
