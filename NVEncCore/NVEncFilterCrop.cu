@@ -884,10 +884,10 @@ template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 __global__ void kernel_crop_uv_yuv444_nv12_i(uint8_t *__restrict__ pDstC, const int dstPitch, const int dstWidth, const int dstHeight,
     const uint8_t *__restrict__ pSrcU, const uint8_t *__restrict__ pSrcV, const int srcPitch, const int offsetX, const int offsetY) {
     int uv_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int uv_y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (uv_x < (dstWidth >> 1) && uv_y < (dstHeight >> 2)) {
+    int uv_y = (blockIdx.y * blockDim.y + threadIdx.y) << 1;
+    if (uv_x < (dstWidth >> 1) && uv_y < (dstHeight >> 1)) {
         int idst = uv_y * dstPitch + uv_x * sizeof(TypeOut) * 2; //nv12
-        int isrc = ((uv_y << 2) + offsetY) * srcPitch + ((uv_x << 1) + offsetX) * sizeof(TypeIn); //yuv444
+        int isrc = ((uv_y << 1) + offsetY) * srcPitch + ((uv_x << 1) + offsetX) * sizeof(TypeIn); //yuv444
 
         const TypeIn src_u0 = *(const TypeIn *)(pSrcU + isrc + srcPitch * 0);
         const TypeIn src_u1 = *(const TypeIn *)(pSrcU + isrc + srcPitch * 1);
