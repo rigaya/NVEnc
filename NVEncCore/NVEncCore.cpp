@@ -824,9 +824,6 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
         }
         return RGY_ERR_NONE; // 親の場合は正常終了(並列動作を無効化して継続)を返す
     }
-    if (inputParam->ctrl.parallelEnc.isChild()) {
-        m_pLog->write(RGY_LOG_DEBUG, RGY_LOGT_CORE_GPU_SELECT, _T("Parallel Enc %d: Selected GPU #%d (%s)\n"), inputParam->ctrl.parallelEnc.parallelId, m_dev->id(), m_dev->name().c_str());
-    }
     return RGY_ERR_NONE;
 }
 

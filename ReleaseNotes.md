@@ -1,5 +1,14 @@
 # NVEnc Release Notes
 
+## 8.04
+
+- Add ```inverse_tone_mapping``` option to [--vpp-libplacebo-tonemapping](./NVEncC_Options.en.md#--vpp-libplacebo-tonemapping-param1value1param2value2).
+- Fix error when using ```st2094-10``` and ```st2094-40``` for ```tonemapping_function``` in [--vpp-libplacebo-tonemapping](./NVEncC_Options.en.md#--vpp-libplacebo-tonemapping-param1value1param2value2).
+- Fix GPU selection defaulting to the first GPU when performance counter information is not available.
+- Fix [--vpp-colorspace](./NVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2) creating green line when input is interlaced.
+- Add [--task-perf-monitor](./NVEncC_Options.en.md#--task-perf-monitor) to collect per task time comsumption in main thread.
+- Adjust log output format.
+
 ## 8.03
 
 - Improve audio and video synchronization to achieve more uniform mixing when muxing with subtitles or data tracks.

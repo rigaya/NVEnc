@@ -213,6 +213,13 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2025.04.23 (8.04)
+- --vpp-libplacebo-tonemappingのtonemapping_functionで、st2094-10とst2094-40が指定できなかった問題を修正。
+- --vpp-libplacebo-tonemappingにinverse_tone_mappingオプションを追加。
+- --task-perf-monitorによる計算時間集計機能に対応。
+- インタレ入力時に--vpp-colorpaceを使用すると緑色の帯が出てしまう問題を修正。
+  CUDA版のyv12i→yuv444/yuv444→nv12iの変換の不具合修正。
+
 2025.04.05 (8.03)
 - 字幕やデータトラップがある際に、mux時に先頭付近での映像と音声の混ざり具合を改善。
 - "failed to run h264_mp4toannexb bitstream filter" というエラーが出るとフリーズしてしまう問題を修正。
