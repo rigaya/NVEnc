@@ -262,7 +262,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     parseHDRmetadata(false),
     hdr10plusMetadataCopy(false),
     doviRpuMetadataCopy(false),
-    interlaceAutoFrame(false),
+    interlaceSet(RGY_PICSTRUCT_FRAME),
     lowLatency(false),
     timestampPassThrough(false),
     qpTableListRef(nullptr),
@@ -2388,7 +2388,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_inputVideoInfo.srcHeight   = m_Demux.video.stream->codecpar->height;
         m_inputVideoInfo.sar[0]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.num;
         m_inputVideoInfo.sar[1]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.den;
-        m_inputVideoInfo.picstruct   = (input_prm->interlaceAutoFrame) ? RGY_PICSTRUCT_AUTO : m_Demux.frames.getVideoPicStruct();
         m_inputVideoInfo.frames      = 0;
         //getFirstFramePosAndFrameRateをもとにfpsを決定
         m_inputVideoInfo.fpsN        = m_Demux.video.nAvgFramerate.num;
@@ -2399,6 +2398,16 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_inputVideoInfo.vui.transfer  = (CspTransfer)m_Demux.video.stream->codecpar->color_trc;
         m_inputVideoInfo.vui.colorrange = (CspColorRange)m_Demux.video.stream->codecpar->color_range;
         m_inputVideoInfo.vui.descriptpresent = 1;
+        if (input_prm->interlaceSet == RGY_PICSTRUCT_AUTO) {
+            m_inputVideoInfo.picstruct = RGY_PICSTRUCT_AUTO;
+        } else if ((input_prm->interlaceSet & RGY_PICSTRUCT_INTERLACED) == 0x00) {
+            m_inputVideoInfo.picstruct = RGY_PICSTRUCT_FRAME;
+        } else if (((m_Demux.frames.getVideoPicStruct() & RGY_PICSTRUCT_INTERLACED) != 0) == ((input_prm->interlaceSet & RGY_PICSTRUCT_INTERLACED) != 0)) { // インタレが検出されている場合
+            // TFF/BFFが一致している場合はそのまま、そうでない場合は入力情報を優先
+            m_inputVideoInfo.picstruct = ((m_Demux.frames.getVideoPicStruct() & RGY_PICSTRUCT_INTERLACED) == (input_prm->interlaceSet & RGY_PICSTRUCT_INTERLACED)) ? m_Demux.frames.getVideoPicStruct() : input_prm->interlaceSet;
+        } else {
+            m_inputVideoInfo.picstruct = RGY_PICSTRUCT_AUTO; // インタレ指定だが、インタレが検出されていないときはauto
+        }
 
         if (m_Demux.video.HWDecodeDeviceId.size() > 0) {
             tstring mes = strsprintf(_T("av" DECODER_NAME ": %s, %dx%d, %d/%d fps"),

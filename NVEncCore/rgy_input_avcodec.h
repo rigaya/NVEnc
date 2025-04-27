@@ -851,7 +851,7 @@ public:
     bool           parseHDRmetadata;        //HDR関連のmeta情報を取得する
     bool           hdr10plusMetadataCopy;   //HDR10plus関連のmeta情報を取得する
     bool           doviRpuMetadataCopy;     //dovi rpuのmeta情報を取得する
-    bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
+    RGY_PICSTRUCT  interlaceSet;            //指定されたインタレ
     bool           lowLatency;
     bool           timestampPassThrough;    //timestampをそのまま出力する
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体

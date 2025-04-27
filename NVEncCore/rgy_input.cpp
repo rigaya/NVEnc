@@ -660,7 +660,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.parseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource || vpp_require_hdr_metadata;
         inputInfoAVCuvid.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy || vpp_require_hdr_metadata;
         inputInfoAVCuvid.doviRpuMetadataCopy = common->doviRpuMetadataCopy || vpp_require_hdr_metadata;
-        inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;
+        inputInfoAVCuvid.interlaceSet = input->picstruct;
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
