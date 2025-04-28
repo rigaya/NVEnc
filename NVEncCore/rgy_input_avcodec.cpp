@@ -3418,9 +3418,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         pSurface->setFlags(flags);
         pSurface->setTimestamp(m_Demux.video.frame->pts);
         pSurface->setDuration(rgy_avframe_get_duration(m_Demux.video.frame));
-        if (m_inputVideoInfo.picstruct == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
-            pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
-        }
+        pSurface->setPicstruct((m_inputVideoInfo.picstruct == RGY_PICSTRUCT_AUTO) ? picstruct_avframe_to_rgy(m_Demux.video.frame) : m_inputVideoInfo.picstruct);
         pSurface->dataList().clear();
 #if 0
         if (m_Demux.video.qpTableListRef != nullptr) {
