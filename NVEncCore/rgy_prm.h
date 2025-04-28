@@ -98,6 +98,7 @@ enum class VppType : int {
     MFX_DETAIL_ENHANCE,
     MFX_FPS_CONV,
     MFX_PERC_ENC_PREFILTER,
+    MFX_AI_FRAMEINTERP,
     MFX_COPY,
 #endif //#if ENCODER_QSV
     MFX_MAX,
