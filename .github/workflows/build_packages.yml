@@ -68,8 +68,8 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          git clone https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus
-          git clone https://github.com/vapoursynth/vapoursynth.git vapoursynth
+          git clone --depth 1 https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus
+          git clone --depth 1 https://github.com/vapoursynth/vapoursynth.git vapoursynth
 
       - name: Create Output Dir
         run: |
