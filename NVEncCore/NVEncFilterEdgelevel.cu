@@ -124,9 +124,9 @@ static RGY_ERR edgelevel_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *p
     dim3 blockSize(EDGELEVEL_BLOCK_X, EDGELEVEL_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
     strength  /= (1<<4);
-    threshold /= (1<<((sizeof(Type) * 8) - 1));
-    black     /= (1<<(sizeof(Type) * 8));
-    white     /= (1<<(sizeof(Type) * 8));
+    threshold /= (1<<(8 - 1));
+    black     /= (1<< 8);
+    white     /= (1<< 8);
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = textureCreateEdgelevel<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height);
