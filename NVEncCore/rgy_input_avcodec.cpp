@@ -3466,7 +3466,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         pSurface->ptrArray(dst_array);
         m_convert->run(rgy_avframe_interlaced(m_Demux.video.frame),
             dst_array, (const void **)m_Demux.video.frame->data,
-            m_inputVideoInfo.srcWidth, m_Demux.video.frame->linesize[0], m_Demux.video.frame->linesize[1], pSurface->pitch(),
+            m_inputVideoInfo.srcWidth, m_Demux.video.frame->linesize[0], m_Demux.video.frame->linesize[1], pSurface->pitch(), pSurface->pitch(RGY_PLANE_C),
             m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
         if (got_frame) {
             av_frame_unref(m_Demux.video.frame);

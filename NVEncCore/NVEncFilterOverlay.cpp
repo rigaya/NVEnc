@@ -538,7 +538,7 @@ RGY_ERR NVEncFilterOverlay::getFrame(cudaStream_t stream) {
         };
         m_convert->run(rgy_avframe_interlaced(frame.get()) ? 1 : 0,
             dst_array, (const void **)frame->data,
-            frameHost.width, frame->linesize[0], frame->linesize[1], frameHost.pitch[0],
+            frameHost.width, frame->linesize[0], frame->linesize[1], frameHost.pitch[0], frameHost.pitch[1],
             frameHost.height, frameHost.height, crop.c);
         auto sts = m_frame.dev->copyFrameAsync(&frameHost, stream);
         if (sts != RGY_ERR_NONE) {

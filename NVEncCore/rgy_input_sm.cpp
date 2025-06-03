@@ -322,7 +322,7 @@ RGY_ERR RGYInputSM::LoadNextFrameInternal(RGYFrame *pSurface) {
     }
     m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
-        src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+        src_uv_pitch, pSurface->pitch(), pSurface->pitch(RGY_PLANE_C), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     pSurface->setTimestamp(prmsm->timestamp[m_encSatusInfo->m_sData.frameIn & 1]);
     pSurface->setDuration(prmsm->duration[m_encSatusInfo->m_sData.frameIn & 1]);

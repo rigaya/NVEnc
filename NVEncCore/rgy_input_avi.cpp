@@ -242,7 +242,7 @@ RGY_ERR RGYInputAvi::LoadNextFrameInternal(RGYFrame *pSurface) {
 
     m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array,
-        m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcWidth * m_nYPitchMultiplizer, m_inputVideoInfo.srcWidth/2, pSurface->pitch(),
+        m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcWidth * m_nYPitchMultiplizer, m_inputVideoInfo.srcWidth/2, pSurface->pitch(), pSurface->pitch(RGY_PLANE_C), 
         m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     m_encSatusInfo->m_sData.frameIn++;

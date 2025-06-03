@@ -130,7 +130,7 @@ static RGY_FORCEINLINE __m128i _mm_min_epu16_simd(__m128i a, __m128i b) {
 #pragma warning (push)
 #pragma warning (disable: 4100)
 template<bool highbit_depth>
-static void RGY_FORCEINLINE copy_nv12_to_nv12(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE copy_nv12_to_nv12(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -172,7 +172,7 @@ static RGY_FORCEINLINE void separate_low_up(__m128i& x0_return_lower, __m128i& x
 #pragma warning (push)
 #pragma warning (disable: 4100)
 #pragma warning (disable: 4127)
-static void RGY_FORCEINLINE convert_yuy2_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuy2_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -243,7 +243,7 @@ static RGY_FORCEINLINE __m128i yuv422_to_420_i_interpolate(__m128i y_up, __m128i
     return x0;
 }
 
-static void RGY_FORCEINLINE convert_yuy2_to_nv12_i_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuy2_to_nv12_i_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -294,7 +294,7 @@ static void RGY_FORCEINLINE convert_yuy2_to_nv12_i_simd(void **dst, const void *
 #pragma warning (disable: 4100)
 #pragma warning (disable: 4127)
 template<bool uv_only>
-static void RGY_FORCEINLINE convert_yv12_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yv12_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -335,7 +335,7 @@ static void RGY_FORCEINLINE convert_yv12_to_nv12_simd(void **dst, const void **s
 
 
 
-static void RGY_FORCEINLINE convert_yv12_to_yv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yv12_to_yv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -362,7 +362,7 @@ static void RGY_FORCEINLINE convert_yv12_to_yv12_simd(void **dst, const void **s
     }
 }
 
-static void RGY_FORCEINLINE convert_yuv422_to_nv16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv422_to_nv16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -400,7 +400,7 @@ static void RGY_FORCEINLINE convert_yuv422_to_nv16_simd(void **dst, const void *
 
 #define RGB_PLANE(x0, x1, x2, x3) ((((uint32_t)(x3) & 0xff) << 24) | (((uint32_t)(x2) & 0xff) << 16) | (((uint32_t)(x1) & 0xff) << 8) | ((uint32_t)(x0) & 0xff))
 #if USE_SSSE3
-static void RGY_FORCEINLINE convert_rgb24_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_rgb24_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -438,7 +438,7 @@ static void RGY_FORCEINLINE convert_rgb24_to_rgb32_simd(void **dst, const void *
     }
 }
 
-static void RGY_FORCEINLINE convert_rgb24r_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_rgb24r_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -477,7 +477,7 @@ static void RGY_FORCEINLINE convert_rgb24r_to_rgb32_simd(void **dst, const void 
 }
 
 template<uint32_t plane_from, bool source_reverse>
-static void RGY_FORCEINLINE convert_rgb24_to_rgb_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_rgb24_to_rgb_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -548,7 +548,7 @@ static void RGY_FORCEINLINE convert_rgb24_to_rgb_simd(void **dst, const void **s
 }
 
 template<uint32_t plane_from>
-static void RGY_FORCEINLINE convert_rgb_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_rgb_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -616,7 +616,7 @@ static void RGY_FORCEINLINE convert_rgb_to_rgb24_simd(void **dst, const void **s
 #endif
 
 template<uint32_t plane_from, bool source_reverse>
-static void RGY_FORCEINLINE convert_rgb32_to_rgba_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_rgb32_to_rgba_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -694,7 +694,7 @@ static void RGY_FORCEINLINE convert_rgb32_to_rgba_simd(void **dst, const void **
 }
 
 template<uint32_t plane_from>
-static void RGY_FORCEINLINE convert_rgb_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_rgb_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -759,7 +759,7 @@ static void RGY_FORCEINLINE convert_rgb_to_rgb32_simd(void **dst, const void **s
 }
 
 template<RGY_CSP csp_from>
-void convert_rgb24_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+void convert_rgb24_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -832,7 +832,7 @@ void convert_rgb24_to_rgb24_simd(void **dst, const void **src, int width, int sr
     }
 }
 
-static void RGY_FORCEINLINE convert_rgb24r_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_rgb24r_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -847,7 +847,7 @@ static void RGY_FORCEINLINE convert_rgb24r_to_rgb24_simd(void **dst, const void 
 }
 
 template<RGY_CSP csp_from>
-void convert_rgb32_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+void convert_rgb32_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -894,7 +894,7 @@ void convert_rgb32_to_rgb32_simd(void **dst, const void **src, int width, int sr
     }
 }
 
-static void RGY_FORCEINLINE convert_rgb32r_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_rgb32r_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -909,7 +909,7 @@ static void RGY_FORCEINLINE convert_rgb32r_to_rgb32_simd(void **dst, const void 
 }
 
 template<uint32_t plane_from>
-void copy_rgb_to_rgb(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+void copy_rgb_to_rgb(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -926,7 +926,7 @@ void copy_rgb_to_rgb(void **dst, const void **src, int width, int src_y_pitch_by
 }
 
 template<bool uv_only>
-static void convert_yv12_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void convert_yv12_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -990,7 +990,7 @@ static void convert_yv12_to_p010_simd(void **dst, const void **src, int width, i
 }
 
 template<int in_bit_depth, bool uv_only>
-static void convert_yv12_high_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void convert_yv12_high_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -1061,7 +1061,7 @@ static void convert_yv12_high_to_nv12_simd(void **dst, const void **src, int wid
 #pragma warning (disable: 4100)
 #pragma warning (disable: 4127)
 template<int in_bit_depth, bool uv_only>
-static void RGY_FORCEINLINE convert_yv12_high_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yv12_high_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -1119,7 +1119,7 @@ static void RGY_FORCEINLINE convert_yv12_high_to_p010_simd(void **dst, const voi
     }
 }
 
-static void RGY_FORCEINLINE convert_yuv422_to_p210_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv422_to_p210_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -1178,7 +1178,7 @@ static void RGY_FORCEINLINE convert_yuv422_to_p210_simd(void **dst, const void *
 }
 
 template<int in_bit_depth>
-static void RGY_FORCEINLINE convert_yuv422_high_to_p210_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv422_high_to_p210_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -1233,7 +1233,7 @@ static void RGY_FORCEINLINE convert_yuv422_high_to_p210_simd(void **dst, const v
     }
 }
 
-static void RGY_FORCEINLINE copy_yuv444_to_ayuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE copy_yuv444_to_ayuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -1272,7 +1272,7 @@ static void RGY_FORCEINLINE copy_yuv444_to_ayuv444(void **dst, const void **src,
 }
 
 template<int in_bit_depth>
-static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left = crop[0];
     const int crop_up = crop[1];
     const int crop_right = crop[2];
@@ -1331,7 +1331,7 @@ static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444(void **dst, const void *
     }
 }
 
-static void RGY_FORCEINLINE convert_yuv444_to_y410_simd(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+static void RGY_FORCEINLINE convert_yuv444_to_y410_simd(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
     const int in_bit_depth = 8;
     const int out_bit_depth = 10;
     const int crop_left   = crop[0];
@@ -1386,7 +1386,7 @@ static void RGY_FORCEINLINE convert_yuv444_to_y410_simd(void** dst, const void**
 }
 
 template<int in_bit_depth>
-void convert_yuv444_high_to_y410_simd(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+void convert_yuv444_high_to_y410_simd(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
     static_assert(10 <= in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 10-16.");
     const int out_bit_depth = 10;
     const int crop_left   = crop[0];
@@ -1453,7 +1453,7 @@ void convert_yuv444_high_to_y410_simd(void** dst, const void** src, int width, i
     }
 }
 
-static void RGY_FORCEINLINE copy_yuv444_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE copy_yuv444_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -1469,7 +1469,7 @@ static void RGY_FORCEINLINE copy_yuv444_to_yuv444(void **dst, const void **src, 
     }
 }
 
-static void RGY_FORCEINLINE convert_yuv444_to_yuv444_16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv444_to_yuv444_16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -1496,7 +1496,7 @@ static void RGY_FORCEINLINE convert_yuv444_to_yuv444_16_simd(void **dst, const v
 }
 
 template<int in_bit_depth>
-static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -1526,7 +1526,7 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_16_simd(void **dst, co
 }
 
 template<int in_bit_depth>
-static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -1839,7 +1839,7 @@ static RGY_FORCEINLINE void gather_y_u_v_to_yc48(__m128i& x0, __m128i& x1, __m12
 }
 
 template <bool aligned_store>
-static RGY_FORCEINLINE void convert_yc48_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static RGY_FORCEINLINE void convert_yc48_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     int x, y;
     const auto y_range = thread_y_range(0, height, thread_id, thread_n);
     short *dst_Y = (short *)dst[0];
@@ -1882,7 +1882,7 @@ static RGY_FORCEINLINE void convert_yc48_to_p010_simd(void **dst, const void **s
 }
 
 template <bool aligned_store>
-static RGY_FORCEINLINE void convert_yc48_to_p010_i_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static RGY_FORCEINLINE void convert_yc48_to_p010_i_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     int x, y, i;
     short *dst_Y = (short *)dst[0];
     short *dst_C = (short *)dst[1];
@@ -1923,7 +1923,7 @@ static RGY_FORCEINLINE void convert_yc48_to_p010_i_simd(void **dst, const void *
 }
 
 template <bool aligned_store>
-static void RGY_FORCEINLINE convert_yc48_to_yuv444_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yc48_to_yuv444_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const auto y_range = thread_y_range(0, height, thread_id, thread_n);
     uint8_t *YLine   = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
     uint8_t *ULine   = (uint8_t *)dst[1] + dst_y_pitch_byte * y_range.start_dst;
@@ -1974,7 +1974,7 @@ static void RGY_FORCEINLINE convert_yc48_to_yuv444_simd(void **dst, const void *
 }
 
 template <bool aligned_store>
-static RGY_FORCEINLINE void convert_yc48_to_yuv444_16bit_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static RGY_FORCEINLINE void convert_yc48_to_yuv444_16bit_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const auto y_range = thread_y_range(0, height, thread_id, thread_n);
     char *Y_line = (char *)dst[0] + dst_y_pitch_byte + y_range.start_dst;
     char *U_line = (char *)dst[1] + dst_y_pitch_byte + y_range.start_dst;
@@ -2001,7 +2001,7 @@ static RGY_FORCEINLINE void convert_yc48_to_yuv444_16bit_simd(void **dst, const 
 }
 
 template <bool aligned_store>
-static RGY_FORCEINLINE void convert_yuv444_16bit_to_yc48_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static RGY_FORCEINLINE void convert_yuv444_16bit_to_yc48_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const auto y_range = thread_y_range(0, height, thread_id, thread_n);
     char *Y_line = (char *)src[0] + src_y_pitch_byte * y_range.start_src;
     char *U_line = (char *)src[1] + src_y_pitch_byte * y_range.start_src;

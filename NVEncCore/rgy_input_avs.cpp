@@ -621,7 +621,7 @@ RGY_ERR RGYInputAvs::LoadNextFrameInternal(RGYFrame *pSurface) {
         m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
             dst_array, src_array,
             m_inputVideoInfo.srcWidth, m_sAvisynth->f_get_pitch_p(frame, AVS_PLANAR_Y), m_sAvisynth->f_get_pitch_p(frame, AVS_PLANAR_U),
-            pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+            pSurface->pitch(), pSurface->pitch(RGY_PLANE_C), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
         m_sAvisynth->f_release_video_frame(frame);
 

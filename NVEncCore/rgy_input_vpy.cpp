@@ -446,7 +446,7 @@ RGY_ERR RGYInputVpy::LoadNextFrameInternal(RGYFrame *pSurface) {
         m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
             dst_array, src_array,
             m_inputVideoInfo.srcWidth, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1),
-            pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+            pSurface->pitch(), pSurface->pitch(RGY_PLANE_C), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
         auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
         pSurface->setDuration(rational_rescale(1, getInputTimebase().inv(), inputFps));

@@ -88,6 +88,7 @@ RGYConvertCSPPrm::RGYConvertCSPPrm() :
     src_y_pitch_byte(0),
     src_uv_pitch_byte(0),
     dst_y_pitch_byte(0),
+    dst_uv_pitch_byte(0),
     height(0),
     dst_height(0),
     crop(nullptr) {
@@ -138,7 +139,7 @@ const ConvertCSP *RGYConvertCSP::getFunc(RGY_CSP csp_from, RGY_CSP csp_to, RGY_S
     return getFunc(csp_from, csp_to, m_uv_only, simd);
 }
 
-int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int *crop) {
     if (m_threads == 0) {
         const int div = (m_csp->simd == RGY_SIMD::NONE) ? 2 : 4;
         const int max = (m_csp->simd == RGY_SIMD::NONE) ? 8 : 4;
@@ -157,13 +158,13 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
                 WaitForSingleObject((HANDLE)heStart, INFINITE);
                 while (!prm->abort) {
                     (*cspfunc)->func[prm->interlaced](prm->dst, prm->src,
-                        prm->width, prm->src_y_pitch_byte, prm->src_uv_pitch_byte, prm->dst_y_pitch_byte,
+                        prm->width, prm->src_y_pitch_byte, prm->src_uv_pitch_byte, prm->dst_y_pitch_byte, prm->dst_uv_pitch_byte,
                         prm->height, prm->dst_height, ithId, threadN, prm->crop);
                     if (alphafunc) {
                         const int dstPlaneOffset = RGY_CSP_PLANES[csp_from] - 1;
                         const int srcPlaneOffset = RGY_CSP_PLANES[csp_to] - 1;
                         alphafunc(prm->dst + dstPlaneOffset, prm->src + srcPlaneOffset,
-                            prm->width, prm->src_y_pitch_byte, 0, prm->dst_y_pitch_byte,
+                            prm->width, prm->src_y_pitch_byte, 0, prm->dst_y_pitch_byte, prm->dst_uv_pitch_byte,
                             prm->height, prm->dst_height, ithId, threadN, prm->crop);
                     }
                     SetEvent((HANDLE)heFin);
@@ -183,6 +184,7 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
     m_prm.src_y_pitch_byte = src_y_pitch_byte;
     m_prm.src_uv_pitch_byte = src_uv_pitch_byte;
     m_prm.dst_y_pitch_byte = dst_y_pitch_byte;
+    m_prm.dst_uv_pitch_byte = dst_uv_pitch_byte;
     m_prm.height = height;
     m_prm.dst_height = dst_height;
     m_prm.crop = crop;
@@ -191,13 +193,13 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
     }
     if (m_threads == 1) {
         m_csp->func[interlaced](dst, src,
-            width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte,
+            width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, dst_uv_pitch_byte,
             height, dst_height, 0, 1, crop);
         if (m_alpha) {
             const int dstPlaneOffset = RGY_CSP_PLANES[m_csp_from] - 1;
             const int srcPlaneOffset = RGY_CSP_PLANES[m_csp_to] - 1;
             m_alpha(dst + dstPlaneOffset, src + srcPlaneOffset,
-                width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte,
+                width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, dst_uv_pitch_byte,
                 height, dst_height, 0, 1, crop);
         }
     }

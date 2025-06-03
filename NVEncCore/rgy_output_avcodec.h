@@ -164,6 +164,14 @@ struct AVMuxVideo {
     int64_t               parserStreamPos;      //動画ストリームのバイト数
     bool                  afs;                  //入力が自動フィールドシフト
     bool                  debugDirectAV1Out;    //AV1出力のデバッグ用
+    
+    // raw video encoder用のメンバ変数
+    const AVCodec        *rawVideoCodec;        //rawvideoエンコーダのCodec
+    AVCodecContext       *rawVideoCodecCtx;     //rawvideoエンコーダのCodecCtx
+    AVFrame              *rawVideoFrame;        //rawvideoエンコード用のAVFrame
+    std::unique_ptr<RGYConvertCSP> rawVideoConvert; //rawvideoエンコード用の色空間変換
+    RGY_SIMD              simdCsp;              //色空間変換用のSIMD
+    
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 
@@ -309,6 +317,8 @@ struct AVMuxThread {
     bool                           enableAudProcessThread;    //音声処理スレッドを使用する
     bool                           enableAudEncodeThread;     //音声エンコードスレッドを使用する
     std::unique_ptr<AVMuxThreadWorker> thOutput;              //出力スレッド
+    std::unique_ptr<AVMuxThreadWorker> thRawVideo;            //raw映像処理用スレッド
+    RGYQueueMPMP<AVPktMuxData, 64> qVideoRawFrames;           //raw映像フレームを出力スレッドに渡すためのキュー
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
     RGYQueueMPMP<RGYBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
@@ -398,6 +408,7 @@ struct AvcodecWriterPrm {
     int                          threadAudio;             //音声処理スレッド数
     RGYParamThread               threadParamOutput;       //出力スレッドのパラメータ
     RGYParamThread               threadParamAudio;        //音声処理スレッドのパラメータ
+    RGYParamThread               threadParamCsp;          //色空間変換用のスレッドのパラメータ
     RGYOptList                   muxOpt;                  //mux時に使用するオプション
     PerfQueueInfo               *queueInfo;               //キューの情報を格納する構造体
     tstring                      muxVidTsLogFile;         //mux timestampログファイル
@@ -417,6 +428,8 @@ struct AvcodecWriterPrm {
     bool                         debugDirectAV1Out;       //AV1出力のデバッグ用
     bool                         HEVCAlphaChannel;        //HEVCのalphaチェンネルを使用するか
     int                          HEVCAlphaChannelMode;    //HEVCのalphaチェンネルのモード
+    int                          threadCsp;               //色空間変換用のスレッド数
+    RGY_SIMD                     simdCsp;                 //色空間変換用のSIMD
     RGYPoolAVPacket             *poolPkt;                 //読み込み側からわたってきたパケットの返却先
     RGYPoolAVFrame              *poolFrame;               //読み込み側からわたってきたパケットの返却先
 
@@ -444,6 +457,7 @@ struct AvcodecWriterPrm {
         threadAudio(0),
         threadParamOutput(),
         threadParamAudio(),
+        threadParamCsp(),
         muxOpt(),
         queueInfo(nullptr),
         muxVidTsLogFile(),
@@ -463,6 +477,8 @@ struct AvcodecWriterPrm {
         debugDirectAV1Out(false),
         HEVCAlphaChannel(false),
         HEVCAlphaChannelMode(0),
+        threadCsp(0),
+        simdCsp(RGY_SIMD::SIMD_ALL),
         poolPkt(nullptr),
         poolFrame(nullptr) {
     }
@@ -501,6 +517,9 @@ protected:
     //別のスレッドで実行する場合のスレッド関数 (出力)
     RGY_ERR WriteThreadFunc(RGYParamThread threadParam);
 
+    //別のスレッドで実行する場合のスレッド関数 (raw video)
+    RGY_ERR WriteThreadFuncRawVideo(RGYParamThread threadParam);
+
     //別のスレッドで実行する場合のスレッド関数 (音声処理)
     RGY_ERR ThreadFuncAudThread(const AVMuxAudio *const muxAudio, RGYParamThread threadParam);
 
@@ -519,10 +538,14 @@ protected:
     //AVPktMuxDataを初期化する
     AVPktMuxData pktMuxData(AVFrame *frame);
 
+    //raw videoのフレームをエンコード
+    RGY_ERR VideoEncodeRawFrame(AVFrame *frame);
+
     //WriteNextFrameの本体
     RGY_ERR WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts);
     RGY_ERR WriteNextFrameInternalOneFrame(RGYBitstream *bitstream, int64_t *writtenDts, const RGYTimestampMapVal& bs_framedata);
     RGY_ERR WriteNextFrameFinish(RGYBitstream *bitstream, const RGY_FRAMETYPE frameType);
+    RGY_ERR WriteNextPacketRawVideo(AVPacket *pkt, int64_t *writtenDts);
 
     //WriteNextPacketの本体
     RGY_ERR WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite);
