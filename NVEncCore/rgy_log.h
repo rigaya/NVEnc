@@ -157,7 +157,7 @@ public:
     tstring to_string() const;
 };
 
-int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle = NULL);
+int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle = NULL, bool disableColor = false);
 
 class RGYLog {
 protected:
@@ -166,11 +166,12 @@ protected:
     bool m_bHtml;
     bool m_showTime;
     bool m_addLogLevel;
+    bool m_disableColor;
     std::shared_ptr<std::mutex> m_mtx;
     static const char *HTML_FOOTER;
 public:
-    RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level = RGY_LOG_INFO, bool showTime = false, bool addLogLevel = false);
-    RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level, bool showTime = false, bool addLogLevel = false);
+    RGYLog(const TCHAR *pLogFile, const RGYLogLevel log_level = RGY_LOG_INFO, bool showTime = false, bool addLogLevel = false, bool disableColor = false);
+    RGYLog(const TCHAR *pLogFile, const RGYParamLogLevel& log_level, bool showTime = false, bool addLogLevel = false, bool disableColor = false);
     virtual ~RGYLog();
     void init(const TCHAR *pLogFile, const RGYParamLogLevel& log_level);
     void writeHtmlHeader();

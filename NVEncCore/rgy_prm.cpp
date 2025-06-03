@@ -2361,6 +2361,17 @@ bool RGYParamParallelEnc::operator!=(const RGYParamParallelEnc &x) const {
     return !(*this == x);
 }
 
+RGYParamLogOpt::RGYParamLogOpt() : addTime(false), addLogLevel(false), disableColor(false) {}
+
+bool RGYParamLogOpt::operator==(const RGYParamLogOpt &x) const {
+    return addTime == x.addTime
+        && addLogLevel == x.addLogLevel
+        && disableColor == x.disableColor;
+}
+bool RGYParamLogOpt::operator!=(const RGYParamLogOpt &x) const {
+    return !(*this == x);
+}
+
 RGYParamCommon::~RGYParamCommon() {};
 
 RGYParamControl::RGYParamControl() :
@@ -2368,7 +2379,7 @@ RGYParamControl::RGYParamControl() :
     simdCsp(RGY_SIMD::SIMD_ALL),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
-    logAddTime(false),
+    logOpt(),
     logFramePosList(),     //framePosList出力
     logPacketsList(),
     logMuxVidTs(),

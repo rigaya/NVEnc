@@ -2545,12 +2545,22 @@ enum class RGYParamInitVulkan {
     All,
 };
 
+struct RGYParamLogOpt {
+    bool addTime;
+    bool addLogLevel;
+    bool disableColor;
+
+    RGYParamLogOpt();
+    bool operator==(const RGYParamLogOpt &x) const;
+    bool operator!=(const RGYParamLogOpt &x) const;
+};
+
 struct RGYParamControl {
     int threadCsp;
     RGY_SIMD simdCsp;
     tstring logfile;              //ログ出力先
     RGYParamLogLevel loglevel; //ログ出力レベル
-    bool logAddTime;
+    RGYParamLogOpt logOpt;
     RGYDebugLogFile logFramePosList;     //framePosList出力
     RGYDebugLogFile logPacketsList;
     RGYDebugLogFile logMuxVidTs;

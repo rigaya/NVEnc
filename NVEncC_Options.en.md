@@ -3261,6 +3261,12 @@ additional options for log output.
   - addtime (default=off)  
     Add time of to each line of the log.
 
+  - addlevel (default=off)  
+    Show loglevel to each line of the log.
+
+  - color (default=on)
+    Enable/disable log color.
+
 ### --log-framelist [&lt;string&gt;]
 FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
 

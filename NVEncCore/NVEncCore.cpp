@@ -395,7 +395,7 @@ RGY_CSP NVEncCore::GetRawOutCSP(const InEncodeVideoParam *inputParam) const {
 //ログを初期化
 RGY_ERR NVEncCore::InitLog(const InEncodeVideoParam *inputParam) {
     //ログの初期化
-    m_pLog.reset(new RGYLog(inputParam->ctrl.logfile.c_str(), inputParam->ctrl.loglevel, inputParam->ctrl.logAddTime));
+    m_pLog.reset(new RGYLog(inputParam->ctrl.logfile.c_str(), inputParam->ctrl.loglevel, inputParam->ctrl.logOpt.addTime, inputParam->ctrl.logOpt.addLogLevel, inputParam->ctrl.logOpt.disableColor));
     if ((inputParam->ctrl.logfile.length() > 0 || inputParam->common.outputFilename.length() > 0) && inputParam->input.type != RGY_INPUT_FMT_SM) {
         m_pLog->writeFileHeader(inputParam->common.outputFilename.c_str());
     }

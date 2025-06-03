@@ -6492,7 +6492,27 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 if (param_arg == _T("addtime")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        ctrl->logAddTime = b;
+                        ctrl->logOpt.addTime = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("addlevel")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        ctrl->logOpt.addLogLevel = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("color")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        ctrl->logOpt.disableColor = !b;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -6533,7 +6553,16 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 return 1;
             } else {
                 if (param == _T("addtime")) {
-                    ctrl->logAddTime = true;
+                    ctrl->logOpt.addTime = true;
+                    continue;
+                } else if (param == _T("addlevel")) {
+                    ctrl->logOpt.addLogLevel = true;
+                    continue;
+                } else if (param == _T("color")) {
+                    ctrl->logOpt.disableColor = true;
+                    continue;
+                } else if (param == _T("no-color")) {
+                    ctrl->logOpt.disableColor = true;
                     continue;
                 } else if (param == _T("framelist")) {
                     ctrl->logFramePosList.enable = true;
@@ -8494,12 +8523,12 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         cmd << _T(" --log-level ") << param->loglevel.to_string();
     }
 
-    if (param->logAddTime != defaultPrm->logAddTime) {
+    if (param->logOpt != defaultPrm->logOpt) {
         std::basic_stringstream<TCHAR> tmp;
         tmp.str(tstring());
-        if (param->logAddTime != defaultPrm->logAddTime) {
-            tmp << _T(",addtime");
-        }
+        ADD_BOOL(_T("addtime"), logOpt.addTime);
+        ADD_BOOL(_T("addlevel"), logOpt.addLogLevel);
+        ADD_BOOL(_T("color"), logOpt.disableColor);
         if (!tmp.str().empty()) {
             cmd << _T(" --log-opt ") << tmp.str().substr(1);
         }
