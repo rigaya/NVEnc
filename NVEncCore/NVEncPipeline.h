@@ -615,8 +615,21 @@ public:
         // m_cuevents内のイベントを待つ
         for (auto& cuevent : m_cuevents) {
             if (cuevent != nullptr) {
+#if 0
                 NVEncCtxAutoLock(ctxlock(m_vidCtxLock));
                 cudaEventSynchronize(*cuevent.get());
+#else
+                const int MAX_LOOP = 1000;
+                for (int i = 0; ; i++) {
+                    {
+                        NVEncCtxAutoLock(ctxlock(m_vidCtxLock));
+                        if (cudaEventQuery(*cuevent.get()) != cudaErrorNotReady) {
+                            break;
+                        }
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds((i % MAX_LOOP == (MAX_LOOP - 1)) ? 1 : 0));
+                };
+#endif
             }
         }
         m_cuevents.clear();
