@@ -36,6 +36,8 @@
 #include "rgy_util.h"
 #include "rgy_tchar.h"
 
+std::vector<tstring> SplitCommandLine(const tstring& cmdLine);
+
 enum RGYPipeMode : uint32_t {
     PIPE_MODE_DISABLE   = 0x00,
     PIPE_MODE_ENABLE    = 0x01,
@@ -61,7 +63,8 @@ static RGYPipeMode operator&=(RGYPipeMode& a, RGYPipeMode b) {
     return a;
 }
 
-static const int QSV_PIPE_READ_BUF = 2048;
+static const int RGY_PIPE_STDOUT_BUFSIZE_DEFAULT = 512 * 1024;
+static const int RGY_PIPE_STDERR_BUFSIZE_DEFAULT = 4 * 1024;
 
 #if defined(_WIN32) || defined(_WIN64)
 typedef HANDLE PIPE_HANDLE;
@@ -91,7 +94,7 @@ struct RGYProcessPipe {
 
 class RGYPipeProcess {
 public:
-    RGYPipeProcess() : m_phandle(0), m_pipe() { };
+    RGYPipeProcess() : m_phandle(0), m_pipe(), m_stdOutBuffer(), m_stdErrBuffer() { };
     virtual ~RGYPipeProcess() { };
 
     void init(RGYPipeMode stdin_, RGYPipeMode stdout_, RGYPipeMode stderr_) {
@@ -99,10 +102,20 @@ public:
         m_pipe.stdOut.mode = stdout_;
         m_pipe.stdErr.mode = stderr_;
     };
+    void setStdOutBufferSize(uint32_t size) {
+        m_pipe.stdOut.bufferSize = size;
+    }
+    void setStdErrBufferSize(uint32_t size) {
+        m_pipe.stdErr.bufferSize = size;
+    }
+    virtual int run(const tstring& cmd_line, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) = 0;
     virtual int run(const std::vector<tstring>& args, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) = 0;
     virtual void close() = 0;
     virtual bool processAlive() = 0;
     virtual std::string getOutput() = 0;
+    virtual int stdInClose() = 0;
+    virtual int stdInWrite(const void *data, const size_t dataSize) = 0;
+    virtual int stdInWrite(const std::vector<uint8_t>& buffer) = 0;
     virtual int stdOutRead(std::vector<uint8_t>& buffer) = 0;
     virtual int stdErrRead(std::vector<uint8_t>& buffer) = 0;
     virtual size_t stdInFpWrite(const void *data, const size_t dataSize) = 0;
@@ -119,6 +132,8 @@ protected:
     virtual int startPipes() = 0;
     PROCESS_HANDLE m_phandle;
     RGYProcessPipe m_pipe;
+    std::vector<uint8_t> m_stdOutBuffer;
+    std::vector<uint8_t> m_stdErrBuffer;
 };
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -127,10 +142,14 @@ public:
     RGYPipeProcessWin();
     virtual ~RGYPipeProcessWin();
 
+    virtual int run(const tstring& cmd_line, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) override;
     virtual int run(const std::vector<tstring>& args, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) override;
     virtual void close() override;
     virtual bool processAlive() override;
     virtual std::string getOutput() override;
+    virtual int stdInClose() override;
+    virtual int stdInWrite(const void *data, const size_t dataSize) override;
+    virtual int stdInWrite(const std::vector<uint8_t>& buffer) override;
     virtual int stdOutRead(std::vector<uint8_t>& buffer) override;
     virtual int stdErrRead(std::vector<uint8_t>& buffer) override;
     virtual size_t stdInFpWrite(const void *data, const size_t dataSize) override;
@@ -158,10 +177,14 @@ public:
     RGYPipeProcessLinux();
     virtual ~RGYPipeProcessLinux();
 
+    virtual int run(const tstring& cmd_line, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) override;
     virtual int run(const std::vector<tstring>& args, const TCHAR *exedir, uint32_t priority, bool hidden, bool minimized) override;
     virtual void close() override;
     virtual bool processAlive() override;
     virtual std::string getOutput() override;
+    virtual int stdInClose() override;
+    virtual int stdInWrite(const void *data, const size_t dataSize) override;
+    virtual int stdInWrite(const std::vector<uint8_t>& buffer) override;
     virtual int stdOutRead(std::vector<uint8_t>& buffer) override;
     virtual int stdErrRead(std::vector<uint8_t>& buffer) override;
     virtual size_t stdInFpWrite(const void *data, const size_t dataSize) override;

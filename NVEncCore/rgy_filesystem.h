@@ -34,25 +34,31 @@
 #include "rgy_tchar.h"
 
 #if defined(_WIN32) || defined(_WIN64)
-std::wstring GetFullPathFrom(const wchar_t *path, const wchar_t *baseDir = nullptr);
-std::wstring GetRelativePathFrom(const wchar_t *path, const wchar_t *baseDir = nullptr);
 bool rgy_get_filesize(const wchar_t *filepath, uint64_t *filesize);
-std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
 std::wstring PathRemoveExtensionS(const std::wstring& path);
-std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename);
-std::string PathCombineS(const std::string& dir, const std::string& filename);
-bool CreateDirectoryRecursive(const wchar_t *dir);
 std::wstring PathGetFilename(const std::wstring& path);
 std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
-tstring getModulePath(void *module);
 void rgy_file_remove(const wchar_t *path);
 #endif //#if defined(_WIN32) || defined(_WIN64)
+std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename);
+std::string PathCombineS(const std::string& dir, const std::string& filename);
+std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
+std::string getModulePathA(void *module);
+std::wstring getModulePathW(void *module);
+tstring getModulePath(void *module);
+std::string getExePathA();
+std::wstring getExePathW();
 tstring getExePath();
+std::string getExeDirA();
+std::wstring getExeDirW();
 tstring getExeDir();
-std::vector<tstring> get_file_list_with_filter(const tstring& dir, const tstring& filter_filename);
+std::vector<std::wstring> get_file_list_with_filter(const std::wstring& dir, const std::wstring& filter_filename);
+std::vector<std::string> get_file_list_with_filter(const std::string& dir, const std::string& filter_filename);
 
 std::string GetFullPathFrom(const char *path, const char *baseDir = nullptr);
+std::wstring GetFullPathFrom(const wchar_t *path, const wchar_t *baseDir = nullptr);
 std::string GetRelativePathFrom(const char *path, const char *baseDir = nullptr);
+std::wstring GetRelativePathFrom(const wchar_t *path, const wchar_t *baseDir = nullptr);
 bool rgy_file_exists(const std::string& filepath);
 bool rgy_file_exists(const std::wstring& filepath);
 bool rgy_directory_exists(const std::string& directorypath);
@@ -60,9 +66,15 @@ bool rgy_directory_exists(const std::wstring& directorypath);
 bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
 std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
 std::string PathRemoveExtensionS(const std::string& path);
-bool CreateDirectoryRecursive(const char *dir);
+bool CreateDirectoryRecursive(const char *dir, const bool errorIfAlreadyExists = false);
+bool CreateDirectoryRecursive(const wchar_t *dir, const bool errorIfAlreadyExists = false);
 std::string PathGetFilename(const std::string& path);
 void rgy_file_remove(const char *path);
+int rgy_directory_remove(const char *dir);
+int rgy_directory_remove(const wchar_t *dir);
+
+bool rgy_file_copy(const std::string& srcpath, const std::string& dstpath, const bool overwrite);
+bool rgy_file_copy(const std::wstring& srcpath, const std::wstring& dstpath, const bool overwrite);
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
 bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list);
@@ -79,5 +91,8 @@ bool rgy_path_is_same(const tstring& path1, const tstring& path2);
 #if defined(_WIN32) || defined(_WIN64)
 std::vector<std::basic_string<TCHAR>> createProcessOpenedFileList(const std::vector<size_t>& list_pid);
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+std::string find_executable_in_path(const std::string& name);
+std::wstring find_executable_in_path(const std::wstring& name);
 
 #endif //__RGY_FILESYSTEM_H__

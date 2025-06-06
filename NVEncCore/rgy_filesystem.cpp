@@ -31,6 +31,9 @@
 #include "rgy_env.h"
 #include "rgy_codepage.h"
 #include "rgy_filesystem.h"
+#if !(defined(_WIN32) || defined(_WIN64))
+#include <dlfcn.h>  // dladdr関数用
+#endif
 
 std::string GetFullPathFrom(const char *path, const char *baseDir) {
     if (auto p = std::filesystem::path(path); p.is_absolute()) {
@@ -52,7 +55,6 @@ std::string GetRelativePathFrom(const char *path, const char *baseDir) {
     std::error_code ec;
     return std::filesystem::proximate(p, basePath, ec).string();
 }
-#if defined(_WIN32) || defined(_WIN64)
 std::wstring GetFullPathFrom(const wchar_t *path, const wchar_t *baseDir) {
     if (auto p = std::filesystem::path(path); p.is_absolute()) {
         return path;
@@ -73,6 +75,7 @@ std::wstring GetRelativePathFrom(const wchar_t *path, const wchar_t *baseDir) {
     std::error_code ec;
     return std::filesystem::proximate(p, basePath, ec).wstring();
 }
+#if defined(_WIN32) || defined(_WIN64)
 //ルートディレクトリを取得
 std::string PathGetRoot(const char *path) {
     return std::filesystem::path(GetFullPathFrom(path)).root_name().string();
@@ -97,12 +100,10 @@ std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path) {
     const auto newPath = std::filesystem::path(path).remove_filename().string();
     return std::make_pair((int)(path.length() - newPath.length()), newPath);
 }
-#if defined(_WIN32) || defined(_WIN64)
 std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
     const auto newPath = std::filesystem::path(path).remove_filename().wstring();
     return std::make_pair((int)(path.length() - newPath.length()), newPath);
 }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 std::string PathRemoveExtensionS(const std::string& path) {
     const auto lastdot = path.find_last_of(".");
     if (lastdot == std::string::npos) return path;
@@ -114,18 +115,18 @@ std::wstring PathRemoveExtensionS(const std::wstring& path) {
     if (lastdot == std::string::npos) return path;
     return path.substr(0, lastdot);
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 std::string PathCombineS(const std::string& dir, const std::string& filename) {
     return std::filesystem::path(dir).append(filename).string();
 }
 std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename) {
     return std::filesystem::path(dir).append(filename).wstring();
 }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 //フォルダがあればOK、なければ作成する
-bool CreateDirectoryRecursive(const char *dir) {
+bool CreateDirectoryRecursive(const char *dir, const bool errorIfAlreadyExists) {
     auto targetDir = std::filesystem::path(strlen(dir) ? dir : ".");
     if (std::filesystem::exists(targetDir)) {
-        return true;
+        return (errorIfAlreadyExists) ? false : true;
     }
     try {
         return std::filesystem::create_directories(targetDir);
@@ -133,11 +134,10 @@ bool CreateDirectoryRecursive(const char *dir) {
         return false;
     }
 }
-#if defined(_WIN32) || defined(_WIN64)
-bool CreateDirectoryRecursive(const wchar_t *dir) {
+bool CreateDirectoryRecursive(const wchar_t *dir, const bool errorIfAlreadyExists) {
     auto targetDir = std::filesystem::path(wcslen(dir) ? dir : L".");
     if (std::filesystem::exists(targetDir)) {
-        return true;
+        return (errorIfAlreadyExists) ? false : true;
     }
     try {
         return std::filesystem::create_directories(targetDir);
@@ -145,7 +145,6 @@ bool CreateDirectoryRecursive(const wchar_t *dir) {
         return false;
     }
 }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
 
 std::string PathGetFilename(const std::string& path) {
@@ -219,19 +218,23 @@ bool rgy_get_filesize(const char *filepath, uint64_t *filesize) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-std::vector<tstring> get_file_list_with_filter(const tstring& dir, const tstring& filter_filename) {
-#if UNICODE
-#define pathstring wstring
-#else
-#define pathstring string
-#endif
-    std::vector<tstring> list;
+std::vector<std::wstring> get_file_list_with_filter(const std::wstring& dir, const std::wstring& filter_filename) {
+    std::vector<std::wstring> list;
     for (const auto& x : std::filesystem::recursive_directory_iterator(dir)) {
-        if (filter_filename.length() == 0 || x.path().filename().pathstring().find(filter_filename) != std::string::npos) {
-            list.push_back(x.path().pathstring());
+        if (filter_filename.length() == 0 || x.path().filename().wstring().find(filter_filename) != std::string::npos) {
+            list.push_back(x.path().wstring());
         }
     }
-#undef pathstring
+    return list;
+}
+
+std::vector<std::string> get_file_list_with_filter(const std::string& dir, const std::string& filter_filename) {
+    std::vector<std::string> list;
+    for (const auto& x : std::filesystem::recursive_directory_iterator(dir)) {
+        if (filter_filename.length() == 0 || x.path().filename().string().find(filter_filename) != std::string::npos) {
+            list.push_back(x.path().string());
+        }
+    }
     return list;
 }
 
@@ -287,6 +290,20 @@ tstring getExePath() {
     return exePath;
 }
 
+std::wstring getExePathW() {
+    WCHAR exePath[16384];
+    memset(exePath, 0, sizeof(exePath));
+    GetModuleFileNameW(NULL, exePath, _countof(exePath));
+    return exePath;
+}
+
+std::string getExePathA() {
+    char exePath[16384];
+    memset(exePath, 0, sizeof(exePath));
+    GetModuleFileNameA(NULL, exePath, _countof(exePath));
+    return exePath;
+}
+
 tstring getModulePath(void *module) {
     TCHAR dllPath[16384];
     memset(dllPath, 0, sizeof(dllPath));
@@ -294,14 +311,58 @@ tstring getModulePath(void *module) {
     return dllPath;
 }
 
+std::wstring getModulePathW(void *module) {
+    WCHAR dllPath[16384];
+    memset(dllPath, 0, sizeof(dllPath));
+    GetModuleFileNameW((HMODULE)module, dllPath, _countof(dllPath));
+    return dllPath;
+}
+
+std::wstring getExeDirW() {
+    return PathRemoveFileSpecFixed(getExePathW()).second;
+}
 #else
-tstring getExePath() {
+
+std::string getExePathA() {
     char prg_path[16384];
     auto ret = readlink("/proc/self/exe", prg_path, sizeof(prg_path));
     if (ret <= 0) {
         prg_path[0] = '\0';
     }
     return prg_path;
+}
+
+std::wstring getExePathW() {
+    return char_to_wstring(getExePathA());
+}
+
+tstring getExePath() {
+    return getExePathA();
+}
+
+std::string getModulePathA(void *module) {
+    if (module == nullptr) {
+        return getExePath();
+    }
+    // Linux実装 - 共有ライブラリ(.so)のパスを取得
+    Dl_info dl_info;
+    // 現在の実行コードのアドレスを使用して.soファイルの情報を取得
+    // この関数ポインタ自体のアドレスを使用
+    if (dladdr(module, &dl_info) != 0) {
+        if (dl_info.dli_fname) {
+            const char* sopath = dl_info.dli_fname;
+            return sopath;
+        }
+    }
+    return "";
+}
+
+std::wstring getModulePathW(void *module) {
+    return char_to_wstring(getModulePathA(module));
+}
+
+tstring getModulePath(void *module) {
+    return getModulePathA(module);
 }
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -315,8 +376,47 @@ void rgy_file_remove(const wchar_t *path) {
 }
 #endif
 
+
+int rgy_directory_remove(const char *dirname) {
+    try {
+        std::filesystem::remove_all(dirname);
+    } catch (...) {
+        return 1;
+    }
+    return 0;
+}
+
+int rgy_directory_remove(const wchar_t *dirname) {
+    try {
+        std::filesystem::remove_all(dirname);
+    } catch (...) {
+        return 1;
+    }
+    return 0;
+}
+
+
+bool rgy_file_copy(const std::string& srcpath, const std::string& dstpath, const bool overwrite) {
+    try {
+        return std::filesystem::copy_file(srcpath, dstpath, overwrite ? std::filesystem::copy_options::overwrite_existing : std::filesystem::copy_options::none);
+    } catch (...) {
+        return false;
+    }
+}
+bool rgy_file_copy(const std::wstring& srcpath, const std::wstring& dstpath, const bool overwrite) {
+    try {
+        return std::filesystem::copy_file(srcpath, dstpath, overwrite ? std::filesystem::copy_options::overwrite_existing : std::filesystem::copy_options::none);
+    } catch (...) {
+        return false;
+    }
+}
+
 tstring getExeDir() {
     return PathRemoveFileSpecFixed(getExePath()).second;
+}
+
+std::string getExeDirA() {
+    return PathRemoveFileSpecFixed(getExePathA()).second;
 }
 
 bool rgy_path_is_same(const TCHAR *path1, const TCHAR *path2) {
@@ -362,3 +462,45 @@ std::vector<std::basic_string<TCHAR>> createProcessOpenedFileList(const std::vec
     return list_file;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+#if defined(_WIN32) || defined(_WIN64)
+std::string find_executable_in_path(const std::string& name) {
+    char path[1024];
+    if (SearchPathA(NULL, name.c_str(), ".exe", _countof(path), path, NULL)) {
+        return path;
+    }
+    return "";
+}
+
+std::wstring find_executable_in_path(const std::wstring& name) {
+    wchar_t path[1024];
+    if (SearchPathW(NULL, name.c_str(), L".exe", _countof(path), path, NULL)) {
+        return path;
+    }
+    return L"";
+}
+#else
+std::string find_executable_in_path(const std::string& name) {
+    const char* path_env = getenv("PATH");
+    if (!path_env) {
+        return "";
+    }
+
+    std::string path_str(path_env);
+    std::stringstream ss(path_str);
+    std::string dir;
+    
+    while (std::getline(ss, dir, ':')) {
+        std::string full_path = dir + "/" + name;
+        if (access(full_path.c_str(), X_OK) == 0) {
+            return full_path;
+        }
+    }
+    return "";
+}
+
+std::wstring find_executable_in_path(const std::wstring& name) {
+    return char_to_wstring(find_executable_in_path(wstring_to_string(name)));
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
