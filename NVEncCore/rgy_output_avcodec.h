@@ -167,8 +167,8 @@ struct AVMuxVideo {
     
     // raw video encoder用のメンバ変数
     const AVCodec        *rawVideoCodec;        //rawvideoエンコーダのCodec
-    AVCodecContext       *rawVideoCodecCtx;     //rawvideoエンコーダのCodecCtx
-    AVFrame              *rawVideoFrame;        //rawvideoエンコード用のAVFrame
+    std::unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>> rawVideoCodecCtx;     //rawvideoエンコーダのCodecCtx
+    RGYPoolAVFrame        rawVideoFrame;        //rawvideoエンコード用のAVFrame
     std::unique_ptr<RGYConvertCSP> rawVideoConvert; //rawvideoエンコード用の色空間変換
     RGY_SIMD              simdCsp;              //色空間変換用のSIMD
     

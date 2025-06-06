@@ -158,8 +158,8 @@ AVMuxVideo::AVMuxVideo() :
     afs(false),
     debugDirectAV1Out(false),
     rawVideoCodec(nullptr),
-    rawVideoCodecCtx(nullptr),
-    rawVideoFrame(nullptr),
+    rawVideoCodecCtx(),
+    rawVideoFrame(),
     rawVideoConvert(),
     simdCsp(RGY_SIMD::SIMD_ALL),
     parse_nal_h264(get_parse_nal_unit_h264_func()),
@@ -431,15 +431,9 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
     m_Mux.video.timestamp = nullptr;
 
     if (muxVideo->rawVideoCodecCtx) {
-        avcodec_free_context(&muxVideo->rawVideoCodecCtx);
-        muxVideo->rawVideoCodecCtx = nullptr;
+        muxVideo->rawVideoCodecCtx.reset();
         muxVideo->rawVideoCodec = nullptr;
         AddMessage(RGY_LOG_DEBUG, _T("Closed raw video encoder context.\n"));
-    }
-    if (muxVideo->rawVideoFrame) {
-        av_frame_free(&muxVideo->rawVideoFrame);
-        muxVideo->rawVideoFrame = nullptr;
-        AddMessage(RGY_LOG_DEBUG, _T("Freed raw video frame.\n"));
     }
 
     AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
@@ -862,7 +856,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         }
         
         //raw video encoder contextを確保する
-        m_Mux.video.rawVideoCodecCtx = avcodec_alloc_context3(m_Mux.video.rawVideoCodec);
+        m_Mux.video.rawVideoCodecCtx = std::unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>>(avcodec_alloc_context3(m_Mux.video.rawVideoCodec), RGYAVDeleter<AVCodecContext>(avcodec_free_context));
         if (!m_Mux.video.rawVideoCodecCtx) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate raw video encoder context.\n"));
             return RGY_ERR_NULL_PTR;
@@ -875,7 +869,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         m_Mux.video.rawVideoCodecCtx->height = videoOutputInfo->dstHeight;
         switch (RGY_CSP_CHROMA_FORMAT[videoOutputInfo->csp]) {
             case RGY_CHROMAFMT_YUV420:
-                m_Mux.video.rawVideoCodecCtx->pix_fmt = (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp] > 8) ? AV_PIX_FMT_YUV420P16LE : AV_PIX_FMT_NV12;
+                m_Mux.video.rawVideoCodecCtx->pix_fmt = (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp] > 8) ? csp_rgy_to_avpixfmt(videoOutputInfo->csp) : AV_PIX_FMT_NV12;
                 break;
             default:
                 AddMessage(RGY_LOG_ERROR, _T("raw output suppotred for yuv420 only.\n"));
@@ -898,15 +892,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         }
         
         // raw video encoderを開く
-        if (avcodec_open2(m_Mux.video.rawVideoCodecCtx, m_Mux.video.rawVideoCodec, nullptr) < 0) {
+        if (avcodec_open2(m_Mux.video.rawVideoCodecCtx.get(), m_Mux.video.rawVideoCodec, nullptr) < 0) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to open raw video encoder.\n"));
-            return RGY_ERR_NULL_PTR;
-        }
-        
-        // raw video frameを確保する
-        m_Mux.video.rawVideoFrame = av_frame_alloc();
-        if (!m_Mux.video.rawVideoFrame) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate raw video frame.\n"));
             return RGY_ERR_NULL_PTR;
         }
         
@@ -945,7 +932,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         m_Mux.video.codecCtx->color_trc           = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
         AddMessage(RGY_LOG_DEBUG, _T("Set VUI Params: %s\n"), videoOutputInfo->vui.print_all().c_str());
     }
-    if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
+    if (m_Mux.format.formatCtx->flags & AVFMT_GLOBALHEADER) {
         m_Mux.video.codecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
     if (0 > avcodec_open2(m_Mux.video.codecCtx, m_Mux.video.codec, NULL)) {
@@ -2043,7 +2030,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             //問答無用で使うのだ
             av_opt_set(muxSub->outCodecEncodeCtx, "strict", "experimental", 0);
         }
-        if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
+        if (m_Mux.format.formatCtx->flags & AVFMT_GLOBALHEADER) {
             muxSub->outCodecEncodeCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
         }
 
@@ -3241,7 +3228,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
     const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
     
     // RGYFrame -> AVFrame
-    AVFrame *avframe = m_Mux.video.rawVideoFrame;
+    auto avframe = m_Mux.video.rawVideoFrame.getFree();
     if (!avframe) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate AVFrame.\n"));
         return RGY_ERR_NULL_PTR;
@@ -3256,10 +3243,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
         avframe->pts = av_rescale_q(avframe->pts, m_Mux.video.bitstreamTimebase, streamTimebase);
     }
     
-    int ret = av_frame_get_buffer(avframe, 0);
+    int ret = av_frame_get_buffer(avframe.get(), 0);
     if (ret < 0) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer for AVFrame: %s\n"), qsv_av_err2str(ret).c_str());
-        av_frame_free(&avframe);
+        avframe.reset();
         return RGY_ERR_NULL_PTR;
     }
 
@@ -3278,15 +3265,15 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
 
     sInputCrop crop = initCrop();
     m_Mux.video.rawVideoConvert->run(
-        rgy_avframe_interlaced(avframe), dst_array, src_array,
+        rgy_avframe_interlaced(avframe.get()), dst_array, src_array,
         surface->width(), surface->pitch(), surface->pitch(RGY_PLANE_C),
         avframe->linesize[0], avframe->linesize[1], surface->height(), avframe->height, crop.c);
 
     if (m_Mux.thread.thRawVideo) {
-        auto pktFrame = pktMuxData(avframe);
+        auto pktFrame = pktMuxData(avframe.release());
         m_Mux.thread.thRawVideo->qPackets.push(pktFrame);
     } else {
-        return VideoEncodeRawFrame(avframe);
+        return VideoEncodeRawFrame(avframe.get());
     }
     return RGY_ERR_NONE;
 }
@@ -3299,23 +3286,24 @@ RGY_ERR RGYOutputAvcodec::VideoEncodeRawFrame(AVFrame *avframe) {
     auto pkt = m_Mux.poolPkt->getFree();
     if (!pkt) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate AVPacket.\n"));
-        av_frame_unref(avframe);
+        m_Mux.video.rawVideoFrame.returnFree(&avframe);
         return RGY_ERR_NULL_PTR;
     }
     
-    auto ret = avcodec_send_frame(m_Mux.video.rawVideoCodecCtx, avframe);
+    auto ret = avcodec_send_frame(m_Mux.video.rawVideoCodecCtx.get(), avframe);
     if (ret < 0) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to send frame to raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
-        av_frame_unref(avframe);
+        m_Mux.video.rawVideoFrame.returnFree(&avframe);
         return RGY_ERR_NULL_PTR;
     }
+    m_Mux.video.rawVideoFrame.returnFree(&avframe);
     
-    ret = avcodec_receive_packet(m_Mux.video.rawVideoCodecCtx, pkt.get());
+    ret = avcodec_receive_packet(m_Mux.video.rawVideoCodecCtx.get(), pkt.get());
     if (ret < 0) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to receive packet from raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
-        av_frame_unref(avframe);
         return RGY_ERR_NULL_PTR;
     }
+
     if (m_Mux.thread.thOutput) {
         auto pktFrame = pktMuxData(pkt.release());
         m_Mux.thread.qVideoRawFrames.push(pktFrame);
@@ -4117,7 +4105,7 @@ RGY_ERR RGYOutputAvcodec::AddAudQueue(AVPktMuxData *pktData, int type) {
 //処理するdtsの上限を決める
 RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite) {
     if (m_Mux.thread.threadActiveAudio()) {
-        // 音声スレッドがある場合はファイルヘッダが書かれてからここに来るはず
+        // 音声スレッドがある場合はフレームヘッダが書かれてからここに来るはず
         if (!m_Mux.format.fileHeaderWritten) {
             AddMessage(RGY_LOG_ERROR, _T("File header not written, unexpected error!\n"));
             return RGY_ERR_UNKNOWN;
