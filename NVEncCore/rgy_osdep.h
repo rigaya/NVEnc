@@ -103,6 +103,7 @@ static int getStdInKey() {
 #include <cstring>
 #include <cwchar>
 #include <pthread.h>
+#include <signal.h>
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
