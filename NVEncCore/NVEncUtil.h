@@ -130,6 +130,7 @@ RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format, const bool alphaChanne
 VideoInfo videooutputinfo(
     const GUID& encCodecGUID,
     NV_ENC_BUFFER_FORMAT buffer_fmt,
+    const bool rawRGB,
     int nEncWidth,
     int nEncHeight,
     const NV_ENC_CONFIG *pEncConfig,

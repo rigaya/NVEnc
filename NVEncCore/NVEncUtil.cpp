@@ -235,6 +235,7 @@ VideoInfo videooutputinforaw(
 VideoInfo videooutputinfo(
     const GUID& encCodecGUID,
     NV_ENC_BUFFER_FORMAT buffer_fmt,
+    const bool rawRGB,
     int nEncWidth,
     int nEncHeight,
     const NV_ENC_CONFIG *pEncConfig,
@@ -251,7 +252,11 @@ VideoInfo videooutputinfo(
     info.sar[1] = sar.second;
     adjust_sar(&info.sar[0], &info.sar[1], nEncWidth, nEncHeight);
     info.picstruct = picstruct_enc_to_rgy(nPicStruct);
-    info.csp = csp_enc_to_rgy(buffer_fmt);
+    if (rawRGB && (buffer_fmt == NV_ENC_BUFFER_FORMAT_YUV444 || buffer_fmt == NV_ENC_BUFFER_FORMAT_YUV444_10BIT)) {
+        info.csp = buffer_fmt == NV_ENC_BUFFER_FORMAT_YUV444_10BIT ? RGY_CSP_GBR_16 : RGY_CSP_GBR;
+    } else {
+        info.csp = csp_enc_to_rgy(buffer_fmt);
+    }
 
     if (pEncConfig) {
         info.codec = codec_guid_enc_to_rgy(encCodecGUID);

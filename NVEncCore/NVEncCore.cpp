@@ -380,8 +380,13 @@ RGY_CSP NVEncCore::GetRawOutCSP(const InEncodeVideoParam *inputParam) const {
     if (inputParam->codec_rgy != RGY_CODEC_RAW) {
         return GetEncoderCSP(inputParam);
     }
+    const bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
+    if (   RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB
+        || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED) {
+        return (bOutputHighBitDepth) ? RGY_CSP_GBR_16 : RGY_CSP_GBR;
+    }
     const bool yuv422 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV422;
-    const bool yuv444 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED;
+    const bool yuv444 = RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV444;
     switch (inputParam->outputDepth) {
     case 10: return (yuv444) ? RGY_CSP_YUV444_10 : ((yuv422) ? RGY_CSP_YUV422_10 : RGY_CSP_YV12_10);
     case 12: return (yuv444) ? RGY_CSP_YUV444_12 : ((yuv422) ? RGY_CSP_YUV422_12 : RGY_CSP_YV12_12);
@@ -829,6 +834,9 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
 
 RGY_ERR NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
     const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
+        (inputParams->codec_rgy == RGY_CODEC_RAW) &&
+        (  RGY_CSP_CHROMA_FORMAT[inputParams->outputCsp] == RGY_CHROMAFMT_RGB
+        || RGY_CSP_CHROMA_FORMAT[inputParams->outputCsp] == RGY_CHROMAFMT_RGB_PACKED),
         m_uEncWidth, m_uEncHeight,
         (inputParams->codec_rgy == RGY_CODEC_RAW) ? nullptr : &m_stEncConfig, m_stPicStruct,
         std::make_pair(m_sar.n(), m_sar.d()),
@@ -3911,7 +3919,7 @@ RGY_ERR NVEncCore::InitSsimFilter(const InEncodeVideoParam *inputParam) {
             return RGY_ERR_DEVICE_NOT_FOUND;
         }
         const auto targetInfo = videooutputinfo(m_stCodecGUID, GetEncBufferFormat(inputParam),
-            m_uEncWidth, m_uEncHeight,
+            m_uEncWidth, m_uEncHeight, false,
             &m_stEncConfig, m_stPicStruct,
             std::make_pair(m_sar.n(), m_sar.d()),
             m_encFps);

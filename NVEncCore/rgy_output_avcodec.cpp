@@ -869,10 +869,47 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         m_Mux.video.rawVideoCodecCtx->height = videoOutputInfo->dstHeight;
         switch (RGY_CSP_CHROMA_FORMAT[videoOutputInfo->csp]) {
             case RGY_CHROMAFMT_YUV420:
-                m_Mux.video.rawVideoCodecCtx->pix_fmt = (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp] > 8) ? csp_rgy_to_avpixfmt(videoOutputInfo->csp) : AV_PIX_FMT_NV12;
+                switch (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp]) {
+                case 8:  m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_NV12; break;
+                case 10: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P10LE; break;
+                case 12: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P12LE; break;
+                case 14: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P14LE; break;
+                case 16: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P16LE; break;
+                default:
+                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for raw output.\n"), RGY_CSP_BIT_DEPTH[videoOutputInfo->csp], RGY_CSP_NAMES[videoOutputInfo->csp]);
+                    return RGY_ERR_UNSUPPORTED;
+                }
                 break;
+#if ENCODER_NVENC
+            case RGY_CHROMAFMT_YUV444:
+                switch (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp]) {
+                case 8:  m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P; break;
+                case 10: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P10LE; break;
+                case 12: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P12LE; break;
+                case 14: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P14LE; break;
+                case 16: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P16LE; break;
+                default:
+                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for raw output.\n"), RGY_CSP_BIT_DEPTH[videoOutputInfo->csp], RGY_CSP_NAMES[videoOutputInfo->csp]);
+                    return RGY_ERR_UNSUPPORTED;
+                }
+                break;
+            case RGY_CHROMAFMT_RGB:
+                switch (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp]) {
+                case 8:  m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_GBRP; break;
+                case 10: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_GBRP10LE; break;
+                case 16: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_GBRP16LE; break;
+                default:
+                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for raw output.\n"), RGY_CSP_BIT_DEPTH[videoOutputInfo->csp], RGY_CSP_NAMES[videoOutputInfo->csp]);
+                    return RGY_ERR_UNSUPPORTED;
+                }
+                break;
+#endif
             default:
-                AddMessage(RGY_LOG_ERROR, _T("raw output suppotred for yuv420 only.\n"));
+#if ENCODER_NVENC
+                AddMessage(RGY_LOG_ERROR, _T("raw output supported for yuv420/yuv444 only.\n"));
+#else
+                AddMessage(RGY_LOG_ERROR, _T("raw output supported for yuv420 only.\n"));
+#endif
                 return RGY_ERR_UNSUPPORTED;
         }
         m_Mux.video.rawVideoCodecCtx->time_base = av_inv_q(m_Mux.video.outputFps);
@@ -3212,6 +3249,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
     if (m_Mux.format.formatCtx->video_codec_id != AV_CODEC_ID_RAWVIDEO) {
         AddMessage(RGY_LOG_ERROR, _T("Unsupported codec for WriteNextFrame(RGYFrame): %s\n"), avcodec_get_name(m_Mux.format.formatCtx->video_codec_id));
+        m_Mux.format.streamError = true;
         return RGY_ERR_UNSUPPORTED;
     }
 
@@ -3231,6 +3269,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
     auto avframe = m_Mux.video.rawVideoFrame.getFree();
     if (!avframe) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate AVFrame.\n"));
+        m_Mux.format.streamError = true;
         return RGY_ERR_NULL_PTR;
     }
     
@@ -3254,6 +3293,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
     if (m_Mux.video.rawVideoConvert->getFunc(surface->csp(), csp_avpixfmt_to_rgy(m_Mux.video.rawVideoCodecCtx->pix_fmt), m_Mux.video.simdCsp) == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
             RGY_CSP_NAMES[surface->csp()], RGY_CSP_NAMES[csp_avpixfmt_to_rgy(m_Mux.video.rawVideoCodecCtx->pix_fmt)]);
+        m_Mux.format.streamError = true;
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     void *dst_array[RGY_MAX_PLANES];
@@ -3287,6 +3327,7 @@ RGY_ERR RGYOutputAvcodec::VideoEncodeRawFrame(AVFrame *avframe) {
     if (!pkt) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate AVPacket.\n"));
         m_Mux.video.rawVideoFrame.returnFree(&avframe);
+        m_Mux.format.streamError = true;
         return RGY_ERR_NULL_PTR;
     }
     
@@ -3294,6 +3335,7 @@ RGY_ERR RGYOutputAvcodec::VideoEncodeRawFrame(AVFrame *avframe) {
     if (ret < 0) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to send frame to raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
         m_Mux.video.rawVideoFrame.returnFree(&avframe);
+        m_Mux.format.streamError = true;
         return RGY_ERR_NULL_PTR;
     }
     m_Mux.video.rawVideoFrame.returnFree(&avframe);
@@ -3301,6 +3343,7 @@ RGY_ERR RGYOutputAvcodec::VideoEncodeRawFrame(AVFrame *avframe) {
     ret = avcodec_receive_packet(m_Mux.video.rawVideoCodecCtx.get(), pkt.get());
     if (ret < 0) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to receive packet from raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
+        m_Mux.format.streamError = true;
         return RGY_ERR_NULL_PTR;
     }
 
