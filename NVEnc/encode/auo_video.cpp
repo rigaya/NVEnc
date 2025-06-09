@@ -451,12 +451,13 @@ static int send_frame(
             src_pitch = tempBufForNonModWidthPitch;
             ptr_src = tempBufForNonModWidth.get();
         }
+        const int src_uv_pitch = (input_csp == RGY_CSP_YC48) ? src_pitch : ((input_csp == RGY_CSP_BGR24R) ? src_pitch : src_pitch >> 1);
         int dummy[4] = { 0 };
         convert->run((enc_prm.input.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
             dst_array, (const void**)&ptr_src, oip->w,
             src_pitch,
-            (input_csp == RGY_CSP_YC48) ? src_pitch : ((input_csp == RGY_CSP_BGR24R) ? src_pitch : src_pitch >> 1),
-            prmsm->pitch, oip->h, oip->h, dummy);
+            src_uv_pitch,
+            prmsm->pitch, prmsm->pitch, oip->h, oip->h, dummy);
     }
     prmsm->timestamp[sendFrame & 1] = (int64_t)i * 4;
     prmsm->duration[sendFrame & 1] = 0;
