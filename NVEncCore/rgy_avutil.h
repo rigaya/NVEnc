@@ -311,6 +311,7 @@ AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct);
 
 //AVFrameのdurationを取得
 int64_t rgy_avframe_get_duration(const AVFrame *frame);
+int64_t& rgy_avframe_get_duration_ref(AVFrame *frame);
 
 //AVFrameのインタレ関連フラグの確認
 bool rgy_avframe_interlaced(const AVFrame *frame);

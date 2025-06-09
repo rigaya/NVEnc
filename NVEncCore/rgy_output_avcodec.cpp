@@ -3278,7 +3278,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
     avframe->height = surface->height();
     avframe->pts = surface->timestamp();
     if (av_cmp_q(m_Mux.video.bitstreamTimebase, streamTimebase) != 0) {
-        avframe->duration = av_rescale_q(avframe->duration, m_Mux.video.bitstreamTimebase, streamTimebase);
+        rgy_avframe_get_duration_ref(avframe.get()) = av_rescale_q(rgy_avframe_get_duration(avframe.get()), m_Mux.video.bitstreamTimebase, streamTimebase);;
         avframe->pts = av_rescale_q(avframe->pts, m_Mux.video.bitstreamTimebase, streamTimebase);
     }
     

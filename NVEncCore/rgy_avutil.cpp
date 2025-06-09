@@ -128,6 +128,15 @@ int64_t rgy_avframe_get_duration(const AVFrame *frame) {
 #endif
 }
 
+//AVFrameのdurationを取得
+int64_t& rgy_avframe_get_duration_ref(AVFrame *frame) {
+#if AV_FRAME_DURATION_AVAIL
+    return frame->duration;
+#else
+    return frame->pkt_duration;
+#endif
+}
+
 bool rgy_avframe_interlaced(const AVFrame *frame) {
 #if defined(AV_FRAME_FLAG_INTERLACED)
     return (frame->flags & AV_FRAME_FLAG_INTERLACED) != 0;
