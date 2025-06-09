@@ -213,6 +213,12 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2025.06.09 (8.05)
+- --output-formatと-c rawを併用可能に。
+  -c raw --output-format nut のようなケースに対応可能に。
+- --vpp-edgelevelの10bit深度でのblack/whiteの処理を修正。
+- --avsw使用時のインタレの判定を改善。
+
 2025.04.23 (8.04)
 - --vpp-libplacebo-tonemappingのtonemapping_functionで、st2094-10とst2094-40が指定できなかった問題を修正。
 - --vpp-libplacebo-tonemappingにinverse_tone_mappingオプションを追加。

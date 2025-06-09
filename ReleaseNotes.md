@@ -1,5 +1,12 @@
 # NVEnc Release Notes
 
+## 8.05
+
+- Add support for combining [--output-format](./NVEncC_Options.en.md#--output-format-string) with ```-c raw```. ( #693 )
+  Now supports cases like ```-c raw --output-format nut```.
+- Fix black/white processing in 10-bit depth for [--vpp-edgelevel](./NVEncC_Options.en.md#--vpp-edgelevel-param1value1param2value2).
+- Improve interlace detection when using [--avsw](./NVEncC_Options.en.md#--avsw-string). ( #688 )
+
 ## 8.04
 
 - Add ```inverse_tone_mapping``` option to [--vpp-libplacebo-tonemapping](./NVEncC_Options.en.md#--vpp-libplacebo-tonemapping-param1value1param2value2).

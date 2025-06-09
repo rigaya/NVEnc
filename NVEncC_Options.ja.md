@@ -10,6 +10,8 @@
     - [パイプ利用の例](#パイプ利用の例)
     - [ffmpegからパイプ渡し](#ffmpegからパイプ渡し)
     - [ffmpegから映像と音声を両方パイプ渡したい](#ffmpegから映像と音声を両方パイプ渡したい)
+    - [ffmpegにNVEncCでのフィルタ処理の結果を渡したい](#ffmpegにnvenccでのフィルタ処理の結果を渡したい)
+    - [可能な限り入力ファイルから音声・字幕・metadataなどをコピーする](#可能な限り入力ファイルから音声字幕metadataなどをコピーする)
     - [raw H.264/ESのmux](#raw-h264esのmux)
 - [オプションの指定方法](#オプションの指定方法)
 - [表示系オプション](#表示系オプション)
@@ -289,6 +291,18 @@ ffmpeg -y -i "<ソース動画>" -an -pix_fmt yuv420p -f yuv4mpegpipe - | NVEncC
 --> "nut"フォーマットでくるんで受け渡しするとよいでしょう
 ```Batchfile
 ffmpeg -y -i "<input>" <options for ffmpeg> -codec:a copy -codec:v rawvideo -pix_fmt yuv420p -f nut - | NVEncC --avsw -i - --audio-codec aac -o "<outfilename.mp4>"
+```
+
+#### ffmpegにNVEncCでのフィルタ処理の結果を渡したい
+--> "nut"フォーマットでフレームと音声を渡すとよいでしょう。
+```Batchfile
+NVEncC -i "<input>" <filter options> --audio-copy -c raw --output-format nut -o - | ffmpeg -y -f nut -i - <encode options for ffmpeg> -o output.mp4
+```
+
+#### 可能な限り入力ファイルから音声・字幕・metadataなどをコピーする
+
+```Batchfile
+NVEncC -i "<input>" <encode options> --colormatrix auto --transfer auto --colorprim auto --chromaloc auto --max-cll copy --master-display copy --dhdr10-info copy --dolby-vision-rpu copy --video-metadata copy --audio-copy --audio-metadata copy  --sub-copy --sub-metadata copy --data-copy --attachment-copy --chapter-copy -o output.mkv
 ```
 
 #### raw H.264/ESのmux
