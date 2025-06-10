@@ -2476,10 +2476,10 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         m_Mux.thread.thOutput->thread = std::thread(&RGYOutputAvcodec::WriteThreadFunc, this, prm->threadParamOutput);
         AddMessage(RGY_LOG_DEBUG, _T("Set output thread param: %s.\n"), prm->threadParamOutput.desc().c_str());
         if (m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO) {
-            m_Mux.thread.qVideoRawFrames.init(256);
+            m_Mux.thread.qVideoRawFrames.init(256, 64);
             m_Mux.thread.thRawVideo = std::make_unique<AVMuxThreadWorker>();
             m_Mux.thread.thRawVideo->thAbort = false;
-            m_Mux.thread.thRawVideo->qPackets.init(256);
+            m_Mux.thread.thRawVideo->qPackets.init(256, 32);
             m_Mux.thread.thRawVideo->heEventPktAdded = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.thRawVideo->heEventClosing = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.thRawVideo->thread = std::thread(&RGYOutputAvcodec::WriteThreadFuncRawVideo, this, prm->threadParamOutput);
