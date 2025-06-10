@@ -35,7 +35,7 @@ jobs:
 
   build:
     name: Upload Release Asset
-    runs-on: windows-2019
+    runs-on: windows-2022
     needs: get_version_name
 
     defaults:
@@ -141,7 +141,7 @@ jobs:
 
   upload_aviutl_release:
     name: Upload Aviutl Release Asset
-    runs-on: windows-2019
+    runs-on: windows-2022
     needs: [ get_version_name, build ]
 
     defaults:
