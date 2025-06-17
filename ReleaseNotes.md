@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 8.06
+
+- Fix performance degradation caused in 8.05. ( #696 )
+
+
 ## 8.05
 
 - Add support for combining [--output-format](./NVEncC_Options.en.md#--output-format-string) with ```-c raw```. ( #693 )

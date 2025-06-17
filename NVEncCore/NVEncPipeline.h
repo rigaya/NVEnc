@@ -615,7 +615,7 @@ public:
         // m_cuevents内のイベントを待つ
         for (auto& cuevent : m_cuevents) {
             if (cuevent != nullptr) {
-#if 0
+#if 1
                 NVEncCtxAutoLock(ctxlock(m_vidCtxLock));
                 cudaEventSynchronize(*cuevent.get());
 #else
