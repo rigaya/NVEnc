@@ -870,7 +870,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         switch (RGY_CSP_CHROMA_FORMAT[videoOutputInfo->csp]) {
             case RGY_CHROMAFMT_YUV420:
                 switch (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp]) {
-                case 8:  m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_NV12; break;
+                case 8:  m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P; break;
                 case 10: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P10LE; break;
                 case 12: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P12LE; break;
                 case 14: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P14LE; break;
@@ -941,7 +941,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.codecCtx->codec_id                = m_Mux.format.formatCtx->video_codec_id;
     m_Mux.video.codecCtx->width                   = videoOutputInfo->dstWidth;
     m_Mux.video.codecCtx->height                  = videoOutputInfo->dstHeight;
-    m_Mux.video.codecCtx->pix_fmt                 = csp_rgy_to_avpixfmt(videoOutputInfo->csp);
+    m_Mux.video.codecCtx->pix_fmt                 = (m_Mux.video.rawVideoCodecCtx) ? m_Mux.video.rawVideoCodecCtx->pix_fmt : csp_rgy_to_avpixfmt(videoOutputInfo->csp);
     m_Mux.video.codecCtx->level                   = videoOutputInfo->codecLevel;
     m_Mux.video.codecCtx->profile                 = videoOutputInfo->codecProfile;
     m_Mux.video.codecCtx->sample_aspect_ratio.num = videoOutputInfo->sar[0];
