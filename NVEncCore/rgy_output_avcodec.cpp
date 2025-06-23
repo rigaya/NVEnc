@@ -85,6 +85,9 @@ static bool format_is_ivf(const AVFormatContext *formatCtx) {
 static bool format_is_mpegts(const AVFormatContext *formatCtx) {
     return _stricmp(formatCtx->oformat->name, "mpegts") == 0;
 }
+static bool format_is_y4m(const AVFormatContext *formatCtx) {
+    return _stricmp(formatCtx->oformat->name, "yuv4mpegpipe") == 0;
+}
 
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
@@ -991,7 +994,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.streamOut->time_base = (av_isvalid_q(prm->bitstreamTimebase)) ? prm->bitstreamTimebase : av_inv_q(m_Mux.video.outputFps);
     if (m_Mux.format.isMatroska) {
         m_Mux.video.streamOut->time_base = av_make_q(1, 1000);
-    } else if (format_is_ivf(m_Mux.format.formatCtx)) { // ivf形式の時は、time_baseをfpsの逆数にしないといけない
+    } else if (format_is_ivf(m_Mux.format.formatCtx) || format_is_y4m(m_Mux.format.formatCtx)) { // ivf, y4m形式の時は、time_baseをfpsの逆数にしないといけない
         m_Mux.video.streamOut->time_base = av_make_q(videoOutputInfo->fpsD, videoOutputInfo->fpsN);
     }
     m_Mux.video.streamOut->sample_aspect_ratio.num = videoOutputInfo->sar[0]; //mkvではこちらの指定も必要
@@ -1001,6 +1004,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         m_Mux.video.streamOut->sample_aspect_ratio.num = 1;
         m_Mux.video.streamOut->sample_aspect_ratio.den = 1;
     }
+    m_Mux.video.streamOut->codecpar->sample_aspect_ratio = m_Mux.video.streamOut->sample_aspect_ratio;
     m_Mux.video.streamOut->avg_frame_rate.num = videoOutputInfo->fpsN; //mkvのTRACKDEFAULTDURATIONの出力に必要
     m_Mux.video.streamOut->avg_frame_rate.den = videoOutputInfo->fpsD;
     m_Mux.video.streamOut->start_time          = 0;
