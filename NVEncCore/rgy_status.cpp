@@ -45,13 +45,18 @@
 #include "gpuz_info.h"
 #include "rgy_status.h"
 
-EncodeStatus::EncodeStatus() {
-    memset(&m_sData, 0, sizeof(m_sData));
-
-    m_sStartTime = std::unique_ptr<PROCESS_TIME>(new PROCESS_TIME());
-    m_tmLastUpdate = std::chrono::system_clock::now();
-    m_pause = false;
-    m_bStdErrWriteToConsole = false;
+EncodeStatus::EncodeStatus() :
+    m_sData(),
+    m_pause(false),
+    m_pRGYLog(),
+    m_pPerfMonitor(),
+    m_sStartTime(std::make_unique<PROCESS_TIME>()),
+    m_tmStart(),
+    m_tmLastUpdate(std::chrono::system_clock::now()),
+    m_peStatusShare(nullptr),
+    m_childStatus(),
+    m_bStdErrWriteToConsole(false),
+    m_bEncStarted(false) {
 }
 EncodeStatus::~EncodeStatus() {
     if (m_pRGYLog) m_pRGYLog->write_log(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Closing EncodeStatus...\n"));
