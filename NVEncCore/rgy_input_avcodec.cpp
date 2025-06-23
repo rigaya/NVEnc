@@ -46,6 +46,13 @@
 
 #if ENABLE_AVSW_READER
 
+struct pixfmtInfo {
+    AVPixelFormat pix_fmt;
+    int bit_depth;
+    RGY_CHROMAFMT chroma_format;
+    RGY_CSP output_csp;
+};
+
 static inline void extend_array_size(VideoFrameData *dataset) {
     static int default_capacity = 8 * 1024;
     int current_cap = dataset->capacity;
@@ -2174,204 +2181,26 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_DEBUG, _T("set seekto %s.\n"), print_time(input_prm->seekSec).c_str());
         }
 
-        struct pixfmtInfo {
-            AVPixelFormat pix_fmt;
-            int bit_depth;
-            RGY_CHROMAFMT chroma_format;
-            RGY_CSP output_csp;
-        };
-
-        static const pixfmtInfo pixfmtDataList[] = {
-            { AV_PIX_FMT_YUV420P,      8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_YUVJ420P,     8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_NV12,         8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_NV21,         8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_YUVJ422P,     8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUYV422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_YUY2 },
-            { AV_PIX_FMT_UYVY422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_UYVY },
-#if ENCODER_QSV || ENCODER_VCEENC
-            { AV_PIX_FMT_YUV422P,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV12 },
-            { AV_PIX_FMT_NV16,         8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV12 },
-#else
-            { AV_PIX_FMT_YUV422P,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV16 },
-            { AV_PIX_FMT_NV16,         8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV16 },
-#endif
-            { AV_PIX_FMT_NV24,         8, RGY_CHROMAFMT_YUV444, RGY_CSP_NV24 },
-            { AV_PIX_FMT_YUV444P,      8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
-            { AV_PIX_FMT_YUVJ444P,     8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
-            { AV_PIX_FMT_YUV420P16LE, 16, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV420P14LE, 14, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV420P12LE, 12, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV420P10LE, 10, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV420P9LE,   9, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
-            { AV_PIX_FMT_NV20LE,      10, RGY_CHROMAFMT_YUV420, RGY_CSP_NA },
-#if ENCODER_QSV || ENCODER_VCEENC
-            { AV_PIX_FMT_YUV422P16LE, 16, RGY_CHROMAFMT_YUV422, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV422P14LE, 14, RGY_CHROMAFMT_YUV422, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV422P12LE, 12, RGY_CHROMAFMT_YUV422, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV422P10LE, 10, RGY_CHROMAFMT_YUV422, RGY_CSP_P010 },
-#else
-            { AV_PIX_FMT_YUV422P16LE, 16, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
-            { AV_PIX_FMT_YUV422P14LE, 14, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
-            { AV_PIX_FMT_YUV422P12LE, 12, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
-            { AV_PIX_FMT_YUV422P10LE, 10, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
-#endif
-            { AV_PIX_FMT_YUV444P16LE, 16, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P14LE, 14, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P12LE, 12, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P10LE, 10, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P9LE,   9, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
-
-            { AV_PIX_FMT_YUVA420P,      8, RGY_CHROMAFMT_YUV420, (ENCODER_NVENC) ? RGY_CSP_YUVA420    : RGY_CSP_YV12      },
-            { AV_PIX_FMT_YUVA420P10LE, 10, RGY_CHROMAFMT_YUV420, (ENCODER_NVENC) ? RGY_CSP_YUVA420_16 : RGY_CSP_YV12_16   },
-            { AV_PIX_FMT_YUVA420P16LE, 10, RGY_CHROMAFMT_YUV420, (ENCODER_NVENC) ? RGY_CSP_YUVA420_16 : RGY_CSP_YV12_16   },
-            { AV_PIX_FMT_YUVA422P,      8, RGY_CHROMAFMT_YUV422, (ENCODER_NVENC) ? RGY_CSP_YUVA422    : RGY_CSP_YUV422    },
-            { AV_PIX_FMT_YUVA422P10LE, 10, RGY_CHROMAFMT_YUV422, (ENCODER_NVENC) ? RGY_CSP_YUVA422_16 : RGY_CSP_YUV422_16 },
-            { AV_PIX_FMT_YUVA422P12LE, 12, RGY_CHROMAFMT_YUV422, (ENCODER_NVENC) ? RGY_CSP_YUVA422_16 : RGY_CSP_YUV422_16 },
-            { AV_PIX_FMT_YUVA422P16LE, 12, RGY_CHROMAFMT_YUV422, (ENCODER_NVENC) ? RGY_CSP_YUVA422_16 : RGY_CSP_YUV422_16 },
-            { AV_PIX_FMT_YUVA444P,      8, RGY_CHROMAFMT_YUV444, (ENCODER_NVENC) ? RGY_CSP_YUVA444    : RGY_CSP_YUV444    },
-            { AV_PIX_FMT_YUVA444P10LE, 10, RGY_CHROMAFMT_YUV444, (ENCODER_NVENC) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUVA444P12LE, 12, RGY_CHROMAFMT_YUV444, (ENCODER_NVENC) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUVA444P16LE, 12, RGY_CHROMAFMT_YUV444, (ENCODER_NVENC) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUV444_16 },
-
-            { AV_PIX_FMT_RGB24,        8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGB  : (ENCODER_MPP ? RGY_CSP_RGB24 : RGY_CSP_BGR32) },
-            { AV_PIX_FMT_BGR24,        8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGB  : (ENCODER_MPP ? RGY_CSP_BGR24 : RGY_CSP_BGR32) },
-            { AV_PIX_FMT_RGBA,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
-            { AV_PIX_FMT_BGRA,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
-            { AV_PIX_FMT_ARGB,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
-            { AV_PIX_FMT_ABGR,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
-            { AV_PIX_FMT_GBRP,         8, RGY_CHROMAFMT_RGB,        (ENCODER_NVENC) ? RGY_CSP_RGB  : RGY_CSP_BGR32 },
-            { AV_PIX_FMT_GBRAP,        8, RGY_CHROMAFMT_RGB,        (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
-        };
-
-        const auto pixfmt = (AVPixelFormat)m_Demux.video.stream->codecpar->format;
-        const auto pixfmtData = std::find_if(pixfmtDataList, pixfmtDataList + _countof(pixfmtDataList), [pixfmt](const pixfmtInfo& tableData) {
-            return tableData.pix_fmt == pixfmt;
-        });
-        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->output_csp == RGY_CSP_NA) {
-            AddMessage(RGY_LOG_ERROR, _T("Invalid pixel format \"%s\" from input file.\n"), char_to_tstring(av_get_pix_fmt_name(pixfmt)).c_str());
-            return RGY_ERR_INVALID_COLOR_FORMAT;
-        }
-
+        m_Demux.video.simdCsp = input_prm->simdCsp;
         const auto aspectRatio = m_Demux.video.stream->codecpar->sample_aspect_ratio;
         const bool bAspectRatioUnknown = aspectRatio.num * aspectRatio.den <= 0;
 
         if (!(m_Demux.video.HWDecodeDeviceId.size() > 0)) {
-            if (avswDecoder.length() != 0) {
-                // swデコーダの指定がある場合はまずはそれを使用する
-                if (nullptr == (m_Demux.video.codecDecode = avcodec_find_decoder_by_name(tchar_to_string(avswDecoder).c_str()))) {
-                    AddMessage(RGY_LOG_WARN, _T("Failed to find decoder %s, switching to default decoder.\n"), avswDecoder.c_str());
-                } else if (m_Demux.video.codecDecode->id != m_Demux.video.stream->codecpar->codec_id) {
-                    AddMessage(RGY_LOG_WARN, _T("decoder %s cannot decode codec %s, switching to default decoder.\n"),
-                        avswDecoder.c_str(), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str());
-                    m_Demux.video.codecDecode = nullptr;
-                }
+            auto err = initSWVideoDecoder(avswDecoder);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to initialize video decoder.\n"));
+                return err;
             }
-            if (m_Demux.video.codecDecode == nullptr) {
-                if (nullptr == (m_Demux.video.codecDecode = avcodec_find_decoder(m_Demux.video.stream->codecpar->codec_id))) {
-                    AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
-                    return RGY_ERR_NOT_FOUND;
-                }
-            }
-            if (nullptr == (m_Demux.video.codecCtxDecode = avcodec_alloc_context3(m_Demux.video.codecDecode))) {
-                AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to allocate decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
-                return RGY_ERR_NULL_PTR;
-            }
-            unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
-                avcodec_parameters_free(&pCodecPar);
-            });
-            int ret = 0;
-            if (0 > (ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.stream->codecpar))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            if (m_Demux.video.bsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB) {
-                SetExtraData(codecParamCopy.get(), m_Demux.video.extradata, m_Demux.video.extradataSize);
-            }
-            if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.codecCtxDecode, codecParamCopy.get()))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to set codec param to context for decoder: %s.\n"), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            cpu_info_t cpu_info;
-            if (get_cpu_info(&cpu_info)) {
-                AVDictionary *pDict = nullptr;
-                av_dict_set_int(&pDict, "threads", std::min(cpu_info.logical_cores, 16), 0);
-                if (0 > (ret = av_opt_set_dict(m_Demux.video.codecCtxDecode, &pDict))) {
-                    AddMessage(RGY_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
-                        char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
-                    return RGY_ERR_UNKNOWN;
-                }
-                av_dict_free(&pDict);
-            }
-            if ((m_Demux.video.codecDecode->capabilities & AV_CODEC_CAP_EXPERIMENTAL)) {
-                AVDictionary *pDict = nullptr;
-                if (0 > (ret = av_dict_set_int(&pDict, "strict", FF_COMPLIANCE_EXPERIMENTAL, 0))) {
-                    AddMessage(RGY_LOG_ERROR, _T("Failed to set opt strict %d for decode (codec: %s): %s\n"), FF_COMPLIANCE_EXPERIMENTAL,
-                        char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
-                    return RGY_ERR_UNKNOWN;
-                }
-                if (0 > (ret = av_opt_set_dict(m_Demux.video.codecCtxDecode, &pDict))) {
-                    AddMessage(RGY_LOG_ERROR, _T("Failed to set opt strict for decode (codec: %s): %s\n"),
-                        char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
-                    return RGY_ERR_UNKNOWN;
-                }
-                av_dict_free(&pDict);
-            }
-            m_Demux.video.codecCtxDecode->pkt_timebase = m_Demux.video.stream->time_base;
-            if (0 > (ret = avcodec_open2(m_Demux.video.codecCtxDecode, m_Demux.video.codecDecode, nullptr))) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNSUPPORTED;
-            }
-            m_Demux.video.simdCsp = prm->simdCsp;
-            const auto pixCspConv = csp_avpixfmt_to_rgy(m_Demux.video.codecCtxDecode->pix_fmt);
-            if (pixCspConv == RGY_CSP_NA) {
-                AddMessage(RGY_LOG_ERROR, _T("invalid color format: %s\n"),
-                    char_to_tstring(av_get_pix_fmt_name(m_Demux.video.codecCtxDecode->pix_fmt)).c_str());
-                return RGY_ERR_INVALID_COLOR_FORMAT;
-            }
-            m_inputCsp = pixCspConv;
-            //出力フォーマットへの直接変換を持たないものは、pixfmtDataListに従う
-            const auto prefered_csp = m_inputVideoInfo.csp;
-            if (prefered_csp == RGY_CSP_NA) {
-                //ロスレスの場合は、入力側で出力フォーマットを決める
-                m_inputVideoInfo.csp = pixfmtData->output_csp;
-            } else {
-                m_inputVideoInfo.csp = (m_convert->getFunc(m_inputCsp, prefered_csp, false, m_Demux.video.simdCsp) != nullptr) ? prefered_csp : pixfmtData->output_csp;
-                //QSVではNV16->P010がサポートされていない
-                if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
-                    m_inputVideoInfo.csp = RGY_CSP_P210;
-                }
-                //なるべく軽いフォーマットでGPUに転送するように
-                if (ENCODER_NVENC
-                    && RGY_CSP_BIT_PER_PIXEL[pixfmtData->output_csp] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
-                    && m_convert->getFunc(m_inputCsp, pixfmtData->output_csp, false, m_Demux.video.simdCsp) != nullptr) {
-                    m_inputVideoInfo.csp = pixfmtData->output_csp;
-                }
-            }
-            if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, m_Demux.video.simdCsp) == nullptr && m_inputCsp == RGY_CSP_YUY2) {
-                //YUY2用の特別処理
-                m_inputVideoInfo.csp = RGY_CSP_CHROMA_FORMAT[pixfmtData->output_csp] == RGY_CHROMAFMT_YUV420 ? RGY_CSP_NV12 : RGY_CSP_YUV444;
-                m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, m_Demux.video.simdCsp);
-            }
-            if (m_convert->getFunc() == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
-                     RGY_CSP_NAMES[pixCspConv], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
-                return RGY_ERR_INVALID_COLOR_FORMAT;
-            }
-            m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
-            if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
-                m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
-            }
-            if (nullptr == (m_Demux.video.frame = av_frame_alloc())) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
-                return RGY_ERR_NULL_PTR;
-            }
-            m_Demux.video.qpTableListRef = input_prm->qpTableListRef;
         } else {
+            const auto pixfmtData = getPixfmtInfo((AVPixelFormat)m_Demux.video.stream->codecpar->format);
+            if (pixfmtData == nullptr) {
+                return RGY_ERR_INVALID_COLOR_FORMAT;
+            }
             //HWデコードの場合は、色変換がかからないので、入力フォーマットがそのまま出力フォーマットとなる
             m_inputVideoInfo.csp = pixfmtData->output_csp;
             m_inputVideoInfo.bitdepth = pixfmtData->bit_depth;
         }
+        m_Demux.video.qpTableListRef = input_prm->qpTableListRef;
 
         m_Demux.format.AVSyncMode = input_prm->AVSyncMode;
 
@@ -2490,6 +2319,212 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     return RGY_ERR_NONE;
 }
 #pragma warning(pop)
+
+const pixfmtInfo *RGYInputAvcodec::getPixfmtInfo(const AVPixelFormat pix_fmt) {
+    static const pixfmtInfo pixfmtDataList[] = {
+        { AV_PIX_FMT_YUV420P,      8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
+        { AV_PIX_FMT_YUVJ420P,     8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
+        { AV_PIX_FMT_NV12,         8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
+        { AV_PIX_FMT_NV21,         8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
+        { AV_PIX_FMT_YUVJ422P,     8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+        { AV_PIX_FMT_YUYV422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_YUY2 },
+        { AV_PIX_FMT_UYVY422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_UYVY },
+#if ENCODER_QSV || ENCODER_VCEENC
+        { AV_PIX_FMT_YUV422P,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV12 },
+        { AV_PIX_FMT_NV16,         8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV12 },
+#else
+        { AV_PIX_FMT_YUV422P,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV16 },
+        { AV_PIX_FMT_NV16,         8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV16 },
+#endif
+        { AV_PIX_FMT_NV24,         8, RGY_CHROMAFMT_YUV444, RGY_CSP_NV24 },
+        { AV_PIX_FMT_YUV444P,      8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
+        { AV_PIX_FMT_YUVJ444P,     8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
+        { AV_PIX_FMT_YUV420P16LE, 16, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+        { AV_PIX_FMT_YUV420P14LE, 14, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+        { AV_PIX_FMT_YUV420P12LE, 12, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+        { AV_PIX_FMT_YUV420P10LE, 10, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+        { AV_PIX_FMT_YUV420P9LE,   9, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+        { AV_PIX_FMT_NV20LE,      10, RGY_CHROMAFMT_YUV420, RGY_CSP_NA },
+#if ENCODER_QSV || ENCODER_VCEENC
+        { AV_PIX_FMT_YUV422P16LE, 16, RGY_CHROMAFMT_YUV422, RGY_CSP_P010 },
+        { AV_PIX_FMT_YUV422P14LE, 14, RGY_CHROMAFMT_YUV422, RGY_CSP_P010 },
+        { AV_PIX_FMT_YUV422P12LE, 12, RGY_CHROMAFMT_YUV422, RGY_CSP_P010 },
+        { AV_PIX_FMT_YUV422P10LE, 10, RGY_CHROMAFMT_YUV422, RGY_CSP_P010 },
+#else
+        { AV_PIX_FMT_YUV422P16LE, 16, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
+        { AV_PIX_FMT_YUV422P14LE, 14, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
+        { AV_PIX_FMT_YUV422P12LE, 12, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
+        { AV_PIX_FMT_YUV422P10LE, 10, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
+#endif
+        { AV_PIX_FMT_YUV444P16LE, 16, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+        { AV_PIX_FMT_YUV444P14LE, 14, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+        { AV_PIX_FMT_YUV444P12LE, 12, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+        { AV_PIX_FMT_YUV444P10LE, 10, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+        { AV_PIX_FMT_YUV444P9LE,   9, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+
+        { AV_PIX_FMT_YUVA420P,      8, RGY_CHROMAFMT_YUV420, (ENCODER_NVENC) ? RGY_CSP_YUVA420    : RGY_CSP_YV12      },
+        { AV_PIX_FMT_YUVA420P10LE, 10, RGY_CHROMAFMT_YUV420, (ENCODER_NVENC) ? RGY_CSP_YUVA420_16 : RGY_CSP_YV12_16   },
+        { AV_PIX_FMT_YUVA420P16LE, 10, RGY_CHROMAFMT_YUV420, (ENCODER_NVENC) ? RGY_CSP_YUVA420_16 : RGY_CSP_YV12_16   },
+        { AV_PIX_FMT_YUVA422P,      8, RGY_CHROMAFMT_YUV422, (ENCODER_NVENC) ? RGY_CSP_YUVA422    : RGY_CSP_YUV422    },
+        { AV_PIX_FMT_YUVA422P10LE, 10, RGY_CHROMAFMT_YUV422, (ENCODER_NVENC) ? RGY_CSP_YUVA422_16 : RGY_CSP_YUV422_16 },
+        { AV_PIX_FMT_YUVA422P12LE, 12, RGY_CHROMAFMT_YUV422, (ENCODER_NVENC) ? RGY_CSP_YUVA422_16 : RGY_CSP_YUV422_16 },
+        { AV_PIX_FMT_YUVA422P16LE, 12, RGY_CHROMAFMT_YUV422, (ENCODER_NVENC) ? RGY_CSP_YUVA422_16 : RGY_CSP_YUV422_16 },
+        { AV_PIX_FMT_YUVA444P,      8, RGY_CHROMAFMT_YUV444, (ENCODER_NVENC) ? RGY_CSP_YUVA444    : RGY_CSP_YUV444    },
+        { AV_PIX_FMT_YUVA444P10LE, 10, RGY_CHROMAFMT_YUV444, (ENCODER_NVENC) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUV444_16 },
+        { AV_PIX_FMT_YUVA444P12LE, 12, RGY_CHROMAFMT_YUV444, (ENCODER_NVENC) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUV444_16 },
+        { AV_PIX_FMT_YUVA444P16LE, 12, RGY_CHROMAFMT_YUV444, (ENCODER_NVENC) ? RGY_CSP_YUVA444_16 : RGY_CSP_YUV444_16 },
+
+        { AV_PIX_FMT_RGB24,        8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGB  : (ENCODER_MPP ? RGY_CSP_RGB24 : RGY_CSP_BGR32) },
+        { AV_PIX_FMT_BGR24,        8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGB  : (ENCODER_MPP ? RGY_CSP_BGR24 : RGY_CSP_BGR32) },
+        { AV_PIX_FMT_RGBA,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
+        { AV_PIX_FMT_BGRA,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
+        { AV_PIX_FMT_ARGB,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
+        { AV_PIX_FMT_ABGR,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
+        { AV_PIX_FMT_GBRP,         8, RGY_CHROMAFMT_RGB,        (ENCODER_NVENC) ? RGY_CSP_RGB  : RGY_CSP_BGR32 },
+        { AV_PIX_FMT_GBRAP,        8, RGY_CHROMAFMT_RGB,        (ENCODER_NVENC) ? RGY_CSP_RGBA : RGY_CSP_BGR32 },
+    };
+
+    const auto pixfmtData = std::find_if(pixfmtDataList, pixfmtDataList + _countof(pixfmtDataList), [pix_fmt](const pixfmtInfo& tableData) {
+        return tableData.pix_fmt == pix_fmt;
+    });
+    if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->output_csp == RGY_CSP_NA) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid pixel format \"%s\" from input file.\n"), char_to_tstring(av_get_pix_fmt_name(pix_fmt)).c_str());
+        return nullptr;
+    }
+    return pixfmtData;
+}
+
+RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder) {
+    m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
+    m_Demux.video.HWDecodeDeviceId.clear();
+
+    //close bitstreamfilter
+    //if (m_Demux.video.bsfcCtx) {
+    //    AddMessage(RGY_LOG_DEBUG, _T("Free bsf...\n"));
+    //    av_bsf_free(&m_Demux.video.bsfcCtx);
+    //    AddMessage(RGY_LOG_DEBUG, _T("Freed bsf.\n"));
+    //}
+    ////bUseHEVCmp42AnnexBも無効化
+    //m_Demux.video.bUseHEVCmp42AnnexB = false;
+    //if (m_Demux.video.stream->codecpar->extradata_size) {
+    //    m_inputVideoInfo.codecExtra = m_Demux.video.stream->codecpar->extradata;
+    //    m_inputVideoInfo.codecExtraSize = m_Demux.video.stream->codecpar->extradata_size;
+    //}
+    if (avswDecoder.length() != 0) {
+        // swデコーダの指定がある場合はまずはそれを使用する
+        if (nullptr == (m_Demux.video.codecDecode = avcodec_find_decoder_by_name(tchar_to_string(avswDecoder).c_str()))) {
+            AddMessage(RGY_LOG_WARN, _T("Failed to find decoder %s, switching to default decoder.\n"), avswDecoder.c_str());
+        } else if (m_Demux.video.codecDecode->id != m_Demux.video.stream->codecpar->codec_id) {
+            AddMessage(RGY_LOG_WARN, _T("decoder %s cannot decode codec %s, switching to default decoder.\n"),
+                avswDecoder.c_str(), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str());
+            m_Demux.video.codecDecode = nullptr;
+        }
+    }
+    if (m_Demux.video.codecDecode == nullptr) {
+        if (nullptr == (m_Demux.video.codecDecode = avcodec_find_decoder(m_Demux.video.stream->codecpar->codec_id))) {
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
+            return RGY_ERR_NOT_FOUND;
+        }
+    }
+    if (nullptr == (m_Demux.video.codecCtxDecode = avcodec_alloc_context3(m_Demux.video.codecDecode))) {
+        AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to allocate decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
+        return RGY_ERR_NULL_PTR;
+    }
+    unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
+        avcodec_parameters_free(&pCodecPar);
+    });
+    int ret = 0;
+    if (0 > (ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.stream->codecpar))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    if (m_Demux.video.bsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB) {
+        SetExtraData(codecParamCopy.get(), m_Demux.video.extradata, m_Demux.video.extradataSize);
+    }
+    if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.codecCtxDecode, codecParamCopy.get()))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to set codec param to context for decoder: %s.\n"), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    cpu_info_t cpu_info;
+    if (get_cpu_info(&cpu_info)) {
+        AVDictionary *pDict = nullptr;
+        av_dict_set_int(&pDict, "threads", std::min(cpu_info.logical_cores, 16), 0);
+        if (0 > (ret = av_opt_set_dict(m_Demux.video.codecCtxDecode, &pDict))) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
+                char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        av_dict_free(&pDict);
+    }
+    if ((m_Demux.video.codecDecode->capabilities & AV_CODEC_CAP_EXPERIMENTAL)) {
+        AVDictionary *pDict = nullptr;
+        if (0 > (ret = av_dict_set_int(&pDict, "strict", FF_COMPLIANCE_EXPERIMENTAL, 0))) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set opt strict %d for decode (codec: %s): %s\n"), FF_COMPLIANCE_EXPERIMENTAL,
+                char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        if (0 > (ret = av_opt_set_dict(m_Demux.video.codecCtxDecode, &pDict))) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set opt strict for decode (codec: %s): %s\n"),
+                char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        av_dict_free(&pDict);
+    }
+    m_Demux.video.codecCtxDecode->pkt_timebase = m_Demux.video.stream->time_base;
+    if (0 > (ret = avcodec_open2(m_Demux.video.codecCtxDecode, m_Demux.video.codecDecode, nullptr))) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    const auto pixCspConv = csp_avpixfmt_to_rgy(m_Demux.video.codecCtxDecode->pix_fmt);
+    if (pixCspConv == RGY_CSP_NA) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid color format: %s\n"),
+            char_to_tstring(av_get_pix_fmt_name(m_Demux.video.codecCtxDecode->pix_fmt)).c_str());
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
+    m_inputCsp = pixCspConv;
+    const auto pixfmtData = getPixfmtInfo((AVPixelFormat)m_Demux.video.stream->codecpar->format);
+    if (pixfmtData == nullptr) {
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
+    //出力フォーマットへの直接変換を持たないものは、pixfmtDataListに従う
+    const auto prefered_csp = m_inputVideoInfo.csp;
+    if (prefered_csp == RGY_CSP_NA) {
+        //ロスレスの場合は、入力側で出力フォーマットを決める
+        m_inputVideoInfo.csp = pixfmtData->output_csp;
+    } else {
+        m_inputVideoInfo.csp = (m_convert->getFunc(m_inputCsp, prefered_csp, false, m_Demux.video.simdCsp) != nullptr) ? prefered_csp : pixfmtData->output_csp;
+        //QSVではNV16->P010がサポートされていない
+        if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
+            m_inputVideoInfo.csp = RGY_CSP_P210;
+        }
+        //なるべく軽いフォーマットでGPUに転送するように
+        if (ENCODER_NVENC
+            && RGY_CSP_BIT_PER_PIXEL[pixfmtData->output_csp] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
+            && m_convert->getFunc(m_inputCsp, pixfmtData->output_csp, false, m_Demux.video.simdCsp) != nullptr) {
+            m_inputVideoInfo.csp = pixfmtData->output_csp;
+        }
+    }
+    if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, m_Demux.video.simdCsp) == nullptr && m_inputCsp == RGY_CSP_YUY2) {
+        //YUY2用の特別処理
+        m_inputVideoInfo.csp = RGY_CSP_CHROMA_FORMAT[pixfmtData->output_csp] == RGY_CHROMAFMT_YUV420 ? RGY_CSP_NV12 : RGY_CSP_YUV444;
+        m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, m_Demux.video.simdCsp);
+    }
+    if (m_convert->getFunc() == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
+                RGY_CSP_NAMES[pixCspConv], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
+    m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
+    if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
+        m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
+    }
+    if (nullptr == (m_Demux.video.frame = av_frame_alloc())) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+
+    return RGY_ERR_NONE;
+}
 
 vector<const AVStream *> RGYInputAvcodec::GetInputAttachmentStreams() {
     vector<const AVStream *> streams;
@@ -3019,29 +3054,25 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
 }
 
 //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
-RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
+RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream, int idx) {
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
-        auto [ret, pkt] = getSample();
-        if (ret == 0) {
-            m_Demux.qVideoPkt.push(pkt.release());
-        } else if (ret != AVERROR_EOF) {
-            return RGY_ERR_UNKNOWN;
+        while (m_Demux.qVideoPkt.size() < idx) {
+            auto [ret, pkt] = getSample();
+            if (ret == 0) {
+                m_Demux.qVideoPkt.push(pkt.release());
+            } else if (ret != AVERROR_EOF) {
+                return RGY_ERR_UNKNOWN;
+            }
         }
     }
 
-    bool bGetPacket = false;
-    AVPacket *pkt = nullptr;
-    for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_no_lock(&pkt, (m_Demux.thread.queueInfo) ? &m_Demux.thread.queueInfo->usage_vid_in : nullptr)) && m_Demux.qVideoPkt.size() > 0; i++) {
-        m_Demux.qVideoPkt.wait_for_push();
-    }
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
+    AVPacket *pkt = nullptr;
+    auto bGetPacket = m_Demux.qVideoPkt.copy(&pkt, idx);
     if (bGetPacket) {
-        if (pkt->data) {
-            auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt->pts : AV_NOPTS_VALUE;
-            sts = pBitstream->copy(pkt->data, pkt->size, pkt->dts, pts);
-        }
-        m_poolPkt->returnFree(&pkt);
+        auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt->pts : AV_NOPTS_VALUE;
+        sts = pBitstream->copy(pkt->data, pkt->size, pkt->dts, pts);
     }
     return (m_Demux.format.inputError != RGY_ERR_NONE) ? m_Demux.format.inputError : sts;
 }
