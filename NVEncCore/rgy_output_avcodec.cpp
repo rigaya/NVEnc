@@ -4643,7 +4643,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
                     if (m_printMes && log_level >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
                         AddMessage(log_level, _T("videoDts=%8lld: %s.\n"), (lls)videoDts, getTimestampString(videoDts, QUEUE_DTS_TIMEBASE).c_str());
                     }
-                    if (fpMuxDebug) fprintf(fpMuxDebug.get(), "video: v %3d, a %3d, [videoDts=%16lld],  audioDts=%16lld .\n", (int)m_Mux.thread.qVideobitstream.size(), (int)m_Mux.thread.thOutput->qPackets.size(), (lls)videoDts, (lls)audioDts);
+                    if (fpMuxDebug) fprintf(fpMuxDebug.get(), "video: v %3d, a %3d, [videoDts=%16lld],  audioDts=%16lld .\n", (int)m_Mux.thread.qVideoRawFrames.size(), (int)m_Mux.thread.thOutput->qPackets.size(), (lls)videoDts, (lls)audioDts);
                 }
             } else {
                 RGYBitstream bitstream = RGYBitstreamInit();
@@ -4685,20 +4685,27 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
                 if (m_printMes && log_level >= m_printMes->getLogLevel(RGY_LOGT_OUT)) {
                     AddMessage(log_level, _T("audioDts=%8lld: %s, maxDst=%8lld.\n"), (lls)audioDts, getTimestampString(audioDts, QUEUE_DTS_TIMEBASE).c_str(), (lls)maxDts);
                 }
-                if (fpMuxDebug) fprintf(fpMuxDebug.get(), "audio: v %3d, a %3d,  videoDts=%16lld , [audioDts=%16lld].\n", (int)m_Mux.thread.qVideobitstream.size(), (int)m_Mux.thread.thOutput->qPackets.size(), (lls)videoDts, (lls)audioDts);
+                if (fpMuxDebug) fprintf(fpMuxDebug.get(), "audio: v %3d, a %3d,  videoDts=%16lld , [audioDts=%16lld].\n",
+                    (videoIsRaw) ? (int)m_Mux.thread.qVideoRawFrames.size() : (int)m_Mux.thread.qVideobitstream.size(),
+                    (int)m_Mux.thread.thOutput->qPackets.size(), (lls)videoDts, (lls)audioDts);
             }
             //一定以上の動画フレームがキューにたまっており、音声キューになにもなければ、
             //音声を無視して動画フレームの処理を開始させる
             //音声が途中までしかなかったり、途中からしかなかったりする場合にこうした処理が必要
-            const size_t videoPacketThreshold = std::max<size_t>(std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()), nWaitThreshold) - nWaitThreshold;
-            if (m_Mux.thread.thOutput->qPackets.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
+            const size_t videoPacketThreshold = std::max<size_t>(std::min<size_t>(3072, (videoIsRaw) ? (int)m_Mux.thread.qVideoRawFrames.capacity() : (int)m_Mux.thread.qVideobitstream.capacity()), nWaitThreshold) - nWaitThreshold;
+            auto vidQueueSize = (videoIsRaw) ? (int)m_Mux.thread.qVideoRawFrames.size() : (int)m_Mux.thread.qVideobitstream.size();
+            if (m_Mux.thread.thOutput->qPackets.size() == 0 && vidQueueSize > videoPacketThreshold) {
                 nWaitAudio++;
                 if (nWaitAudio <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
                     //なのである程度連続でパケットが来ていないときのみ無視するようにする
                     //このようにすることで適切に同期がとれる
                     //また、映像キューのサイズが足りないことが考えられるので、拡大する
-                    m_Mux.thread.qVideobitstream.set_capacity(m_Mux.thread.qVideobitstream.capacity() + 50);
+                    if (videoIsRaw) {
+                        m_Mux.thread.qVideoRawFrames.set_capacity(m_Mux.thread.qVideoRawFrames.capacity() + 50);
+                    } else {
+                        m_Mux.thread.qVideobitstream.set_capacity(m_Mux.thread.qVideobitstream.capacity() + 50);
+                    }
                     break;
                 }
                 audioDts = videoDts;
@@ -4707,7 +4714,8 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             //一定以上の音声フレームがキューにたまっており、動画キューになにもなければ、
             //動画を無視して音声フレームの処理を開始させる
             const size_t audioPacketThreshold = std::max<size_t>(std::min<size_t>(10 * 1024 * 1024, m_Mux.thread.thOutput->qPackets.capacity()), nWaitThreshold) - nWaitThreshold;
-            if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.thOutput->qPackets.size() > audioPacketThreshold) {
+            vidQueueSize = (videoIsRaw) ? (int)m_Mux.thread.qVideoRawFrames.size() : (int)m_Mux.thread.qVideobitstream.size();
+            if (vidQueueSize == 0 && m_Mux.thread.thOutput->qPackets.size() > audioPacketThreshold) {
                 nWaitVideo++;
                 if (nWaitVideo <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
