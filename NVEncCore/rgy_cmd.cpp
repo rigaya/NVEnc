@@ -38,18 +38,13 @@
 #include "rgy_perf_monitor.h"
 #include "rgy_osdep.h"
 
-#if FOR_AUO
-#pragma warning (disable: 4100)
-#else
-#if ENABLE_CPP_REGEX
-#include <regex>
-#endif //#if ENABLE_CPP_REGEX
-#if ENABLE_DTL
-#include <dtl/dtl.hpp>
-#endif //#if ENABLE_DTL
-
 std::vector<tstring> splitCommandLine(const TCHAR *cmd) {
     std::vector<tstring> result;
+    if (cmd == nullptr || _tcslen(cmd) == 0) {
+        // configstrが空文字列の場合、CommandLineToArgvWに渡すと先頭に実行ファイルへのパスが付与されてしまう
+        // 混乱を避けるため、ここでreturnする
+        return result;
+    }
 #if defined(_WIN32) || defined(_WIN64)
     std::wstring cmdw = tchar_to_wstring(cmd);
     int argc = 0;
@@ -57,16 +52,11 @@ std::vector<tstring> splitCommandLine(const TCHAR *cmd) {
     if (argc <= 1) {
         return result;
     }
-    if (wcslen(argvw[0]) != 0) {
-        result.push_back(_T("")); // 最初は実行ファイルのパスが入っているのを模擬するため、空文字列を入れておく
-    }
     for (int i = 0; i < argc; i++) {
         result.push_back(wstring_to_tstring(argvw[i]));
     }
     LocalFree(argvw);
 #else
-    result.push_back(_T("")); // 最初は実行ファイルのパスが入っているのを模擬するため、空文字列を入れておく
-
     tstring token;
     bool inDoubleQuotes = false;
     bool inSingleQuotes = false;
@@ -109,6 +99,16 @@ std::vector<tstring> splitCommandLine(const TCHAR *cmd) {
 #endif
     return result;
 }
+
+#if FOR_AUO
+#pragma warning (disable: 4100)
+#else
+#if ENABLE_CPP_REGEX
+#include <regex>
+#endif //#if ENABLE_CPP_REGEX
+#if ENABLE_DTL
+#include <dtl/dtl.hpp>
+#endif //#if ENABLE_DTL
 
 #if ENABLE_CPP_REGEX
 std::vector<std::pair<std::string, std::string>> createOptionList() {
@@ -309,7 +309,6 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue,
 }
 
 std::vector<tstring> cmd_from_config_file(const tstring& filename) {
-#if defined(_WIN32) || defined(_WIN64)
     std::ifstream ifs(filename);
     if (ifs.fail()) {
         _ftprintf(stderr, _T("Failed to open option file!\n"));
@@ -328,18 +327,12 @@ std::vector<tstring> cmd_from_config_file(const tstring& filename) {
             configstr += trim(str);
         }
     }
-    //configstrが空文字列の場合、sep_cmdに渡すと先頭に実行ファイルへのパスが付与されてしまう
     //エラーを避けるため、空のvectorを返すようにする
     if (configstr.length() == 0) {
         _ftprintf(stderr, _T("Option file is empty!\n"));
         return std::vector<tstring>();
     }
-    return sep_cmd(char_to_tstring(configstr));
-#else
-    _ftprintf(stderr, _T("--option-file not supported on linux systems!\n"));
-    exit(1);
-    return std::vector<tstring>();
-#endif
+    return splitCommandLine(char_to_tstring(configstr).c_str());
 }
 
 int cmd_string_to_bool(bool *b, const tstring &str) {

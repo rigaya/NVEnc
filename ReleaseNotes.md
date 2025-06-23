@@ -1,9 +1,14 @@
 # NVEnc Release Notes
 
+## 8.07
+
+- Fix issues with raw output when using formats like yuv4mpegpipe. ( #699 )
+- Fix potential freeze when using raw output.
+- Add support for [--option-file](./NVEncC_Options.en.md#--option-file-string) on Linux.
+
 ## 8.06
 
 - Fix performance degradation caused in 8.05. ( #696 )
-
 
 ## 8.05
 
