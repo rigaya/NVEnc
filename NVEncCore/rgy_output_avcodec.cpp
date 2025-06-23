@@ -1268,7 +1268,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         return sts;
     }
 
-    if (ENCODER_VCEENC || ENCODER_MPP || videoOutputInfo->codec == RGY_CODEC_AV1) {
+    if (((ENCODER_VCEENC || ENCODER_MPP) && videoOutputInfo->codec != RGY_CODEC_RAW) || videoOutputInfo->codec == RGY_CODEC_AV1) {
         //parserを初期化 (frameType取得に使用、H.264/HEVCではVCEのみで必要)
         if (nullptr == (m_Mux.video.parserCtx = av_parser_init(m_Mux.format.formatCtx->video_codec_id))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());

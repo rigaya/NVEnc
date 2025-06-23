@@ -36,8 +36,6 @@
 #include <smmintrin.h>
 #endif
 
-#if ENCODER_QSV || ENCODER_NVENC
-
 static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp) {
     char buffer[256] = { 0 };
     char *ptr = buffer;
@@ -61,8 +59,6 @@ static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp
     len += sprintf_s(ptr+len, sizeof(buffer)-len, "C%s\n", cspHeader);
     return (len == fwrite(buffer, 1, len, fp)) ? RGY_ERR_NONE : RGY_ERR_UNDEFINED_BEHAVIOR;
 }
-
-#endif //#if ENCODER_QSV || ENCODER_NVENC
 
 #define WRITE_CHECK(writtenBytes, expected) { \
     if (writtenBytes != expected) { \
@@ -942,8 +938,6 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYFrame *pSurface) {
     return RGY_ERR_UNSUPPORTED;
 }
 
-#if ENCODER_QSV || ENCODER_NVENC
-
 RGYOutFrame::RGYOutFrame() : m_bY4m(true) {
     m_strWriterName = _T("yuv writer");
     m_OutType = OUT_TYPE_SURFACE;
@@ -1136,8 +1130,6 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     m_encSatusInfo->SetOutputData(RGY_FRAMETYPE_IDR, frameSize, 0);
     return RGY_ERR_NONE;
 }
-
-#endif //#if ENCODER_QSV || ENCODER_NVENC
 
 #include "rgy_input_sm.h"
 #include "rgy_input_avcodec.h"
@@ -1612,7 +1604,6 @@ RGY_ERR initWriters(
         return RGY_ERR_UNKNOWN;
     } else {
 #endif //ENABLE_AVSW_READER
-#if ENCODER_QSV || ENCODER_NVENC
         if (outputVideoInfo.codec == RGY_CODEC_RAW) {
             pFileWriter = std::make_shared<RGYOutFrame>();
             YUVWriterParam param;
@@ -1624,9 +1615,7 @@ RGY_ERR initWriters(
             }
             stdoutUsed = pFileWriter->outputStdout();
             log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-        } else
-#endif
-        {
+        } else {
             pFileWriter = std::make_shared<RGYOutputRaw>();
             RGYOutputRawPrm rawPrm;
             rawPrm.bufSizeMB = ctrl->outputBufSizeMB;
