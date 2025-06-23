@@ -877,7 +877,7 @@ public:
     virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
-    virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *pBitstream) override;
+    virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *pBitstream, int idx) override;
 
     //ストリームのヘッダ部分を取得する
     virtual RGY_ERR GetHeader(RGYBitstream *pBitstream) override;

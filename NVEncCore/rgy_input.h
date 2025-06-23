@@ -194,7 +194,7 @@ public:
     }
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
-    virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *bitstream) {
+    virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *bitstream, int idx) {
         return RGY_ERR_NONE;
     }
 
