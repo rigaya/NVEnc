@@ -2891,7 +2891,8 @@ protected:
         if (m_dynamicRC.size() > 0) {
             int selectedIdx = DYNAMIC_PARAM_NOT_SELECTED;
             for (int i = 0; i < (int)m_dynamicRC.size(); i++) {
-                if (m_dynamicRC[i].start <= id && id <= m_dynamicRC[i].end) {
+                const int end = (m_dynamicRC[i].end < 0) ? std::numeric_limits<decltype(id)>::max() : m_dynamicRC[i].end;
+                if (m_dynamicRC[i].start <= id && id <= end) {
                     selectedIdx = i;
                 }
                 if (m_dynamicRC[i].start > id) {
