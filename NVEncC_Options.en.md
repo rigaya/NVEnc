@@ -652,7 +652,7 @@ Set the QP offset for chroma. (default: 0)
 Set target quality when using VBR mode. (0.0-51.0, 0 = automatic)
 
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
-Change the rate control mode and rate control params within the specified range of output frames.
+Change the rate control mode and rate control params within the specified range of input frames.
 
 - **required parameters**
   It is required to specify one of the params below.  
