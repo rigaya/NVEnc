@@ -845,7 +845,6 @@ av1 :  auto, main, high
 Specify the tier of the codec.
 ```
 hevc:  main, high
-av1 :  0, 1
 ```
 
 ### --sar &lt;int&gt;:&lt;int&gt;

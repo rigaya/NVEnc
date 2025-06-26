@@ -173,7 +173,6 @@ tstring encoder_help() {
         _T("                                  AV1  : main, high\n")
         _T("   --tier <string>              set codec tier\n")
         _T("                                  HEVC : main, high\n")
-        _T("                                  AV1  : 0, 1\n")
         _T("   --lossless                   for lossless encoding / default: off\n"));
 
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),

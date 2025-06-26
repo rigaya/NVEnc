@@ -852,7 +852,6 @@ av1 :  auto, main, high
 コーデックのtierを指定する。
 ```
 hevc:  main, high
-av1 :  0, 1
 ```
 
 ### --sar &lt;int&gt;:&lt;int&gt;
