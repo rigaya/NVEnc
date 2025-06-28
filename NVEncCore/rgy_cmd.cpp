@@ -1777,9 +1777,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("tune")) {
-                    bool b = false;
+                    bool b = false; int value = 0;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->afs.tune = b;
+                        vpp->afs.tune = b ? AFS_TUNE_MODE_FINAL : AFS_TUNE_MODE_NONE;
+                    } else if (get_list_value(list_afs_tune_mode, param_val.c_str(), &value)) {
+                        vpp->afs.tune = (AFS_TUNE_MODE)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -1842,7 +1844,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param == _T("tune")) {
-                    vpp->afs.tune = true;
+                    vpp->afs.tune = AFS_TUNE_MODE_FINAL;
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -7491,7 +7493,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_BOOL(_T("drop"), afs.drop);
             ADD_BOOL(_T("smooth"), afs.smooth);
             ADD_BOOL(_T("24fps"), afs.force24);
-            ADD_BOOL(_T("tune"), afs.tune);
+            ADD_LST(_T("tune"), afs.tune, list_afs_tune_mode);
             ADD_BOOL(_T("rff"), afs.rff);
             ADD_BOOL(_T("timecode"), afs.timecode);
             ADD_BOOL(_T("log"), afs.log);

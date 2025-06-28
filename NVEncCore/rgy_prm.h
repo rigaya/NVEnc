@@ -313,7 +313,7 @@ static const bool  FILTER_DEFAULT_AFS_SHIFT = true;
 static const bool  FILTER_DEFAULT_AFS_DROP = false;
 static const bool  FILTER_DEFAULT_AFS_SMOOTH = false;
 static const bool  FILTER_DEFAULT_AFS_FORCE24 = false;
-static const bool  FILTER_DEFAULT_AFS_TUNE = false;
+static const uint8_t FILTER_DEFAULT_AFS_TUNE = 0;
 static const bool  FILTER_DEFAULT_AFS_RFF = true;
 static const int   FILTER_DEFAULT_AFS_TIMECODE = 0;
 static const bool  FILTER_DEFAULT_AFS_LOG = false;
@@ -1668,6 +1668,33 @@ static inline AFS_SCAN_CLIP scan_clip(int top, int bottom, int left, int right) 
     return clip;
 }
 
+enum AFS_TUNE_MODE {
+    AFS_TUNE_MODE_NONE = 0,
+    AFS_TUNE_MODE_FINAL,
+    AFS_TUNE_MODE_ANALYZE_SHIFT_ALL,
+    AFS_TUNE_MODE_ANALYZE_SHIFT_Y,
+    AFS_TUNE_MODE_ANALYZE_SHIFT_U,
+    AFS_TUNE_MODE_ANALYZE_SHIFT_V,
+    AFS_TUNE_MODE_ANALYZE_NONSHIFT_ALL,
+    AFS_TUNE_MODE_ANALYZE_NONSHIFT_Y,
+    AFS_TUNE_MODE_ANALYZE_NONSHIFT_U,
+    AFS_TUNE_MODE_ANALYZE_NONSHIFT_V,
+};
+
+const CX_DESC list_afs_tune_mode[] = {
+    { _T("none"), AFS_TUNE_MODE_NONE },
+    { _T("final"), AFS_TUNE_MODE_FINAL },
+    { _T("analyze_shift_all"), AFS_TUNE_MODE_ANALYZE_SHIFT_ALL },
+    { _T("analyze_shift_y"), AFS_TUNE_MODE_ANALYZE_SHIFT_Y },
+    { _T("analyze_shift_u"), AFS_TUNE_MODE_ANALYZE_SHIFT_U },
+    { _T("analyze_shift_v"), AFS_TUNE_MODE_ANALYZE_SHIFT_V },
+    { _T("analyze_nonshift_all"), AFS_TUNE_MODE_ANALYZE_NONSHIFT_ALL },
+    { _T("analyze_nonshift_y"), AFS_TUNE_MODE_ANALYZE_NONSHIFT_Y },
+    { _T("analyze_nonshift_u"), AFS_TUNE_MODE_ANALYZE_NONSHIFT_U },
+    { _T("analyze_nonshift_v"), AFS_TUNE_MODE_ANALYZE_NONSHIFT_V },
+    { NULL, 0 }
+};
+
 struct VppAfs {
     bool enable;
     int tb_order;
@@ -1683,7 +1710,7 @@ struct VppAfs {
     bool drop;             //間引き
     bool smooth;           //スムージング
     bool force24;          //24fps化
-    bool tune;             //調整モード
+    AFS_TUNE_MODE tune;    //調整モード
     bool rff;              //rffフラグを認識して調整
     int timecode;          //timecode出力
     bool log;              //log出力

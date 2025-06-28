@@ -1039,7 +1039,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             }
 
             if (interlaced(m_source.get(m_nFrame)->frame) || pAfsParam->afs.tune) {
-                sts = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), stream);
+                sts = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, m_scan.get(m_nFrame), pAfsParam.get(), stream);
             } else {
                 sts = copyFrameAsync(&pOutFrame->frame, &m_source.get(m_nFrame)->frame, stream);
             }

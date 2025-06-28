@@ -909,7 +909,7 @@ VppAfs::VppAfs() :
     drop(FILTER_DEFAULT_AFS_DROP),
     smooth(FILTER_DEFAULT_AFS_SMOOTH),
     force24(FILTER_DEFAULT_AFS_FORCE24),
-    tune(FILTER_DEFAULT_AFS_TUNE),
+    tune((AFS_TUNE_MODE)FILTER_DEFAULT_AFS_TUNE),
     rff(FILTER_DEFAULT_AFS_RFF),
     timecode(FILTER_DEFAULT_AFS_TIMECODE),
     log(FILTER_DEFAULT_AFS_LOG) {
@@ -966,7 +966,7 @@ void VppAfs::set_preset(int preset) {
         drop          = FILTER_DEFAULT_AFS_DROP;
         smooth        = FILTER_DEFAULT_AFS_SMOOTH;
         force24       = FILTER_DEFAULT_AFS_FORCE24;
-        tune          = FILTER_DEFAULT_AFS_TUNE;
+        tune          = (AFS_TUNE_MODE)FILTER_DEFAULT_AFS_TUNE;
         break;
     case AFS_PRESET_TRIPLE: //動き重視
         method_switch = 0;
@@ -980,7 +980,7 @@ void VppAfs::set_preset(int preset) {
         drop          = false;
         smooth        = false;
         force24       = false;
-        tune          = false;
+        tune          = AFS_TUNE_MODE_NONE;
         break;
     case AFS_PRESET_DOUBLE://二重化
         method_switch = 0;
@@ -994,7 +994,7 @@ void VppAfs::set_preset(int preset) {
         drop          = true;
         smooth        = true;
         force24       = false;
-        tune          = false;
+        tune          = AFS_TUNE_MODE_NONE;
         break;
     case AFS_PRESET_ANIME: //映画/アニメ
         method_switch = 64;
@@ -1008,7 +1008,7 @@ void VppAfs::set_preset(int preset) {
         drop          = true;
         smooth        = true;
         force24       = false;
-        tune          = false;
+        tune          = AFS_TUNE_MODE_NONE;
         break;
     case AFS_PRESET_MIN_AFTERIMG:      //残像最小化
         method_switch = 0;
@@ -1022,7 +1022,7 @@ void VppAfs::set_preset(int preset) {
         drop          = true;
         smooth        = true;
         force24       = false;
-        tune          = false;
+        tune          = AFS_TUNE_MODE_NONE;
         break;
     case AFS_PRESET_FORCE24_SD:        //24fps固定
         method_switch = 64;
@@ -1036,7 +1036,7 @@ void VppAfs::set_preset(int preset) {
         drop          = true;
         smooth        = false;
         force24       = true;
-        tune          = false;
+        tune          = AFS_TUNE_MODE_NONE;
         break;
     case AFS_PRESET_FORCE24_HD:        //24fps固定 (HD)
         method_switch = 92;
@@ -1050,7 +1050,7 @@ void VppAfs::set_preset(int preset) {
         drop          = true;
         smooth        = true;
         force24       = true;
-        tune          = false;
+        tune          = AFS_TUNE_MODE_NONE;
         break;
     case AFS_PRESET_FORCE30:           //30fps固定
         method_switch = 92;
@@ -1064,7 +1064,7 @@ void VppAfs::set_preset(int preset) {
         drop          = false;
         smooth        = false;
         force24       = false;
-        tune          = false;
+        tune          = AFS_TUNE_MODE_NONE;
         break;
     default:
         break;
@@ -1098,7 +1098,7 @@ int VppAfs::read_afs_inifile(const TCHAR *inifile) {
     rff      = 0 != GetPrivateProfileIntA(section, AFS_STG_RFF, rff, filename.c_str());
     log      = 0 != GetPrivateProfileIntA(section, AFS_STG_LOG, log, filename.c_str());
     // GetPrivateProfileIntA(section, AFS_STG_DETECT_SC, fp->check[4], filename.c_str());
-    tune     = 0 != GetPrivateProfileIntA(section, AFS_STG_TUNE_MODE, tune, filename.c_str());
+    tune     = (AFS_TUNE_MODE)GetPrivateProfileIntA(section, AFS_STG_TUNE_MODE, tune, filename.c_str());
     // GetPrivateProfileIntA(section, AFS_STG_LOG_SAVE, fp->check[6], filename.c_str());
     // GetPrivateProfileIntA(section, AFS_STG_TRACE_MODE, fp->check[7], filename.c_str());
     // GetPrivateProfileIntA(section, AFS_STG_REPLAY_MODE, fp->check[8], filename.c_str());
@@ -1123,7 +1123,7 @@ tstring VppAfs::print() const {
         method_switch, coeff_shift,
         thre_shift, thre_deint, thre_Ymotion, thre_Cmotion,
         analyze, ON_OFF(shift), ON_OFF(drop), ON_OFF(smooth), ON_OFF(force24),
-        ON_OFF(tune), tb_order, tb_order ? _T("tff") : _T("bff"), ON_OFF(rff), ON_OFF(timecode), ON_OFF(log));
+        get_cx_desc(list_afs_tune_mode, tune), tb_order, tb_order ? _T("tff") : _T("bff"), ON_OFF(rff), ON_OFF(timecode), ON_OFF(log));
 #undef ON_OFF
 }
 

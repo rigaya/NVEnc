@@ -50,6 +50,9 @@
 
 #define PREFER_IMAGE  1
 
+const uint8_t SELECT_PLANE_Y = 0x01u;
+const uint8_t SELECT_PLANE_U = 0x02u;
+const uint8_t SELECT_PLANE_V = 0x04u;
 
 //      7       6         5        4        3        2        1       0
 // | motion  |         non-shift        | motion  |          shift          |
@@ -261,6 +264,9 @@ void count_flags(Flags dat0, Flags dat1, Flags& count_deint, Flags& count_shift)
     count_shift += shift;
 }
 
+//      7       6         5        4        3        2        1       0
+// | motion  |         non-shift        | motion  |          shift          |
+// |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |
 __inline__ __device__
 Flags generate_flags(int ly, int idepth, uint32_t *__restrict__ ptr_shared) {
     Flags count_deint = 0;
@@ -314,9 +320,15 @@ Flags generate_flags(int ly, int idepth, uint32_t *__restrict__ ptr_shared) {
 }
 
 __inline__ __device__
-void merge_mask(Flags masky, Flags masku, Flags maskv, Flags& mask0, Flags& mask1) {
-    mask0 = masky & masku & maskv;
-    mask1 = masky | masku | maskv;
+void merge_mask(Flags masky, Flags masku, Flags maskv, Flags& mask0, Flags& mask1, uint8_t select_plane) {
+    // select_planeの値に基づいてビット演算でマスクを選択
+    // 各ビット位置で選択するマスクを決定
+    const Flags select_y = (select_plane & SELECT_PLANE_Y) ? 0xffffffff : 0x00;
+    const Flags select_u = (select_plane & SELECT_PLANE_U) ? 0xffffffff : 0x00;
+    const Flags select_v = (select_plane & SELECT_PLANE_V) ? 0xffffffff : 0x00;
+
+    mask0 = (masky | (~select_y)) & (masku | (~select_u)) & (maskv | (~select_v));
+    mask1 = (masky & select_y)    | (masku & select_u)    | (maskv & select_v);
 
     mask0 &= u8x4(0xcc); //motion
     mask1 &= u8x4(0x33); //shift/deint
@@ -341,7 +353,7 @@ __global__ void kernel_afs_analyze_12(
     const int width_int, const int si_pitch_int, const int h,
     const uint32_t thre_Ymotion, const uint32_t thre_deint, const uint32_t thre_shift,
     const uint32_t thre_Cmotion, const float thre_Cmotionf, const float thre_deintf, const float thre_shiftf,
-    const uint32_t scan_left, const uint32_t scan_top, const uint32_t scan_width, const uint32_t scan_height) {
+    const uint32_t scan_left, const uint32_t scan_top, const uint32_t scan_width, const uint32_t scan_height, const uint8_t select_plane) {
 
     __shared__ uint32_t shared[SHARED_INT_X * SHARED_Y * 5]; //int単位でアクセスする
     const int lx = threadIdx.x; //スレッド数=BLOCK_INT_X
@@ -385,8 +397,8 @@ __global__ void kernel_afs_analyze_12(
             Flags masku = generate_flags(ly, 1, ptr_shared);
             Flags maskv = generate_flags(ly, 2, ptr_shared);
             Flags mask0;
-            merge_mask(masky, masku, maskv, mask0, mask1);
-            ptr_shared[shared_int_idx(0, ly, 3)] = mask0;
+            merge_mask(masky, masku, maskv, mask0, mask1, select_plane);
+            ptr_shared[shared_int_idx(0, ly, 3)] = mask0; //motion/shift/deint
             __syncthreads();
         }
         { //最終出力
@@ -395,10 +407,10 @@ __global__ void kernel_afs_analyze_12(
             mask4 = ptr_shared[shared_int_idx(0, ly-1, 3)];
             mask5 = ptr_shared[shared_int_idx(0, ly-2, 3)];
             mask6 = ptr_shared[shared_int_idx(0, ly-3, 3)];
-            mask7 = ptr_shared[shared_int_idx(0, ly-4, 3)];
-            mask1 &= u8x4(0x30);
+            mask7 = ptr_shared[shared_int_idx(0, ly-4, 3)]; // これが自分自身
+            mask1 &= u8x4(0x30); // non-shift shift/deint
             mask4 |= mask5 | mask6;
-            mask4 &= u8x4(0x33);
+            mask4 &= u8x4(0x33); // non-shift+shift shift/deint
             mask1 |= mask4 | mask7;
             if (imgx < width_int && (imgy - 4) < imgy_block_fin && ly - 4 >= 0) {
                 //motion_countの実行
@@ -545,6 +557,14 @@ RGY_ERR run_analyze_stripe(uint8_t *dst, const int dstPitch,
     } else {
         return RGY_ERR_UNKNOWN;
     }
+    uint8_t select_plane = SELECT_PLANE_Y | SELECT_PLANE_U | SELECT_PLANE_V;
+    if (pAfsPrm->tune == AFS_TUNE_MODE_ANALYZE_SHIFT_Y || pAfsPrm->tune == AFS_TUNE_MODE_ANALYZE_NONSHIFT_Y) {
+        select_plane = SELECT_PLANE_Y;
+    } else if (pAfsPrm->tune == AFS_TUNE_MODE_ANALYZE_SHIFT_U || pAfsPrm->tune == AFS_TUNE_MODE_ANALYZE_NONSHIFT_U) {
+        select_plane = SELECT_PLANE_U;
+    } else if (pAfsPrm->tune == AFS_TUNE_MODE_ANALYZE_SHIFT_V || pAfsPrm->tune == AFS_TUNE_MODE_ANALYZE_NONSHIFT_V) {
+        select_plane = SELECT_PLANE_V;
+    }
 
     //YC48 -> yuv420/yuv444(bit_depth)へのスケーリング
     //色差はcudaReadModeNormalizedFloatをつ開くので、そのぶんのスケーリングも必要
@@ -560,7 +580,7 @@ RGY_ERR run_analyze_stripe(uint8_t *dst, const int dstPitch,
         divCeil(p0Y.width, 4), dstPitch / sizeof(uint32_t), p0Y.height,
         thre_Ymotion_yuv, thre_deint_yuv, thre_shift_yuv,
         thre_Cmotion_yuv, thre_Cmotion_yuvf, thre_deint_yuvf, thre_shift_yuvf,
-        scan_left, scan_top, scan_width, scan_height);
+        scan_left, scan_top, scan_width, scan_height, select_plane);
     sts = err_to_rgy(cudaGetLastError());
     if (sts != RGY_ERR_NONE) {
         return sts;

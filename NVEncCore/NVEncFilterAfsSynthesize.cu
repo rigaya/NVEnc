@@ -677,12 +677,63 @@ enum {
     TUNE_COLOR_GREY,
     TUNE_COLOR_BLUE,
     TUNE_COLOR_LIGHT_BLUE,
+    TUNE_COLOR_RED,
+    TUNE_COLOR_LIGHT_RED,
+    TUNE_COLOR_PURPLE,
+    TUNE_COLOR_LIGHT_PURPLE,
+    TUNE_COLOR_MAX,
 };
 
+template<bool showScanData>
 __device__ __inline__
-int synthesize_mode_tune_select_color(const uint8_t sip, const uint8_t status) {
+int synthesize_mode_tune_select_color(const uint8_t sip, const uint8_t status, const uint8_t tune_mode) {
     int ret = 0;
-    if (status & AFS_FLAG_SHIFT0) {
+    if (showScanData) {
+    //      7       6         5        4        3        2        1       0
+    // | motion  |         non-shift        | motion  |          shift          |
+    // |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |
+        if (tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_ALL
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_Y
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_U
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_V) {
+            auto tmp = (sip & 0x03) | ((~sip) & 0x40);
+            if (tmp == 0x01) {
+                ret = TUNE_COLOR_GREY;
+            } else if (tmp == 0x02) {
+                ret = TUNE_COLOR_RED;
+            } else if (tmp == 0x40) {
+                ret = TUNE_COLOR_BLUE;
+            } else if (tmp == (0x01 + 0x02)) {
+                ret = TUNE_COLOR_LIGHT_RED;
+            } else if (tmp == (0x01 + 0x40)) {
+                ret = TUNE_COLOR_LIGHT_BLUE;
+            } else if (tmp == (0x02 + 0x40)) {
+                ret = TUNE_COLOR_PURPLE;
+            } else if (tmp == (0x01 + 0x02 + 0x40)) {
+                ret = TUNE_COLOR_LIGHT_PURPLE;
+            }
+        } else if (tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_ALL
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_NOSHIFT_Y
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_NOSHIFT_U
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_NOSHIFT_V) {
+            auto tmp = (sip & 0x30) | ((~sip) & 0x04);
+            if (tmp == 0x10) {
+                ret = TUNE_COLOR_GREY;
+            } else if (tmp == 0x20) {
+                ret = TUNE_COLOR_RED;
+            } else if (tmp == 0x04) {
+                ret = TUNE_COLOR_BLUE;
+            } else if (tmp == (0x10+0x20)) {
+                ret = TUNE_COLOR_LIGHT_RED;
+            } else if (tmp == (0x10+0x04)) {
+                ret = TUNE_COLOR_LIGHT_BLUE;
+            } else if (tmp == (0x20+0x04)) {
+                ret = TUNE_COLOR_PURPLE;
+            } else if (tmp == (0x10+0x20+0x04)) {
+                ret = TUNE_COLOR_LIGHT_PURPLE;
+            }
+        }
+    } else if (status & AFS_FLAG_SHIFT0) {
         if (!(sip & 0x06))
             ret = TUNE_COLOR_LIGHT_BLUE;
         else if (~sip & 0x02)
@@ -704,7 +755,7 @@ int synthesize_mode_tune_select_color(const uint8_t sip, const uint8_t status) {
     return ret;
 }
 
-template<typename Type, typename Type2, bool yuv420>
+template<typename Type, typename Type2, bool yuv420, bool showScanData>
 __global__ void kernel_synthesize_mode_tune(
     uint8_t *__restrict__ dstY,
     uint8_t *__restrict__ dstU,
@@ -713,18 +764,22 @@ __global__ void kernel_synthesize_mode_tune(
     const int width, const int height,
     const int dst_pitch_y, const int dst_pitch_uv,
     const int sip_pitch, const int bit_depth,
-    const int tb_order, const uint8_t status) {
+    const uint8_t tune_mode, const uint8_t status) {
     const int lx = threadIdx.x; //スレッド数=SYN_BLOCK_INT_X
     const int ly = threadIdx.y; //スレッド数=SYN_BLOCK_Y
     const int imgc_x = blockIdx.x * blockDim.x + lx;
     const int imgc_y = blockIdx.y * blockDim.y + ly;
     const int imgy_x = imgc_x << 1;
     const int imgy_y = imgc_y << 1;
-    static const int YUY2_COLOR[4][3] = {
-        {  16,  128, 128 },
-        {  98,  128, 128 },
-        {  41,  240, 110 },
-        { 169,  166,  16 }
+    static const int YUY2_COLOR[TUNE_COLOR_MAX][3] = {
+        {  16,  128, 128 }, // TUNE_COLOR_BLACK
+        {  98,  128, 128 }, // TUNE_COLOR_GREY
+        {  41,  240, 110 }, // TUNE_COLOR_BLUE
+        { 169,  166,  16 }, // TUNE_COLOR_LIGHT_BLUE
+        {  95,   98, 216 }, // TUNE_COLOR_RED
+        { 173,  115, 167 }, // TUNE_COLOR_LIGHT_RED
+        {  83,  167, 142 }, // TUNE_COLOR_PURPLE
+        { 167,  152, 136 } // TUNE_COLOR_LIGHT_PURPLE
     };
 
     if (imgy_x < width && imgy_y < height) {
@@ -732,11 +787,11 @@ __global__ void kernel_synthesize_mode_tune(
         uint8_t *dst_y = dstY + imgy_y * dst_pitch_y + imgy_x * sizeof(Type);
 
         uchar2 sip2 = *(uchar2 *)sip;
-        const int c00 = synthesize_mode_tune_select_color(sip2.x, status);
-        const int c01 = synthesize_mode_tune_select_color(sip2.y, status);
+        const int c00 = synthesize_mode_tune_select_color<showScanData>(sip2.x, status, tune_mode);
+        const int c01 = synthesize_mode_tune_select_color<showScanData>(sip2.y, status, tune_mode);
         sip2 = *(uchar2 *)(sip + sip_pitch);
-        const int c10 = synthesize_mode_tune_select_color(sip2.x, status);
-        const int c11 = synthesize_mode_tune_select_color(sip2.y, status);
+        const int c10 = synthesize_mode_tune_select_color<showScanData>(sip2.x, status, tune_mode);
+        const int c11 = synthesize_mode_tune_select_color<showScanData>(sip2.y, status, tune_mode);
 
         Type2 dst_y2;
         dst_y2.x = (Type)(YUY2_COLOR[c00][0] << (bit_depth - 8));
@@ -832,13 +887,21 @@ RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
     }
 
     if (mode < 0) {
+        const uint8_t tune_mode = (uint8_t)tb_order; // tune_modeが入っている
+        const bool showScanData = tune_mode > AFS_TUNE_MODE_FINAL;
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const dim3 gridSize(divCeil(pDstY.width, blockSize.x * 2), divCeil(pDstY.height, blockSize.y * 2));
-
-        kernel_synthesize_mode_tune<Type, Type2, yuv420><<<gridSize, blockSize, 0, stream>>>(
-            pDstY.ptr[0], pDstU.ptr[0], pDstV.ptr[0], sip,
-            pDstY.width, pDstY.height, pDstY.pitch[0], pDstU.pitch[0], sipPitch, RGY_CSP_BIT_DEPTH[csp],
-            tb_order, status);
+        if (showScanData) {
+            kernel_synthesize_mode_tune<Type, Type2, yuv420, true><<<gridSize, blockSize, 0, stream>>>(
+                pDstY.ptr[0], pDstU.ptr[0], pDstV.ptr[0], sip,
+                pDstY.width, pDstY.height, pDstY.pitch[0], pDstU.pitch[0], sipPitch, RGY_CSP_BIT_DEPTH[csp],
+                tune_mode, status);
+        } else {
+            kernel_synthesize_mode_tune<Type, Type2, yuv420, false><<<gridSize, blockSize, 0, stream>>>(
+                pDstY.ptr[0], pDstU.ptr[0], pDstV.ptr[0], sip,
+                pDstY.width, pDstY.height, pDstY.pitch[0], pDstU.pitch[0], sipPitch, RGY_CSP_BIT_DEPTH[csp],
+                tune_mode, status);
+        }
     } else if (mode == 0) {
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const dim3 gridSize(divCeil(pDstY.width, blockSize.x * 8), divCeil(pDstY.height, blockSize.y * 2));
@@ -899,7 +962,7 @@ RGY_ERR run_synthesize(RGYFrameInfo *pFrameOut,
     return err_to_rgy(cudaGetLastError());
 }
 
-RGY_ERR NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream) {
+RGY_ERR NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, AFS_SCAN_DATA *sp, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream) {
     struct synthesize_func {
         decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2, 3, true>)* func[6];
         synthesize_func(
@@ -956,9 +1019,12 @@ RGY_ERR NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0,
     if (pAfsPrm->afs.tune) {
         mode = -1;
     }
+    const bool showScanData = pAfsPrm->afs.tune > AFS_TUNE_MODE_FINAL;
     auto sts = synthesize_func_list.at(pAfsPrm->frameIn.csp).func[mode+1](
-        &pOut->frame, &p0->frame, &p1->frame, sip->map.frame.ptr[0], sip->map.frame.pitch[0],
-        pAfsPrm->afs.tb_order, m_status[iframe], pOut->frame.csp, stream);
+        &pOut->frame, &p0->frame, &p1->frame,
+        (showScanData) ? sp->map.frame.ptr[0] : sip->map.frame.ptr[0],
+        (showScanData) ? sp->map.frame.pitch[0] : sip->map.frame.pitch[0],
+        (mode < 0) ? pAfsPrm->afs.tune : pAfsPrm->afs.tb_order, m_status[iframe], pOut->frame.csp, stream);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
