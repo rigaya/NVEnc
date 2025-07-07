@@ -165,15 +165,27 @@ RGY_ERR proc_frame(RGYFrameInfo *pFrame,
     }
 
     cudaError_t cudaerr = cudaSuccess;
-    kernel_subburn<TypePixel, bit_depth, true> << <gridSize, blockSize, 0, stream >> > (
-        planeFrameY.ptr[0] + frameOffsetByteY,
-        planeFrameU.ptr[0] + frameOffsetByteU,
-        planeFrameV.ptr[0] + frameOffsetByteV,
-        planeFrameY.pitch[0],
-        planeFrameU.pitch[0],
-        planeFrameV.pitch[0],
-        planeSubY.ptr[0], planeSubU.ptr[0], planeSubV.ptr[0], planeSubA.ptr[0], planeSubY.pitch[0],
-        burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
+    if (RGY_CSP_CHROMA_FORMAT[pFrame->csp] == RGY_CHROMAFMT_YUV420) {
+        kernel_subburn<TypePixel, bit_depth, true> << <gridSize, blockSize, 0, stream >> > (
+            planeFrameY.ptr[0] + frameOffsetByteY,
+            planeFrameU.ptr[0] + frameOffsetByteU,
+            planeFrameV.ptr[0] + frameOffsetByteV,
+            planeFrameY.pitch[0],
+            planeFrameU.pitch[0],
+            planeFrameV.pitch[0],
+            planeSubY.ptr[0], planeSubU.ptr[0], planeSubV.ptr[0], planeSubA.ptr[0], planeSubY.pitch[0],
+            burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
+    } else {
+        kernel_subburn<TypePixel, bit_depth, false> << <gridSize, blockSize, 0, stream >> > (
+            planeFrameY.ptr[0] + frameOffsetByteY,
+            planeFrameU.ptr[0] + frameOffsetByteU,
+            planeFrameV.ptr[0] + frameOffsetByteV,
+            planeFrameY.pitch[0],
+            planeFrameU.pitch[0],
+            planeFrameV.pitch[0],
+            planeSubY.ptr[0], planeSubU.ptr[0], planeSubV.ptr[0], planeSubA.ptr[0], planeSubY.pitch[0],
+            burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
+    }
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
