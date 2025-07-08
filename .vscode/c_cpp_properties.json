@@ -9,7 +9,9 @@
                 "${env:CUDA_PATH}\\include",
                 "${env:DXSDK_DIR}\\include",
                 "${env:AVISYNTH_SDK}\\include",
-                "${env:VAPOURSYNTH_SDK}\\include"
+                "${env:VAPOURSYNTH_SDK}\\include",
+                "${env:RTX_VIDEO_SDK}\\include",
+                "${env:OPTICAL_FLOW_SDK}\\NvOFFRUC\\Interface"
             ],
             "defines": [
                 "_DEBUG",
