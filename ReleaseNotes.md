@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 8.08
+
+- Fix processing in YUV444 for [--vpp-subburn](./NVEncC_Options.en.md#--vpp-subburn-string). ( #691 )
+- Fix handling when end is omitted in [--dynamic-rc](./NVEncC_Options.en.md#--dynamic-rc-param1value1param2value2).
+
 ## 8.07
 
 - Fix issues with raw output when using formats like yuv4mpegpipe. ( #699 )

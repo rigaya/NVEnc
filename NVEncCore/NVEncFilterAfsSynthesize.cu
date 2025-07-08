@@ -713,9 +713,9 @@ int synthesize_mode_tune_select_color(const uint8_t sip, const uint8_t status, c
                 ret = TUNE_COLOR_LIGHT_PURPLE;
             }
         } else if (tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_ALL
-            || tune_mode == AFS_TUNE_MODE_ANALYZE_NOSHIFT_Y
-            || tune_mode == AFS_TUNE_MODE_ANALYZE_NOSHIFT_U
-            || tune_mode == AFS_TUNE_MODE_ANALYZE_NOSHIFT_V) {
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_Y
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_U
+            || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_V) {
             auto tmp = (sip & 0x30) | ((~sip) & 0x04);
             if (tmp == 0x10) {
                 ret = TUNE_COLOR_GREY;
