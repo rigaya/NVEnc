@@ -563,6 +563,15 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItemFilePathOp
             taskbar_progress->set_mode(progress_mode);
         }
     public:
+        System::Void CloseLogWindow() {
+            closed = true;
+            this->Close();
+        }
+    public:
+        bool IsClosed() {
+            return closed;
+        }
+    public:
         System::Void SetTaskName(const wchar_t *chr) {
             toolStripStatusCurrentTask->Text = String(chr).ToString();
         }

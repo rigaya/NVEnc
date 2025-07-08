@@ -986,10 +986,10 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     set_aud_delay_cut(conf, pe, oip, sys_dat);
 }
 
-void auto_save_log(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
+void auto_save_log(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const bool force_save) {
     guiEx_settings ex_stg(true);
     ex_stg.load_log_win();
-    if (!ex_stg.s_log.auto_save_log)
+    if (!force_save && !ex_stg.s_log.auto_save_log)
         return;
     char log_file_path[MAX_PATH_LEN];
     if (AUO_RESULT_SUCCESS != getLogFilePath(log_file_path, _countof(log_file_path), pe, sys_dat, conf, oip))

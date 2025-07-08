@@ -40,6 +40,13 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 
 中身をすべてAviutlフォルダにコピーします。
 
+> [!IMPORTANT]
+> Aviutl2では、
+> - exe_filesフォルダをAviutlフォルダの中に、
+> - pluginsフォルダは```C:\ProgramData\aviutl2```の中に
+>
+> それぞれコピーしてください。
+
 ![中身のコピー](./data/NVEnc_6_00_install_03.png)
 
 更新時には、下記のように上書きするか聞いてくることがあります。

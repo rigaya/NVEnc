@@ -124,6 +124,16 @@ int get_current_log_len(bool first_pass) {
     return frmLog::Instance::get()->GetLogStringLen(first_pass);
 }
 
+[STAThreadAttribute]
+void close_log_window() {
+    frmLog::Instance::get()->CloseLogWindow();
+}
+
+[STAThreadAttribute]
+bool is_log_window_closed() {
+    return frmLog::Instance::get()->IsClosed();
+}
+
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 ////////////////////////////////////////////////////

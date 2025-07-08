@@ -77,6 +77,8 @@ void auto_save_log_file(const char *log_filepath);
 void log_process_events();
 int  get_current_log_len(bool first_pass);
 void log_reload_settings();
+void close_log_window();
+bool is_log_window_closed();
 
 int init_log_cache(LOG_CACHE *log_cache); //LOG_CACHEの初期化、linesのメモリ確保、成功->0, 失敗->1
 void release_log_cache(LOG_CACHE *log_cache); //LOG_CACHEで使用しているメモリの開放

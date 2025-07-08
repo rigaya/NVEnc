@@ -989,6 +989,11 @@ static BOOL swap_file(const WCHAR *fileA, const WCHAR *fileB) {
     return TRUE;
 }
 //最後に"\"なしで戻る
+static inline void get_exe_name(char *exe_name, size_t nSize) {
+    char aviutl_path[MAX_PATH_LEN];
+    GetModuleFileNameA(NULL, aviutl_path, (DWORD)nSize);
+    strcpy_s(exe_name, nSize, PathFindFileNameA(aviutl_path));
+}
 static inline void get_aviutl_dir(char *aviutl_dir, size_t nSize) {
     GetModuleFileNameA(NULL, aviutl_dir, (DWORD)nSize);
     PathRemoveFileSpecFixed(aviutl_dir);
