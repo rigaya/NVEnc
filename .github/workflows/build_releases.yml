@@ -237,6 +237,7 @@ jobs:
           xcopy /e /y Aviutl_NVEnc_release\plugins   Aviutl_NVEnc_release2\Plugin
           del Aviutl_NVEnc_release2\Plugin\auo_setup.auf
           del Aviutl_NVEnc_release2\Plugin\exe_files\auo_setup.exe
+          rmdir /s /q Aviutl_NVEnc_release2\Plugin\exe_files\NVEncC\x86
           7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_NVEnc_release2\*
           copy /b NVEnc\7zSD.noadmin.sfx + NVEnc\7zInstallerConfig.txt + Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
