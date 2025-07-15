@@ -195,7 +195,7 @@ jobs:
       - name: Download auo_setup
         id: download_auosetup
         run: |
-          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.01/auo_setup_2.01v2.zip
+          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.02/auo_setup_2.02.zip
 
       - name: Download NVEncC Win32
         uses: actions/download-artifact@v4
@@ -230,6 +230,16 @@ jobs:
           dir /b /s Aviutl_NVEnc_release\
           7z a -mx9 Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip .\Aviutl_NVEnc_release\*
 
+          mkdir Aviutl_NVEnc_release2
+          mkdir Aviutl_NVEnc_release2\Plugin
+          mkdir Aviutl_NVEnc_release2\Plugin\exe_files
+          xcopy /e /y Aviutl_NVEnc_release\exe_files Aviutl_NVEnc_release2\Plugin\exe_files
+          xcopy /e /y Aviutl_NVEnc_release\plugins   Aviutl_NVEnc_release2\Plugin
+          del Aviutl_NVEnc_release2\Plugin\auo_setup.auf
+          del Aviutl_NVEnc_release2\Plugin\exe_files\auo_setup.exe
+          7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_NVEnc_release2\*
+          copy /b NVEnc\7zSD.noadmin.sfx + NVEnc\7zInstallerConfig.txt + Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
+
       - name: Check Version
         id: check_ver
         if: startsWith(github.ref, 'refs/tags/')
@@ -246,6 +256,7 @@ jobs:
         id: calc_hash
         run: |
           7z h -scrc* Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+          7z h -scrc* Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
       - name: Upload Release Asset
         id: upload-release-asset 
@@ -254,10 +265,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+          files: |
+            Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+            Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}
           path: Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install
+          path: Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe

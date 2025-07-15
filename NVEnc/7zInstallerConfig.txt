@@ -1,0 +1,5 @@
+;!@Install@!UTF-8!
+Title="AviUtl ExEdit2 向け NVEnc インストーラ"
+BeginPrompt="NVEncをインストールしますか？"
+RunProgram="Plugin\exe_files\auo_setup2.exe"
+;!@InstallEnd@!
