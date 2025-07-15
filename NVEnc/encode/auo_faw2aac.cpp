@@ -65,7 +65,7 @@ struct faw2aac_data_t {
     HANDLE heOutputDataPushed;
     HANDLE heOutputDataWritten;
     FILE *fp_out;
-} ;
+};
 
 static size_t write_file(faw2aac_data_t *aud_dat, const PRM_ENC *pe, const void *buf, size_t size) {
     if (aud_dat->is_internal) {

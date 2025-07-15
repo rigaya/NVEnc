@@ -69,10 +69,11 @@
 static const int MAX_CONV_THREADS = 4;
 
 int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
+    const bool isAviutl2 = is_aviutl2();
     //Aviutlからの入力に使用するフォーマット
     RGY_CHROMAFMT chromafmt = RGY_CSP_CHROMA_FORMAT[csp];
 
-    if (use_highbit) {
+    if (use_highbit && !isAviutl2) {
         return CF_YC48;
     }
 
@@ -80,7 +81,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     case RGY_CHROMAFMT_RGB:
         return CF_RGB;
     case RGY_CHROMAFMT_YUV444:
-        return CF_YC48;
+        return isAviutl2 ? CF_RGB : CF_YC48;
     case RGY_CHROMAFMT_YUV420:
     case RGY_CHROMAFMT_YUV422:
     default:
@@ -89,6 +90,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
 }
 
 void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
+    const bool isAviutl2 = is_aviutl2();
     InEncodeVideoParam enc_prm;
     NV_ENC_CODEC_CONFIG codec_prm[RGY_CODEC_NUM] = { 0 };
     codec_prm[RGY_CODEC_H264] = DefaultParamH264();
@@ -99,7 +101,7 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
     if (enc_prm.lossless) {
         enc_prm.outputCsp = RGY_CSP_YUV444;
     }
-    use_highbit = enc_prm.outputDepth > 8;
+    use_highbit = !isAviutl2 && enc_prm.outputDepth > 8;
     if (RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_RGB_PACKED) {
         csp = RGY_CSP_RGB;
     } else {
