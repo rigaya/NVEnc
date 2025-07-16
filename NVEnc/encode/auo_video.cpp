@@ -108,7 +108,7 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
         if (use_highbit) {
             csp = (RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_YUV444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
         } else {
-            csp = (RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_YUV444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+            csp = (RGY_CSP_CHROMA_FORMAT[enc_prm.outputCsp] == RGY_CHROMAFMT_YUV444) ? ((isAviutl2) ? RGY_CSP_RGB : RGY_CSP_YUV444) : RGY_CSP_NV12;
         }
     }
 }
