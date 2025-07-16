@@ -230,7 +230,12 @@ std::string find_latest_videnc_for_frm() {
     char defaultExeDir[MAX_PATH_LEN] = { 0 };
     PathCombineLong(defaultExeDir, _countof(defaultExeDir), aviutl_dir, DEFAULT_EXE_DIR);
 
-    const auto exeFiles = find_exe_files(defaultExeDir);
+    char pluginsDir[MAX_PATH_LEN] = { 0 };
+    char defaultExeDir2[MAX_PATH_LEN] = { 0 };
+    get_auo_dir(pluginsDir, _countof(pluginsDir));
+    PathCombineLong(defaultExeDir2, _countof(defaultExeDir2), pluginsDir, DEFAULT_EXE_DIR);
+
+    const auto exeFiles = find_exe_files(defaultExeDir, defaultExeDir2);
     const auto targetExes = find_target_exe_files(ENCODER_NAME, exeFiles);
     if (targetExes.size() > 0) {
         const auto latestVidEnc = find_latest_videnc(targetExes);
