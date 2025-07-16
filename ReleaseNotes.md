@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 8.09
+
+- Updates for NVEnc.auo (AviUtl/AviUtl2 plugin).
+
 ## 8.08
 
 - Fix processing in YUV444 for [--vpp-subburn](./NVEncC_Options.en.md#--vpp-subburn-string). ( #691 )
