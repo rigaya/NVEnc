@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 8.10
+
+- Fix filtering crushing when using with interlaced encoding.
+
 ## 8.09
 
 - Updates for NVEnc.auo (AviUtl/AviUtl2 plugin).

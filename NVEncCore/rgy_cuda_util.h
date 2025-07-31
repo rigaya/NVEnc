@@ -170,13 +170,14 @@ static RGY_ERR copyPlaneField(RGYFrameInfo *dst, const RGYFrameInfo *src, const 
 
 static RGY_ERR copyPlaneFieldAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, const bool dstTopField, const bool srcTopField, cudaStream_t stream) {
     const int width_byte = dst->width * bytesPerPix(dst->csp);
+    // RGY_PICSTRUCT_FRAME の場合は片方のフィールドを持つ、高さ半分のフレームを想定した処理とする
     return err_to_rgy(cudaMemcpy2DAsync(
-        dst->ptr[0] + ((dstTopField) ? 0 : dst->pitch[0]),
-        dst->pitch[0] << 1,
-        src->ptr[0] + ((srcTopField) ? 0 : src->pitch[0]),
-        src->pitch[0] << 1,
+        dst->ptr[0] + ((dst->picstruct == RGY_PICSTRUCT_FRAME || dstTopField) ? 0 : dst->pitch[0]),
+        (dst->picstruct == RGY_PICSTRUCT_FRAME) ? dst->pitch[0] : dst->pitch[0] << 1,
+        src->ptr[0] + ((src->picstruct == RGY_PICSTRUCT_FRAME || srcTopField) ? 0 : src->pitch[0]),
+        (src->picstruct == RGY_PICSTRUCT_FRAME) ? src->pitch[0] : src->pitch[0] << 1,
         width_byte,
-        dst->height >> 1,
+        (dst->picstruct == RGY_PICSTRUCT_FRAME) ? dst->height : dst->height >> 1,
         getCudaMemcpyKind(src->mem_type, dst->mem_type), stream));
 }
 
