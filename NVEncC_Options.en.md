@@ -234,8 +234,8 @@
 - [Other Options](#other-options)
   - [--parallel \[\<int\>\] or \[\<string\>\]](#--parallel-int-or-string)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
-  - [--cuda-stream ](#--cuda-stream-)
-  - [--cuda-mt ](#--cuda-mt-)
+  - [--cuda-stream \<int\>](#--cuda-stream-int)
+  - [--cuda-mt \<int\>](#--cuda-mt-int)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
   - [--disable-nvml](#--disable-nvml)
   - [--output-buf \<int\>](#--output-buf-int)
@@ -3196,14 +3196,14 @@ In most cases, it is recommended to use parallel counts below the encoder count 
   - sync
     Sleep a thread until the end of the GPU task. Performance might decrease, but will reduce CPU utilization especially when decoding is done by HW.
 
-### --cuda-stream <int>
+### --cuda-stream &lt;int&gt;
 Enable CUDA stream based optimization. Default is 1 (=on).
 
 - Notes
   - When enabled, it may improve performance by better overlapping GPU tasks.
   - On some GPUs/drivers, enabling this might cause instability. If you experience hangs or crashes, try disabling this option.
 
-### --cuda-mt <int>
+### --cuda-mt &lt;int&gt;
 Enable multi-threaded control for CUDA operations. Default is 0 (=off).
 
 - Notes
