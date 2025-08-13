@@ -1326,6 +1326,11 @@ public:
             while (m_thDecoder.native_handle() && RGYThreadStillActive(m_thDecoder.native_handle())) {
 #endif
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                // これがないと、デコードエラー発生時に処理が終了しなくなってしまう
+                if (m_frameReleaseData) {
+                    m_frameReleaseData->waitFrameSingleThread(0);
+                    m_workSurfs.deleteFreedSurface(); // これを呼ばないとフレームが解放されず、デコードが止まってしまうことがある
+                }
             }
 #if !THREAD_DEC_USE_FUTURE
             // linuxでは、これがRGYThreadStillActiveのwhile文を抜けるときに行われるため、
