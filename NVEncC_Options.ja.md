@@ -229,6 +229,8 @@
 - [制御系のオプション](#制御系のオプション)
   - [--parallel \[\<int\>\] or \[\<string\>\]](#--parallel-int-or-string)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
+  - [--cuda-stream ](#--cuda-stream-)
+  - [--cuda-mt ](#--cuda-mt-)
   - [--disable-nvml \<int\>](#--disable-nvml-int)
   - [--disable-dx11](#--disable-dx11)
   - [--output-buf \<int\>](#--output-buf-int)
@@ -3249,6 +3251,20 @@ NVIDIA MAXINE VideoEffects のモデルを格納しているフォルダの場�
   
   - sync  
  GPUタスクの終了まで、スレッドをスリープさせる。性能が落ちる可能性があるかわりに、特にHWデコード使用時に、CPU使用率を大きく削減する。
+
+### --cuda-stream <int>
+CUDAのstream最適化を有効にする。デフォルトは 1 (オン)。
+
+- 注意
+  - 有効化すると、GPUタスクのオーバーラップが進み、性能が向上する場合があります。
+  - 一部のGPU/ドライバ環境では不安定になる可能性があります。ハングやクラッシュが発生する場合は、このオプションを無効にしてください。
+
+### --cuda-mt <int>
+CUDA制御をマルチスレッドで行う最適化を有効にする。デフォルトは 0 (オフ)。
+
+- 注意
+  - 有効化すると、ホスト側のCUDA制御の並列化により高速化が見込める場合があります。
+  - 一部のGPU/ドライバ環境では不安定になる可能性があります。ハングやクラッシュが発生する場合は、このオプションを無効にしてください。
 
 ### --disable-nvml &lt;int&gt;
 NVMLによるGPUモニタリングの無効化について指定する。デフォルトは0 (無効化しない)。

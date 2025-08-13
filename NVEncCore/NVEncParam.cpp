@@ -232,6 +232,8 @@ NV_ENC_CONFIG DefaultParam() {
 InEncodeVideoParam::InEncodeVideoParam() :
     deviceID(-1),
     cudaSchedule(DEFAULT_CUDA_SCHEDULE),
+    cudaStreamOpt(1),
+    cudaMT(0),
     sessionRetry(0),
     disableNVML(0),
     disableDX11(false),

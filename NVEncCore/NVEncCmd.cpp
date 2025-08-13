@@ -360,7 +360,11 @@ tstring encoder_help() {
         _T("       yield : CPU will yield when waiting GPU tasks.\n")
         _T("       sync  : CPU will sleep when waiting GPU tasks, performance might\n")
         _T("                drop slightly, while CPU utilization will be lower,\n")
-        _T("                especially on HW decode mode.\n"));
+        _T("                especially on HW decode mode.\n")
+        _T("   --cuda-stream <int>          enable CUDA stream optimization (default: 1 = on).\n")
+        _T("                                  Might improve performance, but could be unstable on some GPUs.\n")
+        _T("   --cuda-mt <int>              enable multi-threaded CUDA control (default: 0 = off).\n")
+        _T("                                  Might improve performance, but could be unstable on some GPUs.\n"));
     str += _T("")
         _T("   --disable-nvml <int>        disable NVML GPU monitoring (default 0, 0-2)\n");
         _T("   --disable-dx11              disable DX11 initilization.\n");
@@ -1447,6 +1451,28 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("cuda-stream")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->cudaStreamOpt = (value != 0) ? 1 : 0;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("cuda-mt")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->cudaMT = (value != 0) ? 1 : 0;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("session-retry")) {
         i++;
         int value = 0;
@@ -1844,6 +1870,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     cmd << gen_cmd(&pParams->vpp, &encPrmDefault.vpp, save_disabled_prm);
 
     OPT_LST(_T("--cuda-schedule"), cudaSchedule, list_cuda_schedule);
+    OPT_NUM(_T("--cuda-stream"), cudaStreamOpt);
+    OPT_NUM(_T("--cuda-mt"), cudaMT);
     OPT_NUM(_T("--session-retry"), sessionRetry);
     OPT_NUM(_T("--disable-nvml"), disableNVML);
     OPT_BOOL(_T("--disable-dx11"), _T(""), disableDX11);

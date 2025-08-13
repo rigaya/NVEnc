@@ -498,7 +498,6 @@ public:
         if (m_surfaces.size() == 0) return PipelineTaskSurfaceType::UNKNOWN;
         return m_surfaces.front()->type();
     }
-protected:
     void deleteFreedSurface() {
         for (auto it = m_surfaces.begin(); it != m_surfaces.end();) {
             if ((*it)->isFree()) {
@@ -508,6 +507,7 @@ protected:
             }
         }
     }
+protected:
     PipelineTaskSurfacesPair *findSurf(RGYFrame *surf) {
         for (auto& s : m_surfaces) {
             if (s->surf() == surf) {
@@ -739,11 +739,16 @@ public:
         if (m_thread.joinable()) {
             SetEvent(m_heFrameAdded.get());
             m_thread.join();
+        } else {
+            waitFrameSingleThread(0);
         }
     }
-    void waitUntilEmpty() {
-        while (m_queueSize > 0) {
-            WaitForSingleObject(m_heQueueEmpty.get(), 10);
+    void waitUntilEmptyMultiThread() {
+        if (m_thread.joinable()) {
+            // マルチスレッド動作の場合
+            while (m_queueSize > 0) {
+                WaitForSingleObject(m_heQueueEmpty.get(), 10);
+            }
         }
     }
     int queueSizeMax() const { return m_queueSizeMax; }
@@ -781,16 +786,46 @@ public:
             }
         });
     }
+
+    void waitFrameSingleThread(int queueSizeMin) { // シングルスレッド動作での待機用
+        if (m_thread.joinable()) {
+            // マルチスレッド動作の場合
+            return;
+        }
+        int queueSize = -1;
+        TaskOutputEvent prevframe;
+        while ((queueSize = (int)m_prevInputFrame.size()) > queueSizeMin) {
+            prevframe = std::move(m_prevInputFrame.front());
+            m_prevInputFrame.pop_front();
+            queueSize--;
+            
+            if (prevframe.first) {
+                prevframe.first->depend_clear();
+                if (auto surfVppInCuvid = dynamic_cast<PipelineTaskOutputSurf *>(prevframe.first.get())->surf().cuvid(); surfVppInCuvid != nullptr) {
+                    // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放(unmap)する
+                    NVEncCtxAutoLock(ctxlock(m_vidCtxLock));
+                    surfVppInCuvid->unmapFrame();
+                }
+                prevframe.first.reset();
+            }
+        }
+    }
+
     void addFrame(std::unique_ptr<PipelineTaskOutput>& frame, std::shared_ptr<T> event) {
         dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->addCUEvent(event);
-        while (m_queueSize >= m_queueSizeMax) {
+        if (m_thread.joinable()) {
+            // マルチスレッド動作の場合
+            while (m_queueSize >= m_queueSizeMax) {
+                SetEvent(m_heFrameAdded.get());
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            m_queueSize++;
+            std::lock_guard<std::mutex> lock(m_mtx);
+            m_prevInputFrame.push_back(std::make_pair(std::move(frame), event));
             SetEvent(m_heFrameAdded.get());
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+            m_prevInputFrame.push_back(std::make_pair(std::move(frame), event));
         }
-        m_queueSize++;
-        std::lock_guard<std::mutex> lock(m_mtx);
-        m_prevInputFrame.push_back(std::make_pair(std::move(frame), event));
-        SetEvent(m_heFrameAdded.get());
     }
 
     size_t queueSize() {
@@ -1231,11 +1266,12 @@ protected:
 #else
     std::thread m_thDecoder;
 #endif //#if THREAD_DEC_USE_FUTURE
+    FrameReleaseData<cudaEvent_t> *m_frameReleaseData;
 public:
     PipelineTaskNVDecode(NVGPUInfo *dev, CuvidDecode *dec, int outMaxQueueSize, RGYInput *input, int64_t endPts, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::NVDEC, dev, outMaxQueueSize, false, threadParam, log), m_input(input), m_endPts(endPts), m_dec(dec),
         m_queueHDR10plusMetadata(), m_dataFlag(),
-        m_state(RGY_STATE_STOPPED), m_decOutFrames(0), m_hwDecFirstPts(AV_NOPTS_VALUE), m_gotFrameAfterFirstPts(false), m_thDecoder() {
+        m_state(RGY_STATE_STOPPED), m_decOutFrames(0), m_hwDecFirstPts(AV_NOPTS_VALUE), m_gotFrameAfterFirstPts(false), m_thDecoder(), m_frameReleaseData(nullptr) {
         m_queueHDR10plusMetadata.init(256);
         m_dataFlag.init();
     };
@@ -1259,6 +1295,10 @@ public:
         return std::make_pair(info, 0);
     };
 
+    void setVppFrameReleaseData(FrameReleaseData<cudaEvent_t> *frameReleaseData) {
+        m_frameReleaseData = frameReleaseData;
+    }
+
     void closeThread() {
         PrintMes(RGY_LOG_DEBUG, _T("Flushing Decoder\n"));
 #if THREAD_DEC_USE_FUTURE
@@ -1274,6 +1314,10 @@ public:
                 CUVIDPARSERDISPINFO pInfo;
                 if (m_dec->frameQueue()->dequeue(&pInfo)) {
                     m_dec->frameQueue()->releaseFrame(&pInfo);
+                }
+                if (m_frameReleaseData) {
+                    m_frameReleaseData->waitFrameSingleThread(0);
+                    m_workSurfs.deleteFreedSurface(); // これを呼ばないとフレームが解放されず、デコードが止まってしまうことがある
                 }
             }
 #if THREAD_DEC_USE_FUTURE
@@ -1389,6 +1433,11 @@ protected:
 
             auto dispInfo = CUVIDPARSERDISPINFO{ 0 };
             if (!m_dec->frameQueue()->dequeue(&dispInfo)) {
+                //転送の終了状況を確認、可能ならリソースの開放を行う
+                if (m_frameReleaseData) {
+                    m_frameReleaseData->waitFrameSingleThread(0);
+                    m_workSurfs.deleteFreedSurface(); // これを呼ばないとフレームが解放されず、デコードが止まってしまうことがある
+                }
                 m_dec->frameQueue()->waitForQueueUpdate();
 #if THREAD_DEC_USE_FUTURE
                 if (m_thDecoder.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
@@ -3148,6 +3197,8 @@ protected:
     RGYListRef<cudaEvent_t> m_inFrameUseFinEvent;
     RGYQueueMPMP<CUFrameEnc *>& m_qEncodeBufferFree;
     bool m_rgbAsYUV444;
+    int m_cudaStreamOpt;
+    int m_cudaMT;
     cudaEvent_t m_eventDefaultToFilter;
     cudaStream_t m_streamFilter;
     cudaStream_t m_streamDownload;
@@ -3155,18 +3206,21 @@ protected:
     PipelineTaskNVEncode *m_encode;
 public:
     PipelineTaskCUDAVpp(NVGPUInfo *dev, std::vector<std::unique_ptr<NVEncFilter>>& vppfilters, NVEncFilterSsim *videoMetric,
-    RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
+    RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, bool rgbAsYUV444, int cudaStreamOpt, int cudaMT, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CUDA, dev, outMaxQueueSize, false, threadParam, log), m_vpFilters(vppfilters), m_videoMetric(videoMetric),
         m_frameReleaseData(dev->vidCtxLock(), 4, threadParam), m_inFrameUseFinEvent(), m_qEncodeBufferFree(qEncodeBufferFree), m_rgbAsYUV444(rgbAsYUV444),
-        m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev(), m_encode(nullptr) {
+        m_cudaStreamOpt(cudaStreamOpt), m_cudaMT(cudaMT), m_eventDefaultToFilter(nullptr),m_streamFilter(nullptr), m_streamDownload(nullptr), m_cuvidPrev(), m_encode(nullptr) {
 
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
-        auto ret = cudaStreamCreateWithFlags(&m_streamFilter, cudaStreamNonBlocking);
-        if (ret != cudaSuccess) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to create upload stream: %s.\n"), char_to_tstring(cudaGetErrorString(ret)).c_str());
+        if (cudaStreamOpt > 1) {
+            auto ret = cudaStreamCreateWithFlags(&m_streamFilter, cudaStreamNonBlocking);
+            if (ret != cudaSuccess) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to create upload stream: %s.\n"), char_to_tstring(cudaGetErrorString(ret)).c_str());
+            }
+        } else {
+            m_streamFilter = cudaStreamPerThread;
         }
-        m_streamFilter = cudaStreamPerThread;
-        ret = cudaStreamCreateWithFlags(&m_streamDownload, cudaStreamNonBlocking);
+        auto ret = cudaStreamCreateWithFlags(&m_streamDownload, cudaStreamNonBlocking);
         if (ret != cudaSuccess) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to create download stream: %s.\n"), char_to_tstring(cudaGetErrorString(ret)).c_str());
         }
@@ -3181,7 +3235,7 @@ public:
     virtual ~PipelineTaskCUDAVpp() {
         m_frameReleaseData.finish();
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
-        if (m_streamFilter) {
+        if (m_streamFilter != cudaStreamPerThread) {
             cudaStreamDestroy(m_streamFilter);
             m_streamFilter = nullptr;
         }
@@ -3216,9 +3270,13 @@ public:
         m_videoMetric = videoMetric;
     }
 
+    FrameReleaseData<cudaEvent_t> *cuvidFrameReleaseData() {
+        return &m_frameReleaseData;
+    }
+
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override {
         auto firstFilterFrame = m_vpFilters.front()->GetFilterParam()->frameIn;
-        return std::make_pair(firstFilterFrame, m_outMaxQueueSize + m_frameReleaseData.queueSizeMax());
+        return std::make_pair(firstFilterFrame, m_outMaxQueueSize + ((m_cudaMT) ? m_frameReleaseData.queueSizeMax() : 0));
     };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override {
         auto lastFilterFrame = m_vpFilters.back()->GetFilterParam()->frameOut;
@@ -3226,7 +3284,9 @@ public:
     };
 
     virtual void runFrameReleaseThread() {
-        m_frameReleaseData.start();
+        if (m_cudaMT) {
+            m_frameReleaseData.start();
+        }
     }
 
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
@@ -3242,9 +3302,11 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
                 return RGY_ERR_NULL_PTR;
             }
+            // cudaをマルチスレッドで使用しない場合(cudaMT=0)は、ここで待機する (cudaMTが1のときはこれはなにもしない)
+            m_frameReleaseData.waitFrameSingleThread(0);
             if (auto surfVppInCuvid = taskSurf->surf().cuvid(); surfVppInCuvid != nullptr) {
-                // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放を待つ
-                m_frameReleaseData.waitUntilEmpty();
+                // cuvidでは、cuvidのmap/unmapが同時に多重にできないので、まず前のフレームを解放を待つ (cudaMTがtrueのとき)
+                m_frameReleaseData.waitUntilEmptyMultiThread();
                 PrintMes(RGY_LOG_TRACE, _T("filter_frame: map video frame: %d, %lld.\n"), surfVppInCuvid->dispInfo()->picture_index, surfVppInCuvid->dispInfo()->timestamp);
                 NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                 auto sts = surfVppInCuvid->mapFrame();

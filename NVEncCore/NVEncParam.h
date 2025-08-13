@@ -801,6 +801,8 @@ tstring printParams(const std::vector<NVEncRCParam> &dynamicRC);
 struct InEncodeVideoParam {
     int deviceID;                 //使用するGPUのID
     int cudaSchedule;
+    int cudaStreamOpt;
+    int cudaMT;
     int sessionRetry;
     int disableNVML;
     bool disableDX11;

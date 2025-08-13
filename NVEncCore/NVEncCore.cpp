@@ -4317,9 +4317,11 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to create encoder\n%s.\n"), GetEncoderParamsInfo(RGY_LOG_ERROR, false).c_str());
             return sts;
         }
-        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
-        if (RGY_ERR_NONE != (sts = err_to_rgy(m_dev->encoder()->NvEncSetIOCudaStreams(m_encRunCtx->streamIn(), m_encRunCtx->streamOut())))) {
-            return sts;
+        if (inputParam->cudaStreamOpt) {
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            if (RGY_ERR_NONE != (sts = err_to_rgy(m_dev->encoder()->NvEncSetIOCudaStreams(m_encRunCtx->streamIn(), m_encRunCtx->streamOut())))) {
+                return sts;
+            }
         }
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
@@ -4450,11 +4452,19 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
             interlaceAutoDetect, (pReader) ? pReader->GetFramePosList() : nullptr, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
     }
 
+    PipelineTaskCUDAVpp *taskFirstCudaVpp = nullptr;
     PipelineTaskCUDAVpp *taskLastCudaVpp = nullptr;
     for (auto& vppblock : m_vpFilters) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCUDAVpp>(m_dev.get(), vppblock.vppnv, m_videoQualityMetric.get(),
-            m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, 1, prm->ctrl.threadParams.get(RGYThreadType::FILTER), m_pLog));
-        taskLastCudaVpp = dynamic_cast<PipelineTaskCUDAVpp *>(m_pipelineTasks.back().get());
+            m_encRunCtx->qEncodeBufferFree(), m_rgbAsYUV444, prm->cudaStreamOpt, prm->cudaMT, 1, prm->ctrl.threadParams.get(RGYThreadType::FILTER), m_pLog));
+        auto taskCudaVpp = dynamic_cast<PipelineTaskCUDAVpp *>(m_pipelineTasks.back().get());
+        taskLastCudaVpp = taskCudaVpp;
+        if (taskFirstCudaVpp == nullptr) {
+            taskFirstCudaVpp = taskCudaVpp;
+        }
+    }
+    if (m_pipelineTasks.size() > 0 && taskNVDec) {
+        taskNVDec->setVppFrameReleaseData(taskFirstCudaVpp->cuvidFrameReleaseData());
     }
     tstring vppFilterMes;
     for (const auto& vppblock : m_vpFilters) {
