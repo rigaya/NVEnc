@@ -854,6 +854,7 @@ struct InEncodeVideoParam {
     int chromaQPOffset;
     int brefMode;
     NV_ENC_SPLIT_ENCODE_MODE splitEncMode;
+    bool bitstreamPadding;
 
     cudaVideoDeinterlaceMode  deinterlace;
 

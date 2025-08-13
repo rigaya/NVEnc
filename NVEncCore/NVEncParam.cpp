@@ -281,6 +281,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     chromaQPOffset(0),
     brefMode(NV_ENC_BFRAME_REF_MODE_AUTO),
     splitEncMode(NV_ENC_SPLIT_AUTO_MODE),
+    bitstreamPadding(false),
     common(),
     inprm(),
     ctrl(),

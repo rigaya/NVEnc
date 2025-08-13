@@ -299,7 +299,8 @@ tstring encoder_help() {
         _T("   --refs-forward <int>         [AV1] max number of forward reference frame.\n")
         _T("                                  0 (auto,default), 1, 2, 3, 4\n")
         _T("   --refs-backward <int>        [AV1] max number of L1 list reference frame.\n")
-        _T("                                  0 (auto,default), 1, 2, 3\n"));
+        _T("                                  0 (auto,default), 1, 2, 3\n")
+        _T("   --bitstream-padding          [AV1] enable bitstream padding.\n"));
 
     str += strsprintf(_T("")
         _T("   --aud                        insert aud nal unit to ouput stream.\n")
@@ -1167,6 +1168,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         codecPrm[RGY_CODEC_AV1].av1Config.outputAnnexBFormat = 1;
         return 0;
     }
+    if (IS_OPTION("bitstream-padding")) {
+        pParams->bitstreamPadding = true;
+        return 0;
+    }
     if (IS_OPTION("deblock")) {
         codecPrm[RGY_CODEC_H264].h264Config.disableDeblockingFilterIDC = 0;
         return 0;
@@ -1817,6 +1822,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_AV1(_T("--part-size-max"), _T(""), maxPartSize,    list_part_size_av1);
         OPT_LST_AV1(_T("--refs-forward"),  _T(""), numFwdRefs, list_av1_refs_forward);
         OPT_LST_AV1(_T("--refs-backward"), _T(""), numBwdRefs, list_av1_refs_backward);
+        OPT_BOOL(_T("--bitstream-padding"), _T(""), bitstreamPadding);
     }
     if (pParams->codec_rgy == RGY_CODEC_HEVC || save_disabled_prm) {
         OPT_LST_HEVC(_T("--level"), _T(":hevc"), level, list_hevc_level);

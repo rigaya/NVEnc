@@ -1,5 +1,12 @@
 # NVEnc Release Notes
 
+## 8.11
+
+- Added options to change CUDA optimization mode ([--cuda-stream](NVEncC_Options.en.md#--cuda-stream-int), [--cuda-mt](NVEncC_Options.en.md#--cuda-mt-int), #710)
+  - To address CUDA_ERROR_MAP_FAILED which seems to occur on RTX50xx, multi-threaded calls to the same CUDA context are disabled by default (--cuda-mt 0)
+- Fixed --vpp-rff not working properly in NVEnc 8.10.
+- Add option for [--bitstream-padding](NVEncC_Options.en.md#--bitstream-padding) for AV1 CBR encoding ( #714 ).
+
 ## 8.10
 
 - Fix filtering crushing when using with interlaced encoding.

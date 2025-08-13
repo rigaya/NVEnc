@@ -2415,6 +2415,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.disableSeqHdr = 0;
         // シーク性を確保するため、常に有効にする
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.repeatSeqHdr = 1;
+
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.enableBitstreamPadding = inputParam->bitstreamPadding ? 1 : 0;
     } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
         if (m_dev->encoder()->checkAPIver(12, 2)) {
             m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel;
@@ -6576,6 +6578,9 @@ tstring NVEncCore::GetEncoderParamsInfo(int output_level, bool add_output_info) 
     if (rgy_codec == RGY_CODEC_AV1) {
         if (m_stEncConfig.encodeCodecConfig.av1Config.outputAnnexBFormat) {
             add_str(RGY_LOG_INFO, _T("annexb "));
+        }
+        if (m_stEncConfig.encodeCodecConfig.av1Config.enableBitstreamPadding) {
+            add_str(RGY_LOG_INFO, _T("bitstream-pad "));
         }
     }
     if (rgy_codec == RGY_CODEC_HEVC || rgy_codec == RGY_CODEC_AV1) {

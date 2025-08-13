@@ -108,6 +108,7 @@
   - [--tile-rows \<int\> \[AV1\]](#--tile-rows-int-av1)
   - [--refs-forward \<int\> \[AV1\]](#--refs-forward-int-av1)
   - [--refs-backward \<int\> \[AV1\]](#--refs-backward-int-av1)
+  - [--bitstream-padding \[AV1\]](#--bitstream-padding-av1)
   - [--level \<string\>](#--level-string)
   - [--profile \<string\>](#--profile-string)
   - [--tier \<string\>  \[HEVC only\]](#--tier-string--hevc-only)
@@ -826,6 +827,9 @@ It must be in range 1-4 (Last, Last2, last3 and Golden). It's a suggestive value
 pecifies max number of L1 list reference frame used for prediction of a frame. (default: 0 = auto)
 
 It must be in range 1-3 (Backward, Altref2, Altref). It's a suggestive value not necessarily be honored always.
+
+### --bitstream-padding [AV1]
+Enable bitstream padding for AV1 CBR encoding. (default: off)
 
 ### --level &lt;string&gt;
 Specify the Level of the codec to be encoded. If not specified, it will be automatically set.

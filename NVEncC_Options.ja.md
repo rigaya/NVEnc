@@ -104,6 +104,7 @@
   - [--tile-rows \<int\> \[AV1\]](#--tile-rows-int-av1)
   - [--refs-forward \<int\> \[AV1\]](#--refs-forward-int-av1)
   - [--refs-backward \<int\> \[AV1\]](#--refs-backward-int-av1)
+  - [--bitstream-padding \[AV1\]](#--bitstream-padding-av1)
   - [--level \<string\>](#--level-string)
   - [--profile \<string\>](#--profile-string)
   - [--tier \<string\>](#--tier-string)
@@ -833,6 +834,9 @@ temporal filterの指定。Bフレーム数が4以上である必要がある。
 フレーム予測に使用するL1 list参照フレームの最大数を指定する。 (デフォルト: 0 = auto)
 
 1 - 3 の間で指定可能。常にこの値に従うわけではない点に注意。
+
+### --bitstream-padding [AV1]
+AV1 CBRエンコード用のビットストリームパディングを有効にする。 (デフォルト: off)
 
 ### --level &lt;string&gt;
 エンコードするコーデックのLevelを指定する。指定しない場合は自動的に決定される。
