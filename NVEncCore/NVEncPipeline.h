@@ -3359,7 +3359,7 @@ public:
                     }
                     return RGY_ERR_NONE;
                 }
-                if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
+                if (ifilter == 0 && frame) { //最初のフィルタなら転送なので、イベントをここでセットする
                     std::shared_ptr<cudaEvent_t> cudaEvent;
                     {
                         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
