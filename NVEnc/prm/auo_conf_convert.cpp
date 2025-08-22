@@ -324,7 +324,7 @@ int guiEx_config::stgv3_block_size() {
     return 7;
 }
 
-void guiEx_config::convert_nvencstg_to_nvencstgv4(CONF_GUIEX *conf, const void *dat) {
+void guiEx_config::convert_nvencstg_to_nvencstgv4(CONF_GUIEX_OLD *conf, const void *dat) {
     CONF_GUIEX_OLD3 confv3;
     const CONF_GUIEX_OLD3 *old_data = (const CONF_GUIEX_OLD3 *)dat;
     init_CONF_GUIEX_old(&confv3);
@@ -404,7 +404,7 @@ void guiEx_config::convert_nvencstgv2_to_nvencstgv3(void *_conf) {
     strcpy_s(conf->conf_name, CONF_NAME_OLD_3);
 }
 
-void guiEx_config::convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX *conf, const void *dat) {
+void guiEx_config::convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX_OLD *conf, const void *dat) {
     CONF_GUIEX_OLD3 confv3 = { 0 };
     memcpy(&confv3, dat, sizeof(confv3));
     convert_nvencstgv2_to_nvencstgv3(&confv3);
@@ -570,7 +570,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
 #define ADD_STR(str, opt) tmp << _T(",") << (str) << _T("=") << (opt.c_str());
 
     //afs
-    tmp.str(std::string());
+    tmp.str(tstring());
     if (!conf->vpp.afs.enable) {
         tmp << _T(",enable=false");
     }
@@ -600,7 +600,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     }
 
     //knn
-    tmp.str(std::string());
+    tmp.str(tstring());
     tmp << _T(",enable=false");
     ADD_NUM(_T("radius"), conf->vpp.knn.radius);
     ADD_FLOAT(_T("strength"), conf->vpp.knn.strength, 3);
@@ -614,7 +614,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     }
 
     //pmd
-    tmp.str(std::string());
+    tmp.str(tstring());
     tmp << _T(",enable=false");
     ADD_NUM(_T("apply_count"), conf->vpp.pmd.applyCount);
     ADD_FLOAT(_T("strength"), conf->vpp.pmd.strength, 3);
@@ -627,7 +627,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     }
 
     //unsharp
-    tmp.str(std::string());
+    tmp.str(tstring());
     if (!conf->vpp.unsharp.enable) {
         tmp << _T(",enable=false");
     }
@@ -641,7 +641,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     }
 
     //edgelevel
-    tmp.str(std::string());
+    tmp.str(tstring());
     if (!conf->vpp.edgelevel.enable) {
         tmp << _T(",enable=false");
     }
@@ -656,7 +656,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     }
 
     //tweak
-    tmp.str(std::string());
+    tmp.str(tstring());
     if (!conf->vpp.tweak.enable) {
         tmp << _T(",enable=false");
     }
@@ -672,7 +672,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     }
 
     //deband
-    tmp.str(std::string());
+    tmp.str(tstring());
     if (!conf->vpp.deband.enable) {
         tmp << _T(",enable=false");
     }
@@ -711,8 +711,24 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     return cmd.str();
 }
 
-void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void *dat) {
-    init_CONF_GUIEX(conf, FALSE);
+static void init_CONF_GUIEX_OLD(CONF_GUIEX_OLD *conf, BOOL use_highbit) {
+    ZeroMemory(conf, sizeof(CONF_GUIEX));
+    guiEx_config::write_conf_header(&conf->header);
+    conf->vid.resize_width = 1280;
+    conf->vid.resize_height = 720;
+    conf->aud.ext.encoder = 15;
+    conf->aud.in.encoder = 1;
+    conf->aud.use_internal = 1;
+#if ENCODER_QSVENC || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_FFMPEG
+    conf->mux.use_internal = TRUE;
+#else
+    conf->mux.use_internal = FALSE;
+#endif
+    conf->header.size_all = CONF_INITIALIZED;
+}
+
+void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX_OLD *conf, const void *dat) {
+    init_CONF_GUIEX_OLD(conf, FALSE);
 
     //いったん古い設定ファイル構造に合わせこむ
     CONF_GUIEX_OLD3 conf_old;
@@ -761,7 +777,7 @@ void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void
     codec_prm[RGY_CODEC_HEVC].hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
     codec_prm[RGY_CODEC_HEVC].hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
 
-    strcpy_s(conf->enc.cmd, gen_cmd(&enc_prm, codec_prm, true).c_str());
+    strcpy_s(conf->enc.cmd, tchar_to_string(gen_cmd(&enc_prm, codec_prm, true)).c_str());
 }
 
 #pragma warning (pop)

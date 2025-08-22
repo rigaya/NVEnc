@@ -78,11 +78,11 @@ int init_log_cache(LOG_CACHE *log_cache) {
 
 //長すぎたら適当に折り返す
 static int write_log_enc_mes_line(char *const mes, LOG_CACHE *cache_line) {
-    const int mes_len = strlen(mes);
+    const int mes_len = (int)strlen(mes);
     const int mes_type = check_log_type(mes);
     char *const fin = mes + mes_len;
     char *const prefix_ptr = strstr(mes, "]: ");
-    const int prefix_len = (prefix_ptr) ? prefix_ptr - mes + strlen("]: ") : 0;
+    const int prefix_len = (prefix_ptr) ? (int)(prefix_ptr - mes) + (int)strlen("]: ") : 0;
     char *p = mes, *q = NULL;
     BOOL flag_continue = FALSE;
     do {
@@ -164,23 +164,23 @@ void write_log_enc_mes(char *const msg, DWORD *log_len, int total_drop, int curr
     char *const fin = mes + *log_len; //null文字の位置
     *fin = '\0';
     while ((a = strchr(mes, '\n')) != NULL) {
-        if ((b = strrchr(mes, '\r', a - mes - 2)) != NULL)
+        if ((b = strrchr(mes, '\r', (int)(a - mes) - 2)) != NULL)
             mes = b + 1;
         *a = '\0';
         write_log_enc_mes_line(mes, cache_line);
         mes = a + 1;
     }
-    if ((a = strrchr(mes, '\r', fin - mes - 1)) != NULL) {
+    if ((a = strrchr(mes, '\r', (int)(fin - mes) - 1)) != NULL) {
         b = a - 1;
         while (*b == ' ' || *b == '\r')
             b--;
         *(b+1) = '\0';
-        if ((b = strrchr(mes, '\r', b - mes - 2)) != NULL)
+        if ((b = strrchr(mes, '\r', (int)(b - mes) - 2)) != NULL)
             mes = b + 1;
 #if ENCODER_SVTAV1
         if (strstr(mes, "Encoding frame")) {
 #else
-        if ((ENCODER_X264 || ENCODER_X265) && NULL == strstr(mes, "frames")) {
+        if ((ENCODER_X264 || ENCODER_X265 || ENCODER_FFMPEG) && NULL == strstr(mes, "frames")) {
 #endif
             set_reconstructed_title_mes(mes, total_drop, current_frames, total_frames);
         } else {
@@ -192,20 +192,20 @@ void write_log_enc_mes(char *const msg, DWORD *log_len, int total_drop, int curr
         if (mes == msg && *log_len)
             mes += write_log_enc_mes_line(mes, NULL);
     }
-    memmove(msg, mes, ((*log_len = fin - mes) + 1) * sizeof(msg[0]));
+    memmove(msg, mes, ((*log_len = (int)(fin - mes)) + 1) * sizeof(msg[0]));
 }
 
-void write_args(const char *args) {
-    size_t len = strlen(args);
-    char *const c = (char *)malloc((len+1)*sizeof(c[0]));
-    char *const fin = c + len;
+void write_args(const TCHAR *args) {
+    size_t len = _tcslen(args);
+    TCHAR *const c = (TCHAR *)malloc((len+1)*sizeof(c[0]));
+    TCHAR *const fin = c + len;
     memcpy(c, args, (len+1)*sizeof(c[0]));
-    char *p = c;
-    for (char *q = NULL; p + NEW_LINE_THRESHOLD < fin && (q = strrchr(p, ' ', NEW_LINE_THRESHOLD)) != NULL; p = q+1) {
+    TCHAR *p = c;
+    for (TCHAR *q = NULL; p + NEW_LINE_THRESHOLD < fin && (q = strrchr(p, _T(' '), NEW_LINE_THRESHOLD)) != NULL; p = q+1) {
         *q = '\0';
-        write_log_line(LOG_INFO, char_to_wstring(p).c_str());
+        write_log_line(LOG_INFO, p);
     }
-    write_log_line(LOG_INFO, char_to_wstring(p).c_str());
+    write_log_line(LOG_INFO, p);
     free(c);
 }
 
@@ -216,21 +216,21 @@ void write_log_exe_mes(char *const msg, DWORD *log_len, const wchar_t *exename, 
     DWORD buffer_len = 0;
     *fin = '\0';
     while ((a = strchr(mes, '\n')) != NULL) {
-        if ((b = strrchr(mes, '\r', a - mes - 2)) != NULL)
+        if ((b = strrchr(mes, '\r', (int)(a - mes) - 2)) != NULL)
             mes = b + 1;
         *a = '\0';
         write_log_enc_mes_line(mes, cache_line);
         mes = a + 1;
     }
-    if ((a = strrchr(mes, '\r', fin - mes - 1)) != NULL) {
+    if ((a = strrchr(mes, '\r', (int)(fin - mes) - 1)) != NULL) {
         b = a - 1;
         while (*b == ' ' || *b == '\r')
             b--;
         *(b+1) = '\0';
-        if ((b = strrchr(mes, '\r', b - mes - 2)) != NULL)
+        if ((b = strrchr(mes, '\r', (int)(b - mes) - 2)) != NULL)
             mes = b + 1;
         if (exename) {
-            if (buffer_len == 0) buffer_len = (*log_len * 3) + wcslen(exename) + 3;
+            if (buffer_len == 0) buffer_len = (*log_len * 3) + (int)wcslen(exename) + 3;
             if (buffer != NULL || NULL != (buffer = (wchar_t*)malloc(buffer_len * sizeof(buffer[0])))) {
                 swprintf_s(buffer, buffer_len, L"%s: %s", exename, char_to_wstring(mes).c_str());
                 set_window_title(buffer);
@@ -240,6 +240,6 @@ void write_log_exe_mes(char *const msg, DWORD *log_len, const wchar_t *exename, 
     }
     if (mes == msg && *log_len)
         mes += write_log_enc_mes_line(mes, cache_line);
-    memmove(msg, mes, ((*log_len = fin - mes) + 1) * sizeof(msg[0]));
+    memmove(msg, mes, ((*log_len = (int)(fin - mes)) + 1) * sizeof(msg[0]));
     if (buffer) free(buffer);
 }

@@ -29,12 +29,6 @@
 #include <cstring>
 #include "rgy_codepage.h"
 
-//BOM文字リスト
-static const int MAX_UTF8_CHAR_LENGTH = 6;
-static const uint8_t UTF8_BOM[]     = { 0xEF, 0xBB, 0xBF };
-static const uint8_t UTF16_LE_BOM[] = { 0xFF, 0xFE };
-static const uint8_t UTF16_BE_BOM[] = { 0xFE, 0xFF };
-
 //ボム文字かどうか、コードページの判定
 static uint32_t check_bom(const void* chr) {
     if (chr == nullptr) return CODE_PAGE_UNSET;
@@ -87,7 +81,7 @@ static bool isASCII(const void *str, uint32_t size_in_byte) {
     return true;
 }
 
-static uint32_t jpn_check(const void *str, uint32_t size_in_byte) {
+uint32_t jpn_check(const void *str, uint32_t size_in_byte) {
     int score_sjis = 0;
     int score_euc = 0;
     int score_utf8 = 0;

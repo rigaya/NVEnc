@@ -58,11 +58,19 @@ typedef    struct {
 } PIXEL_YC;
 
 typedef struct {
+    USHORT y, cb, cr;
+} PIXEL_LW48;
+
+typedef struct {
     int   count;       //planarの枚数。packedなら1
     BYTE *data[3];     //planarの先頭へのポインタ
     int   size[3];     //planarのサイズ
+    int   w[3], h[3], pitch[3];
+    int byte_per_pixel;
     int   total_size;  //全planarのサイズの総和
+    int   colormatrix; //色空間 (BT601 / BT709)
 } CONVERT_CF_DATA;
+
 
 //音声16bit->8bit変換
 typedef void (*func_audio_16to8) (BYTE *dst, short *src, int n);

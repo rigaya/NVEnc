@@ -28,7 +28,6 @@
 #ifndef _AUO_FAW2AAC_H_
 #define _AUO_FAW2AAC_H_
 
-#include "output.h"
 #include "auo.h"
 #include "auo_version.h"
 #include "auo_util.h"

@@ -26,7 +26,9 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_osdep.h"
+#if __has_include("rgy_version.h")
 #include "rgy_version.h"
+#endif
 #include "rgy_env.h"
 #include "cpu_info.h"
 #if ENCODER_QSV || ENCODER_NVENC || ENCODER_VCEENC
@@ -303,7 +305,10 @@ tstring getEnviromentInfo([[maybe_unused]] int device_id) {
 
 #if defined(_WIN32) || defined(_WIN64)
 
+#include <filesystem>
 #include <tlhelp32.h>
+#include <winternl.h>
+#include <psapi.h>
 
 static bool check_parent(size_t check_pid, const size_t target_pid, const std::unordered_map<size_t, size_t>& map_pid) {
     for (size_t i = 0; i < map_pid.size(); i++) { // 最大でもmap_pid.size()を超えてチェックする必要はないはず
@@ -340,8 +345,6 @@ std::vector<size_t> createChildProcessIDList(const size_t target_pid) {
     }
     return list_childs;
 }
-
-#include <winternl.h>
 
 typedef __kernel_entry NTSYSCALLAPI NTSTATUS(NTAPI *NtQueryObject_t)(HANDLE Handle, OBJECT_INFORMATION_CLASS ObjectInformationClass, PVOID ObjectInformation, ULONG ObjectInformationLength, PULONG ReturnLength);
 typedef __kernel_entry NTSTATUS(NTAPI *NtQuerySystemInformation_t)(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength);
@@ -512,6 +515,36 @@ std::vector<unique_handle> createProcessHandleList(const std::vector<size_t>& li
         }
     }
     return handle_list;
+}
+
+std::vector<std::wstring> createProcessModuleList() {
+    const int max_module_count = 1024;
+    const int max_module_name_length = 1024;
+    std::vector<std::wstring> moduleList;
+    const auto currentPID = GetCurrentProcessId();
+    std::unique_ptr<std::remove_pointer<HANDLE>::type, decltype(&CloseHandle)> hProcess(OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, currentPID), CloseHandle);
+    HMODULE hMods[max_module_count];
+    DWORD cbNeeded = 0;
+    if (EnumProcessModules(hProcess.get(), hMods, sizeof(hMods), &cbNeeded)) {
+        for (size_t i = 0; i < (cbNeeded / sizeof(HMODULE)); i++) {
+            wchar_t moduleName[max_module_name_length] = { 0 };
+            if (GetModuleFileNameExW(hProcess.get(), hMods[i], moduleName, _countof(moduleName))) {
+                moduleList.push_back(moduleName);
+            }
+        }
+    }
+    return moduleList;
+}
+
+bool checkIfModuleLoaded(const wchar_t *moduleName) {
+    const auto moduleList = createProcessModuleList();
+    for (const auto& modulePath : moduleList) {
+        const auto moduleFilename = std::filesystem::path(modulePath).filename().wstring();
+        if (_wcsicmp(moduleName, moduleFilename.c_str()) == 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 #endif //#if defined(_WIN32) || defined(_WIN64)

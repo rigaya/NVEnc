@@ -188,6 +188,12 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 static inline size_t strnlen_s(const char *str, size_t maxlen) {
     return strnlen(str, maxlen);
 }
+static inline wchar_t *wcscpy_s(wchar_t *dst, size_t size, const wchar_t *src) {
+    return wcscpy(dst, src);
+}
+static inline wchar_t *wcscat_s(wchar_t *dst, size_t size, const wchar_t *src) {
+    return wcscat(dst, src);
+}
 
 #define _fsopen(filename, mode, shflag) fopen(filename, mode)
 #define _wfsopen(filename, mode, shflag) fopen(wstring_to_string(filename).c_str(), wstring_to_string(mode).c_str())
@@ -202,6 +208,8 @@ static inline size_t strnlen_s(const char *str, size_t maxlen) {
 #endif
 #define wcsicmp wcscasecmp
 #define _wcsicmp wcsicmp
+#define _wcsnicmp wcsncasecmp
+
 
 #define lstrlenW wcslen
 

@@ -1770,6 +1770,7 @@ const CX_DESC list_vpp_yadif_mode[] = {
 
 struct VppYadif {
     bool enable;
+    bool log;
     VppYadifMode mode;
 
     VppYadif();

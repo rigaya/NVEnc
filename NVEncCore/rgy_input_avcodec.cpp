@@ -42,6 +42,7 @@
 #include "rgy_avlog.h"
 #include "rgy_filesystem.h"
 #include "rgy_language.h"
+#include "rgy_bitstream_aac.h"
 
 
 #if ENABLE_AVSW_READER

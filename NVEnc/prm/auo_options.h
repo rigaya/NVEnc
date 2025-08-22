@@ -24,30 +24,18 @@
 // THE SOFTWARE.
 //
 // --------------------------------------------------------------------------------------------
-#pragma once
-#ifndef _EXE_VERSION_H_
-#define _EXE_VERSION_H_
 
-#include <string>
+#ifndef _AUO_OPTIONS_H_
+#define _AUO_OPTIONS_H_
 
-int version_a_larger_than_b(const int a[4], const int b[4]);
-std::string ver_string(int ver[4]);
+#include "auo_settings.h"
 
-int get_exe_version_info(const TCHAR *exe_path, int version[4]);
-int get_exe_version_from_cmd(const TCHAR *exe_path, const TCHAR *cmd_ver, int version[4]);
-
-int get_x264_rev(const TCHAR *x264fullpath);
-int get_x265_rev(const TCHAR *x265fullpath, int version[4]);
-int get_svtav1_rev(const TCHAR *svtav1fullpath, int version[4]);
-
-int get_x265ver_from_txt(const TCHAR *txt, int v[4]);
-
-enum QTDLL {
-    QAAC_APPLEDLL_UNAVAILABLE = 0,
-    QAAC_APPLEDLL_IN_EXEDIR = 1,
-    QAAC_APPLEDLL_IN_CURRENTDIR = 2
+static const ENC_OPTION_STR AUDIO_DELAY_CUT_MODE[] = {
+    { NULL, AUO_CONF_AUDIO_DELAY_NONE,      L"補正なし"   },
+    { NULL, AUO_CONF_AUDIO_DELAY_CUT_AUDIO, L"音声カット" },
+    { NULL, AUO_CONF_AUDIO_DELAY_ADD_VIDEO, L"映像追加"   },
+    { NULL, AUO_CONF_AUDIO_DELAY_EDTS,      L"edts"       },
+    { NULL, AUO_MES_UNKNOWN,                NULL          },
 };
 
-QTDLL check_if_apple_dll_required_for_qaac(const TCHAR *exe_dir, const TCHAR *current_fullpath);
-
-#endif //_EXE_VERSION_H_
+#endif //_AUO_OPTIONS_H_

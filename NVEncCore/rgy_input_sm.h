@@ -50,8 +50,8 @@ struct RGYInputSMSharedData {
     bool afs;
     bool abort;
     bool reserved[2];
-    uint32_t heBufEmpty[2];
-    uint32_t heBufFilled[2];
+    uint64_t heBufEmpty[2];
+    uint64_t heBufFilled[2];
     int dropped[2];
 };
 #pragma pack(pop)

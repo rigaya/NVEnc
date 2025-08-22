@@ -285,6 +285,8 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 "AUO_ERR_FAILED_OPEN_BAT_NEW",
 "AUO_ERR_VIDEO_VERY_SHORT1",
 "AUO_ERR_VIDEO_VERY_SHORT2",
+"AUO_ERR_EXEDIT_NOT_FOUND",
+"AUO_ERR_EXEDIT_OUTPUT_START",
 "AUO_AUDIO_SECTION_START",
 "AUO_AUDIO_FAW_INDEX_ERR",
 "AUO_AUDIO_ERR_TOO_SHORT",
@@ -1151,140 +1153,159 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 
 static_assert(AUO_MESSAGE_FIN + 1 == _countof(AUO_MES_ID_NAME_STR));
 
-#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1
-std::string str_replace(std::string str, const std::string& from, const std::string& to) {
-	std::string::size_type pos = 0;
-	while (pos = str.find(from, pos), pos != std::string::npos) {
-		str.replace(pos, from.length(), to);
-		pos += to.length();
-	}
-	return str;
-}
-#endif
-
 AuoMesSections AuoMessages::getSectionId(const std::string& section) const {
-	for (size_t i = 0; i < AUO_MES_SECTIONS_STR.size(); i++) {
-		if (strcmp(AUO_MES_SECTIONS_STR[i].first, section.c_str()) == 0) {
-			return (AuoMesSections)i;
-		}
-	}
-	return AUO_SECTION_UNKNOWN;
+    for (size_t i = 0; i < AUO_MES_SECTIONS_STR.size(); i++) {
+        if (strcmp(AUO_MES_SECTIONS_STR[i].first, section.c_str()) == 0) {
+            return (AuoMesSections)i;
+        }
+    }
+    return AUO_SECTION_UNKNOWN;
 }
 
 AuoMes AuoMessages::getId(const AuoMesSections sectionId, const std::string& id) const {
-	const AuoMes sectionOffset = (sectionId < 0) ? AUO_MES_UNKNOWN : AUO_MES_SECTIONS_STR[sectionId].second;
-	for (AuoMes i = sectionOffset; i < _countof(AUO_MES_ID_NAME_STR); i = (AuoMes)(i + 1)) {
-		if (strcmp(AUO_MES_ID_NAME_STR[i], id.c_str()) == 0) {
-			return i;
-		}
-	}
-	for (AuoMes i = AUO_MES_UNKNOWN; i < sectionOffset; i = (AuoMes)(i + 1)) {
-		if (strcmp(AUO_MES_ID_NAME_STR[i], id.c_str()) == 0) {
-			return i;
-		}
-	}
-	return AUO_MES_UNKNOWN;
+    const AuoMes sectionOffset = (sectionId < 0) ? AUO_MES_UNKNOWN : AUO_MES_SECTIONS_STR[sectionId].second;
+    for (AuoMes i = sectionOffset; i < _countof(AUO_MES_ID_NAME_STR); i = (AuoMes)(i + 1)) {
+        if (strcmp(AUO_MES_ID_NAME_STR[i], id.c_str()) == 0) {
+            return i;
+        }
+    }
+    for (AuoMes i = AUO_MES_UNKNOWN; i < sectionOffset; i = (AuoMes)(i + 1)) {
+        if (strcmp(AUO_MES_ID_NAME_STR[i], id.c_str()) == 0) {
+            return i;
+        }
+    }
+    return AUO_MES_UNKNOWN;
 }
 
 void AuoMessages::proc_line(AuoMesSections& sectionId, char *buffer) {
-	// コメント
-	if (auto ptr = strchr(buffer, ';'); ptr) *ptr = '\0';
-	// section
-	{
-		auto sec_fin = strchr(buffer, ']');
-		if (buffer[0] == '[' && sec_fin) {
-			const auto section = std::string(buffer + 1, sec_fin);
-			sectionId = getSectionId(section);
-			return;
-		}
-	}
-	if (auto sep = strchr(buffer, '='); sep != nullptr) {
-		const auto idstr = std::string(buffer, sep);
-		const auto id = getId(sectionId, idstr);
-		auto mes = std::string(sep + 1);
-		if (id >= 0) {
-			mes = str_replace(mes, "\r", "");
-			mes = str_replace(mes, "\\r\\n", "\r\n");
-			mes = str_replace(mes, "\\n", "\n");
-			mes = str_replace(mes, "\\r", "\r");
-			mes = str_replace(mes, "\\t", "\t");
-			messages[id] = char_to_wstring(mes.c_str(), CP_UTF8);
-		}
-	}
-	return;
+    // コメント
+    if (auto ptr = strchr(buffer, ';'); ptr) *ptr = '\0';
+    // section
+    {
+        auto sec_fin = strchr(buffer, ']');
+        if (buffer[0] == '[' && sec_fin) {
+            const auto section = std::string(buffer + 1, sec_fin);
+            sectionId = getSectionId(section);
+            return;
+        }
+    }
+    if (auto sep = strchr(buffer, '='); sep != nullptr) {
+        const auto idstr = std::string(buffer, sep);
+        const auto id = getId(sectionId, idstr);
+        auto mes = std::string(sep + 1);
+        if (id >= 0) {
+            mes = str_replace(mes, "\r", "");
+            mes = str_replace(mes, "\\r\\n", "\r\n");
+            mes = str_replace(mes, "\\n", "\n");
+            mes = str_replace(mes, "\\r", "\r");
+            mes = str_replace(mes, "\\t", "\t");
+            messages[id] = char_to_wstring(mes.c_str(), CP_UTF8);
+        }
+    }
+    return;
 }
 
-int AuoMessages::read(const std::string& filename) {
-	messages.clear();
-	messages.resize(AUO_MESSAGE_FIN);
-	language = "";
+int AuoMessages::read(const tstring& filename) {
+    messages.clear();
+    messages.resize(AUO_MESSAGE_FIN);
+    language = L"";
 
-	FILE *fp = nullptr;
-	int err = fopen_s(&fp, filename.c_str(), "r");
-	if (err != 0) {
-		return err;
-	}
+    FILE *fp = nullptr;
+    int err = _tfopen_s(&fp, filename.c_str(), _T("r"));
+    if (err != 0) {
+        return err;
+    }
 
-	AuoMesSections sectionId = AUO_SECTION_UNKNOWN;
-	char buffer[4096] = { 0 };
-	while (fgets(buffer, _countof(buffer) - 1, fp) != NULL) {
-		const auto len = strlen(buffer);
-		if (len > 0 && buffer[len-1] == '\n') {
-			buffer[len - 1] = '\0';
-		}
-		proc_line(sectionId, buffer);
-	}
-	fclose(fp); // ファイルを閉じる
-	language = filename;
-	return 0;
+    AuoMesSections sectionId = AUO_SECTION_UNKNOWN;
+    char buffer[4096] = { 0 };
+    while (fgets(buffer, _countof(buffer) - 1, fp) != NULL) {
+        const auto len = strlen(buffer);
+        if (len > 0 && buffer[len-1] == '\n') {
+            buffer[len - 1] = '\0';
+        }
+        proc_line(sectionId, buffer);
+    }
+    fclose(fp); // ファイルを閉じる
+    language = filename;
+    return 0;
 }
 
-int AuoMessages::read(const char *lang, const char *data, const size_t size) {
-	messages.clear();
-	messages.resize(AUO_MESSAGE_FIN);
+int AuoMessages::read(const TCHAR *lang, const char *data, const size_t size) {
+    messages.clear();
+    messages.resize(AUO_MESSAGE_FIN);
 
-	std::vector<char> buffer(size + 1, '\0');
-	memcpy(buffer.data(), data, size);
+    std::vector<char> buffer(size + 1, '\0');
+    memcpy(buffer.data(), data, size);
 
-	AuoMesSections sectionId = AUO_SECTION_UNKNOWN;
-	for (char *ptr = buffer.data(), *qtr = nullptr; (ptr = strtok_s(ptr, "\n", &qtr)) != nullptr; ptr = nullptr) {
-		proc_line(sectionId, ptr);
-	}
-	language = (lang) ? lang : wstring_to_string(get(AUO_GUIEX_LANG));
-	return 0;
+    AuoMesSections sectionId = AUO_SECTION_UNKNOWN;
+    for (char *ptr = buffer.data(), *qtr = nullptr; (ptr = strtok_s(ptr, "\n", &qtr)) != nullptr; ptr = nullptr) {
+        proc_line(sectionId, ptr);
+    }
+    language = (lang) ? lang : wstring_to_tstring(get(AUO_GUIEX_LANG));
+    return 0;
 }
 
-std::string get_file_lang_code(const std::string& path) {
-	//言語コードの取得
-	char buffer[1024];
-	GetPrivateProfileString("AUO_GUIEX", "AUO_GUIEX_LANG", "", buffer, _countof(buffer) - 1, path.c_str());
-	return wstring_to_string(char_to_wstring(buffer, CP_UTF8));
+tstring get_file_lang_code(const tstring& path) {
+    tstring lang;
+    // pathのファイルを1行ずつ読み込み
+    FILE *fp = nullptr;
+    int err = _tfopen_s(&fp, path.c_str(), _T("r"));
+    if (err != 0 || fp == nullptr) {
+        return lang;
+    }
+    bool isAuoGuiExSection = false;
+    char buffer[4096] = { 0 };
+    while (fgets(buffer, _countof(buffer) - 1, fp) != NULL) {
+        const auto len = strlen(buffer);
+        if (len > 0 && buffer[len-1] == '\n') {
+            buffer[len - 1] = '\0';
+        }
+        // コメント
+        if (auto ptr = strchr(buffer, ';'); ptr) *ptr = '\0';
+        if (buffer[0] == '[') {
+            if (strcmp(buffer, "[AUO_GUIEX]") == 0) {
+                isAuoGuiExSection = true;
+            } else {
+                if (isAuoGuiExSection) {
+                    isAuoGuiExSection = false;
+                    break;
+                }
+            }
+        } else if (isAuoGuiExSection) {
+            if (strncmp(buffer, "AUO_GUIEX_LANG=", strlen("AUO_GUIEX_LANG=")) == 0) {
+                lang = char_to_tstring(buffer + strlen("AUO_GUIEX_LANG="), CP_UTF8);
+                break;
+            }
+        }
+    }
+    fclose(fp); // ファイルを閉じる
+    return lang;
 }
 
-std::vector<std::string> find_lng_files() {
-	char target_dir[MAX_PATH_LEN];
-	get_auo_path(target_dir, _countof(target_dir));
-	PathRemoveFileSpecFixed(target_dir);
+std::vector<tstring> find_lng_files() {
+    wchar_t target_dir[MAX_PATH_LEN];
+    get_auo_path(target_dir, _countof(target_dir));
+    PathRemoveFileSpecFixed(target_dir);
 
-	std::vector<std::string> ret;
-	try {
-		for (const std::filesystem::directory_entry& x : std::filesystem::recursive_directory_iterator(target_dir)) {
-			if (strncmp(x.path().filename().string().c_str(), AUO_NAME_WITHOUT_EXT, strlen(AUO_NAME_WITHOUT_EXT)) == 0) {
-				if (x.path().extension() == ".lng") {
-					const auto language_code = get_file_lang_code(x.path().string());
-					if (language_code.length() > 0) {
-						//iniファイルもセットであるか確認する
-						char auo_path[MAX_PATH_LEN], ini_fileName[MAX_PATH_LEN], ini_append[64];
-						sprintf_s(ini_append, ".%s.ini", language_code.c_str());
-						get_auo_path(auo_path, _countof(auo_path));
-						apply_appendix(ini_fileName, _countof(ini_fileName), auo_path, ini_append);
-						if (PathFileExists(ini_fileName)) {
-							ret.push_back(x.path().string());
-						}
-					}
-				}
-			}
-		}
-	} catch (...) {}
-	return ret;
+    std::vector<tstring> ret;
+    try {
+        for (const std::filesystem::directory_entry& x : std::filesystem::recursive_directory_iterator(target_dir)) {
+            if (wcsncmp(x.path().filename().wstring().c_str(), AUO_NAME_WITHOUT_EXT_W, wcslen(AUO_NAME_WITHOUT_EXT_W)) == 0) {
+                if (x.path().extension() == L".lng") {
+                    const auto language_code = get_file_lang_code(x.path().wstring());
+                    if (language_code.length() > 0) {
+                        //iniファイルもセットであるか確認する
+                        wchar_t auo_path[MAX_PATH_LEN], ini_fileName[MAX_PATH_LEN], ini_append[64];
+                        swprintf_s(ini_append, L".%s.ini", language_code.c_str());
+                        get_auo_path(auo_path, _countof(auo_path));
+                        apply_appendix(ini_fileName, _countof(ini_fileName), auo_path, ini_append);
+                        if (rgy_file_exists(ini_fileName)) {
+                            ret.push_back(wstring_to_tstring(x.path().wstring()));
+                        }
+                    }
+                }
+            }
+        }
+    } catch (...) {}
+    return ret;
 }

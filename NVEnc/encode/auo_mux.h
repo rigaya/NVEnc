@@ -31,7 +31,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
-#include "output.h"
+#include "auo.h"
 #include "auo_conf.h"
 #include "auo_system.h"
 

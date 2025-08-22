@@ -33,6 +33,7 @@
 #include <vector>
 #include "rgy_wav_parser.h"
 #include "rgy_memmem.h"
+#include "rgy_bitstream_aac.h"
 
 static const std::array<uint8_t, 8> fawstart1 = {
     0x72, 0xF8, 0x1F, 0x4E, 0x07, 0x01, 0x00, 0x00
@@ -70,28 +71,6 @@ enum class RGYFAWMode {
     Mix
 };
 
-static const int AAC_HEADER_MIN_SIZE = 7;
-static const uint32_t AAC_BLOCK_SAMPLES = 1024;
-
-struct RGYFAWAACHeader {
-    bool id;
-    bool protection;
-    int profile;     // 00 ... main, 01 ... lc, 10 ... ssr
-    int samplerate;
-    bool private_bit;
-    uint32_t channel;
-    bool original;
-    bool home;
-    bool copyright;
-    bool copyright_start;
-    uint32_t aac_frame_length; // AACヘッダを含む
-    int adts_buffer_fullness;
-    int no_raw_data_blocks_in_frame;
-
-    int parse(const uint8_t *buffer);
-    int sampleRateIdxToRate(const uint32_t idx);
-};
-
 class RGYFAWBitstream {
 private:
     std::vector<uint8_t> buffer;
@@ -102,7 +81,7 @@ private:
     uint64_t inputLengthByte;
     uint64_t outSamples;
 
-    RGYFAWAACHeader aacHeader;
+    RGYAACHeader aacHeader;
 public:
     RGYFAWBitstream();
     ~RGYFAWBitstream();

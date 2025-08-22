@@ -31,13 +31,14 @@
 #include "auo_mes.h"
 #include "auo_version.h"
 #include "auo_pipe.h"
-#include "auo_chapter.h"
+#include "rgy_chapter.h"
 #include "auo_settings.h"
 #include "auo_util.h"
+#include "convert.h"
 
-void warning_conf_not_initialized(const char *default_stg_file) {
-    if (default_stg_file && strlen(default_stg_file) > 0) {
-        write_log_auo_line_fmt(LOG_WARNING, L"%s: %s", g_auo_mes.get(AUO_ERR_CONF_NOT_INIT0), char_to_wstring(default_stg_file).c_str());
+void warning_conf_not_initialized(const TCHAR *default_stg_file) {
+    if (default_stg_file && _tcslen(default_stg_file) > 0) {
+        write_log_auo_line_fmt(LOG_WARNING, L"%s: %s", g_auo_mes.get(AUO_ERR_CONF_NOT_INIT0), default_stg_file);
     } else {
         write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_CONF_NOT_INIT1));
     }
@@ -49,27 +50,27 @@ void warning_failed_getting_temp_path() {
     write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_GET_TEMP_PATH));
 }
 
-void warning_unable_to_open_tempfile(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_UNABLE_OPEM_TEMP_FILE), char_to_wstring(dir).c_str());
+void warning_unable_to_open_tempfile(const TCHAR *dir) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_UNABLE_OPEM_TEMP_FILE), dir);
 }
 
-void warning_no_temp_root(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_TEMP_ROOT), char_to_wstring(dir).c_str());
+void warning_no_temp_root(const TCHAR *dir) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_TEMP_ROOT), dir);
 }
 
-void warning_no_aud_temp_root(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_AUD_TEMP_ROOT), char_to_wstring(dir).c_str());
+void warning_no_aud_temp_root(const TCHAR *dir) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_AUD_TEMP_ROOT), dir);
 }
 
 void error_filename_too_long() {
     write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FILENAME_TOO_LONG));
 }
 
-void error_savdir_do_not_exist(const char *savname, const char *savedir) {
+void error_savdir_do_not_exist(const TCHAR *savname, const TCHAR *savedir) {
     write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST1));
-    write_log_auo_line_fmt(LOG_ERROR, L"%s: \"%s\"", g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST2), char_to_wstring(savname).c_str());
-    write_log_auo_line_fmt(LOG_ERROR, L"%s: \"%s\"", g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST3), char_to_wstring(savedir).c_str());
-    if (strchr(savedir, '?') != nullptr) {
+    write_log_auo_line_fmt(LOG_ERROR, L"%s: \"%s\"", g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST2), savname);
+    write_log_auo_line_fmt(LOG_ERROR, L"%s: \"%s\"", g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST3), savedir);
+    if (_tcschr(savedir, _T('?')) != nullptr) {
         write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST4));
         write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST5));
         write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_SAVDIR_DO_NOT_EXIST6));
@@ -82,18 +83,18 @@ void error_file_is_already_opened_by_aviutl() {
 }
 
 void warning_no_auo_check_fileopen() {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_WARN_NO_AUO_CHECK_FILEOPEN1), char_to_wstring(AUO_CHECK_FILEOPEN_NAME).c_str(), char_to_wstring(DEFAULT_EXE_DIR).c_str());
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_WARN_NO_AUO_CHECK_FILEOPEN2), char_to_wstring(DEFAULT_EXE_DIR).c_str());
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_WARN_NO_AUO_CHECK_FILEOPEN1), AUO_CHECK_FILEOPEN_NAME, DEFAULT_EXE_DIR);
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_WARN_NO_AUO_CHECK_FILEOPEN2), DEFAULT_EXE_DIR);
 }
 
-static void error_failed_to_open_temp_file_dir(const char *temp_filename, const char *mesBuffer, const DWORD err, const BOOL target_is_dir) {
+static void error_failed_to_open_temp_file_dir(const TCHAR *temp_filename, const TCHAR *mesBuffer, const DWORD err, const BOOL target_is_dir) {
     if (target_is_dir) {
-        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR1), char_to_wstring(temp_filename).c_str());
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR1), temp_filename);
     } else {
-        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR2), char_to_wstring(temp_filename).c_str());
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR2), temp_filename);
     }
-    write_log_auo_line_fmt(LOG_ERROR, L"  %s", char_to_wstring(mesBuffer).c_str());
-    if (strchr(temp_filename, '?') != nullptr) {
+    write_log_auo_line_fmt(LOG_ERROR, L"  %s", mesBuffer);
+    if (_tcschr(temp_filename, _T('?')) != nullptr) {
         const wchar_t *target_name = (target_is_dir) ? g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_FOLDER) : g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_FILE);
         write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_SPECIAL_CHAR1), target_name);
         write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_FAILED_TO_OPEN_TEMP_FILE_DIR_SPECIAL_CHAR2), target_name);
@@ -102,7 +103,7 @@ static void error_failed_to_open_temp_file_dir(const char *temp_filename, const 
         wchar_t systemroot_dir[MAX_PATH_LEN] = { 0 };
         wchar_t programdata_dir[MAX_PATH_LEN] = { 0 };
         wchar_t programfiles_dir[MAX_PATH_LEN] = { 0 };
-        //char programfilesx86_dir[MAX_PATH_LEN];
+        //TCHAR programfilesx86_dir[MAX_PATH_LEN];
         ExpandEnvironmentStringsW(L"%SystemDrive%", systemdrive_dir, _countof(systemdrive_dir));
         ExpandEnvironmentStringsW(L"%SystemRoot%", systemroot_dir, _countof(systemroot_dir));
         ExpandEnvironmentStringsW(L"%PROGRAMDATA%", programdata_dir, _countof(programdata_dir));
@@ -124,11 +125,11 @@ static void error_failed_to_open_temp_file_dir(const char *temp_filename, const 
     }
 }
 
-void error_failed_to_open_tempdir(const char *temp_dir, const char *mesBuffer, const DWORD err) {
+void error_failed_to_open_tempdir(const TCHAR *temp_dir, const TCHAR *mesBuffer, const DWORD err) {
     error_failed_to_open_temp_file_dir(temp_dir, mesBuffer, err, true);
 }
 
-void error_failed_to_open_tempfile(const char *temp_filename, const char *mesBuffer, const DWORD err) {
+void error_failed_to_open_tempfile(const TCHAR *temp_filename, const TCHAR *mesBuffer, const DWORD err) {
     error_failed_to_open_temp_file_dir(temp_filename, mesBuffer, err, false);
 }
 
@@ -216,9 +217,9 @@ void error_tc2mp4_afs_not_supported() {
     write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_TC2MP4_AFS_NOT_SUPPORTED3));
 }
 
-void error_no_exe_file(const wchar_t *name, const char *path) {
-    if (strlen(path))
-        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_EXE_FILE1), name, char_to_wstring(path).c_str());
+void error_no_exe_file(const wchar_t *name, const TCHAR *path) {
+    if (_tcslen(path))
+        write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_EXE_FILE1), name, path);
     else
         write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_EXE_FILE2), name);
     write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_EXE_FILE3), name);
@@ -228,8 +229,8 @@ void warning_use_default_audio_encoder(const wchar_t *name) {
     write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_USE_DEFAULT_AUDIO_ENCODER), name);
 }
 
-void info_use_exe_found(const wchar_t *target, const char *path) {
-    write_log_auo_line_fmt(LOG_INFO, g_auo_mes.get(AUO_ERR_INFO_USE_EXE_FOUND), target, char_to_wstring(path).c_str());
+void info_use_exe_found(const wchar_t *target, const TCHAR *path) {
+    write_log_auo_line_fmt(LOG_INFO, g_auo_mes.get(AUO_ERR_INFO_USE_EXE_FOUND), target, path);
 }
 
 void error_invalid_ini_file() {
@@ -237,6 +238,7 @@ void error_invalid_ini_file() {
 }
 
 void error_unsupported_audio_format_by_muxer(const int video_out_type, const wchar_t *selected_aud, const wchar_t *default_aud) {
+#if !ENCODER_FFMPEG
     if (video_out_type < _countof(OUTPUT_FILE_EXT)) {
         write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_UNSUPPORTED_AUDIO_FORMAT_BY_MUXER1), selected_aud, char_to_wstring(OUTPUT_FILE_EXT[video_out_type] + 1).c_str());
         if (default_aud) {
@@ -245,6 +247,7 @@ void error_unsupported_audio_format_by_muxer(const int video_out_type, const wch
             write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_UNSUPPORTED_AUDIO_FORMAT_BY_MUXER3));
         }
     }
+#endif
 }
 
 void error_failed_to_run_audio_encoder(const wchar_t *selected_aud, const wchar_t *error_mes, const wchar_t *default_aud) {
@@ -365,17 +368,17 @@ void error_videnc_dead() {
     write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD));
 }
 
-void error_videnc_dead_and_nodiskspace(const char *drive, uint64_t diskspace) {
+void error_videnc_dead_and_nodiskspace(const TCHAR *drive, uint64_t diskspace) {
     write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE1));
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE2), char_to_wstring(drive).c_str(), (double)diskspace / (1024 * 1024));
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE3), char_to_wstring(drive).c_str());
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE4), char_to_wstring(drive).c_str());
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE2), drive, (double)diskspace / (1024 * 1024));
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE3), drive);
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_DEAD_AND_NODISKSPACE4), drive);
 }
-void error_videnc_version(const char *required_ver, const char *current_ver) {
+void error_videnc_version(const TCHAR *required_ver, const TCHAR *current_ver) {
     write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_VERSION1));
     write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_VIDENC_VERSION2));
-    write_log_auo_line_fmt(LOG_ERROR, L"%s: %s", g_auo_mes.get(AUO_ERR_VIDENC_VERSION3), char_to_wstring(required_ver).c_str());
-    write_log_auo_line_fmt(LOG_ERROR, L"%s: %s", g_auo_mes.get(AUO_ERR_VIDENC_VERSION4), char_to_wstring(current_ver).c_str());
+    write_log_auo_line_fmt(LOG_ERROR, L"%s: %s", g_auo_mes.get(AUO_ERR_VIDENC_VERSION3), required_ver);
+    write_log_auo_line_fmt(LOG_ERROR, L"%s: %s", g_auo_mes.get(AUO_ERR_VIDENC_VERSION4), current_ver);
 }
 
 void error_afs_get_frame() {
@@ -464,73 +467,73 @@ void error_audio_length(const double video_length, const double audio_length, co
     message_audio_length_different(video_length, audio_length, exedit_is_used, av_length_threshold, FALSE);
 }
 
-void error_audenc_failed(const wchar_t *name, const char *args) {
+void error_audenc_failed(const wchar_t *name, const TCHAR *args) {
     write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDENC_FAILED1), name);
     if (args) {
         write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_AUDENC_FAILED2));
-        write_log_auo_line(    LOG_ERROR, char_to_wstring(args).c_str());
+        write_log_auo_line(    LOG_ERROR, args);
     }
 }
 
-void error_mux_failed(const wchar_t *name, const char *args) {
+void error_mux_failed(const wchar_t *name, const TCHAR *args) {
     write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_MUX_FAILED1), name);
     write_log_auo_line(    LOG_ERROR, g_auo_mes.get(AUO_ERR_MUX_FAILED2));
-    write_log_auo_line(    LOG_ERROR, char_to_wstring(args).c_str());
+    write_log_auo_line(    LOG_ERROR, args);
 }
 
-void warning_no_mux_tmp_root(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_MUX_TMP_ROOT), char_to_wstring(dir).c_str());
+void warning_no_mux_tmp_root(const TCHAR *dir) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_MUX_TMP_ROOT), dir);
 }
 
-void warning_failed_mux_tmp_drive_space(const char *drivename) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_TMP_DRIVE_SPACE), char_to_wstring(drivename).c_str());
+void warning_failed_mux_tmp_drive_space(const TCHAR *drivename) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_TMP_DRIVE_SPACE), drivename);
 }
 
-void warning_failed_muxer_drive_space(const char *drivename) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_MUX_DRIVE_SPACE), char_to_wstring(drivename).c_str());
+void warning_failed_muxer_drive_space(const TCHAR *drivename) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_MUX_DRIVE_SPACE), drivename);
 }
 
-void warning_failed_out_drive_space(const char *drivename) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_OUT_DRIVE_SPACE), char_to_wstring(drivename).c_str());
+void warning_failed_out_drive_space(const TCHAR *drivename) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_OUT_DRIVE_SPACE), drivename);
 }
 
-void warning_failed_get_aud_size(const char *filename) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_GET_AUD_SIZE), char_to_wstring(filename).c_str());
+void warning_failed_get_aud_size(const TCHAR *filename) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_GET_AUD_SIZE), filename);
 }
 
-void warning_failed_get_vid_size(const char *filename) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_GET_VID_SIZE), char_to_wstring(filename).c_str());
+void warning_failed_get_vid_size(const TCHAR *filename) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_GET_VID_SIZE), filename);
 }
 
-void error_no_aud_file(const char *filename) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_AUD_FILE), char_to_wstring(filename).c_str());
+void error_no_aud_file(const TCHAR *filename) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_AUD_FILE), filename);
 }
 
-void error_no_vid_file(const char *filename) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_VID_FILE), char_to_wstring(filename).c_str());
+void error_no_vid_file(const TCHAR *filename) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_VID_FILE), filename);
 }
 
-void error_aud_file_zero_byte(const char *filename) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUD_FILE_ZERO_BYTE), char_to_wstring(filename).c_str());
+void error_aud_file_zero_byte(const TCHAR *filename) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_AUD_FILE_ZERO_BYTE), filename);
 }
 
-void error_vid_file_zero_byte(const char *filename) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VID_FILE_ZERO_BYTE), char_to_wstring(filename).c_str());
+void error_vid_file_zero_byte(const TCHAR *filename) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_VID_FILE_ZERO_BYTE), filename);
 }
 
-void warning_mux_tmp_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_TMP_NO_ENOUGH_SPACE1), char_to_wstring(drive).c_str());
+void warning_mux_tmp_not_enough_space(const TCHAR *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_TMP_NO_ENOUGH_SPACE1), drive);
     write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_NO_ENOUGH_SPACE_SHOW_SIZE), (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
     write_log_auo_line    (LOG_WARNING, g_auo_mes.get(AUO_ERR_TMP_NO_ENOUGH_SPACE2));
 }
 
-void error_muxer_drive_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_MUX_NO_ENOUGH_SPACE), char_to_wstring(drive).c_str());
+void error_muxer_drive_not_enough_space(const TCHAR *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_MUX_NO_ENOUGH_SPACE), drive);
     write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_ENOUGH_SPACE_SHOW_SIZE), (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
 }
 
-void error_out_drive_not_enough_space(const char *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_OUT_NO_ENOUGH_SPACE), char_to_wstring(drive).c_str());
+void error_out_drive_not_enough_space(const TCHAR *drive, const uint64_t free_diskspace, const uint64_t required_diskspace) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_OUT_NO_ENOUGH_SPACE), drive);
     write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_NO_ENOUGH_SPACE_SHOW_SIZE), (double)required_diskspace / (1024 * 1024), (double)free_diskspace / (1024 * 1024));
 }
 
@@ -540,39 +543,39 @@ void warning_failed_to_get_duration_from_timecode() {
     write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_TO_GET_DURATION_FROM_TIMECODE3));
 }
 
-void error_check_muxout_exist(const char *filename) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_EXIST), char_to_wstring(filename).c_str());
+void error_check_muxout_exist(const TCHAR *filename) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_EXIST), filename);
 }
 
-void error_check_muxout_too_small(const char *filename, int expected_filesize_KB, int muxout_filesize_KB) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_TO_SMALL1), char_to_wstring(filename).c_str());
+void error_check_muxout_too_small(const TCHAR *filename, int expected_filesize_KB, int muxout_filesize_KB) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_TO_SMALL1), filename);
     write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_TO_SMALL2), expected_filesize_KB, muxout_filesize_KB);
 }
 
-void warning_failed_check_muxout_filesize(const char *filename) {
-    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_GET_SIZE), char_to_wstring(filename).c_str());
+void warning_failed_check_muxout_filesize(const TCHAR *filename) {
+    write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_CHECK_MUXOUT_GET_SIZE), filename);
 }
 
 std::wstring getLastErrorStr(DWORD err) {
     std::wstring message;
-    char *mesBuffer = nullptr;
+    TCHAR *mesBuffer = nullptr;
     FormatMessage(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPSTR)&mesBuffer, 0, NULL);
+        (LPTSTR)&mesBuffer, 0, NULL);
     if (mesBuffer != nullptr) {
-        message = char_to_wstring(mesBuffer);
+        message = tchar_to_wstring(mesBuffer);
         LocalFree(mesBuffer);
     }
     return message;
 }
 
-void error_failed_remove_file(const char *filename, const DWORD err) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_REMOVE_FILE), getLastErrorStr(err).c_str(), char_to_wstring(filename).c_str());
+void error_failed_remove_file(const TCHAR *filename, const DWORD err) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_REMOVE_FILE), getLastErrorStr(err).c_str(), filename);
 }
 
-void error_failed_rename_file(const char *filename, const DWORD err) {
-    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_RENAME_FILE), getLastErrorStr(err).c_str(), char_to_wstring(filename).c_str());
+void error_failed_rename_file(const TCHAR *filename, const DWORD err) {
+    write_log_auo_line_fmt(LOG_ERROR, g_auo_mes.get(AUO_ERR_RENAME_FILE), getLastErrorStr(err).c_str(), filename);
 }
 
 void warning_amp_failed() {
@@ -663,13 +666,13 @@ void error_select_convert_func(int width, int height, int bit_depth, BOOL interl
     write_log_auo_line_fmt(LOG_ERROR, L"%dx%d%s, output-csp %s%s",
         width, height,
         (interlaced) ? L"i" : L"p",
-        char_to_wstring(specify_csp[output_csp]).c_str(),
+        specify_csp[output_csp],
         bit_depth_str
         );
 }
 
-void warning_no_batfile(const char *batfile) {
-    write_log_auo_line_fmt(LOG_WARNING, L"%s: %s", g_auo_mes.get(AUO_ERR_NO_BAT_FILE), char_to_wstring(batfile).c_str());
+void warning_no_batfile(const TCHAR *batfile) {
+    write_log_auo_line_fmt(LOG_WARNING, L"%s: %s", g_auo_mes.get(AUO_ERR_NO_BAT_FILE), batfile);
 }
 
 void warning_malloc_batfile_tmp() {
@@ -682,6 +685,14 @@ void warning_failed_open_bat_orig() {
 
 void warning_failed_open_bat_new() {
     write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_OPEN_BAT_NEW));
+}
+
+void error_get_exedit_file_mapping() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_EXEDIT_NOT_FOUND));
+}
+
+void error_get_exedit_output_start() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_EXEDIT_OUTPUT_START));
 }
 
 void warning_video_very_short() {

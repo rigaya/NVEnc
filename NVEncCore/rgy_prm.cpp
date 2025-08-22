@@ -1177,12 +1177,14 @@ tstring VppNnedi::print() const {
 
 VppYadif::VppYadif() :
     enable(false),
+    log(false),
     mode(VPP_YADIF_MODE_AUTO) {
 
 }
 
 bool VppYadif::operator==(const VppYadif& x) const {
     return enable == x.enable
+        && log == x.log
         && mode == x.mode;
 }
 bool VppYadif::operator!=(const VppYadif& x) const {

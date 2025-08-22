@@ -69,9 +69,6 @@
     <ClCompile Include="encode\auo_audio_parallel.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
-    <ClCompile Include="encode\auo_chapter.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
     <ClCompile Include="prm\auo_conf.cpp">
       <Filter>ソース ファイル\prm</Filter>
     </ClCompile>
@@ -160,9 +157,6 @@
     <ClInclude Include="encode\auo_audio_parallel.h">
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
-    <ClInclude Include="encode\auo_chapter.h">
-      <Filter>ヘッダー ファイル\encode</Filter>
-    </ClInclude>
     <ClInclude Include="encode\vphelp_client.h">
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
@@ -237,6 +231,9 @@
     </ClInclude>
     <ClInclude Include="frm\auo_mes.h">
       <Filter>ヘッダー ファイル\frm</Filter>
+    </ClInclude>
+    <ClInclude Include="output2.h">
+      <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

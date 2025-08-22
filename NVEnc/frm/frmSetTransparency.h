@@ -272,7 +272,7 @@ namespace AUO_NAME_R {
     public:
         System::Void InitTheme() {
             if (dwStgReader != nullptr) delete dwStgReader;
-            char aviutl_dir[MAX_PATH_LEN];
+            TCHAR aviutl_dir[MAX_PATH_LEN];
             get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
             const auto [themeTo, dwStg] = check_current_theme(aviutl_dir);
             dwStgReader = dwStg;

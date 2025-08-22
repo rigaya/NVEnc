@@ -260,7 +260,7 @@ namespace AUO_NAME_R {
         System::Void SavefasToStg() {
             fas_ex_stg->load_log_win();
             fas_ex_stg->s_log.auto_save_log_mode = fasCXAutoSaveLog->SelectedIndex;
-            GetCHARfromString(fas_ex_stg->s_log.auto_save_log_path, sizeof(fas_ex_stg->s_log.auto_save_log_path), fasTXAutoSaveLog->Text);
+            GetWCHARfromString(fas_ex_stg->s_log.auto_save_log_path, _countof(fas_ex_stg->s_log.auto_save_log_path), fasTXAutoSaveLog->Text);
             fas_ex_stg->save_log_win();
         }
     private:
@@ -310,7 +310,7 @@ namespace AUO_NAME_R {
     public:
         System::Void InitTheme() {
             if (dwStgReader != nullptr) delete dwStgReader;
-            char aviutl_dir[MAX_PATH_LEN];
+            TCHAR aviutl_dir[MAX_PATH_LEN];
             get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
             const auto [themeTo, dwStg] = check_current_theme(aviutl_dir);
             dwStgReader = dwStg;

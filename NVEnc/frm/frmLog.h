@@ -107,7 +107,7 @@ namespace AUO_NAME_R {
             this->toolStripMenuItemShowStatus->Checked      = exstg.s_log.show_status_bar != 0;
             this->ToolStripMenuItemStartMinimized->Checked  = exstg.s_log.minimized != 0;
             this->toolStripMenuItemSaveLogSize->Checked     = exstg.s_log.save_log_size != 0;
-            bool check_win7later = check_OS_Win7orLater() != 0;
+            bool check_win7later = IsWindows7OrGreater() != 0;
             this->toolStripMenuItemTaskBarProgress->Enabled = check_win7later;
             this->toolStripMenuItemTaskBarProgress->Checked = (exstg.s_log.taskbar_progress != 0 && check_win7later);
             SetWindowPos(exstg.s_log.log_pos[0], exstg.s_log.log_pos[1]);
@@ -771,7 +771,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItemFilePathOp
             }
         }
     public:
-        System::Void AutoSaveLogFile(const char *log_filename) {
+        System::Void AutoSaveLogFile(const TCHAR *log_filename) {
             if (toolStripMenuItemAutoSave->Checked && !prevent_log_closing && log_filename != NULL)
                 SaveLog(String(log_filename).ToString());
         }

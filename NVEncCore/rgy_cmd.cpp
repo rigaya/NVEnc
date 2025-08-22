@@ -1998,9 +1998,23 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->yadif.log = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
+                if (param == _T("log")) {
+                    vpp->yadif.log = true;
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
@@ -7532,6 +7546,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->yadif.enable || save_disabled_prm) {
             ADD_LST(_T("mode"), yadif.mode, list_vpp_yadif_mode);
+            ADD_BOOL(_T("log"), yadif.log);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-yadif ") << tmp.str().substr(1);

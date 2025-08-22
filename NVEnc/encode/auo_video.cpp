@@ -37,7 +37,7 @@
 #pragma comment(lib, "shlwapi.lib")
 #include <vector>
 
-#include "output.h"
+#include "auo.h"
 #include "vphelp_client.h"
 
 #pragma warning( push )
@@ -47,7 +47,6 @@
 
 #include "convert.h"
 
-#include "auo.h"
 #include "auo_frm.h"
 #include "auo_pipe.h"
 #include "auo_error.h"
@@ -59,6 +58,7 @@
 #include "auo_encode.h"
 #include "auo_convert.h"
 #include "auo_video.h"
+#include "auo_audio.h"
 #include "auo_audio_parallel.h"
 #include "auo_mes.h"
 
@@ -69,11 +69,10 @@
 static const int MAX_CONV_THREADS = 4;
 
 int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
-    const bool isAviutl2 = is_aviutl2();
     //Aviutlからの入力に使用するフォーマット
     RGY_CHROMAFMT chromafmt = RGY_CSP_CHROMA_FORMAT[csp];
 
-    if (use_highbit && !isAviutl2) {
+    if (use_highbit) {
         return CF_YC48;
     }
 
@@ -81,7 +80,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     case RGY_CHROMAFMT_RGB:
         return CF_RGB;
     case RGY_CHROMAFMT_YUV444:
-        return isAviutl2 ? CF_RGB : CF_YC48;
+        return CF_YC48;
     case RGY_CHROMAFMT_YUV420:
     case RGY_CHROMAFMT_YUV422:
     default:
@@ -164,7 +163,7 @@ void close_afsvideo(PRM_ENC *pe) {
 
 DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *pe) {
     DWORD ret = AUO_RESULT_SUCCESS;
-    char auotcfile[MAX_PATH_LEN];
+    TCHAR auotcfile[MAX_PATH_LEN];
     FILE *tcfile = NULL;
 
     if (afs)
@@ -174,7 +173,7 @@ DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *
     //ファイル名作成
     apply_appendix(auotcfile, _countof(auotcfile), pe->temp_filename, pe->append.tc);
 
-    if (NULL != fopen_s(&tcfile, auotcfile, "wb")) {
+    if (NULL != _tfopen_s(&tcfile, auotcfile, _T("wb"))) {
         ret |= AUO_RESULT_ERROR; warning_auo_tcfile_failed();
     } else {
         fprintf(tcfile, "# timecode format v2\r\n");
@@ -202,27 +201,27 @@ DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *
     return ret;
 }
 
-static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, const InEncodeVideoParam *encPrm, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const char *input) {
+static void build_full_cmd(TCHAR *cmd, size_t nSize, const CONF_GUIEX *conf, const InEncodeVideoParam *encPrm, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const TCHAR *input) {
     //cliモードでない
     //自動設定の適用
     //apply_guiEx_auto_settings(&prm.x264, oip->w, oip->h, oip->rate, oip->scale, sys_dat->exstg->s_local.auto_ref_limit_by_level);
     //GUI部のコマンドライン生成
-    strcpy_s(cmd, nSize, gen_cmd(encPrm, nullptr, false).c_str());
+    _tcscpy_s(cmd, nSize, gen_cmd(encPrm, nullptr, false).c_str());
     //cmdexの処理
-    char cmdex[sizeof(conf->enc.cmdex)];
-    strcpy_s(cmdex, conf->enc.cmdex);
-    cmd_replace(cmdex, sizeof(cmdex), pe, sys_dat, conf, oip);
-    replace_cmd_CRLF_to_Space(cmdex, sizeof(cmdex) - 1);
-    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " %s", cmdex);
+    TCHAR cmdex[sizeof(conf->vid.cmdex)];
+    _tcscpy_s(cmdex, conf->vid.cmdex);
+    cmd_replace(cmdex, _countof(cmdex), pe, sys_dat, conf, oip);
+    replace_cmd_CRLF_to_Space(cmdex, _countof(cmdex) - 1);
+    _stprintf_s(cmd + _tcslen(cmd), nSize - _tcslen(cmd), _T(" %s"), cmdex);
 
     //メッセージの発行
     if ((encPrm->encConfig.rcParams.vbvBufferSize != 0 || encPrm->encConfig.rcParams.vbvInitialDelay != 0) && conf->vid.afs) {
         write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_VIDEO_AFS_VBV_WARN));
     }
     //出力ファイル
-    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
+    _stprintf_s(cmd + _tcslen(cmd), nSize - _tcslen(cmd), _T(" -o \"%s\""), pe->temp_filename);
     //入力
-    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm --parent-pid %08x -i -", GetCurrentProcessId());
+    _stprintf_s(cmd + _tcslen(cmd), nSize - _tcslen(cmd), _T(" --sm --parent-pid %08x -i -"), GetCurrentProcessId());
 }
 
 //並列処理時に音声データを取得する
@@ -233,7 +232,7 @@ AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe, BOOL use_inter
         //---   排他ブロック 開始  ---> 音声スレッドが止まっていなければならない
         if (aud_p->he_vid_start && WaitForSingleObject(aud_p->he_vid_start, (use_internal) ? 0 : INFINITE) == WAIT_OBJECT_0) {
             if (aud_p->he_vid_start && aud_p->get_length) {
-                DWORD required_buf_size = aud_p->get_length * (DWORD)oip->audio_size;
+                DWORD required_buf_size = aud_p->get_length * (DWORD)get_audio_size(oip, 1);
                 if (aud_p->buf_max_size < required_buf_size) {
                     //メモリ不足なら再確保
                     if (aud_p->buffer) free(aud_p->buffer);
@@ -243,14 +242,14 @@ AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe, BOOL use_inter
                 }
                 void *data_ptr = NULL;
                 if (NULL == aud_p->buffer ||
-                    NULL == (data_ptr = oip->func_get_audio(aud_p->start, aud_p->get_length, &aud_p->get_length))) {
+                    NULL == (data_ptr = oip_func_get_audio(oip, aud_p->start, aud_p->get_length, &aud_p->get_length, 1))) {
                     ret = AUO_RESULT_ERROR; //mallocエラーかget_audioのエラー
                 } else {
                     //自前のバッファにコピーしてdata_ptrが破棄されても良いようにする
-                    memcpy(aud_p->buffer, data_ptr, aud_p->get_length * oip->audio_size);
+                    memcpy(aud_p->buffer, data_ptr, aud_p->get_length * (DWORD)get_audio_size(oip, 1));
                 }
                 //すでにTRUEなら変更しないようにする
-                aud_p->abort |= oip->func_is_abort();
+            aud_p->abort |= (oip->func_is_abort() ? TRUE : FALSE);
             }
             flush_audio_log();
             if_valid_set_event(aud_p->he_aud_start);
@@ -292,7 +291,7 @@ static AUO_RESULT exit_audio_parallel_control(const OUTPUT_INFO *oip, PRM_ENC *p
                 set_window_title(g_auo_mes.get(AUO_VIDEO_AUDIO_PROC_WAIT), PROGRESSBAR_MARQUEE);
                 wait_for_audio = !wait_for_audio;
             }
-            pe->aud_parallel.abort |= oip->func_is_abort();
+            pe->aud_parallel.abort |= (oip->func_is_abort() ? TRUE : FALSE);
             log_process_events();
         }
         flush_audio_log();
@@ -340,8 +339,8 @@ static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO
         prmsm->abort = false;
         prmsm->afs = afs;
         for (int i = 0; i < 2; i++) {
-            prmsm->heBufEmpty[i] = (uint32_t)heBufEmpty[i];
-            prmsm->heBufFilled[i] = (uint32_t)heBufFilled[i];
+            prmsm->heBufEmpty[i] = (uint64_t)heBufEmpty[i];
+            prmsm->heBufFilled[i] = (uint64_t)heBufFilled[i];
             prmsm->duration[i] = 0;
             prmsm->timestamp[i] = 0;
             prmsm->dropped[i] = 0;
@@ -474,18 +473,18 @@ static void error_videnc_failed(const PRM_ENC *pe) {
     ULARGE_INTEGER temp_drive_avail_space = { 0 };
     const uint64_t disk_warn_threshold = 4 * 1024 * 1024; //4MB
     //指定されたドライブが存在するかどうか
-    char temp_root[MAX_PATH_LEN];
+    TCHAR temp_root[MAX_PATH_LEN];
     if (PathGetRoot(pe->temp_filename, temp_root, _countof(temp_root))
         && PathIsDirectory(temp_root)
         && GetDiskFreeSpaceEx(temp_root, &temp_drive_avail_space, NULL, NULL)
         && temp_drive_avail_space.QuadPart <= disk_warn_threshold) {
-        char driveLetter[MAX_PATH_LEN];
-        strcpy_s(driveLetter, temp_root);
-        if (strlen(driveLetter) > 1 && driveLetter[strlen(driveLetter) - 1] == '\\') {
-            driveLetter[strlen(driveLetter) - 1] = '\0';
+        TCHAR driveLetter[MAX_PATH_LEN];
+        _tcscpy_s(driveLetter, temp_root);
+        if (_tcslen(driveLetter) > 1 && driveLetter[_tcslen(driveLetter) - 1] == '\\') {
+            driveLetter[_tcslen(driveLetter) - 1] = '\0';
         }
-        if (strlen(driveLetter) > 1 && driveLetter[strlen(driveLetter) - 1] == ':') {
-            driveLetter[strlen(driveLetter) - 1] = '\0';
+        if (_tcslen(driveLetter) > 1 && driveLetter[_tcslen(driveLetter) - 1] == ':') {
+            driveLetter[_tcslen(driveLetter) - 1] = '\0';
         }
         error_videnc_dead_and_nodiskspace(driveLetter, temp_drive_avail_space.QuadPart);
     } else {
@@ -508,7 +507,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec_rgy];
 
-    if (!conf->vid.resize_enable) {
+    if (!conf->enc.resize_enable) {
         enc_prm.input.dstWidth = 0;
         enc_prm.input.dstHeight = 0;
     }
@@ -527,7 +526,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         //音声
         for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
-            char aud_filename[MAX_PATH_LEN];
+            TCHAR aud_filename[MAX_PATH_LEN];
             if (conf->aud.use_internal) {
                 get_audio_pipe_name(aud_filename, _countof(aud_filename), i_aud);
             } else {
@@ -538,12 +537,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             src.filename = aud_filename;
             AudioSelect &chSel = src.select[0];
             if (!conf->aud.use_internal) {
-                chSel.encCodec = "copy";
+                chSel.encCodec = _T("copy");
             } else {
                 const CONF_AUDIO_BASE *cnf_aud = &conf->aud.in;
                 const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud_int[cnf_aud->encoder];
                 if (sys_dat->exstg->is_faw(aud_stg)) {
-                    chSel.encCodec = "copy";
+                    chSel.encCodec = _T("copy");
                 } else {
                     if (aud_stg->mode[cnf_aud->enc_mode].bitrate) {
                         chSel.encBitrate = cnf_aud->bitrate;
@@ -556,10 +555,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     }
 
     //chapterファイル
-    char chap_file[MAX_PATH_LEN];
-    char chap_apple[MAX_PATH_LEN];
+    TCHAR chap_file[MAX_PATH_LEN];
+    TCHAR chap_apple[MAX_PATH_LEN];
     const MUXER_CMD_EX *muxer_mode = get_muxer_mode(conf, sys_dat, pe->muxer_to_be_used);
-    if (muxer_mode && strlen(muxer_mode->chap_file) > 0) {
+    if (muxer_mode && _tcslen(muxer_mode->chap_file) > 0) {
         set_chap_filename(chap_file, _countof(chap_file), chap_apple, _countof(chap_apple), muxer_mode->chap_file, pe, sys_dat, conf, oip);
         if (!PathFileExists(chap_file)) {
             warning_mux_no_chapter_file();
@@ -568,9 +567,9 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         }
     }
 
-    char exe_cmd[MAX_CMD_LEN] = { 0 };
-    char exe_args[MAX_CMD_LEN] = { 0 };
-    char exe_dir[MAX_PATH_LEN] = { 0 };
+    TCHAR exe_cmd[MAX_CMD_LEN] = { 0 };
+    TCHAR exe_args[MAX_CMD_LEN] = { 0 };
+    TCHAR exe_dir[MAX_PATH_LEN] = { 0 };
 
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     PIPE_SET pipes = { 0 };
@@ -578,11 +577,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     const BOOL afs = conf->vid.afs != 0;
 
     //プロセス用情報準備
-    if (!PathFileExists(sys_dat->exstg->s_vid.fullpath)) {
-        ret |= AUO_RESULT_ERROR; error_no_exe_file(ENCODER_NAME_W, sys_dat->exstg->s_vid.fullpath);
+    if (!PathFileExists(sys_dat->exstg->s_enc.fullpath)) {
+        ret |= AUO_RESULT_ERROR; error_no_exe_file(ENCODER_NAME_W, sys_dat->exstg->s_enc.fullpath);
         return ret;
     }
-    PathGetDirectory(exe_dir, _countof(exe_dir), sys_dat->exstg->s_vid.fullpath);
+    PathGetDirectory(exe_dir, _countof(exe_dir), sys_dat->exstg->s_enc.fullpath);
 
     //output csp
     RGY_CSP rgy_output_csp;
@@ -603,8 +602,8 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     build_full_cmd(exe_cmd, _countof(exe_cmd), conf, &enc_prm, oip, pe, sys_dat, PIPE_FN);
     write_log_auo_line_fmt(LOG_INFO, L"%s options...", ENCODER_APP_NAME_W);
     write_args(exe_cmd);
-    sprintf_s(exe_args, _countof(exe_args), "\"%s\" %s", sys_dat->exstg->s_vid.fullpath, exe_cmd);
-    remove(pe->temp_filename); //ファイルサイズチェックの時に旧ファイルを参照してしまうのを回避
+    _stprintf_s(exe_args, _countof(exe_args), _T("\"%s\" %s"), sys_dat->exstg->s_enc.fullpath, exe_cmd);
+    _tremove(pe->temp_filename); //ファイルサイズチェックの時に旧ファイルを参照してしまうのを回避
 
     //パイプの設定
     pipes.stdErr.mode = AUO_PIPE_ENABLE;
@@ -699,8 +698,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             if (AUO_RESULT_SUCCESS != ret)
                 break;
 
+#if AVIUTL_TARGET_VER == 1
             //コピーフレームフラグ処理
             copy_frame = (!!i & (oip->func_get_flag(i) & OUTPUT_INFO_FRAME_FLAG_COPYFRAME));
+#endif
 
             DWORD wait_err = WAIT_TIMEOUT;
             do {
@@ -762,10 +763,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                 }
             }
 
+#if AVIUTL_TARGET_VER == 1
             // 「表示 -> セーブ中もプレビュー表示」がチェックされていると
             // func_update_preview() の呼び出しによって func_get_video_ex() の
             // 取得したバッファが書き換えられてしまうので、呼び出し位置を移動 (拡張AVI出力 plus より)
             oip->func_update_preview();
+#endif
         }
         //------------メインループここまで--------------
 

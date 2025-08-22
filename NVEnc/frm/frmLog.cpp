@@ -37,7 +37,7 @@ using namespace AUO_NAME_R;
 
 //ログウィンドウを表示させる
 [STAThreadAttribute]
-void show_log_window(const char *aviutl_dir, BOOL disable_visual_styles) {
+void show_log_window(const TCHAR *aviutl_dir, BOOL disable_visual_styles) {
     if (!disable_visual_styles)
         System::Windows::Forms::Application::EnableVisualStyles();
     System::IO::Directory::SetCurrentDirectory(String(aviutl_dir).ToString());
@@ -104,7 +104,7 @@ void set_prevent_log_close(BOOL prevent) {
 }
 //自動ログ保存を実行
 [STAThreadAttribute]
-void auto_save_log_file(const char *log_filepath) {
+void auto_save_log_file(const TCHAR *log_filepath) {
     frmLog::Instance::get()->AutoSaveLogFile(log_filepath);
 }
 //ログウィンドウに設定を再ロードさせる

@@ -43,6 +43,7 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue,
 
 int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nArgNum, const TCHAR **strInput, bool ignore_parse_err = false);
 int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const char *cmda, bool ignore_parse_err = false);
+int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const wchar_t *cmdw, bool ignore_parse_err = false);
 
 tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG codecPrm[2], bool save_disabled_prm);
 

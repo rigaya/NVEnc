@@ -35,6 +35,7 @@
 #pragma comment(lib, "ole32.lib")
 #include "auo_util.h"
 #include "auo_frm.h"
+#include <VersionHelpers.h>
 
 class taskbarProgress {
 private:
@@ -55,7 +56,7 @@ private:
 public:
     taskbarProgress(HWND _hWnd) {
         hWnd = _hWnd;
-        if (!check_OS_Win7orLater()
+        if (!IsWindows7OrGreater()
             || S_OK != CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pTaskbarList))) {
             pTaskbarList = nullptr;
         }

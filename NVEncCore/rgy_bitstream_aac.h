@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2010-2022 rigaya
+// Copyright (c) 2023 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,30 +24,35 @@
 // THE SOFTWARE.
 //
 // --------------------------------------------------------------------------------------------
-#pragma once
-#ifndef _EXE_VERSION_H_
-#define _EXE_VERSION_H_
 
-#include <string>
+#ifndef __RGY_BITSTREAM_AAC_H__
+#define __RGY_BITSTREAM_AAC_H__
 
-int version_a_larger_than_b(const int a[4], const int b[4]);
-std::string ver_string(int ver[4]);
+#include <cstdint>
 
-int get_exe_version_info(const TCHAR *exe_path, int version[4]);
-int get_exe_version_from_cmd(const TCHAR *exe_path, const TCHAR *cmd_ver, int version[4]);
+static const int AAC_HEADER_MIN_SIZE = 7;
+static const uint32_t AAC_BLOCK_SAMPLES = 1024;
 
-int get_x264_rev(const TCHAR *x264fullpath);
-int get_x265_rev(const TCHAR *x265fullpath, int version[4]);
-int get_svtav1_rev(const TCHAR *svtav1fullpath, int version[4]);
+struct RGYAACHeader {
+    static const int HEADER_BYTE_SIZE = 7;
+    bool id;
+    bool protection;
+    int profile;     // 00 ... main, 01 ... lc, 10 ... ssr
+    int samplerate;
+    bool private_bit;
+    uint32_t channel;
+    bool original;
+    bool home;
+    bool copyright;
+    bool copyright_start;
+    uint32_t aac_frame_length; // AACヘッダを含む
+    int adts_buffer_fullness;
+    int no_raw_data_blocks_in_frame;
 
-int get_x265ver_from_txt(const TCHAR *txt, int v[4]);
-
-enum QTDLL {
-    QAAC_APPLEDLL_UNAVAILABLE = 0,
-    QAAC_APPLEDLL_IN_EXEDIR = 1,
-    QAAC_APPLEDLL_IN_CURRENTDIR = 2
+    static bool is_adts_sync(const uint16_t *ptr);
+    static bool is_valid(const uint8_t *buf, const size_t size);
+    int parse(const uint8_t *buf, const size_t size = RGYAACHeader::HEADER_BYTE_SIZE);
+    int sampleRateIdxToRate(const uint32_t idx);
 };
 
-QTDLL check_if_apple_dll_required_for_qaac(const TCHAR *exe_dir, const TCHAR *current_fullpath);
-
-#endif //_EXE_VERSION_H_
+#endif //__RGY_BITSTREAM_AAC_H__

@@ -29,7 +29,7 @@ BOOL VPHELP_open(void)
     VPHELP_MemName[i] = 0;
   }
   
-  VPHELP_hMemMap = OpenFileMapping(FILE_MAP_READ, FALSE, VPHELP_MemName);
+  VPHELP_hMemMap = OpenFileMappingA(FILE_MAP_READ, FALSE, VPHELP_MemName);
   if(VPHELP_hMemMap == NULL) return FALSE;
   VPHELP_MemView = (unsigned char*) MapViewOfFile(VPHELP_hMemMap, FILE_MAP_READ, 0, 0, 0);
   if(VPHELP_MemView == NULL){

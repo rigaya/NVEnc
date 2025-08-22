@@ -61,19 +61,21 @@ typedef struct {
 void ShowfrmConfig(CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat);
 
 //ログウィンドウ制御
-void show_log_window(const char *aviutl_dir, BOOL disable_visual_styles);
+void show_log_window(const TCHAR *aviutl_dir, BOOL disable_visual_styles);
 void set_window_title(const wchar_t *chr);
 void set_window_title(const wchar_t *chr, int progress_mode);
 void set_window_title_enc_mes(const wchar_t *chr, int total_drop, int frame_n);
 void set_task_name(const wchar_t *chr);
 void set_log_progress(double progress);
+void write_log_auo_line_b(int log_type_index, const char *chr, bool from_utf8 = false);
+void write_log_line_b(int log_type_index, const char *chr, bool from_utf8 = false);
 void write_log_auo_line(int log_type_index, const wchar_t *chr);
 void write_log_line(int log_type_index, const wchar_t *chr);
 void flush_audio_log();
 void enable_enc_control(DWORD *priority, bool *enc_pause, BOOL afs, BOOL add_progress, DWORD start_time, int _total_frame);
 void disable_enc_control();
 void set_prevent_log_close(BOOL prevent);
-void auto_save_log_file(const char *log_filepath);
+void auto_save_log_file(const TCHAR *log_filepath);
 void log_process_events();
 int  get_current_log_len(bool first_pass);
 void log_reload_settings();
@@ -85,6 +87,6 @@ void release_log_cache(LOG_CACHE *log_cache); //LOG_CACHEで使用している�
 
 void write_log_enc_mes(char * const mes, DWORD *log_len, int total_drop, int current_frames, int total_frames, LOG_CACHE *cache_line = nullptr);
 void write_log_exe_mes(char *const msg, DWORD *log_len, const wchar_t *exename, LOG_CACHE *cache_line);
-void write_args(const char *args);
+void write_args(const TCHAR *args);
 
 #endif //_AUO_FRM_H_

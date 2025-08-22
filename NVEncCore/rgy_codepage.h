@@ -42,6 +42,13 @@ enum : uint32_t {
     CODE_PAGE_UNSET       = 0xffffffff,
 };
 
+//BOM文字リスト
+static const int MAX_UTF8_CHAR_LENGTH = 6;
+static const uint8_t UTF8_BOM[]     = { 0xEF, 0xBB, 0xBF };
+static const uint8_t UTF16_LE_BOM[] = { 0xFF, 0xFE };
+static const uint8_t UTF16_BE_BOM[] = { 0xFE, 0xFF };
+
+uint32_t jpn_check(const void *str, uint32_t size_in_byte);
 uint32_t get_code_page(const void *str, uint32_t size_in_byte);
 const char *codepage_str(uint32_t codepage);
 

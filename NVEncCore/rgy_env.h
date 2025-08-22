@@ -51,6 +51,8 @@ using unique_handle = std::unique_ptr<std::remove_pointer<HANDLE>::type, std::fu
 
 std::vector<size_t> createChildProcessIDList(const size_t target_pid);
 std::vector<unique_handle> createProcessHandleList(const std::vector<size_t>& list_pid, const wchar_t *handle_type);
+std::vector<std::wstring> createProcessModuleList();
+bool checkIfModuleLoaded(const wchar_t *moduleName);
 #endif
 
 #endif //__RGY_ENV_H__

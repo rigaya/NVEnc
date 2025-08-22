@@ -154,6 +154,15 @@ jobs:
         include:
           - arch: x86
             platform: Win32
+            aviutlver: AviUtl
+            outext: auo
+            cuda_ver_major: 11
+            cuda_ver_minor: 8
+            cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.8.0/network_installers/cuda_11.8.0_windows_network.exe
+          - arch: x64
+            platform: x64
+            aviutlver: AviUtl2
+            outext: auo2
             cuda_ver_major: 11
             cuda_ver_minor: 8
             cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.8.0/network_installers/cuda_11.8.0_windows_network.exe
@@ -192,13 +201,21 @@ jobs:
           set CUDA_PATH_V11_8=%CUDA_PATH%
           msbuild NVEnc.sln /t:build /p:configuration=Release /p:Platform=${{ matrix.platform }} -maxcpucount
 
-      - name: Download auo_setup
-        id: download_auosetup
+      - name: Download auo_setup Win32
+        id: download_auosetup_win32
+        if: matrix.platform == 'Win32'
         run: |
           curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.02/auo_setup_2.02.zip
 
+      - name: Download auo_setup x64
+        id: download_auosetup_x64
+        if: matrix.platform == 'x64'
+        run: |
+          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.04/auo_setup_2.04_x64.zip
+
       - name: Download NVEncC Win32
         uses: actions/download-artifact@v4
+        if: matrix.platform == 'Win32'
         with:
           name: NVEncC_release_${{ needs.get_version_name.outputs.version_name }}_Win32
           path: NVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
@@ -209,8 +226,9 @@ jobs:
           name: NVEncC_release_${{ needs.get_version_name.outputs.version_name }}_x64
           path: NVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
           
-      - name: Create package
-        id: archieve
+      - name: Create package Win32
+        id: archieve_win32
+        if: matrix.platform == 'Win32'
         run: |
           mkdir Aviutl_NVEnc_release
           7z x -oAviutl_NVEnc_release\ auo_setup.zip
@@ -230,54 +248,86 @@ jobs:
           dir /b /s Aviutl_NVEnc_release\
           7z a -mx9 Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip .\Aviutl_NVEnc_release\*
 
-          mkdir Aviutl_NVEnc_release2
-          mkdir Aviutl_NVEnc_release2\Plugin
-          mkdir Aviutl_NVEnc_release2\Plugin\exe_files
-          xcopy /e /y Aviutl_NVEnc_release\exe_files Aviutl_NVEnc_release2\Plugin\exe_files
-          xcopy /e /y Aviutl_NVEnc_release\plugins   Aviutl_NVEnc_release2\Plugin
-          del Aviutl_NVEnc_release2\Plugin\auo_setup.auf
-          del Aviutl_NVEnc_release2\Plugin\exe_files\auo_setup.exe
-          rmdir /s /q Aviutl_NVEnc_release2\Plugin\exe_files\NVEncC\x86
-          7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_NVEnc_release2\*
+      - name: Create package x64
+        id: archieve_x64
+        if: matrix.platform == 'x64'
+        run: |
+          mkdir Aviutl_NVEnc_release
+          7z x -oAviutl_NVEnc_release\ auo_setup.zip
+          mkdir Aviutl_NVEnc_release\Plugin\exe_files\NVEncC
+          mkdir Aviutl_NVEnc_release\Plugin\exe_files\NVEncC\x64
+          7z x -oAviutl_NVEnc_release\Plugin\exe_files\NVEncC\x64\ NVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          copy /y _build\x64\Release\NVEnc.auo2 Aviutl_NVEnc_release\Plugin\
+          copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\Plugin\
+          copy /y NVEnc\NVEnc.en.ini Aviutl_NVEnc_release\Plugin\
+          copy /y NVEnc\NVEnc.zh.ini Aviutl_NVEnc_release\Plugin\
+          copy /y NVEnc\auo_setup.ini Aviutl_NVEnc_release\Plugin\exe_files\
+          copy /y NVEnc\NVEnc_readme.txt Aviutl_NVEnc_release\
+          echo D | xcopy /y /e NVEnc\stg Aviutl_NVEnc_release\Plugin\NVEnc_stg
+          7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_NVEnc_release\*
           copy /b NVEnc\7zSD.noadmin.sfx + NVEnc\7zInstallerConfig.txt + Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
       - name: Check Version
         id: check_ver
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          powershell "$ver = (Get-ItemProperty .\Aviutl_NVEnc_release\plugins\NVEnc.auo).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
+          powershell "$ver = (Get-ItemProperty .\_build\${{ matrix.platform }}\Release\NVEnc.${{ matrix.outext }}).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
 
-      - name: Check dll
-        id: check_dll
+      - name: Check dll Win32
+        id: check_dll_win32
+        if: matrix.platform == 'Win32'
         run: |
           "Aviutl_NVEnc_release\exe_files\NVEncC\x86\NVEncC.exe" --check-avcodec-dll
           "Aviutl_NVEnc_release\exe_files\NVEncC\x64\NVEncC64.exe" --check-avcodec-dll
 
-      - name: Calc hash
-        id: calc_hash
+      - name: Check dll x64
+        id: check_dll_x64
+        if: matrix.platform == 'x64'
+        run: |
+          "Aviutl_NVEnc_release\Plugin\exe_files\NVEncC\x64\NVEncC64.exe" --check-avcodec-dll
+
+      - name: Calc hash Win32
+        id: calc_hash_win32
+        if: matrix.platform == 'Win32'
         run: |
           7z h -scrc* Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+
+      - name: Calc hash x64
+        id: calc_hash_x64
+        if: matrix.platform == 'x64'
+        run: |
           7z h -scrc* Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
-      - name: Upload Release Asset
-        id: upload-release-asset 
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Release Asset Win32
+        id: upload-release-asset-win32
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'Win32'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
             Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+
+      - name: Upload Release Asset x64
+        id: upload-release-asset-x64
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'x64'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
             Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
-      - name: Upload artifact
+      - name: Upload artifact Win32
         uses: actions/upload-artifact@v4
+        if: matrix.platform == 'Win32'
         with:
           name: Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}
           path: Aviutl_NVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
 
-      - name: Upload artifact
+      - name: Upload artifact x64
         uses: actions/upload-artifact@v4
+        if: matrix.platform == 'x64'
         with:
           name: Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install
           path: Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe

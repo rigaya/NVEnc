@@ -32,6 +32,70 @@
                 "isDefault": false
             },
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build (Debug/Win32)",
+            "type": "shell",
+            "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/NVEnc.sln",
+                "/p:Configuration=Debug",
+                "/p:Platform=Win32",
+                "/m"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build (Release/Win32)",
+            "type": "shell",
+            "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/NVEnc.sln",
+                "/p:Configuration=Release",
+                "/p:Platform=Win32",
+                "/m"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build (Debug/x64)",
+            "type": "shell",
+            "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/NVEnc.sln",
+                "/p:Configuration=Debug",
+                "/p:Platform=x64",
+                "/m"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build (Release/x64)",
+            "type": "shell",
+            "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/NVEnc.sln",
+                "/p:Configuration=Release",
+                "/p:Platform=x64",
+                "/m"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": "$msCompile"
         }
     ]
 }

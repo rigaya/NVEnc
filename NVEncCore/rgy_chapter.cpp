@@ -61,9 +61,6 @@ static BOOL fix_ImulL_WesternEurope(uint32_t *code_page) {
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-static const int MAX_UTF8_CHAR_LENGTH = 6;
-static const uint8_t UTF8_BOM[] = { 0xEF, 0xBB, 0xBF };
-
 ChapterRW::ChapterRW() :
     m_filedata(),
     m_filepath(),
