@@ -29,6 +29,7 @@
 #define __RGY_BITSTREAM_AAC_H__
 
 #include <cstdint>
+#include <cstddef>
 
 static const int AAC_HEADER_MIN_SIZE = 7;
 static const uint32_t AAC_BLOCK_SAMPLES = 1024;
