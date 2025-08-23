@@ -1092,7 +1092,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
                     _mm_storeu_si128((__m128i *)ptrV, _mm_packus_epi16(_mm_srli_epi16(x0, 8), _mm_srli_epi16(x1, 8)));
                 }
 #else
-                convert_nv12_to_yv12_line_c<uint8_t, uint8_t, 8, 8>(ptrU, ptrV, ptrUV, widthUV);
+                convert_nv12_to_yv12_line_c<uint8_t, 8, uint8_t, 8>(ptrU, ptrV, ptrUV, widthUV);
 #endif
             } else if (pSurface->csp() == RGY_CSP_P010) {
                 const uint16_t *ptrUV = (const uint16_t *)ptrLineUV;
