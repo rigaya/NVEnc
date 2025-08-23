@@ -475,7 +475,7 @@ std::string guiEx_config::conf_to_json(const CONF_GUIEX *conf, int indent) {
         {"incmd", tchar_to_string(conf->enc.incmd, CP_UTF8)},
 #endif
 #if ENCODER_QSV || ENCODER_NVENC || ENCODER_VCEENC
-        {"codec_rgy", tchar_to_string(CodecToStr(conf->enc.codec_rgy), CP_UTF8)},
+        {"codec_rgy", tchar_to_string(get_cx_desc(list_codec_rgy, conf->enc.codec_rgy), CP_UTF8)},
         {"resize_enable", conf->enc.resize_enable},
         {"resize_width", conf->enc.resize_width},
         {"resize_height", conf->enc.resize_height},
@@ -541,6 +541,7 @@ bool guiEx_config::json_to_conf(CONF_GUIEX *conf, const std::string &json_str) {
             _tcscpy_s(conf->enc.incmd, incmd_tstr.c_str());
 #endif
 #if ENCODER_QSV || ENCODER_NVENC || ENCODER_VCEENC
+            _tcscpy_s(conf->enc.cmd, cmd_str.c_str());
             conf->enc.codec_rgy = (RGY_CODEC)get_cx_value(list_rgy_codec, char_to_tstring(enc.value("codec_rgy", ""), CP_UTF8).c_str());
             conf->enc.resize_enable = enc.value("resize_enable", 0);
             conf->enc.resize_width = enc.value("resize_width", 0);
@@ -630,20 +631,6 @@ int guiEx_config::load_guiEx_conf_legacy(CONF_GUIEX *conf, const TCHAR *stg_file
     fclose(fp);
 
 
-    CONF_GUIEX_OLD old_conf_conv = { 0 };
-    write_conf_header(&old_conf_conv.header);
-
-    //旧設定ファイルから変換
-    if (strcmp(conf_name, CONF_NAME_OLD_1) == 0) {
-        convert_nvencstg_to_nvencstgv4(&old_conf_conv, dat);
-        dat = (BYTE *)& old_conf_conv;
-    } else if (strcmp(conf_name, CONF_NAME_OLD_2) == 0) {
-        convert_nvencstgv2_to_nvencstgv4(&old_conf_conv, dat);
-        dat = (BYTE *)&old_conf_conv;
-    } else if (strcmp(conf_name, CONF_NAME_OLD_3) == 0) {
-        convert_nvencstgv3_to_nvencstgv4(&old_conf_conv, dat);
-        dat = (BYTE *)&old_conf_conv;
-    }
     //ブロックサイズチェック
     if (((CONF_GUIEX_OLD *)dat)->header.block_count > CONF_BLOCK_COUNT)
         return CONF_ERROR_BLOCK_SIZE;
@@ -655,19 +642,28 @@ int guiEx_config::load_guiEx_conf_legacy(CONF_GUIEX *conf, const TCHAR *stg_file
     //memcpy(dst, filedat, data->head_size);
     dst += CONF_HEAD_SIZE;
 
+    //旧設定ファイルから変換
+    if (strcmp(conf_name, CONF_NAME_OLD_1) == 0) {
+        convert_nvencstg_to_nvencstgv4(&old_conf, dat);
+    } else if (strcmp(conf_name, CONF_NAME_OLD_2) == 0) {
+        convert_nvencstgv2_to_nvencstgv4(&old_conf, dat);
+    } else if (strcmp(conf_name, CONF_NAME_OLD_3) == 0) {
+        convert_nvencstgv3_to_nvencstgv4(&old_conf, dat);
+    } else {
 
-    const size_t conf_block_pointer_old[CONF_BLOCK_COUNT] = {
-        offsetof(CONF_GUIEX_OLD, enc),
-        offsetof(CONF_GUIEX_OLD, vid),
-        offsetof(CONF_GUIEX_OLD, aud),
-        offsetof(CONF_GUIEX_OLD, mux),
-        offsetof(CONF_GUIEX_OLD, oth)
-    };
-    //ブロック部分のコピー
-    for (int i = 0; i < ((CONF_GUIEX_OLD *)dat)->header.block_count; i++) {
-        filedat = dat + ((CONF_GUIEX_OLD *)dat)->header.block_head_p[i];
-        dst = (BYTE *)&old_conf + conf_block_pointer_old[i];
-        memcpy(dst, filedat, std::min(((CONF_GUIEX_OLD *)dat)->header.block_size[i], conf_block_data[i]));
+        const size_t conf_block_pointer_old[CONF_BLOCK_COUNT] = {
+            offsetof(CONF_GUIEX_OLD, enc),
+            offsetof(CONF_GUIEX_OLD, vid),
+            offsetof(CONF_GUIEX_OLD, aud),
+            offsetof(CONF_GUIEX_OLD, mux),
+            offsetof(CONF_GUIEX_OLD, oth)
+        };
+        //ブロック部分のコピー
+        for (int i = 0; i < ((CONF_GUIEX_OLD *)dat)->header.block_count; i++) {
+            filedat = dat + ((CONF_GUIEX_OLD *)dat)->header.block_head_p[i];
+            dst = (BYTE *)&old_conf + conf_block_pointer_old[i];
+            memcpy(dst, filedat, std::min(((CONF_GUIEX_OLD *)dat)->header.block_size[i], conf_block_data[i]));
+        }
     }
 
 

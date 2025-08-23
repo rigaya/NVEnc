@@ -712,7 +712,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
 }
 
 static void init_CONF_GUIEX_OLD(CONF_GUIEX_OLD *conf, BOOL use_highbit) {
-    ZeroMemory(conf, sizeof(CONF_GUIEX));
+    ZeroMemory(conf, sizeof(CONF_GUIEX_OLD));
     guiEx_config::write_conf_header(&conf->header);
     conf->vid.resize_width = 1280;
     conf->vid.resize_height = 720;
