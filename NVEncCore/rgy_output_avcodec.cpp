@@ -1114,6 +1114,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                 if (doviconf->dv_profile == 5) {
                     m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_50;
                 } else if (doviconf->dv_profile == 7) {
+                    m_Mux.video.doviProfileSrc = RGY_DOVI_PROFILE_70;
                     doviconf->dv_profile = 8;
                     doviconf->dv_bl_signal_compatibility_id = 1;
                     m_Mux.video.doviProfileDst = RGY_DOVI_PROFILE_81;
