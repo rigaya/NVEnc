@@ -737,7 +737,7 @@ static inline const WCHAR *strrchr(const WCHAR *str, int c, int start_index) {
     const WCHAR *result = str + start_index;
     str--;
     for (; result - str; result--)
-        if (*result == c)
+        if (*result == (WCHAR)c)
             return result;
     return nullptr;
 }
@@ -746,7 +746,7 @@ static inline WCHAR *strrchr(WCHAR *str, int c, int start_index) {
     WCHAR *result = str + start_index;
     str--;
     for (; result - str; result--)
-        if (*result == c)
+        if (*result == (WCHAR)c)
             return result;
     return nullptr;
 }
@@ -850,7 +850,7 @@ static inline int countchr(const char *str, int ch) {
 static inline int countchr(const WCHAR *str, int ch) {
     int i = 0;
     for (; *str; str++)
-        if (*str == ch)
+        if (*str == (WCHAR)ch)
             i++;
     return i;
 }
