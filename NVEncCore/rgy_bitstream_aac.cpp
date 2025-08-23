@@ -46,7 +46,7 @@ int RGYAACHeader::sampleRateIdxToRate(const uint32_t idx) {
         7350,
         0
     };
-    return samplerateList[std::min<uint32_t>(idx, _countof(samplerateList) - 1)];
+    return samplerateList[std::min<uint32_t>(idx, (sizeof(samplerateList) / sizeof(samplerateList[0])) - 1)];
 }
 
 bool RGYAACHeader::is_adts_sync(const uint16_t *ptr) {

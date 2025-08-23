@@ -34,7 +34,6 @@
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
 
-#include "output.h"
 #include "auo.h"
 #include "auo_frm.h"
 #include "auo_util.h"
@@ -629,7 +628,7 @@ int load_lng(const TCHAR *lang) {
             return g_auo_mes.read(lng_path);
         }
         for (const auto& auo_lang : list_auo_languages) {
-            if (wcsicmp(auo_lang.code, lang) == 0) {
+            if (_wcsicmp(auo_lang.code, lang) == 0) {
                 resource = auo_lang.resouce;
                 break;
             }

@@ -723,7 +723,7 @@ static int get_value_from_name(const TCHAR *name, const guid_desc (&desc)[count]
 
 template<size_t count>
 static int get_index_from_value(int value, const guid_desc (&desc)[count]) {
-    for (size_t i = 0; i < count; i++) {
+    for (int i = 0; i < (int)count; i++) {
         if (desc[i].value == (uint32_t)value) {
             return i;
         }

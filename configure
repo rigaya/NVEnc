@@ -851,7 +851,7 @@ NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          
 NVEncParam.cpp         NVEncUtil.cpp               NVEncFilterVulkan.cpp        cl_func.cpp \
 convert_csp.cpp        cpu_info.cpp                gpu_info.cpp \
 gpuz_info.cpp          logo.cpp \
-rgy_aspect_ratio.cpp   rgy_avlog.cpp               rgy_avutil.cpp               rgy_bitstream.cpp \
+rgy_aspect_ratio.cpp   rgy_avlog.cpp               rgy_avutil.cpp               rgy_bitstream.cpp            rgy_bitstream_aac.cpp \
 rgy_chapter.cpp        rgy_cmd.cpp                 rgy_codepage.cpp             rgy_def.cpp \
 rgy_device.cpp         rgy_device_info_cache.cpp   rgy_device_info_wmi.cpp      rgy_device_usage.cpp         rgy_device_vulkan.cpp \
 rgy_env.cpp            rgy_err.cpp                 rgy_event.cpp \
