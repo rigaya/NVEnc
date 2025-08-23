@@ -598,8 +598,11 @@ protected:
             && m_list[index+1].data.dts - m_list[index].data.dts <= (std::min)(m_list[index+1].data.duration / 10, 1)) {
             //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
             m_list[index].data.poc = FRAMEPOS_POC_INVALID;
-        } else if (m_list[index].data.pic_struct & RGY_PICSTRUCT_FIELD) {
-            if (index > 0 && (m_list[index-1].data.poc != FRAMEPOS_POC_INVALID && (m_list[index-1].data.pic_struct & RGY_PICSTRUCT_FIELD))) {
+        } else if (m_list[index].data.pic_struct & RGY_PICSTRUCT_FIELD) { // 自分がフィールド
+            if (index > 0
+                && (m_list[index-1].data.poc != FRAMEPOS_POC_INVALID)
+                && (m_list[index-1].data.pic_struct & RGY_PICSTRUCT_FIELD) // 前もフィールド
+                && (((m_list[index-1].data.pic_struct | m_list[index].data.pic_struct) & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF))) { // 前のフィールドと自分でTFF+BFFのペアになっていることを確認
                 m_list[index].data.poc = FRAMEPOS_POC_INVALID;
                 m_list[index-1].data.duration2 = m_list[index].data.duration;
             } else {
