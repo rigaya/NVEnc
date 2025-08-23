@@ -3557,4 +3557,29 @@ public:
     }
 };
 
+class PipelineTaskOutputRaw : public PipelineTask {
+    RGYOutput *m_writer;
+public:
+    PipelineTaskOutputRaw(NVGPUInfo *dev, RGYOutput *writer, int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OUTPUTRAW, dev, outMaxQueueSize, false, threadParam, log), m_writer(writer) {
+    };
+    virtual ~PipelineTaskOutputRaw() {
+        if (m_writer) {
+            m_writer->WriteNextFrame((RGYFrame *)nullptr);
+        }
+    };
+    
+    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override { return std::nullopt; };
+
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (!frame) {
+            return RGY_ERR_MORE_DATA;
+        }
+        m_inFrames++;
+        m_outQeueue.push_back(std::move(frame));
+        return RGY_ERR_NONE;
+    }
+};
+
 #endif //__NVENC_PIPELINE_H__

@@ -409,6 +409,10 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
 }
 
 void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
+    if (muxVideo->rawVideoCodecCtx) {
+        muxVideo->rawVideoCodecCtx.reset();
+        AddMessage(RGY_LOG_DEBUG, _T("Closed raw video context.\n"));
+    }
     if (muxVideo->parserCtx) {
         av_parser_close(muxVideo->parserCtx);
         muxVideo->parserCtx = nullptr;
@@ -3270,6 +3274,16 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
         m_Mux.format.fileHeaderWritten = true;
     }
 
+    if (surface == nullptr) { // flush
+        if (m_Mux.thread.thRawVideo) {
+            auto pktFrame = pktMuxData((AVFrame *)nullptr);
+            m_Mux.thread.thRawVideo->qPackets.push(pktFrame);
+            return RGY_ERR_NONE;
+        } else {
+            return VideoEncodeRawFrame(nullptr);
+        }
+    }
+
     const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
     
     // RGYFrame -> AVFrame
@@ -3330,37 +3344,72 @@ RGY_ERR RGYOutputAvcodec::VideoEncodeRawFrame(AVFrame *avframe) {
         AddMessage(RGY_LOG_ERROR, _T("Unsupported codec for VideoEncodeRawFrame: %s\n"), avcodec_get_name(m_Mux.format.formatCtx->video_codec_id));
         return RGY_ERR_UNSUPPORTED;
     }
-    auto pkt = m_Mux.poolPkt->getFree();
-    if (!pkt) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate AVPacket.\n"));
-        m_Mux.video.rawVideoFrame.returnFree(&avframe);
-        m_Mux.format.streamError = true;
-        return RGY_ERR_NULL_PTR;
-    }
     
-    auto ret = avcodec_send_frame(m_Mux.video.rawVideoCodecCtx.get(), avframe);
-    if (ret < 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to send frame to raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
-        m_Mux.video.rawVideoFrame.returnFree(&avframe);
-        m_Mux.format.streamError = true;
-        return RGY_ERR_NULL_PTR;
-    }
-    m_Mux.video.rawVideoFrame.returnFree(&avframe);
+    RGY_ERR result = RGY_ERR_NONE;
+    // フレームをエンコーダーに送信
+    bool frameSent = false;
+    do {
+        auto ret = avcodec_send_frame(m_Mux.video.rawVideoCodecCtx.get(), avframe);
+        if (ret < 0) {
+            if (ret == AVERROR(EAGAIN)) {
+                // エンコーダーが入力を受け付けない状態 - 出力を読み取ってから再試行
+                AddMessage(RGY_LOG_DEBUG, _T("Encoder not ready for input, need to read output first.\n"));
+                // フレームは解放しない（後で再試行するため）
+            } else if (ret == AVERROR_EOF) {
+                // エンコーダーがフラッシュされている
+                AddMessage(RGY_LOG_DEBUG, _T("Encoder has been flushed, no more frames can be sent.\n"));
+                m_Mux.video.rawVideoFrame.returnFree(&avframe);
+                return RGY_ERR_MORE_DATA; // フラッシュ中であることを示す
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to send frame to raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
+                m_Mux.video.rawVideoFrame.returnFree(&avframe);
+                m_Mux.format.streamError = true;
+                return RGY_ERR_UNKNOWN;
+            }
+        } else {
+            // フレームの送信が成功
+            frameSent = true;
+            m_Mux.video.rawVideoFrame.returnFree(&avframe);
+        }
     
-    ret = avcodec_receive_packet(m_Mux.video.rawVideoCodecCtx.get(), pkt.get());
-    if (ret < 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to receive packet from raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
-        m_Mux.format.streamError = true;
-        return RGY_ERR_NULL_PTR;
-    }
-
-    if (m_Mux.thread.thOutput) {
-        auto pktFrame = pktMuxData(pkt.release());
-        m_Mux.thread.qVideoRawFrames.push(pktFrame);
-    } else {
-        return WriteNextPacketRawVideo(pkt.release(), nullptr);
-    }
-    return RGY_ERR_NONE;
+        // 利用可能なパケットを全て取得
+        while (true) {
+            auto pkt = m_Mux.poolPkt->getFree();
+            if (!pkt) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate AVPacket.\n"));
+                m_Mux.format.streamError = true;
+                return RGY_ERR_NULL_PTR;
+            }
+            
+            ret = avcodec_receive_packet(m_Mux.video.rawVideoCodecCtx.get(), pkt.get());
+            if (ret == 0) {
+                // パケットを正常に取得
+                if (m_Mux.thread.thOutput) {
+                    auto pktFrame = pktMuxData(pkt.release());
+                    m_Mux.thread.qVideoRawFrames.push(pktFrame);
+                } else {
+                    auto writeResult = WriteNextPacketRawVideo(pkt.release(), nullptr);
+                    if (writeResult != RGY_ERR_NONE) {
+                        return writeResult;
+                    }
+                }
+            } else if (ret == AVERROR(EAGAIN)) {
+                // 出力が利用できない - 入力が必要
+                break;
+            } else if (ret == AVERROR_EOF) {
+                // エンコーダーが完全にフラッシュされた
+                AddMessage(RGY_LOG_DEBUG, _T("Encoder fully flushed, no more output packets.\n"));
+                result = RGY_ERR_MORE_DATA; // EOF状態を示す
+                break;
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to receive packet from raw video encoder: %s\n"), qsv_av_err2str(ret).c_str());
+                m_Mux.format.streamError = true;
+                return RGY_ERR_UNKNOWN;
+            }
+        }
+    } while (!frameSent);
+    
+    return result;
 }
 
 RGY_ERR RGYOutputAvcodec::WriteNextPacketRawVideo(AVPacket *pkt, int64_t *writtenDts) {

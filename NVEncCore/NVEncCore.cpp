@@ -4517,6 +4517,8 @@ RGY_ERR NVEncCore::initPipeline(const InEncodeVideoParam *prm) {
         if (taskLastCudaVpp) {
             taskLastCudaVpp->setEncodeTask(taskEnc);
         }
+    } else {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(m_dev.get(), m_pFileWriter.get(), 1, prm->ctrl.threadParams.get(RGYThreadType::MAIN), m_pLog));
     }
 
     if (m_pipelineTasks.size() == 0) {

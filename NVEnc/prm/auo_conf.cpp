@@ -475,7 +475,7 @@ std::string guiEx_config::conf_to_json(const CONF_GUIEX *conf, int indent) {
         {"incmd", tchar_to_string(conf->enc.incmd, CP_UTF8)},
 #endif
 #if ENCODER_QSV || ENCODER_NVENC || ENCODER_VCEENC
-        {"codec_rgy", tchar_to_string(get_cx_desc(list_codec_rgy, conf->enc.codec_rgy), CP_UTF8)},
+        {"codec_rgy", tchar_to_string(get_cx_desc(list_rgy_codec, conf->enc.codec_rgy), CP_UTF8)},
         {"resize_enable", conf->enc.resize_enable},
         {"resize_width", conf->enc.resize_width},
         {"resize_height", conf->enc.resize_height},
