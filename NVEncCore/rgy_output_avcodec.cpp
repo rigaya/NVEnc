@@ -645,18 +645,18 @@ void RGYOutputAvcodec::SetExtraData(AVCodecParameters *codecParam, const uint8_t
 uniuqeRGYChannelLayout RGYOutputAvcodec::AutoSelectChannelLayout(const AVCodec *codec, const AVCodecContext *srcAudioCtx) {
     const int srcChannels = getChannelCount(srcAudioCtx);
     auto channelLayout = getChannelLayoutSupportedCodec(codec);
-    if (codec == nullptr || channelLayout == nullptr) {
+    if (codec == nullptr || channelLayout.size() == 0) {
         return getDefaultChannelLayout(srcChannels);
     }
-    for (int i = 0; channelLayoutSet(&channelLayout[i]); i++) {
-        if (srcChannels == getChannelCount(&channelLayout[i])) {
-            return createChannelLayoutCopy(&channelLayout[i]);
+    for (const auto& chlayout : channelLayout) {
+        if (srcChannels == getChannelCount(&chlayout)) {
+            return createChannelLayoutCopy(&chlayout);
         }
     }
     //一致するチャンネルが見つからない場合、最も近いチャンネル数のものを取得するようにする
     int selectIdx = -1;
     int selectIdxDiff = std::numeric_limits<int>::max();
-    for (int i = 0; channelLayoutSet(&channelLayout[i]); i++) {
+    for (int i = 0; i < (int)channelLayout.size(); i++) {
         const int absDiff = std::abs(srcChannels - getChannelCount(&channelLayout[i]));
         if (absDiff < selectIdxDiff) {
             selectIdx = i;
@@ -1437,9 +1437,11 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, co
             AddMessage(RGY_LOG_ERROR, _T("failed to create abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNSUPPORTED;
         }
-        if (0 > (ret = av_opt_set_int(muxAudio->filterBufferSinkCtx, "all_channel_counts", 1, AV_OPT_SEARCH_CHILDREN))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set channel counts to abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_UNSUPPORTED;
+        if (LIBAVCODEC_VERSION_MAJOR < 62) {
+            if (0 > (ret = av_opt_set_int(muxAudio->filterBufferSinkCtx, "all_channel_counts", 1, AV_OPT_SEARCH_CHILDREN))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set channel counts to abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNSUPPORTED;
+            }
         }
 
         if (0 > (ret = avfilter_link(outputs->filter_ctx, outputs->pad_idx,

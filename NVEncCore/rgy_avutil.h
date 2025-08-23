@@ -98,6 +98,10 @@ using RGYChannelLayout = uint64_t;
 using uniuqeRGYChannelLayout = std::unique_ptr<RGYChannelLayout>;
 #endif
 
+#ifndef FF_PROFILE_UNKNOWN
+#define FF_PROFILE_UNKNOWN (AV_PROFILE_UNKNOWN)
+#endif
+
 template<typename T>
 struct RGYAVDeleter {
     RGYAVDeleter() : deleter(nullptr) {};
@@ -394,7 +398,7 @@ uniuqeRGYChannelLayout createChannelLayoutEmpty();
 uniuqeRGYChannelLayout createChannelLayoutCopy(const RGYChannelLayout *ch_layout);
 
 //コーデックのサポートするチャンネルレイアウトを取得
-const RGYChannelLayout *getChannelLayoutSupportedCodec(const AVCodec *codec);
+std::vector<RGYChannelLayout> getChannelLayoutSupportedCodec(const AVCodec *codec);
 
 //チェンネル数をマスクから取得
 int getChannelCount(const uint64_t channel_layout);

@@ -485,13 +485,27 @@ uniuqeRGYChannelLayout createChannelLayoutCopy(const RGYChannelLayout *ch_layout
     return ch_layout_copy;
 }
 
-const RGYChannelLayout *getChannelLayoutSupportedCodec(const AVCodec *codec) {
+std::vector<RGYChannelLayout> getChannelLayoutSupportedCodec(const AVCodec *codec) {
+    std::vector<RGYChannelLayout> layouts;
+#if LIBAVCODEC_VERSION_MAJOR >= 62
+    const void *ch_layouts = nullptr;
+    int ch_layout_count = 0;
+    avcodec_get_supported_config(nullptr, codec, AV_CODEC_CONFIG_CHANNEL_LAYOUT, 0,
+        &ch_layouts, &ch_layout_count);
+    const RGYChannelLayout *channelLayout = (const RGYChannelLayout *)ch_layouts;
+#else
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
     const RGYChannelLayout *channelLayout = codec->ch_layouts;
 #else
     const RGYChannelLayout *channelLayout = codec->channel_layouts;
 #endif
-    return channelLayout;
+#endif
+    if (channelLayout) {
+        for (int i = 0; channelLayoutSet(&channelLayout[i]); i++) {
+            layouts.push_back(channelLayout[i]);
+        }
+    }
+    return layouts;
 }
 
 int getChannelCount(const uint64_t channel_layout) {
@@ -624,11 +638,10 @@ uniuqeRGYChannelLayout getChannelLayoutFromString(const std::string& channel_lay
 
 bool ChannelLayoutExists(const RGYChannelLayout *target, const AVCodec *codec) {
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
-    if (codec->ch_layouts == nullptr) return false;
-    RGYChannelLayout zero;
-    memset(&zero, 0, sizeof(RGYChannelLayout));
-    for (auto ptr = codec->ch_layouts; memcmp(ptr, &zero, sizeof(RGYChannelLayout)) != 0; ptr++) {
-        if (av_channel_layout_compare(target, ptr) == 0) {
+    auto codec_ch_layouts = getChannelLayoutSupportedCodec(codec);
+    if (codec_ch_layouts.size()) return false;
+    for (const auto& chlayout : codec_ch_layouts) {
+        if (av_channel_layout_compare(target, &chlayout) == 0) {
             return true;
         }
     }
