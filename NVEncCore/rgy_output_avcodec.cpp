@@ -994,7 +994,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.codecCtx->sample_aspect_ratio.den = videoOutputInfo->sar[1];
     m_Mux.video.codecCtx->chroma_sample_location  = (AVChromaLocation)clamp(videoOutputInfo->vui.chromaloc, 0, 6);
     m_Mux.video.codecCtx->field_order             = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
-    m_Mux.video.codecCtx->delay                   = (m_VideoOutputInfo.codec == RGY_CODEC_AV1) ? 0 : videoOutputInfo->videoDelay;
+    m_Mux.video.codecCtx->delay                   = (m_Mux.video.rawVideoCodecCtx) ? m_Mux.video.rawVideoCodecCtx->delay : ((m_VideoOutputInfo.codec == RGY_CODEC_AV1) ? 0 : videoOutputInfo->videoDelay);
     if (prm->videoCodecTag.length() > 0) {
         m_Mux.video.codecCtx->codec_tag           = tagFromStr(prm->videoCodecTag);
         AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.codecCtx->codec_tag)).c_str());
@@ -3452,7 +3452,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketRawVideo(AVPacket *pkt, int64_t *writte
     pkt->flags |= AV_PKT_FLAG_KEY;
     pkt->stream_index = m_Mux.video.streamOut->index;
     pkt->pos = -1;
-    pkt->dts = pkt->pts;
     if (writtenDts) {
         *writtenDts = av_rescale_q(pkt->dts, streamTimebase, QUEUE_DTS_TIMEBASE);
     }
