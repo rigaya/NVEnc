@@ -33,7 +33,7 @@
 #if ENABLE_LIBPLACEBO
 
 #if defined(_WIN32) || defined(_WIN64)
-const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-349.dll");
+const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-351.dll");
 #else
 const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo.so");
 #endif // #if defined(_WIN32) || defined(_WIN64)
