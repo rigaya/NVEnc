@@ -541,9 +541,13 @@ void RGYOutputAvcodec::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-AVCodecID RGYOutputAvcodec::getAVCodecId(RGY_CODEC codec) {
-    if (codec == RGY_CODEC_RAW) {
-        return AV_CODEC_ID_RAWVIDEO;
+AVCodecID RGYOutputAvcodec::getAVCodecId(RGY_CODEC codec, const std::string& avVideoCodec) {
+    if (codec == RGY_CODEC_RAW || codec == RGY_CODEC_AVCODEC) {
+        if (avVideoCodec.empty()) {
+            return AV_CODEC_ID_RAWVIDEO;
+        }
+        auto avcodec = avcodec_find_encoder_by_name(avVideoCodec.c_str());
+        return avcodec ? avcodec->id : AV_CODEC_ID_RAWVIDEO;
     }
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
         if (HW_DECODE_LIST[i].rgy_codec == codec)
@@ -828,7 +832,7 @@ RGY_ERR RGYOutputAvcodec::SetMetadata(AVDictionary **metadata, const AVDictionar
 #pragma warning (push)
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const AvcodecWriterPrm *prm) {
-    m_Mux.format.formatCtx->video_codec_id = getAVCodecId(videoOutputInfo->codec);
+    m_Mux.format.formatCtx->video_codec_id = getAVCodecId(videoOutputInfo->codec, prm->avVideoCodec);
     if (m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to find codec id for video.\n"));
         return RGY_ERR_INVALID_CODEC;
@@ -851,81 +855,88 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     }
 
     // raw videoなら、raw video encoderを初期化する
-    if (m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO) {
-        AddMessage(RGY_LOG_DEBUG, _T("Initializing raw video encoder for frame output...\n"));
+    if (videoOutputInfo->codec == RGY_CODEC_AVCODEC || videoOutputInfo->codec == RGY_CODEC_RAW) {
+        AddMessage(RGY_LOG_DEBUG, _T("Initializing video encoder %s for frame output...\n"),
+            m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO ? _T("rawvideo") : char_to_tstring(prm->avVideoCodec).c_str());
         m_OutType = OUT_TYPE_SURFACE;
         
         //raw video encoderを見つける
-        m_Mux.video.rawVideoCodec = avcodec_find_encoder(AV_CODEC_ID_RAWVIDEO);
+        if (m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO) {
+            m_Mux.video.rawVideoCodec = avcodec_find_encoder(AV_CODEC_ID_RAWVIDEO);
+        } else {
+            m_Mux.video.rawVideoCodec = avcodec_find_encoder_by_name(prm->avVideoCodec.c_str());
+        }
         if (!m_Mux.video.rawVideoCodec) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to find raw video encoder.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to find video encoder %s.\n"),
+                m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO ? _T("rawvideo") : char_to_tstring(prm->avVideoCodec).c_str());
             return RGY_ERR_INVALID_CODEC;
         }
         
         //raw video encoder contextを確保する
         m_Mux.video.rawVideoCodecCtx = std::unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>>(avcodec_alloc_context3(m_Mux.video.rawVideoCodec), RGYAVDeleter<AVCodecContext>(avcodec_free_context));
         if (!m_Mux.video.rawVideoCodecCtx) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate raw video encoder context.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate video encoder context.\n"));
             return RGY_ERR_NULL_PTR;
         }
+
+        const int out_bit_depth = videoOutputInfo->bitdepth ? videoOutputInfo->bitdepth : RGY_CSP_BIT_DEPTH[videoOutputInfo->csp];
         
         // Configure raw video encoder context
         m_Mux.video.rawVideoCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
-        m_Mux.video.rawVideoCodecCtx->codec_id = AV_CODEC_ID_RAWVIDEO;
         m_Mux.video.rawVideoCodecCtx->width = videoOutputInfo->dstWidth;
         m_Mux.video.rawVideoCodecCtx->height = videoOutputInfo->dstHeight;
         switch (RGY_CSP_CHROMA_FORMAT[videoOutputInfo->csp]) {
             case RGY_CHROMAFMT_YUV420:
-                switch (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp]) {
+                switch (out_bit_depth) {
                 case 8:  m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P; break;
                 case 10: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P10LE; break;
                 case 12: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P12LE; break;
                 case 14: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P14LE; break;
                 case 16: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P16LE; break;
                 default:
-                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for raw output.\n"), RGY_CSP_BIT_DEPTH[videoOutputInfo->csp], RGY_CSP_NAMES[videoOutputInfo->csp]);
+                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for video output.\n"), out_bit_depth, RGY_CSP_NAMES[videoOutputInfo->csp]);
                     return RGY_ERR_UNSUPPORTED;
                 }
                 break;
-#if ENCODER_NVENC
             case RGY_CHROMAFMT_YUV444:
-                switch (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp]) {
+                switch (out_bit_depth) {
                 case 8:  m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P; break;
                 case 10: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P10LE; break;
                 case 12: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P12LE; break;
                 case 14: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P14LE; break;
                 case 16: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_YUV444P16LE; break;
                 default:
-                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for raw output.\n"), RGY_CSP_BIT_DEPTH[videoOutputInfo->csp], RGY_CSP_NAMES[videoOutputInfo->csp]);
+                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for video output.\n"), out_bit_depth, RGY_CSP_NAMES[videoOutputInfo->csp]);
                     return RGY_ERR_UNSUPPORTED;
                 }
                 break;
             case RGY_CHROMAFMT_RGB:
-                switch (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp]) {
+                switch (out_bit_depth) {
                 case 8:  m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_GBRP; break;
                 case 10: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_GBRP10LE; break;
                 case 16: m_Mux.video.rawVideoCodecCtx->pix_fmt = AV_PIX_FMT_GBRP16LE; break;
                 default:
-                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for raw output.\n"), RGY_CSP_BIT_DEPTH[videoOutputInfo->csp], RGY_CSP_NAMES[videoOutputInfo->csp]);
+                    AddMessage(RGY_LOG_ERROR, _T("Unsupported output bitdepth %d (%s) for video output.\n"), out_bit_depth, RGY_CSP_NAMES[videoOutputInfo->csp]);
                     return RGY_ERR_UNSUPPORTED;
                 }
                 break;
-#endif
             default:
-#if ENCODER_NVENC
-                AddMessage(RGY_LOG_ERROR, _T("raw output supported for yuv420/yuv444 only.\n"));
-#else
-                AddMessage(RGY_LOG_ERROR, _T("raw output supported for yuv420 only.\n"));
-#endif
+                if (m_Mux.video.rawVideoCodecCtx->codec_id == AV_CODEC_ID_RAWVIDEO) {
+                    AddMessage(RGY_LOG_ERROR, (ENCODER_NVENC) ? _T("video output supported for yuv420/yuv444 only.\n") : _T("video output supported for yuv420 only.\n"));
+                } else {
+                    AddMessage(RGY_LOG_ERROR, _T("Unsupported pixel format %s for video output.\n"), RGY_CSP_NAMES[videoOutputInfo->csp]);
+                }
                 return RGY_ERR_UNSUPPORTED;
         }
         m_Mux.video.rawVideoCodecCtx->time_base = av_inv_q(m_Mux.video.outputFps);
         m_Mux.video.rawVideoCodecCtx->framerate = m_Mux.video.outputFps;
-        auto codec_tag = avcodec_pix_fmt_to_codec_tag(m_Mux.video.rawVideoCodecCtx->pix_fmt);
-        m_Mux.video.rawVideoCodecCtx->codec_tag = codec_tag;
-        AddMessage(RGY_LOG_DEBUG, _T("Set raw video codec tag: %c%c%c%c for pixel format %s\n"),
-            (codec_tag >> 0) & 0xFF, (codec_tag >> 8) & 0xFF, (codec_tag >> 16) & 0xFF, (codec_tag >> 24) & 0xFF,
-            char_to_tstring(av_get_pix_fmt_name(m_Mux.video.rawVideoCodecCtx->pix_fmt)).c_str());
+        if (m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO) {
+            auto codec_tag = avcodec_pix_fmt_to_codec_tag(m_Mux.video.rawVideoCodecCtx->pix_fmt);
+            m_Mux.video.rawVideoCodecCtx->codec_tag = codec_tag;
+            AddMessage(RGY_LOG_DEBUG, _T("Set raw video codec tag: %c%c%c%c for pixel format %s\n"),
+                (codec_tag >> 0) & 0xFF, (codec_tag >> 8) & 0xFF, (codec_tag >> 16) & 0xFF, (codec_tag >> 24) & 0xFF,
+                char_to_tstring(av_get_pix_fmt_name(m_Mux.video.rawVideoCodecCtx->pix_fmt)).c_str());
+        }
 
         m_Mux.video.simdCsp = prm->simdCsp;
         m_Mux.video.rawVideoConvert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadParamCsp);
@@ -935,10 +946,38 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             return RGY_ERR_NULL_PTR;
         }
         
+        // avcodec映像エンコーダパラメータの処理
+        AVDictionary *videoCodecPrmDict = nullptr;
+        unique_ptr<char, RGYAVDeleter<void>> prm_buf;
+        if (!prm->avcodec_videnc_prms.empty()) {
+            int ret = av_dict_parse_string(&videoCodecPrmDict, tchar_to_string(prm->avcodec_videnc_prms).c_str(), "=", ",", 0);
+            if (ret < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to parse param(s) for video encoder %s: %s\n"),
+                    char_to_tstring(m_Mux.video.rawVideoCodec->name).c_str(), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("  prm: %s\n"), prm->avcodec_videnc_prms.c_str());
+                return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
+            }
+            char *buf = nullptr;
+            av_dict_get_string(videoCodecPrmDict, &buf, '=', ',');
+            prm_buf = unique_ptr<char, RGYAVDeleter<void>>(buf, RGYAVDeleter<void>(av_freep));
+            AddMessage(RGY_LOG_DEBUG, _T("video encoder prm: %s\n"), char_to_tstring(prm_buf.get() ? prm_buf.get() : "default").c_str());
+        }
+        
         // raw video encoderを開く
-        if (avcodec_open2(m_Mux.video.rawVideoCodecCtx.get(), m_Mux.video.rawVideoCodec, nullptr) < 0) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to open raw video encoder.\n"));
+        if (avcodec_open2(m_Mux.video.rawVideoCodecCtx.get(), m_Mux.video.rawVideoCodec, &videoCodecPrmDict) < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to open video encoder %s.\n"), char_to_tstring(m_Mux.video.rawVideoCodec->name).c_str());
             return RGY_ERR_NULL_PTR;
+        }
+        
+        // 未知のオプションをチェック
+        if (videoCodecPrmDict) {
+            for (const AVDictionaryEntry *t = nullptr; (t = av_dict_get(videoCodecPrmDict, "", t, AV_DICT_IGNORE_SUFFIX)) != nullptr;) {
+                AddMessage(RGY_LOG_WARN, _T("Unknown option to video encoder[%s]: %s=%s, this will be ignored.\n"),
+                    char_to_tstring(m_Mux.video.rawVideoCodec->name).c_str(),
+                    char_to_tstring(t->key).c_str(),
+                    char_to_tstring(t->value).c_str());
+            }
+            av_dict_free(&videoCodecPrmDict);
         }
         
         AddMessage(RGY_LOG_DEBUG, _T("Raw video encoder initialized successfully.\n"));
@@ -1012,7 +1051,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.streamOut->avg_frame_rate.num = videoOutputInfo->fpsN; //mkvのTRACKDEFAULTDURATIONの出力に必要
     m_Mux.video.streamOut->avg_frame_rate.den = videoOutputInfo->fpsD;
     m_Mux.video.streamOut->start_time          = 0;
-    if (m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO) {
+    if (m_Mux.video.rawVideoCodecCtx) {
         m_Mux.video.streamOut->codecpar->codec_tag = m_Mux.video.rawVideoCodecCtx->codec_tag;
     }
     m_Mux.video.dtsUnavailable    = prm->bVideoDtsUnavailable;
@@ -2486,7 +2525,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         m_Mux.thread.thOutput->heEventClosing = CreateEvent(NULL, TRUE, FALSE, NULL);
         m_Mux.thread.thOutput->thread = std::thread(&RGYOutputAvcodec::WriteThreadFunc, this, prm->threadParamOutput);
         AddMessage(RGY_LOG_DEBUG, _T("Set output thread param: %s.\n"), prm->threadParamOutput.desc().c_str());
-        if (m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO) {
+        if (m_Mux.video.rawVideoCodecCtx != nullptr) {
             m_Mux.thread.qVideoRawFrames.init(256, 64);
             m_Mux.thread.thRawVideo = std::make_unique<AVMuxThreadWorker>();
             m_Mux.thread.thRawVideo->thAbort = false;
@@ -3258,12 +3297,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 #pragma warning (pop)
 
 RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
-    if (m_Mux.format.formatCtx->video_codec_id != AV_CODEC_ID_RAWVIDEO) {
-        AddMessage(RGY_LOG_ERROR, _T("Unsupported codec for WriteNextFrame(RGYFrame): %s\n"), avcodec_get_name(m_Mux.format.formatCtx->video_codec_id));
-        m_Mux.format.streamError = true;
-        return RGY_ERR_UNSUPPORTED;
-    }
-
     if (!m_Mux.format.fileHeaderWritten) {
         RGY_ERR sts = WriteFileHeader(nullptr);
         if (sts != RGY_ERR_NONE) {
@@ -3340,11 +3373,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
 }
 
 RGY_ERR RGYOutputAvcodec::VideoEncodeRawFrame(AVFrame *avframe) {
-    if (m_Mux.format.formatCtx->video_codec_id != AV_CODEC_ID_RAWVIDEO) {
-        AddMessage(RGY_LOG_ERROR, _T("Unsupported codec for VideoEncodeRawFrame: %s\n"), avcodec_get_name(m_Mux.format.formatCtx->video_codec_id));
-        return RGY_ERR_UNSUPPORTED;
-    }
-    
     RGY_ERR result = RGY_ERR_NONE;
     // フレームをエンコーダーに送信
     bool frameSent = false;
@@ -4614,7 +4642,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     //キューにデータが存在するか
     bool bAudioExists = false;
     bool bVideoExists = false;
-    const bool videoIsRaw = m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO;
+    const bool videoIsRaw = m_Mux.video.rawVideoCodecCtx != nullptr;
     const auto fpsTimebase = av_inv_q(m_Mux.video.outputFps);
     const int VideoAudioPickSwitchThresholdFrames = m_Mux.format.lowlatency ? 1 : 2; // 映像-音声の切り替え間隔(フレーム数)
     const auto dtsThreshold = std::max<int64_t>(av_rescale_q(VideoAudioPickSwitchThresholdFrames, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);

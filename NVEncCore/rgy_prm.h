@@ -2460,7 +2460,9 @@ struct RGYParamCommon {
     tstring doviRpuFile;
     RGYDOVIRpuConvertParam doviRpuParams;
     RGYDOVIProfile doviProfile;
+    std::string avVideoCodec;
     std::string videoCodecTag;
+    tstring avcodec_videnc_prms;
     std::vector<tstring> videoMetadata;
     std::vector<tstring> formatMetadata;
     float seekRatio;               //指定された秒数分先頭を飛ばす

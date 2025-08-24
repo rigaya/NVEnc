@@ -267,6 +267,7 @@ const CX_DESC list_nvenc_codecs_for_opt[] = {
     { _T("h265"), RGY_CODEC_HEVC },
     { _T("av1"),  RGY_CODEC_AV1  },
     { _T("raw"),  RGY_CODEC_RAW  },
+    { _T("avcodec"), RGY_CODEC_AVCODEC },
     { NULL, 0 }
 };
 

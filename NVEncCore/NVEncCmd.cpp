@@ -166,7 +166,8 @@ tstring encoder_help() {
     str += strsprintf(_T("")
         _T("\n")
         _T("-c,--codec <string>             set output codec\n")
-        _T("                                  h264 (or avc), h265 (or hevc), av1, raw\n")
+        _T("                                 - h264(default), hevc, mpeg2, vp9, av1, raw\n")
+        _T("                                 - av_xxx to use avcodec encoder\n"));
         _T("   --profile <string>           set codec profile\n")
         _T("                                  H.264: baseline, main, high(default), high444\n")
         _T("                                  HEVC : main, main10, main444\n")
@@ -497,8 +498,13 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_nvenc_codecs_for_opt, strInput[i], &value)) {
             pParams->codec_rgy = (RGY_CODEC)value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_nvenc_codecs_for_opt);
-            return 1;
+            if (0 == _tcsncmp(strInput[i], _T("av_"), _tcslen(_T("av_")))) {
+                pParams->common.avVideoCodec = tchar_to_string(strInput[i] + _tcslen(_T("av_")));
+                pParams->codec_rgy = RGY_CODEC_AVCODEC;
+            } else {
+                print_cmd_error_invalid_value(option_name, strInput[i], list_nvenc_codecs_for_opt);
+                return 1;
+            }
         }
         return 0;
     }
@@ -1710,7 +1716,11 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
     OPT_NUM(_T("-d"), deviceID);
-    cmd << _T(" -c ") << get_chr_from_value(list_nvenc_codecs_for_opt, pParams->codec_rgy);
+    if (pParams->codec_rgy == RGY_CODEC_AVCODEC) {
+        cmd << _T(" -c av_") << char_to_tstring(pParams->common.avVideoCodec);
+    } else {
+        cmd << _T(" -c ") << get_chr_from_value(list_nvenc_codecs_for_opt, pParams->codec_rgy);
+    }
     if ((pParams->preset) != (encPrmDefault.preset)) cmd << _T(" -u ") << get_name_from_value(pParams->preset, list_nvenc_preset_names_ver10);
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);

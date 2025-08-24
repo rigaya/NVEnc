@@ -1312,6 +1312,8 @@ RGY_ERR initWriters(
         writerPrm.doviRpuMetadataCopy     = common->doviRpuMetadataCopy;
         writerPrm.doviProfile             = common->doviProfile;
         writerPrm.doviRpuConvertParam     = common->doviRpuParams;
+        writerPrm.avVideoCodec            = common->avVideoCodec;
+        writerPrm.avcodec_videnc_prms     = common->avcodec_videnc_prms;
         writerPrm.vidTimestamp            = vidTimestamp;
         writerPrm.videoCodecTag           = common->videoCodecTag;
         writerPrm.videoMetadata           = common->videoMetadata;

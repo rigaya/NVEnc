@@ -377,7 +377,7 @@ RGY_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) const {
 }
 
 RGY_CSP NVEncCore::GetRawOutCSP(const InEncodeVideoParam *inputParam) const {
-    if (inputParam->codec_rgy != RGY_CODEC_RAW) {
+    if (inputParam->codec_rgy != RGY_CODEC_RAW && inputParam->codec_rgy != RGY_CODEC_AVCODEC) {
         return GetEncoderCSP(inputParam);
     }
     const bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
@@ -834,14 +834,14 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
 
 RGY_ERR NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
     const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
-        (inputParams->codec_rgy == RGY_CODEC_RAW) &&
+        (inputParams->codec_rgy == RGY_CODEC_RAW || inputParams->codec_rgy == RGY_CODEC_AVCODEC) &&
         (  RGY_CSP_CHROMA_FORMAT[inputParams->outputCsp] == RGY_CHROMAFMT_RGB
         || RGY_CSP_CHROMA_FORMAT[inputParams->outputCsp] == RGY_CHROMAFMT_RGB_PACKED),
         m_uEncWidth, m_uEncHeight,
-        (inputParams->codec_rgy == RGY_CODEC_RAW) ? nullptr : &m_stEncConfig, m_stPicStruct,
+        (inputParams->codec_rgy == RGY_CODEC_RAW || inputParams->codec_rgy == RGY_CODEC_AVCODEC) ? nullptr : &m_stEncConfig, m_stPicStruct,
         std::make_pair(m_sar.n(), m_sar.d()),
         m_encFps);
-    if (inputParams->codec_rgy == RGY_CODEC_RAW) {
+    if (inputParams->codec_rgy == RGY_CODEC_RAW || inputParams->codec_rgy == RGY_CODEC_AVCODEC) {
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
     }
 
@@ -898,7 +898,7 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
     if (inputParam->ctrl.skipHWEncodeCheck) {
         return RGY_ERR_NONE;
     }
-    if (inputParam->codec_rgy == RGY_CODEC_RAW) {
+    if (inputParam->codec_rgy == RGY_CODEC_RAW || inputParam->codec_rgy == RGY_CODEC_AVCODEC) {
         return RGY_ERR_NONE;
     }
     if (inputParam->codec_rgy == RGY_CODEC_UNKNOWN) {
@@ -1167,8 +1167,8 @@ RGY_ERR NVEncCore::InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, 
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitDevice: device #%d (%s) selected.\n"), (*gpu)->id(), (*gpu)->name().c_str());
     m_dev = std::move(*gpu);
-    if (inputParam->codec_rgy == RGY_CODEC_RAW) {
-        PrintMes(RGY_LOG_DEBUG, _T("raw output selected, skip initializing encoder.\n"));
+    if (inputParam->codec_rgy == RGY_CODEC_RAW || inputParam->codec_rgy == RGY_CODEC_AVCODEC) {
+        PrintMes(RGY_LOG_DEBUG, _T("raw or avcodec output selected, skip initializing encoder.\n"));
         return RGY_ERR_NONE;
     }
     m_encRunCtx.reset(new NVEncRunCtx(m_dev.get(), m_pLog.get()));
@@ -1692,8 +1692,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
-    if (inputParam->codec_rgy == RGY_CODEC_RAW) {
-        PrintMes(RGY_LOG_DEBUG, _T("raw output selected, skip initializing encoder.\n"));
+    if (inputParam->codec_rgy == RGY_CODEC_RAW || inputParam->codec_rgy == RGY_CODEC_AVCODEC) {
+        PrintMes(RGY_LOG_DEBUG, _T("raw or avcodec output selected, skip initializing encoder.\n"));
         return RGY_ERR_NONE;
     }
 
@@ -2828,7 +2828,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     //最後のフィルタ (かならず一つはコピーが必要)
     {
-        const auto cropOutCsp = (inputParam->codec_rgy == RGY_CODEC_RAW) ? GetRawOutCSP(inputParam) : GetEncoderCSP(inputParam);
+        const auto cropOutCsp = (inputParam->codec_rgy == RGY_CODEC_RAW || inputParam->codec_rgy == RGY_CODEC_AVCODEC) ? GetRawOutCSP(inputParam) : GetEncoderCSP(inputParam);
         //インタレ保持の場合、またエンコーダを行わない場合は、CPU側に戻す必要がある
         const auto outMemType = ((!ENABLE_INTERLACE_FROM_HWMEM && m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME) || !m_dev->encoder()) ? RGY_MEM_TYPE_CPU : RGY_MEM_TYPE_GPU;
         // cspとmemtypeが両方一致しなかったら、まずはcspを変換
@@ -4097,7 +4097,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     if (inputParam->ctrl.lowLatency) {
         m_pipelineDepth = 1;
     }
-    if (inputParam->codec_rgy == RGY_CODEC_RAW) {
+    if (inputParam->codec_rgy == RGY_CODEC_RAW || inputParam->codec_rgy == RGY_CODEC_AVCODEC) {
         if (invalid_with_raw_out(inputParam->common, m_pLog)) {
             return err_to_rgy(NV_ENC_ERR_INVALID_CALL);
         }

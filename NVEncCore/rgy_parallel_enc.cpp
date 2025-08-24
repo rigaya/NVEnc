@@ -387,7 +387,7 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
     if (input->GetVideoFirstKeyPts() < 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: invalid first key PTS.\n") };
     }
-    if (enc_codec(prm) == RGY_CODEC_RAW) {
+    if (enc_codec(prm) == RGY_CODEC_RAW || enc_codec(prm) == RGY_CODEC_AVCODEC) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: encoding is not activated.\n") };
     }
     if (prm->common.nTrimCount != 0) {

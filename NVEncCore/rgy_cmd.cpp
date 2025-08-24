@@ -4959,6 +4959,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->videoCodecTag = tchar_to_string(strInput[i]);
         return 0;
     }
+    if (IS_OPTION("avcodec-prms")) {
+        i++;
+        common->avcodec_videnc_prms = strInput[i];
+        return 0;
+    }
     if (IS_OPTION("video-metadata")) {
         i++;
         common->videoMetadata.push_back(strInput[i]);
@@ -8099,6 +8104,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_TCHAR(_T("--input-format"), AVInputFormat);
     OPT_TSTR(_T("--output-format"), muxOutputFormat);
     OPT_STR(_T("--video-tag"), videoCodecTag);
+    OPT_TSTR(_T("--avcodec-prms"), avcodec_videnc_prms);
     for (auto &m : param->videoMetadata) {
         cmd << _T(" --video-metadata ") << m;
     }
@@ -8770,6 +8776,8 @@ tstring gen_cmd_help_common() {
         _T("   --video-metadata <string>    set metadata for video track.\n")
         _T("                                 - copy ... copy metadata from input\n")
         _T("                                 - clear ... do not set metadata (default)\n")
+        _T("   --avcodec-prms <string>      set parameters for avcodec video encoder.\n")
+        _T("                                 available when avcodec encoder is enabled by -c av_xxx.\n")
         _T("   --audio-source <string>      input extra audio file.\n")
         _T("   --audio-file [<int>?][<string>:]<string>\n")
         _T("                                extract audio into file.\n")

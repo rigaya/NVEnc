@@ -420,7 +420,9 @@ struct AvcodecWriterPrm {
     RGYDOVIProfile               doviProfile;             //doviのprofile
     RGYDOVIRpuConvertParam       doviRpuConvertParam;     //dovi rpuの変換パラメータ
     RGYTimestamp                *vidTimestamp;            //動画のtimestampの情報
+    std::string                  avVideoCodec;            //avcodecの映像コーデック
     std::string                  videoCodecTag;           //動画タグ
+    tstring                      avcodec_videnc_prms;    //avcodec映像エンコーダパラメータ
     std::vector<tstring>         videoMetadata;           //動画のmetadata
     std::vector<tstring>         formatMetadata;          //formatのmetadata
     bool                         afs;                     //入力が自動フィールドシフト
@@ -468,8 +470,10 @@ struct AvcodecWriterPrm {
         doviRpuMetadataCopy(false),
         doviProfile(RGY_DOVI_PROFILE_UNSET),
         doviRpuConvertParam(),
+        avVideoCodec(),
         vidTimestamp(nullptr),
         videoCodecTag(),
+        avcodec_videnc_prms(),
         videoMetadata(),
         formatMetadata(),
         afs(false),
@@ -573,7 +577,7 @@ protected:
     AVCodecID PCMRequiresConversion(const AVCodecParameters *codecParm);
 
     //RGY_CODECのcodecからAVCodecのCodecIDを返す
-    AVCodecID getAVCodecId(RGY_CODEC codec);
+    AVCodecID getAVCodecId(RGY_CODEC codec, const std::string& avVideoCodec);
 
     //Bitstreamフィルターを適用する
     RGY_ERR applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *muxAudio);

@@ -123,6 +123,7 @@ enum RGY_CODEC {
     RGY_CODEC_AV1,
     RGY_CODEC_VVC,
     RGY_CODEC_RAW,
+    RGY_CODEC_AVCODEC,
 
     RGY_CODEC_NUM,
 };
@@ -140,6 +141,7 @@ static tstring CodecToStr(RGY_CODEC codec) {
     case RGY_CODEC_AV1:   return _T("AV1");
     case RGY_CODEC_VVC:   return _T("VVC");
     case RGY_CODEC_RAW:   return _T("RAW");
+    case RGY_CODEC_AVCODEC: return _T("AVCODEC");
     default: return _T("unknown");
     }
 }
