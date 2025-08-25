@@ -4,7 +4,7 @@
 # . $HOME/.cargo/env
 # cargo install cargo-c
 
-DOVI_VER=2.1.2
+DOVI_VER=2.3.1
 DOVI_SRC=dovi_tool
 
 LIBDOVI_INSTALL_DIR=`pwd`/build_libdovi

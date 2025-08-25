@@ -4,7 +4,7 @@
 # . $HOME/.cargo/env
 # cargo install cargo-c
 
-HDR10PLUS_VER=1.6.1
+HDR10PLUS_VER=1.7.1
 HDR10PLUS_SRC=hdr10plus_tool
 
 LIBHDR10PLUS_INSTALL_DIR=`pwd`/build_libhdr10plus
