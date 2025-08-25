@@ -1139,7 +1139,7 @@ avcodec映像エンコーダのパラメータをkey=value形式でカンマ区�
 - 使用例
   ```
   例1: libsvtav1でプリセットとCRFを設定
-  -c av_libsvtav1 --avcodec-prms preset=6,crf=30
+  -c av_libsvtav1 --avcodec-prms "preset=6,crf=30,svtav1-params=enable-variance-boost=1:variance-boost-strength=2"
   
   例2: libvvencで品質とスレッド数を設定
   -c av_libvvenc --avcodec-prms qp=28,preset=medium,threads=4

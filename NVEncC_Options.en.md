@@ -1135,7 +1135,7 @@ This option is only available when avcodec encoder is enabled by specifying `-c 
 - Examples
   ```
   Example1: Set preset and CRF for libsvtav1
-  -c av_libsvtav1 --avcodec-prms preset=6,crf=30
+  -c av_libsvtav1 --avcodec-prms "preset=6,crf=30,svtav1-params=enable-variance-boost=1:variance-boost-strength=2"
   
   Example2: Set quality and threads for libvvenc
   -c av_libvvenc --avcodec-prms qp=28,preset=medium,threads=4
