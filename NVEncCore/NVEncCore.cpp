@@ -4609,21 +4609,22 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
     if (   m_pipelineTasks.back()->taskType() != PipelineTaskType::NVENC
         && m_pipelineTasks.back()->taskType() != PipelineTaskType::PECOLLECT) {
         const auto t1Alloc = m_pipelineTasks.back()->requiredSurfOut();
-        if (!t1Alloc.has_value()) {
+        if (t1Alloc.has_value()) {
+            RGYFrameInfo allocateFrameInfo = t1Alloc.value().first;
+            const int requestNumFrames = asyncdepth + 1;
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s, type: CL, %s %dx%d, request %d frames\n"),
+                m_pipelineTasks.back()->print().c_str(), RGY_CSP_NAMES[allocateFrameInfo.csp],
+                allocateFrameInfo.width, allocateFrameInfo.height, requestNumFrames);
+            auto sts = m_pipelineTasks.back()->workSurfacesAllocCUBuf(requestNumFrames, allocateFrameInfo);
+            if (sts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s: %s."), m_pipelineTasks.back()->print().c_str(), get_err_mes(sts));
+                return sts;
+            }
+            CUDA_DEBUG_SYNC_ERR;
+        } else if (m_pipelineTasks.back()->taskType() != PipelineTaskType::OUTPUTRAW) {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from last element!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        RGYFrameInfo allocateFrameInfo = t1Alloc.value().first;
-        const int requestNumFrames = asyncdepth + 1;
-        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s, type: CL, %s %dx%d, request %d frames\n"),
-            m_pipelineTasks.back()->print().c_str(), RGY_CSP_NAMES[allocateFrameInfo.csp],
-            allocateFrameInfo.width, allocateFrameInfo.height, requestNumFrames);
-        auto sts = m_pipelineTasks.back()->workSurfacesAllocCUBuf(requestNumFrames, allocateFrameInfo);
-        if (sts != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s: %s."), m_pipelineTasks.back()->print().c_str(), get_err_mes(sts));
-            return sts;
-        }
-        CUDA_DEBUG_SYNC_ERR;
     }
     return RGY_ERR_NONE;
 }
