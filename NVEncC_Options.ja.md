@@ -422,9 +422,9 @@ nvidia-smi.exeは通常ドライバと一緒に"C:\Program Files\NVIDIA Corporat
  - raw
  - av_xxx (avcodecエンコーダを使用)
 
-avcodecエンコーダ（av_xxx形式）を使用する場合、`--check-encoders`オプションで利用可能なエンコーダを確認できます。
+avcodecエンコーダ（av_xxx形式）を使用する場合、`--check-encoders`オプションで利用可能なエンコーダを確認できます。またエンコーダのパラメータは [--avcodec-prms](#--avcodec-prms-string)でのみ指定できます。(通常のパラメータは無視されます)
 
-   ```-c raw```の場合は、エンコードをせず、rawフレームを出力します。rawフレームの形式はデフォルトではy4m形式です。```-f raw```を追加することで、raw形式に変更できます。
+   ```-c raw```の場合は、エンコードをせず、rawフレームを出力します。
 
 ### -o, --output &lt;string&gt;
 出力ファイル名の表示、"-"でパイプ出力

@@ -405,9 +405,9 @@ Specify the output codec
  - raw
  - av_xxx (to use avcodec encoder)
 
-When using avcodec encoders (av_xxx format), you can check available encoders with `--check-encoders` option.
+When using avcodec encoders (av_xxx format), you can check available encoders with `--check-encoders` option. In this case parameters can be set only by [--avcodec-prms](#--avcodec-prms-string) option.
 
-   ```-c raw``` will not encode and output raw frames. The format of raw frames will be y4m by default. This can be changed to raw fromat by adding ```-f raw```.
+   ```-c raw``` will not encode and output raw frames.
 
 ### -o, --output &lt;string&gt;
 Set output file name, pipe output with "-".
