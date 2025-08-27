@@ -262,17 +262,14 @@ BOOL func_output( OUTPUT_INFO *oip ) {
     set_prevent_log_close(FALSE); //※1 end
 
     const bool error_or_abort = ret & (AUO_RESULT_ERROR | AUO_RESULT_ABORT);
-    char exe_name[MAX_PATH_LEN] = { 0 };
-    get_exe_name(exe_name, _countof(exe_name));
-    const bool isAviutl2 = strcmp(exe_name, "pipe32auo.exe") == 0;
 
-    auto_save_log(&conf_out, oip, &pe, &g_sys_dat, isAviutl2 && error_or_abort); //※1 end のあとで行うこと
+    auto_save_log(&conf_out, oip, &pe, &g_sys_dat, is_aviutl2() && error_or_abort); //※1 end のあとで行うこと
 
     if (!error_or_abort)
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_AFTER_PROCESS);
 
     log_process_events();
-    if (isAviutl2) {
+    if (is_aviutl2()) {
         if (error_or_abort) {
             MessageBoxA(NULL, "エラーが発生しました。ログウィンドウをご確認ください。\nログウィンドウを閉じると続行します。", AUO_FULL_NAME " 出力エラー", MB_OK);
             while (!is_log_window_closed()) {
