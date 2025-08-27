@@ -213,6 +213,43 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2025.08.29 (9.00)
+- AviUtl2に正式対応。
+  - 大半の処理についてUnicode対応を実施。
+  - プロファイルのフォーマットを変更。
+  - yuv444出力時にはYC48から変換するように。
+- AviUtl2向け簡易インストーラを更新。
+  - 簡易インストーラも64bit化。
+  - VC runtimeの64bit版をインストールするように。
+  - ウィンドウの高dpi対応を実施。
+  - インストール先を変更できるように。
+- --vpp-resize ngx-vsr, --vpp-ngx-truehdrについて、DX11 APIからCUDA APIに移行。
+  DirectX11の初期化に失敗しても利用可能に。
+- フィルタのみ使用し、swデコードをする機能を追加。
+  - -c av_xxx 等で実行可能
+    例: -c av_libsvtav1 --avcodec-prms "preset=6,crf=30,svtav1-params=enable-variance-boost=1:variance-boost-strength=2"
+    そのほか使えるのは av_libvvenc, av_libvpx-vp9 など。
+- 使用するffmpegのライブラリを更新。(Windows版)
+  - ffmpeg 7.1+ (20240822) -> 8.0
+  - libpng 1.6.44 -> 1.6.50
+  - expat  2.6.2  -> 2.7.1
+  - fribidi 1.0.11 -> 1.0.16
+  - libogg 1.3.5 -> 1.3.6
+  - libxml2 2.12.6 -> 2.14.5
+  - libvpl 2.13.0 -> 2.15.0
+  - libvpx 1.14.1 -> 1.15.2
+  - dav1d  1.4.3  -> 1.5.1
+  - libxxhash 0.8.2 -> 0.8.3
+  - glslang  15.0.0 -> 15.4.0
+  - dovi_tool 2.1.2 -> 2.3.1
+  - libjpeg-turbo 2.1.0 -> 3.1.1
+  - lcms2 2.16 -> 2.17
+  - zimg 3.0.5 -> 3.0.6
+  - libplacebo 7.349.0 -> 7.351.0
+  - libsvtav1 3.1.0 (new!) x64 only
+  - libvvenc 1.13.1 (new!) x64 only
+  - mmt/tlv patchを削除
+
 2025.08.13 (8.11)
 - CUDAの最適化を調整するオプションを追加。(--cuda-stream, --cuda-mt )
   RTX50xxで発生するらしいCUDA_ERROR_MAP_FAILEDへの対策として、

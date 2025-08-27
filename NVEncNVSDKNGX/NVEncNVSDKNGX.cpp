@@ -39,6 +39,9 @@
 #include <nvsdk_ngx_defs_vsr.h>
 #include <nvsdk_ngx_helpers_vsr.h>
 
+#include <cuda.h>
+#include <cuda_runtime.h>
+
 #define APP_ID      0
 #define APP_PATH    L"."
 
@@ -47,20 +50,27 @@ public:
     NVEncNVSDKNGX();
     virtual ~NVEncNVSDKNGX();
 
-    virtual RGY_ERR init(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext) = 0;
+    virtual RGY_ERR init(int cudaDeviceOrdinal, CUcontext cuContextExt, CUstream cuStreamExt) = 0;
     virtual void close();
-    virtual RGY_ERR procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) = 0;
+    virtual RGY_ERR procFrame(const NVEncNVSDKNGXRect *rectDst, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param,
+        const void *srcDevPtr, int srcPitch, void *dstDevPtr, int dstPitch, int srcBytesPerPix, int dstBytesPerPix) = 0;
 protected:
-    ID3D11Device*               m_pD3D11Device;
-    ID3D11DeviceContext*        m_pD3D11DeviceContext;
-    ID3D10Multithread*          m_pMultiThread;
-
     NVSDK_NGX_Parameter*        m_ngxParameters;
     NVSDK_NGX_Handle*           m_ngxFeature;
 
-    ID3D11Texture2D*            m_pDstTmpNGX;
-    UINT                        m_dstTmpWidth;
-    UINT                        m_dstTmpHeight;
+    CUcontext                   m_cuContext;
+    CUdevice                    m_cuDevice;
+    bool                        m_ownPrimaryCtx;
+    CUstream                    m_cuStream;
+    // reusable CUDA arrays/objects
+    CUarray                     m_cuArraySrc;
+    CUtexObject                 m_cuTexObjectSrc;
+    size_t                      m_srcArrayWidth;
+    size_t                      m_srcArrayHeight;
+    CUarray                     m_cuArrayDst;
+    CUsurfObject                m_cuSurfObjectDst;
+    size_t                      m_dstArrayWidth;
+    size_t                      m_dstArrayHeight;
 };
 
 class NVEncNVSDKNGXVSR : public NVEncNVSDKNGX {
@@ -68,8 +78,9 @@ public:
     NVEncNVSDKNGXVSR();
     virtual ~NVEncNVSDKNGXVSR();
 
-    virtual RGY_ERR init(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext) override;
-    virtual RGY_ERR procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) override;
+    virtual RGY_ERR init(int cudaDeviceOrdinal, CUcontext cuContextExt, CUstream cuStreamExt) override;
+    virtual RGY_ERR procFrame(const NVEncNVSDKNGXRect *rectDst, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param,
+        const void *srcDevPtr, int srcPitch, void *dstDevPtr, int dstPitch, int srcBytesPerPix, int dstBytesPerPix) override;
 protected:
 };
 
@@ -78,8 +89,9 @@ public:
     NVEncNVSDKNGXTrueHDR();
     virtual ~NVEncNVSDKNGXTrueHDR();
 
-    virtual RGY_ERR init(ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext) override;
-    virtual RGY_ERR procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) override;
+    virtual RGY_ERR init(int cudaDeviceOrdinal, CUcontext cuContextExt, CUstream cuStreamExt) override;
+    virtual RGY_ERR procFrame(const NVEncNVSDKNGXRect *rectDst, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param,
+        const void *srcDevPtr, int srcPitch, void *dstDevPtr, int dstPitch, int srcBytesPerPix, int dstBytesPerPix) override;
 protected:
 };
 
@@ -139,15 +151,20 @@ static RGY_ERR err_to_rgy(NVSDK_NGX_Result err) {
 }
 
 NVEncNVSDKNGX::NVEncNVSDKNGX() :
-    m_pD3D11Device(nullptr),
-    m_pD3D11DeviceContext(nullptr),
-    m_pMultiThread(nullptr),
     m_ngxParameters(nullptr),
     m_ngxFeature(nullptr),
-    m_pDstTmpNGX(nullptr),
-    m_dstTmpWidth(0),
-    m_dstTmpHeight(0) {
-
+    m_cuContext(nullptr),
+    m_cuDevice(0),
+    m_ownPrimaryCtx(false),
+    m_cuStream(nullptr),
+    m_cuArraySrc(nullptr),
+    m_cuTexObjectSrc(0),
+    m_srcArrayWidth(0),
+    m_srcArrayHeight(0),
+    m_cuArrayDst(nullptr),
+    m_cuSurfObjectDst(0),
+    m_dstArrayWidth(0),
+    m_dstArrayHeight(0) {
 }
 
 NVEncNVSDKNGX::~NVEncNVSDKNGX() {
@@ -155,137 +172,129 @@ NVEncNVSDKNGX::~NVEncNVSDKNGX() {
 }
 
 void NVEncNVSDKNGX::close() {
-    if (m_pD3D11Device) {
-        NVSDK_NGX_D3D11_ReleaseFeature(m_ngxFeature);
+    if (m_ngxFeature) {
+        NVSDK_NGX_CUDA_ReleaseFeature(m_ngxFeature);
         m_ngxFeature = nullptr;
-        NVSDK_NGX_D3D11_Shutdown1(m_pD3D11Device);
-        NVSDK_NGX_D3D11_DestroyParameters(m_ngxParameters);
+    }
+    if (m_cuTexObjectSrc) {
+        cuTexObjectDestroy(m_cuTexObjectSrc);
+        m_cuTexObjectSrc = 0;
+    }
+    if (m_cuArraySrc) {
+        cuArrayDestroy(m_cuArraySrc);
+        m_cuArraySrc = nullptr;
+    }
+    if (m_cuSurfObjectDst) {
+        cuSurfObjectDestroy(m_cuSurfObjectDst);
+        m_cuSurfObjectDst = 0;
+    }
+    if (m_cuArrayDst) {
+        cuArrayDestroy(m_cuArrayDst);
+        m_cuArrayDst = nullptr;
+    }
+    if (m_ngxParameters) {
+        NVSDK_NGX_CUDA_DestroyParameters(m_ngxParameters);
         m_ngxParameters = nullptr;
     }
-    if (m_pDstTmpNGX) {
-        m_pDstTmpNGX->Release();
-        m_pDstTmpNGX = nullptr;
-    }
-    if (m_pMultiThread) {
-        m_pMultiThread->Release();
-        m_pMultiThread = nullptr;
-    }
-    if (m_pD3D11DeviceContext) {
-        m_pD3D11DeviceContext->Release();
-        m_pD3D11DeviceContext = nullptr;
-    }
-    if (m_pD3D11Device) {
-        m_pD3D11Device->Release();
-        m_pD3D11Device = nullptr;
+    NVSDK_NGX_CUDA_Shutdown();
+    if (m_ownPrimaryCtx && m_cuContext) {
+        cuDevicePrimaryCtxRelease(m_cuDevice);
+        m_cuContext = nullptr;
+        m_ownPrimaryCtx = false;
     }
 }
 
 NVEncNVSDKNGXVSR::NVEncNVSDKNGXVSR() : NVEncNVSDKNGX() { }
 NVEncNVSDKNGXVSR::~NVEncNVSDKNGXVSR() { }
 
-RGY_ERR NVEncNVSDKNGXVSR::init(ID3D11Device *pD3DDevice, ID3D11DeviceContext *pD3D11DeviceContext) {
-    HRESULT hr = S_OK;
+RGY_ERR NVEncNVSDKNGXVSR::init(int cudaDeviceOrdinal, CUcontext cuContextExt, CUstream cuStreamExt) {
+    m_cuContext = cuContextExt;
+    m_cuStream = cuStreamExt;
+    m_ownPrimaryCtx = false;
+    if (m_cuContext == nullptr) {
+        // 現在アクティブなコンテキストを取得
+        CUresult result = cuCtxGetCurrent(&m_cuContext);
+        if (result == CUDA_SUCCESS && m_cuContext != nullptr) {
+            // 現在のコンテキストを使用
+            CUdevice dev;
+            cuCtxGetDevice(&dev);
+            m_cuDevice = dev;
+        } else {
+            // 最後の手段としてプライマリコンテキストを使用
+            if (cudaDeviceOrdinal >= 0) {
+                cuDeviceGet(&m_cuDevice, cudaDeviceOrdinal);
+            } else {
+                int devOrdinal = 0;
+                cudaGetDevice(&devOrdinal);
+                cuDeviceGet(&m_cuDevice, devOrdinal);
+            }
+            cuDevicePrimaryCtxRetain(&m_cuContext, m_cuDevice);
+            m_ownPrimaryCtx = true;
+        }
+    } else {
+        CUdevice dev;
+        cuCtxGetDevice(&dev);
+        m_cuDevice = dev;
+    }
 
-    // init NGX SDK
-    auto err = err_to_rgy(NVSDK_NGX_D3D11_Init(APP_ID, APP_PATH, pD3DDevice));
+    auto err = err_to_rgy(NVSDK_NGX_CUDA_Init(APP_ID, APP_PATH));
     if (err != RGY_ERR_NONE) return err;
 
-    // Get NGX parameters interface (managed and released by NGX)
-    err = err_to_rgy(NVSDK_NGX_D3D11_GetCapabilityParameters(&m_ngxParameters));
+    err = err_to_rgy(NVSDK_NGX_CUDA_GetCapabilityParameters(&m_ngxParameters));
     if (err != RGY_ERR_NONE) return err;
 
-    // Now check if VSR is available on the system
     int VSRAvailable = 0;
     err = err_to_rgy(m_ngxParameters->Get(NVSDK_NGX_Parameter_VSR_Available, &VSRAvailable));
     if (err != RGY_ERR_NONE) return err;
 
-    pD3DDevice->AddRef();
-    pD3D11DeviceContext->AddRef();
-    m_pD3D11Device = pD3DDevice;
-    m_pD3D11DeviceContext = pD3D11DeviceContext;
-
-    hr = pD3D11DeviceContext->QueryInterface(__uuidof(ID3D10Multithread), (void**)&m_pMultiThread);
-    if (SUCCEEDED(hr)) {
-        m_pMultiThread->SetMultithreadProtected(TRUE);
-        m_pMultiThread->Enter();
-    }
-
-    NVSDK_NGX_Feature_Create_Params VSRCreateParams = {};
-    err = err_to_rgy(NGX_D3D11_CREATE_VSR_EXT(pD3D11DeviceContext, &m_ngxFeature, m_ngxParameters, &VSRCreateParams));
+    NVSDK_NGX_CUDA_VSR_Create_Params VSRCreateParams = {};
+    VSRCreateParams.InCUContext = m_cuContext;
+    VSRCreateParams.InCUStream = m_cuStream;
+    err = err_to_rgy(NGX_CUDA_CREATE_VSR(&m_ngxFeature, m_ngxParameters, &VSRCreateParams));
     if (err != RGY_ERR_NONE) return err;
-
-    if (m_pMultiThread) {
-        m_pMultiThread->Leave();
-    }
 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncNVSDKNGXVSR::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) {
-    if (!m_pD3D11Device) {
+RGY_ERR NVEncNVSDKNGXVSR::procFrame(const NVEncNVSDKNGXRect *rectDst, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param,
+    const void *srcDevPtr, int srcPitch, void *dstDevPtr, int dstPitch, int srcBytesPerPix, int dstBytesPerPix) {
+    if (!m_ngxFeature) {
         return RGY_ERR_NOT_INITIALIZED;
     }
-    HRESULT hr = S_OK;
-    bool useDstTmp = false;
-    // check formats
-    {
-        // check input is DXGI_FORMAT_R8G8B8A8_UNORM or DXGI_FORMAT_B8G8R8A8_UNORM
-        D3D11_TEXTURE2D_DESC inDesc = {};
-        frameSrc->GetDesc(&inDesc);
-        if (inDesc.Format != DXGI_FORMAT_R8G8B8A8_UNORM && inDesc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
-            return RGY_ERR_INVALID_FORMAT;
-        }
-        // verify input rect is within range
-        if (rectSrc->left < 0 || rectSrc->left >= rectSrc->right || rectSrc->right  >(LONG)inDesc.Width
-            || rectSrc->top  < 0 || rectSrc->top >= rectSrc->bottom || rectSrc->bottom >(LONG)inDesc.Height) {
-            return RGY_ERR_INVALID_FORMAT;
-        }
-        // check output is DXGI_FORMAT_R8G8B8A8_UNORM or DXGI_FORMAT_B8G8R8A8_UNORM
-        D3D11_TEXTURE2D_DESC outDesc = {};
-        frameDst->GetDesc(&outDesc);
-        if (outDesc.Format != DXGI_FORMAT_R8G8B8A8_UNORM && outDesc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
-            return RGY_ERR_INVALID_FORMAT;
-        }
-        // verify output rect is within range
-        if (rectDst->left < 0 || rectDst->left >= rectDst->right || rectDst->right  >(LONG)outDesc.Width
-            || rectDst->top  < 0 || rectDst->top >= rectDst->bottom || rectDst->bottom >(LONG)outDesc.Height) {
-            return RGY_ERR_INVALID_FORMAT;
-        }
-
-        // The NGX dst surface must be created with BIND_UNORDERED_ACCESS, which swap buffers are not.
-        // check for UNORDERED_ACCESS
-        useDstTmp = !(outDesc.BindFlags & D3D11_BIND_UNORDERED_ACCESS);
-
-        // verify DstTmp matches dest surface so copyRegion works
-        if (useDstTmp && (!m_pDstTmpNGX || outDesc.Width != m_dstTmpWidth || outDesc.Height != m_dstTmpHeight)) {
-            if (m_pDstTmpNGX) {
-                m_pDstTmpNGX->Release();
-                m_pDstTmpNGX = nullptr;
-            }
-            m_dstTmpWidth = outDesc.Width;
-            m_dstTmpHeight = outDesc.Height;
-            D3D11_TEXTURE2D_DESC texture2d_desc = { 0 };
-            texture2d_desc.Width = m_dstTmpWidth;
-            texture2d_desc.Height = m_dstTmpHeight;
-            texture2d_desc.MipLevels = 1;
-            texture2d_desc.ArraySize = 1;
-            texture2d_desc.SampleDesc.Count = 1;
-            texture2d_desc.MiscFlags = 0;
-            texture2d_desc.Format = outDesc.Format;
-            texture2d_desc.Usage = D3D11_USAGE_DEFAULT;
-            texture2d_desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-
-            hr = m_pD3D11Device->CreateTexture2D(&texture2d_desc, nullptr, &m_pDstTmpNGX);
-            if (FAILED(hr)) return RGY_ERR_NULL_PTR;
-        }
+    // prepare reusable arrays/objects
+    CUresult drvres;
+    size_t srcW = rectSrc->right - rectSrc->left;
+    size_t srcH = rectSrc->bottom - rectSrc->top;
+    size_t dstW = rectDst->right - rectDst->left;
+    size_t dstH = rectDst->bottom - rectDst->top;
+    if (!m_cuArraySrc || m_srcArrayWidth != srcW || m_srcArrayHeight != srcH) {
+        if (m_cuTexObjectSrc) { cuTexObjectDestroy(m_cuTexObjectSrc); m_cuTexObjectSrc = 0; }
+        if (m_cuArraySrc) { cuArrayDestroy(m_cuArraySrc); m_cuArraySrc = nullptr; }
+        CUDA_ARRAY_DESCRIPTOR ad{}; ad.Width = srcW; ad.Height = srcH; ad.NumChannels = 4; ad.Format = CU_AD_FORMAT_UNSIGNED_INT8;
+        drvres = cuArrayCreate(&m_cuArraySrc, &ad); if (drvres != CUDA_SUCCESS) return RGY_ERR_NULL_PTR;
+        CUDA_RESOURCE_DESC rd{}; rd.resType = CU_RESOURCE_TYPE_ARRAY; rd.res.array.hArray = m_cuArraySrc;
+        CUDA_TEXTURE_DESC td{}; td.addressMode[0] = CU_TR_ADDRESS_MODE_CLAMP; td.addressMode[1] = CU_TR_ADDRESS_MODE_CLAMP; td.addressMode[2] = CU_TR_ADDRESS_MODE_CLAMP; td.filterMode = CU_TR_FILTER_MODE_LINEAR; td.flags = CU_TRSF_NORMALIZED_COORDINATES;
+        drvres = cuTexObjectCreate(&m_cuTexObjectSrc, &rd, &td, nullptr); if (drvres != CUDA_SUCCESS) return RGY_ERR_NULL_PTR;
+        m_srcArrayWidth = srcW; m_srcArrayHeight = srcH;
     }
+    if (!m_cuArrayDst || m_dstArrayWidth != dstW || m_dstArrayHeight != dstH) {
+        if (m_cuSurfObjectDst) { cuSurfObjectDestroy(m_cuSurfObjectDst); m_cuSurfObjectDst = 0; }
+        if (m_cuArrayDst) { cuArrayDestroy(m_cuArrayDst); m_cuArrayDst = nullptr; }
+        CUDA_ARRAY_DESCRIPTOR ad{}; ad.Width = dstW; ad.Height = dstH; ad.NumChannels = 4; ad.Format = CU_AD_FORMAT_UNSIGNED_INT8;
+        drvres = cuArrayCreate(&m_cuArrayDst, &ad); if (drvres != CUDA_SUCCESS) return RGY_ERR_NULL_PTR;
+        CUDA_RESOURCE_DESC rd{}; rd.resType = CU_RESOURCE_TYPE_ARRAY; rd.res.array.hArray = m_cuArrayDst;
+        drvres = cuSurfObjectCreate(&m_cuSurfObjectDst, &rd); if (drvres != CUDA_SUCCESS) return RGY_ERR_NULL_PTR;
+        m_dstArrayWidth = dstW; m_dstArrayHeight = dstH;
+    }
+
+    // copy input from device pointer to array
+    cudaMemcpy2DToArray((cudaArray_t)m_cuArraySrc, 0, 0, srcDevPtr, srcPitch, srcW * srcBytesPerPix, srcH, cudaMemcpyDeviceToDevice);
 
     const NVEncNVSDKNGXParamVSR *vsrParam = (const NVEncNVSDKNGXParamVSR *)param;
 
-    // setup params
-    NVSDK_NGX_D3D11_VSR_Eval_Params evalParams;
-    evalParams.pInput = frameSrc;
-    evalParams.pOutput = useDstTmp ? m_pDstTmpNGX : frameDst;
+    NVSDK_NGX_CUDA_VSR_Eval_Params evalParams = {};
+    evalParams.pInput = (CUtexObject *)&m_cuTexObjectSrc;
+    evalParams.pOutput = (CUsurfObject *)&m_cuSurfObjectDst;
     evalParams.InputSubrectBase.X = rectSrc->left;
     evalParams.InputSubrectBase.Y = rectSrc->top;
     evalParams.InputSubrectSize.Width = rectSrc->right - rectSrc->left;
@@ -296,21 +305,16 @@ RGY_ERR NVEncNVSDKNGXVSR::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKN
     evalParams.OutputSubrectSize.Height = rectDst->bottom - rectDst->top;
     evalParams.QualityLevel = (NVSDK_NGX_VSR_QualityLevel)vsrParam->quality;
 
-    if (m_pMultiThread) {
-        m_pMultiThread->Enter();
+    auto err = err_to_rgy(NGX_CUDA_EVALUATE_VSR(m_ngxFeature, m_ngxParameters, &evalParams));
+
+    // copy output from array to device pointer
+    if (err == RGY_ERR_NONE) {
+        size_t widthBytes = (rectDst->right - rectDst->left) * dstBytesPerPix;
+        size_t height = (rectDst->bottom - rectDst->top);
+        cudaMemcpy2DFromArray(dstDevPtr, dstPitch, (cudaArray_t)m_cuArrayDst, 0, 0, widthBytes, height, cudaMemcpyDeviceToDevice);
     }
 
-    auto err = err_to_rgy(NGX_D3D11_EVALUATE_VSR_EXT(m_pD3D11DeviceContext, m_ngxFeature, m_ngxParameters, &evalParams));
     if (err != RGY_ERR_NONE) return err;
-
-    if (m_pDstTmpNGX) {
-        m_pD3D11DeviceContext->CopySubresourceRegion(frameDst, 0, 0, 0, 0, m_pDstTmpNGX, 0, nullptr);
-    }
-
-    if (m_pMultiThread) {
-        m_pMultiThread->Leave();
-    }
-
     return RGY_ERR_NONE;
 }
 
@@ -318,109 +322,97 @@ RGY_ERR NVEncNVSDKNGXVSR::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKN
 NVEncNVSDKNGXTrueHDR::NVEncNVSDKNGXTrueHDR() : NVEncNVSDKNGX() { }
 NVEncNVSDKNGXTrueHDR::~NVEncNVSDKNGXTrueHDR() { }
 
-RGY_ERR NVEncNVSDKNGXTrueHDR::init(ID3D11Device *pD3DDevice, ID3D11DeviceContext *pD3D11DeviceContext) {
-    HRESULT hr = S_OK;
+RGY_ERR NVEncNVSDKNGXTrueHDR::init(int cudaDeviceOrdinal, CUcontext cuContextExt, CUstream cuStreamExt) {
+    m_cuContext = cuContextExt;
+    m_cuStream = cuStreamExt;
 
-    // init NGX SDK
-    auto err = err_to_rgy(NVSDK_NGX_D3D11_Init(APP_ID, APP_PATH, pD3DDevice));
-    if (err != RGY_ERR_NONE) return err;
-
-    // Get NGX parameters interface (managed and released by NGX)
-    err = err_to_rgy(NVSDK_NGX_D3D11_GetCapabilityParameters(&m_ngxParameters));
-    if (err != RGY_ERR_NONE) return err;
-
-    // Now check if VSR is available on the system
-    int VSRAvailable = 0;
-    err = err_to_rgy(m_ngxParameters->Get(NVSDK_NGX_Parameter_TrueHDR_Available, &VSRAvailable));
-    if (err != RGY_ERR_NONE) return err;
-
-    pD3DDevice->AddRef();
-    pD3D11DeviceContext->AddRef();
-    m_pD3D11Device = pD3DDevice;
-    m_pD3D11DeviceContext = pD3D11DeviceContext;
-
-    hr = pD3D11DeviceContext->QueryInterface(__uuidof(ID3D10Multithread), (void**)&m_pMultiThread);
-    if (SUCCEEDED(hr)) {
-        m_pMultiThread->SetMultithreadProtected(TRUE);
-        m_pMultiThread->Enter();
+    m_ownPrimaryCtx = false;
+    if (m_cuContext == nullptr) {
+        // 現在アクティブなコンテキストを取得
+        CUresult result = cuCtxGetCurrent(&m_cuContext);
+        if (result == CUDA_SUCCESS && m_cuContext != nullptr) {
+            // 現在のコンテキストを使用
+            CUdevice dev;
+            cuCtxGetDevice(&dev);
+            m_cuDevice = dev;
+        } else {
+            // 最後の手段としてプライマリコンテキストを使用
+            if (cudaDeviceOrdinal >= 0) {
+                cuDeviceGet(&m_cuDevice, cudaDeviceOrdinal);
+            } else {
+                int devOrdinal = 0;
+                cudaGetDevice(&devOrdinal);
+                cuDeviceGet(&m_cuDevice, devOrdinal);
+            }
+            cuDevicePrimaryCtxRetain(&m_cuContext, m_cuDevice);
+            m_ownPrimaryCtx = true;
+        }
+    } else {
+        CUdevice dev;
+        cuCtxGetDevice(&dev);
+        m_cuDevice = dev;
     }
 
-    NVSDK_NGX_Feature_Create_Params VSRCreateParams = {};
-    err = err_to_rgy(NGX_D3D11_CREATE_TRUEHDR_EXT(pD3D11DeviceContext, &m_ngxFeature, m_ngxParameters, &VSRCreateParams));
+    auto err = err_to_rgy(NVSDK_NGX_CUDA_Init(APP_ID, APP_PATH));
     if (err != RGY_ERR_NONE) return err;
 
-    if (m_pMultiThread) {
-        m_pMultiThread->Leave();
-    }
+    err = err_to_rgy(NVSDK_NGX_CUDA_GetCapabilityParameters(&m_ngxParameters));
+    if (err != RGY_ERR_NONE) return err;
+
+    int TrueHDRAvailable = 0;
+    err = err_to_rgy(m_ngxParameters->Get(NVSDK_NGX_Parameter_TrueHDR_Available, &TrueHDRAvailable));
+    if (err != RGY_ERR_NONE) return err;
+
+    NVSDK_NGX_CUDA_TRUEHDR_Create_Params TrueHDRCreateParams = {};
+    TrueHDRCreateParams.InCUContext = m_cuContext;
+    TrueHDRCreateParams.InCUStream = m_cuStream;
+    err = err_to_rgy(NGX_CUDA_CREATE_TRUEHDR(&m_ngxFeature, m_ngxParameters, &TrueHDRCreateParams));
+    if (err != RGY_ERR_NONE) return err;
 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncNVSDKNGXTrueHDR::procFrame(ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) {
-    if (!m_pD3D11Device) {
+RGY_ERR NVEncNVSDKNGXTrueHDR::procFrame(const NVEncNVSDKNGXRect *rectDst, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param,
+    const void *srcDevPtr, int srcPitch, void *dstDevPtr, int dstPitch, int srcBytesPerPix, int dstBytesPerPix) {
+    if (!m_ngxFeature) {
         return RGY_ERR_NOT_INITIALIZED;
     }
-    HRESULT hr = S_OK;
-    bool useDstTmp = false;
-    // check formats
-    {
-        // check input is DXGI_FORMAT_R8G8B8A8_UNORM or DXGI_FORMAT_B8G8R8A8_UNORM
-        D3D11_TEXTURE2D_DESC inDesc = {};
-        frameSrc->GetDesc(&inDesc);
-        if (inDesc.Format != DXGI_FORMAT_R8G8B8A8_UNORM && inDesc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
-            return RGY_ERR_INVALID_FORMAT;
-        }
-        // verify input rect is within range
-        if (rectSrc->left < 0 || rectSrc->left >= rectSrc->right || rectSrc->right  >(LONG)inDesc.Width
-            || rectSrc->top  < 0 || rectSrc->top >= rectSrc->bottom || rectSrc->bottom >(LONG)inDesc.Height) {
-            return RGY_ERR_INVALID_FORMAT;
-        }
-        // check output is DXGI_FORMAT_R10G10B10A2_UNORM or DXGI_FORMAT_R16G16B16A16_FLOAT
-        D3D11_TEXTURE2D_DESC outDesc = {};
-        frameDst->GetDesc(&outDesc);
-        if (outDesc.Format != DXGI_FORMAT_R10G10B10A2_UNORM && outDesc.Format != DXGI_FORMAT_R16G16B16A16_FLOAT) {
-            return RGY_ERR_INVALID_FORMAT;
-        }
-        // verify output rect is within range
-        if (rectDst->left < 0 || rectDst->left >= rectDst->right || rectDst->right  >(LONG)outDesc.Width
-            || rectDst->top  < 0 || rectDst->top >= rectDst->bottom || rectDst->bottom >(LONG)outDesc.Height) {
-            return RGY_ERR_INVALID_FORMAT;
-        }
-
-        // The NGX dst surface must be created with BIND_UNORDERED_ACCESS, which swap buffers are not.
-        // check for UNORDERED_ACCESS
-        useDstTmp = !(outDesc.BindFlags & D3D11_BIND_UNORDERED_ACCESS);
-
-        // verify DstTmp matches dest surface so copyRegion works
-        if (useDstTmp && (!m_pDstTmpNGX || outDesc.Width != m_dstTmpWidth || outDesc.Height != m_dstTmpHeight)) {
-            if (m_pDstTmpNGX) {
-                m_pDstTmpNGX->Release();
-                m_pDstTmpNGX = nullptr;
-            }
-            m_dstTmpWidth = outDesc.Width;
-            m_dstTmpHeight = outDesc.Height;
-            D3D11_TEXTURE2D_DESC texture2d_desc = { 0 };
-            texture2d_desc.Width = m_dstTmpWidth;
-            texture2d_desc.Height = m_dstTmpHeight;
-            texture2d_desc.MipLevels = 1;
-            texture2d_desc.ArraySize = 1;
-            texture2d_desc.SampleDesc.Count = 1;
-            texture2d_desc.MiscFlags = 0;
-            texture2d_desc.Format = outDesc.Format;
-            texture2d_desc.Usage = D3D11_USAGE_DEFAULT;
-            texture2d_desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-
-            hr = m_pD3D11Device->CreateTexture2D(&texture2d_desc, nullptr, &m_pDstTmpNGX);
-            if (FAILED(hr)) return RGY_ERR_NULL_PTR;
-        }
+    // prepare reusable arrays/objects
+    CUresult drvres;
+    size_t srcW = rectSrc->right - rectSrc->left;
+    size_t srcH = rectSrc->bottom - rectSrc->top;
+    size_t dstW = rectDst->right - rectDst->left;
+    size_t dstH = rectDst->bottom - rectDst->top;
+    if (!m_cuArraySrc || m_srcArrayWidth != srcW || m_srcArrayHeight != srcH) {
+        if (m_cuTexObjectSrc) { cuTexObjectDestroy(m_cuTexObjectSrc); m_cuTexObjectSrc = 0; }
+        if (m_cuArraySrc) { cuArrayDestroy(m_cuArraySrc); m_cuArraySrc = nullptr; }
+        CUDA_ARRAY_DESCRIPTOR ad{}; ad.Width = srcW; ad.Height = srcH; ad.NumChannels = 4; ad.Format = CU_AD_FORMAT_UNSIGNED_INT8;
+        drvres = cuArrayCreate(&m_cuArraySrc, &ad); if (drvres != CUDA_SUCCESS) return RGY_ERR_NULL_PTR;
+        CUDA_RESOURCE_DESC rd{}; rd.resType = CU_RESOURCE_TYPE_ARRAY; rd.res.array.hArray = m_cuArraySrc;
+        CUDA_TEXTURE_DESC td{}; td.addressMode[0] = CU_TR_ADDRESS_MODE_CLAMP; td.addressMode[1] = CU_TR_ADDRESS_MODE_CLAMP; td.addressMode[2] = CU_TR_ADDRESS_MODE_CLAMP; td.filterMode = CU_TR_FILTER_MODE_LINEAR; td.flags = CU_TRSF_NORMALIZED_COORDINATES;
+        drvres = cuTexObjectCreate(&m_cuTexObjectSrc, &rd, &td, nullptr); if (drvres != CUDA_SUCCESS) return RGY_ERR_NULL_PTR;
+        m_srcArrayWidth = srcW; m_srcArrayHeight = srcH;
     }
+    if (!m_cuArrayDst || m_dstArrayWidth != dstW || m_dstArrayHeight != dstH) {
+        if (m_cuSurfObjectDst) { cuSurfObjectDestroy(m_cuSurfObjectDst); m_cuSurfObjectDst = 0; }
+        if (m_cuArrayDst) { cuArrayDestroy(m_cuArrayDst); m_cuArrayDst = nullptr; }
+        // 出力配列のフォーマット: 10bit(A2R10G10B10)は4Bpp, 16Fは8Bpp。
+        CUarray_format outFmt = (dstBytesPerPix == 8) ? CU_AD_FORMAT_HALF : CU_AD_FORMAT_UNSIGNED_INT8;
+        CUDA_ARRAY_DESCRIPTOR ad{}; ad.Width = dstW; ad.Height = dstH; ad.NumChannels = 4; ad.Format = outFmt;
+        drvres = cuArrayCreate(&m_cuArrayDst, &ad); if (drvres != CUDA_SUCCESS) return RGY_ERR_NULL_PTR;
+        CUDA_RESOURCE_DESC rd{}; rd.resType = CU_RESOURCE_TYPE_ARRAY; rd.res.array.hArray = m_cuArrayDst;
+        drvres = cuSurfObjectCreate(&m_cuSurfObjectDst, &rd); if (drvres != CUDA_SUCCESS) return RGY_ERR_NULL_PTR;
+        m_dstArrayWidth = dstW; m_dstArrayHeight = dstH;
+    }
+
+    // copy input from device pointer to array (input is RGBA8)
+    cudaMemcpy2DToArray((cudaArray_t)m_cuArraySrc, 0, 0, srcDevPtr, srcPitch, srcW * srcBytesPerPix, srcH, cudaMemcpyDeviceToDevice);
 
     const auto truehdrParam = (const NVEncNVSDKNGXParamTrueHDR *)param;
 
-    // setup params
-    NVSDK_NGX_D3D11_TRUEHDR_Eval_Params evalParams;
-    evalParams.pInput = frameSrc;
-    evalParams.pOutput = useDstTmp ? m_pDstTmpNGX : frameDst;
+    NVSDK_NGX_CUDA_TRUEHDR_Eval_Params evalParams = {};
+    evalParams.pInput = (CUtexObject *)&m_cuTexObjectSrc;
+    evalParams.pOutput = (CUsurfObject *)&m_cuSurfObjectDst;
     evalParams.InputSubrectTL.X = rectSrc->left;
     evalParams.InputSubrectTL.Y = rectSrc->top;
     evalParams.InputSubrectBR.Width = rectSrc->right;
@@ -434,21 +426,16 @@ RGY_ERR NVEncNVSDKNGXTrueHDR::procFrame(ID3D11Texture2D* frameDst, const NVEncNV
     evalParams.MiddleGray = truehdrParam->middleGray;
     evalParams.MaxLuminance = truehdrParam->maxLuminance;
 
-    if (m_pMultiThread) {
-        m_pMultiThread->Enter();
+    auto err = err_to_rgy(NGX_CUDA_EVALUATE_TRUEHDR(m_ngxFeature, m_ngxParameters, &evalParams));
+
+    // copy output from array to device pointer
+    if (err == RGY_ERR_NONE) {
+        size_t widthBytes = (rectDst->right - rectDst->left) * dstBytesPerPix;
+        size_t height = (rectDst->bottom - rectDst->top);
+        cudaMemcpy2DFromArray(dstDevPtr, dstPitch, (cudaArray_t)m_cuArrayDst, 0, 0, widthBytes, height, cudaMemcpyDeviceToDevice);
     }
 
-    auto err = err_to_rgy(NGX_D3D11_EVALUATE_TRUEHDR_EXT(m_pD3D11DeviceContext, m_ngxFeature, m_ngxParameters, &evalParams));
     if (err != RGY_ERR_NONE) return err;
-
-    if (m_pDstTmpNGX) {
-        m_pD3D11DeviceContext->CopySubresourceRegion(frameDst, 0, 0, 0, 0, m_pDstTmpNGX, 0, nullptr);
-    }
-
-    if (m_pMultiThread) {
-        m_pMultiThread->Leave();
-    }
-
     return RGY_ERR_NONE;
 }
 
@@ -474,8 +461,8 @@ NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXCreate(NVEncNVSDKNGXHandle *pp
     return RGY_ERR_NONE;
 }
 
-NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXInit(NVEncNVSDKNGXHandle ppNVSDKNGX, ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext) {
-    return ((NVEncNVSDKNGX *)ppNVSDKNGX)->init(pD3DDevice, pD3D11DeviceContext);
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXInit(NVEncNVSDKNGXHandle ppNVSDKNGX, int cudaDeviceOrdinal, void *cuContext, void *cuStream) {
+    return ((NVEncNVSDKNGX *)ppNVSDKNGX)->init(cudaDeviceOrdinal, (CUcontext)cuContext, (CUstream)cuStream);
 }
 
 NVENC_NVSDKNGX_API void __stdcall NVEncNVSDKNGXDelete(NVEncNVSDKNGXHandle ppNVSDKNGX) {
@@ -485,8 +472,14 @@ NVENC_NVSDKNGX_API void __stdcall NVEncNVSDKNGXDelete(NVEncNVSDKNGXHandle ppNVSD
     }
 }
 
-NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle ppNVSDKNGX, ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param) {
-    return ((NVEncNVSDKNGX *)ppNVSDKNGX)->procFrame(frameDst, rectDst, frameSrc, rectSrc, param);
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle ppNVSDKNGX,
+    const NVEncNVSDKNGXRect *rectDst,
+    const NVEncNVSDKNGXRect *rectSrc,
+    const NVEncNVSDKNGXParam *param,
+    const void *srcDevPtr, int srcPitch,
+    void *dstDevPtr, int dstPitch,
+    int srcBytesPerPix, int dstBytesPerPix) {
+    return ((NVEncNVSDKNGX *)ppNVSDKNGX)->procFrame(rectDst, rectSrc, param, srcDevPtr, srcPitch, dstDevPtr, dstPitch, srcBytesPerPix, dstBytesPerPix);
 }
 
 #if defined(__cplusplus)

@@ -40,9 +40,7 @@
 #define NVENC_NVSDKNGX_API
 #endif
 
-struct ID3D11Device;
-struct ID3D11DeviceContext;
-struct ID3D11Texture2D;
+// DX11 APIは使用しない
 
 #if defined(__cplusplus)
 extern "C" {
@@ -83,9 +81,18 @@ typedef struct {
 } NVEncNVSDKNGXParamTrueHDR;
 
 NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXCreate(NVEncNVSDKNGXHandle *ppNVSDKNGX, const NVEncNVSDKNGXFeature feature);
-NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXInit(NVEncNVSDKNGXHandle pNVSDKNGX, ID3D11Device* pD3DDevice, ID3D11DeviceContext* pD3D11DeviceContext);
+// CUDA用初期化
+// cudaDeviceOrdinal < 0 かつ cuContext == nullptr の場合は現在のCUDAコンテキスト/デバイスを使用
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXInit(NVEncNVSDKNGXHandle pNVSDKNGX, int cudaDeviceOrdinal, void *cuContext, void *cuStream);
 NVENC_NVSDKNGX_API void    __stdcall NVEncNVSDKNGXDelete(NVEncNVSDKNGXHandle pNVSDKNGX);
-NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle pNVSDKNGX, ID3D11Texture2D* frameDst, const NVEncNVSDKNGXRect *rectDst, ID3D11Texture2D* frameSrc, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param);
+// CUDA API: 入出力はCUDAデバイスポインタ+ピッチ
+NVENC_NVSDKNGX_API RGY_ERR __stdcall NVEncNVSDKNGXProcFrame(NVEncNVSDKNGXHandle pNVSDKNGX,
+    const NVEncNVSDKNGXRect *rectDst,
+    const NVEncNVSDKNGXRect *rectSrc,
+    const NVEncNVSDKNGXParam *param,
+    const void *srcDevPtr, int srcPitch,
+    void *dstDevPtr, int dstPitch,
+    int srcBytesPerPix, int dstBytesPerPix);
 
 #if defined(__cplusplus)
 }

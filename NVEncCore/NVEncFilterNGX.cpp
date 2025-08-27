@@ -173,7 +173,10 @@ RGY_ERR NVEncFilterNGX::initNGX(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 
         m_nvsdkNGX = unique_nvsdkngx_handle(ngxHandle, m_func->fdelete);
 
-        if ((sts = m_func->finit(m_nvsdkNGX.get(), m_dx11->GetDevice(), m_dx11->GetDeviceContext())) != RGY_ERR_NONE) {
+        // CUDA専用初期化: deviceOrdinal/ctx/stream はここでは既定値(現在のコンテキスト)を渡す
+        CUcontext currentContext;
+        cuCtxGetCurrent(&currentContext);
+        if ((sts = m_func->finit(m_nvsdkNGX.get(), -1, currentContext, cudaStreamPerThread)) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to init NVSDK NGX library: %s.\n"), get_err_mes(sts));
             return sts;
         }
@@ -247,37 +250,9 @@ RGY_ERR NVEncFilterNGX::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         m_srcCrop = std::move(filter);
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_srcCrop->GetInputMessage().c_str());
     }
-    if (!m_ngxTextIn
-        || m_ngxTextIn->width() != pParam->frameIn.width
-        || m_ngxTextIn->height() != pParam->frameIn.height) {
-        m_ngxTextIn = std::make_unique<CUDADX11Texture>();
-        sts = m_ngxTextIn->create(m_dx11, pParam->frameIn.width, pParam->frameIn.height, m_dxgiformatIn);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_DEBUG, _T("failed to create input texture: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-        sts = m_ngxTextIn->registerTexture();
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_DEBUG, _T("failed to register input texture: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-    }
+    // DX11テクスチャは不要
 
-    if (!m_ngxTextOut
-        || m_ngxTextOut->width() != pParam->frameOut.width
-        || m_ngxTextOut->height() != pParam->frameOut.height) {
-        m_ngxTextOut = std::make_unique<CUDADX11Texture>();
-        sts = m_ngxTextOut->create(m_dx11, pParam->frameOut.width, pParam->frameOut.height, m_dxgiformatOut);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_DEBUG, _T("failed to create output texture: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-        sts = m_ngxTextOut->registerTexture();
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_DEBUG, _T("failed to register output texture: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-    }
+    // DX11テクスチャは不要
 
     if (!m_dstCrop
         || m_dstCrop->GetFilterParam()->frameOut.width != pParam->frameOut.width
@@ -431,56 +406,28 @@ RGY_ERR NVEncFilterNGX::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         copyFramePropWithoutRes(ngxFrameBufIn, pInputFrame);
     }
 #if 1
-    //mapで同期がかかる
-    m_ngxTextIn->map();
-    // ngxFrameBufIn -> m_ngxTextIn
-    {
-        if (RGY_CSP_PLANES[ngxFrameBufIn->csp] != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufIn csp must have only 1 plane.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-        sts = err_to_rgy(cudaMemcpy2DToArray(
-            m_ngxTextIn->getMappedArray(), 0, 0,
-            (uint8_t *)ngxFrameBufIn->ptr[0], ngxFrameBufIn->pitch[0],
-            ngxFrameBufIn->width * m_ngxTextIn->getTextureBytePerPix(), ngxFrameBufIn->height,
-            cudaMemcpyDeviceToDevice));
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame to cudaArray: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
+    // CUDA APIへ移行: NVEncNVSDKNGX 側でD3D11テクスチャ<->cudaArray管理と評価を実施
+    const NVEncNVSDKNGXRect rectDst = { 0, 0, m_ngxFrameBufOut->frame.width, m_ngxFrameBufOut->frame.height };
+    const NVEncNVSDKNGXRect rectSrc = { 0, 0, ngxFrameBufIn->width,  ngxFrameBufIn->height };
+    if (RGY_CSP_PLANES[ngxFrameBufIn->csp] != 1 || RGY_CSP_PLANES[m_ngxFrameBufOut->frame.csp] != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp, must have only 1 plane.\n"));
+        return RGY_ERR_UNSUPPORTED;
     }
-    m_ngxTextIn->unmap();
-    // フィルタを適用
-    const NVEncNVSDKNGXRect rectDst = { 0, 0, m_ngxTextOut->width(), m_ngxTextOut->height() };
-    const NVEncNVSDKNGXRect rectSrc = { 0, 0, m_ngxTextIn->width(), m_ngxTextIn->height() };
-    sts = m_func->fprocFrame(m_nvsdkNGX.get(),
-        m_ngxTextOut->texture(), &rectDst,
-        m_ngxTextIn->texture(), &rectSrc,
-        getNGXParam());
+    const int srcBpp = (m_dxgiformatIn == DXGI_FORMAT_R8G8B8A8_UNORM) ? 4 : 4; // VSR/TrueHDR入力はRGBA8
+    const int dstBpp = (m_dxgiformatOut == DXGI_FORMAT_R16G16B16A16_FLOAT) ? 8 : 4;
+    sts = m_func->fprocFrame(
+        m_nvsdkNGX.get(),
+        &rectDst,
+        &rectSrc,
+        getNGXParam(),
+        ngxFrameBufIn->ptr[0], ngxFrameBufIn->pitch[0],
+        m_ngxFrameBufOut->frame.ptr[0], m_ngxFrameBufOut->frame.pitch[0],
+        srcBpp, dstBpp
+    );
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to process frame: %s.\n"), get_err_mes(sts));
         return sts;
     }
-
-    //mapで同期がかかる
-    m_ngxTextOut->map();
-    // m_ngxTextOut -> ngxFrameBufOut
-    {
-        if (RGY_CSP_PLANES[m_ngxFrameBufOut->frame.csp] != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("unsupported csp, ngxFrameBufOut csp must have only 1 plane.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-        sts = err_to_rgy(cudaMemcpy2DFromArray(
-            (uint8_t *)m_ngxFrameBufOut->frame.ptr[0], m_ngxFrameBufOut->frame.pitch[0],
-            m_ngxTextOut->getMappedArray(), 0, 0,
-            m_ngxFrameBufOut->frame.width * m_ngxTextOut->getTextureBytePerPix(), m_ngxFrameBufOut->frame.height,
-            cudaMemcpyDeviceToDevice));
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame from cudaArray: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-    }
-    m_ngxTextOut->unmap();
 #else // for debug
     // cudaMemcpy2DAsyncでngxFrameBufInからm_ngxFrameBufOutにコピーする
     // ngxFrameBufIn -> m_ngxFrameBufOut

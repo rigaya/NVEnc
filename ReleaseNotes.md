@@ -1,5 +1,33 @@
 # NVEnc Release Notes
 
+## 9.00
+
+- Add NVEnc.auo2 with native support for AviUtl2.
+- Add feature to use filters with avcodec encoders.
+  - Available with ```-c av_xxx```
+    Example: [-c](./QSVEncC_Options.en.md#-c---codec-string) av_libsvtav1 [--avcodec-prms](./QSVEncC_Options.en.md#--avcodec-prms-string) "preset=6,crf=30,svtav1-params=enable-variance-boost=1:variance-boost-strength=2"
+    Other usable options include av_libvvenc, av_libvpx-vp9, etc.
+- Update ffmpeg libraries. (Windows)
+  - ffmpeg 7.1+ (20240822) -> 8.0
+  - libpng 1.6.44 -> 1.6.50
+  - expat 2.6.2 -> 2.7.1
+  - fribidi 1.0.11 -> 1.0.16
+  - libogg 1.3.5 -> 1.3.6
+  - libxml2 2.12.6 -> 2.14.5
+  - libvpl 2.13.0 -> 2.15.0
+  - libvpx 1.14.1 -> 1.15.2
+  - dav1d 1.4.3 -> 1.5.1
+  - libxxhash 0.8.2 -> 0.8.3
+  - glslang 15.0.0 -> 15.4.0
+  - dovi_tool 2.1.2 -> 2.3.1
+  - libjpeg-turbo 2.1.0 -> 3.1.1
+  - lcms2 2.16 -> 2.17
+  - zimg 3.0.5 -> 3.0.6
+  - libplacebo 7.349.0 -> 7.351.0
+  - libsvtav1 3.1.0 (new!) x64 only
+  - libvvenc 1.13.1 (new!) x64 only
+  - Remove mmt/tlv patch
+
 ## 8.11
 
 - Added options to change CUDA optimization mode ([--cuda-stream](NVEncC_Options.en.md#--cuda-stream-int), [--cuda-mt](NVEncC_Options.en.md#--cuda-mt-int), #710)

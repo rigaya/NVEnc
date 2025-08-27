@@ -38,119 +38,119 @@
 #include "NVEncNVSDKNGX.h"
 
 struct NVEncNVSDKNGXFuncs {
-    HMODULE hModule;
-    decltype(NVEncNVSDKNGXCreate) *fcreate;
-    decltype(NVEncNVSDKNGXInit)   *finit;
-    decltype(NVEncNVSDKNGXDelete) *fdelete;
-    decltype(NVEncNVSDKNGXProcFrame) *fprocFrame;
-    NVEncNVSDKNGXFuncs();
-    ~NVEncNVSDKNGXFuncs();
-    RGY_ERR load();
-    void close();
+	HMODULE hModule;
+	decltype(NVEncNVSDKNGXCreate) *fcreate;
+	decltype(NVEncNVSDKNGXInit)   *finit;
+	decltype(NVEncNVSDKNGXDelete) *fdelete;
+	decltype(NVEncNVSDKNGXProcFrame) *fprocFrame;
+	NVEncNVSDKNGXFuncs();
+	~NVEncNVSDKNGXFuncs();
+	RGY_ERR load();
+	void close();
 };
 
 using unique_nvsdkngx_handle = std::unique_ptr<std::remove_pointer<NVEncNVSDKNGXHandle>::type, decltype(&NVEncNVSDKNGXDelete)>;
 
 class NVEncFilterParamNGX : public NVEncFilterParam {
 public:
-    std::pair<int, int> compute_capability;
-    DeviceDX11 *dx11;
-    VideoVUIInfo vui;
-    NVEncFilterParamNGX() : compute_capability(), dx11(nullptr), vui() {};
-    virtual ~NVEncFilterParamNGX() {};
+	std::pair<int, int> compute_capability;
+	DeviceDX11 *dx11;
+	VideoVUIInfo vui;
+	NVEncFilterParamNGX() : compute_capability(), dx11(nullptr), vui() {};
+	virtual ~NVEncFilterParamNGX() {};
 };
 
 class NVEncFilterParamNGXVSR : public NVEncFilterParamNGX {
 public:
-    VppNGXVSR ngxvsr;
-    NVEncFilterParamNGXVSR() : NVEncFilterParamNGX(), ngxvsr() {};
-    virtual ~NVEncFilterParamNGXVSR() {};
-    virtual tstring print() const;
+	VppNGXVSR ngxvsr;
+	NVEncFilterParamNGXVSR() : NVEncFilterParamNGX(), ngxvsr() {};
+	virtual ~NVEncFilterParamNGXVSR() {};
+	virtual tstring print() const;
 };
 
 class NVEncFilterParamNGXTrueHDR : public NVEncFilterParamNGX {
 public:
-    VppNGXTrueHDR trueHDR;
-    NVEncFilterParamNGXTrueHDR() : NVEncFilterParamNGX(), trueHDR() {};
-    virtual ~NVEncFilterParamNGXTrueHDR() {};
-    virtual tstring print() const;
+	VppNGXTrueHDR trueHDR;
+	NVEncFilterParamNGXTrueHDR() : NVEncFilterParamNGX(), trueHDR() {};
+	virtual ~NVEncFilterParamNGXTrueHDR() {};
+	virtual tstring print() const;
 };
 
 #if ENABLE_NVSDKNGX
 
 class NVEncFilterNGX : public NVEncFilter {
 public:
-    NVEncFilterNGX();
-    virtual ~NVEncFilterNGX();
-    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+	NVEncFilterNGX();
+	virtual ~NVEncFilterNGX();
+	virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR initNGX(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes);
-    virtual RGY_ERR initCommon(shared_ptr<NVEncFilterParam> pParam);
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
-    virtual void close() override;
-    virtual RGY_ERR checkParam(const NVEncFilterParam *param) = 0;
-    virtual void setNGXParam(const NVEncFilterParam *param) = 0;
-    virtual NVEncNVSDKNGXParam *getNGXParam() = 0;
-    virtual NVEncNVSDKNGXFeature getNGXFeature() = 0;
+	virtual RGY_ERR initNGX(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes);
+	virtual RGY_ERR initCommon(shared_ptr<NVEncFilterParam> pParam);
+	virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+	virtual void close() override;
+	virtual RGY_ERR checkParam(const NVEncFilterParam *param) = 0;
+	virtual void setNGXParam(const NVEncFilterParam *param) = 0;
+	virtual NVEncNVSDKNGXParam *getNGXParam() = 0;
+	virtual NVEncNVSDKNGXFeature getNGXFeature() = 0;
 
-    std::unique_ptr<NVEncNVSDKNGXFuncs> m_func;
-    unique_nvsdkngx_handle m_nvsdkNGX;
-    RGY_CSP m_ngxCspIn;
-    RGY_CSP m_ngxCspOut;
-    DXGI_FORMAT m_dxgiformatIn;
-    DXGI_FORMAT m_dxgiformatOut;
-    std::unique_ptr<CUFrameBuf> m_ngxFrameBufOut;
-    std::unique_ptr<CUDADX11Texture> m_ngxTextIn;
-    std::unique_ptr<CUDADX11Texture> m_ngxTextOut;
-    std::unique_ptr<NVEncFilter> m_srcColorspace;
-    std::unique_ptr<NVEncFilter> m_dstColorspace;
-    std::unique_ptr<NVEncFilter> m_srcCrop;
-    std::unique_ptr<NVEncFilter> m_dstCrop;
+	std::unique_ptr<NVEncNVSDKNGXFuncs> m_func;
+	unique_nvsdkngx_handle m_nvsdkNGX;
+	RGY_CSP m_ngxCspIn;
+	RGY_CSP m_ngxCspOut;
+	DXGI_FORMAT m_dxgiformatIn;
+	DXGI_FORMAT m_dxgiformatOut;
+	std::unique_ptr<CUFrameBuf> m_ngxFrameBufOut;
+	std::unique_ptr<CUDADX11Texture> m_ngxTextIn;
+	std::unique_ptr<CUDADX11Texture> m_ngxTextOut;
+	std::unique_ptr<NVEncFilter> m_srcColorspace;
+	std::unique_ptr<NVEncFilter> m_dstColorspace;
+	std::unique_ptr<NVEncFilter> m_srcCrop;
+	std::unique_ptr<NVEncFilter> m_dstCrop;
 
-    DeviceDX11 *m_dx11;
+	DeviceDX11 *m_dx11;
 };
 
 class NVEncFilterNGXVSR : public NVEncFilterNGX {
 public:
-    NVEncFilterNGXVSR();
-    virtual ~NVEncFilterNGXVSR();
+	NVEncFilterNGXVSR();
+	virtual ~NVEncFilterNGXVSR();
 protected:
-    virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
-    virtual void setNGXParam(const NVEncFilterParam *param) override;
-    virtual NVEncNVSDKNGXParam *getNGXParam() override { return (NVEncNVSDKNGXParam *)&m_paramVSR; }
-    virtual NVEncNVSDKNGXFeature getNGXFeature() override { return NVSDK_NVX_VSR; }
+	virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
+	virtual void setNGXParam(const NVEncFilterParam *param) override;
+	virtual NVEncNVSDKNGXParam *getNGXParam() override { return (NVEncNVSDKNGXParam *)&m_paramVSR; }
+	virtual NVEncNVSDKNGXFeature getNGXFeature() override { return NVSDK_NVX_VSR; }
 
-    NVEncNVSDKNGXParamVSR m_paramVSR;
+	NVEncNVSDKNGXParamVSR m_paramVSR;
 };
 
 class NVEncFilterNGXTrueHDR : public NVEncFilterNGX {
 public:
-    NVEncFilterNGXTrueHDR();
-    virtual ~NVEncFilterNGXTrueHDR();
-    VideoVUIInfo VuiOut() const { return m_vuiOut; }
+	NVEncFilterNGXTrueHDR();
+	virtual ~NVEncFilterNGXTrueHDR();
+	VideoVUIInfo VuiOut() const { return m_vuiOut; }
 protected:
-    virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
-    virtual void setNGXParam(const NVEncFilterParam *param) override;
-    virtual NVEncNVSDKNGXParam *getNGXParam() override { return (NVEncNVSDKNGXParam *)&m_paramTrueHDR; }
-    virtual NVEncNVSDKNGXFeature getNGXFeature() override { return NVSDK_NVX_TRUEHDR; }
+	virtual RGY_ERR checkParam(const NVEncFilterParam *param) override;
+	virtual void setNGXParam(const NVEncFilterParam *param) override;
+	virtual NVEncNVSDKNGXParam *getNGXParam() override { return (NVEncNVSDKNGXParam *)&m_paramTrueHDR; }
+	virtual NVEncNVSDKNGXFeature getNGXFeature() override { return NVSDK_NVX_TRUEHDR; }
 
-    VideoVUIInfo m_vuiOut;
-    NVEncNVSDKNGXParamTrueHDR m_paramTrueHDR;
+	VideoVUIInfo m_vuiOut;
+	NVEncNVSDKNGXParamTrueHDR m_paramTrueHDR;
 };
 
 #else
 
 class NVEncFilterNGXVSR : public NVEncFilterDisabled {
 public:
-    NVEncFilterNGXVSR();
-    virtual ~NVEncFilterNGXVSR();
+	NVEncFilterNGXVSR();
+	virtual ~NVEncFilterNGXVSR();
 };
 
 class NVEncFilterNGXTrueHDR : public NVEncFilterDisabled {
 public:
-    NVEncFilterNGXTrueHDR();
-    virtual ~NVEncFilterNGXTrueHDR();
-    VideoVUIInfo VuiOut() const;
+	NVEncFilterNGXTrueHDR();
+	virtual ~NVEncFilterNGXTrueHDR();
+	VideoVUIInfo VuiOut() const;
 };
 
 #endif
