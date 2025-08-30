@@ -159,4 +159,6 @@ bool PathForceRemoveBackSlash(wchar_t *path);
 bool swap_file(const char *fileA, const char *fileB);
 bool swap_file(const wchar_t *fileA, const wchar_t *fileB);
 
+bool copyFileTimestamps(const TCHAR* sourceFile, const TCHAR* destFile);
+
 #endif //__RGY_FILESYSTEM_H__

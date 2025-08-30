@@ -865,3 +865,61 @@ bool swap_file(const wchar_t *fileA, const wchar_t *fileB) {
     return TRUE;
 }
 
+bool copyFileTimestamps(const TCHAR* destFile, const TCHAR* sourceFile) {
+#if defined(_WIN32) || defined(_WIN64)
+    HANDLE hSource = CreateFile(
+        sourceFile,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hSource == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    HANDLE hDest = CreateFile(
+        destFile,
+        GENERIC_WRITE,
+        0,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hDest == INVALID_HANDLE_VALUE) {
+        CloseHandle(hSource);
+        return false;
+    }
+
+    FILETIME creationTime, lastAccessTime, lastWriteTime;
+    bool success = GetFileTime(hSource, &creationTime, &lastAccessTime, &lastWriteTime) &&
+        SetFileTime(hDest, &creationTime, &lastAccessTime, &lastWriteTime);
+
+    CloseHandle(hSource);
+    CloseHandle(hDest);
+    return success;
+#else
+    struct stat sourceStat;
+
+    // ソースファイルの情報を取得
+    if (stat(sourceFile, &sourceStat) != 0) {
+        return false;
+    }
+
+    // タイムスタンプを設定
+    struct timespec times[2];
+    times[0] = sourceStat.st_atim;  // アクセス時刻
+    times[1] = sourceStat.st_mtim;  // 更新時刻
+
+    // タイムスタンプを適用
+    if (utimensat(AT_FDCWD, destFile, times, 0) != 0) {
+        return false;
+    }
+    return true;
+#endif //#if defined(_WIN32) || defined(_WIN64)
+}

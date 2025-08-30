@@ -524,7 +524,7 @@ std::pair<int, std::string> convert_dovi_rpu(std::vector<uint8_t>& data, const R
     }
     return { 0, err_mes };
 #else
-    return (prm) ? { 1, "libdovi not supported with this build." } : { 0, err_mes };
+    return (prm) ? std::pair<int, std::string>{ 1, "libdovi not supported with this build." } : std::pair<int, std::string>{ 0, err_mes };
 #endif // ENABLE_LIBDOVI
 }
 
