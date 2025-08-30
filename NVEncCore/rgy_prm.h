@@ -631,6 +631,14 @@ enum RGY_VPP_RESIZE_TYPE {
 
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize);
 
+static bool isQSVMFXResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if ENCODER_QSV && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_MFX;
+#else
+    UNREFERENCED_PARAMETER(interp);
+    return false;
+#endif
+}
 
 static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
@@ -848,6 +856,7 @@ const CX_DESC list_vpp_resize_help[] = {
 
 static const char *paramsResizeLibPlacebo[] = { "algo", "pl-radius", "pl-clamp", "pl-taper", "pl-blur", "pl-antiring"/*, "pl-cplace"*/ };
 static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality" };
+static const char *paramsResizeQSVEnc[] = { "superres-mode", "superres-algo" };
 
 const CX_DESC list_vpp_resize_res_mode[] = {
     { _T("normal"),   (int)RGYResizeResMode::Normal },

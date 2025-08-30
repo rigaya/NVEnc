@@ -483,7 +483,12 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             for (size_t ielem = 0; ielem < _countof(paramsResizeNVEnc); ielem++) {
                 paramListResizeNVEnc.push_back(paramsResizeNVEnc[ielem]);
             }
+            std::vector<std::string> paramListResizeQSVEnc;
+            for (size_t ielem = 0; ielem < _countof(paramsResizeQSVEnc); ielem++) {
+                paramListResizeQSVEnc.push_back(paramsResizeQSVEnc[ielem]);
+            }
             std::vector<std::string> paramList = paramListResizeNVEnc;
+            vector_cat(paramList, paramListResizeQSVEnc);
             for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
                 paramList.push_back(paramsResizeLibPlacebo[ielem]);
             }
@@ -560,6 +565,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (ENCODER_NVENC && std::find_if(paramListResizeNVEnc.begin(), paramListResizeNVEnc.end(), [param_arg](const std::string& str) {
                         return param_arg == char_to_tstring(str);
                         }) != paramListResizeNVEnc.end()) {
+                        continue;
+                    }
+                    if (ENCODER_QSV && std::find_if(paramListResizeQSVEnc.begin(), paramListResizeQSVEnc.end(), [param_arg](const std::string& str) {
+                        return param_arg == char_to_tstring(str);
+                        }) != paramListResizeQSVEnc.end()) {
                         continue;
                     }
                     print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
@@ -7312,7 +7322,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         cmd << _T(" --vpp-order ") << tmp.str().substr(1);
     }
 
-    if (!isNvvfxResizeFiter(param->resize_algo) && !isNgxResizeFiter(param->resize_algo)) {
+    if (!isNvvfxResizeFiter(param->resize_algo) && !isNgxResizeFiter(param->resize_algo) && !isQSVMFXResizeFiter(param->resize_algo)) {
         if (isLibplaceboResizeFiter(param->resize_algo)) {
             OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
             if (param->resize_libplacebo.radius != defaultPrm->resize_libplacebo.radius) {
@@ -9270,7 +9280,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_MPDECIMATE_FRAC, FILTER_DEFAULT_MPDECIMATE_MAX,
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
 #endif
-#if ENABLE_NVVFX || ENABLE_NVSDKNGX
+#if ENABLE_NVVFX || ENABLE_NVSDKNGX || ENCODER_QSV
     {
         str += strsprintf(_T("\n")
             _T("--vpp-resize <string> or [<param1>=<value>][,<param2>=<value>][...]\n")
@@ -9290,19 +9300,28 @@ tstring gen_cmd_help_vpp() {
             str += list_vpp_resize[ia].desc;
         }
         str += _T("\n        default: auto\n");
-        if (ENABLE_NVVFX) {
+#if ENABLE_NVVFX
             str += strsprintf(_T("\n")
                 _T("      superres-mode=<int>\n")
                 _T("        mode for nvvfx-superres     0 ... conservative\n")
                 _T("                                    1 ... aggressive (default)\n")
                 _T("      superres-strength=<float>\n")
                 _T("        strength for nvvfx-superres (0.0 - 1.0, default = 0.4)\n"));
-        }
-        if (ENABLE_NVSDKNGX) {
+#endif
+#if ENABLE_NVSDKNGX
             str += strsprintf(_T("\n")
                 _T("      vsr-quality=<int>\n")
                 _T("        quality for ngx-vsr\n"));
-        }
+#endif
+#if ENCODER_QSV
+            str += strsprintf(_T("\n")
+                _T("      superres-mode=<string>\n")
+                _T("        disabled, default, sharpen, artifactremoval\n")
+                _T("      superres-algo=<string>\n")
+                _T("        algorithm for qsv-superres default\n")
+                _T("                                    1 ... normal quality\n")
+                _T("                                    2 ... high quality\n"));
+#endif
         if (ENABLE_LIBPLACEBO) {
             str += strsprintf(_T("\n")
                 _T("      pl-radius=<float>\n")
