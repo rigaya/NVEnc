@@ -27,6 +27,7 @@
 
 #include <filesystem>
 #include <cstdint>
+#include <fcntl.h>
 #include "rgy_util.h"
 #include "rgy_env.h"
 #include "rgy_codepage.h"
