@@ -229,6 +229,7 @@ NVIDIA グラフィックドライバ 551.23
   - -c av_xxx 等で実行可能
     例: -c av_libsvtav1 --avcodec-prms "preset=6,crf=30,svtav1-params=enable-variance-boost=1:variance-boost-strength=2"
     そのほか使えるのは av_libvvenc, av_libvpx-vp9 など。
+- libassの更新とharfbuzzのリンクによりvpp-subburnの品質を向上。
 - 使用するffmpegのライブラリを更新。(Windows版)
   - ffmpeg 7.1+ (20240822) -> 8.0
   - libpng 1.6.44 -> 1.6.50
