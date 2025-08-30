@@ -248,6 +248,9 @@ NVIDIA グラフィックドライバ 551.23
   - libplacebo 7.349.0 -> 7.351.0
   - libsvtav1 3.1.0 (new!) x64 only
   - libvvenc 1.13.1 (new!) x64 only
+  - libass 0.9.0 -> 0.17.4 (x64), 0.14.0 (x86)
+  - harfbuzz 11.4.4 (new)
+  - libunibreak 6.1 (new)
   - mmt/tlv patchを削除
 
 2025.08.13 (8.11)
