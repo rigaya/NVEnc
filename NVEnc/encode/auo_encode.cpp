@@ -414,7 +414,7 @@ static tstring find_auo_check_fileopen(const TCHAR *defaultExeDir, const TCHAR *
 static BOOL check_temp_file_open(const TCHAR *target, const tstring& auo_check_fileopen_path, const bool check_dir, const bool auo_check_fileopen_warning) {
     DWORD err = ERROR_SUCCESS;
 
-    if (rgy_is_64bit_os() && (auo_check_fileopen_path.length() == 0 || !PathFileExists(auo_check_fileopen_path.c_str())) && auo_check_fileopen_warning) {
+    if (!is_aviutl2() && rgy_is_64bit_os() && (auo_check_fileopen_path.length() == 0 || !PathFileExists(auo_check_fileopen_path.c_str())) && auo_check_fileopen_warning) {
         warning_no_auo_check_fileopen();
     }
 
