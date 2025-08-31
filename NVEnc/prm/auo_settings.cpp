@@ -529,6 +529,7 @@ void guiEx_settings::load_aud(BOOL internal) {
         s_aud[i].disable_log  = GetPrivateProfileIntA(            encoder_section, "disable_log",   0, ini_fileName);
         s_aud[i].unsupported_mp4  = GetPrivateProfileIntA(    encoder_section, "unsupported_mp4",   0, ini_fileName);
         s_aud[i].enable_rf64      = GetPrivateProfileIntA(    encoder_section, "enable_rf64",       0, ini_fileName);
+        s_aud[i].pcm_fp32         = GetPrivateProfileIntA(    encoder_section, "pcm_fp32",          0, ini_fileName);
 
         sprintf_s(encoder_section, _countof(encoder_section), "%s%s", INI_SECTION_MODE, s_aud[i].keyName);
         int tmp_count = GetPrivateProfileIntA(encoder_section, "count", 0, ini_fileName);

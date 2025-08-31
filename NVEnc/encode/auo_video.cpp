@@ -232,7 +232,7 @@ AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe, BOOL use_inter
         //---   排他ブロック 開始  ---> 音声スレッドが止まっていなければならない
         if (aud_p->he_vid_start && WaitForSingleObject(aud_p->he_vid_start, (use_internal) ? 0 : INFINITE) == WAIT_OBJECT_0) {
             if (aud_p->he_vid_start && aud_p->get_length) {
-                DWORD required_buf_size = aud_p->get_length * (DWORD)get_audio_size(oip, 1);
+                DWORD required_buf_size = aud_p->get_length * (DWORD)get_audio_size(oip, aud_p->audio_format);
                 if (aud_p->buf_max_size < required_buf_size) {
                     //メモリ不足なら再確保
                     if (aud_p->buffer) free(aud_p->buffer);
@@ -242,11 +242,11 @@ AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe, BOOL use_inter
                 }
                 void *data_ptr = NULL;
                 if (NULL == aud_p->buffer ||
-                    NULL == (data_ptr = oip_func_get_audio(oip, aud_p->start, aud_p->get_length, &aud_p->get_length, 1))) {
+                    NULL == (data_ptr = oip_func_get_audio(oip, aud_p->start, aud_p->get_length, &aud_p->get_length, aud_p->audio_format))) {
                     ret = AUO_RESULT_ERROR; //mallocエラーかget_audioのエラー
                 } else {
                     //自前のバッファにコピーしてdata_ptrが破棄されても良いようにする
-                    memcpy(aud_p->buffer, data_ptr, aud_p->get_length * (DWORD)get_audio_size(oip, 1));
+                    memcpy(aud_p->buffer, data_ptr, aud_p->get_length * (DWORD)get_audio_size(oip, aud_p->audio_format));
                 }
                 //すでにTRUEなら変更しないようにする
             aud_p->abort |= (oip->func_is_abort() ? TRUE : FALSE);

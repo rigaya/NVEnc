@@ -36,6 +36,7 @@
 #include "auo_system.h"
 #include "auo_audio.h"
 #include "auo_frm.h"
+#include "auo_util.h"
 
 typedef struct {
     CONF_GUIEX *_conf;
@@ -104,6 +105,12 @@ AUO_RESULT audio_output_parallel(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     parameters->_sys_dat = sys_dat;
 
     ZeroMemory(&pe->aud_parallel, sizeof(pe->aud_parallel));
+    
+    // 音声フォーマットを設定
+    const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
+    const AUDIO_SETTINGS *aud_stg = (conf->aud.use_internal) ? &sys_dat->exstg->s_aud_int[cnf_aud->encoder] : &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];
+    pe->aud_parallel.audio_format = (aud_stg && aud_stg->pcm_fp32 && is_aviutl2()) ? 3 : 1;
+    
     if        (NULL == (pe->aud_parallel.he_aud_start = CreateEvent(NULL, FALSE, FALSE, NULL))) {
         ret = AUO_RESULT_ERROR;
     } else if (NULL == (pe->aud_parallel.he_vid_start = CreateEvent(NULL, FALSE, FALSE, NULL))) {

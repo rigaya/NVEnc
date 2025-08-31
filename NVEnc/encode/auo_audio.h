@@ -37,7 +37,7 @@
 
 int get_audio_size(const OUTPUT_INFO *oip, const int audio_format);
 void *oip_func_get_audio(const OUTPUT_INFO *oip, int start, int length, int* readed, int audio_format);
-void *get_audio_data(const OUTPUT_INFO *oip, PRM_ENC *pe, int start, int length, int *readed);
+void *get_audio_data(const OUTPUT_INFO *oip, PRM_ENC *pe, int start, int length, int *readed, int audio_format);
 
 void auo_faw_check(CONF_AUDIO *aud, const OUTPUT_INFO *oip, PRM_ENC *pe, const guiEx_settings *ex_stg);
 int check_audio_length(OUTPUT_INFO *oip, double av_length_threshold);

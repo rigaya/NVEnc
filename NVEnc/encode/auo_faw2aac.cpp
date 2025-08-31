@@ -206,7 +206,7 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
                 ret |= AUO_RESULT_ABORT;
                 break;
             }
-            uint8_t *audio_dat = (uint8_t *)get_audio_data(oip, pe, samples_read, std::min(oip->audio_n - samples_read, bufsize), &samples_get);
+            uint8_t *audio_dat = (uint8_t *)get_audio_data(oip, pe, samples_read, std::min(oip->audio_n - samples_read, bufsize), &samples_get, 1); // FAWは16bitのみ
             samples_read += samples_get;
             set_log_progress(samples_read / (double)oip->audio_n);
 

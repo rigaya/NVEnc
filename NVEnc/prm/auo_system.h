@@ -63,6 +63,7 @@ typedef struct ALIGN_PTR {
     DWORD  buf_max_size;
     int    start;
     int    get_length;
+    int    audio_format;             //並列処理で使用する音声フォーマット (1=16bit PCM, 3=32bit float)
     BOOL   abort;
 } AUD_PARALLEL_ENC;
 
