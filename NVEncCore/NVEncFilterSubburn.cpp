@@ -376,19 +376,13 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
         return RGY_ERR_NULL_PTR;
     }
 
+    ass_set_fonts(m_assRenderer.get(), nullptr, nullptr, 1, nullptr, 1);
+
     ass_set_use_margins(m_assRenderer.get(), 0);
-    ass_set_hinting(m_assRenderer.get(), ASS_HINTING_LIGHT);
+    //ass_set_hinting(m_assRenderer.get(), ASS_HINTING_LIGHT); // これを有効にすると動く字幕がガタガタしてしまうので無効化
     ass_set_font_scale(m_assRenderer.get(), 1.0);
     ass_set_line_spacing(m_assRenderer.get(), 1.0);
     ass_set_shaper(m_assRenderer.get(), (ASS_ShapingLevel)prm->subburn.assShaping);
-
-    ass_set_fonts(m_assRenderer.get(), nullptr, nullptr, 1, nullptr, 1);
-
-    m_assTrack = unique_ptr<ASS_Track, decltype(&ass_free_track)>(ass_new_track(m_assLibrary.get()), ass_free_track);
-    if (!m_assTrack) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass track.\n"));
-        return RGY_ERR_NULL_PTR;
-    }
 
     if (prm->videoInfo.srcWidth <= 0 || prm->videoInfo.srcHeight <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("failed to detect frame size: %dx%d.\n"), prm->videoInfo.srcWidth, prm->videoInfo.srcHeight);
@@ -397,6 +391,7 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
     const int width = prm->videoInfo.srcWidth - prm->videoInfo.crop.e.left - prm->videoInfo.crop.e.right;
     const int height = prm->videoInfo.srcHeight - prm->videoInfo.crop.e.up - prm->videoInfo.crop.e.bottom;
     ass_set_frame_size(m_assRenderer.get(), width, height);
+    ass_set_storage_size(m_assRenderer.get(), width, height);
 
     const AVRational sar = { prm->videoInfo.sar[0], prm->videoInfo.sar[1] };
     double par = 1.0;
@@ -404,6 +399,12 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
         par = (double)sar.num / sar.den;
     }
     ass_set_pixel_aspect(m_assRenderer.get(), par);
+
+    m_assTrack = unique_ptr<ASS_Track, decltype(&ass_free_track)>(ass_new_track(m_assLibrary.get()), ass_free_track);
+    if (!m_assTrack) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass track.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
 
     if (m_outCodecDecodeCtx && m_outCodecDecodeCtx->subtitle_header && m_outCodecDecodeCtx->subtitle_header_size > 0) {
         ass_process_codec_private(m_assTrack.get(), (char *)m_outCodecDecodeCtx->subtitle_header, m_outCodecDecodeCtx->subtitle_header_size);
