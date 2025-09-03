@@ -2116,6 +2116,7 @@ protected:
     CuvidDecode *m_dec;
     PipelineTaskNVDecode *m_taskNVDec;
     const PipelineTaskTrim *m_taskTrim;
+    static const int64_t INVALID_PTS = AV_NOPTS_VALUE;
 public:
     PipelineTaskCheckPTS(NVGPUInfo *dev, CuvidDecode *dec, PipelineTaskNVDecode *taskNVDec, const PipelineTaskTrim *taskTrim, rgy_rational<int> srcTimebase, rgy_rational<int> streamTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, cudaVideoDeinterlaceMode deinterlaceMode,
         bool timestampPassThrough, bool vpp_rff, bool vpp_afs_rff_aware, bool interlaceAuto, FramePosList *framePosList, RGYParamThread threadParam, std::shared_ptr<RGYLog> log) :
@@ -2123,7 +2124,7 @@ public:
         m_srcTimebase(srcTimebase), m_streamTimebase(streamTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync),
         m_timestampPassThrough(timestampPassThrough), m_vpp_rff(vpp_rff), m_vpp_afs_rff_aware(vpp_afs_rff_aware), m_interlaceAuto(interlaceAuto), m_deinterlaceMode(deinterlaceMode),
         m_outFrameDuration(outFrameDuration),
-        m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_inputFramePosIdx(std::numeric_limits<decltype(m_inputFramePosIdx)>::max()), m_framePosList(framePosList), m_dec(dec), m_taskNVDec(taskNVDec), m_taskTrim(taskTrim) {
+        m_tsOutFirst(INVALID_PTS), m_tsOutEstimated(0), m_tsPrev(-1), m_inputFramePosIdx(std::numeric_limits<decltype(m_inputFramePosIdx)>::max()), m_framePosList(framePosList), m_dec(dec), m_taskNVDec(taskNVDec), m_taskTrim(taskTrim) {
     };
     virtual ~PipelineTaskCheckPTS() {};
 
@@ -2162,33 +2163,22 @@ public:
         if ((m_srcTimebase.n() > 0 && m_srcTimebase.is_valid())
             && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || m_vpp_rff || m_vpp_afs_rff_aware || m_timestampPassThrough)) {
             const int64_t srcTimestamp = taskSurf->surf().frame()->timestamp();
-            if (srcTimestamp < 0) {
-                // timestampを修正
-                outPtsSource = m_tsOutEstimated;
-                taskSurf->surf().frame()->setTimestamp(rational_rescale(m_tsOutEstimated, m_outputTimebase, m_srcTimebase));
-                taskSurf->surf().frame()->setDuration(rational_rescale(m_outFrameDuration, m_outputTimebase, m_srcTimebase));
-                PrintMes(RGY_LOG_WARN, _T("check_pts: Invalid timestamp from input frame #%d: timestamp %lld, timebase %d/%d, duration %lld.\n"),
-                         taskSurf->surf().frame()->inputFrameId(), taskSurf->surf().frame()->timestamp(), m_srcTimebase.n(), m_srcTimebase.d(), taskSurf->surf().frame()->duration());
-                PrintMes(RGY_LOG_WARN, _T("           use estimated timestamp: timestamp %lld, timebase %d/%d, duration %lld.\n"),
-                    outPtsSource, m_outputTimebase.n(), m_outputTimebase.d(), m_outFrameDuration);
+            //CFR仮定ではなく、オリジナルの時間を見る
+            if (srcTimestamp == AV_NOPTS_VALUE) {
+                outPtsSource = m_tsPrev + m_outFrameDuration + m_tsOutFirst/*あとでm_tsOutFirstが引かれるので*/;
             } else {
-                //CFR仮定ではなく、オリジナルの時間を見る
-                if (srcTimestamp == AV_NOPTS_VALUE) {
-                    outPtsSource = m_tsPrev + m_outFrameDuration + m_tsOutFirst/*あとでm_tsOutFirstが引かれるので*/;
-                } else {
-                    outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
-                }
-                if (taskSurf->surf().frame()->duration() > 0) {
-                    outDuration = rational_rescale(taskSurf->surf().frame()->duration(), m_srcTimebase, m_outputTimebase);
-                    taskSurf->surf().frame()->setDuration(outDuration);
-                }
-                if (m_taskTrim) {
-                    outPtsSource -= m_taskTrim->trimTimestampOffset();
-                }
+                outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
+            }
+            if (taskSurf->surf().frame()->duration() > 0) {
+                outDuration = rational_rescale(taskSurf->surf().frame()->duration(), m_srcTimebase, m_outputTimebase);
+                taskSurf->surf().frame()->setDuration(outDuration);
+            }
+            if (m_taskTrim) {
+                outPtsSource -= m_taskTrim->trimTimestampOffset();
             }
         }
         PrintMes(RGY_LOG_TRACE, _T("check_pts(%d/%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
-        if (m_tsOutFirst < 0) {
+        if (m_tsOutFirst == INVALID_PTS) {
             m_tsOutFirst = outPtsSource; //最初のpts
             PrintMes(RGY_LOG_DEBUG, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
         }
