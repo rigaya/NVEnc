@@ -2238,33 +2238,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         } else {
             m_inputVideoInfo.picstruct = RGY_PICSTRUCT_AUTO; // インタレ指定だが、インタレが検出されていないときはauto
         }
-
-        if (m_Demux.video.HWDecodeDeviceId.size() > 0) {
-            tstring mes = strsprintf(_T("av" DECODER_NAME ": %s, %dx%d, %d/%d fps"),
-                CodecToStr(m_inputVideoInfo.codec).c_str(),
-                m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
-            if (m_seek.first > 0.0f || m_seek.second > 0.0f) {
-                mes += _T("\n         ");
-                if (m_seek.first > 0.0f) {
-                    mes += strsprintf(_T("seek: %s"), print_time(m_seek.first).c_str());
-                }
-                if (m_seek.second > 0.0f) {
-                    if (m_seek.first > 0.0f) {
-                        mes += _T(", ");
-                    }
-                    mes += strsprintf(_T("seekto: %s"), print_time(m_seek.second).c_str());
-                }
-            }
-            AddMessage(RGY_LOG_DEBUG, mes);
-            m_inputInfo += mes;
-        } else {
-            CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(m_Demux.video.codecCtxDecode->codec->name)).c_str(),
-                RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
-            if (input_prm->seekSec > 0.0f) {
-                m_inputInfo += strsprintf(_T("\n         seek: %s"), print_time(input_prm->seekSec).c_str());
-            }
-            AddMessage(RGY_LOG_DEBUG, m_inputInfo);
-        }
+        setInputInfo();
         if (m_Demux.video.stream) {
             AddMessage(RGY_LOG_DEBUG, _T("streamFirstKeyPts: %lld\n"), (long long int)m_Demux.video.streamFirstKeyPts);
             AddMessage(RGY_LOG_DEBUG, m_inputVideoInfo.vui.print_all());
@@ -2320,6 +2294,33 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     return RGY_ERR_NONE;
 }
 #pragma warning(pop)
+
+void RGYInputAvcodec::setInputInfo() {
+    if (m_Demux.video.HWDecodeDeviceId.size() > 0) {
+        tstring mes = strsprintf(_T("av" DECODER_NAME ": %s, %dx%d, %d/%d fps"),
+            CodecToStr(m_inputVideoInfo.codec).c_str(),
+            m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+        m_inputInfo = mes;
+    } else {
+        CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(m_Demux.video.codecCtxDecode->codec->name)).c_str(),
+            RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
+    }
+    tstring mes;
+    if (m_seek.first > 0.0f || m_seek.second > 0.0f) {
+        mes += _T("\n         ");
+        if (m_seek.first > 0.0f) {
+            mes += strsprintf(_T("seek: %s"), print_time(m_seek.first).c_str());
+        }
+        if (m_seek.second > 0.0f) {
+            if (m_seek.first > 0.0f) {
+                mes += _T(", ");
+            }
+            mes += strsprintf(_T("seekto: %s"), print_time(m_seek.second).c_str());
+        }
+    }
+    m_inputInfo += mes;
+    AddMessage(RGY_LOG_DEBUG, m_inputInfo);
+}
 
 const pixfmtInfo *RGYInputAvcodec::getPixfmtInfo(const AVPixelFormat pix_fmt) {
     static const pixfmtInfo pixfmtDataList[] = {
@@ -2397,6 +2398,7 @@ const pixfmtInfo *RGYInputAvcodec::getPixfmtInfo(const AVPixelFormat pix_fmt) {
 
 RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder) {
     m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
+    const bool disableHWDecode = !m_Demux.video.HWDecodeDeviceId.empty();
     m_Demux.video.HWDecodeDeviceId.clear();
 
     //close bitstreamfilter
@@ -2523,7 +2525,10 @@ RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
         return RGY_ERR_NULL_PTR;
     }
-
+    m_readerName = _T("avsw");
+    if (disableHWDecode) {
+        setInputInfo(); // 表示を切り替え
+    }
     return RGY_ERR_NONE;
 }
 

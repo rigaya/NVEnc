@@ -957,6 +957,7 @@ public:
     //swデコーダの初期化
     RGY_ERR initSWVideoDecoder(const tstring& avswDecoder);
 
+    void setInputInfo();
 
     const pixfmtInfo *getPixfmtInfo(const AVPixelFormat pix_fmt);
 
