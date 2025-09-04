@@ -848,6 +848,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.outputFps = av_make_q(videoOutputInfo->fpsN, videoOutputInfo->fpsD);
     AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), m_Mux.video.outputFps.num, m_Mux.video.outputFps.den);
 
+    m_insertHeader = prm->insertHeader;
     m_HEVCAlphaChannelMode = prm->HEVCAlphaChannelMode;
     m_enableHEVCAlphaChannelInfoSEIOverwrite = videoOutputInfo->codec == RGY_CODEC_HEVC && prm->HEVCAlphaChannel;
     if (m_enableHEVCAlphaChannelInfoSEIOverwrite) {
@@ -3059,6 +3060,12 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
             AddMessage(RGY_LOG_ERROR, _T("Interlaced HEVC encoding not supported!\n"));
             return RGY_ERR_UNSUPPORTED;
+        }
+    }
+    if (ENCODER_VCEENC || ENCODER_MPP) {
+        err = InsertHeader(bitstream, isIDR);
+        if (err != RGY_ERR_NONE) {
+            return err;
         }
     }
 

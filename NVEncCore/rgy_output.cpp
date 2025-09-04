@@ -36,6 +36,10 @@
 #include <smmintrin.h>
 #endif
 
+// H.264とHEVCのAUD(Access Unit Delimiter)の固定ビット列
+static const uint8_t AUD_H264_PRIMARY[] = { 0x00, 0x00, 0x00, 0x01, 0x09, 0x10 }; // AUD (primary_pic_type = 0)
+static const uint8_t AUD_HEVC_PRIMARY[] = { 0x00, 0x00, 0x00, 0x01, 0x46, 0x01 }; // AUD (pic_type = 0)
+
 static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp) {
     char buffer[256] = { 0 };
     char *ptr = buffer;
@@ -90,7 +94,10 @@ RGYOutput::RGYOutput() :
     m_readBuffer(),
     m_UVBuffer(),
     m_bsf(),
-    m_parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
+    m_parse_nal_hevc(get_parse_nal_unit_hevc_func()),
+    m_insertHeader(INSERT_HEADER_NONE),
+    m_storedHeaders(),
+    m_parse_nal_h264(get_parse_nal_unit_h264_func()) {
 }
 
 RGYOutput::~RGYOutput() {
@@ -117,6 +124,8 @@ void RGYOutput::Close() {
     m_inited = false;
     m_sourceHWMem = false;
     m_y4mHeaderWritten = false;
+    m_insertHeader = INSERT_HEADER_NONE;
+    m_storedHeaders.clear();
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
     m_printMes.reset();
 }
@@ -392,6 +401,118 @@ RGY_ERR RGYOutput::OverwriteHEVCAlphaChannelInfoSEI(RGYBitstream *bitstream) {
             bitstream->append(nal.ptr, nal.size);
         }
     }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOutput::InsertHeader(RGYBitstream *bitstream, bool isIDR) {
+    if (!ENCODER_VCEENC && !ENCODER_MPP) {
+        return RGY_ERR_NONE;
+    }
+    if (m_insertHeader == INSERT_HEADER_NONE) {
+        return RGY_ERR_NONE;
+    }
+    if (m_VideoOutputInfo.codec != RGY_CODEC_H264 && m_VideoOutputInfo.codec != RGY_CODEC_HEVC) {
+        return RGY_ERR_NONE;
+    }
+    if ((m_insertHeader & INSERT_HEADER_AUD) == 0 && !isIDR) {
+        return RGY_ERR_NONE;
+    }
+    
+    std::vector<nal_info> nal_list;
+    bool foundHeaders = false;
+    bool foundAUD = false;
+    bool isIDRFrame = isIDR;
+    
+    if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
+        nal_list = m_parse_nal_h264(bitstream->data(), bitstream->size());
+        // H.264の場合、SPS/PPSがあるかチェック
+        foundHeaders = std::find_if(nal_list.begin(), nal_list.end(), [](const nal_info& info) { 
+            return info.type == NALU_H264_SPS || info.type == NALU_H264_PPS; 
+        }) != nal_list.end();
+        // H.264の場合、IDRフレームがあるかチェック
+        isIDRFrame |= std::find_if(nal_list.begin(), nal_list.end(), [](const nal_info& info) { 
+            return info.type == NALU_H264_IDR; 
+        }) != nal_list.end();
+        // H.264の場合、AUDがあるかチェック
+        foundAUD = std::find_if(nal_list.begin(), nal_list.end(), [](const nal_info& info) { 
+            return info.type == NALU_H264_AUD; 
+        }) != nal_list.end();
+    } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+        nal_list = m_parse_nal_hevc(bitstream->data(), bitstream->size());
+        // HEVCの場合、VPS/SPS/PPSがあるかチェック
+        foundHeaders = std::find_if(nal_list.begin(), nal_list.end(), [](const nal_info& info) { 
+            return info.type == NALU_HEVC_VPS || info.type == NALU_HEVC_SPS || info.type == NALU_HEVC_PPS; 
+        }) != nal_list.end();
+        // HEVCの場合、AUDがあるかチェック
+        foundAUD = std::find_if(nal_list.begin(), nal_list.end(), [](const nal_info& info) { 
+            return info.type == NALU_HEVC_AUD; 
+        }) != nal_list.end();
+    }
+    
+    // SPS/PPS/VPSヘッダー挿入処理
+    if (m_insertHeader & INSERT_HEADER_SPS_PPS) {
+        if (foundHeaders) {
+            // ヘッダーが見つかった場合、保存する
+            m_storedHeaders.clear();
+            
+            for (const auto& nal : nal_list) {
+                bool isHeader = false;
+                if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
+                    isHeader = (nal.type == NALU_H264_SPS || nal.type == NALU_H264_PPS);
+                } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+                    isHeader = (nal.type == NALU_HEVC_VPS || nal.type == NALU_HEVC_SPS || nal.type == NALU_HEVC_PPS);
+                }
+                
+                if (isHeader) {
+                    const size_t currentSize = m_storedHeaders.size();
+                    m_storedHeaders.resize(currentSize + nal.size);
+                    memcpy(m_storedHeaders.data() + currentSize, nal.ptr, nal.size);
+                }
+            }
+            
+            AddMessage(RGY_LOG_TRACE, _T("Stored %s headers: %d bytes\n"),
+                (m_VideoOutputInfo.codec == RGY_CODEC_H264) ? _T("H.264") : _T("HEVC"), (int)m_storedHeaders.size());
+        }
+        if (isIDRFrame && !foundHeaders && !m_storedHeaders.empty()) {
+            // ヘッダーがないが、既に保存されている場合、ヘッダーを挿入
+            std::vector<nal_info>::iterator it_aud_pos = nal_list.end();
+            if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
+                it_aud_pos = std::find_if(nal_list.begin(), nal_list.end(), [](const nal_info& info) { return info.type == NALU_H264_AUD; });
+            } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+                it_aud_pos = std::find_if(nal_list.begin(), nal_list.end(), [](const nal_info& info) { return info.type == NALU_HEVC_AUD; });
+            }
+            const size_t insert_offset = (it_aud_pos != nal_list.end()) ? (it_aud_pos->ptr - nal_list.begin()->ptr) + it_aud_pos->size : 0;
+            bitstream->resize(bitstream->size() + m_storedHeaders.size());
+            memmove(bitstream->data() + insert_offset + m_storedHeaders.size(), bitstream->data() + insert_offset, bitstream->size() - insert_offset - m_storedHeaders.size());
+            memcpy(bitstream->data() + insert_offset, m_storedHeaders.data(), m_storedHeaders.size());
+            AddMessage(RGY_LOG_TRACE, _T("Inserted stored %s headers in IDR frame: %d bytes\n"), 
+                (m_VideoOutputInfo.codec == RGY_CODEC_H264) ? _T("H.264") : _T("HEVC"), (int)m_storedHeaders.size());
+        }
+    }
+    
+    // AUD挿入処理
+    if ((m_insertHeader & INSERT_HEADER_AUD) && !foundAUD) {
+        const uint8_t* audData = nullptr;
+        size_t audSize = 0;
+        
+        if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
+            audData = AUD_H264_PRIMARY;
+            audSize = sizeof(AUD_H264_PRIMARY);
+        } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            audData = AUD_HEVC_PRIMARY;
+            audSize = sizeof(AUD_HEVC_PRIMARY);
+        }
+        
+        if (audData != nullptr) {
+            // AUDを先頭に挿入
+            bitstream->resize(bitstream->size() + audSize);
+            memmove(bitstream->data() + audSize, bitstream->data(), bitstream->size() - audSize);
+            memcpy(bitstream->data(), audData, audSize);
+            AddMessage(RGY_LOG_TRACE, _T("Inserted %s AUD: %d bytes\n"),
+                (m_VideoOutputInfo.codec == RGY_CODEC_H264) ? _T("H.264") : _T("HEVC"), (int)audSize);
+        }
+    }
+    
     return RGY_ERR_NONE;
 }
 
@@ -743,6 +864,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         m_timestamp = rawPrm->vidTimestamp;
         m_debugDirectAV1Out = rawPrm->debugDirectAV1Out;
         m_HEVCAlphaChannelMode = rawPrm->HEVCAlphaChannelMode;
+        m_insertHeader = rawPrm->insertHeader;
         m_enableHEVCAlphaChannelInfoSEIOverwrite = rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->HEVCAlphaChannel;
         if (m_enableHEVCAlphaChannelInfoSEIOverwrite) {
             AddMessage(RGY_LOG_DEBUG, _T("enableHEVCAlphaChannelInfoSEIFix : on\n"));
@@ -820,6 +942,13 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
 
     // NVENCのalpha_channel_info SEIの出力は変なので、適切なものに置き換える
     auto err = OverwriteHEVCAlphaChannelInfoSEI(pBitstream);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
+    // VCEEncでのヘッダー挿入処理
+    const bool isIDR = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0; //IDRかどうかのフラグ
+    err = InsertHeader(pBitstream, isIDR);
     if (err != RGY_ERR_NONE) {
         return err;
     }
@@ -1239,6 +1368,7 @@ RGY_ERR initWriters(
     const bool benchmark,
     const bool HEVCAlphaChannel,
     const int HEVCAlphaChannelMode,
+    const uint32_t insertHeader,
     RGYPoolAVPacket *poolPkt,
     RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,
@@ -1327,6 +1457,7 @@ RGY_ERR initWriters(
         writerPrm.HEVCAlphaChannelMode    = HEVCAlphaChannelMode;
         writerPrm.threadCsp               = ctrl->threadCsp;
         writerPrm.simdCsp                 = ctrl->simdCsp;
+        writerPrm.insertHeader            = insertHeader;
         writerPrm.muxOpt                  = common->muxOpt;
         writerPrm.poolPkt                 = poolPkt;
         writerPrm.poolFrame               = poolFrame;
@@ -1641,6 +1772,7 @@ RGY_ERR initWriters(
             rawPrm.debugRawOut = common->debugRawOut;
             rawPrm.outReplayFile = common->outReplayFile;
             rawPrm.outReplayCodec = common->outReplayCodec;
+            rawPrm.insertHeader = insertHeader;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
