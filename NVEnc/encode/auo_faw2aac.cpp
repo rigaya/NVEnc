@@ -113,12 +113,9 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
         }
     }
 
-    //確実なfcloseのために何故か一度ここで待機する必要あり
-    if_valid_set_event(pe->aud_parallel.he_vid_start);
-    if_valid_wait_for_single_object(pe->aud_parallel.he_aud_start, INFINITE);
-
     //パイプ or ファイルオープン
     if (conf->aud.use_internal) {
+        std::atomic<int> ConnectNamedPipeStart = 0;
         auto run_transfer_pipe = [&](int audio_idx) {
             int ret = 0;
             auto aud_track = &aud_dat[audio_idx];
@@ -128,6 +125,7 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
                 memset(&overlapped, 0, sizeof(overlapped));
                 overlapped.hEvent = aud_track->he_ov_aud_namedpipe;
                 ConnectNamedPipe(aud_track->h_aud_namedpipe, &overlapped);
+                ConnectNamedPipeStart++;
                 while ((ret = WaitForSingleObject(overlapped.hEvent, 50)) != WAIT_OBJECT_0) {
                     if (pe->aud_parallel.abort) {
                         return 1;
@@ -162,7 +160,19 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
         for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
             aud_dat[i_aud].thOut = std::async(run_transfer_pipe, i_aud);
         }
+        // スレッドがrun_transfer_pipeでConnectNamedPipeを呼び出してから
+        // he_vid_startを呼び出してプロセスを起動するようにしないといけない
+        // この順番が逆になるとエンコーダーがpipeを開けない
+        while (!ret && ConnectNamedPipeStart < pe->aud_count) {
+            Sleep(0);
+        }
+        if_valid_set_event(pe->aud_parallel.he_vid_start);
+        if_valid_wait_for_single_object(pe->aud_parallel.he_aud_start, INFINITE);
     } else {
+        //確実なfcloseのために何故か一度ここで待機する必要あり
+        if_valid_set_event(pe->aud_parallel.he_vid_start);
+        if_valid_wait_for_single_object(pe->aud_parallel.he_aud_start, INFINITE);
+
         for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
             const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
             const AUDIO_SETTINGS *aud_stg = (conf->aud.use_internal) ? &sys_dat->exstg->s_aud_int[cnf_aud->encoder] : &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];

@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 9.01
+
+- Improve handling when input files have negative pts.
+- Improve quality of burned in subtitles in --vpp-subburn processing by changing libass initialization method. ( #717 )
+
 ## 9.00
 
 - Add NVEnc.auo2 with native support for AviUtl2.
