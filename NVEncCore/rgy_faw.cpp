@@ -143,8 +143,8 @@ static uint32_t faw_checksum_read(const uint8_t *buf) {
 
 RGYFAWBitstream::RGYFAWBitstream() :
     buffer(),
-    bufferLength(0),
     bufferOffset(0),
+    bufferLength(0),
     bytePerWholeSample(0),
     inputLengthByte(0),
     outSamples(0),
@@ -301,7 +301,7 @@ int RGYFAWDecoder::decode(RGYFAWDecoderOutput& output, const uint8_t *input, con
         bufferIn.append(input, inputLength);
         inputDataAppended = true;
 
-        int64_t ret0 = 0, ret1 = 0;
+        decltype(funcMemMemFAWStart1(nullptr, 0)) ret0 = 0, ret1 = 0;
         if ((ret0 = funcMemMemFAWStart1(bufferIn.data(), bufferIn.size())) != RGY_MEMMEM_NOT_FOUND) {
             fawmode = RGYFAWMode::Full;
         } else if ((ret0 = funcMemMem(bufferIn.data(), bufferIn.size(), fawstart2.data(), fawstart2.size())) != RGY_MEMMEM_NOT_FOUND) {

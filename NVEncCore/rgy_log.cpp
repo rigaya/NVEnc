@@ -41,7 +41,7 @@
 int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle_, bool disableColor) {
     int ret = 0;
     if (disableColor) {
-        ret = _ftprintf(stderr, mes);
+        ret = _ftprintf(stderr, _T("%s"), mes);
     } else {
 #if defined(_WIN32) || defined(_WIN64)
         HANDLE handle = handle_;

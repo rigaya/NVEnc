@@ -1631,7 +1631,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     } else {
         m_readerName = _T("avsw");
     }
-    m_seek = std::make_pair(0.0f, 0.0f);
+    m_seek = std::pair<float, float>(0.0f, 0.0f);
     m_Demux.video.readVideo = input_prm->readVideo;
     m_Demux.video.hevcbsf = input_prm->hevcbsf;
     m_Demux.thread.queueInfo = input_prm->queueInfo;
@@ -3063,7 +3063,7 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
 RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream, int idx) {
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
-        while (m_Demux.qVideoPkt.size() < idx) {
+        while ((int)m_Demux.qVideoPkt.size() < idx) {
             auto [ret, pkt] = getSample();
             if (ret == 0) {
                 m_Demux.qVideoPkt.push(pkt.release());

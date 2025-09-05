@@ -3681,7 +3681,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
         _ftprintf(muxAudio->fpTsLogFile.get(), _T(" , %20lld, %8d, %d\n"), (lls)pkt->pts, (int)pkt->duration, pkt->size);
         {
             std::lock_guard<std::mutex> lock(m_Mux.format.fpTsLogMtx);
-            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("a, %d,  , %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pkt->stream_index, (lls)orig_pts, (lls)orig_dts, (lls)pkt->pts, (lls)pkt->dts, (int)pkt->duration, (lls)pkt->size);
+            _ftprintf(m_Mux.format.fpTsLogFile.get(), _T("a, %d,  , %20lld, %20lld, %20lld, %20lld, %d, %7lld\n"), pkt->stream_index, (lls)orig_pts, (lls)orig_dts, (lls)pkt->pts, (lls)pkt->dts, (int)pkt->duration, (lls)pkt->size);
         }
     }
     if (pkt->pts >= 0 || m_Mux.format.allowOtherNegativePts) {
@@ -4784,7 +4784,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             //音声が途中までしかなかったり、途中からしかなかったりする場合にこうした処理が必要
             const size_t videoPacketThreshold = std::max<size_t>(std::min<size_t>(3072, (videoIsRaw) ? (int)m_Mux.thread.qVideoRawFrames.capacity() : (int)m_Mux.thread.qVideobitstream.capacity()), nWaitThreshold) - nWaitThreshold;
             auto vidQueueSize = (videoIsRaw) ? (int)m_Mux.thread.qVideoRawFrames.size() : (int)m_Mux.thread.qVideobitstream.size();
-            if (m_Mux.thread.thOutput->qPackets.size() == 0 && vidQueueSize > videoPacketThreshold) {
+            if (m_Mux.thread.thOutput->qPackets.size() == 0 && vidQueueSize > (int)videoPacketThreshold) {
                 nWaitAudio++;
                 if (nWaitAudio <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
