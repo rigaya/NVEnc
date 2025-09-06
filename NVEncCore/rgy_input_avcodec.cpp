@@ -899,7 +899,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         } else if (nFramesToCheck > 0) {
             frameDurationList.reserve(nFramesToCheck);
             int rff_frames = 0;
-
+            bool corrupt_block = false;
             for (int i = 0; i < nFramesToCheck; i++) {
 #if _DEBUG && 0
                 fprintf(stderr, "%3d: pts:%lld, poc:%3d, duration:%5d, duration2:%5d, repeat:%d\n",
@@ -915,7 +915,15 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                         duration = (int)(duration * 2 / (double)(repeat_pict + 1) + 0.5);
                         rff_frames++;
                     }
-                    frameDurationList.push_back(duration);
+                    const auto flags = m_Demux.frames.list(i).flags;
+                    const bool corrupt = (flags & AV_PKT_FLAG_CORRUPT) != 0;
+                    const bool key     = (flags & AV_PKT_FLAG_KEY) != 0;
+                    if (corrupt || key) { // 壊れている場合やキーフレーム時はフラグを更新
+                        corrupt_block = corrupt;
+                    }
+                    if (!corrupt_block) {
+                        frameDurationList.push_back(duration);
+                    }
                 }
             }
             bPulldown = (bDetectpulldown && ((rff_frames + 1/*たまたま切り捨てられることのないように*/) / (double)nFramesToCheck > 0.45));
