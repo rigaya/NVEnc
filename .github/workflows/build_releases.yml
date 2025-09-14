@@ -70,7 +70,7 @@ jobs:
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           if "${{ matrix.arch }}" == "x64" curl -s -o NVEncNVOFFRUC_x64.7z -L https://github.com/rigaya/NVEnc/releases/download/7.42/NVEncNVOFFRUC_20240303_x64.7z
           if "${{ matrix.arch }}" == "x64" 7z x -oNVEncNVOFFRUCBin -y NVEncNVOFFRUC_x64.7z
-          if "${{ matrix.arch }}" == "x64" curl -s -o NVEncNVSDKNGX_x64.7z -L https://github.com/rigaya/NVEnc/releases/download/8.11/NVEncNVSDKNGX_20250827_x64.7z
+          if "${{ matrix.arch }}" == "x64" curl -s -o NVEncNVSDKNGX_x64.7z -L https://github.com/rigaya/NVEnc/releases/download/8.11/NVEncNVSDKNGX_20250914_x64.7z
           if "${{ matrix.arch }}" == "x64" 7z x -oNVEncNVSDKNGXBin -y NVEncNVSDKNGX_x64.7z
           git clone --depth 1 https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone -b R72 --depth 1 https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
