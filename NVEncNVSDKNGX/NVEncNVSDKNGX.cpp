@@ -49,7 +49,7 @@ class NVEncNVSDKNGX {
 public:
     NVEncNVSDKNGX();
     virtual ~NVEncNVSDKNGX();
-
+    static RGY_ERR initNgxOnce();
     virtual RGY_ERR init(int cudaDeviceOrdinal, CUcontext cuContextExt, CUstream cuStreamExt) = 0;
     virtual void close();
     virtual RGY_ERR procFrame(const NVEncNVSDKNGXRect *rectDst, const NVEncNVSDKNGXRect *rectSrc, const NVEncNVSDKNGXParam *param,
@@ -71,6 +71,9 @@ protected:
     CUsurfObject                m_cuSurfObjectDst;
     size_t                      m_dstArrayWidth;
     size_t                      m_dstArrayHeight;
+
+    static std::atomic<int>     m_cudaNGXInitialized;
+    static RGY_ERR              m_cudaNGXInitResult;
 };
 
 class NVEncNVSDKNGXVSR : public NVEncNVSDKNGX {
@@ -148,6 +151,28 @@ static RGY_ERR err_to_rgy(NVSDK_NGX_Result err) {
         return map.nv == err;
         });
     return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
+}
+
+// 初期化関連のstaticメンバ変数
+std::atomic<int> NVEncNVSDKNGX::m_cudaNGXInitialized = 0;
+RGY_ERR NVEncNVSDKNGX::m_cudaNGXInitResult = RGY_ERR_NOT_INITIALIZED;
+
+RGY_ERR NVEncNVSDKNGX::initNgxOnce() {
+    int expected = 0;
+    // 0 → 1 にできたスレッドだけが処理を実行
+    if (m_cudaNGXInitialized.compare_exchange_strong(expected, 1, std::memory_order_acquire)) {
+        // プロセス中、一度のみ実行
+        // CUDAでは2回行うと、それまで作ったものが無効化されてしまう (DX11のときは特に配慮しなくてよかったが…)
+        m_cudaNGXInitResult = err_to_rgy(NVSDK_NGX_CUDA_Init(APP_ID, APP_PATH));
+        // 完了マーク
+        m_cudaNGXInitialized.store(2, std::memory_order_release);
+    } else {
+        // 他のスレッドが処理中/済みなら、処理完了まで待機
+        while (m_cudaNGXInitialized.load(std::memory_order_acquire) < 2) {
+            std::this_thread::yield();
+        }
+    }
+    return m_cudaNGXInitResult;
 }
 
 NVEncNVSDKNGX::NVEncNVSDKNGX() :
@@ -237,7 +262,7 @@ RGY_ERR NVEncNVSDKNGXVSR::init(int cudaDeviceOrdinal, CUcontext cuContextExt, CU
         m_cuDevice = dev;
     }
 
-    auto err = err_to_rgy(NVSDK_NGX_CUDA_Init(APP_ID, APP_PATH));
+    auto err = initNgxOnce();
     if (err != RGY_ERR_NONE) return err;
 
     err = err_to_rgy(NVSDK_NGX_CUDA_GetCapabilityParameters(&m_ngxParameters));
@@ -353,7 +378,7 @@ RGY_ERR NVEncNVSDKNGXTrueHDR::init(int cudaDeviceOrdinal, CUcontext cuContextExt
         m_cuDevice = dev;
     }
 
-    auto err = err_to_rgy(NVSDK_NGX_CUDA_Init(APP_ID, APP_PATH));
+    auto err = initNgxOnce();
     if (err != RGY_ERR_NONE) return err;
 
     err = err_to_rgy(NVSDK_NGX_CUDA_GetCapabilityParameters(&m_ngxParameters));
