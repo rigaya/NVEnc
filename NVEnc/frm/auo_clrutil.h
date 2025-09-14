@@ -262,6 +262,7 @@ static System::Drawing::Color getTextBoxForeColor(const AuoTheme theme, const Da
 //tabControlのanchorはLeft,Upのみにする
 static System::Void SwitchComboBoxBorder(TabControl^ TB, Panel^ PN, const AuoTheme themeFrom, const AuoTheme themeTo, const DarkenWindowStgReader *stgReader) {
     if (themeTo == themeFrom) return;
+    if (stgReader == nullptr) return;
     switch (themeFrom) {
     case AuoTheme::DarkenWindowDark:
         break;
@@ -312,6 +313,7 @@ static bool isToolStripItem(System::Type^ type) {
 }
 
 static System::Void SetAllColor(Control ^top, const AuoTheme themeTo, System::Type^ topType, const DarkenWindowStgReader *stgReader) {
+    if (stgReader == nullptr) return;
     System::Type^ type = top->GetType();
     if (type == GroupBox::typeid) {
         GroupBox^ GB = dynamic_cast<GroupBox^>(top);
@@ -466,6 +468,7 @@ static System::Void fcgMouseEnterLeave_SetColor(System::Object^ sender,  const A
 
 //どうもうまくいかない
 static System::Void SetToolTipColor(ToolTip ^TT, const AuoTheme themeTo, const DarkenWindowStgReader *stgReader) {
+    if (stgReader == nullptr) return;
     TT->IsBalloon = (themeTo == AuoTheme::DefaultLight);
 
     System::Drawing::Color foreColor = (themeTo == AuoTheme::DarkenWindowDark) ? ColorfromInt(DEFAULT_UI_COLOR_TEXT_DARK) : System::Windows::Forms::Control::DefaultForeColor;

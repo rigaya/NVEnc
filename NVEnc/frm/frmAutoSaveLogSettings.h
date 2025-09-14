@@ -310,16 +310,21 @@ namespace AUO_NAME_R {
     public:
         System::Void InitTheme() {
             if (dwStgReader != nullptr) delete dwStgReader;
-            TCHAR aviutl_dir[MAX_PATH_LEN];
-            get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
-            const auto [themeTo, dwStg] = check_current_theme(aviutl_dir);
-            dwStgReader = dwStg;
-            CheckTheme(themeTo);
+            try {
+                TCHAR aviutl_dir[MAX_PATH_LEN];
+                get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+                const auto [themeTo, dwStg] = check_current_theme(aviutl_dir);
+                dwStgReader = dwStg;
+                CheckTheme(themeTo);
+            } catch (...) {
+
+            }
         }
     private:
         System::Void CheckTheme(const AuoTheme themeTo) {
             //変更の必要がなければ終了
             if (themeTo == themeMode) return;
+            if (!dwStgReader) return;
 
             //一度ウィンドウの再描画を完全に抑止する
             SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);

@@ -112,6 +112,7 @@ System::Void frmBitrateCalculator::Init(int VideoBitrate, int AudioBitrate, bool
 System::Void frmBitrateCalculator::CheckTheme(const AuoTheme themeTo) {
     //変更の必要がなければ終了
     if (themeTo == themeMode) return;
+    if (dwStgReader == nullptr) return;
 
     //一度ウィンドウの再描画を完全に抑止する
     SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
@@ -2125,13 +2126,19 @@ System::Void frmConfig::SetAllMouseMove(Control ^top, const AuoTheme themeTo) {
 }
 
 System::Void frmConfig::CheckTheme() {
-    //DarkenWindowが使用されていれば設定をロードする
-    if (dwStgReader != nullptr) delete dwStgReader;
-    const auto [themeTo, dwStg] = check_current_theme(sys_dat->aviutl_dir);
-    dwStgReader = dwStg;
-
-    //変更の必要がなければ終了
-    if (themeTo == themeMode) return;
+    AuoTheme themeTo = AuoTheme::DefaultLight;
+    try {
+        //DarkenWindowが使用されていれば設定をロードする
+        if (dwStgReader != nullptr) delete dwStgReader;
+        const auto [theme, dwStg] = check_current_theme(sys_dat->aviutl_dir);
+        if (dwStg == nullptr) return;
+        themeTo = theme;
+        dwStgReader = dwStg;
+        //変更の必要がなければ終了
+        if (themeTo == themeMode) return;
+    } catch (...) {
+        return;
+    }
 
     //一度ウィンドウの再描画を完全に抑止する
     SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);

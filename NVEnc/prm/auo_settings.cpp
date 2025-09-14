@@ -41,6 +41,7 @@
 #include "auo_util.h"
 #include "auo_settings.h"
 #include "auo_version.h"
+#include "rgy_filesystem.h"
 
 static const int INI_SECTION_BUFSIZE = 32768;
 static const int INI_KEY_MAX_LEN = 256;
@@ -1287,11 +1288,23 @@ int DarkenWindowStgReader::parseStg() {
 }
 
 DarkenWindowStgReader *createDarkenWindowStgReader(const TCHAR *aviutl_dir) {
+    if (is_aviutl2()) {
+        TCHAR pluginDir[MAX_PATH_LEN];
+        get_auo_dir(pluginDir, _countof(pluginDir));
+        TCHAR DWStgDir[MAX_PATH_LEN];
+        PathCombineLong(DWStgDir, _countof(DWStgDir), pluginDir, _T("DarkenWindow"));
+        if (rgy_directory_exists(DWStgDir)) {
+            return new DarkenWindowStgReader(DWStgDir);
+        }
+    }
     TCHAR pluginDir[MAX_PATH_LEN];
     PathCombineLong(pluginDir, _countof(pluginDir), aviutl_dir, _T("plugins"));
     TCHAR DWStgDir[MAX_PATH_LEN];
     PathCombineLong(DWStgDir, _countof(DWStgDir), pluginDir, _T("DarkenWindow"));
-    return new DarkenWindowStgReader(DWStgDir);
+    if (rgy_directory_exists(DWStgDir)) {
+        return new DarkenWindowStgReader(DWStgDir);
+    }
+    return nullptr;
 }
 
 std::tuple<AuoTheme, DarkenWindowStgReader *> check_current_theme(const TCHAR *aviutl_dir) {
@@ -1302,7 +1315,7 @@ std::tuple<AuoTheme, DarkenWindowStgReader *> check_current_theme(const TCHAR *a
     }
     //DarkenWindowが使用されていれば設定をロードする
     return {
-        (DWLoaded && dwStg->parseStg() == 0) ? ((dwStg->isDarkTheme()) ? AuoTheme::DarkenWindowDark : AuoTheme::DarkenWindowLight) : AuoTheme::DefaultLight,
+        (DWLoaded && dwStg && dwStg->parseStg() == 0) ? ((dwStg->isDarkTheme()) ? AuoTheme::DarkenWindowDark : AuoTheme::DarkenWindowLight) : AuoTheme::DefaultLight,
         dwStg
     };
 }

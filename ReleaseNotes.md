@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 9.02
+
+- Fix error when using both ngx-vsr and ngx-true-hdr together (issue since 9.00). ( #724 )
+- Avoid unintended fps values when front of input file is corrupted.
+
 ## 9.01
 
 - Improve handling when input files have negative pts.
