@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.03
+
+- Fix 9.02 did not incude NVEncNVSDKNGX.dll. ( #724 )
+
 ## 9.02
 
 - Fix error when using both ngx-vsr and ngx-true-hdr together (issue since 9.00). ( #724 )
