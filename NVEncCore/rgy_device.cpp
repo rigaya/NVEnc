@@ -325,7 +325,7 @@ void DeviceDX9::AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
 
 DX11AdapterManager *DX11AdapterManager::m_instance = nullptr;
 
-void DX11AdapterManager::EnumerateAdapters() {
+void DX11AdapterManager::EnumerateAdapters(RGYLog *log) {
     if (m_initialized) {
         return;
     }
@@ -336,10 +336,12 @@ void DX11AdapterManager::EnumerateAdapters() {
     }
 
     UINT count = 0;
+    std::vector<LUID> enumeratedAdapterLUIDs;
     while (true) {
-        //AddMessage(RGY_LOG_DEBUG, _T("EnumAdapters %d...\n"), count);
+        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("EnumAdapters %d...\n"), count);
         ATL::CComPtr<IDXGIAdapter> pAdapter;
         if (pFactory->EnumAdapters(count, &pAdapter) == DXGI_ERROR_NOT_FOUND) {
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  EnumAdapters finished\n"));
             break;
         }
 
@@ -347,19 +349,81 @@ void DX11AdapterManager::EnumerateAdapters() {
         pAdapter->GetDesc(&desc);
 
         if (ENCODER_VENDOR_ID != 0 && desc.VendorId != ENCODER_VENDOR_ID) {
-            //AddMessage(RGY_LOG_DEBUG, _T("Non Target Adaptor %d: VendorId: 0x%08x.\n"), count, desc.VendorId);
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Non Target Adaptor %d: %s, VendorId: 0x%08x, Target VendorId: 0x%08x.\n"),
+                count, wstring_to_tstring(desc.Description).c_str(), desc.VendorId, ENCODER_VENDOR_ID);
             count++;
             continue;
         }
+        // SOFTWARE アダプタ(リモート/WARP等)を除外
+        ATL::CComPtr<IDXGIAdapter1> pAdapter1;
+        if (SUCCEEDED(pAdapter->QueryInterface(__uuidof(IDXGIAdapter1), (void**)&pAdapter1)) && pAdapter1) {
+            DXGI_ADAPTER_DESC1 desc1 = {};
+            pAdapter1->GetDesc1(&desc1);
+            if (desc1.Flags & (DXGI_ADAPTER_FLAG_SOFTWARE | DXGI_ADAPTER_FLAG_REMOTE)) {
+                if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Skip %s%s Adaptor %d: %s, VendorId: 0x%08x.\n"),
+                    desc1.Flags & DXGI_ADAPTER_FLAG_SOFTWARE ? _T("SOFTWARE ") : _T(""),
+                    desc1.Flags & DXGI_ADAPTER_FLAG_REMOTE ? _T("REMOTE ") : _T(""),
+                    count, wstring_to_tstring(desc1.Description).c_str(), desc.VendorId);
+                count++;
+                continue;
+            }
+        }
+
+        // LUID 重複排除
+        bool enumerated = false;
+        for (auto it = enumeratedAdapterLUIDs.begin(); it != enumeratedAdapterLUIDs.end(); it++) {
+            if (desc.AdapterLuid.HighPart == it->HighPart && desc.AdapterLuid.LowPart == it->LowPart) {
+                enumerated = true;
+                break;
+            }
+        }
+        if (enumerated) {
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Skip LUID Duplicated Adaptor %d: %s, VendorId: 0x%08x.\n"),
+                count, wstring_to_tstring(desc.Description).c_str(), desc.VendorId);
+            count++;
+            continue;
+        }
+
+        // 実際にこのアダプタでHW D3D11デバイスが作れるか検証 (WARPは使わない)
+        {
+            ATL::CComPtr<ID3D11Device> pD3D11Device;
+            ATL::CComPtr<ID3D11DeviceContext>  pD3D11Context;
+            UINT createDeviceFlags = 0;
+#ifdef _DEBUG
+            createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+            D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
+            D3D_FEATURE_LEVEL featureLevel;
+            HRESULT hrCreate = D3D11CreateDevice(pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, createDeviceFlags,
+                featureLevels, _countof(featureLevels), D3D11_SDK_VERSION, &pD3D11Device, &featureLevel, &pD3D11Context);
+#ifdef _DEBUG
+            if (FAILED(hrCreate)) {
+                createDeviceFlags &= (~D3D11_CREATE_DEVICE_DEBUG);
+                hrCreate = D3D11CreateDevice(pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, createDeviceFlags,
+                    featureLevels, _countof(featureLevels), D3D11_SDK_VERSION, &pD3D11Device, &featureLevel, &pD3D11Context);
+            }
+#endif
+            if (FAILED(hrCreate)) {
+                if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Skip Failed to create HW DX11 device %d: %s, VendorId: 0x%08x.\n"),
+                    count, wstring_to_tstring(desc.Description).c_str(), desc.VendorId);
+                count++;
+                continue;
+            }
+        }
+
+        // ここに到達したら「本物」
+        enumeratedAdapterLUIDs.push_back(desc.AdapterLuid);
+
         ATL::CComPtr<IDXGIOutput> pOutput;
         if (m_onlyWithOutputs && pAdapter->EnumOutputs(0, &pOutput) == DXGI_ERROR_NOT_FOUND) {
             count++;
             continue;
         }
-        //char strDevice[100];
-        //_snprintf_s(strDevice, 100, "%X", desc.DeviceId);
-        //AddMessage(RGY_LOG_DEBUG, _T("Found Adaptor %d [%d]: %s, DeviceID: %d, LUID: %08x-%08x\n"), (int)m_adaptersIndexes.size(), count, char_to_tstring(strDevice).c_str(),
-        //    desc.DeviceId, desc.AdapterLuid.HighPart, desc.AdapterLuid.LowPart);
+        char strDevice[100];
+        _snprintf_s(strDevice, 100, "%X", desc.DeviceId);
+        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Found Adaptor %d [%d]: %s, DeviceID: %s, LUID: %08x-%08x\n"),
+            count, (int)m_adaptersIndexes.size(), wstring_to_tstring(desc.Description).c_str(), char_to_tstring(strDevice).c_str(),
+            desc.DeviceId, desc.AdapterLuid.HighPart, desc.AdapterLuid.LowPart);
 
         m_adaptersIndexes.push_back(count++);
     }
@@ -412,13 +476,13 @@ RGY_ERR DeviceDX11::Init(int adapterID, shared_ptr<RGYLog> log) {
     HRESULT hr = S_OK;
     m_log = (log) ? log : std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR);
     // find adapter
-    if (DX11AdapterManager::getInstance()->adapterCount() <= adapterID) {
+    if (DX11AdapterManager::getInstance(log.get())->adapterCount() <= adapterID) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid Adapter ID: %d\n"), adapterID);
         return RGY_ERR_NOT_FOUND;
     }
 
     //convert logical id to real index
-    adapterID = DX11AdapterManager::getInstance()->getAdapterIndexes()[adapterID];
+    adapterID = DX11AdapterManager::getInstance(nullptr)->getAdapterIndexes()[adapterID];
 
     ATL::CComPtr<IDXGIFactory> pFactory;
     hr = CreateDXGIFactory(__uuidof(IDXGIFactory), (void **)&pFactory);
@@ -482,17 +546,7 @@ RGY_ERR DeviceDX11::Init(int adapterID, shared_ptr<RGYLog> log) {
     }
     if (FAILED(hr)) {
         AddMessage(RGY_LOG_ERROR, _T("InitDX11() failed to create HW DX11 device\n"));
-        hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_SOFTWARE, NULL, createDeviceFlags, featureLevels, _countof(featureLevels),
-            D3D11_SDK_VERSION, &pD3D11Device, &featureLevel, &pD3D11Context);
-    }
-
-    if (FAILED(hr)) {
-        AddMessage(RGY_LOG_ERROR, _T("InitDX11() failed to create SW DX11.1 device\n"));
-        hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_SOFTWARE, NULL, createDeviceFlags, featureLevels + 1, _countof(featureLevels) - 1,
-            D3D11_SDK_VERSION, &pD3D11Device, &featureLevel, &pD3D11Context);
-    }
-    if (FAILED(hr)) {
-        AddMessage(RGY_LOG_ERROR, _T("InitDX11() failed to create SW DX11 device\n"));
+        return RGY_ERR_UNKNOWN;
     }
     AddMessage(RGY_LOG_DEBUG, _T("InitDX11() success.\n"));
 
@@ -541,8 +595,8 @@ const RGYDeviceInfoWMI *DeviceDX11::getDeviceInfo() {
 }
 #endif
 
-int DeviceDX11::adapterCount() {
-    return DX11AdapterManager::getInstance()->adapterCount();
+int DeviceDX11::adapterCount(RGYLog *log) {
+    return DX11AdapterManager::getInstance(log)->adapterCount();
 }
 
 void DeviceDX11::AddMessage(RGYLogLevel log_level, const tstring &str) {

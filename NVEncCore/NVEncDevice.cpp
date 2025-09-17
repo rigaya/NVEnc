@@ -1556,7 +1556,7 @@ RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuLi
     int deviceCount = 0;
 #if ENABLE_D3D11
     if (initDX11) {
-        deviceCount = DX11AdapterManager::getInstance()->adapterCount();
+        deviceCount = DX11AdapterManager::getInstance(m_pLog.get())->adapterCount();
         if (deviceCount == 0) {
             PrintMes(RGY_LOG_WARN, _T("Failed to get device count from DX11 interface.\n"));
             initDX11 = false;

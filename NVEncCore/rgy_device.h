@@ -96,10 +96,10 @@ private:
 
     DX11AdapterManager() : m_adaptersIndexes(), m_onlyWithOutputs(false), m_initialized(false) { }
 public:
-    static DX11AdapterManager *getInstance() {
+    static DX11AdapterManager *getInstance(RGYLog *log) {
         if (!m_instance) {
             m_instance = new DX11AdapterManager();
-            m_instance->EnumerateAdapters();
+            m_instance->EnumerateAdapters(log);
         }
         return m_instance;
     }
@@ -110,7 +110,7 @@ public:
     int adapterCount() { return (int)m_adaptersIndexes.size(); }
     const std::vector<int>& getAdapterIndexes() { return m_adaptersIndexes; }
 private:
-    void EnumerateAdapters();
+    void EnumerateAdapters(RGYLog *log);
 };
 
 
@@ -134,7 +134,7 @@ public:
 #if ENABLE_D3D11_DEVINFO_WMI
     const RGYDeviceInfoWMI *getDeviceInfo();
 #endif
-    static int adapterCount();
+    static int adapterCount(RGYLog *log);
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str);
     void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...);
