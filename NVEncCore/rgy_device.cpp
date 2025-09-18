@@ -26,6 +26,7 @@
 // -------------------------------------------------------------------------------------------
 
 #include <set>
+#include <tuple>
 #include "rgy_tchar.h"
 #include "rgy_device.h"
 #include "rgy_log.h"
@@ -39,6 +40,40 @@
 #endif
 #if ENABLE_D3D9 || ENABLE_D3D11
 #pragma comment(lib, "dxgi.lib")
+#endif
+#if ENABLE_D3D11
+#include <winternl.h> // NTSTATUS
+#include <d3dkmthk.h>
+#pragma comment(lib, "gdi32.lib")
+#endif
+
+#if ENABLE_D3D11
+// Get PCI Bus/Device/Function from LUID via D3DKMT
+static bool queryAdapterBDFFromLuid(const LUID &luid, UINT &bus, UINT &device, UINT &function) {
+    D3DKMT_OPENADAPTERFROMLUID openParam = {};
+    openParam.AdapterLuid = luid;
+    auto statusVal = D3DKMTOpenAdapterFromLuid(&openParam);
+    if (statusVal != 0) {
+        return false;
+    }
+    D3DKMT_ADAPTERADDRESS addr = {};
+    D3DKMT_QUERYADAPTERINFO q = {};
+    q.hAdapter = openParam.hAdapter;
+    q.Type = KMTQAITYPE_ADAPTERADDRESS;
+    q.pPrivateDriverData = &addr;
+    q.PrivateDriverDataSize = sizeof(addr);
+    statusVal = D3DKMTQueryAdapterInfo(&q);
+    D3DKMT_CLOSEADAPTER closeParam = {};
+    closeParam.hAdapter = openParam.hAdapter;
+    statusVal = D3DKMTCloseAdapter(&closeParam);
+    if (statusVal != 0) {
+        return false;
+    }
+    bus = addr.BusNumber;
+    device = addr.DeviceNumber;
+    function = addr.FunctionNumber;
+    return true;
+}
 #endif
 
 #if ENCODER_QSV
@@ -210,6 +245,7 @@ RGY_ERR DeviceDX9::EnumerateAdapters() {
         CHECK_HRESULT_ERROR_RETURN(hr, L"Direct3DCreate9Ex Failed");
     }
     std::vector<LUID> enumeratedAdapterLUIDs;
+    std::set<std::tuple<UINT, UINT, UINT>> bdfSeen;
     while (true) {
         D3DDISPLAYMODE displayMode;
         HRESULT hr = pD3DEx->EnumAdapterModes(count, D3DFMT_X8R8G8B8, 0, &displayMode);
@@ -259,6 +295,7 @@ int DeviceDX9::adapterCount() {
         if (hr != S_OK) return 0;
     }
     std::vector<LUID> enumeratedAdapterLUIDs;
+    std::set<std::tuple<UINT, UINT, UINT>> bdfSeen;
     while (true) {
         D3DDISPLAYMODE displayMode;
         HRESULT hr = pD3DEx->EnumAdapterModes(count, D3DFMT_X8R8G8B8, 0, &displayMode);
@@ -337,6 +374,7 @@ void DX11AdapterManager::EnumerateAdapters(RGYLog *log) {
 
     UINT count = 0;
     std::vector<LUID> enumeratedAdapterLUIDs;
+    std::set<std::tuple<UINT, UINT, UINT>> bdfSeen;
     while (true) {
         if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("EnumAdapters %d...\n"), count);
         ATL::CComPtr<IDXGIAdapter> pAdapter;
@@ -372,6 +410,8 @@ void DX11AdapterManager::EnumerateAdapters(RGYLog *log) {
         // LUID 重複排除
         bool enumerated = false;
         for (auto it = enumeratedAdapterLUIDs.begin(); it != enumeratedAdapterLUIDs.end(); it++) {
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Check LUID %08x-%08x ... %08x-%08x\n"),
+                desc.AdapterLuid.HighPart, desc.AdapterLuid.LowPart, it->HighPart, it->LowPart);
             if (desc.AdapterLuid.HighPart == it->HighPart && desc.AdapterLuid.LowPart == it->LowPart) {
                 enumerated = true;
                 break;
@@ -411,11 +451,33 @@ void DX11AdapterManager::EnumerateAdapters(RGYLog *log) {
             }
         }
 
-        // ここに到達したら「本物」
+        // ここに到達したら「本物」。さらにPCI B/D/Fが同一なら重複扱いでスキップ。
+        UINT bus = 0, dev = 0, func = 0;
+        if (queryAdapterBDFFromLuid(desc.AdapterLuid, bus, dev, func)) {
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Found Adaptor %d: %s, BDF %u:%u:%u\n"),
+                count, wstring_to_tstring(desc.Description).c_str(), bus, dev, func);
+            // 無効BDF (例: dev/func が 0xFFFF) は除外 (リモートデスクトップで接続した場合などに生じる)
+            if (dev == 0xFFFF || func == 0xFFFF) {
+                if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Skip invalid-BDF Adaptor %d: %s, BDF %u:%u:%u\n"),
+                    count, wstring_to_tstring(desc.Description).c_str(), bus, dev, func);
+                count++;
+                continue;
+            }
+            auto key = std::make_tuple(bus, dev, func);
+            if (bdfSeen.count(key)) {
+                if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Skip BDF-duplicated Adaptor %d: %s, BDF %u:%u:%u\n"),
+                    count, wstring_to_tstring(desc.Description).c_str(), bus, dev, func);
+                count++;
+                continue;
+            }
+            bdfSeen.insert(key);
+        }
         enumeratedAdapterLUIDs.push_back(desc.AdapterLuid);
 
         ATL::CComPtr<IDXGIOutput> pOutput;
         if (m_onlyWithOutputs && pAdapter->EnumOutputs(0, &pOutput) == DXGI_ERROR_NOT_FOUND) {
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Skip Adaptor with no output %d: %s, VendorId: 0x%08x.\n"),
+                count, wstring_to_tstring(desc.Description).c_str(), desc.VendorId);
             count++;
             continue;
         }
@@ -423,7 +485,7 @@ void DX11AdapterManager::EnumerateAdapters(RGYLog *log) {
         _snprintf_s(strDevice, 100, "%X", desc.DeviceId);
         if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("  Found Adaptor %d [%d]: %s, DeviceID: %s, LUID: %08x-%08x\n"),
             count, (int)m_adaptersIndexes.size(), wstring_to_tstring(desc.Description).c_str(), char_to_tstring(strDevice).c_str(),
-            desc.DeviceId, desc.AdapterLuid.HighPart, desc.AdapterLuid.LowPart);
+            desc.AdapterLuid.HighPart, desc.AdapterLuid.LowPart);
 
         m_adaptersIndexes.push_back(count++);
     }
