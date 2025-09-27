@@ -375,10 +375,10 @@ void RGYParallelEnc::encStatusReset(const int id) {
 }
 
 std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const encParams *prm, const RGYInput *input) {
-    if (input->isPipe()) {
+    if (input->isPipe() && prm->ctrl.parallelEnc.chunkPipeHandles.size() == 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: input is pipe.\n") };
     }
-    if (!input->seekable()) {
+    if (!input->seekable() && prm->ctrl.parallelEnc.chunkPipeHandles.size() == 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: input does not support parallel encoding or input is not seekable.\n") };
     }
     if (!input->timestampStable()) {
@@ -394,14 +394,14 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --trim is eanbled.\n") };
     }
 #if ENCODER_QSV || ENCODER_NVENC
-    if (prm->dynamicRC.size() > 0) {
+    if (prm->dynamicRC.size() > 0 && prm->ctrl.parallelEnc.chunkPipeHandles.size() == 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --dynamic-rc is eanbled.\n") };
     }
 #endif
     if (prm->common.timecodeFile.length() != 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --timecode is specified.\n") };
     }
-    if (prm->common.tcfileIn.length() != 0) {
+    if (prm->common.tcfileIn.length() != 0 && prm->ctrl.parallelEnc.chunkPipeHandles.size() == 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --tcfile-in is specified.\n") };
     }
     if (prm->common.keyFile.length() != 0) {
@@ -455,6 +455,8 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.ctrl.loglevel = setChildLogLevel(prm->ctrl.loglevel);
     prmParallel.ctrl.parallelEnc.cacheMode = (ip == 0) ? RGYParamParallelEncCache::Mem : prm->ctrl.parallelEnc.cacheMode; // parallelId = 0 は必ずMem キャッシュモード
     prmParallel.ctrl.parallelEnc.delayChildSync = delayChildSync;
+    // 親が子の実行すべきchunkを選択して先頭に設定しておく
+    prmParallel.ctrl.parallelEnc.chunkPipeHandles = { prm->ctrl.parallelEnc.chunkPipeHandles[ip] };
 #if __has_include("rgy_opencl.h")
     prmParallel.ctrl.openclBuildThreads = std::max(1, (prm->ctrl.openclBuildThreads > 0 ? prm->ctrl.openclBuildThreads : std::min(RGY_OPENCL_BUILD_THREAD_DEFAULT_MAX, (int)std::thread::hardware_concurrency())) / prm->ctrl.parallelEnc.parallelCount); // 並列数の制限
 #endif
@@ -482,6 +484,25 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.common.maxCll.clear(); // 親プロセスでmux時に行う
     prmParallel.common.timecode = false; // 親プロセスでmux時に行う
     prmParallel.common.timecodeFile.clear(); // 親プロセスでmux時に行う
+#if ENCODER_QSV || ENCODER_NVENC
+    if (prmParallel.dynamicRC.size() > 0) {
+        const auto chunkStartFrameId = prmParallel.ctrl.parallelEnc.chunkPipeHandles.front().startFrameId;
+        if (chunkStartFrameId < 0) {
+            prmParallel.dynamicRC.clear(); // ここには来ないはず
+        } else {
+            const auto origDynamicRC = prmParallel.dynamicRC;
+            prmParallel.dynamicRC.clear();
+            for (auto& origRC : origDynamicRC) {
+                auto rc = origRC;
+                rc.start = std::max(0, rc.start - chunkStartFrameId);
+                rc.end = rc.end - chunkStartFrameId;
+                if (rc.end >= 0) {
+                    prmParallel.dynamicRC.push_back(rc);
+                }
+            }
+        }
+    }
+#endif
     return prmParallel;
 }
 
@@ -614,7 +635,9 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
     if (prm->ctrl.parallelEnc.isChild()) { // 子プロセスから呼ばれた
         return parallelChild(prm, input); // 子プロセスの処理
     }
-    if (prm->ctrl.parallelEnc.chunks <= 0) {
+    if (prm->ctrl.parallelEnc.chunkPipeHandles.size() > 0) {
+        prm->ctrl.parallelEnc.chunks = (int)prm->ctrl.parallelEnc.chunkPipeHandles.size();
+    } else if (prm->ctrl.parallelEnc.chunks <= 0) {
         prm->ctrl.parallelEnc.chunks = prm->ctrl.parallelEnc.parallelCount;
     }
     m_chunks = prm->ctrl.parallelEnc.chunks;
@@ -622,6 +645,11 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, rgy_r
     auto [sts, errmes ] = isParallelEncPossible(prm, input);
     if (sts != RGY_ERR_NONE
         || (sts = startParallelThreads(prm, input, outputTimebase, delayChildSync, encStatus, perfMonitor)) != RGY_ERR_NONE) {
+        // chunkPipeHandlesの場合は、無効にして続行はできないので、エラー終了
+        if (prm->ctrl.parallelEnc.chunkPipeHandles.size() > 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to start parallel threads: %s.\n"), get_err_mes(sts));
+            return RGY_ERR_UNKNOWN;
+        }
         // 並列処理を無効化して続行する
         // まず終了させるため、スレッドの処理を続行させる
         if (m_encProcess.size() > 0) {

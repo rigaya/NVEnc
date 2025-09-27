@@ -2563,10 +2563,21 @@ const CX_DESC list_parallel_enc_cache[] = {
     { NULL, 0 }
 };
 
+struct RGYParamParallelEncPipeHandle {
+    uint64_t handle;
+    int startFrameId;
+
+    RGYParamParallelEncPipeHandle() : handle(0), startFrameId(-1) {};
+    RGYParamParallelEncPipeHandle(uint64_t h, int frameId) : handle(h), startFrameId(frameId) {};
+    bool operator==(const RGYParamParallelEncPipeHandle &x) const { return handle == x.handle && startFrameId == x.startFrameId; }
+    bool operator!=(const RGYParamParallelEncPipeHandle &x) const { return !(*this == x); }
+};
+
 struct RGYParamParallelEnc {
     int parallelCount; // 並列処理数
     int parallelId; // 親=-1, 子=0～
     int chunks; // 分割数
+    std::vector<RGYParamParallelEncPipeHandle> chunkPipeHandles; // 各チャンクの先頭のフレームID (raw読み込み時に使用)
     RGYParamParallelEncCache cacheMode;
     bool delayChildSync; // 親-子間のデータやり取りを少し遅らせる
     RGYParallelEncSendData *sendData; // 並列処理時に親-子間のデータやり取り用

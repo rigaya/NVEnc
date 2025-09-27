@@ -308,7 +308,7 @@ RGY_ERR RGYInput::LoadNextFrame(RGYFrame *surface) {
     if (err != RGY_ERR_NONE) {
         return err;
     }
-    if (m_timecode) {
+    if (m_timecode && surface) {
         int64_t pts = -1, duration = 0;
         if ((err = readTimecode(pts, duration)) != RGY_ERR_NONE) {
             return err;
@@ -571,6 +571,10 @@ RGY_ERR initReaders(
 
     RGYInputPrmRaw inputPrmRaw(inputPrm);
     inputPrmRaw.inputCsp = inputCspOfRawReader;
+    if (ctrl->parallelEnc.isChild()) { // 親の場合は設定してはいけない
+        // 親が子の実行すべきchunkを選択して先頭に設定してあるので、それを設定
+        inputPrmRaw.chunkPipeHandle = ctrl->parallelEnc.chunkPipeHandles.front();
+    }
 #if ENABLE_AVISYNTH_READER
     RGYInputAvsPrm inputPrmAvs(inputPrm);
 #endif

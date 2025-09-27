@@ -38,8 +38,9 @@
 class RGYInputPrmRaw : public RGYInputPrm {
 public:
     RGY_CSP inputCsp;
+    RGYParamParallelEncPipeHandle chunkPipeHandle;
 
-    RGYInputPrmRaw(RGYInputPrm base) : RGYInputPrm(base), inputCsp(RGY_CSP_YV12) {};
+    RGYInputPrmRaw(RGYInputPrm base) : RGYInputPrm(base), inputCsp(RGY_CSP_YV12), chunkPipeHandle() {};
     virtual ~RGYInputPrmRaw() {};
 };
 
@@ -53,6 +54,13 @@ public:
     virtual bool isPipe() const override {
         return m_isPipe;
     }
+    virtual bool seekable() const override {
+        return !isPipe();
+    }
+    virtual bool timestampStable() const override {
+        return true;
+    }
+    virtual int64_t GetVideoFirstKeyPts() const override;
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
@@ -64,6 +72,8 @@ protected:
     uint32_t m_nBufSize;
     shared_ptr<uint8_t> m_pBuffer;
     bool m_isPipe;
+    RGYParamParallelEncPipeHandle m_chunkPipeHandle;
+    int64_t m_firstKeyPts;
 };
 
 #endif //ENABLE_RAW_READER

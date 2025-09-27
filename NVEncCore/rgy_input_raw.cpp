@@ -116,7 +116,9 @@ RGYInputRaw::RGYInputRaw() :
     m_fSource(NULL),
     m_nBufSize(0),
     m_pBuffer(),
-    m_isPipe(false) {
+    m_isPipe(false),
+    m_chunkPipeHandle(),
+    m_firstKeyPts(-1) {
     m_readerName = _T("raw");
 }
 
@@ -139,9 +141,44 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_readerName = (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw");
 
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp, prm->threadParamCsp);
+    m_chunkPipeHandle = reinterpret_cast<const RGYInputPrmRaw *>(prm)->chunkPipeHandle;
 
     m_isPipe = _tcscmp(strFileName, _T("-")) == 0;
-    if (m_isPipe) {
+    // 並列エンコード時
+    // 親 -> 普通に標準入力を開いてヘッダ取得(m_chunkPipeHandleはセットされていない)
+    // 子 -> m_chunkPipeHandle.handleを開いてヘッダ取得(担当するchunkPipeHandleがセットされている)
+    if (m_chunkPipeHandle.startFrameId >= 0) {
+        if (m_chunkPipeHandle.handle == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("chunk-handle is not set.\n"));
+            return RGY_ERR_INVALID_HANDLE;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("chunk pipe handle: %lld, first frame %d.\n"), (long long int)m_chunkPipeHandle.handle, m_chunkPipeHandle.startFrameId);
+#if defined(_WIN32) || defined(_WIN64)
+        m_fSource = _fdopen(_open_osfhandle((intptr_t)m_chunkPipeHandle.handle, _O_BINARY), "rb");
+        if (m_fSource == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to open chunk pipe handle: %lld.\n"), (long long int)m_chunkPipeHandle.handle);
+            return RGY_ERR_INVALID_HANDLE;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("Opened chunk pipe handle: %lld.\n"), (long long int)m_chunkPipeHandle.handle);
+#else
+        m_fSource = fdopen(m_chunkPipeHandle.handle, "rb");
+        if (m_fSource == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to open chunk pipe handle.\n"));
+            return RGY_ERR_INVALID_HANDLE;
+        }
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        if (m_timecode) {
+            int64_t pts = -1, duration = 0;
+            for (int i = 0; i < m_chunkPipeHandle.startFrameId; i++) {
+                auto err = readTimecode(pts, duration);
+                if (err != RGY_ERR_NONE) {
+                    return err;
+                }
+            }
+            m_firstKeyPts = rational_rescale(pts + duration, m_timecode->timebase(), getInputTimebase());
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("Chunk FirstKeyPts: %lld.\n"), (long long int)GetVideoFirstKeyPts());
+    } else if (m_isPipe) {
         m_fSource = stdin;
 #if defined(_WIN32) || defined(_WIN64)
         if (_setmode(_fileno(stdin), _O_BINARY) < 0) {
@@ -170,7 +207,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             || strcmp(buf, "YUV4MPEG2") != 0
             || !fgets(buf, sizeof(buf), m_fSource)
             || RGY_ERR_NONE != ParseY4MHeader(buf, &m_inputVideoInfo)) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to parse y4m header."));
+            AddMessage(RGY_LOG_ERROR, _T("failed to parse y4m header: %s."), buf);
             return RGY_ERR_INVALID_FORMAT;
         }
         if (orig_picstruct != RGY_PICSTRUCT_AUTO && orig_picstruct != RGY_PICSTRUCT_UNKNOWN) {
@@ -282,6 +319,18 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     return RGY_ERR_NONE;
 }
 
+int64_t RGYInputRaw::GetVideoFirstKeyPts() const {
+    if (m_chunkPipeHandle.startFrameId < 0) {
+        return 0;
+    }
+    if (m_firstKeyPts >= 0) {
+        return m_firstKeyPts; // timecodeから計算してセットしたもの
+    }
+    // CFR想定で計算
+    auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+    return rational_rescale(m_chunkPipeHandle.startFrameId, getInputTimebase().inv(), inputFps);
+}
+
 RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
     if ((m_inputVideoInfo.frames > 0
           &&(int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames)
@@ -289,6 +338,10 @@ RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
         || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
+    }
+    if (!pSurface) { // 並列エンコードで進捗表示を出すため
+        m_encSatusInfo->m_sData.frameIn++;
+        return m_encSatusInfo->UpdateDisplay();
     }
 
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {

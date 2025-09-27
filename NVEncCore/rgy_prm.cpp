@@ -2350,6 +2350,7 @@ RGYParamParallelEnc::RGYParamParallelEnc() :
     parallelCount(0),
     parallelId(-1),
     chunks(0),
+    chunkPipeHandles(),
     cacheMode(RGYParamParallelEncCache::Mem),
     delayChildSync(false),
     sendData(nullptr) {
@@ -2359,6 +2360,8 @@ bool RGYParamParallelEnc::operator==(const RGYParamParallelEnc &x) const {
     return parallelCount == x.parallelCount
         && parallelId == x.parallelId
         && chunks == x.chunks
+        && chunkPipeHandles.size() == x.chunkPipeHandles.size()
+        && std::equal(chunkPipeHandles.begin(), chunkPipeHandles.end(), x.chunkPipeHandles.begin())
         && cacheMode == x.cacheMode;
 }
 bool RGYParamParallelEnc::operator!=(const RGYParamParallelEnc &x) const {

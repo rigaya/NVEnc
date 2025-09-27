@@ -7189,6 +7189,23 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                     }
                     continue;
                 }
+                if (param_arg == _T("chunk-handles")) {
+                    auto handles = split(param_val, _T(":"));
+                    for (const auto& handle : handles) {
+                        try {
+                            auto handle_frame_id = split(handle, _T("#"));
+                            if (handle_frame_id.size() != 2) {
+                                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                                return 1;
+                            }
+                            ctrl->parallelEnc.chunkPipeHandles.push_back(RGYParamParallelEncPipeHandle(std::stoull(handle_frame_id[0]), std::stoi(handle_frame_id[1])));
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                    }
+                    continue;
+                }
                 if (param_arg == _T("cache")) {
                     int value = 0;
                     if (get_list_value(list_parallel_enc_cache, param_val.c_str(), &value)) {
@@ -8634,6 +8651,16 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         tmp.str(tstring());
         ADD_NUM(_T("mp"), parallelEnc.parallelCount);
         ADD_NUM(_T("id"), parallelEnc.parallelId);
+        ADD_NUM(_T("chunks"), parallelEnc.chunks);
+        if (param->parallelEnc.chunkPipeHandles.size() > 0) {
+            tmp << _T(",chunk-handles=");
+            for (size_t i = 0; i < param->parallelEnc.chunkPipeHandles.size(); i++) {
+                if (i > 0) {
+                    tmp << _T(":");
+                }
+                tmp << param->parallelEnc.chunkPipeHandles[i].handle << _T("#") << param->parallelEnc.chunkPipeHandles[i].startFrameId;
+            }
+        }
         ADD_LST(_T("cache"), parallelEnc.cacheMode, list_parallel_enc_cache);
         if (!tmp.str().empty()) {
             cmd << _T(" --parallel ") << tmp.str().substr(1);
