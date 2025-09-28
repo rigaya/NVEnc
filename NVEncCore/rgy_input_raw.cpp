@@ -460,6 +460,9 @@ RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
     m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
         src_uv_pitch, pSurface->pitch(), pSurface->pitch(RGY_PLANE_C), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+    auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+    pSurface->setDuration(rational_rescale(1, getInputTimebase().inv(), inputFps));
+    pSurface->setTimestamp(rational_rescale(GetVideoFirstKeyPts() + m_encSatusInfo->m_sData.frameIn, getInputTimebase().inv(), inputFps));
 
     m_encSatusInfo->m_sData.frameIn++;
     return m_encSatusInfo->UpdateDisplay();
