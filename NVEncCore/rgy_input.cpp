@@ -571,7 +571,7 @@ RGY_ERR initReaders(
 
     RGYInputPrmRaw inputPrmRaw(inputPrm);
     inputPrmRaw.inputCsp = inputCspOfRawReader;
-    if (ctrl->parallelEnc.isChild()) { // 親の場合は設定してはいけない
+    if (ctrl->parallelEnc.isChild() && ctrl->parallelEnc.chunkPipeHandles.size() > 0) { // 親の場合は設定してはいけない
         // 親が子の実行すべきchunkを選択して先頭に設定してあるので、それを設定
         inputPrmRaw.chunkPipeHandle = ctrl->parallelEnc.chunkPipeHandles.front();
     }

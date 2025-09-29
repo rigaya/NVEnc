@@ -1,5 +1,11 @@
 # NVEnc Release Notes
 
+## 9.04
+
+- Improve DX11 device initialization to not detect virtual/remote adaptors. ( #725 )
+- Improve progress indicator when using [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2).
+- Add support for using [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2) with multiple pipes.
+
 ## 9.03
 
 - Fix 9.02 did not incude NVEncNVSDKNGX.dll. ( #724 )

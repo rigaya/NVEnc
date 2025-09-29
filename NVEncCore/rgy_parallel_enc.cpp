@@ -202,8 +202,7 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams, CPerfMonit
         AddMessage(m_thRunProcessRet.value_or(RGY_ERR_UNKNOWN) == RGY_ERR_NONE ? RGY_LOG_DEBUG : RGY_LOG_ERROR,
             _T("\nPE%d[%d]: Processing finished: %s\n"), m_id, GetCurrentThreadId(), get_err_mes(m_thRunProcessRet.value()));
         m_sendData.processStatus = RGYParallelEncProcessStatus::Finished;
-        // 終了したら、そのチャンクに関する進捗表示は削除
-        m_sendData.encStatus.reset();
+        // そのチャンクに関する進捗表示はこのまま残す (最後に最終状態が記録されている)
     });
     return RGY_ERR_NONE;
 }
@@ -456,7 +455,9 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rat
     prmParallel.ctrl.parallelEnc.cacheMode = (ip == 0) ? RGYParamParallelEncCache::Mem : prm->ctrl.parallelEnc.cacheMode; // parallelId = 0 は必ずMem キャッシュモード
     prmParallel.ctrl.parallelEnc.delayChildSync = delayChildSync;
     // 親が子の実行すべきchunkを選択して先頭に設定しておく
-    prmParallel.ctrl.parallelEnc.chunkPipeHandles = { prm->ctrl.parallelEnc.chunkPipeHandles[ip] };
+    if (prm->ctrl.parallelEnc.chunkPipeHandles.size() > 0) {
+        prmParallel.ctrl.parallelEnc.chunkPipeHandles = { prm->ctrl.parallelEnc.chunkPipeHandles[ip] };
+    }
 #if __has_include("rgy_opencl.h")
     prmParallel.ctrl.openclBuildThreads = std::max(1, (prm->ctrl.openclBuildThreads > 0 ? prm->ctrl.openclBuildThreads : std::min(RGY_OPENCL_BUILD_THREAD_DEFAULT_MAX, (int)std::thread::hardware_concurrency())) / prm->ctrl.parallelEnc.parallelCount); // 並列数の制限
 #endif

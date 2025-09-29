@@ -243,11 +243,11 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
         m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
         std::vector<EncodeStatusData> childStsList;
-        for (size_t i = 1; i < m_childStatus.size(); i++) { // 最初のエンコーダは自分自身と同じなので飛ばして1から
+        for (size_t i = 0; i < m_childStatus.size(); i++) {
             if (m_childStatus[i].second) {
                 EncodeStatusData data;
                 if (m_childStatus[i].second->get(data)) { // 進捗表示を取得できたら
-                    data.progressPercent *= m_childStatus[i].first; // 個々の進捗率を全体の進捗率に換算する
+                    data.progressPercent *= m_childStatus[i].first;
                     childStsList.push_back(data);
                 }
             }
@@ -276,13 +276,18 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         }
         double totalProgressPercent = 0.0;
         if (m_sData.frameTotal > 0 || progressPercent > 0.0) { //progress percent
-            totalProgressPercent = progressPercent; // std::accumulate(childStsList.begin(), childStsList.end(), progressPercent, [](double sum, const EncodeStatusData& child) { return sum + child.progressPercent; });
+            totalProgressPercent = (childStsList.size() == 0)
+                ? progressPercent
+                : ((m_sData.frameTotal <= 0) ? std::accumulate(childStsList.begin(), childStsList.end(), 0.0, [](double sum, const EncodeStatusData& child) { return sum + child.progressPercent; })
+                                             : std::accumulate(childStsList.begin(), childStsList.end(), 0u, [](uint32_t sum, const EncodeStatusData& child) { return sum + child.frameIn; }) * 100.0 / m_sData.frameTotal);
             if (progressPercent == 0.0) {
                 progressPercent = m_sData.frameIn * 100 / (double)m_sData.frameTotal;
                 m_sData.progressPercent = progressPercent;
             }
             if (totalProgressPercent == 0.0) {
-                const auto totalFrameIn = std::accumulate(childStsList.begin(), childStsList.end(), m_sData.frameIn, [](uint32_t sum, const EncodeStatusData& child) { return sum + child.frameIn; });
+                const auto totalFrameIn = (childStsList.size() == 0)
+                    ? m_sData.frameIn
+                    : std::accumulate(childStsList.begin(), childStsList.end(), 0u, [](uint32_t sum, const EncodeStatusData& child) { return sum + child.frameIn; });
                 totalProgressPercent = totalFrameIn * 100 / (double)m_sData.frameTotal;
             }
             totalProgressPercent = (std::min)(totalProgressPercent, 100.0);
@@ -296,27 +301,33 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             chunks[MES_PROGRESS_PERCENT].len = _stprintf_s(chunks[MES_PROGRESS_PERCENT].str, _T("[%.1lf%%] "), totalProgressPercent);
             chunks[MES_REMAIN].len           = _stprintf_s(chunks[MES_REMAIN].str, _T(", remain %d:%02d:%02d"), hh, mm, ss);
 
-            const auto totalOutFileSize = m_sData.outFileSize; // std::accumulate(childStsList.begin(), childStsList.end(), m_sData.outFileSize, [](uint64_t sum, const EncodeStatusData& child) { return sum + child.outFileSize; });
+            const auto totalOutFileSize = (childStsList.size() == 0)
+                ? m_sData.outFileSize
+                : std::accumulate(childStsList.begin(), childStsList.end(), 0llu, [](uint64_t sum, const EncodeStatusData& child) { return sum + child.outFileSize; });
             const double est_file_size = (double)totalOutFileSize / (totalProgressPercent * 0.01);
             chunks[MES_EST_FILE_SIZE].len = _stprintf_s(chunks[MES_EST_FILE_SIZE].str, _T(", est out size %.1fMB"), est_file_size * (1.0 / (1024.0 * 1024.0)));
         }
-        const auto totalFrameOut = m_sData.frameOut + m_sData.frameDrop; // std::accumulate(childStsList.begin(), childStsList.end(), m_sData.frameOut + m_sData.frameDrop, [](uint32_t sum, const EncodeStatusData& child) { return sum + child.frameOut + child.frameDrop; });
+        const auto totalFrameOut = (childStsList.size() == 0)
+            ? m_sData.frameOut + m_sData.frameDrop
+            : std::accumulate(childStsList.begin(), childStsList.end(), 0u, [](uint32_t sum, const EncodeStatusData& child) { return sum + child.frameOut + child.frameDrop; });
         chunks[MES_CURRENT_FRAME].len = _stprintf_s(chunks[MES_CURRENT_FRAME].str, _T("%d"), totalFrameOut);
         if (m_sData.frameTotal > 0) {
             chunks[MES_FRAME_TOTAL].len = _stprintf_s(chunks[MES_FRAME_TOTAL].str, _T("/%d"), m_sData.frameTotal);
         }
         chunks[MES_FRAMES].len = _stprintf_s(chunks[MES_FRAMES].str, _T(" frames: "));
-        const double totalEncodeFps = m_sData.encodeFps; // std::accumulate(childStsList.begin(), childStsList.end(), m_sData.encodeFps, [](double sum, const EncodeStatusData& child) { return sum + child.encodeFps; });
+        const double totalEncodeFps = (childStsList.size() == 0) ? m_sData.encodeFps : totalFrameOut * 1000.0 / elapsedTime;
         chunks[MES_FPS].len = _stprintf_s(chunks[MES_FPS].str, _T("%.2lf"), totalEncodeFps);
         chunks[MES_FPS].len += _stprintf_s(chunks[MES_FPS].str + chunks[MES_FPS].len, _countof(chunks[MES_FPS].str) - chunks[MES_FPS].len, _T(" fps, "));
         auto totalBitrateKbps = m_sData.bitrateKbps;
-        if (false && childStsList.size() > 0 && totalProgressPercent > 0.0) {
-            totalBitrateKbps = std::accumulate(childStsList.begin(), childStsList.end(), m_sData.bitrateKbps * m_sData.progressPercent,
+        if (childStsList.size() > 0) {
+            totalBitrateKbps = std::accumulate(childStsList.begin(), childStsList.end(), 0.0,
                 [](double sum, const EncodeStatusData& child) { return sum + child.bitrateKbps * child.progressPercent; }) / totalProgressPercent;
         }
         chunks[MES_KBPS].len = _stprintf_s(chunks[MES_KBPS].str, _T("%d kbps"), (int)(totalBitrateKbps + 0.5));
         if (m_sData.frameDrop) {
-            auto totalFrameDrop = m_sData.frameDrop; // std::accumulate(childStsList.begin(), childStsList.end(), m_sData.frameDrop, [](uint32_t sum, const EncodeStatusData& child) { return sum + child.frameDrop; });
+            auto totalFrameDrop = (childStsList.size() == 0)
+                ? m_sData.frameDrop
+                : std::accumulate(childStsList.begin(), childStsList.end(), 0u, [](uint32_t sum, const EncodeStatusData& child) { return sum + child.frameDrop; });
             chunks[MES_DROP].len = _stprintf_s(chunks[MES_DROP].str, _T(", afs drop %d/%d"), totalFrameDrop, totalFrameOut);
         }
         if (bGPUUsage) {
@@ -374,6 +385,9 @@ void EncodeStatus::WriteResults() {
     const auto time_elapsed64 = std::chrono::duration_cast<std::chrono::milliseconds>(tm_result - m_tmStart).count();
     m_sData.encodeFps = m_sData.frameOut * 1000.0 / (double)time_elapsed64;
     m_sData.bitrateKbps = (double)(m_sData.outFileSize * 8) *  (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / (1000.0 * m_sData.frameOut);
+    if (m_peStatusShare) {
+        m_peStatusShare->set(m_sData); // 最終状態を設定
+    }
 
     int consoleWidth = 0;
 #if defined(_WIN32) || defined(_WIN64)
