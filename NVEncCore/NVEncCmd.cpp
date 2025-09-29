@@ -1830,6 +1830,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_AV1(_T("--level"), _T(":av1"), level, list_av1_level);
         OPT_GUID_AV1(_T("--profile"), _T(":av1"), tier & 0xffff, av1_profile_names);
         OPT_LST_AV1(_T("--tier"), _T(":av1"), tier >> 16, av1_tier_names);
+        OPT_NUM_AV1(_T("--ref"), _T(""), maxNumRefFramesInDPB);
         OPT_BOOL_AV1(_T("--repeat-headers"), _T(""), _T(":av1"), repeatSeqHdr);
         OPT_BOOL_AV1(_T("--av1-out-annexb"), _T(""), _T(""), outputAnnexBFormat);
 
