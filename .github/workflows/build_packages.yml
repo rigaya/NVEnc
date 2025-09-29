@@ -24,10 +24,10 @@ jobs:
           - dockerimg: ubuntu2004_cuda11
             pkgtype: deb
             arch: x86_64
-          - dockerimg: fedora37_cuda12
+          - dockerimg: fedora39_cuda12
             pkgtype: rpm
             arch: x86_64
-          - dockerimg: fedora39_cuda12
+          - dockerimg: fedora41_cuda12
             pkgtype: rpm
             arch: x86_64
           #- dockerimg: ubuntu2204_cuda11_aarch64
