@@ -758,6 +758,11 @@ inline int _ConvertSMVer2Cores(int major, int minor)
         { 0x86, 128 }, // Ampere Generation (SM 8.6) GA10x
         { 0x89, 128 }, // Ada Lovelace Generation (SM 8.9) AD10x
         { 0x90, 128 }, // Hopper Generation (SM 9.0) GH100
+        { 0x100, 128 }, // Blackwell Generation (SM 10.0) B200, B100, GB200
+        { 0x103, 128 }, // Blackwell Generation (SM 10.3) B300, GB300
+        { 0x110, 128 }, // Blackwell Generation (SM 11.0) GH10x
+        { 0x120, 128 }, // Blackwell Generation (SM 12.0) GB20x
+        { 0x121, 128 }, // Blackwell Generation (SM 12.1) G10
         {   -1, -1 }
     };
 
@@ -808,13 +813,13 @@ inline int gpuDeviceInit(int devID)
 
     cudaDeviceProp deviceProp;
     checkCudaErrors(cudaGetDeviceProperties(&deviceProp, devID));
-
+#if 0
     if (deviceProp.computeMode == cudaComputeModeProhibited)
     {
         fprintf(stderr, "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n");
         return -1;
     }
-
+#endif
     if (deviceProp.major < 1)
     {
         fprintf(stderr, "gpuDeviceInit(): GPU device does not support CUDA.\n");
@@ -850,14 +855,15 @@ inline int gpuGetMaxGflopsDeviceId()
         cudaGetDeviceProperties(&deviceProp, current_device);
 
         // If this GPU is not running on Compute Mode prohibited, then we can add it to the list
+#if 0
         if (deviceProp.computeMode != cudaComputeModeProhibited)
+#endif
         {
             if (deviceProp.major > 0 && deviceProp.major < 9999)
             {
                 best_SM_arch = MAX(best_SM_arch, deviceProp.major);
             }
         }
-
         current_device++;
     }
 
@@ -869,7 +875,9 @@ inline int gpuGetMaxGflopsDeviceId()
         cudaGetDeviceProperties(&deviceProp, current_device);
 
         // If this GPU is not running on Compute Mode prohibited, then we can add it to the list
+#if 0
         if (deviceProp.computeMode != cudaComputeModeProhibited)
+#endif
         {
             if (deviceProp.major == 9999 && deviceProp.minor == 9999)
             {
@@ -880,8 +888,11 @@ inline int gpuGetMaxGflopsDeviceId()
                 sm_per_multiproc = _ConvertSMVer2Cores(deviceProp.major, deviceProp.minor);
             }
 
+#if 0
             int compute_perf  = deviceProp.multiProcessorCount * sm_per_multiproc * deviceProp.clockRate;
-
+#else
+            int compute_perf  = deviceProp.multiProcessorCount * sm_per_multiproc;
+#endif
             if (compute_perf  > max_compute_perf)
             {
                 // If we find GPU with SM major > 2, search only these
@@ -901,7 +912,6 @@ inline int gpuGetMaxGflopsDeviceId()
                 }
             }
         }
-
         ++current_device;
     }
 
