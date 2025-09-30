@@ -1202,16 +1202,23 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
 
     writeLog(RGY_LOG_DEBUG, _T("using cuda schedule mode: %s.\n"), get_chr_from_value(list_cuda_schedule, ctxFlags));
     CUcontext cuCtxCreated;
+#if CUDA_VERSION >= 13000
+    CUctxCreateParams ctxCreateParams = {};
+    if (CUDA_SUCCESS != (cuResult = cuCtxCreate(&cuCtxCreated, &ctxCreateParams, ctxFlags, cuDevice))) {
+#else
     if (CUDA_SUCCESS != (cuResult = cuCtxCreate(&cuCtxCreated, ctxFlags, cuDevice))) {
+#endif
         if (ctxFlags != 0) {
             writeLog(RGY_LOG_WARN, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
             writeLog(RGY_LOG_WARN, _T("retry cuCtxCreate with auto scheduling mode.\n"));
+#if CUDA_VERSION >= 13000
+            CUctxCreateParams ctxCreateParamsRetry = {};
+            if (CUDA_SUCCESS != (cuResult = cuCtxCreate(&cuCtxCreated, &ctxCreateParams, 0, cuDevice))) {
+#else
             if (CUDA_SUCCESS != (cuResult = cuCtxCreate(&cuCtxCreated, 0, cuDevice))) {
+#endif
                 writeLog(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-                return RGY_ERR_DEVICE_NOT_FOUND;
             }
-        } else {
-            writeLog(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
             return RGY_ERR_CUDA;
         }
     }
