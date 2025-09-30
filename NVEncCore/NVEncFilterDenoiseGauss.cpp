@@ -37,24 +37,42 @@
 #pragma warning (pop)
 
 template<typename T, typename Tfunc>
-static RGY_ERR denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcGauss, NppiMaskSize masksize) {
+static RGY_ERR denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcGauss, NppiMaskSize masksize, cudaStream_t stream) {
     //const double factorX = pOutputFrame->width / (double)pInputFrame->width;
     //const double factorY = pOutputFrame->height / (double)pInputFrame->height;
     auto srcSize = nppisize(pInputFrame);
     auto dstSize = nppisize(pOutputFrame);
     NppiPoint srcOffset = { 0 };
+    
+#if CUDA_VERSION >= 13000
+    NppStreamContext nppStreamCtx = {};
+    nppStreamCtx.hStream = stream;
+    int dev = 0;
+    cudaGetDevice(&dev);
+    nppStreamCtx.nCudaDeviceId = dev;
+    cudaDeviceProp prop = {};
+    cudaGetDeviceProperties(&prop, dev);
+    nppStreamCtx.nMultiProcessorCount = prop.multiProcessorCount;
+    nppStreamCtx.nMaxThreadsPerMultiProcessor = prop.maxThreadsPerMultiProcessor;
+    nppStreamCtx.nMaxThreadsPerBlock = prop.maxThreadsPerBlock;
+    nppStreamCtx.nSharedMemPerBlock = prop.sharedMemPerBlock;
+#endif
     NppStatus sts = funcGauss(
         (const T *)pInputFrame->ptr[0],
         pInputFrame->pitch[0], srcSize, srcOffset,
         (T *)pOutputFrame->ptr[0],
-        pOutputFrame->pitch[0], dstSize, masksize, NPP_BORDER_REPLICATE);
+        pOutputFrame->pitch[0], dstSize, masksize, NPP_BORDER_REPLICATE
+#if CUDA_VERSION >= 13000
+        , nppStreamCtx
+#endif
+        );
     if (sts != NPP_SUCCESS) {
         return err_to_rgy(sts);
     }
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
@@ -66,13 +84,22 @@ RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const 
         return RGY_ERR_INVALID_PARAM;
     }
     if (RGY_CSP_BIT_DEPTH[pGaussParam->frameIn.csp] <= 8) {
-        sts = denoise_nnpi_gauss_plane<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R, pGaussParam->masksize);
+        
+#if CUDA_VERSION >= 13000
+        sts = denoise_nnpi_gauss_plane<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R_Ctx, pGaussParam->masksize, stream);
+#else
+        sts = denoise_nnpi_gauss_plane<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R, pGaussParam->masksize, stream);
+#endif
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), sts, get_err_mes(sts));
             sts = RGY_ERR_UNKNOWN;
         }
     } else if (RGY_CSP_BIT_DEPTH[pGaussParam->frameIn.csp] <= 16) {
-        sts = denoise_nnpi_gauss_plane<Npp16u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_16u_C1R, pGaussParam->masksize);
+#if CUDA_VERSION >= 13000
+        sts = denoise_nnpi_gauss_plane<Npp16u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_16u_C1R_Ctx, pGaussParam->masksize, stream);
+#else
+        sts = denoise_nnpi_gauss_plane<Npp16u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_16u_C1R, pGaussParam->masksize, stream);
+#endif
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), sts, get_err_mes(sts));
             sts = RGY_ERR_UNKNOWN;
@@ -84,11 +111,11 @@ RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDenoiseGauss::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterDenoiseGauss::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
         const auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)iplane);
         auto planeOutput = getPlane(pOutputFrame, (RGY_PLANE)iplane);
-        auto sts = denoisePlane(&planeOutput, &planeSrc);
+        auto sts = denoisePlane(&planeOutput, &planeSrc, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -167,11 +194,7 @@ RGY_ERR NVEncFilterDenoiseGauss::run_filter(const RGYFrameInfo *pInputFrame, RGY
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto st = nppGetStream();
-    if (st != stream) {
-        nppSetStream(stream);
-    }
-    return denoiseFrame(ppOutputFrames[0], pInputFrame);
+    return denoiseFrame(ppOutputFrames[0], pInputFrame, stream);
 }
 
 void NVEncFilterDenoiseGauss::close() {

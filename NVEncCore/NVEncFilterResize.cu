@@ -508,42 +508,67 @@ static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
 }
 
 template<typename T, typename Tfunc>
-static RGY_ERR resize_nppi_plane_call_func(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const Tfunc funcResize, const NppiInterpolationMode interpMode) {
+static RGY_ERR resize_nppi_plane_call_func(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const Tfunc funcResize, const NppiInterpolationMode interpMode, cudaStream_t stream) {
     const double factorX = pOutputPlane->width / (double)pInputPlane->width;
     const double factorY = pOutputPlane->height / (double)pInputPlane->height;
     auto srcSize = nppisize(pInputPlane);
     auto srcRect = nppiroi(pInputPlane);
     auto dstRect = nppiroi(pOutputPlane);
+#if CUDA_VERSION >= 13000
+	NppStreamContext nppStreamCtx = {};
+	nppStreamCtx.hStream = stream;
+	int dev = 0;
+	cudaGetDevice(&dev);
+	nppStreamCtx.nCudaDeviceId = dev;
+	cudaDeviceProp prop = {};
+	cudaGetDeviceProperties(&prop, dev);
+	nppStreamCtx.nMultiProcessorCount = prop.multiProcessorCount;
+	nppStreamCtx.nMaxThreadsPerMultiProcessor = prop.maxThreadsPerMultiProcessor;
+	nppStreamCtx.nMaxThreadsPerBlock = prop.maxThreadsPerBlock;
+	nppStreamCtx.nSharedMemPerBlock = prop.sharedMemPerBlock;
+#endif
     NppStatus sts = funcResize(
         (const T *)pInputPlane->ptr[0],
         srcSize, pInputPlane->pitch[0], srcRect,
         (T *)pOutputPlane->ptr[0],
         pOutputPlane->pitch[0], dstRect,
-        factorX, factorY, 0.0, 0.0, interpMode);
+		factorX, factorY, 0.0, 0.0, interpMode
+#if CUDA_VERSION >= 13000
+		, nppStreamCtx
+#endif
+    );
     if (sts != NPP_SUCCESS) {
         return err_to_rgy(sts);
     }
     return RGY_ERR_NONE;
 }
 
-static RGY_ERR resize_nppi_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const NppiInterpolationMode interpMode) {
+static RGY_ERR resize_nppi_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const NppiInterpolationMode interpMode, cudaStream_t stream) {
     auto sts = RGY_ERR_NONE;
     if (RGY_CSP_DATA_TYPE[pInputPlane->csp] == RGY_DATA_TYPE_U8) {
-        sts = resize_nppi_plane_call_func<Npp8u>(pOutputPlane, pInputPlane, nppiResizeSqrPixel_8u_C1R, interpMode);
+#if CUDA_VERSION >= 13000
+		sts = resize_nppi_plane_call_func<Npp8u>(pOutputPlane, pInputPlane, nppiResizeSqrPixel_8u_C1R_Ctx, interpMode, stream);
+#else
+		sts = resize_nppi_plane_call_func<Npp8u>(pOutputPlane, pInputPlane, nppiResizeSqrPixel_8u_C1R, interpMode, stream);
+#endif
     } else if (RGY_CSP_DATA_TYPE[pInputPlane->csp] == RGY_DATA_TYPE_U16) {
-        sts = resize_nppi_plane_call_func<Npp16u>(pOutputPlane, pInputPlane, nppiResizeSqrPixel_16u_C1R, interpMode);
+#if CUDA_VERSION >= 13000
+		sts = resize_nppi_plane_call_func<Npp16u>(pOutputPlane, pInputPlane, nppiResizeSqrPixel_16u_C1R_Ctx, interpMode, stream);
+#else
+		sts = resize_nppi_plane_call_func<Npp16u>(pOutputPlane, pInputPlane, nppiResizeSqrPixel_16u_C1R, interpMode, stream);
+#endif
     } else {
         sts = RGY_ERR_UNSUPPORTED;
     }
     return sts;
 }
 
-static RGY_ERR resize_nppi_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const NppiInterpolationMode interpMode) {
+static RGY_ERR resize_nppi_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const NppiInterpolationMode interpMode, cudaStream_t stream) {
     for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
         const auto plane = (RGY_PLANE)iplane;
         const auto planeInput = getPlane(pInputFrame, plane);
         auto planeOutput = getPlane(pOutputFrame, plane);
-        auto sts = resize_nppi_plane(&planeOutput, &planeInput, interpMode);
+		auto sts = resize_nppi_plane(&planeOutput, &planeInput, interpMode, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -551,7 +576,7 @@ static RGY_ERR resize_nppi_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterResize::resizeNppi(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterResize::resizeNppi(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
 #if _M_IX86
     AddMessage(RGY_LOG_ERROR, _T("npp filter not supported on x86.\n"));
     return RGY_ERR_UNSUPPORTED;
@@ -571,7 +596,7 @@ RGY_ERR NVEncFilterResize::resizeNppi(RGYFrameInfo *pOutputFrame, const RGYFrame
         AddMessage(RGY_LOG_ERROR, _T("Unknown nppi interp mode: %d.\n"), (int)pResizeParam->interp);
         return RGY_ERR_UNSUPPORTED;
     }
-    sts = resize_nppi_frame(pOutputFrame, pInputFrame, interp);
+	sts = resize_nppi_frame(pOutputFrame, pInputFrame, interp, stream);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), sts, get_err_mes(sts));
         return sts;
@@ -581,7 +606,7 @@ RGY_ERR NVEncFilterResize::resizeNppi(RGYFrameInfo *pOutputFrame, const RGYFrame
 }
 
 template<typename T, typename Tfunc>
-static RGY_ERR resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
+static RGY_ERR resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode, cudaStream_t stream) {
     const double factorX = pOutputFrame->width / (double)pInputFrame->width;
     const double factorY = pOutputFrame->height / (double)pInputFrame->height;
     auto srcSize = nppisize(pInputFrame);
@@ -603,19 +628,36 @@ static RGY_ERR resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
         (T *)planeOutputU.ptr[0],
         (T *)planeOutputV.ptr[0]
     };
-    NppStatus sts = funcResize(
+#if CUDA_VERSION >= 13000
+	NppStreamContext nppStreamCtx = {};
+	nppStreamCtx.hStream = stream;
+	int dev = 0;
+	cudaGetDevice(&dev);
+	nppStreamCtx.nCudaDeviceId = dev;
+	cudaDeviceProp prop = {};
+	cudaGetDeviceProperties(&prop, dev);
+	nppStreamCtx.nMultiProcessorCount = prop.multiProcessorCount;
+	nppStreamCtx.nMaxThreadsPerMultiProcessor = prop.maxThreadsPerMultiProcessor;
+	nppStreamCtx.nMaxThreadsPerBlock = prop.maxThreadsPerBlock;
+	nppStreamCtx.nSharedMemPerBlock = prop.sharedMemPerBlock;
+#endif
+	NppStatus sts = funcResize(
         pSrc,
         srcSize, planeSrcY.pitch[0], srcRect,
         pDst,
         planeOutputY.pitch[0], dstRect,
-        factorX, factorY, 0.0, 0.0, interpMode);
+		factorX, factorY, 0.0, 0.0, interpMode
+#if CUDA_VERSION >= 13000
+		, nppStreamCtx
+#endif
+    );
     if (sts != NPP_SUCCESS) {
         return err_to_rgy(sts);
     }
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterResize::resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterResize::resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
 #if _M_IX86
     AddMessage(RGY_LOG_ERROR, _T("npp filter not supported on x86.\n"));
     return RGY_ERR_UNSUPPORTED;
@@ -639,14 +681,22 @@ RGY_ERR NVEncFilterResize::resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RG
         AddMessage(RGY_LOG_ERROR, _T("Unknown nppi interp mode: %d.\n"), (int)pResizeParam->interp);
         return RGY_ERR_UNSUPPORTED;
     }
-    if (RGY_CSP_DATA_TYPE[m_param->frameIn.csp] == RGY_DATA_TYPE_U8) {
-        sts = resize_nppi_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R, interp);
+	if (RGY_CSP_DATA_TYPE[m_param->frameIn.csp] == RGY_DATA_TYPE_U8) {
+#if CUDA_VERSION >= 13000
+		sts = resize_nppi_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R_Ctx, interp, stream);
+#else
+		sts = resize_nppi_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R, interp, stream);
+#endif
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), sts, get_err_mes(sts));
             return sts;
         }
-    } else if (RGY_CSP_DATA_TYPE[m_param->frameIn.csp] == RGY_DATA_TYPE_U16) {
-        sts = resize_nppi_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_P3R, interp);
+	} else if (RGY_CSP_DATA_TYPE[m_param->frameIn.csp] == RGY_DATA_TYPE_U16) {
+#if CUDA_VERSION >= 13000
+		sts = resize_nppi_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_P3R_Ctx, interp, stream);
+#else
+		sts = resize_nppi_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_P3R, interp, stream);
+#endif
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), sts, get_err_mes(sts));
             return sts;
@@ -1065,9 +1115,9 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         if (isNppResizeFiter(pResizeParam->interp)) {
             static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
             if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), m_param->frameIn.csp) != supportedCspYUV444.end()) {
-                sts = resizeNppiYUV444(ppOutputFrames[0], pInputFrame);
+                sts = resizeNppiYUV444(ppOutputFrames[0], pInputFrame, stream);
             } else {
-                sts = resizeNppi(ppOutputFrames[0], pInputFrame);
+                sts = resizeNppi(ppOutputFrames[0], pInputFrame, stream);
             }
         } else {
             static const std::map<RGY_DATA_TYPE, decltype(resize_frame<uint8_t, 8>)*> resize_list = {
