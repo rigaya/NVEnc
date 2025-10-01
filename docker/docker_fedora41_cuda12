@@ -11,7 +11,7 @@ RUN dnf update -y \
     && dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     && dnf install -y @development-tools kernel-devel make wget curl pciutils acpid libglvnd-devel dkms ffmpeg ffmpeg-devel libass libass-devel rpm-build 'dnf-command(config-manager)'
 
-RUN dnf config-manager --add-repo ${CUDA_REPO_URL} \
+RUN dnf config-manager addrepo --from-repofile ${CUDA_REPO_URL} \
     && dnf clean all \
     && dnf -y module install nvidia-driver:latest-dkms \
     && dnf -y install cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-runtime-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-cudart-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libnpp-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvrtc-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR}
