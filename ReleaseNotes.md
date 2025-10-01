@@ -3,8 +3,8 @@
 ## 9.04
 
 - Improve DX11 device initialization to not detect virtual/remote adaptors. ( #725 )
-- Improve progress indicator when using [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2).
-- Add support for using [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2) with multiple pipes.
+- Improve progress indicator when using [--parallel](./NVEncC_Options.en.md#--parallel-int-or-param1value1param2value2).
+- Add support for using [--parallel](./NVEncC_Options.en.md#--parallel-int-or-param1value1param2value2) with multiple pipes.
 
 ## 9.03
 
@@ -25,7 +25,7 @@
 - Add NVEnc.auo2 with native support for AviUtl2.
 - Add feature to use filters with avcodec encoders.
   - Available with ```-c av_xxx```
-    Example: [-c](./QSVEncC_Options.en.md#-c---codec-string) av_libsvtav1 [--avcodec-prms](./QSVEncC_Options.en.md#--avcodec-prms-string) "preset=6,crf=30,svtav1-params=enable-variance-boost=1:variance-boost-strength=2"
+    Example: [-c](./NVEncC_Options.en.md#-c---codec-string) av_libsvtav1 [--avcodec-prms](./NVEncC_Options.en.md#--avcodec-prms-string) "preset=6,crf=30,svtav1-params=enable-variance-boost=1:variance-boost-strength=2"
     Other usable options include av_libvvenc, av_libvpx-vp9, etc.
 - Update ffmpeg libraries. (Windows)
   - ffmpeg 7.1+ (20240822) -> 8.0
