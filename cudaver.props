@@ -285,6 +285,14 @@
       <Defines>NVENC_NVRTC_DLL_NAME_TSTR=_T("$(NVRTC_DLL_NAME)");NVENC_NVRTC_BUILTIN_DLL_NAME_TSTR=_T("$(NVRTC_BUILTIN_DLL_NAME)");NVENC_NPPI_DLL_NAME_TSTR=_T("$(NPPI_DLL_NAME)");%(Defines)</Defines>
     </CudaCompile>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>NVENC_NVRTC_DLL_NAME_TSTR=_T("$(NVRTC_DLL_NAME)");NVENC_NVRTC_BUILTIN_DLL_NAME_TSTR=_T("$(NVRTC_BUILTIN_DLL_NAME)");NVENC_NPPI_DLL_NAME_TSTR=_T("$(NPPI_DLL_NAME)");%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <CudaCompile>
+      <Defines>NVENC_NVRTC_DLL_NAME_TSTR=_T("$(NVRTC_DLL_NAME)");NVENC_NVRTC_BUILTIN_DLL_NAME_TSTR=_T("$(NVRTC_BUILTIN_DLL_NAME)");NVENC_NPPI_DLL_NAME_TSTR=_T("$(NPPI_DLL_NAME)");%(Defines)</Defines>
+    </CudaCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="$(CUDA_MAJOR_VER) &gt;= 10 AND '$(Platform)'=='x64'">
     <Link>
       <AdditionalDependencies>nppc.lib;nppif.lib;nppig.lib;nvrtc.lib;%(AdditionalDependencies)</AdditionalDependencies>
