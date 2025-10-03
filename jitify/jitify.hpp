@@ -1807,6 +1807,16 @@ inline void detect_and_add_cuda_arch(std::vector<std::string>& options) {
   //         on older versions of CUDA.
   const int cuda_major = std::min(10, CUDA_VERSION / 1000);
   switch (cuda_major) {
+    case 13: cc = std::min(cc, 121); break; // Blackwell
+    case 12: {
+        if (cc_minor < 8) {
+          cc = std::min(cc, 90); // Hopper
+        } else if (cc_minor == 8){
+          cc = std::min(cc, 120); // Blackwell
+        } else {
+          cc = std::min(cc, 121); // Blackwell
+        }
+    } break; // Hopper
     case 11: cc = std::min(cc, 86); break; // Ampere
     case 10: cc = std::min(cc, 75); break; // Turing
     case  9: cc = std::min(cc, 70); break; // Volta
