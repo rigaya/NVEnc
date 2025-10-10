@@ -249,6 +249,7 @@
   - [--option-file \<string\>](#--option-file-string)
   - [--max-procfps \<int\>](#--max-procfps-int)
   - [--lowlatency](#--lowlatency)
+  - [--fallback-bitdepth](#--fallback-bitdepth)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--vsdir \<string\> \[Windows専用\]](#--vsdir-string-windows専用)
   - [--process-codepage \<string\>](#--process-codepage-string)
@@ -3509,6 +3510,9 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 
 ### --lowlatency
 エンコード遅延を低減するモード。最大エンコード速度(スループット)は低下するので、通常は不要。
+
+### --fallback-bitdepth
+有効にすると、利用可能なGPUがすべて10bitエンコードに非対応の場合、自動的に8bitエンコードにフォールバックします。複数GPUがあり、10bitエンコードに対応するGPUが存在する場合は、そのGPUが優先して選択されます。
 
 ### --avsdll &lt;string&gt;
 使用するAvsiynth.dllを指定するオプション。特に指定しない場合、システムのAvisynth.dllが使用される。

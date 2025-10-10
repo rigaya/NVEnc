@@ -890,7 +890,7 @@ bool NVEncCore::useNVNGX(const InEncodeVideoParam *inputParam) const {
     return false;
 }
 
-RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam) {
+RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, InEncodeVideoParam *inputParam) {
     if (m_nDeviceId >= 0) {
         //手動で設定されている
         return RGY_ERR_NONE;
@@ -905,6 +905,7 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    int highBitDepthSupportCount = 0;
     //エンコーダの対応をチェック
     tstring message; //GPUチェックのメッセージ
     for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
@@ -951,15 +952,28 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             PrintMes(RGY_LOG_DEBUG, _T("Selected profile for %s is unfound, profile will be auto selected by NVENC API.\n"), CodecToStr(inputParam->codec_rgy).c_str());
             codecProfileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
         }
-        const auto profile = std::find_if(codec->profiles.begin(), codec->profiles.end(), [codecProfileGUID](const GUID& profile_guid) {
+        auto profile = std::find_if(codec->profiles.begin(), codec->profiles.end(), [codecProfileGUID](const GUID& profile_guid) {
             return 0 == memcmp(&codecProfileGUID, &profile_guid, sizeof(profile_guid));
         });
         if (profile == codec->profiles.end()) {
-            message += strsprintf(_T("GPU #%d (%s) cannot encode %s %s.\n"), (*gpu)->id(), (*gpu)->name().c_str(),
-                CodecToStr(inputParam->codec_rgy).c_str(),
-                get_codec_profile_name_from_guid(inputParam->codec_rgy, codecProfileGUID).c_str());
-            gpu = gpuList.erase(gpu);
-            continue;
+            if (inputParam->ctrl.fallbackBitdepth) {
+                if (inputParam->codec_rgy == RGY_CODEC_H264 && memcmp(&codecProfileGUID, &NV_ENC_H264_PROFILE_HIGH_10_GUID, sizeof(codecProfileGUID)) == 0) {
+                    profile = std::find_if(codec->profiles.begin(), codec->profiles.end(), [](const GUID& profile_guid) {
+                        return 0 == memcmp(&profile_guid, &NV_ENC_H264_PROFILE_HIGH_GUID, sizeof(profile_guid));
+                    });
+                } else if (inputParam->codec_rgy == RGY_CODEC_HEVC && memcmp(&codecProfileGUID, &NV_ENC_HEVC_PROFILE_MAIN10_GUID, sizeof(codecProfileGUID)) == 0) {
+                    profile = std::find_if(codec->profiles.begin(), codec->profiles.end(), [](const GUID& profile_guid) {
+                        return 0 == memcmp(&profile_guid, &NV_ENC_HEVC_PROFILE_MAIN_GUID, sizeof(profile_guid));
+                    });
+                }
+            }
+            if (profile == codec->profiles.end()) {
+                message += strsprintf(_T("GPU #%d (%s) cannot encode %s %s.\n"), (*gpu)->id(), (*gpu)->name().c_str(),
+                    CodecToStr(inputParam->codec_rgy).c_str(),
+                    get_codec_profile_name_from_guid(inputParam->codec_rgy, codecProfileGUID).c_str());
+                gpu = gpuList.erase(gpu);
+                continue;
+            }
         }
         if (inputParam->lossless && !get_value(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE, codec->caps)) {
             message += strsprintf(_T("GPU #%d (%s) does not support %s lossless encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
@@ -983,10 +997,16 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             continue;
         }
         const bool highbitdepth = encodeIsHighBitDepth(inputParam);
-        if (highbitdepth && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps)) {
-            message += strsprintf(_T("GPU #%d (%s) does not support %s 10bit depth encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
-            gpu = gpuList.erase(gpu);
-            continue;
+        if (highbitdepth) {
+            if (get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps)) {
+                highBitDepthSupportCount++;
+            } else if (inputParam->ctrl.fallbackBitdepth) {
+                // fallbackが有効のときはここではなにもしない
+            } else {
+                message += strsprintf(_T("GPU #%d (%s) does not support %s 10bit depth encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
+                gpu = gpuList.erase(gpu);
+                continue;
+            }
         }
         if (inputParam->codec_rgy == RGY_CODEC_H264
             && (
@@ -1031,6 +1051,7 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
                continue;
            }
         }
+
         //フィルタのチェック
         if (useNVVFX(inputParam) || useNVNGX(inputParam)) {
             //nvvfxにはturing以降(CC7.0)が必要
@@ -1054,6 +1075,35 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for encode.\n"), (*gpu)->id(), (*gpu)->name().c_str());
         gpu++;
     }
+
+    // 10bit深度のフォールバックが有効なとき
+    if (encodeIsHighBitDepth(inputParam) && inputParam->ctrl.fallbackBitdepth) {
+        if (highBitDepthSupportCount > 0) {
+            // 10bit深度のサポートがあるGPUがあるときは、10bit深度をサポートしないGPUは外す
+            for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
+                const auto codec = std::find_if((*gpu)->nvenc_codec_features().begin(), (*gpu)->nvenc_codec_features().end(), [codec_rgy = inputParam->codec_rgy](const NVEncCodecFeature& codec) {
+                    return codec.codec == codec_guid_rgy_to_enc(codec_rgy); });
+                if (!get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps)) {
+                    gpu = gpuList.erase(gpu);
+                    continue;
+                }
+                gpu++;
+            }
+        } else {
+            // 10bit深度のサポートがあるGPUがないときは、8bit深度に変更する
+            PrintMes(RGY_LOG_WARN, _T("GPU(s) does not support %d bit %s depth encoding, fallback to 8bit.\n"), inputParam->outputDepth, CodecToStr(inputParam->codec_rgy).c_str());
+            inputParam->outputDepth = 8;
+            // プロファイルを8bit深度に変更する
+            if (inputParam->codec_rgy == RGY_CODEC_H264) {
+                inputParam->encConfig.profileGUID = NV_ENC_H264_PROFILE_HIGH_GUID;
+            } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
+                //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
+                inputParam->encConfig.encodeCodecConfig.hevcConfig.tier &= 0xffff0000;
+                inputParam->encConfig.encodeCodecConfig.hevcConfig.tier |= NV_ENC_PROFILE_HEVC_MAIN;
+            }
+        }
+    }
+
     PrintMes((gpuList.size() == 0) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("%s\n"), message.c_str());
     if (gpuList.size() == 0) {
         return RGY_ERR_DEVICE_NOT_FOUND;
@@ -4218,16 +4268,10 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 
     //リスト中のGPUのうち、まずは指定されたHWエンコードが可能なもののみを選択
     if ((sts = CheckGPUListByEncoder(gpuList, inputParam)) != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Unknown erro occurred during checking GPU.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Unknown error occurred during checking GPU.\n"));
         return sts;
     }
-    if (0 == gpuList.size()) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO
-            ? _T("指定されたコーデック/プロファイルをエンコード可能なGPUがみつかりまえせんでした。\n")
-            : _T("No suitable GPU found for codec / profile specified.\n"));
-        return err_to_rgy(NV_ENC_ERR_NO_ENCODE_DEVICE);
-    }
-    PrintMes(RGY_LOG_DEBUG, _T("CheckGPUListByEncoder: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("CheckGPUListByEncoder: Success, found %d GPU.\n"), (int)gpuList.size());
 
     m_devNames.clear();
     for (const auto& dev : gpuList) {

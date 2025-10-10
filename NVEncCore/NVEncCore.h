@@ -108,7 +108,7 @@ protected:
     bool useNVNGX(const InEncodeVideoParam *inputParam) const;
 
     //GPUListのGPUが必要なエンコードを行えるかチェック
-    RGY_ERR CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam);
+    RGY_ERR CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, InEncodeVideoParam *inputParam);
 
     //GPUを自動的に選択する
     RGY_ERR GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam, const RGYDeviceUsageLockManager *devUsageLock);

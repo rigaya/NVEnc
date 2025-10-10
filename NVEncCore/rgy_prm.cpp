@@ -2401,6 +2401,7 @@ RGYParamControl::RGYParamControl() :
     perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
     parentProcessID(0),
     lowLatency(false),
+    fallbackBitdepth(false),
     gpuSelect(),
     skipHWEncodeCheck(false),
     skipHWDecodeCheck(false),

@@ -2625,6 +2625,7 @@ struct RGYParamControl {
     int     perfMonitorInterval;
     uint32_t parentProcessID;
     bool lowLatency;
+    bool fallbackBitdepth;
     GPUAutoSelectMul gpuSelect;
     bool skipHWEncodeCheck;
     bool skipHWDecodeCheck;

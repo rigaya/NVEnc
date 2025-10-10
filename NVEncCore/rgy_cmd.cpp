@@ -6692,6 +6692,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->lowLatency = true;
         return 0;
     }
+    if (IS_OPTION("fallback-bitdepth")) {
+        ctrl->fallbackBitdepth = true;
+        return 0;
+    }
     if (IS_OPTION("input-thread") || IS_OPTION("thread-input")) {
         i++;
         int value = 0;
@@ -8561,6 +8565,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     }
     OPT_BOOL(_T("--task-perf-monitor"), _T(""), taskPerfMonitor);
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
+    OPT_BOOL(_T("--fallback-bitdepth"), _T(""), fallbackBitdepth);
     OPT_STR_PATH(_T("--log"), logfile);
     if (param->loglevel != defaultPrm->loglevel) {
         cmd << _T(" --log-level ") << param->loglevel.to_string();
@@ -9737,7 +9742,8 @@ tstring gen_cmd_help_ctrl() {
         DEFAULT_DUMMY_LOAD_PERCENT);
     str += strsprintf(_T("")
         _T("   --task-perf-monitor          enable task performance monitoring.\n")
-        _T("   --lowlatency                 minimize latency (might have lower throughput).\n"));
+        _T("   --lowlatency                 minimize latency (might have lower throughput).\n")
+        _T("   --fallback-bitdepth          fallback to 8-bit when 10-bit encode unsupported by all GPUs.\n"));
     str += strsprintf(_T("")
         _T("   --output-buf <int>           buffer size for output in MByte\n")
         _T("                                 default %d MB (0-%d)\n"),

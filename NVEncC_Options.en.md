@@ -253,6 +253,7 @@
   - [--option-file \<string\>](#--option-file-string)
   - [--max-procfps \<int\>](#--max-procfps-int)
   - [--lowlatency](#--lowlatency)
+  - [--fallback-bitdepth](#--fallback-bitdepth)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--vsdir \<string\>](#--vsdir-string)
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
@@ -3453,6 +3454,9 @@ This could be used when you want to encode multiple stream and you do not want o
 
 ### --lowlatency
 Tune for lower transcoding latency, but will hurt transcoding throughput. Not recommended in most cases.
+
+### --fallback-bitdepth
+When enabled, if all available GPUs do not support 10-bit encoding, the encoder will automatically fall back to 8-bit encoding. If there is at least one GPU that supports 10-bit encoding, that GPU will be selected instead.
 
 ### --avsdll &lt;string&gt;
 Specifies AviSynth DLL location to use. When unspecified, the default AviSynth.dll will be used.
