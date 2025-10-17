@@ -79,6 +79,7 @@
   - [--multiref-l1 \<int\>  \[H.264/HEVC\]](#--multiref-l1-int--h264hevc)
   - [--weightp](#--weightp)
   - [--nonrefp](#--nonrefp)
+  - [--unidirectb](#--unidirectb)
   - [--aq](#--aq)
   - [--aq-temporal](#--aq-temporal)
   - [--aq-strength \<int\>](#--aq-strength-int)
@@ -727,6 +728,9 @@ API v9.1 から使用可能。
 
 ### --nonrefp
 non-reference P-framesを自動挿入を有効にする。
+
+### --unidirectb
+低遅延用途向けに、ユニディレクショナルBフレーム（両方の参照が過去側）を有効にします。LowLatency/UltraLowLatencyユースケースで圧縮効率が向上します。通常のBフレームを使用している場合、このパラメータの値は無視されます。
 
 ### --aq
 フレーム内(空間方向)の適応的量子化を有効にする。(デフォルト:オフ)

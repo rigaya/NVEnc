@@ -831,6 +831,7 @@ struct InEncodeVideoParam {
     bool enableAQ;
     bool enableAQTemporal;
     bool nonrefP;
+    bool unidirectB;
     bool enableLookahead;
     int lookahead;
     NV_ENC_LOOKAHEAD_LEVEL lookaheadLevel;

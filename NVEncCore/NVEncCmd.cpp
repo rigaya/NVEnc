@@ -242,6 +242,7 @@ tstring encoder_help() {
         _T("   --multiref-l1 <int>          set multiple ref frames (L1)\n")
         _T("   --weightp                    enable weighted prediction for P frame\n")
         _T("   --nonrefp                    enable adapt. non-reference P frame insertion\n")
+        _T("   --unidirectb                 enable uni-directional B-frames for low latency\n")
         _T("   --mv-precision <string>      set MV Precision / default: auto\n")
         _T("                                  auto,\n")
         _T("                                  Q-pel (High Quality),\n")
@@ -1016,6 +1017,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("nonrefp")) {
         pParams->nonrefP = 1;
+        return 0;
+    }
+    if (IS_OPTION("unidirectb")) {
+        pParams->unidirectB = true;
         return 0;
     }
     if (IS_OPTION("mv-precision")) {
@@ -1810,6 +1815,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_LST(_T("--bref-mode"), brefMode, list_bref_mode);
     OPT_BOOL(_T("--weightp"), _T(""), nWeightP);
     OPT_BOOL(_T("--nonrefp"), _T(""), nonrefP);
+    OPT_BOOL(_T("--unidirectb"), _T(""), unidirectB);
     OPT_BOOL(_T("--aq"), _T("--no-aq"), enableAQ);
     OPT_BOOL(_T("--aq-temporal"), _T(""), enableAQTemporal);
     OPT_NUM(_T("--aq-strength"), aqStrength);

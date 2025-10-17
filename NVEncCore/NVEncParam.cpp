@@ -259,6 +259,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     enableAQ(false),
     enableAQTemporal(false),
     nonrefP(false),
+    unidirectB(false),
     enableLookahead(false),
     lookahead(DEFAULT_LOOKAHEAD),
     lookaheadLevel(NV_ENC_LOOKAHEAD_LEVEL_0),

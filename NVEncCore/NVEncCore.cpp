@@ -2305,6 +2305,17 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
     m_stCreateEncodeParams.splitEncodeMode     = inputParam->splitEncMode;
 
+    // enableUniDirectionalB
+    if (inputParam->unidirectB && m_dev->encoder()->checkAPIver(12, 2)) {
+        const bool hasBframes = (m_stEncConfig.frameIntervalP - 1) > 0;
+        if (!hasBframes) {
+            m_stCreateEncodeParams.enableUniDirectionalB = 1;
+        } else {
+            // regular B frames 使用時はAPI仕様により無視される
+            m_stCreateEncodeParams.enableUniDirectionalB = 0;
+        }
+    }
+
     //bref-modeの自動設定
     if (m_dev->encoder()->checkAPIver(10, 0)) {
         m_stCreateEncodeParams.presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver10);
@@ -6594,6 +6605,9 @@ tstring NVEncCore::GetEncoderParamsInfo(int output_level, bool add_output_info) 
     }
     if (m_stCreateEncodeParams.encodeConfig->rcParams.enableNonRefP) {
         add_str(RGY_LOG_INFO, _T("nonrefp "));
+    }
+    if (m_stCreateEncodeParams.enableUniDirectionalB) {
+        add_str(RGY_LOG_INFO, _T("unidirectb "));
     }
     if (rgy_codec == RGY_CODEC_H264) {
         add_str(RGY_LOG_INFO, _T("%s "), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));

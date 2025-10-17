@@ -82,6 +82,7 @@
   - [--multiref-l1 \<int\> \[H.264/HEVC\]](#--multiref-l1-int-h264hevc)
   - [--weightp](#--weightp)
   - [--nonrefp](#--nonrefp)
+  - [--unidirectb](#--unidirectb)
   - [--aq](#--aq)
   - [--aq-temporal](#--aq-temporal)
   - [--aq-strength \<int\>](#--aq-strength-int)
@@ -719,6 +720,9 @@ Enable weighted P frames.
 
 ### --nonrefp
 enable automatic insertion of non-reference P-frames.
+
+### --unidirectb
+Enable uni-directional B-frames (both references from the past) for low-latency use cases. It will give better compression efficiency for LowLatency/UltraLowLatency use case. Value of parameter is ignored when regular B frames are used.
 
 ### --aq
 Enable adaptive quantization in frame (spatial). (Default: off)
