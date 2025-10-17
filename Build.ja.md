@@ -11,7 +11,7 @@
 ### 0. ビルドに必要なもの
 ビルドには、下記のものが必要です。
 
-- Visual Studio 2019
+- Visual Studio 2022
 - CUDA 10.1 以降 (x64)
 - CUDA 11.0 以降 (x86)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
@@ -29,6 +29,13 @@ Avisynth+ / VapourSynthインストーラのデフォルトの場所にインス
 ```Batchfile
 setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files\VapourSynth\sdk"
+```
+
+また、ReleaseNVDLLで、NVEncNVSDKNGX.dllとNVEncNVOFFRUC.dllをビルドするには、RTX Video SDKとOptical Flow SDKをダウンロード後、適当なフォルダに展開し、環境変数 "RTX_VIDEO_SDK" と "OPTICAL_FLOW_SDK" を設定する必要があります。
+
+```Batchfile
+setx RTX_VIDEO_SDK "<...>\RTX_Video_SDK_v1.1.0"
+setx OPTICAL_FLOW_SDK "<...>\Optical_Flow_SDK_5.0.7"
 ```
 
 ### 2. ソースのダウンロード

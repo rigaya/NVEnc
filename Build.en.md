@@ -11,7 +11,7 @@
 ### 0. Requirements
 To build NVEnc, components below are required.
 
-- Visual Studio 2019
+- Visual Studio 2022
 - CUDA 10.1 or later (x64)
 - CUDA 11.0 or later (x86)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
@@ -29,6 +29,13 @@ With default installation, environment variables could be set as below.
 ```Batchfile
 setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
+```
+
+Additionally to build NVEncNVSDKNGX.dll and NVEncNVOFFRUC.dll using "ReleaseNVDLL" config, you will need to download and extract RTX Video SDK and Optical Flow SDK, and then set environment variables "RTX_VIDEO_SDK" and "OPTICAL_FLOW_SDK".
+
+```Batchfile
+setx RTX_VIDEO_SDK "<...>\RTX_Video_SDK_v1.1.0"
+setx OPTICAL_FLOW_SDK "<...>\Optical_Flow_SDK_5.0.7"
 ```
 
 ### 2. Download source code
