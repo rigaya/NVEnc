@@ -465,7 +465,7 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue,
     print_cmd_error_invalid_value(strOptionName, strErrorValue, cx_codec_list_ptr);
 }
 
-int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, sArgsData *argData) {
+int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, InEncodeVideoParam *pParams, sArgsData *argData) {
     if (IS_OPTION("device")) {
         int deviceid = -1;
         if (i + 1 < nArgNum) {
@@ -933,29 +933,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_bdirect, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)value;
+            pParams->h264.bdirect = (NV_ENC_H264_BDIRECT_MODE)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_bdirect);
             return 1;
         }
         return 0;
     }
-    if (IS_OPTION("adapt-transform")) {
-        codecPrm[RGY_CODEC_H264].h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE;
-        return 0;
-    }
-    if (IS_OPTION("no-adapt-transform")) {
-        codecPrm[RGY_CODEC_H264].h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
-        return 0;
-    }
-    if (IS_OPTION("hierarchial-p")) {
-        codecPrm[RGY_CODEC_H264].h264Config.hierarchicalPFrames = 1;
-        return 0;
-    }
-    if (IS_OPTION("hierarchial-b")) {
-        codecPrm[RGY_CODEC_H264].h264Config.hierarchicalBFrames = 1;
-        return 0;
-    }
+    if (IS_OPTION("adapt-transform")) { pParams->h264.adaptTrans = NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE; return 0; }
+    if (IS_OPTION("no-adapt-transform")) { pParams->h264.adaptTrans = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE; return 0; }
+    if (IS_OPTION("hierarchial-p")) { pParams->h264.hierarchicalPFrames = 1; return 0; }
+    if (IS_OPTION("hierarchial-b")) { pParams->h264.hierarchicalBFrames = 1; return 0; }
     if (IS_OPTION("tf-level")) {
         i++;
         int value = 0;
@@ -971,9 +959,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         try {
             int value = std::stoi(strInput[i]);
-            codecPrm[RGY_CODEC_H264].h264Config.maxNumRefFrames = value;
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
-            codecPrm[RGY_CODEC_AV1 ].av1Config.maxNumRefFramesInDPB = value;
+            pParams->maxRef = value;
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -984,8 +970,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_num_refs, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_H264].h264Config.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
+            pParams->refL0 = (NV_ENC_NUM_REF_FRAMES)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_num_refs);
             return 1;
@@ -996,8 +981,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_num_refs, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_H264].h264Config.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
+            pParams->refL1 = (NV_ENC_NUM_REF_FRAMES)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_num_refs);
             return 1;
@@ -1034,14 +1018,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (IS_OPTION("cavlc")) {
-        codecPrm[RGY_CODEC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
-        return 0;
-    }
-    if (IS_OPTION("cabac")) {
-        codecPrm[RGY_CODEC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
-        return 0;
-    }
+    if (IS_OPTION("cavlc")) { pParams->h264.entropy = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC; return 0; }
+    if (IS_OPTION("cabac")) { pParams->h264.entropy = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC; return 0; }
     if (IS_OPTION("bluray")) {
         pParams->bluray = TRUE;
         return 0;
@@ -1054,42 +1032,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->losslessIgnoreInputCsp = TRUE;
         return 0;
     }
-    if (IS_OPTION("no-deblock")) {
-        codecPrm[RGY_CODEC_H264].h264Config.disableDeblockingFilterIDC = 1;
-        return 0;
-    }
-    if (IS_OPTION("slices:h264")) {
+    if (IS_OPTION("no-deblock")) { pParams->h264.deblockIDC = 1; return 0; }
+    if (IS_OPTION("slices") || IS_OPTION("slices:h264") || IS_OPTION("slices:hevc")) {
         i++;
         try {
             int value = std::stoi(strInput[i]);
-            codecPrm[RGY_CODEC_H264].h264Config.sliceMode = 3;
-            codecPrm[RGY_CODEC_H264].h264Config.sliceModeData = value;
-        } catch (...) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("slices:hevc")) {
-        i++;
-        try {
-            int value = std::stoi(strInput[i]);
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.sliceMode = 3;
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.sliceModeData = value;
-        } catch (...) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("slices")) {
-        i++;
-        try {
-            int value = std::stoi(strInput[i]);
-            codecPrm[RGY_CODEC_H264].h264Config.sliceMode = 3;
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.sliceMode = 3;
-            codecPrm[RGY_CODEC_H264].h264Config.sliceModeData = value;
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.sliceModeData = value;
+            pParams->slices = value;
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1100,8 +1048,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_av1_tiles, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_AV1].av1Config.enableCustomTileConfig = 0;
-            codecPrm[RGY_CODEC_AV1].av1Config.numTileColumns = value;
+            pParams->av1.tilesCols = value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_av1_tiles);
             return 1;
@@ -1112,8 +1059,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_av1_tiles, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_AV1].av1Config.enableCustomTileConfig = 0;
-            codecPrm[RGY_CODEC_AV1].av1Config.numTileRows = value;
+            pParams->av1.tilesRows = value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_av1_tiles);
             return 1;
@@ -1124,7 +1070,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_part_size_av1, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_AV1].av1Config.minPartSize = (NV_ENC_AV1_PART_SIZE)value;
+            pParams->av1.partMin = (NV_ENC_AV1_PART_SIZE)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_part_size_av1);
             return 1;
@@ -1135,7 +1081,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_part_size_av1, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_AV1].av1Config.maxPartSize = (NV_ENC_AV1_PART_SIZE)value;
+            pParams->av1.partMax = (NV_ENC_AV1_PART_SIZE)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_part_size_av1);
             return 1;
@@ -1157,7 +1103,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_av1_refs_forward, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_AV1].av1Config.numFwdRefs = (NV_ENC_NUM_REF_FRAMES)value;
+            pParams->av1.fwdRefs = (NV_ENC_NUM_REF_FRAMES)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_av1_refs_forward);
             return 1;
@@ -1168,69 +1114,23 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_av1_refs_backward, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_AV1].av1Config.numBwdRefs = (NV_ENC_NUM_REF_FRAMES)value;
+            pParams->av1.bwdRefs = (NV_ENC_NUM_REF_FRAMES)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_av1_refs_forward);
             return 1;
         }
         return 0;
     }
-    if (IS_OPTION("av1-out-annexb")) {
-        codecPrm[RGY_CODEC_AV1].av1Config.outputAnnexBFormat = 1;
-        return 0;
-    }
+    if (IS_OPTION("av1-out-annexb")) { pParams->av1.annexB = true; return 0; }
+    if (IS_OPTION("disable-seq-hdr")) { pParams->av1.disableSeqHdr = true; return 0; }
     if (IS_OPTION("bitstream-padding")) {
         pParams->bitstreamPadding = true;
         return 0;
     }
-    if (IS_OPTION("deblock")) {
-        codecPrm[RGY_CODEC_H264].h264Config.disableDeblockingFilterIDC = 0;
-        return 0;
-    }
-    if (IS_OPTION("repeat-headers:h264")) {
-        codecPrm[RGY_CODEC_H264].h264Config.repeatSPSPPS = 1;
-        return 0;
-    }
-    if (IS_OPTION("repeat-headers:hevc")) {
-        codecPrm[RGY_CODEC_HEVC].hevcConfig.repeatSPSPPS = 1;
-        return 0;
-    }
-    if (IS_OPTION("repeat-headers:av1")) {
-        codecPrm[RGY_CODEC_AV1].av1Config.repeatSeqHdr = 1;
-        return 0;
-    }
-    if (IS_OPTION("repeat-headers")) {
-        codecPrm[RGY_CODEC_H264].h264Config.repeatSPSPPS = 1;
-        codecPrm[RGY_CODEC_HEVC].hevcConfig.repeatSPSPPS = 1;
-        codecPrm[RGY_CODEC_AV1].av1Config.repeatSeqHdr  = 1;
-        return 0;
-    }
-    if (IS_OPTION("aud:h264")) {
-        codecPrm[RGY_CODEC_H264].h264Config.outputAUD = 1;
-        return 0;
-    }
-    if (IS_OPTION("aud:hevc")) {
-        codecPrm[RGY_CODEC_HEVC].hevcConfig.outputAUD = 1;
-        return 0;
-    }
-    if (IS_OPTION("aud")) {
-        codecPrm[RGY_CODEC_H264].h264Config.outputAUD = 1;
-        codecPrm[RGY_CODEC_HEVC].hevcConfig.outputAUD = 1;
-        return 0;
-    }
-    if (IS_OPTION("pic-struct:h264")) {
-        codecPrm[RGY_CODEC_H264].h264Config.outputPictureTimingSEI = 1;
-        return 0;
-    }
-    if (IS_OPTION("pic-struct:hevc")) {
-        codecPrm[RGY_CODEC_HEVC].hevcConfig.outputPictureTimingSEI = 1;
-        return 0;
-    }
-    if (IS_OPTION("pic-struct")) {
-        codecPrm[RGY_CODEC_H264].h264Config.outputPictureTimingSEI = 1;
-        codecPrm[RGY_CODEC_HEVC].hevcConfig.outputPictureTimingSEI = 1;
-        return 0;
-    }
+    if (IS_OPTION("deblock")) { pParams->h264.deblockIDC = 0; return 0; }
+    if (IS_OPTION("repeat-headers") || IS_OPTION("repeat-headers:h264") || IS_OPTION("repeat-headers:hevc") || IS_OPTION("repeat-headers:av1")) { pParams->repeatHeaders = true; return 0; }
+    if (IS_OPTION("aud") || IS_OPTION("aud:h264") || IS_OPTION("aud:hevc")) { pParams->aud = true; return 0; }
+    if (IS_OPTION("pic-struct") || IS_OPTION("pic-struct:h264") || IS_OPTION("pic-struct:hevc")) { pParams->picTimingSEI = true; pParams->bufferingPeriodSEI = true; return 0; }
     if (IS_OPTION("level") || IS_OPTION("level:h264") || IS_OPTION("level:hevc") || IS_OPTION("level:av1")) {
         const bool for_h264 = IS_OPTION("level") || IS_OPTION("level:h264");
         const bool for_hevc = IS_OPTION("level") || IS_OPTION("level:hevc");
@@ -1239,15 +1139,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         bool flag = false;
         int value = 0;
         if (for_h264 && (value = get_value_from_chr(list_avc_level_parse, strInput[i])) != PARSE_ERROR_FLAG) {
-            codecPrm[RGY_CODEC_H264].h264Config.level = value;
+            pParams->h264.level = value;
             flag = true;
         }
         if (for_hevc && (value = get_value_from_chr(list_hevc_level_parse, strInput[i])) != PARSE_ERROR_FLAG) {
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.level = value;
+            pParams->hevc.level = value;
             flag = true;
         }
         if (for_av1 && (value = get_value_from_chr(list_av1_level_parse, strInput[i])) != PARSE_ERROR_FLAG) {
-            codecPrm[RGY_CODEC_AV1].av1Config.level = value;
+            pParams->av1.level = value;
             flag = true;
         }
         if (!flag) {
@@ -1267,16 +1167,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         bool flag = false;
         if (for_h264) {
-            GUID zero = { 0 };
-            GUID result_guid = get_guid_from_name(strInput[i], h264_profile_names);
-            if (0 != memcmp(&result_guid, &zero, sizeof(result_guid))) {
-                pParams->encConfig.profileGUID = result_guid;
+            int result = get_value_from_name(strInput[i], h264_profile_names);
+            if (result >= 0) {
+                pParams->h264.profile = result;
                 if (!FOR_AUO) {
-                    if (memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid)) == 0) {
+                    if (result == 244 /* high444 */) {
                         pParams->outputCsp = RGY_CSP_YUV444;
-                    } else if (memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_422_GUID, sizeof(result_guid)) == 0) {
+                    } else if (result == 122 /* high422 */) {
                         pParams->outputCsp = RGY_CSP_YUV422;
-                    } else if(memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_10_GUID, sizeof(result_guid)) == 0) {
+                    } else if (result == 110 /* high10 */) {
                         pParams->outputDepth = 10;
                         pParams->outputCsp = RGY_CSP_YV12;
                     }
@@ -1288,8 +1187,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             int result = get_value_from_name(strInput[i], h265_profile_names);
             if (-1 != result) {
                 //下位16bitを使用する
-                uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_HEVC].hevcConfig.tier;
-                ptr[0] = (uint16_t)result;
+                pParams->hevc.profile = result;
                 if (!FOR_AUO) {
                     if (result == NV_ENC_PROFILE_HEVC_MAIN444) {
                         pParams->outputCsp = RGY_CSP_YUV444;
@@ -1307,12 +1205,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         if (for_av1) {
             int result = get_value_from_name(strInput[i], av1_profile_names);
-            if (-1 != result) {
-                //下位16bitを使用する
-                uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_AV1].av1Config.tier;
-                ptr[0] = (uint16_t)result;
-                flag = true;
-            }
+            if (-1 != result) { pParams->av1.profile = result; flag = true; }
         }
         if (!flag) {
             print_cmd_error_invalid_value(option_name, strInput[i], std::vector<std::pair<RGY_CODEC, std::vector<guid_desc>>>{
@@ -1330,13 +1223,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (for_hevc && get_list_value(h265_tier_names, strInput[i], &value)) {
-            //上位16bitを使用する
-            uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_HEVC].hevcConfig.tier;
-            ptr[1] = (uint16_t)value;
+            pParams->hevc.tier = value;
         } else if (for_av1 && get_list_value(av1_tier_names, strInput[i], &value)) {
-            //上位16bitを使用する
-            uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_AV1].av1Config.tier;
-            ptr[1] = (uint16_t)value;
+            pParams->av1.tier = value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], std::vector<std::pair<RGY_CODEC, const CX_DESC *>>{
                 { RGY_CODEC_HEVC, h265_tier_names },
@@ -1364,14 +1253,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->outputCsp = (RGY_CSP)value;
             if (!FOR_AUO) {
                 if (RGY_CSP_CHROMA_FORMAT[pParams->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[pParams->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[pParams->outputCsp] == RGY_CHROMAFMT_RGB_PACKED) {
-                    //H264
-                    memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(pParams->encConfig.profileGUID));
-                    //HEVC
-                    uint16_t *ptr = (uint16_t *)&codecPrm[RGY_CODEC_HEVC].hevcConfig.tier;
-                    ptr[0] = (uint16_t)NV_ENC_PROFILE_HEVC_MAIN444;
+                    // H.264/HEVC プロファイルの推奨既定を各コーデックに反映
+                    if (pParams->codec_rgy == RGY_CODEC_H264) pParams->h264.profile = 244;
+                    if (pParams->codec_rgy == RGY_CODEC_HEVC) pParams->hevc.profile = NV_ENC_PROFILE_HEVC_MAIN444;
                 } else if (RGY_CSP_CHROMA_FORMAT[pParams->outputCsp] == RGY_CHROMAFMT_YUV422) {
-                    //H264
-                    memcpy(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_422_GUID, sizeof(pParams->encConfig.profileGUID));
+                    if (pParams->codec_rgy == RGY_CODEC_H264) pParams->h264.profile = 122;
                 }
             }
         } else {
@@ -1403,7 +1289,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)value;
+            pParams->hevc.cuMax = (NV_ENC_HEVC_CUSIZE)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_cu_size);
             return 1;
@@ -1414,7 +1300,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
-            codecPrm[RGY_CODEC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
+            pParams->hevc.cuMin = (NV_ENC_HEVC_CUSIZE)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_cu_size);
             return 1;
@@ -1541,7 +1427,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     return 1;
 }
 
-int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nArgNum, const TCHAR **strInput, bool ignore_parse_err) {
+int parse_cmd(InEncodeVideoParam *pParams, int nArgNum, const TCHAR **strInput, bool ignore_parse_err) {
     sArgsData argsData;
 
     bool debug_cmd_parser = false;
@@ -1586,7 +1472,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
         if (debug_cmd_parser) {
             _ftprintf(stderr, _T("parsing %3d: %s: "), i, strInput[i]);
         }
-        auto sts = parse_one_option(option_name, strInput, i, nArgNum, pParams, codecPrm, &argsData);
+        auto sts = parse_one_option(option_name, strInput, i, nArgNum, pParams, &argsData);
         if (debug_cmd_parser) {
             _ftprintf(stderr, _T("%s\n"), (sts == 0) ? _T("OK") : _T("ERR"));
         }
@@ -1599,7 +1485,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const wchar_t *cmdw, bool ignore_parse_err) {
+int parse_cmd(InEncodeVideoParam *pParams, const wchar_t *cmdw, bool ignore_parse_err) {
     if (cmdw == nullptr) {
         return 0;
     }
@@ -1623,49 +1509,29 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const 
     }
     argv_tchar.push_back(_T("")); // 最後に空白を追加
     const TCHAR **strInput = (const TCHAR **)argv_tchar.data();
-    int ret = parse_cmd(pParams, codecPrm, (int)argv_tchar.size() - 1 /*最後の空白の分*/, strInput, ignore_parse_err);
+    int ret = parse_cmd(pParams, (int)argv_tchar.size() - 1 /*最後の空白の分*/, strInput, ignore_parse_err);
     return ret;
 }
 
-int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const char *cmda, bool ignore_parse_err) {
+int parse_cmd(InEncodeVideoParam *pParams, const char *cmda, bool ignore_parse_err) {
     if (cmda == nullptr) {
         return 0;
     }
     std::wstring cmd = char_to_wstring(cmda);
-    return parse_cmd(pParams, codecPrm, cmd.c_str(), ignore_parse_err);
+    return parse_cmd(pParams, cmd.c_str(), ignore_parse_err);
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 #pragma warning (push)
 #pragma warning (disable: 4127)
-tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG codecPrmArg[2], bool save_disabled_prm) {
+tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> cmd;
     InEncodeVideoParam encPrmDefault;
-    NV_ENC_CODEC_CONFIG codecPrmDefault[RGY_CODEC_NUM];
-    codecPrmDefault[RGY_CODEC_H264] = DefaultParamH264();
-    codecPrmDefault[RGY_CODEC_HEVC] = DefaultParamHEVC();
-    codecPrmDefault[RGY_CODEC_AV1]  = DefaultParamAV1();
-
-    NV_ENC_CODEC_CONFIG codecPrm[RGY_CODEC_NUM];
-    if (codecPrmArg != nullptr) {
-        memcpy(codecPrm, codecPrmArg, sizeof(codecPrm));
-    } else {
-        memcpy(codecPrm, codecPrmDefault, sizeof(codecPrm));
-        codecPrm[pParams->codec_rgy] = pParams->encConfig.encodeCodecConfig;
-    }
 
 #define OPT_FLOAT(str, opt, prec) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << std::setprecision(prec) << (pParams->opt);
 #define OPT_NUM(str, opt) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->opt);
-#define OPT_NUM_AV1(str, codec, opt)  if ((codecPrm[RGY_CODEC_AV1].av1Config.opt) != (codecPrmDefault[RGY_CODEC_AV1].av1Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << (int)(codecPrm[RGY_CODEC_AV1].av1Config.opt);
-#define OPT_NUM_HEVC(str, codec, opt) if ((codecPrm[RGY_CODEC_HEVC].hevcConfig.opt) != (codecPrmDefault[RGY_CODEC_HEVC].hevcConfig.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << (int)(codecPrm[RGY_CODEC_HEVC].hevcConfig.opt);
-#define OPT_NUM_H264(str, codec, opt) if ((codecPrm[RGY_CODEC_H264].h264Config.opt) != (codecPrmDefault[RGY_CODEC_H264].h264Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << (int)(codecPrm[RGY_CODEC_H264].h264Config.opt);
 #define OPT_GUID(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_name_from_guid((pParams->opt), list);
-#define OPT_GUID_AV1(str, codec, opt, list) if ((codecPrm[RGY_CODEC_AV1].av1Config.opt) != (codecPrmDefault[RGY_CODEC_AV1].av1Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_name_from_value((codecPrm[RGY_CODEC_AV1].av1Config.opt), list);
-#define OPT_GUID_HEVC(str, codec, opt, list) if ((codecPrm[RGY_CODEC_HEVC].hevcConfig.opt) != (codecPrmDefault[RGY_CODEC_HEVC].hevcConfig.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_name_from_value((codecPrm[RGY_CODEC_HEVC].hevcConfig.opt), list);
 #define OPT_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->opt));
-#define OPT_LST_AV1(str, codec, opt, list) if ((codecPrm[RGY_CODEC_AV1].av1Config.opt) != (codecPrmDefault[RGY_CODEC_AV1].av1Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_chr_from_value(list, (codecPrm[RGY_CODEC_AV1].av1Config.opt));
-#define OPT_LST_HEVC(str, codec, opt, list) if ((codecPrm[RGY_CODEC_HEVC].hevcConfig.opt) != (codecPrmDefault[RGY_CODEC_HEVC].hevcConfig.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_chr_from_value(list, (codecPrm[RGY_CODEC_HEVC].hevcConfig.opt));
-#define OPT_LST_H264(str, codec, opt, list) if ((codecPrm[RGY_CODEC_H264].h264Config.opt) != (codecPrmDefault[RGY_CODEC_H264].h264Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_chr_from_value(list, (codecPrm[RGY_CODEC_H264].h264Config.opt));
 #define OPT_QP(str, qp, enable, force) { \
     if ((force) || (enable) \
     || (pParams->qp.qpI) != (encPrmDefault.qp.qpI) \
@@ -1686,33 +1552,15 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     } \
 }
 #define OPT_BOOL(str_true, str_false, opt) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << ((pParams->opt) ? (str_true) : (str_false));
-#define OPT_BOOL_AV1(str_true, str_false, codec, opt) \
-    if ((codecPrm[RGY_CODEC_AV1].av1Config.opt) != (codecPrmDefault[RGY_CODEC_AV1].av1Config.opt)) { \
-        cmd << _T(" "); \
-        if ((codecPrm[RGY_CODEC_AV1].av1Config.opt)) { \
-            if (_tcslen(str_true)) { cmd << (str_true) << ((save_disabled_prm) ? (codec) : _T("")); } \
-        } else { \
-            if (_tcslen(str_false)) { cmd << (str_false) << ((save_disabled_prm) ? (codec) : _T("")); } \
-        } \
-    }
-#define OPT_BOOL_HEVC(str_true, str_false, codec, opt) \
-    if ((codecPrm[RGY_CODEC_HEVC].hevcConfig.opt) != (codecPrmDefault[RGY_CODEC_HEVC].hevcConfig.opt)) { \
-        cmd << _T(" "); \
-        if ((codecPrm[RGY_CODEC_HEVC].hevcConfig.opt)) { \
-            if (_tcslen(str_true)) { cmd << (str_true) << ((save_disabled_prm) ? (codec) : _T("")); } \
-        } else { \
-            if (_tcslen(str_false)) { cmd << (str_false) << ((save_disabled_prm) ? (codec) : _T("")); } \
-        } \
-    }
-#define OPT_BOOL_H264(str_true, str_false, codec, opt) \
-    if ((codecPrm[RGY_CODEC_H264].h264Config.opt) != (codecPrmDefault[RGY_CODEC_H264].h264Config.opt)) { \
-        cmd << _T(" "); \
-        if ((codecPrm[RGY_CODEC_H264].h264Config.opt)) { \
-            if (_tcslen(str_true)) { cmd << (str_true) << ((save_disabled_prm) ? (codec) : _T("")); }\
-        } else { \
-            if (_tcslen(str_false)) { cmd << (str_false) << ((save_disabled_prm) ? (codec) : _T("")); }\
-        } \
-    }
+
+// 新スタイル: codec固有/トップレベル向け 短縮マクロ
+#define OPT_NUM_CX(str, cx, opt) if ((pParams->cx.opt) != (encPrmDefault.cx.opt)) cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->cx.opt)
+#define OPT_LST_CX(str, cx, opt, list) if ((pParams->cx.opt) != (encPrmDefault.cx.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->cx.opt))
+#define OPT_NAME_CX(str, cx, opt, list) if ((pParams->cx.opt) != (encPrmDefault.cx.opt)) cmd << _T(" ") << (str) << _T(" ") << get_name_from_value((pParams->cx.opt), list)
+#define OPT_TOP_NUM(str, opt) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->opt)
+#define OPT_TOP_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->opt))
+#define OPT_OPTBOOL(str, opt) if ((pParams->opt).has_value() && (!(encPrmDefault.opt).has_value() || (pParams->opt) != (encPrmDefault.opt))) { if ((pParams->opt).value()) { cmd << _T(" ") << (str); } }
+#define OPT_OPTNUM(str, opt) if ((pParams->opt).has_value() && (!(encPrmDefault.opt).has_value() || (pParams->opt) != (encPrmDefault.opt))) { cmd << _T(" ") << (str); }
 #define OPT_TCHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << (pParams->opt);
 #define OPT_TSTR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << pParams->opt.c_str();
 #define OPT_CHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << char_to_tstring(pParams->opt);
@@ -1831,56 +1679,47 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_LST(_T("--output-csp"), outputCsp, list_output_csp);
     OPT_LST(_T("--tf-level"), temporalFilterLevel, list_temporal_filter_level);
     OPT_NUM(_T("--temporal-layers"), temporalLayers);
+    OPT_NUM(_T("--ref"), maxRef);
+    OPT_NUM(_T("--multiref-l0"), refL0);
+    OPT_NUM(_T("--multiref-l1"), refL1);
+    OPT_NUM(_T("--slices"), slices);
+    OPT_OPTBOOL(_T("--aud"), aud);
+    OPT_OPTBOOL(_T("--pic-struct"), picTimingSEI);
+    OPT_OPTBOOL(_T("--repeat-headers"), repeatHeaders);
 
     if (pParams->codec_rgy == RGY_CODEC_AV1 || save_disabled_prm) {
-        OPT_LST_AV1(_T("--level"), _T(":av1"), level, list_av1_level);
-        OPT_GUID_AV1(_T("--profile"), _T(":av1"), tier & 0xffff, av1_profile_names);
-        OPT_LST_AV1(_T("--tier"), _T(":av1"), tier >> 16, av1_tier_names);
-        OPT_NUM_AV1(_T("--ref"), _T(""), maxNumRefFramesInDPB);
-        OPT_BOOL_AV1(_T("--repeat-headers"), _T(""), _T(":av1"), repeatSeqHdr);
-        OPT_BOOL_AV1(_T("--av1-out-annexb"), _T(""), _T(""), outputAnnexBFormat);
-
-        OPT_LST_AV1(_T("--tile-columns"),  _T(""), numTileColumns, list_av1_tiles);
-        OPT_LST_AV1(_T("--tile-rows"),     _T(""), numTileRows,    list_av1_tiles);
-        OPT_LST_AV1(_T("--part-size-min"), _T(""), minPartSize,    list_part_size_av1);
-        OPT_LST_AV1(_T("--part-size-max"), _T(""), maxPartSize,    list_part_size_av1);
-        OPT_LST_AV1(_T("--refs-forward"),  _T(""), numFwdRefs, list_av1_refs_forward);
-        OPT_LST_AV1(_T("--refs-backward"), _T(""), numBwdRefs, list_av1_refs_backward);
+        OPT_LST_CX(_T("--level:av1"), av1, level, list_av1_level);
+        OPT_NAME_CX(_T("--profile:av1"), av1, profile, av1_profile_names);
+        OPT_LST_CX(_T("--tier:av1"), av1, tier, av1_tier_names);
+        OPT_OPTBOOL(_T("--av1-out-annexb"), av1.annexB);
+        OPT_OPTBOOL(_T("--disable-seq-hdr"), av1.disableSeqHdr);
+        OPT_LST_CX(_T("--tile-columns"),  av1, tilesCols,      list_av1_tiles);
+        OPT_LST_CX(_T("--tile-rows"),     av1, tilesRows,      list_av1_tiles);
+        OPT_LST_CX(_T("--part-size-min"), av1, partMin,        list_part_size_av1);
+        OPT_LST_CX(_T("--part-size-max"), av1, partMax,        list_part_size_av1);
+        OPT_LST_CX(_T("--refs-forward"),  av1, fwdRefs,        list_av1_refs_forward);
+        OPT_LST_CX(_T("--refs-backward"), av1, bwdRefs,        list_av1_refs_backward);
         OPT_BOOL(_T("--bitstream-padding"), _T(""), bitstreamPadding);
     }
     if (pParams->codec_rgy == RGY_CODEC_HEVC || save_disabled_prm) {
-        OPT_LST_HEVC(_T("--level"), _T(":hevc"), level, list_hevc_level);
-        OPT_GUID_HEVC(_T("--profile"), _T(":hevc"), tier & 0xffff, h265_profile_names);
-        OPT_LST_HEVC(_T("--tier"), _T(":hevc"), tier >> 16, h265_tier_names);
-        OPT_NUM_HEVC(_T("--ref"), _T(""), maxNumRefFramesInDPB);
-        OPT_NUM_HEVC(_T("--multiref-l0"), _T(""), numRefL0);
-        OPT_NUM_HEVC(_T("--multiref-l1"), _T(""), numRefL1);
-        OPT_NUM_HEVC(_T("--slices"), _T(":hevc"), sliceModeData);
-        OPT_BOOL_HEVC(_T("--aud"), _T(""), _T(":hevc"), outputAUD);
-        OPT_BOOL_HEVC(_T("--repeat-headers"), _T(""), _T(":hevc"), repeatSPSPPS);
-        OPT_BOOL_HEVC(_T("--pic-struct"), _T(""), _T(":hevc"), outputPictureTimingSEI);
-        OPT_LST_HEVC(_T("--cu-max"), _T(""), maxCUSize, list_hevc_cu_size);
-        OPT_LST_HEVC(_T("--cu-min"), _T(""), minCUSize, list_hevc_cu_size);
-        OPT_NUM(_T("--alpha-bitrate-ratio"), alphaBitrateRatio);
-        OPT_LST(_T("--alpha-channel-mode"), alphaChannelMode, list_hevc_alpha_channel_mode);
+        OPT_LST_CX(_T("--level:hevc"), hevc, level, list_hevc_level);
+        OPT_NAME_CX(_T("--profile:hevc"), hevc, profile, h265_profile_names);
+        OPT_LST_CX(_T("--tier:hevc"), hevc, tier, h265_tier_names);
+        OPT_LST_CX(_T("--cu-max"), hevc, cuMax, list_hevc_cu_size);
+        OPT_LST_CX(_T("--cu-min"), hevc, cuMin, list_hevc_cu_size);
+        OPT_TOP_NUM(_T("--alpha-bitrate-ratio"), alphaBitrateRatio);
+        OPT_TOP_LST(_T("--alpha-channel-mode"), alphaChannelMode, list_hevc_alpha_channel_mode);
     }
     if (pParams->codec_rgy == RGY_CODEC_H264 || save_disabled_prm) {
-        OPT_LST_H264(_T("--level"), _T(":h264"), level, list_avc_level);
-        OPT_GUID(_T("--profile"), encConfig.profileGUID, h264_profile_names);
-        OPT_NUM_H264(_T("--ref"), _T(""), maxNumRefFrames);
-        OPT_NUM_H264(_T("--multiref-l0"), _T(""), numRefL0);
-        OPT_NUM_H264(_T("--multiref-l1"), _T(""), numRefL1);
-        OPT_LST_H264(_T("--direct"), _T(""), bdirectMode, list_bdirect);
-        OPT_LST_H264(_T("--adapt-transform"), _T(""), adaptiveTransformMode, list_adapt_transform);
-        OPT_NUM_H264(_T("--slices"), _T(":h264"), sliceModeData);
-        OPT_BOOL_H264(_T("--aud"), _T(""), _T(":h264"), outputAUD);
-        OPT_BOOL_H264(_T("--repeat-headers"), _T(""), _T(":h264"), repeatSPSPPS);
-        OPT_BOOL_H264(_T("--pic-struct"), _T(""), _T(":h264"), outputPictureTimingSEI);
-        if ((codecPrm[RGY_CODEC_H264].h264Config.entropyCodingMode) != (codecPrmDefault[RGY_CODEC_H264].h264Config.entropyCodingMode)) {
-            cmd << _T(" --") << get_chr_from_value(list_entropy_coding, codecPrm[RGY_CODEC_H264].h264Config.entropyCodingMode);
-        }
+        OPT_LST_CX(_T("--level:h264"), h264, level, list_avc_level);
+        OPT_NAME_CX(_T("--profile:h264"), h264, profile, h264_profile_names);
+        OPT_LST_CX(_T("--direct"), h264, bdirect, list_bdirect);
+        OPT_LST_CX(_T("--adapt-transform"), h264, adaptTrans, list_adapt_transform);
+        if (pParams->h264.entropy != encPrmDefault.h264.entropy) cmd << _T(" --") << get_chr_from_value(list_entropy_coding, pParams->h264.entropy);
+        if (pParams->h264.deblockIDC != encPrmDefault.h264.deblockIDC) cmd << ((pParams->h264.deblockIDC) ? _T(" --no-deblock") : _T(" --deblock"));
+        OPT_OPTNUM(_T("--hierarchical-p"), h264.hierarchicalPFrames);
+        OPT_OPTNUM(_T("--hierarchical-b"), h264.hierarchicalBFrames);
         OPT_BOOL(_T("--bluray"), _T(""), bluray);
-        OPT_BOOL_H264(_T("--no-deblock"), _T("--deblock"), _T(""), disableDeblockingFilterIDC);
     }
 
     OPT_LST(_T("--split-enc"), splitEncMode, list_split_enc_mode);

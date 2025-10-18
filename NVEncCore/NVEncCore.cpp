@@ -919,20 +919,17 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             gpu = gpuList.erase(gpu);
             continue;
         }
-        //プロファイルのチェック
-        auto codecProfileGUID = inputParam->encConfig.profileGUID;
+        // プロファイルのチェック (新フィールドに基づく)
+        GUID codecProfileGUID = GUID_EMPTY;
         if (inputParam->codec_rgy == RGY_CODEC_AV1) {
-            //デフォルトではH.264のプロファイル情報
-            //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.av1Config.tierの下位16bitに保存されている
-            codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.av1Config.tier & 0xffff, av1_profile_names);
+            codecProfileGUID = get_guid_from_value(inputParam->av1.profile, av1_profile_names);
         } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
-            //デフォルトではH.264のプロファイル情報
-            //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
-            codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
             if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
                 codecProfileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
             } else if (inputParam->outputDepth > 8) {
-                codecProfileGUID = (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
+                codecProfileGUID = NV_ENC_HEVC_PROFILE_MAIN10_GUID;
+            } else {
+                codecProfileGUID = get_guid_from_value(inputParam->hevc.profile, h265_profile_names);
             }
         } else if (inputParam->codec_rgy == RGY_CODEC_H264) {
             if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_YUV444 || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] == RGY_CHROMAFMT_RGB_PACKED) {
@@ -942,7 +939,7 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             } else if (inputParam->outputDepth > 8) {
                 codecProfileGUID = NV_ENC_H264_PROFILE_HIGH_10_GUID;
             } else {
-                codecProfileGUID = NV_ENC_H264_PROFILE_HIGH_GUID;
+                codecProfileGUID = get_guid_from_value(inputParam->h264.profile, h264_profile_names);
             }
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
@@ -1095,11 +1092,9 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
             inputParam->outputDepth = 8;
             // プロファイルを8bit深度に変更する
             if (inputParam->codec_rgy == RGY_CODEC_H264) {
-                inputParam->encConfig.profileGUID = NV_ENC_H264_PROFILE_HIGH_GUID;
+                inputParam->h264.profile = get_value_from_guid(NV_ENC_H264_PROFILE_HIGH_GUID, h264_profile_names);
             } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
-                //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
-                inputParam->encConfig.encodeCodecConfig.hevcConfig.tier &= 0xffff0000;
-                inputParam->encConfig.encodeCodecConfig.hevcConfig.tier |= NV_ENC_PROFILE_HEVC_MAIN;
+                inputParam->hevc.profile = get_value_from_guid(NV_ENC_HEVC_PROFILE_MAIN_GUID, h265_profile_names);
             }
         }
     }
@@ -1657,8 +1652,6 @@ RGY_ERR NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 #pragma warning(pop)
 
 RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
-    memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
-
     //解像度の決定
     //この段階では、フィルタを使用した場合は解像度を変更しないものとする
     m_uEncWidth  = (m_pLastFilterParam) ? m_pLastFilterParam->frameOut.width  : inputParam->input.srcWidth  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
@@ -1749,6 +1742,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
 
     m_dev->encoder()->setStructVer(m_stCreateEncodeParams);
     m_dev->encoder()->setStructVer(m_stEncConfig);
+    m_dev->encoder()->setStructVer(m_stEncConfig.rcParams);
 
     //コーデックの決定とチェックNV_ENC_PIC_PARAMS
     if (inputParam->codec_rgy == RGY_CODEC_UNKNOWN) {
@@ -1767,19 +1761,23 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         return RGY_ERR_UNSUPPORTED;
     }
 
-    //プロファイルのチェック
-    if (inputParam->codec_rgy != RGY_CODEC_H264) {
-        //m_stEncConfig.profileGUIDはデフォルトではH.264のプロファイル情報
-        //HEVCのプロファイル情報は、m_stEncConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
-        if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
-            m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
-            if (inputParam->outputDepth > 8) {
-                m_stEncConfig.profileGUID = (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
-            }
-            m_stEncConfig.encodeCodecConfig.hevcConfig.tier >>= 16;
+    // プロファイル/レベル/ティアの反映 (新フィールドを優先)
+    {
+        m_stEncConfig.profileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
+        if (inputParam->codec_rgy == RGY_CODEC_H264) {
+            m_stEncConfig.encodeCodecConfig = DefaultParamH264();
+            m_stEncConfig.profileGUID = get_guid_from_value(inputParam->h264.profile, h264_profile_names);
+            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->h264.level);
+        } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
+            m_stEncConfig.encodeCodecConfig = DefaultParamHEVC();
+            m_stEncConfig.profileGUID = get_guid_from_value(inputParam->hevc.profile, h265_profile_names);
+            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->hevc.level);
+            set_tier(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->hevc.tier);
         } else if (inputParam->codec_rgy == RGY_CODEC_AV1) {
-            m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.av1Config.tier & 0xffff, av1_profile_names);
-            m_stEncConfig.encodeCodecConfig.av1Config.tier >>= 16;
+            m_stEncConfig.encodeCodecConfig = DefaultParamAV1();
+            m_stEncConfig.profileGUID = get_guid_from_value(inputParam->av1.profile, av1_profile_names);
+            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->av1.level);
+            set_tier(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->av1.tier);
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -1918,6 +1916,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     m_stEncConfig.frameIntervalP             = inputParam->bFrames + 1;
     m_stEncConfig.gopLength                  = inputParam->gopLength;
     m_stEncConfig.mvPrecision                = inputParam->mvPrecision;
+    m_stEncConfig.frameFieldMode             = NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME;
 
     // QVBRの時は、VBRに変更して、averageBitRateとmaxBitRateを0にする
     if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_QVBR) {
@@ -1965,6 +1964,17 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         m_stEncConfig.frameIntervalP = codecFeature->getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES) + 1;
         PrintMes(RGY_LOG_WARN, FOR_AUO ? _T("Bフレームの最大数は%dです。\n") : _T("Max B frames are %d frames.\n"), codecFeature->getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES));
     }
+    // 参照数 (L0/L1), maxRef の反映
+    if (inputParam->refL0 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT) {
+        set_numRefL0(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->refL0);
+    }
+    if (inputParam->refL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT) {
+        set_numRefL1(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->refL1);
+    }
+    if (inputParam->maxRef >= 0) {
+        numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) = inputParam->maxRef;
+    }
+
     if (  (    get_numRefL0(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
             || get_numRefL1(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)) {
         if (!m_dev->encoder()->checkAPIver(9, 1)
@@ -2101,9 +2111,16 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             inputParam->splitEncMode = NV_ENC_SPLIT_THREE_FORCED_MODE;
         }
     }
-    //自動決定パラメータ
+    // 自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
         m_stEncConfig.gopLength = (int)(m_encFps.n() / (double)m_encFps.d() + 0.5) * 10;
+    }
+    // LTR 有効/数の反映
+    if (inputParam->enableLTR.has_value()) {
+        set_enableLTR(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->enableLTR.value() ? 1 : 0);
+    }
+    if (inputParam->ltrNumFrames.has_value()) {
+        set_ltrNumFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, (decltype(get_ltrNumFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy)))inputParam->ltrNumFrames.value());
     }
     if (get_enableLTR(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) && get_ltrNumFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) == 0) {
         set_enableLTR(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy));
@@ -2254,7 +2271,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
 
     m_stCreateEncodeParams.maxEncodeHeight     = m_uEncHeight;
     m_stCreateEncodeParams.maxEncodeWidth      = m_uEncWidth;
-
+    m_stCreateEncodeParams.bufferFormat        = GetEncBufferFormat(inputParam);
     m_stCreateEncodeParams.frameRateNum        = m_encFps.n();
     m_stCreateEncodeParams.frameRateDen        = m_encFps.d();
     if (inputParam->nWeightP) {
@@ -2444,9 +2461,14 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
     }
 
-    //整合性チェック
-    set_idrPeriod(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, m_stCreateEncodeParams.encodeConfig->gopLength);
-    if (get_sliceMode(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy) != 3) {
+    // 整合性チェック
+    // idrPeriod 指定があればそれを優先、なければ gopLength を使用
+    set_idrPeriod(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, m_stEncConfig.gopLength);
+    // slice 設定
+    if (inputParam->slices > 0) {
+        set_sliceMode(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 3);
+        set_sliceModeData(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->slices);
+    } else if (get_sliceMode(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy) != 3) {
         set_sliceMode(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 3);
         set_sliceModeData(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 1);
     }
@@ -2471,14 +2493,51 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     };
 
     if (inputParam->codec_rgy == RGY_CODEC_AV1) {
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.outputAnnexBFormat = 0; // とりあえず0で
-
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.disableSeqHdr = 0;
-        // シーク性を確保するため、常に有効にする
+        // AV1 AnnexB / SeqHdr 周り (新フィールド優先)
+        if (inputParam->av1.annexB.has_value()) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.outputAnnexBFormat = inputParam->av1.annexB.value() ? 1 : 0;
+        } else {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.outputAnnexBFormat = 0;
+        }
+        if (inputParam->av1.disableSeqHdr.has_value()) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.disableSeqHdr = inputParam->av1.disableSeqHdr.value() ? 1 : 0;
+        } else {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.disableSeqHdr = 0;
+        }
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.repeatSeqHdr = 1;
 
+        // AV1 参照 (前方/後方)
+        if (inputParam->av1.fwdRefs != NV_ENC_NUM_REF_FRAMES_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.numFwdRefs = inputParam->av1.fwdRefs;
+        }
+        if (inputParam->av1.bwdRefs != NV_ENC_NUM_REF_FRAMES_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.numBwdRefs = inputParam->av1.bwdRefs;
+        }
+
+        // パーティションサイズ
+        if (inputParam->av1.partMin != NV_ENC_AV1_PART_SIZE_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.minPartSize = inputParam->av1.partMin;
+        }
+        if (inputParam->av1.partMax != NV_ENC_AV1_PART_SIZE_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.maxPartSize = inputParam->av1.partMax;
+        }
+
+        // タイル設定
+        if (inputParam->av1.tilesCols > 0 && inputParam->av1.tilesRows > 0) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.enableCustomTileConfig = 0;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.numTileColumns = inputParam->av1.tilesCols;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.numTileRows    = inputParam->av1.tilesRows;
+        }
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.chromaFormatIDC = 1; // YUV420
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.av1Config.enableBitstreamPadding = inputParam->bitstreamPadding ? 1 : 0;
     } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
+        // HEVC 固有設定の反映
+        if (inputParam->hevc.cuMin != NV_ENC_HEVC_CUSIZE_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.minCUSize = inputParam->hevc.cuMin;
+        }
+        if (inputParam->hevc.cuMax != NV_ENC_HEVC_CUSIZE_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.maxCUSize = inputParam->hevc.cuMax;
+        }
         if (m_dev->encoder()->checkAPIver(12, 2)) {
             m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel;
         }
@@ -2487,6 +2546,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI = 1;
         }
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 1; // YUV420
         //YUV422/444出力
         if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
             switch (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp]) {
@@ -2518,8 +2578,20 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
                 m_stCreateEncodeParams.splitEncodeMode = NV_ENC_SPLIT_AUTO_MODE;
             }
         }
-        if (require_repeat_headers()) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
+        // AUD/SEI/Repeat headers (H.26x)
+        if (inputParam->aud.has_value()) {
+            set_outputAUD(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->aud.value() ? 1 : 0);
+        }
+        if (inputParam->picTimingSEI.has_value()) {
+            set_outputPictureTimingSEI(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->picTimingSEI.value() ? 1 : 0);
+        }
+        if (inputParam->bufferingPeriodSEI.has_value()) {
+            set_outputBufferingPeriodSEI(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->bufferingPeriodSEI.value() ? 1 : 0);
+        }
+        if (inputParam->repeatHeaders.has_value()) {
+            set_repeatSPSPPS(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->repeatHeaders.value() ? 1 : 0);
+        } else if (require_repeat_headers()) {
+            set_repeatSPSPPS(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 1);
         }
 
         if (auto profile = getDOVIProfile(inputParam->common.doviProfile); profile != nullptr && profile->HRDSEI) {
@@ -2538,6 +2610,36 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->rcParams.vbvInitialDelay = m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize / 2;
         }
     } else if (inputParam->codec_rgy == RGY_CODEC_H264) {
+        // H.264 固有設定の反映
+        if (inputParam->h264.bdirect != NV_ENC_H264_BDIRECT_MODE_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.bdirectMode = inputParam->h264.bdirect;
+        }
+        if (inputParam->h264.adaptTrans != NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.adaptiveTransformMode = inputParam->h264.adaptTrans;
+        }
+        if (inputParam->h264.entropy != NV_ENC_H264_ENTROPY_CODING_MODE_AUTOSELECT) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.entropyCodingMode = inputParam->h264.entropy;
+        }
+        if (inputParam->h264.deblockIDC != 0) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.disableDeblockingFilterIDC = inputParam->h264.deblockIDC;
+        }
+        if (inputParam->temporalLayers > 0) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.maxTemporalLayers = inputParam->temporalLayers;
+        }
+        // hierarchical P/B frames
+        if (inputParam->h264.hierarchicalPFrames.has_value()) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.hierarchicalPFrames = inputParam->h264.hierarchicalPFrames.value() ? 1 : 0;
+        }
+        if (inputParam->h264.hierarchicalBFrames.has_value()) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.hierarchicalBFrames = inputParam->h264.hierarchicalBFrames.value() ? 1 : 0;
+        }
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.hierarchicalPFrames
+            || m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.hierarchicalBFrames) {
+            // H.264 の階層符号化使用時、最低2層を要求
+            if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.numTemporalLayers == 0) {
+                m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.numTemporalLayers = 2;
+            }
+        }
         //Bluray 互換出力
         if (inputParam->bluray) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI = 1;
@@ -2567,6 +2669,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputBufferingPeriodSEI = 1;
         }
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.chromaFormatIDC = 1; // YUV420
         //YUV422/444出力
         if (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp] != RGY_CHROMAFMT_YUV420) {
             switch (RGY_CSP_CHROMA_FORMAT[inputParam->outputCsp]) {
@@ -2595,8 +2698,20 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.hierarchicalBFrames = 0;
         }
-        if (require_repeat_headers()) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.repeatSPSPPS = 1;
+        // AUD/SEI/Repeat headers (H.26x)
+        if (inputParam->aud.has_value()) {
+            set_outputAUD(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->aud.value() ? 1 : 0);
+        }
+        if (inputParam->picTimingSEI.has_value()) {
+            set_outputPictureTimingSEI(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->picTimingSEI.value() ? 1 : 0);
+        }
+        if (inputParam->bufferingPeriodSEI.has_value()) {
+            set_outputBufferingPeriodSEI(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->bufferingPeriodSEI.value() ? 1 : 0);
+        }
+        if (inputParam->repeatHeaders.has_value()) {
+            set_repeatSPSPPS(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->repeatHeaders.value() ? 1 : 0);
+        } else if (require_repeat_headers()) {
+            set_repeatSPSPPS(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 1);
         }
     } else {
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));

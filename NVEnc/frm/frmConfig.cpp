@@ -1415,11 +1415,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
     InEncodeVideoParam encPrm;
-    NV_ENC_CODEC_CONFIG codecPrm[RGY_CODEC_NUM] = { 0 };
-    codecPrm[RGY_CODEC_H264] = DefaultParamH264();
-    codecPrm[RGY_CODEC_HEVC] = DefaultParamHEVC();
-    codecPrm[RGY_CODEC_AV1]  = DefaultParamAV1();
-    parse_cmd(&encPrm, codecPrm, cnf->enc.cmd);
+    parse_cmd(&encPrm, cnf->enc.cmd);
 
     SetCXIndex(fcgCXEncCodec,          get_index_from_value(encPrm.codec_rgy, list_nvenc_codecs));
     SetCXIndex(fcgCXEncMode,           get_cx_index(list_encmode, (encPrm.rcParam.avg_bitrate == 0 && encPrm.rcParam.rc_mode == NV_ENC_PARAMS_RC_VBR) ? NV_ENC_PARAMS_RC_QVBR : encPrm.rcParam.rc_mode));
@@ -1473,26 +1469,26 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgNUChromaQPOffset->Value = encPrm.chromaQPOffset;
 
     //H.264
-    SetNUValue(fcgNURefFrames,         codecPrm[RGY_CODEC_H264].h264Config.maxNumRefFrames);
+    SetNUValue(fcgNURefFrames,         (encPrm.maxRef >= 0) ? encPrm.maxRef : 0);
     SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, encPrm.input.picstruct));
-    SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            codecPrm[RGY_CODEC_H264].h264Config.level));
-    SetCXIndex(fcgCXCodecProfile, get_index_from_value(get_value_from_guid(encPrm.encConfig.profileGUID, h264_profile_names), h264_profile_names));
-    SetNUValue(fcgNUSlices,       codecPrm[RGY_CODEC_H264].h264Config.sliceModeData);
+    SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            encPrm.h264.level));
+    SetCXIndex(fcgCXCodecProfile, get_cx_index(h264_profile_names, encPrm.h264.profile));
+    SetNUValue(fcgNUSlices,       encPrm.slices);
     fcgCBBluray->Checked       = 0 != encPrm.bluray;
-    fcgCBCABAC->Checked        = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != codecPrm[RGY_CODEC_H264].h264Config.entropyCodingMode;
-    fcgCBDeblock->Checked                                          = 0 == codecPrm[RGY_CODEC_H264].h264Config.disableDeblockingFilterIDC;
-    SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, codecPrm[RGY_CODEC_H264].h264Config.adaptiveTransformMode));
-    SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         codecPrm[RGY_CODEC_H264].h264Config.bdirectMode));
+    fcgCBCABAC->Checked        = (encPrm.h264.entropy == NV_ENC_H264_ENTROPY_CODING_MODE_CABAC);
+    fcgCBDeblock->Checked      = (encPrm.h264.deblockIDC == 0);
+    SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, encPrm.h264.adaptTrans));
+    SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         encPrm.h264.bdirect));
 
     //HEVC
-    SetCXIndex(fcgCXHEVCTier,      get_index_from_value(codecPrm[RGY_CODEC_HEVC].hevcConfig.tier, h265_profile_names));
-    SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   codecPrm[RGY_CODEC_HEVC].hevcConfig.level));
-    SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, codecPrm[RGY_CODEC_HEVC].hevcConfig.maxCUSize));
-    SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, codecPrm[RGY_CODEC_HEVC].hevcConfig.minCUSize));
+    SetCXIndex(fcgCXHEVCTier,      get_cx_index(h265_tier_names,   encPrm.hevc.tier));
+    SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   encPrm.hevc.level));
+    SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, encPrm.hevc.cuMax));
+    SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, encPrm.hevc.cuMin));
 
     //AV1
-    SetCXIndex(fcgCXCodecProfileAV1,   get_index_from_value(codecPrm[RGY_CODEC_AV1].av1Config.tier, av1_profile_names));
-    SetCXIndex(fcgCXCodecLevelAV1,     get_cx_index(list_av1_level,   codecPrm[RGY_CODEC_AV1].av1Config.level));
+    SetCXIndex(fcgCXCodecProfileAV1,   get_cx_index(av1_profile_names, encPrm.av1.profile));
+    SetCXIndex(fcgCXCodecLevelAV1,     get_cx_index(list_av1_level,   encPrm.av1.level));
 
     SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat, encPrm.common.out_vui.format));
     fcgCBFullrange->Checked                                         = encPrm.common.out_vui.colorrange == RGY_COLORRANGE_FULL;
@@ -1708,10 +1704,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
 System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     InEncodeVideoParam encPrm;
-    NV_ENC_CODEC_CONFIG codecPrm[RGY_CODEC_NUM] = { 0 };
-    codecPrm[RGY_CODEC_H264] = DefaultParamH264();
-    codecPrm[RGY_CODEC_HEVC] = DefaultParamHEVC();
-    codecPrm[RGY_CODEC_AV1]  = DefaultParamAV1();
 
     //これもひたすら書くだけ。めんどい
     encPrm.codec_rgy = (RGY_CODEC)list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;
@@ -1780,28 +1772,28 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.ctrl.perfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
 
     //H.264
-    codecPrm[RGY_CODEC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
-    codecPrm[RGY_CODEC_H264].h264Config.maxNumRefFrames = (int)fcgNURefFrames->Value;
+    encPrm.h264.bdirect = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
+    encPrm.maxRef = (int)fcgNURefFrames->Value;
     encPrm.input.picstruct = (RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
-    encPrm.encConfig.profileGUID = get_guid_from_value(h264_profile_names[fcgCXCodecProfile->SelectedIndex].value, h264_profile_names);
-    codecPrm[RGY_CODEC_H264].h264Config.adaptiveTransformMode = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
-    codecPrm[RGY_CODEC_H264].h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
-    codecPrm[RGY_CODEC_H264].h264Config.sliceModeData = (int)fcgNUSlices->Value;
+    encPrm.h264.profile = h264_profile_names[fcgCXCodecProfile->SelectedIndex].value;
+    encPrm.h264.adaptTrans = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
+    encPrm.h264.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
+    encPrm.slices = (int)fcgNUSlices->Value;
     encPrm.bluray = fcgCBBluray->Checked;
-    codecPrm[RGY_CODEC_H264].h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
-    codecPrm[RGY_CODEC_H264].h264Config.disableDeblockingFilterIDC = false == fcgCBDeblock->Checked;
+    encPrm.h264.entropy = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+    encPrm.h264.deblockIDC = (fcgCBDeblock->Checked) ? 0 : 1;
 
     //HEVC
-    codecPrm[RGY_CODEC_HEVC].hevcConfig.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
-    codecPrm[RGY_CODEC_HEVC].hevcConfig.level = list_hevc_level[fxgCXHEVCLevel->SelectedIndex].value;
-    codecPrm[RGY_CODEC_HEVC].hevcConfig.tier  = h265_profile_names[fcgCXHEVCTier->SelectedIndex].value;
-    codecPrm[RGY_CODEC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMaxCUSize->SelectedIndex].value;
-    codecPrm[RGY_CODEC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
+    // encPrm.maxRef は共通
+    encPrm.hevc.level = list_hevc_level[fxgCXHEVCLevel->SelectedIndex].value;
+    encPrm.hevc.tier  = h265_tier_names[fcgCXHEVCTier->SelectedIndex].value;
+    encPrm.hevc.cuMax = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMaxCUSize->SelectedIndex].value;
+    encPrm.hevc.cuMin = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
 
     //AV1
-    codecPrm[RGY_CODEC_AV1].av1Config.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
-    codecPrm[RGY_CODEC_AV1].av1Config.level = list_av1_level[fcgCXCodecLevelAV1->SelectedIndex].value;
-    codecPrm[RGY_CODEC_AV1].av1Config.tier = av1_profile_names[fcgCXCodecProfileAV1->SelectedIndex].value;
+    // encPrm.maxRef は共通
+    encPrm.av1.level = list_av1_level[fcgCXCodecLevelAV1->SelectedIndex].value;
+    encPrm.av1.profile = av1_profile_names[fcgCXCodecProfileAV1->SelectedIndex].value;
 
     encPrm.common.out_vui.format    = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
     encPrm.common.out_vui.colorrange = fcgCBFullrange->Checked ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
@@ -2023,9 +2015,9 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     GetfcgTSLSettingsNotes(cnf->oth.notes, _countof(cnf->oth.notes));
 
     GetWCHARfromString(cnf->vid.cmdex, _countof(cnf->vid.cmdex), fcgTXCmdEx->Text);
-    _tcscpy_s(cnf->enc.cmd, gen_cmd(&encPrm, codecPrm, true).c_str());
+    _tcscpy_s(cnf->enc.cmd, gen_cmd(&encPrm, true).c_str());
 
-    return String(gen_cmd(&encPrm, codecPrm, false).c_str()).ToString();
+    return String(gen_cmd(&encPrm, false).c_str()).ToString();
 }
 
 System::Void frmConfig::GetfcgTSLSettingsNotes(TCHAR *notes, int nSize) {

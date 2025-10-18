@@ -69,6 +69,42 @@ NVEncRCParam::NVEncRCParam() :
     qp() {
 
 }
+
+// -----------------------------------------------------------------------------
+// Codec specific param structs default ctor
+// -----------------------------------------------------------------------------
+NVEncVideoParamH264::NVEncVideoParamH264() :
+    profile(get_value_from_guid(NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, h264_profile_names)),
+    level(NV_ENC_LEVEL_AUTOSELECT),
+    bdirect(NV_ENC_H264_BDIRECT_MODE_AUTOSELECT),
+    adaptTrans(NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT),
+    entropy((NV_ENC_H264_ENTROPY_CODING_MODE)NV_ENC_H264_ENTROPY_CODING_MODE_CABAC),
+    deblockIDC(0),
+    hierarchicalPFrames(),
+    hierarchicalBFrames() {
+}
+
+NVEncVideoParamHEVC::NVEncVideoParamHEVC() :
+    profile(get_value_from_guid(NV_ENC_HEVC_PROFILE_MAIN_GUID, h265_profile_names)),
+    level(NV_ENC_LEVEL_AUTOSELECT),
+    tier(NV_ENC_TIER_HEVC_MAIN),
+    cuMin(NV_ENC_HEVC_CUSIZE_AUTOSELECT),
+    cuMax(NV_ENC_HEVC_CUSIZE_AUTOSELECT) {
+}
+
+NVEncVideoParamAV1::NVEncVideoParamAV1() :
+    profile(get_value_from_guid(NV_ENC_AV1_PROFILE_MAIN_GUID, av1_profile_names)),
+    level(NV_ENC_LEVEL_AV1_AUTOSELECT),
+    tier(NV_ENC_TIER_AV1_0),
+    partMin(NV_ENC_AV1_PART_SIZE_AUTOSELECT),
+    partMax(NV_ENC_AV1_PART_SIZE_AUTOSELECT),
+    tilesCols(0),
+    tilesRows(0),
+    fwdRefs(NV_ENC_NUM_REF_FRAMES_AUTOSELECT),
+    bwdRefs(NV_ENC_NUM_REF_FRAMES_AUTOSELECT),
+    annexB(),
+    disableSeqHdr() {
+}
 tstring NVEncRCParam::print() const {
     TStringStream t;
     if (start >= 0) {
@@ -194,40 +230,9 @@ NV_ENC_CODEC_CONFIG DefaultParamAV1() {
     return config;
 }
 
-NV_ENC_CONFIG DefaultParam() {
-
-    NV_ENC_CONFIG config = { 0 };
-    config.frameFieldMode                 = NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME;
-    config.profileGUID                    = NV_ENC_H264_PROFILE_HIGH_GUID;
-    config.gopLength                      = DEFAULT_GOP_LENGTH;
-    config.rcParams.rateControlMode       = NV_ENC_PARAMS_RC_VBR;
-    //config.encodeCodecConfig.h264Config.level;
-    config.frameIntervalP                 = DEFAULT_B_FRAMES + 1;
-    config.mvPrecision                    = NV_ENC_MV_PRECISION_DEFAULT;
-    config.monoChromeEncoding             = 0;
-    config.rcParams.version               = NV_ENC_RC_PARAMS_VER;
-    config.rcParams.averageBitRate        = 0;
-    config.rcParams.maxBitRate            = 0;
-    config.rcParams.enableInitialRCQP     = 1;
-    config.rcParams.initialRCQP.qpInterB  = DEFAULT_QP_B;
-    config.rcParams.initialRCQP.qpInterP  = DEFAULT_QP_P;
-    config.rcParams.initialRCQP.qpIntra   = DEFAUTL_QP_I;
-    config.rcParams.maxQP.qpInterB        = 51;
-    config.rcParams.maxQP.qpInterP        = 51;
-    config.rcParams.maxQP.qpIntra         = 51;
-    config.rcParams.constQP.qpInterB      = DEFAULT_QP_B;
-    config.rcParams.constQP.qpInterP      = DEFAULT_QP_P;
-    config.rcParams.constQP.qpIntra       = DEFAUTL_QP_I;
-    config.rcParams.lookaheadDepth        = DEFAULT_LOOKAHEAD;
-    config.rcParams.targetQuality         = 0;
-    config.rcParams.targetQualityLSB      = 0;
-
-    config.rcParams.vbvBufferSize         = 0;
-    config.rcParams.vbvInitialDelay       = 0;
-    config.encodeCodecConfig              = DefaultParamH264();
-
-    return config;
-}
+// DefaultParam は従来 NV_ENC_CONFIG を返していたが、
+// InEncodeVideoParam の非SDKフィールド初期化に一本化するため廃止する。
+// 既存呼び出し部は各所の初期化コードへ置換していくこと。
 
 InEncodeVideoParam::InEncodeVideoParam() :
     deviceID(-1),
@@ -266,7 +271,9 @@ InEncodeVideoParam::InEncodeVideoParam() :
     aqStrength(0),
     temporalFilterLevel(NV_ENC_TEMPORAL_FILTER_LEVEL_0),
     tuningInfo(NV_ENC_TUNING_INFO_UNDEFINED),
-    encConfig(),
+    h264(),
+    hevc(),
+    av1(),
     dynamicRC(),
     codec_rgy(RGY_CODEC_H264),
     bluray(0),                   //bluray出力
@@ -283,12 +290,15 @@ InEncodeVideoParam::InEncodeVideoParam() :
     brefMode(NV_ENC_BFRAME_REF_MODE_AUTO),
     splitEncMode(NV_ENC_SPLIT_AUTO_MODE),
     bitstreamPadding(false),
+    maxRef(-1),
+    refL0(NV_ENC_NUM_REF_FRAMES_AUTOSELECT),
+    refL1(NV_ENC_NUM_REF_FRAMES_AUTOSELECT),
+    slices(0),
     common(),
     inprm(),
     ctrl(),
     vpp(),
     vppnv() {
-    encConfig = DefaultParam();
     rcParam.qp = RGYQPSet(DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B);
     rcParam.rc_mode = NV_ENC_PARAMS_RC_QVBR;
     rcParam.avg_bitrate = DEFAULT_AVG_BITRATE;
@@ -310,16 +320,16 @@ void InEncodeVideoParam::applyDOVIProfile(const RGYDOVIProfile inputProfile) {
         return;
     }
     common.out_vui.setIfUnset(profile->vui);
-    encConfig.encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
+    repeatHeaders = true;
     if (profile->aud) {
-        encConfig.encodeCodecConfig.hevcConfig.outputAUD = 1;
+        aud = true;
     }
     if (profile->HRDSEI) {
-        encConfig.encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI = 1;
-        encConfig.encodeCodecConfig.hevcConfig.outputPictureTimingSEI = 1;
+        bufferingPeriodSEI = true;
+        picTimingSEI = true;
     }
     if (profile->profile == 50) {
-        encConfig.rcParams.crQPIndexOffset = 3;
+        chromaQPOffset = 3;
     }
     if (profile->profile == 81) {
         //hdr10sei

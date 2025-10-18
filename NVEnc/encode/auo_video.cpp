@@ -91,12 +91,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
 void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
     const bool isAviutl2 = is_aviutl2();
     InEncodeVideoParam enc_prm;
-    NV_ENC_CODEC_CONFIG codec_prm[RGY_CODEC_NUM] = { 0 };
-    codec_prm[RGY_CODEC_H264] = DefaultParamH264();
-    codec_prm[RGY_CODEC_HEVC] = DefaultParamHEVC();
-    codec_prm[RGY_CODEC_AV1]  = DefaultParamAV1();
-    parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
-    enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec_rgy];
+    parse_cmd(&enc_prm, conf->enc.cmd);
     if (enc_prm.lossless) {
         enc_prm.outputCsp = RGY_CSP_YUV444;
     }
@@ -206,7 +201,7 @@ static void build_full_cmd(TCHAR *cmd, size_t nSize, const CONF_GUIEX *conf, con
     //自動設定の適用
     //apply_guiEx_auto_settings(&prm.x264, oip->w, oip->h, oip->rate, oip->scale, sys_dat->exstg->s_local.auto_ref_limit_by_level);
     //GUI部のコマンドライン生成
-    _tcscpy_s(cmd, nSize, gen_cmd(encPrm, nullptr, false).c_str());
+    _tcscpy_s(cmd, nSize, gen_cmd(encPrm, false).c_str());
     //cmdexの処理
     TCHAR cmdex[sizeof(conf->vid.cmdex)];
     _tcscpy_s(cmdex, conf->vid.cmdex);
@@ -215,7 +210,7 @@ static void build_full_cmd(TCHAR *cmd, size_t nSize, const CONF_GUIEX *conf, con
     _stprintf_s(cmd + _tcslen(cmd), nSize - _tcslen(cmd), _T(" %s"), cmdex);
 
     //メッセージの発行
-    if ((encPrm->encConfig.rcParams.vbvBufferSize != 0 || encPrm->encConfig.rcParams.vbvInitialDelay != 0) && conf->vid.afs) {
+    if ((encPrm->vbvBufferSize != 0 || encPrm->vbvInitialDelay != 0) && conf->vid.afs) {
         write_log_auo_line(LOG_INFO, g_auo_mes.get(AUO_VIDEO_AFS_VBV_WARN));
     }
     //出力ファイル
@@ -500,12 +495,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         return AUO_RESULT_SUCCESS;
 
     InEncodeVideoParam enc_prm;
-    NV_ENC_CODEC_CONFIG codec_prm[RGY_CODEC_NUM] = { 0 };
-    codec_prm[RGY_CODEC_H264] = DefaultParamH264();
-    codec_prm[RGY_CODEC_HEVC] = DefaultParamHEVC();
-    codec_prm[RGY_CODEC_AV1]  = DefaultParamAV1();
-    parse_cmd(&enc_prm, codec_prm, conf->enc.cmd);
-    enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec_rgy];
+    parse_cmd(&enc_prm, conf->enc.cmd);
 
     if (!conf->enc.resize_enable) {
         enc_prm.input.dstWidth = 0;

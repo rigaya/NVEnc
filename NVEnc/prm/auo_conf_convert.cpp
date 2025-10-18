@@ -300,9 +300,6 @@ void init_CONF_GUIEX_old(CONF_GUIEX_OLD3 *conf) {
     ZeroMemory(conf, sizeof(CONF_GUIEX_OLD3));
     write_conf_header_old(conf);
     conf->nvenc.deviceID = -1;
-    conf->nvenc.enc_config = DefaultParam();
-    conf->nvenc.codecConfig[NV_ENC_H264] = DefaultParamH264();
-    conf->nvenc.codecConfig[NV_ENC_HEVC] = DefaultParamHEVC();
     conf->nvenc.pic_struct = NV_ENC_PIC_STRUCT_FRAME;
     conf->nvenc.preset = NVENC_PRESET_DEFAULT;
     conf->nvenc.enc_config.rcParams.maxBitRate = DEFAULT_MAX_BITRATE; //NVEnc.auoではデフォルト値としてセットする
@@ -764,20 +761,9 @@ void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX_OLD *conf, const 
 
     //一度パラメータに戻し、再度コマンドラインに戻すことでデフォルトパラメータの削除を行う
     InEncodeVideoParam enc_prm;
-    NV_ENC_CODEC_CONFIG codec_prm[RGY_CODEC_NUM] = { 0 };
-    codec_prm[RGY_CODEC_H264] = DefaultParamH264();
-    codec_prm[RGY_CODEC_HEVC] = DefaultParamHEVC();
-    codec_prm[RGY_CODEC_AV1]  = DefaultParamAV1();
-    parse_cmd(&enc_prm, codec_prm, cmd_old.c_str());
+    parse_cmd(&enc_prm, cmd_old.c_str());
 
-    //うまく保存されていないことがある
-    enc_prm.encConfig.mvPrecision = NV_ENC_MV_PRECISION_DEFAULT;
-    codec_prm[RGY_CODEC_H264].h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT;
-    codec_prm[RGY_CODEC_H264].h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
-    codec_prm[RGY_CODEC_HEVC].hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
-    codec_prm[RGY_CODEC_HEVC].hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
-
-    strcpy_s(conf->enc.cmd, tchar_to_string(gen_cmd(&enc_prm, codec_prm, true)).c_str());
+    strcpy_s(conf->enc.cmd, tchar_to_string(gen_cmd(&enc_prm, true)).c_str());
 }
 
 #pragma warning (pop)
