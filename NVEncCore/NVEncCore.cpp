@@ -1108,7 +1108,7 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
         return RGY_ERR_NONE;
     }
 
-    if (inputParam->bFrames > 0) {
+    if (inputParam->bFrames.has_value() && inputParam->bFrames.value() > 0) {
         bool support_bframe = false;
         //エンコード対象のBフレームサポートのあるGPUがあるかを確認する
         for (const auto& gpu : gpuList) {
@@ -1902,18 +1902,38 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     m_stEncConfig.rcParams.enableInitialRCQP = inputParam->qpInit.enable ? 1 : 0;
     m_stEncConfig.rcParams.enableMinQP       = inputParam->qpMin.enable ? 1 : 0;
     m_stEncConfig.rcParams.enableMaxQP       = inputParam->qpMax.enable ? 1 : 0;
-    m_stEncConfig.rcParams.strictGOPTarget   = inputParam->strictGOP ? 1 : 0;
-    m_stEncConfig.rcParams.enableNonRefP     = inputParam->nonrefP ? 1 : 0;
-    m_stEncConfig.rcParams.enableLookahead   = inputParam->enableLookahead ? 1 : 0;
-    m_stEncConfig.rcParams.lookaheadDepth    = (uint16_t)inputParam->lookahead;
+    if (inputParam->strictGOP.has_value()) {
+        m_stEncConfig.rcParams.strictGOPTarget = inputParam->strictGOP.value() ? 1 : 0;
+    }
+    if (inputParam->nonrefP.has_value()) {
+        m_stEncConfig.rcParams.enableNonRefP = inputParam->nonrefP.value() ? 1 : 0;
+    }
+    if (inputParam->enableLookahead.has_value()) {
+        m_stEncConfig.rcParams.enableLookahead = inputParam->enableLookahead.value() ? 1 : 0;
+    }
+    if (inputParam->lookahead.has_value()) {
+        m_stEncConfig.rcParams.lookaheadDepth = (uint16_t)inputParam->lookahead.value();
+    }
     m_stEncConfig.rcParams.vbvBufferSize     = inputParam->vbvBufferSize;
-    m_stEncConfig.rcParams.disableIadapt     = inputParam->disableIadapt ? 1 : 0;
-    m_stEncConfig.rcParams.disableBadapt     = inputParam->disableBadapt ? 1 : 0;
-    m_stEncConfig.rcParams.enableAQ          = inputParam->enableAQ ? 1 : 0;
-    m_stEncConfig.rcParams.enableTemporalAQ  = inputParam->enableAQTemporal ? 1 : 0;
-    m_stEncConfig.rcParams.aqStrength        = inputParam->aqStrength;
+    if (inputParam->disableIadapt.has_value()) {
+        m_stEncConfig.rcParams.disableIadapt = inputParam->disableIadapt.value() ? 1 : 0;
+    }
+    if (inputParam->disableBadapt.has_value()) {
+        m_stEncConfig.rcParams.disableBadapt = inputParam->disableBadapt.value() ? 1 : 0;
+    }
+    if (inputParam->enableAQ.has_value()) {
+        m_stEncConfig.rcParams.enableAQ = inputParam->enableAQ.value() ? 1 : 0;
+    }
+    if (inputParam->enableAQTemporal.has_value()) {
+        m_stEncConfig.rcParams.enableTemporalAQ = inputParam->enableAQTemporal.value() ? 1 : 0;
+    }
+    if (inputParam->aqStrength.has_value()) {
+        m_stEncConfig.rcParams.aqStrength = inputParam->aqStrength.value();
+    }
     //その他のパラメータの設定
-    m_stEncConfig.frameIntervalP             = inputParam->bFrames + 1;
+    if (inputParam->bFrames.has_value()) {
+        m_stEncConfig.frameIntervalP = inputParam->bFrames.value() + 1;
+    }
     m_stEncConfig.gopLength                  = inputParam->gopLength;
     m_stEncConfig.mvPrecision                = inputParam->mvPrecision;
     m_stEncConfig.frameFieldMode             = NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME;
@@ -1971,8 +1991,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     if (inputParam->refL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT) {
         set_numRefL1(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->refL1);
     }
-    if (inputParam->maxRef >= 0) {
-        numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) = inputParam->maxRef;
+    if (inputParam->maxRef.value_or(0) >= 0) {
+        numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) = inputParam->maxRef.value();
     }
 
     if (  (    get_numRefL0(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
@@ -2066,7 +2086,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         error_feature_unsupported(RGY_LOG_ERROR, _T("lossless"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (inputParam->lookaheadLevel != NV_ENC_LOOKAHEAD_LEVEL_0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_LOOKAHEAD_LEVEL)) {
+    if (inputParam->lookaheadLevel.value_or(NV_ENC_LOOKAHEAD_LEVEL_0) != NV_ENC_LOOKAHEAD_LEVEL_0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_LOOKAHEAD_LEVEL)) {
         error_feature_unsupported(RGY_LOG_WARN, _T("lookahead-level"));
         inputParam->lookaheadLevel = NV_ENC_LOOKAHEAD_LEVEL_0;
     }
@@ -2078,7 +2098,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
                 m_stEncConfig.encodeCodecConfig.hevcConfig.tier = NV_ENC_TIER_HEVC_MAIN;
             }
         }
-        if (inputParam->temporalFilterLevel != NV_ENC_TEMPORAL_FILTER_LEVEL_0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_TEMPORAL_FILTER)) {
+        if (inputParam->temporalFilterLevel.value_or(NV_ENC_TEMPORAL_FILTER_LEVEL_0) != NV_ENC_TEMPORAL_FILTER_LEVEL_0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_TEMPORAL_FILTER)) {
             error_feature_unsupported(RGY_LOG_WARN, _T("tf-level"));
             inputParam->temporalFilterLevel = NV_ENC_TEMPORAL_FILTER_LEVEL_0;
         }
@@ -2274,7 +2294,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.bufferFormat        = GetEncBufferFormat(inputParam);
     m_stCreateEncodeParams.frameRateNum        = m_encFps.n();
     m_stCreateEncodeParams.frameRateDen        = m_encFps.d();
-    if (inputParam->nWeightP) {
+    if (inputParam->nWeightP.has_value() && inputParam->nWeightP.value() != 0) {
         if (!codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION)) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction"));
         } else if (m_stEncConfig.frameIntervalP - 1 > 0) {
@@ -2346,7 +2366,6 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         inputParam->brefMode = NV_ENC_BFRAME_REF_MODE_DISABLED;
     }
     if (inputParam->brefMode == NV_ENC_BFRAME_REF_MODE_AUTO) {
-        inputParam->brefMode = NV_ENC_BFRAME_REF_MODE_DISABLED;
         if (preset_slower_than_default(inputParam->preset)) {
             //defaultより遅いpresetの場合、可能ならbref-modeを使用しないと映像が破綻するケースがある (#449, #458)
             const auto caps = codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE);
@@ -2356,8 +2375,9 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
                 }
             }
         }
+    } else {
+        set_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, (NV_ENC_BFRAME_REF_MODE)inputParam->brefMode);
     }
-    set_useBFramesAsRef(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, (NV_ENC_BFRAME_REF_MODE)inputParam->brefMode);
 
     //ロスレス出力
     if (inputParam->lossless) {
@@ -2482,11 +2502,17 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     
     if ((inputParam->codec_rgy == RGY_CODEC_HEVC && m_dev->encoder()->checkAPIver(12, 2))
         || ((inputParam->codec_rgy == RGY_CODEC_AV1 || inputParam->codec_rgy == RGY_CODEC_H264) && m_dev->encoder()->checkAPIver(13, 0))) {
-        set_tfLevel(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalFilterLevel);
-        m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel;
+        if (inputParam->temporalFilterLevel.has_value()) {
+            set_tfLevel(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalFilterLevel.value());
+        }
+        if (inputParam->lookaheadLevel.has_value()) {
+            m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel.value();
+        }
     }
 
-    set_temporalLayers(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalLayers, m_dev->encoder()->getAPIver());
+    if (inputParam->temporalLayers.has_value()) {
+        set_temporalLayers(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalLayers.value(), m_dev->encoder()->getAPIver());
+    }
 
     auto require_repeat_headers = [this, inputParam]() {
         return m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpuMetadataCopy || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0) || inputParam->ctrl.parallelEnc.isEnabled();
@@ -2539,7 +2565,9 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.maxCUSize = inputParam->hevc.cuMax;
         }
         if (m_dev->encoder()->checkAPIver(12, 2)) {
-            m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel;
+            if (inputParam->lookaheadLevel.has_value()) {
+                m_stEncConfig.rcParams.lookaheadLevel = (NV_ENC_LOOKAHEAD_LEVEL)inputParam->lookaheadLevel.value();
+            }
         }
 
         //整合性チェック (一般, H.265/HEVC)
@@ -2623,8 +2651,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         if (inputParam->h264.deblockIDC != 0) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.disableDeblockingFilterIDC = inputParam->h264.deblockIDC;
         }
-        if (inputParam->temporalLayers > 0) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.maxTemporalLayers = inputParam->temporalLayers;
+        if (inputParam->temporalLayers.value_or(0) > 0) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.maxTemporalLayers = inputParam->temporalLayers.value();
         }
         // hierarchical P/B frames
         if (inputParam->h264.hierarchicalPFrames.has_value()) {

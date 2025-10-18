@@ -1426,19 +1426,19 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUQPB,               encPrm.rcParam.qp.qpB);
     SetNUValue(fcgNUVBRTragetQuality,  Decimal(encPrm.rcParam.targetQuality + encPrm.rcParam.targetQualityLSB / 256.0));
     SetNUValue(fcgNUGopLength,         encPrm.gopLength);
-    SetNUValue(fcgNUBframes,           encPrm.bFrames);
+    SetNUValue(fcgNUBframes,           encPrm.bFrames.value_or(-1));
     SetCXIndex(fcgCXQualityPreset,     get_index_from_value(encPrm.preset, list_nvenc_preset_names_ver10));
     SetCXIndex(fcgCXMultiPass,         get_cx_index(list_nvenc_multipass_mode, encPrm.multipass));
     SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, encPrm.mvPrecision));
     SetNUValue(fcgNUVBVBufsize,        encPrm.vbvBufferSize / 1000);
-    SetNUValue(fcgNULookaheadDepth,   (encPrm.enableLookahead) ? encPrm.lookahead : 0);
+    SetNUValue(fcgNULookaheadDepth,   (encPrm.enableLookahead.value_or(0)) ? encPrm.lookahead.value() : 0);
     SetCXIndex(fcgCXBrefMode,          get_cx_index(list_bref_mode, encPrm.brefMode));
     uint32_t nAQ = 0;
-    nAQ |= encPrm.enableAQ ? NV_ENC_AQ_SPATIAL : 0x00;
-    nAQ |= encPrm.enableAQTemporal ? NV_ENC_AQ_TEMPORAL : 0x00;
+    nAQ |= encPrm.enableAQ.value_or(false) ? NV_ENC_AQ_SPATIAL : 0x00;
+    nAQ |= encPrm.enableAQTemporal.value_or(false) ? NV_ENC_AQ_TEMPORAL : 0x00;
     SetCXIndex(fcgCXAQ,                get_cx_index(list_aq, nAQ));
-    SetNUValue(fcgNUAQStrength,        encPrm.aqStrength);
-    fcgCBWeightP->Checked            = encPrm.nWeightP != 0;
+    SetNUValue(fcgNUAQStrength,        encPrm.aqStrength.value_or(0));
+    fcgCBWeightP->Checked            = encPrm.nWeightP.value_or(0) != 0;
 
     if (encPrm.par[0] * encPrm.par[1] <= 0)
         encPrm.par[0] = encPrm.par[1] = 0;
@@ -1469,7 +1469,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgNUChromaQPOffset->Value = encPrm.chromaQPOffset;
 
     //H.264
-    SetNUValue(fcgNURefFrames,         (encPrm.maxRef >= 0) ? encPrm.maxRef : 0);
+    SetNUValue(fcgNURefFrames,    encPrm.maxRef.value_or(-1));
     SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, encPrm.input.picstruct));
     SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            encPrm.h264.level));
     SetCXIndex(fcgCXCodecProfile, get_cx_index(h264_profile_names, encPrm.h264.profile));
@@ -1705,6 +1705,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     InEncodeVideoParam encPrm;
 
+#define SET_OPT(opt, value) if (value) { opt = (value); } else { opt.reset(); }
+
     //これもひたすら書くだけ。めんどい
     encPrm.codec_rgy = (RGY_CODEC)list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;
     cnf->enc.codec_rgy = encPrm.codec_rgy;
@@ -1719,7 +1721,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     const int targetQualityInt = (int)targetQualityDouble;
     encPrm.rcParam.targetQuality = (uint8_t)targetQualityInt;
     encPrm.rcParam.targetQualityLSB = (uint8_t)clamp(((targetQualityDouble - targetQualityInt) * 256.0), 0, 255);
-    encPrm.bFrames = (int)fcgNUBframes->Value;
+    encPrm.bFrames = (int)fcgNUBframes->Value >= 0 ? std::optional<int>((int)fcgNUBframes->Value) : std::nullopt;
     encPrm.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
     encPrm.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
     encPrm.preset = list_nvenc_preset_names_ver10[fcgCXQualityPreset->SelectedIndex].value;
@@ -1732,14 +1734,14 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         encPrm.enableLookahead = 1;
         encPrm.lookahead = (uint16_t)clamp(nLookaheadDepth, 0, 32);
     } else {
-        encPrm.enableLookahead = 0;
-        encPrm.lookahead = 0;
+        encPrm.enableLookahead.reset();
+        encPrm.lookahead.reset();
     }
     uint32_t nAQ = list_aq[fcgCXAQ->SelectedIndex].value;
-    encPrm.enableAQ         = (nAQ & NV_ENC_AQ_SPATIAL)  ? 1 : 0;
-    encPrm.enableAQTemporal = (nAQ & NV_ENC_AQ_TEMPORAL) ? 1 : 0;
-    encPrm.aqStrength = (uint32_t)clamp(fcgNUAQStrength->Value, 0, 15);
-    encPrm.nWeightP                        = (fcgCBWeightP->Checked) ? 1 : 0;
+    SET_OPT(encPrm.enableAQ, (nAQ & NV_ENC_AQ_SPATIAL)  ? 1 : 0);
+    SET_OPT(encPrm.enableAQTemporal, (nAQ & NV_ENC_AQ_TEMPORAL) ? 1 : 0);
+    SET_OPT(encPrm.aqStrength, (uint32_t)clamp(fcgNUAQStrength->Value, 0, 15));
+    SET_OPT(encPrm.nWeightP, fcgCBWeightP->Checked);
 
 
     encPrm.par[0]                = (int)fcgNUAspectRatioX->Value;
@@ -1773,7 +1775,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     //H.264
     encPrm.h264.bdirect = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
-    encPrm.maxRef = (int)fcgNURefFrames->Value;
+    encPrm.maxRef = (int)fcgNURefFrames->Value >= 0 ? std::optional<int>((int)fcgNURefFrames->Value) : std::nullopt;
     encPrm.input.picstruct = (RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
     encPrm.h264.profile = h264_profile_names[fcgCXCodecProfile->SelectedIndex].value;
     encPrm.h264.adaptTrans = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;

@@ -1561,6 +1561,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
 #define OPT_TOP_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->opt))
 #define OPT_OPTBOOL(str, opt) if ((pParams->opt).has_value() && (!(encPrmDefault.opt).has_value() || (pParams->opt) != (encPrmDefault.opt))) { if ((pParams->opt).value()) { cmd << _T(" ") << (str); } }
 #define OPT_OPTNUM(str, opt) if ((pParams->opt).has_value() && (!(encPrmDefault.opt).has_value() || (pParams->opt) != (encPrmDefault.opt))) { cmd << _T(" ") << (str); }
+#define OPT_OPTVAL(str, opt) if ((pParams->opt).has_value()) { cmd << _T(" ") << (str) << _T(" ") << (int)((pParams->opt).value()); }
+#define OPT_OPT_LST(str, opt, list) if ((pParams->opt).has_value()) { cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->opt).value()); }
+#define OPT_OPTBOOL_BI(str_true, str_false, opt) if ((pParams->opt).has_value()) { cmd << _T(" ") << (((pParams->opt).value()) ? (str_true) : (str_false)); }
 #define OPT_TCHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << (pParams->opt);
 #define OPT_TSTR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << pParams->opt.c_str();
 #define OPT_CHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << char_to_tstring(pParams->opt);
@@ -1645,28 +1648,26 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
     }
     OPT_NUM(_T("--chroma-qp-offset"), chromaQPOffset);
 
-    if (pParams->enableLookahead || save_disabled_prm) {
-        OPT_NUM(_T("--lookahead"), lookahead);
-    }
-    OPT_LST(_T("--lookahead-level"), lookaheadLevel, list_lookahead_level);
+    OPT_OPTVAL(_T("--lookahead"), lookahead);
+    OPT_OPT_LST(_T("--lookahead-level"), lookaheadLevel, list_lookahead_level);
     OPT_LST(_T("--tune"), tuningInfo, list_tuning_info);
-    OPT_BOOL(_T("--no-i-adapt"), _T(""), disableIadapt);
-    OPT_BOOL(_T("--no-b-adapt"), _T(""), disableBadapt);
-    OPT_BOOL(_T("--strict-gop"), _T(""), strictGOP);
+    OPT_OPTBOOL(_T("--no-i-adapt"), disableIadapt);
+    OPT_OPTBOOL(_T("--no-b-adapt"), disableBadapt);
+    OPT_OPTBOOL(_T("--strict-gop"), strictGOP);
     if (pParams->gopLength == 0) {
         cmd << _T(" --gop-len auto");
     } else {
         OPT_NUM(_T("--gop-len"), gopLength);
     }
-    OPT_NUM(_T("-b"), bFrames);
+    OPT_OPTVAL(_T("-b"), bFrames);
     OPT_NUM(_T("--output-depth"), outputDepth);
     OPT_LST(_T("--bref-mode"), brefMode, list_bref_mode);
-    OPT_BOOL(_T("--weightp"), _T(""), nWeightP);
-    OPT_BOOL(_T("--nonrefp"), _T(""), nonrefP);
+    if (pParams->nWeightP.has_value() && pParams->nWeightP.value() > 0) { cmd << _T(" --weightp"); if (pParams->nWeightP.value() == 2) { cmd << _T(" force"); } }
+    OPT_OPTBOOL(_T("--nonrefp"), nonrefP);
     OPT_BOOL(_T("--unidirectb"), _T(""), unidirectB);
-    OPT_BOOL(_T("--aq"), _T("--no-aq"), enableAQ);
-    OPT_BOOL(_T("--aq-temporal"), _T(""), enableAQTemporal);
-    OPT_NUM(_T("--aq-strength"), aqStrength);
+    OPT_OPTBOOL_BI(_T("--aq"), _T("--no-aq"), enableAQ);
+    OPT_OPTBOOL_BI(_T("--aq-temporal"), _T("--no-aq-temporal"), enableAQTemporal);
+    OPT_OPTVAL(_T("--aq-strength"), aqStrength);
     OPT_LST(_T("--mv-precision"), mvPrecision, list_mv_presicion);
     if (pParams->par[0] > 0 && pParams->par[1] > 0) {
         cmd << _T(" --sar ") << pParams->par[0] << _T(":") << pParams->par[1];
@@ -1677,9 +1678,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
     OPT_BOOL(_T("--lossless-ignore-input-csp"), _T(""), losslessIgnoreInputCsp);
 
     OPT_LST(_T("--output-csp"), outputCsp, list_output_csp);
-    OPT_LST(_T("--tf-level"), temporalFilterLevel, list_temporal_filter_level);
-    OPT_NUM(_T("--temporal-layers"), temporalLayers);
-    OPT_NUM(_T("--ref"), maxRef);
+    OPT_OPT_LST(_T("--tf-level"), temporalFilterLevel, list_temporal_filter_level);
+    OPT_OPTVAL(_T("--temporal-layers"), temporalLayers);
+    OPT_OPTVAL(_T("--ref"), maxRef);
     OPT_NUM(_T("--multiref-l0"), refL0);
     OPT_NUM(_T("--multiref-l1"), refL1);
     OPT_NUM(_T("--slices"), slices);

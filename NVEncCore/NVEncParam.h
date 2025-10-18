@@ -855,7 +855,7 @@ struct InEncodeVideoParam {
 
     NVEncRCParam rcParam;
     int gopLength;
-    int bFrames;
+    std::optional<int> bFrames;
     NV_ENC_MV_PRECISION mvPrecision;
     RGYQPSet qpInit;
     RGYQPSet qpMin;
@@ -865,20 +865,20 @@ struct InEncodeVideoParam {
     int vbvBufferSize;
     int vbvInitialDelay;
     NV_ENC_MULTI_PASS multipass;
-    bool strictGOP;
-    bool disableIadapt;
-    bool disableBadapt;
-    bool enableAQ;
-    bool enableAQTemporal;
-    bool nonrefP;
+    std::optional<bool> strictGOP;
+    std::optional<bool> disableIadapt;
+    std::optional<bool> disableBadapt;
+    std::optional<bool> enableAQ;
+    std::optional<bool> enableAQTemporal;
+    std::optional<bool> nonrefP;
     bool unidirectB;
-    bool enableLookahead;
-    int lookahead;
-    NV_ENC_LOOKAHEAD_LEVEL lookaheadLevel;
-    int aqStrength;
-    NV_ENC_TEMPORAL_FILTER_LEVEL temporalFilterLevel;
+    std::optional<bool> enableLookahead;
+    std::optional<int> lookahead;
+    std::optional<NV_ENC_LOOKAHEAD_LEVEL> lookaheadLevel;
+    std::optional<int> aqStrength;
+    std::optional<NV_ENC_TEMPORAL_FILTER_LEVEL> temporalFilterLevel;
     NV_ENC_TUNING_INFO tuningInfo;
-    int temporalLayers;
+    std::optional<int> temporalLayers;
 
     NVEncVideoParamH264 h264;
     NVEncVideoParamHEVC hevc;
@@ -894,13 +894,13 @@ struct InEncodeVideoParam {
     bool temporalSVC;
     int alphaBitrateRatio;
     int alphaChannelMode;
-    int nWeightP;
+    std::optional<int> nWeightP;
     int chromaQPOffset;
     int brefMode;
     NV_ENC_SPLIT_ENCODE_MODE splitEncMode;
     bool bitstreamPadding;
 
-    int maxRef;                                      // *-1
+    std::optional<int> maxRef;                       // *-1
     NV_ENC_NUM_REF_FRAMES refL0;                     // *AUTOSELECT
     NV_ENC_NUM_REF_FRAMES refL1;                     // *AUTOSELECT
     int slices;                                      // 0
