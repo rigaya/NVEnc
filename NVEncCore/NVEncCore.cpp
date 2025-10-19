@@ -4425,6 +4425,9 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         devUsageLock = m_deviceUsage->lock(); // ロックは親プロセス側でとる
     }
 
+    if (inputParam->tuningInfo == NV_ENC_TUNING_INFO_LOSSLESS) {
+        inputParam->lossless = true;
+    }
     bool bOutputHighBitDepth = encodeIsHighBitDepth(inputParam);
     if (inputParam->lossless && inputParam->losslessIgnoreInputCsp == 0) {
         const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
