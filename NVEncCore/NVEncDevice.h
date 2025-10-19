@@ -209,6 +209,9 @@ public:
     //指定したcodecFeatureのプリセットリストをcodecFeatureに作成
     NVENCSTATUS setCodecPresetList(NVEncCodecFeature &codecFeature, bool getPresetConfig = true);
 
+    //指定してcodecのデフォルトプリセットを取得
+    NVENCSTATUS getPresetDefaultParams(const GUID &codec, const GUID &profileGUID, const GUID &presetGUID, NV_ENC_TUNING_INFO tuningInfo, NV_ENC_PRESET_CONFIG& presetConfig);
+
     //指定したcodecFeatureの対応入力フォーマットリストをcodecFeatureに作成
     NVENCSTATUS setInputFormatList(NVEncCodecFeature &codecFeature);
 

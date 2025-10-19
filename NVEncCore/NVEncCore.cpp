@@ -1761,23 +1761,14 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         return RGY_ERR_UNSUPPORTED;
     }
 
-    // プロファイル/レベル/ティアの反映 (新フィールドを優先)
-    {
+    { // プロファイルの反映
         m_stEncConfig.profileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
         if (inputParam->codec_rgy == RGY_CODEC_H264) {
-            m_stEncConfig.encodeCodecConfig = DefaultParamH264();
             m_stEncConfig.profileGUID = get_guid_from_value(inputParam->h264.profile, h264_profile_names);
-            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->h264.level);
         } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
-            m_stEncConfig.encodeCodecConfig = DefaultParamHEVC();
             m_stEncConfig.profileGUID = get_guid_from_value(inputParam->hevc.profile, h265_profile_names);
-            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->hevc.level);
-            set_tier(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->hevc.tier);
         } else if (inputParam->codec_rgy == RGY_CODEC_AV1) {
-            m_stEncConfig.encodeCodecConfig = DefaultParamAV1();
             m_stEncConfig.profileGUID = get_guid_from_value(inputParam->av1.profile, av1_profile_names);
-            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->av1.level);
-            set_tier(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->av1.tier);
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -1788,8 +1779,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_WARN, _T("Selected profile is not supported, profile will be auto selected by NVENC API!\n"), get_name_from_guid(m_stEncConfig.profileGUID, get_codec_profile_list(inputParam->codec_rgy)));
     }
 
-    //プリセットのチェック
-    {
+    { //プリセットのチェック
         GUID presetGUID;
         if (m_dev->encoder()->checkAPIver(10, 0)) {
             presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver10);
@@ -1847,6 +1837,86 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     //    error_resolution_over_limit(_T("MB/s"), targetMBperSec, NV_ENC_CAPS_MB_PER_SEC_MAX);
     //    return NV_ENC_ERR_UNSUPPORTED_PARAM;
     //}
+
+    // tuneのチェック
+    if (ENABLE_NVENC_SDK_TUNE) {
+        inputParam->tuningInfo = (inputParam->tuningInfo == NV_ENC_TUNING_INFO_UNDEFINED) ? NV_ENC_TUNING_INFO_HIGH_QUALITY : inputParam->tuningInfo;
+        if (inputParam->tuningInfo == NV_ENC_TUNING_INFO_ULTRA_HIGH_QUALITY) {
+            if (!m_dev->encoder()->checkAPIver(12, 2)) {
+                PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires NVENC API 12.2.\n"));
+                inputParam->tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+            }
+            //if (inputParam->codec_rgy != RGY_CODEC_HEVC) {
+            //    PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it is only supported with HEVC encoding.\n"));
+            //    inputParam->tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+            //}
+            if (m_dev->cc().first <= 6
+                || (m_dev->cc().first == 7 && m_dev->cc().second < 5)) {
+                PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires GPUs Turing or above.\n"));
+                inputParam->tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+            }
+        }
+    } else {
+        inputParam->tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+    }
+
+    if (inputParam->ctrl.lowLatency && m_dev->encoder()->checkAPIver(10, 0)) {
+        inputParam->tuningInfo = NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY;
+    }
+
+    { // プリセットのデフォルトのロード
+        const auto profileGUID = m_stEncConfig.profileGUID;
+        GUID presetGUID;
+        if (m_dev->encoder()->checkAPIver(10, 0)) {
+            presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver10);
+        } else {
+            presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver9_2);
+        }
+        NV_ENC_PRESET_CONFIG presetConfig;
+        auto nvStatus = m_dev->encoder()->getPresetDefaultParams(m_stCodecGUID, profileGUID, presetGUID, inputParam->tuningInfo, presetConfig);
+        if (nvStatus != NV_ENC_SUCCESS) {
+            tstring presetName;
+            if (m_dev->encoder()->checkAPIver(10, 0)) {
+                presetName = get_name_from_guid(presetGUID, list_nvenc_preset_names_ver10);
+            } else {
+                presetName = get_name_from_guid(presetGUID, list_nvenc_preset_names_ver9_2);
+            }
+            PrintMes(RGY_LOG_WARN, _T("Failed to get preset default params for %s, %s, %s, tune %s: %s.\n"),
+                CodecToStr(inputParam->codec_rgy).c_str(),
+                get_name_from_guid(profileGUID, get_codec_profile_list(inputParam->codec_rgy)),
+                presetName.c_str(),
+                get_cx_desc(list_tuning_info, inputParam->tuningInfo),
+                get_err_mes(err_to_rgy(nvStatus)));
+            PrintMes(RGY_LOG_WARN, _T("Using application default params instead.\n"));
+            if (inputParam->codec_rgy == RGY_CODEC_H264) {
+                presetConfig.presetCfg.encodeCodecConfig = DefaultParamH264();
+            } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
+                presetConfig.presetCfg.encodeCodecConfig = DefaultParamHEVC();
+            } else if (inputParam->codec_rgy == RGY_CODEC_AV1) {
+                presetConfig.presetCfg.encodeCodecConfig = DefaultParamAV1();
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
+        }
+        m_stEncConfig = presetConfig.presetCfg;
+        m_stEncConfig.profileGUID = profileGUID;
+    }
+
+    { // レベル/ティアの反映
+        if (inputParam->codec_rgy == RGY_CODEC_H264) {
+            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->h264.level);
+        } else if (inputParam->codec_rgy == RGY_CODEC_HEVC) {
+            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->hevc.level);
+            set_tier(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->hevc.tier);
+        } else if (inputParam->codec_rgy == RGY_CODEC_AV1) {
+            set_level(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->av1.level);
+            set_tier(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->av1.tier);
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
 
     auto error_feature_unsupported = [&](RGYLogLevel log_level, const TCHAR *feature_name) {
         PrintMes(log_level, FOR_AUO ? _T("%sはサポートされていません。\n") : _T("%s unsupported.\n"), feature_name);
@@ -1991,7 +2061,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     if (inputParam->refL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT) {
         set_numRefL1(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->refL1);
     }
-    if (inputParam->maxRef.value_or(0) >= 0) {
+    if (inputParam->maxRef.value_or(0) > 0) {
         numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) = inputParam->maxRef.value();
     }
 
@@ -2311,31 +2381,11 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.enableWeightedPrediction = 1;
         }
     }
-    if (ENABLE_NVENC_SDK_TUNE) {
-        m_stCreateEncodeParams.tuningInfo = (inputParam->tuningInfo == NV_ENC_TUNING_INFO_UNDEFINED) ? NV_ENC_TUNING_INFO_HIGH_QUALITY : inputParam->tuningInfo;
-        if (m_stCreateEncodeParams.tuningInfo == NV_ENC_TUNING_INFO_ULTRA_HIGH_QUALITY) {
-            if (!m_dev->encoder()->checkAPIver(12, 2)) {
-                PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires NVENC API 12.2.\n"));
-                m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
-            }
-            if (inputParam->codec_rgy != RGY_CODEC_HEVC) {
-                PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it is only supported with HEVC encoding.\n"));
-                m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
-            }
-            if (m_dev->cc().first <= 6
-                || (m_dev->cc().first == 7 && m_dev->cc().second < 5)) {
-                PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires GPUs Turing or above.\n"));
-                m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
-            }
-        }
-    } else {
-        m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
-    }
+    m_stCreateEncodeParams.tuningInfo = inputParam->tuningInfo;
 
     if (inputParam->ctrl.lowLatency
         && m_dev->encoder()->checkAPIver(10, 0)) {
         m_stCreateEncodeParams.encodeConfig->rcParams.lowDelayKeyFrameScale = 1;
-        m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY;
     }
     m_stCreateEncodeParams.enableEncodeAsync   = ENABLE_ASYNC != 0;
     m_stCreateEncodeParams.enablePTD           = true;

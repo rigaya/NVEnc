@@ -62,7 +62,7 @@ const char *get_encoder_version();
 
 #define ENAVLE_LIBAV_DOVI_PARSER 0
 
-#define ENABLE_NVENC_SDK_TUNE 0
+#define ENABLE_NVENC_SDK_TUNE 1
 
 #define ENABLE_NVTX 0
 
