@@ -230,10 +230,6 @@ NV_ENC_CODEC_CONFIG DefaultParamAV1() {
     return config;
 }
 
-// DefaultParam は従来 NV_ENC_CONFIG を返していたが、
-// InEncodeVideoParam の非SDKフィールド初期化に一本化するため廃止する。
-// 既存呼び出し部は各所の初期化コードへ置換していくこと。
-
 InEncodeVideoParam::InEncodeVideoParam() :
     deviceID(-1),
     cudaSchedule(DEFAULT_CUDA_SCHEDULE),
