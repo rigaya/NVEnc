@@ -1469,7 +1469,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgNUChromaQPOffset->Value = encPrm.chromaQPOffset;
 
     //H.264
-    SetNUValue(fcgNURefFrames,    encPrm.maxRef.value_or(-1));
+    SetNUValue(fcgNURefFrames,    encPrm.maxRef.value_or(0));
     SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, encPrm.input.picstruct));
     SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            encPrm.h264.level));
     SetCXIndex(fcgCXCodecProfile, get_cx_index(h264_profile_names, encPrm.h264.profile));
@@ -1775,7 +1775,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     //H.264
     encPrm.h264.bdirect = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
-    encPrm.maxRef = (int)fcgNURefFrames->Value >= 0 ? std::optional<int>((int)fcgNURefFrames->Value) : std::nullopt;
+    encPrm.maxRef = (int)fcgNURefFrames->Value > 0 ? std::optional<int>((int)fcgNURefFrames->Value) : std::nullopt;
     encPrm.input.picstruct = (RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
     encPrm.h264.profile = h264_profile_names[fcgCXCodecProfile->SelectedIndex].value;
     encPrm.h264.adaptTrans = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;

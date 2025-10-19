@@ -290,7 +290,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     brefMode(NV_ENC_BFRAME_REF_MODE_AUTO),
     splitEncMode(NV_ENC_SPLIT_AUTO_MODE),
     bitstreamPadding(false),
-    maxRef(),
+    maxRef(DEFAULT_REF_FRAMES),
     refL0(NV_ENC_NUM_REF_FRAMES_AUTOSELECT),
     refL1(NV_ENC_NUM_REF_FRAMES_AUTOSELECT),
     slices(0),

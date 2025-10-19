@@ -3876,7 +3876,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppLibplaceboDebandLUTSize;
             // 
             this->fcgNURefFrames->Location = System::Drawing::Point(165, 524);
             this->fcgNURefFrames->Margin = System::Windows::Forms::Padding(4);
-            this->fcgNURefFrames->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { -1, 0, 0, 0 });
             this->fcgNURefFrames->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNURefFrames->Name = L"fcgNURefFrames";
             this->fcgNURefFrames->Size = System::Drawing::Size(96, 25);
