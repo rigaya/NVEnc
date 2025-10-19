@@ -58,6 +58,7 @@
   - [--cqp \<int\> or \<int\>:\<int\>:\<int\>](#--cqp-int-or-intintint)
 - [Other Options for Encoder](#other-options-for-encoder)
   - [-u, --preset](#-u---preset)
+  - [--tune \<string\>](#--tune-string)
   - [--output-depth \<int\>](#--output-depth-int)
   - [--output-csp \<string\>](#--output-csp-string)
   - [--multipass \<string\>](#--multipass-string)
@@ -597,6 +598,18 @@ Encode quality preset. P1～P7 preset is available from API v10.0.
 - P6
 - P7 (= quality)
 
+### --tune &lt;string&gt;
+
+Extra tuning option to preset.
+
+- hq (default)
+- uhq  
+  For HEVC and AV1 only, and requires Turing Gen GPU or later. 
+- lowlatency
+- ultralowlatency
+- lossless  
+  Implicitly enables [--lossless](#--lossless--h264hevc).
+
 ### --output-depth &lt;int&gt;
 Set output bit depth.
 - 8 ... 8 bits (default)
@@ -689,24 +702,30 @@ Change the rate control mode and rate control params within the specified range 
 ### --lookahead &lt;int&gt;
 Enable lookahead, and specify its target range by the number of frames. (0 - 32)  
 This is useful to improve image quality, allowing adaptive insertion of I and B frames.
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --lookahead-level &lt;int&gt;  
 Set level of lookahead, higher level may improve quality at the expense of performance. (0 - 3, default = 0)  
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --no-i-adapt
 Disable adaptive I frame insertion when lookahead is enabled.
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --no-b-adapt
 Disable adaptive B frame insertion when lookahead is enabled.
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --strict-gop
 Force fixed GOP length.
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --gop-len &lt;int&gt;
 Set maximum GOP length. When lookahead is off, this value will always be used. (Not variable, fixed GOP)
 
 ### -b, --bframes &lt;int&gt;
 Set the number of consecutive B frames.
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --ref &lt;int&gt;
 Set the reference distance (max=16).  
@@ -717,21 +736,26 @@ Set max number of reference frames in reference picture list L0/L1 (max=7). Avai
 
 ### --weightp
 Enable weighted P frames.
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --nonrefp
 enable automatic insertion of non-reference P-frames.
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --unidirectb
 Enable uni-directional B-frames (both references from the past) for low-latency use cases. It will give better compression efficiency for LowLatency/UltraLowLatency use case. Value of parameter is ignored when regular B frames are used.
 
 ### --aq
 Enable adaptive quantization in frame (spatial). (Default: off)
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --aq-temporal
 Enable adaptive quantization between frames (temporal). (Default: off)
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --aq-strength &lt;int&gt;
 Specify the AQ strength. (1 (weak) - 15 (strong), 0 = auto)
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --bref-mode &lt;string&gt;
 Specify B frame reference mode.
@@ -757,6 +781,7 @@ Enable hierarchial B frames.
 
 ### --temporal-layers &lt;int&gt;  
 Specifies number of temporal layers to be used for hierarchical coding.
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 
 ### --mv-precision &lt;string&gt;
 Motion vector accuracy / default: auto
@@ -797,6 +822,7 @@ Set alpha channel mode. (default: straight)
 
 ### --tf-level &lt;int&gt;  
 Set temporal filtering, requires bframes >= 4. (Default: 0)
+Default depends on [--preset](#-u---preset) and [--tune](#--tune-string).
 ```
   0, 4
 ```

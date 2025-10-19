@@ -1,5 +1,25 @@
 # NVEnc Release Notes
 
+## 9.05
+
+- Add option to enable unidirect B frame for lossless encoding ([--unidirectb](./NVEncC_Options.en.md#--unidirectb)).
+- Add tune option. ([--tune](./NVEncC_Options.en.md#--tune-string))
+- Change [--ref](./NVEncC_Options.en.md#--ref-int) default to 5.
+- Now defaults for options below should differ by [--preset](./NVEncC_Options.en.md#-u---preset) and [--tune](./NVEncC_Options.en.md#--tune-string).
+  - [--weightp](./NVEncC_Options.en.md#--weightp)
+  - [-b, --bframes](./NVEncC_Options.en.md#-b---bframes-int)
+  - [--strict-gop](./NVEncC_Options.en.md#--strict-gop)
+  - [--no-i-adapt](./NVEncC_Options.en.md#--no-i-adapt)
+  - [--no-b-adapt](./NVEncC_Options.en.md#--no-b-adapt)
+  - [--aq](./NVEncC_Options.en.md#--aq)
+  - [--aq-temporal](./NVEncC_Options.en.md#--aq-temporal)
+  - [--aq-strength](./NVEncC_Options.en.md#--aq-strength-int)
+  - [--nonrefP](./NVEncC_Options.en.md#--nonrefp)
+  - [--lookahead](./NVEncC_Options.en.md#--lookahead-int)
+  - [--lookahead-level](./NVEncC_Options.en.md#--lookahead-level-int)
+  - [--tf-level](./NVEncC_Options.en.md#--tf-level-int)
+  - [--temporal-layers](./NVEncC_Options.en.md#--temporal-layers-int)
+
 ## 9.04
 
 - Improve DX11 device initialization to not detect virtual/remote adaptors. ( #725 )
