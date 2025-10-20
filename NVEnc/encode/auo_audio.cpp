@@ -37,6 +37,7 @@
 #include <fcntl.h>
 #include <io.h>
 #include <mutex>
+#include <thread>
 
 #include "auo.h"
 #include "auo_version.h"
@@ -217,7 +218,8 @@ int check_audio_length(OUTPUT_INFO *oip, double av_length_threshold) {
 
 static bool need_r64(int sample_n, const int audio_ch, BOOL use_8bit, int audio_format = 1) {
     const int   size = (use_8bit) ? sizeof(BYTE) : ((audio_format == 3) ? sizeof(float) : sizeof(short));
-    const uint64_t riff_file_length = (uint64_t)sample_n * (size * audio_ch) + WAVE_HEADER_SIZE - 8;
+    const uint32_t fact_chunk_bytes = (audio_format == 3) ? (8 + 4) : 0; // 'fact' header(8) + body(4)
+    const uint64_t riff_file_length = (uint64_t)sample_n * (size * audio_ch) + (WAVE_HEADER_SIZE + fact_chunk_bytes) - 8;
     return riff_file_length > std::numeric_limits<uint32_t>::max();
 }
 
@@ -227,11 +229,13 @@ static uint32_t build_wave_header(BYTE *head, const int audio_ch, const int audi
     static const char * const WAVE_HEADER = "WAVE";
     static const char * const DS64_CHUNK = "ds64";
     static const char * const FMT_CHUNK = "fmt ";
+    static const char * const FACT_CHUNK = "fact";
     static const char * const DATA_CHUNK = "data";
     const DWORD FMT_SIZE = 16;
     const short FMT_ID = (audio_format == 3) ? 3 : 1; // IEEE_FLOAT or PCM
     const int   size = (use_8bit) ? sizeof(BYTE) : ((audio_format == 3) ? sizeof(float) : sizeof(short));
-    const uint64_t riff_file_length = (uint64_t)sample_n * (size * audio_ch) + WAVE_HEADER_SIZE - 8;
+    const uint32_t fact_chunk_bytes = (audio_format == 3) ? (4/*'fact'*/ + 4/*size*/ + 4/*dwSampleLength*/) : 0;
+    const uint64_t riff_file_length = (uint64_t)sample_n * (size * audio_ch) + (WAVE_HEADER_SIZE + fact_chunk_bytes) - 8;
     const bool rf64 = enable_rf64 && need_r64(sample_n, audio_ch, use_8bit, audio_format);
     const uint64_t file_length = riff_file_length + ((rf64) ? DS64_SIZE + 8/*DS64_HEADER*/ : 0);
 
@@ -256,6 +260,12 @@ static uint32_t build_wave_header(BYTE *head, const int audio_ch, const int audi
     *(DWORD*)(head + offset) = audio_rate * audio_ch * size; offset += 4;
     *(short*)(head + offset) = (short)(size * audio_ch); offset += 2;
     *(short*)(head + offset) = (short)(size * 8); offset += 2;
+    if (audio_format == 3) {
+        // Add 'fact' chunk for non-PCM (IEEE float)
+        memcpy(head + offset, FACT_CHUNK, strlen(FACT_CHUNK)); offset += 4;
+        *(DWORD*)(head + offset) = 4; offset += 4; // chunk size
+        *(DWORD*)(head + offset) = (DWORD)sample_n; offset += 4; // dwSampleLength (per channel sample frames)
+    }
     memcpy(head + offset, DATA_CHUNK, strlen(DATA_CHUNK)); offset += 4;
     *(DWORD*)(head + offset) = rf64 ? 0xffffffff : sample_n * (size * audio_ch); offset += 4;
     return offset;
@@ -266,21 +276,28 @@ static uint32_t build_wave_header(BYTE *head, const OUTPUT_INFO *oip, BOOL use_8
     return build_wave_header(head, oip->audio_ch, oip->audio_rate, use_8bit, sample_n, enable_rf64, audio_format);
 }
 
-static void correct_header(FILE *f_out, int samples_read, uint64_t data_size64, BOOL use_rf64) {
+static void correct_header(FILE *f_out, int samples_read, uint64_t data_size64, BOOL use_rf64, int audio_format = 1) {
     //2箇所の出力データサイズ部分を書き換え
     if (use_rf64) {
-        uint64_t riff_size64 = data_size64 + (WAVE_SIZE_POS + DS64_SIZE+8/*DS64_HEADER*/ - RIFF_SIZE_POS);
+        // riff_size64 = data_size + ((WAVE_HEADER_SIZE - 8) + (audio_format==3?fact(12):0) + (DS64 header 8 + DS64_SIZE))
+        const uint64_t fact_add = (audio_format == 3) ? (uint64_t)(8 + 4) : 0; // 'fact' header(8) + body(4)
+        uint64_t riff_size64 = data_size64 + (uint64_t)(WAVE_HEADER_SIZE - 8) + fact_add + (uint64_t)(DS64_SIZE + 8);
         uint64_t samples_read64 = samples_read;
         _fseeki64(f_out, 20, SEEK_SET);
         fwrite(&riff_size64, sizeof(uint64_t), 1, f_out);
         fwrite(&data_size64, sizeof(uint64_t), 1, f_out);
         fwrite(&samples_read64, sizeof(uint64_t), 1, f_out);
     } else {
+        // Recalculate positions considering optional 'fact' chunk when audio_format==3
+        const uint32_t base_after_riff = 12; // 'RIFF'(4) + size(4) + 'WAVE'(4)
+        const uint32_t fmt_chunk_total = 8 + 16; // header + body
+        const uint32_t fact_chunk_total = (audio_format == 3) ? (8 + 4) : 0;
+        const uint32_t data_size_pos = base_after_riff + fmt_chunk_total + fact_chunk_total + 4; // position of data chunk size field
         uint32_t data_size32 = (uint32_t)data_size64;
-        uint32_t riff_size32 = data_size32 + (WAVE_SIZE_POS - RIFF_SIZE_POS);
+        uint32_t riff_size32 = data_size32 + (data_size_pos - RIFF_SIZE_POS);
         _fseeki64(f_out, RIFF_SIZE_POS, SEEK_SET);
         fwrite(&riff_size32, sizeof(uint32_t), 1, f_out);
-        _fseeki64(f_out, WAVE_SIZE_POS - RIFF_SIZE_POS, SEEK_CUR);
+        _fseeki64(f_out, data_size_pos - RIFF_SIZE_POS, SEEK_CUR);
         fwrite(&data_size32, sizeof(uint32_t), 1, f_out);
     }
 }
@@ -300,6 +317,8 @@ typedef struct {
     PIPE_SET pipes;
     PROCESS_INFORMATION pi_aud;
     LOG_CACHE log_line_cache;
+    bool log_thread_running;
+    std::thread log_thread;
 } aud_data_t;
 
 static size_t write_file(aud_data_t *aud_dat, const PRM_ENC *pe, const void *buf, size_t size) {
@@ -322,7 +341,8 @@ static size_t write_file(aud_data_t *aud_dat, const PRM_ENC *pe, const void *buf
 }
 
 static void write_wav_header(aud_data_t *aud_dat, const OUTPUT_INFO *oip, const PRM_ENC *pe, BOOL use_8bit, BOOL enable_rf64, int audio_format = 1) {
-    BYTE head[WAVE_HEADER_SIZE + DS64_SIZE + 8/*DS64_HEADER*/] = { 0 };
+    // add +12 for optional 'fact' chunk when audio_format==3
+    BYTE head[WAVE_HEADER_SIZE + DS64_SIZE + 8/*DS64_HEADER*/ + 12/*FACT*/] = { 0 };
     auto size = build_wave_header(head, oip, use_8bit, oip->audio_n, enable_rf64, audio_format);
     write_file(aud_dat, pe, &head, size);
 }
@@ -474,6 +494,20 @@ static AUO_RESULT wav_file_open(aud_data_t *aud_dat, const OUTPUT_INFO *oip, con
             aud_dat->fp_out = aud_dat->pipes.f_stdin;
             while (WaitForInputIdle(aud_dat->pi_aud.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT)
                 log_process_events();
+            // start background log draining to avoid pipe deadlock
+            aud_dat->log_thread_running = true;
+            aud_dat->log_thread = std::thread([aud_dat, auddispname]() {
+                // drain both stdout/stderr via ReadLogExe periodically until process exits or stop requested
+                while (aud_dat->log_thread_running) {
+                    int drained = ReadLogExe(&aud_dat->pipes, auddispname, &aud_dat->log_line_cache);
+                    if (drained == 0) {
+                        // check if process is still alive; if not, break
+                        DWORD wait = WaitForSingleObject(aud_dat->pi_aud.hProcess, 0);
+                        if (wait != WAIT_TIMEOUT) break;
+                        Sleep(1);
+                    }
+                }
+            });
         }
     } else if (_tfopen_s(&aud_dat->fp_out, aud_dat->wavfile, _T("wbS"))) {
         ret |= AUO_RESULT_ERROR; error_open_wavfile();
@@ -491,10 +525,16 @@ static AUO_RESULT wav_file_close(aud_data_t *aud_dat, const OUTPUT_INFO *oip, in
 
     //終了処理
     if (!use_pipe && oip->audio_n != samples_read)
-        correct_header(aud_dat->fp_out, samples_read, (uint64_t)samples_read * wav_sample_size, enable_rf64 && need_r64(oip->audio_n, oip->audio_ch, wav_8bit, audio_format));
+        correct_header(aud_dat->fp_out, samples_read, (uint64_t)samples_read * wav_sample_size, enable_rf64 && need_r64(oip->audio_n, oip->audio_ch, wav_8bit, audio_format), audio_format);
 
     //ファイルを閉じる
     (use_pipe) ? CloseStdIn(&aud_dat->pipes) : fclose(aud_dat->fp_out);
+
+    // 停止指示とjoin（バックグラウンドログスレッド）
+    if (aud_dat->log_thread.joinable()) {
+        aud_dat->log_thread_running = false;
+        aud_dat->log_thread.join();
+    }
 
     //wavファイル出力が成功したか確認
     if (!use_pipe && !FileExistsAndHasSize(aud_dat->wavfile)) {
@@ -582,7 +622,7 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
             samples_read += samples_get;
             set_log_progress(samples_read / (double)oip->audio_n);
 
-            while (0 < ReadLogExe(&aud_dat->pipes, nullptr, &aud_dat->log_line_cache));
+            // メインループではログはバックグラウンドでドレイン済み
 
             if (wav_8bit)
                 audio_16to8(buf8bit, (short*)audio_dat, samples_get * oip->audio_ch);
@@ -664,10 +704,14 @@ static AUO_RESULT audio_run_enc_wavfile(aud_data_t *aud_dat, const AUDIO_SETTING
 static AUO_RESULT audio_finish_enc(AUO_RESULT ret, aud_data_t *aud_dat, const AUDIO_SETTINGS *aud_stg) {
     if (!ret && str_has_char(aud_stg->filename)) {
         while (WaitForSingleObject(aud_dat->pi_aud.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT) {
-            if (0 == ReadLogExe(&aud_dat->pipes, aud_stg->dispname, &aud_dat->log_line_cache))
-                log_process_events();
+            // 背景でドレイン中。イベントだけ処理
+            log_process_events();
         }
-        //最後のメッセージを回収
+        // バックグラウンドを停止してjoin後、最後のメッセージを回収
+        if (aud_dat->log_thread.joinable()) {
+            aud_dat->log_thread_running = false;
+            aud_dat->log_thread.join();
+        }
         while (ReadLogExe(&aud_dat->pipes, aud_stg->dispname, &aud_dat->log_line_cache) > 0);
 
         uint64_t audfilesize = 0;
