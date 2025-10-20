@@ -74,7 +74,7 @@ NVEncRCParam::NVEncRCParam() :
 // Codec specific param structs default ctor
 // -----------------------------------------------------------------------------
 NVEncVideoParamH264::NVEncVideoParamH264() :
-    profile(get_value_from_guid(NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, h264_profile_names)),
+    profile(get_value_from_guid(NV_ENC_H264_PROFILE_HIGH_GUID, h264_profile_names)),
     level(NV_ENC_LEVEL_AUTOSELECT),
     bdirect(NV_ENC_H264_BDIRECT_MODE_AUTOSELECT),
     adaptTrans(NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT),
