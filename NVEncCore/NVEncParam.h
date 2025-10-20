@@ -54,6 +54,7 @@ static const int MAX_DECODE_FRAMES = 16;
 
 static const int DEFAULT_GOP_LENGTH  = 0;
 static const int DEFAULT_B_FRAMES    = 3;
+static const int DEFAULT_REF_FRAMES_H264 = 4;
 static const int DEFAULT_REF_FRAMES  = 5;
 static const int DEFAULT_NUM_SLICES  = 1;
 static const int DEFAUTL_QP_I        = 20;

@@ -2061,9 +2061,8 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
     if (inputParam->refL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT) {
         set_numRefL1(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy, inputParam->refL1);
     }
-    if (inputParam->maxRef.value_or(0) > 0) {
-        numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) = inputParam->maxRef.value();
-    }
+    numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy)
+        = inputParam->maxRef.value_or((inputParam->codec_rgy == RGY_CODEC_H264) ? DEFAULT_REF_FRAMES_H264 : DEFAULT_REF_FRAMES);
 
     if (  (    get_numRefL0(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
             || get_numRefL1(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)) {
@@ -2275,6 +2274,14 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
                         }
                     }
                 }
+            }
+        } else if (is_interlaced(m_stPicStruct) && inputParam->codec_rgy == RGY_CODEC_H264) {
+            // インタレ保持の場合 Level4.2が上限であり、特別にチェックが必要
+            const int maxInterlacedLevel = 42;
+            const int maxRef = codecLevel->get_max_ref(m_uEncWidth, m_uEncHeight, maxInterlacedLevel, codecProfile);
+            if ((int)numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) > maxRef) {
+                PrintMes(inputParam->maxRef.has_value() ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("Ref frames is lowered %d -> %d due to level %s restriction.\n"), numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy), maxRef, get_codec_level_name(inputParam->codec_rgy, level).c_str());
+                numRefFrames(m_stEncConfig.encodeCodecConfig, inputParam->codec_rgy) = maxRef;
             }
         }
     }
@@ -4174,8 +4181,8 @@ RGY_ERR NVEncCore::InitSsimFilter(const InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("GPU #%d (%s) does not support %s decoding required for ssim/psnr/vmaf calculation.\n"), m_dev->id(), m_dev->name().c_str(), CodecToStr(inputParam->codec_rgy).c_str());
             return RGY_ERR_DEVICE_NOT_FOUND;
         }
-        const auto targetInfo = videooutputinfo(m_stCodecGUID, GetEncBufferFormat(inputParam),
-            m_uEncWidth, m_uEncHeight, false,
+        const auto targetInfo = videooutputinfo(m_stCodecGUID, GetEncBufferFormat(inputParam), false,
+            m_uEncWidth, m_uEncHeight,
             &m_stEncConfig, m_stPicStruct,
             std::make_pair(m_sar.n(), m_sar.d()),
             m_encFps);
