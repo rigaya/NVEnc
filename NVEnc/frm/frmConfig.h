@@ -3897,7 +3897,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppLibplaceboDebandLUTSize;
             // 
             this->fcgNUBframes->Location = System::Drawing::Point(165, 459);
             this->fcgNUBframes->Margin = System::Windows::Forms::Padding(4);
-            this->fcgNUBframes->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { -1, 0, 0, 0 });
+            this->fcgNUBframes->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, System::Int32::MinValue });
             this->fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNUBframes->Name = L"fcgNUBframes";
             this->fcgNUBframes->Size = System::Drawing::Size(96, 25);
@@ -4793,7 +4793,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppLibplaceboDebandLUTSize;
             // 
             this->fcgNUSlices->Location = System::Drawing::Point(162, 351);
             this->fcgNUSlices->Margin = System::Windows::Forms::Padding(4);
-            this->fcgNUSlices->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUSlices->Name = L"fcgNUSlices";
             this->fcgNUSlices->Size = System::Drawing::Size(88, 25);
             this->fcgNUSlices->TabIndex = 21;
