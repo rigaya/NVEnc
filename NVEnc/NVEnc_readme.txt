@@ -213,6 +213,26 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2025.10.22 (9.05)
+- lossless用に単方向Bフレームを有効化するオプションを追加 (--unidirectb)。
+- tuneオプションを追加 (--tune)。
+- --refのデフォルト値を4(H.264)/5(HEVC,AV1)に変更。
+- 以下のオプションのデフォルト値を--presetと--tuneにより変更するように。
+   - --weightp
+   - --bframes
+   - --strict-gop
+   - --no-i-adapt
+   - --no-b-adapt
+   - --aq
+   - --aq-temporal
+   - --aq-strength
+   - --nonrefP
+   - --lookahead
+   - --lookahead-level
+   - --tf-level
+   - --temporal-layers
+- 10bit深度でエンコードできないGPUで、8bitにfallbackするオプションを追加。(--fallback-bitdepth)
+
 2025.09.29 (9.04)
 - DirectX11でのデバイス初期化を改良し、リモートデスクトップなどでつないだ時に生じる仮想アダプタを認識しないように変更。
 - --parallelでの進捗表示を改善。

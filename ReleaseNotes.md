@@ -4,7 +4,7 @@
 
 - Add option to enable unidirect B frame for lossless encoding ([--unidirectb](./NVEncC_Options.en.md#--unidirectb)).
 - Add tune option. ([--tune](./NVEncC_Options.en.md#--tune-string))
-- Change [--ref](./NVEncC_Options.en.md#--ref-int) default to 5.
+- Change [--ref](./NVEncC_Options.en.md#--ref-int) default to 4(H.264)/5(HEVC,AV1).
 - Now defaults for options below should differ by [--preset](./NVEncC_Options.en.md#-u---preset) and [--tune](./NVEncC_Options.en.md#--tune-string).
   - [--weightp](./NVEncC_Options.en.md#--weightp)
   - [-b, --bframes](./NVEncC_Options.en.md#-b---bframes-int)
@@ -19,6 +19,7 @@
   - [--lookahead-level](./NVEncC_Options.en.md#--lookahead-level-int)
   - [--tf-level](./NVEncC_Options.en.md#--tf-level-int)
   - [--temporal-layers](./NVEncC_Options.en.md#--temporal-layers-int)
+- Add option to fallback to 8bit encoding when 10bit encoding is not supported by the hardware.([--fallback-bitdepth](./NVEncC_Options.en.md#--fallback-bitdepth))
 
 ## 9.04
 
