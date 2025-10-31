@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.06
+
+- Fix --vpp-resize bilinear,spline*,lanczos* creating artifacts depending on resize ratio. ( #698, #737 )
+
 ## 9.05
 
 - Add option to enable unidirect B frame for lossless encoding ([--unidirectb](./NVEncC_Options.en.md#--unidirectb)).

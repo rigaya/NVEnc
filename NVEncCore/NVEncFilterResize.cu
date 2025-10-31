@@ -188,7 +188,7 @@ template<int radius>
 __inline__ __device__
 float factor_bilinear(const float x) {
     if (fabs(x) >= (float)radius) return 0.0f;
-    return 1.0f - x * (1.0f / radius);
+    return 1.0f - fabs(x) * (1.0f / radius);
 }
 
 template<int radius>
@@ -278,6 +278,12 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
     float *weightXshared = shared;
     float *weightYshared = weightXshared + shared_weightXdim * block_x;
     float *psCopyFactor  = weightYshared + shared_weightYdim * block_y;
+    // 事前計算した srcFirst/srcEnd を shared に保持して使用側で再計算を避ける
+    int *metaBase = (int*)(psCopyFactor + ((algo == WEIGHT_SPLINE) ? radius * 4 : 0));
+    int *srcFirstXArr = metaBase;
+    int *srcEndXArr   = srcFirstXArr + block_x;
+    int *srcFirstYArr = srcEndXArr + block_x;
+    int *srcEndYArr   = srcFirstYArr + block_y;
     static_assert(block_x % 4 == 0 && block_y % 4 == 0, "block_x & block_y must be able to be divided by 4 to ensure psCopyFactor can be accessed by float4.");
 
     if (algo == WEIGHT_SPLINE) {
@@ -296,6 +302,8 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
         const float srcX = ((float)(dstX + 0.5f)) * ratioInvX;
         const int srcFirstX = max(0, (int)floorf(srcX - srcWindowX));
         const int srcEndX = min(srcWidth - 1, (int)ceilf(srcX + srcWindowX));
+        srcFirstXArr[threadIdx.x] = srcFirstX;
+        srcEndXArr[threadIdx.x]   = srcEndX;
         calc_weight<radius, algo>(weightXshared + threadIdx.x * shared_weightXdim, srcX, srcFirstX, srcEndX, ratioClampedX, psCopyFactor);
 
         if (threadIdx.x < block_y) {
@@ -305,6 +313,8 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
             const float srcY = ((float)(dstY + 0.5f)) * ratioInvY;
             const int srcFirstY = max(0, (int)floorf(srcY - srcWindowY));
             const int srcEndY = min(srcHeight - 1, (int)ceilf(srcY + srcWindowY));
+            srcFirstYArr[thready] = srcFirstY;
+            srcEndYArr[thready]   = srcEndY;
             calc_weight<radius, algo>(weightYshared + thready * shared_weightYdim, srcY, srcFirstY, srcEndY, ratioClampedY, psCopyFactor);
         }
     }
@@ -319,13 +329,13 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
         //const float y = ((float)iy + 0.5f) * ratioY;
 
         const float srcX = ((float)(ix + 0.5f)) * ratioInvX;
-        const int srcFirstX = max(0, (int)floorf(srcX - srcWindowX));
-        const int srcEndX = min(srcWidth - 1, (int)ceilf(srcX + srcWindowX));
+        const int srcFirstX = srcFirstXArr[threadIdx.x];
+        const int srcEndX = srcEndXArr[threadIdx.x];
         const float *weightX = weightXshared + threadIdx.x * shared_weightXdim;
 
         const float srcY = ((float)(iy + 0.5f)) * ratioInvY;
-        const int srcFirstY = max(0, (int)floorf(srcY - srcWindowY));
-        const int srcEndY = min(srcHeight - 1, (int)ceilf(srcY + srcWindowY));
+        const int srcFirstY = srcFirstYArr[threadIdx.y];
+        const int srcEndY = srcEndYArr[threadIdx.y];
         const float *weightY = weightYshared + threadIdx.y * shared_weightYdim;
 
         const uint8_t *srcLine = pSrc + srcFirstY * srcPitch + srcFirstX * sizeof(Type);
@@ -342,8 +352,8 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
             }
         }
 
-        Type* ptr = (Type*)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)clamp(clr / weightSum, 0.0f, (1 << bit_depth) - 0.1f);
+		Type* ptr = (Type*)(pDst + iy * dstPitch + ix * sizeof(Type));
+		ptr[0] = (Type)clamp(clr / weightSum, 0.0f, (1 << bit_depth) - 0.1f);
     }
 }
 
@@ -355,17 +365,24 @@ void resize_plane(uint8_t *pDst, const int dstPitch, const int dstWidth, const i
     const float ratioClampedX = min(ratioX, 1.0f);
     const float srcWindowX = radius / ratioClampedX;
 
-    const int shared_weightXdim = (((int)ceil(srcWindowX) + 1) * 2);
+    // 最大寄与数は n_max = 2 * ceil(srcWindow) + 2。
+    // さらに float4 アクセス時の整列を保証するため、4 の倍数に切り上げる。
+    const int shared_weightXdim_raw = (((int)ceilf(srcWindowX) + 1) * 2);
+    const int shared_weightXdim = (shared_weightXdim_raw + 3) & ~3;
     const int shared_weightX = RESIZE_BLOCK_X * shared_weightXdim;
 
     const float ratioY = (float)(dstHeight) / srcHeight;
     const float ratioClampedY = min(ratioY, 1.0f);
     const float srcWindowY = radius / ratioClampedY;
 
-    const int shared_weightYdim = (((int)ceil(srcWindowY) + 1) * 2);
+    // Y 方向も同様に 4 の倍数に切り上げ
+    const int shared_weightYdim_raw = (((int)ceilf(srcWindowY) + 1) * 2);
+    const int shared_weightYdim = (shared_weightYdim_raw + 3) & ~3;
     const int shared_weightY = RESIZE_BLOCK_Y * shared_weightYdim;
 
-    const int shared_size_byte = (shared_weightX + shared_weightY + ((algo == WEIGHT_SPLINE) ? radius * 4 : 0)) * sizeof(float);
+    const int meta_ints = (RESIZE_BLOCK_X * 2) + (RESIZE_BLOCK_Y * 2);
+    const int shared_size_byte = (shared_weightX + shared_weightY + ((algo == WEIGHT_SPLINE) ? radius * 4 : 0)) * sizeof(float)
+        + meta_ints * (int)sizeof(int);
 
     dim3 blockSize(RESIZE_BLOCK_X, RESIZE_BLOCK_Y);
     dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
