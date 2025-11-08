@@ -963,6 +963,9 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             prm_buf = unique_ptr<char, RGYAVDeleter<void>>(buf, RGYAVDeleter<void>(av_freep));
             AddMessage(RGY_LOG_DEBUG, _T("video encoder prm: %s\n"), char_to_tstring(prm_buf.get() ? prm_buf.get() : "default").c_str());
         }
+
+        // エンコーダにextradataを設定させるのに必要
+        m_Mux.video.rawVideoCodecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
         
         // raw video encoderを開く
         if (avcodec_open2(m_Mux.video.rawVideoCodecCtx.get(), m_Mux.video.rawVideoCodec, &videoCodecPrmDict) < 0) {
@@ -2709,24 +2712,31 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataAV1(const RGYBitstream *bitstream)
 }
 
 RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
-    if (m_Mux.video.streamOut && bitstream) {
-        RGY_ERR sts = RGY_ERR_NONE;
-        switch (m_Mux.video.streamOut->codecpar->codec_id) {
-        case AV_CODEC_ID_H264:
-            sts = AddHeaderToExtraDataH264(bitstream);
-            break;
-        case AV_CODEC_ID_HEVC:
-            sts = AddHeaderToExtraDataHEVC(bitstream);
-            break;
-        case AV_CODEC_ID_AV1:
-            sts = AddHeaderToExtraDataAV1(bitstream);
-            break;
-        default:
-            break;
-        }
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to parse %s header.\n"), char_to_tstring(avcodec_get_name(m_Mux.video.streamOut->codecpar->codec_id)).c_str());
-            return sts;
+    if (m_Mux.video.streamOut) {
+        if (bitstream) {
+            RGY_ERR sts = RGY_ERR_NONE;
+            switch (m_Mux.video.streamOut->codecpar->codec_id) {
+            case AV_CODEC_ID_H264:
+                sts = AddHeaderToExtraDataH264(bitstream);
+                    break;
+            case AV_CODEC_ID_HEVC:
+                sts = AddHeaderToExtraDataHEVC(bitstream);
+                    break;
+            case AV_CODEC_ID_AV1:
+                sts = AddHeaderToExtraDataAV1(bitstream);
+                break;
+            default:
+                break;
+            }
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to parse %s header.\n"), char_to_tstring(avcodec_get_name(m_Mux.video.streamOut->codecpar->codec_id)).c_str());
+                return sts;
+            }
+        } else if (m_Mux.video.rawVideoCodecCtx && m_Mux.video.rawVideoCodecCtx->extradata) {
+            // エンコード時はここでextradataをコピーする
+            m_Mux.video.streamOut->codecpar->extradata = (uint8_t *)av_mallocz(m_Mux.video.rawVideoCodecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+            m_Mux.video.streamOut->codecpar->extradata_size = m_Mux.video.rawVideoCodecCtx->extradata_size;
+            memcpy(m_Mux.video.streamOut->codecpar->extradata, m_Mux.video.rawVideoCodecCtx->extradata, m_Mux.video.rawVideoCodecCtx->extradata_size);
         }
     }
 
@@ -3462,7 +3472,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketRawVideo(AVPacket *pkt, int64_t *writte
     const int pktSize = pkt->size;
     const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
     pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
-    pkt->flags |= AV_PKT_FLAG_KEY;
+    if (m_Mux.format.formatCtx->video_codec_id == AV_CODEC_ID_RAWVIDEO) {
+        pkt->flags |= AV_PKT_FLAG_KEY;
+    }
     pkt->stream_index = m_Mux.video.streamOut->index;
     pkt->pos = -1;
     if (writtenDts) {
