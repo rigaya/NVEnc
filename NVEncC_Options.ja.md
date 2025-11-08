@@ -21,6 +21,7 @@
   - [--check-device](#--check-device)
   - [--check-hw \[\<int\>\]](#--check-hw-int)
   - [--check-features \[\<int\>\]](#--check-features-int)
+  - [--check-preset-params](#--check-preset-params)
   - [--check-environment](#--check-environment)
   - [--check-codecs, --check-decoders, --check-encoders](#--check-codecs---check-decoders---check-encoders)
   - [--check-profiles \<string\>](#--check-profiles-string)
@@ -371,6 +372,9 @@ NVEncが認識している利用可能なGPUのDeviceIdを表示
 
 ### --check-features [&lt;int&gt;]
 NVEncの使用可能なエンコード機能を表示する。数字でDeviceIDを指定できる。省略した場合は"0"。
+
+### --check-preset-params
+--codec, --device, --preset, --tune と組み合わせて、ドライバが設定するパラメータのデフォルト値を表示する。
 
 ### --check-environment
 NVEncCの認識している環境情報を表示

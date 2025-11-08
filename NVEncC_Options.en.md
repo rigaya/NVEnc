@@ -23,6 +23,7 @@
   - [--check-device](#--check-device)
   - [--check-hw \[\<int\>\]](#--check-hw-int)
   - [--check-features \[\<int\>\]](#--check-features-int)
+  - [--check-preset-params](#--check-preset-params)
   - [--check-environment](#--check-environment)
   - [--check-codecs, --check-decoders, --check-encoders](#--check-codecs---check-decoders---check-encoders)
   - [--check-profiles \<string\>](#--check-profiles-string)
@@ -355,6 +356,9 @@ Check whether the specified device is able to run NVEnc. DeviceID: "0" will be c
 
 ### --check-features [&lt;int&gt;]
 Show the information of features of the specified device. DeviceID: "0" will be checked if not specified.
+
+### --check-preset-params
+Show preset and tune params. shall be used with --codec, --device, --preset and --tune.
 
 ### --check-environment
 Show environment information recognized by NVEncC

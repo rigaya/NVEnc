@@ -399,6 +399,8 @@ public:
     RGY_ERR ShowDeviceList(const int cudaSchedule, const bool skipHWDecodeCheck);
     RGY_ERR ShowCodecSupport(const int cudaSchedule, const bool skipHWDecodeCheck);
     RGY_ERR ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDecodeCheck);
+    RGY_ERR ShowNVEncPresetTuneParams(const int cudaSchedule, const bool skipHWDecodeCheck,
+        const RGY_CODEC codec, const int profile, const int preset, const NV_ENC_TUNING_INFO tuningInfo);
 
 protected:
     //既定の出力先に情報をメッセージを出力

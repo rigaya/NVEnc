@@ -1580,6 +1580,334 @@ RGY_ERR NVEncCtrl::ShowNVEncFeatures(const int cudaSchedule, const bool skipHWDe
     return sts;
 }
 
+RGY_ERR NVEncCtrl::ShowNVEncPresetTuneParams(const int cudaSchedule, const bool skipHWDecodeCheck,
+    const RGY_CODEC codec, const int profile, const int preset, const NV_ENC_TUNING_INFO tuningInfo) {
+    RGY_ERR sts = RGY_ERR_NONE;
+    std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
+    if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, cudaSchedule, true, RGYParamInitVulkan::TargetVendor, skipHWDecodeCheck, false))) {
+        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
+        return sts;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+
+    auto gpu = std::find_if(gpuList.begin(), gpuList.end(), [device_id = m_nDeviceId](const std::unique_ptr<NVGPUInfo> &gpuinfo) {
+        return gpuinfo->id() == device_id;
+        });
+    if (gpu == gpuList.end()) {
+        PrintMes(RGY_LOG_ERROR, _T("Selected device #%d not found\n"), m_nDeviceId);
+        return RGY_ERR_INVALID_DEVICE;
+    }
+
+    // codec, presetGUID, tuningInfoから、presetConfigを取得
+    const GUID codecGUID = codec_guid_rgy_to_enc(codec);
+
+    // デバイスのコーデック対応チェック
+    const auto &nvCaps = (*gpu)->nvenc_codec_features();
+    auto codecIt = std::find_if(nvCaps.begin(), nvCaps.end(), [&](const NVEncCodecFeature &c) { return memcmp(&c.codec, &codecGUID, sizeof(GUID)) == 0; });
+    if (codecIt == nvCaps.end()) {
+        _ftprintf(stdout, _T("Selected codec %s is not supported on device #%d.\n"), get_name_from_guid(codecGUID, list_nvenc_codecs), m_nDeviceId);
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    GUID profileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
+    { // プロファイルの反映
+        profileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
+        if (codec == RGY_CODEC_H264) {
+            profileGUID = get_guid_from_value(profile, h264_profile_names);
+        } else if (codec == RGY_CODEC_HEVC) {
+            profileGUID = get_guid_from_value(profile, h265_profile_names);
+        } else if (codec == RGY_CODEC_AV1) {
+            profileGUID = get_guid_from_value(profile, av1_profile_names);
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
+    if (!codecIt->checkProfileSupported(profileGUID)) {
+        profileGUID = NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID;
+        PrintMes(RGY_LOG_WARN, _T("Selected profile is not supported, profile will be auto selected by NVENC API!\n"), get_name_from_guid(profileGUID, get_codec_profile_list(codec)));
+    }
+
+    // エンコーダセッション開始 (プリセット取得に必要)
+    if (RGY_ERR_NONE != (sts = (*gpu)->initEncoder())) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to init encoder session.\n"));
+        return sts;
+    }
+    auto enc = (*gpu)->encoder();
+    GUID presetGUID = {};
+    if (enc->checkAPIver(10, 0)) {
+        presetGUID = get_guid_from_value(preset, list_nvenc_preset_names_ver10);
+    } else {
+        presetGUID = get_guid_from_value(preset, list_nvenc_preset_names_ver9_2);
+    }
+    if (!codecIt->checkPresetSupported(presetGUID)) {
+        _ftprintf(stdout, _T("Selected preset %s is not supported for codec %s on device #%d.\n"),
+            ((*gpu)->encoder() && (*gpu)->encoder()->checkAPIver(10, 0)) ? get_name_from_guid(presetGUID, list_nvenc_preset_names_ver10) : get_name_from_guid(presetGUID, list_nvenc_preset_names_ver9_2),
+            get_name_from_guid(codecGUID, list_nvenc_codecs), m_nDeviceId);
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    // 比較表示ヘルパ
+    auto to_hex_guid = [](const GUID& g) -> tstring {
+        return strsprintf(_T("{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}"),
+            g.Data1, g.Data2, g.Data3,
+            g.Data4[0], g.Data4[1], g.Data4[2], g.Data4[3], g.Data4[4], g.Data4[5], g.Data4[6], g.Data4[7]);
+    };
+    auto to_str_guid_profile = [&](const GUID& g) -> tstring {
+        const auto *name = get_name_from_guid(g, get_codec_profile_list(codec));
+        if (_tcscmp(name, _T("Unknown")) != 0) return tstring(name);
+        return to_hex_guid(g);
+    };
+
+    // 1行マクロ (整数/enum想定)
+    #define COMPARE_VAL(member) do { \
+        if (presetBefore.member != presetAfter.member) { \
+            _ftprintf(stdout, _T("  %s: %d\n"), _T(#member), (int)(presetAfter.member)); \
+        } \
+    } while(0)
+    // GUID用
+    #define COMPARE_GUID(member) do { \
+        if (memcmp(&(presetBefore.member), &(presetAfter.member), sizeof(presetAfter.member)) != 0) { \
+            _ftprintf(stdout, _T("  %s: %s\n"), _T(#member), to_str_guid_profile(presetAfter.member).c_str()); \
+        } \
+    } while(0)
+
+    // 文字列表示用 (一般)
+    #define COMPARE_VAL_STR_GEN(member, list) do { \
+        if (presetBefore.member != presetAfter.member) { \
+            _ftprintf(stdout, _T("  %s: %s\n"), _T(#member), get_cx_desc(list, (int)presetAfter.member)); \
+        } \
+    } while(0)
+
+    // 取得前(バージョンのみ設定)
+    NV_ENC_PRESET_CONFIG presetBefore = { 0 };
+    enc->setStructVer(presetBefore);
+    enc->setStructVer(presetBefore.presetCfg);
+    enc->setStructVer(presetBefore.presetCfg.rcParams);
+
+    // 取得後
+    NV_ENC_PRESET_CONFIG presetAfter = presetBefore;
+    auto nvsts = enc->getPresetDefaultParams(codecGUID, profileGUID, presetGUID, tuningInfo, presetAfter);
+    if (nvsts != NV_ENC_SUCCESS) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to get preset default params: %d\n"), (int)nvsts);
+        return err_to_rgy(nvsts);
+    }
+
+    // 見出し
+    _ftprintf(stdout, _T("%s\n"), (*gpu)->infostr().c_str());
+    _ftprintf(stdout, _T("Codec: %s, Preset: %s, Tune: %s\n"),
+        get_name_from_guid(codecGUID, list_nvenc_codecs),
+        (enc->checkAPIver(10, 0)) ? get_name_from_guid(presetGUID, list_nvenc_preset_names_ver10) : get_name_from_guid(presetGUID, list_nvenc_preset_names_ver9_2),
+        get_cx_desc(list_tuning_info, tuningInfo));
+    _ftprintf(stdout, _T("Changed NV_ENC_CONFIG fields:\n"));
+
+    // NV_ENC_CONFIG (トップ)
+    COMPARE_GUID(presetCfg.profileGUID);
+    COMPARE_VAL(presetCfg.gopLength);
+    COMPARE_VAL(presetCfg.frameIntervalP);
+    COMPARE_VAL(presetCfg.monoChromeEncoding);
+    COMPARE_VAL(presetCfg.frameFieldMode);
+    // mvPrecision は名称化
+    COMPARE_VAL_STR_GEN(presetCfg.mvPrecision, list_mv_presicion);
+
+    // RC パラメータ
+    #define RC(m) COMPARE_VAL(presetCfg.rcParams.m)
+    // RCモードは名称化
+    COMPARE_VAL_STR_GEN(presetCfg.rcParams.rateControlMode, list_nvenc_rc_method_en);
+    // QP群
+    RC(constQP.qpIntra); RC(constQP.qpInterP); RC(constQP.qpInterB);
+    RC(initialRCQP.qpIntra); RC(initialRCQP.qpInterP); RC(initialRCQP.qpInterB);
+    RC(minQP.qpIntra); RC(minQP.qpInterP); RC(minQP.qpInterB);
+    RC(maxQP.qpIntra); RC(maxQP.qpInterP); RC(maxQP.qpInterB);
+    // ビットレート/バッファ
+    RC(averageBitRate); RC(maxBitRate); RC(vbvBufferSize); RC(vbvInitialDelay);
+    // スイッチ類
+    RC(enableMinQP); RC(enableMaxQP); RC(enableInitialRCQP);
+    RC(enableAQ); RC(enableLookahead); RC(disableIadapt); RC(disableBadapt); RC(enableExtLookahead);
+    RC(enableTemporalAQ); RC(zeroReorderDelay); RC(enableNonRefP); RC(strictGOPTarget);
+    RC(aqStrength); RC(lookaheadDepth); RC(targetQuality); RC(lowDelayKeyFrameScale);
+    RC(targetQualityLSB);
+    RC(yDcQPIndexOffset); RC(uDcQPIndexOffset); RC(vDcQPIndexOffset);
+    RC(cbQPIndexOffset); RC(crQPIndexOffset);
+    // lookaheadLevel / multiPass は名称化
+    COMPARE_VAL_STR_GEN(presetCfg.rcParams.lookaheadLevel, list_lookahead_level);
+    RC(qpMapMode);
+    COMPARE_VAL_STR_GEN(presetCfg.rcParams.multiPass, list_nvenc_multipass_mode);
+    RC(alphaLayerBitrateRatio);
+    RC(temporallayerIdxMask);
+    #undef RC
+
+    // 配列比較用
+    #define COMPARE_ARR(member) do { \
+        if (memcmp(&(presetBefore.member), &(presetAfter.member), sizeof(presetAfter.member)) != 0) { \
+            _ftprintf(stdout, _T("  %s: "), _T(#member)); \
+            for (size_t i = 0; i < _countof(presetAfter.member); i++) { \
+                _ftprintf(stdout, _T("%d%s"), (int)presetAfter.member[i], (i + 1 < _countof(presetAfter.member)) ? _T(",") : _T("")); \
+            } \
+            _ftprintf(stdout, _T("\n")); \
+        } \
+    } while(0)
+
+    // 配列 (RC)
+    COMPARE_ARR(presetCfg.rcParams.temporalLayerQP);
+    COMPARE_ARR(presetCfg.rcParams.viewBitrateRatios);
+
+    // ポインタ比較
+    #define COMPARE_PTR(member) do { \
+        if (presetBefore.member != presetAfter.member) { \
+            _ftprintf(stdout, _T("  %s: %p\n"), _T(#member), (void*)presetAfter.member); \
+        } \
+    } while(0)
+
+    // コーデック別 (主なもののみ)
+    switch (codec) {
+    case RGY_CODEC_H264:
+        #define H(m) COMPARE_VAL(presetCfg.encodeCodecConfig.h264Config.m)
+        // 文字列表示用 (VUIマッピング)
+        #define COMPARE_VAL_STR(member, list) do { \
+            if (presetBefore.member != presetAfter.member) { \
+                _ftprintf(stdout, _T("  %s: %s\n"), _T(#member), get_cx_desc(list, (int)presetAfter.member)); \
+            } \
+        } while(0)
+        // フラグ/モード類（ビットフィールド含む）
+        H(enableTemporalSVC); H(enableStereoMVC);
+        H(hierarchicalPFrames); H(hierarchicalBFrames);
+        H(outputBufferingPeriodSEI); H(outputPictureTimingSEI); H(outputAUD);
+        H(disableSPSPPS); H(outputFramePackingSEI); H(outputRecoveryPointSEI);
+        H(enableIntraRefresh); H(enableConstrainedEncoding); H(repeatSPSPPS);
+        H(enableVFR); H(enableLTR);
+        H(qpPrimeYZeroTransformBypassFlag); H(useConstrainedIntraPred);
+        H(enableFillerDataInsertion); H(disableSVCPrefixNalu);
+        H(enableScalabilityInfoSEI); H(singleSliceIntraRefresh); H(enableTimeCode);
+        // 主要数値
+        // levelは文字列化
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.level, get_level_list(RGY_CODEC_H264));
+        H(idrPeriod); H(disableDeblockingFilterIDC);
+        H(numTemporalLayers);
+        // いくつか名称化
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.adaptiveTransformMode, list_adapt_transform);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.fmoMode, list_fmo);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.bdirectMode, list_bdirect);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.entropyCodingMode, list_entropy_coding);
+        H(intraRefreshPeriod); H(intraRefreshCnt);
+        H(maxNumRefFrames); H(sliceMode); H(sliceModeData); H(stereoMode);
+        H(spsId); H(ppsId);
+        H(chromaFormatIDC); H(maxTemporalLayers);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.useBFramesAsRef, list_bref_mode);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.numRefL0, list_num_refs);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.numRefL1, list_num_refs);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.outputBitDepth, list_bitdepth);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.inputBitDepth, list_bitdepth);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.tfLevel, list_temporal_filter_level);
+        H(ltrNumFrames); H(ltrTrustMode);
+        // H.264 VUI
+        #define H_VUI(v) COMPARE_VAL(presetCfg.encodeCodecConfig.h264Config.h264VUIParameters.v)
+        H_VUI(overscanInfoPresentFlag); H_VUI(overscanInfo);
+        H_VUI(videoSignalTypePresentFlag); COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.h264VUIParameters.videoFormat, list_videoformat); H_VUI(videoFullRangeFlag);
+        H_VUI(colourDescriptionPresentFlag); COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries, list_colorprim); COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer); COMPARE_VAL_STR(presetCfg.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix, list_colormatrix);
+        H_VUI(chromaSampleLocationFlag); H_VUI(chromaSampleLocationTop); H_VUI(chromaSampleLocationBot);
+        H_VUI(bitstreamRestrictionFlag); H_VUI(timingInfoPresentFlag); H_VUI(numUnitInTicks); H_VUI(timeScale);
+        #undef H_VUI
+        #undef H
+        #undef COMPARE_VAL_STR
+        break;
+    case RGY_CODEC_HEVC:
+        #define X(m) COMPARE_VAL(presetCfg.encodeCodecConfig.hevcConfig.m)
+        // 文字列表示用 (VUIマッピング)
+        #define COMPARE_VAL_STR(member, list) do { \
+            if (presetBefore.member != presetAfter.member) { \
+                _ftprintf(stdout, _T("  %s: %s\n"), _T(#member), get_cx_desc(list, (int)presetAfter.member)); \
+            } \
+        } while(0)
+        // フラグ/モード類
+        X(useConstrainedIntraPred); X(disableDeblockAcrossSliceBoundary);
+        X(outputBufferingPeriodSEI); X(outputPictureTimingSEI); X(outputAUD);
+        X(enableLTR); X(disableSPSPPS); X(repeatSPSPPS);
+        X(enableIntraRefresh); X(enableFillerDataInsertion);
+        X(enableConstrainedEncoding); X(enableAlphaLayerEncoding);
+        X(singleSliceIntraRefresh); X(outputRecoveryPointSEI); X(outputTimeCodeSEI);
+        X(enableTemporalSVC); X(enableMVHEVC); X(outputHevc3DReferenceDisplayInfo);
+        X(outputMaxCll); X(outputMasteringDisplay);
+        // 主要数値
+        // level、CUサイズは名称化
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.level, get_level_list(RGY_CODEC_HEVC));
+        X(tier);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.minCUSize, list_hevc_cu_size);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.maxCUSize, list_hevc_cu_size);
+        X(chromaFormatIDC); X(idrPeriod); X(intraRefreshPeriod); X(intraRefreshCnt);
+        X(maxNumRefFramesInDPB); X(sliceMode); X(sliceModeData); X(numViews);
+        X(maxTemporalLayersMinus1);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.useBFramesAsRef, list_bref_mode);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.numRefL0, list_num_refs);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.numRefL1, list_num_refs);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.tfLevel, list_temporal_filter_level);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.outputBitDepth, list_bitdepth);
+        COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.inputBitDepth, list_bitdepth);
+        X(numTemporalLayers);
+        X(vpsId); X(spsId); X(ppsId);
+        X(ltrNumFrames); X(ltrTrustMode);
+        // HEVC VUI
+        #define X_VUI(v) COMPARE_VAL(presetCfg.encodeCodecConfig.hevcConfig.hevcVUIParameters.v)
+        X_VUI(overscanInfoPresentFlag); X_VUI(overscanInfo);
+        X_VUI(videoSignalTypePresentFlag); COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFormat, list_videoformat); X_VUI(videoFullRangeFlag);
+        X_VUI(colourDescriptionPresentFlag); COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.hevcVUIParameters.colourPrimaries, list_colorprim); COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.hevcVUIParameters.transferCharacteristics, list_transfer); COMPARE_VAL_STR(presetCfg.encodeCodecConfig.hevcConfig.hevcVUIParameters.colourMatrix, list_colormatrix);
+        X_VUI(chromaSampleLocationFlag); X_VUI(chromaSampleLocationTop); X_VUI(chromaSampleLocationBot);
+        X_VUI(bitstreamRestrictionFlag); X_VUI(timingInfoPresentFlag); X_VUI(numUnitInTicks); X_VUI(timeScale);
+        #undef X_VUI
+        #undef X
+        #undef COMPARE_VAL_STR
+        break;
+    case RGY_CODEC_AV1:
+        #define A(m) COMPARE_VAL(presetCfg.encodeCodecConfig.av1Config.m)
+        // フラグ/モード類
+        A(outputAnnexBFormat); A(enableTimingInfo); A(enableDecoderModelInfo);
+        A(enableFrameIdNumbers); A(disableSeqHdr); A(repeatSeqHdr);
+        A(enableIntraRefresh); A(chromaFormatIDC);
+        A(enableBitstreamPadding); A(enableCustomTileConfig); A(enableFilmGrainParams);
+        A(enableLTR); A(enableTemporalSVC);
+        A(outputMaxCll); A(outputMasteringDisplay);
+        // 主要数値
+        // level / part size は名称化
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.level, get_level_list(RGY_CODEC_AV1));
+        A(tier);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.minPartSize, list_part_size_av1);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.maxPartSize, list_part_size_av1);
+        A(idrPeriod); A(intraRefreshPeriod); A(intraRefreshCnt);
+        A(maxNumRefFramesInDPB); A(numTileColumns); A(numTileRows);
+        A(maxTemporalLayersMinus1);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.useBFramesAsRef, list_bref_mode);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.numFwdRefs, list_av1_refs_forward);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.numBwdRefs, list_av1_refs_backward);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.outputBitDepth, list_bitdepth);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.inputBitDepth, list_bitdepth);
+        A(ltrNumFrames); A(numTemporalLayers);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.tfLevel, list_temporal_filter_level);
+        // AV1のVUI相当
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.colorPrimaries, list_colorprim);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.transferCharacteristics, list_transfer);
+        COMPARE_VAL_STR_GEN(presetCfg.encodeCodecConfig.av1Config.matrixCoefficients, list_colormatrix);
+        A(colorRange); A(chromaSamplePosition);
+        // ポインタ
+        //COMPARE_PTR(presetCfg.encodeCodecConfig.av1Config.tileWidths);
+        //COMPARE_PTR(presetCfg.encodeCodecConfig.av1Config.tileHeights);
+        //COMPARE_PTR(presetCfg.encodeCodecConfig.av1Config.filmGrainParams);
+        #undef A
+        break;
+    default:
+        break;
+    }
+
+    _ftprintf(stdout, _T("\n"));
+
+    #undef COMPARE_VAL
+    #undef COMPARE_GUID
+    #undef COMPARE_ARR
+    #undef COMPARE_PTR
+    #undef COMPARE_VAL_STR_GEN
+
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML) {
     int deviceCount = 0;
 #if ENABLE_D3D11

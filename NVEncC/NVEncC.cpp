@@ -126,6 +126,39 @@ static void show_option_list() {
     }
 }
 
+static int show_nvenc_preset_tune_params(const InEncodeVideoParam& encPrm) {
+    show_version();
+    _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo().c_str());
+
+    const int cudaSchedule = 0;
+    const bool skipHWDecodeCheck = false;
+    const RGYParamLogLevel loglevelPrint(encPrm.ctrl.loglevel);
+
+    int profile = -1;
+    if (encPrm.codec_rgy == RGY_CODEC_H264) {
+        profile = encPrm.h264.profile;
+    } else if (encPrm.codec_rgy == RGY_CODEC_HEVC) {
+        profile = encPrm.hevc.profile;
+    } else if (encPrm.codec_rgy == RGY_CODEC_AV1) {
+        profile = encPrm.av1.profile;
+    } else {
+        _ftprintf(stdout, _T("Unknown codec.\n"));
+        return 1;
+    }
+
+    int deviceID = 0;
+    if (encPrm.deviceID >= 0) {
+        deviceID = encPrm.deviceID;
+    }
+    
+    NVEncCtrl nvEnc;
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceID, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
+        && NV_ENC_SUCCESS == nvEnc.ShowNVEncPresetTuneParams(cudaSchedule, skipHWDecodeCheck, encPrm.codec_rgy, profile, encPrm.preset, encPrm.tuningInfo)) {
+        return 0;
+    }
+    return 1;
+}
+
 int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const RGYParamLogLevel& loglevelPrint) {
 
 #define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
@@ -469,6 +502,13 @@ int _tmain(int argc, TCHAR **argv) {
     if (parse_cmd(&encPrm, (int)argvCopy.size()-1, argvCopy.data())) {
         return 1;
     }
+
+    for (int i = 1; i < argvCopy.size()-1; i++) {
+        if (tstring(argvCopy[i]) == _T("--check-preset-params")) {
+            return show_nvenc_preset_tune_params(encPrm);
+        }
+    }
+
     //オプションチェック
     if (0 == encPrm.common.inputFilename.length()) {
         _ftprintf(stderr, _T("Input file is not specified.\n"));

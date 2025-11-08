@@ -145,6 +145,8 @@ tstring encoder_help() {
         _T("   --check-features [<int>]     check for NVEnc Features for specified DeviceId\n")
         _T("                                  if unset, will check DeviceId #0\n")
         _T("   --check-environment          check for Environment Info\n")
+        _T("   --check-preset-params        show preset and tune params\n")
+        _T("                                  shall be used with --codec, --device, --preset, --tune\n")
 #if ENABLE_AVSW_READER
         _T("   --check-avversion            show dll version\n")
         _T("   --check-codecs               show codecs available\n")
@@ -1405,6 +1407,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("disable-dx11")) {
         pParams->disableDX11 = true;
+        return 0;
+    }
+    if (IS_OPTION("check-preset-params")) {
         return 0;
     }
 
