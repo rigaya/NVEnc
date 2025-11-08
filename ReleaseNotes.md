@@ -1,5 +1,11 @@
 # NVEnc Release Notes
 
+## 9.07
+
+- Fix error when encoding H.264 for RTMP/FLV output.
+- Fix mkv output failure when encoding with [-c](./NVEncC_Options.en.md#-c---codec-string) av_libsvtav1. ( #733 )
+- Add option to show preset/tune parameters ([--check-preset-params](./NVEncC_Options.en.md#--check-preset-params)).
+
 ## 9.06
 
 - Fix --vpp-resize bilinear,spline*,lanczos* creating artifacts depending on resize ratio. ( #698, #737 )
