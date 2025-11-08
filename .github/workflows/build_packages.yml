@@ -71,7 +71,7 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           TAG=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
-          VER=$(sed -n 's/^#define VER_STR_FILEVERSION[ \t]*"\(.*\)"/\1/p' NVEncCore/rgy_version.h)
+          VER=$(sed -n 's/^#define VER_STR_FILEVERSION[ \t]*"\([^"]*\)".*$/\1/p' NVEncCore/rgy_version.h | tr -d '\r\n')
           if [ "$TAG" = "$VER" ] || [ "${TAG#v}" = "$VER" ]; then
             echo "Version OK: tag=${TAG}, header=${VER}"
           else
