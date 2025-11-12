@@ -9,16 +9,22 @@ ARG OSVER=fc41 \
 
 RUN dnf update -y \
     && dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-    && dnf install -y @development-tools kernel-devel make wget curl pciutils acpid libglvnd-devel dkms ffmpeg ffmpeg-devel libass libass-devel rpm-build 'dnf-command(config-manager)'
+    && dnf install -y @development-tools kernel-devel make wget curl ca-certificates pkgconfig pciutils acpid libglvnd-devel dkms ffmpeg ffmpeg-devel libass libass-devel rpm-build 'dnf-command(config-manager)'
 
 RUN dnf config-manager addrepo --from-repofile ${CUDA_REPO_URL} \
     && dnf clean all \
     && dnf -y install cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-runtime-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-cudart-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libnpp-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvrtc-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-devel-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR}
 ENV CUDA_PATH=/usr/local/cuda
 
-RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
-RUN groupmod -og $LOCAL_GROUP_ID rigaya
-WORKDIR /home/rigaya
-COPY . .
-RUN chown -R rigaya:rigaya .
-USER rigaya
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+      | sh -s -- -y --profile minimal \
+    && /usr/local/cargo/bin/rustup show \
+    && /usr/local/cargo/bin/cargo --version \
+    && /usr/local/cargo/bin/cargo install cargo-c --locked \
+    && /usr/local/cargo/bin/cargo cbuild --version
+
+WORKDIR /work

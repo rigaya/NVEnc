@@ -35,9 +35,9 @@ jobs:
           #  arch: arm64
 
     env:
-      DOCKER_FILE:  docker/docker_${{ matrix.dockerimg }}
       DOCKER_IMAGE: ${{ matrix.dockerimg }}
       PKG_TYPE: ${{ matrix.pkgtype }}
+      BASE_IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/nvenc-build
 
     name: Upload Release Asset
     runs-on: ubuntu-latest
@@ -47,14 +47,12 @@ jobs:
         run: |
           REPOSITORY=$(echo ${{ github.repository }} | sed -e "s#.*/##")
           VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
-          IMAGE="build_nvencc_"${{ env.DOCKER_IMAGE }}
-          TAG=$(echo $GITHUB_SHA | head -c7)
           NPROC=$(grep 'processor' /proc/cpuinfo | wc -l)
           OUTPUT_DIR=`pwd`/output
           LOCAL_USER_ID=$(id -u)
           LOCAL_GROUP_ID=$(id -g)
-          echo "tagged_image=${IMAGE}:${TAG}" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          BASE_IMAGE="${{ env.BASE_IMAGE_REPO }}:${{ env.DOCKER_IMAGE }}"
+          echo "base_image=${BASE_IMAGE}" >> $GITHUB_OUTPUT
           echo "nproc=${NPROC}" >> $GITHUB_OUTPUT
           echo "output_dir=${OUTPUT_DIR}" >> $GITHUB_OUTPUT
           echo "local_user_id=${LOCAL_USER_ID}" >> $GITHUB_OUTPUT
@@ -84,6 +82,9 @@ jobs:
           git clone --depth 1 https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus
           git clone -b R72 --depth 1 https://github.com/vapoursynth/vapoursynth.git vapoursynth
 
+      - name: Pull base image
+        run: docker pull ${{ steps.prep.outputs.base_image }}
+
       - name: Create Output Dir
         run: |
           mkdir -p ${{ steps.prep.outputs.output_dir }}
@@ -95,16 +96,19 @@ jobs:
       - name: Build Exec
         id: build_exec
         run: |
-          docker build --build-arg LOCAL_USER_ID=${{ steps.prep.outputs.local_user_id }} --build-arg LOCAL_GROUP_ID=${{ steps.prep.outputs.local_group_id }} --tag ${{ steps.prep.outputs.tagged_image }} --platform linux/${{ matrix.arch }} --file ${{ env.DOCKER_FILE }} ./
-          docker run -dit --rm -v ${{ steps.prep.outputs.output_dir }}:/output -u "$(id -u):$(id -g)" --name build_pkg ${{ steps.prep.outputs.tagged_image }}
-          docker exec build_pkg sh -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && . ~/.cargo/env && cargo install cargo-c"
-          docker exec build_pkg sh -c '. ~/.cargo/env && ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include" --extra-cudaldflags="-L/usr/local/cuda/targets/${{ matrix.arch }}-linux/lib/stubs"'
+          docker run -dit --rm \
+            -v ${{ github.workspace }}:/work \
+            -v ${{ steps.prep.outputs.output_dir }}:/output \
+            -u "$(id -u):$(id -g)" \
+            --workdir /work \
+            --name build_pkg ${{ steps.prep.outputs.base_image }}
+          docker exec build_pkg bash -lc './configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include" --extra-cudaldflags="-L/usr/local/cuda/targets/${{ matrix.arch }}-linux/lib/stubs"'
           docker exec build_pkg make -j${{ steps.prep.outputs.nproc }}
           # docker exec build_pkg ldd ./nvencc
           # docker exec build_pkg ./nvencc --version
           # docker exec build_pkg ./check_options.py
           docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh
-          docker exec build_pkg sh -c "cp -v ./*.${{ env.PKG_TYPE }} /output/"
+          docker exec build_pkg bash -lc "cp -v ./*.${{ env.PKG_TYPE }} /output/"
           PKGFILE=`ls ${{ steps.prep.outputs.output_dir }}/*.${{ env.PKG_TYPE }}`
           echo ${PKGFILE}
           echo "pkgfile=${PKGFILE}" >> $GITHUB_OUTPUT

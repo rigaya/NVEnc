@@ -15,6 +15,8 @@ RUN apt update \
       wget \
       curl \
       git \
+      ca-certificates \
+      pkg-config \
       build-essential \
       libavcodec58 \
       libavcodec-dev \
@@ -44,10 +46,16 @@ RUN apt update \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /usr/local/cuda-${CUDA_VER_MAJOR}.${CUDA_VER_MINOR} /usr/local/cuda
 
-RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
-RUN groupmod -og $LOCAL_GROUP_ID rigaya
-WORKDIR /home/rigaya
-COPY . .
-RUN chown -R rigaya:rigaya .
-USER rigaya
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+      | sh -s -- -y --profile minimal \
+    && /usr/local/cargo/bin/rustup show \
+    && /usr/local/cargo/bin/cargo --version \
+    && /usr/local/cargo/bin/cargo install cargo-c --locked \
+    && /usr/local/cargo/bin/cargo cbuild --version
+
+WORKDIR /work
 

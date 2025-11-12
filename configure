@@ -607,7 +607,9 @@ if ! ${PKGCONFIG} --exists dovi ; then
         cnf_write "OK"
     fi
     if [ $ENABLE_LIBDOVI -ne 0 ]; then
-        CARGO=${CARGO} ./build_libdovi.sh
+        CARGO_HOME_LOCAL="`pwd`/.cargo_home"
+        mkdir -p "${CARGO_HOME_LOCAL}"
+        CARGO_HOME="${CARGO_HOME_LOCAL}" CARGO=${CARGO} ./build_libdovi.sh
         LIBDOVI_PC=$(find `pwd`/build_libdovi -name 'dovi.pc')
         cnf_print "checking libdovi with pkg-config..."
         if ! ${PKGCONFIG} --exists ${LIBDOVI_PC} ; then
@@ -647,7 +649,9 @@ if ! ${PKGCONFIG} --exists hdr10plus-rs ; then
         cnf_write "OK"
     fi
     if [ $ENABLE_LIBHDR10PLUS -ne 0 ]; then
-        CARGO=${CARGO} ./build_libhdr10plus.sh
+        CARGO_HOME_LOCAL="`pwd`/.cargo_home"
+        mkdir -p "${CARGO_HOME_LOCAL}"
+        CARGO_HOME="${CARGO_HOME_LOCAL}" CARGO=${CARGO} ./build_libhdr10plus.sh
         LIBHDR10PLUS_PC=$(find `pwd`/build_libhdr10plus -name 'hdr10plus-rs.pc')
         cnf_print "checking libhdr10plus with pkg-config..."
         if ! ${PKGCONFIG} --exists ${LIBHDR10PLUS_PC} ; then
