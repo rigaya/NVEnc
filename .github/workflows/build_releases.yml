@@ -60,11 +60,13 @@ jobs:
         include:
           - arch: x86
             platform: Win32
+            outext: auo
             cuda_ver_major: 11
             cuda_ver_minor: 8
             cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.8.0/network_installers/cuda_11.8.0_windows_network.exe
           - arch: x64
             platform: x64
+            outext: auo2
             cuda_ver_major: 11
             cuda_ver_minor: 8
             cuda_download_url: https://developer.download.nvidia.com/compute/cuda/11.8.0/network_installers/cuda_11.8.0_windows_network.exe
@@ -107,6 +109,16 @@ jobs:
           set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
           set CUDA_PATH_V11_8=%CUDA_PATH%
           msbuild NVEnc.sln /t:build /p:configuration=RelStatic /p:Platform=${{ matrix.platform }} -maxcpucount
+
+      - name: MSBuild plugin (Release)
+        run: |
+          chcp 932
+          set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
+          set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
+          set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
+          set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
+          set CUDA_PATH_V11_8=%CUDA_PATH%
+          msbuild NVEnc.sln /t:build /p:configuration=Release /p:Platform=${{ matrix.platform }} -maxcpucount
 
       - name: Create Archieve
         id: archieve
@@ -151,6 +163,12 @@ jobs:
           name: NVEncC_release_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}
           path: NVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
 
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NVEnc_plugin_release_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}
+          path: _build\${{ matrix.platform }}\Release\NVEnc.${{ matrix.outext }}
+
   upload_aviutl_release:
     name: Upload Aviutl Release Asset
     runs-on: windows-2022
@@ -186,33 +204,6 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - name: Checkout dependencies
-        run: |
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/ffmpeg_dlls_for_hwenc_20250830.7z
-          7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
-          git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
-          git clone -b R72 https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
-          git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
-
-      - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v2
-        with:
-          msbuild-architecture: ${{ matrix.arch }}
-          
-      - name: Setup CUDA
-        run: |
-          curl -s -o cuda_installer.exe -L ${{ matrix.cuda_download_url }}
-          cuda_installer.exe -s nvcc_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} cudart_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} curand_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} curand_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} npp_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} npp_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvml_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvrtc_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} nvrtc_dev_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }} visual_studio_integration_${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
-
-      - name: MSBuild
-        run: |
-          set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
-          set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
-          set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
-          set CUDA_PATH_V11_8=%CUDA_PATH%
-          msbuild NVEnc.sln /t:build /p:configuration=Release /p:Platform=${{ matrix.platform }} -maxcpucount
-
       - name: Download auo_setup Win32
         id: download_auosetup_win32
         if: matrix.platform == 'Win32'
@@ -224,6 +215,20 @@ jobs:
         if: matrix.platform == 'x64'
         run: |
           curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.04/auo_setup_2.04_x64.zip
+
+      - name: Download plugin Win32
+        uses: actions/download-artifact@v4
+        if: matrix.platform == 'Win32'
+        with:
+          name: NVEnc_plugin_release_${{ needs.get_version_name.outputs.version_name }}_Win32
+          path: plugin_win32
+
+      - name: Download plugin x64
+        uses: actions/download-artifact@v4
+        if: matrix.platform == 'x64'
+        with:
+          name: NVEnc_plugin_release_${{ needs.get_version_name.outputs.version_name }}_x64
+          path: plugin_x64
 
       - name: Download NVEncC Win32
         uses: actions/download-artifact@v4
@@ -249,7 +254,7 @@ jobs:
           mkdir Aviutl_NVEnc_release\exe_files\NVEncC\x64
           7z x -oAviutl_NVEnc_release\exe_files\NVEncC\x86\ NVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
           7z x -oAviutl_NVEnc_release\exe_files\NVEncC\x64\ NVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
-          copy /y _build\Win32\Release\NVEnc.auo Aviutl_NVEnc_release\plugins\
+          copy /y plugin_win32\NVEnc.auo Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\NVEnc.en.ini Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\NVEnc.zh.ini Aviutl_NVEnc_release\plugins\
@@ -269,7 +274,7 @@ jobs:
           mkdir Aviutl_NVEnc_release\Plugin\exe_files\NVEncC
           mkdir Aviutl_NVEnc_release\Plugin\exe_files\NVEncC\x64
           7z x -oAviutl_NVEnc_release\Plugin\exe_files\NVEncC\x64\ NVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
-          copy /y _build\x64\Release\NVEnc.auo2 Aviutl_NVEnc_release\Plugin\
+          copy /y plugin_x64\NVEnc.auo2 Aviutl_NVEnc_release\Plugin\
           copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\Plugin\
           copy /y NVEnc\NVEnc.en.ini Aviutl_NVEnc_release\Plugin\
           copy /y NVEnc\NVEnc.zh.ini Aviutl_NVEnc_release\Plugin\
@@ -279,11 +284,17 @@ jobs:
           7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_NVEnc_release\*
           copy /b NVEnc\7zSD.noadmin.sfx + NVEnc\7zInstallerConfig.txt + Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}.7z Aviutl2_NVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
-      - name: Check Version
-        id: check_ver
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Check Version Win32
+        id: check_ver_win32
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'Win32'
         run: |
-          powershell "$ver = (Get-ItemProperty .\_build\${{ matrix.platform }}\Release\NVEnc.${{ matrix.outext }}).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
+          powershell "$ver = (Get-ItemProperty .\plugin_win32\NVEnc.auo).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
+
+      - name: Check Version x64
+        id: check_ver_x64
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'x64'
+        run: |
+          powershell "$ver = (Get-ItemProperty .\plugin_x64\NVEnc.auo2).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
 
       - name: Check dll Win32
         id: check_dll_win32
