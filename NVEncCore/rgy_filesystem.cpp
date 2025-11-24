@@ -276,13 +276,13 @@ bool rgy_get_filesize(const char *filepath, uint64_t *filesize) {
     FILE *fp = fopen(filepath, "rb");
     if (fp == NULL || fstat(fileno(fp), &stat)) {
         *filesize = 0;
-        return 1;
+        return false;
     }
     if (fp) {
         fclose(fp);
     }
     *filesize = stat.st_size;
-    return 0;
+    return true;
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
