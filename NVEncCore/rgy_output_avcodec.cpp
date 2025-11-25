@@ -1553,7 +1553,7 @@ AVBSFContext *RGYOutputAvcodec::InitStreamBsf(const tstring& bsfName, const AVSt
     return bsfc;
 }
 
-RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet, const tstring& muxTsLogFileBase) {
+RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet, bool audioEncodeOtherCodecOnly, const tstring& muxTsLogFileBase) {
     muxAudio->streamIn = inputAudio->src.stream;
     AddMessage(RGY_LOG_DEBUG, _T("start initializing audio ouput...\n"));
     AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, trackId %d.%d\n"), inputAudio->src.index, trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
@@ -1578,6 +1578,19 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         muxAudio->bsfc = InitStreamBsf(inputAudio->bsf, muxAudio->streamIn);
         if (muxAudio->bsfc == nullptr) {
             return RGY_ERR_UNKNOWN;
+        }
+    }
+
+    if (audioEncodeOtherCodecOnly) {
+        auto outCodecEncode = avcodec_find_encoder_by_name(tchar_to_string(inputAudio->encodeCodec).c_str());
+        if (outCodecEncode == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to find encoder for codec %s\n"), inputAudio->encodeCodec.c_str());
+            AddMessage(RGY_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
+            return RGY_ERR_INVALID_CODEC;
+        }
+        if (outCodecEncode->id == muxAudio->streamIn->codecpar->codec_id) {
+            // コーデックが一致していたら、コピーするよう変更する
+            inputAudio->encodeCodec = RGY_AVCODEC_COPY;
         }
     }
 
@@ -2422,7 +2435,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
                         return RGY_ERR_UNDEFINED_BEHAVIOR;
                     }
                 }
-                RGY_ERR sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->audioIgnoreDecodeError, audioDispositionSet, prm->muxVidTsLogFile);
+                RGY_ERR sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->audioIgnoreDecodeError, audioDispositionSet, prm->audioEncodeOtherCodecOnly, prm->muxVidTsLogFile);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }

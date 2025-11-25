@@ -2298,6 +2298,7 @@ RGYParamCommon::RGYParamCommon() :
     ppAttachmentSelectList(nullptr),
     attachmentSource(),
     audioResampler(RGY_RESAMPLER_SWR),
+    audioEncodeOtherCodecOnly(false),
     inputRetry(0),
     demuxAnalyzeSec(-1),
     demuxProbesize(-1),

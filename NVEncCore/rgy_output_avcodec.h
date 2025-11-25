@@ -402,6 +402,7 @@ struct AvcodecWriterPrm {
     bool                         chapterNoTrim;           //チャプターにtrimを反映しない
     vector<AttachmentSource>     attachments;             //attachment
     int                          audioResampler;          //音声のresamplerの選択
+    bool                         audioEncodeOtherCodecOnly; //音声を他のコーデックにエンコードするだけ
     uint32_t                     audioIgnoreDecodeError;  //音声デコード時に発生したエラーを無視して、無音に置き換える
     int                          bufSizeMB;               //出力バッファサイズ
     int                          threadOutput;            //出力スレッド数
@@ -454,6 +455,7 @@ struct AvcodecWriterPrm {
         chapterNoTrim(false),
         attachments(),
         audioResampler(0),
+        audioEncodeOtherCodecOnly(false),
         audioIgnoreDecodeError(0),
         bufSizeMB(0),
         threadOutput(0),
@@ -608,7 +610,7 @@ protected:
     RGY_ERR InitAudioResampler(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet, const tstring& muxTsLogFileBase);
+    RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet, bool audioEncodeOtherCodecOnly, const tstring& muxTsLogFileBase);
 
     //Bitstream Filterの初期化
     AVBSFContext* InitStreamBsf(const tstring& bsfName, const AVStream* streamIn);

@@ -150,6 +150,7 @@
   - [--avcodec-prms \<string\>](#--avcodec-prms-string)
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
+  - [--audio-encode-other-codec-only](#--audio-encode-other-codec-only)
   - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
   - [--audio-quality \[\<int/string\>?\]\<int\>](#--audio-quality-intstringint)
   - [--audio-profile \[\<int/string\>?\]\<string\>](#--audio-profile-intstringstring)
@@ -1225,6 +1226,15 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
   
   例5: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
   --audio-codec aac:aac_coder=twoloop
+  ```
+
+### --audio-encode-other-codec-only
+`--audio-codec` と併用すると、入力の音声コーデックが `--audio-codec` で指定したコーデックと同じ場合は `--audio-copy` としてコピーし、異なる場合のみ `--audio-codec` に基づいてエンコードを行う。
+
+- 使用例
+  ```
+  例: 入力がAACならコピー、他ならAACへエンコード
+  --audio-codec aac --audio-encode-other-codec-only
   ```
 
 ### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;

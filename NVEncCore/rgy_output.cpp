@@ -1429,6 +1429,7 @@ RGY_ERR initWriters(
         writerPrm.threadParamCsp          = ctrl->threadParams.get(RGYThreadType::CSP);
         writerPrm.bufSizeMB               = ctrl->outputBufSizeMB;
         writerPrm.audioResampler          = common->audioResampler;
+        writerPrm.audioEncodeOtherCodecOnly = common->audioEncodeOtherCodecOnly;
         writerPrm.audioIgnoreDecodeError  = common->audioIgnoreDecodeError;
         writerPrm.queueInfo = (pPerfMonitor) ? pPerfMonitor->GetQueueInfoPtr() : nullptr;
         writerPrm.muxVidTsLogFile         = ctrl->logMuxVidTs.getFilename(common->outputFilename, _T(".muxts.log"));

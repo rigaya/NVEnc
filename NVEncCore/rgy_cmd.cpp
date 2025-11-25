@@ -5476,6 +5476,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("audio-encode-other-codec-only")) {
+        common->audioEncodeOtherCodecOnly = true;
+        return 0;
+    }
     if (IS_OPTION("audio-profile")) {
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
@@ -8191,6 +8195,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T(" --audio-bitrate ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encBitrate;
         }
     }
+    OPT_BOOL(_T("--audio-encode-other-codec-only"), _T(""), audioEncodeOtherCodecOnly);
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
@@ -8850,6 +8855,10 @@ tstring gen_cmd_help_common() {
         _T("   --audio-codec [<int>?]<string>\n")
         _T("                                encode audio to specified format.\n")
         _T("                                  in [<int>?], specify track number to encode.\n")
+        _T("   --audio-encode-other-codec-only\n")
+        _T("                                with --audio-codec, copy if input audio codec\n")
+        _T("                                 equals the specified codec, and encode only\n")
+        _T("                                 when different.\n")
         _T("   --audio-profile [<int>?]<string>\n")
         _T("                                specify audio profile.\n")
         _T("                                  in [<int>?], specify track number to apply.\n")

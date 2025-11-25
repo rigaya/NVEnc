@@ -2489,6 +2489,7 @@ struct RGYParamCommon {
     AttachmentSelect **ppAttachmentSelectList;
     std::vector<AttachmentSource> attachmentSource;
     int audioResampler;
+    bool audioEncodeOtherCodecOnly;
     int inputRetry;
     double demuxAnalyzeSec;
     int64_t demuxProbesize;
