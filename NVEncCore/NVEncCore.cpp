@@ -2680,15 +2680,16 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
 
         if (auto profile = getDOVIProfile(inputParam->common.doviProfile); profile != nullptr && profile->HRDSEI) {
-            if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), m_stEncConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
-                PrintMes(RGY_LOG_ERROR, _T("Please use VBR mode for dolby vision output.\n"));
-                return RGY_ERR_UNSUPPORTED;
-            }
-            if (!codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
-                error_feature_unsupported(RGY_LOG_ERROR, _T("Custom VBV Bufsize"));
-                PrintMes(RGY_LOG_ERROR, _T("Therfore you cannot output for dolby vision.\n"));
-                return RGY_ERR_UNSUPPORTED;
-            }
+            //制限解除のためコメントアウト
+            //if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), m_stEncConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
+            //    PrintMes(RGY_LOG_ERROR, _T("Please use VBR mode for dolby vision output.\n"));
+            //    return RGY_ERR_UNSUPPORTED;
+            //}
+            //if (!codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
+            //    error_feature_unsupported(RGY_LOG_ERROR, _T("Custom VBV Bufsize"));
+            //    PrintMes(RGY_LOG_ERROR, _T("Therfore you cannot output for dolby vision.\n"));
+            //    return RGY_ERR_UNSUPPORTED;
+            //}
             if (m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize == 0) {
                 m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize = m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate;
             }
