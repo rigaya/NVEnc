@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 9.08
+
+- Add option to encode only when input audio codec differs from codec specified by [--audio-codec](./NVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring). ([--audio-encode-other-codec-only](./NVEncC_Options.en.md#--audio-encode-other-codec-only), #743)
+- Remove restriction on dolby vision output. ( #738 )
+
 ## 9.07
 
 - Fix error when encoding H.264 for RTMP/FLV output.
