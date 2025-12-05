@@ -1512,7 +1512,7 @@ AUO_RESULT move_temporary_files(const CONF_GUIEX *conf, const PRM_ENC *pe, const
             move_temp_file(NULL, chap_apple, NULL, chapter_auf ? AUO_RESULT_SUCCESS : ret, TRUE, g_auo_mes.get(AUO_ENCODE_CHAPTER_APPLE_FILE), FALSE);
         }
     }
-#if ENCODER_X264 || ENCODER_X265
+#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1
     //qpファイル
     if (conf->vid.check_keyframe) {
         move_temp_file(pe->append.qp, pe->temp_filename, get_savfile(oip).c_str(), ret, !sys_dat->exstg->s_local.keep_qp_file, L"qp", FALSE);
