@@ -26,7 +26,8 @@ There are 2 types of software developed, one is command line version that runs i
 ## System Requirements
 Windows 10/11 (x86 / x64)  
 Linux (x64/aarch64)  
-Aviutl 1.00 or later (NVEnc.auo)  
+AviUtl 1.00/1.10  (NVEnc.auo)  
+AviUtl 2.00 beta19 or later (NVEnc.auo2)  
 Hardware which supports NVENC  
   NVIDIA GPU GeForce Late Kepler gen or later (GK110, GK208, GK210 or later)  
   ※ Since GT 63x, 62x etc. are renames of the Fermi generation, they cannot run NVEnc.  

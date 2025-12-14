@@ -25,7 +25,8 @@ by rigaya
 ## 基本動作環境  
 Windows 10/11 (x86/x64)  
 Linux (x64/aarch64)  
-[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/) 1.00 以降 (NVEnc.auo)  
+[AviUtl](http://spring-fragrance.mints.ne.jp/aviutl/) 1.00/1.10  (NVEnc.auo)  
+[AviUtl2](http://spring-fragrance.mints.ne.jp/aviutl/) 2.00 beta19 以降 (NVEnc.auo2)  
 NVEncが載ったハードウェア  
   NVIDIA製 GPU GeForce 後期Kepler世代以降 (GK110, GK208, GK210以降)  
 NVIDIA グラフィックドライバ 452.39 以降

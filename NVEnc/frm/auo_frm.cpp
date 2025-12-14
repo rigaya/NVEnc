@@ -31,8 +31,113 @@
 #include "auo_frm.h"
 #include "auo_util.h"
 
+#if AVIUTL_TARGET_VER == 2
+#include "logger2.h"
+#endif
+
 const int NEW_LINE_THRESHOLD = 125;
 const int MAKE_NEW_LINE_THRESHOLD = 140;
+
+#if AVIUTL_TARGET_VER == 2
+static LOG_HANDLE *g_aviutl2_logger = nullptr;
+
+void set_aviutl2_logger(LOG_HANDLE *logger) {
+    g_aviutl2_logger = logger;
+}
+
+static bool call_logger(LOG_HANDLE *logger, void (*fn)(LOG_HANDLE *, LPCWSTR), const wchar_t *message) {
+    if (logger && fn && message) {
+        fn(logger, message);
+        return true;
+    }
+    return false;
+}
+
+static void aviutl2_logger_output(int log_type_index, const wchar_t *message) {
+    LOG_HANDLE *logger = g_aviutl2_logger;
+    if (logger && message) {
+        switch (log_type_index) {
+        case LOG_ERROR:
+            if (call_logger(logger, logger->error, message)) return;
+            break;
+        case LOG_WARNING:
+            if (call_logger(logger, logger->warn, message)) return;
+            break;
+        case LOG_INFO:
+            if (call_logger(logger, logger->info, message)) return;
+            break;
+        default:
+            if (call_logger(logger, logger->verbose, message)) return;
+            break;
+        }
+        if (call_logger(logger, logger->log, message)) return;
+        if (call_logger(logger, logger->info, message)) return;
+    }
+    if (message && message[0] != L'\0') {
+        OutputDebugStringW(message);
+        OutputDebugStringW(L"\r\n");
+    }
+}
+
+void show_log_window(const TCHAR * /*aviutl_dir*/, BOOL /*disable_visual_styles*/) {
+    // AviUtl2では標準のログウィンドウを利用するため何もしない
+}
+
+void set_window_title(const wchar_t * /*chr*/) {
+}
+
+void set_window_title(const wchar_t * /*chr*/, int /*progress_mode*/) {
+}
+
+void set_window_title_enc_mes(const wchar_t * /*chr*/, int /*total_drop*/, int /*frame_n*/) {
+}
+
+void set_task_name(const wchar_t * /*chr*/) {
+}
+
+void set_log_progress(double /*progress*/) {
+}
+
+void write_log_auo_line(int log_type_index, const wchar_t *chr) {
+    aviutl2_logger_output(log_type_index, chr);
+}
+
+void write_log_line(int log_type_index, const wchar_t *chr) {
+    aviutl2_logger_output(log_type_index, chr);
+}
+
+void flush_audio_log() {
+}
+
+void enable_enc_control(DWORD * /*priority*/, bool * /*enc_pause*/, BOOL /*afs*/, BOOL /*add_progress*/, DWORD /*start_time*/, int /*_total_frame*/) {
+}
+
+void disable_enc_control() {
+}
+
+void set_prevent_log_close(BOOL /*prevent*/) {
+}
+
+void auto_save_log_file(const TCHAR * /*log_filepath*/) {
+}
+
+void log_process_events() {
+}
+
+int  get_current_log_len(bool /*first_pass*/) {
+    return 0;
+}
+
+void log_reload_settings() {
+}
+
+void close_log_window() {
+}
+
+bool is_log_window_closed() {
+    return true;
+}
+#endif // AVIUTL_TARGET_VER == 2
 
 static inline int check_log_type(char *mes) {
     if (strstr(mes, "warning")) return LOG_WARNING;

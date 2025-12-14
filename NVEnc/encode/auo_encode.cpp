@@ -828,16 +828,21 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
 
 void open_log_window(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, int current_pass, int total_pass, bool amp_crf_reenc) {
     wchar_t mes[MAX_PATH_LEN + 512];
-    const wchar_t *newLine = (get_current_log_len(current_pass == 1 && !amp_crf_reenc)) ? L"\r\n\r\n" : L""; //必要なら行送り
+    if (!is_aviutl2() && (get_current_log_len(current_pass == 1 && !amp_crf_reenc))) {
+        //必要なら行送り
+        write_log_line(LOG_INFO, L"\r\n\r\n");
+    }
+    show_log_window(sys_dat->aviutl_dir, sys_dat->exstg->s_local.disable_visual_styles);
     static const wchar_t *SEPARATOR = L"------------------------------------------------------------------------------------------------------------------------------";
     const auto savefile = get_savfile(oip);
+    write_log_line(LOG_INFO, SEPARATOR);
     if (total_pass < 2 || current_pass > total_pass)
-        swprintf_s(mes, L"%s%s\r\n[%s]\r\n%s", newLine, SEPARATOR, savefile.c_str(), SEPARATOR);
+        swprintf_s(mes, L"[%s]", savefile.c_str());
     else
-        swprintf_s(mes, L"%s%s\r\n[%s] (%d / %d pass)\r\n%s", newLine, SEPARATOR, savefile.c_str(), current_pass, total_pass, SEPARATOR);
-
-    show_log_window(sys_dat->aviutl_dir, sys_dat->exstg->s_local.disable_visual_styles);
+        swprintf_s(mes, L"[%s] (%d / %d pass)", savefile.c_str(), current_pass, total_pass);
     write_log_line(LOG_INFO, mes);
+    write_log_line(LOG_INFO, SEPARATOR);
+
 #if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_FFMPEG
     TCHAR cpu_info[256];
     getCPUInfo(cpu_info);

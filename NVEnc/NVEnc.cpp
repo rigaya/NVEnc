@@ -50,6 +50,10 @@
 #include "auo_runbat.h"
 #include "auo_mes.h"
 
+#if AVIUTL_TARGET_VER == 2
+#include "logger2.h"
+#endif
+
 //---------------------------------------------------------------------
 //        出力プラグイン内部変数
 //---------------------------------------------------------------------
@@ -106,6 +110,12 @@ EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTa
     overwrite_aviutl_ini_auo_info();
     return &output_plugin_table;
 }
+
+#if AVIUTL_TARGET_VER == 2
+EXTERN_C void __declspec(dllexport) InitializeLogger(LOG_HANDLE *logger) {
+    set_aviutl2_logger(logger);
+}
+#endif
 
 
 //---------------------------------------------------------------------
@@ -269,17 +279,6 @@ BOOL func_output( OUTPUT_INFO *oip ) {
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_AFTER_PROCESS);
 
     log_process_events();
-    if (is_aviutl2()) {
-        if (error_or_abort) {
-            MessageBoxA(NULL, "エラーが発生しました。ログウィンドウをご確認ください。\nログウィンドウを閉じると続行します。", AUO_FULL_NAME " 出力エラー", MB_OK);
-            while (!is_log_window_closed()) {
-                Sleep(16);
-                log_process_events();
-            }
-        } else {
-            close_log_window();
-        }
-    }
     // エラーが発生しなかった場合は設定を保存
     if (ret == AUO_RESULT_SUCCESS) {
         memset(default_stg_file, 0, sizeof(default_stg_file));

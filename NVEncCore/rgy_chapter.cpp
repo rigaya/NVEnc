@@ -31,6 +31,7 @@
 #include "rgy_osdep.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <mlang.h>
+#pragma comment(lib, "ole32.lib")
 #else
 #include <sys/types.h>
 #include <sys/stat.h>

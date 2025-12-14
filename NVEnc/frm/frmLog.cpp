@@ -25,6 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#if AVIUTL_TARGET_VER == 1
+
 #include "frmLog.h"
 #include "string.h"
 
@@ -172,3 +174,5 @@ System::Void frmSetLogColor::fscBTOK_Click(System::Object^  sender, System::Even
     this->Close();
 }
 #pragma warning( pop )
+
+#endif // AVIUTL_TARGET_VER == 1

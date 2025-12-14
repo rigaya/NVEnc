@@ -36,6 +36,11 @@
 
 const int LOG_UPDATE_INTERVAL = 50;
 
+#if AVIUTL_TARGET_VER == 2
+struct LOG_HANDLE;
+void set_aviutl2_logger(LOG_HANDLE *logger);
+#endif
+
 enum {
     LOG_TRACE   = -3,
     LOG_DEBUG   = -2,
