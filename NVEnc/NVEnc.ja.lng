@@ -1079,6 +1079,7 @@ AuofosCBDisableVisualStyles=視覚効果をオフにする
 AuofosCBLogDisableTransparency=ログウィンドウの透過をオフにする
 AuofosLBDisableVisualStyles=※反映にはAviutlの再起動が必要
 AuofosCBLogStartMinimized=ログウィンドウを最小化で開始する
+AuofosCBAutoSaveLog=ログ自動保存
 AuofosLBStgDir=プロファイルの保存場所
 AuofosBTStgDir=...
 AuofostabPageAMP=自動マルチパス

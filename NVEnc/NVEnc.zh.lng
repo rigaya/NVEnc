@@ -1079,6 +1079,7 @@ AuofosCBDisableVisualStyles=关闭视觉效果
 AuofosCBLogDisableTransparency=关闭日志窗口透明度
 AuofosLBDisableVisualStyles=※重启Aviutl后生效
 AuofosCBLogStartMinimized=开始后最小化日志窗口
+AuofosCBAutoSaveLog=自动保存日志
 AuofosLBStgDir=配置文件保存目录
 AuofosBTStgDir=...
 AuofostabPageAMP=自动多通道编码

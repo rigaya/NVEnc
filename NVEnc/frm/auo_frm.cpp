@@ -40,9 +40,12 @@ const int MAKE_NEW_LINE_THRESHOLD = 140;
 
 #if AVIUTL_TARGET_VER == 2
 static LOG_HANDLE *g_aviutl2_logger = nullptr;
+static std::wstring g_log_cache;
 
 void set_aviutl2_logger(LOG_HANDLE *logger) {
     g_aviutl2_logger = logger;
+    g_log_cache.clear();
+    g_log_cache.resize(256 * 1024);
 }
 
 static bool call_logger(LOG_HANDLE *logger, void (*fn)(LOG_HANDLE *, LPCWSTR), const wchar_t *message) {
@@ -56,6 +59,7 @@ static bool call_logger(LOG_HANDLE *logger, void (*fn)(LOG_HANDLE *, LPCWSTR), c
 static void aviutl2_logger_output(int log_type_index, const wchar_t *message) {
     LOG_HANDLE *logger = g_aviutl2_logger;
     if (logger && message) {
+        g_log_cache += std::wstring(message) + L"\n";
         switch (log_type_index) {
         case LOG_ERROR:
             if (call_logger(logger, logger->error, message)) return;
@@ -81,6 +85,7 @@ static void aviutl2_logger_output(int log_type_index, const wchar_t *message) {
 
 void show_log_window(const TCHAR * /*aviutl_dir*/, BOOL /*disable_visual_styles*/) {
     // AviUtl2では標準のログウィンドウを利用するため何もしない
+    g_log_cache.clear();
 }
 
 void set_window_title(const wchar_t * /*chr*/) {
@@ -118,7 +123,16 @@ void disable_enc_control() {
 void set_prevent_log_close(BOOL /*prevent*/) {
 }
 
-void auto_save_log_file(const TCHAR * /*log_filepath*/) {
+void auto_save_log_file(const TCHAR *log_filepath) {
+    if (log_filepath) {
+        std::unique_ptr<FILE, decltype(&fclose)> fp(nullptr, fclose);
+        FILE *fpptr = nullptr;
+        if (_wfopen_s(&fpptr, log_filepath, L"a") == 0) {
+            fp = std::unique_ptr<FILE, decltype(&fclose)>(fpptr, fclose);
+            auto log_utf8 = wstring_to_string(g_log_cache.c_str(), CP_UTF8);
+            fwrite(log_utf8.c_str(), 1, log_utf8.size(), fp.get());
+        }
+    }
 }
 
 void log_process_events() {

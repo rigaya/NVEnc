@@ -1081,6 +1081,7 @@ AuofosCBDisableVisualStyles=Disable visual styles
 AuofosCBLogDisableTransparency=Disable transparency in log window
 AuofosLBDisableVisualStyles=* Aviutl restart required
 AuofosCBLogStartMinimized=Start log window minimized
+AuofosCBAutoSaveLog=Auto save log
 AuofosLBStgDir=Profile(.stg) directory
 AuofosBTStgDir=...
 AuofostabPageAMP=Auto multi pass (AMP)
