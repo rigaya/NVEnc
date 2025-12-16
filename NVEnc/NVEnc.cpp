@@ -297,6 +297,7 @@ BOOL func_output( OUTPUT_INFO *oip ) {
     return (ret & AUO_RESULT_ERROR) ? FALSE : TRUE;
 }
 
+#if AVIUTL_TARGET_VER == 2
 void set_window_title_override(WindowTitleOverride *window_title_override);
 
 bool func_output2( OUTPUT_INFO *oip ) {
@@ -311,6 +312,7 @@ bool func_output2( OUTPUT_INFO *oip ) {
     set_window_title_override(nullptr);
     return ret;
 }
+#endif
 
 //---------------------------------------------------------------------
 //        出力プラグイン設定関数

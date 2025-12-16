@@ -25,13 +25,15 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#if AVIUTL_TARGET_VER == 1
 
-#include "frmLog.h"
 #include "string.h"
 
+#include "auo.h"
 #include "auo_mes.h"
 #include "auo_version.h"
+
+#if AVIUTL_TARGET_VER == 1
+#include "frmLog.h"
 
 using namespace AUO_NAME_R;
 
