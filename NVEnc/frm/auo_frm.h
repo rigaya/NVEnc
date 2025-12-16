@@ -31,6 +31,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+#include <string>
 #include "auo_conf.h"
 #include "auo_system.h"
 
@@ -61,6 +62,25 @@ typedef struct {
     int idx;      //現在の行数
     wchar_t **lines; //格納している一行
 } LOG_CACHE;
+
+class WindowTitleOverride {
+    protected:
+    HWND hwnd;
+    std::wstring original_title;
+    bool has_original_title;
+    // エンコード進捗表示用
+    DWORD enc_start_time;
+    bool add_progress;
+    bool using_afs;
+    int total_frame;
+    public:
+    WindowTitleOverride();
+    ~WindowTitleOverride();
+    void override_window_title(const wchar_t *chr);
+    void set_enc_info(BOOL afs, BOOL _add_progress, DWORD start_time, int _total_frame);
+    void clear_enc_info();
+    std::wstring format_window_title_enc_mes(const wchar_t *chr, int total_drop, int frame_n) const;
+};
 
 //設定ウィンドウ
 void ShowfrmConfig(CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat);

@@ -297,8 +297,19 @@ BOOL func_output( OUTPUT_INFO *oip ) {
     return (ret & AUO_RESULT_ERROR) ? FALSE : TRUE;
 }
 
+void set_window_title_override(WindowTitleOverride *window_title_override);
+
 bool func_output2( OUTPUT_INFO *oip ) {
-    return func_output(oip) != FALSE;
+    WindowTitleOverride window_title_override;
+    set_window_title_override(&window_title_override);
+    bool ret = false;
+    try {
+        ret = func_output(oip) != FALSE;
+    } catch (...) {
+        ret = false;
+    }
+    set_window_title_override(nullptr);
+    return ret;
 }
 
 //---------------------------------------------------------------------

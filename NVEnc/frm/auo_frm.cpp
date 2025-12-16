@@ -30,6 +30,10 @@
 #include <chrono>
 #include "auo_frm.h"
 #include "auo_util.h"
+#include <mmsystem.h>
+#ifdef _MSC_VER
+#pragma comment(lib, "winmm.lib")
+#endif
 
 #if AVIUTL_TARGET_VER == 2
 #include "logger2.h"
@@ -41,6 +45,221 @@ const int MAKE_NEW_LINE_THRESHOLD = 140;
 #if AVIUTL_TARGET_VER == 2
 static LOG_HANDLE *g_aviutl2_logger = nullptr;
 static std::wstring g_log_cache;
+static WindowTitleOverride *g_window_title_override = nullptr;
+
+static bool get_window_text_timeout(HWND hwnd, std::wstring& out) {
+    out.clear();
+    if (!hwnd || !IsWindow(hwnd)) return false;
+
+    DWORD_PTR text_len = 0;
+    if (!SendMessageTimeoutW(hwnd, WM_GETTEXTLENGTH, 0, 0, SMTO_ABORTIFHUNG | SMTO_BLOCK, 200, &text_len)) {
+        return false;
+    }
+    // WM_GETTEXTLENGTH は終端NULを含まない
+    const size_t len = (size_t)text_len;
+    std::wstring buf;
+    buf.resize(len + 1, L'\0');
+
+    DWORD_PTR copied = 0;
+    if (!SendMessageTimeoutW(hwnd, WM_GETTEXT, (WPARAM)buf.size(), (LPARAM)buf.data(), SMTO_ABORTIFHUNG | SMTO_BLOCK, 200, &copied)) {
+        return false;
+    }
+    // copied は終端NULを除いた文字数
+    if (copied > 0) {
+        buf.resize((size_t)copied);
+        out.swap(buf);
+    } else {
+        out.clear();
+    }
+    return true;
+}
+
+static bool set_window_text_timeout(HWND hwnd, const wchar_t* text) {
+    if (!hwnd || !IsWindow(hwnd)) return false;
+    if (!text) text = L"";
+    DWORD_PTR result = 0;
+    return SendMessageTimeoutW(hwnd, WM_SETTEXT, 0, (LPARAM)text, SMTO_ABORTIFHUNG | SMTO_BLOCK, 200, &result) != 0;
+}
+
+struct FindMainWindowParam {
+    DWORD pid;
+    HWND best_hwnd;
+    long long best_area;
+};
+
+static BOOL CALLBACK enum_windows_find_main(HWND hwnd, LPARAM lParam) {
+    auto *param = reinterpret_cast<FindMainWindowParam*>(lParam);
+    if (!param) return FALSE;
+
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid != param->pid) return TRUE;
+
+    if (!IsWindowVisible(hwnd)) return TRUE;
+    if (GetWindow(hwnd, GW_OWNER) != nullptr) return TRUE;
+    if (GetParent(hwnd) != nullptr) return TRUE;
+
+    const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const LONG_PTR exstyle = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    if ((style & WS_CAPTION) == 0) return TRUE;
+    if (exstyle & WS_EX_TOOLWINDOW) return TRUE;
+
+    RECT rc = { 0 };
+    if (!GetWindowRect(hwnd, &rc)) return TRUE;
+    const long long w = (long long)rc.right - (long long)rc.left;
+    const long long h = (long long)rc.bottom - (long long)rc.top;
+    if (w <= 0 || h <= 0) return TRUE;
+    const long long area = w * h;
+
+    // タイトルが取れない/ハングするような窓は除外
+    std::wstring title;
+    if (!get_window_text_timeout(hwnd, title)) return TRUE;
+
+    if (area > param->best_area) {
+        param->best_area = area;
+        param->best_hwnd = hwnd;
+    }
+    return TRUE;
+}
+
+static HWND find_current_process_main_window() {
+    // まずはフォアグラウンドウィンドウを優先
+    {
+        HWND fg = GetForegroundWindow();
+        if (fg) {
+            DWORD pid = 0;
+            GetWindowThreadProcessId(fg, &pid);
+            if (pid == GetCurrentProcessId()) {
+                // enum_windows_find_main と同等の条件でチェック
+                if (IsWindowVisible(fg)
+                    && GetWindow(fg, GW_OWNER) == nullptr
+                    && GetParent(fg) == nullptr) {
+                    const LONG_PTR style = GetWindowLongPtrW(fg, GWL_STYLE);
+                    const LONG_PTR exstyle = GetWindowLongPtrW(fg, GWL_EXSTYLE);
+                    if ((style & WS_CAPTION) != 0 && (exstyle & WS_EX_TOOLWINDOW) == 0) {
+                        std::wstring title;
+                        if (get_window_text_timeout(fg, title)) {
+                            return fg;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    FindMainWindowParam param = { 0 };
+    param.pid = GetCurrentProcessId();
+    param.best_hwnd = nullptr;
+    param.best_area = -1;
+    EnumWindows(enum_windows_find_main, (LPARAM)&param);
+    return param.best_hwnd;
+}
+
+WindowTitleOverride::WindowTitleOverride() {
+    hwnd = find_current_process_main_window();
+    has_original_title = false;
+    enc_start_time = 0;
+    add_progress = false;
+    using_afs = false;
+    total_frame = 0;
+    if (hwnd) {
+        has_original_title = get_window_text_timeout(hwnd, original_title);
+    }
+}
+
+WindowTitleOverride::~WindowTitleOverride() {
+    if (hwnd && has_original_title) {
+        set_window_text_timeout(hwnd, original_title.c_str());
+    }
+}
+
+void WindowTitleOverride::override_window_title(const wchar_t *chr) {
+    if (!hwnd || !IsWindow(hwnd)) {
+        hwnd = find_current_process_main_window();
+    }
+    if (!hwnd) return;
+
+    // 取得できていなければ、初回呼び出し時に元タイトルを保存しておく
+    if (!has_original_title) {
+        has_original_title = get_window_text_timeout(hwnd, original_title);
+    }
+    set_window_text_timeout(hwnd, chr);
+}
+
+void WindowTitleOverride::set_enc_info(BOOL afs, BOOL _add_progress, DWORD start_time, int _total_frame) {
+    add_progress = _add_progress != 0;
+    using_afs = afs != 0;
+    enc_start_time = start_time;
+    total_frame = _total_frame;
+}
+
+void WindowTitleOverride::clear_enc_info() {
+    add_progress = false;
+    using_afs = false;
+    enc_start_time = 0;
+    total_frame = 0;
+}
+
+static std::wstring format_eta_hhmmss(DWORD seconds) {
+    const int hh = (int)(seconds / 3600);
+    seconds -= (DWORD)hh * 3600;
+    const int mm = (int)(seconds / 60);
+    seconds -= (DWORD)mm * 60;
+    const int ss = (int)seconds;
+    wchar_t buf[64] = { 0 };
+    swprintf_s(buf, _countof(buf), L"%02d:%02d:%02d", hh, mm, ss);
+    return std::wstring(buf);
+}
+
+std::wstring WindowTitleOverride::format_window_title_enc_mes(const wchar_t *chr, int total_drop, int frame_n) const {
+    std::wstring title = (chr) ? chr : L"";
+
+    if (total_frame <= 0 || frame_n <= 0) {
+        // 進捗計算に必要な情報が揃っていない場合は、従来同様にベース文字列のみ
+        if (using_afs) {
+            title += L", current afs ";
+            title += std::to_wstring(total_drop);
+            title += L"/";
+            title += std::to_wstring(frame_n);
+        }
+        return title;
+    }
+
+    const double progress = frame_n / (double)total_frame;
+
+    // time_elapsed は frmLog と同様に timeGetTime 基準の差分（ms）として扱う
+    const DWORD time_elapsed = timeGetTime() - enc_start_time;
+
+    if (using_afs) {
+        std::wstring sb = title;
+        sb += L", current afs ";
+        sb += std::to_wstring(total_drop);
+        sb += L"/";
+        sb += std::to_wstring(frame_n);
+
+        if (add_progress) {
+            const int remain_frames = total_frame - frame_n;
+            const DWORD time_remain = (remain_frames <= 0) ? 0 : (DWORD)(time_elapsed * ((double)remain_frames / (double)frame_n)) / 1000;
+            if (!ENCODER_SVTAV1) {
+                wchar_t percent_buf[64] = { 0 };
+                swprintf_s(percent_buf, _countof(percent_buf), L"%.1f%%", progress * 100.0);
+                sb.insert(0, std::wstring(L"[") + percent_buf + L"] ");
+            }
+            sb += L", eta ";
+            sb += format_eta_hhmmss(time_remain);
+        }
+        return sb;
+    } else if (ENCODER_SVTAV1 && add_progress) {
+        const int remain_frames = total_frame - frame_n;
+        const DWORD time_remain = (remain_frames <= 0) ? 0 : (DWORD)(time_elapsed * ((double)remain_frames / (double)frame_n)) / 1000;
+        std::wstring sb = title;
+        sb += L", eta ";
+        sb += format_eta_hhmmss(time_remain);
+        return sb;
+    }
+
+    return title;
+}
 
 void set_aviutl2_logger(LOG_HANDLE *logger) {
     g_aviutl2_logger = logger;
@@ -88,13 +307,27 @@ void show_log_window(const TCHAR * /*aviutl_dir*/, BOOL /*disable_visual_styles*
     g_log_cache.clear();
 }
 
-void set_window_title(const wchar_t * /*chr*/) {
+void set_window_title_override(WindowTitleOverride *window_title_override) {
+    g_window_title_override = window_title_override;
 }
 
-void set_window_title(const wchar_t * /*chr*/, int /*progress_mode*/) {
+void set_window_title(const wchar_t *chr) {
+    if (g_window_title_override) {
+        g_window_title_override->override_window_title(chr);
+    }
 }
 
-void set_window_title_enc_mes(const wchar_t * /*chr*/, int /*total_drop*/, int /*frame_n*/) {
+void set_window_title(const wchar_t *chr, int /*progress_mode*/) {
+    if (g_window_title_override) {
+        g_window_title_override->override_window_title(chr);
+    }
+}
+
+void set_window_title_enc_mes(const wchar_t *chr, int total_drop, int frame_n) {
+    if (g_window_title_override) {
+        const auto title = g_window_title_override->format_window_title_enc_mes(chr, total_drop, frame_n);
+        g_window_title_override->override_window_title(title.c_str());
+    }
 }
 
 void set_task_name(const wchar_t * /*chr*/) {
@@ -114,10 +347,18 @@ void write_log_line(int log_type_index, const wchar_t *chr) {
 void flush_audio_log() {
 }
 
-void enable_enc_control(DWORD * /*priority*/, bool * /*enc_pause*/, BOOL /*afs*/, BOOL /*add_progress*/, DWORD /*start_time*/, int /*_total_frame*/) {
+void enable_enc_control(DWORD *priority, bool *enc_pause, BOOL afs, BOOL add_progress, DWORD start_time, int _total_frame) {
+    (void)priority;
+    (void)enc_pause;
+    if (g_window_title_override) {
+        g_window_title_override->set_enc_info(afs, add_progress, start_time, _total_frame);
+    }
 }
 
 void disable_enc_control() {
+    if (g_window_title_override) {
+        g_window_title_override->clear_enc_info();
+    }
 }
 
 void set_prevent_log_close(BOOL /*prevent*/) {
