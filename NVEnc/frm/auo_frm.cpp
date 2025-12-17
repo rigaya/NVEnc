@@ -249,13 +249,6 @@ std::wstring WindowTitleOverride::format_window_title_enc_mes(const wchar_t *chr
             sb += format_eta_hhmmss(time_remain);
         }
         return sb;
-    } else if (ENCODER_SVTAV1 && add_progress) {
-        const int remain_frames = total_frame - frame_n;
-        const DWORD time_remain = (remain_frames <= 0) ? 0 : (DWORD)(time_elapsed * ((double)remain_frames / (double)frame_n)) / 1000;
-        std::wstring sb = title;
-        sb += L", eta ";
-        sb += format_eta_hhmmss(time_remain);
-        return sb;
     }
 
     return title;
@@ -313,20 +306,36 @@ void set_window_title_override(WindowTitleOverride *window_title_override) {
 
 void set_window_title(const wchar_t *chr) {
     if (g_window_title_override) {
-        g_window_title_override->override_window_title(chr);
+        if (ENCODER_SVTAV1) {
+            auto escaped_chr = removeAnsiEscapeSequences(std::wstring(chr));
+            g_window_title_override->override_window_title(escaped_chr.data());
+        } else {
+            g_window_title_override->override_window_title(chr);
+        }
     }
 }
 
 void set_window_title(const wchar_t *chr, int /*progress_mode*/) {
     if (g_window_title_override) {
-        g_window_title_override->override_window_title(chr);
+        if (ENCODER_SVTAV1) {
+            auto escaped_chr = removeAnsiEscapeSequences(std::wstring(chr));
+            g_window_title_override->override_window_title(escaped_chr.data());
+        } else {
+            g_window_title_override->override_window_title(chr);
+        }
     }
 }
 
 void set_window_title_enc_mes(const wchar_t *chr, int total_drop, int frame_n) {
-    if (g_window_title_override) {
-        const auto title = g_window_title_override->format_window_title_enc_mes(chr, total_drop, frame_n);
-        g_window_title_override->override_window_title(title.c_str());
+    if (g_window_title_override) {  
+        if (ENCODER_SVTAV1) {
+            auto escaped_chr = removeAnsiEscapeSequences(std::wstring(chr));
+            const auto title = g_window_title_override->format_window_title_enc_mes(escaped_chr.data(), total_drop, frame_n);
+            g_window_title_override->override_window_title(title.c_str());
+        } else {
+            const auto title = g_window_title_override->format_window_title_enc_mes(chr, total_drop, frame_n);
+            g_window_title_override->override_window_title(title.c_str());
+        }
     }
 }
 

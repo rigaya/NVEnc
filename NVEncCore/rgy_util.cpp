@@ -767,3 +767,69 @@ std::string conv_cp_part_to_utf8(const std::string& string_utf8_with_cp) {
     }
     return string_utf8;
 }
+
+// ANSIエスケープシーケンスとカラーコードを除去するヘルパー関数
+template<typename CharT>
+static std::basic_string<CharT> removeAnsiEscapeSequencesImpl(const std::basic_string<CharT>& input) {
+    std::vector<CharT> output;
+    output.reserve(input.size());
+
+    bool inEscape = false;
+    bool inCSI = false; // Control Sequence Introducer (ESC [)
+    bool inOSC = false; // Operating System Command (ESC ])
+
+    for (size_t i = 0; i < input.size(); i++) {
+        const CharT c = input[i];
+
+        if (!inEscape && !inCSI && !inOSC) {
+            if (c == static_cast<CharT>('\x1b')) { // ESC
+                inEscape = true;
+            } else if (c >= static_cast<CharT>('\x00') && c <= static_cast<CharT>('\x1F')
+                       && c != static_cast<CharT>('\t') && c != static_cast<CharT>('\n') && c != static_cast<CharT>('\r')) {
+                // 制御文字を除去（タブ、改行、復帰文字は除く）
+            } else {
+                output.push_back(c);
+            }
+        } else if (inEscape) {
+            if (c == static_cast<CharT>('[')) {
+                inCSI = true;
+                inEscape = false;
+            } else if (c == static_cast<CharT>(']')) {
+                inOSC = true;
+                inEscape = false;
+            } else if (c >= static_cast<CharT>('@') && c <= static_cast<CharT>('~')) {
+                // 2文字エスケープシーケンス終了
+                inEscape = false;
+            } else if (c >= static_cast<CharT>(' ') && c <= static_cast<CharT>('/')) {
+                // 中間文字、パラメータ文字は続行
+            } else {
+                // その他の文字でエスケープ終了
+                inEscape = false;
+            }
+        } else if (inCSI) {
+            if (c >= static_cast<CharT>('@') && c <= static_cast<CharT>('~')) {
+                // CSI シーケンス終了文字
+                inCSI = false;
+            }
+            // パラメータ文字（数字、セミコロン、スペースなど）や中間文字は無視して続行
+        } else if (inOSC) {
+            if (c == static_cast<CharT>('\a')
+                || (c == static_cast<CharT>('\x1b') && i + 1 < input.size() && input[i + 1] == static_cast<CharT>('\\'))) {
+                // OSC終了：BEL文字 または ESC
+                inOSC = false;
+                if (c == static_cast<CharT>('\x1b')) {
+                    ++i; // '\'をスキップ
+                }
+            }
+        }
+    }
+    return std::basic_string<CharT>(output.data(), output.size());
+}
+
+std::string removeAnsiEscapeSequences(const std::string& input) {
+    return removeAnsiEscapeSequencesImpl<char>(input);
+}
+
+std::wstring removeAnsiEscapeSequences(const std::wstring& input) {
+    return removeAnsiEscapeSequencesImpl<wchar_t>(input);
+}

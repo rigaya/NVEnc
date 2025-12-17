@@ -111,4 +111,10 @@ static bool is_aviutl2() {
 //値を削除できたらTRUEを返す
 BOOL del_arg(TCHAR *cmd, TCHAR *target_arg, int del_arg_delta);
 
+static DWORD cpu_core_count() {
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    return si.dwNumberOfProcessors;
+}
+
 #endif //_AUO_UTIL_H_

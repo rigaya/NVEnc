@@ -1018,6 +1018,9 @@ std::vector<std::wstring> sep_cmd(const std::wstring &cmd);
 std::vector<std::string> sep_cmd(const std::string &cmd);
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+std::string removeAnsiEscapeSequences(const std::string& input);
+std::wstring removeAnsiEscapeSequences(const std::wstring& input);
+
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 
 bool canbe_converted_to(const wchar_t *str, uint32_t codepage);
