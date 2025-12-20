@@ -69,6 +69,7 @@ AuoMessages g_auo_mes;
 
 bool func_output2( OUTPUT_INFO *oip );
 bool func_config2(HWND hwnd, HINSTANCE dll_hinst);
+BOOL run_benchmark(OUTPUT_INFO *oip);
 
 static const aviutlchar *func_get_config_text() {
     return g_auo_version_info;
@@ -229,6 +230,9 @@ BOOL func_output( OUTPUT_INFO *oip ) {
         }
     }
     conf_out = g_conf;
+    if (conf_out.oth.benchmark_mode) {
+        return run_benchmark(oip);
+    }
 
     init_enc_prm(&conf_out, &pe, oip, &g_sys_dat);
 
@@ -313,6 +317,108 @@ bool func_output2( OUTPUT_INFO *oip ) {
     return ret;
 }
 #endif
+
+BOOL run_benchmark(OUTPUT_INFO *oip) {
+    if (oip == nullptr || oip->savefile == nullptr) {
+        return FALSE;
+    }
+
+    const CONF_GUIEX conf_org = g_conf;
+    const auto savefile_org = oip->savefile;
+
+    struct Restore {
+        OUTPUT_INFO *oip_ptr;
+        const CONF_GUIEX conf;
+        decltype(savefile_org) savefile;
+        Restore(OUTPUT_INFO *oip_in, const CONF_GUIEX& c, decltype(savefile_org) s) : oip_ptr(oip_in), conf(c), savefile(s) {}
+        ~Restore() {
+            g_conf = conf;
+            if (oip_ptr) oip_ptr->savefile = savefile;
+        }
+    } restore_all(oip, conf_org, savefile_org);
+
+    TCHAR benchmark_dir[MAX_PATH_LEN] = { 0 };
+    if (!PathCombineLong(benchmark_dir, _countof(benchmark_dir), g_sys_dat.exstg->s_local.stg_dir, _T("benchmark"))) {
+        return FALSE;
+    }
+    if (!PathFileExists(benchmark_dir)) {
+        write_log_auo_line_fmt(LOG_ERROR, _T("Benchmark directory does not exist: %s"), benchmark_dir);
+        return FALSE;
+    }
+
+    // ベンチマークディレクトリ内の *.stg を列挙
+    std::vector<tstring> stg_files;
+    {
+        TCHAR search_pattern[MAX_PATH_LEN] = { 0 };
+        if (!PathCombineLong(search_pattern, _countof(search_pattern), benchmark_dir, _T("*.stg"))) {
+            return FALSE;
+        }
+        WIN32_FIND_DATA find_data = { 0 };
+        const HANDLE hFind = FindFirstFile(search_pattern, &find_data);
+        if (hFind != INVALID_HANDLE_VALUE) {
+            do {
+                if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                    continue;
+                }
+                TCHAR stg_path[MAX_PATH_LEN] = { 0 };
+                if (PathCombineLong(stg_path, _countof(stg_path), benchmark_dir, find_data.cFileName)) {
+                    stg_files.push_back(stg_path);
+                }
+            } while (FindNextFile(hFind, &find_data));
+            FindClose(hFind);
+        }
+    }
+    std::sort(stg_files.begin(), stg_files.end());
+
+    // 各 stg をロードして func_output を実行
+    BOOL result = TRUE;
+    for (const auto& stg_path : stg_files) {
+        const CONF_GUIEX conf_before_each = g_conf;
+        const auto savefile_before_each = oip->savefile;
+        struct RestoreEach {
+            OUTPUT_INFO *oip_ptr;
+            const CONF_GUIEX conf;
+            decltype(savefile_before_each) savefile;
+            RestoreEach(OUTPUT_INFO *oip_in, const CONF_GUIEX& c, decltype(savefile_before_each) s) : oip_ptr(oip_in), conf(c), savefile(s) {}
+            ~RestoreEach() {
+                g_conf = conf;
+                if (oip_ptr) oip_ptr->savefile = savefile;
+            }
+        } restore_each(oip, conf_before_each, savefile_before_each);
+
+        write_log_auo_line_fmt(LOG_INFO, _T("Loading setting file: %s"), stg_path.c_str());
+        if (guiEx_config::load_guiEx_conf(&g_conf, stg_path.c_str()) != CONF_ERROR_NONE) {
+            write_log_auo_line_fmt(LOG_ERROR, _T("Failed to load setting file: %s"), stg_path.c_str());
+            return FALSE;
+        }
+        // 再帰防止
+        g_conf.oth.benchmark_mode = FALSE;
+
+        // 出力ファイル名を (拡張子抜き + stgファイル名 + 拡張子) に変更
+        const auto savefile_org_t = (const TCHAR*)savefile_org;
+        const TCHAR* ext = PathFindExtension(savefile_org_t);
+        if (ext == nullptr) ext = _T("");
+
+        TCHAR stg_base[MAX_PATH_LEN] = { 0 };
+        _tcscpy_s(stg_base, _countof(stg_base), PathFindFileName(stg_path.c_str()));
+        PathRemoveExtension(stg_base);
+
+        TCHAR appendix[MAX_PATH_LEN] = { 0 };
+        _stprintf_s(appendix, _T("%s%s"), stg_base, ext);
+
+        TCHAR savefile_new_buf[MAX_PATH_LEN] = { 0 };
+        apply_appendix(savefile_new_buf, _countof(savefile_new_buf), savefile_org_t, appendix);
+        std::vector<TCHAR> savefile_new(_tcslen(savefile_new_buf) + 1, 0);
+        _tcscpy_s(savefile_new.data(), savefile_new.size(), savefile_new_buf);
+        oip->savefile = savefile_new.data();
+
+        result = func_output(oip);
+        if (!result) {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
 
 //---------------------------------------------------------------------
 //        出力プラグイン設定関数

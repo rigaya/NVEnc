@@ -272,6 +272,7 @@ typedef struct CONF_OTHER {
             TCHAR after_audio[MAX_PATH_LEN];    //音声エンコ後バッチファイルのパス
         } batfile;
     };
+    BOOL benchmark_mode;
 } CONF_OTHER;
 
 struct CONF_GUIEX_HEADER {

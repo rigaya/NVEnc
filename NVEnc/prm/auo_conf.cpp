@@ -307,7 +307,8 @@ void guiEx_config::other_to_json(nlohmann::json& j, const CONF_OTHER& oth) {
             {"after_process", tchar_to_string(oth.batfile.after_process, CP_UTF8)},
             {"before_audio", tchar_to_string(oth.batfile.before_audio, CP_UTF8)},
             {"after_audio", tchar_to_string(oth.batfile.after_audio, CP_UTF8)}
-        }}
+        }},
+        {"benchmark_mode", oth.benchmark_mode}
     };
 }
 
@@ -434,6 +435,7 @@ void guiEx_config::json_to_other(const nlohmann::json& j, CONF_OTHER& oth) {
             auto after_audio_tstr = char_to_tstring(batfiles.value("after_audio", ""), CP_UTF8);
             _tcscpy_s(oth.batfile.after_audio, after_audio_tstr.c_str());
         }
+        oth.benchmark_mode = o.value("benchmark_mode", 0);
     }
 }
 
