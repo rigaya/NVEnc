@@ -396,6 +396,7 @@ namespace AUO_NAME_R {
             this->fosCBAutoSaveLog->TabIndex = 33;
             this->fosCBAutoSaveLog->Text = L"ログ自動保存";
             this->fosCBAutoSaveLog->UseVisualStyleBackColor = true;
+            this->fosCBAutoSaveLog->CheckedChanged += gcnew System::EventHandler(this, &frmOtherSettings::fosCBAutoSaveLog_CheckedChanged);
             // 
             // fosCXAutoSaveLog
             // 
@@ -405,6 +406,7 @@ namespace AUO_NAME_R {
             this->fosCXAutoSaveLog->Name = L"fosCXAutoSaveLog";
             this->fosCXAutoSaveLog->Size = System::Drawing::Size(140, 23);
             this->fosCXAutoSaveLog->TabIndex = 32;
+            this->fosCXAutoSaveLog->SelectedIndexChanged += gcnew System::EventHandler(this, &frmOtherSettings::fosCXAutoSaveLog_SelectedIndexChanged);
             // 
             // fosCBOutputMoreLog
             // 
@@ -844,6 +846,15 @@ namespace AUO_NAME_R {
             for (int i = 0; i < top->Controls->Count; i++) {
                 SetAllMouseMove(top->Controls[i], themeTo);
             }
+        }
+    private:
+        System::Void fosCBAutoSaveLog_CheckedChanged(System::Object^  sender, System::EventArgs^  e) {
+            fosCXAutoSaveLog->Enabled = fosCBAutoSaveLog->Checked;
+            fosTXAutoSaveLog->Visible = fosCBAutoSaveLog->Checked && (fosCXAutoSaveLog->SelectedIndex == AUO_AUTO_SAVE_LOG_CUSTOM);
+        }
+    private:
+        System::Void fosCXAutoSaveLog_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
+            fosTXAutoSaveLog->Visible = fosCBAutoSaveLog->Checked && (fosCXAutoSaveLog->SelectedIndex == AUO_AUTO_SAVE_LOG_CUSTOM);
         }
 };
 }
