@@ -67,6 +67,24 @@ static aviutlchar g_auo_fullname[1024] = { 0 };
 static aviutlchar g_auo_version_info[1024] = { 0 };
 AuoMessages g_auo_mes;
 
+#if AVIUTL_TARGET_VER == 1
+static std::string aviutlchar_to_string(const aviutlchar *str) { return std::string(str); }
+static std::wstring aviutlchar_to_wstring(const aviutlchar *str) { return char_to_wstring(str, CP_THREAD_ACP); }
+static std::basic_string<aviutlchar> string_to_aviutlchar(const std::string &str) { return str; }
+static std::basic_string<aviutlchar> wstring_to_aviutlchar(const std::wstring &str) { return wstring_to_string(str, CP_THREAD_ACP); }
+#define aviutlcharcpy_s strcpy_s
+#define aviutlcharlen strlen
+#define aviutlchar_PathFindExtension PathFindExtensionA
+#else
+static std::wstring aviutlchar_to_wstring(const aviutlchar *str) { return std::wstring(str); }
+static std::string aviutlchar_to_string(const aviutlchar *str) { return wstring_to_string(str, CP_THREAD_ACP); }
+static std::basic_string<aviutlchar> string_to_aviutlchar(const std::string &str) { return char_to_wstring(str, CP_THREAD_ACP); }
+static std::basic_string<aviutlchar> wstring_to_aviutlchar(const std::wstring &str) { return str; }
+#define aviutlcharcpy_s wcscpy_s
+#define aviutlcharlen wcslen
+#define aviutlchar_PathFindExtension PathFindExtensionW
+#endif
+
 bool func_output2( OUTPUT_INFO *oip );
 bool func_config2(HWND hwnd, HINSTANCE dll_hinst);
 BOOL run_benchmark(OUTPUT_INFO *oip);
@@ -408,8 +426,9 @@ BOOL run_benchmark(OUTPUT_INFO *oip) {
 
         TCHAR savefile_new_buf[MAX_PATH_LEN] = { 0 };
         apply_appendix(savefile_new_buf, _countof(savefile_new_buf), savefile_org_t, appendix);
-        std::vector<TCHAR> savefile_new(_tcslen(savefile_new_buf) + 1, 0);
-        _tcscpy_s(savefile_new.data(), savefile_new.size(), savefile_new_buf);
+        const auto savefile_aviutlchar = wstring_to_aviutlchar(savefile_new_buf);
+        std::vector<aviutlchar> savefile_new(savefile_aviutlchar.length() + 1, 0);
+        memcpy(savefile_new.data(), savefile_aviutlchar.c_str(), (savefile_aviutlchar.length() + 1) * sizeof(aviutlchar));
         oip->savefile = savefile_new.data();
 
         result = func_output(oip);
@@ -557,22 +576,6 @@ void write_log_auo_enc_time(const wchar_t *mes, DWORD time) {
         (time % (60*1000)) / 1000,
         ((time % 1000)) / 100, g_auo_mes.get(AUO_GUIEX_TIME_SEC));
 }
-
-#if AVIUTL_TARGET_VER == 1
-static std::string aviutlchar_to_string(const aviutlchar *str) { return std::string(str); }
-static std::wstring aviutlchar_to_wstring(const aviutlchar *str) { return char_to_wstring(str, CP_THREAD_ACP); }
-static std::basic_string<aviutlchar> string_to_aviutlchar(const std::string &str) { return str; }
-static std::basic_string<aviutlchar> wstring_to_aviutlchar(const std::wstring &str) { return wstring_to_string(str, CP_THREAD_ACP); }
-#define aviutlcharcpy_s strcpy_s
-#define aviutlcharlen strlen
-#else
-static std::wstring aviutlchar_to_wstring(const aviutlchar *str) { return std::wstring(str); }
-static std::string aviutlchar_to_string(const aviutlchar *str) { return wstring_to_string(str, CP_THREAD_ACP); }
-static std::basic_string<aviutlchar> string_to_aviutlchar(const std::string &str) { return char_to_wstring(str, CP_THREAD_ACP); }
-static std::basic_string<aviutlchar> wstring_to_aviutlchar(const std::wstring &str) { return str; }
-#define aviutlcharcpy_s wcscpy_s
-#define aviutlcharlen wcslen
-#endif
 
 template <size_t size>
 void get_aviutl_ini_file(char(&ini_file)[size]) {
