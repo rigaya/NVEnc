@@ -747,6 +747,7 @@ enum AuoMes {
         AuofcggroupBoxCmdEx,
         AuofcgCBLogDebug,
         AuofcgCBAuoTcfileout,
+        AuofcgCBBenchmarkMode,
         AuofcgLBTempDir,
         AuofcgBTCustomTempDir,
         AuofcgCBPerfMonitor,

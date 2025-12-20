@@ -612,6 +612,7 @@ AuotabPageExOpt=その他
 AuofcggroupBoxCmdEx=追加コマンド
 AuofcgCBLogDebug=デバッグログ出力
 AuofcgCBAuoTcfileout=タイムコード出力
+AuofcgCBBenchmarkMode=ベンチマークモード
 AuofcgLBTempDir=一時フォルダ
 AuofcgBTCustomTempDir=...
 AuofcgCBPerfMonitor=パフォーマンスログ出力

@@ -614,6 +614,7 @@ AuotabPageExOpt=Others
 AuofcggroupBoxCmdEx=Extra command line options
 AuofcgCBLogDebug=Output debug log
 AuofcgCBAuoTcfileout=Output timecode
+AuofcgCBBenchmarkMode=benchmark mode
 AuofcgLBTempDir=Temp Dir
 AuofcgBTCustomTempDir=...
 AuofcgCBPerfMonitor=Performance Monitor

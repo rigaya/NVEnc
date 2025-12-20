@@ -1353,6 +1353,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcggroupBoxCmdEx);
     LOAD_CLI_TEXT(fcgCBLogDebug);
     LOAD_CLI_TEXT(fcgCBAuoTcfileout);
+    LOAD_CLI_TEXT(fcgCBBenchmarkMode);
     LOAD_CLI_TEXT(fcgLBTempDir);
     LOAD_CLI_TEXT(fcgBTCustomTempDir);
     LOAD_CLI_TEXT(fcgCBPerfMonitor);
