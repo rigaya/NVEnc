@@ -14,6 +14,7 @@ rem 実行場所をこのbatのあるフォルダに固定
 cd /d "%~dp0" >nul 2>&1
 
 rem 目印ファイルの存在確認
+set TARGET_AUO_VER=2
 if not exist "%TARGET%.auo2" (
   if not exist "%TARGET%.auo" (
     echo.
@@ -25,13 +26,14 @@ if not exist "%TARGET%.auo2" (
     endlocal
     exit /b 1
   )
+  set TARGET_AUO_VER=1
 )
 
 echo.
 echo [%TARGET%] をアンインストールします。
 echo 設定ファイル等を削除します。よろしいですか?
 echo.
-choice /c YN /m "削除を実行しますか (Y/N)"
+choice /c yn /m "削除を実行しますか (Yes/No)"
 if errorlevel 2 (
   echo.
   echo アンインストールを中止しました。
@@ -49,16 +51,19 @@ del /q "%TARGET%.conf"  >nul 2>&1
 del /q "%TARGET%.ini"   >nul 2>&1
 del /q "%TARGET%.*.ini" >nul 2>&1
 if exist "%TARGET%_stg" rmdir /s /q "%TARGET%_stg" >nul 2>&1
-if exist "exe_files\%TARGET%C" rmdir /s /q "exe_files\%TARGET%C" >nul 2>&1
+
+set EXE_DIR="exe_files"
+if %TARGET_AUO_VER%==1 if exist "..\exe_files" set EXE_DIR="..\exe_files"
 
 rem %TARGET% から後ろのguiExを削除
 set "TARGET_EXE=%TARGET:~0,-5%"
-if exist "exe_files\%TARGET_EXE%*.exe" del /q "exe_files\%TARGET_EXE%*.exe" >nul 2>&1
+if exist "%EXE_DIR%\%TARGET_EXE%*.exe" del /q "%EXE_DIR%\%TARGET_EXE%*.exe" >nul 2>&1
 
 echo.
 echo アンインストール処理が完了しました。
+echo なにかキーを押すと終了します。
 echo.
-pause
+pause > nul 2>&1
 rem 正常終了時のみ、このバッチ自身を削除（別プロセスで遅延削除）
 start "" /b cmd /c "timeout /t 1 /nobreak >nul & del /f /q ""%~f0"" >nul 2>&1"
 endlocal
