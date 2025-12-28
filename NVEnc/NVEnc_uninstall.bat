@@ -51,6 +51,7 @@ del /q "%TARGET%.conf"  >nul 2>&1
 del /q "%TARGET%.ini"   >nul 2>&1
 del /q "%TARGET%.*.ini" >nul 2>&1
 if exist "%TARGET%_stg" rmdir /s /q "%TARGET%_stg" >nul 2>&1
+if %TARGET_AUO_VER%==1 del /q auo_setup.auf >nul 2>&1
 
 set EXE_DIR="exe_files"
 if %TARGET_AUO_VER%==1 if exist "..\exe_files" set EXE_DIR="..\exe_files"
