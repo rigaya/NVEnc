@@ -258,6 +258,7 @@ jobs:
           copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\NVEnc.en.ini Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\NVEnc.zh.ini Aviutl_NVEnc_release\plugins\
+          copy /y NVEnc\NVEnc_uninstall.bat Aviutl_NVEnc_release\plugins\
           copy /y NVEnc\auo_setup.ini Aviutl_NVEnc_release\exe_files\
           copy /y NVEnc\NVEnc_readme.txt Aviutl_NVEnc_release\
           copy /y "NVEnc\NVENCが利用可能か確認 [ダブルクリック].bat" Aviutl_NVEnc_release\
@@ -278,6 +279,7 @@ jobs:
           copy /y NVEnc\NVEnc.ini Aviutl_NVEnc_release\Plugin\
           copy /y NVEnc\NVEnc.en.ini Aviutl_NVEnc_release\Plugin\
           copy /y NVEnc\NVEnc.zh.ini Aviutl_NVEnc_release\Plugin\
+          copy /y NVEnc\NVEnc_uninstall.bat Aviutl_NVEnc_release\Plugin\
           copy /y NVEnc\auo_setup.ini Aviutl_NVEnc_release\Plugin\exe_files\
           copy /y NVEnc\NVEnc_readme.txt Aviutl_NVEnc_release\
           echo D | xcopy /y /e NVEnc\stg Aviutl_NVEnc_release\Plugin\NVEnc_stg
