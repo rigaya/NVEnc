@@ -325,6 +325,24 @@ void set_window_title_override(WindowTitleOverride *window_title_override);
 bool func_output2( OUTPUT_INFO *oip ) {
     WindowTitleOverride window_title_override;
     set_window_title_override(&window_title_override);
+
+    struct ScopedCurrentDir {
+        std::basic_string<TCHAR> orig;
+        ScopedCurrentDir() : orig() {
+            if (const DWORD required = GetCurrentDirectory(0, nullptr); required) {
+                std::vector<TCHAR> buf(required+1, 0);
+                const DWORD copied = GetCurrentDirectory((DWORD)buf.size(), buf.data());
+                if (copied && copied < buf.size()) {
+                    orig = buf.data();
+                }
+            }
+            TCHAR aviutl_dir[MAX_PATH_LEN] = { 0 };
+            get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+            SetCurrentDirectory(aviutl_dir);
+        }
+        ~ScopedCurrentDir() { if (orig.length() > 0) SetCurrentDirectory(orig.c_str()); }
+    } scoped_current_dir;
+
     bool ret = false;
     try {
         ret = func_output(oip) != FALSE;
