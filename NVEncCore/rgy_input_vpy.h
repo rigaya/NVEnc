@@ -33,43 +33,13 @@
 #if ENABLE_VAPOURSYNTH_READER
 #include "rgy_osdep.h"
 #include "rgy_input.h"
-#include "VapourSynth.h"
-#include "VSScript.h"
+
+// VapourSynth headers/types are intentionally NOT included here.
+// VapourSynth(v3/v4) specific code is isolated behind a wrapper implemented in .cpp files.
+class RGYVapourSynthWrapper;
 
 const int ASYNC_BUFFER_2N = 7;
 const int ASYNC_BUFFER_SIZE = 1<<ASYNC_BUFFER_2N;
-
-#if _M_IX86
-#define VPY_X64 0
-#else
-#define VPY_X64 1
-#endif
-
-//インポートライブラリを使うとvsscript.dllがない場合に起動できない
-typedef int (__stdcall *func_vs_init)(void);
-typedef int (__stdcall *func_vs_finalize)(void);
-typedef int (__stdcall *func_vs_evaluateScript)(VSScript **handle, const char *script, const char *errorFilename, int flags);
-typedef int (__stdcall *func_vs_evaluateFile)(VSScript **handle, const char *scriptFilename, int flags);
-typedef void (__stdcall *func_vs_freeScript)(VSScript *handle);
-typedef const char * (__stdcall *func_vs_getError)(VSScript *handle);
-typedef VSNodeRef * (__stdcall *func_vs_getOutput)(VSScript *handle, int index);
-typedef void (__stdcall *func_vs_clearOutput)(VSScript *handle, int index);
-typedef VSCore * (__stdcall *func_vs_getCore)(VSScript *handle);
-typedef const VSAPI * (__stdcall *func_vs_getVSApi)(void);
-
-typedef struct {
-    HMODULE                hVSScriptDLL;
-    func_vs_init           init;
-    func_vs_finalize       finalize;
-    func_vs_evaluateScript evaluateScript;
-    func_vs_evaluateFile   evaluateFile;
-    func_vs_freeScript     freeScript;
-    func_vs_getError       getError;
-    func_vs_getOutput      getOutput;
-    func_vs_clearOutput    clearOutput;
-    func_vs_getCore        getCore;
-    func_vs_getVSApi       getVSApi;
-} vsscript_t;
 
 class RGYInputVpyPrm : public RGYInputPrm {
 public:
@@ -87,7 +57,7 @@ public:
 
     virtual void Close() override;
 
-    void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
+    void setFrameToAsyncBuffer(int n, const void* f); // f is VSFrameRef* (v3) or VSFrame* (v4)
 
     virtual int64_t GetVideoFirstKeyPts() const override;
     virtual bool seekable() const override {
@@ -101,33 +71,25 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
     virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
 
-    void release_vapoursynth();
-    int load_vapoursynth(const tstring& vsdir);
     int initAsyncEvents();
     void closeAsyncEvents();
-    const VSFrameRef* getFrameFromAsyncBuffer(int n) {
+    const void* getFrameFromAsyncBuffer(int n) {
         WaitForSingleObject(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
-        const VSFrameRef *frame = m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)];
+        const void *frame = m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)];
         SetEvent(m_hAsyncEventFrameSetStart[n & (ASYNC_BUFFER_SIZE-1)]);
         return frame;
     }
-    const VSFrameRef* m_pAsyncBuffer[ASYNC_BUFFER_SIZE];
+    const void* m_pAsyncBuffer[ASYNC_BUFFER_SIZE];
     HANDLE m_hAsyncEventFrameSetFin[ASYNC_BUFFER_SIZE];
     HANDLE m_hAsyncEventFrameSetStart[ASYNC_BUFFER_SIZE];
-
-    int getRevInfo(const char *vs_version_string);
 
     bool m_bAbortAsync;
     uint32_t m_nCopyOfInputFrames;
 
-    const VSAPI *m_sVSapi;
-    VSScript *m_sVSscript;
-    VSNodeRef *m_sVSnode;
+    std::unique_ptr<RGYVapourSynthWrapper> m_vs; // v3/v4 wrapper
     int m_asyncThreads;
     int m_asyncFrames;
     int m_startFrame;
-
-    vsscript_t m_sVS;
 };
 
 #endif //ENABLE_VAPOURSYNTH_READER

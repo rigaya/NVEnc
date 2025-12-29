@@ -1226,6 +1226,9 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_vapoursynth_wrapper.cpp" />
+    <ClCompile Include="rgy_vapoursynth_wrapper_v3.cpp" />
+    <ClCompile Include="rgy_vapoursynth_wrapper_v4.cpp" />
     <ClCompile Include="rgy_language.cpp" />
     <ClCompile Include="rgy_level_av1.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -1616,6 +1619,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_input_raw.h" />
     <ClInclude Include="rgy_input_sm.h" />
     <ClInclude Include="rgy_input_vpy.h" />
+    <ClInclude Include="rgy_vapoursynth_wrapper.h" />
     <ClInclude Include="rgy_language.h" />
     <ClInclude Include="rgy_level_av1.h" />
     <ClInclude Include="rgy_libplacebo.h" />
