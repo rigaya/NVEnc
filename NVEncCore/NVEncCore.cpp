@@ -2196,6 +2196,10 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             return RGY_ERR_UNSUPPORTED;
         }
     }
+    if (inputParam->unidirectB && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_UNIDIRECTIONAL_B)) {
+        error_feature_unsupported(RGY_LOG_WARN, _T("Unidirectional B"));
+        inputParam->unidirectB = false;
+    }
     if (m_dynamicRC.size() > 0 && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)) {
         error_feature_unsupported(RGY_LOG_ERROR, _T("dynamic RC Change"));
         return RGY_ERR_UNSUPPORTED;
