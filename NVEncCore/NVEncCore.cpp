@@ -1108,34 +1108,40 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
         return RGY_ERR_NONE;
     }
 
-    if (inputParam->bFrames.has_value() && inputParam->bFrames.value() > 0) {
-        bool support_bframe = false;
-        //エンコード対象のBフレームサポートのあるGPUがあるかを確認する
+    auto remove_gpu_if_gpu_support_mismatch = [&](std::function<bool(const NVGPUInfo *)> check_func) {
+        bool support_feature = false;
+        //エンコード対象のサポートのあるGPUがあるかを確認する
         for (const auto& gpu : gpuList) {
-            const auto codec = std::find_if(gpu->nvenc_codec_features().begin(), gpu->nvenc_codec_features().end(), [codec_rgy = inputParam->codec_rgy](const NVEncCodecFeature& codec) {
-                return codec.codec == codec_guid_rgy_to_enc(codec_rgy);
-            });
-            assert(codec != gpu->nvenc_codec_features().end());
-            if (get_value(NV_ENC_CAPS_NUM_MAX_BFRAMES, codec->caps) > 0) {
-                support_bframe = true;
+            if (check_func(gpu.get())) {
+                support_feature = true;
                 break;
             }
         }
-        //BフレームサポートのあるGPUがあれば、そのGPU以外は除外する
-        if (support_bframe) {
+        // サポートのあるGPUがあれば、対応していないGPUは除外する
+        if (support_feature) {
             for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
-                //コーデックのチェック
-                const auto codec = std::find_if((*gpu)->nvenc_codec_features().begin(), (*gpu)->nvenc_codec_features().end(), [codec_rgy = inputParam->codec_rgy](const NVEncCodecFeature& codec) {
-                    return codec.codec == codec_guid_rgy_to_enc(codec_rgy);
-                });
-                assert(codec != (*gpu)->nvenc_codec_features().end());
-                if (get_value(NV_ENC_CAPS_NUM_MAX_BFRAMES, codec->caps) == 0) {
+                if (!check_func(gpu->get())) {
                     gpu = gpuList.erase(gpu);
                     continue;
                 }
                 gpu++;
             }
         }
+    };
+
+    if (inputParam->bFrames.has_value() && inputParam->bFrames.value() > 0) {
+        remove_gpu_if_gpu_support_mismatch([&](const NVGPUInfo *gpu) {
+            const auto codec = std::find_if(gpu->nvenc_codec_features().begin(), gpu->nvenc_codec_features().end(), [codec_rgy = inputParam->codec_rgy](const NVEncCodecFeature& codec) {
+                return codec.codec == codec_guid_rgy_to_enc(codec_rgy);
+            });
+            assert(codec != gpu->nvenc_codec_features().end());
+            return get_value(NV_ENC_CAPS_NUM_MAX_BFRAMES, codec->caps) > 0;
+        });
+    }
+    if (inputParam->codec_rgy != RGY_CODEC_H264 && inputParam->tuningInfo == NV_ENC_TUNING_INFO_ULTRA_HIGH_QUALITY) {
+        remove_gpu_if_gpu_support_mismatch([&](const NVGPUInfo *gpu) {
+            return gpu->cc().first >= 8 || (gpu->cc().first == 7 && gpu->cc().second >= 5);
+        });
     }
     return RGY_ERR_NONE;
 }
@@ -1846,10 +1852,10 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
                 PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires NVENC API 12.2.\n"));
                 inputParam->tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
             }
-            //if (inputParam->codec_rgy != RGY_CODEC_HEVC) {
-            //    PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it is only supported with HEVC encoding.\n"));
-            //    inputParam->tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
-            //}
+            if (inputParam->codec_rgy == RGY_CODEC_H264) {
+                PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it is not supported with H.264 encoding.\n"));
+                inputParam->tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
+            }
             if (m_dev->cc().first <= 6
                 || (m_dev->cc().first == 7 && m_dev->cc().second < 5)) {
                 PrintMes(RGY_LOG_WARN, _T("tune uhq disabled as it requires GPUs Turing or above.\n"));
