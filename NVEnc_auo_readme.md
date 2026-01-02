@@ -220,15 +220,11 @@ NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
 
 ## NVEnc の Aviutl からの削除
 
-NVEnc の Aviutl から削除するには、"plugins" フォルダ内の下記ファイルとフォルダを削除してください。
+NVEnc を Aviutl/AviUtl2 から削除するには、プラグインフォルダの ```NVEnc_uninstall.bat``` をダブルクリックして実行します。
 
-- [フォルダ] NVEnc_stg
-- [ファイル] NVEnc.auo
-- [ファイル] NVEnc.conf (存在する場合のみ)
-- [ファイル] NVEnc(.ini)
-- [ファイル] auo_setup.auf
+![削除](./data/NVEnc_9_09_uninstall_20260102.webp)
 
-![削除](./data/NVEnc_6_00_uninstall_01.png)
+上記画面が表示されたら、```y``` と入力し、削除を実行してください。
 
 ## 多言語対応
 

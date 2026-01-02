@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.09
+
+- Add support for Vapoursynth API V4. ( #747 )
+
 ## 9.08
 
 - Add option to encode only when input audio codec differs from codec specified by [--audio-codec](./NVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring). ([--audio-encode-other-codec-only](./NVEncC_Options.en.md#--audio-encode-other-codec-only), #743)
