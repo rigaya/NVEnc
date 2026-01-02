@@ -308,9 +308,9 @@ void set_window_title(const wchar_t *chr) {
     if (g_window_title_override) {
         if (ENCODER_SVTAV1) {
             auto escaped_chr = removeAnsiEscapeSequences(std::wstring(chr));
-            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + escaped_chr).c_str());
+            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + L" " + escaped_chr).c_str());
         } else {
-            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + chr).c_str());
+            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + L" " + chr).c_str());
         }
     }
 }
@@ -319,9 +319,9 @@ void set_window_title(const wchar_t *chr, int /*progress_mode*/) {
     if (g_window_title_override) {
         if (ENCODER_SVTAV1) {
             auto escaped_chr = removeAnsiEscapeSequences(std::wstring(chr));
-            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + escaped_chr).c_str());
+            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + L" " + escaped_chr).c_str());
         } else {
-            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + chr).c_str());
+            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + L" " + chr).c_str());
         }
     }
 }
@@ -331,10 +331,10 @@ void set_window_title_enc_mes(const wchar_t *chr, int total_drop, int frame_n) {
         if (ENCODER_SVTAV1) {
             auto escaped_chr = removeAnsiEscapeSequences(std::wstring(chr));
             const auto title = g_window_title_override->format_window_title_enc_mes(escaped_chr.data(), total_drop, frame_n);
-            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + title).c_str());
+            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + L" " + title).c_str());
         } else {
             const auto title = g_window_title_override->format_window_title_enc_mes(chr, total_drop, frame_n);
-            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + title).c_str());
+            g_window_title_override->override_window_title((std::wstring(AUO_NAME_WITHOUT_EXT_W) + L" " + title).c_str());
         }
     }
 }
