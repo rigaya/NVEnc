@@ -550,11 +550,11 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_highbit) {
 #else
     conf->mux.use_internal = FALSE;
 #endif
-    if (conf->aud.in.encoder < g_sys_dat.exstg->s_aud_int_count) {
+    if (g_sys_dat.exstg->s_aud_int_count > 0 && conf->aud.in.encoder < g_sys_dat.exstg->s_aud_int_count) {
         const AUDIO_SETTINGS *aud_stg_in = &g_sys_dat.exstg->s_aud_int[conf->aud.in.encoder];
         conf->aud.in.bitrate = aud_stg_in->mode[conf->aud.in.enc_mode].bitrate_default;
     }
-    if (conf->aud.ext.encoder < g_sys_dat.exstg->s_aud_ext_count) {
+    if (g_sys_dat.exstg->s_aud_ext_count > 0 && conf->aud.ext.encoder < g_sys_dat.exstg->s_aud_ext_count) {
         const AUDIO_SETTINGS *aud_stg_ext = &g_sys_dat.exstg->s_aud_ext[conf->aud.ext.encoder];
         conf->aud.ext.bitrate = aud_stg_ext->mode[conf->aud.ext.enc_mode].bitrate_default;
     }

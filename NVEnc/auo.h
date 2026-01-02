@@ -128,6 +128,16 @@ static const TCHAR    *ENCODER_REPLACE_MACRO = _T("%{vceenccpath}");
 static const char *const OUTPUT_FILE_EXT[]        = {  ".mp4",     ".mkv",     ".264"    };
 static const char *const OUTPUT_FILE_EXT_FILTER[] = { "*.mp4",    "*.mkv",    "*.264"    };
 static const char *const OUTPUT_FILE_EXT_DESC[]   = { "mp4 file", "mkv file", "raw file" };
+#elif ENCODER_VVENC
+static const char *ENCODER_NAME   = "VVenC";
+static const wchar_t *ENCODER_NAME_W   = L"VVenC";
+static const TCHAR *ENOCDER_RAW_EXT = _T(".266");
+static const char *ENCODER_APP_NAME = "vvencFFapp";
+static const wchar_t *ENCODER_APP_NAME_W = L"vvencFFapp";
+static const TCHAR *ENCODER_REPLACE_MACRO = _T("%{vvencpath}");
+static const char *const OUTPUT_FILE_EXT[]        = {  ".mp4",     ".mkv",     ".266"    };
+static const char *const OUTPUT_FILE_EXT_FILTER[] = { "*.mp4",    "*.mkv",    "*.266"    };
+static const char *const OUTPUT_FILE_EXT_DESC[]   = { "mp4 file", "mkv file", "raw file" };
 #else
 static_assert(false);
 #endif

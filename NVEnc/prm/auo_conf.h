@@ -115,6 +115,11 @@ static const char *const CONF_NAME_OLD_1 = "VCEEnc ConfigFile v3";
 static const char *const CONF_NAME_OLD_2 = "VCEEnc ConfigFile v4";
 static const char *const CONF_NAME_JSON  = "VCEEnc ConfigFile v4 json";
 static const char *const CONF_NAME       = CONF_NAME_OLD_2;
+#elif ENCODER_VVENC
+static const char* const CONF_NAME_OLD_1 = "VVenCguiEx ConfigFile v1";
+static const char* const CONF_NAME_OLD_2 = "VVenCguiEx ConfigFile v2";
+static const char* const CONF_NAME_JSON  = "VVenCguiEx ConfigFile v2 json";
+static const char* const CONF_NAME       = CONF_NAME_OLD_2;
 #else
 static_assert(false);
 #endif
@@ -174,7 +179,7 @@ enum {
     AUDIO_DELAY_CUT_EDTS         = 3, //音声エンコード遅延の削除をedtsを用いて行う
 };
 
-#if ENCODER_SVTAV1
+#if ENCODER_SVTAV1 || ENCODER_VVENC
 typedef struct CONF_ENC_PRM {
     TCHAR cmd[MAX_CMD_LEN];
     int sar_x;

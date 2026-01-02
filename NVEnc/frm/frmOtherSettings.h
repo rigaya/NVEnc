@@ -621,8 +621,10 @@ namespace AUO_NAME_R {
             //LOAD_CLI_TEXT(fosLBAMPLimitMarginMax);
             //LOAD_CLI_TEXT(fosLBAMPLimitMarginMin);
             //LOAD_CLI_TEXT(fosCBAmpKeepOldFile);
-            //LOAD_CLI_TEXT(fosCBPerfMonitor);
-            //LOAD_CLI_TEXT(fosLBLogOut);
+#if ENCODER_QSV
+            LOAD_CLI_TEXT(fosCBPerfMonitor);
+            LOAD_CLI_TEXT(fosLBLogOut);
+#endif
             LOAD_CLI_MAIN_TEXT(fosMain);
         }
     private:

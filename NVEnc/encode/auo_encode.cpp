@@ -241,6 +241,8 @@ std::filesystem::path find_latest_videnc(const std::vector<std::filesystem::path
             memcpy(version, value, sizeof(version));
             ret = path;
         }
+#elif ENCODER_VVENC
+        ;
 #else
 		static_assert(false);
 #endif
@@ -604,7 +606,7 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
     //音声エンコーダ
     if (oip->flag & OUTPUT_INFO_FLAG_AUDIO) {
         // 内蔵エンコーダ非対応
-        if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1) {
+        if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC) {
             conf->aud.use_internal = FALSE;
         }
         //音声長さチェック
@@ -670,7 +672,7 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
                 }
                 AUDIO_SETTINGS *aud_stg = &exstg->s_aud_ext[cnf_aud->encoder];
                 if (!muxer_supports_audio_format(pe->muxer_to_be_used, aud_stg)) {
-                    const bool retry_with_default_audenc = ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1; // ffmpeg_audencを配布していないQSV/NV/VCEEncではここのretryは無効化する
+                    const bool retry_with_default_audenc = ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC; // ffmpeg_audencを配布していないQSV/NV/VCEEncではここのretryは無効化する
                     const int orig_encoder = cnf_aud->encoder;
                     if (retry_with_default_audenc) {
                         if (default_audenc_cnf_avail
@@ -751,7 +753,7 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
                 if (!ENCODER_FFMPEG && str_has_char(aud_stg->filename) && (cnf_aud->encoder != exstg->get_faw_index(conf->aud.use_internal))) {
                     std::wstring exe_message;
                     if (!check_audenc_output(aud_stg, exe_message)) {
-                        const bool retry_with_default_audenc = ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1; // ffmpeg_audencを配布していないQSV/NV/VCEEncではここのretryは無効化する
+                        const bool retry_with_default_audenc = ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC; // ffmpeg_audencを配布していないQSV/NV/VCEEncではここのretryは無効化する
                         const int orig_encoder = cnf_aud->encoder;
                         if (retry_with_default_audenc) {
                             if (default_audenc_cnf_avail
@@ -801,7 +803,7 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
                 check &= check_muxer_exist(&exstg->s_mux[MUXER_MP4_RAW], aviutl_dir, exstg->s_local.get_relative_path, exeFiles);
             }
         }
-    	if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1) {
+    	if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC) {
             check &= check_muxer_matched_with_ini(exstg->s_mux);
         }
         break;
@@ -812,7 +814,7 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
         break;
     }
 
-    if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1) {
+    if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC) {
         //自動マルチパス設定
         check &= check_amp(conf);
 
@@ -959,7 +961,7 @@ static void set_aud_delay_cut(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *
 }
 
 bool use_auto_npass(const CONF_GUIEX *conf) {
-#if ENCODER_SVTAV1	
+#if ENCODER_SVTAV1 || ENCODER_VVENC
     if (!conf->oth.disable_guicmd) {
         CONF_ENC enc = get_default_prm();
         set_cmd(&enc, conf->enc.cmd, true);
@@ -974,7 +976,7 @@ bool use_auto_npass(const CONF_GUIEX *conf) {
 }
 
 int get_total_path(const CONF_GUIEX *conf) {
-#if ENCODER_SVTAV1
+#if ENCODER_SVTAV1 || ENCODER_VVENC
     return use_auto_npass(conf) ? 2 : 1;
 #elif ENCODER_X264 || ENCODER_X265 || ENCODER_FFMPEG
     return (conf->enc.use_auto_npass
@@ -1086,7 +1088,7 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     sys_dat->exstg->apply_fn_replace(filename_replace, _countof(filename_replace));
     PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
 
-#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1
+#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC
     if (pe->video_out_type != VIDEO_OUTPUT_DISABLED) {
         if (!check_videnc_mp4_output(sys_dat->exstg->s_enc.fullpath, pe->temp_filename)) {
             //一時ファイルの拡張子を変更
@@ -1098,7 +1100,7 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     //ファイルの上書きを避ける
     avoid_exsisting_tmp_file(pe->temp_filename, _countof(pe->temp_filename));
 
-    if (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1) {
+    if (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC) {
         conf->mux.use_internal = FALSE;
     }
     pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
@@ -1266,7 +1268,7 @@ static void replace_aspect_ratio(TCHAR *cmd, size_t nSize, const CONF_GUIEX *con
     //%{dar_y}
     _stprintf_s(buf, _T("%d"), dar_y);
     replace(cmd, nSize, _T("%{dar_y}"), buf);
-#elif ENCODER_SVTAV1
+#elif ENCODER_SVTAV1 || ENCODER_VVENC
     const int w = oip->w;
     const int h = oip->h;
     int sar_x = conf->enc.sar_x;
@@ -1395,7 +1397,7 @@ void cmd_replace(TCHAR *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA 
     _stprintf_s(tmp, _T("%d"), fps_scale);
     replace(cmd, nSize, _T("%{fps_scale}"), tmp);
     //アスペクト比
-    if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1) {
+    if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC) {
         replace_aspect_ratio(cmd, nSize, conf, oip);
     }
     //%{pid}
@@ -1568,7 +1570,7 @@ DWORD GetExePriority(DWORD set, HANDLE h_aviutl) {
 int check_video_ouput(const TCHAR *filename) {
     if (check_ext(filename, _T(".mp4")))  return VIDEO_OUTPUT_MP4;
     if (check_ext(filename, _T(".mkv")))  return VIDEO_OUTPUT_MKV;
-    if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1) {
+    if constexpr (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC) {
         //if (check_ext(filename, ".mpg"))  return VIDEO_OUTPUT_MPEG2;
         //if (check_ext(filename, ".mpeg")) return VIDEO_OUTPUT_MPEG2;
         if (check_ext(filename, ENOCDER_RAW_EXT)) return VIDEO_OUTPUT_RAW;
@@ -1617,7 +1619,7 @@ int check_muxer_to_be_used(const CONF_GUIEX *conf, const PRM_ENC *pe, const SYST
     return MUXER_DISABLED;
 #else
     int muxer_to_be_used = MUXER_DISABLED;
-#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1
+#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_VVENC
     if (video_output_type == VIDEO_OUTPUT_MP4 && !conf->mux.disable_mp4ext)
         muxer_to_be_used = is_afsvfr(conf) ? MUXER_TC2MP4 : MUXER_MP4;
     else if (video_output_type == VIDEO_OUTPUT_MKV && !conf->mux.disable_mkvext)

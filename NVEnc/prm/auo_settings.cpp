@@ -111,6 +111,13 @@ static const char * const INI_VID_FILENAME         = "ffmpeg";
 static const char * const INI_SECTION_ENC_PRESET   = "ENC_PRESET";
 static const char * const INI_SECTION_ENC_TUNE     = "ENC_TUNE";
 static const char * const INI_SECTION_ENC_PROFILE  = "ENC_PROFILE";
+#elif ENCODER_VVENC
+static const char * const INI_SECTION_MAIN         = "VVENCGUIEX";
+static const char * const INI_SECTION_ENC          = "ENC";
+static const char * const INI_SECTION_ENC_DEFAULT  = "ENC_DEFAULT";
+static const char * const INI_SECTION_ENC_PRESET   = "ENC_PRESET";
+static const char * const INI_SECTION_ENC_TUNE     = "ENC_TUNE";
+static const char * const INI_SECTION_ENC_PROFILE  = "ENC_PROFILE";
 #else
 static_assert(false);
 #endif

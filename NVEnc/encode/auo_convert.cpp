@@ -54,7 +54,7 @@ func_audio_16to8 get_audio_16to8_func(BOOL split) {
     return FUNC_CONVERT_AUDIO[simdidx][!!split];
 }
 
-#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_FFMPEG
+#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_FFMPEG || ENCODER_VVENC
 enum eInterlace {
     A = -1, //区別の必要なし
     P = 0,  //プログレッシブ用
@@ -90,7 +90,7 @@ static const int BIT12 = 12;
 static const int BIT16 = 16;
 
 #define ENABLE_NV12 (ENCODER_X264 != 0 || ENCODER_FFMPEG != 0)
-#define ENABLE_16BIT (ENCODER_SVTAV1 == 0)
+#define ENABLE_16BIT (ENCODER_SVTAV1 == 0 && ENCODER_VVENC == 0)
 
 //変換関数のテーブル
 //上からチェックするので、より厳しい条件で速い関数を上に書くこと
