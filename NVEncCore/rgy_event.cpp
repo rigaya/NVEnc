@@ -36,91 +36,155 @@
 #include <chrono>
 #include <algorithm>
 
-class Event {
-public:
-    bool bManualReset;
-    bool bReady;
+struct Waiter;
+
+struct Event {
+    bool manual;
+    unsigned count; // 0 or 1
     std::mutex mtx;
-    std::condition_variable cv;
+    std::vector<Waiter*> waiters;
 
-    Event() : bManualReset(false), bReady(false), mtx(), cv() {
-
-    };
-    Event(bool manualReset) : Event() {
-        bManualReset = manualReset;
-    };
+    Event(bool manualReset, bool initial)
+        : manual(manualReset),
+          count(initial ? 1u : 0u) {}
 };
 
-void ResetEvent(HANDLE ev) {
-    Event *event = (Event *)ev;
-    {
-        std::lock_guard<std::mutex> lock(event->mtx);
-        if (event->bReady) {
-            event->bReady = false;
-        }
-    }
-}
+struct Waiter {
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::vector<Event*> events;
+};
 
-void SetEvent(HANDLE ev) {
-    Event *event = (Event *)ev;
-    {
-        std::lock_guard<std::mutex> lock(event->mtx);
-        if (!event->bReady) {
-            event->bReady = true;
-            (event->bManualReset) ? event->cv.notify_all() : event->cv.notify_one();
-        }
-    }
-}
-
-HANDLE CreateEvent(void *pDummy, int bManualReset, int bInitialState, void *pDummy2) {
-    Event *event = new Event(!!bManualReset);
-    if (bInitialState) {
-        SetEvent(event);
-    }
-    return event;
+HANDLE CreateEvent(void*, int manualReset, int initialState, void*) {
+    return new Event(!!manualReset, !!initialState);
 }
 
 void CloseEvent(HANDLE ev) {
-    if (ev != NULL) {
-        Event *event = (Event *)ev;
-       delete event;
+    delete static_cast<Event*>(ev);
+}
+
+void ResetEvent(HANDLE ev) {
+    auto* e = static_cast<Event*>(ev);
+    std::lock_guard<std::mutex> lk(e->mtx);
+    e->count = 0;
+}
+
+void SetEvent(HANDLE ev) {
+    auto* e = static_cast<Event*>(ev);
+
+    std::lock_guard<std::mutex> lk(e->mtx);
+
+    if (e->count == 1)
+        return;
+
+    e->count = 1;
+
+    for (auto* w : e->waiters) {
+        std::lock_guard<std::mutex> wl(w->mtx);
+        w->cv.notify_one();
     }
 }
 
-uint32_t WaitForSingleObject(HANDLE ev, uint32_t millisec) {
-    Event *event = (Event *)ev;
+static bool all_signaled(const Waiter& w) {
+    for (auto* e : w.events)
+        if (e->count == 0)
+            return false;
+    return true;
+}
+
+uint32_t WaitForSingleObject(HANDLE ev, uint32_t timeout_ms) {
+    Event* e = static_cast<Event*>(ev);
+    Waiter w;
+    w.events.push_back(e);
+
     {
-        std::unique_lock<std::mutex> uniq_lk(event->mtx);
-        if (millisec == INFINITE) {
-            event->cv.wait(uniq_lk, [&event]{ return event->bReady;});
-            if (!event->bManualReset) {
-                event->bReady = false;
-            }
-        } else {
-            event->cv.wait_for(uniq_lk, std::chrono::milliseconds(millisec), [&event]{ return event->bReady;});
-            if (!event->bReady) {
-                return WAIT_TIMEOUT;
-            }
-            if (!event->bManualReset) {
-                event->bReady = false;
-            }
-        }
+        std::lock_guard<std::mutex> lk(e->mtx);
+        e->waiters.push_back(&w);
     }
+
+    std::unique_lock<std::mutex> lk(w.mtx);
+
+    auto pred = [&]() { return e->count == 1; };
+
+    bool ok;
+    if (timeout_ms == INFINITE) {
+        w.cv.wait(lk, pred);
+        ok = true;
+    } else {
+        ok = w.cv.wait_for(
+            lk,
+            std::chrono::milliseconds(timeout_ms),
+            pred
+        );
+    }
+
+    {
+        std::lock_guard<std::mutex> lk2(e->mtx);
+        e->waiters.erase(
+            std::remove(e->waiters.begin(), e->waiters.end(), &w),
+            e->waiters.end()
+        );
+    }
+
+    if (!ok)
+        return WAIT_TIMEOUT;
+
+    if (!e->manual)
+        e->count = 0;
+
     return WAIT_OBJECT_0;
 }
 
-uint32_t WaitForMultipleObjects(uint32_t count, HANDLE *pev, int dummy, uint32_t millisec) {
-    Event **pevent = (Event **)pev;
-    int success = 0;
-    bool bTimeout = false;
-    for (uint32_t i = 0; i < count; i++) {
-        if (WAIT_TIMEOUT == WaitForSingleObject(pevent[i], (bTimeout) ? 0 : millisec)) {
-            bTimeout = true;
-        } else {
-            success++;
-        }
+uint32_t WaitForMultipleObjects(
+    uint32_t count,
+    HANDLE* handles,
+    int /*waitAll*/,
+    uint32_t timeout_ms
+) {
+    Waiter w;
+
+    for (uint32_t i = 0; i < count; ++i) {
+        auto* e = static_cast<Event*>(handles[i]);
+        w.events.push_back(e);
+
+        std::lock_guard<std::mutex> lk(e->mtx);
+        e->waiters.push_back(&w);
     }
-    return (bTimeout) ? WAIT_TIMEOUT : (WAIT_OBJECT_0 + success);
+
+    std::unique_lock<std::mutex> lk(w.mtx);
+
+    auto pred = [&]() { return all_signaled(w); };
+
+    bool ok;
+    if (timeout_ms == INFINITE) {
+        w.cv.wait(lk, pred);
+        ok = true;
+    } else {
+        ok = w.cv.wait_for(
+            lk,
+            std::chrono::milliseconds(timeout_ms),
+            pred
+        );
+    }
+
+    // unregister
+    for (auto* e : w.events) {
+        std::lock_guard<std::mutex> lk2(e->mtx);
+        e->waiters.erase(
+            std::remove(e->waiters.begin(), e->waiters.end(), &w),
+            e->waiters.end()
+        );
+    }
+
+    if (!ok)
+        return WAIT_TIMEOUT;
+
+    // auto-reset consume
+    for (auto* e : w.events)
+        if (!e->manual)
+            e->count = 0;
+
+    return WAIT_OBJECT_0;
 }
 
 unique_event CreateEventUnique(void *pDummy, int bManualReset, int bInitialState, void *pDummy2) {
