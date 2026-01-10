@@ -4757,6 +4757,24 @@ int parse_log_level_param(const TCHAR *option_name, const TCHAR *arg_value, RGYP
     return 0;
 }
 
+int parse_audio_bitrate(std::vector<AudioBitrate>& ret, const tstring& str) {
+    auto prms = split(tchar_to_string(str), ",");
+    for (const auto& prm : prms) {
+        auto delim = prm.find(":");
+        try {
+            if (delim == std::string::npos) {
+                ret.push_back(AudioBitrate(std::stoi(prm)));
+            } else {
+                ret.push_back(AudioBitrate(prm.substr(0, delim), std::stoi(prm.substr(delim + 1))));
+            }
+        } catch (...) {
+            print_cmd_error_invalid_value(_T("--audio-bitrate "), char_to_tstring(prm));
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
     const auto paramList = std::vector<std::string>{ "codec", "bitrate", "quality", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "resampler", "copy" };
     for (const auto &param : split(str, _T(";"))) {
@@ -4768,7 +4786,9 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
                 chSel.encCodec = param_val;
             } else if (param_arg == _T("bitrate")) {
                 try {
-                    chSel.encBitrate = std::stoi(param_val);
+                    if (parse_audio_bitrate(chSel.encBitrate, param_val)) {
+                        return 1;
+                    }
                 } catch (...) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                     return 1;
@@ -5509,8 +5529,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     if (IS_OPTION("audio-bitrate")) {
         try {
             auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-                if (trackId != 0 || pAudioSelect->encBitrate == 0) {
-                    pAudioSelect->encBitrate = std::stoi(prmstr);
+                if (trackId != 0 || pAudioSelect->encBitrate.size() == 0) {
+                    if (parse_audio_bitrate(pAudioSelect->encBitrate, prmstr)) {
+                        throw std::runtime_error("invalid bitrate");
+                    }
                 }
             });
             return ret;
@@ -8191,8 +8213,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
-            && pAudioSelect->encBitrate > 0) {
-            cmd << _T(" --audio-bitrate ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encBitrate;
+            && pAudioSelect->encBitrate.size() > 0) {
+            tstring bitratestr;
+            for (const auto& bitrate : pAudioSelect->encBitrate) {
+                if (!bitratestr.empty()) bitratestr += _T(",");
+                bitratestr += bitrate.print();
+            }
+            cmd << _T(" --audio-bitrate ") << printTrack(pAudioSelect) << _T("?") << bitratestr;
         }
     }
     OPT_BOOL(_T("--audio-encode-other-codec-only"), _T(""), audioEncodeOtherCodecOnly);
@@ -8307,8 +8334,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                 } else {
                     tmp.str(tstring());
                     tmp << _T(";codec=") << sel.encCodec;
-                    if (sel.encBitrate > 0) {
-                        tmp << _T(";bitrate=") << sel.encBitrate;
+                    if (sel.encBitrate.size() > 0) {
+                        tstring bitratestr;
+                        for (const auto& bitrate : sel.encBitrate) {
+                            if (!bitratestr.empty()) bitratestr += _T(",");
+                            bitratestr += bitrate.print();
+                        }
+                        tmp << _T(";bitrate=") << bitratestr;
                     }
                     if (sel.encQuality.first) {
                         tmp << _T(";quality=") << sel.encQuality.second;

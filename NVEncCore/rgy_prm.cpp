@@ -2111,6 +2111,42 @@ bool RGYParamVpp::operator!=(const RGYParamVpp& x) const {
     return !(*this == x);
 }
 
+AudioBitrate::AudioBitrate() :
+    channel(),
+    bitrate(0) {
+}
+AudioBitrate::AudioBitrate(int bitrate) :
+    channel(),
+    bitrate(bitrate) {
+}
+AudioBitrate::AudioBitrate(const std::string& channel, int bitrate) :
+    channel(channel),
+    bitrate(bitrate) {
+}
+bool AudioBitrate::operator==(const AudioBitrate &x) const {
+    return channel == x.channel
+        && bitrate == x.bitrate;
+}
+bool AudioBitrate::operator!=(const AudioBitrate &x) const {
+    return !(*this == x);
+}
+tstring AudioBitrate::print() const {
+    if (channel.empty()) {
+        return strsprintf(_T("%d"), bitrate);
+    }
+    return strsprintf(_T("%s:%d"), channel.c_str(), bitrate);
+}
+
+tstring encbitrate_to_string(const std::vector<AudioBitrate>& bitrates) {
+    tstring str;
+    for (const auto& br : bitrates) {
+        if (!str.empty()) {
+            str += _T(",");
+        }
+        str += br.print();
+    }
+    return str;
+}
 
 AudioSelect::AudioSelect() :
     trackID(0),
@@ -2118,7 +2154,7 @@ AudioSelect::AudioSelect() :
     encCodec(),
     encCodecPrm(),
     encCodecProfile(),
-    encBitrate(0),
+    encBitrate(),
     encQuality({ false, RGY_AUDIO_QUALITY_DEFAULT }),
     encSamplingRate(0),
     addDelayMs(0.0),

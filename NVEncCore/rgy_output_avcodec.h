@@ -355,7 +355,7 @@ struct AVOutputStreamPrm {
     tstring encodeCodec;        //音声をエンコードするコーデック
     tstring encodeCodecPrm;     //音声をエンコードするコーデックのパラメータ
     tstring encodeCodecProfile; //音声をエンコードするコーデックのパラメータ
-    int     bitrate;            //ビットレートの指定
+    std::vector<AudioBitrate> encodeBitrate; //ビットレートの指定
     std::pair<bool, int> quality; //品質の指定 (値が設定されているかと値)
     int     samplingRate;       //サンプリング周波数の指定
     tstring filter;             //音声フィルタ
@@ -371,7 +371,7 @@ struct AVOutputStreamPrm {
         encodeCodec(RGY_AVCODEC_COPY),
         encodeCodecPrm(),
         encodeCodecProfile(),
-        bitrate(0),
+        encodeBitrate(),
         quality({ false, RGY_AUDIO_QUALITY_DEFAULT }),
         samplingRate(0),
         filter(),
@@ -592,6 +592,9 @@ protected:
 
     //音声のプロファイル(文字列)を取得する
     tstring AudioGetCodecProfileStr(int profile, AVCodecID codecId);
+
+    //音声のビットレートを取得する
+    int AudioGetBitrate(const std::vector<AudioBitrate> &encodeBitrate, const RGYChannelLayout *channelLayout) const;
 
     //H.264ストリームからPAFFのフィールドの長さを返す
     uint32_t getH264PAFFFieldLength(const uint8_t *ptr, uint32_t size, int *isIDR);

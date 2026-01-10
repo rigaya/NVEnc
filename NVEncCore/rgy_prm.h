@@ -2313,6 +2313,20 @@ static const TCHAR *RGY_METADATA_COPY = _T("copy");
 static const int TRACK_SELECT_BY_LANG  = -1;
 static const int TRACK_SELECT_BY_CODEC = -2;
 
+struct AudioBitrate {
+    std::string channel;
+    int bitrate;
+
+    AudioBitrate();
+    AudioBitrate(int bitrate);
+    AudioBitrate(const std::string& channel, int bitrate);
+    bool operator==(const AudioBitrate &x) const;
+    bool operator!=(const AudioBitrate &x) const;
+    tstring print() const;
+};
+
+tstring encbitrate_to_string(const std::vector<AudioBitrate>& bitrates);
+
 struct AudioSelect {
     int      trackID;         //選択したトラックのリスト 1,2,...(1から連番で指定)
                               // 0 ... 全指定
@@ -2322,7 +2336,7 @@ struct AudioSelect {
     tstring  encCodec;        //音声エンコードのコーデック
     tstring  encCodecPrm;     //音声エンコードのコーデックのパラメータ
     tstring  encCodecProfile; //音声エンコードのコーデックのプロファイル
-    int      encBitrate;      //音声エンコードに選択した音声トラックのビットレート
+    std::vector<AudioBitrate> encBitrate;      //音声エンコードに選択した音声トラックのビットレート
     std::pair<bool, int> encQuality;      //音声エンコードに選択した音声トラックの品質 <値が設定されているかと値のペア>
     int      encSamplingRate;      //サンプリング周波数
     double   addDelayMs;           //追加する音声の遅延(millisecond)

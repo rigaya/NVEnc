@@ -677,6 +677,23 @@ uniuqeRGYChannelLayout RGYOutputAvcodec::AutoSelectChannelLayout(const AVCodec *
     return createChannelLayoutCopy(&channelLayout[0]);
 }
 
+int RGYOutputAvcodec::AudioGetBitrate(const std::vector<AudioBitrate> &encodeBitrate, const RGYChannelLayout *channelLayout) const {
+    const auto targetChannleLayoutStr = getChannelLayoutChar(channelLayout);
+    for (const auto& bitrate : encodeBitrate) {
+        if (targetChannleLayoutStr == bitrate.channel) {
+            return bitrate.bitrate;
+        }
+    }
+    const int targetChannelCount = getChannelCount(channelLayout);
+    for (const auto& bitrate : encodeBitrate) {
+        auto channel = getChannelLayoutFromString(bitrate.channel);
+        if (targetChannelCount == getChannelCount(channel.get())) {
+            return bitrate.bitrate;
+        }
+    }
+    return 0;
+}
+
 int RGYOutputAvcodec::AutoSelectSamplingRate(const int *samplingRateList, int srcSamplingRate) {
     if (samplingRateList == nullptr) {
         return srcSamplingRate;
@@ -1719,11 +1736,13 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             if (inputAudio->quality.first) {
                 muxAudio->outCodecEncodeCtx->flags |= AV_CODEC_FLAG_QSCALE;
                 muxAudio->outCodecEncodeCtx->global_quality = inputAudio->quality.second * FF_QP2LAMBDA;
-                if (inputAudio->bitrate) {
-                    muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate >= 0) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
+                if (inputAudio->encodeBitrate.size() > 0) {
+                    const int bitrate = AudioGetBitrate(inputAudio->encodeBitrate, enc_channel_layout.get());
+                    muxAudio->outCodecEncodeCtx->bit_rate = (bitrate >= 0) ? bitrate * 1000 : AVQSV_DEFAULT_AUDIO_BITRATE * 1000;
                 }
-            } else if (inputAudio->bitrate) {
-                muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate >= 0) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
+            } else if (inputAudio->encodeBitrate.size() > 0) {
+                const int bitrate = AudioGetBitrate(inputAudio->encodeBitrate, enc_channel_layout.get());
+                muxAudio->outCodecEncodeCtx->bit_rate = (bitrate >= 0) ? bitrate * 1000 : AVQSV_DEFAULT_AUDIO_BITRATE * 1000;
             }
         }
         if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {

@@ -1562,7 +1562,7 @@ RGY_ERR initWriters(
                     //pAudioSelect == nullptrは "copyAllStreams" か 字幕ストリーム によるもの
                     if (pAudioSelect != nullptr) {
                         prm.decodeCodecPrm = pAudioSelect->decCodecPrm;
-                        prm.bitrate = pAudioSelect->encBitrate;
+                        prm.encodeBitrate = pAudioSelect->encBitrate;
                         prm.quality = pAudioSelect->encQuality;
                         prm.samplingRate = pAudioSelect->encSamplingRate;
                         prm.encodeCodec = pAudioSelect->encCodec;
@@ -1587,9 +1587,9 @@ RGY_ERR initWriters(
                         prm.disposition = pDataSelect->disposition;
                         prm.metadata = pDataSelect->metadata;
                     }
-                    log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, quality %s, codec: %s %s %s, bsf: %s, disposition: %s, metadata %s\n"),
+                    log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %s, quality %s, codec: %s %s %s, bsf: %s, disposition: %s, metadata %s\n"),
                         char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
-                        stream.trackId, stream.index, prm.bitrate,
+                        stream.trackId, stream.index, encbitrate_to_string(prm.encodeBitrate).c_str(),
                         prm.quality.first ? strsprintf("%d", prm.quality.second).c_str() : "unset",
                         prm.encodeCodec.c_str(),
                         prm.encodeCodecProfile.c_str(),
@@ -1688,7 +1688,7 @@ RGY_ERR initWriters(
                     //pAudioSelect == nullptrは "copyAllStreams" か 字幕ストリーム によるもの
                     if (pAudioSelect != nullptr) {
                         prm.decodeCodecPrm = pAudioSelect->decCodecPrm;
-                        prm.bitrate = pAudioSelect->encBitrate;
+                        prm.encodeBitrate = pAudioSelect->encBitrate;
                         prm.quality = pAudioSelect->encQuality;
                         prm.samplingRate = pAudioSelect->encSamplingRate;
                         prm.encodeCodec = pAudioSelect->encCodec;
@@ -1709,9 +1709,9 @@ RGY_ERR initWriters(
                         prm.disposition = pSubtitleSelect->disposition;
                         prm.metadata = pSubtitleSelect->metadata;
                     }
-                    log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, quality %s, codec: %s %s %s, bsf: %s, disposition: %s, metadata: %s\n"),
+                    log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %s, quality %s, codec: %s %s %s, bsf: %s, disposition: %s, metadata: %s\n"),
                         char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
-                        stream.trackId, stream.index, prm.bitrate,
+                        stream.trackId, stream.index, encbitrate_to_string(prm.encodeBitrate).c_str(),
                         prm.quality.first ? strsprintf("%d", prm.quality.second).c_str() : "unset",
                         prm.encodeCodec.c_str(),
                         prm.encodeCodecProfile.c_str(),
@@ -1827,7 +1827,7 @@ RGY_ERR initWriters(
                 prm.src = audioTrack;
                 //pAudioSelect == nullptrは "copyAll" によるもの
                 prm.decodeCodecPrm = pAudioSelect->decCodecPrm;
-                prm.bitrate = pAudioSelect->encBitrate;
+                prm.encodeBitrate = pAudioSelect->encBitrate;
                 prm.quality = pAudioSelect->encQuality;
                 prm.samplingRate = pAudioSelect->encSamplingRate;
                 prm.encodeCodec = pAudioSelect->encCodec;
