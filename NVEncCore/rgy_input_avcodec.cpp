@@ -1667,7 +1667,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         if (input_prm->ppAudioSelect[i]->encCodec.length() > 0
             && !avcodecIsCopy(input_prm->ppAudioSelect[i]->encCodec)) {
-            audioLog += strsprintf(_T("bitrate %d"), input_prm->ppAudioSelect[i]->encBitrate);
+            audioLog += strsprintf(_T("bitrate %d"), encbitrate_to_string(input_prm->ppAudioSelect[i]->encBitrate).c_str());
         }
         if (input_prm->ppAudioSelect[i]->extractFilename.length() > 0) {
             audioLog += tstring(_T("filename \"")) + input_prm->ppAudioSelect[i]->extractFilename + tstring(_T("\""));
@@ -1927,6 +1927,28 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         if (m_Demux.video.stream->codecpar->width == 0 || m_Demux.video.stream->codecpar->height == 0) {
             AddMessage(RGY_LOG_ERROR, _T("Input video info not parsed yet [%dx%d]!\n"), m_Demux.video.stream->codecpar->width, m_Demux.video.stream->codecpar->height);
             AddMessage(RGY_LOG_ERROR, _T("Consider increasing the value for the --input-analyze and/or --input-probesize!\n"), input_prm->analyzeSec, input_prm->probesize);
+            auto [ret, pkt] = getSample();
+            if (ret == 0) {
+                std::vector<nal_info> nals;
+                if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_HEVC) {
+                    nals = m_Demux.video.parse_nal_hevc(pkt->data, pkt->size);
+                } else if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_H264) {
+                    nals = m_Demux.video.parse_nal_h264(pkt->data, pkt->size);
+                }
+                if (nals.size() > 0) {
+                    AddMessage(RGY_LOG_ERROR, _T("First video pkt info:\n"));
+                    nals = m_Demux.video.parse_nal_hevc(pkt->data, pkt->size);
+                    for (const auto& nal : nals) {
+                        AddMessage(RGY_LOG_ERROR, _T("  nal type %d, size %d\n"), nal.type, nal.size);
+                    }
+                    std::unique_ptr<FILE, decltype(&fclose)> fpTmp(
+                        _tfopen(_T("debug_dump_nal.bin"), _T("wb")), fclose);
+                    if (fpTmp) {
+                        fwrite(pkt->data, 1, pkt->size, fpTmp.get());
+                        AddMessage(RGY_LOG_ERROR, _T("Dumped first video pkt to debug_dump_nal.bin\n"));
+                    }
+                }
+            }
             return RGY_ERR_NOT_FOUND;
         }
         AddMessage(RGY_LOG_DEBUG, _T("use video stream #%d for input, codec %s, stream time_base %d/%d.\n"),
