@@ -151,7 +151,7 @@
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-encode-other-codec-only](#--audio-encode-other-codec-only)
-  - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
+  - [--audio-bitrate \[\<int/string\>?\]\<int\> or \[\<int/string\>?\]\<string\>:\<int\>\[,\<string\>:\<int\>\]\[,...\]](#--audio-bitrate-intstringint-or-intstringstringintstringint)
   - [--audio-quality \[\<int/string\>?\]\<int\>](#--audio-quality-intstringint)
   - [--audio-profile \[\<int/string\>?\]\<string\>](#--audio-profile-intstringstring)
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
@@ -1237,15 +1237,22 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
   --audio-codec aac --audio-encode-other-codec-only
   ```
 
-### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;
+### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt; or [&lt;int/string&gt;?]&lt;string&gt;:&lt;int&gt;[,&lt;string&gt;:&lt;int&gt;][,...]
 音声をエンコードする際のビットレートをkbpsで指定する。
 
-[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
+```?```の前の[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
+
+```?```の後ろの&lt;string&gt;では下記のチャンネル指定により、指定のチャンネルに対して指定値を適用することもできる。
+
+```
+mono, stereo, 2.1, 3.0, 3.0(back), 3.1, 4.0, quad, quad(side), 5.0, 5.1, 6.0, 6.0(front), hexagonal, 6.1, 6.1(front), 7.0, 7.0(front), 7.1, 7.1(wide)
+```
 
 - 使用例
   ```
   例1: --audio-bitrate 192   (音声を192kbpsで変換)
-  例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
+  例2: --audio-bitrate 1?320 --audio-bitrate 2?256 (音声の第1トラックを320kbpsで変換、音声の第2トラックを256kbpsで変換)
+  例3: --audio-bitrate stereo:256,5.1:640 (stereoを256kbpsで、5.1chを640kbpsで変換)
   ```
 
 ### --audio-quality [&lt;int/string&gt;?]&lt;int&gt;

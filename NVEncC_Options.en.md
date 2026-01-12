@@ -1236,11 +1236,20 @@ When used together with `--audio-codec`, if the input audio codec equals the cod
 ### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;
 Specify the bitrate in kbps when encoding audio.
 
-You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;] before ```?```, or select audio track to encode by language with [&lt;string&gt;] before ```?```.
+
+You can set different bitrate to different audio channels, by using [&lt;string&gt;] after ```?```, using symbols below.
+
 ```
-Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
-Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
+mono, stereo, 2.1, 3.0, 3.0(back), 3.1, 4.0, quad, quad(side), 5.0, 5.1, 6.0, 6.0(front), hexagonal, 6.1, 6.1(front), 7.0, 7.0(front), 7.1, 7.1(wide)
 ```
+
+- Examples
+  ```
+  Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
+  Example 2: --audio-bitrate 1?320 --audio-bitrate 2?256 (set bitrate of 1st audio track to to 320 kbps, 2nd audio track   to to 256 kbps)
+  Example 3: --audio-bitrate stereo:256,5.1:640 (stereoを256kbpsで、5.1chを640kbpsで変換)
+  ```
 
 ### --audio-quality [&lt;int/string&gt;?]&lt;int&gt;
 Specify the quality when encoding audio. The value depends on the codec used.
