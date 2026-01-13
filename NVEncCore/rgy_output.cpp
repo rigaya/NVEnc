@@ -1820,8 +1820,8 @@ RGY_ERR initWriters(
                     log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Audio track #%d is not used anyware, this should not happen.\n"), trackID(audioTrack.trackId));
                     return RGY_ERR_UNKNOWN;
                 }
-                log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
-                    trackID(audioTrack.trackId), audioTrack.index, pAudioSelect->extractFilename.c_str(), pAudioSelect->extractFormat.c_str(), pAudioSelect->encCodec.c_str(), pAudioSelect->encBitrate);
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %s\n"),
+                    trackID(audioTrack.trackId), audioTrack.index, pAudioSelect->extractFilename.c_str(), pAudioSelect->extractFormat.c_str(), pAudioSelect->encCodec.c_str(), encbitrate_to_string(pAudioSelect->encBitrate).c_str());
 
                 AVOutputStreamPrm prm;
                 prm.src = audioTrack;
