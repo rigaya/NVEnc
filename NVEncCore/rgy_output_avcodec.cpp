@@ -691,6 +691,10 @@ int RGYOutputAvcodec::AudioGetBitrate(const std::vector<AudioBitrate> &encodeBit
             return bitrate.bitrate;
         }
     }
+    auto defaultBitrate = std::find_if(encodeBitrate.begin(), encodeBitrate.end(), [](const AudioBitrate &bitrate) { return bitrate.channel.empty(); });
+    if (defaultBitrate != encodeBitrate.end()) {
+        return defaultBitrate->bitrate;
+    }
     return 0;
 }
 
