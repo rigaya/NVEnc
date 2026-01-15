@@ -535,7 +535,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                     chSel.encCodec = _T("copy");
                 } else {
                     if (aud_stg->mode[cnf_aud->enc_mode].bitrate) {
-                        chSel.encBitrate = cnf_aud->bitrate;
+                        chSel.encBitrate.push_back(AudioBitrate(cnf_aud->bitrate));
                     }
                     chSel.encCodec = aud_stg->codec;
                 }
