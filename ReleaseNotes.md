@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.10
+
+- Add feature to set --audio-bitrate to different value depending on audio channels. ( #743 )
+
 ## 9.09
 
 - Add support for Vapoursynth API V4. ( #747 )
