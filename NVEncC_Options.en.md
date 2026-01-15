@@ -155,7 +155,7 @@
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-encode-other-codec-only](#--audio-encode-other-codec-only)
-  - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
+  - [--audio-bitrate \[\<int/string\>?\]\<int\> or \[\<int/string\>?\]\<string\>:\<int\>\[,\<string\>:\<int\>\]\[,...\]](#--audio-bitrate-intstringint-or-intstringstringintstringint)
   - [--audio-quality \[\<int/string\>?\]\<int\>](#--audio-quality-intstringint)
   - [--audio-profile \[\<int/string\>?\]\<string\>](#--audio-profile-intstringstring)
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
@@ -1233,7 +1233,7 @@ When used together with `--audio-codec`, if the input audio codec equals the cod
   --audio-codec aac --audio-encode-other-codec-only
   ```
 
-### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;
+### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt; or [&lt;int/string&gt;?]&lt;string&gt;:&lt;int&gt;[,&lt;string&gt;:&lt;int&gt;][,...]
 Specify the bitrate in kbps when encoding audio.
 
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;] before ```?```, or select audio track to encode by language with [&lt;string&gt;] before ```?```.
