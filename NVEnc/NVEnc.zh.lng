@@ -612,7 +612,7 @@ AuotabPageExOpt=其他
 AuofcggroupBoxCmdEx=添加命令
 AuofcgCBLogDebug=调试输出
 AuofcgCBAuoTcfileout=导出时间码
-AuofcgCBBenchmarkMode=benchmark mode
+AuofcgCBBenchmarkMode=基准模式
 AuofcgLBTempDir=临时文件夹
 AuofcgBTCustomTempDir=...
 AuofcgCBPerfMonitor=导出性能监测日志
@@ -1108,4 +1108,5 @@ AUO_OTHER_SETTINGS_AMP_MARGIN_XS=稀缺
 AUO_OTHER_SETTINGS_AMP_MARGIN_S=吃紧
 AUO_OTHER_SETTINGS_AMP_MARGIN_M=普通
 AUO_OTHER_SETTINGS_AMP_MARGIN_L=充足
+
 AUO_OTHER_SETTINGS_AUDIO_ENCODER_EXTERNAL=外部
