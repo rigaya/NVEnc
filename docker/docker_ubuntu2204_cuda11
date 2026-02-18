@@ -17,6 +17,8 @@ RUN apt update \
       git \
       ca-certificates \
       pkg-config \
+      meson \
+      ninja-build \
       build-essential \
       libavcodec58 \
       libavcodec-dev \

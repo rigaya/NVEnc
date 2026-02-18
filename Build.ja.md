@@ -65,6 +65,7 @@ NVEnc.slnを開き、ビルドします。
 
 ### 0. ビルドに必要なもの
 - C++17 コンパイラ
+- meson + ninja-build
 - CUDA 10-12
 - rust + cargo-c (libdoviビルド用)
 - git
@@ -79,7 +80,7 @@ NVEnc.slnを開き、ビルドします。
 - ビルドツールのインストール
 
   ```Shell
-  sudo apt install build-essential git
+  sudo apt install build-essential git meson ninja-build
   ```
 
 - rust + cargo-cのインストール
@@ -197,13 +198,13 @@ LD_LIBRARY_PATH=/usr/local/lib vspipe --version
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-./configure
-make
+meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 
 動作確認をします。
 ```Shell
-./nvencc --check-hw
+./build/nvencc --check-hw
 ```
 
 こんな感じでNVENCのサポートしているコーデックが表示されればOKです。
@@ -224,6 +225,7 @@ AV1
 ### 0. ビルドに必要なもの
 - GPUドライバ 435.21 以上
 - C++17 コンパイラ
+- meson + ninja-build
 - CUDA 10
 - git
 - ライブラリ群
@@ -237,7 +239,7 @@ AV1
 - ビルドツールのインストール
 
   ```Shell
-  sudo apt install git g++-8
+  sudo apt install git g++-8 meson ninja-build
   ```
 
 - rust + cargo-cのインストール
@@ -366,13 +368,13 @@ cd ../../../
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-./configure --cxx=g++-8
-make
+CXX=g++-8 meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 
 動作確認をします。
 ```Shell
-./nvencc --check-hw
+./build/nvencc --check-hw
 ```
 
 こんな感じでNVENCのサポートしているコーデックが表示されればOKです。 (AWS g3s.xlargeの例)
@@ -387,6 +389,7 @@ H.265/HEVC
 
 ### 0. ビルドに必要なもの
 - C++17 コンパイラ
+- meson + ninja-build
 - CUDA 11
 - git
 - ライブラリ群
@@ -400,7 +403,7 @@ H.265/HEVC
 - コンパイラ等のインストール
 
   ```Shell
-  sudo dnf install @development-tools
+  sudo dnf install @development-tools meson ninja-build
   ```
 
 - rust + cargo-cのインストール
@@ -579,13 +582,13 @@ cd ../../../
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-./configure
-make
+meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 
 動作確認をします。
 ```Shell
-./nvencc --check-hw
+./build/nvencc --check-hw
 ```
 
 こんな感じでNVENCのサポートしているコーデックが表示されればOKです。

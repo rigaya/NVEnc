@@ -102,11 +102,11 @@ jobs:
             -u "$(id -u):$(id -g)" \
             --workdir /work \
             --name build_pkg ${{ steps.prep.outputs.base_image }}
-          docker exec build_pkg bash -lc './configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include" --extra-cudaldflags="-L/usr/local/cuda/targets/${{ matrix.arch }}-linux/lib/stubs"'
-          docker exec build_pkg make -j${{ steps.prep.outputs.nproc }}
-          # docker exec build_pkg ldd ./nvencc
-          # docker exec build_pkg ./nvencc --version
-          # docker exec build_pkg ./check_options.py
+          docker exec build_pkg bash -lc "meson setup ./build . --buildtype=release -Dcpp_args=\"['-I./AviSynthPlus/avs_core/include','-I./vapoursynth/include']\" -Dcuda_link_args=\"['-L/usr/local/cuda/targets/${{ matrix.arch }}-linux/lib/stubs']\""
+          docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
+          docker exec build_pkg ./build/nvencc --version
+          docker exec build_pkg ./check_options.py -exe ./build/nvencc
+          docker exec build_pkg cp ./build/nvencc ./nvencc
           docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh
           docker exec build_pkg bash -lc "cp -v ./*.${{ env.PKG_TYPE }} /output/"
           PKGFILE=`ls ${{ steps.prep.outputs.output_dir }}/*.${{ env.PKG_TYPE }}`

@@ -1,0 +1,37 @@
+# NVEnc meson オプション
+
+option('nvenc_cuda_dir',
+  type: 'string',
+  value: '',
+  description: 'CUDA installation path (default: auto-detect from CUDA_PATH env or /usr/local/cuda)'
+)
+
+option('enable_vapoursynth',
+  type: 'feature',
+  value: 'auto',
+  description: 'Enable VapourSynth reader'
+)
+
+option('enable_avisynth',
+  type: 'feature',
+  value: 'auto',
+  description: 'Enable AviSynth reader'
+)
+
+option('enable_libass',
+  type: 'feature',
+  value: 'auto',
+  description: 'Enable libass subtitle burn-in'
+)
+
+option('enable_libplacebo',
+  type: 'feature',
+  value: 'auto',
+  description: 'Enable libplacebo filters'
+)
+
+option('enable_vulkan',
+  type: 'feature',
+  value: 'auto',
+  description: 'Enable Vulkan support'
+)

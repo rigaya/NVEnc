@@ -64,6 +64,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 
 - GPU Driver 435.21 or later
 - C++17 Compiler
+- meson + ninja-build
 - CUDA 10-12
 - rust + cargo-c
 - git
@@ -78,7 +79,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 - Install build tools
 
   ```Shell
-  sudo apt install build-essential git
+  sudo apt install build-essential git meson ninja-build
   ```
 
 - Install rust + cargo-c (for libdovi build)
@@ -191,12 +192,12 @@ LD_LIBRARY_PATH=/usr/local/lib vspipe --version
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-./configure
-make
+meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 Check if it works properly.
 ```Shell
-./nvencc --check-hw
+./build/nvencc --check-hw
 ```
 
 You shall get information of the avaliable codecs supported by NVENC.
@@ -217,6 +218,7 @@ AV1
 
 - GPU Driver 435.21 or later
 - C++17 Compiler
+- meson + ninja-build
 - CUDA 10
 - git
 - libraries
@@ -229,7 +231,7 @@ AV1
 - Install build tools
 
   ```Shell
-  sudo apt install git g++-8
+  sudo apt install git g++-8 meson ninja-build
   ```
 
 - Install rust + cargo-c (for libdovi build)
@@ -357,12 +359,12 @@ cd ../../../
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-./configure --cxx=g++-8
-make
+CXX=g++-8 meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 Check if it works properly.
 ```Shell
-./nvencc --check-hw
+./build/nvencc --check-hw
 ```
 
 You shall get information of the avaliable codecs supported by NVENC. (Tested on AWS g3s.xlarge)
@@ -378,6 +380,7 @@ H.265/HEVC
 
 ### 0. Requirements
 - C++17 compiler
+- meson + ninja-build
 - CUDA 11
 - git
 - libraries
@@ -391,7 +394,7 @@ H.265/HEVC
 - Install build tools
 
   ```Shell
-  sudo dnf install @development-tools
+  sudo dnf install @development-tools meson ninja-build
   ```
 
 - Install rust + cargo-c (for libdovi build)
@@ -567,13 +570,13 @@ cd ../../../
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
-./configure
-make
+meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 
 Check if it works properly.
 ```Shell
-./nvencc --check-hw
+./build/nvencc --check-hw
 ```
 
 You shall get information of the avaliable codecs supported by NVENC.
