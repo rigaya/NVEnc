@@ -93,9 +93,13 @@ RGYDeviceUsage::~RGYDeviceUsage() {
 
 void RGYDeviceUsage::close() {
     if (m_monitorProcess) {
-        char buf = 0;
-        m_monitorProcess->stdInFpWrite(&buf, sizeof(buf));
-        m_monitorProcess->stdInFpFlush();
+        // 子プロセスが既に終了している場合、LinuxではSIGPIPEで親が終了し得るため
+        // 生存時のみ通知を書き込む。
+        if (m_monitorProcess->processAlive()) {
+            char buf = 0;
+            m_monitorProcess->stdInFpWrite(&buf, sizeof(buf));
+            m_monitorProcess->stdInFpFlush();
+        }
         m_monitorProcess->waitAndGetExitCode();
         m_monitorProcess.reset();
     }
