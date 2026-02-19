@@ -56,8 +56,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --profile minimal \
     && /usr/local/cargo/bin/rustup show \
     && /usr/local/cargo/bin/cargo --version \
-    && /usr/local/cargo/bin/cargo install cargo-c --locked \
+    && /usr/local/cargo/bin/cargo install cargo-c --version '0.10.18+cargo-0.92.0' --locked \
     && /usr/local/cargo/bin/cargo cbuild --version
 
 WORKDIR /work
-
