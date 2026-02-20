@@ -10,6 +10,7 @@
 #include "rgy_osdep.h"
 #include "rgy_filesystem.h"
 #include "rgy_util.h"
+#include "rgy_log.h"
 
 #if ENABLE_VAPOURSYNTH_READER
 
@@ -60,26 +61,40 @@ public:
 
     RGY_ERR openScriptFromBuffer(const std::string& script, const std::string& scriptFilenameUtf8) override {
         (void)scriptFilenameUtf8; // v3 は従来通り errorFilename を nullptr で評価
+        const auto logErr = [&](const char *reason) {
+            if (!m_log) return;
+            const auto errMes = (m_script) ? m_vs.getError(m_script) : nullptr;
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs3): %s%s%s.\n"),
+                char_to_tstring(reason).c_str(),
+                (errMes != nullptr && errMes[0] != '\0') ? _T(" / ") : _T(""),
+                (errMes != nullptr && errMes[0] != '\0') ? char_to_tstring(errMes).c_str() : _T(""));
+        };
 
         if (loadDll()) {
+            logErr("loadDll failed");
             return RGY_ERR_NULL_PTR;
         }
         if (!m_vs.init()) {
+            logErr("vsscript_init failed");
             return RGY_ERR_NULL_PTR;
         }
         m_vsapi = m_vs.getVSApi();
         if (!m_vsapi) {
+            logErr("vsscript_getVSApi failed");
             return RGY_ERR_NULL_PTR;
         }
         if (m_vs.evaluateScript(&m_script, script.c_str(), nullptr, efSetWorkingDir)) {
+            logErr("vsscript_evaluateScript failed");
             return RGY_ERR_NULL_PTR;
         }
         m_node = m_vs.getOutput(m_script, 0);
         if (!m_node) {
+            logErr("vsscript_getOutput failed");
             return RGY_ERR_NULL_PTR;
         }
         const auto vsvideoinfo = m_vsapi->getVideoInfo(m_node);
         if (!vsvideoinfo) {
+            logErr("getVideoInfo failed");
             return RGY_ERR_NULL_PTR;
         }
 

@@ -11,6 +11,7 @@
 #include "rgy_filesystem.h"
 #include "rgy_util.h"
 #include "rgy_codepage.h"
+#include "rgy_log.h"
 
 #if ENABLE_VAPOURSYNTH_READER
 
@@ -65,35 +66,64 @@ public:
         const auto f = load_getVSScriptAPI(m_hDll, m_getVSScriptAPI);
         if (!f) { releaseDll(); return false; }
         const auto vssapi = f(VSSCRIPT_API_VERSION);
-        releaseDll();
         return vssapi != nullptr;
     }
 
     RGY_ERR openScriptFromBuffer(const std::string& script, const std::string& scriptFilenameUtf8) override {
+        const auto logErr = [&](const char *reason) {
+            if (!m_log) return;
+            const auto errMes = (m_vssapi && m_script) ? m_vssapi->getError(m_script) : nullptr;
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs4): %s%s%s.\n"),
+                char_to_tstring(reason).c_str(),
+                (errMes != nullptr && errMes[0] != '\0') ? _T(" / ") : _T(""),
+                (errMes != nullptr && errMes[0] != '\0') ? char_to_tstring(errMes).c_str() : _T(""));
+        };
         if (loadDll()) return RGY_ERR_NULL_PTR;
         auto getApi = load_getVSScriptAPI(m_hDll, m_getVSScriptAPI);
-        if (!getApi) return RGY_ERR_NULL_PTR;
+        if (!getApi) {
+            logErr("getVSScriptAPI symbol is not found");
+            return RGY_ERR_NULL_PTR;
+        }
         m_vssapi = getApi(VSSCRIPT_API_VERSION);
-        if (!m_vssapi) return RGY_ERR_NULL_PTR;
+        if (!m_vssapi) {
+            logErr("getVSScriptAPI returned null");
+            return RGY_ERR_NULL_PTR;
+        }
 
         m_vsapi = m_vssapi->getVSAPI(VAPOURSYNTH_API_VERSION);
-        if (!m_vsapi) return RGY_ERR_NULL_PTR;
+        if (!m_vsapi) {
+            logErr("getVSAPI returned null");
+            return RGY_ERR_NULL_PTR;
+        }
 
         auto core = m_vsapi->createCore(0);
-        if (!core) return RGY_ERR_NULL_PTR;
+        if (!core) {
+            logErr("createCore failed");
+            return RGY_ERR_NULL_PTR;
+        }
 
         m_script = m_vssapi->createScript(core);
-        if (!m_script) return RGY_ERR_NULL_PTR;
+        if (!m_script) {
+            logErr("createScript failed");
+            return RGY_ERR_NULL_PTR;
+        }
 
         if (m_vssapi->evaluateBuffer(m_script, script.c_str(), scriptFilenameUtf8.c_str())) {
+            logErr("evaluateBuffer failed");
             return RGY_ERR_NULL_PTR;
         }
 
         m_node = m_vssapi->getOutputNode(m_script, 0);
-        if (!m_node) return RGY_ERR_NULL_PTR;
+        if (!m_node) {
+            logErr("getOutputNode failed");
+            return RGY_ERR_NULL_PTR;
+        }
 
         const auto vi = m_vsapi->getVideoInfo(m_node);
-        if (!vi) return RGY_ERR_NULL_PTR;
+        if (!vi) {
+            logErr("getVideoInfo failed");
+            return RGY_ERR_NULL_PTR;
+        }
 
         VSCoreInfo coreInfo = {};
         m_vsapi->getCoreInfo(m_vssapi->getCore(m_script), &coreInfo);
@@ -150,7 +180,9 @@ public:
 
 private:
     int loadDll() {
-        releaseDll();
+        if (m_hDll) {
+            return 0;
+        }
 #if defined(_WIN32) || defined(_WIN64)
         if (m_vsdir.length() > 0 && rgy_directory_exists(m_vsdir)) {
             SetDllDirectory(m_vsdir.c_str());
