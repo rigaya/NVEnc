@@ -1,6 +1,7 @@
 project('nvencc', ['cpp', 'cuda'],
   version: '8.00',
   license: 'MIT',
+  meson_version: '>=0.61.0',
   default_options: [
     'cpp_std=c++17',
     'buildtype=release',
@@ -155,86 +156,115 @@ vulkan_dep = dependency('vulkan', required: enable_vulkan)
 source_root = meson.project_source_root()
 build_root = meson.project_build_root()
 
-# cargoパス検出 (ユーザーの~/.cargo/binを含む)
-cargo_path_check = run_command('which', 'cargo', check: false)
-have_cargo = cargo_path_check.returncode() == 0
-if have_cargo
-  message('Found cargo at: ' + cargo_path_check.stdout().strip())
-else
-  message('cargo not found, Rust libraries will be disabled if not installed system-wide')
+# libdovi / libhdr10plus: system優先、なければ同梱build (configure互換)
+cargo_prog = find_program('cargo', required: false)
+if cargo_prog.found()
+  cargo_home_dir = source_root / '.cargo_home'
+  cargo_c_check = run_command(
+    'env',
+    'CARGO_HOME=' + cargo_home_dir,
+    cargo_prog.full_path(),
+    'cinstall',
+    '--version',
+    check: false,
+  )
+  if cargo_c_check.returncode() != 0
+    cargo_c_install = run_command(
+      'env',
+      'CARGO_HOME=' + cargo_home_dir,
+      cargo_prog.full_path(),
+      'install',
+      'cargo-c',
+      '--locked',
+      check: false,
+    )
+    if cargo_c_install.returncode() != 0
+      error('Failed to install cargo-c (exit=' + cargo_c_install.returncode().to_string() + ')\nstdout:\n' + cargo_c_install.stdout().strip() + '\nstderr:\n' + cargo_c_install.stderr().strip())
+    endif
+  endif
 endif
 
-# libdovi検出
 libdovi_dep = dependency('dovi', required: false)
-if not libdovi_dep.found() and have_cargo
-  # ビルドディレクトリ内でビルド
-  libdovi_install_dir = build_root / 'rust_libs' / 'libdovi'
-
-  message('libdovi not found, building from source...')
-
-  # ビルドスクリプト実行
-  libdovi_build_result = run_command(
-    'bash', source_root / 'build_libdovi.sh', libdovi_install_dir,
-    check: false)
-
-  if libdovi_build_result.returncode() == 0
-    # ビルド成功 - declare_dependencyで直接指定
-    libdovi_lib_dir = libdovi_install_dir / 'lib' / 'x86_64-linux-gnu'
-    libdovi_inc_dir = libdovi_install_dir / 'include'
-
-    if fs.is_file(libdovi_lib_dir / 'libdovi.a')
-      libdovi_lib = cpp.find_library('dovi',
-        dirs: libdovi_lib_dir,
-        static: true,
-        required: false)
-      if libdovi_lib.found()
-        libdovi_dep = declare_dependency(
-          dependencies: libdovi_lib,
-          include_directories: include_directories(libdovi_inc_dir, is_system: true))
-        message('libdovi built successfully')
-      endif
-    endif
+if not libdovi_dep.found()
+  if not cargo_prog.found()
+    error('cargo is required to build bundled libdovi when system dovi is not available')
   endif
-
-  if not libdovi_dep.found()
-    message('libdovi build failed, continuing without it')
+  libdovi_install_dir = build_root / 'rust_libs' / 'libdovi'
+  libdovi_build_result = run_command(
+    'env',
+    'CARGO_HOME=' + cargo_home_dir,
+    'CARGO=' + cargo_prog.full_path(),
+    'bash',
+    source_root / 'build_libdovi.sh',
+    libdovi_install_dir,
+    check: false,
+  )
+  if libdovi_build_result.returncode() != 0
+    error('Failed to build bundled libdovi (exit=' + libdovi_build_result.returncode().to_string() + ')\nstdout:\n' + libdovi_build_result.stdout().strip() + '\nstderr:\n' + libdovi_build_result.stderr().strip())
+  endif
+  libdovi_lib_dirs = []
+  if fs.is_file(libdovi_install_dir / 'lib/x86_64-linux-gnu/libdovi.a')
+    libdovi_lib_dirs += libdovi_install_dir / 'lib/x86_64-linux-gnu'
+  elif fs.is_file(libdovi_install_dir / 'lib64/libdovi.a')
+    libdovi_lib_dirs += libdovi_install_dir / 'lib64'
+  elif fs.is_file(libdovi_install_dir / 'lib/libdovi.a')
+    libdovi_lib_dirs += libdovi_install_dir / 'lib'
+  endif
+  if libdovi_lib_dirs.length() == 0
+    error('Bundled libdovi build succeeded but libdovi.a was not found')
+  endif
+  libdovi_lib = cpp.find_library('dovi', dirs: libdovi_lib_dirs, static: true, required: true)
+  libdovi_dep = declare_dependency(
+    dependencies: libdovi_lib,
+    compile_args: ['-I' + (libdovi_install_dir / 'include')],
+  )
+  if not cpp.compiles(
+    '#include <libdovi/rpu_parser.h>\nint main(void){ dovi_parse_rpu(nullptr, 0); return 0; }',
+    dependencies: libdovi_dep,
+  )
+    error('Bundled libdovi check failed (libdovi/rpu_parser.h)')
   endif
 endif
 
-# libhdr10plus検出
 libhdr10plus_dep = dependency('hdr10plus-rs', required: false)
-if not libhdr10plus_dep.found() and have_cargo
-  # ビルドディレクトリ内でビルド
-  libhdr10plus_install_dir = build_root / 'rust_libs' / 'libhdr10plus'
-
-  message('libhdr10plus not found, building from source...')
-
-  # ビルドスクリプト実行
-  libhdr10plus_build_result = run_command(
-    'bash', source_root / 'build_libhdr10plus.sh', libhdr10plus_install_dir,
-    check: false)
-
-  if libhdr10plus_build_result.returncode() == 0
-    # ビルド成功 - declare_dependencyで直接指定
-    libhdr10plus_lib_dir = libhdr10plus_install_dir / 'lib' / 'x86_64-linux-gnu'
-    libhdr10plus_inc_dir = libhdr10plus_install_dir / 'include'
-
-    if fs.is_file(libhdr10plus_lib_dir / 'libhdr10plus-rs.a')
-      libhdr10plus_lib = cpp.find_library('hdr10plus-rs',
-        dirs: libhdr10plus_lib_dir,
-        static: true,
-        required: false)
-      if libhdr10plus_lib.found()
-        libhdr10plus_dep = declare_dependency(
-          dependencies: libhdr10plus_lib,
-          include_directories: include_directories(libhdr10plus_inc_dir, is_system: true))
-        message('libhdr10plus built successfully')
-      endif
-    endif
+if not libhdr10plus_dep.found()
+  if not cargo_prog.found()
+    error('cargo is required to build bundled libhdr10plus-rs when system hdr10plus-rs is not available')
   endif
-
-  if not libhdr10plus_dep.found()
-    message('libhdr10plus build failed, continuing without it')
+  libhdr10plus_install_dir = build_root / 'rust_libs' / 'libhdr10plus'
+  libhdr10plus_build_result = run_command(
+    'env',
+    'CARGO_HOME=' + cargo_home_dir,
+    'CARGO=' + cargo_prog.full_path(),
+    'bash',
+    source_root / 'build_libhdr10plus.sh',
+    libhdr10plus_install_dir,
+    check: false,
+  )
+  if libhdr10plus_build_result.returncode() != 0
+    error('Failed to build bundled libhdr10plus-rs (exit=' + libhdr10plus_build_result.returncode().to_string() + ')\nstdout:\n' + libhdr10plus_build_result.stdout().strip() + '\nstderr:\n' + libhdr10plus_build_result.stderr().strip())
+  endif
+  libhdr10plus_lib_dirs = []
+  if fs.is_file(libhdr10plus_install_dir / 'lib/x86_64-linux-gnu/libhdr10plus-rs.a')
+    libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib/x86_64-linux-gnu'
+  elif fs.is_file(libhdr10plus_install_dir / 'lib64/libhdr10plus-rs.a')
+    libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib64'
+  elif fs.is_file(libhdr10plus_install_dir / 'lib/libhdr10plus-rs.a')
+    libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib'
+  endif
+  if libhdr10plus_lib_dirs.length() == 0
+    error('Bundled libhdr10plus-rs build succeeded but libhdr10plus-rs.a was not found')
+  endif
+  libhdr10plus_lib = cpp.find_library('hdr10plus-rs', dirs: libhdr10plus_lib_dirs, static: true, required: true)
+  libhdr10plus_dep = declare_dependency(
+    dependencies: libhdr10plus_lib,
+    compile_args: ['-I' + (libhdr10plus_install_dir / 'include')],
+  )
+  if not cpp.compiles(
+    '#include <libhdr10plus-rs/hdr10plus.h>\nint main(void){ hdr10plus_rs_parse_json(nullptr); return 0; }',
+    dependencies: libhdr10plus_dep,
+  )
+    error('Bundled libhdr10plus-rs check failed (libhdr10plus-rs/hdr10plus.h)')
   endif
 endif
 
@@ -269,8 +299,8 @@ conf_data.set10('AVCODEC_PAR_CODED_SIDE_DATA_AVAIL',
 
 # 機能有効/無効フラグ
 conf_data.set10('ENABLE_AVI_READER', false)
-conf_data.set10('ENABLE_AVISYNTH_READER', avisynth_dep.found())
-conf_data.set10('ENABLE_VAPOURSYNTH_READER', vapoursynth_dep.found())
+conf_data.set10('ENABLE_AVISYNTH_READER', enable_avisynth and have_avisynth_headers)
+conf_data.set10('ENABLE_VAPOURSYNTH_READER', enable_vapoursynth and have_vapoursynth_headers)
 conf_data.set10('ENABLE_AVSW_READER', true)
 conf_data.set10('ENABLE_SM_READER', false)
 conf_data.set10('ENABLE_LIBASS_SUBBURN', libass_dep.found())

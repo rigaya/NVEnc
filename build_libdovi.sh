@@ -12,7 +12,7 @@
 
 set -e
 
-DOVI_VER=3.3.1
+DOVI_TAG=libdovi-3.3.2
 DOVI_SRC=dovi_tool
 
 # スクリプトのあるディレクトリ（ソースをダウンロードする場所）
@@ -29,17 +29,17 @@ echo "  Install dir: ${INSTALL_DIR}"
 # ソースのダウンロード（スクリプトディレクトリで行う）
 cd "${SCRIPT_DIR}"
 if [ ! -e "${DOVI_SRC}" ]; then
-    echo "Downloading dovi_tool ${DOVI_VER}..."
-    wget -q -O "${DOVI_SRC}.tar.gz" "https://github.com/quietvoid/dovi_tool/archive/refs/tags/${DOVI_VER}.tar.gz"
-    tar xf "${DOVI_SRC}.tar.gz"
-    rm "${DOVI_SRC}.tar.gz"
-    mv "${DOVI_SRC}-${DOVI_VER}" "${DOVI_SRC}"
+    echo "Cloning dovi_tool ${DOVI_TAG}..."
+    git clone --depth 1 --branch "${DOVI_TAG}" https://github.com/quietvoid/dovi_tool.git "${DOVI_SRC}"
 fi
 
 # ビルド & インストール
 echo "Building libdovi..."
 cd "${SCRIPT_DIR}/${DOVI_SRC}/dolby_vision"
-cargo cinstall --release --prefix="$INSTALL_DIR"
+if ! cargo cinstall --release --prefix="$INSTALL_DIR"; then
+    echo "ERROR: cargo cinstall failed while building libdovi." >&2
+    exit 1
+fi
 
 # 静的リンクのため .so を削除して .a だけ残す
 echo "Removing shared libraries (keeping static only)..."

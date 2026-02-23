@@ -12,7 +12,7 @@
 
 set -e
 
-HDR10PLUS_VER=2.1.4
+HDR10PLUS_TAG=libhdr10plus-2.1.5
 HDR10PLUS_SRC=hdr10plus_tool
 
 # スクリプトのあるディレクトリ（ソースをダウンロードする場所）
@@ -29,17 +29,17 @@ echo "  Install dir: ${INSTALL_DIR}"
 # ソースのダウンロード（スクリプトディレクトリで行う）
 cd "${SCRIPT_DIR}"
 if [ ! -e "${HDR10PLUS_SRC}" ]; then
-    echo "Downloading hdr10plus_tool ${HDR10PLUS_VER}..."
-    wget -q -O "${HDR10PLUS_SRC}.tar.gz" "https://github.com/quietvoid/hdr10plus_tool/archive/refs/tags/${HDR10PLUS_VER}.tar.gz"
-    tar xf "${HDR10PLUS_SRC}.tar.gz"
-    rm "${HDR10PLUS_SRC}.tar.gz"
-    mv "${HDR10PLUS_SRC}-${HDR10PLUS_VER}" "${HDR10PLUS_SRC}"
+    echo "Cloning hdr10plus_tool ${HDR10PLUS_TAG}..."
+    git clone --depth 1 --branch "${HDR10PLUS_TAG}" https://github.com/quietvoid/hdr10plus_tool.git "${HDR10PLUS_SRC}"
 fi
 
 # ビルド & インストール
 echo "Building libhdr10plus..."
 cd "${SCRIPT_DIR}/${HDR10PLUS_SRC}/hdr10plus"
-cargo cinstall --release --prefix="$INSTALL_DIR"
+if ! cargo cinstall --release --prefix="$INSTALL_DIR"; then
+    echo "ERROR: cargo cinstall failed while building libhdr10plus-rs." >&2
+    exit 1
+fi
 
 # 静的リンクのため .so を削除して .a だけ残す
 echo "Removing shared libraries (keeping static only)..."

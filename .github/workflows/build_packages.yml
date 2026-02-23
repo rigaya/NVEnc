@@ -21,9 +21,6 @@ jobs:
           - dockerimg: ubuntu2204_cuda11
             pkgtype: deb
             arch: x86_64
-          - dockerimg: ubuntu2004_cuda11
-            pkgtype: deb
-            arch: x86_64
           - dockerimg: fedora39_cuda12
             pkgtype: rpm
             arch: x86_64
@@ -98,12 +95,13 @@ jobs:
         run: |
           docker run -dit --rm \
             -v ${{ github.workspace }}:/work \
-            -v ${{ steps.prep.outputs.output_dir }}:/output \
+             -v ${{ steps.prep.outputs.output_dir }}:/output \
             -u "$(id -u):$(id -g)" \
             --workdir /work \
             --name build_pkg ${{ steps.prep.outputs.base_image }}
-          docker exec build_pkg bash -lc "meson setup ./build . --buildtype=release -Dcpp_args=\"['-I./AviSynthPlus/avs_core/include','-I./vapoursynth/include']\" -Dcuda_link_args=\"['-L/usr/local/cuda/targets/${{ matrix.arch }}-linux/lib/stubs']\""
+          docker exec build_pkg bash -lc "meson setup ./build . --buildtype=release -Db_lto=true -Dcpp_args=\"['-I/work/AviSynthPlus/avs_core/include','-I/work/vapoursynth/include']\""
           docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
+          docker exec build_pkg ldd ./build/nvencc
           docker exec build_pkg ./build/nvencc --version
           docker exec build_pkg ./check_options.py -exe ./build/nvencc
           docker exec build_pkg cp ./build/nvencc ./nvencc
