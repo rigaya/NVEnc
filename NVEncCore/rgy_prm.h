@@ -2531,6 +2531,7 @@ struct RGYParamCommon {
     TCHAR *AVInputFormat;
     RGYAVSync AVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     bool timestampPassThrough; //timestampをそのまま出力する
+    bool muxerAddCmd;        //muxer metadataに入力コマンドラインを追記する
     bool timecode;
     tstring timecodeFile;
     tstring tcfileIn;

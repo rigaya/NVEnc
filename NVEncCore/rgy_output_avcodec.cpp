@@ -109,6 +109,7 @@ AVMuxFormat::AVMuxFormat() :
     filename(nullptr),
     formatCtx(nullptr),
     metadataStr(),
+    muxerCmdline(),
     outputFmt(nullptr),
 #if USE_CUSTOM_IO
     AVOutBuffer(nullptr),
@@ -2349,6 +2350,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     m_Mux.format.offsetVideoDtsAdvance = prm->offsetVideoDtsAdvance;
     m_Mux.format.allowOtherNegativePts = prm->allowOtherNegativePts;
     m_Mux.format.timestampPassThrough = prm->timestampPassThrough;
+    m_Mux.format.muxerCmdline = tchar_to_string(prm->muxerCmdline);
 
 #if USE_CUSTOM_IO
     if (m_Mux.format.isPipe || usingAVProtocols(filename, 1) || (m_Mux.format.formatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
@@ -2779,7 +2781,15 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
     //QSVEncCでエンコーダしたことを記録してみる
     //これは直接metadetaにセットする
     sprintf_s(m_Mux.format.metadataStr, ENCODER_NAME " (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
-    av_dict_set(&m_Mux.format.formatCtx->metadata, "encoding_tool", m_Mux.format.metadataStr, 0); //mp4
+    auto encodingTool = std::string(m_Mux.format.metadataStr);
+    if (!m_Mux.format.muxerCmdline.empty()) {
+        auto muxerCmdline = m_Mux.format.muxerCmdline;
+        std::replace(muxerCmdline.begin(), muxerCmdline.end(), '\r', ' ');
+        std::replace(muxerCmdline.begin(), muxerCmdline.end(), '\n', ' ');
+        encodingTool += " ";
+        encodingTool += muxerCmdline;
+    }
+    av_dict_set(&m_Mux.format.formatCtx->metadata, "encoding_tool", encodingTool.c_str(), 0); //mp4
     //encoderではなく、encoding_toolを使用する。mp4はcomment, titleなどは設定可能, mkvではencode_byも可能
 
     //mp4のmajor_brandをisonからmp42に変更

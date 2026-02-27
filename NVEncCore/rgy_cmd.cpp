@@ -6118,6 +6118,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->AVSyncMode = RGY_AVSYNC_VFR;
         return 0;
     }
+    if (IS_OPTION("muxer-add-cmd")) {
+        common->muxerAddCmd = true;
+        return 0;
+    }
     if (IS_OPTION("input-option")) {
         if (i + 1 < nArgNum && strInput[i + 1][0] != _T('-')) {
             i++;
@@ -7284,8 +7288,8 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 #define OPT_TSTR(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << param->opt.c_str();
 #define OPT_CHAR(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" ") << char_to_tstring(param->opt);
 #define OPT_STR(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << char_to_tstring(param->opt).c_str();
-#define OPT_CHAR_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" \"") << (param->opt) << _T("\"");
-#define OPT_STR_PATH(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (param->opt.c_str()) << _T("\"");
+#define OPT_CHAR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && (param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" \"") << (param->opt) << _T("\"");
+#define OPT_STR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && param->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (param->opt.c_str()) << _T("\"");
 
 #define ADD_FLOAT(str, opt, prec) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (param->opt);
 #define ADD_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
@@ -7302,8 +7306,11 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 #define ADD_PATH2(str, prm, opt) if ((prm.opt) && _tcslen(prm.opt)) tmp << _T(",") << (str) << _T("=\"") << (prm.opt) << _T("\"");
 #define ADD_STR2(str, prm, opt) if (prm.opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (prm.opt.c_str());
 
-tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYParamInput *inprm, const RGYParamInput *inprmDefault, bool save_disabled_prm) {
+tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYParamInput *inprm, const RGYParamInput *inprmDefault, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags) {
     std::basic_stringstream<TCHAR> cmd;
+    if (rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::InputPrms)) {
+        return _T("");
+    }
     switch (param->type) {
     case RGY_INPUT_FMT_RAW:    cmd << _T(" --raw"); break;
     case RGY_INPUT_FMT_Y4M:    cmd << _T(" --y4m"); break;
@@ -7357,7 +7364,7 @@ tstring printTrack(const DataSelect *sel) {
 };
 
 
-tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool save_disabled_prm) {
+tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags) {
     std::basic_stringstream<TCHAR> cmd;
     std::basic_stringstream<TCHAR> tmp;
 
@@ -8137,7 +8144,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     return cmd.str();
 }
 
-tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, bool save_disabled_prm) {
+tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags) {
     std::basic_stringstream<TCHAR> cmd;
 
     OPT_STR_PATH(_T("-i"), inputFilename);
@@ -8298,7 +8305,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
-        if (pAudioSelect->extractFilename.length() > 0) {
+        if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && pAudioSelect->extractFilename.length() > 0) {
             cmd << _T(" --audio-file ") << printTrack(pAudioSelect) << _T("?");
             if (pAudioSelect->extractFormat.length() > 0) {
                 cmd << pAudioSelect->extractFormat << _T(":");
@@ -8307,7 +8314,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
     for (const auto &src : param->audioSource) {
-        if (src.filename.length() > 0) {
+        if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && src.filename.length() > 0) {
             cmd << _T(" --audio-source ") << _T("\"") << src.filename << _T("\"");
             auto source_delim = _T(":");
             if (src.format.length() > 0) {
@@ -8403,7 +8410,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     tmp.str(tstring());
     for (const auto &src : param->subSource) {
-        if (src.filename.length() > 0) {
+        if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && src.filename.length() > 0) {
             cmd << _T(" --sub-source ") << _T("\"") << src.filename << _T("\"");
             auto source_delim = _T(":");
             if (src.format.length() > 0) {
@@ -8482,7 +8489,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     tmp.str(tstring());
 
     for (const auto &src : param->attachmentSource) {
-        if (src.filename.length() > 0) {
+        if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && src.filename.length() > 0) {
             cmd << _T(" --attachment-source ") << _T("\"") << src.filename << _T("\"");
             for (const auto &channel : src.select) {
                 cmd << _T(":");
@@ -8506,6 +8513,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
     OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
     OPT_BOOL(_T("--timestamp-passthrough"), _T(""), timestampPassThrough);
+    OPT_BOOL(_T("--muxer-add-cmd"), _T(""), muxerAddCmd);
     for (auto &m : param->formatMetadata) {
         cmd << _T(" --metadata ") << m;
     }
@@ -8579,7 +8587,10 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     return cmd.str();
 }
 
-tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm, bool save_disabled_prm) {
+tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags) {
+    if (rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::CtrlPrms)) {
+        return _T("");
+    }
     std::basic_stringstream<TCHAR> cmd;
     OPT_NUM(_T("--output-buf"), outputBufSizeMB);
     OPT_NUM(_T("--thread-output"), threadOutput);
@@ -8620,19 +8631,19 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     }
     if (param->logFramePosList.enable) {
         cmd << _T(" --log-framelist");
-        if (param->logFramePosList.filename.length() > 0) {
+        if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && param->logFramePosList.filename.length() > 0) {
             cmd << _T(" \"") << param->logFramePosList.filename << _T("\"");
         }
     }
     if (param->logPacketsList.enable) {
         cmd << _T(" --log-packets");
-        if (param->logPacketsList.filename.length() > 0) {
+        if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && param->logPacketsList.filename.length() > 0) {
             cmd << _T(" \"") << param->logPacketsList.filename << _T("\"");
         }
     }
     if (param->logMuxVidTs.enable) {
         cmd << _T(" --log-mux-ts");
-        if (param->logMuxVidTs.filename.length() > 0) {
+        if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && param->logMuxVidTs.filename.length() > 0) {
             cmd << _T(" \"") << param->logMuxVidTs.filename << _T("\"");
         }
     }
@@ -8989,6 +9000,7 @@ tstring gen_cmd_help_common() {
         _T("                                              only available for avsw/avhw reader,\n")
         _T("                                              and could not be used with --trim.\n")
         _T("  --timestamp-passthrough       passthrough original timestamp\n")
+        _T("  --muxer-add-cmd               add input command line to muxer metadata (encoding_tool)\n")
         _T("  --input-option <string1>:<string2>\n")
         _T("                                set input option name and value.\n")
         _T("                                 these could be only used with avhw/avsw reader.\n")

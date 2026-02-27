@@ -2361,6 +2361,7 @@ RGYParamCommon::RGYParamCommon() :
     AVInputFormat(nullptr),
     AVSyncMode(RGY_AVSYNC_AUTO),     //avsyncの方法 (RGY_AVSYNC_xxx)
     timestampPassThrough(false),
+    muxerAddCmd(false),
     timecode(false),
     timecodeFile(),
     tcfileIn(),

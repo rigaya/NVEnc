@@ -31,6 +31,27 @@
 
 #include "rgy_prm.h"
 
+enum class RGYDisableGenCmdFlags : uint32_t {
+    None     = 0,
+    FilePath = 0x01,
+    CtrlPrms = 0x02,
+    InputPrms = 0x04,
+};
+
+static inline RGYDisableGenCmdFlags operator|(const RGYDisableGenCmdFlags a, const RGYDisableGenCmdFlags b) {
+    return static_cast<RGYDisableGenCmdFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+static inline RGYDisableGenCmdFlags operator&(const RGYDisableGenCmdFlags a, const RGYDisableGenCmdFlags b) {
+    return static_cast<RGYDisableGenCmdFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+static inline RGYDisableGenCmdFlags& operator|=(RGYDisableGenCmdFlags& a, const RGYDisableGenCmdFlags b) {
+    a = a | b;
+    return a;
+}
+static inline bool rgy_disable_gen_cmd(const RGYDisableGenCmdFlags flags, const RGYDisableGenCmdFlags flag) {
+    return (flags & flag) != RGYDisableGenCmdFlags::None;
+}
+
 struct sArgsData {
     tstring cachedlevel, cachedprofile;
 #if !ENCODER_NVENC
@@ -84,10 +105,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 
 tstring print_list_options(const TCHAR *option_name, const CX_DESC *list, int default_index);
 
-tstring gen_cmd(const RGYParamVpp *common, const RGYParamVpp *defaultPrm, bool save_disabled_prm);
-tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYParamInput *inprm, const RGYParamInput *inprmDefault, bool save_disabled_prm);
-tstring gen_cmd(const RGYParamCommon *common, const RGYParamCommon *defaultPrm, bool save_disabled_prm);
-tstring gen_cmd(const RGYParamControl *ctrl, const RGYParamControl *defaultPrm, bool save_disabled_prm);
+tstring gen_cmd(const RGYParamVpp *common, const RGYParamVpp *defaultPrm, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags = RGYDisableGenCmdFlags::None);
+tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYParamInput *inprm, const RGYParamInput *inprmDefault, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags = RGYDisableGenCmdFlags::None);
+tstring gen_cmd(const RGYParamCommon *common, const RGYParamCommon *defaultPrm, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags = RGYDisableGenCmdFlags::None);
+tstring gen_cmd(const RGYParamControl *ctrl, const RGYParamControl *defaultPrm, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags = RGYDisableGenCmdFlags::None);
 
 tstring gen_cmd_help_input();
 tstring gen_cmd_help_common();

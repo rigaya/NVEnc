@@ -478,6 +478,7 @@ RGY_ERR initWriters(
     const bool HEVCAlphaChannel,
     const int HEVCAlphaChannelMode,
     const uint32_t insertHeader,
+    const tstring &muxerCmdline,
     RGYPoolAVPacket *poolPkt,
     RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,

@@ -1529,7 +1529,7 @@ int parse_cmd(InEncodeVideoParam *pParams, const char *cmda, bool ignore_parse_e
 
 #pragma warning (push)
 #pragma warning (disable: 4127)
-tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
+tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags) {
     std::basic_stringstream<TCHAR> cmd;
     InEncodeVideoParam encPrmDefault;
 
@@ -1573,8 +1573,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
 #define OPT_TSTR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << pParams->opt.c_str();
 #define OPT_CHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << char_to_tstring(pParams->opt);
 #define OPT_STR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << char_to_tstring(pParams->opt).c_str();
-#define OPT_CHAR_PATH(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
-#define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
+#define OPT_CHAR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && (pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
+#define OPT_STR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
     OPT_NUM(_T("-d"), deviceID);
     if (pParams->codec_rgy == RGY_CODEC_AVCODEC) {
@@ -1584,7 +1584,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
     }
     if ((pParams->preset) != (encPrmDefault.preset)) cmd << _T(" -u ") << get_name_from_value(pParams->preset, list_nvenc_preset_names_ver10);
 
-    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);
+    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm, disable_flags);
 
     #pragma warning(push)
     #pragma warning(disable: 4063) //C4063: case '16' は '_NV_ENC_PARAMS_RC_MODE' の switch の値として正しくありません。
@@ -1730,7 +1730,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
 
     OPT_LST(_T("--split-enc"), splitEncMode, list_split_enc_mode);
 
-    cmd << gen_cmd(&pParams->common, &encPrmDefault.common, save_disabled_prm);
+    cmd << gen_cmd(&pParams->common, &encPrmDefault.common, save_disabled_prm, disable_flags);
 
 #define ADD_FLOAT(str, opt, prec) if ((pParams->opt) != (encPrmDefault.opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (pParams->opt);
 #define ADD_NUM(str, opt) if ((pParams->opt) != (encPrmDefault.opt)) tmp << _T(",") << (str) << _T("=") << (pParams->opt);
@@ -1742,7 +1742,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
 
     cmd << gen_cmd(&pParams->vppnv, &encPrmDefault.vppnv, pParams->vpp.resize_algo, save_disabled_prm);
 
-    cmd << gen_cmd(&pParams->vpp, &encPrmDefault.vpp, save_disabled_prm);
+    cmd << gen_cmd(&pParams->vpp, &encPrmDefault.vpp, save_disabled_prm, disable_flags);
 
     OPT_LST(_T("--cuda-schedule"), cudaSchedule, list_cuda_schedule);
     OPT_NUM(_T("--cuda-stream"), cudaStreamOpt);
@@ -1751,7 +1751,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm) {
     OPT_NUM(_T("--disable-nvml"), disableNVML);
     OPT_BOOL(_T("--disable-dx11"), _T(""), disableDX11);
 
-    cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);
+    if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::CtrlPrms)) {
+        cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm, disable_flags);
+    }
 
     return cmd.str();
 }

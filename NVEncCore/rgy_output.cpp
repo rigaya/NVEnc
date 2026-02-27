@@ -1369,6 +1369,7 @@ RGY_ERR initWriters(
     const bool HEVCAlphaChannel,
     const int HEVCAlphaChannelMode,
     const uint32_t insertHeader,
+    const tstring &muxerCmdline,
     RGYPoolAVPacket *poolPkt,
     RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,
@@ -1449,6 +1450,7 @@ RGY_ERR initWriters(
         writerPrm.videoCodecTag           = common->videoCodecTag;
         writerPrm.videoMetadata           = common->videoMetadata;
         writerPrm.formatMetadata          = common->formatMetadata;
+        writerPrm.muxerCmdline            = muxerCmdline;
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
         writerPrm.lowlatency              = ctrl->lowLatency;

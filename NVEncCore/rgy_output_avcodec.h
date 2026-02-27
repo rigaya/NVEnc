@@ -109,6 +109,7 @@ struct AVMuxFormat {
     const TCHAR          *filename;             //出力ファイル名
     AVFormatContext      *formatCtx;            //出力ファイルのformatContext
     char                  metadataStr[256];     //出力ファイルのエンコーダ名
+    std::string           muxerCmdline;         //encoding_toolに追記するコマンドライン
     const AVOutputFormat *outputFmt;            //出力ファイルのoutputFormat
 
 #if USE_CUSTOM_IO
@@ -426,6 +427,7 @@ struct AvcodecWriterPrm {
     tstring                      avcodec_videnc_prms;    //avcodec映像エンコーダパラメータ
     std::vector<tstring>         videoMetadata;           //動画のmetadata
     std::vector<tstring>         formatMetadata;          //formatのmetadata
+    tstring                      muxerCmdline;            //encoding_toolに追記するコマンドライン
     bool                         afs;                     //入力が自動フィールドシフト
     bool                         disableMp4Opt;           //mp4出力時のmuxの最適化を無効にする
     bool                         debugDirectAV1Out;       //AV1出力のデバッグ用
@@ -479,6 +481,7 @@ struct AvcodecWriterPrm {
         avcodec_videnc_prms(),
         videoMetadata(),
         formatMetadata(),
+        muxerCmdline(),
         afs(false),
         disableMp4Opt(false),
         debugDirectAV1Out(false),
