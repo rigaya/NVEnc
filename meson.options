@@ -7,31 +7,31 @@ option('nvenc_cuda_dir',
 )
 
 option('enable_vapoursynth',
-  type: 'feature',
-  value: 'auto',
+  type: 'boolean',
+  value: true,
   description: 'Enable VapourSynth reader'
 )
 
 option('enable_avisynth',
-  type: 'feature',
-  value: 'auto',
+  type: 'boolean',
+  value: true,
   description: 'Enable AviSynth reader'
 )
 
 option('enable_libass',
-  type: 'feature',
-  value: 'auto',
+  type: 'boolean',
+  value: true,
   description: 'Enable libass subtitle burn-in'
 )
 
 option('enable_libplacebo',
-  type: 'feature',
-  value: 'auto',
+  type: 'boolean',
+  value: false,
   description: 'Enable libplacebo filters'
 )
 
 option('enable_vulkan',
-  type: 'feature',
-  value: 'auto',
+  type: 'boolean',
+  value: false,
   description: 'Enable Vulkan support'
 )

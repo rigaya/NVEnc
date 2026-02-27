@@ -144,8 +144,58 @@ ffmpeg_deps = [
 ]
 
 # オプション依存
-vapoursynth_dep = dependency('vapoursynth', required: enable_vapoursynth)
-avisynth_dep = dependency('avisynth', required: enable_avisynth)
+vapoursynth_pkg_dep = dependency('vapoursynth', required: false)
+avisynth_pkg_dep = dependency('avisynth', required: false)
+
+vapoursynth_compile_dep = declare_dependency()
+if vapoursynth_pkg_dep.found()
+  vapoursynth_compile_dep = vapoursynth_pkg_dep.partial_dependency(includes: true, compile_args: true)
+endif
+
+avisynth_compile_dep = declare_dependency()
+if avisynth_pkg_dep.found()
+  avisynth_compile_dep = avisynth_pkg_dep.partial_dependency(includes: true, compile_args: true)
+endif
+
+vapoursynth_v3_headers_code = '''
+#include "VapourSynth.h"
+#include "VSScript.h"
+int main(void) { return 0; }
+'''
+have_vapoursynth_v3_headers = cpp.compiles(
+  vapoursynth_v3_headers_code,
+  dependencies: vapoursynth_compile_dep,
+  args: get_option('cpp_args'),
+)
+
+vapoursynth_v4_headers_code = '''
+#include "VSScript4.h"
+int main(void) { return 0; }
+'''
+have_vapoursynth_v4_headers = cpp.compiles(
+  vapoursynth_v4_headers_code,
+  dependencies: vapoursynth_compile_dep,
+  args: get_option('cpp_args'),
+)
+
+have_vapoursynth_headers = have_vapoursynth_v3_headers and have_vapoursynth_v4_headers
+if enable_vapoursynth and not have_vapoursynth_headers
+  error('VapourSynth headers not found (require V3: VapourSynth.h/VSScript.h and V4: VSScript4.h)')
+endif
+
+avisynth_headers_code = '''
+#include "avisynth_c.h"
+int main(void) { return 0; }
+'''
+have_avisynth_headers = cpp.compiles(
+  avisynth_headers_code,
+  dependencies: avisynth_compile_dep,
+  args: get_option('cpp_args'),
+)
+if enable_avisynth and not have_avisynth_headers
+  error('AviSynth headers not found (avisynth_c.h)')
+endif
+
 libass_dep = dependency('libass', required: enable_libass)
 libplacebo_dep = dependency('libplacebo', required: enable_libplacebo)
 vulkan_dep = dependency('vulkan', required: enable_vulkan)
@@ -315,7 +365,7 @@ conf_data.set10('ENABLE_LIBPLACEBO', libplacebo_dep.found())
 conf_data.set10('ENABLE_PERF_COUNTER', false)
 
 # AVS_INTERF_VER (AviSynth)
-if avisynth_dep.found()
+if enable_avisynth and have_avisynth_headers
   conf_data.set('AVS_INTERF_VER', 12)
 else
   conf_data.set('AVS_INTERF_VER', 0)
@@ -594,11 +644,11 @@ all_deps = [
   rt_dep,
 ] + ffmpeg_deps
 
-if vapoursynth_dep.found()
-  all_deps += vapoursynth_dep
+if vapoursynth_compile_dep.found()
+  all_deps += vapoursynth_compile_dep
 endif
-if avisynth_dep.found()
-  all_deps += avisynth_dep
+if avisynth_compile_dep.found()
+  all_deps += avisynth_compile_dep
 endif
 if libass_dep.found()
   all_deps += libass_dep
@@ -650,8 +700,8 @@ summary({
 }, section: 'CUDA')
 
 summary({
-  'VapourSynth': vapoursynth_dep.found(),
-  'AviSynth': avisynth_dep.found(),
+  'VapourSynth': enable_vapoursynth and have_vapoursynth_headers,
+  'AviSynth': enable_avisynth and have_avisynth_headers,
   'libass': libass_dep.found(),
   'libplacebo': libplacebo_dep.found(),
   'Vulkan': vulkan_dep.found(),
