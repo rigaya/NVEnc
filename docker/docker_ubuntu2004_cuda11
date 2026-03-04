@@ -4,6 +4,10 @@ ARG DEBIAN_FRONTEND=noninteractive \
     OSVER=ubuntu2004 \
     LOCAL_USER_ID=1000 \
     LOCAL_GROUP_ID=1000 \
+    FFMPEG_DLL_REPO=https://github.com/rigaya/build_scripts.git \
+    FFMPEG_DLL_REF=master \
+    BUILD_SCRIPTS_DIR=/opt/build_scripts \
+    FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_ffmpeg_dll/x64/build \
     CUDA_VER_MAJOR=11 \
     CUDA_VER_MINOR=2 \
     CUDA_DEB_URL=https://developer.download.nvidia.com/compute/cuda/11.2.1/local_installers/cuda-repo-ubuntu2004-11-2-local_11.2.1-460.32.03-1_amd64.deb \
@@ -16,26 +20,36 @@ RUN apt update \
       curl \
       git \
       ca-certificates \
+      gnupg \
+      lsb-release \
+      autogen \
+      autoconf \
+      automake \
+      libtool \
+      autopoint \
+      gettext \
+      make \
       pkg-config \
-      meson \
-      ninja-build \
+      nasm \
+      yasm \
+      patch \
+      xz-utils \
+      p7zip-full \
+      unzip \
+      bzip2 \
+      python3 \
+      python3-pip \
+      gperf \
       build-essential \
-      libavcodec58 \
-      libavcodec-dev \
-      libavutil56 \
-      libavutil-dev \
-      libavformat58 \
-      libavformat-dev \
-      libswresample3 \
-      libswresample-dev \
-      libavfilter7 \
-      libavfilter-dev \
-      libavdevice58 \
-      libavdevice-dev \
-      libass9 \
-      libass-dev \
       openssl \
       libssl-dev \
+    && wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc \
+      | gpg --dearmor \
+      > /usr/share/keyrings/kitware-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
+      > /etc/apt/sources.list.d/kitware.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends cmake \
     && wget -q https://developer.download.nvidia.com/compute/cuda/repos/${OSVER}/x86_64/cuda-${OSVER}.pin \
     && mv cuda-${OSVER}.pin /etc/apt/preferences.d/cuda-repository-pin-600 \
     && wget -q ${CUDA_DEB_URL} \
@@ -43,6 +57,11 @@ RUN apt update \
     && apt-key add ${CUDA_PUB_PATH} \
     && apt-get update \
     && apt-get -y install cuda-drivers cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-cudart-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-driver-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvrtc-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libnpp-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
+    && python3 -m pip install --upgrade pip \
+    && python3 -m pip install --upgrade meson ninja \
+    && cmake --version \
+    && meson --version \
+    && which meson \
     && rm -f ${CUDA_DEB_NAME} \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
@@ -59,4 +78,16 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     && /usr/local/cargo/bin/cargo install cargo-c --version '0.10.18+cargo-0.92.0' --locked \
     && /usr/local/cargo/bin/cargo cbuild --version
 
+RUN git clone --depth 1 --branch ${FFMPEG_DLL_REF} ${FFMPEG_DLL_REPO} ${BUILD_SCRIPTS_DIR} \
+    && cd ${BUILD_SCRIPTS_DIR}/ffmpeg_dll \
+    && sed -i 's/\r$//' ./build_ffmpeg_dll.sh \
+    && export NUMBER_OF_PROCESSORS="$(nproc)" \
+    && bash ./build_ffmpeg_dll.sh --skip-src-archive --disable-pgo \
+    && test -f "${FFMPEG_PREFIX}/lib/pkgconfig/libavutil.pc" \
+    && find "${BUILD_SCRIPTS_DIR}" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64/build" -exec rm -rf {} +
+
+ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
 WORKDIR /work

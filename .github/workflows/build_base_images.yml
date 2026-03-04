@@ -16,12 +16,15 @@ jobs:
         include:
           - dockerimg: ubuntu2404_cuda12
           - dockerimg: ubuntu2204_cuda11
+          - dockerimg: ubuntu2004_cuda11
           - dockerimg: fedora39_cuda12
           - dockerimg: fedora41_cuda12
 
     env:
       DOCKER_FILE: docker/docker_${{ matrix.dockerimg }}
       IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/nvenc-build
+      FFMPEG_DLL_REPO: https://github.com/rigaya/build_scripts.git
+      FFMPEG_DLL_REF: master
 
     steps:
       - name: Checkout
@@ -47,6 +50,9 @@ jobs:
           file: ${{ env.DOCKER_FILE }}
           push: true
           tags: ${{ env.IMAGE_REPO }}:${{ matrix.dockerimg }}
+          build-args: |
+            FFMPEG_DLL_REPO=${{ env.FFMPEG_DLL_REPO }}
+            FFMPEG_DLL_REF=${{ env.FFMPEG_DLL_REF }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

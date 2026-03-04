@@ -104,8 +104,8 @@ message('GPU code generation targets: ' + ' '.join(gpu_code_gen))
 enable_vapoursynth = get_option('enable_vapoursynth')
 enable_avisynth = get_option('enable_avisynth')
 enable_libass = get_option('enable_libass')
-enable_libplacebo = get_option('enable_libplacebo')
-enable_vulkan = get_option('enable_vulkan')
+enable_libplacebo_option = get_option('enable_libplacebo')
+enable_vulkan_option = get_option('enable_vulkan')
 
 # ==============================================================================
 # 依存関係検出
@@ -197,8 +197,16 @@ if enable_avisynth and not have_avisynth_headers
 endif
 
 libass_dep = dependency('libass', required: enable_libass)
-libplacebo_dep = dependency('libplacebo', required: enable_libplacebo)
-vulkan_dep = dependency('vulkan', required: enable_vulkan)
+if enable_vulkan_option == 'disabled'
+  vulkan_dep = disabler()
+else
+  vulkan_dep = dependency('vulkan', required: enable_vulkan_option == 'enabled')
+endif
+if enable_libplacebo_option == 'disabled'
+  libplacebo_dep = disabler()
+else
+  libplacebo_dep = dependency('libplacebo', required: enable_libplacebo_option == 'enabled')
+endif
 
 # ==============================================================================
 # libdovi / libhdr10plus (システムにあれば使う、なければビルドディレクトリ内でビルド)

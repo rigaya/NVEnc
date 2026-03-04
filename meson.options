@@ -25,13 +25,15 @@ option('enable_libass',
 )
 
 option('enable_libplacebo',
-  type: 'boolean',
-  value: false,
-  description: 'Enable libplacebo filters'
+  type: 'combo',
+  choices: ['auto', 'enabled', 'disabled'],
+  value: 'auto',
+  description: 'Enable libplacebo filters (auto: enable when libplacebo is detected)'
 )
 
 option('enable_vulkan',
-  type: 'boolean',
-  value: false,
-  description: 'Enable Vulkan support'
+  type: 'combo',
+  choices: ['auto', 'enabled', 'disabled'],
+  value: 'auto',
+  description: 'Enable Vulkan support (auto: enable when Vulkan is detected)'
 )

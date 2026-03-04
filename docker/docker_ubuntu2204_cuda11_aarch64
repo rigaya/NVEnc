@@ -13,6 +13,7 @@ RUN apt update \
       wget \
       curl \
       git \
+      gperf \
       build-essential \
       libavcodec58 \
       libavcodec-dev \

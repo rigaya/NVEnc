@@ -21,6 +21,9 @@ jobs:
           - dockerimg: ubuntu2204_cuda11
             pkgtype: deb
             arch: x86_64
+          - dockerimg: ubuntu2004_cuda11
+            pkgtype: deb
+            arch: x86_64
           - dockerimg: fedora39_cuda12
             pkgtype: rpm
             arch: x86_64
@@ -35,6 +38,7 @@ jobs:
       DOCKER_IMAGE: ${{ matrix.dockerimg }}
       PKG_TYPE: ${{ matrix.pkgtype }}
       BASE_IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/nvenc-build
+      FFMPEG_PREFIX: /opt/build_scripts/ffmpeg_dll/build_ffmpeg_dll/x64/build
 
     name: Upload Release Asset
     runs-on: ubuntu-latest
@@ -99,7 +103,11 @@ jobs:
             -u "$(id -u):$(id -g)" \
             --workdir /work \
             --name build_pkg ${{ steps.prep.outputs.base_image }}
-          docker exec build_pkg bash -lc "meson setup ./build . --buildtype=release -Db_lto=true -Dcpp_args=\"['-I/work/AviSynthPlus/avs_core/include','-I/work/vapoursynth/include']\""
+          docker exec build_pkg bash -lc '
+            FFPKG="${{ env.FFMPEG_PREFIX }}/lib/pkgconfig:${{ env.FFMPEG_PREFIX }}/lib/x86_64-linux-gnu/pkgconfig"
+            export PKG_CONFIG_PATH="${FFPKG}${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+            meson setup ./build . --buildtype=release -Db_lto=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
+          '
           docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
           docker exec build_pkg ldd ./build/nvencc
           docker exec build_pkg ./build/nvencc --version

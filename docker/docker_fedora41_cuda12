@@ -3,13 +3,57 @@ FROM fedora:41
 ARG OSVER=fc41 \
     LOCAL_USER_ID=1000 \
     LOCAL_GROUP_ID=1000 \
+    FFMPEG_DLL_REPO=https://github.com/rigaya/build_scripts.git \
+    FFMPEG_DLL_REF=master \
+    BUILD_SCRIPTS_DIR=/opt/build_scripts \
+    FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_ffmpeg_dll/x64/build \
     CUDA_VER_MAJOR=12 \
     CUDA_VER_MINOR=8 \
     CUDA_REPO_URL=https://developer.download.nvidia.com/compute/cuda/repos/fedora41/x86_64/cuda-fedora41.repo
 
 RUN dnf update -y \
     && dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-    && dnf install -y @development-tools kernel-devel make wget curl ca-certificates pkgconfig meson ninja-build pciutils acpid libglvnd-devel dkms ffmpeg ffmpeg-devel libass libass-devel rpm-build 'dnf-command(config-manager)'
+    && dnf install -y \
+      which \
+      @development-tools \
+      libstdc++ libstdc++-devel libstdc++-static \
+      gcc-c++ \
+      gperf \
+      cmake \
+      autogen \
+      autoconf \
+      automake \
+      gettext-devel \
+      libtool \
+      make \
+      wget \
+      curl \
+      ca-certificates \
+      pkgconfig \
+      nasm \
+      yasm \
+      patch \
+      xz \
+      p7zip p7zip-plugins \
+      unzip \
+      bzip2 \
+      git \
+      python3 \
+      python3-pip \
+      libva-devel \
+      libX11-devel \
+      libdrm-devel \
+      opencl-headers \
+      rpm-build \
+      openssl openssl-devel \
+      pciutils \
+      acpid \
+      libglvnd-devel \
+      dkms \
+      'dnf-command(config-manager)' \
+    && python3 -m pip install --upgrade pip \
+    && python3 -m pip install --upgrade meson ninja \
+    && dnf clean all
 
 RUN dnf config-manager addrepo --from-repofile ${CUDA_REPO_URL} \
     && dnf clean all \
@@ -27,4 +71,16 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     && /usr/local/cargo/bin/cargo install cargo-c --locked \
     && /usr/local/cargo/bin/cargo cbuild --version
 
+RUN git clone --depth 1 --branch ${FFMPEG_DLL_REF} ${FFMPEG_DLL_REPO} ${BUILD_SCRIPTS_DIR} \
+    && cd ${BUILD_SCRIPTS_DIR}/ffmpeg_dll \
+    && sed -i 's/\r$//' ./build_ffmpeg_dll.sh \
+    && export NUMBER_OF_PROCESSORS="$(nproc)" \
+    && bash ./build_ffmpeg_dll.sh --skip-src-archive \
+    && test -f "${FFMPEG_PREFIX}/lib/pkgconfig/libavutil.pc" \
+    && find "${BUILD_SCRIPTS_DIR}" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64/build" -exec rm -rf {} +
+
+ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
 WORKDIR /work
