@@ -56,11 +56,12 @@ RUN apt update \
     && rm -f ${CUDA_DEB_NAME} \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -s /usr/local/cuda-${CUDA_VER_MAJOR}.${CUDA_VER_MINOR} /usr/local/cuda
+    && (test -e /usr/local/cuda || ln -s /usr/local/cuda-${CUDA_VER_MAJOR}.${CUDA_VER_MINOR} /usr/local/cuda)
 
+ENV CUDA_PATH=/usr/local/cuda
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo
-ENV PATH=/usr/local/cargo/bin:$PATH
+ENV PATH=/usr/local/cuda/bin:/usr/local/cargo/bin:$PATH
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --profile minimal \
