@@ -43,6 +43,7 @@ RUN dnf update -y \
       libva-devel \
       libX11-devel \
       libdrm-devel \
+      vulkan-loader-devel \
       opencl-headers \
       rpm-build \
       openssl openssl-devel \

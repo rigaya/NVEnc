@@ -119,7 +119,7 @@ cuda_dep = dependency('cuda', version: '>=10.0', required: true)
 
 # CUDA追加ライブラリ (Driver API, NPP)
 # WSL2環境では /usr/lib/wsl/lib にlibcuda.soがある
-cuda_driver_dep = cpp.find_library('cuda', dirs: [cuda_lib_dir, '/usr/lib/wsl/lib'], required: true)
+cuda_driver_dep = cpp.find_library('cuda', dirs: [cuda_lib_dir, cuda_lib_dir / 'stubs', '/usr/lib/wsl/lib'], required: true)
 nppif_dep = cpp.find_library('nppif_static', dirs: cuda_lib_dir, required: true)
 nppig_dep = cpp.find_library('nppig_static', dirs: cuda_lib_dir, required: true)
 nppc_dep = cpp.find_library('nppc_static', dirs: cuda_lib_dir, required: true)
@@ -197,10 +197,25 @@ if enable_avisynth and not have_avisynth_headers
 endif
 
 libass_dep = dependency('libass', required: enable_libass)
-if enable_vulkan_option == 'disabled'
-  vulkan_dep = disabler()
-else
-  vulkan_dep = dependency('vulkan', required: enable_vulkan_option == 'enabled')
+have_vulkan_headers = false
+vulkan_compile_dep = declare_dependency()
+if enable_vulkan_option != 'disabled'
+  vulkan_pkg_dep = dependency('vulkan', required: false)
+  if vulkan_pkg_dep.found()
+    vulkan_compile_dep = vulkan_pkg_dep.partial_dependency(includes: true, compile_args: true)
+  endif
+  vulkan_headers_code = '''
+#include <vulkan/vulkan.h>
+int main(void) { return VK_HEADER_VERSION; }
+'''
+  have_vulkan_headers = cpp.compiles(
+    vulkan_headers_code,
+    dependencies: vulkan_compile_dep,
+    args: get_option('cpp_args'),
+  )
+  if enable_vulkan_option == 'enabled' and not have_vulkan_headers
+    error('Vulkan headers not found (vulkan/vulkan.h)')
+  endif
 endif
 if enable_libplacebo_option == 'disabled'
   libplacebo_dep = disabler()
@@ -368,7 +383,7 @@ conf_data.set10('ENABLE_CPP_REGEX', true)
 conf_data.set10('ENABLE_DTL', true)
 conf_data.set10('ENABLE_LIBDOVI', libdovi_dep.found())
 conf_data.set10('ENABLE_LIBHDR10PLUS', libhdr10plus_dep.found())
-conf_data.set10('ENABLE_VULKAN', vulkan_dep.found())
+conf_data.set10('ENABLE_VULKAN', have_vulkan_headers)
 conf_data.set10('ENABLE_LIBPLACEBO', libplacebo_dep.found())
 conf_data.set10('ENABLE_PERF_COUNTER', false)
 
@@ -678,8 +693,8 @@ endif
 if libplacebo_dep.found()
   all_deps += libplacebo_dep
 endif
-if vulkan_dep.found()
-  all_deps += vulkan_dep
+if have_vulkan_headers
+  all_deps += vulkan_compile_dep
 endif
 if libdovi_dep.found()
   all_deps += libdovi_dep
@@ -726,7 +741,7 @@ summary({
   'AviSynth': enable_avisynth and have_avisynth_headers,
   'libass': libass_dep.found(),
   'libplacebo': libplacebo_dep.found(),
-  'Vulkan': vulkan_dep.found(),
+  'Vulkan': have_vulkan_headers,
   'libdovi': libdovi_dep.found(),
   'libhdr10plus': libhdr10plus_dep.found(),
 }, section: 'Optional Features')
