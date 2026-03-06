@@ -41,6 +41,7 @@ RUN apt update \
       python3-pip \
       gperf \
       build-essential \
+      libx11-dev \
       openssl \
       libssl-dev \
     && wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc \
