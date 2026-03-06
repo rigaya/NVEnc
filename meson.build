@@ -385,6 +385,20 @@ configure_file(
   configuration: conf_data,
 )
 
+# rgy_rev.h 生成
+rev_count = run_command('sh', '-c', 'cd "' + source_root + '" && git rev-list HEAD | wc -l', check: false).stdout().strip()
+if rev_count == ''
+  rev_count = '0'
+endif
+
+rev_data = configuration_data()
+rev_data.set_quoted('ENCODER_REV', rev_count)
+rev_data.set('ENABLE_METRIC_FRAMEWORK', 0)
+configure_file(
+  output: 'rgy_rev.h',
+  configuration: rev_data,
+)
+
 # ビルドディレクトリをインクルードパスの先頭に追加
 # (ソースディレクトリの古いrgy_config.hより優先させるため)
 # mesonの include_directories('.') はソースディレクトリを指すため、
