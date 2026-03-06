@@ -132,14 +132,22 @@ RGY_ERR CUDAVulkanFrame::importCudaExternalMemory(VkExternalMemoryHandleTypeFlag
         formatDesc.y = 0;
         formatDesc.z = 0;
         formatDesc.w = 0;
+#if defined(CUDART_VERSION) && (CUDART_VERSION >= 12000)
         formatDesc.f = cudaChannelFormatKindUnsignedNormalized8X1;
+#else
+        formatDesc.f = cudaChannelFormatKindUnsigned;
+#endif
         break;
     case VK_FORMAT_R16_UNORM:
         formatDesc.x = 16;
         formatDesc.y = 0;
         formatDesc.z = 0;
         formatDesc.w = 0;
+#if defined(CUDART_VERSION) && (CUDART_VERSION >= 12000)
         formatDesc.f = cudaChannelFormatKindUnsignedNormalized16X1;
+#else
+        formatDesc.f = cudaChannelFormatKindUnsigned;
+#endif
         break;
     default:
         return RGY_ERR_UNSUPPORTED;
