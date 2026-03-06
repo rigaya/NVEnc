@@ -43,6 +43,8 @@ message('Using CUDA path: ' + cuda_path)
 
 cuda_lib_dir = cuda_path / 'lib64'
 cuda_bin_dir = cuda_path / 'bin'
+cuda_target_lib_dir = cuda_path / 'targets' / 'x86_64-linux' / 'lib'
+cuda_stub_lib_dir = cuda_target_lib_dir / 'stubs'
 
 # ==============================================================================
 # CUDAバージョン検出 & compute_xx 自動設定
@@ -118,12 +120,16 @@ dl_dep = cpp.find_library('dl', required: true)
 cuda_dep = dependency('cuda', version: '>=10.0', required: true)
 
 # CUDA追加ライブラリ (Driver API, NPP)
-# WSL2環境では /usr/lib/wsl/lib にlibcuda.soがある
-cuda_driver_dep = cpp.find_library('cuda', dirs: [cuda_lib_dir, '/usr/lib/wsl/lib'], required: true)
-nppif_dep = cpp.find_library('nppif_static', dirs: cuda_lib_dir, required: true)
-nppig_dep = cpp.find_library('nppig_static', dirs: cuda_lib_dir, required: true)
-nppc_dep = cpp.find_library('nppc_static', dirs: cuda_lib_dir, required: true)
-culibos_dep = cpp.find_library('culibos', dirs: cuda_lib_dir, required: true)
+# Linux container では libcuda.so の stub が targets/.../lib/stubs に置かれるため、
+# 実ドライバ(cuda-drivers)ではなく cuda-driver-dev の stub を優先して利用する。
+cuda_driver_search_dirs = [cuda_stub_lib_dir, cuda_target_lib_dir, cuda_lib_dir, '/usr/lib/wsl/lib']
+message('CUDA driver search dirs: ' + ' '.join(cuda_driver_search_dirs))
+cuda_driver_dep = cpp.find_library('cuda', dirs: cuda_driver_search_dirs, required: true)
+npp_search_dirs = [cuda_target_lib_dir, cuda_lib_dir]
+nppif_dep = cpp.find_library('nppif_static', dirs: npp_search_dirs, required: true)
+nppig_dep = cpp.find_library('nppig_static', dirs: npp_search_dirs, required: true)
+nppc_dep = cpp.find_library('nppc_static', dirs: npp_search_dirs, required: true)
+culibos_dep = cpp.find_library('culibos', dirs: npp_search_dirs, required: true)
 rt_dep = cpp.find_library('rt', required: true)
 
 # FFmpeg (必須)

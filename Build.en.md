@@ -111,12 +111,12 @@ export CUDA_PATH=/usr/local/cuda
 ```
 
 > [!NOTE]
-> When isntall failes on Ubuntu 24.04  using the command line above, selecting only the required packages as below would work.
+> For container/chroot builds, do not install `cuda-drivers`. The kernel driver is provided by the host, and installing `cuda-drivers` may pull `nvidia-dkms-*` and fail during image build. Install only the required user-space/devel packages as below.
 > CUDA_VER_MAJOR and CUDA_VER_MINOR might be needed to be chaged.
 > ```
 > CUDA_VER_MAJOR=12
 > CUDA_VER_MINOR=4
-> apt-get -y install cuda-drivers cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
+> apt-get -y install cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
 >   cuda-cudart-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-driver-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
 >   cuda-nvrtc-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
 >   libnpp-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR}

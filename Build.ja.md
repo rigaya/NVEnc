@@ -112,12 +112,12 @@ export CUDA_PATH=/usr/local/cuda
 ```
 
 > [!NOTE]
-> Ubuntu 24.04で上記でインストールに失敗する場合、下記のように必要なパッケージのみを選択してインストールすると回避できます。
+> コンテナ/chroot でビルドする場合、`cuda-drivers` は入れないでください。カーネルドライバはホスト側の担当で、`cuda-drivers` を入れると `nvidia-dkms-*` が引かれてイメージビルドに失敗しやすいです。下記のように必要なユーザー空間/開発パッケージのみを入れるのが安全です。
 > CUDA_VER_MAJORとCUDA_VER_MINORは適宜変更が必要かもしれません。
 > ```
 > CUDA_VER_MAJOR=12
 > CUDA_VER_MINOR=4
-> apt-get -y install cuda-drivers cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
+> apt-get -y install cuda-compiler-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
 >   cuda-cudart-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-driver-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
 >   cuda-nvrtc-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} libcurand-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} \
 >   libnpp-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR} cuda-nvml-dev-${CUDA_VER_MAJOR}-${CUDA_VER_MINOR}
