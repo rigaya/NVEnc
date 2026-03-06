@@ -119,7 +119,7 @@ cuda_dep = dependency('cuda', version: '>=10.0', required: true)
 
 # CUDA追加ライブラリ (Driver API, NPP)
 # WSL2環境では /usr/lib/wsl/lib にlibcuda.soがある
-cuda_driver_dep = cpp.find_library('cuda', dirs: [cuda_lib_dir, cuda_lib_dir / 'stubs', '/usr/lib/wsl/lib'], required: true)
+cuda_driver_dep = cpp.find_library('cuda', dirs: [cuda_lib_dir, '/usr/lib/wsl/lib'], required: true)
 nppif_dep = cpp.find_library('nppif_static', dirs: cuda_lib_dir, required: true)
 nppig_dep = cpp.find_library('nppig_static', dirs: cuda_lib_dir, required: true)
 nppc_dep = cpp.find_library('nppc_static', dirs: cuda_lib_dir, required: true)
