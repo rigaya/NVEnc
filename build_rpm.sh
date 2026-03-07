@@ -4,7 +4,7 @@ PACKAGE_NAME=nvencc
 PACKAGE_BIN=nvencc
 PACKAGE_OS=
 PACKAGE_MAINTAINER=rigaya
-PACKAGE_DEPENDS="glibc,libva,libva-drm,libva-x11"
+PACKAGE_DEPENDS="glibc"
 PACKAGE_DESCRIPTION=
 PACKAGE_ROOT=.rpmpkg
 PACKAGE_VERSION=`git describe --tags | cut -f 1 --delim="-"`
