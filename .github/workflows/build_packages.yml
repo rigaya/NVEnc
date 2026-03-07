@@ -117,8 +117,16 @@ jobs:
               exit 1
             fi
           '
-          docker exec build_pkg ./build/nvencc --version
-          docker exec build_pkg ./check_options.py -exe ./build/nvencc
+          docker exec build_pkg bash -lc '
+            set -e
+            if [[ "${{ matrix.dockerimg }}" == ubuntu* ]]; then
+              mkdir -p /tmp/nvenc-cuda-stubs
+              ln -sf /usr/local/cuda/targets/x86_64-linux/lib/stubs/libcuda.so /tmp/nvenc-cuda-stubs/libcuda.so.1
+              export LD_LIBRARY_PATH="/tmp/nvenc-cuda-stubs:/usr/local/cuda/targets/x86_64-linux/lib/stubs${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+            fi
+            ./build/nvencc --version
+            ./check_options.py -exe ./build/nvencc
+          '
           docker exec build_pkg cp ./build/nvencc ./nvencc
           docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh
           docker exec build_pkg bash -lc "cp -v ./*.${{ env.PKG_TYPE }} /output/"
