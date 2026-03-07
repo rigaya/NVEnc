@@ -124,7 +124,7 @@ cuda_dep = dependency('cuda', version: '>=10.0', required: true)
 # 実ドライバ(cuda-drivers)ではなく cuda-driver-dev の stub を優先して利用する。
 cuda_driver_search_dirs = [cuda_stub_lib_dir, cuda_target_lib_dir, cuda_lib_dir, '/usr/lib/wsl/lib']
 message('CUDA driver search dirs: ' + ' '.join(cuda_driver_search_dirs))
-cpp.find_library('cuda', dirs: cuda_driver_search_dirs, required: true)
+cuda_driver_probe = cpp.find_library('cuda', dirs: cuda_driver_search_dirs, required: true)
 
 cuda_driver_lib_dir = ''
 foreach dir : cuda_driver_search_dirs
@@ -133,9 +133,11 @@ foreach dir : cuda_driver_search_dirs
   endif
 endforeach
 if cuda_driver_lib_dir == ''
-  error('libcuda.so not found in expected CUDA driver search dirs')
+  message('libcuda.so was resolved by the toolchain search path')
+  cuda_driver_dep = declare_dependency(link_args: ['-lcuda'])
+else
+  cuda_driver_dep = declare_dependency(link_args: ['-L' + cuda_driver_lib_dir, '-lcuda'])
 endif
-cuda_driver_dep = declare_dependency(link_args: ['-L' + cuda_driver_lib_dir, '-lcuda'])
 
 npp_search_dirs = [cuda_target_lib_dir, cuda_lib_dir]
 cpp.find_library('nppif_static', dirs: npp_search_dirs, required: true)
@@ -150,9 +152,11 @@ foreach dir : npp_search_dirs
   endif
 endforeach
 if npp_lib_dir == ''
-  error('NPP static libraries not found in expected CUDA library dirs')
+  message('NPP libraries were resolved by the toolchain search path')
+  npp_deps = declare_dependency(link_args: ['-lnppif_static', '-lnppig_static', '-lnppc_static', '-lculibos'])
+else
+  npp_deps = declare_dependency(link_args: ['-L' + npp_lib_dir, '-lnppif_static', '-lnppig_static', '-lnppc_static', '-lculibos'])
 endif
-npp_deps = declare_dependency(link_args: ['-L' + npp_lib_dir, '-lnppif_static', '-lnppig_static', '-lnppc_static', '-lculibos'])
 rt_dep = cpp.find_library('rt', required: true)
 
 # FFmpeg (必須)
