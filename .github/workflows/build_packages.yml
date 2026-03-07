@@ -109,7 +109,14 @@ jobs:
             meson setup ./build . --buildtype=release -Db_lto=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
           '
           docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
-          docker exec build_pkg ldd ./build/nvencc
+          docker exec build_pkg bash -lc '
+            set -e
+            ldd ./build/nvencc | tee /tmp/nvencc.ldd
+            if grep -F "=> not found" /tmp/nvencc.ldd | grep -Fv "libcuda.so.1 => not found" >/dev/null; then
+              echo "Unexpected missing shared libraries detected." >&2
+              exit 1
+            fi
+          '
           docker exec build_pkg ./build/nvencc --version
           docker exec build_pkg ./check_options.py -exe ./build/nvencc
           docker exec build_pkg cp ./build/nvencc ./nvencc

@@ -124,12 +124,35 @@ cuda_dep = dependency('cuda', version: '>=10.0', required: true)
 # 実ドライバ(cuda-drivers)ではなく cuda-driver-dev の stub を優先して利用する。
 cuda_driver_search_dirs = [cuda_stub_lib_dir, cuda_target_lib_dir, cuda_lib_dir, '/usr/lib/wsl/lib']
 message('CUDA driver search dirs: ' + ' '.join(cuda_driver_search_dirs))
-cuda_driver_dep = cpp.find_library('cuda', dirs: cuda_driver_search_dirs, required: true)
+cpp.find_library('cuda', dirs: cuda_driver_search_dirs, required: true)
+
+cuda_driver_lib_dir = ''
+foreach dir : cuda_driver_search_dirs
+  if cuda_driver_lib_dir == '' and fs.exists(dir / 'libcuda.so')
+    cuda_driver_lib_dir = dir
+  endif
+endforeach
+if cuda_driver_lib_dir == ''
+  error('libcuda.so not found in expected CUDA driver search dirs')
+endif
+cuda_driver_dep = declare_dependency(link_args: ['-L' + cuda_driver_lib_dir, '-lcuda'])
+
 npp_search_dirs = [cuda_target_lib_dir, cuda_lib_dir]
-nppif_dep = cpp.find_library('nppif_static', dirs: npp_search_dirs, required: true)
-nppig_dep = cpp.find_library('nppig_static', dirs: npp_search_dirs, required: true)
-nppc_dep = cpp.find_library('nppc_static', dirs: npp_search_dirs, required: true)
-culibos_dep = cpp.find_library('culibos', dirs: npp_search_dirs, required: true)
+cpp.find_library('nppif_static', dirs: npp_search_dirs, required: true)
+cpp.find_library('nppig_static', dirs: npp_search_dirs, required: true)
+cpp.find_library('nppc_static', dirs: npp_search_dirs, required: true)
+cpp.find_library('culibos', dirs: npp_search_dirs, required: true)
+
+npp_lib_dir = ''
+foreach dir : npp_search_dirs
+  if npp_lib_dir == '' and fs.exists(dir / 'libnppif_static.a') and fs.exists(dir / 'libnppig_static.a') and fs.exists(dir / 'libnppc_static.a') and fs.exists(dir / 'libculibos.a')
+    npp_lib_dir = dir
+  endif
+endforeach
+if npp_lib_dir == ''
+  error('NPP static libraries not found in expected CUDA library dirs')
+endif
+npp_deps = declare_dependency(link_args: ['-L' + npp_lib_dir, '-lnppif_static', '-lnppig_static', '-lnppc_static', '-lculibos'])
 rt_dep = cpp.find_library('rt', required: true)
 
 # FFmpeg (必須)
@@ -680,10 +703,7 @@ all_deps = [
   dl_dep,
   cuda_dep,
   cuda_driver_dep,
-  nppif_dep,
-  nppig_dep,
-  nppc_dep,
-  culibos_dep,
+  npp_deps,
   rt_dep,
 ] + ffmpeg_deps
 
