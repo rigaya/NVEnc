@@ -478,7 +478,12 @@ static void AVStreamCopySideData(AVStream *streamDst, const AVStream *streamSrc)
 #if AVCODEC_PAR_CODED_SIDE_DATA_AVAIL
     for (int i = 0; i < streamSrc->codecpar->nb_coded_side_data; i++) {
         const auto& side_data = streamSrc->codecpar->coded_side_data[i];
-        av_packet_side_data_add(&streamDst->codecpar->coded_side_data, &streamDst->codecpar->nb_coded_side_data, side_data.type, side_data.data, side_data.size, 0);
+        auto side_data_copy = (uint8_t *)av_malloc(side_data.size);
+        if (side_data_copy == nullptr) {
+            continue;
+        }
+        memcpy(side_data_copy, side_data.data, side_data.size);
+        av_packet_side_data_add(&streamDst->codecpar->coded_side_data, &streamDst->codecpar->nb_coded_side_data, side_data.type, side_data_copy, side_data.size, 0);
     }
 #else
     for (int i = 0; i < streamSrc->nb_side_data; i++) {
