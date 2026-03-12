@@ -1,5 +1,13 @@
 # NVEnc Release Notes
 
+## 9.11
+
+- Add option to append input command line parameters to `encoding_tool` in muxer metadata. ([--muxer-add-cmd](./NVEncC_Options.en.md#--muxer-add-cmd))
+- Fix potential SIGPIPE(141) error termination in Linux multi-GPU environment.
+- Fix error on finalization when encoding E-AC3. ( #706 )
+- Avoid mixing GPUs with different B-frame availability when using [--parallel](./NVEncC_Options.en.md#--parallel-int-or-param1value1param2value2).
+- Migrate Linux build to meson.
+
 ## 9.10
 
 - Add feature to set --audio-bitrate to different value depending on audio channels. ( #743 )
