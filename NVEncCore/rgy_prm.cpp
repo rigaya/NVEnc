@@ -2388,6 +2388,7 @@ RGYParamParallelEnc::RGYParamParallelEnc() :
     parallelCount(0),
     parallelId(-1),
     chunks(0),
+    targetBFrames(-1),
     chunkPipeHandles(),
     cacheMode(RGYParamParallelEncCache::Mem),
     delayChildSync(false),
@@ -2398,6 +2399,7 @@ bool RGYParamParallelEnc::operator==(const RGYParamParallelEnc &x) const {
     return parallelCount == x.parallelCount
         && parallelId == x.parallelId
         && chunks == x.chunks
+        && targetBFrames == x.targetBFrames
         && chunkPipeHandles.size() == x.chunkPipeHandles.size()
         && std::equal(chunkPipeHandles.begin(), chunkPipeHandles.end(), x.chunkPipeHandles.begin())
         && cacheMode == x.cacheMode;

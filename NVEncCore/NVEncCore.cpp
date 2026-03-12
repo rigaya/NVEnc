@@ -1135,13 +1135,14 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
         }
     };
 
-    if (inputParam->bFrames.has_value() && inputParam->bFrames.value() > 0) {
+    const int requestedBFrames = inputParam->bFrames.value_or(inputParam->ctrl.parallelEnc.targetBFrames);
+    if (requestedBFrames > 0) {
         remove_gpu_if_gpu_support_mismatch([&](const NVGPUInfo *gpu) {
             const auto codec = std::find_if(gpu->nvenc_codec_features().begin(), gpu->nvenc_codec_features().end(), [codec_rgy = inputParam->codec_rgy](const NVEncCodecFeature& codec) {
                 return codec.codec == codec_guid_rgy_to_enc(codec_rgy);
             });
             assert(codec != gpu->nvenc_codec_features().end());
-            return get_value(NV_ENC_CAPS_NUM_MAX_BFRAMES, codec->caps) > 0;
+            return codec->getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES) >= requestedBFrames;
         });
     }
     if (inputParam->codec_rgy != RGY_CODEC_H264 && inputParam->tuningInfo == NV_ENC_TUNING_INFO_ULTRA_HIGH_QUALITY) {
@@ -1158,6 +1159,8 @@ RGY_ERR NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gpuLis
         m_nDeviceId = gpuList.front()->id();
         return RGY_ERR_NONE;
     }
+    // GPUAutoSelect is responsible only for ranking already-compatible GPUs.
+    // Capability-based exclusions should stay in CheckGPUListByEncoder.
     int maxDeviceUsageCount = 1;
     std::vector<std::pair<int, int64_t>> deviceUsage;
     if (gpuList.size() > 1) {
@@ -4649,6 +4652,9 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 
     // 親はエンコード設定が完了してから並列動作を呼び出し
     if (inputParam->ctrl.parallelEnc.isParent() || (inputParam->ctrl.parallelEnc.isChild() && inputParam->ctrl.parallelEnc.delayChildSync)) {
+        if (inputParam->ctrl.parallelEnc.isParent()) {
+            inputParam->ctrl.parallelEnc.targetBFrames = std::max(0, m_stEncConfig.frameIntervalP - 1);
+        }
         sts = InitParallelEncode(inputParam, gpuList);
         if (sts < RGY_ERR_NONE) return sts;
     }
