@@ -7,7 +7,7 @@ ARG DEBIAN_FRONTEND=noninteractive \
     FFMPEG_DLL_REPO=https://github.com/rigaya/build_scripts.git \
     FFMPEG_DLL_REF=master \
     BUILD_SCRIPTS_DIR=/opt/build_scripts \
-    FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_ffmpeg_dll/x64/build \
+    FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_dll/x64/build \
     CUDA_VER_MAJOR=12 \
     CUDA_VER_MINOR=4 \
     CUDA_DEB_URL=https://developer.download.nvidia.com/compute/cuda/12.4.1/local_installers/cuda-repo-ubuntu2204-12-4-local_12.4.1-550.54.15-1_amd64.deb \
@@ -77,9 +77,9 @@ RUN git clone --depth 1 --branch ${FFMPEG_DLL_REF} ${FFMPEG_DLL_REPO} ${BUILD_SC
     && bash ./build_ffmpeg_dll.sh --skip-src-archive \
     && test -f "${FFMPEG_PREFIX}/lib/pkgconfig/libavutil.pc" \
     && find "${BUILD_SCRIPTS_DIR}" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -exec rm -rf {} + \
-    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -exec rm -rf {} + \
-    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -exec rm -rf {} + \
-    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64/build" -exec rm -rf {} +
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64/build" -exec rm -rf {} +
 
 ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
 WORKDIR /work
