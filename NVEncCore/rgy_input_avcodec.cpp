@@ -592,6 +592,12 @@ vector<int> RGYInputAvcodec::getStreamIndex(AVMediaType type) {
                 // video, audio, subtitleの場合はCodecIDが必要 (たまにCodecIDのセットされていないものが来てエラーになる)
                 if (stream->codecpar->codec_id != AV_CODEC_ID_NONE) {
                     streams.push_back(i);
+                } else {
+                    AddMessage(RGY_LOG_DEBUG, _T("skip %s stream #%d: codec_id is none, codec_tag %s (0x%08x).\n"),
+                        char_to_tstring(av_get_media_type_string(type)).c_str(),
+                        i,
+                        char_to_tstring(tagToStr(stream->codecpar->codec_tag)).c_str(),
+                        stream->codecpar->codec_tag);
                 }
             } else {
                 streams.push_back(i);
@@ -1619,6 +1625,28 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         return RGY_ERR_UNKNOWN; // Couldn't find stream information
     }
     findStreamInfoOpt.reset();
+
+    for (uint32_t i = 0; i < m_Demux.format.formatCtx->nb_streams; i++) {
+        auto stream = m_Demux.format.formatCtx->streams[i];
+        if (stream == nullptr || stream->codecpar == nullptr) {
+            continue;
+        }
+        if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO && stream->codecpar->codec_id == AV_CODEC_ID_NONE) {
+            if (stream->codecpar->codec_tag == MKTAG('d', 't', 's', 'x')) {
+                stream->codecpar->codec_id = AV_CODEC_ID_DTS;
+                AddMessage(RGY_LOG_WARN, _T("treat audio stream #%d codec_tag %s (0x%08x) as %s for stream copy.\n"),
+                    i,
+                    char_to_tstring(tagToStr(stream->codecpar->codec_tag)).c_str(),
+                    stream->codecpar->codec_tag,
+                    char_to_tstring(avcodec_get_name(stream->codecpar->codec_id)).c_str());
+            } else {
+                AddMessage(RGY_LOG_WARN, _T("audio stream #%d has unknown codec_id with codec_tag %s (0x%08x).\n"),
+                    i,
+                    char_to_tstring(tagToStr(stream->codecpar->codec_tag)).c_str(),
+                    stream->codecpar->codec_tag);
+            }
+        }
+    }
 
     AddMessage(RGY_LOG_DEBUG, _T("got stream information.\n"));
     av_dump_format(m_Demux.format.formatCtx, 0, filename_char.c_str(), 0);
