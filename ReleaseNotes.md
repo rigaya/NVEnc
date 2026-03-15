@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.12
+
+- Fix for DTS:X not being copyable.
+
 ## 9.11
 
 - Add option to append input command line parameters to `encoding_tool` in muxer metadata. ([--muxer-add-cmd](./NVEncC_Options.en.md#--muxer-add-cmd))
