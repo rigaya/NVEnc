@@ -14,11 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - dockerimg: ubuntu2404_cuda12
-          - dockerimg: ubuntu2204_cuda11
           - dockerimg: ubuntu2004_cuda11
           - dockerimg: fedora39_cuda12
-          - dockerimg: fedora41_cuda12
 
     env:
       DOCKER_FILE: docker/docker_${{ matrix.dockerimg }}

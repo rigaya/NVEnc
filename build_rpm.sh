@@ -56,6 +56,4 @@ rm -rf ${WORK_DIR}
 
 rpmbuild --define "_topdir ${RPMBUILD_DIR}" -ba "${PACKAGE_SPEC_DIR}/${PACKAGE_NAME}.spec"
 
-TARGET_RPM=`ls ${RPMBUILD_DIR}/RPMS/${PACKAGE_ARCH}/${PACKAGE_NAME}*.rpm`
-TARGET_RPM_NAME=`basename ${TARGET_RPM} .rpm`
-cp ${TARGET_RPM} ./${TARGET_RPM_NAME}-${PACKAGE_OS}.rpm
+cp ${RPMBUILD_DIR}/RPMS/${PACKAGE_ARCH}/${PACKAGE_NAME}*.rpm .
