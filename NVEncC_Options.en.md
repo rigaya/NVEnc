@@ -970,6 +970,8 @@ Therefore, input files without timestamps (such as raw ES), are not supported. P
 ### --dolby-vision-profile &lt;string&gt; [HEVC, AV1]
 Output file which is specified in Dolby Vision profile. Recommended to be used with [--dolby-vision-rpu](#--dolby-vision-rpu-string).
 
+For HEVC Dolby Vision output, this automatically applies Dolby Vision VUI settings and enables `--repeat-headers`, `--aud` and `--pic-struct`.
+
 "copy" will use dolby vision profile from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 
 ```
@@ -978,6 +980,10 @@ unset, copy, 5.0, 8.1, 8.2, 8.4, 10.0, 10.1, 10.2, 10.4
 
 ### --dolby-vision-rpu &lt;string&gt; [HEVC, AV1]
 Interleave Dolby Vision RPU metadata from the specified file into the output file. Recommended to be used with [--dolby-vision-profile](#--dolby-vision-profile-string).
+
+Current Dolby Vision output is BL+RPU only. BL+EL output is not supported.
+
+To better satisfy Dolby Vision profile/level bitrate and HRD limits, use bitrate/VBV-controlled modes and set [--max-bitrate](#--max-bitrate-int) / [--vbv-bufsize](#--vbv-bufsize-int) appropriately. `--cqp` can also be used, but it does not enforce those limits by itself.
 
 ### --dolby-vision-rpu copy [HEVC, AV1]
 Interleave Dolby Vision RPU metadata copied from HEVC input file. Recommended to be used with [--dolby-vision-profile](#--dolby-vision-profile-string).
