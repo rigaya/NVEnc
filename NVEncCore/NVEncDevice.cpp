@@ -37,6 +37,7 @@
 #include "NVEncDevice.h"
 #include "NVEncUtil.h"
 #include "rgy_perf_monitor.h"
+#include <mutex>
 
 #define INIT_CONFIG_EX
 
@@ -79,7 +80,21 @@ static constexpr auto API_VER_LIST = make_array<uint32_t>(
     nvenc_api_ver(10, 0),
     nvenc_api_ver(9, 1),
     nvenc_api_ver(9, 0)
-    );
+);
+
+namespace {
+
+std::mutex g_nvencFeatureCacheMutex;
+std::map<std::string, std::vector<NVEncCodecFeature>> g_nvencFeatureCache;
+
+std::string make_nvenc_feature_cache_key(const int deviceId, const std::string& pciBusId, const tstring& name, const int nvDriverVersion, const int cudaDriverVersion) {
+    if (pciBusId.length() > 0) {
+        return strsprintf("%s|%d|%d", pciBusId.c_str(), nvDriverVersion, cudaDriverVersion);
+    }
+    return strsprintf("dev%d|%s|%d|%d", deviceId, tchar_to_string(name).c_str(), nvDriverVersion, cudaDriverVersion);
+}
+
+} // namespace
 
 //対応するAPIバージョンによる構造体のバージョン管理
 //APIバージョンが異なると、構造体のバージョンも異なる場合があるので、これを一括で管理する
@@ -1265,6 +1280,14 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
         m_cuvid_csp = getHWDecCodecCsp(skipHWDecodeCheck);
     }
 
+    const auto featureCacheKey = make_nvenc_feature_cache_key(m_id, m_pciBusId, m_name, m_nv_driver_version, m_cuda_driver_version);
+    std::lock_guard<std::mutex> lock(g_nvencFeatureCacheMutex);
+    if (const auto cached = g_nvencFeatureCache.find(featureCacheKey); cached != g_nvencFeatureCache.end()) {
+        m_nvenc_codec_features = cached->second;
+        writeLog(RGY_LOG_DEBUG, _T("using cached NVEnc device feature list.\n"));
+        return RGY_ERR_NONE;
+    }
+
     // DeviceFeature取得のため、一時的なencoder sessionを作成する
     // session数の上限に達するのを防ぐため、featureを取得したらすぐに破棄する
     auto encoder = std::make_unique<NVEncoder>(cuCtxCreated, m_log);
@@ -1280,6 +1303,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     }
     writeLog(RGY_LOG_DEBUG, _T("  createDeviceFeatureList\n"));
     m_nvenc_codec_features = encoder->GetNVEncCapability();
+    g_nvencFeatureCache[featureCacheKey] = m_nvenc_codec_features;
     return RGY_ERR_NONE;
 }
 
