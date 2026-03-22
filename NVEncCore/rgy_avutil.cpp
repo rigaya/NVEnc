@@ -501,9 +501,15 @@ std::vector<RGYChannelLayout> getChannelLayoutSupportedCodec(const AVCodec *code
 #endif
 #endif
     if (channelLayout) {
+#if LIBAVCODEC_VERSION_MAJOR >= 62
+        for (int i = 0; i < ch_layout_count; i++) {
+            layouts.push_back(channelLayout[i]);
+        }
+#else
         for (int i = 0; channelLayoutSet(&channelLayout[i]); i++) {
             layouts.push_back(channelLayout[i]);
         }
+#endif
     }
     return layouts;
 }
@@ -639,7 +645,7 @@ uniuqeRGYChannelLayout getChannelLayoutFromString(const std::string& channel_lay
 bool ChannelLayoutExists(const RGYChannelLayout *target, const AVCodec *codec) {
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
     auto codec_ch_layouts = getChannelLayoutSupportedCodec(codec);
-    if (codec_ch_layouts.size()) return false;
+    if (codec_ch_layouts.size() == 0) return false;
     for (const auto& chlayout : codec_ch_layouts) {
         if (av_channel_layout_compare(target, &chlayout) == 0) {
             return true;

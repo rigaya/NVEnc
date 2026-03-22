@@ -89,6 +89,54 @@ static bool format_is_y4m(const AVFormatContext *formatCtx) {
     return _stricmp(formatCtx->oformat->name, "yuv4mpegpipe") == 0;
 }
 
+struct AudioLayoutResolveResult {
+    uniuqeRGYChannelLayout layout;
+    int channels;
+    bool fallbackToDefault;
+    bool resolved;
+
+    AudioLayoutResolveResult() :
+        layout(createChannelLayoutEmpty()),
+        channels(0),
+        fallbackToDefault(false),
+        resolved(false) {
+    }
+};
+
+static AudioLayoutResolveResult resolveAudioChannelLayoutStrict(const int channels, const RGYChannelLayout *channel_layout) {
+    AudioLayoutResolveResult result;
+    result.channels = channels;
+    if (channel_layout != nullptr
+        && channelLayoutSet(channel_layout)
+        && !channelLayoutOrderUnspec(channel_layout)) {
+        result.layout = createChannelLayoutCopy(channel_layout);
+        result.resolved = true;
+        return result;
+    }
+    if (channels <= 2) {
+        result.layout = getDefaultChannelLayout(channels);
+        result.fallbackToDefault = true;
+        result.resolved = true;
+    }
+    return result;
+}
+
+static AudioLayoutResolveResult resolveAudioChannelLayoutStrict(const AVCodecContext *ctx) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return resolveAudioChannelLayoutStrict(getChannelCount(ctx), &ctx->ch_layout);
+#else
+    return resolveAudioChannelLayoutStrict(ctx->channels, &ctx->channel_layout);
+#endif
+}
+
+static AudioLayoutResolveResult resolveAudioChannelLayoutStrict(const AVFrame *frame) {
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    return resolveAudioChannelLayoutStrict(getChannelCount(&frame->ch_layout), &frame->ch_layout);
+#else
+    return resolveAudioChannelLayoutStrict(frame->channels, &frame->channel_layout);
+#endif
+}
+
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
 static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
@@ -1386,8 +1434,14 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 
 //音声フィルタの初期化
 RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, const RGYChannelLayout *channel_layout, int sample_rate, AVSampleFormat sample_fmt, const std::string resamplerPrm) {
-    //時折channel_layoutが設定されていない場合や、OrderがUnspecの場合がある
-    auto channel_layout_next = (channelLayoutSet(channel_layout) && !channelLayoutOrderUnspec(channel_layout)) ? createChannelLayoutCopy(channel_layout) : getDefaultChannelLayout(channels);
+    // multichannel では不明なchannel layoutを推測せず、誤マッピングを避けるためエラーにする
+    auto resolved_input_layout = resolveAudioChannelLayoutStrict(channels, channel_layout);
+    if (!resolved_input_layout.resolved) {
+        AddMessage(RGY_LOG_ERROR, _T("Audio track %d.%d has unknown channel layout for %d channels. Refusing multichannel audio processing to avoid wrong channel mapping.\n"),
+            trackID(muxAudio->inTrackId), muxAudio->inSubStream, channels);
+        return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
+    }
+    auto channel_layout_next = std::move(resolved_input_layout.layout);
     //filterを初期化
     //channelやsamplerate等の条件でfilterが必要なくとも、
     //frame_size等のずれで必要になる場合があるため、素通りするのだとしても常に有効化する
@@ -1428,7 +1482,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, co
             for (int inChannel = 0; inChannel < _countof(muxAudio->channelMapping); inChannel++) {
                 muxAudio->channelMapping[inChannel] = -1;
             }
-            const auto channelLayoutDec = getChannelLayout(muxAudio->outCodecDecodeCtx);
+            const auto channelLayoutDec = createChannelLayoutCopy(muxAudio->filterInChannelLayout.get());
             //オプションによって指定されている、入力音声から抽出するべき音声レイアウト
             const int select_channel_count = getChannelCount(select_channel_layout.get());
             std::string channel_map = "pan=" + getChannelLayoutChar(getDefaultChannelLayout(select_channel_count).get());
@@ -1711,18 +1765,32 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             return RGY_ERR_NULL_PTR;
         }
 
-        auto enc_channel_layout = AutoSelectChannelLayout(muxAudio->outCodecEncode, muxAudio->outCodecDecodeCtx);
+        const auto decoded_layout = resolveAudioChannelLayoutStrict(muxAudio->outCodecDecodeCtx);
+        if (!decoded_layout.resolved) {
+            AddMessage(RGY_LOG_ERROR, _T("Audio track %d.%d has unknown channel layout for %d channels. Refusing multichannel audio encode to avoid wrong channel mapping.\n"),
+                trackID(inputAudio->src.trackId), inputAudio->src.subStreamId, decoded_layout.channels);
+            return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
+        }
+
+        auto enc_channel_layout = createChannelLayoutCopy(decoded_layout.layout.get());
         //もしチャンネルの分離・変更があれば、それを反映してエンコーダの入力とする
         if (bSplitChannelsEnabled<MAX_SPLIT_CHANNELS>(muxAudio->streamChannelOut)) {
             enc_channel_layout = getChannelLayoutFromString(muxAudio->streamChannelOut[muxAudio->inSubStream]);
             if (muxAudio->streamChannelOut[muxAudio->inSubStream] == RGY_CHANNEL_AUTO) {
                 //チャンネル選択の自動設定を反映
-                uniuqeRGYChannelLayout channelSelect = (muxAudio->streamChannelSelect[muxAudio->inSubStream] == RGY_CHANNEL_AUTO) ? getChannelLayout(muxAudio->outCodecDecodeCtx) : getChannelLayoutFromString(muxAudio->streamChannelSelect[muxAudio->inSubStream]);
-                if (ChannelLayoutExists(channelSelect.get(), muxAudio->outCodecEncode)) {
-                    enc_channel_layout = std::move(channelSelect);
-                } else {
-                    enc_channel_layout = getDefaultChannelLayout(getChannelCount(channelSelect.get()));
-                }
+                uniuqeRGYChannelLayout channelSelect = (muxAudio->streamChannelSelect[muxAudio->inSubStream] == RGY_CHANNEL_AUTO) ? createChannelLayoutCopy(decoded_layout.layout.get()) : getChannelLayoutFromString(muxAudio->streamChannelSelect[muxAudio->inSubStream]);
+                enc_channel_layout = std::move(channelSelect);
+            }
+        }
+        const auto enc_channel_layout_exact_requested = createChannelLayoutCopy(enc_channel_layout.get());
+        const bool enc_channel_layout_advertised = ChannelLayoutExists(enc_channel_layout.get(), muxAudio->outCodecEncode);
+        if (!enc_channel_layout_advertised) {
+            if (getChannelCount(enc_channel_layout.get()) <= 2) {
+                enc_channel_layout = getDefaultChannelLayout(getChannelCount(enc_channel_layout.get()));
+            } else {
+                AddMessage(RGY_LOG_DEBUG, _T("Encoder %s does not advertise exact channel layout %s for audio track %d.%d, will try exact layout without implicit remap.\n"),
+                    char_to_tstring(muxAudio->outCodecEncode->name).c_str(), getChannelLayoutString(enc_channel_layout.get()).c_str(),
+                    trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
             }
         }
         int enc_sample_rate = (inputAudio->samplingRate) ? inputAudio->samplingRate : muxAudio->outCodecDecodeCtx->sample_rate;
@@ -1813,9 +1881,23 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         }
         int ret = avcodec_open2(muxAudio->outCodecEncodeCtx, muxAudio->outCodecEncode, &codecPrmDict);
         if (ret < 0) {
+            if (!enc_channel_layout_advertised && getChannelCount(enc_channel_layout_exact_requested.get()) > 2) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to open encoder(%s) with exact channel layout %s for audio track %d.%d: %s\n"),
+                    char_to_tstring(muxAudio->outCodecEncode->name).c_str(),
+                    getChannelLayoutString(enc_channel_layout_exact_requested.get()).c_str(),
+                    trackID(inputAudio->src.trackId), inputAudio->src.subStreamId, qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("Refusing implicit remap for multichannel audio.\n"));
+                return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
+            }
             AddMessage(RGY_LOG_ERROR, _T("failed to open encoder(%s) for audio track %d: %s\n"),
                 char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
+        }
+        if (!enc_channel_layout_advertised && getChannelCount(enc_channel_layout_exact_requested.get()) > 2) {
+            AddMessage(RGY_LOG_DEBUG, _T("Encoder %s accepted exact channel layout %s for audio track %d.%d.\n"),
+                char_to_tstring(muxAudio->outCodecEncode->name).c_str(),
+                getChannelLayoutString(enc_channel_layout_exact_requested.get()).c_str(),
+                trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
         }
         if (codecPrmDict) {
             for (const AVDictionaryEntry *t = nullptr; (t = av_dict_get(codecPrmDict, "", t, AV_DICT_IGNORE_SUFFIX)) != nullptr;) {
@@ -1831,10 +1913,9 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         muxAudio->filterInChannelLayout = getChannelLayout(muxAudio->outCodecEncodeCtx);
         muxAudio->filterInSampleRate    = muxAudio->outCodecEncodeCtx->sample_rate;
         muxAudio->filterInSampleFmt     = muxAudio->outCodecEncodeCtx->sample_fmt;
-        const auto channelLayoutDec     = getChannelLayout(muxAudio->outCodecDecodeCtx);
         auto sts = InitAudioFilter(muxAudio,
-            getChannelCount(channelLayoutDec.get()),
-            channelLayoutDec.get(),
+            getChannelCount(decoded_layout.layout.get()),
+            decoded_layout.layout.get(),
             muxAudio->outCodecDecodeCtx->sample_rate,
             // sample_fmtはデコーダのavcodec_open2時には設定されていないばあがある
             // そのときにはとりあえずAV_SAMPLE_FMT_S16で適当にフィルタを初期化しておく
@@ -3891,11 +3972,14 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
             const bool flush = pktData.frame == nullptr;
             if (pktData.frame != nullptr) {
                 //音声入力フォーマットに変更がないか確認し、もしあればresamplerを再初期化する
-#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
-                auto sts = InitAudioFilter(muxAudio, getChannelCount(&pktData.frame->ch_layout), &pktData.frame->ch_layout, pktData.frame->sample_rate, (AVSampleFormat)pktData.frame->format, muxAudio->audioResamplerPrm);
-#else
-                auto sts = InitAudioFilter(muxAudio, pktData.frame->channels, &pktData.frame->channel_layout, pktData.frame->sample_rate, (AVSampleFormat)pktData.frame->format, muxAudio->audioResamplerPrm);
-#endif
+                const auto resolved_layout = resolveAudioChannelLayoutStrict(pktData.frame);
+                if (!resolved_layout.resolved) {
+                    AddMessage(RGY_LOG_ERROR, _T("Audio track %d.%d has unknown channel layout for %d channels in decoded frame. Refusing multichannel audio processing to avoid wrong channel mapping.\n"),
+                        trackID(muxAudio->inTrackId), muxAudio->inSubStream, resolved_layout.channels);
+                    m_Mux.format.streamError = true;
+                    break;
+                }
+                auto sts = InitAudioFilter(muxAudio, resolved_layout.channels, resolved_layout.layout.get(), pktData.frame->sample_rate, (AVSampleFormat)pktData.frame->format, muxAudio->audioResamplerPrm);
                 if (sts != RGY_ERR_NONE) {
                     m_Mux.format.streamError = true;
                     break;
