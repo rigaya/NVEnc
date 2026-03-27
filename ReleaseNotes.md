@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 9.13
+
+- Improve multi-channel audio channel layout handling when encoding with [--audio-codec](./NVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring). ( #671 )
+- Update documents for Dolby Vision options ([--dolby-vision-profile](./NVEncC_Options.en.md#--dolby-vision-profile-string-hevc-av1), [--dolby-vision-rpu](./NVEncC_Options.en.md#--dolby-vision-rpu-string-hevc-av1), etc.). ( #738 )
+
 ## 9.12
 
 - Fix for DTS:X not being copyable.
