@@ -3288,10 +3288,10 @@ Enable CUDA stream based optimization. Default is 1 (=on).
   - On some GPUs/drivers, enabling this might cause instability. If you experience hangs or crashes, try disabling this option.
 
 ### --cuda-mt &lt;int&gt;
-Enable multi-threaded control for CUDA operations. Default is 0 (=off).
+Enable multi-threaded control for CUDA operations. Default is 0 (=off), and recommended to keep this disabled.
 
 - Notes
-  - When enabled, it may improve performance by parallelizing CUDA control from the host.
+  - When enabled, it may slightly improve performance by parallelizing CUDA control from the host.
   - On some GPUs/drivers, enabling this might cause instability. If you experience hangs or crashes, try disabling this option.
 
 ### --disable-nvml &lt;int&gt;
