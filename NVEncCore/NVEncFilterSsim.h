@@ -35,6 +35,7 @@
 #include <mutex>
 #include "rgy_osdep.h"
 #include "rgy_event.h"
+#include "rgy_libvmaf.h"
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
@@ -124,6 +125,7 @@ protected:
     std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostEnc;   // エンコード後のフレームのHostメモリでのバッファ
 #if ENABLE_VMAF
     NVEncFilterVMAFData m_vmaf;
+    RGYLibVMAFLoader m_libvmaf;
 #endif //#if ENABLE_VMAF
     std::unique_ptr<CUFrameBuf> m_decFrameCopy; //デコード後にcrop(NV12->YV12変換)したフレームの格納場所
     std::array<CUMemBufPair, 3> m_tmpSsim; //評価結果を返すための一時バッファ

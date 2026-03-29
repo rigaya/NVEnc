@@ -33,28 +33,6 @@
 #include "CuvidDecode.h"
 #include "NVEncFilterSsim.h"
 #include "NVEncParam.h"
-#if ENABLE_VMAF
-extern "C" {
-#include <libvmaf/libvmaf.h>
-}
-#pragma comment(lib, "libvmaf.lib")
-#if defined(_WIN32) || defined(_WIN64)
-static const TCHAR *VMAF_DLL_NAME_TSTR = _T("libvmaf.dll");
-#else
-static const TCHAR *VMAF_DLL_NAME_TSTR = _T("libvmaf.so");
-#endif
-
-static bool check_if_vmaf_dll_available() {
-#if defined(_WIN32) || defined(_WIN64)
-    HMODULE hModule = RGY_LOAD_LIBRARY(VMAF_DLL_NAME_TSTR);
-    if (hModule == NULL)
-        return false;
-    RGY_FREE_LIBRARY(hModule);
-#endif
-    return true;
-}
-
-#endif //#if ENABLE_VMAF
 
 #if ENABLE_SSIM
 
@@ -91,6 +69,7 @@ NVEncFilterSsim::NVEncFilterSsim() :
     m_frameHostEnc(),
 #if ENABLE_VMAF
     m_vmaf(),
+    m_libvmaf(),
 #endif //#if ENABLE_VMAF
     m_decFrameCopy(),
     m_tmpSsim(),
@@ -182,8 +161,8 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         }
 
 #if ENABLE_VMAF
-        if (!check_if_vmaf_dll_available()) {
-            AddMessage(RGY_LOG_ERROR, _T("--vmaf requires \"%s\", not available on your system.\n"), VMAF_DLL_NAME_TSTR);
+        if (!m_libvmaf.load()) {
+            AddMessage(RGY_LOG_ERROR, _T("--vmaf requires \"%s\", not available on your system.\n"), RGY_LIBVMAF_FILENAME);
             return RGY_ERR_UNSUPPORTED;
         }
 #endif
@@ -615,8 +594,6 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
         return RGY_ERR_INVALID_PARAM;
     }
     }
-    const int bitdepth = RGY_CSP_BIT_DEPTH[frameInfo.csp];
-
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -635,10 +612,9 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     const bool do_ssim = false;
     const bool do_ms_ssim = false;
     const int disable_avx = 0;
-    const int disable_clip = 0;
     const int enable_conf_interval = 0;
 
-    VmafConfiguration cfg;
+    VmafConfiguration cfg = { 0 };
     cfg.log_level = VMAF_LOG_LEVEL_INFO;
     cfg.n_threads = prm->vmaf.threads;
     cfg.n_subsample = prm->vmaf.subsample;
@@ -648,12 +624,12 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     }
 
     VmafContext *vmafptr = nullptr;
-    m_vmaf.error = vmaf_init(&vmafptr, cfg);
+    m_vmaf.error = m_libvmaf.p_vmaf_init()(&vmafptr, cfg);
     if (m_vmaf.error) {
         AddMessage(RGY_LOG_ERROR, _T("problem initializing VMAF context\n"));
         return RGY_ERR_UNKNOWN;
     }
-    std::unique_ptr<VmafContext, decltype(&vmaf_close)> vmaf(vmafptr, vmaf_close);
+    std::unique_ptr<VmafContext, decltype(m_libvmaf.p_vmaf_close())> vmaf(vmafptr, m_libvmaf.p_vmaf_close());
     vmafptr = nullptr;
 
     enum VmafModelFlags flags = (prm->vmaf.enable_transform || prm->vmaf.phone_model) ? VMAF_MODEL_FLAG_ENABLE_TRANSFORM : VMAF_MODEL_FLAGS_DEFAULT;
@@ -662,20 +638,20 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     model_cfg.name = "vmaf";
     model_cfg.flags = flags;
 
-    std::unique_ptr<VmafModel, decltype(&vmaf_model_destroy)> model(nullptr, vmaf_model_destroy);
-    std::unique_ptr<VmafModelCollection, decltype(&vmaf_model_collection_destroy)> model_collection(nullptr, vmaf_model_collection_destroy);
+    std::unique_ptr<VmafModel, decltype(m_libvmaf.p_vmaf_model_destroy())> model(nullptr, m_libvmaf.p_vmaf_model_destroy());
+    std::unique_ptr<VmafModelCollection, decltype(m_libvmaf.p_vmaf_model_collection_destroy())> model_collection(nullptr, m_libvmaf.p_vmaf_model_collection_destroy());
     if (enable_conf_interval) {
         VmafModel *model_ptr = nullptr;
         VmafModelCollection *model_collection_ptr = nullptr;
         if (rgy_file_exists(model_str)) {
-            m_vmaf.error = vmaf_model_collection_load_from_path(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
+            m_vmaf.error = m_libvmaf.p_vmaf_model_collection_load_from_path()(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
             if (m_vmaf.error) {
                 AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model.c_str());
                 return RGY_ERR_UNKNOWN;
             }
             model.reset(model_ptr);
         } else {
-            m_vmaf.error = vmaf_model_collection_load(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
+            m_vmaf.error = m_libvmaf.p_vmaf_model_collection_load()(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
             if (m_vmaf.error) {
                 AddMessage(RGY_LOG_ERROR, _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
                 return RGY_ERR_UNKNOWN;
@@ -683,7 +659,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
             model.reset(model_ptr);
         }
 
-        m_vmaf.error = vmaf_use_features_from_model_collection(vmaf.get(), model_collection_ptr);
+        m_vmaf.error = m_libvmaf.p_vmaf_use_features_from_model_collection()(vmaf.get(), model_collection_ptr);
         if (m_vmaf.error) {
             AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model: %s\n"), model_str.c_str());
             return RGY_ERR_UNKNOWN;
@@ -692,20 +668,20 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     } else {
         VmafModel *model_ptr = nullptr;
         if (rgy_file_exists(model_str)) {
-            m_vmaf.error = vmaf_model_load_from_path(&model_ptr, &model_cfg, model_str.c_str());
+            m_vmaf.error = m_libvmaf.p_vmaf_model_load_from_path()(&model_ptr, &model_cfg, model_str.c_str());
             if (m_vmaf.error) {
                 AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model.c_str());
                 return RGY_ERR_UNKNOWN;
             }
         } else {
-            m_vmaf.error = vmaf_model_load(&model_ptr, &model_cfg, model_str.c_str());
+            m_vmaf.error = m_libvmaf.p_vmaf_model_load()(&model_ptr, &model_cfg, model_str.c_str());
             if (m_vmaf.error) {
                 AddMessage(RGY_LOG_ERROR, _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
                 return RGY_ERR_UNKNOWN;
             }
         }
         model.reset(model_ptr);
-        m_vmaf.error = vmaf_use_features_from_model(vmaf.get(), model_ptr);
+        m_vmaf.error = m_libvmaf.p_vmaf_use_features_from_model()(vmaf.get(), model_ptr);
         if (m_vmaf.error) {
             AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model: %s\n"), prm->vmaf.model.c_str());
             return RGY_ERR_UNKNOWN;
@@ -713,7 +689,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     }
 
     if (do_psnr) {
-        m_vmaf.error = vmaf_use_feature(vmaf.get(), "float_psnr", NULL);
+        m_vmaf.error = m_libvmaf.p_vmaf_use_feature()(vmaf.get(), "float_psnr", NULL);
         if (m_vmaf.error) {
             AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractor: psnr\n"));
             return RGY_ERR_UNKNOWN;
@@ -721,7 +697,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     }
 
     if (do_ssim) {
-        m_vmaf.error = vmaf_use_feature(vmaf.get(), "float_ssim", NULL);
+        m_vmaf.error = m_libvmaf.p_vmaf_use_feature()(vmaf.get(), "float_ssim", NULL);
         if (m_vmaf.error) {
             AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractor: ssim\n"));
             return RGY_ERR_UNKNOWN;
@@ -729,7 +705,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     }
 
     if (do_ms_ssim) {
-        m_vmaf.error = vmaf_use_feature(vmaf.get(), "float_ms_ssim", NULL);
+        m_vmaf.error = m_libvmaf.p_vmaf_use_feature()(vmaf.get(), "float_ms_ssim", NULL);
         if (m_vmaf.error) {
             AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractor: ms_ssim\n"));
             return RGY_ERR_UNKNOWN;
@@ -740,11 +716,11 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     for (picture_index = 0;; picture_index++) {
         VmafPicture pic_ref; // オリジナルのこと
         VmafPicture pic_dist; //エンコードしたもののこと
-        m_vmaf.error = vmaf_picture_alloc(&pic_ref, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
-        m_vmaf.error |= vmaf_picture_alloc(&pic_dist, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
+        m_vmaf.error = m_libvmaf.p_vmaf_picture_alloc()(&pic_ref, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
+        m_vmaf.error |= m_libvmaf.p_vmaf_picture_alloc()(&pic_dist, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
         if (m_vmaf.error) {
-            vmaf_picture_unref(&pic_ref);
-            vmaf_picture_unref(&pic_dist);
+            m_libvmaf.p_vmaf_picture_unref()(&pic_ref);
+            m_libvmaf.p_vmaf_picture_unref()(&pic_dist);
             AddMessage(RGY_LOG_ERROR, _T("problem allocating picture memory\n"));
             return RGY_ERR_NULL_PTR;
         }
@@ -753,20 +729,20 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
         if (m_vmaf.error == 2) {
             break; //EOF
         } else if (m_vmaf.error == 1) {
-            vmaf_picture_unref(&pic_ref);
-            vmaf_picture_unref(&pic_dist);
+            m_libvmaf.p_vmaf_picture_unref()(&pic_ref);
+            m_libvmaf.p_vmaf_picture_unref()(&pic_dist);
             AddMessage(RGY_LOG_ERROR, _T("problem during read_frame\n"));
             return RGY_ERR_UNKNOWN;
         }
 
-        m_vmaf.error = vmaf_read_pictures(vmaf.get(), &pic_ref, &pic_dist, picture_index);
+        m_vmaf.error = m_libvmaf.p_vmaf_read_pictures()(vmaf.get(), &pic_ref, &pic_dist, picture_index);
         if (m_vmaf.error) {
             AddMessage(RGY_LOG_ERROR, _T("problem reading pictures\n"));
             break;
         }
     }
 
-    m_vmaf.error = vmaf_read_pictures(vmaf.get(), NULL, NULL, 0);
+    m_vmaf.error = m_libvmaf.p_vmaf_read_pictures()(vmaf.get(), NULL, NULL, 0);
     if (m_vmaf.error) {
         AddMessage(RGY_LOG_ERROR, _T("problem flushing context\n"));
         return RGY_ERR_NONE;
@@ -775,14 +751,14 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     const auto pool_method = VMAF_POOL_METHOD_MEAN;
     if (enable_conf_interval) {
         VmafModelCollectionScore model_collection_score;
-        m_vmaf.error = vmaf_score_pooled_model_collection(vmaf.get(), model_collection.get(), pool_method, &model_collection_score, 0, picture_index - 1);
+        m_vmaf.error = m_libvmaf.p_vmaf_score_pooled_model_collection()(vmaf.get(), model_collection.get(), pool_method, &model_collection_score, 0, picture_index - 1);
         if (m_vmaf.error) {
             AddMessage(RGY_LOG_ERROR, _T("problem generating pooled VMAF score\n"));
             return RGY_ERR_UNKNOWN;
         }
     }
 
-    m_vmaf.error = vmaf_score_pooled(vmaf.get(), model.get(), pool_method, &m_vmaf.score, 0, picture_index - 1);
+    m_vmaf.error = m_libvmaf.p_vmaf_score_pooled()(vmaf.get(), model.get(), pool_method, &m_vmaf.score, 0, picture_index - 1);
     if (m_vmaf.error) {
         AddMessage(RGY_LOG_ERROR, _T("problem generating pooled VMAF score\n"));
         return RGY_ERR_UNKNOWN;
@@ -998,6 +974,9 @@ void NVEncFilterSsim::close() {
         m_thread.join();
     }
     close_cuda_resources();
+#if ENABLE_VMAF
+    m_libvmaf.close();
+#endif //#if ENABLE_VMAF
     AddMessage(RGY_LOG_DEBUG, _T("closed ssim/psnr filter.\n"));
 }
 
