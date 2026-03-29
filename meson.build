@@ -15,6 +15,8 @@ project('nvencc', ['cpp', 'cuda'],
 cpp = meson.get_compiler('cpp')
 cuda = meson.get_compiler('cuda')
 fs = import('fs')
+source_root = meson.project_source_root()
+build_root = meson.project_build_root()
 
 # プラットフォームチェック
 is_linux = host_machine.system() == 'linux'
@@ -107,6 +109,7 @@ enable_vapoursynth = get_option('enable_vapoursynth')
 enable_avisynth = get_option('enable_avisynth')
 enable_libass = get_option('enable_libass')
 enable_libplacebo_option = get_option('enable_libplacebo')
+enable_vmaf_option = get_option('enable_vmaf')
 enable_vulkan_option = get_option('enable_vulkan')
 
 # ==============================================================================
@@ -230,6 +233,54 @@ if enable_avisynth and not have_avisynth_headers
 endif
 
 libass_dep = dependency('libass', required: enable_libass)
+have_vmaf_headers = false
+vmaf_headers_from_default = false
+vmaf_compile_dep = declare_dependency()
+if enable_vmaf_option != 'disabled'
+  vmaf_headers_code = '''
+#include <libvmaf/libvmaf.h>
+int main(void) {
+  VmafConfiguration cfg = { 0 };
+  VmafPicture pic;
+  (void)cfg;
+  (void)pic;
+  return 0;
+}
+'''
+  vmaf_header_search_dirs = [
+    source_root / 'vmaf' / 'libvmaf' / 'include',
+    build_root / '..' / 'vmaf' / 'libvmaf' / 'include',
+  ]
+  foreach dir : vmaf_header_search_dirs
+    if not have_vmaf_headers and fs.is_dir(dir)
+      vmaf_candidate_dep = declare_dependency(
+        compile_args: ['-I' + dir],
+      )
+      have_vmaf_headers = cpp.compiles(
+        vmaf_headers_code,
+        dependencies: vmaf_candidate_dep,
+        args: get_option('cpp_args'),
+      )
+      if have_vmaf_headers
+        vmaf_compile_dep = vmaf_candidate_dep
+        message('Using VMAF headers from: ' + dir)
+      endif
+    endif
+  endforeach
+  if not have_vmaf_headers
+    have_vmaf_headers = cpp.compiles(
+      vmaf_headers_code,
+      args: get_option('cpp_args'),
+    )
+    vmaf_headers_from_default = have_vmaf_headers
+  endif
+  if vmaf_headers_from_default
+    message('Using VMAF headers from the default include path')
+  endif
+  if enable_vmaf_option == 'enabled' and not have_vmaf_headers
+    error('VMAF headers not found (libvmaf/libvmaf.h)')
+  endif
+endif
 have_vulkan_headers = false
 vulkan_compile_dep = declare_dependency()
 if enable_vulkan_option != 'disabled'
@@ -259,9 +310,6 @@ endif
 # ==============================================================================
 # libdovi / libhdr10plus (システムにあれば使う、なければビルドディレクトリ内でビルド)
 # ==============================================================================
-source_root = meson.project_source_root()
-build_root = meson.project_build_root()
-
 # libdovi / libhdr10plus: system優先、なければ同梱build (configure互換)
 cargo_prog = find_program('cargo', required: false)
 if cargo_prog.found()
@@ -410,7 +458,7 @@ conf_data.set10('ENABLE_VAPOURSYNTH_READER', enable_vapoursynth and have_vapours
 conf_data.set10('ENABLE_AVSW_READER', true)
 conf_data.set10('ENABLE_SM_READER', false)
 conf_data.set10('ENABLE_LIBASS_SUBBURN', libass_dep.found())
-conf_data.set10('ENABLE_VMAF', false)
+conf_data.set10('ENABLE_VMAF', have_vmaf_headers)
 conf_data.set10('ENABLE_AVCODEC_OUT_THREAD', true)
 conf_data.set10('ENABLE_CPP_REGEX', true)
 conf_data.set10('ENABLE_DTL', true)
@@ -561,6 +609,7 @@ nvenccore_sources = files(
   'NVEncCore/rgy_level_h264.cpp',
   'NVEncCore/rgy_level_hevc.cpp',
   'NVEncCore/rgy_libplacebo.cpp',
+  'NVEncCore/rgy_libvmaf.cpp',
   'NVEncCore/rgy_log.cpp',
   'NVEncCore/rgy_memmem.cpp',
   'NVEncCore/rgy_nvrtc.cpp',
@@ -722,6 +771,9 @@ if libass_dep.found()
 endif
 if libplacebo_dep.found()
   all_deps += libplacebo_dep
+endif
+if have_vmaf_headers
+  all_deps += vmaf_compile_dep
 endif
 if have_vulkan_headers
   all_deps += vulkan_compile_dep

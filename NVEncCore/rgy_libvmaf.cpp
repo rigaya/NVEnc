@@ -30,11 +30,59 @@
 
 #if ENABLE_VMAF
 
+#include <algorithm>
+#include <cctype>
+
+#if !defined(_WIN32) && !defined(_WIN64)
+#include <dlfcn.h>
+#include <limits.h>
+#endif
+
 #if defined(_WIN32) || defined(_WIN64)
 const TCHAR *RGY_LIBVMAF_FILENAME = _T("libvmaf.dll");
 #else
 const TCHAR *RGY_LIBVMAF_FILENAME = _T("libvmaf.so");
 #endif
+
+static RGYLibVMAFVersion rgy_libvmaf_version_class(const std::string& version, const std::string& modulePath, const bool hasVMAFOssExecAliases) {
+    const auto soPos = modulePath.find(".so.");
+    if (soPos != std::string::npos) {
+        const auto majorPos = soPos + 4;
+        size_t majorEnd = majorPos;
+        while (majorEnd < modulePath.size() && std::isdigit((unsigned char)modulePath[majorEnd]) != 0) {
+            majorEnd++;
+        }
+        if (majorEnd > majorPos) {
+            const auto major = std::stoi(modulePath.substr(majorPos, majorEnd - majorPos));
+            if (major >= 3) {
+                return RGYLibVMAFVersion::V3_OR_LATER;
+            }
+            if (major == 2) {
+                return RGYLibVMAFVersion::V2;
+            }
+        }
+    }
+    const auto firstDot = version.find('.');
+    if (firstDot != std::string::npos) {
+        const auto majorStr = version.substr(0, firstDot);
+        if (!majorStr.empty() && std::all_of(majorStr.begin(), majorStr.end(), [](const char ch) { return std::isdigit((unsigned char)ch) != 0; })) {
+            const auto major = std::stoi(majorStr);
+            if (major >= 3) {
+                return RGYLibVMAFVersion::V3_OR_LATER;
+            }
+            if (major == 2) {
+                return RGYLibVMAFVersion::V2;
+            }
+        }
+    }
+    if (hasVMAFOssExecAliases) {
+        return RGYLibVMAFVersion::V2;
+    }
+    if (!version.empty()) {
+        return RGYLibVMAFVersion::V3_OR_LATER;
+    }
+    return RGYLibVMAFVersion::UNKNOWN;
+}
 
 RGYLibVMAFLoader::RGYLibVMAFLoader() :
     m_hModule(nullptr),
@@ -53,7 +101,11 @@ RGYLibVMAFLoader::RGYLibVMAFLoader() :
     m_vmaf_model_collection_load_from_path(nullptr),
     m_vmaf_model_collection_destroy(nullptr),
     m_vmaf_picture_alloc(nullptr),
-    m_vmaf_picture_unref(nullptr) {
+    m_vmaf_picture_unref(nullptr),
+    m_vmaf_version(nullptr),
+    m_vmaf_use_vmafossexec_aliases(nullptr),
+    m_version(),
+    m_versionClass(RGYLibVMAFVersion::UNKNOWN) {
 }
 
 RGYLibVMAFLoader::~RGYLibVMAFLoader() {
@@ -92,6 +144,27 @@ bool RGYLibVMAFLoader::load() {
     if (!loadFunc("vmaf_model_collection_destroy", (void **)&m_vmaf_model_collection_destroy)) { close(); return false; }
     if (!loadFunc("vmaf_picture_alloc", (void **)&m_vmaf_picture_alloc)) { close(); return false; }
     if (!loadFunc("vmaf_picture_unref", (void **)&m_vmaf_picture_unref)) { close(); return false; }
+    if (!loadFunc("vmaf_version", (void **)&m_vmaf_version)) { close(); return false; }
+
+    m_vmaf_use_vmafossexec_aliases = RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_use_vmafossexec_aliases");
+    m_version = (m_vmaf_version != nullptr && m_vmaf_version() != nullptr) ? m_vmaf_version() : "";
+    std::string modulePath;
+#if defined(_WIN32) || defined(_WIN64)
+    TCHAR modulePathBuf[4096] = { 0 };
+    if (GetModuleFileName(m_hModule, modulePathBuf, _countof(modulePathBuf)) > 0) {
+        modulePath = tchar_to_string(modulePathBuf);
+    }
+#else
+    Dl_info info = { 0 };
+    if (m_vmaf_init != nullptr && dladdr((void *)m_vmaf_init, &info) != 0 && info.dli_fname != nullptr) {
+        modulePath = info.dli_fname;
+        char resolvedPath[PATH_MAX] = { 0 };
+        if (realpath(modulePath.c_str(), resolvedPath) != nullptr) {
+            modulePath = resolvedPath;
+        }
+    }
+#endif
+    m_versionClass = rgy_libvmaf_version_class(m_version, modulePath, m_vmaf_use_vmafossexec_aliases != nullptr);
 
     return true;
 }
@@ -118,6 +191,10 @@ void RGYLibVMAFLoader::close() {
     m_vmaf_model_collection_destroy = nullptr;
     m_vmaf_picture_alloc = nullptr;
     m_vmaf_picture_unref = nullptr;
+    m_vmaf_version = nullptr;
+    m_vmaf_use_vmafossexec_aliases = nullptr;
+    m_version.clear();
+    m_versionClass = RGYLibVMAFVersion::UNKNOWN;
 }
 
 #endif // ENABLE_VMAF

@@ -152,7 +152,6 @@ const char *get_encoder_version();
 #define ENABLE_NVVFX               0
 #define ENABLE_CAPTION2ASS         0
 #define ENABLE_VPP_SMOOTH_QP_FRAME 0
-#define ENABLE_VMAF                0
 #define ENABLE_NVOFFRUC            0
 #define ENABLE_D3D11               0
 #define ENABLE_D3D11_DEVINFO_WMI   0

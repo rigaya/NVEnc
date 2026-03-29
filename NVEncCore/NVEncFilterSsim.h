@@ -29,6 +29,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <deque>
 #include <memory>
 #include <thread>
@@ -66,13 +67,14 @@ public:
 #if ENABLE_VMAF
 struct NVEncFilterVMAFData {
     std::array<HANDLE, 2> heProcFin;
-    bool abort;
-    int procIndex;
+    std::atomic<bool> abort;
+    std::atomic<bool> input_fin;
+    std::atomic<int> procIndex;
     int error;
     double score;
     std::thread thread;
 
-    void thread_fin();
+    void thread_fin(bool abortThread = true);
     NVEncFilterVMAFData();
     ~NVEncFilterVMAFData();
 };
@@ -97,7 +99,7 @@ public:
 #if ENABLE_VMAF
     NVEncFilterVMAFData &vmaf() { return m_vmaf; }
 #endif //#if ENABLE_VMAF
-    int frameHostSendIndex() const { return m_frameHostSendIndex; }
+    int frameHostSendIndex() const { return m_frameHostSendIndex.load(); }
 protected:
     RGY_ERR init_cuda_resources();
     void close_cuda_resources();
@@ -108,11 +110,12 @@ protected:
 
     bool m_decodeStarted; //デコードが開始したか
     int m_deviceId;       //SSIM計算で使用するCUDA device ID
+    std::atomic<bool> m_bitstreamFin;
 
     //スレッド関連
     std::thread m_thread; //スレッド本体
     std::mutex m_mtx;     //m_input, m_unused操作用のロック
-    bool m_abort;         //スレッド中断用
+    std::atomic<bool> m_abort; //スレッド中断用
 
     CUvideoctxlock m_vidctxlock; //cuvid用のlock
     std::deque<std::unique_ptr<CUFrameBuf>> m_input;  //使用中のフレームバッファ(オリジナルフレーム格納用)
@@ -120,7 +123,7 @@ protected:
     std::unique_ptr<CuvidDecode> m_decoder;     // デコーダエンジン
     unique_ptr<NVEncFilterCspCrop> m_crop;      // NV12->YV12変換用
     unique_ptr<NVEncFilterCspCrop> m_cropDToH;  // Device to Host 転送用
-    int m_frameHostSendIndex;
+    std::atomic<int> m_frameHostSendIndex;
     std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostOrg;   // オリジナルのフレームのHostメモリでのバッファ
     std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostEnc;   // エンコード後のフレームのHostメモリでのバッファ
 #if ENABLE_VMAF

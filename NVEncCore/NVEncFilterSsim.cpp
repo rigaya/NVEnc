@@ -55,6 +55,7 @@ tstring NVEncFilterParamSsim::print() const {
 NVEncFilterSsim::NVEncFilterSsim() :
     m_decodeStarted(false),
     m_deviceId(0),
+    m_bitstreamFin(false),
     m_thread(),
     m_mtx(),
     m_abort(false),
@@ -94,6 +95,7 @@ NVEncFilterSsim::~NVEncFilterSsim() {
 RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
+    m_bitstreamFin = false;
 
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(pParam);
     if (!prm) {
@@ -198,6 +200,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 
 RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
     AddMessage(RGY_LOG_DEBUG, _T("initDecode() with bitstream size: %d.\n"), (int)bitstream->size());
+    m_bitstreamFin = false;
 
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
     if (!prm) {
@@ -440,6 +443,7 @@ RGY_ERR NVEncFilterSsim::addBitstream(const RGYBitstream *bitstream) {
             AddMessage(RGY_LOG_ERROR, _T("Error in DecodePacketFin: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
             return RGY_ERR_UNKNOWN;
         }
+        m_bitstreamFin = true;
     }
     return RGY_ERR_NONE;
 }
@@ -527,7 +531,7 @@ void NVEncFilterSsim::showResult() {
 }
 
 #if ENABLE_VMAF
-NVEncFilterVMAFData::NVEncFilterVMAFData() : heProcFin(), abort(false), procIndex(0), error(0), score(0.0), thread() {
+NVEncFilterVMAFData::NVEncFilterVMAFData() : heProcFin(), abort(false), input_fin(false), procIndex(0), error(0), score(0.0), thread() {
     for (auto &event : heProcFin) {
         event = CreateEvent(nullptr, false, false, nullptr);
     }
@@ -541,47 +545,63 @@ NVEncFilterVMAFData::~NVEncFilterVMAFData() {
     }
     thread_fin();
 }
-void NVEncFilterVMAFData::thread_fin() {
-    abort = true;
+void NVEncFilterVMAFData::thread_fin(bool abortThread) {
+    abort.store(abort.load() || abortThread);
+    input_fin = true;
     if (thread.joinable()) {
         thread.join();
     }
 }
 
 void read_frame_vmaf2(VmafPicture *dst, const RGYFrameInfo *srcFrame) {
-    const auto srcPlane = getPlane(srcFrame, RGY_PLANE_Y);
-    const int pixsize = (RGY_CSP_BIT_DEPTH[srcPlane.csp] > 8) ? 2 : 1;
-    for (int y = 0; y < srcPlane.height; y++) {
-        void *ptrDstLine = (void *)((char *)dst->data[0] + dst->stride[0] * y);
-        const void *ptrSrcLine = (const void *)((char *)srcPlane.ptr[0] + srcPlane.pitch[0] * y);
-        memcpy(ptrDstLine, ptrSrcLine, srcPlane.width * pixsize);
+    const int pixsize = (RGY_CSP_BIT_DEPTH[srcFrame->csp] > 8) ? 2 : 1;
+    for (int i = 0; i < _countof(dst->data) && dst->data[i] != nullptr; i++) {
+        const auto srcPlane = getPlane(srcFrame, (RGY_PLANE)i);
+        for (int y = 0; y < srcPlane.height; y++) {
+            void *ptrDstLine = (void *)((char *)dst->data[i] + dst->stride[i] * y);
+            const void *ptrSrcLine = (const void *)((char *)srcPlane.ptr[0] + srcPlane.pitch[0] * y);
+            memcpy(ptrDstLine, ptrSrcLine, srcPlane.width * pixsize);
+        }
     }
 }
 
 int read_frames_vmaf2(VmafPicture *ref_data /*オリジナルのこと*/, VmafPicture *main_data /*エンコードしたもの*/, void *user_data) {
     NVEncFilterSsim *filter = (NVEncFilterSsim *)user_data;
-    while (filter->vmaf().procIndex >= filter->frameHostSendIndex()) {
-        if (filter->vmaf().abort) {
+    int procIndex = filter->vmaf().procIndex.load();
+    int frameHostSendIndex = filter->frameHostSendIndex();
+    while (procIndex >= frameHostSendIndex) {
+        if (filter->vmaf().abort.load()) {
+            return 2;
+        }
+        if (filter->vmaf().input_fin.load()) {
             return 2;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(0));
+        procIndex = filter->vmaf().procIndex.load();
+        frameHostSendIndex = filter->frameHostSendIndex();
     }
-    auto &framesEnc = filter->frameHostEnc()[filter->vmaf().procIndex % filter->frameHostEnc().size()];
-    auto &framesOrg = filter->frameHostOrg()[filter->vmaf().procIndex % filter->frameHostOrg().size()];
+    auto &framesEnc = filter->frameHostEnc()[procIndex % filter->frameHostEnc().size()];
+    auto &framesOrg = filter->frameHostOrg()[procIndex % filter->frameHostOrg().size()];
     if (cudaEventSynchronize(framesOrg->event) != cudaSuccess
         || cudaEventSynchronize(framesEnc->event) != cudaSuccess) {
         return 2;
     }
     read_frame_vmaf2(main_data, &framesEnc->frame);
     read_frame_vmaf2(ref_data, &framesOrg->frame);
-    SetEvent(filter->vmaf().heProcFin[filter->vmaf().procIndex % filter->vmaf().heProcFin.size()]);
-    filter->vmaf().procIndex++;
+    SetEvent(filter->vmaf().heProcFin[procIndex % filter->vmaf().heProcFin.size()]);
+    filter->vmaf().procIndex.store(procIndex + 1);
     return 0;
 };
 
 RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     threadParam.apply(GetCurrentThread());
     AddMessage(RGY_LOG_DEBUG, _T("Set vmaf calculation thread param: %s.\n"), threadParam.desc().c_str());
+    m_vmaf.abort = false;
+    m_vmaf.input_fin = false;
+    m_vmaf.procIndex = 0;
+    m_vmaf.error = 0;
+    m_vmaf.score = 0.0;
+    m_frameHostSendIndex = 0;
     const auto frameInfo = m_frameHostEnc[0]->frame;
 
     VmafPixelFormat vmafPixFmt = VMAF_PIX_FMT_UNKNOWN;
@@ -612,10 +632,9 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     const bool do_ssim = false;
     const bool do_ms_ssim = false;
     const int disable_avx = 0;
-    const int enable_conf_interval = 0;
 
-    VmafConfiguration cfg = { 0 };
-    cfg.log_level = VMAF_LOG_LEVEL_INFO;
+    VmafConfiguration cfg = {};
+    cfg.log_level = (enum VmafLogLevel)VMAF_LOG_LEVEL_INFO;
     cfg.n_threads = prm->vmaf.threads;
     cfg.n_subsample = prm->vmaf.subsample;
     cfg.cpumask = disable_avx ? -1 : 0;
@@ -632,6 +651,13 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     std::unique_ptr<VmafContext, decltype(m_libvmaf.p_vmaf_close())> vmaf(vmafptr, m_libvmaf.p_vmaf_close());
     vmafptr = nullptr;
 
+    const auto libvmafVersion = char_to_tstring(m_libvmaf.version());
+    if (libvmafVersion.length() > 0) {
+        AddMessage(RGY_LOG_DEBUG, _T("Loaded %s (%s), runtime class %d.\n"), RGY_LIBVMAF_FILENAME, libvmafVersion.c_str(), (int)m_libvmaf.version_class());
+    } else {
+        AddMessage(RGY_LOG_DEBUG, _T("Loaded %s, runtime class %d.\n"), RGY_LIBVMAF_FILENAME, (int)m_libvmaf.version_class());
+    }
+
     enum VmafModelFlags flags = (prm->vmaf.enable_transform || prm->vmaf.phone_model) ? VMAF_MODEL_FLAG_ENABLE_TRANSFORM : VMAF_MODEL_FLAGS_DEFAULT;
 
     VmafModelConfig model_cfg;
@@ -640,52 +666,38 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
 
     std::unique_ptr<VmafModel, decltype(m_libvmaf.p_vmaf_model_destroy())> model(nullptr, m_libvmaf.p_vmaf_model_destroy());
     std::unique_ptr<VmafModelCollection, decltype(m_libvmaf.p_vmaf_model_collection_destroy())> model_collection(nullptr, m_libvmaf.p_vmaf_model_collection_destroy());
-    if (enable_conf_interval) {
-        VmafModel *model_ptr = nullptr;
-        VmafModelCollection *model_collection_ptr = nullptr;
-        if (rgy_file_exists(model_str)) {
+    VmafModel *model_ptr = nullptr;
+    VmafModelCollection *model_collection_ptr = nullptr;
+    const bool isModelPath = rgy_file_exists(model_str);
+    if (isModelPath) {
+        m_vmaf.error = m_libvmaf.p_vmaf_model_load_from_path()(&model_ptr, &model_cfg, model_str.c_str());
+    } else {
+        m_vmaf.error = m_libvmaf.p_vmaf_model_load()(&model_ptr, &model_cfg, model_str.c_str());
+    }
+    if (m_vmaf.error && m_libvmaf.version_class() == RGYLibVMAFVersion::V3_OR_LATER) {
+        if (isModelPath) {
             m_vmaf.error = m_libvmaf.p_vmaf_model_collection_load_from_path()(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
-            if (m_vmaf.error) {
-                AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model.c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            model.reset(model_ptr);
         } else {
             m_vmaf.error = m_libvmaf.p_vmaf_model_collection_load()(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
-            if (m_vmaf.error) {
-                AddMessage(RGY_LOG_ERROR, _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            model.reset(model_ptr);
         }
-
-        m_vmaf.error = m_libvmaf.p_vmaf_use_features_from_model_collection()(vmaf.get(), model_collection_ptr);
         if (m_vmaf.error) {
-            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model: %s\n"), model_str.c_str());
+            AddMessage(RGY_LOG_ERROR, isModelPath ? _T("problem loading model file: %s\n") : _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
             return RGY_ERR_UNKNOWN;
-        }
-        model_collection.reset(model_collection_ptr);
-    } else {
-        VmafModel *model_ptr = nullptr;
-        if (rgy_file_exists(model_str)) {
-            m_vmaf.error = m_libvmaf.p_vmaf_model_load_from_path()(&model_ptr, &model_cfg, model_str.c_str());
-            if (m_vmaf.error) {
-                AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model.c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-        } else {
-            m_vmaf.error = m_libvmaf.p_vmaf_model_load()(&model_ptr, &model_cfg, model_str.c_str());
-            if (m_vmaf.error) {
-                AddMessage(RGY_LOG_ERROR, _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
-                return RGY_ERR_UNKNOWN;
-            }
         }
         model.reset(model_ptr);
-        m_vmaf.error = m_libvmaf.p_vmaf_use_features_from_model()(vmaf.get(), model_ptr);
+        model_collection.reset(model_collection_ptr);
+        m_vmaf.error = m_libvmaf.p_vmaf_use_features_from_model_collection()(vmaf.get(), model_collection.get());
+    } else {
         if (m_vmaf.error) {
-            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model: %s\n"), prm->vmaf.model.c_str());
+            AddMessage(RGY_LOG_ERROR, isModelPath ? _T("problem loading model file: %s\n") : _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
             return RGY_ERR_UNKNOWN;
         }
+        model.reset(model_ptr);
+        m_vmaf.error = m_libvmaf.p_vmaf_use_features_from_model()(vmaf.get(), model.get());
+    }
+    if (m_vmaf.error) {
+        AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model: %s\n"), prm->vmaf.model.c_str());
+        return RGY_ERR_UNKNOWN;
     }
 
     if (do_psnr) {
@@ -741,6 +753,10 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
             break;
         }
     }
+    if (picture_index == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("No frames were provided to libvmaf.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
 
     m_vmaf.error = m_libvmaf.p_vmaf_read_pictures()(vmaf.get(), NULL, NULL, 0);
     if (m_vmaf.error) {
@@ -749,7 +765,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     }
 
     const auto pool_method = VMAF_POOL_METHOD_MEAN;
-    if (enable_conf_interval) {
+    if (model_collection) {
         VmafModelCollectionScore model_collection_score;
         m_vmaf.error = m_libvmaf.p_vmaf_score_pooled_model_collection()(vmaf.get(), model_collection.get(), pool_method, &model_collection_score, 0, picture_index - 1);
         if (m_vmaf.error) {
@@ -794,7 +810,7 @@ RGY_ERR NVEncFilterSsim::thread_func_ssim_psnr(RGYParamThread threadParam) {
     auto ret = compare_frames(true);
     AddMessage(RGY_LOG_DEBUG, _T("Finishing ssim/psnr calculation thread: %s.\n"), get_err_mes(ret));
 #if ENABLE_VMAF
-    m_vmaf.thread_fin();
+    m_vmaf.thread_fin(false);
 #endif //#if ENABLE_VMAF
     close_cuda_resources();
     return ret;
@@ -806,14 +822,16 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    while (!m_abort) {
+    while (!m_abort.load()) {
         if (m_decoder->GetError()) {
             AddMessage(RGY_LOG_ERROR, _T("Error in decoder!\n"));
             return RGY_ERR_UNKNOWN;
         }
         if (m_decoder->frameQueue()->isEndOfDecode() && m_decoder->frameQueue()->isEmpty()) {
-            AddMessage(RGY_LOG_DEBUG, _T("Finished decoding.\n"));
-            return RGY_ERR_NONE;
+            if (m_bitstreamFin) {
+                AddMessage(RGY_LOG_DEBUG, _T("Finished decoding.\n"));
+                return RGY_ERR_NONE;
+            }
         }
         CUVIDPARSERDISPINFO dispInfo = { 0 };
         if (!m_decoder->frameQueue()->dequeue(&dispInfo)) {
@@ -821,6 +839,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                 return RGY_ERR_NONE;
             }
             m_decoder->frameQueue()->waitForQueueUpdate();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
 
@@ -828,7 +847,6 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             m_decoder->frameQueue()->releaseFrame(ptr);
             delete ptr;
             });
-
         CUresult curesult = CUDA_SUCCESS;
         CUVIDPROCPARAMS vppinfo = { 0 };
         vppinfo.top_field_first = dispInfo.top_field_first;
@@ -886,11 +904,14 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         }
         if (m_cropDToH) {
 #if ENABLE_VMAF
-            WaitForSingleObject(m_vmaf.heProcFin[m_frameHostSendIndex % m_vmaf.heProcFin.size()], INFINITE);
+            const auto frameHostSendIndex = m_frameHostSendIndex.load();
+            WaitForSingleObject(m_vmaf.heProcFin[frameHostSendIndex % m_vmaf.heProcFin.size()], INFINITE);
+#else
+            const auto frameHostSendIndex = m_frameHostSendIndex.load();
 #endif //#if ENABLE_VMAF
             {
                 int cropFilterOutputNum = 0;
-                auto &frameHostOrg = m_frameHostOrg[m_frameHostSendIndex % m_frameHostOrg.size()];
+                auto &frameHostOrg = m_frameHostOrg[frameHostSendIndex % m_frameHostOrg.size()];
                 RGYFrameInfo *outInfoOrg[1] = { &frameHostOrg->frame };
                 auto sts_filter = m_cropDToH->filter(&m_input.front()->frame, (RGYFrameInfo **)&outInfoOrg, &cropFilterOutputNum, *m_streamCrop.get());
                 if (outInfoOrg[0] == nullptr || cropFilterOutputNum != 1) {
@@ -914,7 +935,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
 
             {
                 int cropFilterOutputNum = 0;
-                auto &frameHostEnc = m_frameHostEnc[m_frameHostSendIndex % m_frameHostEnc.size()];
+                auto &frameHostEnc = m_frameHostEnc[frameHostSendIndex % m_frameHostEnc.size()];
                 RGYFrameInfo *outInfoEnc[1] = { &frameHostEnc->frame };
                 auto sts_filter = m_cropDToH->filter(&targetFrame, (RGYFrameInfo **)&outInfoEnc, &cropFilterOutputNum, *m_streamCrop.get());
                 if (outInfoEnc[0] == nullptr || cropFilterOutputNum != 1) {
@@ -935,7 +956,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                     return sts;
                 }
             }
-            m_frameHostSendIndex++;
+            m_frameHostSendIndex.store(frameHostSendIndex + 1);
         }
 
         //比較用のキューの先頭に積まれているものから順次比較していく

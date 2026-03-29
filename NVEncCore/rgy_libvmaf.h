@@ -35,6 +35,7 @@
 
 #include "rgy_osdep.h"
 #include "rgy_tchar.h"
+#include "rgy_util.h"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -49,6 +50,12 @@ extern "C" {
 #endif
 
 extern const TCHAR *RGY_LIBVMAF_FILENAME;
+
+enum class RGYLibVMAFVersion {
+    UNKNOWN = 0,
+    V2,
+    V3_OR_LATER
+};
 
 class RGYLibVMAFLoader {
 private:
@@ -70,6 +77,11 @@ private:
     decltype(&vmaf_model_collection_destroy) m_vmaf_model_collection_destroy;
     decltype(&vmaf_picture_alloc) m_vmaf_picture_alloc;
     decltype(&vmaf_picture_unref) m_vmaf_picture_unref;
+    decltype(&vmaf_version) m_vmaf_version;
+    void *m_vmaf_use_vmafossexec_aliases;
+
+    std::string m_version;
+    RGYLibVMAFVersion m_versionClass;
 
 public:
     RGYLibVMAFLoader();
@@ -95,6 +107,9 @@ public:
     auto p_vmaf_model_collection_destroy() const { return m_vmaf_model_collection_destroy; }
     auto p_vmaf_picture_alloc() const { return m_vmaf_picture_alloc; }
     auto p_vmaf_picture_unref() const { return m_vmaf_picture_unref; }
+    auto p_vmaf_version() const { return m_vmaf_version; }
+    const std::string& version() const { return m_version; }
+    RGYLibVMAFVersion version_class() const { return m_versionClass; }
 };
 
 #endif // ENABLE_VMAF
