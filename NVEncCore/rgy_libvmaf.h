@@ -60,6 +60,7 @@ enum class RGYLibVMAFVersion {
 class RGYLibVMAFLoader {
 private:
     HMODULE m_hModule;
+    bool m_loaded;
 
     decltype(&vmaf_init) m_vmaf_init;
     decltype(&vmaf_close) m_vmaf_close;
@@ -89,7 +90,7 @@ public:
 
     bool load();
     void close();
-    bool loaded() const { return m_hModule != nullptr; }
+    bool loaded() const { return m_loaded; }
 
     auto p_vmaf_init() const { return m_vmaf_init; }
     auto p_vmaf_close() const { return m_vmaf_close; }

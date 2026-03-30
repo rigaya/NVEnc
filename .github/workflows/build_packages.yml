@@ -30,6 +30,7 @@ jobs:
       PKG_TYPE: ${{ matrix.pkgtype }}
       BASE_IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/nvenc-build
       FFMPEG_PREFIX: /opt/build_scripts/ffmpeg_dll/build_dll/x64/build
+      VMAF_PREFIX: /opt/build_scripts/ffmpeg_dll/x64/build
 
     name: Upload Release Asset
     runs-on: ubuntu-latest
@@ -95,9 +96,10 @@ jobs:
             --workdir /work \
             --name build_pkg ${{ steps.prep.outputs.base_image }}
           docker exec build_pkg bash -lc '
+            VMAFPKG="${{ env.VMAF_PREFIX }}/lib/pkgconfig"
             FFPKG="${{ env.FFMPEG_PREFIX }}/lib/pkgconfig:${{ env.FFMPEG_PREFIX }}/lib/x86_64-linux-gnu/pkgconfig"
-            export PKG_CONFIG_PATH="${FFPKG}${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-            meson setup ./build . --buildtype=release -Db_lto=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
+            export PKG_CONFIG_PATH="${VMAFPKG}:${FFPKG}${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+            meson setup ./build . --buildtype=release -Db_lto=true -Denable_libplacebo=enabled -Dlibplacebo_static=true -Denable_vmaf=enabled -Dlibvmaf_static=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
           '
           docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
           docker exec build_pkg bash -lc '
@@ -105,6 +107,10 @@ jobs:
             ldd ./build/nvencc | tee /tmp/nvencc.ldd
             if grep -F "=> not found" /tmp/nvencc.ldd | grep -Fv "libcuda.so.1 => not found" >/dev/null; then
               echo "Unexpected missing shared libraries detected." >&2
+              exit 1
+            fi
+            if readelf -d ./build/nvencc | grep -F "(NEEDED)" | grep -E "libplacebo|libvmaf" >/dev/null; then
+              echo "libplacebo/libvmaf must be statically linked, but shared dependency was found." >&2
               exit 1
             fi
           '

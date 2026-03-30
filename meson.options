@@ -31,11 +31,23 @@ option('enable_libplacebo',
   description: 'Enable libplacebo filters (auto: enable when libplacebo is detected)'
 )
 
+option('libplacebo_static',
+  type: 'boolean',
+  value: false,
+  description: 'Statically link libplacebo on Linux'
+)
+
 option('enable_vmaf',
   type: 'combo',
   choices: ['auto', 'enabled', 'disabled'],
   value: 'auto',
   description: 'Enable VMAF support (auto: enable when VMAF headers are detected)'
+)
+
+option('libvmaf_static',
+  type: 'boolean',
+  value: false,
+  description: 'Statically link libvmaf on Linux'
 )
 
 option('enable_vulkan',

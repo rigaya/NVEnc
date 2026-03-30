@@ -30,6 +30,16 @@ jobs:
           submodules: false
           fetch-depth: 0
 
+      - name: Resolve build_scripts revision
+        id: build_scripts_rev
+        run: |
+          REV=$(git ls-remote "${{ env.FFMPEG_DLL_REPO }}" "${{ env.FFMPEG_DLL_REF }}" | awk 'NR==1 {print $1}')
+          if [ -z "${REV}" ]; then
+            echo "Failed to resolve build_scripts revision for ${{ env.FFMPEG_DLL_REPO }} @ ${{ env.FFMPEG_DLL_REF }}" >&2
+            exit 1
+          fi
+          echo "rev=${REV}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -50,6 +60,7 @@ jobs:
           build-args: |
             FFMPEG_DLL_REPO=${{ env.FFMPEG_DLL_REPO }}
             FFMPEG_DLL_REF=${{ env.FFMPEG_DLL_REF }}
+            FFMPEG_DLL_REV=${{ steps.build_scripts_rev.outputs.rev }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

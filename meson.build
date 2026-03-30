@@ -109,7 +109,9 @@ enable_vapoursynth = get_option('enable_vapoursynth')
 enable_avisynth = get_option('enable_avisynth')
 enable_libass = get_option('enable_libass')
 enable_libplacebo_option = get_option('enable_libplacebo')
+libplacebo_static = get_option('libplacebo_static')
 enable_vmaf_option = get_option('enable_vmaf')
+libvmaf_static = get_option('libvmaf_static')
 enable_vulkan_option = get_option('enable_vulkan')
 
 # ==============================================================================
@@ -236,6 +238,8 @@ libass_dep = dependency('libass', required: enable_libass)
 have_vmaf_headers = false
 vmaf_headers_from_default = false
 vmaf_compile_dep = declare_dependency()
+vmaf_link_dep = declare_dependency()
+have_vmaf_link = false
 if enable_vmaf_option != 'disabled'
   vmaf_headers_code = '''
 #include <libvmaf/libvmaf.h>
@@ -247,12 +251,30 @@ int main(void) {
   return 0;
 }
 '''
+  vmaf_pkg_dep = dependency('libvmaf', required: false, static: libvmaf_static)
+  vmaf_pkg_libdirs = []
+  if vmaf_pkg_dep.found()
+    vmaf_pkg_compile_dep = vmaf_pkg_dep.partial_dependency(includes: true, compile_args: true)
+    vmaf_pkg_libdir = vmaf_pkg_dep.get_variable(pkgconfig: 'libdir', default_value: '')
+    if vmaf_pkg_libdir != ''
+      vmaf_pkg_libdirs += vmaf_pkg_libdir
+    endif
+    have_vmaf_headers = cpp.compiles(
+      vmaf_headers_code,
+      dependencies: vmaf_pkg_compile_dep,
+      args: get_option('cpp_args'),
+    )
+    if have_vmaf_headers
+      vmaf_compile_dep = vmaf_pkg_compile_dep
+      message('Using VMAF headers from libvmaf dependency')
+    endif
+  endif
   vmaf_header_search_dirs = [
     source_root / 'vmaf' / 'libvmaf' / 'include',
     build_root / '..' / 'vmaf' / 'libvmaf' / 'include',
   ]
   foreach dir : vmaf_header_search_dirs
-    if not have_vmaf_headers and fs.is_dir(dir)
+    if not have_vmaf_headers and fs.is_dir(dir) and (not libvmaf_static or not vmaf_pkg_dep.found())
       vmaf_candidate_dep = declare_dependency(
         compile_args: ['-I' + dir],
       )
@@ -267,7 +289,7 @@ int main(void) {
       endif
     endif
   endforeach
-  if not have_vmaf_headers
+  if not have_vmaf_headers and (not libvmaf_static or not vmaf_pkg_dep.found())
     have_vmaf_headers = cpp.compiles(
       vmaf_headers_code,
       args: get_option('cpp_args'),
@@ -276,6 +298,25 @@ int main(void) {
   endif
   if vmaf_headers_from_default
     message('Using VMAF headers from the default include path')
+  endif
+  if libvmaf_static
+    vmaf_static_probe = cpp.find_library('vmaf', static: true, dirs: vmaf_pkg_libdirs, required: false)
+    have_vmaf_link = vmaf_static_probe.found()
+    if have_vmaf_link
+      if vmaf_pkg_dep.found()
+        vmaf_link_dep = vmaf_pkg_dep
+      else
+        vmaf_link_dep = declare_dependency(dependencies: vmaf_static_probe)
+      endif
+    endif
+    if enable_vmaf_option == 'enabled' and not have_vmaf_link
+      error('Static libvmaf not found')
+    endif
+    if have_vmaf_headers and not have_vmaf_link
+      message('Static libvmaf not found, disabling VMAF support')
+      have_vmaf_headers = false
+      vmaf_compile_dep = declare_dependency()
+    endif
   endif
   if enable_vmaf_option == 'enabled' and not have_vmaf_headers
     error('VMAF headers not found (libvmaf/libvmaf.h)')
@@ -301,10 +342,56 @@ int main(void) { return VK_HEADER_VERSION; }
     error('Vulkan headers not found (vulkan/vulkan.h)')
   endif
 endif
-if enable_libplacebo_option == 'disabled'
-  libplacebo_dep = disabler()
-else
-  libplacebo_dep = dependency('libplacebo', required: enable_libplacebo_option == 'enabled')
+have_libplacebo_headers = false
+libplacebo_compile_dep = declare_dependency()
+libplacebo_link_dep = declare_dependency()
+have_libplacebo_link = false
+if enable_libplacebo_option != 'disabled'
+  libplacebo_headers_code = '''
+#include <libplacebo/dispatch.h>
+#include <libplacebo/renderer.h>
+#include <libplacebo/shaders.h>
+int main(void) { return PL_API_VER; }
+'''
+  libplacebo_pkg_dep = dependency('libplacebo', required: false, static: libplacebo_static)
+  libplacebo_pkg_libdirs = []
+  if libplacebo_pkg_dep.found()
+    libplacebo_compile_dep = libplacebo_pkg_dep.partial_dependency(includes: true, compile_args: true)
+    libplacebo_pkg_libdir = libplacebo_pkg_dep.get_variable(pkgconfig: 'libdir', default_value: '')
+    if libplacebo_pkg_libdir != ''
+      libplacebo_pkg_libdirs += libplacebo_pkg_libdir
+    endif
+    have_libplacebo_headers = cpp.compiles(
+      libplacebo_headers_code,
+      dependencies: libplacebo_compile_dep,
+      args: get_option('cpp_args'),
+    )
+    if libplacebo_static
+      libplacebo_static_probe = cpp.find_library('placebo', static: true, dirs: libplacebo_pkg_libdirs, required: false)
+      have_libplacebo_link = libplacebo_static_probe.found()
+      if have_libplacebo_link
+        libplacebo_link_dep = libplacebo_pkg_dep
+      endif
+    endif
+  else
+    have_libplacebo_headers = cpp.compiles(
+      libplacebo_headers_code,
+      args: get_option('cpp_args'),
+    )
+  endif
+  if libplacebo_static
+    if enable_libplacebo_option == 'enabled' and not have_libplacebo_link
+      error('Static libplacebo not found')
+    endif
+    if have_libplacebo_headers and not have_libplacebo_link
+      message('Static libplacebo not found, disabling libplacebo support')
+      have_libplacebo_headers = false
+      libplacebo_compile_dep = declare_dependency()
+    endif
+  endif
+  if enable_libplacebo_option == 'enabled' and not have_libplacebo_headers
+    error('libplacebo headers not found')
+  endif
 endif
 
 # ==============================================================================
@@ -465,7 +552,9 @@ conf_data.set10('ENABLE_DTL', true)
 conf_data.set10('ENABLE_LIBDOVI', libdovi_dep.found())
 conf_data.set10('ENABLE_LIBHDR10PLUS', libhdr10plus_dep.found())
 conf_data.set10('ENABLE_VULKAN', have_vulkan_headers)
-conf_data.set10('ENABLE_LIBPLACEBO', libplacebo_dep.found())
+conf_data.set10('ENABLE_LIBPLACEBO', have_libplacebo_headers)
+conf_data.set10('LIBPLACEBO_STATIC_LINK', have_libplacebo_headers and libplacebo_static and have_libplacebo_link)
+conf_data.set10('LIBVMAF_STATIC_LINK', have_vmaf_headers and libvmaf_static and have_vmaf_link)
 conf_data.set10('ENABLE_PERF_COUNTER', false)
 
 # AVS_INTERF_VER (AviSynth)
@@ -769,11 +858,17 @@ endif
 if libass_dep.found()
   all_deps += libass_dep
 endif
-if libplacebo_dep.found()
-  all_deps += libplacebo_dep
+if have_libplacebo_headers
+  all_deps += libplacebo_compile_dep
+endif
+if have_libplacebo_link
+  all_deps += libplacebo_link_dep
 endif
 if have_vmaf_headers
   all_deps += vmaf_compile_dep
+endif
+if have_vmaf_link
+  all_deps += vmaf_link_dep
 endif
 if have_vulkan_headers
   all_deps += vulkan_compile_dep
@@ -822,7 +917,10 @@ summary({
   'VapourSynth': enable_vapoursynth and have_vapoursynth_headers,
   'AviSynth': enable_avisynth and have_avisynth_headers,
   'libass': libass_dep.found(),
-  'libplacebo': libplacebo_dep.found(),
+  'libplacebo': have_libplacebo_headers,
+  'libplacebo static': have_libplacebo_headers and libplacebo_static and have_libplacebo_link,
+  'VMAF': have_vmaf_headers,
+  'VMAF static': have_vmaf_headers and libvmaf_static and have_vmaf_link,
   'Vulkan': have_vulkan_headers,
   'libdovi': libdovi_dep.found(),
   'libhdr10plus': libhdr10plus_dep.found(),

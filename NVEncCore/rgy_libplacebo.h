@@ -60,6 +60,7 @@ static const RGYLogType RGY_LOGT_LIBPLACEBO = RGY_LOGT_VPP;
 class RGYLibplaceboLoader {
 private:
     HMODULE m_hModule;
+    bool m_loaded;
 
     pl_color_space *m_pl_color_space_bt2020_hlg;
     pl_color_space *m_pl_color_space_bt709;
@@ -135,6 +136,7 @@ public:
 
     bool load();
     void close();
+    bool loaded() const { return m_loaded; }
 
     pl_color_space p_color_space_bt2020_hlg() const { return *m_pl_color_space_bt2020_hlg; }
     pl_color_space p_color_space_bt709() const { return *m_pl_color_space_bt709; }
