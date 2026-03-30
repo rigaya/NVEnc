@@ -40,6 +40,8 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 const TCHAR *RGY_LIBVMAF_FILENAME = _T("libvmaf.dll");
+#elif LIBVMAF_STATIC_LINK
+const TCHAR *RGY_LIBVMAF_FILENAME = _T("libvmaf (static)");
 #else
 const TCHAR *RGY_LIBVMAF_FILENAME = _T("libvmaf.so");
 #endif
@@ -86,6 +88,7 @@ static RGYLibVMAFVersion rgy_libvmaf_version_class(const std::string& version, c
 
 RGYLibVMAFLoader::RGYLibVMAFLoader() :
     m_hModule(nullptr),
+    m_loaded(false),
     m_vmaf_init(nullptr),
     m_vmaf_close(nullptr),
     m_vmaf_use_features_from_model(nullptr),
@@ -113,10 +116,34 @@ RGYLibVMAFLoader::~RGYLibVMAFLoader() {
 }
 
 bool RGYLibVMAFLoader::load() {
-    if (m_hModule) {
+    if (m_loaded) {
         return true;
     }
 
+#if LIBVMAF_STATIC_LINK
+    m_vmaf_init = &vmaf_init;
+    m_vmaf_close = &vmaf_close;
+    m_vmaf_use_features_from_model = &vmaf_use_features_from_model;
+    m_vmaf_use_features_from_model_collection = &vmaf_use_features_from_model_collection;
+    m_vmaf_use_feature = &vmaf_use_feature;
+    m_vmaf_read_pictures = &vmaf_read_pictures;
+    m_vmaf_score_pooled = &vmaf_score_pooled;
+    m_vmaf_score_pooled_model_collection = &vmaf_score_pooled_model_collection;
+    m_vmaf_model_load = &vmaf_model_load;
+    m_vmaf_model_load_from_path = &vmaf_model_load_from_path;
+    m_vmaf_model_destroy = &vmaf_model_destroy;
+    m_vmaf_model_collection_load = &vmaf_model_collection_load;
+    m_vmaf_model_collection_load_from_path = &vmaf_model_collection_load_from_path;
+    m_vmaf_model_collection_destroy = &vmaf_model_collection_destroy;
+    m_vmaf_picture_alloc = &vmaf_picture_alloc;
+    m_vmaf_picture_unref = &vmaf_picture_unref;
+    m_vmaf_version = &vmaf_version;
+    m_vmaf_use_vmafossexec_aliases = nullptr;
+    m_version = (m_vmaf_version != nullptr && m_vmaf_version() != nullptr) ? m_vmaf_version() : "";
+    m_versionClass = rgy_libvmaf_version_class(m_version, std::string(), false);
+    m_loaded = true;
+    return true;
+#else
     if ((m_hModule = RGY_LOAD_LIBRARY(RGY_LIBVMAF_FILENAME)) == nullptr) {
         return false;
     }
@@ -165,15 +192,19 @@ bool RGYLibVMAFLoader::load() {
     }
 #endif
     m_versionClass = rgy_libvmaf_version_class(m_version, modulePath, m_vmaf_use_vmafossexec_aliases != nullptr);
-
+    m_loaded = true;
     return true;
+#endif
 }
 
 void RGYLibVMAFLoader::close() {
+#if !LIBVMAF_STATIC_LINK
     if (m_hModule) {
         RGY_FREE_LIBRARY(m_hModule);
         m_hModule = nullptr;
     }
+#endif
+    m_loaded = false;
 
     m_vmaf_init = nullptr;
     m_vmaf_close = nullptr;

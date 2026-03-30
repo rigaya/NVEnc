@@ -34,12 +34,15 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-351.dll");
+#elif LIBPLACEBO_STATIC_LINK
+const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo (static)");
 #else
 const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo.so");
 #endif // #if defined(_WIN32) || defined(_WIN64)
 
 RGYLibplaceboLoader::RGYLibplaceboLoader() :
     m_hModule(nullptr),
+    m_loaded(false),
     m_pl_color_space_bt2020_hlg(nullptr),
     m_pl_color_space_bt709(nullptr),
     m_pl_color_space_srgb(nullptr),
@@ -103,10 +106,69 @@ RGYLibplaceboLoader::~RGYLibplaceboLoader() {
 }
 
 bool RGYLibplaceboLoader::load() {
-    if (m_hModule) {
+    if (m_loaded) {
         return true;
     }
 
+#if LIBPLACEBO_STATIC_LINK
+    m_pl_color_space_bt2020_hlg = const_cast<pl_color_space*>(&pl_color_space_bt2020_hlg);
+    m_pl_color_space_bt709 = const_cast<pl_color_space*>(&pl_color_space_bt709);
+    m_pl_color_space_srgb = const_cast<pl_color_space*>(&pl_color_space_srgb);
+    m_pl_color_space_hdr10 = const_cast<pl_color_space*>(&pl_color_space_hdr10);
+    m_pl_hdr_metadata_empty = const_cast<pl_hdr_metadata*>(&pl_hdr_metadata_empty);
+    m_pl_render_default_params = const_cast<pl_render_params*>(&pl_render_default_params);
+    m_pl_peak_detect_default_params = const_cast<pl_peak_detect_params*>(&pl_peak_detect_default_params);
+    m_pl_color_map_default_params = const_cast<pl_color_map_params*>(&pl_color_map_default_params);
+    m_pl_sigmoid_default_params = const_cast<pl_sigmoid_params*>(&pl_sigmoid_default_params);
+    m_pl_dither_default_params = const_cast<pl_dither_params*>(&pl_dither_default_params);
+#if ENABLE_D3D11
+    m_pl_d3d11_create = &pl_d3d11_create;
+    m_pl_d3d11_destroy = &pl_d3d11_destroy;
+    m_pl_d3d11_wrap = &pl_d3d11_wrap;
+#elif ENABLE_VULKAN
+    m_pl_vulkan_create = &pl_vulkan_create;
+    m_pl_vulkan_destroy = &pl_vulkan_destroy;
+    m_pl_vulkan_hold_ex = &pl_vulkan_hold_ex;
+    m_pl_vulkan_release_ex = &pl_vulkan_release_ex;
+    m_pl_vulkan_wrap = &pl_vulkan_wrap;
+#endif
+    m_pl_tex_destroy = &pl_tex_destroy;
+    m_pl_tex_recreate = &pl_tex_recreate;
+    m_pl_gpu_finish = &pl_gpu_finish;
+    m_pl_log_create = &pl_log_create;
+    m_pl_log_destroy = &pl_log_destroy;
+    m_pl_dispatch_create = &pl_dispatch_create;
+    m_pl_dispatch_destroy = &pl_dispatch_destroy;
+    m_pl_dispatch_begin = &pl_dispatch_begin;
+    m_pl_dispatch_finish = &pl_dispatch_finish;
+    m_pl_dispatch_abort = &pl_dispatch_abort;
+    m_pl_renderer_create = &pl_renderer_create;
+    m_pl_renderer_destroy = &pl_renderer_destroy;
+    m_pl_render_image = &pl_render_image;
+    m_pl_shader_sample_direct = &pl_shader_sample_direct;
+    m_pl_shader_linearize = &pl_shader_linearize;
+    m_pl_shader_sigmoidize = &pl_shader_sigmoidize;
+    m_pl_shader_sample_polar = &pl_shader_sample_polar;
+    m_pl_shader_sample_ortho2 = &pl_shader_sample_ortho2;
+    m_pl_shader_obj_destroy = &pl_shader_obj_destroy;
+    m_pl_shader_reset = &pl_shader_reset;
+    m_pl_shader_deband = &pl_shader_deband;
+    m_pl_shader_dither = &pl_shader_dither;
+    m_pl_find_filter_config = &pl_find_filter_config;
+    m_pl_hdr_rescale = &pl_hdr_rescale;
+    m_pl_lut_parse_cube = &pl_lut_parse_cube;
+    m_pl_find_tone_map_function = &pl_find_tone_map_function;
+    m_pl_find_gamut_map_function = &pl_find_gamut_map_function;
+    m_pl_raw_primaries_get = &pl_raw_primaries_get;
+    m_pl_raw_primaries_merge = &pl_raw_primaries_merge;
+    m_pl_color_space_infer_map = &pl_color_space_infer_map;
+    m_pl_frame_set_chroma_location = &pl_frame_set_chroma_location;
+    m_pl_shader_custom = &pl_shader_custom;
+    m_pl_mpv_user_shader_parse = &pl_mpv_user_shader_parse;
+    m_pl_mpv_user_shader_destroy = &pl_mpv_user_shader_destroy;
+    m_loaded = true;
+    return true;
+#else
     if ((m_hModule = RGY_LOAD_LIBRARY(RGY_LIBPLACEBO_DLL_NAME)) == nullptr) {
         return false;
     }
@@ -118,85 +180,96 @@ bool RGYLibplaceboLoader::load() {
         return true;
     };
 
-    if (!loadFunc("pl_color_space_bt2020_hlg", (void**)&m_pl_color_space_bt2020_hlg)) return false;
-    if (!loadFunc("pl_color_space_bt709", (void**)&m_pl_color_space_bt709)) return false;
-    if (!loadFunc("pl_color_space_srgb", (void**)&m_pl_color_space_srgb)) return false;
-    if (!loadFunc("pl_color_space_hdr10", (void**)&m_pl_color_space_hdr10)) return false;
-    if (!loadFunc("pl_hdr_metadata_empty", (void**)&m_pl_hdr_metadata_empty)) return false;
-    if (!loadFunc("pl_render_default_params", (void**)&m_pl_render_default_params)) return false;
-    if (!loadFunc("pl_peak_detect_default_params", (void**)&m_pl_peak_detect_default_params)) return false;
-    if (!loadFunc("pl_color_map_default_params", (void**)&m_pl_color_map_default_params)) return false;
-    if (!loadFunc("pl_sigmoid_default_params", (void**)&m_pl_sigmoid_default_params)) return false;
-    if (!loadFunc("pl_dither_default_params", (void**)&m_pl_dither_default_params)) return false;
+    if (!loadFunc("pl_color_space_bt2020_hlg", (void**)&m_pl_color_space_bt2020_hlg)) { close(); return false; }
+    if (!loadFunc("pl_color_space_bt709", (void**)&m_pl_color_space_bt709)) { close(); return false; }
+    if (!loadFunc("pl_color_space_srgb", (void**)&m_pl_color_space_srgb)) { close(); return false; }
+    if (!loadFunc("pl_color_space_hdr10", (void**)&m_pl_color_space_hdr10)) { close(); return false; }
+    if (!loadFunc("pl_hdr_metadata_empty", (void**)&m_pl_hdr_metadata_empty)) { close(); return false; }
+    if (!loadFunc("pl_render_default_params", (void**)&m_pl_render_default_params)) { close(); return false; }
+    if (!loadFunc("pl_peak_detect_default_params", (void**)&m_pl_peak_detect_default_params)) { close(); return false; }
+    if (!loadFunc("pl_color_map_default_params", (void**)&m_pl_color_map_default_params)) { close(); return false; }
+    if (!loadFunc("pl_sigmoid_default_params", (void**)&m_pl_sigmoid_default_params)) { close(); return false; }
+    if (!loadFunc("pl_dither_default_params", (void**)&m_pl_dither_default_params)) { close(); return false; }
 
     // 新しいメンバ変数の関数ポインタを取得して格納するコードを追加
 #if ENABLE_D3D11
-    if (!loadFunc("pl_d3d11_create", (void**)&m_pl_d3d11_create)) return false;
-    if (!loadFunc("pl_d3d11_destroy", (void**)&m_pl_d3d11_destroy)) return false;
-    if (!loadFunc("pl_d3d11_wrap", (void**)&m_pl_d3d11_wrap)) return false;
+    if (!loadFunc("pl_d3d11_create", (void**)&m_pl_d3d11_create)) { close(); return false; }
+    if (!loadFunc("pl_d3d11_destroy", (void**)&m_pl_d3d11_destroy)) { close(); return false; }
+    if (!loadFunc("pl_d3d11_wrap", (void**)&m_pl_d3d11_wrap)) { close(); return false; }
 #elif ENABLE_VULKAN
-    if (!loadFunc("pl_vulkan_create", (void**)&m_pl_vulkan_create)) return false;
-    if (!loadFunc("pl_vulkan_destroy", (void**)&m_pl_vulkan_destroy)) return false;
-    if (!loadFunc("pl_vulkan_hold_ex", (void**)&m_pl_vulkan_hold_ex)) return false;
-    if (!loadFunc("pl_vulkan_release_ex", (void**)&m_pl_vulkan_release_ex)) return false;
-    if (!loadFunc("pl_vulkan_wrap", (void**)&m_pl_vulkan_wrap)) return false;
+    if (!loadFunc("pl_vulkan_create", (void**)&m_pl_vulkan_create)) { close(); return false; }
+    if (!loadFunc("pl_vulkan_destroy", (void**)&m_pl_vulkan_destroy)) { close(); return false; }
+    if (!loadFunc("pl_vulkan_hold_ex", (void**)&m_pl_vulkan_hold_ex)) { close(); return false; }
+    if (!loadFunc("pl_vulkan_release_ex", (void**)&m_pl_vulkan_release_ex)) { close(); return false; }
+    if (!loadFunc("pl_vulkan_wrap", (void**)&m_pl_vulkan_wrap)) { close(); return false; }
 #endif
-    if (!loadFunc("pl_tex_destroy", (void**)&m_pl_tex_destroy)) return false;
-    if (!loadFunc("pl_tex_recreate", (void**)&m_pl_tex_recreate)) return false;
+    if (!loadFunc("pl_tex_destroy", (void**)&m_pl_tex_destroy)) { close(); return false; }
+    if (!loadFunc("pl_tex_recreate", (void**)&m_pl_tex_recreate)) { close(); return false; }
 
-    if (!loadFunc("pl_gpu_finish", (void**)&m_pl_gpu_finish)) return false;
+    if (!loadFunc("pl_gpu_finish", (void**)&m_pl_gpu_finish)) { close(); return false; }
 
     char pl_log_create_str[256] = { 0 };
     sprintf_s(pl_log_create_str, "pl_log_create_%d", PL_API_VER);
     loadFunc(pl_log_create_str, (void**)&m_pl_log_create);
-    if (!loadFunc("pl_log_destroy", (void**)&m_pl_log_destroy)) return false;
+    if (!loadFunc("pl_log_destroy", (void**)&m_pl_log_destroy)) { close(); return false; }
 
-    if (!loadFunc("pl_dispatch_create", (void**)&m_pl_dispatch_create)) return false;
-    if (!loadFunc("pl_dispatch_destroy", (void**)&m_pl_dispatch_destroy)) return false;
-    if (!loadFunc("pl_dispatch_begin", (void**)&m_pl_dispatch_begin)) return false;
-    if (!loadFunc("pl_dispatch_finish", (void**)&m_pl_dispatch_finish)) return false;
-    if (!loadFunc("pl_dispatch_abort", (void**)&m_pl_dispatch_abort)) return false;
-    if (!loadFunc("pl_renderer_create", (void**)&m_pl_renderer_create)) return false;
-    if (!loadFunc("pl_renderer_destroy", (void**)&m_pl_renderer_destroy)) return false;
-    if (!loadFunc("pl_render_image", (void**)&m_pl_render_image)) return false;
-    if (!loadFunc("pl_shader_sample_direct", (void**)&m_pl_shader_sample_direct)) return false;
-    if (!loadFunc("pl_shader_linearize", (void**)&m_pl_shader_linearize)) return false;
-    if (!loadFunc("pl_shader_sigmoidize", (void**)&m_pl_shader_sigmoidize)) return false;
-    if (!loadFunc("pl_shader_sample_polar", (void**)&m_pl_shader_sample_polar)) return false;
-    if (!loadFunc("pl_shader_sample_ortho2", (void**)&m_pl_shader_sample_ortho2)) return false;
-    if (!loadFunc("pl_shader_obj_destroy", (void**)&m_pl_shader_obj_destroy)) return false;
-    if (!loadFunc("pl_shader_reset", (void**)&m_pl_shader_reset)) return false;
-    if (!loadFunc("pl_shader_deband", (void**)&m_pl_shader_deband)) return false;
-    if (!loadFunc("pl_shader_dither", (void**)&m_pl_shader_dither)) return false;
-    if (!loadFunc("pl_find_filter_config", (void**)&m_pl_find_filter_config)) return false;
+    if (!loadFunc("pl_dispatch_create", (void**)&m_pl_dispatch_create)) { close(); return false; }
+    if (!loadFunc("pl_dispatch_destroy", (void**)&m_pl_dispatch_destroy)) { close(); return false; }
+    if (!loadFunc("pl_dispatch_begin", (void**)&m_pl_dispatch_begin)) { close(); return false; }
+    if (!loadFunc("pl_dispatch_finish", (void**)&m_pl_dispatch_finish)) { close(); return false; }
+    if (!loadFunc("pl_dispatch_abort", (void**)&m_pl_dispatch_abort)) { close(); return false; }
+    if (!loadFunc("pl_renderer_create", (void**)&m_pl_renderer_create)) { close(); return false; }
+    if (!loadFunc("pl_renderer_destroy", (void**)&m_pl_renderer_destroy)) { close(); return false; }
+    if (!loadFunc("pl_render_image", (void**)&m_pl_render_image)) { close(); return false; }
+    if (!loadFunc("pl_shader_sample_direct", (void**)&m_pl_shader_sample_direct)) { close(); return false; }
+    if (!loadFunc("pl_shader_linearize", (void**)&m_pl_shader_linearize)) { close(); return false; }
+    if (!loadFunc("pl_shader_sigmoidize", (void**)&m_pl_shader_sigmoidize)) { close(); return false; }
+    if (!loadFunc("pl_shader_sample_polar", (void**)&m_pl_shader_sample_polar)) { close(); return false; }
+    if (!loadFunc("pl_shader_sample_ortho2", (void**)&m_pl_shader_sample_ortho2)) { close(); return false; }
+    if (!loadFunc("pl_shader_obj_destroy", (void**)&m_pl_shader_obj_destroy)) { close(); return false; }
+    if (!loadFunc("pl_shader_reset", (void**)&m_pl_shader_reset)) { close(); return false; }
+    if (!loadFunc("pl_shader_deband", (void**)&m_pl_shader_deband)) { close(); return false; }
+    if (!loadFunc("pl_shader_dither", (void**)&m_pl_shader_dither)) { close(); return false; }
+    if (!loadFunc("pl_find_filter_config", (void**)&m_pl_find_filter_config)) { close(); return false; }
 
-    if (!loadFunc("pl_hdr_rescale", (void**)&m_pl_hdr_rescale)) return false;
-    if (!loadFunc("pl_lut_parse_cube", (void**)&m_pl_lut_parse_cube)) return false;
-    if (!loadFunc("pl_find_tone_map_function", (void**)&m_pl_find_tone_map_function)) return false;
-    if (!loadFunc("pl_find_gamut_map_function", (void**)&m_pl_find_gamut_map_function)) return false;
-    if (!loadFunc("pl_raw_primaries_get", (void**)&m_pl_raw_primaries_get)) return false;
-    if (!loadFunc("pl_raw_primaries_merge", (void**)&m_pl_raw_primaries_merge)) return false;
-    if (!loadFunc("pl_color_space_infer_map", (void**)&m_pl_color_space_infer_map)) return false;
+    if (!loadFunc("pl_hdr_rescale", (void**)&m_pl_hdr_rescale)) { close(); return false; }
+    if (!loadFunc("pl_lut_parse_cube", (void**)&m_pl_lut_parse_cube)) { close(); return false; }
+    if (!loadFunc("pl_find_tone_map_function", (void**)&m_pl_find_tone_map_function)) { close(); return false; }
+    if (!loadFunc("pl_find_gamut_map_function", (void**)&m_pl_find_gamut_map_function)) { close(); return false; }
+    if (!loadFunc("pl_raw_primaries_get", (void**)&m_pl_raw_primaries_get)) { close(); return false; }
+    if (!loadFunc("pl_raw_primaries_merge", (void**)&m_pl_raw_primaries_merge)) { close(); return false; }
+    if (!loadFunc("pl_color_space_infer_map", (void**)&m_pl_color_space_infer_map)) { close(); return false; }
 
-    if (!loadFunc("pl_frame_set_chroma_location", (void**)&m_pl_frame_set_chroma_location)) return false;
+    if (!loadFunc("pl_frame_set_chroma_location", (void**)&m_pl_frame_set_chroma_location)) { close(); return false; }
 
-    if (!loadFunc("pl_shader_custom", (void**)&m_pl_shader_custom)) return false;
-    if (!loadFunc("pl_mpv_user_shader_parse", (void**)&m_pl_mpv_user_shader_parse)) return false;
-    if (!loadFunc("pl_mpv_user_shader_destroy", (void**)&m_pl_mpv_user_shader_destroy)) return false;
+    if (!loadFunc("pl_shader_custom", (void**)&m_pl_shader_custom)) { close(); return false; }
+    if (!loadFunc("pl_mpv_user_shader_parse", (void**)&m_pl_mpv_user_shader_parse)) { close(); return false; }
+    if (!loadFunc("pl_mpv_user_shader_destroy", (void**)&m_pl_mpv_user_shader_destroy)) { close(); return false; }
 
+    m_loaded = true;
     return true;
+#endif
 }
 
 void RGYLibplaceboLoader::close() {
+#if !LIBPLACEBO_STATIC_LINK
     if (m_hModule) {
         RGY_FREE_LIBRARY(m_hModule);
         m_hModule = nullptr;
     }
+#endif
+    m_loaded = false;
 
     m_pl_color_space_bt2020_hlg = nullptr;
     m_pl_color_space_bt709 = nullptr;
     m_pl_color_space_srgb = nullptr;
     m_pl_color_space_hdr10 = nullptr;
+    m_pl_hdr_metadata_empty = nullptr;
+    m_pl_render_default_params = nullptr;
+    m_pl_peak_detect_default_params = nullptr;
+    m_pl_color_map_default_params = nullptr;
+    m_pl_sigmoid_default_params = nullptr;
+    m_pl_dither_default_params = nullptr;
 }
 
 static const auto RGY_LOG_LEVEL_TO_LIBPLACEBO = make_array<std::pair<RGYLogLevel, pl_log_level>>(
