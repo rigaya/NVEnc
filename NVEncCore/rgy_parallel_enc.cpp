@@ -450,9 +450,11 @@ RGYParamLogLevel RGYParallelEnc::setChildLogLevel(const RGYParamLogLevel& logLev
 encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, rgy_rational<int> outputTimebase, const bool delayChildSync, const tstring& tmpfile) {
     encParams prmParallel = *prm;
     prmParallel.ctrl.parallelEnc.parallelId = ip;
+#if ENCODER_NVENC
     if (prmParallel.ctrl.parallelEnc.targetBFrames >= 0) {
         prmParallel.bFrames = prmParallel.ctrl.parallelEnc.targetBFrames;
     }
+#endif
     prmParallel.ctrl.parentProcessID = GetCurrentProcessId();
     prmParallel.ctrl.loglevel = setChildLogLevel(prm->ctrl.loglevel);
     prmParallel.ctrl.parallelEnc.cacheMode = (ip == 0) ? RGYParamParallelEncCache::Mem : prm->ctrl.parallelEnc.cacheMode; // parallelId = 0 は必ずMem キャッシュモード
