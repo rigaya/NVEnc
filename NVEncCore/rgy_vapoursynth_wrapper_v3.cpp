@@ -29,6 +29,26 @@ static constexpr bool VPY_X64 = false;
 static constexpr bool VPY_X64 = true;
 #endif
 
+#if defined(_WIN32) || defined(_WIN64)
+static tstring get_last_error_string(DWORD errorcode) {
+    if (errorcode == 0) {
+        return _T("no error");
+    }
+    LPVOID message = nullptr;
+    const auto len = FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, errorcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&message, 0, nullptr);
+    tstring str = (len && message) ? tstring((LPCTSTR)message) : _T("unknown error");
+    if (message) {
+        LocalFree(message);
+    }
+    while (!str.empty() && (str.back() == _T('\r') || str.back() == _T('\n'))) {
+        str.pop_back();
+    }
+    return str;
+}
+#endif
+
 // import lib を使うと vsscript.dll がない場合に起動できないので動的ロード
 typedef int (__stdcall *func_vs_init)(void);
 typedef int (__stdcall *func_vs_finalize)(void);
@@ -75,7 +95,7 @@ public:
             return RGY_ERR_NULL_PTR;
         }
         if (!m_vs.init()) {
-            logErr("vsscript_init failed");
+            logErr("vsscript_init failed (VapourSynth runtime initialization failed or Python module \"vapoursynth\" is not importable)");
             return RGY_ERR_NULL_PTR;
         }
         m_vsapi = m_vs.getVSApi();
@@ -199,7 +219,12 @@ public:
     }
 
     bool isAvailable() {
-        if (loadDll()) return false;
+        if (loadDll()) {
+            if (m_log) {
+                m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs3): loadDll failed.\n"));
+            }
+            return false;
+        }
         releaseDll();
         return true;
     }
@@ -216,15 +241,36 @@ private:
         }
         const TCHAR *dllname = _T("vsscript.dll");
         m_vs.hVSScriptDLL = RGY_LOAD_LIBRARY(dllname);
+        if (!m_vs.hVSScriptDLL && m_log) {
+            const auto errorcode = GetLastError();
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs3): failed to load vsscript.dll: error %u: %s.\n"),
+                errorcode, get_last_error_string(errorcode).c_str());
+        }
 #else
         const TCHAR *dllname = _T("libvapoursynth-script.so");
         m_vs.hVSScriptDLL = dlopen(dllname, RTLD_LAZY|RTLD_GLOBAL);
+        if (!m_vs.hVSScriptDLL && m_log) {
+            const auto err = dlerror();
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs3): failed to load libvapoursynth-script.so: %s.\n"),
+                char_to_tstring((err != nullptr) ? err : "unknown error").c_str());
+        }
 #endif
         if (!m_vs.hVSScriptDLL) {
             return 1;
         }
         auto load = [&](void **dst, const char *name) -> bool {
             *dst = RGY_GET_PROC_ADDRESS(m_vs.hVSScriptDLL, name);
+            if (*dst == nullptr && m_log) {
+#if defined(_WIN32) || defined(_WIN64)
+                const auto errorcode = GetLastError();
+                m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs3): failed to resolve symbol %s: error %u: %s.\n"),
+                    char_to_tstring(name).c_str(), errorcode, get_last_error_string(errorcode).c_str());
+#else
+                const auto err = dlerror();
+                m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs3): failed to resolve symbol %s: %s.\n"),
+                    char_to_tstring(name).c_str(), char_to_tstring((err != nullptr) ? err : "unknown error").c_str());
+#endif
+            }
             return *dst != nullptr;
         };
         const char *n_init     = (VPY_X64) ? "vsscript_init"     : "_vsscript_init@0";

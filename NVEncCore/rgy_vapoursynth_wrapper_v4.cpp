@@ -30,6 +30,26 @@ static constexpr bool VPY4_X64 = true;
 
 using func_getVSScriptAPI = const VSSCRIPTAPI * (VS_CC *)(int version);
 
+#if defined(_WIN32) || defined(_WIN64)
+static tstring get_last_error_string(DWORD errorcode) {
+    if (errorcode == 0) {
+        return _T("no error");
+    }
+    LPVOID message = nullptr;
+    const auto len = FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, errorcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&message, 0, nullptr);
+    tstring str = (len && message) ? tstring((LPCTSTR)message) : _T("unknown error");
+    if (message) {
+        LocalFree(message);
+    }
+    while (!str.empty() && (str.back() == _T('\r') || str.back() == _T('\n'))) {
+        str.pop_back();
+    }
+    return str;
+}
+#endif
+
 static func_getVSScriptAPI load_getVSScriptAPI(HMODULE h, void *&outFunc) {
     outFunc = nullptr;
     if (!h) return nullptr;
@@ -62,10 +82,31 @@ public:
     const RGYVapourSynthVideoInfo& videoInfo() const override { return m_vi; }
 
     bool isAvailable() {
-        if (loadDll()) return false;
+        if (loadDll()) {
+            if (m_log) {
+                m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs4): loadDll failed.\n"));
+            }
+            return false;
+        }
         const auto f = load_getVSScriptAPI(m_hDll, m_getVSScriptAPI);
-        if (!f) { releaseDll(); return false; }
+        if (!f) {
+            if (m_log) {
+#if defined(_WIN32) || defined(_WIN64)
+                const auto errorcode = GetLastError();
+                m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs4): getVSScriptAPI symbol is not found: error %u: %s.\n"),
+                    errorcode, get_last_error_string(errorcode).c_str());
+#else
+                m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs4): getVSScriptAPI symbol is not found.\n"));
+#endif
+            }
+            releaseDll();
+            return false;
+        }
         const auto vssapi = f(VSSCRIPT_API_VERSION);
+        if (vssapi == nullptr && m_log) {
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN,
+                _T("vpy(vs4): getVSScriptAPI returned null. VapourSynth runtime initialization failed or the Python module \"vapoursynth\" is not importable.\n"));
+        }
         return vssapi != nullptr;
     }
 
@@ -189,8 +230,18 @@ private:
             SetDllDirectory(m_vsdir.c_str());
         }
         m_hDll = RGY_LOAD_LIBRARY(_T("vsscript.dll"));
+        if (m_hDll == nullptr && m_log) {
+            const auto errorcode = GetLastError();
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs4): failed to load vsscript.dll: error %u: %s.\n"),
+                errorcode, get_last_error_string(errorcode).c_str());
+        }
 #else
         m_hDll = dlopen(_T("libvapoursynth-script.so"), RTLD_LAZY|RTLD_GLOBAL);
+        if (m_hDll == nullptr && m_log) {
+            const auto err = dlerror();
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy(vs4): failed to load libvapoursynth-script.so: %s.\n"),
+                char_to_tstring((err != nullptr) ? err : "unknown error").c_str());
+        }
 #endif
         return (m_hDll == nullptr) ? 1 : 0;
     }

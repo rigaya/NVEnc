@@ -77,6 +77,7 @@ std::vector<std::string> vapoursynthPythonPathCandidates() {
             }
         }
     } catch (...) {
+        // ignore path discovery failure
     }
     return candidates;
 }
@@ -97,7 +98,16 @@ void RGYPrepareVapourSynthPythonPath(RGYLog *log) {
         }
         const auto updated = pythonPath.empty() ? candidate : candidate + ":" + pythonPath;
         setenv("PYTHONPATH", updated.c_str(), 1);
+        if (log) {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_IN,
+                _T("vpy: prepended VapourSynth Python path: %s.\n"),
+                char_to_tstring(candidate).c_str());
+        }
         return;
+    }
+    if (log && currentPythonPath == nullptr) {
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_IN,
+            _T("vpy: no additional VapourSynth Python module path detected.\n"));
     }
 #else
     (void)log;
