@@ -75,7 +75,7 @@ static func_getVSScriptAPI load_getVSScriptAPI(HMODULE h, void *&outFunc) {
 
 class VapourSynthWrapperV4 final : public RGYVapourSynthWrapper {
 public:
-    VapourSynthWrapperV4(const tstring& vsdir, RGYLog *log) : m_vsdir(vsdir), m_log(log) {}
+    VapourSynthWrapperV4(const tstring& vsdir, bool assumeScriptDir, RGYLog *log) : m_vsdir(vsdir), m_assumeScriptDir(assumeScriptDir), m_log(log) {}
     virtual ~VapourSynthWrapperV4() override { close(); }
 
     int apiMajor() const override { return 4; }
@@ -127,7 +127,7 @@ public:
         }
         m_vssapi = getApi(VSSCRIPT_API_VERSION);
         if (!m_vssapi) {
-            logErr("getVSScriptAPI returned null");
+            logErr("getVSScriptAPI returned null (VapourSynth runtime initialization failed or Python module \"vapoursynth\" is not importable)");
             return RGY_ERR_NULL_PTR;
         }
 
@@ -149,6 +149,7 @@ public:
             return RGY_ERR_NULL_PTR;
         }
 
+        m_vssapi->evalSetWorkingDir(m_script, m_assumeScriptDir ? 1 : 0);
         if (m_vssapi->evaluateBuffer(m_script, script.c_str(), scriptFilenameUtf8.c_str())) {
             logErr("evaluateBuffer failed");
             return RGY_ERR_NULL_PTR;
@@ -258,6 +259,7 @@ private:
     }
 
     tstring m_vsdir;
+    bool m_assumeScriptDir;
     RGYLog *m_log;
 
     HMODULE m_hDll = nullptr;
@@ -274,8 +276,8 @@ private:
 
 } // namespace
 
-std::unique_ptr<RGYVapourSynthWrapper> CreateVapourSynthWrapperV4(const tstring& vsdir, RGYLog *log) {
-    auto p = std::make_unique<rgy_vapoursynth_wrapper_v4::VapourSynthWrapperV4>(vsdir, log);
+std::unique_ptr<RGYVapourSynthWrapper> CreateVapourSynthWrapperV4(const tstring& vsdir, bool assumeScriptDir, RGYLog *log) {
+    auto p = std::make_unique<rgy_vapoursynth_wrapper_v4::VapourSynthWrapperV4>(vsdir, assumeScriptDir, log);
     if (!p->isAvailable()) return nullptr;
     return p;
 }

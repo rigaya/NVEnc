@@ -58,7 +58,7 @@ public:
 void RGYPrepareVapourSynthPythonPath(RGYLog *log);
 
 // Factory: tries v4 first, then v3.
-std::unique_ptr<RGYVapourSynthWrapper> CreateVapourSynthWrapper(const tstring& vsdir, RGYLog *log);
+std::unique_ptr<RGYVapourSynthWrapper> CreateVapourSynthWrapper(const tstring& vsdir, bool assumeScriptDir, RGYLog *log);
 
 #endif //__RGY_VAPOURSYNTH_WRAPPER_H__
 

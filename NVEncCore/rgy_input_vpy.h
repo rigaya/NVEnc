@@ -45,6 +45,7 @@ class RGYInputVpyPrm : public RGYInputPrm {
 public:
     tstring vsdir;
     float seekRatio; //開始位置を指定する場合の割合 (0.0～1.0)、並列エンコード時に使用
+    bool assumeScriptDir;
     RGYInputVpyPrm(RGYInputPrm base);
 
     virtual ~RGYInputVpyPrm() {};

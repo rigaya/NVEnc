@@ -10,6 +10,7 @@
 #include "rgy_osdep.h"
 #include "rgy_filesystem.h"
 #include "rgy_util.h"
+#include "rgy_codepage.h"
 #include "rgy_log.h"
 
 #if ENABLE_VAPOURSYNTH_READER
@@ -73,14 +74,13 @@ struct vsscript3_t {
 
 class VapourSynthWrapperV3 final : public RGYVapourSynthWrapper {
 public:
-    VapourSynthWrapperV3(const tstring& vsdir, RGYLog *log) : m_vsdir(vsdir), m_log(log) {}
+    VapourSynthWrapperV3(const tstring& vsdir, bool assumeScriptDir, RGYLog *log) : m_vsdir(vsdir), m_assumeScriptDir(assumeScriptDir), m_log(log) {}
     virtual ~VapourSynthWrapperV3() override { close(); }
 
     int apiMajor() const override { return 3; }
     const RGYVapourSynthVideoInfo& videoInfo() const override { return m_vi; }
 
     RGY_ERR openScriptFromBuffer(const std::string& script, const std::string& scriptFilenameUtf8) override {
-        (void)scriptFilenameUtf8; // v3 は従来通り errorFilename を nullptr で評価
         const auto logErr = [&](const char *reason) {
             if (!m_log) return;
             const auto errMes = (m_script) ? m_vs.getError(m_script) : nullptr;
@@ -103,7 +103,8 @@ public:
             logErr("vsscript_getVSApi failed");
             return RGY_ERR_NULL_PTR;
         }
-        if (m_vs.evaluateScript(&m_script, script.c_str(), nullptr, efSetWorkingDir)) {
+        const char *scriptFilename = (m_assumeScriptDir && !scriptFilenameUtf8.empty()) ? scriptFilenameUtf8.c_str() : nullptr;
+        if (m_vs.evaluateScript(&m_script, script.c_str(), scriptFilename, efSetWorkingDir)) {
             logErr("vsscript_evaluateScript failed");
             return RGY_ERR_NULL_PTR;
         }
@@ -308,6 +309,7 @@ private:
     }
 
     tstring m_vsdir;
+    bool m_assumeScriptDir;
     RGYLog *m_log;
 
     vsscript3_t m_vs;
@@ -321,8 +323,8 @@ private:
 
 } // namespace
 
-std::unique_ptr<RGYVapourSynthWrapper> CreateVapourSynthWrapperV3(const tstring& vsdir, RGYLog *log) {
-    auto p = std::make_unique<rgy_vapoursynth_wrapper_v3::VapourSynthWrapperV3>(vsdir, log);
+std::unique_ptr<RGYVapourSynthWrapper> CreateVapourSynthWrapperV3(const tstring& vsdir, bool assumeScriptDir, RGYLog *log) {
+    auto p = std::make_unique<rgy_vapoursynth_wrapper_v3::VapourSynthWrapperV3>(vsdir, assumeScriptDir, log);
     if (!p->isAvailable()) return nullptr;
     return p;
 }

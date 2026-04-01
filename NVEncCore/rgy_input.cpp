@@ -612,6 +612,7 @@ RGY_ERR initReaders(
     case RGY_INPUT_FMT_VPY_MT:
         inputPrmVpy.vsdir = ctrl->vsdir;
         inputPrmVpy.seekRatio = common->seekRatio;
+        inputPrmVpy.assumeScriptDir = ctrl->vpyAssumeScriptDir;
         pInputPrm = &inputPrmVpy;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("vpy reader selected.\n"));
         pFileReader.reset(new RGYInputVpy());

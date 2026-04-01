@@ -40,7 +40,8 @@
 RGYInputVpyPrm::RGYInputVpyPrm(RGYInputPrm base) :
     RGYInputPrm(base),
     vsdir(),
-    seekRatio(0.0f) {
+    seekRatio(0.0f),
+    assumeScriptDir(false) {
 
 }
 
@@ -118,7 +119,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo = *pInputInfo;
 
     auto vpyPrm = reinterpret_cast<const RGYInputVpyPrm *>(prm);
-    m_vs = CreateVapourSynthWrapper(vpyPrm->vsdir, m_printMes.get());
+    m_vs = CreateVapourSynthWrapper(vpyPrm->vsdir, vpyPrm->assumeScriptDir, m_printMes.get());
     if (!m_vs) return RGY_ERR_NULL_PTR;
 
     m_convert = std::make_unique<RGYConvertCSP>((m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) ? 1 : prm->threadCsp, prm->threadParamCsp);

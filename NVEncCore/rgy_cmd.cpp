@@ -7026,6 +7026,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
 #endif
+    if (IS_OPTION("vpy-assume-script-dir")) {
+        ctrl->vpyAssumeScriptDir = true;
+        return 0;
+    }
     if (IS_OPTION("perf-monitor")) {
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             ctrl->perfMonitorSelect = (int)PERF_MONITOR_ALL;
@@ -8651,6 +8655,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--skip-hwdec-check"), _T(""), skipHWDecodeCheck);
     OPT_STR_PATH(_T("--avsdll"), avsdll);
     OPT_STR_PATH(_T("--vsdir"), vsdir);
+    OPT_BOOL(_T("--vpy-assume-script-dir"), _T(""), vpyAssumeScriptDir);
     if (param->perfMonitorSelect != defaultPrm->perfMonitorSelect) {
         auto select = (int)param->perfMonitorSelect;
         std::basic_stringstream<TCHAR> tmp;
@@ -9884,6 +9889,10 @@ tstring gen_cmd_help_ctrl() {
 #if defined(_WIN32) || defined(_WIN64)
     str += strsprintf(_T("\n")
         _T("   --vsdir <string>            specifies VapourSynth portable directory to use.\n"));
+#endif //#if defined(_WIN32) || defined(_WIN64)
+    str += strsprintf(_T("\n")
+        _T("   --vpy-assume-script-dir     resolves relative paths in .vpy from the script directory.\n"));
+#if defined(_WIN32) || defined(_WIN64)
     str += strsprintf(_T("\n")
         _T("   --process-codepage <string>  utf8 ... use UTF-8 (default)\n")
         _T("                                os   ... use the codepage set in Operating System.\n"));

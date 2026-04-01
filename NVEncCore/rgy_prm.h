@@ -2648,6 +2648,7 @@ struct RGYParamControl {
     bool skipHWDecodeCheck;
     tstring avsdll;
     tstring vsdir;
+    bool vpyAssumeScriptDir;
     bool enableOpenCL;
     RGYParamInitVulkan enableVulkan;
     int openclBuildThreads;

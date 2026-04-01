@@ -261,6 +261,7 @@
   - [--fallback-bitdepth](#--fallback-bitdepth)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--vsdir \<string\>](#--vsdir-string)
+  - [--vpy-assume-script-dir](#--vpy-assume-script-dir)
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
   - [--task-perf-monitor](#--task-perf-monitor)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
@@ -3526,6 +3527,9 @@ Specifies AviSynth DLL location to use. When unspecified, the default AviSynth.d
 
 ### --vsdir &lt;string&gt;
 Specifies vapoursynth portable directory to use. Supported on Windows only.
+
+### --vpy-assume-script-dir
+When using the vpy reader, resolves relative paths in `.vpy` against the script file's directory instead of the current working directory.
 
 ### --process-codepage &lt;string&gt; [Windows OS only]  
 - **parameters**  
