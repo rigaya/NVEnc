@@ -183,6 +183,7 @@ private:
         if (m_hDll) {
             return 0;
         }
+        RGYPrepareVapourSynthPythonPath(m_log);
 #if defined(_WIN32) || defined(_WIN64)
         if (m_vsdir.length() > 0 && rgy_directory_exists(m_vsdir)) {
             SetDllDirectory(m_vsdir.c_str());

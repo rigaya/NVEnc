@@ -55,6 +55,8 @@ public:
     virtual void close() = 0;
 };
 
+void RGYPrepareVapourSynthPythonPath(RGYLog *log);
+
 // Factory: tries v4 first, then v3.
 std::unique_ptr<RGYVapourSynthWrapper> CreateVapourSynthWrapper(const tstring& vsdir, RGYLog *log);
 

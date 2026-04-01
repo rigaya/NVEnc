@@ -207,6 +207,7 @@ public:
 private:
     int loadDll() {
         releaseDll();
+        RGYPrepareVapourSynthPythonPath(m_log);
 #if defined(_WIN32) || defined(_WIN64)
         if (m_vsdir.length() > 0) {
             if (rgy_directory_exists(m_vsdir)) {
