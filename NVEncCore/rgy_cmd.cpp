@@ -7186,6 +7186,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
     }
     if (IS_OPTION("parallel") && ENABLE_PARALLEL_ENC) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            ctrl->parallelEnc.parallelCount = -1;
             return 0;
         }
         i++;
