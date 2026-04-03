@@ -182,6 +182,42 @@ ffmpeg_deps = [
 ]
 
 # オプション依存
+
+# ヘッダ自動取得先（ビルドディレクトリ内）
+_ext_headers_dir  = build_root / 'external_headers'
+_vpy_fetched_inc  = _ext_headers_dir / 'vapoursynth-R72' / 'include'
+_avs_fetched_inc  = _ext_headers_dir / 'AviSynthPlus-3.7.5' / 'avs_core' / 'include'
+
+# VapourSynth ヘッダ自動ダウンロード用シェルスクリプト
+_fetch_vpy_sh = '''
+dest="$1"
+[ -f "$dest/vapoursynth-R72/include/VapourSynth.h" ] && exit 0
+mkdir -p "$dest"
+url="https://github.com/vapoursynth/vapoursynth/archive/refs/tags/R72.tar.gz"
+if command -v wget >/dev/null 2>&1; then
+  wget -q -O "$dest/vpy.tar.gz" "$url" || exit 1
+else
+  curl -fsSL -o "$dest/vpy.tar.gz" "$url" || exit 1
+fi
+tar xf "$dest/vpy.tar.gz" -C "$dest" || exit 1
+rm -f "$dest/vpy.tar.gz"
+'''
+
+# AviSynthPlus ヘッダ自動ダウンロード用シェルスクリプト
+_fetch_avs_sh = '''
+dest="$1"
+[ -f "$dest/AviSynthPlus-3.7.5/avs_core/include/avisynth_c.h" ] && exit 0
+mkdir -p "$dest"
+url="https://github.com/AviSynth/AviSynthPlus/archive/refs/tags/v3.7.5.tar.gz"
+if command -v wget >/dev/null 2>&1; then
+  wget -q -O "$dest/avs.tar.gz" "$url" || exit 1
+else
+  curl -fsSL -o "$dest/avs.tar.gz" "$url" || exit 1
+fi
+tar xf "$dest/avs.tar.gz" -C "$dest" || exit 1
+rm -f "$dest/avs.tar.gz"
+'''
+
 vapoursynth_compile_dep = disabler()
 have_vapoursynth_headers = false
 if enable_vapoursynth
@@ -214,7 +250,29 @@ int main(void) { return 0; }
 
   have_vapoursynth_headers = have_vapoursynth_v3_headers and have_vapoursynth_v4_headers
   if not have_vapoursynth_headers
-    error('VapourSynth headers not found (require V3: VapourSynth.h/VSScript.h and V4: VSScript4.h)')
+    _fetch = run_command(
+      'sh', '-c', _fetch_vpy_sh, 'fetch_vpy', _ext_headers_dir,
+      check: false,
+    )
+    if _fetch.returncode() == 0
+      vapoursynth_compile_dep = declare_dependency(
+        compile_args: ['-I' + _vpy_fetched_inc],
+      )
+      have_vapoursynth_v3_headers = cpp.compiles(
+        vapoursynth_v3_headers_code,
+        dependencies: vapoursynth_compile_dep,
+        args: get_option('cpp_args'),
+      )
+      have_vapoursynth_v4_headers = cpp.compiles(
+        vapoursynth_v4_headers_code,
+        dependencies: vapoursynth_compile_dep,
+        args: get_option('cpp_args'),
+      )
+      have_vapoursynth_headers = have_vapoursynth_v3_headers and have_vapoursynth_v4_headers
+    endif
+    if not have_vapoursynth_headers
+      error('VapourSynth headers not found (require V3: VapourSynth.h/VSScript.h and V4: VSScript4.h)')
+    endif
   endif
 endif
 
@@ -237,7 +295,23 @@ int main(void) { return 0; }
     args: get_option('cpp_args'),
   )
   if not have_avisynth_headers
-    error('AviSynth headers not found (avisynth_c.h)')
+    _fetch = run_command(
+      'sh', '-c', _fetch_avs_sh, 'fetch_avs', _ext_headers_dir,
+      check: false,
+    )
+    if _fetch.returncode() == 0
+      avisynth_compile_dep = declare_dependency(
+        compile_args: ['-I' + _avs_fetched_inc],
+      )
+      have_avisynth_headers = cpp.compiles(
+        avisynth_headers_code,
+        dependencies: avisynth_compile_dep,
+        args: get_option('cpp_args'),
+      )
+    endif
+    if not have_avisynth_headers
+      error('AviSynth headers not found (avisynth_c.h)')
+    endif
   endif
 endif
 

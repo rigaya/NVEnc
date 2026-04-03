@@ -70,11 +70,6 @@ jobs:
             exit 1
           fi
 
-      - name: Checkout dependencies
-        run: |
-          git clone --depth 1 https://github.com/AviSynth/AviSynthPlus.git AviSynthPlus
-          git clone -b R72 --depth 1 https://github.com/vapoursynth/vapoursynth.git vapoursynth
-
       - name: Pull base image
         run: docker pull ${{ steps.prep.outputs.base_image }}
 
