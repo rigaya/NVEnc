@@ -182,59 +182,70 @@ ffmpeg_deps = [
 ]
 
 # オプション依存
-vapoursynth_pkg_dep = dependency('vapoursynth', required: false)
-avisynth_pkg_dep = dependency('avisynth', required: false)
+vapoursynth_compile_dep = disabler()
+have_vapoursynth_headers = false
+if enable_vapoursynth
+  vapoursynth_pkg_dep = dependency('vapoursynth', required: false)
+  vapoursynth_compile_dep = declare_dependency()
+  if vapoursynth_pkg_dep.found()
+    vapoursynth_compile_dep = vapoursynth_pkg_dep.partial_dependency(includes: true, compile_args: true)
+  endif
 
-vapoursynth_compile_dep = declare_dependency()
-if vapoursynth_pkg_dep.found()
-  vapoursynth_compile_dep = vapoursynth_pkg_dep.partial_dependency(includes: true, compile_args: true)
-endif
-
-avisynth_compile_dep = declare_dependency()
-if avisynth_pkg_dep.found()
-  avisynth_compile_dep = avisynth_pkg_dep.partial_dependency(includes: true, compile_args: true)
-endif
-
-vapoursynth_v3_headers_code = '''
+  vapoursynth_v3_headers_code = '''
 #include "VapourSynth.h"
 #include "VSScript.h"
 int main(void) { return 0; }
 '''
-have_vapoursynth_v3_headers = cpp.compiles(
-  vapoursynth_v3_headers_code,
-  dependencies: vapoursynth_compile_dep,
-  args: get_option('cpp_args'),
-)
+  have_vapoursynth_v3_headers = cpp.compiles(
+    vapoursynth_v3_headers_code,
+    dependencies: vapoursynth_compile_dep,
+    args: get_option('cpp_args'),
+  )
 
-vapoursynth_v4_headers_code = '''
+  vapoursynth_v4_headers_code = '''
 #include "VSScript4.h"
 int main(void) { return 0; }
 '''
-have_vapoursynth_v4_headers = cpp.compiles(
-  vapoursynth_v4_headers_code,
-  dependencies: vapoursynth_compile_dep,
-  args: get_option('cpp_args'),
-)
+  have_vapoursynth_v4_headers = cpp.compiles(
+    vapoursynth_v4_headers_code,
+    dependencies: vapoursynth_compile_dep,
+    args: get_option('cpp_args'),
+  )
 
-have_vapoursynth_headers = have_vapoursynth_v3_headers and have_vapoursynth_v4_headers
-if enable_vapoursynth and not have_vapoursynth_headers
-  error('VapourSynth headers not found (require V3: VapourSynth.h/VSScript.h and V4: VSScript4.h)')
+  have_vapoursynth_headers = have_vapoursynth_v3_headers and have_vapoursynth_v4_headers
+  if not have_vapoursynth_headers
+    error('VapourSynth headers not found (require V3: VapourSynth.h/VSScript.h and V4: VSScript4.h)')
+  endif
 endif
 
-avisynth_headers_code = '''
+avisynth_compile_dep = disabler()
+have_avisynth_headers = false
+if enable_avisynth
+  avisynth_pkg_dep = dependency('avisynth', required: false)
+  avisynth_compile_dep = declare_dependency()
+  if avisynth_pkg_dep.found()
+    avisynth_compile_dep = avisynth_pkg_dep.partial_dependency(includes: true, compile_args: true)
+  endif
+
+  avisynth_headers_code = '''
 #include "avisynth_c.h"
 int main(void) { return 0; }
 '''
-have_avisynth_headers = cpp.compiles(
-  avisynth_headers_code,
-  dependencies: avisynth_compile_dep,
-  args: get_option('cpp_args'),
-)
-if enable_avisynth and not have_avisynth_headers
-  error('AviSynth headers not found (avisynth_c.h)')
+  have_avisynth_headers = cpp.compiles(
+    avisynth_headers_code,
+    dependencies: avisynth_compile_dep,
+    args: get_option('cpp_args'),
+  )
+  if not have_avisynth_headers
+    error('AviSynth headers not found (avisynth_c.h)')
+  endif
 endif
 
-libass_dep = dependency('libass', required: enable_libass)
+if enable_libass
+  libass_dep = dependency('libass', required: true)
+else
+  libass_dep = disabler()
+endif
 have_vmaf_headers = false
 vmaf_headers_from_default = false
 vmaf_compile_dep = declare_dependency()
