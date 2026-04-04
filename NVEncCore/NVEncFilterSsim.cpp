@@ -604,6 +604,14 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     m_frameHostSendIndex = 0;
     const auto frameInfo = m_frameHostEnc[0]->frame;
 
+    // エラー終了時に m_vmaf.abort を自動設定するガード
+    struct AbortOnError {
+        NVEncFilterVMAFData& data;
+        bool succeeded = false;
+        AbortOnError(NVEncFilterVMAFData& d) : data(d) {}
+        ~AbortOnError() { if (!succeeded) data.abort.store(true); }
+    } abortGuard(m_vmaf);
+
     VmafPixelFormat vmafPixFmt = VMAF_PIX_FMT_UNKNOWN;
     switch (RGY_CSP_CHROMA_FORMAT[frameInfo.csp]) {
     case RGY_CHROMAFMT_YUV420: vmafPixFmt = VMAF_PIX_FMT_YUV420P; break;
@@ -792,6 +800,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     }
 #endif
 
+    abortGuard.succeeded = true;
     model.reset();
     model_collection.reset();
     vmaf.reset();
@@ -905,7 +914,11 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         if (m_cropDToH) {
 #if ENABLE_VMAF
             const auto frameHostSendIndex = m_frameHostSendIndex.load();
-            WaitForSingleObject(m_vmaf.heProcFin[frameHostSendIndex % m_vmaf.heProcFin.size()], INFINITE);
+            while (WaitForSingleObject(m_vmaf.heProcFin[frameHostSendIndex % m_vmaf.heProcFin.size()], 100) == WAIT_TIMEOUT) {
+                if (m_abort.load() || m_vmaf.abort.load()) {
+                    return RGY_ERR_UNKNOWN;
+                }
+            }
 #else
             const auto frameHostSendIndex = m_frameHostSendIndex.load();
 #endif //#if ENABLE_VMAF
