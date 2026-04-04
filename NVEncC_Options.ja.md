@@ -1053,8 +1053,6 @@ picture timing SEIを挿入する。
 エンコード結果のVMAFスコアを計算する。なお、VMAFスコアの計算はlibvmafによりCPUで行われるため、
 エンコード速度を律速し非常に遅くなる可能性が高いので注意してください。
 
-現状、Windowsの64bit版のみ使用可能です。
-
 - **パラメータ**
   
     - model=&lt;string&gt;  
