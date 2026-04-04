@@ -1046,8 +1046,6 @@ Calculate psnr of the encoded video.
 Calculate vmaf score of the encoded video. Please note that the vmaf score calculation is run by libvmaf on CPU,
 and is highly likely to become a bottleneck and result in poor encoding performance.
 
-Currently for Windows x64 only.
-
 - **Parameters**
 
   - model=&lt;string&gt;  

@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 9.14
+
+- Add [--vmaf](./NVEncC_Options.en.md#--vmaf-param1value1param2value2) support for Linux systems. ( #755 )
+- Improve vapoursynth error messages.
+
 ## 9.13
 
 - Improve multi-channel audio channel layout handling when encoding with [--audio-codec](./NVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring). ( #671 )
