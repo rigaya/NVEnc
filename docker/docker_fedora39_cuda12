@@ -36,6 +36,7 @@ RUN dnf update -y \
       pkgconfig \
       nasm \
       yasm \
+      vim-common \
       patch \
       xz \
       p7zip p7zip-plugins \

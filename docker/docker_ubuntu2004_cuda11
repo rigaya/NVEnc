@@ -34,6 +34,7 @@ RUN apt update \
       pkg-config \
       nasm \
       yasm \
+      xxd \
       patch \
       xz-utils \
       p7zip-full \
