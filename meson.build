@@ -112,6 +112,7 @@ enable_libplacebo_option = get_option('enable_libplacebo')
 libplacebo_static = get_option('libplacebo_static')
 enable_vmaf_option = get_option('enable_vmaf')
 libvmaf_static = get_option('libvmaf_static')
+enable_libvship_option = get_option('enable_libvship')
 enable_vulkan_option = get_option('enable_vulkan')
 
 # ==============================================================================
@@ -478,6 +479,58 @@ int main(void) { return PL_API_VER; }
     error('libplacebo headers not found')
   endif
 endif
+have_libvship_headers = false
+libvship_compile_dep = declare_dependency()
+if enable_libvship_option != 'disabled'
+  libvship_headers_code = '''
+#include "VshipAPI.h"
+int main(void) {
+  Vship_Version v;
+  (void)v;
+  return 0;
+}
+'''
+  # pkg-configで試す (libvship がpkg-configをサポートしている場合)
+  libvship_pkg_dep = dependency('libvship', required: false)
+  if libvship_pkg_dep.found()
+    libvship_candidate_dep = libvship_pkg_dep.partial_dependency(includes: true, compile_args: true)
+    have_libvship_headers = cpp.compiles(
+      libvship_headers_code,
+      dependencies: libvship_candidate_dep,
+      args: get_option('cpp_args'),
+    )
+    if have_libvship_headers
+      libvship_compile_dep = libvship_candidate_dep
+    endif
+  endif
+  # カスタムパスで検索
+  if not have_libvship_headers
+    libvship_header_search_dirs = [
+      source_root / '..' / 'Vship' / 'src',
+      build_root / '..' / 'Vship' / 'src',
+      build_root / '..' / '..' / 'Vship' / 'src',
+    ]
+    foreach dir : libvship_header_search_dirs
+      if not have_libvship_headers and fs.is_dir(dir)
+        libvship_candidate_dep = declare_dependency(
+          compile_args: ['-I' + dir],
+        )
+        have_libvship_headers = cpp.compiles(
+          libvship_headers_code,
+          dependencies: libvship_candidate_dep,
+          args: get_option('cpp_args'),
+        )
+        if have_libvship_headers
+          libvship_compile_dep = libvship_candidate_dep
+          message('Using Vship headers from: ' + dir)
+        endif
+      endif
+    endforeach
+  endif
+  if enable_libvship_option == 'enabled' and not have_libvship_headers
+    error('Vship headers not found (VshipAPI.h)')
+  endif
+endif
 
 # ==============================================================================
 # libdovi / libhdr10plus (システムにあれば使う、なければビルドディレクトリ内でビルド)
@@ -631,6 +684,7 @@ conf_data.set10('ENABLE_AVSW_READER', true)
 conf_data.set10('ENABLE_SM_READER', false)
 conf_data.set10('ENABLE_LIBASS_SUBBURN', libass_dep.found())
 conf_data.set10('ENABLE_VMAF', have_vmaf_headers)
+conf_data.set10('ENABLE_LIBVSHIP', have_libvship_headers)
 conf_data.set10('ENABLE_AVCODEC_OUT_THREAD', true)
 conf_data.set10('ENABLE_CPP_REGEX', true)
 conf_data.set10('ENABLE_DTL', true)
@@ -784,6 +838,7 @@ nvenccore_sources = files(
   'NVEncCore/rgy_level_hevc.cpp',
   'NVEncCore/rgy_libplacebo.cpp',
   'NVEncCore/rgy_libvmaf.cpp',
+  'NVEncCore/rgy_libvship.cpp',
   'NVEncCore/rgy_log.cpp',
   'NVEncCore/rgy_memmem.cpp',
   'NVEncCore/rgy_nvrtc.cpp',
@@ -955,6 +1010,9 @@ endif
 if have_vmaf_link
   all_deps += vmaf_link_dep
 endif
+if have_libvship_headers
+  all_deps += libvship_compile_dep
+endif
 if have_vulkan_headers
   all_deps += vulkan_compile_dep
 endif
@@ -1006,6 +1064,7 @@ summary({
   'libplacebo static': have_libplacebo_headers and libplacebo_static and have_libplacebo_link,
   'VMAF': have_vmaf_headers,
   'VMAF static': have_vmaf_headers and libvmaf_static and have_vmaf_link,
+  'libvship': have_libvship_headers,
   'Vulkan': have_vulkan_headers,
   'libdovi': libdovi_dep.found(),
   'libhdr10plus': libhdr10plus_dep.found(),

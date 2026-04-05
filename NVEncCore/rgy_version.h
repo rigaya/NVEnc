@@ -97,6 +97,7 @@ const char *get_encoder_version();
 #define ENABLE_NVML 0
 #define ENABLE_NVRTC 0
 #define ENABLE_VMAF 0
+#define ENABLE_LIBVSHIP 0
 #define ENABLE_NVVFX 0
 #define ENABLE_NVOFFRUC 0
 #define ENABLE_NVSDKNGX 0
@@ -104,6 +105,7 @@ const char *get_encoder_version();
 #define ENABLE_NVML 1
 #define ENABLE_NVRTC 1
 #define ENABLE_VMAF 1
+#define ENABLE_LIBVSHIP 1
 #define ENABLE_NVVFX 1
 #define ENABLE_NVOFFRUC 1
 #define ENABLE_NVSDKNGX 1

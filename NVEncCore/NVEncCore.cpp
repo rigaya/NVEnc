@@ -4229,6 +4229,11 @@ RGY_ERR NVEncCore::InitSsimFilter(const InEncodeVideoParam *inputParam) {
         param->ssim = inputParam->common.metric.ssim;
         param->psnr = inputParam->common.metric.psnr;
         param->vmaf = inputParam->common.metric.vmaf;
+#if ENABLE_LIBVSHIP
+        param->vshipSsimu2 = inputParam->common.metric.vshipSsimu2;
+        param->vshipButteraugli = inputParam->common.metric.vshipButteraugli;
+        param->vshipCvvdp = inputParam->common.metric.vshipCvvdp;
+#endif //#if ENABLE_LIBVSHIP
         param->deviceId = m_nDeviceId;
         auto sts = filterSsim->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {

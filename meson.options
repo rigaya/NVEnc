@@ -50,6 +50,13 @@ option('libvmaf_static',
   description: 'Statically link libvmaf on Linux'
 )
 
+option('enable_libvship',
+  type: 'combo',
+  choices: ['auto', 'enabled', 'disabled'],
+  value: 'auto',
+  description: 'Enable libvship support for SSIMULACRA2/Butteraugli/CVVDP metrics (auto: enable when Vship headers are detected)'
+)
+
 option('enable_vulkan',
   type: 'combo',
   choices: ['auto', 'enabled', 'disabled'],

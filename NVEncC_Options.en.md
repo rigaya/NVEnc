@@ -1071,6 +1071,28 @@ and is highly likely to become a bottleneck and result in poor encoding performa
   Example: --vmaf model=vmaf_v0.6.1.json
   ```
 
+### --vship-ssimulacra2
+Calculate SSIMULACRA2 score using Vship library (GPU accelerated).
+
+### --vship-butteraugli [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Calculate Butteraugli score using Vship library (GPU accelerated).
+ - **Parameters**
+   - Qnorm=&lt;int&gt; (default: 2)
+     Normalization parameter for Butteraugli distance.
+   - intensity_multiplier=&lt;float&gt; (default: 80.0)
+     Intensity multiplier for calculation.
+
+### --vship-cvvdp [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Calculate CVVDP (Compressed Video Visual Difference Predictor) score using Vship library (GPU accelerated).
+A quality metric that takes temporal dependencies between frames into account.
+ - **Parameters**
+   - model=&lt;string&gt; (default: standard_4k)
+     Display model key (e.g. "standard_4k", "standard_fhd").
+   - model_config_json=&lt;string&gt;
+     Path to custom display configuration JSON file.
+   - resize=&lt;bool&gt; (default: false)
+     Resize frames to the display resolution defined by the model.
+
 ## IO / Audio / Subtitle Options
 
 ### --input-analyze &lt;float&gt;

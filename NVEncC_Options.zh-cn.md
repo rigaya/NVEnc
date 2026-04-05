@@ -1014,6 +1014,28 @@ av1 :  0, 1
 例子: --vmaf model=vmaf_v0.6.1.json
 ```
 
+### --vship-ssimulacra2
+使用Vship库计算SSIMULACRA2分数(GPU加速)。
+
+### --vship-butteraugli [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+使用Vship库计算Butteraugli分数(GPU加速)。
+ - **参数**
+   - Qnorm=&lt;int&gt; (默认: 2)
+     Butteraugli距离的归一化参数。
+   - intensity_multiplier=&lt;float&gt; (默认: 80.0)
+     计算的强度乘数。
+
+### --vship-cvvdp [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+使用Vship库计算CVVDP(Compressed Video Visual Difference Predictor)分数(GPU加速)。
+考虑帧间时间依赖性的质量指标。
+ - **参数**
+   - model=&lt;string&gt; (默认: standard_4k)
+     显示器模型键 (例: "standard_4k", "standard_fhd")。
+   - model_config_json=&lt;string&gt;
+     自定义显示配置JSON文件的路径。
+   - resize=&lt;bool&gt; (默认: false)
+     将帧调整为模型定义的显示分辨率。
+
 ## 输入输出 / 音频 / 字幕设置 
 
 ### --input-analyze &lt;int&gt;

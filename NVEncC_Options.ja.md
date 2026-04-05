@@ -1078,6 +1078,28 @@ picture timing SEIを挿入する。
   例: --vmaf model=vmaf_v0.6.1.json
   ```
 
+### --vship-ssimulacra2
+Vshipライブラリを使用してSSIMULACRA2スコアを算出する(GPU加速)。
+
+### --vship-butteraugli [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Vshipライブラリを使用してButteraugliスコアを算出する(GPU加速)。
+ - **パラメータ**
+   - Qnorm=&lt;int&gt; (デフォルト: 2)
+     Butteraugli距離の正規化パラメータ。
+   - intensity_multiplier=&lt;float&gt; (デフォルト: 80.0)
+     計算の強度乗数。
+
+### --vship-cvvdp [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Vshipライブラリを使用してCVVDP(Compressed Video Visual Difference Predictor)スコアを算出する(GPU加速)。
+フレーム間の時間的依存性を考慮した品質メトリクス。
+ - **パラメータ**
+   - model=&lt;string&gt; (デフォルト: standard_4k)
+     ディスプレイモデルキー (例: "standard_4k", "standard_fhd")。
+   - model_config_json=&lt;string&gt;
+     カスタム表示設定JSONファイルのパス。
+   - resize=&lt;bool&gt; (デフォルト: false)
+     モデルで定義されたディスプレイ解像度にフレームをリサイズする。
+
 ## 入出力 / 音声 / 字幕などのオプション
 
 ### --input-analyze &lt;float&gt;

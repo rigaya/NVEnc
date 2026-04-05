@@ -6487,6 +6487,106 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
 #endif
+#if ENABLE_LIBVSHIP
+    if (IS_OPTION("no-vship-ssimulacra2")) {
+        common->metric.vshipSsimu2.enable = false;
+        return 0;
+    }
+    if (IS_OPTION("vship-ssimulacra2")) {
+        common->metric.vshipSsimu2.enable = true;
+        return 0;
+    }
+    if (IS_OPTION("no-vship-butteraugli")) {
+        common->metric.vshipButteraugli.enable = false;
+        return 0;
+    }
+    if (IS_OPTION("vship-butteraugli")) {
+        common->metric.vshipButteraugli.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "Qnorm", "intensity_multiplier" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("Qnorm")) {
+                    try {
+                        common->metric.vshipButteraugli.Qnorm = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("intensity_multiplier")) {
+                    try {
+                        common->metric.vshipButteraugli.intensity_multiplier = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("no-vship-cvvdp")) {
+        common->metric.vshipCvvdp.enable = false;
+        return 0;
+    }
+    if (IS_OPTION("vship-cvvdp")) {
+        common->metric.vshipCvvdp.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "model", "model_config_json", "resize" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("model")) {
+                    common->metric.vshipCvvdp.model = trim(param_val, _T("\""));
+                    continue;
+                }
+                if (param_arg == _T("model_config_json")) {
+                    common->metric.vshipCvvdp.model_config_json = trim(param_val, _T("\""));
+                    continue;
+                }
+                if (param_arg == _T("resize")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        common->metric.vshipCvvdp.resize = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+#endif //#if ENABLE_LIBVSHIP
     if (IS_OPTION("disable-av1-write-parser")) {
         common->debugDirectAV1Out = true;
         return 0;
@@ -8585,6 +8685,36 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T(" --vmaf ") << tmp.str().substr(1);
         }
     }
+#if ENABLE_LIBVSHIP
+    OPT_BOOL(_T("--vship-ssimulacra2"), _T("--no-vship-ssimulacra2"), metric.vshipSsimu2.enable);
+    if (param->metric.vshipButteraugli != defaultPrm->metric.vshipButteraugli) {
+        tmp.str(tstring());
+        if (!param->metric.vshipButteraugli.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->metric.vshipButteraugli.enable || save_disabled_prm) {
+            ADD_NUM(_T("Qnorm"), metric.vshipButteraugli.Qnorm);
+            ADD_NUM(_T("intensity_multiplier"), metric.vshipButteraugli.intensity_multiplier);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vship-butteraugli ") << tmp.str().substr(1);
+        }
+    }
+    if (param->metric.vshipCvvdp != defaultPrm->metric.vshipCvvdp) {
+        tmp.str(tstring());
+        if (!param->metric.vshipCvvdp.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->metric.vshipCvvdp.enable || save_disabled_prm) {
+            ADD_STR(_T("model"), metric.vshipCvvdp.model);
+            ADD_STR(_T("model_config_json"), metric.vshipCvvdp.model_config_json);
+            ADD_BOOL(_T("resize"), metric.vshipCvvdp.resize);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vship-cvvdp ") << tmp.str().substr(1);
+        }
+    }
+#endif //#if ENABLE_LIBVSHIP
     OPT_BOOL(_T("--offset-video-dts-advance"), _T(""), offsetVideoDtsAdvance);
     OPT_BOOL(_T("--allow-other-negative-pts"), _T(""), allowOtherNegativePts);
     OPT_BOOL(_T("--disable-av1-write-parser"), _T("--no-disable-av1-write-parser"), debugDirectAV1Out);
@@ -9052,6 +9182,26 @@ tstring gen_cmd_help_common() {
         _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n"),
         VMAF_DEFAULT_MODEL_VERSION);
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+    str += _T("")
+        _T("   --vship-ssimulacra2          calc SSIMULACRA2 score using libvship.\n")
+        _T("   --no-vship-ssimulacra2       disable SSIMULACRA2 score calculation.\n")
+        _T("\n")
+        _T("   --vship-butteraugli [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Calc Butteraugli score using libvship.\n")
+        _T("    params\n")
+        _T("      Qnorm=<int>               norm for Butteraugli score aggregation [default:2].\n")
+        _T("      intensity_multiplier=<float>\n")
+        _T("                                intensity multiplier for Butteraugli [default:80.0].\n")
+        _T("\n")
+        _T("   --vship-cvvdp [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Calc ColorVideoVDP score using libvship.\n")
+        _T("    params\n")
+        _T("      model=<string>            set cvvdp model name [default:standard_4k].\n")
+        _T("      model_config_json=<string> set path to cvvdp model config json.\n")
+        _T("      resize=<bool>             resize frames before cvvdp calculation [default:false].\n")
+        _T("\n");
+#endif //#if ENABLE_LIBVSHIP
     return str;
 }
 

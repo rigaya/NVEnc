@@ -37,6 +37,7 @@
 #include "rgy_osdep.h"
 #include "rgy_event.h"
 #include "rgy_libvmaf.h"
+#include "rgy_libvship.h"
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
@@ -52,13 +53,22 @@ public:
     bool ssim;
     bool psnr;
     VMAFParam vmaf;
+#if ENABLE_LIBVSHIP
+    VshipSSIMU2Param vshipSsimu2;
+    VshipButteraugliParam vshipButteraugli;
+    VshipCVVDPParam vshipCvvdp;
+#endif //#if ENABLE_LIBVSHIP
     int deviceId;
     CUvideoctxlock vidctxlock;
     VideoInfo input;
     rgy_rational<int> streamtimebase;
     RGYParamThread threadParamCompare;
 
-    NVEncFilterParamSsim() : ssim(true), psnr(false), vmaf(), deviceId(0), vidctxlock(), input(), streamtimebase(), threadParamCompare() {
+    NVEncFilterParamSsim() : ssim(true), psnr(false), vmaf()
+#if ENABLE_LIBVSHIP
+        , vshipSsimu2(), vshipButteraugli(), vshipCvvdp()
+#endif //#if ENABLE_LIBVSHIP
+        , deviceId(0), vidctxlock(), input(), streamtimebase(), threadParamCompare() {
 
     };
     virtual ~NVEncFilterParamSsim() {};
@@ -80,6 +90,31 @@ struct NVEncFilterVMAFData {
 };
 #endif //#if ENABLE_VMAF
 
+#if ENABLE_LIBVSHIP
+struct NVEncFilterVshipData {
+    std::array<HANDLE, 2> heProcFin;
+    std::atomic<bool> abort;
+    std::atomic<bool> input_fin;
+    std::atomic<int> procIndex;
+    int error;
+    // SSIMU2スコア蓄積
+    double ssimu2Total;
+    int ssimu2Frames;
+    // Butteraugliスコア蓄積
+    double butteraugliTotalNormQ;
+    double butteraugliTotalNorm3;
+    double butteraugliTotalNorminf;
+    int butteraugliFrames;
+    // CVVDPスコア (テンポラル、最終値)
+    double cvvdpScore;
+    std::thread thread;
+
+    void thread_fin(bool abortThread = true);
+    NVEncFilterVshipData();
+    ~NVEncFilterVshipData();
+};
+#endif //#if ENABLE_LIBVSHIP
+
 class NVEncFilterSsim : public NVEncFilter {
 public:
     NVEncFilterSsim();
@@ -89,6 +124,7 @@ public:
     bool decodeStarted() { return m_decodeStarted; }
     RGY_ERR thread_func_ssim_psnr(RGYParamThread threadParam);
     RGY_ERR thread_func_vmaf(RGYParamThread threadParam);
+    RGY_ERR thread_func_vship(RGYParamThread threadParam);
     RGY_ERR compare_frames(bool flush);
 
     RGY_ERR addBitstream(const RGYBitstream *bitstream);
@@ -99,6 +135,9 @@ public:
 #if ENABLE_VMAF
     NVEncFilterVMAFData &vmaf() { return m_vmaf; }
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+    NVEncFilterVshipData &vship() { return m_vship; }
+#endif //#if ENABLE_LIBVSHIP
     int frameHostSendIndex() const { return m_frameHostSendIndex.load(); }
 protected:
     RGY_ERR init_cuda_resources();
@@ -130,6 +169,10 @@ protected:
     NVEncFilterVMAFData m_vmaf;
     RGYLibVMAFLoader m_libvmaf;
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+    NVEncFilterVshipData m_vship;
+    RGYLibVshipLoader m_libvship;
+#endif //#if ENABLE_LIBVSHIP
     std::unique_ptr<CUFrameBuf> m_decFrameCopy; //デコード後にcrop(NV12->YV12変換)したフレームの格納場所
     std::array<CUMemBufPair, 3> m_tmpSsim; //評価結果を返すための一時バッファ
     std::array<CUMemBufPair, 3> m_tmpPsnr; //評価結果を返すための一時バッファ

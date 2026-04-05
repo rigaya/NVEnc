@@ -49,6 +49,11 @@ tstring NVEncFilterParamSsim::print() const {
     if (ssim) str += _T("ssim ");
     if (psnr) str += _T("psnr ");
     if (vmaf.enable) str += vmaf.print();
+#if ENABLE_LIBVSHIP
+    if (vshipSsimu2.enable) str += vshipSsimu2.print() + _T(" ");
+    if (vshipButteraugli.enable) str += vshipButteraugli.print() + _T(" ");
+    if (vshipCvvdp.enable) str += vshipCvvdp.print() + _T(" ");
+#endif //#if ENABLE_LIBVSHIP
     return str;
 }
 
@@ -72,6 +77,10 @@ NVEncFilterSsim::NVEncFilterSsim() :
     m_vmaf(),
     m_libvmaf(),
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+    m_vship(),
+    m_libvship(),
+#endif //#if ENABLE_LIBVSHIP
     m_decFrameCopy(),
     m_tmpSsim(),
     m_tmpPsnr(),
@@ -85,12 +94,49 @@ NVEncFilterSsim::NVEncFilterSsim() :
     m_psnrTotalPlane(),
     m_psnrTotal(0.0),
     m_frames(0) {
-    m_name = _T("ssim/psnr/vmaf");
+    m_name = _T("ssim/psnr/vmaf/vship");
 }
 
 NVEncFilterSsim::~NVEncFilterSsim() {
     close();
 }
+
+#if ENABLE_LIBVSHIP
+NVEncFilterVshipData::NVEncFilterVshipData() :
+    heProcFin(),
+    abort(false),
+    input_fin(false),
+    procIndex(0),
+    error(0),
+    ssimu2Total(0.0),
+    ssimu2Frames(0),
+    butteraugliTotalNormQ(0.0),
+    butteraugliTotalNorm3(0.0),
+    butteraugliTotalNorminf(0.0),
+    butteraugliFrames(0),
+    cvvdpScore(0.0),
+    thread() {
+    for (auto &event : heProcFin) {
+        event = CreateEvent(nullptr, false, false, nullptr);
+    }
+};
+NVEncFilterVshipData::~NVEncFilterVshipData() {
+    for (auto &event : heProcFin) {
+        if (event) {
+            CloseEvent(event);
+            event = nullptr;
+        }
+    }
+    thread_fin();
+}
+void NVEncFilterVshipData::thread_fin(bool abortThread) {
+    abort.store(abort.load() || abortThread);
+    input_fin = true;
+    if (thread.joinable()) {
+        thread.join();
+    }
+}
+#endif //#if ENABLE_LIBVSHIP
 
 RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
@@ -140,7 +186,12 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     AddMessage(RGY_LOG_DEBUG, _T("ssim original format %s -> %s.\n"), RGY_CSP_NAMES[pParam->frameIn.csp], RGY_CSP_NAMES[pParam->frameOut.csp]);
 
     m_cropDToH.reset();
-    if (prm->vmaf.enable) {
+    const bool needCropDToH = prm->vmaf.enable
+#if ENABLE_LIBVSHIP
+        || prm->vshipSsimu2.enable || prm->vshipButteraugli.enable || prm->vshipCvvdp.enable
+#endif //#if ENABLE_LIBVSHIP
+        ;
+    if (needCropDToH) {
         unique_ptr<NVEncFilterCspCrop> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
         paramCrop->frameIn = pParam->frameOut;
@@ -157,17 +208,26 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         m_cropDToH = std::move(filterCrop);
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_cropDToH->GetInputMessage().c_str());
 
-        if (prm->vmaf.model.length() == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("\"model\" not set for vmaf.\n"));
-            return RGY_ERR_INVALID_PARAM;
-        }
-
+        if (prm->vmaf.enable) {
+            if (prm->vmaf.model.length() == 0) {
+                AddMessage(RGY_LOG_ERROR, _T("\"model\" not set for vmaf.\n"));
+                return RGY_ERR_INVALID_PARAM;
+            }
 #if ENABLE_VMAF
-        if (!m_libvmaf.load()) {
-            AddMessage(RGY_LOG_ERROR, _T("--vmaf requires \"%s\", not available on your system.\n"), RGY_LIBVMAF_FILENAME);
-            return RGY_ERR_UNSUPPORTED;
-        }
+            if (!m_libvmaf.load()) {
+                AddMessage(RGY_LOG_ERROR, _T("--vmaf requires \"%s\", not available on your system.\n"), RGY_LIBVMAF_FILENAME);
+                return RGY_ERR_UNSUPPORTED;
+            }
 #endif
+        }
+#if ENABLE_LIBVSHIP
+        if (prm->vshipSsimu2.enable || prm->vshipButteraugli.enable || prm->vshipCvvdp.enable) {
+            if (!m_libvship.load()) {
+                AddMessage(RGY_LOG_ERROR, _T("--vship-* requires \"%s\", not available on your system.\n"), RGY_LIBVSHIP_DLL_NAME);
+                return RGY_ERR_UNSUPPORTED;
+            }
+        }
+#endif //#if ENABLE_LIBVSHIP
     }
 
     {
@@ -357,8 +417,13 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         }
         AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreate for m_cropEvent: Success.\n"));
 
-        if (prm->vmaf.enable) {
-            //VMAF用のスレッドで使用するリソースもすべてスレッド内で作成する
+        const bool needHostFrames = prm->vmaf.enable
+#if ENABLE_LIBVSHIP
+            || prm->vshipSsimu2.enable || prm->vshipButteraugli.enable || prm->vshipCvvdp.enable
+#endif //#if ENABLE_LIBVSHIP
+            ;
+        if (needHostFrames) {
+            //VMAF/Vship用のスレッドで使用するリソースもすべてスレッド内で作成する
             const auto frameInfo = m_cropDToH->GetFilterParam()->frameOut;
             for (auto &frame : m_frameHostOrg) {
                 frame = std::make_unique<CUFrameBuf>(frameInfo.width, frameInfo.height, frameInfo.csp);
@@ -378,9 +443,17 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             }
 
 #if ENABLE_VMAF
-            m_vmaf.thread = std::thread(&NVEncFilterSsim::thread_func_vmaf, this, prm->threadParamCompare);
-            AddMessage(RGY_LOG_DEBUG, _T("Started vmaf calculation thread.\n"));
+            if (prm->vmaf.enable) {
+                m_vmaf.thread = std::thread(&NVEncFilterSsim::thread_func_vmaf, this, prm->threadParamCompare);
+                AddMessage(RGY_LOG_DEBUG, _T("Started vmaf calculation thread.\n"));
+            }
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+            if (prm->vshipSsimu2.enable || prm->vshipButteraugli.enable || prm->vshipCvvdp.enable) {
+                m_vship.thread = std::thread(&NVEncFilterSsim::thread_func_vship, this, prm->threadParamCompare);
+                AddMessage(RGY_LOG_DEBUG, _T("Started vship calculation thread.\n"));
+            }
+#endif //#if ENABLE_LIBVSHIP
         }
     }
     return RGY_ERR_NONE;
@@ -528,6 +601,28 @@ void NVEncFilterSsim::showResult() {
         }
     }
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+    if (prm->vshipSsimu2.enable) {
+        if (m_vship.ssimu2Frames > 0) {
+            AddMessage(RGY_LOG_INFO, _T("SSIMU2 Score %.6f (Frames: %d)\n"),
+                m_vship.ssimu2Total / m_vship.ssimu2Frames, m_vship.ssimu2Frames);
+        }
+    }
+    if (prm->vshipButteraugli.enable) {
+        if (m_vship.butteraugliFrames > 0) {
+            AddMessage(RGY_LOG_INFO, _T("Butteraugli normQ: %.6f, norm3: %.6f, norminf: %.6f (Frames: %d)\n"),
+                m_vship.butteraugliTotalNormQ / m_vship.butteraugliFrames,
+                m_vship.butteraugliTotalNorm3 / m_vship.butteraugliFrames,
+                m_vship.butteraugliTotalNorminf / m_vship.butteraugliFrames,
+                m_vship.butteraugliFrames);
+        }
+    }
+    if (prm->vshipCvvdp.enable) {
+        if (m_vship.error == 0) {
+            AddMessage(RGY_LOG_INFO, _T("CVVDP Score %.6f\n"), m_vship.cvvdpScore);
+        }
+    }
+#endif //#if ENABLE_LIBVSHIP
 }
 
 #if ENABLE_VMAF
@@ -808,6 +903,286 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
 }
 #endif //#if ENABLE_VMAF
 
+#if ENABLE_LIBVSHIP
+static Vship_Colorspace_t buildVshipColorspace(const RGYFrameInfo &frameInfo, const VideoVUIInfo &vui) {
+    Vship_Colorspace_t cs = {};
+    cs.width = frameInfo.width;
+    cs.height = frameInfo.height;
+    cs.target_width = -1;
+    cs.target_height = -1;
+
+    // bit depth → sample type
+    switch (RGY_CSP_BIT_DEPTH[frameInfo.csp]) {
+    case 8:  cs.sample = Vship_SampleUINT8;  break;
+    case 9:  cs.sample = Vship_SampleUINT9;  break;
+    case 10: cs.sample = Vship_SampleUINT10; break;
+    case 12: cs.sample = Vship_SampleUINT12; break;
+    case 14: cs.sample = Vship_SampleUINT14; break;
+    case 16: cs.sample = Vship_SampleUINT16; break;
+    default: cs.sample = Vship_SampleUINT8;  break;
+    }
+
+    // color range
+    cs.range = (vui.colorrange == RGY_COLORRANGE_FULL) ? Vship_RangeFull : Vship_RangeLimited;
+
+    // chroma subsampling
+    switch (RGY_CSP_CHROMA_FORMAT[frameInfo.csp]) {
+    case RGY_CHROMAFMT_YUV420:
+        cs.subsampling.subw = 1;
+        cs.subsampling.subh = 1;
+        break;
+    case RGY_CHROMAFMT_YUV422:
+        cs.subsampling.subw = 1;
+        cs.subsampling.subh = 0;
+        break;
+    case RGY_CHROMAFMT_YUV444:
+        cs.subsampling.subw = 0;
+        cs.subsampling.subh = 0;
+        break;
+    default:
+        cs.subsampling.subw = 1;
+        cs.subsampling.subh = 1;
+        break;
+    }
+
+    // chroma location (left by default for YUV420)
+    cs.chromaLocation = Vship_ChromaLoc_Left;
+
+    // color family (deprecated but fill it)
+    cs.colorFamily = Vship_ColorYUV;
+
+    // YUV matrix
+    switch (vui.matrix) {
+    case RGY_MATRIX_BT709:       cs.YUVMatrix = Vship_MATRIX_BT709;       break;
+    case RGY_MATRIX_BT470_BG:    cs.YUVMatrix = Vship_MATRIX_BT470_BG;    break;
+    case RGY_MATRIX_ST170_M:     cs.YUVMatrix = Vship_MATRIX_ST170_M;     break;
+    case RGY_MATRIX_YCGCO:       cs.YUVMatrix = Vship_MATRIX_YCGCO;       break;
+    case RGY_MATRIX_BT2020_NCL:  cs.YUVMatrix = Vship_MATRIX_BT2020_NCL;  break;
+    case RGY_MATRIX_BT2020_CL:   cs.YUVMatrix = Vship_MATRIX_BT2020_CL;   break;
+    case RGY_MATRIX_ICTCP:       cs.YUVMatrix = Vship_MATRIX_BT2100_ICTCP; break;
+    default:                      cs.YUVMatrix = Vship_MATRIX_BT709;       break;
+    }
+
+    // transfer function
+    switch (vui.transfer) {
+    case RGY_TRANSFER_BT709:        cs.transferFunction = Vship_TRC_BT709;   break;
+    case RGY_TRANSFER_BT470_M:      cs.transferFunction = Vship_TRC_BT470_M; break;
+    case RGY_TRANSFER_BT470_BG:     cs.transferFunction = Vship_TRC_BT470_BG; break;
+    case RGY_TRANSFER_BT601:        cs.transferFunction = Vship_TRC_BT601;   break;
+    case RGY_TRANSFER_ST240_M:      cs.transferFunction = Vship_TRC_ST240_M; break;
+    case RGY_TRANSFER_LINEAR:       cs.transferFunction = Vship_TRC_Linear;  break;
+    case RGY_TRANSFER_IEC61966_2_1: cs.transferFunction = Vship_TRC_sRGB;    break;
+    case RGY_TRANSFER_ST2084:       cs.transferFunction = Vship_TRC_PQ;      break;
+    case RGY_TRANSFER_ARIB_B67:     cs.transferFunction = Vship_TRC_HLG;     break;
+    default:                         cs.transferFunction = Vship_TRC_BT709;   break;
+    }
+
+    // primaries
+    switch (vui.colorprim) {
+    case RGY_PRIM_BT709:    cs.primaries = Vship_PRIMARIES_BT709;      break;
+    case RGY_PRIM_BT470_M:  cs.primaries = Vship_PRIMARIES_BT470_M;    break;
+    case RGY_PRIM_BT470_BG: cs.primaries = Vship_PRIMARIES_BT470_BG;   break;
+    case RGY_PRIM_ST170_M:  cs.primaries = Vship_PRIMARIES_ST170_M;    break;
+    case RGY_PRIM_ST240_M:  cs.primaries = Vship_PRIMARIES_ST240_M;    break;
+    case RGY_PRIM_BT2020:   cs.primaries = Vship_PRIMARIES_BT2020;     break;
+    case RGY_PRIM_ST432_1:  cs.primaries = Vship_PRIMARIES_DisplayP3;  break;
+    default:                 cs.primaries = Vship_PRIMARIES_BT709;      break;
+    }
+
+    cs.crop = { 0, 0, 0, 0 };
+    return cs;
+}
+
+RGY_ERR NVEncFilterSsim::thread_func_vship(RGYParamThread threadParam) {
+    threadParam.apply(GetCurrentThread());
+    AddMessage(RGY_LOG_DEBUG, _T("Set vship calculation thread param: %s.\n"), threadParam.desc().c_str());
+    m_vship.abort = false;
+    m_vship.input_fin = false;
+    m_vship.procIndex = 0;
+    m_vship.error = 0;
+    m_vship.ssimu2Total = 0.0;
+    m_vship.ssimu2Frames = 0;
+    m_vship.butteraugliTotalNormQ = 0.0;
+    m_vship.butteraugliTotalNorm3 = 0.0;
+    m_vship.butteraugliTotalNorminf = 0.0;
+    m_vship.butteraugliFrames = 0;
+    m_vship.cvvdpScore = 0.0;
+    // VMAFが無効でVshipのみの場合はここでリセット (VMAFありの場合はthread_func_vmafが初期化)
+    m_frameHostSendIndex = 0;
+    const auto frameInfo = m_frameHostEnc[0]->frame;
+
+    // エラー終了時に m_vship.abort を自動設定するガード
+    struct AbortOnError {
+        NVEncFilterVshipData& data;
+        bool succeeded = false;
+        AbortOnError(NVEncFilterVshipData& d) : data(d) {}
+        ~AbortOnError() { if (!succeeded) data.abort.store(true); }
+    } abortGuard(m_vship);
+
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    // 両フレームのVshipカラースペース情報を構築 (同じフォーマット・色情報)
+    const auto vshipCs = buildVshipColorspace(frameInfo, prm->input.vui);
+
+    // heProcFinを初期状態でシグナル済みにする (最初のフレームで待たないように)
+    for (auto &handle : m_vship.heProcFin) {
+        SetEvent(handle);
+    }
+
+    // デバイスID設定
+    if (m_libvship.p_Vship_SetDevice()(m_deviceId) != Vship_NoError) {
+        AddMessage(RGY_LOG_WARN, _T("Vship_SetDevice(%d) failed, using default device.\n"), m_deviceId);
+    }
+
+    // ハンドラ初期化
+    Vship_SSIMU2Handler ssimu2Handler = {};
+    Vship_ButteraugliHandler buttHandler = {};
+    Vship_CVVDPHandler cvvdpHandler = {};
+    bool ssimu2Inited = false;
+    bool buttInited = false;
+    bool cvvdpInited = false;
+
+    if (prm->vshipSsimu2.enable) {
+        auto err = m_libvship.p_Vship_SSIMU2Init2()(&ssimu2Handler, vshipCs, vshipCs, m_deviceId);
+        if (err != Vship_NoError) {
+            AddMessage(RGY_LOG_ERROR, _T("Vship_SSIMU2Init2 failed: %d\n"), (int)err);
+            return RGY_ERR_UNKNOWN;
+        }
+        ssimu2Inited = true;
+        AddMessage(RGY_LOG_DEBUG, _T("Vship_SSIMU2Init2: success.\n"));
+    }
+    if (prm->vshipButteraugli.enable) {
+        auto err = m_libvship.p_Vship_ButteraugliInit2()(&buttHandler, vshipCs, vshipCs,
+            prm->vshipButteraugli.Qnorm, prm->vshipButteraugli.intensity_multiplier, m_deviceId);
+        if (err != Vship_NoError) {
+            AddMessage(RGY_LOG_ERROR, _T("Vship_ButteraugliInit2 failed: %d\n"), (int)err);
+            if (ssimu2Inited) m_libvship.p_Vship_SSIMU2Free()(ssimu2Handler);
+            return RGY_ERR_UNKNOWN;
+        }
+        buttInited = true;
+        AddMessage(RGY_LOG_DEBUG, _T("Vship_ButteraugliInit2: success.\n"));
+    }
+    if (prm->vshipCvvdp.enable) {
+        std::string model_str, config_str;
+        tchar_to_string(prm->vshipCvvdp.model.c_str(), model_str);
+        tchar_to_string(prm->vshipCvvdp.model_config_json.c_str(), config_str);
+        const float fps = (prm->baseFps.d() > 0) ? (float)prm->baseFps.n() / (float)prm->baseFps.d() : 24.0f;
+        auto err = m_libvship.p_Vship_CVVDPInit3()(&cvvdpHandler, vshipCs, vshipCs,
+            fps, prm->vshipCvvdp.resize,
+            model_str.c_str(), config_str.empty() ? nullptr : config_str.c_str(),
+            m_deviceId);
+        if (err != Vship_NoError) {
+            AddMessage(RGY_LOG_ERROR, _T("Vship_CVVDPInit3 failed: %d\n"), (int)err);
+            if (ssimu2Inited) m_libvship.p_Vship_SSIMU2Free()(ssimu2Handler);
+            if (buttInited) m_libvship.p_Vship_ButteraugliFree()(buttHandler);
+            return RGY_ERR_UNKNOWN;
+        }
+        cvvdpInited = true;
+        AddMessage(RGY_LOG_DEBUG, _T("Vship_CVVDPInit3: success.\n"));
+    }
+
+    // フレームループ
+    for (int frameIdx = 0; !m_vship.abort.load(); frameIdx++) {
+        // procIndexが進むまで待つ (compare_framesがm_frameHostSendIndexを+1した後)
+        int frameHostSendIndex = m_frameHostSendIndex.load();
+        while (frameIdx >= frameHostSendIndex) {
+            if (m_vship.abort.load()) goto cleanup;
+            if (m_vship.input_fin.load()) goto cleanup;
+            std::this_thread::sleep_for(std::chrono::milliseconds(0));
+            frameHostSendIndex = m_frameHostSendIndex.load();
+        }
+
+        {
+            auto &framesEnc = m_frameHostEnc[frameIdx % m_frameHostEnc.size()];
+            auto &framesOrg = m_frameHostOrg[frameIdx % m_frameHostOrg.size()];
+
+            // cuda転送完了待ち
+            if (cudaEventSynchronize(framesOrg->event) != cudaSuccess
+                || cudaEventSynchronize(framesEnc->event) != cudaSuccess) {
+                AddMessage(RGY_LOG_ERROR, _T("cudaEventSynchronize failed in vship thread.\n"));
+                goto cleanup;
+            }
+
+            // planarポインタ構築 (src=org/ref, dis=enc/distorted)
+            const uint8_t *srcp[3] = { nullptr, nullptr, nullptr }; // org (reference)
+            const uint8_t *disp[3] = { nullptr, nullptr, nullptr }; // enc (distorted)
+            int64_t srcLineSize[3] = { 0, 0, 0 };
+            int64_t disLineSize[3] = { 0, 0, 0 };
+            const int nPlanes = RGY_CSP_PLANES[frameInfo.csp];
+            for (int i = 0; i < nPlanes; i++) {
+                const auto planeOrg = getPlane(&framesOrg->frame, (RGY_PLANE)i);
+                const auto planeEnc = getPlane(&framesEnc->frame, (RGY_PLANE)i);
+                srcp[i] = planeOrg.ptr[0];
+                disp[i] = planeEnc.ptr[0];
+                srcLineSize[i] = planeOrg.pitch[0];
+                disLineSize[i] = planeEnc.pitch[0];
+            }
+
+            // SSIMU2
+            if (ssimu2Inited) {
+                double score = 0.0;
+                auto err = m_libvship.p_Vship_ComputeSSIMU2()(ssimu2Handler, &score,
+                    srcp, disp, srcLineSize, disLineSize);
+                if (err != Vship_NoError) {
+                    AddMessage(RGY_LOG_ERROR, _T("Vship_ComputeSSIMU2 failed at frame %d: %d\n"), frameIdx, (int)err);
+                    m_vship.error = (int)err;
+                } else {
+                    m_vship.ssimu2Total += score;
+                    m_vship.ssimu2Frames++;
+                }
+            }
+
+            // Butteraugli
+            if (buttInited) {
+                Vship_ButteraugliScore score = {};
+                auto err = m_libvship.p_Vship_ComputeButteraugli()(buttHandler, &score,
+                    nullptr, 0, // dstp=nullptr: distortion map不要
+                    srcp, disp, srcLineSize, disLineSize);
+                if (err != Vship_NoError) {
+                    AddMessage(RGY_LOG_ERROR, _T("Vship_ComputeButteraugli failed at frame %d: %d\n"), frameIdx, (int)err);
+                    m_vship.error = (int)err;
+                } else {
+                    m_vship.butteraugliTotalNormQ += score.normQ;
+                    m_vship.butteraugliTotalNorm3 += score.norm3;
+                    m_vship.butteraugliTotalNorminf += score.norminf;
+                    m_vship.butteraugliFrames++;
+                }
+            }
+
+            // CVVDP (テンポラル: 毎フレーム呼ぶ。返り値は累積スコア)
+            if (cvvdpInited) {
+                double score = 0.0;
+                auto err = m_libvship.p_Vship_ComputeCVVDP()(cvvdpHandler, &score,
+                    nullptr, 0, // dstp=nullptr: distortion map不要
+                    srcp, disp, srcLineSize, disLineSize);
+                if (err != Vship_NoError) {
+                    AddMessage(RGY_LOG_ERROR, _T("Vship_ComputeCVVDP failed at frame %d: %d\n"), frameIdx, (int)err);
+                    m_vship.error = (int)err;
+                } else {
+                    m_vship.cvvdpScore = score; // 最終値を常に更新
+                }
+            }
+
+            // 処理完了を通知 (compare_framesの次フレーム送信を許可)
+            SetEvent(m_vship.heProcFin[frameIdx % m_vship.heProcFin.size()]);
+        }
+    }
+
+cleanup:
+    // ハンドラ解放
+    if (cvvdpInited)  m_libvship.p_Vship_CVVDPFree()(cvvdpHandler);
+    if (buttInited)   m_libvship.p_Vship_ButteraugliFree()(buttHandler);
+    if (ssimu2Inited) m_libvship.p_Vship_SSIMU2Free()(ssimu2Handler);
+
+    abortGuard.succeeded = (m_vship.error == 0);
+    return (m_vship.error == 0) ? RGY_ERR_NONE : RGY_ERR_UNKNOWN;
+}
+#endif //#if ENABLE_LIBVSHIP
+
 RGY_ERR NVEncFilterSsim::thread_func_ssim_psnr(RGYParamThread threadParam) {
     threadParam.apply(GetCurrentThread());
     AddMessage(RGY_LOG_DEBUG, _T("Set ssim/psnr calculation thread param: %s.\n"), threadParam.desc().c_str());
@@ -821,6 +1196,9 @@ RGY_ERR NVEncFilterSsim::thread_func_ssim_psnr(RGYParamThread threadParam) {
 #if ENABLE_VMAF
     m_vmaf.thread_fin(false);
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+    m_vship.thread_fin(false);
+#endif //#if ENABLE_LIBVSHIP
     close_cuda_resources();
     return ret;
 }
@@ -912,16 +1290,25 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             }
         }
         if (m_cropDToH) {
-#if ENABLE_VMAF
             const auto frameHostSendIndex = m_frameHostSendIndex.load();
-            while (WaitForSingleObject(m_vmaf.heProcFin[frameHostSendIndex % m_vmaf.heProcFin.size()], 100) == WAIT_TIMEOUT) {
-                if (m_abort.load() || m_vmaf.abort.load()) {
-                    return RGY_ERR_UNKNOWN;
+#if ENABLE_VMAF
+            if (prm->vmaf.enable) {
+                while (WaitForSingleObject(m_vmaf.heProcFin[frameHostSendIndex % m_vmaf.heProcFin.size()], 100) == WAIT_TIMEOUT) {
+                    if (m_abort.load() || m_vmaf.abort.load()) {
+                        return RGY_ERR_UNKNOWN;
+                    }
                 }
             }
-#else
-            const auto frameHostSendIndex = m_frameHostSendIndex.load();
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+            if (prm->vshipSsimu2.enable || prm->vshipButteraugli.enable || prm->vshipCvvdp.enable) {
+                while (WaitForSingleObject(m_vship.heProcFin[frameHostSendIndex % m_vship.heProcFin.size()], 100) == WAIT_TIMEOUT) {
+                    if (m_abort.load() || m_vship.abort.load()) {
+                        return RGY_ERR_UNKNOWN;
+                    }
+                }
+            }
+#endif //#if ENABLE_LIBVSHIP
             {
                 int cropFilterOutputNum = 0;
                 auto &frameHostOrg = m_frameHostOrg[frameHostSendIndex % m_frameHostOrg.size()];
@@ -1011,6 +1398,9 @@ void NVEncFilterSsim::close() {
 #if ENABLE_VMAF
     m_libvmaf.close();
 #endif //#if ENABLE_VMAF
+#if ENABLE_LIBVSHIP
+    m_libvship.close();
+#endif //#if ENABLE_LIBVSHIP
     AddMessage(RGY_LOG_DEBUG, _T("closed ssim/psnr filter.\n"));
 }
 
