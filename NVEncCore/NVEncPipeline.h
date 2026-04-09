@@ -1651,7 +1651,7 @@ public:
     RGY_ERR extractAudio(int inputFrames) {
         RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVSW_READER
-        if (m_pWriterForAudioStreams.size() > 0) {
+        if ((m_pWriterForAudioStreams.size() + m_filterForStreams.size()) > 0) {
 #if ENABLE_SM_READER
             RGYInputSM *pReaderSM = dynamic_cast<RGYInputSM *>(m_input);
             const int droppedInAviutl = (pReaderSM != nullptr) ? pReaderSM->droppedFrames() : 0;
