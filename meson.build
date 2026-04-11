@@ -490,39 +490,29 @@ int main(void) {
   return 0;
 }
 '''
-  # libvship はヘッダ参照だけで利用できるため、まず cpp_args で渡された
-  # include path 上に VshipAPI.h があるかを確認する。
-  have_libvship_headers = cpp.compiles(
-    libvship_headers_code,
-    args: get_option('cpp_args'),
-  )
-  if have_libvship_headers
-    message('Using Vship headers from the custom include path')
-  endif
-  # カスタムパスで検索
-  if not have_libvship_headers
-    libvship_header_search_dirs = [
-      source_root / '..' / 'Vship' / 'src',
-      build_root / '..' / 'Vship' / 'src',
-      build_root / '..' / '..' / 'Vship' / 'src',
-    ]
-    foreach dir : libvship_header_search_dirs
-      if not have_libvship_headers and fs.is_dir(dir)
-        libvship_candidate_dep = declare_dependency(
-          compile_args: ['-I' + dir],
-        )
-        have_libvship_headers = cpp.compiles(
-          libvship_headers_code,
-          dependencies: libvship_candidate_dep,
-          args: get_option('cpp_args'),
-        )
-        if have_libvship_headers
-          libvship_compile_dep = libvship_candidate_dep
-          message('Using Vship headers from: ' + dir)
-        endif
+  # libvship はヘッダ参照だけで利用できるため、cpp_args で渡された include
+  # path を C++ 側で確認し、CUDA 側にはその -I を複写する。
+  libvship_header_search_dirs = [
+    source_root / '..' / 'Vship' / 'src',
+    build_root / '..' / 'Vship' / 'src',
+    build_root / '..' / '..' / 'Vship' / 'src',
+  ]
+  foreach dir : libvship_header_search_dirs
+    if not have_libvship_headers and fs.is_dir(dir)
+      libvship_candidate_dep = declare_dependency(
+        compile_args: ['-I' + dir],
+      )
+      have_libvship_headers = cpp.compiles(
+        libvship_headers_code,
+        dependencies: libvship_candidate_dep,
+        args: get_option('cpp_args'),
+      )
+      if have_libvship_headers
+        libvship_compile_dep = libvship_candidate_dep
+        message('Using Vship headers from: ' + dir)
       endif
-    endforeach
-  endif
+    endif
+  endforeach
   if enable_libvship_option == 'enabled' and not have_libvship_headers
     error('Vship headers not found (VshipAPI.h)')
   endif
@@ -972,6 +962,13 @@ cuda_args = gpu_code_gen + [
   '--cudart=static',
   '-std=c++17',
 ]
+cuda_include_args = []
+foreach arg : get_option('cpp_args')
+  if arg.startswith('-I')
+    cuda_include_args += [arg]
+  endif
+endforeach
+cuda_args += cuda_include_args
 
 # ==============================================================================
 # 依存関係まとめ
