@@ -956,7 +956,7 @@ static Vship_Colorspace_t buildVshipColorspace(const RGYFrameInfo &frameInfo, co
     case RGY_MATRIX_BT709:       cs.YUVMatrix = Vship_MATRIX_BT709;       break;
     case RGY_MATRIX_BT470_BG:    cs.YUVMatrix = Vship_MATRIX_BT470_BG;    break;
     case RGY_MATRIX_ST170_M:     cs.YUVMatrix = Vship_MATRIX_ST170_M;     break;
-    case RGY_MATRIX_YCGCO:       cs.YUVMatrix = Vship_MATRIX_YCGCO;       break;
+    //case RGY_MATRIX_YCGCO:       cs.YUVMatrix = Vship_MATRIX_YCGCO;       break;
     case RGY_MATRIX_BT2020_NCL:  cs.YUVMatrix = Vship_MATRIX_BT2020_NCL;  break;
     case RGY_MATRIX_BT2020_CL:   cs.YUVMatrix = Vship_MATRIX_BT2020_CL;   break;
     case RGY_MATRIX_ICTCP:       cs.YUVMatrix = Vship_MATRIX_BT2100_ICTCP; break;
