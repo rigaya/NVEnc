@@ -22,6 +22,10 @@ jobs:
       IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/nvenc-build
       FFMPEG_DLL_REPO: https://github.com/rigaya/build_scripts.git
       FFMPEG_DLL_REF: master
+      NVENC_HEADER_DIR: /opt/nvenc_headers
+      AVISYNTH_HEADERS_URL: https://github.com/AviSynth/AviSynthPlus/archive/refs/tags/v3.7.5.tar.gz
+      VAPOURSYNTH_HEADERS_URL: https://github.com/vapoursynth/vapoursynth/archive/refs/tags/R72.tar.gz
+      VSHIP_HEADERS_URL: https://codeberg.org/Line-fr/Vship/archive/v5.0.0.tar.gz
 
     steps:
       - name: Checkout
@@ -61,6 +65,10 @@ jobs:
             FFMPEG_DLL_REPO=${{ env.FFMPEG_DLL_REPO }}
             FFMPEG_DLL_REF=${{ env.FFMPEG_DLL_REF }}
             FFMPEG_DLL_REV=${{ steps.build_scripts_rev.outputs.rev }}
+            NVENC_HEADER_DIR=${{ env.NVENC_HEADER_DIR }}
+            AVISYNTH_HEADERS_URL=${{ env.AVISYNTH_HEADERS_URL }}
+            VAPOURSYNTH_HEADERS_URL=${{ env.VAPOURSYNTH_HEADERS_URL }}
+            VSHIP_HEADERS_URL=${{ env.VSHIP_HEADERS_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

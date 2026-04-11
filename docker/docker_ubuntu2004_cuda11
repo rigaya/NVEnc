@@ -8,6 +8,10 @@ ARG DEBIAN_FRONTEND=noninteractive \
     FFMPEG_DLL_REF=master \
     FFMPEG_DLL_REV=unknown \
     BUILD_SCRIPTS_DIR=/opt/build_scripts \
+    NVENC_HEADER_DIR=/opt/nvenc_headers \
+    AVISYNTH_HEADERS_URL=https://github.com/AviSynth/AviSynthPlus/archive/refs/tags/v3.7.5.tar.gz \
+    VAPOURSYNTH_HEADERS_URL=https://github.com/vapoursynth/vapoursynth/archive/refs/tags/R72.tar.gz \
+    VSHIP_HEADERS_URL=https://codeberg.org/Line-fr/Vship/archive/v5.0.0.tar.gz \
     FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_dll/x64/build \
     VMAF_PREFIX=/opt/build_scripts/ffmpeg_dll/x64/build \
     CUDA_VER_MAJOR=11 \
@@ -98,6 +102,27 @@ RUN echo "Using build_scripts ${FFMPEG_DLL_REF}@${FFMPEG_DLL_REV}" \
     && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64/build" -exec rm -rf {} + \
     && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/x64/build" -exec rm -rf {} +
 
+RUN mkdir -p "${NVENC_HEADER_DIR}" \
+    && if [ ! -f "${NVENC_HEADER_DIR}/AviSynthPlus-3.7.5/avs_core/include/avisynth_c.h" ]; then \
+      curl -fsSL "${AVISYNTH_HEADERS_URL}" -o /tmp/avisynth_headers.tar.gz \
+      && tar -xzf /tmp/avisynth_headers.tar.gz -C "${NVENC_HEADER_DIR}" \
+      && rm -f /tmp/avisynth_headers.tar.gz; \
+    fi \
+    && if [ ! -f "${NVENC_HEADER_DIR}/vapoursynth-R72/include/VapourSynth.h" ]; then \
+      curl -fsSL "${VAPOURSYNTH_HEADERS_URL}" -o /tmp/vapoursynth_headers.tar.gz \
+      && tar -xzf /tmp/vapoursynth_headers.tar.gz -C "${NVENC_HEADER_DIR}" \
+      && rm -f /tmp/vapoursynth_headers.tar.gz; \
+    fi \
+    && if [ ! -f "${NVENC_HEADER_DIR}/vship/src/VshipAPI.h" ]; then \
+      curl -fsSL "${VSHIP_HEADERS_URL}" -o /tmp/vship_headers.tar.gz \
+      && tar -xzf /tmp/vship_headers.tar.gz -C "${NVENC_HEADER_DIR}" \
+      && rm -f /tmp/vship_headers.tar.gz; \
+    fi \
+    && test -f "${NVENC_HEADER_DIR}/AviSynthPlus-3.7.5/avs_core/include/avisynth_c.h" \
+    && test -f "${NVENC_HEADER_DIR}/vapoursynth-R72/include/VapourSynth.h" \
+    && test -f "${NVENC_HEADER_DIR}/vship/src/VshipAPI.h"
+
 ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
 ENV VMAF_PREFIX=${VMAF_PREFIX}
+ENV NVENC_HEADER_DIR=${NVENC_HEADER_DIR}
 WORKDIR /work
