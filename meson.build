@@ -490,18 +490,14 @@ int main(void) {
   return 0;
 }
 '''
-  # pkg-configで試す (libvship がpkg-configをサポートしている場合)
-  libvship_pkg_dep = dependency('libvship', required: false)
-  if libvship_pkg_dep.found()
-    libvship_candidate_dep = libvship_pkg_dep.partial_dependency(includes: true, compile_args: true)
-    have_libvship_headers = cpp.compiles(
-      libvship_headers_code,
-      dependencies: libvship_candidate_dep,
-      args: get_option('cpp_args'),
-    )
-    if have_libvship_headers
-      libvship_compile_dep = libvship_candidate_dep
-    endif
+  # libvship はヘッダ参照だけで利用できるため、まず cpp_args で渡された
+  # include path 上に VshipAPI.h があるかを確認する。
+  have_libvship_headers = cpp.compiles(
+    libvship_headers_code,
+    args: get_option('cpp_args'),
+  )
+  if have_libvship_headers
+    message('Using Vship headers from the custom include path')
   endif
   # カスタムパスで検索
   if not have_libvship_headers
