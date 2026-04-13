@@ -67,10 +67,12 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_MSMOOTH      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV  || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CURVES       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -159,6 +161,7 @@ enum class VppType : int {
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
     CL_DENOISE_FFT3D,
+    CL_MSMOOTH,
 
     CL_LIBPLACEBO_SHADER,
 
@@ -168,6 +171,7 @@ enum class VppType : int {
 
     CL_UNSHARP,
     CL_EDGELEVEL,
+    CL_MSHARPEN,
     CL_WARPSHARP,
 
     CL_CURVES,
@@ -380,6 +384,11 @@ static const float FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2 = 0.0;
 static const int   FILTER_DEFAULT_DENOISE_FFT3D_METHOD = 0;
 static const int   FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL = 1;
 
+static const int   FILTER_DEFAULT_MSMOOTH_STRENGTH = 3;
+static const float FILTER_DEFAULT_MSMOOTH_THRESHOLD = 15.0f;
+static const bool  FILTER_DEFAULT_MSMOOTH_HIGHQ = true;
+static const bool  FILTER_DEFAULT_MSMOOTH_MASK = false;
+
 static const float FILTER_DEFAULT_TWEAK_BRIGHTNESS = 0.0f;
 static const float FILTER_DEFAULT_TWEAK_CONTRAST = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_GAMMA = 1.0f;
@@ -390,6 +399,11 @@ static const float FILTER_DEFAULT_EDGELEVEL_STRENGTH = 5.0f;
 static const float FILTER_DEFAULT_EDGELEVEL_THRESHOLD = 20.0f;
 static const float FILTER_DEFAULT_EDGELEVEL_BLACK = 0.0f;
 static const float FILTER_DEFAULT_EDGELEVEL_WHITE = 0.0f;
+
+static const float FILTER_DEFAULT_MSHARPEN_STRENGTH = 1.0f;
+static const float FILTER_DEFAULT_MSHARPEN_THRESHOLD = 15.0f;
+static const bool  FILTER_DEFAULT_MSHARPEN_HIGHQ = true;
+static const bool  FILTER_DEFAULT_MSHARPEN_MASK = false;
 
 static const TCHAR *FILTER_DEFAULT_LIBPLACEBO_SHADER_RESAMPLER_NAME = _T("libplacebo-ewa-lanczos");
 static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_COLORSYSTEM = 0;
@@ -2025,6 +2039,19 @@ struct VppDenoiseFFT3D {
     tstring print() const;
 };
 
+struct VppMsmooth {
+    bool  enable;
+    int   strength;
+    float threshold;
+    bool  highq;
+    bool  mask;
+
+    VppMsmooth();
+    bool operator==(const VppMsmooth &x) const;
+    bool operator!=(const VppMsmooth &x) const;
+    tstring print() const;
+};
+
 struct VppSubburn {
     bool  enable;
     tstring filename;
@@ -2068,6 +2095,19 @@ struct VppEdgelevel {
     VppEdgelevel();
     bool operator==(const VppEdgelevel &x) const;
     bool operator!=(const VppEdgelevel &x) const;
+    tstring print() const;
+};
+
+struct VppMsharpen {
+    bool  enable;
+    float strength;
+    float threshold;
+    bool  highq;
+    bool  mask;
+
+    VppMsharpen();
+    bool operator==(const VppMsharpen &x) const;
+    bool operator!=(const VppMsharpen &x) const;
     tstring print() const;
 };
 
@@ -2284,10 +2324,12 @@ struct RGYParamVpp {
     VppDenoiseDct dct;
     VppSmooth smooth;
     VppDenoiseFFT3D fft3d;
+    VppMsmooth msmooth;
     std::vector<VppSubburn> subburn;
     std::vector<VppLibplaceboShader> libplacebo_shader;
     VppUnsharp unsharp;
     VppEdgelevel edgelevel;
+    VppMsharpen msharpen;
     VppWarpsharp warpsharp;
     VppCurves curves;
     VppTweak tweak;

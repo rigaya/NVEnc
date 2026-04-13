@@ -215,6 +215,7 @@
   - [--vpp-nvvfx-denoise \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-denoise-param1value1param2value2)
   - [--vpp-nvvfx-artifact-reduction \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
+  - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
   - [--vpp-fft3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fft3d-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
@@ -226,6 +227,7 @@
   - [--vpp-resize \<string\> or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-resize-string-or-param1value1param2value2)
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
+  - [--vpp-msharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-tweak-param1value1param2value2)
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
@@ -2520,6 +2522,27 @@ Please download and install [Video Effect models and runtime dependencies](https
     - fp32  
       Force to use fp32.
 
+### --vpp-msmooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Edge-preserving smoothing filter.
+
+- **Parameters**
+  - strength=&lt;int&gt;  (default=3, 0 - 20)  
+    Strength of smoothing (number of iterations).
+  
+  - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
+    Threshold for edge detection.
+  
+  - highq=&lt;bool&gt;  (default=true)  
+    High quality mode. Increases the number of edge detection points.
+  
+  - mask=&lt;bool&gt;  (default=false)  
+    Output edge mask (for debugging).
+  
+- Examples
+  ```
+  --vpp-msmooth strength=3,threshold=15.0
+  ```
+
 ### --vpp-denoise-dct [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 - **parameters**
@@ -2948,6 +2971,27 @@ Edge level adjustment filter, for edge sharpening.
   
   Example: Strengthening the black part of the outline
   --vpp-edgelevel strength=5.0,threshold=24.0,black=6.0
+  ```
+
+### --vpp-msharpen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Dynamic edge-based sharpening filter. Sharpens only around edges.
+
+- **Parameters**
+  - strength=&lt;float&gt;  (default=1.0, 0.0 - 1.0)  
+    Strength of sharpening.
+  
+  - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
+    Threshold for edge detection.
+  
+  - highq=&lt;bool&gt;  (default=true)  
+    High quality mode. Increases the number of edge detection points.
+  
+  - mask=&lt;bool&gt;  (default=false)  
+    Output edge mask (for debugging).
+  
+- Examples
+  ```
+  --vpp-msharpen strength=1.0,threshold=15.0
   ```
 
 ### --vpp-warpsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -3538,6 +3582,9 @@ This could be used when you want to encode multiple stream and you do not want o
 
 ### --lowlatency
 Tune for lower transcoding latency, but will hurt transcoding throughput. Not recommended in most cases.
+
+When outputting to a pipe and `--output-thread` is left on auto, this mode automatically disables the output thread
+and shortens the video mux queue to reduce shutdown latency after the input stream stops.
 
 ### --fallback-bitdepth
 When enabled, if all available GPUs do not support 10-bit encoding, the encoder will automatically fall back to 8-bit encoding. If there is at least one GPU that supports 10-bit encoding, that GPU will be selected instead.

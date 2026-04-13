@@ -3110,6 +3110,76 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-msmooth") && ENABLE_VPP_FILTER_MSMOOTH) {
+        vpp->msmooth.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "strength", "threshold", "highq", "mask" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->msmooth.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try {
+                        vpp->msmooth.strength = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("threshold")) {
+                    try {
+                        vpp->msmooth.threshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("highq")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->msmooth.highq = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mask")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->msmooth.mask = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
 
     if (IS_OPTION("vpp-subburn")) {
         VppSubburn subburn;
@@ -3549,6 +3619,76 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-msharpen") && ENABLE_VPP_FILTER_MSHARPEN) {
+        vpp->msharpen.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "strength", "threshold", "highq", "mask" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->msharpen.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try {
+                        vpp->msharpen.strength = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("threshold")) {
+                    try {
+                        vpp->msharpen.threshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("highq")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->msharpen.highq = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mask")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->msharpen.mask = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
         }
@@ -7955,6 +8095,23 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-fft3d");
         }
     }
+    if (param->msmooth != defaultPrm->msmooth) {
+        tmp.str(tstring());
+        if (!param->msmooth.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->msmooth.enable || save_disabled_prm) {
+            ADD_NUM(_T("strength"), msmooth.strength);
+            ADD_FLOAT(_T("threshold"), msmooth.threshold, 3);
+            ADD_BOOL(_T("highq"), msmooth.highq);
+            ADD_BOOL(_T("mask"), msmooth.mask);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-msmooth ") << tmp.str().substr(1);
+        } else if (param->msmooth.enable) {
+            cmd << _T(" --vpp-msmooth");
+        }
+    }
     for (size_t i = 0; i < param->subburn.size(); i++) {
         const auto subburnDefault = VppSubburn();
         if (param->subburn[i] != subburnDefault) {
@@ -8045,6 +8202,23 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-edgelevel ") << tmp.str().substr(1);
         } else if (param->edgelevel.enable) {
             cmd << _T(" --vpp-edgelevel");
+        }
+    }
+    if (param->msharpen != defaultPrm->msharpen) {
+        tmp.str(tstring());
+        if (!param->msharpen.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->msharpen.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("strength"), msharpen.strength, 3);
+            ADD_FLOAT(_T("threshold"), msharpen.threshold, 3);
+            ADD_BOOL(_T("highq"), msharpen.highq);
+            ADD_BOOL(_T("mask"), msharpen.mask);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-msharpen ") << tmp.str().substr(1);
+        } else if (param->msharpen.enable) {
+            cmd << _T(" --vpp-msharpen");
         }
     }
     if (param->warpsharp != defaultPrm->warpsharp) {
@@ -9689,6 +9863,19 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DENOISE_FFT3D_SIGMA, FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT, FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE,
         FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP, /* FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2,*/ FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL);
 #endif
+#if ENABLE_VPP_FILTER_MSMOOTH
+    str += strsprintf(_T("\n")
+        _T("   --vpp-msmooth [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     detail-preserving smoothing filter.\n")
+        _T("    params\n")
+        _T("      strength=<int>            smoothing iterations (default=%d, 0 - 20)\n")
+        _T("      threshold=<float>         edge detection threshold (default=%.1f, 0.0 - 255.0)\n")
+        _T("      highq=<bool>              high quality edge detection (default=%s)\n")
+        _T("      mask=<bool>               output edge mask only (default=%s)\n"),
+        FILTER_DEFAULT_MSMOOTH_STRENGTH, FILTER_DEFAULT_MSMOOTH_THRESHOLD,
+        FILTER_DEFAULT_MSMOOTH_HIGHQ ? _T("true") : _T("false"),
+        FILTER_DEFAULT_MSMOOTH_MASK  ? _T("true") : _T("false"));
+#endif
     str += strsprintf(_T("\n")
         _T("   --vpp-subburn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Burn in specified subtitle to the video.\n")
@@ -9771,6 +9958,19 @@ tstring gen_cmd_help_vpp() {
         _T("      white=<float>             allow edge to be brighter on edge enhancement\n")
         _T("                                  (default=%.1f, 0-31)\n"),
         FILTER_DEFAULT_EDGELEVEL_STRENGTH, FILTER_DEFAULT_EDGELEVEL_THRESHOLD, FILTER_DEFAULT_EDGELEVEL_BLACK, FILTER_DEFAULT_EDGELEVEL_WHITE);
+#endif
+#if ENABLE_VPP_FILTER_MSHARPEN
+    str += strsprintf(_T("\n")
+        _T("   --vpp-msharpen [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     edge-selective sharpening filter.\n")
+        _T("    params\n")
+        _T("      strength=<float>          sharpening strength (default=%.2f, 0.0 - 1.0)\n")
+        _T("      threshold=<float>         edge detection threshold (default=%.1f, 0.0 - 255.0)\n")
+        _T("      highq=<bool>              high quality edge detection (default=%s)\n")
+        _T("      mask=<bool>               output edge mask only (default=%s)\n"),
+        FILTER_DEFAULT_MSHARPEN_STRENGTH, FILTER_DEFAULT_MSHARPEN_THRESHOLD,
+        FILTER_DEFAULT_MSHARPEN_HIGHQ ? _T("true") : _T("false"),
+        FILTER_DEFAULT_MSHARPEN_MASK  ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_WARPSHARP
     str += strsprintf(_T("\n")

@@ -78,6 +78,7 @@
 #include "NVEncFilterDenoiseDct.h"
 #include "NVEncFilterSmooth.h"
 #include "NVEncFilterDenoiseFFT3D.h"
+#include "NVEncFilterMsmooth.h"
 #include "NVEncFilterNvvfx.h"
 #include "NVEncFilterNGX.h"
 #include "NVEncFilterLibplacebo.h"
@@ -91,6 +92,7 @@
 #include "NVEncFilterRff.h"
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
+#include "NVEncFilterMsharpen.h"
 #include "NVEncFilterWarpsharp.h"
 #include "NVEncFilterCurves.h"
 #include "NVEncFilterTweak.h"
@@ -1614,11 +1616,13 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.dct.enable
             || inputParam->vpp.smooth.enable
             || inputParam->vpp.fft3d.enable
+            || inputParam->vpp.msmooth.enable
             || inputParam->vppnv.nvvfxDenoise.enable
             || inputParam->vppnv.nvvfxArtifactReduction.enable
             || inputParam->vpp.deband.enable
             || inputParam->vpp.libplacebo_deband.enable
             || inputParam->vpp.edgelevel.enable
+            || inputParam->vpp.msharpen.enable
             || inputParam->vpp.warpsharp.enable
             || inputParam->vpp.afs.enable
             || inputParam->vpp.nnedi.enable
@@ -2872,6 +2876,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.smooth.enable)        filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
     if (inputParam->vpp.dct.enable)           filterPipeline.push_back(VppType::CL_DENOISE_DCT);
     if (inputParam->vpp.fft3d.enable)         filterPipeline.push_back(VppType::CL_DENOISE_FFT3D);
+    if (inputParam->vpp.msmooth.enable)       filterPipeline.push_back(VppType::CL_MSMOOTH);
     if (inputParam->vpp.knn.enable)           filterPipeline.push_back(VppType::CL_DENOISE_KNN);
     if (inputParam->vpp.nlmeans.enable)       filterPipeline.push_back(VppType::CL_DENOISE_NLMEANS);
     if (inputParam->vpp.pmd.enable)           filterPipeline.push_back(VppType::CL_DENOISE_PMD);
@@ -2881,6 +2886,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (resizeRequired != RGY_VPP_RESIZE_TYPE_NONE) filterPipeline.push_back(VppType::CL_RESIZE);
     if (inputParam->vpp.unsharp.enable)    filterPipeline.push_back(VppType::CL_UNSHARP);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
+    if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
     if (inputParam->vpp.curves.enable)     filterPipeline.push_back(VppType::CL_CURVES);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
@@ -3647,6 +3653,29 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;
     }
+    //スムージング (msmooth)
+    if (vppType == VppType::CL_MSMOOTH) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterMsmooth());
+        shared_ptr<NVEncFilterParamMsmooth> param(new NVEncFilterParamMsmooth());
+        param->msmooth = inputParam->vpp.msmooth;
+        param->frameIn  = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps  = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
     //ノイズ除去 (knn)
     if (vppType == VppType::CL_DENOISE_KNN) {
         unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseKnn());
@@ -3932,6 +3961,29 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         }
         //フィルタチェーンに追加
         cufilters.push_back(std::move(filterEdgelevel));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //msharpen
+    if (vppType == VppType::CL_MSHARPEN) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterMsharpen());
+        shared_ptr<NVEncFilterParamMsharpen> param(new NVEncFilterParamMsharpen());
+        param->msharpen = inputParam->vpp.msharpen;
+        param->frameIn  = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps  = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
         //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新

@@ -96,11 +96,13 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
+    std::make_pair(VppType::CL_MSMOOTH,              _T("msmooth")),
     std::make_pair(VppType::CL_SUBBURN,              _T("subburn")),
     std::make_pair(VppType::CL_LIBPLACEBO_SHADER,    _T("libplacebo-shader")),
     std::make_pair(VppType::CL_RESIZE,               _T("resize")),
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
+    std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
     std::make_pair(VppType::CL_CURVES,               _T("curves")),
     std::make_pair(VppType::CL_TWEAK,                _T("tweak")),
@@ -1516,6 +1518,30 @@ tstring VppDenoiseFFT3D::print() const {
     return str;
 }
 
+VppMsmooth::VppMsmooth() :
+    enable(false),
+    strength(FILTER_DEFAULT_MSMOOTH_STRENGTH),
+    threshold(FILTER_DEFAULT_MSMOOTH_THRESHOLD),
+    highq(FILTER_DEFAULT_MSMOOTH_HIGHQ),
+    mask(FILTER_DEFAULT_MSMOOTH_MASK) {
+}
+
+bool VppMsmooth::operator==(const VppMsmooth &x) const {
+    return enable == x.enable
+        && strength == x.strength
+        && threshold == x.threshold
+        && highq == x.highq
+        && mask == x.mask;
+}
+bool VppMsmooth::operator!=(const VppMsmooth &x) const {
+    return !(*this == x);
+}
+
+tstring VppMsmooth::print() const {
+    return strsprintf(_T("msmooth: strength %d, threshold %.1f, highq %s, mask %s"),
+        strength, threshold, highq ? _T("true") : _T("false"), mask ? _T("true") : _T("false"));
+}
+
 VppConvolution3d::VppConvolution3d() :
     enable(false),
     fast(false),
@@ -1656,6 +1682,30 @@ bool VppEdgelevel::operator!=(const VppEdgelevel &x) const {
 tstring VppEdgelevel::print() const {
     return strsprintf(_T("edgelevel: strength %.1f, threshold %.1f, black %.1f, white %.1f"),
         strength, threshold, black, white);
+}
+
+VppMsharpen::VppMsharpen() :
+    enable(false),
+    strength(FILTER_DEFAULT_MSHARPEN_STRENGTH),
+    threshold(FILTER_DEFAULT_MSHARPEN_THRESHOLD),
+    highq(FILTER_DEFAULT_MSHARPEN_HIGHQ),
+    mask(FILTER_DEFAULT_MSHARPEN_MASK) {
+}
+
+bool VppMsharpen::operator==(const VppMsharpen &x) const {
+    return enable == x.enable
+        && strength == x.strength
+        && threshold == x.threshold
+        && highq == x.highq
+        && mask == x.mask;
+}
+bool VppMsharpen::operator!=(const VppMsharpen &x) const {
+    return !(*this == x);
+}
+
+tstring VppMsharpen::print() const {
+    return strsprintf(_T("msharpen: strength %.2f, threshold %.1f, highq %s, mask %s"),
+        strength, threshold, highq ? _T("true") : _T("false"), mask ? _T("true") : _T("false"));
 }
 
 VppWarpsharp::VppWarpsharp() :
@@ -2057,10 +2107,12 @@ RGYParamVpp::RGYParamVpp() :
     dct(),
     smooth(),
     fft3d(),
+    msmooth(),
     subburn(),
     libplacebo_shader(),
     unsharp(),
     edgelevel(),
+    msharpen(),
     warpsharp(),
     curves(),
     tweak(),
@@ -2094,10 +2146,13 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && pmd == x.pmd
         && dct == x.dct
         && smooth == x.smooth
+        && fft3d == x.fft3d
+        && msmooth == x.msmooth
         && subburn == x.subburn
         && unsharp == x.unsharp
         && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel
+        && msharpen == x.msharpen
         && warpsharp == x.warpsharp
         && curves == x.curves
         && tweak == x.tweak
