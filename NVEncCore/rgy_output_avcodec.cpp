@@ -2631,11 +2631,11 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     m_Mux.thread.queueInfo = prm->queueInfo;
     //スレッドの使用数を設定
     if (prm->threadOutput == RGY_OUTPUT_THREAD_AUTO) {
-        prm->threadOutput = 1;
+        prm->threadOutput = (m_Mux.format.lowlatency) ? 0 : 1;
     }
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     if (prm->threadAudio == RGY_AUDIO_THREAD_AUTO) {
-        prm->threadAudio = 3;
+        prm->threadAudio = (m_Mux.format.lowlatency) ? 0 : 3;
     }
     m_Mux.thread.enableAudProcessThread = prm->threadOutput > 0 && prm->threadAudio > 0;
     m_Mux.thread.enableAudEncodeThread  = prm->threadOutput > 0 && prm->threadAudio > 1;
