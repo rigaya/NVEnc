@@ -2831,6 +2831,7 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataAV1(const RGYBitstream *bitstream)
 }
 
 RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
+    AddMessage(RGY_LOG_DEBUG, _T("WriteFileHeader start...\n"));
     if (m_Mux.video.streamOut) {
         if (bitstream) {
             RGY_ERR sts = RGY_ERR_NONE;
