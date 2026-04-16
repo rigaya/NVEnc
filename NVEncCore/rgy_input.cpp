@@ -33,6 +33,11 @@
 #include "rgy_filesystem.h"
 #include "cpu_info.h"
 
+static bool output_is_pipe(const RGYParamCommon *common) {
+    return 0 == _tcscmp(common->outputFilename.c_str(), _T("-"))
+        || common->outputFilename.c_str() == _tcsstr(common->outputFilename.c_str(), _T(R"(\\.\pipe\)"));
+}
+
 static const auto RGY_CSP_TO_Y4MHEADER_CSP = make_array<std::pair<RGY_CSP, const char *>>(
     std::make_pair(RGY_CSP_YV12,      "420mpeg2"),
     std::make_pair(RGY_CSP_YV12,      "420jpeg"),
@@ -427,6 +432,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
         inputInfoAVAudioReader.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVAudioReader.lowLatency = ctrl->lowLatency;
+        inputInfoAVAudioReader.audioReadOffsetSec = (ctrl->lowLatency && !subtitle && !output_is_pipe(common)) ? 2.0 : 0.0;
         inputInfoAVAudioReader.hevcbsf = common->hevcbsf;
 
         shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
@@ -671,6 +677,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
+        inputInfoAVCuvid.audioReadOffsetSec = (ctrl->lowLatency && inputInfoAVCuvid.readAudio && !output_is_pipe(common)) ? 2.0 : 0.0;
         inputInfoAVCuvid.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVCuvid.hevcbsf = common->hevcbsf;
         inputInfoAVCuvid.avswDecoder = inprm->avswDecoder;

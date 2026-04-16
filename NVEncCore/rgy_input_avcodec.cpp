@@ -69,6 +69,7 @@ AVDemuxFormat::AVDemuxFormat() :
     analyzeSec(0.0),
     isPipe(false),
     lowLatency(false),
+    audioReadOffsetSec(0.0),
     timestampPassThrough(false),
     preReadBufferIdx(0),
     audioTracks(0),
@@ -272,6 +273,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     doviRpuMetadataCopy(false),
     interlaceSet(RGY_PICSTRUCT_FRAME),
     lowLatency(false),
+    audioReadOffsetSec(0.0),
     timestampPassThrough(false),
     qpTableListRef(nullptr),
     inputOpt(),
@@ -2308,6 +2310,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
 
         //スレッド関連初期化
         m_Demux.format.lowLatency = input_prm->lowLatency;
+        m_Demux.format.audioReadOffsetSec = input_prm->audioReadOffsetSec;
         m_Demux.thread.bAbortInput = false;
         auto nPrmInputThread = input_prm->threadInput;
         m_Demux.thread.threadInput = (nPrmInputThread == RGY_INPUT_THREAD_AUTO) ? (input_prm->lowLatency ? 0 : 1) : nPrmInputThread;
@@ -3275,10 +3278,10 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
         return;
     }
     const AVRational vid_pkt_timebase = (m_Demux.video.stream) ? m_Demux.video.stream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
-    // 低遅延モードの時は、2秒音声を先読みし、音声処理は早く終わらせておき、muxキューに積んでおく
-    const auto audioReadOffsetSec = 5.0;
-    const auto audioReadOffsetPTS = (m_Demux.format.lowLatency) 
-        ? std::max<int64_t>((int64_t)(av_q2d(av_inv_q(vid_pkt_timebase)) * audioReadOffsetSec + 0.5), 4)
+    // 低遅延モードでは必要な分だけ音声を先読みする。
+    // 音声copy主体のときに深く先読みすると、入力終了後の終了遅延が大きくなる。
+    const auto audioReadOffsetPTS = (m_Demux.format.lowLatency && m_Demux.format.audioReadOffsetSec > 0.0)
+        ? std::max<int64_t>((int64_t)(av_q2d(av_inv_q(vid_pkt_timebase)) * m_Demux.format.audioReadOffsetSec + 0.5), 4)
         : 0;
     //出力するパケットを選択する
     while (!m_Demux.qStreamPktL1.empty()) {

@@ -712,6 +712,7 @@ struct AVDemuxFormat {
     double                    analyzeSec;            //動画ファイルを先頭から分析する時間
     bool                      isPipe;                //入力がパイプ
     bool                      lowLatency;            //低遅延モード
+    double                    audioReadOffsetSec;    //低遅延モード時に音声を先読みする秒数
     bool                      timestampPassThrough;  //timestampをそのまま通す
     uint32_t                  preReadBufferIdx;      //先読みバッファの読み込み履歴
     int                       audioTracks;           //存在する音声のトラック数
@@ -858,6 +859,7 @@ public:
     bool           doviRpuMetadataCopy;     //dovi rpuのmeta情報を取得する
     RGY_PICSTRUCT  interlaceSet;            //指定されたインタレ
     bool           lowLatency;
+    double         audioReadOffsetSec;      //低遅延モード時に音声を先読みする秒数
     bool           timestampPassThrough;    //timestampをそのまま出力する
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     RGYOptList     inputOpt;                //入力オプション
