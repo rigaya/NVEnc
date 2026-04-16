@@ -4491,6 +4491,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         if (deviceInfoCache) {
             deviceInfoCache->setDeviceIds(getDevIdName());
         }
+        PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
     }
 
     if ((sts = input_ret.get()) < RGY_ERR_NONE) return sts;
@@ -5034,6 +5035,7 @@ RGY_ERR NVEncCore::Encode() {
         PipelineTaskData(size_t t) : task(t), data() {};
         PipelineTaskData(size_t t, std::unique_ptr<PipelineTaskOutput>& d) : task(t), data(std::move(d)) {};
     };
+    std::vector<char> firstSendFrame(m_pipelineTasks.size(), false);
     std::deque<PipelineTaskData> dataqueue;
     {
         auto checkContinue = [&checkAbort](RGY_ERR& err) {
@@ -5051,6 +5053,10 @@ RGY_ERR NVEncCore::Encode() {
                 if (d.task < m_pipelineTasks.size()) {
                     err = RGY_ERR_NONE;
                     auto& task = m_pipelineTasks[d.task];
+                    if (!firstSendFrame[d.task]) {
+                        PrintMes(RGY_LOG_DEBUG, _T("First send frame to task %s.\n"), task->print().c_str());
+                        firstSendFrame[d.task] = true;
+                    }
                     err = task->sendFrame(d.data);
                     if (!checkContinue(err)) {
                         PrintMes(setloglevel(err), _T("Break in task %s: %s.\n"), task->print().c_str(), get_err_mes(err));
@@ -5118,7 +5124,9 @@ RGY_ERR NVEncCore::Encode() {
                         break;
                     }
                     auto output = task->getOutput(requireSync(d.task));
-                    if (output.size() == 0) break;
+                    if (output.size() == 0) {
+                        break;
+                    }
                     //出てきたものは先頭に追加していく
                     std::for_each(output.rbegin(), output.rend(), [itask = d.task, &dataqueue](auto&& o) {
                         dataqueue.push_front(PipelineTaskData(itask + 1, o));
@@ -5146,6 +5154,7 @@ RGY_ERR NVEncCore::Encode() {
                         //checkptsの処理上、でてきたフレームはすぐに後続処理に渡したいのでbreak
                         break;
                     } else if (itask == flushedTaskGet && flushedTaskGet < flushedTaskSend) {
+                        PrintMes(RGY_LOG_DEBUG, _T("Flush task %s.\n"), task->print().c_str());
                         flushedTaskGet++;
                     }
                 }
