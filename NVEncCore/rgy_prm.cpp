@@ -617,7 +617,10 @@ VppLibplaceboShader::VppLibplaceboShader() :
     taper(FILTER_DEFAULT_LIBPLACEBO_SHADER_TAPER),
     blur(FILTER_DEFAULT_LIBPLACEBO_SHADER_BLUR),
     antiring(FILTER_DEFAULT_LIBPLACEBO_SHADER_ANTIRING),
-    linear(FILTER_DEFAULT_LIBPLACEBO_SHADER_LINEAR) {
+    linear(FILTER_DEFAULT_LIBPLACEBO_SHADER_LINEAR),
+    sigmoid(FILTER_DEFAULT_LIBPLACEBO_SHADER_SIGMOID),
+    sigmoid_center(),
+    sigmoid_slope() {
 }
 
 bool VppLibplaceboShader::operator==(const VppLibplaceboShader &x) const {
@@ -636,7 +639,10 @@ bool VppLibplaceboShader::operator==(const VppLibplaceboShader &x) const {
         && taper == x.taper
         && blur == x.blur
         && antiring == x.antiring
-        && linear == x.linear;
+        && linear == x.linear
+        && sigmoid == x.sigmoid
+        && sigmoid_center == x.sigmoid_center
+        && sigmoid_slope == x.sigmoid_slope;
 }
 
 bool VppLibplaceboShader::operator!=(const VppLibplaceboShader &x) const {
@@ -662,7 +668,14 @@ tstring VppLibplaceboShader::print() const {
     str += strsprintf(_T("taper=%.2f, "), taper);
     str += strsprintf(_T("blur=%.2f, "), blur);
     str += strsprintf(_T("antiring=%.2f, "), antiring);
-    str += strsprintf(_T("linear=%s"), linear ? _T("on") : _T("off"));
+    str += strsprintf(_T("linear=%s, "), linear ? _T("on") : _T("off"));
+    str += strsprintf(_T("sigmoid=%s"), sigmoid ? _T("on") : _T("off"));
+    if (sigmoid_center) {
+        str += strsprintf(_T(", sigmoid_center=%.3f"), *sigmoid_center);
+    }
+    if (sigmoid_slope) {
+        str += strsprintf(_T(", sigmoid_slope=%.3f"), *sigmoid_slope);
+    }
 
     return str;
 }

@@ -35,6 +35,7 @@
 #include "rgy_thread_affinity.h"
 #include "rgy_simd.h"
 #include "rgy_hdr10plus.h"
+#include <optional>
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -416,6 +417,7 @@ static const float FILTER_DEFAULT_LIBPLACEBO_SHADER_TAPER = FILTER_DEFAULT_LIBPL
 static const float FILTER_DEFAULT_LIBPLACEBO_SHADER_BLUR = FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_BLUR;
 static const float FILTER_DEFAULT_LIBPLACEBO_SHADER_ANTIRING = FILTER_DEFAULT_LIBPLACEBO_RESAMPLE_ANTIRING;
 static const bool  FILTER_DEFAULT_LIBPLACEBO_SHADER_LINEAR = false;
+static const bool  FILTER_DEFAULT_LIBPLACEBO_SHADER_SIGMOID = false;
 
 static const int   FILTER_DEFAULT_UNSHARP_RADIUS = 3;
 static const float FILTER_DEFAULT_UNSHARP_WEIGHT = 0.5f;
@@ -1529,6 +1531,9 @@ struct VppLibplaceboShader {
     float blur;
     float antiring;
     bool linear;
+    bool sigmoid;
+    std::optional<float> sigmoid_center;
+    std::optional<float> sigmoid_slope;
 
     VppLibplaceboShader();
     bool operator==(const VppLibplaceboShader &x) const;

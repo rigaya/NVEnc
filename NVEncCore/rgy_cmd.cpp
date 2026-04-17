@@ -3342,7 +3342,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
         const auto paramList = std::vector<std::string>{
             "shader", "res", "width", "height", "csp", "chromaloc", "colorsystem", "transfer", "resampler",
-            "radius", "clamp", "taper", "blur", "antiring", "linear"
+            "radius", "clamp", "taper", "blur", "antiring", "linear", "sigmoid", "sigmoid_center", "sigmoid_slope"
         };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -3496,6 +3496,34 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (!cmd_string_to_bool(&b, param_val)) {
                         shader.linear = b;
                     } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigmoid")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        shader.sigmoid = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigmoid_center")) {
+                    try {
+                        shader.sigmoid_center = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigmoid_slope")) {
+                    try {
+                        shader.sigmoid_slope = std::stof(param_val);
+                    } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
@@ -8173,6 +8201,15 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 ADD_FLOAT2(_T("blur"), param->libplacebo_shader[i], shaderDefault, blur, 3);
                 ADD_FLOAT2(_T("antiring"), param->libplacebo_shader[i], shaderDefault, antiring, 3);
                 ADD_BOOL2(_T("linear"), param->libplacebo_shader[i], shaderDefault, linear);
+                ADD_BOOL2(_T("sigmoid"), param->libplacebo_shader[i], shaderDefault, sigmoid);
+                if (param->libplacebo_shader[i].sigmoid_center != shaderDefault.sigmoid_center
+                    && param->libplacebo_shader[i].sigmoid_center) {
+                    tmp << _T(",sigmoid_center=") << std::setprecision(3) << *param->libplacebo_shader[i].sigmoid_center;
+                }
+                if (param->libplacebo_shader[i].sigmoid_slope != shaderDefault.sigmoid_slope
+                    && param->libplacebo_shader[i].sigmoid_slope) {
+                    tmp << _T(",sigmoid_slope=") << std::setprecision(3) << *param->libplacebo_shader[i].sigmoid_slope;
+                }
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-libplacebo-shader \"") << tmp.str().substr(1) << _T("\"");
@@ -9946,7 +9983,13 @@ tstring gen_cmd_help_vpp() {
         _T("                                  default: %.2f, 0.0 - 100.0\n")
         _T("      antiring=<float>          Antiringing strength.\n")
         _T("                                  default: %.2f, 0.0 - 1.0\n")
-        _T("      linear=<bool>             Linearize image before processing.\n"),
+        _T("      linear=<bool>             Linearize image before processing.\n")
+        _T("      sigmoid=<bool>            Enable sigmoidization during scaling.\n")
+        _T("                                  requires linear=true, effective on upscaling path\n")
+        _T("      sigmoid_center=<float>    Sigmoid center parameter.\n")
+        _T("                                  optional, 0.0 - 1.0 (default: libplacebo default)\n")
+        _T("      sigmoid_slope=<float>     Sigmoid slope parameter.\n")
+        _T("                                  optional, 1.0 - 20.0 (default: libplacebo default)\n"),
         FILTER_DEFAULT_LIBPLACEBO_SHADER_RADIUS, FILTER_DEFAULT_LIBPLACEBO_SHADER_CLAMP, FILTER_DEFAULT_LIBPLACEBO_SHADER_TAPER,
         FILTER_DEFAULT_LIBPLACEBO_SHADER_BLUR, FILTER_DEFAULT_LIBPLACEBO_SHADER_ANTIRING
     );

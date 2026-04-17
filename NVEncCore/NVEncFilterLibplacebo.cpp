@@ -1806,6 +1806,22 @@ RGY_ERR NVEncFilterLibplaceboShader::checkParam(const NVEncFilterParam *param) {
         AddMessage(RGY_LOG_ERROR, _T("antiring must be between 0.0f and 1.0f.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->shader.sigmoid && !prm->shader.linear) {
+        AddMessage(RGY_LOG_ERROR, _T("sigmoid requires linear=true.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!prm->shader.sigmoid && (prm->shader.sigmoid_center || prm->shader.sigmoid_slope)) {
+        AddMessage(RGY_LOG_ERROR, _T("sigmoid_center/sigmoid_slope require sigmoid=true.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->shader.sigmoid_center && (*prm->shader.sigmoid_center < 0.0f || *prm->shader.sigmoid_center > 1.0f)) {
+        AddMessage(RGY_LOG_ERROR, _T("sigmoid_center must be between 0.0f and 1.0f.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->shader.sigmoid_slope && (*prm->shader.sigmoid_slope < 1.0f || *prm->shader.sigmoid_slope > 20.0f)) {
+        AddMessage(RGY_LOG_ERROR, _T("sigmoid_slope must be between 1.0f and 20.0f.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     return RGY_ERR_NONE;
 }
 
@@ -1888,6 +1904,17 @@ RGY_ERR NVEncFilterLibplaceboShader::setLibplaceboParam(const NVEncFilterParam *
     m_range = (vui.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
     m_linear = prm->shader.linear;
     m_inputCsp = prm->shader.csp;
+    if (prm->shader.sigmoid) {
+        m_sigmoid_params = std::make_unique<pl_sigmoid_params>(m_pl->p_sigmoid_default_params());
+        if (prm->shader.sigmoid_center) {
+            m_sigmoid_params->center = *prm->shader.sigmoid_center;
+        }
+        if (prm->shader.sigmoid_slope) {
+            m_sigmoid_params->slope = *prm->shader.sigmoid_slope;
+        }
+    } else {
+        m_sigmoid_params.reset();
+    }
     m_chromaloc = chromaloc_rgy_to_libplacebo(prm->shader.chromaloc);
 
     m_sample_params = std::make_unique<pl_sample_filter_params>();

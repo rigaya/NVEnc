@@ -2789,7 +2789,19 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
       Antiringing strength. Default: 0.0. Must be between 0.0 and 1.0.
     
     - linear=&lt;bool&gt;  
-      linearize image bdfore processing.
+      Linearize the image before scaling. Default: false.
+
+    - sigmoid=&lt;bool&gt;  
+      Enable sigmoidization during scaling. Default: false.
+      Requires `linear=true` and is primarily effective on upscaling paths.
+
+    - sigmoid_center=&lt;float&gt;  
+      Sigmoid center parameter. Must be between 0.0 and 1.0.
+      If omitted, libplacebo default (0.75) is used.
+
+    - sigmoid_slope=&lt;float&gt;  
+      Sigmoid slope parameter. Must be between 1.0 and 20.0.
+      If omitted, libplacebo default (6.5) is used.
 
 - **Examples**
     ``` 
