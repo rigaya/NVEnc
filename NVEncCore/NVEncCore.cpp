@@ -34,6 +34,7 @@
 #include <string>
 #include <algorithm>
 #include <thread>
+#include <chrono>
 #include "rgy_osdep.h"
 #pragma warning(push)
 #pragma warning(disable: 4819)
@@ -4382,6 +4383,10 @@ DeviceCodecCsp NVEncCore::GetHWDecCodecCsp(const bool skipHWDecodeCheck, std::ve
 }
 
 RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
+    const auto initStart = std::chrono::steady_clock::now();
+    auto elapsed_ms = [](const std::chrono::steady_clock::time_point& start) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+    };
     auto sts = InitLog(inputParam);
     if (sts != RGY_ERR_NONE) {
         return sts;
@@ -4402,11 +4407,13 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     m_nDeviceId = inputParam->deviceID;
     m_cudaSchedule = (CUctx_flags)(inputParam->cudaSchedule & CU_CTX_SCHED_MASK);
 
+    const auto initCudaStart = std::chrono::steady_clock::now();
     if ((sts = InitCuda()) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitCuda: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitCuda: %lld ms.\n"), (lls)elapsed_ms(initCudaStart));
 
     //入力などにも渡すため、まずはインスタンスを作っておく必要がある
     m_pPerfMonitor = std::make_unique<CPerfMonitor>();
@@ -4443,6 +4450,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     
     DeviceCodecCsp HWDecCodecCsp;
     auto deviceInfoCache = std::make_shared<RGYDeviceInfoCache>();
+    const auto deviceCacheLoadStart = std::chrono::steady_clock::now();
     if (sts = deviceInfoCache->loadCacheFile(); sts != RGY_ERR_NONE) {
         if (sts == RGY_ERR_FILE_OPEN) { // ファイルは存在するが開けない
             deviceInfoCache.reset(); // キャッシュの存在を無視して進める
@@ -4451,6 +4459,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         HWDecCodecCsp = deviceInfoCache->getDeviceDecCodecCsp();
         PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support read from cache file.\n"));
     }
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: device cache load: %lld ms.\n"), (lls)elapsed_ms(deviceCacheLoadStart));
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
     auto getDevIdName = [&gpuList]() {
         std::map<int, std::string> devIdName;
@@ -4462,11 +4471,13 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     if (deviceInfoCache
         && (deviceInfoCache->getDeviceIds().size() == 0
             ||deviceInfoCache->getDeviceIds().size() != HWDecCodecCsp.size())) {
+        const auto initDeviceListCacheMissStart = std::chrono::steady_clock::now();
         if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, inputParam->ctrl.enableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to initialize devices.\n"));
             return sts;
         }
         PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitDeviceList (cache miss prefetch): %lld ms.\n"), (lls)elapsed_ms(initDeviceListCacheMissStart));
         HWDecCodecCsp = GetHWDecCodecCsp(inputParam->ctrl.skipHWDecodeCheck, gpuList);
         deviceInfoCache->setDecCodecCsp(getDevIdName(), HWDecCodecCsp);
         deviceInfoCache->saveCacheFile();
@@ -4475,6 +4486,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 
     //入力ファイルを開き、入力情報も取得
     //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
+    const auto parallelInitStart = std::chrono::steady_clock::now();
     auto input_ret = std::async(std::launch::async, [&] {
         auto sts = InitInput(inputParam, HWDecCodecCsp);
         if (sts == RGY_ERR_NONE) {
@@ -4484,6 +4496,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     });
 
     if (gpuList.size() == 0) {
+        const auto initDeviceListStart = std::chrono::steady_clock::now();
         if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, inputParam->ctrl.enableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to initialize devices.\n"));
             return sts;
@@ -4492,10 +4505,12 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
             deviceInfoCache->setDeviceIds(getDevIdName());
         }
         PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitDeviceList (parallel): %lld ms.\n"), (lls)elapsed_ms(initDeviceListStart));
     }
 
     if ((sts = input_ret.get()) < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: parallel input/device stage total: %lld ms.\n"), (lls)elapsed_ms(parallelInitStart));
 
     // 並列動作の子は読み込みが終了したらすぐに並列動作を呼び出し
     // ただし、親-子間のデータやり取りを少し遅らせる場合(delayChildSync)は親と同じタイミングで処理する
@@ -4597,11 +4612,13 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
     devUsageLock.reset();
 
+    const auto initDeviceStart = std::chrono::steady_clock::now();
     if ((sts = InitDevice(gpuList, inputParam)) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("NVENCのインスタンス作成に失敗しました。\n") : _T("Failed to create NVENC instance.\n"));
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitNVEncInstance: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitDevice: %lld ms.\n"), (lls)elapsed_ms(initDeviceStart));
     if (deviceInfoCache) {
         deviceInfoCache->updateCacheFile();
     }
@@ -4622,16 +4639,20 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
 
     //必要ならデコーダを作成
+    const auto initDecoderStart = std::chrono::steady_clock::now();
     if ((sts = InitDecoder(inputParam)) != RGY_ERR_NONE) {
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitDecoder: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitDecoder: %lld ms.\n"), (lls)elapsed_ms(initDecoderStart));
 
     //必要ならフィルターを作成
+    const auto initFiltersStart = std::chrono::steady_clock::now();
     if (InitFilters(inputParam) != RGY_ERR_NONE) {
         return err_to_rgy(NV_ENC_ERR_INVALID_PARAM);
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitFilters: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitFilters: %lld ms.\n"), (lls)elapsed_ms(initFiltersStart));
 
     if (inputParam->ctrl.lowLatency) {
         if (!m_dev->encoder()->checkAPIver(10, 0)) {
@@ -4644,12 +4665,15 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
             }
         }
     }
+    const auto setInputParamStart = std::chrono::steady_clock::now();
     if ((sts = SetInputParam(inputParam)) != RGY_ERR_NONE) {
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("SetInputParam: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: SetInputParam: %lld ms.\n"), (lls)elapsed_ms(setInputParamStart));
 
     //エンコーダにパラメータを渡し、初期化
+    const auto createEncoderStart = std::chrono::steady_clock::now();
     if (m_dev->encoder()) {
         if (RGY_ERR_NONE != (sts = err_to_rgy(m_dev->encoder()->CreateEncoder(&m_stCreateEncodeParams)))) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to create encoder\n%s.\n"), GetEncoderParamsInfo(RGY_LOG_ERROR, false).c_str());
@@ -4663,6 +4687,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         }
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: CreateEncoder: %lld ms.\n"), (lls)elapsed_ms(createEncoderStart));
 
     if ((sts = InitPowerThrottoling(inputParam)) != RGY_ERR_NONE) {
         return sts;
@@ -4685,10 +4710,12 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));
 #endif
     //エンコーダにパラメータを渡し、初期化
+    const auto initChaptersStart = std::chrono::steady_clock::now();
     if ((sts = InitChapters(inputParam)) != RGY_ERR_NONE) {
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitChapters: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitChapters: %lld ms.\n"), (lls)elapsed_ms(initChaptersStart));
 
     if (inputParam->common.keyFile.length() > 0) {
         if (m_trimParam.list.size() > 0) {
@@ -4702,11 +4729,13 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
         }
     }
 
+    const auto initPerfMonitorStart = std::chrono::steady_clock::now();
     if ((sts = InitPerfMonitor(inputParam)) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Faield to initialize performance monitor.\n"));
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitPerfMonitor: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitPerfMonitor: %lld ms.\n"), (lls)elapsed_ms(initPerfMonitorStart));
 
     // 親はエンコード設定が完了してから並列動作を呼び出し
     if (inputParam->ctrl.parallelEnc.isParent() || (inputParam->ctrl.parallelEnc.isChild() && inputParam->ctrl.parallelEnc.delayChildSync)) {
@@ -4721,29 +4750,36 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     m_encodeFrameID = 0;
 
     //出力ファイルを開く
+    const auto initOutputStart = std::chrono::steady_clock::now();
     if ((sts = InitOutput(inputParam, encBufferFormat)) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("出力ファイルのオープンに失敗しました。: \"%s\"\n") : _T("Failed to open output file: \"%s\"\n"), inputParam->common.outputFilename.c_str());
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitOutput: Success.\n"), inputParam->common.outputFilename.c_str());
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitOutput: %lld ms.\n"), (lls)elapsed_ms(initOutputStart));
 
     if ((sts = InitSsimFilter(inputParam)) != RGY_ERR_NONE) {
         return sts;
     }
 
+    const auto initPipelineStart = std::chrono::steady_clock::now();
     if (RGY_ERR_NONE != (sts = initPipeline(inputParam))) {
         return sts;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: initPipeline: %lld ms.\n"), (lls)elapsed_ms(initPipelineStart));
 
+    const auto allocPipelineFramesStart = std::chrono::steady_clock::now();
     if (RGY_ERR_NONE != (sts = allocatePiplelineFrames(inputParam))) {
         return sts;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: allocatePiplelineFrames: %lld ms.\n"), (lls)elapsed_ms(allocPipelineFramesStart));
 
     {
         const auto& threadParam = inputParam->ctrl.threadParams.get(RGYThreadType::MAIN);
         threadParam.apply(GetCurrentThread());
         PrintMes(RGY_LOG_DEBUG, _T("Set main thread param: %s.\n"), threadParam.desc().c_str());
     }
+    PrintMes(RGY_LOG_DEBUG, _T("Init timing: NVEncCore::Init total: %lld ms.\n"), (lls)elapsed_ms(initStart));
     return RGY_ERR_NONE;
 }
 
@@ -5037,12 +5073,35 @@ RGY_ERR NVEncCore::Encode() {
     };
     std::vector<char> firstSendFrame(m_pipelineTasks.size(), false);
     std::deque<PipelineTaskData> dataqueue;
+    bool eofDrainLogged = false;
+    auto eofDrainStart = std::chrono::steady_clock::time_point();
+    auto eofDrainLastStatus = std::chrono::steady_clock::time_point();
+    int eofDrainWriteCount = 0;
+    int64_t eofDrainWriteMsTotal = 0;
+    int64_t eofDrainWriteMsMax = 0;
     {
         auto checkContinue = [&checkAbort](RGY_ERR& err) {
             if (checkAbort() || stdInAbort()) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
         };
         while (checkContinue(err)) {
+            if (m_pipelineTasks.front()->isDrainingAfterInputEOF()) {
+                const auto now = std::chrono::steady_clock::now();
+                if (!eofDrainLogged) {
+                    eofDrainLogged = true;
+                    eofDrainStart = now;
+                    eofDrainLastStatus = now - std::chrono::milliseconds(1000);
+                    PrintMes(RGY_LOG_DEBUG, _T("Pipeline draining after input EOF start.\n"));
+                }
+                if (now - eofDrainLastStatus >= std::chrono::milliseconds(200)) {
+                    const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - eofDrainStart).count();
+                    PrintMes(RGY_LOG_DEBUG, _T("Pipeline draining after input EOF: +%lld ms.\n"), (lls)elapsedMs);
+                    for (auto& p : m_pipelineTasks) {
+                        p->printStatus();
+                    }
+                    eofDrainLastStatus = now;
+                }
+            }
             if (dataqueue.empty()) {
                 speedCtrl.wait(m_pipelineTasks.front()->outputFrames());
                 dataqueue.push_back(PipelineTaskData(0)); // デコード実行用
@@ -5060,6 +5119,13 @@ RGY_ERR NVEncCore::Encode() {
                     err = task->sendFrame(d.data);
                     if (!checkContinue(err)) {
                         PrintMes(setloglevel(err), _T("Break in task %s: %s.\n"), task->print().c_str(), get_err_mes(err));
+                        if (eofDrainLogged) {
+                            const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - eofDrainStart).count();
+                            PrintMes(RGY_LOG_DEBUG, _T("Pipeline draining after input EOF end: +%lld ms.\n"), (lls)elapsedMs);
+                        }
+                        for (auto& p : m_pipelineTasks) {
+                            p->printStatus();
+                        }
                         break;
                     }
                     if (err == RGY_ERR_NONE) {
@@ -5072,9 +5138,16 @@ RGY_ERR NVEncCore::Encode() {
                     }
                 } else { // pipelineの最終的なデータを出力
                     if (stopwatchOutput) stopwatchOutput->set(0);
+                    const auto writeStart = std::chrono::steady_clock::now();
                     if ((err = d.data->write(m_pFileWriter.get(), m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
+                    }
+                    if (eofDrainLogged) {
+                        const auto writeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeStart).count();
+                        eofDrainWriteCount++;
+                        eofDrainWriteMsTotal += writeMs;
+                        eofDrainWriteMsMax = (std::max)(eofDrainWriteMsMax, writeMs);
                     }
                     if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
@@ -5095,11 +5168,19 @@ RGY_ERR NVEncCore::Encode() {
                 }
             }
         }
+        if (eofDrainLogged) {
+            const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - eofDrainStart).count();
+            PrintMes(RGY_LOG_DEBUG, _T("Pipeline draining after input EOF write summary: +%lld ms, writes=%d, total=%lld ms, max=%lld ms.\n"),
+                (lls)elapsedMs, eofDrainWriteCount, (lls)eofDrainWriteMsTotal, (lls)eofDrainWriteMsMax);
+        }
     }
     // flush
     PrintMes(RGY_LOG_DEBUG, _T("Flushing start....\n"));
     if (err == RGY_ERR_MORE_BITSTREAM) { // 読み込みの完了を示すフラグ
         err = RGY_ERR_NONE;
+        int flushOutputWrites = 0;
+        int64_t flushOutputWriteMsTotal = 0;
+        int64_t flushOutputWriteMsMax = 0;
         for (auto& task : m_pipelineTasks) {
             task->setOutputMaxQueueSize(0); //flushのため
         }
@@ -5134,10 +5215,15 @@ RGY_ERR NVEncCore::Encode() {
                     if (err == RGY_ERR_MORE_DATA) err = RGY_ERR_NONE; //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
                     if (stopwatchOutput) stopwatchOutput->set(0);
+                    const auto writeStart = std::chrono::steady_clock::now();
                     if ((err = d.data->write(m_pFileWriter.get(), m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
+                    const auto writeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeStart).count();
+                    flushOutputWrites++;
+                    flushOutputWriteMsTotal += writeMs;
+                    flushOutputWriteMsMax = (std::max)(flushOutputWriteMsMax, writeMs);
                     if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
             }
@@ -5160,6 +5246,8 @@ RGY_ERR NVEncCore::Encode() {
                 }
             }
         }
+        PrintMes(RGY_LOG_DEBUG, _T("Flush output writes: %d packets, total %lld ms, max %lld ms.\n"),
+            flushOutputWrites, (lls)flushOutputWriteMsTotal, (lls)flushOutputWriteMsMax);
     }
     if (!(err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err == RGY_ERR_ABORTED)) {
         for (auto& p : m_pipelineTasks) {

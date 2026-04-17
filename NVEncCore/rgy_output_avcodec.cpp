@@ -177,7 +177,9 @@ AVMuxFormat::AVMuxFormat() :
     allowOtherNegativePts(false),
     timestampPassThrough(false),
     fpTsLogMtx(),
-    fpTsLogFile() {
+    fpTsLogFile(),
+    realtimeStatsMtx(),
+    realtimeStats() {
 }
 
 AVMuxVideo::AVMuxVideo() :
@@ -392,6 +394,65 @@ RGYOutputAvcodec::~RGYOutputAvcodec() {
     Close();
 }
 
+void RGYOutputAvcodec::LogPacketRealtimeSkew(int streamIndex, int64_t pts, int64_t dts, AVRational timebase, int64_t writeMs) {
+    const auto ts = (pts != AV_NOPTS_VALUE) ? pts : dts;
+    if (ts == AV_NOPTS_VALUE
+        || m_Mux.format.formatCtx == nullptr
+        || streamIndex < 0
+        || streamIndex >= (int)m_Mux.format.formatCtx->nb_streams) {
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    const auto stream = m_Mux.format.formatCtx->streams[streamIndex];
+    const auto mediaType = stream->codecpar->codec_type;
+    const auto mediaTypeStr = av_get_media_type_string(mediaType);
+    const auto mediaStr = char_to_tstring(mediaTypeStr ? mediaTypeStr : "unknown");
+    std::lock_guard<std::mutex> lock(m_Mux.format.realtimeStatsMtx);
+    auto &stats = m_Mux.format.realtimeStats[streamIndex];
+    if (!stats.initialized) {
+        stats.initialized = true;
+        stats.firstPts = ts;
+        stats.firstWall = now;
+    }
+    const auto mediaElapsedMs = av_rescale_q(ts - stats.firstPts, timebase, av_make_q(1, 1000));
+    const auto wallElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - stats.firstWall).count();
+    const auto leadMs = mediaElapsedMs - wallElapsedMs;
+    stats.lastPts = ts;
+    stats.lastWall = now;
+    stats.lastLeadMs = leadMs;
+    stats.maxLeadMs = (std::max)(stats.maxLeadMs, leadMs);
+    stats.minLeadMs = (std::min)(stats.minLeadMs, leadMs);
+    stats.maxWriteMs = (std::max)(stats.maxWriteMs, writeMs);
+    stats.writeCount++;
+
+    if (stats.writeCount <= 3 || writeMs >= 100 || std::abs(leadMs) >= 300) {
+        AddMessage(RGY_LOG_DEBUG, _T("Realtime skew %s stream %d: ts=%lld (pts=%lld, dts=%lld), lead=%+lld ms, write=%lld ms, writes=%d.\n"),
+            mediaStr.c_str(), streamIndex, (lls)ts, (lls)pts, (lls)dts, (lls)leadMs, (lls)writeMs, stats.writeCount);
+    }
+}
+
+void RGYOutputAvcodec::PrintPacketRealtimeSkewSummary() {
+    if (m_Mux.format.formatCtx == nullptr) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(m_Mux.format.realtimeStatsMtx);
+    for (const auto& [streamIndex, stats] : m_Mux.format.realtimeStats) {
+        if (!stats.initialized) {
+            continue;
+        }
+        const auto stream = m_Mux.format.formatCtx->streams[streamIndex];
+        const auto mediaTypeStr = av_get_media_type_string(stream->codecpar->codec_type);
+        const auto mediaStr = char_to_tstring(mediaTypeStr ? mediaTypeStr : "unknown");
+        const auto mediaSpanMs = (stats.lastPts != AV_NOPTS_VALUE && stats.firstPts != AV_NOPTS_VALUE)
+            ? av_rescale_q(stats.lastPts - stats.firstPts, stream->time_base, av_make_q(1, 1000))
+            : 0;
+        const auto wallSpanMs = std::chrono::duration_cast<std::chrono::milliseconds>(stats.lastWall - stats.firstWall).count();
+        AddMessage(RGY_LOG_DEBUG, _T("Realtime skew summary %s stream %d: writes=%d, lead last=%+lld ms, min=%+lld ms, max=%+lld ms, mediaSpan=%lld ms, wallSpan=%lld ms, maxWrite=%lld ms.\n"),
+            mediaStr.c_str(), streamIndex, stats.writeCount, (lls)stats.lastLeadMs, (lls)stats.minLeadMs, (lls)stats.maxLeadMs,
+            (lls)mediaSpanMs, (lls)wallSpanMs, (lls)stats.maxWriteMs);
+    }
+}
+
 void RGYOutputAvcodec::CloseOther(AVMuxOther *muxOther) {
     //close decoder
     if (muxOther->outCodecDecodeCtx) {
@@ -496,14 +557,24 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
 }
 
 void RGYOutputAvcodec::CloseFormat(AVMuxFormat *muxFormat) {
+    const auto closeFormatStart = std::chrono::steady_clock::now();
     if (muxFormat->formatCtx) {
+        PrintPacketRealtimeSkewSummary();
         if (!muxFormat->streamError && m_Mux.format.fileHeaderWritten) {
+            AddMessage(RGY_LOG_DEBUG, _T("CloseFormat: av_write_trailer start...\n"));
+            const auto trailerStart = std::chrono::steady_clock::now();
             av_write_trailer(muxFormat->formatCtx);
+            const auto trailerMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - trailerStart).count();
+            AddMessage(RGY_LOG_DEBUG, _T("CloseFormat: av_write_trailer end (%lld ms).\n"), (lls)trailerMs);
         }
 #if USE_CUSTOM_IO
         if (!muxFormat->fpOutput) {
 #endif
+            AddMessage(RGY_LOG_DEBUG, _T("CloseFormat: avio_close start...\n"));
+            const auto avioCloseStart = std::chrono::steady_clock::now();
             avio_close(muxFormat->formatCtx->pb);
+            const auto avioCloseMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - avioCloseStart).count();
+            AddMessage(RGY_LOG_DEBUG, _T("CloseFormat: avio_close end (%lld ms).\n"), (lls)avioCloseMs);
             AddMessage(RGY_LOG_DEBUG, _T("Closed AVIO Context.\n"));
 #if USE_CUSTOM_IO
         }
@@ -531,7 +602,8 @@ void RGYOutputAvcodec::CloseFormat(AVMuxFormat *muxFormat) {
         muxFormat->outputBuffer = nullptr;
     }
 #endif //USE_CUSTOM_IO
-    AddMessage(RGY_LOG_DEBUG, _T("Closed format.\n"));
+    const auto closeFormatMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - closeFormatStart).count();
+    AddMessage(RGY_LOG_DEBUG, _T("Closed format (%lld ms).\n"), (lls)closeFormatMs);
 }
 
 void RGYOutputAvcodec::CloseQueues() {
@@ -3292,7 +3364,13 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
     }
     const auto pts = pkt->pts, dts = pkt->dts, duration = pkt->duration;
     *writtenDts = av_rescale_q(pkt->dts, streamTimebase, QUEUE_DTS_TIMEBASE);
+    const auto streamIndex = pkt->stream_index;
+    const auto writePts = pkt->pts;
+    const auto writeDts = pkt->dts;
+    const auto writeStart = std::chrono::steady_clock::now();
     const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+    const auto writeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeStart).count();
+    LogPacketRealtimeSkew(streamIndex, writePts, writeDts, streamTimebase, writeMs);
     if (ret_write != 0) {
         AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write video frame: %s.\n"), qsv_av_err2str(ret_write).c_str());
         m_Mux.format.streamError = true;
@@ -3613,7 +3691,13 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketRawVideo(AVPacket *pkt, int64_t *writte
             m_Mux.video.streamOut->index, char_to_tstring(avcodec_get_name(m_Mux.video.streamOut->codecpar->codec_id)).c_str(),
             pkt->pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt->pts, streamTimebase).c_str());
     }
+    const auto streamIndex = pkt->stream_index;
+    const auto writePts = pkt->pts;
+    const auto writeDts = pkt->dts;
+    const auto writeStart = std::chrono::steady_clock::now();
     const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+    const auto writeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeStart).count();
+    LogPacketRealtimeSkew(streamIndex, writePts, writeDts, streamTimebase, writeMs);
     if (ret_write != 0) {
         AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
             get_media_type_string(m_Mux.video.streamOut->codecpar->codec_id).c_str(),
@@ -3832,7 +3916,13 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     }
     if (pkt->pts >= 0 || m_Mux.format.allowOtherNegativePts) {
         //av_interleaved_write_frameに渡ったパケットは開放する必要がない
+        const auto streamIndex = pkt->stream_index;
+        const auto writePts = pkt->pts;
+        const auto writeDts = pkt->dts;
+        const auto writeStart = std::chrono::steady_clock::now();
         const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+        const auto writeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeStart).count();
+        LogPacketRealtimeSkew(streamIndex, writePts, writeDts, muxAudio->streamOut->time_base, writeMs);
         if (ret_write != 0) {
             AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
                 get_media_type_string(muxAudio->streamOut->codecpar->codec_id).c_str(),
@@ -4152,7 +4242,13 @@ RGY_ERR RGYOutputAvcodec::SubtitleEncode(const AVMuxOther *muxSub, AVSubtitleDat
         }
         pktOut->pts += ptsOffset;
         pktOut->dts = pktOut->pts;
+        const auto streamIndex = pktOut->stream_index;
+        const auto writePts = pktOut->pts;
+        const auto writeDts = pktOut->dts;
+        const auto writeStart = std::chrono::steady_clock::now();
         const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pktOut.get());
+        const auto writeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeStart).count();
+        LogPacketRealtimeSkew(streamIndex, writePts, writeDts, muxSub->streamOut->time_base, writeMs);
         if (ret_write != 0) {
             AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
                 get_media_type_string(muxSub->streamOut->codecpar->codec_id).c_str(),
@@ -4265,7 +4361,13 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     //if (pkt->dts != AV_NOPTS_VALUE) {
     //    atomic_max(m_Mux.thread.streamOutMaxDts, av_rescale_q(pkt->dts, timebase_conv, QUEUE_DTS_TIMEBASE));
     //}
+    const auto streamIndex = pkt->stream_index;
+    const auto writePts = pkt->pts;
+    const auto writeDts = pkt->dts;
+    const auto writeStart = std::chrono::steady_clock::now();
     const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+    const auto writeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeStart).count();
+    LogPacketRealtimeSkew(streamIndex, writePts, writeDts, pMuxOther->streamOut->time_base, writeMs);
     if (ret_write != 0) {
         AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
             get_media_type_string(pMuxOther->streamOut->codecpar->codec_id).c_str(),
@@ -4835,6 +4937,8 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     int audPacketsPerSec = 64;
     int nWaitAudio = 0;
     int nWaitVideo = 0;
+    int drainedAudioPackets = 0;
+    int drainedVideoPackets = 0;
     while (!m_Mux.thread.thOutput->thAbort) {
         // 起動遅れの場合がありえるのでここでチェック
         if (!bThAudProcess && m_Mux.thread.threadActiveAudioProcess()) {
@@ -4984,6 +5088,11 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         }
     }
     //メインループを抜けたことを通知する
+    const auto drainStart = std::chrono::steady_clock::now();
+    AddMessage(RGY_LOG_DEBUG, _T("WriteThreadFunc: abort acknowledged, drain start (audioQueue=%d, videoQueue=%d, audioDts=%lld, videoDts=%lld).\n"),
+        (int)m_Mux.thread.thOutput->qPackets.size(),
+        (videoIsRaw) ? (int)m_Mux.thread.qVideoRawFrames.size() : (int)m_Mux.thread.qVideobitstream.size(),
+        (lls)audioDts, (lls)videoDts);
     SetEvent(m_Mux.thread.thOutput->heEventClosing);
     m_Mux.thread.thOutput->qPackets.set_keep_length(0);
     m_Mux.thread.qVideobitstream.set_keep_length(0);
@@ -4997,6 +5106,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : INT64_MAX;
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
+            drainedAudioPackets++;
             //複数のstreamがあり得るので最大値をとる
             if (pktData.dts != AV_NOPTS_VALUE && pktData.dts != (int64_t)((uint64_t)AV_NOPTS_VALUE - 1)) {
                 audioDts = (std::max)(audioDts, pktData.dts);
@@ -5007,12 +5117,14 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             while (videoDts <= audioDts + dtsThreshold
                 && false != (bVideoExists = m_Mux.thread.qVideoRawFrames.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr))) {
                 WriteNextPacketRawVideo(pktData.pkt, &videoDts);
+                drainedVideoPackets++;
             }
         } else {
             RGYBitstream bitstream = RGYBitstreamInit();
             while (videoDts <= audioDts + dtsThreshold
                 && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr))) {
                 WriteNextFrameInternal(&bitstream, &videoDts);
+                drainedVideoPackets++;
             }
             bVideoExists = !m_Mux.thread.qVideobitstream.empty();
         }
@@ -5023,12 +5135,14 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         while (m_Mux.thread.thOutput->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr)) {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, INT64_MAX);
+            drainedAudioPackets++;
         }
     }
     if (videoIsRaw) { //動画を書き出す
         AVPktMuxData pktData = { 0 };
         while (m_Mux.thread.qVideoRawFrames.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr)) {
             WriteNextPacketRawVideo(pktData.pkt, &videoDts);
+            drainedVideoPackets++;
         }
         //nullptrを送って終了を通知する
         WriteNextPacketRawVideo(nullptr, &videoDts);
@@ -5036,17 +5150,30 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         RGYBitstream bitstream = RGYBitstreamInit();
         while (m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr)) {
             WriteNextFrameInternal(&bitstream, &videoDts);
+            drainedVideoPackets++;
         }
         //空のbitstreamを送って終了を通知する
         bitstream = RGYBitstreamInit();
         WriteNextFrameInternal(&bitstream, &videoDts);
     }
+    const auto drainMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - drainStart).count();
+    AddMessage(RGY_LOG_DEBUG, _T("WriteThreadFunc: drain done (%lld ms, drainedAudio=%d, drainedVideo=%d, audioQueue=%d, videoQueue=%d, audioDts=%lld, videoDts=%lld).\n"),
+        (lls)drainMs,
+        drainedAudioPackets,
+        drainedVideoPackets,
+        (int)m_Mux.thread.thOutput->qPackets.size(),
+        (videoIsRaw) ? (int)m_Mux.thread.qVideoRawFrames.size() : (int)m_Mux.thread.qVideobitstream.size(),
+        (lls)audioDts, (lls)videoDts);
 #endif
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
 void RGYOutputAvcodec::WaitFin() {
+    AddMessage(RGY_LOG_DEBUG, _T("WaitFin start...\n"));
+    const auto waitFinStart = std::chrono::steady_clock::now();
     CloseThread();
+    const auto waitFinMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - waitFinStart).count();
+    AddMessage(RGY_LOG_DEBUG, _T("WaitFin finished (%lld ms).\n"), (lls)waitFinMs);
 }
 
 HANDLE RGYOutputAvcodec::getThreadHandleOutput() {

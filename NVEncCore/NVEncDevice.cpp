@@ -37,6 +37,7 @@
 #include "NVEncDevice.h"
 #include "NVEncUtil.h"
 #include "rgy_perf_monitor.h"
+#include <chrono>
 #include <mutex>
 
 #define INIT_CONFIG_EX
@@ -1051,6 +1052,10 @@ const NVEncCodecFeature *NVEncoder::getCodecFeature(const GUID &codec) {
 }
 
 RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, [[maybe_unused]] bool initDX11, [[maybe_unused]] RGYParamInitVulkan initVulkan, bool skipHWDecodeCheck, bool disableNVML) {
+    const auto initStart = std::chrono::steady_clock::now();
+    auto elapsed_ms = [](const std::chrono::steady_clock::time_point& start) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+    };
 #define GETATTRIB_CHECK(val, attrib, dev) { \
         auto cuGetAttResult = cuDeviceGetAttribute(&(val), (attrib), (dev)); \
         if (cuGetAttResult == CUDA_ERROR_INVALID_DEVICE || cuGetAttResult == CUDA_ERROR_INVALID_VALUE) { \
@@ -1276,8 +1281,10 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     writeLog(RGY_LOG_DEBUG, _T("cuvidCtxLockCreate: Success.\n"));
     m_vidCtxLock = std::unique_ptr<std::remove_pointer<CUvideoctxlock>::type, decltype(cuvidCtxLockDestroy)>(vidCtxLockTmp, cuvidCtxLockDestroy);
     {
+        const auto hwDecCheckStart = std::chrono::steady_clock::now();
         NVEncCtxAutoLock(ctxlock(m_vidCtxLock.get()));
         m_cuvid_csp = getHWDecCodecCsp(skipHWDecodeCheck);
+        writeLog(RGY_LOG_DEBUG, _T("  getHWDecCodecCsp: %lld ms.\n"), (lls)elapsed_ms(hwDecCheckStart));
     }
 
     const auto featureCacheKey = make_nvenc_feature_cache_key(m_id, m_pciBusId, m_name, m_nv_driver_version, m_cuda_driver_version);
@@ -1285,18 +1292,23 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     if (const auto cached = g_nvencFeatureCache.find(featureCacheKey); cached != g_nvencFeatureCache.end()) {
         m_nvenc_codec_features = cached->second;
         writeLog(RGY_LOG_DEBUG, _T("using cached NVEnc device feature list.\n"));
+        writeLog(RGY_LOG_DEBUG, _T("initDevice total: %lld ms.\n"), (lls)elapsed_ms(initStart));
         return RGY_ERR_NONE;
     }
 
     // DeviceFeature取得のため、一時的なencoder sessionを作成する
     // session数の上限に達するのを防ぐため、featureを取得したらすぐに破棄する
     auto encoder = std::make_unique<NVEncoder>(cuCtxCreated, m_log);
+    const auto sessionInitStart = std::chrono::steady_clock::now();
     auto nvsts = encoder->InitSession();
+    writeLog(RGY_LOG_DEBUG, _T("  temp encoder InitSession: %lld ms.\n"), (lls)elapsed_ms(sessionInitStart));
     if (nvsts != NV_ENC_SUCCESS) {
         writeLog(RGY_LOG_ERROR, _T("Failed to init encoder session for getting features.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    const auto featureListStart = std::chrono::steady_clock::now();
     nvsts = encoder->createDeviceFeatureList();
+    writeLog(RGY_LOG_DEBUG, _T("  temp encoder createDeviceFeatureList: %lld ms.\n"), (lls)elapsed_ms(featureListStart));
     if (nvsts != NV_ENC_SUCCESS) {
         writeLog(RGY_LOG_ERROR, _T("Failed to create device codec list.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -1304,21 +1316,31 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     writeLog(RGY_LOG_DEBUG, _T("  createDeviceFeatureList\n"));
     m_nvenc_codec_features = encoder->GetNVEncCapability();
     g_nvencFeatureCache[featureCacheKey] = m_nvenc_codec_features;
+    writeLog(RGY_LOG_DEBUG, _T("initDevice total: %lld ms.\n"), (lls)elapsed_ms(initStart));
     return RGY_ERR_NONE;
 }
 
 RGY_ERR NVGPUInfo::initEncoder() {
+    const auto initStart = std::chrono::steady_clock::now();
+    auto elapsed_ms = [](const std::chrono::steady_clock::time_point& start) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+    };
     m_encoder = std::make_unique<NVEncoder>(m_cuCtx.get(), m_log);
+    const auto sessionInitStart = std::chrono::steady_clock::now();
     auto nvsts = m_encoder->InitSession();
+    writeLog(RGY_LOG_DEBUG, _T("initEncoder: InitSession %lld ms.\n"), (lls)elapsed_ms(sessionInitStart));
     if (nvsts != NV_ENC_SUCCESS) {
         writeLog(RGY_LOG_ERROR, _T("Failed to init encoder session.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    const auto featureListStart = std::chrono::steady_clock::now();
     nvsts = m_encoder->createDeviceFeatureList();
+    writeLog(RGY_LOG_DEBUG, _T("initEncoder: createDeviceFeatureList %lld ms.\n"), (lls)elapsed_ms(featureListStart));
     if (nvsts != NV_ENC_SUCCESS) {
         writeLog(RGY_LOG_ERROR, _T("Failed to create device codec list.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    writeLog(RGY_LOG_DEBUG, _T("initEncoder total: %lld ms.\n"), (lls)elapsed_ms(initStart));
     return RGY_ERR_NONE;
 }
 

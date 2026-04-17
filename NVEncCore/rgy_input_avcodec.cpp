@@ -33,6 +33,7 @@
 #include <cctype>
 #include <cmath>
 #include <climits>
+#include <chrono>
 #include <limits>
 #include <memory>
 #include <cppcodec/base64_rfc4648.hpp>
@@ -1660,6 +1661,10 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
 #pragma warning(disable:4100)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm) {
+    const auto initStart = std::chrono::steady_clock::now();
+    auto elapsed_ms = [](const std::chrono::steady_clock::time_point& start) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+    };
     const RGYInputAvcodecPrm *input_prm = dynamic_cast<const RGYInputAvcodecPrm*>(prm);
 
     if (input_prm->readVideo) {
@@ -1717,7 +1722,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         if (iretry > 0) {
             AddMessage(RGY_LOG_WARN, _T("Failed to get video stream information, retry opening input (%d/%d)!\n"), iretry, input_prm->inputRetry);
         }
+        const auto initFormatStart = std::chrono::steady_clock::now();
         auto err = initFormatCtx(strFileName, input_prm, iretry);
+        AddMessage(RGY_LOG_DEBUG, _T("Init timing: initFormatCtx retry %d: %lld ms.\n"), iretry, (lls)elapsed_ms(initFormatStart));
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -2197,10 +2204,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
 #endif
 
+        const auto firstFramePosStart = std::chrono::steady_clock::now();
         if (RGY_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount, input_prm->videoDetectPulldown, input_prm->lowLatency, input_prm->videoAvgFramerate))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get first frame position.\n"));
             return sts;
         }
+        AddMessage(RGY_LOG_DEBUG, _T("Init timing: getFirstFramePosAndFrameRate: %lld ms.\n"), (lls)elapsed_ms(firstFramePosStart));
 
         if (m_inputVideoInfo.frames > 0) {
             // avsw/avhwでは、--framesは--trimに置き換えて実現する
@@ -2352,6 +2361,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         m_inputInfo += _T("avcodec: ") + mes;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("Init timing: RGYInputAvcodec::Init total: %lld ms.\n"), (lls)elapsed_ms(initStart));
     return RGY_ERR_NONE;
 }
 #pragma warning(pop)

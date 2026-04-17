@@ -37,6 +37,7 @@
 #include <deque>
 #include <atomic>
 #include <unordered_map>
+#include <chrono>
 #include <cstdint>
 #include "rgy_avutil.h"
 #include "rgy_bitstream.h"
@@ -105,6 +106,32 @@ struct AVMuxTimestamp {
     }
 };
 
+struct AVMuxRealtimeStatus {
+    bool initialized;
+    int64_t firstPts;
+    int64_t lastPts;
+    int64_t lastLeadMs;
+    int64_t maxLeadMs;
+    int64_t minLeadMs;
+    int64_t maxWriteMs;
+    int writeCount;
+    std::chrono::steady_clock::time_point firstWall;
+    std::chrono::steady_clock::time_point lastWall;
+
+    AVMuxRealtimeStatus() :
+        initialized(false),
+        firstPts(AV_NOPTS_VALUE),
+        lastPts(AV_NOPTS_VALUE),
+        lastLeadMs(0),
+        maxLeadMs(std::numeric_limits<int64_t>::min()),
+        minLeadMs(std::numeric_limits<int64_t>::max()),
+        maxWriteMs(0),
+        writeCount(0),
+        firstWall(),
+        lastWall() {
+    }
+};
+
 struct AVMuxFormat {
     const TCHAR          *filename;             //出力ファイル名
     AVFormatContext      *formatCtx;            //出力ファイルのformatContext
@@ -132,6 +159,8 @@ struct AVMuxFormat {
 
     std::mutex            fpTsLogMtx;              //mux timestampログファイル用のロック
     std::unique_ptr<FILE, fp_deleter> fpTsLogFile; //mux timestampログファイル
+    std::mutex            realtimeStatsMtx;        //packet realtime skewログ用
+    std::unordered_map<int, AVMuxRealtimeStatus> realtimeStats; //stream indexごとのpacket realtime skew
 
     AVMuxFormat();
 };
@@ -692,6 +721,8 @@ protected:
 
     //ファイルヘッダーを書き出す
     RGY_ERR WriteFileHeader(const RGYBitstream *pBitstream);
+    void LogPacketRealtimeSkew(int streamIndex, int64_t pts, int64_t dts, AVRational timebase, int64_t writeMs);
+    void PrintPacketRealtimeSkewSummary();
 
     //タイムスタンプをTrimなどを考慮しつつ計算しなおす
     //nTimeInがTrimで切り取られる領域の場合

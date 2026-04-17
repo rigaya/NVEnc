@@ -105,6 +105,7 @@ public:
     size_t getPitch() { return nPitch; }
 
     bool isEmpty() { return nFramesInQueue_ == 0; }
+    int framesInQueue() const { return nFramesInQueue_; }
 
     bool nearFull() { return nFramesInQueue_ >= cnMaximumSize - 8; }
 

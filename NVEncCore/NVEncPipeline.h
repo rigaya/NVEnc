@@ -556,6 +556,9 @@ public:
 #if ENCODER_NVENC
     virtual RGY_ERR setDependCUStream([[maybe_unused]] cudaStream_t stream) { return RGY_ERR_NONE; }
 #endif
+    virtual int64_t timestamp() const { return AV_NOPTS_VALUE; }
+    virtual int64_t duration() const { return 0; }
+    virtual int64_t frameId() const { return -1; }
 };
 
 class PipelineTaskOutputSurf : public PipelineTaskOutput {
@@ -587,6 +590,9 @@ public:
     };
 
     PipelineTaskSurface& surf() { return m_surf; }
+    virtual int64_t timestamp() const override { return (m_surf.frame()) ? m_surf.frame()->timestamp() : AV_NOPTS_VALUE; }
+    virtual int64_t duration() const override { return (m_surf.frame()) ? m_surf.frame()->duration() : 0; }
+    virtual int64_t frameId() const override { return (m_surf.frame()) ? m_surf.frame()->inputFrameId() : -1; }
 
     void addCUEvent(std::shared_ptr<cudaEvent_t>& cuevent) {
         m_cuevents.push_back(cuevent);
@@ -694,6 +700,9 @@ public:
     virtual ~PipelineTaskOutputBitstream() {};
 
     std::shared_ptr<RGYBitstream>& bitstream() { return m_bs; }
+    virtual int64_t timestamp() const override { return (m_bs) ? m_bs->pts() : AV_NOPTS_VALUE; }
+    virtual int64_t duration() const override { return (m_bs) ? m_bs->duration() : 0; }
+    virtual int64_t frameId() const override { return (m_bs) ? m_bs->frameIdx() : -1; }
 
     virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] NVEncFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
@@ -948,10 +957,33 @@ public:
         return total;
     }
     virtual void printStatus() {
-        PrintMes(RGY_LOG_INFO, _T("in %d, out %d, outQeueue size: %d.\n"), m_inFrames, m_outFrames, (int)getOutQueueFrames());
+        size_t queueFrames = 0;
+        int64_t firstTimestamp = AV_NOPTS_VALUE, lastTimestamp = AV_NOPTS_VALUE;
+        int64_t firstDuration = 0, lastDuration = 0;
+        int64_t firstFrameId = -1, lastFrameId = -1;
+        { // m_outQeueueにアクセスする場合、必要なら m_outQeueueMtx のロックを取得
+            std::optional<std::lock_guard<std::mutex>> lock;
+            if (m_outQeueueMtx) {
+                lock.emplace(*m_outQeueueMtx);
+            }
+            queueFrames = m_outQeueue.size();
+            if (!m_outQeueue.empty()) {
+                firstTimestamp = m_outQeueue.front()->timestamp();
+                firstDuration = m_outQeueue.front()->duration();
+                firstFrameId = m_outQeueue.front()->frameId();
+                lastTimestamp = m_outQeueue.back()->timestamp();
+                lastDuration = m_outQeueue.back()->duration();
+                lastFrameId = m_outQeueue.back()->frameId();
+            }
+        }
+        PrintMes(RGY_LOG_INFO, _T("in %d, out %d, pending %d, outQeueue size: %d, queue first(ts=%lld,dur=%lld,id=%lld), last(ts=%lld,dur=%lld,id=%lld).\n"),
+            m_inFrames, m_outFrames, m_inFrames - m_outFrames, (int)queueFrames,
+            (lls)firstTimestamp, (lls)firstDuration, (lls)firstFrameId,
+            (lls)lastTimestamp, (lls)lastDuration, (lls)lastFrameId);
     }
     virtual bool isPassThrough() const { return false; }
     virtual tstring print() const { return getPipelineTaskTypeName(m_type); }
+    virtual bool isDrainingAfterInputEOF() const { return false; }
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() = 0;
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() = 0;
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) = 0;
@@ -1294,6 +1326,14 @@ public:
         RGYFrameInfo info(inputFrameInfo.srcWidth, inputFrameInfo.srcHeight, inputFrameInfo.csp, inputFrameInfo.bitdepth, inputFrameInfo.picstruct, RGY_MEM_TYPE_GPU);
         return std::make_pair(info, 0);
     };
+    virtual bool isDrainingAfterInputEOF() const override {
+        return m_state == RGY_STATE_RUNNING && m_dec->frameQueue()->isEndOfDecode() && !m_dec->frameQueue()->isEmpty();
+    }
+    virtual void printStatus() override {
+        PipelineTask::printStatus();
+        PrintMes(RGY_LOG_INFO, _T("state %d, decoderQueue %d, dataFlagQueue %d, hdr10plusQueue %d.\n"),
+            (int)m_state, m_dec->frameQueue()->framesInQueue(), (int)m_dataFlag.size(), (int)m_queueHDR10plusMetadata.size());
+    }
 
     void setVppFrameReleaseData(FrameReleaseData<cudaEvent_t> *frameReleaseData) {
         m_frameReleaseData = frameReleaseData;
@@ -2791,6 +2831,11 @@ public:
     bool useOutputThread() const {
         return m_bEnableOutputThread;
     }
+    virtual void printStatus() override {
+        PipelineTask::printStatus();
+        PrintMes(RGY_LOG_INFO, _T("encodeBuffer used=%d, free=%d.\n"),
+            (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
+    }
 
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfIn() override {
         RGYFrameInfo info(m_encWidth, m_encHeight, m_encCsp, m_encBitdepth, m_encPicStruct, RGY_MEM_TYPE_GPU);
@@ -2855,6 +2900,14 @@ protected:
     }
 public:
     RGY_ERR outputThreadFunc(const bool getOneFrame) {
+        const auto outputStart = std::chrono::steady_clock::now();
+        int outputFrames = 0;
+        int64_t outputBitstreamWaitMsTotal = 0;
+        int64_t outputBitstreamWaitMsMax = 0;
+        if (!getOneFrame) {
+            PrintMes(RGY_LOG_DEBUG, _T("flush output start (used=%d, free=%d).\n"),
+                (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
+        }
         while (!m_threadOutputAbort) {
             struct CUFrameEncAutoDelete {
                 RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree;
@@ -2878,15 +2931,27 @@ public:
                 }
                 frameEnc.reset(frameEncPtr);
             }
+            const auto getOutputStart = std::chrono::steady_clock::now();
             auto outBs = getOutputBitstream(frameEnc->encBuffer());
+            const auto getOutputMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - getOutputStart).count();
+            outputBitstreamWaitMsTotal += getOutputMs;
+            outputBitstreamWaitMsMax = (std::max)(outputBitstreamWaitMsMax, getOutputMs);
             if (outBs.first != RGY_ERR_NONE) {
                 if (outBs.first == RGY_ERR_MORE_DATA) {
-                    PrintMes(RGY_LOG_DEBUG, _T("Output thread reached EOS.\n"));
+                    if (!getOneFrame) {
+                        const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - outputStart).count();
+                        PrintMes(RGY_LOG_DEBUG, _T("flush output reached EOS (%lld ms, frames=%d, outputWaitTotal=%lld ms, outputWaitMax=%lld ms, used=%d, free=%d).\n"),
+                            (lls)totalMs, outputFrames, (lls)outputBitstreamWaitMsTotal, (lls)outputBitstreamWaitMsMax,
+                            (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
+                    } else {
+                        PrintMes(RGY_LOG_DEBUG, _T("Output thread reached EOS.\n"));
+                    }
                 } else {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get output bitstream: %s.\n"), get_err_mes(outBs.first));
                 }
                 return outBs.first;
             }
+            outputFrames++;
             frameEnc.reset();
             {
                 // m_outQeueueへのロックが必要ならロックを取得
@@ -2899,6 +2964,12 @@ public:
             if (getOneFrame) {
                 return RGY_ERR_NONE;
             }
+        }
+        if (!getOneFrame) {
+            const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - outputStart).count();
+            PrintMes(RGY_LOG_DEBUG, _T("flush output aborted (%lld ms, frames=%d, outputWaitTotal=%lld ms, outputWaitMax=%lld ms, used=%d, free=%d).\n"),
+                (lls)totalMs, outputFrames, (lls)outputBitstreamWaitMsTotal, (lls)outputBitstreamWaitMsMax,
+                (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
         }
         return RGY_ERR_NONE;
     }
@@ -3109,10 +3180,16 @@ protected:
     }
 
     virtual RGY_ERR flushEncoder() {
+        const auto flushStart = std::chrono::steady_clock::now();
+        PrintMes(RGY_LOG_DEBUG, _T("flushEncoder start (used=%d, free=%d).\n"),
+            (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
         m_runCtx->stEOSOutputBfr().stOutputBfr.bEOSFlag = true;
         CUFrameEncHostWrap flushBuffer(&m_runCtx->stEOSOutputBfr(), m_dev->encoder(), false);
 
+        const auto nvFlushStart = std::chrono::steady_clock::now();
         auto sts = err_to_rgy(m_dev->encoder()->NvEncFlushEncoderQueue(m_runCtx->stEOSOutputBfr().stOutputBfr.hOutputEvent));
+        const auto nvFlushMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - nvFlushStart).count();
+        PrintMes(RGY_LOG_DEBUG, _T("flushEncoder: NvEncFlushEncoderQueue returned %s (%lld ms).\n"), get_err_mes(sts), (lls)nvFlushMs);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -3128,6 +3205,9 @@ protected:
                 return sts;
             }
         }
+        const auto flushMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - flushStart).count();
+        PrintMes(RGY_LOG_DEBUG, _T("flushEncoder done (%lld ms, used=%d, free=%d).\n"),
+            (lls)flushMs, (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
         return RGY_ERR_MORE_DATA;
     }
 public:
@@ -3253,8 +3333,8 @@ public:
     }
 
     virtual void printStatus() override {
-        PrintMes(RGY_LOG_INFO, _T("in %d, out %d, outQeueue size: %d, frame release: %d.\n"),
-            m_inFrames, m_outFrames, getOutQueueFrames(), m_frameReleaseData.queueSize());
+        PipelineTask::printStatus();
+        PrintMes(RGY_LOG_INFO, _T("frame release: %d.\n"), (int)m_frameReleaseData.queueSize());
     }
 
     void setEncodeTask(PipelineTaskNVEncode *encode) {
