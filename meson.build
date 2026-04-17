@@ -797,6 +797,7 @@ nvenccore_sources = files(
   'NVEncCore/rgy_def.cpp',
   'NVEncCore/rgy_device.cpp',
   'NVEncCore/rgy_device_info_cache.cpp',
+  'NVEncCore/rgy_device_info_cache_nvenc.cpp',
   'NVEncCore/rgy_device_info_wmi.cpp',
   'NVEncCore/rgy_device_usage.cpp',
   'NVEncCore/rgy_device_vulkan.cpp',

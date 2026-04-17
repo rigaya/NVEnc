@@ -30,18 +30,20 @@
 #include <set>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include "rgy_osdep.h"
 #include "rgy_filesystem.h"
 #include "rgy_device_info_cache.h"
 #include "rgy_rev.h"
 
 #define DEVICE_INFO_CACHE_FILE_NAME _T("device_info_") _T(ENCODER_NAME) _T("_cache.txt")
-#define DEVICE_INFO_CACHE_HEADER "device_info_" ENCODER_NAME "_cache_v1"
+#define DEVICE_INFO_CACHE_HEADER "device_info_" ENCODER_NAME "_cache_v2"
 
+const char *RGYDeviceInfoCache::DEVICE_INFO_START_LINE = "Device Info";
 const char *RGYDeviceInfoCache::DEC_CSP_START_LINE = "Decoder CSP";
 const char *RGYDeviceInfoCache::ENC_FEATURES_START_LINE = "Encoder Features";
 
-RGYDeviceInfoCache::RGYDeviceInfoCache() : m_deviceIds(), m_deviceDecCodecCsp(), m_dataUpdated(false) {}
+RGYDeviceInfoCache::RGYDeviceInfoCache() : m_deviceIds(), m_deviceInfos(), m_deviceDecCodecCsp(), m_dataUpdated(false) {}
 
 RGYDeviceInfoCache::~RGYDeviceInfoCache() {
     updateCacheFile();
@@ -63,11 +65,13 @@ tstring RGYDeviceInfoCache::getCacheFilePath() const {
 
 RGY_ERR RGYDeviceInfoCache::loadCacheFile() {
     m_deviceIds.clear();
+    m_deviceInfos.clear();
+    m_deviceDecCodecCsp.clear();
 
     const auto cachFilePath = getCacheFilePath();
 
     if (!rgy_file_exists(cachFilePath)) {
-        return RGY_ERR_NOT_FOUND; // ファイルが存在しない
+        return RGY_ERR_NOT_FOUND;
     }
 
     std::ifstream cacheFile;
@@ -79,19 +83,19 @@ RGY_ERR RGYDeviceInfoCache::loadCacheFile() {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     if (!cacheFile.is_open()) {
-        return RGY_ERR_FILE_OPEN; // ファイルオープンエラー
+        return RGY_ERR_FILE_OPEN;
     }
 
     std::string line;
     if (!std::getline(cacheFile, line) || line != DEVICE_INFO_CACHE_HEADER) {
-        return RGY_ERR_INVALID_VERSION; // ヘッダーエラー
+        return RGY_ERR_INVALID_VERSION;
     }
 
     if (!std::getline(cacheFile, line)) {
-        return RGY_ERR_INVALID_FORMAT; // キャッシュ作成時刻読み取りエラー
+        return RGY_ERR_INVALID_FORMAT;
     }
     std::istringstream iss(line);
-    time_t cacheTime;
+    time_t cacheTime = 0;
     iss >> cacheTime;
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -103,35 +107,25 @@ RGY_ERR RGYDeviceInfoCache::loadCacheFile() {
 #endif
     time_t bootTime = time(nullptr) - uptime;
     if (cacheTime < bootTime) {
-        return RGY_ERR_INVALID_VERSION; // キャッシュ作成時刻エラー
+        return RGY_ERR_INVALID_VERSION;
     }
 
     if (!std::getline(cacheFile, line)) {
-        return RGY_ERR_INVALID_VERSION; // バージョン情報読み取りエラー
+        return RGY_ERR_INVALID_VERSION;
     }
     if (line != getExpectedVersionInfo()) {
-        return RGY_ERR_INVALID_VERSION; // バージョン情報エラー
+        return RGY_ERR_INVALID_VERSION;
     }
 
-    while (std::getline(cacheFile, line)) {
-        if (line == DEC_CSP_START_LINE) {
-            break;
-        }
-        auto pos = line.find_first_of(' ');
-        if (pos == std::string::npos) {
-            return RGY_ERR_INVALID_FORMAT; // デバイスID読み取りエラー
-        }
-        try {
-            int deviceId = std::stoi(line.substr(0, pos));
-            m_deviceIds[deviceId] = line.substr(pos + 1);
-        } catch (...) {
-            return RGY_ERR_INVALID_FORMAT; // デバイスID読み取りエラー
-        }
+    if (!std::getline(cacheFile, line) || line != DEVICE_INFO_START_LINE) {
+        return RGY_ERR_INVALID_FORMAT;
     }
-    if (line != DEC_CSP_START_LINE) {
-        return RGY_ERR_INVALID_FORMAT; // "Decoder CSP" エラー
+
+    auto sts = parseDeviceInfo(cacheFile);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    auto sts = parseDecCsp(cacheFile);
+    sts = parseDecCsp(cacheFile);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -142,21 +136,55 @@ RGY_ERR RGYDeviceInfoCache::loadCacheFile() {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYDeviceInfoCache::parseDeviceInfo(std::ifstream& cacheFile) {
+    m_deviceIds.clear();
+    m_deviceInfos.clear();
+
+    std::string line;
+    while (std::getline(cacheFile, line)) {
+        if (line == DEC_CSP_START_LINE) {
+            return RGY_ERR_NONE;
+        }
+        if (line.empty()) {
+            continue;
+        }
+        const auto cols = split(line, std::string("\t"));
+        if (cols.size() != 5) {
+            return RGY_ERR_INVALID_FORMAT;
+        }
+        try {
+            const int deviceId = std::stoi(cols[0]);
+            RGYDeviceInfoCacheKey info;
+            info.deviceName = cols[1];
+            info.deviceId = cols[2];
+            info.deviceSubId = cols[3];
+            info.driverVersion = cols[4];
+            m_deviceIds[deviceId] = info.deviceName;
+            m_deviceInfos[deviceId] = info;
+        } catch (...) {
+            return RGY_ERR_INVALID_FORMAT;
+        }
+    }
+    return RGY_ERR_INVALID_FORMAT;
+}
+
 RGY_ERR RGYDeviceInfoCache::parseDecCsp(std::ifstream& cacheFile) {
     m_deviceDecCodecCsp.clear();
 
     std::string line;
     while (std::getline(cacheFile, line)) {
         if (line == ENC_FEATURES_START_LINE) {
-            break;
+            return RGY_ERR_NONE;
+        }
+        if (line.empty()) {
+            continue;
         }
         std::istringstream iss(line);
         int deviceId = 0;
         if (!(iss >> deviceId)) {
-            return RGY_ERR_INVALID_FORMAT; // デバイスID読み取りエラー
+            return RGY_ERR_INVALID_FORMAT;
         }
-        // m_deviceDecCodecCsp の first に deviceId があるかを確認
-        auto it_dev = std::find_if(m_deviceDecCodecCsp.begin(), m_deviceDecCodecCsp.end(), [deviceId](const auto &a) { return a.first == deviceId; });
+        auto it_dev = std::find_if(m_deviceDecCodecCsp.begin(), m_deviceDecCodecCsp.end(), [deviceId](const auto& a) { return a.first == deviceId; });
         if (it_dev == m_deviceDecCodecCsp.end()) {
             m_deviceDecCodecCsp.push_back(std::make_pair(deviceId, CodecCsp{}));
             it_dev = m_deviceDecCodecCsp.end() - 1;
@@ -164,11 +192,11 @@ RGY_ERR RGYDeviceInfoCache::parseDecCsp(std::ifstream& cacheFile) {
 
         std::string codecNameStr;
         if (!(iss >> codecNameStr)) {
-            return RGY_ERR_INVALID_FORMAT; // コーデック名読み取りエラー
+            return RGY_ERR_INVALID_FORMAT;
         }
         const RGY_CODEC codec = (RGY_CODEC)get_cx_value(list_rgy_codec, char_to_tstring(codecNameStr).c_str());
         if (codec == RGY_CODEC_UNKNOWN) {
-            return RGY_ERR_INVALID_VIDEO_PARAM; // コーデック名変換エラー
+            return RGY_ERR_INVALID_VIDEO_PARAM;
         }
         std::vector<RGY_CSP> cspList;
         std::string colorSpaceStr;
@@ -182,7 +210,7 @@ RGY_ERR RGYDeviceInfoCache::parseDecCsp(std::ifstream& cacheFile) {
                 }
             }
             if (colorSpace == RGY_CSP_NA) {
-                return RGY_ERR_INVALID_FORMAT; // 色空間変換エラー
+                return RGY_ERR_INVALID_FORMAT;
             }
             cspList.push_back(colorSpace);
         }
@@ -201,23 +229,36 @@ void RGYDeviceInfoCache::clearFeatureCache() {
 }
 
 void RGYDeviceInfoCache::setDeviceIds(const std::map<int, std::string>& deviceIds) {
-    bool devNameMismatch = false;
-    for (const auto& [ devID, devName ] : deviceIds) {
-        auto it = m_deviceIds.find(devID);
-        if (it != m_deviceIds.end()) {
-            if (it->second != devName) {
-                it->second = devName;
-                m_dataUpdated = true;
-                devNameMismatch = true;
+    std::map<int, RGYDeviceInfoCacheKey> deviceInfos;
+    for (const auto& [devId, devName] : deviceIds) {
+        const auto it = m_deviceInfos.find(devId);
+        deviceInfos[devId] = (it != m_deviceInfos.end()) ? it->second : RGYDeviceInfoCacheKey{};
+        deviceInfos[devId].deviceName = devName;
+    }
+    setDeviceInfos(deviceInfos);
+}
+
+void RGYDeviceInfoCache::setDeviceInfos(const std::map<int, RGYDeviceInfoCacheKey>& deviceInfos) {
+    bool deviceInfoMismatch = m_deviceInfos.size() != deviceInfos.size();
+    if (!deviceInfoMismatch) {
+        for (const auto& [devId, deviceInfo] : deviceInfos) {
+            const auto it = m_deviceInfos.find(devId);
+            if (it == m_deviceInfos.end() || it->second != deviceInfo) {
+                deviceInfoMismatch = true;
+                break;
             }
-        } else {
-            m_deviceIds[devID] = devName;
-            m_dataUpdated = true;
         }
     }
-    // デバイス名の不一致があったら、予期せぬことが起こっているのでキャッシュを破棄する
-    if (devNameMismatch) {
+    if (deviceInfoMismatch) {
         clearFeatureCache();
+    }
+    if (m_deviceInfos != deviceInfos) {
+        m_deviceInfos = deviceInfos;
+        m_deviceIds.clear();
+        for (const auto& [devId, deviceInfo] : m_deviceInfos) {
+            m_deviceIds[devId] = deviceInfo.deviceName;
+        }
+        m_dataUpdated = true;
     }
 }
 
@@ -230,16 +271,24 @@ void RGYDeviceInfoCache::setDecCodecCsp(const std::map<int, std::string>& device
     }
 }
 
+void RGYDeviceInfoCache::setDecCodecCsp(const std::map<int, RGYDeviceInfoCacheKey>& deviceInfos, const DeviceCodecCsp& deviceCodecCspList) {
+    setDeviceInfos(deviceInfos);
+    for (const auto& deviceCodecCsp : deviceCodecCspList) {
+        if (deviceInfos.count(deviceCodecCsp.first) > 0) {
+            setDecCodecCsp(deviceInfos.at(deviceCodecCsp.first).deviceName, deviceCodecCsp);
+        }
+    }
+}
+
 void RGYDeviceInfoCache::setDecCodecCsp(const std::string& devName, const std::pair<int, CodecCsp>& deviceCodecCsp) {
-    // デバイス名の確認
     if (m_deviceIds.count(deviceCodecCsp.first) == 0 || m_deviceIds[deviceCodecCsp.first] != devName) {
         clearFeatureCache();
         return;
     }
     for (auto& dcc : m_deviceDecCodecCsp) {
-        if (dcc.first == deviceCodecCsp.first) { // deviceIDの一致
+        if (dcc.first == deviceCodecCsp.first) {
             bool updateRequired = false;
-            for (auto& [ codec, support_csp ] : deviceCodecCsp.second) {
+            for (const auto& [codec, support_csp] : deviceCodecCsp.second) {
                 const auto support_csp_set = std::set(support_csp.begin(), support_csp.end());
                 if (dcc.second.count(codec) == 0) {
                     updateRequired = true;
@@ -252,7 +301,7 @@ void RGYDeviceInfoCache::setDecCodecCsp(const std::string& devName, const std::p
                     }
                 }
             }
-            if (updateRequired) {
+            if (updateRequired || dcc.second.size() != deviceCodecCsp.second.size()) {
                 dcc = deviceCodecCsp;
                 m_dataUpdated = true;
             }
@@ -261,6 +310,17 @@ void RGYDeviceInfoCache::setDecCodecCsp(const std::string& devName, const std::p
     }
     m_deviceDecCodecCsp.push_back(deviceCodecCsp);
     m_dataUpdated = true;
+}
+
+const CodecCsp *RGYDeviceInfoCache::getDecCodecCsp(int deviceId, const RGYDeviceInfoCacheKey& deviceInfo) const {
+    const auto itDevice = m_deviceInfos.find(deviceId);
+    if (itDevice == m_deviceInfos.end() || itDevice->second != deviceInfo) {
+        return nullptr;
+    }
+    const auto it = std::find_if(m_deviceDecCodecCsp.begin(), m_deviceDecCodecCsp.end(), [deviceId](const auto& data) {
+        return data.first == deviceId;
+    });
+    return (it == m_deviceDecCodecCsp.end()) ? nullptr : &it->second;
 }
 
 void RGYDeviceInfoCache::updateCacheFile() {
@@ -274,8 +334,18 @@ void RGYDeviceInfoCache::writeHeader(std::ofstream& cacheFile) {
     cacheFile << DEVICE_INFO_CACHE_HEADER << std::endl;
     cacheFile << std::time(nullptr) << std::endl;
     cacheFile << getExpectedVersionInfo() << std::endl;
-    for (const auto& [devId, devName] : m_deviceIds) {
-        cacheFile << devId << " " << devName << std::endl;
+}
+
+void RGYDeviceInfoCache::writeDeviceInfo(std::ofstream& cacheFile) {
+    cacheFile << DEVICE_INFO_START_LINE << std::endl;
+    for (const auto& [devId, deviceInfo] : m_deviceInfos) {
+        cacheFile
+            << devId << '\t'
+            << deviceInfo.deviceName << '\t'
+            << deviceInfo.deviceId << '\t'
+            << deviceInfo.deviceSubId << '\t'
+            << deviceInfo.driverVersion
+            << std::endl;
     }
 }
 
@@ -303,13 +373,14 @@ RGY_ERR RGYDeviceInfoCache::saveCacheFile() {
         return RGY_ERR_NONE;
     }
     const auto cachFilePath = getCacheFilePath();
-    bool cacheFileExists = rgy_file_exists(cachFilePath);
+    const bool cacheFileExists = rgy_file_exists(cachFilePath);
     {
         std::ofstream cacheFile(cachFilePath);
         if (!cacheFile.is_open()) {
-            return RGY_ERR_FILE_OPEN; // ファイルオープンエラー
+            return RGY_ERR_FILE_OPEN;
         }
         writeHeader(cacheFile);
+        writeDeviceInfo(cacheFile);
         writeDecCsp(cacheFile);
         writeEncFeatures(cacheFile);
         cacheFile.close();
@@ -319,5 +390,5 @@ RGY_ERR RGYDeviceInfoCache::saveCacheFile() {
         chmod(cachFilePath.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 #endif
     }
-    return RGY_ERR_NONE; // 正常終了
+    return RGY_ERR_NONE;
 }

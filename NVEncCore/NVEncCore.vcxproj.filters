@@ -312,6 +312,9 @@
     <ClCompile Include="rgy_device_info_cache.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_device_info_cache_nvenc.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="rgy_level.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -669,6 +672,9 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_device_info_cache.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="rgy_device_info_cache_nvenc.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_level.h">

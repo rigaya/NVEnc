@@ -32,6 +32,7 @@
 
 #include <thread>
 #include <future>
+#include <chrono>
 #include <atomic>
 #include <deque>
 #include <numeric>
@@ -1093,19 +1094,30 @@ public:
         return RGY_ERR_NONE;
     }
     RGY_ERR setWorkSurfaces(std::vector<std::unique_ptr<EncodeBuffer>>& m_stEncodeBuffer, RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree, NVEncoder *encoder, const bool rgbAsYUV444) {
+        auto elapsed_ms = [](const std::chrono::steady_clock::time_point& start) {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+        };
         std::vector<std::unique_ptr<CUFrameEnc>> frames;
+        const auto wrapStart = std::chrono::steady_clock::now();
         for (auto& bfr : m_stEncodeBuffer) {
             frames.push_back(std::unique_ptr<CUFrameEnc>((bfr->stInputBfr.pNV12devPtr)
                 ? (CUFrameEnc *)new CUFrameEncDevWrap(bfr.get(), encoder, rgbAsYUV444)
                 : (CUFrameEnc *)new CUFrameEncHostWrap(bfr.get(), encoder, rgbAsYUV444)));
         }
+        const auto wrapMs = elapsed_ms(wrapStart);
         // qEncodeBufferFreeにフレームのポインタのみを登録しておく
+        const auto queuePushStart = std::chrono::steady_clock::now();
         for (auto& f : frames) {
             qEncodeBufferFree.push(f.get());
         }
+        const auto queuePushMs = elapsed_ms(queuePushStart);
         // フレームをm_workSurfsに登録する
         // 実体としてはこっちで、qEncodeBufferFreeから取得したポインタから実体をPipelineTaskSurfaces::getで取得する
+        const auto setSurfacesStart = std::chrono::steady_clock::now();
         m_workSurfs.setSurfaces(frames);
+        const auto setSurfacesMs = elapsed_ms(setSurfacesStart);
+        PrintMes(RGY_LOG_DEBUG, _T("setWorkSurfaces: wrap %lld ms, queue push %lld ms, set surfaces %lld ms, frames %d\n"),
+            (lls)wrapMs, (lls)queuePushMs, (lls)setSurfacesMs, (int)frames.size());
         return RGY_ERR_NONE;
     }
     PipelineTaskSurfaceType workSurfaceType() const {
@@ -2592,6 +2604,9 @@ public:
         return RGY_ERR_NONE;
     }
     RGY_ERR allocEncodeBuffer(const uint32_t uInputWidth, const uint32_t uInputHeight, const NV_ENC_BUFFER_FORMAT inputFormat, const NV_ENC_PIC_STRUCT picStruct, const bool alphaChannel, const int numFrames) {
+        auto elapsed_ms = [](const std::chrono::steady_clock::time_point& start) {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+        };
         uint32_t uInputWidthByte = 0;
         uint32_t uInputHeightTotal = 0;
         switch (inputFormat) {
@@ -2635,10 +2650,15 @@ public:
         log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("AllocateIOBuffers: %s %dx%d (width byte %d, height total %d), buffer count %d\n"),
             RGY_CSP_NAMES[csp_enc_to_rgy(inputFormat)], uInputWidth, uInputHeight, uInputWidthByte, uInputHeightTotal, numFrames);
 
+        int64_t inputSurfaceAllocMs = 0;
+        int64_t bitstreamBufferAllocMs = 0;
+        int64_t outputEventAllocMs = 0;
         for (int i = 0; i < numFrames; i++) {
             auto bfr = std::make_unique<EncodeBuffer>();
             if (ENABLE_INTERLACE_FROM_HWMEM || picStruct == NV_ENC_PIC_STRUCT_FRAME) {
+                const auto allocStart = std::chrono::steady_clock::now();
                 auto sts = allocateEncodeBufferFrame(bfr.get(), uInputWidth, uInputHeight, uInputWidthByte, uInputHeightTotal, inputFormat, alphaChannel);
+                inputSurfaceAllocMs += elapsed_ms(allocStart);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
@@ -2648,7 +2668,9 @@ public:
                     log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("alpha channel encoding not supported with interlaced encoding.\n"));
                     return RGY_ERR_UNSUPPORTED;
                 }
+                const auto allocStart = std::chrono::steady_clock::now();
                 auto sts = err_to_rgy(m_dev->encoder()->NvEncCreateInputBuffer(uInputWidth, uInputHeight, &bfr->stInputBfr.hInputSurface, inputFormat));
+                inputSurfaceAllocMs += elapsed_ms(allocStart);
                 if (sts != RGY_ERR_NONE) {
                     log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
                     return sts;
@@ -2659,14 +2681,18 @@ public:
             bfr->stInputBfr.dwWidth = uInputWidth;
             bfr->stInputBfr.dwHeight = uInputHeight;
 
+            const auto bitstreamAllocStart = std::chrono::steady_clock::now();
             auto sts = err_to_rgy(m_dev->encoder()->NvEncCreateBitstreamBuffer(BITSTREAM_BUFFER_SIZE, &bfr->stOutputBfr.hBitstreamBuffer));
+            bitstreamBufferAllocMs += elapsed_ms(bitstreamAllocStart);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allocate Output Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
                 return sts;
             }
             bfr->stOutputBfr.dwBitstreamBufferSize = BITSTREAM_BUFFER_SIZE;
 
+            const auto eventAllocStart = std::chrono::steady_clock::now();
             sts = err_to_rgy(m_dev->encoder()->NvEncRegisterAsyncEvent(&bfr->stOutputBfr.hOutputEvent));
+            outputEventAllocMs += elapsed_ms(eventAllocStart);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -2674,11 +2700,16 @@ public:
 
             m_stEncodeBuffer.push_back(std::move(bfr));
         }
-        
+
+        const auto eosEventAllocStart = std::chrono::steady_clock::now();
         auto sts = err_to_rgy(m_dev->encoder()->NvEncRegisterAsyncEvent(&m_stEOSOutputBfr.stOutputBfr.hOutputEvent));
+        const auto eosEventAllocMs = elapsed_ms(eosEventAllocStart);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE,
+            _T("AllocateIOBuffers timing: input surface %lld ms, bitstream %lld ms, output event %lld ms, EOS event %lld ms, frames %d\n"),
+            (lls)inputSurfaceAllocMs, (lls)bitstreamBufferAllocMs, (lls)outputEventAllocMs, (lls)eosEventAllocMs, numFrames);
         return RGY_ERR_NONE;
     }
     void releaseEncodeBuffer() {

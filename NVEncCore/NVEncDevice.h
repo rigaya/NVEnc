@@ -67,6 +67,7 @@ static const TCHAR *NVENCODE_API_DLL2 = _T("libnvidia-encode.so.1");
 
 class DeviceDX11;
 class DeviceVulkan;
+class NVEncDeviceInfoCache;
 
 #if defined(_WIN32) || defined(_WIN64)
 #define ENABLE_ASYNC 1
@@ -231,6 +232,7 @@ public:
 
     //コーデックのFeature情報のリストの作成・取得
     const std::vector<NVEncCodecFeature> &GetNVEncCapability();
+    void setNVEncCapability(const std::vector<NVEncCodecFeature>& features) { m_EncodeFeatures = features; }
 
     bool checkAPIver(uint32_t major, uint8_t minor) const;
     uint32_t getAPIver() const { return m_apiVer; }
@@ -357,7 +359,7 @@ public:
 
     void close_device();
 
-    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, RGYParamInitVulkan initVulkan, bool skipHWDecodeCheck, bool disableNVML);
+    RGY_ERR initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool initDX11, RGYParamInitVulkan initVulkan, bool skipHWDecodeCheck, bool disableNVML, const NVEncDeviceInfoCache *deviceInfoCache = nullptr);
     RGY_ERR initEncoder();
     tstring infostr() const;
 protected:
@@ -414,7 +416,7 @@ protected:
     RGY_ERR InitCuda();
 
     //deviceリストを作成
-    RGY_ERR InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML);
+    RGY_ERR InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML, const NVEncDeviceInfoCache *deviceInfoCache = nullptr);
 
     std::shared_ptr<RGYLog>      m_pLog;                //ログ出力管理
     int                          m_nDeviceId;             //DeviceId

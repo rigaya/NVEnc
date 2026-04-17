@@ -36,6 +36,7 @@
 #include "rgy_env.h"
 #include "NVEncDevice.h"
 #include "NVEncUtil.h"
+#include "rgy_device_info_cache_nvenc.h"
 #include "rgy_perf_monitor.h"
 #include <chrono>
 #include <mutex>
@@ -1051,7 +1052,7 @@ const NVEncCodecFeature *NVEncoder::getCodecFeature(const GUID &codec) {
     return nullptr;
 }
 
-RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, [[maybe_unused]] bool initDX11, [[maybe_unused]] RGYParamInitVulkan initVulkan, bool skipHWDecodeCheck, bool disableNVML) {
+RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, [[maybe_unused]] bool initDX11, [[maybe_unused]] RGYParamInitVulkan initVulkan, bool skipHWDecodeCheck, bool disableNVML, const NVEncDeviceInfoCache *deviceInfoCache) {
     const auto initStart = std::chrono::steady_clock::now();
     auto elapsed_ms = [](const std::chrono::steady_clock::time_point& start) {
         return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
@@ -1280,7 +1281,14 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     }
     writeLog(RGY_LOG_DEBUG, _T("cuvidCtxLockCreate: Success.\n"));
     m_vidCtxLock = std::unique_ptr<std::remove_pointer<CUvideoctxlock>::type, decltype(cuvidCtxLockDestroy)>(vidCtxLockTmp, cuvidCtxLockDestroy);
-    {
+    const auto deviceInfoKey = RGYDeviceInfoCacheKey { tchar_to_string(m_name), m_pciBusId, strsprintf("%d", m_nv_driver_version), strsprintf("%d", m_cuda_driver_version) };
+    if (deviceInfoCache) {
+        if (const auto cachedDecCsp = deviceInfoCache->getDecCodecCsp(m_id, deviceInfoKey); cachedDecCsp != nullptr) {
+            m_cuvid_csp = *cachedDecCsp;
+            writeLog(RGY_LOG_DEBUG, _T("using cached HW decoder codec csp support from cache file.\n"));
+        }
+    }
+    if (m_cuvid_csp.size() == 0) {
         const auto hwDecCheckStart = std::chrono::steady_clock::now();
         NVEncCtxAutoLock(ctxlock(m_vidCtxLock.get()));
         m_cuvid_csp = getHWDecCodecCsp(skipHWDecodeCheck);
@@ -1294,6 +1302,15 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
         writeLog(RGY_LOG_DEBUG, _T("using cached NVEnc device feature list.\n"));
         writeLog(RGY_LOG_DEBUG, _T("initDevice total: %lld ms.\n"), (lls)elapsed_ms(initStart));
         return RGY_ERR_NONE;
+    }
+    if (deviceInfoCache) {
+        if (const auto cachedEncFeatures = deviceInfoCache->getEncFeatures(m_id, deviceInfoKey); cachedEncFeatures != nullptr) {
+            m_nvenc_codec_features = *cachedEncFeatures;
+            g_nvencFeatureCache[featureCacheKey] = m_nvenc_codec_features;
+            writeLog(RGY_LOG_DEBUG, _T("using cached NVEnc device feature list from cache file.\n"));
+            writeLog(RGY_LOG_DEBUG, _T("initDevice total: %lld ms.\n"), (lls)elapsed_ms(initStart));
+            return RGY_ERR_NONE;
+        }
     }
 
     // DeviceFeature取得のため、一時的なencoder sessionを作成する
@@ -1332,6 +1349,12 @@ RGY_ERR NVGPUInfo::initEncoder() {
     if (nvsts != NV_ENC_SUCCESS) {
         writeLog(RGY_LOG_ERROR, _T("Failed to init encoder session.\n"));
         return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_nvenc_codec_features.size() > 0) {
+        m_encoder->setNVEncCapability(m_nvenc_codec_features);
+        writeLog(RGY_LOG_DEBUG, _T("initEncoder: using cached NVEnc capability list.\n"));
+        writeLog(RGY_LOG_DEBUG, _T("initEncoder total: %lld ms.\n"), (lls)elapsed_ms(initStart));
+        return RGY_ERR_NONE;
     }
     const auto featureListStart = std::chrono::steady_clock::now();
     nvsts = m_encoder->createDeviceFeatureList();
@@ -1954,7 +1977,7 @@ RGY_ERR NVEncCtrl::ShowNVEncPresetTuneParams(const int cudaSchedule, const bool 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML) {
+RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuList, const int cudaSchedule, bool initDX11, RGYParamInitVulkan initVulkan, const bool skipHWDecodeCheck, const int disableNVML, const NVEncDeviceInfoCache *deviceInfoCache) {
     int deviceCount = 0;
 #if ENABLE_D3D11
     if (initDX11) {
@@ -2008,7 +2031,7 @@ RGY_ERR NVEncCtrl::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& gpuLi
         cudaGetLastError(); //これまでのエラーを初期化
         if ((m_nDeviceId < 0 || m_nDeviceId == currentDevice)) {
             auto gpu = std::make_unique<NVGPUInfo>(m_pLog);
-            if (gpu->initDevice(currentDevice, (CUctx_flags)cudaSchedule, m_nDeviceId == currentDevice, initDX11, initVulkan, skipHWDecodeCheck, disableNVMLCheck) == RGY_ERR_NONE) {
+            if (gpu->initDevice(currentDevice, (CUctx_flags)cudaSchedule, m_nDeviceId == currentDevice, initDX11, initVulkan, skipHWDecodeCheck, disableNVMLCheck, deviceInfoCache) == RGY_ERR_NONE) {
                 gpuList.push_back(std::move(gpu));
             }
         }

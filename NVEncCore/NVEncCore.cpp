@@ -66,7 +66,7 @@
 #include "rgy_aspect_ratio.h"
 #include "rgy_level.h"
 #include "rgy_level_hevc.h"
-#include "rgy_device_info_cache.h"
+#include "rgy_device_info_cache_nvenc.h"
 #include "rgy_parallel_enc.h"
 #include "NVEncPipeline.h"
 #include "NVEncCmd.h"
@@ -4449,7 +4449,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
     
     DeviceCodecCsp HWDecCodecCsp;
-    auto deviceInfoCache = std::make_shared<RGYDeviceInfoCache>();
+    auto deviceInfoCache = std::make_shared<NVEncDeviceInfoCache>();
     const auto deviceCacheLoadStart = std::chrono::steady_clock::now();
     if (sts = deviceInfoCache->loadCacheFile(); sts != RGY_ERR_NONE) {
         if (sts == RGY_ERR_FILE_OPEN) { // ファイルは存在するが開けない
@@ -4461,25 +4461,40 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("Init timing: device cache load: %lld ms.\n"), (lls)elapsed_ms(deviceCacheLoadStart));
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
-    auto getDevIdName = [&gpuList]() {
-        std::map<int, std::string> devIdName;
+    auto getDevInfo = [&gpuList]() {
+        std::map<int, RGYDeviceInfoCacheKey> devInfo;
         for (const auto& gpu : gpuList) {
-            devIdName[gpu->id()] = tchar_to_string(gpu->name());
+            devInfo[gpu->id()] = RGYDeviceInfoCacheKey {
+                tchar_to_string(gpu->name()),
+                gpu->pciBusId(),
+                strsprintf("%d", gpu->nv_driver_version()),
+                strsprintf("%d", gpu->cuda_driver_version())
+            };
         }
-        return devIdName;
+        return devInfo;
+    };
+    auto getDevEncFeatures = [&gpuList]() {
+        DeviceEncodeFeatures encFeatures;
+        for (const auto& gpu : gpuList) {
+            encFeatures.push_back(std::make_pair(gpu->id(), gpu->nvenc_codec_features()));
+        }
+        return encFeatures;
     };
     if (deviceInfoCache
         && (deviceInfoCache->getDeviceIds().size() == 0
             ||deviceInfoCache->getDeviceIds().size() != HWDecCodecCsp.size())) {
         const auto initDeviceListCacheMissStart = std::chrono::steady_clock::now();
-        if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, inputParam->ctrl.enableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
+        if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, inputParam->ctrl.enableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML, deviceInfoCache.get()))) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to initialize devices.\n"));
             return sts;
         }
         PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
         PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitDeviceList (cache miss prefetch): %lld ms.\n"), (lls)elapsed_ms(initDeviceListCacheMissStart));
         HWDecCodecCsp = GetHWDecCodecCsp(inputParam->ctrl.skipHWDecodeCheck, gpuList);
-        deviceInfoCache->setDecCodecCsp(getDevIdName(), HWDecCodecCsp);
+        const auto devInfo = getDevInfo();
+        deviceInfoCache->setDeviceInfos(devInfo);
+        deviceInfoCache->setDecCodecCsp(devInfo, HWDecCodecCsp);
+        deviceInfoCache->setEncFeatures(devInfo, getDevEncFeatures());
         deviceInfoCache->saveCacheFile();
         PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support saved to cache file.\n"));
     }
@@ -4497,12 +4512,17 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
 
     if (gpuList.size() == 0) {
         const auto initDeviceListStart = std::chrono::steady_clock::now();
-        if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, inputParam->ctrl.enableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML))) {
+        if (RGY_ERR_NONE != (sts = InitDeviceList(gpuList, m_cudaSchedule, !inputParam->disableDX11, inputParam->ctrl.enableVulkan, inputParam->ctrl.skipHWDecodeCheck, inputParam->disableNVML, deviceInfoCache.get()))) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to initialize devices.\n"));
             return sts;
         }
         if (deviceInfoCache) {
-            deviceInfoCache->setDeviceIds(getDevIdName());
+            const auto devInfo = getDevInfo();
+            deviceInfoCache->setDeviceInfos(devInfo);
+            if (HWDecCodecCsp.size() > 0) {
+                deviceInfoCache->setDecCodecCsp(devInfo, HWDecCodecCsp);
+            }
+            deviceInfoCache->setEncFeatures(devInfo, getDevEncFeatures());
         }
         PrintMes(RGY_LOG_DEBUG, _T("InitDeviceList: Success.\n"));
         PrintMes(RGY_LOG_DEBUG, _T("Init timing: InitDeviceList (parallel): %lld ms.\n"), (lls)elapsed_ms(initDeviceListStart));
@@ -4915,6 +4935,10 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
         return RGY_ERR_INVALID_CALL;
     }
 
+    auto elapsed_ms = [](const std::chrono::steady_clock::time_point& start) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+    };
+
     const int asyncdepth = 3;
     PrintMes(RGY_LOG_DEBUG, _T("allocFrames: m_nAsyncDepth - %d frames\n"), asyncdepth);
 
@@ -4960,23 +4984,33 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
             return RGY_ERR_UNSUPPORTED;
         }
         if (t1->taskType() == PipelineTaskType::NVENC) {
-            auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, rgy_csp_has_alpha(prm->outputCsp), m_encodeBufferCount + t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
+            const int requestNumFrames = m_encodeBufferCount + t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1;
+            const auto allocStart = std::chrono::steady_clock::now();
+            auto sts = m_encRunCtx->allocEncodeBuffer(m_uEncWidth, m_uEncHeight, GetEncBufferFormat(prm), m_stPicStruct, rgy_csp_has_alpha(prm->outputCsp), requestNumFrames);
             if (sts != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
                 return sts;
             }
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: NVENC, %dx%d, request %d frames, %lld ms\n"),
+                t0->print().c_str(), t1->print().c_str(), m_uEncWidth, m_uEncHeight, requestNumFrames, (lls)elapsed_ms(allocStart));
             t0->setWorkSurfaces(m_encRunCtx->stEncodeBuffer(), m_encRunCtx->qEncodeBufferFree(), m_dev->encoder(), m_rgbAsYUV444);
         } else if (t0->taskType() != PipelineTaskType::NVDEC) {
             const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + asyncdepth + 1);
             PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, %s %dx%d, request %d frames\n"),
                 t0->print().c_str(), t1->print().c_str(), RGY_CSP_NAMES[allocateFrameInfo.csp],
                 allocateFrameInfo.width, allocateFrameInfo.height, requestNumFrames);
+            const auto allocStart = std::chrono::steady_clock::now();
             auto sts = t0->workSurfacesAllocCUBuf(requestNumFrames, allocateFrameInfo);
             if (sts != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
                 return sts;
             }
             CUDA_DEBUG_SYNC_ERR;
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, request %d frames, %lld ms\n"),
+                t0->print().c_str(), t1->print().c_str(), requestNumFrames, (lls)elapsed_ms(allocStart));
+        } else {
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, allocation skipped (decoder-managed surfaces)\n"),
+                t0->print().c_str(), t1->print().c_str());
         }
         t0 = t1;
     }
@@ -4990,12 +5024,15 @@ RGY_ERR NVEncCore::allocatePiplelineFrames(const InEncodeVideoParam *prm) {
             PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s, type: CL, %s %dx%d, request %d frames\n"),
                 m_pipelineTasks.back()->print().c_str(), RGY_CSP_NAMES[allocateFrameInfo.csp],
                 allocateFrameInfo.width, allocateFrameInfo.height, requestNumFrames);
+            const auto allocStart = std::chrono::steady_clock::now();
             auto sts = m_pipelineTasks.back()->workSurfacesAllocCUBuf(requestNumFrames, allocateFrameInfo);
             if (sts != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s: %s."), m_pipelineTasks.back()->print().c_str(), get_err_mes(sts));
                 return sts;
             }
             CUDA_DEBUG_SYNC_ERR;
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s, type: CL, request %d frames, %lld ms\n"),
+                m_pipelineTasks.back()->print().c_str(), requestNumFrames, (lls)elapsed_ms(allocStart));
         } else if (m_pipelineTasks.back()->taskType() != PipelineTaskType::OUTPUTRAW) {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from last element!\n"));
             return RGY_ERR_UNSUPPORTED;
