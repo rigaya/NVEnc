@@ -432,7 +432,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
         inputInfoAVAudioReader.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVAudioReader.lowLatency = ctrl->lowLatency;
-        inputInfoAVAudioReader.audioReadOffsetSec = (ctrl->lowLatency && !subtitle && !output_is_pipe(common)) ? 2.0 : 0.0;
+        inputInfoAVAudioReader.audioReadOffsetSec = (ctrl->lowLatency) ? ((output_is_pipe(common)) ? 0.0 : 2.0) : 0.0;
         inputInfoAVAudioReader.hevcbsf = common->hevcbsf;
 
         shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
@@ -677,7 +677,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
-        inputInfoAVCuvid.audioReadOffsetSec = (ctrl->lowLatency && inputInfoAVCuvid.readAudio && !output_is_pipe(common)) ? 2.0 : 0.0;
+        inputInfoAVCuvid.audioReadOffsetSec = (ctrl->lowLatency) ? ((output_is_pipe(common)) ? 0.0 : 2.0) : 0.0;
         inputInfoAVCuvid.timestampPassThrough = common->timestampPassThrough;
         inputInfoAVCuvid.hevcbsf = common->hevcbsf;
         inputInfoAVCuvid.avswDecoder = inprm->avswDecoder;
