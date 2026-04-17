@@ -3173,9 +3173,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
-            } else {
-                print_cmd_error_unknown_opt_param(option_name, param, paramList);
-                return 1;
             }
         }
         return 0;
@@ -3724,9 +3721,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                return 1;
-            } else {
-                print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
         }

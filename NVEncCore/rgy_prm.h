@@ -2485,7 +2485,6 @@ struct VMAFParam {
     tstring print() const;
 };
 
-#if ENABLE_LIBVSHIP
 struct VshipSSIMU2Param {
     bool enable;
     VshipSSIMU2Param();
@@ -2514,25 +2513,20 @@ struct VshipCVVDPParam {
     bool operator!=(const VshipCVVDPParam &x) const;
     tstring print() const;
 };
-#endif //#if ENABLE_LIBVSHIP
 
 struct RGYVideoQualityMetric {
     bool ssim;
     bool psnr;
     VMAFParam vmaf;
-#if ENABLE_LIBVSHIP
     VshipSSIMU2Param vshipSsimu2;
     VshipButteraugliParam vshipButteraugli;
     VshipCVVDPParam vshipCvvdp;
-#endif //#if ENABLE_LIBVSHIP
 
     RGYVideoQualityMetric();
     ~RGYVideoQualityMetric() {};
     bool enabled() const;
     tstring enabled_metric() const;
-#if ENABLE_LIBVSHIP
     bool vshipEnabled() const;
-#endif //#if ENABLE_LIBVSHIP
 };
 
 using AttachmentSelect = DataSelect;

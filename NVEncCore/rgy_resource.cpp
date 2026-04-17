@@ -71,10 +71,12 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_decomb_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_fft3d_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_msmooth_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_knn_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_nlmeans_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_pmd_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_edgelevel_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_msharpen_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_mpdecimate_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_common_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k0_cl);
@@ -141,10 +143,12 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_DELOGO_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_DCT_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_FFT3D_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_fft3d_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_MSMOOTH_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_msmooth_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_KNN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_knn_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_NLMEANS_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_nlmeans_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_PMD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_pmd_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_EDGELEVEL_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_edgelevel_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_MSHARPEN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_msharpen_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_MPDECIMATE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_mpdecimate_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_COMMON_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_common_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_K0_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k0_cl) },

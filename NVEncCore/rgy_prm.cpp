@@ -2314,7 +2314,6 @@ tstring VMAFParam::print() const {
     return str;
 }
 
-#if ENABLE_LIBVSHIP
 VshipSSIMU2Param::VshipSSIMU2Param() :
     enable(false) {
 }
@@ -2366,26 +2365,19 @@ tstring VshipCVVDPParam::print() const {
     if (!enable) return _T("");
     return strsprintf(_T("vship-cvvdp model=%s"), model.c_str());
 }
-#endif //#if ENABLE_LIBVSHIP
 
 RGYVideoQualityMetric::RGYVideoQualityMetric() :
     ssim(false),
     psnr(false),
-    vmaf()
-#if ENABLE_LIBVSHIP
-    , vshipSsimu2()
-    , vshipButteraugli()
-    , vshipCvvdp()
-#endif //#if ENABLE_LIBVSHIP
-    {
+    vmaf(),
+    vshipSsimu2(),
+    vshipButteraugli(),
+    vshipCvvdp() {
 
 }
 bool RGYVideoQualityMetric::enabled() const {
     return ssim || psnr || vmaf.enable
-#if ENABLE_LIBVSHIP
-        || vshipSsimu2.enable || vshipButteraugli.enable || vshipCvvdp.enable
-#endif //#if ENABLE_LIBVSHIP
-        ;
+        || vshipSsimu2.enable || vshipButteraugli.enable || vshipCvvdp.enable;
 }
 tstring RGYVideoQualityMetric::enabled_metric() const {
     if (!enabled()) return _T("none");
@@ -2393,18 +2385,14 @@ tstring RGYVideoQualityMetric::enabled_metric() const {
     if (ssim) str += _T(",ssim");
     if (psnr) str += _T(",psnr");
     if (vmaf.enable) str += _T(",vmaf");
-#if ENABLE_LIBVSHIP
     if (vshipSsimu2.enable) str += _T(",") + vshipSsimu2.print();
     if (vshipButteraugli.enable) str += _T(",") + vshipButteraugli.print();
     if (vshipCvvdp.enable) str += _T(",") + vshipCvvdp.print();
-#endif //#if ENABLE_LIBVSHIP
     return (str.length() > 0) ? str.substr(1) : _T("unknown");
 }
-#if ENABLE_LIBVSHIP
 bool RGYVideoQualityMetric::vshipEnabled() const {
     return vshipSsimu2.enable || vshipButteraugli.enable || vshipCvvdp.enable;
 }
-#endif //#if ENABLE_LIBVSHIP
 
 GPUAutoSelectMul::GPUAutoSelectMul() : cores(0.001f), gen(1.0f), gpu(1.0f), ve(1.0f) {}
 
