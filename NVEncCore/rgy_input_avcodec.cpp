@@ -2352,7 +2352,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         m_inputInfo += _T("avcodec: ") + mes;
     }
-    AddMessage(RGY_LOG_DEBUG, _T("Init timing: RGYInputAvcodec::Init total: %lld ms.\n"), (lls)elapsed_ms(initStart));
     return RGY_ERR_NONE;
 }
 #pragma warning(pop)
