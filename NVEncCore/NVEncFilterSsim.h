@@ -115,6 +115,21 @@ struct NVEncFilterVshipData {
 };
 #endif //#if ENABLE_LIBVSHIP
 
+struct NVEncFilterSsimFrameSlot {
+    std::unique_ptr<CUFrameBuf> frame;
+    std::unique_ptr<cudaEvent_t, cudaevent_deleter> readyEvent;
+
+    NVEncFilterSsimFrameSlot();
+    ~NVEncFilterSsimFrameSlot();
+    RGY_ERR alloc(const RGYFrameInfo& info, RGY_MEM_TYPE memType);
+    void clear();
+    bool empty() const { return !frame; }
+    RGYFrameInfo& frameInfo() { return frame->frame; }
+    const RGYFrameInfo& frameInfo() const { return frame->frame; }
+    RGY_ERR recordReady(cudaStream_t stream);
+    RGY_ERR waitReady() const;
+};
+
 class NVEncFilterSsim : public NVEncFilter {
 public:
     NVEncFilterSsim();
@@ -130,8 +145,6 @@ public:
     RGY_ERR addBitstream(const RGYBitstream *bitstream);
     virtual void showResult();
 
-    std::array<std::unique_ptr<CUFrameBuf>, 2> &frameHostOrg() { return m_frameHostOrg; };
-    std::array<std::unique_ptr<CUFrameBuf>, 2> &frameHostEnc() { return m_frameHostEnc; };
 #if ENABLE_VMAF
     NVEncFilterVMAFData &vmaf() { return m_vmaf; }
 #endif //#if ENABLE_VMAF
@@ -139,6 +152,9 @@ public:
     NVEncFilterVshipData &vship() { return m_vship; }
 #endif //#if ENABLE_LIBVSHIP
     int frameHostSendIndex() const { return m_frameHostSendIndex.load(); }
+    RGY_ERR waitHostFramesReady(int index) const;
+    const RGYFrameInfo& frameHostOrgInfo(int index) const { return m_frameHostOrg[index % m_frameHostOrg.size()].frameInfo(); }
+    const RGYFrameInfo& frameHostEncInfo(int index) const { return m_frameHostEnc[index % m_frameHostEnc.size()].frameInfo(); }
 protected:
     RGY_ERR init_cuda_resources();
     void close_cuda_resources();
@@ -157,14 +173,14 @@ protected:
     std::atomic<bool> m_abort; //スレッド中断用
 
     CUvideoctxlock m_vidctxlock; //cuvid用のlock
-    std::deque<std::unique_ptr<CUFrameBuf>> m_input;  //使用中のフレームバッファ(オリジナルフレーム格納用)
-    std::deque<std::unique_ptr<CUFrameBuf>> m_unused; //使っていないフレームバッファ(オリジナルフレーム格納用)
+    std::deque<std::unique_ptr<NVEncFilterSsimFrameSlot>> m_input;  //使用中のフレームバッファ(オリジナルフレーム格納用)
+    std::deque<std::unique_ptr<NVEncFilterSsimFrameSlot>> m_unused; //使っていないフレームバッファ(オリジナルフレーム格納用)
     std::unique_ptr<CuvidDecode> m_decoder;     // デコーダエンジン
     unique_ptr<NVEncFilterCspCrop> m_crop;      // NV12->YV12変換用
     unique_ptr<NVEncFilterCspCrop> m_cropDToH;  // Device to Host 転送用
     std::atomic<int> m_frameHostSendIndex;
-    std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostOrg;   // オリジナルのフレームのHostメモリでのバッファ
-    std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostEnc;   // エンコード後のフレームのHostメモリでのバッファ
+    std::array<NVEncFilterSsimFrameSlot, 2> m_frameHostOrg;   // オリジナルのフレームのHostメモリでのバッファ
+    std::array<NVEncFilterSsimFrameSlot, 2> m_frameHostEnc;   // エンコード後のフレームのHostメモリでのバッファ
 #if ENABLE_VMAF
     NVEncFilterVMAFData m_vmaf;
     RGYLibVMAFLoader m_libvmaf;

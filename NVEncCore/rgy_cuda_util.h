@@ -283,33 +283,22 @@ enum class CUFrameBufType {
 struct CUFrameBufBase : public RGYFrame {
 public:
     RGYFrameInfo frame;
-    cudaEvent_t event;
     CUFrameBufType framebuftype;
     std::unique_ptr<CUFrameBufBase> refFrameHost;
     CUFrameBufBase()
-        : frame(), event(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {
-        cudaEventCreate(&event);
-    };
+        : frame(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {};
     CUFrameBufBase(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
-        : frame(), event(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {
+        : frame(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {
         frame.width = width;
         frame.height = height;
         frame.csp = csp;
         frame.mem_type = RGY_MEM_TYPE_GPU;
-        cudaEventCreate(&event);
     };
     CUFrameBufBase(const RGYFrameInfo& _info)
-        : frame(_info), event(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {
-        cudaEventCreate(&event);
-    };
+        : frame(_info), framebuftype(CUFrameBufType::Unknown), refFrameHost() {};
     virtual ~CUFrameBufBase() {
         refFrameHost.reset();
-        if (event) {
-            cudaEventDestroy(event);
-            event = nullptr;
-        }
     }
-    cudaEvent_t getEvent() const { return event; }
     void releasePtr() {
         memset(frame.ptr, 0, sizeof(frame.ptr));
         memset(frame.pitch, 0, sizeof(frame.pitch));

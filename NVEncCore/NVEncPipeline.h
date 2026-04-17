@@ -2509,14 +2509,11 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
             return RGY_ERR_NULL_PTR;
         }
-        cudaEvent_t filterFinishEvent; // このフィルタの終了を待つためのイベント
         RGYFrameInfo inputFrame;
         if (auto surfVppIn = taskSurf->surf().cubuf(); surfVppIn != nullptr) {
             inputFrame = surfVppIn->getInfo();
-            filterFinishEvent = surfVppIn->getEvent();
         } else if (auto surfVppInDev = taskSurf->surf().cudev(); surfVppInDev != nullptr) {
             inputFrame = surfVppInDev->getInfo();
-            filterFinishEvent = surfVppInDev->getEvent();
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Invalid input frame.\n"));
             return RGY_ERR_NULL_PTR;

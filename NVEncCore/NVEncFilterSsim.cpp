@@ -44,6 +44,51 @@ static double get_psnr(double mse, uint64_t nb_frames, int max) {
     return 10.0 * log10((max * max) / (mse / nb_frames));
 }
 
+NVEncFilterSsimFrameSlot::NVEncFilterSsimFrameSlot() : frame(), readyEvent() {}
+
+NVEncFilterSsimFrameSlot::~NVEncFilterSsimFrameSlot() {
+    clear();
+}
+
+RGY_ERR NVEncFilterSsimFrameSlot::alloc(const RGYFrameInfo& info, RGY_MEM_TYPE memType) {
+    clear();
+    frame = std::make_unique<CUFrameBuf>();
+    copyFrameProp(&frame->frame, &info);
+    frame->frame.mem_type = memType;
+    auto sts = (memType == RGY_MEM_TYPE_CPU) ? frame->allocHost() : frame->alloc();
+    if (sts != RGY_ERR_NONE) {
+        frame.reset();
+        return sts;
+    }
+    readyEvent = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
+    const auto cuerr = cudaEventCreateWithFlags(readyEvent.get(), cudaEventDefault);
+    if (cuerr != cudaSuccess) {
+        readyEvent.reset();
+        frame.reset();
+        return err_to_rgy(cuerr);
+    }
+    return RGY_ERR_NONE;
+}
+
+void NVEncFilterSsimFrameSlot::clear() {
+    readyEvent.reset();
+    frame.reset();
+}
+
+RGY_ERR NVEncFilterSsimFrameSlot::recordReady(cudaStream_t stream) {
+    if (!readyEvent) {
+        return RGY_ERR_NULL_PTR;
+    }
+    return err_to_rgy(cudaEventRecord(*readyEvent.get(), stream));
+}
+
+RGY_ERR NVEncFilterSsimFrameSlot::waitReady() const {
+    if (!readyEvent) {
+        return RGY_ERR_NULL_PTR;
+    }
+    return err_to_rgy(cudaEventSynchronize(*readyEvent.get()));
+}
+
 tstring NVEncFilterParamSsim::print() const {
     tstring str;
     if (ssim) str += _T("ssim ");
@@ -426,16 +471,14 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             //VMAF/Vship用のスレッドで使用するリソースもすべてスレッド内で作成する
             const auto frameInfo = m_cropDToH->GetFilterParam()->frameOut;
             for (auto &frame : m_frameHostOrg) {
-                frame = std::make_unique<CUFrameBuf>(frameInfo.width, frameInfo.height, frameInfo.csp);
-                sts = frame->allocHost();
+                sts = frame.alloc(frameInfo, RGY_MEM_TYPE_CPU);
                 if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate host frame buffer: %s.\n"), get_err_mes(sts));
                     return sts;
                 }
             }
             for (auto &frame : m_frameHostEnc) {
-                frame = std::make_unique<CUFrameBuf>(frameInfo.width, frameInfo.height, frameInfo.csp);
-                sts = frame->allocHost();
+                sts = frame.alloc(frameInfo, RGY_MEM_TYPE_CPU);
                 if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate host frame buffer: %s.\n"), get_err_mes(sts));
                     return sts;
@@ -478,10 +521,10 @@ void NVEncFilterSsim::close_cuda_resources() {
         }
         m_decFrameCopy.reset();
         for (auto& frame : m_frameHostOrg) {
-            frame.reset();
+            frame.clear();
         }
         for (auto &frame : m_frameHostEnc) {
-            frame.reset();
+            frame.clear();
         }
         m_input.clear();
         m_unused.clear();
@@ -529,10 +572,8 @@ RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
     if (m_unused.empty()) {
         //待機中のフレームバッファがなければ新たに作成する
-        auto frameBuf = std::make_unique<CUFrameBuf>();
-        copyFrameProp(&frameBuf->frame, (m_crop) ? &m_crop->GetFilterParam()->frameOut : pInputFrame);
-        frameBuf->frame.mem_type = RGY_MEM_TYPE_GPU;
-        sts = frameBuf->alloc();
+        auto frameBuf = std::make_unique<NVEncFilterSsimFrameSlot>();
+        sts = frameBuf->alloc((m_crop) ? m_crop->GetFilterParam()->frameOut : *pInputFrame, RGY_MEM_TYPE_GPU);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
             return sts;
@@ -542,7 +583,7 @@ RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     auto& copyFrame = m_unused.front();
     if (m_crop) {
         int cropFilterOutputNum = 0;
-        RGYFrameInfo *outInfo[1] = { &copyFrame->frame };
+        RGYFrameInfo *outInfo[1] = { &copyFrame->frameInfo() };
         RGYFrameInfo cropInput = *pInputFrame;
         auto sts_filter = m_crop->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, stream);
         if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
@@ -554,13 +595,17 @@ RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
             return sts_filter;
         }
     } else {
-        sts = copyFrameAsync(&copyFrame->frame, pInputFrame, stream);
+        sts = copyFrameAsync(&copyFrame->frameInfo(), pInputFrame, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame: %s.\n"), get_err_mes(sts));
             return sts;
         }
     }
-    cudaEventRecord(copyFrame->event, stream);
+    sts = copyFrame->recordReady(stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to record ready event for ssim input frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
 
     //フレームをm_unusedからm_inputに移す
     m_input.push_back(std::move(copyFrame));
@@ -675,14 +720,11 @@ int read_frames_vmaf2(VmafPicture *ref_data /*オリジナルのこと*/, VmafPi
         procIndex = filter->vmaf().procIndex.load();
         frameHostSendIndex = filter->frameHostSendIndex();
     }
-    auto &framesEnc = filter->frameHostEnc()[procIndex % filter->frameHostEnc().size()];
-    auto &framesOrg = filter->frameHostOrg()[procIndex % filter->frameHostOrg().size()];
-    if (cudaEventSynchronize(framesOrg->event) != cudaSuccess
-        || cudaEventSynchronize(framesEnc->event) != cudaSuccess) {
+    if (filter->waitHostFramesReady(procIndex) != RGY_ERR_NONE) {
         return 2;
     }
-    read_frame_vmaf2(main_data, &framesEnc->frame);
-    read_frame_vmaf2(ref_data, &framesOrg->frame);
+    read_frame_vmaf2(main_data, &filter->frameHostEncInfo(procIndex));
+    read_frame_vmaf2(ref_data, &filter->frameHostOrgInfo(procIndex));
     SetEvent(filter->vmaf().heProcFin[procIndex % filter->vmaf().heProcFin.size()]);
     filter->vmaf().procIndex.store(procIndex + 1);
     return 0;
@@ -697,7 +739,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     m_vmaf.error = 0;
     m_vmaf.score = 0.0;
     m_frameHostSendIndex = 0;
-    const auto frameInfo = m_frameHostEnc[0]->frame;
+    const auto frameInfo = m_frameHostEnc[0].frameInfo();
 
     // エラー終了時に m_vmaf.abort を自動設定するガード
     struct AbortOnError {
@@ -1009,7 +1051,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vship(RGYParamThread threadParam) {
     m_vship.cvvdpScore = 0.0;
     // VMAFが無効でVshipのみの場合はここでリセット (VMAFありの場合はthread_func_vmafが初期化)
     m_frameHostSendIndex = 0;
-    const auto frameInfo = m_frameHostEnc[0]->frame;
+    const auto frameInfo = m_frameHostEnc[0].frameInfo();
 
     // エラー終了時に m_vship.abort を自動設定するガード
     struct AbortOnError {
@@ -1097,15 +1139,12 @@ RGY_ERR NVEncFilterSsim::thread_func_vship(RGYParamThread threadParam) {
         }
 
         {
-            auto &framesEnc = m_frameHostEnc[frameIdx % m_frameHostEnc.size()];
-            auto &framesOrg = m_frameHostOrg[frameIdx % m_frameHostOrg.size()];
-
-            // cuda転送完了待ち
-            if (cudaEventSynchronize(framesOrg->event) != cudaSuccess
-                || cudaEventSynchronize(framesEnc->event) != cudaSuccess) {
+            if (waitHostFramesReady(frameIdx) != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("cudaEventSynchronize failed in vship thread.\n"));
                 goto cleanup;
             }
+            const auto &framesEnc = frameHostEncInfo(frameIdx);
+            const auto &framesOrg = frameHostOrgInfo(frameIdx);
 
             // planarポインタ構築 (src=org/ref, dis=enc/distorted)
             const uint8_t *srcp[3] = { nullptr, nullptr, nullptr }; // org (reference)
@@ -1114,8 +1153,8 @@ RGY_ERR NVEncFilterSsim::thread_func_vship(RGYParamThread threadParam) {
             int64_t disLineSize[3] = { 0, 0, 0 };
             const int nPlanes = RGY_CSP_PLANES[frameInfo.csp];
             for (int i = 0; i < nPlanes; i++) {
-                const auto planeOrg = getPlane(&framesOrg->frame, (RGY_PLANE)i);
-                const auto planeEnc = getPlane(&framesEnc->frame, (RGY_PLANE)i);
+                const auto planeOrg = getPlane(&framesOrg, (RGY_PLANE)i);
+                const auto planeEnc = getPlane(&framesEnc, (RGY_PLANE)i);
                 srcp[i] = planeOrg.ptr[0];
                 disp[i] = planeEnc.ptr[0];
                 srcLineSize[i] = planeOrg.pitch[0];
@@ -1289,6 +1328,20 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                 }
             }
         }
+        RGYFrameInfo original;
+        {
+            std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
+            if (m_input.empty()) {
+                AddMessage(RGY_LOG_ERROR, _T("Original frame #%d to be compared is missing.\n"), m_frames);
+                return RGY_ERR_UNKNOWN;
+            }
+            auto sts = m_input.front()->waitReady();
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to synchronize ready event for original frame: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+            original = m_input.front()->frameInfo();
+        }
         if (m_cropDToH) {
             const auto frameHostSendIndex = m_frameHostSendIndex.load();
 #if ENABLE_VMAF
@@ -1312,8 +1365,8 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             {
                 int cropFilterOutputNum = 0;
                 auto &frameHostOrg = m_frameHostOrg[frameHostSendIndex % m_frameHostOrg.size()];
-                RGYFrameInfo *outInfoOrg[1] = { &frameHostOrg->frame };
-                auto sts_filter = m_cropDToH->filter(&m_input.front()->frame, (RGYFrameInfo **)&outInfoOrg, &cropFilterOutputNum, *m_streamCrop.get());
+                RGYFrameInfo *outInfoOrg[1] = { &frameHostOrg.frameInfo() };
+                auto sts_filter = m_cropDToH->filter(&original, (RGYFrameInfo **)&outInfoOrg, &cropFilterOutputNum, *m_streamCrop.get());
                 if (outInfoOrg[0] == nullptr || cropFilterOutputNum != 1) {
                     AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDToH->name().c_str());
                     return sts_filter;
@@ -1324,8 +1377,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                         get_err_mes(sts));
                     return sts;
                 }
-                cudaEventRecord(frameHostOrg->event, *m_streamCrop.get());
-                sts = err_to_rgy(cudaGetLastError());
+                sts = frameHostOrg.recordReady(*m_streamCrop.get());
                 if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("error at cudaEventRecord(Org)->filter: %s.\n"),
                         get_err_mes(sts));
@@ -1336,7 +1388,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             {
                 int cropFilterOutputNum = 0;
                 auto &frameHostEnc = m_frameHostEnc[frameHostSendIndex % m_frameHostEnc.size()];
-                RGYFrameInfo *outInfoEnc[1] = { &frameHostEnc->frame };
+                RGYFrameInfo *outInfoEnc[1] = { &frameHostEnc.frameInfo() };
                 auto sts_filter = m_cropDToH->filter(&targetFrame, (RGYFrameInfo **)&outInfoEnc, &cropFilterOutputNum, *m_streamCrop.get());
                 if (outInfoEnc[0] == nullptr || cropFilterOutputNum != 1) {
                     AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDToH->name().c_str());
@@ -1348,8 +1400,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                         get_err_mes(sts));
                     return sts;
                 }
-                cudaEventRecord(frameHostEnc->event, *m_streamCrop.get());
-                sts = err_to_rgy(cudaGetLastError());
+                sts = frameHostEnc.recordReady(*m_streamCrop.get());
                 if (sts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("error at cudaEventRecord(Enc)->filter: %s.\n"),
                         get_err_mes(sts));
@@ -1357,22 +1408,6 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                 }
             }
             m_frameHostSendIndex.store(frameHostSendIndex + 1);
-        }
-
-        //比較用のキューの先頭に積まれているものから順次比較していく
-        if (m_input.empty()) {
-            AddMessage(RGY_LOG_ERROR, _T("Original frame #%d to be compared is missing.\n"), m_frames);
-            return RGY_ERR_UNKNOWN;
-        }
-        RGYFrameInfo original;
-        {
-            std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
-            auto &originalFrame = m_input.front();
-            //オリジナルのフレームに対するcrop操作が終わっているか確認する (基本的には終わっているはず)
-            if (m_crop) {
-                cudaEventSynchronize(originalFrame->event);
-            }
-            original = originalFrame->frame;
         }
         auto sts_filter = calc_ssim_psnr(&original, &targetFrame);
         if (sts_filter != RGY_ERR_NONE) {
@@ -1386,6 +1421,14 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         m_frames++;
     }
     return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterSsim::waitHostFramesReady(int index) const {
+    auto sts = m_frameHostOrg[index % m_frameHostOrg.size()].waitReady();
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    return m_frameHostEnc[index % m_frameHostEnc.size()].waitReady();
 }
 
 void NVEncFilterSsim::close() {
