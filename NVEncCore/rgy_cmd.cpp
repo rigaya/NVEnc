@@ -3341,7 +3341,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{
-            "shader", "res", "width", "height", "chromaloc", "colorsystem", "transfer", "resampler",
+            "shader", "res", "width", "height", "csp", "chromaloc", "colorsystem", "transfer", "resampler",
             "radius", "clamp", "taper", "blur", "antiring", "linear"
         };
         for (const auto &param : split(strInput[i], _T(","))) {
@@ -3389,6 +3389,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         shader.height = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("csp")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_libplacebo_shader_csp, param_val.c_str(), &value)) {
+                        shader.csp = (VppLibplaceboInputCSP)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_libplacebo_shader_csp);
                         return 1;
                     }
                     continue;
@@ -8152,6 +8162,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 if (param->libplacebo_shader[i].width > 0 && param->libplacebo_shader[i].height > 0) {
                     tmp << _T(",res=") << param->libplacebo_shader[i].width << _T("x") << param->libplacebo_shader[i].height;
                 }
+                ADD_LST2(_T("csp"), param->libplacebo_shader[i], shaderDefault, csp, list_vpp_libplacebo_shader_csp);
                 ADD_LST2(_T("chromaloc"), param->libplacebo_shader[i], shaderDefault, chromaloc, list_chromaloc_str);
                 ADD_LST2(_T("colorsystem"), param->libplacebo_shader[i], shaderDefault, colorsystem, list_vpp_libplacebo_colorsystem);
                 ADD_LST2(_T("transfer"), param->libplacebo_shader[i], shaderDefault, transfer, list_vpp_libplacebo_tone_mapping_transfer);
@@ -9905,6 +9916,10 @@ tstring gen_cmd_help_vpp() {
         _T("    params\n")
         _T("      shader=<string>           Target shader file path.\n")
         _T("      res=<int>x<int>           Output resolution of filter, must be positive value.\n")
+        _T("      csp=<string>              Input csp to pass to libplacebo.\n")
+        _T("                                  default: %s\n"), get_cx_desc(list_vpp_libplacebo_shader_csp, FILTER_DEFAULT_LIBPLACEBO_SHADER_CSP)
+        ) + print_list(list_vpp_libplacebo_shader_csp) + _T("\n");
+    str += strsprintf(_T("")
         //_T("      chromaloc=<string>        Chroma location to derive chroma shift from.\n")
         //_T("                                  default: %s\n"), get_cx_desc(list_chromaloc_str, FILTER_DEFAULT_LIBPLACEBO_SHADER_CHROMALOC)
         ) + print_list(list_chromaloc_str) + _T("\n");

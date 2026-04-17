@@ -607,6 +607,7 @@ VppLibplaceboShader::VppLibplaceboShader() :
     width(0),
     height(0),
     params(),
+    csp((VppLibplaceboInputCSP)FILTER_DEFAULT_LIBPLACEBO_SHADER_CSP),
     resize_algo((RGY_VPP_RESIZE_ALGO)get_cx_value(list_vpp_resize, FILTER_DEFAULT_LIBPLACEBO_SHADER_RESAMPLER_NAME)),
     colorsystem((VppLibplaceboColorsystem)FILTER_DEFAULT_LIBPLACEBO_SHADER_COLORSYSTEM),
     transfer((VppLibplaceboToneMappingTransfer)FILTER_DEFAULT_LIBPLACEBO_SHADER_TRANSFER),
@@ -625,6 +626,7 @@ bool VppLibplaceboShader::operator==(const VppLibplaceboShader &x) const {
         && width == x.width
         && height == x.height
         && params == x.params
+        && csp == x.csp
         && resize_algo == x.resize_algo
         && colorsystem == x.colorsystem
         && transfer == x.transfer
@@ -650,6 +652,7 @@ tstring VppLibplaceboShader::print() const {
     if (width > 0 && height > 0) {
         str += strsprintf(_T("res=%dx%d, "), width, height);
     }
+    str += strsprintf(_T("csp=%s, "), get_cx_desc(list_vpp_libplacebo_shader_csp, (int)csp));
     str += strsprintf(_T("resampler=%s, "), get_cx_desc(list_vpp_resize, (int)resize_algo));
     str += strsprintf(_T("colorsystem=%s, "), get_cx_desc(list_vpp_libplacebo_colorsystem, (int)colorsystem));
     str += strsprintf(_T("transfer=%s, "), get_cx_desc(list_vpp_libplacebo_tone_mapping_transfer, (int)transfer));

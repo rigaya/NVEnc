@@ -406,6 +406,7 @@ static const bool  FILTER_DEFAULT_MSHARPEN_HIGHQ = true;
 static const bool  FILTER_DEFAULT_MSHARPEN_MASK = false;
 
 static const TCHAR *FILTER_DEFAULT_LIBPLACEBO_SHADER_RESAMPLER_NAME = _T("libplacebo-ewa-lanczos");
+static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_CSP = 0;
 static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_COLORSYSTEM = 0;
 static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_TRANSFER = 0;
 static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_CHROMALOC = 0;
@@ -1183,6 +1184,18 @@ enum class VppLibplaceboColorsystem {
     COUNT
 };
 
+enum class VppLibplaceboInputCSP {
+    YUV444,
+    YUV420,
+    COUNT
+};
+
+const CX_DESC list_vpp_libplacebo_shader_csp[] = {
+    { _T("yuv444"),      (int)VppLibplaceboInputCSP::YUV444 },
+    { _T("yuv420"),      (int)VppLibplaceboInputCSP::YUV420 },
+    { NULL, 0 }
+};
+
 const CX_DESC list_vpp_libplacebo_colorsystem[] = {
     { _T("auto"),        (int)VppLibplaceboColorsystem::UNKNOWN },
     { _T("unknown"),     (int)VppLibplaceboColorsystem::UNKNOWN },
@@ -1505,6 +1518,7 @@ struct VppLibplaceboShader {
     int width;
     int height;
     std::vector<std::pair<tstring, tstring>> params;
+    VppLibplaceboInputCSP csp;
     RGY_VPP_RESIZE_ALGO resize_algo;
     VppLibplaceboColorsystem colorsystem;
     VppLibplaceboToneMappingTransfer transfer;

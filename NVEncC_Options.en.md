@@ -2735,10 +2735,18 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
     - shader=&lt;string&gt;  
       Target shader file path. (glsl file)
 
-    - res=&lt;int&gt;x&lt;int&gt;  
+    - res=&lt;int&gt;x&lt;int&gt;
       Output resolution of the filter.
 
-    - colorsystem=&lt;string&gt;  
+    - csp=&lt;string&gt;
+      Input CSP passed to libplacebo.
+      `yuv444` (default) keeps the current behavior and upsamples to 4:4:4 before shader processing.
+      `yuv420` skips this upsampling for 4:2:0 input and lets libplacebo handle chroma processing internally.
+      ```
+      yuv444, yuv420
+      ```
+
+    - colorsystem=&lt;string&gt;
       Color system to use. Default: auto detect.
       ```
       unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz
