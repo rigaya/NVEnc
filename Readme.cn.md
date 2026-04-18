@@ -228,6 +228,7 @@ check-features的结果，驱动程序返回的功能列表。可能取决于驱
   [libhdr10plus](https://github.com/quietvoid/hdr10plus_tool),
   [libdovi](https://github.com/quietvoid/dovi_tool),
   [vmaf](https://github.com/Netflix/vmaf),
+  [vship](https://codeberg.org/Line-fr/Vship),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
   [libass](https://github.com/libass/libass),
