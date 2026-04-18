@@ -3281,7 +3281,7 @@ public:
 
             m_runCtx->qEncodeBufferUsed().push(surfEncodeIn);
             if (m_lowLatency && !useOutputThread()) {
-                auto sts = outputThreadFunc(OutputThreadFuncMode::TryOneFrameIfReady);
+                sts = outputThreadFunc(OutputThreadFuncMode::TryOneFrameIfReady);
                 if (sts != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to poll output bitstream: %s.\n"), get_err_mes(sts));
                     return sts;
