@@ -957,7 +957,7 @@ public:
         }
         return total;
     }
-    virtual void printStatus() {
+    virtual void printStatus(RGYLogLevel logLevel = RGY_LOG_INFO) {
         size_t queueFrames = 0;
         int64_t firstTimestamp = AV_NOPTS_VALUE, lastTimestamp = AV_NOPTS_VALUE;
         int64_t firstDuration = 0, lastDuration = 0;
@@ -977,7 +977,7 @@ public:
                 lastFrameId = m_outQeueue.back()->frameId();
             }
         }
-        PrintMes(RGY_LOG_INFO, _T("in %d, out %d, pending %d, outQeueue size: %d, queue first(ts=%lld,dur=%lld,id=%lld), last(ts=%lld,dur=%lld,id=%lld).\n"),
+        PrintMes(logLevel, _T("in %d, out %d, pending %d, outQeueue size: %d, queue first(ts=%lld,dur=%lld,id=%lld), last(ts=%lld,dur=%lld,id=%lld).\n"),
             m_inFrames, m_outFrames, m_inFrames - m_outFrames, (int)queueFrames,
             (lls)firstTimestamp, (lls)firstDuration, (lls)firstFrameId,
             (lls)lastTimestamp, (lls)lastDuration, (lls)lastFrameId);
@@ -1341,9 +1341,9 @@ public:
     virtual bool isDrainingAfterInputEOF() const override {
         return m_state == RGY_STATE_RUNNING && m_dec->frameQueue()->isEndOfDecode() && !m_dec->frameQueue()->isEmpty();
     }
-    virtual void printStatus() override {
-        PipelineTask::printStatus();
-        PrintMes(RGY_LOG_INFO, _T("state %d, decoderQueue %d, dataFlagQueue %d, hdr10plusQueue %d.\n"),
+    virtual void printStatus(RGYLogLevel logLevel = RGY_LOG_INFO) override {
+        PipelineTask::printStatus(logLevel);
+        PrintMes(logLevel, _T("state %d, decoderQueue %d, dataFlagQueue %d, hdr10plusQueue %d.\n"),
             (int)m_state, m_dec->frameQueue()->framesInQueue(), (int)m_dataFlag.size(), (int)m_queueHDR10plusMetadata.size());
     }
 
@@ -2860,9 +2860,9 @@ public:
     bool useOutputThread() const {
         return m_bEnableOutputThread;
     }
-    virtual void printStatus() override {
-        PipelineTask::printStatus();
-        PrintMes(RGY_LOG_INFO, _T("encodeBuffer used=%d, free=%d.\n"),
+    virtual void printStatus(RGYLogLevel logLevel = RGY_LOG_INFO) override {
+        PipelineTask::printStatus(logLevel);
+        PrintMes(logLevel, _T("encodeBuffer used=%d, free=%d.\n"),
             (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
     }
 
@@ -3371,9 +3371,9 @@ public:
         );
     }
 
-    virtual void printStatus() override {
-        PipelineTask::printStatus();
-        PrintMes(RGY_LOG_INFO, _T("frame release: %d.\n"), (int)m_frameReleaseData.queueSize());
+    virtual void printStatus(RGYLogLevel logLevel = RGY_LOG_INFO) override {
+        PipelineTask::printStatus(logLevel);
+        PrintMes(logLevel, _T("frame release: %d.\n"), (int)m_frameReleaseData.queueSize());
     }
 
     void setEncodeTask(PipelineTaskNVEncode *encode) {

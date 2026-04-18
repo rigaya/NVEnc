@@ -5134,7 +5134,7 @@ RGY_ERR NVEncCore::Encode() {
                     const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - eofDrainStart).count();
                     PrintMes(RGY_LOG_DEBUG, _T("Pipeline draining after input EOF: +%lld ms.\n"), (lls)elapsedMs);
                     for (auto& p : m_pipelineTasks) {
-                        p->printStatus();
+                        p->printStatus(RGY_LOG_DEBUG);
                     }
                     eofDrainLastStatus = now;
                 }
@@ -5160,8 +5160,9 @@ RGY_ERR NVEncCore::Encode() {
                             const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - eofDrainStart).count();
                             PrintMes(RGY_LOG_DEBUG, _T("Pipeline draining after input EOF end: +%lld ms.\n"), (lls)elapsedMs);
                         }
+                        const auto statusLogLevel = (err == RGY_ERR_MORE_BITSTREAM) ? RGY_LOG_DEBUG : RGY_LOG_INFO;
                         for (auto& p : m_pipelineTasks) {
-                            p->printStatus();
+                            p->printStatus(statusLogLevel);
                         }
                         break;
                     }
