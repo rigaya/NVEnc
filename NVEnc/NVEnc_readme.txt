@@ -214,6 +214,15 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.04.21 (9.15)
+- --vpp-msmooth, --vpp-msharpen を追加。
+- --lowlatency時に遅延を最小化し、自動的に出力スレッドを無効化するように。
+- パイプ時の遅延短縮。
+- vshipを利用した画質指標判定を追加。(--vship-ssimulacra2, --vship-butteraugli, --vship-cvvdp)
+- 音声処理がないと字幕が--vpp-subburnに渡らなかった問題を修正。 ( #756 )
+- --vpp-libplacebo-shaderにsigmoid系のオプションと入力色空間指定オプションを追加。
+- --vpp-libplacebo-shaderでres指定が必要そうな条件を見つけたら警告を表示するように。
+
 2026.04.04 (9.14)
 - Linuxでも --vmaf を動作可能に。
 - Vapoursynth関連のエラーメッセージを改善。

@@ -50,9 +50,6 @@ QSVEnc / NVEnc / VCEEnc / rkmppenc と共通化できる部分は共通ファイ
 - `NVEncSDK`
   NVIDIA提供のSDKを入れる場所。
 
-- `BuildParallel`
-  Windowsビルド用バッチファイル。
-
 - `build_pkg`
   Linuxパッケージ作成用。
 
@@ -77,27 +74,6 @@ QSVEnc / NVEnc / VCEEnc / rkmppenc と共通化できる部分は共通ファイ
   - `json`
   - `tinyxml2`
   - `ttmath`
-
-## ビルド構成
-
-ビルド方法は `Build.ja.md` を参照。
-
-- Windows
-
-  MSBuildで`NVEnc.sln`をビルドする。
-
-  |              |Debug用構成|Release用構成|
-  |:---------------------|:------|:--------|
-  |NVEncC(64).exe | DebugStatic | RelStatic |
-  |NVEnc.[auo,auo2]  | Debug | Release |
-
-  CUDAのバージョンごとの構成は `cudaver.props` に適宜追記していく。
-
-- Linux
-
-  AviUtlプラグイン、NVEncCoreの拡張モジュール類は非対象。
-
-  `./configure` → `make` する。
 
 ## ドキュメント
 

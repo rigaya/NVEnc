@@ -1,5 +1,15 @@
 # NVEnc Release Notes
 
+## 9.15
+
+- Add [--vpp-msmooth](./NVEncC_Options.en.md#--vpp-msmooth-param1value1param2value2) and [--vpp-msharpen](./NVEncC_Options.en.md#--vpp-msharpen-param1value1param2value2).
+- Add quality metric evaluation using vship. ([--vship-ssimulacra2]((./NVEncC_Options.en.md#--vship-ssimulacra2)), [--vship-butteraugli](./NVEncC_Options.en.md#--vship-butteraugli-param1value1param2value2), [--vship-cvvdp](./NVEncC_Options.en.md#--vship-cvvdp-param1value1param2value2))
+- Minimize latency with [--lowlatency](./NVEncC_Options.en.md#--lowlatency) by automatically disabling output thread.
+- Add sigmoid-related options and input colorspace specification to [--vpp-libplacebo-shader](./NVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2).
+- Display warning using [--vpp-libplacebo-shader](./NVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2) in when conditions requiring res specification are detected.
+- Reduce latency when using pipes.
+- Fix subtitles not being passed to vpp-subburn when no audio processing is performed. ( #756 )
+
 ## 9.14
 
 - Add [--vmaf](./NVEncC_Options.en.md#--vmaf-param1value1param2value2) support for Linux systems. ( #755 )
