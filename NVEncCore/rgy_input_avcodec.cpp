@@ -2829,36 +2829,42 @@ AVDemuxStream *RGYInputAvcodec::getPacketStreamData(const AVPacket *pkt) {
 //subPacketTemporalBufferにたまっている字幕パケットをソートして送出する
 void RGYInputAvcodec::sortAndPushSubtitlePacket() {
     for (auto& st : m_Demux.stream) {
-        std::vector<int64_t> ptsList; // オリジナルのptsを保存しておく
-        ptsList.reserve(st.subPacketTemporalBuffer.size());
-        for (const auto& pkt : st.subPacketTemporalBuffer) {
-            ptsList.push_back(pkt->pts);
-        }
-        std::sort(st.subPacketTemporalBuffer.begin(), st.subPacketTemporalBuffer.end(), [](const auto pkt1, const auto pkt2) {
-            return pkt1->pts < pkt2->pts;
-        });
-        int ptsMismatchStart = -1;
-        int ptsMismatchFin = -1;
-        for (int i = 0; i < (int)ptsList.size(); ++i) {
-            if (ptsList[i] != st.subPacketTemporalBuffer[i]->pts) {
-                if (ptsMismatchStart < 0) ptsMismatchStart = i;
-                ptsMismatchFin = i;
+        // ビットマップ字幕(PGS, DVB等)はDisplay Set内のセグメントが意図的に異なるPTSを持つ
+        // (PDS/ODSはプリロード用に早いPTS、PCSは表示タイミングのPTS)
+        // PTSソートするとDisplay Setの順序が壊れるためスキップ
+        const auto *desc = avcodec_descriptor_get(st.stream->codecpar->codec_id);
+        const bool isTextSub = desc && (desc->props & AV_CODEC_PROP_TEXT_SUB);
+        if (st.stream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE && isTextSub) {
+            std::vector<int64_t> ptsList;
+            ptsList.reserve(st.subPacketTemporalBuffer.size());
+            for (const auto& pkt : st.subPacketTemporalBuffer) {
+                ptsList.push_back(pkt->pts);
+            }
+            std::sort(st.subPacketTemporalBuffer.begin(), st.subPacketTemporalBuffer.end(), [](const auto pkt1, const auto pkt2) {
+                return pkt1->pts < pkt2->pts;
+            });
+            int ptsMismatchStart = -1;
+            int ptsMismatchFin = -1;
+            for (int i = 0; i < (int)ptsList.size(); ++i) {
+                if (ptsList[i] != st.subPacketTemporalBuffer[i]->pts) {
+                    if (ptsMismatchStart < 0) ptsMismatchStart = i;
+                    ptsMismatchFin = i;
+                }
+            }
+            if (ptsMismatchStart >= 0) {
+                tstring sortMes;
+                sortMes += strsprintf(_T("subtitle packet pts sorted for track #%d\nsubtitle input  pts :"), st.index);
+                for (int i = ptsMismatchStart; i <= ptsMismatchFin; ++i) {
+                    sortMes += strsprintf(_T("%lld "), (long long int)ptsList[i]);
+                }
+                sortMes += strsprintf(_T("\nsubtitle sorted pts :"));
+                for (int i = ptsMismatchStart; i <= ptsMismatchFin; ++i) {
+                    sortMes += strsprintf(_T("%lld "), (long long int)st.subPacketTemporalBuffer[i]->pts);
+                }
+                sortMes += _T("\n");
+                AddMessage(RGY_LOG_DEBUG, sortMes);
             }
         }
-        if (ptsMismatchStart >= 0) {
-            tstring sortMes;
-            sortMes += strsprintf(_T("subtitle packet pts sorted for track #%d\nsubtitle input  pts :"), st.index);
-            for (int i = ptsMismatchStart; i <= ptsMismatchFin; ++i) {
-                sortMes += strsprintf(_T("%lld "), (long long int)ptsList[i]);
-            }
-            sortMes += strsprintf(_T("\nsubtitle sorted pts :"));
-            for (int i = ptsMismatchStart; i <= ptsMismatchFin; ++i) {
-                sortMes += strsprintf(_T("%lld "), (long long int)st.subPacketTemporalBuffer[i]->pts);
-            }
-            sortMes += _T("\n");
-            AddMessage(RGY_LOG_DEBUG, sortMes);
-        }
-        
         for (auto& pkt : st.subPacketTemporalBuffer) {
             m_Demux.qStreamPktL1.push_back(pkt);
         }

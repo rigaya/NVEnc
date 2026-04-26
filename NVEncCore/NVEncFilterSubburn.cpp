@@ -325,11 +325,9 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
             char_to_tstring(avcodec_get_name(inputCodecId)).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_NULL_PTR;
     }
-    if (prm->subburn.trackId == 0) {
-        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
-        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
-            m_outCodecDecodeCtx->width, m_outCodecDecodeCtx->height);
-    }
+    AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d, extradata %d bytes\n"), char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
+        m_outCodecDecodeCtx->width, m_outCodecDecodeCtx->height, m_outCodecDecodeCtx->extradata_size);
     return RGY_ERR_NONE;
 }
 
