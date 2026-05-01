@@ -208,6 +208,7 @@
   - [--vpp-afs \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nnedi-param1value1param2value2)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
+  - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
   - [--vpp-decomb \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-decomb-param1value1param2value2)
   - [--vpp-decimate \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-decimate-param1value1param2value2)
   - [--vpp-mpdecimate \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-mpdecimate-param1value1param2value2)
@@ -1794,6 +1795,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
 - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
 - [--vpp-yadif](#--vpp-yadif-param1value1)
+- [--vpp-bwdif](#--vpp-bwdif-param1value1)
 - [--vpp-decomb](#--vpp-decomb-param1value1param2value2)
 - [--vpp-decimate](#--vpp-decimate-param1value1param2value2)
 - [--vpp-mpdecimate](#--vpp-mpdecimate-param1value1param2value2)
@@ -2341,7 +2343,34 @@ Yadif deinterlacer.
       Generate one frame from each field assuming top field first.
     - bob_bff   
       Generate one frame from each field assuming bottom field first.
-  
+
+### --vpp-bwdif [&lt;param1&gt;=&lt;value1&gt;]
+Bwdif deinterlacer.
+
+- **parameters**
+
+  - mode
+
+    - frame (default)
+      Output at the same frame rate as the input.
+    - bob
+      Output at double frame rate.
+
+  - order
+
+    - auto (default)
+      Detect field order from each input frame automatically.
+    - tff
+      Process as top field first.
+    - bff
+      Process as bottom field first.
+
+  - deint=&lt;all|interlaced&gt;
+    Frames to deinterlace. Default: all. `interlaced` passes through frames not flagged as interlaced.
+
+  - thr=&lt;float&gt;
+    Motion detection threshold. Default 0.0 (0.0 - 100.0).
+
 ### --vpp-decomb [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 Decomb deinterlaer.
 

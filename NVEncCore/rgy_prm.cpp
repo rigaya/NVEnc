@@ -84,6 +84,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
+    std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
     std::make_pair(VppType::CL_RFF,                  _T("rff")),
@@ -1243,6 +1244,39 @@ tstring VppDecomb::print() const {
         blend ? _T("on") : _T("off"));
 }
 
+VppBwdif::VppBwdif() :
+    enable(false),
+    mode((VppBwdifMode)FILTER_DEFAULT_BWDIF_MODE),
+    order((VppBwdifOrder)FILTER_DEFAULT_BWDIF_ORDER),
+    thr(FILTER_DEFAULT_BWDIF_THR),
+    deint((VppBwdifDeint)FILTER_DEFAULT_BWDIF_DEINT),
+    log(FILTER_DEFAULT_BWDIF_LOG),
+    logPath() {
+
+}
+
+bool VppBwdif::operator==(const VppBwdif &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && order == x.order
+        && thr == x.thr
+        && deint == x.deint
+        && log == x.log
+        && logPath == x.logPath;
+}
+bool VppBwdif::operator!=(const VppBwdif &x) const {
+    return !(*this == x);
+}
+
+tstring VppBwdif::print() const {
+    const TCHAR *deintStr = (deint == VppBwdifDeint::Interlaced) ? _T("interlaced") : _T("all");
+    return strsprintf(_T("bwdif: mode=%s, order=%s, deint=%s, thr %.2f, log %s"),
+        get_cx_desc(list_vpp_bwdif_mode, (int)mode),
+        get_cx_desc(list_vpp_bwdif_order, (int)order),
+        deintStr, thr,
+        log ? _T("on") : _T("off"));
+}
+
 VppSelectEvery::VppSelectEvery() :
     enable(false),
     step(1),
@@ -2111,6 +2145,7 @@ RGYParamVpp::RGYParamVpp() :
     nnedi(),
     yadif(),
     decomb(),
+    bwdif(),
     rff(),
     selectevery(),
     decimate(),
@@ -2151,6 +2186,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && nnedi == x.nnedi
         && yadif == x.yadif
         && decomb == x.decomb
+        && bwdif == x.bwdif
         && rff == x.rff
         && selectevery == x.selectevery
         && decimate == x.decimate

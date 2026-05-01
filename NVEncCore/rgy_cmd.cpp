@@ -2105,6 +2105,102 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
+    if (IS_OPTION("vpp-bwdif") && ENABLE_VPP_FILTER_BWDIF) {
+        vpp->bwdif.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "mode", "order", "thr", "deint", "log" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->bwdif.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->bwdif.log = b;
+                        if (b) {
+                            vpp->bwdif.logPath = _T("");
+                        }
+                    } else {
+                        vpp->bwdif.log = true;
+                        vpp->bwdif.logPath = param_val;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    if (param_val == _T("frame")) {
+                        vpp->bwdif.mode = VppBwdifMode::Frame;
+                    } else if (param_val == _T("bob")) {
+                        vpp->bwdif.mode = VppBwdifMode::Bob;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: frame, bob."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("order")) {
+                    if (param_val == _T("auto") || param_val == _T("-1")) {
+                        vpp->bwdif.order = VppBwdifOrder::Auto;
+                    } else if (param_val == _T("tff")) {
+                        vpp->bwdif.order = VppBwdifOrder::TFF;
+                    } else if (param_val == _T("bff")) {
+                        vpp->bwdif.order = VppBwdifOrder::BFF;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: auto, tff, bff."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thr")) {
+                    try {
+                        vpp->bwdif.thr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("deint")) {
+                    if (param_val == _T("all")) {
+                        vpp->bwdif.deint = VppBwdifDeint::All;
+                    } else if (param_val == _T("interlaced")) {
+                        vpp->bwdif.deint = VppBwdifDeint::Interlaced;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: all, interlaced."));
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("log")) {
+                    vpp->bwdif.log = true;
+                    vpp->bwdif.logPath = _T("");
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-rff") && ENABLE_VPP_FILTER_RFF) {
         vpp->rff.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -7917,6 +8013,30 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-decomb");
         }
     }
+    if (param->bwdif != defaultPrm->bwdif) {
+        tmp.str(tstring());
+        if (!param->bwdif.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->bwdif.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), bwdif.mode, list_vpp_bwdif_mode);
+            ADD_LST(_T("order"), bwdif.order, list_vpp_bwdif_order);
+            ADD_FLOAT(_T("thr"), bwdif.thr, 1);
+            if (param->bwdif.deint != defaultPrm->bwdif.deint) {
+                tmp << _T(",deint=") << ((param->bwdif.deint == VppBwdifDeint::Interlaced) ? _T("interlaced") : _T("all"));
+            }
+            if (param->bwdif.logPath.length() > 0) {
+                tmp << _T(",log=\"") << param->bwdif.logPath << _T("\"");
+            } else {
+                ADD_BOOL(_T("log"), bwdif.log);
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-bwdif ") << tmp.str().substr(1);
+        } else if (param->bwdif.enable) {
+            cmd << _T(" --vpp-bwdif");
+        }
+    }
     if (param->rff != defaultPrm->rff) {
         tmp.str(tstring());
         if (!param->rff.enable && save_disabled_prm) {
@@ -9685,6 +9805,21 @@ tstring gen_cmd_help_vpp() {
         _T("      dthreshold=<int>      default %d (0 - 255)\n")
         _T("      blend=<bool>          blend rather than interpolate\n"),
         FILTER_DEFAULT_DECOMB_THRESHOLD, FILTER_DEFAULT_DECOMB_DTHRESHOLD);
+#endif
+#if ENABLE_VPP_FILTER_BWDIF
+    str += strsprintf(_T("\n")
+        _T("   --vpp-bwdif [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     motion-adaptive deinterlacer (w3fdif + cubic interpolation).\n")
+        _T("    params\n")
+        _T("      mode=<frame|bob>      output mode. default frame (1 output per input).\n")
+        _T("                              frame = same-rate, preserves first-displayed field\n")
+        _T("                              bob   = double-rate, emits both fields (alternating)\n")
+        _T("      order=<auto|tff|bff>  field order. default auto (derived from input picstruct)\n")
+        _T("      deint=<all|interlaced> which frames to deinterlace. default all.\n")
+        _T("                              interlaced = pass through frames not flagged as interlaced\n")
+        _T("      thr=<float>           skip-interpolation threshold, 0.0..100.0 (%% of value range).\n")
+        _T("                              motion below this returns pure temporal average. default 0.0\n")
+        _T("      log=<path|bool>       write per-frame TSV decision log to <path>\n"));
 #endif
 #if ENABLE_VPP_FILTER_RFF
     str += strsprintf(_T("\n")
