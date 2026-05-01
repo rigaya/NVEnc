@@ -1784,13 +1784,42 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         }
         const auto enc_channel_layout_exact_requested = createChannelLayoutCopy(enc_channel_layout.get());
         const bool enc_channel_layout_advertised = ChannelLayoutExists(enc_channel_layout.get(), muxAudio->outCodecEncode);
+        const bool codec_has_layout_list = !getChannelLayoutSupportedCodec(muxAudio->outCodecEncode).empty();
         if (!enc_channel_layout_advertised) {
             if (getChannelCount(enc_channel_layout.get()) <= 2) {
                 enc_channel_layout = getDefaultChannelLayout(getChannelCount(enc_channel_layout.get()));
             } else {
-                AddMessage(RGY_LOG_DEBUG, _T("Encoder %s does not advertise exact channel layout %s for audio track %d.%d, will try exact layout without implicit remap.\n"),
-                    char_to_tstring(muxAudio->outCodecEncode->name).c_str(), getChannelLayoutString(enc_channel_layout.get()).c_str(),
-                    trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
+                // For multi-channel audio, try standard channel layouts
+                // Some codecs (like libopus) don't advertise channel layouts but support standard ones
+                uniuqeRGYChannelLayout enc_channel_layout_standard(nullptr, nullptr);
+                int std_channels = getChannelCount(enc_channel_layout.get());
+                if (std_channels == 4) {
+                    enc_channel_layout_standard = getChannelLayoutFromString("quad");
+                } else if (std_channels == 5) {
+                    enc_channel_layout_standard = getChannelLayoutFromString("5.0");
+                } else if (std_channels == 6) {
+                    enc_channel_layout_standard = getChannelLayoutFromString("5.1");
+                } else if (std_channels == 7) {
+                    enc_channel_layout_standard = getChannelLayoutFromString("7.1");
+                } else if (std_channels == 8) {
+                    enc_channel_layout_standard = getChannelLayoutFromString("7.1");
+                }
+                if (enc_channel_layout_standard) {
+                    if (!codec_has_layout_list || ChannelLayoutExists(enc_channel_layout_standard.get(), muxAudio->outCodecEncode)) {
+                        AddMessage(RGY_LOG_DEBUG, _T("Encoder %s does not advertise exact channel layout %s for audio track %d.%d, using standard layout %s.\n"),
+                            char_to_tstring(muxAudio->outCodecEncode->name).c_str(), getChannelLayoutString(enc_channel_layout.get()).c_str(),
+                            trackID(inputAudio->src.trackId), inputAudio->src.subStreamId, getChannelLayoutString(enc_channel_layout_standard.get()).c_str());
+                        enc_channel_layout = std::move(enc_channel_layout_standard);
+                    } else {
+                        AddMessage(RGY_LOG_DEBUG, _T("Encoder %s does not advertise exact channel layout %s for audio track %d.%d, will try exact layout without implicit remap.\n"),
+                            char_to_tstring(muxAudio->outCodecEncode->name).c_str(), getChannelLayoutString(enc_channel_layout.get()).c_str(),
+                            trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
+                    }
+                } else {
+                    AddMessage(RGY_LOG_DEBUG, _T("Encoder %s does not advertise exact channel layout %s for audio track %d.%d, will try exact layout without implicit remap.\n"),
+                        char_to_tstring(muxAudio->outCodecEncode->name).c_str(), getChannelLayoutString(enc_channel_layout.get()).c_str(),
+                        trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
+                }
             }
         }
         int enc_sample_rate = (inputAudio->samplingRate) ? inputAudio->samplingRate : muxAudio->outCodecDecodeCtx->sample_rate;
