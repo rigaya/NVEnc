@@ -1,5 +1,10 @@
 # NVEnc Release Notes
 
+## 9.16
+
+- Improve subtitle burn-in for Blu-ray and MPEG-TS inputs. ( #756 )
+- Fix libopus encoding for 5.1 / 7.1 channel layouts.
+
 ## 9.15
 
 - Add [--vpp-msmooth](./NVEncC_Options.en.md#--vpp-msmooth-param1value1param2value2) and [--vpp-msharpen](./NVEncC_Options.en.md#--vpp-msharpen-param1value1param2value2).
