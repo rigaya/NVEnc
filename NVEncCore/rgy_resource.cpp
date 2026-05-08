@@ -71,6 +71,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_decomb_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_fft3d_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_ivtc_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_msmooth_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_knn_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_nlmeans_cl);
@@ -91,6 +92,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_transform_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_tweak_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_unsharp_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_bwdif_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_yadif_cl);
 #if ENABLE_AVOID_IDLE_CLOCK
 _BINARY_VPP_FILTER_FILE(rgy_dummy_load_cl);
@@ -143,6 +145,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_DELOGO_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_DCT_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_FFT3D_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_fft3d_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_IVTC_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_ivtc_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_MSMOOTH_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_msmooth_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_KNN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_knn_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_NLMEANS_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_nlmeans_cl) },
@@ -163,6 +166,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_TWEAK_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_tweak_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_UNSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_unsharp_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_WARPSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_BWDIF_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_bwdif_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_YADIF_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_yadif_cl) },
 #if ENABLE_AVOID_IDLE_CLOCK
     { _T("EXE_DATA"), _T("RGY_DUMMY_LOAD_CL"), _BINARY_VPP_FILTER_FILE(rgy_dummy_load_cl) },

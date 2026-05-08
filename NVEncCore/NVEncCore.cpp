@@ -91,6 +91,7 @@
 #include "NVEncFilterYadif.h"
 #include "NVEncFilterDecomb.h"
 #include "NVEncFilterBwdif.h"
+#include "NVEncFilterIvtc.h"
 #include "NVEncFilterRff.h"
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
@@ -547,6 +548,7 @@ RGY_ERR NVEncCore::InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWD
     if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (inputParam->vpp.decomb.enable) deinterlacer++;
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
+    if (inputParam->vpp.ivtc.enable) deinterlacer++;
     if (deinterlacer > 0 && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) == 0)) {
         inputParam->input.picstruct = RGY_PICSTRUCT_AUTO;
     }
@@ -555,9 +557,11 @@ RGY_ERR NVEncCore::InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWD
     m_poolFrame = std::make_unique<RGYPoolAVFrame>();
 
     //入力モジュールの初期化
+    const bool vpp_ivtc_expand_active = inputParam->vpp.ivtc.enable && inputParam->vpp.ivtc.expand > 0;
     if (auto sts =initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, &inputParam->inprm, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
         inputParam->vpp.rff.enable, inputParam->vpp.afs.enable, inputParam->vpp.libplacebo_tonemapping.enable,
+        vpp_ivtc_expand_active,
         m_poolPkt.get(), m_poolFrame.get(), m_qpTable.get(), m_pPerfMonitor.get(), m_pLog); sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return sts;
@@ -1043,7 +1047,8 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
                     && !inputParam->vpp.nnedi.enable
                     && !inputParam->vpp.yadif.enable
                     && !inputParam->vpp.decomb.enable
-                    && !inputParam->vpp.bwdif.enable))
+                    && !inputParam->vpp.bwdif.enable
+                    && !inputParam->vpp.ivtc.enable))
             && !get_value(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING, codec->caps)) {
             message += strsprintf(_T("GPU #%d (%s) does not support H.264 interlaced encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str());
             gpu = gpuList.erase(gpu);
@@ -1616,7 +1621,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             && !inputParam->vpp.afs.enable
             && !inputParam->vpp.nnedi.enable
             && !inputParam->vpp.yadif.enable
-            && !inputParam->vpp.bwdif.enable));
+            && !inputParam->vpp.bwdif.enable
+            && !inputParam->vpp.ivtc.enable));
     return
          //デフォルトの補間方法
         inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO
@@ -1653,6 +1659,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.yadif.enable
             || inputParam->vpp.decomb.enable
             || inputParam->vpp.bwdif.enable
+            || inputParam->vpp.ivtc.enable
             || inputParam->vpp.tweak.enable
             || inputParam->vpp.curves.enable
             || inputParam->vpp.transform.enable
@@ -1775,7 +1782,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             return RGY_ERR_UNSUPPORTED;
         }
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable || inputParam->vpp.decomb.enable || inputParam->vpp.bwdif.enable) {
+    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable || inputParam->vpp.decomb.enable || inputParam->vpp.bwdif.enable || inputParam->vpp.ivtc.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
@@ -2599,13 +2606,13 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         set_sliceModeData(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, 1);
     }
     set_bitDepth(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, m_dev->encoder()->getAPIver(), (NV_ENC_BIT_DEPTH)clamp(inputParam->outputDepth, 8, 10));
-    
+
     if (inputParam->codec_rgy == RGY_CODEC_HEVC || inputParam->codec_rgy == RGY_CODEC_AV1) {
         if (!m_dev->encoder()->checkAPIver(13, 0)) {
             set_enableTemporalSVC(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig, inputParam->codec_rgy, inputParam->temporalSVC ? 1 : 0);
         }
     }
-    
+
     if ((inputParam->codec_rgy == RGY_CODEC_HEVC && m_dev->encoder()->checkAPIver(12, 2))
         || ((inputParam->codec_rgy == RGY_CODEC_AV1 || inputParam->codec_rgy == RGY_CODEC_H264) && m_dev->encoder()->checkAPIver(13, 0))) {
         if (inputParam->temporalFilterLevel.has_value()) {
@@ -2893,6 +2900,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.yadif.enable)         filterPipeline.push_back(VppType::CL_YADIF);
     if (inputParam->vpp.decomb.enable)        filterPipeline.push_back(VppType::CL_DECOMB);
     if (inputParam->vpp.bwdif.enable)         filterPipeline.push_back(VppType::CL_BWDIF);
+    if (inputParam->vpp.ivtc.enable)          filterPipeline.push_back(VppType::CL_IVTC);
     if (inputParam->vpp.decimate.enable)      filterPipeline.push_back(VppType::CL_DECIMATE);
     if (inputParam->vpp.mpdecimate.enable)    filterPipeline.push_back(VppType::CL_MPDECIMATE);
     if (inputParam->vpp.selectevery.enable)   filterPipeline.push_back(VppType::CL_SELECT_EVERY);
@@ -3042,7 +3050,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
         inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable || inputParam->vpp.decomb.enable || inputParam->vpp.bwdif.enable) {
+    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable || inputParam->vpp.decomb.enable || inputParam->vpp.bwdif.enable || inputParam->vpp.ivtc.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
     //インタレ解除の個数をチェック
@@ -3053,6 +3061,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (inputParam->vpp.decomb.enable) deinterlacer++;
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
+    if (inputParam->vpp.ivtc.enable) deinterlacer++;
     if (deinterlacer >= 2) {
         PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer is not supported.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -3069,6 +3078,10 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
         if (trim_active(&m_trimParam)) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (inputParam->vpp.ivtc.enable && inputParam->vpp.ivtc.expand > 0) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-ivtc expand=on.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
     }
@@ -3447,6 +3460,42 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
         param->baseFps = m_encFps;
         param->timebase = m_outputTimebase;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //ivtc
+    if (vppType == VppType::CL_IVTC) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterIvtc());
+        shared_ptr<NVEncFilterParamIvtc> param(new NVEncFilterParamIvtc());
+        param->ivtc = inputParam->vpp.ivtc;
+        if (inputParam->vpp.rff.enable && param->ivtc.expand < 0) {
+            param->ivtc.expand = 0;
+            PrintMes(RGY_LOG_DEBUG, _T("vpp-rff + vpp-ivtc: forcing ivtc expand=off (auto-disabled).\n"));
+        }
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
+        param->baseFps = m_encFps;
+        param->timebase = m_outputTimebase;
+        if (auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader); pAVCodecReader) {
+            param->inputIsAvcodecReader = true;
+            param->inputBPulldownDetected = pAVCodecReader->getPulldownDetected();
+        }
+        param->inputFilePath = inputParam->common.inputFilename;
+        param->trimOffset = m_trimParam.offset;
+        param->trimFrameCount = 0;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filter->init(param, m_pLog);
@@ -4499,7 +4548,7 @@ RGY_ERR NVEncCore::Init(InEncodeVideoParam *inputParam) {
             return err_to_rgy(NV_ENC_ERR_INVALID_CALL);
         }
     }
-    
+
     DeviceCodecCsp HWDecCodecCsp;
     auto deviceInfoCache = std::make_shared<NVEncDeviceInfoCache>();
     const auto deviceCacheLoadStart = std::chrono::steady_clock::now();
@@ -5977,7 +6026,7 @@ NVENCSTATUS NVEncCore::Encode() {
                         continue;
                     }
                     return NV_ENC_SUCCESS;
-                } 
+                }
                 if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
                     auto pCudaEvent = vInFrameTransferFin[nFilterFrame % vInFrameTransferFin.size()].get();
                     add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);

@@ -56,8 +56,9 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_AFS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
-#define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_IVTC         (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF_AVHW     (ENCODER_QSV   || ENCODER_NVENC                   || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_SELECT_EVERY (ENCODER_NVENC)
@@ -150,6 +151,7 @@ enum class VppType : int {
     CL_YADIF,
     CL_DECOMB,
     CL_BWDIF,
+    CL_IVTC,
     CL_DECIMATE,
     CL_MPDECIMATE,
     CL_RFF,
@@ -346,6 +348,26 @@ static const bool  FILTER_DEFAULT_DECIMATE_PREPROCESSED = false;
 static const bool  FILTER_DEFAULT_DECIMATE_CHROMA = true;
 static const bool  FILTER_DEFAULT_DECIMATE_LOG = false;
 
+static const int   FILTER_DEFAULT_IVTC_TFF = -1;
+static const int   FILTER_DEFAULT_IVTC_GUIDE = 1;
+static const int   FILTER_DEFAULT_IVTC_POST = 2;
+static const int   FILTER_DEFAULT_IVTC_CYCLE = -1;
+static const int   FILTER_DEFAULT_IVTC_DROP = 1;
+static const float FILTER_DEFAULT_IVTC_COMB_THRESH = 0.12f;
+static const float FILTER_DEFAULT_IVTC_CLEAN_FRAC = 0.20f;
+static const int   FILTER_DEFAULT_IVTC_DTHRESH = 7;
+static const bool  FILTER_DEFAULT_IVTC_CHROMA = false;
+static const int   FILTER_DEFAULT_IVTC_BACK = 0;
+static const int   FILTER_DEFAULT_IVTC_Y0 = 0;
+static const int   FILTER_DEFAULT_IVTC_Y1 = 0;
+static const int   FILTER_DEFAULT_IVTC_CADENCE_LOCK = -1;
+static const int   FILTER_DEFAULT_IVTC_GTHRESH = 10;
+static const int   FILTER_DEFAULT_IVTC_EXPAND = -1;
+static const int   FILTER_DEFAULT_IVTC_MIXED = 0;
+static const int   FILTER_DEFAULT_IVTC_VTHRESH = 50;
+static const float FILTER_DEFAULT_IVTC_HYSTERESIS = 0.0f;
+static const bool  FILTER_DEFAULT_IVTC_LOG = false;
+
 static const int   FILTER_DEFAULT_MPDECIMATE_HI = 768;
 static const int   FILTER_DEFAULT_MPDECIMATE_LO = 320;
 static const bool  FILTER_DEFAULT_MPDECIMATE_MAX = 0;
@@ -486,6 +508,9 @@ const CX_DESC list_vpp_denoise[] = {
     { _T("smooth"),  3 },
     { _T("fft3d"), 10 },
     { _T("convolution3d"),  5 },
+#if ENCODER_QSV
+    { _T("msmooth"), 11 },
+#endif
 #if ENCODER_VCEENC
     { _T("preprocess"), 4 },
 #endif
@@ -504,6 +529,9 @@ const CX_DESC list_vpp_detail_enahance[] = {
     { _T("unsharp"),    1 },
     { _T("edgelevel"),  2 },
     { _T("warpsharp"),  3 },
+#if ENCODER_QSV
+    { _T("msharpen"),   5 },
+#endif
     { NULL, 0 }
 };
 
@@ -1406,7 +1434,7 @@ enum class VppLibplaceboToneMappingTransfer {
     HLG,
     VLog,
     SLog1,
-    SLog2,  
+    SLog2,
 };
 
 const CX_DESC list_vpp_libplacebo_tone_mapping_transfer[] = {
@@ -1842,52 +1870,6 @@ struct VppDecomb {
     tstring print() const;
 };
 
-enum class VppBwdifMode {
-    Frame,
-    Bob,
-};
-
-const CX_DESC list_vpp_bwdif_mode[] = {
-    { _T("frame"),  (int)VppBwdifMode::Frame },
-    { _T("bob"),    (int)VppBwdifMode::Bob   },
-    { NULL, 0 }
-};
-
-enum class VppBwdifOrder {
-    Auto = -1,
-    BFF = 0,
-    TFF = 1
-};
-
-const CX_DESC list_vpp_bwdif_order[] = {
-    { _T("auto"),   (int)VppBwdifOrder::Auto },
-    { _T("tff"),    (int)VppBwdifOrder::TFF  },
-    { _T("bff"),    (int)VppBwdifOrder::BFF  },
-    { NULL, 0 }
-};
-
-enum class VppBwdifDeint {
-    All,
-    Interlaced,
-};
-
-struct VppBwdif {
-    bool enable;
-    VppBwdifMode mode;
-    VppBwdifOrder order;
-    float thr;
-    VppBwdifDeint deint;
-    bool log;
-    tstring logPath;
-
-    bool isbob() const { return mode == VppBwdifMode::Bob; }
-
-    VppBwdif();
-    bool operator==(const VppBwdif &x) const;
-    bool operator!=(const VppBwdif &x) const;
-    tstring print() const;
-};
-
 struct VppNnedi {
     bool              enable;
     VppNnediField     field;
@@ -1941,6 +1923,116 @@ struct VppDecimate {
     VppDecimate();
     bool operator==(const VppDecimate &x) const;
     bool operator!=(const VppDecimate &x) const;
+    tstring print() const;
+};
+
+enum class VppBwdifMode {
+    Frame,  // same-rate output: 1 output frame per input
+    Bob,    // double-rate output: 2 output frames per input
+};
+
+const CX_DESC list_vpp_bwdif_mode[] = {
+    { _T("frame"),  (int)VppBwdifMode::Frame },
+    { _T("bob"),    (int)VppBwdifMode::Bob   },
+    { NULL, 0 }
+};
+
+enum class VppBwdifOrder {
+    Auto = -1,
+    BFF = 0,
+    TFF = 1
+};
+
+const CX_DESC list_vpp_bwdif_order[] = {
+    { _T("auto"),   (int)VppBwdifOrder::Auto },
+    { _T("tff"),    (int)VppBwdifOrder::TFF  },
+    { _T("bff"),    (int)VppBwdifOrder::BFF  },
+    { NULL, 0 }
+};
+
+enum class VppBwdifDeint {
+    All,         // deinterlace every frame
+    Interlaced,  // only frames with RGY_PICSTRUCT_INTERLACED; progressive passes through
+};
+
+struct VppBwdif {
+    bool enable;
+    VppBwdifMode mode;    // Frame = same-rate (1 out/in); Bob = double-rate (2 out/in)
+    VppBwdifOrder order;  // Auto = from input picstruct
+    float thr;            // noise threshold, 0.0..100.0 (% of value range); motion <= thr -> temporal avg
+    VppBwdifDeint deint;  // gate: All (default) or Interlaced only
+    bool log;             // enable per-frame TSV log
+    tstring logPath;      // file path; empty = log to stdout via AddMessage DEBUG
+
+    bool isbob() const { return mode == VppBwdifMode::Bob; }
+
+    VppBwdif();
+    bool operator==(const VppBwdif &x) const;
+    bool operator!=(const VppBwdif &x) const;
+    tstring print() const;
+};
+
+struct VppIvtc {
+    bool enable;
+    int tff;              // -1=auto, 0=BFF, 1=TFF
+    int guide;            // 0=min-combing, 1=2-way + combed-override, 2=PAL 2:2
+    int post;             // 0=off, 2=adaptive per-pixel vertical blend
+    int cycle;            // -1=auto, 0=off, 2..16 (5 = NTSC 3:2, 2 = PAL 2:2)
+    int drop;             // 1 supported
+    float combThresh;     // 0..1 per-pixel combing threshold
+    float cleanFrac;      // 0..1 fraction of frame pixels allowed combed while still "clean"
+    int dthresh;          // per-pixel deinterlace threshold (0..255 on 8-bit; scaled to bit depth).
+                          //   Only missing-field pixels whose |cur - (cur[iy-1]+cur[iy+1])/2|
+                          //   exceeds dthresh get replaced by the BWDIF / SP-cubic reconstruction;
+                          //   clean pixels pass through unchanged. 0 disables the gate (legacy behaviour).
+    bool chroma;          // include U+V planes in match-quality scoring (luma-only by default).
+                          //   chromaBlend = (scoreU + scoreV) >> 2 added to luma score.
+    int back;             // 0 = always test P; 1 = only test P when current appears combed
+    int y0;               // exclusion band: inclusive top row (0 = no band)
+    int y1;               // exclusion band: inclusive bottom row (0 = no band)
+    int cadenceLock;      // 5-frame cadence tracker + pattern-predicted match override.
+                          //   -1 = auto (enable when guide >= 1), 0 = off, 1 = on.
+                          //   Auto-mode fires when guide mode is active because
+                          //   the tracker only produces useful predictions when
+                          //   a pulldown pattern is present (guide=1 NTSC 3:2 or
+                          //   guide=2 PAL 2:2). Default -1 (auto).
+    int gthresh;          // 0..100 percentage: tolerance for cadence-predicted match override.
+                          //   Predicted match wins over argmin only if |predicted_score -
+                          //   argmin_score| / predicted_score < gthresh%. Default 10.
+                          //   0 disables override (cadence is diagnostic-only).
+    int expand;           // RFF-based internal expansion (DGDecode-equivalent).
+                          //   -1 = auto (enable when guide>=1 && inputBPulldownDetected),
+                          //   0  = off (default behaviour, 24fps coded in → 24fps out),
+                          //   1  = on (expand 4 coded → 5 ring entries per 3:2 cycle,
+                          //            force cycle=5 drop=1 decimation internally;
+                          //            external baseFps unchanged).
+                          //   Algorithm: follows DGDecode vfapidec.cpp:682-709.
+                          //   After current coded frame is pushed to the ring, if it
+                          //   carried RFF, an additional "display frame" is synthesised
+                          //   by overlaying the previous coded frame's complementary
+                          //   field (CopyBot for TFF, CopyTop for BFF — stride*2 blit).
+    int mixed;            // RFF/progressive + interlaced mixed mode.
+                          //   0 = off, 1 = on. When enabled, RFF frames are
+                          //   field-reconstructed and interlaced sections are IVTC'd.
+    int vthresh;          // post-assembly combing veto threshold (TFM vmetric analogue,
+                          //   Telecide.cpp:376-397). Layered ON TOP of the picstruct-class
+                          //   applyBlend gate (mislabeled/unknownCombed/progressiveCombed/
+                          //   strongMatch): if the gate says "blend" but the chosen
+                          //   candidate's post-assembly cComb < vthresh, blend is vetoed.
+                          //   Because scoreCandidates already measures cComb on assembled
+                          //   field pairs (see rgy_filter_ivtc.cl pix_match), chosenCombScore
+                          //   IS the post-assembly metric — no separate re-scoring needed.
+                          //   Default 50 — deliberately below combThreshProg (65) so the
+                          //   veto only removes clearly-clean frames that slipped through
+                          //   the strongMatch branch, never frames caught by the cComb-
+                          //   gated branches. 0 disables the veto.
+    float hysteresis;     // 0..1 bias against match-type flipping between frames
+    bool log;
+    tstring logPath;
+
+    VppIvtc();
+    bool operator==(const VppIvtc &x) const;
+    bool operator!=(const VppIvtc &x) const;
     tstring print() const;
 };
 
@@ -2386,6 +2478,7 @@ struct RGYParamVpp {
     VppYadif yadif;
     VppDecomb decomb;
     VppBwdif bwdif;
+    VppIvtc ivtc;
     VppRff rff;
     VppSelectEvery selectevery;
     VppDecimate decimate;

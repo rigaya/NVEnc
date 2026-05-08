@@ -210,6 +210,7 @@
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
   - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
   - [--vpp-decomb \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-decomb-param1value1param2value2)
+  - [--vpp-ivtc \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-ivtc-param1value1param2value2)
   - [--vpp-decimate \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-decimate-param1value1param2value2)
   - [--vpp-mpdecimate \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-mpdecimate-param1value1param2value2)
   - [--vpp-select-every \<int\>\[,\<param1\>=\<int\>\]](#--vpp-select-every-intparam1int)
@@ -1797,6 +1798,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-yadif](#--vpp-yadif-param1value1)
 - [--vpp-bwdif](#--vpp-bwdif-param1value1)
 - [--vpp-decomb](#--vpp-decomb-param1value1param2value2)
+- [--vpp-ivtc](#--vpp-ivtc-param1value1param2value2)
 - [--vpp-decimate](#--vpp-decimate-param1value1param2value2)
 - [--vpp-mpdecimate](#--vpp-mpdecimate-param1value1param2value2)
 - [--vpp-select-every](#--vpp-select-every-intparam1int)
@@ -2387,6 +2389,75 @@ Decomb deinterlaer.
 
   - blend=&lt;bool&gt;   
     blend rather than interpolate. default off.
+
+### --vpp-ivtc [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Inverse telecine for soft-telecine / hard-telecine sources.
+
+- **parameters**
+  - guide=&lt;int&gt;  (default: 1)
+    Matching mode.
+    - 0
+      Select the candidate with the minimum match-quality from C/P/N.
+    - 1
+      Prefer C when it is clean enough, otherwise choose from P/N.
+    - 2
+      PAL 2:2 mode.
+
+  - post=&lt;int&gt;  (default: 2)
+    Post process for residual combing.
+    - 0
+      No post process.
+    - 2
+      Apply adaptive blend only to pixels detected as combed.
+
+  - cycle=&lt;auto|int&gt;  (default: auto)
+    Decimation cycle. `auto` enables 3:2 decimation only when input fps is 26 or higher.
+
+  - drop=&lt;int&gt;  (default: 1)
+    Frames to drop per cycle. Currently only `1` is supported.
+
+  - combthresh=&lt;float&gt;  (default: 0.12)
+    Per-pixel combing threshold. `0.0 - 1.0`.
+
+  - cleanfrac=&lt;float&gt;  (default: 0.20)
+    Fraction of combed pixels still allowed for C to be treated as clean.
+
+  - dthresh=&lt;int&gt;  (default: 7)
+    Per-pixel deinterlace gate. `0 - 255`. `0` disables the gate.
+
+  - chroma=&lt;bool&gt;
+    Include chroma planes in match-quality scoring.
+
+  - back=&lt;int&gt;
+    When to test match=P. `0` = always test, `1` = only when C looks combed.
+
+  - y0=&lt;int&gt;
+  - y1=&lt;int&gt;
+    Exclusion band for the combing metric. Useful for burned-in subtitles.
+
+  - cadlock=&lt;auto|on|off&gt;
+    Enable cadence pattern lock. `auto` enables it when `guide>=1`.
+
+  - gthresh=&lt;int&gt;
+    Tolerance for cadence-predicted match override. `0 - 100`. `0` disables override.
+
+  - vthresh=&lt;int&gt;
+    Post-assembly combing veto threshold. `0 - 256`. `0` disables it.
+
+  - expand=&lt;auto|on|off&gt;
+    DGDecode-compatible RFF expansion. `auto` enables it when `guide>=1` and soft-telecine is detected.
+
+  - mixed=&lt;bool&gt;
+    Mixed mode for inputs containing both RFF/progressive sections and true interlaced sections. Requires `--avsw` or `--avhw`.
+
+  - hysteresis=&lt;float&gt;
+    Penalty against switching the chosen match type between adjacent frames. `0.0 - 1.0`.
+
+  - tff=&lt;auto|on|off&gt;
+    Field order. `auto` derives it from input `picstruct`.
+
+  - log=&lt;path|bool&gt;
+    Write per-frame match log.
 
 ### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 Drop duplicated frame in cycles set.

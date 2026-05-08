@@ -364,6 +364,7 @@ RGY_ERR initReaders(
     const bool vpp_afs,
     const bool vpp_rff,
     const bool vpp_require_hdr_metadata,
+    const bool vpp_ivtc_expand_active,
     RGYPoolAVPacket *poolPkt,
     RGYPoolAVFrame *poolFrame,
     RGYListRef<RGYFrameDataQP> *qpTableListRef,

@@ -85,6 +85,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
     std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
+    std::make_pair(VppType::CL_IVTC,                 _T("ivtc")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
     std::make_pair(VppType::CL_RFF,                  _T("rff")),
@@ -370,7 +371,7 @@ VppLibplaceboToneMappingConstantsBT2390::VppLibplaceboToneMappingConstantsBT2390
 
 bool VppLibplaceboToneMappingConstantsBT2390::operator==(const VppLibplaceboToneMappingConstantsBT2390 &x) const {
     return knee_offset == x.knee_offset;
-} 
+}
 bool VppLibplaceboToneMappingConstantsBT2390::operator!=(const VppLibplaceboToneMappingConstantsBT2390 &x) const {
     return !(*this == x);
 }
@@ -409,7 +410,7 @@ VppLibplaceboToneMappingConstantsReinhard::VppLibplaceboToneMappingConstantsRein
 
 bool VppLibplaceboToneMappingConstantsReinhard::operator==(const VppLibplaceboToneMappingConstantsReinhard &x) const {
     return contrast == x.contrast;
-}   
+}
 bool VppLibplaceboToneMappingConstantsReinhard::operator!=(const VppLibplaceboToneMappingConstantsReinhard &x) const {
     return !(*this == x);
 }
@@ -426,7 +427,7 @@ VppLibplaceboToneMappingConstantsMobius::VppLibplaceboToneMappingConstantsMobius
 
 bool VppLibplaceboToneMappingConstantsMobius::operator==(const VppLibplaceboToneMappingConstantsMobius &x) const {
     return linear_knee == x.linear_knee;
-}   
+}
 bool VppLibplaceboToneMappingConstantsMobius::operator!=(const VppLibplaceboToneMappingConstantsMobius &x) const {
     return !(*this == x);
 }
@@ -443,7 +444,7 @@ VppLibplaceboToneMappingConstantsLinear::VppLibplaceboToneMappingConstantsLinear
 
 bool VppLibplaceboToneMappingConstantsLinear::operator==(const VppLibplaceboToneMappingConstantsLinear &x) const {
     return exposure == x.exposure;
-}   
+}
 bool VppLibplaceboToneMappingConstantsLinear::operator!=(const VppLibplaceboToneMappingConstantsLinear &x) const {
     return !(*this == x);
 }
@@ -528,7 +529,7 @@ VppLibplaceboToneMapping::VppLibplaceboToneMapping() :
     lut_path(),
     lut_type((VppLibplaceboToneMappingLUTType)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_LUT_TYPE),
     dst_pl_transfer((VppLibplaceboToneMappingTransfer)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_TRANSFER),
-    dst_pl_colorprim((VppLibplaceboToneMappingColorprim)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_COLORPRIM) {   
+    dst_pl_colorprim((VppLibplaceboToneMappingColorprim)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_COLORPRIM) {
 
 }
 
@@ -1244,39 +1245,6 @@ tstring VppDecomb::print() const {
         blend ? _T("on") : _T("off"));
 }
 
-VppBwdif::VppBwdif() :
-    enable(false),
-    mode((VppBwdifMode)FILTER_DEFAULT_BWDIF_MODE),
-    order((VppBwdifOrder)FILTER_DEFAULT_BWDIF_ORDER),
-    thr(FILTER_DEFAULT_BWDIF_THR),
-    deint((VppBwdifDeint)FILTER_DEFAULT_BWDIF_DEINT),
-    log(FILTER_DEFAULT_BWDIF_LOG),
-    logPath() {
-
-}
-
-bool VppBwdif::operator==(const VppBwdif &x) const {
-    return enable == x.enable
-        && mode == x.mode
-        && order == x.order
-        && thr == x.thr
-        && deint == x.deint
-        && log == x.log
-        && logPath == x.logPath;
-}
-bool VppBwdif::operator!=(const VppBwdif &x) const {
-    return !(*this == x);
-}
-
-tstring VppBwdif::print() const {
-    const TCHAR *deintStr = (deint == VppBwdifDeint::Interlaced) ? _T("interlaced") : _T("all");
-    return strsprintf(_T("bwdif: mode=%s, order=%s, deint=%s, thr %.2f, log %s"),
-        get_cx_desc(list_vpp_bwdif_mode, (int)mode),
-        get_cx_desc(list_vpp_bwdif_order, (int)order),
-        deintStr, thr,
-        log ? _T("on") : _T("off"));
-}
-
 VppSelectEvery::VppSelectEvery() :
     enable(false),
     step(1),
@@ -1333,6 +1301,148 @@ tstring VppDecimate::print() const {
         blockX, blockY,
         /*preProcessed ? _T("on") : _T("off"),*/
         chroma ? _T("on") : _T("off"),
+        log ? _T("on") : _T("off"));
+}
+
+
+VppBwdif::VppBwdif() :
+    enable(false),
+    mode((VppBwdifMode)FILTER_DEFAULT_BWDIF_MODE),
+    order((VppBwdifOrder)FILTER_DEFAULT_BWDIF_ORDER),
+    thr(FILTER_DEFAULT_BWDIF_THR),
+    deint((VppBwdifDeint)FILTER_DEFAULT_BWDIF_DEINT),
+    log(FILTER_DEFAULT_BWDIF_LOG),
+    logPath() {
+
+}
+
+bool VppBwdif::operator==(const VppBwdif &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && order == x.order
+        && thr == x.thr
+        && deint == x.deint
+        && log == x.log
+        && logPath == x.logPath;
+}
+bool VppBwdif::operator!=(const VppBwdif &x) const {
+    return !(*this == x);
+}
+
+tstring VppBwdif::print() const {
+    const TCHAR *deintStr = (deint == VppBwdifDeint::Interlaced) ? _T("interlaced") : _T("all");
+    return strsprintf(_T("bwdif: mode=%s, order=%s, deint=%s, thr %.2f, log %s"),
+        get_cx_desc(list_vpp_bwdif_mode, (int)mode),
+        get_cx_desc(list_vpp_bwdif_order, (int)order),
+        deintStr, thr,
+        log ? _T("on") : _T("off"));
+}
+
+
+VppIvtc::VppIvtc() :
+    enable(false),
+    tff(FILTER_DEFAULT_IVTC_TFF),
+    guide(FILTER_DEFAULT_IVTC_GUIDE),
+    post(FILTER_DEFAULT_IVTC_POST),
+    cycle(FILTER_DEFAULT_IVTC_CYCLE), // -1 = auto: enable 3:2 decimation only if input fps >= 26
+    drop(FILTER_DEFAULT_IVTC_DROP),
+    combThresh(FILTER_DEFAULT_IVTC_COMB_THRESH),
+    cleanFrac(FILTER_DEFAULT_IVTC_CLEAN_FRAC), // 20% of block pixels must be combed before the frame is considered combed.
+                         //   Old 1% default flagged texture false positives aggressively and pushed
+                         //   many non-combed RFF frames into the post path. 20% aligns with the
+                         //   standard 50-pixels-per-256 threshold used in classical IVTC filters
+                         //   for film vs video discrimination.
+    dthresh(FILTER_DEFAULT_IVTC_DTHRESH), // 8-bit default; scaled to bit-depth in the filter. 0 disables the gate.
+                         //   Per-pixel deinterlace threshold: only missing-field pixels whose
+                         //   spatial residual exceeds dthresh are replaced by the BWDIF/SP result.
+    chroma(FILTER_DEFAULT_IVTC_CHROMA), // default: luma-only scoring. Enable with chroma=true for content where
+                         //   colour structure dominates (animation, chroma-rich fades).
+    back(FILTER_DEFAULT_IVTC_BACK), // always test P. back=1 can change match distribution on mixed
+                         //   content and trigger post=2 blend on frames that would have
+                         //   picked P under back=0, producing visible shimmer on SG-1 style
+                         //   sources. Opt-in via back=1 for cleaner deterministic film sources.
+    y0(FILTER_DEFAULT_IVTC_Y0),
+    y1(FILTER_DEFAULT_IVTC_Y1), // 0,0 = no exclusion band
+    cadenceLock(FILTER_DEFAULT_IVTC_CADENCE_LOCK), // -1 = auto (enable when guide>=1 in init), 0 = off, 1 = on.
+                         //   Auto-on is safe because guide>=1 implies the user expects
+                         //   pulldown content; the tracker is inert on pure progressive
+                         //   or hard-interlaced-with-no-pattern input (history collects
+                         //   but no phase ever reaches 4/5 fit). Explicit cadlock=off
+                         //   available for edge cases with unusual sources.
+    gthresh(FILTER_DEFAULT_IVTC_GTHRESH), // pattern-override tolerance, percent. 10 = adopt the
+                         //   cadence-predicted match when its argmin-score differs from
+                         //   the raw argmin winner by less than 10%. 0 disables override.
+    expand(FILTER_DEFAULT_IVTC_EXPAND), // -1 = auto (enable when guide>=1 && input is soft-telecine).
+                         //   DGDecode-style internal RFF expansion: 4 coded frames →
+                         //   5 ring entries per 3:2 pulldown cycle. Forces cycle=5,
+                         //   drop=1 internally; external baseFps unchanged.
+    mixed(FILTER_DEFAULT_IVTC_MIXED),
+    vthresh(FILTER_DEFAULT_IVTC_VTHRESH), // post-assembly cComb veto threshold (TFM vmetric analogue).
+                         //   Layered on top of the picstruct-class applyBlend gate: when
+                         //   the gate fires, blend is vetoed if chosenCombScore < vthresh.
+                         //   Default 50 sits below combThreshProg (65) so it only filters
+                         //   strongMatch-branch false positives on very clean frames, never
+                         //   frames the cComb-gated branches caught. 0 disables the veto.
+    hysteresis(FILTER_DEFAULT_IVTC_HYSTERESIS),
+    log(FILTER_DEFAULT_IVTC_LOG),
+    logPath() {
+
+}
+
+bool VppIvtc::operator==(const VppIvtc &x) const {
+    return enable == x.enable
+        && tff == x.tff
+        && guide == x.guide
+        && post == x.post
+        && cycle == x.cycle
+        && drop == x.drop
+        && combThresh == x.combThresh
+        && cleanFrac == x.cleanFrac
+        && dthresh == x.dthresh
+        && chroma == x.chroma
+        && back == x.back
+        && y0 == x.y0
+        && y1 == x.y1
+        && cadenceLock == x.cadenceLock
+        && gthresh == x.gthresh
+        && vthresh == x.vthresh
+        && expand == x.expand
+        && mixed == x.mixed
+        && hysteresis == x.hysteresis
+        && log == x.log
+        && logPath == x.logPath;
+}
+bool VppIvtc::operator!=(const VppIvtc &x) const {
+    return !(*this == x);
+}
+
+tstring VppIvtc::print() const {
+    tstring cycleStr;
+    if (cycle < 0) {
+        cycleStr = _T("auto");
+    } else if (cycle == 0) {
+        cycleStr = _T("off");
+    } else {
+        cycleStr = strsprintf(_T("%d/%d"), cycle, drop);
+    }
+    tstring bandStr;
+    if (y0 == 0 && y1 == 0) {
+        bandStr = _T("off");
+    } else {
+        bandStr = strsprintf(_T("%d..%d"), y0, y1);
+    }
+    return strsprintf(_T("ivtc: guide=%d, post=%d, cycle=%s, combthresh %.3f, cleanfrac %.3f, dthresh=%d, chroma=%s, back=%d, band=%s,\n")
+        _T("                         cadlock=%s, gthresh=%d, vthresh=%d, expand=%s, mixed=%s, hys %.2f, tff=%s, log %s"),
+        guide, post,
+        cycleStr.c_str(),
+        combThresh, cleanFrac, dthresh, chroma ? _T("on") : _T("off"),
+        back, bandStr.c_str(),
+        (cadenceLock < 0) ? _T("auto") : (cadenceLock ? _T("on") : _T("off")),
+        gthresh, vthresh,
+        (expand < 0) ? _T("auto") : (expand ? _T("on") : _T("off")),
+        mixed ? _T("on") : _T("off"),
+        hysteresis,
+        (tff < 0) ? _T("auto") : (tff ? _T("on") : _T("off")),
         log ? _T("on") : _T("off"));
 }
 
@@ -2146,6 +2256,7 @@ RGYParamVpp::RGYParamVpp() :
     yadif(),
     decomb(),
     bwdif(),
+    ivtc(),
     rff(),
     selectevery(),
     decimate(),
@@ -2187,6 +2298,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && yadif == x.yadif
         && decomb == x.decomb
         && bwdif == x.bwdif
+        && ivtc == x.ivtc
         && rff == x.rff
         && selectevery == x.selectevery
         && decimate == x.decimate

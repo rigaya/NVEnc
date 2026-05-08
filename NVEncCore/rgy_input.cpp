@@ -479,6 +479,7 @@ RGY_ERR initReaders(
     const bool vpp_afs,
     const bool vpp_rff,
     const bool vpp_require_hdr_metadata,
+    const bool vpp_ivtc_expand_active,
     RGYPoolAVPacket *poolPkt,
     RGYPoolAVFrame *poolFrame,
     RGYListRef<RGYFrameDataQP> *qpTableListRef,
@@ -670,6 +671,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.queueInfo = (perfMonitor) ? perfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.HWDecCodecCsp = &HWDecCodecCsp;
         inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_AUTO;
+        inputInfoAVCuvid.suppressPulldownMutation = vpp_ivtc_expand_active;
         inputInfoAVCuvid.parseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource || vpp_require_hdr_metadata;
         inputInfoAVCuvid.hdr10plusMetadataCopy = common->hdr10plusMetadataCopy || vpp_require_hdr_metadata;
         inputInfoAVCuvid.doviRpuMetadataCopy = common->doviRpuMetadataCopy || vpp_require_hdr_metadata;
