@@ -866,6 +866,9 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband_gui);
     setComboBox(fcgCXVppDeinterlace,    list_deinterlace_gui);
     setComboBox(fcgCXVppDenoiseConv3DMatrix,   list_vpp_convolution3d_matrix);
+    setComboBox(fcgCXVppIvtcGuide,      list_vpp_ivtc_guide_gui);
+    setComboBox(fcgCXVppIvtcPost,       list_vpp_ivtc_post_gui);
+    setComboBox(fcgCXVppBwdifMode,      list_vpp_bwdif_mode_gui);
     setComboBox(fcgCXVppNvvfxDenoiseStrength, list_vpp_nvvfx_mode);
     setComboBox(fcgCXVppNvvfxArtifactReductionMode, list_vpp_nvvfx_mode);
     setComboBox(fcgCXVppAfsAnalyze,     list_vpp_afs_analyze);
@@ -996,16 +999,20 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppDenoiseDct->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("denoise-dct")));
     fcgPNVppDenoiseFFT3D->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("fft3d")));
     fcgPNVppDenoiseConv3D->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d")));
+    fcgPNVppDenoiseMSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("msmooth")));
     fcgPNVppNvvfxDenoise->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-denoise")));
     fcgPNVppNvvfxArtifactReduction->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-artifact-reduction")));
     fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
     fcgPNVppWarpsharp->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("warpsharp")));
+    fcgPNVppMSharpen->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("msharpen")));
     fcgPNVppDeband->Visible = (fcgCXVppDeband->SelectedIndex == get_cx_index(list_vpp_deband_names, _T("deband")));
     fcgPNVppLibplaceboDeband->Visible = (fcgCXVppDeband->SelectedIndex == get_cx_index(list_vpp_deband_names, _T("libplacebo-deband")));
     fcgPNVppAfs->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"自動フィールドシフト"));
     fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"nnedi"));
     fcgPNVppYadif->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));
+    fcgPNVppIvtc->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"ivtc"));
+    fcgPNVppBwdif->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"bwdif"));
     fcgPNVppDecomb->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"decomb"));
     fcggroupBoxVppTweak->Enabled = fcgCBVppTweakEnable->Checked;
 
@@ -1315,6 +1322,9 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppDenoisePmdThreshold);
     LOAD_CLI_TEXT(fcgLBVppDenoisePmdStrength);
     LOAD_CLI_TEXT(fcgLBVppDenoisePmdApplyCount);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseMSmoothStrength);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseMSmoothThreshold);
+    LOAD_CLI_TEXT(fcgCBVppDenoiseMSmoothHighq);
     LOAD_CLI_TEXT(fcggroupBoxVppDeinterlace);
     LOAD_CLI_TEXT(fcgLBVppDeinterlace);
     LOAD_CLI_TEXT(fcgLBVppAfsThreCMotion);
@@ -1338,6 +1348,13 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgCBVppDecombBlend);
     LOAD_CLI_TEXT(fcgLBVppDecombThreshold);
     LOAD_CLI_TEXT(fcgLBVppDecombDthreshold);
+    LOAD_CLI_TEXT(fcgLBVppIvtcGuide);
+    LOAD_CLI_TEXT(fcgLBVppIvtcPost);
+    LOAD_CLI_TEXT(fcgLBVppBwdifMode);
+    LOAD_CLI_TEXT(fcgLBVppBwdifThr);
+    LOAD_CLI_TEXT(fcgLBVppMSharpenStrength);
+    LOAD_CLI_TEXT(fcgLBVppMSharpenThreshold);
+    LOAD_CLI_TEXT(fcgCBVppMSharpenHighq);
     LOAD_CLI_TEXT(fcgLBVppNnediErrorType);
     LOAD_CLI_TEXT(fcgLBVppNnediPrescreen);
     LOAD_CLI_TEXT(fcgLBVppNnediPrec);
@@ -1527,6 +1544,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("fft3d"));
         } else if (encPrm.vpp.convolution3d.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("convolution3d"));
+        } else if (encPrm.vpp.msmooth.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("msmooth"));
         } else if (encPrm.vppnv.nvvfxDenoise.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("nvvfx-denoise"));
         } else if (encPrm.vppnv.nvvfxArtifactReduction.enable) {
@@ -1541,6 +1560,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
         } else if (encPrm.vpp.warpsharp.enable) {
             detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("warpsharp"));
+        } else if (encPrm.vpp.msharpen.enable) {
+            detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("msharpen"));
         }
         SetCXIndex(fcgCXVppDetailEnhance, detail_enahance_idx);
 
@@ -1553,6 +1574,10 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"yadif");
         } else if (encPrm.vpp.decomb.enable) {
             deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"decomb");
+        } else if (encPrm.vpp.ivtc.enable) {
+            deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"ivtc");
+        } else if (encPrm.vpp.bwdif.enable) {
+            deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"bwdif");
         }
         SetCXIndex(fcgCXVppDeinterlace, deinterlacer_idx);
 
@@ -1590,6 +1615,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoiseConv3DThreshCSpatial,  encPrm.vpp.convolution3d.threshCspatial);
         SetNUValue(fcgNUVppDenoiseConv3DThreshYTemporal, encPrm.vpp.convolution3d.threshYtemporal);
         SetNUValue(fcgNUVppDenoiseConv3DThreshCTemporal, encPrm.vpp.convolution3d.threshCtemporal);
+        SetNUValue(fcgNUVppDenoiseMSmoothStrength,       encPrm.vpp.msmooth.strength);
+        SetNUValue(fcgNUVppDenoiseMSmoothThreshold,      encPrm.vpp.msmooth.threshold);
+        fcgCBVppDenoiseMSmoothHighq->Checked = encPrm.vpp.msmooth.highq;
         SetCXIndex(fcgCXVppNvvfxDenoiseStrength,         get_cx_index(list_vpp_nvvfx_mode, (int)(encPrm.vppnv.nvvfxDenoise.strength + 0.5f)));
         SetCXIndex(fcgCXVppNvvfxArtifactReductionMode,   get_cx_index(list_vpp_nvvfx_mode, encPrm.vppnv.nvvfxArtifactReduction.mode));
         SetNUValue(fcgNUVppDebandRange,          encPrm.vpp.deband.range);
@@ -1619,6 +1647,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppWarpsharpDepth,       encPrm.vpp.warpsharp.depth);
         SetNUValue(fcgNUVppWarpsharpBlur,        encPrm.vpp.warpsharp.blur);
         SetNUValue(fcgNUVppWarpsharpType,        encPrm.vpp.warpsharp.type);
+        SetNUValue(fcgNUVppMSharpenStrength,     encPrm.vpp.msharpen.strength);
+        SetNUValue(fcgNUVppMSharpenThreshold,    encPrm.vpp.msharpen.threshold);
+        fcgCBVppMSharpenHighq->Checked = encPrm.vpp.msharpen.highq;
         SetNUValue(fcgNUVppAfsUp,                encPrm.vpp.afs.clip.top);
         SetNUValue(fcgNUVppAfsBottom,            encPrm.vpp.afs.clip.bottom);
         SetNUValue(fcgNUVppAfsLeft,              encPrm.vpp.afs.clip.left);
@@ -1646,6 +1677,10 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBVppDecombBlend->Checked           = encPrm.vpp.decomb.blend != 0;
         SetNUValue(fcgNUVppDecombThreshold,      encPrm.vpp.decomb.threshold);
         SetNUValue(fcgNUVppDecombDthreshold,     encPrm.vpp.decomb.dthreshold);
+        SetCXIndex(fcgCXVppIvtcGuide,            get_cx_index(list_vpp_ivtc_guide_gui, encPrm.vpp.ivtc.guide));
+        SetCXIndex(fcgCXVppIvtcPost,             get_cx_index(list_vpp_ivtc_post_gui, encPrm.vpp.ivtc.post));
+        SetCXIndex(fcgCXVppBwdifMode,            get_cx_index(list_vpp_bwdif_mode_gui, (int)encPrm.vpp.bwdif.mode));
+        SetNUValue(fcgNUVppBwdifThr,             encPrm.vpp.bwdif.thr);
         fcgCBVppTweakEnable->Checked           = encPrm.vpp.tweak.enable;
         SetNUValue(fcgNUVppTweakBrightness,      (int)(encPrm.vpp.tweak.brightness * 100.0f));
         SetNUValue(fcgNUVppTweakContrast,        (int)(encPrm.vpp.tweak.contrast * 100.0f));
@@ -1882,6 +1917,11 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.convolution3d.threshYtemporal = (int)fcgNUVppDenoiseConv3DThreshYTemporal->Value;
     encPrm.vpp.convolution3d.threshCtemporal = (int)fcgNUVppDenoiseConv3DThreshCTemporal->Value;
 
+    encPrm.vpp.msmooth.enable      = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("msmooth"));
+    encPrm.vpp.msmooth.strength    = (int)fcgNUVppDenoiseMSmoothStrength->Value;
+    encPrm.vpp.msmooth.threshold   = (float)fcgNUVppDenoiseMSmoothThreshold->Value;
+    encPrm.vpp.msmooth.highq       = fcgCBVppDenoiseMSmoothHighq->Checked;
+
     encPrm.vppnv.nvvfxDenoise.enable   = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nvvfx-denoise"));
     encPrm.vppnv.nvvfxDenoise.strength = (float)list_vpp_nvvfx_mode[fcgCXVppNvvfxDenoiseStrength->SelectedIndex].value;
 
@@ -1904,6 +1944,11 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.warpsharp.depth        = (float)fcgNUVppWarpsharpDepth->Value;
     encPrm.vpp.warpsharp.blur         = (int)fcgNUVppWarpsharpBlur->Value;
     encPrm.vpp.warpsharp.type         = (int)fcgNUVppWarpsharpType->Value;
+
+    encPrm.vpp.msharpen.enable        = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("msharpen"));
+    encPrm.vpp.msharpen.strength      = (float)fcgNUVppMSharpenStrength->Value;
+    encPrm.vpp.msharpen.threshold     = (float)fcgNUVppMSharpenThreshold->Value;
+    encPrm.vpp.msharpen.highq         = fcgCBVppMSharpenHighq->Checked;
 
     encPrm.vpp.deband.enable          = fcgCXVppDeband->SelectedIndex == get_cx_index(list_vpp_deband_names, _T("deband"));
     encPrm.vpp.deband.range           = (int)fcgNUVppDebandRange->Value;
@@ -1960,6 +2005,14 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.decomb.blend           = fcgCBVppDecombBlend->Checked;
     encPrm.vpp.decomb.threshold       = (int)fcgNUVppDecombThreshold->Value;
     encPrm.vpp.decomb.dthreshold      = (int)fcgNUVppDecombDthreshold->Value;
+
+    encPrm.vpp.ivtc.enable            = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"ivtc"));
+    encPrm.vpp.ivtc.guide             = list_vpp_ivtc_guide_gui[fcgCXVppIvtcGuide->SelectedIndex].value;
+    encPrm.vpp.ivtc.post              = list_vpp_ivtc_post_gui[fcgCXVppIvtcPost->SelectedIndex].value;
+
+    encPrm.vpp.bwdif.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"bwdif"));
+    encPrm.vpp.bwdif.mode             = (VppBwdifMode)list_vpp_bwdif_mode_gui[fcgCXVppBwdifMode->SelectedIndex].value;
+    encPrm.vpp.bwdif.thr              = (float)fcgNUVppBwdifThr->Value;
 
     encPrm.vpp.tweak.enable           = fcgCBVppTweakEnable->Checked;
     encPrm.vpp.tweak.brightness       = (float)fcgNUVppTweakBrightness->Value * 0.01f;
