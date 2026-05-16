@@ -1,0 +1,16 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = false
+
+[*.{c,cc,cpp,cxx,h,hh,hpp,hxx,cu,cuh,cl}]
+charset = utf-8-bom
+
+[*.{sh,bash,py,mk}]
+end_of_line = lf
+
+[{Makefile,makefile,configure,meson.build,meson_options.txt}]
+end_of_line = lf
