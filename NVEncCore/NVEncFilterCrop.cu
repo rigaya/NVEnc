@@ -1325,7 +1325,8 @@ __global__ void kernel_crop_rgb_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__r
     struct __align__(sizeof(TypeOut) * 4) TypeOut4 {
         TypeOut x, y, z, w;
     };
-    if (x + PIX_PER_THREAD - 1 < dstWidth && y < dstHeight) {
+    // Allow the tail thread to write through pitch padding so the last valid pixels are not left stale.
+    if (x < dstWidth && y < dstHeight) {
         TypeIn4 srcR = kernel_crop_load4<TypeIn, TypeIn4, aligned>(pSrcR + y * srcPitch + x * sizeof(TypeIn));
         TypeIn4 srcG = kernel_crop_load4<TypeIn, TypeIn4, aligned>(pSrcG + y * srcPitch + x * sizeof(TypeIn));
         TypeIn4 srcB = kernel_crop_load4<TypeIn, TypeIn4, aligned>(pSrcB + y * srcPitch + x * sizeof(TypeIn));
@@ -1460,7 +1461,8 @@ __global__ void kernel_crop_yuv444_rgb(
     struct __align__(sizeof(TypeOut) * 4) TypeOut4 {
         TypeOut x, y, z, w;
     };
-    if (x + PIX_PER_THREAD - 1 < dstWidth && y < dstHeight) {
+    // Allow the tail thread to write through pitch padding so the last valid pixels are not left stale.
+    if (x < dstWidth && y < dstHeight) {
         TypeIn4 srcY = kernel_crop_load4<TypeIn, TypeIn4, aligned>(pSrcY + y * srcPitch + x * sizeof(TypeIn));
         TypeIn4 srcU = kernel_crop_load4<TypeIn, TypeIn4, aligned>(pSrcU + y * srcPitch + x * sizeof(TypeIn));
         TypeIn4 srcV = kernel_crop_load4<TypeIn, TypeIn4, aligned>(pSrcV + y * srcPitch + x * sizeof(TypeIn));
