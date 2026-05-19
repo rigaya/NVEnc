@@ -78,6 +78,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CURVES       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_SOFTLIGHT    (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -182,6 +183,7 @@ enum class VppType : int {
     CL_DETAILSHARPEN,
 
     CL_CURVES,
+    CL_SOFTLIGHT,
     CL_TWEAK,
 
     CL_OVERLAY,
@@ -2314,6 +2316,52 @@ struct VppDetailSharpen {
     tstring print() const;
 };
 
+enum class VppSoftLightMode {
+    NEUTRALIZE,
+    LIGHTNESS,
+    NEUTRALIZE_BOOST_SAT,
+    NEUTRALIZE_FULL,
+    NEUTRALIZE_BOOST,
+    BOOST,
+    SATURATION,
+};
+
+const CX_DESC list_vpp_softlight_mode[] = {
+    { _T("neutralize"),           (int)VppSoftLightMode::NEUTRALIZE },
+    { _T("lightness"),            (int)VppSoftLightMode::LIGHTNESS },
+    { _T("neutralize_boost_sat"), (int)VppSoftLightMode::NEUTRALIZE_BOOST_SAT },
+    { _T("neutralize_full"),      (int)VppSoftLightMode::NEUTRALIZE_FULL },
+    { _T("neutralize_boost"),     (int)VppSoftLightMode::NEUTRALIZE_BOOST },
+    { _T("boost"),                (int)VppSoftLightMode::BOOST },
+    { _T("saturation"),           (int)VppSoftLightMode::SATURATION },
+    { NULL, 0 }
+};
+
+enum class VppSoftLightFormula {
+    PEGTOP,
+    ILLUSIONSHU,
+    W3C,
+};
+
+const CX_DESC list_vpp_softlight_formula[] = {
+    { _T("pegtop"),      (int)VppSoftLightFormula::PEGTOP },
+    { _T("illusionshu"), (int)VppSoftLightFormula::ILLUSIONSHU },
+    { _T("w3c"),         (int)VppSoftLightFormula::W3C },
+    { NULL, 0 }
+};
+
+struct VppSoftLight {
+    bool enable;
+    VppSoftLightMode mode;
+    VppSoftLightFormula formula;
+    bool skipblack;
+
+    VppSoftLight();
+    bool operator==(const VppSoftLight& x) const;
+    bool operator!=(const VppSoftLight& x) const;
+    tstring print() const;
+};
+
 struct VppTweakChannel {
     float offset;
     float gain;
@@ -2524,6 +2572,7 @@ struct RGYParamVpp {
     VppWarpsharp warpsharp;
     VppDetailSharpen detailsharpen;
     VppCurves curves;
+    VppSoftLight softlight;
     VppTweak tweak;
     VppTransform transform;
     VppDeband deband;

@@ -4333,6 +4333,73 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
+    if (IS_OPTION("vpp-softlight") && ENABLE_VPP_FILTER_SOFTLIGHT) {
+        vpp->softlight.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "enable", "mode", "formula", "skipblack" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->softlight.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    param_val = tolowercase(param_val);
+                    if (get_list_value(list_vpp_softlight_mode, param_val.c_str(), &value)) {
+                        vpp->softlight.mode = (VppSoftLightMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_softlight_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("formula")) {
+                    int value = 0;
+                    param_val = tolowercase(param_val);
+                    if (get_list_value(list_vpp_softlight_formula, param_val.c_str(), &value)) {
+                        vpp->softlight.formula = (VppSoftLightFormula)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_softlight_formula);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("skipblack")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->softlight.skipblack = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-tweak") && ENABLE_VPP_FILTER_TWEAK) {
         vpp->tweak.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -8853,6 +8920,22 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-curves");
         }
     }
+    if (param->softlight != defaultPrm->softlight) {
+        tmp.str(tstring());
+        if (!param->softlight.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->softlight.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), softlight.mode, list_vpp_softlight_mode);
+            ADD_LST(_T("formula"), softlight.formula, list_vpp_softlight_formula);
+            ADD_BOOL(_T("skipblack"), softlight.skipblack);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-softlight ") << tmp.str().substr(1);
+        } else if (param->softlight.enable) {
+            cmd << _T(" --vpp-softlight");
+        }
+    }
     if (param->tweak != defaultPrm->tweak) {
         tmp.str(tstring());
         if (!param->tweak.enable && save_disabled_prm) {
@@ -10706,6 +10789,18 @@ tstring gen_cmd_help_vpp() {
         _T("        set curve points for blue. Will override preset settings.\n")
         _T("      all=<string>\n")
         _T("        set curve points for r,g,b when not specified. Will override preset settings.\n"));
+#endif
+#if ENABLE_VPP_FILTER_SOFTLIGHT
+    str += strsprintf(_T("\n")
+        _T("   --vpp-softlight [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     neutralize color cast or boost contrast/saturation using frame statistics.\n")
+        _T("    params\n")
+        _T("      mode=<string>             (default=neutralize)\n")
+        _T("        neutralize, lightness, neutralize_boost_sat, neutralize_full\n")
+        _T("        neutralize_boost, boost, saturation\n")
+        _T("      formula=<string>          (default=pegtop)\n")
+        _T("        pegtop, illusionshu, w3c\n")
+        _T("      skipblack=<bool>          exclude pure black pixels from average (default=false)\n"));
 #endif
 #if ENABLE_VPP_FILTER_TWEAK
     str += strsprintf(_T("\n")
