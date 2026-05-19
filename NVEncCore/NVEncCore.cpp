@@ -99,6 +99,7 @@
 #include "NVEncFilterWarpsharp.h"
 #include "NVEncFilterDetailSharpen.h"
 #include "NVEncFilterCurves.h"
+#include "NVEncFilterSoftLight.h"
 #include "NVEncFilterTweak.h"
 #include "NVEncFilterTransform.h"
 #include "NVEncFilterColorspace.h"
@@ -1664,6 +1665,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.ivtc.enable
             || inputParam->vpp.tweak.enable
             || inputParam->vpp.curves.enable
+            || inputParam->vpp.softlight.enable
             || inputParam->vpp.transform.enable
             || inputParam->vpp.colorspace.enable
             || inputParam->vpp.libplacebo_tonemapping.enable
@@ -2927,6 +2929,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
     if (inputParam->vpp.detailsharpen.enable) filterPipeline.push_back(VppType::CL_DETAILSHARPEN);
     if (inputParam->vpp.curves.enable)     filterPipeline.push_back(VppType::CL_CURVES);
+    if (inputParam->vpp.softlight.enable)  filterPipeline.push_back(VppType::CL_SOFTLIGHT);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vpp.deband.enable)     filterPipeline.push_back(VppType::CL_DEBAND);
     if (inputParam->vpp.libplacebo_deband.enable)     filterPipeline.push_back(VppType::CL_LIBPLACEBO_DEBAND);
@@ -4151,6 +4154,30 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = true;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //softlight
+    if (vppType == VppType::CL_SOFTLIGHT) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterSoftLight());
+        shared_ptr<NVEncFilterParamSoftLight> param(new NVEncFilterParamSoftLight());
+        param->softlight = inputParam->vpp.softlight;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->vuiInfo = vuiInfo;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {

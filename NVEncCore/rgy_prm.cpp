@@ -108,6 +108,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
     std::make_pair(VppType::CL_DETAILSHARPEN,         _T("detailsharpen")),
     std::make_pair(VppType::CL_CURVES,               _T("curves")),
+    std::make_pair(VppType::CL_SOFTLIGHT,            _T("softlight")),
     std::make_pair(VppType::CL_TWEAK,                _T("tweak")),
     std::make_pair(VppType::CL_OVERLAY,              _T("overlay")),
     std::make_pair(VppType::CL_DEBAND,               _T("deband")),
@@ -1923,6 +1924,30 @@ tstring VppDetailSharpen::print() const {
         z, sstr, power, ldmp, mode, med ? _T("true") : _T("false"));
 }
 
+VppSoftLight::VppSoftLight() :
+    enable(false),
+    mode(VppSoftLightMode::NEUTRALIZE),
+    formula(VppSoftLightFormula::PEGTOP),
+    skipblack(false) {
+}
+
+bool VppSoftLight::operator==(const VppSoftLight& x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && formula == x.formula
+        && skipblack == x.skipblack;
+}
+bool VppSoftLight::operator!=(const VppSoftLight& x) const {
+    return !(*this == x);
+}
+
+tstring VppSoftLight::print() const {
+    return strsprintf(_T("softlight: mode %s, formula %s, skipblack %s"),
+        get_cx_desc(list_vpp_softlight_mode, (int)mode),
+        get_cx_desc(list_vpp_softlight_formula, (int)formula),
+        skipblack ? _T("on") : _T("off"));
+}
+
 VppTweakChannel::VppTweakChannel() :
     offset(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
     gain(FILTER_DEFAULT_TWEAK_CONTRAST),
@@ -2307,6 +2332,7 @@ RGYParamVpp::RGYParamVpp() :
     warpsharp(),
     detailsharpen(),
     curves(),
+    softlight(),
     tweak(),
     transform(),
     deband(),
@@ -2350,6 +2376,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && warpsharp == x.warpsharp
         && detailsharpen == x.detailsharpen
         && curves == x.curves
+        && softlight == x.softlight
         && tweak == x.tweak
         && transform == x.transform
         && deband == x.deband
