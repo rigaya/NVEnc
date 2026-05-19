@@ -710,6 +710,9 @@
     <ClInclude Include="NVEncFilterMsharpen.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterDetailSharpen.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="NVEncFilterMsmooth.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -821,6 +824,9 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterMsharpen.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDetailSharpen.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterMsmooth.cu">

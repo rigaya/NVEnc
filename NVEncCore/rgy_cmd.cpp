@@ -4174,6 +4174,99 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-detailsharpen") && ENABLE_VPP_FILTER_DETAILSHARPEN) {
+        vpp->detailsharpen.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "z", "sstr", "power", "ldmp", "mode", "med" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->detailsharpen.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("z")) {
+                    try {
+                        vpp->detailsharpen.z = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sstr")) {
+                    try {
+                        vpp->detailsharpen.sstr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("power")) {
+                    try {
+                        vpp->detailsharpen.power = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ldmp")) {
+                    try {
+                        vpp->detailsharpen.ldmp = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    try {
+                        size_t parsed = 0;
+                        vpp->detailsharpen.mode = std::stoi(param_val, &parsed);
+                        if (parsed != param_val.length()) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    if (vpp->detailsharpen.mode != 0 && vpp->detailsharpen.mode != 1) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("med")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->detailsharpen.med = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
 
     if (IS_OPTION("vpp-curves") && ENABLE_VPP_FILTER_CURVES) {
         vpp->curves.enable = true;
@@ -8723,6 +8816,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-warpsharp");
         }
     }
+    if (param->detailsharpen != defaultPrm->detailsharpen) {
+        tmp.str(tstring());
+        if (!param->detailsharpen.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->detailsharpen.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("z"), detailsharpen.z, 3);
+            ADD_FLOAT(_T("sstr"), detailsharpen.sstr, 3);
+            ADD_FLOAT(_T("power"), detailsharpen.power, 3);
+            ADD_FLOAT(_T("ldmp"), detailsharpen.ldmp, 3);
+            ADD_NUM(_T("mode"), detailsharpen.mode);
+            ADD_BOOL(_T("med"), detailsharpen.med);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-detailsharpen ") << tmp.str().substr(1);
+        } else if (param->detailsharpen.enable) {
+            cmd << _T(" --vpp-detailsharpen");
+        }
+    }
     if (param->curves != defaultPrm->curves) {
         tmp.str(tstring());
         if (!param->curves.enable && save_disabled_prm) {
@@ -10559,6 +10671,21 @@ tstring gen_cmd_help_vpp() {
         _T("                                  (default=%d)\n"),
         FILTER_DEFAULT_WARPSHARP_THRESHOLD, FILTER_DEFAULT_WARPSHARP_BLUR, FILTER_DEFAULT_WARPSHARP_TYPE,
         FILTER_DEFAULT_WARPSHARP_DEPTH, FILTER_DEFAULT_WARPSHARP_CHROMA);
+#endif
+#if ENABLE_VPP_FILTER_DETAILSHARPEN
+    str += strsprintf(_T("\n")
+        _T("   --vpp-detailsharpen [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     detail sharpening filter to enhance fine texture.\n")
+        _T("    params\n")
+        _T("      z=<float>                 zero point (default=%.3f, 0.001 - 64.0)\n")
+        _T("      sstr=<float>              sharpening strength (default=%.3f, 0.0 - 16.0)\n")
+        _T("      power=<float>             nonlinear power (default=%.3f, 1.0 - 16.0)\n")
+        _T("      ldmp=<float>              low-amplitude damping (default=%.3f, 0.0 - 1000.0)\n")
+        _T("      mode=<int>                blur mode, 0...gauss, 1...box (default=%d)\n")
+        _T("      med=<bool>                apply 3x3 median to blur (default=%s)\n"),
+        FILTER_DEFAULT_DETAILSHARPEN_Z, FILTER_DEFAULT_DETAILSHARPEN_SSTR,
+        FILTER_DEFAULT_DETAILSHARPEN_POWER, FILTER_DEFAULT_DETAILSHARPEN_LDMP,
+        FILTER_DEFAULT_DETAILSHARPEN_MODE, FILTER_DEFAULT_DETAILSHARPEN_MED ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_CURVES
     str += strsprintf(_T("\n")
