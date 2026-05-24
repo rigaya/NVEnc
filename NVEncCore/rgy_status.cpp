@@ -37,6 +37,7 @@
 #include <cmath>
 #include <numeric>
 #include <algorithm>
+#include <limits>
 #include "rgy_log.h"
 #include "cpu_info.h"
 #include "rgy_err.h"
@@ -79,8 +80,14 @@ void EncodeStatus::Init(uint32_t outputFPSRate, uint32_t outputFPSScale,
     if (trim.list.size() > 0 && trim.list.back().fin != TRIM_MAX) {
         //途中終了することになる
         const auto estFrames = std::max((uint32_t)(m_sData.totalDuration * outputFPSRate / outputFPSScale + 0.5), m_sData.frameTotal);
-        m_sData.frameTotal = std::min<uint32_t>(estFrames, trim.list.back().fin);
-        m_sData.totalDuration = std::min(m_sData.totalDuration, trim.list.back().fin * outputFPSScale / (double)outputFPSRate);
+        uint64_t trimFrames = 0;
+        for (const auto& range : trim.list) {
+            if (range.fin >= range.start) {
+                trimFrames += (uint64_t)range.fin - range.start + 1;
+            }
+        }
+        m_sData.frameTotal = std::min<uint32_t>(estFrames, (uint32_t)std::min<uint64_t>(trimFrames, std::numeric_limits<uint32_t>::max()));
+        m_sData.totalDuration = std::min(m_sData.totalDuration, trimFrames * outputFPSScale / (double)outputFPSRate);
     }
 #if defined(_WIN32) || defined(_WIN64)
     DWORD mode = 0;

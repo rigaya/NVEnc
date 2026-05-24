@@ -141,6 +141,7 @@ enum RGY_CSP {
     RGY_CSP_YC48,
     RGY_CSP_Y8,
     RGY_CSP_Y16,
+    RGY_CSP_Y_F32,
     RGY_CSP_COUNT
 };
 
@@ -220,7 +221,8 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("bgra(fp32)"),
     _T("yc48"),
     _T("y8"),
-    _T("yc16")
+    _T("yc16"),
+    _T("y(fp32)")
 };
 static_assert(sizeof(RGY_CSP_NAMES)/sizeof(RGY_CSP_NAMES[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT");
 
@@ -301,6 +303,7 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     10, //RGY_CSP_YC48
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
+    32, //RGY_CSP_Y_F32
 };
 static_assert(sizeof(RGY_CSP_BIT_DEPTH) / sizeof(RGY_CSP_BIT_DEPTH[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_DEPTH) == RGY_CSP_COUNT");
 
@@ -391,6 +394,7 @@ static const RGY_DATA_TYPE RGY_CSP_DATA_TYPE[] = {
      RGY_DATA_TYPE_U16, //RGY_CSP_YC48
      RGY_DATA_TYPE_U8, //RGY_CSP_Y8
      RGY_DATA_TYPE_U16, //RGY_CSP_Y16
+     RGY_DATA_TYPE_FP32, //RGY_CSP_Y_F32
 };
 static_assert(sizeof(RGY_CSP_DATA_TYPE) / sizeof(RGY_CSP_DATA_TYPE[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_DATA_TYPE) == RGY_CSP_COUNT");
 
@@ -478,6 +482,7 @@ static const uint8_t RGY_CSP_PLANES[] = {
      1, //RGY_CSP_YC48
      1, //RGY_CSP_Y8
      1, //RGY_CSP_Y16
+     1, //RGY_CSP_Y_F32
 };
 static_assert(sizeof(RGY_CSP_PLANES) / sizeof(RGY_CSP_PLANES[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_PLANES) == RGY_CSP_COUNT");
 
@@ -618,6 +623,7 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48
     RGY_CHROMAFMT_MONOCHROME,
     RGY_CHROMAFMT_MONOCHROME,
+    RGY_CHROMAFMT_MONOCHROME,
 };
 static_assert(sizeof(RGY_CSP_CHROMA_FORMAT)/sizeof(RGY_CSP_CHROMA_FORMAT[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT");
 
@@ -717,6 +723,7 @@ static const RGY_RGB_ORDER RGY_CSP_RGB_ORDER[] = {
     RGY_RGB_ORDER_NA, //RGY_CSP_YC48
     RGY_RGB_ORDER_NA, //RGY_CSP_Y8
     RGY_RGB_ORDER_NA, //RGY_CSP_Y16
+    RGY_RGB_ORDER_NA, //RGY_CSP_Y_F32
 };
 static_assert(sizeof(RGY_CSP_RGB_ORDER) / sizeof(RGY_CSP_RGB_ORDER[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_RGB_ORDER) == RGY_CSP_COUNT");
 
@@ -797,6 +804,7 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     48, //RGY_CSP_YC48
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
+    32, //RGY_CSP_Y_F32
 };
 static_assert(sizeof(RGY_CSP_BIT_PER_PIXEL) / sizeof(RGY_CSP_BIT_PER_PIXEL[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_PER_PIXEL) == RGY_CSP_COUNT");
 

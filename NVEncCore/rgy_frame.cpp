@@ -39,6 +39,9 @@ const TCHAR *RGYFrameDataTypeToStr(const RGYFrameDataType type) {
     case RGY_FRAME_DATA_METADATA: return _T("metadata");
     case RGY_FRAME_DATA_HDR10PLUS: return _T("hdr10plus");
     case RGY_FRAME_DATA_DOVIRPU: return _T("dovirpu");
+    case RGY_FRAME_DATA_RTGMC_SEARCH_LUMA: return _T("rtgmc_search_luma");
+    case RGY_FRAME_DATA_DEGRAIN: return _T("degrain");
+    case RGY_FRAME_DATA_KFM_SWITCH: return _T("kfm_switch");
     default: return _T("Unknown");
     }
 }
