@@ -2990,7 +2990,7 @@ int64_t RGYOutputAvcodec::AdjustTimestampTrimmed(int64_t nTimeIn, AVRational tim
                 nLastFinFrame = vidFrameIdx;
                 break;
             }
-            nLastFinFrame = trim.fin;
+            nLastFinFrame = trim.fin + 1;
         }
         cutFrames += vidFrameIdx - nLastFinFrame;
     }
