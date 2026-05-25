@@ -766,6 +766,55 @@ RGY_ERR launchNVEncDegrainTemporalSmoothLuma(
     return err_to_rgy(cudaGetLastError());
 }
 
+template<typename TypePixel>
+__global__ void kernel_degrain_downsample_luma2x_cuda(
+    const uint8_t *src,
+    const int srcPitch,
+    uint8_t *dst,
+    const int dstPitch,
+    const int srcWidth,
+    const int srcHeight,
+    const int dstWidth,
+    const int dstHeight) {
+    const int x = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    const int y = (int)(blockIdx.y * blockDim.y + threadIdx.y);
+    if (x >= dstWidth || y >= dstHeight) {
+        return;
+    }
+
+    const int sx = x * 2;
+    const int sy = y * 2;
+    const int wx[4] = { 1, 3, 3, 1 };
+    const int wy[4] = { 1, 3, 3, 1 };
+
+    int sum = 0;
+    for (int ky = 0; ky < 4; ++ky) {
+        const int py = sy + ky - 1;
+        for (int kx = 0; kx < 4; ++kx) {
+            const int px = sx + kx - 1;
+            const int pix = degrainPixelLoad<TypePixel>(src, srcPitch, srcWidth, srcHeight, px, py);
+            sum += pix * wy[ky] * wx[kx];
+        }
+    }
+    *(TypePixel *)(dst + y * dstPitch + x * (int)sizeof(TypePixel)) = degrainClampPixel<TypePixel>((sum + 32) >> 6);
+}
+
+RGY_ERR launchNVEncDegrainDownsampleLuma2x(
+    const RGYFrameInfo &src, const CUMemBuf &dst, const int dstPitch, const int dstWidth, const int dstHeight, cudaStream_t stream) {
+    const auto block = dim3(DEGRAIN_BLOCK_X, DEGRAIN_BLOCK_Y);
+    const auto grid = dim3(divCeil(dstWidth, DEGRAIN_BLOCK_X), divCeil(dstHeight, DEGRAIN_BLOCK_Y));
+    if (RGY_CSP_BIT_DEPTH[src.csp] > 8) {
+        kernel_degrain_downsample_luma2x_cuda<uint16_t><<<grid, block, 0, stream>>>(
+            src.ptr[0], src.pitch[0], reinterpret_cast<uint8_t *>(dst.ptr), dstPitch,
+            src.width, src.height, dstWidth, dstHeight);
+    } else {
+        kernel_degrain_downsample_luma2x_cuda<uint8_t><<<grid, block, 0, stream>>>(
+            src.ptr[0], src.pitch[0], reinterpret_cast<uint8_t *>(dst.ptr), dstPitch,
+            src.width, src.height, dstWidth, dstHeight);
+    }
+    return err_to_rgy(cudaGetLastError());
+}
+
 __device__ __forceinline__ int degrainPrimaryBlockIndex(const int x, const int y, const int blocksX, const int blocksY, const int step) {
     const int clampedStep = max(step, 1);
     const int blockX = min(x / clampedStep, blocksX - 1);
