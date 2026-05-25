@@ -506,6 +506,9 @@
     <ClInclude Include="NVEncFilterNnedi.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterRtgmcBob.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="NVEncFilterYadif.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -836,6 +839,9 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterMsmooth.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterRtgmcBob.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
   </ItemGroup>
