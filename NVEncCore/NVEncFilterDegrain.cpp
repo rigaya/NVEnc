@@ -33,6 +33,7 @@
 #include <cassert>
 #include <limits>
 #include <cstdlib>
+#include <chrono>
 
 #include "rgy_frame_info.h"
 #include "rgy_util.h"
@@ -43,6 +44,36 @@ RGY_ERR launchNVEncDegrainTemporalSmoothLuma(
 RGY_ERR launchNVEncDegrainDebug(
     const RGYFrameInfo &dst, VppDegrainMode mode, const CUMemBuf &mv, const CUMemBuf &sad,
     const RGYDegrainBlockLayout &layout, int pel, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainDownsampleLuma2x(
+    const RGYFrameInfo &src, const CUMemBuf &dst, int dstPitch, int dstWidth, int dstHeight, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainMotionSearchSeedAnchorVectors(
+    CUMemBuf &vectors, const CUMemBuf &frameAverageMV, int planeBase, int planeStride,
+    int planeCount, int pel, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainMotionSearchSeedZeroVectors(
+    CUMemBuf &vectors, CUMemBuf &vectorsPrev, CUMemBuf &sads, int planeBase,
+    int sadBase, int blockCount, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainMotionSearchExpandCoarseVectors(
+    const CUMemBuf &srcVectorsFinal, CUMemBuf &dstVectors, CUMemBuf &dstVectorsPrev, CUMemBuf &dstSads,
+    int srcFinalBase, int dstPlaneBase, int dstSadBase, int srcBlockCount,
+    int dstBlockCount, int srcBlocksX, int srcBlocksY, int dstBlocksX, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainMotionSearchExportSad(
+    CUMemBuf &vectorsFinal, CUMemBuf &sadsInternal, CUMemBuf *outputMotion, CUMemBuf *outputSad,
+    int finalBase, int sadBase, int blockCount, int outOffset,
+    int referenceDirection, int refs, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainMotionSearchSearchParallel(
+    const uint8_t *sourcePlane, const uint8_t *referencePlane, CUMemBuf &vectors,
+    int pitch, int width, int height, int planeBase, int blockCount,
+    const RGYDegrainBlockLayout &layout, int pixelBytes, int pel, int subpelInterp,
+    int pad, int motionCostScale, int lowSadWeightScale,
+    int zeroCandidateCostScale, int frameAverageCandidateCostScale,
+    int newCandidateCostScale, int level, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainMotionSearchSpatialRefine(
+    const uint8_t *sourcePlane, const uint8_t *referencePlane,
+    CUMemBuf &vectors, const CUMemBuf &vectorsPrev, CUMemBuf &vectorsFinal,
+    int pitch, int width, int height, int planeBase, int finalBase,
+    int blockCount, const RGYDegrainBlockLayout &layout, int pixelBytes,
+    int pel, int subpelInterp, int pad, int motionCostScale,
+    int lowSadWeightScale, int newCandidateCostScale, cudaStream_t stream);
 
 namespace {
 bool degrainChromaBuildEnabled(const RGY_CSP csp, const VppDegrain &degrain) {
@@ -134,6 +165,16 @@ int degrainTraceEnvInt(const char *name, const int fallback) {
         return fallback;
     }
     return std::atoi(value);
+}
+
+bool degrainEnvFlagEnabled(const char *name) {
+    const auto value = std::getenv(name);
+    return value && value[0] == '1' && value[1] == '\0';
+}
+
+bool degrainMotionSearchProfileEnabled() {
+    static const bool enabled = degrainEnvFlagEnabled("NVENC_DEGRAIN_MOTION_SEARCH_PROFILE");
+    return enabled;
 }
 
 struct RGYDegrainAnalyzeChromaPlanes {
@@ -1300,9 +1341,555 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisState(const RGYFilterDegrainFrameSet 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo&, const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS>&,
-    cudaStream_t, const std::vector<RGYCudaEvent>&) {
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &planeCur, const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> &refPlanes,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto &ws = m_analysis.motionSearchWorkspace;
+    if (!ws.level0.vectors || !ws.level0.vectorsPrev || !ws.level0.vectorsFinal || !ws.level0.sads
+        || !ws.level1.vectors || !ws.level1.vectorsPrev || !ws.level1.vectorsFinal || !ws.level1.sads
+        || !ws.frameAverageMV || !m_analysis.mv || !m_analysis.sad) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain motion search workspace is not ready.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto spatialRefineCount = [&](const int level) {
+        if (prm->degrain.mvSpatialRefine >= 0) {
+            return prm->degrain.mvSpatialRefine;
+        }
+        const int innerLevel = (prm->degrain.levels > 1) ? 1 : 0;
+        return (level == innerLevel) ? 1 : 0;
+    };
+    constexpr int vectorSentinelCount = 2;
+    auto copyMotionSearchVectors = [&](CUMemBuf *src, const size_t srcVectorOffset, CUMemBuf *dst, const size_t dstVectorOffset,
+        const int vectorCount, const std::vector<RGYCudaEvent> &waitEvents, RGYCudaEvent *copyEvent, const TCHAR *stage) {
+        auto err = degrainWaitEvents(stream, waitEvents);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain motion search %s vector copy dependency: %s.\n"), stage, get_err_mes(err));
+            return err;
+        }
+        const auto bytes = (size_t)vectorCount * RGYDegrainMotionSearchWorkspace::VECTOR_BYTES;
+        err = err_to_rgy(cudaMemcpyAsync(
+            reinterpret_cast<uint8_t *>(dst->ptr) + dstVectorOffset * RGYDegrainMotionSearchWorkspace::VECTOR_BYTES,
+            reinterpret_cast<const uint8_t *>(src->ptr) + srcVectorOffset * RGYDegrainMotionSearchWorkspace::VECTOR_BYTES,
+            bytes,
+            cudaMemcpyDeviceToDevice,
+            stream));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain motion search %s vectors: %s.\n"), stage, get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, copyEvent);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to record degrain motion search %s vector copy event: %s.\n"), stage, get_err_mes(err));
+        }
+        return err;
+    };
+
+    using ProfileClock = std::chrono::steady_clock;
+    const bool profileEnabled = degrainMotionSearchProfileEnabled();
+    const auto profileTotalStart = profileEnabled ? ProfileClock::now() : ProfileClock::time_point();
+    double profileDownsampleMs = 0.0;
+    double profileInitConstVecMs = 0.0;
+    double profileLevel1SeedMs = 0.0;
+    double profileLevel1SearchMs = 0.0;
+    double profileLevel1ExportSadMs = 0.0;
+    double profileInterpolateMs = 0.0;
+    double profileLevel0SearchMs = 0.0;
+    double profileLevel0ExportSadMs = 0.0;
+    const auto profileNow = [&]() {
+        return profileEnabled ? ProfileClock::now() : ProfileClock::time_point();
+    };
+    const auto profileElapsedMs = [](const ProfileClock::time_point &start, const ProfileClock::time_point &end) {
+        return std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start).count();
+    };
+    const auto profileFinishStep = [&](const TCHAR *stepName, double &totalMs, const ProfileClock::time_point &start, const int dir) {
+        if (!profileEnabled) {
+            return RGY_ERR_NONE;
+        }
+        auto err = err_to_rgy(cudaStreamSynchronize(stream));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to finish degrain motion search profile step %s: %s.\n"), stepName, get_err_mes(err));
+            return err;
+        }
+        const auto elapsedMs = profileElapsedMs(start, ProfileClock::now());
+        totalMs += elapsedMs;
+        if (dir >= 0) {
+            AddMessage(RGY_LOG_DEBUG, _T("degrain motion search profile refdir=%d %s: %.3f ms.\n"), dir, stepName, elapsedMs);
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("degrain motion search profile %s: %.3f ms.\n"), stepName, elapsedMs);
+        }
+        return RGY_ERR_NONE;
+    };
+
+    const int refs = m_analysis.layout.temporalDirections;
+    const int level1FrameCount = degrainLevel1FrameCount(refs);
+    for (int i = 0; i < level1FrameCount; i++) {
+        if (!m_analysis.lumaLevel1[i]) {
+            AddMessage(RGY_LOG_ERROR, _T("degrain motion search level1 luma workspace is not ready.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
+
+    const auto motionSearchConfig = rgy_degrain_make_motion_search_config(prm->frameOut, prm->degrain, m_analysis.layout, 0, 8);
+    auto motionSearchConfigLevel1 = rgy_degrain_make_motion_search_config(prm->frameOut, prm->degrain, m_analysis.layoutLevel1, 1, 4);
+    motionSearchConfigLevel1.width = m_analysis.lumaLevel1Width;
+    motionSearchConfigLevel1.height = m_analysis.lumaLevel1Height;
+    const auto pixelBytes = motionSearchConfig.pixelBytes;
+
+    RGY_ERR err = degrainWaitEvents(stream, wait_events);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain motion search input dependency: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    RGYCudaEvent frameAverageMVEvent;
+    {
+        err = err_to_rgy(cudaMemsetAsync(ws.frameAverageMV->ptr, 0, ws.frameAverageMVBytes, stream));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to clear degrain motion search frameAverageMV buffer: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, &frameAverageMVEvent);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> level0Planes = {};
+    level0Planes[0] = planeCur;
+    for (int dir = 0; dir < refs; dir++) {
+        level0Planes[dir + 1] = refPlanes[dir];
+    }
+    std::vector<RGYCudaEvent> downsampleEvents(level1FrameCount);
+    for (int i = 0; i < level1FrameCount; i++) {
+        const auto profileStepStart = profileNow();
+        err = launchNVEncDegrainDownsampleLuma2x(
+            level0Planes[i],
+            *m_analysis.lumaLevel1[i],
+            m_analysis.lumaLevel1Pitch,
+            m_analysis.lumaLevel1Width,
+            m_analysis.lumaLevel1Height,
+            stream);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to downsample degrain motion search level1 luma: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, &downsampleEvents[i]);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        err = profileFinishStep(_T("downsample"), profileDownsampleMs, profileStepStart, -1);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    const auto blockCount0 = (int)m_analysis.layout.blockCount();
+    const auto blockCount1 = (int)m_analysis.layoutLevel1.blockCount();
+    const int planeStride0 = 2 + blockCount0;
+    const int planeStride1 = 2 + blockCount1;
+    const auto levelPlaneBase = [](const int dir, const int planeStride) { return dir * planeStride; };
+    const auto blockPlaneBase = [](const int dir, const int blockCount) { return dir * blockCount; };
+
+    RGYCudaEvent initLevel1Event;
+    auto profileStepStart = profileNow();
+    err = degrainWaitEvents(stream, { frameAverageMVEvent });
+    if (err == RGY_ERR_NONE) {
+        err = launchNVEncDegrainMotionSearchSeedAnchorVectors(
+            *ws.level1.vectors,
+            *ws.frameAverageMV,
+            0,
+            planeStride1,
+            refs,
+            prm->degrain.pel,
+            stream);
+    }
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to initialize degrain motion search level1 const vectors: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    err = degrainRecordEvent(stream, &initLevel1Event);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    err = profileFinishStep(_T("init const vec level1"), profileInitConstVecMs, profileStepStart, -1);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    RGYCudaEvent initLevel0Event;
+    profileStepStart = profileNow();
+    err = degrainWaitEvents(stream, { frameAverageMVEvent });
+    if (err == RGY_ERR_NONE) {
+        err = launchNVEncDegrainMotionSearchSeedAnchorVectors(
+            *ws.level0.vectors,
+            *ws.frameAverageMV,
+            0,
+            planeStride0,
+            refs,
+            prm->degrain.pel,
+            stream);
+    }
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to initialize degrain motion search level0 const vectors: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    err = degrainRecordEvent(stream, &initLevel0Event);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    err = profileFinishStep(_T("init const vec level0"), profileInitConstVecMs, profileStepStart, -1);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
+    RGYCudaEvent previousEvent;
+    for (int dir = 0; dir < refs; dir++) {
+        const int planeBase1 = levelPlaneBase(dir, planeStride1);
+        const int blockBase1 = blockPlaneBase(dir, blockCount1);
+
+        std::vector<RGYCudaEvent> seedLevel1Wait = { initLevel1Event };
+        if (previousEvent() != nullptr) {
+            seedLevel1Wait.push_back(previousEvent);
+        }
+        RGYCudaEvent seedLevel1Event;
+        profileStepStart = profileNow();
+        err = degrainWaitEvents(stream, seedLevel1Wait);
+        if (err == RGY_ERR_NONE) {
+            err = launchNVEncDegrainMotionSearchSeedZeroVectors(
+                *ws.level1.vectors,
+                *ws.level1.vectorsPrev,
+                *ws.level1.sads,
+                planeBase1,
+                blockBase1,
+                blockCount1,
+                stream);
+        }
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to seed degrain motion search level1 vectors: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, &seedLevel1Event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        err = profileFinishStep(_T("level1 seed"), profileLevel1SeedMs, profileStepStart, dir);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+
+        RGYCudaEvent searchLevel1Event;
+        profileStepStart = profileNow();
+        err = degrainWaitEvents(stream, { seedLevel1Event, downsampleEvents[0], downsampleEvents[dir + 1] });
+        if (err == RGY_ERR_NONE) {
+            err = launchNVEncDegrainMotionSearchSearchParallel(
+                reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[0]->ptr),
+                reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[dir + 1]->ptr),
+                *ws.level1.vectors,
+                m_analysis.lumaLevel1Pitch,
+                m_analysis.lumaLevel1Width,
+                m_analysis.lumaLevel1Height,
+                planeBase1,
+                blockCount1,
+                m_analysis.layoutLevel1,
+                pixelBytes,
+                motionSearchConfigLevel1.pel,
+                motionSearchConfigLevel1.subpelInterp,
+                motionSearchConfigLevel1.pad,
+                motionSearchConfigLevel1.motionCostScale,
+                motionSearchConfigLevel1.lowSadWeightScale,
+                motionSearchConfigLevel1.zeroCandidateCostScale,
+                motionSearchConfigLevel1.frameAverageCandidateCostScale,
+                motionSearchConfigLevel1.newCandidateCostScale,
+                motionSearchConfigLevel1.level,
+                stream);
+        }
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to run degrain motion search level1 search stub: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, &searchLevel1Event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        RGYCudaEvent level1VectorReadyEvent = searchLevel1Event;
+        const int level1SpatialRefineCount = spatialRefineCount(1);
+        if (level1SpatialRefineCount <= 0) {
+            RGYCudaEvent copyEvent;
+            err = copyMotionSearchVectors(ws.level1.vectors.get(), (size_t)planeBase1 + vectorSentinelCount,
+                ws.level1.vectorsFinal.get(), (size_t)blockBase1, blockCount1, { level1VectorReadyEvent },
+                &copyEvent, _T("level1 current-to-final"));
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            level1VectorReadyEvent = copyEvent;
+        }
+        for (int refine = 0; refine < level1SpatialRefineCount; refine++) {
+            RGYCudaEvent refineEvent;
+            err = degrainWaitEvents(stream, { level1VectorReadyEvent });
+            if (err == RGY_ERR_NONE) {
+                err = launchNVEncDegrainMotionSearchSpatialRefine(
+                    reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[0]->ptr),
+                    reinterpret_cast<const uint8_t *>(m_analysis.lumaLevel1[dir + 1]->ptr),
+                    *ws.level1.vectors,
+                    *ws.level1.vectorsPrev,
+                    *ws.level1.vectorsFinal,
+                    m_analysis.lumaLevel1Pitch,
+                    m_analysis.lumaLevel1Width,
+                    m_analysis.lumaLevel1Height,
+                    planeBase1,
+                    blockBase1,
+                    blockCount1,
+                    m_analysis.layoutLevel1,
+                    pixelBytes,
+                    motionSearchConfigLevel1.pel,
+                    motionSearchConfigLevel1.subpelInterp,
+                    motionSearchConfigLevel1.pad,
+                    motionSearchConfigLevel1.motionCostScale,
+                    motionSearchConfigLevel1.lowSadWeightScale,
+                    motionSearchConfigLevel1.newCandidateCostScale,
+                    stream);
+            }
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to refine degrain motion search level1 spatial predictors: %s.\n"), get_err_mes(err));
+                return err;
+            }
+            err = degrainRecordEvent(stream, &refineEvent);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            level1VectorReadyEvent = refineEvent;
+            if (refine + 1 < level1SpatialRefineCount) {
+                RGYCudaEvent copyEvent;
+                err = copyMotionSearchVectors(ws.level1.vectorsFinal.get(), (size_t)blockBase1,
+                    ws.level1.vectors.get(), (size_t)planeBase1 + vectorSentinelCount, blockCount1, { level1VectorReadyEvent },
+                    &copyEvent, _T("level1 final-to-current"));
+                if (err != RGY_ERR_NONE) {
+                    return err;
+                }
+                level1VectorReadyEvent = copyEvent;
+            }
+        }
+        err = profileFinishStep(_T("level1 search"), profileLevel1SearchMs, profileStepStart, dir);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+
+        RGYCudaEvent exportLevel1Event;
+        profileStepStart = profileNow();
+        err = degrainWaitEvents(stream, { level1VectorReadyEvent });
+        if (err == RGY_ERR_NONE) {
+            err = launchNVEncDegrainMotionSearchExportSad(
+                *ws.level1.vectorsFinal,
+                *ws.level1.sads,
+                nullptr,
+                nullptr,
+                blockBase1,
+                blockBase1,
+                blockCount1,
+                0,
+                dir,
+                refs,
+                stream);
+        }
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to export degrain motion search level1 SAD: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, &exportLevel1Event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        err = profileFinishStep(_T("level1 export_sad"), profileLevel1ExportSadMs, profileStepStart, dir);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+
+        const int planeBase0 = levelPlaneBase(dir, planeStride0);
+        const int blockBase0 = blockPlaneBase(dir, blockCount0);
+        RGYCudaEvent interpolateEvent;
+        profileStepStart = profileNow();
+        err = degrainWaitEvents(stream, { exportLevel1Event, initLevel0Event });
+        if (err == RGY_ERR_NONE) {
+            err = launchNVEncDegrainMotionSearchExpandCoarseVectors(
+                *ws.level1.vectorsFinal,
+                *ws.level0.vectors,
+                *ws.level0.vectorsPrev,
+                *ws.level0.sads,
+                blockBase1,
+                planeBase0,
+                blockBase0,
+                blockCount1,
+                blockCount0,
+                m_analysis.layoutLevel1.blocksX,
+                m_analysis.layoutLevel1.blocksY,
+                m_analysis.layout.blocksX,
+                stream);
+        }
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to interpolate degrain motion search predictor: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, &interpolateEvent);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        err = profileFinishStep(_T("interpolate"), profileInterpolateMs, profileStepStart, dir);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+
+        RGYCudaEvent searchLevel0Event;
+        profileStepStart = profileNow();
+        err = degrainWaitEvents(stream, { interpolateEvent });
+        if (err == RGY_ERR_NONE) {
+            err = launchNVEncDegrainMotionSearchSearchParallel(
+                planeCur.ptr[0],
+                refPlanes[dir].ptr[0],
+                *ws.level0.vectors,
+                planeCur.pitch[0],
+                planeCur.width,
+                planeCur.height,
+                planeBase0,
+                blockCount0,
+                m_analysis.layout,
+                pixelBytes,
+                motionSearchConfig.pel,
+                motionSearchConfig.subpelInterp,
+                motionSearchConfig.pad,
+                motionSearchConfig.motionCostScale,
+                motionSearchConfig.lowSadWeightScale,
+                motionSearchConfig.zeroCandidateCostScale,
+                motionSearchConfig.frameAverageCandidateCostScale,
+                motionSearchConfig.newCandidateCostScale,
+                motionSearchConfig.level,
+                stream);
+        }
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to run degrain motion search level0 search stub: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, &searchLevel0Event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        RGYCudaEvent level0VectorReadyEvent = searchLevel0Event;
+        const int level0SpatialRefineCount = spatialRefineCount(0);
+        if (level0SpatialRefineCount <= 0) {
+            RGYCudaEvent copyEvent;
+            err = copyMotionSearchVectors(ws.level0.vectors.get(), (size_t)planeBase0 + vectorSentinelCount,
+                ws.level0.vectorsFinal.get(), (size_t)blockBase0, blockCount0, { level0VectorReadyEvent },
+                &copyEvent, _T("level0 current-to-final"));
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            level0VectorReadyEvent = copyEvent;
+        }
+        for (int refine = 0; refine < level0SpatialRefineCount; refine++) {
+            RGYCudaEvent refineEvent;
+            err = degrainWaitEvents(stream, { level0VectorReadyEvent });
+            if (err == RGY_ERR_NONE) {
+                err = launchNVEncDegrainMotionSearchSpatialRefine(
+                    planeCur.ptr[0],
+                    refPlanes[dir].ptr[0],
+                    *ws.level0.vectors,
+                    *ws.level0.vectorsPrev,
+                    *ws.level0.vectorsFinal,
+                    planeCur.pitch[0],
+                    planeCur.width,
+                    planeCur.height,
+                    planeBase0,
+                    blockBase0,
+                    blockCount0,
+                    m_analysis.layout,
+                    pixelBytes,
+                    motionSearchConfig.pel,
+                    motionSearchConfig.subpelInterp,
+                    motionSearchConfig.pad,
+                    motionSearchConfig.motionCostScale,
+                    motionSearchConfig.lowSadWeightScale,
+                    motionSearchConfig.newCandidateCostScale,
+                    stream);
+            }
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to refine degrain motion search level0 spatial predictors: %s.\n"), get_err_mes(err));
+                return err;
+            }
+            err = degrainRecordEvent(stream, &refineEvent);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            level0VectorReadyEvent = refineEvent;
+            if (refine + 1 < level0SpatialRefineCount) {
+                RGYCudaEvent copyEvent;
+                err = copyMotionSearchVectors(ws.level0.vectorsFinal.get(), (size_t)blockBase0,
+                    ws.level0.vectors.get(), (size_t)planeBase0 + vectorSentinelCount, blockCount0, { level0VectorReadyEvent },
+                    &copyEvent, _T("level0 final-to-current"));
+                if (err != RGY_ERR_NONE) {
+                    return err;
+                }
+                level0VectorReadyEvent = copyEvent;
+            }
+        }
+        err = profileFinishStep(_T("level0 search"), profileLevel0SearchMs, profileStepStart, dir);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+
+        RGYCudaEvent exportLevel0Event;
+        profileStepStart = profileNow();
+        err = degrainWaitEvents(stream, { level0VectorReadyEvent });
+        if (err == RGY_ERR_NONE) {
+            err = launchNVEncDegrainMotionSearchExportSad(
+                *ws.level0.vectorsFinal,
+                *ws.level0.sads,
+                m_analysis.mv.get(),
+                m_analysis.sad.get(),
+                blockBase0,
+                blockBase0,
+                blockCount0,
+                0,
+                dir,
+                refs,
+                stream);
+        }
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to export degrain motion search level0 SAD: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = degrainRecordEvent(stream, &exportLevel0Event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        err = profileFinishStep(_T("level0 export_sad"), profileLevel0ExportSadMs, profileStepStart, dir);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        previousEvent = exportLevel0Event;
+    }
+
+    if (previousEvent() == nullptr) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_analysis.event = previousEvent;
+    m_lastAnalysisIncludedChroma = false;
+    if (profileEnabled) {
+        const auto profileTotalMs = profileElapsedMs(profileTotalStart, ProfileClock::now());
+        AddMessage(RGY_LOG_INFO,
+            _T("degrain motion search profile summary: downsample=%.3f ms, seed_anchor_vectors=%.3f ms, level1_seed=%.3f ms, level1_search=%.3f ms, level1_export_sad=%.3f ms, expand_coarse_vectors=%.3f ms, level0_search=%.3f ms, level0_export_sad=%.3f ms, total=%.3f ms.\n"),
+            profileDownsampleMs,
+            profileInitConstVecMs,
+            profileLevel1SeedMs,
+            profileLevel1SearchMs,
+            profileLevel1ExportSadMs,
+            profileInterpolateMs,
+            profileLevel0SearchMs,
+            profileLevel0ExportSadMs,
+            profileTotalMs);
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("degrain motion search analyze path was used.\n"));
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterDegrain::runAnalyzeMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
