@@ -1609,11 +1609,311 @@ RGY_ERR NVEncFilterDegrain::emitCompensateFrame(const RGYFilterDegrainFrameSet &
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet&,
-    const RGYDegrainRefDisableArray&, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t, RGYCudaEvent *) {
-    *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frames,
+    const RGYDegrainRefDisableArray &disableRefs, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream, RGYCudaEvent *event) {
+    if (!frames.cur || frames.cur->ptr[0] == nullptr) {
+        *pOutputFrameNum = 0;
+        ppOutputFrames[0] = nullptr;
+        return RGY_ERR_NONE;
+    }
+    auto *mv = analysisMV();
+    auto *sad = analysisSAD();
+    if (!mv || !sad) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain degrain output requires analysis buffers.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (!m_analysis.temporalMixPrior) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain degrain output requires temporal mix prior table.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    *pOutputFrameNum = 1;
+    if (ppOutputFrames[0] == nullptr) {
+        ppOutputFrames[0] = &m_frameBuf[0]->frame;
+    }
+
+    const auto planeDstY = getPlane(ppOutputFrames[0], RGY_PLANE_Y);
+    const auto planeCurY = getPlane(frames.cur, RGY_PLANE_Y);
+    if (planeDstY.ptr[0] == nullptr || planeCurY.ptr[0] == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain degrain mode requires valid luma planes.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    if (analysisEvent()() != nullptr) {
+        auto err = err_to_rgy(cudaStreamWaitEvent(stream, analysisEvent()(), 0));
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    const bool processChroma = degrainCanProcessChroma(frames.cur);
+    const bool copyDegrainOutput = m_debugEnv.forceDegrainCopy
+        || rgy_csp_has_alpha(frames.cur->csp)
+        || RGY_CSP_PLANES[frames.cur->csp] != (processChroma ? 3 : 1)
+        || (!processChroma && RGY_CSP_CHROMA_FORMAT[frames.cur->csp] != RGY_CHROMAFMT_MONOCHROME);
+    auto err = RGY_ERR_NONE;
+    if (copyDegrainOutput) {
+        err = copyFrameAsync(ppOutputFrames[0], frames.cur, stream);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to prepare degrain degrain output: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+    copyFramePropWithoutRes(ppOutputFrames[0], frames.cur);
+
+    const uint32_t disableMask = degrainDisableMask(disableRefs, analysisLayout().temporalDirections);
+    const bool useOverlapRamp = analysisLayout().overlap > 0;
+    const bool pixelTrace = m_debugEnv.pixelTrace;
+    const int pixelTraceX = m_debugEnv.pixelTraceX;
+    const int pixelTraceY = m_debugEnv.pixelTraceY;
+    const int pixelTraceFrame = m_debugEnv.pixelTraceFrame;
+    const int pixelBytes = (RGY_CSP_BIT_DEPTH[frames.cur->csp] > 8) ? 2 : 1;
+    auto ensureWindowRamp = [&](RGYDegrainWindowRampState &state, const int planeScaleX, const int planeScaleY) {
+        const int planeOverlapX = std::max(analysisLayout().overlap / std::max(planeScaleX, 1), 0);
+        const int planeOverlapY = std::max(analysisLayout().overlap / std::max(planeScaleY, 1), 0);
+        const auto rampBytes = degrainOverlapBlendTableBytes(planeOverlapX, planeOverlapY);
+        if (rampBytes == 0) {
+            state.reset();
+            return RGY_ERR_NONE;
+        }
+        if (state.reusable(planeOverlapX, planeOverlapY, rampBytes)) {
+            return RGY_ERR_NONE;
+        }
+
+        std::vector<float> ramp(planeOverlapX + planeOverlapY);
+        degrainFillOverlapBlendAxis(ramp.data(), planeOverlapX);
+        degrainFillOverlapBlendAxis(ramp.data() + planeOverlapX, planeOverlapY);
+        auto rampBuf = std::make_unique<CUMemBuf>(rampBytes);
+        auto err = rampBuf->alloc();
+        if (err != RGY_ERR_NONE) {
+            state.reset();
+            return err;
+        }
+        err = err_to_rgy(cudaMemcpyAsync(rampBuf->ptr, ramp.data(), rampBytes, cudaMemcpyHostToDevice, stream));
+        if (err != RGY_ERR_NONE) {
+            state.reset();
+            return err;
+        }
+        state.ramp = std::move(rampBuf);
+        state.bytes = rampBytes;
+        state.overlapX = planeOverlapX;
+        state.overlapY = planeOverlapY;
+        return RGY_ERR_NONE;
+    };
+    bool temporalMixPlanYReady = false;
+    bool temporalMixPlanCReady = false;
+    auto ensureTemporalMixPlan = [&](RGYDegrainTemporalMixPlanState &state, bool &ready, const uint32_t scaledThSad) {
+        const auto planBytes = degrainTemporalMixPlanBytes(analysisLayout());
+        if (ready && state.reusable(planBytes, scaledThSad, disableMask)) {
+            return RGY_ERR_NONE;
+        }
+        if (planBytes == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid degrain temporal mix plan buffer geometry.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (!state.plan || state.plan->nSize != planBytes) {
+            state.plan = std::make_unique<CUMemBuf>(planBytes);
+            auto allocErr = state.plan->alloc();
+            if (allocErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain temporal mix plan buffer.\n"));
+                return allocErr;
+            }
+        }
+
+        auto err = launchNVEncDegrainBuildTemporalMixPlan(
+            *state.plan,
+            *mv,
+            *sad,
+            *m_analysis.temporalMixPrior,
+            (int)analysisLayout().blockCount(),
+            scaledThSad,
+            disableMask,
+            analysisLayout().temporalDirections,
+            stream);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to build degrain temporal mix plan: %s.\n"), get_err_mes(err));
+            state.event.reset();
+            return err;
+        }
+        err = degrainRecordEvent(stream, &state.event);
+        if (err != RGY_ERR_NONE) {
+            state.event.reset();
+            return err;
+        }
+        state.bytes = planBytes;
+        state.thsad = scaledThSad;
+        state.disableMask = disableMask;
+        ready = true;
+        return RGY_ERR_NONE;
+    };
+    auto renderPlane = [&](const RGY_PLANE plane, const uint32_t scaledThSad) {
+        const auto planeDst = getPlane(ppOutputFrames[0], plane);
+        const auto planeCur = getPlane(frames.cur, plane);
+        const auto refPlanes = degrainRenderRefPlanes(frames, plane);
+        if (planeDst.ptr[0] == nullptr || planeCur.ptr[0] == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("degrain degrain mode requires valid plane %d.\n"), (int)plane);
+            return RGY_ERR_INVALID_CALL;
+        }
+        const int planePitch = planeCur.pitch[0];
+        for (int i = 0; i < (int)refPlanes.size(); i++) {
+            if (refPlanes[i].pitch[0] != planePitch) {
+                AddMessage(RGY_LOG_ERROR, _T("degrain degrain mode requires matching plane %d pitch: cur=%d, ref[%d]=%d.\n"),
+                    (int)plane, planePitch, i, refPlanes[i].pitch[0]);
+                return RGY_ERR_INVALID_PARAM;
+            }
+        }
+        const int planeScaleX = degrainPlaneScaleX(frames.cur, plane);
+        const int planeScaleY = degrainPlaneScaleY(frames.cur, plane);
+        CUMemBuf *windowRamp = nullptr;
+        if (useOverlapRamp) {
+            auto &rampState = (plane == RGY_PLANE_Y) ? m_analysis.windowRampY : m_analysis.windowRampC;
+            const auto rampErr = ensureWindowRamp(rampState, planeScaleX, planeScaleY);
+            if (rampErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to prepare degrain overlap ramp buffer: %s.\n"), get_err_mes(rampErr));
+                return rampErr;
+            } else if (rampState.ramp) {
+                windowRamp = rampState.ramp.get();
+            }
+        }
+        CUMemBuf *temporalMixPlan = nullptr;
+        if (windowRamp) {
+            auto &planState = (plane == RGY_PLANE_Y) ? m_analysis.temporalMixPlanY : m_analysis.temporalMixPlanC;
+            auto &planReady = (plane == RGY_PLANE_Y) ? temporalMixPlanYReady : temporalMixPlanCReady;
+            auto err = ensureTemporalMixPlan(planState, planReady, scaledThSad);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            if (planState.plan) {
+                temporalMixPlan = planState.plan.get();
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("degrain temporal mix plan buffer was not prepared.\n"));
+                return RGY_ERR_INVALID_CALL;
+            }
+        }
+        if (pixelTrace && plane == RGY_PLANE_Y
+            && (pixelTraceFrame < 0 || planeCur.inputFrameId == pixelTraceFrame)) {
+            CUMemBuf traceBuf(sizeof(int) * 256);
+            auto traceErr = traceBuf.alloc();
+            if (traceErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_WARN, _T("failed to allocate degrain pixel trace buffer.\n"));
+            } else {
+                traceErr = launchNVEncDegrainPixelTrace(
+                    planeCur.ptr[0], planePitch, pixelBytes,
+                    refPlanes[0].ptr[0],
+                    refPlanes[1].ptr[0],
+                    refPlanes[2].ptr[0],
+                    refPlanes[3].ptr[0],
+                    refPlanes[4].ptr[0],
+                    refPlanes[5].ptr[0],
+                    refPlanes[6].ptr[0],
+                    refPlanes[7].ptr[0],
+                    refPlanes[8].ptr[0],
+                    refPlanes[9].ptr[0],
+                    planeDst.width, planeDst.height,
+                    *mv, *sad, *m_analysis.temporalMixPrior,
+                    analysisLayout(),
+                    degrainScaleCovered(analysisLayout().coveredWidth, planeScaleX),
+                    degrainScaleCovered(analysisLayout().coveredHeight, planeScaleY),
+                    planeScaleX,
+                    planeScaleY,
+                    scaledThSad,
+                    disableMask,
+                    pixelTraceX,
+                    pixelTraceY,
+                    traceBuf,
+                    analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
+                if (traceErr != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_WARN, _T("failed to launch degrain pixel trace: %s.\n"), get_err_mes(traceErr));
+                } else {
+                    std::array<int, 256> trace = {};
+                    traceErr = err_to_rgy(cudaMemcpyAsync(trace.data(), traceBuf.ptr, sizeof(int) * trace.size(), cudaMemcpyDeviceToHost, stream));
+                    if (traceErr != RGY_ERR_NONE) {
+                        AddMessage(RGY_LOG_WARN, _T("failed to copy degrain pixel trace: %s.\n"), get_err_mes(traceErr));
+                    } else {
+                        traceErr = err_to_rgy(cudaStreamSynchronize(stream));
+                        if (traceErr != RGY_ERR_NONE) {
+                            AddMessage(RGY_LOG_WARN, _T("failed to synchronize degrain pixel trace: %s.\n"), get_err_mes(traceErr));
+                        } else {
+                            logDegrainPixelTraceRecords(m_pLog.get(), trace.data(), planeCur, plane, -1, prm->degrain.stage, requestedDelta());
+                        }
+                    }
+                }
+            }
+        }
+        if (windowRamp) {
+            return launchNVEncDegrainDegrainOverlapPlanePreweightedRamp(
+                planeDst.ptr[0], planeDst.pitch[0], pixelBytes,
+                planeCur.ptr[0], planePitch,
+                refPlanes[0].ptr[0],
+                refPlanes[1].ptr[0],
+                refPlanes[2].ptr[0],
+                refPlanes[3].ptr[0],
+                refPlanes[4].ptr[0],
+                refPlanes[5].ptr[0],
+                refPlanes[6].ptr[0],
+                refPlanes[7].ptr[0],
+                refPlanes[8].ptr[0],
+                refPlanes[9].ptr[0],
+                planeDst.width, planeDst.height,
+                *mv,
+                analysisLayout(),
+                degrainScaleCovered(analysisLayout().coveredWidth, planeScaleX),
+                degrainScaleCovered(analysisLayout().coveredHeight, planeScaleY),
+                planeScaleX,
+                planeScaleY,
+                *windowRamp,
+                *temporalMixPlan,
+                analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
+        }
+        return launchNVEncDegrainDegrainOverlapPlane(
+            planeDst.ptr[0], planeDst.pitch[0], pixelBytes,
+            planeCur.ptr[0], planePitch,
+            refPlanes[0].ptr[0],
+            refPlanes[1].ptr[0],
+            refPlanes[2].ptr[0],
+            refPlanes[3].ptr[0],
+            refPlanes[4].ptr[0],
+            refPlanes[5].ptr[0],
+            refPlanes[6].ptr[0],
+            refPlanes[7].ptr[0],
+            refPlanes[8].ptr[0],
+            refPlanes[9].ptr[0],
+            planeDst.width, planeDst.height,
+            *mv, *sad, *m_analysis.temporalMixPrior,
+            analysisLayout(),
+            degrainScaleCovered(analysisLayout().coveredWidth, planeScaleX),
+            degrainScaleCovered(analysisLayout().coveredHeight, planeScaleY),
+            planeScaleX,
+            planeScaleY,
+            scaledThSad,
+            disableMask,
+            analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
+    };
+
+    const bool includeChromaSad = analysisSADIncludesChroma(prm);
+    const uint32_t scaledThSad = rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thsad, includeChromaSad);
+    const uint32_t scaledThSadC = rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thsadc, includeChromaSad);
+    const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
+    for (int iplane = 0; iplane < (processChroma ? (int)planes.size() : 1); iplane++) {
+        const auto plane = planes[iplane];
+        err = renderPlane(plane, plane == RGY_PLANE_Y ? scaledThSad : scaledThSadC);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to render degrain degrain %s output: %s.\n"),
+                plane == RGY_PLANE_Y ? _T("luma") : _T("chroma"), get_err_mes(err));
+            return err;
+        }
+    }
+    err = degrainRecordEvent(stream, event);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to record degrain apply event: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
