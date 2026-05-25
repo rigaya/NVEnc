@@ -2334,10 +2334,10 @@ __global__ void kernel_degrain_overlap_plane_cuda(
 
             const int block = blockY * renderBlocksX + blockX;
             int sample = degrainPixelLoad<TypePixel>(cur, cur_pitch, width, height, x, y);
-            if (modeType == (int)VppDegrainMode::MotionBack || modeType == (int)VppDegrainMode::MotionForw) {
+            if (modeType == 0 || modeType == 1) {
                 if (refDirection < refs
-                    && (((modeType == (int)VppDegrainMode::MotionBack) && ((refDirection & 1) == 0))
-                        || ((modeType == (int)VppDegrainMode::MotionForw) && ((refDirection & 1) == 1)))) {
+                    && (((modeType == 0) && ((refDirection & 1) == 0))
+                        || ((modeType == 1) && ((refDirection & 1) == 1)))) {
                     const uint8_t *ref = degrainRefPlanePtrSamePitch(
                         refBackward1, refForward1,
                         refBackward2, refForward2,
@@ -2428,7 +2428,7 @@ RGY_ERR launchNVEncDegrainOverlapPlane(
             reinterpret_cast<const float *>(temporalMixPrior.ptr),
             layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
             coveredWidth, coveredHeight, planeScaleX, planeScaleY,
-            (int)mode, refDirection, thsad, disableMask, refs, pel, subpelInterp);
+            (mode == VppDegrainMode::MotionBack || mode == VppDegrainMode::MotionBack2) ? 0 : 1, refDirection, thsad, disableMask, refs, pel, subpelInterp);
     } else {
         kernel_degrain_overlap_plane_cuda<uint8_t><<<grid, block, 0, stream>>>(
             reinterpret_cast<uint8_t *>(dst), dstPitch,
@@ -2444,7 +2444,7 @@ RGY_ERR launchNVEncDegrainOverlapPlane(
             reinterpret_cast<const float *>(temporalMixPrior.ptr),
             layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
             coveredWidth, coveredHeight, planeScaleX, planeScaleY,
-            (int)mode, refDirection, thsad, disableMask, refs, pel, subpelInterp);
+            (mode == VppDegrainMode::MotionBack || mode == VppDegrainMode::MotionBack2) ? 0 : 1, refDirection, thsad, disableMask, refs, pel, subpelInterp);
     }
     return err_to_rgy(cudaGetLastError());
 }

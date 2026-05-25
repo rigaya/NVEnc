@@ -30,10 +30,14 @@
 #include "NVEncFilterDegrainCommon.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <cmath>
 #include <limits>
 #include <cstdlib>
 #include <chrono>
+#include <sstream>
+#include <vector>
 
 #include "rgy_frame_info.h"
 #include "rgy_util.h"
@@ -74,8 +78,268 @@ RGY_ERR launchNVEncDegrainMotionSearchSpatialRefine(
     int blockCount, const RGYDegrainBlockLayout &layout, int pixelBytes,
     int pel, int subpelInterp, int pad, int motionCostScale,
     int lowSadWeightScale, int newCandidateCostScale, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainBuildTemporalMixPlan(
+    CUMemBuf &temporalMixPlan, const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    int blockCount, uint32_t thsad, uint32_t disableMask, int refs, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainOverlapPlane(
+    uint8_t *dst, int dstPitch, int pixelBytes,
+    const uint8_t *cur, int curPitch,
+    const uint8_t *ref0,
+    const uint8_t *refBackward1, const uint8_t *refForward1,
+    const uint8_t *refBackward2, const uint8_t *refForward2,
+    const uint8_t *refBackward3, const uint8_t *refForward3,
+    const uint8_t *refBackward4, const uint8_t *refForward4,
+    const uint8_t *refBackward5, const uint8_t *refForward5,
+    int width, int height,
+    const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    const RGYDegrainBlockLayout &layout,
+    int coveredWidth, int coveredHeight,
+    int planeScaleX, int planeScaleY,
+    VppDegrainMode mode, int refDirection,
+    uint32_t thsad, uint32_t disableMask,
+    int refs, int pel, int subpelInterp, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainCompensateOverlapPlaneRamp(
+    uint8_t *dst, int dstPitch, int pixelBytes,
+    const uint8_t *cur, int curPitch,
+    const uint8_t *ref0, const uint8_t *ref,
+    int refDirection, int width, int height,
+    const CUMemBuf &mv, const CUMemBuf &sad,
+    const RGYDegrainBlockLayout &layout,
+    int coveredWidth, int coveredHeight,
+    int planeScaleX, int planeScaleY,
+    uint32_t thsad, uint32_t disableMask,
+    const CUMemBuf &windowRamp,
+    int refs, int pel, int subpelInterp, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainDegrainOverlapPlane(
+    uint8_t *dst, int dstPitch, int pixelBytes,
+    const uint8_t *cur, int curPitch,
+    const uint8_t *refBackward1, const uint8_t *refForward1,
+    const uint8_t *refBackward2, const uint8_t *refForward2,
+    const uint8_t *refBackward3, const uint8_t *refForward3,
+    const uint8_t *refBackward4, const uint8_t *refForward4,
+    const uint8_t *refBackward5, const uint8_t *refForward5,
+    int width, int height,
+    const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    const RGYDegrainBlockLayout &layout,
+    int coveredWidth, int coveredHeight,
+    int planeScaleX, int planeScaleY,
+    uint32_t thsad, uint32_t disableMask,
+    int refs, int pel, int subpelInterp, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainDegrainOverlapPlanePreweightedRamp(
+    uint8_t *dst, int dstPitch, int pixelBytes,
+    const uint8_t *cur, int curPitch,
+    const uint8_t *refBackward1, const uint8_t *refForward1,
+    const uint8_t *refBackward2, const uint8_t *refForward2,
+    const uint8_t *refBackward3, const uint8_t *refForward3,
+    const uint8_t *refBackward4, const uint8_t *refForward4,
+    const uint8_t *refBackward5, const uint8_t *refForward5,
+    int width, int height,
+    const CUMemBuf &mv,
+    const RGYDegrainBlockLayout &layout,
+    int coveredWidth, int coveredHeight,
+    int planeScaleX, int planeScaleY,
+    const CUMemBuf &windowRamp, const CUMemBuf &temporalMixPlan,
+    int refs, int pel, int subpelInterp, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainPixelTrace(
+    const uint8_t *cur, int curPitch, int pixelBytes,
+    const uint8_t *refBackward1, const uint8_t *refForward1,
+    const uint8_t *refBackward2, const uint8_t *refForward2,
+    const uint8_t *refBackward3, const uint8_t *refForward3,
+    const uint8_t *refBackward4, const uint8_t *refForward4,
+    const uint8_t *refBackward5, const uint8_t *refForward5,
+    int width, int height,
+    const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    const RGYDegrainBlockLayout &layout,
+    int coveredWidth, int coveredHeight,
+    int planeScaleX, int planeScaleY,
+    uint32_t thsad, uint32_t disableMask,
+    int targetX, int targetY,
+    CUMemBuf &trace,
+    int refs, int pel, int subpelInterp, cudaStream_t stream);
 
 namespace {
+uint32_t degrainDisableMask(const RGYDegrainRefDisableArray &disableRefs, const int temporalDirections) {
+    uint32_t mask = 0;
+    for (int refDirection = 0; refDirection < std::min(temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
+        if (disableRefs[refDirection]) {
+            mask |= (1u << refDirection);
+        }
+    }
+    return mask;
+}
+
+size_t degrainTemporalMixPlanBytes(const RGYDegrainBlockLayout &layout) {
+    return layout.blockCount() * ((size_t)std::max(layout.temporalDirections, 0) + 1u) * sizeof(float);
+}
+
+size_t degrainOverlapBlendTableBytes(const int overlapX, const int overlapY) {
+    return ((size_t)std::max(overlapX, 0) + (size_t)std::max(overlapY, 0)) * sizeof(float);
+}
+
+void degrainFillOverlapBlendAxis(float *dst, const int overlap) {
+    if (dst == nullptr || overlap <= 0) {
+        return;
+    }
+    constexpr float pi = 3.14159265358979323846f;
+    for (int i = 0; i < overlap; i++) {
+        const float t = ((float)i + 0.5f) / (float)overlap;
+        dst[i] = 0.5f + 0.5f * std::cos(pi * t);
+    }
+}
+
+void appendDegrainPixelTraceRefs(std::ostringstream &oss, const int *record) {
+    oss << "\"refs\":[";
+    for (int refDirection = 0; refDirection < 4; refDirection++) {
+        if (refDirection > 0) {
+            oss << ',';
+        }
+        const int traceOffset = 15 + refDirection * 6;
+        oss << "{\"ref_slot\":" << refDirection
+            << ",\"confidence\":" << record[traceOffset + 0]
+            << ",\"sample\":" << record[traceOffset + 1]
+            << ",\"dx\":" << record[traceOffset + 2]
+            << ",\"dy\":" << record[traceOffset + 3]
+            << ",\"sad\":" << record[traceOffset + 4]
+            << ",\"valid\":" << record[traceOffset + 5]
+            << '}';
+    }
+    oss << ']';
+}
+
+void logDegrainPixelTraceRecords(RGYLog *log, const int *trace, const RGYFrameInfo &planeCur,
+    const RGY_PLANE plane, const int currentFrame, const VppDegrainStage stage, const int reqDelta) {
+    if (!log || !trace || trace[0] != 0x4d435054) {
+        return;
+    }
+    std::ostringstream head;
+    head << "{\"type\":\"degrain_pixel_trace\",\"kind\":\"summary\""
+        << ",\"frame\":" << planeCur.inputFrameId
+        << ",\"current_frame\":" << currentFrame
+        << ",\"pts\":" << (long long)planeCur.timestamp
+        << ",\"dur\":" << (long long)planeCur.duration
+        << ",\"stage\":" << (int)stage
+        << ",\"request_delta\":" << reqDelta
+        << ",\"plane\":" << (int)plane
+        << ",\"x\":" << trace[1]
+        << ",\"y\":" << trace[2]
+        << ",\"width\":" << trace[3]
+        << ",\"height\":" << trace[4]
+        << ",\"fallback\":" << trace[5]
+        << ",\"covered\":" << trace[6]
+        << ",\"scale_x\":" << trace[7]
+        << ",\"scale_y\":" << trace[8]
+        << ",\"block_size_x\":" << trace[9]
+        << ",\"block_size_y\":" << trace[10]
+        << ",\"overlap_x\":" << trace[11]
+        << ",\"overlap_y\":" << trace[12]
+        << ",\"step_x\":" << trace[13]
+        << ",\"primary_bx\":" << trace[14]
+        << ",\"primary_by\":" << trace[15]
+        << ",\"block_count_x\":" << trace[16]
+        << ",\"block_count_y\":" << trace[17]
+        << ",\"sample_sum\":" << trace[18]
+        << ",\"sample_count\":" << trace[19]
+        << ",\"result\":" << trace[20]
+        << ",\"sad_limit\":" << trace[21]
+        << ",\"disable_mask\":" << trace[22]
+        << ",\"blocks_x\":" << trace[23]
+        << ",\"blocks_y\":" << trace[24]
+        << ",\"records\":" << trace[25]
+        << '}';
+    log->write(RGY_LOG_INFO, RGY_LOGT_VPP, _T("%s\n"), char_to_tstring(head.str()).c_str());
+
+    const int recordCount = std::min(trace[25], 4);
+    for (int i = 0; i < recordCount; i++) {
+        const int *record = trace + 32 + i * 48;
+        std::ostringstream oss;
+        oss << "{\"type\":\"degrain_pixel_trace\",\"kind\":\"block\""
+            << ",\"frame\":" << planeCur.inputFrameId
+            << ",\"current_frame\":" << currentFrame
+            << ",\"pts\":" << (long long)planeCur.timestamp
+            << ",\"dur\":" << (long long)planeCur.duration
+            << ",\"stage\":" << (int)stage
+            << ",\"request_delta\":" << reqDelta
+            << ",\"plane\":" << (int)plane
+            << ",\"x\":" << trace[1]
+            << ",\"y\":" << trace[2]
+            << ",\"block_x\":" << record[0]
+            << ",\"block_y\":" << record[1]
+            << ",\"block\":" << record[2]
+            << ",\"base_x\":" << record[3]
+            << ",\"base_y\":" << record[4]
+            << ",\"local_x\":" << record[5]
+            << ",\"local_y\":" << record[6]
+            << ",\"window\":" << record[7]
+            << ",\"src_sample\":" << record[8]
+            << ",\"sample\":" << record[9]
+            << ",\"contribution\":" << record[10]
+            << ",\"source_mix\":" << record[11]
+            << ",\"reference_mix_sum\":" << record[12]
+            << ",\"confidence_sum_raw\":" << record[13]
+            << ",\"source_confidence_raw\":" << record[14]
+            << ',';
+        appendDegrainPixelTraceRefs(oss, record);
+        oss << '}';
+        log->write(RGY_LOG_INFO, RGY_LOGT_VPP, _T("%s\n"), char_to_tstring(oss.str()).c_str());
+    }
+}
+
+int degrainPlaneScaleX(const RGYFrameInfo *frame, const RGY_PLANE plane) {
+    if (!frame || plane == RGY_PLANE_Y) {
+        return 1;
+    }
+    switch (RGY_CSP_CHROMA_FORMAT[frame->csp]) {
+    case RGY_CHROMAFMT_YUV420:
+    case RGY_CHROMAFMT_YUV422:
+        return 2;
+    default:
+        return 1;
+    }
+}
+
+int degrainPlaneScaleY(const RGYFrameInfo *frame, const RGY_PLANE plane) {
+    if (!frame || plane == RGY_PLANE_Y) {
+        return 1;
+    }
+    switch (RGY_CSP_CHROMA_FORMAT[frame->csp]) {
+    case RGY_CHROMAFMT_YUV420:
+        return 2;
+    default:
+        return 1;
+    }
+}
+
+int degrainScaleCovered(const int covered, const int scale) {
+    return (covered + std::max(scale, 1) - 1) / std::max(scale, 1);
+}
+
+bool degrainCanProcessChroma(const RGYFrameInfo *frame) {
+    if (!frame || RGY_CSP_PLANES[frame->csp] < 3) {
+        return false;
+    }
+    switch (RGY_CSP_CHROMA_FORMAT[frame->csp]) {
+    case RGY_CHROMAFMT_YUV420:
+    case RGY_CHROMAFMT_YUV422:
+    case RGY_CHROMAFMT_YUV444:
+        return true;
+    default:
+        return false;
+    }
+}
+
+std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> degrainRenderRefPlanes(const RGYFilterDegrainFrameSet &frames, const RGY_PLANE plane) {
+    auto planes = std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS>();
+    const auto planeCur = getPlane(frames.cur, plane);
+    planes.fill(planeCur);
+    for (int delta = 1; delta <= RGY_DEGRAIN_MAX_DELTA; delta++) {
+        const auto backward = frames.backwardRef(delta) ? frames.backwardRef(delta) : frames.cur;
+        const auto forward = frames.forwardRef(delta) ? frames.forwardRef(delta) : frames.cur;
+        planes[rgy_degrain_ref_index(delta, false)] = getPlane(backward, plane);
+        planes[rgy_degrain_ref_index(delta, true)] = getPlane(forward, plane);
+    }
+    return planes;
+}
+
 bool degrainChromaBuildEnabled(const RGY_CSP csp, const VppDegrain &degrain) {
     switch (RGY_CSP_CHROMA_FORMAT[csp]) {
     case RGY_CHROMAFMT_YUV420:
@@ -1147,11 +1411,202 @@ RGY_ERR NVEncFilterDegrain::emitDebugFrame(const RGYFilterDegrainFrameSet &frame
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDegrain::emitCompensateFrame(const RGYFilterDegrainFrameSet&, VppDegrainMode,
-    const RGYDegrainRefDisableArray&, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t, RGYCudaEvent *) {
-    *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::emitCompensateFrame(const RGYFilterDegrainFrameSet &frames, VppDegrainMode mode,
+    const RGYDegrainRefDisableArray &disableRefs, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream, RGYCudaEvent *event) {
+    if (!frames.cur || frames.cur->ptr[0] == nullptr) {
+        *pOutputFrameNum = 0;
+        ppOutputFrames[0] = nullptr;
+        return RGY_ERR_NONE;
+    }
+    auto *mv = analysisMV();
+    auto *sad = analysisSAD();
+    if (!mv || !sad) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain compensate output requires analysis buffers.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (!m_analysis.temporalMixPrior) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain compensate output requires temporal mix prior table.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    RGYDegrainRefDir refDirection = RGYDegrainRefDir::Backward;
+    if (!rgy_degrain_refdir_from_mode(mode, &refDirection)) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid compensate mode for degrain: %s.\n"), get_cx_desc(list_vpp_degrain_mode, (int)mode));
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int refIndex = rgy_degrain_refdir_index(refDirection);
+    if (refIndex >= analysisLayout().temporalDirections) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain compensate mode %s is not available for delta=%d.\n"),
+            get_cx_desc(list_vpp_degrain_mode, (int)mode), rgy_degrain_delta_from_ref_index(analysisLayout().temporalDirections - 1));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    const int refDelta = rgy_degrain_delta_from_ref_index(refIndex);
+    const bool refForward = rgy_degrain_ref_index_is_forward(refIndex);
+    const RGYFrameInfo *reference = refForward ? frames.forwardRef(refDelta) : frames.backwardRef(refDelta);
+    if (!reference || reference->ptr[0] == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain compensate mode %s requires a valid reference frame.\n"),
+            get_cx_desc(list_vpp_degrain_mode, (int)mode));
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    *pOutputFrameNum = 1;
+    if (ppOutputFrames[0] == nullptr) {
+        ppOutputFrames[0] = &m_frameBuf[0]->frame;
+    }
+
+    if (analysisEvent()() != nullptr) {
+        auto err = err_to_rgy(cudaStreamWaitEvent(stream, analysisEvent()(), 0));
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+    auto err = copyFrameAsync(ppOutputFrames[0], frames.cur, stream);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to prepare degrain %s output: %s.\n"),
+            get_cx_desc(list_vpp_degrain_mode, (int)mode), get_err_mes(err));
+        return err;
+    }
+    copyFramePropWithoutRes(ppOutputFrames[0], frames.cur);
+
+    const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
+    const uint32_t disableMask = degrainDisableMask(disableRefs, analysisLayout().temporalDirections);
+    const bool useOverlapRamp = analysisLayout().overlap > 0;
+    const int pixelBytes = (RGY_CSP_BIT_DEPTH[frames.cur->csp] > 8) ? 2 : 1;
+    auto ensureWindowRamp = [&](RGYDegrainWindowRampState &state, const int planeScaleX, const int planeScaleY) {
+        const int planeOverlapX = std::max(analysisLayout().overlap / std::max(planeScaleX, 1), 0);
+        const int planeOverlapY = std::max(analysisLayout().overlap / std::max(planeScaleY, 1), 0);
+        const auto rampBytes = degrainOverlapBlendTableBytes(planeOverlapX, planeOverlapY);
+        if (rampBytes == 0) {
+            state.reset();
+            return RGY_ERR_NONE;
+        }
+        if (state.reusable(planeOverlapX, planeOverlapY, rampBytes)) {
+            return RGY_ERR_NONE;
+        }
+
+        std::vector<float> ramp(planeOverlapX + planeOverlapY);
+        degrainFillOverlapBlendAxis(ramp.data(), planeOverlapX);
+        degrainFillOverlapBlendAxis(ramp.data() + planeOverlapX, planeOverlapY);
+        auto rampBuf = std::make_unique<CUMemBuf>(rampBytes);
+        auto err = rampBuf->alloc();
+        if (err != RGY_ERR_NONE) {
+            state.reset();
+            return err;
+        }
+        err = err_to_rgy(cudaMemcpyAsync(rampBuf->ptr, ramp.data(), rampBytes, cudaMemcpyHostToDevice, stream));
+        if (err != RGY_ERR_NONE) {
+            state.reset();
+            return err;
+        }
+        state.ramp = std::move(rampBuf);
+        state.bytes = rampBytes;
+        state.overlapX = planeOverlapX;
+        state.overlapY = planeOverlapY;
+        return RGY_ERR_NONE;
+    };
+
+    auto renderPlane = [&](const RGY_PLANE plane, const uint32_t planeThSad) {
+        const auto planeDst = getPlane(ppOutputFrames[0], plane);
+        const auto planeCur = getPlane(frames.cur, plane);
+        const auto refPlanes = degrainRenderRefPlanes(frames, plane);
+        if (planeDst.ptr[0] == nullptr || planeCur.ptr[0] == nullptr || refPlanes[0].ptr[0] == nullptr || refPlanes[1].ptr[0] == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("degrain compensate mode %s requires valid plane %d.\n"),
+                get_cx_desc(list_vpp_degrain_mode, (int)mode), (int)plane);
+            return RGY_ERR_INVALID_CALL;
+        }
+        const int planePitch = planeCur.pitch[0];
+        for (int i = 0; i < (int)refPlanes.size(); i++) {
+            if (refPlanes[i].pitch[0] != planePitch) {
+                AddMessage(RGY_LOG_ERROR, _T("degrain compensate mode %s requires matching plane %d pitch: cur=%d, ref[%d]=%d.\n"),
+                    get_cx_desc(list_vpp_degrain_mode, (int)mode), (int)plane, planePitch, i, refPlanes[i].pitch[0]);
+                return RGY_ERR_INVALID_PARAM;
+            }
+        }
+        const int planeScaleX = degrainPlaneScaleX(frames.cur, plane);
+        const int planeScaleY = degrainPlaneScaleY(frames.cur, plane);
+        const auto refPlane = refPlanes[refIndex];
+        CUMemBuf *windowRamp = nullptr;
+        if (useOverlapRamp) {
+            auto &rampState = (plane == RGY_PLANE_Y) ? m_analysis.windowRampY : m_analysis.windowRampC;
+            const auto rampErr = ensureWindowRamp(rampState, planeScaleX, planeScaleY);
+            if (rampErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to prepare degrain overlap ramp buffer: %s.\n"), get_err_mes(rampErr));
+                return rampErr;
+            } else if (rampState.ramp) {
+                windowRamp = rampState.ramp.get();
+            }
+        }
+        if (windowRamp) {
+            return launchNVEncDegrainCompensateOverlapPlaneRamp(
+                planeDst.ptr[0], planeDst.pitch[0], pixelBytes,
+                planeCur.ptr[0], planePitch,
+                planeCur.ptr[0],
+                refPlane.ptr[0],
+                refIndex,
+                planeDst.width, planeDst.height,
+                *mv, *sad,
+                analysisLayout(),
+                degrainScaleCovered(analysisLayout().coveredWidth, planeScaleX),
+                degrainScaleCovered(analysisLayout().coveredHeight, planeScaleY),
+                planeScaleX,
+                planeScaleY,
+                planeThSad,
+                disableMask,
+                *windowRamp,
+                analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
+        }
+        return launchNVEncDegrainOverlapPlane(
+            planeDst.ptr[0], planeDst.pitch[0], pixelBytes,
+            planeCur.ptr[0], planePitch,
+            planeCur.ptr[0],
+            refPlanes[0].ptr[0],
+            refPlanes[1].ptr[0],
+            refPlanes[2].ptr[0],
+            refPlanes[3].ptr[0],
+            refPlanes[4].ptr[0],
+            refPlanes[5].ptr[0],
+            refPlanes[6].ptr[0],
+            refPlanes[7].ptr[0],
+            refPlanes[8].ptr[0],
+            refPlanes[9].ptr[0],
+            planeDst.width, planeDst.height,
+            *mv, *sad, *m_analysis.temporalMixPrior,
+            analysisLayout(),
+            degrainScaleCovered(analysisLayout().coveredWidth, planeScaleX),
+            degrainScaleCovered(analysisLayout().coveredHeight, planeScaleY),
+            planeScaleX,
+            planeScaleY,
+            mode,
+            refIndex,
+            planeThSad,
+            disableMask,
+            analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
+    };
+
+    const bool processChroma = degrainCanProcessChroma(frames.cur);
+    const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
+    for (int iplane = 0; iplane < (processChroma ? (int)planes.size() : 1); iplane++) {
+        const auto plane = planes[iplane];
+        err = renderPlane(plane, compensateThSad);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to render degrain %s %s output: %s.\n"),
+                plane == RGY_PLANE_Y ? _T("luma") : _T("chroma"),
+                get_cx_desc(list_vpp_degrain_mode, (int)mode), get_err_mes(err));
+            return err;
+        }
+    }
+    err = degrainRecordEvent(stream, event);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to record degrain compensate event: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet&,
