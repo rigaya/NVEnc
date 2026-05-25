@@ -200,6 +200,7 @@
     - [--vpp-nvvfx-artifact-reduction \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nvvfx-artifact-reduction-param1value1param2value2)
     - [--vpp-smooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-smooth-param1value1param2value2)
     - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
+    - [--vpp-degrain \[\<param1\>=\<value1\>\]](#--vpp-degrain-param1value1)
     - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
     - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
     - [--vpp-gauss \<int\>](#--vpp-gauss-int)
@@ -2254,6 +2255,38 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
     - 8
     - 16 (慢)
     
+### --vpp-degrain [&lt;param1&gt;=&lt;value1&gt;]
+Motion compensated degrain debug filter.
+
+- **参数**
+  - preset=&lt;string&gt;
+    Surface preset. `custom` (默认), `auto`.
+  - mode=&lt;string&gt;
+    Output mode. `source`, `analyze`, `compb`, `compf`, `compb2`, `compf2`, `degrain` (默认), `mv`, `sad`.
+  - stage=&lt;string&gt;
+    Step2 stage marker. `auto` (默认), `tr1`, `tr2`.
+  - tr=&lt;int&gt;
+    Auto preset temporal radius. `1` or `2`. Sets `mode=degrain`, `stage`, and `delta`.
+  - blksize/search/overlap/delta/levels/pel
+    Block matching geometry and temporal radius parameters.
+  - thsad/thsadc/thscd1/thscd2
+    Degrain and scene-change thresholds.
+  - tr0/rep0/search_refine
+    Search reference prefilter parameters.
+  - searchparam/pelsearch/truemotion/lambda/lsad/pnew/plevel/globalmotion/dct/useflag
+    Motion search tuning parameters.
+  - mv_spatial_refine=&lt;int|auto&gt;
+    Motion-vector spatial refinement count. Default is `auto` (`-1`).
+  - chroma/binomial/tv_range
+    Chroma analysis and prefilter/range controls.
+
+- **限制**
+  - Analysis modes require levels=2.
+  - Analysis supports only blksize=8, 16, or 32.
+  - overlap supports only 0 or blksize/2.
+  - delta supports 1-5, but delta>2 is supported only for analyze or stage=tr2 degrain.
+  - pel supports only 1, 2, or 4.
+
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 强降噪滤镜。
 

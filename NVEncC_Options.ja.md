@@ -219,6 +219,7 @@
   - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
   - [--vpp-fft3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fft3d-param1value1param2value2)
+  - [--vpp-degrain \[\<param1\>=\<value1\>\]](#--vpp-degrain-param1value1)
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
   - [--vpp-nlmeans \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nlmeans-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
@@ -2755,7 +2756,39 @@ decombによるインタレ解除を行う。
     - auto ... 可能な場合fp16(半精度浮動小数点)で計算する (高速)
     - fp32 ... 常にfp32(単精度浮動小数点)で計算する
 
-  
+### --vpp-degrain [&lt;param1&gt;=&lt;value1&gt;]
+動き補償つき degrain デバッグフィルタ。
+
+- **パラメータ**
+  - preset=&lt;string&gt;
+    surface preset。`custom` (デフォルト), `auto`。原則としてオリジナルの値を踏襲。
+  - mode=&lt;string&gt;
+    出力モード。`source`, `analyze`, `compb`, `compf`, `compb2`, `compf2`, `degrain` (デフォルト), `mv`, `sad`。
+  - stage=&lt;string&gt;
+    Step2 stage marker。`auto` (デフォルト), `tr1`, `tr2`。
+  - tr=&lt;int&gt;
+    Auto preset temporal radius。`1` または `2`。`mode=degrain`, `stage`, `delta` を設定する。
+  - blksize/search/overlap/delta/levels/pel
+    ブロックマッチングの形状と時間方向参照半径。
+  - thsad/thsadc/thscd1/thscd2
+    degrain とシーンチェンジの閾値。
+  - tr0/rep0/search_refine
+    search reference prefilter パラメータ。
+  - searchparam/pelsearch/truemotion/lambda/lsad/pnew/plevel/globalmotion/dct/useflag
+    モーション探索の調整パラメータ。
+  - mv_spatial_refine=&lt;int|auto&gt;
+    モーションベクトルの spatial refine 回数。デフォルトは `auto` (`-1`) で、もっとも解像度の低い最上位レベルでのみ近傍ブロック参照による refine を行い、下位（高解像度）レベルでは行わない。
+  - chroma/binomial/tv_range
+    色差解析、prefilter、レンジ制御。
+
+- **注意**
+  - 解析を伴うモードでは levels=2 が必要です。
+  - 解析時の blksize は 8/16/32 のみ対応します。
+  - overlap は 0 または blksize/2 のみ対応します。
+  - delta は 1-5 に対応しますが、delta>2 は analyze または stage=tr2 の degrain のみ対応します。
+  - pel は 1/2/4 のみ対応します。
+
+
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 - **パラメータ**

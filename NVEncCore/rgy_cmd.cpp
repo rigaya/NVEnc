@@ -3484,6 +3484,403 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-degrain") && ENABLE_VPP_FILTER_DEGRAIN) {
+        VppDegrain parsedDegrain;
+        parsedDegrain.enable = true;
+        const auto apply_auto_preset = [](VppDegrain& target) {
+            target.preset = VppDegrainPreset::Auto;
+            target.mode = VppDegrainMode::Degrain;
+            target.stage = VppDegrainStage::TR2;
+            target.delta = 2;
+            target.search = 4;
+            target.thsad = 300;
+            target.thsadc = 150;
+            target.thscd1 = 1600;
+            target.thscd2 = 130;
+            target.pel = 1;
+            target.blksize = 16;
+            target.overlap = 8;
+            target.levels = 2;
+            target.chroma = true;
+            target.binomial = 0;
+            target.tvRange = true;
+        };
+        const auto apply_tr = [&](VppDegrain& target, const int tr, const tstring& param_arg, const tstring& param_val) {
+            if (tr != 1 && tr != 2) {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("tr should be 1 or 2."));
+                return 1;
+            }
+            target.mode = VppDegrainMode::Degrain;
+            target.stage = (tr == 1) ? VppDegrainStage::TR1 : VppDegrainStage::TR2;
+            target.delta = tr;
+            return 0;
+        };
+        const auto set_degrain = [&](const VppDegrain& value) {
+            vpp->degrain = value;
+        };
+        int parsedTr = 0;
+        bool parsedOverlap = false;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            set_degrain(parsedDegrain);
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{
+            "enable", "preset", "mode", "stage", "tr", "blksize", "search", "thsad", "thsadc", "thscd1", "thscd2", "pel", "levels", "overlap", "delta", "tr0", "rep0", "search_refine",
+            "subpelinterp", "searchparam", "pelsearch",
+            "truemotion", "lambda", "lsad", "pnew", "plevel", "globalmotion", "dct", "useflag",
+            "mv_spatial_refine", "chroma", "binomial", "tv_range"
+        };
+        const auto parse_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
+            try {
+                size_t idx = 0;
+                *dst = std::stoi(param_val, &idx);
+                if (idx != param_val.length()) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+            } catch (...) {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                return 1;
+            }
+            return 0;
+        };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        parsedDegrain.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("preset")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_degrain_preset, param_val.c_str(), &value)) {
+                        parsedDegrain.preset = (VppDegrainPreset)value;
+                        if (parsedDegrain.preset == VppDegrainPreset::Auto) {
+                            apply_auto_preset(parsedDegrain);
+                        }
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_degrain_preset);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_degrain_mode, param_val.c_str(), &value)) {
+                        parsedDegrain.mode = (VppDegrainMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_degrain_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("stage")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_degrain_stage, param_val.c_str(), &value)) {
+                        parsedDegrain.stage = (VppDegrainStage)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_degrain_stage);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("tr")) {
+                    int value = 0;
+                    if (parse_int(&value, param_arg, param_val)) {
+                        return 1;
+                    }
+                    if (apply_tr(parsedDegrain, value, param_arg, param_val)) {
+                        return 1;
+                    }
+                    parsedTr = value;
+                    continue;
+                }
+                if (param_arg == _T("blksize")) {
+                    if (parse_int(&parsedDegrain.blksize, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("search")) {
+                    if (parse_int(&parsedDegrain.search, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thsad")) {
+                    if (parse_int(&parsedDegrain.thsad, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thsadc")) {
+                    if (parse_int(&parsedDegrain.thsadc, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thscd1")) {
+                    if (parse_int(&parsedDegrain.thscd1, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thscd2")) {
+                    if (parse_int(&parsedDegrain.thscd2, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("pel")) {
+                    if (parse_int(&parsedDegrain.pel, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("levels")) {
+                    if (parse_int(&parsedDegrain.levels, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("overlap")) {
+                    if (parse_int(&parsedDegrain.overlap, param_arg, param_val)) {
+                        return 1;
+                    }
+                    parsedOverlap = true;
+                    continue;
+                }
+                if (param_arg == _T("delta")) {
+                    if (parse_int(&parsedDegrain.delta, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("tr0")) {
+                    if (parse_int(&parsedDegrain.tr0, param_arg, param_val)) {
+                        return 1;
+                    }
+                    if (parsedDegrain.tr0 < 0 || parsedDegrain.tr0 > 2) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("tr0 should be 0, 1, or 2."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("rep0")) {
+                    if (parse_int(&parsedDegrain.rep0, param_arg, param_val)) {
+                        return 1;
+                    }
+                    if (parsedDegrain.rep0 < 0 || parsedDegrain.rep0 > 7) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("rep0 should be 0 - 7."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("search_refine")) {
+                    if (parse_int(&parsedDegrain.searchRefine, param_arg, param_val)) {
+                        return 1;
+                    }
+                    if (parsedDegrain.searchRefine < 0 || parsedDegrain.searchRefine > 3) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("search_refine should be 0 - 3."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("subpelinterp")) {
+                    if (parse_int(&parsedDegrain.subpelInterp, param_arg, param_val)) {
+                        return 1;
+                    }
+                    if (parsedDegrain.subpelInterp < 0 || parsedDegrain.subpelInterp > 2) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("subpelinterp should be 0, 1, or 2."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("searchparam")) {
+                    if (parse_int(&parsedDegrain.searchParam, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("pelsearch")) {
+                    if (parse_int(&parsedDegrain.pelSearch, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("truemotion")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        parsedDegrain.trueMotion = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lambda")) {
+                    if (parse_int(&parsedDegrain.lambda, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lsad")) {
+                    if (parse_int(&parsedDegrain.lsad, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("pnew")) {
+                    if (parse_int(&parsedDegrain.pnew, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("plevel")) {
+                    if (parse_int(&parsedDegrain.plevel, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("globalmotion")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        parsedDegrain.globalMotion = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        parsedDegrain.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("binomial")) {
+                    if (tolowercase(param_val) == _T("auto")) {
+                        parsedDegrain.binomial = -1;
+                    } else {
+                        bool b = false;
+                        if (!cmd_string_to_bool(&b, param_val)) {
+                            parsedDegrain.binomial = b ? 1 : 0;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("binomial should be true, false, or auto."));
+                            return 1;
+                        }
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mv_spatial_refine")) {
+                    if (tolowercase(param_val) == _T("auto")) {
+                        parsedDegrain.mvSpatialRefine = -1;
+                    } else if (parse_int(&parsedDegrain.mvSpatialRefine, param_arg, param_val)) {
+                        return 1;
+                    }
+                    if (parsedDegrain.mvSpatialRefine < -1) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("mv_spatial_refine should be auto, -1, or greater."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("tv_range")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        parsedDegrain.tvRange = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("dct")) {
+                    if (parse_int(&parsedDegrain.dct, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("useflag")) {
+                    if (parse_int(&parsedDegrain.useFlag, param_arg, param_val)) {
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        if (parsedTr > 0) {
+            const auto expectedStage = (parsedTr == 1) ? VppDegrainStage::TR1 : VppDegrainStage::TR2;
+            if (parsedDegrain.mode != VppDegrainMode::Degrain
+                || parsedDegrain.stage != expectedStage
+                || parsedDegrain.delta != parsedTr) {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" tr="), strsprintf(_T("%d"), parsedTr),
+                    _T("tr requires matching mode=degrain, stage, and delta."));
+                return 1;
+            }
+        }
+        if (parsedDegrain.preset == VppDegrainPreset::Auto) {
+            if (!parsedOverlap) {
+                parsedDegrain.overlap = parsedDegrain.blksize / 2;
+            }
+            const auto print_auto_error = [&](const TCHAR *message) {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" preset=auto"), _T(""), message);
+            };
+            if (parsedDegrain.mode != VppDegrainMode::Degrain
+                || (parsedDegrain.stage != VppDegrainStage::TR1 && parsedDegrain.stage != VppDegrainStage::TR2)
+                || (parsedDegrain.delta != 1 && parsedDegrain.delta != 2)) {
+                print_auto_error(_T("Auto preset supports only tr=1/2 degrain output."));
+                return 1;
+            }
+            if ((parsedDegrain.stage == VppDegrainStage::TR1) != (parsedDegrain.delta == 1)) {
+                print_auto_error(_T("Auto preset requires stage and delta to match tr=1/2."));
+                return 1;
+            }
+            if (parsedDegrain.search != 4) {
+                print_auto_error(_T("Auto preset requires search=4."));
+                return 1;
+            }
+            if (parsedDegrain.levels != 2) {
+                print_auto_error(_T("Auto preset requires levels=2."));
+                return 1;
+            }
+            if (parsedDegrain.blksize != 8 && parsedDegrain.blksize != 16 && parsedDegrain.blksize != 32) {
+                print_auto_error(_T("Auto preset supports blksize=8, 16, or 32."));
+                return 1;
+            }
+            if (parsedDegrain.overlap != parsedDegrain.blksize / 2) {
+                print_auto_error(_T("Auto preset requires overlap=blksize/2."));
+                return 1;
+            }
+            if (parsedDegrain.pel != 1 && parsedDegrain.pel != 2) {
+                print_auto_error(_T("Auto preset supports pel=1 or 2."));
+                return 1;
+            }
+            if (!parsedDegrain.tvRange) {
+                print_auto_error(_T("Auto preset requires tv_range=true for the search reference."));
+                return 1;
+            }
+        }
+        set_degrain(parsedDegrain);
+        return 0;
+    }
     if (IS_OPTION("vpp-msmooth") && ENABLE_VPP_FILTER_MSMOOTH) {
         vpp->msmooth.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -8729,6 +9126,55 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-fft3d");
         }
     }
+    const auto add_degrain_cmd = [&](const VppDegrain& degrain, const VppDegrain& defaultDegrain) {
+        tmp.str(tstring());
+        if (!degrain.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (degrain.enable || save_disabled_prm) {
+            if (degrain.preset != defaultDegrain.preset) tmp << _T(",preset=") << get_chr_from_value(list_vpp_degrain_preset, (int)degrain.preset);
+            if (degrain.mode != defaultDegrain.mode) tmp << _T(",mode=") << get_chr_from_value(list_vpp_degrain_mode, (int)degrain.mode);
+            if (degrain.stage != defaultDegrain.stage) tmp << _T(",stage=") << get_chr_from_value(list_vpp_degrain_stage, (int)degrain.stage);
+            if (degrain.blksize != defaultDegrain.blksize) tmp << _T(",blksize=") << degrain.blksize;
+            if (degrain.search != defaultDegrain.search) tmp << _T(",search=") << degrain.search;
+            if (degrain.thsad != defaultDegrain.thsad) tmp << _T(",thsad=") << degrain.thsad;
+            if (degrain.thsadc != defaultDegrain.thsadc) tmp << _T(",thsadc=") << degrain.thsadc;
+            if (degrain.thscd1 != defaultDegrain.thscd1) tmp << _T(",thscd1=") << degrain.thscd1;
+            if (degrain.thscd2 != defaultDegrain.thscd2) tmp << _T(",thscd2=") << degrain.thscd2;
+            if (degrain.pel != defaultDegrain.pel) tmp << _T(",pel=") << degrain.pel;
+            if (degrain.subpelInterp != defaultDegrain.subpelInterp) tmp << _T(",subpelinterp=") << degrain.subpelInterp;
+            if (degrain.levels != defaultDegrain.levels) tmp << _T(",levels=") << degrain.levels;
+            if (degrain.overlap != defaultDegrain.overlap) tmp << _T(",overlap=") << degrain.overlap;
+            if (degrain.delta != defaultDegrain.delta) tmp << _T(",delta=") << degrain.delta;
+            if (degrain.tr0 != defaultDegrain.tr0) tmp << _T(",tr0=") << degrain.tr0;
+            if (degrain.rep0 != defaultDegrain.rep0) tmp << _T(",rep0=") << degrain.rep0;
+            if (degrain.searchRefine != defaultDegrain.searchRefine) tmp << _T(",search_refine=") << degrain.searchRefine;
+            if (degrain.searchParam != defaultDegrain.searchParam) tmp << _T(",searchparam=") << degrain.searchParam;
+            if (degrain.pelSearch != defaultDegrain.pelSearch) tmp << _T(",pelsearch=") << degrain.pelSearch;
+            if (degrain.trueMotion != defaultDegrain.trueMotion) tmp << _T(",truemotion=") << (degrain.trueMotion ? _T("true") : _T("false"));
+            if (degrain.lambda != defaultDegrain.lambda) tmp << _T(",lambda=") << degrain.lambda;
+            if (degrain.lsad != defaultDegrain.lsad) tmp << _T(",lsad=") << degrain.lsad;
+            if (degrain.pnew != defaultDegrain.pnew) tmp << _T(",pnew=") << degrain.pnew;
+            if (degrain.plevel != defaultDegrain.plevel) tmp << _T(",plevel=") << degrain.plevel;
+            if (degrain.globalMotion != defaultDegrain.globalMotion) tmp << _T(",globalmotion=") << (degrain.globalMotion ? _T("true") : _T("false"));
+            if (degrain.dct != defaultDegrain.dct) tmp << _T(",dct=") << degrain.dct;
+            if (degrain.useFlag != defaultDegrain.useFlag) tmp << _T(",useflag=") << degrain.useFlag;
+            if (degrain.mvSpatialRefine != defaultDegrain.mvSpatialRefine) tmp << _T(",mv_spatial_refine=") << degrain.mvSpatialRefine;
+            if (degrain.chroma != defaultDegrain.chroma) tmp << _T(",chroma=") << (degrain.chroma ? _T("true") : _T("false"));
+            if (degrain.binomial != defaultDegrain.binomial) {
+                tmp << _T(",binomial=") << (degrain.binomial < 0 ? _T("auto") : (degrain.binomial ? _T("true") : _T("false")));
+            }
+            if (degrain.tvRange != defaultDegrain.tvRange) tmp << _T(",tv_range=") << (degrain.tvRange ? _T("true") : _T("false"));
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-degrain ") << tmp.str().substr(1);
+        } else if (degrain.enable) {
+            cmd << _T(" --vpp-degrain");
+        }
+    };
+    if (param->degrain != defaultPrm->degrain) {
+        add_degrain_cmd(param->degrain, defaultPrm->degrain);
+    }
     if (param->msmooth != defaultPrm->msmooth) {
         tmp.str(tstring());
         if (!param->msmooth.enable && save_disabled_prm) {
@@ -10620,6 +11066,72 @@ tstring gen_cmd_help_vpp() {
         _T("                              auto (default), fp16, fp32\n"),
         FILTER_DEFAULT_DENOISE_FFT3D_SIGMA, FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT, FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE,
         FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP, /* FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2,*/ FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL);
+#endif
+#if ENABLE_VPP_FILTER_DEGRAIN
+    str += strsprintf(_T("\n")
+        _T("   --vpp-degrain [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     motion compensated degrain debug filter for Step1.\n")
+        _T("    params\n")
+        _T("      preset=<string>        surface preset: custom, auto (default=custom)\n")
+        _T("      mode=<string>          output mode (default=%s)\n")
+        _T("                               source, analyze, compb, compf, compb2, compf2, degrain, mv, sad\n")
+        _T("      stage=<string>         Step2 stage marker: auto, tr1, tr2 (default=auto)\n")
+        _T("      tr=<int>               Auto preset temporal radius: 1 or 2 (sets mode=degrain, stage, delta)\n")
+        _T("      blksize=<int>          block size (default=%d)\n")
+        _T("      search=<int>           search radius (default=%d)\n")
+        _T("      thsad=<int>            degrain SAD threshold (default=%d)\n")
+        _T("      thsadc=<int>           chroma degrain SAD threshold (default=%d)\n")
+        _T("      thscd1=<int>           scene change SAD threshold (default=%d)\n")
+        _T("      thscd2=<int>           scene change ratio threshold in AviSynth semantics (0-255, default=%d)\n")
+        _T("      pel=<int>              subpixel precision (1, 2, or 4; default=%d)\n")
+        _T("      subpelinterp=<int>     subpixel interpolation mode (default=%d)\n")
+        _T("      levels=<int>           analysis levels (default=%d)\n")
+        _T("      overlap=<int>          overlap in pixels (default=%d)\n")
+        _T("      delta=<int>            temporal radius (1 - 5, default=%d)\n")
+        _T("      tr0=<int>              search reference temporal prefilter radius (0, 1, or 2, default=%d)\n")
+        _T("      rep0=<int>             search reference repair mode (0 - 7, default=%d)\n")
+        _T("      search_refine=<int>    search reference pre/post processing mode (0 - 3, default=%d)\n")
+        _T("      mv_spatial_refine=<int|auto> motion vector spatial refinement count (default=auto)\n")
+        _T("      searchparam=<int>      motion search parameter (default=%d)\n")
+        _T("      pelsearch=<int>        subpixel search parameter (default=%d)\n")
+        _T("      truemotion=<bool>      use true-motion tuning (default=%s)\n")
+        _T("      lambda=<int>           motion penalty strength (default=%d)\n")
+        _T("      lsad=<int>             large SAD threshold (default=%d)\n")
+        _T("      pnew=<int>             new vector penalty (default=%d)\n")
+        _T("      plevel=<int>           predictor level (default=%d)\n")
+        _T("      globalmotion=<bool>    enable global motion tuning (default=%s)\n")
+        _T("      dct=<int>              DCT search mode (default=%d)\n")
+        _T("      useflag=<int>          reference direction limit (0=both, 1=backward only, 2=forward only, default=%d)\n")
+        _T("      chroma=<bool>          include chroma in motion/SAD analysis (default=%s)\n")
+        _T("      binomial=<bool|auto>   use binomial prefilter path (default=auto)\n")
+        _T("      tv_range=<bool>        expand motion/SAD analysis from TV to PC range (default=%s)\n"),
+        get_cx_desc(list_vpp_degrain_mode, (int)FILTER_DEFAULT_DEGRAIN_MODE),
+        FILTER_DEFAULT_DEGRAIN_BLKSIZE,
+        FILTER_DEFAULT_DEGRAIN_SEARCH,
+        FILTER_DEFAULT_DEGRAIN_THSAD,
+        FILTER_DEFAULT_DEGRAIN_THSADC,
+        FILTER_DEFAULT_DEGRAIN_THSCD1,
+        FILTER_DEFAULT_DEGRAIN_THSCD2,
+        FILTER_DEFAULT_DEGRAIN_PEL,
+        FILTER_DEFAULT_DEGRAIN_SUBPEL_INTERP,
+        FILTER_DEFAULT_DEGRAIN_LEVELS,
+        FILTER_DEFAULT_DEGRAIN_OVERLAP,
+        FILTER_DEFAULT_DEGRAIN_DELTA,
+        FILTER_DEFAULT_DEGRAIN_TR0,
+        FILTER_DEFAULT_DEGRAIN_REP0,
+        FILTER_DEFAULT_DEGRAIN_SEARCH_REFINE,
+        FILTER_DEFAULT_DEGRAIN_SEARCHPARAM,
+        FILTER_DEFAULT_DEGRAIN_PELSEARCH,
+        FILTER_DEFAULT_DEGRAIN_TRUEMOTION ? _T("true") : _T("false"),
+        FILTER_DEFAULT_DEGRAIN_LAMBDA,
+        FILTER_DEFAULT_DEGRAIN_LSAD,
+        FILTER_DEFAULT_DEGRAIN_PNEW,
+        FILTER_DEFAULT_DEGRAIN_PLEVEL,
+        FILTER_DEFAULT_DEGRAIN_GLOBALMOTION ? _T("true") : _T("false"),
+        FILTER_DEFAULT_DEGRAIN_DCT,
+        FILTER_DEFAULT_DEGRAIN_USEFLAG,
+        FILTER_DEFAULT_DEGRAIN_CHROMA ? _T("true") : _T("false"),
+        FILTER_DEFAULT_DEGRAIN_TV_RANGE ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_MSMOOTH
     str += strsprintf(_T("\n")
