@@ -171,6 +171,9 @@
     <ClCompile Include="NVEncFilterCustom.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="NVEncFilterDegrain.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="NVEncFilterDegrainCommon.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
