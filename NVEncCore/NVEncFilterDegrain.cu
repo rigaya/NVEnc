@@ -40,6 +40,7 @@
 
 static constexpr int DEGRAIN_BLOCK_X = 16;
 static constexpr int DEGRAIN_BLOCK_Y = 16;
+static constexpr float DEGRAIN_PI_F = 3.14159265358979323846f;
 static constexpr int DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES = 3;
 static constexpr int DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS = 8;
 static constexpr int DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE = 32;
@@ -572,6 +573,26 @@ __device__ __forceinline__ int degrainMotionSearchRefIsIntegerPel(const int dx, 
         || (degrainMotionSearchRefFracX(dx, pel) == 0 && degrainMotionSearchRefFracY(dy, pel) == 0);
 }
 
+__device__ __forceinline__ int degrainPlaneScaleRshift(const int planeScale) {
+    return planeScale > 1 ? 1 : 0;
+}
+
+__device__ __forceinline__ int degrainPlaneScaleX(const int planeScaleX) {
+    return max(planeScaleX, 1);
+}
+
+__device__ __forceinline__ int degrainPlaneScaleY(const int planeScaleY) {
+    return max(planeScaleY, 1);
+}
+
+__device__ __forceinline__ int degrainPlaneScaleRshiftX(const int planeScaleX) {
+    return degrainPlaneScaleRshift(degrainPlaneScaleX(planeScaleX));
+}
+
+__device__ __forceinline__ int degrainPlaneScaleRshiftY(const int planeScaleY) {
+    return degrainPlaneScaleRshift(degrainPlaneScaleY(planeScaleY));
+}
+
 template<typename TypePixel>
 __device__ __forceinline__ uint32_t degrainMotionSearchCalcSadLuma(
     const uint8_t *cur,
@@ -943,6 +964,393 @@ __device__ __forceinline__ int degrainMotionSearchRefineHasValidCandidates(
         hasCandidateToEvaluate |= candidateCosts[i].score_primary != DEGRAIN_MOTION_SEARCH_LARGE_COST;
     }
     return hasCandidateToEvaluate;
+}
+
+__device__ __forceinline__ int degrainRoundFloatToInt(const float value) {
+    return __float2int_rn(value);
+}
+
+__device__ __forceinline__ float degrainOverlapBlendCurve(const float phase) {
+    const float c = cosf(DEGRAIN_PI_F * phase);
+    return 0.5f + 0.5f * c;
+}
+
+__device__ __forceinline__ float degrainOverlapAxisGain(
+    const int pos,
+    const int blockSize,
+    const int overlap,
+    const int isFirst,
+    const int isLast) {
+    if (pos < 0 || pos >= blockSize) {
+        return 0.0f;
+    }
+    if (overlap <= 0) {
+        return 1.0f;
+    }
+    if (pos < overlap) {
+        if (isFirst) {
+            return 1.0f;
+        }
+        const float phase = ((float)pos + 0.5f) / (float)overlap;
+        return degrainOverlapBlendCurve(phase);
+    }
+    if (pos >= blockSize - overlap) {
+        if (isLast) {
+            return 1.0f;
+        }
+        const float phase = ((float)(blockSize - pos) - 0.5f) / (float)overlap;
+        return degrainOverlapBlendCurve(phase);
+    }
+    return 1.0f;
+}
+
+__device__ __forceinline__ float degrainWindowFactorRect2d(
+    const int x,
+    const int y,
+    const int baseX,
+    const int baseY,
+    const int blockSizeX,
+    const int blockSizeY,
+    const int overlapX,
+    const int overlapY,
+    const int blockX,
+    const int blockY,
+    const int blocksX,
+    const int blocksY) {
+    const int localX = x - baseX;
+    const int localY = y - baseY;
+    if (localX < 0 || localX >= blockSizeX || localY < 0 || localY >= blockSizeY) {
+        return 0.0f;
+    }
+    const float wx = degrainOverlapAxisGain(localX, blockSizeX, overlapX, blockX == 0, blockX == blocksX - 1);
+    const float wy = degrainOverlapAxisGain(localY, blockSizeY, overlapY, blockY == 0, blockY == blocksY - 1);
+    return wx * wy;
+}
+
+__device__ __forceinline__ int degrainRefIndex(const int block, const int refDirection, const int refs);
+
+__device__ __forceinline__ int degrainReferenceIsValid(
+    const RGYDegrainMV *mv,
+    const RGYDegrainSAD *sad,
+    const int block,
+    const int refDirection,
+    const uint32_t thsad,
+    const int directionDisabled,
+    const int refs) {
+    if (directionDisabled) {
+        return 0;
+    }
+    const int clampedRefDirection = degrainClampInt(refDirection, 0, refs - 1);
+    const int index = degrainRefIndex(block, clampedRefDirection, refs);
+    return ((int)mv[index].refdir == clampedRefDirection) && (sad[index].sad < thsad);
+}
+
+__device__ __forceinline__ float degrainReferenceAffinityFromSad(
+    const int sadLimit,
+    const int blockSad) {
+    if (sadLimit <= blockSad) {
+        return 0.0f;
+    }
+    const float sadRatio = (float)blockSad / (float)sadLimit;
+    const float sadRatio2 = sadRatio * sadRatio;
+    return (1.0f - sadRatio2) / (1.0f + sadRatio2);
+}
+
+__device__ __forceinline__ float degrainReferenceMixAffinity(
+    const RGYDegrainMV *mv,
+    const RGYDegrainSAD *sad,
+    const int block,
+    const int refDirection,
+    const uint32_t thsad,
+    const int directionDisabled,
+    const int refs) {
+    if (!degrainReferenceIsValid(mv, sad, block, refDirection, thsad, directionDisabled, refs)) {
+        return 0.0f;
+    }
+    return degrainReferenceAffinityFromSad((int)thsad, (int)sad[degrainRefIndex(block, refDirection, refs)].sad);
+}
+
+__device__ __forceinline__ float degrainTemporalMixPriorCenter(const float *temporalMixPrior) {
+    return temporalMixPrior[0];
+}
+
+__device__ __forceinline__ float degrainTemporalMixPriorRef(
+    const float *temporalMixPrior,
+    const int refDirection) {
+    return temporalMixPrior[1 + refDirection];
+}
+
+__device__ __forceinline__ int degrainTraceFloatToQ8(const float value) {
+    return degrainRoundFloatToInt(value * 256.0f);
+}
+
+__device__ __forceinline__ int degrainRefDirectionDisabled(const uint32_t disableMask, const int refDirection) {
+    return ((disableMask >> refDirection) & 1u) != 0u;
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainCompensatedSample(
+    const uint8_t *ref,
+    const int refPitch,
+    const int width,
+    const int height,
+    const RGYDegrainMV *mv,
+    const int block,
+    const int refDirection,
+    const int planeScaleX,
+    const int planeScaleY,
+    const int x,
+    const int y,
+    const int refs,
+    const int pel,
+    const int subpelInterp) {
+    const int index = degrainRefIndex(block, refDirection, refs);
+    const RGYDegrainMV motion = mv[index];
+    const int scaledDx = degrainFloorRshiftSigned((int)motion.dx, degrainPlaneScaleRshiftX(planeScaleX));
+    const int scaledDy = degrainFloorRshiftSigned((int)motion.dy, degrainPlaneScaleRshiftY(planeScaleY));
+    if (pel <= 1) {
+        const int sampleX = x + scaledDx;
+        const int sampleY = y + scaledDy;
+        if ((uint32_t)sampleX < (uint32_t)width && (uint32_t)sampleY < (uint32_t)height) {
+            return (int)(*(const TypePixel *)(ref + sampleY * refPitch + sampleX * (int)sizeof(TypePixel)));
+        }
+        return degrainPixelLoadMirror<TypePixel>(ref, refPitch, width, height, sampleX, sampleY);
+    }
+    return degrainPixelLoadPelMirror<TypePixel>(
+        ref, refPitch, width, height,
+        x * pel + scaledDx,
+        y * pel + scaledDy,
+        pel,
+        subpelInterp);
+}
+
+__device__ __forceinline__ const uint8_t *degrainRefPlanePtrSamePitch(
+    const uint8_t *refBackward1,
+    const uint8_t *refForward1,
+    const uint8_t *refBackward2,
+    const uint8_t *refForward2,
+    const uint8_t *refBackward3,
+    const uint8_t *refForward3,
+    const uint8_t *refBackward4,
+    const uint8_t *refForward4,
+    const uint8_t *refBackward5,
+    const uint8_t *refForward5,
+    const int refDirection) {
+    switch (refDirection) {
+    case 0: return refBackward1;
+    case 1: return refForward1;
+    case 2: return refBackward2;
+    case 3: return refForward2;
+    case 4: return refBackward3;
+    case 5: return refForward3;
+    case 6: return refBackward4;
+    case 7: return refForward4;
+    case 8: return refBackward5;
+    default: return refForward5;
+    }
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainCompensateBlockSample(
+    const uint8_t *ref0,
+    const uint8_t *ref,
+    const int pitch,
+    const int width,
+    const int height,
+    const RGYDegrainMV *mv,
+    const RGYDegrainSAD *sad,
+    const int block,
+    const int refDirection,
+    const uint32_t thsad,
+    const int directionDisabled,
+    const int planeScaleX,
+    const int planeScaleY,
+    const int x,
+    const int y,
+    const int refs,
+    const int pel,
+    const int subpelInterp) {
+    const int useReference = degrainReferenceIsValid(mv, sad, block, refDirection, thsad, directionDisabled, refs);
+    return useReference
+        ? degrainCompensatedSample<TypePixel>(ref, pitch, width, height, mv, block, refDirection, planeScaleX, planeScaleY, x, y, refs, pel, subpelInterp)
+        : degrainPixelLoad<TypePixel>(ref0, pitch, width, height, x, y);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainDegrainBlockSample(
+    const uint8_t *cur,
+    const int pitch,
+    const uint8_t *refBackward1,
+    const uint8_t *refForward1,
+    const uint8_t *refBackward2,
+    const uint8_t *refForward2,
+    const uint8_t *refBackward3,
+    const uint8_t *refForward3,
+    const uint8_t *refBackward4,
+    const uint8_t *refForward4,
+    const uint8_t *refBackward5,
+    const uint8_t *refForward5,
+    const int width,
+    const int height,
+    const RGYDegrainMV *mv,
+    const RGYDegrainSAD *sad,
+    const int block,
+    const uint32_t thsad,
+    const uint32_t disableMask,
+    const float *temporalMixPrior,
+    const int planeScaleX,
+    const int planeScaleY,
+    const int x,
+    const int y,
+    const int refs,
+    const int pel,
+    const int subpelInterp) {
+    const int currentSample = degrainPixelLoad<TypePixel>(cur, pitch, width, height, x, y);
+    const float sourceConfidenceRaw = degrainTemporalMixPriorCenter(temporalMixPrior);
+    float referenceConfidenceRaw[RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS];
+    float confidenceTotal = sourceConfidenceRaw;
+    for (int referenceDirection = 0; referenceDirection < refs; referenceDirection++) {
+        const float temporalMixPriorRef = degrainTemporalMixPriorRef(temporalMixPrior, referenceDirection);
+        referenceConfidenceRaw[referenceDirection] = degrainReferenceMixAffinity(
+            mv, sad, block, referenceDirection, thsad, degrainRefDirectionDisabled(disableMask, referenceDirection), refs) * temporalMixPriorRef;
+        confidenceTotal += referenceConfidenceRaw[referenceDirection];
+    }
+    const float invTotal = (confidenceTotal > 0.0f) ? (1.0f / confidenceTotal) : 0.0f;
+    float mixedValue = (float)currentSample * (sourceConfidenceRaw * invTotal);
+    for (int referenceDirection = 0; referenceDirection < refs; referenceDirection++) {
+        if (referenceConfidenceRaw[referenceDirection] <= 0.0f) {
+            continue;
+        }
+        const float referenceMixNorm = referenceConfidenceRaw[referenceDirection] * invTotal;
+        const uint8_t *referencePlane = degrainRefPlanePtrSamePitch(
+            refBackward1, refForward1,
+            refBackward2, refForward2,
+            refBackward3, refForward3,
+            refBackward4, refForward4,
+            refBackward5, refForward5,
+            referenceDirection);
+        const float referenceSample = (float)degrainCompensatedSample<TypePixel>(
+            referencePlane, pitch, width, height, mv, block, referenceDirection, planeScaleX, planeScaleY, x, y, refs, pel, subpelInterp);
+        mixedValue = fmaf(referenceSample, referenceMixNorm, mixedValue);
+    }
+    return degrainClampPixel<TypePixel>(degrainRoundFloatToInt(mixedValue));
+}
+
+__device__ __forceinline__ int degrainTemporalMixPlanOffset(const int block, const int refs) {
+    return block * (refs + 1);
+}
+
+__device__ __forceinline__ float degrainTemporalMixPlanSrc(
+    const float *temporalMixPlan,
+    const int planOffset) {
+    return temporalMixPlan[planOffset];
+}
+
+__device__ __forceinline__ float degrainTemporalMixPlanRef(
+    const float *temporalMixPlan,
+    const int planOffset,
+    const int refDirection) {
+    return temporalMixPlan[planOffset + 1 + refDirection];
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainApplyTemporalMixPlanSamePitch(
+    const uint8_t *cur,
+    const int pitch,
+    const uint8_t *refBackward1,
+    const uint8_t *refForward1,
+    const uint8_t *refBackward2,
+    const uint8_t *refForward2,
+    const uint8_t *refBackward3,
+    const uint8_t *refForward3,
+    const uint8_t *refBackward4,
+    const uint8_t *refForward4,
+    const uint8_t *refBackward5,
+    const uint8_t *refForward5,
+    const int width,
+    const int height,
+    const RGYDegrainMV *mv,
+    const int block,
+    const float *temporalMixPlan,
+    const int planeScaleX,
+    const int planeScaleY,
+    const int x,
+    const int y,
+    const int refs,
+    const int pel,
+    const int subpelInterp) {
+    const int srcSample = degrainPixelLoad<TypePixel>(cur, pitch, width, height, x, y);
+    const int planOffset = degrainTemporalMixPlanOffset(block, refs);
+    float value = (float)srcSample * degrainTemporalMixPlanSrc(temporalMixPlan, planOffset);
+    for (int refDirection = 0; refDirection < refs; refDirection++) {
+        const float referenceMixNorm = degrainTemporalMixPlanRef(temporalMixPlan, planOffset, refDirection);
+        if (referenceMixNorm <= 0.0f) {
+            continue;
+        }
+        const uint8_t *ref = degrainRefPlanePtrSamePitch(
+            refBackward1, refForward1,
+            refBackward2, refForward2,
+            refBackward3, refForward3,
+            refBackward4, refForward4,
+            refBackward5, refForward5,
+            refDirection);
+        const float refSample = (float)degrainCompensatedSample<TypePixel>(
+            ref, pitch, width, height, mv, block, refDirection, planeScaleX, planeScaleY, x, y, refs, pel, subpelInterp);
+        value = fmaf(refSample, referenceMixNorm, value);
+    }
+    return degrainClampPixel<TypePixel>(degrainRoundFloatToInt(value));
+}
+
+__device__ __forceinline__ int degrainWindowedSampleContribution(
+    const int sample,
+    const float windowWeight) {
+    return degrainRoundFloatToInt((float)sample * windowWeight);
+}
+
+using RGYDegrainWindowAccum = float;
+
+__device__ __forceinline__ RGYDegrainWindowAccum degrainWindowAccumZero() {
+    return 0.0f;
+}
+
+__device__ __forceinline__ void degrainAccumulateWindowedSample(
+    RGYDegrainWindowAccum *sampleSum,
+    RGYDegrainWindowAccum *weightSum,
+    const int sample,
+    const float windowWeight) {
+    if (windowWeight > 0.0f) {
+        *sampleSum = fmaf((float)sample, windowWeight, *sampleSum);
+        *weightSum += windowWeight;
+    }
+}
+
+__device__ __forceinline__ int degrainFinalizeWindowedSample(
+    const RGYDegrainWindowAccum sampleSum,
+    const RGYDegrainWindowAccum weightSum,
+    const int fallback) {
+    return (weightSum > 0.0f) ? degrainRoundFloatToInt(sampleSum / weightSum) : fallback;
+}
+
+__device__ __forceinline__ int degrainTraceWindowAccum(const RGYDegrainWindowAccum sampleSum) {
+    return degrainRoundFloatToInt(sampleSum);
+}
+
+__device__ __forceinline__ void degrainAccumulateWeightedSampleFp32(
+    float *sampleSum,
+    float *weightSum,
+    const int sample,
+    const float weight) {
+    if (weight > 0.0f) {
+        *sampleSum = fmaf((float)sample, weight, *sampleSum);
+        *weightSum += weight;
+    }
+}
+
+__device__ __forceinline__ int degrainFinalizeWeightedSampleFp32(
+    const float sampleSum,
+    const float weightSum,
+    const int fallback) {
+    return (weightSum > 0.0f) ? degrainRoundFloatToInt(sampleSum / weightSum) : fallback;
 }
 
 template<typename TypePixel>
