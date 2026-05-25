@@ -41,6 +41,45 @@
 static constexpr int DEGRAIN_BLOCK_X = 16;
 static constexpr int DEGRAIN_BLOCK_Y = 16;
 
+struct RGYDegrainMotionSearchVector {
+    uint32_t score_primary;
+    uint32_t sad_metric;
+    int16_t pos_x;
+    int16_t pos_y;
+};
+
+static_assert(sizeof(RGYDegrainMotionSearchVector) == RGYDegrainMotionSearchWorkspace::VECTOR_BYTES, "RGYDegrainMotionSearchVector size mismatch.");
+
+__device__ __forceinline__ RGYDegrainMotionSearchVector degrainMotionSearchMakeVector(
+    const int posX, const int posY, const uint32_t sadMetric, const uint32_t scorePrimary) {
+    RGYDegrainMotionSearchVector vec;
+    vec.score_primary = scorePrimary;
+    vec.sad_metric = sadMetric;
+    vec.pos_x = (int16_t)posX;
+    vec.pos_y = (int16_t)posY;
+    return vec;
+}
+
+__device__ __forceinline__ int degrainMotionSearchVecZeroIndex(const int planeBase) {
+    return planeBase;
+}
+
+__device__ __forceinline__ int degrainMotionSearchVecGlobalIndex(const int planeBase) {
+    return planeBase + 1;
+}
+
+__device__ __forceinline__ int degrainMotionSearchVecCurrentIndex(const int planeBase, const int blockCount, const int block) {
+    return planeBase + 2 + min(max(block, 0), max(blockCount - 1, 0));
+}
+
+__device__ __forceinline__ int degrainMotionSearchVecPrevIndex(const int planeBase, const int blockCount, const int block) {
+    return planeBase + 2 + min(max(block, 0), max(blockCount - 1, 0));
+}
+
+__device__ __forceinline__ int degrainMotionSearchVecFinalIndex(const int finalBase, const int blockCount, const int block) {
+    return finalBase + min(max(block, 0), max(blockCount - 1, 0));
+}
+
 template<typename TypePixel>
 __device__ __forceinline__ int degrainPixelMax();
 template<>
@@ -398,5 +437,172 @@ RGY_ERR launchNVEncDegrainDebug(
                 layout.coveredWidth, layout.coveredHeight, layout.temporalDirections, layout.search, pel);
         }
     }
+    return err_to_rgy(cudaGetLastError());
+}
+
+__global__ void kernel_degrain_mv_seed_anchor_vectors_cuda(
+    RGYDegrainMotionSearchVector *vectors,
+    const int2 *frameAverageMV,
+    const int planeBase,
+    const int planeStride,
+    const int planeCount,
+    const int pel) {
+    const int plane = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    if (plane >= planeCount) {
+        return;
+    }
+    const int base = planeBase + plane * planeStride;
+    vectors[degrainMotionSearchVecZeroIndex(base)] = degrainMotionSearchMakeVector(0, 0, 0u, 0u);
+    const int2 frameAverageVec = frameAverageMV ? frameAverageMV[plane] : make_int2(0, 0);
+    vectors[degrainMotionSearchVecGlobalIndex(base)] = degrainMotionSearchMakeVector(
+        frameAverageVec.x * pel,
+        frameAverageVec.y * pel,
+        0u,
+        0u);
+}
+
+__global__ void kernel_degrain_mv_seed_zero_vectors_cuda(
+    RGYDegrainMotionSearchVector *vectors,
+    RGYDegrainMotionSearchVector *vectorsPrev,
+    uint32_t *sads,
+    const int planeBase,
+    const int sadBase,
+    const int blockCount) {
+    const int block = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    if (block >= blockCount) {
+        return;
+    }
+    const auto zero = vectors[degrainMotionSearchVecZeroIndex(planeBase)];
+    vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)] = zero;
+    vectorsPrev[degrainMotionSearchVecPrevIndex(planeBase, blockCount, block)] = zero;
+    sads[sadBase + block] = zero.sad_metric;
+}
+
+__global__ void kernel_degrain_mv_expand_coarse_vectors_cuda(
+    const RGYDegrainMotionSearchVector *srcVectorsFinal,
+    RGYDegrainMotionSearchVector *dstVectors,
+    RGYDegrainMotionSearchVector *dstVectorsPrev,
+    uint32_t *dstSads,
+    const int srcFinalBase,
+    const int dstPlaneBase,
+    const int dstSadBase,
+    const int srcBlockCount,
+    const int dstBlockCount,
+    const int srcBlocksX,
+    const int srcBlocksY,
+    const int dstBlocksX) {
+    const int block = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    if (block >= dstBlockCount) {
+        return;
+    }
+    const int dstX = block % dstBlocksX;
+    const int dstY = block / dstBlocksX;
+    const int srcX = min(dstX >> 1, srcBlocksX - 1);
+    const int srcY = min(dstY >> 1, srcBlocksY - 1);
+    const int srcBlock = srcY * srcBlocksX + srcX;
+    auto vec = srcVectorsFinal[degrainMotionSearchVecFinalIndex(srcFinalBase, srcBlockCount, srcBlock)];
+    vec.pos_x <<= 1;
+    vec.pos_y <<= 1;
+    dstVectors[degrainMotionSearchVecCurrentIndex(dstPlaneBase, dstBlockCount, block)] = vec;
+    dstVectorsPrev[degrainMotionSearchVecPrevIndex(dstPlaneBase, dstBlockCount, block)] = vec;
+    dstSads[dstSadBase + block] = vec.sad_metric;
+}
+
+__global__ void kernel_degrain_mv_export_sad_cuda(
+    RGYDegrainMotionSearchVector *vectorsFinal,
+    uint32_t *sadsInternal,
+    RGYDegrainMV *outputMotion,
+    RGYDegrainSAD *outputSad,
+    const int finalBase,
+    const int sadBase,
+    const int blockCount,
+    const int outOffset,
+    const int referenceDirection,
+    const int refs) {
+    const int block = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    if (block >= blockCount) {
+        return;
+    }
+
+    auto finalVector = vectorsFinal[degrainMotionSearchVecFinalIndex(finalBase, blockCount, block)];
+    const uint32_t finalSad = finalVector.sad_metric;
+    finalVector.sad_metric = finalSad;
+    finalVector.score_primary = finalSad;
+    vectorsFinal[degrainMotionSearchVecFinalIndex(finalBase, blockCount, block)] = finalVector;
+    sadsInternal[sadBase + block] = finalSad;
+
+    const int outputIndex = outOffset + degrainRefIndex(block, referenceDirection, refs);
+    if (outputMotion) {
+        RGYDegrainMV exportedMotion;
+        exportedMotion.dx = finalVector.pos_x;
+        exportedMotion.dy = finalVector.pos_y;
+        exportedMotion.sad = (uint16_t)min(finalSad, 65535u);
+        exportedMotion.refdir = (uint16_t)referenceDirection;
+        exportedMotion.flags = 0u;
+        exportedMotion.reserved = finalSad;
+        outputMotion[outputIndex] = exportedMotion;
+    }
+    if (outputSad) {
+        RGYDegrainSAD exportedSad;
+        exportedSad.sad = finalSad;
+        exportedSad.srcAvg = 0u;
+        exportedSad.refAvg = 0u;
+        exportedSad.reserved = finalSad;
+        outputSad[outputIndex] = exportedSad;
+    }
+}
+
+RGY_ERR launchNVEncDegrainMotionSearchSeedAnchorVectors(
+    CUMemBuf &vectors, const CUMemBuf &frameAverageMV, const int planeBase, const int planeStride,
+    const int planeCount, const int pel, cudaStream_t stream) {
+    const int block = 64;
+    const int grid = divCeil(planeCount, block);
+    kernel_degrain_mv_seed_anchor_vectors_cuda<<<grid, block, 0, stream>>>(
+        reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
+        reinterpret_cast<const int2 *>(frameAverageMV.ptr),
+        planeBase, planeStride, planeCount, pel);
+    return err_to_rgy(cudaGetLastError());
+}
+
+RGY_ERR launchNVEncDegrainMotionSearchSeedZeroVectors(
+    CUMemBuf &vectors, CUMemBuf &vectorsPrev, CUMemBuf &sads, const int planeBase,
+    const int sadBase, const int blockCount, cudaStream_t stream) {
+    const int block = 256;
+    const int grid = divCeil(blockCount, block);
+    kernel_degrain_mv_seed_zero_vectors_cuda<<<grid, block, 0, stream>>>(
+        reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
+        reinterpret_cast<RGYDegrainMotionSearchVector *>(vectorsPrev.ptr),
+        reinterpret_cast<uint32_t *>(sads.ptr),
+        planeBase, sadBase, blockCount);
+    return err_to_rgy(cudaGetLastError());
+}
+
+RGY_ERR launchNVEncDegrainMotionSearchExpandCoarseVectors(
+    const CUMemBuf &srcVectorsFinal, CUMemBuf &dstVectors, CUMemBuf &dstVectorsPrev, CUMemBuf &dstSads,
+    const int srcFinalBase, const int dstPlaneBase, const int dstSadBase, const int srcBlockCount,
+    const int dstBlockCount, const int srcBlocksX, const int srcBlocksY, const int dstBlocksX, cudaStream_t stream) {
+    const int block = 256;
+    const int grid = divCeil(dstBlockCount, block);
+    kernel_degrain_mv_expand_coarse_vectors_cuda<<<grid, block, 0, stream>>>(
+        reinterpret_cast<const RGYDegrainMotionSearchVector *>(srcVectorsFinal.ptr),
+        reinterpret_cast<RGYDegrainMotionSearchVector *>(dstVectors.ptr),
+        reinterpret_cast<RGYDegrainMotionSearchVector *>(dstVectorsPrev.ptr),
+        reinterpret_cast<uint32_t *>(dstSads.ptr),
+        srcFinalBase, dstPlaneBase, dstSadBase, srcBlockCount, dstBlockCount, srcBlocksX, srcBlocksY, dstBlocksX);
+    return err_to_rgy(cudaGetLastError());
+}
+
+RGY_ERR launchNVEncDegrainMotionSearchExportSad(
+    CUMemBuf &vectorsFinal, CUMemBuf &sadsInternal, CUMemBuf *outputMotion, CUMemBuf *outputSad,
+    const int finalBase, const int sadBase, const int blockCount, const int outOffset,
+    const int referenceDirection, const int refs, cudaStream_t stream) {
+    const int block = 256;
+    const int grid = divCeil(blockCount, block);
+    kernel_degrain_mv_export_sad_cuda<<<grid, block, 0, stream>>>(
+        reinterpret_cast<RGYDegrainMotionSearchVector *>(vectorsFinal.ptr),
+        reinterpret_cast<uint32_t *>(sadsInternal.ptr),
+        outputMotion ? reinterpret_cast<RGYDegrainMV *>(outputMotion->ptr) : nullptr,
+        outputSad ? reinterpret_cast<RGYDegrainSAD *>(outputSad->ptr) : nullptr,
+        finalBase, sadBase, blockCount, outOffset, referenceDirection, refs);
     return err_to_rgy(cudaGetLastError());
 }
