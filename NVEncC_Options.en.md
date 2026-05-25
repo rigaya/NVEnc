@@ -223,6 +223,7 @@
   - [--vpp-msmooth \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
   - [--vpp-fft3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fft3d-param1value1param2value2)
+  - [--vpp-degrain \[\<param1\>=\<value1\>\]](#--vpp-degrain-param1value1)
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
   - [--vpp-nlmeans \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nlmeans-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
@@ -2699,6 +2700,39 @@ Edge-preserving smoothing filter.
   - prec=&lt;string&gt; (default = auto)
     - auto ... use fp16 if possible (faster)
     - fp32 ... always use fp32
+
+### --vpp-degrain [&lt;param1&gt;=&lt;value1&gt;]
+Motion compensated degrain debug filter.
+
+- **parameters**
+  - preset=&lt;string&gt;
+    Surface preset. `custom` (default), `auto`.
+    This refers the original values.
+  - mode=&lt;string&gt;
+    Output mode. `source`, `analyze`, `compb`, `compf`, `compb2`, `compf2`, `degrain` (default), `mv`, `sad`.
+  - stage=&lt;string&gt;
+    Step2 stage marker. `auto` (default), `tr1`, `tr2`.
+  - tr=&lt;int&gt;
+    Auto preset temporal radius. `1` or `2`. Sets `mode=degrain`, `stage`, and `delta`.
+  - blksize/search/overlap/delta/levels/pel
+    Block matching geometry and temporal radius parameters.
+  - thsad/thsadc/thscd1/thscd2
+    Degrain and scene-change thresholds.
+  - tr0/rep0/search_refine
+    Search reference prefilter parameters.
+  - searchparam/pelsearch/truemotion/lambda/lsad/pnew/plevel/globalmotion/dct/useflag
+    Motion search tuning parameters.
+  - mv_spatial_refine=&lt;int|auto&gt;
+    Motion-vector spatial refinement count. Default is `auto` (`-1`): run spatial refinement only at the coarsest analysis level, and skip it at all finer levels.
+  - chroma/binomial/tv_range
+    Chroma analysis and prefilter/range controls.
+
+- **Note (Limitations)**
+  - Analysis modes require levels=2.
+  - Analysis supports only blksize=8, 16, or 32.
+  - overlap supports only 0 or blksize/2.
+  - delta supports 1-5, but delta>2 is supported only for analyze or stage=tr2 degrain.
+  - pel supports only 1, 2, or 4.
 
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Strong noise reduction filter.
