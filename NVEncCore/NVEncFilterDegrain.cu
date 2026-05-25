@@ -946,6 +946,550 @@ __device__ __forceinline__ int degrainMotionSearchRefineHasValidCandidates(
 }
 
 template<typename TypePixel>
+__device__ __forceinline__ void degrainMotionSearchRefineEvaluateCandidates(
+    const TypePixel *sourceBlockPixels,
+    const uint8_t *referencePlane,
+    const RGYDegrainMotionSearchContext *context,
+    RGYDegrainMotionSearchCandidateCost *candidateCosts,
+    uint32_t *candidateLaneSums,
+    RGYDegrainMotionSearchCandidateCost *bestCandidateCost,
+    const int localThreadId,
+    const int sadLane,
+    const int candidateGroupIndex,
+    const int candidateCount,
+    const int blockX,
+    const int blockY,
+    const int step,
+    const int refPitch,
+    const int width,
+    const int height,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp,
+    const int newCandidateCostScale) {
+    const int candidateIsValid = candidateGroupIndex < candidateCount
+        && candidateCosts[candidateGroupIndex].score_primary != DEGRAIN_MOTION_SEARCH_LARGE_COST;
+    uint32_t sad = 0u;
+    if (candidateIsValid) {
+        sad = degrainMotionSearchAccumulateLumaSadLane<TypePixel>(
+            sourceBlockPixels,
+            referencePlane,
+            refPitch,
+            width,
+            height,
+            blockX,
+            blockY,
+            step,
+            candidateCosts[candidateGroupIndex].pos_x,
+            candidateCosts[candidateGroupIndex].pos_y,
+            sadLane,
+            blockSize,
+            pel,
+            subpelInterp);
+    }
+    sad = degrainMotionSearchSumCandidateSadLanes(candidateLaneSums, sad, candidateIsValid, sadLane, candidateGroupIndex, blockSize);
+
+    if (candidateIsValid && sadLane == 0) {
+        candidateCosts[candidateGroupIndex].sad_metric = sad;
+        candidateCosts[candidateGroupIndex].score_primary += sad
+            + degrainMotionSearchScaledSadPenalty(sad, newCandidateCostScale * DEGRAIN_MOTION_SEARCH_COST_INPUT_SCALE);
+    }
+    __syncthreads();
+
+    degrainMotionSearchSelectLowestCandidateCost(candidateCosts, localThreadId, candidateCount);
+
+    if (localThreadId == 0 && candidateCosts[0].score_primary < bestCandidateCost->score_primary) {
+        *bestCandidateCost = candidateCosts[0];
+    }
+    __syncthreads();
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ void degrainMotionSearchRefinePreparedCandidates(
+    const TypePixel *sourceBlockPixels,
+    const uint8_t *referencePlane,
+    const RGYDegrainMotionSearchContext *context,
+    RGYDegrainMotionSearchCandidateCost *candidateCosts,
+    uint32_t *candidateLaneSums,
+    RGYDegrainMotionSearchCandidateCost *bestCandidateCost,
+    const int localThreadId,
+    const int sadLane,
+    const int candidateGroupIndex,
+    const int blockX,
+    const int blockY,
+    const int step,
+    const int refPitch,
+    const int width,
+    const int height,
+    const int candidateCount,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp,
+    const int newCandidateCostScale) {
+    degrainMotionSearchRefineEvaluateCandidates<TypePixel>(
+        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        localThreadId, sadLane, candidateGroupIndex, candidateCount, blockX, blockY, step, refPitch, width, height,
+        blockSize, pel, subpelInterp, newCandidateCostScale);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ void degrainMotionSearchRefineHex2(
+    const TypePixel *sourceBlockPixels,
+    const uint8_t *referencePlane,
+    const RGYDegrainMotionSearchContext *context,
+    RGYDegrainMotionSearchCandidateCost *candidateCosts,
+    uint32_t *candidateLaneSums,
+    RGYDegrainMotionSearchCandidateCost *bestCandidateCost,
+    const int localThreadId,
+    const int sadLane,
+    const int candidateGroupIndex,
+    const int blockX,
+    const int blockY,
+    const int step,
+    const int refPitch,
+    const int width,
+    const int height,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp,
+    const int newCandidateCostScale) {
+    degrainMotionSearchRefinePrepareHexCandidates(context, candidateCosts, bestCandidateCost, localThreadId, bestCandidateCost->pos_x, bestCandidateCost->pos_y);
+    degrainMotionSearchRefinePreparedCandidates<TypePixel>(
+        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        localThreadId, sadLane, candidateGroupIndex, blockX, blockY, step, refPitch, width, height, 6,
+        blockSize, pel, subpelInterp, newCandidateCostScale);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ void degrainMotionSearchRefineSquare8(
+    const TypePixel *sourceBlockPixels,
+    const uint8_t *referencePlane,
+    const RGYDegrainMotionSearchContext *context,
+    RGYDegrainMotionSearchCandidateCost *candidateCosts,
+    uint32_t *candidateLaneSums,
+    RGYDegrainMotionSearchCandidateCost *bestCandidateCost,
+    const int localThreadId,
+    const int sadLane,
+    const int candidateGroupIndex,
+    const int blockX,
+    const int blockY,
+    const int step,
+    const int refPitch,
+    const int width,
+    const int height,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp,
+    const int newCandidateCostScale) {
+    degrainMotionSearchRefinePrepareSquareCandidates(context, candidateCosts, bestCandidateCost, localThreadId, bestCandidateCost->pos_x, bestCandidateCost->pos_y);
+    degrainMotionSearchRefinePreparedCandidates<TypePixel>(
+        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        localThreadId, sadLane, candidateGroupIndex, blockX, blockY, step, refPitch, width, height, 8,
+        blockSize, pel, subpelInterp, newCandidateCostScale);
+}
+
+__device__ __forceinline__ RGYDegrainMotionSearchCandidate degrainMotionSearchLoadBaseCandidate(
+    const RGYDegrainMotionSearchVector *vectors,
+    const RGYDegrainMotionSearchContext *context,
+    const int candidateSlot,
+    const int planeBase,
+    const int blockCount,
+    const int block) {
+    RGYDegrainMotionSearchVector motionVector = degrainMotionSearchMakeVector(0, 0, 0u, 0u);
+    switch (candidateSlot) {
+    case 0:
+        motionVector = vectors[degrainMotionSearchVecZeroIndex(planeBase)];
+        break;
+    case 1:
+        motionVector = vectors[degrainMotionSearchVecGlobalIndex(planeBase)];
+        break;
+    case 2:
+        motionVector = vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)];
+        break;
+    default:
+        break;
+    }
+    return degrainMotionSearchConstrainCandidate(degrainMotionSearchSavedVectorToCandidate(motionVector), context);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ void degrainMotionSearchSearchOneBlock(
+    const uint8_t *sourcePlane,
+    const uint8_t *referencePlane,
+    RGYDegrainMotionSearchVector *vectors,
+    const int pitch,
+    const int width,
+    const int height,
+    const int contextWidth,
+    const int contextHeight,
+    const int planeBase,
+    const int blockCount,
+    const int step,
+    const int block,
+    const int blockGridX,
+    const int blockGridY,
+    const int localThreadId,
+    const int sadLane,
+    const int candidateGroupIndex,
+    const int localSize,
+    TypePixel *sourceBlockPixels,
+    RGYDegrainMotionSearchContext *context,
+    RGYDegrainMotionSearchCandidate *candidate,
+    RGYDegrainMotionSearchCandidateCost *candidateCosts,
+    RGYDegrainMotionSearchCandidateCost *bestCandidateCost,
+    uint32_t *candidateLaneSums,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp,
+    const int pad,
+    const int motionCostScale,
+    const int lowSadWeightScale,
+    const int zeroCandidateCostScale,
+    const int frameAverageCandidateCostScale,
+    const int newCandidateCostScale,
+    const int level) {
+    const int sourceBaseX = blockGridX * step;
+    const int sourceBaseY = blockGridY * step;
+    for (int i = localThreadId; i < blockSize * blockSize; i += localSize) {
+        const int x = i % blockSize;
+        const int y = i / blockSize;
+        sourceBlockPixels[i] = (TypePixel)degrainPixelLoad<TypePixel>(sourcePlane, pitch, width, height, sourceBaseX + x, sourceBaseY + y);
+    }
+
+    const RGYDegrainMotionSearchVector initialSeed = vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)];
+    if (localThreadId == 0) {
+        *context = degrainMotionSearchMakeSearchContext(initialSeed, contextWidth, contextHeight, blockGridX, blockGridY, step,
+            blockSize, pel, pad, lowSadWeightScale, motionCostScale);
+    }
+    __syncthreads();
+
+    if (localThreadId < DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES) {
+        candidate[localThreadId] = degrainMotionSearchLoadBaseCandidate(vectors, context, localThreadId, planeBase, blockCount, block);
+    }
+    if (localThreadId < DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS) {
+        candidateCosts[localThreadId] = degrainMotionSearchMakeCandidateCost(0, 0, 0u, DEGRAIN_MOTION_SEARCH_LARGE_COST);
+    }
+    __syncthreads();
+
+    const int candidateIsValid = candidateGroupIndex < DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES;
+    RGYDegrainMotionSearchCandidate motionVector = degrainMotionSearchMakeCandidate(0, 0, 0u, 0u);
+    if (candidateIsValid) {
+        motionVector = candidate[candidateGroupIndex];
+    }
+    const int firstMatchingCandidateIndex = degrainMotionSearchFindFirstMatchingCandidate(
+        candidate, candidateGroupIndex, DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES);
+    const int candidateNeedsEvaluation = candidateIsValid && firstMatchingCandidateIndex == candidateGroupIndex;
+    uint32_t sad = 0u;
+    if (candidateNeedsEvaluation) {
+        sad = degrainMotionSearchAccumulateLumaSadLane<TypePixel>(
+            sourceBlockPixels,
+            referencePlane,
+            pitch,
+            width,
+            height,
+            blockGridX,
+            blockGridY,
+            step,
+            motionVector.pos_x,
+            motionVector.pos_y,
+            sadLane,
+            blockSize,
+            pel,
+            subpelInterp);
+    }
+    sad = degrainMotionSearchSumCandidateSadLanes(candidateLaneSums, sad, candidateNeedsEvaluation, sadLane, candidateGroupIndex, blockSize);
+
+    if (candidateNeedsEvaluation && sadLane == 0) {
+        uint32_t cost = sad;
+        if (candidateGroupIndex < 3) {
+            cost += degrainMotionSearchScaledSadPenalty(
+                sad,
+                degrainMotionSearchInitialCostScale(candidateGroupIndex, level, zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale));
+        } else {
+            cost += degrainMotionSearchCalcMotionCost(motionVector, initialSeed.pos_x, initialSeed.pos_y, context);
+        }
+        candidateCosts[candidateGroupIndex].pos_x = motionVector.pos_x;
+        candidateCosts[candidateGroupIndex].pos_y = motionVector.pos_y;
+        candidateCosts[candidateGroupIndex].sad_metric = sad;
+        candidateCosts[candidateGroupIndex].score_primary = cost;
+    }
+    __syncthreads();
+
+    if (candidateIsValid && !candidateNeedsEvaluation && sadLane == 0) {
+        sad = candidateCosts[firstMatchingCandidateIndex].sad_metric;
+        uint32_t cost = sad;
+        if (candidateGroupIndex < 3) {
+            cost += degrainMotionSearchScaledSadPenalty(
+                sad,
+                degrainMotionSearchInitialCostScale(candidateGroupIndex, level, zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale));
+        } else {
+            cost += degrainMotionSearchCalcMotionCost(motionVector, initialSeed.pos_x, initialSeed.pos_y, context);
+        }
+        candidateCosts[candidateGroupIndex].pos_x = motionVector.pos_x;
+        candidateCosts[candidateGroupIndex].pos_y = motionVector.pos_y;
+        candidateCosts[candidateGroupIndex].sad_metric = sad;
+        candidateCosts[candidateGroupIndex].score_primary = cost;
+    }
+    __syncthreads();
+
+    degrainMotionSearchSelectLowestCandidateCost(candidateCosts, localThreadId, DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES);
+
+    if (localThreadId == 0) {
+        *bestCandidateCost = candidateCosts[0];
+    }
+    __syncthreads();
+
+    degrainMotionSearchRefineHex2<TypePixel>(
+        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        localThreadId, sadLane, candidateGroupIndex, blockGridX, blockGridY, step, pitch, width, height,
+        blockSize, pel, subpelInterp, newCandidateCostScale);
+
+    degrainMotionSearchRefineSquare8<TypePixel>(
+        sourceBlockPixels, referencePlane, context, candidateCosts, candidateLaneSums, bestCandidateCost,
+        localThreadId, sadLane, candidateGroupIndex, blockGridX, blockGridY, step, pitch, width, height,
+        blockSize, pel, subpelInterp, newCandidateCostScale);
+
+    if (localThreadId == 0) {
+        vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)] =
+            degrainMotionSearchCandidateCostToSavedVector(*bestCandidateCost);
+    }
+}
+
+template<typename TypePixel>
+__global__ void kernel_degrain_mv_search_parallel_cuda(
+    const uint8_t *sourcePlane,
+    const uint8_t *referencePlane,
+    RGYDegrainMotionSearchVector *vectors,
+    const int pitch,
+    const int width,
+    const int height,
+    const int planeBase,
+    const int blockCount,
+    const int blocksX,
+    const int blocksY,
+    const int step,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp,
+    const int pad,
+    const int motionCostScale,
+    const int lowSadWeightScale,
+    const int zeroCandidateCostScale,
+    const int frameAverageCandidateCostScale,
+    const int newCandidateCostScale,
+    const int level) {
+    const int localThreadId = (int)threadIdx.x;
+    const int sadLane = localThreadId % blockSize;
+    const int candidateGroupIndex = localThreadId / blockSize;
+    const int localSize = (int)blockDim.x;
+    const int block = (int)blockIdx.x;
+
+    __shared__ TypePixel sourceBlockPixels[DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE * DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE];
+    __shared__ RGYDegrainMotionSearchContext context;
+    __shared__ RGYDegrainMotionSearchCandidate candidate[DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES];
+    __shared__ RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
+    __shared__ RGYDegrainMotionSearchCandidateCost bestCandidateCost;
+    __shared__ uint32_t candidateLaneSums[DEGRAIN_MOTION_SEARCH_SEARCH_LOCAL_SIZE_MAX];
+
+    if (sourcePlane == nullptr || referencePlane == nullptr || blocksX <= 0 || blocksY <= 0 || block >= blockCount) {
+        return;
+    }
+
+    const int blockGridX = block % blocksX;
+    const int blockGridY = block / blocksX;
+    if (blockGridY >= blocksY) {
+        return;
+    }
+
+    degrainMotionSearchSearchOneBlock<TypePixel>(
+        sourcePlane,
+        referencePlane,
+        vectors,
+        pitch,
+        width,
+        height,
+        width,
+        height,
+        planeBase,
+        blockCount,
+        step,
+        block,
+        blockGridX,
+        blockGridY,
+        localThreadId,
+        sadLane,
+        candidateGroupIndex,
+        localSize,
+        sourceBlockPixels,
+        &context,
+        candidate,
+        candidateCosts,
+        &bestCandidateCost,
+        candidateLaneSums,
+        blockSize,
+        pel,
+        subpelInterp,
+        pad,
+        motionCostScale,
+        lowSadWeightScale,
+        zeroCandidateCostScale,
+        frameAverageCandidateCostScale,
+        newCandidateCostScale,
+        level);
+}
+
+template<typename TypePixel>
+__global__ void kernel_degrain_mv_spatial_refine_cuda(
+    const uint8_t *sourcePlane,
+    const uint8_t *referencePlane,
+    RGYDegrainMotionSearchVector *vectors,
+    const RGYDegrainMotionSearchVector *vectorsPrev,
+    RGYDegrainMotionSearchVector *vectorsFinal,
+    const int pitch,
+    const int width,
+    const int height,
+    const int planeBase,
+    const int finalBase,
+    const int blockCount,
+    const int blocksX,
+    const int blocksY,
+    const int step,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp,
+    const int pad,
+    const int motionCostScale,
+    const int lowSadWeightScale,
+    const int newCandidateCostScale) {
+    const int localThreadId = (int)threadIdx.x;
+    const int sadLane = localThreadId % blockSize;
+    const int candidateGroupIndex = localThreadId / blockSize;
+    const int localSize = (int)blockDim.x;
+    const int block = (int)blockIdx.x;
+    if (sourcePlane == nullptr || referencePlane == nullptr || block >= blockCount || blocksX <= 0 || blocksY <= 0) {
+        return;
+    }
+
+    const int blockGridX = block % blocksX;
+    const int blockGridY = block / blocksX;
+    __shared__ TypePixel sourceBlockPixels[DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE * DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE];
+    __shared__ RGYDegrainMotionSearchContext context;
+    __shared__ RGYDegrainMotionSearchCandidate candidate[5];
+    __shared__ RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
+    __shared__ RGYDegrainMotionSearchCandidateCost bestCandidateCost;
+    __shared__ int reusePreviousSad;
+    __shared__ uint32_t candidateLaneSums[DEGRAIN_MOTION_SEARCH_SEARCH_LOCAL_SIZE_MAX];
+
+    const int sourceBaseX = blockGridX * step;
+    const int sourceBaseY = blockGridY * step;
+    for (int i = localThreadId; i < blockSize * blockSize; i += localSize) {
+        const int x = i % blockSize;
+        const int y = i / blockSize;
+        sourceBlockPixels[i] = (TypePixel)degrainPixelLoad<TypePixel>(sourcePlane, pitch, width, height, sourceBaseX + x, sourceBaseY + y);
+    }
+
+    const RGYDegrainMotionSearchVector initialSeed = vectorsPrev[degrainMotionSearchVecPrevIndex(planeBase, blockCount, block)];
+    if (localThreadId == 0) {
+        context = degrainMotionSearchMakeSearchContext(initialSeed, width, height, blockGridX, blockGridY, step,
+            blockSize, pel, pad, lowSadWeightScale, motionCostScale);
+    }
+    __syncthreads();
+
+    if (localThreadId == 0) {
+        const RGYDegrainMotionSearchVector base = vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block)];
+        const RGYDegrainMotionSearchCandidate baseCandidate = degrainMotionSearchSavedVectorToCandidate(base);
+        bestCandidateCost.pos_x = base.pos_x;
+        bestCandidateCost.pos_y = base.pos_y;
+        bestCandidateCost.sad_metric = base.sad_metric;
+        bestCandidateCost.score_primary = base.score_primary;
+        candidate[0] = degrainMotionSearchConstrainCandidate(baseCandidate, &context);
+        reusePreviousSad = candidate[0].pos_x == base.pos_x && candidate[0].pos_y == base.pos_y;
+        candidate[1] = (blockGridX > 0)
+            ? degrainMotionSearchConstrainCandidate(degrainMotionSearchSavedVectorToCandidate(vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block - 1)]), &context)
+            : candidate[0];
+        candidate[2] = (blockGridY > 0)
+            ? degrainMotionSearchConstrainCandidate(degrainMotionSearchSavedVectorToCandidate(vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block - blocksX)]), &context)
+            : candidate[0];
+        candidate[3] = (blockGridX + 1 < blocksX && blockGridY + 1 < blocksY)
+            ? degrainMotionSearchConstrainCandidate(degrainMotionSearchSavedVectorToCandidate(vectors[degrainMotionSearchVecCurrentIndex(planeBase, blockCount, block + blocksX + 1)]), &context)
+            : candidate[0];
+        candidate[4].pos_x = (int16_t)degrainMotionSearchMedianOfThree(candidate[1].pos_x, candidate[2].pos_x, candidate[3].pos_x);
+        candidate[4].pos_y = (int16_t)degrainMotionSearchMedianOfThree(candidate[1].pos_y, candidate[2].pos_y, candidate[3].pos_y);
+        candidate[4].sad_metric = 0u;
+        candidate[4].score_primary = 0u;
+    }
+    if (localThreadId < 5) {
+        candidateCosts[localThreadId] = degrainMotionSearchMakeCandidateCost(0, 0, 0u, DEGRAIN_MOTION_SEARCH_LARGE_COST);
+    }
+    __syncthreads();
+
+    const int candidateCount = 5;
+    const int candidateIsValid = candidateGroupIndex < candidateCount;
+    const int firstMatchingCandidateIndex = degrainMotionSearchFindFirstMatchingCandidate(candidate, candidateGroupIndex, candidateCount);
+    const int candidateNeedsEvaluation = candidateIsValid && firstMatchingCandidateIndex == candidateGroupIndex;
+    uint32_t sad = 0u;
+    if (candidateNeedsEvaluation) {
+        if (candidateGroupIndex == 0 && reusePreviousSad) {
+            sad = (sadLane == 0) ? bestCandidateCost.sad_metric : 0u;
+        } else {
+            const RGYDegrainMotionSearchCandidate motionVector = candidate[candidateGroupIndex];
+            sad = degrainMotionSearchAccumulateLumaSadLane<TypePixel>(
+                sourceBlockPixels, referencePlane, pitch, width, height, blockGridX, blockGridY, step,
+                motionVector.pos_x, motionVector.pos_y, sadLane, blockSize, pel, subpelInterp);
+        }
+    }
+    sad = degrainMotionSearchSumCandidateSadLanes(candidateLaneSums, sad, candidateNeedsEvaluation, sadLane, candidateGroupIndex, blockSize);
+
+    if (candidateNeedsEvaluation && sadLane == 0) {
+        const RGYDegrainMotionSearchCandidate motionVector = candidate[candidateGroupIndex];
+        uint32_t cost = sad;
+        if (candidateGroupIndex > 0) {
+            cost += degrainMotionSearchCalcMotionCost(motionVector, initialSeed.pos_x, initialSeed.pos_y, &context);
+        } else {
+            cost = min(bestCandidateCost.score_primary, sad);
+        }
+        candidateCosts[candidateGroupIndex].pos_x = motionVector.pos_x;
+        candidateCosts[candidateGroupIndex].pos_y = motionVector.pos_y;
+        candidateCosts[candidateGroupIndex].sad_metric = sad;
+        candidateCosts[candidateGroupIndex].score_primary = cost;
+    }
+    __syncthreads();
+
+    if (candidateIsValid && !candidateNeedsEvaluation && sadLane == 0) {
+        const RGYDegrainMotionSearchCandidate motionVector = candidate[candidateGroupIndex];
+        sad = candidateCosts[firstMatchingCandidateIndex].sad_metric;
+        uint32_t cost = sad;
+        if (candidateGroupIndex > 0) {
+            cost += degrainMotionSearchCalcMotionCost(motionVector, initialSeed.pos_x, initialSeed.pos_y, &context);
+        } else {
+            cost = min(bestCandidateCost.score_primary, sad);
+        }
+        candidateCosts[candidateGroupIndex].pos_x = motionVector.pos_x;
+        candidateCosts[candidateGroupIndex].pos_y = motionVector.pos_y;
+        candidateCosts[candidateGroupIndex].sad_metric = sad;
+        candidateCosts[candidateGroupIndex].score_primary = cost;
+    }
+    __syncthreads();
+
+    degrainMotionSearchSelectLowestCandidateCost(candidateCosts, localThreadId, candidateCount);
+
+    if (localThreadId == 0 && candidateCosts[0].score_primary < bestCandidateCost.score_primary) {
+        bestCandidateCost = candidateCosts[0];
+    }
+    __syncthreads();
+
+    degrainMotionSearchRefineSquare8<TypePixel>(
+        sourceBlockPixels, referencePlane, &context, candidateCosts, candidateLaneSums, &bestCandidateCost,
+        localThreadId, sadLane, candidateGroupIndex, blockGridX, blockGridY, step, pitch, width, height,
+        blockSize, pel, subpelInterp, newCandidateCostScale);
+
+    if (localThreadId == 0) {
+        vectorsFinal[degrainMotionSearchVecFinalIndex(finalBase, blockCount, block)] =
+            degrainMotionSearchCandidateCostToSavedVector(bestCandidateCost);
+    }
+}
+
+template<typename TypePixel>
 __device__ __forceinline__ int degrainAnalysisLumaToFullRange(const int value, const int tvRange) {
     if (!tvRange) {
         return value;
@@ -1494,5 +2038,65 @@ RGY_ERR launchNVEncDegrainMotionSearchExportSad(
         outputMotion ? reinterpret_cast<RGYDegrainMV *>(outputMotion->ptr) : nullptr,
         outputSad ? reinterpret_cast<RGYDegrainSAD *>(outputSad->ptr) : nullptr,
         finalBase, sadBase, blockCount, outOffset, referenceDirection, refs);
+    return err_to_rgy(cudaGetLastError());
+}
+
+RGY_ERR launchNVEncDegrainMotionSearchSearchParallel(
+    const uint8_t *sourcePlane, const uint8_t *referencePlane, CUMemBuf &vectors,
+    const int pitch, const int width, const int height, const int planeBase, const int blockCount,
+    const RGYDegrainBlockLayout &layout, const int pixelBytes, const int pel, const int subpelInterp,
+    const int pad, const int motionCostScale, const int lowSadWeightScale,
+    const int zeroCandidateCostScale, const int frameAverageCandidateCostScale,
+    const int newCandidateCostScale, const int level, cudaStream_t stream) {
+    if (layout.blockSize <= 0 || layout.blockSize > DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int block = layout.blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS;
+    const int grid = blockCount;
+    if (pixelBytes > 1) {
+        kernel_degrain_mv_search_parallel_cuda<uint16_t><<<grid, block, 0, stream>>>(
+            sourcePlane, referencePlane, reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
+            pitch, width, height, planeBase, blockCount, layout.blocksX, layout.blocksY, layout.step,
+            layout.blockSize, pel, subpelInterp, pad, motionCostScale, lowSadWeightScale,
+            zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale, level);
+    } else {
+        kernel_degrain_mv_search_parallel_cuda<uint8_t><<<grid, block, 0, stream>>>(
+            sourcePlane, referencePlane, reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
+            pitch, width, height, planeBase, blockCount, layout.blocksX, layout.blocksY, layout.step,
+            layout.blockSize, pel, subpelInterp, pad, motionCostScale, lowSadWeightScale,
+            zeroCandidateCostScale, frameAverageCandidateCostScale, newCandidateCostScale, level);
+    }
+    return err_to_rgy(cudaGetLastError());
+}
+
+RGY_ERR launchNVEncDegrainMotionSearchSpatialRefine(
+    const uint8_t *sourcePlane, const uint8_t *referencePlane,
+    CUMemBuf &vectors, const CUMemBuf &vectorsPrev, CUMemBuf &vectorsFinal,
+    const int pitch, const int width, const int height, const int planeBase, const int finalBase,
+    const int blockCount, const RGYDegrainBlockLayout &layout, const int pixelBytes,
+    const int pel, const int subpelInterp, const int pad, const int motionCostScale,
+    const int lowSadWeightScale, const int newCandidateCostScale, cudaStream_t stream) {
+    if (layout.blockSize <= 0 || layout.blockSize > DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int block = layout.blockSize * DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS;
+    const int grid = blockCount;
+    if (pixelBytes > 1) {
+        kernel_degrain_mv_spatial_refine_cuda<uint16_t><<<grid, block, 0, stream>>>(
+            sourcePlane, referencePlane,
+            reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
+            reinterpret_cast<const RGYDegrainMotionSearchVector *>(vectorsPrev.ptr),
+            reinterpret_cast<RGYDegrainMotionSearchVector *>(vectorsFinal.ptr),
+            pitch, width, height, planeBase, finalBase, blockCount, layout.blocksX, layout.blocksY, layout.step,
+            layout.blockSize, pel, subpelInterp, pad, motionCostScale, lowSadWeightScale, newCandidateCostScale);
+    } else {
+        kernel_degrain_mv_spatial_refine_cuda<uint8_t><<<grid, block, 0, stream>>>(
+            sourcePlane, referencePlane,
+            reinterpret_cast<RGYDegrainMotionSearchVector *>(vectors.ptr),
+            reinterpret_cast<const RGYDegrainMotionSearchVector *>(vectorsPrev.ptr),
+            reinterpret_cast<RGYDegrainMotionSearchVector *>(vectorsFinal.ptr),
+            pitch, width, height, planeBase, finalBase, blockCount, layout.blocksX, layout.blocksY, layout.step,
+            layout.blockSize, pel, subpelInterp, pad, motionCostScale, lowSadWeightScale, newCandidateCostScale);
+    }
     return err_to_rgy(cudaGetLastError());
 }
