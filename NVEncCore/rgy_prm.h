@@ -153,6 +153,7 @@ enum class VppType : int {
     CL_YADIF,
     CL_DECOMB,
     CL_BWDIF,
+    CL_DEGRAIN,
     CL_IVTC,
     CL_DECIMATE,
     CL_MPDECIMATE,
@@ -2670,6 +2671,7 @@ struct RGYParamVpp {
     VppYadif yadif;
     VppDecomb decomb;
     VppBwdif bwdif;
+    VppDegrain degrain;
     VppIvtc ivtc;
     VppRff rff;
     VppSelectEvery selectevery;

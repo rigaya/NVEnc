@@ -85,6 +85,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
     std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
+    std::make_pair(VppType::CL_DEGRAIN,              _T("degrain")),
     std::make_pair(VppType::CL_IVTC,                 _T("ivtc")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
@@ -2391,6 +2392,7 @@ RGYParamVpp::RGYParamVpp() :
     yadif(),
     decomb(),
     bwdif(),
+    degrain(),
     ivtc(),
     rff(),
     selectevery(),
@@ -2435,6 +2437,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && yadif == x.yadif
         && decomb == x.decomb
         && bwdif == x.bwdif
+        && degrain == x.degrain
         && ivtc == x.ivtc
         && rff == x.rff
         && selectevery == x.selectevery
