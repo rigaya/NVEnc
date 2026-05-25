@@ -253,3 +253,150 @@ RGY_ERR launchNVEncDegrainTemporalSmoothLuma(
     }
     return err_to_rgy(cudaGetLastError());
 }
+
+__device__ __forceinline__ int degrainPrimaryBlockIndex(const int x, const int y, const int blocksX, const int blocksY, const int step) {
+    const int clampedStep = max(step, 1);
+    const int blockX = min(x / clampedStep, blocksX - 1);
+    const int blockY = min(y / clampedStep, blocksY - 1);
+    return blockY * blocksX + blockX;
+}
+
+__device__ __forceinline__ int degrainDebugBorder(const int x, const int y, const int step) {
+    const int clampedStep = max(step, 1);
+    return (x % clampedStep) == 0 || (y % clampedStep) == 0;
+}
+
+__device__ __forceinline__ int degrainBlockOrigin(const int block, const int step) {
+    return block * max(step, 1);
+}
+
+__device__ __forceinline__ int degrainIsCoveredPixel(const int x, const int y, const int coveredWidth, const int coveredHeight) {
+    return x < coveredWidth && y < coveredHeight;
+}
+
+__device__ __forceinline__ int degrainRefIndex(const int block, const int refDirection, const int refs) {
+    const int clampedRefDirection = degrainClampInt(refDirection, 0, refs - 1);
+    return block * refs + clampedRefDirection;
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainCenteredSignedValue(const int value, const int search, const int pel) {
+    const int searchRange = max(search * pel, 1);
+    const int clampedValue = degrainClampInt(value, -searchRange, searchRange);
+    const int center = (degrainPixelMax<TypePixel>() + 1) >> 1;
+    const int range = max(center - 1, 1);
+    return degrainClampInt(center + (clampedValue * range) / searchRange, 0, degrainPixelMax<TypePixel>());
+}
+
+template<typename TypePixel>
+__global__ void kernel_degrain_debug_mv_cuda(
+    uint8_t *dst, const int dstPitch, const int width, const int height,
+    const RGYDegrainMV *mv, const RGYDegrainSAD *sad,
+    const int blocksX, const int blocksY, const int blockSize, const int overlap, const int step,
+    const int coveredWidth, const int coveredHeight, const int refs, const int search, const int pel) {
+    const int x = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    const int y = (int)(blockIdx.y * blockDim.y + threadIdx.y);
+    if (x >= width || y >= height || !degrainIsCoveredPixel(x, y, coveredWidth, coveredHeight)) {
+        return;
+    }
+
+    const int block = degrainPrimaryBlockIndex(x, y, blocksX, blocksY, step);
+    const int blockX = block % blocksX;
+    const int blockY = block / blocksX;
+    const int localX = degrainClampInt(x - degrainBlockOrigin(blockX, step), 0, blockSize - 1);
+    const int localY = degrainClampInt(y - degrainBlockOrigin(blockY, step), 0, blockSize - 1);
+    int refDirection = 0;
+    int showDy = 0;
+    if (refs <= 2) {
+        refDirection = ((localY * 2) >= blockSize) ? min(1, refs - 1) : 0;
+        showDy = (localX * 2) >= blockSize;
+    } else {
+        const int halfX = max(blockSize / 2, 1);
+        const int halfY = max(blockSize / 2, 1);
+        const int quadrantX = (localX >= halfX);
+        const int quadrantY = (localY >= halfY);
+        const int quadrantWidth = max(quadrantX ? (blockSize - halfX) : halfX, 1);
+        const int localQuadrantX = quadrantX ? (localX - halfX) : localX;
+        refDirection = degrainClampInt(quadrantY * 2 + quadrantX, 0, refs - 1);
+        showDy = (localQuadrantX * 2) >= quadrantWidth;
+    }
+    (void)sad;
+    (void)overlap;
+    const RGYDegrainMV motion = mv[degrainRefIndex(block, refDirection, refs)];
+    const int signedComponent = showDy ? (int)motion.dy : (int)motion.dx;
+    const int value = degrainDebugBorder(x, y, step)
+        ? degrainPixelMax<TypePixel>()
+        : degrainCenteredSignedValue<TypePixel>(signedComponent, search, pel);
+    *(TypePixel *)(dst + y * dstPitch + x * (int)sizeof(TypePixel)) = degrainClampPixel<TypePixel>(value);
+}
+
+template<typename TypePixel>
+__global__ void kernel_degrain_debug_sad_cuda(
+    uint8_t *dst, const int dstPitch, const int width, const int height,
+    const RGYDegrainMV *mv, const RGYDegrainSAD *sad,
+    const int blocksX, const int blocksY, const int blockSize, const int overlap, const int step,
+    const int coveredWidth, const int coveredHeight, const int refs, const int search, const int pel) {
+    const int x = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    const int y = (int)(blockIdx.y * blockDim.y + threadIdx.y);
+    if (x >= width || y >= height || !degrainIsCoveredPixel(x, y, coveredWidth, coveredHeight)) {
+        return;
+    }
+
+    const int block = degrainPrimaryBlockIndex(x, y, blocksX, blocksY, step);
+    const int blockX = block % blocksX;
+    const int blockY = block / blocksX;
+    const int localX = degrainClampInt(x - degrainBlockOrigin(blockX, step), 0, blockSize - 1);
+    const int localY = degrainClampInt(y - degrainBlockOrigin(blockY, step), 0, blockSize - 1);
+    int refDirection = 0;
+    if (refs <= 2) {
+        refDirection = ((localY * 2) >= blockSize) ? min(1, refs - 1) : 0;
+    } else {
+        const int halfX = max(blockSize / 2, 1);
+        const int halfY = max(blockSize / 2, 1);
+        refDirection = degrainClampInt((localY >= halfY) * 2 + (localX >= halfX), 0, refs - 1);
+    }
+    (void)overlap;
+    (void)search;
+    (void)pel;
+    const int sadIndex = degrainRefIndex(block, refDirection, refs);
+    const uint32_t sadMix = sad[sadIndex].sad + mv[sadIndex].sad;
+    const int value = degrainDebugBorder(x, y, step)
+        ? degrainPixelMax<TypePixel>()
+        : min(degrainPixelMax<TypePixel>(), (int)(sadMix >> 4));
+    *(TypePixel *)(dst + y * dstPitch + x * (int)sizeof(TypePixel)) = degrainClampPixel<TypePixel>(value);
+}
+
+RGY_ERR launchNVEncDegrainDebug(
+    const RGYFrameInfo &dst, const VppDegrainMode mode, const CUMemBuf &mv, const CUMemBuf &sad,
+    const RGYDegrainBlockLayout &layout, const int pel, cudaStream_t stream) {
+    const auto block = dim3(DEGRAIN_BLOCK_X, DEGRAIN_BLOCK_Y);
+    const auto grid = dim3(divCeil(dst.width, DEGRAIN_BLOCK_X), divCeil(dst.height, DEGRAIN_BLOCK_Y));
+    const auto *mvPtr = reinterpret_cast<const RGYDegrainMV *>(mv.ptr);
+    const auto *sadPtr = reinterpret_cast<const RGYDegrainSAD *>(sad.ptr);
+    if (RGY_CSP_BIT_DEPTH[dst.csp] > 8) {
+        if (mode == VppDegrainMode::MV) {
+            kernel_degrain_debug_mv_cuda<uint16_t><<<grid, block, 0, stream>>>(
+                dst.ptr[0], dst.pitch[0], dst.width, dst.height, mvPtr, sadPtr,
+                layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
+                layout.coveredWidth, layout.coveredHeight, layout.temporalDirections, layout.search, pel);
+        } else {
+            kernel_degrain_debug_sad_cuda<uint16_t><<<grid, block, 0, stream>>>(
+                dst.ptr[0], dst.pitch[0], dst.width, dst.height, mvPtr, sadPtr,
+                layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
+                layout.coveredWidth, layout.coveredHeight, layout.temporalDirections, layout.search, pel);
+        }
+    } else {
+        if (mode == VppDegrainMode::MV) {
+            kernel_degrain_debug_mv_cuda<uint8_t><<<grid, block, 0, stream>>>(
+                dst.ptr[0], dst.pitch[0], dst.width, dst.height, mvPtr, sadPtr,
+                layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
+                layout.coveredWidth, layout.coveredHeight, layout.temporalDirections, layout.search, pel);
+        } else {
+            kernel_degrain_debug_sad_cuda<uint8_t><<<grid, block, 0, stream>>>(
+                dst.ptr[0], dst.pitch[0], dst.width, dst.height, mvPtr, sadPtr,
+                layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
+                layout.coveredWidth, layout.coveredHeight, layout.temporalDirections, layout.search, pel);
+        }
+    }
+    return err_to_rgy(cudaGetLastError());
+}
