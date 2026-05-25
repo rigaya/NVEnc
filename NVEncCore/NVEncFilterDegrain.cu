@@ -1231,7 +1231,7 @@ __device__ __forceinline__ int degrainDegrainBlockSample(
             referenceDirection);
         const float referenceSample = (float)degrainCompensatedSample<TypePixel>(
             referencePlane, pitch, width, height, mv, block, referenceDirection, planeScaleX, planeScaleY, x, y, refs, pel, subpelInterp);
-        mixedValue = fmaf(referenceSample, referenceMixNorm, mixedValue);
+        mixedValue = __fmaf_rn(referenceSample, referenceMixNorm, mixedValue);
     }
     return degrainClampPixel<TypePixel>(degrainRoundFloatToInt(mixedValue));
 }
@@ -1253,7 +1253,7 @@ __device__ __forceinline__ float degrainTemporalMixPlanRef(
     return temporalMixPlan[planOffset + 1 + refDirection];
 }
 
-template<typename TypePixel>
+template<typename TypePixel, int refs>
 __device__ __forceinline__ int degrainApplyTemporalMixPlanSamePitch(
     const uint8_t *cur,
     const int pitch,
@@ -1276,7 +1276,6 @@ __device__ __forceinline__ int degrainApplyTemporalMixPlanSamePitch(
     const int planeScaleY,
     const int x,
     const int y,
-    const int refs,
     const int pel,
     const int subpelInterp) {
     const int srcSample = degrainPixelLoad<TypePixel>(cur, pitch, width, height, x, y);
@@ -1296,7 +1295,7 @@ __device__ __forceinline__ int degrainApplyTemporalMixPlanSamePitch(
             refDirection);
         const float refSample = (float)degrainCompensatedSample<TypePixel>(
             ref, pitch, width, height, mv, block, refDirection, planeScaleX, planeScaleY, x, y, refs, pel, subpelInterp);
-        value = fmaf(refSample, referenceMixNorm, value);
+        value = __fmaf_rn(refSample, referenceMixNorm, value);
     }
     return degrainClampPixel<TypePixel>(degrainRoundFloatToInt(value));
 }
@@ -1319,7 +1318,7 @@ __device__ __forceinline__ void degrainAccumulateWindowedSample(
     const int sample,
     const float windowWeight) {
     if (windowWeight > 0.0f) {
-        *sampleSum = fmaf((float)sample, windowWeight, *sampleSum);
+        *sampleSum = __fmaf_rn((float)sample, windowWeight, *sampleSum);
         *weightSum += windowWeight;
     }
 }
@@ -1341,7 +1340,7 @@ __device__ __forceinline__ void degrainAccumulateWeightedSampleFp32(
     const int sample,
     const float weight) {
     if (weight > 0.0f) {
-        *sampleSum = fmaf((float)sample, weight, *sampleSum);
+        *sampleSum = __fmaf_rn((float)sample, weight, *sampleSum);
         *weightSum += weight;
     }
 }
@@ -2197,6 +2196,7 @@ __device__ __forceinline__ int degrainRenderConstCoveredHeight(const int covered
     return coveredHeight;
 }
 
+template<int refs>
 __global__ void kernel_degrain_build_temporal_mix_plan_cuda(
     float *temporalMixPlan,
     const RGYDegrainMV *mv,
@@ -2204,15 +2204,14 @@ __global__ void kernel_degrain_build_temporal_mix_plan_cuda(
     const float *temporalMixPrior,
     const int blockCount,
     const uint32_t thsad,
-    const uint32_t disableMask,
-    const int refs) {
+    const uint32_t disableMask) {
     const int block = (int)blockIdx.x * blockDim.x + threadIdx.x;
     if (block >= blockCount) {
         return;
     }
 
     const float sourceConfidenceRaw = degrainTemporalMixPriorCenter(temporalMixPrior);
-    float referenceConfidenceRaw[RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS];
+    float referenceConfidenceRaw[refs];
     float confidenceTotal = sourceConfidenceRaw;
     for (int referenceDirection = 0; referenceDirection < refs; referenceDirection++) {
         const float temporalMixPriorRef = degrainTemporalMixPriorRef(temporalMixPrior, referenceDirection);
@@ -2385,12 +2384,24 @@ RGY_ERR launchNVEncDegrainBuildTemporalMixPlan(
     const int blockCount, const uint32_t thsad, const uint32_t disableMask, const int refs, cudaStream_t stream) {
     const int block = 256;
     const int grid = divCeil(blockCount, block);
-    kernel_degrain_build_temporal_mix_plan_cuda<<<grid, block, 0, stream>>>(
-        reinterpret_cast<float *>(temporalMixPlan.ptr),
-        reinterpret_cast<const RGYDegrainMV *>(mv.ptr),
-        reinterpret_cast<const RGYDegrainSAD *>(sad.ptr),
-        reinterpret_cast<const float *>(temporalMixPrior.ptr),
-        blockCount, thsad, disableMask, refs);
+#define LAUNCH_DEGRAIN_BUILD_TEMPORAL_MIX_PLAN(REFS) do { \
+    kernel_degrain_build_temporal_mix_plan_cuda<REFS><<<grid, block, 0, stream>>>( \
+        reinterpret_cast<float *>(temporalMixPlan.ptr), \
+        reinterpret_cast<const RGYDegrainMV *>(mv.ptr), \
+        reinterpret_cast<const RGYDegrainSAD *>(sad.ptr), \
+        reinterpret_cast<const float *>(temporalMixPrior.ptr), \
+        blockCount, thsad, disableMask); \
+} while (0)
+    switch (refs) {
+    case 2: LAUNCH_DEGRAIN_BUILD_TEMPORAL_MIX_PLAN(2); break;
+    case 4: LAUNCH_DEGRAIN_BUILD_TEMPORAL_MIX_PLAN(4); break;
+    case 6: LAUNCH_DEGRAIN_BUILD_TEMPORAL_MIX_PLAN(6); break;
+    case 8: LAUNCH_DEGRAIN_BUILD_TEMPORAL_MIX_PLAN(8); break;
+    case 10: LAUNCH_DEGRAIN_BUILD_TEMPORAL_MIX_PLAN(10); break;
+    default:
+        return RGY_ERR_UNSUPPORTED;
+    }
+#undef LAUNCH_DEGRAIN_BUILD_TEMPORAL_MIX_PLAN
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -2812,7 +2823,7 @@ __global__ void kernel_degrain_degrain_overlap_plane_cuda(
     dst[y * dstPitch + x] = degrainClampPixel<TypePixel>(result);
 }
 
-template<typename TypePixel>
+template<typename TypePixel, int refs>
 __device__ __forceinline__ void degrainDegrainOverlapPlanePreweightedRampGeneric(
     TypePixel *dst,
     const int dst_pitch,
@@ -2847,7 +2858,6 @@ __device__ __forceinline__ void degrainDegrainOverlapPlanePreweightedRampGeneric
     const int compactTopLeftBorder,
     const int globalX,
     const int globalY,
-    const int refs,
     const int pel,
     const int subpelInterp) {
     int x = originX + globalX;
@@ -2954,7 +2964,7 @@ __device__ __forceinline__ void degrainDegrainOverlapPlanePreweightedRampGeneric
                 continue;
             }
             const int block = blockRow - bxIndex;
-            const int sample = degrainApplyTemporalMixPlanSamePitch<TypePixel>(
+            const int sample = degrainApplyTemporalMixPlanSamePitch<TypePixel, refs>(
                 cur, cur_pitch,
                 refBackward1, refForward1,
                 refBackward2, refForward2,
@@ -2965,7 +2975,7 @@ __device__ __forceinline__ void degrainDegrainOverlapPlanePreweightedRampGeneric
                 mv, block, temporalMixPlan,
                 planeScaleX, planeScaleY,
                 x, y,
-                refs, pel, subpelInterp);
+                pel, subpelInterp);
             degrainAccumulateWeightedSampleFp32(&sampleSum, &weightSum, sample, wx[bxIndex] * wy[byIndex]);
         }
     }
@@ -2974,7 +2984,7 @@ __device__ __forceinline__ void degrainDegrainOverlapPlanePreweightedRampGeneric
     dst[y * dstPitch + x] = degrainClampPixel<TypePixel>(result);
 }
 
-template<typename TypePixel>
+template<typename TypePixel, int refs>
 __global__ void kernel_degrain_degrain_overlap_plane_preweighted_ramp_cuda(
     TypePixel *dst,
     const int dst_pitch,
@@ -3004,12 +3014,11 @@ __global__ void kernel_degrain_degrain_overlap_plane_preweighted_ramp_cuda(
     const int planeScaleY,
     const float *windowRamp,
     const float *temporalMixPlan,
-    const int refs,
     const int pel,
     const int subpelInterp) {
     const int globalX = (int)blockIdx.x * blockDim.x + threadIdx.x;
     const int globalY = (int)blockIdx.y * blockDim.y + threadIdx.y;
-    degrainDegrainOverlapPlanePreweightedRampGeneric<TypePixel>(
+    degrainDegrainOverlapPlanePreweightedRampGeneric<TypePixel, refs>(
         dst, dst_pitch,
         cur, cur_pitch,
         refBackward1, refForward1,
@@ -3026,7 +3035,7 @@ __global__ void kernel_degrain_degrain_overlap_plane_preweighted_ramp_cuda(
         windowRamp, temporalMixPlan,
         0, 0, 0,
         globalX, globalY,
-        refs, pel, subpelInterp);
+        pel, subpelInterp);
 }
 
 RGY_ERR launchNVEncDegrainDegrainOverlapPlane(
@@ -3099,39 +3108,39 @@ RGY_ERR launchNVEncDegrainDegrainOverlapPlanePreweightedRamp(
     const int refs, const int pel, const int subpelInterp, cudaStream_t stream) {
     const dim3 block(32, 8);
     const dim3 grid(divCeil(width, (int)block.x), divCeil(height, (int)block.y));
-    if (pixelBytes > 1) {
-        kernel_degrain_degrain_overlap_plane_preweighted_ramp_cuda<uint16_t><<<grid, block, 0, stream>>>(
-            reinterpret_cast<uint16_t *>(dst), dstPitch,
-            cur, curPitch,
-            refBackward1, refForward1,
-            refBackward2, refForward2,
-            refBackward3, refForward3,
-            refBackward4, refForward4,
-            refBackward5, refForward5,
-            width, height,
-            reinterpret_cast<const RGYDegrainMV *>(mv.ptr),
-            layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
-            coveredWidth, coveredHeight, planeScaleX, planeScaleY,
-            reinterpret_cast<const float *>(windowRamp.ptr),
-            reinterpret_cast<const float *>(temporalMixPlan.ptr),
-            refs, pel, subpelInterp);
-    } else {
-        kernel_degrain_degrain_overlap_plane_preweighted_ramp_cuda<uint8_t><<<grid, block, 0, stream>>>(
-            reinterpret_cast<uint8_t *>(dst), dstPitch,
-            cur, curPitch,
-            refBackward1, refForward1,
-            refBackward2, refForward2,
-            refBackward3, refForward3,
-            refBackward4, refForward4,
-            refBackward5, refForward5,
-            width, height,
-            reinterpret_cast<const RGYDegrainMV *>(mv.ptr),
-            layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
-            coveredWidth, coveredHeight, planeScaleX, planeScaleY,
-            reinterpret_cast<const float *>(windowRamp.ptr),
-            reinterpret_cast<const float *>(temporalMixPlan.ptr),
-            refs, pel, subpelInterp);
+#define LAUNCH_DEGRAIN_PREWEIGHTED_RAMP(TYPE, REFS) do { \
+    kernel_degrain_degrain_overlap_plane_preweighted_ramp_cuda<TYPE, REFS><<<grid, block, 0, stream>>>( \
+        reinterpret_cast<TYPE *>(dst), dstPitch, \
+        cur, curPitch, \
+        refBackward1, refForward1, \
+        refBackward2, refForward2, \
+        refBackward3, refForward3, \
+        refBackward4, refForward4, \
+        refBackward5, refForward5, \
+        width, height, \
+        reinterpret_cast<const RGYDegrainMV *>(mv.ptr), \
+        layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step, \
+        coveredWidth, coveredHeight, planeScaleX, planeScaleY, \
+        reinterpret_cast<const float *>(windowRamp.ptr), \
+        reinterpret_cast<const float *>(temporalMixPlan.ptr), \
+        pel, subpelInterp); \
+} while (0)
+#define SWITCH_DEGRAIN_PREWEIGHTED_RAMP(TYPE) \
+    switch (refs) { \
+    case 2: LAUNCH_DEGRAIN_PREWEIGHTED_RAMP(TYPE, 2); break; \
+    case 4: LAUNCH_DEGRAIN_PREWEIGHTED_RAMP(TYPE, 4); break; \
+    case 6: LAUNCH_DEGRAIN_PREWEIGHTED_RAMP(TYPE, 6); break; \
+    case 8: LAUNCH_DEGRAIN_PREWEIGHTED_RAMP(TYPE, 8); break; \
+    case 10: LAUNCH_DEGRAIN_PREWEIGHTED_RAMP(TYPE, 10); break; \
+    default: return RGY_ERR_UNSUPPORTED; \
     }
+    if (pixelBytes > 1) {
+        SWITCH_DEGRAIN_PREWEIGHTED_RAMP(uint16_t);
+    } else {
+        SWITCH_DEGRAIN_PREWEIGHTED_RAMP(uint8_t);
+    }
+#undef SWITCH_DEGRAIN_PREWEIGHTED_RAMP
+#undef LAUNCH_DEGRAIN_PREWEIGHTED_RAMP
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -3260,7 +3269,7 @@ __global__ void kernel_degrain_pixel_trace_cuda(
                         refBackward5, refForward5,
                         referenceDirection);
                     referenceSample[referenceDirection] = degrainCompensatedSample<TypePixel>(referencePlane, cur_pitch, width, height, mv, block, referenceDirection, planeScaleX, planeScaleY, x, y, refs, pel, subpelInterp);
-                    mixedValue = fmaf((float)referenceSample[referenceDirection], referenceMixNorm[referenceDirection], mixedValue);
+                    mixedValue = __fmaf_rn((float)referenceSample[referenceDirection], referenceMixNorm[referenceDirection], mixedValue);
                 }
                 const float sourceMixNorm = sourceConfidenceRaw * invTotal;
                 const int sample = degrainClampPixel<TypePixel>(degrainRoundFloatToInt(mixedValue));
