@@ -518,6 +518,9 @@
     <ClInclude Include="NVEncFilterRtgmcSearchPrefilter.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterDegrain.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="NVEncFilterDegrainCommon.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
