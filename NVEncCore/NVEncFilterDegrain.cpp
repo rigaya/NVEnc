@@ -37,6 +37,10 @@
 #include "rgy_frame_info.h"
 #include "rgy_util.h"
 
+RGY_ERR launchNVEncDegrainTemporalSmoothLuma(
+    const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
+    const RGYFrameInfo &dst, int tr0, int searchRefine, int rep0, int tvRange, cudaStream_t stream);
+
 namespace {
 bool degrainChromaBuildEnabled(const RGY_CSP csp, const VppDegrain &degrain) {
     switch (RGY_CSP_CHROMA_FORMAT[csp]) {
@@ -1807,12 +1811,102 @@ RGYFilterDegrainFrameSet NVEncFilterDegrain::resolveAnalysisFrameSet(int current
     return frames;
 }
 
-RGY_ERR NVEncFilterDegrain::generateAnalysisLumaFrame(int, cudaStream_t, const std::vector<RGYCudaEvent>&) {
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::generateAnalysisLumaFrame(const int centerFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm || !useAnalysisLumaCache()) {
+        return RGY_ERR_NONE;
+    }
+    if (centerFrame < 0 || centerFrame >= m_inputCount) {
+        return RGY_ERR_NONE;
+    }
+
+    RGYFilterDegrainFrameSet srcFrames = {};
+    srcFrames.backward[1] = resolveAnalysisLumaSourceFrame(centerFrame + 2);
+    srcFrames.backward[0] = resolveAnalysisLumaSourceFrame(centerFrame + 1);
+    srcFrames.cur = resolveAnalysisLumaSourceFrame(centerFrame);
+    srcFrames.forward[0] = resolveAnalysisLumaSourceFrame(centerFrame - 1);
+    srcFrames.forward[1] = resolveAnalysisLumaSourceFrame(centerFrame - 2);
+    if (!srcFrames.backwardRef(2) || !srcFrames.backwardRef(1) || !srcFrames.cur || !srcFrames.forwardRef(1) || !srcFrames.forwardRef(2)) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain analysis luma source frames are not ready.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    const auto planePrev2 = getPlane(srcFrames.forwardRef(2), RGY_PLANE_Y);
+    const auto planePrev = getPlane(srcFrames.forwardRef(1), RGY_PLANE_Y);
+    const auto planeCur = getPlane(srcFrames.cur, RGY_PLANE_Y);
+    const auto planeNext = getPlane(srcFrames.backwardRef(1), RGY_PLANE_Y);
+    const auto planeNext2 = getPlane(srcFrames.backwardRef(2), RGY_PLANE_Y);
+    if (planePrev2.ptr[0] == nullptr || planePrev.ptr[0] == nullptr || planeCur.ptr[0] == nullptr
+        || planeNext.ptr[0] == nullptr || planeNext2.ptr[0] == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain analysis luma requires valid source luma planes.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int srcPitch = planeCur.pitch[0];
+    if (planePrev2.pitch[0] != srcPitch || planePrev.pitch[0] != srcPitch
+        || planeNext.pitch[0] != srcPitch || planeNext2.pitch[0] != srcPitch) {
+        AddMessage(RGY_LOG_ERROR,
+            _T("degrain analysis luma pitch mismatch: prev2=%d, prev=%d, cur=%d, next=%d, next2=%d.\n"),
+            planePrev2.pitch[0], planePrev.pitch[0], srcPitch, planeNext.pitch[0], planeNext2.pitch[0]);
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto err = degrainWaitEvents(stream, wait_events);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain analysis luma input events: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    const int slot = analysisCacheIndex(centerFrame);
+    auto &analysisFrame = m_analysis.analysisLumaFrame[slot];
+    err = launchNVEncDegrainTemporalSmoothLuma(
+        planePrev2, planePrev, planeCur, planeNext, planeNext2,
+        analysisFrame, prm->degrain.tr0, prm->degrain.searchRefine, prm->degrain.rep0, prm->degrain.tvRange ? 1 : 0, stream);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to generate degrain analysis luma: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    RGYCudaEvent lumaEvent;
+    err = degrainRecordEvent(stream, &lumaEvent);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to record degrain analysis luma event: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    copyFramePropWithoutRes(&analysisFrame, srcFrames.cur);
+    analysisFrame.width = m_analysis.analysisLumaWidth;
+    analysisFrame.height = m_analysis.analysisLumaHeight;
+    m_analysis.analysisLumaFrameNumbers[slot] = centerFrame;
+    m_analysis.analysisLumaGeneratedUntil = centerFrame;
+    m_analysis.analysisLumaEvents[slot] = lumaEvent;
+    m_analysis.analysisLumaEvent = lumaEvent;
+    return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDegrain::ensureAnalysisLumaGenerated(int, cudaStream_t, const std::vector<RGYCudaEvent>&) {
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::ensureAnalysisLumaGenerated(int targetFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
+    if (!useAnalysisLumaCache()) {
+        return RGY_ERR_NONE;
+    }
+    if (m_inputCount <= 0) {
+        return RGY_ERR_NONE;
+    }
+
+    const int clampedTargetFrame = std::min(targetFrame, m_inputCount - 1);
+    if (clampedTargetFrame < 0) {
+        return RGY_ERR_NONE;
+    }
+
+    const int firstFrame = m_analysis.analysisLumaGeneratedUntil + 1;
+    auto chainedWaitEvents = wait_events;
+    for (int frame = firstFrame; frame <= clampedTargetFrame; frame++) {
+        const auto err = generateAnalysisLumaFrame(frame, stream, chainedWaitEvents);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        chainedWaitEvents.clear();
+        if (m_analysis.analysisLumaEvent() != nullptr) {
+            chainedWaitEvents.push_back(m_analysis.analysisLumaEvent);
+        }
+    }
+    return RGY_ERR_NONE;
 }
 
 void NVEncFilterDegrain::clearFrameAnalysisData() {
