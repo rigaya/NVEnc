@@ -104,6 +104,479 @@ __device__ __forceinline__ int degrainPixelLoad(
     return (int)(*(const TypePixel *)(src + py * pitch + px * (int)sizeof(TypePixel)));
 }
 
+__device__ __forceinline__ int degrainMirrorCoord(const int value, const int size) {
+    const int reflectedLow  = max(value, -value - 1);
+    const int reflectedHigh = min(reflectedLow, 2 * size - 1 - value);
+    return degrainClampInt(reflectedHigh, 0, size - 1);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainPixelLoadMirror(
+    const uint8_t *src, const int pitch, const int width, const int height, const int x, const int y) {
+    const int px = degrainMirrorCoord(x, width);
+    const int py = degrainMirrorCoord(y, height);
+    return (int)(*(const TypePixel *)(src + py * pitch + px * (int)sizeof(TypePixel)));
+}
+
+__device__ __forceinline__ int degrainFloorRshiftSigned(const int value, const int rshift) {
+    if (rshift <= 0) {
+        return value;
+    }
+    return value >= 0
+        ? value >> rshift
+        : -(((-value) + (1 << rshift) - 1) >> rshift);
+}
+
+__device__ __forceinline__ int degrainRoundRshiftSigned(const int value, const int rshift) {
+    if (rshift <= 0) {
+        return value;
+    }
+    return value >= 0
+        ? (value + (1 << (rshift - 1))) >> rshift
+        : -(((-value) + (1 << (rshift - 1))) >> rshift);
+}
+
+__device__ __forceinline__ int degrainPelRshift(const int pel) {
+    if (pel <= 1) {
+        return 0;
+    }
+    if (pel == 2) {
+        return 1;
+    }
+    if (pel == 4) {
+        return 2;
+    }
+    return 0;
+}
+
+__device__ __forceinline__ int degrainFloorDivPel(const int value, const int pel) {
+    return pel <= 1 ? value : degrainFloorRshiftSigned(value, degrainPelRshift(pel));
+}
+
+__device__ __forceinline__ int degrainFloorModPel(const int value, const int base, const int pel) {
+    return value - (base << degrainPelRshift(pel));
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWienerV(
+    const uint8_t *src, const int pitch, const int width, const int height, const int baseX, const int baseY) {
+    const int s0 = degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, baseY - 2);
+    const int s1 = degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, baseY - 1);
+    const int s2 = degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, baseY);
+    const int s3 = degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, baseY + 1);
+    const int s4 = degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, baseY + 2);
+    const int s5 = degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, baseY + 3);
+    const int sum = s0 + 5 * (-s1 + (s2 << 2) + (s3 << 2) - s4) + s5;
+    return degrainClampPixel<TypePixel>((sum + 16) >> 5);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWienerHFromSamples(
+    const int s0, const int s1, const int s2, const int s3, const int s4, const int s5) {
+    const int sum = s0 + 5 * (-s1 + (s2 << 2) + (s3 << 2) - s4) + s5;
+    return degrainClampPixel<TypePixel>((sum + 16) >> 5);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWienerH(
+    const uint8_t *src, const int pitch, const int width, const int height, const int baseX, const int baseY) {
+    return degrainInterpHalfpelWienerHFromSamples<TypePixel>(
+        degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX - 2, baseY),
+        degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX - 1, baseY),
+        degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, baseY),
+        degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX + 1, baseY),
+        degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX + 2, baseY),
+        degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX + 3, baseY));
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWienerHV(
+    const uint8_t *src, const int pitch, const int width, const int height, const int baseX, const int baseY) {
+    return degrainInterpHalfpelWienerHFromSamples<TypePixel>(
+        degrainInterpHalfpelWienerV<TypePixel>(src, pitch, width, height, baseX - 2, baseY),
+        degrainInterpHalfpelWienerV<TypePixel>(src, pitch, width, height, baseX - 1, baseY),
+        degrainInterpHalfpelWienerV<TypePixel>(src, pitch, width, height, baseX, baseY),
+        degrainInterpHalfpelWienerV<TypePixel>(src, pitch, width, height, baseX + 1, baseY),
+        degrainInterpHalfpelWienerV<TypePixel>(src, pitch, width, height, baseX + 2, baseY),
+        degrainInterpHalfpelWienerV<TypePixel>(src, pitch, width, height, baseX + 3, baseY));
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWeighted(
+    const uint8_t *src, const int pitch, const int width, const int height,
+    const int baseX, const int baseY, const int fracX, const int fracY, const int interpMode) {
+    if (interpMode == 2) {
+        if (fracX != 0 && fracY != 0) {
+            return degrainInterpHalfpelWienerHV<TypePixel>(src, pitch, width, height, baseX, baseY);
+        }
+        if (fracX != 0) {
+            return degrainInterpHalfpelWienerH<TypePixel>(src, pitch, width, height, baseX, baseY);
+        }
+        if (fracY != 0) {
+            return degrainInterpHalfpelWienerV<TypePixel>(src, pitch, width, height, baseX, baseY);
+        }
+    }
+
+    const int offsets[4] = { -1, 0, 1, 2 };
+    int weightsX[4] = { 0, 1, 0, 0 };
+    int weightsY[4] = { 0, 1, 0, 0 };
+    int denomXShift = 0;
+    int denomYShift = 0;
+
+    if (fracX != 0) {
+        if (interpMode == 2) {
+            weightsX[0] = -1; weightsX[1] = 9; weightsX[2] = 9; weightsX[3] = -1;
+            denomXShift = 4;
+        } else {
+            weightsX[0] = 1; weightsX[1] = 3; weightsX[2] = 3; weightsX[3] = 1;
+            denomXShift = 3;
+        }
+    }
+    if (fracY != 0) {
+        if (interpMode == 2) {
+            weightsY[0] = -1; weightsY[1] = 9; weightsY[2] = 9; weightsY[3] = -1;
+            denomYShift = 4;
+        } else {
+            weightsY[0] = 1; weightsY[1] = 3; weightsY[2] = 3; weightsY[3] = 1;
+            denomYShift = 3;
+        }
+    }
+
+    int sum = 0;
+    for (int iy = 0; iy < 4; iy++) {
+        if (weightsY[iy] == 0) {
+            continue;
+        }
+        for (int ix = 0; ix < 4; ix++) {
+            if (weightsX[ix] == 0) {
+                continue;
+            }
+            const int sample = degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX + offsets[ix], baseY + offsets[iy]);
+            sum += sample * weightsX[ix] * weightsY[iy];
+        }
+    }
+    return degrainClampPixel<TypePixel>(degrainRoundRshiftSigned(sum, denomXShift + denomYShift));
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelFromSamples(
+    const int s0, const int s1, const int s2, const int s3, const int s4, const int s5, const int interpMode) {
+    if (interpMode == 2) {
+        return degrainInterpHalfpelWienerHFromSamples<TypePixel>(s0, s1, s2, s3, s4, s5);
+    }
+    const int sum = s1 + 3 * s2 + 3 * s3 + s4;
+    return degrainClampPixel<TypePixel>((sum + 4) >> 3);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWienerVMirror(
+    const uint8_t *src, const int pitch, const int width, const int height, const int baseX, const int baseY) {
+    const int sum =
+        degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX, baseY - 2)
+        - 5 *
+            (degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX, baseY - 1)
+            + 4 * degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX, baseY)
+            + 4 * degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX, baseY + 1)
+            - degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX, baseY + 2))
+        + degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX, baseY + 3);
+    return degrainClampPixel<TypePixel>((sum + 16) >> 5);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWienerHMirror(
+    const uint8_t *src, const int pitch, const int width, const int height, const int baseX, const int baseY) {
+    return degrainInterpHalfpelWienerHFromSamples<TypePixel>(
+        degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX - 2, baseY),
+        degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX - 1, baseY),
+        degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX, baseY),
+        degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX + 1, baseY),
+        degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX + 2, baseY),
+        degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX + 3, baseY));
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWienerHVMirror(
+    const uint8_t *src, const int pitch, const int width, const int height, const int baseX, const int baseY) {
+    return degrainInterpHalfpelWienerHFromSamples<TypePixel>(
+        degrainInterpHalfpelWienerVMirror<TypePixel>(src, pitch, width, height, baseX - 2, baseY),
+        degrainInterpHalfpelWienerVMirror<TypePixel>(src, pitch, width, height, baseX - 1, baseY),
+        degrainInterpHalfpelWienerVMirror<TypePixel>(src, pitch, width, height, baseX, baseY),
+        degrainInterpHalfpelWienerVMirror<TypePixel>(src, pitch, width, height, baseX + 1, baseY),
+        degrainInterpHalfpelWienerVMirror<TypePixel>(src, pitch, width, height, baseX + 2, baseY),
+        degrainInterpHalfpelWienerVMirror<TypePixel>(src, pitch, width, height, baseX + 3, baseY));
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpHalfpelWeightedMirror(
+    const uint8_t *src, const int pitch, const int width, const int height,
+    const int baseX, const int baseY, const int fracX, const int fracY, const int interpMode) {
+    if (interpMode == 2) {
+        if (fracX != 0 && fracY != 0) {
+            return degrainInterpHalfpelWienerHVMirror<TypePixel>(src, pitch, width, height, baseX, baseY);
+        }
+        if (fracX != 0) {
+            return degrainInterpHalfpelWienerHMirror<TypePixel>(src, pitch, width, height, baseX, baseY);
+        }
+        if (fracY != 0) {
+            return degrainInterpHalfpelWienerVMirror<TypePixel>(src, pitch, width, height, baseX, baseY);
+        }
+    }
+
+    const int offsets[4] = { -1, 0, 1, 2 };
+    int weightsX[4] = { 0, 1, 0, 0 };
+    int weightsY[4] = { 0, 1, 0, 0 };
+    int denomXShift = 0;
+    int denomYShift = 0;
+
+    if (fracX != 0) {
+        if (interpMode == 2) {
+            weightsX[0] = -1; weightsX[1] = 9; weightsX[2] = 9; weightsX[3] = -1;
+            denomXShift = 4;
+        } else {
+            weightsX[0] = 1; weightsX[1] = 3; weightsX[2] = 3; weightsX[3] = 1;
+            denomXShift = 3;
+        }
+    }
+    if (fracY != 0) {
+        if (interpMode == 2) {
+            weightsY[0] = -1; weightsY[1] = 9; weightsY[2] = 9; weightsY[3] = -1;
+            denomYShift = 4;
+        } else {
+            weightsY[0] = 1; weightsY[1] = 3; weightsY[2] = 3; weightsY[3] = 1;
+            denomYShift = 3;
+        }
+    }
+
+    int sum = 0;
+    for (int iy = 0; iy < 4; iy++) {
+        if (weightsY[iy] == 0) {
+            continue;
+        }
+        for (int ix = 0; ix < 4; ix++) {
+            if (weightsX[ix] == 0) {
+                continue;
+            }
+            const int sample = degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX + offsets[ix], baseY + offsets[iy]);
+            sum += sample * weightsX[ix] * weightsY[iy];
+        }
+    }
+    return degrainClampPixel<TypePixel>(degrainRoundRshiftSigned(sum, denomXShift + denomYShift));
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpPel4H(
+    const uint8_t *src, const int pitch, const int width, const int height,
+    const int baseX, const int y, const int fracX, const int interpMode) {
+    if (fracX == 0) {
+        return degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, y);
+    }
+
+    const int halfPix = (interpMode == 2)
+        ? degrainInterpHalfpelWienerH<TypePixel>(src, pitch, width, height, baseX, y)
+        : degrainInterpHalfpelFromSamples<TypePixel>(
+            degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX - 2, y),
+            degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX - 1, y),
+            degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX, y),
+            degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX + 1, y),
+            degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX + 2, y),
+            degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX + 3, y),
+            interpMode);
+    if (fracX == 2) {
+        return halfPix;
+    }
+
+    const int side = degrainPixelLoad<TypePixel>(src, pitch, width, height, baseX + (fracX > 2 ? 1 : 0), y);
+    return (side + halfPix + 1) >> 1;
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainInterpPel4(
+    const uint8_t *src, const int pitch, const int width, const int height,
+    const int baseX, const int baseY, const int fracX, const int fracY, const int interpMode) {
+    if ((fracX & 1) == 0 && (fracY & 1) == 0) {
+        return degrainInterpHalfpelWeighted<TypePixel>(src, pitch, width, height, baseX, baseY, fracX >> 1, fracY >> 1, interpMode);
+    }
+    if (fracY == 0) {
+        return degrainInterpPel4H<TypePixel>(src, pitch, width, height, baseX, baseY, fracX, interpMode);
+    }
+
+    const int halfPix = degrainInterpHalfpelFromSamples<TypePixel>(
+        degrainInterpPel4H<TypePixel>(src, pitch, width, height, baseX, baseY - 2, fracX, interpMode),
+        degrainInterpPel4H<TypePixel>(src, pitch, width, height, baseX, baseY - 1, fracX, interpMode),
+        degrainInterpPel4H<TypePixel>(src, pitch, width, height, baseX, baseY,     fracX, interpMode),
+        degrainInterpPel4H<TypePixel>(src, pitch, width, height, baseX, baseY + 1, fracX, interpMode),
+        degrainInterpPel4H<TypePixel>(src, pitch, width, height, baseX, baseY + 2, fracX, interpMode),
+        degrainInterpPel4H<TypePixel>(src, pitch, width, height, baseX, baseY + 3, fracX, interpMode),
+        interpMode);
+    if (fracY == 2) {
+        return halfPix;
+    }
+
+    const int side = degrainInterpPel4H<TypePixel>(src, pitch, width, height, baseX, baseY + (fracY > 2 ? 1 : 0), fracX, interpMode);
+    return (side + halfPix + 1) >> 1;
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainPixelLoadPelMirror(
+    const uint8_t *src, const int pitch, const int width, const int height,
+    const int xPel, const int yPel, const int pel, const int subpelInterp) {
+    if (pel <= 1) {
+        return degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, xPel, yPel);
+    }
+
+    const int baseX = degrainFloorDivPel(xPel, pel);
+    const int baseY = degrainFloorDivPel(yPel, pel);
+    const int fracX = degrainFloorModPel(xPel, baseX, pel);
+    const int fracY = degrainFloorModPel(yPel, baseY, pel);
+    if (fracX == 0 && fracY == 0) {
+        return degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX, baseY);
+    }
+
+    if (pel == 2 && subpelInterp >= 1) {
+        return degrainInterpHalfpelWeightedMirror<TypePixel>(src, pitch, width, height, baseX, baseY, fracX, fracY, subpelInterp);
+    }
+
+    const int p00 = degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX,     baseY);
+    const int p10 = degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX + 1, baseY);
+    const int p01 = degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX,     baseY + 1);
+    const int p11 = degrainPixelLoadMirror<TypePixel>(src, pitch, width, height, baseX + 1, baseY + 1);
+    const int invX = pel - fracX;
+    const int invY = pel - fracY;
+    const int value = p00 * invX * invY
+        + p10 * fracX * invY
+        + p01 * invX * fracY
+        + p11 * fracX * fracY;
+    return degrainRoundRshiftSigned(value, degrainPelRshift(pel) << 1);
+}
+
+__device__ __forceinline__ int degrainMotionSearchRefX(const int blockX, const int step, const int dx, const int pel) {
+    return blockX * step + degrainFloorDivPel(dx, pel);
+}
+
+__device__ __forceinline__ int degrainMotionSearchRefY(const int blockY, const int step, const int dy, const int pel) {
+    return blockY * step + degrainFloorDivPel(dy, pel);
+}
+
+__device__ __forceinline__ int degrainMotionSearchRefFracX(const int dx, const int pel) {
+    const int base = degrainFloorDivPel(dx, pel);
+    return degrainFloorModPel(dx, base, pel);
+}
+
+__device__ __forceinline__ int degrainMotionSearchRefFracY(const int dy, const int pel) {
+    const int base = degrainFloorDivPel(dy, pel);
+    return degrainFloorModPel(dy, base, pel);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ int degrainMotionSearchRefSample(
+    const uint8_t *ref,
+    const int refPitch,
+    const int width,
+    const int height,
+    const int blockX,
+    const int blockY,
+    const int step,
+    const int dx,
+    const int dy,
+    const int x,
+    const int y,
+    const int pel,
+    const int subpelInterp) {
+    if (pel <= 1) {
+        return degrainPixelLoadMirror<TypePixel>(
+            ref,
+            refPitch,
+            width,
+            height,
+            degrainMotionSearchRefX(blockX, step, dx, pel) + x,
+            degrainMotionSearchRefY(blockY, step, dy, pel) + y);
+    }
+    return degrainPixelLoadPelMirror<TypePixel>(
+        ref,
+        refPitch,
+        width,
+        height,
+        (blockX * step + x) * pel + dx,
+        (blockY * step + y) * pel + dy,
+        pel,
+        subpelInterp);
+}
+
+__device__ __forceinline__ int degrainMotionSearchRefIsIntegerPel(const int dx, const int dy, const int pel) {
+    return pel <= 1
+        || (degrainMotionSearchRefFracX(dx, pel) == 0 && degrainMotionSearchRefFracY(dy, pel) == 0);
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ uint32_t degrainMotionSearchCalcSadLuma(
+    const uint8_t *cur,
+    const uint8_t *ref,
+    const int curPitch,
+    const int refPitch,
+    const int width,
+    const int height,
+    const int blockX,
+    const int blockY,
+    const int step,
+    const int dx,
+    const int dy,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp) {
+    const int srcX = blockX * step;
+    const int srcY = blockY * step;
+    const int refX = degrainMotionSearchRefX(blockX, step, dx, pel);
+    const int refY = degrainMotionSearchRefY(blockY, step, dy, pel);
+    uint32_t sad = 0u;
+    for (int y = 0; y < blockSize; y++) {
+        for (int x = 0; x < blockSize; x++) {
+            const int srcValue = degrainPixelLoad<TypePixel>(cur, curPitch, width, height, srcX + x, srcY + y);
+            const int refValue = degrainMotionSearchRefSample<TypePixel>(ref, refPitch, width, height, blockX, blockY, step, dx, dy, x, y, pel, subpelInterp);
+            sad += (uint32_t)abs(srcValue - refValue);
+        }
+    }
+    return sad;
+}
+
+template<typename TypePixel>
+__device__ __forceinline__ uint32_t degrainMotionSearchCalcSadLumaPart(
+    const uint8_t *cur,
+    const uint8_t *ref,
+    const int curPitch,
+    const int refPitch,
+    const int width,
+    const int height,
+    const int blockX,
+    const int blockY,
+    const int step,
+    const int dx,
+    const int dy,
+    const int tx,
+    const int blockSize,
+    const int pel,
+    const int subpelInterp) {
+    const int srcX = blockX * step;
+    const int srcY = blockY * step;
+    const int refX = degrainMotionSearchRefX(blockX, step, dx, pel);
+    const int refY = degrainMotionSearchRefY(blockY, step, dy, pel);
+    const int x = tx % blockSize;
+    uint32_t sad = 0u;
+    for (int y = tx / blockSize; y < blockSize; y += 8) {
+        const int srcValue = degrainPixelLoad<TypePixel>(cur, curPitch, width, height, srcX + x, srcY + y);
+        const int refValue = degrainMotionSearchRefSample<TypePixel>(ref, refPitch, width, height, blockX, blockY, step, dx, dy, x, y, pel, subpelInterp);
+        sad += (uint32_t)abs(srcValue - refValue);
+    }
+    return sad;
+}
+
+__device__ __forceinline__ uint32_t degrainMotionSearchReduceGroup(const uint32_t value) {
+    return value;
+}
+
+__device__ __forceinline__ uint32_t degrainMotionSearchReduceCandidates(const uint32_t value) {
+    return value;
+}
+
 template<typename TypePixel>
 __device__ __forceinline__ int degrainAnalysisLumaToFullRange(const int value, const int tvRange) {
     if (!tvRange) {
