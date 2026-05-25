@@ -31,6 +31,7 @@
 #include <array>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "NVEncFilter.h"
 #include "NVEncFilterDegrainMV.h"
@@ -119,6 +120,7 @@ protected:
         uint64_t scaledThSCD2;
         CUMemBuf *sad;
         RGYCudaEvent mapEvent;
+        std::vector<RGYDegrainSAD> sadHost;
         bool mapSubmitted;
 
         PendingSceneChange() :
@@ -136,6 +138,7 @@ protected:
             scaledThSCD2(0),
             sad(nullptr),
             mapEvent(),
+            sadHost(),
             mapSubmitted(false) {
             availabilityDisableRefs.fill(true);
             useFlagDisableRefs.fill(false);

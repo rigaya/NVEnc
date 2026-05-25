@@ -29,13 +29,35 @@
 #include "NVEncFilterDegrainMV.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <limits>
+#include <sstream>
 
 #include "rgy_frame_info.h"
 
 namespace {
 static uint32_t degrainClampMetaU32(const size_t value) {
     return (uint32_t)std::min<size_t>(value, std::numeric_limits<uint32_t>::max());
+}
+
+static bool degrainEnvFlagNotDisabled(const char *name) {
+    const auto value = std::getenv(name);
+    return !(value && value[0] == '0' && value[1] == '\0');
+}
+
+static bool degrainMotionSearchRefLocalCacheEnabled() {
+    static const bool enabled = degrainEnvFlagNotDisabled("NVENC_DEGRAIN_MOTION_SEARCH_REF_LOCAL_CACHE");
+    return enabled;
+}
+
+static bool degrainMotionSearchLazyRefWindowEnabled() {
+    static const bool enabled = degrainEnvFlagNotDisabled("NVENC_DEGRAIN_MOTION_SEARCH_LAZY_REF_WINDOW");
+    return enabled;
+}
+
+static bool degrainMotionSearchSpatialReusePreviousSadEnabled() {
+    static const bool enabled = degrainEnvFlagNotDisabled("NVENC_DEGRAIN_MOTION_SEARCH_SPATIAL_REUSE_PREVIOUS_SAD");
+    return enabled;
 }
 }
 
@@ -323,4 +345,85 @@ void rgy_degrain_erase_frame_data(std::vector<std::shared_ptr<RGYFrameData>> &da
     dataList.erase(std::remove_if(dataList.begin(), dataList.end(), [](const std::shared_ptr<RGYFrameData> &data) {
         return std::dynamic_pointer_cast<RGYFrameDataDegrain>(data) != nullptr;
     }), dataList.end());
+}
+
+RGYDegrainMotionSearchConfig rgy_degrain_make_motion_search_config(
+    const RGYFrameInfo &frameInfo,
+    const VppDegrain &degrain,
+    const RGYDegrainBlockLayout &layout,
+    const int level,
+    const int pad) {
+    RGYDegrainMotionSearchConfig cfg;
+    cfg.pixelBytes = (RGY_CSP_BIT_DEPTH[frameInfo.csp] > 8) ? 2 : 1;
+    cfg.bitDepth = RGY_CSP_BIT_DEPTH[frameInfo.csp];
+    cfg.pixelMax = (cfg.bitDepth >= 16) ? std::numeric_limits<uint16_t>::max() : ((1 << cfg.bitDepth) - 1);
+    cfg.blockSize = layout.blockSize;
+    cfg.searchMode = layout.search;
+    cfg.pel = degrain.pel;
+    cfg.chroma = 0;
+    cfg.cpuEmu = 1;
+    cfg.searchParam = degrain.searchParam;
+    cfg.refs = layout.temporalDirections;
+    cfg.trueMotion = degrain.trueMotion ? 1 : 0;
+    cfg.globalMotion = degrain.globalMotion ? 1 : 0;
+    cfg.subpelInterp = degrain.subpelInterp;
+    cfg.width = frameInfo.width;
+    cfg.height = frameInfo.height;
+    cfg.blocksX = layout.blocksX;
+    cfg.blocksY = layout.blocksY;
+    cfg.step = layout.step;
+    cfg.overlap = layout.overlap;
+    cfg.pad = pad;
+    cfg.motionCostScale = degrain.lambda;
+    auto scaledDegrain = degrain;
+    scaledDegrain.blksize = layout.blockSize;
+    scaledDegrain.overlap = layout.overlap;
+    cfg.lowSadWeightScale = (int)rgy_degrain_scale_sad_threshold(scaledDegrain, frameInfo, degrain.lsad);
+    cfg.zeroCandidateCostScale = degrain.pnew;
+    cfg.frameAverageCandidateCostScale = 0;
+    cfg.predictorCandidateCostScale = degrain.plevel;
+    cfg.newCandidateCostScale = degrain.pnew;
+    cfg.level = level;
+    return cfg;
+}
+
+std::string makeDegrainMotionSearchBuildOptions(const RGYDegrainMotionSearchConfig &cfg) {
+    std::ostringstream options;
+    options
+        << "-D TypePixel=" << ((cfg.pixelBytes > 1) ? "ushort" : "uchar")
+        << " -D DEGRAIN_PIXEL_TYPE=" << ((cfg.pixelBytes > 1) ? "ushort" : "uchar")
+        << " -D DEGRAIN_PIXEL_BYTES=" << cfg.pixelBytes
+        << " -D DEGRAIN_BIT_DEPTH=" << cfg.bitDepth
+        << " -D DEGRAIN_PIXEL_MAX=" << cfg.pixelMax
+        << " -D DEGRAIN_BLK_SIZE=" << cfg.blockSize
+        << " -D DEGRAIN_BLOCK_SIZE=" << cfg.blockSize
+        << " -D DEGRAIN_SEARCH=" << cfg.searchMode
+        << " -D DEGRAIN_SEARCH_MODE=" << cfg.searchMode
+        << " -D DEGRAIN_PEL=" << cfg.pel
+        << " -D DEGRAIN_NPEL=" << cfg.pel
+        << " -D DEGRAIN_CHROMA=" << (cfg.chroma ? 1 : 0)
+        << " -D DEGRAIN_CPU_EMU=" << (cfg.cpuEmu ? 1 : 0)
+        << " -D DEGRAIN_SEARCH_PARAM=" << cfg.searchParam
+        << " -D DEGRAIN_REFS=" << cfg.refs
+        << " -D DEGRAIN_TRUE_MOTION=" << (cfg.trueMotion ? 1 : 0)
+        << " -D DEGRAIN_GLOBAL_MOTION=" << (cfg.globalMotion ? 1 : 0)
+        << " -D DEGRAIN_SUBPEL_INTERP=" << cfg.subpelInterp
+        << " -D DEGRAIN_WIDTH=" << cfg.width
+        << " -D DEGRAIN_HEIGHT=" << cfg.height
+        << " -D DEGRAIN_BLOCKS_X=" << cfg.blocksX
+        << " -D DEGRAIN_BLOCKS_Y=" << cfg.blocksY
+        << " -D DEGRAIN_STEP=" << cfg.step
+        << " -D DEGRAIN_OVERLAP=" << cfg.overlap
+        << " -D DEGRAIN_PAD=" << cfg.pad
+        << " -D DEGRAIN_MOTION_COST_SCALE=" << cfg.motionCostScale
+        << " -D DEGRAIN_LOW_SAD_WEIGHT_SCALE=" << cfg.lowSadWeightScale
+        << " -D DEGRAIN_ZERO_CANDIDATE_COST_SCALE=" << cfg.zeroCandidateCostScale
+        << " -D DEGRAIN_FRAME_AVERAGE_CANDIDATE_COST_SCALE=" << cfg.frameAverageCandidateCostScale
+        << " -D DEGRAIN_PREDICTOR_CANDIDATE_COST_SCALE=" << cfg.predictorCandidateCostScale
+        << " -D DEGRAIN_NEW_CANDIDATE_COST_SCALE=" << cfg.newCandidateCostScale
+        << " -D DEGRAIN_LEVEL=" << cfg.level
+        << " -D DEGRAIN_MOTION_SEARCH_REF_LOCAL_CACHE=" << (degrainMotionSearchRefLocalCacheEnabled() ? 1 : 0)
+        << " -D DEGRAIN_MOTION_SEARCH_LAZY_REF_WINDOW=" << (degrainMotionSearchLazyRefWindowEnabled() ? 1 : 0)
+        << " -D DEGRAIN_MOTION_SEARCH_SPATIAL_REUSE_PREVIOUS_SAD=" << (degrainMotionSearchSpatialReusePreviousSadEnabled() ? 1 : 0);
+    return options.str();
 }

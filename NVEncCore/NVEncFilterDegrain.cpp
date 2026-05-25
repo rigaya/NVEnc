@@ -30,7 +30,9 @@
 #include "NVEncFilterDegrainCommon.h"
 
 #include <algorithm>
+#include <cassert>
 #include <limits>
+#include <cstdlib>
 
 #include "rgy_frame_info.h"
 #include "rgy_util.h"
@@ -98,6 +100,119 @@ RGY_ERR degrainRecordEvent(cudaStream_t stream, RGYCudaEvent *event) {
     }
     event->set(cudaEvent);
     return RGY_ERR_NONE;
+}
+
+uint32_t degrainAnalyzeFlags(const std::shared_ptr<NVEncFilterParamDegrain> &prm, const bool usesAnalysisLuma, const bool includesChromaSad) {
+    uint32_t flags = RGY_DEGRAIN_FRAME_META_FLAG_NONE;
+    if (prm && usesAnalysisLuma) {
+        flags |= RGY_DEGRAIN_FRAME_META_FLAG_ANALYSIS_LUMA;
+    }
+    if (prm && prm->degrain.levels >= 2) {
+        flags |= RGY_DEGRAIN_FRAME_META_FLAG_LEVEL1_REFINE;
+    }
+    if (prm && includesChromaSad) {
+        flags |= RGY_DEGRAIN_FRAME_META_FLAG_CHROMA_SAD;
+    }
+    return flags;
+}
+
+bool degrainTraceEnvEnabled(const char *name) {
+    const auto value = std::getenv(name);
+    return value != nullptr && value[0] != '\0' && value[0] != '0';
+}
+
+int degrainTraceEnvInt(const char *name, const int fallback) {
+    const auto value = std::getenv(name);
+    if (value == nullptr || value[0] == '\0') {
+        return fallback;
+    }
+    return std::atoi(value);
+}
+
+struct RGYDegrainAnalyzeChromaPlanes {
+    RGYFrameInfo curU;
+    RGYFrameInfo curV;
+    std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> refU;
+    std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> refV;
+    int width;
+    int height;
+    int enable;
+};
+
+bool degrainChromaAnalysisFrameSupported(const RGYFrameInfo *frame) {
+    if (!frame || RGY_CSP_PLANES[frame->csp] < 3) {
+        return false;
+    }
+    switch (RGY_CSP_CHROMA_FORMAT[frame->csp]) {
+    case RGY_CHROMAFMT_YUV420:
+    case RGY_CHROMAFMT_YUV422:
+    case RGY_CHROMAFMT_YUV444:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool degrainValidAnalysisPlane(const RGYFrameInfo &plane) {
+    return plane.ptr[0] != nullptr && plane.pitch[0] > 0 && plane.width > 0 && plane.height > 0;
+}
+
+RGYDegrainAnalyzeChromaPlanes degrainMakeAnalyzeChromaPlanes(
+    const RGYFilterDegrainFrameSet &analysisFrames,
+    const RGYFrameInfo &planeCur,
+    const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> &refPlanes,
+    const int temporalDirections,
+    const int requiredDelta,
+    const bool requestChroma,
+    const bool usedSearchLuma) {
+    RGYDegrainAnalyzeChromaPlanes planes = {};
+    planes.curU = getPlane(analysisFrames.cur, RGY_PLANE_U);
+    planes.curV = getPlane(analysisFrames.cur, RGY_PLANE_V);
+    planes.refU.fill(planeCur);
+    planes.refV.fill(planeCur);
+
+    bool enable = requestChroma
+        && degrainChromaAnalysisFrameSupported(analysisFrames.cur)
+        && degrainValidAnalysisPlane(planes.curU)
+        && degrainValidAnalysisPlane(planes.curV);
+    for (int delta = 1; delta <= requiredDelta; delta++) {
+        const int backwardIndex = rgy_degrain_ref_index(delta, false);
+        const int forwardIndex = rgy_degrain_ref_index(delta, true);
+        const auto backward = analysisFrames.backwardRef(delta);
+        const auto forward = analysisFrames.forwardRef(delta);
+        planes.refU[backwardIndex] = getPlane(backward, RGY_PLANE_U);
+        planes.refV[backwardIndex] = getPlane(backward, RGY_PLANE_V);
+        planes.refU[forwardIndex] = getPlane(forward, RGY_PLANE_U);
+        planes.refV[forwardIndex] = getPlane(forward, RGY_PLANE_V);
+        enable = enable
+            && degrainChromaAnalysisFrameSupported(backward)
+            && degrainChromaAnalysisFrameSupported(forward);
+    }
+    for (int dir = 0; dir < temporalDirections; dir++) {
+        enable = enable
+            && degrainValidAnalysisPlane(planes.refU[dir])
+            && degrainValidAnalysisPlane(planes.refV[dir]);
+    }
+    (void)usedSearchLuma;
+
+    if (!degrainValidAnalysisPlane(planes.curU)) {
+        planes.curU = planeCur;
+    }
+    if (!degrainValidAnalysisPlane(planes.curV)) {
+        planes.curV = planeCur;
+    }
+    for (int dir = 0; dir < temporalDirections; dir++) {
+        if (!degrainValidAnalysisPlane(planes.refU[dir])) {
+            planes.refU[dir] = refPlanes[dir];
+        }
+        if (!degrainValidAnalysisPlane(planes.refV[dir])) {
+            planes.refV[dir] = refPlanes[dir];
+        }
+    }
+    planes.width = planes.curU.width;
+    planes.height = planes.curU.height;
+    planes.enable = enable ? 1 : 0;
+    return planes;
 }
 
 }
@@ -942,12 +1057,184 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet&,
     return RGY_ERR_UNSUPPORTED;
 }
 
-RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *, RGYFrameInfo *, int, cudaStream_t, const RGYCudaEvent &, RGYCudaEvent *) {
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
+    const int currentFrame, cudaStream_t stream, const RGYCudaEvent &frameCopyEvent, RGYCudaEvent *event) {
+    if (!sourceFrame || !outputFrame || !m_analysis.mv || !m_analysis.sad) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto mv = std::make_unique<CUMemBuf>(m_analysis.mvBytes);
+    auto err = mv->alloc();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame MV side data buffer.\n"));
+        return err;
+    }
+    auto sad = std::make_unique<CUMemBuf>(m_analysis.sadBytes);
+    err = sad->alloc();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame SAD side data buffer.\n"));
+        return err;
+    }
+
+    if (frameCopyEvent() != nullptr) {
+        err = err_to_rgy(cudaStreamWaitEvent(stream, frameCopyEvent(), 0));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain frame copy event for side data: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+    if (m_analysis.event() != nullptr) {
+        err = err_to_rgy(cudaStreamWaitEvent(stream, m_analysis.event(), 0));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain analysis event for side data: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+    err = err_to_rgy(cudaMemcpyAsync(mv->ptr, m_analysis.mv->ptr, m_analysis.mvBytes, cudaMemcpyDeviceToDevice, stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain MV side data buffer: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    err = err_to_rgy(cudaMemcpyAsync(sad->ptr, m_analysis.sad->ptr, m_analysis.sadBytes, cudaMemcpyDeviceToDevice, stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain SAD side data buffer: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    RGYCudaEvent sideDataEvent;
+    err = degrainRecordEvent(stream, &sideDataEvent);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to record degrain side data event: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    const uint32_t flags = degrainAnalyzeFlags(prm, useAnalysisLumaCache() || m_lastAnalysisUsedSearchLuma, m_lastAnalysisIncludedChroma);
+    auto frameData = std::make_shared<RGYFrameDataDegrain>(
+        rgy_degrain_make_frame_meta_header(m_analysis.layout, flags),
+        std::move(mv),
+        std::move(sad),
+        sideDataEvent,
+        currentFrame,
+        sourceFrame->inputFrameId,
+        sourceFrame->timestamp,
+        sourceFrame->duration,
+        m_analysis.lastAvailabilityDisableRefs);
+    rgy_degrain_erase_frame_data(outputFrame->dataList);
+    outputFrame->dataList.push_back(frameData);
+    if (event) {
+        *event = sideDataEvent;
+    }
+    return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDegrain::prepareAnalysisState(const RGYFilterDegrainFrameSet&, cudaStream_t, const std::vector<RGYCudaEvent>&) {
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::prepareAnalysisState(const RGYFilterDegrainFrameSet &frames, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
+    const int requiredDelta = std::min(RGY_DEGRAIN_MAX_DELTA, std::max(1, m_analysis.layout.temporalDirections / 2));
+    m_lastAnalysisUsedSearchLuma = false;
+    m_lastAnalysisIncludedChroma = false;
+    if (!frames.cur || frames.cur->ptr[0] == nullptr || !m_analysis.mv || !m_analysis.sad) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain analysis buffers are not ready.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    for (int delta = 1; delta <= requiredDelta; delta++) {
+        if (!frames.backwardRef(delta) || !frames.forwardRef(delta)
+            || frames.backwardRef(delta)->ptr[0] == nullptr || frames.forwardRef(delta)->ptr[0] == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("degrain analysis reference frames for delta=%d are not ready.\n"), delta);
+            return RGY_ERR_INVALID_CALL;
+        }
+    }
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid degrain parameter type in analysis.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto analysisFrames = frames;
+    const auto attachedCur = degrainAttachedSearchLumaFrame(frames.cur);
+    bool hasAttachedRefs = (attachedCur != nullptr);
+    for (int delta = 1; delta <= requiredDelta && hasAttachedRefs; delta++) {
+        const auto attachedBackward = degrainAttachedSearchLumaFrame(frames.backwardRef(delta));
+        const auto attachedForward = degrainAttachedSearchLumaFrame(frames.forwardRef(delta));
+        hasAttachedRefs &= (attachedBackward != nullptr && attachedForward != nullptr);
+        if (hasAttachedRefs) {
+            analysisFrames.backward[delta - 1] = attachedBackward;
+            analysisFrames.forward[delta - 1] = attachedForward;
+        }
+    }
+    if (hasAttachedRefs) {
+        analysisFrames.cur = attachedCur;
+        m_lastAnalysisUsedSearchLuma = true;
+    }
+    logLocalAnalysis(_T("local"), analysisFrames);
+
+    const auto planeCur = getPlane(analysisFrames.cur, RGY_PLANE_Y);
+    std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> refPlanes;
+    refPlanes.fill(planeCur);
+    for (int delta = 1; delta <= requiredDelta; delta++) {
+        refPlanes[rgy_degrain_ref_index(delta, false)] = getPlane(analysisFrames.backwardRef(delta), RGY_PLANE_Y);
+        refPlanes[rgy_degrain_ref_index(delta, true)] = getPlane(analysisFrames.forwardRef(delta), RGY_PLANE_Y);
+    }
+    if (planeCur.ptr[0] == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain analysis requires valid luma planes.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    for (int dir = 0; dir < m_analysis.layout.temporalDirections; dir++) {
+        if (refPlanes[dir].ptr[0] == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("degrain analysis reference plane dir=%d is invalid.\n"), dir);
+            return RGY_ERR_INVALID_CALL;
+        }
+    }
+    const int pitchY = planeCur.pitch[0];
+    for (int dir = 0; dir < m_analysis.layout.temporalDirections; dir++) {
+        if (refPlanes[dir].pitch[0] != pitchY) {
+            AddMessage(RGY_LOG_ERROR,
+                _T("degrain analysis luma pitch mismatch: cur=%d, refdir%d=%d.\n"),
+                pitchY, dir, refPlanes[dir].pitch[0]);
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    const auto chromaPlanes = degrainMakeAnalyzeChromaPlanes(
+        analysisFrames,
+        planeCur,
+        refPlanes,
+        m_analysis.layout.temporalDirections,
+        requiredDelta,
+        prm->degrain.chroma,
+        m_lastAnalysisUsedSearchLuma);
+    m_lastAnalysisIncludedChroma = chromaPlanes.enable != 0;
+    const int pitchUV = chromaPlanes.curU.pitch[0];
+    if (chromaPlanes.enable) {
+        if (chromaPlanes.curV.pitch[0] != pitchUV) {
+            AddMessage(RGY_LOG_ERROR,
+                _T("degrain analysis chroma pitch mismatch: curU=%d, curV=%d.\n"),
+                pitchUV, chromaPlanes.curV.pitch[0]);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        for (int dir = 0; dir < m_analysis.layout.temporalDirections; dir++) {
+            if (chromaPlanes.refU[dir].pitch[0] != pitchUV || chromaPlanes.refV[dir].pitch[0] != pitchUV) {
+                AddMessage(RGY_LOG_ERROR,
+                    _T("degrain analysis chroma pitch mismatch: curUV=%d, refdir%d U=%d, V=%d.\n"),
+                    pitchUV, dir, chromaPlanes.refU[dir].pitch[0], chromaPlanes.refV[dir].pitch[0]);
+                return RGY_ERR_INVALID_PARAM;
+            }
+        }
+    }
+
+    std::vector<RGYCudaEvent> analysisWaitEvents = wait_events;
+    if (useAnalysisLumaCache()) {
+        for (const auto &analysisLumaEvent : m_analysis.analysisLumaEvents) {
+            if (analysisLumaEvent() != nullptr) {
+                analysisWaitEvents.push_back(analysisLumaEvent);
+            }
+        }
+    }
+    const auto motionSearchErr = prepareAnalysisStateMotionSearch(planeCur, refPlanes, stream, analysisWaitEvents);
+    if (motionSearchErr != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain motion search analysis failed: %s.\n"), get_err_mes(motionSearchErr));
+        return motionSearchErr;
+    }
+    logAnalysisSamples(_T("local"), frames.cur, stream);
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo&, const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS>&,
@@ -955,84 +1242,569 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo&
     return RGY_ERR_UNSUPPORTED;
 }
 
-RGY_ERR NVEncFilterDegrain::runAnalyzeMode(const RGYFilterDegrainProcessFrameSet&, int, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    cudaStream_t, const std::vector<RGYCudaEvent>&, RGYCudaEvent *) {
-    *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
-    return RGY_ERR_UNSUPPORTED;
-}
-
-RGY_ERR NVEncFilterDegrain::runDebugMode(const RGYFilterDegrainProcessFrameSet&, int, VppDegrainMode, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    cudaStream_t, const std::vector<RGYCudaEvent>&, RGYCudaEvent *) {
-    *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
-    return RGY_ERR_UNSUPPORTED;
-}
-
-RGY_ERR NVEncFilterDegrain::runCompensateMode(const RGYFilterDegrainProcessFrameSet&, int, VppDegrainMode, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    cudaStream_t, const std::vector<RGYCudaEvent>&, RGYCudaEvent *) {
-    *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
-    return RGY_ERR_UNSUPPORTED;
-}
-
-RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet&, int, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    cudaStream_t, const std::vector<RGYCudaEvent>&, RGYCudaEvent *) {
-    *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
-    return RGY_ERR_UNSUPPORTED;
-}
-
-RGY_ERR NVEncFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<NVEncFilterParamDegrain>&, const RGYFilterDegrainProcessFrameSet&,
-    cudaStream_t, PendingSceneChange *) {
-    return RGY_ERR_UNSUPPORTED;
-}
-
-RGY_ERR NVEncFilterDegrain::resolveSceneChangeReadback(PendingSceneChange&, cudaStream_t, RGYDegrainRefDisableArray *) {
-    return RGY_ERR_UNSUPPORTED;
-}
-
-RGY_ERR NVEncFilterDegrain::resolvePendingSceneChangeFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t, RGYCudaEvent *) {
-    *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
-    return RGY_ERR_UNSUPPORTED;
-}
-
-void NVEncFilterDegrain::applyPendingSceneChangeAnalysisContext(const PendingSceneChange&) {
-}
-
-void NVEncFilterDegrain::clearPendingSceneChange() {
-    m_pendingSceneChange.reset();
-}
-
-RGY_ERR NVEncFilterDegrain::resolveSceneChangeRefs(const std::shared_ptr<NVEncFilterParamDegrain>&, const RGYFilterDegrainFrameSet&, cudaStream_t,
-    RGYDegrainRefDisableArray *) {
-    return RGY_ERR_UNSUPPORTED;
-}
-
-RGY_ERR NVEncFilterDegrain::resolveSceneChange(const std::shared_ptr<NVEncFilterParamDegrain>&, const RGYFilterDegrainFrameSet&, cudaStream_t,
-    bool *, bool *) {
-    return RGY_ERR_UNSUPPORTED;
-}
-
-void NVEncFilterDegrain::loadDebugEnv() {
-    m_debugEnv = DebugEnv();
-}
-
-RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilterParamDegrain> &prm) {
-    if (modeRequiresAnalysis(prm->degrain.mode)) {
-        return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::runAnalyzeMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    clearFrameAnalysisData();
+    auto err = prepareAnalysisState(frames.analysis, stream, wait_events);
+    if (err != RGY_ERR_NONE) {
+        return err;
     }
-    m_analysis = RGYDegrainAnalysisState();
+    m_analysis.lastAvailabilityDisableRefs = degrainReferenceAvailability(frames.analysis);
+    m_analysis.lastFrameIndex = currentFrame;
+    m_analysis.lastInputFrameId = (frames.render.cur) ? frames.render.cur->inputFrameId : -1;
+    m_analysis.lastTimestamp = (frames.render.cur) ? frames.render.cur->timestamp : 0;
+    m_analysis.lastDuration = (frames.render.cur) ? frames.render.cur->duration : 0;
+    RGYCudaEvent copyEvent;
+    err = emitSourceFrame(frames.render.cur, ppOutputFrames, pOutputFrameNum, stream, {}, &copyEvent);
+    if (err != RGY_ERR_NONE || *pOutputFrameNum <= 0 || ppOutputFrames[0] == nullptr) {
+        if (event) {
+            *event = copyEvent;
+        }
+        return err;
+    }
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (prm && !prm->attachAnalysisData) {
+        if (event) {
+            *event = copyEvent;
+        }
+        return RGY_ERR_NONE;
+    }
+    return attachAnalysisData(frames.render.cur, ppOutputFrames[0], currentFrame, stream, copyEvent, event);
+}
+
+RGY_ERR NVEncFilterDegrain::runDebugMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, VppDegrainMode mode, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!bindFrameAnalysisData(frames.render.cur, currentFrame, stream)) {
+        auto err = prepareAnalysisState(frames.analysis, stream, wait_events);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+    return emitDebugFrame(frames.render, mode, ppOutputFrames, pOutputFrameNum, stream, event);
+}
+
+RGY_ERR NVEncFilterDegrain::runCompensateMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, VppDegrainMode mode, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!bindFrameAnalysisData(frames.render.cur, currentFrame, stream)) {
+        auto err = prepareAnalysisState(frames.analysis, stream, wait_events);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+    RGYDegrainRefDisableArray disableRefs;
+    auto err = resolveSceneChangeRefs(std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param), frames.analysis, stream, &disableRefs);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    return emitCompensateFrame(frames.render, mode, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
+}
+
+RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    std::unique_ptr<PendingSceneChange> pendingOutput;
+    if (m_pendingSceneChange) {
+        pendingOutput = std::move(m_pendingSceneChange);
+        applyPendingSceneChangeAnalysisContext(*pendingOutput);
+        RGYDegrainRefDisableArray disableRefs;
+        auto err = resolveSceneChangeReadback(*pendingOutput, stream, &disableRefs);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        logApplyTrace(pendingOutput->prm, pendingOutput->frames, disableRefs, stream);
+        err = emitDegrainFrame(pendingOutput->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    if (!bindFrameAnalysisData(frames.render.cur, currentFrame, stream)) {
+        auto err = prepareAnalysisState(frames.analysis, stream, wait_events);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    const bool canDeferSceneChange = !m_boundAnalyzeResult.valid() || m_frameAnalysisData;
+    if (!canDeferSceneChange) {
+        PendingSceneChange pending;
+        auto err = submitSceneChangeReadback(prm, frames, stream, &pending);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        RGYDegrainRefDisableArray disableRefs;
+        err = resolveSceneChangeReadback(pending, stream, &disableRefs);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        logApplyTrace(prm, frames, disableRefs, stream);
+        return emitDegrainFrame(frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
+    }
+
+    auto pending = std::make_unique<PendingSceneChange>();
+    auto err = submitSceneChangeReadback(prm, frames, stream, pending.get());
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    m_pendingSceneChange = std::move(pending);
+    if (pendingOutput) {
+        return RGY_ERR_NONE;
+    }
+
+    *pOutputFrameNum = 0;
+    ppOutputFrames[0] = nullptr;
     return RGY_ERR_NONE;
 }
 
-const RGYFrameInfo *NVEncFilterDegrain::resolveAnalysisLumaSourceFrame(int) const {
-    return nullptr;
+RGY_ERR NVEncFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<NVEncFilterParamDegrain> &prm, const RGYFilterDegrainProcessFrameSet &frames,
+    cudaStream_t stream, PendingSceneChange *pending) {
+    if (!pending) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    *pending = PendingSceneChange();
+    pending->prm = prm;
+    pending->frames = frames;
+    pending->frameAnalysisData = m_frameAnalysisData;
+    pending->boundAnalyzeResult = m_boundAnalyzeResult;
+    pending->frameAnalysisLayout = m_frameAnalysisLayout;
+    pending->layout = analysisLayout();
+
+    const auto availabilityDisableRefs = analysisAvailabilityDisableRefs(frames.analysis);
+    auto useFlagDisableRefs = RGYDegrainRefDisableArray();
+    useFlagDisableRefs.fill(false);
+    auto disableRefs = availabilityDisableRefs;
+    if (prm) {
+        if (prm->degrain.useFlag == 1) {
+            for (int delta = 1; delta <= RGY_DEGRAIN_MAX_DELTA; delta++) {
+                const int refIndex = rgy_degrain_ref_index(delta, true);
+                useFlagDisableRefs[refIndex] = true;
+                disableRefs[refIndex] = true;
+            }
+        } else if (prm->degrain.useFlag == 2) {
+            for (int delta = 1; delta <= RGY_DEGRAIN_MAX_DELTA; delta++) {
+                const int refIndex = rgy_degrain_ref_index(delta, false);
+                useFlagDisableRefs[refIndex] = true;
+                disableRefs[refIndex] = true;
+            }
+        }
+    }
+
+    auto *sad = analysisSAD();
+    const bool includeChromaSad = analysisSADIncludesChroma(prm);
+    const uint32_t scaledThSad = (prm) ? rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thsad, includeChromaSad) : 0;
+    const uint32_t scaledThSCD1 = (prm) ? rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thscd1, includeChromaSad) : 0;
+    const uint64_t scaledThSCD2 = (prm) ? rgy_degrain_scale_scene_change_block_threshold(pending->layout.blockCount(), prm->degrain.thscd2) : 0;
+    pending->availabilityDisableRefs = availabilityDisableRefs;
+    pending->useFlagDisableRefs = useFlagDisableRefs;
+    pending->disableRefs = disableRefs;
+    pending->scaledThSad = scaledThSad;
+    pending->scaledThSCD1 = scaledThSCD1;
+    pending->scaledThSCD2 = scaledThSCD2;
+    pending->sad = sad;
+    if (!prm || !sad || pending->layout.blockCount() == 0) {
+        return RGY_ERR_NONE;
+    }
+    bool allDirectionsDisabled = true;
+    for (int refDirection = 0; refDirection < std::min(pending->layout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
+        allDirectionsDisabled &= pending->disableRefs[refDirection];
+    }
+    if (allDirectionsDisabled) {
+        return RGY_ERR_NONE;
+    }
+
+    if (analysisEvent()() != nullptr) {
+        auto err = err_to_rgy(cudaStreamWaitEvent(stream, analysisEvent()(), 0));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain analysis event for scene change detection: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+    pending->sadHost.resize(pending->layout.sadCount());
+    auto err = err_to_rgy(cudaMemcpyAsync(pending->sadHost.data(), sad->ptr, rgy_degrain_sad_bytes(pending->layout), cudaMemcpyDeviceToHost, stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain SAD buffer for scene change detection: %s.\n"), get_err_mes(err));
+        pending->sadHost.clear();
+        return err;
+    }
+    err = degrainRecordEvent(stream, &pending->mapEvent);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to record degrain scene change readback event: %s.\n"), get_err_mes(err));
+        pending->sadHost.clear();
+        return err;
+    }
+    pending->mapSubmitted = true;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pending, cudaStream_t, RGYDegrainRefDisableArray *disableRefs) {
+    if (!disableRefs) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    *disableRefs = pending.disableRefs;
+    if (!pending.prm || !pending.sad || pending.layout.blockCount() == 0) {
+        logReferenceGate(pending.prm, pending.frames.analysis, pending.availabilityDisableRefs, pending.useFlagDisableRefs,
+            *disableRefs, nullptr, pending.scaledThSad, pending.scaledThSCD1, pending.scaledThSCD2);
+        return RGY_ERR_NONE;
+    }
+    if (!pending.mapSubmitted) {
+        logReferenceGate(pending.prm, pending.frames.analysis, pending.availabilityDisableRefs, pending.useFlagDisableRefs,
+            *disableRefs, nullptr, pending.scaledThSad, pending.scaledThSCD1, pending.scaledThSCD2);
+        return RGY_ERR_NONE;
+    }
+    if (pending.mapEvent() != nullptr) {
+        auto err = err_to_rgy(cudaEventSynchronize(pending.mapEvent()));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain SAD readback for scene change detection: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+    if (pending.sadHost.empty()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to access degrain SAD buffer for scene change detection.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+
+    std::array<size_t, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> sceneChangeBlockCounts = {};
+    for (size_t block = 0; block < pending.layout.blockCount(); block++) {
+        for (int refDirection = 0; refDirection < std::min(pending.layout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
+            if (pending.disableRefs[refDirection]) {
+                continue;
+            }
+            const auto &sadValue = pending.sadHost[block * (size_t)pending.layout.temporalDirections + (size_t)refDirection];
+            if (sadValue.sad > pending.scaledThSCD1) {
+                sceneChangeBlockCounts[refDirection]++;
+            }
+        }
+    }
+    pending.mapSubmitted = false;
+
+    for (int refDirection = 0; refDirection < std::min(pending.layout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
+        if (!pending.disableRefs[refDirection]) {
+            pending.disableRefs[refDirection] = (uint64_t)sceneChangeBlockCounts[refDirection] > pending.scaledThSCD2;
+        }
+    }
+    *disableRefs = pending.disableRefs;
+    logReferenceGate(pending.prm, pending.frames.analysis, pending.availabilityDisableRefs, pending.useFlagDisableRefs,
+        *disableRefs, &sceneChangeBlockCounts, pending.scaledThSad, pending.scaledThSCD1, pending.scaledThSCD2);
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterDegrain::resolvePendingSceneChangeFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, RGYCudaEvent *event) {
+    if (!m_pendingSceneChange) {
+        *pOutputFrameNum = 0;
+        ppOutputFrames[0] = nullptr;
+        return RGY_ERR_NONE;
+    }
+    applyPendingSceneChangeAnalysisContext(*m_pendingSceneChange);
+    RGYDegrainRefDisableArray disableRefs;
+    auto err = resolveSceneChangeReadback(*m_pendingSceneChange, stream, &disableRefs);
+    if (err != RGY_ERR_NONE) {
+        m_pendingSceneChange.reset();
+        return err;
+    }
+    logApplyTrace(m_pendingSceneChange->prm, m_pendingSceneChange->frames, disableRefs, stream);
+    err = emitDegrainFrame(m_pendingSceneChange->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
+    m_pendingSceneChange.reset();
+    return err;
+}
+
+void NVEncFilterDegrain::applyPendingSceneChangeAnalysisContext(const PendingSceneChange &pending) {
+    m_frameAnalysisData = pending.frameAnalysisData;
+    m_boundAnalyzeResult = pending.boundAnalyzeResult;
+    m_frameAnalysisLayout = pending.frameAnalysisLayout;
+}
+
+void NVEncFilterDegrain::clearPendingSceneChange() {
+    if (m_pendingSceneChange && m_pendingSceneChange->mapSubmitted && m_pendingSceneChange->mapEvent() != nullptr) {
+        cudaEventSynchronize(m_pendingSceneChange->mapEvent());
+        m_pendingSceneChange->mapSubmitted = false;
+    }
+    m_pendingSceneChange.reset();
+}
+
+RGY_ERR NVEncFilterDegrain::resolveSceneChangeRefs(const std::shared_ptr<NVEncFilterParamDegrain> &prm, const RGYFilterDegrainFrameSet &frames, cudaStream_t stream,
+    RGYDegrainRefDisableArray *disableRefs) {
+    PendingSceneChange pending;
+    RGYFilterDegrainProcessFrameSet processFrames = {};
+    processFrames.render = frames;
+    processFrames.analysis = frames;
+    auto err = submitSceneChangeReadback(prm, processFrames, stream, &pending);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    return resolveSceneChangeReadback(pending, stream, disableRefs);
+}
+
+RGY_ERR NVEncFilterDegrain::resolveSceneChange(const std::shared_ptr<NVEncFilterParamDegrain> &prm, const RGYFilterDegrainFrameSet &frames, cudaStream_t stream,
+    bool *disableBackward, bool *disableForward) {
+    if (!disableBackward || !disableForward) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    RGYDegrainRefDisableArray disableRefs;
+    auto err = resolveSceneChangeRefs(prm, frames, stream, &disableRefs);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    *disableBackward = disableRefs[rgy_degrain_refdir_index(RGYDegrainRefDir::Backward)];
+    *disableForward = disableRefs[rgy_degrain_refdir_index(RGYDegrainRefDir::Forward)];
+    return RGY_ERR_NONE;
+}
+
+void NVEncFilterDegrain::loadDebugEnv() {
+    m_debugEnv.applyTrace = degrainTraceEnvEnabled("NVENC_DEGRAIN_APPLY_TRACE");
+    m_debugEnv.applyTraceBlock = degrainTraceEnvInt("NVENC_DEGRAIN_APPLY_TRACE_BLOCK", -1);
+    m_debugEnv.forceDegrainCopy = degrainTraceEnvEnabled("NVENC_DEGRAIN_DEGRAIN_COPY");
+    m_debugEnv.pixelTrace = degrainTraceEnvEnabled("NVENC_DEGRAIN_PIXEL_TRACE");
+    m_debugEnv.pixelTraceX = degrainTraceEnvInt("NVENC_DEGRAIN_PIXEL_TRACE_X", 0);
+    m_debugEnv.pixelTraceY = degrainTraceEnvInt("NVENC_DEGRAIN_PIXEL_TRACE_Y", 0);
+    m_debugEnv.pixelTraceFrame = degrainTraceEnvInt("NVENC_DEGRAIN_PIXEL_TRACE_FRAME", -1);
+}
+
+RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilterParamDegrain> &prm) {
+    m_analysis.mode = prm->degrain.mode;
+    m_analysis.layout = rgy_degrain_make_block_layout(prm->frameOut, prm->degrain);
+    m_analysis.layoutLevel1 = rgy_degrain_make_pyramid_block_layout(prm->frameOut, prm->degrain);
+    for (auto &analysisLumaEvent : m_analysis.analysisLumaEvents) {
+        analysisLumaEvent.reset();
+    }
+    m_analysis.analysisLumaEvent.reset();
+    m_analysis.event.reset();
+
+    if (!modeRequiresAnalysis(prm->degrain.mode)) {
+        m_analysis.mv.reset();
+        m_analysis.sad.reset();
+        m_analysis.windowRampY.reset();
+        m_analysis.windowRampC.reset();
+        m_analysis.temporalMixPlanY.reset();
+        m_analysis.temporalMixPlanC.reset();
+        m_analysis.temporalMixPrior.reset();
+        m_analysis.motionSearchWorkspace.reset();
+        for (auto &luma : m_analysis.analysisLuma) {
+            luma.reset();
+        }
+        for (auto &frame : m_analysis.analysisLumaFrame) {
+            frame = RGYFrameInfo();
+        }
+        m_analysis.analysisLumaFrameNumbers.fill(-1);
+        for (auto &analysisLumaEvent : m_analysis.analysisLumaEvents) {
+            analysisLumaEvent.reset();
+        }
+        for (auto &luma : m_analysis.lumaLevel1) {
+            luma.reset();
+        }
+        m_analysis.mvBytes = 0;
+        m_analysis.sadBytes = 0;
+        m_analysis.analysisLumaBytes = 0;
+        m_analysis.lumaLevel1Bytes = 0;
+        m_analysis.analysisLumaWidth = 0;
+        m_analysis.analysisLumaHeight = 0;
+        m_analysis.analysisLumaPitch = 0;
+        m_analysis.analysisLumaGeneratedUntil = -1;
+        m_analysis.lumaLevel1Width = 0;
+        m_analysis.lumaLevel1Height = 0;
+        m_analysis.lumaLevel1Pitch = 0;
+        m_analysis.lastFrameIndex = -1;
+        m_analysis.lastInputFrameId = -1;
+        return RGY_ERR_NONE;
+    }
+
+    const bool binomial = (prm->degrain.binomial < 0)
+        ? (prm->degrain.stage != VppDegrainStage::TR2)
+        : (prm->degrain.binomial != 0);
+    const auto temporalMixPrior = degrainBuildTemporalMixPriorTable(m_analysis.layout.temporalDirections, binomial);
+    const auto temporalMixPriorBytes = temporalMixPrior.size() * sizeof(temporalMixPrior[0]);
+    if (!m_analysis.temporalMixPrior || m_analysis.temporalMixPrior->nSize != temporalMixPriorBytes) {
+        m_analysis.temporalMixPrior = std::make_unique<CUMemBuf>(temporalMixPriorBytes);
+        auto err = m_analysis.temporalMixPrior->alloc();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain temporal mix prior table buffer.\n"));
+            return err;
+        }
+    }
+    auto err = err_to_rgy(cudaMemcpy(m_analysis.temporalMixPrior->ptr, temporalMixPrior.data(), temporalMixPriorBytes, cudaMemcpyHostToDevice));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain temporal mix prior table: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    m_analysis.mvBytes = rgy_degrain_mv_bytes(m_analysis.layout);
+    m_analysis.sadBytes = rgy_degrain_sad_bytes(m_analysis.layout);
+    if (!m_analysis.mv || m_analysis.mv->nSize != m_analysis.mvBytes) {
+        m_analysis.mv = std::make_unique<CUMemBuf>(m_analysis.mvBytes);
+        err = m_analysis.mv->alloc();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain MV buffer.\n"));
+            return err;
+        }
+    }
+    if (!m_analysis.sad || m_analysis.sad->nSize != m_analysis.sadBytes) {
+        m_analysis.sad = std::make_unique<CUMemBuf>(m_analysis.sadBytes);
+        err = m_analysis.sad->alloc();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain SAD buffer.\n"));
+            return err;
+        }
+    }
+
+    const auto motionSearchConfig = rgy_degrain_make_motion_search_config(prm->frameOut, prm->degrain, m_analysis.layout, 0, 8);
+    auto motionSearchConfigLevel1 = rgy_degrain_make_motion_search_config(prm->frameOut, prm->degrain, m_analysis.layoutLevel1, 1, 4);
+    motionSearchConfigLevel1.width = std::max(1, (prm->frameOut.width + 1) / 2);
+    motionSearchConfigLevel1.height = std::max(1, (prm->frameOut.height + 1) / 2);
+    auto &motionSearchWorkspace = m_analysis.motionSearchWorkspace;
+    motionSearchWorkspace.buildOptionsLevel0 = makeDegrainMotionSearchBuildOptions(motionSearchConfig);
+    motionSearchWorkspace.buildOptionsLevel1 = makeDegrainMotionSearchBuildOptions(motionSearchConfigLevel1);
+
+    auto allocBuffer = [&](std::unique_ptr<CUMemBuf> &buf, size_t &currentBytes, const size_t requiredBytes, const TCHAR *name) {
+        currentBytes = requiredBytes;
+        if (requiredBytes == 0) {
+            buf.reset();
+            return RGY_ERR_NONE;
+        }
+        if (!buf || buf->nSize != requiredBytes) {
+            buf = std::make_unique<CUMemBuf>(requiredBytes);
+            const auto allocErr = buf->alloc();
+            if (allocErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain %s buffer.\n"), name);
+                return allocErr;
+            }
+        }
+        return RGY_ERR_NONE;
+    };
+    auto allocLevelWorkspace = [&](RGYDegrainMotionSearchLevelWorkspace &levelWorkspace, const RGYDegrainBlockLayout &layout, const TCHAR *levelName) {
+        const size_t planeCount = (size_t)layout.temporalDirections;
+        const size_t blockCount = layout.blockCount();
+        const size_t vectorCount = (2 + blockCount) * planeCount;
+        const size_t finalVectorCount = blockCount * planeCount;
+        const size_t sadCount = blockCount * planeCount;
+        auto levelErr = allocBuffer(levelWorkspace.vectors, levelWorkspace.vectorsBytes,
+            vectorCount * RGYDegrainMotionSearchWorkspace::VECTOR_BYTES, strsprintf(_T("motion search %s vectors workspace"), levelName).c_str());
+        if (levelErr != RGY_ERR_NONE) return levelErr;
+        levelErr = allocBuffer(levelWorkspace.vectorsPrev, levelWorkspace.vectorsPrevBytes,
+            vectorCount * RGYDegrainMotionSearchWorkspace::VECTOR_BYTES, strsprintf(_T("motion search %s prev vectors workspace"), levelName).c_str());
+        if (levelErr != RGY_ERR_NONE) return levelErr;
+        levelErr = allocBuffer(levelWorkspace.vectorsFinal, levelWorkspace.vectorsFinalBytes,
+            finalVectorCount * RGYDegrainMotionSearchWorkspace::VECTOR_BYTES, strsprintf(_T("motion search %s final vectors workspace"), levelName).c_str());
+        if (levelErr != RGY_ERR_NONE) return levelErr;
+        return allocBuffer(levelWorkspace.sads, levelWorkspace.sadsBytes,
+            sadCount * RGYDegrainMotionSearchWorkspace::SAD_BYTES, strsprintf(_T("motion search %s sads workspace"), levelName).c_str());
+    };
+    err = allocLevelWorkspace(motionSearchWorkspace.level0, m_analysis.layout, _T("level0"));
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    if (prm->degrain.levels > 1) {
+        err = allocLevelWorkspace(motionSearchWorkspace.level1, m_analysis.layoutLevel1, _T("level1"));
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    } else {
+        motionSearchWorkspace.level1.reset();
+    }
+    const size_t motionSearchFrameAverageVectorCount = (size_t)m_analysis.layout.temporalDirections;
+    err = allocBuffer(motionSearchWorkspace.frameAverageMV, motionSearchWorkspace.frameAverageMVBytes,
+        motionSearchFrameAverageVectorCount * RGYDegrainMotionSearchWorkspace::FRAME_AVERAGE_MV_BYTES, _T("motion search frameAverageMV workspace"));
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
+    const int bitdepth = RGY_CSP_BIT_DEPTH[prm->frameOut.csp];
+    const int pixelBytes = (bitdepth > 8) ? 2 : 1;
+    if (degrainRequiresAnalysisLumaCache(prm->degrain)) {
+        m_analysis.analysisLumaWidth = prm->frameOut.width;
+        m_analysis.analysisLumaHeight = prm->frameOut.height;
+        m_analysis.analysisLumaPitch = m_analysis.analysisLumaWidth * pixelBytes;
+        m_analysis.analysisLumaBytes = (size_t)m_analysis.analysisLumaPitch * (size_t)m_analysis.analysisLumaHeight;
+        const auto analysisCsp = degrainAnalysisLumaCsp(prm->frameOut);
+        for (int i = 0; i < (int)m_analysis.analysisLuma.size(); i++) {
+            auto &luma = m_analysis.analysisLuma[i];
+            if (!luma || luma->nSize != m_analysis.analysisLumaBytes) {
+                luma = std::make_unique<CUMemBuf>(m_analysis.analysisLumaBytes);
+                err = luma->alloc();
+                if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain analysis luma buffer.\n"));
+                    return err;
+                }
+            }
+            auto &frame = m_analysis.analysisLumaFrame[i];
+            frame = RGYFrameInfo(m_analysis.analysisLumaWidth, m_analysis.analysisLumaHeight, analysisCsp, bitdepth, RGY_PICSTRUCT_FRAME, RGY_MEM_TYPE_GPU);
+            frame.ptr[0] = reinterpret_cast<uint8_t *>(m_analysis.analysisLuma[i]->ptr);
+            frame.pitch[0] = m_analysis.analysisLumaPitch;
+        }
+        m_analysis.analysisLumaFrameNumbers.fill(-1);
+        for (auto &analysisLumaEvent : m_analysis.analysisLumaEvents) {
+            analysisLumaEvent.reset();
+        }
+        m_analysis.analysisLumaGeneratedUntil = -1;
+    } else {
+        for (auto &luma : m_analysis.analysisLuma) {
+            luma.reset();
+        }
+        for (auto &frame : m_analysis.analysisLumaFrame) {
+            frame = RGYFrameInfo();
+        }
+        m_analysis.analysisLumaFrameNumbers.fill(-1);
+        for (auto &analysisLumaEvent : m_analysis.analysisLumaEvents) {
+            analysisLumaEvent.reset();
+        }
+        m_analysis.analysisLumaBytes = 0;
+        m_analysis.analysisLumaWidth = 0;
+        m_analysis.analysisLumaHeight = 0;
+        m_analysis.analysisLumaPitch = 0;
+        m_analysis.analysisLumaGeneratedUntil = -1;
+    }
+    m_analysis.lumaLevel1Width = std::max(1, (prm->frameOut.width + 1) / 2);
+    m_analysis.lumaLevel1Height = std::max(1, (prm->frameOut.height + 1) / 2);
+    m_analysis.lumaLevel1Pitch = m_analysis.lumaLevel1Width * pixelBytes;
+    m_analysis.lumaLevel1Bytes = (size_t)m_analysis.lumaLevel1Pitch * (size_t)m_analysis.lumaLevel1Height;
+    const int requiredLevel1Frames = degrainLevel1FrameCount(m_analysis.layout.temporalDirections);
+    for (int i = 0; i < (int)m_analysis.lumaLevel1.size(); i++) {
+        auto &luma = m_analysis.lumaLevel1[i];
+        if (i >= requiredLevel1Frames) {
+            luma.reset();
+            continue;
+        }
+        if (!luma || luma->nSize != m_analysis.lumaLevel1Bytes) {
+            luma = std::make_unique<CUMemBuf>(m_analysis.lumaLevel1Bytes);
+            err = luma->alloc();
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain level1 luma buffer.\n"));
+                return err;
+            }
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+const RGYFrameInfo *NVEncFilterDegrain::resolveAnalysisLumaSourceFrame(const int frameIndex) const {
+    if (m_inputCount <= 0) {
+        return nullptr;
+    }
+    const int clampedFrame = clamp(frameIndex, 0, m_inputCount - 1);
+    return &m_cacheFrames[cacheIndex(clampedFrame)]->frame;
 }
 
 RGYFilterDegrainFrameSet NVEncFilterDegrain::resolveAnalysisFrameSet(int currentFrame) const {
-    return resolveFrameSet(currentFrame);
+    auto frames = resolveFrameSet(currentFrame);
+    if (!useAnalysisLumaCache()) {
+        return frames;
+    }
+
+    const auto analysisFrame = [this](const int frameIndex) -> const RGYFrameInfo * {
+        const int slot = analysisCacheIndex(frameIndex);
+        return (m_analysis.analysisLumaFrameNumbers[slot] == frameIndex) ? &m_analysis.analysisLumaFrame[slot] : nullptr;
+    };
+    frames.cur = analysisFrame(currentFrame);
+    for (int delta = 1; delta <= RGY_DEGRAIN_MAX_DELTA; delta++) {
+        const int backwardFrame = frames.backwardRefInRange(delta) ? (currentFrame + delta) : currentFrame;
+        const int forwardFrame = frames.forwardRefInRange(delta) ? (currentFrame - delta) : currentFrame;
+        frames.backward[delta - 1] = analysisFrame(backwardFrame);
+        frames.forward[delta - 1] = analysisFrame(forwardFrame);
+    }
+    return frames;
 }
 
 RGY_ERR NVEncFilterDegrain::generateAnalysisLumaFrame(int, cudaStream_t, const std::vector<RGYCudaEvent>&) {
@@ -1050,23 +1822,82 @@ void NVEncFilterDegrain::clearFrameAnalysisData() {
 }
 
 bool NVEncFilterDegrain::degrainApplyTraceEnabled() const {
-    return false;
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    return m_debugEnv.applyTrace
+        && prm
+        && prm->degrain.mode == VppDegrainMode::Degrain
+        && (prm->degrain.stage == VppDegrainStage::TR1 || prm->degrain.stage == VppDegrainStage::TR2);
 }
 
 void NVEncFilterDegrain::logApplyTrace(const std::shared_ptr<NVEncFilterParamDegrain>&, const RGYFilterDegrainProcessFrameSet&,
     const RGYDegrainRefDisableArray&, cudaStream_t) {
 }
 
-bool NVEncFilterDegrain::validateAnalyzeResultFrame(const RGYDegrainAnalyzeResult&, const RGYFrameInfo *, int, const TCHAR *, bool) {
-    return false;
+bool NVEncFilterDegrain::validateAnalyzeResultFrame(const RGYDegrainAnalyzeResult &result, const RGYFrameInfo *frame, const int currentFrame, const TCHAR *sourceName, const bool requireFrameIndex) {
+    if (!frame || !sourceName) {
+        return false;
+    }
+    if (!result.hasFrameIdentity()) {
+        AddMessage(RGY_LOG_DEBUG, _T("degrain %s MV/SAD frame identity is missing; falling back to frame data/local analysis.\n"), sourceName);
+        return false;
+    }
+    if ((requireFrameIndex && result.frameIndex != currentFrame)
+        || result.inputFrameId != frame->inputFrameId
+        || result.timestamp != frame->timestamp
+        || result.duration != frame->duration) {
+        AddMessage(RGY_LOG_ERROR,
+            _T("degrain %s MV/SAD frame mismatch; expected frameIndex=%d, inputFrameId=%d, timestamp=%lld, duration=%lld, got frameIndex=%d, inputFrameId=%d, timestamp=%lld, duration=%lld.\n"),
+            sourceName, currentFrame, frame->inputFrameId, (long long)frame->timestamp, (long long)frame->duration,
+            result.frameIndex, result.inputFrameId, (long long)result.timestamp, (long long)result.duration);
+        assert((!requireFrameIndex || result.frameIndex == currentFrame)
+            && result.inputFrameId == frame->inputFrameId
+            && result.timestamp == frame->timestamp
+            && result.duration == frame->duration);
+        return false;
+    }
+    return true;
 }
 
-bool NVEncFilterDegrain::bindDirectAnalyzeResult(const RGYFrameInfo *, int, cudaStream_t) {
-    return false;
+bool NVEncFilterDegrain::bindDirectAnalyzeResult(const RGYFrameInfo *frame, const int currentFrame, cudaStream_t stream) {
+    const auto result = m_directAnalyzeResultSet.get(requestedDelta());
+    if (!result) {
+        return false;
+    }
+    if (!validateAnalyzeResultFrame(*result, frame, currentFrame, _T("direct"), true)) {
+        return false;
+    }
+    if (!rgy_degrain_layout_equal(result->layout, m_analysis.layout)) {
+        AddMessage(RGY_LOG_DEBUG, _T("degrain direct MV/SAD layout mismatch; falling back to frame data/local analysis.\n"));
+        return false;
+    }
+    m_boundAnalyzeResult = *result;
+    m_frameAnalysisLayout = result->layout;
+    logAnalyzeBinding(_T("direct"), frame, *result);
+    logAnalysisSamples(_T("direct"), frame, stream);
+    return true;
 }
 
-bool NVEncFilterDegrain::bindFrameAnalysisData(const RGYFrameInfo *, int, cudaStream_t) {
-    return false;
+bool NVEncFilterDegrain::bindFrameAnalysisData(const RGYFrameInfo *frame, const int currentFrame, cudaStream_t stream) {
+    clearFrameAnalysisData();
+    auto frameAnalysis = rgy_degrain_get_frame_data(frame);
+    if (frameAnalysis) {
+        const auto result = frameAnalysis->analyzeResult();
+        const auto layout = result.layout;
+        if (result.hasFrameIdentity() && !validateAnalyzeResultFrame(result, frame, currentFrame, _T("attached"), false)) {
+            return false;
+        }
+        if (!rgy_degrain_layout_equal(layout, m_analysis.layout)) {
+            AddMessage(RGY_LOG_DEBUG, _T("degrain attached MV/SAD layout mismatch; falling back to local analysis.\n"));
+            return false;
+        }
+        m_boundAnalyzeResult = result;
+        m_frameAnalysisLayout = layout;
+        m_frameAnalysisData = frameAnalysis;
+        logAnalyzeBinding(_T("attached"), frame, result);
+        logAnalysisSamples(_T("attached"), frame, stream);
+        return true;
+    }
+    return bindDirectAnalyzeResult(frame, currentFrame, stream);
 }
 
 CUMemBuf *NVEncFilterDegrain::analysisMV() const {
@@ -1085,8 +1916,14 @@ const RGYCudaEvent &NVEncFilterDegrain::analysisEvent() const {
     return m_boundAnalyzeResult.valid() ? m_boundAnalyzeResult.event : m_analysis.event;
 }
 
-bool NVEncFilterDegrain::analysisSADIncludesChroma(const std::shared_ptr<NVEncFilterParamDegrain>&) const {
-    return false;
+bool NVEncFilterDegrain::analysisSADIncludesChroma(const std::shared_ptr<NVEncFilterParamDegrain> &prm) const {
+    if (!prm || !prm->degrain.chroma) {
+        return false;
+    }
+    if (m_boundAnalyzeResult.valid()) {
+        return (m_boundAnalyzeResult.flags & RGY_DEGRAIN_FRAME_META_FLAG_CHROMA_SAD) != 0;
+    }
+    return m_lastAnalysisIncludedChroma;
 }
 
 RGYDegrainRefDisableArray NVEncFilterDegrain::analysisAvailabilityDisableRefs(const RGYFilterDegrainFrameSet &frames) const {
@@ -1094,11 +1931,37 @@ RGYDegrainRefDisableArray NVEncFilterDegrain::analysisAvailabilityDisableRefs(co
 }
 
 RGYDegrainAnalyzeResult NVEncFilterDegrain::analyzeResult() const {
-    return RGYDegrainAnalyzeResult();
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    RGYDegrainAnalyzeResult result;
+    if (!prm || !modeRequiresAnalysis(prm->degrain.mode) || !m_analysis.mv || !m_analysis.sad || m_analysis.event() == nullptr) {
+        return result;
+    }
+    result.flags = degrainAnalyzeFlags(prm, useAnalysisLumaCache() || m_lastAnalysisUsedSearchLuma, m_lastAnalysisIncludedChroma);
+    result.layout = m_analysis.layout;
+    result.mv = m_analysis.mv.get();
+    result.sad = m_analysis.sad.get();
+    result.event = m_analysis.event;
+    result.frameIndex = m_analysis.lastFrameIndex;
+    result.inputFrameId = m_analysis.lastInputFrameId;
+    result.timestamp = m_analysis.lastTimestamp;
+    result.duration = m_analysis.lastDuration;
+    result.availabilityDisableRefs = m_analysis.lastAvailabilityDisableRefs;
+    return result;
 }
 
 RGYDegrainAnalyzeResultSet NVEncFilterDegrain::analyzeResultSet() const {
-    return RGYDegrainAnalyzeResultSet();
+    RGYDegrainAnalyzeResultSet resultSet;
+    const auto baseResult = analyzeResult();
+    if (!baseResult.valid()) {
+        return resultSet;
+    }
+    const int maxDelta = std::min(RGY_DEGRAIN_MAX_DELTA, std::max(1, baseResult.layout.temporalDirections / 2));
+    for (int delta = 1; delta <= maxDelta; delta++) {
+        auto slot = baseResult;
+        slot.layout.temporalDirections = rgy_degrain_temporal_direction_count(delta);
+        resultSet.slots[delta] = slot;
+    }
+    return resultSet;
 }
 
 bool NVEncFilterDegrain::setDirectAnalyzeResult(const RGYDegrainAnalyzeResult &result) {
