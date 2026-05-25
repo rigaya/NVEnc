@@ -40,6 +40,9 @@
 RGY_ERR launchNVEncDegrainTemporalSmoothLuma(
     const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
     const RGYFrameInfo &dst, int tr0, int searchRefine, int rep0, int tvRange, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainDebug(
+    const RGYFrameInfo &dst, VppDegrainMode mode, const CUMemBuf &mv, const CUMemBuf &sad,
+    const RGYDegrainBlockLayout &layout, int pel, cudaStream_t stream);
 
 namespace {
 bool degrainChromaBuildEnabled(const RGY_CSP csp, const VppDegrain &degrain) {
@@ -1040,11 +1043,67 @@ void NVEncFilterDegrain::close() {
     m_frameBuf.clear();
 }
 
-RGY_ERR NVEncFilterDegrain::emitDebugFrame(const RGYFilterDegrainFrameSet&, VppDegrainMode,
-    RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t, RGYCudaEvent *) {
-    *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR NVEncFilterDegrain::emitDebugFrame(const RGYFilterDegrainFrameSet &frames, VppDegrainMode mode,
+    RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream, RGYCudaEvent *event) {
+    if (!frames.cur || frames.cur->ptr[0] == nullptr) {
+        *pOutputFrameNum = 0;
+        ppOutputFrames[0] = nullptr;
+        return RGY_ERR_NONE;
+    }
+    auto *mv = analysisMV();
+    auto *sad = analysisSAD();
+    if (!mv || !sad) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain debug output requires analysis buffers.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (mode != VppDegrainMode::MV && mode != VppDegrainMode::SAD) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid debug mode for degrain: %s.\n"), get_cx_desc(list_vpp_degrain_mode, (int)mode));
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    *pOutputFrameNum = 1;
+    if (ppOutputFrames[0] == nullptr) {
+        ppOutputFrames[0] = &m_frameBuf[0]->frame;
+    }
+
+    const auto memcpyKind = getCudaMemcpyKind(frames.cur->mem_type, ppOutputFrames[0]->mem_type);
+    if (memcpyKind != cudaMemcpyDeviceToDevice) {
+        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    if (analysisEvent()() != nullptr) {
+        auto err = err_to_rgy(cudaStreamWaitEvent(stream, analysisEvent()(), 0));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain analysis event for debug output: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+    auto err = copyFrameAsync(ppOutputFrames[0], frames.cur, stream);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to prepare degrain debug output: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    copyFramePropWithoutRes(ppOutputFrames[0], frames.cur);
+
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const auto planeDst = getPlane(ppOutputFrames[0], RGY_PLANE_Y);
+    err = launchNVEncDegrainDebug(planeDst, mode, *mv, *sad, analysisLayout(), prm->degrain.pel, stream);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to render degrain %s debug frame: %s.\n"),
+            get_cx_desc(list_vpp_degrain_mode, (int)mode), get_err_mes(err));
+        return err;
+    }
+    err = degrainRecordEvent(stream, event);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to record degrain debug event: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterDegrain::emitCompensateFrame(const RGYFilterDegrainFrameSet&, VppDegrainMode,
