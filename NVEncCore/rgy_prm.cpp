@@ -2272,6 +2272,87 @@ tstring VppDeband::print() const {
         randEachFrame ? _T("yes") : _T("no"));
 }
 
+VppDegrain::VppDegrain() :
+    enable(false),
+    preset(VppDegrainPreset::Custom),
+    mode(FILTER_DEFAULT_DEGRAIN_MODE),
+    stage(VppDegrainStage::Auto),
+    blksize(FILTER_DEFAULT_DEGRAIN_BLKSIZE),
+    search(FILTER_DEFAULT_DEGRAIN_SEARCH),
+    thsad(FILTER_DEFAULT_DEGRAIN_THSAD),
+    thscd1(FILTER_DEFAULT_DEGRAIN_THSCD1),
+    thscd2(FILTER_DEFAULT_DEGRAIN_THSCD2),
+    pel(FILTER_DEFAULT_DEGRAIN_PEL),
+    levels(FILTER_DEFAULT_DEGRAIN_LEVELS),
+    overlap(FILTER_DEFAULT_DEGRAIN_OVERLAP),
+    delta(FILTER_DEFAULT_DEGRAIN_DELTA),
+    tr0(FILTER_DEFAULT_DEGRAIN_TR0),
+    rep0(FILTER_DEFAULT_DEGRAIN_REP0),
+    searchRefine(FILTER_DEFAULT_DEGRAIN_SEARCH_REFINE),
+    subpelInterp(FILTER_DEFAULT_DEGRAIN_SUBPEL_INTERP),
+    searchParam(FILTER_DEFAULT_DEGRAIN_SEARCHPARAM),
+    pelSearch(FILTER_DEFAULT_DEGRAIN_PELSEARCH),
+    trueMotion(FILTER_DEFAULT_DEGRAIN_TRUEMOTION),
+    lambda(FILTER_DEFAULT_DEGRAIN_LAMBDA),
+    lsad(FILTER_DEFAULT_DEGRAIN_LSAD),
+    pnew(FILTER_DEFAULT_DEGRAIN_PNEW),
+    plevel(FILTER_DEFAULT_DEGRAIN_PLEVEL),
+    globalMotion(FILTER_DEFAULT_DEGRAIN_GLOBALMOTION),
+    dct(FILTER_DEFAULT_DEGRAIN_DCT),
+    useFlag(FILTER_DEFAULT_DEGRAIN_USEFLAG),
+    thsadc(FILTER_DEFAULT_DEGRAIN_THSADC),
+    chroma(FILTER_DEFAULT_DEGRAIN_CHROMA),
+    binomial(FILTER_DEFAULT_DEGRAIN_BINOMIAL),
+    tvRange(FILTER_DEFAULT_DEGRAIN_TV_RANGE),
+    mvSpatialRefine(FILTER_DEFAULT_DEGRAIN_MV_SPATIAL_REFINE) {
+}
+
+bool VppDegrain::operator==(const VppDegrain &x) const {
+    return enable == x.enable
+        && preset == x.preset
+        && mode == x.mode
+        && stage == x.stage
+        && blksize == x.blksize
+        && search == x.search
+        && thsad == x.thsad
+        && thscd1 == x.thscd1
+        && thscd2 == x.thscd2
+        && pel == x.pel
+        && levels == x.levels
+        && overlap == x.overlap
+        && delta == x.delta
+        && tr0 == x.tr0
+        && rep0 == x.rep0
+        && searchRefine == x.searchRefine
+        && subpelInterp == x.subpelInterp
+        && searchParam == x.searchParam
+        && pelSearch == x.pelSearch
+        && trueMotion == x.trueMotion
+        && lambda == x.lambda
+        && lsad == x.lsad
+        && pnew == x.pnew
+        && plevel == x.plevel
+        && globalMotion == x.globalMotion
+        && dct == x.dct
+        && useFlag == x.useFlag
+        && thsadc == x.thsadc
+        && chroma == x.chroma
+        && binomial == x.binomial
+        && tvRange == x.tvRange
+        && mvSpatialRefine == x.mvSpatialRefine;
+}
+bool VppDegrain::operator!=(const VppDegrain &x) const {
+    return !(*this == x);
+}
+
+tstring VppDegrain::print() const {
+    return strsprintf(_T("degrain: preset %s, mode %s, stage %s, blksize %d, search %d, thsad %d, thsadc %d, thscd1 %d, thscd2 %d, pel %d, levels %d, overlap %d, delta %d, tr0 %d, rep0 %d, search_refine %d, subpelinterp %d, searchparam %d, pelsearch %d, truemotion %s, lambda %d, lsad %d, pnew %d, plevel %d, globalmotion %s, dct %d, useflag %d, chroma %s, binomial %s, tv_range %s, mv_spatial_refine %d"),
+        get_cx_desc(list_vpp_degrain_preset, (int)preset), get_cx_desc(list_vpp_degrain_mode, (int)mode), get_cx_desc(list_vpp_degrain_stage, (int)stage), blksize, search, thsad, thsadc, thscd1, thscd2, pel, levels, overlap, delta, tr0, rep0, searchRefine,
+        subpelInterp, searchParam, pelSearch, trueMotion ? _T("true") : _T("false"), lambda, lsad, pnew, plevel, globalMotion ? _T("true") : _T("false"), dct, useFlag,
+        chroma ? _T("true") : _T("false"), binomial < 0 ? _T("auto") : (binomial ? _T("true") : _T("false")), tvRange ? _T("true") : _T("false"),
+        mvSpatialRefine);
+}
+
 VppFruc::VppFruc() :
     enable(false),
     mode(VppFrucMode::Disabled),
