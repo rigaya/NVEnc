@@ -3136,6 +3136,255 @@ RGY_ERR launchNVEncDegrainDegrainOverlapPlanePreweightedRamp(
 }
 
 template<typename TypePixel>
+__global__ void kernel_degrain_pixel_trace_cuda(
+    const uint8_t *cur,
+    const int cur_pitch,
+    const uint8_t *refBackward1,
+    const uint8_t *refForward1,
+    const uint8_t *refBackward2,
+    const uint8_t *refForward2,
+    const uint8_t *refBackward3,
+    const uint8_t *refForward3,
+    const uint8_t *refBackward4,
+    const uint8_t *refForward4,
+    const uint8_t *refBackward5,
+    const uint8_t *refForward5,
+    const int width,
+    const int height,
+    const RGYDegrainMV *mv,
+    const RGYDegrainSAD *sad,
+    const float *temporalMixPrior,
+    const int blocksX,
+    const int blocksY,
+    const int blockSize,
+    const int overlap,
+    const int step,
+    const int coveredWidth,
+    const int coveredHeight,
+    const int planeScaleX,
+    const int planeScaleY,
+    const uint32_t thsad,
+    const uint32_t disableMask,
+    const int targetX,
+    const int targetY,
+    int *trace,
+    const int refs,
+    const int pel,
+    const int subpelInterp) {
+    const int x = degrainClampInt(targetX, 0, max(width - 1, 0));
+    const int y = degrainClampInt(targetY, 0, max(height - 1, 0));
+    const int fallback = degrainPixelLoad<TypePixel>(cur, cur_pitch, width, height, x, y);
+    const int scaleX = degrainPlaneScaleX(planeScaleX);
+    const int scaleY = degrainPlaneScaleY(planeScaleY);
+    const int renderBlockSize = degrainRenderConstBlockSize(blockSize);
+    const int renderOverlap = degrainRenderConstOverlap(overlap);
+    const int renderStep = degrainRenderConstStep(step);
+    const int renderBlocksX = degrainRenderConstBlocksX(blocksX);
+    const int renderBlocksY = degrainRenderConstBlocksY(blocksY);
+    const int renderCoveredWidth = degrainRenderConstCoveredWidth(coveredWidth, scaleX);
+    const int renderCoveredHeight = degrainRenderConstCoveredHeight(coveredHeight, scaleY);
+    const int covered = degrainIsCoveredPixel(x, y, renderCoveredWidth, renderCoveredHeight);
+
+    const int planeBlockSizeX = max(degrainRenderScaleFloor(renderBlockSize, scaleX), 1);
+    const int planeBlockSizeY = max(degrainRenderScaleFloor(renderBlockSize, scaleY), 1);
+    const int planeOverlapX = max(degrainRenderScaleFloor(renderOverlap, scaleX), 0);
+    const int planeOverlapY = max(degrainRenderScaleFloor(renderOverlap, scaleY), 0);
+    const int planeStepX = max(degrainRenderScaleFloor(renderStep, scaleX), 1);
+    const int planeStepY = max(degrainRenderScaleFloor(renderStep, scaleY), 1);
+    const int primaryBlockX = min(x / planeStepX, renderBlocksX - 1);
+    const int primaryBlockY = min(y / planeStepY, renderBlocksY - 1);
+    const int usePrevBlockX = planeOverlapX > 0 && primaryBlockX > 0 && x < degrainBlockOrigin(primaryBlockX, planeStepX) + planeOverlapX;
+    const int usePrevBlockY = planeOverlapY > 0 && primaryBlockY > 0 && y < degrainBlockOrigin(primaryBlockY, planeStepY) + planeOverlapY;
+    const int blockXs[2] = { primaryBlockX, primaryBlockX - 1 };
+    const int blockYs[2] = { primaryBlockY, primaryBlockY - 1 };
+    const int blockCountX = usePrevBlockX ? 2 : 1;
+    const int blockCountY = usePrevBlockY ? 2 : 1;
+
+    RGYDegrainWindowAccum sampleSum = degrainWindowAccumZero();
+    RGYDegrainWindowAccum weightSum = degrainWindowAccumZero();
+    int sampleCount = 0;
+    int record = 0;
+    for (int i = 0; i < 256; i++) {
+        trace[i] = 0;
+    }
+
+    if (covered) {
+        for (int byIndex = 0; byIndex < blockCountY; byIndex++) {
+            const int blockY = blockYs[byIndex];
+            const int baseY = degrainBlockOrigin(blockY, planeStepY);
+            for (int bxIndex = 0; bxIndex < blockCountX; bxIndex++) {
+                const int blockX = blockXs[bxIndex];
+                const int baseX = degrainBlockOrigin(blockX, planeStepX);
+                const int localX = x - baseX;
+                const int localY = y - baseY;
+                if (localX < 0 || localX >= planeBlockSizeX || localY < 0 || localY >= planeBlockSizeY) {
+                    continue;
+                }
+                const float windowWeight = degrainWindowFactorRect2d(
+                    x, y,
+                    baseX, baseY,
+                    planeBlockSizeX, planeBlockSizeY,
+                    planeOverlapX, planeOverlapY,
+                    blockX, blockY,
+                    renderBlocksX, renderBlocksY);
+
+                const int block = blockY * renderBlocksX + blockX;
+                const int srcSample = fallback;
+                const float sourceConfidenceRaw = degrainTemporalMixPriorCenter(temporalMixPrior);
+                float referenceConfidenceRaw[RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS];
+                int referenceSample[RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS];
+                int referenceValid[RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS];
+                float confidenceTotal = sourceConfidenceRaw;
+                for (int referenceDirection = 0; referenceDirection < refs; referenceDirection++) {
+                    const float temporalMixPriorRef = degrainTemporalMixPriorRef(temporalMixPrior, referenceDirection);
+                    referenceValid[referenceDirection] = degrainReferenceIsValid(mv, sad, block, referenceDirection, thsad, degrainRefDirectionDisabled(disableMask, referenceDirection), refs);
+                    referenceConfidenceRaw[referenceDirection] = degrainReferenceMixAffinity(mv, sad, block, referenceDirection, thsad, degrainRefDirectionDisabled(disableMask, referenceDirection), refs) * temporalMixPriorRef;
+                    confidenceTotal += referenceConfidenceRaw[referenceDirection];
+                    referenceSample[referenceDirection] = 0;
+                }
+                const float invTotal = (confidenceTotal > 0.0f) ? (1.0f / confidenceTotal) : 0.0f;
+                float mixedValue = (float)srcSample * (sourceConfidenceRaw * invTotal);
+                float referenceMixTotal = 0.0f;
+                float referenceMixNorm[RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS];
+                for (int referenceDirection = 0; referenceDirection < refs; referenceDirection++) {
+                    referenceMixNorm[referenceDirection] = (referenceConfidenceRaw[referenceDirection] > 0.0f) ? (referenceConfidenceRaw[referenceDirection] * invTotal) : 0.0f;
+                    referenceMixTotal += referenceMixNorm[referenceDirection];
+                    if (referenceMixNorm[referenceDirection] <= 0.0f) {
+                        continue;
+                    }
+                    const uint8_t *referencePlane = degrainRefPlanePtrSamePitch(
+                        refBackward1, refForward1,
+                        refBackward2, refForward2,
+                        refBackward3, refForward3,
+                        refBackward4, refForward4,
+                        refBackward5, refForward5,
+                        referenceDirection);
+                    referenceSample[referenceDirection] = degrainCompensatedSample<TypePixel>(referencePlane, cur_pitch, width, height, mv, block, referenceDirection, planeScaleX, planeScaleY, x, y, refs, pel, subpelInterp);
+                    mixedValue = fmaf((float)referenceSample[referenceDirection], referenceMixNorm[referenceDirection], mixedValue);
+                }
+                const float sourceMixNorm = sourceConfidenceRaw * invTotal;
+                const int sample = degrainClampPixel<TypePixel>(degrainRoundFloatToInt(mixedValue));
+                const int contribution = degrainWindowedSampleContribution(sample, windowWeight);
+                degrainAccumulateWindowedSample(&sampleSum, &weightSum, sample, windowWeight);
+                sampleCount++;
+
+                if (record < 4) {
+                    const int out = 32 + record * 48;
+                    trace[out + 0] = blockX;
+                    trace[out + 1] = blockY;
+                    trace[out + 2] = block;
+                    trace[out + 3] = baseX;
+                    trace[out + 4] = baseY;
+                    trace[out + 5] = x - baseX;
+                    trace[out + 6] = y - baseY;
+                    trace[out + 7] = degrainTraceFloatToQ8(windowWeight);
+                    trace[out + 8] = srcSample;
+                    trace[out + 9] = sample;
+                    trace[out + 10] = contribution;
+                    trace[out + 11] = degrainTraceFloatToQ8(sourceMixNorm);
+                    trace[out + 12] = degrainTraceFloatToQ8(referenceMixTotal);
+                    trace[out + 13] = degrainTraceFloatToQ8(confidenceTotal);
+                    trace[out + 14] = degrainTraceFloatToQ8(degrainTemporalMixPriorCenter(temporalMixPrior));
+                    for (int refDirection = 0; refDirection < min(refs, 4); refDirection++) {
+                        const int traceOffset = out + 15 + refDirection * 6;
+                        const int motionIndex = degrainRefIndex(block, refDirection, refs);
+                        trace[traceOffset + 0] = degrainTraceFloatToQ8(referenceMixNorm[refDirection]);
+                        trace[traceOffset + 1] = referenceSample[refDirection];
+                        trace[traceOffset + 2] = (int)mv[motionIndex].dx;
+                        trace[traceOffset + 3] = (int)mv[motionIndex].dy;
+                        trace[traceOffset + 4] = (int)sad[motionIndex].sad;
+                        trace[traceOffset + 5] = referenceValid[refDirection];
+                    }
+                    record++;
+                }
+            }
+        }
+    }
+
+    const int result = (covered && sampleCount > 0) ? degrainFinalizeWindowedSample(sampleSum, weightSum, fallback) : fallback;
+    trace[0] = 0x4d435054;
+    trace[1] = x;
+    trace[2] = y;
+    trace[3] = width;
+    trace[4] = height;
+    trace[5] = fallback;
+    trace[6] = covered;
+    trace[7] = scaleX;
+    trace[8] = scaleY;
+    trace[9] = planeBlockSizeX;
+    trace[10] = planeBlockSizeY;
+    trace[11] = planeOverlapX;
+    trace[12] = planeOverlapY;
+    trace[13] = planeStepX;
+    trace[14] = primaryBlockX;
+    trace[15] = primaryBlockY;
+    trace[16] = blockCountX;
+    trace[17] = blockCountY;
+    trace[18] = degrainTraceWindowAccum(sampleSum);
+    trace[19] = sampleCount;
+    trace[20] = result;
+    trace[21] = (int)thsad;
+    trace[22] = (int)disableMask;
+    trace[23] = renderBlocksX;
+    trace[24] = renderBlocksY;
+    trace[25] = record;
+}
+
+RGY_ERR launchNVEncDegrainPixelTrace(
+    const uint8_t *cur, const int curPitch, const int pixelBytes,
+    const uint8_t *refBackward1, const uint8_t *refForward1,
+    const uint8_t *refBackward2, const uint8_t *refForward2,
+    const uint8_t *refBackward3, const uint8_t *refForward3,
+    const uint8_t *refBackward4, const uint8_t *refForward4,
+    const uint8_t *refBackward5, const uint8_t *refForward5,
+    const int width, const int height,
+    const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    const RGYDegrainBlockLayout &layout,
+    const int coveredWidth, const int coveredHeight,
+    const int planeScaleX, const int planeScaleY,
+    const uint32_t thsad, const uint32_t disableMask,
+    const int targetX, const int targetY,
+    CUMemBuf &trace,
+    const int refs, const int pel, const int subpelInterp, cudaStream_t stream) {
+    if (pixelBytes > 1) {
+        kernel_degrain_pixel_trace_cuda<uint16_t><<<1, 1, 0, stream>>>(
+            cur, curPitch,
+            refBackward1, refForward1,
+            refBackward2, refForward2,
+            refBackward3, refForward3,
+            refBackward4, refForward4,
+            refBackward5, refForward5,
+            width, height,
+            reinterpret_cast<const RGYDegrainMV *>(mv.ptr),
+            reinterpret_cast<const RGYDegrainSAD *>(sad.ptr),
+            reinterpret_cast<const float *>(temporalMixPrior.ptr),
+            layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
+            coveredWidth, coveredHeight, planeScaleX, planeScaleY,
+            thsad, disableMask, targetX, targetY,
+            reinterpret_cast<int *>(trace.ptr),
+            refs, pel, subpelInterp);
+    } else {
+        kernel_degrain_pixel_trace_cuda<uint8_t><<<1, 1, 0, stream>>>(
+            cur, curPitch,
+            refBackward1, refForward1,
+            refBackward2, refForward2,
+            refBackward3, refForward3,
+            refBackward4, refForward4,
+            refBackward5, refForward5,
+            width, height,
+            reinterpret_cast<const RGYDegrainMV *>(mv.ptr),
+            reinterpret_cast<const RGYDegrainSAD *>(sad.ptr),
+            reinterpret_cast<const float *>(temporalMixPrior.ptr),
+            layout.blocksX, layout.blocksY, layout.blockSize, layout.overlap, layout.step,
+            coveredWidth, coveredHeight, planeScaleX, planeScaleY,
+            thsad, disableMask, targetX, targetY,
+            reinterpret_cast<int *>(trace.ptr),
+            refs, pel, subpelInterp);
+    }
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename TypePixel>
 __device__ __forceinline__ int degrainCenteredSignedValue(const int value, const int search, const int pel) {
     const int searchRange = max(search * pel, 1);
     const int clampedValue = degrainClampInt(value, -searchRange, searchRange);
