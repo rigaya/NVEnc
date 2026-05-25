@@ -768,6 +768,8 @@ nvenccore_sources = files(
   'NVEncCore/NVEncFilterCurves.cpp',
   'NVEncCore/NVEncFilterCustom.cpp',
   'NVEncCore/NVEncFilterDelogo.cpp',
+  'NVEncCore/NVEncFilterDegrainCommon.cpp',
+  'NVEncCore/NVEncFilterDegrainMV.cpp',
   'NVEncCore/NVEncFilterDenoiseFFT3D.cpp',
   'NVEncCore/NVEncFilterDenoiseGauss.cpp',
   'NVEncCore/NVEncFilterLibplacebo.cpp',

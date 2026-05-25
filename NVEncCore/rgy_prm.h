@@ -481,6 +481,35 @@ static const int   FILTER_DEFAULT_DEBAND_SEED = 1234;
 static const bool  FILTER_DEFAULT_DEBAND_BLUR_FIRST = false;
 static const bool  FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME = false;
 
+static const int   FILTER_DEFAULT_DEGRAIN_BLKSIZE = 16;
+static const int   FILTER_DEFAULT_DEGRAIN_SEARCH = 4;
+static const int   FILTER_DEFAULT_DEGRAIN_THSAD = 640;
+static const int   FILTER_DEFAULT_DEGRAIN_THSCD1 = 180;
+static const int   FILTER_DEFAULT_DEGRAIN_THSCD2 = 98;
+static const int   FILTER_DEFAULT_DEGRAIN_PEL = 1;
+static const int   FILTER_DEFAULT_DEGRAIN_LEVELS = 2;
+static const int   FILTER_DEFAULT_DEGRAIN_OVERLAP = 0;
+static const int   FILTER_DEFAULT_DEGRAIN_DELTA = 1;
+static const int   FILTER_DEFAULT_DEGRAIN_TR0 = 0;
+static const int   FILTER_DEFAULT_DEGRAIN_REP0 = 0;
+static const int   FILTER_DEFAULT_DEGRAIN_SEARCH_REFINE = 0;
+static const int   FILTER_DEFAULT_DEGRAIN_SUBPEL_INTERP = 0;
+static const int   FILTER_DEFAULT_DEGRAIN_SEARCHPARAM = 2;
+static const int   FILTER_DEFAULT_DEGRAIN_PELSEARCH = 2;
+static const bool  FILTER_DEFAULT_DEGRAIN_TRUEMOTION = false;
+static const int   FILTER_DEFAULT_DEGRAIN_LAMBDA = 400;
+static const int   FILTER_DEFAULT_DEGRAIN_LSAD = 400;
+static const int   FILTER_DEFAULT_DEGRAIN_PNEW = 25;
+static const int   FILTER_DEFAULT_DEGRAIN_PLEVEL = 0;
+static const bool  FILTER_DEFAULT_DEGRAIN_GLOBALMOTION = true;
+static const int   FILTER_DEFAULT_DEGRAIN_DCT = 0;
+static const int   FILTER_DEFAULT_DEGRAIN_USEFLAG = 0;
+static const int   FILTER_DEFAULT_DEGRAIN_THSADC = FILTER_DEFAULT_DEGRAIN_THSAD;
+static const bool  FILTER_DEFAULT_DEGRAIN_CHROMA = false;
+static const int   FILTER_DEFAULT_DEGRAIN_BINOMIAL = -1; // -1:auto, 0:false, 1:true
+static const bool  FILTER_DEFAULT_DEGRAIN_TV_RANGE = false;
+static const int   FILTER_DEFAULT_DEGRAIN_MV_SPATIAL_REFINE = -1;
+
 struct RGYQPSet {
     bool enable;
     int qpI, qpP, qpB;
@@ -2534,6 +2563,97 @@ struct VppFruc {
     VppFruc();
     bool operator==(const VppFruc &x) const;
     bool operator!=(const VppFruc &x) const;
+    tstring print() const;
+};
+
+enum class VppDegrainMode {
+    Source,
+    Analyze,
+    MotionBack,
+    MotionForw,
+    MotionBack2,
+    MotionForw2,
+    Degrain,
+    MV,
+    SAD,
+};
+
+const CX_DESC list_vpp_degrain_mode[] = {
+    { _T("source"),      (int)VppDegrainMode::Source      },
+    { _T("analyze"),     (int)VppDegrainMode::Analyze     },
+    { _T("compb"),       (int)VppDegrainMode::MotionBack  },
+    { _T("compf"),       (int)VppDegrainMode::MotionForw  },
+    { _T("compb2"),      (int)VppDegrainMode::MotionBack2 },
+    { _T("compf2"),      (int)VppDegrainMode::MotionForw2 },
+    { _T("degrain"),     (int)VppDegrainMode::Degrain     },
+    { _T("mv"),          (int)VppDegrainMode::MV          },
+    { _T("sad"),         (int)VppDegrainMode::SAD         },
+    { NULL, 0 }
+};
+
+static const auto FILTER_DEFAULT_DEGRAIN_MODE = VppDegrainMode::Degrain;
+
+enum class VppDegrainPreset {
+    Custom,
+    Auto,
+};
+
+const CX_DESC list_vpp_degrain_preset[] = {
+    { _T("custom"), (int)VppDegrainPreset::Custom },
+    { _T("auto"),   (int)VppDegrainPreset::Auto   },
+    { NULL, 0 }
+};
+
+enum class VppDegrainStage {
+    Auto,
+    TR1,
+    TR2,
+};
+
+const CX_DESC list_vpp_degrain_stage[] = {
+    { _T("auto"), (int)VppDegrainStage::Auto },
+    { _T("tr1"),  (int)VppDegrainStage::TR1  },
+    { _T("tr2"),  (int)VppDegrainStage::TR2  },
+    { NULL, 0 }
+};
+
+struct VppDegrain {
+    bool enable;
+    VppDegrainPreset preset;
+    VppDegrainMode mode;
+    VppDegrainStage stage;
+    int blksize;
+    int search;
+    int thsad;
+    int thscd1;
+    int thscd2;
+    int pel;
+    int levels;
+    int overlap;
+    int delta;
+    int tr0;
+    int rep0;
+    int searchRefine;
+    int subpelInterp;
+    int searchParam;
+    int pelSearch;
+    bool trueMotion;
+    int lambda;
+    int lsad;
+    int pnew;
+    int plevel;
+    bool globalMotion;
+    int dct;
+    int useFlag;
+    int thsadc;
+    bool chroma;
+    int binomial;
+    bool tvRange;
+    int mvSpatialRefine;
+
+    VppDegrain();
+    bool operator==(const VppDegrain &x) const;
+    bool operator!=(const VppDegrain &x) const;
     tstring print() const;
 };
 
