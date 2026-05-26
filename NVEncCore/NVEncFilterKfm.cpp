@@ -125,6 +125,20 @@ static int kfmFrameParity(const RGYFrameInfo *frame) {
     return (frame && (frame->picstruct & RGY_PICSTRUCT_BFF)) ? 0 : 1;
 }
 
+static RGYFrameInfo *kfmDebugStageFrame(VppKfmDebugStage stage, RGYFrameInfo *switchFlag, RGYFrameInfo *containsCombe, RGYFrameInfo *combeMask) {
+    switch (stage) {
+    case VppKfmDebugStage::SwitchFlag:
+        return switchFlag;
+    case VppKfmDebugStage::ContainsCombe:
+        return containsCombe;
+    case VppKfmDebugStage::CombeMask:
+        return combeMask;
+    case VppKfmDebugStage::None:
+    default:
+        return nullptr;
+    }
+}
+
 static std::string kfmStageDumpName(const char *stage) {
     std::string name = (stage && stage[0]) ? stage : "stage";
     for (auto& c : name) {
@@ -3711,8 +3725,269 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         return RGY_ERR_NONE;
     }
 
-    AddMessage(RGY_LOG_ERROR, _T("KFM mode %s is not ported yet.\n"), get_cx_desc(list_vpp_kfm_mode, (int)prm->kfm.mode));
-    return RGY_ERR_UNSUPPORTED;
+    if (prm->kfm.mode == VppKfmMode::P24) {
+        auto sts = RGY_ERR_NONE;
+        if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
+            sts = analyzeAvailableSource(true, stream);
+        } else {
+            sts = cacheSourceFrame(pInputFrame, stream, {});
+        }
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr)
+            ? drainDeint60Branch(stream)
+            : runDeint60Branch(pInputFrame, stream, {});
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        if (prm->kfm.ucf) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM P24 ucf=true path is not ported yet.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+
+        *pOutputFrameNum = 0;
+        const bool drain = pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr;
+        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+        while (*pOutputFrameNum < maxOutputFrames && m_nextTelecine24Frame < telecine24FrameCount(drain)) {
+            auto deint24 = nextWorkFrame();
+            auto out = nextWorkFrame();
+            if (!deint24 || !out) {
+                return RGY_ERR_INVALID_CALL;
+            }
+
+            const int superIndex = m_telecineSuperBufferIndex++ & 1;
+            if (!m_telecineSuperFrames[superIndex]) {
+                auto superInfo = prm->frameOut;
+                superInfo.width = std::max(1, superInfo.width >> 1);
+                superInfo.height = std::max(1, superInfo.height >> 2);
+                auto frame = std::make_unique<CUFrameBuf>(superInfo);
+                const auto allocSts = frame->alloc();
+                if (allocSts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM telecine-super frame: %s.\n"), get_err_mes(allocSts));
+                    return allocSts;
+                }
+                m_telecineSuperFrames[superIndex] = std::move(frame);
+            }
+            auto super24 = &m_telecineSuperFrames[superIndex]->frame;
+
+            RGYCudaEvent deintEvent;
+            sts = renderTelecine24(deint24, m_nextTelecine24Frame, drain, stream, {}, &deintEvent);
+            if (sts == RGY_ERR_MORE_DATA) {
+                break;
+            }
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+
+            std::vector<RGYCudaEvent> superWaitEvents;
+            if (deintEvent() != nullptr) {
+                superWaitEvents.push_back(deintEvent);
+            }
+            RGYCudaEvent superEvent;
+            sts = renderTelecineSuper24(super24, m_nextTelecine24Frame, drain, stream, superWaitEvents, &superEvent);
+            if (sts == RGY_ERR_MORE_DATA) {
+                break;
+            }
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+
+            std::vector<RGYCudaEvent> removeWaitEvents = superWaitEvents;
+            if (superEvent() != nullptr) {
+                removeWaitEvents.push_back(superEvent);
+            }
+            RGYFrameInfo *superPrev24 = super24;
+            RGYFrameInfo *superNext24 = super24;
+            std::vector<RGYCudaEvent> maskWaitEvents = removeWaitEvents;
+            auto ensureNeighborSuper = [&](int index, RGYFrameInfo **frame) -> RGY_ERR {
+                if (!m_telecineSuperNeighborFrames[index]
+                    || m_telecineSuperNeighborFrames[index]->frame.width != super24->width
+                    || m_telecineSuperNeighborFrames[index]->frame.height != super24->height
+                    || m_telecineSuperNeighborFrames[index]->frame.csp != super24->csp) {
+                    auto superInfo = *super24;
+                    auto neighbor = std::make_unique<CUFrameBuf>(superInfo);
+                    const auto allocSts = neighbor->alloc();
+                    if (allocSts != RGY_ERR_NONE) {
+                        AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM telecine-super neighbor frame: %s.\n"), get_err_mes(allocSts));
+                        return allocSts;
+                    }
+                    m_telecineSuperNeighborFrames[index] = std::move(neighbor);
+                }
+                *frame = &m_telecineSuperNeighborFrames[index]->frame;
+                return RGY_ERR_NONE;
+            };
+            if (m_nextTelecine24Frame > 0) {
+                RGYCudaEvent prevSuperEvent;
+                sts = ensureNeighborSuper(0, &superPrev24);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                sts = renderTelecineSuper24(superPrev24, m_nextTelecine24Frame - 1, true, stream, superWaitEvents, &prevSuperEvent);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                if (prevSuperEvent() != nullptr) {
+                    maskWaitEvents.push_back(prevSuperEvent);
+                }
+            }
+            if (m_nextTelecine24Frame + 1 < telecine24FrameCount(drain)) {
+                RGYCudaEvent nextSuperEvent;
+                sts = ensureNeighborSuper(1, &superNext24);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                sts = renderTelecineSuper24(superNext24, m_nextTelecine24Frame + 1, drain, stream, superWaitEvents, &nextSuperEvent);
+                if (sts == RGY_ERR_MORE_DATA) {
+                    break;
+                }
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                if (nextSuperEvent() != nullptr) {
+                    maskWaitEvents.push_back(nextSuperEvent);
+                }
+            } else if (!drain) {
+                break;
+            }
+            RGYFrameInfo *switchFlag = nullptr;
+            RGYFrameInfo *containsCombe = nullptr;
+            RGYFrameInfo *combeMask = nullptr;
+            sts = ensureMaskBranchFrames(&switchFlag, &containsCombe, &combeMask, super24, _T("24p"));
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            RGYCudaEvent maskEvent;
+            sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev24, super24, superNext24,
+                "switch-flag-min", "contains-combe", "combe-mask-min", stream, maskWaitEvents, &maskEvent);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            if (maskEvent() != nullptr) {
+                removeWaitEvents.push_back(maskEvent);
+            }
+            RGYCudaEvent outputEvent;
+            if (auto debugOut = kfmDebugStageFrame(prm->kfm.debugStage, switchFlag, containsCombe, combeMask)) {
+                copyFramePropWithoutRes(debugOut, deint24);
+                debugOut->picstruct = RGY_PICSTRUCT_FRAME;
+                debugOut->flags = RGY_FRAME_FLAG_NONE;
+                out = debugOut;
+                outputEvent = maskEvent;
+            } else {
+                sts = removeCombe24(out, deint24, super24, m_nextTelecine24Frame, stream, removeWaitEvents, &outputEvent);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                int patchN60 = -1;
+                if (kfmDeint60BranchEnabled() && m_deint60Rtgmc && m_analyzer) {
+                    try {
+                        static const int patchFieldIndex[4] = { 1, 3, 6, 8 };
+                        const int frame24Cycle = m_nextTelecine24Frame / 4;
+                        const int frame24InCycle = m_nextTelecine24Frame & 3;
+                        const auto& patchResult = m_analyzerOutputResults[clamp(frame24Cycle, 0, (int)m_analyzerOutputResults.size() - 1)];
+                        const auto frameInfo = m_analyzer->patterns().getFrame24(patchResult.pattern, m_nextTelecine24Frame);
+                        patchN60 = clamp(patchFieldIndex[frame24InCycle], frameInfo.fieldStartIndex, frameInfo.fieldStartIndex + frameInfo.numFields - 1) + frameInfo.cycleIndex * 10;
+                    } catch (...) {
+                        patchN60 = -1;
+                    }
+                }
+                if (patchN60 >= 0) {
+                    std::vector<RGYCudaEvent> patchWaitEvents = removeWaitEvents;
+                    if (outputEvent() != nullptr) {
+                        patchWaitEvents.push_back(outputEvent);
+                    }
+                    const auto *deint60 = findDeint60Frame(patchN60, &patchWaitEvents);
+                    if (!deint60 || !deint60->ptr[0]) {
+                        break;
+                    }
+                    const int patchIndex = m_patchCombeBufferIndex++ & 3;
+                    if (!m_patchCombeFrames[patchIndex]
+                        || m_patchCombeFrames[patchIndex]->frame.width != prm->frameOut.width
+                        || m_patchCombeFrames[patchIndex]->frame.height != prm->frameOut.height
+                        || m_patchCombeFrames[patchIndex]->frame.csp != prm->frameOut.csp) {
+                        auto frame = std::make_unique<CUFrameBuf>(prm->frameOut);
+                        const auto allocSts = frame->alloc();
+                        if (allocSts != RGY_ERR_NONE) {
+                            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM patch-combe frame: %s.\n"), get_err_mes(allocSts));
+                            return allocSts;
+                        }
+                        m_patchCombeFrames[patchIndex] = std::move(frame);
+                    }
+                    RGYCudaEvent patchEvent;
+                    sts = patchCombe(&m_patchCombeFrames[patchIndex]->frame, out, deint60, combeMask,
+                        m_nextTelecine24Frame, "patch-combe", stream, patchWaitEvents, &patchEvent);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    out = &m_patchCombeFrames[patchIndex]->frame;
+                    outputEvent = patchEvent;
+                }
+            }
+            sts = emitOutputFrame(out, ppOutputFrames, pOutputFrameNum, stream, outputEvent, nullptr);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            m_nextTelecine24Pts += std::max<int64_t>(1, out->duration);
+            m_nextTelecine24Frame++;
+        }
+        if (drain && m_nextTelecine24Frame >= telecine24FrameCount(true)) {
+            writeTelecine24DurationDump();
+            if (*pOutputFrameNum == 0) {
+                sts = drainNrFilter(ppOutputFrames, pOutputFrameNum, stream, nullptr);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+        }
+        return RGY_ERR_NONE;
+    }
+
+    if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
+        auto sts = analyzeAvailableSource(true, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        *pOutputFrameNum = 0;
+        sts = drainNrFilter(ppOutputFrames, pOutputFrameNum, stream, nullptr);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        return RGY_ERR_NONE;
+    }
+
+    auto sts = cacheSourceFrame(pInputFrame, stream, {});
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    if (ppOutputFrames[0] == nullptr) {
+        auto pOutFrame = m_frameBuf[0].get();
+        ppOutputFrames[0] = &pOutFrame->frame;
+    }
+    *pOutputFrameNum = 1;
+    sts = copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy input frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    RGYCudaEvent outputEvent;
+    sts = kfmRecordEvent(stream, &outputEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
+    ppOutputFrames[0]->duration = pInputFrame->duration;
+    ppOutputFrames[0]->inputFrameId = pInputFrame->inputFrameId;
+    ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
+    ppOutputFrames[0]->flags = RGY_FRAME_FLAG_NONE;
+    ppOutputFrames[0]->dataList = pInputFrame->dataList;
+
+    RGYFrameInfo *out = ppOutputFrames[0];
+    *pOutputFrameNum = 0;
+    sts = emitOutputFrame(out, ppOutputFrames, pOutputFrameNum, stream, outputEvent, nullptr);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    return RGY_ERR_NONE;
 }
 
 void NVEncFilterKfm::close() {
