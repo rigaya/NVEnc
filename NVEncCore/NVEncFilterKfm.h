@@ -54,6 +54,25 @@ public:
 };
 
 RGY_ERR run_kfm_pad_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, int vpad, cudaStream_t stream);
+RGY_ERR run_kfm_init_fmcount(RGYKFM::FMCount *dst, cudaStream_t stream);
+RGY_ERR run_kfm_analyze_count_cmflags_clean(
+    RGYKFM::FMCount *dst,
+    const RGYFrameInfo *prevSrc0,
+    const RGYFrameInfo *prevSrc1,
+    const RGYFrameInfo *curSrc0,
+    const RGYFrameInfo *curSrc1,
+    int width,
+    int height,
+    int prevParity,
+    int curParity,
+    int countParity,
+    int pixelStep,
+    int pixelOffset,
+    int threshM,
+    int threshS,
+    int threshLS,
+    int cleanThresh,
+    cudaStream_t stream);
 
 class RGYFrameDataKfmSwitch : public RGYFrameData {
 public:
@@ -198,6 +217,8 @@ protected:
     void writeContainsCombeDump(const char *stage, const KfmSwitchTiming& timing, uint32_t containsCombeCount, bool durationApplied, const RGYKFM::KFMResult *result);
     void attachSwitchFrameData(RGYFrameInfo *frame, const KfmSwitchTiming& timing, const RGYKFM::KFMResult *result) const;
     int telecine24FrameCount(bool drain) const;
+    RGY_ERR submitFMCounts(int cycle, bool drain, cudaStream_t stream);
+    RGY_ERR readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, int cycle, bool drain, cudaStream_t stream);
     RGY_ERR analyzeAvailableSource(bool drain, cudaStream_t stream);
     void flushUcfNoiseResultDump();
 
@@ -269,9 +290,10 @@ protected:
 
     struct KfmPendingFMCount {
         int cycle;
-        std::vector<std::unique_ptr<CUMemBuf>> pairCounts;
+        std::vector<std::unique_ptr<CUMemBufPair>> pairCounts;
+        std::vector<RGYCudaEvent> pairEvents;
 
-        KfmPendingFMCount() : cycle(-1), pairCounts() {};
+        KfmPendingFMCount() : cycle(-1), pairCounts(), pairEvents() {};
     };
 
     struct KfmPendingVfrOutput {

@@ -39,6 +39,15 @@
 namespace {
 static constexpr int KFM_SOURCE_VPAD = 4;
 static constexpr int KFM_FMCOUNT_PAIRS = 9;
+static constexpr int KFM_FMCOUNT_COUNT = KFM_FMCOUNT_PAIRS * 2;
+static constexpr int KFM_FMCOUNT_SOURCE_FRAMES = KFM_FMCOUNT_PAIRS + 2;
+static constexpr int KFM_FMCOUNT_ASYNC_DELAY_CYCLES = 1;
+static constexpr int KFM_THRESH_MOVE_Y = 20;
+static constexpr int KFM_THRESH_SHIMA_Y = 12;
+static constexpr int KFM_THRESH_MOVE_C = 24;
+static constexpr int KFM_THRESH_SHIMA_C = 16;
+static constexpr int KFM_CLEAN_THRESH_Y = 10;
+static constexpr int KFM_CLEAN_THRESH_C = 8;
 static constexpr int KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN = 64;
 static constexpr int KFM_REALTIMEPLUS_DEINT60_CACHE_MARGIN = KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN * 2;
 static constexpr int KFM_VFR_SOURCE_TRIM_LOOKBEHIND = 8;
@@ -52,6 +61,10 @@ static bool kfmDisableCCDuration() {
 static bool kfmCspHasInterleavedUV(const RGY_CSP csp) {
     return csp == RGY_CSP_NV12 || csp == RGY_CSP_P010
         || csp == RGY_CSP_NV16 || csp == RGY_CSP_P210;
+}
+
+static int kfmFrameParity(const RGYFrameInfo *frame) {
+    return (frame && (frame->picstruct & RGY_PICSTRUCT_BFF)) ? 0 : 1;
 }
 
 static std::string kfmStageDumpName(const char *stage) {
@@ -1299,10 +1312,238 @@ int NVEncFilterKfm::telecine24FrameCount(bool drain) const {
     return readyFrames;
 }
 
-RGY_ERR NVEncFilterKfm::analyzeAvailableSource(bool drain, cudaStream_t stream) {
-    UNREFERENCED_PARAMETER(drain);
+RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t stream) {
+    if (std::find_if(m_pendingFMCounts.begin(), m_pendingFMCounts.end(), [cycle](const KfmPendingFMCount& pending) {
+        return pending.cycle == cycle;
+    }) != m_pendingFMCounts.end()) {
+        return RGY_ERR_NONE;
+    }
+    const int firstSourceIndex = cycle * 5 - 3;
+    const int lastSourceIndex = firstSourceIndex + KFM_FMCOUNT_SOURCE_FRAMES - 1;
+    if (!drain && m_cachedSourceFrames <= lastSourceIndex) {
+        return RGY_ERR_MORE_DATA;
+    }
+    if (m_cachedSourceFrames <= 0 || m_sourceCache.empty()) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    std::array<const KfmCachedSource *, KFM_FMCOUNT_SOURCE_FRAMES> src = {};
+    for (int i = 0; i < KFM_FMCOUNT_SOURCE_FRAMES; i++) {
+        src[i] = findSourceByIndex(firstSourceIndex + i);
+        if (!src[i] || !src[i]->paddedFrame || !src[i]->paddedFrame->frame.ptr[0]) {
+            return RGY_ERR_MORE_DATA;
+        }
+    }
+
+    const size_t countBytes = sizeof(RGYKFM::FMCount) * 2;
+    KfmPendingFMCount pending;
+    pending.cycle = cycle;
+    pending.pairCounts.resize(KFM_FMCOUNT_PAIRS);
+    pending.pairEvents.resize(KFM_FMCOUNT_PAIRS);
+    for (auto& pairCount : pending.pairCounts) {
+        pairCount = std::make_unique<CUMemBufPair>(countBytes);
+        auto sts = pairCount->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    }
+
+    for (int pair = 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
+        auto& fmCountBuf = pending.pairCounts[pair];
+        auto sts = run_kfm_init_fmcount(reinterpret_cast<RGYKFM::FMCount *>(fmCountBuf->ptrDevice), stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+
+        const auto csp = src[pair + 1]->frame->frame.csp;
+        const bool interleavedUV = kfmCspHasInterleavedUV(csp);
+        const int targetPlanes = (RGY_CSP_PLANES[csp] >= 3) ? 3 : (interleavedUV ? 3 : 1);
+        const int countParity = kfmFrameParity(&src[3]->frame->frame);
+        for (int iplane = 0; iplane < targetPlanes; iplane++) {
+            const bool interleavedChroma = interleavedUV && iplane > 0;
+            const auto plane = interleavedChroma ? RGY_PLANE_U : (RGY_PLANE)iplane;
+            const int pixelStep = interleavedChroma ? 2 : 1;
+            const int pixelOffset = interleavedChroma ? iplane - 1 : 0;
+            const auto prevSrc0 = getPlane(&src[pair + 0]->frame->frame, plane);
+            const auto prevSrc1 = getPlane(&src[pair + 1]->frame->frame, plane);
+            const auto curSrc0 = prevSrc1;
+            const auto curSrc1 = getPlane(&src[pair + 2]->frame->frame, plane);
+            if (!prevSrc0.ptr[0] || !prevSrc1.ptr[0] || !curSrc1.ptr[0]) {
+                continue;
+            }
+            if (prevSrc0.width != prevSrc1.width || prevSrc0.height != prevSrc1.height
+                || prevSrc0.width != curSrc1.width || prevSrc0.height != curSrc1.height) {
+                return RGY_ERR_INVALID_CALL;
+            }
+
+            const int gridWidth = (prevSrc0.width / pixelStep) >> 2;
+            const int gridHeight = prevSrc0.height >> 2;
+            if (gridWidth < 2 || gridHeight < 2) {
+                continue;
+            }
+
+            std::vector<RGYCudaEvent> countWaitEvents;
+            if (src[pair + 0]->paddedEvent() != nullptr) {
+                countWaitEvents.push_back(src[pair + 0]->paddedEvent);
+            }
+            if (src[pair + 1]->paddedEvent() != nullptr) {
+                countWaitEvents.push_back(src[pair + 1]->paddedEvent);
+            }
+            if (src[pair + 2]->paddedEvent() != nullptr) {
+                countWaitEvents.push_back(src[pair + 2]->paddedEvent);
+            }
+            sts = kfmWaitEvents(stream, countWaitEvents);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+
+            const bool chroma = iplane > 0;
+            const int threshMove = chroma ? KFM_THRESH_MOVE_C : KFM_THRESH_MOVE_Y;
+            const int threshShima = chroma ? KFM_THRESH_SHIMA_C : KFM_THRESH_SHIMA_Y;
+            const int cleanThresh = chroma ? KFM_CLEAN_THRESH_C : KFM_CLEAN_THRESH_Y;
+            sts = run_kfm_analyze_count_cmflags_clean(
+                reinterpret_cast<RGYKFM::FMCount *>(fmCountBuf->ptrDevice),
+                &prevSrc0, &prevSrc1, &curSrc0, &curSrc1,
+                gridWidth - 1, gridHeight - 1,
+                kfmFrameParity(&src[pair + 0]->frame->frame),
+                kfmFrameParity(&src[pair + 1]->frame->frame),
+                countParity,
+                pixelStep, pixelOffset,
+                threshMove, threshShima, threshShima * 3, cleanThresh,
+                stream);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_analyze_count_cmflags_clean (pair %d, plane %d): %s.\n"), pair, iplane, get_err_mes(sts));
+                return sts;
+            }
+        }
+
+        sts = err_to_rgy(cudaMemcpyAsync(fmCountBuf->ptrHost, fmCountBuf->ptrDevice, countBytes, cudaMemcpyDeviceToHost, stream));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &pending.pairEvents[pair]);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    m_pendingFMCounts.push_back(std::move(pending));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, int cycle, bool drain, cudaStream_t stream) {
     UNREFERENCED_PARAMETER(stream);
-    return RGY_ERR_UNSUPPORTED;
+    if (m_pendingFMCounts.empty() || m_pendingFMCounts.front().cycle != cycle) {
+        return RGY_ERR_MORE_DATA;
+    }
+    if (!drain && m_nextFMCountSubmitCycle - cycle <= KFM_FMCOUNT_ASYNC_DELAY_CYCLES) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    auto& pending = m_pendingFMCounts.front();
+    counts = {};
+    for (int pair = 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
+        auto& fmCountBuf = pending.pairCounts[pair];
+        if (!fmCountBuf) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM FMCount pending buffer is missing.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        if (pending.pairEvents[pair]() != nullptr) {
+            const auto waitSts = err_to_rgy(cudaEventSynchronize(pending.pairEvents[pair]()));
+            if (waitSts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM FMCount copy event: %s.\n"), get_err_mes(waitSts));
+                return waitSts;
+            }
+        }
+        const auto *gpuCounts = reinterpret_cast<const RGYKFM::FMCount *>(fmCountBuf->ptrHost);
+        if (!gpuCounts) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to access KFM FMCount buffer.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        const int countFrameIndex = pending.cycle * 5 - 3 + pair + 1;
+        if (countFrameIndex >= 0) {
+            counts[pair * 2 + 0] = gpuCounts[0];
+            counts[pair * 2 + 1] = gpuCounts[1];
+        }
+    }
+    const int firstSourceIndex = pending.cycle * 5 - 3;
+    const int firstValidPair = std::max(0, -(firstSourceIndex + 1));
+    if (firstValidPair > 0 && firstValidPair < KFM_FMCOUNT_PAIRS) {
+        for (int pair = 0; pair < firstValidPair; pair++) {
+            counts[pair * 2 + 0] = counts[firstValidPair * 2 + 0];
+            counts[pair * 2 + 1] = counts[firstValidPair * 2 + 1];
+        }
+    }
+    m_pendingFMCounts.pop_front();
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::analyzeAvailableSource(bool drain, cudaStream_t stream) {
+    if (!m_analyzer || m_cachedSourceFrames <= 0) {
+        return RGY_ERR_NONE;
+    }
+
+    const int readyCycles = drain
+        ? divCeil(m_cachedSourceFrames, 5)
+        : (m_cachedSourceFrames >= 8 ? ((m_cachedSourceFrames - 8) / 5 + 1) : 0);
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
+    const auto timing = prm ? prm->kfm.timing : VppKfmTiming::Realtime;
+    while (m_nextFMCountSubmitCycle < readyCycles) {
+        auto sts = submitFMCounts(m_nextFMCountSubmitCycle, drain, stream);
+        if (sts == RGY_ERR_MORE_DATA) {
+            break;
+        }
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_nextFMCountSubmitCycle++;
+    }
+
+    if (m_nextAnalyzeCycle >= readyCycles) {
+        if (drain && timing != VppKfmTiming::Realtime) {
+            finalizeAnalyzerResults(timing);
+        }
+        return RGY_ERR_NONE;
+    }
+
+    const auto *frame = m_sourceCache.empty() ? nullptr : &m_sourceCache.back().frame->frame;
+    if (!frame) {
+        return RGY_ERR_NONE;
+    }
+    while (m_nextAnalyzeCycle < readyCycles) {
+        std::array<RGYKFM::FMCount, KFM_FMCOUNT_COUNT> counts = {};
+        auto sts = readbackFMCounts(counts, m_nextAnalyzeCycle, drain, stream);
+        if (sts == RGY_ERR_MORE_DATA) {
+            return RGY_ERR_NONE;
+        }
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        writeFMCountDump(counts, m_nextAnalyzeCycle);
+        try {
+            if (timing == VppKfmTiming::Realtime) {
+                const auto result = m_analyzer->realtimeFromCounts(counts.data(), frame->width, frame->height);
+                writeAnalyzerResult(result, true);
+            } else {
+                m_analyzer->analyzeCycleFromCounts(counts.data(), frame->width, frame->height);
+                if (timing == VppKfmTiming::RealtimePlus) {
+                    const auto resultCount = m_analyzer->results().size();
+                    const auto delay = static_cast<size_t>(std::max(0, m_analyzer->param().pastCycles));
+                    appendAnalyzerResults(resultCount > delay ? resultCount - delay : 0, true, true);
+                }
+            }
+        } catch (const std::exception& e) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to analyze KFM cycle %d: %S.\n"), m_nextAnalyzeCycle, e.what());
+            return RGY_ERR_INVALID_CALL;
+        }
+        m_nextAnalyzeCycle++;
+    }
+    if (drain && timing != VppKfmTiming::Realtime) {
+        finalizeAnalyzerResults(timing);
+    }
+    return RGY_ERR_NONE;
 }
 
 void NVEncFilterKfm::flushUcfNoiseResultDump() {
