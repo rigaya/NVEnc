@@ -73,6 +73,23 @@ RGY_ERR run_kfm_analyze_count_cmflags_clean(
     int threshLS,
     int cleanThresh,
     cudaStream_t stream);
+RGY_ERR run_kfm_zero_plane(RGYFrameInfo *pOutputFrame, cudaStream_t stream);
+RGY_ERR run_kfm_static_calc_combe_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, int srcYOffset, cudaStream_t stream);
+RGY_ERR run_kfm_temporal_min_diff5_3_plane(
+    RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *src0,
+    const RGYFrameInfo *src1,
+    const RGYFrameInfo *src2,
+    const RGYFrameInfo *src3,
+    const RGYFrameInfo *src4,
+    const RGYFrameInfo *src5,
+    const RGYFrameInfo *src6,
+    cudaStream_t stream);
+RGY_ERR run_kfm_merge_uv_coefs_plane(RGYFrameInfo *flagY, const RGYFrameInfo *flagU, const RGYFrameInfo *flagV, int logUVx, int logUVy, cudaStream_t stream);
+RGY_ERR run_kfm_extend_coefs_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+RGY_ERR run_kfm_and_coefs_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDiffFrame, float invcombe, float invdiff, cudaStream_t stream);
+RGY_ERR run_kfm_apply_uv_coefs_420_plane(RGYFrameInfo *flagU, RGYFrameInfo *flagV, const RGYFrameInfo *flagY, cudaStream_t stream);
+RGY_ERR run_kfm_merge_static_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeint60Frame, const RGYFrameInfo *pSourceFrame, const RGYFrameInfo *pFlagFrame, cudaStream_t stream);
 
 class RGYFrameDataKfmSwitch : public RGYFrameData {
 public:
@@ -232,6 +249,11 @@ protected:
     RGY_ERR submitFMCounts(int cycle, bool drain, cudaStream_t stream);
     RGY_ERR readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, int cycle, bool drain, cudaStream_t stream);
     RGY_ERR analyzeAvailableSource(bool drain, cudaStream_t stream);
+    RGY_ERR clearStaticFlag(cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event = nullptr);
+    RGY_ERR analyzeStaticFlag(cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR analyzeStaticFlag(int sourceIndex, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR mergeStatic(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeint60Frame, const RGYFrameInfo *pSourceFrame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     void flushUcfNoiseResultDump();
 
     struct KfmCachedSource {
