@@ -612,15 +612,80 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     if (!prm) {
         return RGY_ERR_INVALID_PARAM;
     }
-    m_param = pParam;
     m_pLog = pPrintMes;
-    auto sts = initAnalyzer(*prm);
+    if (prm->frameOut.width <= 0 || prm->frameOut.height <= 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->kfm.ucf) {
+        AddMessage(RGY_LOG_INFO, _T("--vpp-kfm ucf=true enables the UCF debug field/crop noise pre-stage.\n"));
+    }
+
+    m_pathThrough = FILTER_PATHTHROUGH_NONE;
+    m_rtgmc.reset();
+    m_deint60Rtgmc.reset();
+    m_before60Rtgmc.reset();
+    m_after60Rtgmc.reset();
+    m_before60Cache.clear();
+    m_after60Cache.clear();
+    m_before60SubmittedSourceFrames = 0;
+    m_after60SubmittedSourceFrames = 0;
+    m_before60CacheCopyEvent = RGYCudaEvent();
+    m_after60CacheCopyEvent = RGYCudaEvent();
+
+    const bool needTelecineWorkFrames = prm->kfm.mode == VppKfmMode::P24
+        || prm->kfm.mode == VppKfmMode::VFR;
+    const int frameBufCount = needTelecineWorkFrames ? (prm->kfm.ucf ? 16 : 8) : 8;
+    auto sts = AllocFrameBuf(prm->frameOut, frameBufCount);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM output buffer: %s.\n"), get_err_mes(sts));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    if (needTelecineWorkFrames || prm->kfm.mode == VppKfmMode::P60) {
+        sts = allocWorkFrameBuf(prm->frameOut, frameBufCount);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM work buffer: %s.\n"), get_err_mes(sts));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+    } else {
+        m_workFrameBuf.clear();
+        m_workBufferIndex = 0;
+    }
+    if (prm->kfm.mode == VppKfmMode::VFR || prm->kfm.mode == VppKfmMode::P60 || prm->kfm.ucf) {
+        m_staticFlag = std::make_unique<CUFrameBuf>(prm->frameOut);
+        m_staticFlag->releasePtr();
+        sts = m_staticFlag->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM static flag frame: %s.\n"), get_err_mes(sts));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+    } else {
+        m_staticFlag.reset();
+    }
+    sts = initAnalyzer(*prm);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
     initStageDumpConfig(*prm);
-    AddMessage(RGY_LOG_ERROR, _T("KFM CUDA filter body is not wired yet.\n"));
-    return RGY_ERR_UNSUPPORTED;
+    for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
+        prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
+    }
+    sts = initNrFilter(prm);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    if (prm->kfm.mode == VppKfmMode::VFR) {
+        prm->baseFps *= 2;
+    }
+
+    m_sourceCache.clear();
+    m_deint60Cache.clear();
+    m_deint60SubmittedSourceFrames = 0;
+    m_deint60CacheCopyEvent = RGYCudaEvent();
+    m_outputBufferIndex = 0;
+    setFilterInfo(prm->print());
+    m_param = prm;
+    return RGY_ERR_NONE;
 }
 
 int NVEncFilterKfm::requiredOutputFrames() const {
