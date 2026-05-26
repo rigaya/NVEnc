@@ -2355,9 +2355,103 @@ tstring VppDegrain::print() const {
         mvSpatialRefine);
 }
 
+VppRtgmcBob::VppRtgmcBob() :
+    enable(false),
+    order(VppRtgmcBobOrder::Auto) {
+}
+
+bool VppRtgmcBob::operator==(const VppRtgmcBob& x) const {
+    return enable == x.enable
+        && order == x.order;
+}
+bool VppRtgmcBob::operator!=(const VppRtgmcBob& x) const {
+    return !(*this == x);
+}
+
+tstring VppRtgmcBob::print() const {
+    return strsprintf(
+        _T("rtgmc-bob: order %s"),
+        get_cx_desc(list_vpp_rtgmc_bob_order, (int)order));
+}
+
+VppRtgmcSearchPrefilter::VppRtgmcSearchPrefilter() :
+    enable(false),
+    tr0(FILTER_DEFAULT_DEGRAIN_TR0),
+    rep0Thin(FILTER_DEFAULT_DEGRAIN_REP0),
+    rep0Pad(0),
+    searchRefine(FILTER_DEFAULT_DEGRAIN_SEARCH_REFINE),
+    tvRange(true),
+    chromaMotion(false),
+    dumpY4m(),
+    dumpStage(),
+    dumpMaxFrames(0) {
+}
+
+bool VppRtgmcSearchPrefilter::operator==(const VppRtgmcSearchPrefilter& x) const {
+    return enable == x.enable
+        && tr0 == x.tr0
+        && rep0Thin == x.rep0Thin
+        && rep0Pad == x.rep0Pad
+        && searchRefine == x.searchRefine
+        && tvRange == x.tvRange
+        && chromaMotion == x.chromaMotion
+        && dumpY4m == x.dumpY4m
+        && dumpStage == x.dumpStage
+        && dumpMaxFrames == x.dumpMaxFrames;
+}
+bool VppRtgmcSearchPrefilter::operator!=(const VppRtgmcSearchPrefilter& x) const {
+    return !(*this == x);
+}
+
+tstring VppRtgmcSearchPrefilter::print() const {
+    return strsprintf(_T("rtgmc-search-prefilter: tr0 %d, rep0-thin %d, rep0-pad %d, search_refine %d, tv_range %s, chroma_motion %s%s%s"),
+        tr0, rep0Thin, rep0Pad, searchRefine, tvRange ? _T("on") : _T("off"), chromaMotion ? _T("on") : _T("off"),
+        dumpY4m.empty() ? _T("") : _T(", dump_y4m on"),
+        dumpStage.empty() ? _T("") : strsprintf(_T(", dump_stage %s"), dumpStage.c_str()).c_str());
+}
+
+VppRtgmcNoise::VppRtgmcNoise() :
+    noiseProcess(0),
+    ezDenoise(0.0f),
+    ezKeepGrain(0.0f),
+    denoiser(VppRtgmcNoiseDenoiser::NLMeans),
+    noiseDeint(VppRtgmcNoiseDeint::None),
+    sigma(2.0f),
+    chromaNoise(true),
+    denoiseMC(false),
+    noiseTR(0),
+    grainRestore(0.0f),
+    noiseRestore(0.0f) {
+}
+
+bool VppRtgmcNoise::operator==(const VppRtgmcNoise& x) const {
+    return noiseProcess == x.noiseProcess
+        && ezDenoise == x.ezDenoise
+        && ezKeepGrain == x.ezKeepGrain
+        && denoiser == x.denoiser
+        && noiseDeint == x.noiseDeint
+        && sigma == x.sigma
+        && chromaNoise == x.chromaNoise
+        && denoiseMC == x.denoiseMC
+        && noiseTR == x.noiseTR
+        && grainRestore == x.grainRestore
+        && noiseRestore == x.noiseRestore;
+}
+bool VppRtgmcNoise::operator!=(const VppRtgmcNoise& x) const {
+    return !(*this == x);
+}
+
+tstring VppRtgmcNoise::print() const {
+    return strsprintf(_T("rtgmc-noise: process %d, ezdenoise %.3f, ezkeepgrain %.3f, denoiser %s, noise_deint %s, sigma %.3f, chroma_noise %s, denoise_mc %s, noise_tr %d, grain_restore %.3f, noise_restore %.3f"),
+        noiseProcess, ezDenoise, ezKeepGrain, get_cx_desc(list_vpp_rtgmc_noise_denoiser, (int)denoiser),
+        get_cx_desc(list_vpp_rtgmc_noise_deint, (int)noiseDeint),
+        sigma, chromaNoise ? _T("true") : _T("false"), denoiseMC ? _T("true") : _T("false"),
+        noiseTR, grainRestore, noiseRestore);
+}
+
 VppRtgmcEdi::VppRtgmcEdi() :
     enable(false),
-    mode(VppRtgmcEdiMode::Bob),
+    mode(VppRtgmcEdiMode::BobChromaMerge),
     chromaEdi(VppRtgmcChromaEdiMode::None),
     nnsize(1),
     nneurons(1),
@@ -2449,6 +2543,278 @@ bool VppRtgmcShimmerRepair::operator!=(const VppRtgmcShimmerRepair& x) const {
 tstring VppRtgmcShimmerRepair::print() const {
     return strsprintf(_T("rtgmc-shimmer-repair: stage %s, rep-thin %d, rep-pad %d, rep_chroma %s"),
         get_cx_desc(list_vpp_rtgmc_shimmer_repair_stage, (int)stage), repThin, repPad, repChroma ? _T("on") : _T("off"));
+}
+
+VppRtgmcPrimitive::VppRtgmcPrimitive() :
+    enable(false),
+    op(VppRtgmcPrimitiveOp::Copy),
+    ref(VppRtgmcPrimitiveRef::Disabled),
+    mode(FILTER_DEFAULT_RTGMC_PRIMITIVE_MODE),
+    weight(FILTER_DEFAULT_RTGMC_PRIMITIVE_WEIGHT),
+    chroma(FILTER_DEFAULT_RTGMC_PRIMITIVE_CHROMA) {
+}
+
+bool VppRtgmcPrimitive::operator==(const VppRtgmcPrimitive& x) const {
+    return enable == x.enable
+        && op == x.op
+        && ref == x.ref
+        && mode == x.mode
+        && weight == x.weight
+        && chroma == x.chroma;
+}
+bool VppRtgmcPrimitive::operator!=(const VppRtgmcPrimitive& x) const {
+    return !(*this == x);
+}
+
+tstring VppRtgmcPrimitive::print() const {
+    return strsprintf(_T("rtgmc-primitive: op %s, ref %s, mode %d, weight %.3f, chroma %s"),
+        get_cx_desc(list_vpp_rtgmc_primitive_op, (int)op), get_cx_desc(list_vpp_rtgmc_primitive_ref, (int)ref),
+        mode, weight, chroma ? _T("on") : _T("off"));
+}
+
+VppRtgmc::VppRtgmc() :
+    enable(false),
+    preset(VppRtgmcPreset::Faster),
+    tuning(VppRtgmcTuning::None),
+    border(false),
+    lossless(0),
+    inputType(0),
+    progSADMask(10.0f),
+    progSADMaskGamma(1.0f),
+    mvSpatialRefine(FILTER_DEFAULT_RTGMC_MV_SPATIAL_REFINE),
+    sourceMatch(0),
+    matchTR1(1),
+    matchTR2(1),
+    matchEnhance(0.5f),
+    bob(),
+    searchPrefilter(),
+    analyze(),
+    noise(),
+    edi(),
+    matchEdi(),
+    tr1(),
+    rep1(),
+    retouch(),
+    tr2(),
+    rep2() {
+    bob.enable = true;
+    searchPrefilter.enable = true;
+    analyze.enable = true;
+    analyze.mode = VppDegrainMode::Analyze;
+    analyze.stage = VppDegrainStage::TR1;
+    edi.enable = true;
+    matchEdi.enable = true;
+    tr1.enable = true;
+    tr1.mode = VppDegrainMode::Degrain;
+    tr1.stage = VppDegrainStage::TR1;
+    rep1.enable = true;
+    rep1.stage = VppRtgmcShimmerRepairStage::Rep1;
+    retouch.enable = true;
+    tr2.enable = true;
+    tr2.mode = VppDegrainMode::Degrain;
+    tr2.stage = VppDegrainStage::TR2;
+    rep2.enable = true;
+    rep2.stage = VppRtgmcShimmerRepairStage::Rep2;
+
+    for (auto *stagePrm : { &analyze, &tr1, &tr2 }) {
+        stagePrm->blksize = 16;
+        stagePrm->overlap = 8;
+        stagePrm->search = 4;
+        stagePrm->pel = 2;
+        stagePrm->levels = 2;
+        stagePrm->subpelInterp = 2;
+        stagePrm->searchParam = 2;
+        stagePrm->pelSearch = 2;
+        stagePrm->trueMotion = false;
+        stagePrm->lambda = 400;
+        stagePrm->lsad = 400;
+        stagePrm->pnew = 25;
+        stagePrm->plevel = 0;
+        stagePrm->globalMotion = true;
+        stagePrm->dct = 0;
+        stagePrm->mvSpatialRefine = mvSpatialRefine;
+    }
+    tr1.thsad = 10 * 8 * 8;
+    tr2.thsad = 4 * 8 * 8;
+    searchPrefilter.tr0 = 2;
+    searchPrefilter.rep0Thin = 4;
+    searchPrefilter.rep0Pad = 0;
+    searchPrefilter.searchRefine = 3;
+    searchPrefilter.chromaMotion = true;
+    for (auto *stagePrm : { &analyze, &tr1, &tr2 }) {
+        stagePrm->tr0 = searchPrefilter.tr0;
+        stagePrm->rep0 = searchPrefilter.rep0Thin;
+        stagePrm->searchRefine = searchPrefilter.searchRefine;
+        stagePrm->chroma = searchPrefilter.chromaMotion;
+    }
+    edi.mode = VppRtgmcEdiMode::NNEDI3;
+    matchEdi.mode = edi.mode;
+    analyze.delta = 2;
+    tr1.delta = 2;
+    tr2.delta = 1;
+    rep2.repThin = 4;
+    rep2.repPad = 0;
+    retouch.smode = 2;
+    retouch.slmode = 2;
+    retouch.slrad = 1;
+    retouch.sbb = 1;
+    noise.denoiser = VppRtgmcNoiseDenoiser::FFT3D;
+    retouch.tr1 = tr1.delta;
+    retouch.tr2 = tr2.delta;
+    apply_vpp_rtgmc_preset(*this, preset, tuning);
+}
+
+void apply_vpp_rtgmc_preset(VppRtgmc& rtgmc, VppRtgmcPreset preset, VppRtgmcTuning tuning) {
+    const int p = clamp((int)preset, (int)VppRtgmcPreset::Placebo, (int)VppRtgmcPreset::Draft);
+
+    const auto upTo = [p](VppRtgmcPreset key) { return p <= (int)key; };
+    const auto is   = [p](VppRtgmcPreset key) { return p == (int)key; };
+
+    const int tr0          = upTo(VppRtgmcPreset::Fast)      ? 2
+                           : upTo(VppRtgmcPreset::UltraFast) ? 1 : 0;
+    const int tr1          = upTo(VppRtgmcPreset::Slower)    ? 2 : 1;
+    const int tr2          = is(VppRtgmcPreset::Placebo)     ? 3
+                           : is(VppRtgmcPreset::VerySlow)    ? 2
+                           : upTo(VppRtgmcPreset::Medium)    ? 1 : 0;
+    const int rep0Thin     = upTo(VppRtgmcPreset::Slow)      ? 4
+                           : upTo(VppRtgmcPreset::Fast)      ? 3 : 0;
+    const int rep1Thin     = 0;
+    const int rep2Thin     = upTo(VppRtgmcPreset::VeryFast)  ? 4
+                           : upTo(VppRtgmcPreset::UltraFast) ? 3 : 0;
+    const VppRtgmcEdiMode ediMode = upTo(VppRtgmcPreset::SuperFast) ? VppRtgmcEdiMode::NNEDI3
+                                  : is(VppRtgmcPreset::UltraFast)   ? VppRtgmcEdiMode::RepYadif
+                                  : VppRtgmcEdiMode::Bob;
+    const int nnsize       = upTo(VppRtgmcPreset::Slow)      ? 1
+                           : upTo(VppRtgmcPreset::Fast)      ? 5 : 4;
+    const int nneurons     = upTo(VppRtgmcPreset::VerySlow)  ? 2
+                           : upTo(VppRtgmcPreset::Medium)    ? 1 : 0;
+    const int ediqual      = 1;
+    const int smode        = upTo(VppRtgmcPreset::UltraFast) ? 2 : 0;
+    const int slmode       = upTo(VppRtgmcPreset::VeryFast)  ? 2 : 0;
+    const int slrad        = is(VppRtgmcPreset::Placebo)     ? 3 : 1;
+    const int sbb          = is(VppRtgmcPreset::Placebo)     ? 3
+                           : upTo(VppRtgmcPreset::Slower)    ? 1 : 0;
+    const int searchRefine = upTo(VppRtgmcPreset::Medium)    ? 3
+                           : upTo(VppRtgmcPreset::VeryFast)  ? 2
+                           : upTo(VppRtgmcPreset::UltraFast) ? 1 : 0;
+    const int subpel       = upTo(VppRtgmcPreset::Slow)      ? 2 : 1;
+    const int search       = is(VppRtgmcPreset::Placebo)     ? 5
+                           : upTo(VppRtgmcPreset::VeryFast)  ? 4 : 0;
+    const int searchparam  = upTo(VppRtgmcPreset::Faster)    ? 2 : 1;
+    const int pelsearch    = upTo(VppRtgmcPreset::Slow)      ? 2 : 1;
+    const bool chroma      = upTo(VppRtgmcPreset::Slower);
+    const bool precise     = upTo(VppRtgmcPreset::VerySlow);
+    const float progSADMask = upTo(VppRtgmcPreset::Medium)   ? 10.0f : 0.0f;
+
+    const int bs = tuning == VppRtgmcTuning::DVHD ? 32 : 16;
+    const int bs2 = 32;
+    const int blocksize = upTo(VppRtgmcPreset::Fast)   ? bs : bs2;
+    const int overlap   = upTo(VppRtgmcPreset::Faster) ? blocksize / 2 : blocksize / 4;
+    const auto defaultLambda = [](const VppDegrain& prm) {
+        return ((prm.trueMotion ? 1000 : 100) * prm.blksize * prm.blksize) / (8 * 8);
+    };
+    rtgmc.preset = (VppRtgmcPreset)p;
+    rtgmc.tuning = tuning;
+    rtgmc.progSADMask = progSADMask;
+    rtgmc.searchPrefilter.tr0 = tr0;
+    rtgmc.searchPrefilter.rep0Thin = rep0Thin;
+    rtgmc.searchPrefilter.rep0Pad = 0;
+    rtgmc.searchPrefilter.searchRefine = searchRefine;
+    rtgmc.searchPrefilter.chromaMotion = chroma;
+    rtgmc.edi.mode = ediMode;
+    rtgmc.edi.nnsize = nnsize;
+    rtgmc.edi.nneurons = nneurons;
+    rtgmc.edi.ediqual = ediqual;
+    rtgmc.matchEdi.mode = rtgmc.edi.mode;
+    rtgmc.matchEdi.nnsize = rtgmc.edi.nnsize;
+    rtgmc.matchEdi.nneurons = rtgmc.edi.nneurons;
+    rtgmc.matchEdi.ediqual = rtgmc.edi.ediqual;
+    rtgmc.analyze.delta = tr0;
+    rtgmc.tr1.delta = tr1;
+    rtgmc.tr2.delta = tr2;
+    rtgmc.rep1.repThin = rep1Thin;
+    rtgmc.rep1.repPad = 0;
+    rtgmc.rep2.repThin = rep2Thin;
+    rtgmc.rep2.repPad = 0;
+    rtgmc.retouch.smode = smode;
+    rtgmc.retouch.slmode = slmode;
+    rtgmc.retouch.slrad = slrad;
+    rtgmc.retouch.sbb = sbb;
+    rtgmc.retouch.precise = precise;
+    rtgmc.retouch.tr1 = rtgmc.tr1.delta;
+    rtgmc.retouch.tr2 = rtgmc.tr2.delta;
+    for (auto *stagePrm : { &rtgmc.analyze, &rtgmc.tr1, &rtgmc.tr2 }) {
+        stagePrm->tr0 = rtgmc.searchPrefilter.tr0;
+        stagePrm->rep0 = rtgmc.searchPrefilter.rep0Thin;
+        stagePrm->searchRefine = rtgmc.searchPrefilter.searchRefine;
+        stagePrm->mvSpatialRefine = rtgmc.mvSpatialRefine;
+        stagePrm->chroma = rtgmc.searchPrefilter.chromaMotion;
+        stagePrm->blksize = blocksize;
+        stagePrm->overlap = overlap;
+        stagePrm->search = search;
+        stagePrm->pel = subpel;
+        stagePrm->searchParam = searchparam;
+        stagePrm->pelSearch = pelsearch;
+        stagePrm->lambda = defaultLambda(*stagePrm);
+    }
+    rtgmc.noise.denoiser = VppRtgmcNoiseDenoiser::FFT3D;
+    rtgmc.noise.denoiseMC = false;
+    rtgmc.noise.noiseTR = 1;
+    rtgmc.noise.noiseDeint = VppRtgmcNoiseDeint::None;
+    rtgmc.noise.noiseProcess = (p == (int)VppRtgmcPreset::Placebo || p == (int)VppRtgmcPreset::VerySlow) ? 2 : 0;
+    if (rtgmc.noise.noiseProcess == 0) {
+        rtgmc.noise.noiseTR = 0;
+    }
+    rtgmc.noise.grainRestore = rtgmc.noise.noiseProcess == 2 ? 0.3f : 0.0f;
+    rtgmc.noise.noiseRestore = rtgmc.noise.noiseProcess == 2 ? 0.1f : 0.0f;
+}
+
+bool VppRtgmc::operator==(const VppRtgmc& x) const {
+    return enable == x.enable
+        && preset == x.preset
+        && tuning == x.tuning
+        && border == x.border
+        && lossless == x.lossless
+        && inputType == x.inputType
+        && progSADMask == x.progSADMask
+        && progSADMaskGamma == x.progSADMaskGamma
+        && mvSpatialRefine == x.mvSpatialRefine
+        && sourceMatch == x.sourceMatch
+        && matchTR1 == x.matchTR1
+        && matchTR2 == x.matchTR2
+        && matchEnhance == x.matchEnhance
+        && bob == x.bob
+        && searchPrefilter == x.searchPrefilter
+        && analyze == x.analyze
+        && noise == x.noise
+        && edi == x.edi
+        && matchEdi == x.matchEdi
+        && tr1 == x.tr1
+        && rep1 == x.rep1
+        && retouch == x.retouch
+        && tr2 == x.tr2
+        && rep2 == x.rep2;
+}
+bool VppRtgmc::operator!=(const VppRtgmc& x) const {
+    return !(*this == x);
+}
+
+tstring VppRtgmc::print() const {
+    return strsprintf(_T("rtgmc: preset %s, tuning %s, border %s, lossless %d, input_type %d, prog_sad_mask %.3f, prog_sad_mask_gamma %.3f, mv_spatial_refine %d, source_match %d, match_tr1 %d, match_tr2 %d, match_edi %s, match_enhance %.3f, order %s, tr0 %d, rep0-thin %d, rep0-pad %d, search_refine %d, %s, edi %s, nnsize %d, nneurons %d, ediqual %d, chroma_edi %s, tr1 thsad %d, rep1-thin %d, rep1-pad %d, retouch smode %d/slmode %d/precise %s/sharpness %.3f, tr2 thsad %d, rep2-thin %d, rep2-pad %d"),
+        get_cx_desc(list_vpp_rtgmc_preset, (int)preset),
+        get_cx_desc(list_vpp_rtgmc_tuning, (int)tuning),
+        border ? _T("true") : _T("false"),
+        lossless, inputType, progSADMask, progSADMaskGamma, mvSpatialRefine,
+        sourceMatch, matchTR1, matchTR2,
+        get_cx_desc(list_vpp_rtgmc_edi_mode, (int)matchEdi.mode),
+        matchEnhance,
+        get_cx_desc(list_vpp_rtgmc_bob_order, (int)bob.order),
+        searchPrefilter.tr0, searchPrefilter.rep0Thin, searchPrefilter.rep0Pad, searchPrefilter.searchRefine,
+        noise.print().c_str(),
+        get_cx_desc(list_vpp_rtgmc_edi_mode, (int)edi.mode),
+        edi.nnsize, edi.nneurons, edi.ediqual,
+        get_cx_desc(list_vpp_rtgmc_chroma_edi_mode, (int)edi.chromaEdi),
+        tr1.thsad, rep1.repThin, rep1.repPad, retouch.smode, retouch.slmode, retouch.precise ? _T("true") : _T("false"), retouch.sharpness, tr2.thsad, rep2.repThin, rep2.repPad);
 }
 
 VppKfm::VppKfm() :
