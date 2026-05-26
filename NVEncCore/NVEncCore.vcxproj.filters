@@ -533,6 +533,9 @@
     <ClInclude Include="NVEncFilterRtgmcLossless.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterRtgmcMMask.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="NVEncFilterRtgmcPrimitive.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -896,6 +899,9 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterRtgmcLossless.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterRtgmcMMask.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterRtgmcPrimitive.cu">
