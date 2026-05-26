@@ -1106,6 +1106,9 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYBitstream *pBitstream) {
 }
 
 RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
+    if (!pSurface) {
+        return RGY_ERR_NONE;
+    }
     if (!m_fDest) {
         return RGY_ERR_NULL_PTR;
     }

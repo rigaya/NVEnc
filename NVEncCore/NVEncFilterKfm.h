@@ -41,7 +41,7 @@
 #include "rgy_filter_kfm_analyze.h"
 
 class NVEncFilterDegrain;
-class NVEncFilterRtgmcBob;
+class NVEncFilterRtgmc;
 
 class NVEncFilterParamKfm : public NVEncFilterParam {
 public:
@@ -195,6 +195,7 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
+    RGY_ERR initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& prm, std::unique_ptr<NVEncFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag = 0);
     RGY_ERR initAnalyzer(const NVEncFilterParamKfm& prm);
     RGY_ERR initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>& prm);
     void initStageDumpConfig(const NVEncFilterParamKfm& prm);
@@ -237,6 +238,10 @@ protected:
     int telecine24FrameCount(bool drain) const;
     RGY_ERR runNrFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrame,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR processMainRtgmcOutputs(const NVEncFilterParamKfm& prm, RGYFrameInfo **rtgmcOutFrames, int rtgmcOutNum,
+        RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR drainMainRtgmcBranch(const NVEncFilterParamKfm& prm, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, RGYCudaEvent *event);
     RGY_ERR emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, const RGYCudaEvent &frameEvent, RGYCudaEvent *event);
     RGY_ERR queueVfrOutputFrame(const RGYFrameInfo *pFrame, cudaStream_t stream, const RGYCudaEvent &frameEvent);
@@ -337,10 +342,10 @@ protected:
         KfmPendingVfrOutput() : frame(), event() {};
     };
 
-    std::unique_ptr<NVEncFilterRtgmcBob> m_rtgmc;
-    std::unique_ptr<NVEncFilterRtgmcBob> m_deint60Rtgmc;
-    std::unique_ptr<NVEncFilterRtgmcBob> m_before60Rtgmc;
-    std::unique_ptr<NVEncFilterRtgmcBob> m_after60Rtgmc;
+    std::unique_ptr<NVEncFilterRtgmc> m_rtgmc;
+    std::unique_ptr<NVEncFilterRtgmc> m_deint60Rtgmc;
+    std::unique_ptr<NVEncFilterRtgmc> m_before60Rtgmc;
+    std::unique_ptr<NVEncFilterRtgmc> m_after60Rtgmc;
     std::unique_ptr<NVEncFilterDegrain> m_nrFilter;
     std::unique_ptr<RGYKFM::KFMAnalyze> m_analyzer;
     std::shared_ptr<SharedFramePool> m_kfmFramePool;
