@@ -37,6 +37,7 @@
 #include <limits>
 
 namespace {
+static constexpr int KFM_SOURCE_VPAD = 4;
 static constexpr int KFM_FMCOUNT_PAIRS = 9;
 static constexpr int KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN = 64;
 static constexpr int KFM_REALTIMEPLUS_DEINT60_CACHE_MARGIN = KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN * 2;
@@ -61,6 +62,35 @@ static std::string kfmStageDumpName(const char *stage) {
         }
     }
     return name + ".y4m";
+}
+
+static RGY_ERR kfmWaitEvents(cudaStream_t stream, const std::vector<RGYCudaEvent> &waitEvents) {
+    for (const auto& waitEvent : waitEvents) {
+        if (waitEvent() != nullptr) {
+            const auto sts = err_to_rgy(cudaStreamWaitEvent(stream, waitEvent(), 0));
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+static RGY_ERR kfmRecordEvent(cudaStream_t stream, RGYCudaEvent *event) {
+    if (!event) {
+        return RGY_ERR_NONE;
+    }
+    auto cudaEvent = std::shared_ptr<cudaEvent_t>(new cudaEvent_t(), cudaevent_deleter());
+    auto sts = err_to_rgy(cudaEventCreateWithFlags(cudaEvent.get(), cudaEventDisableTiming));
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = err_to_rgy(cudaEventRecord(*cudaEvent, stream));
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    event->set(cudaEvent);
+    return RGY_ERR_NONE;
 }
 }
 
@@ -429,6 +459,99 @@ bool NVEncFilterKfm::stageDumpRequested(int frame24Index) const {
     return !m_stageDumpDir.empty()
         && ((m_stageDumpMaxFrames > 0 && frame24Index < m_stageDumpMaxFrames)
             || m_stageDumpTargetFrames.find(frame24Index) != m_stageDumpTargetFrames.end());
+}
+
+RGY_ERR NVEncFilterKfm::padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameInfo *pSourceFrame,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pPaddedFrame || !pSourceFrame) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (pPaddedFrame->csp != pSourceFrame->csp || pPaddedFrame->width != pSourceFrame->width) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto sts = kfmWaitEvents(stream, wait_events);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    const auto planes = RGY_CSP_PLANES[pPaddedFrame->csp];
+    for (int iplane = 0; iplane < planes; iplane++) {
+        auto dst = getPlane(pPaddedFrame, (RGY_PLANE)iplane);
+        const auto src = getPlane(pSourceFrame, (RGY_PLANE)iplane);
+        const int vpad = (dst.height - src.height) >> 1;
+        if (dst.width != src.width || dst.height != src.height + vpad * 2 || vpad <= 0) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM padded source plane size (plane %d, src %dx%d, dst %dx%d).\n"),
+                iplane, src.width, src.height, dst.width, dst.height);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        sts = run_kfm_pad_plane(&dst, &src, vpad, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_pad (plane %d): %s.\n"), iplane, get_err_mes(sts));
+            return sts;
+        }
+    }
+    sts = kfmRecordEvent(stream, event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    copyFramePropWithoutRes(pPaddedFrame, pSourceFrame);
+    pPaddedFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
+    if (!frame || !frame->ptr[0]) {
+        return RGY_ERR_NONE;
+    }
+    KfmCachedSource entry;
+    entry.sourceIndex = m_cachedSourceFrames++;
+    entry.inputFrameId = frame->inputFrameId;
+    entry.timestamp = frame->timestamp;
+    entry.frame = acquireKfmFrame(*frame, _T("source cache"));
+    if (!entry.frame) {
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    auto sts = kfmWaitEvents(stream, wait_events);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = copyFrameAsync(&entry.frame->frame, frame, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to cache KFM source frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    sts = kfmRecordEvent(stream, &entry.event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    copyFramePropWithoutRes(&entry.frame->frame, frame);
+
+    auto paddedFrameInfo = *frame;
+    paddedFrameInfo.height += KFM_SOURCE_VPAD * 2;
+    entry.paddedFrame = acquireKfmFrame(paddedFrameInfo, _T("padded source cache"));
+    if (!entry.paddedFrame) {
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    auto padWaitEvents = wait_events;
+    if (entry.event() != nullptr) {
+        padWaitEvents.push_back(entry.event);
+    }
+    sts = padSourceFrame(&entry.paddedFrame->frame, &entry.frame->frame, stream, padWaitEvents, &entry.paddedEvent);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to pad KFM source frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    writeFrameInfoDump("source-pad", &entry.paddedFrame->frame);
+
+    m_sourceCache.push_back(std::move(entry));
+    const auto cacheLimit = sourceCacheLimit();
+    const auto trimFloor = sourceCacheTrimFloor();
+    while (m_sourceCache.size() > cacheLimit && m_sourceCache.front().sourceIndex < trimFloor) {
+        m_sourceCache.pop_front();
+    }
+    sts = analyzeAvailableSource(false, stream);
+    writeFrameInfoDump("source", frame);
+    return sts;
 }
 
 RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -1174,6 +1297,12 @@ int NVEncFilterKfm::telecine24FrameCount(bool drain) const {
         readyFrames++;
     }
     return readyFrames;
+}
+
+RGY_ERR NVEncFilterKfm::analyzeAvailableSource(bool drain, cudaStream_t stream) {
+    UNREFERENCED_PARAMETER(drain);
+    UNREFERENCED_PARAMETER(stream);
+    return RGY_ERR_UNSUPPORTED;
 }
 
 void NVEncFilterKfm::flushUcfNoiseResultDump() {
