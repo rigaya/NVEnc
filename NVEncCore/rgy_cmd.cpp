@@ -3675,7 +3675,19 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         };
         const auto set_degrain = [&](const VppDegrain& value) {
-            vpp->degrain = value;
+            if (value.mode == VppDegrainMode::Analyze) {
+                auto parsed = value;
+                if (parsed.stage == VppDegrainStage::Auto) {
+                    parsed.stage = VppDegrainStage::TR1;
+                }
+                vpp->degrainAnalyze = parsed;
+            } else if (value.mode == VppDegrainMode::Degrain && value.stage == VppDegrainStage::TR1) {
+                vpp->degrainTR1 = value;
+            } else if (value.mode == VppDegrainMode::Degrain && value.stage == VppDegrainStage::TR2) {
+                vpp->degrainTR2 = value;
+            } else {
+                vpp->degrain = value;
+            }
         };
         int parsedTr = 0;
         bool parsedOverlap = false;
@@ -9358,6 +9370,15 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     };
     if (param->degrain != defaultPrm->degrain) {
         add_degrain_cmd(param->degrain, defaultPrm->degrain);
+    }
+    if (param->degrainAnalyze != defaultPrm->degrainAnalyze) {
+        add_degrain_cmd(param->degrainAnalyze, defaultPrm->degrainAnalyze);
+    }
+    if (param->degrainTR1 != defaultPrm->degrainTR1) {
+        add_degrain_cmd(param->degrainTR1, defaultPrm->degrainTR1);
+    }
+    if (param->degrainTR2 != defaultPrm->degrainTR2) {
+        add_degrain_cmd(param->degrainTR2, defaultPrm->degrainTR2);
     }
     if (param->msmooth != defaultPrm->msmooth) {
         tmp.str(tstring());

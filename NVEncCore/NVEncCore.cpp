@@ -2905,10 +2905,14 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.afs.enable)           filterPipeline.push_back(VppType::CL_AFS);
     if (inputParam->vpp.nnedi.enable)         filterPipeline.push_back(VppType::CL_NNEDI);
     if (inputParam->vpp.kfm.enable)           filterPipeline.push_back(VppType::CL_KFM);
+    const bool degrainLegacy = inputParam->vpp.degrain.enable;
+    const bool degrainAnalyze = inputParam->vpp.degrainAnalyze.enable;
+    const bool degrainTR1 = inputParam->vpp.degrainTR1.enable;
+    const bool degrainTR2 = inputParam->vpp.degrainTR2.enable;
+    if (degrainAnalyze)                       filterPipeline.push_back(VppType::CL_DEGRAIN_ANALYZE);
     if (inputParam->vpp.yadif.enable)         filterPipeline.push_back(VppType::CL_YADIF);
     if (inputParam->vpp.decomb.enable)        filterPipeline.push_back(VppType::CL_DECOMB);
     if (inputParam->vpp.bwdif.enable)         filterPipeline.push_back(VppType::CL_BWDIF);
-    if (inputParam->vpp.degrain.enable)       filterPipeline.push_back(VppType::CL_DEGRAIN);
     if (inputParam->vpp.ivtc.enable)          filterPipeline.push_back(VppType::CL_IVTC);
     if (inputParam->vpp.decimate.enable)      filterPipeline.push_back(VppType::CL_DECIMATE);
     if (inputParam->vpp.mpdecimate.enable)    filterPipeline.push_back(VppType::CL_MPDECIMATE);
@@ -2924,6 +2928,9 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.knn.enable)           filterPipeline.push_back(VppType::CL_DENOISE_KNN);
     if (inputParam->vpp.nlmeans.enable)       filterPipeline.push_back(VppType::CL_DENOISE_NLMEANS);
     if (inputParam->vpp.pmd.enable)           filterPipeline.push_back(VppType::CL_DENOISE_PMD);
+    if (degrainLegacy)                        filterPipeline.push_back(VppType::CL_DEGRAIN);
+    if (degrainTR1)                           filterPipeline.push_back(VppType::CL_DEGRAIN_APPLY_TR1);
+    if (degrainTR2)                           filterPipeline.push_back(VppType::CL_DEGRAIN_APPLY_TR2);
     if (inputParam->vppnv.gaussMaskSize>0)    filterPipeline.push_back(VppType::NPP_GAUSS);
     if (inputParam->vpp.subburn.size()>0)     filterPipeline.push_back(VppType::CL_SUBBURN);
     if (inputParam->vpp.libplacebo_shader.size() > 0)  filterPipeline.push_back(VppType::CL_LIBPLACEBO_SHADER);
@@ -3520,10 +3527,32 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         return RGY_ERR_NONE;
     }
     //degrain
-    if (vppType == VppType::CL_DEGRAIN) {
+    if (vppType == VppType::CL_DEGRAIN
+        || vppType == VppType::CL_DEGRAIN_ANALYZE
+        || vppType == VppType::CL_DEGRAIN_APPLY_TR1
+        || vppType == VppType::CL_DEGRAIN_APPLY_TR2) {
         unique_ptr<NVEncFilter> filter(new NVEncFilterDegrain());
         shared_ptr<NVEncFilterParamDegrain> param(new NVEncFilterParamDegrain());
-        param->degrain = inputParam->vpp.degrain;
+        switch (vppType) {
+        case VppType::CL_DEGRAIN_ANALYZE:
+            param->degrain = inputParam->vpp.degrainAnalyze;
+            param->degrain.mode = VppDegrainMode::Analyze;
+            param->degrain.stage = VppDegrainStage::TR1;
+            break;
+        case VppType::CL_DEGRAIN_APPLY_TR1:
+            param->degrain = inputParam->vpp.degrainTR1;
+            param->degrain.mode = VppDegrainMode::Degrain;
+            param->degrain.stage = VppDegrainStage::TR1;
+            break;
+        case VppType::CL_DEGRAIN_APPLY_TR2:
+            param->degrain = inputParam->vpp.degrainTR2;
+            param->degrain.mode = VppDegrainMode::Degrain;
+            param->degrain.stage = VppDegrainStage::TR2;
+            break;
+        default:
+            param->degrain = inputParam->vpp.degrain;
+            break;
+        }
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
