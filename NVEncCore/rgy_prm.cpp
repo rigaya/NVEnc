@@ -2355,6 +2355,33 @@ tstring VppDegrain::print() const {
         mvSpatialRefine);
 }
 
+VppRtgmcEdi::VppRtgmcEdi() :
+    enable(false),
+    mode(VppRtgmcEdiMode::Bob),
+    chromaEdi(VppRtgmcChromaEdiMode::None),
+    nnsize(1),
+    nneurons(1),
+    ediqual(1) {
+}
+
+bool VppRtgmcEdi::operator==(const VppRtgmcEdi& x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && chromaEdi == x.chromaEdi
+        && nnsize == x.nnsize
+        && nneurons == x.nneurons
+        && ediqual == x.ediqual;
+}
+bool VppRtgmcEdi::operator!=(const VppRtgmcEdi& x) const {
+    return !(*this == x);
+}
+
+tstring VppRtgmcEdi::print() const {
+    return strsprintf(_T("rtgmc-edi: mode %s, nnsize %d, nneurons %d, ediqual %d, chroma_edi %s"),
+        get_cx_desc(list_vpp_rtgmc_edi_mode, (int)mode), nnsize, nneurons, ediqual,
+        get_cx_desc(list_vpp_rtgmc_chroma_edi_mode, (int)chromaEdi));
+}
+
 VppRtgmcRetouch::VppRtgmcRetouch() :
     enable(false),
     sharpness(FILTER_DEFAULT_RTGMC_RETOUCH_SHARPNESS),
@@ -2398,6 +2425,30 @@ tstring VppRtgmcRetouch::print() const {
     return strsprintf(_T("rtgmc-retouch: smode %d, slmode %d, slrad %d, sovs %d, svthin %.3f, sbb %d, precise %s, sharpness %.3f, effective_detail_gain %.3f"),
         smode, slmode, slrad, sovs, svthin, sbb, precise ? _T("true") : _T("false"), sharpness,
         effectiveDetailGain);
+}
+
+VppRtgmcShimmerRepair::VppRtgmcShimmerRepair() :
+    enable(false),
+    stage(VppRtgmcShimmerRepairStage::Rep1),
+    repThin(0),
+    repPad(0),
+    repChroma(true) {
+}
+
+bool VppRtgmcShimmerRepair::operator==(const VppRtgmcShimmerRepair& x) const {
+    return enable == x.enable
+        && stage == x.stage
+        && repThin == x.repThin
+        && repPad == x.repPad
+        && repChroma == x.repChroma;
+}
+bool VppRtgmcShimmerRepair::operator!=(const VppRtgmcShimmerRepair& x) const {
+    return !(*this == x);
+}
+
+tstring VppRtgmcShimmerRepair::print() const {
+    return strsprintf(_T("rtgmc-shimmer-repair: stage %s, rep-thin %d, rep-pad %d, rep_chroma %s"),
+        get_cx_desc(list_vpp_rtgmc_shimmer_repair_stage, (int)stage), repThin, repPad, repChroma ? _T("on") : _T("off"));
 }
 
 VppKfm::VppKfm() :
