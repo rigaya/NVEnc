@@ -367,3 +367,512 @@ RGY_ERR run_kfm_analyze_count_cmflags_clean(
     return launch_kfm_analyze_count_cmflags_clean_t<uint8_t>(dst, prevSrc0, prevSrc1, curSrc0, curSrc1, width, height,
         prevParity, curParity, countParity, pixelStep, pixelOffset, threshM, threshS, threshLS, cleanThresh, stream);
 }
+
+__device__ int4 kfm_i4_add(const int4 a, const int4 b) {
+    return make_int4(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
+}
+
+__device__ int4 kfm_i4_sub(const int4 a, const int4 b) {
+    return make_int4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
+}
+
+__device__ int4 kfm_i4_mul(const int4 a, const int v) {
+    return make_int4(a.x * v, a.y * v, a.z * v, a.w * v);
+}
+
+__device__ int4 kfm_i4_shr(const int4 a, const int v) {
+    return make_int4(a.x >> v, a.y >> v, a.z >> v, a.w >> v);
+}
+
+__device__ int4 kfm_i4_min(const int4 a, const int4 b) {
+    return make_int4(min(a.x, b.x), min(a.y, b.y), min(a.z, b.z), min(a.w, b.w));
+}
+
+__device__ int4 kfm_i4_max(const int4 a, const int4 b) {
+    return make_int4(max(a.x, b.x), max(a.y, b.y), max(a.z, b.z), max(a.w, b.w));
+}
+
+__device__ int4 kfm_i4_abs(const int4 a) {
+    return make_int4(abs(a.x), abs(a.y), abs(a.z), abs(a.w));
+}
+
+__device__ int4 kfm_i4_clamp(const int4 a, const int lo, const int hi) {
+    return make_int4(clamp(a.x, lo, hi), clamp(a.y, lo, hi), clamp(a.z, lo, hi), clamp(a.w, lo, hi));
+}
+
+template<typename Type> struct KfmVec4Traits;
+
+template<> struct KfmVec4Traits<uint8_t> {
+    using Type4 = uchar4;
+    __device__ static int4 to_int4(const Type4 v) {
+        return make_int4(v.x, v.y, v.z, v.w);
+    }
+    __device__ static Type4 to_type4(const int4 v) {
+        return make_uchar4(
+            (uint8_t)clamp(v.x, 0, 255),
+            (uint8_t)clamp(v.y, 0, 255),
+            (uint8_t)clamp(v.z, 0, 255),
+            (uint8_t)clamp(v.w, 0, 255));
+    }
+    __device__ static Type4 to_type4_float(const float4 v) {
+        return make_uchar4(
+            (uint8_t)clamp((int)v.x, 0, 255),
+            (uint8_t)clamp((int)v.y, 0, 255),
+            (uint8_t)clamp((int)v.z, 0, 255),
+            (uint8_t)clamp((int)v.w, 0, 255));
+    }
+};
+
+template<> struct KfmVec4Traits<uint16_t> {
+    using Type4 = ushort4;
+    __device__ static int4 to_int4(const Type4 v) {
+        return make_int4(v.x, v.y, v.z, v.w);
+    }
+    __device__ static Type4 to_type4(const int4 v) {
+        return make_ushort4(
+            (uint16_t)clamp(v.x, 0, 65535),
+            (uint16_t)clamp(v.y, 0, 65535),
+            (uint16_t)clamp(v.z, 0, 65535),
+            (uint16_t)clamp(v.w, 0, 65535));
+    }
+    __device__ static Type4 to_type4_float(const float4 v) {
+        return make_ushort4(
+            (uint16_t)clamp((int)v.x, 0, 65535),
+            (uint16_t)clamp((int)v.y, 0, 65535),
+            (uint16_t)clamp((int)v.z, 0, 65535),
+            (uint16_t)clamp((int)v.w, 0, 65535));
+    }
+};
+
+template<typename Type>
+__device__ int4 kfm_static_calc_combe4(
+    const typename KfmVec4Traits<Type>::Type4 a,
+    const typename KfmVec4Traits<Type>::Type4 b,
+    const typename KfmVec4Traits<Type>::Type4 c,
+    const typename KfmVec4Traits<Type>::Type4 d,
+    const typename KfmVec4Traits<Type>::Type4 e) {
+    const int4 diff = kfm_i4_sub(
+        kfm_i4_add(kfm_i4_add(KfmVec4Traits<Type>::to_int4(a), kfm_i4_mul(KfmVec4Traits<Type>::to_int4(c), 4)), KfmVec4Traits<Type>::to_int4(e)),
+        kfm_i4_mul(kfm_i4_add(KfmVec4Traits<Type>::to_int4(b), KfmVec4Traits<Type>::to_int4(d)), 3));
+    return kfm_i4_abs(diff);
+}
+
+template<typename Type>
+__global__ void kernel_kfm_zero(
+    uint8_t *dst,
+    const int dstPitch,
+    const int width,
+    const int height) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+    Type *pDst = (Type *)(dst + y * dstPitch + x * (int)sizeof(Type));
+    pDst[0] = (Type)0;
+}
+
+template<typename Type>
+__global__ void kernel_kfm_calc_combe(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const int width4,
+    const int height,
+    const int srcYOffset,
+    const int bitDepth) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width4 || y >= height) return;
+
+    using Type4 = typename KfmVec4Traits<Type>::Type4;
+    const int srcPitch4 = srcPitch / (int)sizeof(Type4);
+    const int dstPitch4 = dstPitch / (int)sizeof(Type4);
+    const Type4 *s = (const Type4 *)src;
+    const int yy = y + srcYOffset;
+    const int4 combe = kfm_static_calc_combe4<Type>(
+        s[x + (yy - 2) * srcPitch4],
+        s[x + (yy - 1) * srcPitch4],
+        s[x + yy * srcPitch4],
+        s[x + (yy + 1) * srcPitch4],
+        s[x + (yy + 2) * srcPitch4]);
+    ((Type4 *)dst)[x + y * dstPitch4] = KfmVec4Traits<Type>::to_type4(kfm_i4_clamp(kfm_i4_shr(combe, 2), 0, (1 << bitDepth) - 1));
+}
+
+template<typename Type>
+__global__ void kernel_kfm_temporal_min_diff5_3(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src0,
+    const uint8_t *src1,
+    const uint8_t *src2,
+    const uint8_t *src3,
+    const uint8_t *src4,
+    const uint8_t *src5,
+    const uint8_t *src6,
+    const int srcPitch,
+    const int width4,
+    const int height) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width4 || y >= height) return;
+
+    using Type4 = typename KfmVec4Traits<Type>::Type4;
+    const int off = y * (srcPitch / (int)sizeof(Type4)) + x;
+    const int4 v0 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src0)[off]);
+    const int4 v1 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src1)[off]);
+    const int4 v2 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src2)[off]);
+    const int4 v3 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src3)[off]);
+    const int4 v4 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src4)[off]);
+    const int4 v5 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src5)[off]);
+    const int4 v6 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src6)[off]);
+
+    const int4 min0 = kfm_i4_min(kfm_i4_min(v0, v1), kfm_i4_min(v2, kfm_i4_min(v3, v4)));
+    const int4 max0 = kfm_i4_max(kfm_i4_max(v0, v1), kfm_i4_max(v2, kfm_i4_max(v3, v4)));
+    const int4 diff0 = kfm_i4_sub(max0, min0);
+
+    const int4 min1 = kfm_i4_min(kfm_i4_min(v1, v2), kfm_i4_min(v3, kfm_i4_min(v4, v5)));
+    const int4 max1 = kfm_i4_max(kfm_i4_max(v1, v2), kfm_i4_max(v3, kfm_i4_max(v4, v5)));
+    const int4 diff1 = kfm_i4_sub(max1, min1);
+
+    const int4 min2 = kfm_i4_min(kfm_i4_min(v2, v3), kfm_i4_min(v4, kfm_i4_min(v5, v6)));
+    const int4 max2 = kfm_i4_max(kfm_i4_max(v2, v3), kfm_i4_max(v4, kfm_i4_max(v5, v6)));
+    const int4 diff2 = kfm_i4_sub(max2, min2);
+
+    ((Type4 *)dst)[y * (dstPitch / (int)sizeof(Type4)) + x] = KfmVec4Traits<Type>::to_type4(kfm_i4_min(diff0, kfm_i4_min(diff1, diff2)));
+}
+
+template<typename Type>
+__global__ void kernel_kfm_merge_uv_coefs(
+    uint8_t *flagY,
+    const int pitchY,
+    const uint8_t *flagU,
+    const uint8_t *flagV,
+    const int pitchUV,
+    const int width,
+    const int height,
+    const int logUVx,
+    const int logUVy) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) return;
+
+    Type *fy = (Type *)(flagY + y * pitchY + x * (int)sizeof(Type));
+    const Type *fu = (const Type *)(flagU + ((y >> logUVy) * pitchUV + (x >> logUVx) * (int)sizeof(Type)));
+    const Type *fv = (const Type *)(flagV + ((y >> logUVy) * pitchUV + (x >> logUVx) * (int)sizeof(Type)));
+    fy[0] = max(fy[0], max(fu[0], fv[0]));
+}
+
+template<typename Type>
+__global__ void kernel_kfm_extend_coefs(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const int width4,
+    const int height) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width4 || y >= height) return;
+
+    using Type4 = typename KfmVec4Traits<Type>::Type4;
+    const int srcPitch4 = srcPitch / (int)sizeof(Type4);
+    const int dstPitch4 = dstPitch / (int)sizeof(Type4);
+    const int y0 = max(y - 1, 0);
+    const int y1 = min(y + 1, height - 1);
+    const Type4 *s = (const Type4 *)src;
+    const int4 v = kfm_i4_max(KfmVec4Traits<Type>::to_int4(s[x + y0 * srcPitch4]),
+        kfm_i4_max(KfmVec4Traits<Type>::to_int4(s[x + y * srcPitch4]), KfmVec4Traits<Type>::to_int4(s[x + y1 * srcPitch4])));
+    ((Type4 *)dst)[x + y * dstPitch4] = KfmVec4Traits<Type>::to_type4(v);
+}
+
+template<typename Type>
+__global__ void kernel_kfm_and_coefs(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *diff,
+    const int diffPitch,
+    const int width4,
+    const int height,
+    const float invcombe,
+    const float invdiff) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width4 || y >= height) return;
+
+    using Type4 = typename KfmVec4Traits<Type>::Type4;
+    const int dstPitch4 = dstPitch / (int)sizeof(Type4);
+    const int diffPitch4 = diffPitch / (int)sizeof(Type4);
+    const int4 combeI = KfmVec4Traits<Type>::to_int4(((Type4 *)dst)[x + y * dstPitch4]);
+    const int4 diffI = KfmVec4Traits<Type>::to_int4(((const Type4 *)diff)[x + y * diffPitch4]);
+    const float4 outv = make_float4(
+        max(clamp((float)combeI.x * invcombe - 1.0f, -0.5f, 0.5f) + clamp((float)diffI.x * (-invdiff) + 1.0f, -0.5f, 0.5f), 0.0f) * 128.0f + 0.5f,
+        max(clamp((float)combeI.y * invcombe - 1.0f, -0.5f, 0.5f) + clamp((float)diffI.y * (-invdiff) + 1.0f, -0.5f, 0.5f), 0.0f) * 128.0f + 0.5f,
+        max(clamp((float)combeI.z * invcombe - 1.0f, -0.5f, 0.5f) + clamp((float)diffI.z * (-invdiff) + 1.0f, -0.5f, 0.5f), 0.0f) * 128.0f + 0.5f,
+        max(clamp((float)combeI.w * invcombe - 1.0f, -0.5f, 0.5f) + clamp((float)diffI.w * (-invdiff) + 1.0f, -0.5f, 0.5f), 0.0f) * 128.0f + 0.5f);
+    ((Type4 *)dst)[x + y * dstPitch4] = KfmVec4Traits<Type>::to_type4_float(outv);
+}
+
+template<typename Type>
+__global__ void kernel_kfm_apply_uv_coefs_420(
+    const uint8_t *flagY,
+    const int pitchY,
+    uint8_t *flagU,
+    uint8_t *flagV,
+    const int pitchUV,
+    const int widthUV,
+    const int heightUV) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= widthUV || y >= heightUV) return;
+
+    const Type *fy = (const Type *)flagY;
+    const int pitchYt = pitchY / (int)sizeof(Type);
+    const int pitchUVt = pitchUV / (int)sizeof(Type);
+    const int v = fy[(x * 2 + 0) + (y * 2 + 0) * pitchYt]
+        + fy[(x * 2 + 1) + (y * 2 + 0) * pitchYt]
+        + fy[(x * 2 + 0) + (y * 2 + 1) * pitchYt]
+        + fy[(x * 2 + 1) + (y * 2 + 1) * pitchYt];
+    const Type outv = (Type)((v + 2) >> 2);
+    ((Type *)flagU)[x + y * pitchUVt] = outv;
+    ((Type *)flagV)[x + y * pitchUVt] = outv;
+}
+
+template<typename Type>
+__global__ void kernel_kfm_merge_static(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src60,
+    const uint8_t *src30,
+    const int srcPitch,
+    const uint8_t *flag,
+    const int flagPitch,
+    const int width4,
+    const int height) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width4 || y >= height) return;
+
+    using Type4 = typename KfmVec4Traits<Type>::Type4;
+    const int dstPitch4 = dstPitch / (int)sizeof(Type4);
+    const int srcPitch4 = srcPitch / (int)sizeof(Type4);
+    const int flagPitch4 = flagPitch / (int)sizeof(Type4);
+    const int4 coef = KfmVec4Traits<Type>::to_int4(((const Type4 *)flag)[x + y * flagPitch4]);
+    const int4 v30 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src30)[x + y * srcPitch4]);
+    const int4 v60 = KfmVec4Traits<Type>::to_int4(((const Type4 *)src60)[x + y * srcPitch4]);
+    const int4 outv = make_int4(
+        (coef.x * v30.x + (128 - coef.x) * v60.x + 64) >> 7,
+        (coef.y * v30.y + (128 - coef.y) * v60.y + 64) >> 7,
+        (coef.z * v30.z + (128 - coef.z) * v60.z + 64) >> 7,
+        (coef.w * v30.w + (128 - coef.w) * v60.w + 64) >> 7);
+    ((Type4 *)dst)[x + y * dstPitch4] = KfmVec4Traits<Type>::to_type4(outv);
+}
+
+template<typename Func8, typename Func16>
+static RGY_ERR dispatch_kfm_depth(const RGYFrameInfo *frame, Func8 func8, Func16 func16) {
+    if (!frame || !frame->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (RGY_CSP_BIT_DEPTH[frame->csp] > 8) {
+        return func16();
+    }
+    return func8();
+}
+
+RGY_ERR run_kfm_zero_plane(RGYFrameInfo *pOutputFrame, cudaStream_t stream) {
+    return dispatch_kfm_depth(pOutputFrame,
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(pOutputFrame->width, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_zero<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height);
+            return err_to_rgy(cudaGetLastError());
+        },
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(pOutputFrame->width, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_zero<uint16_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height);
+            return err_to_rgy(cudaGetLastError());
+        });
+}
+
+RGY_ERR run_kfm_static_calc_combe_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, int srcYOffset, cudaStream_t stream) {
+    if (!pOutputFrame || !pInputFrame || !pInputFrame->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int width4 = pOutputFrame->width >> 2;
+    if (width4 <= 0 || (pOutputFrame->width & 3) != 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return dispatch_kfm_depth(pOutputFrame,
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_calc_combe<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)pInputFrame->ptr[0], pInputFrame->pitch[0], width4, pOutputFrame->height, srcYOffset, RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
+            return err_to_rgy(cudaGetLastError());
+        },
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_calc_combe<uint16_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)pInputFrame->ptr[0], pInputFrame->pitch[0], width4, pOutputFrame->height, srcYOffset, RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
+            return err_to_rgy(cudaGetLastError());
+        });
+}
+
+RGY_ERR run_kfm_temporal_min_diff5_3_plane(
+    RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *src0,
+    const RGYFrameInfo *src1,
+    const RGYFrameInfo *src2,
+    const RGYFrameInfo *src3,
+    const RGYFrameInfo *src4,
+    const RGYFrameInfo *src5,
+    const RGYFrameInfo *src6,
+    cudaStream_t stream) {
+    if (!src0 || !src1 || !src2 || !src3 || !src4 || !src5 || !src6
+        || !src0->ptr[0] || !src1->ptr[0] || !src2->ptr[0] || !src3->ptr[0] || !src4->ptr[0] || !src5->ptr[0] || !src6->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int width4 = pOutputFrame->width >> 2;
+    if (width4 <= 0 || (pOutputFrame->width & 3) != 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return dispatch_kfm_depth(pOutputFrame,
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_temporal_min_diff5_3<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)src0->ptr[0], (const uint8_t *)src1->ptr[0], (const uint8_t *)src2->ptr[0],
+                (const uint8_t *)src3->ptr[0], (const uint8_t *)src4->ptr[0], (const uint8_t *)src5->ptr[0], (const uint8_t *)src6->ptr[0],
+                src0->pitch[0], width4, pOutputFrame->height);
+            return err_to_rgy(cudaGetLastError());
+        },
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_temporal_min_diff5_3<uint16_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)src0->ptr[0], (const uint8_t *)src1->ptr[0], (const uint8_t *)src2->ptr[0],
+                (const uint8_t *)src3->ptr[0], (const uint8_t *)src4->ptr[0], (const uint8_t *)src5->ptr[0], (const uint8_t *)src6->ptr[0],
+                src0->pitch[0], width4, pOutputFrame->height);
+            return err_to_rgy(cudaGetLastError());
+        });
+}
+
+RGY_ERR run_kfm_merge_uv_coefs_plane(RGYFrameInfo *flagY, const RGYFrameInfo *flagU, const RGYFrameInfo *flagV, int logUVx, int logUVy, cudaStream_t stream) {
+    if (!flagU || !flagV || !flagU->ptr[0] || !flagV->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    return dispatch_kfm_depth(flagY,
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(flagY->width, (int)block.x), divCeil(flagY->height, (int)block.y));
+            kernel_kfm_merge_uv_coefs<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)flagY->ptr[0], flagY->pitch[0],
+                (const uint8_t *)flagU->ptr[0], (const uint8_t *)flagV->ptr[0], flagU->pitch[0], flagY->width, flagY->height, logUVx, logUVy);
+            return err_to_rgy(cudaGetLastError());
+        },
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(flagY->width, (int)block.x), divCeil(flagY->height, (int)block.y));
+            kernel_kfm_merge_uv_coefs<uint16_t><<<grid, block, 0, stream>>>((uint8_t *)flagY->ptr[0], flagY->pitch[0],
+                (const uint8_t *)flagU->ptr[0], (const uint8_t *)flagV->ptr[0], flagU->pitch[0], flagY->width, flagY->height, logUVx, logUVy);
+            return err_to_rgy(cudaGetLastError());
+        });
+}
+
+RGY_ERR run_kfm_extend_coefs_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
+    if (!pInputFrame || !pInputFrame->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int width4 = pOutputFrame->width >> 2;
+    if (width4 <= 0 || (pOutputFrame->width & 3) != 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return dispatch_kfm_depth(pOutputFrame,
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_extend_coefs<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)pInputFrame->ptr[0], pInputFrame->pitch[0], width4, pOutputFrame->height);
+            return err_to_rgy(cudaGetLastError());
+        },
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_extend_coefs<uint16_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)pInputFrame->ptr[0], pInputFrame->pitch[0], width4, pOutputFrame->height);
+            return err_to_rgy(cudaGetLastError());
+        });
+}
+
+RGY_ERR run_kfm_and_coefs_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDiffFrame, float invcombe, float invdiff, cudaStream_t stream) {
+    if (!pDiffFrame || !pDiffFrame->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int width4 = pOutputFrame->width >> 2;
+    if (width4 <= 0 || (pOutputFrame->width & 3) != 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return dispatch_kfm_depth(pOutputFrame,
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_and_coefs<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)pDiffFrame->ptr[0], pDiffFrame->pitch[0], width4, pOutputFrame->height, invcombe, invdiff);
+            return err_to_rgy(cudaGetLastError());
+        },
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_and_coefs<uint16_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)pDiffFrame->ptr[0], pDiffFrame->pitch[0], width4, pOutputFrame->height, invcombe, invdiff);
+            return err_to_rgy(cudaGetLastError());
+        });
+}
+
+RGY_ERR run_kfm_apply_uv_coefs_420_plane(RGYFrameInfo *flagU, RGYFrameInfo *flagV, const RGYFrameInfo *flagY, cudaStream_t stream) {
+    if (!flagU || !flagV || !flagY || !flagU->ptr[0] || !flagV->ptr[0] || !flagY->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    return dispatch_kfm_depth(flagU,
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(flagU->width, (int)block.x), divCeil(flagU->height, (int)block.y));
+            kernel_kfm_apply_uv_coefs_420<uint8_t><<<grid, block, 0, stream>>>((const uint8_t *)flagY->ptr[0], flagY->pitch[0],
+                (uint8_t *)flagU->ptr[0], (uint8_t *)flagV->ptr[0], flagU->pitch[0], flagU->width, flagU->height);
+            return err_to_rgy(cudaGetLastError());
+        },
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(flagU->width, (int)block.x), divCeil(flagU->height, (int)block.y));
+            kernel_kfm_apply_uv_coefs_420<uint16_t><<<grid, block, 0, stream>>>((const uint8_t *)flagY->ptr[0], flagY->pitch[0],
+                (uint8_t *)flagU->ptr[0], (uint8_t *)flagV->ptr[0], flagU->pitch[0], flagU->width, flagU->height);
+            return err_to_rgy(cudaGetLastError());
+        });
+}
+
+RGY_ERR run_kfm_merge_static_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeint60Frame, const RGYFrameInfo *pSourceFrame, const RGYFrameInfo *pFlagFrame, cudaStream_t stream) {
+    if (!pDeint60Frame || !pSourceFrame || !pFlagFrame || !pDeint60Frame->ptr[0] || !pSourceFrame->ptr[0] || !pFlagFrame->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int width4 = pOutputFrame->width >> 2;
+    if (width4 <= 0 || (pOutputFrame->width & 3) != 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return dispatch_kfm_depth(pOutputFrame,
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_merge_static<uint8_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)pDeint60Frame->ptr[0], (const uint8_t *)pSourceFrame->ptr[0], pSourceFrame->pitch[0],
+                (const uint8_t *)pFlagFrame->ptr[0], pFlagFrame->pitch[0], width4, pOutputFrame->height);
+            return err_to_rgy(cudaGetLastError());
+        },
+        [&]() {
+            const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+            const dim3 grid(divCeil(width4, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
+            kernel_kfm_merge_static<uint16_t><<<grid, block, 0, stream>>>((uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+                (const uint8_t *)pDeint60Frame->ptr[0], (const uint8_t *)pSourceFrame->ptr[0], pSourceFrame->pitch[0],
+                (const uint8_t *)pFlagFrame->ptr[0], pFlagFrame->pitch[0], width4, pOutputFrame->height);
+            return err_to_rgy(cudaGetLastError());
+        });
+}

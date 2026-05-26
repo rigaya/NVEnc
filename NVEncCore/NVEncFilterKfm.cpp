@@ -1417,6 +1417,337 @@ int NVEncFilterKfm::telecine24FrameCount(bool drain) const {
     return readyFrames;
 }
 
+RGY_ERR NVEncFilterKfm::clearStaticFlag(cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!m_staticFlag) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const auto planes = RGY_CSP_PLANES[m_staticFlag->frame.csp];
+    RGYCudaEvent prevEvent;
+    for (int iplane = 0; iplane < planes; iplane++) {
+        auto plane = getPlane(&m_staticFlag->frame, (RGY_PLANE)iplane);
+        const auto waitHere = (iplane == 0)
+            ? wait_events
+            : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+        auto sts = kfmWaitEvents(stream, waitHere);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_zero_plane(&plane, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_zero (plane %d): %s.\n"), iplane, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &prevEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::analyzeStaticFlag(cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!m_staticFlag) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (m_sourceCache.empty()) {
+        return clearStaticFlag(stream, wait_events, event);
+    }
+    return analyzeStaticFlag(m_sourceCache.back().sourceIndex, stream, wait_events, event);
+}
+
+RGY_ERR NVEncFilterKfm::analyzeStaticFlag(int sourceIndex, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!m_staticFlag) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const auto *cur = findSourceByIndex(sourceIndex);
+    if (!cur || !cur->frame || !cur->frame->frame.ptr[0] || !cur->paddedFrame || !cur->paddedFrame->frame.ptr[0]) {
+        return clearStaticFlag(stream, wait_events, event);
+    }
+    for (auto& frame : m_staticWorkFrames) {
+        if (!frame
+            || frame->frame.width != m_staticFlag->frame.width
+            || frame->frame.height != m_staticFlag->frame.height
+            || frame->frame.csp != m_staticFlag->frame.csp) {
+            frame = std::make_unique<CUFrameBuf>(m_staticFlag->frame);
+            frame->releasePtr();
+            const auto sts = frame->alloc();
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM static work frame: %s.\n"), get_err_mes(sts));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+        }
+    }
+
+    std::vector<RGYCudaEvent> sourceWaitEvents = wait_events;
+    for (int offset = -3; offset <= 3; offset++) {
+        const auto *src = findSourceByIndex(sourceIndex + offset);
+        if (!src || !src->frame || !src->frame->frame.ptr[0]) {
+            return clearStaticFlag(stream, wait_events, event);
+        }
+        if (src->event() != nullptr) {
+            sourceWaitEvents.push_back(src->event);
+        }
+    }
+    if (cur->paddedEvent() != nullptr) {
+        sourceWaitEvents.push_back(cur->paddedEvent);
+    }
+
+    const auto planes = RGY_CSP_PLANES[m_staticFlag->frame.csp];
+    const auto runCalcCombe = [&](RGYFrameInfo *dstFrame, const RGYFrameInfo *srcFrame, const std::vector<RGYCudaEvent>& waits, RGYCudaEvent *outEvent) -> RGY_ERR {
+        RGYCudaEvent prevEvent;
+        for (int iplane = 0; iplane < planes; iplane++) {
+            auto dst = getPlane(dstFrame, (RGY_PLANE)iplane);
+            auto src = getPlane(srcFrame, (RGY_PLANE)iplane);
+            const int srcYOffset = (src.height - dst.height) >> 1;
+            if (src.width != dst.width || src.height != dst.height + srcYOffset * 2 || srcYOffset < 2) {
+                AddMessage(RGY_LOG_ERROR, _T("invalid KFM static padded source plane size (plane %d, dst %dx%d, src %dx%d, offset %d).\n"),
+                    iplane, dst.width, dst.height, src.width, src.height, srcYOffset);
+                return RGY_ERR_INVALID_PARAM;
+            }
+            const int width4 = dst.width >> 2;
+            if (width4 <= 0 || (dst.width & 3) != 0) {
+                return RGY_ERR_INVALID_PARAM;
+            }
+            const auto waitHere = (iplane == 0)
+                ? waits
+                : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+            auto sts = kfmWaitEvents(stream, waitHere);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            sts = run_kfm_static_calc_combe_plane(&dst, &src, srcYOffset, stream);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_calc_combe (plane %d): %s.\n"), iplane, get_err_mes(sts));
+                return sts;
+            }
+            sts = kfmRecordEvent(stream, &prevEvent);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        if (outEvent && prevEvent() != nullptr) {
+            *outEvent = prevEvent;
+        }
+        return RGY_ERR_NONE;
+    };
+    const auto runTemporalMinDiff3 = [&](RGYFrameInfo *dstFrame, int centerIndex, const std::vector<RGYCudaEvent>& waits, RGYCudaEvent *outEvent) -> RGY_ERR {
+        std::array<const KfmCachedSource *, 7> src = {};
+        for (int i = 0; i < (int)src.size(); i++) {
+            src[i] = findSourceByIndex(centerIndex + i - 3);
+            if (!src[i] || !src[i]->frame || !src[i]->frame->frame.ptr[0]) {
+                return RGY_ERR_MORE_DATA;
+            }
+        }
+        RGYCudaEvent prevEvent;
+        for (int iplane = 0; iplane < planes; iplane++) {
+            auto dst = getPlane(dstFrame, (RGY_PLANE)iplane);
+            auto src0 = getPlane(&src[0]->frame->frame, (RGY_PLANE)iplane);
+            auto src1 = getPlane(&src[1]->frame->frame, (RGY_PLANE)iplane);
+            auto src2 = getPlane(&src[2]->frame->frame, (RGY_PLANE)iplane);
+            auto src3 = getPlane(&src[3]->frame->frame, (RGY_PLANE)iplane);
+            auto src4 = getPlane(&src[4]->frame->frame, (RGY_PLANE)iplane);
+            auto src5 = getPlane(&src[5]->frame->frame, (RGY_PLANE)iplane);
+            auto src6 = getPlane(&src[6]->frame->frame, (RGY_PLANE)iplane);
+            const int width4 = dst.width >> 2;
+            if (width4 <= 0 || (dst.width & 3) != 0
+                || src0.width != dst.width || src1.width != dst.width || src2.width != dst.width
+                || src3.width != dst.width || src4.width != dst.width || src5.width != dst.width || src6.width != dst.width
+                || src0.height != dst.height || src1.height != dst.height || src2.height != dst.height
+                || src3.height != dst.height || src4.height != dst.height || src5.height != dst.height || src6.height != dst.height) {
+                AddMessage(RGY_LOG_ERROR, _T("invalid KFM temporal min-diff source plane size (plane %d).\n"), iplane);
+                return RGY_ERR_INVALID_PARAM;
+            }
+            const auto waitHere = (iplane == 0)
+                ? waits
+                : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+            auto sts = kfmWaitEvents(stream, waitHere);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            sts = run_kfm_temporal_min_diff5_3_plane(&dst, &src0, &src1, &src2, &src3, &src4, &src5, &src6, stream);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_temporal_min_diff5_3 (plane %d): %s.\n"), iplane, get_err_mes(sts));
+                return sts;
+            }
+            sts = kfmRecordEvent(stream, &prevEvent);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        if (outEvent && prevEvent() != nullptr) {
+            *outEvent = prevEvent;
+        }
+        return RGY_ERR_NONE;
+    };
+    const auto runMergeUV = [&](RGYFrameInfo *frame, const std::vector<RGYCudaEvent>& waits, RGYCudaEvent *outEvent) -> RGY_ERR {
+        if (planes < 3) {
+            if (outEvent && !waits.empty()) {
+                *outEvent = waits.back();
+            }
+            return RGY_ERR_NONE;
+        }
+        auto y = getPlane(frame, RGY_PLANE_Y);
+        auto u = getPlane(frame, RGY_PLANE_U);
+        auto v = getPlane(frame, RGY_PLANE_V);
+        auto sts = kfmWaitEvents(stream, waits);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_merge_uv_coefs_plane(&y, &u, &v, 1, 1, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_merge_uv_coefs: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        return kfmRecordEvent(stream, outEvent);
+    };
+    const auto runExtend = [&](RGYFrameInfo *dstFrame, const RGYFrameInfo *srcFrame, const std::vector<RGYCudaEvent>& waits, RGYCudaEvent *outEvent) -> RGY_ERR {
+        auto dst = getPlane(dstFrame, RGY_PLANE_Y);
+        auto src = getPlane(srcFrame, RGY_PLANE_Y);
+        const int width4 = dst.width >> 2;
+        if (width4 <= 0 || (dst.width & 3) != 0) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        auto sts = kfmWaitEvents(stream, waits);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_extend_coefs_plane(&dst, &src, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_extend_coefs: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        return kfmRecordEvent(stream, outEvent);
+    };
+
+    RGYCudaEvent combEvent;
+    auto sts = runCalcCombe(&m_staticWorkFrames[0]->frame, &cur->paddedFrame->frame, sourceWaitEvents, &combEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    auto phaseWait = (combEvent() != nullptr) ? std::vector<RGYCudaEvent>{ combEvent } : std::vector<RGYCudaEvent>();
+    RGYCudaEvent mergeUvEvent;
+    sts = runMergeUV(&m_staticWorkFrames[0]->frame, phaseWait, &mergeUvEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    phaseWait = (mergeUvEvent() != nullptr) ? std::vector<RGYCudaEvent>{ mergeUvEvent } : phaseWait;
+    RGYCudaEvent flagcEvent;
+    sts = runExtend(&m_staticFlag->frame, &m_staticWorkFrames[0]->frame, phaseWait, &flagcEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    RGYCudaEvent prevEvent;
+    sts = runTemporalMinDiff3(&m_staticWorkFrames[4]->frame, sourceIndex, sourceWaitEvents, &prevEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    phaseWait = (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>();
+    RGYCudaEvent temporalMergeUvEvent;
+    sts = runMergeUV(&m_staticWorkFrames[4]->frame, phaseWait, &temporalMergeUvEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    phaseWait = (temporalMergeUvEvent() != nullptr) ? std::vector<RGYCudaEvent>{ temporalMergeUvEvent } : phaseWait;
+    RGYCudaEvent flagdEvent;
+    sts = runExtend(&m_staticWorkFrames[0]->frame, &m_staticWorkFrames[4]->frame, phaseWait, &flagdEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    auto flagcY = getPlane(&m_staticFlag->frame, RGY_PLANE_Y);
+    auto flagdY = getPlane(&m_staticWorkFrames[0]->frame, RGY_PLANE_Y);
+    std::vector<RGYCudaEvent> andWaitEvents;
+    if (flagcEvent() != nullptr) {
+        andWaitEvents.push_back(flagcEvent);
+    }
+    if (flagdEvent() != nullptr) {
+        andWaitEvents.push_back(flagdEvent);
+    }
+    sts = kfmWaitEvents(stream, andWaitEvents);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    RGYCudaEvent andEvent;
+    sts = run_kfm_and_coefs_plane(&flagcY, &flagdY, 1.0f / 30.0f, 1.0f / 15.0f, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_and_coefs: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    sts = kfmRecordEvent(stream, &andEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    if (planes >= 3) {
+        auto flagU = getPlane(&m_staticFlag->frame, RGY_PLANE_U);
+        auto flagV = getPlane(&m_staticFlag->frame, RGY_PLANE_V);
+        auto applyWait = (andEvent() != nullptr) ? std::vector<RGYCudaEvent>{ andEvent } : std::vector<RGYCudaEvent>();
+        sts = kfmWaitEvents(stream, applyWait);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_apply_uv_coefs_420_plane(&flagU, &flagV, &flagcY, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_apply_uv_coefs_420: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        return kfmRecordEvent(stream, event);
+    }
+    if (event && andEvent() != nullptr) {
+        *event = andEvent;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::mergeStatic(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeint60Frame, const RGYFrameInfo *pSourceFrame,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame || !pDeint60Frame || !pSourceFrame || !m_staticFlag) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    const auto planes = RGY_CSP_PLANES[pOutputFrame->csp];
+    RGYCudaEvent prevEvent;
+    for (int iplane = 0; iplane < planes; iplane++) {
+        auto dst = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        auto src60 = getPlane(pDeint60Frame, (RGY_PLANE)iplane);
+        auto src30 = getPlane(pSourceFrame, (RGY_PLANE)iplane);
+        auto flag = getPlane(&m_staticFlag->frame, (RGY_PLANE)iplane);
+        const int width4 = dst.width >> 2;
+        if (width4 <= 0 || (dst.width & 3) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM mode=60 requires plane width to be multiple of 4 (plane %d, width %d).\n"), iplane, dst.width);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const auto waitHere = (iplane == 0)
+            ? wait_events
+            : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+        auto sts = kfmWaitEvents(stream, waitHere);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_merge_static_plane(&dst, &src60, &src30, &flag, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_merge_static (plane %d): %s.\n"), iplane, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &prevEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
+    }
+    copyFramePropWithoutRes(pOutputFrame, pDeint60Frame);
+    pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterKfm::runNrFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrame,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     if (!ppOutputFrame) {
