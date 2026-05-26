@@ -82,6 +82,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_LIBPLACEBO_TONEMAP,   _T("libplacebo-tonemapping")),
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
+    std::make_pair(VppType::CL_KFM,                  _T("kfm")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
     std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
@@ -2354,6 +2355,56 @@ tstring VppDegrain::print() const {
         mvSpatialRefine);
 }
 
+VppKfm::VppKfm() :
+    enable(false),
+    mode(VppKfmMode::VFR),
+    preset(VppRtgmcPreset::Faster),
+    timing(VppKfmTiming::RealtimePlus),
+    pastCycles(30),
+    thswitch(0.5f),
+    ucf(false),
+    nr(false),
+    is120(true),
+    debug(false),
+    debugStage(VppKfmDebugStage::None),
+    timecode() {
+}
+
+bool VppKfm::operator==(const VppKfm& x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && preset == x.preset
+        && timing == x.timing
+        && pastCycles == x.pastCycles
+        && thswitch == x.thswitch
+        && ucf == x.ucf
+        && nr == x.nr
+        && is120 == x.is120
+        && debug == x.debug
+        && debugStage == x.debugStage
+        && timecode == x.timecode;
+}
+bool VppKfm::operator!=(const VppKfm& x) const {
+    return !(*this == x);
+}
+
+tstring VppKfm::print() const {
+    auto str = strsprintf(_T("kfm: mode %s, preset %s, timing %s, past_cycles %d, thswitch %.3f, ucf %s, nr %s, is120 %s"),
+        get_cx_desc(list_vpp_kfm_mode, (int)mode),
+        get_cx_desc(list_vpp_rtgmc_preset, (int)preset),
+        get_cx_desc(list_vpp_kfm_timing, (int)timing),
+        pastCycles,
+        thswitch,
+        ucf ? _T("true") : _T("false"),
+        nr ? _T("true") : _T("false"),
+        is120 ? _T("true") : _T("false"));
+    if (debugStage != VppKfmDebugStage::None) {
+        str += strsprintf(_T(", debug_stage %s"),
+            get_cx_desc(list_vpp_kfm_debug_stage, (int)debugStage));
+    }
+    return str;
+}
+
 VppFruc::VppFruc() :
     enable(false),
     mode(VppFrucMode::Disabled),
@@ -2389,6 +2440,7 @@ RGYParamVpp::RGYParamVpp() :
     delogo(),
     afs(),
     nnedi(),
+    kfm(),
     yadif(),
     decomb(),
     bwdif(),
@@ -2434,6 +2486,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && delogo == x.delogo
         && afs == x.afs
         && nnedi == x.nnedi
+        && kfm == x.kfm
         && yadif == x.yadif
         && decomb == x.decomb
         && bwdif == x.bwdif

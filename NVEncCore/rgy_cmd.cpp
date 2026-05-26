@@ -1973,6 +1973,145 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
+    if (IS_OPTION("vpp-kfm") && ENABLE_VPP_FILTER_KFM) {
+        vpp->kfm.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{
+            "enable", "mode", "preset", "timing", "past_cycles",
+            "thswitch", "ucf", "nr", "is120", "debug", "debug_stage", "timecode"
+        };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != tstring::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->kfm.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    const auto value = get_value_from_chr(list_vpp_kfm_mode, param_val.c_str());
+                    if (value == PARSE_ERROR_FLAG) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    vpp->kfm.mode = (VppKfmMode)value;
+                    continue;
+                }
+                if (param_arg == _T("preset")) {
+                    const auto value = get_value_from_chr(list_vpp_rtgmc_preset, param_val.c_str());
+                    if (value == PARSE_ERROR_FLAG) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_rtgmc_preset);
+                        return 1;
+                    }
+                    vpp->kfm.preset = (VppRtgmcPreset)value;
+                    continue;
+                }
+                if (param_arg == _T("timing")) {
+                    const auto value = get_value_from_chr(list_vpp_kfm_timing, param_val.c_str());
+                    if (value == PARSE_ERROR_FLAG) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    vpp->kfm.timing = (VppKfmTiming)value;
+                    continue;
+                }
+                if (param_arg == _T("past_cycles")) {
+                    try {
+                        vpp->kfm.pastCycles = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    if (vpp->kfm.pastCycles < 0) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thswitch")) {
+                    try {
+                        vpp->kfm.thswitch = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ucf")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->kfm.ucf = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nr")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->kfm.nr = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("is120")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->kfm.is120 = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("debug")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->kfm.debug = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("debug_stage")) {
+                    const auto value = get_value_from_chr(list_vpp_kfm_debug_stage, param_val.c_str());
+                    if (value == PARSE_ERROR_FLAG) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    vpp->kfm.debugStage = (VppKfmDebugStage)value;
+                    continue;
+                }
+                if (param_arg == _T("timecode")) {
+                    vpp->kfm.timecode = param_val;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-yadif") && ENABLE_VPP_FILTER_YADIF) {
         vpp->yadif.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -8816,6 +8955,30 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-nnedi");
         }
     }
+    if (param->kfm != defaultPrm->kfm) {
+        tmp.str(tstring());
+        if (!param->kfm.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->kfm.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), kfm.mode, list_vpp_kfm_mode);
+            ADD_LST(_T("preset"), kfm.preset, list_vpp_rtgmc_preset);
+            ADD_LST(_T("timing"), kfm.timing, list_vpp_kfm_timing);
+            ADD_NUM(_T("past_cycles"), kfm.pastCycles);
+            ADD_FLOAT(_T("thswitch"), kfm.thswitch, 3);
+            ADD_BOOL(_T("ucf"), kfm.ucf);
+            ADD_BOOL(_T("nr"), kfm.nr);
+            ADD_BOOL(_T("is120"), kfm.is120);
+            ADD_BOOL(_T("debug"), kfm.debug);
+            ADD_LST(_T("debug_stage"), kfm.debugStage, list_vpp_kfm_debug_stage);
+            ADD_PATH(_T("timecode"), kfm.timecode.c_str());
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-kfm ") << tmp.str().substr(1);
+        } else if (param->kfm.enable) {
+            cmd << _T(" --vpp-kfm");
+        }
+    }
     if (param->yadif != defaultPrm->yadif) {
         tmp.str(tstring());
         if (!param->yadif.enable && save_disabled_prm) {
@@ -10744,6 +10907,23 @@ tstring gen_cmd_help_vpp() {
         _T("                              auto (default), fp16, fp32\n")
         _T("      weightfile=<string>   Set path of weight file. By default (not specified),\n")
         _T("                              internal weight params will be used.\n"));
+#endif
+#if ENABLE_VPP_FILTER_KFM
+    str += strsprintf(_T("\n")
+        _T("   --vpp-kfm [<param1>=<value>]\n")
+        _T("     Adaptive inverse telesine filter.\n")
+        _T("    params\n")
+        _T("      mode=<string>          vfr(default), 60, 24\n")
+        _T("      preset=<string>        speed preset (default=faster)\n")
+        _T("      timing=<string>        realtime, realtime+(default), strict\n")
+        _T("      past_cycles=<int>      commit delay cycles for realtime+ (default=30)\n")
+        _T("      thswitch=<float>       60p switch threshold (default=0.5)\n")
+        _T("      ucf=<bool>             use placeholder UCF copy stage (default=false)\n")
+        _T("      nr=<bool>              reserve NR path parameter (default=false)\n")
+        _T("      is120=<bool>           reserve 120fps duration correction flag (default=true)\n")
+        _T("      debug=<bool>           reserve stage dump flag (default=false)\n")
+        _T("      debug_stage=<string>   none(default), switch-flag(-min), contains-combe, combe-mask(-min) for 24p debug output\n")
+        _T("      timecode=<path>        reserve timecode v2 dump path\n"));
 #endif
 #if ENABLE_VPP_FILTER_YADIF
     str += strsprintf(_T("\n")

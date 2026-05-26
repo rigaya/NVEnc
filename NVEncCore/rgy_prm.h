@@ -59,6 +59,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEGRAIN      (                 ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_KFM          (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_IVTC         (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF_AVHW     (ENCODER_QSV   || ENCODER_NVENC                   || ENCODER_MPP)
@@ -151,6 +152,7 @@ enum class VppType : int {
     CL_LIBPLACEBO_TONEMAP,
     CL_AFS,
     CL_NNEDI,
+    CL_KFM,
     CL_YADIF,
     CL_DECOMB,
     CL_BWDIF,
@@ -2659,6 +2661,106 @@ struct VppDegrain {
     tstring print() const;
 };
 
+enum class VppRtgmcPreset {
+    Placebo = 0,
+    VerySlow,
+    Slower,
+    Slow,
+    Medium,
+    Fast,
+    Faster,
+    VeryFast,
+    SuperFast,
+    UltraFast,
+    Draft,
+};
+
+const CX_DESC list_vpp_rtgmc_preset[] = {
+    { _T("slower"),     (int)VppRtgmcPreset::Slower    },
+    { _T("slow"),       (int)VppRtgmcPreset::Slow      },
+    { _T("medium"),     (int)VppRtgmcPreset::Medium    },
+    { _T("fast"),       (int)VppRtgmcPreset::Fast      },
+    { _T("faster"),     (int)VppRtgmcPreset::Faster    },
+    { _T("veryfast"),   (int)VppRtgmcPreset::VeryFast  },
+    { _T("superfast"),  (int)VppRtgmcPreset::SuperFast },
+    { _T("ultrafast"),  (int)VppRtgmcPreset::UltraFast },
+    { _T("draft"),      (int)VppRtgmcPreset::Draft     },
+    { NULL, 0 }
+};
+
+enum class VppRtgmcTuning {
+    None = 0,
+    DVSD,
+    DVHD,
+};
+
+const CX_DESC list_vpp_rtgmc_tuning[] = {
+    { _T("none"),  (int)VppRtgmcTuning::None },
+    { _T("dv-sd"), (int)VppRtgmcTuning::DVSD },
+    { _T("dv-hd"), (int)VppRtgmcTuning::DVHD },
+    { NULL, 0 }
+};
+
+enum class VppKfmMode {
+    VFR,
+    P60,
+    P24,
+};
+const CX_DESC list_vpp_kfm_mode[] = {
+    { _T("vfr"),   (int)VppKfmMode::VFR },
+    { _T("60"),    (int)VppKfmMode::P60 },
+    { _T("24"),    (int)VppKfmMode::P24 },
+    { nullptr, 0 }
+};
+
+enum class VppKfmTiming {
+    Realtime,
+    RealtimePlus,
+    Strict,
+};
+const CX_DESC list_vpp_kfm_timing[] = {
+    { _T("realtime"),  (int)VppKfmTiming::Realtime },
+    { _T("realtime+"), (int)VppKfmTiming::RealtimePlus },
+    { _T("strict"),    (int)VppKfmTiming::Strict },
+    { nullptr, 0 }
+};
+
+enum class VppKfmDebugStage {
+    None,
+    SwitchFlag,
+    ContainsCombe,
+    CombeMask,
+};
+const CX_DESC list_vpp_kfm_debug_stage[] = {
+    { _T("none"),           (int)VppKfmDebugStage::None },
+    { _T("switch-flag"),    (int)VppKfmDebugStage::SwitchFlag },
+    { _T("switch-flag-min"), (int)VppKfmDebugStage::SwitchFlag },
+    { _T("contains-combe"), (int)VppKfmDebugStage::ContainsCombe },
+    { _T("combe-mask"),     (int)VppKfmDebugStage::CombeMask },
+    { _T("combe-mask-min"), (int)VppKfmDebugStage::CombeMask },
+    { nullptr, 0 }
+};
+
+struct VppKfm {
+    bool enable;
+    VppKfmMode mode;
+    VppRtgmcPreset preset;
+    VppKfmTiming timing;
+    int pastCycles;
+    float thswitch;
+    bool ucf;
+    bool nr;
+    bool is120;
+    bool debug;
+    VppKfmDebugStage debugStage;
+    tstring timecode;
+
+    VppKfm();
+    bool operator==(const VppKfm& x) const;
+    bool operator!=(const VppKfm& x) const;
+    tstring print() const;
+};
+
 struct RGYParamVpp {
     std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
@@ -2669,6 +2771,7 @@ struct RGYParamVpp {
     VppDelogo delogo;
     VppAfs afs;
     VppNnedi nnedi;
+    VppKfm kfm;
     VppYadif yadif;
     VppDecomb decomb;
     VppBwdif bwdif;
