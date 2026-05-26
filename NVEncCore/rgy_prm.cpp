@@ -87,6 +87,9 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
     std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
     std::make_pair(VppType::CL_DEGRAIN,              _T("degrain")),
+    std::make_pair(VppType::CL_DEGRAIN_ANALYZE,      _T("degrain-analyze")),
+    std::make_pair(VppType::CL_DEGRAIN_APPLY_TR1,    _T("degrain-apply-tr1")),
+    std::make_pair(VppType::CL_DEGRAIN_APPLY_TR2,    _T("degrain-apply-tr2")),
     std::make_pair(VppType::CL_IVTC,                 _T("ivtc")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
@@ -2902,6 +2905,9 @@ RGYParamVpp::RGYParamVpp() :
     decomb(),
     bwdif(),
     degrain(),
+    degrainAnalyze(),
+    degrainTR1(),
+    degrainTR2(),
     ivtc(),
     rff(),
     selectevery(),
@@ -2948,6 +2954,9 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && decomb == x.decomb
         && bwdif == x.bwdif
         && degrain == x.degrain
+        && degrainAnalyze == x.degrainAnalyze
+        && degrainTR1 == x.degrainTR1
+        && degrainTR2 == x.degrainTR2
         && ivtc == x.ivtc
         && rff == x.rff
         && selectevery == x.selectevery

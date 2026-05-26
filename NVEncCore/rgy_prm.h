@@ -157,6 +157,9 @@ enum class VppType : int {
     CL_DECOMB,
     CL_BWDIF,
     CL_DEGRAIN,
+    CL_DEGRAIN_ANALYZE,
+    CL_DEGRAIN_APPLY_TR1,
+    CL_DEGRAIN_APPLY_TR2,
     CL_IVTC,
     CL_DECIMATE,
     CL_MPDECIMATE,
@@ -3007,6 +3010,9 @@ struct RGYParamVpp {
     VppDecomb decomb;
     VppBwdif bwdif;
     VppDegrain degrain;
+    VppDegrain degrainAnalyze;
+    VppDegrain degrainTR1;
+    VppDegrain degrainTR2;
     VppIvtc ivtc;
     VppRff rff;
     VppSelectEvery selectevery;
