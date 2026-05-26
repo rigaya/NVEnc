@@ -4,6 +4,7 @@
 
 - Add [--vpp-bwdif](./NVEncC_Options.en.md#--vpp-bwdif-param1value1) and [--vpp-ivtc](./NVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2).
 - Add [--vpp-detailsharpen](./NVEncC_Options.en.md#--vpp-detailsharpen-param1value1param2value2). ( #762 )
+- Add [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1) motion-compensated degrain filter.
 - Fix crop processing for yuv444 input where edge pixels were not written correctly. ( #763 )
 - Fix neroaacenc 2pass output.
 - Fix [--lowlatency](./NVEncC_Options.en.md#--lowlatency) corrupted on Linux from 9.15.
