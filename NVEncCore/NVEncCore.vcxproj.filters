@@ -883,5 +883,8 @@
     <CudaCompile Include="NVEncFilterDegrain.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
+    <CudaCompile Include="NVEncFilterKfm.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

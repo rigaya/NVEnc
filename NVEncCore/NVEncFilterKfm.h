@@ -53,6 +53,8 @@ public:
     virtual tstring print() const override;
 };
 
+RGY_ERR run_kfm_pad_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, int vpad, cudaStream_t stream);
+
 class RGYFrameDataKfmSwitch : public RGYFrameData {
 public:
     RGYFrameDataKfmSwitch(int n60, int n24, int baseType, int sourceStart, int numSourceFrames, int duration60, int duration120, int pattern, float cost) :
@@ -161,6 +163,9 @@ protected:
     void initStageDumpConfig(const NVEncFilterParamKfm& prm);
     bool stageDumpRequested(int frame24Index) const;
     RGY_ERR dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index, cudaStream_t stream);
+    RGY_ERR padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameInfo *pSourceFrame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     std::shared_ptr<CUFrameBuf> acquireKfmFrame(const RGYFrameInfo& info, const TCHAR *label);
     RGY_ERR allocWorkFrameBuf(const RGYFrameInfo& frame, int frames);
     RGYFrameInfo *nextOutputFrame();
@@ -193,6 +198,7 @@ protected:
     void writeContainsCombeDump(const char *stage, const KfmSwitchTiming& timing, uint32_t containsCombeCount, bool durationApplied, const RGYKFM::KFMResult *result);
     void attachSwitchFrameData(RGYFrameInfo *frame, const KfmSwitchTiming& timing, const RGYKFM::KFMResult *result) const;
     int telecine24FrameCount(bool drain) const;
+    RGY_ERR analyzeAvailableSource(bool drain, cudaStream_t stream);
     void flushUcfNoiseResultDump();
 
     struct KfmCachedSource {
