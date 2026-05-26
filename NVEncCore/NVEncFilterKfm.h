@@ -90,6 +90,58 @@ RGY_ERR run_kfm_extend_coefs_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInf
 RGY_ERR run_kfm_and_coefs_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDiffFrame, float invcombe, float invdiff, cudaStream_t stream);
 RGY_ERR run_kfm_apply_uv_coefs_420_plane(RGYFrameInfo *flagU, RGYFrameInfo *flagV, const RGYFrameInfo *flagY, cudaStream_t stream);
 RGY_ERR run_kfm_merge_static_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeint60Frame, const RGYFrameInfo *pSourceFrame, const RGYFrameInfo *pFlagFrame, cudaStream_t stream);
+RGY_ERR run_kfm_telecine_weave_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *src0, const RGYFrameInfo *src1, const RGYFrameInfo *src2,
+    int srcYOffset, int fieldStart, int fieldCount, int parity, cudaStream_t stream);
+RGY_ERR run_kfm_analyze_plane(uint8_t *dst, int dstPitch,
+    const RGYFrameInfo *src0, const RGYFrameInfo *src1,
+    int width, int height, int parity, int pixelStep, int pixelOffset, cudaStream_t stream);
+RGY_ERR run_kfm_clean_super_direct_max_plane(RGYFrameInfo *dst,
+    const RGYFrameInfo *prevSrc0, const RGYFrameInfo *prevSrc1, int prevParity,
+    const RGYFrameInfo *curSrc0, const RGYFrameInfo *curSrc1, int curParity,
+    int widthPairs, int height, int field, int cleanThresh, int maxMode,
+    int dstStep, int dstOffset, int pixelStep, int pixelOffset, cudaStream_t stream);
+RGY_ERR run_kfm_clean_separated_super_max_plane(RGYFrameInfo *dst,
+    const uint8_t *prevSuper, const uint8_t *curSuper, int superPitch,
+    int widthPairs, int height, int field, int cleanThresh, int maxMode,
+    int dstStep, int dstOffset, cudaStream_t stream);
+RGY_ERR run_kfm_remove_combe_binomial_plane(RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pCombeFrame,
+    const RGYFrameInfo *teleSrc0, const RGYFrameInfo *teleSrc1, const RGYFrameInfo *teleSrc2,
+    int threshold, int srcStep, int srcOffset, int combeStep, int combeOffset,
+    int teleSrcYOffset, int teleFieldStart, int teleFieldCount, int teleParity, cudaStream_t stream);
+RGY_ERR run_kfm_patch_combe_plane(RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pBaseFrame, const RGYFrameInfo *pPatchFrame, const RGYFrameInfo *pMaskFrame,
+    int threshold, cudaStream_t stream);
+RGY_ERR run_kfm_switch_flag_combe_min(uint8_t *dstY, int dstYPitch, uint8_t *dstC, int dstCPitch,
+    const RGYFrameInfo *superPrevY, const RGYFrameInfo *superY, const RGYFrameInfo *superNextY,
+    const RGYFrameInfo *superPrevUV, const RGYFrameInfo *superUV, const RGYFrameInfo *superNextUV,
+    const RGYFrameInfo *superPrevV, const RGYFrameInfo *superV, const RGYFrameInfo *superNextV,
+    int combeWidth, int combeHeight, int combeCWidth, int combeCHeight,
+    int hasUV, int interleavedUV, cudaStream_t stream);
+RGY_ERR run_kfm_switch_flag_from_combe_min(uint8_t *dstY, int dstYPitch, uint8_t *dstC, int dstCPitch,
+    const uint8_t *combeY, int combeYPitch, const uint8_t *combeC, int combeCPitch,
+    int flagWidth, int flagHeight, int innerWidth, int innerHeight,
+    int combeWidth, int combeHeight, int combeCWidth, int combeCHeight, cudaStream_t stream);
+RGY_ERR run_kfm_switch_flag_box3x3_min(uint8_t *dst, int dstPitch, const uint8_t *src, int srcPitch,
+    int width, int height, int innerWidth, int innerHeight, cudaStream_t stream);
+RGY_ERR run_kfm_switch_flag_binary_extend_hv_min(RGYFrameInfo *dst,
+    const uint8_t *srcY, int srcYPitch, const uint8_t *srcC, int srcCPitch,
+    int innerWidth, int innerHeight, int thY, int thC, cudaStream_t stream);
+RGY_ERR run_kfm_switch_flag_binary_min(RGYFrameInfo *dst,
+    const uint8_t *srcY, int srcYPitch, const uint8_t *srcC, int srcCPitch,
+    int innerWidth, int innerHeight, int thY, int thC, cudaStream_t stream);
+RGY_ERR run_kfm_switch_flag_extend_h_min(uint8_t *dst, int dstPitch, const RGYFrameInfo *src,
+    int width, int height, int offsetX, int offsetY, cudaStream_t stream);
+RGY_ERR run_kfm_switch_flag_extend_v_min(RGYFrameInfo *dst, const uint8_t *src, int srcPitch,
+    int width, int height, int offsetX, int offsetY, cudaStream_t stream);
+RGY_ERR run_kfm_contains_combe_init(uint32_t *count, cudaStream_t stream);
+RGY_ERR run_kfm_contains_combe_count(const RGYFrameInfo *mask, uint32_t *count, int threshold, cudaStream_t stream);
+RGY_ERR run_kfm_contains_combe_mark(RGYFrameInfo *dst, const uint32_t *count, cudaStream_t stream);
+RGY_ERR run_kfm_combe_mask_resize_bilinear_min_plane(RGYFrameInfo *dst, const RGYFrameInfo *flag,
+    int srcStep, int srcOffset, int scaleX, int shiftX, int scaleY, int shiftY,
+    int innerWidth, int innerHeight, cudaStream_t stream);
+RGY_ERR run_kfm_copy_u8_buffer_to_plane(RGYFrameInfo *dst, const uint8_t *src, int srcPitch,
+    int width, int height, cudaStream_t stream);
 
 class RGYFrameDataKfmSwitch : public RGYFrameData {
 public:
@@ -255,6 +307,29 @@ protected:
         cudaStream_t stream, RGYCudaEvent *event, int keepFrames);
     RGY_ERR drainNrFilter(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, RGYCudaEvent *event);
+    RGY_ERR renderTelecine24(RGYFrameInfo *pOutputFrame, int frame24Index, bool drain,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR renderDoubleWeaveFrame(RGYFrameInfo *pOutputFrame, int firstField, int fieldCount, bool drain,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR renderCleanSuperFields(RGYFrameInfo *pOutputFrame, int firstSuperField, int lastSuperField, int propSourceIndex, int outputFrameId, bool drain,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR renderTelecineSuper24(RGYFrameInfo *pOutputFrame, int frame24Index, bool drain,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR renderSuper30(RGYFrameInfo *pOutputFrame, int frame30Index, bool drain,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR removeCombeFields(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeintFrame, const RGYFrameInfo *pTelecineSuperFrame,
+        int firstField, int fieldCount, int stageFrameIndex, const char *stageName,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR removeCombe24(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeint24Frame, const RGYFrameInfo *pTelecineSuperFrame, int frame24Index,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame, RGYFrameInfo **ppContainsCombeFrame, RGYFrameInfo **ppCombeMaskFrame,
+        const RGYFrameInfo *pTelecineSuperFrame, const TCHAR *stageLabel);
+    RGY_ERR renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame,
+        const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame,
+        const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, uint32_t *containsCombeCount = nullptr);
+    RGY_ERR patchCombe(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pBaseFrame, const RGYFrameInfo *pPatchFrame, const RGYFrameInfo *pMaskFrame,
+        int frameIndex, const char *stageName, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     RGY_ERR submitFMCounts(int cycle, bool drain, cudaStream_t stream);
     RGY_ERR readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, int cycle, bool drain, cudaStream_t stream);
     RGY_ERR analyzeAvailableSource(bool drain, cudaStream_t stream);
