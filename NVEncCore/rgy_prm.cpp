@@ -2355,6 +2355,51 @@ tstring VppDegrain::print() const {
         mvSpatialRefine);
 }
 
+VppRtgmcRetouch::VppRtgmcRetouch() :
+    enable(false),
+    sharpness(FILTER_DEFAULT_RTGMC_RETOUCH_SHARPNESS),
+    limit(FILTER_DEFAULT_RTGMC_RETOUCH_LIMIT),
+    smode(FILTER_DEFAULT_RTGMC_RETOUCH_SMODE),
+    slmode(FILTER_DEFAULT_RTGMC_RETOUCH_SLMODE),
+    slrad(FILTER_DEFAULT_RTGMC_RETOUCH_SLRAD),
+    sovs(FILTER_DEFAULT_RTGMC_RETOUCH_SOVS),
+    svthin(FILTER_DEFAULT_RTGMC_RETOUCH_SVTHIN),
+    sbb(FILTER_DEFAULT_RTGMC_RETOUCH_SBB),
+    precise(false),
+    tr1(FILTER_DEFAULT_DEGRAIN_DELTA),
+    tr2(FILTER_DEFAULT_DEGRAIN_DELTA) {
+}
+
+bool VppRtgmcRetouch::operator==(const VppRtgmcRetouch& x) const {
+    return enable == x.enable
+        && sharpness == x.sharpness
+        && limit == x.limit
+        && smode == x.smode
+        && slmode == x.slmode
+        && slrad == x.slrad
+        && sovs == x.sovs
+        && svthin == x.svthin
+        && sbb == x.sbb
+        && precise == x.precise
+        && tr1 == x.tr1
+        && tr2 == x.tr2;
+}
+bool VppRtgmcRetouch::operator!=(const VppRtgmcRetouch& x) const {
+    return !(*this == x);
+}
+
+tstring VppRtgmcRetouch::print() const {
+    const float temporalLimitGain = (slmode == 2 || slmode == 4) ? 2.0f
+        : (slmode == 1 || slmode == 3) ? 1.5f
+        : 1.0f;
+    const float temporalRadiusGain = 0.2f + tr1 * 0.15f + tr2 * 0.25f;
+    const float interpolationModeGain = (smode == 1) ? 0.1f : 0.0f;
+    const float effectiveDetailGain = sharpness * (temporalLimitGain * temporalRadiusGain + interpolationModeGain);
+    return strsprintf(_T("rtgmc-retouch: smode %d, slmode %d, slrad %d, sovs %d, svthin %.3f, sbb %d, precise %s, sharpness %.3f, effective_detail_gain %.3f"),
+        smode, slmode, slrad, sovs, svthin, sbb, precise ? _T("true") : _T("false"), sharpness,
+        effectiveDetailGain);
+}
+
 VppKfm::VppKfm() :
     enable(false),
     mode(VppKfmMode::VFR),
