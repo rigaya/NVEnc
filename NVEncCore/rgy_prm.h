@@ -2710,6 +2710,54 @@ const CX_DESC list_vpp_rtgmc_tuning[] = {
     { NULL, 0 }
 };
 
+enum class VppRtgmcEdiMode {
+    Passthrough = 0,
+    Bob = 1,
+    BobChromaMerge = Bob,
+    Yadif = 2,
+    cYadif = 3,
+    TDeint = 4,
+    RepYadif = 5,
+    RepcYadif = 6,
+    NNEDI3 = 7,
+};
+
+enum class VppRtgmcChromaEdiMode {
+    None = 0,
+    NNEDI3 = 1,
+};
+
+const CX_DESC list_vpp_rtgmc_edi_mode[] = {
+    { _T("passthrough"),      (int)VppRtgmcEdiMode::Passthrough },
+    { _T("bob"),              (int)VppRtgmcEdiMode::Bob         },
+    { _T("yadif"),            (int)VppRtgmcEdiMode::Yadif       },
+    { _T("cyadif"),           (int)VppRtgmcEdiMode::cYadif      },
+    { _T("repyadif"),         (int)VppRtgmcEdiMode::RepYadif    },
+    { _T("repcyadif"),        (int)VppRtgmcEdiMode::RepcYadif   },
+    { _T("nnedi3"),           (int)VppRtgmcEdiMode::NNEDI3      },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_rtgmc_chroma_edi_mode[] = {
+    { _T("none"),             (int)VppRtgmcChromaEdiMode::None   },
+    { _T("nnedi3"),           (int)VppRtgmcChromaEdiMode::NNEDI3 },
+    { NULL, 0 }
+};
+
+struct VppRtgmcEdi {
+    bool enable;
+    VppRtgmcEdiMode mode;
+    VppRtgmcChromaEdiMode chromaEdi;
+    int nnsize;
+    int nneurons;
+    int ediqual;
+
+    VppRtgmcEdi();
+    bool operator==(const VppRtgmcEdi& x) const;
+    bool operator!=(const VppRtgmcEdi& x) const;
+    tstring print() const;
+};
+
 struct VppRtgmcRetouch {
     bool enable;
     float sharpness;
@@ -2727,6 +2775,30 @@ struct VppRtgmcRetouch {
     VppRtgmcRetouch();
     bool operator==(const VppRtgmcRetouch& x) const;
     bool operator!=(const VppRtgmcRetouch& x) const;
+    tstring print() const;
+};
+
+enum class VppRtgmcShimmerRepairStage {
+    Rep1 = 0,
+    Rep2 = 1,
+};
+
+const CX_DESC list_vpp_rtgmc_shimmer_repair_stage[] = {
+    { _T("rep1"), (int)VppRtgmcShimmerRepairStage::Rep1 },
+    { _T("rep2"), (int)VppRtgmcShimmerRepairStage::Rep2 },
+    { NULL, 0 }
+};
+
+struct VppRtgmcShimmerRepair {
+    bool enable;
+    VppRtgmcShimmerRepairStage stage;
+    int repThin;
+    int repPad;
+    bool repChroma;
+
+    VppRtgmcShimmerRepair();
+    bool operator==(const VppRtgmcShimmerRepair& x) const;
+    bool operator!=(const VppRtgmcShimmerRepair& x) const;
     tstring print() const;
 };
 

@@ -8,41 +8,6 @@
 #include "NVEncFilterNnedi.h"
 #include "rgy_prm.h"
 
-enum class VppRtgmcEdiMode {
-    Passthrough = 0,
-    Bob = 1,
-    BobChromaMerge = Bob,
-    Yadif = 2,
-    cYadif = 3,
-    TDeint = 4,
-    RepYadif = 5,
-    RepcYadif = 6,
-    NNEDI3 = 7,
-};
-
-enum class VppRtgmcChromaEdiMode {
-    None = 0,
-    NNEDI3 = 1,
-};
-
-static const CX_DESC list_vpp_rtgmc_edi_mode[] = {
-    { _T("passthrough"),      (int)VppRtgmcEdiMode::Passthrough },
-    { _T("bob"),              (int)VppRtgmcEdiMode::Bob         },
-    { _T("yadif"),            (int)VppRtgmcEdiMode::Yadif       },
-    { _T("cyadif"),           (int)VppRtgmcEdiMode::cYadif      },
-    { _T("tdeint"),           (int)VppRtgmcEdiMode::TDeint      },
-    { _T("repyadif"),         (int)VppRtgmcEdiMode::RepYadif    },
-    { _T("repcyadif"),        (int)VppRtgmcEdiMode::RepcYadif   },
-    { _T("nnedi3"),           (int)VppRtgmcEdiMode::NNEDI3      },
-    { NULL, 0 }
-};
-
-static const CX_DESC list_vpp_rtgmc_chroma_edi_mode[] = {
-    { _T("none"),             (int)VppRtgmcChromaEdiMode::None   },
-    { _T("nnedi3"),           (int)VppRtgmcChromaEdiMode::NNEDI3 },
-    { NULL, 0 }
-};
-
 class NVEncFilterParamRtgmcEdi : public NVEncFilterParam {
 public:
     VppRtgmcEdiMode mode;
