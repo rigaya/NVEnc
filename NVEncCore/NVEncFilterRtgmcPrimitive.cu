@@ -36,11 +36,13 @@
 #pragma warning (pop)
 
 #include <algorithm>
+#include <array>
 #include <vector>
 
 namespace {
 static constexpr int RTGMC_PRIMITIVE_BLOCK_X = 32;
 static constexpr int RTGMC_PRIMITIVE_BLOCK_Y = 8;
+static constexpr int RTGMC_PRIMITIVE_GAUSS_RADIUS = 4;
 
 static RGY_ERR rtgmcPrimitiveWaitEvents(cudaStream_t stream, const std::vector<RGYCudaEvent> &waitEvents) {
     for (const auto& waitEvent : waitEvents) {
@@ -106,6 +108,15 @@ __device__ int rtgmc_primitive_add_weighted_diff(const int src, const int diff, 
 __device__ int rtgmc_primitive_merge_weighted(const int src0, const int src1, const float weight, const int max_val) {
     const float value = (float)src0 + ((float)src1 - (float)src0) * weight;
     return clamp(__float2int_rn(value), 0, max_val);
+}
+
+__device__ float rtgmc_primitive_gauss_weight(const int targetPos, const float srcPos, const float ratioClamped, const float gaussP) {
+    const float delta = ((float)targetPos - (srcPos - 0.5f)) * ratioClamped;
+    const float x = fabsf(delta);
+    if (x > (float)RTGMC_PRIMITIVE_GAUSS_RADIUS) {
+        return 0.0f;
+    }
+    return exp2f(-(gaussP * 0.1f) * x * x);
 }
 
 __device__ void rtgmc_primitive_sort2(int *a, int *b) {
@@ -350,6 +361,71 @@ __global__ void kernel_rtgmc_primitive_copy(
     if (ix >= width || iy >= height) return;
     const int value = rtgmc_primitive_read_pix<Type>(pSrc, ix, iy, srcPitch, width, height);
     rtgmc_primitive_write_pix<Type>(pDst, ix, iy, dstPitch, value, max_val);
+}
+
+template<typename Type>
+__global__ void kernel_rtgmc_primitive_gauss_h(
+    uint8_t *__restrict__ pTmp, const int tmpPitch, const int tmpWidth, const int tmpHeight,
+    const uint8_t *__restrict__ pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
+    const float ratioX,
+    const float gaussP
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= tmpWidth || iy >= tmpHeight) return;
+
+    const float ratioInvX = 1.0f / ratioX;
+    const float ratioClampedX = min(ratioX, 1.0f);
+    const float srcWindowX = (float)RTGMC_PRIMITIVE_GAUSS_RADIUS / ratioClampedX;
+    const float srcX = ((float)ix + 0.5f) * ratioInvX;
+    const int srcFirstX = max(0, (int)floorf(srcX - srcWindowX));
+    const int srcEndX = min(srcWidth - 1, (int)ceilf(srcX + srcWindowX));
+
+    float clr = 0.0f;
+    float sumWeight = 0.0f;
+    const Type *__restrict__ srcPtr = (const Type *)(pSrc + iy * srcPitch + srcFirstX * sizeof(Type));
+    for (int i = srcFirstX; i <= srcEndX; i++, srcPtr++) {
+        const float wx = rtgmc_primitive_gauss_weight(i, srcX, ratioClampedX, gaussP);
+        sumWeight += wx;
+        clr += (float)srcPtr[0] * wx;
+    }
+    if (sumWeight > 0.0f) {
+        clr /= sumWeight;
+    }
+    ((float *)(pTmp + iy * tmpPitch) + ix)[0] = clr;
+}
+
+template<typename Type>
+__global__ void kernel_rtgmc_primitive_gauss_v(
+    uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pTmp, const int tmpPitch, const int tmpWidth, const int tmpHeight,
+    const float ratioY,
+    const float gaussP,
+    const int max_val
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= dstWidth || iy >= dstHeight) return;
+
+    const float ratioInvY = 1.0f / ratioY;
+    const float ratioClampedY = min(ratioY, 1.0f);
+    const float srcWindowY = (float)RTGMC_PRIMITIVE_GAUSS_RADIUS / ratioClampedY;
+    const float srcY = ((float)iy + 0.5f) * ratioInvY;
+    const int srcFirstY = max(0, (int)floorf(srcY - srcWindowY));
+    const int srcEndY = min(tmpHeight - 1, (int)ceilf(srcY + srcWindowY));
+
+    float clr = 0.0f;
+    float sumWeight = 0.0f;
+    for (int j = srcFirstY; j <= srcEndY; j++) {
+        const float wy = rtgmc_primitive_gauss_weight(j, srcY, ratioClampedY, gaussP);
+        sumWeight += wy;
+        clr += ((const float *)(pTmp + j * tmpPitch) + ix)[0] * wy;
+    }
+    if (sumWeight > 0.0f) {
+        clr /= sumWeight;
+    }
+    Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+    ptr[0] = (Type)clamp(clr + 0.5f, 0.0f, (float)max_val);
 }
 
 template<typename Type>
@@ -727,11 +803,12 @@ RGY_ERR NVEncFilterRtgmcPrimitive::buildKernels(const std::shared_ptr<NVEncFilte
 
 RGY_ERR NVEncFilterRtgmcPrimitive::setupGaussResize(const NVEncFilterParamRtgmcPrimitive &prm) {
     if (prm.op != RGYRtgmcPrimitiveOp::GaussResize) {
+        for (auto& tmp : m_gaussTmp) {
+            tmp.reset();
+        }
         return RGY_ERR_NONE;
     }
-    // NVEnc側の GaussResize 配線は未接続。RTGMC primitive の通常CUDA kernelだけ先に移植する。
-    AddMessage(RGY_LOG_ERROR, _T("rtgmc-primitive gaussresize is not supported on NVEnc yet.\n"));
-    return RGY_ERR_UNSUPPORTED;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterRtgmcPrimitive::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -1000,6 +1077,9 @@ RGY_ERR NVEncFilterRtgmcPrimitive::processGaussResize(RGYFrameInfo *pOutputFrame
     const NVEncFilterParamRtgmcPrimitive &prm,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     const int planes = RGY_CSP_PLANES[pInputFrame->csp];
+    const int bitDepth = RGY_CSP_BIT_DEPTH[pOutputFrame->csp];
+    const int maxVal = (1 << bitDepth) - 1;
+    const float gaussP = clamp((float)prm.mode, 0.1f, 100.0f);
     int processPlanes = 0;
     for (int iplane = 0; iplane < planes; iplane++) {
         processPlanes += processPlane(iplane, prm) ? 1 : 0;
@@ -1009,8 +1089,163 @@ RGY_ERR NVEncFilterRtgmcPrimitive::processGaussResize(RGYFrameInfo *pOutputFrame
         copyPrm.op = RGYRtgmcPrimitiveOp::Copy;
         return processFrame(pOutputFrame, pInputFrame, nullptr, copyPrm, stream, wait_events, event);
     }
-    AddMessage(RGY_LOG_ERROR, _T("rtgmc-primitive gaussresize is not supported on NVEnc yet.\n"));
-    return RGY_ERR_UNSUPPORTED;
+
+    std::vector<RGYCudaEvent> planeWaitEvents = wait_events;
+    RGYCudaEvent planeEvent;
+    for (int iplane = 0; iplane < planes; iplane++) {
+        if (!processPlane(iplane, prm)) {
+            continue;
+        }
+        const auto dstPlane = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        const auto srcPlane = getPlane(pInputFrame, (RGY_PLANE)iplane);
+        RGYFrameInfo tmpInfo(dstPlane.width, srcPlane.height, RGY_CSP_Y_F32, 32);
+        auto& tmpFrame = m_gaussTmp[iplane];
+        if (!tmpFrame
+            || tmpFrame->frame.width != tmpInfo.width
+            || tmpFrame->frame.height != tmpInfo.height
+            || tmpFrame->frame.csp != tmpInfo.csp) {
+            tmpFrame = std::make_unique<CUFrameBuf>(tmpInfo);
+            if (!tmpFrame || tmpFrame->alloc() != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate rtgmc-primitive gauss resize tmp frame.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+        }
+        const auto tmpPlane = getPlane(&tmpFrame->frame, RGY_PLANE_Y);
+        const dim3 blockSize(RTGMC_PRIMITIVE_BLOCK_X, RTGMC_PRIMITIVE_BLOCK_Y);
+        const dim3 gridH(divCeil(tmpPlane.width, blockSize.x), divCeil(tmpPlane.height, blockSize.y));
+        const dim3 gridV(divCeil(dstPlane.width, blockSize.x), divCeil(dstPlane.height, blockSize.y));
+        auto err = rtgmcPrimitiveWaitEvents(stream, planeWaitEvents);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error waiting for kernel_rtgmc_primitive_gauss_h (plane %d): %s.\n"),
+                iplane, get_err_mes(err));
+            return err;
+        }
+#define LAUNCH_RTGMC_PRIMITIVE_GAUSS_H(kernel, ...) \
+        do { \
+            if (bitDepth <= 8) { \
+                kernel<uint8_t><<<gridH, blockSize, 0, stream>>>(__VA_ARGS__); \
+            } else { \
+                kernel<uint16_t><<<gridH, blockSize, 0, stream>>>(__VA_ARGS__); \
+            } \
+        } while (0)
+#define LAUNCH_RTGMC_PRIMITIVE_GAUSS_V(kernel, ...) \
+        do { \
+            if (bitDepth <= 8) { \
+                kernel<uint8_t><<<gridV, blockSize, 0, stream>>>(__VA_ARGS__); \
+            } else { \
+                kernel<uint16_t><<<gridV, blockSize, 0, stream>>>(__VA_ARGS__); \
+            } \
+        } while (0)
+        LAUNCH_RTGMC_PRIMITIVE_GAUSS_H(kernel_rtgmc_primitive_gauss_h,
+            tmpPlane.ptr[0], tmpPlane.pitch[0], tmpPlane.width, tmpPlane.height,
+            srcPlane.ptr[0], srcPlane.pitch[0], srcPlane.width, srcPlane.height,
+            (float)dstPlane.width / (float)srcPlane.width,
+            gaussP);
+#undef LAUNCH_RTGMC_PRIMITIVE_GAUSS_H
+        err = err_to_rgy(cudaGetLastError());
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_rtgmc_primitive_gauss_h (plane %d): %s.\n"),
+                iplane, get_err_mes(err));
+            return err;
+        }
+        RGYCudaEvent eventH;
+        err = rtgmcPrimitiveRecordEvent(stream, &eventH);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to record kernel_rtgmc_primitive_gauss_h event (plane %d): %s.\n"),
+                iplane, get_err_mes(err));
+            return err;
+        }
+        err = rtgmcPrimitiveWaitEvents(stream, { eventH });
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error waiting for kernel_rtgmc_primitive_gauss_v (plane %d): %s.\n"),
+                iplane, get_err_mes(err));
+            return err;
+        }
+        LAUNCH_RTGMC_PRIMITIVE_GAUSS_V(kernel_rtgmc_primitive_gauss_v,
+            dstPlane.ptr[0], dstPlane.pitch[0], dstPlane.width, dstPlane.height,
+            tmpPlane.ptr[0], tmpPlane.pitch[0], tmpPlane.width, tmpPlane.height,
+            (float)dstPlane.height / (float)srcPlane.height,
+            gaussP,
+            maxVal);
+#undef LAUNCH_RTGMC_PRIMITIVE_GAUSS_V
+        err = err_to_rgy(cudaGetLastError());
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_rtgmc_primitive_gauss_v (plane %d): %s.\n"),
+                iplane, get_err_mes(err));
+            return err;
+        }
+        planeWaitEvents.clear();
+        err = rtgmcPrimitiveRecordEvent(stream, &planeEvent);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to record kernel_rtgmc_primitive_gauss_v event (plane %d): %s.\n"),
+                iplane, get_err_mes(err));
+            return err;
+        }
+        if (planeEvent() != nullptr) {
+            planeWaitEvents.push_back(planeEvent);
+        }
+    }
+
+    if (processPlanes != planes) {
+        std::vector<RGYCudaEvent> copyWaitEvents = planeWaitEvents;
+        RGYCudaEvent copyEvent;
+        const int copyPlanes = planes - processPlanes;
+        int copiedPlanes = 0;
+        for (int iplane = 0; iplane < planes; iplane++) {
+            if (processPlane(iplane, prm)) {
+                continue;
+            }
+            copiedPlanes++;
+            const auto dstPlane = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+            const auto srcPlane = getPlane(pInputFrame, (RGY_PLANE)iplane);
+            const dim3 blockSize(RTGMC_PRIMITIVE_BLOCK_X, RTGMC_PRIMITIVE_BLOCK_Y);
+            const dim3 gridSize(divCeil(dstPlane.width, blockSize.x), divCeil(dstPlane.height, blockSize.y));
+            auto err = rtgmcPrimitiveWaitEvents(stream, copyWaitEvents);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error waiting for kernel_rtgmc_primitive_copy (plane %d): %s.\n"),
+                    iplane, get_err_mes(err));
+                return err;
+            }
+#define LAUNCH_RTGMC_PRIMITIVE_COPY(kernel, ...) \
+            do { \
+                if (bitDepth <= 8) { \
+                    kernel<uint8_t><<<gridSize, blockSize, 0, stream>>>(__VA_ARGS__); \
+                } else { \
+                    kernel<uint16_t><<<gridSize, blockSize, 0, stream>>>(__VA_ARGS__); \
+                } \
+            } while (0)
+            LAUNCH_RTGMC_PRIMITIVE_COPY(kernel_rtgmc_primitive_copy,
+                dstPlane.ptr[0], dstPlane.pitch[0],
+                srcPlane.ptr[0], srcPlane.pitch[0],
+                dstPlane.width, dstPlane.height,
+                maxVal);
+#undef LAUNCH_RTGMC_PRIMITIVE_COPY
+            err = err_to_rgy(cudaGetLastError());
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error at kernel_rtgmc_primitive_copy (plane %d): %s.\n"),
+                    iplane, get_err_mes(err));
+                return err;
+            }
+            copyWaitEvents.clear();
+            auto copyOutputEvent = (copiedPlanes == copyPlanes) ? event : &copyEvent;
+            err = rtgmcPrimitiveRecordEvent(stream, copyOutputEvent);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to record kernel_rtgmc_primitive_copy event (plane %d): %s.\n"),
+                    iplane, get_err_mes(err));
+                return err;
+            }
+            if (copyEvent() != nullptr) {
+                copyWaitEvents.push_back(copyEvent);
+            }
+        }
+    } else {
+        auto err = rtgmcPrimitiveRecordEvent(stream, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+    copyFramePropWithoutRes(pOutputFrame, pInputFrame);
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterRtgmcPrimitive::run_filter(const RGYFrameInfo *pInputFrame, const RGYFrameInfo *pRefFrame, RGYFrameInfo **ppOutputFrames,
@@ -1108,6 +1343,9 @@ RGY_ERR NVEncFilterRtgmcPrimitive::run_filter(const RGYFrameInfo *pInputFrame, R
 
 void NVEncFilterRtgmcPrimitive::close() {
     m_buildOptions.clear();
+    for (auto& tmp : m_gaussTmp) {
+        tmp.reset();
+    }
     m_frameBuf.clear();
     m_useKernel = false;
 }
