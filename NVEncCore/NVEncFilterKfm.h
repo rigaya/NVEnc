@@ -142,6 +142,27 @@ RGY_ERR run_kfm_combe_mask_resize_bilinear_min_plane(RGYFrameInfo *dst, const RG
     int innerWidth, int innerHeight, cudaStream_t stream);
 RGY_ERR run_kfm_copy_u8_buffer_to_plane(RGYFrameInfo *dst, const uint8_t *src, int srcPitch,
     int width, int height, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_copy_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_field_crop_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+    int srcXOffset, int srcYOffset, int srcYStep, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_gaussresize_v_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+    const int *offset, const float *coeff, int filterSize, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_field_crop_gaussresize_v_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+    int srcXOffset, int srcYOffset, int srcYStep, const int *offset, const float *coeff, int filterSize, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_gaussresize_h_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+    const int *offset, const float *coeff, int filterSize, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_gaussresize_h_uv_interleaved_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+    int chromaWidth, const int *offset, const float *coeff, int filterSize, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_analyze_noise_partial(RGYKFM::NoiseResult *dst, int dstOffset,
+    const RGYFrameInfo *src0, const RGYFrameInfo *src1, const RGYFrameInfo *src2,
+    int width4, int height, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_analyze_diff_partial(RGYKFM::NoiseResult *dst, int dstOffset,
+    const RGYFrameInfo *src0, const RGYFrameInfo *src1,
+    int width4, int height, int srcYOffset, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_noise_limit_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
+    int nmin, int range, cudaStream_t stream);
+RGY_ERR run_kfm_ucf_source_crop_noise_limit_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
+    int srcXOffset, int srcYOffset, int srcYStep, int nmin, int range, cudaStream_t stream);
 
 class RGYFrameDataKfmSwitch : public RGYFrameData {
 public:
@@ -260,6 +281,14 @@ protected:
     RGY_ERR runDeint60Branch(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, int *cachedFrames = nullptr);
     RGY_ERR drainDeint60Branch(cudaStream_t stream, int *cachedFrames = nullptr);
     RGY_ERR cacheDeint60Frame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR runUcfRtgmcBranches(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
+    RGY_ERR runUcfRtgmcBranch(NVEncFilterRtgmc *rtgmc, const char *stage, const RGYFrameInfo *frame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events,
+        std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYCudaEvent& cacheCopyEvent);
+    RGY_ERR drainUcfRtgmcBranch(NVEncFilterRtgmc *rtgmc, const char *stage, cudaStream_t stream,
+        std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYCudaEvent& cacheCopyEvent);
+    RGY_ERR cacheUcfRtgmcFrame(const char *stage, const RGYFrameInfo *frame, cudaStream_t stream,
+        const std::vector<RGYCudaEvent> &wait_events, std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYCudaEvent *event);
     std::shared_ptr<CUFrameBuf> acquireKfmFrame(const RGYFrameInfo& info, const TCHAR *label);
     RGY_ERR allocWorkFrameBuf(const RGYFrameInfo& frame, int frames);
     RGYFrameInfo *nextOutputFrame();
@@ -274,6 +303,34 @@ protected:
     const KfmCachedSource *findSourceByIndexExact(int sourceIndex) const;
     const KfmCachedDeint60 *findCachedDeint60Frame(const std::deque<KfmCachedDeint60>& cache, int n60, std::vector<RGYCudaEvent> *wait_events) const;
     const KfmUcfNoiseDumpRecord *findUcfNoiseResult(int sourceIndex) const;
+    RGY_ERR copyUcfFrame(const NVEncFilterParamKfm& prm, RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR createUcfGaussProgram(KfmUcfGaussProgram& program, int sourceSize, double cropSize, int targetSize, double p);
+    RGY_ERR prepareUcfNoiseFieldCropFrame(RGYFrameInfo **ppFieldFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGaussFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, int parity, const RGYFrameInfo *pInputFrame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR runUcfNoiseLimitStageFromSource(const NVEncFilterParamKfm& prm, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
+        int fieldIndex, int parity, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
+    RGY_ERR runUcfNoiseLimitStage(const NVEncFilterParamKfm& prm, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
+        int fieldIndex, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
+    RGY_ERR analyzeUcfNoiseDebug(cudaStream_t stream);
+    RGY_ERR submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, const KfmCachedUcfNoise& noise1, const KfmCachedUcfNoise& noise2,
+        const KfmCachedSource& source0, const KfmCachedSource& source1, cudaStream_t stream);
+    RGY_ERR resolveUcfNoiseResult(KfmPendingUcfNoiseResult& pending, cudaStream_t stream);
+    RGY_ERR resolveUcfNoiseResults(int sourceIndex, cudaStream_t stream);
+    RGY_ERR resolveAllUcfNoiseResults(cudaStream_t stream);
+    std::unique_ptr<CUMemBufPair> acquireUcfNoiseResultBuf(size_t requiredBytes);
+    void releaseUcfNoiseResultBuf(std::unique_ptr<CUMemBufPair>&& buf);
+    void pushUcfNoiseResultDump(int sourceIndex, const RGYKFM::NoiseResult (&results)[2], const RGYKFM::UCFNoiseMeta& meta);
+    void writeUcfNoiseResultDump(const KfmUcfNoiseDumpRecord& record, const KfmUcfNoiseDumpRecord *nextRecord);
+    const RGYFrameInfo *selectUcfDecomb30Frame(int sourceIndex, const RGYFrameInfo *deint30, std::vector<RGYCudaEvent> *wait_events) const;
+    bool getUcf60FieldDiff(int nstart, double (&diff)[4]) const;
+    KfmUcf60Flag calcUcf60Flag(int n60) const;
+    const RGYFrameInfo *selectUcfDecomb60Frame(int n60, const RGYFrameInfo *deint60, std::vector<RGYCudaEvent> *wait_events) const;
+    KfmUcf24Selection selectUcfDecomb24Frame(const RGYKFM::Frame24Info& frameInfo, const RGYFrameInfo *deint24, std::vector<RGYCudaEvent> *wait_events) const;
     void finalizeAnalyzerResults(VppKfmTiming timing);
     std::vector<RGYKFM::KFMResult> analyzerResultsSnapshot(bool mark60p) const;
     void appendAnalyzerResults(size_t resultCount, bool dump, bool mark60p);
@@ -389,11 +446,12 @@ protected:
             int plane;
         };
         int sourceIndex;
-        std::unique_ptr<CUMemBuf> resultBuf;
+        std::unique_ptr<CUMemBufPair> resultBuf;
         std::vector<Segment> segments;
+        RGYCudaEvent event;
         RGYKFM::UCFNoiseMeta meta;
 
-        KfmPendingUcfNoiseResult() : sourceIndex(-1), resultBuf(), segments(), meta() {};
+        KfmPendingUcfNoiseResult() : sourceIndex(-1), resultBuf(), segments(), event(), meta() {};
     };
 
     struct KfmUcfGaussProgram {
@@ -435,7 +493,7 @@ protected:
     std::deque<KfmCachedUcfNoise> m_ucfNoiseCache;
     std::deque<KfmPendingUcfNoiseResult> m_pendingUcfNoiseResults;
     std::deque<std::unique_ptr<CUMemBuf>> m_fmCountBufPool;
-    std::deque<std::unique_ptr<CUMemBuf>> m_ucfNoiseResultBufPool;
+    std::deque<std::unique_ptr<CUMemBufPair>> m_ucfNoiseResultBufPool;
     std::deque<KfmUcfNoiseDumpRecord> m_ucfNoiseResultCache;
     KfmUcfNoiseDumpRecord m_pendingUcfNoiseDump;
     int m_deint60SubmittedSourceFrames;

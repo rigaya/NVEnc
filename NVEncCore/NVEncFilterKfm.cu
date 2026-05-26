@@ -1875,3 +1875,692 @@ RGY_ERR run_kfm_copy_u8_buffer_to_plane(RGYFrameInfo *dst, const uint8_t *src, i
     kernel_kfm_copy_u8_buffer_to_plane<<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], src, srcPitch, width, height);
     return err_to_rgy(cudaGetLastError());
 }
+
+static constexpr int KFM_UCF_BLOCK_X = 32;
+static constexpr int KFM_UCF_BLOCK_Y = 8;
+static constexpr int KFM_UCF_LOCAL_SIZE = 512;
+
+#define KFM_UCF_COPY_KERNEL(kernel_name) \
+template<typename Type> \
+__global__ void kernel_name( \
+    uint8_t *dst, \
+    const int dstPitch, \
+    const uint8_t *src, \
+    const int srcPitch, \
+    const int width, \
+    const int height) { \
+    const int x = blockIdx.x * blockDim.x + threadIdx.x; \
+    const int y = blockIdx.y * blockDim.y + threadIdx.y; \
+    if (x >= width || y >= height) { \
+        return; \
+    } \
+    const Type *pSrc = (const Type *)(src + y * srcPitch + x * (int)sizeof(Type)); \
+    Type *pDst = (Type *)(dst + y * dstPitch + x * (int)sizeof(Type)); \
+    pDst[0] = pSrc[0]; \
+}
+
+KFM_UCF_COPY_KERNEL(kernel_kfm_ucf)
+KFM_UCF_COPY_KERNEL(kernel_kfm_ucf_noise)
+KFM_UCF_COPY_KERNEL(kernel_kfm_ucf_param)
+KFM_UCF_COPY_KERNEL(kernel_kfm_ucf_30)
+KFM_UCF_COPY_KERNEL(kernel_kfm_ucf_24)
+KFM_UCF_COPY_KERNEL(kernel_kfm_ucf_60_flag)
+KFM_UCF_COPY_KERNEL(kernel_kfm_ucf_60)
+
+#undef KFM_UCF_COPY_KERNEL
+
+template<typename Type>
+__device__ __forceinline__ int kfm_ucf_read_pix(
+    const uint8_t *ptr,
+    const int x,
+    const int y,
+    const int pitch,
+    const int width,
+    const int height) {
+    const int ix = clamp(x, 0, width - 1);
+    const int iy = clamp(y, 0, height - 1);
+    const Type *p = (const Type *)(ptr + iy * pitch + ix * (int)sizeof(Type));
+    return (int)p[0];
+}
+
+template<typename Type>
+__device__ __forceinline__ int kfm_ucf_read_field_crop_pix(
+    const uint8_t *src,
+    const int x,
+    const int y,
+    const int srcPitch,
+    const int width,
+    const int height,
+    const int srcXOffset,
+    const int srcYOffset,
+    const int srcYStep) {
+    const int ix = clamp(x, 0, width - 1);
+    const int iy = clamp(y, 0, height - 1);
+    const int sx = ix + srcXOffset;
+    const int sy = iy * srcYStep + srcYOffset;
+    const Type *p = (const Type *)(src + sy * srcPitch + sx * (int)sizeof(Type));
+    return (int)p[0];
+}
+
+template<typename Type>
+__device__ __forceinline__ int kfm_ucf_read_pix_uv_interleaved(
+    const uint8_t *ptr,
+    const int chromaX,
+    const int channel,
+    const int y,
+    const int pitch,
+    const int chromaWidth,
+    const int height) {
+    const int ix = clamp(chromaX, 0, chromaWidth - 1);
+    const int iy = clamp(y, 0, height - 1);
+    const Type *p = (const Type *)(ptr + iy * pitch + ((ix << 1) + channel) * (int)sizeof(Type));
+    return (int)p[0];
+}
+
+template<typename Type>
+__device__ __forceinline__ void kfm_ucf_write_pix(
+    uint8_t *ptr,
+    const int x,
+    const int y,
+    const int pitch,
+    const int value) {
+    Type *p = (Type *)(ptr + y * pitch + x * (int)sizeof(Type));
+    p[0] = (Type)value;
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_field_crop(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const int width,
+    const int height,
+    const int srcXOffset,
+    const int srcYOffset,
+    const int srcYStep) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) {
+        return;
+    }
+    const int srcX = x + srcXOffset;
+    const int srcY = y * srcYStep + srcYOffset;
+    const Type *pSrc = (const Type *)(src + srcY * srcPitch + srcX * (int)sizeof(Type));
+    Type *pDst = (Type *)(dst + y * dstPitch + x * (int)sizeof(Type));
+    pDst[0] = pSrc[0];
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_gaussresize_v(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const int width,
+    const int height,
+    const int bitDepth,
+    const int *offset,
+    const float *coeff,
+    const int filterSize) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) {
+        return;
+    }
+    const int begin = offset[y];
+    const int maxValue = (1 << bitDepth) - 1;
+    float result = 0.0f;
+    for (int i = 0; i < filterSize; i++) {
+        result += (float)kfm_ucf_read_pix<Type>(src, x, begin + i, srcPitch, width, height) * coeff[y * filterSize + i];
+    }
+    kfm_ucf_write_pix<Type>(dst, x, y, dstPitch, (int)(clamp(result, 0.0f, (float)maxValue) + 0.5f));
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_field_crop_gaussresize_v(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const int width,
+    const int height,
+    const int bitDepth,
+    const int srcXOffset,
+    const int srcYOffset,
+    const int srcYStep,
+    const int *offset,
+    const float *coeff,
+    const int filterSize) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) {
+        return;
+    }
+    const int begin = offset[y];
+    const int maxValue = (1 << bitDepth) - 1;
+    float result = 0.0f;
+    for (int i = 0; i < filterSize; i++) {
+        result += (float)kfm_ucf_read_field_crop_pix<Type>(src, x, begin + i, srcPitch, width, height, srcXOffset, srcYOffset, srcYStep) * coeff[y * filterSize + i];
+    }
+    kfm_ucf_write_pix<Type>(dst, x, y, dstPitch, (int)(clamp(result, 0.0f, (float)maxValue) + 0.5f));
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_gaussresize_h(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const int width,
+    const int height,
+    const int bitDepth,
+    const int *offset,
+    const float *coeff,
+    const int filterSize) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) {
+        return;
+    }
+    const int begin = offset[x];
+    const int maxValue = (1 << bitDepth) - 1;
+    float result = 0.0f;
+    for (int i = 0; i < filterSize; i++) {
+        result += (float)kfm_ucf_read_pix<Type>(src, begin + i, y, srcPitch, width, height) * coeff[x * filterSize + i];
+    }
+    kfm_ucf_write_pix<Type>(dst, x, y, dstPitch, (int)(clamp(result, 0.0f, (float)maxValue) + 0.5f));
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_gaussresize_h_uv_interleaved(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const int width,
+    const int height,
+    const int bitDepth,
+    const int chromaWidth,
+    const int *offset,
+    const float *coeff,
+    const int filterSize) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) {
+        return;
+    }
+    const int chromaX = x >> 1;
+    const int channel = x & 1;
+    const int begin = offset[chromaX];
+    const int maxValue = (1 << bitDepth) - 1;
+    float result = 0.0f;
+    for (int i = 0; i < filterSize; i++) {
+        result += (float)kfm_ucf_read_pix_uv_interleaved<Type>(src, begin + i, channel, y, srcPitch, chromaWidth, height) * coeff[chromaX * filterSize + i];
+    }
+    kfm_ucf_write_pix<Type>(dst, x, y, dstPitch, (int)(clamp(result, 0.0f, (float)maxValue) + 0.5f));
+}
+
+template<typename Type>
+__device__ __forceinline__ int4 kfm_ucf_to_int4(const typename KfmVec4Traits<Type>::Type4 v) {
+    return KfmVec4Traits<Type>::to_int4(v);
+}
+
+template<typename Type>
+__device__ __forceinline__ uint64_t kfm_ucf_hsum4u(const int4 v) {
+    return (uint64_t)(v.x + v.y + v.z + v.w);
+}
+
+template<typename Type>
+__device__ __forceinline__ int4 kfm_ucf_calc_combe4(
+    const typename KfmVec4Traits<Type>::Type4 a,
+    const typename KfmVec4Traits<Type>::Type4 b,
+    const typename KfmVec4Traits<Type>::Type4 c,
+    const typename KfmVec4Traits<Type>::Type4 d,
+    const typename KfmVec4Traits<Type>::Type4 e) {
+    const int4 diff = kfm_i4_sub(
+        kfm_i4_add(kfm_i4_add(KfmVec4Traits<Type>::to_int4(a), kfm_i4_mul(KfmVec4Traits<Type>::to_int4(c), 4)), KfmVec4Traits<Type>::to_int4(e)),
+        kfm_i4_mul(kfm_i4_add(KfmVec4Traits<Type>::to_int4(b), KfmVec4Traits<Type>::to_int4(d)), 3));
+    return kfm_i4_abs(diff);
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_analyze_noise_partial(
+    RGYKFM::NoiseResult *dst,
+    const int dstOffset,
+    const uint8_t *src0,
+    const uint8_t *src1,
+    const uint8_t *src2,
+    const int srcPitch,
+    const int bitDepth,
+    const int width4,
+    const int height) {
+    const int groupLinear = blockIdx.x + gridDim.x * blockIdx.y;
+    const int localLinear = threadIdx.x + blockDim.x * threadIdx.y;
+    const int localSize = blockDim.x * blockDim.y;
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    __shared__ uint64_t lsum0[KFM_UCF_LOCAL_SIZE];
+    __shared__ uint64_t lsum1[KFM_UCF_LOCAL_SIZE];
+    __shared__ uint64_t lsumR0[KFM_UCF_LOCAL_SIZE];
+    __shared__ uint64_t lsumR1[KFM_UCF_LOCAL_SIZE];
+
+    uint64_t sum0 = 0;
+    uint64_t sum1 = 0;
+    uint64_t sumR0 = 0;
+    uint64_t sumR1 = 0;
+    if (x < width4 && y < height) {
+        const int pitch4 = srcPitch / (int)sizeof(typename KfmVec4Traits<Type>::Type4);
+        const int off = x + y * pitch4;
+        const typename KfmVec4Traits<Type>::Type4 *f0 = (const typename KfmVec4Traits<Type>::Type4 *)src0;
+        const typename KfmVec4Traits<Type>::Type4 *f1 = (const typename KfmVec4Traits<Type>::Type4 *)src1;
+        const typename KfmVec4Traits<Type>::Type4 *f2 = (const typename KfmVec4Traits<Type>::Type4 *)src2;
+        const int4 s0 = KfmVec4Traits<Type>::to_int4(f0[off]);
+        const int4 s1 = KfmVec4Traits<Type>::to_int4(f1[off]);
+        const int4 s2 = KfmVec4Traits<Type>::to_int4(f2[off]);
+        const int neutral = 1 << max(bitDepth - 1, 0);
+        const int4 neutral4 = make_int4(neutral, neutral, neutral, neutral);
+        sum0 = kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s0, neutral4)));
+        sum1 = kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s1, neutral4)));
+        sumR0 = kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s1, s0)));
+        sumR1 = kfm_ucf_hsum4u<Type>(kfm_i4_abs(kfm_i4_sub(s2, s1)));
+    }
+
+    lsum0[localLinear] = sum0;
+    lsum1[localLinear] = sum1;
+    lsumR0[localLinear] = sumR0;
+    lsumR1[localLinear] = sumR1;
+    __syncthreads();
+
+    for (int step = localSize >> 1; step > 0; step >>= 1) {
+        if (localLinear < step) {
+            lsum0[localLinear] += lsum0[localLinear + step];
+            lsum1[localLinear] += lsum1[localLinear + step];
+            lsumR0[localLinear] += lsumR0[localLinear + step];
+            lsumR1[localLinear] += lsumR1[localLinear + step];
+        }
+        __syncthreads();
+    }
+
+    if (localLinear == 0) {
+        RGYKFM::NoiseResult result;
+        result.noise0 = lsum0[0];
+        result.noise1 = lsum1[0];
+        result.noiseR0 = lsumR0[0];
+        result.noiseR1 = lsumR1[0];
+        result.diff0 = 0;
+        result.diff1 = 0;
+        dst[dstOffset + groupLinear] = result;
+    }
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_analyze_diff_partial(
+    RGYKFM::NoiseResult *dst,
+    const int dstOffset,
+    const uint8_t *src0,
+    const uint8_t *src1,
+    const int srcPitch,
+    const int bitDepth,
+    const int width4,
+    const int height,
+    const int srcYOffset) {
+    const int groupLinear = blockIdx.x + gridDim.x * blockIdx.y;
+    const int localLinear = threadIdx.x + blockDim.x * threadIdx.y;
+    const int localSize = blockDim.x * blockDim.y;
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    __shared__ uint64_t ldiff0[KFM_UCF_LOCAL_SIZE];
+    __shared__ uint64_t ldiff1[KFM_UCF_LOCAL_SIZE];
+
+    uint64_t sum0 = 0;
+    uint64_t sum1 = 0;
+    if (x < width4 && y < height) {
+        const int pitch4 = srcPitch / (int)sizeof(typename KfmVec4Traits<Type>::Type4);
+        const typename KfmVec4Traits<Type>::Type4 *f0 = (const typename KfmVec4Traits<Type>::Type4 *)src0;
+        const typename KfmVec4Traits<Type>::Type4 *f1 = (const typename KfmVec4Traits<Type>::Type4 *)src1;
+        const int yy = y + srcYOffset;
+        const typename KfmVec4Traits<Type>::Type4 a0 = f0[x + (yy - 2) * pitch4];
+        const typename KfmVec4Traits<Type>::Type4 b0 = f0[x + (yy - 1) * pitch4];
+        const typename KfmVec4Traits<Type>::Type4 c0 = f0[x + yy * pitch4];
+        const typename KfmVec4Traits<Type>::Type4 d0 = f0[x + (yy + 1) * pitch4];
+        const typename KfmVec4Traits<Type>::Type4 e0 = f0[x + (yy + 2) * pitch4];
+        sum0 = kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a0, b0, c0, d0, e0));
+
+        if (y & 1) {
+            const typename KfmVec4Traits<Type>::Type4 a = f0[x + (yy - 2) * pitch4];
+            const typename KfmVec4Traits<Type>::Type4 b = f1[x + (yy - 1) * pitch4];
+            const typename KfmVec4Traits<Type>::Type4 c = f0[x + yy * pitch4];
+            const typename KfmVec4Traits<Type>::Type4 d = f1[x + (yy + 1) * pitch4];
+            const typename KfmVec4Traits<Type>::Type4 e = f0[x + (yy + 2) * pitch4];
+            sum1 = kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a, b, c, d, e));
+        } else {
+            const typename KfmVec4Traits<Type>::Type4 a = f1[x + (yy - 2) * pitch4];
+            const typename KfmVec4Traits<Type>::Type4 b = f0[x + (yy - 1) * pitch4];
+            const typename KfmVec4Traits<Type>::Type4 c = f1[x + yy * pitch4];
+            const typename KfmVec4Traits<Type>::Type4 d = f0[x + (yy + 1) * pitch4];
+            const typename KfmVec4Traits<Type>::Type4 e = f1[x + (yy + 2) * pitch4];
+            sum1 = kfm_ucf_hsum4u<Type>(kfm_ucf_calc_combe4<Type>(a, b, c, d, e));
+        }
+    }
+
+    ldiff0[localLinear] = sum0;
+    ldiff1[localLinear] = sum1;
+    __syncthreads();
+
+    for (int step = localSize >> 1; step > 0; step >>= 1) {
+        if (localLinear < step) {
+            ldiff0[localLinear] += ldiff0[localLinear + step];
+            ldiff1[localLinear] += ldiff1[localLinear + step];
+        }
+        __syncthreads();
+    }
+
+    if (localLinear == 0) {
+        RGYKFM::NoiseResult result;
+        result.noise0 = 0;
+        result.noise1 = 0;
+        result.noiseR0 = 0;
+        result.noiseR1 = 0;
+        result.diff0 = ldiff0[0];
+        result.diff1 = ldiff1[0];
+        dst[dstOffset + groupLinear] = result;
+    }
+}
+
+__device__ __forceinline__ int kfm_ucf_limiter(const int x, const int neutral, const int maxValue, const int nmin, const int range) {
+    if (x == neutral) {
+        return neutral;
+    }
+    if (x < neutral) {
+        return (((neutral - 1 - range) < x) & (x < (neutral - nmin))) ? 0 : ((56 * neutral) >> 7);
+    }
+    return (((neutral + nmin) < x) & (x < (neutral + 1 + range))) ? maxValue : ((199 * neutral) >> 7);
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_noise_limit(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const uint8_t *noise,
+    const int noisePitch,
+    const int width,
+    const int height,
+    const int bitDepth,
+    const int nmin,
+    const int range) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) {
+        return;
+    }
+
+    const Type *pSrc = (const Type *)(src + y * srcPitch + x * (int)sizeof(Type));
+    const Type *pNoise = (const Type *)(noise + y * noisePitch + x * (int)sizeof(Type));
+    Type *pDst = (Type *)(dst + y * dstPitch + x * (int)sizeof(Type));
+
+    const int neutral = 1 << max(bitDepth - 1, 0);
+    const int maxValue = (1 << bitDepth) - 1;
+    const int v = ((int)pSrc[0] - (int)pNoise[0] + neutral * 2) >> 1;
+    const int scaledNmin = nmin << max(bitDepth - 8, 0);
+    const int scaledRange = range << max(bitDepth - 8, 0);
+    pDst[0] = (Type)clamp(kfm_ucf_limiter(v, neutral, maxValue, scaledNmin, scaledRange), 0, maxValue);
+}
+
+template<typename Type>
+__global__ void kernel_kfm_ucf_source_crop_noise_limit(
+    uint8_t *dst,
+    const int dstPitch,
+    const uint8_t *src,
+    const int srcPitch,
+    const uint8_t *noise,
+    const int noisePitch,
+    const int width,
+    const int height,
+    const int bitDepth,
+    const int srcXOffset,
+    const int srcYOffset,
+    const int srcYStep,
+    const int nmin,
+    const int range) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= height) {
+        return;
+    }
+
+    const int sx = x + srcXOffset;
+    const int sy = y * srcYStep + srcYOffset;
+    const Type *pSrc = (const Type *)(src + sy * srcPitch + sx * (int)sizeof(Type));
+    const Type *pNoise = (const Type *)(noise + y * noisePitch + x * (int)sizeof(Type));
+    Type *pDst = (Type *)(dst + y * dstPitch + x * (int)sizeof(Type));
+
+    const int neutral = 1 << max(bitDepth - 1, 0);
+    const int maxValue = (1 << bitDepth) - 1;
+    const int v = ((int)pSrc[0] - (int)pNoise[0] + neutral * 2) >> 1;
+    const int scaledNmin = nmin << max(bitDepth - 8, 0);
+    const int scaledRange = range << max(bitDepth - 8, 0);
+    pDst[0] = (Type)clamp(kfm_ucf_limiter(v, neutral, maxValue, scaledNmin, scaledRange), 0, maxValue);
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_field_crop_plane_t(RGYFrameInfo *dst, const RGYFrameInfo *src, int srcXOffset, int srcYOffset, int srcYStep, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(dst->width, (int)block.x), divCeil(dst->height, (int)block.y));
+    kernel_kfm_ucf_field_crop<Type><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], dst->width, dst->height, srcXOffset, srcYOffset, srcYStep);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_gaussresize_v_plane_t(RGYFrameInfo *dst, const RGYFrameInfo *src, int bitDepth, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(dst->width, (int)block.x), divCeil(dst->height, (int)block.y));
+    kernel_kfm_ucf_gaussresize_v<Type><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], dst->width, dst->height, bitDepth, offset, coeff, filterSize);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_field_crop_gaussresize_v_plane_t(RGYFrameInfo *dst, const RGYFrameInfo *src, int bitDepth, int srcXOffset, int srcYOffset, int srcYStep, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(dst->width, (int)block.x), divCeil(dst->height, (int)block.y));
+    kernel_kfm_ucf_field_crop_gaussresize_v<Type><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], dst->width, dst->height, bitDepth, srcXOffset, srcYOffset, srcYStep, offset, coeff, filterSize);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_gaussresize_h_plane_t(RGYFrameInfo *dst, const RGYFrameInfo *src, int bitDepth, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(dst->width, (int)block.x), divCeil(dst->height, (int)block.y));
+    kernel_kfm_ucf_gaussresize_h<Type><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], dst->width, dst->height, bitDepth, offset, coeff, filterSize);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_gaussresize_h_uv_interleaved_plane_t(RGYFrameInfo *dst, const RGYFrameInfo *src, int bitDepth, int chromaWidth, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(dst->width, (int)block.x), divCeil(dst->height, (int)block.y));
+    kernel_kfm_ucf_gaussresize_h_uv_interleaved<Type><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], dst->width, dst->height, bitDepth, chromaWidth, offset, coeff, filterSize);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_analyze_noise_partial_t(RGYKFM::NoiseResult *dst, int dstOffset, const RGYFrameInfo *src0, const RGYFrameInfo *src1, const RGYFrameInfo *src2, int bitDepth, int width4, int height, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(width4, (int)block.x), divCeil(height, (int)block.y));
+    kernel_kfm_ucf_analyze_noise_partial<Type><<<grid, block, 0, stream>>>(dst, dstOffset, (const uint8_t *)src0->ptr[0], (const uint8_t *)src1->ptr[0], (const uint8_t *)src2->ptr[0], src0->pitch[0], bitDepth, width4, height);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_analyze_diff_partial_t(RGYKFM::NoiseResult *dst, int dstOffset, const RGYFrameInfo *src0, const RGYFrameInfo *src1, int bitDepth, int width4, int height, int srcYOffset, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(width4, (int)block.x), divCeil(height, (int)block.y));
+    kernel_kfm_ucf_analyze_diff_partial<Type><<<grid, block, 0, stream>>>(dst, dstOffset, (const uint8_t *)src0->ptr[0], (const uint8_t *)src1->ptr[0], src0->pitch[0], bitDepth, width4, height, srcYOffset);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_noise_limit_plane_t(RGYFrameInfo *dst, const RGYFrameInfo *src, const RGYFrameInfo *noise, int nmin, int range, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(dst->width, (int)block.x), divCeil(dst->height, (int)block.y));
+    kernel_kfm_ucf_noise_limit<Type><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], (const uint8_t *)noise->ptr[0], noise->pitch[0], dst->width, dst->height, RGY_CSP_BIT_DEPTH[dst->csp], nmin, range);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_ucf_source_crop_noise_limit_plane_t(RGYFrameInfo *dst, const RGYFrameInfo *src, const RGYFrameInfo *noise, int bitDepth, int srcXOffset, int srcYOffset, int srcYStep, int nmin, int range, cudaStream_t stream) {
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y);
+    const dim3 grid(divCeil(dst->width, (int)block.x), divCeil(dst->height, (int)block.y));
+    kernel_kfm_ucf_source_crop_noise_limit<Type><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], (const uint8_t *)noise->ptr[0], noise->pitch[0], dst->width, dst->height, bitDepth, srcXOffset, srcYOffset, srcYStep, nmin, range);
+    return err_to_rgy(cudaGetLastError());
+}
+
+#define KFM_UCF_COPY_WRAPPER(wrapper_name, kernel_name) \
+template<typename Type> \
+static RGY_ERR launch_##wrapper_name##_t(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaStream_t stream) { \
+    const dim3 block(KFM_UCF_BLOCK_X, KFM_UCF_BLOCK_Y); \
+    const dim3 grid(divCeil(dst->width, (int)block.x), divCeil(dst->height, (int)block.y)); \
+    kernel_name<Type><<<grid, block, 0, stream>>>((uint8_t *)dst->ptr[0], dst->pitch[0], (const uint8_t *)src->ptr[0], src->pitch[0], dst->width, dst->height); \
+    return err_to_rgy(cudaGetLastError()); \
+} \
+RGY_ERR wrapper_name(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaStream_t stream) { \
+    if (!dst || !src || !dst->ptr[0] || !src->ptr[0]) { \
+        return RGY_ERR_INVALID_CALL; \
+    } \
+    return dispatch_kfm_depth(dst, \
+        [&]() { return launch_##wrapper_name##_t<uint8_t>(dst, src, stream); }, \
+        [&]() { return launch_##wrapper_name##_t<uint16_t>(dst, src, stream); }); \
+}
+
+KFM_UCF_COPY_WRAPPER(run_kfm_ucf, kernel_kfm_ucf)
+KFM_UCF_COPY_WRAPPER(run_kfm_ucf_noise, kernel_kfm_ucf_noise)
+KFM_UCF_COPY_WRAPPER(run_kfm_ucf_param, kernel_kfm_ucf_param)
+KFM_UCF_COPY_WRAPPER(run_kfm_ucf_30, kernel_kfm_ucf_30)
+KFM_UCF_COPY_WRAPPER(run_kfm_ucf_24, kernel_kfm_ucf_24)
+KFM_UCF_COPY_WRAPPER(run_kfm_ucf_60_flag, kernel_kfm_ucf_60_flag)
+KFM_UCF_COPY_WRAPPER(run_kfm_ucf_60, kernel_kfm_ucf_60)
+
+#undef KFM_UCF_COPY_WRAPPER
+
+RGY_ERR run_kfm_ucf_field_crop(RGYFrameInfo *dst, const RGYFrameInfo *src, int srcXOffset, int srcYOffset, int srcYStep, cudaStream_t stream) {
+    if (!dst || !src || !dst->ptr[0] || !src->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    return dispatch_kfm_depth(dst,
+        [&]() { return launch_kfm_ucf_field_crop_plane_t<uint8_t>(dst, src, srcXOffset, srcYOffset, srcYStep, stream); },
+        [&]() { return launch_kfm_ucf_field_crop_plane_t<uint16_t>(dst, src, srcXOffset, srcYOffset, srcYStep, stream); });
+}
+
+RGY_ERR run_kfm_ucf_gaussresize_v(RGYFrameInfo *dst, const RGYFrameInfo *src, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    if (!dst || !src || !dst->ptr[0] || !src->ptr[0] || !offset || !coeff) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int bitDepth = RGY_CSP_BIT_DEPTH[dst->csp];
+    return dispatch_kfm_depth(dst,
+        [&]() { return launch_kfm_ucf_gaussresize_v_plane_t<uint8_t>(dst, src, bitDepth, offset, coeff, filterSize, stream); },
+        [&]() { return launch_kfm_ucf_gaussresize_v_plane_t<uint16_t>(dst, src, bitDepth, offset, coeff, filterSize, stream); });
+}
+
+RGY_ERR run_kfm_ucf_field_crop_gaussresize_v(RGYFrameInfo *dst, const RGYFrameInfo *src, int srcXOffset, int srcYOffset, int srcYStep, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    if (!dst || !src || !dst->ptr[0] || !src->ptr[0] || !offset || !coeff) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int bitDepth = RGY_CSP_BIT_DEPTH[dst->csp];
+    return dispatch_kfm_depth(dst,
+        [&]() { return launch_kfm_ucf_field_crop_gaussresize_v_plane_t<uint8_t>(dst, src, bitDepth, srcXOffset, srcYOffset, srcYStep, offset, coeff, filterSize, stream); },
+        [&]() { return launch_kfm_ucf_field_crop_gaussresize_v_plane_t<uint16_t>(dst, src, bitDepth, srcXOffset, srcYOffset, srcYStep, offset, coeff, filterSize, stream); });
+}
+
+RGY_ERR run_kfm_ucf_gaussresize_h(RGYFrameInfo *dst, const RGYFrameInfo *src, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    if (!dst || !src || !dst->ptr[0] || !src->ptr[0] || !offset || !coeff) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int bitDepth = RGY_CSP_BIT_DEPTH[dst->csp];
+    return dispatch_kfm_depth(dst,
+        [&]() { return launch_kfm_ucf_gaussresize_h_plane_t<uint8_t>(dst, src, bitDepth, offset, coeff, filterSize, stream); },
+        [&]() { return launch_kfm_ucf_gaussresize_h_plane_t<uint16_t>(dst, src, bitDepth, offset, coeff, filterSize, stream); });
+}
+
+RGY_ERR run_kfm_ucf_gaussresize_h_uv_interleaved(RGYFrameInfo *dst, const RGYFrameInfo *src, int chromaWidth, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    if (!dst || !src || !dst->ptr[0] || !src->ptr[0] || !offset || !coeff) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int bitDepth = RGY_CSP_BIT_DEPTH[dst->csp];
+    return dispatch_kfm_depth(dst,
+        [&]() { return launch_kfm_ucf_gaussresize_h_uv_interleaved_plane_t<uint8_t>(dst, src, bitDepth, chromaWidth, offset, coeff, filterSize, stream); },
+        [&]() { return launch_kfm_ucf_gaussresize_h_uv_interleaved_plane_t<uint16_t>(dst, src, bitDepth, chromaWidth, offset, coeff, filterSize, stream); });
+}
+
+RGY_ERR run_kfm_ucf_analyze_noise_partial(RGYKFM::NoiseResult *dst, int dstOffset, const RGYFrameInfo *src0, const RGYFrameInfo *src1, const RGYFrameInfo *src2, int width4, int height, cudaStream_t stream) {
+    if (!dst || !src0 || !src1 || !src2 || !src0->ptr[0] || !src1->ptr[0] || !src2->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int bitDepth = RGY_CSP_BIT_DEPTH[src0->csp];
+    return dispatch_kfm_depth(src0,
+        [&]() { return launch_kfm_ucf_analyze_noise_partial_t<uint8_t>(dst, dstOffset, src0, src1, src2, bitDepth, width4, height, stream); },
+        [&]() { return launch_kfm_ucf_analyze_noise_partial_t<uint16_t>(dst, dstOffset, src0, src1, src2, bitDepth, width4, height, stream); });
+}
+
+RGY_ERR run_kfm_ucf_analyze_diff_partial(RGYKFM::NoiseResult *dst, int dstOffset, const RGYFrameInfo *src0, const RGYFrameInfo *src1, int width4, int height, int srcYOffset, cudaStream_t stream) {
+    if (!dst || !src0 || !src1 || !src0->ptr[0] || !src1->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int bitDepth = RGY_CSP_BIT_DEPTH[src0->csp];
+    return dispatch_kfm_depth(src0,
+        [&]() { return launch_kfm_ucf_analyze_diff_partial_t<uint8_t>(dst, dstOffset, src0, src1, bitDepth, width4, height, srcYOffset, stream); },
+        [&]() { return launch_kfm_ucf_analyze_diff_partial_t<uint16_t>(dst, dstOffset, src0, src1, bitDepth, width4, height, srcYOffset, stream); });
+}
+
+RGY_ERR run_kfm_ucf_noise_limit(RGYFrameInfo *dst, const RGYFrameInfo *src, const RGYFrameInfo *noise, int nmin, int range, cudaStream_t stream) {
+    if (!dst || !src || !noise || !dst->ptr[0] || !src->ptr[0] || !noise->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    return dispatch_kfm_depth(dst,
+        [&]() { return launch_kfm_ucf_noise_limit_plane_t<uint8_t>(dst, src, noise, nmin, range, stream); },
+        [&]() { return launch_kfm_ucf_noise_limit_plane_t<uint16_t>(dst, src, noise, nmin, range, stream); });
+}
+
+RGY_ERR run_kfm_ucf_source_crop_noise_limit(RGYFrameInfo *dst, const RGYFrameInfo *src, const RGYFrameInfo *noise, int srcXOffset, int srcYOffset, int srcYStep, int nmin, int range, cudaStream_t stream) {
+    if (!dst || !src || !noise || !dst->ptr[0] || !src->ptr[0] || !noise->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    return dispatch_kfm_depth(dst,
+        [&]() { return launch_kfm_ucf_source_crop_noise_limit_plane_t<uint8_t>(dst, src, noise, RGY_CSP_BIT_DEPTH[dst->csp], srcXOffset, srcYOffset, srcYStep, nmin, range, stream); },
+        [&]() { return launch_kfm_ucf_source_crop_noise_limit_plane_t<uint16_t>(dst, src, noise, RGY_CSP_BIT_DEPTH[dst->csp], srcXOffset, srcYOffset, srcYStep, nmin, range, stream); });
+}
+
+RGY_ERR run_kfm_ucf_copy_plane(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaStream_t stream) {
+    return run_kfm_ucf(dst, src, stream);
+}
+
+RGY_ERR run_kfm_ucf_field_crop_plane(RGYFrameInfo *dst, const RGYFrameInfo *src, int srcXOffset, int srcYOffset, int srcYStep, cudaStream_t stream) {
+    return run_kfm_ucf_field_crop(dst, src, srcXOffset, srcYOffset, srcYStep, stream);
+}
+
+RGY_ERR run_kfm_ucf_gaussresize_v_plane(RGYFrameInfo *dst, const RGYFrameInfo *src, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    return run_kfm_ucf_gaussresize_v(dst, src, offset, coeff, filterSize, stream);
+}
+
+RGY_ERR run_kfm_ucf_field_crop_gaussresize_v_plane(RGYFrameInfo *dst, const RGYFrameInfo *src, int srcXOffset, int srcYOffset, int srcYStep, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    return run_kfm_ucf_field_crop_gaussresize_v(dst, src, srcXOffset, srcYOffset, srcYStep, offset, coeff, filterSize, stream);
+}
+
+RGY_ERR run_kfm_ucf_gaussresize_h_plane(RGYFrameInfo *dst, const RGYFrameInfo *src, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    return run_kfm_ucf_gaussresize_h(dst, src, offset, coeff, filterSize, stream);
+}
+
+RGY_ERR run_kfm_ucf_gaussresize_h_uv_interleaved_plane(RGYFrameInfo *dst, const RGYFrameInfo *src, int chromaWidth, const int *offset, const float *coeff, int filterSize, cudaStream_t stream) {
+    return run_kfm_ucf_gaussresize_h_uv_interleaved(dst, src, chromaWidth, offset, coeff, filterSize, stream);
+}
+
+RGY_ERR run_kfm_ucf_noise_limit_plane(RGYFrameInfo *dst, const RGYFrameInfo *src, const RGYFrameInfo *noise, int nmin, int range, cudaStream_t stream) {
+    return run_kfm_ucf_noise_limit(dst, src, noise, nmin, range, stream);
+}
+
+RGY_ERR run_kfm_ucf_source_crop_noise_limit_plane(RGYFrameInfo *dst, const RGYFrameInfo *src, const RGYFrameInfo *noise, int srcXOffset, int srcYOffset, int srcYStep, int nmin, int range, cudaStream_t stream) {
+    return run_kfm_ucf_source_crop_noise_limit(dst, src, noise, srcXOffset, srcYOffset, srcYStep, nmin, range, stream);
+}
