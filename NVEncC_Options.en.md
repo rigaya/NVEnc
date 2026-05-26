@@ -207,6 +207,7 @@
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-afs \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nnedi-param1value1param2value2)
+  - [--vpp-kfm \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-kfm-param1value1param2value2)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
   - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
   - [--vpp-decomb \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-decomb-param1value1param2value2)
@@ -1798,6 +1799,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
 - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
+- [--vpp-kfm](#--vpp-kfm-param1value1param2value2)
 - [--vpp-yadif](#--vpp-yadif-param1value1)
 - [--vpp-bwdif](#--vpp-bwdif-param1value1)
 - [--vpp-decomb](#--vpp-decomb-param1value1param2value2)
@@ -2330,6 +2332,47 @@ nnedi deinterlacer.
   ```
   example: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
   ```
+
+### --vpp-kfm [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Adaptive inverse telesine filter supporting 24/30/60 mixed VFR output.
+
+Please note that this filter is slow, recommended to be used on dGPUs.
+
+- **parameters**
+
+  - mode=&lt;string&gt;  
+    Output mode. `vfr` (default), `60`, `24`.
+
+  - preset=&lt;string&gt;  
+    Reserved nested preset. `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
+
+  - timing=&lt;string&gt;  
+    Timing analysis mode. `realtime`, `realtime+` (default), `strict`.
+
+  - past_cycles=&lt;int&gt;  
+    Commit delay cycles for `realtime+`. Default: 30.
+
+  - thswitch=&lt;float&gt;  
+    60p switch threshold. Default: 0.5.
+
+  - ucf=&lt;bool&gt;  
+    Enable the UCF stage. Default: off.
+
+  - nr=&lt;bool&gt;  
+    Apply degrain on the final KFM output stream. Default: off.
+
+  - is120=&lt;bool&gt;  
+    Reserve 120fps duration correction flag. Default: on.
+
+  - debug=&lt;bool&gt;  
+    Write `.result.dat` and `.frameinfo.tsv` dumps when `timecode` is specified. Default: off.
+
+  - debug_stage=&lt;string&gt;  
+    `none`, `switch-flag` (`switch-flag-min`), `contains-combe`, `combe-mask` (`combe-mask-min`).
+    Used for 24p debug output selection.
+
+  - timecode=&lt;path&gt;  
+    Timecode v2 dump path. In `mode=24/vfr`, `*.duration.txt` is also emitted.
 
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
 Yadif deinterlacer.
