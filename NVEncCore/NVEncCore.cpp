@@ -3394,7 +3394,16 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
     if (vppType == VppType::CL_NNEDI) {
         unique_ptr<NVEncFilter> filter(new NVEncFilterNnedi());
         shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
-        param->nnedi = inputParam->vpp.nnedi;
+        param->nnedi.enable = inputParam->vpp.nnedi.enable;
+        param->nnedi.field = inputParam->vpp.nnedi.field;
+        param->nnedi.nsize = inputParam->vpp.nnedi.nsize;
+        param->nnedi.nns = inputParam->vpp.nnedi.nns;
+        param->nnedi.quality = inputParam->vpp.nnedi.quality;
+        param->nnedi.prescreen = inputParam->vpp.nnedi.prescreen;
+        param->nnedi.errortype = inputParam->vpp.nnedi.errortype;
+        param->nnedi.clamp = inputParam->vpp.nnedi.clamp;
+        param->nnedi.doubleHeight = inputParam->vpp.nnedi.doubleHeight;
+        param->nnedi.weightfile = inputParam->vpp.nnedi.weightfile;
         param->compute_capability = m_dev->cc();
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
