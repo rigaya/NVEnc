@@ -88,6 +88,7 @@
 #include "NVEncFilterMpdecimate.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncFilterNnedi.h"
+#include "NVEncFilterKfm.h"
 #include "NVEncFilterYadif.h"
 #include "NVEncFilterDecomb.h"
 #include "NVEncFilterBwdif.h"
@@ -548,6 +549,7 @@ RGY_ERR NVEncCore::InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWD
     if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
     if (inputParam->vpp.afs.enable) deinterlacer++;
     if (inputParam->vpp.nnedi.enable) deinterlacer++;
+    if (inputParam->vpp.kfm.enable) deinterlacer++;
     if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (inputParam->vpp.decomb.enable) deinterlacer++;
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
@@ -1787,7 +1789,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             return RGY_ERR_UNSUPPORTED;
         }
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable || inputParam->vpp.decomb.enable || inputParam->vpp.bwdif.enable || inputParam->vpp.ivtc.enable) {
+    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.kfm.enable || inputParam->vpp.yadif.enable || inputParam->vpp.decomb.enable || inputParam->vpp.bwdif.enable || inputParam->vpp.ivtc.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
@@ -2902,6 +2904,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.delogo.enable)        filterPipeline.push_back(VppType::CL_DELOGO);
     if (inputParam->vpp.afs.enable)           filterPipeline.push_back(VppType::CL_AFS);
     if (inputParam->vpp.nnedi.enable)         filterPipeline.push_back(VppType::CL_NNEDI);
+    if (inputParam->vpp.kfm.enable)           filterPipeline.push_back(VppType::CL_KFM);
     if (inputParam->vpp.yadif.enable)         filterPipeline.push_back(VppType::CL_YADIF);
     if (inputParam->vpp.decomb.enable)        filterPipeline.push_back(VppType::CL_DECOMB);
     if (inputParam->vpp.bwdif.enable)         filterPipeline.push_back(VppType::CL_BWDIF);
@@ -3066,6 +3069,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
     if (inputParam->vpp.afs.enable) deinterlacer++;
     if (inputParam->vpp.nnedi.enable) deinterlacer++;
+    if (inputParam->vpp.kfm.enable) deinterlacer++;
     if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (inputParam->vpp.decomb.enable) deinterlacer++;
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
@@ -3392,6 +3396,30 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
         param->nnedi = inputParam->vpp.nnedi;
         param->compute_capability = m_dev->cc();
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->timebase = m_outputTimebase;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //kfm
+    if (vppType == VppType::CL_KFM) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterKfm());
+        shared_ptr<NVEncFilterParamKfm> param(new NVEncFilterParamKfm());
+        param->kfm = inputParam->vpp.kfm;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
