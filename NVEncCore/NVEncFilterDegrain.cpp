@@ -284,6 +284,15 @@ void logDegrainPixelTraceRecords(RGYLog *log, const int *trace, const RGYFrameIn
     }
 }
 
+float degrainTraceReferenceAffinityFromSad(const int thresholdSad, const int measuredSad) {
+    if (thresholdSad <= measuredSad) {
+        return 0.0f;
+    }
+    const float sadRatio = (float)measuredSad / (float)thresholdSad;
+    const float sadRatio2 = sadRatio * sadRatio;
+    return (1.0f - sadRatio2) / (1.0f + sadRatio2);
+}
+
 int degrainPlaneScaleX(const RGYFrameInfo *frame, const RGY_PLANE plane) {
     if (!frame || plane == RGY_PLANE_Y) {
         return 1;
@@ -3324,8 +3333,140 @@ bool NVEncFilterDegrain::degrainApplyTraceEnabled() const {
         && (prm->degrain.stage == VppDegrainStage::TR1 || prm->degrain.stage == VppDegrainStage::TR2);
 }
 
-void NVEncFilterDegrain::logApplyTrace(const std::shared_ptr<NVEncFilterParamDegrain>&, const RGYFilterDegrainProcessFrameSet&,
-    const RGYDegrainRefDisableArray&, cudaStream_t) {
+void NVEncFilterDegrain::logApplyTrace(const std::shared_ptr<NVEncFilterParamDegrain> &prm, const RGYFilterDegrainProcessFrameSet &frames,
+    const RGYDegrainRefDisableArray &disableRefs, cudaStream_t stream) {
+    if (!degrainApplyTraceEnabled() || !prm) {
+        return;
+    }
+    auto *mv = analysisMV();
+    auto *sad = analysisSAD();
+    const auto &layout = analysisLayout();
+    const auto *cur = frames.render.cur ? frames.render.cur : frames.analysis.cur;
+    if (!mv || !sad || !cur || layout.blockCount() == 0 || layout.temporalDirections <= 0) {
+        return;
+    }
+    const auto entryCount = layout.blockCount() * (size_t)layout.temporalDirections;
+    if (layout.mvCount() < entryCount || layout.sadCount() < entryCount) {
+        AddMessage(RGY_LOG_INFO, _T("degrain apply trace skipped: invalid entry count (blocks=%llu, stride=%d).\n"),
+            (unsigned long long)layout.blockCount(), layout.temporalDirections);
+        return;
+    }
+
+    if (analysisEvent()() != nullptr) {
+        auto err = err_to_rgy(cudaStreamWaitEvent(stream, analysisEvent()(), 0));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_WARN, _T("degrain apply trace failed to wait analysis event: %s.\n"), get_err_mes(err));
+            return;
+        }
+    }
+    std::vector<RGYDegrainMV> mvValues(layout.mvCount());
+    std::vector<RGYDegrainSAD> sadValues(layout.sadCount());
+    auto err = err_to_rgy(cudaMemcpyAsync(mvValues.data(), mv->ptr, rgy_degrain_mv_bytes(layout), cudaMemcpyDeviceToHost, stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_WARN, _T("degrain apply trace failed to copy MV buffer: %s.\n"), get_err_mes(err));
+        return;
+    }
+    err = err_to_rgy(cudaMemcpyAsync(sadValues.data(), sad->ptr, rgy_degrain_sad_bytes(layout), cudaMemcpyDeviceToHost, stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_WARN, _T("degrain apply trace failed to copy SAD buffer: %s.\n"), get_err_mes(err));
+        return;
+    }
+    err = err_to_rgy(cudaStreamSynchronize(stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_WARN, _T("degrain apply trace failed to synchronize MV/SAD copy: %s.\n"), get_err_mes(err));
+        return;
+    }
+
+    auto availabilityDisableRefs = analysisAvailabilityDisableRefs(frames.analysis);
+    auto useFlagDisableRefs = RGYDegrainRefDisableArray();
+    useFlagDisableRefs.fill(false);
+    if (prm->degrain.useFlag == 1) {
+        for (int delta = 1; delta <= RGY_DEGRAIN_MAX_DELTA; delta++) {
+            useFlagDisableRefs[rgy_degrain_ref_index(delta, true)] = true;
+        }
+    } else if (prm->degrain.useFlag == 2) {
+        for (int delta = 1; delta <= RGY_DEGRAIN_MAX_DELTA; delta++) {
+            useFlagDisableRefs[rgy_degrain_ref_index(delta, false)] = true;
+        }
+    }
+
+    const uint32_t scaledThSad = rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thsad, analysisSADIncludesChroma(prm));
+    const uint32_t disableMask = degrainDisableMask(disableRefs, layout.temporalDirections);
+    const bool binomial = prm->degrain.stage != VppDegrainStage::TR2;
+    const auto temporalMixPrior = degrainBuildTemporalMixPriorTable(layout.temporalDirections, binomial);
+    const float sourceConfidenceRaw = temporalMixPrior[0];
+    const int refDirectionCount = std::min(layout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS);
+    const TCHAR *stageName = get_cx_desc(list_vpp_degrain_stage, (int)prm->degrain.stage);
+
+    std::array<size_t, 4> sampleBlocks = {
+        0,
+        layout.blockCount() / 2,
+        layout.blockCount() - 1,
+        layout.blockCount()
+    };
+    static const TCHAR *sampleNames[] = { _T("first"), _T("mid"), _T("last"), _T("target") };
+    const int targetBlock = m_debugEnv.applyTraceBlock;
+    if (targetBlock >= 0 && (size_t)targetBlock < layout.blockCount()) {
+        sampleBlocks[3] = (size_t)targetBlock;
+    }
+    for (int sample = 0; sample < (int)sampleBlocks.size(); sample++) {
+        const size_t block = sampleBlocks[sample];
+        if (block >= layout.blockCount()
+            || (sample > 0 && block == sampleBlocks[sample - 1])
+            || (sample > 1 && block == sampleBlocks[sample - 2])) {
+            continue;
+        }
+        std::array<float, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> referenceConfidenceRaw = {};
+        float confidenceSum = sourceConfidenceRaw;
+        float referenceMixTotal = 0.0f;
+        for (int refDirection = 0; refDirection < refDirectionCount; refDirection++) {
+            const size_t entry = block * (size_t)layout.temporalDirections + (size_t)refDirection;
+            const auto &mvValue = mvValues[entry];
+            const auto &sadValue = sadValues[entry];
+            const bool directionDisabled = disableRefs[refDirection];
+            const bool validMotion = (int)mvValue.refdir == refDirection;
+            const bool underThSad = sadValue.sad < scaledThSad;
+            if (!directionDisabled && validMotion && underThSad) {
+                referenceConfidenceRaw[refDirection] = degrainTraceReferenceAffinityFromSad((int)scaledThSad, (int)sadValue.sad)
+                    * temporalMixPrior[1 + refDirection];
+                confidenceSum += referenceConfidenceRaw[refDirection];
+            }
+        }
+        const float invWeightSum = (confidenceSum > 0.0f) ? (1.0f / confidenceSum) : 0.0f;
+        for (int refDirection = 0; refDirection < refDirectionCount; refDirection++) {
+            referenceMixTotal += (referenceConfidenceRaw[refDirection] > 0.0f) ? (referenceConfidenceRaw[refDirection] * invWeightSum) : 0.0f;
+        }
+        const float sourceMixNorm = sourceConfidenceRaw * invWeightSum;
+
+        const int blockX = (layout.blocksX > 0) ? (int)(block % (size_t)layout.blocksX) : 0;
+        const int blockY = (layout.blocksX > 0) ? (int)(block / (size_t)layout.blocksX) : 0;
+        for (int refDirection = 0; refDirection < refDirectionCount; refDirection++) {
+            const size_t entry = block * (size_t)layout.temporalDirections + (size_t)refDirection;
+            const auto &mvValue = mvValues[entry];
+            const auto &sadValue = sadValues[entry];
+            const int delta = rgy_degrain_delta_from_ref_index(refDirection);
+            const bool forward = rgy_degrain_ref_index_is_forward(refDirection);
+            const bool availabilityDisabled = availabilityDisableRefs[refDirection];
+            const bool useFlagDisabled = useFlagDisableRefs[refDirection] && !availabilityDisabled;
+            const bool sceneChangeDisabled = disableRefs[refDirection] && !availabilityDisabled && !useFlagDisabled;
+            const bool validMotion = (int)mvValue.refdir == refDirection;
+            const bool underThSad = sadValue.sad < scaledThSad;
+            const float referenceMixNorm = (referenceConfidenceRaw[refDirection] > 0.0f) ? (referenceConfidenceRaw[refDirection] * invWeightSum) : 0.0f;
+            AddMessage(RGY_LOG_INFO,
+                _T("{\"type\":\"degrain_mix_trace\",\"frame\":%d,\"pts\":%lld,\"dur\":%lld,\"stage\":\"%s\",\"request_delta\":%d,\"delta\":%d,\"ref_slot\":%d,\"temporal_side\":\"%s\",\"sample\":\"%s\",\"block\":%llu,\"block_x\":%d,\"block_y\":%d,\"entry\":%llu,\"motion\":{\"dx\":%d,\"dy\":%d,\"sad\":%u,\"ref_slot\":%u},\"sad_stats\":{\"sad\":%u,\"src_avg\":%u,\"ref_avg\":%u},\"sad_limit\":%u,\"reference_policy\":%d,\"disable\":{\"mask\":%u,\"availability\":%d,\"policy\":%d,\"scene\":%d,\"final\":%d},\"valid\":{\"motion\":%d,\"sad\":%d},\"selected\":%d,\"mix\":{\"confidence_raw\":%.9g,\"reference_norm\":%.9g,\"source_norm\":%.9g,\"reference_norm_sum\":%.9g,\"confidence_sum\":%.9g,\"source_raw\":%.9g},\"layout\":{\"blocks\":%llu,\"blocks_x\":%d,\"blocks_y\":%d,\"directions\":%d,\"block_size\":%d,\"overlap\":%d,\"step\":%d}}\n"),
+                cur->inputFrameId, (long long)cur->timestamp, (long long)cur->duration,
+                stageName, requestedDelta(), delta, refDirection, forward ? _T("prev") : _T("next"),
+                sampleNames[sample],
+                (unsigned long long)block, blockX, blockY, (unsigned long long)entry,
+                (int)mvValue.dx, (int)mvValue.dy, (unsigned int)mvValue.sad, (unsigned int)mvValue.refdir,
+                (unsigned int)sadValue.sad, (unsigned int)sadValue.srcAvg, (unsigned int)sadValue.refAvg,
+                (unsigned int)scaledThSad, prm->degrain.useFlag,
+                (unsigned int)disableMask, availabilityDisabled ? 1 : 0, useFlagDisabled ? 1 : 0, sceneChangeDisabled ? 1 : 0, disableRefs[refDirection] ? 1 : 0,
+                validMotion ? 1 : 0, underThSad ? 1 : 0, referenceMixNorm > 0.0f ? 1 : 0,
+                (double)referenceConfidenceRaw[refDirection], (double)referenceMixNorm, (double)sourceMixNorm, (double)referenceMixTotal, (double)confidenceSum, (double)sourceConfidenceRaw,
+                (unsigned long long)layout.blockCount(), layout.blocksX, layout.blocksY, layout.temporalDirections, layout.blockSize, layout.overlap, layout.step);
+        }
+    }
 }
 
 bool NVEncFilterDegrain::validateAnalyzeResultFrame(const RGYDegrainAnalyzeResult &result, const RGYFrameInfo *frame, const int currentFrame, const TCHAR *sourceName, const bool requireFrameIndex) {
