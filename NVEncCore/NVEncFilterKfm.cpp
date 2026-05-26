@@ -2725,6 +2725,7 @@ RGY_ERR NVEncFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame,
         || m_switchFlagFrames[index]->frame.height != switchInfo.height
         || m_switchFlagFrames[index]->frame.csp != switchInfo.csp) {
         auto frame = std::make_unique<CUFrameBuf>(switchInfo);
+        frame->releasePtr();
         const auto sts = frame->alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s switch-flag-min frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
@@ -2741,6 +2742,7 @@ RGY_ERR NVEncFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame,
         || m_containsCombeFrames[index]->frame.height != containsInfo.height
         || m_containsCombeFrames[index]->frame.csp != containsInfo.csp) {
         auto frame = std::make_unique<CUFrameBuf>(containsInfo);
+        frame->releasePtr();
         const auto sts = frame->alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s contains-combe frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
@@ -2755,6 +2757,7 @@ RGY_ERR NVEncFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame,
         || m_combeMaskFrames[index]->frame.height != combeInfo.height
         || m_combeMaskFrames[index]->frame.csp != combeInfo.csp) {
         auto frame = std::make_unique<CUFrameBuf>(combeInfo);
+        frame->releasePtr();
         const auto sts = frame->alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s combe-mask-min frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
@@ -3725,6 +3728,548 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         return RGY_ERR_NONE;
     }
 
+    if (prm->kfm.mode == VppKfmMode::VFR) {
+        auto sts = RGY_ERR_NONE;
+        if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
+            sts = analyzeAvailableSource(true, stream);
+        } else {
+            sts = cacheSourceFrame(pInputFrame, stream, {});
+        }
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr)
+            ? drainDeint60Branch(stream)
+            : runDeint60Branch(pInputFrame, stream, {});
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        if (prm->kfm.ucf) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM VFR ucf=true path is not ported yet.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+
+        const auto ensureFrame = [&](std::unique_ptr<CUFrameBuf>& frame, const RGYFrameInfo& info, const TCHAR *label) -> RGY_ERR {
+            if (!frame
+                || frame->frame.width != info.width
+                || frame->frame.height != info.height
+                || frame->frame.csp != info.csp) {
+                auto newFrame = std::make_unique<CUFrameBuf>(info);
+                newFrame->releasePtr();
+                const auto allocSts = newFrame->alloc();
+                if (allocSts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s frame: %s.\n"), label, get_err_mes(allocSts));
+                    return allocSts;
+                }
+                frame = std::move(newFrame);
+            }
+            return RGY_ERR_NONE;
+        };
+        const auto copyFrameWithEvent = [&](RGYFrameInfo *dst, const RGYFrameInfo *src, const std::vector<RGYCudaEvent>& waitEvents, RGYCudaEvent *copyEvent, const TCHAR *label) -> RGY_ERR {
+            auto copySts = kfmWaitEvents(stream, waitEvents);
+            if (copySts != RGY_ERR_NONE) {
+                return copySts;
+            }
+            copySts = copyFrameAsync(dst, src, stream);
+            if (copySts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM VFR %s frame: %s.\n"), label, get_err_mes(copySts));
+                return copySts;
+            }
+            return kfmRecordEvent(stream, copyEvent);
+        };
+
+        *pOutputFrameNum = 0;
+        const bool drain = pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr;
+        const int rawAvailableN60 = drain
+            ? m_cachedSourceFrames * 2
+            : std::min(m_cachedSourceFrames * 2, static_cast<int>(m_analyzerOutputResults.size()) * 10);
+        const int vfrTailHold60 = switchSingleFrameDurationEnabled() ? 8 : 4;
+        const int availableN60 = drain ? rawAvailableN60 : std::max(0, rawAvailableN60 - vfrTailHold60);
+        const auto timings = deriveSwitchTimings(availableN60);
+        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+        const int vfrOutputDelay = switchSingleFrameDurationEnabled() ? 1 : 0;
+        auto emitReadyPending = [&](int keepFrames) -> RGY_ERR {
+            return emitPendingVfrOutputs(ppOutputFrames, pOutputFrameNum, stream, nullptr, keepFrames);
+        };
+        sts = emitReadyPending(drain ? 0 : vfrOutputDelay);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        while (*pOutputFrameNum < maxOutputFrames) {
+            auto itTiming = std::find_if(timings.begin(), timings.end(), [this](const KfmSwitchTiming& timing) {
+                return timing.start60 == m_nextSwitchN60;
+            });
+            if (itTiming == timings.end()) {
+                itTiming = std::find_if(timings.begin(), timings.end(), [this](const KfmSwitchTiming& timing) {
+                    return timing.start60 < m_nextSwitchN60 && m_nextSwitchN60 < timing.start60 + timing.duration60;
+                });
+                if (itTiming == timings.end()) {
+                    break;
+                }
+            }
+            auto outputTiming = *itTiming;
+            if (outputTiming.start60 < m_nextSwitchN60) {
+                const auto consumed60 = m_nextSwitchN60 - outputTiming.start60;
+                outputTiming.start60 = m_nextSwitchN60;
+                outputTiming.start120 += consumed60 * 2;
+                outputTiming.duration60 = std::max(1, outputTiming.duration60 - consumed60);
+                outputTiming.duration120 = outputTiming.duration60 * 2;
+                outputTiming.numSourceFrames = std::max(1, divCeil(outputTiming.duration60, 2));
+            }
+            if (!drain && outputTiming.start60 + outputTiming.duration60 >= availableN60) {
+                break;
+            }
+            const auto rawStart120 = [](const KfmSwitchTiming& timing) {
+                return static_cast<int64_t>(timing.start60) * 2;
+            };
+            auto sourcePtsFrom120 = [&](const int64_t pos120) {
+                if (m_sourceCache.empty()) {
+                    return pos120;
+                }
+                const int64_t sourceIndex = pos120 >> 2;
+                const int offset120 = static_cast<int>(pos120 & 3);
+                const auto *source = findSourceByIndex(static_cast<int>(sourceIndex));
+                const auto duration = sourceFrameDuration(source);
+                if (!source || source->timestamp < 0) {
+                    return (duration * pos120 + 2) / 4;
+                }
+                const int64_t sourceOffset120 = (sourceIndex - source->sourceIndex) * 4 + offset120;
+                return source->timestamp + (duration * sourceOffset120 + 2) / 4;
+            };
+            const auto canUse120Cadence = [](bool prevIsFrame24, int prevDuration60, const KfmSwitchTiming& cur) {
+                return prevIsFrame24 && cur.isFrame24
+                    && prevDuration60 >= 2 && cur.duration60 >= 2
+                    && prevDuration60 + cur.duration60 == 5;
+            };
+            int64_t outputStart120 = rawStart120(outputTiming);
+            if (prm->kfm.is120
+                && m_hasLastSwitchTiming
+                && m_lastSwitchStart60 + m_lastSwitchDuration60 == outputTiming.start60
+                && canUse120Cadence(m_lastSwitchIsFrame24, m_lastSwitchDuration60, outputTiming)) {
+                outputStart120 = m_lastSwitchStart120 + 5;
+            }
+            int64_t nextStart120 = outputStart120 + outputTiming.duration60 * 2;
+            const auto itNextTiming = std::find_if(timings.begin(), timings.end(), [&outputTiming](const KfmSwitchTiming& timing) {
+                return timing.start60 == outputTiming.start60 + outputTiming.duration60;
+            });
+            if (itNextTiming != timings.end()) {
+                nextStart120 = rawStart120(*itNextTiming);
+                if (prm->kfm.is120 && canUse120Cadence(outputTiming.isFrame24, outputTiming.duration60, *itNextTiming)) {
+                    nextStart120 = outputStart120 + 5;
+                }
+            }
+            outputTiming.start120 = static_cast<int>(outputStart120);
+            if (nextStart120 > outputStart120) {
+                outputTiming.duration120 = static_cast<int>(nextStart120 - outputStart120);
+            }
+            const int copySourceIndex = outputTiming.baseType == KFM_FRAME_60 ? (outputTiming.start60 >> 1) : outputTiming.sourceIndex;
+            const auto *source = findSourceByIndex(copySourceIndex);
+            const auto *switchResult = &m_analyzerOutputResults[clamp(outputTiming.start60 / 10, 0, (int)m_analyzerOutputResults.size() - 1)];
+            RGYCudaEvent outputEvent;
+            RGYFrameInfo *out = nullptr;
+            if (outputTiming.baseType == KFM_FRAME_24) {
+                const auto savedWorkBufferIndex = m_workBufferIndex;
+                const auto savedTelecineSuperBufferIndex = m_telecineSuperBufferIndex;
+                auto deint24 = nextWorkFrame();
+                out = nextWorkFrame();
+                if (!deint24 || !out) {
+                    return RGY_ERR_INVALID_CALL;
+                }
+
+                const int superIndex = m_telecineSuperBufferIndex++ & 1;
+                if (!m_telecineSuperFrames[superIndex]) {
+                    auto superInfo = prm->frameOut;
+                    superInfo.width = std::max(1, superInfo.width >> 1);
+                    superInfo.height = std::max(1, superInfo.height >> 2);
+                    sts = ensureFrame(m_telecineSuperFrames[superIndex], superInfo, _T("telecine-super"));
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                }
+                auto super24 = &m_telecineSuperFrames[superIndex]->frame;
+
+                const auto savedTelecine24Frame = m_nextTelecine24Frame;
+                const auto savedTelecine24Pts = m_nextTelecine24Pts;
+                RGYCudaEvent deintEvent;
+                sts = renderTelecine24(deint24, outputTiming.frame24Index, drain, stream, {}, &deintEvent);
+                m_nextTelecine24Frame = savedTelecine24Frame;
+                m_nextTelecine24Pts = savedTelecine24Pts;
+                if (sts == RGY_ERR_MORE_DATA) {
+                    m_workBufferIndex = savedWorkBufferIndex;
+                    m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
+                    break;
+                }
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+
+                std::vector<RGYCudaEvent> superWaitEvents;
+                if (deintEvent() != nullptr) {
+                    superWaitEvents.push_back(deintEvent);
+                }
+                RGYCudaEvent superEvent;
+                sts = renderTelecineSuper24(super24, outputTiming.frame24Index, drain, stream, superWaitEvents, &superEvent);
+                if (sts == RGY_ERR_MORE_DATA) {
+                    m_workBufferIndex = savedWorkBufferIndex;
+                    m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
+                    break;
+                }
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+
+                std::vector<RGYCudaEvent> removeWaitEvents = superWaitEvents;
+                if (superEvent() != nullptr) {
+                    removeWaitEvents.push_back(superEvent);
+                }
+                RGYFrameInfo *superPrev24 = super24;
+                RGYFrameInfo *superNext24 = super24;
+                std::vector<RGYCudaEvent> maskWaitEvents = removeWaitEvents;
+                auto ensureNeighborSuper = [&](int index, RGYFrameInfo **frame) -> RGY_ERR {
+                    sts = ensureFrame(m_telecineSuperNeighborFrames[index], *super24, _T("telecine-super neighbor"));
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    *frame = &m_telecineSuperNeighborFrames[index]->frame;
+                    return RGY_ERR_NONE;
+                };
+                if (outputTiming.frame24Index > 0) {
+                    RGYCudaEvent prevSuperEvent;
+                    sts = ensureNeighborSuper(0, &superPrev24);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    sts = renderTelecineSuper24(superPrev24, outputTiming.frame24Index - 1, true, stream, superWaitEvents, &prevSuperEvent);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    if (prevSuperEvent() != nullptr) {
+                        maskWaitEvents.push_back(prevSuperEvent);
+                    }
+                }
+                const int analyzed24Frames = (int)m_analyzerOutputResults.size() * 4;
+                if (outputTiming.frame24Index + 1 < analyzed24Frames) {
+                    RGYCudaEvent nextSuperEvent;
+                    sts = ensureNeighborSuper(1, &superNext24);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    sts = renderTelecineSuper24(superNext24, outputTiming.frame24Index + 1, drain, stream, superWaitEvents, &nextSuperEvent);
+                    if (sts == RGY_ERR_MORE_DATA) {
+                        m_workBufferIndex = savedWorkBufferIndex;
+                        m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
+                        break;
+                    } else if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    } else if (nextSuperEvent() != nullptr) {
+                        maskWaitEvents.push_back(nextSuperEvent);
+                    }
+                } else if (!drain) {
+                    m_workBufferIndex = savedWorkBufferIndex;
+                    m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
+                    break;
+                }
+                RGYFrameInfo *switchFlag = nullptr;
+                RGYFrameInfo *containsCombe = nullptr;
+                RGYFrameInfo *combeMask = nullptr;
+                sts = ensureMaskBranchFrames(&switchFlag, &containsCombe, &combeMask, super24, _T("24p"));
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                RGYCudaEvent maskEvent;
+                uint32_t containsCombeCount = 0;
+                sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev24, super24, superNext24,
+                    "switch-flag-min", "contains-combe", "combe-mask-min", stream, maskWaitEvents, &maskEvent,
+                    switchSingleFrameDurationEnabled() ? &containsCombeCount : nullptr);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                writeContainsCombeDump("24p", outputTiming, containsCombeCount, containsCombeCount > 0, switchResult);
+                if (containsCombeCount > 0) {
+                    markSwitchSingleFrameN60Range(outputTiming.start60, outputTiming.duration60);
+                    outputTiming.duration60 = 1;
+                    outputTiming.duration120 = 2;
+                    outputTiming.numSourceFrames = 1;
+                }
+                if (maskEvent() != nullptr) {
+                    removeWaitEvents.push_back(maskEvent);
+                }
+                if (auto debugOut = kfmDebugStageFrame(prm->kfm.debugStage, switchFlag, containsCombe, combeMask)) {
+                    copyFramePropWithoutRes(debugOut, deint24);
+                    debugOut->picstruct = RGY_PICSTRUCT_FRAME;
+                    debugOut->flags = RGY_FRAME_FLAG_NONE;
+                    out = debugOut;
+                    outputEvent = maskEvent;
+                } else {
+                    sts = removeCombe24(out, deint24, super24, outputTiming.frame24Index, stream, removeWaitEvents, &outputEvent);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    int patchN60 = -1;
+                    if (kfmDeint60BranchEnabled() && outputTiming.frame24Index >= 0 && m_deint60Rtgmc && m_analyzer) {
+                        try {
+                            static const int patchFieldIndex[4] = { 1, 3, 6, 8 };
+                            const int frame24Cycle = outputTiming.frame24Index / 4;
+                            const int frame24InCycle = outputTiming.frame24Index & 3;
+                            const auto& patchResult = m_analyzerOutputResults[clamp(frame24Cycle, 0, (int)m_analyzerOutputResults.size() - 1)];
+                            const auto frameInfo = m_analyzer->patterns().getFrame24(patchResult.pattern, outputTiming.frame24Index);
+                            patchN60 = clamp(patchFieldIndex[frame24InCycle], frameInfo.fieldStartIndex, frameInfo.fieldStartIndex + frameInfo.numFields - 1) + frameInfo.cycleIndex * 10;
+                        } catch (...) {
+                            patchN60 = -1;
+                        }
+                    }
+                    if (patchN60 >= 0) {
+                        std::vector<RGYCudaEvent> patchWaitEvents = removeWaitEvents;
+                        if (outputEvent() != nullptr) {
+                            patchWaitEvents.push_back(outputEvent);
+                        }
+                        const auto *deint60 = findDeint60Frame(patchN60, &patchWaitEvents);
+                        if (deint60 && deint60->ptr[0]) {
+                            const int patchIndex = m_patchCombeBufferIndex++ & 3;
+                            sts = ensureFrame(m_patchCombeFrames[patchIndex], prm->frameOut, _T("patch-combe"));
+                            if (sts != RGY_ERR_NONE) {
+                                return sts;
+                            }
+                            RGYCudaEvent patchEvent;
+                            sts = patchCombe(&m_patchCombeFrames[patchIndex]->frame, out, deint60, combeMask,
+                                outputTiming.frame24Index, "patch-combe", stream, patchWaitEvents, &patchEvent);
+                            if (sts != RGY_ERR_NONE) {
+                                return sts;
+                            }
+                            out = &m_patchCombeFrames[patchIndex]->frame;
+                            outputEvent = patchEvent;
+                        }
+                    }
+                }
+            } else if (outputTiming.baseType == KFM_FRAME_60) {
+                std::vector<RGYCudaEvent> copyWaitEvents;
+                const auto *deint60 = findDeint60Frame(outputTiming.start60, &copyWaitEvents);
+                if (!deint60 || !deint60->ptr[0]) {
+                    break;
+                }
+                out = nextWorkFrame();
+                if (!out) {
+                    return RGY_ERR_INVALID_CALL;
+                }
+                sts = copyFrameWithEvent(out, deint60, copyWaitEvents, &outputEvent, _T("deint60 output"));
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                copyFramePropWithoutRes(out, deint60);
+            } else if (outputTiming.baseType == KFM_FRAME_30) {
+                if (!source || !source->frame || !source->frame->frame.ptr[0]) {
+                    break;
+                }
+                std::vector<RGYCudaEvent> deintWaitEvents;
+                if (source->event() != nullptr) {
+                    deintWaitEvents.push_back(source->event);
+                }
+                auto deint30 = nextWorkFrame();
+                out = nextWorkFrame();
+                if (!deint30 || !out) {
+                    return RGY_ERR_INVALID_CALL;
+                }
+
+                RGYCudaEvent deintEvent;
+                sts = copyFrameWithEvent(deint30, &source->frame->frame, deintWaitEvents, &deintEvent, _T("deint30 source"));
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                copyFramePropWithoutRes(deint30, &source->frame->frame);
+                deint30->picstruct = RGY_PICSTRUCT_FRAME;
+                deint30->flags = RGY_FRAME_FLAG_NONE;
+                attachSwitchFrameData(deint30, outputTiming, switchResult);
+                writeFrameInfoDump("deint30", deint30, switchResult);
+
+                const int superIndex = m_telecineSuperBufferIndex++ & 1;
+                if (!m_telecineSuperFrames[superIndex]) {
+                    auto superInfo = prm->frameOut;
+                    superInfo.width = std::max(1, superInfo.width >> 1);
+                    superInfo.height = std::max(1, superInfo.height >> 2);
+                    sts = ensureFrame(m_telecineSuperFrames[superIndex], superInfo, _T("super30"));
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                }
+                RGYCudaEvent superEvent;
+                const auto superSts = renderSuper30(&m_telecineSuperFrames[superIndex]->frame, outputTiming.sourceIndex, drain, stream, deintWaitEvents, &superEvent);
+                if (superSts != RGY_ERR_NONE && superSts != RGY_ERR_MORE_DATA) {
+                    return superSts;
+                }
+
+                std::vector<RGYCudaEvent> copyWaitEvents;
+                if (deintEvent() != nullptr) {
+                    copyWaitEvents.push_back(deintEvent);
+                }
+                const bool patchCombe30Enabled = kfmDeint60BranchEnabled() && m_deint60Rtgmc;
+                bool patched30 = false;
+                if (superSts == RGY_ERR_NONE) {
+                    std::vector<RGYCudaEvent> maskWaitEvents;
+                    if (superEvent() != nullptr) {
+                        maskWaitEvents.push_back(superEvent);
+                    }
+                    RGYFrameInfo *superPrev30 = &m_telecineSuperFrames[superIndex]->frame;
+                    RGYFrameInfo *superNext30 = &m_telecineSuperFrames[superIndex]->frame;
+                    auto ensureNeighborSuper = [&](int index, RGYFrameInfo **frame) -> RGY_ERR {
+                        sts = ensureFrame(m_telecineSuperNeighborFrames[index], m_telecineSuperFrames[superIndex]->frame, _T("super30 neighbor"));
+                        if (sts != RGY_ERR_NONE) {
+                            return sts;
+                        }
+                        *frame = &m_telecineSuperNeighborFrames[index]->frame;
+                        return RGY_ERR_NONE;
+                    };
+                    if (outputTiming.sourceIndex > 0) {
+                        RGYFrameInfo *candidatePrev30 = nullptr;
+                        RGYCudaEvent prevSuperEvent;
+                        sts = ensureNeighborSuper(0, &candidatePrev30);
+                        if (sts != RGY_ERR_NONE) {
+                            return sts;
+                        }
+                        sts = renderSuper30(candidatePrev30, outputTiming.sourceIndex - 1, true, stream, deintWaitEvents, &prevSuperEvent);
+                        if (sts != RGY_ERR_NONE) {
+                            return sts;
+                        }
+                        superPrev30 = candidatePrev30;
+                        if (prevSuperEvent() != nullptr) {
+                            maskWaitEvents.push_back(prevSuperEvent);
+                        }
+                    }
+                    {
+                        RGYFrameInfo *candidateNext30 = nullptr;
+                        RGYCudaEvent nextSuperEvent;
+                        sts = ensureNeighborSuper(1, &candidateNext30);
+                        if (sts != RGY_ERR_NONE) {
+                            return sts;
+                        }
+                        sts = renderSuper30(candidateNext30, outputTiming.sourceIndex + 1, drain, stream, deintWaitEvents, &nextSuperEvent);
+                        if (sts != RGY_ERR_NONE && sts != RGY_ERR_MORE_DATA) {
+                            return sts;
+                        }
+                        if (sts == RGY_ERR_NONE) {
+                            superNext30 = candidateNext30;
+                            if (nextSuperEvent() != nullptr) {
+                                maskWaitEvents.push_back(nextSuperEvent);
+                            }
+                        }
+                    }
+                    RGYFrameInfo *switchFlag = nullptr;
+                    RGYFrameInfo *containsCombe = nullptr;
+                    RGYFrameInfo *combeMask = nullptr;
+                    sts = ensureMaskBranchFrames(&switchFlag, &containsCombe, &combeMask, &m_telecineSuperFrames[superIndex]->frame, _T("30p"));
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    RGYCudaEvent maskEvent;
+                    uint32_t containsCombeCount = 0;
+                    sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev30, &m_telecineSuperFrames[superIndex]->frame, superNext30,
+                        "switch-flag30-min", "contains-combe30", "combe-mask30-min", stream, maskWaitEvents, &maskEvent,
+                        (switchSingleFrameDurationEnabled() || patchCombe30Enabled) ? &containsCombeCount : nullptr);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    writeContainsCombeDump("30p", outputTiming, containsCombeCount, containsCombeCount > 0, switchResult);
+                    if (containsCombeCount > 0) {
+                        markSwitchSingleFrameN60Range(outputTiming.start60, outputTiming.duration60);
+                        outputTiming.duration60 = 1;
+                        outputTiming.duration120 = 2;
+                        outputTiming.numSourceFrames = 1;
+                    }
+                    if (maskEvent() != nullptr) {
+                        copyWaitEvents.push_back(maskEvent);
+                    }
+                    if (patchCombe30Enabled && containsCombeCount > 0) {
+                        std::vector<RGYCudaEvent> patchWaitEvents = copyWaitEvents;
+                        const int patchN60 = outputTiming.sourceIndex * 2;
+                        const auto *deint60 = findDeint60Frame(patchN60, &patchWaitEvents);
+                        if (!deint60 || !deint60->ptr[0]) {
+                            break;
+                        }
+                        sts = patchCombe(out, deint30, deint60, combeMask, outputTiming.sourceIndex, "patch-combe30", stream, patchWaitEvents, &outputEvent);
+                        if (sts != RGY_ERR_NONE) {
+                            return sts;
+                        }
+                        copyFramePropWithoutRes(out, deint30);
+                        patched30 = true;
+                    }
+                }
+                if (!patched30) {
+                    sts = copyFrameWithEvent(out, deint30, copyWaitEvents, &outputEvent, _T("deint30 output"));
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    copyFramePropWithoutRes(out, deint30);
+                }
+            } else {
+                if (!source || !source->frame || !source->frame->frame.ptr[0]) {
+                    break;
+                }
+                std::vector<RGYCudaEvent> copyWaitEvents;
+                if (source->event() != nullptr) {
+                    copyWaitEvents.push_back(source->event);
+                }
+                out = nextWorkFrame();
+                if (!out) {
+                    return RGY_ERR_INVALID_CALL;
+                }
+                sts = copyFrameWithEvent(out, &source->frame->frame, copyWaitEvents, &outputEvent, _T("fallback output"));
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                copyFramePropWithoutRes(out, &source->frame->frame);
+            }
+            if (outputTiming.duration60 == 1) {
+                outputStart120 = rawStart120(outputTiming);
+                outputTiming.start120 = static_cast<int>(outputStart120);
+                outputTiming.duration120 = 2;
+            }
+            const auto outputEnd120 = static_cast<int64_t>(outputTiming.start120) + outputTiming.duration120;
+            const auto outputStartPts = sourcePtsFrom120(outputTiming.start120);
+            const auto outputEndPts = sourcePtsFrom120(outputEnd120);
+            out->timestamp = std::max(outputStartPts, m_nextSwitchPts);
+            out->duration = std::max<int64_t>(1, outputEndPts - out->timestamp);
+            out->picstruct = RGY_PICSTRUCT_FRAME;
+            out->flags = RGY_FRAME_FLAG_NONE;
+            attachSwitchFrameData(out, outputTiming, switchResult);
+            sts = queueVfrOutputFrame(out, stream, outputEvent);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            m_nextSwitchPts = out->timestamp + out->duration;
+            m_hasLastSwitchTiming = true;
+            m_lastSwitchStart60 = outputTiming.start60;
+            m_lastSwitchDuration60 = outputTiming.duration60;
+            m_lastSwitchStart120 = outputStart120;
+            m_lastSwitchIsFrame24 = outputTiming.isFrame24;
+            m_nextSwitchN60 += outputTiming.duration60;
+            sts = emitReadyPending(drain ? 0 : vfrOutputDelay);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        if (*pOutputFrameNum == 0 && !m_pendingVfrOutputs.empty()) {
+            sts = emitReadyPending(drain ? 0 : (int)m_pendingVfrOutputs.size() - 1);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        if (drain && *pOutputFrameNum < maxOutputFrames && !m_pendingVfrOutputs.empty()) {
+            sts = emitReadyPending(0);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        if (drain && m_pendingVfrOutputs.empty() && (timings.empty() || m_nextSwitchN60 >= m_cachedSourceFrames * 2)) {
+            writeSwitchTimingDump();
+            if (*pOutputFrameNum == 0) {
+                sts = drainNrFilter(ppOutputFrames, pOutputFrameNum, stream, nullptr);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+        }
+        return RGY_ERR_NONE;
+    }
+
     if (prm->kfm.mode == VppKfmMode::P24) {
         auto sts = RGY_ERR_NONE;
         if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
@@ -3762,6 +4307,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 superInfo.width = std::max(1, superInfo.width >> 1);
                 superInfo.height = std::max(1, superInfo.height >> 2);
                 auto frame = std::make_unique<CUFrameBuf>(superInfo);
+                frame->releasePtr();
                 const auto allocSts = frame->alloc();
                 if (allocSts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM telecine-super frame: %s.\n"), get_err_mes(allocSts));
@@ -3807,6 +4353,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                     || m_telecineSuperNeighborFrames[index]->frame.csp != super24->csp) {
                     auto superInfo = *super24;
                     auto neighbor = std::make_unique<CUFrameBuf>(superInfo);
+                    neighbor->releasePtr();
                     const auto allocSts = neighbor->alloc();
                     if (allocSts != RGY_ERR_NONE) {
                         AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM telecine-super neighbor frame: %s.\n"), get_err_mes(allocSts));
@@ -3906,6 +4453,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                         || m_patchCombeFrames[patchIndex]->frame.height != prm->frameOut.height
                         || m_patchCombeFrames[patchIndex]->frame.csp != prm->frameOut.csp) {
                         auto frame = std::make_unique<CUFrameBuf>(prm->frameOut);
+                        frame->releasePtr();
                         const auto allocSts = frame->alloc();
                         if (allocSts != RGY_ERR_NONE) {
                             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM patch-combe frame: %s.\n"), get_err_mes(allocSts));
