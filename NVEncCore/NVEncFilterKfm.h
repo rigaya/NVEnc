@@ -179,6 +179,7 @@ protected:
     virtual void close() override;
 
     RGY_ERR initAnalyzer(const NVEncFilterParamKfm& prm);
+    RGY_ERR initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>& prm);
     void initStageDumpConfig(const NVEncFilterParamKfm& prm);
     bool stageDumpRequested(int frame24Index) const;
     RGY_ERR dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index, cudaStream_t stream);
@@ -217,6 +218,17 @@ protected:
     void writeContainsCombeDump(const char *stage, const KfmSwitchTiming& timing, uint32_t containsCombeCount, bool durationApplied, const RGYKFM::KFMResult *result);
     void attachSwitchFrameData(RGYFrameInfo *frame, const KfmSwitchTiming& timing, const RGYKFM::KFMResult *result) const;
     int telecine24FrameCount(bool drain) const;
+    RGY_ERR runNrFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+    RGY_ERR emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, const RGYCudaEvent &frameEvent, RGYCudaEvent *event);
+    RGY_ERR queueVfrOutputFrame(const RGYFrameInfo *pFrame, cudaStream_t stream, const RGYCudaEvent &frameEvent);
+    RGY_ERR emitPendingVfrOutput(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, RGYCudaEvent *event);
+    RGY_ERR emitPendingVfrOutputs(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, RGYCudaEvent *event, int keepFrames);
+    RGY_ERR drainNrFilter(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, RGYCudaEvent *event);
     RGY_ERR submitFMCounts(int cycle, bool drain, cudaStream_t stream);
     RGY_ERR readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, int cycle, bool drain, cudaStream_t stream);
     RGY_ERR analyzeAvailableSource(bool drain, cudaStream_t stream);
