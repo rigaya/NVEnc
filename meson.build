@@ -770,6 +770,7 @@ nvenccore_sources = files(
   'NVEncCore/NVEncFilterDegrainCommon.cpp',
   'NVEncCore/NVEncFilterDegrainMV.cpp',
   'NVEncCore/rgy_filter_kfm_analyze.cpp',
+  'NVEncCore/NVEncFilterKfm.cpp',
   'NVEncCore/NVEncFilterDenoiseFFT3D.cpp',
   'NVEncCore/NVEncFilterDenoiseGauss.cpp',
   'NVEncCore/NVEncFilterLibplacebo.cpp',
