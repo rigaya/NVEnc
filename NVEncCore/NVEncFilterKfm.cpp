@@ -48,10 +48,49 @@ static constexpr int KFM_THRESH_MOVE_C = 24;
 static constexpr int KFM_THRESH_SHIMA_C = 16;
 static constexpr int KFM_CLEAN_THRESH_Y = 10;
 static constexpr int KFM_CLEAN_THRESH_C = 8;
+static constexpr int KFM_REMOVE_COMBE_THRESH_Y = 6;
+static constexpr int KFM_REMOVE_COMBE_THRESH_C = 6;
+static constexpr int KFM_SWITCH_FLAG_THRESH_Y = 60;
+static constexpr int KFM_SWITCH_FLAG_THRESH_C = 80;
 static constexpr int KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN = 64;
 static constexpr int KFM_REALTIMEPLUS_DEINT60_CACHE_MARGIN = KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN * 2;
 static constexpr int KFM_VFR_SOURCE_TRIM_LOOKBEHIND = 8;
 static constexpr int KFM_VFR_DEINT60_TRIM_LOOKBEHIND = 16;
+
+static int kfmFloorDiv2(const int value) {
+    return value >= 0 ? value / 2 : -((1 - value) / 2);
+}
+
+static int kfmDepthScale(RGY_CSP csp) {
+    return 1 << std::max(0, RGY_CSP_BIT_DEPTH[csp] - 8);
+}
+
+static int kfmPow2Shift(int scale) {
+    if (scale <= 0 || (scale & (scale - 1)) != 0) {
+        return -1;
+    }
+    int shift = 0;
+    while ((1 << shift) < scale) {
+        shift++;
+    }
+    return shift;
+}
+
+static bool kfmUseFusedSwitchFlagBinaryExtend() {
+    const char *env = std::getenv("NVENC_KFM_SWITCH_FLAG_BINARY_EXTEND_FUSED");
+    if (env == nullptr || env[0] == '\0') {
+        return true;
+    }
+    return _stricmp(env, "0") != 0 && _stricmp(env, "false") != 0 && _stricmp(env, "off") != 0;
+}
+
+static bool kfmUseFusedCleanSuper() {
+    const char *env = std::getenv("NVENC_KFM_CLEAN_SUPER_FUSED");
+    if (env == nullptr || env[0] == '\0') {
+        return true;
+    }
+    return _stricmp(env, "0") != 0 && _stricmp(env, "false") != 0 && _stricmp(env, "off") != 0;
+}
 
 static bool kfmDisableCCDuration() {
     const char *env = std::getenv("NVENC_KFM_DISABLE_CC_DURATION");
@@ -1961,6 +2000,1164 @@ RGY_ERR NVEncFilterKfm::mergeStatic(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     copyFramePropWithoutRes(pOutputFrame, pDeint60Frame);
     pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
     pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::renderTelecine24(RGYFrameInfo *pOutputFrame, int frame24Index, bool drain,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame || !m_analyzer) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (frame24Index < 0 || frame24Index / 4 >= (int)m_analyzerOutputResults.size()) {
+        return RGY_ERR_MORE_DATA;
+    }
+    const auto& result = m_analyzerOutputResults[frame24Index / 4];
+    RGYKFM::Frame24Info info;
+    try {
+        info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
+    } catch (const std::exception& e) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p frame %d: %S.\n"), frame24Index, e.what());
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
+    const int firstSource = (firstField & ~1) >> 1;
+    const int paritySourceIndex = (frame24Index / 4) * 5;
+    const auto *paritySource = (drain || paritySourceIndex < 0) ? findSourceByIndex(paritySourceIndex) : findSourceByIndexExact(paritySourceIndex);
+    if (!paritySource || !paritySource->frame || !paritySource->frame->frame.ptr[0]) {
+        return RGY_ERR_MORE_DATA;
+    }
+    std::array<const KfmCachedSource *, 3> src = {};
+    for (int i = 0; i < (int)src.size(); i++) {
+        const int sourceIndex = firstSource + i;
+        src[i] = (drain || sourceIndex < 0) ? findSourceByIndex(sourceIndex) : findSourceByIndexExact(sourceIndex);
+        if (!src[i] || !src[i]->paddedFrame || !src[i]->paddedFrame->frame.ptr[0]) {
+            return RGY_ERR_MORE_DATA;
+        }
+    }
+
+    std::vector<RGYCudaEvent> sourceWaitEvents = wait_events;
+    for (const auto *s : src) {
+        if (s->paddedEvent() != nullptr) {
+            sourceWaitEvents.push_back(s->paddedEvent);
+        }
+    }
+
+    RGYCudaEvent prevEvent;
+    const auto planes = RGY_CSP_PLANES[pOutputFrame->csp];
+    for (int iplane = 0; iplane < planes; iplane++) {
+        auto dst = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        auto src0 = getPlane(&src[0]->paddedFrame->frame, (RGY_PLANE)iplane);
+        auto src1 = getPlane(&src[1]->paddedFrame->frame, (RGY_PLANE)iplane);
+        auto src2 = getPlane(&src[2]->paddedFrame->frame, (RGY_PLANE)iplane);
+        const int srcYOffset = (src0.height - dst.height) >> 1;
+        if (src0.width != dst.width || src1.width != dst.width || src2.width != dst.width
+            || src0.height != src1.height || src0.height != src2.height
+            || src0.height != dst.height + srcYOffset * 2 || srcYOffset < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM 24p padded source plane size (plane %d, dst %dx%d, src %dx%d/%dx%d/%dx%d, offset %d).\n"),
+                iplane, dst.width, dst.height, src0.width, src0.height, src1.width, src1.height, src2.width, src2.height, srcYOffset);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const auto waitHere = (iplane == 0)
+            ? sourceWaitEvents
+            : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+        auto sts = kfmWaitEvents(stream, waitHere);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_telecine_weave_plane(&dst, &src0, &src1, &src2, srcYOffset,
+            firstField, info.numFields, kfmFrameParity(&paritySource->frame->frame), stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_telecine_weave (plane %d): %s.\n"), iplane, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &prevEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
+    }
+    copyFramePropWithoutRes(pOutputFrame, &src[0]->frame->frame);
+    pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    if (pOutputFrame->duration > 0) {
+        pOutputFrame->duration = std::max<int64_t>(1, (pOutputFrame->duration * 5 + 2) / 4);
+    }
+    if (m_nextTelecine24Frame == frame24Index) {
+        pOutputFrame->timestamp = m_nextTelecine24Pts;
+    }
+    KfmSwitchTiming timing;
+    timing.start60 = firstField;
+    timing.start120 = firstField * 2;
+    timing.sourceIndex = src[0]->sourceIndex;
+    timing.frame24Index = frame24Index;
+    timing.baseType = KFM_FRAME_24;
+    timing.sourceStart = firstSource;
+    timing.numSourceFrames = 3;
+    const int totalFields = m_cachedSourceFrames * 2;
+    const int availableFields = (totalFields > firstField) ? std::min(info.numFields, totalFields - firstField) : info.numFields;
+    timing.duration60 = std::max(1, availableFields);
+    timing.duration120 = timing.duration60 * 2;
+    timing.isFrame24 = true;
+    timing.isFrame60 = false;
+    attachSwitchFrameData(pOutputFrame, timing, &result);
+    writeFrameInfoDump("deint24", pOutputFrame, &result);
+    const auto dumpSts = dumpStageFrame("deint24", pOutputFrame, frame24Index, stream,
+        (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::renderDoubleWeaveFrame(RGYFrameInfo *pOutputFrame, int firstField, int fieldCount, bool drain,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame || firstField < 0 || fieldCount <= 0 || fieldCount > 6) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    const int fieldBase = firstField & ~1;
+    const int firstSource = fieldBase >> 1;
+    const int lastField = firstField + fieldCount - 1;
+    const int lastSourceOffset = std::max(0, ((lastField & ~1) - fieldBase) >> 1);
+
+    auto sourceAt = [this, drain](const int sourceIndex) -> const KfmCachedSource * {
+        return drain ? findSourceByIndex(sourceIndex) : findSourceByIndexExact(sourceIndex);
+    };
+
+    std::array<const KfmCachedSource *, 3> src = {};
+    for (int i = 0; i < (int)src.size(); i++) {
+        const int sourceIndex = firstSource + std::min(i, lastSourceOffset);
+        src[i] = sourceAt(sourceIndex);
+        if (!src[i] || !src[i]->paddedFrame || !src[i]->paddedFrame->frame.ptr[0]) {
+            return RGY_ERR_MORE_DATA;
+        }
+    }
+
+    std::vector<RGYCudaEvent> sourceWaitEvents = wait_events;
+    for (const auto *s : src) {
+        if (s->paddedEvent() != nullptr) {
+            sourceWaitEvents.push_back(s->paddedEvent);
+        }
+    }
+
+    RGYCudaEvent prevEvent;
+    const auto planes = RGY_CSP_PLANES[pOutputFrame->csp];
+    for (int iplane = 0; iplane < planes; iplane++) {
+        auto dst = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        auto src0 = getPlane(&src[0]->paddedFrame->frame, (RGY_PLANE)iplane);
+        auto src1 = getPlane(&src[1]->paddedFrame->frame, (RGY_PLANE)iplane);
+        auto src2 = getPlane(&src[2]->paddedFrame->frame, (RGY_PLANE)iplane);
+        const int srcYOffset = (src0.height - dst.height) >> 1;
+        if (src0.width != dst.width || src1.width != dst.width || src2.width != dst.width
+            || src0.height != src1.height || src0.height != src2.height
+            || src0.height != dst.height + srcYOffset * 2 || srcYOffset < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM UCF24 DoubleWeave padded source plane size (plane %d, dst %dx%d, src %dx%d/%dx%d/%dx%d, offset %d).\n"),
+                iplane, dst.width, dst.height, src0.width, src0.height, src1.width, src1.height, src2.width, src2.height, srcYOffset);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const auto waitHere = (iplane == 0)
+            ? sourceWaitEvents
+            : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+        auto sts = kfmWaitEvents(stream, waitHere);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_telecine_weave_plane(&dst, &src0, &src1, &src2, srcYOffset,
+            firstField, fieldCount, kfmFrameParity(&src[0]->frame->frame), stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_telecine_weave (UCF24 DoubleWeave, plane %d): %s.\n"), iplane, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &prevEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
+    }
+    copyFramePropWithoutRes(pOutputFrame, &src[0]->frame->frame);
+    pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    KfmSwitchTiming timing;
+    timing.start60 = firstField;
+    timing.start120 = firstField * 2;
+    timing.sourceIndex = firstSource;
+    timing.frame24Index = firstField;
+    timing.baseType = KFM_FRAME_UCF;
+    timing.sourceStart = firstSource;
+    timing.numSourceFrames = lastSourceOffset + 1;
+    timing.duration60 = fieldCount;
+    timing.duration120 = fieldCount * 2;
+    timing.isFrame24 = false;
+    timing.isFrame60 = false;
+    attachSwitchFrameData(pOutputFrame, timing, nullptr);
+    writeFrameInfoDump("ucf24-dweave", pOutputFrame);
+    const auto dumpSts = dumpStageFrame("ucf24-dweave", pOutputFrame, firstField, stream,
+        (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::renderCleanSuperFields(RGYFrameInfo *pOutputFrame, int firstSuperField, int lastSuperField, int propSourceIndex, int outputFrameId, bool drain,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (firstSuperField > lastSuperField) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    const bool interleavedUV = kfmCspHasInterleavedUV(pOutputFrame->csp);
+    const int targetPlanes = (RGY_CSP_PLANES[pOutputFrame->csp] >= 3) ? 3 : (interleavedUV ? 3 : 1);
+    RGYCudaEvent prevEvent;
+
+    auto sourceAt = [this, drain](const int sourceIndex) -> const KfmCachedSource * {
+        return (drain || sourceIndex < 0) ? findSourceByIndex(sourceIndex) : findSourceByIndexExact(sourceIndex);
+    };
+
+    auto renderRawSuper = [&](const int bufIndex, const int sourceIndex, const RGY_PLANE plane, const int pixelStep, const int pixelOffset,
+                              const int rawPitch, const int gridWidth, const int gridHeight,
+                              const std::vector<RGYCudaEvent>& baseWaitEvents, RGYCudaEvent *rawEvent) -> RGY_ERR {
+        const auto *src0 = sourceAt(sourceIndex);
+        const auto *src1 = sourceAt(sourceIndex + 1);
+        if (!src0 || !src0->frame || !src0->frame->frame.ptr[0]
+            || !src1 || !src1->frame || !src1->frame->frame.ptr[0]) {
+            return RGY_ERR_MORE_DATA;
+        }
+        auto src0Plane = getPlane(&src0->frame->frame, plane);
+        auto src1Plane = getPlane(&src1->frame->frame, plane);
+        if (!src0Plane.ptr[0] || !src1Plane.ptr[0]) {
+            return RGY_ERR_MORE_DATA;
+        }
+        if (src0Plane.width != src1Plane.width || src0Plane.height != src1Plane.height) {
+            return RGY_ERR_INVALID_CALL;
+        }
+        const int srcLogicalWidth = src0Plane.width / pixelStep;
+        const int srcGridWidth = srcLogicalWidth >> 2;
+        const int srcGridHeight = src0Plane.height >> 2;
+        if (srcLogicalWidth <= 0 || (srcLogicalWidth & 3) != 0 || srcGridWidth != gridWidth || srcGridHeight != gridHeight) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM telecine-super raw source size (source %d, plane %d, logical %dx%d, grid %dx%d, expected %dx%d).\n"),
+                sourceIndex, (int)plane, srcLogicalWidth, src0Plane.height, srcGridWidth, srcGridHeight, gridWidth, gridHeight);
+            return RGY_ERR_INVALID_PARAM;
+        }
+
+        const size_t rawBytes = (size_t)rawPitch * gridHeight * 2;
+        if (!m_telecineSuperRaw[bufIndex] || m_telecineSuperRaw[bufIndex]->nSize < rawBytes) {
+            auto raw = std::make_unique<CUMemBuf>(rawBytes);
+            const auto allocSts = raw->alloc();
+            if (allocSts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM telecine-super raw buffer %d: %s.\n"), bufIndex, get_err_mes(allocSts));
+                return allocSts;
+            }
+            m_telecineSuperRaw[bufIndex] = std::move(raw);
+        }
+
+        std::vector<RGYCudaEvent> clearWaitEvents = baseWaitEvents;
+        if (src0->event() != nullptr) {
+            clearWaitEvents.push_back(src0->event);
+        }
+        if (src1->event() != nullptr) {
+            clearWaitEvents.push_back(src1->event);
+        }
+
+        auto sts = kfmWaitEvents(stream, clearWaitEvents);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = err_to_rgy(cudaMemsetAsync(m_telecineSuperRaw[bufIndex]->ptr, 0, rawBytes, stream));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM telecine-super raw buffer %d: %s.\n"), bufIndex, get_err_mes(sts));
+            return sts;
+        }
+        RGYCudaEvent clearEvent;
+        sts = kfmRecordEvent(stream, &clearEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+
+        sts = kfmWaitEvents(stream, { clearEvent });
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_analyze_plane((uint8_t *)m_telecineSuperRaw[bufIndex]->ptr, rawPitch,
+            &src0Plane, &src1Plane, gridWidth, gridHeight, kfmFrameParity(&src0->frame->frame),
+            pixelStep, pixelOffset, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_analyze (telecine-super raw, source %d): %s.\n"), sourceIndex, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, rawEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        return RGY_ERR_NONE;
+    };
+
+    auto getSuperSourcePlanes = [&](const int sourceIndex, const RGY_PLANE plane, const int pixelStep,
+                                    const int gridWidth, const int gridHeight,
+                                    RGYFrameInfo *src0Plane, RGYFrameInfo *src1Plane,
+                                    const KfmCachedSource **src0, const KfmCachedSource **src1) -> RGY_ERR {
+        *src0 = sourceAt(sourceIndex);
+        *src1 = sourceAt(sourceIndex + 1);
+        if (!*src0 || !(*src0)->frame || !(*src0)->frame->frame.ptr[0]
+            || !*src1 || !(*src1)->frame || !(*src1)->frame->frame.ptr[0]) {
+            return RGY_ERR_MORE_DATA;
+        }
+        *src0Plane = getPlane(&(*src0)->frame->frame, plane);
+        *src1Plane = getPlane(&(*src1)->frame->frame, plane);
+        if (!src0Plane->ptr[0] || !src1Plane->ptr[0]) {
+            return RGY_ERR_MORE_DATA;
+        }
+        if (src0Plane->width != src1Plane->width || src0Plane->height != src1Plane->height) {
+            return RGY_ERR_INVALID_CALL;
+        }
+        const int srcLogicalWidth = src0Plane->width / pixelStep;
+        const int srcGridWidth = srcLogicalWidth >> 2;
+        const int srcGridHeight = src0Plane->height >> 2;
+        if (srcLogicalWidth <= 0 || (srcLogicalWidth & 3) != 0 || srcGridWidth != gridWidth || srcGridHeight != gridHeight) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM telecine-super source size (source %d, plane %d, logical %dx%d, grid %dx%d, expected %dx%d).\n"),
+                sourceIndex, (int)plane, srcLogicalWidth, src0Plane->height, srcGridWidth, srcGridHeight, gridWidth, gridHeight);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        return RGY_ERR_NONE;
+    };
+
+    auto renderCleanSuperFused = [&](const int prevSourceIndex, const int curSourceIndex, const RGY_PLANE plane, const int pixelStep, const int pixelOffset,
+                                     RGYFrameInfo& dst, const int widthPairs, const int logicalHeight, const int field,
+                                     const int cleanThresh, const int maxMode,
+                                     const int dstStep, const int dstOffset,
+                                     const std::vector<RGYCudaEvent>& baseWaitEvents, RGYCudaEvent *cleanEvent) -> RGY_ERR {
+        RGYFrameInfo prevSrc0Plane, prevSrc1Plane, curSrc0Plane, curSrc1Plane;
+        const KfmCachedSource *prevSrc0 = nullptr, *prevSrc1 = nullptr, *curSrc0 = nullptr, *curSrc1 = nullptr;
+        auto sts = getSuperSourcePlanes(prevSourceIndex, plane, pixelStep, widthPairs, logicalHeight,
+            &prevSrc0Plane, &prevSrc1Plane, &prevSrc0, &prevSrc1);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = getSuperSourcePlanes(curSourceIndex, plane, pixelStep, widthPairs, logicalHeight,
+            &curSrc0Plane, &curSrc1Plane, &curSrc0, &curSrc1);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+
+        std::vector<RGYCudaEvent> cleanWaitEvents = baseWaitEvents;
+        for (const auto *src : { prevSrc0, prevSrc1, curSrc0, curSrc1 }) {
+            if (src && src->event() != nullptr) {
+                cleanWaitEvents.push_back(src->event);
+            }
+        }
+        sts = kfmWaitEvents(stream, cleanWaitEvents);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_clean_super_direct_max_plane(&dst,
+            &prevSrc0Plane, &prevSrc1Plane, kfmFrameParity(&prevSrc0->frame->frame),
+            &curSrc0Plane, &curSrc1Plane, kfmFrameParity(&curSrc0->frame->frame),
+            widthPairs, logicalHeight, field & 1, cleanThresh, maxMode,
+            dstStep, dstOffset, pixelStep, pixelOffset, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_clean_super_direct_max (field %d, plane %d): %s.\n"), field, (int)plane, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, cleanEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        return RGY_ERR_NONE;
+    };
+
+    const bool useFusedCleanSuper = kfmUseFusedCleanSuper();
+
+    for (int iplane = 0; iplane < targetPlanes; iplane++) {
+        const bool interleavedChroma = interleavedUV && iplane > 0;
+        const auto plane = interleavedChroma ? RGY_PLANE_U : (RGY_PLANE)iplane;
+        auto dst = getPlane(pOutputFrame, plane);
+        if (!dst.ptr[0]) {
+            continue;
+        }
+        const int dstStep = interleavedChroma ? 2 : 1;
+        const int dstOffset = interleavedChroma ? iplane - 1 : 0;
+        const int logicalWidth = dst.width / dstStep;
+        const int logicalHeight = dst.height;
+        const int widthPairs = logicalWidth >> 1;
+        if (logicalWidth <= 0 || logicalHeight <= 0 || (logicalWidth & 1) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM telecine-super output plane size (plane %d, logical %dx%d).\n"),
+                iplane, logicalWidth, logicalHeight);
+            return RGY_ERR_INVALID_PARAM;
+        }
+
+        const int rawPitch = widthPairs * (int)sizeof(uchar2);
+        const int gridHeight = logicalHeight;
+        const int cleanThresh = (iplane > 0) ? KFM_CLEAN_THRESH_C : KFM_CLEAN_THRESH_Y;
+        const int pixelStep = interleavedChroma ? 2 : 1;
+        const int pixelOffset = interleavedChroma ? iplane - 1 : 0;
+        bool firstWrite = true;
+        for (int field = firstSuperField; field <= lastSuperField; field++) {
+            const int curSourceIndex = kfmFloorDiv2(field);
+            const int prevSourceIndex = kfmFloorDiv2(field - 1);
+            std::vector<RGYCudaEvent> fieldWaitEvents = wait_events;
+            if (prevEvent() != nullptr) {
+                fieldWaitEvents.push_back(prevEvent);
+            }
+
+            RGYCudaEvent cleanEvent;
+            auto sts = RGY_ERR_NONE;
+            if (useFusedCleanSuper) {
+                sts = renderCleanSuperFused(prevSourceIndex, curSourceIndex, plane, pixelStep, pixelOffset, dst,
+                    widthPairs, logicalHeight, field, cleanThresh, firstWrite ? 0 : 1, dstStep, dstOffset, fieldWaitEvents, &cleanEvent);
+            } else {
+                RGYCudaEvent rawPrevEvent;
+                sts = renderRawSuper(0, prevSourceIndex, plane, pixelStep, pixelOffset, rawPitch, widthPairs, gridHeight, fieldWaitEvents, &rawPrevEvent);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                RGYCudaEvent rawCurEvent;
+                sts = renderRawSuper(1, curSourceIndex, plane, pixelStep, pixelOffset, rawPitch, widthPairs, gridHeight, fieldWaitEvents, &rawCurEvent);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+
+                sts = kfmWaitEvents(stream, { rawPrevEvent, rawCurEvent });
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                sts = run_kfm_clean_separated_super_max_plane(&dst,
+                    (const uint8_t *)m_telecineSuperRaw[0]->ptr,
+                    (const uint8_t *)m_telecineSuperRaw[1]->ptr,
+                    rawPitch,
+                    widthPairs, logicalHeight,
+                    field & 1,
+                    cleanThresh,
+                    firstWrite ? 0 : 1,
+                    dstStep, dstOffset, stream);
+                if (sts == RGY_ERR_NONE) {
+                    sts = kfmRecordEvent(stream, &cleanEvent);
+                }
+            }
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error at KFM clean super render (field %d, plane %d): %s.\n"), field, iplane, get_err_mes(sts));
+                return sts;
+            }
+            prevEvent = cleanEvent;
+            firstWrite = false;
+        }
+    }
+
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
+    }
+    const auto *propSource = sourceAt(propSourceIndex);
+    if (propSource && propSource->frame) {
+        copyFramePropWithoutRes(pOutputFrame, &propSource->frame->frame);
+    }
+    pOutputFrame->inputFrameId = outputFrameId;
+    pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::renderTelecineSuper24(RGYFrameInfo *pOutputFrame, int frame24Index, bool drain,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame || !m_analyzer) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (frame24Index < 0 || frame24Index / 4 >= (int)m_analyzerOutputResults.size()) {
+        return RGY_ERR_MORE_DATA;
+    }
+    const auto& result = m_analyzerOutputResults[frame24Index / 4];
+    RGYKFM::Frame24Info info;
+    try {
+        info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
+    } catch (const std::exception& e) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p super frame %d: %S.\n"), frame24Index, e.what());
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
+    const int firstSource = (firstField & ~1) >> 1;
+    const int lastField = firstField + info.numFields - 2;
+    RGYCudaEvent superEvent;
+    auto sts = renderCleanSuperFields(pOutputFrame, firstField, lastField, firstSource, frame24Index, drain, stream, wait_events, &superEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    if (event && superEvent() != nullptr) {
+        *event = superEvent;
+    }
+    pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    writeFrameInfoDump("telecine-super", pOutputFrame, &result);
+    const auto dumpSts = dumpStageFrame("telecine-super", pOutputFrame, frame24Index, stream,
+        (superEvent() != nullptr) ? std::vector<RGYCudaEvent>{ superEvent } : std::vector<RGYCudaEvent>());
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::renderSuper30(RGYFrameInfo *pOutputFrame, int frame30Index, bool drain,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    RGYCudaEvent superEvent;
+    const int field = frame30Index * 2;
+    auto sts = renderCleanSuperFields(pOutputFrame, field, field, frame30Index, frame30Index, drain, stream, wait_events, &superEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    if (event && superEvent() != nullptr) {
+        *event = superEvent;
+    }
+    pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    writeFrameInfoDump("super30", pOutputFrame);
+    const auto dumpSts = dumpStageFrame("super30", pOutputFrame, frame30Index, stream,
+        (superEvent() != nullptr) ? std::vector<RGYCudaEvent>{ superEvent } : std::vector<RGYCudaEvent>());
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::removeCombeFields(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeintFrame, const RGYFrameInfo *pTelecineSuperFrame,
+    int firstField, int fieldCount, int stageFrameIndex, const char *stageName,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame || !pDeintFrame || !pTelecineSuperFrame
+        || fieldCount <= 0 || fieldCount > 6 || !stageName) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int fieldBase = firstField & ~1;
+    const int firstSource = kfmFloorDiv2(fieldBase);
+    const int lastField = firstField + fieldCount - 1;
+    const int lastSourceOffset = std::max(0, ((lastField & ~1) - fieldBase) >> 1);
+    const auto *paritySource = findSourceByIndex(firstSource);
+    if (!paritySource || !paritySource->frame || !paritySource->frame->frame.ptr[0]) {
+        return RGY_ERR_MORE_DATA;
+    }
+    std::array<const KfmCachedSource *, 3> teleSrc = {};
+    for (int i = 0; i < (int)teleSrc.size(); i++) {
+        const int sourceIndex = firstSource + std::min(i, lastSourceOffset);
+        teleSrc[i] = findSourceByIndex(sourceIndex);
+        if (!teleSrc[i] || !teleSrc[i]->paddedFrame || !teleSrc[i]->paddedFrame->frame.ptr[0]) {
+            return RGY_ERR_MORE_DATA;
+        }
+    }
+    std::vector<RGYCudaEvent> sourceWaitEvents = wait_events;
+    for (const auto *s : teleSrc) {
+        if (s->paddedEvent() != nullptr) {
+            sourceWaitEvents.push_back(s->paddedEvent);
+        }
+    }
+
+    RGYCudaEvent prevEvent;
+    const auto planes = RGY_CSP_PLANES[pOutputFrame->csp];
+    for (int iplane = 0; iplane < planes; iplane++) {
+        auto dst = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        auto src = getPlane(pDeintFrame, (RGY_PLANE)iplane);
+        auto combe = getPlane(pTelecineSuperFrame, (RGY_PLANE)iplane);
+        auto telePlane0 = getPlane(&teleSrc[0]->paddedFrame->frame, (RGY_PLANE)iplane);
+        auto telePlane1 = getPlane(&teleSrc[1]->paddedFrame->frame, (RGY_PLANE)iplane);
+        auto telePlane2 = getPlane(&teleSrc[2]->paddedFrame->frame, (RGY_PLANE)iplane);
+        const int teleSrcYOffset = (telePlane0.height - dst.height) >> 1;
+        if (telePlane0.width != dst.width || telePlane1.width != dst.width || telePlane2.width != dst.width
+            || telePlane0.height != telePlane1.height || telePlane0.height != telePlane2.height
+            || telePlane0.height != dst.height + teleSrcYOffset * 2 || teleSrcYOffset < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid padded source plane size (plane %d, dst %dx%d, src %dx%d/%dx%d/%dx%d, offset %d).\n"),
+                iplane, dst.width, dst.height, telePlane0.width, telePlane0.height, telePlane1.width, telePlane1.height, telePlane2.width, telePlane2.height, teleSrcYOffset);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const auto waitHere = (iplane == 0)
+            ? sourceWaitEvents
+            : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+        auto sts = kfmWaitEvents(stream, waitHere);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        const bool chroma = iplane > 0;
+        const int threshold = (chroma ? KFM_REMOVE_COMBE_THRESH_C : KFM_REMOVE_COMBE_THRESH_Y) * kfmDepthScale(dst.csp);
+        sts = run_kfm_remove_combe_binomial_plane(&dst, &src, &combe,
+            &telePlane0, &telePlane1, &telePlane2,
+            threshold,
+            1, 0, 1, 0,
+            teleSrcYOffset, firstField, fieldCount, kfmFrameParity(&paritySource->frame->frame), stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_remove_combe_binomial (plane %d): %s.\n"), iplane, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &prevEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
+    }
+    copyFramePropWithoutRes(pOutputFrame, pDeintFrame);
+    pOutputFrame->dataList = pDeintFrame->dataList;
+    pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    writeFrameInfoDump(stageName, pOutputFrame);
+    const auto dumpSts = dumpStageFrame(stageName, pOutputFrame, stageFrameIndex, stream,
+        (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::removeCombe24(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeint24Frame, const RGYFrameInfo *pTelecineSuperFrame, int frame24Index,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame || !pDeint24Frame || !pTelecineSuperFrame || !m_analyzer) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (frame24Index < 0 || frame24Index / 4 >= (int)m_analyzerOutputResults.size()) {
+        return RGY_ERR_MORE_DATA;
+    }
+    const auto& result = m_analyzerOutputResults[frame24Index / 4];
+    RGYKFM::Frame24Info info;
+    try {
+        info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
+    } catch (const std::exception& e) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p frame %d: %S.\n"), frame24Index, e.what());
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
+    return removeCombeFields(pOutputFrame, pDeint24Frame, pTelecineSuperFrame,
+        firstField, info.numFields, frame24Index, "remove-combe", stream, wait_events, event);
+}
+
+RGY_ERR NVEncFilterKfm::patchCombe(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pBaseFrame, const RGYFrameInfo *pPatchFrame, const RGYFrameInfo *pMaskFrame,
+    int frameIndex, const char *stageName, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pOutputFrame || !pBaseFrame || !pPatchFrame || !pMaskFrame) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    RGYCudaEvent prevEvent;
+    const auto planes = RGY_CSP_PLANES[pOutputFrame->csp];
+    for (int iplane = 0; iplane < planes; iplane++) {
+        auto dst = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        auto base = getPlane(pBaseFrame, (RGY_PLANE)iplane);
+        auto patch = getPlane(pPatchFrame, (RGY_PLANE)iplane);
+        auto mask = getPlane(pMaskFrame, (RGY_PLANE)iplane);
+        if (dst.width != base.width || dst.height != base.height
+            || dst.width != patch.width || dst.height != patch.height
+            || dst.width != mask.width || dst.height != mask.height) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM patch-combe plane size (plane %d).\n"), iplane);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const auto waitHere = (iplane == 0)
+            ? wait_events
+            : (prevEvent() != nullptr ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+        auto sts = kfmWaitEvents(stream, waitHere);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_patch_combe_plane(&dst, &base, &patch, &mask, 0, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_patch_combe (plane %d): %s.\n"), iplane, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &prevEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
+    }
+    copyFramePropWithoutRes(pOutputFrame, pBaseFrame);
+    pOutputFrame->dataList = pBaseFrame->dataList;
+    pOutputFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pOutputFrame->flags = RGY_FRAME_FLAG_NONE;
+    const char *stage = (stageName && stageName[0]) ? stageName : "patch-combe";
+    writeFrameInfoDump(stage, pOutputFrame);
+    const auto dumpSts = dumpStageFrame(stage, pOutputFrame, frameIndex, stream,
+        (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame, RGYFrameInfo **ppContainsCombeFrame, RGYFrameInfo **ppCombeMaskFrame,
+    const RGYFrameInfo *pTelecineSuperFrame, const TCHAR *stageLabel) {
+    if (!ppSwitchFlagFrame || !ppContainsCombeFrame || !ppCombeMaskFrame || !pTelecineSuperFrame) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const auto superY = getPlane(pTelecineSuperFrame, RGY_PLANE_Y);
+    const int innerWidth = superY.width >> 2;
+    const int innerHeight = superY.height >> 1;
+    if (innerWidth <= 0 || innerHeight <= 0) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid KFM %s mask source size (%dx%d).\n"), stageLabel ? stageLabel : _T(""), superY.width, superY.height);
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    const int index = m_maskBranchBufferIndex++ & 3;
+    auto switchInfo = prm->frameOut;
+    switchInfo.width = innerWidth + 8;
+    switchInfo.height = innerHeight + 4;
+    switchInfo.csp = RGY_CSP_Y8;
+    switchInfo.bitdepth = RGY_CSP_BIT_DEPTH[RGY_CSP_Y8];
+    if (!m_switchFlagFrames[index]
+        || m_switchFlagFrames[index]->frame.width != switchInfo.width
+        || m_switchFlagFrames[index]->frame.height != switchInfo.height
+        || m_switchFlagFrames[index]->frame.csp != switchInfo.csp) {
+        auto frame = std::make_unique<CUFrameBuf>(switchInfo);
+        const auto sts = frame->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s switch-flag-min frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
+            return sts;
+        }
+        m_switchFlagFrames[index] = std::move(frame);
+    }
+
+    auto containsInfo = switchInfo;
+    containsInfo.width = 4;
+    containsInfo.height = 1;
+    if (!m_containsCombeFrames[index]
+        || m_containsCombeFrames[index]->frame.width != containsInfo.width
+        || m_containsCombeFrames[index]->frame.height != containsInfo.height
+        || m_containsCombeFrames[index]->frame.csp != containsInfo.csp) {
+        auto frame = std::make_unique<CUFrameBuf>(containsInfo);
+        const auto sts = frame->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s contains-combe frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
+            return sts;
+        }
+        m_containsCombeFrames[index] = std::move(frame);
+    }
+
+    auto combeInfo = prm->frameOut;
+    if (!m_combeMaskFrames[index]
+        || m_combeMaskFrames[index]->frame.width != combeInfo.width
+        || m_combeMaskFrames[index]->frame.height != combeInfo.height
+        || m_combeMaskFrames[index]->frame.csp != combeInfo.csp) {
+        auto frame = std::make_unique<CUFrameBuf>(combeInfo);
+        const auto sts = frame->alloc();
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s combe-mask-min frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
+            return sts;
+        }
+        m_combeMaskFrames[index] = std::move(frame);
+    }
+
+    *ppSwitchFlagFrame = &m_switchFlagFrames[index]->frame;
+    *ppContainsCombeFrame = &m_containsCombeFrames[index]->frame;
+    *ppCombeMaskFrame = &m_combeMaskFrames[index]->frame;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame,
+    const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame,
+    const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, uint32_t *containsCombeCount) {
+    if (!pSwitchFlagFrame || !pContainsCombeFrame || !pCombeMaskFrame
+        || !pTelecineSuperPrevFrame || !pTelecineSuperFrame || !pTelecineSuperNextFrame) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const auto superPrevY = getPlane(pTelecineSuperPrevFrame, RGY_PLANE_Y);
+    const auto superY = getPlane(pTelecineSuperFrame, RGY_PLANE_Y);
+    const auto superNextY = getPlane(pTelecineSuperNextFrame, RGY_PLANE_Y);
+    const bool superInterleavedUV = kfmCspHasInterleavedUV(pTelecineSuperFrame->csp);
+    const auto superPrevUV = (RGY_CSP_PLANES[pTelecineSuperPrevFrame->csp] > 1) ? getPlane(pTelecineSuperPrevFrame, RGY_PLANE_U) : RGYFrameInfo();
+    const auto superUV = (RGY_CSP_PLANES[pTelecineSuperFrame->csp] > 1) ? getPlane(pTelecineSuperFrame, RGY_PLANE_U) : RGYFrameInfo();
+    const auto superNextUV = (RGY_CSP_PLANES[pTelecineSuperNextFrame->csp] > 1) ? getPlane(pTelecineSuperNextFrame, RGY_PLANE_U) : RGYFrameInfo();
+    const auto superPrevV = (!superInterleavedUV && RGY_CSP_PLANES[pTelecineSuperPrevFrame->csp] > 2) ? getPlane(pTelecineSuperPrevFrame, RGY_PLANE_V) : superPrevUV;
+    const auto superV = (!superInterleavedUV && RGY_CSP_PLANES[pTelecineSuperFrame->csp] > 2) ? getPlane(pTelecineSuperFrame, RGY_PLANE_V) : superUV;
+    const auto superNextV = (!superInterleavedUV && RGY_CSP_PLANES[pTelecineSuperNextFrame->csp] > 2) ? getPlane(pTelecineSuperNextFrame, RGY_PLANE_V) : superNextUV;
+    auto switchY = getPlane(pSwitchFlagFrame, RGY_PLANE_Y);
+    const int superYPitch = superY.pitch[0];
+    if (superPrevY.pitch[0] != superYPitch || superNextY.pitch[0] != superYPitch) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid KFM switch-flag pitch mismatch (Y plane: prev %d, cur %d, next %d).\n"),
+            superPrevY.pitch[0], superYPitch, superNextY.pitch[0]);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int superUVPitch = superUV.ptr[0] ? superUV.pitch[0] : superYPitch;
+    const int superVPitch = superV.ptr[0] ? superV.pitch[0] : superUVPitch;
+    if (superUV.ptr[0]) {
+        if (superPrevUV.pitch[0] != superUVPitch || superNextUV.pitch[0] != superUVPitch) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM switch-flag pitch mismatch (UV plane: prev %d, cur %d, next %d).\n"),
+                superPrevUV.pitch[0], superUVPitch, superNextUV.pitch[0]);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (!superInterleavedUV && RGY_CSP_PLANES[pTelecineSuperFrame->csp] > 2) {
+            if (superPrevV.pitch[0] != superVPitch || superNextV.pitch[0] != superVPitch) {
+                AddMessage(RGY_LOG_ERROR, _T("invalid KFM switch-flag pitch mismatch (U/V plane: prev %d/%d, cur %d/%d, next %d/%d).\n"),
+                    superPrevUV.pitch[0], superPrevV.pitch[0], superUVPitch, superV.pitch[0], superNextUV.pitch[0], superNextV.pitch[0]);
+                return RGY_ERR_INVALID_PARAM;
+            }
+        }
+    }
+    const int innerWidth = superY.width >> 2;
+    const int innerHeight = superY.height >> 1;
+    const int combeWidth = superY.width >> 1;
+    const int combeHeight = superY.height;
+    const int combeCWidth = superUV.ptr[0] ? (superInterleavedUV ? (superUV.width >> 2) : (superUV.width >> 1)) : 0;
+    const int combeCHeight = superUV.ptr[0] ? superUV.height : 0;
+    if (switchY.width != innerWidth + 8 || switchY.height != innerHeight + 4) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid KFM switch-flag-min size (super %dx%d, flag %dx%d).\n"),
+            superY.width, superY.height, switchY.width, switchY.height);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (superPrevY.width != superY.width || superPrevY.height != superY.height
+        || superNextY.width != superY.width || superNextY.height != superY.height
+        || combeWidth <= 0 || combeHeight <= 0) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid KFM switch-flag super triplet size.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int maskDumpFrameIndex = pTelecineSuperFrame->inputFrameId >= 0 ? pTelecineSuperFrame->inputFrameId : m_timecodeFrameIndex;
+
+    const int combeYPitch = combeWidth;
+    const int combeCPitch = std::max(1, combeCWidth);
+    const int flagPitch = switchY.width;
+    const size_t combeYBytes = (size_t)combeYPitch * combeHeight;
+    const size_t combeCBytes = (size_t)combeCPitch * std::max(1, combeCHeight);
+    const size_t flagBytes = (size_t)flagPitch * switchY.height;
+    const std::array<size_t, 4> workBytes = { std::max(combeYBytes, flagBytes), std::max(combeCBytes, flagBytes), flagBytes, flagBytes };
+    for (int i = 0; i < (int)workBytes.size(); i++) {
+        if (!m_switchFlagWork[i] || m_switchFlagWork[i]->nSize < workBytes[i]) {
+            auto work = std::make_unique<CUMemBuf>(workBytes[i]);
+            const auto allocSts = work->alloc();
+            if (allocSts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM switch-flag work buffer %d: %s.\n"), i, get_err_mes(allocSts));
+                return allocSts;
+            }
+            m_switchFlagWork[i] = std::move(work);
+        }
+    }
+
+    auto workWaitEvents = wait_events;
+    if (m_switchFlagWorkEvent() != nullptr) {
+        workWaitEvents.push_back(m_switchFlagWorkEvent);
+    }
+
+    auto dumpSwitchWorkFrame = [&](const char *stage, const std::unique_ptr<CUMemBuf>& work, int width, int height, int pitch, const RGYCudaEvent& waitEvent) -> RGY_ERR {
+        if (!stageDumpRequested(maskDumpFrameIndex) || !work) {
+            return RGY_ERR_NONE;
+        }
+        auto sts = kfmWaitEvents(stream, { waitEvent });
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_copy_u8_buffer_to_plane(&switchY, (const uint8_t *)work->ptr, pitch, width, height, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_copy_u8_buffer_to_plane (%s): %s.\n"), char_to_tstring(stage).c_str(), get_err_mes(sts));
+            return sts;
+        }
+        RGYCudaEvent copyEvent;
+        sts = kfmRecordEvent(stream, &copyEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        return dumpStageFrame(stage, pSwitchFlagFrame, maskDumpFrameIndex, stream, { copyEvent });
+    };
+
+    auto sts = kfmWaitEvents(stream, workWaitEvents);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = run_kfm_switch_flag_combe_min((uint8_t *)m_switchFlagWork[0]->ptr, combeYPitch,
+        (uint8_t *)m_switchFlagWork[1]->ptr, combeCPitch,
+        &superPrevY, &superY, &superNextY,
+        superPrevUV.ptr[0] ? &superPrevUV : nullptr,
+        superUV.ptr[0] ? &superUV : nullptr,
+        superNextUV.ptr[0] ? &superNextUV : nullptr,
+        superPrevV.ptr[0] ? &superPrevV : nullptr,
+        superV.ptr[0] ? &superV : nullptr,
+        superNextV.ptr[0] ? &superNextV : nullptr,
+        combeWidth, combeHeight,
+        combeCWidth, combeCHeight,
+        superUV.ptr[0] ? 1 : 0,
+        superInterleavedUV ? 1 : 0, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_switch_flag_combe_min: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    RGYCudaEvent combeEvent;
+    sts = kfmRecordEvent(stream, &combeEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    sts = kfmWaitEvents(stream, { combeEvent });
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = run_kfm_switch_flag_from_combe_min((uint8_t *)m_switchFlagWork[2]->ptr, flagPitch,
+        (uint8_t *)m_switchFlagWork[3]->ptr, flagPitch,
+        (const uint8_t *)m_switchFlagWork[0]->ptr, combeYPitch,
+        (const uint8_t *)m_switchFlagWork[1]->ptr, combeCPitch,
+        switchY.width, switchY.height,
+        innerWidth, innerHeight,
+        combeWidth, combeHeight,
+        combeCWidth, combeCHeight, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_switch_flag_from_combe_min: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    RGYCudaEvent fromCombeEvent;
+    sts = kfmRecordEvent(stream, &fromCombeEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = dumpSwitchWorkFrame("switch-from-combe-y", m_switchFlagWork[2], switchY.width, switchY.height, flagPitch, fromCombeEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = dumpSwitchWorkFrame("switch-from-combe-c", m_switchFlagWork[3], switchY.width, switchY.height, flagPitch, fromCombeEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    auto boxPass = [&](int dstIndex, int srcIndex, const RGYCudaEvent& waitEvent, const char *errStage, RGYCudaEvent *outEvent) -> RGY_ERR {
+        auto boxSts = kfmWaitEvents(stream, { waitEvent });
+        if (boxSts != RGY_ERR_NONE) {
+            return boxSts;
+        }
+        boxSts = run_kfm_switch_flag_box3x3_min((uint8_t *)m_switchFlagWork[dstIndex]->ptr, flagPitch,
+            (const uint8_t *)m_switchFlagWork[srcIndex]->ptr, flagPitch,
+            switchY.width, switchY.height,
+            innerWidth, innerHeight, stream);
+        if (boxSts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_switch_flag_box3x3_min (%s): %s.\n"), char_to_tstring(errStage).c_str(), get_err_mes(boxSts));
+            return boxSts;
+        }
+        return kfmRecordEvent(stream, outEvent);
+    };
+
+    RGYCudaEvent boxY0Event;
+    sts = boxPass(0, 2, fromCombeEvent, "Y pass 0", &boxY0Event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = dumpSwitchWorkFrame("switch-box1-y", m_switchFlagWork[0], switchY.width, switchY.height, flagPitch, boxY0Event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    RGYCudaEvent boxY1Event;
+    sts = boxPass(2, 0, boxY0Event, "Y pass 1", &boxY1Event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = dumpSwitchWorkFrame("switch-box2-y", m_switchFlagWork[2], switchY.width, switchY.height, flagPitch, boxY1Event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    RGYCudaEvent boxC0Event;
+    sts = boxPass(1, 3, fromCombeEvent, "C pass 0", &boxC0Event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = dumpSwitchWorkFrame("switch-box1-c", m_switchFlagWork[1], switchY.width, switchY.height, flagPitch, boxC0Event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    RGYCudaEvent boxC1Event;
+    sts = boxPass(3, 1, boxC0Event, "C pass 1", &boxC1Event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = dumpSwitchWorkFrame("switch-box2-c", m_switchFlagWork[3], switchY.width, switchY.height, flagPitch, boxC1Event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    sts = kfmWaitEvents(stream, { boxY1Event, boxC1Event });
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    RGYCudaEvent switchEvent;
+    if (kfmUseFusedSwitchFlagBinaryExtend()) {
+        sts = run_kfm_switch_flag_binary_extend_hv_min(&switchY,
+            (const uint8_t *)m_switchFlagWork[2]->ptr, flagPitch,
+            (const uint8_t *)m_switchFlagWork[3]->ptr, flagPitch,
+            innerWidth, innerHeight,
+            KFM_SWITCH_FLAG_THRESH_Y, KFM_SWITCH_FLAG_THRESH_C, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_switch_flag_binary_extend_hv_min: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &switchEvent);
+    } else {
+        sts = run_kfm_switch_flag_binary_min(&switchY,
+            (const uint8_t *)m_switchFlagWork[2]->ptr, flagPitch,
+            (const uint8_t *)m_switchFlagWork[3]->ptr, flagPitch,
+            innerWidth, innerHeight,
+            KFM_SWITCH_FLAG_THRESH_Y, KFM_SWITCH_FLAG_THRESH_C, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_switch_flag_binary_min: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        RGYCudaEvent binaryEvent;
+        sts = kfmRecordEvent(stream, &binaryEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = kfmWaitEvents(stream, { binaryEvent });
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_switch_flag_extend_h_min((uint8_t *)m_switchFlagWork[0]->ptr, flagPitch, &switchY,
+            innerWidth, innerHeight, 4, 2, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_switch_flag_extend_h_min: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        RGYCudaEvent extendHEvent;
+        sts = kfmRecordEvent(stream, &extendHEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = kfmWaitEvents(stream, { extendHEvent });
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_switch_flag_extend_v_min(&switchY, (const uint8_t *)m_switchFlagWork[0]->ptr, flagPitch,
+            innerWidth, innerHeight, 4, 2, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_switch_flag_extend_v_min: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &switchEvent);
+    }
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    m_switchFlagWorkEvent = switchEvent;
+
+    if (!m_containsCombeCount || m_containsCombeCount->nSize < sizeof(uint32_t)) {
+        auto count = std::make_unique<CUMemBuf>(sizeof(uint32_t));
+        const auto allocSts = count->alloc();
+        if (allocSts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM contains-combe count buffer: %s.\n"), get_err_mes(allocSts));
+            return allocSts;
+        }
+        m_containsCombeCount = std::move(count);
+    }
+    sts = run_kfm_contains_combe_init((uint32_t *)m_containsCombeCount->ptr, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_contains_combe_init: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    RGYCudaEvent initEvent;
+    sts = kfmRecordEvent(stream, &initEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = kfmWaitEvents(stream, { switchEvent, initEvent });
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = run_kfm_contains_combe_count(&switchY, (uint32_t *)m_containsCombeCount->ptr, 128, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_contains_combe_count: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    RGYCudaEvent countEvent;
+    sts = kfmRecordEvent(stream, &countEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    if (containsCombeCount) {
+        *containsCombeCount = 0;
+        sts = kfmWaitEvents(stream, { countEvent });
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = err_to_rgy(cudaMemcpyAsync(containsCombeCount, m_containsCombeCount->ptr, sizeof(uint32_t), cudaMemcpyDeviceToHost, stream));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to submit KFM contains-combe count readback: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        sts = err_to_rgy(cudaStreamSynchronize(stream));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM contains-combe count readback: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    }
+
+    auto containsY = getPlane(pContainsCombeFrame, RGY_PLANE_Y);
+    sts = kfmWaitEvents(stream, { countEvent });
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = run_kfm_contains_combe_mark(&containsY, (const uint32_t *)m_containsCombeCount->ptr, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_contains_combe_mark: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    RGYCudaEvent markEvent;
+    sts = kfmRecordEvent(stream, &markEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    RGYCudaEvent prevEvent = markEvent;
+    const int planes = RGY_CSP_PLANES[pCombeMaskFrame->csp];
+    const bool interleavedUV = kfmCspHasInterleavedUV(pCombeMaskFrame->csp);
+    for (int iplane = 0; iplane < planes; iplane++) {
+        const bool interleavedChroma = interleavedUV && iplane > 0;
+        const auto plane = interleavedChroma ? RGY_PLANE_U : (RGY_PLANE)iplane;
+        auto dst = getPlane(pCombeMaskFrame, plane);
+        const int step = interleavedChroma ? 2 : 1;
+        const int offset = interleavedChroma ? iplane - 1 : 0;
+        const int logicalWidth = dst.width / step;
+        const int logicalHeight = dst.height;
+        const int scaleX = logicalWidth / innerWidth;
+        const int scaleY = logicalHeight / innerHeight;
+        const int shiftX = kfmPow2Shift(scaleX);
+        const int shiftY = kfmPow2Shift(scaleY);
+        if (logicalWidth <= 0 || logicalHeight <= 0 || logicalWidth != innerWidth * scaleX || logicalHeight != innerHeight * scaleY || shiftX < 0 || shiftY < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("unsupported KFM combe-mask-min scale (plane %d, dst %dx%d, flag inner %dx%d).\n"),
+                iplane, logicalWidth, logicalHeight, innerWidth, innerHeight);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        sts = kfmWaitEvents(stream, { prevEvent });
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = run_kfm_combe_mask_resize_bilinear_min_plane(&dst, &switchY,
+            step, offset,
+            scaleX, shiftX,
+            scaleY, shiftY,
+            innerWidth, innerHeight, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_combe_mask_resize_bilinear_min (plane %d): %s.\n"), iplane, get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &prevEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
+    }
+    writeFrameInfoDump(switchFlagStage, pSwitchFlagFrame);
+    auto dumpSts = dumpStageFrame(switchFlagStage, pSwitchFlagFrame, maskDumpFrameIndex, stream, { switchEvent });
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
+    writeFrameInfoDump(containsCombeStage, pContainsCombeFrame);
+    dumpSts = dumpStageFrame(containsCombeStage, pContainsCombeFrame, maskDumpFrameIndex, stream, { markEvent });
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
+    writeFrameInfoDump(combeMaskStage, pCombeMaskFrame);
+    dumpSts = dumpStageFrame(combeMaskStage, pCombeMaskFrame, maskDumpFrameIndex, stream,
+        (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
+    if (dumpSts != RGY_ERR_NONE) {
+        return dumpSts;
+    }
     return RGY_ERR_NONE;
 }
 
