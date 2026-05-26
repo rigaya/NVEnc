@@ -1668,8 +1668,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBVppAfsTune->Checked               = encPrm.vpp.afs.tune != AFS_TUNE_MODE_NONE;
         SetCXIndex(fcgCXVppNnediNsize,           get_cx_index(list_vpp_nnedi_nsize, encPrm.vpp.nnedi.nsize));
         SetCXIndex(fcgCXVppNnediNns,             get_cx_index(list_vpp_nnedi_nns, encPrm.vpp.nnedi.nns));
-        SetCXIndex(fcgCXVppNnediPrec,            get_cx_index(list_vpp_fp_prec, encPrm.vpp.nnedi.precision));
-        SetCXIndex(fcgCXVppNnediPrescreen,       get_cx_index(list_vpp_nnedi_pre_screen_gui, encPrm.vpp.nnedi.pre_screen));
+        SetCXIndex(fcgCXVppNnediPrec,            get_cx_index(list_vpp_fp_prec, VPP_FP_PRECISION_AUTO));
+        SetCXIndex(fcgCXVppNnediPrescreen,       get_cx_index(list_vpp_nnedi_pre_screen_gui, encPrm.vpp.nnedi.prescreen));
         SetCXIndex(fcgCXVppNnediQual,            get_cx_index(list_vpp_nnedi_quality, encPrm.vpp.nnedi.quality));
         SetCXIndex(fcgCXVppNnediErrorType,       get_cx_index(list_vpp_nnedi_error_type, encPrm.vpp.nnedi.errortype));
         SetCXIndex(fcgCXVppYadifMode,            get_cx_index(list_vpp_yadif_mode_gui, encPrm.vpp.yadif.mode));
@@ -1993,8 +1993,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.nnedi.nsize            = (VppNnediNSize)list_vpp_nnedi_nsize[fcgCXVppNnediNsize->SelectedIndex].value;
     encPrm.vpp.nnedi.nns              = list_vpp_nnedi_nns[fcgCXVppNnediNns->SelectedIndex].value;
     encPrm.vpp.nnedi.quality          = (VppNnediQuality)list_vpp_nnedi_quality[fcgCXVppNnediQual->SelectedIndex].value;
-    encPrm.vpp.nnedi.precision        = (VppFpPrecision)list_vpp_fp_prec[fcgCXVppNnediPrec->SelectedIndex].value;
-    encPrm.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen_gui[fcgCXVppNnediPrescreen->SelectedIndex].value;
+    encPrm.vpp.nnedi.prescreen        = list_vpp_nnedi_pre_screen_gui[fcgCXVppNnediPrescreen->SelectedIndex].value;
     encPrm.vpp.nnedi.errortype        = (VppNnediErrorType)list_vpp_nnedi_error_type[fcgCXVppNnediErrorType->SelectedIndex].value;
 
     encPrm.vpp.yadif.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));
