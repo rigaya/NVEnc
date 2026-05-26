@@ -683,18 +683,22 @@ RGY_ERR NVEncFilterRtgmcEdi::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
 }
 
 RGY_ERR NVEncFilterRtgmcEdi::initNnediAdapterState(NnediAdapterState &state, const std::shared_ptr<NVEncFilterParamRtgmcEdi> &prm, const bool chroma) {
-    if (chroma) {
-        AddMessage(RGY_LOG_ERROR, _T("rtgmc-edi chroma nnedi3 adapter is unsupported on NVEnc because the child NNEDI filter does not expose plane selection.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
     auto filter = std::make_unique<NVEncFilterNnedi>();
     auto nnedi = std::make_shared<NVEncFilterParamNnedi>();
     nnedi->nnedi.enable = true;
-    nnedi->nnedi.field = VPP_NNEDI_FIELD_BOB_AUTO;
-    nnedi->nnedi.nsize = (VppNnediNSize)prm->nnsize;
-    nnedi->nnedi.nns = NVEncFilterNnedi::sizeNN[prm->nneurons];
-    nnedi->nnedi.quality = (VppNnediQuality)prm->ediqual;
+    nnedi->nnedi.field = VPP_NNEDI_FIELD_BOB;
+    nnedi->nnedi.nsize = (VppNnediNSize)(chroma ? VPP_NNEDI_NSIZE_8x4 : prm->nnsize);
+    nnedi->nnedi.nns = rgy_nnedi_nns_value(chroma ? 0 : prm->nneurons);
+    nnedi->nnedi.quality = (VppNnediQuality)(chroma ? VPP_NNEDI_QUALITY_FAST : prm->ediqual);
+    nnedi->nnedi.processPlane = chroma
+        ? std::array<bool, 4>{ false, true, true, false }
+        : (prm->chromaEdi == VppRtgmcChromaEdiMode::NNEDI3
+            ? std::array<bool, 4>{ true, false, false, false }
+            : std::array<bool, 4>{ true, true, true, false });
+    nnedi->nnedi.prescreen = 2;
     nnedi->nnedi.errortype = VPP_NNEDI_ETYPE_ABS;
+    nnedi->nnedi.clamp = 1;
+    nnedi->nnedi.doubleHeight = false;
     nnedi->hModule = prm->hModule;
     nnedi->frameIn = prm->sourceFrameIn;
     nnedi->frameOut = prm->sourceFrameIn;

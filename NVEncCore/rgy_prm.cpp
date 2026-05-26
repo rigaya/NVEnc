@@ -1153,32 +1153,27 @@ tstring VppAfs::print() const {
 
 VppNnedi::VppNnedi() :
     enable(false),
-    field(VPP_NNEDI_FIELD_USE_AUTO),
-    nns(32),
+    field(VPP_NNEDI_FIELD_AUTO),
     nsize(VPP_NNEDI_NSIZE_32x4),
+    nns(32),
     quality(VPP_NNEDI_QUALITY_FAST),
-    precision(VPP_FP_PRECISION_AUTO),
-    pre_screen(VPP_NNEDI_PRE_SCREEN_NEW_BLOCK),
+    prescreen(2),
     errortype(VPP_NNEDI_ETYPE_ABS),
+    doubleHeight(false),
     weightfile(_T("")) {
-
-}
-
-bool VppNnedi::isbob() {
-    return field == VPP_NNEDI_FIELD_BOB_AUTO
-        || field == VPP_NNEDI_FIELD_BOB_BOTTOM_TOP
-        || field == VPP_NNEDI_FIELD_BOB_TOP_BOTTOM;
+    clamp = 1;
 }
 
 bool VppNnedi::operator==(const VppNnedi &x) const {
     return enable == x.enable
         && field == x.field
-        && nns == x.nns
         && nsize == x.nsize
+        && nns == x.nns
         && quality == x.quality
-        && pre_screen == x.pre_screen
+        && prescreen == x.prescreen
         && errortype == x.errortype
-        && precision == x.precision
+        && clamp == x.clamp
+        && doubleHeight == x.doubleHeight
         && weightfile == x.weightfile;
 }
 bool VppNnedi::operator!=(const VppNnedi &x) const {
@@ -1187,15 +1182,15 @@ bool VppNnedi::operator!=(const VppNnedi &x) const {
 
 tstring VppNnedi::print() const {
     return strsprintf(
-        _T("nnedi: field %s, nns %d, nsize %s, quality %s, prec %s\n")
-        _T("                       pre_screen %s, errortype %s, weight \"%s\""),
+        _T("nnedi: field %s, nsize %s, nns %d, quality %s, prescreen %d, errortype %s, clamp %d, double_height %s, weight \"%s\""),
         get_cx_desc(list_vpp_nnedi_field, field),
-        nns,
         get_cx_desc(list_vpp_nnedi_nsize, nsize),
+        nns,
         get_cx_desc(list_vpp_nnedi_quality, quality),
-        get_cx_desc(list_vpp_fp_prec, precision),
-        get_cx_desc(list_vpp_nnedi_pre_screen, pre_screen),
+        prescreen,
         get_cx_desc(list_vpp_nnedi_error_type, errortype),
+        clamp,
+        doubleHeight ? _T("on") : _T("off"),
         ((weightfile.length()) ? weightfile.c_str() : _T("internal")));
 }
 
