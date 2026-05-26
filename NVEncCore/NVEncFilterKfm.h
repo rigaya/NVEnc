@@ -200,7 +200,8 @@ protected:
     RGY_ERR initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>& prm);
     void initStageDumpConfig(const NVEncFilterParamKfm& prm);
     bool stageDumpRequested(int frame24Index) const;
-    RGY_ERR dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index, cudaStream_t stream);
+    RGY_ERR dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameInfo *pSourceFrame,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     RGY_ERR cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);

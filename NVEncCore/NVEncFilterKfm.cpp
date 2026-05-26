@@ -955,7 +955,7 @@ RGY_ERR NVEncFilterKfm::cacheDeint60Frame(const RGYFrameInfo *frame, cudaStream_
     if (source->event() != nullptr) {
         mergeWaitEvents.push_back(source->event);
     }
-    auto sts = dumpStageFrame("rtgmc60-raw", frame, entry.n60, stream);
+    auto sts = dumpStageFrame("rtgmc60-raw", frame, entry.n60, stream, wait_events);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -967,7 +967,8 @@ RGY_ERR NVEncFilterKfm::cacheDeint60Frame(const RGYFrameInfo *frame, cudaStream_
     if (staticEvent() != nullptr) {
         mergeWaitEvents.push_back(staticEvent);
     }
-    sts = dumpStageFrame("static-flag", &m_staticFlag->frame, sourceIndex, stream);
+    sts = dumpStageFrame("static-flag", &m_staticFlag->frame, sourceIndex, stream,
+        (staticEvent() != nullptr) ? std::vector<RGYCudaEvent>{ staticEvent } : mergeWaitEvents);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -980,7 +981,8 @@ RGY_ERR NVEncFilterKfm::cacheDeint60Frame(const RGYFrameInfo *frame, cudaStream_
         *event = entry.event;
     }
     writeFrameInfoDump("deint60", &entry.frame->frame);
-    sts = dumpStageFrame("deint60", &entry.frame->frame, entry.n60, stream);
+    sts = dumpStageFrame("deint60", &entry.frame->frame, entry.n60, stream,
+        (entry.event() != nullptr) ? std::vector<RGYCudaEvent>{ entry.event } : std::vector<RGYCudaEvent>());
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
@@ -1039,7 +1041,8 @@ const NVEncFilterKfm::KfmCachedSource *NVEncFilterKfm::findSourceByIndexExact(in
     return nullptr;
 }
 
-RGY_ERR NVEncFilterKfm::dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index, cudaStream_t stream) {
+RGY_ERR NVEncFilterKfm::dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
     if (!stage || !frame || !frame->ptr[0]) {
         return RGY_ERR_NONE;
     }
@@ -1068,11 +1071,15 @@ RGY_ERR NVEncFilterKfm::dumpStageFrame(const char *stage, const RGYFrameInfo *fr
     if (!planeY.ptr[0] || planeY.width <= 0 || planeY.height <= 0) {
         return RGY_ERR_NONE;
     }
+    auto sts = kfmWaitEvents(stream, wait_events);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
     std::vector<uint8_t> hostY((size_t)planeY.width * planeY.height);
     RGYFrameInfo hostPlaneY(planeY.width, planeY.height, RGY_CSP_Y8, 8, frame->picstruct, RGY_MEM_TYPE_CPU);
     hostPlaneY.ptr[0] = hostY.data();
     hostPlaneY.pitch[0] = planeY.width;
-    auto sts = copyPlaneAsync(&hostPlaneY, &planeY, stream);
+    sts = copyPlaneAsync(&hostPlaneY, &planeY, stream);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to read KFM stage dump Y plane (%s): %s.\n"),
             char_to_tstring(stage).c_str(), get_err_mes(sts));
