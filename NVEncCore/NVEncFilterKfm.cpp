@@ -474,6 +474,46 @@ bool NVEncFilterKfm::stageDumpRequested(int frame24Index) const {
             || m_stageDumpTargetFrames.find(frame24Index) != m_stageDumpTargetFrames.end());
 }
 
+RGY_ERR NVEncFilterKfm::initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>& prm) {
+    m_nrFilter.reset();
+    if (!prm->kfm.nr) {
+        return RGY_ERR_NONE;
+    }
+
+    auto nrParam = std::make_shared<NVEncFilterParamDegrain>();
+    nrParam->frameIn = prm->frameOut;
+    nrParam->frameOut = prm->frameOut;
+    nrParam->baseFps = prm->baseFps;
+    nrParam->bOutOverwrite = false;
+    nrParam->degrain.enable = true;
+    nrParam->degrain.preset = VppDegrainPreset::Auto;
+    nrParam->degrain.mode = VppDegrainMode::Degrain;
+    nrParam->degrain.stage = VppDegrainStage::TR1;
+    nrParam->degrain.delta = 1;
+    nrParam->degrain.search = 4;
+    nrParam->degrain.thsad = 300;
+    nrParam->degrain.thsadc = 150;
+    nrParam->degrain.thscd1 = 1600;
+    nrParam->degrain.thscd2 = 130;
+    nrParam->degrain.pel = 1;
+    nrParam->degrain.blksize = 16;
+    nrParam->degrain.overlap = nrParam->degrain.blksize / 2;
+    nrParam->degrain.levels = 2;
+    nrParam->degrain.chroma = true;
+    nrParam->degrain.binomial = 1;
+    nrParam->degrain.tvRange = true;
+
+    auto nrFilter = std::make_unique<NVEncFilterDegrain>();
+    auto sts = nrFilter->init(nrParam, m_pLog);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to initialize KFM NR Auto degrain(TR1) filter: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    AddMessage(RGY_LOG_INFO, _T("--vpp-kfm nr=true is wired to degrain preset=auto,tr=1,blksize=16,levels=2,binomial=true on the final KFM output stream.\n"));
+    m_nrFilter = std::move(nrFilter);
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterKfm::padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameInfo *pSourceFrame,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     if (!pPaddedFrame || !pSourceFrame) {
@@ -1310,6 +1350,191 @@ int NVEncFilterKfm::telecine24FrameCount(bool drain) const {
         readyFrames++;
     }
     return readyFrames;
+}
+
+RGY_ERR NVEncFilterKfm::runNrFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrame,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!ppOutputFrame) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    *ppOutputFrame = nullptr;
+    if (!m_nrFilter) {
+        *ppOutputFrame = pInputFrame;
+        return RGY_ERR_NONE;
+    }
+
+    auto sts = kfmWaitEvents(stream, wait_events);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    RGYFrameInfo *nrOutFrames[2] = {};
+    int nrOutNum = 0;
+    sts = m_nrFilter->filter(pInputFrame, nrOutFrames, &nrOutNum, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to run KFM NR Auto degrain filter: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    if (nrOutNum > 1) {
+        AddMessage(RGY_LOG_ERROR, _T("KFM NR Auto degrain returned unexpected output count %d.\n"), nrOutNum);
+        return RGY_ERR_INVALID_CALL;
+    }
+    *ppOutputFrame = (nrOutNum > 0) ? nrOutFrames[0] : nullptr;
+    if (*ppOutputFrame) {
+        sts = kfmRecordEvent(stream, event);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, const RGYCudaEvent &frameEvent, RGYCudaEvent *event) {
+    if (!pFrame || !ppOutputFrames || !pOutputFrameNum) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    RGYFrameInfo *emitFrame = pFrame;
+    RGYCudaEvent nrEvent;
+    if (m_nrFilter) {
+        std::vector<RGYCudaEvent> nrWaitEvents;
+        if (frameEvent() != nullptr) {
+            nrWaitEvents.push_back(frameEvent);
+        }
+        auto sts = runNrFilter(pFrame, &emitFrame, stream, nrWaitEvents, &nrEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        if (!emitFrame) {
+            if (event && nrEvent() != nullptr) {
+                *event = nrEvent;
+            }
+            return RGY_ERR_NONE;
+        }
+    }
+    auto outputFrame = nextOutputFrame();
+    if (!outputFrame || !outputFrame->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    std::vector<RGYCudaEvent> copyWaitEvents;
+    if (nrEvent() != nullptr) {
+        copyWaitEvents.push_back(nrEvent);
+    } else if (frameEvent() != nullptr) {
+        copyWaitEvents.push_back(frameEvent);
+    }
+    RGYCudaEvent outputEvent;
+    if (outputFrame != emitFrame) {
+        auto sts = kfmWaitEvents(stream, copyWaitEvents);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = copyFrameAsync(outputFrame, emitFrame, stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM output frame: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        sts = kfmRecordEvent(stream, &outputEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        copyFramePropWithoutRes(outputFrame, emitFrame);
+    } else if (!copyWaitEvents.empty()) {
+        outputEvent = copyWaitEvents.back();
+    }
+    if (event) {
+        if (outputEvent() != nullptr) {
+            *event = outputEvent;
+        }
+    }
+    ppOutputFrames[(*pOutputFrameNum)++] = outputFrame;
+    writeFrameInfoDump("output", outputFrame);
+    writeFrameTimecode(outputFrame);
+    m_timecodeFrameIndex++;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::queueVfrOutputFrame(const RGYFrameInfo *pFrame, cudaStream_t stream, const RGYCudaEvent &frameEvent) {
+    if (!pFrame || !pFrame->ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    KfmPendingVfrOutput pending;
+    pending.frame = acquireKfmFrame(*pFrame, _T("VFR delayed output"));
+    if (!pending.frame) {
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    std::vector<RGYCudaEvent> copyWaitEvents;
+    if (frameEvent() != nullptr) {
+        copyWaitEvents.push_back(frameEvent);
+    }
+    auto sts = kfmWaitEvents(stream, copyWaitEvents);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = copyFrameAsync(&pending.frame->frame, pFrame, stream);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM VFR delayed output frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    sts = kfmRecordEvent(stream, &pending.event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    copyFramePropWithoutRes(&pending.frame->frame, pFrame);
+    m_pendingVfrOutputs.push_back(std::move(pending));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::emitPendingVfrOutput(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, RGYCudaEvent *event) {
+    if (m_pendingVfrOutputs.empty()) {
+        return RGY_ERR_NONE;
+    }
+    auto pending = std::move(m_pendingVfrOutputs.front());
+    m_pendingVfrOutputs.pop_front();
+    if (!pending.frame || !pending.frame->frame.ptr[0]) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    return emitOutputFrame(&pending.frame->frame, ppOutputFrames, pOutputFrameNum, stream, pending.event, event);
+}
+
+RGY_ERR NVEncFilterKfm::emitPendingVfrOutputs(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, RGYCudaEvent *event, int keepFrames) {
+    keepFrames = std::max(0, keepFrames);
+    const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+    while ((int)m_pendingVfrOutputs.size() > keepFrames && *pOutputFrameNum < maxOutputFrames) {
+        const int outputFrameNumBefore = *pOutputFrameNum;
+        auto sts = emitPendingVfrOutput(ppOutputFrames, pOutputFrameNum, stream, event);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        if (*pOutputFrameNum == outputFrameNumBefore) {
+            break;
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::drainNrFilter(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, RGYCudaEvent *event) {
+    if (!m_nrFilter || !ppOutputFrames || !pOutputFrameNum) {
+        return RGY_ERR_NONE;
+    }
+    RGYFrameInfo *emitFrame = nullptr;
+    RGYCudaEvent nrEvent;
+    auto sts = runNrFilter(nullptr, &emitFrame, stream, {}, &nrEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    if (!emitFrame) {
+        return RGY_ERR_NONE;
+    }
+    if (event && nrEvent() != nullptr) {
+        *event = nrEvent;
+    }
+    ppOutputFrames[(*pOutputFrameNum)++] = emitFrame;
+    writeFrameInfoDump("output", emitFrame);
+    writeFrameTimecode(emitFrame);
+    m_timecodeFrameIndex++;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t stream) {
