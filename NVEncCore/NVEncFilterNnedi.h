@@ -31,12 +31,6 @@
 #include "NVEncFilter.h"
 #include "rgy_prm.h"
 
-enum NnediTargetField {
-    NNEDI_GEN_FIELD_UNKNOWN = -1,
-    NNEDI_GEN_FIELD_TOP = 0,
-    NNEDI_GEN_FIELD_BOTTOM
-};
-
 class NVEncFilterParamNnedi : public NVEncFilterParam {
 public:
     VppNnedi nnedi;
@@ -51,12 +45,6 @@ public:
 
 class NVEncFilterNnedi : public NVEncFilter {
 public:
-    static const int weight_loop_1;
-    static const int sizeNX[];
-    static const int sizeNY[];
-    static const int sizeNN[];
-    static const int maxVal = 65535 >> 8;
-public:
     NVEncFilterNnedi();
     virtual ~NVEncFilterNnedi();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
@@ -65,15 +53,5 @@ protected:
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamNnedi> pParam);
     virtual RGY_ERR initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
-    void setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames);
 
-    template<typename TypeWeight>
-    void setWeight0(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
-
-    template<typename TypeWeight>
-    void setWeight1(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
-    virtual shared_ptr<const float> readWeights(const tstring& weightFile, HMODULE hModule);
-
-    CUMemBuf m_weight0;
-    std::array<CUMemBuf, 2> m_weight1;
 };
