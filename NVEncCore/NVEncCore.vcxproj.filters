@@ -527,6 +527,9 @@
     <ClInclude Include="NVEncFilterRtgmcCommon.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterRtgmcEdi.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="NVEncFilterRtgmcPrimitive.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -881,6 +884,9 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterRtgmcBob.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterRtgmcEdi.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterRtgmcPrimitive.cu">

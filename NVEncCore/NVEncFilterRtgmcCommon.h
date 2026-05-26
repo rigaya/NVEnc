@@ -30,7 +30,7 @@
 
 #include <algorithm>
 
-#include "NVEncFilter.h"
+#include "NVEncFilterDegrainMV.h"
 
 class RGYFrameDataRtgmcEdi : public RGYFrameData {
 public:
