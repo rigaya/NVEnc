@@ -513,6 +513,15 @@ static const bool  FILTER_DEFAULT_DEGRAIN_CHROMA = false;
 static const int   FILTER_DEFAULT_DEGRAIN_BINOMIAL = -1; // -1:auto, 0:false, 1:true
 static const bool  FILTER_DEFAULT_DEGRAIN_TV_RANGE = false;
 static const int   FILTER_DEFAULT_DEGRAIN_MV_SPATIAL_REFINE = -1;
+static const int   FILTER_DEFAULT_RTGMC_MV_SPATIAL_REFINE = -1;
+static const float FILTER_DEFAULT_RTGMC_RETOUCH_SHARPNESS = 1.0f;
+static const float FILTER_DEFAULT_RTGMC_RETOUCH_LIMIT = 0.0f;
+static const int   FILTER_DEFAULT_RTGMC_RETOUCH_SMODE = 2;
+static const int   FILTER_DEFAULT_RTGMC_RETOUCH_SLMODE = 2;
+static const int   FILTER_DEFAULT_RTGMC_RETOUCH_SLRAD = 1;
+static const int   FILTER_DEFAULT_RTGMC_RETOUCH_SOVS = 0;
+static const float FILTER_DEFAULT_RTGMC_RETOUCH_SVTHIN = 0.0f;
+static const int   FILTER_DEFAULT_RTGMC_RETOUCH_SBB = 0;
 
 struct RGYQPSet {
     bool enable;
@@ -2699,6 +2708,26 @@ const CX_DESC list_vpp_rtgmc_tuning[] = {
     { _T("dv-sd"), (int)VppRtgmcTuning::DVSD },
     { _T("dv-hd"), (int)VppRtgmcTuning::DVHD },
     { NULL, 0 }
+};
+
+struct VppRtgmcRetouch {
+    bool enable;
+    float sharpness;
+    float limit;
+    int smode;
+    int slmode;
+    int slrad;
+    int sovs;
+    float svthin;
+    int sbb;
+    bool precise;
+    int tr1;
+    int tr2;
+
+    VppRtgmcRetouch();
+    bool operator==(const VppRtgmcRetouch& x) const;
+    bool operator!=(const VppRtgmcRetouch& x) const;
+    tstring print() const;
 };
 
 enum class VppKfmMode {
