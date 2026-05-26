@@ -77,12 +77,12 @@ public:
     void clearSpatialLimitBaseFrame();
     void setTemporalLimitFrames(const RGYRtgmcRetouchTemporalLimitFrames &frames);
     void clearTemporalLimitFrames();
+    RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
 
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream) override;
-    RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     virtual void close() override;
 
     RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamRtgmcRetouch> &prm);
