@@ -4057,9 +4057,12 @@ RGY_ERR NVEncFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFram
         }
     }
 
-    if (event && prevEvent() != nullptr) {
-        *event = prevEvent;
-    }
+    copyFramePropWithoutRes(pSwitchFlagFrame, pTelecineSuperFrame);
+    copyFramePropWithoutRes(pContainsCombeFrame, pTelecineSuperFrame);
+    copyFramePropWithoutRes(pCombeMaskFrame, pTelecineSuperFrame);
+    pSwitchFlagFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pContainsCombeFrame->picstruct = RGY_PICSTRUCT_FRAME;
+    pCombeMaskFrame->picstruct = RGY_PICSTRUCT_FRAME;
     writeFrameInfoDump(switchFlagStage, pSwitchFlagFrame);
     auto dumpSts = dumpStageFrame(switchFlagStage, pSwitchFlagFrame, maskDumpFrameIndex, stream, { switchEvent });
     if (dumpSts != RGY_ERR_NONE) {
@@ -4075,6 +4078,9 @@ RGY_ERR NVEncFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFram
         (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
     if (dumpSts != RGY_ERR_NONE) {
         return dumpSts;
+    }
+    if (event && prevEvent() != nullptr) {
+        *event = prevEvent;
     }
     return RGY_ERR_NONE;
 }
