@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.17
+
+- Add [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1) motion-compensated degrain filter.
+
 ## 9.16
 
 - Improve subtitle burn-in for Blu-ray and MPEG-TS inputs. ( #756 )

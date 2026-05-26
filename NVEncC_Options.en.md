@@ -1800,6 +1800,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
 - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
 - [--vpp-kfm](#--vpp-kfm-param1value1param2value2)
+- [--vpp-degrain](#--vpp-degrain-param1value1) (`mode=analyze`)
 - [--vpp-yadif](#--vpp-yadif-param1value1)
 - [--vpp-bwdif](#--vpp-bwdif-param1value1)
 - [--vpp-decomb](#--vpp-decomb-param1value1param2value2)
@@ -1817,6 +1818,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
 - [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
+- [--vpp-degrain](#--vpp-degrain-param1value1) (`mode=degrain` / `tr=1,2`)
 - [--vpp-gauss](#--vpp-gauss-int)
 - [--vpp-subburn](#--vpp-subburn-param1value1param2value2)
 - [--vpp-libplacebo-shader](#--vpp-libplacebo-shader-param1value1param2value2)
@@ -2741,6 +2743,7 @@ Motion compensated degrain debug filter.
     Chroma analysis and prefilter/range controls.
 
 - **Note (Limitations)**
+  - `mode=analyze` is inserted after `--vpp-kfm`; `mode=degrain` / `tr=1,2` are inserted after denoise filters. This matches the multi-stage degrain pipeline.
   - Analysis modes require levels=2.
   - Analysis supports only blksize=8, 16, or 32.
   - overlap supports only 0 or blksize/2.
