@@ -28,7 +28,7 @@
 
 #include "NVEncFilterKfm.h"
 #include "NVEncFilterDegrain.h"
-#include "NVEncFilterRtgmcBob.h"
+#include "NVEncFilterRtgmc.h"
 #include "rgy_filesystem.h"
 #include <algorithm>
 #include <cmath>
@@ -58,9 +58,28 @@ static bool kfmDisableCCDuration() {
     return env != nullptr && env[0] == '1' && env[1] == '\0';
 }
 
+static bool kfmDeint60BranchEnabled() {
+    const char *env = std::getenv("NVENC_KFM_ENABLE_DEINT60_BRANCH");
+    return env != nullptr && env[0] == '1' && env[1] == '\0';
+}
+
 static bool kfmCspHasInterleavedUV(const RGY_CSP csp) {
     return csp == RGY_CSP_NV12 || csp == RGY_CSP_P010
         || csp == RGY_CSP_NV16 || csp == RGY_CSP_P210;
+}
+
+static void kfmEraseInternalFrameData(RGYFrameInfo *frame) {
+    if (!frame) {
+        return;
+    }
+    frame->dataList.erase(std::remove_if(frame->dataList.begin(), frame->dataList.end(), [](const std::shared_ptr<RGYFrameData>& data) {
+        return data
+            && !(data->dataType() == RGY_FRAME_DATA_QP
+                || data->dataType() == RGY_FRAME_DATA_METADATA
+                || data->dataType() == RGY_FRAME_DATA_HDR10PLUS
+                || data->dataType() == RGY_FRAME_DATA_DOVIRPU
+                || data->dataType() == RGY_FRAME_DATA_KFM_SWITCH);
+    }), frame->dataList.end());
 }
 
 static int kfmFrameParity(const RGYFrameInfo *frame) {
@@ -474,6 +493,36 @@ bool NVEncFilterKfm::stageDumpRequested(int frame24Index) const {
             || m_stageDumpTargetFrames.find(frame24Index) != m_stageDumpTargetFrames.end());
 }
 
+RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& prm, std::unique_ptr<NVEncFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag) {
+    auto rtgmcParam = std::make_shared<NVEncFilterParamRtgmc>();
+    rtgmcParam->rtgmc.enable = true;
+    rtgmcParam->rtgmc.preset = prm->kfm.preset;
+    apply_vpp_rtgmc_preset(rtgmcParam->rtgmc, prm->kfm.preset, rtgmcParam->rtgmc.tuning);
+    if (useFlag > 0) {
+        rtgmcParam->rtgmc.tr1.useFlag = useFlag;
+        rtgmcParam->rtgmc.tr2.useFlag = useFlag;
+        rtgmcParam->rtgmc.analyze.useFlag = useFlag;
+    }
+    rtgmcParam->frameIn = prm->frameIn;
+    rtgmcParam->frameOut = prm->frameOut;
+    rtgmcParam->baseFps = prm->baseFps;
+    rtgmcParam->timebase = prm->timebase;
+    rtgmcParam->bOutOverwrite = false;
+
+    rtgmc = std::make_unique<NVEncFilterRtgmc>();
+    auto sts = rtgmc->init(rtgmcParam, m_pLog);
+    if (sts != RGY_ERR_NONE) {
+        rtgmc.reset();
+        return sts;
+    }
+
+    if (updateOutputParam) {
+        prm->frameOut = rtgmcParam->frameOut;
+        prm->baseFps = rtgmcParam->baseFps;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR NVEncFilterKfm::initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>& prm) {
     m_nrFilter.reset();
     if (!prm->kfm.nr) {
@@ -633,10 +682,28 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     m_before60CacheCopyEvent = RGYCudaEvent();
     m_after60CacheCopyEvent = RGYCudaEvent();
 
+    auto sts = RGY_ERR_NONE;
+    if (prm->kfm.mode == VppKfmMode::P60) {
+        sts = initRtgmc(prm, m_rtgmc, true);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        if (prm->kfm.ucf) {
+            sts = initRtgmc(prm, m_before60Rtgmc, false, 1);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            sts = initRtgmc(prm, m_after60Rtgmc, false, 2);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+    }
+
     const bool needTelecineWorkFrames = prm->kfm.mode == VppKfmMode::P24
         || prm->kfm.mode == VppKfmMode::VFR;
     const int frameBufCount = needTelecineWorkFrames ? (prm->kfm.ucf ? 16 : 8) : 8;
-    auto sts = AllocFrameBuf(prm->frameOut, frameBufCount);
+    sts = AllocFrameBuf(prm->frameOut, frameBufCount);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM output buffer: %s.\n"), get_err_mes(sts));
         return RGY_ERR_MEMORY_ALLOC;
@@ -661,6 +728,23 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         }
     } else {
         m_staticFlag.reset();
+    }
+    if (prm->kfm.mode == VppKfmMode::VFR
+        || (prm->kfm.mode == VppKfmMode::P24 && kfmDeint60BranchEnabled())) {
+        sts = initRtgmc(prm, m_deint60Rtgmc, false);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (prm->kfm.mode != VppKfmMode::P60 && prm->kfm.ucf) {
+        sts = initRtgmc(prm, m_before60Rtgmc, false, 1);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = initRtgmc(prm, m_after60Rtgmc, false, 2);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
     }
     sts = initAnalyzer(*prm);
     if (sts != RGY_ERR_NONE) {
@@ -1836,6 +1920,7 @@ RGY_ERR NVEncFilterKfm::emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppO
     } else if (!copyWaitEvents.empty()) {
         outputEvent = copyWaitEvents.back();
     }
+    kfmEraseInternalFrameData(outputFrame);
     if (event) {
         if (outputEvent() != nullptr) {
             *event = outputEvent;
@@ -1926,10 +2011,84 @@ RGY_ERR NVEncFilterKfm::drainNrFilter(RGYFrameInfo **ppOutputFrames, int *pOutpu
     if (event && nrEvent() != nullptr) {
         *event = nrEvent;
     }
+    kfmEraseInternalFrameData(emitFrame);
     ppOutputFrames[(*pOutputFrameNum)++] = emitFrame;
     writeFrameInfoDump("output", emitFrame);
     writeFrameTimecode(emitFrame);
     m_timecodeFrameIndex++;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::processMainRtgmcOutputs(const NVEncFilterParamKfm& prm, RGYFrameInfo **rtgmcOutFrames, int rtgmcOutNum,
+    RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (rtgmcOutNum <= 0) {
+        return RGY_ERR_NONE;
+    }
+    std::vector<RGYCudaEvent> mergeWaitEvents = wait_events;
+    RGYCudaEvent staticEvent;
+    auto sts = analyzeStaticFlag(stream, wait_events, &staticEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    if (staticEvent() != nullptr) {
+        mergeWaitEvents.push_back(staticEvent);
+    }
+    for (int i = 0; i < rtgmcOutNum; i++) {
+        auto out = nextWorkFrame();
+        if (!out) {
+            return RGY_ERR_INVALID_CALL;
+        }
+        auto frameWaitEvents = mergeWaitEvents;
+        const auto source = findSourceFrame(rtgmcOutFrames[i], &frameWaitEvents);
+        if (!source) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM source frame is missing for output inputFrameId=%d.\n"), rtgmcOutFrames[i]->inputFrameId);
+            return RGY_ERR_INVALID_CALL;
+        }
+        RGYCudaEvent mergeEvent;
+        sts = mergeStatic(out, rtgmcOutFrames[i], source, stream, frameWaitEvents, &mergeEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        if (prm.kfm.ucf) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM ucf=true output path is not ported yet.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        } else {
+            sts = emitOutputFrame(out, ppOutputFrames, pOutputFrameNum, stream, mergeEvent, event);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterKfm::drainMainRtgmcBranch(const NVEncFilterParamKfm& prm, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, RGYCudaEvent *event) {
+    if (!m_rtgmc) {
+        return RGY_ERR_NONE;
+    }
+    const auto maxDrainIterations = std::max(256, m_cachedSourceFrames * 4 + 256);
+    for (int iter = 0; *pOutputFrameNum == 0 && !m_rtgmc->drainComplete(); iter++) {
+        if (iter >= maxDrainIterations) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM main RTGMC drain did not complete after %d iterations.\n"), maxDrainIterations);
+            return RGY_ERR_INVALID_CALL;
+        }
+        int rtgmcOutNum = 0;
+        RGYFrameInfo *rtgmcOutFrames[8] = { 0 };
+        RGYCudaEvent rtgmcEvent;
+        auto sts = m_rtgmc->filter(nullptr, rtgmcOutFrames, &rtgmcOutNum, stream, {}, &rtgmcEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        std::vector<RGYCudaEvent> processWaitEvents;
+        if (rtgmcEvent() != nullptr) {
+            processWaitEvents.push_back(rtgmcEvent);
+        }
+        sts = processMainRtgmcOutputs(prm, rtgmcOutFrames, rtgmcOutNum, ppOutputFrames, pOutputFrameNum, stream, processWaitEvents, event);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
     return RGY_ERR_NONE;
 }
 
@@ -2172,10 +2331,58 @@ void NVEncFilterKfm::flushUcfNoiseResultDump() {
 }
 
 RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
-    UNREFERENCED_PARAMETER(pInputFrame);
-    UNREFERENCED_PARAMETER(ppOutputFrames);
-    UNREFERENCED_PARAMETER(pOutputFrameNum);
-    UNREFERENCED_PARAMETER(stream);
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    if (m_rtgmc) {
+        auto sts = cacheSourceFrame(pInputFrame, stream, {});
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
+            sts = analyzeAvailableSource(true, stream);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        if (prm->kfm.ucf) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM ucf=true RTGMC branches are not ported yet.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        int rtgmcOutNum = 0;
+        RGYFrameInfo *rtgmcOutFrames[8] = { 0 };
+        RGYCudaEvent rtgmcEvent;
+        sts = m_rtgmc->filter(const_cast<RGYFrameInfo *>(pInputFrame), rtgmcOutFrames, &rtgmcOutNum, stream, {}, &rtgmcEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        *pOutputFrameNum = 0;
+        std::vector<RGYCudaEvent> processWaitEvents;
+        if (rtgmcEvent() != nullptr) {
+            processWaitEvents.push_back(rtgmcEvent);
+        }
+        sts = processMainRtgmcOutputs(*prm, rtgmcOutFrames, rtgmcOutNum, ppOutputFrames, pOutputFrameNum, stream, processWaitEvents, nullptr);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        if ((pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) && *pOutputFrameNum == 0 && !m_rtgmc->drainComplete()) {
+            sts = drainMainRtgmcBranch(*prm, ppOutputFrames, pOutputFrameNum, stream, nullptr);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        if ((pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) && *pOutputFrameNum == 0 && m_rtgmc->drainComplete()) {
+            sts = drainNrFilter(ppOutputFrames, pOutputFrameNum, stream, nullptr);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        return RGY_ERR_NONE;
+    }
+
+    AddMessage(RGY_LOG_ERROR, _T("KFM mode %s is not ported yet.\n"), get_cx_desc(list_vpp_kfm_mode, (int)prm->kfm.mode));
     return RGY_ERR_UNSUPPORTED;
 }
 

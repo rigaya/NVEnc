@@ -78,6 +78,9 @@ public:
     NVEncFilterRtgmc();
     virtual ~NVEncFilterRtgmc();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    using NVEncFilter::filter;
+    RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     bool draining() const;
     bool drainComplete() const;
 

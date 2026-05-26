@@ -77,10 +77,10 @@ public:
     void clearSpatialLimitBaseFrame();
     void setTemporalLimitFrames(const RGYRtgmcRetouchTemporalLimitFrames &frames);
     void clearTemporalLimitFrames();
-    RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
 
 protected:
+    RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream) override;
     virtual void close() override;

@@ -1725,7 +1725,7 @@ RGY_ERR NVEncFilterRtgmc::runSourceMatchCorrectionPass(int stageIdx, RGYFrameInf
         RGYFrameInfo *enhanceOutFrames[RGY_RTGMC_MAX_OUT_FRAMES] = { 0 };
         RGYCudaEvent enhanceEvent;
         auto enhanceWaitEvents = (event && (*event)() != nullptr) ? std::vector<RGYCudaEvent>{ *event } : std::vector<RGYCudaEvent>();
-        sts = pass.correctionEnhance->run_filter(ppOutputFrames[0], enhanceOutFrames, &enhanceOutNum, stream, enhanceWaitEvents, &enhanceEvent);
+        sts = rtgmcRunFilterWithEvents(pass.correctionEnhance.get(), ppOutputFrames[0], enhanceOutFrames, &enhanceOutNum, stream, enhanceWaitEvents, &enhanceEvent);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -2029,7 +2029,7 @@ RGY_ERR NVEncFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInput
                 }
             }
         }
-        auto sts = retouch->run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream, repairWaitEvents, event);
+        auto sts = rtgmcRunFilterWithEvents(retouch, pInputFrame, ppOutputFrames, pOutputFrameNum, stream, repairWaitEvents, event);
         retouch->clearTemporalLimitFrames();
         retouch->clearSpatialLimitBaseFrame();
         return sts;
@@ -2307,6 +2307,11 @@ RGY_ERR NVEncFilterRtgmc::returnPendingFrames(RGYFrameInfo **ppOutputFrames, int
 RGY_ERR NVEncFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream) {
     return run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream, {}, nullptr);
+}
+
+RGY_ERR NVEncFilterRtgmc::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    return run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream, wait_events, event);
 }
 
 RGY_ERR NVEncFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
