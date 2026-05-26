@@ -28,8 +28,20 @@
 
 #pragma once
 
+#include <array>
+#include <cstdio>
+#include <deque>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
 #include "NVEncFilter.h"
+#include "NVEncFilterDegrainMV.h"
 #include "rgy_filter_kfm_analyze.h"
+
+class NVEncFilterDegrain;
+class NVEncFilterRtgmcBob;
 
 class NVEncFilterParamKfm : public NVEncFilterParam {
 public:
@@ -84,8 +96,266 @@ public:
     NVEncFilterKfm();
     virtual ~NVEncFilterKfm();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual int requiredOutputFrames() const;
 
 protected:
+    struct KfmCachedSource;
+    struct KfmCachedDeint60;
+    struct KfmCachedUcfNoise;
+    struct KfmUcfNoiseDumpRecord;
+    struct KfmPendingUcfNoiseResult;
+    struct KfmUcfGaussProgram;
+    struct KfmPendingFMCount;
+    struct KfmPendingVfrOutput;
+    enum KfmFrameType {
+        KFM_FRAME_60 = 1,
+        KFM_FRAME_30 = 2,
+        KFM_FRAME_24 = 3,
+        KFM_FRAME_UCF = 4,
+    };
+    enum KfmUcf60Flag {
+        KFM_UCF60_NONE = 0,
+        KFM_UCF60_NR = 1,
+        KFM_UCF60_PREV = 2,
+        KFM_UCF60_NEXT = 3,
+    };
+    enum KfmUcf24SelectType {
+        KFM_UCF24_SELECT_DEINT24 = 0,
+        KFM_UCF24_SELECT_FRAME = 1,
+        KFM_UCF24_SELECT_DWEAVE = 2,
+    };
+    struct KfmUcf24Selection {
+        KfmUcf24SelectType type;
+        int n60;
+        const RGYFrameInfo *frame;
+
+        KfmUcf24Selection() : type(KFM_UCF24_SELECT_DEINT24), n60(-1), frame(nullptr) {};
+    };
+    struct KfmSwitchTiming {
+        int start60;
+        int start120;
+        int sourceIndex;
+        int frame24Index;
+        int baseType;
+        int sourceStart;
+        int numSourceFrames;
+        int duration60;
+        int duration120;
+        bool isFrame24;
+        bool isFrame60;
+
+        KfmSwitchTiming() : start60(0), start120(0), sourceIndex(0), frame24Index(-1), baseType(KFM_FRAME_60), sourceStart(0), numSourceFrames(1), duration60(1), duration120(2), isFrame24(false), isFrame60(false) {};
+    };
+    class SharedFramePool {
+    public:
+        std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo& info);
+        void clear();
+    private:
+        std::deque<std::shared_ptr<CUFrameBuf>> m_pool;
+    };
+
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
+
+    RGY_ERR initAnalyzer(const NVEncFilterParamKfm& prm);
+    void initStageDumpConfig(const NVEncFilterParamKfm& prm);
+    bool stageDumpRequested(int frame24Index) const;
+    RGY_ERR dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index, cudaStream_t stream);
+    std::shared_ptr<CUFrameBuf> acquireKfmFrame(const RGYFrameInfo& info, const TCHAR *label);
+    RGY_ERR allocWorkFrameBuf(const RGYFrameInfo& frame, int frames);
+    RGYFrameInfo *nextOutputFrame();
+    RGYFrameInfo *nextWorkFrame();
+    size_t sourceCacheLimit() const;
+    size_t deint60CacheLimit() const;
+    int sourceCacheTrimFloor() const;
+    int deint60CacheTrimFloor() const;
+    const RGYFrameInfo *findDeint60Frame(int n60, std::vector<RGYCudaEvent> *wait_events) const;
+    const RGYFrameInfo *findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYCudaEvent> *wait_events);
+    const KfmCachedSource *findSourceByIndex(int sourceIndex) const;
+    const KfmCachedSource *findSourceByIndexExact(int sourceIndex) const;
+    const KfmCachedDeint60 *findCachedDeint60Frame(const std::deque<KfmCachedDeint60>& cache, int n60, std::vector<RGYCudaEvent> *wait_events) const;
+    const KfmUcfNoiseDumpRecord *findUcfNoiseResult(int sourceIndex) const;
+    void finalizeAnalyzerResults(VppKfmTiming timing);
+    std::vector<RGYKFM::KFMResult> analyzerResultsSnapshot(bool mark60p) const;
+    void appendAnalyzerResults(size_t resultCount, bool dump, bool mark60p);
+    std::vector<KfmSwitchTiming> deriveSwitchTimings(int total60) const;
+    int64_t sourceFrameDuration(const KfmCachedSource *source) const;
+    bool isSwitchSingleFrameN60(int n60) const;
+    void markSwitchSingleFrameN60Range(int start60, int duration60);
+    bool switchSingleFrameDurationEnabled() const;
+    void writeSwitchTimingDump();
+    void writeTelecine24DurationDump();
+    void writeFMCountDump(const std::array<RGYKFM::FMCount, 18>& counts, int cycle);
+    void writeAnalyzerResult(const RGYKFM::KFMResult& result, bool dump);
+    void writeAnalyzerResultsFinal(size_t resultCount, bool mark60p);
+    void writeFrameTimecode(const RGYFrameInfo *frame);
+    void writeFrameInfoDump(const char *stage, const RGYFrameInfo *frame, const RGYKFM::KFMResult *result = nullptr);
+    void writeContainsCombeDump(const char *stage, const KfmSwitchTiming& timing, uint32_t containsCombeCount, bool durationApplied, const RGYKFM::KFMResult *result);
+    void attachSwitchFrameData(RGYFrameInfo *frame, const KfmSwitchTiming& timing, const RGYKFM::KFMResult *result) const;
+    int telecine24FrameCount(bool drain) const;
+    void flushUcfNoiseResultDump();
+
+    struct KfmCachedSource {
+        int sourceIndex;
+        int inputFrameId;
+        int64_t timestamp;
+        std::shared_ptr<CUFrameBuf> frame;
+        std::shared_ptr<CUFrameBuf> paddedFrame;
+        RGYCudaEvent event;
+        RGYCudaEvent paddedEvent;
+
+        KfmCachedSource() : sourceIndex(-1), inputFrameId(-1), timestamp(0), frame(), paddedFrame(), event(), paddedEvent() {};
+    };
+
+    struct KfmCachedDeint60 {
+        int n60;
+        int inputFrameId;
+        int64_t timestamp;
+        int64_t duration;
+        std::shared_ptr<CUFrameBuf> frame;
+        RGYCudaEvent event;
+
+        KfmCachedDeint60() : n60(-1), inputFrameId(-1), timestamp(0), duration(0), frame(), event() {};
+    };
+
+    struct KfmCachedUcfNoise {
+        int fieldIndex;
+        int inputFrameId;
+        int64_t timestamp;
+        std::shared_ptr<CUFrameBuf> frame;
+        RGYCudaEvent event;
+
+        KfmCachedUcfNoise() : fieldIndex(-1), inputFrameId(-1), timestamp(0), frame(), event() {};
+    };
+
+    struct KfmUcfNoiseDumpRecord {
+        int sourceIndex;
+        RGYKFM::NoiseResult results[2];
+        RGYKFM::UCFNoiseMeta meta;
+        bool valid;
+
+        KfmUcfNoiseDumpRecord() : sourceIndex(-1), results(), meta(), valid(false) {};
+    };
+
+    struct KfmPendingUcfNoiseResult {
+        struct Segment {
+            int offset;
+            int count;
+            int plane;
+        };
+        int sourceIndex;
+        std::unique_ptr<CUMemBuf> resultBuf;
+        std::vector<Segment> segments;
+        RGYKFM::UCFNoiseMeta meta;
+
+        KfmPendingUcfNoiseResult() : sourceIndex(-1), resultBuf(), segments(), meta() {};
+    };
+
+    struct KfmUcfGaussProgram {
+        int sourceSize;
+        int targetSize;
+        int filterSize;
+        std::unique_ptr<CUMemBuf> offset;
+        std::unique_ptr<CUMemBuf> coeff;
+
+        KfmUcfGaussProgram() : sourceSize(0), targetSize(0), filterSize(0), offset(), coeff() {};
+    };
+
+    struct KfmPendingFMCount {
+        int cycle;
+        std::vector<std::unique_ptr<CUMemBuf>> pairCounts;
+
+        KfmPendingFMCount() : cycle(-1), pairCounts() {};
+    };
+
+    struct KfmPendingVfrOutput {
+        std::shared_ptr<CUFrameBuf> frame;
+        RGYCudaEvent event;
+
+        KfmPendingVfrOutput() : frame(), event() {};
+    };
+
+    std::unique_ptr<NVEncFilterRtgmcBob> m_rtgmc;
+    std::unique_ptr<NVEncFilterRtgmcBob> m_deint60Rtgmc;
+    std::unique_ptr<NVEncFilterRtgmcBob> m_before60Rtgmc;
+    std::unique_ptr<NVEncFilterRtgmcBob> m_after60Rtgmc;
+    std::unique_ptr<NVEncFilterDegrain> m_nrFilter;
+    std::unique_ptr<RGYKFM::KFMAnalyze> m_analyzer;
+    std::shared_ptr<SharedFramePool> m_kfmFramePool;
+    std::deque<KfmCachedSource> m_sourceCache;
+    std::deque<KfmCachedDeint60> m_deint60Cache;
+    std::deque<KfmCachedDeint60> m_before60Cache;
+    std::deque<KfmCachedDeint60> m_after60Cache;
+    std::deque<KfmCachedUcfNoise> m_ucfNoiseCache;
+    std::deque<KfmPendingUcfNoiseResult> m_pendingUcfNoiseResults;
+    std::deque<std::unique_ptr<CUMemBuf>> m_fmCountBufPool;
+    std::deque<std::unique_ptr<CUMemBuf>> m_ucfNoiseResultBufPool;
+    std::deque<KfmUcfNoiseDumpRecord> m_ucfNoiseResultCache;
+    KfmUcfNoiseDumpRecord m_pendingUcfNoiseDump;
+    int m_deint60SubmittedSourceFrames;
+    int m_before60SubmittedSourceFrames;
+    int m_after60SubmittedSourceFrames;
+    RGYCudaEvent m_deint60CacheCopyEvent;
+    RGYCudaEvent m_before60CacheCopyEvent;
+    RGYCudaEvent m_after60CacheCopyEvent;
+    std::unique_ptr<CUFrameBuf> m_staticFlag;
+    std::array<std::unique_ptr<CUFrameBuf>, 5> m_staticWorkFrames;
+    std::array<std::unique_ptr<CUMemBuf>, 2> m_analyzeFlags;
+    std::deque<KfmPendingFMCount> m_pendingFMCounts;
+    std::deque<KfmPendingVfrOutput> m_pendingVfrOutputs;
+    std::array<std::unique_ptr<CUMemBuf>, 2> m_telecineSuperRaw;
+    std::array<std::unique_ptr<CUFrameBuf>, 2> m_telecineSuperFrames;
+    std::array<std::unique_ptr<CUFrameBuf>, 2> m_telecineSuperNeighborFrames;
+    std::array<std::unique_ptr<CUFrameBuf>, 4> m_switchFlagFrames;
+    std::array<std::unique_ptr<CUFrameBuf>, 4> m_containsCombeFrames;
+    std::array<std::unique_ptr<CUFrameBuf>, 4> m_combeMaskFrames;
+    std::array<std::unique_ptr<CUFrameBuf>, 4> m_patchCombeFrames;
+    std::array<std::unique_ptr<CUFrameBuf>, 2> m_ucfNoiseFieldFrames;
+    std::array<std::unique_ptr<CUFrameBuf>, 2> m_ucfNoiseGaussTmpFrames;
+    std::array<std::unique_ptr<CUFrameBuf>, 2> m_ucfNoiseGaussFrames;
+    std::array<std::array<KfmUcfGaussProgram, 2>, 2> m_ucfNoiseGaussVert;
+    std::array<std::array<KfmUcfGaussProgram, 2>, 2> m_ucfNoiseGaussHori;
+    std::array<std::unique_ptr<CUMemBuf>, 4> m_switchFlagWork;
+    RGYCudaEvent m_switchFlagWorkEvent;
+    std::unique_ptr<CUMemBuf> m_containsCombeCount;
+    FILE *m_fpResult;
+    FILE *m_fpFMCount;
+    FILE *m_fpTimecode;
+    FILE *m_fpFrameInfo;
+    FILE *m_fpContainsCombe;
+    FILE *m_fpUcfNoise;
+    tstring m_switchDurationPath;
+    tstring m_switchTimecodePath;
+    std::string m_stageDumpDir;
+    RGYKFM::KFMResult m_lastAnalyzeResult;
+    std::vector<RGYKFM::KFMResult> m_analyzerOutputResults;
+    bool m_hasLastAnalyzeResult;
+    bool m_analyzerFinalized;
+    bool m_switchTimingDumped;
+    int m_analyzeSourceFrames;
+    int m_nextAnalyzeCycle;
+    int m_nextFMCountSubmitCycle;
+    int m_nextFMCountDumpFrame;
+    int m_cachedSourceFrames;
+    int m_nextSwitchN60;
+    int64_t m_nextSwitchPts;
+    bool m_hasLastSwitchTiming;
+    int m_lastSwitchStart60;
+    int m_lastSwitchDuration60;
+    int64_t m_lastSwitchStart120;
+    bool m_lastSwitchIsFrame24;
+    std::vector<int> m_switchSingleFrameN60;
+    std::unordered_map<std::string, int> m_stageDumpFrameCounts;
+    std::unordered_map<std::string, std::unordered_set<int>> m_stageDumpFrameIndices;
+    std::unordered_set<int> m_stageDumpTargetFrames;
+    int m_nextTelecine24Frame;
+    int64_t m_nextTelecine24Pts;
+    int m_telecineSuperBufferIndex;
+    int m_maskBranchBufferIndex;
+    int m_patchCombeBufferIndex;
+    int m_stageDumpMaxFrames;
+    int m_timecodeFrameIndex;
+    int m_outputBufferIndex;
+    std::vector<std::unique_ptr<CUFrameBuf>> m_workFrameBuf;
+    int m_workBufferIndex;
 };
