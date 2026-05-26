@@ -256,11 +256,9 @@ static const ENC_OPTION_STR list_vpp_afs_analyze[] = {
 };
 
 static const ENC_OPTION_STR2 list_vpp_nnedi_pre_screen_gui[] = {
-    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NONE,           L"none",           VPP_NNEDI_PRE_SCREEN_NONE           },
-    { AUO_CONFIG_CX_NNEDI_PRESCREEN_ORIGINAL,       L"original",       VPP_NNEDI_PRE_SCREEN_ORIGINAL       },
-    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NEW,            L"new",            VPP_NNEDI_PRE_SCREEN_NEW            },
-    { AUO_CONFIG_CX_NNEDI_PRESCREEN_ORIGINAL_BLOCK, L"original_block", VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
-    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NEW_BLOCK,      L"new_block",      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK      },
+    { AUO_MES_UNKNOWN, L"2", 2 },
+    { AUO_MES_UNKNOWN, L"3", 3 },
+    { AUO_MES_UNKNOWN, L"4", 4 },
     { AUO_MES_UNKNOWN, NULL, NULL }
 };
 

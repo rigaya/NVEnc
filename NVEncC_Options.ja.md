@@ -2300,80 +2300,44 @@ rff=1の場合のみの対応。(rff > 1には対応しない) また、[--trim]
   --vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
   ```
 
-### --vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-nnediによるインタレ解除を行う。基本的には片方フィールドは捨てて、もう片方のフィールドから
-ニューラルネットを使って輪郭を補正しながらフレームを再構築することでインタレ解除するが、とても重い…。
+### --vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+nnediによるインタレ解除を行う。
 
 - **パラメータ**
-  - field  
-    インタレ解除の方法。
-    - auto (デフォルト)  
-      維持するフィールドを自動的に選択
-    - top  
-      トップフィールド維持
-    - bottom  
-      ボトムフィールド維持
-  
-  - nns  (デフォルト: 32)  
-    ニューラルネットのニューロン数。
-    - 16, 32, 64, 128, 256
-  
-  - nsize  (デフォルト: 32x4)  
-    ニューラルネットが参照する近傍ブロックのサイズ。
-    - 8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4
-  
-  - quality  (デフォルト: fast)  
-    品質の設定。
-  
-    - fast  
-      ひとつのニューラルネットの出力で画像を構成する。
-  
-    - slow  
-      slowではfastのニューラルネットの出力に、もうひとつの
-      ニューラルネットの出力をブレンドして品質を上げる(当然その分さらに遅い)。
-  
-  - prescreen (デフォルト: new_block)  
-    事前に前処理を行い、単純な補間で済ますか、ニューラルネットでの補正を行うか決定する。
-    基本的にはエッジ近傍がニューラルネットでの補正の対象となり、ニューラルネットを使う頻度が下がることで処理が高速になる。
-    
-    - none  
-      前処理を行わず、すべてのpixelをニューラルネットで再構成する。
-  
-    - original
-    - new  
-      前処理を行い、必要なところのみニューラルネットでの補正を行うようにする。originalとnewは方式が異なる。newのほうが速くなる傾向にある。
-  
-    - original_block
-    - new_block  
-      original/newのGPU最適化版。pixel単位の判定の代わりにブロック単位の判定を行う。
-  
-  - errortype (デフォルト: abs)  
-    ニューラルネットの重みパラメータを選択する。
-    - abs  
-      絶対誤差を最小にするよう学習された重みを用いる。
-    - square  
-      二乗誤差を最小にするよう学習された重みを用いる。
-    
-  - prec (デフォルト: auto)  
-    演算精度の選択。
-    - auto  
-      fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
-      現状ではTuring世代のGPUで自動的にfp16が使用される。
-      Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
-    
-    - fp16 (x64版のみ)  
-      半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
-    
-    - fp32  
-      単精度浮動小数点を使って計算する。
-      
-    
-  - weightfile (デフォルト: 組み込み)  
-    重みパラメータファイルの(パスの)指定。特に指定のない場合、実行ファイルに埋め込まれたデータを使用する。
+
+  - field=&lt;string&gt;
+    対象フィールド。`bob`, `auto`(デフォルト), `top`, `bottom`, `bob_tff`, `bob_bff`。
+
+  - nsize=&lt;string&gt;
+    NN近傍サイズ。`8x6`, `16x6`, `32x6`, `48x6`, `8x4`, `16x4`, `32x4`(デフォルト)。
+
+  - nns=&lt;int&gt;
+    ニューロン数。`16`, `32`(デフォルト), `64`, `128`, `256`。
+
+  - quality=&lt;string&gt;
+    品質。`fast`(デフォルト) または `slow`。
+
+  - prescreen=&lt;int&gt;
+    `2/3/4` をサポート。`0/1` は未対応。デフォルト: `2`。
+
+  - errortype=&lt;string&gt;
+    誤差種別。`abs`(デフォルト) または `square`。
+
+  - clamp=&lt;int&gt;
+    クリップ範囲モード。`0-4`。デフォルト: `1`。
+
+  - double_height=&lt;bool&gt;
+    高さ2倍出力。`field=auto/top/bottom` でのみ有効。デフォルト: `off`。
+
+  - weightfile=&lt;path&gt;
+    `nnedi3_weights.bin` のパス。省略時はWindowsビルドでは `nnedi3_weights.bin` を検索し、Linuxビルドでは組み込みウェイトを使用する。
+
+- **注意**
+  - `prescreen=0/1` は未実装。
 
 - 使用例
   ```
-  例: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
+  例: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=2,clamp=1
   ```
   
 ### --vpp-kfm [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
