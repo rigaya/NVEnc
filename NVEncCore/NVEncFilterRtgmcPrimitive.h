@@ -31,6 +31,8 @@
 #include "NVEncFilter.h"
 #include "NVEncFilterDegrainMV.h"
 
+#include <array>
+
 enum class RGYRtgmcPrimitiveOp {
     Copy = 0,
     MakeDiff,
@@ -100,5 +102,6 @@ protected:
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
 
     std::string m_buildOptions;
+    std::array<std::unique_ptr<CUFrameBuf>, 4> m_gaussTmp;
     bool m_useKernel;
 };
