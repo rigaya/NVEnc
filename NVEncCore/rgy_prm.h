@@ -522,6 +522,9 @@ static const int   FILTER_DEFAULT_RTGMC_RETOUCH_SLRAD = 1;
 static const int   FILTER_DEFAULT_RTGMC_RETOUCH_SOVS = 0;
 static const float FILTER_DEFAULT_RTGMC_RETOUCH_SVTHIN = 0.0f;
 static const int   FILTER_DEFAULT_RTGMC_RETOUCH_SBB = 0;
+static const int   FILTER_DEFAULT_RTGMC_PRIMITIVE_MODE = 0;
+static const float FILTER_DEFAULT_RTGMC_PRIMITIVE_WEIGHT = 0.5f;
+static const bool  FILTER_DEFAULT_RTGMC_PRIMITIVE_CHROMA = true;
 
 struct RGYQPSet {
     bool enable;
@@ -2670,6 +2673,19 @@ struct VppDegrain {
     tstring print() const;
 };
 
+enum class VppRtgmcBobOrder {
+    Auto = -1,
+    BFF = 0,
+    TFF = 1
+};
+
+const CX_DESC list_vpp_rtgmc_bob_order[] = {
+    { _T("auto"),   (int)VppRtgmcBobOrder::Auto },
+    { _T("tff"),    (int)VppRtgmcBobOrder::TFF  },
+    { _T("bff"),    (int)VppRtgmcBobOrder::BFF  },
+    { NULL, 0 }
+};
+
 enum class VppRtgmcPreset {
     Placebo = 0,
     VerySlow,
@@ -2708,6 +2724,77 @@ const CX_DESC list_vpp_rtgmc_tuning[] = {
     { _T("dv-sd"), (int)VppRtgmcTuning::DVSD },
     { _T("dv-hd"), (int)VppRtgmcTuning::DVHD },
     { NULL, 0 }
+};
+
+struct VppRtgmcBob {
+    bool enable;
+    VppRtgmcBobOrder order;
+
+    VppRtgmcBob();
+    bool operator==(const VppRtgmcBob& x) const;
+    bool operator!=(const VppRtgmcBob& x) const;
+    tstring print() const;
+};
+
+struct VppRtgmcSearchPrefilter {
+    bool enable;
+    int tr0;
+    int rep0Thin;
+    int rep0Pad;
+    int searchRefine;
+    bool tvRange;
+    bool chromaMotion;
+    tstring dumpY4m;
+    tstring dumpStage;
+    int dumpMaxFrames;
+
+    VppRtgmcSearchPrefilter();
+    bool operator==(const VppRtgmcSearchPrefilter& x) const;
+    bool operator!=(const VppRtgmcSearchPrefilter& x) const;
+    tstring print() const;
+};
+
+enum class VppRtgmcNoiseDenoiser {
+    NLMeans,
+    FFT3D,
+};
+
+const CX_DESC list_vpp_rtgmc_noise_denoiser[] = {
+    { _T("nlmeans"),     (int)VppRtgmcNoiseDenoiser::NLMeans     },
+    { _T("fft3d"),       (int)VppRtgmcNoiseDenoiser::FFT3D       },
+    { NULL, 0 }
+};
+
+enum class VppRtgmcNoiseDeint {
+    None,
+    Bob,
+    Generate,
+};
+
+const CX_DESC list_vpp_rtgmc_noise_deint[] = {
+    { _T("none"),     (int)VppRtgmcNoiseDeint::None     },
+    { _T("bob"),      (int)VppRtgmcNoiseDeint::Bob      },
+    { _T("generate"), (int)VppRtgmcNoiseDeint::Generate },
+    { NULL, 0 }
+};
+
+struct VppRtgmcNoise {
+    int noiseProcess;
+    float ezDenoise;
+    float ezKeepGrain;
+    VppRtgmcNoiseDenoiser denoiser;
+    VppRtgmcNoiseDeint noiseDeint;
+    float sigma;
+    bool chromaNoise;
+    bool denoiseMC;
+    int noiseTR;
+    float grainRestore;
+    float noiseRestore;
+
+    VppRtgmcNoise();
+    bool operator==(const VppRtgmcNoise& x) const;
+    bool operator!=(const VppRtgmcNoise& x) const;
+    tstring print() const;
 };
 
 enum class VppRtgmcEdiMode {
@@ -2801,6 +2888,96 @@ struct VppRtgmcShimmerRepair {
     bool operator!=(const VppRtgmcShimmerRepair& x) const;
     tstring print() const;
 };
+
+enum class VppRtgmcPrimitiveOp {
+    Copy = 0,
+    MakeDiff,
+    AddDiff,
+    AddWeightedDiff,
+    RemoveGrain,
+    Repair,
+    Merge,
+    GaussResize,
+    VerticalMin5,
+    VerticalMax5,
+    LogicMin,
+    LogicMax,
+};
+
+const CX_DESC list_vpp_rtgmc_primitive_op[] = {
+    { _T("copy"),        (int)VppRtgmcPrimitiveOp::Copy },
+    { _T("makediff"),    (int)VppRtgmcPrimitiveOp::MakeDiff },
+    { _T("adddiff"),     (int)VppRtgmcPrimitiveOp::AddDiff },
+    { _T("addweighteddiff"), (int)VppRtgmcPrimitiveOp::AddWeightedDiff },
+    { _T("removegrain"), (int)VppRtgmcPrimitiveOp::RemoveGrain },
+    { _T("repair"),      (int)VppRtgmcPrimitiveOp::Repair },
+    { _T("merge"),       (int)VppRtgmcPrimitiveOp::Merge },
+    { _T("gaussresize"), (int)VppRtgmcPrimitiveOp::GaussResize },
+    { _T("verticalmin5"), (int)VppRtgmcPrimitiveOp::VerticalMin5 },
+    { _T("verticalmax5"), (int)VppRtgmcPrimitiveOp::VerticalMax5 },
+    { _T("logicmin"),    (int)VppRtgmcPrimitiveOp::LogicMin },
+    { _T("logicmax"),    (int)VppRtgmcPrimitiveOp::LogicMax },
+    { NULL, 0 }
+};
+
+enum class VppRtgmcPrimitiveRef {
+    Disabled = 0,
+    RemoveGrain20,
+};
+
+const CX_DESC list_vpp_rtgmc_primitive_ref[] = {
+    { _T("none"),          (int)VppRtgmcPrimitiveRef::Disabled },
+    { _T("removegrain20"), (int)VppRtgmcPrimitiveRef::RemoveGrain20 },
+    { NULL, 0 }
+};
+
+struct VppRtgmcPrimitive {
+    bool enable;
+    VppRtgmcPrimitiveOp op;
+    VppRtgmcPrimitiveRef ref;
+    int mode;
+    float weight;
+    bool chroma;
+
+    VppRtgmcPrimitive();
+    bool operator==(const VppRtgmcPrimitive& x) const;
+    bool operator!=(const VppRtgmcPrimitive& x) const;
+    tstring print() const;
+};
+
+struct VppRtgmc {
+    bool enable;
+    VppRtgmcPreset preset;
+    VppRtgmcTuning tuning;
+    bool border;
+    int lossless;
+    int inputType;
+    float progSADMask;
+    float progSADMaskGamma;
+    int mvSpatialRefine;
+    int sourceMatch;
+    int matchTR1;
+    int matchTR2;
+    float matchEnhance;
+    VppRtgmcBob bob;
+    VppRtgmcSearchPrefilter searchPrefilter;
+    VppDegrain analyze;
+    VppRtgmcNoise noise;
+    VppRtgmcEdi edi;
+    VppRtgmcEdi matchEdi;
+    VppDegrain tr1;
+    VppRtgmcShimmerRepair rep1;
+    VppRtgmcRetouch retouch;
+    VppDegrain tr2;
+    VppRtgmcShimmerRepair rep2;
+
+    VppRtgmc();
+    bool operator==(const VppRtgmc& x) const;
+    bool operator!=(const VppRtgmc& x) const;
+    tstring print() const;
+};
+
+void apply_vpp_rtgmc_preset(VppRtgmc& rtgmc, VppRtgmcPreset preset, VppRtgmcTuning tuning);
 
 enum class VppKfmMode {
     VFR,
