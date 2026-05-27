@@ -207,6 +207,13 @@
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-afs \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nnedi-param1value1param2value2)
+  - [--vpp-rtgmc [\<param1\>=\<value1\>]](#--vpp-rtgmc-param1value1)
+  - [--vpp-rtgmc-bob [\<param1\>=\<value1\>]](#--vpp-rtgmc-bob-param1value1)
+  - [--vpp-rtgmc-search-prefilter [\<param1\>=\<value1\>]](#--vpp-rtgmc-search-prefilter-param1value1)
+  - [--vpp-rtgmc-edi [\<param1\>=\<value1\>]](#--vpp-rtgmc-edi-param1value1)
+  - [--vpp-rtgmc-retouch [\<param1\>=\<value1\>]](#--vpp-rtgmc-retouch-param1value1)
+  - [--vpp-rtgmc-shimmer-repair [\<param1\>=\<value1\>]](#--vpp-rtgmc-shimmer-repair-param1value1)
+  - [--vpp-rtgmc-primitive [\<param1\>=\<value1\>]](#--vpp-rtgmc-primitive-param1value1)
   - [--vpp-kfm \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-kfm-param1value1param2value2)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
   - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
@@ -1799,7 +1806,11 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
 - [--vpp-afs](#--vpp-afs-param1value1param2value2)
 - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
+- [--vpp-rtgmc](#--vpp-rtgmc-param1value1)
 - [--vpp-kfm](#--vpp-kfm-param1value1param2value2)
+- [--vpp-rtgmc-bob](#--vpp-rtgmc-bob-param1value1)
+- [--vpp-rtgmc-search-prefilter](#--vpp-rtgmc-search-prefilter-param1value1)
+- [--vpp-rtgmc-edi](#--vpp-rtgmc-edi-param1value1)
 - [--vpp-degrain](#--vpp-degrain-param1value1) (`mode=analyze`)
 - [--vpp-yadif](#--vpp-yadif-param1value1)
 - [--vpp-bwdif](#--vpp-bwdif-param1value1)
@@ -1819,6 +1830,9 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
 - [--vpp-degrain](#--vpp-degrain-param1value1) (`mode=degrain` / `tr=1,2`)
+- [--vpp-rtgmc-shimmer-repair](#--vpp-rtgmc-shimmer-repair-param1value1) (`stage=rep1/rep2`)
+- [--vpp-rtgmc-retouch](#--vpp-rtgmc-retouch-param1value1)
+- [--vpp-rtgmc-primitive](#--vpp-rtgmc-primitive-param1value1)
 - [--vpp-gauss](#--vpp-gauss-int)
 - [--vpp-subburn](#--vpp-subburn-param1value1param2value2)
 - [--vpp-libplacebo-shader](#--vpp-libplacebo-shader-param1value1param2value2)
@@ -2304,6 +2318,129 @@ nnedi deinterlacer.
   ```
   example: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=2,clamp=1
   ```
+
+### --vpp-rtgmc [&lt;param1&gt;=&lt;value1&gt;]
+High quality QTGMC deinterlacer with relaxed implementation for GPU.
+
+- **major parameters**
+
+  - preset=&lt;string&gt;
+    `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
+    This refers the original values.
+
+  - tuning=&lt;string&gt;
+    `none` (default), `dv-sd`, `dv-hd`.
+
+  - preset expansion table (implementation values)
+
+    | preset | tr0 | tr1 | tr2 | rep0-thin | rep2-thin | edi | nnsize | nneurons | search_refine | search | searchparam | pelsearch | chroma_motion | precise | prog_sad_mask |
+    |:--|--:|--:|--:|--:|--:|:--|--:|--:|--:|--:|--:|--:|:--|:--|--:|
+    | slower | 2 | 2 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | on | off | 10.0 |
+    | slow | 2 | 1 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | off | off | 10.0 |
+    | medium | 2 | 1 | 1 | 3 | 4 | nnedi3 | 5 | 1 | 3 | 4 | 2 | 1 | off | off | 10.0 |
+    | fast | 2 | 1 | 0 | 3 | 4 | nnedi3 | 5 | 0 | 2 | 4 | 2 | 1 | off | off | 0.0 |
+    | faster | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 2 | 1 | off | off | 0.0 |
+    | veryfast | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 1 | 1 | off | off | 0.0 |
+    | superfast | 1 | 1 | 0 | 0 | 3 | nnedi3 | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
+    | ultrafast | 1 | 1 | 0 | 0 | 3 | repyadif | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
+    | draft | 0 | 1 | 0 | 0 | 0 | bob | 4 | 0 | 0 | 0 | 1 | 1 | off | off | 0.0 |
+
+    - `blksize` is tuning-dependent (`dv-hd=32`, otherwise `16`) for `slower..fast`, and fixed to `32` for `faster..draft`.
+    - `overlap` is `blksize/2` for `slower..faster`, and `blksize/4` for `veryfast..draft`.
+    - `subpel` is `2` for `slower..slow`, and `1` for `medium..draft`.
+
+  - source_match=&lt;int&gt;
+    `0-3`. `match_tr1/match_tr2` are `0-2`; `match_enhance` is `0.0-1.0`.
+
+  - edi/match_edi=&lt;string&gt;
+    `bob`, `yadif`, `cyadif`, `repyadif`, `repcyadif`, `nnedi3`, `passthrough`.
+    For `source_match>0`, `match_edi` is limited to `bob/yadif/cyadif/repyadif/repcyadif/nnedi3`.
+
+  - tr0/rep0-thin/rep0-pad/search_refine
+    `tr0=-1..2`, `rep0-thin=0-7`, `rep0-pad=0-3`, `search_refine=0-3`.
+
+  - mv_spatial_refine=&lt;int|auto&gt;
+    Motion-vector spatial refinement count. Motion estimation proceeds through a coarse-to-fine pyramid of analysis levels; this option controls how many spatial refinement passes (which **consult neighboring block motion vectors to further improve precision**) are run at each level.
+    Default is `auto` (`-1`): **perform spatial refinement only at the coarsest (lowest-resolution) level, where the block count is smallest, and skip it at all finer levels**. This concentrates spatial-neighbor based refinement on the level where its serial-dependency cost is negligible, while letting the finer levels (with many blocks) run with maximum GPU parallelism.
+    `0` disables spatial refinement at every level; `1` runs one pass at every level, `2` runs two passes at every level, and so on.
+
+  - rep1-thin/rep1-pad/rep2-thin/rep2-pad
+    `repN-thin=0-7`, `repN-pad=0-3`.
+
+  - noise group
+    This stage controls noise extraction, denoising, and grain/noise restoration.
+    - `noise_process`
+      Master mode for the noise path. `0` disables noise processing, `1` enables the current denoise/restore path, `2` is currently unsupported.
+    - `denoiser`
+      Denoiser selection. `nlmeans` uses the NLMeans path, while `fft3d` uses the FFT3D path.
+    - `noise_deint`
+      Deinterlace mode for extracted noise. `none` keeps as-is, `bob` uses bob-style interpolation, `generate` is currently unsupported.
+    - `sigma`
+      Denoise strength proxy; higher values increase smoothing.
+    - `chroma_noise`
+      Whether chroma planes are included in noise processing.
+    - `grain_restore` / `noise_restore`
+      Amount of texture/noise restored after denoising; currently valid only with `noise_process=1`.
+    Effective support is constrained as listed in **Note** below.
+
+  - motion group
+    This stage controls motion-vector search behavior and temporal reference direction.
+    - `searchparam` / `pelsearch`
+      Search preset factors. `1` is lighter/faster, `2` is more exhaustive.
+    - `useflag`
+      Temporal direction limit. `0` uses both directions, `1` backward-only, `2` forward-only.
+    - `pel` / `levels` / `lambda` / `lsad` / `pnew` / `plevel` / `globalmotion`
+      Additional block-matching controls for subpixel granularity, search hierarchy, penalties, and global motion handling.
+    `subpelinterp=2`, `truemotion=false`, and `dct=0` are fixed for CUDA-reference compatibility.
+
+  - retouch group
+    Final resharpen/limit stage for edge recovery and anti-overshoot control.
+    - `sharpness`
+      Base sharpening amount (`0.0-1.0`).
+    - `limit`
+      Legacy-compatible limiting factor (`0.0-1.0`) to reduce sharpening overshoot.
+    - `smode`
+      Sharpening path selector (`0-2`). `0` is effectively off; `1/2` use different retouch paths.
+    - `slmode` / `slrad` / `sovs`
+      Sharpen-limit mode, radius, and overshoot allowance (`slmode=0-4`, `slrad=0-3`, `sovs>=0`).
+    - `svthin`
+      Vertical thinning strength (`0.0-1.0`) to suppress line-thickening artifacts.
+    - `sbb`
+      Back-blend mode (`0-3`) controlling where sharpen/unsharpen differences are mixed.
+    - `precise`
+      Enables the precise retouch path variant (`on/off`).
+
+- **Note (Limitations)**
+
+  - EDI is limited to bob/yadif/cyadif/repyadif/repcyadif/nnedi3(rnnedi3)-equivalent modes. NNEDI2/NNEDI/
+  EEDI3(+NNEDI3)/EEDI2/TDeint, EdiMaxD, and EdiThreads are not supported.
+  - chroma_edi supports only none or nnedi3(rnnedi3).
+  - Noise processing does not support noise_process=2, ezkeepgrain, denoise_mc=true, noise_tr>0, noise_deint=generate,
+  ShowNoise, StabilizeNoise, dfttest/KNLMeansCL, or lsb/lsbd/DftDither-equivalent paths.
+  - source_match supports stages 0-3, but per-stage MatchPreset/MatchPreset2 settings, independent MatchEdi2, and
+  EdiMaxD-related settings are not supported. match_edi is limited to bob/yadif/cyadif/repyadif/repcyadif/nnedi3.
+  - Motion blur and frame decimation options such as FPSDivisor, ShutterBlur, ShutterAngleSrc/Out, and SBlurLimit are
+  not supported.
+  - Some KTGMC/MVTools parameters are fixed or restricted: subpelinterp=2, dct=0, truemotion=false, and searchparam/
+  pelsearch are limited to 1-2.
+
+### --vpp-rtgmc-bob [&lt;param1&gt;=&lt;value1&gt;]
+For debug. Parameters: `order=auto|tff|bff`.
+
+### --vpp-rtgmc-search-prefilter [&lt;param1&gt;=&lt;value1&gt;]
+For debug. Parameters: `tr0`, `rep0-thin`, `rep0-pad`, `search_refine`, `tv_range`, `chroma_motion`, `dump_y4m`, `dump_stage`, `dump_max_frames`.
+
+### --vpp-rtgmc-edi [&lt;param1&gt;=&lt;value1&gt;]
+For debug. Parameters: `mode`, `nnsize`, `nneurons`, `ediqual`, `chroma_edi`.
+
+### --vpp-rtgmc-retouch [&lt;param1&gt;=&lt;value1&gt;]
+For debug. Parameters: `sharpness`, `limit`, `smode`, `slmode`, `slrad`, `sovs`, `svthin`, `sbb`, `precise`, `tr1`, `tr2`.
+
+### --vpp-rtgmc-shimmer-repair [&lt;param1&gt;=&lt;value1&gt;]
+For debug. Parameters: `stage=rep1|rep2`, `rep-thin`, `rep-pad`, `rep_chroma`.
+
+### --vpp-rtgmc-primitive [&lt;param1&gt;=&lt;value1&gt;]
+For debug. Parameters: `op`, `ref`, `mode`, `weight`, `chroma`.
 
 ### --vpp-kfm [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Adaptive inverse telesine filter supporting 24/30/60 mixed VFR output.
