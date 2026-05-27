@@ -82,14 +82,14 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_LIBPLACEBO_TONEMAP,   _T("libplacebo-tonemapping")),
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
+    std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
+    std::make_pair(VppType::CL_RTGMC,                _T("rtgmc")),
+    std::make_pair(VppType::CL_RTGMC_BOB,            _T("rtgmc-bob")),
+    std::make_pair(VppType::CL_RTGMC_SEARCH_PREFILTER, _T("rtgmc-search-prefilter")),
+    std::make_pair(VppType::CL_RTGMC_EDI,            _T("rtgmc-edi")),
     std::make_pair(VppType::CL_KFM,                  _T("kfm")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
-    std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
-    std::make_pair(VppType::CL_DEGRAIN,              _T("degrain")),
-    std::make_pair(VppType::CL_DEGRAIN_ANALYZE,      _T("degrain-analyze")),
-    std::make_pair(VppType::CL_DEGRAIN_APPLY_TR1,    _T("degrain-apply-tr1")),
-    std::make_pair(VppType::CL_DEGRAIN_APPLY_TR2,    _T("degrain-apply-tr2")),
     std::make_pair(VppType::CL_IVTC,                 _T("ivtc")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
@@ -103,6 +103,15 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
+    std::make_pair(VppType::CL_DEGRAIN,              _T("degrain")),
+    std::make_pair(VppType::CL_DEGRAIN_ANALYZE,      _T("degrain-analyze")),
+    std::make_pair(VppType::CL_DEGRAIN_APPLY_TR1,    _T("degrain-apply-tr1")),
+    std::make_pair(VppType::CL_DEGRAIN_APPLY_TR2,    _T("degrain-apply-tr2")),
+    std::make_pair(VppType::CL_RTGMC_RETOUCH,        _T("rtgmc-retouch")),
+    std::make_pair(VppType::CL_RTGMC_SHIMMER_REPAIR, _T("rtgmc-shimmer-repair")),
+    std::make_pair(VppType::CL_RTGMC_SHIMMER_REPAIR_REP1, _T("rtgmc-shimmer-repair-rep1")),
+    std::make_pair(VppType::CL_RTGMC_SHIMMER_REPAIR_REP2, _T("rtgmc-shimmer-repair-rep2")),
+    std::make_pair(VppType::CL_RTGMC_PRIMITIVE,      _T("rtgmc-primitive")),
     std::make_pair(VppType::CL_MSMOOTH,              _T("msmooth")),
     std::make_pair(VppType::CL_SUBBURN,              _T("subburn")),
     std::make_pair(VppType::CL_LIBPLACEBO_SHADER,    _T("libplacebo-shader")),
@@ -2900,14 +2909,23 @@ RGYParamVpp::RGYParamVpp() :
     delogo(),
     afs(),
     nnedi(),
+    bwdif(),
+    rtgmc(),
+    rtgmc_bob(),
+    rtgmc_search_prefilter(),
+    rtgmc_edi(),
     kfm(),
     yadif(),
     decomb(),
-    bwdif(),
     degrain(),
     degrainAnalyze(),
     degrainTR1(),
     degrainTR2(),
+    rtgmc_retouch(),
+    rtgmc_shimmer_repair(),
+    rtgmc_shimmer_repairRep1(),
+    rtgmc_shimmer_repairRep2(),
+    rtgmc_primitive(),
     ivtc(),
     rff(),
     selectevery(),
@@ -2949,14 +2967,23 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && delogo == x.delogo
         && afs == x.afs
         && nnedi == x.nnedi
+        && bwdif == x.bwdif
+        && rtgmc == x.rtgmc
+        && rtgmc_bob == x.rtgmc_bob
+        && rtgmc_search_prefilter == x.rtgmc_search_prefilter
+        && rtgmc_edi == x.rtgmc_edi
         && kfm == x.kfm
         && yadif == x.yadif
         && decomb == x.decomb
-        && bwdif == x.bwdif
         && degrain == x.degrain
         && degrainAnalyze == x.degrainAnalyze
         && degrainTR1 == x.degrainTR1
         && degrainTR2 == x.degrainTR2
+        && rtgmc_retouch == x.rtgmc_retouch
+        && rtgmc_shimmer_repair == x.rtgmc_shimmer_repair
+        && rtgmc_shimmer_repairRep1 == x.rtgmc_shimmer_repairRep1
+        && rtgmc_shimmer_repairRep2 == x.rtgmc_shimmer_repairRep2
+        && rtgmc_primitive == x.rtgmc_primitive
         && ivtc == x.ivtc
         && rff == x.rff
         && selectevery == x.selectevery

@@ -88,6 +88,7 @@
 #include "NVEncFilterMpdecimate.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncFilterNnedi.h"
+#include "NVEncFilterRtgmc.h"
 #include "NVEncFilterKfm.h"
 #include "NVEncFilterYadif.h"
 #include "NVEncFilterDecomb.h"
@@ -2904,12 +2905,18 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.delogo.enable)        filterPipeline.push_back(VppType::CL_DELOGO);
     if (inputParam->vpp.afs.enable)           filterPipeline.push_back(VppType::CL_AFS);
     if (inputParam->vpp.nnedi.enable)         filterPipeline.push_back(VppType::CL_NNEDI);
+    if (inputParam->vpp.rtgmc.enable)         filterPipeline.push_back(VppType::CL_RTGMC);
     if (inputParam->vpp.kfm.enable)           filterPipeline.push_back(VppType::CL_KFM);
     const bool degrainLegacy = inputParam->vpp.degrain.enable;
     const bool degrainAnalyze = inputParam->vpp.degrainAnalyze.enable;
     const bool degrainTR1 = inputParam->vpp.degrainTR1.enable;
     const bool degrainTR2 = inputParam->vpp.degrainTR2.enable;
+    const bool shimmerRepairRep1 = inputParam->vpp.rtgmc_shimmer_repairRep1.enable;
+    const bool shimmerRepairRep2 = inputParam->vpp.rtgmc_shimmer_repairRep2.enable;
+    if (inputParam->vpp.rtgmc_bob.enable)     filterPipeline.push_back(VppType::CL_RTGMC_BOB);
+    if (inputParam->vpp.rtgmc_search_prefilter.enable) filterPipeline.push_back(VppType::CL_RTGMC_SEARCH_PREFILTER);
     if (degrainAnalyze)                       filterPipeline.push_back(VppType::CL_DEGRAIN_ANALYZE);
+    if (inputParam->vpp.rtgmc_edi.enable && !degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
     if (inputParam->vpp.yadif.enable)         filterPipeline.push_back(VppType::CL_YADIF);
     if (inputParam->vpp.decomb.enable)        filterPipeline.push_back(VppType::CL_DECOMB);
     if (inputParam->vpp.bwdif.enable)         filterPipeline.push_back(VppType::CL_BWDIF);
@@ -2929,8 +2936,14 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.nlmeans.enable)       filterPipeline.push_back(VppType::CL_DENOISE_NLMEANS);
     if (inputParam->vpp.pmd.enable)           filterPipeline.push_back(VppType::CL_DENOISE_PMD);
     if (degrainLegacy)                        filterPipeline.push_back(VppType::CL_DEGRAIN);
+    if (inputParam->vpp.rtgmc_edi.enable && degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
     if (degrainTR1)                           filterPipeline.push_back(VppType::CL_DEGRAIN_APPLY_TR1);
+    if (shimmerRepairRep1)                    filterPipeline.push_back(VppType::CL_RTGMC_SHIMMER_REPAIR_REP1);
+    if (inputParam->vpp.rtgmc_retouch.enable) filterPipeline.push_back(VppType::CL_RTGMC_RETOUCH);
     if (degrainTR2)                           filterPipeline.push_back(VppType::CL_DEGRAIN_APPLY_TR2);
+    if (shimmerRepairRep2)                    filterPipeline.push_back(VppType::CL_RTGMC_SHIMMER_REPAIR_REP2);
+    if (inputParam->vpp.rtgmc_shimmer_repair.enable) filterPipeline.push_back(VppType::CL_RTGMC_SHIMMER_REPAIR);
+    if (inputParam->vpp.rtgmc_primitive.enable) filterPipeline.push_back(VppType::CL_RTGMC_PRIMITIVE);
     if (inputParam->vppnv.gaussMaskSize>0)    filterPipeline.push_back(VppType::NPP_GAUSS);
     if (inputParam->vpp.subburn.size()>0)     filterPipeline.push_back(VppType::CL_SUBBURN);
     if (inputParam->vpp.libplacebo_shader.size() > 0)  filterPipeline.push_back(VppType::CL_LIBPLACEBO_SHADER);
@@ -3431,6 +3444,30 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;
     }
+    //rtgmc
+    if (vppType == VppType::CL_RTGMC) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterRtgmc());
+        shared_ptr<NVEncFilterParamRtgmc> param(new NVEncFilterParamRtgmc());
+        param->rtgmc = inputParam->vpp.rtgmc;
+        param->timebase = m_outputTimebase;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
     //kfm
     if (vppType == VppType::CL_KFM) {
         unique_ptr<NVEncFilter> filter(new NVEncFilterKfm());
@@ -3440,6 +3477,67 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->timebase = m_outputTimebase;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //rtgmc bob
+    if (vppType == VppType::CL_RTGMC_BOB) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterRtgmcBob());
+        shared_ptr<NVEncFilterParamRtgmcBob> param(new NVEncFilterParamRtgmcBob());
+        param->order = (inputParam->vpp.rtgmc_bob.order == VppRtgmcBobOrder::TFF) ? RGYRtgmcBobFieldOrder::TFF
+            : (inputParam->vpp.rtgmc_bob.order == VppRtgmcBobOrder::BFF) ? RGYRtgmcBobFieldOrder::BFF
+            : RGYRtgmcBobFieldOrder::Auto;
+        param->timebase = m_outputTimebase;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //rtgmc search prefilter
+    if (vppType == VppType::CL_RTGMC_SEARCH_PREFILTER) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterRtgmcSearchPrefilter());
+        shared_ptr<NVEncFilterParamRtgmcSearchPrefilter> param(new NVEncFilterParamRtgmcSearchPrefilter());
+        param->tr0 = inputParam->vpp.rtgmc_search_prefilter.tr0;
+        param->rep0Thin = inputParam->vpp.rtgmc_search_prefilter.rep0Thin;
+        param->rep0Pad = inputParam->vpp.rtgmc_search_prefilter.rep0Pad;
+        param->searchRefine = inputParam->vpp.rtgmc_search_prefilter.searchRefine;
+        param->tvRange = inputParam->vpp.rtgmc_search_prefilter.tvRange;
+        param->chromaMotion = inputParam->vpp.rtgmc_search_prefilter.chromaMotion;
+        param->dumpY4m = inputParam->vpp.rtgmc_search_prefilter.dumpY4m;
+        param->dumpStage = inputParam->vpp.rtgmc_search_prefilter.dumpStage;
+        param->dumpMaxFrames = inputParam->vpp.rtgmc_search_prefilter.dumpMaxFrames;
+        param->attachSearchLuma = inputParam->vpp.rtgmc_edi.enable || inputParam->vpp.degrain.enable
+            || inputParam->vpp.degrainAnalyze.enable || inputParam->vpp.degrainTR1.enable || inputParam->vpp.degrainTR2.enable
+            || inputParam->vpp.rtgmc_retouch.enable || inputParam->vpp.rtgmc_shimmer_repair.enable
+            || inputParam->vpp.rtgmc_shimmer_repairRep1.enable || inputParam->vpp.rtgmc_shimmer_repairRep2.enable;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filter->init(param, m_pLog);
@@ -3556,6 +3654,135 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //rtgmc edi
+    if (vppType == VppType::CL_RTGMC_EDI) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterRtgmcEdi());
+        shared_ptr<NVEncFilterParamRtgmcEdi> param(new NVEncFilterParamRtgmcEdi());
+        param->mode = inputParam->vpp.rtgmc_edi.mode;
+        param->chromaEdi = inputParam->vpp.rtgmc_edi.chromaEdi;
+        param->nnsize = inputParam->vpp.rtgmc_edi.nnsize;
+        param->nneurons = inputParam->vpp.rtgmc_edi.nneurons;
+        param->ediqual = inputParam->vpp.rtgmc_edi.ediqual;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //rtgmc retouch
+    if (vppType == VppType::CL_RTGMC_RETOUCH) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterRtgmcRetouch());
+        shared_ptr<NVEncFilterParamRtgmcRetouch> param(new NVEncFilterParamRtgmcRetouch());
+        param->rtgmc_retouch = inputParam->vpp.rtgmc_retouch;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //rtgmc shimmer repair
+    if (vppType == VppType::CL_RTGMC_SHIMMER_REPAIR
+        || vppType == VppType::CL_RTGMC_SHIMMER_REPAIR_REP1
+        || vppType == VppType::CL_RTGMC_SHIMMER_REPAIR_REP2) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterRtgmcShimmerRepair());
+        shared_ptr<NVEncFilterParamRtgmcShimmerRepair> param(new NVEncFilterParamRtgmcShimmerRepair());
+        const auto &shimmerRepair = (vppType == VppType::CL_RTGMC_SHIMMER_REPAIR_REP1)
+            ? inputParam->vpp.rtgmc_shimmer_repairRep1
+            : (vppType == VppType::CL_RTGMC_SHIMMER_REPAIR_REP2)
+                ? inputParam->vpp.rtgmc_shimmer_repairRep2
+                : inputParam->vpp.rtgmc_shimmer_repair;
+        param->stage = (shimmerRepair.stage == VppRtgmcShimmerRepairStage::Rep1)
+            ? RGYRtgmcShimmerRepairStage::PreRetouch
+            : RGYRtgmcShimmerRepairStage::PostTR2;
+        param->repairThin = shimmerRepair.repThin;
+        param->repairPad = shimmerRepair.repPad;
+        param->processChroma = shimmerRepair.repChroma;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //rtgmc primitive
+    if (vppType == VppType::CL_RTGMC_PRIMITIVE) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterRtgmcPrimitive());
+        shared_ptr<NVEncFilterParamRtgmcPrimitive> param(new NVEncFilterParamRtgmcPrimitive());
+        switch (inputParam->vpp.rtgmc_primitive.op) {
+        case VppRtgmcPrimitiveOp::Copy:        param->op = RGYRtgmcPrimitiveOp::Copy; break;
+        case VppRtgmcPrimitiveOp::MakeDiff:    param->op = RGYRtgmcPrimitiveOp::MakeDiff; break;
+        case VppRtgmcPrimitiveOp::AddDiff:     param->op = RGYRtgmcPrimitiveOp::AddDiff; break;
+        case VppRtgmcPrimitiveOp::AddWeightedDiff: param->op = RGYRtgmcPrimitiveOp::AddWeightedDiff; break;
+        case VppRtgmcPrimitiveOp::RemoveGrain: param->op = RGYRtgmcPrimitiveOp::RemoveGrain; break;
+        case VppRtgmcPrimitiveOp::Repair:      param->op = RGYRtgmcPrimitiveOp::Repair; break;
+        case VppRtgmcPrimitiveOp::Merge:       param->op = RGYRtgmcPrimitiveOp::Merge; break;
+        case VppRtgmcPrimitiveOp::GaussResize: param->op = RGYRtgmcPrimitiveOp::GaussResize; break;
+        case VppRtgmcPrimitiveOp::VerticalMin5: param->op = RGYRtgmcPrimitiveOp::VerticalMin5; break;
+        case VppRtgmcPrimitiveOp::VerticalMax5: param->op = RGYRtgmcPrimitiveOp::VerticalMax5; break;
+        case VppRtgmcPrimitiveOp::LogicMin:    param->op = RGYRtgmcPrimitiveOp::LogicMin; break;
+        case VppRtgmcPrimitiveOp::LogicMax:    param->op = RGYRtgmcPrimitiveOp::LogicMax; break;
+        default:                               param->op = RGYRtgmcPrimitiveOp::Copy; break;
+        }
+        param->mode = inputParam->vpp.rtgmc_primitive.mode;
+        param->weight = inputParam->vpp.rtgmc_primitive.weight;
+        switch (inputParam->vpp.rtgmc_primitive.ref) {
+        case VppRtgmcPrimitiveRef::RemoveGrain20: param->refMode = RGYRtgmcPrimitiveRefMode::RemoveGrain20; break;
+        default:                                  param->refMode = RGYRtgmcPrimitiveRefMode::Disabled; break;
+        }
+        param->processChroma = inputParam->vpp.rtgmc_primitive.chroma;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));

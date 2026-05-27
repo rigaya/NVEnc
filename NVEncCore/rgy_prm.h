@@ -58,6 +58,13 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_RTGMC        (                 ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RTGMC_BOB    (                 ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RTGMC_SEARCH_PREFILTER (        ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RTGMC_EDI    (                 ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RTGMC_RETOUCH (                ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RTGMC_SHIMMER_REPAIR (         ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RTGMC_PRIMITIVE (              ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DEGRAIN      (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_KFM          (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_IVTC         (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -152,14 +159,14 @@ enum class VppType : int {
     CL_LIBPLACEBO_TONEMAP,
     CL_AFS,
     CL_NNEDI,
+    CL_BWDIF,
+    CL_RTGMC,
+    CL_RTGMC_BOB,
+    CL_RTGMC_SEARCH_PREFILTER,
+    CL_RTGMC_EDI,
     CL_KFM,
     CL_YADIF,
     CL_DECOMB,
-    CL_BWDIF,
-    CL_DEGRAIN,
-    CL_DEGRAIN_ANALYZE,
-    CL_DEGRAIN_APPLY_TR1,
-    CL_DEGRAIN_APPLY_TR2,
     CL_IVTC,
     CL_DECIMATE,
     CL_MPDECIMATE,
@@ -175,6 +182,15 @@ enum class VppType : int {
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
     CL_DENOISE_FFT3D,
+    CL_DEGRAIN,
+    CL_DEGRAIN_ANALYZE,
+    CL_DEGRAIN_APPLY_TR1,
+    CL_DEGRAIN_APPLY_TR2,
+    CL_RTGMC_RETOUCH,
+    CL_RTGMC_SHIMMER_REPAIR,
+    CL_RTGMC_SHIMMER_REPAIR_REP1,
+    CL_RTGMC_SHIMMER_REPAIR_REP2,
+    CL_RTGMC_PRIMITIVE,
     CL_MSMOOTH,
 
     CL_LIBPLACEBO_SHADER,
@@ -3005,14 +3021,23 @@ struct RGYParamVpp {
     VppDelogo delogo;
     VppAfs afs;
     VppNnedi nnedi;
+    VppBwdif bwdif;
+    VppRtgmc rtgmc;
+    VppRtgmcBob rtgmc_bob;
+    VppRtgmcSearchPrefilter rtgmc_search_prefilter;
+    VppRtgmcEdi rtgmc_edi;
     VppKfm kfm;
     VppYadif yadif;
     VppDecomb decomb;
-    VppBwdif bwdif;
     VppDegrain degrain;
     VppDegrain degrainAnalyze;
     VppDegrain degrainTR1;
     VppDegrain degrainTR2;
+    VppRtgmcRetouch rtgmc_retouch;
+    VppRtgmcShimmerRepair rtgmc_shimmer_repair;
+    VppRtgmcShimmerRepair rtgmc_shimmer_repairRep1;
+    VppRtgmcShimmerRepair rtgmc_shimmer_repairRep2;
+    VppRtgmcPrimitive rtgmc_primitive;
     VppIvtc ivtc;
     VppRff rff;
     VppSelectEvery selectevery;
