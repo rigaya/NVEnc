@@ -194,13 +194,10 @@ __device__ int rtgmcEdiYadifTemporal(
     const int t_0 = (t01_0 + t12_0) >> 1;
     const int tp2 = (t01p2 + t12p2) >> 1;
 
-    int diff = max3(
+    const int diff = max3(
         abs(t01_0 - t12_0) >> 1,
         (abs(t00m1 - t10m1) + abs(t00p1 - t10p1)) >> 1,
         (abs(t20m1 - t10m1) + abs(t10p1 - t20p1)) >> 1);
-    diff = max3(diff,
-                -max3(t_0 - t10p1, t_0 - t10m1, min(tm2 - t10m1, tp2 - t10p1)),
-                min3(t_0 - t10p1, t_0 - t10m1, max(tm2 - t10m1, tp2 - t10p1)));
     return max(min(valSpatial, t_0 + diff), t_0 - diff);
 }
 
@@ -556,6 +553,12 @@ RGY_ERR NVEncFilterRtgmcEdi::checkParam(const std::shared_ptr<NVEncFilterParamRt
         && (prm->sourceFrameIn.csp == RGY_CSP_NA || prm->sourceFrameIn.width <= 0 || prm->sourceFrameIn.height <= 0)) {
         AddMessage(RGY_LOG_ERROR, _T("rtgmc-edi mode nnedi3 requires original source frame info; use it through --vpp-rtgmc, not standalone --vpp-rtgmc-edi.\n"));
         return RGY_ERR_UNSUPPORTED;
+    }
+    if (prm->mode != VppRtgmcEdiMode::Passthrough && !rtgmcEdiModeIsLightweight(prm->mode)) {
+        if (prm->mode != VppRtgmcEdiMode::NNEDI3) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid rtgmc-edi mode.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
     }
     if (prm->nnsize < 0 || prm->nnsize > 6 || prm->nneurons < 0 || prm->nneurons > 4 || prm->ediqual < 1 || prm->ediqual > 2) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid rtgmc-edi NNEDI3 parameter: nnsize %d, nneurons %d, ediqual %d.\n"),

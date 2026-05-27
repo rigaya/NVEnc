@@ -152,6 +152,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
         || prm->fft3d.overlap2 != std::dynamic_pointer_cast<NVEncFilterParamDenoiseFFT3D>(m_param)->fft3d.overlap2
         || prm->fft3d.temporal != std::dynamic_pointer_cast<NVEncFilterParamDenoiseFFT3D>(m_param)->fft3d.temporal
         || prm->fft3d.precision != std::dynamic_pointer_cast<NVEncFilterParamDenoiseFFT3D>(m_param)->fft3d.precision
+        || prm->processChroma != std::dynamic_pointer_cast<NVEncFilterParamDenoiseFFT3D>(m_param)->processChroma
         || cmpFrameInfoCspResolution(&m_param->frameOut, &prm->frameOut)) {
         m_ov1 = (int)(prm->fft3d.block_size * 0.5 * prm->fft3d.overlap + 0.5);
         m_ov2 = (int)(prm->fft3d.block_size * 0.5 * (prm->fft3d.overlap + prm->fft3d.overlap2) + 0.5) - m_ov1;
@@ -179,6 +180,14 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
         if ((sts = m_bufFFT.alloc(blockGlobalWidth * complexSize, blockGlobalHeight * complexSize, fft_csp, prm->fft3d.temporal ? 3 : 1)) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for FFT: %s.\n"), get_err_mes(sts));
             return sts;
+        }
+        if (!prm->processChroma) {
+            if ((sts = m_srcBuf.alloc(prm->frameOut.width, prm->frameOut.height, prm->frameOut.csp, prm->fft3d.temporal ? 3 : 1)) != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for luma-only FFT3D source frames: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+        } else {
+            m_srcBuf.clear();
         }
 
         m_filteredBlocks = std::unique_ptr<CUFrameBuf>(new CUFrameBuf());
@@ -237,7 +246,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::init(shared_ptr<NVEncFilterParam> pParam, share
 }
 
 tstring NVEncFilterParamDenoiseFFT3D::print() const {
-    return fft3d.print();
+    return fft3d.print() + strsprintf(_T(", chroma %s"), processChroma ? _T("on") : _T("off"));
 }
 
 RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
@@ -282,12 +291,26 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
             AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
-        auto fftBuf = m_bufFFT.get(m_bufIdx++);
+        const int curBufIdx = m_bufIdx++;
+        auto fftBuf = m_bufFFT.get(curBufIdx);
         if (!fftBuf || !fftBuf->frame.ptr[0]) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get fft buffer.\n"));
             return RGY_ERR_NULL_PTR;
         }
-        sts = denosieFunc->fft()(&fftBuf->frame, pInputFrame, m_ov1, m_ov2, (const float *)m_windowBuf->ptr, stream);
+        if (!prm->processChroma) {
+            auto srcBuf = m_srcBuf.get(curBufIdx);
+            if (!srcBuf || !srcBuf->frame.ptr[0]) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to get luma-only FFT3D source buffer.\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            auto copyErr = copyFrameAsync(&srcBuf->frame, pInputFrame, stream);
+            if (copyErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy luma-only FFT3D source frame: %s.\n"), get_err_mes(copyErr));
+                return copyErr;
+            }
+            copyFramePropWithoutRes(&srcBuf->frame, pInputFrame);
+        }
+        sts = denosieFunc->fft()(&fftBuf->frame, pInputFrame, m_ov1, m_ov2, (const float *)m_windowBuf->ptr, prm->processChroma, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run fft: %s.\n"), get_err_mes(sts));
             return RGY_ERR_NONE;
@@ -297,6 +320,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
 
     auto planeUV = getPlane(&prm->frameOut, RGY_PLANE_U);
 
+    const RGYFrameInfo *srcCurFrame = nullptr;
     if (prm->fft3d.temporal) {
         if (m_bufIdx <= 1) {
             //出力フレームなし
@@ -304,28 +328,49 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
             ppOutputFrames[0] = nullptr;
             return sts;
         }
+        const int curOutIdx = m_bufIdx - ((finalOutput) ? 1 : 2);
         auto fftPrev = m_bufFFT.get(std::max(m_bufIdx - ((finalOutput) ? 2 : 3), 0));
-        auto fftCur  = m_bufFFT.get(m_bufIdx - ((finalOutput) ? 1 : 2));
+        auto fftCur  = m_bufFFT.get(curOutIdx);
         auto fftNext = m_bufFFT.get(m_bufIdx - 1);
+        if (!prm->processChroma) {
+            auto srcCur = m_srcBuf.get(curOutIdx);
+            srcCurFrame = srcCur ? &srcCur->frame : nullptr;
+        }
         sts = denosieFunc->tfft_filter_ifft(1, 3)(&m_filteredBlocks->frame, &fftPrev->frame, &fftCur->frame, &fftNext->frame, nullptr, (const float *)m_windowBufInverse->ptr,
             prm->frameOut.width, prm->frameOut.height, planeUV.width, planeUV.height, m_ov1, m_ov2,
-            prm->fft3d.sigma, 1.0f - prm->fft3d.amount, prm->fft3d.method, stream);
+            prm->fft3d.sigma, 1.0f - prm->fft3d.amount, prm->fft3d.method, prm->processChroma, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run tfft_filter_ifft(1, 3): %s.\n"), get_err_mes(sts));
             return RGY_ERR_NONE;
         }
         copyFramePropWithoutRes(ppOutputFrames[0], &fftCur->frame);
     } else {
-        auto fftCur = m_bufFFT.get(m_bufIdx - 1);
+        const int curOutIdx = m_bufIdx - 1;
+        auto fftCur = m_bufFFT.get(curOutIdx);
+        if (!prm->processChroma) {
+            auto srcCur = m_srcBuf.get(curOutIdx);
+            srcCurFrame = srcCur ? &srcCur->frame : nullptr;
+        }
         sts = denosieFunc->tfft_filter_ifft(0, 1)(&m_filteredBlocks->frame, &fftCur->frame, nullptr, nullptr, nullptr, (const float *)m_windowBufInverse->ptr,
             prm->frameOut.width, prm->frameOut.height, planeUV.width, planeUV.height, m_ov1, m_ov2,
-            prm->fft3d.sigma, 1.0f - prm->fft3d.amount, prm->fft3d.method, stream);
+            prm->fft3d.sigma, 1.0f - prm->fft3d.amount, prm->fft3d.method, prm->processChroma, stream);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run tfft_filter_ifft(0, 1): %s.\n"), get_err_mes(sts));
             return RGY_ERR_NONE;
         }
     }
-    sts = denosieFunc->merge()(ppOutputFrames[0], &m_filteredBlocks->frame, m_ov1, m_ov2, stream);
+    if (!prm->processChroma) {
+        if (!srcCurFrame || !srcCurFrame->ptr[0]) {
+            AddMessage(RGY_LOG_ERROR, _T("missing luma-only FFT3D source frame.\n"));
+            return RGY_ERR_INVALID_CALL;
+        }
+        auto copyErr = copyFrameAsync(ppOutputFrames[0], srcCurFrame, stream);
+        if (copyErr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy luma-only FFT3D output base frame: %s.\n"), get_err_mes(copyErr));
+            return copyErr;
+        }
+    }
+    sts = denosieFunc->merge()(ppOutputFrames[0], &m_filteredBlocks->frame, m_ov1, m_ov2, prm->processChroma, stream);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to run merge: %s.\n"), get_err_mes(sts));
         return RGY_ERR_NONE;
@@ -338,6 +383,7 @@ RGY_ERR NVEncFilterDenoiseFFT3D::run_filter(const RGYFrameInfo *pInputFrame, RGY
 void NVEncFilterDenoiseFFT3D::close() {
     m_frameBuf.clear();
     m_bufFFT.clear();
+    m_srcBuf.clear();
     m_windowBuf.reset();
     m_windowBufInverse.reset();
 }
