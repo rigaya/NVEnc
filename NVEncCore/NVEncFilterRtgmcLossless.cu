@@ -723,6 +723,9 @@ RGY_ERR NVEncFilterRtgmcLossless::processFramePassSplit(RGYFrameInfo *pOutputFra
 RGY_ERR NVEncFilterRtgmcLossless::processFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pProcessedFrame, const RGYFrameInfo *pSourceFrame, int sourceField,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     const char *forcePassSplitEnv = std::getenv("NVENC_RTGMC_LOSSLESS_FORCE_PASS_SPLIT");
+    if (forcePassSplitEnv == nullptr || forcePassSplitEnv[0] == '\0') {
+        forcePassSplitEnv = std::getenv("QSVENC_RTGMC_LOSSLESS_FORCE_PASS_SPLIT");
+    }
     const bool forcePassSplit = forcePassSplitEnv != nullptr && forcePassSplitEnv[0] != '\0' && forcePassSplitEnv[0] != '0';
     if (forcePassSplit) {
         return processFramePassSplit(pOutputFrame, pProcessedFrame, pSourceFrame, sourceField, stream, wait_events, event);

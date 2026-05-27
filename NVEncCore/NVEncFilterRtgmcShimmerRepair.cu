@@ -757,6 +757,14 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::processFrame(RGYFrameInfo *pOutputFrame, 
             if (err != RGY_ERR_NONE) {
                 return err;
             }
+            if (m_lumaDumpEnabled && m_lumaDumpFullYuv && repair != 0) {
+                err = launchCopy(&m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_DELTA]->frame, pInputFrame, iplane);
+                if (err != RGY_ERR_NONE) return err;
+                err = launchCopy(&m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_POS_GATE]->frame, pInputFrame, iplane);
+                if (err != RGY_ERR_NONE) return err;
+                err = launchCopy(&m_frameBuf[RTGMC_SHIMMER_REPAIR_FRAME_NEG_GATE]->frame, pInputFrame, iplane);
+                if (err != RGY_ERR_NONE) return err;
+            }
             continue;
         }
 

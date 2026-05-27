@@ -321,18 +321,13 @@ RGY_ERR NVEncFilterRtgmcMMask::init(shared_ptr<NVEncFilterParam> pParam, shared_
 }
 
 RGY_ERR NVEncFilterRtgmcMMask::checkAnalyzeResult(const RGYDegrainAnalyzeResult &analyzeResult, const RGYFrameInfo *pSourceFrame) {
-    if (!analyzeResult.valid() || !analyzeResult.sad || !analyzeResult.sad->ptr || !analyzeResult.mv || !analyzeResult.mv->ptr) {
+    if (!analyzeResult.valid() || !analyzeResult.sad || !analyzeResult.sad->ptr) {
         AddMessage(RGY_LOG_ERROR, _T("rtgmc-mmask requires a valid degrain SAD analysis result.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (analyzeResult.layout.blockSize <= 0 || analyzeResult.layout.blockCount() <= 0 || analyzeResult.layout.temporalDirections <= 0
         || analyzeResult.layout.sadCount() != analyzeResult.layout.blockCount() * (size_t)analyzeResult.layout.temporalDirections) {
         AddMessage(RGY_LOG_ERROR, _T("rtgmc-mmask has invalid degrain SAD layout.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    if (analyzeResult.mv->nSize != rgy_degrain_mv_bytes(analyzeResult.layout)
-        || analyzeResult.sad->nSize != rgy_degrain_sad_bytes(analyzeResult.layout)) {
-        AddMessage(RGY_LOG_ERROR, _T("rtgmc-mmask degrain SAD buffer size mismatch.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (pSourceFrame
