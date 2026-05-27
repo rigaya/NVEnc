@@ -35,8 +35,9 @@ class NVEncFilterParamDenoiseFFT3D : public NVEncFilterParam {
 public:
     VppDenoiseFFT3D fft3d;
     std::pair<int, int> compute_capability;
+    bool processChroma;
 
-    NVEncFilterParamDenoiseFFT3D() : fft3d(), compute_capability() {
+    NVEncFilterParamDenoiseFFT3D() : fft3d(), compute_capability(), processChroma(true) {
 
     };
     virtual ~NVEncFilterParamDenoiseFFT3D() {};
@@ -51,13 +52,13 @@ static std::pair<int, int> getBlockCount(const int width, const int height, cons
 }
 
 typedef RGY_ERR (*func_fft3d_fft)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2,
-    const float *ptrBlockWindow, cudaStream_t stream);
+    const float *ptrBlockWindow, const bool processChroma, cudaStream_t stream);
 typedef RGY_ERR (*func_fft3d_tfft_filter_ifft)(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pInputFrameA, const RGYFrameInfo *pInputFrameB, const RGYFrameInfo *pInputFrameC, const RGYFrameInfo *pInputFrameD,
     const float *ptrBlockWindowInverse,
     const int widthY, const int heightY, const int widthUV, const int heightUV, const int ov1, const int ov2,
-    const float sigma, const float limit, const int filterMethod, cudaStream_t stream);
-typedef RGY_ERR (*func_fft3d_merge)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2, cudaStream_t stream);
+    const float sigma, const float limit, const int filterMethod, const bool processChroma, cudaStream_t stream);
+typedef RGY_ERR (*func_fft3d_merge)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2, const bool processChroma, cudaStream_t stream);
 
 class DenoiseFFT3DBase {
 public:
@@ -95,6 +96,7 @@ protected:
     int m_ov2;
 
     NVEncFilterDenoiseFFT3DBuffer m_bufFFT;
+    NVEncFilterDenoiseFFT3DBuffer m_srcBuf;
     std::unique_ptr<CUFrameBuf> m_filteredBlocks;
     std::unique_ptr<CUMemBuf> m_windowBuf;
     std::unique_ptr<CUMemBuf> m_windowBufInverse;

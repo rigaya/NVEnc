@@ -1301,6 +1301,7 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
             noiseParam->baseFps = currentFps;
             noiseParam->bOutOverwrite = false;
             noiseParam->nlmeans.sigma = prm->rtgmc.noise.sigma / 255.0f;
+            noiseParam->nlmeans.processChroma = prm->rtgmc.noise.chromaNoise;
             auto sts = noise->init(noiseParam, m_pLog);
             if (sts != RGY_ERR_NONE) {
                 return sts;
@@ -1327,6 +1328,7 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
             noiseParam->fft3d.method = FILTER_DEFAULT_DENOISE_FFT3D_METHOD;
             noiseParam->fft3d.temporal = 0;
             noiseParam->fft3d.precision = VppFpPrecision::VPP_FP_PRECISION_AUTO;
+            noiseParam->processChroma = prm->rtgmc.noise.chromaNoise;
             auto sts = noise->init(noiseParam, m_pLog);
             if (sts != RGY_ERR_NONE) {
                 return sts;

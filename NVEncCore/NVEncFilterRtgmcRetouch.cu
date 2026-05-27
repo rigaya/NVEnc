@@ -270,6 +270,14 @@ __device__ int rtgmc_retouch_removegrain12_value(
 }
 
 template<typename Type>
+__device__ int rtgmc_retouch_removegrain_smooth_value(
+    const uint8_t *__restrict__ src, const int x, const int y,
+    const int pitch, const int width, const int height
+) {
+    return rtgmc_retouch_removegrain12_value<Type>(src, x, y, pitch, width, height);
+}
+
+template<typename Type>
 __device__ int rtgmc_retouch_verticalcleaner1_value(
     const uint8_t *__restrict__ src, const int x, const int y,
     const int pitch, const int width, const int height
@@ -614,6 +622,19 @@ __global__ void kernel_rtgmc_retouch_removegrain12(
 }
 
 template<typename Type>
+__global__ void kernel_rtgmc_retouch_removegrain11(
+    uint8_t *__restrict__ dst, const int dstPitch,
+    const uint8_t *__restrict__ src, const int srcPitch,
+    const int width, const int height, const int maxVal
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= width || iy >= height) return;
+    rtgmc_retouch_write_pix<Type>(dst, ix, iy, dstPitch,
+        rtgmc_retouch_removegrain12_value<Type>(src, ix, iy, srcPitch, width, height), maxVal);
+}
+
+template<typename Type>
 __global__ void kernel_rtgmc_retouch_detail_ref_vertical(
     uint8_t *__restrict__ dst, const int dstPitch,
     const uint8_t *__restrict__ src, const int srcPitch,
@@ -747,7 +768,24 @@ __global__ void kernel_rtgmc_retouch_edge_narrow_guard_delta(
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= width || iy >= height) return;
     const int srcPix = rtgmc_retouch_read_pix<Type>(src, ix, iy, srcPitch, width, height);
-    const int rgPix = rtgmc_retouch_removegrain12_value<Type>(src, ix, iy, srcPitch, width, height);
+    const int rgPix = rtgmc_retouch_removegrain_smooth_value<Type>(src, ix, iy, srcPitch, width, height);
+    const int value = rtgmc_retouch_stronger_non_neutral(rgPix, srcPix, rangeHalf);
+    rtgmc_retouch_write_pix<Type>(dst, ix, iy, dstPitch, value, maxVal);
+}
+
+template<typename Type>
+__global__ void kernel_rtgmc_retouch_edge_narrow_guard_delta11(
+    uint8_t *__restrict__ dst, const int dstPitch,
+    const uint8_t *__restrict__ src, const int srcPitch,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= width || iy >= height) return;
+    const int srcPix = rtgmc_retouch_read_pix<Type>(src, ix, iy, srcPitch, width, height);
+    const int rgPix = rtgmc_retouch_removegrain_smooth_value<Type>(src, ix, iy, srcPitch, width, height);
     const int value = rtgmc_retouch_stronger_non_neutral(rgPix, srcPix, rangeHalf);
     rtgmc_retouch_write_pix<Type>(dst, ix, iy, dstPitch, value, maxVal);
 }
@@ -1445,17 +1483,24 @@ RGY_ERR NVEncFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const 
         return rtgmcRetouchRecordEvent(stream, ev);
     };
     auto launchRemoveGrain = [&](const RGYFrameInfo *dstFrame, const RGYFrameInfo *srcFrame, const int iplane, const int smoothingMode) {
-        UNREFERENCED_PARAMETER(smoothingMode);
-        const char *kernelName = "kernel_rtgmc_retouch_removegrain12";
+        const char *kernelName = (smoothingMode == 11) ? "kernel_rtgmc_retouch_removegrain11" : "kernel_rtgmc_retouch_removegrain12";
         const auto dstPlane = getPlane(dstFrame, (RGY_PLANE)iplane);
         const auto srcPlane = getPlane(srcFrame, (RGY_PLANE)iplane);
         const dim3 blockSize(RTGMC_RETOUCH_BLOCK_X, RTGMC_RETOUCH_BLOCK_Y);
         const dim3 gridSize(divCeil(dstPlane.width, blockSize.x), divCeil(dstPlane.height, blockSize.y));
-        LAUNCH_RETOUCH_TYPED(kernel_rtgmc_retouch_removegrain12, gridSize, blockSize,
-            (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
-            (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
-            dstPlane.width, dstPlane.height,
-            maxVal);
+        if (smoothingMode == 11) {
+            LAUNCH_RETOUCH_TYPED(kernel_rtgmc_retouch_removegrain11, gridSize, blockSize,
+                (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+                (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+                dstPlane.width, dstPlane.height,
+                maxVal);
+        } else {
+            LAUNCH_RETOUCH_TYPED(kernel_rtgmc_retouch_removegrain12, gridSize, blockSize,
+                (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+                (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+                dstPlane.width, dstPlane.height,
+                maxVal);
+        }
         return checkLaunch(kernelName, iplane);
     };
     auto launchRepairMode1 = [&](const RGYFrameInfo *dstFrame, const RGYFrameInfo *srcFrame, const RGYFrameInfo *refFrame, const int iplane) {
@@ -1551,18 +1596,26 @@ RGY_ERR NVEncFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const 
         return checkLaunch(kernelName, iplane);
     };
     auto launchEdgeNarrowGuardDelta = [&](const RGYFrameInfo *dstFrame, const RGYFrameInfo *srcFrame, const int iplane, const int smoothingMode) {
-        UNREFERENCED_PARAMETER(smoothingMode);
-        const char *kernelName = "kernel_rtgmc_retouch_edge_narrow_guard_delta";
+        const char *kernelName = (smoothingMode == 11) ? "kernel_rtgmc_retouch_edge_narrow_guard_delta11" : "kernel_rtgmc_retouch_edge_narrow_guard_delta";
         const auto dstPlane = getPlane(dstFrame, (RGY_PLANE)iplane);
         const auto srcPlane = getPlane(srcFrame, (RGY_PLANE)iplane);
         const dim3 blockSize(RTGMC_RETOUCH_BLOCK_X, RTGMC_RETOUCH_BLOCK_Y);
         const dim3 gridSize(divCeil(dstPlane.width, blockSize.x), divCeil(dstPlane.height, blockSize.y));
-        LAUNCH_RETOUCH_TYPED(kernel_rtgmc_retouch_edge_narrow_guard_delta, gridSize, blockSize,
-            (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
-            (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
-            dstPlane.width, dstPlane.height,
-            rangeHalf,
-            maxVal);
+        if (smoothingMode == 11) {
+            LAUNCH_RETOUCH_TYPED(kernel_rtgmc_retouch_edge_narrow_guard_delta11, gridSize, blockSize,
+                (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+                (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+                dstPlane.width, dstPlane.height,
+                rangeHalf,
+                maxVal);
+        } else {
+            LAUNCH_RETOUCH_TYPED(kernel_rtgmc_retouch_edge_narrow_guard_delta, gridSize, blockSize,
+                (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+                (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+                dstPlane.width, dstPlane.height,
+                rangeHalf,
+                maxVal);
+        }
         return checkLaunch(kernelName, iplane);
     };
     auto launchDetailRollback = [&](const RGYFrameInfo *dstFrame, const RGYFrameInfo *tmpFrame, const RGYFrameInfo *auxFrame,

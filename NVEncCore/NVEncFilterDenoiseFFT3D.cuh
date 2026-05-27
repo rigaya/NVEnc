@@ -284,7 +284,7 @@ __global__ void kernel_fft(
 
 template<typename Type, int bit_depth, typename TypeComplex, int BLOCK_SIZE, int DENOISE_BLOCK_SIZE_X>
 RGY_ERR denoise_fft(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2,
-    const float *ptrBlockWindow, cudaStream_t stream) {
+    const float *ptrBlockWindow, const bool processChroma, cudaStream_t stream) {
     {
         auto block_count = getBlockCount(pInputFrame->width, pInputFrame->height, BLOCK_SIZE, ov1, ov2);
         const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
@@ -311,6 +311,9 @@ RGY_ERR denoise_fft(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
         const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
         auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
         auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+        if (!processChroma) {
+            return RGY_ERR_NONE;
+        }
         if (planeOutputU.pitch[0] != planeOutputV.pitch[0]) {
             return RGY_ERR_UNKNOWN;
         }
@@ -470,7 +473,7 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
     const RGYFrameInfo *pInputFrameA, const RGYFrameInfo *pInputFrameB, const RGYFrameInfo *pInputFrameC, const RGYFrameInfo *pInputFrameD,
     const float *ptrBlockWindowInverse,
     const int widthY, const int heightY, const int widthUV, const int heightUV, const int ov1, const int ov2,
-    const float sigma, const float limit, const int filterMethod, cudaStream_t stream) {
+    const float sigma, const float limit, const int filterMethod, const bool processChroma, cudaStream_t stream) {
     {
         const auto block_count = getBlockCount(widthY, heightY, BLOCK_SIZE, ov1, ov2);
         const auto planeInputYA = (pInputFrameA) ? getPlane(pInputFrameA, RGY_PLANE_Y) : RGYFrameInfo();
@@ -515,6 +518,9 @@ RGY_ERR denoise_tfft_filter_ifft(RGYFrameInfo *pOutputFrame,
         const auto planeInputVD = (pInputFrameD) ? getPlane(pInputFrameD, RGY_PLANE_V) : RGYFrameInfo();
         auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
         auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+        if (!processChroma) {
+            return RGY_ERR_NONE;
+        }
         if (planeOutputU.pitch[0] != planeOutputV.pitch[0]) {
             return RGY_ERR_UNKNOWN;
         }
@@ -592,7 +598,7 @@ __global__ void kernel_merge(
 }
 
 template<typename TypePixel, int BLOCK_SIZE>
-RGY_ERR denoise_merge(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2, cudaStream_t stream) {
+RGY_ERR denoise_merge(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const int ov1, const int ov2, const bool processChroma, cudaStream_t stream) {
     {
         const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
         const auto planeInputA = getPlane(pInputFrame, RGY_PLANE_A);
@@ -616,6 +622,9 @@ RGY_ERR denoise_merge(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFram
         const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
         auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
         auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+        if (!processChroma) {
+            return RGY_ERR_NONE;
+        }
         if (planeOutputU.pitch[0] != planeOutputV.pitch[0]) {
             return RGY_ERR_UNKNOWN;
         }

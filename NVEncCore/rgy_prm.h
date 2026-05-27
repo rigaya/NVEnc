@@ -2161,6 +2161,7 @@ struct VppNLMeans {
     float h;
     VppNLMeansFP16Opt fp16;
     bool sharedMem;
+    bool processChroma;
 
     VppNLMeans();
     bool operator==(const VppNLMeans &x) const;
