@@ -490,6 +490,12 @@ RGY_ERR NVEncFilterKfm::initAnalyzer(const NVEncFilterParamKfm& prm) {
     m_ucfNoiseResultCache.clear();
     m_pendingUcfNoiseDump = KfmUcfNoiseDumpRecord();
 
+    auto clearFMCountSts = clearPendingFMCounts();
+    m_fmCountBufPool.clear();
+    if (clearFMCountSts != RGY_ERR_NONE) {
+        return clearFMCountSts;
+    }
+
     if (m_fpResult) {
         fclose(m_fpResult);
         m_fpResult = nullptr;
@@ -850,7 +856,10 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         m_workFrameBuf.clear();
         m_workBufferIndex = 0;
     }
-    if (prm->kfm.mode == VppKfmMode::VFR || prm->kfm.mode == VppKfmMode::P60 || prm->kfm.ucf) {
+    if (prm->kfm.mode == VppKfmMode::VFR
+        || prm->kfm.mode == VppKfmMode::P60
+        || (prm->kfm.mode == VppKfmMode::P24 && kfmDeint60BranchEnabled())
+        || prm->kfm.ucf) {
         m_staticFlag = std::make_unique<CUFrameBuf>(prm->frameOut);
         m_staticFlag->releasePtr();
         sts = m_staticFlag->alloc();
@@ -4655,6 +4664,29 @@ void NVEncFilterKfm::releaseUcfNoiseResultBuf(std::unique_ptr<CUMemBufPair>&& bu
     }
 }
 
+RGY_ERR NVEncFilterKfm::clearPendingFMCounts() {
+    if (m_pendingFMCounts.empty()) {
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR sts = RGY_ERR_NONE;
+    for (auto& pending : m_pendingFMCounts) {
+        for (auto& event : pending.pairEvents) {
+            if (event() == nullptr) {
+                continue;
+            }
+            const auto waitSts = err_to_rgy(cudaEventSynchronize(event()));
+            if (waitSts != RGY_ERR_NONE && sts == RGY_ERR_NONE) {
+                sts = waitSts;
+            }
+        }
+        pending.pairCounts.clear();
+        pending.pairEvents.clear();
+    }
+    m_pendingFMCounts.clear();
+    return sts;
+}
+
 RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t stream) {
     if (std::find_if(m_pendingFMCounts.begin(), m_pendingFMCounts.end(), [cycle](const KfmPendingFMCount& pending) {
         return pending.cycle == cycle;
@@ -6320,7 +6352,9 @@ void NVEncFilterKfm::close() {
     for (auto& flag : m_analyzeFlags) {
         flag.reset();
     }
-    m_pendingFMCounts.clear();
+    if (auto clearFMCountSts = clearPendingFMCounts(); clearFMCountSts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM pending FMCount buffers: %s.\n"), get_err_mes(clearFMCountSts));
+    }
     m_fmCountBufPool.clear();
     for (auto& raw : m_telecineSuperRaw) {
         raw.reset();

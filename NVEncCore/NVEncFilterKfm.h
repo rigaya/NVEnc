@@ -389,6 +389,7 @@ protected:
         int frameIndex, const char *stageName, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     RGY_ERR submitFMCounts(int cycle, bool drain, cudaStream_t stream);
     RGY_ERR readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, int cycle, bool drain, cudaStream_t stream);
+    RGY_ERR clearPendingFMCounts();
     RGY_ERR analyzeAvailableSource(bool drain, cudaStream_t stream);
     RGY_ERR clearStaticFlag(cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event = nullptr);
     RGY_ERR analyzeStaticFlag(cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
