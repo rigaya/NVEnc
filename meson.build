@@ -465,6 +465,16 @@ int main(void) { return PL_API_VER; }
       args: get_option('cpp_args'),
     )
   endif
+  if have_libplacebo_headers and not have_vulkan_headers
+    if enable_libplacebo_option == 'enabled'
+      error('libplacebo support requires Vulkan headers (vulkan/vulkan.h)')
+    endif
+    message('Vulkan headers not found, disabling libplacebo support')
+    have_libplacebo_headers = false
+    libplacebo_compile_dep = declare_dependency()
+    libplacebo_link_dep = declare_dependency()
+    have_libplacebo_link = false
+  endif
   if libplacebo_static
     if enable_libplacebo_option == 'enabled' and not have_libplacebo_link
       error('Static libplacebo not found')
