@@ -151,6 +151,24 @@ static void clamp_nvenc_target_quality(InEncodeVideoParam *inputParam) {
     }
 }
 
+static int count_deinterlacer(const InEncodeVideoParam *inputParam) {
+    int deinterlacer = 0;
+    if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
+    if (inputParam->vpp.afs.enable) deinterlacer++;
+    if (inputParam->vpp.nnedi.enable) deinterlacer++;
+    if (inputParam->vpp.rtgmc.enable) deinterlacer++;
+    if (inputParam->vpp.kfm.enable) deinterlacer++;
+    if (inputParam->vpp.yadif.enable) deinterlacer++;
+    if (inputParam->vpp.decomb.enable) deinterlacer++;
+    if (inputParam->vpp.bwdif.enable) deinterlacer++;
+    if (inputParam->vpp.ivtc.enable) deinterlacer++;
+    return deinterlacer;
+}
+
+static bool deinterlacer_enabled(const InEncodeVideoParam *inputParam) {
+    return count_deinterlacer(inputParam) > 0;
+}
+
 #if ENABLE_NVTX
 #include "nvToolsExt.h"
 #ifdef _M_IX86
@@ -546,16 +564,7 @@ RGY_ERR NVEncCore::InitInput(InEncodeVideoParam *inputParam, DeviceCodecCsp& HWD
         }
     }
     // インタレ解除が指定され、かつインタレの指定がない場合は、自動的にインタレの情報取得を行う
-    int deinterlacer = 0;
-    if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
-    if (inputParam->vpp.afs.enable) deinterlacer++;
-    if (inputParam->vpp.nnedi.enable) deinterlacer++;
-    if (inputParam->vpp.kfm.enable) deinterlacer++;
-    if (inputParam->vpp.yadif.enable) deinterlacer++;
-    if (inputParam->vpp.decomb.enable) deinterlacer++;
-    if (inputParam->vpp.bwdif.enable) deinterlacer++;
-    if (inputParam->vpp.ivtc.enable) deinterlacer++;
-    if (deinterlacer > 0 && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) == 0)) {
+    if (deinterlacer_enabled(inputParam) && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) == 0)) {
         inputParam->input.picstruct = RGY_PICSTRUCT_AUTO;
     }
 
@@ -1048,13 +1057,7 @@ RGY_ERR NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUInfo>>
         if (inputParam->codec_rgy == RGY_CODEC_H264
             && (
                 (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED)
-                && (inputParam->vppnv.deinterlace == cudaVideoDeinterlaceMode_Weave
-                    && !inputParam->vpp.afs.enable
-                    && !inputParam->vpp.nnedi.enable
-                    && !inputParam->vpp.yadif.enable
-                    && !inputParam->vpp.decomb.enable
-                    && !inputParam->vpp.bwdif.enable
-                    && !inputParam->vpp.ivtc.enable))
+                && !deinterlacer_enabled(inputParam))
             && !get_value(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING, codec->caps)) {
             message += strsprintf(_T("GPU #%d (%s) does not support H.264 interlaced encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str());
             gpu = gpuList.erase(gpu);
@@ -1623,12 +1626,7 @@ NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
 
 bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
     const bool interlacedEncode = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED)
-        && (inputParam->vppnv.deinterlace == cudaVideoDeinterlaceMode_Weave
-            && !inputParam->vpp.afs.enable
-            && !inputParam->vpp.nnedi.enable
-            && !inputParam->vpp.yadif.enable
-            && !inputParam->vpp.bwdif.enable
-            && !inputParam->vpp.ivtc.enable));
+        && !deinterlacer_enabled(inputParam));
     return
          //デフォルトの補間方法
         inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO
@@ -1663,6 +1661,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.detailsharpen.enable
             || inputParam->vpp.afs.enable
             || inputParam->vpp.nnedi.enable
+            || inputParam->vpp.rtgmc.enable
+            || inputParam->vpp.kfm.enable
             || inputParam->vpp.yadif.enable
             || inputParam->vpp.decomb.enable
             || inputParam->vpp.bwdif.enable
@@ -1790,7 +1790,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
             return RGY_ERR_UNSUPPORTED;
         }
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.kfm.enable || inputParam->vpp.yadif.enable || inputParam->vpp.decomb.enable || inputParam->vpp.bwdif.enable || inputParam->vpp.ivtc.enable) {
+    } else if (deinterlacer_enabled(inputParam)) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
@@ -3081,19 +3081,11 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
         inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable || inputParam->vpp.decomb.enable || inputParam->vpp.bwdif.enable || inputParam->vpp.ivtc.enable) {
+    } else if (deinterlacer_enabled(inputParam)) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
     //インタレ解除の個数をチェック
-    int deinterlacer = 0;
-    if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
-    if (inputParam->vpp.afs.enable) deinterlacer++;
-    if (inputParam->vpp.nnedi.enable) deinterlacer++;
-    if (inputParam->vpp.kfm.enable) deinterlacer++;
-    if (inputParam->vpp.yadif.enable) deinterlacer++;
-    if (inputParam->vpp.decomb.enable) deinterlacer++;
-    if (inputParam->vpp.bwdif.enable) deinterlacer++;
-    if (inputParam->vpp.ivtc.enable) deinterlacer++;
+    const int deinterlacer = count_deinterlacer(inputParam);
     if (deinterlacer >= 2) {
         PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer is not supported.\n"));
         return RGY_ERR_UNSUPPORTED;
