@@ -125,6 +125,25 @@ RGY_DISABLE_WARNING_POP
 
 using std::deque;
 
+static int nvenc_target_quality_max(const RGY_CODEC codec) {
+    return (codec == RGY_CODEC_AV1) ? 63 : 51;
+}
+
+static void clamp_nvenc_target_quality(NVEncRCParam& rcPrm, const RGY_CODEC codec) {
+    const auto qualityMax = nvenc_target_quality_max(codec);
+    if (rcPrm.targetQuality > qualityMax || (rcPrm.targetQuality == qualityMax && rcPrm.targetQualityLSB > 0)) {
+        rcPrm.targetQuality = qualityMax;
+        rcPrm.targetQualityLSB = 0;
+    }
+}
+
+static void clamp_nvenc_target_quality(InEncodeVideoParam *inputParam) {
+    clamp_nvenc_target_quality(inputParam->rcParam, inputParam->codec_rgy);
+    for (auto& rcPrm : inputParam->dynamicRC) {
+        clamp_nvenc_target_quality(rcPrm, inputParam->codec_rgy);
+    }
+}
+
 #if ENABLE_NVTX
 #include "nvToolsExt.h"
 #ifdef _M_IX86
@@ -1978,6 +1997,7 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         inputParam->rcParam.targetQuality = DEFAULT_QVBR_TARGET;
         inputParam->rcParam.targetQualityLSB = 0;
     }
+    clamp_nvenc_target_quality(inputParam);
 
     //その他のレート制御パラメータの設定
     m_stEncConfig.rcParams.averageBitRate    = inputParam->rcParam.avg_bitrate;

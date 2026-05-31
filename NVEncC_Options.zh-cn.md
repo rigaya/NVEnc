@@ -556,7 +556,7 @@ NVEncC 默认使用 UTF-8 编码格式读取文件, 因此当 Avisynth 脚本文
 默认选择为 QVBR （固定质量）。
 
 ### --qvbr  &lt;float&gt;
-以固定质量模式编码 (0.0-51.0, 0 = 自动)
+以固定质量模式编码 (0.0-51.0, AV1为0.0-63.0, 0 = 自动)
 
 等效于 --vbr 0 --vbr-quality &lt;float&gt;.
 
@@ -649,7 +649,7 @@ P1为最快，P7为质量最高
 
 ### --vbr-quality &lt;float&gt;
 
-当使用 VBR 模式时设置输出质量。 (0.0-51.0, 0 表示自动)
+当使用 VBR 模式时设置输出质量。 (0.0-51.0, AV1为0.0-63.0, 0 表示自动)
 
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
 改变"开始帧编号:结束帧编号"之间使用的码率控制方法。可以指定的参数有码率控制方法、最大码率和目标质量（vbr-quality）。
@@ -659,10 +659,11 @@ P1为最快，P7为质量最高
 - [cqp](./NVEncC_Options.zh-cn.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
 - [cbr](./NVEncC_Options.zh-cn.md#--cbr-int)=&lt;int&gt;   
 - [vbr](./NVEncC_Options.zh-cn.md#--vbr-int)=&lt;int&gt;   
+- [qvbr](./NVEncC_Options.zh-cn.md#--qvbr-float)=&lt;float&gt; (0.0-51.0, AV1为0.0-63.0, 0 = 自动)
 
 **追加参数**
 - [max-bitrate](./NVEncC_Options.zh-cn.md#--max-bitrate-int)=&lt;int&gt;  
-- [vbr-quality](./NVEncC_Options.zh-cn.md#--vbr-quality-float)=&lt;float&gt;  
+- [vbr-quality](./NVEncC_Options.zh-cn.md#--vbr-quality-float)=&lt;float&gt; (0.0-51.0, AV1为0.0-63.0, 0 表示自动)
 - [multipass](./NVEncC_Options.zh-cn.md#--multipass-string)=&lt;string&gt;  
 
 ```

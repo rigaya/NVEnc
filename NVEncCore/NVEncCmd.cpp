@@ -80,6 +80,12 @@ typedef struct ListData {
     int default_index;
 } ListData;
 
+static void set_nvenc_target_quality(NVEncRCParam& rcPrm, const double quality) {
+    const auto value_int = (int)quality;
+    rcPrm.targetQuality = value_int;
+    rcPrm.targetQualityLSB = (uint8_t)clamp((int)((quality - value_int) * 256.0), 0, 255);
+}
+
 static tstring PrintMultipleListOptions(const TCHAR *option_name, const TCHAR *option_desc, const vector<ListData>& listDatas) {
     tstring str;
     const TCHAR *indent_space = _T("                                ");
@@ -189,7 +195,7 @@ tstring encoder_help() {
         _T("   --sar <int>:<int>            set Sample  Aspect Ratio\n")
         _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
         _T("\n")
-        _T("   --qvbr <float>               set bitrate for QVBR mode (kbps)\n")
+        _T("   --qvbr <float>               target quality for QVBR mode (0-51, 0-63 for AV1, 0=auto)\n")
         _T("                                  same as \"--vbr 0 --vbr-quality <float>\"\n")
         _T("   --vbr <int>                  set bitrate for VBR mode (kbps)\n")
         _T("   --cbr <int>                  set bitrate for CBR mode (kbps)\n")
@@ -200,7 +206,7 @@ tstring encoder_help() {
         _T("-u,--preset <string>            set encoder preset\n")
         _T("                                  default, performance, quality\n")
         _T("\n")
-        _T("   --vbr-quality <float>        target quality for VBR mode (0-51, 0=auto)\n")
+        _T("   --vbr-quality <float>        target quality for VBR mode (0-51, 0-63 for AV1, 0=auto)\n")
         _T("   --multipass <string>         multipass mode for VBR, CBR mode\n")
         _T("                                  none, 2pass-quarter, 2pass-full\n")
         _T("   --max-bitrate <int>          set Max Bitrate (kbps)\n")
@@ -213,9 +219,9 @@ tstring encoder_help() {
         _T("      vbrhq=<int>\n")
         _T("      cbr=<int>\n")
         _T("      cbrhq=<int>\n")
-        _T("      qvbr=<float>\n")
+        _T("      qvbr=<float> (0-51, 0-63 for AV1, 0=auto)\n")
         _T("      max-bitrate=<int>\n")
-        _T("      vbr-quality=<float>\n")
+        _T("      vbr-quality=<float> (0-51, 0-63 for AV1, 0=auto)\n")
         _T("\n")
         _T("   --qp-init <int> or           set initial QP\n")
         _T("             <int>:<int>:<int>    default: auto\n")
@@ -581,10 +587,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->rcParam.targetQualityLSB = -1;
             pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_QVBR;
         } else if (1 == _stscanf_s(strInput[i], _T("%lf"), &value)) {
-            value = (std::max)(0.0, value);
-            int value_int = (int)value;
-            pParams->rcParam.targetQuality = (uint8_t)clamp(value_int, 0, 51);
-            pParams->rcParam.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+            if (value < 0.0) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+            set_nvenc_target_quality(pParams->rcParam, value);
 
             pParams->rcParam.rc_mode = NV_ENC_PARAMS_RC_QVBR;
         } else {
@@ -600,10 +607,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->rcParam.targetQuality = 0;
             pParams->rcParam.targetQualityLSB = 0;
         } else if (1 == _stscanf_s(strInput[i], _T("%lf"), &value)) {
-            value = (std::max)(0.0, value);
-            int value_int = (int)value;
-            pParams->rcParam.targetQuality = (uint8_t)clamp(value_int, 0, 51);
-            pParams->rcParam.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+            if (value < 0.0) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+            set_nvenc_target_quality(pParams->rcParam, value);
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -692,10 +700,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("qvbr")) {
                     try {
-                        auto value = (std::max)(0.0, std::stod(param_val));
-                        int value_int = (int)value;
-                        rcPrm.targetQuality = (uint8_t)clamp(value_int, 0, 51);
-                        rcPrm.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+                        auto value = std::stod(param_val);
+                        if (value < 0.0) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        set_nvenc_target_quality(rcPrm, value);
                         rcPrm.avg_bitrate = 0;
                         rcPrm.rc_mode = NV_ENC_PARAMS_RC_VBR;
                         rc_mode_defined = true;
@@ -707,10 +717,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("vbr-quality")) {
                     try {
-                        auto value = (std::max)(0.0, std::stod(param_val));
-                        int value_int = (int)value;
-                        rcPrm.targetQuality = (uint8_t)clamp(value_int, 0, 51);
-                        rcPrm.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+                        auto value = std::stod(param_val);
+                        if (value < 0.0) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        set_nvenc_target_quality(rcPrm, value);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;

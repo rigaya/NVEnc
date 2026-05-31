@@ -582,7 +582,7 @@ Set input colorspace for --raw input. Default is yv12.
 The default is QVBR (constant quality mode).
 
 ### --qvbr  &lt;float&gt;
-Encode using constant quality mode. (0.0-51.0, 0 = automatic)
+Encode using constant quality mode. (0.0-51.0, 0.0-63.0 for AV1, 0 = automatic)
 
 This is equivalent to --vbr 0 --vbr-quality &lt;float&gt;.
 
@@ -683,21 +683,22 @@ It could be used to maintain certain degree of image quality in any part of the 
 Set the QP offset for chroma. (default: 0)
 
 ### --vbr-quality &lt;float&gt;
-Set target quality when using VBR mode. (0.0-51.0, 0 = automatic)
+Set target quality when using VBR mode. (0.0-51.0, 0.0-63.0 for AV1, 0 = automatic)
 
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
 Change the rate control mode and rate control params within the specified range of input frames.
 
 - **required parameters**
   It is required to specify one of the params below.  
-  - [cqp](./NVEncC_Options.en.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
-  - [cbr](./NVEncC_Options.en.md#--cbr-int)=&lt;int&gt;  
-  - [vbr](./NVEncC_Options.en.md#--vbr-int)=&lt;int&gt;  
+  - [cqp](./NVEncC_Options.en.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;
+  - [cbr](./NVEncC_Options.en.md#--cbr-int)=&lt;int&gt;
+  - [vbr](./NVEncC_Options.en.md#--vbr-int)=&lt;int&gt;
+  - [qvbr](./NVEncC_Options.en.md#--qvbr-float)=&lt;float&gt; (0.0-51.0, 0.0-63.0 for AV1, 0 = automatic)
 
 - **additional parameters**
-  - [max-bitrate](./NVEncC_Options.en.md#--max-bitrate-int)=&lt;int&gt;  
-  - [vbr-quality](./NVEncC_Options.en.md#--vbr-quality-float)=&lt;float&gt;  
-  - [multipass](./NVEncC_Options.en.md#--multipass-string)=&lt;string&gt;  
+  - [max-bitrate](./NVEncC_Options.en.md#--max-bitrate-int)=&lt;int&gt;
+  - [vbr-quality](./NVEncC_Options.en.md#--vbr-quality-float)=&lt;float&gt; (0.0-51.0, 0.0-63.0 for AV1, 0 = automatic)
+  - [multipass](./NVEncC_Options.en.md#--multipass-string)=&lt;string&gt;
 
 - Examples
   ```

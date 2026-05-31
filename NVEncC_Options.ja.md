@@ -582,7 +582,7 @@ raw読み込み時の入力色空間の設定。デフォルトはyv12。
 デフォルトはQVBR(固定品質モード)。
 
 ### --qvbr  &lt;float&gt; (固定品質モード)
-固定品質モードでエンコードを行う。(0.0-51.0, 0 = 自動)
+固定品質モードでエンコードを行う。(0.0-51.0, AV1は0.0-63.0, 0 = 自動)
 
 --vbr 0 --vbr-quality &lt;float&gt; と同じ。
 
@@ -687,21 +687,22 @@ VBVバッファサイズ(kbps単位)。 (default: auto)
 色差成分のQPオフセット。 (default: 0)
 
 ### --vbr-quality &lt;float&gt;
-VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
+VBRモード使用時の目標品質を設定する。(0.0-51.0, AV1は0.0-63.0, 0 = 自動)
 
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
 "開始フレーム番号:終了フレーム番号"で指定した入力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(vbr-quality)、multipass。
 
 - **必須パラメータ**
   下記パラメータのうち、必ずひとつは指定が必要。
-  - [cqp](./NVEncC_Options.ja.md#--cqp-int-or-intintint%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
-  - [cbr](./NVEncC_Options.ja.md#--cbr-int---%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
-  - [vbr](./NVEncC_Options.ja.md#--vbr-int---%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+  - [cqp](./NVEncC_Options.ja.md#--cqp-int-or-intintint%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;
+  - [cbr](./NVEncC_Options.ja.md#--cbr-int---%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;
+  - [vbr](./NVEncC_Options.ja.md#--vbr-int---%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;
+  - [qvbr](./NVEncC_Options.ja.md#--qvbr-float-%E5%9B%BA%E5%AE%9A%E5%93%81%E8%B3%AA%E3%83%A2%E3%83%BC%E3%83%89)=&lt;float&gt; (0.0-51.0, AV1は0.0-63.0, 0 = 自動)
 
 - **追加パラメータ**
-  - [max-bitrate](./NVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;  
-  - [vbr-quality](./NVEncC_Options.ja.md#--vbr-quality-float)=&lt;float&gt;  
-  - [multipass](./NVEncC_Options.ja.md#--multipass-string)=&lt;string&gt;  
+  - [max-bitrate](./NVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;
+  - [vbr-quality](./NVEncC_Options.ja.md#--vbr-quality-float)=&lt;float&gt; (0.0-51.0, AV1は0.0-63.0, 0 = 自動)
+  - [multipass](./NVEncC_Options.ja.md#--multipass-string)=&lt;string&gt;
 
 - Examples
   ```
