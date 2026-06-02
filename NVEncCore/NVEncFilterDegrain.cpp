@@ -554,6 +554,7 @@ NVEncFilterDegrain::NVEncFilterDegrain() :
     m_frameAnalysisData(),
     m_frameAnalysisLayout(),
     m_pendingSceneChange(),
+    m_sideDataBufferPool(std::make_shared<RGYDegrainBufferPool>()),
     m_sceneChangeReadbackSAD(),
     m_sceneChangeCounts(),
     m_sceneChangeDisableMask(),
@@ -1327,6 +1328,9 @@ void NVEncFilterDegrain::close() {
     m_analysis.temporalMixPrior.reset();
     clearDirectAnalyzeResult();
     clearFrameAnalysisData();
+    if (m_sideDataBufferPool) {
+        m_sideDataBufferPool->clear();
+    }
     for (auto &luma : m_analysis.analysisLuma) {
         luma.reset();
     }
@@ -1945,14 +1949,18 @@ RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, 
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto mv = std::make_unique<CUMemBuf>(m_analysis.mvBytes);
-    auto err = mv->alloc();
+    auto mv = (m_sideDataBufferPool)
+        ? m_sideDataBufferPool->acquire(m_analysis.mvBytes)
+        : std::make_unique<CUMemBuf>(m_analysis.mvBytes);
+    auto err = (mv && mv->ptr) ? RGY_ERR_NONE : (mv ? mv->alloc() : RGY_ERR_MEMORY_ALLOC);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame MV side data buffer.\n"));
         return err;
     }
-    auto sad = std::make_unique<CUMemBuf>(m_analysis.sadBytes);
-    err = sad->alloc();
+    auto sad = (m_sideDataBufferPool)
+        ? m_sideDataBufferPool->acquire(m_analysis.sadBytes)
+        : std::make_unique<CUMemBuf>(m_analysis.sadBytes);
+    err = (sad && sad->ptr) ? RGY_ERR_NONE : (sad ? sad->alloc() : RGY_ERR_MEMORY_ALLOC);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame SAD side data buffer.\n"));
         return err;
@@ -2001,7 +2009,8 @@ RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, 
         sourceFrame->inputFrameId,
         sourceFrame->timestamp,
         sourceFrame->duration,
-        m_analysis.lastAvailabilityDisableRefs);
+        m_analysis.lastAvailabilityDisableRefs,
+        m_sideDataBufferPool);
     rgy_degrain_erase_frame_data(outputFrame->dataList);
     outputFrame->dataList.push_back(frameData);
     if (event) {
