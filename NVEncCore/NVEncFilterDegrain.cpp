@@ -551,6 +551,8 @@ NVEncFilterDegrain::NVEncFilterDegrain() :
     m_frameAnalysisData(),
     m_frameAnalysisLayout(),
     m_pendingSceneChange(),
+    m_sceneChangeReadbackSAD(),
+    m_sceneChangeReadbackSADIndex(0),
     m_inputCount(0),
     m_drainCount(0),
     m_bInterlacedWarn(false),
@@ -1304,6 +1306,11 @@ void NVEncFilterDegrain::close() {
     m_degrainMotionSearchPrograms.clear();
     m_useDegrainChromaProgram = false;
     clearPendingSceneChange();
+    for (auto &sad : m_sceneChangeReadbackSAD) {
+        sad.clear();
+        sad.shrink_to_fit();
+    }
+    m_sceneChangeReadbackSADIndex = 0;
     m_analysis.mv.reset();
     m_analysis.sad.reset();
     m_analysis.windowRampY.reset();
@@ -2721,7 +2728,7 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
         return RGY_ERR_INVALID_PARAM;
     }
     auto pendingReadbackStable = [](const PendingSceneChange &pending) {
-        return !pending.mapSubmitted || !pending.sadHost.empty();
+        return !pending.mapSubmitted || (pending.sadHost && !pending.sadHost->empty());
     };
     std::unique_ptr<PendingSceneChange> pendingOutput;
     bool pendingOutputEmitted = false;
@@ -2860,21 +2867,36 @@ RGY_ERR NVEncFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<NVEn
             return err;
         }
     }
-    pending->sadHost.resize(pending->layout.sadCount());
-    auto err = err_to_rgy(cudaMemcpyAsync(pending->sadHost.data(), sad->ptr, rgy_degrain_sad_bytes(pending->layout), cudaMemcpyDeviceToHost, stream));
+    pending->sadHost = acquireSceneChangeReadbackSAD(pending->layout.sadCount());
+    if (!pending->sadHost) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain SAD readback buffer.\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    auto err = err_to_rgy(cudaMemcpyAsync(pending->sadHost->data(), sad->ptr, rgy_degrain_sad_bytes(pending->layout), cudaMemcpyDeviceToHost, stream));
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain SAD buffer for scene change detection: %s.\n"), get_err_mes(err));
-        pending->sadHost.clear();
+        pending->sadHost = nullptr;
         return err;
     }
     err = degrainRecordEvent(stream, &pending->mapEvent);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to record degrain scene change readback event: %s.\n"), get_err_mes(err));
-        pending->sadHost.clear();
+        pending->sadHost = nullptr;
         return err;
     }
     pending->mapSubmitted = true;
     return RGY_ERR_NONE;
+}
+
+std::vector<RGYDegrainSAD> *NVEncFilterDegrain::acquireSceneChangeReadbackSAD(const size_t count) {
+    auto &buf = m_sceneChangeReadbackSAD[m_sceneChangeReadbackSADIndex];
+    m_sceneChangeReadbackSADIndex = (m_sceneChangeReadbackSADIndex + 1) % (int)m_sceneChangeReadbackSAD.size();
+    try {
+        buf.resize(count);
+    } catch (...) {
+        return nullptr;
+    }
+    return &buf;
 }
 
 RGY_ERR NVEncFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pending, cudaStream_t, RGYDegrainRefDisableArray *disableRefs) {
@@ -2899,7 +2921,7 @@ RGY_ERR NVEncFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pendi
             return err;
         }
     }
-    if (pending.sadHost.empty()) {
+    if (!pending.sadHost || pending.sadHost->empty()) {
         AddMessage(RGY_LOG_ERROR, _T("failed to access degrain SAD buffer for scene change detection.\n"));
         return RGY_ERR_NULL_PTR;
     }
@@ -2910,7 +2932,7 @@ RGY_ERR NVEncFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pendi
             if (pending.disableRefs[refDirection]) {
                 continue;
             }
-            const auto &sadValue = pending.sadHost[block * (size_t)pending.layout.temporalDirections + (size_t)refDirection];
+            const auto &sadValue = (*pending.sadHost)[block * (size_t)pending.layout.temporalDirections + (size_t)refDirection];
             if (sadValue.sad > pending.scaledThSCD1) {
                 sceneChangeBlockCounts[refDirection]++;
             }
