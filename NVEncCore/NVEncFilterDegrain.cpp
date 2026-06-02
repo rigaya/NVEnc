@@ -81,6 +81,9 @@ RGY_ERR launchNVEncDegrainMotionSearchSpatialRefine(
 RGY_ERR launchNVEncDegrainBuildTemporalMixPlan(
     CUMemBuf &temporalMixPlan, const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
     int blockCount, uint32_t thsad, uint32_t disableMask, int refs, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainSceneChangeMask(
+    CUMemBuf &sceneChangeCounts, CUMemBuf &disableMaskBuf, const CUMemBuf &sad,
+    const RGYDegrainBlockLayout &layout, uint32_t thscd1, uint32_t baseDisableMask, uint64_t thscd2, cudaStream_t stream);
 RGY_ERR launchNVEncDegrainOverlapPlane(
     uint8_t *dst, int dstPitch, int pixelBytes,
     const uint8_t *cur, int curPitch,
@@ -552,6 +555,8 @@ NVEncFilterDegrain::NVEncFilterDegrain() :
     m_frameAnalysisLayout(),
     m_pendingSceneChange(),
     m_sceneChangeReadbackSAD(),
+    m_sceneChangeCounts(),
+    m_sceneChangeDisableMask(),
     m_sceneChangeReadbackSADIndex(0),
     m_inputCount(0),
     m_drainCount(0),
@@ -1310,6 +1315,8 @@ void NVEncFilterDegrain::close() {
         sad.clear();
         sad.shrink_to_fit();
     }
+    m_sceneChangeCounts.reset();
+    m_sceneChangeDisableMask.reset();
     m_sceneChangeReadbackSADIndex = 0;
     m_analysis.mv.reset();
     m_analysis.sad.reset();
@@ -2728,7 +2735,7 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
         return RGY_ERR_INVALID_PARAM;
     }
     auto pendingReadbackStable = [](const PendingSceneChange &pending) {
-        return !pending.mapSubmitted || (pending.sadHost && !pending.sadHost->empty());
+        return !pending.mapSubmitted || pending.mapEvent() != nullptr;
     };
     bool pendingOutputEmitted = false;
     if (!m_pendingSceneChange.empty() && !pendingReadbackStable(*m_pendingSceneChange.front())) {
@@ -2861,6 +2868,7 @@ RGY_ERR NVEncFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<NVEn
     pending->scaledThSCD1 = scaledThSCD1;
     pending->scaledThSCD2 = scaledThSCD2;
     pending->sad = sad;
+    pending->disableMask = degrainDisableMask(disableRefs, pending->layout.temporalDirections);
     if (!prm || !sad || pending->layout.blockCount() == 0) {
         return RGY_ERR_NONE;
     }
@@ -2872,6 +2880,23 @@ RGY_ERR NVEncFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<NVEn
         return RGY_ERR_NONE;
     }
 
+    const auto countBytes = sizeof(uint32_t) * RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS;
+    if (!m_sceneChangeCounts || m_sceneChangeCounts->nSize != countBytes) {
+        m_sceneChangeCounts = std::make_unique<CUMemBuf>(countBytes);
+        auto err = m_sceneChangeCounts->alloc();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain scene change count buffer: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+    if (!m_sceneChangeDisableMask || m_sceneChangeDisableMask->nSize != sizeof(uint32_t)) {
+        m_sceneChangeDisableMask = std::make_unique<CUMemBuf>(sizeof(uint32_t));
+        auto err = m_sceneChangeDisableMask->alloc();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain scene change mask buffer: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
     if (analysisEvent()() != nullptr) {
         auto err = err_to_rgy(cudaStreamWaitEvent(stream, analysisEvent()(), 0));
         if (err != RGY_ERR_NONE) {
@@ -2879,21 +2904,27 @@ RGY_ERR NVEncFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<NVEn
             return err;
         }
     }
-    pending->sadHost = acquireSceneChangeReadbackSAD(pending->layout.sadCount());
-    if (!pending->sadHost) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain SAD readback buffer.\n"));
-        return RGY_ERR_MEMORY_ALLOC;
-    }
-    auto err = err_to_rgy(cudaMemcpyAsync(pending->sadHost->data(), sad->ptr, rgy_degrain_sad_bytes(pending->layout), cudaMemcpyDeviceToHost, stream));
+    auto err = launchNVEncDegrainSceneChangeMask(*m_sceneChangeCounts, *m_sceneChangeDisableMask, *sad,
+        pending->layout, pending->scaledThSCD1, pending->disableMask, pending->scaledThSCD2, stream);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain SAD buffer for scene change detection: %s.\n"), get_err_mes(err));
-        pending->sadHost = nullptr;
+        AddMessage(RGY_LOG_ERROR, _T("failed to build degrain scene change mask: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    err = err_to_rgy(cudaMemcpyAsync(pending->sceneChangeBlockCounts.data(), m_sceneChangeCounts->ptr,
+        sizeof(uint32_t) * pending->sceneChangeBlockCounts.size(), cudaMemcpyDeviceToHost, stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain scene change counts: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    err = err_to_rgy(cudaMemcpyAsync(&pending->disableMask, m_sceneChangeDisableMask->ptr,
+        sizeof(pending->disableMask), cudaMemcpyDeviceToHost, stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy degrain scene change mask: %s.\n"), get_err_mes(err));
         return err;
     }
     err = degrainRecordEvent(stream, &pending->mapEvent);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to record degrain scene change readback event: %s.\n"), get_err_mes(err));
-        pending->sadHost = nullptr;
         return err;
     }
     pending->mapSubmitted = true;
@@ -2933,29 +2964,14 @@ RGY_ERR NVEncFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pendi
             return err;
         }
     }
-    if (!pending.sadHost || pending.sadHost->empty()) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to access degrain SAD buffer for scene change detection.\n"));
-        return RGY_ERR_NULL_PTR;
-    }
-
     std::array<size_t, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> sceneChangeBlockCounts = {};
-    for (size_t block = 0; block < pending.layout.blockCount(); block++) {
-        for (int refDirection = 0; refDirection < std::min(pending.layout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
-            if (pending.disableRefs[refDirection]) {
-                continue;
-            }
-            const auto &sadValue = (*pending.sadHost)[block * (size_t)pending.layout.temporalDirections + (size_t)refDirection];
-            if (sadValue.sad > pending.scaledThSCD1) {
-                sceneChangeBlockCounts[refDirection]++;
-            }
-        }
+    for (int refDirection = 0; refDirection < RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS; refDirection++) {
+        sceneChangeBlockCounts[refDirection] = pending.sceneChangeBlockCounts[refDirection];
     }
     pending.mapSubmitted = false;
 
     for (int refDirection = 0; refDirection < std::min(pending.layout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
-        if (!pending.disableRefs[refDirection]) {
-            pending.disableRefs[refDirection] = (uint64_t)sceneChangeBlockCounts[refDirection] > pending.scaledThSCD2;
-        }
+        pending.disableRefs[refDirection] = ((pending.disableMask >> refDirection) & 1u) != 0u;
     }
     *disableRefs = pending.disableRefs;
     logReferenceGate(pending.prm, pending.frames.analysis, pending.availabilityDisableRefs, pending.useFlagDisableRefs,
