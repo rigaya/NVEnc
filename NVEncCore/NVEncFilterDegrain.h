@@ -29,6 +29,7 @@
 #pragma once
 
 #include <array>
+#include <deque>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -58,7 +59,8 @@ public:
 class NVEncFilterDegrain : public NVEncFilter {
 public:
     static constexpr int DEGRAIN_CACHE_SIZE = 16;
-    static constexpr int SCENE_CHANGE_READBACK_POOL_SIZE = 2;
+    static constexpr int SCENE_CHANGE_PIPELINE_DEPTH = 2;
+    static constexpr int SCENE_CHANGE_READBACK_POOL_SIZE = SCENE_CHANGE_PIPELINE_DEPTH + 1;
 
     NVEncFilterDegrain();
     virtual ~NVEncFilterDegrain();
@@ -150,6 +152,8 @@ protected:
         cudaStream_t stream, PendingSceneChange *pending);
     std::vector<RGYDegrainSAD> *acquireSceneChangeReadbackSAD(size_t count);
     RGY_ERR resolveSceneChangeReadback(PendingSceneChange &pending, cudaStream_t stream, RGYDegrainRefDisableArray *disableRefs);
+    RGY_ERR emitResolvedSceneChangeFrame(PendingSceneChange &pending, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        cudaStream_t stream, RGYCudaEvent *event);
     RGY_ERR resolvePendingSceneChangeFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, RGYCudaEvent *event);
     void applyPendingSceneChangeAnalysisContext(const PendingSceneChange &pending);
@@ -231,7 +235,7 @@ protected:
     RGYDegrainAnalyzeResult m_boundAnalyzeResult;
     std::shared_ptr<RGYFrameDataDegrain> m_frameAnalysisData;
     RGYDegrainBlockLayout m_frameAnalysisLayout;
-    std::unique_ptr<PendingSceneChange> m_pendingSceneChange;
+    std::deque<std::unique_ptr<PendingSceneChange>> m_pendingSceneChange;
     std::array<std::vector<RGYDegrainSAD>, SCENE_CHANGE_READBACK_POOL_SIZE> m_sceneChangeReadbackSAD;
     int m_sceneChangeReadbackSADIndex;
     int m_inputCount;

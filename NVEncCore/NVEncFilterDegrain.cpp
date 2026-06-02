@@ -1292,7 +1292,7 @@ RGY_ERR NVEncFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         return runResolvedFrames(frames, ppOutputFrames, pOutputFrameNum, stream, {}, event);
     }
 
-    if (prm->degrain.mode == VppDegrainMode::Degrain && m_pendingSceneChange) {
+    if (prm->degrain.mode == VppDegrainMode::Degrain && !m_pendingSceneChange.empty()) {
         return resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, stream, event);
     }
 
@@ -2730,23 +2730,27 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
     auto pendingReadbackStable = [](const PendingSceneChange &pending) {
         return !pending.mapSubmitted || (pending.sadHost && !pending.sadHost->empty());
     };
-    std::unique_ptr<PendingSceneChange> pendingOutput;
     bool pendingOutputEmitted = false;
-    if (m_pendingSceneChange) {
-        pendingOutput = std::move(m_pendingSceneChange);
-        if (!pendingReadbackStable(*pendingOutput)) {
-            applyPendingSceneChangeAnalysisContext(*pendingOutput);
-            RGYDegrainRefDisableArray disableRefs;
-            auto err = resolveSceneChangeReadback(*pendingOutput, stream, &disableRefs);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-            logApplyTrace(pendingOutput->prm, pendingOutput->frames, disableRefs, stream);
-            err = emitDegrainFrame(pendingOutput->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-            pendingOutput.reset();
+    if (!m_pendingSceneChange.empty() && !pendingReadbackStable(*m_pendingSceneChange.front())) {
+        auto pendingOutput = std::move(m_pendingSceneChange.front());
+        m_pendingSceneChange.pop_front();
+        auto err = emitResolvedSceneChangeFrame(*pendingOutput, ppOutputFrames, pOutputFrameNum, stream, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        pendingOutputEmitted = true;
+    }
+
+    if (m_pendingSceneChange.size() > SCENE_CHANGE_PIPELINE_DEPTH) {
+        if (pendingOutputEmitted) {
+            AddMessage(RGY_LOG_ERROR, _T("degrain scene-change pipeline has more pending frames than expected.\n"));
+            return RGY_ERR_INVALID_CALL;
+        }
+        auto err = resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, stream, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if (*pOutputFrameNum > 0) {
             pendingOutputEmitted = true;
         }
     }
@@ -2758,7 +2762,23 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
         }
     }
 
+    const auto currentFrameAnalysisData = m_frameAnalysisData;
+    const auto currentBoundAnalyzeResult = m_boundAnalyzeResult;
+    const auto currentFrameAnalysisLayout = m_frameAnalysisLayout;
     const bool canDeferSceneChange = !m_boundAnalyzeResult.valid() || m_frameAnalysisData;
+    if (canDeferSceneChange && !pendingOutputEmitted && m_pendingSceneChange.size() >= SCENE_CHANGE_PIPELINE_DEPTH) {
+        auto err = resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, stream, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if (*pOutputFrameNum > 0) {
+            pendingOutputEmitted = true;
+        }
+        m_frameAnalysisData = currentFrameAnalysisData;
+        m_boundAnalyzeResult = currentBoundAnalyzeResult;
+        m_frameAnalysisLayout = currentFrameAnalysisLayout;
+    }
+
     if (!canDeferSceneChange) {
         if (pendingOutputEmitted) {
             AddMessage(RGY_LOG_ERROR, _T("degrain scene-change pipeline cannot emit both pending and current frame in immediate mode.\n"));
@@ -2783,20 +2803,12 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
     if (err != RGY_ERR_NONE) {
         return err;
     }
-    m_pendingSceneChange = std::move(pending);
-    if (pendingOutput) {
-        applyPendingSceneChangeAnalysisContext(*pendingOutput);
-        RGYDegrainRefDisableArray disableRefs;
-        err = resolveSceneChangeReadback(*pendingOutput, stream, &disableRefs);
-        if (err != RGY_ERR_NONE) {
-            m_pendingSceneChange.reset();
-            return err;
-        }
-        logApplyTrace(pendingOutput->prm, pendingOutput->frames, disableRefs, stream);
-        return emitDegrainFrame(pendingOutput->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
-    }
+    m_pendingSceneChange.push_back(std::move(pending));
     if (pendingOutputEmitted) {
         return RGY_ERR_NONE;
+    }
+    if (m_pendingSceneChange.size() > SCENE_CHANGE_PIPELINE_DEPTH) {
+        return resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, stream, event);
     }
 
     *pOutputFrameNum = 0;
@@ -2953,22 +2965,26 @@ RGY_ERR NVEncFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pendi
 
 RGY_ERR NVEncFilterDegrain::resolvePendingSceneChangeFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream, RGYCudaEvent *event) {
-    if (!m_pendingSceneChange) {
+    if (m_pendingSceneChange.empty()) {
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
         return RGY_ERR_NONE;
     }
-    applyPendingSceneChangeAnalysisContext(*m_pendingSceneChange);
+    auto pending = std::move(m_pendingSceneChange.front());
+    m_pendingSceneChange.pop_front();
+    return emitResolvedSceneChangeFrame(*pending, ppOutputFrames, pOutputFrameNum, stream, event);
+}
+
+RGY_ERR NVEncFilterDegrain::emitResolvedSceneChangeFrame(PendingSceneChange &pending, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    cudaStream_t stream, RGYCudaEvent *event) {
+    applyPendingSceneChangeAnalysisContext(pending);
     RGYDegrainRefDisableArray disableRefs;
-    auto err = resolveSceneChangeReadback(*m_pendingSceneChange, stream, &disableRefs);
+    auto err = resolveSceneChangeReadback(pending, stream, &disableRefs);
     if (err != RGY_ERR_NONE) {
-        m_pendingSceneChange.reset();
         return err;
     }
-    logApplyTrace(m_pendingSceneChange->prm, m_pendingSceneChange->frames, disableRefs, stream);
-    err = emitDegrainFrame(m_pendingSceneChange->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
-    m_pendingSceneChange.reset();
-    return err;
+    logApplyTrace(pending.prm, pending.frames, disableRefs, stream);
+    return emitDegrainFrame(pending.frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
 }
 
 void NVEncFilterDegrain::applyPendingSceneChangeAnalysisContext(const PendingSceneChange &pending) {
@@ -2978,11 +2994,13 @@ void NVEncFilterDegrain::applyPendingSceneChangeAnalysisContext(const PendingSce
 }
 
 void NVEncFilterDegrain::clearPendingSceneChange() {
-    if (m_pendingSceneChange && m_pendingSceneChange->mapSubmitted && m_pendingSceneChange->mapEvent() != nullptr) {
-        cudaEventSynchronize(m_pendingSceneChange->mapEvent());
-        m_pendingSceneChange->mapSubmitted = false;
+    for (auto &pending : m_pendingSceneChange) {
+        if (pending && pending->mapSubmitted && pending->mapEvent() != nullptr) {
+            cudaEventSynchronize(pending->mapEvent());
+            pending->mapSubmitted = false;
+        }
     }
-    m_pendingSceneChange.reset();
+    m_pendingSceneChange.clear();
 }
 
 RGY_ERR NVEncFilterDegrain::resolveSceneChangeRefs(const std::shared_ptr<NVEncFilterParamDegrain> &prm, const RGYFilterDegrainFrameSet &frames, cudaStream_t stream,
