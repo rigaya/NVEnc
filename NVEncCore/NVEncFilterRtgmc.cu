@@ -1789,26 +1789,28 @@ RGY_ERR NVEncFilterRtgmc::runSourceMatchCorrectionPasses(int firstStage, int las
     return RGY_ERR_NONE;
 }
 
-static RGY_ERR rtgmcBypassFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+static std::vector<RGYCudaEvent> rtgmcPropagateWaitEvents(const std::vector<RGYCudaEvent> &wait_events, const RGYCudaEvent &event) {
+    if (event() != nullptr) {
+        return { event };
+    }
+    return wait_events;
+}
+
+static RGY_ERR rtgmcBypassFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     *pOutputFrameNum = 0;
     ppOutputFrames[0] = nullptr;
     if (!pInputFrame || !pInputFrame->ptr[0]) {
         return RGY_ERR_NONE;
     }
     ppOutputFrames[(*pOutputFrameNum)++] = pInputFrame;
-    auto sts = rtgmcWaitEvents(stream, wait_events);
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    return rtgmcRecordEvent(stream, event);
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     const bool hasInputFrame = pInputFrame && pInputFrame->ptr[0];
     if (filterIdx < m_filters.size() && !m_filters[filterIdx]) {
-        return rtgmcBypassFilter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream, wait_events, event);
+        return rtgmcBypassFilter(pInputFrame, ppOutputFrames, pOutputFrameNum);
     }
     if (filterIdx == RTGMC_FILTER_EDI) {
         auto edi = dynamic_cast<NVEncFilterRtgmcEdi *>(m_filters[filterIdx].get());
@@ -2090,10 +2092,7 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    std::vector<RGYCudaEvent> childWaitEvents;
-    if (childEvent() != nullptr) {
-        childWaitEvents.push_back(childEvent);
-    }
+    auto childWaitEvents = rtgmcPropagateWaitEvents(wait_events, childEvent);
     for (int i = 0; i < childOutFrameNum; i++) {
         propagateRtgmcInternalFrameData(childOutFrames[i], pInputFrame);
         auto nextWaitEvents = childWaitEvents;
@@ -2142,10 +2141,7 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
-            std::vector<RGYCudaEvent> smWaitEvents;
-            if (smEvent() != nullptr) {
-                smWaitEvents.push_back(smEvent);
-            }
+            auto smWaitEvents = rtgmcPropagateWaitEvents(nextWaitEvents, smEvent);
             for (int j = 0; j < smOutNum; j++) {
                 enqueueSourceMatchFrameProp(smOutFrames[j]);
                 sts = runThrough(filterIdx + 1, smOutFrames[j], ppOutputFrames, pOutputFrameNum, stream, smWaitEvents, event, storePending);
@@ -2220,10 +2216,7 @@ RGY_ERR NVEncFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFra
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
-                std::vector<RGYCudaEvent> smWaitEvents;
-                if (smEvent() != nullptr) {
-                    smWaitEvents.push_back(smEvent);
-                }
+                auto smWaitEvents = rtgmcPropagateWaitEvents(nextWaitEvents, smEvent);
                 for (int j = 0; j < smOutNum; j++) {
                     enqueueSourceMatchFrameProp(smOutFrames[j]);
                     sts = runThrough(currentFilterIdx + 1, smOutFrames[j], ppOutputFrames, pOutputFrameNum, stream, smWaitEvents, event, true);
@@ -2250,10 +2243,7 @@ RGY_ERR NVEncFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFra
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        std::vector<RGYCudaEvent> childWaitEvents;
-        if (childEvent() != nullptr) {
-            childWaitEvents.push_back(childEvent);
-        }
+        auto childWaitEvents = rtgmcPropagateWaitEvents({}, childEvent);
         if (childOutFrameNum > 0) {
             return processDrainOutputs(m_drainFilterIdx, childOutFrames, childOutFrameNum, &drainFrame, childWaitEvents);
         }
@@ -2273,10 +2263,7 @@ RGY_ERR NVEncFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFra
                 return sts;
             }
             if (smOutNum > 0) {
-                std::vector<RGYCudaEvent> smWaitEvents;
-                if (smEvent() != nullptr) {
-                    smWaitEvents.push_back(smEvent);
-                }
+                auto smWaitEvents = rtgmcPropagateWaitEvents({}, smEvent);
                 for (int i = 0; i < smOutNum; i++) {
                     enqueueSourceMatchFrameProp(smOutFrames[i]);
                     sts = runThrough(m_drainFilterIdx + 1, smOutFrames[i], ppOutputFrames, pOutputFrameNum, stream, smWaitEvents, event, true);
