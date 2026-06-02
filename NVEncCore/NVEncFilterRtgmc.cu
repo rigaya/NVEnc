@@ -102,6 +102,12 @@ static void propagateRtgmcInternalFrameData(RGYFrameInfo *dst, const RGYFrameInf
     if (!dst || !src) {
         return;
     }
+    if (rgy_degrain_get_frame_data(dst) == nullptr) {
+        const auto degrain = rgy_degrain_get_frame_data(src);
+        if (degrain) {
+            dst->dataList.push_back(degrain);
+        }
+    }
     if (rtgmcGetAttachedEdi(dst) == nullptr) {
         const auto edi = rtgmcGetAttachedEdi(src);
         if (edi) {

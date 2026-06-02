@@ -2720,19 +2720,27 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    auto pendingReadbackStable = [](const PendingSceneChange &pending) {
+        return !pending.mapSubmitted || !pending.sadHost.empty();
+    };
     std::unique_ptr<PendingSceneChange> pendingOutput;
+    bool pendingOutputEmitted = false;
     if (m_pendingSceneChange) {
         pendingOutput = std::move(m_pendingSceneChange);
-        applyPendingSceneChangeAnalysisContext(*pendingOutput);
-        RGYDegrainRefDisableArray disableRefs;
-        auto err = resolveSceneChangeReadback(*pendingOutput, stream, &disableRefs);
-        if (err != RGY_ERR_NONE) {
-            return err;
-        }
-        logApplyTrace(pendingOutput->prm, pendingOutput->frames, disableRefs, stream);
-        err = emitDegrainFrame(pendingOutput->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
-        if (err != RGY_ERR_NONE) {
-            return err;
+        if (!pendingReadbackStable(*pendingOutput)) {
+            applyPendingSceneChangeAnalysisContext(*pendingOutput);
+            RGYDegrainRefDisableArray disableRefs;
+            auto err = resolveSceneChangeReadback(*pendingOutput, stream, &disableRefs);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            logApplyTrace(pendingOutput->prm, pendingOutput->frames, disableRefs, stream);
+            err = emitDegrainFrame(pendingOutput->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            pendingOutput.reset();
+            pendingOutputEmitted = true;
         }
     }
 
@@ -2745,6 +2753,10 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
 
     const bool canDeferSceneChange = !m_boundAnalyzeResult.valid() || m_frameAnalysisData;
     if (!canDeferSceneChange) {
+        if (pendingOutputEmitted) {
+            AddMessage(RGY_LOG_ERROR, _T("degrain scene-change pipeline cannot emit both pending and current frame in immediate mode.\n"));
+            return RGY_ERR_INVALID_CALL;
+        }
         PendingSceneChange pending;
         auto err = submitSceneChangeReadback(prm, frames, stream, &pending);
         if (err != RGY_ERR_NONE) {
@@ -2766,6 +2778,17 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
     }
     m_pendingSceneChange = std::move(pending);
     if (pendingOutput) {
+        applyPendingSceneChangeAnalysisContext(*pendingOutput);
+        RGYDegrainRefDisableArray disableRefs;
+        err = resolveSceneChangeReadback(*pendingOutput, stream, &disableRefs);
+        if (err != RGY_ERR_NONE) {
+            m_pendingSceneChange.reset();
+            return err;
+        }
+        logApplyTrace(pendingOutput->prm, pendingOutput->frames, disableRefs, stream);
+        return emitDegrainFrame(pendingOutput->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, stream, event);
+    }
+    if (pendingOutputEmitted) {
         return RGY_ERR_NONE;
     }
 
