@@ -31,6 +31,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
@@ -522,11 +523,14 @@ struct RGYDegrainAnalysisState {
     }
 };
 
+class RGYDegrainBufferPool;
+
 class RGYFrameDataDegrain : public RGYFrameData {
 public:
     RGYFrameDataDegrain();
     RGYFrameDataDegrain(const RGYDegrainFrameMetaHeader &header, std::unique_ptr<CUMemBuf> mv, std::unique_ptr<CUMemBuf> sad, const RGYCudaEvent &event,
-        int frameIndex, int inputFrameId, int64_t timestamp, int64_t duration, const RGYDegrainRefDisableArray &availabilityDisableRefs);
+        int frameIndex, int inputFrameId, int64_t timestamp, int64_t duration, const RGYDegrainRefDisableArray &availabilityDisableRefs,
+        const std::weak_ptr<RGYDegrainBufferPool> &bufferPool = {});
     virtual ~RGYFrameDataDegrain();
 
     const RGYDegrainFrameMetaHeader &header() const { return m_header; }
@@ -550,6 +554,28 @@ private:
     int64_t m_timestamp;
     int64_t m_duration;
     RGYDegrainRefDisableArray m_availabilityDisableRefs;
+    std::weak_ptr<RGYDegrainBufferPool> m_bufferPool;
+};
+
+class RGYDegrainBufferPool {
+public:
+    static constexpr size_t MAX_POOL_BUFFERS = 128;
+
+    RGYDegrainBufferPool();
+    ~RGYDegrainBufferPool();
+    std::unique_ptr<CUMemBuf> acquire(size_t size);
+    void recycle(std::unique_ptr<CUMemBuf>&& buf, const RGYCudaEvent &readyEvent);
+    void clear();
+
+private:
+    struct Entry {
+        std::unique_ptr<CUMemBuf> buf;
+        RGYCudaEvent readyEvent;
+    };
+
+    void waitAndDropFront();
+
+    std::deque<Entry> m_buffers;
 };
 
 uint32_t rgy_degrain_scale_sad_threshold(const VppDegrain &degrain, const RGYFrameInfo &frameInfo, int prmThreshold, bool includeChroma = false);

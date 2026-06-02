@@ -68,6 +68,25 @@ __global__ void kernel_kfm_pad(
 }
 
 template<typename Type>
+__global__ void kernel_kfm_padv_inplace(
+    uint8_t *dst,
+    const int dstPitch,
+    const int width,
+    const int height,
+    const int vpad) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= width || y >= vpad * 2) return;
+
+    const bool bottom = y >= vpad;
+    const int dstY = bottom ? height + vpad + (y - vpad) : y;
+    const int srcY = bottom ? height + vpad - 1 - (y - vpad) : vpad + (vpad - 1 - y);
+    const Type *pSrc = (const Type *)(dst + srcY * dstPitch + x * (int)sizeof(Type));
+    Type *pDst = (Type *)(dst + dstY * dstPitch + x * (int)sizeof(Type));
+    pDst[0] = pSrc[0];
+}
+
+template<typename Type>
 static RGY_ERR launch_kfm_pad_plane_t(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, int vpad, cudaStream_t stream) {
     const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
     const dim3 grid(divCeil(pOutputFrame->width, (int)block.x), divCeil(pOutputFrame->height, (int)block.y));
@@ -75,6 +94,16 @@ static RGY_ERR launch_kfm_pad_plane_t(RGYFrameInfo *pOutputFrame, const RGYFrame
         (uint8_t *)pOutputFrame->ptr[0], pOutputFrame->pitch[0],
         (const uint8_t *)pInputFrame->ptr[0], pInputFrame->pitch[0],
         pOutputFrame->width, pInputFrame->height, vpad);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type>
+static RGY_ERR launch_kfm_padv_inplace_plane_t(RGYFrameInfo *pFrame, int srcHeight, int vpad, cudaStream_t stream) {
+    const dim3 block(KFM_PAD_BLOCK_X, KFM_PAD_BLOCK_Y);
+    const dim3 grid(divCeil(pFrame->width, (int)block.x), divCeil(vpad * 2, (int)block.y));
+    kernel_kfm_padv_inplace<Type><<<grid, block, 0, stream>>>(
+        (uint8_t *)pFrame->ptr[0], pFrame->pitch[0],
+        pFrame->width, srcHeight, vpad);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -86,6 +115,16 @@ RGY_ERR run_kfm_pad_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInput
         return launch_kfm_pad_plane_t<uint16_t>(pOutputFrame, pInputFrame, vpad, stream);
     }
     return launch_kfm_pad_plane_t<uint8_t>(pOutputFrame, pInputFrame, vpad, stream);
+}
+
+RGY_ERR run_kfm_padv_inplace_plane(RGYFrameInfo *pFrame, int srcHeight, int vpad, cudaStream_t stream) {
+    if (!pFrame || !pFrame->ptr[0] || srcHeight <= 0 || vpad <= 0 || pFrame->height != srcHeight + vpad * 2) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (RGY_CSP_BIT_DEPTH[pFrame->csp] > 8) {
+        return launch_kfm_padv_inplace_plane_t<uint16_t>(pFrame, srcHeight, vpad, stream);
+    }
+    return launch_kfm_padv_inplace_plane_t<uint8_t>(pFrame, srcHeight, vpad, stream);
 }
 
 template<typename Type>

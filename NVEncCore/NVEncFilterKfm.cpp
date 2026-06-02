@@ -271,6 +271,8 @@ NVEncFilterKfm::NVEncFilterKfm() :
     m_nrFilter(),
     m_analyzer(),
     m_kfmFramePool(),
+    m_kfmSourceSlotFree(),
+    m_kfmSourceSlotRetired(),
     m_sourceCache(),
     m_deint60Cache(),
     m_before60Cache(),
@@ -385,6 +387,153 @@ std::shared_ptr<CUFrameBuf> NVEncFilterKfm::acquireKfmFrame(const RGYFrameInfo& 
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s frame.\n"), label ? label : _T("cache"));
     }
     return frame;
+}
+
+std::shared_ptr<NVEncFilterKfm::KfmSourceSlot> NVEncFilterKfm::acquireKfmSourceSlot(const RGYFrameInfo& sourceInfo) {
+    collectRetiredKfmSourceSlots();
+    auto matchSlot = [&sourceInfo](const std::shared_ptr<KfmSourceSlot>& slot) {
+        return slot && slot->sourceFrame && slot->paddedFrame
+            && !cmpFrameInfoCspResolution(&slot->sourceFrame->frame, &sourceInfo)
+            && RGY_CSP_BIT_DEPTH[slot->sourceFrame->frame.csp] == RGY_CSP_BIT_DEPTH[sourceInfo.csp];
+    };
+    auto pooled = std::find_if(m_kfmSourceSlotFree.begin(), m_kfmSourceSlotFree.end(), matchSlot);
+    if (pooled != m_kfmSourceSlotFree.end()) {
+        auto slot = std::move(*pooled);
+        m_kfmSourceSlotFree.erase(pooled);
+        slot->readyEvent.reset();
+        slot->sourceFrame->frame.dataList.clear();
+        slot->paddedFrame->frame.dataList.clear();
+        return slot;
+    }
+
+    auto paddedInfo = sourceInfo;
+    paddedInfo.height += KFM_SOURCE_VPAD * 2;
+    auto paddedFrame = acquireKfmFrame(paddedInfo, _T("padded source cache"));
+    if (!paddedFrame) {
+        return nullptr;
+    }
+
+    RGYFrameInfo viewInfo = sourceInfo;
+    viewInfo.mem_type = RGY_MEM_TYPE_GPU;
+    for (int i = 0; i < _countof(viewInfo.ptr); i++) {
+        viewInfo.ptr[i] = nullptr;
+        viewInfo.pitch[i] = 0;
+    }
+    const int planes = RGY_CSP_PLANES[sourceInfo.csp];
+    for (int iplane = 0; iplane < planes; iplane++) {
+        const auto parent = getPlane(&paddedFrame->frame, (RGY_PLANE)iplane);
+        const auto view = getPlane(&sourceInfo, (RGY_PLANE)iplane);
+        const int vpad = (parent.height - view.height) >> 1;
+        if (!parent.ptr[0] || parent.width != view.width || parent.height != view.height + vpad * 2 || vpad <= 0) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM source slot plane size (plane %d, src %dx%d, padded %dx%d).\n"),
+                iplane, view.width, view.height, parent.width, parent.height);
+            return nullptr;
+        }
+        viewInfo.ptr[iplane] = parent.ptr[0] + parent.pitch[0] * vpad;
+        viewInfo.pitch[iplane] = parent.pitch[0];
+    }
+
+    auto sourceFrame = std::shared_ptr<CUFrameBuf>(
+        new CUFrameBuf(viewInfo),
+        [paddedKeepAlive = paddedFrame](CUFrameBuf *frame) {
+            frame->releasePtr();
+            delete frame;
+        });
+
+    auto slot = std::make_shared<KfmSourceSlot>();
+    slot->paddedFrame = paddedFrame;
+    slot->sourceFrame = sourceFrame;
+    return slot;
+}
+
+RGY_ERR NVEncFilterKfm::retireKfmSourceSlot(std::shared_ptr<KfmSourceSlot>&& slot, cudaStream_t stream) {
+    if (!slot) {
+        return RGY_ERR_NONE;
+    }
+    slot->sourceFrame->frame.dataList.clear();
+    slot->paddedFrame->frame.dataList.clear();
+    slot->readyEvent.reset();
+    auto sts = kfmRecordEvent(stream, &slot->readyEvent);
+    if (sts != RGY_ERR_NONE) {
+        sts = err_to_rgy(cudaStreamSynchronize(stream));
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_kfmSourceSlotFree.emplace_back(std::move(slot));
+        trimFreeKfmSourceSlots();
+        return RGY_ERR_NONE;
+    }
+    m_kfmSourceSlotRetired.emplace_back(std::move(slot));
+    collectRetiredKfmSourceSlots();
+    return RGY_ERR_NONE;
+}
+
+void NVEncFilterKfm::collectRetiredKfmSourceSlots() {
+    for (auto it = m_kfmSourceSlotRetired.begin(); it != m_kfmSourceSlotRetired.end();) {
+        auto& slot = *it;
+        if (!slot || slot->readyEvent() == nullptr || cudaEventQuery(slot->readyEvent()) == cudaSuccess) {
+            if (slot) {
+                slot->readyEvent.reset();
+                m_kfmSourceSlotFree.emplace_back(std::move(slot));
+            }
+            it = m_kfmSourceSlotRetired.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    trimFreeKfmSourceSlots();
+}
+
+void NVEncFilterKfm::trimFreeKfmSourceSlots() {
+    const auto keep = std::max<size_t>(16, std::min<size_t>(sourceCacheLimit(), 256) + 8);
+    while (m_kfmSourceSlotFree.size() > keep) {
+        m_kfmSourceSlotFree.pop_front();
+    }
+}
+
+void NVEncFilterKfm::clearKfmSourceSlotPool(bool wait) {
+    if (wait) {
+        for (auto& slot : m_kfmSourceSlotRetired) {
+            if (slot && slot->readyEvent() != nullptr) {
+                cudaEventSynchronize(slot->readyEvent());
+                slot->readyEvent.reset();
+            }
+        }
+    }
+    m_kfmSourceSlotRetired.clear();
+    m_kfmSourceSlotFree.clear();
+}
+
+RGY_ERR NVEncFilterKfm::trimSourceCache(cudaStream_t stream) {
+    const auto trimFloor = sourceCacheTrimFloor();
+    while (!m_sourceCache.empty() && m_sourceCache.front().sourceIndex < trimFloor) {
+        auto sts = retireKfmSourceSlot(std::move(m_sourceCache.front().slot), stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_sourceCache.pop_front();
+    }
+    const auto cacheLimit = sourceCacheLimit();
+    while (m_sourceCache.size() > cacheLimit && !m_sourceCache.empty() && m_sourceCache.front().sourceIndex < trimFloor) {
+        auto sts = retireKfmSourceSlot(std::move(m_sourceCache.front().slot), stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_sourceCache.pop_front();
+    }
+    collectRetiredKfmSourceSlots();
+    return RGY_ERR_NONE;
+}
+
+void NVEncFilterKfm::trimDeint60Cache(std::deque<KfmCachedDeint60>& cache) {
+    const auto trimFloor = deint60CacheTrimFloor();
+    while (!cache.empty() && cache.front().n60 < trimFloor) {
+        cache.pop_front();
+    }
+    const auto cacheLimit = deint60CacheLimit();
+    while (cache.size() > cacheLimit && !cache.empty() && cache.front().n60 < trimFloor) {
+        cache.pop_front();
+    }
 }
 
 RGY_ERR NVEncFilterKfm::allocWorkFrameBuf(const RGYFrameInfo& frame, int frames) {
@@ -702,7 +851,7 @@ RGY_ERR NVEncFilterKfm::initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>&
 }
 
 RGY_ERR NVEncFilterKfm::padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameInfo *pSourceFrame,
-    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool sourceInPaddedFrame) {
     if (!pPaddedFrame || !pSourceFrame) {
         return RGY_ERR_INVALID_CALL;
     }
@@ -724,9 +873,11 @@ RGY_ERR NVEncFilterKfm::padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFram
                 iplane, src.width, src.height, dst.width, dst.height);
             return RGY_ERR_INVALID_PARAM;
         }
-        sts = run_kfm_pad_plane(&dst, &src, vpad, stream);
+        sts = sourceInPaddedFrame
+            ? run_kfm_padv_inplace_plane(&dst, src.height, vpad, stream)
+            : run_kfm_pad_plane(&dst, &src, vpad, stream);
         if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_pad (plane %d): %s.\n"), iplane, get_err_mes(sts));
+            AddMessage(RGY_LOG_ERROR, _T("error at %S (plane %d): %s.\n"), sourceInPaddedFrame ? "kernel_kfm_padv_inplace" : "kernel_kfm_pad", iplane, get_err_mes(sts));
             return sts;
         }
     }
@@ -747,10 +898,12 @@ RGY_ERR NVEncFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t
     entry.sourceIndex = m_cachedSourceFrames++;
     entry.inputFrameId = frame->inputFrameId;
     entry.timestamp = frame->timestamp;
-    entry.frame = acquireKfmFrame(*frame, _T("source cache"));
-    if (!entry.frame) {
+    entry.slot = acquireKfmSourceSlot(*frame);
+    if (!entry.slot || !entry.slot->sourceFrame || !entry.slot->paddedFrame) {
         return RGY_ERR_MEMORY_ALLOC;
     }
+    entry.frame = entry.slot->sourceFrame;
+    entry.paddedFrame = entry.slot->paddedFrame;
     auto sts = kfmWaitEvents(stream, wait_events);
     if (sts != RGY_ERR_NONE) {
         return sts;
@@ -765,13 +918,6 @@ RGY_ERR NVEncFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t
         return sts;
     }
     copyFramePropWithoutRes(&entry.frame->frame, frame);
-
-    auto paddedFrameInfo = *frame;
-    paddedFrameInfo.height += KFM_SOURCE_VPAD * 2;
-    entry.paddedFrame = acquireKfmFrame(paddedFrameInfo, _T("padded source cache"));
-    if (!entry.paddedFrame) {
-        return RGY_ERR_MEMORY_ALLOC;
-    }
     m_sourceCache.push_back(std::move(entry));
     auto& cachedEntry = m_sourceCache.back();
 
@@ -784,17 +930,16 @@ RGY_ERR NVEncFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t
     if (cachedEntry.event() != nullptr) {
         padWaitEvents.push_back(cachedEntry.event);
     }
-    sts = padSourceFrame(&cachedEntry.paddedFrame->frame, &cachedEntry.frame->frame, stream, padWaitEvents, &cachedEntry.paddedEvent);
+    sts = padSourceFrame(&cachedEntry.paddedFrame->frame, &cachedEntry.frame->frame, stream, padWaitEvents, &cachedEntry.paddedEvent, true);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to pad KFM source frame: %s.\n"), get_err_mes(sts));
         return sts;
     }
     writeFrameInfoDump("source-pad", &cachedEntry.paddedFrame->frame);
 
-    const auto cacheLimit = sourceCacheLimit();
-    const auto trimFloor = sourceCacheTrimFloor();
-    while (m_sourceCache.size() > cacheLimit && m_sourceCache.front().sourceIndex < trimFloor) {
-        m_sourceCache.pop_front();
+    sts = trimSourceCache(stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     writeFrameInfoDump("source", frame);
     return RGY_ERR_NONE;
@@ -910,6 +1055,7 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     }
 
     m_sourceCache.clear();
+    clearKfmSourceSlotPool(true);
     m_deint60Cache.clear();
     m_deint60SubmittedSourceFrames = 0;
     m_deint60CacheCopyEvent = RGYCudaEvent();
@@ -1207,11 +1353,7 @@ RGY_ERR NVEncFilterKfm::cacheUcfRtgmcFrame(const char *stage, const RGYFrameInfo
     }
 
     cache.push_back(std::move(entry));
-    const auto cacheLimit = deint60CacheLimit();
-    const auto trimFloor = deint60CacheTrimFloor();
-    while (cache.size() > cacheLimit && cache.front().n60 < trimFloor) {
-        cache.pop_front();
-    }
+    trimDeint60Cache(cache);
     return RGY_ERR_NONE;
 }
 
@@ -1957,11 +2099,7 @@ RGY_ERR NVEncFilterKfm::cacheDeint60Frame(const RGYFrameInfo *frame, cudaStream_
     }
 
     m_deint60Cache.push_back(std::move(entry));
-    const auto cacheLimit = deint60CacheLimit();
-    const auto trimFloor = deint60CacheTrimFloor();
-    while (m_deint60Cache.size() > cacheLimit && m_deint60Cache.front().n60 < trimFloor) {
-        m_deint60Cache.pop_front();
-    }
+    trimDeint60Cache(m_deint60Cache);
     return RGY_ERR_NONE;
 }
 
@@ -6434,6 +6572,7 @@ void NVEncFilterKfm::close() {
     m_nrFilter.reset();
     m_analyzer.reset();
     m_sourceCache.clear();
+    clearKfmSourceSlotPool(true);
     m_deint60Cache.clear();
     m_before60Cache.clear();
     m_after60Cache.clear();

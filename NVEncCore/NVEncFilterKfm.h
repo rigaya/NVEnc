@@ -54,6 +54,7 @@ public:
 };
 
 RGY_ERR run_kfm_pad_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, int vpad, cudaStream_t stream);
+RGY_ERR run_kfm_padv_inplace_plane(RGYFrameInfo *pFrame, int srcHeight, int vpad, cudaStream_t stream);
 RGY_ERR run_kfm_init_fmcount(RGYKFM::FMCount *dst, cudaStream_t stream);
 RGY_ERR run_kfm_analyze_count_cmflags_clean(
     RGYKFM::FMCount *dst,
@@ -284,7 +285,7 @@ protected:
     RGY_ERR dumpStageFrame(const char *stage, const RGYFrameInfo *frame, int frame24Index,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameInfo *pSourceFrame,
-        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, bool sourceInPaddedFrame = false);
     RGY_ERR cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR runDeint60Branch(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, int *cachedFrames = nullptr);
     RGY_ERR drainDeint60Branch(cudaStream_t stream, int *cachedFrames = nullptr);
@@ -344,6 +345,14 @@ protected:
     void appendAnalyzerResults(size_t resultCount, bool dump, bool mark60p);
     std::vector<KfmSwitchTiming> deriveSwitchTimings(int total60) const;
     int64_t sourceFrameDuration(const KfmCachedSource *source) const;
+    struct KfmSourceSlot;
+    std::shared_ptr<KfmSourceSlot> acquireKfmSourceSlot(const RGYFrameInfo& sourceInfo);
+    RGY_ERR retireKfmSourceSlot(std::shared_ptr<KfmSourceSlot>&& slot, cudaStream_t stream);
+    void collectRetiredKfmSourceSlots();
+    void trimFreeKfmSourceSlots();
+    void clearKfmSourceSlotPool(bool wait);
+    RGY_ERR trimSourceCache(cudaStream_t stream);
+    void trimDeint60Cache(std::deque<KfmCachedDeint60>& cache);
     bool isSwitchSingleFrameN60(int n60) const;
     void markSwitchSingleFrameN60Range(int start60, int duration60);
     bool switchSingleFrameDurationEnabled() const;
@@ -411,12 +420,21 @@ protected:
         int sourceIndex;
         int inputFrameId;
         int64_t timestamp;
+        std::shared_ptr<KfmSourceSlot> slot;
         std::shared_ptr<CUFrameBuf> frame;
         std::shared_ptr<CUFrameBuf> paddedFrame;
         RGYCudaEvent event;
         RGYCudaEvent paddedEvent;
 
-        KfmCachedSource() : sourceIndex(-1), inputFrameId(-1), timestamp(0), frame(), paddedFrame(), event(), paddedEvent() {};
+        KfmCachedSource() : sourceIndex(-1), inputFrameId(-1), timestamp(0), slot(), frame(), paddedFrame(), event(), paddedEvent() {};
+    };
+
+    struct KfmSourceSlot {
+        std::shared_ptr<CUFrameBuf> paddedFrame;
+        std::shared_ptr<CUFrameBuf> sourceFrame;
+        RGYCudaEvent readyEvent;
+
+        KfmSourceSlot() : paddedFrame(), sourceFrame(), readyEvent() {};
     };
 
     struct KfmCachedDeint60 {
@@ -496,6 +514,8 @@ protected:
     std::unique_ptr<NVEncFilterDegrain> m_nrFilter;
     std::unique_ptr<RGYKFM::KFMAnalyze> m_analyzer;
     std::shared_ptr<SharedFramePool> m_kfmFramePool;
+    std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotFree;
+    std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotRetired;
     std::deque<KfmCachedSource> m_sourceCache;
     std::deque<KfmCachedDeint60> m_deint60Cache;
     std::deque<KfmCachedDeint60> m_before60Cache;
