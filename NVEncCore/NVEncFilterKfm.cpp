@@ -4330,6 +4330,7 @@ RGY_ERR NVEncFilterKfm::processMainRtgmcOutputs(const NVEncFilterParamKfm& prm, 
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
+            copyFramePropWithoutRes(ucfOut, out);
             sts = emitOutputFrame(ucfOut, ppOutputFrames, pOutputFrameNum, stream, ucfEvent, event);
             if (sts != RGY_ERR_NONE) {
                 return sts;
