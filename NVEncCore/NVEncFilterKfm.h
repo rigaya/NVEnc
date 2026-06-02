@@ -258,6 +258,13 @@ protected:
 
         KfmSwitchTiming() : start60(0), start120(0), sourceIndex(0), frame24Index(-1), baseType(KFM_FRAME_60), sourceStart(0), numSourceFrames(1), duration60(1), duration120(2), isFrame24(false), isFrame60(false) {};
     };
+    struct KfmContainsCombeReadback {
+        uint32_t count;
+        RGYCudaEvent event;
+        bool submitted;
+
+        KfmContainsCombeReadback() : count(0), event(), submitted(false) {};
+    };
     class SharedFramePool {
     public:
         std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo& info);
@@ -385,7 +392,8 @@ protected:
     RGY_ERR renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame,
         const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame,
         const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage,
-        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, uint32_t *containsCombeCount = nullptr);
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event, KfmContainsCombeReadback *containsCombeReadback = nullptr);
+    RGY_ERR resolveContainsCombeCount(KfmContainsCombeReadback& readback, uint32_t *containsCombeCount);
     RGY_ERR patchCombe(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pBaseFrame, const RGYFrameInfo *pPatchFrame, const RGYFrameInfo *pMaskFrame,
         int frameIndex, const char *stageName, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     RGY_ERR submitFMCounts(int cycle, bool drain, cudaStream_t stream);
