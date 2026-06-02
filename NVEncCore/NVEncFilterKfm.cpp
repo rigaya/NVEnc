@@ -4672,17 +4672,13 @@ RGY_ERR NVEncFilterKfm::clearPendingFMCounts() {
 
     RGY_ERR sts = RGY_ERR_NONE;
     for (auto& pending : m_pendingFMCounts) {
-        for (auto& event : pending.pairEvents) {
-            if (event() == nullptr) {
-                continue;
-            }
-            const auto waitSts = err_to_rgy(cudaEventSynchronize(event()));
+        if (pending.event() != nullptr) {
+            const auto waitSts = err_to_rgy(cudaEventSynchronize(pending.event()));
             if (waitSts != RGY_ERR_NONE && sts == RGY_ERR_NONE) {
                 sts = waitSts;
             }
         }
-        pending.pairCounts.clear();
-        pending.pairEvents.clear();
+        pending.countBuf.reset();
     }
     m_pendingFMCounts.clear();
     return sts;
@@ -4711,28 +4707,22 @@ RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t strea
         }
     }
 
-    const size_t countBytes = sizeof(RGYKFM::FMCount) * 2;
+    const size_t countBytes = sizeof(RGYKFM::FMCount) * KFM_FMCOUNT_PAIRS * 2;
     KfmPendingFMCount pending;
     pending.cycle = cycle;
-    pending.pairCounts.resize(KFM_FMCOUNT_PAIRS);
-    pending.pairEvents.resize(KFM_FMCOUNT_PAIRS);
-    for (auto& pairCount : pending.pairCounts) {
-        pairCount = std::make_unique<CUMemBufPair>(countBytes);
-        auto sts = pairCount->alloc();
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM FMCount buffer: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
+    pending.countBuf = std::make_unique<CUMemBufPair>(countBytes);
+    auto sts = pending.countBuf->alloc();
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    sts = err_to_rgy(cudaMemsetAsync(pending.countBuf->ptrDevice, 0, countBytes, stream));
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+        return sts;
     }
 
     for (int pair = 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
-        auto& fmCountBuf = pending.pairCounts[pair];
-        auto sts = run_kfm_init_fmcount(reinterpret_cast<RGYKFM::FMCount *>(fmCountBuf->ptrDevice), stream);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM FMCount buffer: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-
         const auto csp = src[pair + 1]->frame->frame.csp;
         const bool interleavedUV = kfmCspHasInterleavedUV(csp);
         const int targetPlanes = (RGY_CSP_PLANES[csp] >= 3) ? 3 : (interleavedUV ? 3 : 1);
@@ -4779,8 +4769,10 @@ RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t strea
             const int threshMove = chroma ? KFM_THRESH_MOVE_C : KFM_THRESH_MOVE_Y;
             const int threshShima = chroma ? KFM_THRESH_SHIMA_C : KFM_THRESH_SHIMA_Y;
             const int cleanThresh = chroma ? KFM_CLEAN_THRESH_C : KFM_CLEAN_THRESH_Y;
+            const int dstOffset = pair * 2;
             sts = run_kfm_analyze_count_cmflags_clean(
-                reinterpret_cast<RGYKFM::FMCount *>(fmCountBuf->ptrDevice),
+                reinterpret_cast<RGYKFM::FMCount *>(pending.countBuf->ptrDevice),
+                dstOffset,
                 &prevSrc0, &prevSrc1, &curSrc0, &curSrc1,
                 gridWidth - 1, gridHeight - 1,
                 kfmFrameParity(&src[pair + 0]->frame->frame),
@@ -4795,15 +4787,15 @@ RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t strea
             }
         }
 
-        sts = err_to_rgy(cudaMemcpyAsync(fmCountBuf->ptrHost, fmCountBuf->ptrDevice, countBytes, cudaMemcpyDeviceToHost, stream));
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM FMCount buffer: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-        sts = kfmRecordEvent(stream, &pending.pairEvents[pair]);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
+    }
+    sts = err_to_rgy(cudaMemcpyAsync(pending.countBuf->ptrHost, pending.countBuf->ptrDevice, countBytes, cudaMemcpyDeviceToHost, stream));
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    sts = kfmRecordEvent(stream, &pending.event);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     m_pendingFMCounts.push_back(std::move(pending));
     return RGY_ERR_NONE;
@@ -4820,28 +4812,28 @@ RGY_ERR NVEncFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts
 
     auto& pending = m_pendingFMCounts.front();
     counts = {};
+    auto& fmCountBuf = pending.countBuf;
+    if (!fmCountBuf) {
+        AddMessage(RGY_LOG_ERROR, _T("KFM FMCount pending buffer is missing.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    if (pending.event() != nullptr) {
+        const auto waitSts = err_to_rgy(cudaEventSynchronize(pending.event()));
+        if (waitSts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM FMCount copy event: %s.\n"), get_err_mes(waitSts));
+            return waitSts;
+        }
+    }
+    const auto *gpuCounts = reinterpret_cast<const RGYKFM::FMCount *>(fmCountBuf->ptrHost);
+    if (!gpuCounts) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to access KFM FMCount buffer.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
     for (int pair = 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
-        auto& fmCountBuf = pending.pairCounts[pair];
-        if (!fmCountBuf) {
-            AddMessage(RGY_LOG_ERROR, _T("KFM FMCount pending buffer is missing.\n"));
-            return RGY_ERR_NULL_PTR;
-        }
-        if (pending.pairEvents[pair]() != nullptr) {
-            const auto waitSts = err_to_rgy(cudaEventSynchronize(pending.pairEvents[pair]()));
-            if (waitSts != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM FMCount copy event: %s.\n"), get_err_mes(waitSts));
-                return waitSts;
-            }
-        }
-        const auto *gpuCounts = reinterpret_cast<const RGYKFM::FMCount *>(fmCountBuf->ptrHost);
-        if (!gpuCounts) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to access KFM FMCount buffer.\n"));
-            return RGY_ERR_NULL_PTR;
-        }
         const int countFrameIndex = pending.cycle * 5 - 3 + pair + 1;
         if (countFrameIndex >= 0) {
-            counts[pair * 2 + 0] = gpuCounts[0];
-            counts[pair * 2 + 1] = gpuCounts[1];
+            counts[pair * 2 + 0] = gpuCounts[pair * 2 + 0];
+            counts[pair * 2 + 1] = gpuCounts[pair * 2 + 1];
         }
     }
     const int firstSourceIndex = pending.cycle * 5 - 3;

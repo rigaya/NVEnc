@@ -57,6 +57,7 @@ RGY_ERR run_kfm_pad_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInput
 RGY_ERR run_kfm_init_fmcount(RGYKFM::FMCount *dst, cudaStream_t stream);
 RGY_ERR run_kfm_analyze_count_cmflags_clean(
     RGYKFM::FMCount *dst,
+    int dstOffset,
     const RGYFrameInfo *prevSrc0,
     const RGYFrameInfo *prevSrc1,
     const RGYFrameInfo *curSrc0,
@@ -467,10 +468,10 @@ protected:
 
     struct KfmPendingFMCount {
         int cycle;
-        std::vector<std::unique_ptr<CUMemBufPair>> pairCounts;
-        std::vector<RGYCudaEvent> pairEvents;
+        std::unique_ptr<CUMemBufPair> countBuf;
+        RGYCudaEvent event;
 
-        KfmPendingFMCount() : cycle(-1), pairCounts(), pairEvents() {};
+        KfmPendingFMCount() : cycle(-1), countBuf(), event() {};
     };
 
     struct KfmPendingVfrOutput {
