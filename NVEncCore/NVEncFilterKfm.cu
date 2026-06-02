@@ -362,6 +362,7 @@ __global__ void kernel_kfm_init_fmcount(RGYKFM::FMCount *dst) {
 template<typename Type>
 __global__ void kernel_kfm_analyze_count_cmflags_clean(
     RGYKFM::FMCount *dst,
+    const int dstOffset,
     const uint8_t *prevSrc0,
     const uint8_t *prevSrc1,
     const uint8_t *curSrc0,
@@ -383,6 +384,7 @@ __global__ void kernel_kfm_analyze_count_cmflags_clean(
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= width || y >= height) return;
+    dst += dstOffset;
 
     const uchar4 prevBlock = kfm_analyze_block<Type>(prevSrc0, prevSrc1, prevSrcPitch, bitDepth, prevParity, pixelStep, pixelOffset, x, y);
     const uchar4 curBlock = kfm_analyze_block<Type>(curSrc0, curSrc1, curSrcPitch, bitDepth, curParity, pixelStep, pixelOffset, x, y);
@@ -421,6 +423,7 @@ RGY_ERR run_kfm_init_fmcount(RGYKFM::FMCount *dst, cudaStream_t stream) {
 template<typename Type>
 static RGY_ERR launch_kfm_analyze_count_cmflags_clean_t(
     RGYKFM::FMCount *dst,
+    int dstOffset,
     const RGYFrameInfo *prevSrc0,
     const RGYFrameInfo *prevSrc1,
     const RGYFrameInfo *curSrc0,
@@ -441,6 +444,7 @@ static RGY_ERR launch_kfm_analyze_count_cmflags_clean_t(
     const dim3 grid(divCeil(width, (int)block.x), divCeil(height, (int)block.y));
     kernel_kfm_analyze_count_cmflags_clean<Type><<<grid, block, 0, stream>>>(
         dst,
+        dstOffset,
         (const uint8_t *)prevSrc0->ptr[0],
         (const uint8_t *)prevSrc1->ptr[0],
         (const uint8_t *)curSrc0->ptr[0],
@@ -464,6 +468,7 @@ static RGY_ERR launch_kfm_analyze_count_cmflags_clean_t(
 
 RGY_ERR run_kfm_analyze_count_cmflags_clean(
     RGYKFM::FMCount *dst,
+    int dstOffset,
     const RGYFrameInfo *prevSrc0,
     const RGYFrameInfo *prevSrc1,
     const RGYFrameInfo *curSrc0,
@@ -484,10 +489,10 @@ RGY_ERR run_kfm_analyze_count_cmflags_clean(
         return RGY_ERR_INVALID_CALL;
     }
     if (RGY_CSP_BIT_DEPTH[prevSrc0->csp] > 8) {
-        return launch_kfm_analyze_count_cmflags_clean_t<uint16_t>(dst, prevSrc0, prevSrc1, curSrc0, curSrc1, width, height,
+        return launch_kfm_analyze_count_cmflags_clean_t<uint16_t>(dst, dstOffset, prevSrc0, prevSrc1, curSrc0, curSrc1, width, height,
             prevParity, curParity, countParity, pixelStep, pixelOffset, threshM, threshS, threshLS, cleanThresh, stream);
     }
-    return launch_kfm_analyze_count_cmflags_clean_t<uint8_t>(dst, prevSrc0, prevSrc1, curSrc0, curSrc1, width, height,
+    return launch_kfm_analyze_count_cmflags_clean_t<uint8_t>(dst, dstOffset, prevSrc0, prevSrc1, curSrc0, curSrc1, width, height,
         prevParity, curParity, countParity, pixelStep, pixelOffset, threshM, threshS, threshLS, cleanThresh, stream);
 }
 
