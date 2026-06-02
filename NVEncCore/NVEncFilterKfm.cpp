@@ -772,26 +772,32 @@ RGY_ERR NVEncFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t
     if (!entry.paddedFrame) {
         return RGY_ERR_MEMORY_ALLOC;
     }
-    auto padWaitEvents = wait_events;
-    if (entry.event() != nullptr) {
-        padWaitEvents.push_back(entry.event);
+    m_sourceCache.push_back(std::move(entry));
+    auto& cachedEntry = m_sourceCache.back();
+
+    sts = analyzeAvailableSource(false, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    sts = padSourceFrame(&entry.paddedFrame->frame, &entry.frame->frame, stream, padWaitEvents, &entry.paddedEvent);
+
+    auto padWaitEvents = wait_events;
+    if (cachedEntry.event() != nullptr) {
+        padWaitEvents.push_back(cachedEntry.event);
+    }
+    sts = padSourceFrame(&cachedEntry.paddedFrame->frame, &cachedEntry.frame->frame, stream, padWaitEvents, &cachedEntry.paddedEvent);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to pad KFM source frame: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    writeFrameInfoDump("source-pad", &entry.paddedFrame->frame);
+    writeFrameInfoDump("source-pad", &cachedEntry.paddedFrame->frame);
 
-    m_sourceCache.push_back(std::move(entry));
     const auto cacheLimit = sourceCacheLimit();
     const auto trimFloor = sourceCacheTrimFloor();
     while (m_sourceCache.size() > cacheLimit && m_sourceCache.front().sourceIndex < trimFloor) {
         m_sourceCache.pop_front();
     }
-    sts = analyzeAvailableSource(false, stream);
     writeFrameInfoDump("source", frame);
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -4782,7 +4788,7 @@ RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t strea
     std::array<const KfmCachedSource *, KFM_FMCOUNT_SOURCE_FRAMES> src = {};
     for (int i = 0; i < KFM_FMCOUNT_SOURCE_FRAMES; i++) {
         src[i] = findSourceByIndex(firstSourceIndex + i);
-        if (!src[i] || !src[i]->paddedFrame || !src[i]->paddedFrame->frame.ptr[0]) {
+        if (!src[i] || !src[i]->frame || !src[i]->frame->frame.ptr[0]) {
             return RGY_ERR_MORE_DATA;
         }
     }
@@ -4831,14 +4837,14 @@ RGY_ERR NVEncFilterKfm::submitFMCounts(int cycle, bool drain, cudaStream_t strea
             }
 
             std::vector<RGYCudaEvent> countWaitEvents;
-            if (src[pair + 0]->paddedEvent() != nullptr) {
-                countWaitEvents.push_back(src[pair + 0]->paddedEvent);
+            if (src[pair + 0]->event() != nullptr) {
+                countWaitEvents.push_back(src[pair + 0]->event);
             }
-            if (src[pair + 1]->paddedEvent() != nullptr) {
-                countWaitEvents.push_back(src[pair + 1]->paddedEvent);
+            if (src[pair + 1]->event() != nullptr) {
+                countWaitEvents.push_back(src[pair + 1]->event);
             }
-            if (src[pair + 2]->paddedEvent() != nullptr) {
-                countWaitEvents.push_back(src[pair + 2]->paddedEvent);
+            if (src[pair + 2]->event() != nullptr) {
+                countWaitEvents.push_back(src[pair + 2]->event);
             }
             sts = kfmWaitEvents(stream, countWaitEvents);
             if (sts != RGY_ERR_NONE) {
