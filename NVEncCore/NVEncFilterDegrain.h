@@ -118,9 +118,11 @@ protected:
         RGYDegrainRefDisableArray availabilityDisableRefs;
         RGYDegrainRefDisableArray useFlagDisableRefs;
         RGYDegrainRefDisableArray disableRefs;
+        std::array<uint32_t, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> sceneChangeBlockCounts;
         uint32_t scaledThSad;
         uint32_t scaledThSCD1;
         uint64_t scaledThSCD2;
+        uint32_t disableMask;
         CUMemBuf *sad;
         RGYCudaEvent mapEvent;
         std::vector<RGYDegrainSAD> *sadHost;
@@ -136,9 +138,11 @@ protected:
             availabilityDisableRefs(),
             useFlagDisableRefs(),
             disableRefs(),
+            sceneChangeBlockCounts(),
             scaledThSad(0),
             scaledThSCD1(0),
             scaledThSCD2(0),
+            disableMask(0),
             sad(nullptr),
             mapEvent(),
             sadHost(nullptr),
@@ -146,6 +150,7 @@ protected:
             availabilityDisableRefs.fill(true);
             useFlagDisableRefs.fill(false);
             disableRefs.fill(true);
+            sceneChangeBlockCounts.fill(0);
         }
     };
     RGY_ERR submitSceneChangeReadback(const std::shared_ptr<NVEncFilterParamDegrain> &prm, const RGYFilterDegrainProcessFrameSet &frames,
@@ -237,6 +242,8 @@ protected:
     RGYDegrainBlockLayout m_frameAnalysisLayout;
     std::deque<std::unique_ptr<PendingSceneChange>> m_pendingSceneChange;
     std::array<std::vector<RGYDegrainSAD>, SCENE_CHANGE_READBACK_POOL_SIZE> m_sceneChangeReadbackSAD;
+    std::unique_ptr<CUMemBuf> m_sceneChangeCounts;
+    std::unique_ptr<CUMemBuf> m_sceneChangeDisableMask;
     int m_sceneChangeReadbackSADIndex;
     int m_inputCount;
     int m_drainCount;

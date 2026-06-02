@@ -156,6 +156,62 @@ RGY_ERR launchNVEncDegrainBuildTemporalMixPlan(
     return launchNVEncDegrainBuildTemporalMixPlanImpl(temporalMixPlan, mv, sad, temporalMixPrior, blockCount, thsad, disableMask, refs, stream);
 }
 
+static __global__ void kernel_degrain_scene_change_count_cuda(
+    uint32_t *sceneChangeCounts, const RGYDegrainSAD *sad,
+    const int blockCount, const int temporalDirections, const uint32_t thscd1, const uint32_t baseDisableMask) {
+    const int idx = (int)blockIdx.x * blockDim.x + threadIdx.x;
+    const int count = blockCount * temporalDirections;
+    if (idx >= count) {
+        return;
+    }
+    const int refDirection = idx % temporalDirections;
+    if (((baseDisableMask >> refDirection) & 1u) != 0u) {
+        return;
+    }
+    if (sad[idx].sad > thscd1) {
+        atomicAdd(&sceneChangeCounts[refDirection], 1u);
+    }
+}
+
+static __global__ void kernel_degrain_scene_change_mask_cuda(
+    uint32_t *disableMaskPtr, const uint32_t *sceneChangeCounts,
+    const int temporalDirections, const uint32_t baseDisableMask, const uint64_t thscd2) {
+    uint32_t disableMask = baseDisableMask;
+    for (int refDirection = 0; refDirection < temporalDirections; refDirection++) {
+        if ((uint64_t)sceneChangeCounts[refDirection] > thscd2) {
+            disableMask |= (1u << refDirection);
+        }
+    }
+    disableMaskPtr[0] = disableMask;
+}
+
+RGY_ERR launchNVEncDegrainSceneChangeMask(
+    CUMemBuf &sceneChangeCounts, CUMemBuf &disableMaskBuf, const CUMemBuf &sad,
+    const RGYDegrainBlockLayout &layout, const uint32_t thscd1, const uint32_t baseDisableMask, const uint64_t thscd2, cudaStream_t stream) {
+    auto err = err_to_rgy(cudaMemsetAsync(sceneChangeCounts.ptr, 0, sceneChangeCounts.nSize, stream));
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    const int block = 256;
+    const int count = (int)(layout.blockCount() * (size_t)layout.temporalDirections);
+    const int grid = divCeil(count, block);
+    if (count > 0) {
+        kernel_degrain_scene_change_count_cuda<<<grid, block, 0, stream>>>(
+            reinterpret_cast<uint32_t *>(sceneChangeCounts.ptr),
+            reinterpret_cast<const RGYDegrainSAD *>(sad.ptr),
+            (int)layout.blockCount(), layout.temporalDirections, thscd1, baseDisableMask);
+        err = err_to_rgy(cudaGetLastError());
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+    kernel_degrain_scene_change_mask_cuda<<<1, 1, 0, stream>>>(
+        reinterpret_cast<uint32_t *>(disableMaskBuf.ptr),
+        reinterpret_cast<const uint32_t *>(sceneChangeCounts.ptr),
+        layout.temporalDirections, baseDisableMask, thscd2);
+    return err_to_rgy(cudaGetLastError());
+}
+
 RGY_ERR launchNVEncDegrainOverlapPlane(
     uint8_t *dst, const int dstPitch, const int pixelBytes,
     const uint8_t *cur, const int curPitch,
