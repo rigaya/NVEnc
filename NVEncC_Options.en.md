@@ -240,6 +240,7 @@
   - [--vpp-libplacebo-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-shader-param1value1param2value2)
   - [--vpp-resize \<string\> or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-resize-string-or-param1value1param2value2)
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
+  - [--vpp-chromashift \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-chromashift-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-detailsharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-detailsharpen-param1value1param2value2)
@@ -1838,6 +1839,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-libplacebo-shader](#--vpp-libplacebo-shader-param1value1param2value2)
 - [--vpp-resize](#--vpp-resize-string-or-param1value1param2value2)
 - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
+- [--vpp-chromashift](#--vpp-chromashift-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-detailsharpen](#--vpp-detailsharpen-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -3261,6 +3263,35 @@ unsharp filter, for edge and detail enhancement.
   ```
   Example: Somewhat stronger
   --vpp-unsharp weight=1.0
+  ```
+
+### --vpp-chromashift [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Shift chroma planes to correct chroma/luma alignment.
+
+- **Parameters**
+  - x=&lt;float&gt; (default=0.0, -4.0 - 4.0)
+    Horizontal shift in luma pixels.
+
+  - y=&lt;float&gt; (default=0.0, -4.0 - 4.0)
+    Vertical shift in luma pixels.
+
+  - show=&lt;normal|laplacian&gt; (default=normal)
+    Output diagnostic laplacian image.
+
+  - auto=&lt;bool&gt; (default=false)
+    Detect shift from early frames.
+
+  - auto_frames=&lt;int&gt; (default=5, 1-100)
+    Number of accepted analysis frames for auto detection.
+
+  - auto_min_pairs=&lt;int&gt; (default=200, 10-10000)
+    Minimum zero-crossing pairs per analysis frame.
+
+- Examples
+  ```
+  --vpp-chromashift x=1.0,y=-0.5
+  --vpp-chromashift auto=true,auto_frames=5
+  --vpp-chromashift show=laplacian
   ```
 
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
