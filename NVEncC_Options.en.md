@@ -243,6 +243,7 @@
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
   - [--vpp-chromashift \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-chromashift-param1value1param2value2)
   - [--vpp-deblock \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deblock-param1value1param2value2)
+  - [--vpp-deflicker \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deflicker-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-detailsharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-detailsharpen-param1value1param2value2)
@@ -1843,6 +1844,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
 - [--vpp-chromashift](#--vpp-chromashift-param1value1param2value2)
 - [--vpp-deblock](#--vpp-deblock-param1value1param2value2)
+- [--vpp-deflicker](#--vpp-deflicker-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-detailsharpen](#--vpp-detailsharpen-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -3326,6 +3328,34 @@ H.264 non-strong style spatial deblocking filter. This is a VPP filter applied t
   ```
   --vpp-deblock
   --vpp-deblock qp=30,alpha=2,beta=2,chroma=true
+  ```
+
+### --vpp-deflicker [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Temporal filter to stabilize frame-to-frame brightness flicker statistically.
+
+- **Parameters**
+  - strength=&lt;float&gt; (default=1.0, 0.0-1.0)
+    Blend strength of the correction.
+
+  - damping=&lt;float&gt; (default=0.8, 0.0-1.0)
+    Temporal damping using the previous frame's correction.
+
+  - scene_threshold=&lt;float&gt; (default=2.0, 0.5-5.0)
+    Scene change detection threshold. Detected frames pass through without correction.
+
+  - frames=&lt;int&gt; (default=30, 5-300)
+    Rolling frame count used for reference statistics.
+
+  - predictor=&lt;bool&gt; (default=true)
+    Use a two-pass predictor-corrector refinement.
+
+  - chroma=&lt;bool&gt; (default=false)
+    Apply correction to chroma planes as well.
+
+- examples
+  ```
+  --vpp-deflicker
+  --vpp-deflicker strength=0.8,damping=0.9,frames=60,predictor=false,chroma=true
   ```
 
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
