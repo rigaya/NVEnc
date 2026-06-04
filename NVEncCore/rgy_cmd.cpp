@@ -6796,6 +6796,95 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-finedehalo") && ENABLE_VPP_FILTER_FINEDEHALO) {
+        vpp->finedehalo.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "rx", "ry", "darkstr", "brightstr", "lowsens", "highsens", "ss", "thmi", "thma", "thlimi", "thlima", "showmask", "edge" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->finedehalo.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("rx")) {
+                    try { vpp->finedehalo.rx = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("ry")) {
+                    try { vpp->finedehalo.ry = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("darkstr")) {
+                    try { vpp->finedehalo.darkstr = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("brightstr")) {
+                    try { vpp->finedehalo.brightstr = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("lowsens")) {
+                    try { vpp->finedehalo.lowsens = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("highsens")) {
+                    try { vpp->finedehalo.highsens = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("ss")) {
+                    try { vpp->finedehalo.ss = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("thmi")) {
+                    try { vpp->finedehalo.thmi = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("thma")) {
+                    try { vpp->finedehalo.thma = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("thlimi")) {
+                    try { vpp->finedehalo.thlimi = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("thlima")) {
+                    try { vpp->finedehalo.thlima = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("showmask")) {
+                    try { vpp->finedehalo.showmask = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("edge")) {
+                    const auto edge = tolowercase(param_val);
+                    if (edge == _T("prewitt") || edge == _T("sobel") || edge == _T("scharr") || edge == _T("kirsch") || edge == _T("laplacian")) {
+                        vpp->finedehalo.edge = edge;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-msharpen") && ENABLE_VPP_FILTER_MSHARPEN) {
         vpp->msharpen.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -12032,6 +12121,34 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-dehalo");
         }
     }
+    if (param->finedehalo != defaultPrm->finedehalo) {
+        tmp.str(tstring());
+        if (!param->finedehalo.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->finedehalo.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("rx"), finedehalo.rx, 3);
+            ADD_FLOAT(_T("ry"), finedehalo.ry, 3);
+            ADD_FLOAT(_T("darkstr"), finedehalo.darkstr, 3);
+            ADD_FLOAT(_T("brightstr"), finedehalo.brightstr, 3);
+            ADD_NUM(_T("lowsens"), finedehalo.lowsens);
+            ADD_NUM(_T("highsens"), finedehalo.highsens);
+            ADD_FLOAT(_T("ss"), finedehalo.ss, 3);
+            ADD_NUM(_T("thmi"), finedehalo.thmi);
+            ADD_NUM(_T("thma"), finedehalo.thma);
+            ADD_NUM(_T("thlimi"), finedehalo.thlimi);
+            ADD_NUM(_T("thlima"), finedehalo.thlima);
+            ADD_NUM(_T("showmask"), finedehalo.showmask);
+            if (param->finedehalo.edge != defaultPrm->finedehalo.edge) {
+                tmp << _T(",edge=") << param->finedehalo.edge.c_str();
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-finedehalo ") << tmp.str().substr(1);
+        } else if (param->finedehalo.enable) {
+            cmd << _T(" --vpp-finedehalo");
+        }
+    }
     if (param->msharpen != defaultPrm->msharpen) {
         tmp.str(tstring());
         if (!param->msharpen.enable && save_disabled_prm) {
@@ -14199,6 +14316,32 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DEHALO_DARKSTR, FILTER_DEFAULT_DEHALO_BRIGHTSTR,
         FILTER_DEFAULT_DEHALO_LOWSENS, FILTER_DEFAULT_DEHALO_HIGHSENS,
         FILTER_DEFAULT_DEHALO_SS);
+#endif
+#if ENABLE_VPP_FILTER_FINEDEHALO
+    str += strsprintf(_T("\n")
+        _T("   --vpp-finedehalo [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     fine halo removal filter. Applies correction to luma and copies chroma unchanged.\n")
+        _T("    params\n")
+        _T("      rx=<float>                horizontal halo radius (default=%.2f, 0.5 - 10.0)\n")
+        _T("      ry=<float>                vertical halo radius (default=%.2f, 0.5 - 10.0)\n")
+        _T("      darkstr=<float>           bright-halo darkening strength (default=%.2f, 0.0 - 1.0)\n")
+        _T("      brightstr=<float>         dark-halo brightening strength (default=%.2f, 0.0 - 1.0)\n")
+        _T("      lowsens=<int>             dehalo sensitivity lower anchor (default=%d, 0 - 100)\n")
+        _T("      highsens=<int>            dehalo sensitivity upper anchor (default=%d, 0 - 100)\n")
+        _T("      ss=<float>                supersampling ratio (default=%.2f, 1.0 - 4.0)\n")
+        _T("      thmi=<int>                edge mask lower threshold (default=%d, 0 - 255)\n")
+        _T("      thma=<int>                edge mask upper threshold (default=%d, 0 - 255)\n")
+        _T("      thlimi=<int>              limit mask lower threshold (default=%d, 0 - 255)\n")
+        _T("      thlima=<int>              limit mask upper threshold (default=%d, 0 - 255)\n")
+        _T("      showmask=<int>            debug mask output (default=%d, 0 - 4)\n")
+        _T("      edge=<string>             edge operator (default=%s, prewitt|sobel|scharr|kirsch|laplacian)\n"),
+        FILTER_DEFAULT_DEHALO_RX, FILTER_DEFAULT_DEHALO_RY,
+        FILTER_DEFAULT_DEHALO_DARKSTR, FILTER_DEFAULT_DEHALO_BRIGHTSTR,
+        FILTER_DEFAULT_DEHALO_LOWSENS, FILTER_DEFAULT_DEHALO_HIGHSENS,
+        FILTER_DEFAULT_DEHALO_SS,
+        FILTER_DEFAULT_FINEDEHALO_THMI, FILTER_DEFAULT_FINEDEHALO_THMA,
+        FILTER_DEFAULT_FINEDEHALO_THLIMI, FILTER_DEFAULT_FINEDEHALO_THLIMA,
+        FILTER_DEFAULT_FINEDEHALO_SHOWMASK, FILTER_DEFAULT_FINEDEHALO_EDGE);
 #endif
 #if ENABLE_VPP_FILTER_MSHARPEN
     str += strsprintf(_T("\n")

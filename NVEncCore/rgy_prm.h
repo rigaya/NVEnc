@@ -86,6 +86,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_DETAILSHARPEN (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DEHALO       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_FINEDEHALO   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CHROMASHIFT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DEBLOCK      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DEFLICKER    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -211,6 +212,7 @@ enum class VppType : int {
     CL_COLORFIX,
     CL_EDGELEVEL,
     CL_DEHALO,
+    CL_FINEDEHALO,
     CL_MSHARPEN,
     CL_WARPSHARP,
     CL_DETAILSHARPEN,
@@ -475,6 +477,12 @@ static const float FILTER_DEFAULT_DEHALO_BRIGHTSTR = 0.0f;
 static const int   FILTER_DEFAULT_DEHALO_LOWSENS = 50;
 static const int   FILTER_DEFAULT_DEHALO_HIGHSENS = 50;
 static const float FILTER_DEFAULT_DEHALO_SS = 1.5f;
+static const int   FILTER_DEFAULT_FINEDEHALO_THMI = 80;
+static const int   FILTER_DEFAULT_FINEDEHALO_THMA = 128;
+static const int   FILTER_DEFAULT_FINEDEHALO_THLIMI = 50;
+static const int   FILTER_DEFAULT_FINEDEHALO_THLIMA = 100;
+static const int   FILTER_DEFAULT_FINEDEHALO_SHOWMASK = 0;
+static const TCHAR *FILTER_DEFAULT_FINEDEHALO_EDGE = _T("prewitt");
 
 static const float FILTER_DEFAULT_MSHARPEN_STRENGTH = 1.0f;
 static const float FILTER_DEFAULT_MSHARPEN_THRESHOLD = 15.0f;
@@ -2441,6 +2449,28 @@ struct VppDehalo {
     tstring print() const;
 };
 
+struct VppFineDehalo {
+    bool enable;
+    float rx;
+    float ry;
+    float darkstr;
+    float brightstr;
+    int lowsens;
+    int highsens;
+    float ss;
+    int thmi;
+    int thma;
+    int thlimi;
+    int thlima;
+    int showmask;
+    tstring edge;
+
+    VppFineDehalo();
+    bool operator==(const VppFineDehalo& x) const;
+    bool operator!=(const VppFineDehalo& x) const;
+    tstring print() const;
+};
+
 struct VppMsharpen {
     bool  enable;
     float strength;
@@ -3223,6 +3253,7 @@ struct RGYParamVpp {
     VppColorFix colorfix;
     VppEdgelevel edgelevel;
     VppDehalo dehalo;
+    VppFineDehalo finedehalo;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;
     VppDetailSharpen detailsharpen;

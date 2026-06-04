@@ -103,6 +103,7 @@
 #include "NVEncFilterColorFix.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterDehalo.h"
+#include "NVEncFilterFineDehalo.h"
 #include "NVEncFilterMsharpen.h"
 #include "NVEncFilterWarpsharp.h"
 #include "NVEncFilterDetailSharpen.h"
@@ -1668,6 +1669,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.colorfix.enable
             || inputParam->vpp.edgelevel.enable
             || inputParam->vpp.dehalo.enable
+            || inputParam->vpp.finedehalo.enable
             || inputParam->vpp.msharpen.enable
             || inputParam->vpp.warpsharp.enable
             || inputParam->vpp.detailsharpen.enable
@@ -2978,6 +2980,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.colorfix.enable)   filterPipeline.push_back(VppType::CL_COLORFIX);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
     if (inputParam->vpp.dehalo.enable)     filterPipeline.push_back(VppType::CL_DEHALO);
+    if (inputParam->vpp.finedehalo.enable) filterPipeline.push_back(VppType::CL_FINEDEHALO);
     if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
     if (inputParam->vpp.detailsharpen.enable) filterPipeline.push_back(VppType::CL_DETAILSHARPEN);
@@ -4565,6 +4568,26 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //finedehalo
+    if (vppType == VppType::CL_FINEDEHALO) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterFineDehalo());
+        shared_ptr<NVEncFilterParamFineDehalo> param(new NVEncFilterParamFineDehalo());
+        param->finedehalo = inputParam->vpp.finedehalo;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        cufilters.push_back(std::move(filter));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;
