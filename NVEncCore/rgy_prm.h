@@ -88,6 +88,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_CHROMASHIFT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DEBLOCK      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DEFLICKER    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_COLORFIX     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CURVES       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_SOFTLIGHT    (ENCODER_NVENC)
@@ -206,6 +207,7 @@ enum class VppType : int {
     CL_CHROMASHIFT,
     CL_DEBLOCK,
     CL_DEFLICKER,
+    CL_COLORFIX,
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
@@ -502,6 +504,14 @@ static const float FILTER_DEFAULT_DEFLICKER_SCENE_THRESHOLD = 2.0f;
 static const int   FILTER_DEFAULT_DEFLICKER_FRAMES = 30;
 static const bool  FILTER_DEFAULT_DEFLICKER_PREDICTOR = true;
 static const bool  FILTER_DEFAULT_DEFLICKER_CHROMA = false;
+static const int   FILTER_DEFAULT_COLORFIX_MODE = 0;
+static const int   FILTER_DEFAULT_COLORFIX_SPACE = 0;
+static const int   FILTER_DEFAULT_COLORFIX_MATRIX = 0;
+static const int   FILTER_DEFAULT_COLORFIX_WHITE = 255;
+static const int   FILTER_DEFAULT_COLORFIX_BLACK = 0;
+static const int   FILTER_DEFAULT_COLORFIX_FRAMES = 30;
+static const float FILTER_DEFAULT_COLORFIX_STRENGTH = 1.0f;
+static const float FILTER_DEFAULT_COLORFIX_VARIANCE_THRESHOLD = 2.0f;
 
 static const float FILTER_DEFAULT_WARPSHARP_THRESHOLD = 128.0f;
 static const int   FILTER_DEFAULT_WARPSHARP_BLUR = 2;
@@ -2348,6 +2358,46 @@ struct VppDeflicker {
     tstring print() const;
 };
 
+enum VppColorFixMode {
+    VPP_COLORFIX_MODE_MANUAL = 0,
+    VPP_COLORFIX_MODE_AUTO,
+    VPP_COLORFIX_MODE_GRAY,
+};
+
+enum VppColorFixSpace {
+    VPP_COLORFIX_SPACE_AUTO = 0,
+    VPP_COLORFIX_SPACE_RGB,
+    VPP_COLORFIX_SPACE_YUV,
+};
+
+enum VppColorFixMatrix {
+    VPP_COLORFIX_MATRIX_AUTO = 0,
+    VPP_COLORFIX_MATRIX_BT601,
+    VPP_COLORFIX_MATRIX_BT709,
+    VPP_COLORFIX_MATRIX_BT2020,
+};
+
+struct VppColorFix {
+    bool  enable;
+    int   mode;
+    int   space;
+    int   matrix;
+    int   whiteR;
+    int   whiteG;
+    int   whiteB;
+    int   blackR;
+    int   blackG;
+    int   blackB;
+    int   frames;
+    float strength;
+    float varianceThreshold;
+
+    VppColorFix();
+    bool operator==(const VppColorFix &x) const;
+    bool operator!=(const VppColorFix &x) const;
+    tstring print() const;
+};
+
 struct VppEdgelevel {
     bool  enable;
     float strength;
@@ -3136,6 +3186,7 @@ struct RGYParamVpp {
     VppChromaShift chromashift;
     VppDeblock deblock;
     VppDeflicker deflicker;
+    VppColorFix colorfix;
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;

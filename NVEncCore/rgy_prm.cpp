@@ -126,6 +126,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_CHROMASHIFT,          _T("chromashift")),
     std::make_pair(VppType::CL_DEBLOCK,              _T("deblock")),
     std::make_pair(VppType::CL_DEFLICKER,            _T("deflicker")),
+    std::make_pair(VppType::CL_COLORFIX,             _T("colorfix")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
@@ -1924,6 +1925,76 @@ tstring VppDeflicker::print() const {
         chroma ? _T("true") : _T("false"));
 }
 
+static const TCHAR *vpp_colorfix_mode_str(int mode) {
+    switch (mode) {
+    case VPP_COLORFIX_MODE_AUTO:   return _T("auto");
+    case VPP_COLORFIX_MODE_GRAY:   return _T("gray");
+    case VPP_COLORFIX_MODE_MANUAL:
+    default:                       return _T("manual");
+    }
+}
+
+static const TCHAR *vpp_colorfix_space_str(int space) {
+    switch (space) {
+    case VPP_COLORFIX_SPACE_RGB:   return _T("rgb");
+    case VPP_COLORFIX_SPACE_YUV:   return _T("yuv");
+    case VPP_COLORFIX_SPACE_AUTO:
+    default:                       return _T("auto");
+    }
+}
+
+static const TCHAR *vpp_colorfix_matrix_str(int matrix) {
+    switch (matrix) {
+    case VPP_COLORFIX_MATRIX_BT601:  return _T("bt601");
+    case VPP_COLORFIX_MATRIX_BT709:  return _T("bt709");
+    case VPP_COLORFIX_MATRIX_BT2020: return _T("bt2020");
+    case VPP_COLORFIX_MATRIX_AUTO:
+    default:                         return _T("auto");
+    }
+}
+
+VppColorFix::VppColorFix() :
+    enable(false),
+    mode(FILTER_DEFAULT_COLORFIX_MODE),
+    space(FILTER_DEFAULT_COLORFIX_SPACE),
+    matrix(FILTER_DEFAULT_COLORFIX_MATRIX),
+    whiteR(FILTER_DEFAULT_COLORFIX_WHITE),
+    whiteG(FILTER_DEFAULT_COLORFIX_WHITE),
+    whiteB(FILTER_DEFAULT_COLORFIX_WHITE),
+    blackR(FILTER_DEFAULT_COLORFIX_BLACK),
+    blackG(FILTER_DEFAULT_COLORFIX_BLACK),
+    blackB(FILTER_DEFAULT_COLORFIX_BLACK),
+    frames(FILTER_DEFAULT_COLORFIX_FRAMES),
+    strength(FILTER_DEFAULT_COLORFIX_STRENGTH),
+    varianceThreshold(FILTER_DEFAULT_COLORFIX_VARIANCE_THRESHOLD) {
+}
+
+bool VppColorFix::operator==(const VppColorFix &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && space == x.space
+        && matrix == x.matrix
+        && whiteR == x.whiteR
+        && whiteG == x.whiteG
+        && whiteB == x.whiteB
+        && blackR == x.blackR
+        && blackG == x.blackG
+        && blackB == x.blackB
+        && frames == x.frames
+        && strength == x.strength
+        && varianceThreshold == x.varianceThreshold;
+}
+
+bool VppColorFix::operator!=(const VppColorFix &x) const {
+    return !(*this == x);
+}
+
+tstring VppColorFix::print() const {
+    return strsprintf(_T("colorfix: mode %s, space %s, matrix %s, white #%02x%02x%02x, black #%02x%02x%02x, frames %d, strength %.2f, variance_threshold %.2f"),
+        vpp_colorfix_mode_str(mode), vpp_colorfix_space_str(space), vpp_colorfix_matrix_str(matrix),
+        whiteR, whiteG, whiteB, blackR, blackG, blackB, frames, strength, varianceThreshold);
+}
+
 VppEdgelevel::VppEdgelevel() :
     enable(false),
     strength(FILTER_DEFAULT_EDGELEVEL_STRENGTH),
@@ -3040,6 +3111,7 @@ RGYParamVpp::RGYParamVpp() :
     chromashift(),
     deblock(),
     deflicker(),
+    colorfix(),
     edgelevel(),
     msharpen(),
     warpsharp(),
@@ -3101,6 +3173,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && chromashift == x.chromashift
         && deblock == x.deblock
         && deflicker == x.deflicker
+        && colorfix == x.colorfix
         && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel
         && msharpen == x.msharpen
