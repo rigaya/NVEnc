@@ -130,6 +130,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_DEHALO,               _T("dehalo")),
     std::make_pair(VppType::CL_FINEDEHALO,           _T("finedehalo")),
+    std::make_pair(VppType::CL_HQDERING,             _T("hqdering")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
     std::make_pair(VppType::CL_DETAILSHARPEN,         _T("detailsharpen")),
@@ -2093,6 +2094,37 @@ tstring VppFineDehalo::print() const {
         rx, ry, darkstr, brightstr, lowsens, highsens, ss, thmi, thma, thlimi, thlima, showmask, edge.c_str());
 }
 
+VppDering::VppDering() :
+    enable(false),
+    mrad(FILTER_DEFAULT_HQDERING_MRAD),
+    mthr(FILTER_DEFAULT_HQDERING_MTHR),
+    sigma(FILTER_DEFAULT_HQDERING_SIGMA),
+    showmask(FILTER_DEFAULT_HQDERING_SHOWMASK),
+    protect(FILTER_DEFAULT_HQDERING_PROTECT),
+    edge(FILTER_DEFAULT_HQDERING_EDGE) {
+}
+
+bool VppDering::operator==(const VppDering& x) const {
+    return enable == x.enable
+        && mrad == x.mrad
+        && mthr == x.mthr
+        && sigma == x.sigma
+        && showmask == x.showmask
+        && protect == x.protect
+        && edge == x.edge;
+}
+bool VppDering::operator!=(const VppDering& x) const {
+    return !(*this == x);
+}
+
+tstring VppDering::print() const {
+    return strsprintf(_T("hqdering: mrad %d, mthr %d, sigma %.2f, showmask %s, protect %s, edge %s"),
+        mrad, mthr, sigma,
+        showmask ? _T("on") : _T("off"),
+        protect ? _T("on") : _T("off"),
+        edge.c_str());
+}
+
 VppMsharpen::VppMsharpen() :
     enable(false),
     strength(FILTER_DEFAULT_MSHARPEN_STRENGTH),
@@ -3199,6 +3231,7 @@ RGYParamVpp::RGYParamVpp() :
     edgelevel(),
     dehalo(),
     finedehalo(),
+    dering(),
     msharpen(),
     warpsharp(),
     detailsharpen(),
@@ -3264,6 +3297,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && edgelevel == x.edgelevel
         && dehalo == x.dehalo
         && finedehalo == x.finedehalo
+        && dering == x.dering
         && msharpen == x.msharpen
         && warpsharp == x.warpsharp
         && detailsharpen == x.detailsharpen
