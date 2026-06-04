@@ -85,6 +85,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DETAILSHARPEN (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_CHROMASHIFT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CURVES       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_SOFTLIGHT    (ENCODER_NVENC)
@@ -200,6 +201,7 @@ enum class VppType : int {
     CL_SUBBURN,
 
     CL_UNSHARP,
+    CL_CHROMASHIFT,
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
@@ -479,6 +481,13 @@ static const bool  FILTER_DEFAULT_LIBPLACEBO_SHADER_SIGMOID = false;
 static const int   FILTER_DEFAULT_UNSHARP_RADIUS = 3;
 static const float FILTER_DEFAULT_UNSHARP_WEIGHT = 0.5f;
 static const float FILTER_DEFAULT_UNSHARP_THRESHOLD = 10.0f;
+
+static const float FILTER_DEFAULT_CHROMASHIFT_X = 0.0f;
+static const float FILTER_DEFAULT_CHROMASHIFT_Y = 0.0f;
+static const int   FILTER_DEFAULT_CHROMASHIFT_SHOW = 0;
+static const bool  FILTER_DEFAULT_CHROMASHIFT_AUTO = false;
+static const int   FILTER_DEFAULT_CHROMASHIFT_AUTO_FRAMES = 5;
+static const int   FILTER_DEFAULT_CHROMASHIFT_AUTO_MIN_PAIRS = 200;
 
 static const float FILTER_DEFAULT_WARPSHARP_THRESHOLD = 128.0f;
 static const int   FILTER_DEFAULT_WARPSHARP_BLUR = 2;
@@ -2282,6 +2291,21 @@ struct VppUnsharp {
     tstring print() const;
 };
 
+struct VppChromaShift {
+    bool  enable;
+    float x;
+    float y;
+    int   show;
+    bool  auto_detect;
+    int   auto_frames;
+    int   auto_min_pairs;
+
+    VppChromaShift();
+    bool operator==(const VppChromaShift &x) const;
+    bool operator!=(const VppChromaShift &x) const;
+    tstring print() const;
+};
+
 struct VppEdgelevel {
     bool  enable;
     float strength;
@@ -3067,6 +3091,7 @@ struct RGYParamVpp {
     std::vector<VppSubburn> subburn;
     std::vector<VppLibplaceboShader> libplacebo_shader;
     VppUnsharp unsharp;
+    VppChromaShift chromashift;
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;

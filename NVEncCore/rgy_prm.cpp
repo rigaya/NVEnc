@@ -123,6 +123,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_LIBPLACEBO_SHADER,    _T("libplacebo-shader")),
     std::make_pair(VppType::CL_RESIZE,               _T("resize")),
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
+    std::make_pair(VppType::CL_CHROMASHIFT,          _T("chromashift")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
@@ -1839,6 +1840,34 @@ tstring VppUnsharp::print() const {
         radius, weight, threshold);
 }
 
+VppChromaShift::VppChromaShift() :
+    enable(false),
+    x(FILTER_DEFAULT_CHROMASHIFT_X),
+    y(FILTER_DEFAULT_CHROMASHIFT_Y),
+    show(FILTER_DEFAULT_CHROMASHIFT_SHOW),
+    auto_detect(FILTER_DEFAULT_CHROMASHIFT_AUTO),
+    auto_frames(FILTER_DEFAULT_CHROMASHIFT_AUTO_FRAMES),
+    auto_min_pairs(FILTER_DEFAULT_CHROMASHIFT_AUTO_MIN_PAIRS) {
+}
+
+bool VppChromaShift::operator==(const VppChromaShift &v) const {
+    return enable == v.enable
+        && x == v.x
+        && y == v.y
+        && show == v.show
+        && auto_detect == v.auto_detect
+        && auto_frames == v.auto_frames
+        && auto_min_pairs == v.auto_min_pairs;
+}
+bool VppChromaShift::operator!=(const VppChromaShift &v) const {
+    return !(*this == v);
+}
+
+tstring VppChromaShift::print() const {
+    return strsprintf(_T("chromashift: x %.2f, y %.2f, show %d, auto %s, auto_frames %d, auto_min_pairs %d"),
+        x, y, show, auto_detect ? _T("true") : _T("false"), auto_frames, auto_min_pairs);
+}
+
 VppEdgelevel::VppEdgelevel() :
     enable(false),
     strength(FILTER_DEFAULT_EDGELEVEL_STRENGTH),
@@ -2952,6 +2981,7 @@ RGYParamVpp::RGYParamVpp() :
     subburn(),
     libplacebo_shader(),
     unsharp(),
+    chromashift(),
     edgelevel(),
     msharpen(),
     warpsharp(),
@@ -3010,6 +3040,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && msmooth == x.msmooth
         && subburn == x.subburn
         && unsharp == x.unsharp
+        && chromashift == x.chromashift
         && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel
         && msharpen == x.msharpen

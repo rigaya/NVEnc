@@ -506,6 +506,9 @@
     <ClInclude Include="NVEncFilterUnsharp.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterChromaShift.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="NVEncFilterEdgelevel.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -827,6 +830,9 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterUnsharp.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterChromaShift.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterEdgelevel.cu">

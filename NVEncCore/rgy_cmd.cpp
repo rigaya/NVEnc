@@ -6258,6 +6258,92 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-chromashift") && ENABLE_VPP_FILTER_CHROMASHIFT) {
+        vpp->chromashift.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "x", "y", "show", "auto", "auto_detect", "auto_frames", "auto_min_pairs" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->chromashift.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("x")) {
+                    try {
+                        vpp->chromashift.x = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("y")) {
+                    try {
+                        vpp->chromashift.y = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("show")) {
+                    const auto show = tolowercase(param_val);
+                    if (show == _T("normal") || show == _T("none") || show == _T("0")) {
+                        vpp->chromashift.show = 0;
+                    } else if (show == _T("laplacian") || show == _T("lap") || show == _T("1")) {
+                        vpp->chromashift.show = 1;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("auto") || param_arg == _T("auto_detect")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->chromashift.auto_detect = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("auto_frames")) {
+                    try {
+                        vpp->chromashift.auto_frames = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("auto_min_pairs")) {
+                    try {
+                        vpp->chromashift.auto_min_pairs = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-edgelevel") && ENABLE_VPP_FILTER_EDGELEVEL) {
         vpp->edgelevel.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -11403,6 +11489,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-unsharp");
         }
     }
+    if (param->chromashift != defaultPrm->chromashift) {
+        tmp.str(tstring());
+        if (!param->chromashift.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->chromashift.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("x"), chromashift.x, 3);
+            ADD_FLOAT(_T("y"), chromashift.y, 3);
+            ADD_NUM(_T("show"), chromashift.show);
+            ADD_BOOL(_T("auto"), chromashift.auto_detect);
+            ADD_NUM(_T("auto_frames"), chromashift.auto_frames);
+            ADD_NUM(_T("auto_min_pairs"), chromashift.auto_min_pairs);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-chromashift ") << tmp.str().substr(1);
+        } else if (param->chromashift.enable) {
+            cmd << _T(" --vpp-chromashift");
+        }
+    }
     if (param->edgelevel != defaultPrm->edgelevel) {
         tmp.str(tstring());
         if (!param->edgelevel.enable && save_disabled_prm) {
@@ -13523,6 +13628,21 @@ tstring gen_cmd_help_vpp() {
         _T("      weight=<float>            strength of filter (default=%.2f, 0-10)\n")
         _T("      threshold=<float>         min brightness change to be sharpened (default=%.2f, 0-255)\n"),
         FILTER_DEFAULT_UNSHARP_RADIUS, FILTER_DEFAULT_UNSHARP_WEIGHT, FILTER_DEFAULT_UNSHARP_THRESHOLD);
+#endif
+#if ENABLE_VPP_FILTER_CHROMASHIFT
+    str += strsprintf(_T("\n")
+        _T("   --vpp-chromashift [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     shift chroma planes for chroma/luma alignment correction.\n")
+        _T("    params\n")
+        _T("      x=<float>                 horizontal shift in luma pixels (default=%.2f, -4.0 - 4.0)\n")
+        _T("      y=<float>                 vertical shift in luma pixels (default=%.2f, -4.0 - 4.0)\n")
+        _T("      show=<normal|laplacian>   diagnostic output (default=normal)\n")
+        _T("      auto=<bool>               auto detect shift from early frames (default=%s)\n")
+        _T("      auto_frames=<int>         accepted analysis frames (default=%d, 1-100)\n")
+        _T("      auto_min_pairs=<int>      minimum zero-crossing pairs per frame (default=%d, 10-10000)\n"),
+        FILTER_DEFAULT_CHROMASHIFT_X, FILTER_DEFAULT_CHROMASHIFT_Y,
+        FILTER_DEFAULT_CHROMASHIFT_AUTO ? _T("true") : _T("false"),
+        FILTER_DEFAULT_CHROMASHIFT_AUTO_FRAMES, FILTER_DEFAULT_CHROMASHIFT_AUTO_MIN_PAIRS);
 #endif
 #if ENABLE_VPP_FILTER_EDGELEVEL
     str += strsprintf(_T("\n")
