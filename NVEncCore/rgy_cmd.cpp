@@ -6482,6 +6482,67 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-stab") && ENABLE_VPP_FILTER_STAB) {
+        vpp->stab.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "strength", "damping", "trust", "trust_threshold", "max_shift", "border" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->stab.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try { vpp->stab.strength = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("damping")) {
+                    try { vpp->stab.damping = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("trust") || param_arg == _T("trust_threshold")) {
+                    try { vpp->stab.trust_threshold = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("max_shift")) {
+                    try { vpp->stab.max_shift = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("border")) {
+                    const auto border = tolowercase(param_val);
+                    if (border == _T("black")) {
+                        vpp->stab.border = VPP_STAB_BORDER_BLACK;
+                    } else if (border == _T("clamp")) {
+                        vpp->stab.border = VPP_STAB_BORDER_CLAMP;
+                    } else if (border == _T("mirror")) {
+                        vpp->stab.border = VPP_STAB_BORDER_MIRROR;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-colorfix") && ENABLE_VPP_FILTER_COLORFIX) {
         vpp->colorfix.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -12115,6 +12176,26 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-deflicker");
         }
     }
+    if (param->stab != defaultPrm->stab) {
+        tmp.str(tstring());
+        if (!param->stab.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->stab.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("strength"), stab.strength, 3);
+            ADD_FLOAT(_T("damping"), stab.damping, 3);
+            ADD_FLOAT(_T("trust"), stab.trust_threshold, 3);
+            ADD_FLOAT(_T("max_shift"), stab.max_shift, 1);
+            const auto borderStr = (param->stab.border == VPP_STAB_BORDER_CLAMP) ? _T("clamp")
+                : (param->stab.border == VPP_STAB_BORDER_MIRROR) ? _T("mirror") : _T("black");
+            tmp << _T(",border=") << borderStr;
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-stab ") << tmp.str().substr(1);
+        } else if (param->stab.enable) {
+            cmd << _T(" --vpp-stab");
+        }
+    }
     if (param->colorfix != defaultPrm->colorfix) {
         tmp.str(tstring());
         if (!param->colorfix.enable && save_disabled_prm) {
@@ -14344,6 +14425,21 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DEFLICKER_SCENE_THRESHOLD, FILTER_DEFAULT_DEFLICKER_FRAMES,
         FILTER_DEFAULT_DEFLICKER_PREDICTOR ? _T("true") : _T("false"),
         FILTER_DEFAULT_DEFLICKER_CHROMA ? _T("true") : _T("false"));
+#endif
+#if ENABLE_VPP_FILTER_STAB
+    str += strsprintf(_T("\n")
+        _T("   --vpp-stab [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     camera-shake stabilisation via phase correlation.\n")
+        _T("    params\n")
+        _T("      strength=<float>          correction strength (default=%.2f, 0.0 - 1.0)\n")
+        _T("      damping=<float>           smoothing damping (default=%.2f, 0.0 - 1.0)\n")
+        _T("      trust=<float>             trust threshold (default=%.2f, 0.0 - 1.0)\n")
+        _T("      max_shift=<float>         maximum compensated shift in pixels (default=%.1f, 1 - 256)\n")
+        _T("      border=<string>           border mode (default=black, black|clamp|mirror)\n"),
+        FILTER_DEFAULT_STAB_STRENGTH,
+        FILTER_DEFAULT_STAB_DAMPING,
+        FILTER_DEFAULT_STAB_TRUST_THRESHOLD,
+        FILTER_DEFAULT_STAB_MAX_SHIFT);
 #endif
 #if ENABLE_VPP_FILTER_COLORFIX
     str += strsprintf(_T("\n")

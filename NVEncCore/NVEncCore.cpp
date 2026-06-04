@@ -100,6 +100,7 @@
 #include "NVEncFilterChromaShift.h"
 #include "NVEncFilterDeblock.h"
 #include "NVEncFilterDeflicker.h"
+#include "NVEncFilterStab.h"
 #include "NVEncFilterColorFix.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterDehalo.h"
@@ -1663,6 +1664,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.deband.enable
             || inputParam->vpp.libplacebo_deband.enable
             || inputParam->vpp.deflicker.enable
+            || inputParam->vpp.stab.enable
             || inputParam->vpp.colorfix.enable
             || inputParam->vpp.edgelevel.enable
             || inputParam->vpp.dehalo.enable
@@ -2964,6 +2966,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.chromashift.enable) filterPipeline.push_back(VppType::CL_CHROMASHIFT);
     if (inputParam->vpp.deblock.enable)    filterPipeline.push_back(VppType::CL_DEBLOCK);
     if (inputParam->vpp.deflicker.enable)  filterPipeline.push_back(VppType::CL_DEFLICKER);
+    if (inputParam->vpp.stab.enable)       filterPipeline.push_back(VppType::CL_STAB);
     if (inputParam->vpp.colorfix.enable)   filterPipeline.push_back(VppType::CL_COLORFIX);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
     if (inputParam->vpp.dehalo.enable)     filterPipeline.push_back(VppType::CL_DEHALO);
@@ -4447,6 +4450,26 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //stab
+    if (vppType == VppType::CL_STAB) {
+        unique_ptr<NVEncFilter> filterStab(new NVEncFilterStab());
+        shared_ptr<NVEncFilterParamStab> param(new NVEncFilterParamStab());
+        param->stab = inputParam->vpp.stab;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filterStab->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        cufilters.push_back(std::move(filterStab));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;

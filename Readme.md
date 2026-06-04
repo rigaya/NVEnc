@@ -118,6 +118,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
     - transpose / rotate / flip
     - padding
     - select-every
+    - stab
     - deband
       - deband
       - [libplacebo](https://code.videolan.org/videolan/libplacebo)

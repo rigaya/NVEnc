@@ -243,6 +243,7 @@
   - [--vpp-chromashift \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-chromashift-param1value1param2value2)
   - [--vpp-deblock \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deblock-param1value1param2value2)
   - [--vpp-deflicker \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deflicker-param1value1param2value2)
+  - [--vpp-stab \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-stab-param1value1param2value2)
   - [--vpp-colorfix \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorfix-param1value1param2value2)
   - [--vpp-dehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-dehalo-param1value1param2value2)
   - [--vpp-finedehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-finedehalo-param1value1param2value2)
@@ -1848,6 +1849,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-chromashift](#--vpp-chromashift-param1value1param2value2)
 - [--vpp-deblock](#--vpp-deblock-param1value1param2value2)
 - [--vpp-deflicker](#--vpp-deflicker-param1value1param2value2)
+- [--vpp-stab](#--vpp-stab-param1value1param2value2)
 - [--vpp-colorfix](#--vpp-colorfix-param1value1param2value2)
 - [--vpp-dehalo](#--vpp-dehalo-param1value1param2value2)
 - [--vpp-finedehalo](#--vpp-finedehalo-param1value1param2value2)
@@ -3354,6 +3356,31 @@ Temporal filter to stabilize frame-to-frame brightness flicker statistically.
   ```
   --vpp-deflicker
   --vpp-deflicker strength=0.8,damping=0.9,frames=60,predictor=false,chroma=true
+  ```
+
+### --vpp-stab [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+CUDA camera-shake stabilizer that estimates frame-to-frame translation from the luma plane using phase correlation and warps the frame to compensate.
+
+- **Parameters**
+  - strength=&lt;float&gt; (default=1.0, 0.0 - 1.0)
+    Correction strength.
+
+  - damping=&lt;float&gt; (default=0.9, 0.0 - 1.0)
+    Smoothing damping.
+
+  - trust=&lt;float&gt; (default=0.3, 0.0 - 1.0)
+    Trust threshold for phase-correlation peaks.
+
+  - max_shift=&lt;float&gt; (default=32.0, 1 - 256)
+    Maximum compensated shift in pixels.
+
+  - border=&lt;string&gt; (default=black)
+    Border mode, one of black, clamp, mirror.
+
+- examples
+  ```
+  --vpp-stab
+  --vpp-stab strength=0.8,damping=0.95,trust=0.25,max_shift=48,border=mirror
   ```
 
 ### --vpp-colorfix [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
