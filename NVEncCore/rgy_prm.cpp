@@ -83,6 +83,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
     std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
+    std::make_pair(VppType::CL_MAA,                  _T("maa")),
     std::make_pair(VppType::CL_RTGMC,                _T("rtgmc")),
     std::make_pair(VppType::CL_RTGMC_BOB,            _T("rtgmc-bob")),
     std::make_pair(VppType::CL_RTGMC_SEARCH_PREFILTER, _T("rtgmc-search-prefilter")),
@@ -2213,6 +2214,43 @@ tstring VppWarpsharp::print() const {
         threshold, blur, type, depth, chroma, depth_min_print, depth_max_print, edge_thr, gamma);
 }
 
+VppMaa::VppMaa() :
+    enable(false),
+    ss(FILTER_DEFAULT_MAA_SS),
+    aa(FILTER_DEFAULT_MAA_AA),
+    aac(FILTER_DEFAULT_MAA_AAC),
+    mask(FILTER_DEFAULT_MAA_MASK),
+    mthresh(FILTER_DEFAULT_MAA_MTHRESH),
+    chroma(FILTER_DEFAULT_MAA_CHROMA),
+    show(FILTER_DEFAULT_MAA_SHOW),
+    edge(FILTER_DEFAULT_MAA_EDGE) {
+
+}
+
+bool VppMaa::operator==(const VppMaa &x) const {
+    return enable == x.enable
+        && ss == x.ss
+        && aa == x.aa
+        && aac == x.aac
+        && mask == x.mask
+        && mthresh == x.mthresh
+        && chroma == x.chroma
+        && show == x.show
+        && edge == x.edge;
+}
+bool VppMaa::operator!=(const VppMaa &x) const {
+    return !(*this == x);
+}
+
+tstring VppMaa::print() const {
+    return strsprintf(_T("maa: ss=%.2f, aa=%d, aac=%d, mask=%s, mthresh=%d, chroma=%s, show=%d, edge=%s"),
+        ss, aa, aac,
+        mask ? _T("on") : _T("off"),
+        mthresh,
+        chroma ? _T("on") : _T("off"),
+        show, edge.c_str());
+}
+
 VppDetailSharpen::VppDetailSharpen() :
     enable(false),
     z(FILTER_DEFAULT_DETAILSHARPEN_Z),
@@ -3262,6 +3300,7 @@ RGYParamVpp::RGYParamVpp() :
     dering(),
     msharpen(),
     warpsharp(),
+    maa(),
     detailsharpen(),
     curves(),
     softlight(),
@@ -3328,6 +3367,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && dering == x.dering
         && msharpen == x.msharpen
         && warpsharp == x.warpsharp
+        && maa == x.maa
         && detailsharpen == x.detailsharpen
         && curves == x.curves
         && softlight == x.softlight

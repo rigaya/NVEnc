@@ -58,6 +58,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_MAA          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RTGMC        (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_RTGMC_BOB    (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_RTGMC_SEARCH_PREFILTER (        ENCODER_NVENC)
@@ -168,6 +169,7 @@ enum class VppType : int {
     CL_AFS,
     CL_NNEDI,
     CL_BWDIF,
+    CL_MAA,
     CL_RTGMC,
     CL_RTGMC_BOB,
     CL_RTGMC_SEARCH_PREFILTER,
@@ -380,6 +382,16 @@ static const int   FILTER_DEFAULT_BWDIF_ORDER = -1;
 static const float FILTER_DEFAULT_BWDIF_THR = 0.0f;
 static const int   FILTER_DEFAULT_BWDIF_DEINT = 0;
 static const bool  FILTER_DEFAULT_BWDIF_LOG = false;
+
+// MAA (Masked Anti-Aliasing) defaults
+static const float FILTER_DEFAULT_MAA_SS       = 2.0f;
+static const int   FILTER_DEFAULT_MAA_AA       = 48;
+static const int   FILTER_DEFAULT_MAA_AAC      = 40;
+static const bool  FILTER_DEFAULT_MAA_MASK     = true;
+static const int   FILTER_DEFAULT_MAA_MTHRESH  = 7;
+static const bool  FILTER_DEFAULT_MAA_CHROMA   = false;
+static const int   FILTER_DEFAULT_MAA_SHOW     = 0;
+static const TCHAR *FILTER_DEFAULT_MAA_EDGE     = _T("sobel");
 
 static const int   FILTER_DEFAULT_DECIMATE_CYCLE = 5;
 static const int   FILTER_DEFAULT_DECIMATE_DROP = 1;
@@ -2548,6 +2560,23 @@ struct VppWarpsharp {
     tstring print() const;
 };
 
+struct VppMaa {
+    bool enable;
+    float ss;
+    int aa;
+    int aac;
+    bool mask;
+    int mthresh;
+    bool chroma;
+    int show;
+    tstring edge;
+
+    VppMaa();
+    bool operator==(const VppMaa &x) const;
+    bool operator!=(const VppMaa &x) const;
+    tstring print() const;
+};
+
 struct VppDetailSharpen {
     bool  enable;
     float z;
@@ -3296,6 +3325,7 @@ struct RGYParamVpp {
     VppDering dering;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;
+    VppMaa maa;
     VppDetailSharpen detailsharpen;
     VppCurves curves;
     VppSoftLight softlight;
