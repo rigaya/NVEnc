@@ -6482,6 +6482,153 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-colorfix") && ENABLE_VPP_FILTER_COLORFIX) {
+        vpp->colorfix.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "mode", "space", "matrix", "white", "black", "white_r", "white_g", "white_b", "black_r", "black_g", "black_b", "frames", "strength", "variance_threshold" };
+        auto parse_color = [&](const tstring& value, int& r, int& g, int& b) {
+            auto v = tolowercase(value);
+            if (v.size() == 7 && v[0] == _T('#')) {
+                v = v.substr(1);
+            }
+            if (v.size() == 6 && v.find_first_not_of(_T("0123456789abcdef")) == tstring::npos) {
+                const int rgb = std::stoi(v, nullptr, 16);
+                r = (rgb >> 16) & 0xff;
+                g = (rgb >> 8) & 0xff;
+                b = rgb & 0xff;
+                return true;
+            }
+            const auto values = split(value, _T(":"));
+            if (values.size() == 3) {
+                try {
+                    r = std::stoi(values[0]);
+                    g = std::stoi(values[1]);
+                    b = std::stoi(values[2]);
+                } catch (...) {
+                    return false;
+                }
+                return 0 <= r && r <= 255 && 0 <= g && g <= 255 && 0 <= b && b <= 255;
+            }
+            return false;
+        };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->colorfix.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    const auto mode = tolowercase(param_val);
+                    if (mode == _T("manual") || mode == _T("0")) {
+                        vpp->colorfix.mode = VPP_COLORFIX_MODE_MANUAL;
+                    } else if (mode == _T("auto") || mode == _T("1")) {
+                        vpp->colorfix.mode = VPP_COLORFIX_MODE_AUTO;
+                    } else if (mode == _T("gray") || mode == _T("grayworld") || mode == _T("2")) {
+                        vpp->colorfix.mode = VPP_COLORFIX_MODE_GRAY;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("space")) {
+                    const auto space = tolowercase(param_val);
+                    if (space == _T("auto") || space == _T("0")) {
+                        vpp->colorfix.space = VPP_COLORFIX_SPACE_AUTO;
+                    } else if (space == _T("rgb") || space == _T("1")) {
+                        vpp->colorfix.space = VPP_COLORFIX_SPACE_RGB;
+                    } else if (space == _T("yuv") || space == _T("2")) {
+                        vpp->colorfix.space = VPP_COLORFIX_SPACE_YUV;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("matrix")) {
+                    const auto matrix = tolowercase(param_val);
+                    if (matrix == _T("auto") || matrix == _T("0")) {
+                        vpp->colorfix.matrix = VPP_COLORFIX_MATRIX_AUTO;
+                    } else if (matrix == _T("bt601") || matrix == _T("601") || matrix == _T("1")) {
+                        vpp->colorfix.matrix = VPP_COLORFIX_MATRIX_BT601;
+                    } else if (matrix == _T("bt709") || matrix == _T("709") || matrix == _T("2")) {
+                        vpp->colorfix.matrix = VPP_COLORFIX_MATRIX_BT709;
+                    } else if (matrix == _T("bt2020") || matrix == _T("2020") || matrix == _T("3")) {
+                        vpp->colorfix.matrix = VPP_COLORFIX_MATRIX_BT2020;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("white")) {
+                    if (!parse_color(param_val, vpp->colorfix.whiteR, vpp->colorfix.whiteG, vpp->colorfix.whiteB)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("black")) {
+                    if (!parse_color(param_val, vpp->colorfix.blackR, vpp->colorfix.blackG, vpp->colorfix.blackB)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("white_r") || param_arg == _T("white_g") || param_arg == _T("white_b")
+                    || param_arg == _T("black_r") || param_arg == _T("black_g") || param_arg == _T("black_b")
+                    || param_arg == _T("frames")) {
+                    try {
+                        const auto value = std::stoi(param_val);
+                        if (param_arg == _T("white_r")) vpp->colorfix.whiteR = value;
+                        if (param_arg == _T("white_g")) vpp->colorfix.whiteG = value;
+                        if (param_arg == _T("white_b")) vpp->colorfix.whiteB = value;
+                        if (param_arg == _T("black_r")) vpp->colorfix.blackR = value;
+                        if (param_arg == _T("black_g")) vpp->colorfix.blackG = value;
+                        if (param_arg == _T("black_b")) vpp->colorfix.blackB = value;
+                        if (param_arg == _T("frames"))  vpp->colorfix.frames = value;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try {
+                        vpp->colorfix.strength = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("variance_threshold")) {
+                    try {
+                        vpp->colorfix.varianceThreshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-edgelevel") && ENABLE_VPP_FILTER_EDGELEVEL) {
         vpp->edgelevel.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -11679,6 +11826,34 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-deflicker");
         }
     }
+    if (param->colorfix != defaultPrm->colorfix) {
+        tmp.str(tstring());
+        if (!param->colorfix.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->colorfix.enable || save_disabled_prm) {
+            const auto modeStr = (param->colorfix.mode == VPP_COLORFIX_MODE_AUTO) ? _T("auto")
+                : (param->colorfix.mode == VPP_COLORFIX_MODE_GRAY) ? _T("gray") : _T("manual");
+            const auto spaceStr = (param->colorfix.space == VPP_COLORFIX_SPACE_RGB) ? _T("rgb")
+                : (param->colorfix.space == VPP_COLORFIX_SPACE_YUV) ? _T("yuv") : _T("auto");
+            const auto matrixStr = (param->colorfix.matrix == VPP_COLORFIX_MATRIX_BT601) ? _T("bt601")
+                : (param->colorfix.matrix == VPP_COLORFIX_MATRIX_BT709) ? _T("bt709")
+                : (param->colorfix.matrix == VPP_COLORFIX_MATRIX_BT2020) ? _T("bt2020") : _T("auto");
+            tmp << _T(",mode=") << modeStr;
+            tmp << _T(",space=") << spaceStr;
+            tmp << _T(",matrix=") << matrixStr;
+            tmp << strsprintf(_T(",white=%02x%02x%02x"), param->colorfix.whiteR, param->colorfix.whiteG, param->colorfix.whiteB);
+            tmp << strsprintf(_T(",black=%02x%02x%02x"), param->colorfix.blackR, param->colorfix.blackG, param->colorfix.blackB);
+            ADD_NUM(_T("frames"), colorfix.frames);
+            ADD_FLOAT(_T("strength"), colorfix.strength, 3);
+            ADD_FLOAT(_T("variance_threshold"), colorfix.varianceThreshold, 3);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-colorfix ") << tmp.str().substr(1);
+        } else if (param->colorfix.enable) {
+            cmd << _T(" --vpp-colorfix");
+        }
+    }
     if (param->edgelevel != defaultPrm->edgelevel) {
         tmp.str(tstring());
         if (!param->edgelevel.enable && save_disabled_prm) {
@@ -13838,6 +14013,24 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DEFLICKER_SCENE_THRESHOLD, FILTER_DEFAULT_DEFLICKER_FRAMES,
         FILTER_DEFAULT_DEFLICKER_PREDICTOR ? _T("true") : _T("false"),
         FILTER_DEFAULT_DEFLICKER_CHROMA ? _T("true") : _T("false"));
+#endif
+#if ENABLE_VPP_FILTER_COLORFIX
+    str += strsprintf(_T("\n")
+        _T("   --vpp-colorfix [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     color correction filter.\n")
+        _T("    params\n")
+        _T("      mode=<manual|auto|gray>   correction mode (default=manual)\n")
+        _T("      space=<auto|rgb|yuv>      working color space (default=auto)\n")
+        _T("      matrix=<auto|bt601|bt709|bt2020>\n")
+        _T("                                YUV/RGB conversion matrix (default=auto)\n")
+        _T("      white=<rrggbb>            manual white point (default=ffffff)\n")
+        _T("      black=<rrggbb>            manual black point (default=000000)\n")
+        _T("      frames=<int>              analysis frames for auto/gray (default=%d, 10-5000)\n")
+        _T("      strength=<float>          correction strength for auto/gray (default=%.2f, 0.0 - 1.0)\n")
+        _T("      variance_threshold=<float>\n")
+        _T("                                flash/fade rejection threshold (default=%.2f, >0)\n"),
+        FILTER_DEFAULT_COLORFIX_FRAMES, FILTER_DEFAULT_COLORFIX_STRENGTH,
+        FILTER_DEFAULT_COLORFIX_VARIANCE_THRESHOLD);
 #endif
 #if ENABLE_VPP_FILTER_EDGELEVEL
     str += strsprintf(_T("\n")
