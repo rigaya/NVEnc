@@ -253,6 +253,7 @@
   - [--vpp-msharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-detailsharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-detailsharpen-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
+  - [--vpp-maa \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-maa-param1value1param2value2)
   - [--vpp-softlight \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-softlight-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-tweak-param1value1param2value2)
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
@@ -1858,6 +1859,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-detailsharpen](#--vpp-detailsharpen-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
+- [--vpp-maa](#--vpp-maa-param1value1param2value2)
 - [--vpp-curves](#--vpp-curves-param1value1param2value2)
 - [--vpp-softlight](#--vpp-softlight-param1value1param2value2)
 - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
@@ -3636,6 +3638,46 @@ Edge warping (sharpening) filter.
 
   Example: Adaptive depth.
   --vpp-warpsharp depth=8,depth_min=4,depth_max=12,edge_thr=192,gamma=0.7
+  ```
+
+### --vpp-maa [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Masked anti-aliasing for animated content (anime, cel-shaded). This combines directional 9-cost AA with edge masking to anti-alias diagonal lines without damaging non-edge content.
+
+- **Parameters**
+  - ss=&lt;float&gt; (default=2.0, 1.0 - 4.0)
+    Supersample factor.
+
+  - aa=&lt;int&gt; (default=48, 0 - 255)
+    Luma AA strength.
+
+  - aac=&lt;int&gt; (default=aa-8, 0 - 255)
+    Chroma AA strength. Only used when chroma=on.
+
+  - mask=&lt;bool&gt; (default=on)
+    Enable edge mask.
+
+  - mthresh=&lt;int&gt; (default=7, 1 - 255)
+    Edge threshold. Higher values treat fewer pixels as edges.
+
+  - chroma=&lt;bool&gt; (default=off)
+    Process chroma planes. This is approximately 50-100% slower.
+
+  - show=&lt;int&gt; (default=0)
+    Debug overlay mode. 0=normal, 1=mask only, 2=mask+AA.
+
+  - edge=&lt;string&gt; (default=sobel)
+    Edge operator. Select from sobel, prewitt, sobel_full, scharr, kirsch, laplacian.
+
+- examples
+  ```
+  Example: Default settings
+  --vpp-maa
+
+  Example: Stronger luma AA with edge mask
+  --vpp-maa aa=64,mthresh=8
+
+  Example: Use Scharr edge detection
+  --vpp-maa edge=scharr
   ```
 
 

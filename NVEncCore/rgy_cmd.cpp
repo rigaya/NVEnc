@@ -4287,6 +4287,124 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
+    if (IS_OPTION("vpp-maa") && ENABLE_VPP_FILTER_MAA) {
+        vpp->maa.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "ss", "aa", "aac", "mask", "mthresh", "chroma", "show", "edge" };
+
+        bool aacUserSet = false;
+        bool aaUserSet = false;
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->maa.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ss")) {
+                    try {
+                        vpp->maa.ss = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("aa")) {
+                    try {
+                        vpp->maa.aa = std::stoi(param_val);
+                        aaUserSet = true;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("aac")) {
+                    try {
+                        vpp->maa.aac = std::stoi(param_val);
+                        aacUserSet = true;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mask")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->maa.mask = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: on, off, true, false."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mthresh")) {
+                    try {
+                        vpp->maa.mthresh = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->maa.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: on, off, true, false."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("show")) {
+                    try {
+                        vpp->maa.show = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("edge")) {
+                    const auto edge = tolowercase(param_val);
+                    if (edge == _T("sobel") || edge == _T("prewitt") || edge == _T("sobel_full") || edge == _T("scharr") || edge == _T("kirsch") || edge == _T("laplacian")) {
+                        vpp->maa.edge = edge;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+
+        if (aaUserSet && !aacUserSet) {
+            vpp->maa.aac = std::max(0, vpp->maa.aa - 8);
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-decomb") && ENABLE_VPP_FILTER_DECOMB) {
         vpp->decomb.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -11645,6 +11763,27 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-bwdif");
         }
     }
+    if (param->maa != defaultPrm->maa) {
+        tmp.str(tstring());
+        if (!param->maa.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->maa.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("ss"), maa.ss, 2);
+            ADD_NUM(_T("aa"), maa.aa);
+            ADD_NUM(_T("aac"), maa.aac);
+            ADD_BOOL(_T("mask"), maa.mask);
+            ADD_NUM(_T("mthresh"), maa.mthresh);
+            ADD_BOOL(_T("chroma"), maa.chroma);
+            ADD_NUM(_T("show"), maa.show);
+            tmp << _T(",edge=") << param->maa.edge;
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-maa ") << tmp.str().substr(1);
+        } else if (param->maa.enable) {
+            cmd << _T(" --vpp-maa");
+        }
+    }
     if (param->decomb != defaultPrm->decomb) {
         tmp.str(tstring());
         if (!param->decomb.enable && save_disabled_prm) {
@@ -14022,6 +14161,26 @@ tstring gen_cmd_help_vpp() {
         _T("      thr=<float>           skip-interpolation threshold, 0.0..100.0 (%% of value range).\n")
         _T("                              motion below this returns pure temporal average. default 0.0\n")
         _T("      log=<path|bool>       write per-frame TSV decision log to <path>\n"));
+#endif
+#if ENABLE_VPP_FILTER_MAA
+    str += strsprintf(_T("\n")
+        _T("   --vpp-maa [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     masked anti-aliasing for animated content (anime, cel-shaded).\n")
+        _T("     combines directional 9-cost AA with edge masking to anti-alias diagonal\n")
+        _T("     lines without damaging non-edge content.\n")
+        _T("    params\n")
+        _T("      ss=<float>            supersample factor (default 2.0; range 1.0..4.0).\n")
+        _T("      aa=<int>              luma AA strength (default 48; range 0..255).\n")
+        _T("      aac=<int>             chroma AA strength (default aa-8; range 0..255).\n")
+        _T("                              only used when chroma=on.\n")
+        _T("      mask=<bool>           enable edge mask (default on).\n")
+        _T("      mthresh=<int>         edge threshold (default 7; range 1..255).\n")
+        _T("                              higher = fewer pixels treated as edges.\n")
+        _T("      chroma=<bool>         process chroma planes (default off; ~50-100%% slower).\n")
+        _T("      show=<int>            debug overlay (0=normal, 1=mask only, 2=mask+AA).\n")
+        _T("                              default 0.\n")
+        _T("      edge=<string>         edge operator: sobel(default), prewitt, sobel_full,\n")
+        _T("                              scharr, kirsch, laplacian.\n"));
 #endif
 #if ENABLE_VPP_FILTER_RFF
     str += strsprintf(_T("\n")
