@@ -126,6 +126,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_CHROMASHIFT,          _T("chromashift")),
     std::make_pair(VppType::CL_DEBLOCK,              _T("deblock")),
     std::make_pair(VppType::CL_DEFLICKER,            _T("deflicker")),
+    std::make_pair(VppType::CL_STAB,                 _T("stab")),
     std::make_pair(VppType::CL_COLORFIX,             _T("colorfix")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_DEHALO,               _T("dehalo")),
@@ -1928,6 +1929,39 @@ tstring VppDeflicker::print() const {
         chroma ? _T("true") : _T("false"));
 }
 
+VppStab::VppStab() :
+    enable(false),
+    strength(FILTER_DEFAULT_STAB_STRENGTH),
+    damping(FILTER_DEFAULT_STAB_DAMPING),
+    trust_threshold(FILTER_DEFAULT_STAB_TRUST_THRESHOLD),
+    max_shift(FILTER_DEFAULT_STAB_MAX_SHIFT),
+    border(FILTER_DEFAULT_STAB_BORDER) {
+}
+
+bool VppStab::operator==(const VppStab &x) const {
+    return enable == x.enable
+        && strength == x.strength
+        && damping == x.damping
+        && trust_threshold == x.trust_threshold
+        && max_shift == x.max_shift
+        && border == x.border;
+}
+bool VppStab::operator!=(const VppStab &x) const {
+    return !(*this == x);
+}
+
+tstring VppStab::print() const {
+    const TCHAR *borderStr = _T("black");
+    switch (border) {
+    case VPP_STAB_BORDER_CLAMP: borderStr = _T("clamp"); break;
+    case VPP_STAB_BORDER_MIRROR: borderStr = _T("mirror"); break;
+    case VPP_STAB_BORDER_BLACK:
+    default: break;
+    }
+    return strsprintf(_T("stab: strength %.2f, damping %.2f, trust %.2f, max_shift %.1f, border %s"),
+        strength, damping, trust_threshold, max_shift, borderStr);
+}
+
 static const TCHAR *vpp_colorfix_mode_str(int mode) {
     switch (mode) {
     case VPP_COLORFIX_MODE_AUTO:   return _T("auto");
@@ -3227,6 +3261,7 @@ RGYParamVpp::RGYParamVpp() :
     chromashift(),
     deblock(),
     deflicker(),
+    stab(),
     colorfix(),
     edgelevel(),
     dehalo(),
@@ -3292,6 +3327,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && chromashift == x.chromashift
         && deblock == x.deblock
         && deflicker == x.deflicker
+        && stab == x.stab
         && colorfix == x.colorfix
         && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel

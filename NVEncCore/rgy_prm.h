@@ -91,6 +91,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_CHROMASHIFT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DEBLOCK      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DEFLICKER    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_STAB         (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_COLORFIX     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CURVES       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -210,6 +211,7 @@ enum class VppType : int {
     CL_CHROMASHIFT,
     CL_DEBLOCK,
     CL_DEFLICKER,
+    CL_STAB,
     CL_COLORFIX,
     CL_EDGELEVEL,
     CL_DEHALO,
@@ -530,6 +532,16 @@ static const float FILTER_DEFAULT_DEFLICKER_SCENE_THRESHOLD = 2.0f;
 static const int   FILTER_DEFAULT_DEFLICKER_FRAMES = 30;
 static const bool  FILTER_DEFAULT_DEFLICKER_PREDICTOR = true;
 static const bool  FILTER_DEFAULT_DEFLICKER_CHROMA = false;
+static const float FILTER_DEFAULT_STAB_STRENGTH = 1.0f;
+static const float FILTER_DEFAULT_STAB_DAMPING = 0.9f;
+static const float FILTER_DEFAULT_STAB_TRUST_THRESHOLD = 0.3f;
+static const float FILTER_DEFAULT_STAB_MAX_SHIFT = 32.0f;
+enum VppStabBorder {
+    VPP_STAB_BORDER_BLACK = 0,
+    VPP_STAB_BORDER_CLAMP = 1,
+    VPP_STAB_BORDER_MIRROR = 2,
+};
+static const int FILTER_DEFAULT_STAB_BORDER = VPP_STAB_BORDER_BLACK;
 static const int   FILTER_DEFAULT_COLORFIX_MODE = 0;
 static const int   FILTER_DEFAULT_COLORFIX_SPACE = 0;
 static const int   FILTER_DEFAULT_COLORFIX_MATRIX = 0;
@@ -2388,6 +2400,20 @@ struct VppDeflicker {
     tstring print() const;
 };
 
+struct VppStab {
+    bool enable;
+    float strength;
+    float damping;
+    float trust_threshold;
+    float max_shift;
+    int border;
+
+    VppStab();
+    bool operator==(const VppStab &x) const;
+    bool operator!=(const VppStab &x) const;
+    tstring print() const;
+};
+
 enum VppColorFixMode {
     VPP_COLORFIX_MODE_MANUAL = 0,
     VPP_COLORFIX_MODE_AUTO,
@@ -3273,6 +3299,7 @@ struct RGYParamVpp {
     VppChromaShift chromashift;
     VppDeblock deblock;
     VppDeflicker deflicker;
+    VppStab stab;
     VppColorFix colorfix;
     VppEdgelevel edgelevel;
     VppDehalo dehalo;
