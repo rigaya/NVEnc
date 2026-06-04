@@ -6778,7 +6778,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "threshold", "blur", "type", "depth", "chroma" };
+        const auto paramList = std::vector<std::string>{ "threshold", "blur", "type", "depth", "chroma", "depth_min", "depth_max", "edge_thr", "gamma" };
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -6834,6 +6834,42 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("chroma")) {
                     try {
                         vpp->warpsharp.chroma = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("depth_min")) {
+                    try {
+                        vpp->warpsharp.depth_min = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("depth_max")) {
+                    try {
+                        vpp->warpsharp.depth_max = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("edge_thr")) {
+                    try {
+                        vpp->warpsharp.edge_thr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("gamma")) {
+                    try {
+                        vpp->warpsharp.gamma = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -11913,6 +11949,10 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("type"), warpsharp.type);
             ADD_FLOAT(_T("depth"), warpsharp.depth, 3);
             ADD_NUM(_T("chroma"), warpsharp.chroma);
+            ADD_FLOAT(_T("depth_min"), warpsharp.depth_min, 3);
+            ADD_FLOAT(_T("depth_max"), warpsharp.depth_max, 3);
+            ADD_FLOAT(_T("edge_thr"), warpsharp.edge_thr, 3);
+            ADD_FLOAT(_T("gamma"), warpsharp.gamma, 3);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-warpsharp ") << tmp.str().substr(1);
@@ -14087,9 +14127,18 @@ tstring gen_cmd_help_vpp() {
         _T("      type=<int>                blur type, 0...13x13, 1...5x5 (default=%d)\n")
         _T("      depth=<float>             how far to warp (default=%.1f, -128 - 128)\n")
         _T("      chroma=<int>              0...use luma mask, 1...create chroma mask\n")
-        _T("                                  (default=%d)\n"),
+        _T("                                  (default=%d)\n")
+        _T("      depth_min=<float>         adaptive depth at weak edges\n")
+        _T("                                  (default=depth, -128 - 128)\n")
+        _T("      depth_max=<float>         adaptive depth at strong edges\n")
+        _T("                                  (default=depth, -128 - 128)\n")
+        _T("      edge_thr=<float>          mask level reaching depth_max\n")
+        _T("                                  (default=%.1f, 1 - 255)\n")
+        _T("      gamma=<float>             adaptive depth response curve\n")
+        _T("                                  (default=%.2f, 0.01 - 8.0)\n"),
         FILTER_DEFAULT_WARPSHARP_THRESHOLD, FILTER_DEFAULT_WARPSHARP_BLUR, FILTER_DEFAULT_WARPSHARP_TYPE,
-        FILTER_DEFAULT_WARPSHARP_DEPTH, FILTER_DEFAULT_WARPSHARP_CHROMA);
+        FILTER_DEFAULT_WARPSHARP_DEPTH, FILTER_DEFAULT_WARPSHARP_CHROMA,
+        FILTER_DEFAULT_WARPSHARP_EDGE_THR, FILTER_DEFAULT_WARPSHARP_GAMMA);
 #endif
 #if ENABLE_VPP_FILTER_DETAILSHARPEN
     str += strsprintf(_T("\n")

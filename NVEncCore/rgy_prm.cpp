@@ -2049,7 +2049,11 @@ VppWarpsharp::VppWarpsharp() :
     blur(FILTER_DEFAULT_WARPSHARP_BLUR),
     type(FILTER_DEFAULT_WARPSHARP_TYPE),
     depth(FILTER_DEFAULT_WARPSHARP_DEPTH),
-    chroma(FILTER_DEFAULT_WARPSHARP_CHROMA) {
+    chroma(FILTER_DEFAULT_WARPSHARP_CHROMA),
+    depth_min(FILTER_DEFAULT_WARPSHARP_DEPTH_MIN),
+    depth_max(FILTER_DEFAULT_WARPSHARP_DEPTH_MAX),
+    edge_thr(FILTER_DEFAULT_WARPSHARP_EDGE_THR),
+    gamma(FILTER_DEFAULT_WARPSHARP_GAMMA) {
 }
 
 bool VppWarpsharp::operator==(const VppWarpsharp& x) const {
@@ -2058,15 +2062,21 @@ bool VppWarpsharp::operator==(const VppWarpsharp& x) const {
         && blur == x.blur
         && type == x.type
         && depth == x.depth
-        && chroma == x.chroma;
+        && chroma == x.chroma
+        && depth_min == x.depth_min
+        && depth_max == x.depth_max
+        && edge_thr == x.edge_thr
+        && gamma == x.gamma;
 }
 bool VppWarpsharp::operator!=(const VppWarpsharp& x) const {
     return !(*this == x);
 }
 
 tstring VppWarpsharp::print() const {
-    return strsprintf(_T("warpsharp: threshold %.1f, blur %d, type %d, depth %.1f, chroma %d"),
-        threshold, blur, type, depth, chroma);
+    const auto depth_min_print = (depth_min == FILTER_DEFAULT_WARPSHARP_DEPTH_MIN) ? depth : depth_min;
+    const auto depth_max_print = (depth_max == FILTER_DEFAULT_WARPSHARP_DEPTH_MAX) ? depth : depth_max;
+    return strsprintf(_T("warpsharp: threshold %.1f, blur %d, type %d, depth %.1f, chroma %d, depth_min %.1f, depth_max %.1f, edge_thr %.1f, gamma %.2f"),
+        threshold, blur, type, depth, chroma, depth_min_print, depth_max_print, edge_thr, gamma);
 }
 
 VppDetailSharpen::VppDetailSharpen() :

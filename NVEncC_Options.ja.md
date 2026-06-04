@@ -3542,11 +3542,26 @@ H.264の非強フィルタ相当の空間デブロックフィルタ。エンコ
     色差の処理方法の指定。
     - 0 ... 輝度ベースの輪郭検出を色差成分にも適用する。
     - 1 ... 各色差成分についてそれぞれ輪郭検出を行う。
+
+  - depth_min=&lt;float&gt;  (default=depthと同じ, -128.0 - 128.0)
+    輪郭マスクが弱い画素に適用するwarp深度。強い輪郭ほど弱めたい場合は `depth_max` より大きい値も指定できる。
+
+  - depth_max=&lt;float&gt;  (default=depthと同じ, -128.0 - 128.0)
+    輪郭マスクが強い画素に適用するwarp深度。
+
+  - edge_thr=&lt;float&gt;  (default=192.0, 1.0 - 255.0)
+    adaptive depth が `depth_max` に到達する輪郭マスク値。8bit基準で指定する。
+
+  - gamma=&lt;float&gt;  (default=1.0, 0.01 - 8.0)
+    adaptive depth の応答カーブ。1.0未満では弱い輪郭への効果が強まり、1.0より大きいと強い輪郭中心に効果がかかる。
   
 - 使用例
   ```
   例: type=1を使う場合
   --vpp-warpsharp threshold=128,blur=3,type=1
+
+  例: adaptive depthを使う場合
+  --vpp-warpsharp depth=8,depth_min=4,depth_max=12,edge_thr=192,gamma=0.7
   ```
 
 
