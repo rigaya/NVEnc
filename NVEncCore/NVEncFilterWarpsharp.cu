@@ -168,7 +168,10 @@ __global__ void kernel_warp(
     cudaTextureObject_t texSrc,
     const uint8_t *__restrict__ pEdge, const int edgePitch,
     const int width, const int height,
-    const float depth) {
+    const float depth_min,
+    const float depth_max,
+    const float edge_thr_norm,
+    const float gamma_val) {
     const int imgx = blockIdx.x * blockDim.x + threadIdx.x;
     const int imgy = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -176,16 +179,26 @@ __global__ void kernel_warp(
         pDst  += imgy * dstPitch  + imgx * sizeof(Type);
         pEdge += imgy * edgePitch + imgx * sizeof(Type);
 
-        const int above = *(Type *)((imgy == 0)          ? pEdge : pEdge - edgePitch);
-        const int below = *(Type *)((imgy == height - 1) ? pEdge : pEdge + edgePitch);
-        const int left  = *(Type *)((imgx == 0)          ? pEdge : pEdge - sizeof(Type));
-        const int right = *(Type *)((imgx == width - 1)  ? pEdge : pEdge + sizeof(Type));
+        const int above  = *(Type *)((imgy == 0)          ? pEdge : pEdge - edgePitch);
+        const int below  = *(Type *)((imgy == height - 1) ? pEdge : pEdge + edgePitch);
+        const int left   = *(Type *)((imgx == 0)          ? pEdge : pEdge - sizeof(Type));
+        const int right  = *(Type *)((imgx == width - 1)  ? pEdge : pEdge + sizeof(Type));
+        const int center = *(Type *)pEdge;
+
+        const float pixel_max_f = (float)((1 << bit_depth) - 1);
+        const float center_norm = (float)center * (1.0f / pixel_max_f);
+        float t = (edge_thr_norm > 0.0f) ? (center_norm / edge_thr_norm) : 1.0f;
+        t = clamp(t, 0.0f, 1.0f);
+        if (gamma_val != 1.0f) {
+            t = powf(t, gamma_val);
+        }
+        const float adaptive_depth = depth_min + (depth_max - depth_min) * t;
 
         float h = (float)(left - right);
         float v = (float)(above - below);
 
-        h *= depth * ((1.0f / 256.0f) / (float)(1 << (bit_depth - 8)));
-        v *= depth * ((1.0f / 256.0f) / (float)(1 << (bit_depth - 8)));
+        h *= adaptive_depth * ((1.0f / 256.0f) / (float)(1 << (bit_depth - 8)));
+        v *= adaptive_depth * ((1.0f / 256.0f) / (float)(1 << (bit_depth - 8)));
 
         float val = tex2D<float>(texSrc, imgx + 0.5f + h, imgy + 0.5f + v);
 
@@ -269,9 +282,11 @@ static RGY_ERR warpsharp_blur_plane(RGYFrameInfo *pOutputFrame, const RGYFrameIn
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR warpsharp_warp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pMaskFrame, const RGYFrameInfo *pInputFrame, const float depth, cudaStream_t stream) {
+static RGY_ERR warpsharp_warp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pMaskFrame, const RGYFrameInfo *pInputFrame,
+    const float depth_min, const float depth_max, const float edge_thr, const float gamma_val, cudaStream_t stream) {
     dim3 blockSize(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
+    const float edge_thr_norm = edge_thr / 255.0f;
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = textureCreateWarpsharp<Type>(texSrc, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pInputFrame->ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height);
@@ -283,7 +298,7 @@ static RGY_ERR warpsharp_warp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameIn
         texSrc,
         (uint8_t*)pMaskFrame->ptr[0], pMaskFrame->pitch[0],
         pOutputFrame->width, pOutputFrame->height,
-        depth);
+        depth_min, depth_max, edge_thr_norm, gamma_val);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return err_to_rgy(cudaerr);
@@ -312,7 +327,7 @@ static RGY_ERR warpsharp_downscale_plane(RGYFrameInfo *pOutputFrame, const RGYFr
 
 template<typename Type, int bit_depth>
 static RGY_ERR warpsharp_plane(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFrame0, RGYFrameInfo *pMaskFrame1, const RGYFrameInfo *pInputFrame,
-    const float threshold, const float depth, const int blur, const int type, cudaStream_t stream) {
+    const float threshold, const float depth_min, const float depth_max, const float edge_thr, const float gamma_val, const int blur, const int type, cudaStream_t stream) {
 #if 1
     auto err = warpsharp_sobel_plane<Type, bit_depth>(pMaskFrame0, pInputFrame, threshold, stream);
     if (err != RGY_ERR_NONE) {
@@ -327,7 +342,7 @@ static RGY_ERR warpsharp_plane(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFr
         }
         std::swap(pMaskFrame1, pMaskFrame0);
     }
-    err = warpsharp_warp_plane<Type, bit_depth>(pOutputFrame, pMaskFrame0, pInputFrame, depth, stream);
+    err = warpsharp_warp_plane<Type, bit_depth>(pOutputFrame, pMaskFrame0, pInputFrame, depth_min, depth_max, edge_thr, gamma_val, stream);
 #elif 0
     auto err = warpsharp_sobel_plane<Type, bit_depth>(pOutputFrame, pInputFrame, threshold, stream);
 #else
@@ -345,7 +360,9 @@ static RGY_ERR warpsharp_plane(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFr
 
 template<typename Type, int bit_depth>
 static RGY_ERR warpsharp_frame(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFrame0, RGYFrameInfo *pMaskFrame1, const RGYFrameInfo *pInputFrame,
-    const float threshold, const float depth, const int blur, const int type, const int chroma, cudaStream_t stream) {
+    const float threshold, const float depth, const float depth_min, const float depth_max, const float edge_thr, const float gamma_val, const int blur, const int type, const int chroma, cudaStream_t stream) {
+    const float depth_min_resolved = (depth_min == FILTER_DEFAULT_WARPSHARP_DEPTH_MIN) ? depth : depth_min;
+    const float depth_max_resolved = (depth_max == FILTER_DEFAULT_WARPSHARP_DEPTH_MAX) ? depth : depth_max;
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -358,11 +375,13 @@ static RGY_ERR warpsharp_frame(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFr
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-    auto err = warpsharp_plane<Type, bit_depth>(&planeOutputY, &planeMask0Y, &planeMask1Y, &planeInputY, threshold, depth, blur, type, stream);
+    auto err = warpsharp_plane<Type, bit_depth>(&planeOutputY, &planeMask0Y, &planeMask1Y, &planeInputY, threshold, depth_min_resolved, depth_max_resolved, edge_thr, gamma_val, blur, type, stream);
     if (err != RGY_ERR_NONE) {
         return err;
     }
-    const float depthUV = (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) ? depth * 0.5f : depth;
+    const float chroma_scale = (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) ? 0.5f : 1.0f;
+    const float depth_min_uv = depth_min_resolved * chroma_scale;
+    const float depth_max_uv = depth_max_resolved * chroma_scale;
     if (chroma == 0) {
         RGYFrameInfo *pMaskUV = &planeMask0Y;
         if (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) {
@@ -372,20 +391,20 @@ static RGY_ERR warpsharp_frame(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFr
             }
             pMaskUV = &planeMask0U;
         }
-        err = warpsharp_warp_plane<Type, bit_depth>(&planeOutputU, pMaskUV, &planeInputU, depthUV, stream);
+        err = warpsharp_warp_plane<Type, bit_depth>(&planeOutputU, pMaskUV, &planeInputU, depth_min_uv, depth_max_uv, edge_thr, gamma_val, stream);
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        err = warpsharp_warp_plane<Type, bit_depth>(&planeOutputV, pMaskUV, &planeInputV, depthUV, stream);
+        err = warpsharp_warp_plane<Type, bit_depth>(&planeOutputV, pMaskUV, &planeInputV, depth_min_uv, depth_max_uv, edge_thr, gamma_val, stream);
         if (err != RGY_ERR_NONE) {
             return err;
         }
     } else {
-        err = warpsharp_plane<Type, bit_depth>(&planeOutputU, &planeMask0U, &planeMask1U, &planeInputU, threshold, depthUV, blur, type, stream);
+        err = warpsharp_plane<Type, bit_depth>(&planeOutputU, &planeMask0U, &planeMask1U, &planeInputU, threshold, depth_min_uv, depth_max_uv, edge_thr, gamma_val, blur, type, stream);
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        err = warpsharp_plane<Type, bit_depth>(&planeOutputV, &planeMask0V, &planeMask1V, &planeInputV, threshold, depthUV, blur, type, stream);
+        err = warpsharp_plane<Type, bit_depth>(&planeOutputV, &planeMask0V, &planeMask1V, &planeInputV, threshold, depth_min_uv, depth_max_uv, edge_thr, gamma_val, blur, type, stream);
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -430,6 +449,24 @@ RGY_ERR NVEncFilterWarpsharp::checkParam(const std::shared_ptr<NVEncFilterParamW
     if (prm->warpsharp.chroma < 0 || 1 < prm->warpsharp.chroma) {
         prm->warpsharp.chroma = clamp(prm->warpsharp.chroma, 0, 1);
         AddMessage(RGY_LOG_WARN, _T("chroma should be in range of %d - %d.\n"), 0, 1);
+    }
+    if (prm->warpsharp.depth_min != FILTER_DEFAULT_WARPSHARP_DEPTH_MIN
+        && (prm->warpsharp.depth_min < -128.0f || 128.0f < prm->warpsharp.depth_min)) {
+        prm->warpsharp.depth_min = clamp(prm->warpsharp.depth_min, -128.0f, 128.0f);
+        AddMessage(RGY_LOG_WARN, _T("depth_min should be in range of %.1f - %.1f.\n"), -128.0f, 128.0f);
+    }
+    if (prm->warpsharp.depth_max != FILTER_DEFAULT_WARPSHARP_DEPTH_MAX
+        && (prm->warpsharp.depth_max < -128.0f || 128.0f < prm->warpsharp.depth_max)) {
+        prm->warpsharp.depth_max = clamp(prm->warpsharp.depth_max, -128.0f, 128.0f);
+        AddMessage(RGY_LOG_WARN, _T("depth_max should be in range of %.1f - %.1f.\n"), -128.0f, 128.0f);
+    }
+    if (prm->warpsharp.edge_thr <= 0.0f || 255.0f < prm->warpsharp.edge_thr) {
+        prm->warpsharp.edge_thr = clamp(prm->warpsharp.edge_thr, 1.0f, 255.0f);
+        AddMessage(RGY_LOG_WARN, _T("edge_thr should be in range of (0.0, 255.0]; clamped.\n"));
+    }
+    if (prm->warpsharp.gamma <= 0.0f || 8.0f < prm->warpsharp.gamma) {
+        prm->warpsharp.gamma = clamp(prm->warpsharp.gamma, 0.01f, 8.0f);
+        AddMessage(RGY_LOG_WARN, _T("gamma should be in range of (0.0, 8.0]; clamped.\n"));
     }
     return RGY_ERR_NONE;
 }
@@ -526,7 +563,7 @@ RGY_ERR NVEncFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         return RGY_ERR_UNSUPPORTED;
     }
     sts = warpsharp_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], &m_mask[0].frame, &m_mask[1].frame, pInputFrame,
-        prm->warpsharp.threshold, prm->warpsharp.depth, prm->warpsharp.blur, prm->warpsharp.type, prm->warpsharp.chroma,
+        prm->warpsharp.threshold, prm->warpsharp.depth, prm->warpsharp.depth_min, prm->warpsharp.depth_max, prm->warpsharp.edge_thr, prm->warpsharp.gamma, prm->warpsharp.blur, prm->warpsharp.type, prm->warpsharp.chroma,
         stream);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at warpsharp(%s): %s.\n"),

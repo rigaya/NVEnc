@@ -518,6 +518,10 @@ static const int   FILTER_DEFAULT_WARPSHARP_BLUR = 2;
 static const int   FILTER_DEFAULT_WARPSHARP_TYPE = 0;
 static const float FILTER_DEFAULT_WARPSHARP_DEPTH = 16.0f;
 static const int   FILTER_DEFAULT_WARPSHARP_CHROMA = 0;
+static const float FILTER_DEFAULT_WARPSHARP_DEPTH_MIN = 1.0e9f;
+static const float FILTER_DEFAULT_WARPSHARP_DEPTH_MAX = 1.0e9f;
+static const float FILTER_DEFAULT_WARPSHARP_EDGE_THR = 192.0f;
+static const float FILTER_DEFAULT_WARPSHARP_GAMMA = 1.0f;
 
 static const float FILTER_DEFAULT_DETAILSHARPEN_Z = 4.0f;
 static const float FILTER_DEFAULT_DETAILSHARPEN_SSTR = 1.5f;
@@ -2428,6 +2432,10 @@ struct VppWarpsharp {
     int type;
     float depth;
     int chroma;
+    float depth_min;
+    float depth_max;
+    float edge_thr;
+    float gamma;
 
     VppWarpsharp();
     bool operator==(const VppWarpsharp& x) const;

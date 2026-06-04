@@ -3483,11 +3483,26 @@ Edge warping (sharpening) filter.
     Select how to process chroma channels.
     - 0 ... Use luma based mask to process hcroma channels.
     - 1 ... Create individual mask for each chroma channels.
+
+  - depth_min=&lt;float&gt;  (default=same as depth, -128.0 - 128.0)
+    Warp depth used on weak edge mask pixels. This may be larger than `depth_max` to reduce warp on strong edges.
+
+  - depth_max=&lt;float&gt;  (default=same as depth, -128.0 - 128.0)
+    Warp depth used on strong edge mask pixels.
+
+  - edge_thr=&lt;float&gt;  (default=192.0, 1.0 - 255.0)
+    Edge mask value, in 8-bit scale, where adaptive depth reaches `depth_max`.
+
+  - gamma=&lt;float&gt;  (default=1.0, 0.01 - 8.0)
+    Response curve for adaptive depth. Values below 1.0 increase the effect on weak edges, values above 1.0 focus the effect on strong edges.
   
 - Examples
   ```
   Example: Using type 1.
   --vpp-warpsharp threshold=128,blur=3,type=1
+
+  Example: Adaptive depth.
+  --vpp-warpsharp depth=8,depth_min=4,depth_max=12,edge_thr=192,gamma=0.7
   ```
 
 
