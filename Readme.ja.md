@@ -144,6 +144,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
       - edgelevel (エッジレベル調整)
       - dehalo
       - finedehalo
+      - hqdering
       - warpsharp
 
 

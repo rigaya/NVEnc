@@ -6874,6 +6874,79 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-hqdering") && ENABLE_VPP_FILTER_HQDERING) {
+        vpp->dering.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "mrad", "mthr", "sigma", "showmask", "protect", "edge" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->dering.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mrad")) {
+                    try { vpp->dering.mrad = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("mthr")) {
+                    try { vpp->dering.mthr = std::stoi(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("sigma")) {
+                    try { vpp->dering.sigma = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("showmask")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->dering.showmask = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("protect")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->dering.protect = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("edge")) {
+                    const auto edge = tolowercase(param_val);
+                    if (edge == _T("log") || edge == _T("sobel") || edge == _T("prewitt") || edge == _T("scharr") || edge == _T("kirsch") || edge == _T("laplacian")) {
+                        vpp->dering.edge = edge;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-msharpen") && ENABLE_VPP_FILTER_MSHARPEN) {
         vpp->msharpen.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -12135,6 +12208,27 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-finedehalo");
         }
     }
+    if (param->dering != defaultPrm->dering) {
+        tmp.str(tstring());
+        if (!param->dering.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->dering.enable || save_disabled_prm) {
+            ADD_NUM(_T("mrad"), dering.mrad);
+            ADD_NUM(_T("mthr"), dering.mthr);
+            ADD_FLOAT(_T("sigma"), dering.sigma, 3);
+            ADD_BOOL(_T("showmask"), dering.showmask);
+            ADD_BOOL(_T("protect"), dering.protect);
+            if (param->dering.edge != defaultPrm->dering.edge) {
+                tmp << _T(",edge=") << param->dering.edge.c_str();
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-hqdering ") << tmp.str().substr(1);
+        } else if (param->dering.enable) {
+            cmd << _T(" --vpp-hqdering");
+        }
+    }
     if (param->msharpen != defaultPrm->msharpen) {
         tmp.str(tstring());
         if (!param->msharpen.enable && save_disabled_prm) {
@@ -14324,6 +14418,23 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_FINEDEHALO_THMI, FILTER_DEFAULT_FINEDEHALO_THMA,
         FILTER_DEFAULT_FINEDEHALO_THLIMI, FILTER_DEFAULT_FINEDEHALO_THLIMA,
         FILTER_DEFAULT_FINEDEHALO_SHOWMASK, FILTER_DEFAULT_FINEDEHALO_EDGE);
+#endif
+#if ENABLE_VPP_FILTER_HQDERING
+    str += strsprintf(_T("\n")
+        _T("   --vpp-hqdering [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     DCT ringing reduction filter. Applies correction to luma and copies chroma unchanged.\n")
+        _T("    params\n")
+        _T("      mrad=<int>                ring mask expansion radius (default=%d, 1 - 3)\n")
+        _T("      mthr=<int>                edge mask threshold (default=%d, 0 - 255)\n")
+        _T("      sigma=<float>             Gaussian blur sigma (default=%.2f, 0.5 - 5.0)\n")
+        _T("      showmask=<bool>           output effective mask only (default=%s)\n")
+        _T("      protect=<bool>            protect original edge pixels (default=%s)\n")
+        _T("      edge=<string>             edge operator (default=%s, log|sobel|prewitt|scharr|kirsch|laplacian)\n"),
+        FILTER_DEFAULT_HQDERING_MRAD, FILTER_DEFAULT_HQDERING_MTHR,
+        FILTER_DEFAULT_HQDERING_SIGMA,
+        FILTER_DEFAULT_HQDERING_SHOWMASK ? _T("true") : _T("false"),
+        FILTER_DEFAULT_HQDERING_PROTECT ? _T("true") : _T("false"),
+        FILTER_DEFAULT_HQDERING_EDGE);
 #endif
 #if ENABLE_VPP_FILTER_MSHARPEN
     str += strsprintf(_T("\n")
