@@ -123,6 +123,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_COLORFIX,             _T("colorfix")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_DEHALO,               _T("dehalo")),
+    std::make_pair(VppType::CL_FINEDEHALO,           _T("finedehalo")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
     std::make_pair(VppType::CL_DETAILSHARPEN,         _T("detailsharpen")),
@@ -2044,6 +2045,48 @@ tstring VppDehalo::print() const {
         rx, ry, darkstr, brightstr, lowsens, highsens, ss);
 }
 
+VppFineDehalo::VppFineDehalo() :
+    enable(false),
+    rx(FILTER_DEFAULT_DEHALO_RX),
+    ry(FILTER_DEFAULT_DEHALO_RY),
+    darkstr(FILTER_DEFAULT_DEHALO_DARKSTR),
+    brightstr(FILTER_DEFAULT_DEHALO_BRIGHTSTR),
+    lowsens(FILTER_DEFAULT_DEHALO_LOWSENS),
+    highsens(FILTER_DEFAULT_DEHALO_HIGHSENS),
+    ss(FILTER_DEFAULT_DEHALO_SS),
+    thmi(FILTER_DEFAULT_FINEDEHALO_THMI),
+    thma(FILTER_DEFAULT_FINEDEHALO_THMA),
+    thlimi(FILTER_DEFAULT_FINEDEHALO_THLIMI),
+    thlima(FILTER_DEFAULT_FINEDEHALO_THLIMA),
+    showmask(FILTER_DEFAULT_FINEDEHALO_SHOWMASK),
+    edge(FILTER_DEFAULT_FINEDEHALO_EDGE) {
+}
+
+bool VppFineDehalo::operator==(const VppFineDehalo& x) const {
+    return enable == x.enable
+        && rx == x.rx
+        && ry == x.ry
+        && darkstr == x.darkstr
+        && brightstr == x.brightstr
+        && lowsens == x.lowsens
+        && highsens == x.highsens
+        && ss == x.ss
+        && thmi == x.thmi
+        && thma == x.thma
+        && thlimi == x.thlimi
+        && thlima == x.thlima
+        && showmask == x.showmask
+        && edge == x.edge;
+}
+bool VppFineDehalo::operator!=(const VppFineDehalo& x) const {
+    return !(*this == x);
+}
+
+tstring VppFineDehalo::print() const {
+    return strsprintf(_T("finedehalo: rx %.2f, ry %.2f, darkstr %.2f, brightstr %.2f, lowsens %d, highsens %d, ss %.2f, thmi %d, thma %d, thlimi %d, thlima %d, showmask %d, edge %s"),
+        rx, ry, darkstr, brightstr, lowsens, highsens, ss, thmi, thma, thlimi, thlima, showmask, edge.c_str());
+}
+
 VppMsharpen::VppMsharpen() :
     enable(false),
     strength(FILTER_DEFAULT_MSHARPEN_STRENGTH),
@@ -3148,6 +3191,7 @@ RGYParamVpp::RGYParamVpp() :
     colorfix(),
     edgelevel(),
     dehalo(),
+    finedehalo(),
     msharpen(),
     warpsharp(),
     detailsharpen(),
@@ -3211,6 +3255,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel
         && dehalo == x.dehalo
+        && finedehalo == x.finedehalo
         && msharpen == x.msharpen
         && warpsharp == x.warpsharp
         && detailsharpen == x.detailsharpen

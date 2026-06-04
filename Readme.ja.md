@@ -143,6 +143,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
       - unsharp
       - edgelevel (エッジレベル調整)
       - dehalo
+      - finedehalo
       - warpsharp
 
 

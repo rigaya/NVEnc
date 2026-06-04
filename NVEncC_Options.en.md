@@ -245,6 +245,7 @@
   - [--vpp-deflicker \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deflicker-param1value1param2value2)
   - [--vpp-colorfix \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorfix-param1value1param2value2)
   - [--vpp-dehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-dehalo-param1value1param2value2)
+  - [--vpp-finedehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-finedehalo-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-detailsharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-detailsharpen-param1value1param2value2)
@@ -1848,6 +1849,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-deflicker](#--vpp-deflicker-param1value1param2value2)
 - [--vpp-colorfix](#--vpp-colorfix-param1value1param2value2)
 - [--vpp-dehalo](#--vpp-dehalo-param1value1param2value2)
+- [--vpp-finedehalo](#--vpp-finedehalo-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-detailsharpen](#--vpp-detailsharpen-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -3416,6 +3418,37 @@ Halo removal filter. Applies correction to luma and copies chroma unchanged.
   ```
   --vpp-dehalo
   --vpp-dehalo rx=2.4,ry=2.0,darkstr=0.8,brightstr=0.1,lowsens=40,highsens=70,ss=1.5
+  ```
+
+### --vpp-finedehalo [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Fine halo removal filter with edge protection.
+
+- **Parameters**
+  - rx, ry, darkstr, brightstr, lowsens, highsens, ss
+    Same as `--vpp-dehalo`.
+
+  - thmi=&lt;int&gt; (default=80, 0 - 255)
+    Lower threshold of the edge mask.
+
+  - thma=&lt;int&gt; (default=128, 0 - 255)
+    Upper threshold of the edge mask.
+
+  - thlimi=&lt;int&gt; (default=50, 0 - 255)
+    Lower threshold of the limit mask.
+
+  - thlima=&lt;int&gt; (default=100, 0 - 255)
+    Upper threshold of the limit mask.
+
+  - showmask=&lt;int&gt; (default=0, 0 - 4)
+    Debug mask output.
+
+  - edge=&lt;string&gt; (default=prewitt)
+    Edge detector: prewitt, sobel, scharr, kirsch, laplacian.
+
+- examples
+  ```
+  --vpp-finedehalo
+  --vpp-finedehalo edge=scharr,thmi=60,thma=160,thlimi=30,thlima=120,showmask=4
   ```
 
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
