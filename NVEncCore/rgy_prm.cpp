@@ -119,6 +119,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
     std::make_pair(VppType::CL_CHROMASHIFT,          _T("chromashift")),
     std::make_pair(VppType::CL_DEBLOCK,              _T("deblock")),
+    std::make_pair(VppType::CL_DEFLICKER,            _T("deflicker")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
@@ -1887,6 +1888,36 @@ tstring VppDeblock::print() const {
         qp, alpha, beta, chroma ? _T("true") : _T("false"));
 }
 
+VppDeflicker::VppDeflicker() :
+    enable(false),
+    strength(FILTER_DEFAULT_DEFLICKER_STRENGTH),
+    damping(FILTER_DEFAULT_DEFLICKER_DAMPING),
+    scene_threshold(FILTER_DEFAULT_DEFLICKER_SCENE_THRESHOLD),
+    frames(FILTER_DEFAULT_DEFLICKER_FRAMES),
+    predictor(FILTER_DEFAULT_DEFLICKER_PREDICTOR),
+    chroma(FILTER_DEFAULT_DEFLICKER_CHROMA) {
+}
+
+bool VppDeflicker::operator==(const VppDeflicker &x) const {
+    return enable == x.enable
+        && strength == x.strength
+        && damping == x.damping
+        && scene_threshold == x.scene_threshold
+        && frames == x.frames
+        && predictor == x.predictor
+        && chroma == x.chroma;
+}
+bool VppDeflicker::operator!=(const VppDeflicker &x) const {
+    return !(*this == x);
+}
+
+tstring VppDeflicker::print() const {
+    return strsprintf(_T("deflicker: strength %.2f, damping %.2f, scene_threshold %.2f, frames %d, predictor %s, chroma %s"),
+        strength, damping, scene_threshold, frames,
+        predictor ? _T("true") : _T("false"),
+        chroma ? _T("true") : _T("false"));
+}
+
 VppEdgelevel::VppEdgelevel() :
     enable(false),
     strength(FILTER_DEFAULT_EDGELEVEL_STRENGTH),
@@ -3001,6 +3032,7 @@ RGYParamVpp::RGYParamVpp() :
     unsharp(),
     chromashift(),
     deblock(),
+    deflicker(),
     edgelevel(),
     msharpen(),
     warpsharp(),
@@ -3060,6 +3092,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && unsharp == x.unsharp
         && chromashift == x.chromashift
         && deblock == x.deblock
+        && deflicker == x.deflicker
         && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel
         && msharpen == x.msharpen

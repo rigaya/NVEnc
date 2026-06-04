@@ -6398,6 +6398,90 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-deflicker") && ENABLE_VPP_FILTER_DEFLICKER) {
+        vpp->deflicker.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "strength", "damping", "scene_threshold", "frames", "predictor", "chroma" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->deflicker.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try {
+                        vpp->deflicker.strength = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("damping")) {
+                    try {
+                        vpp->deflicker.damping = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("scene_threshold")) {
+                    try {
+                        vpp->deflicker.scene_threshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("frames")) {
+                    try {
+                        vpp->deflicker.frames = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("predictor")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->deflicker.predictor = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->deflicker.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-edgelevel") && ENABLE_VPP_FILTER_EDGELEVEL) {
         vpp->edgelevel.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -11576,6 +11660,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-deblock");
         }
     }
+    if (param->deflicker != defaultPrm->deflicker) {
+        tmp.str(tstring());
+        if (!param->deflicker.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->deflicker.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("strength"), deflicker.strength, 3);
+            ADD_FLOAT(_T("damping"), deflicker.damping, 3);
+            ADD_FLOAT(_T("scene_threshold"), deflicker.scene_threshold, 3);
+            ADD_NUM(_T("frames"), deflicker.frames);
+            ADD_BOOL(_T("predictor"), deflicker.predictor);
+            ADD_BOOL(_T("chroma"), deflicker.chroma);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-deflicker ") << tmp.str().substr(1);
+        } else if (param->deflicker.enable) {
+            cmd << _T(" --vpp-deflicker");
+        }
+    }
     if (param->edgelevel != defaultPrm->edgelevel) {
         tmp.str(tstring());
         if (!param->edgelevel.enable && save_disabled_prm) {
@@ -13719,6 +13822,22 @@ tstring gen_cmd_help_vpp() {
         _T("      chroma=<bool>             process planar chroma planes (default=%s)\n"),
         FILTER_DEFAULT_DEBLOCK_QP, FILTER_DEFAULT_DEBLOCK_ALPHA, FILTER_DEFAULT_DEBLOCK_BETA,
         FILTER_DEFAULT_DEBLOCK_CHROMA ? _T("true") : _T("false"));
+#endif
+#if ENABLE_VPP_FILTER_DEFLICKER
+    str += strsprintf(_T("\n")
+        _T("   --vpp-deflicker [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     temporal brightness stabilization filter.\n")
+        _T("    params\n")
+        _T("      strength=<float>          correction blend strength (default=%.2f, 0.0 - 1.0)\n")
+        _T("      damping=<float>           temporal damping of correction (default=%.2f, 0.0 - 1.0)\n")
+        _T("      scene_threshold=<float>   scene change threshold (default=%.2f, 0.5 - 5.0)\n")
+        _T("      frames=<int>              rolling analysis window (default=%d, 5-300)\n")
+        _T("      predictor=<bool>          use predictor-corrector pass (default=%s)\n")
+        _T("      chroma=<bool>             process chroma planes (default=%s)\n"),
+        FILTER_DEFAULT_DEFLICKER_STRENGTH, FILTER_DEFAULT_DEFLICKER_DAMPING,
+        FILTER_DEFAULT_DEFLICKER_SCENE_THRESHOLD, FILTER_DEFAULT_DEFLICKER_FRAMES,
+        FILTER_DEFAULT_DEFLICKER_PREDICTOR ? _T("true") : _T("false"),
+        FILTER_DEFAULT_DEFLICKER_CHROMA ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_EDGELEVEL
     str += strsprintf(_T("\n")
