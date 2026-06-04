@@ -128,6 +128,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DEFLICKER,            _T("deflicker")),
     std::make_pair(VppType::CL_COLORFIX,             _T("colorfix")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
+    std::make_pair(VppType::CL_DEHALO,               _T("dehalo")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
     std::make_pair(VppType::CL_DETAILSHARPEN,         _T("detailsharpen")),
@@ -2019,6 +2020,36 @@ tstring VppEdgelevel::print() const {
         strength, threshold, black, white);
 }
 
+VppDehalo::VppDehalo() :
+    enable(false),
+    rx(FILTER_DEFAULT_DEHALO_RX),
+    ry(FILTER_DEFAULT_DEHALO_RY),
+    darkstr(FILTER_DEFAULT_DEHALO_DARKSTR),
+    brightstr(FILTER_DEFAULT_DEHALO_BRIGHTSTR),
+    lowsens(FILTER_DEFAULT_DEHALO_LOWSENS),
+    highsens(FILTER_DEFAULT_DEHALO_HIGHSENS),
+    ss(FILTER_DEFAULT_DEHALO_SS) {
+}
+
+bool VppDehalo::operator==(const VppDehalo& x) const {
+    return enable == x.enable
+        && rx == x.rx
+        && ry == x.ry
+        && darkstr == x.darkstr
+        && brightstr == x.brightstr
+        && lowsens == x.lowsens
+        && highsens == x.highsens
+        && ss == x.ss;
+}
+bool VppDehalo::operator!=(const VppDehalo& x) const {
+    return !(*this == x);
+}
+
+tstring VppDehalo::print() const {
+    return strsprintf(_T("dehalo: rx %.2f, ry %.2f, darkstr %.2f, brightstr %.2f, lowsens %d, highsens %d, ss %.2f"),
+        rx, ry, darkstr, brightstr, lowsens, highsens, ss);
+}
+
 VppMsharpen::VppMsharpen() :
     enable(false),
     strength(FILTER_DEFAULT_MSHARPEN_STRENGTH),
@@ -3123,6 +3154,7 @@ RGYParamVpp::RGYParamVpp() :
     deflicker(),
     colorfix(),
     edgelevel(),
+    dehalo(),
     msharpen(),
     warpsharp(),
     detailsharpen(),
@@ -3186,6 +3218,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && colorfix == x.colorfix
         && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel
+        && dehalo == x.dehalo
         && msharpen == x.msharpen
         && warpsharp == x.warpsharp
         && detailsharpen == x.detailsharpen
