@@ -6694,6 +6694,97 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-dehalo") && ENABLE_VPP_FILTER_DEHALO) {
+        vpp->dehalo.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "rx", "ry", "darkstr", "brightstr", "lowsens", "highsens", "ss" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->dehalo.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("rx")) {
+                    try {
+                        vpp->dehalo.rx = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ry")) {
+                    try {
+                        vpp->dehalo.ry = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("darkstr")) {
+                    try {
+                        vpp->dehalo.darkstr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("brightstr")) {
+                    try {
+                        vpp->dehalo.brightstr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lowsens")) {
+                    try {
+                        vpp->dehalo.lowsens = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("highsens")) {
+                    try {
+                        vpp->dehalo.highsens = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ss")) {
+                    try {
+                        vpp->dehalo.ss = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-msharpen") && ENABLE_VPP_FILTER_MSHARPEN) {
         vpp->msharpen.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -11907,6 +11998,26 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-edgelevel");
         }
     }
+    if (param->dehalo != defaultPrm->dehalo) {
+        tmp.str(tstring());
+        if (!param->dehalo.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->dehalo.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("rx"), dehalo.rx, 3);
+            ADD_FLOAT(_T("ry"), dehalo.ry, 3);
+            ADD_FLOAT(_T("darkstr"), dehalo.darkstr, 3);
+            ADD_FLOAT(_T("brightstr"), dehalo.brightstr, 3);
+            ADD_NUM(_T("lowsens"), dehalo.lowsens);
+            ADD_NUM(_T("highsens"), dehalo.highsens);
+            ADD_FLOAT(_T("ss"), dehalo.ss, 3);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-dehalo ") << tmp.str().substr(1);
+        } else if (param->dehalo.enable) {
+            cmd << _T(" --vpp-dehalo");
+        }
+    }
     if (param->msharpen != defaultPrm->msharpen) {
         tmp.str(tstring());
         if (!param->msharpen.enable && save_disabled_prm) {
@@ -14053,6 +14164,23 @@ tstring gen_cmd_help_vpp() {
         _T("      white=<float>             allow edge to be brighter on edge enhancement\n")
         _T("                                  (default=%.1f, 0-31)\n"),
         FILTER_DEFAULT_EDGELEVEL_STRENGTH, FILTER_DEFAULT_EDGELEVEL_THRESHOLD, FILTER_DEFAULT_EDGELEVEL_BLACK, FILTER_DEFAULT_EDGELEVEL_WHITE);
+#endif
+#if ENABLE_VPP_FILTER_DEHALO
+    str += strsprintf(_T("\n")
+        _T("   --vpp-dehalo [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     halo removal filter. Applies correction to luma and copies chroma unchanged.\n")
+        _T("    params\n")
+        _T("      rx=<float>                horizontal halo radius (default=%.2f, 0.5 - 10.0)\n")
+        _T("      ry=<float>                vertical halo radius (default=%.2f, 0.5 - 10.0)\n")
+        _T("      darkstr=<float>           bright-halo darkening strength (default=%.2f, 0.0 - 1.0)\n")
+        _T("      brightstr=<float>         dark-halo brightening strength (default=%.2f, 0.0 - 1.0)\n")
+        _T("      lowsens=<int>             sensitivity ramp lower anchor (default=%d, 0 - 100)\n")
+        _T("      highsens=<int>            sensitivity ramp upper anchor (default=%d, 0 - 100)\n")
+        _T("      ss=<float>                supersampling ratio (default=%.2f, 1.0 - 4.0)\n"),
+        FILTER_DEFAULT_DEHALO_RX, FILTER_DEFAULT_DEHALO_RY,
+        FILTER_DEFAULT_DEHALO_DARKSTR, FILTER_DEFAULT_DEHALO_BRIGHTSTR,
+        FILTER_DEFAULT_DEHALO_LOWSENS, FILTER_DEFAULT_DEHALO_HIGHSENS,
+        FILTER_DEFAULT_DEHALO_SS);
 #endif
 #if ENABLE_VPP_FILTER_MSHARPEN
     str += strsprintf(_T("\n")

@@ -134,6 +134,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
     - edge / detail enhancement
       - unsharp
       - edgelevel (edge ​​level adjustment)
+      - dehalo
       - warpsharp
 
 ### NVEnc.auo (Aviutl plugin)

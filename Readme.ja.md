@@ -142,6 +142,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
     - 輪郭・ディテール強調
       - unsharp
       - edgelevel (エッジレベル調整)
+      - dehalo
       - warpsharp
 
 

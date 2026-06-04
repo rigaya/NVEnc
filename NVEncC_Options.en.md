@@ -244,6 +244,7 @@
   - [--vpp-deblock \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deblock-param1value1param2value2)
   - [--vpp-deflicker \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deflicker-param1value1param2value2)
   - [--vpp-colorfix \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-colorfix-param1value1param2value2)
+  - [--vpp-dehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-dehalo-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-detailsharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-detailsharpen-param1value1param2value2)
@@ -1846,6 +1847,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-deblock](#--vpp-deblock-param1value1param2value2)
 - [--vpp-deflicker](#--vpp-deflicker-param1value1param2value2)
 - [--vpp-colorfix](#--vpp-colorfix-param1value1param2value2)
+- [--vpp-dehalo](#--vpp-dehalo-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
 - [--vpp-detailsharpen](#--vpp-detailsharpen-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -3383,6 +3385,37 @@ Corrects color cast and white balance.
   --vpp-colorfix
   --vpp-colorfix mode=auto,frames=60,strength=0.8
   --vpp-colorfix mode=manual,space=rgb,white=fff6e8,black=050505
+  ```
+
+### --vpp-dehalo [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Halo removal filter. Applies correction to luma and copies chroma unchanged.
+
+- **Parameters**
+  - rx=&lt;float&gt; (default=2.0, 0.5 - 10.0)
+    Horizontal halo radius.
+
+  - ry=&lt;float&gt; (default=2.0, 0.5 - 10.0)
+    Vertical halo radius.
+
+  - darkstr=&lt;float&gt; (default=1.0, 0.0 - 1.0)
+    Strength for darkening bright halos.
+
+  - brightstr=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+    Strength for brightening dark halos.
+
+  - lowsens=&lt;int&gt; (default=50, 0 - 100)
+    Lower anchor of the sensitivity ramp.
+
+  - highsens=&lt;int&gt; (default=50, 0 - 100)
+    Upper anchor of the sensitivity ramp.
+
+  - ss=&lt;float&gt; (default=1.5, 1.0 - 4.0)
+    Supersampling ratio.
+
+- examples
+  ```
+  --vpp-dehalo
+  --vpp-dehalo rx=2.4,ry=2.0,darkstr=0.8,brightstr=0.1,lowsens=40,highsens=70,ss=1.5
   ```
 
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
