@@ -124,6 +124,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_RESIZE,               _T("resize")),
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
     std::make_pair(VppType::CL_CHROMASHIFT,          _T("chromashift")),
+    std::make_pair(VppType::CL_DEBLOCK,              _T("deblock")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
@@ -1868,6 +1869,30 @@ tstring VppChromaShift::print() const {
         x, y, show, auto_detect ? _T("true") : _T("false"), auto_frames, auto_min_pairs);
 }
 
+VppDeblock::VppDeblock() :
+    enable(false),
+    qp(FILTER_DEFAULT_DEBLOCK_QP),
+    alpha(FILTER_DEFAULT_DEBLOCK_ALPHA),
+    beta(FILTER_DEFAULT_DEBLOCK_BETA),
+    chroma(FILTER_DEFAULT_DEBLOCK_CHROMA) {
+}
+
+bool VppDeblock::operator==(const VppDeblock &x) const {
+    return enable == x.enable
+        && qp == x.qp
+        && alpha == x.alpha
+        && beta == x.beta
+        && chroma == x.chroma;
+}
+bool VppDeblock::operator!=(const VppDeblock &x) const {
+    return !(*this == x);
+}
+
+tstring VppDeblock::print() const {
+    return strsprintf(_T("deblock: qp %d, alpha %d, beta %d, chroma %s"),
+        qp, alpha, beta, chroma ? _T("true") : _T("false"));
+}
+
 VppEdgelevel::VppEdgelevel() :
     enable(false),
     strength(FILTER_DEFAULT_EDGELEVEL_STRENGTH),
@@ -2982,6 +3007,7 @@ RGYParamVpp::RGYParamVpp() :
     libplacebo_shader(),
     unsharp(),
     chromashift(),
+    deblock(),
     edgelevel(),
     msharpen(),
     warpsharp(),
@@ -3041,6 +3067,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && subburn == x.subburn
         && unsharp == x.unsharp
         && chromashift == x.chromashift
+        && deblock == x.deblock
         && libplacebo_shader == x.libplacebo_shader
         && edgelevel == x.edgelevel
         && msharpen == x.msharpen

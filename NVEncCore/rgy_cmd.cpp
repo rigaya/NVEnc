@@ -6344,6 +6344,71 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-deblock") && ENABLE_VPP_FILTER_DEBLOCK) {
+        vpp->deblock.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "qp", "alpha", "beta", "chroma" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->deblock.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("qp")) {
+                    try {
+                        vpp->deblock.qp = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("alpha")) {
+                    try {
+                        vpp->deblock.alpha = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("beta")) {
+                    try {
+                        vpp->deblock.beta = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->deblock.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-edgelevel") && ENABLE_VPP_FILTER_EDGELEVEL) {
         vpp->edgelevel.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -11508,6 +11573,23 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-chromashift");
         }
     }
+    if (param->deblock != defaultPrm->deblock) {
+        tmp.str(tstring());
+        if (!param->deblock.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->deblock.enable || save_disabled_prm) {
+            ADD_NUM(_T("qp"), deblock.qp);
+            ADD_NUM(_T("alpha"), deblock.alpha);
+            ADD_NUM(_T("beta"), deblock.beta);
+            ADD_BOOL(_T("chroma"), deblock.chroma);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-deblock ") << tmp.str().substr(1);
+        } else if (param->deblock.enable) {
+            cmd << _T(" --vpp-deblock");
+        }
+    }
     if (param->edgelevel != defaultPrm->edgelevel) {
         tmp.str(tstring());
         if (!param->edgelevel.enable && save_disabled_prm) {
@@ -13643,6 +13725,18 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_CHROMASHIFT_X, FILTER_DEFAULT_CHROMASHIFT_Y,
         FILTER_DEFAULT_CHROMASHIFT_AUTO ? _T("true") : _T("false"),
         FILTER_DEFAULT_CHROMASHIFT_AUTO_FRAMES, FILTER_DEFAULT_CHROMASHIFT_AUTO_MIN_PAIRS);
+#endif
+#if ENABLE_VPP_FILTER_DEBLOCK
+    str += strsprintf(_T("\n")
+        _T("   --vpp-deblock [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     H.264 style spatial deblocking filter.\n")
+        _T("    params\n")
+        _T("      qp=<int>                  filter strength QP (default=%d, 0-51)\n")
+        _T("      alpha=<int>               alpha offset (default=%d, -6 - 6)\n")
+        _T("      beta=<int>                beta offset (default=%d, -6 - 6)\n")
+        _T("      chroma=<bool>             process planar chroma planes (default=%s)\n"),
+        FILTER_DEFAULT_DEBLOCK_QP, FILTER_DEFAULT_DEBLOCK_ALPHA, FILTER_DEFAULT_DEBLOCK_BETA,
+        FILTER_DEFAULT_DEBLOCK_CHROMA ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_EDGELEVEL
     str += strsprintf(_T("\n")
