@@ -236,6 +236,7 @@
   - [--vpp-nlmeans \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nlmeans-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
   - [--vpp-denoise-hqdn3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-denoise-hqdn3d-param1value1param2value2)
+  - [--vpp-descale \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-descale-param1value1param2value2)
   - [--vpp-gauss \<int\>](#--vpp-gauss-int)
   - [--vpp-subburn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-subburn-param1value1param2value2)
   - [--vpp-libplacebo-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-shader-param1value1param2value2)
@@ -1841,6 +1842,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
 - [--vpp-denoise-hqdn3d](#--vpp-denoise-hqdn3d-param1value1param2value2)
+- [--vpp-descale](#--vpp-descale-param1value1param2value2)
 - [--vpp-degrain](#--vpp-degrain-param1value1) (`mode=degrain` / `tr=1,2`)
 - [--vpp-rtgmc-shimmer-repair](#--vpp-rtgmc-shimmer-repair-param1value1) (`stage=rep1/rep2`)
 - [--vpp-rtgmc-retouch](#--vpp-rtgmc-retouch-param1value1)
@@ -3004,6 +3006,49 @@ HQDN3D spatial and temporal denoise filter. The CUDA path uses FP32 scratch buff
 - Examples
   ```
   --vpp-denoise-hqdn3d luma_spatial=4.0,chroma_spatial=3.0,luma_temporal=6.0,chroma_temporal=4.5
+  ```
+
+### --vpp-descale [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Undo upscaling by solving the inverse system for a known upscaler kernel and output a lower native resolution.
+
+- **Parameters**
+  - kernel=&lt;string&gt;
+    Upscaler kernel to invert. Default: bicubic.
+    ```
+    bilinear, bicubic, spline16, spline36, spline64, lanczos2, lanczos3, lanczos4, auto
+    ```
+
+  - width=&lt;int&gt; / height=&lt;int&gt;
+    Target native resolution. Specify both for an explicit kernel.
+
+  - b=&lt;float&gt;, c=&lt;float&gt;
+    Bicubic parameters. Default: b=0.0, c=0.5.
+
+  - src_left=&lt;float&gt;, src_top=&lt;float&gt;
+    Source sub-pixel offsets. Default: 0.0.
+
+  - border_handling=&lt;string&gt;
+    Border extension mode. Default: mirror.
+    ```
+    mirror, zero, repeat
+    ```
+
+  - auto=&lt;bool&gt;
+    Enable `kernel=auto` and native resolution search. This opens the input separately and analyzes `detect_frames` frames, so stdin and pipes are unsupported.
+
+  - search_min=&lt;int&gt;, search_max=&lt;int&gt;, search_step=&lt;int&gt;
+    Search range and fine step for `auto=true`. Default search_step: 1.
+
+  - detect_frames=&lt;int&gt;
+    Number of frames averaged by auto detection. Default: 10.
+
+  - show_scores=&lt;bool&gt;
+    Log per-candidate auto-detection scores. Default: false.
+
+- **Examples**
+  ```
+  --vpp-descale kernel=bicubic,width=1280,height=720,b=0,c=0.5
+  --vpp-descale auto=true,detect_frames=8
   ```
 
 ### --vpp-gauss &lt;int&gt;

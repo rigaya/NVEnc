@@ -102,6 +102,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_NLMEANS,      _T("nlmeans")),
     std::make_pair(VppType::CL_DENOISE_PMD,          _T("pmd")),
     std::make_pair(VppType::CL_DENOISE_HQDN3D,       _T("denoise-hqdn3d")),
+    std::make_pair(VppType::CL_DESCALE,              _T("descale")),
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
@@ -1646,6 +1647,67 @@ bool VppHqdn3d::operator!=(const VppHqdn3d& x) const {
 tstring VppHqdn3d::print() const {
     return strsprintf(_T("denoise-hqdn3d: luma_spatial %.2f, chroma_spatial %.2f, luma_temporal %.2f, chroma_temporal %.2f"),
         luma_spatial, chroma_spatial, luma_temporal, chroma_temporal);
+}
+
+VppDescale::VppDescale() :
+    enable(false),
+    kernel(VppDescaleKernel::Bicubic),
+    width(0),
+    height(0),
+    b(FILTER_DEFAULT_DESCALE_BICUBIC_B),
+    c(FILTER_DEFAULT_DESCALE_BICUBIC_C),
+    src_left(FILTER_DEFAULT_DESCALE_SRC_LEFT),
+    src_top(FILTER_DEFAULT_DESCALE_SRC_TOP),
+    border(VppDescaleBorder::Mirror),
+    autoDetect(false),
+    search_min(0),
+    search_max(0),
+    search_step(FILTER_DEFAULT_DESCALE_SEARCH_STEP),
+    detect_frames(FILTER_DEFAULT_DESCALE_DETECT_FRAMES),
+    show_scores(false) {
+}
+
+bool VppDescale::operator==(const VppDescale &x) const {
+    return enable == x.enable
+        && kernel == x.kernel
+        && width == x.width
+        && height == x.height
+        && b == x.b
+        && c == x.c
+        && src_left == x.src_left
+        && src_top == x.src_top
+        && border == x.border
+        && autoDetect == x.autoDetect
+        && search_min == x.search_min
+        && search_max == x.search_max
+        && search_step == x.search_step
+        && detect_frames == x.detect_frames
+        && show_scores == x.show_scores;
+}
+
+bool VppDescale::operator!=(const VppDescale &x) const {
+    return !(*this == x);
+}
+
+tstring VppDescale::print() const {
+    tstring extras;
+    if (kernel == VppDescaleKernel::Bicubic) {
+        extras = strsprintf(_T(", b %.3f, c %.3f"), b, c);
+    }
+    if (src_left != FILTER_DEFAULT_DESCALE_SRC_LEFT || src_top != FILTER_DEFAULT_DESCALE_SRC_TOP) {
+        extras += strsprintf(_T(", src_left %.3f, src_top %.3f"), src_left, src_top);
+    }
+    if (border != VppDescaleBorder::Mirror) {
+        extras += strsprintf(_T(", border %s"), get_cx_desc(list_vpp_descale_border, (int)border));
+    }
+    if (autoDetect) {
+        extras += strsprintf(_T(", auto (search %d-%d step %d detect_frames %d)"),
+            search_min, search_max, search_step, detect_frames);
+        return strsprintf(_T("descale: kernel %s%s"),
+            get_cx_desc(list_vpp_descale_kernel, (int)kernel), extras.c_str());
+    }
+    return strsprintf(_T("descale: kernel %s, target %dx%d%s"),
+        get_cx_desc(list_vpp_descale_kernel, (int)kernel), width, height, extras.c_str());
 }
 
 VppSmooth::VppSmooth() :
@@ -3364,6 +3426,7 @@ RGYParamVpp::RGYParamVpp() :
     nlmeans(),
     pmd(),
     hqdn3d(),
+    descale(),
     dct(),
     smooth(),
     fft3d(),
@@ -3435,6 +3498,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && nlmeans == x.nlmeans
         && pmd == x.pmd
         && hqdn3d == x.hqdn3d
+        && descale == x.descale
         && dct == x.dct
         && smooth == x.smooth
         && fft3d == x.fft3d
