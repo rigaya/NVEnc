@@ -15,7 +15,7 @@
 
 static const int STAB_FFT_N = 256;
 static const int STAB_FFT_LOG2_N = 8;
-static const float STAB_PI_F = 3.14159265358979323846f;
+static const __device__  float STAB_PI_F = 3.14159265358979323846f;
 
 static float stab_parabolic_refine(float a, float b, float c) {
     const float denom = a - 2.0f * b + c;
