@@ -4566,6 +4566,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         shared_ptr<NVEncFilterParamColorFix> param(new NVEncFilterParamColorFix());
         param->colorfix = inputParam->vpp.colorfix;
         param->vui = vuiInfo;
+        param->inputFilePath = inputParam->common.inputFilename;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

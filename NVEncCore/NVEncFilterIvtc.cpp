@@ -32,6 +32,7 @@
 #include <limits>
 #include "convert_csp.h"
 #include "rgy_avutil.h"
+#include "rgy_filter_input_probe.h"
 #include "NVEncFilterIvtc.h"
 
 // Decode the cadence-tracker tag int (set per-frame by updateCadence +
@@ -71,20 +72,6 @@ static std::unique_ptr<CUFrameBuf> createCUFrameBuffer(const RGYFrameInfo& frame
         return nullptr;
     }
     return buf;
-}
-
-static const char *ivtcPreScanUnsupportedProtocol(const std::string &filename) {
-    if (filename == "-") {
-        return "stdin";
-    }
-    if (filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)")) {
-        return "windows named pipe";
-    }
-    const char *protocol = avio_find_protocol_name(filename.c_str());
-    if (protocol != nullptr && strcmp(protocol, "file") != 0) {
-        return protocol;
-    }
-    return nullptr;
 }
 
 // ============================================================================
@@ -1364,7 +1351,7 @@ static RGY_ERR ivtcPreScanInput(const tstring &inputPath,
         if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("ivtc prescan: failed to convert filename to utf-8\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (const auto protocol = ivtcPreScanUnsupportedProtocol(filenameUtf8); protocol != nullptr) {
+    if (const auto protocol = unsupportedProbeProtocol(filenameUtf8); protocol != nullptr) {
         if (log) log->write(RGY_LOG_WARN, RGY_LOGT_VPP,
             _T("ivtc prescan: input \"%s\" uses %s protocol, which cannot be pre-scanned safely. ")
             _T("--vpp-ivtc expand requires a re-openable local file input.\n"),
