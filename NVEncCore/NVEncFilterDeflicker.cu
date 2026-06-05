@@ -327,8 +327,11 @@ RGY_ERR NVEncFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
             sumSqDev += d * d;
         }
         const double rollStdOfMeans = std::sqrt(sumSqDev / (double)m_rollingMeans.size());
+        const double absDiff = std::abs(meanIn - rollMeanOfMeans);
+        const double absFloor = 0.10 * (double)((1 << bitDepth) - 1);
         if (rollStdOfMeans > 0.0
-            && std::abs(meanIn - rollMeanOfMeans) > (double)prm->deflicker.scene_threshold * rollStdOfMeans) {
+            && absDiff > (double)prm->deflicker.scene_threshold * rollStdOfMeans
+            && absDiff > absFloor) {
             sceneChange = true;
             m_skippedSceneFrames++;
         }
