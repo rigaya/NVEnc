@@ -6385,6 +6385,90 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-vinverse") && ENABLE_VPP_FILTER_VINVERSE) {
+        vpp->vinverse.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "mode", "sstr", "amnt", "scl", "thr", "chroma" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->vinverse.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_vinverse_mode, param_val.c_str(), &value)) {
+                        vpp->vinverse.mode = (VppVinverseMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_vinverse_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sstr")) {
+                    try {
+                        vpp->vinverse.sstr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("amnt")) {
+                    try {
+                        vpp->vinverse.amnt = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("scl")) {
+                    try {
+                        vpp->vinverse.scl = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thr")) {
+                    try {
+                        vpp->vinverse.thr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->vinverse.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-chromashift") && ENABLE_VPP_FILTER_CHROMASHIFT) {
         vpp->chromashift.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -12311,6 +12395,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-unsharp");
         }
     }
+    if (param->vinverse != defaultPrm->vinverse) {
+        tmp.str(tstring());
+        if (!param->vinverse.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->vinverse.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), vinverse.mode, list_vpp_vinverse_mode);
+            ADD_FLOAT(_T("sstr"), vinverse.sstr, 3);
+            ADD_FLOAT(_T("amnt"), vinverse.amnt, 3);
+            ADD_FLOAT(_T("scl"), vinverse.scl, 3);
+            ADD_FLOAT(_T("thr"), vinverse.thr, 3);
+            ADD_BOOL(_T("chroma"), vinverse.chroma);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-vinverse ") << tmp.str().substr(1);
+        } else if (param->vinverse.enable) {
+            cmd << _T(" --vpp-vinverse");
+        }
+    }
     if (param->chromashift != defaultPrm->chromashift) {
         tmp.str(tstring());
         if (!param->chromashift.enable && save_disabled_prm) {
@@ -14602,6 +14705,22 @@ tstring gen_cmd_help_vpp() {
         _T("      weight=<float>            strength of filter (default=%.2f, 0-10)\n")
         _T("      threshold=<float>         min brightness change to be sharpened (default=%.2f, 0-255)\n"),
         FILTER_DEFAULT_UNSHARP_RADIUS, FILTER_DEFAULT_UNSHARP_WEIGHT, FILTER_DEFAULT_UNSHARP_THRESHOLD);
+#endif
+#if ENABLE_VPP_FILTER_VINVERSE
+    str += strsprintf(_T("\n")
+        _T("   --vpp-vinverse [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     remove residual interlaced combing after deinterlace.\n")
+        _T("    params\n")
+        _T("      mode=<string>             filter mode (default=vinverse)\n")
+        _T("                                  vinverse, vinverse2\n")
+        _T("      sstr=<float>              contra reference strength (default=%.2f, 0.0 - 8.0)\n")
+        _T("      amnt=<float>              max delta per pixel in 8-bit scale (default=%.1f, 0.0 - 255.0)\n")
+        _T("      scl=<float>               soft clip scale (default=%.2f, 0.0 - 4.0)\n")
+        _T("      thr=<float>               untouched residual threshold in 8-bit scale (default=%.1f, 0.0 - 255.0)\n")
+        _T("      chroma=<bool>             process chroma planes (default=%s)\n"),
+        FILTER_DEFAULT_VINVERSE_SSTR, FILTER_DEFAULT_VINVERSE_AMNT,
+        FILTER_DEFAULT_VINVERSE_SCL, FILTER_DEFAULT_VINVERSE_THR,
+        FILTER_DEFAULT_VINVERSE_CHROMA ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_CHROMASHIFT
     str += strsprintf(_T("\n")

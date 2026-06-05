@@ -124,6 +124,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_LIBPLACEBO_SHADER,    _T("libplacebo-shader")),
     std::make_pair(VppType::CL_RESIZE,               _T("resize")),
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
+    std::make_pair(VppType::CL_VINVERSE,             _T("vinverse")),
     std::make_pair(VppType::CL_CHROMASHIFT,          _T("chromashift")),
     std::make_pair(VppType::CL_DEBLOCK,              _T("deblock")),
     std::make_pair(VppType::CL_DEFLICKER,            _T("deflicker")),
@@ -1850,6 +1851,34 @@ tstring VppUnsharp::print() const {
         radius, weight, threshold);
 }
 
+VppVinverse::VppVinverse() :
+    enable(false),
+    mode(VppVinverseMode::Vinverse),
+    sstr(FILTER_DEFAULT_VINVERSE_SSTR),
+    amnt(FILTER_DEFAULT_VINVERSE_AMNT),
+    scl(FILTER_DEFAULT_VINVERSE_SCL),
+    thr(FILTER_DEFAULT_VINVERSE_THR),
+    chroma(FILTER_DEFAULT_VINVERSE_CHROMA) {
+}
+
+bool VppVinverse::operator==(const VppVinverse &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && sstr == x.sstr
+        && amnt == x.amnt
+        && scl == x.scl
+        && thr == x.thr
+        && chroma == x.chroma;
+}
+bool VppVinverse::operator!=(const VppVinverse &x) const {
+    return !(*this == x);
+}
+
+tstring VppVinverse::print() const {
+    return strsprintf(_T("vinverse: mode %s, sstr %.2f, amnt %.1f, scl %.2f, thr %.1f, chroma %s"),
+        get_cx_desc(list_vpp_vinverse_mode, (int)mode), sstr, amnt, scl, thr, chroma ? _T("true") : _T("false"));
+}
+
 VppChromaShift::VppChromaShift() :
     enable(false),
     x(FILTER_DEFAULT_CHROMASHIFT_X),
@@ -3304,6 +3333,7 @@ RGYParamVpp::RGYParamVpp() :
     subburn(),
     libplacebo_shader(),
     unsharp(),
+    vinverse(),
     chromashift(),
     deblock(),
     deflicker(),
@@ -3371,6 +3401,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && msmooth == x.msmooth
         && subburn == x.subburn
         && unsharp == x.unsharp
+        && vinverse == x.vinverse
         && chromashift == x.chromashift
         && deblock == x.deblock
         && deflicker == x.deflicker
