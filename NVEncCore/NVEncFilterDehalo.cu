@@ -319,9 +319,14 @@ RGY_ERR NVEncFilterDehalo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         sts = allocWorkFrame(m_corrected, workInfo, _T("corrected"));
         if (sts != RGY_ERR_NONE) return sts;
 
+        const auto bitDepth = RGY_CSP_BIT_DEPTH[prm->frameIn.csp];
+        const auto lumaCsp = (bitDepth > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
+
         auto prmUp = std::make_shared<NVEncFilterParamResize>();
         prmUp->frameIn = prm->frameIn;
+        prmUp->frameIn.csp = lumaCsp;
         prmUp->frameOut = prm->frameIn;
+        prmUp->frameOut.csp = lumaCsp;
         prmUp->frameOut.width = m_ssW;
         prmUp->frameOut.height = m_ssH;
         prmUp->interp = RGY_VPP_RESIZE_SPLINE36;
@@ -336,9 +341,11 @@ RGY_ERR NVEncFilterDehalo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 
         auto prmDown = std::make_shared<NVEncFilterParamResize>();
         prmDown->frameIn = prm->frameIn;
+        prmDown->frameIn.csp = lumaCsp;
         prmDown->frameIn.width = m_ssW;
         prmDown->frameIn.height = m_ssH;
         prmDown->frameOut = prm->frameOut;
+        prmDown->frameOut.csp = lumaCsp;
         prmDown->interp = RGY_VPP_RESIZE_SPLINE36;
         prmDown->baseFps = prm->baseFps;
         prmDown->bOutOverwrite = false;
@@ -400,8 +407,13 @@ RGY_ERR NVEncFilterDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     const RGYFrameInfo *pMorphSrc = pInputFrame;
     if (m_ssActive) {
         int resizeOutNum = 0;
-        RGYFrameInfo *resizeOut[1] = { &m_supersampled->frame };
-        sts = m_resizeUp->filter(const_cast<RGYFrameInfo *>(pInputFrame), resizeOut, &resizeOutNum, stream);
+        const auto lumaCsp = (RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
+        auto inputLuma = getPlane(pInputFrame, RGY_PLANE_Y);
+        auto outputLuma = getPlane(&m_supersampled->frame, RGY_PLANE_Y);
+        inputLuma.csp = lumaCsp;
+        outputLuma.csp = lumaCsp;
+        RGYFrameInfo *resizeOut[1] = { &outputLuma };
+        sts = m_resizeUp->filter(&inputLuma, resizeOut, &resizeOutNum, stream);
         if (sts != RGY_ERR_NONE || resizeOutNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("dehalo resize-up failed: %s.\n"), get_err_mes(sts));
             return sts;
@@ -419,8 +431,13 @@ RGY_ERR NVEncFilterDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
     if (m_ssActive) {
         int resizeOutNum = 0;
-        RGYFrameInfo *resizeOut[1] = { ppOutputFrames[0] };
-        sts = m_resizeDown->filter(&m_corrected->frame, resizeOut, &resizeOutNum, stream);
+        const auto lumaCsp = (RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
+        auto correctedLuma = getPlane(&m_corrected->frame, RGY_PLANE_Y);
+        auto outputLuma = getPlane(ppOutputFrames[0], RGY_PLANE_Y);
+        correctedLuma.csp = lumaCsp;
+        outputLuma.csp = lumaCsp;
+        RGYFrameInfo *resizeOut[1] = { &outputLuma };
+        sts = m_resizeDown->filter(&correctedLuma, resizeOut, &resizeOutNum, stream);
         if (sts != RGY_ERR_NONE || resizeOutNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("dehalo resize-down failed: %s.\n"), get_err_mes(sts));
             return sts;
