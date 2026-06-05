@@ -3544,6 +3544,15 @@ Dynamic edge-based sharpening filter. Sharpens only around edges.
   
   - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
     Threshold for edge detection.
+
+  - slope=&lt;float&gt; (default=0.0, 0.0 -)
+    Slope of the sigmoid soft mask. 0.0 keeps the legacy binary mask.
+
+  - luma_limit=&lt;float&gt; (default=0.0, 0.0 - 255.0)
+    Reduces sharpening in luma areas darker than this value. 0.0 disables it.
+
+  - block_protect=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+    Reduces sharpening near detected DCT block boundaries. 0.0 disables it.
   
   - highq=&lt;bool&gt;  (default=true)  
     High quality mode. Increases the number of edge detection points.
@@ -3554,6 +3563,9 @@ Dynamic edge-based sharpening filter. Sharpens only around edges.
 - Examples
   ```
   --vpp-msharpen strength=1.0,threshold=15.0
+
+  Example: Use soft mask, dark luma attenuation, and block protection
+  --vpp-msharpen strength=0.8,threshold=18.0,slope=8.0,luma_limit=32.0,block_protect=0.5
   ```
 
 ### --vpp-detailsharpen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
