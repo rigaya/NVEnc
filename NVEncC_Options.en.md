@@ -236,6 +236,7 @@
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
   - [--vpp-nlmeans \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nlmeans-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
+  - [--vpp-denoise-hqdn3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-denoise-hqdn3d-param1value1param2value2)
   - [--vpp-gauss \<int\>](#--vpp-gauss-int)
   - [--vpp-subburn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-subburn-param1value1param2value2)
   - [--vpp-libplacebo-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-shader-param1value1param2value2)
@@ -1840,6 +1841,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
 - [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
+- [--vpp-denoise-hqdn3d](#--vpp-denoise-hqdn3d-param1value1param2value2)
 - [--vpp-degrain](#--vpp-degrain-param1value1) (`mode=degrain` / `tr=1,2`)
 - [--vpp-rtgmc-shimmer-repair](#--vpp-rtgmc-shimmer-repair-param1value1) (`stage=rep1/rep2`)
 - [--vpp-rtgmc-retouch](#--vpp-rtgmc-retouch-param1value1)
@@ -2993,8 +2995,29 @@ Rather weak noise reduction by modified pmd method, aimed to preserve edge while
   --vpp-pmd apply_count=2,strength=90,threshold=120
   ```
 
+### --vpp-denoise-hqdn3d [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+HQDN3D spatial and temporal denoise filter. The CUDA path uses FP32 scratch buffers.
+
+- **Parameters**
+  - luma_spatial=&lt;float&gt;  (default=4.0, 0-255)
+    Spatial denoise strength for luma.
+
+  - chroma_spatial=&lt;float&gt;  (default=3.0, 0-255)
+    Spatial denoise strength for chroma.
+
+  - luma_temporal=&lt;float&gt;  (default=6.0, 0-255)
+    Temporal denoise strength for luma.
+
+  - chroma_temporal=&lt;float&gt;  (default=4.5, 0-255)
+    Temporal denoise strength for chroma.
+
+- Examples
+  ```
+  --vpp-denoise-hqdn3d luma_spatial=4.0,chroma_spatial=3.0,luma_temporal=6.0,chroma_temporal=4.5
+  ```
+
 ### --vpp-gauss &lt;int&gt;
-Specify the size of Gaussian filter, from 3, 5 or 7.  
+Specify the size of Gaussian filter, from 3, 5 or 7.
 It is necessary to add nppc64_11.dll, nppif64_11.dll, nppig64_11.dll in the same folder of NVEncC64, and could be used only in x64 version.
 
 The npp dlls can be downloaded from [this link](https://github.com/rigaya/NVEnc/releases/tag/8.01) (npp64_11_dll.7z). It can also be found under ```<CUDA Install Path>\bin``` if you install CUDA 11.
