@@ -31,6 +31,7 @@
 #include "NVEncFilter.h"
 #include "rgy_prm.h"
 #include <array>
+#include <vector>
 
 #if (defined(WIN32) || defined(WIN64)) && defined(_M_IX86)
 #define ENABLE_VPP_NLMEANS 0
@@ -65,10 +66,17 @@ protected:
         RGYFrameInfo *pTmpUPlane, RGYFrameInfo *pTmpVPlane,
         RGYFrameInfo *pTmpIWPlane,
         const RGYFrameInfo *pInputPlane,
+        const std::vector<const RGYFrameInfo *> &refPlanes,
         cudaStream_t stream);
-    RGY_ERR denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+        const std::vector<const RGYFrameInfo *> &refFrames, cudaStream_t stream);
+    RGY_ERR emitFrame(int idx_cur, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
 #endif
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     std::array<std::unique_ptr<CUFrameBuf>, 2 + 1 + RGY_NLMEANS_DXDY_STEP> m_tmpBuf;
+    std::vector<std::unique_ptr<CUFrameBuf>> m_cacheFrames;
+    int  m_inputCount;
+    int  m_outputCount;
+    bool m_drained;
 };

@@ -452,6 +452,8 @@ static const float FILTER_DEFAULT_NLMEANS_FILTER_SIGMA = 0.005f;
 static const int   FILTER_DEFAULT_NLMEANS_PATCH_SIZE = 5;
 static const int   FILTER_DEFAULT_NLMEANS_SEARCH_SIZE = 11;
 static const float FILTER_DEFAULT_NLMEANS_H = 0.05f;
+static const int   FILTER_DEFAULT_NLMEANS_D = 0;
+static const int   FILTER_NLMEANS_D_MAX = 5;
 
 static const float FILTER_DEFAULT_PMD_STRENGTH = 100.0f;
 static const float FILTER_DEFAULT_PMD_THRESHOLD = 100.0f;
@@ -2297,6 +2299,8 @@ struct VppNLMeans {
     int   patchSize;
     int   searchSize;
     float h;
+    int   d;
+    int   searchSizeT;
     VppNLMeansFP16Opt fp16;
     bool sharedMem;
     bool processChroma;

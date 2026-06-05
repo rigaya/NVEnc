@@ -1575,6 +1575,8 @@ VppNLMeans::VppNLMeans() :
     patchSize(FILTER_DEFAULT_NLMEANS_PATCH_SIZE),
     searchSize(FILTER_DEFAULT_NLMEANS_SEARCH_SIZE),
     h(FILTER_DEFAULT_NLMEANS_H),
+    d(FILTER_DEFAULT_NLMEANS_D),
+    searchSizeT(FILTER_DEFAULT_NLMEANS_SEARCH_SIZE),
     fp16(VppNLMeansFP16Opt::BlockDiff),
     sharedMem(true),
     processChroma(true) {
@@ -1586,6 +1588,8 @@ bool VppNLMeans::operator==(const VppNLMeans &x) const {
         && patchSize == x.patchSize
         && searchSize == x.searchSize
         && h == x.h
+        && d == x.d
+        && searchSizeT == x.searchSizeT
         && fp16 == x.fp16
         && sharedMem == x.sharedMem
         && processChroma == x.processChroma;
@@ -1596,8 +1600,8 @@ bool VppNLMeans::operator!=(const VppNLMeans &x) const {
 
 tstring VppNLMeans::print() const {
     return strsprintf(
-        _T("denoise(nlmeans): sigma %.3f, h %.3f, patch %d, search %d, fp16 %s, chroma %s"),
-        sigma, h, patchSize, searchSize, get_cx_desc(list_vpp_nlmeans_fp16, fp16), processChroma ? _T("on") : _T("off"));
+        _T("denoise(nlmeans): sigma %.3f, h %.3f, patch %d, search %d, d %d, search_t %d, fp16 %s, chroma %s"),
+        sigma, h, patchSize, searchSize, d, searchSizeT, get_cx_desc(list_vpp_nlmeans_fp16, fp16), processChroma ? _T("on") : _T("off"));
 }
 
 VppPmd::VppPmd() :
