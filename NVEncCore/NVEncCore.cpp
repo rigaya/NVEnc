@@ -110,6 +110,7 @@
 #include "NVEncFilterFineDehalo.h"
 #include "NVEncFilterHQDering.h"
 #include "NVEncFilterMsharpen.h"
+#include "NVEncFilterCas.h"
 #include "NVEncFilterWarpsharp.h"
 #include "NVEncFilterMaa.h"
 #include "NVEncFilterDetailSharpen.h"
@@ -2997,6 +2998,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.finedehalo.enable) filterPipeline.push_back(VppType::CL_FINEDEHALO);
     if (inputParam->vpp.dering.enable)     filterPipeline.push_back(VppType::CL_HQDERING);
     if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
+    if (inputParam->vpp.cas.enable)        filterPipeline.push_back(VppType::CL_CAS);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
     if (inputParam->vpp.maa.enable)        filterPipeline.push_back(VppType::CL_MAA);
     if (inputParam->vpp.detailsharpen.enable) filterPipeline.push_back(VppType::CL_DETAILSHARPEN);
@@ -4730,6 +4732,29 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         param->frameIn  = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps  = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //cas
+    if (vppType == VppType::CL_CAS) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterCas());
+        shared_ptr<NVEncFilterParamCas> param(new NVEncFilterParamCas());
+        param->cas = inputParam->vpp.cas;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filter->init(param, m_pLog);

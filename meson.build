@@ -927,6 +927,7 @@ cuda_sources = files(
   'NVEncCore/NVEncFilterFineDehalo.cu',
   'NVEncCore/NVEncFilterHQDering.cu',
   'NVEncCore/NVEncFilterMsharpen.cu',
+  'NVEncCore/NVEncFilterCas.cu',
   'NVEncCore/NVEncFilterMaa.cu',
   'NVEncCore/NVEncFilterMpdecimate.cu',
   'NVEncCore/NVEncFilterNnedi.cu',

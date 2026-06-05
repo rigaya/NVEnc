@@ -137,6 +137,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_FINEDEHALO,           _T("finedehalo")),
     std::make_pair(VppType::CL_HQDERING,             _T("hqdering")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
+    std::make_pair(VppType::CL_CAS,                  _T("cas")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
     std::make_pair(VppType::CL_DETAILSHARPEN,         _T("detailsharpen")),
     std::make_pair(VppType::CL_CURVES,               _T("curves")),
@@ -2325,6 +2326,26 @@ tstring VppMsharpen::print() const {
         strength, threshold, slope, luma_limit, block_protect, highq ? _T("true") : _T("false"), mask ? _T("true") : _T("false"));
 }
 
+VppCas::VppCas() :
+    enable(false),
+    sharpness(FILTER_DEFAULT_CAS_SHARPNESS),
+    hdr(FILTER_DEFAULT_CAS_HDR) {
+}
+
+bool VppCas::operator==(const VppCas& x) const {
+    return enable == x.enable
+        && sharpness == x.sharpness
+        && hdr == x.hdr;
+}
+bool VppCas::operator!=(const VppCas& x) const {
+    return !(*this == x);
+}
+
+tstring VppCas::print() const {
+    return strsprintf(_T("cas: sharpness %.2f, hdr %s"),
+        sharpness, hdr ? _T("true") : _T("false"));
+}
+
 VppWarpsharp::VppWarpsharp() :
     enable(false),
     threshold(FILTER_DEFAULT_WARPSHARP_THRESHOLD),
@@ -3452,6 +3473,7 @@ RGYParamVpp::RGYParamVpp() :
     finedehalo(),
     dering(),
     msharpen(),
+    cas(),
     warpsharp(),
     maa(),
     detailsharpen(),
@@ -3525,6 +3547,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && finedehalo == x.finedehalo
         && dering == x.dering
         && msharpen == x.msharpen
+        && cas == x.cas
         && warpsharp == x.warpsharp
         && maa == x.maa
         && detailsharpen == x.detailsharpen

@@ -98,6 +98,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_STAB         (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_COLORFIX     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_CAS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_CURVES       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_SOFTLIGHT    (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -226,6 +227,7 @@ enum class VppType : int {
     CL_FINEDEHALO,
     CL_HQDERING,
     CL_MSHARPEN,
+    CL_CAS,
     CL_WARPSHARP,
     CL_DETAILSHARPEN,
 
@@ -535,6 +537,9 @@ static const float FILTER_DEFAULT_MSHARPEN_LUMA_LIMIT = 0.0f;
 static const float FILTER_DEFAULT_MSHARPEN_BLOCK_PROTECT = 0.0f;
 static const bool  FILTER_DEFAULT_MSHARPEN_HIGHQ = true;
 static const bool  FILTER_DEFAULT_MSHARPEN_MASK = false;
+
+static const float FILTER_DEFAULT_CAS_SHARPNESS = 0.4f;
+static const bool  FILTER_DEFAULT_CAS_HDR = false;
 
 static const TCHAR *FILTER_DEFAULT_LIBPLACEBO_SHADER_RESAMPLER_NAME = _T("libplacebo-ewa-lanczos");
 static const int   FILTER_DEFAULT_LIBPLACEBO_SHADER_CSP = 0;
@@ -2695,6 +2700,17 @@ struct VppMsharpen {
     tstring print() const;
 };
 
+struct VppCas {
+    bool  enable;
+    float sharpness;
+    bool  hdr;
+
+    VppCas();
+    bool operator==(const VppCas &x) const;
+    bool operator!=(const VppCas &x) const;
+    tstring print() const;
+};
+
 struct VppWarpsharp {
     bool enable;
     float threshold;
@@ -3489,6 +3505,7 @@ struct RGYParamVpp {
     VppFineDehalo finedehalo;
     VppDering dering;
     VppMsharpen msharpen;
+    VppCas cas;
     VppWarpsharp warpsharp;
     VppMaa maa;
     VppDetailSharpen detailsharpen;

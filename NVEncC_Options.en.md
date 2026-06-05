@@ -254,6 +254,7 @@
   - [--vpp-hqdering \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-hqdering-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msharpen-param1value1param2value2)
+  - [--vpp-cas \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-cas-param1value1param2value2)
   - [--vpp-detailsharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-detailsharpen-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
   - [--vpp-maa \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-maa-param1value1param2value2)
@@ -1863,6 +1864,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-finedehalo](#--vpp-finedehalo-param1value1param2value2)
 - [--vpp-hqdering](#--vpp-hqdering-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
+- [--vpp-cas](#--vpp-cas-param1value1param2value2)
 - [--vpp-detailsharpen](#--vpp-detailsharpen-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
 - [--vpp-maa](#--vpp-maa-param1value1param2value2)
@@ -3686,6 +3688,28 @@ Dynamic edge-based sharpening filter. Sharpens only around edges.
 
   Example: Use soft mask, dark luma attenuation, and block protection
   --vpp-msharpen strength=0.8,threshold=18.0,slope=8.0,luma_limit=32.0,block_protect=0.5
+  ```
+
+### --vpp-cas [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Luma-only Contrast Adaptive Sharpening filter. Applies CAS to luma and copies chroma unchanged.
+
+- **Parameters**
+  - sharpness=&lt;float&gt; (default=0.4, 0.0 - 1.0)
+    Sharpening strength. Internally maps to the CAS peak value.
+
+  - hdr=&lt;bool&gt; (default=false)
+    Skips the SDR gamma 2.0 luma approximation. Enable this for HDR sources such as PQ or HLG.
+
+- examples
+  ```
+  Example: Default settings
+  --vpp-cas
+
+  Example: Stronger sharpening
+  --vpp-cas sharpness=0.7
+
+  Example: HDR source
+  --vpp-cas sharpness=0.5,hdr=true
   ```
 
 ### --vpp-detailsharpen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
