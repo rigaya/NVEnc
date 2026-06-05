@@ -472,6 +472,7 @@ static const int   FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL = 1;
 
 static const int   FILTER_DEFAULT_MSMOOTH_STRENGTH = 3;
 static const float FILTER_DEFAULT_MSMOOTH_THRESHOLD = 15.0f;
+static const float FILTER_DEFAULT_MSMOOTH_THRESHOLD_C = -1.0f;
 static const bool  FILTER_DEFAULT_MSMOOTH_HIGHQ = true;
 static const bool  FILTER_DEFAULT_MSMOOTH_MASK = false;
 
@@ -2330,6 +2331,7 @@ struct VppMsmooth {
     bool  enable;
     int   strength;
     float threshold;
+    float threshold_c;
     bool  highq;
     bool  mask;
 

@@ -2862,10 +2862,13 @@ decombによるインタレ解除を行う。
   - strength=&lt;int&gt;  (default=3, 0 - 20)  
     スムージングの強さ（反復回数）。
   
-  - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
+  - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)
     エッジ判定の閾値。
-  
-  - highq=&lt;bool&gt;  (default=true)  
+
+  - threshold_c=&lt;float&gt;  (default=-1.0, -1.0 / 0.0 - 255.0)
+    色差成分のエッジ検出の閾値。-1.0 の場合は threshold と同じ値を使用。
+
+  - highq=&lt;bool&gt;  (default=true)
     高品質モード。エッジ検出点を増やす。
   
   - mask=&lt;bool&gt;  (default=false)  
@@ -2873,7 +2876,7 @@ decombによるインタレ解除を行う。
   
 - 使用例
   ```
-  --vpp-msmooth strength=3,threshold=15.0
+  --vpp-msmooth strength=3,threshold=15.0,threshold_c=18.0
   ```
 
 ### --vpp-denoise-dct [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
