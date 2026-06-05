@@ -28,19 +28,53 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <memory>
 #include <vector>
 #include "convert_csp.h"
 #include "NVEncFilterColorFix.h"
+#include "rgy_avutil.h"
 #include "rgy_cuda_util_kernel.h"
+#include "rgy_filter_input_probe.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 
-static const int COLORFIX_BLOCK_X = 16;
-static const int COLORFIX_BLOCK_Y = 16;
+static const int COLORFIX_BLOCK_X = 32;
+static const int COLORFIX_BLOCK_Y = 8;
 static const int COLORFIX_WG_SIZE = COLORFIX_BLOCK_X * COLORFIX_BLOCK_Y;
+
+static bool colorfix_variance_guard(
+    double varY,
+    double& rollingVarSum,
+    int& rollingVarCount,
+    int bit_depth,
+    float varianceThreshold) {
+    static constexpr int K_WARMUP = 60;
+    static constexpr double SCENE_CUT_FACTOR = 20.0;
+    const double MIN_FLOOR = 100.0 * (double)(1LL << (2 * (bit_depth - 8)));
+
+    if (rollingVarCount < K_WARMUP) {
+        return false;
+    }
+    double rollingAvg = rollingVarSum / (double)rollingVarCount;
+    if (rollingAvg < MIN_FLOOR) rollingAvg = MIN_FLOOR;
+
+    const double upper = rollingAvg * (double)varianceThreshold;
+    const double lower = rollingAvg * 0.1 / (double)varianceThreshold;
+    if (varY > upper) {
+        if (varY > rollingAvg * SCENE_CUT_FACTOR) {
+            rollingVarSum = varY;
+            rollingVarCount = 1;
+        }
+        return true;
+    }
+    if (varY < lower) return true;
+    return false;
+}
 
 template<typename Type>
 __global__ void kernel_colorfix_apply_rgb(uint8_t *__restrict__ pR, int pitchR,
@@ -65,7 +99,7 @@ __global__ void kernel_colorfix_apply_rgb(uint8_t *__restrict__ pR, int pitchR,
 template<typename Type>
 __global__ void kernel_colorfix_reduce_uv(const uint8_t *__restrict__ pY, int pitchY, int widthY, int heightY,
     const uint8_t *__restrict__ pU, int pitchU, int widthU, int heightU,
-    const uint8_t *__restrict__ pV, int pitchV, int uvInterleaved, int subX, int subY,
+    const uint8_t *__restrict__ pV, int pitchV, int subX, int subY,
     long long *__restrict__ outPartials) {
     __shared__ long long sU[COLORFIX_WG_SIZE];
     __shared__ long long sV[COLORFIX_WG_SIZE];
@@ -81,9 +115,8 @@ __global__ void kernel_colorfix_reduce_uv(const uint8_t *__restrict__ pY, int pi
     long long ysqAcc = 0;
 
     if (cx < widthU && cy < heightU) {
-        const int uvx = uvInterleaved ? cx * 2 : cx;
-        uVal = (long long)(*(const Type *)(pU + cy * pitchU + uvx * sizeof(Type)));
-        vVal = (long long)(*(const Type *)(pV + cy * pitchV + (uvx + uvInterleaved) * sizeof(Type)));
+        uVal = (long long)(*(const Type *)(pU + cy * pitchU + cx * sizeof(Type)));
+        vVal = (long long)(*(const Type *)(pV + cy * pitchV + cx * sizeof(Type)));
         for (int dy = 0; dy < subY; dy++) {
             const int ly = cy * subY + dy;
             if (ly >= heightY) break;
@@ -134,15 +167,14 @@ __global__ void kernel_colorfix_apply_luma(uint8_t *__restrict__ pY, int pitchY,
 
 template<typename Type>
 __global__ void kernel_colorfix_apply_uv(uint8_t *__restrict__ pU, int pitchU,
-    uint8_t *__restrict__ pV, int pitchV, int widthU, int heightU, int uvInterleaved,
+    uint8_t *__restrict__ pV, int pitchV, int widthU, int heightU,
     int offsetU, int offsetV, int maxVal) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= widthU || y >= heightU) return;
 
-    const int uvx = uvInterleaved ? x * 2 : x;
-    Type *uPix = (Type *)(pU + y * pitchU + uvx * sizeof(Type));
-    Type *vPix = (Type *)(pV + y * pitchV + (uvx + uvInterleaved) * sizeof(Type));
+    Type *uPix = (Type *)(pU + y * pitchU + x * sizeof(Type));
+    Type *vPix = (Type *)(pV + y * pitchV + x * sizeof(Type));
     const int u = min(max((int)uPix[0] + offsetU, 0), maxVal);
     const int v = min(max((int)vPix[0] + offsetV, 0), maxVal);
     uPix[0] = (Type)u;
@@ -217,7 +249,9 @@ NVEncFilterColorFix::NVEncFilterColorFix() :
     m_sumA(0), m_sumB(0), m_sumC(0), m_sumY(0), m_sumYsq(0),
     m_rollingVarianceSum(0.0), m_rollingVarianceCount(0),
     m_offsetU(0), m_offsetV(0),
-    m_scaleR(1.0f), m_scaleG(1.0f), m_scaleB(1.0f) {
+    m_scaleR(1.0f), m_scaleG(1.0f), m_scaleB(1.0f),
+    m_prescanUsed(false),
+    m_hardCapFrames(0) {
     m_name = _T("colorfix");
 }
 
@@ -405,6 +439,23 @@ RGY_ERR NVEncFilterColorFix::init(shared_ptr<NVEncFilterParam> pParam, shared_pt
     m_rollingVarianceCount = 0;
     m_offsetU = m_offsetV = 0;
     m_scaleR = m_scaleG = m_scaleB = 1.0f;
+    m_prescanUsed = false;
+    m_hardCapFrames = prm->colorfix.frames * 3 + 10;
+
+    const bool wantPreScan =
+           prm->colorfix.mode == VPP_COLORFIX_MODE_AUTO
+        || (prm->colorfix.mode == VPP_COLORFIX_MODE_GRAY
+            && m_effectiveSpace == VPP_COLORFIX_SPACE_YUV);
+    if (wantPreScan) {
+        const auto preErr = runPreScanLibav(prm);
+        if (preErr == RGY_ERR_NONE) {
+            m_prescanUsed = true;
+            m_analysisComplete = true;
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("init-time pre-scan unavailable; ramp fallback at runtime.\n"));
+        }
+    }
+
     if (prm->colorfix.mode == VPP_COLORFIX_MODE_MANUAL && m_effectiveSpace == VPP_COLORFIX_SPACE_RGB) {
         const int rgbMax = (RGY_CSP_BIT_DEPTH[m_cspRgb] > 8) ? 65535 : 255;
         const int wR = prm->colorfix.whiteR * rgbMax / 255;
@@ -452,28 +503,21 @@ RGY_ERR NVEncFilterColorFix::runReduceUV(RGYFrameInfo *pSrc, cudaStream_t stream
     const auto pY = getPlane(pSrc, RGY_PLANE_Y);
     const auto pU = getPlane(pSrc, RGY_PLANE_U);
     const auto pV = getPlane(pSrc, RGY_PLANE_V);
-    const int uvInterleaved = (pU.ptr[0] == pV.ptr[0]) ? 1 : 0;
-    const int chromaWidth = uvInterleaved ? std::max(1, pU.width / 2) : pU.width;
-    const int chromaHeight = pU.height;
-    if (!uvInterleaved && (pU.width != pV.width || pU.height != pV.height || pU.pitch[0] != pV.pitch[0])) {
-        AddMessage(RGY_LOG_ERROR, _T("colorfix: U/V plane layout mismatch.\n"));
-        return RGY_ERR_INVALID_CALL;
-    }
-    const int subX = std::max(1, pY.width / chromaWidth);
+    const int subX = std::max(1, pY.width / pU.width);
     const int subY = std::max(1, pY.height / pU.height);
     dim3 block(COLORFIX_BLOCK_X, COLORFIX_BLOCK_Y);
-    dim3 grid(divCeil(chromaWidth, block.x), divCeil(chromaHeight, block.y));
+    dim3 grid(divCeil(pU.width, block.x), divCeil(pU.height, block.y));
     m_numGroupsLastDispatch = grid.x * grid.y;
     if (RGY_CSP_DATA_TYPE[pSrc->csp] == RGY_DATA_TYPE_U16) {
         kernel_colorfix_reduce_uv<uint16_t><<<grid, block, 0, stream>>>(
             (const uint8_t *)pY.ptr[0], pY.pitch[0], pY.width, pY.height,
-            (const uint8_t *)pU.ptr[0], pU.pitch[0], chromaWidth, chromaHeight,
-            (const uint8_t *)pV.ptr[0], pV.pitch[0], uvInterleaved, subX, subY, (long long *)m_reducePartials->ptr);
+            (const uint8_t *)pU.ptr[0], pU.pitch[0], pU.width, pU.height,
+            (const uint8_t *)pV.ptr[0], pV.pitch[0], subX, subY, (long long *)m_reducePartials->ptr);
     } else {
         kernel_colorfix_reduce_uv<uint8_t><<<grid, block, 0, stream>>>(
             (const uint8_t *)pY.ptr[0], pY.pitch[0], pY.width, pY.height,
-            (const uint8_t *)pU.ptr[0], pU.pitch[0], chromaWidth, chromaHeight,
-            (const uint8_t *)pV.ptr[0], pV.pitch[0], uvInterleaved, subX, subY, (long long *)m_reducePartials->ptr);
+            (const uint8_t *)pU.ptr[0], pU.pitch[0], pU.width, pU.height,
+            (const uint8_t *)pV.ptr[0], pV.pitch[0], subX, subY, (long long *)m_reducePartials->ptr);
     }
     return err_to_rgy(cudaGetLastError());
 }
@@ -500,24 +544,17 @@ RGY_ERR NVEncFilterColorFix::runReduceRGB(RGYFrameInfo *pSrc, cudaStream_t strea
 RGY_ERR NVEncFilterColorFix::runApplyUV(RGYFrameInfo *pTarget, int offsetU, int offsetV, cudaStream_t stream) {
     const auto pU = getPlane(pTarget, RGY_PLANE_U);
     const auto pV = getPlane(pTarget, RGY_PLANE_V);
-    const int uvInterleaved = (pU.ptr[0] == pV.ptr[0]) ? 1 : 0;
-    const int chromaWidth = uvInterleaved ? std::max(1, pU.width / 2) : pU.width;
-    const int chromaHeight = pU.height;
-    if (!uvInterleaved && (pU.width != pV.width || pU.height != pV.height || pU.pitch[0] != pV.pitch[0])) {
-        AddMessage(RGY_LOG_ERROR, _T("colorfix: U/V plane layout mismatch.\n"));
-        return RGY_ERR_INVALID_CALL;
-    }
     const int maxVal = (1 << RGY_CSP_BIT_DEPTH[pTarget->csp]) - 1;
     dim3 block(COLORFIX_BLOCK_X, COLORFIX_BLOCK_Y);
-    dim3 grid(divCeil(chromaWidth, block.x), divCeil(chromaHeight, block.y));
+    dim3 grid(divCeil(pU.width, block.x), divCeil(pU.height, block.y));
     if (RGY_CSP_DATA_TYPE[pTarget->csp] == RGY_DATA_TYPE_U16) {
         kernel_colorfix_apply_uv<uint16_t><<<grid, block, 0, stream>>>(
             (uint8_t *)pU.ptr[0], pU.pitch[0], (uint8_t *)pV.ptr[0], pV.pitch[0],
-            chromaWidth, chromaHeight, uvInterleaved, offsetU, offsetV, maxVal);
+            pU.width, pU.height, offsetU, offsetV, maxVal);
     } else {
         kernel_colorfix_apply_uv<uint8_t><<<grid, block, 0, stream>>>(
             (uint8_t *)pU.ptr[0], pU.pitch[0], (uint8_t *)pV.ptr[0], pV.pitch[0],
-            chromaWidth, chromaHeight, uvInterleaved, offsetU, offsetV, maxVal);
+            pU.width, pU.height, offsetU, offsetV, maxVal);
     }
     return err_to_rgy(cudaGetLastError());
 }
@@ -550,6 +587,256 @@ RGY_ERR NVEncFilterColorFix::finaliseReduction(cudaStream_t stream, int numLongs
             outTotals[i] += host[g * numLongsPerGroup + i];
         }
     }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterColorFix::runPreScanLibav(const std::shared_ptr<NVEncFilterParamColorFix>& prm) {
+    if (!prm || prm->inputFilePath.empty()) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    std::string fileUtf8;
+    if (tchar_to_string(prm->inputFilePath.c_str(), fileUtf8, CP_UTF8) == 0) {
+        AddMessage(RGY_LOG_DEBUG, _T("pre-scan: utf-8 conversion failed.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (const char *proto = unsupportedProbeProtocol(fileUtf8); proto != nullptr) {
+        AddMessage(RGY_LOG_DEBUG,
+            _T("pre-scan: input uses %s protocol; ramp fallback at runtime.\n"),
+            char_to_tstring(proto).c_str());
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    const int savedAvLogLevel = av_log_get_level();
+    av_log_set_level(AV_LOG_FATAL);
+    struct AvLogLevelRestorer { int prev; ~AvLogLevelRestorer() { av_log_set_level(prev); } } avGuard{ savedAvLogLevel };
+
+    AVFormatContext *fmtCtxRaw = nullptr;
+    if (avformat_open_input(&fmtCtxRaw, fileUtf8.c_str(), nullptr, nullptr) < 0) {
+        AddMessage(RGY_LOG_DEBUG, _T("pre-scan: avformat_open_input failed.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    std::unique_ptr<AVFormatContext, RGYAVDeleter<AVFormatContext>> fmtGuard(
+        fmtCtxRaw, RGYAVDeleter<AVFormatContext>(avformat_close_input));
+    AVFormatContext *fmtCtx = fmtGuard.get();
+
+    if (avformat_find_stream_info(fmtCtx, nullptr) < 0) {
+        AddMessage(RGY_LOG_DEBUG, _T("pre-scan: avformat_find_stream_info failed.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    const int videoIdx = av_find_best_stream(fmtCtx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+    if (videoIdx < 0) {
+        AddMessage(RGY_LOG_DEBUG, _T("pre-scan: no video stream.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    AVStream *vst = fmtCtx->streams[videoIdx];
+    const AVCodec *codec = avcodec_find_decoder(vst->codecpar->codec_id);
+    if (!codec) {
+        AddMessage(RGY_LOG_DEBUG, _T("pre-scan: decoder unavailable for stream.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    AVCodecContext *codecCtxRaw = avcodec_alloc_context3(codec);
+    if (!codecCtxRaw) return RGY_ERR_NULL_PTR;
+    std::unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>> codecGuard(
+        codecCtxRaw, RGYAVDeleter<AVCodecContext>(avcodec_free_context));
+    AVCodecContext *codecCtx = codecGuard.get();
+    if (avcodec_parameters_to_context(codecCtx, vst->codecpar) < 0) {
+        AddMessage(RGY_LOG_DEBUG, _T("pre-scan: avcodec_parameters_to_context failed.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    codecCtx->time_base = vst->time_base;
+    codecCtx->pkt_timebase = vst->time_base;
+    if (avcodec_open2(codecCtx, codec, nullptr) < 0) {
+        AddMessage(RGY_LOG_DEBUG, _T("pre-scan: avcodec_open2 failed.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    AVPacket *pktRaw = av_packet_alloc();
+    std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> pktGuard(
+        pktRaw, RGYAVDeleter<AVPacket>(av_packet_free));
+    AVFrame *frameRaw = av_frame_alloc();
+    std::unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> frameGuard(
+        frameRaw, RGYAVDeleter<AVFrame>(av_frame_free));
+
+    const int wantFrames = prm->colorfix.frames;
+    const int seenCap = wantFrames * 3 + 10;
+    const int targetBitDepth = RGY_CSP_BIT_DEPTH[prm->frameIn.csp];
+    const double targetMax = (double)((1 << targetBitDepth) - 1);
+    const double neutralTarget = (double)(1 << (targetBitDepth - 1));
+
+    uint64_t sumU = 0, sumV = 0;
+    uint64_t totalChromaPx = 0;
+    double rollingVarSum = 0.0;
+    int rollingVarCount = 0;
+    int analysedFrames = 0;
+    int skippedFrames = 0;
+    int seenFrames = 0;
+    int srcBitDepth = 0;
+
+    auto processFrame = [&](AVFrame *f) -> RGY_ERR {
+        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get((AVPixelFormat)f->format);
+        if (!desc || desc->nb_components < 3
+            || (desc->flags & AV_PIX_FMT_FLAG_RGB) != 0
+            || (desc->flags & AV_PIX_FMT_FLAG_PAL) != 0
+            || (desc->flags & AV_PIX_FMT_FLAG_BITSTREAM) != 0
+            || (desc->flags & AV_PIX_FMT_FLAG_HWACCEL) != 0) {
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const int depthLuma = desc->comp[0].depth;
+        const int depthChroma = desc->comp[1].depth;
+        if (depthLuma == 0 || depthChroma == 0 || depthLuma > 16 || depthChroma > 16) {
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (srcBitDepth == 0) srcBitDepth = depthLuma;
+
+        const int planeY = desc->comp[0].plane;
+        const int planeU = desc->comp[1].plane;
+        const int planeV = desc->comp[2].plane;
+        const int stepY = desc->comp[0].step;
+        const int stepU = desc->comp[1].step;
+        const int stepV = desc->comp[2].step;
+        const int offY = desc->comp[0].offset;
+        const int offU = desc->comp[1].offset;
+        const int offV = desc->comp[2].offset;
+        const int shY = desc->comp[0].shift;
+        const int shU = desc->comp[1].shift;
+        const int shV = desc->comp[2].shift;
+        const int chromaShiftW = desc->log2_chroma_w;
+        const int chromaShiftH = desc->log2_chroma_h;
+        const int chromaW = (f->width + (1 << chromaShiftW) - 1) >> chromaShiftW;
+        const int chromaH = (f->height + (1 << chromaShiftH) - 1) >> chromaShiftH;
+        const int lumaW = f->width;
+        const int lumaH = f->height;
+        const bool hbdLuma = depthLuma > 8;
+        const bool hbdChroma = depthChroma > 8;
+        const uint32_t maskLuma = (1U << depthLuma) - 1U;
+        const uint32_t maskChroma = (1U << depthChroma) - 1U;
+
+        if (!f->data[planeU] || !f->data[planeV] || !f->data[planeY]) {
+            return RGY_ERR_UNSUPPORTED;
+        }
+
+        uint64_t frameSumU = 0, frameSumV = 0;
+        for (int y = 0; y < chromaH; ++y) {
+            const uint8_t *rowU = f->data[planeU] + (size_t)y * f->linesize[planeU];
+            const uint8_t *rowV = f->data[planeV] + (size_t)y * f->linesize[planeV];
+            for (int x = 0; x < chromaW; ++x) {
+                uint32_t u, v;
+                if (hbdChroma) {
+                    const uint8_t *pU = rowU + (size_t)x * stepU + offU;
+                    const uint8_t *pV = rowV + (size_t)x * stepV + offV;
+                    const uint32_t rawU = (uint32_t)pU[0] | ((uint32_t)pU[1] << 8);
+                    const uint32_t rawV = (uint32_t)pV[0] | ((uint32_t)pV[1] << 8);
+                    u = (rawU >> shU) & maskChroma;
+                    v = (rawV >> shV) & maskChroma;
+                } else {
+                    u = ((uint32_t)rowU[(size_t)x * stepU + offU] >> shU) & maskChroma;
+                    v = ((uint32_t)rowV[(size_t)x * stepV + offV] >> shV) & maskChroma;
+                }
+                frameSumU += u;
+                frameSumV += v;
+            }
+        }
+
+        uint64_t frameSumY = 0, frameSumYsq = 0;
+        for (int y = 0; y < lumaH; ++y) {
+            const uint8_t *rowY = f->data[planeY] + (size_t)y * f->linesize[planeY];
+            for (int x = 0; x < lumaW; ++x) {
+                uint32_t yv;
+                if (hbdLuma) {
+                    const uint8_t *pY = rowY + (size_t)x * stepY + offY;
+                    const uint32_t rawY = (uint32_t)pY[0] | ((uint32_t)pY[1] << 8);
+                    yv = (rawY >> shY) & maskLuma;
+                } else {
+                    yv = ((uint32_t)rowY[(size_t)x * stepY + offY] >> shY) & maskLuma;
+                }
+                frameSumY += yv;
+                frameSumYsq += (uint64_t)yv * (uint64_t)yv;
+            }
+        }
+        const uint64_t npxChroma = (uint64_t)chromaW * (uint64_t)chromaH;
+        const uint64_t npxLuma = (uint64_t)lumaW * (uint64_t)lumaH;
+        if (npxChroma == 0 || npxLuma == 0) return RGY_ERR_UNSUPPORTED;
+        const double meanY = (double)frameSumY / (double)npxLuma;
+        const double varY = (double)frameSumYsq / (double)npxLuma - meanY * meanY;
+
+        const bool skip = colorfix_variance_guard(
+            varY, rollingVarSum, rollingVarCount,
+            depthLuma, prm->colorfix.varianceThreshold);
+        if (!skip) {
+            sumU += frameSumU;
+            sumV += frameSumV;
+            totalChromaPx += npxChroma;
+            rollingVarSum += varY;
+            ++rollingVarCount;
+            ++analysedFrames;
+        } else {
+            ++skippedFrames;
+        }
+        return RGY_ERR_NONE;
+    };
+
+    auto drainDecoder = [&]() -> RGY_ERR {
+        while (analysedFrames < wantFrames && seenFrames < seenCap) {
+            int rv = avcodec_receive_frame(codecCtx, frameGuard.get());
+            if (rv == AVERROR(EAGAIN) || rv == AVERROR_EOF) return RGY_ERR_NONE;
+            if (rv < 0) return RGY_ERR_UNKNOWN;
+            ++seenFrames;
+            auto procErr = processFrame(frameGuard.get());
+            av_frame_unref(frameGuard.get());
+            if (procErr != RGY_ERR_NONE) return procErr;
+        }
+        return RGY_ERR_NONE;
+    };
+
+    while (analysedFrames < wantFrames && seenFrames < seenCap) {
+        int rd = av_read_frame(fmtCtx, pktGuard.get());
+        if (rd == AVERROR_EOF) break;
+        if (rd < 0) {
+            AddMessage(RGY_LOG_DEBUG, _T("pre-scan: av_read_frame error.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (pktGuard.get()->stream_index != videoIdx) {
+            av_packet_unref(pktGuard.get());
+            continue;
+        }
+        const int sendErr = avcodec_send_packet(codecCtx, pktGuard.get());
+        av_packet_unref(pktGuard.get());
+        if (sendErr < 0 && sendErr != AVERROR(EAGAIN)) {
+            AddMessage(RGY_LOG_DEBUG, _T("pre-scan: avcodec_send_packet error.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        auto rcvErr = drainDecoder();
+        if (rcvErr != RGY_ERR_NONE) return rcvErr;
+    }
+    if (analysedFrames < wantFrames && seenFrames < seenCap) {
+        avcodec_send_packet(codecCtx, nullptr);
+        auto rcvErr = drainDecoder();
+        if (rcvErr != RGY_ERR_NONE) return rcvErr;
+    }
+
+    if (analysedFrames == 0 || totalChromaPx == 0 || srcBitDepth == 0) {
+        AddMessage(RGY_LOG_DEBUG, _T("pre-scan: no usable frames decoded.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    const double srcMax = (double)((1ULL << srcBitDepth) - 1ULL);
+    const double meanU_src = (double)sumU / (double)totalChromaPx;
+    const double meanV_src = (double)sumV / (double)totalChromaPx;
+    const double meanU = meanU_src * targetMax / srcMax;
+    const double meanV = meanV_src * targetMax / srcMax;
+    const double rawOffU = -(meanU - neutralTarget) * prm->colorfix.strength;
+    const double rawOffV = -(meanV - neutralTarget) * prm->colorfix.strength;
+    m_offsetU = (int)std::lround(rawOffU);
+    m_offsetV = (int)std::lround(rawOffV);
+    m_analysedFrames = analysedFrames;
+    m_skippedFrames = skippedFrames;
+
+    const float offUNorm = (float)((double)m_offsetU / targetMax);
+    const float offVNorm = (float)((double)m_offsetV / targetMax);
+    AddMessage(RGY_LOG_INFO,
+        _T("pre-scan complete -- offsetU=%+.3f, offsetV=%+.3f ")
+        _T("(analysed %d frames, skipped %d, src bit_depth=%d -> target bit_depth=%d).\n"),
+        offUNorm, offVNorm, analysedFrames, skippedFrames, srcBitDepth, targetBitDepth);
     return RGY_ERR_NONE;
 }
 
@@ -638,19 +925,14 @@ RGY_ERR NVEncFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         if (err != RGY_ERR_NONE) return err;
         const long long sumU = totals[0], sumV = totals[1], sumY = totals[2], sumYsq = totals[3];
         const auto planeU = getPlane(targetFrame, RGY_PLANE_U);
-        const auto planeV = getPlane(targetFrame, RGY_PLANE_V);
         const auto planeY = getPlane(targetFrame, RGY_PLANE_Y);
-        const long long npxChroma = (long long)((planeU.ptr[0] == planeV.ptr[0]) ? std::max(1, planeU.width / 2) : planeU.width) * planeU.height;
+        const long long npxChroma = (long long)planeU.width * planeU.height;
         const long long npxLuma = (long long)planeY.width * planeY.height;
         const double meanY = (double)sumY / (double)npxLuma;
         const double varY = (double)sumYsq / (double)npxLuma - meanY * meanY;
-        bool skip = false;
-        if (m_rollingVarianceCount > 0) {
-            const double rollingAvg = m_rollingVarianceSum / m_rollingVarianceCount;
-            const double upper = rollingAvg * prm->colorfix.varianceThreshold;
-            const double lower = rollingAvg * 0.1 / prm->colorfix.varianceThreshold;
-            if (varY > upper || varY < lower) skip = true;
-        }
+        const bool skip = colorfix_variance_guard(
+            varY, m_rollingVarianceSum, m_rollingVarianceCount,
+            RGY_CSP_BIT_DEPTH[targetFrame->csp], prm->colorfix.varianceThreshold);
         if (!skip) {
             m_sumA += sumU;
             m_sumB += sumV;
@@ -663,19 +945,39 @@ RGY_ERR NVEncFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         } else {
             m_skippedFrames++;
         }
-        if (m_analysedFrames >= prm->colorfix.frames) {
+
+        int runningOffU = 0, runningOffV = 0;
+        const int bitDepth = RGY_CSP_BIT_DEPTH[targetFrame->csp];
+        const float maxVal = (float)((1 << bitDepth) - 1);
+        if (m_analysedFrames > 0 && m_sumC > 0) {
             const double meanU = (double)m_sumA / (double)m_sumC;
             const double meanV = (double)m_sumB / (double)m_sumC;
-            const int bitDepth = RGY_CSP_BIT_DEPTH[targetFrame->csp];
-            const float maxVal = (float)((1 << bitDepth) - 1);
             const double neutral = (double)(1 << (bitDepth - 1));
-            m_offsetU = (int)std::lround(-(meanU - neutral) * prm->colorfix.strength);
-            m_offsetV = (int)std::lround(-(meanV - neutral) * prm->colorfix.strength);
+            runningOffU = (int)std::lround(-(meanU - neutral) * prm->colorfix.strength);
+            runningOffV = (int)std::lround(-(meanV - neutral) * prm->colorfix.strength);
+        }
+        bool lockNow = false;
+        if (m_analysedFrames >= prm->colorfix.frames) {
+            lockNow = true;
+        } else if (m_totalSeenFrames >= m_hardCapFrames && m_analysedFrames > 0) {
+            AddMessage(RGY_LOG_WARN,
+                _T("variance guard rejected too many frames after %d input ")
+                _T("(only %d accepted of %d target). Locking in early offsets.\n"),
+                m_totalSeenFrames, m_analysedFrames, prm->colorfix.frames);
+            lockNow = true;
+        }
+        if (lockNow) {
+            m_offsetU = runningOffU;
+            m_offsetV = runningOffV;
             m_analysisComplete = true;
             AddMessage(RGY_LOG_INFO, _T("analysis complete -- offsetU=%+.3f, offsetV=%+.3f (skipped %d flash frames)\n"),
                 m_offsetU / maxVal, m_offsetV / maxVal, m_skippedFrames);
         }
-        return RGY_ERR_NONE;
+
+        const float strengthFactor = std::min((float)m_analysedFrames / (float)prm->colorfix.frames, 1.0f);
+        const int applyU = (int)std::lround((double)runningOffU * (double)strengthFactor);
+        const int applyV = (int)std::lround((double)runningOffV * (double)strengthFactor);
+        return runApplyUV(targetFrame, applyU, applyV, stream);
     };
 
     if (prm->colorfix.mode == VPP_COLORFIX_MODE_AUTO || m_effectiveSpace == VPP_COLORFIX_SPACE_YUV) {
@@ -707,13 +1009,9 @@ RGY_ERR NVEncFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         const long long npx = (long long)pRgb->width * pRgb->height;
         const double meanY = (double)sumY / (double)npx;
         const double varY = (double)sumYsq / (double)npx - meanY * meanY;
-        bool skip = false;
-        if (m_rollingVarianceCount > 0) {
-            const double rollingAvg = m_rollingVarianceSum / m_rollingVarianceCount;
-            const double upper = rollingAvg * prm->colorfix.varianceThreshold;
-            const double lower = rollingAvg * 0.1 / prm->colorfix.varianceThreshold;
-            if (varY > upper || varY < lower) skip = true;
-        }
+        const bool skip = colorfix_variance_guard(
+            varY, m_rollingVarianceSum, m_rollingVarianceCount,
+            RGY_CSP_BIT_DEPTH[m_cspRgb], prm->colorfix.varianceThreshold);
         if (!skip) {
             m_sumA += sumR;
             m_sumB += sumG;
@@ -726,7 +1024,17 @@ RGY_ERR NVEncFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         } else {
             m_skippedFrames++;
         }
+        bool lockNow = false;
         if (m_analysedFrames >= prm->colorfix.frames) {
+            lockNow = true;
+        } else if (m_totalSeenFrames >= m_hardCapFrames && m_analysedFrames > 0) {
+            AddMessage(RGY_LOG_WARN,
+                _T("variance guard rejected too many frames after %d input ")
+                _T("(only %d accepted of %d target). Locking in early scales.\n"),
+                m_totalSeenFrames, m_analysedFrames, prm->colorfix.frames);
+            lockNow = true;
+        }
+        if (lockNow) {
             const long long npxTotal = (long long)pRgb->width * pRgb->height * m_analysedFrames;
             const double meanR = (double)m_sumA / (double)npxTotal;
             const double meanG = (double)m_sumB / (double)npxTotal;
@@ -772,5 +1080,7 @@ void NVEncFilterColorFix::close() {
     m_rollingVarianceCount = 0;
     m_offsetU = m_offsetV = 0;
     m_scaleR = m_scaleG = m_scaleB = 1.0f;
+    m_prescanUsed = false;
+    m_hardCapFrames = 0;
     m_frameBuf.clear();
 }

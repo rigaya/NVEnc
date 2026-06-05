@@ -35,8 +35,9 @@ class NVEncFilterParamColorFix : public NVEncFilterParam {
 public:
     VppColorFix colorfix;
     VideoVUIInfo vui;
+    tstring inputFilePath;
 
-    NVEncFilterParamColorFix() : colorfix(), vui() {};
+    NVEncFilterParamColorFix() : colorfix(), vui(), inputFilePath() {};
     virtual ~NVEncFilterParamColorFix() {};
     virtual tstring print() const override;
 };
@@ -62,6 +63,7 @@ protected:
     RGY_ERR runApplyUV(RGYFrameInfo *pTarget, int offsetU, int offsetV, cudaStream_t stream);
     RGY_ERR runApplyLuma(RGYFrameInfo *pTarget, float scaleY, float offsetY, cudaStream_t stream);
     RGY_ERR finaliseReduction(cudaStream_t stream, int numLongsPerGroup, std::vector<long long>& outTotals);
+    RGY_ERR runPreScanLibav(const std::shared_ptr<NVEncFilterParamColorFix>& prm);
 
     int m_resolvedMatrix;
     int m_effectiveSpace;
@@ -86,4 +88,6 @@ protected:
     float m_scaleR;
     float m_scaleG;
     float m_scaleB;
+    bool m_prescanUsed;
+    int m_hardCapFrames;
 };
