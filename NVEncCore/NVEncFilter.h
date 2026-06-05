@@ -151,6 +151,7 @@ class NVEncFilterParamResize : public NVEncFilterParam {
 public:
     RGY_VPP_RESIZE_ALGO interp;
     RGY_VPP_RESIZE_ALGO nvvfxSubAlgo;
+    VppResizeFsr1 fsr1;
     std::shared_ptr<NVEncFilterParamNvvfxSuperRes> nvvfxSuperRes;
     std::shared_ptr<NVEncFilterParamNGXVSR> ngxvsr;
     std::shared_ptr<NVEncFilterParamLibplaceboResample> libplaceboResample;
@@ -179,6 +180,7 @@ protected:
     bool m_bInterlacedWarn;
     std::unique_ptr<CUMemBuf> m_weightSpline;
     RGY_VPP_RESIZE_ALGO m_weightSplineAlgo;
+    std::unique_ptr<CUFrameBuf> m_fsr1Easu;
     std::unique_ptr<NVEncFilterNvvfxSuperRes> m_nvvfxSuperRes;
     std::unique_ptr<NVEncFilterNGXVSR> m_ngxVSR;
     std::unique_ptr<NVEncFilterLibplaceboResample> m_libplaceboResample;

@@ -4353,6 +4353,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         } else {
             param->interp = inputParam->vpp.resize_algo;
         }
+        param->fsr1 = inputParam->vpp.resize_fsr1;
         if (isNvvfxResizeFiter(inputParam->vpp.resize_algo)) {
             param->nvvfxSuperRes = std::make_shared<NVEncFilterParamNvvfxSuperRes>();
             param->nvvfxSuperRes->nvvfxSuperRes = inputParam->vppnv.nvvfxSuperRes;
