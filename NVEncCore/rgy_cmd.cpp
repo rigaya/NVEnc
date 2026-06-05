@@ -5199,6 +5199,76 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-denoise-hqdn3d") && ENABLE_VPP_FILTER_HQDN3D) {
+        vpp->hqdn3d.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "luma_spatial", "chroma_spatial", "luma_temporal", "chroma_temporal" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->hqdn3d.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("luma_spatial")) {
+                    try {
+                        vpp->hqdn3d.luma_spatial = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma_spatial")) {
+                    try {
+                        vpp->hqdn3d.chroma_spatial = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("luma_temporal")) {
+                    try {
+                        vpp->hqdn3d.luma_temporal = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma_temporal")) {
+                    try {
+                        vpp->hqdn3d.chroma_temporal = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
         vpp->dct.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -12103,6 +12173,23 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-pmd");
         }
     }
+    if (param->hqdn3d != defaultPrm->hqdn3d) {
+        tmp.str(tstring());
+        if (!param->hqdn3d.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->hqdn3d.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("luma_spatial"), hqdn3d.luma_spatial, 3);
+            ADD_FLOAT(_T("chroma_spatial"), hqdn3d.chroma_spatial, 3);
+            ADD_FLOAT(_T("luma_temporal"), hqdn3d.luma_temporal, 3);
+            ADD_FLOAT(_T("chroma_temporal"), hqdn3d.chroma_temporal, 3);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-denoise-hqdn3d ") << tmp.str().substr(1);
+        } else if (param->hqdn3d.enable) {
+            cmd << _T(" --vpp-denoise-hqdn3d");
+        }
+    }
     if (param->dct != defaultPrm->dct) {
         tmp.str(tstring());
         if (!param->dct.enable && save_disabled_prm) {
@@ -14481,6 +14568,18 @@ tstring gen_cmd_help_vpp() {
         _T("      threshold=<float>         threshold of pmd (default=%.2f, 0.0-255.0)\n")
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
+#endif
+#if ENABLE_VPP_FILTER_HQDN3D
+    str += strsprintf(_T("\n")
+        _T("   --vpp-denoise-hqdn3d [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable denoise filter by hqdn3d.\n")
+        _T("    params\n")
+        _T("      luma_spatial=<float>     spatial denoise strength for luma (default=%.2f, 0.0-255.0)\n")
+        _T("      chroma_spatial=<float>   spatial denoise strength for chroma (default=%.2f, 0.0-255.0)\n")
+        _T("      luma_temporal=<float>    temporal denoise strength for luma (default=%.2f, 0.0-255.0)\n")
+        _T("      chroma_temporal=<float>  temporal denoise strength for chroma (default=%.2f, 0.0-255.0)\n"),
+        FILTER_DEFAULT_HQDN3D_LUMA_SPATIAL, FILTER_DEFAULT_HQDN3D_CHROMA_SPATIAL,
+        FILTER_DEFAULT_HQDN3D_LUMA_TEMPORAL, FILTER_DEFAULT_HQDN3D_CHROMA_TEMPORAL);
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")

@@ -101,6 +101,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_KNN,          _T("knn")),
     std::make_pair(VppType::CL_DENOISE_NLMEANS,      _T("nlmeans")),
     std::make_pair(VppType::CL_DENOISE_PMD,          _T("pmd")),
+    std::make_pair(VppType::CL_DENOISE_HQDN3D,       _T("denoise-hqdn3d")),
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
@@ -1604,6 +1605,31 @@ bool VppPmd::operator!=(const VppPmd& x) const {
 tstring VppPmd::print() const {
     return strsprintf(_T("denoise(pmd): strength %d, threshold %d, apply %d, exp %d"),
         (int)strength, (int)threshold, applyCount, useExp);
+}
+
+VppHqdn3d::VppHqdn3d() :
+    enable(false),
+    luma_spatial(FILTER_DEFAULT_HQDN3D_LUMA_SPATIAL),
+    chroma_spatial(FILTER_DEFAULT_HQDN3D_CHROMA_SPATIAL),
+    luma_temporal(FILTER_DEFAULT_HQDN3D_LUMA_TEMPORAL),
+    chroma_temporal(FILTER_DEFAULT_HQDN3D_CHROMA_TEMPORAL) {
+
+}
+
+bool VppHqdn3d::operator==(const VppHqdn3d& x) const {
+    return enable == x.enable
+        && luma_spatial == x.luma_spatial
+        && chroma_spatial == x.chroma_spatial
+        && luma_temporal == x.luma_temporal
+        && chroma_temporal == x.chroma_temporal;
+}
+bool VppHqdn3d::operator!=(const VppHqdn3d& x) const {
+    return !(*this == x);
+}
+
+tstring VppHqdn3d::print() const {
+    return strsprintf(_T("denoise-hqdn3d: luma_spatial %.2f, chroma_spatial %.2f, luma_temporal %.2f, chroma_temporal %.2f"),
+        luma_spatial, chroma_spatial, luma_temporal, chroma_temporal);
 }
 
 VppSmooth::VppSmooth() :
@@ -3319,6 +3345,7 @@ RGYParamVpp::RGYParamVpp() :
     knn(),
     nlmeans(),
     pmd(),
+    hqdn3d(),
     dct(),
     smooth(),
     fft3d(),
@@ -3387,6 +3414,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && knn == x.knn
         && nlmeans == x.nlmeans
         && pmd == x.pmd
+        && hqdn3d == x.hqdn3d
         && dct == x.dct
         && smooth == x.smooth
         && fft3d == x.fft3d

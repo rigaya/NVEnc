@@ -76,6 +76,7 @@
 #include "NVEncFilterDenoiseKnn.h"
 #include "NVEncFilterDenoiseNLMeans.h"
 #include "NVEncFilterDenoisePmd.h"
+#include "NVEncFilterDenoiseHqdn3d.h"
 #include "NVEncFilterDenoiseDct.h"
 #include "NVEncFilterSmooth.h"
 #include "NVEncFilterDenoiseFFT3D.h"
@@ -1658,6 +1659,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.knn.enable
             || inputParam->vpp.nlmeans.enable
             || inputParam->vpp.pmd.enable
+            || inputParam->vpp.hqdn3d.enable
             || inputParam->vpp.dct.enable
             || inputParam->vpp.smooth.enable
             || inputParam->vpp.fft3d.enable
@@ -2952,6 +2954,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.knn.enable)           filterPipeline.push_back(VppType::CL_DENOISE_KNN);
     if (inputParam->vpp.nlmeans.enable)       filterPipeline.push_back(VppType::CL_DENOISE_NLMEANS);
     if (inputParam->vpp.pmd.enable)           filterPipeline.push_back(VppType::CL_DENOISE_PMD);
+    if (inputParam->vpp.hqdn3d.enable)        filterPipeline.push_back(VppType::CL_DENOISE_HQDN3D);
     if (degrainLegacy)                        filterPipeline.push_back(VppType::CL_DEGRAIN);
     if (inputParam->vpp.rtgmc_edi.enable && degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
     if (degrainTR1)                           filterPipeline.push_back(VppType::CL_DEGRAIN_APPLY_TR1);
@@ -4173,6 +4176,29 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         unique_ptr<NVEncFilter> filter(new NVEncFilterDenoisePmd());
         shared_ptr<NVEncFilterParamDenoisePmd> param(new NVEncFilterParamDenoisePmd());
         param->pmd = inputParam->vpp.pmd;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //ノイズ除去 (denoise-hqdn3d)
+    if (vppType == VppType::CL_DENOISE_HQDN3D) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseHqdn3d());
+        shared_ptr<NVEncFilterParamDenoiseHqdn3d> param(new NVEncFilterParamDenoiseHqdn3d());
+        param->hqdn3d = inputParam->vpp.hqdn3d;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
