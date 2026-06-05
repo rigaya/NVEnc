@@ -60,6 +60,29 @@ static bool shared_opt_avail(const int search_radius) {
     return search_radius * 2 <= NLEANS_BLOCK_X && search_radius <= NLEANS_BLOCK_Y;
 }
 
+static std::vector<std::pair<int, int>> nxnylist(const int search_radius) {
+    std::vector<std::pair<int, int>> nxny;
+    for (int ny = -search_radius; ny <= 0; ny++) {
+        for (int nx = -search_radius; nx <= search_radius; nx++) {
+            if (ny * (2 * search_radius - 1) + nx < 0) {
+                nxny.push_back(std::make_pair(nx, ny));
+            }
+        }
+    }
+    return nxny;
+}
+
+static std::vector<std::pair<int, int>> nxnylist_full(const int search_radius) {
+    std::vector<std::pair<int, int>> nxny;
+    nxny.reserve((2 * search_radius + 1) * (2 * search_radius + 1));
+    for (int ny = -search_radius; ny <= search_radius; ny++) {
+        for (int nx = -search_radius; nx <= search_radius; nx++) {
+            nxny.push_back(std::make_pair(nx, ny));
+        }
+    }
+    return nxny;
+}
+
 enum RGYFilterDenoiseNLMeansTmpBufIdx {
     TMP_U,
     TMP_V,
@@ -180,6 +203,76 @@ RGY_ERR nlmeansCalcDiffSquare(
     }
 }
 
+template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8, int offset_count>
+__global__ void kernel_calc_diff_square_temporal(
+    char *__restrict__ pDst, const int dstPitch,
+    const char *__restrict__ pSrc, const int srcPitch,
+    const char *__restrict__ pRef, const int refPitch,
+    const int width, const int height, int8 xoffset, int8 yoffset
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (ix < width && iy < height) {
+        const char *ptr0 = pSrc + iy * srcPitch + ix * sizeof(Type);
+        const Type val0 = *(const Type *)ptr0;
+
+        float8 val1 = float8(
+                                  (float)get_xyoffset_pix<Type>(pRef, refPitch, ix, iy, xoffset.s0, yoffset.s0, width, height),
+            (offset_count >= 2) ? (float)get_xyoffset_pix<Type>(pRef, refPitch, ix, iy, xoffset.s1, yoffset.s1, width, height) : 0.0f,
+            (offset_count >= 3) ? (float)get_xyoffset_pix<Type>(pRef, refPitch, ix, iy, xoffset.s2, yoffset.s2, width, height) : 0.0f,
+            (offset_count >= 4) ? (float)get_xyoffset_pix<Type>(pRef, refPitch, ix, iy, xoffset.s3, yoffset.s3, width, height) : 0.0f,
+            (offset_count >= 5) ? (float)get_xyoffset_pix<Type>(pRef, refPitch, ix, iy, xoffset.s4, yoffset.s4, width, height) : 0.0f,
+            (offset_count >= 6) ? (float)get_xyoffset_pix<Type>(pRef, refPitch, ix, iy, xoffset.s5, yoffset.s5, width, height) : 0.0f,
+            (offset_count >= 7) ? (float)get_xyoffset_pix<Type>(pRef, refPitch, ix, iy, xoffset.s6, yoffset.s6, width, height) : 0.0f,
+            (offset_count >= 8) ? (float)get_xyoffset_pix<Type>(pRef, refPitch, ix, iy, xoffset.s7, yoffset.s7, width, height) : 0.0f);
+
+        TmpVType8 *ptrDst = (TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
+        ptrDst[0] = toTmpVType8<TmpVType8>(calc_sqdiff<Type, bit_depth>(val0, val1));
+    }
+}
+
+template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8, int offset_count>
+RGY_ERR nlmeansCalcDiffSquareTemporalOffsetCount(
+    RGYFrameInfo *pTmpUPlane,
+    const RGYFrameInfo *pInputPlane,
+    const RGYFrameInfo *pRefPlane,
+    const int8 xoffset, const int8 yoffset,
+    cudaStream_t stream
+) {
+    dim3 blockSize(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
+    dim3 gridSize(divCeil(pInputPlane->width, NLEANS_BLOCK_X), divCeil(pInputPlane->height, NLEANS_BLOCK_Y));
+    kernel_calc_diff_square_temporal<Type, bit_depth, TmpVType, TmpVType8, offset_count><<<gridSize, blockSize, 0, stream>>>(
+        (char *)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
+        (const char *)pInputPlane->ptr[0], pInputPlane->pitch[0],
+        (const char *)pRefPlane->ptr[0], pRefPlane->pitch[0],
+        pInputPlane->width, pInputPlane->height, xoffset, yoffset);
+    CUDA_DEBUG_SYNC_ERR;
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type, int bit_depth, typename TmpVType, typename TmpVType8>
+RGY_ERR nlmeansCalcDiffSquareTemporal(
+    RGYFrameInfo *pTmpUPlane,
+    const RGYFrameInfo *pInputPlane,
+    const RGYFrameInfo *pRefPlane,
+    const int8 xoffset, const int8 yoffset,
+    const int offset_count,
+    cudaStream_t stream
+) {
+    switch (offset_count) {
+    case 1:  return nlmeansCalcDiffSquareTemporalOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 1>(pTmpUPlane, pInputPlane, pRefPlane, xoffset, yoffset, stream);
+    case 2:  return nlmeansCalcDiffSquareTemporalOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 2>(pTmpUPlane, pInputPlane, pRefPlane, xoffset, yoffset, stream);
+    case 3:  return nlmeansCalcDiffSquareTemporalOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 3>(pTmpUPlane, pInputPlane, pRefPlane, xoffset, yoffset, stream);
+    case 4:  return nlmeansCalcDiffSquareTemporalOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 4>(pTmpUPlane, pInputPlane, pRefPlane, xoffset, yoffset, stream);
+    case 5:  return nlmeansCalcDiffSquareTemporalOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 5>(pTmpUPlane, pInputPlane, pRefPlane, xoffset, yoffset, stream);
+    case 6:  return nlmeansCalcDiffSquareTemporalOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 6>(pTmpUPlane, pInputPlane, pRefPlane, xoffset, yoffset, stream);
+    case 7:  return nlmeansCalcDiffSquareTemporalOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 7>(pTmpUPlane, pInputPlane, pRefPlane, xoffset, yoffset, stream);
+    case 8:
+    default: return nlmeansCalcDiffSquareTemporalOffsetCount<Type, bit_depth, TmpVType, TmpVType8, 8>(pTmpUPlane, pInputPlane, pRefPlane, xoffset, yoffset, stream);
+    }
+}
+
 template<typename Type, int template_radius, typename TmpVType8>
 __global__ void kernel_denoise_nlmeans_calc_v(
     char *__restrict__ pDst, const int dstPitch,
@@ -236,7 +329,6 @@ __device__ __inline__ void add_reverse_side_offset(char *__restrict__ pImgW, con
 
 template<typename Type, int bit_depth, typename TmpWPType>
 __device__ __inline__ TmpWPType getSrcPixXYOffset(const char *__restrict__ pSrc, const int srcPitch, const int width, const int height, const int ix, const int iy, const int xoffset, const int yoffset) {
-    if ((xoffset | yoffset) == 0) return (TmpWPType)0.0f;
     const Type pix = *(const Type *)(pSrc + clamp(iy+yoffset, 0, height-1) * srcPitch + clamp(ix+xoffset,0,width-1) * sizeof(Type));
     return (TmpWPType)(pix * (float)(1.0f / ((1<<bit_depth) - 1)));
 }
@@ -528,6 +620,79 @@ RGY_ERR nlmeansCalcWeight(
     }
 }
 
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int offset_count>
+__global__ void kernel_denoise_nlmeans_calc_weight_temporal(
+    char *__restrict__ pImgW0,
+    const int tmpPitch,
+    const char *__restrict__ pV, const int vPitch,
+    const char *__restrict__ pRef, const int refPitch,
+    const int width, const int height, const float sigma, const float inv_param_h_h,
+    const int8 xoffset, const int8 yoffset
+) {
+    static_assert(sizeof(TmpWPType) * 2 == sizeof(TmpWPType2), "sizeof(TmpWPType) * 2 == sizeof(TmpWPType2)");
+    static_assert(sizeof(TmpWPType) * 8 == sizeof(TmpWPType8), "sizeof(TmpWPType) * 8 == sizeof(TmpWPType8)");
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (ix < width && iy < height) {
+        const TmpVType8 v_vt8 = TmpVType8::load((const TmpVType8 *)(pV + iy * vPitch + ix * sizeof(TmpVType8)));
+        const TmpWPType8 v_tmpv8 = toTmpWPType8<TmpWPType8, TmpVType8>(v_vt8);
+        const TmpWPType8 weight = __expf(max(v_tmpv8 - (TmpWPType)(2.0f * sigma), (TmpWPType8)0.0f) * (TmpWPType)-inv_param_h_h);
+
+        TmpWPType8 pix8 = getSrcPixXYOffset8<Type, bit_depth, TmpWPType, TmpWPType8, offset_count>(pRef, refPitch, width, height, ix, iy, xoffset, yoffset);
+        TmpWPType8 weight_pix8 = weight * pix8;
+        TmpWPType2 weight_pix_2 = { vec_sum(weight_pix8), vec_sum(weight) };
+        TmpWPType2 *ptrImgW0 = (TmpWPType2 *)(pImgW0 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        ptrImgW0[0] += weight_pix_2;
+    }
+}
+
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8, int offset_count>
+RGY_ERR nlmeansCalcWeightTemporalOffsetCount(
+    RGYFrameInfo *pTmpIWPlane,
+    const RGYFrameInfo *pTmpVPlane,
+    const RGYFrameInfo *pRefPlane,
+    const float sigma, const float inv_param_h_h,
+    const int8 xoffset, const int8 yoffset,
+    cudaStream_t stream
+) {
+    dim3 blockSize(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
+    dim3 gridSize(divCeil(pRefPlane->width, NLEANS_BLOCK_X), divCeil(pRefPlane->height, NLEANS_BLOCK_Y));
+    kernel_denoise_nlmeans_calc_weight_temporal<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, offset_count><<<gridSize, blockSize, 0, stream>>>(
+        (char *)pTmpIWPlane[0].ptr[0],
+        pTmpIWPlane[0].pitch[0],
+        (const char *)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
+        (const char *)pRefPlane->ptr[0], pRefPlane->pitch[0],
+        pRefPlane->width, pRefPlane->height,
+        sigma, inv_param_h_h,
+        xoffset, yoffset);
+    CUDA_DEBUG_SYNC_ERR;
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type, int bit_depth, typename TmpVType8, typename TmpWPType, typename TmpWPType2, typename TmpWPType8>
+RGY_ERR nlmeansCalcWeightTemporal(
+    RGYFrameInfo *pTmpIWPlane,
+    const RGYFrameInfo *pTmpVPlane,
+    const RGYFrameInfo *pRefPlane,
+    const float sigma, const float inv_param_h_h,
+    const int8 xoffset, const int8 yoffset, const int offset_count,
+    cudaStream_t stream
+) {
+    switch (offset_count) {
+    case 1:  return nlmeansCalcWeightTemporalOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 1>(pTmpIWPlane, pTmpVPlane, pRefPlane, sigma, inv_param_h_h, xoffset, yoffset, stream);
+    case 2:  return nlmeansCalcWeightTemporalOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 2>(pTmpIWPlane, pTmpVPlane, pRefPlane, sigma, inv_param_h_h, xoffset, yoffset, stream);
+    case 3:  return nlmeansCalcWeightTemporalOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 3>(pTmpIWPlane, pTmpVPlane, pRefPlane, sigma, inv_param_h_h, xoffset, yoffset, stream);
+    case 4:  return nlmeansCalcWeightTemporalOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 4>(pTmpIWPlane, pTmpVPlane, pRefPlane, sigma, inv_param_h_h, xoffset, yoffset, stream);
+    case 5:  return nlmeansCalcWeightTemporalOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 5>(pTmpIWPlane, pTmpVPlane, pRefPlane, sigma, inv_param_h_h, xoffset, yoffset, stream);
+    case 6:  return nlmeansCalcWeightTemporalOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 6>(pTmpIWPlane, pTmpVPlane, pRefPlane, sigma, inv_param_h_h, xoffset, yoffset, stream);
+    case 7:  return nlmeansCalcWeightTemporalOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 7>(pTmpIWPlane, pTmpVPlane, pRefPlane, sigma, inv_param_h_h, xoffset, yoffset, stream);
+    case 8:  return nlmeansCalcWeightTemporalOffsetCount<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8, 8>(pTmpIWPlane, pTmpVPlane, pRefPlane, sigma, inv_param_h_h, xoffset, yoffset, stream);
+    default:
+        return RGY_ERR_OUT_OF_RANGE;
+    }
+}
+
 template<typename Type, int bit_depth, typename TmpWPType2>
 __global__ void kernel_denoise_nlmeans_normalize(
     char *__restrict__ pDst, const int dstPitch,
@@ -623,8 +788,10 @@ public:
     virtual ~NLMeansFuncsBase() {};
 
     virtual decltype(&nlmeansCalcDiffSquare<uint8_t, 8, float, float8>) calcDiffSquare() = 0;
+    virtual decltype(&nlmeansCalcDiffSquareTemporal<uint8_t, 8, float, float8>) calcDiffSquareTemporal() = 0;
     virtual decltype(&nlmeansCalcV<uint8_t, 1, float8>) calcV(int template_radius) = 0;
     virtual decltype(&nlmeansCalcWeight<uint8_t, 8, float8, float, float2, float8, 1>) calcWeight(int search_radius) = 0;
+    virtual decltype(&nlmeansCalcWeightTemporal<uint8_t, 8, float8, float, float2, float8>) calcWeightTemporal() = 0;
     virtual decltype(&nlmeansNormalize<uint8_t, 8, float2>) normalize() = 0;
 };
 
@@ -635,6 +802,7 @@ public:
     virtual ~NLMeansFuncs() {};
 
     virtual decltype(&nlmeansCalcDiffSquare<Type, bit_depth, TmpVType, TmpVType8>) calcDiffSquare() override { return nlmeansCalcDiffSquare<Type, bit_depth, TmpVType, TmpVType8>; }
+    virtual decltype(&nlmeansCalcDiffSquareTemporal<Type, bit_depth, TmpVType, TmpVType8>) calcDiffSquareTemporal() override { return nlmeansCalcDiffSquareTemporal<Type, bit_depth, TmpVType, TmpVType8>; }
     virtual decltype(&nlmeansCalcV<Type, 1, TmpVType8>) calcV(int template_radius) override {
         switch (template_radius) {
         case 1:  return nlmeansCalcV<Type,  1, TmpVType8>;
@@ -666,6 +834,9 @@ public:
         default: return nullptr;
         }
     }
+    virtual decltype(&nlmeansCalcWeightTemporal<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8>) calcWeightTemporal() override {
+        return nlmeansCalcWeightTemporal<Type, bit_depth, TmpVType8, TmpWPType, TmpWPType2, TmpWPType8>;
+    }
     virtual decltype(&nlmeansNormalize<Type, bit_depth, TmpWPType2>) normalize() override { return nlmeansNormalize<Type, bit_depth, TmpWPType2>; }
 };
 
@@ -690,6 +861,7 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
     RGYFrameInfo *pTmpUPlane, RGYFrameInfo *pTmpVPlane,
     RGYFrameInfo *pTmpIWPlane,
     const RGYFrameInfo *pInputPlane,
+    const std::vector<const RGYFrameInfo *> &refPlanes,
     cudaStream_t stream) {
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseNLMeans>(m_param);
     if (!prm) {
@@ -717,14 +889,7 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
 
     // 計算すべきnx-nyの組み合わせを列挙
     const int search_radius = prm->nlmeans.searchSize / 2;
-    std::vector<std::pair<int, int>> nxny;
-    for (int ny = -search_radius; ny <= 0; ny++) {
-        for (int nx = -search_radius; nx <= search_radius; nx++) {
-            if (ny * (2 * search_radius - 1) + nx < 0) { // nx-nyの対称性を使って半分のみ計算 (0,0)
-                nxny.push_back(std::make_pair(nx, ny));
-            }
-        }
-    }
+    const auto nxny = nxnylist(search_radius);
     // nx-nyの組み合わせをRGY_NLMEANS_DXDY_STEP個ずつまとめて計算して高速化
     for (size_t inxny = 0; inxny < nxny.size(); inxny += RGY_NLMEANS_DXDY_STEP) {
         const int offset_count = std::min((int)(nxny.size() - inxny), RGY_NLMEANS_DXDY_STEP);
@@ -779,6 +944,52 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
             }
         }
     }
+    // Temporal pass: reference-frame patches are accumulated one-way into IW0.
+    if (!refPlanes.empty()) {
+        const int search_radius_t = prm->nlmeans.searchSizeT / 2;
+        const auto nxny_full = nxnylist_full(search_radius_t);
+        for (const auto pRefPlane : refPlanes) {
+            if (!pRefPlane || !pRefPlane->ptr[0]) continue;
+            for (size_t inxny = 0; inxny < nxny_full.size(); inxny += RGY_NLMEANS_DXDY_STEP) {
+                const int offset_count = std::min((int)(nxny_full.size() - inxny), RGY_NLMEANS_DXDY_STEP);
+                int nx0arr[RGY_NLMEANS_DXDY_STEP] = { 0 };
+                int ny0arr[RGY_NLMEANS_DXDY_STEP] = { 0 };
+                for (int i = 0; i < offset_count; i++) {
+                    nx0arr[i] = nxny_full[inxny + i].first;
+                    ny0arr[i] = nxny_full[inxny + i].second;
+                }
+                int8 nx0, ny0;
+                memcpy(&nx0, nx0arr, sizeof(nx0));
+                memcpy(&ny0, ny0arr, sizeof(ny0));
+                err = func->calcDiffSquareTemporal()(pTmpUPlane, pInputPlane, pRefPlane, nx0, ny0, offset_count, stream);
+                if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("error at calcDiffSquareTemporal (denoisePlane(%s)): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+                    return err;
+                }
+                auto funcV = func->calcV(template_radius);
+                if (!funcV) {
+                    AddMessage(RGY_LOG_ERROR, _T("error at calcVTemporal (denoisePlane(%s)): unsupported patchSize %d.\n"), RGY_CSP_NAMES[pInputPlane->csp], prm->nlmeans.patchSize);
+                    return RGY_ERR_UNSUPPORTED;
+                }
+                err = funcV(pTmpVPlane, pTmpUPlane, pOutputPlane->width, pOutputPlane->height, stream);
+                if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("error at calcVTemporal (denoisePlane(%s)): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+                    return err;
+                }
+                err = func->calcWeightTemporal()(
+                    pTmpIWPlane, pTmpVPlane, pRefPlane,
+                    prm->nlmeans.sigma, 1.0f / (prm->nlmeans.h * prm->nlmeans.h),
+                    nx0, ny0, offset_count, stream);
+                if (err == RGY_ERR_OUT_OF_RANGE) {
+                    AddMessage(RGY_LOG_ERROR, _T("error at calcWeightTemporal (denoisePlane(%s)): unexpected offset_count %d.\n"), RGY_CSP_NAMES[pInputPlane->csp], offset_count);
+                    return err;
+                } else if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("error at calcWeightTemporal (denoisePlane(%s)): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+                    return err;
+                }
+            }
+        }
+    }
     // 最後に規格化
     {
         err = func->normalize()(pOutputPlane, pTmpIWPlane, pInputPlane, prm->nlmeans.sharedMem, stream);
@@ -790,7 +1001,8 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoisePlane(
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+    const std::vector<const RGYFrameInfo *> &refFrames, cudaStream_t stream) {
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseNLMeans>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -815,7 +1027,17 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, cons
                 pTmpIWPlane[j] = RGYFrameInfo();
             }
         }
-        auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc, stream);
+        std::vector<RGYFrameInfo> refPlaneInfo;
+        std::vector<const RGYFrameInfo *> refPlanePtrs;
+        refPlaneInfo.reserve(refFrames.size());
+        refPlanePtrs.reserve(refFrames.size());
+        for (const auto pRef : refFrames) {
+            if (pRef && pRef->ptr[0]) {
+                refPlaneInfo.push_back(getPlane(pRef, RGY_PLANE_Y));
+                refPlanePtrs.push_back(&refPlaneInfo.back());
+            }
+        }
+        auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc, refPlanePtrs, stream);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(nlmeans) luma plane: %s\n"), get_err_mes(err));
             return err;
@@ -835,7 +1057,17 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, cons
                 pTmpIWPlane[j] = RGYFrameInfo();
             }
         }
-        auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc, stream);
+        std::vector<RGYFrameInfo> refPlaneInfo;
+        std::vector<const RGYFrameInfo *> refPlanePtrs;
+        refPlaneInfo.reserve(refFrames.size());
+        refPlanePtrs.reserve(refFrames.size());
+        for (const auto pRef : refFrames) {
+            if (pRef && pRef->ptr[0]) {
+                refPlaneInfo.push_back(getPlane(pRef, (RGY_PLANE)i));
+                refPlanePtrs.push_back(&refPlaneInfo.back());
+            }
+        }
+        auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc, refPlanePtrs, stream);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(nlmeans) frame(%d) %s: %s\n"), i, get_err_mes(err));
             return err;
@@ -844,9 +1076,53 @@ RGY_ERR NVEncFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, cons
     return RGY_ERR_NONE;
 }
 
+RGY_ERR NVEncFilterDenoiseNLMeans::emitFrame(int idx_cur, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseNLMeans>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    const int d = prm->nlmeans.d;
+    const int cacheSize = (int)m_cacheFrames.size();
+    const RGYFrameInfo *pInputFrame = &m_cacheFrames[idx_cur]->frame;
+
+    std::vector<const RGYFrameInfo *> refFrames;
+    refFrames.reserve(2 * d);
+    for (int k = 1; k <= d; k++) {
+        const int abs_past = m_outputCount - k;
+        if (abs_past >= 0) {
+            refFrames.push_back(&m_cacheFrames[abs_past % cacheSize]->frame);
+        }
+        const int abs_future = m_outputCount + k;
+        if (abs_future < m_inputCount) {
+            refFrames.push_back(&m_cacheFrames[abs_future % cacheSize]->frame);
+        }
+    }
+
+    *pOutputFrameNum = 1;
+    if (ppOutputFrames[0] == nullptr) {
+        auto pOutFrame = m_frameBuf[0].get();
+        ppOutputFrames[0] = &pOutFrame->frame;
+    }
+    copyFrameProp(ppOutputFrames[0], pInputFrame);
+
+    auto sts = denoiseFrame(ppOutputFrames[0], pInputFrame, refFrames, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    m_outputCount++;
+    return RGY_ERR_NONE;
+}
+
 #endif //ENABLE_VPP_NLMEANS
 
-NVEncFilterDenoiseNLMeans::NVEncFilterDenoiseNLMeans() : m_tmpBuf() {
+NVEncFilterDenoiseNLMeans::NVEncFilterDenoiseNLMeans() :
+    m_tmpBuf(),
+    m_cacheFrames(),
+    m_inputCount(0),
+    m_outputCount(0),
+    m_drained(false) {
     m_name = _T("nlmeans");
 }
 
@@ -897,6 +1173,30 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
     if (prm->nlmeans.h <= 0.0) {
         AddMessage(RGY_LOG_ERROR, _T("h should be larger than 0.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->nlmeans.d < 0 || prm->nlmeans.d > FILTER_NLMEANS_D_MAX) {
+        prm->nlmeans.d = clamp(prm->nlmeans.d, 0, FILTER_NLMEANS_D_MAX);
+        AddMessage(RGY_LOG_WARN, _T("d should be in range of 0 - %d.\n"), FILTER_NLMEANS_D_MAX);
+    }
+    if (prm->nlmeans.searchSizeT % 2 == 0) {
+        prm->nlmeans.searchSizeT++;
+    }
+    if (prm->nlmeans.searchSizeT < 3) {
+        AddMessage(RGY_LOG_ERROR, _T("search_t must be 3 or bigger.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->nlmeans.searchSizeT / 2 > maxSearchRadius) {
+        AddMessage(RGY_LOG_ERROR, _T("search_t size too big: %d.\n"), prm->nlmeans.searchSizeT);
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (prm->nlmeans.d > 0 && prm->nlmeans.sharedMem) {
+        AddMessage(RGY_LOG_DEBUG, _T("disabling sharedMem optimisation because d > 0.\n"));
+        prm->nlmeans.sharedMem = false;
+    }
+    if (prm->nlmeans.d > 0) {
+        m_pathThrough &= ~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_DATA);
+    } else {
+        m_pathThrough = FILTER_PATHTHROUGH_ALL;
     }
     if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::NoOpt && prm->compute_capability.first < 7) {
         prm->nlmeans.fp16 = VppNLMeansFP16Opt::NoOpt;
@@ -960,6 +1260,27 @@ RGY_ERR NVEncFilterDenoiseNLMeans::init(shared_ptr<NVEncFilterParam> pParam, sha
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
+    const int requiredCacheSize = (prm->nlmeans.d > 0) ? (2 * prm->nlmeans.d + 1) : 0;
+    const bool cacheResetRequired = (int)m_cacheFrames.size() != requiredCacheSize
+        || (requiredCacheSize > 0 && !m_cacheFrames.empty()
+            && cmpFrameInfoCspResolution(&m_cacheFrames[0]->frame, &prm->frameIn));
+    if (cacheResetRequired) {
+        m_cacheFrames.clear();
+        for (int i = 0; i < requiredCacheSize; i++) {
+            auto cacheFrame = std::make_unique<CUFrameBuf>(prm->frameIn);
+            sts = cacheFrame->alloc();
+            if (sts != RGY_ERR_NONE) {
+                m_cacheFrames.clear();
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate cache frame %d: %s.\n"), i, get_err_mes(sts));
+                return sts;
+            }
+            m_cacheFrames.push_back(std::move(cacheFrame));
+        }
+        m_inputCount = 0;
+        m_outputCount = 0;
+        m_drained = false;
+    }
+
     setFilterInfo(pParam->print());
     m_param = pParam;
     return sts;
@@ -977,36 +1298,90 @@ RGY_ERR NVEncFilterDenoiseNLMeans::run_filter(const RGYFrameInfo *pInputFrame, R
 #if ENABLE_VPP_NLMEANS
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (pInputFrame->ptr[0] == nullptr) {
+    *pOutputFrameNum = 0;
+    ppOutputFrames[0] = nullptr;
+
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDenoiseNLMeans>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    const bool hasInput = (pInputFrame && pInputFrame->ptr[0]);
+
+    if (prm->nlmeans.d == 0) {
+        if (!hasInput) {
+            return sts;
+        }
+        *pOutputFrameNum = 1;
+        if (ppOutputFrames[0] == nullptr) {
+            auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
+            ppOutputFrames[0] = &pOutFrame->frame;
+            m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
+        }
+        ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+        if (interlaced(*pInputFrame)) {
+            return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
+        }
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
+        if (memcpyKind != cudaMemcpyDeviceToDevice) {
+            AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (m_param->frameOut.csp != m_param->frameIn.csp) {
+            AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        sts = denoiseFrame(ppOutputFrames[0], pInputFrame, std::vector<const RGYFrameInfo *>(), stream);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at denoiseFrame (%s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
+            return sts;
+        }
         return sts;
     }
 
-    *pOutputFrameNum = 1;
-    if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_frameBuf[m_nFrameIdx].get();
-        ppOutputFrames[0] = &pOutFrame->frame;
-        m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
+    const int d = prm->nlmeans.d;
+    const int cacheSize = (int)m_cacheFrames.size();
+
+    if (hasInput) {
+        if (interlaced(*pInputFrame)) {
+            AddMessage(RGY_LOG_ERROR, _T("temporal nlmeans does not support interlaced input.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_cacheFrames[0]->frame.mem_type);
+        if (memcpyKind != cudaMemcpyDeviceToDevice) {
+            AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (m_param->frameOut.csp != m_param->frameIn.csp) {
+            AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+
+        const int slot = m_inputCount % cacheSize;
+        RGYFrameInfo *pSlot = &m_cacheFrames[slot]->frame;
+        auto copyErr = copyFrameAsync(pSlot, pInputFrame, stream);
+        if (copyErr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy input to cache slot %d: %s.\n"), slot, get_err_mes(copyErr));
+            return copyErr;
+        }
+        copyFrameProp(pSlot, pInputFrame);
+
+        m_inputCount++;
+        if (m_inputCount <= d) {
+            return RGY_ERR_NONE;
+        }
+        const int idx_cur = m_outputCount % cacheSize;
+        return emitFrame(idx_cur, ppOutputFrames, pOutputFrameNum, stream);
     }
-    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    if (interlaced(*pInputFrame)) {
-        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
+
+    if (m_outputCount < m_inputCount) {
+        const int idx_cur = m_outputCount % cacheSize;
+        return emitFrame(idx_cur, ppOutputFrames, pOutputFrameNum, stream);
     }
-    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
-    if (memcpyKind != cudaMemcpyDeviceToDevice) {
-        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    if (m_param->frameOut.csp != m_param->frameIn.csp) {
-        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    sts = denoiseFrame(ppOutputFrames[0], pInputFrame, stream);
-    if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at denoiseFrame (%s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
-        return sts;
-    }
-    return sts;
+    m_drained = true;
+    return RGY_ERR_NONE;
 #else
     AddMessage(RGY_LOG_ERROR, _T("nlmeans not compiled in this build.\n"));
     return RGY_ERR_UNSUPPORTED;
@@ -1014,5 +1389,12 @@ RGY_ERR NVEncFilterDenoiseNLMeans::run_filter(const RGYFrameInfo *pInputFrame, R
 }
 
 void NVEncFilterDenoiseNLMeans::close() {
+    for (auto& cache : m_cacheFrames) {
+        cache.reset();
+    }
+    m_cacheFrames.clear();
+    m_inputCount = 0;
+    m_outputCount = 0;
+    m_drained = false;
     m_frameBuf.clear();
 }

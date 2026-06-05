@@ -5070,7 +5070,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "sigma", "patch", "search", "h", "fp16", "shared_mem" };
+        const auto paramList = std::vector<std::string>{ "sigma", "patch", "search", "h", "d", "search_t", "fp16", "shared_mem" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -5118,6 +5118,24 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("h")) {
                     try {
                         vpp->nlmeans.h = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("d")) {
+                    try {
+                        vpp->nlmeans.d = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("search_t")) {
+                    try {
+                        vpp->nlmeans.searchSizeT = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -12325,6 +12343,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("patch"), nlmeans.patchSize);
             ADD_NUM(_T("search"), nlmeans.searchSize);
             ADD_FLOAT(_T("h"), nlmeans.h, 3);
+            ADD_NUM(_T("d"), nlmeans.d);
+            ADD_NUM(_T("search_t"), nlmeans.searchSizeT);
             ADD_LST(_T("fp16"), nlmeans.fp16, list_vpp_nlmeans_fp16);
             ADD_BOOL(_T("shared_mem"), nlmeans.sharedMem);
         }
@@ -14769,7 +14789,7 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-nlmeans [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by non-local means.\n")
         _T("    params\n")
-        _T("      sigma=<float>  sigma (default=%.3, 0.0 -)\n")
+        _T("      sigma=<float>  sigma (default=%.3f, 0.0 -)\n")
         _T("      h=<float>      h (default=%.3f, 0.0 <)\n")
 #if ENCODER_NVENC
         _T("      patch=<int>    patch size (default=%d, 3-21)\n")
@@ -14780,9 +14800,12 @@ tstring gen_cmd_help_vpp() {
 #endif
         _T("      fp16=<string>  select fp16 usage.\n")
         _T("                       none, blockdiff (default), all\n")
+        _T("      d=<int>        temporal radius (default=%d, 0-%d)\n")
+        _T("      search_t=<int> temporal search size (default=%d, 3-)\n")
         ,
         FILTER_DEFAULT_NLMEANS_FILTER_SIGMA, FILTER_DEFAULT_NLMEANS_H,
-        FILTER_DEFAULT_NLMEANS_PATCH_SIZE, FILTER_DEFAULT_NLMEANS_SEARCH_SIZE
+        FILTER_DEFAULT_NLMEANS_PATCH_SIZE, FILTER_DEFAULT_NLMEANS_SEARCH_SIZE,
+        FILTER_DEFAULT_NLMEANS_D, FILTER_NLMEANS_D_MAX, FILTER_DEFAULT_NLMEANS_SEARCH_SIZE
         //,FILTER_DEFAULT_NLMEANS_FILTER_SIGMA, FILTER_DEFAULT_NLMEANS_PATCH_SIGMA,
         );
 #endif
