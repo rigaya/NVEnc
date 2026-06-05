@@ -417,6 +417,228 @@ static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
     return RGY_ERR_NONE;
 }
 
+static const float FSR_RCAS_LIMIT = 0.25f - (1.0f / 16.0f);
+
+__inline__ __device__
+float fsr_clamp(const float x, const float low, const float high) {
+    return fminf(fmaxf(x, low), high);
+}
+
+template<typename Type, int bit_depth>
+__inline__ __device__
+float fsr_load_norm(const uint8_t *pSrc, const int srcPitch, int x, int y, const int w, const int h) {
+    x = min(max(x, 0), w - 1);
+    y = min(max(y, 0), h - 1);
+    const auto val = *(const Type *)(pSrc + y * srcPitch + x * sizeof(Type));
+    return (float)val * (1.0f / (float)((1 << bit_depth) - 1));
+}
+
+__inline__ __device__
+void fsr_easu_set(
+    float *dirX, float *dirY, float *lenAcc,
+    const float2 pp,
+    const int biS, const int biT, const int biU, const int biV,
+    const float lA, const float lB, const float lC, const float lD, const float lE) {
+    float w = 0.0f;
+    if (biS) w = (1.0f - pp.x) * (1.0f - pp.y);
+    if (biT) w =          pp.x * (1.0f - pp.y);
+    if (biU) w = (1.0f - pp.x) *          pp.y;
+    if (biV) w =          pp.x *          pp.y;
+
+    const float dc = lD - lC;
+    const float cb = lC - lB;
+    const float lenX_inv = fmaxf(fabsf(dc), fabsf(cb));
+    const float rcpX = (lenX_inv > 0.0f) ? (1.0f / lenX_inv) : 0.0f;
+    const float dirXv = lD - lB;
+    *dirX += dirXv * w;
+    float lenX = fsr_clamp(fabsf(dirXv) * rcpX, 0.0f, 1.0f);
+    lenX *= lenX;
+    *lenAcc += lenX * w;
+
+    const float ec = lE - lC;
+    const float ca = lC - lA;
+    const float lenY_inv = fmaxf(fabsf(ec), fabsf(ca));
+    const float rcpY = (lenY_inv > 0.0f) ? (1.0f / lenY_inv) : 0.0f;
+    const float dirYv = lE - lA;
+    *dirY += dirYv * w;
+    float lenY = fsr_clamp(fabsf(dirYv) * rcpY, 0.0f, 1.0f);
+    lenY *= lenY;
+    *lenAcc += lenY * w;
+}
+
+__inline__ __device__
+void fsr_easu_tap(float *aC, float *aW, const float2 off, const float2 dir, const float2 len2, const float lob, const float clp, const float c) {
+    float vx = off.x * ( dir.x) + off.y * dir.y;
+    float vy = off.x * (-dir.y) + off.y * dir.x;
+    vx *= len2.x;
+    vy *= len2.y;
+    float d2 = vx * vx + vy * vy;
+    d2 = fminf(d2, clp);
+    float wB = 0.4f * d2 - 1.0f;
+    float wA = lob   * d2 - 1.0f;
+    wB *= wB;
+    wA *= wA;
+    wB = (25.0f / 16.0f) * wB - (25.0f / 16.0f - 1.0f);
+    const float w = wB * wA;
+    *aC += c * w;
+    *aW += w;
+}
+
+template<typename Type, int bit_depth>
+__global__ void kernel_fsr1_easu(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
+    const float ratioInvX, const float ratioInvY, const float offsetX, const float offsetY) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= dstWidth || iy >= dstHeight) {
+        return;
+    }
+
+    const float ppx = (float)ix * ratioInvX + offsetX;
+    const float ppy = (float)iy * ratioInvY + offsetY;
+    const int fpx = (int)floorf(ppx);
+    const int fpy = (int)floorf(ppy);
+    const float2 pp = make_float2(ppx - (float)fpx, ppy - (float)fpy);
+
+    const float b = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 0, fpy - 1, srcWidth, srcHeight);
+    const float c = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 1, fpy - 1, srcWidth, srcHeight);
+    const float e = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx - 1, fpy + 0, srcWidth, srcHeight);
+    const float f = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 0, fpy + 0, srcWidth, srcHeight);
+    const float g = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 1, fpy + 0, srcWidth, srcHeight);
+    const float h = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 2, fpy + 0, srcWidth, srcHeight);
+    const float i = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx - 1, fpy + 1, srcWidth, srcHeight);
+    const float j = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 0, fpy + 1, srcWidth, srcHeight);
+    const float k = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 1, fpy + 1, srcWidth, srcHeight);
+    const float l = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 2, fpy + 1, srcWidth, srcHeight);
+    const float n = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 0, fpy + 2, srcWidth, srcHeight);
+    const float o = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, fpx + 1, fpy + 2, srcWidth, srcHeight);
+
+    float dirX = 0.0f, dirY = 0.0f, lenAcc = 0.0f;
+    fsr_easu_set(&dirX, &dirY, &lenAcc, pp, 1, 0, 0, 0, b, e, f, g, j);
+    fsr_easu_set(&dirX, &dirY, &lenAcc, pp, 0, 1, 0, 0, c, f, g, h, k);
+    fsr_easu_set(&dirX, &dirY, &lenAcc, pp, 0, 0, 1, 0, f, i, j, k, n);
+    fsr_easu_set(&dirX, &dirY, &lenAcc, pp, 0, 0, 0, 1, g, j, k, l, o);
+
+    const float dirR = dirX * dirX + dirY * dirY;
+    const int zro = (dirR < (1.0f / 32768.0f));
+    const float invR = zro ? 1.0f : rsqrtf(dirR);
+    const float ndx = zro ? 1.0f : (dirX * invR);
+    const float ndy = zro ? 0.0f : (dirY * invR);
+
+    float len = lenAcc * 0.5f;
+    len *= len;
+    const float stretch_num = ndx * ndx + ndy * ndy;
+    const float stretch_den = fmaxf(fabsf(ndx), fabsf(ndy));
+    const float stretch = stretch_num * ((stretch_den > 0.0f) ? (1.0f / stretch_den) : 0.0f);
+    const float2 len2 = make_float2(1.0f + (stretch - 1.0f) * len, 1.0f - 0.5f * len);
+    const float lob = 0.5f + ((1.0f / 4.0f) - 0.04f - 0.5f) * len;
+    const float clp = (lob > 0.0f) ? (1.0f / lob) : 0.0f;
+
+    const float mn4 = fminf(fminf(fminf(f, g), j), k);
+    const float mx4 = fmaxf(fmaxf(fmaxf(f, g), j), k);
+
+    const float2 dir = make_float2(ndx, ndy);
+    float aC = 0.0f, aW = 0.0f;
+    fsr_easu_tap(&aC, &aW, make_float2( 0.0f - pp.x, -1.0f - pp.y), dir, len2, lob, clp, b);
+    fsr_easu_tap(&aC, &aW, make_float2( 1.0f - pp.x, -1.0f - pp.y), dir, len2, lob, clp, c);
+    fsr_easu_tap(&aC, &aW, make_float2(-1.0f - pp.x,  1.0f - pp.y), dir, len2, lob, clp, i);
+    fsr_easu_tap(&aC, &aW, make_float2( 0.0f - pp.x,  1.0f - pp.y), dir, len2, lob, clp, j);
+    fsr_easu_tap(&aC, &aW, make_float2( 0.0f - pp.x,  0.0f - pp.y), dir, len2, lob, clp, f);
+    fsr_easu_tap(&aC, &aW, make_float2(-1.0f - pp.x,  0.0f - pp.y), dir, len2, lob, clp, e);
+    fsr_easu_tap(&aC, &aW, make_float2( 1.0f - pp.x,  1.0f - pp.y), dir, len2, lob, clp, k);
+    fsr_easu_tap(&aC, &aW, make_float2( 2.0f - pp.x,  1.0f - pp.y), dir, len2, lob, clp, l);
+    fsr_easu_tap(&aC, &aW, make_float2( 2.0f - pp.x,  0.0f - pp.y), dir, len2, lob, clp, h);
+    fsr_easu_tap(&aC, &aW, make_float2( 1.0f - pp.x,  0.0f - pp.y), dir, len2, lob, clp, g);
+    fsr_easu_tap(&aC, &aW, make_float2( 1.0f - pp.x,  2.0f - pp.y), dir, len2, lob, clp, o);
+    fsr_easu_tap(&aC, &aW, make_float2( 0.0f - pp.x,  2.0f - pp.y), dir, len2, lob, clp, n);
+
+    const float pix = (aW > 0.0f) ? (aC * (1.0f / aW)) : f;
+    const float dered = fminf(mx4, fmaxf(mn4, pix));
+    const float clamped = fsr_clamp(dered, 0.0f, 1.0f);
+    auto ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+    ptr[0] = (Type)(clamped * (float)((1 << bit_depth) - 1));
+}
+
+template<typename Type, int bit_depth>
+__global__ void kernel_fsr1_rcas(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrc, const int srcPitch, const float con0_sharp) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= dstWidth || iy >= dstHeight) {
+        return;
+    }
+
+    const float bV = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, ix,     iy - 1, dstWidth, dstHeight);
+    const float dV = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, ix - 1, iy,     dstWidth, dstHeight);
+    const float eV = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, ix,     iy,     dstWidth, dstHeight);
+    const float fV = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, ix + 1, iy,     dstWidth, dstHeight);
+    const float hV = fsr_load_norm<Type, bit_depth>(pSrc, srcPitch, ix,     iy + 1, dstWidth, dstHeight);
+
+    const float mn4 = fminf(fminf(fminf(bV, dV), fV), hV);
+    const float mx4 = fmaxf(fmaxf(fmaxf(bV, dV), fV), hV);
+
+    const float rcpMx4 = (mx4 > 0.0f) ? (1.0f / (4.0f * mx4)) : 0.0f;
+    const float rcpMn4 = 1.0f / (4.0f * mn4 - 4.0f);
+    const float hitMin = fminf(mn4, eV) * rcpMx4;
+    const float hitMax = (1.0f - fmaxf(mx4, eV)) * rcpMn4;
+    float lobe = fmaxf(-hitMin, hitMax);
+    lobe = fmaxf(-FSR_RCAS_LIMIT, fminf(lobe, 0.0f)) * con0_sharp;
+
+    const float rcpL = 1.0f / (4.0f * lobe + 1.0f);
+    const float pix = (lobe * (bV + dV + fV + hV) + eV) * rcpL;
+
+    const float result = fsr_clamp(pix, 0.0f, 1.0f);
+    auto ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+    ptr[0] = (Type)(result * (float)((1 << bit_depth) - 1));
+}
+
+template<typename Type, int bit_depth>
+static RGY_ERR resize_fsr1_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYFrameInfo *pMidPlane, const float sharpness, cudaStream_t stream) {
+    const float ratioInvX = (float)pInputPlane->width / (float)pOutputPlane->width;
+    const float ratioInvY = (float)pInputPlane->height / (float)pOutputPlane->height;
+    const float offsetX = 0.5f * ratioInvX - 0.5f;
+    const float offsetY = 0.5f * ratioInvY - 0.5f;
+    const float sharpness_user = clamp(sharpness, 0.0f, 1.0f);
+    const float stops = (1.0f - sharpness_user) * 4.0f;
+    const float con0_sharp = exp2f(-stops);
+
+    dim3 blockSize(RESIZE_BLOCK_X, RESIZE_BLOCK_Y);
+    dim3 gridSize(divCeil(pOutputPlane->width, blockSize.x), divCeil(pOutputPlane->height, blockSize.y));
+    kernel_fsr1_easu<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(
+        (uint8_t *)pMidPlane->ptr[0], pMidPlane->pitch[0], pMidPlane->width, pMidPlane->height,
+        (const uint8_t *)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
+        ratioInvX, ratioInvY, offsetX, offsetY);
+    auto cudaerr = cudaGetLastError();
+    if (cudaerr != cudaSuccess) {
+        return err_to_rgy(cudaerr);
+    }
+
+    kernel_fsr1_rcas<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(
+        (uint8_t *)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
+        (const uint8_t *)pMidPlane->ptr[0], pMidPlane->pitch[0],
+        con0_sharp);
+    cudaerr = cudaGetLastError();
+    if (cudaerr != cudaSuccess) {
+        return err_to_rgy(cudaerr);
+    }
+    return RGY_ERR_NONE;
+}
+
+template<typename Type, int bit_depth>
+static RGY_ERR resize_fsr1_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYFrameInfo *pMidFrame, const float sharpness, cudaStream_t stream) {
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+        const auto plane = (RGY_PLANE)iplane;
+        const auto planeSrc = getPlane(pInputFrame, plane);
+        auto planeMid = getPlane(pMidFrame, plane);
+        auto planeOutput = getPlane(pOutputFrame, plane);
+        auto sts = resize_fsr1_plane<Type, bit_depth>(&planeOutput, &planeSrc, &planeMid, sharpness, stream);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
 static bool useTextureBilinear(const RGY_VPP_RESIZE_ALGO interp, const RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
     return interp == RGY_VPP_RESIZE_NEAREST
        || (interp == RGY_VPP_RESIZE_BILINEAR
@@ -652,6 +874,7 @@ NVEncFilterResize::NVEncFilterResize() :
     m_bInterlacedWarn(false),
     m_weightSpline(),
     m_weightSplineAlgo(RGY_VPP_RESIZE_UNKNOWN),
+    m_fsr1Easu(),
     m_nvvfxSuperRes(),
     m_ngxVSR(),
     m_libplaceboResample() {
@@ -847,6 +1070,20 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         pResizeParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
+    if (resizeInterp == RGY_VPP_RESIZE_FSR1) {
+        if (!m_fsr1Easu || cmpFrameInfoCspResolution(&m_fsr1Easu->frame, &pResizeParam->frameOut)) {
+            m_fsr1Easu.reset(new CUFrameBuf(pResizeParam->frameOut));
+            m_fsr1Easu->releasePtr();
+            sts = m_fsr1Easu->alloc();
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate FSR intermediate buffer: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+        }
+    } else {
+        m_fsr1Easu.reset();
+    }
+
     if ((!m_weightSpline || m_weightSplineAlgo != resizeInterp)
         && (resizeInterp == RGY_VPP_RESIZE_SPLINE16 || resizeInterp == RGY_VPP_RESIZE_SPLINE36 || resizeInterp == RGY_VPP_RESIZE_SPLINE64)) {
         static const auto SPLINE16_WEIGHT = std::vector<float>{
@@ -942,6 +1179,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 NVEncFilterParamResize::NVEncFilterParamResize() :
     interp(RGY_VPP_RESIZE_SPLINE36),
     nvvfxSubAlgo(RGY_VPP_RESIZE_SPLINE36),
+    fsr1(),
     nvvfxSuperRes(),
     ngxvsr(),
     libplaceboResample() {
@@ -971,6 +1209,9 @@ tstring NVEncFilterParamResize::print() const {
     if (libplaceboResample) {
         str += _T("\n                 ");
         str += libplaceboResample->print();
+    } else if (interp == RGY_VPP_RESIZE_FSR1) {
+        str += _T("\n                 ");
+        str += fsr1.print();
     }
     return str;
 }
@@ -1067,7 +1308,19 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
                 AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            sts = resize_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], pInputFrame, resizeInterp, (m_weightSpline) ? (float *)m_weightSpline->ptr : nullptr, stream);
+            if (resizeInterp == RGY_VPP_RESIZE_FSR1) {
+                if (!m_fsr1Easu) {
+                    AddMessage(RGY_LOG_ERROR, _T("FSR intermediate buffer is not allocated.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
+                static const std::map<RGY_DATA_TYPE, decltype(resize_fsr1_frame<uint8_t, 8>)*> resize_fsr1_list = {
+                    { RGY_DATA_TYPE_U8,  resize_fsr1_frame<uint8_t,   8> },
+                    { RGY_DATA_TYPE_U16, resize_fsr1_frame<uint16_t, 16> }
+                };
+                sts = resize_fsr1_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], pInputFrame, &m_fsr1Easu->frame, pResizeParam->fsr1.sharpness, stream);
+            } else {
+                sts = resize_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], pInputFrame, resizeInterp, (m_weightSpline) ? (float *)m_weightSpline->ptr : nullptr, stream);
+            }
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
                     RGY_CSP_NAMES[pInputFrame->csp],
@@ -1109,5 +1362,6 @@ void NVEncFilterResize::close() {
     m_libplaceboResample.reset();
     m_weightSpline.reset();
     m_weightSplineAlgo = RGY_VPP_RESIZE_UNKNOWN;
+    m_fsr1Easu.reset();
     m_bInterlacedWarn = false;
 }

@@ -330,6 +330,22 @@ tstring VppLibplaceboResample::print() const {
     return str;
 }
 
+VppResizeFsr1::VppResizeFsr1() :
+    sharpness(FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS) {
+}
+
+bool VppResizeFsr1::operator==(const VppResizeFsr1 &x) const {
+    return sharpness == x.sharpness;
+}
+
+bool VppResizeFsr1::operator!=(const VppResizeFsr1 &x) const {
+    return !(*this == x);
+}
+
+tstring VppResizeFsr1::print() const {
+    return strsprintf(_T("sharpness=%.2f"), sharpness);
+}
+
 VppLibplaceboDeband::VppLibplaceboDeband() :
     enable(false),
     iterations(FILTER_DEFAULT_LIBPLACEBO_DEBAND_ITERATIONS),
@@ -3320,6 +3336,8 @@ RGYParamVpp::RGYParamVpp() :
     resize_algo(RGY_VPP_RESIZE_AUTO),
     resize_mode(RGY_VPP_RESIZE_MODE_DEFAULT),
     deintCsp(VppDeintCsp::Input),
+    resize_libplacebo(),
+    resize_fsr1(),
     colorspace(),
     libplacebo_tonemapping(),
     delogo(),
@@ -3390,6 +3408,8 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
     return resize_algo == x.resize_algo
         && resize_mode == x.resize_mode
         && deintCsp == x.deintCsp
+        && resize_libplacebo == x.resize_libplacebo
+        && resize_fsr1 == x.resize_fsr1
         && colorspace == x.colorspace
         && libplacebo_tonemapping == x.libplacebo_tonemapping
         && delogo == x.delogo

@@ -3229,6 +3229,12 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
       | lanczos2      | 4x4 lanczos補間                            |
       | lanczos3      | 6x6 lanczos補間                            |
       | lanczos4      | 8x8 lanczos補間                            |
+      | fsr1          | AMD FidelityFX Super Resolution 1.0 (EASU + RCAS) |
+
+      - fsr1 の追加パラメータ
+
+        - sharpness=&lt;float&gt;
+          RCASのシャープネス。(0.0 - 1.0、デフォルト = 0.5)
 
     - nppライブラリのリサイズフィルタ
  
@@ -3347,6 +3353,9 @@ nppc64_11.dll, nppif64_11.dll, nppig64_11.dllをNVEncC64と同じフォルダに
 
   例: libplaceboのリサイズフィルタを使用する
   --vpp-resize algo=libplacebo-sinc,pl-radius=3.0,pl-antiring=0.5
+
+  例: fsr1を使用する
+  --vpp-resize algo=fsr1,sharpness=0.8
   ```
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
