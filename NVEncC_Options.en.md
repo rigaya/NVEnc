@@ -240,6 +240,7 @@
   - [--vpp-libplacebo-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-shader-param1value1param2value2)
   - [--vpp-resize \<string\> or \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-resize-string-or-param1value1param2value2)
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
+  - [--vpp-vinverse \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-vinverse-param1value1param2value2)
   - [--vpp-chromashift \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-chromashift-param1value1param2value2)
   - [--vpp-deblock \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deblock-param1value1param2value2)
   - [--vpp-deflicker \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-deflicker-param1value1param2value2)
@@ -1847,6 +1848,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-libplacebo-shader](#--vpp-libplacebo-shader-param1value1param2value2)
 - [--vpp-resize](#--vpp-resize-string-or-param1value1param2value2)
 - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
+- [--vpp-vinverse](#--vpp-vinverse-param1value1param2value2)
 - [--vpp-chromashift](#--vpp-chromashift-param1value1param2value2)
 - [--vpp-deblock](#--vpp-deblock-param1value1param2value2)
 - [--vpp-deflicker](#--vpp-deflicker-param1value1param2value2)
@@ -3282,6 +3284,34 @@ unsharp filter, for edge and detail enhancement.
   ```
   Example: Somewhat stronger
   --vpp-unsharp weight=1.0
+  ```
+
+### --vpp-vinverse [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Removes residual combing left after deinterlace.
+
+- **Parameters**
+  - mode=&lt;vinverse|vinverse2&gt; (default=vinverse)
+    Filter mode.
+
+  - sstr=&lt;float&gt; (default=2.7, 0.0 - 8.0)
+    Strength of the contra reference.
+
+  - amnt=&lt;float&gt; (default=255.0, 0.0 - 255.0)
+    Maximum per-pixel delta in 8-bit scale. 255.0 disables the cap.
+
+  - scl=&lt;float&gt; (default=0.25, 0.0 - 4.0)
+    Soft clip scale used when residual and reference difference have opposite signs.
+
+  - thr=&lt;float&gt; (default=0.0, 0.0 - 255.0)
+    Residual threshold in 8-bit scale. Pixels below this threshold are left unchanged.
+
+  - chroma=&lt;bool&gt; (default=true)
+    Process chroma planes.
+
+- examples
+  ```
+  --vpp-vinverse
+  --vpp-vinverse mode=vinverse2,sstr=2.0,amnt=160,thr=4,chroma=false
   ```
 
 ### --vpp-chromashift [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

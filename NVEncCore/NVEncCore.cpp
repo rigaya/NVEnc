@@ -97,6 +97,7 @@
 #include "NVEncFilterIvtc.h"
 #include "NVEncFilterRff.h"
 #include "NVEncFilterUnsharp.h"
+#include "NVEncFilterVinverse.h"
 #include "NVEncFilterChromaShift.h"
 #include "NVEncFilterDeblock.h"
 #include "NVEncFilterDeflicker.h"
@@ -1652,6 +1653,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
         && !(  inputParam->vpp.delogo.enable
             || inputParam->vppnv.gaussMaskSize > 0
             || inputParam->vpp.unsharp.enable
+            || inputParam->vpp.vinverse.enable
             || inputParam->vpp.convolution3d.enable
             || inputParam->vpp.knn.enable
             || inputParam->vpp.nlmeans.enable
@@ -2964,6 +2966,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.libplacebo_shader.size() > 0)  filterPipeline.push_back(VppType::CL_LIBPLACEBO_SHADER);
     if (resizeRequired != RGY_VPP_RESIZE_TYPE_NONE) filterPipeline.push_back(VppType::CL_RESIZE);
     if (inputParam->vpp.unsharp.enable)    filterPipeline.push_back(VppType::CL_UNSHARP);
+    if (inputParam->vpp.vinverse.enable)   filterPipeline.push_back(VppType::CL_VINVERSE);
     if (inputParam->vpp.chromashift.enable) filterPipeline.push_back(VppType::CL_CHROMASHIFT);
     if (inputParam->vpp.deblock.enable)    filterPipeline.push_back(VppType::CL_DEBLOCK);
     if (inputParam->vpp.deflicker.enable)  filterPipeline.push_back(VppType::CL_DEFLICKER);
@@ -4380,6 +4383,29 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         }
         //フィルタチェーンに追加
         cufilters.push_back(std::move(filterUnsharp));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //vinverse
+    if (vppType == VppType::CL_VINVERSE) {
+        unique_ptr<NVEncFilter> filterVinverse(new NVEncFilterVinverse());
+        shared_ptr<NVEncFilterParamVinverse> param(new NVEncFilterParamVinverse());
+        param->vinverse = inputParam->vpp.vinverse;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filterVinverse->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filterVinverse));
         //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新
