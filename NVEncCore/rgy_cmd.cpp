@@ -7493,6 +7493,56 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-cas") && ENABLE_VPP_FILTER_CAS) {
+        vpp->cas.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "sharpness", "hdr" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->cas.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sharpness")) {
+                    try {
+                        vpp->cas.sharpness = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("hdr")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->cas.hdr = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-warpsharp") && ENABLE_VPP_FILTER_WARPSHARP) {
         vpp->warpsharp.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -12837,6 +12887,21 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-msharpen");
         }
     }
+    if (param->cas != defaultPrm->cas) {
+        tmp.str(tstring());
+        if (!param->cas.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->cas.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("sharpness"), cas.sharpness, 3);
+            ADD_BOOL(_T("hdr"), cas.hdr);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-cas ") << tmp.str().substr(1);
+        } else if (param->cas.enable) {
+            cmd << _T(" --vpp-cas");
+        }
+    }
     if (param->warpsharp != defaultPrm->warpsharp) {
         tmp.str(tstring());
         if (!param->warpsharp.enable && save_disabled_prm) {
@@ -15139,6 +15204,16 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_MSHARPEN_BLOCK_PROTECT,
         FILTER_DEFAULT_MSHARPEN_HIGHQ ? _T("true") : _T("false"),
         FILTER_DEFAULT_MSHARPEN_MASK  ? _T("true") : _T("false"));
+#endif
+#if ENABLE_VPP_FILTER_CAS
+    str += strsprintf(_T("\n")
+        _T("   --vpp-cas [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     luma-only Contrast Adaptive Sharpening filter.\n")
+        _T("    params\n")
+        _T("      sharpness=<float>         sharpening strength (default=%.2f, 0.0 - 1.0)\n")
+        _T("      hdr=<bool>                skip SDR gamma 2.0 luma approximation (default=%s)\n"),
+        FILTER_DEFAULT_CAS_SHARPNESS,
+        FILTER_DEFAULT_CAS_HDR ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_WARPSHARP
     str += strsprintf(_T("\n")
