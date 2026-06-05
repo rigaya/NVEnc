@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 //
@@ -49,9 +49,6 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 private:
-    RGY_ERR procPlaneBlur(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
-    RGY_ERR procPlaneSharpen(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const RGYFrameInfo *pBlurFrame,
-        float threshold, float strength, bool highq, bool mask, cudaStream_t stream);
+    RGY_ERR procPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_PLANE plane, cudaStream_t stream);
     RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
-    std::vector<std::unique_ptr<CUFrameBuf>> m_blur;
 };

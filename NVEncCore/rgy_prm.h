@@ -508,6 +508,9 @@ static const TCHAR *FILTER_DEFAULT_HQDERING_EDGE = _T("log");
 
 static const float FILTER_DEFAULT_MSHARPEN_STRENGTH = 1.0f;
 static const float FILTER_DEFAULT_MSHARPEN_THRESHOLD = 15.0f;
+static const float FILTER_DEFAULT_MSHARPEN_SLOPE = 0.0f;
+static const float FILTER_DEFAULT_MSHARPEN_LUMA_LIMIT = 0.0f;
+static const float FILTER_DEFAULT_MSHARPEN_BLOCK_PROTECT = 0.0f;
 static const bool  FILTER_DEFAULT_MSHARPEN_HIGHQ = true;
 static const bool  FILTER_DEFAULT_MSHARPEN_MASK = false;
 
@@ -2536,6 +2539,9 @@ struct VppMsharpen {
     bool  enable;
     float strength;
     float threshold;
+    float slope;
+    float luma_limit;
+    float block_protect;
     bool  highq;
     bool  mask;
 

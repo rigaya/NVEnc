@@ -2164,6 +2164,9 @@ VppMsharpen::VppMsharpen() :
     enable(false),
     strength(FILTER_DEFAULT_MSHARPEN_STRENGTH),
     threshold(FILTER_DEFAULT_MSHARPEN_THRESHOLD),
+    slope(FILTER_DEFAULT_MSHARPEN_SLOPE),
+    luma_limit(FILTER_DEFAULT_MSHARPEN_LUMA_LIMIT),
+    block_protect(FILTER_DEFAULT_MSHARPEN_BLOCK_PROTECT),
     highq(FILTER_DEFAULT_MSHARPEN_HIGHQ),
     mask(FILTER_DEFAULT_MSHARPEN_MASK) {
 }
@@ -2172,6 +2175,9 @@ bool VppMsharpen::operator==(const VppMsharpen &x) const {
     return enable == x.enable
         && strength == x.strength
         && threshold == x.threshold
+        && slope == x.slope
+        && luma_limit == x.luma_limit
+        && block_protect == x.block_protect
         && highq == x.highq
         && mask == x.mask;
 }
@@ -2180,8 +2186,8 @@ bool VppMsharpen::operator!=(const VppMsharpen &x) const {
 }
 
 tstring VppMsharpen::print() const {
-    return strsprintf(_T("msharpen: strength %.2f, threshold %.1f, highq %s, mask %s"),
-        strength, threshold, highq ? _T("true") : _T("false"), mask ? _T("true") : _T("false"));
+    return strsprintf(_T("msharpen: strength %.2f, threshold %.1f, slope %.3f, luma_limit %.1f, block_protect %.3f, highq %s, mask %s"),
+        strength, threshold, slope, luma_limit, block_protect, highq ? _T("true") : _T("false"), mask ? _T("true") : _T("false"));
 }
 
 VppWarpsharp::VppWarpsharp() :
