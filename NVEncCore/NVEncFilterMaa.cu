@@ -649,7 +649,7 @@ RGY_ERR NVEncFilterMaa::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     else if (prm->maa.edge == _T("laplacian"))  m_edgeMode = MAA_EDGE_LAPLACIAN;
 
     prm->frameOut.picstruct = prm->frameIn.picstruct;
-    sts = AllocFrameBuf(prm->frameOut, 1);
+    sts = AllocFrameBuf(prm->frameOut, 4);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate output buffer: %s.\n"), get_err_mes(sts));
         return RGY_ERR_MEMORY_ALLOC;
