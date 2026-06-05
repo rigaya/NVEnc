@@ -2808,10 +2808,13 @@ Edge-preserving smoothing filter.
   - strength=&lt;int&gt;  (default=3, 0 - 20)  
     Strength of smoothing (number of iterations).
   
-  - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
+  - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)
     Threshold for edge detection.
-  
-  - highq=&lt;bool&gt;  (default=true)  
+
+  - threshold_c=&lt;float&gt;  (default=-1.0, -1.0 / 0.0 - 255.0)
+    Edge detection threshold for chroma planes. -1.0 uses the same value as threshold.
+
+  - highq=&lt;bool&gt;  (default=true)
     High quality mode. Increases the number of edge detection points.
   
   - mask=&lt;bool&gt;  (default=false)  
@@ -2819,7 +2822,7 @@ Edge-preserving smoothing filter.
   
 - Examples
   ```
-  --vpp-msmooth strength=3,threshold=15.0
+  --vpp-msmooth strength=3,threshold=15.0,threshold_c=18.0
   ```
 
 ### --vpp-denoise-dct [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
