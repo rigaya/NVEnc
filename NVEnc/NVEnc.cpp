@@ -611,6 +611,7 @@ void get_aviutl_ini_file(char(&ini_file)[size]) {
 }
 
 void overwrite_aviutl_ini_file_filter(int idx) {
+    if (is_aviutl2()) return; // AviUtl2では不要
     char ini_file[1024];
     get_aviutl_ini_file(ini_file);
 
