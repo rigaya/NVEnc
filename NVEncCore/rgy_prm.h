@@ -74,6 +74,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV  || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_DETAILSHARPEN (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CURVES       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -178,6 +179,7 @@ enum class VppType : int {
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
+    CL_DETAILSHARPEN,
 
     CL_CURVES,
     CL_TWEAK,
@@ -458,6 +460,13 @@ static const int   FILTER_DEFAULT_WARPSHARP_BLUR = 2;
 static const int   FILTER_DEFAULT_WARPSHARP_TYPE = 0;
 static const float FILTER_DEFAULT_WARPSHARP_DEPTH = 16.0f;
 static const int   FILTER_DEFAULT_WARPSHARP_CHROMA = 0;
+
+static const float FILTER_DEFAULT_DETAILSHARPEN_Z = 4.0f;
+static const float FILTER_DEFAULT_DETAILSHARPEN_SSTR = 1.5f;
+static const float FILTER_DEFAULT_DETAILSHARPEN_POWER = 4.0f;
+static const float FILTER_DEFAULT_DETAILSHARPEN_LDMP = 1.0f;
+static const int   FILTER_DEFAULT_DETAILSHARPEN_MODE = 1;
+static const bool  FILTER_DEFAULT_DETAILSHARPEN_MED = false;
 
 static const int   FILTER_DEFAULT_DEBAND_RANGE = 15;
 static const int   FILTER_DEFAULT_DEBAND_THRE_Y = 15;
@@ -2290,6 +2299,21 @@ struct VppWarpsharp {
     tstring print() const;
 };
 
+struct VppDetailSharpen {
+    bool  enable;
+    float z;
+    float sstr;
+    float power;
+    float ldmp;
+    int   mode;
+    bool  med;
+
+    VppDetailSharpen();
+    bool operator==(const VppDetailSharpen &x) const;
+    bool operator!=(const VppDetailSharpen &x) const;
+    tstring print() const;
+};
+
 struct VppTweakChannel {
     float offset;
     float gain;
@@ -2498,6 +2522,7 @@ struct RGYParamVpp {
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;
+    VppDetailSharpen detailsharpen;
     VppCurves curves;
     VppTweak tweak;
     VppTransform transform;

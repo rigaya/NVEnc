@@ -97,6 +97,7 @@
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterMsharpen.h"
 #include "NVEncFilterWarpsharp.h"
+#include "NVEncFilterDetailSharpen.h"
 #include "NVEncFilterCurves.h"
 #include "NVEncFilterTweak.h"
 #include "NVEncFilterTransform.h"
@@ -1654,6 +1655,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) const {
             || inputParam->vpp.edgelevel.enable
             || inputParam->vpp.msharpen.enable
             || inputParam->vpp.warpsharp.enable
+            || inputParam->vpp.detailsharpen.enable
             || inputParam->vpp.afs.enable
             || inputParam->vpp.nnedi.enable
             || inputParam->vpp.yadif.enable
@@ -2923,6 +2925,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
     if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
+    if (inputParam->vpp.detailsharpen.enable) filterPipeline.push_back(VppType::CL_DETAILSHARPEN);
     if (inputParam->vpp.curves.enable)     filterPipeline.push_back(VppType::CL_CURVES);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vpp.deband.enable)     filterPipeline.push_back(VppType::CL_DEBAND);
@@ -4109,6 +4112,29 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         }
         //フィルタチェーンに追加
         cufilters.push_back(std::move(filterWarpsharp));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    //detailsharpen
+    if (vppType == VppType::CL_DETAILSHARPEN) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterDetailSharpen());
+        shared_ptr<NVEncFilterParamDetailSharpen> param(new NVEncFilterParamDetailSharpen());
+        param->detailsharpen = inputParam->vpp.detailsharpen;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
         //パラメータ情報を更新
         m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
         //入力フレーム情報を更新

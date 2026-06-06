@@ -233,6 +233,7 @@
   - [--vpp-unsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-unsharp-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-msharpen-param1value1param2value2)
+  - [--vpp-detailsharpen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-detailsharpen-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-warpsharp-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-tweak-param1value1param2value2)
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
@@ -1818,6 +1819,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-resize](#--vpp-resize-string-or-param1value1param2value2)
 - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
 - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
+- [--vpp-detailsharpen](#--vpp-detailsharpen-param1value1param2value2)
 - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
 - [--vpp-curves](#--vpp-curves-param1value1param2value2)
 - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
@@ -3116,6 +3118,37 @@ Dynamic edge-based sharpening filter. Sharpens only around edges.
 - Examples
   ```
   --vpp-msharpen strength=1.0,threshold=15.0
+  ```
+
+### --vpp-detailsharpen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Sharpening filter for fine detail enhancement. It boosts texture and low-amplitude detail while suppressing strong enhancement on large edges.
+
+- **Parameters**
+  - z=&lt;float&gt;  (default=4.0, 0.001 - 64.0)
+    Zero point. Larger values treat smaller luminance differences more weakly.
+
+  - sstr=&lt;float&gt;  (default=1.5, 0.0 - 16.0)
+    Strength of enhancement. Larger values boost details more strongly.
+
+  - power=&lt;float&gt;  (default=4.0, 1.0 - 16.0)
+    Exponent for nonlinear enhancement. Larger values prioritize mid-amplitude detail.
+
+  - ldmp=&lt;float&gt;  (default=1.0, 0.0 - 1000.0)
+    Low-amplitude damping. Larger values suppress tiny changes close to noise.
+
+  - mode=&lt;int&gt;  (default=1, 0 - 1)
+    Blur type. 0 uses 3x3 Gauss, and 1 uses 3x3 Box.
+
+  - med=&lt;bool&gt;  (default=false)
+    Apply an additional 3x3 median to the blurred image.
+
+- Examples
+  ```
+  Example: default
+  --vpp-detailsharpen
+
+  Example: using gauss blur and median with slightly stronger enhancement
+  --vpp-detailsharpen z=3,sstr=2.0,power=3,mode=0,med=true
   ```
 
 ### --vpp-warpsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
