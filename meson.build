@@ -728,6 +728,8 @@ common_cpp_args = [
   '-D__STDC_CONSTANT_MACROS',
   '-DLINUX64',
   '-Wno-unknown-pragmas',
+  '-Wno-unused-function',
+  '-Wno-attributes',
   '-Wno-unused',
   '-Wno-missing-braces',
 ]
@@ -967,6 +969,8 @@ simd_libs = [
 # ==============================================================================
 cuda_args = gpu_code_gen + [
   '-Wno-deprecated-gpu-targets',
+  '-diag-suppress=108',
+  '-Xcompiler=-Wno-unknown-pragmas,-Wno-unused-function',
   '--cudart=static',
   '-std=c++17',
 ]
@@ -1042,6 +1046,7 @@ executable('nvencc',
   [resource_nnedi3, resource_colorspace, resource_perfmon],
   cpp_args: common_cpp_args,
   cuda_args: cuda_args,
+  link_args: ['-Wno-deprecated-gpu-targets'],
   include_directories: common_include_dirs,
   dependencies: all_deps,
   link_with: simd_libs,

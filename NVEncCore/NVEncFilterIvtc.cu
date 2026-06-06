@@ -45,16 +45,32 @@ static const int IVTC_BLOCK_Y = 8;
 #define IVTC_W3F_HF1   3801
 #define IVTC_W3F_HF2   1016
 
+struct IvtcFramePlane {
+    uint8_t *ptr;
+    int pitch;
+    int width;
+    int height;
+};
+
+static inline IvtcFramePlane ivtc_frame_plane(const RGYFrameInfo& frame) {
+    IvtcFramePlane plane = {};
+    plane.ptr = (uint8_t *)frame.ptr[0];
+    plane.pitch = frame.pitch[0];
+    plane.width = frame.width;
+    plane.height = frame.height;
+    return plane;
+}
+
 template<typename TypePixel>
-__device__ __forceinline__ int ivtc_read_pix(const RGYFrameInfo frame, int x, int y) {
+__device__ __forceinline__ int ivtc_read_pix(const IvtcFramePlane& frame, int x, int y) {
     x = clamp(x, 0, frame.width - 1);
     y = clamp(y, 0, frame.height - 1);
-    const auto ptr = (const TypePixel *)((const uint8_t *)frame.ptr[0] + y * frame.pitch[0] + x * sizeof(TypePixel));
+    const auto ptr = (const TypePixel *)(frame.ptr + y * frame.pitch + x * sizeof(TypePixel));
     return (int)ptr[0];
 }
 
 template<typename TypePixel>
-__device__ __forceinline__ int ivtc_read_pix_same_parity(const RGYFrameInfo frame, int x, int y) {
+__device__ __forceinline__ int ivtc_read_pix_same_parity(const IvtcFramePlane& frame, int x, int y) {
     const int up = ivtc_read_pix<TypePixel>(frame, x, y - 1);
     const int dn = ivtc_read_pix<TypePixel>(frame, x, y + 1);
     return (up + dn + 1) >> 1;
@@ -62,32 +78,32 @@ __device__ __forceinline__ int ivtc_read_pix_same_parity(const RGYFrameInfo fram
 
 template<typename TypePixel>
 __device__ __forceinline__ int ivtc_pix_match(
-    const RGYFrameInfo prev, const RGYFrameInfo cur, const RGYFrameInfo next,
+    const IvtcFramePlane& prev, const IvtcFramePlane& cur, const IvtcFramePlane& next,
     int x, int y, const int tff, const int match) {
     x = clamp(x, 0, cur.width - 1);
     y = clamp(y, 0, cur.height - 1);
     const int is_first_field_row = (y & 1) == (tff ? 0 : 1);
-    const RGYFrameInfo src = (match == 1) ? (is_first_field_row ? cur : prev)
-                           : (match == 2) ? (is_first_field_row ? next : cur)
-                           : cur;
-    return ivtc_read_pix<TypePixel>(src, x, y);
+    const IvtcFramePlane *src = (match == 1) ? (is_first_field_row ? &cur : &prev)
+                              : (match == 2) ? (is_first_field_row ? &next : &cur)
+                              : &cur;
+    return ivtc_read_pix<TypePixel>(*src, x, y);
 }
 
 template<typename TypePixel, int bit_depth>
-__global__ void kernel_ivtc_field_overlay(RGYFrameInfo dst, const RGYFrameInfo src, const int tff) {
+__global__ void kernel_ivtc_field_overlay(IvtcFramePlane dst, const IvtcFramePlane src, const int tff) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= dst.width || iy >= dst.height) return;
     const int targetParity = tff ? 1 : 0;
     if ((iy & 1) == targetParity) {
-        auto dstPix = (TypePixel *)((uint8_t *)dst.ptr[0] + iy * dst.pitch[0] + ix * sizeof(TypePixel));
+        auto dstPix = (TypePixel *)(dst.ptr + iy * dst.pitch + ix * sizeof(TypePixel));
         dstPix[0] = (TypePixel)ivtc_read_pix<TypePixel>(src, ix, iy);
     }
 }
 
 template<typename TypePixel, int bit_depth>
 __global__ void kernel_ivtc_score_candidates(
-    const RGYFrameInfo prev, const RGYFrameInfo cur, const RGYFrameInfo next,
+    const IvtcFramePlane prev, const IvtcFramePlane cur, const IvtcFramePlane next,
     const int tff, const int nt, const int T, const int y0, const int y1, uint32_t *scores) {
     const int thx = threadIdx.x;
     const int thy = threadIdx.y;
@@ -155,7 +171,7 @@ __global__ void kernel_ivtc_score_candidates(
 }
 
 template<typename TypePixel, int bit_depth>
-__global__ void kernel_ivtc_frame_diff(const RGYFrameInfo a, const RGYFrameInfo b, uint32_t *diffOut) {
+__global__ void kernel_ivtc_frame_diff(const IvtcFramePlane a, const IvtcFramePlane b, uint32_t *diffOut) {
     const int thx = threadIdx.x;
     const int thy = threadIdx.y;
     const int ix  = blockIdx.x * blockDim.x + thx;
@@ -182,7 +198,7 @@ __global__ void kernel_ivtc_frame_diff(const RGYFrameInfo a, const RGYFrameInfo 
 
 template<typename TypePixel, int bit_depth>
 __global__ void kernel_ivtc_synthesize(
-    RGYFrameInfo dst, const RGYFrameInfo prev, const RGYFrameInfo cur, const RGYFrameInfo next,
+    IvtcFramePlane dst, const IvtcFramePlane prev, const IvtcFramePlane cur, const IvtcFramePlane next,
     const int tff, const int match, const int apply_blend, const int dthresh) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -234,19 +250,19 @@ __global__ void kernel_ivtc_synthesize(
     } else {
         out_val = ivtc_pix_match<TypePixel>(prev, cur, next, ix, iy, tff, match);
     }
-    auto ptr = (TypePixel *)((uint8_t *)dst.ptr[0] + iy * dst.pitch[0] + ix * sizeof(TypePixel));
+    auto ptr = (TypePixel *)(dst.ptr + iy * dst.pitch + ix * sizeof(TypePixel));
     ptr[0] = (TypePixel)out_val;
 }
 
 template<typename TypePixel, int bit_depth>
 __global__ void kernel_ivtc_bwdif_deint(
-    RGYFrameInfo dst, const RGYFrameInfo prev2, const RGYFrameInfo prev, const RGYFrameInfo cur,
-    const RGYFrameInfo next, const RGYFrameInfo next2, const int tff, const int scene_change, const int dthresh) {
+    IvtcFramePlane dst, const IvtcFramePlane prev2, const IvtcFramePlane prev, const IvtcFramePlane cur,
+    const IvtcFramePlane next, const IvtcFramePlane next2, const int tff, const int scene_change, const int dthresh) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= dst.width || iy >= dst.height) return;
 
-    auto dstPix = (TypePixel *)((uint8_t *)dst.ptr[0] + iy * dst.pitch[0] + ix * sizeof(TypePixel));
+    auto dstPix = (TypePixel *)(dst.ptr + iy * dst.pitch + ix * sizeof(TypePixel));
     const int preservedParity = tff ? 0 : 1;
     const int needsInterp = ((iy & 1) != preservedParity);
     if (!needsInterp) {
@@ -359,7 +375,8 @@ template<typename TypePixel, int bit_depth>
 RGY_ERR run_ivtc_score_candidates_typed(const RGYFrameInfo *pPrev, const RGYFrameInfo *pCur, const RGYFrameInfo *pNext, int tff, int nt, int T, int y0, int y1, uint32_t *scoreDev, cudaStream_t stream) {
     const dim3 blockSize(IVTC_BLOCK_X, IVTC_BLOCK_Y);
     const dim3 gridSize(divCeil(pCur->width, blockSize.x), divCeil(pCur->height, blockSize.y));
-    kernel_ivtc_score_candidates<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pPrev, *pCur, *pNext, tff, nt, T, y0, y1, scoreDev);
+    kernel_ivtc_score_candidates<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(
+        ivtc_frame_plane(*pPrev), ivtc_frame_plane(*pCur), ivtc_frame_plane(*pNext), tff, nt, T, y0, y1, scoreDev);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -369,7 +386,7 @@ RGY_ERR run_ivtc_frame_diff_typed(const RGYFrameInfo *pA, const RGYFrameInfo *pB
     const auto planeB = getPlane(pB, RGY_PLANE_Y);
     const dim3 blockSize(IVTC_BLOCK_X, IVTC_BLOCK_Y);
     const dim3 gridSize(divCeil(planeA.width, blockSize.x), divCeil(planeA.height, blockSize.y));
-    kernel_ivtc_frame_diff<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(planeA, planeB, diffDev);
+    kernel_ivtc_frame_diff<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(ivtc_frame_plane(planeA), ivtc_frame_plane(planeB), diffDev);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -383,7 +400,9 @@ RGY_ERR run_ivtc_synthesize_frame_typed(RGYFrameInfo *pOutputFrame, const RGYFra
         const auto planeNext = getPlane(pNext, plane);
         const dim3 blockSize(IVTC_BLOCK_X, IVTC_BLOCK_Y);
         const dim3 gridSize(divCeil(planeOutput.width, blockSize.x), divCeil(planeOutput.height, blockSize.y));
-        kernel_ivtc_synthesize<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(planeOutput, planePrev, planeCur, planeNext, tff, match, applyBlend, dthresh);
+        kernel_ivtc_synthesize<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(
+            ivtc_frame_plane(planeOutput), ivtc_frame_plane(planePrev), ivtc_frame_plane(planeCur), ivtc_frame_plane(planeNext),
+            tff, match, applyBlend, dthresh);
         auto sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) return sts;
     }
@@ -402,7 +421,9 @@ RGY_ERR run_ivtc_bwdif_frame_typed(RGYFrameInfo *pOutputFrame, const RGYFrameInf
         const auto planeNext2 = getPlane(pNext2, plane);
         const dim3 blockSize(IVTC_BLOCK_X, IVTC_BLOCK_Y);
         const dim3 gridSize(divCeil(planeOutput.width, blockSize.x), divCeil(planeOutput.height, blockSize.y));
-        kernel_ivtc_bwdif_deint<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(planeOutput, planePrev2, planePrev, planeCur, planeNext, planeNext2, tff, sceneChange, dthresh);
+        kernel_ivtc_bwdif_deint<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(
+            ivtc_frame_plane(planeOutput), ivtc_frame_plane(planePrev2), ivtc_frame_plane(planePrev), ivtc_frame_plane(planeCur),
+            ivtc_frame_plane(planeNext), ivtc_frame_plane(planeNext2), tff, sceneChange, dthresh);
         auto sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) return sts;
     }
@@ -417,7 +438,7 @@ RGY_ERR run_ivtc_field_overlay_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSr
         const auto planeSrc = getPlane(pSrc, plane);
         const dim3 blockSize(IVTC_BLOCK_X, IVTC_BLOCK_Y);
         const dim3 gridSize(divCeil(planeDst.width, blockSize.x), divCeil(planeDst.height, blockSize.y));
-        kernel_ivtc_field_overlay<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(planeDst, planeSrc, tff);
+        kernel_ivtc_field_overlay<TypePixel, bit_depth><<<gridSize, blockSize, 0, stream>>>(ivtc_frame_plane(planeDst), ivtc_frame_plane(planeSrc), tff);
         auto sts = err_to_rgy(cudaGetLastError());
         if (sts != RGY_ERR_NONE) return sts;
     }

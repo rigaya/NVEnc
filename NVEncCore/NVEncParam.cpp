@@ -267,6 +267,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     aqStrength(),
     temporalFilterLevel(),
     tuningInfo(NV_ENC_TUNING_INFO_UNDEFINED),
+    temporalLayers(),
     h264(),
     hevc(),
     av1(),
@@ -278,7 +279,6 @@ InEncodeVideoParam::InEncodeVideoParam() :
     lossless(0),                 //ロスレス出力
     losslessIgnoreInputCsp(0),
     temporalSVC(false),
-    temporalLayers(),
     alphaBitrateRatio(0),
     alphaChannelMode(0),
     nWeightP(),

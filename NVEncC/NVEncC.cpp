@@ -71,8 +71,8 @@ static void show_device_list() {
     const bool skipHWDecodeCheck = false;
 
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceID, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevel)
-        && NV_ENC_SUCCESS == nvEnc.ShowDeviceList(cudaSchedule, skipHWDecodeCheck)) {
+    if (RGY_ERR_NONE == nvEnc.Initialize(deviceID, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevel)
+        && RGY_ERR_NONE == nvEnc.ShowDeviceList(cudaSchedule, skipHWDecodeCheck)) {
         return;
     }
 }
@@ -84,8 +84,8 @@ static int show_hw(int deviceid, const RGYParamLogLevel& loglevelPrint) {
     const bool skipHWDecodeCheck = false;
 
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
-        && NV_ENC_SUCCESS == nvEnc.ShowCodecSupport(cudaSchedule, skipHWDecodeCheck)) {
+    if (RGY_ERR_NONE == nvEnc.Initialize(deviceid, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
+        && RGY_ERR_NONE == nvEnc.ShowCodecSupport(cudaSchedule, skipHWDecodeCheck)) {
         return 0;
     }
     return 1;
@@ -104,8 +104,8 @@ static int show_nvenc_features(int deviceid, const RGYParamLogLevel& loglevelPri
     const bool skipHWDecodeCheck = false;
 
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceid, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
-        && NV_ENC_SUCCESS == nvEnc.ShowNVEncFeatures(cudaSchedule, skipHWDecodeCheck)) {
+    if (RGY_ERR_NONE == nvEnc.Initialize(deviceid, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
+        && RGY_ERR_NONE == nvEnc.ShowNVEncFeatures(cudaSchedule, skipHWDecodeCheck)) {
         return 0;
     }
     return 1;
@@ -152,8 +152,8 @@ static int show_nvenc_preset_tune_params(const InEncodeVideoParam& encPrm) {
     }
     
     NVEncCtrl nvEnc;
-    if (NV_ENC_SUCCESS == nvEnc.Initialize(deviceID, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
-        && NV_ENC_SUCCESS == nvEnc.ShowNVEncPresetTuneParams(cudaSchedule, skipHWDecodeCheck, encPrm.codec_rgy, profile, encPrm.preset, encPrm.tuningInfo)) {
+    if (RGY_ERR_NONE == nvEnc.Initialize(deviceID, ENABLE_VULKAN ? RGYParamInitVulkan::TargetVendor : RGYParamInitVulkan::Disable, loglevelPrint.get(RGY_LOGT_APP))
+        && RGY_ERR_NONE == nvEnc.ShowNVEncPresetTuneParams(cudaSchedule, skipHWDecodeCheck, encPrm.codec_rgy, profile, encPrm.preset, encPrm.tuningInfo)) {
         return 0;
     }
     return 1;
@@ -503,7 +503,7 @@ int _tmain(int argc, TCHAR **argv) {
         return 1;
     }
 
-    for (int i = 1; i < argvCopy.size()-1; i++) {
+    for (int i = 1; i < (int)argvCopy.size()-1; i++) {
         if (tstring(argvCopy[i]) == _T("--check-preset-params")) {
             return show_nvenc_preset_tune_params(encPrm);
         }
@@ -553,11 +553,11 @@ int _tmain(int argc, TCHAR **argv) {
     int ret = 1;
 
     NVEncCore nvEnc;
-    if (   NV_ENC_SUCCESS == nvEnc.Init(&encPrm)) {
+    if (   RGY_ERR_NONE == nvEnc.Init(&encPrm)) {
         nvEnc.SetAbortFlagPointer(&g_signal_abort);
         set_signal_handler();
         nvEnc.PrintEncodingParamsInfo(RGY_LOG_INFO);
-        ret = (NV_ENC_SUCCESS == nvEnc.Encode()) ? 0 : 1;
+        ret = (RGY_ERR_NONE == nvEnc.Encode()) ? 0 : 1;
     }
     return ret;
 }

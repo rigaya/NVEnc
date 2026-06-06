@@ -1601,7 +1601,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm, RGYDi
     #pragma warning(push)
     #pragma warning(disable: 4063) //C4063: case '16' は '_NV_ENC_PARAMS_RC_MODE' の switch の値として正しくありません。
     if (save_disabled_prm) {
-        switch (pParams->rcParam.rc_mode) {
+        switch ((int)pParams->rcParam.rc_mode) {
         case NV_ENC_PARAMS_RC_CBR:
         case NV_ENC_PARAMS_RC_CBR_HQ:
         case NV_ENC_PARAMS_RC_VBR:
@@ -1621,7 +1621,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, bool save_disabled_prm, RGYDi
         cmd << _T(" --vbr-quality ") << std::fixed << std::setprecision(2) << val;
     }
 
-    switch (pParams->rcParam.rc_mode) {
+    switch ((int)pParams->rcParam.rc_mode) {
     case NV_ENC_PARAMS_RC_CBR: {
         cmd << _T(" --cbr ") << pParams->rcParam.avg_bitrate / 1000;
     } break;

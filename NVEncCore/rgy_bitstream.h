@@ -389,7 +389,7 @@ public:
         }
     }
     const std::vector<uint8_t>& get_data() const { return data; }
-    const bool aligned() const { return bits_written == 0; }
+    bool aligned() const { return bits_written == 0; }
 };
 
 static void write_av1_variable_bits(RGYBitWriter& writer, uint32_t value, uint32_t n) {

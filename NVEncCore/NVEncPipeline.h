@@ -583,19 +583,19 @@ protected:
     CUvideoctxlock m_vidCtxLock;
 public:
     PipelineTaskOutputSurf(CUvideoctxlock vidCtxLock, PipelineTaskSurface surf) :
-        PipelineTaskOutput(PipelineTaskOutputType::SURFACE), m_vidCtxLock(vidCtxLock), m_surf(surf), m_dependencyFrame(), m_cuevents() {
+        PipelineTaskOutput(PipelineTaskOutputType::SURFACE), m_surf(surf), m_dependencyFrame(), m_cuevents(), m_vidCtxLock(vidCtxLock) {
     };
     PipelineTaskOutputSurf(CUvideoctxlock vidCtxLock, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutputDataCustom>& customData) :
-        PipelineTaskOutput(PipelineTaskOutputType::SURFACE, customData), m_vidCtxLock(vidCtxLock), m_surf(surf), m_dependencyFrame(), m_cuevents() {
+        PipelineTaskOutput(PipelineTaskOutputType::SURFACE, customData), m_surf(surf), m_dependencyFrame(), m_cuevents(), m_vidCtxLock(vidCtxLock) {
     };
     PipelineTaskOutputSurf(CUvideoctxlock vidCtxLock, PipelineTaskSurface surf, std::shared_ptr<cudaEvent_t>& cuevent) :
         PipelineTaskOutput(PipelineTaskOutputType::SURFACE),
-        m_vidCtxLock(vidCtxLock), m_surf(surf), m_dependencyFrame(), m_cuevents() {
+        m_surf(surf), m_dependencyFrame(), m_cuevents(), m_vidCtxLock(vidCtxLock) {
         m_cuevents.push_back(cuevent);
     };
     PipelineTaskOutputSurf(CUvideoctxlock vidCtxLock, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutput>& dependencyFrame, std::shared_ptr<cudaEvent_t>& cuevent) :
         PipelineTaskOutput(PipelineTaskOutputType::SURFACE),
-        m_vidCtxLock(vidCtxLock), m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_cuevents() {
+        m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_cuevents(), m_vidCtxLock(vidCtxLock) {
         m_cuevents.push_back(cuevent);
     };
     virtual ~PipelineTaskOutputSurf() {
@@ -1012,7 +1012,7 @@ public:
                 if (m_outQeueueMtx) {
                     lock.emplace(*m_outQeueueMtx);
                 }
-                if (m_outQeueue.size() <= m_outMaxQueueSize) {
+                if ((int)m_outQeueue.size() <= m_outMaxQueueSize) {
                     break;
                 }
                 out = std::move(m_outQeueue.front());

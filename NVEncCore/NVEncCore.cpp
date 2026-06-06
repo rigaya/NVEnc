@@ -358,8 +358,8 @@ NVEncCore::NVEncCore() :
     m_pipelineTasks(),
     m_encodeBufferCount(16),
     m_EncodeBufferQueue(),
-    m_stEOSOutputBfr(),
-    m_stEncodeBuffer() {
+    m_stEncodeBuffer(),
+    m_stEOSOutputBfr() {
     m_trimParam.offset = 0;
     m_keyFile.clear();
     m_keyOnChapter = false;

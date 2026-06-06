@@ -64,9 +64,9 @@ RGYLibplaceboLoader::RGYLibplaceboLoader() :
     m_pl_vulkan_release_ex(nullptr),
     m_pl_vulkan_wrap(nullptr),
 #endif
-    m_pl_gpu_finish(nullptr),
     m_pl_tex_destroy(nullptr),
     m_pl_tex_recreate(nullptr),
+    m_pl_gpu_finish(nullptr),
     m_pl_log_create(nullptr),
     m_pl_log_destroy(nullptr),
     m_pl_dispatch_create(nullptr),

@@ -38,3 +38,4 @@ cp "$INPUT" "$TMPFILE"
 # カレントディレクトリを一時ディレクトリに変更して相対パスで処理
 cd "$WORKDIR"
 objcopy -I binary -O elf64-x86-64 -B i386:x86-64 "$SYMBOL_BASE" "$OUTPUT"
+objcopy --add-section .note.GNU-stack=/dev/null --set-section-flags .note.GNU-stack=contents,readonly "$OUTPUT"

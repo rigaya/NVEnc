@@ -328,12 +328,10 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
         //const float x = ((float)ix + 0.5f) * ratioX;
         //const float y = ((float)iy + 0.5f) * ratioY;
 
-        const float srcX = ((float)(ix + 0.5f)) * ratioInvX;
         const int srcFirstX = srcFirstXArr[threadIdx.x];
         const int srcEndX = srcEndXArr[threadIdx.x];
         const float *weightX = weightXshared + threadIdx.x * shared_weightXdim;
 
-        const float srcY = ((float)(iy + 0.5f)) * ratioInvY;
         const int srcFirstY = srcFirstYArr[threadIdx.y];
         const int srcEndY = srcEndYArr[threadIdx.y];
         const float *weightY = weightYshared + threadIdx.y * shared_weightYdim;
@@ -464,7 +462,7 @@ static RGY_ERR resize_nppi_plane_call_func(RGYFrameInfo *pOutputPlane, const RGY
 	nppStreamCtx.nMaxThreadsPerBlock = prop.maxThreadsPerBlock;
 	nppStreamCtx.nSharedMemPerBlock = prop.sharedMemPerBlock;
 #else
-    (cudaStream_t)stream;
+    (void)stream;
 #endif
     NppStatus sts = funcResize(
         (const T *)pInputPlane->ptr[0],
@@ -580,7 +578,7 @@ static RGY_ERR resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
 	nppStreamCtx.nMaxThreadsPerBlock = prop.maxThreadsPerBlock;
 	nppStreamCtx.nSharedMemPerBlock = prop.sharedMemPerBlock;
 #else
-    (cudaStream_t)stream;
+    (void)stream;
 #endif
 	NppStatus sts = funcResize(
         pSrc,

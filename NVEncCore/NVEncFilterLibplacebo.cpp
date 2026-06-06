@@ -278,7 +278,7 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp, int out plane count does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    bool textInReset = m_textIn.size() != numPlanes;
+    bool textInReset = (int)m_textIn.size() != numPlanes;
     if (!textInReset) {
         for (auto &txt : m_textIn) {
             if (txt->width() != textInFrameInfo.width
@@ -323,7 +323,7 @@ RGY_ERR NVEncFilterLibplacebo::initCommon(shared_ptr<NVEncFilterParam> pParam) {
 #endif
         }
     }
-    bool textOutReset = m_textOut.size() != numPlanes;
+    bool textOutReset = (int)m_textOut.size() != numPlanes;
     if (!textOutReset) {
         for (auto &txt : m_textOut) {
             if (txt->width() != pParam->frameOut.width
