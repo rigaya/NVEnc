@@ -2826,7 +2826,6 @@ protected:
     std::vector<int>& m_keyFile;
     bool m_keyOnChapter;
     std::vector<std::unique_ptr<AVChapter>>& m_Chapters;
-    bool m_lowLatency;
     std::thread m_threadOutput;
     std::promise<RGY_ERR> m_threadOutputPromise;
     std::future<RGY_ERR> m_threadOutputFuture;
@@ -2842,13 +2841,13 @@ public:
         NVGPUInfo *dev, NVEncRunCtx *runCtx, RGY_CODEC encCodec, int encWidth, int encHeight, RGY_CSP encCsp, int encBitdepth, RGY_PICSTRUCT encPicStruct,
         const NV_ENC_CONFIG& stEncConfig, const NV_ENC_INITIALIZE_PARAMS& stCreateEncodeParams,
         RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, const RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu,
-        std::vector<NVEncRCParam>& dynamicRC, std::vector<int>& keyFile, bool keyOnChapter, std::vector<std::unique_ptr<AVChapter>>& chapters, bool lowLatency,
+        std::vector<NVEncRCParam>& dynamicRC, std::vector<int>& keyFile, bool keyOnChapter, std::vector<std::unique_ptr<AVChapter>>& chapters,
          int outMaxQueueSize, RGYParamThread threadParam, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::NVENC, dev, outMaxQueueSize, m_bEnableOutputThread, threadParam, log),
         m_runCtx(runCtx), m_encCodec(encCodec), m_encWidth(encWidth), m_encHeight(encHeight), m_encCsp(encCsp), m_encBitdepth(encBitdepth), m_encPicStruct(encPicStruct),
         m_stEncConfig(stEncConfig), m_stCreateEncodeParams(stCreateEncodeParams),
         m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
-        m_bitStreamOut(), m_hdr10plus(hdr10plus), m_doviRpu(doviRpu), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1), m_keyFile(keyFile), m_keyOnChapter(keyOnChapter), m_Chapters(chapters), m_lowLatency(lowLatency),
+        m_bitStreamOut(), m_hdr10plus(hdr10plus), m_doviRpu(doviRpu), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1), m_keyFile(keyFile), m_keyOnChapter(keyOnChapter), m_Chapters(chapters),
         m_threadOutput(), m_threadOutputPromise(), m_threadOutputFuture(), m_threadOutputResult(), m_threadOutputAbort(false) {
         runThreadOutput();
     };
@@ -2898,14 +2897,8 @@ public:
         }
         return m_threadOutputResult;
     }
-public:
-    enum class OutputThreadFuncMode {
-        Flush,
-        WaitOneFrame,
-        TryOneFrameIfReady
-    };
 protected:
-    std::pair<RGY_ERR, std::shared_ptr<RGYBitstream>> getOutputBitstream(const EncodeBuffer *pEncodeBuffer, const bool doNotWait = false) {
+    std::pair<RGY_ERR, std::shared_ptr<RGYBitstream>> getOutputBitstream(const EncodeBuffer *pEncodeBuffer) {
         if (!pEncodeBuffer->stOutputBfr.hBitstreamBuffer && !pEncodeBuffer->stOutputBfr.bEOSFlag) {
             return { RGY_ERR_INVALID_PARAM, nullptr };
         }
@@ -2931,7 +2924,7 @@ protected:
         NV_ENC_LOCK_BITSTREAM lockBitstreamData = { 0 };
         m_dev->encoder()->setStructVer(lockBitstreamData);
         lockBitstreamData.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
-        lockBitstreamData.doNotWait = doNotWait;
+        lockBitstreamData.doNotWait = false;
 
         auto nvStatus = m_dev->encoder()->NvEncLockBitstream(&lockBitstreamData);
         if (nvStatus != NV_ENC_SUCCESS) {
@@ -2947,9 +2940,15 @@ protected:
         return { RGY_ERR_NONE, output };
     }
 public:
-    RGY_ERR outputThreadFunc(const OutputThreadFuncMode mode) {
-        const bool getOneFrame = mode != OutputThreadFuncMode::Flush;
-        const bool waitForOutput = mode != OutputThreadFuncMode::TryOneFrameIfReady;
+    RGY_ERR outputThreadFunc(const bool getOneFrame) {
+        const auto outputStart = std::chrono::steady_clock::now();
+        int outputFrames = 0;
+        int64_t outputBitstreamWaitMsTotal = 0;
+        int64_t outputBitstreamWaitMsMax = 0;
+        if (!getOneFrame) {
+            PrintMes(RGY_LOG_DEBUG, _T("flush output start (used=%d, free=%d).\n"),
+                (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
+        }
         while (!m_threadOutputAbort) {
             struct CUFrameEncAutoDelete {
                 RGYQueueMPMP<CUFrameEnc *>& qEncodeBufferFree;
@@ -2957,11 +2956,9 @@ public:
                 void operator()(CUFrameEnc* p) { if (p) qEncodeBufferFree.push(p); }
             };
             std::unique_ptr<CUFrameEnc, CUFrameEncAutoDelete> frameEnc(nullptr, CUFrameEncAutoDelete(m_runCtx->qEncodeBufferFree()));
-            CUFrameEnc *frameEncPtr = nullptr;
             {
-                while (!(waitForOutput
-                    ? m_runCtx->qEncodeBufferUsed().front_copy_and_pop_no_lock(&frameEncPtr)
-                    : m_runCtx->qEncodeBufferUsed().front_copy_no_lock(&frameEncPtr))) {
+                CUFrameEnc *frameEncPtr = nullptr;
+                while (!m_runCtx->qEncodeBufferUsed().front_copy_and_pop_no_lock(&frameEncPtr)) {
                     if (getOneFrame) {
                         return RGY_ERR_NONE;
                     }
@@ -2973,17 +2970,21 @@ public:
                 if (!frameEncPtr) {
                     continue;
                 }
-                if (waitForOutput) {
-                    frameEnc.reset(frameEncPtr);
-                }
+                frameEnc.reset(frameEncPtr);
             }
-            auto outBs = getOutputBitstream(frameEncPtr->encBuffer(), !waitForOutput);
+            const auto getOutputStart = std::chrono::steady_clock::now();
+            auto outBs = getOutputBitstream(frameEnc->encBuffer());
+            const auto getOutputMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - getOutputStart).count();
+            outputBitstreamWaitMsTotal += getOutputMs;
+            outputBitstreamWaitMsMax = (std::max)(outputBitstreamWaitMsMax, getOutputMs);
             if (outBs.first != RGY_ERR_NONE) {
-                if (!waitForOutput && outBs.first == RGY_WRN_DEVICE_BUSY) {
-                    return RGY_ERR_NONE;
-                }
                 if (outBs.first == RGY_ERR_MORE_DATA) {
-                    if (getOneFrame) {
+                    if (!getOneFrame) {
+                        const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - outputStart).count();
+                        PrintMes(RGY_LOG_DEBUG, _T("flush output reached EOS (%lld ms, frames=%d, outputWaitTotal=%lld ms, outputWaitMax=%lld ms, used=%d, free=%d).\n"),
+                            (lls)totalMs, outputFrames, (lls)outputBitstreamWaitMsTotal, (lls)outputBitstreamWaitMsMax,
+                            (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
+                    } else {
                         PrintMes(RGY_LOG_DEBUG, _T("Output thread reached EOS.\n"));
                     }
                 } else {
@@ -2991,18 +2992,7 @@ public:
                 }
                 return outBs.first;
             }
-            if (!waitForOutput) {
-                CUFrameEnc *frameEncPoped = nullptr;
-                if (!m_runCtx->qEncodeBufferUsed().front_copy_and_pop_no_lock(&frameEncPoped) || frameEncPoped == nullptr) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to pop ready encode buffer from used queue.\n"));
-                    return RGY_ERR_UNDEFINED_BEHAVIOR;
-                }
-                if (frameEncPoped != frameEncPtr) {
-                    PrintMes(RGY_LOG_ERROR, _T("Unexpected used encode buffer order while polling output.\n"));
-                    return RGY_ERR_UNDEFINED_BEHAVIOR;
-                }
-                frameEnc.reset(frameEncPoped);
-            }
+            outputFrames++;
             frameEnc.reset();
             {
                 // m_outQeueueへのロックが必要ならロックを取得
@@ -3016,6 +3006,12 @@ public:
                 return RGY_ERR_NONE;
             }
         }
+        if (!getOneFrame) {
+            const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - outputStart).count();
+            PrintMes(RGY_LOG_DEBUG, _T("flush output aborted (%lld ms, frames=%d, outputWaitTotal=%lld ms, outputWaitMax=%lld ms, used=%d, free=%d).\n"),
+                (lls)totalMs, outputFrames, (lls)outputBitstreamWaitMsTotal, (lls)outputBitstreamWaitMsMax,
+                (int)m_runCtx->qEncodeBufferUsed().size(), (int)m_runCtx->qEncodeBufferFree().size());
+        }
         return RGY_ERR_NONE;
     }
 protected:
@@ -3026,7 +3022,7 @@ protected:
             auto err = RGY_ERR_NONE;
             m_threadParam.apply(GetCurrentThread());
             try {
-                err = outputThreadFunc(OutputThreadFuncMode::Flush);
+                err = outputThreadFunc(false);
             } catch (const std::exception &e) {
                 PrintMes(RGY_LOG_ERROR, _T("Output thread failed: %s.\n"), e.what());
                 err = RGY_ERR_UNKNOWN;
@@ -3245,7 +3241,7 @@ protected:
             getOutputThreadResult(300 * 1000);
         } else {
             // 出力スレッドがない場合は、自分で出力処理を行う必要がある
-            sts = outputThreadFunc(OutputThreadFuncMode::Flush);
+            sts = outputThreadFunc(false);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -3293,13 +3289,6 @@ public:
             surfEncodeIn->clearDataList();
 
             m_runCtx->qEncodeBufferUsed().push(surfEncodeIn);
-            if (m_lowLatency && !useOutputThread()) {
-                sts = outputThreadFunc(OutputThreadFuncMode::TryOneFrameIfReady);
-                if (sts != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to poll output bitstream: %s.\n"), get_err_mes(sts));
-                    return sts;
-                }
-            }
             if (m_stopwatch) m_stopwatch->add(0, 1);
         } else {
             // フレームがない場合は、エンコーダのキューをフラッシュ
@@ -3544,7 +3533,7 @@ public:
                                 }
                             } else {
                                 // 出力スレッドが有効でない場合、ここで出力を行う
-                                if (auto err = m_encode->outputThreadFunc(PipelineTaskNVEncode::OutputThreadFuncMode::WaitOneFrame); err != RGY_ERR_NONE) {
+                                if (auto err = m_encode->outputThreadFunc(true); err != RGY_ERR_NONE) {
                                     return err;
                                 }
                             }
