@@ -476,10 +476,11 @@ public:
     uint32_t height() const {
         return info.height;
     }
-    uint64_t timestamp() const {
+    int64_t timestamp() const {
         return info.timestamp;
     }
-    void setTimestamp(uint64_t frame_timestamp) {
+    // CUVIDから返るtimestampも内部ではsigned timestampとして扱う。
+    void setTimestamp(int64_t frame_timestamp) {
         info.timestamp = frame_timestamp;
     }
     int64_t duration() const {

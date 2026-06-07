@@ -367,7 +367,8 @@ public:
     }
     CUFrameBufType bufType() const { return framebuftype; };
     virtual bool isempty() const { return !frame.ptr[0]; }
-    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; if (refFrameHost) refFrameHost->setTimestamp(timestamp); }
+    // CUDA frameでも負timestampを保持できるよう、signed timestampのまま伝播する。
+    virtual void setTimestamp(int64_t timestamp) override { frame.timestamp = timestamp; if (refFrameHost) refFrameHost->setTimestamp(timestamp); }
     virtual void setDuration(uint64_t frame_duration) override { frame.duration = frame_duration; if (refFrameHost) refFrameHost->setDuration(frame_duration); }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; if (refFrameHost) refFrameHost->setPicstruct(picstruct); }
     virtual void setInputFrameId(int inputFrameId) override { frame.inputFrameId = inputFrameId; if (refFrameHost) refFrameHost->setInputFrameId(inputFrameId); }
