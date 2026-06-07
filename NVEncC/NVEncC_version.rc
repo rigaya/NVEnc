@@ -1,4 +1,4 @@
-﻿//  -----------------------------------------------------------------------------------------
+//  -----------------------------------------------------------------------------------------
 //    NVEnc by rigaya
 //  -----------------------------------------------------------------------------------------
 //   ソースコードについて
@@ -13,7 +13,6 @@
 //
 // Version Information
 //
-NNEDI_WEIGHTBIN EXE_DATA DISCARDABLE "..\\resource\\nnedi3_weights.bin"
 NVENC_FILTER_COLRSPACE_FUNC_HEADER EXE_DATA DISCARDABLE "..\\NVEncCore\\NVEncFilterColorspaceFunc.h"
 
 APP_OSCODEPAGE_MANIFEST EXE_DATA DISCARDABLE "NVEncC.oscodepage.manifest"
