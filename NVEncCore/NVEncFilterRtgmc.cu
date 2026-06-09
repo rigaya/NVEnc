@@ -299,13 +299,49 @@ NVEncFilterRtgmc::NVEncFilterRtgmc() :
     m_draining(false),
     m_drainComplete(false),
     m_attachRetouchCompRefs(false),
-    m_enablePostTR2Limit(false) {
+    m_enablePostTR2Limit(false),
+    m_sharedAnalysisMode(false),
+    m_sharedData(),
+    m_captureIntermediate(false),
+    m_capturedIntermediates(),
+    m_pendingIntermediateInputs() {
     m_name = _T("rtgmc");
     m_pathThrough = FILTER_PATHTHROUGH_NONE;
 }
 
 std::shared_ptr<CUFrameBuf> NVEncFilterRtgmc::getSharedFrameBuffer(const RGYFrameInfo *frame) {
     return m_sharedFramePool ? m_sharedFramePool->acquire(frame) : nullptr;
+}
+
+void NVEncFilterRtgmc::setSharedAnalysisData(const RtgmcSharedAnalysisData &data) {
+    m_sharedData = data;
+}
+
+NVEncFilterRtgmc::RtgmcSharedAnalysisData NVEncFilterRtgmc::getSharedAnalysisData() {
+    RtgmcSharedAnalysisData data;
+    data.analyzeFilter = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+    data.pendingEdiRefs = &m_pendingEdiRefs;
+    data.sourceCache = &m_sourceCache;
+    data.pendingCompRefs = &m_pendingCompRefs;
+    data.pendingNoiseRefs = &m_pendingNoiseRefs;
+    data.sharedFramePool = m_sharedFramePool;
+    return data;
+}
+
+void NVEncFilterRtgmc::enableIntermediateCapture(bool enable) {
+    m_captureIntermediate = enable;
+}
+
+const std::vector<NVEncFilterRtgmc::RtgmcCapturedIntermediate>& NVEncFilterRtgmc::getCapturedIntermediates() const {
+    return m_capturedIntermediates;
+}
+
+void NVEncFilterRtgmc::clearCapturedIntermediates() {
+    m_capturedIntermediates.clear();
+}
+
+void NVEncFilterRtgmc::pushIntermediateInput(const RtgmcCapturedIntermediate &input) {
+    m_pendingIntermediateInputs.push_back(input);
 }
 
 NVEncFilterRtgmc::~NVEncFilterRtgmc() {
@@ -586,7 +622,12 @@ RGY_ERR NVEncFilterRtgmc::updateCompReferenceStore(const RGYFrameInfo *frame, cu
     if (!m_attachRetouchCompRefs || !frame || !frame->ptr[0]) {
         return RGY_ERR_NONE;
     }
-    auto analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+    NVEncFilterDegrain *analyze = nullptr;
+    if (m_sharedAnalysisMode && m_sharedData.analyzeFilter) {
+        analyze = m_sharedData.analyzeFilter;
+    } else {
+        analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+    }
     if (!analyze) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid analyze filter instance for retouch helper.\n"));
         return RGY_ERR_INVALID_CALL;
@@ -644,7 +685,12 @@ RGY_ERR NVEncFilterRtgmc::drainCompReferenceStore(cudaStream_t stream) {
     if (!m_attachRetouchCompRefs) {
         return RGY_ERR_NONE;
     }
-    auto analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+    NVEncFilterDegrain *analyze = nullptr;
+    if (m_sharedAnalysisMode && m_sharedData.analyzeFilter) {
+        analyze = m_sharedData.analyzeFilter;
+    } else {
+        analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+    }
     if (!analyze) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid analyze filter instance while draining retouch helpers.\n"));
         return RGY_ERR_INVALID_CALL;
@@ -702,10 +748,18 @@ RGY_ERR NVEncFilterRtgmc::drainCompReferenceStore(cudaStream_t stream) {
 }
 
 void NVEncFilterRtgmc::attachStoredCompReferences(RGYFrameInfo *frame, std::vector<RGYCudaEvent> *wait_events) {
-    if (!m_attachRetouchCompRefs || !frame) {
+    if (!frame) {
         return;
     }
-    auto pending = findStoredCompReference(frame);
+    RtgmcPendingCompRef *pending = nullptr;
+    if (m_sharedAnalysisMode && m_sharedData.pendingCompRefs) {
+        auto it = std::find_if(m_sharedData.pendingCompRefs->begin(), m_sharedData.pendingCompRefs->end(), [frame](const RtgmcPendingCompRef &entry) {
+            return entry.key.matches(frame) || entry.key.matchesFrameIdentity(frame);
+        });
+        pending = (it != m_sharedData.pendingCompRefs->end()) ? &(*it) : nullptr;
+    } else if (m_attachRetouchCompRefs) {
+        pending = findStoredCompReference(frame);
+    }
     if (!pending) {
         return;
     }
@@ -725,6 +779,9 @@ void NVEncFilterRtgmc::attachStoredCompReferences(RGYFrameInfo *frame, std::vect
 
 RGY_ERR NVEncFilterRtgmc::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
     if (!frame || !frame->ptr[0]) {
+        return RGY_ERR_NONE;
+    }
+    if (m_sharedAnalysisMode) {
         return RGY_ERR_NONE;
     }
     auto &entry = m_sourceCache[m_sourceCacheNext];
@@ -753,10 +810,11 @@ const RGYFrameInfo *NVEncFilterRtgmc::findCachedSourceFrame(const RGYFrameInfo *
     if (!frame) {
         return nullptr;
     }
-    auto cached = std::find_if(m_sourceCache.begin(), m_sourceCache.end(), [frame](const RtgmcSourceCacheFrame &entry) {
+    const auto &cache = m_sharedAnalysisMode && m_sharedData.sourceCache ? *m_sharedData.sourceCache : m_sourceCache;
+    auto cached = std::find_if(cache.begin(), cache.end(), [frame](const RtgmcSourceCacheFrame &entry) {
         return entry.frame && entry.key.inputFrameId == frame->inputFrameId;
     });
-    if (cached == m_sourceCache.end()) {
+    if (cached == cache.end()) {
         return nullptr;
     }
     if (wait_events && cached->event() != nullptr) {
@@ -770,7 +828,8 @@ int NVEncFilterRtgmc::sourceFieldForFrame(const RGYFrameInfo *frame) const {
         return 0;
     }
     const auto rtgmcParam = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
-    auto cached = std::find_if(m_sourceCache.begin(), m_sourceCache.end(), [frame](const RtgmcSourceCacheFrame &entry) {
+    const auto &cache = (m_sharedAnalysisMode && m_sharedData.sourceCache) ? *m_sharedData.sourceCache : m_sourceCache;
+    auto cached = std::find_if(cache.begin(), cache.end(), [frame](const RtgmcSourceCacheFrame &entry) {
         return entry.frame && entry.key.inputFrameId == frame->inputFrameId;
     });
     bool tff = true;
@@ -779,13 +838,13 @@ int NVEncFilterRtgmc::sourceFieldForFrame(const RGYFrameInfo *frame) const {
             tff = false;
         } else if (rtgmcParam->rtgmc.bob.order == VppRtgmcBobOrder::TFF) {
             tff = true;
-        } else if (cached != m_sourceCache.end() && cached->frame) {
+        } else if (cached != cache.end() && cached->frame) {
             tff = (cached->frame->frame.picstruct & RGY_PICSTRUCT_BFF) == 0;
         } else {
             tff = (frame->picstruct & RGY_PICSTRUCT_BFF) == 0;
         }
     }
-    if (cached == m_sourceCache.end() || cached->key.duration <= 0) {
+    if (cached == cache.end() || cached->key.duration <= 0) {
         return tff ? 0 : 1;
     }
     const auto halfDuration = (cached->key.duration + 1) / 2;
@@ -1017,7 +1076,15 @@ void NVEncFilterRtgmc::attachStoredEdiReference(RGYFrameInfo *frame, std::vector
     if (!frame || rtgmcGetAttachedEdi(frame) != nullptr) {
         return;
     }
-    const auto pending = findStoredEdiReference(frame);
+    RtgmcPendingEdiRef *pending = nullptr;
+    if (m_sharedAnalysisMode && m_sharedData.pendingEdiRefs) {
+        auto it = std::find_if(m_sharedData.pendingEdiRefs->begin(), m_sharedData.pendingEdiRefs->end(), [frame](const RtgmcPendingEdiRef &entry) {
+            return entry.key.matches(frame) || entry.key.matchesFrameIdentity(frame);
+        });
+        pending = (it != m_sharedData.pendingEdiRefs->end()) ? &(*it) : nullptr;
+    } else {
+        pending = findStoredEdiReference(frame);
+    }
     if (!pending || !pending->edi) {
         return;
     }
@@ -1196,10 +1263,11 @@ NVEncFilterRtgmc::RtgmcPendingFrameRef *NVEncFilterRtgmc::findNoiseReference(con
     if (!frame) {
         return nullptr;
     }
-    auto pending = std::find_if(m_pendingNoiseRefs.begin(), m_pendingNoiseRefs.end(), [frame](const RtgmcPendingFrameRef &entry) {
+    auto &noiseRefs = (m_sharedAnalysisMode && m_sharedData.pendingNoiseRefs) ? *m_sharedData.pendingNoiseRefs : m_pendingNoiseRefs;
+    auto pending = std::find_if(noiseRefs.begin(), noiseRefs.end(), [frame](const RtgmcPendingFrameRef &entry) {
         return entry.key.matches(frame) || entry.key.matchesFrameIdentity(frame);
     });
-    return (pending != m_pendingNoiseRefs.end()) ? &(*pending) : nullptr;
+    return (pending != noiseRefs.end()) ? &(*pending) : nullptr;
 }
 
 void NVEncFilterRtgmc::clearNoiseReference(const RGYFrameInfo *frame) {
@@ -1259,150 +1327,158 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
         return degrain;
     };
 
-    {
-        auto filter = std::make_unique<NVEncFilterRtgmcBob>();
-        auto param = std::make_shared<NVEncFilterParamRtgmcBob>();
-        param->order = (prm->rtgmc.bob.order == VppRtgmcBobOrder::TFF) ? RGYRtgmcBobFieldOrder::TFF
-            : (prm->rtgmc.bob.order == VppRtgmcBobOrder::BFF) ? RGYRtgmcBobFieldOrder::BFF
-            : RGYRtgmcBobFieldOrder::Auto;
-        param->timebase = prm->timebase;
-        auto sts = initOne(std::move(filter), param);
-        if (sts != RGY_ERR_NONE) return sts;
-    }
-    {
-        auto filter = std::make_unique<NVEncFilterRtgmcSearchPrefilter>();
-        auto param = std::make_shared<NVEncFilterParamRtgmcSearchPrefilter>();
-        param->tr0 = prm->rtgmc.searchPrefilter.tr0;
-        param->rep0Thin = prm->rtgmc.searchPrefilter.rep0Thin;
-        param->rep0Pad = prm->rtgmc.searchPrefilter.rep0Pad;
-        param->searchRefine = prm->rtgmc.searchPrefilter.searchRefine;
-        param->tvRange = prm->rtgmc.searchPrefilter.tvRange;
-        param->chromaMotion = prm->rtgmc.searchPrefilter.chromaMotion;
-        // Search-luma side data is kept only inside the nested filter chain.
-        param->attachSearchLuma = true;
-        auto sts = initOne(std::move(filter), param);
-        if (sts != RGY_ERR_NONE) return sts;
-    }
-    {
-        auto filter = std::make_unique<NVEncFilterDegrain>();
-        auto param = std::make_shared<NVEncFilterParamDegrain>();
-        param->degrain = rtgDegrainRuntimeParam(prm->rtgmc.analyze, _T("analyze"));
-        param->degrain.delta = nestedAnalyzeDelta;
-        param->degrain.mode = VppDegrainMode::Analyze;
-        param->degrain.stage = VppDegrainStage::TR1;
-        // TR1/TR2 have their own temporal delay, so a single latest direct result
-        // cannot identify the frame being emitted by those filters. Keep the
-        // analysis payload internal to the nested chain and erase it at final output.
-        param->attachAnalysisData = true;
-        auto sts = initOne(std::move(filter), param);
-        if (sts != RGY_ERR_NONE) return sts;
-    }
-    {
-        std::unique_ptr<NVEncFilter> filter;
-        if (prm->rtgmc.noise.noiseProcess == 1 && rtgmcNoiseDenoiserUsesNLMeans(prm->rtgmc.noise.denoiser)) {
-            auto noise = std::make_unique<NVEncFilterDenoiseNLMeans>();
-            auto noiseParam = std::make_shared<NVEncFilterParamDenoiseNLMeans>();
-            noiseParam->frameIn = currentFrame;
-            noiseParam->frameOut = currentFrame;
-            noiseParam->baseFps = currentFps;
-            noiseParam->bOutOverwrite = false;
-            noiseParam->nlmeans.sigma = prm->rtgmc.noise.sigma / 255.0f;
-            noiseParam->nlmeans.processChroma = prm->rtgmc.noise.chromaNoise;
-            auto sts = noise->init(noiseParam, m_pLog);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
-            m_noiseFilter = noise.get();
-            filter = std::move(noise);
-            currentFrame = noiseParam->frameOut;
-            currentFps = noiseParam->baseFps;
-        } else if (prm->rtgmc.noise.noiseProcess == 1) {
-            AddMessage(RGY_LOG_DEBUG, _T("denoiser=%s is mapped to QSVEnc fft3d.\n"),
-                get_cx_desc(list_vpp_rtgmc_noise_denoiser, (int)prm->rtgmc.noise.denoiser));
-            auto noise = std::make_unique<NVEncFilterDenoiseFFT3D>();
-            auto noiseParam = std::make_shared<NVEncFilterParamDenoiseFFT3D>();
-            noiseParam->frameIn = currentFrame;
-            noiseParam->frameOut = currentFrame;
-            noiseParam->baseFps = currentFps;
-            noiseParam->bOutOverwrite = false;
-            noiseParam->fft3d.enable = true;
-            noiseParam->fft3d.sigma = prm->rtgmc.noise.sigma;
-            noiseParam->fft3d.amount = 1.0f;
-            noiseParam->fft3d.block_size = FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE;
-            noiseParam->fft3d.overlap = FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP;
-            noiseParam->fft3d.overlap2 = FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2;
-            noiseParam->fft3d.method = FILTER_DEFAULT_DENOISE_FFT3D_METHOD;
-            noiseParam->fft3d.temporal = 0;
-            noiseParam->fft3d.precision = VppFpPrecision::VPP_FP_PRECISION_AUTO;
-            noiseParam->processChroma = prm->rtgmc.noise.chromaNoise;
-            auto sts = noise->init(noiseParam, m_pLog);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
-            m_noiseFilter = noise.get();
-            filter = std::move(noise);
-            currentFrame = noiseParam->frameOut;
-            currentFps = noiseParam->baseFps;
-        } else {
-            m_noiseFilter = nullptr;
+    if (m_sharedAnalysisMode) {
+        // shared stages: BOB/SEARCH_PREFILTER/ANALYZE/NOISE/EDI/INPUTTYPE_BLEND are all bypassed
+        for (int i = RTGMC_FILTER_BOB; i <= RTGMC_FILTER_INPUTTYPE_BLEND; i++) {
             auto sts = initBypass();
             if (sts != RGY_ERR_NONE) return sts;
         }
-        if (filter) {
-            m_filters.push_back(std::move(filter));
+    } else {
+        {
+            auto filter = std::make_unique<NVEncFilterRtgmcBob>();
+            auto param = std::make_shared<NVEncFilterParamRtgmcBob>();
+            param->order = (prm->rtgmc.bob.order == VppRtgmcBobOrder::TFF) ? RGYRtgmcBobFieldOrder::TFF
+                : (prm->rtgmc.bob.order == VppRtgmcBobOrder::BFF) ? RGYRtgmcBobFieldOrder::BFF
+                : RGYRtgmcBobFieldOrder::Auto;
+            param->timebase = prm->timebase;
+            auto sts = initOne(std::move(filter), param);
+            if (sts != RGY_ERR_NONE) return sts;
         }
-    }
-    if (prm->rtgmc.noise.grainRestore > 0.0f || prm->rtgmc.noise.noiseRestore > 0.0f) {
-        m_noiseDiffFilter = std::make_unique<NVEncFilterRtgmcPrimitive>();
-        auto param = std::make_shared<NVEncFilterParamRtgmcPrimitive>();
-        param->frameIn = currentFrame;
-        param->frameOut = currentFrame;
-        param->baseFps = currentFps;
-        param->bOutOverwrite = false;
-        param->op = RGYRtgmcPrimitiveOp::MakeDiff;
-        param->processChroma = prm->rtgmc.noise.chromaNoise;
-        param->planes = prm->rtgmc.noise.chromaNoise ? 0x07 : 0x01;
-        auto sts = m_noiseDiffFilter->init(param, m_pLog);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
+        {
+            auto filter = std::make_unique<NVEncFilterRtgmcSearchPrefilter>();
+            auto param = std::make_shared<NVEncFilterParamRtgmcSearchPrefilter>();
+            param->tr0 = prm->rtgmc.searchPrefilter.tr0;
+            param->rep0Thin = prm->rtgmc.searchPrefilter.rep0Thin;
+            param->rep0Pad = prm->rtgmc.searchPrefilter.rep0Pad;
+            param->searchRefine = prm->rtgmc.searchPrefilter.searchRefine;
+            param->tvRange = prm->rtgmc.searchPrefilter.tvRange;
+            param->chromaMotion = prm->rtgmc.searchPrefilter.chromaMotion;
+            // Search-luma side data is kept only inside the nested filter chain.
+            param->attachSearchLuma = true;
+            auto sts = initOne(std::move(filter), param);
+            if (sts != RGY_ERR_NONE) return sts;
+        }
+        {
+            auto filter = std::make_unique<NVEncFilterDegrain>();
+            auto param = std::make_shared<NVEncFilterParamDegrain>();
+            param->degrain = rtgDegrainRuntimeParam(prm->rtgmc.analyze, _T("analyze"));
+            param->degrain.delta = nestedAnalyzeDelta;
+            param->degrain.mode = VppDegrainMode::Analyze;
+            param->degrain.stage = VppDegrainStage::TR1;
+            // TR1/TR2 have their own temporal delay, so a single latest direct result
+            // cannot identify the frame being emitted by those filters. Keep the
+            // analysis payload internal to the nested chain and erase it at final output.
+            param->attachAnalysisData = true;
+            auto sts = initOne(std::move(filter), param);
+            if (sts != RGY_ERR_NONE) return sts;
+        }
+        {
+            std::unique_ptr<NVEncFilter> filter;
+            if (prm->rtgmc.noise.noiseProcess == 1 && rtgmcNoiseDenoiserUsesNLMeans(prm->rtgmc.noise.denoiser)) {
+                auto noise = std::make_unique<NVEncFilterDenoiseNLMeans>();
+                auto noiseParam = std::make_shared<NVEncFilterParamDenoiseNLMeans>();
+                noiseParam->frameIn = currentFrame;
+                noiseParam->frameOut = currentFrame;
+                noiseParam->baseFps = currentFps;
+                noiseParam->bOutOverwrite = false;
+                noiseParam->nlmeans.sigma = prm->rtgmc.noise.sigma / 255.0f;
+                noiseParam->nlmeans.processChroma = prm->rtgmc.noise.chromaNoise;
+                auto sts = noise->init(noiseParam, m_pLog);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                m_noiseFilter = noise.get();
+                filter = std::move(noise);
+                currentFrame = noiseParam->frameOut;
+                currentFps = noiseParam->baseFps;
+            } else if (prm->rtgmc.noise.noiseProcess == 1) {
+                AddMessage(RGY_LOG_DEBUG, _T("denoiser=%s is mapped to QSVEnc fft3d.\n"),
+                    get_cx_desc(list_vpp_rtgmc_noise_denoiser, (int)prm->rtgmc.noise.denoiser));
+                auto noise = std::make_unique<NVEncFilterDenoiseFFT3D>();
+                auto noiseParam = std::make_shared<NVEncFilterParamDenoiseFFT3D>();
+                noiseParam->frameIn = currentFrame;
+                noiseParam->frameOut = currentFrame;
+                noiseParam->baseFps = currentFps;
+                noiseParam->bOutOverwrite = false;
+                noiseParam->fft3d.enable = true;
+                noiseParam->fft3d.sigma = prm->rtgmc.noise.sigma;
+                noiseParam->fft3d.amount = 1.0f;
+                noiseParam->fft3d.block_size = FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE;
+                noiseParam->fft3d.overlap = FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP;
+                noiseParam->fft3d.overlap2 = FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2;
+                noiseParam->fft3d.method = FILTER_DEFAULT_DENOISE_FFT3D_METHOD;
+                noiseParam->fft3d.temporal = 0;
+                noiseParam->fft3d.precision = VppFpPrecision::VPP_FP_PRECISION_AUTO;
+                noiseParam->processChroma = prm->rtgmc.noise.chromaNoise;
+                auto sts = noise->init(noiseParam, m_pLog);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                m_noiseFilter = noise.get();
+                filter = std::move(noise);
+                currentFrame = noiseParam->frameOut;
+                currentFps = noiseParam->baseFps;
+            } else {
+                m_noiseFilter = nullptr;
+                auto sts = initBypass();
+                if (sts != RGY_ERR_NONE) return sts;
+            }
+            if (filter) {
+                m_filters.push_back(std::move(filter));
+            }
+        }
+        if (prm->rtgmc.noise.grainRestore > 0.0f || prm->rtgmc.noise.noiseRestore > 0.0f) {
+            m_noiseDiffFilter = std::make_unique<NVEncFilterRtgmcPrimitive>();
+            auto param = std::make_shared<NVEncFilterParamRtgmcPrimitive>();
+            param->frameIn = currentFrame;
+            param->frameOut = currentFrame;
+            param->baseFps = currentFps;
+            param->bOutOverwrite = false;
+            param->op = RGYRtgmcPrimitiveOp::MakeDiff;
+            param->processChroma = prm->rtgmc.noise.chromaNoise;
+            param->planes = prm->rtgmc.noise.chromaNoise ? 0x07 : 0x01;
+            auto sts = m_noiseDiffFilter->init(param, m_pLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        {
+            auto filter = std::make_unique<NVEncFilterRtgmcEdi>();
+            auto param = std::make_shared<NVEncFilterParamRtgmcEdi>();
+            param->mode = prm->rtgmc.edi.mode;
+            param->chromaEdi = prm->rtgmc.edi.chromaEdi;
+            param->nnsize = prm->rtgmc.edi.nnsize;
+            param->nneurons = prm->rtgmc.edi.nneurons;
+            param->ediqual = prm->rtgmc.edi.ediqual;
+            param->sourceFrameIn = currentFrame;
+            param->sourceBaseFps = prm->baseFps;
+            param->sourceTimebase = prm->timebase;
+            auto sts = initOne(std::move(filter), param);
+            if (sts != RGY_ERR_NONE) return sts;
+            sts = initRetouchCompFilters(prm, currentFrame, currentFps);
+            if (sts != RGY_ERR_NONE) return sts;
+        }
+        if (rtgmcInputTypeBlendEnabled(prm->rtgmc)) {
+#if RGY_HAS_RTGMC_MMASK_FILTER
+            auto filter = std::make_unique<NVEncFilterRtgmcMMask>();
+            auto param = std::make_shared<NVEncFilterParamRtgmcMMask>();
+            param->kind = 1;
+            param->ml = prm->rtgmc.progSADMask;
+            param->gamma = prm->rtgmc.progSADMaskGamma;
+            param->time = 100;
+            auto sts = initOne(std::move(filter), param);
+            if (sts != RGY_ERR_NONE) return sts;
+            AddMessage(RGY_LOG_DEBUG, _T("InputTypeBlend is enabled: input_type=%d, prog_sad_mask=%.3f, gamma=%.3f.\n"),
+                prm->rtgmc.inputType, prm->rtgmc.progSADMask, prm->rtgmc.progSADMaskGamma);
+#else
+            return RGY_ERR_UNSUPPORTED;
+#endif
+        } else {
+            auto sts = initBypass();
+            if (sts != RGY_ERR_NONE) return sts;
         }
     }
     const RGYFrameInfo rtgmcSourceFrameIn = currentFrame;
-    {
-        auto filter = std::make_unique<NVEncFilterRtgmcEdi>();
-        auto param = std::make_shared<NVEncFilterParamRtgmcEdi>();
-        param->mode = prm->rtgmc.edi.mode;
-        param->chromaEdi = prm->rtgmc.edi.chromaEdi;
-        param->nnsize = prm->rtgmc.edi.nnsize;
-        param->nneurons = prm->rtgmc.edi.nneurons;
-        param->ediqual = prm->rtgmc.edi.ediqual;
-        param->sourceFrameIn = rtgmcSourceFrameIn;
-        param->sourceBaseFps = prm->baseFps;
-        param->sourceTimebase = prm->timebase;
-        auto sts = initOne(std::move(filter), param);
-        if (sts != RGY_ERR_NONE) return sts;
-        sts = initRetouchCompFilters(prm, currentFrame, currentFps);
-        if (sts != RGY_ERR_NONE) return sts;
-    }
-    if (rtgmcInputTypeBlendEnabled(prm->rtgmc)) {
-#if RGY_HAS_RTGMC_MMASK_FILTER
-        auto filter = std::make_unique<NVEncFilterRtgmcMMask>();
-        auto param = std::make_shared<NVEncFilterParamRtgmcMMask>();
-        param->kind = 1;
-        param->ml = prm->rtgmc.progSADMask;
-        param->gamma = prm->rtgmc.progSADMaskGamma;
-        param->time = 100;
-        auto sts = initOne(std::move(filter), param);
-        if (sts != RGY_ERR_NONE) return sts;
-        AddMessage(RGY_LOG_DEBUG, _T("InputTypeBlend is enabled: input_type=%d, prog_sad_mask=%.3f, gamma=%.3f.\n"),
-            prm->rtgmc.inputType, prm->rtgmc.progSADMask, prm->rtgmc.progSADMaskGamma);
-#else
-        return RGY_ERR_UNSUPPORTED;
-#endif
-    } else {
-        auto sts = initBypass();
-        if (sts != RGY_ERR_NONE) return sts;
-    }
     {
         auto filter = std::make_unique<NVEncFilterDegrain>();
         auto param = std::make_shared<NVEncFilterParamDegrain>();
@@ -1551,6 +1627,7 @@ RGY_ERR NVEncFilterRtgmc::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    m_sharedAnalysisMode = prm->sharedAnalysisMode;
     close();
     m_param = prm;
     sts = initFilters(prm);
@@ -1693,7 +1770,12 @@ RGY_ERR NVEncFilterRtgmc::runSourceMatchCorrectionPass(int stageIdx, RGYFrameInf
             *event = adjustedEvent;
         }
     } else if (pass.correctionTemporalFilter) {
-        auto analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+        NVEncFilterDegrain *analyze = nullptr;
+        if (m_sharedAnalysisMode && m_sharedData.analyzeFilter) {
+            analyze = m_sharedData.analyzeFilter;
+        } else {
+            analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+        }
         if (analyze) {
             pass.correctionTemporalFilter->setDirectAnalyzeResultSet(analyze->analyzeResultSet());
         }
@@ -1905,9 +1987,13 @@ RGY_ERR NVEncFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInput
             AddMessage(RGY_LOG_ERROR, _T("InputTypeBlend source frame is missing for inputFrameId=%d.\n"), pInputFrame->inputFrameId);
             return RGY_ERR_INVALID_CALL;
         }
+        NVEncFilterDegrain *analyzeForBlend = analyze;
+        if (m_sharedAnalysisMode && m_sharedData.analyzeFilter) {
+            analyzeForBlend = m_sharedData.analyzeFilter;
+        }
         auto analyzeResult = rgy_degrain_get_analyze_result(pInputFrame);
         if (!analyzeResult.valid()) {
-            analyzeResult = analyze->analyzeResult();
+            analyzeResult = analyzeForBlend->analyzeResult();
         }
         if (analyzeResult.valid()
             && (analyzeResult.inputFrameId != pInputFrame->inputFrameId || analyzeResult.timestamp != pInputFrame->timestamp)) {
@@ -1929,7 +2015,12 @@ RGY_ERR NVEncFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInput
                 return rtgmcRunFilterWithEvents(m_filters[filterIdx].get(), pInputFrame, ppOutputFrames, pOutputFrameNum, stream, wait_events, event);
             }
         }
-        auto analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+        NVEncFilterDegrain *analyze = nullptr;
+        if (m_sharedAnalysisMode && m_sharedData.analyzeFilter) {
+            analyze = m_sharedData.analyzeFilter;
+        } else {
+            analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+        }
         auto degrain = dynamic_cast<NVEncFilterDegrain *>(m_filters[filterIdx].get());
         if (!analyze || !degrain) {
             AddMessage(RGY_LOG_ERROR, _T("Invaliddegrain filter instance.\n"));
@@ -2150,12 +2241,32 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
             auto smWaitEvents = rtgmcPropagateWaitEvents(nextWaitEvents, smEvent);
             for (int j = 0; j < smOutNum; j++) {
                 enqueueSourceMatchFrameProp(smOutFrames[j]);
+                if (filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND && m_captureIntermediate) {
+                    auto buf = getSharedFrameBuffer(smOutFrames[j]);
+                    if (buf) {
+                        copyFrameAsync(&buf->frame, smOutFrames[j], stream);
+                        copyFramePropWithoutRes(&buf->frame, smOutFrames[j]);
+                        RGYCudaEvent captureEvent;
+                        rtgmcRecordEvent(stream, &captureEvent);
+                        m_capturedIntermediates.push_back({buf, captureEvent});
+                    }
+                }
                 sts = runThrough(filterIdx + 1, smOutFrames[j], ppOutputFrames, pOutputFrameNum, stream, smWaitEvents, event, storePending);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
             }
         } else {
+            if (filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND && m_captureIntermediate) {
+                auto buf = getSharedFrameBuffer(childOutFrames[i]);
+                if (buf) {
+                    copyFrameAsync(&buf->frame, childOutFrames[i], stream);
+                    copyFramePropWithoutRes(&buf->frame, childOutFrames[i]);
+                    RGYCudaEvent captureEvent;
+                    rtgmcRecordEvent(stream, &captureEvent);
+                    m_capturedIntermediates.push_back({buf, captureEvent});
+                }
+            }
             sts = runThrough(filterIdx + 1, childOutFrames[i], ppOutputFrames, pOutputFrameNum, stream, nextWaitEvents, event, storePending);
             if (sts != RGY_ERR_NONE) {
                 return sts;
@@ -2317,8 +2428,23 @@ RGY_ERR NVEncFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         if (!m_pendingOutputFrames.empty()) {
             return returnPendingFrames(ppOutputFrames, pOutputFrameNum);
         }
+        if (m_sharedAnalysisMode) {
+            while (!m_pendingIntermediateInputs.empty()) {
+                auto intermediate = std::move(m_pendingIntermediateInputs.front());
+                m_pendingIntermediateInputs.pop_front();
+                std::vector<RGYCudaEvent> intWaitEvents;
+                if (intermediate.event() != nullptr) {
+                    intWaitEvents.push_back(intermediate.event);
+                }
+                auto sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frame->frame, ppOutputFrames, pOutputFrameNum, stream, intWaitEvents, event, false);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+        }
+        const size_t drainStartIdx = m_sharedAnalysisMode ? RTGMC_FILTER_TR1 : 0;
         while (m_pendingOutputFrames.empty() && !m_drainComplete) {
-            auto sts = drainFrom(0, ppOutputFrames, pOutputFrameNum, stream, event);
+            auto sts = drainFrom(drainStartIdx, ppOutputFrames, pOutputFrameNum, stream, event);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -2348,6 +2474,22 @@ RGY_ERR NVEncFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         return sts;
     }
     m_inputFrame = *chainInputFrame;
+    if (m_sharedAnalysisMode) {
+        *pOutputFrameNum = 0;
+        while (!m_pendingIntermediateInputs.empty()) {
+            auto intermediate = std::move(m_pendingIntermediateInputs.front());
+            m_pendingIntermediateInputs.pop_front();
+            std::vector<RGYCudaEvent> intWaitEvents = chainWaitEvents;
+            if (intermediate.event() != nullptr) {
+                intWaitEvents.push_back(intermediate.event);
+            }
+            sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frame->frame, ppOutputFrames, pOutputFrameNum, stream, intWaitEvents, event, false);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        return RGY_ERR_NONE;
+    }
     return runThrough(0, &m_inputFrame, ppOutputFrames, pOutputFrameNum, stream, chainWaitEvents, event, false);
 }
 
@@ -2392,4 +2534,7 @@ void NVEncFilterRtgmc::close() {
     m_drainComplete = false;
     m_attachRetouchCompRefs = false;
     m_enablePostTR2Limit = false;
+    m_capturedIntermediates.clear();
+    m_pendingIntermediateInputs.clear();
+    m_captureIntermediate = false;
 }

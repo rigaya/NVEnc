@@ -277,7 +277,7 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
-    RGY_ERR initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& prm, std::unique_ptr<NVEncFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag = 0);
+    RGY_ERR initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& prm, std::unique_ptr<NVEncFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag = 0, bool sharedAnalysisMode = false);
     RGY_ERR initAnalyzer(const NVEncFilterParamKfm& prm);
     RGY_ERR initNrFilter(const std::shared_ptr<NVEncFilterParamKfm>& prm);
     void initStageDumpConfig(const NVEncFilterParamKfm& prm);

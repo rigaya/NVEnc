@@ -780,7 +780,7 @@ bool NVEncFilterKfm::stageDumpRequested(int frame24Index) const {
             || m_stageDumpTargetFrames.find(frame24Index) != m_stageDumpTargetFrames.end());
 }
 
-RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& prm, std::unique_ptr<NVEncFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag) {
+RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& prm, std::unique_ptr<NVEncFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag, bool sharedAnalysisMode) {
     auto rtgmcParam = std::make_shared<NVEncFilterParamRtgmc>();
     rtgmcParam->rtgmc.enable = true;
     rtgmcParam->rtgmc.preset = prm->kfm.preset;
@@ -795,6 +795,7 @@ RGY_ERR NVEncFilterKfm::initRtgmc(const std::shared_ptr<NVEncFilterParamKfm>& pr
     rtgmcParam->baseFps = prm->baseFps;
     rtgmcParam->timebase = prm->timebase;
     rtgmcParam->bOutOverwrite = false;
+    rtgmcParam->sharedAnalysisMode = sharedAnalysisMode;
 
     rtgmc = std::make_unique<NVEncFilterRtgmc>();
     auto sts = rtgmc->init(rtgmcParam, m_pLog);
@@ -978,14 +979,18 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
             return sts;
         }
         if (prm->kfm.ucf) {
-            sts = initRtgmc(prm, m_before60Rtgmc, false, 1);
+            m_rtgmc->enableIntermediateCapture(true);
+            sts = initRtgmc(prm, m_before60Rtgmc, false, 1, true);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
-            sts = initRtgmc(prm, m_after60Rtgmc, false, 2);
+            sts = initRtgmc(prm, m_after60Rtgmc, false, 2, true);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
+            auto sharedData = m_rtgmc->getSharedAnalysisData();
+            m_before60Rtgmc->setSharedAnalysisData(sharedData);
+            m_after60Rtgmc->setSharedAnalysisData(sharedData);
         }
     }
 
@@ -1029,13 +1034,21 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         }
     }
     if (prm->kfm.mode != VppKfmMode::P60 && prm->kfm.ucf) {
-        sts = initRtgmc(prm, m_before60Rtgmc, false, 1);
+        if (m_deint60Rtgmc) {
+            m_deint60Rtgmc->enableIntermediateCapture(true);
+        }
+        sts = initRtgmc(prm, m_before60Rtgmc, false, 1, true);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        sts = initRtgmc(prm, m_after60Rtgmc, false, 2);
+        sts = initRtgmc(prm, m_after60Rtgmc, false, 2, true);
         if (sts != RGY_ERR_NONE) {
             return sts;
+        }
+        if (m_deint60Rtgmc) {
+            auto sharedData = m_deint60Rtgmc->getSharedAnalysisData();
+            m_before60Rtgmc->setSharedAnalysisData(sharedData);
+            m_after60Rtgmc->setSharedAnalysisData(sharedData);
         }
     }
     sts = initAnalyzer(*prm);
@@ -5457,7 +5470,19 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 return sts;
             }
         }
+        int rtgmcOutNum = 0;
+        RGYFrameInfo *rtgmcOutFrames[8] = { 0 };
+        RGYCudaEvent rtgmcEvent;
+        sts = m_rtgmc->filter(const_cast<RGYFrameInfo *>(pInputFrame), rtgmcOutFrames, &rtgmcOutNum, stream, {}, &rtgmcEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
         if (prm->kfm.ucf) {
+            for (auto &captured : m_rtgmc->getCapturedIntermediates()) {
+                if (m_before60Rtgmc) m_before60Rtgmc->pushIntermediateInput(captured);
+                if (m_after60Rtgmc) m_after60Rtgmc->pushIntermediateInput(captured);
+            }
+            m_rtgmc->clearCapturedIntermediates();
             sts = runUcfRtgmcBranches(pInputFrame, stream, {});
             if (sts != RGY_ERR_NONE) {
                 return sts;
@@ -5468,13 +5493,6 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                     return sts;
                 }
             }
-        }
-        int rtgmcOutNum = 0;
-        RGYFrameInfo *rtgmcOutFrames[8] = { 0 };
-        RGYCudaEvent rtgmcEvent;
-        sts = m_rtgmc->filter(const_cast<RGYFrameInfo *>(pInputFrame), rtgmcOutFrames, &rtgmcOutNum, stream, {}, &rtgmcEvent);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
         }
         *pOutputFrameNum = 0;
         std::vector<RGYCudaEvent> processWaitEvents;
@@ -5515,6 +5533,13 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             : runDeint60Branch(pInputFrame, stream, {});
         if (sts != RGY_ERR_NONE) {
             return sts;
+        }
+        if (prm->kfm.ucf && m_deint60Rtgmc) {
+            for (auto &captured : m_deint60Rtgmc->getCapturedIntermediates()) {
+                if (m_before60Rtgmc) m_before60Rtgmc->pushIntermediateInput(captured);
+                if (m_after60Rtgmc) m_after60Rtgmc->pushIntermediateInput(captured);
+            }
+            m_deint60Rtgmc->clearCapturedIntermediates();
         }
         if (prm->kfm.ucf) {
             sts = runUcfRtgmcBranches(pInputFrame, stream, {});
