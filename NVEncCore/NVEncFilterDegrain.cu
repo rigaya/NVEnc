@@ -297,6 +297,29 @@ RGY_ERR launchNVEncDegrainDegrainOverlapPlanePreweightedRamp(
         refs, pel, subpelInterp, stream);
 }
 
+RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRamp(
+    uint8_t *dst, const int dstPitch, const int pixelBytes,
+    const uint8_t *cur, const int curPitch,
+    const uint8_t *refBackward1, const uint8_t *refForward1,
+    const uint8_t *refBackward2, const uint8_t *refForward2,
+    const uint8_t *refBackward3, const uint8_t *refForward3,
+    const uint8_t *refBackward4, const uint8_t *refForward4,
+    const uint8_t *refBackward5, const uint8_t *refForward5,
+    const int width, const int height,
+    const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    const RGYDegrainBlockLayout &layout,
+    const int coveredWidth, const int coveredHeight,
+    const int planeScaleX, const int planeScaleY,
+    const CUMemBuf &windowRamp,
+    const uint32_t thsad, const uint32_t disableMask,
+    const int refs, const int pel, const int subpelInterp, cudaStream_t stream) {
+    return launchNVEncDegrainDegrainOverlapPlaneRampImpl(dst, dstPitch, pixelBytes, cur, curPitch,
+        refBackward1, refForward1, refBackward2, refForward2, refBackward3, refForward3,
+        refBackward4, refForward4, refBackward5, refForward5, width, height, mv, sad, temporalMixPrior,
+        layout, coveredWidth, coveredHeight, planeScaleX, planeScaleY, windowRamp,
+        thsad, disableMask, refs, pel, subpelInterp, stream);
+}
+
 RGY_ERR launchNVEncDegrainPixelTrace(
     const uint8_t *cur, const int curPitch, const int pixelBytes,
     const uint8_t *refBackward1, const uint8_t *refForward1,

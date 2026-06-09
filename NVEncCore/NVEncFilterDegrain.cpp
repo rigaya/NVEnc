@@ -143,6 +143,22 @@ RGY_ERR launchNVEncDegrainDegrainOverlapPlanePreweightedRamp(
     int planeScaleX, int planeScaleY,
     const CUMemBuf &windowRamp, const CUMemBuf &temporalMixPlan,
     int refs, int pel, int subpelInterp, cudaStream_t stream);
+RGY_ERR launchNVEncDegrainDegrainOverlapPlaneRamp(
+    uint8_t *dst, int dstPitch, int pixelBytes,
+    const uint8_t *cur, int curPitch,
+    const uint8_t *refBackward1, const uint8_t *refForward1,
+    const uint8_t *refBackward2, const uint8_t *refForward2,
+    const uint8_t *refBackward3, const uint8_t *refForward3,
+    const uint8_t *refBackward4, const uint8_t *refForward4,
+    const uint8_t *refBackward5, const uint8_t *refForward5,
+    int width, int height,
+    const CUMemBuf &mv, const CUMemBuf &sad, const CUMemBuf &temporalMixPrior,
+    const RGYDegrainBlockLayout &layout,
+    int coveredWidth, int coveredHeight,
+    int planeScaleX, int planeScaleY,
+    const CUMemBuf &windowRamp,
+    uint32_t thsad, uint32_t disableMask,
+    int refs, int pel, int subpelInterp, cudaStream_t stream);
 RGY_ERR launchNVEncDegrainPixelTrace(
     const uint8_t *cur, int curPitch, int pixelBytes,
     const uint8_t *refBackward1, const uint8_t *refForward1,
@@ -1732,52 +1748,6 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
         state.overlapY = planeOverlapY;
         return RGY_ERR_NONE;
     };
-    bool temporalMixPlanYReady = false;
-    bool temporalMixPlanCReady = false;
-    auto ensureTemporalMixPlan = [&](RGYDegrainTemporalMixPlanState &state, bool &ready, const uint32_t scaledThSad) {
-        const auto planBytes = degrainTemporalMixPlanBytes(analysisLayout());
-        if (ready && state.reusable(planBytes, scaledThSad, disableMask)) {
-            return RGY_ERR_NONE;
-        }
-        if (planBytes == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("invalid degrain temporal mix plan buffer geometry.\n"));
-            return RGY_ERR_INVALID_PARAM;
-        }
-        if (!state.plan || state.plan->nSize != planBytes) {
-            state.plan = std::make_unique<CUMemBuf>(planBytes);
-            auto allocErr = state.plan->alloc();
-            if (allocErr != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain temporal mix plan buffer.\n"));
-                return allocErr;
-            }
-        }
-
-        auto err = launchNVEncDegrainBuildTemporalMixPlan(
-            *state.plan,
-            *mv,
-            *sad,
-            *m_analysis.temporalMixPrior,
-            (int)analysisLayout().blockCount(),
-            scaledThSad,
-            disableMask,
-            analysisLayout().temporalDirections,
-            stream);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to build degrain temporal mix plan: %s.\n"), get_err_mes(err));
-            state.event.reset();
-            return err;
-        }
-        err = degrainRecordEvent(stream, &state.event);
-        if (err != RGY_ERR_NONE) {
-            state.event.reset();
-            return err;
-        }
-        state.bytes = planBytes;
-        state.thsad = scaledThSad;
-        state.disableMask = disableMask;
-        ready = true;
-        return RGY_ERR_NONE;
-    };
     auto renderPlane = [&](const RGY_PLANE plane, const uint32_t scaledThSad) {
         const auto planeDst = getPlane(ppOutputFrames[0], plane);
         const auto planeCur = getPlane(frames.cur, plane);
@@ -1805,21 +1775,6 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
                 return rampErr;
             } else if (rampState.ramp) {
                 windowRamp = rampState.ramp.get();
-            }
-        }
-        CUMemBuf *temporalMixPlan = nullptr;
-        if (windowRamp) {
-            auto &planState = (plane == RGY_PLANE_Y) ? m_analysis.temporalMixPlanY : m_analysis.temporalMixPlanC;
-            auto &planReady = (plane == RGY_PLANE_Y) ? temporalMixPlanYReady : temporalMixPlanCReady;
-            auto err = ensureTemporalMixPlan(planState, planReady, scaledThSad);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-            if (planState.plan) {
-                temporalMixPlan = planState.plan.get();
-            } else {
-                AddMessage(RGY_LOG_ERROR, _T("degrain temporal mix plan buffer was not prepared.\n"));
-                return RGY_ERR_INVALID_CALL;
             }
         }
         if (pixelTrace && plane == RGY_PLANE_Y
@@ -1873,7 +1828,7 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
             }
         }
         if (windowRamp) {
-            return launchNVEncDegrainDegrainOverlapPlanePreweightedRamp(
+            return launchNVEncDegrainDegrainOverlapPlaneRamp(
                 planeDst.ptr[0], planeDst.pitch[0], pixelBytes,
                 planeCur.ptr[0], planePitch,
                 refPlanes[0].ptr[0],
@@ -1887,14 +1842,15 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
                 refPlanes[8].ptr[0],
                 refPlanes[9].ptr[0],
                 planeDst.width, planeDst.height,
-                *mv,
+                *mv, *sad, *m_analysis.temporalMixPrior,
                 analysisLayout(),
                 degrainScaleCovered(analysisLayout().coveredWidth, planeScaleX),
                 degrainScaleCovered(analysisLayout().coveredHeight, planeScaleY),
                 planeScaleX,
                 planeScaleY,
                 *windowRamp,
-                *temporalMixPlan,
+                scaledThSad,
+                disableMask,
                 analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
         }
         return launchNVEncDegrainDegrainOverlapPlane(
