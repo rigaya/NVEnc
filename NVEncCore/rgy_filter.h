@@ -120,6 +120,7 @@ public:
     virtual int targetTrackIdx() { return 0; };
     virtual void setCheckPerformance(const bool check) = 0;
     double GetAvgTimeElapsed() { return (m_perfMonitor) ? m_perfMonitor->GetAvgTimeElapsed() : 0.0; }
+    virtual int requiredOutputFrames() const { return 0; }
 protected:
     virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames) = 0;
     virtual void close() = 0;

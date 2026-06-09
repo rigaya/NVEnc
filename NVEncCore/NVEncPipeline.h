@@ -3404,7 +3404,11 @@ public:
     };
     virtual std::optional<std::pair<RGYFrameInfo, int>> requiredSurfOut() override {
         auto lastFilterFrame = m_vpFilters.back()->GetFilterParam()->frameOut;
-        return std::make_pair(lastFilterFrame, m_outMaxQueueSize);
+        int reqFrames = m_outMaxQueueSize;
+        for (auto& f : m_vpFilters) {
+            reqFrames = std::max(reqFrames, f->requiredOutputFrames());
+        }
+        return std::make_pair(lastFilterFrame, reqFrames);
     };
 
     virtual void runFrameReleaseThread() {
@@ -3564,7 +3568,11 @@ public:
                 }
 
             } else {
-                frameVppOut = m_workSurfs.getFreeSurf();
+                frameVppOut = getWorkSurf();
+                if (!frameVppOut) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get work surface for raw output.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
             }
             if (m_stopwatch) m_stopwatch->add(0, 2);
 
