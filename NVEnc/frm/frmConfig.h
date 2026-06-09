@@ -5440,6 +5440,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             // fcgCBVppMSharpenHighq
             // 
             this->fcgCBVppMSharpenHighq->AutoSize = true;
+            this->fcgCBVppMSharpenHighq->Checked = true;
+            this->fcgCBVppMSharpenHighq->CheckState = System::Windows::Forms::CheckState::Checked;
             this->fcgCBVppMSharpenHighq->Location = System::Drawing::Point(176, 10);
             this->fcgCBVppMSharpenHighq->Name = L"fcgCBVppMSharpenHighq";
             this->fcgCBVppMSharpenHighq->Size = System::Drawing::Size(77, 18);

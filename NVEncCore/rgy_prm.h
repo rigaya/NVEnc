@@ -583,7 +583,7 @@ const CX_DESC list_vpp_denoise[] = {
     { _T("smooth"),  3 },
     { _T("fft3d"), 10 },
     { _T("convolution3d"),  5 },
-#if ENCODER_QSV
+#if ENABLE_VPP_FILTER_MSMOOTH
     { _T("msmooth"), 11 },
 #endif
 #if ENCODER_VCEENC
@@ -604,7 +604,7 @@ const CX_DESC list_vpp_detail_enahance[] = {
     { _T("unsharp"),    1 },
     { _T("edgelevel"),  2 },
     { _T("warpsharp"),  3 },
-#if ENCODER_QSV
+#if ENABLE_VPP_FILTER_MSHARPEN
     { _T("msharpen"),   5 },
 #endif
     { NULL, 0 }
