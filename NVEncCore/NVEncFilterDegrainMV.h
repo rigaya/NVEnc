@@ -289,6 +289,34 @@ struct RGYDegrainWindowRampState {
     }
 };
 
+struct RGYDegrainCompensateInlineParams {
+    const uint8_t *cur;
+    int cur_pitch;
+    const uint8_t *refBack;
+    const uint8_t *refForw;
+    int refDirBack;
+    int refDirForw;
+    const RGYDegrainMV *mv;
+    const RGYDegrainSAD *sad;
+    int blocksX;
+    int blocksY;
+    int blockSize;
+    int overlap;
+    int step;
+    int coveredWidth;
+    int coveredHeight;
+    int planeScaleX;
+    int planeScaleY;
+    uint32_t thsad;
+    uint32_t disableMask;
+    const float *windowRamp;
+    int width;
+    int height;
+    int refs;
+    int pel;
+    int subpelInterp;
+};
+
 struct RGYDegrainTemporalMixPlanState {
     std::unique_ptr<CUMemBuf> plan;
     RGYCudaEvent event;

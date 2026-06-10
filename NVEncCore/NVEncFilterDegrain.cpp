@@ -1070,6 +1070,305 @@ RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cuda
     return RGY_ERR_NONE;
 }
 
+RGY_ERR NVEncFilterDegrain::feedFrameOnly(const RGYFrameInfo *pInputFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
+    if (!pInputFrame || pInputFrame->ptr[0] == nullptr) {
+        return RGY_ERR_NONE;
+    }
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->mem_type, m_cacheFrames[0]->frame.mem_type);
+    if (memcpyKind != cudaMemcpyDeviceToDevice) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_drainCount = 0;
+    RGYCudaEvent cacheCopyEvent;
+    auto sts = pushCacheFrame(pInputFrame, stream, wait_events, &cacheCopyEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    m_inputCount++;
+    if (useAnalysisLumaCache()) {
+        sts = ensureAnalysisLumaGenerated(m_inputCount - 1 - prm->degrain.tr0, stream, { cacheCopyEvent });
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (event) {
+        *event = cacheCopyEvent;
+    }
+    return RGY_ERR_NONE;
+}
+
+bool NVEncFilterDegrain::outputReady() const {
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) return false;
+    return m_inputCount >= outputDelay() + 1;
+}
+
+RGY_ERR NVEncFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, cudaStream_t stream) {
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!outputReady()) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    const auto processFrames = resolveFrames(true);
+    const int currentFrame = processFrames.currentFrame;
+    const auto &frames = processFrames.render;
+    if (!frames.cur) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    if (outputFrameIdentity) {
+        copyFramePropWithoutRes(outputFrameIdentity, frames.cur);
+    }
+
+    if (!bindFrameAnalysisData(frames.cur, currentFrame, stream)) {
+        auto err = prepareAnalysisState(processFrames.analysis, stream, {});
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    RGYDegrainRefDir refDirection = RGYDegrainRefDir::Backward;
+    if (!rgy_degrain_refdir_from_mode(prm->degrain.mode, &refDirection)) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int refIndex = rgy_degrain_refdir_index(refDirection);
+    const int refDelta = rgy_degrain_delta_from_ref_index(refIndex);
+    const bool refForward = rgy_degrain_ref_index_is_forward(refIndex);
+    const RGYFrameInfo *reference = refForward ? frames.forwardRef(refDelta) : frames.backwardRef(refDelta);
+    if (!reference || reference->ptr[0] == nullptr) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    auto *mv = analysisMV();
+    auto *sad = analysisSAD();
+    if (!mv || !sad) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    const auto &layout = analysisLayout();
+    const RGYDegrainRefDisableArray disableRefsArray = analysisAvailabilityDisableRefs(frames);
+    const uint32_t disableMask = degrainDisableMask(disableRefsArray, layout.temporalDirections);
+    const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
+    const bool processChroma = degrainCanProcessChroma(frames.cur);
+
+    auto ensureRamp = [&](RGYDegrainWindowRampState &state, int planeScaleX, int planeScaleY) -> RGY_ERR {
+        const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
+        const int planeOverlapY = std::max(layout.overlap / std::max(planeScaleY, 1), 0);
+        const auto rampBytes = degrainOverlapBlendTableBytes(planeOverlapX, planeOverlapY);
+        if (rampBytes == 0) {
+            state.reset();
+            return RGY_ERR_NONE;
+        }
+        if (state.reusable(planeOverlapX, planeOverlapY, rampBytes)) {
+            return RGY_ERR_NONE;
+        }
+        std::vector<float> ramp(planeOverlapX + planeOverlapY);
+        degrainFillOverlapBlendAxis(ramp.data(), planeOverlapX);
+        degrainFillOverlapBlendAxis(ramp.data() + planeOverlapX, planeOverlapY);
+        auto rampBuf = std::make_unique<CUMemBuf>(rampBytes);
+        auto err = rampBuf->alloc();
+        if (err != RGY_ERR_NONE) { state.reset(); return err; }
+        err = err_to_rgy(cudaMemcpyAsync(rampBuf->ptr, ramp.data(), rampBytes, cudaMemcpyHostToDevice, stream));
+        if (err != RGY_ERR_NONE) { state.reset(); return err; }
+        state.ramp = std::move(rampBuf);
+        state.bytes = rampBytes;
+        state.overlapX = planeOverlapX;
+        state.overlapY = planeOverlapY;
+        return RGY_ERR_NONE;
+    };
+
+    const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
+    for (int iplane = 0; iplane < (processChroma ? 3 : 1); iplane++) {
+        const auto plane = planes[iplane];
+        const auto planeCur = getPlane(frames.cur, plane);
+        const auto planeRef = getPlane(reference, plane);
+        const int planeScaleX = degrainPlaneScaleX(frames.cur, plane);
+        const int planeScaleY = degrainPlaneScaleY(frames.cur, plane);
+
+        auto &rampState = (plane == RGY_PLANE_Y) ? m_analysis.windowRampY : m_analysis.windowRampC;
+        if (layout.overlap > 0) {
+            auto err = ensureRamp(rampState, planeScaleX, planeScaleY);
+            if (err != RGY_ERR_NONE) return err;
+        }
+
+        auto &p = paramsOut[iplane];
+        p.cur = planeCur.ptr[0];
+        p.cur_pitch = planeCur.pitch[0];
+        p.refBack = planeRef.ptr[0];
+        p.refForw = planeRef.ptr[0];
+        p.refDirBack = refIndex;
+        p.refDirForw = refIndex;
+        p.mv = reinterpret_cast<const RGYDegrainMV *>(mv->ptr);
+        p.sad = reinterpret_cast<const RGYDegrainSAD *>(sad->ptr);
+        p.blocksX = layout.blocksX;
+        p.blocksY = layout.blocksY;
+        p.blockSize = layout.blockSize;
+        p.overlap = layout.overlap;
+        p.step = layout.step;
+        p.coveredWidth = degrainScaleCovered(layout.coveredWidth, planeScaleX);
+        p.coveredHeight = degrainScaleCovered(layout.coveredHeight, planeScaleY);
+        p.planeScaleX = planeScaleX;
+        p.planeScaleY = planeScaleY;
+        p.thsad = compensateThSad;
+        p.disableMask = disableMask;
+        p.windowRamp = (layout.overlap > 0 && rampState.ramp) ? reinterpret_cast<const float *>(rampState.ramp->ptr) : nullptr;
+        p.width = planeCur.width;
+        p.height = planeCur.height;
+        p.refs = layout.temporalDirections;
+        p.pel = prm->degrain.pel;
+        p.subpelInterp = prm->degrain.subpelInterp;
+    }
+    if (!processChroma) {
+        paramsOut[1] = paramsOut[0];
+        paramsOut[2] = paramsOut[0];
+    }
+    return RGY_ERR_NONE;
+}
+
+bool NVEncFilterDegrain::drainReady() const {
+    return m_drainCount < drainFrameCount();
+}
+
+RGY_ERR NVEncFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, cudaStream_t stream) {
+    if (!drainReady()) {
+        return RGY_ERR_MORE_DATA;
+    }
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    if (useAnalysisLumaCache()) {
+        const int currentFrame = std::max(0, m_inputCount - drainFrameCount()) + m_drainCount;
+        auto sts = ensureAnalysisLumaGenerated(currentFrame + prm->degrain.delta, stream, {});
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    const auto processFrames = resolveFrames(false);
+    m_drainCount++;
+    const int currentFrame = processFrames.currentFrame;
+    const auto &frames = processFrames.render;
+    if (!frames.cur) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    if (outputFrameIdentity) {
+        copyFramePropWithoutRes(outputFrameIdentity, frames.cur);
+    }
+
+    if (!bindFrameAnalysisData(frames.cur, currentFrame, stream)) {
+        auto err = prepareAnalysisState(processFrames.analysis, stream, {});
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    RGYDegrainRefDir refDirection = RGYDegrainRefDir::Backward;
+    if (!rgy_degrain_refdir_from_mode(prm->degrain.mode, &refDirection)) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int refIndex = rgy_degrain_refdir_index(refDirection);
+    const int refDelta = rgy_degrain_delta_from_ref_index(refIndex);
+    const bool refForward = rgy_degrain_ref_index_is_forward(refIndex);
+    const RGYFrameInfo *reference = refForward ? frames.forwardRef(refDelta) : frames.backwardRef(refDelta);
+    if (!reference || reference->ptr[0] == nullptr) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    auto *mv = analysisMV();
+    auto *sad = analysisSAD();
+    if (!mv || !sad) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    const auto &layout = analysisLayout();
+    const RGYDegrainRefDisableArray disableRefsArray = analysisAvailabilityDisableRefs(frames);
+    const uint32_t disableMask = degrainDisableMask(disableRefsArray, layout.temporalDirections);
+    const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
+    const bool processChroma = degrainCanProcessChroma(frames.cur);
+
+    auto ensureRamp = [&](RGYDegrainWindowRampState &state, int planeScaleX, int planeScaleY) -> RGY_ERR {
+        const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
+        const int planeOverlapY = std::max(layout.overlap / std::max(planeScaleY, 1), 0);
+        const auto rampBytes = degrainOverlapBlendTableBytes(planeOverlapX, planeOverlapY);
+        if (rampBytes == 0) {
+            state.reset();
+            return RGY_ERR_NONE;
+        }
+        if (state.reusable(planeOverlapX, planeOverlapY, rampBytes)) {
+            return RGY_ERR_NONE;
+        }
+        std::vector<float> ramp(planeOverlapX + planeOverlapY);
+        degrainFillOverlapBlendAxis(ramp.data(), planeOverlapX);
+        degrainFillOverlapBlendAxis(ramp.data() + planeOverlapX, planeOverlapY);
+        auto rampBuf = std::make_unique<CUMemBuf>(rampBytes);
+        auto err = rampBuf->alloc();
+        if (err != RGY_ERR_NONE) { state.reset(); return err; }
+        err = err_to_rgy(cudaMemcpyAsync(rampBuf->ptr, ramp.data(), rampBytes, cudaMemcpyHostToDevice, stream));
+        if (err != RGY_ERR_NONE) { state.reset(); return err; }
+        state.ramp = std::move(rampBuf);
+        state.bytes = rampBytes;
+        state.overlapX = planeOverlapX;
+        state.overlapY = planeOverlapY;
+        return RGY_ERR_NONE;
+    };
+
+    const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
+    for (int iplane = 0; iplane < (processChroma ? 3 : 1); iplane++) {
+        const auto plane = planes[iplane];
+        const auto planeCur = getPlane(frames.cur, plane);
+        const auto planeRef = getPlane(reference, plane);
+        const int planeScaleX = degrainPlaneScaleX(frames.cur, plane);
+        const int planeScaleY = degrainPlaneScaleY(frames.cur, plane);
+
+        auto &rampState = (plane == RGY_PLANE_Y) ? m_analysis.windowRampY : m_analysis.windowRampC;
+        if (layout.overlap > 0) {
+            auto err = ensureRamp(rampState, planeScaleX, planeScaleY);
+            if (err != RGY_ERR_NONE) return err;
+        }
+
+        auto &p = paramsOut[iplane];
+        p.cur = planeCur.ptr[0];
+        p.cur_pitch = planeCur.pitch[0];
+        p.refBack = planeRef.ptr[0];
+        p.refForw = planeRef.ptr[0];
+        p.refDirBack = refIndex;
+        p.refDirForw = refIndex;
+        p.mv = reinterpret_cast<const RGYDegrainMV *>(mv->ptr);
+        p.sad = reinterpret_cast<const RGYDegrainSAD *>(sad->ptr);
+        p.blocksX = layout.blocksX;
+        p.blocksY = layout.blocksY;
+        p.blockSize = layout.blockSize;
+        p.overlap = layout.overlap;
+        p.step = layout.step;
+        p.coveredWidth = degrainScaleCovered(layout.coveredWidth, planeScaleX);
+        p.coveredHeight = degrainScaleCovered(layout.coveredHeight, planeScaleY);
+        p.planeScaleX = planeScaleX;
+        p.planeScaleY = planeScaleY;
+        p.thsad = compensateThSad;
+        p.disableMask = disableMask;
+        p.windowRamp = (layout.overlap > 0 && rampState.ramp) ? reinterpret_cast<const float *>(rampState.ramp->ptr) : nullptr;
+        p.width = planeCur.width;
+        p.height = planeCur.height;
+        p.refs = layout.temporalDirections;
+        p.pel = prm->degrain.pel;
+        p.subpelInterp = prm->degrain.subpelInterp;
+    }
+    if (!processChroma) {
+        paramsOut[1] = paramsOut[0];
+        paramsOut[2] = paramsOut[0];
+    }
+    return RGY_ERR_NONE;
+}
+
 RGYFilterDegrainFrameSet NVEncFilterDegrain::resolveFrameSet(const int currentFrame) const {
     RGYFilterDegrainFrameSet frames;
     if (m_inputCount <= 0) {

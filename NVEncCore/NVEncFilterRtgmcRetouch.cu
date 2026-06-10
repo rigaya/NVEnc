@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "rgy_cuda_util_kernel.h"
+#include "NVEncFilterDegrain.cuh"
 #include "rgy_util.h"
 
 #pragma warning (push)
@@ -538,6 +539,50 @@ __device__ int rtgmc_retouch_temporal_detail_guard_value(
 }
 
 template<typename Type>
+__device__ int rtgmc_retouch_temporal_detail_guard_value_inline_comp(
+    const int srcPix,
+    const uint8_t *__restrict__ ref,
+    const int x, const int y,
+    const int refPitch,
+    const int width, const int height,
+    const RGYDegrainCompensateInlineParams &compParams,
+    const int sovs, const int maxVal
+) {
+    const int refPix = rtgmc_retouch_read_pix<Type>(ref, x, y, refPitch, width, height);
+    const int motionBackPix = degrainCompensateOverlapPixelValue<Type>(
+        compParams.cur, compParams.cur_pitch,
+        compParams.cur, compParams.refBack,
+        compParams.refDirBack,
+        compParams.width, compParams.height,
+        compParams.mv, compParams.sad,
+        compParams.blocksX, compParams.blocksY,
+        compParams.blockSize, compParams.overlap, compParams.step,
+        compParams.coveredWidth, compParams.coveredHeight,
+        compParams.planeScaleX, compParams.planeScaleY,
+        compParams.thsad, compParams.disableMask,
+        compParams.windowRamp,
+        x, y,
+        compParams.refs, compParams.pel, compParams.subpelInterp);
+    const int motionForwPix = degrainCompensateOverlapPixelValue<Type>(
+        compParams.cur, compParams.cur_pitch,
+        compParams.cur, compParams.refForw,
+        compParams.refDirForw,
+        compParams.width, compParams.height,
+        compParams.mv, compParams.sad,
+        compParams.blocksX, compParams.blocksY,
+        compParams.blockSize, compParams.overlap, compParams.step,
+        compParams.coveredWidth, compParams.coveredHeight,
+        compParams.planeScaleX, compParams.planeScaleY,
+        compParams.thsad, compParams.disableMask,
+        compParams.windowRamp,
+        x, y,
+        compParams.refs, compParams.pel, compParams.subpelInterp);
+    const int lower = min(refPix, min(motionBackPix, motionForwPix)) - sovs;
+    const int upper = max(refPix, max(motionBackPix, motionForwPix)) + sovs;
+    return clamp(srcPix, max(0, lower), min(maxVal, upper));
+}
+
+template<typename Type>
 __device__ int rtgmc_retouch_spatial_min(
     const uint8_t *__restrict__ src, const int x, const int y,
     const int pitch, const int width, const int height,
@@ -952,6 +997,30 @@ __global__ void kernel_rtgmc_retouch_limit(
     rtgmc_retouch_write_pix<Type>(dst, ix, iy, dstPitch, rtgmc_retouch_round_clamp(value, maxVal), maxVal);
 }
 
+template<typename Type>
+__global__ void kernel_rtgmc_retouch_limit_inline_comp(
+    uint8_t *__restrict__ dst, const int dstPitch,
+    const uint8_t *__restrict__ src, const int srcPitch,
+    const uint8_t *__restrict__ ref, const int refPitch,
+    const RGYDegrainCompensateInlineParams compParams,
+    const int width, const int height,
+    const int sovs,
+    const int maxVal
+) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= width || iy >= height) return;
+
+    const float value = (float)rtgmc_retouch_read_pix<Type>(src, ix, iy, srcPitch, width, height);
+    const int result = rtgmc_retouch_temporal_detail_guard_value_inline_comp<Type>(
+        rtgmc_retouch_round_clamp(value, maxVal),
+        ref, ix, iy, refPitch,
+        width, height,
+        compParams,
+        sovs, maxVal);
+    rtgmc_retouch_write_pix<Type>(dst, ix, iy, dstPitch, result, maxVal);
+}
+
 NVEncFilterRtgmcRetouch::NVEncFilterRtgmcRetouch() :
     NVEncFilter(),
     m_buildOptions(),
@@ -1043,6 +1112,7 @@ void NVEncFilterRtgmcRetouch::clearSpatialLimitBaseFrame() {
 
 void NVEncFilterRtgmcRetouch::setTemporalLimitFrames(const RGYRtgmcRetouchTemporalLimitFrames &frames) {
     m_temporalLimitFrames = frames;
+    m_temporalLimitFrames.useInlineComp = false;
     m_loggedTemporalFallback = false;
 }
 
@@ -1051,8 +1121,20 @@ void NVEncFilterRtgmcRetouch::clearTemporalLimitFrames() {
     m_loggedTemporalFallback = false;
 }
 
+void NVEncFilterRtgmcRetouch::setTemporalLimitInlineComp(const RGYFrameInfo *ref, const std::array<RGYDegrainCompensateInlineParams, 3> &params) {
+    m_temporalLimitFrames.ref = ref;
+    m_temporalLimitFrames.motionBack = nullptr;
+    m_temporalLimitFrames.motionForw = nullptr;
+    m_temporalLimitFrames.useInlineComp = true;
+    m_temporalLimitFrames.inlineCompParams = params;
+    m_loggedTemporalFallback = false;
+}
+
 bool NVEncFilterRtgmcRetouch::temporalLimitFramesCompatible(const RGYFrameInfo *srcFrame) const {
     const auto &frames = m_temporalLimitFrames;
+    if (frames.useInlineComp) {
+        return isFrameCompatible(srcFrame, frames.ref);
+    }
     return isFrameCompatible(srcFrame, frames.ref)
         && isFrameCompatible(srcFrame, frames.motionBack)
         && isFrameCompatible(srcFrame, frames.motionForw);
@@ -1809,6 +1891,25 @@ RGY_ERR NVEncFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const 
             maxVal);
         return checkLaunch(kernelName, iplane);
     };
+    auto launchLimitSinkInlineComp = [&](const RGYFrameInfo *dstFrame, const RGYFrameInfo *srcFrame,
+        const RGYFrameInfo *refLimitFrame, const int iplane) {
+        const char *kernelName = "kernel_rtgmc_retouch_limit_inline_comp";
+        const auto dstPlane = getPlane(dstFrame, (RGY_PLANE)iplane);
+        const auto srcPlane = getPlane(srcFrame, (RGY_PLANE)iplane);
+        const auto refPlane = getPlane(refLimitFrame, (RGY_PLANE)iplane);
+        const dim3 blockSize(RTGMC_RETOUCH_BLOCK_X, RTGMC_RETOUCH_BLOCK_Y);
+        const dim3 gridSize(divCeil(dstPlane.width, blockSize.x), divCeil(dstPlane.height, blockSize.y));
+        const auto &compParams = m_temporalLimitFrames.inlineCompParams[iplane];
+        LAUNCH_RETOUCH_TYPED(kernel_rtgmc_retouch_limit_inline_comp, gridSize, blockSize,
+            (uint8_t *)dstPlane.ptr[0], dstPlane.pitch[0],
+            (const uint8_t *)srcPlane.ptr[0], srcPlane.pitch[0],
+            (const uint8_t *)refPlane.ptr[0], refPlane.pitch[0],
+            compParams,
+            dstPlane.width, dstPlane.height,
+            scaledSovs,
+            maxVal);
+        return checkLaunch(kernelName, iplane);
+    };
 
     auto *curA = &m_frameBuf[1]->frame;
     auto *curB = &m_frameBuf[2]->frame;
@@ -2048,7 +2149,12 @@ RGY_ERR NVEncFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const 
                 err = dumpStageFrame(motionForwStage, motionForwFrame, dumpTarget, stream, {});
                 if (err != RGY_ERR_NONE) return err;
             }
-            auto err = launchLimitSink(altDst, curFrame, baseFrame, refFrame, motionBackFrame, motionForwFrame, iplane);
+            RGY_ERR err;
+            if (m_temporalLimitFrames.useInlineComp) {
+                err = launchLimitSinkInlineComp(altDst, curFrame, refFrame, iplane);
+            } else {
+                err = launchLimitSink(altDst, curFrame, baseFrame, refFrame, motionBackFrame, motionForwFrame, iplane);
+            }
             if (err != RGY_ERR_NONE) {
                 return err;
             }

@@ -41,11 +41,15 @@ struct RGYRtgmcRetouchTemporalLimitFrames {
     const RGYFrameInfo *ref;
     const RGYFrameInfo *motionBack;
     const RGYFrameInfo *motionForw;
+    bool useInlineComp;
+    std::array<RGYDegrainCompensateInlineParams, 3> inlineCompParams; // per-plane (Y, U, V)
 
     RGYRtgmcRetouchTemporalLimitFrames() :
         ref(nullptr),
         motionBack(nullptr),
-        motionForw(nullptr) {
+        motionForw(nullptr),
+        useInlineComp(false),
+        inlineCompParams() {
     }
 
     bool any() const {
@@ -53,6 +57,9 @@ struct RGYRtgmcRetouchTemporalLimitFrames {
     }
 
     bool valid() const {
+        if (useInlineComp) {
+            return ref != nullptr;
+        }
         return ref != nullptr && motionBack != nullptr && motionForw != nullptr;
     }
 };
@@ -77,6 +84,7 @@ public:
     void clearSpatialLimitBaseFrame();
     void setTemporalLimitFrames(const RGYRtgmcRetouchTemporalLimitFrames &frames);
     void clearTemporalLimitFrames();
+    void setTemporalLimitInlineComp(const RGYFrameInfo *ref, const std::array<RGYDegrainCompensateInlineParams, 3> &params);
 
 protected:
     RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
