@@ -2213,7 +2213,7 @@ RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, 
     }
 
     auto mv = (m_sideDataBufferPool)
-        ? m_sideDataBufferPool->acquire(m_analysis.mvBytes)
+        ? m_sideDataBufferPool->acquire(m_analysis.mvBytes, stream)
         : std::make_unique<CUMemBuf>(m_analysis.mvBytes);
     auto err = (mv && mv->ptr) ? RGY_ERR_NONE : (mv ? mv->alloc() : RGY_ERR_MEMORY_ALLOC);
     if (err != RGY_ERR_NONE) {
@@ -2221,7 +2221,7 @@ RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, 
         return err;
     }
     auto sad = (m_sideDataBufferPool)
-        ? m_sideDataBufferPool->acquire(m_analysis.sadBytes)
+        ? m_sideDataBufferPool->acquire(m_analysis.sadBytes, stream)
         : std::make_unique<CUMemBuf>(m_analysis.sadBytes);
     err = (sad && sad->ptr) ? RGY_ERR_NONE : (sad ? sad->alloc() : RGY_ERR_MEMORY_ALLOC);
     if (err != RGY_ERR_NONE) {
@@ -3557,6 +3557,34 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
                 return err;
             }
         }
+    }
+
+    const bool shouldPrewarmSideDataPool = prm->degrain.mode == VppDegrainMode::Analyze
+        && prm->attachAnalysisData
+        && m_sideDataBufferPool
+        && m_analysis.mvBytes > 0
+        && m_analysis.sadBytes > 0;
+    if (shouldPrewarmSideDataPool) {
+        const size_t prewarmFrames = std::min<size_t>(
+            RGYDegrainBufferPool::MAX_POOL_BUFFERS / 2,
+            (size_t)std::max(1, prm->degrain.delta + prm->degrain.tr0 + 4));
+        auto prewarmBuffer = [&](const size_t size, const TCHAR *name) {
+            if (size == 0) {
+                return;
+            }
+            for (size_t i = 0; i < prewarmFrames; i++) {
+                auto buf = std::make_unique<CUMemBuf>(size);
+                const auto allocErr = buf->alloc();
+                if (allocErr != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_WARN, _T("degrain side data pool prewarm for %s buffer failed at %zu/%zu: %s.\n"),
+                        name, i + 1, prewarmFrames, get_err_mes(allocErr));
+                    break;
+                }
+                m_sideDataBufferPool->recycle(std::move(buf), {});
+            }
+        };
+        prewarmBuffer(m_analysis.mvBytes, _T("MV"));
+        prewarmBuffer(m_analysis.sadBytes, _T("SAD"));
     }
     return RGY_ERR_NONE;
 }

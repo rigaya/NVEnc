@@ -271,6 +271,7 @@ protected:
         std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo& info);
         void clear();
     private:
+        static constexpr size_t MAX_POOL_FRAMES = 64;
         std::deque<std::shared_ptr<CUFrameBuf>> m_pool;
     };
 

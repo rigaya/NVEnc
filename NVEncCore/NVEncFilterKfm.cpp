@@ -357,13 +357,43 @@ NVEncFilterKfm::~NVEncFilterKfm() {
 }
 
 std::shared_ptr<CUFrameBuf> NVEncFilterKfm::SharedFramePool::acquire(const RGYFrameInfo& info) {
-    for (auto it = m_pool.begin(); it != m_pool.end(); ++it) {
-        auto frame = *it;
-        if (frame && frame.use_count() == 1
+    auto resetFrameState = [](RGYFrameInfo& frame) {
+        frame.timestamp = 0;
+        frame.duration = 0;
+        frame.picstruct = RGY_PICSTRUCT_UNKNOWN;
+        frame.flags = RGY_FRAME_FLAG_NONE;
+        frame.inputFrameId = -1;
+        frame.dataList.clear();
+    };
+    auto matchesInfo = [&info](const std::shared_ptr<CUFrameBuf>& frame) {
+        return frame
             && !cmpFrameInfoCspResolution(&frame->frame, &info)
-            && RGY_CSP_BIT_DEPTH[frame->frame.csp] == RGY_CSP_BIT_DEPTH[info.csp]) {
+            && RGY_CSP_BIT_DEPTH[frame->frame.csp] == RGY_CSP_BIT_DEPTH[info.csp];
+    };
+    auto trimPool = [&]() {
+        while (m_pool.size() > MAX_POOL_FRAMES) {
+            auto it = m_pool.begin();
+            for (; it != m_pool.end(); ++it) {
+                if (*it && (*it).use_count() == 1) {
+                    break;
+                }
+            }
+            if (it == m_pool.end()) {
+                break;
+            }
             m_pool.erase(it);
-            return frame;
+        }
+    };
+    for (auto& frame : m_pool) {
+        if (frame && frame.use_count() == 1
+            && matchesInfo(frame)) {
+            // KFM pool frames are never returned outside this filter; emitOutputFrame()
+            // copies them to the normal output ring first. All KFM users run on the
+            // filter stream, so stream ordering makes reuse safe without host sync.
+            resetFrameState(frame->frame);
+            auto selected = frame;
+            trimPool();
+            return selected;
         }
     }
     auto frame = std::make_shared<CUFrameBuf>(info);
@@ -371,6 +401,9 @@ std::shared_ptr<CUFrameBuf> NVEncFilterKfm::SharedFramePool::acquire(const RGYFr
     if (frame->alloc() != RGY_ERR_NONE) {
         return nullptr;
     }
+    resetFrameState(frame->frame);
+    m_pool.push_back(frame);
+    trimPool();
     return frame;
 }
 

@@ -591,7 +591,7 @@ public:
 
     RGYDegrainBufferPool();
     ~RGYDegrainBufferPool();
-    std::unique_ptr<CUMemBuf> acquire(size_t size);
+    std::unique_ptr<CUMemBuf> acquire(size_t size, cudaStream_t stream = nullptr);
     void recycle(std::unique_ptr<CUMemBuf>&& buf, const RGYCudaEvent &readyEvent);
     void clear();
 

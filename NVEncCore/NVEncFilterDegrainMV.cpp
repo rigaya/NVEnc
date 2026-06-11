@@ -109,7 +109,7 @@ RGYDegrainBufferPool::~RGYDegrainBufferPool() {
     clear();
 }
 
-std::unique_ptr<CUMemBuf> RGYDegrainBufferPool::acquire(size_t size) {
+std::unique_ptr<CUMemBuf> RGYDegrainBufferPool::acquire(size_t size, cudaStream_t stream) {
     if (size == 0) {
         return nullptr;
     }
@@ -118,7 +118,11 @@ std::unique_ptr<CUMemBuf> RGYDegrainBufferPool::acquire(size_t size) {
     });
     if (pooled != m_buffers.end()) {
         if (pooled->readyEvent() != nullptr) {
-            cudaEventSynchronize(pooled->readyEvent());
+            const auto readyEvent = pooled->readyEvent();
+            auto err = cudaStreamWaitEvent(stream, readyEvent, 0);
+            if (err != cudaSuccess) {
+                cudaEventSynchronize(readyEvent);
+            }
             pooled->readyEvent.reset();
         }
         auto buf = std::move(pooled->buf);
