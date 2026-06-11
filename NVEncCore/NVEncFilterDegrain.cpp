@@ -879,6 +879,14 @@ bool NVEncFilterDegrain::useAnalysisLumaCache() const {
     return prm && modeRequiresAnalysis(prm->degrain.mode) && degrainRequiresAnalysisLumaCache(prm->degrain);
 }
 
+bool NVEncFilterDegrain::hasDirectAnalyzeResult() const {
+    return m_directAnalyzeResultSet.valid(requestedDelta());
+}
+
+bool NVEncFilterDegrain::prefetchAnalysisLumaCache() const {
+    return useAnalysisLumaCache() && !hasDirectAnalyzeResult();
+}
+
 bool NVEncFilterDegrain::degrainDebugLogEnabled() const {
     return m_pLog != nullptr && m_pLog->getLogLevel(RGY_LOGT_VPP) <= RGY_LOG_DEBUG;
 }
@@ -1089,7 +1097,7 @@ RGY_ERR NVEncFilterDegrain::feedFrameOnly(const RGYFrameInfo *pInputFrame, cudaS
         return sts;
     }
     m_inputCount++;
-    if (useAnalysisLumaCache()) {
+    if (prefetchAnalysisLumaCache()) {
         sts = ensureAnalysisLumaGenerated(m_inputCount - 1 - prm->degrain.tr0, stream, { cacheCopyEvent });
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -1128,7 +1136,7 @@ RGY_ERR NVEncFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCom
     }
 
     if (!bindFrameAnalysisData(frames.cur, currentFrame, stream)) {
-        auto err = prepareAnalysisState(processFrames.analysis, stream, {});
+        auto err = prepareFallbackAnalysisState(processFrames, currentFrame, stream, {});
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -1245,7 +1253,7 @@ RGY_ERR NVEncFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensa
         return RGY_ERR_INVALID_PARAM;
     }
 
-    if (useAnalysisLumaCache()) {
+    if (prefetchAnalysisLumaCache()) {
         const int currentFrame = std::max(0, m_inputCount - drainFrameCount()) + m_drainCount;
         auto sts = ensureAnalysisLumaGenerated(currentFrame + prm->degrain.delta, stream, {});
         if (sts != RGY_ERR_NONE) {
@@ -1265,7 +1273,7 @@ RGY_ERR NVEncFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensa
     }
 
     if (!bindFrameAnalysisData(frames.cur, currentFrame, stream)) {
-        auto err = prepareAnalysisState(processFrames.analysis, stream, {});
+        auto err = prepareFallbackAnalysisState(processFrames, currentFrame, stream, {});
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -1587,7 +1595,7 @@ RGY_ERR NVEncFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         }
 
         m_inputCount++;
-        if (useAnalysisLumaCache()) {
+        if (prefetchAnalysisLumaCache()) {
             sts = ensureAnalysisLumaGenerated(m_inputCount - 1 - prm->degrain.tr0, stream, { cacheCopyEvent });
             if (sts != RGY_ERR_NONE) {
                 return sts;
@@ -1601,7 +1609,7 @@ RGY_ERR NVEncFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     }
 
     if (m_drainCount < drainFrameCount()) {
-        if (useAnalysisLumaCache()) {
+        if (prefetchAnalysisLumaCache()) {
             const int currentFrame = std::max(0, m_inputCount - drainFrameCount()) + m_drainCount;
             const auto sts = ensureAnalysisLumaGenerated(currentFrame + prm->degrain.delta, stream, {});
             if (sts != RGY_ERR_NONE) {
@@ -2383,6 +2391,23 @@ RGY_ERR NVEncFilterDegrain::prepareAnalysisState(const RGYFilterDegrainFrameSet 
     return RGY_ERR_NONE;
 }
 
+RGY_ERR NVEncFilterDegrain::prepareFallbackAnalysisState(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame,
+    cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
+    auto analysisFrames = frames.analysis;
+    if (useAnalysisLumaCache() && !degrainGetAttachedSearchLuma(frames.render.cur)) {
+        auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+        if (!prm) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        auto err = ensureAnalysisLumaGenerated(currentFrame + prm->degrain.delta, stream, wait_events);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        analysisFrames = resolveAnalysisFrameSet(currentFrame);
+    }
+    return prepareAnalysisState(analysisFrames, stream, wait_events);
+}
+
 RGY_ERR NVEncFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &planeCur, const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> &refPlanes,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events) {
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
@@ -2967,7 +2992,7 @@ RGY_ERR NVEncFilterDegrain::runAnalyzeMode(const RGYFilterDegrainProcessFrameSet
 RGY_ERR NVEncFilterDegrain::runDebugMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, VppDegrainMode mode, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     if (!bindFrameAnalysisData(frames.render.cur, currentFrame, stream)) {
-        auto err = prepareAnalysisState(frames.analysis, stream, wait_events);
+        auto err = prepareFallbackAnalysisState(frames, currentFrame, stream, wait_events);
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -2978,7 +3003,7 @@ RGY_ERR NVEncFilterDegrain::runDebugMode(const RGYFilterDegrainProcessFrameSet &
 RGY_ERR NVEncFilterDegrain::runCompensateMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, VppDegrainMode mode, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
     if (!bindFrameAnalysisData(frames.render.cur, currentFrame, stream)) {
-        auto err = prepareAnalysisState(frames.analysis, stream, wait_events);
+        auto err = prepareFallbackAnalysisState(frames, currentFrame, stream, wait_events);
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -3027,7 +3052,7 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
     }
 
     if (!bindFrameAnalysisData(frames.render.cur, currentFrame, stream)) {
-        auto err = prepareAnalysisState(frames.analysis, stream, wait_events);
+        auto err = prepareFallbackAnalysisState(frames, currentFrame, stream, wait_events);
         if (err != RGY_ERR_NONE) {
             return err;
         }

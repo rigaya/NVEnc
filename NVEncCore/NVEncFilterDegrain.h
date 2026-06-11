@@ -100,6 +100,7 @@ protected:
     RGY_ERR attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
         int currentFrame, cudaStream_t stream, const RGYCudaEvent &frameCopyEvent, RGYCudaEvent *event);
     RGY_ERR prepareAnalysisState(const RGYFilterDegrainFrameSet &frames, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
+    RGY_ERR prepareFallbackAnalysisState(const RGYFilterDegrainProcessFrameSet &frames, int currentFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR prepareAnalysisStateMotionSearch(const RGYFrameInfo &planeCur, const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> &refPlanes,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR runSourceMode(const RGYFilterDegrainFrameSet &frames, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
@@ -181,7 +182,9 @@ protected:
     RGY_ERR allocAnalysisBuffers(const std::shared_ptr<NVEncFilterParamDegrain> &prm);
     bool modeImplemented(VppDegrainMode mode) const;
     bool modeRequiresAnalysis(VppDegrainMode mode) const;
+    bool hasDirectAnalyzeResult() const;
     bool useAnalysisLumaCache() const;
+    bool prefetchAnalysisLumaCache() const;
     RGYFilterDegrainFrameSet resolveFrameSet(int currentFrame) const;
     const RGYFrameInfo *resolveAnalysisLumaSourceFrame(int frameIndex) const;
     RGYFilterDegrainFrameSet resolveAnalysisFrameSet(int currentFrame) const;

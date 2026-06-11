@@ -1685,6 +1685,15 @@ RGY_ERR NVEncFilterRtgmc::runSourceMatchCorrectionPass(int stageIdx, RGYFrameInf
         if (!pass.correctionTemporalFilter) {
             return RGY_ERR_NONE;
         }
+        NVEncFilterDegrain *analyze = nullptr;
+        if (m_sharedAnalysisMode && m_sharedData.analyzeFilter) {
+            analyze = m_sharedData.analyzeFilter;
+        } else {
+            analyze = dynamic_cast<NVEncFilterDegrain *>(m_filters[RTGMC_FILTER_ANALYZE].get());
+        }
+        if (analyze) {
+            pass.correctionTemporalFilter->setDirectAnalyzeResultSet(analyze->analyzeResultSet());
+        }
         int diffOutNum = 0;
         RGYFrameInfo *diffOutFrames[RGY_RTGMC_MAX_OUT_FRAMES] = { 0 };
         RGYFrameInfo drainFrame;
