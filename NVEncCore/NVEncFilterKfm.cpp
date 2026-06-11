@@ -1067,19 +1067,24 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         }
     }
     if (prm->kfm.mode != VppKfmMode::P60 && prm->kfm.ucf) {
+        NVEncFilterRtgmc::RtgmcSharedAnalysisData sharedData;
+        bool useSharedAnalysisMode = false;
         if (m_deint60Rtgmc) {
-            m_deint60Rtgmc->enableIntermediateCapture(true);
+            sharedData = m_deint60Rtgmc->getSharedAnalysisData();
+            useSharedAnalysisMode = sharedData.analyzeFilter != nullptr;
+            if (useSharedAnalysisMode) {
+                m_deint60Rtgmc->enableIntermediateCapture(true);
+            }
         }
-        sts = initRtgmc(prm, m_before60Rtgmc, false, 1, true);
+        sts = initRtgmc(prm, m_before60Rtgmc, false, 1, useSharedAnalysisMode);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        sts = initRtgmc(prm, m_after60Rtgmc, false, 2, true);
+        sts = initRtgmc(prm, m_after60Rtgmc, false, 2, useSharedAnalysisMode);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        if (m_deint60Rtgmc) {
-            auto sharedData = m_deint60Rtgmc->getSharedAnalysisData();
+        if (useSharedAnalysisMode) {
             m_before60Rtgmc->setSharedAnalysisData(sharedData);
             m_after60Rtgmc->setSharedAnalysisData(sharedData);
         }
@@ -6256,6 +6261,13 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return sts;
         }
         if (prm->kfm.ucf) {
+            if (m_deint60Rtgmc) {
+                for (auto &captured : m_deint60Rtgmc->getCapturedIntermediates()) {
+                    if (m_before60Rtgmc) m_before60Rtgmc->pushIntermediateInput(captured);
+                    if (m_after60Rtgmc) m_after60Rtgmc->pushIntermediateInput(captured);
+                }
+                m_deint60Rtgmc->clearCapturedIntermediates();
+            }
             sts = runUcfRtgmcBranches(pInputFrame, stream, {});
             if (sts != RGY_ERR_NONE) {
                 return sts;
