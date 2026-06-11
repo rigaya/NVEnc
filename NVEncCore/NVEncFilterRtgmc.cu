@@ -255,13 +255,33 @@ std::shared_ptr<CUFrameBuf> NVRtgmcSharedFramePool::acquire(const RGYFrameInfo *
     if (!frame) {
         return nullptr;
     }
-    for (auto it = m_pool.begin(); it != m_pool.end(); ++it) {
-        auto buf = *it;
+    auto resetFrameState = [](RGYFrameInfo& frameInfo) {
+        frameInfo.timestamp = 0;
+        frameInfo.duration = 0;
+        frameInfo.picstruct = RGY_PICSTRUCT_UNKNOWN;
+        frameInfo.flags = RGY_FRAME_FLAG_NONE;
+        frameInfo.inputFrameId = -1;
+        frameInfo.dataList.clear();
+    };
+    auto trimPool = [&]() {
+        while (m_pool.size() > MAX_POOL_FRAMES) {
+            auto it = std::find_if(m_pool.begin(), m_pool.end(), [](const std::shared_ptr<CUFrameBuf>& buf) {
+                return buf && buf.use_count() == 1;
+            });
+            if (it == m_pool.end()) {
+                break;
+            }
+            m_pool.erase(it);
+        }
+    };
+    for (auto& buf : m_pool) {
         if (buf && buf.use_count() == 1
             && !cmpFrameInfoCspResolution(&buf->frame, frame)
             && RGY_CSP_BIT_DEPTH[buf->frame.csp] == RGY_CSP_BIT_DEPTH[frame->csp]) {
-            m_pool.erase(it);
-            return buf;
+            resetFrameState(buf->frame);
+            auto selected = buf;
+            trimPool();
+            return selected;
         }
     }
     auto buf = std::make_shared<CUFrameBuf>(*frame);
@@ -269,6 +289,9 @@ std::shared_ptr<CUFrameBuf> NVRtgmcSharedFramePool::acquire(const RGYFrameInfo *
     if (buf->alloc() != RGY_ERR_NONE) {
         return nullptr;
     }
+    resetFrameState(buf->frame);
+    m_pool.push_back(buf);
+    trimPool();
     return buf;
 }
 
@@ -341,7 +364,12 @@ void NVEncFilterRtgmc::clearCapturedIntermediates() {
 }
 
 void NVEncFilterRtgmc::pushIntermediateInput(const RtgmcCapturedIntermediate &input) {
-    m_pendingIntermediateInputs.push_back(input);
+    auto queued = input;
+    if (queued.frame && !queued.frameInfo.ptr[0]) {
+        queued.frameInfo = queued.frame->frame;
+        queued.frameInfo.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(queued.frame));
+    }
+    m_pendingIntermediateInputs.push_back(queued);
 }
 
 NVEncFilterRtgmc::~NVEncFilterRtgmc() {
@@ -475,6 +503,7 @@ RGY_ERR NVEncFilterRtgmc::initRetouchCompFilters(const std::shared_ptr<NVEncFilt
         param->degrain.delta = 1;
         param->degrain.mode = modes[i];
         param->degrain.stage = VppDegrainStage::TR1;
+        param->zeroCopyCache = true;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to initialize retouch helper %s: %s.\n"),
@@ -560,6 +589,7 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
             param->degrain.delta = matchTR;
             param->degrain.mode = VppDegrainMode::Degrain;
             param->degrain.stage = (stageIdx == 0) ? VppDegrainStage::TR1 : VppDegrainStage::TR2;
+            param->zeroCopyCache = true;
             auto sts = initOne(pass.correctionTemporalFilter.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -1371,6 +1401,7 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
             // cannot identify the frame being emitted by those filters. Keep the
             // analysis payload internal to the nested chain and erase it at final output.
             param->attachAnalysisData = true;
+            param->zeroCopyCache = true;
             auto sts = initOne(std::move(filter), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -1487,6 +1518,7 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
         param->degrain = rtgDegrainRuntimeParam(prm->rtgmc.tr1, _T("tr1"));
         param->degrain.mode = VppDegrainMode::Degrain;
         param->degrain.stage = VppDegrainStage::TR1;
+        param->zeroCopyCache = true;
         auto sts = initOne(std::move(filter), param);
         if (sts != RGY_ERR_NONE) return sts;
     }
@@ -1545,6 +1577,7 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
             param->degrain = rtgDegrainRuntimeParam(prm->rtgmc.tr2, _T("tr2"));
             param->degrain.mode = VppDegrainMode::Degrain;
             param->degrain.stage = VppDegrainStage::TR2;
+            param->zeroCopyCache = true;
             auto sts = initOne(std::move(filter), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -2276,7 +2309,9 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
                         copyFramePropWithoutRes(&buf->frame, smOutFrames[j]);
                         RGYCudaEvent captureEvent;
                         rtgmcRecordEvent(stream, &captureEvent);
-                        m_capturedIntermediates.push_back({buf, captureEvent});
+                        auto frameInfo = buf->frame;
+                        frameInfo.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(buf));
+                        m_capturedIntermediates.push_back({buf, frameInfo, captureEvent});
                     }
                 }
                 sts = runThrough(filterIdx + 1, smOutFrames[j], ppOutputFrames, pOutputFrameNum, stream, smWaitEvents, event, storePending);
@@ -2292,7 +2327,9 @@ RGY_ERR NVEncFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame
                     copyFramePropWithoutRes(&buf->frame, childOutFrames[i]);
                     RGYCudaEvent captureEvent;
                     rtgmcRecordEvent(stream, &captureEvent);
-                    m_capturedIntermediates.push_back({buf, captureEvent});
+                    auto frameInfo = buf->frame;
+                    frameInfo.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(buf));
+                    m_capturedIntermediates.push_back({buf, frameInfo, captureEvent});
                 }
             }
             sts = runThrough(filterIdx + 1, childOutFrames[i], ppOutputFrames, pOutputFrameNum, stream, nextWaitEvents, event, storePending);
@@ -2464,7 +2501,7 @@ RGY_ERR NVEncFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
                 if (intermediate.event() != nullptr) {
                     intWaitEvents.push_back(intermediate.event);
                 }
-                auto sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frame->frame, ppOutputFrames, pOutputFrameNum, stream, intWaitEvents, event, false);
+                auto sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frameInfo, ppOutputFrames, pOutputFrameNum, stream, intWaitEvents, event, false);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
@@ -2511,7 +2548,7 @@ RGY_ERR NVEncFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             if (intermediate.event() != nullptr) {
                 intWaitEvents.push_back(intermediate.event);
             }
-            sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frame->frame, ppOutputFrames, pOutputFrameNum, stream, intWaitEvents, event, false);
+            sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frameInfo, ppOutputFrames, pOutputFrameNum, stream, intWaitEvents, event, false);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }

@@ -28,6 +28,7 @@
 
 #include "NVEncFilterDegrain.h"
 #include "NVEncFilterDegrainCommon.h"
+#include "NVEncFilterRtgmcCommon.h"
 
 #include <algorithm>
 #include <array>
@@ -870,6 +871,14 @@ int NVEncFilterDegrain::cacheIndex(int frame) const {
     return frame % DEGRAIN_CACHE_SIZE;
 }
 
+const RGYFrameInfo *NVEncFilterDegrain::cacheFrame(int frame) const {
+    const int index = cacheIndex(frame);
+    if (m_cacheFrameOwners[index] && m_cacheFrameRefs[index].ptr[0]) {
+        return &m_cacheFrameRefs[index];
+    }
+    return m_cacheFrames[index] ? &m_cacheFrames[index]->frame : nullptr;
+}
+
 int NVEncFilterDegrain::analysisCacheIndex(int frame) const {
     return frame % RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE;
 }
@@ -1058,15 +1067,34 @@ int NVEncFilterDegrain::drainFrameCount() const {
 }
 
 RGY_ERR NVEncFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event) {
-    auto pCacheFrame = &m_cacheFrames[cacheIndex(m_inputCount)]->frame;
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
+    const int index = cacheIndex(m_inputCount);
     auto err = degrainWaitEvents(stream, wait_events);
     if (err != RGY_ERR_NONE) {
         return err;
     }
+    if (prm && prm->zeroCopyCache) {
+        auto owner = rtgmcGetAttachedFrameRef(pInputFrame);
+        if (owner && owner->frame.ptr[0]
+            && !cmpFrameInfoCspResolution(&owner->frame, pInputFrame)
+            && RGY_CSP_BIT_DEPTH[owner->frame.csp] == RGY_CSP_BIT_DEPTH[pInputFrame->csp]) {
+            m_cacheFrameRefs[index] = *pInputFrame;
+            m_cacheFrameOwners[index] = owner;
+            err = degrainRecordEvent(stream, event);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to record degrain zero-copy cache event: %s.\n"), get_err_mes(err));
+                return err;
+            }
+            return RGY_ERR_NONE;
+        }
+    }
+    m_cacheFrameRefs[index] = RGYFrameInfo();
+    m_cacheFrameOwners[index].reset();
+    auto pCacheFrame = &m_cacheFrames[index]->frame;
     err = copyFrameAsync(pCacheFrame, pInputFrame, stream);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy input to degrain cache slot %d: %s.\n"),
-            cacheIndex(m_inputCount), get_err_mes(err));
+            index, get_err_mes(err));
         return err;
     }
     err = degrainRecordEvent(stream, event);
@@ -1386,14 +1414,14 @@ RGYFilterDegrainFrameSet NVEncFilterDegrain::resolveFrameSet(const int currentFr
         return frames;
     }
 
-    frames.cur = &m_cacheFrames[cacheIndex(currentFrame)]->frame;
+    frames.cur = cacheFrame(currentFrame);
     for (int delta = 1; delta <= RGY_DEGRAIN_MAX_DELTA; delta++) {
         frames.backwardInRange[delta - 1] = (currentFrame + delta) < m_inputCount;
         frames.forwardInRange[delta - 1] = (currentFrame - delta) >= 0;
         const int backwardFrame = frames.backwardInRange[delta - 1] ? (currentFrame + delta) : currentFrame;
         const int forwardFrame = frames.forwardInRange[delta - 1] ? (currentFrame - delta) : currentFrame;
-        frames.backward[delta - 1] = &m_cacheFrames[cacheIndex(backwardFrame)]->frame;
-        frames.forward[delta - 1] = &m_cacheFrames[cacheIndex(forwardFrame)]->frame;
+        frames.backward[delta - 1] = cacheFrame(backwardFrame);
+        frames.forward[delta - 1] = cacheFrame(forwardFrame);
     }
     return frames;
 }
@@ -1653,6 +1681,12 @@ void NVEncFilterDegrain::close() {
     clearFrameAnalysisData();
     if (m_sideDataBufferPool) {
         m_sideDataBufferPool->clear();
+    }
+    for (auto &frame : m_cacheFrameRefs) {
+        frame = RGYFrameInfo();
+    }
+    for (auto &owner : m_cacheFrameOwners) {
+        owner.reset();
     }
     for (auto &luma : m_analysis.analysisLuma) {
         luma.reset();
@@ -3594,7 +3628,7 @@ const RGYFrameInfo *NVEncFilterDegrain::resolveAnalysisLumaSourceFrame(const int
         return nullptr;
     }
     const int clampedFrame = clamp(frameIndex, 0, m_inputCount - 1);
-    return &m_cacheFrames[cacheIndex(clampedFrame)]->frame;
+    return cacheFrame(clampedFrame);
 }
 
 RGYFilterDegrainFrameSet NVEncFilterDegrain::resolveAnalysisFrameSet(int currentFrame) const {

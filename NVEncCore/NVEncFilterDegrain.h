@@ -44,13 +44,17 @@ class NVEncFilterParamDegrain : public NVEncFilterParam {
 public:
     VppDegrain degrain;
     bool attachAnalysisData;
+    bool zeroCopyCache;
 
-    NVEncFilterParamDegrain() : degrain(), attachAnalysisData(true) {};
+    NVEncFilterParamDegrain() : degrain(), attachAnalysisData(true), zeroCopyCache(false) {};
     virtual ~NVEncFilterParamDegrain() {};
     virtual tstring print() const override {
         auto str = degrain.print();
         if (!attachAnalysisData && degrain.mode == VppDegrainMode::Analyze) {
             str += _T(", direct-result");
+        }
+        if (zeroCopyCache) {
+            str += _T(", zero-copy-cache");
         }
         return str;
     };
@@ -84,6 +88,7 @@ protected:
     RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamDegrain> &prm);
     RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo);
     RGY_ERR pushCacheFrame(const RGYFrameInfo *pInputFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event = nullptr);
+    const RGYFrameInfo *cacheFrame(int frame) const;
     RGY_ERR emitSourceFrame(const RGYFrameInfo *pCurrentFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     RGY_ERR emitDebugFrame(const RGYFilterDegrainFrameSet &frames, VppDegrainMode mode,
@@ -240,6 +245,8 @@ protected:
     };
 
     std::array<std::unique_ptr<CUFrameBuf>, DEGRAIN_CACHE_SIZE> m_cacheFrames;
+    std::array<RGYFrameInfo, DEGRAIN_CACHE_SIZE> m_cacheFrameRefs;
+    std::array<std::shared_ptr<CUFrameBuf>, DEGRAIN_CACHE_SIZE> m_cacheFrameOwners;
     NVEncDegrainKernelProgram m_degrain;
     NVEncDegrainKernelProgram m_degrainChroma;
     NVEncDegrainKernelProgram m_degrainPel1;
