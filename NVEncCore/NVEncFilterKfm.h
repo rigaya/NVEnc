@@ -324,6 +324,7 @@ protected:
         RGYCudaEvent& cacheCopyEvent() { return m_cacheCopyEvent; }
         int submittedFrames() const { return m_submittedFrames; }
         int64_t feedCount() const { return m_feedCount; }
+        const std::array<int64_t, 5>& resetCounts() const { return m_resetCounts; }
     private:
         static constexpr int HOT_KEEP_SOURCE_FRAMES = 5;
         NVEncFilterKfm *m_owner;
@@ -339,6 +340,7 @@ protected:
         int m_hotUntilSourceIndex;
         int m_cacheFloorN60;
         int64_t m_feedCount;
+        std::array<int64_t, 5> m_resetCounts; // 0:cold 1:rewind 2:feedPastRequest 3:farJump 4:nextFeedTrimmed
         RGYCudaEvent m_cacheCopyEvent;
         bool sharedDeint60AnalysisLane() const;
         void markIntermediateGeneration(int sourceIndex, uint64_t generation);

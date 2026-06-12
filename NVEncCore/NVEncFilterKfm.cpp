@@ -397,6 +397,7 @@ void NVEncFilterKfm::KfmRtgmcLane::reset() {
     m_hotUntilSourceIndex = -1;
     m_cacheFloorN60 = 0;
     m_feedCount = 0;
+    m_resetCounts.fill(0);
 }
 
 RGY_ERR NVEncFilterKfm::KfmRtgmcLane::feed(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, int *cachedFrames) {
@@ -489,24 +490,38 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::ensureRange(int n60begin, int n60end, cuda
     n60begin = std::max(0, n60begin);
     n60end = std::max(n60begin, n60end);
 
-    bool cached = true;
+    int firstMissingN60 = -1;
     for (int n60 = n60begin; n60 < n60end; n60++) {
         if (!find(n60, nullptr)) {
-            cached = false;
+            firstMissingN60 = n60;
             break;
         }
     }
-    if (cached) {
+    if (firstMissingN60 < 0) {
         return RGY_ERR_NONE;
     }
 
     const int sourceBegin = n60begin >> 1;
     const bool cold = m_nextFeedSourceIndex < 0;
-    const bool rewind = m_nextOutputN60 > n60begin;
-    const bool feedPastRequest = !cold && m_nextFeedSourceIndex > sourceBegin && m_nextOutputN60 <= n60begin;
-    const bool beyondHot = !cold && m_hotUntilSourceIndex >= 0 && sourceBegin > m_hotUntilSourceIndex;
+    // 欠けている最初のフレームが現在の出力位置より先 (末尾欠けのみ) なら
+    // 巻き戻し不要で前進 feed のキャッチアップで埋まる。MORE_DATA 後の
+    // リトライをフル reset 扱いにすると、source 到着待ちのたびに
+    // re-priming が走ってしまう。
+    const bool rewind = m_nextOutputN60 > firstMissingN60;
+    // 注意: 「feed 位置が要求開始 source を越えている」ことは reset 理由にしない。
+    // RTGMC はパイプライン遅延を持つため feed は出力より常に先行する。出力は
+    // feed 順に必ず生成されるので、出力位置が要求以前なら前進 feed で到達できる。
+    const bool feedPastRequest = false;
     const bool nextFeedTrimmed = !cold && m_owner && m_nextFeedSourceIndex < m_owner->m_cachedSourceFrames && !m_owner->findSourceByIndexExact(m_nextFeedSourceIndex);
-    if (cold || rewind || feedPastRequest || beyondHot || nextFeedTrimmed) {
+    // 前方の需要は「現在位置からのキャッチアップ feed」と「reset + priming」の
+    // 安い方を選ぶ。hot 窓超過を一律 reset にすると、60p サイクルが頻出する
+    // コンテンツで数フレームの前進のたびに re-priming が走り大幅に遅くなる。
+    const int sourceEndFeed = (n60end - 1) >> 1;
+    const int catchupCost = !cold ? std::max(0, sourceEndFeed - m_nextFeedSourceIndex + 1) : INT_MAX;
+    const int resetCost = sourceEndFeed - std::max(0, sourceBegin - (m_rtgmc ? m_rtgmc->requiredPrimingSourceFrames() : 0)) + 1;
+    const bool farJump = !cold && catchupCost > resetCost;
+    if (cold || rewind || feedPastRequest || farJump || nextFeedTrimmed) {
+        m_resetCounts[cold ? 0 : (rewind ? 1 : (feedPastRequest ? 2 : (farJump ? 3 : 4)))]++;
         m_rtgmc->resetTemporalState();
         m_cache.clear();
         m_cacheCopyEvent = RGYCudaEvent();
@@ -7140,6 +7155,9 @@ void NVEncFilterKfm::close() {
     flushUcfNoiseResultDump();
     AddMessage(RGY_LOG_INFO, _T("KFM RTGMC feed count: deint60=%lld, before60=%lld, after60=%lld.\n"),
         (long long)m_deint60Lane.feedCount(), (long long)m_before60Lane.feedCount(), (long long)m_after60Lane.feedCount());
+    const auto& deint60Resets = m_deint60Lane.resetCounts();
+    AddMessage(RGY_LOG_INFO, _T("KFM RTGMC deint60 resets: cold=%lld rewind=%lld feedPast=%lld farJump=%lld trimmed=%lld.\n"),
+        (long long)deint60Resets[0], (long long)deint60Resets[1], (long long)deint60Resets[2], (long long)deint60Resets[3], (long long)deint60Resets[4]);
     m_rtgmc.reset();
     m_deint60Rtgmc.reset();
     m_before60Rtgmc.reset();
