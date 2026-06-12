@@ -266,6 +266,16 @@ protected:
 
         KfmContainsCombeReadback() : count(0), event(), submitted(false) {};
     };
+    struct KfmCachedDeint60 {
+        int n60;
+        int inputFrameId;
+        int64_t timestamp;
+        int64_t duration;
+        std::shared_ptr<CUFrameBuf> frame;
+        RGYCudaEvent event;
+
+        KfmCachedDeint60() : n60(-1), inputFrameId(-1), timestamp(0), duration(0), frame(), event() {};
+    };
     class SharedFramePool {
     public:
         std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo& info);
@@ -273,6 +283,34 @@ protected:
     private:
         static constexpr size_t MAX_POOL_FRAMES = 64;
         std::deque<std::shared_ptr<CUFrameBuf>> m_pool;
+    };
+    class KfmRtgmcLane {
+    public:
+        KfmRtgmcLane();
+        void init(NVEncFilterKfm *owner, NVEncFilterRtgmc *rtgmc, const char *stage, const TCHAR *cacheLabel, bool dumpStaticFlag);
+        void clear();
+        void reset();
+        RGY_ERR feed(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, int *cachedFrames = nullptr);
+        RGY_ERR drain(cudaStream_t stream, int maxDrainIterations, int *cachedFrames = nullptr);
+        RGY_ERR cacheFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
+        const KfmCachedDeint60 *find(int n60, std::vector<RGYCudaEvent> *wait_events) const;
+        void trim(int n60floor, size_t cacheLimit);
+        std::deque<KfmCachedDeint60>& cache() { return m_cache; }
+        const std::deque<KfmCachedDeint60>& cache() const { return m_cache; }
+        RGYCudaEvent& cacheCopyEvent() { return m_cacheCopyEvent; }
+        int submittedFrames() const { return m_submittedFrames; }
+    private:
+        NVEncFilterKfm *m_owner;
+        NVEncFilterRtgmc *m_rtgmc;
+        const char *m_stage;
+        const TCHAR *m_cacheLabel;
+        bool m_dumpStaticFlag;
+        std::deque<KfmCachedDeint60> m_cache;
+        int m_submittedFrames;
+        int m_nextFeedSourceIndex;
+        int m_nextOutputN60;
+        int m_hotUntilSourceIndex;
+        RGYCudaEvent m_cacheCopyEvent;
     };
 
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
@@ -290,15 +328,10 @@ protected:
     RGY_ERR cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR runDeint60Branch(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, int *cachedFrames = nullptr);
     RGY_ERR drainDeint60Branch(cudaStream_t stream, int *cachedFrames = nullptr);
-    RGY_ERR cacheDeint60Frame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     RGY_ERR runUcfRtgmcBranches(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
-    RGY_ERR runUcfRtgmcBranch(NVEncFilterRtgmc *rtgmc, const char *stage, const RGYFrameInfo *frame,
-        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events,
-        std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYCudaEvent& cacheCopyEvent);
-    RGY_ERR drainUcfRtgmcBranch(NVEncFilterRtgmc *rtgmc, const char *stage, cudaStream_t stream,
-        std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYCudaEvent& cacheCopyEvent);
-    RGY_ERR cacheUcfRtgmcFrame(const char *stage, const RGYFrameInfo *frame, cudaStream_t stream,
-        const std::vector<RGYCudaEvent> &wait_events, std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYCudaEvent *event);
+    RGY_ERR runUcfRtgmcBranch(KfmRtgmcLane& lane, const RGYFrameInfo *frame,
+        cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
+    RGY_ERR drainUcfRtgmcBranch(KfmRtgmcLane& lane, cudaStream_t stream);
     std::shared_ptr<CUFrameBuf> acquireKfmFrame(const RGYFrameInfo& info, const TCHAR *label);
     RGY_ERR allocWorkFrameBuf(const RGYFrameInfo& frame, int frames);
     RGYFrameInfo *nextOutputFrame();
@@ -311,7 +344,7 @@ protected:
     const RGYFrameInfo *findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYCudaEvent> *wait_events);
     const KfmCachedSource *findSourceByIndex(int sourceIndex) const;
     const KfmCachedSource *findSourceByIndexExact(int sourceIndex) const;
-    const KfmCachedDeint60 *findCachedDeint60Frame(const std::deque<KfmCachedDeint60>& cache, int n60, std::vector<RGYCudaEvent> *wait_events) const;
+    const KfmCachedDeint60 *findCachedDeint60Frame(const KfmRtgmcLane& lane, int n60, std::vector<RGYCudaEvent> *wait_events) const;
     const KfmUcfNoiseDumpRecord *findUcfNoiseResult(int sourceIndex) const;
     RGY_ERR copyUcfFrame(const NVEncFilterParamKfm& prm, RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
@@ -438,17 +471,6 @@ protected:
         KfmSourceSlot() : paddedFrame(), sourceFrame(), readyEvent() {};
     };
 
-    struct KfmCachedDeint60 {
-        int n60;
-        int inputFrameId;
-        int64_t timestamp;
-        int64_t duration;
-        std::shared_ptr<CUFrameBuf> frame;
-        RGYCudaEvent event;
-
-        KfmCachedDeint60() : n60(-1), inputFrameId(-1), timestamp(0), duration(0), frame(), event() {};
-    };
-
     struct KfmCachedUcfNoise {
         int fieldIndex;
         int inputFrameId;
@@ -518,21 +540,15 @@ protected:
     std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotFree;
     std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotRetired;
     std::deque<KfmCachedSource> m_sourceCache;
-    std::deque<KfmCachedDeint60> m_deint60Cache;
-    std::deque<KfmCachedDeint60> m_before60Cache;
-    std::deque<KfmCachedDeint60> m_after60Cache;
+    KfmRtgmcLane m_deint60Lane;
+    KfmRtgmcLane m_before60Lane;
+    KfmRtgmcLane m_after60Lane;
     std::deque<KfmCachedUcfNoise> m_ucfNoiseCache;
     std::deque<KfmPendingUcfNoiseResult> m_pendingUcfNoiseResults;
     std::deque<std::unique_ptr<CUMemBuf>> m_fmCountBufPool;
     std::deque<std::unique_ptr<CUMemBufPair>> m_ucfNoiseResultBufPool;
     std::deque<KfmUcfNoiseDumpRecord> m_ucfNoiseResultCache;
     KfmUcfNoiseDumpRecord m_pendingUcfNoiseDump;
-    int m_deint60SubmittedSourceFrames;
-    int m_before60SubmittedSourceFrames;
-    int m_after60SubmittedSourceFrames;
-    RGYCudaEvent m_deint60CacheCopyEvent;
-    RGYCudaEvent m_before60CacheCopyEvent;
-    RGYCudaEvent m_after60CacheCopyEvent;
     std::unique_ptr<CUFrameBuf> m_staticFlag;
     std::array<std::unique_ptr<CUFrameBuf>, 5> m_staticWorkFrames;
     std::array<std::unique_ptr<CUMemBuf>, 2> m_analyzeFlags;
