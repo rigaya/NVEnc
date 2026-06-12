@@ -59,6 +59,7 @@ static constexpr int KFM_VFR_DEINT60_TRIM_LOOKBEHIND = 16;
 static constexpr int KFM_UCF_NOISE_LIMIT_NMIN = 1;
 static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
 static constexpr int KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY = 2;
+static constexpr int KFM_UCF_LAZY_SOURCE_CACHE_MARGIN = 512;
 static constexpr double KFM_UCF_GAUSS_P = 2.5;
 static constexpr double KFM_UCF_GAUSS_CROP_EPS = 0.0001;
 
@@ -363,6 +364,7 @@ NVEncFilterKfm::KfmRtgmcLane::KfmRtgmcLane() :
     m_cacheLabel(nullptr),
     m_dumpStaticFlag(false),
     m_cache(),
+    m_intermediateGenerations(),
     m_submittedFrames(0),
     m_nextFeedSourceIndex(-1),
     m_nextOutputN60(0),
@@ -383,6 +385,7 @@ void NVEncFilterKfm::KfmRtgmcLane::init(NVEncFilterKfm *owner, NVEncFilterRtgmc 
 
 void NVEncFilterKfm::KfmRtgmcLane::clear() {
     m_cache.clear();
+    m_intermediateGenerations.clear();
     m_submittedFrames = 0;
     m_cacheCopyEvent = RGYCudaEvent();
 }
@@ -502,7 +505,8 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::ensureRange(int n60begin, int n60end, cuda
     const bool rewind = m_nextOutputN60 > n60begin;
     const bool feedPastRequest = !cold && m_nextFeedSourceIndex > sourceBegin && m_nextOutputN60 <= n60begin;
     const bool beyondHot = !cold && m_hotUntilSourceIndex >= 0 && sourceBegin > m_hotUntilSourceIndex;
-    if (cold || rewind || feedPastRequest || beyondHot) {
+    const bool nextFeedTrimmed = !cold && m_owner && m_nextFeedSourceIndex < m_owner->m_cachedSourceFrames && !m_owner->findSourceByIndexExact(m_nextFeedSourceIndex);
+    if (cold || rewind || feedPastRequest || beyondHot || nextFeedTrimmed) {
         m_rtgmc->resetTemporalState();
         m_cache.clear();
         m_cacheCopyEvent = RGYCudaEvent();
@@ -536,12 +540,24 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::ensureRange(int n60begin, int n60end, cuda
         if (source->event() != nullptr) {
             waitEvents.push_back(source->event);
         }
-        if (m_owner && (m_rtgmc == m_owner->m_before60Rtgmc.get() || m_rtgmc == m_owner->m_after60Rtgmc.get())) {
-            m_owner->pushDeint60Intermediates(m_rtgmc, source->sourceIndex);
+        uint64_t intermediateGeneration = 0;
+        if (sharedDeint60AnalysisLane()) {
+            auto ensureSts = m_owner->ensureDeint60IntermediateForSource(source->sourceIndex, stream);
+            if (ensureSts != RGY_ERR_NONE) {
+                return ensureSts;
+            }
+            if (!m_owner->pushDeint60Intermediates(m_rtgmc, source->sourceIndex, &intermediateGeneration)) {
+                m_owner->AddMessage(RGY_LOG_WARN, _T("KFM %S RTGMC skipped sourceIndex=%d because deint60 intermediates were not ready.\n"),
+                    m_stage, source->sourceIndex);
+                return RGY_ERR_MORE_DATA;
+            }
         }
         auto sts = feed(&source->frame->frame, stream, waitEvents);
         if (sts != RGY_ERR_NONE) {
             return sts;
+        }
+        if (sharedDeint60AnalysisLane()) {
+            markIntermediateGeneration(source->sourceIndex, intermediateGeneration);
         }
         if (m_owner && m_rtgmc == m_owner->m_deint60Rtgmc.get()) {
             m_owner->captureDeint60Intermediates(source->sourceIndex);
@@ -565,12 +581,24 @@ RGY_ERR NVEncFilterKfm::KfmRtgmcLane::feedHot(cudaStream_t stream) {
     if (source->event() != nullptr) {
         waitEvents.push_back(source->event);
     }
-    if (m_owner && (m_rtgmc == m_owner->m_before60Rtgmc.get() || m_rtgmc == m_owner->m_after60Rtgmc.get())) {
-        m_owner->pushDeint60Intermediates(m_rtgmc, source->sourceIndex);
+    uint64_t intermediateGeneration = 0;
+    if (sharedDeint60AnalysisLane()) {
+        auto ensureSts = m_owner->ensureDeint60IntermediateForSource(source->sourceIndex, stream);
+        if (ensureSts != RGY_ERR_NONE) {
+            return RGY_ERR_NONE;
+        }
+        if (!m_owner->pushDeint60Intermediates(m_rtgmc, source->sourceIndex, &intermediateGeneration)) {
+            m_owner->AddMessage(RGY_LOG_WARN, _T("KFM %S RTGMC hot feed stopped at sourceIndex=%d because deint60 intermediates were not ready.\n"),
+                m_stage, source->sourceIndex);
+            return RGY_ERR_NONE;
+        }
     }
     auto sts = feed(&source->frame->frame, stream, waitEvents);
     if (sts != RGY_ERR_NONE) {
         return sts;
+    }
+    if (sharedDeint60AnalysisLane()) {
+        markIntermediateGeneration(source->sourceIndex, intermediateGeneration);
     }
     if (m_owner && m_rtgmc == m_owner->m_deint60Rtgmc.get()) {
         m_owner->captureDeint60Intermediates(source->sourceIndex);
@@ -684,6 +712,67 @@ void NVEncFilterKfm::KfmRtgmcLane::trim(int n60floor, size_t cacheLimit) {
 
 int NVEncFilterKfm::KfmRtgmcLane::requiredPrimingSourceFrames() const {
     return m_rtgmc ? m_rtgmc->requiredPrimingSourceFrames() : 0;
+}
+
+bool NVEncFilterKfm::KfmRtgmcLane::sharedDeint60AnalysisLane() const {
+    return m_owner && (m_rtgmc == m_owner->m_before60Rtgmc.get() || m_rtgmc == m_owner->m_after60Rtgmc.get());
+}
+
+void NVEncFilterKfm::KfmRtgmcLane::markIntermediateGeneration(int sourceIndex, uint64_t generation) {
+    if (sourceIndex < 0) {
+        return;
+    }
+    for (auto& entry : m_intermediateGenerations) {
+        if (entry.first == sourceIndex) {
+            entry.second = generation;
+            return;
+        }
+    }
+    m_intermediateGenerations.push_back(std::make_pair(sourceIndex, generation));
+    while (!m_intermediateGenerations.empty() && m_intermediateGenerations.front().first + HOT_KEEP_SOURCE_FRAMES * 4 < m_nextFeedSourceIndex) {
+        m_intermediateGenerations.pop_front();
+    }
+}
+
+void NVEncFilterKfm::KfmRtgmcLane::rewindIfIntermediateChanged(int sourceIndex, uint64_t generation) {
+    if (!m_rtgmc || sourceIndex < 0) {
+        return;
+    }
+    const auto used = std::find_if(m_intermediateGenerations.begin(), m_intermediateGenerations.end(), [sourceIndex](const std::pair<int, uint64_t>& entry) {
+        return entry.first == sourceIndex;
+    });
+    if (used == m_intermediateGenerations.end() || used->second == generation) {
+        return;
+    }
+    const int rewindN60 = sourceIndex * 2;
+    const bool hasGeneratedRange = std::any_of(m_cache.begin(), m_cache.end(), [rewindN60](const KfmCachedDeint60& entry) {
+        return entry.n60 >= rewindN60;
+    }) || m_nextFeedSourceIndex > sourceIndex;
+    if (!hasGeneratedRange) {
+        used->second = generation;
+        return;
+    }
+
+    m_rtgmc->resetTemporalState();
+    for (auto it = m_cache.begin(); it != m_cache.end();) {
+        if (it->n60 >= rewindN60) {
+            it = m_cache.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (auto it = m_intermediateGenerations.begin(); it != m_intermediateGenerations.end();) {
+        if (it->first >= sourceIndex) {
+            it = m_intermediateGenerations.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    const int primeStart = std::max(0, sourceIndex - requiredPrimingSourceFrames());
+    m_nextFeedSourceIndex = primeStart;
+    m_submittedFrames = primeStart * 2;
+    m_nextOutputN60 = m_submittedFrames;
+    m_hotUntilSourceIndex = -1;
 }
 
 std::shared_ptr<CUFrameBuf> NVEncFilterKfm::SharedFramePool::acquire(const RGYFrameInfo& info) {
@@ -1502,7 +1591,7 @@ int NVEncFilterKfm::sourceCacheTrimFloor() const {
         lazyLookbehind = m_deint60Rtgmc->requiredPrimingSourceFrames();
         if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
             lazyLookbehind += std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames())
-                + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4;
+                + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4 + KFM_UCF_LAZY_SOURCE_CACHE_MARGIN;
         }
     }
     auto trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND - lazyLookbehind);
@@ -1530,7 +1619,7 @@ int NVEncFilterKfm::deint60CacheTrimFloor() const {
 }
 
 bool NVEncFilterKfm::lazyDeint60Enabled(const NVEncFilterParamKfm& prm) const {
-    return prm.kfm.mode == VppKfmMode::VFR && !prm.kfm.ucf && !kfmForceEagerRtgmc();
+    return prm.kfm.mode == VppKfmMode::VFR && !kfmForceEagerRtgmc();
 }
 
 const RGYFrameInfo *NVEncFilterKfm::findDeint60Frame(int n60, std::vector<RGYCudaEvent> *wait_events) const {
@@ -1652,22 +1741,36 @@ RGY_ERR NVEncFilterKfm::ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begi
     }
     const int sourceBegin = std::max(0, n60begin) >> 1;
     const int primeStart = std::max(0, sourceBegin - lane->requiredPrimingSourceFrames());
-    const int sourceEnd = std::max(primeStart, divCeil(std::max(0, n60end), 2) + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY);
-    if (!hasDeint60Intermediates(primeStart, sourceEnd)) {
-        auto& deint60Cache = m_deint60Lane.cache();
-        for (auto it = deint60Cache.begin(); it != deint60Cache.end();) {
-            if (primeStart * 2 <= it->n60 && it->n60 < sourceEnd * 2) {
-                it = deint60Cache.erase(it);
-            } else {
-                ++it;
-            }
+    const int sourceEndDelay = (laneType == KFM_UCF_LANE_AFTER) ? KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY : 0;
+    const int sourceEnd = std::max(primeStart, divCeil(std::max(0, n60end), 2) + sourceEndDelay);
+    if (!m_analyzerFinalized && m_cachedSourceFrames < sourceEnd) {
+        return RGY_ERR_MORE_DATA;
+    }
+    for (int sourceIndex = primeStart; sourceIndex < sourceEnd; sourceIndex++) {
+        if (hasDeint60Intermediate(sourceIndex)) {
+            continue;
         }
-        auto sts = m_deint60Lane.ensureRange(primeStart * 2, sourceEnd * 2, stream);
+        auto sts = ensureDeint60IntermediateForSource(sourceIndex, stream);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
+        if (!hasDeint60Intermediate(sourceIndex)) {
+            AddMessage(RGY_LOG_WARN, _T("KFM UCF RTGMC could not prepare deint60 intermediates for sourceIndex=%d.\n"),
+                sourceIndex);
+            return RGY_ERR_MORE_DATA;
+        }
     }
-    return lane->ensureRange(n60begin, n60end, stream);
+    const int sideN60End = (laneType == KFM_UCF_LANE_AFTER) ? std::max(n60end, sourceEnd * 2) : n60end;
+    auto sts = lane->ensureRange(n60begin, sideN60End, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    for (int n60 = n60begin; n60 < n60end; n60++) {
+        if (!lane->find(n60, nullptr)) {
+            return RGY_ERR_MORE_DATA;
+        }
+    }
+    return RGY_ERR_NONE;
 }
 
 void NVEncFilterKfm::captureDeint60Intermediates(int sourceIndex) {
@@ -1678,13 +1781,17 @@ void NVEncFilterKfm::captureDeint60Intermediates(int sourceIndex) {
     if (!captured.empty()) {
         for (auto& group : m_deint60IntermediateQueue) {
             if (group.sourceIndex == sourceIndex) {
+                group.generation++;
                 group.intermediates = captured;
+                m_before60Lane.rewindIfIntermediateChanged(sourceIndex, group.generation);
+                m_after60Lane.rewindIfIntermediateChanged(sourceIndex, group.generation);
                 m_deint60Rtgmc->clearCapturedIntermediates();
                 return;
             }
         }
         KfmMainIntermediateGroup group;
         group.sourceIndex = sourceIndex;
+        group.generation = 1;
         group.intermediates = captured;
         m_deint60IntermediateQueue.push_back(std::move(group));
         trimDeint60Intermediates();
@@ -1692,28 +1799,98 @@ void NVEncFilterKfm::captureDeint60Intermediates(int sourceIndex) {
     m_deint60Rtgmc->clearCapturedIntermediates();
 }
 
+bool NVEncFilterKfm::hasDeint60Intermediate(int sourceIndex, uint64_t *generation) const {
+    if (generation) {
+        *generation = 0;
+    }
+    if (sourceIndex < 0) {
+        return false;
+    }
+    const auto it = std::find_if(m_deint60IntermediateQueue.begin(), m_deint60IntermediateQueue.end(), [sourceIndex](const KfmMainIntermediateGroup& group) {
+        return group.sourceIndex == sourceIndex && !group.intermediates.empty();
+    });
+    if (it == m_deint60IntermediateQueue.end()) {
+        return false;
+    }
+    if (generation) {
+        *generation = it->generation;
+    }
+    return true;
+}
+
 bool NVEncFilterKfm::hasDeint60Intermediates(int sourceBegin, int sourceEnd) const {
     for (int sourceIndex = sourceBegin; sourceIndex < sourceEnd; sourceIndex++) {
-        const auto it = std::find_if(m_deint60IntermediateQueue.begin(), m_deint60IntermediateQueue.end(), [sourceIndex](const KfmMainIntermediateGroup& group) {
-            return group.sourceIndex == sourceIndex && !group.intermediates.empty();
-        });
-        if (it == m_deint60IntermediateQueue.end()) {
+        if (!hasDeint60Intermediate(sourceIndex)) {
             return false;
         }
     }
     return true;
 }
 
-void NVEncFilterKfm::pushDeint60Intermediates(NVEncFilterRtgmc *rtgmc, int sourceIndex) {
+RGY_ERR NVEncFilterKfm::ensureDeint60IntermediateForSource(int sourceIndex, cudaStream_t stream) {
+    if (sourceIndex < 0) {
+        return RGY_ERR_NONE;
+    }
+    if (hasDeint60Intermediate(sourceIndex)) {
+        return RGY_ERR_NONE;
+    }
+    if (!m_deint60Rtgmc) {
+        return RGY_ERR_MORE_DATA;
+    }
+    purgeDeint60Intermediates(sourceIndex, sourceIndex + 1);
+    auto& deint60Cache = m_deint60Lane.cache();
+    for (auto it = deint60Cache.begin(); it != deint60Cache.end();) {
+        if (sourceIndex * 2 <= it->n60 && it->n60 < (sourceIndex + 1) * 2) {
+            it = deint60Cache.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    auto sts = m_deint60Lane.ensureRange(sourceIndex * 2, (sourceIndex + 1) * 2, stream);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    if (!hasDeint60Intermediate(sourceIndex)) {
+        AddMessage(RGY_LOG_WARN, _T("KFM UCF RTGMC could not prepare deint60 intermediates for sourceIndex=%d.\n"), sourceIndex);
+        return RGY_ERR_MORE_DATA;
+    }
+    return RGY_ERR_NONE;
+}
+
+bool NVEncFilterKfm::pushDeint60Intermediates(NVEncFilterRtgmc *rtgmc, int sourceIndex, uint64_t *generation) {
+    if (generation) {
+        *generation = 0;
+    }
     if (!rtgmc || sourceIndex < 0) {
-        return;
+        return false;
     }
     for (const auto& group : m_deint60IntermediateQueue) {
-        if (group.sourceIndex == sourceIndex) {
+        if (group.sourceIndex == sourceIndex && !group.intermediates.empty()) {
             for (const auto& captured : group.intermediates) {
                 rtgmc->pushIntermediateInput(captured);
             }
-            return;
+            if (generation) {
+                *generation = group.generation;
+            }
+            return true;
+        }
+    }
+    const char *stage = (rtgmc == m_before60Rtgmc.get()) ? "before60" : ((rtgmc == m_after60Rtgmc.get()) ? "after60" : "unknown");
+    AddMessage(RGY_LOG_WARN, _T("KFM %S RTGMC shared-analysis intermediates missing for sourceIndex=%d; feed postponed.\n"),
+        stage, sourceIndex);
+    return false;
+}
+
+void NVEncFilterKfm::purgeDeint60Intermediates(int sourceBegin, int sourceEnd) {
+    sourceBegin = std::max(0, sourceBegin);
+    sourceEnd = std::max(sourceBegin, sourceEnd);
+    for (auto it = m_deint60IntermediateQueue.begin(); it != m_deint60IntermediateQueue.end();) {
+        if (sourceBegin <= it->sourceIndex && it->sourceIndex < sourceEnd) {
+            m_before60Lane.rewindIfIntermediateChanged(it->sourceIndex, it->generation + 1);
+            m_after60Lane.rewindIfIntermediateChanged(it->sourceIndex, it->generation + 1);
+            it = m_deint60IntermediateQueue.erase(it);
+        } else {
+            ++it;
         }
     }
 }

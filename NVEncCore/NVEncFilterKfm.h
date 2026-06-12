@@ -258,9 +258,10 @@ protected:
     };
     struct KfmMainIntermediateGroup {
         int sourceIndex;
+        uint64_t generation;
         std::vector<NVEncFilterRtgmc::RtgmcCapturedIntermediate> intermediates;
 
-        KfmMainIntermediateGroup() : sourceIndex(-1), intermediates() {};
+        KfmMainIntermediateGroup() : sourceIndex(-1), generation(0), intermediates() {};
     };
     struct KfmSwitchTiming {
         int start60;
@@ -317,6 +318,7 @@ protected:
         const KfmCachedDeint60 *find(int n60, std::vector<RGYCudaEvent> *wait_events) const;
         void trim(int n60floor, size_t cacheLimit);
         int requiredPrimingSourceFrames() const;
+        void rewindIfIntermediateChanged(int sourceIndex, uint64_t generation);
         std::deque<KfmCachedDeint60>& cache() { return m_cache; }
         const std::deque<KfmCachedDeint60>& cache() const { return m_cache; }
         RGYCudaEvent& cacheCopyEvent() { return m_cacheCopyEvent; }
@@ -330,6 +332,7 @@ protected:
         const TCHAR *m_cacheLabel;
         bool m_dumpStaticFlag;
         std::deque<KfmCachedDeint60> m_cache;
+        std::deque<std::pair<int, uint64_t>> m_intermediateGenerations;
         int m_submittedFrames;
         int m_nextFeedSourceIndex;
         int m_nextOutputN60;
@@ -337,6 +340,8 @@ protected:
         int m_cacheFloorN60;
         int64_t m_feedCount;
         RGYCudaEvent m_cacheCopyEvent;
+        bool sharedDeint60AnalysisLane() const;
+        void markIntermediateGeneration(int sourceIndex, uint64_t generation);
     };
 
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
@@ -361,8 +366,11 @@ protected:
     RGY_ERR drainUcfRtgmcBranch(KfmRtgmcLane& lane, cudaStream_t stream);
     RGY_ERR ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begin, int n60end, cudaStream_t stream);
     void captureDeint60Intermediates(int sourceIndex);
+    bool hasDeint60Intermediate(int sourceIndex, uint64_t *generation = nullptr) const;
     bool hasDeint60Intermediates(int sourceBegin, int sourceEnd) const;
-    void pushDeint60Intermediates(NVEncFilterRtgmc *rtgmc, int sourceIndex);
+    RGY_ERR ensureDeint60IntermediateForSource(int sourceIndex, cudaStream_t stream);
+    bool pushDeint60Intermediates(NVEncFilterRtgmc *rtgmc, int sourceIndex, uint64_t *generation = nullptr);
+    void purgeDeint60Intermediates(int sourceBegin, int sourceEnd);
     void trimDeint60Intermediates();
     std::shared_ptr<CUFrameBuf> acquireKfmFrame(const RGYFrameInfo& info, const TCHAR *label);
     RGY_ERR allocWorkFrameBuf(const RGYFrameInfo& frame, int frames);
