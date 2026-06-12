@@ -6,8 +6,7 @@ These tests must be run after a successful build of NVEncC.
 ## Prerequisites
 
 Build NVEncC on Windows with CUDA support. Place the binary at a known path
-(e.g. `D:\Apps\Commands\bin\NVEncC64.exe`) and have `ffmpeg` available for
-verification.
+and have `ffmpeg` available for verification.
 
 ## Test Setup
 
