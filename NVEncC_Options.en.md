@@ -47,6 +47,7 @@
   - [--interlace \<string\>](#--interlace-string)
   - [--video-track \<int\>](#--video-track-int)
   - [--crop \<int\>,\<int\>,\<int\>,\<int\>](#--crop-intintintint)
+  - [--crop-exact](#--crop-exact)
   - [--frames \<int\>](#--frames-int)
   - [--fps \<int\>/\<int\> or \<float\>](#--fps-intint-or-float)
   - [--input-res \<int\>x\<int\>](#--input-res-intxint)
@@ -531,6 +532,28 @@ Set video track to encode in track id. Will be active when used with avhw/avsw r
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 Number of pixels to cropped from left, top, right, bottom.
+
+### --crop-exact
+Enable sub-sample chroma interpolation for odd vertical (top/bottom) crop values.
+
+By default, `--crop` requires each of the four values to be a multiple of 2 because
+YUV420 chroma is sub-sampled 2:1 vertically and 1:1 horizontally only at even luma
+coordinates. With `--crop-exact`, odd `top` and/or `bottom` values are allowed; the
+chroma plane is bilinearly re-sampled to the new luma phase.
+
+Restrictions for `--crop-exact`:
+- Only YUV420 (NV12, P010, YV12, ...) input is supported (P010 sub-sampling support is
+  currently limited).
+- `left` and `right` crop values must still be even (horizontal sub-sampling is not
+  yet supported in this version).
+- Output height must be even.
+- Interlaced encoding is not supported with `--crop-exact`.
+
+Example: cut 1 pixel off the top and 1 off the bottom of a 1920x1080 source:
+
+```
+--crop 0,1,0,1 --crop-exact
+```
 
 ### --frames &lt;int&gt;
 Number of frames to input. (Note: input base, not output base)

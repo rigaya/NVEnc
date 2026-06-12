@@ -1747,7 +1747,24 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
         }
         return RGY_ERR_UNSUPPORTED;
     }
-    if ((inputParam->input.crop.e.left & 1) || (inputParam->input.crop.e.right & 1)
+    if (inputParam->vppnv.cropExact) {
+        if (is_interlaced(m_stPicStruct)) {
+            PrintMes(RGY_LOG_ERROR, _T("--crop-exact is not supported with interlaced encoding in this version.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if ((inputParam->input.crop.e.left & 1) || (inputParam->input.crop.e.right & 1)) {
+            PrintMes(RGY_LOG_ERROR, _T("--crop-exact: left/right crop values must be even (only vertical sub-sample is supported).\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Crop [%d,%d,%d,%d]\n"),
+                inputParam->input.crop.c[0], inputParam->input.crop.c[1], inputParam->input.crop.c[2], inputParam->input.crop.c[3]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const int outHeight = inputParam->input.srcHeight - inputParam->input.crop.e.up - inputParam->input.crop.e.bottom;
+        if (outHeight & 1) {
+            PrintMes(RGY_LOG_ERROR, _T("--crop-exact: output height (%d) must be even, but crop.up=%d, crop.bottom=%d.\n"),
+                outHeight, inputParam->input.crop.e.up, inputParam->input.crop.e.bottom);
+            return RGY_ERR_UNSUPPORTED;
+        }
+    } else if ((inputParam->input.crop.e.left & 1) || (inputParam->input.crop.e.right & 1)
         || (inputParam->input.crop.e.up & height_check_mask) || (inputParam->input.crop.e.bottom & height_check_mask)) {
         PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
              FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."),
@@ -3137,6 +3154,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->crop = *inputCrop;
             inputCrop = nullptr;
         }
+        param->cropExact = inputParam->vppnv.cropExact;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filterCrop->init(param, m_pLog);

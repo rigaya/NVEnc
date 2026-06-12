@@ -5238,6 +5238,12 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         }
         return 0;
     }
+#if ENCODER_NVENC
+    if (IS_OPTION("crop-exact")) {
+        input->vppnv.cropExact = true;
+        return 0;
+    }
+#endif //#if ENCODER_NVENC
     if (IS_OPTION("input-csp")) {
         i++;
         int value = 0;
@@ -9704,6 +9710,10 @@ tstring gen_cmd_help_input() {
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
         _T("                                    left crop is unavailable with avhw reader\n")
+#if ENCODER_NVENC
+        _T("   --crop-exact                    enable sub-sample chroma interpolation for odd\n")
+        _T("                                    vertical crop values (YUV420, progressive only)\n")
+#endif
         _T("   --output-res <int>x<int>[,<string>=<string>]...\n")
         _T("                                set output resolution\n")
         _T("    params\n")

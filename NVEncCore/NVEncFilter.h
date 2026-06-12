@@ -120,6 +120,7 @@ class NVEncFilterParamCrop : public NVEncFilterParam {
 public:
     sInputCrop crop;
     CspMatrix matrix;
+    bool cropExact;
 
     NVEncFilterParamCrop();
     virtual ~NVEncFilterParamCrop();

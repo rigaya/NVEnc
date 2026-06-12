@@ -230,7 +230,7 @@ void NVEncFilterDisabled::close() {
     m_pLog.reset();
 }
 
-NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()), matrix(RGY_MATRIX_ST170_M) {};
+NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()), matrix(RGY_MATRIX_ST170_M), cropExact(false) {};
 NVEncFilterParamCrop::~NVEncFilterParamCrop() {};
 
 bool check_if_nppi_dll_available() {

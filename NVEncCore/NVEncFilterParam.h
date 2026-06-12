@@ -220,6 +220,7 @@ struct VppParam {
 #if ENCODER_NVENC
     cudaVideoDeinterlaceMode  deinterlace;
     NppiMaskSize              gaussMaskSize;
+    bool                      cropExact;
 #endif //#if ENCODER_NVENC
     VppNvvfxDenoise           nvvfxDenoise;
     VppNvvfxArtifactReduction nvvfxArtifactReduction;

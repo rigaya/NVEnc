@@ -3148,10 +3148,32 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         m_name += getCudaMemcpyKindStr(memcpyKind);
     }
     //パラメータチェック
-    for (int i = 0; i < _countof(pCropParam->crop.c); i++) {
-        if ((pCropParam->crop.c[i] & 1) != 0) {
-            AddMessage(RGY_LOG_ERROR, _T("crop should be divided by 2 (%d,%d,%d,%d).\n"), pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->crop.e.right, pCropParam->crop.e.bottom);
+    if (pCropParam->cropExact) {
+        if (RGY_CSP_CHROMA_FORMAT[pCropParam->frameIn.csp] != RGY_CHROMAFMT_YUV420) {
+            AddMessage(RGY_LOG_ERROR, _T("--crop-exact only supports YUV420 chroma formats in this version.\n"));
             return RGY_ERR_INVALID_PARAM;
+        }
+        if ((pCropParam->crop.e.left & 1) || (pCropParam->crop.e.right & 1)) {
+            AddMessage(RGY_LOG_ERROR, _T("--crop-exact: left/right crop must be even (only vertical sub-sample is supported) (%d,%d,%d,%d).\n"),
+                pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->crop.e.right, pCropParam->crop.e.bottom);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const int outHeight = pCropParam->frameIn.height - pCropParam->crop.e.up - pCropParam->crop.e.bottom;
+        if (outHeight & 1) {
+            AddMessage(RGY_LOG_ERROR, _T("--crop-exact: output height (%d) must be even (crop.up=%d, crop.bottom=%d).\n"),
+                outHeight, pCropParam->crop.e.up, pCropParam->crop.e.bottom);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if ((pCropParam->frameIn.picstruct & RGY_PICSTRUCT_INTERLACED) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("--crop-exact is not supported with interlaced encoding in this version.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    } else {
+        for (int i = 0; i < _countof(pCropParam->crop.c); i++) {
+            if ((pCropParam->crop.c[i] & 1) != 0) {
+                AddMessage(RGY_LOG_ERROR, _T("crop should be divided by 2 (%d,%d,%d,%d).\n"), pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->crop.e.right, pCropParam->crop.e.bottom);
+                return RGY_ERR_INVALID_PARAM;
+            }
         }
     }
     //yuv422->yuv420のインタレ対応の変換はないので、yuv444を経由するようにする
@@ -3208,6 +3230,49 @@ tstring NVEncFilterParamCrop::print() const {
     return filterInfo;
 }
 
+// NV12 -> NV12 exact crop with vertical sub-sample chroma interpolation
+// (MPEG cosited chroma phase). Used when cropExact is enabled and crop.e.up or
+// crop.e.bottom is odd.
+__global__ void kernel_crop_nv12_nv12_exact(
+    uint8_t *__restrict__ pDstY, const int dstPitchY, const int dstWidth, const int dstHeight,
+    uint8_t *__restrict__ pDstC, const int dstPitchC,
+    const uint8_t *__restrict__ pSrcY, const int srcPitchY,
+    const uint8_t *__restrict__ pSrcC, const int srcPitchC, const int srcChromaHeight,
+    const int offsetX, const int offsetY) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= dstWidth || y >= dstHeight) return;
+
+    // Luma: 1:1 mit up-Versatz (unverändert, da Luma volle Auflösung)
+    pDstY[y * dstPitchY + x] = pSrcY[(y + offsetY) * srcPitchY + x];
+
+    // Chroma: nur jeder zweite Y-Thread bearbeitet Chroma (Phase-bewusst)
+    if ((y & 1) == 0) {
+        const int uv_y = y >> 1;
+        const int uv_x_byte = x;  // 1 byte pro Luma-Pixel
+        const int src_uv_y_a = (offsetY >> 1) + uv_y;
+        const int src_uv_y_b = src_uv_y_a + 1;
+
+        // Edge-Clamping an unterer Quellkante
+        const int a_y = min(src_uv_y_a, srcChromaHeight - 1);
+        const int b_y = min(src_uv_y_b, srcChromaHeight - 1);
+
+        const uint8_t *ptr_a = pSrcC + a_y * srcPitchC + uv_x_byte;
+        const uint8_t *ptr_b = pSrcC + b_y * srcPitchC + uv_x_byte;
+        uint8_t *ptr_dst = pDstC + uv_y * dstPitchC + uv_x_byte;
+
+        if ((offsetY & 1) == 0 || src_uv_y_b >= srcChromaHeight) {
+            // Kein Sub-Sample nötig (offsetY gerade) oder am unteren Rand
+            ptr_dst[0] = ptr_a[0];
+            ptr_dst[1] = ptr_a[1];
+        } else {
+            // Bilineare Interpolation 3:1 (MPEG cosited: zentriert zwischen 2k+0 und 2k+1)
+            ptr_dst[0] = (uint8_t)((ptr_a[0] * 3 + ptr_b[0] + 2) >> 2);
+            ptr_dst[1] = (uint8_t)((ptr_a[1] * 3 + ptr_b[1] + 2) >> 2);
+        }
+    }
+}
+
 RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
@@ -3249,25 +3314,46 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
                 auto planeOutputY = getPlane(ppOutputFrames[0], RGY_PLANE_Y);
                 auto planeOutputC = getPlane(ppOutputFrames[0], RGY_PLANE_C);
                 cudaError_t cudaerr;
-                //Y
-                cudaerr = cudaMemcpy2DAsync((uint8_t *)planeOutputY.ptr[0], planeOutputY.pitch[0],
-                    (uint8_t *)planeInputY.ptr[0] + pCropParam->crop.e.left + pCropParam->crop.e.up * planeInputY.pitch[0],
-                    planeInputY.pitch[0],
-                    planeInputY.width * bytesPerPix(planeInputY.csp), pCropParam->frameOut.height, memcpyKind, stream);
-                if (cudaerr != cudaSuccess) {
-                    return cudaMemcpyErrMes(err_to_rgy(cudaerr), _T("cudaMemcpy2DAsync_Y"));
-                };
-                CUDA_DEBUG_SYNC_ERR;
-                //UV
-                cudaerr = cudaMemcpy2DAsync((uint8_t *)planeOutputC.ptr[0], planeOutputC.pitch[0],
-                    (uint8_t *)planeInputC.ptr[0]
-                    + pCropParam->crop.e.left + (pCropParam->crop.e.up >> 1) * planeInputC.pitch[0],
-                    pInputFrame->pitch[0],
-                    planeInputC.width * bytesPerPix(planeInputC.csp), pCropParam->frameOut.height >> 1, memcpyKind, stream);
-                if (cudaerr != cudaSuccess) {
-                    return cudaMemcpyErrMes(err_to_rgy(cudaerr), _T("cudaMemcpy2DAsync_UV"));
-                };
-                CUDA_DEBUG_SYNC_ERR;
+                if (pCropParam->cropExact
+                    && ((pCropParam->crop.e.up & 1) || (pCropParam->crop.e.bottom & 1))) {
+                    // Exact crop: bilineare Chroma-Sub-Sample-Interpolation für odd up/bottom
+                    const int srcChromaH = planeInputC.height;
+                    dim3 blockSize(32, 4);
+                    dim3 gridSize(divCeil(pCropParam->frameOut.width, (int)blockSize.x),
+                                  divCeil(pCropParam->frameOut.height, (int)blockSize.y));
+                    kernel_crop_nv12_nv12_exact<<<gridSize, blockSize, 0, stream>>>(
+                        (uint8_t *)planeOutputY.ptr[0], planeOutputY.pitch[0],
+                        pCropParam->frameOut.width, pCropParam->frameOut.height,
+                        (uint8_t *)planeOutputC.ptr[0], planeOutputC.pitch[0],
+                        (const uint8_t *)planeInputY.ptr[0], planeInputY.pitch[0],
+                        (const uint8_t *)planeInputC.ptr[0], planeInputC.pitch[0], srcChromaH,
+                        pCropParam->crop.e.left, pCropParam->crop.e.up);
+                    cudaerr = cudaGetLastError();
+                    if (cudaerr != cudaSuccess) {
+                        return cudaMemcpyErrMes(err_to_rgy(cudaerr), _T("kernel_crop_nv12_nv12_exact"));
+                    }
+                    CUDA_DEBUG_SYNC_ERR;
+                } else {
+                    //Y
+                    cudaerr = cudaMemcpy2DAsync((uint8_t *)planeOutputY.ptr[0], planeOutputY.pitch[0],
+                        (uint8_t *)planeInputY.ptr[0] + pCropParam->crop.e.left + pCropParam->crop.e.up * planeInputY.pitch[0],
+                        planeInputY.pitch[0],
+                        planeInputY.width * bytesPerPix(planeInputY.csp), pCropParam->frameOut.height, memcpyKind, stream);
+                    if (cudaerr != cudaSuccess) {
+                        return cudaMemcpyErrMes(err_to_rgy(cudaerr), _T("cudaMemcpy2DAsync_Y"));
+                    };
+                    CUDA_DEBUG_SYNC_ERR;
+                    //UV
+                    cudaerr = cudaMemcpy2DAsync((uint8_t *)planeOutputC.ptr[0], planeOutputC.pitch[0],
+                        (uint8_t *)planeInputC.ptr[0]
+                        + pCropParam->crop.e.left + (pCropParam->crop.e.up >> 1) * planeInputC.pitch[0],
+                        pInputFrame->pitch[0],
+                        planeInputC.width * bytesPerPix(planeInputC.csp), pCropParam->frameOut.height >> 1, memcpyKind, stream);
+                    if (cudaerr != cudaSuccess) {
+                        return cudaMemcpyErrMes(err_to_rgy(cudaerr), _T("cudaMemcpy2DAsync_UV"));
+                    };
+                    CUDA_DEBUG_SYNC_ERR;
+                }
             } else {
                 AddMessage(RGY_LOG_ERROR, _T("unsupported output csp with crop.\n"));
                 return RGY_ERR_UNSUPPORTED;

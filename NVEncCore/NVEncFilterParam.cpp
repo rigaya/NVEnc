@@ -211,6 +211,7 @@ VppParam::VppParam() :
 #if ENCODER_NVENC
     deinterlace(cudaVideoDeinterlaceMode_Weave),
     gaussMaskSize((NppiMaskSize)0),
+    cropExact(false),
 #endif //#if ENCODER_NVENC
     nvvfxDenoise(),
     nvvfxArtifactReduction(),
@@ -227,6 +228,7 @@ bool VppParam::operator==(const VppParam &x) const {
 #if ENCODER_NVENC
             deinterlace == x.deinterlace &&
            gaussMaskSize == x.gaussMaskSize &&
+           cropExact == x.cropExact &&
 #endif //#if ENCODER_NVENC
            nvvfxDenoise == x.nvvfxDenoise
         && nvvfxArtifactReduction == x.nvvfxArtifactReduction
@@ -572,6 +574,9 @@ tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZ
 #if ENCODER_NVENC
     OPT_LST(_T("--vpp-deinterlace"), deinterlace, list_deinterlace);
     OPT_LST(_T("--vpp-gauss"), gaussMaskSize, list_nppi_gauss);
+    if (param->cropExact) {
+        cmd << _T(" --crop-exact");
+    }
 #endif
 
 #if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
