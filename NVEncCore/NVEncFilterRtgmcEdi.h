@@ -51,6 +51,9 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream) override;
     virtual void close() override;
+public:
+    virtual void resetTemporalState() override;
+protected:
 
     class FrameSource {
     public:
@@ -61,6 +64,10 @@ protected:
         int findIndexByInputFrameId(int inputFrameId) const;
         int inframe() const { return m_nFramesInput; }
         void clear();
+        // Logical reset for resetTemporalState(): rewind the ring buffer without freeing the
+        // pooled GPU allocations (clear() would memfree them, leaving pitch=0 and breaking the
+        // next add() with cudaErrorInvalidPitchValue).
+        void resetFrames();
     private:
         int m_nFramesInput;
         std::array<CUFrameBuf, 4> m_buf;

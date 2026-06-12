@@ -1532,6 +1532,20 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::run_filter(const RGYFrameInfo *pInputFr
     return RGY_ERR_NONE;
 }
 
+void NVEncFilterRtgmcSearchPrefilter::resetTemporalState() {
+    // Synchronize and discard any pending scene-change readbacks, then clear the pending queue.
+    clearPendingSearchPrefilterFrames();
+    // NOTE: Keep the m_cacheFrames ring-buffer slots and their pooled GPU allocations intact.
+    // run_filter() unconditionally dereferences m_cacheFrames[0]->frame (e.g. for memcpyKind),
+    // so nulling these out here caused a null shared_ptr dereference (ACCESS_VIOLATION) on the
+    // first input frame after a reset. The ring contents are overwritten in cold-start order by
+    // pushCacheFrame() once m_inputCount is rewound to 0, so stale frame data is harmless; any
+    // slot still referenced by in-flight work is detected via use_count()>1 and re-acquired there.
+    // Input/drain counters
+    m_inputCount = 0;
+    m_drainCount = 0;
+}
+
 void NVEncFilterRtgmcSearchPrefilter::close() {
     clearPendingSearchPrefilterFrames();
     if (m_searchLumaDump.is_open()) {

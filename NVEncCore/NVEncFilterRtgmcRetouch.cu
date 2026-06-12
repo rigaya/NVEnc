@@ -2279,6 +2279,14 @@ RGY_ERR NVEncFilterRtgmcRetouch::run_filter(const RGYFrameInfo *pInputFrame, RGY
     return run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream, std::vector<RGYCudaEvent>(), nullptr);
 }
 
+void NVEncFilterRtgmcRetouch::resetTemporalState() {
+    // Clear frame references that carry temporal context.
+    // m_buildOptions and kernel objects are preserved.
+    clearTemporalLimitFrames();
+    clearSpatialLimitBaseFrame();
+    // m_loggedTemporalFallback is already reset inside clearTemporalLimitFrames().
+}
+
 void NVEncFilterRtgmcRetouch::close() {
     m_buildOptions.clear();
     if (m_lumaDump.is_open()) {

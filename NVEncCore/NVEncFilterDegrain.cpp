@@ -1656,6 +1656,51 @@ RGY_ERR NVEncFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     return RGY_ERR_NONE;
 }
 
+void NVEncFilterDegrain::resetTemporalState() {
+    // Reset time-dependent state only; GPU buffer allocations and built kernels are preserved.
+    // Pending scene-change readbacks must be synchronized before discarding.
+    clearPendingSceneChange();
+    // Scene-change readback SAD buffers hold no cross-frame carry-over — clear the index.
+    m_sceneChangeReadbackSADIndex = 0;
+    // analysis luma metadata (frame numbers and generated-until pointer).
+    // NOTE: m_analysis.analysisLumaFrame[] holds RGYFrameInfo descriptors that point at the
+    // persistent analysisLuma GPU buffers (ptr/width/height/pitch). They are allocated once in
+    // setup and reused as kernel output targets, so they MUST be preserved here. Clearing them to
+    // an empty RGYFrameInfo() zeroed width/height and produced a 0-sized kernel launch
+    // (cudaErrorInvalidConfiguration) on the first frame after a reset. Only the per-slot frame
+    // numbers (cache validity) need to be invalidated.
+    m_analysis.analysisLumaFrameNumbers.fill(-1);
+    for (auto &ev : m_analysis.analysisLumaEvents) {
+        ev.reset();
+    }
+    m_analysis.analysisLumaEvent.reset();
+    m_analysis.analysisLumaGeneratedUntil = -1;
+    // analysis frame identity / last-seen metadata
+    m_analysis.lastFrameIndex = -1;
+    m_analysis.lastInputFrameId = -1;
+    m_analysis.lastTimestamp = 0;
+    m_analysis.lastDuration = 0;
+    m_analysis.lastAvailabilityDisableRefs.fill(true);
+    // analysis event
+    m_analysis.event.reset();
+    // direct analyze result and bound frame data
+    clearDirectAnalyzeResult();
+    clearFrameAnalysisData();
+    // cache frame ownership / zero-copy references (GPU buffers themselves are kept)
+    for (auto &f : m_cacheFrameRefs) {
+        f = RGYFrameInfo();
+    }
+    for (auto &owner : m_cacheFrameOwners) {
+        owner.reset();
+    }
+    // input/output counters
+    m_inputCount = 0;
+    m_drainCount = 0;
+    // per-frame flags
+    m_lastAnalysisUsedSearchLuma = false;
+    m_lastAnalysisIncludedChroma = false;
+}
+
 void NVEncFilterDegrain::close() {
     m_degrain.clear();
     m_degrainChroma.clear();

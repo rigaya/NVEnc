@@ -195,6 +195,9 @@ protected:
     RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
     virtual void close() override;
+public:
+    virtual void resetTemporalState() override;
+protected:
 
     RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamRtgmc> &prm);
     RGY_ERR initFilters(const std::shared_ptr<NVEncFilterParamRtgmc> &prm);
@@ -271,6 +274,8 @@ protected:
     size_t m_drainFilterIdx;
     bool m_draining;
     bool m_drainComplete;
+    int m_debugResetAtFrame; // 0 = disabled; set from NVENC_RTGMC_DEBUG_RESET_AT env var
+    int m_nFrame;            // count of valid input frames processed (used by debug hook)
     bool m_attachRetouchCompRefs;
     bool m_enablePostTR2Limit;
     bool m_sharedAnalysisMode;

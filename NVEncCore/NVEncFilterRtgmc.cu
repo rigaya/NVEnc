@@ -327,7 +327,9 @@ NVEncFilterRtgmc::NVEncFilterRtgmc() :
     m_sharedData(),
     m_captureIntermediate(false),
     m_capturedIntermediates(),
-    m_pendingIntermediateInputs() {
+    m_pendingIntermediateInputs(),
+    m_debugResetAtFrame(0),
+    m_nFrame(0) {
     m_name = _T("rtgmc");
     m_pathThrough = FILTER_PATHTHROUGH_NONE;
 }
@@ -2531,6 +2533,24 @@ RGY_ERR NVEncFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             chainWaitEvents.push_back(borderEvent);
         }
     }
+    // Debug hook: NVENC_RTGMC_DEBUG_RESET_AT
+    if (m_debugResetAtFrame == 0) {
+        // First valid input frame: parse env var once
+        const char *envVal = std::getenv("NVENC_RTGMC_DEBUG_RESET_AT");
+        if (envVal && envVal[0] != '\0') {
+            m_debugResetAtFrame = std::atoi(envVal);
+            if (m_debugResetAtFrame <= 0) m_debugResetAtFrame = -1; // disable
+        } else {
+            m_debugResetAtFrame = -1; // env not set -> disable
+        }
+    }
+    if (m_debugResetAtFrame > 0 && m_nFrame == m_debugResetAtFrame) {
+        fprintf(stderr, "[NVEncFilterRtgmc] resetTemporalState triggered at frame %d\n", m_nFrame);
+        resetTemporalState();
+        m_debugResetAtFrame = -1; // one-shot: resetTemporalState() clears m_nFrame, so disarm to avoid re-firing
+    }
+    m_nFrame++;
+
     m_drainFilterIdx = 0;
     m_draining = false;
     m_drainComplete = false;
@@ -2564,6 +2584,60 @@ bool NVEncFilterRtgmc::draining() const {
 
 bool NVEncFilterRtgmc::drainComplete() const {
     return m_draining && m_drainComplete && m_pendingOutputFrames.empty();
+}
+
+void NVEncFilterRtgmc::resetTemporalState() {
+    // Reset time-dependent state only. Filter objects, GPU buffers, and kernel programs are preserved.
+
+    // 1. Nested RTGMC sub-filters
+    for (auto &filter : m_filters) {
+        if (filter) filter->resetTemporalState();
+    }
+    for (auto &filter : m_retouchCompFilters) {
+        if (filter) filter->resetTemporalState();
+    }
+    for (auto &stage : m_matchCorrectionPasses) {
+        if (stage.interpolator) stage.interpolator->resetTemporalState();
+        if (stage.correctionBuild) stage.correctionBuild->resetTemporalState();
+        if (stage.correctionSpatialPrepass) stage.correctionSpatialPrepass->resetTemporalState();
+        if (stage.correctionTemporalFilter) stage.correctionTemporalFilter->resetTemporalState();
+        if (stage.correctionApply) stage.correctionApply->resetTemporalState();
+        if (stage.correctionEnhance) stage.correctionEnhance->resetTemporalState();
+        stage.composeBaseRefs.clear();
+    }
+    if (m_noiseDiffFilter) m_noiseDiffFilter->resetTemporalState();
+
+    // 2. Pending reference queues (EDI, comp, post-limit, noise)
+    m_pendingEdiRefs.clear();
+    m_pendingCompRefs.clear();
+    m_pendingPostLimitBaseRefs.clear();
+    m_pendingNoiseRefs.clear();
+    m_pendingOutputFrames.clear();
+    m_pendingSourceMatchFrameProps.clear();
+
+    // 3. Source cache: clear key/event metadata but keep the GPU frame buffers so they
+    //    can be re-used; set a fresh sourceCacheNext to overwrite from index 0.
+    for (auto &frame : m_sourceCache) {
+        frame.key = RtgmcFrameKey();
+        frame.event.reset();
+        // frame.frame (GPU buffer) is preserved intentionally
+    }
+    m_sourceCacheNext = 0;
+
+    // 4. Output / drain state
+    m_outputBufferIndex = 0;
+    m_drainFilterIdx = 0;
+    m_draining = false;
+    m_drainComplete = false;
+
+    // 5. Intermediate capture queue (debug only — safe to discard)
+    m_capturedIntermediates.clear();
+    m_pendingIntermediateInputs.clear();
+
+    // 6. Last input frame identity
+    m_inputFrame = RGYFrameInfo();
+    // 7. Input frame counter (used by debug hook)
+    m_nFrame = 0;
 }
 
 void NVEncFilterRtgmc::close() {
@@ -2602,4 +2676,6 @@ void NVEncFilterRtgmc::close() {
     m_capturedIntermediates.clear();
     m_pendingIntermediateInputs.clear();
     m_captureIntermediate = false;
+    m_nFrame = 0;
+    m_debugResetAtFrame = 0;
 }

@@ -403,6 +403,12 @@ void NVEncFilterRtgmcEdi::FrameSource::clear() {
     m_nFramesInput = 0;
 }
 
+void NVEncFilterRtgmcEdi::FrameSource::resetFrames() {
+    // Keep the allocated CUFrameBuf GPU memory; only rewind the logical ring position so the
+    // next cold-start fill overwrites the existing buffers in order.
+    m_nFramesInput = 0;
+}
+
 NVEncFilterRtgmcEdi::FrameSource::FrameSource() :
     m_nFramesInput(0),
     m_buf() {
@@ -1107,6 +1113,29 @@ RGY_ERR NVEncFilterRtgmcEdi::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         return RGY_ERR_INVALID_PARAM;
     }
     return run_filter_impl(pInputFrame, pInputFrame, pInputFrame, ppOutputFrames, pOutputFrameNum, stream, *prm);
+}
+
+void NVEncFilterRtgmcEdi::resetTemporalState() {
+    // Reset all time-dependent state without releasing GPU buffers or rebuilt kernel/filter objects.
+    // Rewind the source ring buffers but keep their GPU allocations (clear() would memfree them
+    // and the next add() would fail with cudaErrorInvalidPitchValue on a pitch=0 destination).
+    m_bobSource.resetFrames();
+    m_ediSource.resetFrames();
+    m_inputSource.resetFrames();
+    // NNEDI adapter: clear cached frame references and validity flags, but keep the NNEDI filter
+    // object itself (weights loaded) and outputCsp converter to avoid re-building.
+    for (auto &state : m_nnediStates) {
+        state.cachedFrames = { nullptr, nullptr };
+        state.cachedKey = FrameKey();
+        state.cachedEvent.reset();
+        state.cacheValid = false;
+    }
+    m_nnediAdapterCopyEvent.reset();
+    // Frame counters
+    m_nFrame = 0;
+    m_lastInputFrameId = -1;
+    m_pairFrameIndex = 0;
+    m_fallbackFrameIndex = 0;
 }
 
 void NVEncFilterRtgmcEdi::close() {
