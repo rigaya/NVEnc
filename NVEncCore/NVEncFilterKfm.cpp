@@ -790,7 +790,21 @@ void NVEncFilterKfm::KfmRtgmcLane::rewindIfIntermediateChanged(int sourceIndex, 
     m_hotUntilSourceIndex = -1;
 }
 
-std::shared_ptr<CUFrameBuf> NVEncFilterKfm::SharedFramePool::acquire(const RGYFrameInfo& info) {
+static const char *kfmAllocStatsTagFromLabel(const TCHAR *label) {
+    if (label == nullptr) {
+        return "KFM SharedFramePool";
+    }
+    if (!_tcscmp(label, _T("deint60 cache"))) return "KFM deint60 cache";
+    if (!_tcscmp(label, _T("before60"))) return "KFM before60 cache";
+    if (!_tcscmp(label, _T("after60"))) return "KFM after60 cache";
+    if (!_tcscmp(label, _T("padded source cache"))) return "KfmSourceSlot";
+    if (!_tcscmp(label, _T("UCF fused noise limit"))) return "KFM UCF fused noise limit";
+    if (!_tcscmp(label, _T("UCF noise limit"))) return "KFM UCF noise limit";
+    if (!_tcscmp(label, _T("VFR delayed output"))) return "KFM VFR delayed output";
+    return "KFM SharedFramePool";
+}
+
+std::shared_ptr<CUFrameBuf> NVEncFilterKfm::SharedFramePool::acquire(const RGYFrameInfo& info, const char *allocStatsTag) {
     auto resetFrameState = [](RGYFrameInfo& frame) {
         frame.timestamp = 0;
         frame.duration = 0;
@@ -804,20 +818,7 @@ std::shared_ptr<CUFrameBuf> NVEncFilterKfm::SharedFramePool::acquire(const RGYFr
             && !cmpFrameInfoCspResolution(&frame->frame, &info)
             && RGY_CSP_BIT_DEPTH[frame->frame.csp] == RGY_CSP_BIT_DEPTH[info.csp];
     };
-    auto trimPool = [&]() {
-        while (m_pool.size() > MAX_POOL_FRAMES) {
-            auto it = m_pool.begin();
-            for (; it != m_pool.end(); ++it) {
-                if (*it && (*it).use_count() == 1) {
-                    break;
-                }
-            }
-            if (it == m_pool.end()) {
-                break;
-            }
-            m_pool.erase(it);
-        }
-    };
+    const bool knownSize = std::any_of(m_pool.begin(), m_pool.end(), matchesInfo);
     for (auto& frame : m_pool) {
         if (frame && frame.use_count() == 1
             && matchesInfo(frame)) {
@@ -825,19 +826,25 @@ std::shared_ptr<CUFrameBuf> NVEncFilterKfm::SharedFramePool::acquire(const RGYFr
             // copies them to the normal output ring first. All KFM users run on the
             // filter stream, so stream ordering makes reuse safe without host sync.
             resetFrameState(frame->frame);
-            auto selected = frame;
-            trimPool();
-            return selected;
+            return frame;
+        }
+    }
+    if (!knownSize) {
+        const auto stale = std::find_if(m_pool.begin(), m_pool.end(), [&](const std::shared_ptr<CUFrameBuf>& frame) {
+            return frame && frame.use_count() == 1 && !matchesInfo(frame);
+        });
+        if (stale != m_pool.end()) {
+            m_pool.erase(stale);
         }
     }
     auto frame = std::make_shared<CUFrameBuf>(info);
     frame->releasePtr();
+    RGYCudaAllocStatsTag allocStatsTagScope(allocStatsTag);
     if (frame->alloc() != RGY_ERR_NONE) {
         return nullptr;
     }
     resetFrameState(frame->frame);
     m_pool.push_back(frame);
-    trimPool();
     return frame;
 }
 
@@ -849,7 +856,7 @@ std::shared_ptr<CUFrameBuf> NVEncFilterKfm::acquireKfmFrame(const RGYFrameInfo& 
     if (!m_kfmFramePool) {
         m_kfmFramePool = std::make_shared<SharedFramePool>();
     }
-    auto frame = m_kfmFramePool->acquire(info);
+    auto frame = m_kfmFramePool->acquire(info, kfmAllocStatsTagFromLabel(label));
     if (!frame) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s frame.\n"), label ? label : _T("cache"));
     }
@@ -952,10 +959,6 @@ void NVEncFilterKfm::collectRetiredKfmSourceSlots() {
 }
 
 void NVEncFilterKfm::trimFreeKfmSourceSlots() {
-    const auto keep = std::max<size_t>(16, std::min<size_t>(sourceCacheLimit(), 256) + 8);
-    while (m_kfmSourceSlotFree.size() > keep) {
-        m_kfmSourceSlotFree.pop_front();
-    }
 }
 
 void NVEncFilterKfm::clearKfmSourceSlotPool(bool wait) {
@@ -1033,6 +1036,7 @@ RGY_ERR NVEncFilterKfm::allocWorkFrameBuf(const RGYFrameInfo& frame, int frames)
     for (int i = 0; i < frames; i++) {
         auto work = std::make_unique<CUFrameBuf>(frame);
         work->releasePtr();
+        RGYCudaAllocStatsTag allocStatsTagScope("KFM work frame");
         const auto sts = work->alloc();
         if (sts != RGY_ERR_NONE) {
             m_workFrameBuf.clear();
@@ -1482,6 +1486,7 @@ RGY_ERR NVEncFilterKfm::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         || prm->kfm.ucf) {
         m_staticFlag = std::make_unique<CUFrameBuf>(prm->frameOut);
         m_staticFlag->releasePtr();
+        RGYCudaAllocStatsTag allocStatsTagScope("KFM static flag");
         sts = m_staticFlag->alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM static flag frame: %s.\n"), get_err_mes(sts));
@@ -2009,8 +2014,8 @@ RGY_ERR NVEncFilterKfm::createUcfGaussProgram(KfmUcfGaussProgram& program, int s
     program.sourceSize = sourceSize;
     program.targetSize = targetSize;
     program.filterSize = filterSize;
-    program.offset = std::make_unique<CUMemBuf>(offset.size() * sizeof(offset[0]));
-    program.coeff = std::make_unique<CUMemBuf>(coeff.size() * sizeof(coeff[0]));
+    program.offset = std::make_unique<CUMemBuf>(offset.size() * sizeof(offset[0]), "KFM UCF gauss offset");
+    program.coeff = std::make_unique<CUMemBuf>(coeff.size() * sizeof(coeff[0]), "KFM UCF gauss coeff");
     auto sts = program.offset->alloc();
     if (sts != RGY_ERR_NONE) {
         return sts;
@@ -2058,6 +2063,7 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseFieldCropFrame(RGYFrameInfo **ppFieldFram
         || fieldBuffer->frame.csp != fieldInfo.csp) {
         fieldBuffer = std::make_unique<CUFrameBuf>(fieldInfo);
         fieldBuffer->releasePtr();
+        RGYCudaAllocStatsTag allocStatsTagScope("KFM UCF field crop");
         const auto allocSts = fieldBuffer->alloc();
         if (allocSts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM UCF field/crop frame: %s.\n"), get_err_mes(allocSts));
@@ -2142,6 +2148,7 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, i
             || frame->frame.csp != gaussInfo.csp) {
             frame = std::make_unique<CUFrameBuf>(gaussInfo);
             frame->releasePtr();
+            RGYCudaAllocStatsTag allocStatsTagScope("KFM UCF noise gauss");
             const auto allocSts = frame->alloc();
             if (allocSts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM UCF %s frame: %s.\n"), label, get_err_mes(allocSts));
@@ -3772,7 +3779,7 @@ RGY_ERR NVEncFilterKfm::renderCleanSuperFields(RGYFrameInfo *pOutputFrame, int f
 
         const size_t rawBytes = (size_t)rawPitch * gridHeight * 2;
         if (!m_telecineSuperRaw[bufIndex] || m_telecineSuperRaw[bufIndex]->nSize < rawBytes) {
-            auto raw = std::make_unique<CUMemBuf>(rawBytes);
+            auto raw = std::make_unique<CUMemBuf>(rawBytes, "KFM telecine super raw");
             const auto allocSts = raw->alloc();
             if (allocSts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM telecine-super raw buffer %d: %s.\n"), bufIndex, get_err_mes(allocSts));
@@ -4236,6 +4243,7 @@ RGY_ERR NVEncFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame,
         || m_switchFlagFrames[index]->frame.csp != switchInfo.csp) {
         auto frame = std::make_unique<CUFrameBuf>(switchInfo);
         frame->releasePtr();
+        RGYCudaAllocStatsTag allocStatsTagScope("KFM switch flag frame");
         const auto sts = frame->alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s switch-flag-min frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
@@ -4253,6 +4261,7 @@ RGY_ERR NVEncFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame,
         || m_containsCombeFrames[index]->frame.csp != containsInfo.csp) {
         auto frame = std::make_unique<CUFrameBuf>(containsInfo);
         frame->releasePtr();
+        RGYCudaAllocStatsTag allocStatsTagScope("KFM contains combe frame");
         const auto sts = frame->alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s contains-combe frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
@@ -4268,6 +4277,7 @@ RGY_ERR NVEncFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame,
         || m_combeMaskFrames[index]->frame.csp != combeInfo.csp) {
         auto frame = std::make_unique<CUFrameBuf>(combeInfo);
         frame->releasePtr();
+        RGYCudaAllocStatsTag allocStatsTagScope("KFM combe mask frame");
         const auto sts = frame->alloc();
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s combe-mask-min frame: %s.\n"), stageLabel ? stageLabel : _T(""), get_err_mes(sts));
@@ -4379,7 +4389,7 @@ RGY_ERR NVEncFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFram
     const std::array<size_t, 4> workBytes = { std::max(combeYBytes, flagBytes), std::max(combeCBytes, flagBytes), flagBytes, flagBytes };
     for (int i = 0; i < (int)workBytes.size(); i++) {
         if (!m_switchFlagWork[i] || m_switchFlagWork[i]->nSize < workBytes[i]) {
-            auto work = std::make_unique<CUMemBuf>(workBytes[i]);
+            auto work = std::make_unique<CUMemBuf>(workBytes[i], "KFM switch flag work");
             const auto allocSts = work->alloc();
             if (allocSts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM switch-flag work buffer %d: %s.\n"), i, get_err_mes(allocSts));
@@ -6815,6 +6825,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 superInfo.height = std::max(1, superInfo.height >> 2);
                 auto frame = std::make_unique<CUFrameBuf>(superInfo);
                 frame->releasePtr();
+                RGYCudaAllocStatsTag allocStatsTagScope("KFM telecine super frame");
                 const auto allocSts = frame->alloc();
                 if (allocSts != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM telecine-super frame: %s.\n"), get_err_mes(allocSts));
@@ -6861,6 +6872,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                     auto superInfo = *super24;
                     auto neighbor = std::make_unique<CUFrameBuf>(superInfo);
                     neighbor->releasePtr();
+                    RGYCudaAllocStatsTag allocStatsTagScope("KFM telecine super neighbor");
                     const auto allocSts = neighbor->alloc();
                     if (allocSts != RGY_ERR_NONE) {
                         AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM telecine-super neighbor frame: %s.\n"), get_err_mes(allocSts));
@@ -6961,6 +6973,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                         || m_patchCombeFrames[patchIndex]->frame.csp != prm->frameOut.csp) {
                         auto frame = std::make_unique<CUFrameBuf>(prm->frameOut);
                         frame->releasePtr();
+                        RGYCudaAllocStatsTag allocStatsTagScope("KFM patch combe frame");
                         const auto allocSts = frame->alloc();
                         if (allocSts != RGY_ERR_NONE) {
                             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM patch-combe frame: %s.\n"), get_err_mes(allocSts));
@@ -7034,6 +7047,7 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                                 superInfo.height = std::max(1, superInfo.height >> 2);
                                 auto frame = std::make_unique<CUFrameBuf>(superInfo);
                                 frame->releasePtr();
+                                RGYCudaAllocStatsTag allocStatsTagScope("KFM UCF24 dweave super");
                                 const auto allocSts = frame->alloc();
                                 if (allocSts != RGY_ERR_NONE) {
                                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM UCF24 dweave-super frame: %s.\n"), get_err_mes(allocSts));

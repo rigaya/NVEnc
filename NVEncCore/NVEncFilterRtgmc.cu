@@ -263,35 +263,34 @@ std::shared_ptr<CUFrameBuf> NVRtgmcSharedFramePool::acquire(const RGYFrameInfo *
         frameInfo.inputFrameId = -1;
         frameInfo.dataList.clear();
     };
-    auto trimPool = [&]() {
-        while (m_pool.size() > MAX_POOL_FRAMES) {
-            auto it = std::find_if(m_pool.begin(), m_pool.end(), [](const std::shared_ptr<CUFrameBuf>& buf) {
-                return buf && buf.use_count() == 1;
-            });
-            if (it == m_pool.end()) {
-                break;
-            }
-            m_pool.erase(it);
-        }
-    };
-    for (auto& buf : m_pool) {
-        if (buf && buf.use_count() == 1
+    auto matchesInfo = [frame](const std::shared_ptr<CUFrameBuf>& buf) {
+        return buf
             && !cmpFrameInfoCspResolution(&buf->frame, frame)
-            && RGY_CSP_BIT_DEPTH[buf->frame.csp] == RGY_CSP_BIT_DEPTH[frame->csp]) {
+            && RGY_CSP_BIT_DEPTH[buf->frame.csp] == RGY_CSP_BIT_DEPTH[frame->csp];
+    };
+    const bool knownSize = std::any_of(m_pool.begin(), m_pool.end(), matchesInfo);
+    for (auto& buf : m_pool) {
+        if (buf && buf.use_count() == 1 && matchesInfo(buf)) {
             resetFrameState(buf->frame);
-            auto selected = buf;
-            trimPool();
-            return selected;
+            return buf;
+        }
+    }
+    if (!knownSize) {
+        const auto stale = std::find_if(m_pool.begin(), m_pool.end(), [&](const std::shared_ptr<CUFrameBuf>& buf) {
+            return buf && buf.use_count() == 1 && !matchesInfo(buf);
+        });
+        if (stale != m_pool.end()) {
+            m_pool.erase(stale);
         }
     }
     auto buf = std::make_shared<CUFrameBuf>(*frame);
     buf->releasePtr();
+    RGYCudaAllocStatsTag allocStatsTagScope("RTGMC shared frame pool");
     if (buf->alloc() != RGY_ERR_NONE) {
         return nullptr;
     }
     resetFrameState(buf->frame);
     m_pool.push_back(buf);
-    trimPool();
     return buf;
 }
 
@@ -822,6 +821,7 @@ RGY_ERR NVEncFilterRtgmc::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream
     if (!entry.frame || cmpFrameInfoCspResolution(&entry.frame->frame, frame)) {
         entry.frame = std::make_unique<CUFrameBuf>(*frame);
         entry.frame->releasePtr();
+        RGYCudaAllocStatsTag allocStatsTagScope("RTGMC source cache");
         if (!entry.frame || entry.frame->alloc() != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate source cache frame.\n"));
             return RGY_ERR_MEMORY_ALLOC;

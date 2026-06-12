@@ -60,7 +60,6 @@ public:
     std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo *frame);
     void clear();
 private:
-    static constexpr size_t MAX_POOL_FRAMES = 64;
     std::vector<std::shared_ptr<CUFrameBuf>> m_pool;
 };
 

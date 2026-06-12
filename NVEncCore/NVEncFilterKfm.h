@@ -297,10 +297,9 @@ protected:
     };
     class SharedFramePool {
     public:
-        std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo& info);
+        std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo& info, const char *allocStatsTag);
         void clear();
     private:
-        static constexpr size_t MAX_POOL_FRAMES = 64;
         std::deque<std::shared_ptr<CUFrameBuf>> m_pool;
     };
     class KfmRtgmcLane {

@@ -167,6 +167,7 @@ std::shared_ptr<CUFrameBuf> NVEncFilterRtgmcSearchPrefilter::SharedFramePool::ge
         frames.erase(pooled);
     } else {
         frame = std::make_unique<CUFrameBuf>(frameInfo);
+        RGYCudaAllocStatsTag allocStatsTagScope("RTGMC search prefilter pool");
         if (frame->alloc() != RGY_ERR_NONE) {
             frame.reset();
         }
@@ -609,6 +610,7 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::dumpSearchLumaFrame(CUFrameBuf *searchL
 
 std::unique_ptr<CUFrameBuf> NVEncFilterRtgmcSearchPrefilter::createPlaneFrame(const RGYFrameInfo &frameInfo) {
     auto frame = std::make_unique<CUFrameBuf>(frameInfo);
+    RGYCudaAllocStatsTag allocStatsTagScope("RTGMC search prefilter plane");
     if (frame->alloc() != RGY_ERR_NONE) {
         frame.reset();
     }

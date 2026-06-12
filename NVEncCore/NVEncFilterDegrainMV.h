@@ -587,11 +587,9 @@ private:
 
 class RGYDegrainBufferPool {
 public:
-    static constexpr size_t MAX_POOL_BUFFERS = 128;
-
     RGYDegrainBufferPool();
     ~RGYDegrainBufferPool();
-    std::unique_ptr<CUMemBuf> acquire(size_t size, cudaStream_t stream = nullptr);
+    std::unique_ptr<CUMemBuf> acquire(size_t size, cudaStream_t stream = nullptr, const char *allocStatsTag = nullptr);
     void recycle(std::unique_ptr<CUMemBuf>&& buf, const RGYCudaEvent &readyEvent);
     void clear();
 
@@ -601,9 +599,8 @@ private:
         RGYCudaEvent readyEvent;
     };
 
-    void waitAndDropFront();
-
     std::deque<Entry> m_buffers;
+    std::vector<size_t> m_knownSizes;
 };
 
 uint32_t rgy_degrain_scale_sad_threshold(const VppDegrain &degrain, const RGYFrameInfo &frameInfo, int prmThreshold, bool includeChroma = false);

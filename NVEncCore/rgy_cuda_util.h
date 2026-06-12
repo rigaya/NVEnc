@@ -35,6 +35,12 @@
 #include <npp.h>
 #include <cuda.h>
 #pragma warning (pop)
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <limits>
+#include <mutex>
+#include <tuple>
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_err.h"
@@ -77,6 +83,181 @@
 #define CUDA_DEBUG_SYNC 
 #define CUDA_DEBUG_SYNC_ERR
 #endif
+
+namespace rgy_cuda_alloc_stats {
+
+struct Counter {
+    uint64_t allocCount = 0;
+    uint64_t freeCount = 0;
+    uint64_t allocBytes = 0;
+    uint64_t freeBytes = 0;
+};
+
+struct Key {
+    std::string tag;
+    std::string kind;
+    std::string bucket;
+
+    bool operator<(const Key& other) const {
+        return std::tie(tag, kind, bucket) < std::tie(other.tag, other.kind, other.bucket);
+    }
+};
+
+inline bool enabled() {
+    static const bool s_enabled = []() {
+        const auto value = std::getenv("RGY_CUDA_ALLOC_STATS");
+        return value != nullptr && value[0] != '\0' && std::strcmp(value, "0") != 0;
+    }();
+    return s_enabled;
+}
+
+inline std::mutex& mutex() {
+    static std::mutex s_mutex;
+    return s_mutex;
+}
+
+inline std::map<Key, Counter>& counters() {
+    static std::map<Key, Counter> s_counters;
+    return s_counters;
+}
+
+inline const char*& currentTagRef() {
+    thread_local const char *s_tag = nullptr;
+    return s_tag;
+}
+
+inline const char *currentTag() {
+    const auto tag = currentTagRef();
+    return (tag && tag[0]) ? tag : "untagged";
+}
+
+inline const char *setTag(const char *tag) {
+    auto& ref = currentTagRef();
+    const auto prev = ref;
+    ref = tag;
+    return prev;
+}
+
+inline std::string bucketName(const size_t bytes) {
+    if (bytes == 0) {
+        return "0";
+    }
+    size_t bucket = 1;
+    while (bucket < bytes && bucket <= ((std::numeric_limits<size_t>::max)() >> 1)) {
+        bucket <<= 1;
+    }
+    char buffer[64];
+    if (bucket < 1024) {
+        std::snprintf(buffer, sizeof(buffer), "<=%zuB", bucket);
+    } else if (bucket < 1024 * 1024) {
+        std::snprintf(buffer, sizeof(buffer), "<=%zuKiB", bucket / 1024);
+    } else {
+        std::snprintf(buffer, sizeof(buffer), "<=%zuMiB", bucket / (1024 * 1024));
+    }
+    return buffer;
+}
+
+inline void ensureDumper();
+
+inline void record(const bool alloc, const char *kind, const size_t bytes, const char *tag = nullptr) {
+    if (!enabled()) {
+        return;
+    }
+    (void)mutex();
+    (void)counters();
+    ensureDumper();
+    const Key key { (tag && tag[0]) ? tag : currentTag(), (kind && kind[0]) ? kind : "unknown", bucketName(bytes) };
+    std::lock_guard<std::mutex> lock(mutex());
+    auto& counter = counters()[key];
+    if (alloc) {
+        counter.allocCount++;
+        counter.allocBytes += bytes;
+    } else {
+        counter.freeCount++;
+        counter.freeBytes += bytes;
+    }
+}
+
+inline void dump() {
+    if (!enabled()) {
+        return;
+    }
+    std::vector<std::pair<Key, Counter>> entries;
+    {
+        std::lock_guard<std::mutex> lock(mutex());
+        if (counters().empty()) {
+            return;
+        }
+        entries.assign(counters().begin(), counters().end());
+    }
+    std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b) {
+        const auto countA = a.second.allocCount + a.second.freeCount;
+        const auto countB = b.second.allocCount + b.second.freeCount;
+        if (countA != countB) {
+            return countA > countB;
+        }
+        return std::tie(a.first.tag, a.first.kind, a.first.bucket) < std::tie(b.first.tag, b.first.kind, b.first.bucket);
+    });
+
+    std::map<std::pair<std::string, std::string>, Counter> byTag;
+    for (const auto& entry : entries) {
+        auto& counter = byTag[std::make_pair(entry.first.tag, entry.first.kind)];
+        counter.allocCount += entry.second.allocCount;
+        counter.freeCount += entry.second.freeCount;
+        counter.allocBytes += entry.second.allocBytes;
+        counter.freeBytes += entry.second.freeBytes;
+    }
+    std::vector<std::pair<std::pair<std::string, std::string>, Counter>> tagEntries(byTag.begin(), byTag.end());
+    std::sort(tagEntries.begin(), tagEntries.end(), [](const auto& a, const auto& b) {
+        const auto countA = a.second.allocCount + a.second.freeCount;
+        const auto countB = b.second.allocCount + b.second.freeCount;
+        if (countA != countB) {
+            return countA > countB;
+        }
+        return a.first < b.first;
+    });
+
+    std::fprintf(stderr, "\n[RGY_CUDA_ALLOC_STATS] by tag/kind\n");
+    std::fprintf(stderr, "%8s %8s %14s %14s  %-28s  %s\n", "alloc", "free", "alloc_bytes", "free_bytes", "kind", "tag");
+    for (const auto& entry : tagEntries) {
+        std::fprintf(stderr, "%8llu %8llu %14llu %14llu  %-28s  %s\n",
+            (unsigned long long)entry.second.allocCount,
+            (unsigned long long)entry.second.freeCount,
+            (unsigned long long)entry.second.allocBytes,
+            (unsigned long long)entry.second.freeBytes,
+            entry.first.second.c_str(), entry.first.first.c_str());
+    }
+
+    std::fprintf(stderr, "\n[RGY_CUDA_ALLOC_STATS] by tag/kind/bucket\n");
+    std::fprintf(stderr, "%8s %8s %14s %14s  %-12s  %-28s  %s\n", "alloc", "free", "alloc_bytes", "free_bytes", "bucket", "kind", "tag");
+    for (const auto& entry : entries) {
+        std::fprintf(stderr, "%8llu %8llu %14llu %14llu  %-12s  %-28s  %s\n",
+            (unsigned long long)entry.second.allocCount,
+            (unsigned long long)entry.second.freeCount,
+            (unsigned long long)entry.second.allocBytes,
+            (unsigned long long)entry.second.freeBytes,
+            entry.first.bucket.c_str(), entry.first.kind.c_str(), entry.first.tag.c_str());
+    }
+}
+
+struct Dumper {
+    ~Dumper() {
+        dump();
+    }
+};
+
+inline void ensureDumper() {
+    static Dumper s_dumper;
+    (void)s_dumper;
+}
+
+} // namespace rgy_cuda_alloc_stats
+
+struct RGYCudaAllocStatsTag {
+    const char *prev;
+    RGYCudaAllocStatsTag(const char *tag) : prev(rgy_cuda_alloc_stats::setTag(tag)) {}
+    ~RGYCudaAllocStatsTag() { rgy_cuda_alloc_stats::setTag(prev); }
+};
 
 
 struct cudaevent_deleter {
@@ -286,22 +467,25 @@ public:
     CUFrameBufType framebuftype;
     std::unique_ptr<CUFrameBufBase> refFrameHost;
     CUFrameBufBase()
-        : frame(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {};
+        : frame(), framebuftype(CUFrameBufType::Unknown), refFrameHost(), m_allocStatsTag(nullptr), m_allocStatsKind(), m_allocStatsBytes() {};
     CUFrameBufBase(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
-        : frame(), framebuftype(CUFrameBufType::Unknown), refFrameHost() {
+        : frame(), framebuftype(CUFrameBufType::Unknown), refFrameHost(), m_allocStatsTag(nullptr), m_allocStatsKind(), m_allocStatsBytes() {
         frame.width = width;
         frame.height = height;
         frame.csp = csp;
         frame.mem_type = RGY_MEM_TYPE_GPU;
     };
     CUFrameBufBase(const RGYFrameInfo& _info)
-        : frame(_info), framebuftype(CUFrameBufType::Unknown), refFrameHost() {};
+        : frame(_info), framebuftype(CUFrameBufType::Unknown), refFrameHost(), m_allocStatsTag(nullptr), m_allocStatsKind(), m_allocStatsBytes() {};
     virtual ~CUFrameBufBase() {
         refFrameHost.reset();
     }
     void releasePtr() {
         memset(frame.ptr, 0, sizeof(frame.ptr));
         memset(frame.pitch, 0, sizeof(frame.pitch));
+        memset(m_allocStatsKind, 0, sizeof(m_allocStatsKind));
+        memset(m_allocStatsBytes, 0, sizeof(m_allocStatsBytes));
+        m_allocStatsTag = nullptr;
     }
     RGY_ERR alloc(bool singleAlloc = false, int align = 0) {
         frame.mem_type = RGY_MEM_TYPE_GPU;
@@ -383,11 +567,16 @@ protected:
     CUFrameBufBase(const CUFrameBufBase &) = delete;
     void operator =(const CUFrameBufBase &) = delete;
 
+    const char *m_allocStatsTag;
+    const char *m_allocStatsKind[RGY_MAX_PLANES];
+    size_t m_allocStatsBytes[RGY_MAX_PLANES];
+
     virtual RGY_ERR memmalloc(void **mem, size_t& memPitch, const int align, const int widthByte, const int totalHeight) = 0;
     virtual RGY_ERR memfree(uint8_t **mem) = 0;
     RGY_ERR allocMemory(const int align) {
         const int pixsize = bytesPerPix(frame.csp);
         clearMemory();
+        m_allocStatsTag = rgy_cuda_alloc_stats::currentTag();
         if (frame.singleAlloc) {
             int totalHeight = 0;
             for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
@@ -402,6 +591,9 @@ protected:
             }
             frame.pitch[0] = (int)memPitch;
             frame.ptr[0] = (uint8_t *)mem;
+            m_allocStatsKind[0] = (frame.mem_type == RGY_MEM_TYPE_CPU) ? "CUFrameBufHost" : ((align) ? "CUFrameBufDevice" : "CUFrameBufPitch");
+            m_allocStatsBytes[0] = memPitch * totalHeight;
+            rgy_cuda_alloc_stats::record(true, m_allocStatsKind[0], m_allocStatsBytes[0], m_allocStatsTag);
             return RGY_ERR_NONE;
         }
 
@@ -419,12 +611,20 @@ protected:
             }
             frame.pitch[i] = (int)memPitch;
             frame.ptr[i] = (uint8_t *)mem;
+            m_allocStatsKind[i] = (frame.mem_type == RGY_MEM_TYPE_CPU) ? "CUFrameBufHost" : ((align) ? "CUFrameBufDevice" : "CUFrameBufPitch");
+            m_allocStatsBytes[i] = memPitch * plane.height;
+            rgy_cuda_alloc_stats::record(true, m_allocStatsKind[i], m_allocStatsBytes[i], m_allocStatsTag);
         }
         return RGY_ERR_NONE;
     }
     void clearMemory() {
         for (int i = 0; i < ((frame.singleAlloc) ? 1 : RGY_CSP_PLANES[frame.csp]); i++) {
+            if (frame.ptr[i] && m_allocStatsKind[i] && m_allocStatsBytes[i] > 0) {
+                rgy_cuda_alloc_stats::record(false, m_allocStatsKind[i], m_allocStatsBytes[i], m_allocStatsTag);
+            }
             memfree(&frame.ptr[i]);
+            m_allocStatsKind[i] = nullptr;
+            m_allocStatsBytes[i] = 0;
         }
         memset(frame.ptr, 0, sizeof(frame.ptr));
         memset(frame.pitch, 0, sizeof(frame.pitch));
@@ -736,23 +936,29 @@ public:
 struct CUMemBuf {
     void *ptr;
     size_t nSize;
+    const char *allocStatsTag;
 
-    CUMemBuf() : ptr(nullptr), nSize(0) {
-
-    };
-    CUMemBuf(void *_ptr, size_t _nSize) : ptr(_ptr), nSize(_nSize) {
+    CUMemBuf() : ptr(nullptr), nSize(0), allocStatsTag(nullptr) {
 
     };
-    CUMemBuf(size_t _nSize) : ptr(nullptr), nSize(_nSize) {
+    CUMemBuf(void *_ptr, size_t _nSize) : ptr(_ptr), nSize(_nSize), allocStatsTag(nullptr) {
+
+    };
+    CUMemBuf(size_t _nSize, const char *_allocStatsTag = nullptr) : ptr(nullptr), nSize(_nSize), allocStatsTag(_allocStatsTag) {
 
     }
     RGY_ERR alloc() {
         if (ptr) {
+            rgy_cuda_alloc_stats::record(false, "CUMemBufDevice", nSize, allocStatsTag);
             cudaFree(ptr);
         }
         auto ret = RGY_ERR_NONE;
         if (nSize > 0) {
+            allocStatsTag = (allocStatsTag && allocStatsTag[0]) ? allocStatsTag : rgy_cuda_alloc_stats::currentTag();
             ret = err_to_rgy(cudaMalloc(&ptr, nSize));
+            if (ret == RGY_ERR_NONE) {
+                rgy_cuda_alloc_stats::record(true, "CUMemBufDevice", nSize, allocStatsTag);
+            }
         } else {
             ret = RGY_ERR_UNSUPPORTED;
         }
@@ -760,10 +966,12 @@ struct CUMemBuf {
     }
     void clear() {
         if (ptr) {
+            rgy_cuda_alloc_stats::record(false, "CUMemBufDevice", nSize, allocStatsTag);
             cudaFree(ptr);
             ptr = nullptr;
         }
         nSize = 0;
+        allocStatsTag = nullptr;
     }
     ~CUMemBuf() {
         clear();

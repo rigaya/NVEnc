@@ -102,14 +102,15 @@ RGYFrameDataDegrain::~RGYFrameDataDegrain() {
 }
 
 RGYDegrainBufferPool::RGYDegrainBufferPool() :
-    m_buffers() {
+    m_buffers(),
+    m_knownSizes() {
 }
 
 RGYDegrainBufferPool::~RGYDegrainBufferPool() {
     clear();
 }
 
-std::unique_ptr<CUMemBuf> RGYDegrainBufferPool::acquire(size_t size, cudaStream_t stream) {
+std::unique_ptr<CUMemBuf> RGYDegrainBufferPool::acquire(size_t size, cudaStream_t stream, const char *allocStatsTag) {
     if (size == 0) {
         return nullptr;
     }
@@ -129,10 +130,23 @@ std::unique_ptr<CUMemBuf> RGYDegrainBufferPool::acquire(size_t size, cudaStream_
         m_buffers.erase(pooled);
         return buf;
     }
-    auto buf = std::make_unique<CUMemBuf>(size);
+    if (std::find(m_knownSizes.begin(), m_knownSizes.end(), size) == m_knownSizes.end()) {
+        const auto stale = std::find_if(m_buffers.begin(), m_buffers.end(), [size](const Entry& entry) {
+            return entry.buf && entry.buf->nSize != size;
+        });
+        if (stale != m_buffers.end()) {
+            if (stale->readyEvent() != nullptr) {
+                cudaEventSynchronize(stale->readyEvent());
+                stale->readyEvent.reset();
+            }
+            m_buffers.erase(stale);
+        }
+    }
+    auto buf = std::make_unique<CUMemBuf>(size, allocStatsTag ? allocStatsTag : "RGYDegrainBufferPool");
     if (buf->alloc() != RGY_ERR_NONE) {
         return nullptr;
     }
+    m_knownSizes.push_back(size);
     return buf;
 }
 
@@ -140,30 +154,24 @@ void RGYDegrainBufferPool::recycle(std::unique_ptr<CUMemBuf>&& buf, const RGYCud
     if (!buf) {
         return;
     }
+    if (std::find(m_knownSizes.begin(), m_knownSizes.end(), buf->nSize) == m_knownSizes.end()) {
+        m_knownSizes.push_back(buf->nSize);
+    }
     Entry entry;
     entry.buf = std::move(buf);
     entry.readyEvent = readyEvent;
     m_buffers.emplace_back(std::move(entry));
-    while (m_buffers.size() > MAX_POOL_BUFFERS) {
-        waitAndDropFront();
-    }
-}
-
-void RGYDegrainBufferPool::waitAndDropFront() {
-    if (m_buffers.empty()) {
-        return;
-    }
-    if (m_buffers.front().readyEvent() != nullptr) {
-        cudaEventSynchronize(m_buffers.front().readyEvent());
-        m_buffers.front().readyEvent.reset();
-    }
-    m_buffers.pop_front();
 }
 
 void RGYDegrainBufferPool::clear() {
-    while (!m_buffers.empty()) {
-        waitAndDropFront();
+    for (auto& entry : m_buffers) {
+        if (entry.readyEvent() != nullptr) {
+            cudaEventSynchronize(entry.readyEvent());
+            entry.readyEvent.reset();
+        }
     }
+    m_buffers.clear();
+    m_knownSizes.clear();
 }
 
 RGYDegrainBlockLayout RGYFrameDataDegrain::layout() const {

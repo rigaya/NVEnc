@@ -2292,16 +2292,16 @@ RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, 
     }
 
     auto mv = (m_sideDataBufferPool)
-        ? m_sideDataBufferPool->acquire(m_analysis.mvBytes, stream)
-        : std::make_unique<CUMemBuf>(m_analysis.mvBytes);
+        ? m_sideDataBufferPool->acquire(m_analysis.mvBytes, stream, "RGYDegrainBufferPool MV")
+        : std::make_unique<CUMemBuf>(m_analysis.mvBytes, "degrain side MV");
     auto err = (mv && mv->ptr) ? RGY_ERR_NONE : (mv ? mv->alloc() : RGY_ERR_MEMORY_ALLOC);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame MV side data buffer.\n"));
         return err;
     }
     auto sad = (m_sideDataBufferPool)
-        ? m_sideDataBufferPool->acquire(m_analysis.sadBytes, stream)
-        : std::make_unique<CUMemBuf>(m_analysis.sadBytes);
+        ? m_sideDataBufferPool->acquire(m_analysis.sadBytes, stream, "RGYDegrainBufferPool SAD")
+        : std::make_unique<CUMemBuf>(m_analysis.sadBytes, "degrain side SAD");
     err = (sad && sad->ptr) ? RGY_ERR_NONE : (sad ? sad->alloc() : RGY_ERR_MEMORY_ALLOC);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame SAD side data buffer.\n"));
@@ -3479,7 +3479,7 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
     const auto temporalMixPrior = degrainBuildTemporalMixPriorTable(m_analysis.layout.temporalDirections, binomial);
     const auto temporalMixPriorBytes = temporalMixPrior.size() * sizeof(temporalMixPrior[0]);
     if (!m_analysis.temporalMixPrior || m_analysis.temporalMixPrior->nSize != temporalMixPriorBytes) {
-        m_analysis.temporalMixPrior = std::make_unique<CUMemBuf>(temporalMixPriorBytes);
+        m_analysis.temporalMixPrior = std::make_unique<CUMemBuf>(temporalMixPriorBytes, "degrain temporal mix prior");
         auto err = m_analysis.temporalMixPrior->alloc();
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain temporal mix prior table buffer.\n"));
@@ -3495,7 +3495,7 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
     m_analysis.mvBytes = rgy_degrain_mv_bytes(m_analysis.layout);
     m_analysis.sadBytes = rgy_degrain_sad_bytes(m_analysis.layout);
     if (!m_analysis.mv || m_analysis.mv->nSize != m_analysis.mvBytes) {
-        m_analysis.mv = std::make_unique<CUMemBuf>(m_analysis.mvBytes);
+        m_analysis.mv = std::make_unique<CUMemBuf>(m_analysis.mvBytes, "degrain analysis MV");
         err = m_analysis.mv->alloc();
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain MV buffer.\n"));
@@ -3503,7 +3503,7 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
         }
     }
     if (!m_analysis.sad || m_analysis.sad->nSize != m_analysis.sadBytes) {
-        m_analysis.sad = std::make_unique<CUMemBuf>(m_analysis.sadBytes);
+        m_analysis.sad = std::make_unique<CUMemBuf>(m_analysis.sadBytes, "degrain analysis SAD");
         err = m_analysis.sad->alloc();
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain SAD buffer.\n"));
@@ -3526,7 +3526,7 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
             return RGY_ERR_NONE;
         }
         if (!buf || buf->nSize != requiredBytes) {
-            buf = std::make_unique<CUMemBuf>(requiredBytes);
+            buf = std::make_unique<CUMemBuf>(requiredBytes, "degrain motion search workspace");
             const auto allocErr = buf->alloc();
             if (allocErr != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain %s buffer.\n"), name);
@@ -3583,7 +3583,7 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
         for (int i = 0; i < (int)m_analysis.analysisLuma.size(); i++) {
             auto &luma = m_analysis.analysisLuma[i];
             if (!luma || luma->nSize != m_analysis.analysisLumaBytes) {
-                luma = std::make_unique<CUMemBuf>(m_analysis.analysisLumaBytes);
+                luma = std::make_unique<CUMemBuf>(m_analysis.analysisLumaBytes, "degrain analysis luma");
                 err = luma->alloc();
                 if (err != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain analysis luma buffer.\n"));
@@ -3629,7 +3629,7 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
             continue;
         }
         if (!luma || luma->nSize != m_analysis.lumaLevel1Bytes) {
-            luma = std::make_unique<CUMemBuf>(m_analysis.lumaLevel1Bytes);
+            luma = std::make_unique<CUMemBuf>(m_analysis.lumaLevel1Bytes, "degrain level1 luma");
             err = luma->alloc();
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain level1 luma buffer.\n"));
@@ -3644,15 +3644,16 @@ RGY_ERR NVEncFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<NVEncFilt
         && m_analysis.mvBytes > 0
         && m_analysis.sadBytes > 0;
     if (shouldPrewarmSideDataPool) {
+        static constexpr size_t DEGRAIN_SIDE_DATA_POOL_PREWARM_FRAMES = 64;
         const size_t prewarmFrames = std::min<size_t>(
-            RGYDegrainBufferPool::MAX_POOL_BUFFERS / 2,
+            DEGRAIN_SIDE_DATA_POOL_PREWARM_FRAMES,
             (size_t)std::max(1, prm->degrain.delta + prm->degrain.tr0 + 4));
         auto prewarmBuffer = [&](const size_t size, const TCHAR *name) {
             if (size == 0) {
                 return;
             }
             for (size_t i = 0; i < prewarmFrames; i++) {
-                auto buf = std::make_unique<CUMemBuf>(size);
+                auto buf = std::make_unique<CUMemBuf>(size, "RGYDegrainBufferPool prewarm");
                 const auto allocErr = buf->alloc();
                 if (allocErr != RGY_ERR_NONE) {
                     AddMessage(RGY_LOG_WARN, _T("degrain side data pool prewarm for %s buffer failed at %zu/%zu: %s.\n"),
