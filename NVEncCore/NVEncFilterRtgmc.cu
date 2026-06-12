@@ -2586,6 +2586,24 @@ bool NVEncFilterRtgmc::drainComplete() const {
     return m_draining && m_drainComplete && m_pendingOutputFrames.empty();
 }
 
+int NVEncFilterRtgmc::requiredPrimingSourceFrames() const {
+    const auto prm = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
+    if (!prm) {
+        return 8;
+    }
+    const auto& rtgmc = prm->rtgmc;
+    const int temporalRadius = std::max({
+        std::max(0, rtgmc.searchPrefilter.tr0),
+        std::max(0, rtgmc.analyze.delta),
+        std::max(0, rtgmc.tr1.delta),
+        std::max(0, rtgmc.tr2.delta),
+        std::max(0, rtgmc.matchTR1),
+        std::max(0, rtgmc.matchTR2)
+    });
+    const int sourceMatchMargin = std::max(0, rtgmc.sourceMatch) * std::max({ 1, std::max(0, rtgmc.matchTR1), std::max(0, rtgmc.matchTR2) });
+    return std::max(8, temporalRadius + sourceMatchMargin + 4);
+}
+
 void NVEncFilterRtgmc::resetTemporalState() {
     // Reset time-dependent state only. Filter objects, GPU buffers, and kernel programs are preserved.
 

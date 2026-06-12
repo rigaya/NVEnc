@@ -292,6 +292,9 @@ protected:
         void reset();
         RGY_ERR feed(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, int *cachedFrames = nullptr);
         RGY_ERR drain(cudaStream_t stream, int maxDrainIterations, int *cachedFrames = nullptr);
+        RGY_ERR drainTo(int n60end, cudaStream_t stream);
+        RGY_ERR ensureRange(int n60begin, int n60end, cudaStream_t stream);
+        RGY_ERR feedHot(cudaStream_t stream);
         RGY_ERR cacheFrame(const RGYFrameInfo *frame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event);
         const KfmCachedDeint60 *find(int n60, std::vector<RGYCudaEvent> *wait_events) const;
         void trim(int n60floor, size_t cacheLimit);
@@ -299,7 +302,9 @@ protected:
         const std::deque<KfmCachedDeint60>& cache() const { return m_cache; }
         RGYCudaEvent& cacheCopyEvent() { return m_cacheCopyEvent; }
         int submittedFrames() const { return m_submittedFrames; }
+        int64_t feedCount() const { return m_feedCount; }
     private:
+        static constexpr int HOT_KEEP_SOURCE_FRAMES = 5;
         NVEncFilterKfm *m_owner;
         NVEncFilterRtgmc *m_rtgmc;
         const char *m_stage;
@@ -310,6 +315,8 @@ protected:
         int m_nextFeedSourceIndex;
         int m_nextOutputN60;
         int m_hotUntilSourceIndex;
+        int m_cacheFloorN60;
+        int64_t m_feedCount;
         RGYCudaEvent m_cacheCopyEvent;
     };
 
@@ -340,6 +347,7 @@ protected:
     size_t deint60CacheLimit() const;
     int sourceCacheTrimFloor() const;
     int deint60CacheTrimFloor() const;
+    bool lazyDeint60Enabled(const NVEncFilterParamKfm& prm) const;
     const RGYFrameInfo *findDeint60Frame(int n60, std::vector<RGYCudaEvent> *wait_events) const;
     const RGYFrameInfo *findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYCudaEvent> *wait_events);
     const KfmCachedSource *findSourceByIndex(int sourceIndex) const;
