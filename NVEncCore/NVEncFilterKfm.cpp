@@ -7167,10 +7167,10 @@ RGY_ERR NVEncFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 
 void NVEncFilterKfm::close() {
     flushUcfNoiseResultDump();
-    AddMessage(RGY_LOG_INFO, _T("KFM RTGMC feed count: deint60=%lld, before60=%lld, after60=%lld.\n"),
+    AddMessage(RGY_LOG_DEBUG, _T("KFM RTGMC feed count: deint60=%lld, before60=%lld, after60=%lld.\n"),
         (long long)m_deint60Lane.feedCount(), (long long)m_before60Lane.feedCount(), (long long)m_after60Lane.feedCount());
     const auto& deint60Resets = m_deint60Lane.resetCounts();
-    AddMessage(RGY_LOG_INFO, _T("KFM RTGMC deint60 resets: cold=%lld rewind=%lld feedPast=%lld farJump=%lld trimmed=%lld.\n"),
+    AddMessage(RGY_LOG_DEBUG, _T("KFM RTGMC deint60 resets: cold=%lld rewind=%lld feedPast=%lld farJump=%lld trimmed=%lld.\n"),
         (long long)deint60Resets[0], (long long)deint60Resets[1], (long long)deint60Resets[2], (long long)deint60Resets[3], (long long)deint60Resets[4]);
     m_rtgmc.reset();
     m_deint60Rtgmc.reset();
