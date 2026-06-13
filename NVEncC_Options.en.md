@@ -206,14 +206,14 @@
   - [--vpp-rff](#--vpp-rff)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-afs \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-afs-param1value1param2value2)
-  - [--vpp-nnedi \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nnedi-param1value1param2value2)
-  - [--vpp-rtgmc [\<param1\>=\<value1\>]](#--vpp-rtgmc-param1value1)
-  - [--vpp-rtgmc-bob [\<param1\>=\<value1\>]](#--vpp-rtgmc-bob-param1value1)
-  - [--vpp-rtgmc-search-prefilter [\<param1\>=\<value1\>]](#--vpp-rtgmc-search-prefilter-param1value1)
-  - [--vpp-rtgmc-edi [\<param1\>=\<value1\>]](#--vpp-rtgmc-edi-param1value1)
-  - [--vpp-rtgmc-retouch [\<param1\>=\<value1\>]](#--vpp-rtgmc-retouch-param1value1)
-  - [--vpp-rtgmc-shimmer-repair [\<param1\>=\<value1\>]](#--vpp-rtgmc-shimmer-repair-param1value1)
-  - [--vpp-rtgmc-primitive [\<param1\>=\<value1\>]](#--vpp-rtgmc-primitive-param1value1)
+  - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
+  - [--vpp-rtgmc \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-param1value1)
+  - [--vpp-rtgmc-bob \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-bob-param1value1)
+  - [--vpp-rtgmc-search-prefilter \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-search-prefilter-param1value1)
+  - [--vpp-rtgmc-edi \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-edi-param1value1)
+  - [--vpp-rtgmc-retouch \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-retouch-param1value1)
+  - [--vpp-rtgmc-shimmer-repair \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-shimmer-repair-param1value1)
+  - [--vpp-rtgmc-primitive \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-primitive-param1value1)
   - [--vpp-kfm \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-kfm-param1value1param2value2)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
   - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
@@ -2857,26 +2857,26 @@ Edge-preserving smoothing filter.
 Motion compensated degrain debug filter.
 
 - **parameters**
-  - preset=&lt;string&gt;
+  - preset=&lt;string&gt;  
     Surface preset. `custom` (default), `auto`.
     This refers the original values.
-  - mode=&lt;string&gt;
+  - mode=&lt;string&gt;  
     Output mode. `source`, `analyze`, `compb`, `compf`, `compb2`, `compf2`, `degrain` (default), `mv`, `sad`.
-  - stage=&lt;string&gt;
+  - stage=&lt;string&gt;  
     Step2 stage marker. `auto` (default), `tr1`, `tr2`.
-  - tr=&lt;int&gt;
+  - tr=&lt;int&gt;  
     Auto preset temporal radius. `1` or `2`. Sets `mode=degrain`, `stage`, and `delta`.
-  - blksize/search/overlap/delta/levels/pel
+  - blksize/search/overlap/delta/levels/pel  
     Block matching geometry and temporal radius parameters.
-  - thsad/thsadc/thscd1/thscd2
+  - thsad/thsadc/thscd1/thscd2  
     Degrain and scene-change thresholds.
-  - tr0/rep0/search_refine
+  - tr0/rep0/search_refine  
     Search reference prefilter parameters.
-  - searchparam/pelsearch/truemotion/lambda/lsad/pnew/plevel/globalmotion/dct/useflag
+  - searchparam/pelsearch/truemotion/lambda/lsad/pnew/plevel/globalmotion/dct/useflag  
     Motion search tuning parameters.
-  - mv_spatial_refine=&lt;int|auto&gt;
+  - mv_spatial_refine=&lt;int|auto&gt;  
     Motion-vector spatial refinement count. Default is `auto` (`-1`): run spatial refinement only at the coarsest analysis level, and skip it at all finer levels.
-  - chroma/binomial/tv_range
+  - chroma/binomial/tv_range  
     Chroma analysis and prefilter/range controls.
 
 - **Note (Limitations)**
