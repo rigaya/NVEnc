@@ -790,45 +790,41 @@ __device__ __forceinline__ uint32_t degrainMotionSearchAccumulateLumaSadLane(
     const int x = (sadLane % lanesPerRow) * 4;
     const int rowsPerLane = blockSize / lanesPerRow;
     const int firstLaneRow = sadLane / lanesPerRow;
-    const int useFastPath = sizeof(TypePixel) == 1
-        && degrainMotionSearchRefIsIntegerPel<pel>(motionOffsetX, motionOffsetY)
-        && referenceX >= 0 && referenceY >= 0
-        && referenceX + blockSize <= width
-        && referenceY + blockSize <= height;
     uint32_t sad = 0u;
-    if (useFastPath) {
-        for (int y = firstLaneRow; y < blockSize; y += rowsPerLane) {
-            const int sourceBase = y * blockSize + x;
-            const uint8_t *referenceLine = referencePlane + (referenceY + y) * refPitch + (referenceX + x) * (int)sizeof(TypePixel);
-            const int sourceValue0 = (int)sourceBlockPixels[sourceBase + 0];
-            const int sourceValue1 = (int)sourceBlockPixels[sourceBase + 1];
-            const int sourceValue2 = (int)sourceBlockPixels[sourceBase + 2];
-            const int sourceValue3 = (int)sourceBlockPixels[sourceBase + 3];
-            const int referenceValue0 = (int)(*(const TypePixel *)(referenceLine + 0 * (int)sizeof(TypePixel)));
-            const int referenceValue1 = (int)(*(const TypePixel *)(referenceLine + 1 * (int)sizeof(TypePixel)));
-            const int referenceValue2 = (int)(*(const TypePixel *)(referenceLine + 2 * (int)sizeof(TypePixel)));
-            const int referenceValue3 = (int)(*(const TypePixel *)(referenceLine + 3 * (int)sizeof(TypePixel)));
-            sad += (uint32_t)abs(sourceValue0 - referenceValue0);
-            sad += (uint32_t)abs(sourceValue1 - referenceValue1);
-            sad += (uint32_t)abs(sourceValue2 - referenceValue2);
-            sad += (uint32_t)abs(sourceValue3 - referenceValue3);
+    if constexpr (sizeof(TypePixel) == 1) {
+        const int useFastPath = degrainMotionSearchRefIsIntegerPel<pel>(motionOffsetX, motionOffsetY)
+            && referenceX >= 0 && referenceY >= 0
+            && referenceX + blockSize <= width
+            && referenceY + blockSize <= height;
+        if (useFastPath) {
+            for (int y = firstLaneRow; y < blockSize; y += rowsPerLane) {
+                const int sourceBase = y * blockSize + x;
+                const uint8_t *referenceLine = referencePlane + (referenceY + y) * refPitch + referenceX + x;
+                const uint32_t sourcePacked = *reinterpret_cast<const uint32_t *>(sourceBlockPixels + sourceBase);
+                const uint32_t referencePacked =
+                    ((uint32_t)referenceLine[0] <<  0)
+                  | ((uint32_t)referenceLine[1] <<  8)
+                  | ((uint32_t)referenceLine[2] << 16)
+                  | ((uint32_t)referenceLine[3] << 24);
+                sad += __vsadu4(sourcePacked, referencePacked);
+            }
+            return sad;
         }
-    } else {
-        for (int y = firstLaneRow; y < blockSize; y += rowsPerLane) {
-            const int sourceBase = y * blockSize + x;
-            const int sourceValue0 = (int)sourceBlockPixels[sourceBase + 0];
-            const int sourceValue1 = (int)sourceBlockPixels[sourceBase + 1];
-            const int sourceValue2 = (int)sourceBlockPixels[sourceBase + 2];
-            const int sourceValue3 = (int)sourceBlockPixels[sourceBase + 3];
-            const int referenceValue0 = degrainMotionSearchRefSample<TypePixel, pel, subpelInterp>(referencePlane, refPitch, width, height, blockX, blockY, step, motionOffsetX, motionOffsetY, x + 0, y);
-            const int referenceValue1 = degrainMotionSearchRefSample<TypePixel, pel, subpelInterp>(referencePlane, refPitch, width, height, blockX, blockY, step, motionOffsetX, motionOffsetY, x + 1, y);
-            const int referenceValue2 = degrainMotionSearchRefSample<TypePixel, pel, subpelInterp>(referencePlane, refPitch, width, height, blockX, blockY, step, motionOffsetX, motionOffsetY, x + 2, y);
-            const int referenceValue3 = degrainMotionSearchRefSample<TypePixel, pel, subpelInterp>(referencePlane, refPitch, width, height, blockX, blockY, step, motionOffsetX, motionOffsetY, x + 3, y);
-            sad += (uint32_t)abs(sourceValue0 - referenceValue0);
-            sad += (uint32_t)abs(sourceValue1 - referenceValue1);
-            sad += (uint32_t)abs(sourceValue2 - referenceValue2);
-            sad += (uint32_t)abs(sourceValue3 - referenceValue3);
-        }
+    }
+    for (int y = firstLaneRow; y < blockSize; y += rowsPerLane) {
+        const int sourceBase = y * blockSize + x;
+        const int sourceValue0 = (int)sourceBlockPixels[sourceBase + 0];
+        const int sourceValue1 = (int)sourceBlockPixels[sourceBase + 1];
+        const int sourceValue2 = (int)sourceBlockPixels[sourceBase + 2];
+        const int sourceValue3 = (int)sourceBlockPixels[sourceBase + 3];
+        const int referenceValue0 = degrainMotionSearchRefSample<TypePixel, pel, subpelInterp>(referencePlane, refPitch, width, height, blockX, blockY, step, motionOffsetX, motionOffsetY, x + 0, y);
+        const int referenceValue1 = degrainMotionSearchRefSample<TypePixel, pel, subpelInterp>(referencePlane, refPitch, width, height, blockX, blockY, step, motionOffsetX, motionOffsetY, x + 1, y);
+        const int referenceValue2 = degrainMotionSearchRefSample<TypePixel, pel, subpelInterp>(referencePlane, refPitch, width, height, blockX, blockY, step, motionOffsetX, motionOffsetY, x + 2, y);
+        const int referenceValue3 = degrainMotionSearchRefSample<TypePixel, pel, subpelInterp>(referencePlane, refPitch, width, height, blockX, blockY, step, motionOffsetX, motionOffsetY, x + 3, y);
+        sad = __sad((uint32_t)sourceValue0, (uint32_t)referenceValue0, sad);
+        sad = __sad((uint32_t)sourceValue1, (uint32_t)referenceValue1, sad);
+        sad = __sad((uint32_t)sourceValue2, (uint32_t)referenceValue2, sad);
+        sad = __sad((uint32_t)sourceValue3, (uint32_t)referenceValue3, sad);
     }
     return sad;
 }
@@ -1671,7 +1667,7 @@ static __global__ void kernel_degrain_mv_search_parallel_cuda(
     const int localSize = (int)blockDim.x;
     const int block = (int)blockIdx.x;
 
-    __shared__ TypePixel sourceBlockPixels[DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE * DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE];
+    __shared__ __align__(4) TypePixel sourceBlockPixels[DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE * DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE];
     __shared__ RGYDegrainMotionSearchContext context;
     __shared__ RGYDegrainMotionSearchCandidate candidate[DEGRAIN_MOTION_SEARCH_SEARCH_CANDIDATES];
     __shared__ RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
@@ -1753,7 +1749,7 @@ static __global__ void kernel_degrain_mv_spatial_refine_cuda(
 
     const int blockGridX = block % blocksX;
     const int blockGridY = block / blocksX;
-    __shared__ TypePixel sourceBlockPixels[DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE * DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE];
+    __shared__ __align__(4) TypePixel sourceBlockPixels[DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE * DEGRAIN_MOTION_SEARCH_MAX_BLOCK_SIZE];
     __shared__ RGYDegrainMotionSearchContext context;
     __shared__ RGYDegrainMotionSearchCandidate candidate[5];
     __shared__ RGYDegrainMotionSearchCandidateCost candidateCosts[DEGRAIN_MOTION_SEARCH_MAX_CANDIDATE_GROUPS];
