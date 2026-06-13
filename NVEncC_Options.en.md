@@ -205,6 +205,7 @@
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-rff](#--vpp-rff)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
+  - [--vpp-deint-csp \<string\>](#--vpp-deint-csp-string)
   - [--vpp-afs \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
   - [--vpp-rtgmc \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-param1value1)
@@ -2186,6 +2187,15 @@ Activate hw deinterlacer. Available only when used with [--avhw](#--avhw-string)
 - bob ... 60i → 60p interleaved.
 
 for IT(inverse telecine), use [--vpp-afs](#--vpp-afs-param1value1param2value2).
+
+### --vpp-deint-csp &lt;string&gt;
+Select the CSP used for deinterlace filters. Default is `input`.
+
+- **parameters**
+  - input
+    When CUDA deinterlace filters are enabled, run deinterlace and closely related filters on the input CSP.
+  - output
+    Run deinterlace filters on the output CSP, matching the previous behavior.
 
 ### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Activate Auto Field Shift (AFS) deinterlacer.

@@ -151,9 +151,8 @@ static void clamp_nvenc_target_quality(InEncodeVideoParam *inputParam) {
     }
 }
 
-static int count_deinterlacer(const InEncodeVideoParam *inputParam) {
+static int vpp_deinterlacer_filter_count_wo_vppnv(const InEncodeVideoParam *inputParam) {
     int deinterlacer = 0;
-    if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
     if (inputParam->vpp.afs.enable) deinterlacer++;
     if (inputParam->vpp.nnedi.enable) deinterlacer++;
     if (inputParam->vpp.rtgmc.enable) deinterlacer++;
@@ -163,6 +162,11 @@ static int count_deinterlacer(const InEncodeVideoParam *inputParam) {
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
     if (inputParam->vpp.ivtc.enable) deinterlacer++;
     return deinterlacer;
+}
+
+static int count_deinterlacer(const InEncodeVideoParam *inputParam) {
+    return vpp_deinterlacer_filter_count_wo_vppnv(inputParam)
+        + (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave ? 1 : 0);
 }
 
 static bool deinterlacer_enabled(const InEncodeVideoParam *inputParam) {
@@ -2873,33 +2877,41 @@ RGY_ERR NVEncCore::SetInputParam(InEncodeVideoParam *inputParam) {
 std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoParam *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
     std::vector<VppType> filterPipeline;
     filterPipeline.reserve((size_t)VppType::CL_MAX);
+    const bool useInputCspForDeint = inputParam->vpp.deintCsp == VppDeintCsp::Input && vpp_deinterlacer_filter_count_wo_vppnv(inputParam) > 0;
+    const bool delayCspConvForDeint = useInputCspForDeint && cspConvRequired;
 
-    if (cspConvRequired || cropRequired)   filterPipeline.push_back(VppType::CL_CROP);
-    if (inputParam->vpp.colorspace.enable) {
+    auto addColorspaceFilters = [&]() {
+        if (inputParam->vpp.colorspace.enable) {
 #if 0
-        bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || inputParam->vpp.colorspace.lut3d.table_file.length() > 0;
-        if (!requireOpenCL) {
-            auto currentVUI = inputParam->input.vui;
-            for (size_t i = 0; i < inputParam->vpp.colorspace.convs.size(); i++) {
-                auto conv_from = inputParam->vpp.colorspace.convs[i].from;
-                auto conv_to = inputParam->vpp.colorspace.convs[i].to;
-                if (conv_from.chromaloc != conv_to.chromaloc
-                    || conv_from.colorprim != conv_to.colorprim
-                    || conv_from.transfer != conv_to.transfer) {
-                    requireOpenCL = true;
-                } else if (conv_from.matrix != conv_to.matrix
-                    && (conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
-                    && (conv_to.matrix != RGY_MATRIX_ST170_M && conv_to.matrix != RGY_MATRIX_BT709)) {
-                    requireOpenCL = true;
+            bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || inputParam->vpp.colorspace.lut3d.table_file.length() > 0;
+            if (!requireOpenCL) {
+                auto currentVUI = inputParam->input.vui;
+                for (size_t i = 0; i < inputParam->vpp.colorspace.convs.size(); i++) {
+                    auto conv_from = inputParam->vpp.colorspace.convs[i].from;
+                    auto conv_to = inputParam->vpp.colorspace.convs[i].to;
+                    if (conv_from.chromaloc != conv_to.chromaloc
+                        || conv_from.colorprim != conv_to.colorprim
+                        || conv_from.transfer != conv_to.transfer) {
+                        requireOpenCL = true;
+                    } else if (conv_from.matrix != conv_to.matrix
+                        && (conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
+                        && (conv_to.matrix != RGY_MATRIX_ST170_M && conv_to.matrix != RGY_MATRIX_BT709)) {
+                        requireOpenCL = true;
+                    }
                 }
             }
-        }
-        filterPipeline.push_back((requireOpenCL) ? VppType::CL_COLORSPACE : VppType::AMF_COLORSPACE);
+            filterPipeline.push_back((requireOpenCL) ? VppType::CL_COLORSPACE : VppType::AMF_COLORSPACE);
 #else
-        filterPipeline.push_back(VppType::CL_COLORSPACE);
+            filterPipeline.push_back(VppType::CL_COLORSPACE);
 #endif
+        }
+        if (inputParam->vpp.libplacebo_tonemapping.enable) filterPipeline.push_back(VppType::CL_LIBPLACEBO_TONEMAP);
+    };
+
+    if ((cspConvRequired && !delayCspConvForDeint) || cropRequired) filterPipeline.push_back(VppType::CL_CROP);
+    if (!useInputCspForDeint) {
+        addColorspaceFilters();
     }
-    if (inputParam->vpp.libplacebo_tonemapping.enable) filterPipeline.push_back(VppType::CL_LIBPLACEBO_TONEMAP);
     if (inputParam->vpp.rff.enable)           filterPipeline.push_back(VppType::CL_RFF);
     if (inputParam->vpp.delogo.enable)        filterPipeline.push_back(VppType::CL_DELOGO);
     if (inputParam->vpp.afs.enable)           filterPipeline.push_back(VppType::CL_AFS);
@@ -2922,6 +2934,10 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.ivtc.enable)          filterPipeline.push_back(VppType::CL_IVTC);
     if (inputParam->vpp.decimate.enable)      filterPipeline.push_back(VppType::CL_DECIMATE);
     if (inputParam->vpp.mpdecimate.enable)    filterPipeline.push_back(VppType::CL_MPDECIMATE);
+    if (delayCspConvForDeint)                 filterPipeline.push_back(VppType::CL_CROP);
+    if (useInputCspForDeint) {
+        addColorspaceFilters();
+    }
     if (inputParam->vpp.selectevery.enable)   filterPipeline.push_back(VppType::CL_SELECT_EVERY);
     if (inputParam->vpp.transform.enable)     filterPipeline.push_back(VppType::CL_TRANSFORM);
     if (inputParam->vpp.convolution3d.enable) filterPipeline.push_back(VppType::CL_CONVOLUTION3D);
@@ -3113,25 +3129,57 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     //読み込み時のcrop
     const sInputCrop *inputCrop = (cropRequired) ? &inputParam->input.crop : nullptr;
     const auto resize = std::make_pair(resizeWidth, resizeHeight);
+    const bool useInputCspForDeint = inputParam->vpp.deintCsp == VppDeintCsp::Input && vpp_deinterlacer_filter_count_wo_vppnv(inputParam) > 0;
+    const bool delayCspConvForDeint = useInputCspForDeint && cspConvRequired;
 
     std::vector<std::unique_ptr<NVEncFilter>> vppCUDAFilters;
     const auto encCsp = GetEncoderCSP(inputParam);
-    auto filterCsp = encCsp;
-    switch (filterCsp) {
-    case RGY_CSP_NV12:  filterCsp = RGY_CSP_YV12; break;
-    case RGY_CSP_P010:  filterCsp = RGY_CSP_YV12_16; break;
-    case RGY_CSP_NV16:  filterCsp = RGY_CSP_YUV444; break;
-    case RGY_CSP_P210:  filterCsp = RGY_CSP_YUV444_16; break;
-    case RGY_CSP_NV12A: filterCsp = RGY_CSP_YUVA420; break;
-    case RGY_CSP_P010A: filterCsp = RGY_CSP_YUVA420_16; break;
-    default: break;
-    }
+    auto normalizeFilterCsp = [](RGY_CSP csp) {
+        switch (csp) {
+        case RGY_CSP_NV12:  return RGY_CSP_YV12;
+        case RGY_CSP_P010:  return RGY_CSP_YV12_16;
+        case RGY_CSP_NV16:  return RGY_CSP_YUV444;
+        case RGY_CSP_P210:  return RGY_CSP_YUV444_16;
+        case RGY_CSP_NV12A: return RGY_CSP_YUVA420;
+        case RGY_CSP_P010A: return RGY_CSP_YUVA420_16;
+        default: return csp;
+        }
+    };
+    auto filterCsp = normalizeFilterCsp(encCsp);
+    auto firstFilterCsp = (useInputCspForDeint) ? normalizeFilterCsp(inputFrame.csp) : filterCsp;
     if (inputParam->vpp.afs.enable && RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV444) {
-        filterCsp = (RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+        firstFilterCsp = (RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+        if (!delayCspConvForDeint) {
+            filterCsp = firstFilterCsp;
+        }
     }
+    auto addCspCropFilter = [&](const RGY_CSP targetCsp) {
+        unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
+        shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->frameOut.csp = targetCsp;
+        param->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[param->frameOut.csp];
+        param->baseFps = m_encFps;
+        if (inputCrop) {
+            param->crop = *inputCrop;
+            inputCrop = nullptr;
+        }
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filterCrop->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        vppCUDAFilters.push_back(std::move(filterCrop));
+        return RGY_ERR_NONE;
+    };
 
     size_t ifilter = 0;
-    if (filterPipeline.size() > 0 && (inputFrame.csp != filterCsp || filterPipeline.front() == VppType::CL_CROP)) {
+    if (filterPipeline.size() > 0 && (inputFrame.csp != firstFilterCsp || filterPipeline.front() == VppType::CL_CROP)) {
         if (filterPipeline.front() == VppType::CL_CROP) {
             ifilter++;
         }
@@ -3139,7 +3187,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
-        param->frameOut.csp = filterCsp;
+        param->frameOut.csp = firstFilterCsp;
         if (filterPipeline.size() > ifilter && filterPipeline[ifilter] == VppType::CL_COLORSPACE) { // 次のフィルタがcolorpaceの時はなるべくそのまま転送するように
             if (RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_RGB_PACKED) {
                 param->frameOut.csp = (rgy_csp_has_alpha(inputFrame.csp))
@@ -3171,6 +3219,13 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         vppCUDAFilters.push_back(std::move(filterCrop));
     }
     for (; ifilter < filterPipeline.size(); ifilter++) {
+        if (filterPipeline[ifilter] == VppType::CL_CROP) {
+            auto sts = addCspCropFilter(filterCsp);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            continue;
+        }
         auto err = AddFilterCUDA(vppCUDAFilters, inputFrame, filterPipeline[ifilter], inputParam, inputCrop, resize, VuiFiltered);
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Unsupported vpp filter type.\n"));

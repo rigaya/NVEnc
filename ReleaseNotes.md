@@ -4,9 +4,11 @@
 
 - Add new high quality deinterlace filter [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) which supports 24/30/60 mixed VFR. ( #677 )
 - Add new high quality deinterlace filter [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1). ( #161, #218, #267, #677)
+- Add [--vpp-deint-csp](./NVEncC_Options.en.md#--vpp-deint-csp-string) to specify CSP for deinterlace filters.
 - Add new filter [--vpp-degrain](./NVEncC_Options.en.md#--vpp-degrain-param1value1).　( #161, #218, #267, #677)
 - Update [--vpp-nnedi](./NVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2) to new specification.
 - Support odd crop values when output resolution must be even. ( #772 )
+- Fix CUDA texture border handling in [--vpp-yadif](./NVEncC_Options.en.md#--vpp-yadif-param1value1).
 - Fix audio desync when libavformat returns negative pts.
 
 ## 9.17

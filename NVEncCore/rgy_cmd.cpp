@@ -482,6 +482,17 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-deint-csp")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_vpp_deint_csp, strInput[i], &value)) {
+            vpp->deintCsp = (VppDeintCsp)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_deint_csp);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-resize")
         || (IS_OPTION("vpp-scaling") && ENCODER_QSV)) {
         i++;
@@ -10465,6 +10476,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     if (!tmp.str().empty()) {
         cmd << _T(" --vpp-order ") << tmp.str().substr(1);
     }
+    if (param->deintCsp == VppDeintCsp::Output) {
+        cmd << _T(" --vpp-deint-csp output");
+    }
 
     if (!isNvvfxResizeFiter(param->resize_algo) && !isNgxResizeFiter(param->resize_algo) && !isQSVMFXResizeFiter(param->resize_algo)) {
         if (isLibplaceboResizeFiter(param->resize_algo)) {
@@ -12621,6 +12635,10 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_VPP_ORDER
     str += print_list_options(_T("--vpp-order <string>"), get_list_vpp_filter().data(), 0);
 #endif
+    str += strsprintf(_T("\n")
+        _T("   --vpp-deint-csp <string>\n")
+        _T("     select CSP used for deinterlace filters (default: input)\n")
+        _T("     input, output\n"));
 #if ENABLE_VPP_FILTER_COLORSPACE
     str += strsprintf(_T("\n")
         _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")

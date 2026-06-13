@@ -187,6 +187,7 @@
     - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
     - [--vpp-rff](#--vpp-rff)
     - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
+    - [--vpp-deint-csp \<string\>](#--vpp-deint-csp-string)
     - [--vpp-afs \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-afs-param1value1param2value2)
     - [--vpp-nnedi \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-nnedi-param1value1param2value2)
     - [--vpp-kfm \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-kfm-param1value1param2value2)
@@ -1892,6 +1893,17 @@ RFF（Reflect the Repeat Field）标记。可以解决由于 RFF 引发的 avsyn
 - bob ... 60i → 60p 交错.
 
 对于 IT(inverse telecine), 使用 [--vpp-afs](#--vpp-afs-param1value1param2value2).
+
+### --vpp-deint-csp &lt;string&gt;
+
+选择反交错滤镜使用的 CSP。默认值为 `input`。
+
+**参数**
+
+- input
+  启用 CUDA 反交错滤镜时，在输入 CSP 上运行反交错和紧密相关的滤镜。
+- output
+  在输出 CSP 上运行反交错滤镜，与以前的行为一致。
 
 ### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 

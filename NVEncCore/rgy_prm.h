@@ -3015,10 +3015,18 @@ struct VppKfm {
     tstring print() const;
 };
 
+enum class VppDeintCsp {
+    Input,
+    Output,
+};
+
+extern const CX_DESC list_vpp_deint_csp[];
+
 struct RGYParamVpp {
     std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
     RGY_VPP_RESIZE_MODE resize_mode;
+    VppDeintCsp deintCsp;
     VppLibplaceboResample resize_libplacebo;
     VppColorspace colorspace;
     VppLibplaceboToneMapping libplacebo_tonemapping;

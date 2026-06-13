@@ -42,6 +42,12 @@
 #include "afs_stg.h"
 #endif
 
+const CX_DESC list_vpp_deint_csp[] = {
+    { _T("input"),  (int)VppDeintCsp::Input  },
+    { _T("output"), (int)VppDeintCsp::Output },
+    { NULL, 0 }
+};
+
 static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::VPP_NONE,                _T("none")),
 #if ENCODER_QSV
@@ -2906,6 +2912,7 @@ RGYParamVpp::RGYParamVpp() :
     filterOrder(),
     resize_algo(RGY_VPP_RESIZE_AUTO),
     resize_mode(RGY_VPP_RESIZE_MODE_DEFAULT),
+    deintCsp(VppDeintCsp::Input),
     colorspace(),
     libplacebo_tonemapping(),
     delogo(),
@@ -2964,6 +2971,7 @@ RGYParamVpp::RGYParamVpp() :
 bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
     return resize_algo == x.resize_algo
         && resize_mode == x.resize_mode
+        && deintCsp == x.deintCsp
         && colorspace == x.colorspace
         && libplacebo_tonemapping == x.libplacebo_tonemapping
         && delogo == x.delogo
