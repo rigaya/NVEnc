@@ -145,6 +145,7 @@ protected:
     RGY_ERR convertCspFromRGB(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
     RGY_ERR convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
     virtual void close() override;
+    std::vector<std::unique_ptr<NVEncFilterCspCrop>> m_cropChain;
 };
 
 class NVEncFilterParamNvvfxSuperRes;
