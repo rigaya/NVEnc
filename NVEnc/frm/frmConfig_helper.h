@@ -225,6 +225,8 @@ static const ENC_OPTION_STR2 list_deinterlace_gui[] = {
     { AUO_CONFIG_CX_DEINTERLACE_DECOMB, L"decomb",                  103 },
     { AUO_CONFIG_CX_DEINTERLACE_IVTC,   L"ivtc",                    104 },
     { AUO_CONFIG_CX_DEINTERLACE_BWDIF,  L"bwdif",                   105 },
+    { AUO_CONFIG_CX_DEINTERLACE_RTGMC,  L"rtgmc",                   106 },
+    { AUO_CONFIG_CX_DEINTERLACE_KFM,    L"kfm",                     107 },
     { AUO_MES_UNKNOWN, NULL, NULL }
 };
 

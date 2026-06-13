@@ -1271,6 +1271,18 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoisePmdThreshold;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoisePmdStrength;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoisePmdApplyCount;
 private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseMethod;
+private: System::Windows::Forms::Panel^  fcgPNVppDenoiseDegrain;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDegrainPreset;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDegrainTr;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDegrainBlksize;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDegrainThsad;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDegrainThsadc;
+private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseDegrainPreset;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseDegrainTr;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseDegrainBlksize;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseDegrainThsad;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseDegrainThsadc;
+private: System::Windows::Forms::CheckBox^  fcgCBVppDenoiseDegrainChroma;
 private: System::Windows::Forms::CheckBox^  fcgCBVppResize;
 private: System::Windows::Forms::GroupBox^  fcggroupBoxResize;
 private: System::Windows::Forms::ComboBox^  fcgCXVppResizeAlg;
@@ -1628,6 +1640,41 @@ private: System::Windows::Forms::Label^  fcgLBVppBwdifMode;
 private: System::Windows::Forms::ComboBox^  fcgCXVppBwdifMode;
 private: System::Windows::Forms::Label^  fcgLBVppBwdifThr;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppBwdifThr;
+private: System::Windows::Forms::Panel^  fcgPNVppRtgmc;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcPreset;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcTuning;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcOrder;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcEdi;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcMatchEdi;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcSourceMatch;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcTr0;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcSearchRefine;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcThsad1;
+private: System::Windows::Forms::Label^  fcgLBVppRtgmcThsad2;
+private: System::Windows::Forms::ComboBox^  fcgCXVppRtgmcPreset;
+private: System::Windows::Forms::ComboBox^  fcgCXVppRtgmcTuning;
+private: System::Windows::Forms::ComboBox^  fcgCXVppRtgmcOrder;
+private: System::Windows::Forms::ComboBox^  fcgCXVppRtgmcEdi;
+private: System::Windows::Forms::ComboBox^  fcgCXVppRtgmcMatchEdi;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcSourceMatch;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcTr0;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcSearchRefine;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcThsad1;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcThsad2;
+private: System::Windows::Forms::Panel^  fcgPNVppKfm;
+private: System::Windows::Forms::Label^  fcgLBVppKfmMode;
+private: System::Windows::Forms::Label^  fcgLBVppKfmPreset;
+private: System::Windows::Forms::Label^  fcgLBVppKfmTiming;
+private: System::Windows::Forms::Label^  fcgLBVppKfmPastCycles;
+private: System::Windows::Forms::Label^  fcgLBVppKfmThswitch;
+private: System::Windows::Forms::ComboBox^  fcgCXVppKfmMode;
+private: System::Windows::Forms::ComboBox^  fcgCXVppKfmPreset;
+private: System::Windows::Forms::ComboBox^  fcgCXVppKfmTiming;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppKfmPastCycles;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppKfmThswitch;
+private: System::Windows::Forms::CheckBox^  fcgCBVppKfmUcf;
+private: System::Windows::Forms::CheckBox^  fcgCBVppKfmNr;
+private: System::Windows::Forms::CheckBox^  fcgCBVppKfmIs120;
 private: System::Windows::Forms::Panel^  fcgPNVppDenoiseFFT3D;
 private: System::Windows::Forms::Label^  fcgLBVppDenoiseFFT3DTemporal;
 private: System::Windows::Forms::Label^  fcgLBVppDenoiseFFT3DPrecision;
@@ -2157,6 +2204,41 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgCXVppBwdifMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBVppBwdifThr = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppBwdifThr = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgPNVppRtgmc = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBVppRtgmcPreset = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcTuning = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcOrder = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcEdi = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcMatchEdi = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcSourceMatch = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcTr0 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcSearchRefine = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcThsad1 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppRtgmcThsad2 = (gcnew System::Windows::Forms::Label());
+            this->fcgCXVppRtgmcPreset = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXVppRtgmcTuning = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXVppRtgmcOrder = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXVppRtgmcEdi = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXVppRtgmcMatchEdi = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgNUVppRtgmcSourceMatch = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppRtgmcTr0 = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppRtgmcSearchRefine = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppRtgmcThsad1 = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppRtgmcThsad2 = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgPNVppKfm = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBVppKfmMode = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppKfmPreset = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppKfmTiming = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppKfmPastCycles = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppKfmThswitch = (gcnew System::Windows::Forms::Label());
+            this->fcgCXVppKfmMode = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXVppKfmPreset = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXVppKfmTiming = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgNUVppKfmPastCycles = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppKfmThswitch = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgCBVppKfmUcf = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBVppKfmNr = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBVppKfmIs120 = (gcnew System::Windows::Forms::CheckBox());
             this->fcgPNVppNnedi = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppNnediErrorType = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppNnediErrorType = (gcnew System::Windows::Forms::ComboBox());
@@ -2275,6 +2357,18 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgCXVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBVppNvvfxArtifactReductionMode = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppDenoiseMethod = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgPNVppDenoiseDegrain = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBVppDenoiseDegrainPreset = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseDegrainTr = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseDegrainBlksize = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseDegrainThsad = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseDegrainThsadc = (gcnew System::Windows::Forms::Label());
+            this->fcgCXVppDenoiseDegrainPreset = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgNUVppDenoiseDegrainTr = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppDenoiseDegrainBlksize = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppDenoiseDegrainThsad = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppDenoiseDegrainThsadc = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgCBVppDenoiseDegrainChroma = (gcnew System::Windows::Forms::CheckBox());
             this->fcgPNVppDenoiseSmooth = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDenoiseSmoothQP = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppDenoiseSmoothQuality = (gcnew System::Windows::Forms::Label());
@@ -2468,6 +2562,15 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgPNVppIvtc->SuspendLayout();
             this->fcgPNVppBwdif->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppBwdifThr))->BeginInit();
+            this->fcgPNVppRtgmc->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcSourceMatch))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcTr0))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcSearchRefine))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcThsad1))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcThsad2))->BeginInit();
+            this->fcgPNVppKfm->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppKfmPastCycles))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppKfmThswitch))->BeginInit();
             this->fcgPNVppNnedi->SuspendLayout();
             this->fcgPNVppAfs->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreCMotion))->BeginInit();
@@ -2510,6 +2613,11 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseNLMeansSigma))->BeginInit();
             this->fcgPNVppDenoiseDct->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDctSigma))->BeginInit();
+            this->fcgPNVppDenoiseDegrain->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainTr))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainBlksize))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainThsad))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainThsadc))->BeginInit();
             this->fcgPNVppNvvfxArtifactReduction->SuspendLayout();
             this->fcgPNVppDenoiseSmooth->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->BeginInit();
@@ -5458,6 +5566,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppYadif);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppIvtc);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppBwdif);
+            this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppRtgmc);
+            this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppKfm);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppNnedi);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppAfs);
             this->fcggroupBoxVppDeinterlace->Location = System::Drawing::Point(342, 3);
@@ -5688,6 +5798,373 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgNUVppBwdifThr->Tag = L"reCmd";
             this->fcgNUVppBwdifThr->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
+            // fcgPNVppRtgmc
+            //
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcPreset);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgCXVppRtgmcPreset);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcTuning);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgCXVppRtgmcTuning);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcOrder);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgCXVppRtgmcOrder);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcEdi);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgCXVppRtgmcEdi);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcMatchEdi);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgCXVppRtgmcMatchEdi);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcSourceMatch);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcSourceMatch);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcTr0);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcTr0);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcSearchRefine);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcSearchRefine);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcThsad1);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcThsad1);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcThsad2);
+            this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcThsad2);
+            this->fcgPNVppRtgmc->Location = System::Drawing::Point(6, 41);
+            this->fcgPNVppRtgmc->Name = L"fcgPNVppRtgmc";
+            this->fcgPNVppRtgmc->Size = System::Drawing::Size(251, 294);
+            this->fcgPNVppRtgmc->TabIndex = 84;
+            //
+            // fcgLBVppRtgmcPreset
+            //
+            this->fcgLBVppRtgmcPreset->AutoSize = true;
+            this->fcgLBVppRtgmcPreset->Location = System::Drawing::Point(8, 12);
+            this->fcgLBVppRtgmcPreset->Name = L"fcgLBVppRtgmcPreset";
+            this->fcgLBVppRtgmcPreset->Size = System::Drawing::Size(39, 14);
+            this->fcgLBVppRtgmcPreset->TabIndex = 0;
+            this->fcgLBVppRtgmcPreset->Text = L"preset";
+            //
+            // fcgCXVppRtgmcPreset
+            //
+            this->fcgCXVppRtgmcPreset->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppRtgmcPreset->FormattingEnabled = true;
+            this->fcgCXVppRtgmcPreset->Location = System::Drawing::Point(82, 9);
+            this->fcgCXVppRtgmcPreset->Name = L"fcgCXVppRtgmcPreset";
+            this->fcgCXVppRtgmcPreset->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppRtgmcPreset->TabIndex = 1;
+            this->fcgCXVppRtgmcPreset->Tag = L"reCmd";
+            //
+            // fcgLBVppRtgmcTuning
+            //
+            this->fcgLBVppRtgmcTuning->AutoSize = true;
+            this->fcgLBVppRtgmcTuning->Location = System::Drawing::Point(8, 40);
+            this->fcgLBVppRtgmcTuning->Name = L"fcgLBVppRtgmcTuning";
+            this->fcgLBVppRtgmcTuning->Size = System::Drawing::Size(40, 14);
+            this->fcgLBVppRtgmcTuning->TabIndex = 2;
+            this->fcgLBVppRtgmcTuning->Text = L"tuning";
+            //
+            // fcgCXVppRtgmcTuning
+            //
+            this->fcgCXVppRtgmcTuning->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppRtgmcTuning->FormattingEnabled = true;
+            this->fcgCXVppRtgmcTuning->Location = System::Drawing::Point(82, 37);
+            this->fcgCXVppRtgmcTuning->Name = L"fcgCXVppRtgmcTuning";
+            this->fcgCXVppRtgmcTuning->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppRtgmcTuning->TabIndex = 3;
+            this->fcgCXVppRtgmcTuning->Tag = L"reCmd";
+            //
+            // fcgLBVppRtgmcOrder
+            //
+            this->fcgLBVppRtgmcOrder->AutoSize = true;
+            this->fcgLBVppRtgmcOrder->Location = System::Drawing::Point(8, 68);
+            this->fcgLBVppRtgmcOrder->Name = L"fcgLBVppRtgmcOrder";
+            this->fcgLBVppRtgmcOrder->Size = System::Drawing::Size(35, 14);
+            this->fcgLBVppRtgmcOrder->TabIndex = 4;
+            this->fcgLBVppRtgmcOrder->Text = L"order";
+            //
+            // fcgCXVppRtgmcOrder
+            //
+            this->fcgCXVppRtgmcOrder->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppRtgmcOrder->FormattingEnabled = true;
+            this->fcgCXVppRtgmcOrder->Location = System::Drawing::Point(82, 65);
+            this->fcgCXVppRtgmcOrder->Name = L"fcgCXVppRtgmcOrder";
+            this->fcgCXVppRtgmcOrder->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppRtgmcOrder->TabIndex = 5;
+            this->fcgCXVppRtgmcOrder->Tag = L"reCmd";
+            //
+            // fcgLBVppRtgmcEdi
+            //
+            this->fcgLBVppRtgmcEdi->AutoSize = true;
+            this->fcgLBVppRtgmcEdi->Location = System::Drawing::Point(8, 96);
+            this->fcgLBVppRtgmcEdi->Name = L"fcgLBVppRtgmcEdi";
+            this->fcgLBVppRtgmcEdi->Size = System::Drawing::Size(21, 14);
+            this->fcgLBVppRtgmcEdi->TabIndex = 6;
+            this->fcgLBVppRtgmcEdi->Text = L"edi";
+            //
+            // fcgCXVppRtgmcEdi
+            //
+            this->fcgCXVppRtgmcEdi->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppRtgmcEdi->FormattingEnabled = true;
+            this->fcgCXVppRtgmcEdi->Location = System::Drawing::Point(82, 93);
+            this->fcgCXVppRtgmcEdi->Name = L"fcgCXVppRtgmcEdi";
+            this->fcgCXVppRtgmcEdi->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppRtgmcEdi->TabIndex = 7;
+            this->fcgCXVppRtgmcEdi->Tag = L"reCmd";
+            //
+            // fcgLBVppRtgmcMatchEdi
+            //
+            this->fcgLBVppRtgmcMatchEdi->AutoSize = true;
+            this->fcgLBVppRtgmcMatchEdi->Location = System::Drawing::Point(8, 124);
+            this->fcgLBVppRtgmcMatchEdi->Name = L"fcgLBVppRtgmcMatchEdi";
+            this->fcgLBVppRtgmcMatchEdi->Size = System::Drawing::Size(58, 14);
+            this->fcgLBVppRtgmcMatchEdi->TabIndex = 8;
+            this->fcgLBVppRtgmcMatchEdi->Text = L"match edi";
+            //
+            // fcgCXVppRtgmcMatchEdi
+            //
+            this->fcgCXVppRtgmcMatchEdi->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppRtgmcMatchEdi->FormattingEnabled = true;
+            this->fcgCXVppRtgmcMatchEdi->Location = System::Drawing::Point(82, 121);
+            this->fcgCXVppRtgmcMatchEdi->Name = L"fcgCXVppRtgmcMatchEdi";
+            this->fcgCXVppRtgmcMatchEdi->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppRtgmcMatchEdi->TabIndex = 9;
+            this->fcgCXVppRtgmcMatchEdi->Tag = L"reCmd";
+            //
+            // fcgLBVppRtgmcSourceMatch
+            //
+            this->fcgLBVppRtgmcSourceMatch->AutoSize = true;
+            this->fcgLBVppRtgmcSourceMatch->Location = System::Drawing::Point(8, 152);
+            this->fcgLBVppRtgmcSourceMatch->Name = L"fcgLBVppRtgmcSourceMatch";
+            this->fcgLBVppRtgmcSourceMatch->Size = System::Drawing::Size(47, 14);
+            this->fcgLBVppRtgmcSourceMatch->TabIndex = 10;
+            this->fcgLBVppRtgmcSourceMatch->Text = L"srcmatch";
+            //
+            // fcgNUVppRtgmcSourceMatch
+            //
+            this->fcgNUVppRtgmcSourceMatch->Location = System::Drawing::Point(82, 149);
+            this->fcgNUVppRtgmcSourceMatch->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
+            this->fcgNUVppRtgmcSourceMatch->Name = L"fcgNUVppRtgmcSourceMatch";
+            this->fcgNUVppRtgmcSourceMatch->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppRtgmcSourceMatch->TabIndex = 11;
+            this->fcgNUVppRtgmcSourceMatch->Tag = L"reCmd";
+            this->fcgNUVppRtgmcSourceMatch->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgLBVppRtgmcTr0
+            //
+            this->fcgLBVppRtgmcTr0->AutoSize = true;
+            this->fcgLBVppRtgmcTr0->Location = System::Drawing::Point(146, 152);
+            this->fcgLBVppRtgmcTr0->Name = L"fcgLBVppRtgmcTr0";
+            this->fcgLBVppRtgmcTr0->Size = System::Drawing::Size(21, 14);
+            this->fcgLBVppRtgmcTr0->TabIndex = 12;
+            this->fcgLBVppRtgmcTr0->Text = L"tr0";
+            //
+            // fcgNUVppRtgmcTr0
+            //
+            this->fcgNUVppRtgmcTr0->Location = System::Drawing::Point(182, 149);
+            this->fcgNUVppRtgmcTr0->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 2, 0, 0, 0 });
+            this->fcgNUVppRtgmcTr0->Name = L"fcgNUVppRtgmcTr0";
+            this->fcgNUVppRtgmcTr0->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppRtgmcTr0->TabIndex = 13;
+            this->fcgNUVppRtgmcTr0->Tag = L"reCmd";
+            this->fcgNUVppRtgmcTr0->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgLBVppRtgmcSearchRefine
+            //
+            this->fcgLBVppRtgmcSearchRefine->AutoSize = true;
+            this->fcgLBVppRtgmcSearchRefine->Location = System::Drawing::Point(8, 179);
+            this->fcgLBVppRtgmcSearchRefine->Name = L"fcgLBVppRtgmcSearchRefine";
+            this->fcgLBVppRtgmcSearchRefine->Size = System::Drawing::Size(68, 14);
+            this->fcgLBVppRtgmcSearchRefine->TabIndex = 14;
+            this->fcgLBVppRtgmcSearchRefine->Text = L"searchref";
+            //
+            // fcgNUVppRtgmcSearchRefine
+            //
+            this->fcgNUVppRtgmcSearchRefine->Location = System::Drawing::Point(82, 176);
+            this->fcgNUVppRtgmcSearchRefine->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
+            this->fcgNUVppRtgmcSearchRefine->Name = L"fcgNUVppRtgmcSearchRefine";
+            this->fcgNUVppRtgmcSearchRefine->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppRtgmcSearchRefine->TabIndex = 15;
+            this->fcgNUVppRtgmcSearchRefine->Tag = L"reCmd";
+            this->fcgNUVppRtgmcSearchRefine->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgLBVppRtgmcThsad1
+            //
+            this->fcgLBVppRtgmcThsad1->AutoSize = true;
+            this->fcgLBVppRtgmcThsad1->Location = System::Drawing::Point(8, 206);
+            this->fcgLBVppRtgmcThsad1->Name = L"fcgLBVppRtgmcThsad1";
+            this->fcgLBVppRtgmcThsad1->Size = System::Drawing::Size(43, 14);
+            this->fcgLBVppRtgmcThsad1->TabIndex = 16;
+            this->fcgLBVppRtgmcThsad1->Text = L"thsad1";
+            //
+            // fcgNUVppRtgmcThsad1
+            //
+            this->fcgNUVppRtgmcThsad1->Location = System::Drawing::Point(82, 203);
+            this->fcgNUVppRtgmcThsad1->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 9999, 0, 0, 0 });
+            this->fcgNUVppRtgmcThsad1->Name = L"fcgNUVppRtgmcThsad1";
+            this->fcgNUVppRtgmcThsad1->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppRtgmcThsad1->TabIndex = 17;
+            this->fcgNUVppRtgmcThsad1->Tag = L"reCmd";
+            this->fcgNUVppRtgmcThsad1->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgLBVppRtgmcThsad2
+            //
+            this->fcgLBVppRtgmcThsad2->AutoSize = true;
+            this->fcgLBVppRtgmcThsad2->Location = System::Drawing::Point(8, 233);
+            this->fcgLBVppRtgmcThsad2->Name = L"fcgLBVppRtgmcThsad2";
+            this->fcgLBVppRtgmcThsad2->Size = System::Drawing::Size(43, 14);
+            this->fcgLBVppRtgmcThsad2->TabIndex = 18;
+            this->fcgLBVppRtgmcThsad2->Text = L"thsad2";
+            //
+            // fcgNUVppRtgmcThsad2
+            //
+            this->fcgNUVppRtgmcThsad2->Location = System::Drawing::Point(82, 230);
+            this->fcgNUVppRtgmcThsad2->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 9999, 0, 0, 0 });
+            this->fcgNUVppRtgmcThsad2->Name = L"fcgNUVppRtgmcThsad2";
+            this->fcgNUVppRtgmcThsad2->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppRtgmcThsad2->TabIndex = 19;
+            this->fcgNUVppRtgmcThsad2->Tag = L"reCmd";
+            this->fcgNUVppRtgmcThsad2->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgPNVppKfm
+            //
+            this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmMode);
+            this->fcgPNVppKfm->Controls->Add(this->fcgCXVppKfmMode);
+            this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmPreset);
+            this->fcgPNVppKfm->Controls->Add(this->fcgCXVppKfmPreset);
+            this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmTiming);
+            this->fcgPNVppKfm->Controls->Add(this->fcgCXVppKfmTiming);
+            this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmPastCycles);
+            this->fcgPNVppKfm->Controls->Add(this->fcgNUVppKfmPastCycles);
+            this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmThswitch);
+            this->fcgPNVppKfm->Controls->Add(this->fcgNUVppKfmThswitch);
+            this->fcgPNVppKfm->Controls->Add(this->fcgCBVppKfmUcf);
+            this->fcgPNVppKfm->Controls->Add(this->fcgCBVppKfmNr);
+            this->fcgPNVppKfm->Controls->Add(this->fcgCBVppKfmIs120);
+            this->fcgPNVppKfm->Location = System::Drawing::Point(6, 41);
+            this->fcgPNVppKfm->Name = L"fcgPNVppKfm";
+            this->fcgPNVppKfm->Size = System::Drawing::Size(251, 294);
+            this->fcgPNVppKfm->TabIndex = 85;
+            //
+            // fcgLBVppKfmMode
+            //
+            this->fcgLBVppKfmMode->AutoSize = true;
+            this->fcgLBVppKfmMode->Location = System::Drawing::Point(14, 12);
+            this->fcgLBVppKfmMode->Name = L"fcgLBVppKfmMode";
+            this->fcgLBVppKfmMode->Size = System::Drawing::Size(33, 14);
+            this->fcgLBVppKfmMode->TabIndex = 0;
+            this->fcgLBVppKfmMode->Text = L"mode";
+            //
+            // fcgCXVppKfmMode
+            //
+            this->fcgCXVppKfmMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppKfmMode->FormattingEnabled = true;
+            this->fcgCXVppKfmMode->Location = System::Drawing::Point(82, 9);
+            this->fcgCXVppKfmMode->Name = L"fcgCXVppKfmMode";
+            this->fcgCXVppKfmMode->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppKfmMode->TabIndex = 1;
+            this->fcgCXVppKfmMode->Tag = L"reCmd";
+            //
+            // fcgLBVppKfmPreset
+            //
+            this->fcgLBVppKfmPreset->AutoSize = true;
+            this->fcgLBVppKfmPreset->Location = System::Drawing::Point(14, 40);
+            this->fcgLBVppKfmPreset->Name = L"fcgLBVppKfmPreset";
+            this->fcgLBVppKfmPreset->Size = System::Drawing::Size(39, 14);
+            this->fcgLBVppKfmPreset->TabIndex = 2;
+            this->fcgLBVppKfmPreset->Text = L"preset";
+            //
+            // fcgCXVppKfmPreset
+            //
+            this->fcgCXVppKfmPreset->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppKfmPreset->FormattingEnabled = true;
+            this->fcgCXVppKfmPreset->Location = System::Drawing::Point(82, 37);
+            this->fcgCXVppKfmPreset->Name = L"fcgCXVppKfmPreset";
+            this->fcgCXVppKfmPreset->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppKfmPreset->TabIndex = 3;
+            this->fcgCXVppKfmPreset->Tag = L"reCmd";
+            //
+            // fcgLBVppKfmTiming
+            //
+            this->fcgLBVppKfmTiming->AutoSize = true;
+            this->fcgLBVppKfmTiming->Location = System::Drawing::Point(14, 68);
+            this->fcgLBVppKfmTiming->Name = L"fcgLBVppKfmTiming";
+            this->fcgLBVppKfmTiming->Size = System::Drawing::Size(40, 14);
+            this->fcgLBVppKfmTiming->TabIndex = 4;
+            this->fcgLBVppKfmTiming->Text = L"timing";
+            //
+            // fcgCXVppKfmTiming
+            //
+            this->fcgCXVppKfmTiming->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppKfmTiming->FormattingEnabled = true;
+            this->fcgCXVppKfmTiming->Location = System::Drawing::Point(82, 65);
+            this->fcgCXVppKfmTiming->Name = L"fcgCXVppKfmTiming";
+            this->fcgCXVppKfmTiming->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppKfmTiming->TabIndex = 5;
+            this->fcgCXVppKfmTiming->Tag = L"reCmd";
+            //
+            // fcgLBVppKfmPastCycles
+            //
+            this->fcgLBVppKfmPastCycles->AutoSize = true;
+            this->fcgLBVppKfmPastCycles->Location = System::Drawing::Point(14, 96);
+            this->fcgLBVppKfmPastCycles->Name = L"fcgLBVppKfmPastCycles";
+            this->fcgLBVppKfmPastCycles->Size = System::Drawing::Size(65, 14);
+            this->fcgLBVppKfmPastCycles->TabIndex = 6;
+            this->fcgLBVppKfmPastCycles->Text = L"past cycles";
+            //
+            // fcgNUVppKfmPastCycles
+            //
+            this->fcgNUVppKfmPastCycles->Location = System::Drawing::Point(82, 93);
+            this->fcgNUVppKfmPastCycles->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 999, 0, 0, 0 });
+            this->fcgNUVppKfmPastCycles->Name = L"fcgNUVppKfmPastCycles";
+            this->fcgNUVppKfmPastCycles->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppKfmPastCycles->TabIndex = 7;
+            this->fcgNUVppKfmPastCycles->Tag = L"reCmd";
+            this->fcgNUVppKfmPastCycles->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgLBVppKfmThswitch
+            //
+            this->fcgLBVppKfmThswitch->AutoSize = true;
+            this->fcgLBVppKfmThswitch->Location = System::Drawing::Point(14, 124);
+            this->fcgLBVppKfmThswitch->Name = L"fcgLBVppKfmThswitch";
+            this->fcgLBVppKfmThswitch->Size = System::Drawing::Size(55, 14);
+            this->fcgLBVppKfmThswitch->TabIndex = 8;
+            this->fcgLBVppKfmThswitch->Text = L"thswitch";
+            //
+            // fcgNUVppKfmThswitch
+            //
+            this->fcgNUVppKfmThswitch->DecimalPlaces = 3;
+            this->fcgNUVppKfmThswitch->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 196608 });
+            this->fcgNUVppKfmThswitch->Location = System::Drawing::Point(82, 121);
+            this->fcgNUVppKfmThswitch->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppKfmThswitch->Name = L"fcgNUVppKfmThswitch";
+            this->fcgNUVppKfmThswitch->Size = System::Drawing::Size(72, 21);
+            this->fcgNUVppKfmThswitch->TabIndex = 9;
+            this->fcgNUVppKfmThswitch->Tag = L"reCmd";
+            this->fcgNUVppKfmThswitch->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgCBVppKfmUcf
+            //
+            this->fcgCBVppKfmUcf->AutoSize = true;
+            this->fcgCBVppKfmUcf->Location = System::Drawing::Point(17, 153);
+            this->fcgCBVppKfmUcf->Name = L"fcgCBVppKfmUcf";
+            this->fcgCBVppKfmUcf->Size = System::Drawing::Size(42, 18);
+            this->fcgCBVppKfmUcf->TabIndex = 10;
+            this->fcgCBVppKfmUcf->Tag = L"reCmd";
+            this->fcgCBVppKfmUcf->Text = L"ucf";
+            this->fcgCBVppKfmUcf->UseVisualStyleBackColor = true;
+            //
+            // fcgCBVppKfmNr
+            //
+            this->fcgCBVppKfmNr->AutoSize = true;
+            this->fcgCBVppKfmNr->Location = System::Drawing::Point(82, 153);
+            this->fcgCBVppKfmNr->Name = L"fcgCBVppKfmNr";
+            this->fcgCBVppKfmNr->Size = System::Drawing::Size(36, 18);
+            this->fcgCBVppKfmNr->TabIndex = 11;
+            this->fcgCBVppKfmNr->Tag = L"reCmd";
+            this->fcgCBVppKfmNr->Text = L"nr";
+            this->fcgCBVppKfmNr->UseVisualStyleBackColor = true;
+            //
+            // fcgCBVppKfmIs120
+            //
+            this->fcgCBVppKfmIs120->AutoSize = true;
+            this->fcgCBVppKfmIs120->Location = System::Drawing::Point(145, 153);
+            this->fcgCBVppKfmIs120->Name = L"fcgCBVppKfmIs120";
+            this->fcgCBVppKfmIs120->Size = System::Drawing::Size(49, 18);
+            this->fcgCBVppKfmIs120->TabIndex = 12;
+            this->fcgCBVppKfmIs120->Tag = L"reCmd";
+            this->fcgCBVppKfmIs120->Text = L"is120";
+            this->fcgCBVppKfmIs120->UseVisualStyleBackColor = true;
+            //
             // fcgPNVppNnedi
             // 
             this->fcgPNVppNnedi->Controls->Add(this->fcgLBVppNnediErrorType);
@@ -6595,6 +7072,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseFFT3D);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseNLMeans);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseDct);
+            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseDegrain);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppNvvfxArtifactReduction);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseSmooth);
@@ -7156,6 +7634,134 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgCBVppDenoiseMSmoothHighq->Text = L"高品質モード";
             this->fcgCBVppDenoiseMSmoothHighq->UseVisualStyleBackColor = true;
             // 
+            // fcgPNVppDenoiseDegrain
+            //
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgLBVppDenoiseDegrainPreset);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgCXVppDenoiseDegrainPreset);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgLBVppDenoiseDegrainTr);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgNUVppDenoiseDegrainTr);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgLBVppDenoiseDegrainBlksize);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgNUVppDenoiseDegrainBlksize);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgLBVppDenoiseDegrainThsad);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgNUVppDenoiseDegrainThsad);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgLBVppDenoiseDegrainThsadc);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgNUVppDenoiseDegrainThsadc);
+            this->fcgPNVppDenoiseDegrain->Controls->Add(this->fcgCBVppDenoiseDegrainChroma);
+            this->fcgPNVppDenoiseDegrain->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppDenoiseDegrain->Name = L"fcgPNVppDenoiseDegrain";
+            this->fcgPNVppDenoiseDegrain->Size = System::Drawing::Size(310, 92);
+            this->fcgPNVppDenoiseDegrain->TabIndex = 73;
+            //
+            // fcgLBVppDenoiseDegrainPreset
+            //
+            this->fcgLBVppDenoiseDegrainPreset->AutoSize = true;
+            this->fcgLBVppDenoiseDegrainPreset->Location = System::Drawing::Point(13, 13);
+            this->fcgLBVppDenoiseDegrainPreset->Name = L"fcgLBVppDenoiseDegrainPreset";
+            this->fcgLBVppDenoiseDegrainPreset->Size = System::Drawing::Size(39, 14);
+            this->fcgLBVppDenoiseDegrainPreset->TabIndex = 0;
+            this->fcgLBVppDenoiseDegrainPreset->Text = L"preset";
+            //
+            // fcgCXVppDenoiseDegrainPreset
+            //
+            this->fcgCXVppDenoiseDegrainPreset->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppDenoiseDegrainPreset->FormattingEnabled = true;
+            this->fcgCXVppDenoiseDegrainPreset->Location = System::Drawing::Point(74, 10);
+            this->fcgCXVppDenoiseDegrainPreset->Name = L"fcgCXVppDenoiseDegrainPreset";
+            this->fcgCXVppDenoiseDegrainPreset->Size = System::Drawing::Size(72, 22);
+            this->fcgCXVppDenoiseDegrainPreset->TabIndex = 1;
+            this->fcgCXVppDenoiseDegrainPreset->Tag = L"reCmd";
+            //
+            // fcgLBVppDenoiseDegrainTr
+            //
+            this->fcgLBVppDenoiseDegrainTr->AutoSize = true;
+            this->fcgLBVppDenoiseDegrainTr->Location = System::Drawing::Point(170, 13);
+            this->fcgLBVppDenoiseDegrainTr->Name = L"fcgLBVppDenoiseDegrainTr";
+            this->fcgLBVppDenoiseDegrainTr->Size = System::Drawing::Size(14, 14);
+            this->fcgLBVppDenoiseDegrainTr->TabIndex = 2;
+            this->fcgLBVppDenoiseDegrainTr->Text = L"tr";
+            //
+            // fcgNUVppDenoiseDegrainTr
+            //
+            this->fcgNUVppDenoiseDegrainTr->Location = System::Drawing::Point(232, 10);
+            this->fcgNUVppDenoiseDegrainTr->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 2, 0, 0, 0 });
+            this->fcgNUVppDenoiseDegrainTr->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppDenoiseDegrainTr->Name = L"fcgNUVppDenoiseDegrainTr";
+            this->fcgNUVppDenoiseDegrainTr->Size = System::Drawing::Size(72, 21);
+            this->fcgNUVppDenoiseDegrainTr->TabIndex = 3;
+            this->fcgNUVppDenoiseDegrainTr->Tag = L"reCmd";
+            this->fcgNUVppDenoiseDegrainTr->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoiseDegrainTr->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            //
+            // fcgLBVppDenoiseDegrainBlksize
+            //
+            this->fcgLBVppDenoiseDegrainBlksize->AutoSize = true;
+            this->fcgLBVppDenoiseDegrainBlksize->Location = System::Drawing::Point(13, 40);
+            this->fcgLBVppDenoiseDegrainBlksize->Name = L"fcgLBVppDenoiseDegrainBlksize";
+            this->fcgLBVppDenoiseDegrainBlksize->Size = System::Drawing::Size(46, 14);
+            this->fcgLBVppDenoiseDegrainBlksize->TabIndex = 4;
+            this->fcgLBVppDenoiseDegrainBlksize->Text = L"blksize";
+            //
+            // fcgNUVppDenoiseDegrainBlksize
+            //
+            this->fcgNUVppDenoiseDegrainBlksize->Location = System::Drawing::Point(74, 37);
+            this->fcgNUVppDenoiseDegrainBlksize->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 64, 0, 0, 0 });
+            this->fcgNUVppDenoiseDegrainBlksize->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 4, 0, 0, 0 });
+            this->fcgNUVppDenoiseDegrainBlksize->Name = L"fcgNUVppDenoiseDegrainBlksize";
+            this->fcgNUVppDenoiseDegrainBlksize->Size = System::Drawing::Size(72, 21);
+            this->fcgNUVppDenoiseDegrainBlksize->TabIndex = 5;
+            this->fcgNUVppDenoiseDegrainBlksize->Tag = L"reCmd";
+            this->fcgNUVppDenoiseDegrainBlksize->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoiseDegrainBlksize->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
+            //
+            // fcgLBVppDenoiseDegrainThsad
+            //
+            this->fcgLBVppDenoiseDegrainThsad->AutoSize = true;
+            this->fcgLBVppDenoiseDegrainThsad->Location = System::Drawing::Point(170, 40);
+            this->fcgLBVppDenoiseDegrainThsad->Name = L"fcgLBVppDenoiseDegrainThsad";
+            this->fcgLBVppDenoiseDegrainThsad->Size = System::Drawing::Size(39, 14);
+            this->fcgLBVppDenoiseDegrainThsad->TabIndex = 6;
+            this->fcgLBVppDenoiseDegrainThsad->Text = L"thsad";
+            //
+            // fcgNUVppDenoiseDegrainThsad
+            //
+            this->fcgNUVppDenoiseDegrainThsad->Location = System::Drawing::Point(232, 37);
+            this->fcgNUVppDenoiseDegrainThsad->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 9999, 0, 0, 0 });
+            this->fcgNUVppDenoiseDegrainThsad->Name = L"fcgNUVppDenoiseDegrainThsad";
+            this->fcgNUVppDenoiseDegrainThsad->Size = System::Drawing::Size(72, 21);
+            this->fcgNUVppDenoiseDegrainThsad->TabIndex = 7;
+            this->fcgNUVppDenoiseDegrainThsad->Tag = L"reCmd";
+            this->fcgNUVppDenoiseDegrainThsad->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgLBVppDenoiseDegrainThsadc
+            //
+            this->fcgLBVppDenoiseDegrainThsadc->AutoSize = true;
+            this->fcgLBVppDenoiseDegrainThsadc->Location = System::Drawing::Point(13, 67);
+            this->fcgLBVppDenoiseDegrainThsadc->Name = L"fcgLBVppDenoiseDegrainThsadc";
+            this->fcgLBVppDenoiseDegrainThsadc->Size = System::Drawing::Size(46, 14);
+            this->fcgLBVppDenoiseDegrainThsadc->TabIndex = 8;
+            this->fcgLBVppDenoiseDegrainThsadc->Text = L"thsadc";
+            //
+            // fcgNUVppDenoiseDegrainThsadc
+            //
+            this->fcgNUVppDenoiseDegrainThsadc->Location = System::Drawing::Point(74, 64);
+            this->fcgNUVppDenoiseDegrainThsadc->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 9999, 0, 0, 0 });
+            this->fcgNUVppDenoiseDegrainThsadc->Name = L"fcgNUVppDenoiseDegrainThsadc";
+            this->fcgNUVppDenoiseDegrainThsadc->Size = System::Drawing::Size(72, 21);
+            this->fcgNUVppDenoiseDegrainThsadc->TabIndex = 9;
+            this->fcgNUVppDenoiseDegrainThsadc->Tag = L"reCmd";
+            this->fcgNUVppDenoiseDegrainThsadc->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            //
+            // fcgCBVppDenoiseDegrainChroma
+            //
+            this->fcgCBVppDenoiseDegrainChroma->AutoSize = true;
+            this->fcgCBVppDenoiseDegrainChroma->Location = System::Drawing::Point(170, 65);
+            this->fcgCBVppDenoiseDegrainChroma->Name = L"fcgCBVppDenoiseDegrainChroma";
+            this->fcgCBVppDenoiseDegrainChroma->Size = System::Drawing::Size(62, 18);
+            this->fcgCBVppDenoiseDegrainChroma->TabIndex = 10;
+            this->fcgCBVppDenoiseDegrainChroma->Tag = L"reCmd";
+            this->fcgCBVppDenoiseDegrainChroma->Text = L"chroma";
+            this->fcgCBVppDenoiseDegrainChroma->UseVisualStyleBackColor = true;
+            //
             // fcgPNVppDenoisePmd
             // 
             this->fcgPNVppDenoisePmd->Controls->Add(this->fcgLBVppDenoisePmdThreshold);
@@ -8271,6 +8877,17 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppBwdifThr))->EndInit();
             this->fcgPNVppBwdif->ResumeLayout(false);
             this->fcgPNVppBwdif->PerformLayout();
+            this->fcgPNVppRtgmc->ResumeLayout(false);
+            this->fcgPNVppRtgmc->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcSourceMatch))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcTr0))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcSearchRefine))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcThsad1))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcThsad2))->EndInit();
+            this->fcgPNVppKfm->ResumeLayout(false);
+            this->fcgPNVppKfm->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppKfmPastCycles))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppKfmThswitch))->EndInit();
             this->fcgPNVppNnedi->ResumeLayout(false);
             this->fcgPNVppNnedi->PerformLayout();
             this->fcgPNVppAfs->ResumeLayout(false);
@@ -8320,6 +8937,12 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgPNVppDenoiseDct->ResumeLayout(false);
             this->fcgPNVppDenoiseDct->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDctSigma))->EndInit();
+            this->fcgPNVppDenoiseDegrain->ResumeLayout(false);
+            this->fcgPNVppDenoiseDegrain->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainTr))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainBlksize))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainThsad))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDegrainThsadc))->EndInit();
             this->fcgPNVppNvvfxArtifactReduction->ResumeLayout(false);
             this->fcgPNVppNvvfxArtifactReduction->PerformLayout();
             this->fcgPNVppDenoiseSmooth->ResumeLayout(false);
