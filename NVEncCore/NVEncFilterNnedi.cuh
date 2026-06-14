@@ -266,6 +266,7 @@ static __device__ __forceinline__ void nnedi_predictor_write_result_device(
 }
 
 template<typename Type, int BIT_DEPTH, int XDIA, int YDIA, int NNS, int QUAL>
+__launch_bounds__(512, 1)
 __global__ void kernel_nnedi_predictor_network_cuda(
     uint8_t *__restrict__ pDst, const int dstPitch, const int dstOffset,
     const uint8_t *__restrict__ pRef, const int refPitch, const int refOffset,
