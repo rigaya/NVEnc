@@ -57,10 +57,12 @@
 
 class NVRtgmcSharedFramePool {
 public:
+    NVRtgmcSharedFramePool(const char *allocStatsTag = "RTGMC shared frame pool");
     std::shared_ptr<CUFrameBuf> acquire(const RGYFrameInfo *frame);
     void clear();
 private:
     std::vector<std::shared_ptr<CUFrameBuf>> m_pool;
+    const char *m_allocStatsTag;
 };
 
 class NVEncFilterParamRtgmc : public NVEncFilterParam {
@@ -264,6 +266,7 @@ protected:
     std::deque<int> m_pendingOutputFrames;
     std::array<RtgmcSourceCacheFrame, 256> m_sourceCache;
     std::shared_ptr<NVRtgmcSharedFramePool> m_sharedFramePool;
+    std::shared_ptr<NVRtgmcSharedFramePool> m_ediSideDataFramePool;
     std::unique_ptr<CUFrameBuf> m_borderFrame;
     std::unique_ptr<NVEncFilterRtgmcPrimitive> m_noiseDiffFilter;
     std::deque<RtgmcPendingFrameRef> m_pendingNoiseRefs;

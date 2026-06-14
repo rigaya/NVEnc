@@ -59,7 +59,7 @@ protected:
     public:
         FrameSource();
         RGY_ERR alloc(const RGYFrameInfo& frameInfo);
-        RGY_ERR add(const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+        RGY_ERR add(const RGYFrameInfo *pInputFrame, cudaStream_t stream, bool copyChroma = true);
         CUFrameBuf *get(int iframe);
         int findIndexByInputFrameId(int inputFrameId) const;
         int inframe() const { return m_nFramesInput; }

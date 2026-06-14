@@ -251,6 +251,11 @@ __global__ void kernel_rtgmc_border_crop(
     }
 }
 
+NVRtgmcSharedFramePool::NVRtgmcSharedFramePool(const char *allocStatsTag) :
+    m_pool(),
+    m_allocStatsTag(allocStatsTag) {
+}
+
 std::shared_ptr<CUFrameBuf> NVRtgmcSharedFramePool::acquire(const RGYFrameInfo *frame) {
     if (!frame) {
         return nullptr;
@@ -285,7 +290,7 @@ std::shared_ptr<CUFrameBuf> NVRtgmcSharedFramePool::acquire(const RGYFrameInfo *
     }
     auto buf = std::make_shared<CUFrameBuf>(*frame);
     buf->releasePtr();
-    RGYCudaAllocStatsTag allocStatsTagScope("RTGMC shared frame pool");
+    RGYCudaAllocStatsTag allocStatsTagScope(m_allocStatsTag);
     if (buf->alloc() != RGY_ERR_NONE) {
         return nullptr;
     }
@@ -310,6 +315,7 @@ NVEncFilterRtgmc::NVEncFilterRtgmc() :
     m_pendingOutputFrames(),
     m_sourceCache(),
     m_sharedFramePool(std::make_shared<NVRtgmcSharedFramePool>()),
+    m_ediSideDataFramePool(std::make_shared<NVRtgmcSharedFramePool>("RTGMC edi side-data frame pool")),
     m_borderFrame(),
     m_noiseDiffFilter(),
     m_pendingNoiseRefs(),
@@ -529,7 +535,9 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
         return RGY_ERR_NONE;
     }
     const bool combineCorrectionKernels = rtgmcMatchCorrectionKernelMergeEnabled();
-    const bool processSourceMatchChroma = prm->rtgmc.searchPrefilter.chromaMotion;
+    const bool matchEdiProvidesChroma = prm->rtgmc.matchEdi.mode != VppRtgmcEdiMode::NNEDI3
+        || prm->rtgmc.matchEdi.chromaEdi == VppRtgmcChromaEdiMode::NNEDI3;
+    const bool processSourceMatchChroma = prm->rtgmc.searchPrefilter.chromaMotion && matchEdiProvidesChroma;
 
     auto initOne = [&](NVEncFilter *filter, const std::shared_ptr<NVEncFilterParam> &param) {
         param->frameIn = frameInfo;
@@ -547,7 +555,7 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
         {
             auto param = std::make_shared<NVEncFilterParamRtgmcEdi>();
             param->mode = prm->rtgmc.matchEdi.mode;
-            param->chromaEdi = VppRtgmcChromaEdiMode::None;
+            param->chromaEdi = prm->rtgmc.matchEdi.chromaEdi;
             param->nnsize = prm->rtgmc.matchEdi.nnsize;
             param->nneurons = prm->rtgmc.matchEdi.nneurons;
             param->ediqual = prm->rtgmc.matchEdi.ediqual;
@@ -640,7 +648,7 @@ RGY_ERR NVEncFilterRtgmc::attachEdiReference(RGYFrameInfo *frame, cudaStream_t s
         storeEdiReference(frame, attached, event ? *event : RGYCudaEvent());
         return RGY_ERR_NONE;
     }
-    auto sharedFrame = getSharedFrameBuffer(frame);
+    auto sharedFrame = m_ediSideDataFramePool ? m_ediSideDataFramePool->acquire(frame) : nullptr;
     if (!sharedFrame) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate edi side-data frame.\n"));
         return RGY_ERR_MEMORY_ALLOC;
@@ -2641,6 +2649,9 @@ void NVEncFilterRtgmc::resetTemporalState() {
     m_pendingNoiseRefs.clear();
     m_pendingOutputFrames.clear();
     m_pendingSourceMatchFrameProps.clear();
+    if (m_ediSideDataFramePool) {
+        m_ediSideDataFramePool->clear();
+    }
 
     // 3. Source cache: clear key/event metadata but keep the GPU frame buffers so they
     //    can be re-used; set a fresh sourceCacheNext to overwrite from index 0.
@@ -2685,6 +2696,9 @@ void NVEncFilterRtgmc::close() {
     m_pendingSourceMatchFrameProps.clear();
     if (m_sharedFramePool) {
         m_sharedFramePool->clear();
+    }
+    if (m_ediSideDataFramePool) {
+        m_ediSideDataFramePool->clear();
     }
     for (auto &frame : m_sourceCache) {
         frame.key = RtgmcFrameKey();

@@ -455,15 +455,21 @@ int NVEncFilterRtgmcEdi::FrameSource::findIndexByInputFrameId(int inputFrameId) 
     return -1;
 }
 
-RGY_ERR NVEncFilterRtgmcEdi::FrameSource::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterRtgmcEdi::FrameSource::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream, bool copyChroma) {
     if (!pInputFrame || !pInputFrame->ptr[0]) {
         return RGY_ERR_INVALID_CALL;
     }
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
-    auto err = copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);
-    if (err != RGY_ERR_NONE) {
-        return err;
+    auto err = RGY_ERR_NONE;
+    const int planes = copyChroma ? RGY_CSP_PLANES[pDstFrame->frame.csp] : 1;
+    for (int iplane = 0; iplane < planes; iplane++) {
+        auto dstPlane = getPlane(&pDstFrame->frame, (RGY_PLANE)iplane);
+        const auto srcPlane = getPlane(pInputFrame, (RGY_PLANE)iplane);
+        err = copyPlaneAsync(&dstPlane, &srcPlane, stream);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
     }
     copyFramePropWithoutRes(&pDstFrame->frame, pInputFrame);
     return RGY_ERR_NONE;
@@ -968,7 +974,7 @@ RGY_ERR NVEncFilterRtgmcEdi::runNnediAdapter(const RGYFrameInfo *pBobInputFrame,
     }
     if (pSourceInputFrame && pSourceInputFrame->ptr[0]
         && m_inputSource.findIndexByInputFrameId(pSourceInputFrame->inputFrameId) < 0) {
-        auto err = m_inputSource.add(pSourceInputFrame, stream);
+        auto err = m_inputSource.add(pSourceInputFrame, stream, prm.chromaEdi == VppRtgmcChromaEdiMode::NNEDI3);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to add rtgmc-edi NNEDI source frame: %s.\n"), get_err_mes(err));
             return err;
