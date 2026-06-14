@@ -42,6 +42,7 @@ struct RGYRtgmcRetouchTemporalLimitFrames {
     const RGYFrameInfo *motionBack;
     const RGYFrameInfo *motionForw;
     bool useInlineComp;
+    bool inlineCompChroma;
     std::array<RGYDegrainCompensateInlineParams, 3> inlineCompParams; // per-plane (Y, U, V)
 
     RGYRtgmcRetouchTemporalLimitFrames() :
@@ -49,6 +50,7 @@ struct RGYRtgmcRetouchTemporalLimitFrames {
         motionBack(nullptr),
         motionForw(nullptr),
         useInlineComp(false),
+        inlineCompChroma(false),
         inlineCompParams() {
     }
 
@@ -69,8 +71,9 @@ public:
     VppRtgmcRetouch rtgmc_retouch;
     RGYRtgmcRetouchTemporalLimitFrames temporalLimit;
     bool skipPostTR2LimitModes;
+    bool processChroma;
 
-    NVEncFilterParamRtgmcRetouch() : rtgmc_retouch(), temporalLimit(), skipPostTR2LimitModes(false) {}
+    NVEncFilterParamRtgmcRetouch() : rtgmc_retouch(), temporalLimit(), skipPostTR2LimitModes(false), processChroma(true) {}
     virtual ~NVEncFilterParamRtgmcRetouch() {}
     virtual tstring print() const override { return rtgmc_retouch.print(); }
 };
@@ -84,7 +87,7 @@ public:
     void clearSpatialLimitBaseFrame();
     void setTemporalLimitFrames(const RGYRtgmcRetouchTemporalLimitFrames &frames);
     void clearTemporalLimitFrames();
-    void setTemporalLimitInlineComp(const RGYFrameInfo *ref, const std::array<RGYDegrainCompensateInlineParams, 3> &params);
+    void setTemporalLimitInlineComp(const RGYFrameInfo *ref, const std::array<RGYDegrainCompensateInlineParams, 3> &params, bool processChroma);
 
 protected:
     RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,

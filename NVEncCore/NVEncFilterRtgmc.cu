@@ -529,6 +529,7 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
         return RGY_ERR_NONE;
     }
     const bool combineCorrectionKernels = rtgmcMatchCorrectionKernelMergeEnabled();
+    const bool processSourceMatchChroma = prm->rtgmc.searchPrefilter.chromaMotion;
 
     auto initOne = [&](NVEncFilter *filter, const std::shared_ptr<NVEncFilterParam> &param) {
         param->frameIn = frameInfo;
@@ -541,7 +542,7 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
         auto &pass = m_matchCorrectionPasses[stageIdx];
         const int matchTR = (stageIdx == 0) ? prm->rtgmc.matchTR1 : 0;
         pass.fusedCorrectionBuild = combineCorrectionKernels;
-        pass.fusedCorrectionApply = combineCorrectionKernels && matchTR == 0;
+        pass.fusedCorrectionApply = combineCorrectionKernels && matchTR == 0 && processSourceMatchChroma;
         pass.interpolator = std::make_unique<NVEncFilterRtgmcEdi>();
         {
             auto param = std::make_shared<NVEncFilterParamRtgmcEdi>();
@@ -566,6 +567,8 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
             } else {
                 param->op = RGYRtgmcPrimitiveOp::MakeDiff;
             }
+            param->processChroma = processSourceMatchChroma;
+            param->planes = processSourceMatchChroma ? 0x07 : 0x01;
             auto sts = initOne(pass.correctionBuild.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -574,6 +577,8 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
             auto param = std::make_shared<NVEncFilterParamRtgmcPrimitive>();
             param->op = RGYRtgmcPrimitiveOp::RemoveGrain;
             param->mode = 20;
+            param->processChroma = processSourceMatchChroma;
+            param->planes = processSourceMatchChroma ? 0x07 : 0x01;
             auto sts = initOne(pass.correctionSpatialPrepass.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -598,6 +603,8 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
             pass.correctionApply = std::make_unique<NVEncFilterRtgmcPrimitive>();
             auto param = std::make_shared<NVEncFilterParamRtgmcPrimitive>();
             param->op = RGYRtgmcPrimitiveOp::AddDiff;
+            param->processChroma = processSourceMatchChroma;
+            param->planes = processSourceMatchChroma ? 0x07 : 0x01;
             auto sts = initOne(pass.correctionApply.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -613,6 +620,7 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
             param->rtgmc_retouch.sovs = 0;
             param->rtgmc_retouch.svthin = 0.0f;
             param->rtgmc_retouch.sbb = 0;
+            param->processChroma = processSourceMatchChroma;
             auto sts = initOne(pass.correctionEnhance.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -2167,7 +2175,8 @@ RGY_ERR NVEncFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInput
                         combinedParams[p].refForw = compRef->forwardInlineParams[p].refBack;
                         combinedParams[p].refDirForw = compRef->forwardInlineParams[p].refDirBack;
                     }
-                    retouch->setTemporalLimitInlineComp(edi->frame(), combinedParams);
+                    const bool inlineCompChroma = rtgmcParam ? rtgmcParam->rtgmc.tr1.chroma : true;
+                    retouch->setTemporalLimitInlineComp(edi->frame(), combinedParams, inlineCompChroma);
                     usedInlineComp = true;
                 }
             }

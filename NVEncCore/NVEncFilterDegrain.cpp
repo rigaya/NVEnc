@@ -1192,7 +1192,7 @@ RGY_ERR NVEncFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCom
     const RGYDegrainRefDisableArray disableRefsArray = analysisAvailabilityDisableRefs(frames);
     const uint32_t disableMask = degrainDisableMask(disableRefsArray, layout.temporalDirections);
     const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
-    const bool processChroma = degrainCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
 
     auto ensureRamp = [&](RGYDegrainWindowRampState &state, int planeScaleX, int planeScaleY) -> RGY_ERR {
         const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
@@ -1329,7 +1329,7 @@ RGY_ERR NVEncFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensa
     const RGYDegrainRefDisableArray disableRefsArray = analysisAvailabilityDisableRefs(frames);
     const uint32_t disableMask = degrainDisableMask(disableRefsArray, layout.temporalDirections);
     const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
-    const bool processChroma = degrainCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
 
     auto ensureRamp = [&](RGYDegrainWindowRampState &state, int planeScaleX, int planeScaleY) -> RGY_ERR {
         const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
@@ -2018,7 +2018,7 @@ RGY_ERR NVEncFilterDegrain::emitCompensateFrame(const RGYFilterDegrainFrameSet &
             analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
     };
 
-    const bool processChroma = degrainCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
     const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
     for (int iplane = 0; iplane < (processChroma ? (int)planes.size() : 1); iplane++) {
         const auto plane = planes[iplane];
@@ -2080,7 +2080,7 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
         }
     }
 
-    const bool processChroma = degrainCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
     const bool copyDegrainOutput = m_debugEnv.forceDegrainCopy
         || rgy_csp_has_alpha(frames.cur->csp)
         || RGY_CSP_PLANES[frames.cur->csp] != (processChroma ? 3 : 1)
