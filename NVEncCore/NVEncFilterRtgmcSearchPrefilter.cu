@@ -167,6 +167,7 @@ std::shared_ptr<CUFrameBuf> NVEncFilterRtgmcSearchPrefilter::SharedFramePool::ge
         frames.erase(pooled);
     } else {
         frame = std::make_unique<CUFrameBuf>(frameInfo);
+        frame->releasePtr();
         RGYCudaAllocStatsTag allocStatsTagScope("RTGMC search prefilter pool");
         if (frame->alloc() != RGY_ERR_NONE) {
             frame.reset();
@@ -487,7 +488,7 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::init(shared_ptr<NVEncFilterParam> pPara
         return sts;
     }
 
-    sts = AllocFrameBuf(prm->frameOut, 1);
+    sts = AllocFrameBuf(prm->frameOut, RTGMC_SEARCH_PREFILTER_CACHE_SIZE);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate output buffer: %s.\n"), get_err_mes(sts));
         return sts;
@@ -954,7 +955,9 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefi
     std::shared_ptr<CUFrameBuf> searchLumaFrame;
     const bool useSeparateSearchLuma = prm->attachSearchLuma || m_searchLumaDumpEnabled;
     const bool attachSearchChroma = prm->attachSearchLuma && prm->chromaMotion && RGY_CSP_PLANES[cur->csp] > 1;
-    auto pOut = &m_frameBuf[0]->frame;
+    auto outFrameBuf = m_frameBuf[m_nFrameIdx].get();
+    auto pOut = &outFrameBuf->frame;
+    m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     auto err = copyFrameAsync(pOut, cur, stream);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy rtgmc-search-prefilter base frame: %s.\n"), get_err_mes(err));
@@ -1206,7 +1209,7 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefi
         }
     }
 
-    CUFrameBuf *dumpFrame = searchLumaFrame ? searchLumaFrame.get() : m_frameBuf[0].get();
+    CUFrameBuf *dumpFrame = searchLumaFrame ? searchLumaFrame.get() : outFrameBuf;
     std::unique_ptr<CUFrameBuf> debugDumpFrame;
     if (m_searchLumaDumpEnabled && (m_searchLumaDumpStage == "half_search_base" || m_searchLumaDumpStage == "half_search_smoothed")) {
         if (prm->searchRefine != 1) {
@@ -1546,6 +1549,7 @@ void NVEncFilterRtgmcSearchPrefilter::resetTemporalState() {
     // Input/drain counters
     m_inputCount = 0;
     m_drainCount = 0;
+    m_nFrameIdx = 0;
 }
 
 void NVEncFilterRtgmcSearchPrefilter::close() {
