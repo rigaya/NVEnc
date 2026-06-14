@@ -218,6 +218,7 @@ protected:
         const RGYDegrainRefDisableArray &disableRefs, cudaStream_t stream);
     int requestedDelta() const;
     bool validateAnalyzeResultFrame(const RGYDegrainAnalyzeResult &result, const RGYFrameInfo *frame, int currentFrame, const TCHAR *sourceName, bool requireFrameIndex);
+    bool bindAnalyzeResult(const RGYDegrainAnalyzeResult &result, const RGYFrameInfo *frame, int currentFrame, const TCHAR *sourceName, bool requireFrameIndex, cudaStream_t stream);
     bool bindDirectAnalyzeResult(const RGYFrameInfo *frame, int currentFrame, cudaStream_t stream);
     bool bindFrameAnalysisData(const RGYFrameInfo *frame, int currentFrame, cudaStream_t stream);
     CUMemBuf *analysisMV() const;

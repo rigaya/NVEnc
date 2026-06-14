@@ -3970,22 +3970,97 @@ bool NVEncFilterDegrain::validateAnalyzeResultFrame(const RGYDegrainAnalyzeResul
     return true;
 }
 
+static bool degrainLayoutCompatibleSubset(const RGYDegrainBlockLayout &src, const RGYDegrainBlockLayout &dst) {
+    return src.blockSize == dst.blockSize
+        && src.overlap == dst.overlap
+        && src.step == dst.step
+        && src.search == dst.search
+        && src.blocksX == dst.blocksX
+        && src.blocksY == dst.blocksY
+        && src.coveredWidth == dst.coveredWidth
+        && src.coveredHeight == dst.coveredHeight
+        && src.temporalDirections >= dst.temporalDirections;
+}
+
+bool NVEncFilterDegrain::bindAnalyzeResult(const RGYDegrainAnalyzeResult &result, const RGYFrameInfo *frame, const int currentFrame, const TCHAR *sourceName, const bool requireFrameIndex, cudaStream_t stream) {
+    if (!result.valid()) {
+        return false;
+    }
+    if (!validateAnalyzeResultFrame(result, frame, currentFrame, sourceName, requireFrameIndex)) {
+        return false;
+    }
+    if (rgy_degrain_layout_equal(result.layout, m_analysis.layout)) {
+        m_boundAnalyzeResult = result;
+        m_frameAnalysisLayout = result.layout;
+        logAnalyzeBinding(sourceName, frame, result);
+        logAnalysisSamples(sourceName, frame, stream);
+        return true;
+    }
+    if (!degrainLayoutCompatibleSubset(result.layout, m_analysis.layout)) {
+        AddMessage(RGY_LOG_DEBUG, _T("degrain %s MV/SAD layout mismatch; falling back to frame data/local analysis.\n"), sourceName);
+        return false;
+    }
+    if (!m_analysis.mv || !m_analysis.sad || m_analysis.mv->nSize < m_analysis.mvBytes || m_analysis.sad->nSize < m_analysis.sadBytes) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain %s MV/SAD compact workspace is not ready.\n"), sourceName);
+        return false;
+    }
+    if (result.event() != nullptr) {
+        auto err = err_to_rgy(cudaStreamWaitEvent(stream, result.event(), 0));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain %s MV/SAD compact copy dependency: %s.\n"), sourceName, get_err_mes(err));
+            return false;
+        }
+    }
+    const auto blockCount = result.layout.blockCount();
+    const auto srcMvPitch = (size_t)result.layout.temporalDirections * sizeof(RGYDegrainMV);
+    const auto dstMvPitch = (size_t)m_analysis.layout.temporalDirections * sizeof(RGYDegrainMV);
+    auto err = err_to_rgy(cudaMemcpy2DAsync(
+        m_analysis.mv->ptr, dstMvPitch,
+        result.mv->ptr, srcMvPitch,
+        dstMvPitch, blockCount,
+        cudaMemcpyDeviceToDevice,
+        stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to compact degrain %s MV/SAD layout MV: %s.\n"), sourceName, get_err_mes(err));
+        return false;
+    }
+    const auto srcSadPitch = (size_t)result.layout.temporalDirections * sizeof(RGYDegrainSAD);
+    const auto dstSadPitch = (size_t)m_analysis.layout.temporalDirections * sizeof(RGYDegrainSAD);
+    err = err_to_rgy(cudaMemcpy2DAsync(
+        m_analysis.sad->ptr, dstSadPitch,
+        result.sad->ptr, srcSadPitch,
+        dstSadPitch, blockCount,
+        cudaMemcpyDeviceToDevice,
+        stream));
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to compact degrain %s MV/SAD layout SAD: %s.\n"), sourceName, get_err_mes(err));
+        return false;
+    }
+    RGYCudaEvent compactEvent;
+    err = degrainRecordEvent(stream, &compactEvent);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to record degrain %s MV/SAD compact copy event: %s.\n"), sourceName, get_err_mes(err));
+        return false;
+    }
+    m_boundAnalyzeResult = result;
+    m_boundAnalyzeResult.layout = m_analysis.layout;
+    m_boundAnalyzeResult.mv = m_analysis.mv.get();
+    m_boundAnalyzeResult.sad = m_analysis.sad.get();
+    m_boundAnalyzeResult.event = compactEvent;
+    m_frameAnalysisLayout = m_analysis.layout;
+    logAnalyzeBinding(sourceName, frame, m_boundAnalyzeResult);
+    logAnalysisSamples(sourceName, frame, stream);
+    return true;
+}
+
 bool NVEncFilterDegrain::bindDirectAnalyzeResult(const RGYFrameInfo *frame, const int currentFrame, cudaStream_t stream) {
     const auto result = m_directAnalyzeResultSet.get(requestedDelta());
     if (!result) {
         return false;
     }
-    if (!validateAnalyzeResultFrame(*result, frame, currentFrame, _T("direct"), true)) {
+    if (!bindAnalyzeResult(*result, frame, currentFrame, _T("direct"), true, stream)) {
         return false;
     }
-    if (!rgy_degrain_layout_equal(result->layout, m_analysis.layout)) {
-        AddMessage(RGY_LOG_DEBUG, _T("degrain direct MV/SAD layout mismatch; falling back to frame data/local analysis.\n"));
-        return false;
-    }
-    m_boundAnalyzeResult = *result;
-    m_frameAnalysisLayout = result->layout;
-    logAnalyzeBinding(_T("direct"), frame, *result);
-    logAnalysisSamples(_T("direct"), frame, stream);
     return true;
 }
 
@@ -3994,19 +4069,10 @@ bool NVEncFilterDegrain::bindFrameAnalysisData(const RGYFrameInfo *frame, const 
     auto frameAnalysis = rgy_degrain_get_frame_data(frame);
     if (frameAnalysis) {
         const auto result = frameAnalysis->analyzeResult();
-        const auto layout = result.layout;
-        if (result.hasFrameIdentity() && !validateAnalyzeResultFrame(result, frame, currentFrame, _T("attached"), false)) {
+        if (!bindAnalyzeResult(result, frame, currentFrame, _T("attached"), false, stream)) {
             return false;
         }
-        if (!rgy_degrain_layout_equal(layout, m_analysis.layout)) {
-            AddMessage(RGY_LOG_DEBUG, _T("degrain attached MV/SAD layout mismatch; falling back to local analysis.\n"));
-            return false;
-        }
-        m_boundAnalyzeResult = result;
-        m_frameAnalysisLayout = layout;
         m_frameAnalysisData = frameAnalysis;
-        logAnalyzeBinding(_T("attached"), frame, result);
-        logAnalysisSamples(_T("attached"), frame, stream);
         return true;
     }
     return bindDirectAnalyzeResult(frame, currentFrame, stream);
@@ -4069,9 +4135,7 @@ RGYDegrainAnalyzeResultSet NVEncFilterDegrain::analyzeResultSet() const {
     }
     const int maxDelta = std::min(RGY_DEGRAIN_MAX_DELTA, std::max(1, baseResult.layout.temporalDirections / 2));
     for (int delta = 1; delta <= maxDelta; delta++) {
-        auto slot = baseResult;
-        slot.layout.temporalDirections = rgy_degrain_temporal_direction_count(delta);
-        resultSet.slots[delta] = slot;
+        resultSet.slots[delta] = baseResult;
     }
     return resultSet;
 }
@@ -4081,9 +4145,7 @@ bool NVEncFilterDegrain::setDirectAnalyzeResult(const RGYDegrainAnalyzeResult &r
     if (result.valid() && result.hasFrameIdentity()) {
         const int maxDelta = std::min(RGY_DEGRAIN_MAX_DELTA, std::max(1, result.layout.temporalDirections / 2));
         for (int delta = 1; delta <= maxDelta; delta++) {
-            auto slot = result;
-            slot.layout.temporalDirections = rgy_degrain_temporal_direction_count(delta);
-            resultSet.slots[delta] = slot;
+            resultSet.slots[delta] = result;
         }
     }
     return setDirectAnalyzeResultSet(resultSet);
