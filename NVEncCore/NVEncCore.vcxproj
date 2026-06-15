@@ -1940,4 +1940,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_wav_parser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="AddNVEncCudaHeaderDependencies" BeforeTargets="WriteCudaCompileTlogs;CudaCompile">
+    <ItemGroup>
+      <_NVEncCudaHeaderDependencies Include="@(ClInclude)" />
+      <CudaCompile Condition="'%(CudaCompile.ExcludedFromBuild)' != 'true'">
+        <AdditionalDependencies>%(CudaCompile.AdditionalDependencies);@(_NVEncCudaHeaderDependencies)</AdditionalDependencies>
+      </CudaCompile>
+    </ItemGroup>
+  </Target>
 </Project>
