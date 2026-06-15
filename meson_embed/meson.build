@@ -5,7 +5,7 @@ embed_script = files('embed_resource.sh')
 # nnedi3_weights.bin
 # シンボル: _binary_resource_nnedi3_weights_bin_start/end
 resource_nnedi3 = custom_target('embed_nnedi3_weights',
-  input: '../resource/nnedi3_weights.bin',
+  input: '../resource/nnedi3_weight/nnedi3_weights.bin',
   output: 'nnedi3_weights.o',
   command: ['bash', embed_script, '@INPUT@', '@OUTPUT@', 'resource_nnedi3_weights_bin'],
 )
