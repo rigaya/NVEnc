@@ -4043,13 +4043,13 @@ RGY_ERR NVEncFilterIvtc::partialFlushMixed(cudaStream_t stream, int64_t cycleEnd
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterIvtc::popEmit(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterIvtc::popEmit(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, int maxOutputFrames) {
     if (m_emitQueue.empty()) {
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
         return RGY_ERR_NONE;
     }
-    constexpr int maxFilterOutputFrames = 16; // qsv_pipeline_ctrl.h uses RGYFrameInfo *outInfo[16].
+    const int maxFilterOutputFrames = clamp(maxOutputFrames, 1, 16);
     int nOut = 0;
     while (!m_emitQueue.empty() && nOut < maxFilterOutputFrames) {
         const IvtcEmitEntry e = m_emitQueue.front();
@@ -4059,11 +4059,9 @@ RGY_ERR NVEncFilterIvtc::popEmit(RGYFrameInfo **ppOutputFrames, int *pOutputFram
         pOut->duration     = e.duration;
         pOut->inputFrameId = e.inputFrameId;
         pOut->picstruct    = RGY_PICSTRUCT_FRAME;
-        // Final belt-and-suspenders guard: encoder (qsv_pipeline_ctrl.h:2297)
-        // aborts on inputFrameId < 0. Every upstream step should have sanitized
-        // this already (processInputToCycle stores from a cache slot that's
-        // sanitized at input time), but any defect above here would leak a -1
-        // through. Clamp to a synthesized monotonic id on the very last path.
+        // Final belt-and-suspenders guard: encoder aborts on inputFrameId < 0.
+        // Upstream should sanitize this already, but clamp at the final emit path
+        // so a metadata defect above does not leak a negative id downstream.
         if (pOut->inputFrameId < 0) pOut->inputFrameId = m_outputFrameCount;
         ppOutputFrames[nOut++] = pOut;
         m_outputFrameCount++;
@@ -4081,6 +4079,7 @@ RGY_ERR NVEncFilterIvtc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         return RGY_ERR_INVALID_PARAM;
     }
     const int cycleLen = std::max(prm->ivtc.cycle, 0);
+    const int maxEmitFramesPerCall = (cycleLen > 0) ? std::max(1, cycleLen - prm->ivtc.drop) : 16;
 
     // DIAG #4: fire once on the first run_filter call. Uses
     // m_pLog->write directly. All numeric args pre-extracted to local
@@ -4260,9 +4259,10 @@ RGY_ERR NVEncFilterIvtc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
                 m_processedCount++;
             }
         }
-        // cycleLen > 0 の通常入力時はここで 1 popEmit (キューにあれば) する。
-        // 入力がキュー生成をトリガした (flushCycle) ケースも、1 call 1 emit なので 1 枚だけ取り出す。
-        return popEmit(ppOutputFrames, pOutputFrameNum);
+        // cycleLen > 0 の通常入力時はここで popEmit (キューにあれば) する。
+        // 一度に返すのは最大1 cycle分まで。expand が1 call内で複数cycle分を
+        // 生成しても出力 surface を使い切らず、かつ通常cycleでは滞留しない。
+        return popEmit(ppOutputFrames, pOutputFrameNum, maxEmitFramesPerCall);
     }
 
     // 2. EOS drain. Before running the processInputToCycle tail drain,
@@ -4346,11 +4346,11 @@ RGY_ERR NVEncFilterIvtc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
                 return ferr;
             }
         }
-        return popEmit(ppOutputFrames, pOutputFrameNum);
+        return popEmit(ppOutputFrames, pOutputFrameNum, maxEmitFramesPerCall);
     }
 
-    // 3. drain 済み: キューに残りがあれば 1 枚返す、空なら 0 emit。
-    return popEmit(ppOutputFrames, pOutputFrameNum);
+    // 3. drain 済み: キューに残りがあれば返す、空なら 0 emit。
+    return popEmit(ppOutputFrames, pOutputFrameNum, maxEmitFramesPerCall);
 }
 
 void NVEncFilterIvtc::close() {

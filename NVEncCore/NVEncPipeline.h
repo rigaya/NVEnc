@@ -3458,15 +3458,31 @@ public:
             }
         }
         if (m_stopwatch) m_stopwatch->add(0, 0);
+        std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
+        // flush中に途中returnする場合もあるので、生成済み出力を失わないようqueue投入を共通化する。
+        auto queueOutputSurfs = [this, &outputSurfs]() {
+            m_outQeueue.insert(m_outQeueue.end(),
+                std::make_move_iterator(outputSurfs.begin()),
+                std::make_move_iterator(outputSurfs.end())
+            );
+            outputSurfs.clear();
+        };
         while (filterframes.size() > 0 || drain) {
+            if (filterframes.empty() && drain) {
+                // 前段filterが出し切った後も、後段の遅延filterをdrainするためnull markerを再投入する。
+                filterframes.push_back(std::make_pair(RGYFrameInfo(), 0u));
+            }
             if (m_stopwatch) m_stopwatch->set(0);
             //フィルタリングするならここ
+            bool filterFrameConsumed = false;
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
                 // コピーを作ってそれをfilter関数に渡す
                 // vpp-rffなどoverwirteするフィルタのときに、filterframes.pop_front -> push がうまく動作しない
                 int nOutFrames = 0;
                 RGYFrameInfo *outInfo[16] = { 0 };
                 RGYFrameInfo input = filterframes.front().first;
+                // ptr[0]==nullptr は通常フレームではなく、filter chainをflushするためのmarkerとして扱う。
+                const bool drainFrame = input.ptr[0] == nullptr;
                 {
                     NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                     auto sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames, streamFilter);
@@ -3476,9 +3492,16 @@ public:
                     }
                 }
                 if (nOutFrames == 0) {
-                    if (drain) {
+                    if (drainFrame) {
+                        // このfilterからflush出力がなければ、同じmarkerを次のfilterへ進めて後段のpendingを確認する。
                         filterframes.front().second++;
                         continue;
+                    }
+                    if (drain || filterframes.size() > 1 || !outputSurfs.empty()) {
+                        // flush中やqueue済みフレームがある場合、遅延filterが入力だけ消費してもchain全体は継続する。
+                        filterframes.pop_front();
+                        filterFrameConsumed = true;
+                        break;
                     }
                     return RGY_ERR_NONE;
                 }
@@ -3513,15 +3536,29 @@ public:
                     }
                     streamFilter = m_streamFilter;
                 }
-                drain = false; //途中でフレームが出てきたら、drain完了していない
+                const auto nextFilter = ifilter + 1;
                 filterframes.pop_front();
+                if (drainFrame) {
+                    // flush markerから実フレームが出た場合でも、同じfilterのflush完了確認を続ける。
+                    filterframes.push_back(std::make_pair(RGYFrameInfo(), ifilter));
+                }
                 //最初に出てきたフレームは先頭に追加する
                 for (int jframe = nOutFrames - 1; jframe >= 0; jframe--) {
-                    filterframes.push_front(std::make_pair(*outInfo[jframe], ifilter + 1));
+                    filterframes.push_front(std::make_pair(*outInfo[jframe], nextFilter));
                 }
             }
             if (m_stopwatch) m_stopwatch->add(0, 1);
-            if (drain) {
+            if (filterFrameConsumed) {
+                // 出力surfaceをまだ取得していないので、そのまま残りのqueued frame / drain markerを処理する。
+                continue;
+            }
+            if (filterframes.front().first.ptr[0] == nullptr) {
+                if (!outputSurfs.empty()) {
+                    // 出力を返した後も、呼び出し元が再度flushして残りのpendingを取りに来る。
+                    queueOutputSurfs();
+                    if (m_stopwatch) m_stopwatch->add(0, 3);
+                    return RGY_ERR_NONE;
+                }
                 return RGY_ERR_MORE_DATA; //最後までdrain = trueなら、drain完了
             }
             struct CUFrameEncAutoDelete {
@@ -3676,10 +3713,23 @@ public:
             if (cudaEventFilterToDownload) {
                 outputSurf->addCUEvent(cudaEventFilterToDownload);
             }
-            m_outQeueue.push_back(std::move(outputSurf));
+            outputSurfs.push_back(std::move(outputSurf));
             encBuffer.release();
             if (m_stopwatch) m_stopwatch->add(0, 3);
+            if (drain) {
+                // Flush may receive several frames from one filter call (for example KFM VFR emits up to 4).
+                // Do not return while real frames are still queued locally, or they will be dropped.
+                const auto drainOutputLimit = std::max<size_t>(1, std::min<size_t>(
+                    4,
+                    std::max<size_t>(1, m_workSurfs.bufCount() / 2)));
+                if (outputSurfs.size() >= drainOutputLimit
+                    && (filterframes.empty() || filterframes.front().first.ptr[0] == nullptr)) {
+                    queueOutputSurfs();
+                    return RGY_ERR_NONE;
+                }
+            }
         }
+        queueOutputSurfs();
         return RGY_ERR_NONE;
     }
 };

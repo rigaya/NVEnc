@@ -197,7 +197,7 @@ protected:
     RGY_ERR partialFlushMixed(cudaStream_t stream, int64_t cycleEndPts);
     void resetMixedTemporalState();
     void resetMixedRffState();
-    RGY_ERR popEmit(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
+    RGY_ERR popEmit(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, int maxOutputFrames);
 
     // Record a match decision, return cadence-predicted match if pattern is locked
     // (else -1). Also updates the internal 5-entry ring buffer and confidence counter.
