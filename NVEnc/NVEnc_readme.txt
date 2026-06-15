@@ -214,6 +214,14 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.06.15 (9.19)
+- nnedi3_weight.binをパッケージに同梱。
+- vpp-kfmのRTGMC preset medium時のエラーを修正。(vpp-nnediのnnsize=5) ( #776 )
+- --vpp-rtgmc の chroma_motion=false の処理を修正。( #777 )
+- chroma_motion=true, source_match=3 で failed to copy edi side-data frame となる問題を修正。
+- vpp-rtgmcのDegrain解析結果の再利用を修正。
+- rtgmc-search-prefilterのフレームプール確保を修正。
+
 2026.06.13 (9.18)
 - 24/30/60混合VFR対応高品質インタレ解除フィルタ --vpp-kfm を追加。
 - 高品質インタレ解除フィルタ --vpp-rtgmc を追加。

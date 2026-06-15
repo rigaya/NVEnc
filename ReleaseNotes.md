@@ -1,5 +1,14 @@
 # NVEnc Release Notes
 
+## 9.19
+
+- Bundle nnedi3_weight.bin in the package.
+- Fix vpp-kfm RTGMC preset medium error (vpp-nnedi nnsize=5) by reducing NNEDI register usage. ( #776 )
+- Fix [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1) chroma_motion=false processing. ( #777 )
+- Fix failed to copy edi side-data frame with chroma_motion=true, source_match=3.
+- Fix Degrain analysis result reuse in [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Fix frame pool allocation in [--vpp-rtgmc-search-prefilter](./NVEncC_Options.en.md#--vpp-rtgmc-search-prefilter-param1value1).
+
 ## 9.18
 
 - Add new high quality deinterlace filter [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) which supports 24/30/60 mixed VFR. ( #677 )
