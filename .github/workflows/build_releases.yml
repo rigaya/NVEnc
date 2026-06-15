@@ -129,6 +129,7 @@ jobs:
           mkdir NVEncC_Release
           copy _build\${{ matrix.platform }}\RelStatic\NVEncC*.exe NVEncC_Release
           copy _build\${{ matrix.platform }}\RelStatic\*.dll NVEncC_Release
+          copy resource\nnedi3_weight\nnedi3_weights.bin NVEncC_Release
           if "${{ matrix.arch }}" == "x64" copy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}\bin\nvrtc64_*_0.dll" NVEncC_Release
           if "${{ matrix.arch }}" == "x64" copy "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}\bin\nvrtc-builtins64_*.dll" NVEncC_Release
           if "${{ matrix.arch }}" == "x64" copy NVEncNVOFFRUCBin\*.dll NVEncC_Release
