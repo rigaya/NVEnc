@@ -559,6 +559,7 @@ RGY_ERR NVEncFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr
             param->nnsize = prm->rtgmc.matchEdi.nnsize;
             param->nneurons = prm->rtgmc.matchEdi.nneurons;
             param->ediqual = prm->rtgmc.matchEdi.ediqual;
+            param->order = prm->rtgmc.bob.order;
             param->sourceFrameIn = sourceFrameIn;
             param->sourceBaseFps = sourceBaseFps;
             param->sourceTimebase = sourceTimebase;
@@ -1502,6 +1503,7 @@ RGY_ERR NVEncFilterRtgmc::initFilters(const std::shared_ptr<NVEncFilterParamRtgm
             param->nnsize = prm->rtgmc.edi.nnsize;
             param->nneurons = prm->rtgmc.edi.nneurons;
             param->ediqual = prm->rtgmc.edi.ediqual;
+            param->order = prm->rtgmc.bob.order;
             param->sourceFrameIn = currentFrame;
             param->sourceBaseFps = prm->baseFps;
             param->sourceTimebase = prm->timebase;
