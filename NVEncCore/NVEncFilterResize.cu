@@ -417,7 +417,7 @@ static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
     return RGY_ERR_NONE;
 }
 
-static const float FSR_RCAS_LIMIT = 0.25f - (1.0f / 16.0f);
+static constexpr float FSR_RCAS_LIMIT = 0.25f - (1.0f / 16.0f);
 
 __inline__ __device__
 float fsr_clamp(const float x, const float low, const float high) {

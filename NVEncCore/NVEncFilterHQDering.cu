@@ -17,10 +17,10 @@ static const int HQDERING_BLOCK_Y = 8;
 static const int HQDERING_KERNEL_RADIUS_MAX = 10;
 
 template<typename Type>
-__device__ __forceinline__ int hqd_read_pix_clamp(const RGYFrameInfo frame, int x, int y) {
-    x = clamp(x, 0, frame.width - 1);
-    y = clamp(y, 0, frame.height - 1);
-    const auto ptr = (const Type *)((const uint8_t *)frame.ptr[0] + y * frame.pitch[0] + x * sizeof(Type));
+__device__ __forceinline__ int hqd_read_pix_clamp(const uint8_t *frame, const int pitch, const int width, const int height, int x, int y) {
+    x = clamp(x, 0, width - 1);
+    y = clamp(y, 0, height - 1);
+    const auto ptr = (const Type *)(frame + y * pitch + x * sizeof(Type));
     return (int)ptr[0];
 }
 
@@ -35,20 +35,21 @@ __device__ __forceinline__ int hqd_levels_ramp(const int g, const int mthrHbd) {
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_hqdering_edge(const RGYFrameInfo src, RGYFrameInfo dst, const int mthrHbd, const int edgeMode) {
+__global__ void kernel_hqdering_edge(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const int mthrHbd, const int edgeMode) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
-    const int tl = hqd_read_pix_clamp<Type>(src, x - 1, y - 1);
-    const int tc = hqd_read_pix_clamp<Type>(src, x,     y - 1);
-    const int tr = hqd_read_pix_clamp<Type>(src, x + 1, y - 1);
-    const int cl = hqd_read_pix_clamp<Type>(src, x - 1, y);
-    const int cc = hqd_read_pix_clamp<Type>(src, x,     y);
-    const int cr = hqd_read_pix_clamp<Type>(src, x + 1, y);
-    const int bl = hqd_read_pix_clamp<Type>(src, x - 1, y + 1);
-    const int bc = hqd_read_pix_clamp<Type>(src, x,     y + 1);
-    const int br = hqd_read_pix_clamp<Type>(src, x + 1, y + 1);
+    const int tl = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y - 1);
+    const int tc = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y - 1);
+    const int tr = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y - 1);
+    const int cl = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y);
+    const int cc = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y);
+    const int cr = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y);
+    const int bl = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y + 1);
+    const int bc = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y + 1);
+    const int br = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y + 1);
 
     int g = 0;
     if (edgeMode == 1) {
@@ -77,19 +78,19 @@ __global__ void kernel_hqdering_edge(const RGYFrameInfo src, RGYFrameInfo dst, c
     } else if (edgeMode == 5) {
         g = abs(4 * cc - tc - cl - cr - bc) * 2;
     } else {
-        const int n2c = hqd_read_pix_clamp<Type>(src, x,     y - 2);
-        const int n1l = hqd_read_pix_clamp<Type>(src, x - 1, y - 1);
-        const int n1c = hqd_read_pix_clamp<Type>(src, x,     y - 1);
-        const int n1r = hqd_read_pix_clamp<Type>(src, x + 1, y - 1);
-        const int c2l = hqd_read_pix_clamp<Type>(src, x - 2, y);
-        const int c1l = hqd_read_pix_clamp<Type>(src, x - 1, y);
-        const int ccc = hqd_read_pix_clamp<Type>(src, x,     y);
-        const int c1r = hqd_read_pix_clamp<Type>(src, x + 1, y);
-        const int c2r = hqd_read_pix_clamp<Type>(src, x + 2, y);
-        const int s1l = hqd_read_pix_clamp<Type>(src, x - 1, y + 1);
-        const int s1c = hqd_read_pix_clamp<Type>(src, x,     y + 1);
-        const int s1r = hqd_read_pix_clamp<Type>(src, x + 1, y + 1);
-        const int s2c = hqd_read_pix_clamp<Type>(src, x,     y + 2);
+        const int n2c = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y - 2);
+        const int n1l = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y - 1);
+        const int n1c = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y - 1);
+        const int n1r = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y - 1);
+        const int c2l = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x - 2, y);
+        const int c1l = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y);
+        const int ccc = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y);
+        const int c1r = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y);
+        const int c2r = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + 2, y);
+        const int s1l = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y + 1);
+        const int s1c = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y + 1);
+        const int s1r = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y + 1);
+        const int s2c = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y + 2);
         const int logResp = 16 * ccc
             - (n2c + c2l + c2r + s2c)
             - 2 * (n1c + c1l + c1r + s1c)
@@ -97,30 +98,32 @@ __global__ void kernel_hqdering_edge(const RGYFrameInfo src, RGYFrameInfo dst, c
         g = abs(logResp) / 2;
     }
 
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)hqd_levels_ramp<bit_depth>(g, mthrHbd);
 }
 
 template<typename Type>
-__global__ void kernel_hqdering_expand3x3(const RGYFrameInfo src, RGYFrameInfo dst) {
+__global__ void kernel_hqdering_expand3x3(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
     int m = 0;
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            m = max(m, hqd_read_pix_clamp<Type>(src, x + dx, y + dy));
+            m = max(m, hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + dx, y + dy));
         }
     }
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)m;
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_hqdering_blur_h(const RGYFrameInfo src, RGYFrameInfo dst, const int radius, const float sigma) {
+__global__ void kernel_hqdering_blur_h(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const int radius, const float sigma) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
     static const int max_val = (1 << bit_depth) - 1;
     const float invTwoSigmaSq = 1.0f / (2.0f * sigma * sigma);
     float vSum = 0.0f;
@@ -128,19 +131,20 @@ __global__ void kernel_hqdering_blur_h(const RGYFrameInfo src, RGYFrameInfo dst,
     for (int i = -HQDERING_KERNEL_RADIUS_MAX; i <= HQDERING_KERNEL_RADIUS_MAX; i++) {
         if (i < -radius || i > radius) continue;
         const float wi = expf(-(float)(i * i) * invTwoSigmaSq);
-        vSum += (float)hqd_read_pix_clamp<Type>(src, x + i, y) * wi;
+        vSum += (float)hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x + i, y) * wi;
         wSum += wi;
     }
     const int v = clamp((int)(vSum / wSum + 0.5f), 0, max_val);
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)v;
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_hqdering_blur_v(const RGYFrameInfo src, RGYFrameInfo dst, const int radius, const float sigma) {
+__global__ void kernel_hqdering_blur_v(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const int radius, const float sigma) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
     static const int max_val = (1 << bit_depth) - 1;
     const float invTwoSigmaSq = 1.0f / (2.0f * sigma * sigma);
     float vSum = 0.0f;
@@ -148,34 +152,35 @@ __global__ void kernel_hqdering_blur_v(const RGYFrameInfo src, RGYFrameInfo dst,
     for (int i = -HQDERING_KERNEL_RADIUS_MAX; i <= HQDERING_KERNEL_RADIUS_MAX; i++) {
         if (i < -radius || i > radius) continue;
         const float wi = expf(-(float)(i * i) * invTwoSigmaSq);
-        vSum += (float)hqd_read_pix_clamp<Type>(src, x, y + i) * wi;
+        vSum += (float)hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x, y + i) * wi;
         wSum += wi;
     }
     const int v = clamp((int)(vSum / wSum + 0.5f), 0, max_val);
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)v;
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_hqdering_combine(const RGYFrameInfo src, const RGYFrameInfo blurred, const RGYFrameInfo mask,
-    const RGYFrameInfo edgeMask, RGYFrameInfo dst, const int showmask, const int protect) {
+__global__ void kernel_hqdering_combine(const uint8_t *src, const int srcPitch, const uint8_t *blurred, const int blurredPitch,
+    const uint8_t *mask, const int maskPitch, const uint8_t *edgeMask, const int edgeMaskPitch,
+    uint8_t *dst, const int dstPitch, const int width, const int height, const int showmask, const int protect) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
     static const int max_val = (1 << bit_depth) - 1;
-    const int s = hqd_read_pix_clamp<Type>(src, x, y);
-    const int b = hqd_read_pix_clamp<Type>(blurred, x, y);
-    const int mk = hqd_read_pix_clamp<Type>(mask, x, y);
+    const int s = hqd_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
+    const int b = hqd_read_pix_clamp<Type>(blurred, blurredPitch, width, height, x, y);
+    const int mk = hqd_read_pix_clamp<Type>(mask, maskPitch, width, height, x, y);
     int effectiveMask = mk;
     if (protect) {
-        effectiveMask = max(mk - hqd_read_pix_clamp<Type>(edgeMask, x, y), 0);
+        effectiveMask = max(mk - hqd_read_pix_clamp<Type>(edgeMask, edgeMaskPitch, width, height, x, y), 0);
     }
     int out = effectiveMask;
     if (!showmask) {
         const float m = (float)effectiveMask / (float)max_val;
         out = clamp((int)((float)s + ((float)b - (float)s) * m + 0.5f), 0, max_val);
     }
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)out;
 }
 
@@ -196,8 +201,11 @@ static RGY_ERR hqdering_process_y_typed(RGYFrameInfo *pOut, const RGYFrameInfo *
     dim3 blockSize(HQDERING_BLOCK_X, HQDERING_BLOCK_Y);
     dim3 gridSize(divCeil(pInput->width, blockSize.x), divCeil(pInput->height, blockSize.y));
     const int edgeMode = hqdering_edge_mode(prm.edge);
+    const auto width = pInput->width;
+    const auto height = pInput->height;
 
-    kernel_hqdering_edge<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pInput, *pEdgeMask, mthrHbd, edgeMode);
+    kernel_hqdering_edge<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pInput->ptr[0], pInput->pitch[0],
+        pEdgeMask->ptr[0], pEdgeMask->pitch[0], width, height, mthrHbd, edgeMode);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
@@ -205,21 +213,26 @@ static RGY_ERR hqdering_process_y_typed(RGYFrameInfo *pOut, const RGYFrameInfo *
     RGYFrameInfo *pRing = pEdgeMask;
     for (int i = 0; i < prm.mrad; i++) {
         RGYFrameInfo *pMorphOut = ((i & 1) == 0) ? pRingMask : pMorphTmp;
-        kernel_hqdering_expand3x3<Type><<<gridSize, blockSize, 0, stream>>>(*pIn, *pMorphOut);
+        kernel_hqdering_expand3x3<Type><<<gridSize, blockSize, 0, stream>>>(pIn->ptr[0], pIn->pitch[0],
+            pMorphOut->ptr[0], pMorphOut->pitch[0], width, height);
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
         pIn = pMorphOut;
         pRing = pMorphOut;
     }
 
-    kernel_hqdering_blur_h<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pInput, *pHBlurred, kernelRadius, prm.sigma);
+    kernel_hqdering_blur_h<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pInput->ptr[0], pInput->pitch[0],
+        pHBlurred->ptr[0], pHBlurred->pitch[0], width, height, kernelRadius, prm.sigma);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
-    kernel_hqdering_blur_v<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pHBlurred, *pBlurred, kernelRadius, prm.sigma);
+    kernel_hqdering_blur_v<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pHBlurred->ptr[0], pHBlurred->pitch[0],
+        pBlurred->ptr[0], pBlurred->pitch[0], width, height, kernelRadius, prm.sigma);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
-    kernel_hqdering_combine<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pInput, *pBlurred, *pRing, *pEdgeMask, *pOut,
-        prm.showmask ? 1 : 0, prm.protect ? 1 : 0);
+    kernel_hqdering_combine<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pInput->ptr[0], pInput->pitch[0],
+        pBlurred->ptr[0], pBlurred->pitch[0], pRing->ptr[0], pRing->pitch[0],
+        pEdgeMask->ptr[0], pEdgeMask->pitch[0], pOut->ptr[0], pOut->pitch[0],
+        width, height, prm.showmask ? 1 : 0, prm.protect ? 1 : 0);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
     return RGY_ERR_NONE;

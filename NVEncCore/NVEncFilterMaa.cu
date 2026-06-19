@@ -52,10 +52,10 @@ __device__ __forceinline__ int maa_load_pix_clamp(const Type *row, int x, int wi
 }
 
 template<typename Type>
-__device__ __forceinline__ int maa_read_pix_clamp(const RGYFrameInfo frame, int x, int y) {
-    x = clamp(x, 0, frame.width - 1);
-    y = clamp(y, 0, frame.height - 1);
-    return (int)*(const Type *)((const uint8_t *)frame.ptr[0] + y * frame.pitch[0] + x * sizeof(Type));
+__device__ __forceinline__ int maa_read_pix_clamp(const uint8_t *frame, const int pitch, const int width, const int height, int x, int y) {
+    x = clamp(x, 0, width - 1);
+    y = clamp(y, 0, height - 1);
+    return (int)*(const Type *)(frame + y * pitch + x * sizeof(Type));
 }
 
 template<typename Type>
@@ -65,34 +65,36 @@ __device__ __forceinline__ int maa_sn3(int p1, int p2, int p3, int max_val) {
 }
 
 template<typename Type>
-__global__ void kernel_maa_fturn_left(const RGYFrameInfo src, RGYFrameInfo dst) {
+__global__ void kernel_maa_fturn_left(const uint8_t *src, const int srcPitch, const int srcWidth,
+    uint8_t *dst, const int dstPitch, const int dstWidth, const int dstHeight) {
     const int x_new = blockIdx.x * blockDim.x + threadIdx.x;
     const int y_new = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x_new >= dst.width || y_new >= dst.height) return;
+    if (x_new >= dstWidth || y_new >= dstHeight) return;
 
-    const int x_old = src.width - 1 - y_new;
+    const int x_old = srcWidth - 1 - y_new;
     const int y_old = x_new;
-    const Type *srcPix = (const Type *)((const uint8_t *)src.ptr[0] + y_old * src.pitch[0] + x_old * sizeof(Type));
-    Type *dstPix = (Type *)((uint8_t *)dst.ptr[0] + y_new * dst.pitch[0] + x_new * sizeof(Type));
+    const Type *srcPix = (const Type *)(src + y_old * srcPitch + x_old * sizeof(Type));
+    Type *dstPix = (Type *)(dst + y_new * dstPitch + x_new * sizeof(Type));
     dstPix[0] = srcPix[0];
 }
 
 template<typename Type>
-__global__ void kernel_maa_fturn_right(const RGYFrameInfo src, RGYFrameInfo dst) {
+__global__ void kernel_maa_fturn_right(const uint8_t *src, const int srcPitch, const int srcHeight,
+    uint8_t *dst, const int dstPitch, const int dstWidth, const int dstHeight) {
     const int x_new = blockIdx.x * blockDim.x + threadIdx.x;
     const int y_new = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x_new >= dst.width || y_new >= dst.height) return;
+    if (x_new >= dstWidth || y_new >= dstHeight) return;
 
     const int x_old = y_new;
-    const int y_old = src.height - 1 - x_new;
-    const Type *srcPix = (const Type *)((const uint8_t *)src.ptr[0] + y_old * src.pitch[0] + x_old * sizeof(Type));
-    Type *dstPix = (Type *)((uint8_t *)dst.ptr[0] + y_new * dst.pitch[0] + x_new * sizeof(Type));
+    const int y_old = srcHeight - 1 - x_new;
+    const Type *srcPix = (const Type *)(src + y_old * srcPitch + x_old * sizeof(Type));
+    Type *dstPix = (Type *)(dst + y_new * dstPitch + x_new * sizeof(Type));
     dstPix[0] = srcPix[0];
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_maa_sangnom_prepare(const RGYFrameInfo src, uint8_t *costPacked,
-    int bufPitch, int bufSliceBytes, int bufW, int bufH) {
+__global__ void kernel_maa_sangnom_prepare(const uint8_t *src, const int srcPitch, const int width, const int height,
+    uint8_t *costPacked, int bufPitch, int bufSliceBytes, int bufW, int bufH) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int ybuf = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= bufW || ybuf >= bufH) return;
@@ -100,24 +102,24 @@ __global__ void kernel_maa_sangnom_prepare(const RGYFrameInfo src, uint8_t *cost
     static const int max_val = (1 << bit_depth) - 1;
     const int yCur = 2 * ybuf;
     const int yNext = 2 * ybuf + 2;
-    const Type *cur = (const Type *)((const uint8_t *)src.ptr[0] + ((yCur < src.height) ? yCur : src.height - 1) * src.pitch[0]);
-    const Type *next = (const Type *)((const uint8_t *)src.ptr[0] + ((yNext < src.height) ? yNext : src.height - 1) * src.pitch[0]);
+    const Type *cur = (const Type *)(src + ((yCur < height) ? yCur : height - 1) * srcPitch);
+    const Type *next = (const Type *)(src + ((yNext < height) ? yNext : height - 1) * srcPitch);
 
-    const int cM3 = maa_load_pix_clamp(cur,  x - 3, src.width);
-    const int cM2 = maa_load_pix_clamp(cur,  x - 2, src.width);
-    const int cM1 = maa_load_pix_clamp(cur,  x - 1, src.width);
-    const int cP0 = maa_load_pix_clamp(cur,  x,     src.width);
-    const int cP1 = maa_load_pix_clamp(cur,  x + 1, src.width);
-    const int cP2 = maa_load_pix_clamp(cur,  x + 2, src.width);
-    const int cP3 = maa_load_pix_clamp(cur,  x + 3, src.width);
+    const int cM3 = maa_load_pix_clamp(cur,  x - 3, width);
+    const int cM2 = maa_load_pix_clamp(cur,  x - 2, width);
+    const int cM1 = maa_load_pix_clamp(cur,  x - 1, width);
+    const int cP0 = maa_load_pix_clamp(cur,  x,     width);
+    const int cP1 = maa_load_pix_clamp(cur,  x + 1, width);
+    const int cP2 = maa_load_pix_clamp(cur,  x + 2, width);
+    const int cP3 = maa_load_pix_clamp(cur,  x + 3, width);
 
-    const int nM3 = maa_load_pix_clamp(next, x - 3, src.width);
-    const int nM2 = maa_load_pix_clamp(next, x - 2, src.width);
-    const int nM1 = maa_load_pix_clamp(next, x - 1, src.width);
-    const int nP0 = maa_load_pix_clamp(next, x,     src.width);
-    const int nP1 = maa_load_pix_clamp(next, x + 1, src.width);
-    const int nP2 = maa_load_pix_clamp(next, x + 2, src.width);
-    const int nP3 = maa_load_pix_clamp(next, x + 3, src.width);
+    const int nM3 = maa_load_pix_clamp(next, x - 3, width);
+    const int nM2 = maa_load_pix_clamp(next, x - 2, width);
+    const int nM1 = maa_load_pix_clamp(next, x - 1, width);
+    const int nP0 = maa_load_pix_clamp(next, x,     width);
+    const int nP1 = maa_load_pix_clamp(next, x + 1, width);
+    const int nP2 = maa_load_pix_clamp(next, x + 2, width);
+    const int nP3 = maa_load_pix_clamp(next, x + 3, width);
 
     const int fwdCur = maa_sn3<Type>(cM1, cP0, cP1, max_val);
     const int fwdNext = maa_sn3<Type>(nP1, nP0, nM1, max_val);
@@ -165,16 +167,17 @@ __global__ void kernel_maa_sangnom_smooth_3d(const uint8_t *costPacked, uint8_t 
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_maa_sangnom_finalize(const RGYFrameInfo src, const uint8_t *smoothPacked,
-    int bufPitch, int bufSliceBytes, int bufW, int bufH, RGYFrameInfo dst, float aaf) {
+__global__ void kernel_maa_sangnom_finalize(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const uint8_t *smoothPacked,
+    int bufPitch, int bufSliceBytes, int bufW, int bufH, float aaf) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
     static const int max_val = (1 << bit_depth) - 1;
-    Type *dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    Type *dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     if ((y & 1) == 0) {
-        dstPix[0] = (Type)maa_read_pix_clamp<Type>(src, x, y);
+        dstPix[0] = (Type)maa_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
         return;
     }
 
@@ -200,24 +203,24 @@ __global__ void kernel_maa_sangnom_finalize(const RGYFrameInfo src, const uint8_
     minCost = min(minCost, b8);
 
     const int yCur = max(y - 1, 0);
-    const int yNext = min(y + 1, src.height - 1);
-    const Type *cur = (const Type *)((const uint8_t *)src.ptr[0] + yCur * src.pitch[0]);
-    const Type *next = (const Type *)((const uint8_t *)src.ptr[0] + yNext * src.pitch[0]);
+    const int yNext = min(y + 1, height - 1);
+    const Type *cur = (const Type *)(src + yCur * srcPitch);
+    const Type *next = (const Type *)(src + yNext * srcPitch);
 
-    const int cM3 = maa_load_pix_clamp(cur,  x - 3, src.width);
-    const int cM2 = maa_load_pix_clamp(cur,  x - 2, src.width);
-    const int cM1 = maa_load_pix_clamp(cur,  x - 1, src.width);
-    const int cP0 = maa_load_pix_clamp(cur,  x,     src.width);
-    const int cP1 = maa_load_pix_clamp(cur,  x + 1, src.width);
-    const int cP2 = maa_load_pix_clamp(cur,  x + 2, src.width);
-    const int cP3 = maa_load_pix_clamp(cur,  x + 3, src.width);
-    const int nM3 = maa_load_pix_clamp(next, x - 3, src.width);
-    const int nM2 = maa_load_pix_clamp(next, x - 2, src.width);
-    const int nM1 = maa_load_pix_clamp(next, x - 1, src.width);
-    const int nP0 = maa_load_pix_clamp(next, x,     src.width);
-    const int nP1 = maa_load_pix_clamp(next, x + 1, src.width);
-    const int nP2 = maa_load_pix_clamp(next, x + 2, src.width);
-    const int nP3 = maa_load_pix_clamp(next, x + 3, src.width);
+    const int cM3 = maa_load_pix_clamp(cur,  x - 3, width);
+    const int cM2 = maa_load_pix_clamp(cur,  x - 2, width);
+    const int cM1 = maa_load_pix_clamp(cur,  x - 1, width);
+    const int cP0 = maa_load_pix_clamp(cur,  x,     width);
+    const int cP1 = maa_load_pix_clamp(cur,  x + 1, width);
+    const int cP2 = maa_load_pix_clamp(cur,  x + 2, width);
+    const int cP3 = maa_load_pix_clamp(cur,  x + 3, width);
+    const int nM3 = maa_load_pix_clamp(next, x - 3, width);
+    const int nM2 = maa_load_pix_clamp(next, x - 2, width);
+    const int nM1 = maa_load_pix_clamp(next, x - 1, width);
+    const int nP0 = maa_load_pix_clamp(next, x,     width);
+    const int nP1 = maa_load_pix_clamp(next, x + 1, width);
+    const int nP2 = maa_load_pix_clamp(next, x + 2, width);
+    const int nP3 = maa_load_pix_clamp(next, x + 3, width);
 
     int result;
     if (b4 == minCost || (float)minCost > aaf) {
@@ -243,21 +246,22 @@ __global__ void kernel_maa_sangnom_finalize(const RGYFrameInfo src, const uint8_
 }
 
 template<typename Type, int bit_depth, int edgeMode>
-__global__ void kernel_maa_edge(const RGYFrameInfo src, RGYFrameInfo dst, int mthresh) {
+__global__ void kernel_maa_edge(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, int mthresh) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
     static const int max_val = (1 << bit_depth) - 1;
-    Type *dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
-    if (x < 1 || y < 1 || x >= src.width - 1 || y >= src.height - 1) {
+    Type *dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
+    if (x < 1 || y < 1 || x >= width - 1 || y >= height - 1) {
         dstPix[0] = (Type)0;
         return;
     }
 
-    const Type *rowT = (const Type *)((const uint8_t *)src.ptr[0] + (y - 1) * src.pitch[0]);
-    const Type *rowM = (const Type *)((const uint8_t *)src.ptr[0] +  y      * src.pitch[0]);
-    const Type *rowB = (const Type *)((const uint8_t *)src.ptr[0] + (y + 1) * src.pitch[0]);
+    const Type *rowT = (const Type *)(src + (y - 1) * srcPitch);
+    const Type *rowM = (const Type *)(src +  y      * srcPitch);
+    const Type *rowB = (const Type *)(src + (y + 1) * srcPitch);
     const int tl = (int)rowT[x - 1], tc = (int)rowT[x], tr = (int)rowT[x + 1];
     const int cl = (int)rowM[x - 1], cc = (int)rowM[x], cr = (int)rowM[x + 1];
     const int bl = (int)rowB[x - 1], bc = (int)rowB[x], br = (int)rowB[x + 1];
@@ -295,20 +299,21 @@ __global__ void kernel_maa_edge(const RGYFrameInfo src, RGYFrameInfo dst, int mt
 }
 
 template<typename Type>
-__global__ void kernel_maa_inflate(const RGYFrameInfo src, RGYFrameInfo dst) {
+__global__ void kernel_maa_inflate(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
-    Type *dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
-    if (x < 1 || y < 1 || x >= src.width - 1 || y >= src.height - 1) {
-        dstPix[0] = *(const Type *)((const uint8_t *)src.ptr[0] + y * src.pitch[0] + x * sizeof(Type));
+    Type *dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
+    if (x < 1 || y < 1 || x >= width - 1 || y >= height - 1) {
+        dstPix[0] = *(const Type *)(src + y * srcPitch + x * sizeof(Type));
         return;
     }
 
-    const Type *rowAbove = (const Type *)((const uint8_t *)src.ptr[0] + (y - 1) * src.pitch[0]);
-    const Type *rowMid = (const Type *)((const uint8_t *)src.ptr[0] + y * src.pitch[0]);
-    const Type *rowBelow = (const Type *)((const uint8_t *)src.ptr[0] + (y + 1) * src.pitch[0]);
+    const Type *rowAbove = (const Type *)(src + (y - 1) * srcPitch);
+    const Type *rowMid = (const Type *)(src + y * srcPitch);
+    const Type *rowBelow = (const Type *)(src + (y + 1) * srcPitch);
     const int mean8 = ((int)rowAbove[x - 1] + rowAbove[x] + rowAbove[x + 1]
         + rowMid[x - 1] + rowMid[x + 1]
         + rowBelow[x - 1] + rowBelow[x] + rowBelow[x + 1]) >> 3;
@@ -316,16 +321,17 @@ __global__ void kernel_maa_inflate(const RGYFrameInfo src, RGYFrameInfo dst) {
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_maa_merge(const RGYFrameInfo srcA, const RGYFrameInfo srcB, const RGYFrameInfo mask, RGYFrameInfo dst) {
+__global__ void kernel_maa_merge(const uint8_t *srcA, const int srcAPitch, const uint8_t *srcB, const int srcBPitch,
+    const uint8_t *mask, const int maskPitch, uint8_t *dst, const int dstPitch, const int width, const int height) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= dst.width || y >= dst.height) return;
+    if (x >= width || y >= height) return;
 
     static const int max_val = (1 << bit_depth) - 1;
-    const int a = (int)*(const Type *)((const uint8_t *)srcA.ptr[0] + y * srcA.pitch[0] + x * sizeof(Type));
-    const int b = (int)*(const Type *)((const uint8_t *)srcB.ptr[0] + y * srcB.pitch[0] + x * sizeof(Type));
-    const int m = (int)*(const Type *)((const uint8_t *)mask.ptr[0] + y * mask.pitch[0] + x * sizeof(Type));
-    Type *dPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    const int a = (int)*(const Type *)(srcA + y * srcAPitch + x * sizeof(Type));
+    const int b = (int)*(const Type *)(srcB + y * srcBPitch + x * sizeof(Type));
+    const int m = (int)*(const Type *)(mask + y * maskPitch + x * sizeof(Type));
+    Type *dPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
 
     if (m == 0) {
         dPix[0] = (Type)a;
@@ -342,11 +348,11 @@ __global__ void kernel_maa_merge(const RGYFrameInfo srcA, const RGYFrameInfo src
 }
 
 template<typename Type>
-__global__ void kernel_maa_mask_subsample(const RGYFrameInfo lumaMask, RGYFrameInfo chromaMask,
-    int subSampleX, int subSampleY) {
+__global__ void kernel_maa_mask_subsample(const uint8_t *lumaMask, const int lumaPitch, const int lumaWidth, const int lumaHeight,
+    uint8_t *chromaMask, const int chromaPitch, const int chromaWidth, const int chromaHeight, int subSampleX, int subSampleY) {
     const int cx = blockIdx.x * blockDim.x + threadIdx.x;
     const int cy = blockIdx.y * blockDim.y + threadIdx.y;
-    if (cx >= chromaMask.width || cy >= chromaMask.height) return;
+    if (cx >= chromaWidth || cy >= chromaHeight) return;
 
     const int xBase = cx * subSampleX;
     const int yBase = cy * subSampleY;
@@ -354,40 +360,42 @@ __global__ void kernel_maa_mask_subsample(const RGYFrameInfo lumaMask, RGYFrameI
     int count = 0;
     for (int dy = 0; dy < subSampleY; dy++) {
         const int yi = yBase + dy;
-        if (yi >= lumaMask.height) continue;
-        const Type *row = (const Type *)((const uint8_t *)lumaMask.ptr[0] + yi * lumaMask.pitch[0]);
+        if (yi >= lumaHeight) continue;
+        const Type *row = (const Type *)(lumaMask + yi * lumaPitch);
         for (int dx = 0; dx < subSampleX; dx++) {
             const int xi = xBase + dx;
-            if (xi >= lumaMask.width) continue;
+            if (xi >= lumaWidth) continue;
             sum += (int)row[xi];
             count++;
         }
     }
-    Type *dst = (Type *)((uint8_t *)chromaMask.ptr[0] + cy * chromaMask.pitch[0] + cx * sizeof(Type));
+    Type *dst = (Type *)(chromaMask + cy * chromaPitch + cx * sizeof(Type));
     dst[0] = (Type)((count > 0) ? (sum / count) : 0);
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_maa_show_overlay(const RGYFrameInfo src, const RGYFrameInfo mask, RGYFrameInfo dst) {
+__global__ void kernel_maa_show_overlay(const uint8_t *src, const int srcPitch, const uint8_t *mask, const int maskPitch,
+    uint8_t *dst, const int dstPitch, const int width, const int height) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= dst.width || y >= dst.height) return;
+    if (x >= width || y >= height) return;
 
     static const int max_val = (1 << bit_depth) - 1;
-    const int s = (int)*(const Type *)((const uint8_t *)src.ptr[0] + y * src.pitch[0] + x * sizeof(Type));
-    const int m = (int)*(const Type *)((const uint8_t *)mask.ptr[0] + y * mask.pitch[0] + x * sizeof(Type));
-    Type *dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    const int s = (int)*(const Type *)(src + y * srcPitch + x * sizeof(Type));
+    const int m = (int)*(const Type *)(mask + y * maskPitch + x * sizeof(Type));
+    Type *dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)min((s >> 1) + (m >> 1), max_val);
 }
 
 template<typename Type>
-__global__ void kernel_maa_show_darken(const RGYFrameInfo src, RGYFrameInfo dst) {
+__global__ void kernel_maa_show_darken(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= dst.width || y >= dst.height) return;
+    if (x >= width || y >= height) return;
 
-    const int s = (int)*(const Type *)((const uint8_t *)src.ptr[0] + y * src.pitch[0] + x * sizeof(Type));
-    Type *dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    const int s = (int)*(const Type *)(src + y * srcPitch + x * sizeof(Type));
+    Type *dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)(s >> 1);
 }
 
@@ -395,7 +403,8 @@ template<typename Type>
 static RGY_ERR maa_fturn_left_plane_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, cudaStream_t stream) {
     dim3 blockSize(MAA_BLOCK_X, MAA_BLOCK_Y);
     dim3 gridSize(divCeil(pDst->width, blockSize.x), divCeil(pDst->height, blockSize.y));
-    kernel_maa_fturn_left<Type><<<gridSize, blockSize, 0, stream>>>(*pSrc, *pDst);
+    kernel_maa_fturn_left<Type><<<gridSize, blockSize, 0, stream>>>(pSrc->ptr[0], pSrc->pitch[0], pSrc->width,
+        pDst->ptr[0], pDst->pitch[0], pDst->width, pDst->height);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -403,7 +412,8 @@ template<typename Type>
 static RGY_ERR maa_fturn_right_plane_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, cudaStream_t stream) {
     dim3 blockSize(MAA_BLOCK_X, MAA_BLOCK_Y);
     dim3 gridSize(divCeil(pDst->width, blockSize.x), divCeil(pDst->height, blockSize.y));
-    kernel_maa_fturn_right<Type><<<gridSize, blockSize, 0, stream>>>(*pSrc, *pDst);
+    kernel_maa_fturn_right<Type><<<gridSize, blockSize, 0, stream>>>(pSrc->ptr[0], pSrc->pitch[0], pSrc->height,
+        pDst->ptr[0], pDst->pitch[0], pDst->width, pDst->height);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -417,7 +427,7 @@ static RGY_ERR maa_sangnom_plane_typed(RGYFrameInfo *pDst, const RGYFrameInfo *p
     dim3 gridFrame(divCeil(pSrc->width, blockSize.x), divCeil(pSrc->height, blockSize.y));
 
     kernel_maa_sangnom_prepare<Type, bit_depth><<<gridCost, blockSize, 0, stream>>>(
-        *pSrc, (uint8_t *)costRaw->ptr, costPitch, costSliceBytes, bufW, bufH);
+        pSrc->ptr[0], pSrc->pitch[0], pSrc->width, pSrc->height, (uint8_t *)costRaw->ptr, costPitch, costSliceBytes, bufW, bufH);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
@@ -429,7 +439,8 @@ static RGY_ERR maa_sangnom_plane_typed(RGYFrameInfo *pDst, const RGYFrameInfo *p
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
     kernel_maa_sangnom_finalize<Type, bit_depth><<<gridFrame, blockSize, 0, stream>>>(
-        *pSrc, (const uint8_t *)costSmooth->ptr, costPitch, costSliceBytes, bufW, bufH, *pDst, aaf);
+        pSrc->ptr[0], pSrc->pitch[0], pDst->ptr[0], pDst->pitch[0], pSrc->width, pSrc->height,
+        (const uint8_t *)costSmooth->ptr, costPitch, costSliceBytes, bufW, bufH, aaf);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -437,7 +448,8 @@ template<typename Type, int bit_depth, int edgeMode>
 static RGY_ERR maa_edge_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, int mthreshScaled, cudaStream_t stream) {
     dim3 blockSize(MAA_BLOCK_X, MAA_BLOCK_Y);
     dim3 gridSize(divCeil(pDst->width, blockSize.x), divCeil(pDst->height, blockSize.y));
-    kernel_maa_edge<Type, bit_depth, edgeMode><<<gridSize, blockSize, 0, stream>>>(*pSrc, *pDst, mthreshScaled);
+    kernel_maa_edge<Type, bit_depth, edgeMode><<<gridSize, blockSize, 0, stream>>>(pSrc->ptr[0], pSrc->pitch[0],
+        pDst->ptr[0], pDst->pitch[0], pDst->width, pDst->height, mthreshScaled);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -459,7 +471,8 @@ template<typename Type>
 static RGY_ERR maa_inflate_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, cudaStream_t stream) {
     dim3 blockSize(MAA_BLOCK_X, MAA_BLOCK_Y);
     dim3 gridSize(divCeil(pDst->width, blockSize.x), divCeil(pDst->height, blockSize.y));
-    kernel_maa_inflate<Type><<<gridSize, blockSize, 0, stream>>>(*pSrc, *pDst);
+    kernel_maa_inflate<Type><<<gridSize, blockSize, 0, stream>>>(pSrc->ptr[0], pSrc->pitch[0],
+        pDst->ptr[0], pDst->pitch[0], pDst->width, pDst->height);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -468,7 +481,9 @@ static RGY_ERR maa_merge_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSrcA, co
     const RGYFrameInfo *pMask, cudaStream_t stream) {
     dim3 blockSize(MAA_BLOCK_X, MAA_BLOCK_Y);
     dim3 gridSize(divCeil(pDst->width, blockSize.x), divCeil(pDst->height, blockSize.y));
-    kernel_maa_merge<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pSrcA, *pSrcB, *pMask, *pDst);
+    kernel_maa_merge<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pSrcA->ptr[0], pSrcA->pitch[0],
+        pSrcB->ptr[0], pSrcB->pitch[0], pMask->ptr[0], pMask->pitch[0],
+        pDst->ptr[0], pDst->pitch[0], pDst->width, pDst->height);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -477,7 +492,9 @@ static RGY_ERR maa_mask_subsample_typed(RGYFrameInfo *pChromaMask, const RGYFram
     int subSampleX, int subSampleY, cudaStream_t stream) {
     dim3 blockSize(MAA_BLOCK_X, MAA_BLOCK_Y);
     dim3 gridSize(divCeil(pChromaMask->width, blockSize.x), divCeil(pChromaMask->height, blockSize.y));
-    kernel_maa_mask_subsample<Type><<<gridSize, blockSize, 0, stream>>>(*pLumaMask, *pChromaMask, subSampleX, subSampleY);
+    kernel_maa_mask_subsample<Type><<<gridSize, blockSize, 0, stream>>>(pLumaMask->ptr[0], pLumaMask->pitch[0],
+        pLumaMask->width, pLumaMask->height, pChromaMask->ptr[0], pChromaMask->pitch[0],
+        pChromaMask->width, pChromaMask->height, subSampleX, subSampleY);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -485,7 +502,8 @@ template<typename Type, int bit_depth>
 static RGY_ERR maa_show_overlay_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, const RGYFrameInfo *pMask, cudaStream_t stream) {
     dim3 blockSize(MAA_BLOCK_X, MAA_BLOCK_Y);
     dim3 gridSize(divCeil(pDst->width, blockSize.x), divCeil(pDst->height, blockSize.y));
-    kernel_maa_show_overlay<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pSrc, *pMask, *pDst);
+    kernel_maa_show_overlay<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pSrc->ptr[0], pSrc->pitch[0],
+        pMask->ptr[0], pMask->pitch[0], pDst->ptr[0], pDst->pitch[0], pDst->width, pDst->height);
     return err_to_rgy(cudaGetLastError());
 }
 
@@ -493,7 +511,8 @@ template<typename Type>
 static RGY_ERR maa_show_darken_typed(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, cudaStream_t stream) {
     dim3 blockSize(MAA_BLOCK_X, MAA_BLOCK_Y);
     dim3 gridSize(divCeil(pDst->width, blockSize.x), divCeil(pDst->height, blockSize.y));
-    kernel_maa_show_darken<Type><<<gridSize, blockSize, 0, stream>>>(*pSrc, *pDst);
+    kernel_maa_show_darken<Type><<<gridSize, blockSize, 0, stream>>>(pSrc->ptr[0], pSrc->pitch[0],
+        pDst->ptr[0], pDst->pitch[0], pDst->width, pDst->height);
     return err_to_rgy(cudaGetLastError());
 }
 

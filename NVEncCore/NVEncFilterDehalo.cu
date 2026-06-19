@@ -40,25 +40,26 @@ static const int DEHALO_BLOCK_X = 32;
 static const int DEHALO_BLOCK_Y = 8;
 
 template<typename Type>
-__device__ __forceinline__ int dehalo_read_pix_clamp(const RGYFrameInfo frame, int x, int y) {
-    x = clamp(x, 0, frame.width - 1);
-    y = clamp(y, 0, frame.height - 1);
-    const auto ptr = (const Type *)((const uint8_t *)frame.ptr[0] + y * frame.pitch[0] + x * sizeof(Type));
+__device__ __forceinline__ int dehalo_read_pix_clamp(const uint8_t *frame, const int pitch, const int width, const int height, int x, int y) {
+    x = clamp(x, 0, width - 1);
+    y = clamp(y, 0, height - 1);
+    const auto ptr = (const Type *)(frame + y * pitch + x * sizeof(Type));
     return (int)ptr[0];
 }
 
 template<typename Type>
-__global__ void kernel_dehalo_expand(const RGYFrameInfo src, RGYFrameInfo dst, const float rx, const float ry) {
+__global__ void kernel_dehalo_expand(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const float rx, const float ry) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
     const int irx = (int)ceilf(rx);
     const int iry = (int)ceilf(ry);
     const float invRx2 = 1.0f / (rx * rx);
     const float invRy2 = 1.0f / (ry * ry);
 
-    int m = dehalo_read_pix_clamp<Type>(src, x, y);
+    int m = dehalo_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
     for (int dy = -iry; dy <= iry; dy++) {
         const float dyF = (float)dy;
         const float yTerm = dyF * dyF * invRy2;
@@ -67,27 +68,28 @@ __global__ void kernel_dehalo_expand(const RGYFrameInfo src, RGYFrameInfo dst, c
         for (int dx = -irx; dx <= irx; dx++) {
             const float dxF = (float)dx;
             if (dxF * dxF * invRx2 > xLimitSq) continue;
-            const int v = dehalo_read_pix_clamp<Type>(src, x + dx, y + dy);
+            const int v = dehalo_read_pix_clamp<Type>(src, srcPitch, width, height, x + dx, y + dy);
             if (v > m) m = v;
         }
     }
 
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)m;
 }
 
 template<typename Type>
-__global__ void kernel_dehalo_inpand(const RGYFrameInfo src, RGYFrameInfo dst, const float rx, const float ry) {
+__global__ void kernel_dehalo_inpand(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const float rx, const float ry) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
     const int irx = (int)ceilf(rx);
     const int iry = (int)ceilf(ry);
     const float invRx2 = 1.0f / (rx * rx);
     const float invRy2 = 1.0f / (ry * ry);
 
-    int m = dehalo_read_pix_clamp<Type>(src, x, y);
+    int m = dehalo_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
     for (int dy = -iry; dy <= iry; dy++) {
         const float dyF = (float)dy;
         const float yTerm = dyF * dyF * invRy2;
@@ -96,26 +98,27 @@ __global__ void kernel_dehalo_inpand(const RGYFrameInfo src, RGYFrameInfo dst, c
         for (int dx = -irx; dx <= irx; dx++) {
             const float dxF = (float)dx;
             if (dxF * dxF * invRx2 > xLimitSq) continue;
-            const int v = dehalo_read_pix_clamp<Type>(src, x + dx, y + dy);
+            const int v = dehalo_read_pix_clamp<Type>(src, srcPitch, width, height, x + dx, y + dy);
             if (v < m) m = v;
         }
     }
 
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)m;
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_dehalo_mask(const RGYFrameInfo src, const RGYFrameInfo expanded, const RGYFrameInfo inpand,
-    RGYFrameInfo mask, const int loScaled, const int hiScaled) {
+__global__ void kernel_dehalo_mask(const uint8_t *src, const int srcPitch, const uint8_t *expanded, const int expandedPitch,
+    const uint8_t *inpand, const int inpandPitch, uint8_t *mask, const int maskPitch,
+    const int width, const int height, const int loScaled, const int hiScaled) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
     static const int max_val = (1 << bit_depth) - 1;
-    const int s = dehalo_read_pix_clamp<Type>(src, x, y);
-    const int e = dehalo_read_pix_clamp<Type>(expanded, x, y);
-    const int i = dehalo_read_pix_clamp<Type>(inpand, x, y);
+    const int s = dehalo_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
+    const int e = dehalo_read_pix_clamp<Type>(expanded, expandedPitch, width, height, x, y);
+    const int i = dehalo_read_pix_clamp<Type>(inpand, inpandPitch, width, height, x, y);
     const int range = e - i;
 
     int abs_diff = 0;
@@ -135,28 +138,29 @@ __global__ void kernel_dehalo_mask(const RGYFrameInfo src, const RGYFrameInfo ex
         m = (abs_diff >= loScaled) ? max_val : 0;
     }
 
-    auto maskPix = (Type *)((uint8_t *)mask.ptr[0] + y * mask.pitch[0] + x * sizeof(Type));
+    auto maskPix = (Type *)(mask + y * maskPitch + x * sizeof(Type));
     maskPix[0] = (Type)m;
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_dehalo_apply(const RGYFrameInfo src, const RGYFrameInfo expanded, const RGYFrameInfo inpand,
-    const RGYFrameInfo mask, RGYFrameInfo dst, const float darkstr, const float brightstr) {
+__global__ void kernel_dehalo_apply(const uint8_t *src, const int srcPitch, const uint8_t *expanded, const int expandedPitch,
+    const uint8_t *inpand, const int inpandPitch, const uint8_t *mask, const int maskPitch,
+    uint8_t *dst, const int dstPitch, const int width, const int height, const float darkstr, const float brightstr) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
     static const int max_val = (1 << bit_depth) - 1;
-    const float s = (float)dehalo_read_pix_clamp<Type>(src, x, y);
-    const float e = (float)dehalo_read_pix_clamp<Type>(expanded, x, y);
-    const float i = (float)dehalo_read_pix_clamp<Type>(inpand, x, y);
-    const float m = (float)dehalo_read_pix_clamp<Type>(mask, x, y);
+    const float s = (float)dehalo_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
+    const float e = (float)dehalo_read_pix_clamp<Type>(expanded, expandedPitch, width, height, x, y);
+    const float i = (float)dehalo_read_pix_clamp<Type>(inpand, inpandPitch, width, height, x, y);
+    const float m = (float)dehalo_read_pix_clamp<Type>(mask, maskPitch, width, height, x, y);
     const float mn = m / (float)max_val;
 
     float r = s - mn * darkstr * (s - i) + mn * brightstr * (e - s);
     r = clamp(r, 0.0f, (float)max_val);
 
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)(int)(r + 0.5f);
 }
 
@@ -166,20 +170,29 @@ static RGY_ERR dehalo_process_y_typed(RGYFrameInfo *pOutputFrame, const RGYFrame
     const VppDehalo& prm, const int loScaled, const int hiScaled, cudaStream_t stream) {
     dim3 blockSize(DEHALO_BLOCK_X, DEHALO_BLOCK_Y);
     dim3 gridSize(divCeil(pInputFrame->width, blockSize.x), divCeil(pInputFrame->height, blockSize.y));
+    const auto width = pInputFrame->width;
+    const auto height = pInputFrame->height;
 
-    kernel_dehalo_expand<Type><<<gridSize, blockSize, 0, stream>>>(*pInputFrame, *pExpanded, prm.rx, prm.ry);
+    kernel_dehalo_expand<Type><<<gridSize, blockSize, 0, stream>>>(pInputFrame->ptr[0], pInputFrame->pitch[0],
+        pExpanded->ptr[0], pExpanded->pitch[0], width, height, prm.rx, prm.ry);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
-    kernel_dehalo_inpand<Type><<<gridSize, blockSize, 0, stream>>>(*pInputFrame, *pInpand, prm.rx, prm.ry);
+    kernel_dehalo_inpand<Type><<<gridSize, blockSize, 0, stream>>>(pInputFrame->ptr[0], pInputFrame->pitch[0],
+        pInpand->ptr[0], pInpand->pitch[0], width, height, prm.rx, prm.ry);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
-    kernel_dehalo_mask<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pInputFrame, *pExpanded, *pInpand, *pMask, loScaled, hiScaled);
+    kernel_dehalo_mask<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pInputFrame->ptr[0], pInputFrame->pitch[0],
+        pExpanded->ptr[0], pExpanded->pitch[0], pInpand->ptr[0], pInpand->pitch[0],
+        pMask->ptr[0], pMask->pitch[0], width, height, loScaled, hiScaled);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
-    kernel_dehalo_apply<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pInputFrame, *pExpanded, *pInpand, *pMask, *pOutputFrame, prm.darkstr, prm.brightstr);
+    kernel_dehalo_apply<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pInputFrame->ptr[0], pInputFrame->pitch[0],
+        pExpanded->ptr[0], pExpanded->pitch[0], pInpand->ptr[0], pInpand->pitch[0],
+        pMask->ptr[0], pMask->pitch[0], pOutputFrame->ptr[0], pOutputFrame->pitch[0],
+        width, height, prm.darkstr, prm.brightstr);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 

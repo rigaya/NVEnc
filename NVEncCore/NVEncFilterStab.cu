@@ -32,15 +32,15 @@ __device__ __forceinline__ int stab_bitrev8(int x) {
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_stab_luma_downsample(const RGYFrameInfo src, float2 *dst) {
+__global__ void kernel_stab_luma_downsample(const uint8_t *src, const int srcPitch, const int width, const int height, float2 *dst) {
     const int ox = blockIdx.x * blockDim.x + threadIdx.x;
     const int oy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ox >= STAB_FFT_N || oy >= STAB_FFT_N) return;
 
-    const float sx0f = (float)ox * (float)src.width / (float)STAB_FFT_N;
-    const float sx1f = (float)(ox + 1) * (float)src.width / (float)STAB_FFT_N;
-    const float sy0f = (float)oy * (float)src.height / (float)STAB_FFT_N;
-    const float sy1f = (float)(oy + 1) * (float)src.height / (float)STAB_FFT_N;
+    const float sx0f = (float)ox * (float)width / (float)STAB_FFT_N;
+    const float sx1f = (float)(ox + 1) * (float)width / (float)STAB_FFT_N;
+    const float sy0f = (float)oy * (float)height / (float)STAB_FFT_N;
+    const float sy1f = (float)(oy + 1) * (float)height / (float)STAB_FFT_N;
     const int sx0 = (int)sx0f;
     const int sy0 = (int)sy0f;
     int sx1 = (int)sx1f; if (sx1 <= sx0) sx1 = sx0 + 1;
@@ -48,9 +48,9 @@ __global__ void kernel_stab_luma_downsample(const RGYFrameInfo src, float2 *dst)
 
     float sum = 0.0f;
     int count = 0;
-    for (int sy = sy0; sy < sy1 && sy < src.height; sy++) {
-        for (int sx = sx0; sx < sx1 && sx < src.width; sx++) {
-            const auto ptr = (const Type *)((const uint8_t *)src.ptr[0] + sy * src.pitch[0] + sx * sizeof(Type));
+    for (int sy = sy0; sy < sy1 && sy < height; sy++) {
+        for (int sx = sx0; sx < sx1 && sx < width; sx++) {
+            const auto ptr = (const Type *)(src + sy * srcPitch + sx * sizeof(Type));
             sum += (float)ptr[0];
             count++;
         }
@@ -107,32 +107,33 @@ __global__ void kernel_stab_cross_spectrum(const float2 *cur, const float2 *prev
 }
 
 template<typename Type>
-__device__ __forceinline__ float stab_sample(const RGYFrameInfo src, int x, int y, const int borderMode, const int fillValue) {
-    if (x < 0 || x >= src.width || y < 0 || y >= src.height) {
+__device__ __forceinline__ float stab_sample(const uint8_t *src, const int srcPitch, const int width, const int height,
+    int x, int y, const int borderMode, const int fillValue) {
+    if (x < 0 || x >= width || y < 0 || y >= height) {
         if (borderMode == VPP_STAB_BORDER_BLACK) {
             return (float)fillValue;
         } else if (borderMode == VPP_STAB_BORDER_CLAMP) {
-            x = clamp(x, 0, src.width - 1);
-            y = clamp(y, 0, src.height - 1);
+            x = clamp(x, 0, width - 1);
+            y = clamp(y, 0, height - 1);
         } else {
             if (x < 0) x = -x - 1;
-            if (x >= src.width) x = 2 * src.width - x - 1;
+            if (x >= width) x = 2 * width - x - 1;
             if (y < 0) y = -y - 1;
-            if (y >= src.height) y = 2 * src.height - y - 1;
-            x = clamp(x, 0, src.width - 1);
-            y = clamp(y, 0, src.height - 1);
+            if (y >= height) y = 2 * height - y - 1;
+            x = clamp(x, 0, width - 1);
+            y = clamp(y, 0, height - 1);
         }
     }
-    const auto ptr = (const Type *)((const uint8_t *)src.ptr[0] + y * src.pitch[0] + x * sizeof(Type));
+    const auto ptr = (const Type *)(src + y * srcPitch + x * sizeof(Type));
     return (float)ptr[0];
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_stab_warp(const RGYFrameInfo src, RGYFrameInfo dst, const float shiftX, const float shiftY,
-    const int borderMode, const int fillValue) {
+__global__ void kernel_stab_warp(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const float shiftX, const float shiftY, const int borderMode, const int fillValue) {
     const int ox = blockIdx.x * blockDim.x + threadIdx.x;
     const int oy = blockIdx.y * blockDim.y + threadIdx.y;
-    if (ox >= src.width || oy >= src.height) return;
+    if (ox >= width || oy >= height) return;
 
     const float sxF = (float)ox + 0.5f - shiftX;
     const float syF = (float)oy + 0.5f - shiftY;
@@ -143,16 +144,16 @@ __global__ void kernel_stab_warp(const RGYFrameInfo src, RGYFrameInfo dst, const
     const float fx = sxc - (float)sx0;
     const float fy = syc - (float)sy0;
 
-    const float v00 = stab_sample<Type>(src, sx0,     sy0,     borderMode, fillValue);
-    const float v10 = stab_sample<Type>(src, sx0 + 1, sy0,     borderMode, fillValue);
-    const float v01 = stab_sample<Type>(src, sx0,     sy0 + 1, borderMode, fillValue);
-    const float v11 = stab_sample<Type>(src, sx0 + 1, sy0 + 1, borderMode, fillValue);
+    const float v00 = stab_sample<Type>(src, srcPitch, width, height, sx0,     sy0,     borderMode, fillValue);
+    const float v10 = stab_sample<Type>(src, srcPitch, width, height, sx0 + 1, sy0,     borderMode, fillValue);
+    const float v01 = stab_sample<Type>(src, srcPitch, width, height, sx0,     sy0 + 1, borderMode, fillValue);
+    const float v11 = stab_sample<Type>(src, srcPitch, width, height, sx0 + 1, sy0 + 1, borderMode, fillValue);
     const float v = v00 * (1.0f - fx) * (1.0f - fy)
         + v10 * fx * (1.0f - fy)
         + v01 * (1.0f - fx) * fy
         + v11 * fx * fy;
     static const int max_val = (1 << bit_depth) - 1;
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + oy * dst.pitch[0] + ox * sizeof(Type));
+    auto dstPix = (Type *)(dst + oy * dstPitch + ox * sizeof(Type));
     dstPix[0] = (Type)clamp((int)(v + 0.5f), 0, max_val);
 }
 
@@ -161,7 +162,8 @@ static RGY_ERR stab_downsample_y(const RGYFrameInfo *pInputFrame, CUMemBuf *srcR
     const auto planeY = getPlane(pInputFrame, RGY_PLANE_Y);
     dim3 block(32, 8);
     dim3 grid(divCeil(STAB_FFT_N, block.x), divCeil(STAB_FFT_N, block.y));
-    kernel_stab_luma_downsample<Type, bit_depth><<<grid, block, 0, stream>>>(planeY, (float2 *)srcReal->ptr);
+    kernel_stab_luma_downsample<Type, bit_depth><<<grid, block, 0, stream>>>(planeY.ptr[0], planeY.pitch[0],
+        planeY.width, planeY.height, (float2 *)srcReal->ptr);
     auto cudaerr = cudaGetLastError();
     return (cudaerr == cudaSuccess) ? RGY_ERR_NONE : err_to_rgy(cudaerr);
 }
@@ -195,7 +197,8 @@ static RGY_ERR stab_warp_plane(RGYFrameInfo *pOut, const RGYFrameInfo *pInputFra
     auto dst = getPlane(pOut, plane);
     dim3 block(32, 8);
     dim3 grid(divCeil(src.width, block.x), divCeil(src.height, block.y));
-    kernel_stab_warp<Type, bit_depth><<<grid, block, 0, stream>>>(src, dst, shiftX, shiftY, border, fillValue);
+    kernel_stab_warp<Type, bit_depth><<<grid, block, 0, stream>>>(src.ptr[0], src.pitch[0],
+        dst.ptr[0], dst.pitch[0], src.width, src.height, shiftX, shiftY, border, fillValue);
     auto cudaerr = cudaGetLastError();
     return (cudaerr == cudaSuccess) ? RGY_ERR_NONE : err_to_rgy(cudaerr);
 }

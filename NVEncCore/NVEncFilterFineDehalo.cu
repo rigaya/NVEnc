@@ -15,10 +15,10 @@ static const int FINEDEHALO_BLOCK_X = 32;
 static const int FINEDEHALO_BLOCK_Y = 8;
 
 template<typename Type>
-__device__ __forceinline__ int fdh_read_pix_clamp(const RGYFrameInfo frame, int x, int y) {
-    x = clamp(x, 0, frame.width - 1);
-    y = clamp(y, 0, frame.height - 1);
-    const auto ptr = (const Type *)((const uint8_t *)frame.ptr[0] + y * frame.pitch[0] + x * sizeof(Type));
+__device__ __forceinline__ int fdh_read_pix_clamp(const uint8_t *frame, const int pitch, const int width, const int height, int x, int y) {
+    x = clamp(x, 0, width - 1);
+    y = clamp(y, 0, height - 1);
+    const auto ptr = (const Type *)(frame + y * pitch + x * sizeof(Type));
     return (int)ptr[0];
 }
 
@@ -33,20 +33,21 @@ __device__ __forceinline__ int fdh_ramp(const int v, const int lo, const int hi)
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_fdh_edge(const RGYFrameInfo src, RGYFrameInfo dst, const int lo, const int hi, const int edgeMode) {
+__global__ void kernel_fdh_edge(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height, const int lo, const int hi, const int edgeMode) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
 
-    const int tl = fdh_read_pix_clamp<Type>(src, x - 1, y - 1);
-    const int tc = fdh_read_pix_clamp<Type>(src, x,     y - 1);
-    const int tr = fdh_read_pix_clamp<Type>(src, x + 1, y - 1);
-    const int cl = fdh_read_pix_clamp<Type>(src, x - 1, y);
-    const int cc = fdh_read_pix_clamp<Type>(src, x,     y);
-    const int cr = fdh_read_pix_clamp<Type>(src, x + 1, y);
-    const int bl = fdh_read_pix_clamp<Type>(src, x - 1, y + 1);
-    const int bc = fdh_read_pix_clamp<Type>(src, x,     y + 1);
-    const int br = fdh_read_pix_clamp<Type>(src, x + 1, y + 1);
+    const int tl = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y - 1);
+    const int tc = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y - 1);
+    const int tr = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y - 1);
+    const int cl = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y);
+    const int cc = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y);
+    const int cr = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y);
+    const int bl = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x - 1, y + 1);
+    const int bc = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x,     y + 1);
+    const int br = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x + 1, y + 1);
 
     int g = 0;
     if (edgeMode == 1) { // scharr
@@ -73,68 +74,73 @@ __global__ void kernel_fdh_edge(const RGYFrameInfo src, RGYFrameInfo dst, const 
     }
 
     const int out = fdh_ramp<Type, bit_depth>(g, lo, hi);
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)out;
 }
 
 template<typename Type>
-__global__ void kernel_fdh_expand3x3(const RGYFrameInfo src, RGYFrameInfo dst) {
+__global__ void kernel_fdh_expand3x3(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
     int m = 0;
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            m = max(m, fdh_read_pix_clamp<Type>(src, x + dx, y + dy));
+            m = max(m, fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x + dx, y + dy));
         }
     }
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)m;
 }
 
 template<typename Type>
-__global__ void kernel_fdh_inpand3x3(const RGYFrameInfo src, RGYFrameInfo dst) {
+__global__ void kernel_fdh_inpand3x3(const uint8_t *src, const int srcPitch, uint8_t *dst, const int dstPitch,
+    const int width, const int height) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
-    int m = fdh_read_pix_clamp<Type>(src, x, y);
+    if (x >= width || y >= height) return;
+    int m = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            m = min(m, fdh_read_pix_clamp<Type>(src, x + dx, y + dy));
+            m = min(m, fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x + dx, y + dy));
         }
     }
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)m;
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_fdh_limitmask(const RGYFrameInfo src, const RGYFrameInfo dehaloed, RGYFrameInfo dst, const int lo, const int hi) {
+__global__ void kernel_fdh_limitmask(const uint8_t *src, const int srcPitch, const uint8_t *dehaloed, const int dehaloedPitch,
+    uint8_t *dst, const int dstPitch, const int width, const int height, const int lo, const int hi) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
-    const int s = fdh_read_pix_clamp<Type>(src, x, y);
-    const int d = fdh_read_pix_clamp<Type>(dehaloed, x, y);
+    if (x >= width || y >= height) return;
+    const int s = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
+    const int d = fdh_read_pix_clamp<Type>(dehaloed, dehaloedPitch, width, height, x, y);
     const int out = fdh_ramp<Type, bit_depth>(max(s - d, 0), lo, hi);
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)out;
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_fdh_combine(const RGYFrameInfo src, const RGYFrameInfo dehaloed, const RGYFrameInfo em,
-    const RGYFrameInfo linemask, RGYFrameInfo dst, const int showmask) {
+__global__ void kernel_fdh_combine(const uint8_t *src, const int srcPitch, const uint8_t *dehaloed, const int dehaloedPitch,
+    const uint8_t *em, const int emPitch, const uint8_t *linemask, const int linemaskPitch,
+    uint8_t *dst, const int dstPitch, const int width, const int height, const int showmask) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= src.width || y >= src.height) return;
+    if (x >= width || y >= height) return;
     static const int max_val = (1 << bit_depth) - 1;
-    const int s = fdh_read_pix_clamp<Type>(src, x, y);
-    const int d = fdh_read_pix_clamp<Type>(dehaloed, x, y);
-    const int finalMask = min(max_val - fdh_read_pix_clamp<Type>(em, x, y), fdh_read_pix_clamp<Type>(linemask, x, y));
+    const int s = fdh_read_pix_clamp<Type>(src, srcPitch, width, height, x, y);
+    const int d = fdh_read_pix_clamp<Type>(dehaloed, dehaloedPitch, width, height, x, y);
+    const int finalMask = min(max_val - fdh_read_pix_clamp<Type>(em, emPitch, width, height, x, y),
+        fdh_read_pix_clamp<Type>(linemask, linemaskPitch, width, height, x, y));
     int out = finalMask;
     if (showmask != 4) {
         const float m = (float)finalMask / (float)max_val;
         out = clamp((int)((float)s + ((float)d - (float)s) * m + 0.5f), 0, max_val);
     }
-    auto dstPix = (Type *)((uint8_t *)dst.ptr[0] + y * dst.pitch[0] + x * sizeof(Type));
+    auto dstPix = (Type *)(dst + y * dstPitch + x * sizeof(Type));
     dstPix[0] = (Type)out;
 }
 
@@ -152,23 +158,32 @@ static RGY_ERR finedehalo_process_y_typed(RGYFrameInfo *pOut, const RGYFrameInfo
     dim3 blockSize(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
     dim3 gridSize(divCeil(pInput->width, blockSize.x), divCeil(pInput->height, blockSize.y));
     const int edgeMode = fdh_edge_mode(prm.edge);
+    const auto width = pInput->width;
+    const auto height = pInput->height;
 
-    kernel_fdh_edge<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pInput, *pEdges, thmi, thma, edgeMode);
+    kernel_fdh_edge<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pInput->ptr[0], pInput->pitch[0],
+        pEdges->ptr[0], pEdges->pitch[0], width, height, thmi, thma, edgeMode);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
-    kernel_fdh_expand3x3<Type><<<gridSize, blockSize, 0, stream>>>(*pEdges, *pMorphTmp);
+    kernel_fdh_expand3x3<Type><<<gridSize, blockSize, 0, stream>>>(pEdges->ptr[0], pEdges->pitch[0],
+        pMorphTmp->ptr[0], pMorphTmp->pitch[0], width, height);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
-    kernel_fdh_inpand3x3<Type><<<gridSize, blockSize, 0, stream>>>(*pMorphTmp, *pEy);
+    kernel_fdh_inpand3x3<Type><<<gridSize, blockSize, 0, stream>>>(pMorphTmp->ptr[0], pMorphTmp->pitch[0],
+        pEy->ptr[0], pEy->pitch[0], width, height);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
-    kernel_fdh_expand3x3<Type><<<gridSize, blockSize, 0, stream>>>(*pEy, *pMorphTmp);
+    kernel_fdh_expand3x3<Type><<<gridSize, blockSize, 0, stream>>>(pEy->ptr[0], pEy->pitch[0],
+        pMorphTmp->ptr[0], pMorphTmp->pitch[0], width, height);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
-    kernel_fdh_inpand3x3<Type><<<gridSize, blockSize, 0, stream>>>(*pMorphTmp, *pEm);
+    kernel_fdh_inpand3x3<Type><<<gridSize, blockSize, 0, stream>>>(pMorphTmp->ptr[0], pMorphTmp->pitch[0],
+        pEm->ptr[0], pEm->pitch[0], width, height);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
-    kernel_fdh_limitmask<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pInput, *pDehaloed, *pLineMask, thlimi, thlima);
+    kernel_fdh_limitmask<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pInput->ptr[0], pInput->pitch[0],
+        pDehaloed->ptr[0], pDehaloed->pitch[0], pLineMask->ptr[0], pLineMask->pitch[0],
+        width, height, thlimi, thlima);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
 
@@ -179,7 +194,10 @@ static RGY_ERR finedehalo_process_y_typed(RGYFrameInfo *pOut, const RGYFrameInfo
     } else if (prm.showmask == 3) {
         return copyPlaneAsync(pOut, pLineMask, stream);
     }
-    kernel_fdh_combine<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(*pInput, *pDehaloed, *pEm, *pLineMask, *pOut, prm.showmask);
+    kernel_fdh_combine<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pInput->ptr[0], pInput->pitch[0],
+        pDehaloed->ptr[0], pDehaloed->pitch[0], pEm->ptr[0], pEm->pitch[0],
+        pLineMask->ptr[0], pLineMask->pitch[0], pOut->ptr[0], pOut->pitch[0],
+        width, height, prm.showmask);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) return err_to_rgy(cudaerr);
     return RGY_ERR_NONE;
