@@ -118,6 +118,14 @@ const RGYFrameInfo *RGYFrameDataRtgmcSearchLuma::frame() const {
     return m_frame ? &m_frame->frame : nullptr;
 }
 
+static void eraseRtgmcSearchLumaFrameData(std::vector<std::shared_ptr<RGYFrameData>>& dataList) {
+    // The attached search-luma data owns a pooled frame. Drop stale attachments
+    // before reusing frame metadata or the search-luma pool cannot recycle.
+    dataList.erase(std::remove_if(dataList.begin(), dataList.end(), [](const std::shared_ptr<RGYFrameData>& data) {
+        return data && data->dataType() == RGY_FRAME_DATA_RTGMC_SEARCH_LUMA;
+    }), dataList.end());
+}
+
 static RGY_CSP rtgmcSearchLumaCsp(const RGYFrameInfo &frameInfo) {
     return (RGY_CSP_BIT_DEPTH[frameInfo.csp] > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
 }
@@ -970,6 +978,7 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefi
             return RGY_ERR_MEMORY_ALLOC;
         }
         copyFramePropWithoutRes(&searchLumaFrame->frame, cur);
+        searchLumaFrame->frame.dataList.clear();
     }
 
     const auto planePrev2 = getPlane(prev2, RGY_PLANE_Y);
@@ -1368,6 +1377,7 @@ RGY_ERR NVEncFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefi
     }
 
     copyFramePropWithoutRes(pOut, cur);
+    eraseRtgmcSearchLumaFrameData(pOut->dataList);
     if (prm->attachSearchLuma) {
         pOut->dataList.push_back(std::make_shared<RGYFrameDataRtgmcSearchLuma>(searchLumaFrame, RGY_CSP_BIT_DEPTH[cur->csp]));
     }

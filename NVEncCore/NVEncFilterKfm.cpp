@@ -162,6 +162,17 @@ static void kfmEraseInternalFrameData(RGYFrameInfo *frame) {
     }), frame->dataList.end());
 }
 
+static void kfmEraseRtgmcSearchLumaFrameData(RGYFrameInfo *frame) {
+    if (!frame) {
+        return;
+    }
+    // RTGMC search luma is a shared_ptr side-data to a pooled frame. KFM keeps
+    // source/UCF work frames in caches, so carrying it here prevents pool reuse.
+    frame->dataList.erase(std::remove_if(frame->dataList.begin(), frame->dataList.end(), [](const std::shared_ptr<RGYFrameData>& data) {
+        return data && data->dataType() == RGY_FRAME_DATA_RTGMC_SEARCH_LUMA;
+    }), frame->dataList.end());
+}
+
 static int kfmFrameParity(const RGYFrameInfo *frame) {
     return (frame && (frame->picstruct & RGY_PICSTRUCT_BFF)) ? 0 : 1;
 }
@@ -1358,6 +1369,7 @@ RGY_ERR NVEncFilterKfm::padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFram
         return sts;
     }
     copyFramePropWithoutRes(pPaddedFrame, pSourceFrame);
+    kfmEraseRtgmcSearchLumaFrameData(pPaddedFrame);
     pPaddedFrame->picstruct = RGY_PICSTRUCT_FRAME;
     return RGY_ERR_NONE;
 }
@@ -1390,6 +1402,7 @@ RGY_ERR NVEncFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream_t
         return sts;
     }
     copyFramePropWithoutRes(&entry.frame->frame, frame);
+    kfmEraseRtgmcSearchLumaFrameData(&entry.frame->frame);
     m_sourceCache.push_back(std::move(entry));
     auto& cachedEntry = m_sourceCache.back();
 
@@ -1603,18 +1616,35 @@ size_t NVEncFilterKfm::deint60CacheLimit() const {
 
 int NVEncFilterKfm::sourceCacheTrimFloor() const {
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
-    if (!prm || prm->kfm.mode != VppKfmMode::VFR || m_nextSwitchN60 <= 0) {
+    if (!prm) {
         return 0;
     }
-    int lazyLookbehind = 0;
-    if (lazyDeint60Enabled(*prm) && m_deint60Rtgmc) {
-        lazyLookbehind = m_deint60Rtgmc->requiredPrimingSourceFrames();
-        if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
-            lazyLookbehind += std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames())
-                + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4 + KFM_UCF_LAZY_SOURCE_CACHE_MARGIN;
+    int trimFloor = 0;
+    if (prm->kfm.mode == VppKfmMode::VFR) {
+        if (m_nextSwitchN60 <= 0) {
+            return 0;
         }
+        int lazyLookbehind = 0;
+        if (lazyDeint60Enabled(*prm) && m_deint60Rtgmc) {
+            lazyLookbehind = m_deint60Rtgmc->requiredPrimingSourceFrames();
+            if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
+                lazyLookbehind += std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames())
+                    + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4 + KFM_UCF_LAZY_SOURCE_CACHE_MARGIN;
+            }
+        }
+        trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND - lazyLookbehind);
+    } else if (prm->kfm.mode == VppKfmMode::P60) {
+        int lookbehind = KFM_VFR_SOURCE_TRIM_LOOKBEHIND;
+        if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
+            lookbehind += std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames())
+                + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4;
+        }
+        // P60 does not advance m_nextSwitchN60. Use emitted 60p output position
+        // instead, otherwise source slots stay live for the whole clip.
+        trimFloor = std::max(0, (m_timecodeFrameIndex >> 1) - lookbehind);
+    } else {
+        return 0;
     }
-    auto trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND - lazyLookbehind);
     for (const auto& pending : m_pendingUcfNoiseResults) {
         if (pending.sourceIndex >= 0) {
             trimFloor = std::min(trimFloor, pending.sourceIndex);
@@ -1632,10 +1662,21 @@ int NVEncFilterKfm::sourceCacheTrimFloor() const {
 
 int NVEncFilterKfm::deint60CacheTrimFloor() const {
     const auto prm = std::dynamic_pointer_cast<NVEncFilterParamKfm>(m_param);
-    if (!prm || prm->kfm.mode != VppKfmMode::VFR || m_nextSwitchN60 <= 0) {
+    if (!prm) {
         return 0;
     }
-    return std::max(0, m_nextSwitchN60 - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
+    if (prm->kfm.mode == VppKfmMode::VFR) {
+        if (m_nextSwitchN60 <= 0) {
+            return 0;
+        }
+        return std::max(0, m_nextSwitchN60 - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
+    }
+    if (prm->kfm.mode == VppKfmMode::P60) {
+        // P60 emits one output per n60, so m_timecodeFrameIndex is the deint60
+        // progress marker used to retire old lane cache entries.
+        return std::max(0, m_timecodeFrameIndex - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
+    }
+    return 0;
 }
 
 bool NVEncFilterKfm::lazyDeint60Enabled(const NVEncFilterParamKfm& prm) const {
@@ -1966,6 +2007,7 @@ RGY_ERR NVEncFilterKfm::copyUcfFrame(const NVEncFilterParamKfm& prm, RGYFrameInf
     }
     copyFramePropWithoutRes(pOutputFrame, pInputFrame);
     pOutputFrame->dataList = pInputFrame->dataList;
+    kfmEraseRtgmcSearchLumaFrameData(pOutputFrame);
     return RGY_ERR_NONE;
 }
 
@@ -2116,6 +2158,7 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseFieldCropFrame(RGYFrameInfo **ppFieldFram
     pFieldFrame->picstruct = RGY_PICSTRUCT_FRAME;
     pFieldFrame->flags = RGY_FRAME_FLAG_NONE;
     pFieldFrame->dataList = pInputFrame->dataList;
+    kfmEraseRtgmcSearchLumaFrameData(pFieldFrame);
     writeFrameInfoDump("ucf-field", pFieldFrame);
     auto sts = dumpStageFrame("ucf-field", pFieldFrame, sourceIndex * 2 + fieldParity, stream,
         (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
@@ -2247,6 +2290,7 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, i
     pGaussFrame->picstruct = RGY_PICSTRUCT_FRAME;
     pGaussFrame->flags = RGY_FRAME_FLAG_NONE;
     pGaussFrame->dataList = pInputFrame->dataList;
+    kfmEraseRtgmcSearchLumaFrameData(pGaussFrame);
     writeFrameInfoDump("ucf-noise-gauss", pGaussFrame);
     sts = dumpStageFrame("ucf-noise-gauss", pGaussFrame, m_timecodeFrameIndex * 2 + frameIndex, stream,
         (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
@@ -2398,6 +2442,7 @@ RGY_ERR NVEncFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGau
 
     copyFramePropWithoutRes(pGaussFrame, &fieldInfo);
     pGaussFrame->dataList = pInputFrame->dataList;
+    kfmEraseRtgmcSearchLumaFrameData(pGaussFrame);
     writeFrameInfoDump("ucf-noise-gauss", pGaussFrame);
     sts = dumpStageFrame("ucf-noise-gauss", pGaussFrame, sourceIndex * 2 + frameIndex, stream,
         (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
@@ -2477,6 +2522,7 @@ RGY_ERR NVEncFilterKfm::runUcfNoiseLimitStageFromSource(const NVEncFilterParamKf
 
     copyFramePropWithoutRes(pOutputFrame, pNoiseFrame);
     pOutputFrame->dataList = pSrcFrame->dataList;
+    kfmEraseRtgmcSearchLumaFrameData(pOutputFrame);
     writeFrameInfoDump("ucf-noise-clip", pOutputFrame);
     auto sts = dumpStageFrame("ucf-noise-clip", pOutputFrame, fieldIndex, stream,
         (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
@@ -2541,6 +2587,7 @@ RGY_ERR NVEncFilterKfm::runUcfNoiseLimitStage(const NVEncFilterParamKfm& prm, co
 
     copyFramePropWithoutRes(pOutputFrame, pSrcFrame);
     pOutputFrame->dataList = pSrcFrame->dataList;
+    kfmEraseRtgmcSearchLumaFrameData(pOutputFrame);
     writeFrameInfoDump("ucf-noise-clip", pOutputFrame);
     auto sts = dumpStageFrame("ucf-noise-clip", pOutputFrame, fieldIndex, stream,
         (prevEvent() != nullptr) ? std::vector<RGYCudaEvent>{ prevEvent } : std::vector<RGYCudaEvent>());
