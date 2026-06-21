@@ -239,7 +239,7 @@ bool VppParam::operator!=(const VppParam &x) const {
         return !(*this == x);
 }
 
-int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, [[maybe_unused]] int nArgNum, VppParam* vppnv, [[maybe_unused]] sArgsData* argData, RGY_VPP_RESIZE_ALGO& resize_algo) {
+int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, [[maybe_unused]] int nArgNum, VppParam* vppnv, [[maybe_unused]] sArgsData* argData, RGY_VPP_RESIZE_ALGO& resize_algo, VppResizeNis& resize_nis, VppResizeBicubic& resize_bicubic) {
 #if ENCODER_NVENC
     if (IS_OPTION("vpp-deinterlace")) {
         i++;
@@ -334,6 +334,53 @@ int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], in
                 if (param_arg == _T("vsr-quality")) {
                     try {
                         vppnv->ngxVSR.quality = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sharpness")) { // NIS USM strength 0..1
+                    try {
+                        resize_nis.sharpness = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cascade")) { // NIS cascade auto/on/off
+                    int value = 0;
+                    if (get_list_value(list_vpp_resize_nis_cascade, param_val.c_str(), &value)) {
+                        resize_nis.cascade = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize_nis_cascade);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("hdr")) { // NIS hdr band auto/sdr/pq
+                    int value = 0;
+                    if (get_list_value(list_vpp_resize_nis_hdr, param_val.c_str(), &value)) {
+                        resize_nis.hdrMode = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize_nis_hdr);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("b")) { // tunable bicubic B
+                    try {
+                        resize_bicubic.b = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("c")) { // tunable bicubic C
+                    try {
+                        resize_bicubic.c = std::stof(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;

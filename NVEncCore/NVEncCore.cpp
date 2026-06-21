@@ -84,6 +84,8 @@
 #include "NVEncFilterMsmooth.h"
 #include "NVEncFilterNvvfx.h"
 #include "NVEncFilterNGX.h"
+#include "NVEncFilterOnnx.h"
+#include "NVEncFilterKaizen.h"
 #include "NVEncFilterLibplacebo.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterDecimate.h"
@@ -3010,6 +3012,8 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.pad.enable)        filterPipeline.push_back(VppType::CL_PAD);
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
     if (inputParam->vppnv.ngxTrueHDR.enable)     filterPipeline.push_back(VppType::NGX_TRUEHDR);
+    if (inputParam->vpp.onnxChain.size() > 0)    filterPipeline.push_back(VppType::CL_ONNX);
+    if (inputParam->vpp.kaizenChain.size() > 0)  filterPipeline.push_back(VppType::CL_KAIZEN);
     if (inputParam->vpp.fruc.enable)     filterPipeline.push_back(VppType::CL_FRUC);
 
     if (filterPipeline.size() == 0) {
@@ -4439,6 +4443,8 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
             param->interp = inputParam->vpp.resize_algo;
         }
         param->fsr1 = inputParam->vpp.resize_fsr1;
+        param->nis = inputParam->vpp.resize_nis;
+        param->bicubic = inputParam->vpp.resize_bicubic;
         if (isNvvfxResizeFiter(inputParam->vpp.resize_algo)) {
             param->nvvfxSuperRes = std::make_shared<NVEncFilterParamNvvfxSuperRes>();
             param->nvvfxSuperRes->nvvfxSuperRes = inputParam->vppnv.nvvfxSuperRes;
@@ -5041,6 +5047,48 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         return RGY_ERR_NONE;
     }
     // fruc
+    if (vppType == VppType::CL_ONNX) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterOnnx());
+        shared_ptr<NVEncFilterParamOnnx> param(new NVEncFilterParamOnnx());
+        param->onnx = inputParam->vpp.onnxChain[0];
+        param->deviceID = m_dev->id();
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        cufilters.push_back(std::move(filter));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
+    if (vppType == VppType::CL_KAIZEN) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterKaizen());
+        shared_ptr<NVEncFilterParamKaizen> param(new NVEncFilterParamKaizen());
+        param->kaizen = inputParam->vpp.kaizenChain[0];
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+        auto sts = filter->init(param, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        cufilters.push_back(std::move(filter));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        return RGY_ERR_NONE;
+    }
     if (vppType == VppType::CL_FRUC) {
         unique_ptr<NVEncFilter> filter(new NVEncFilterNVOFFRUC());
         shared_ptr<NVEncFilterParamNVOFFRUC> param(new NVEncFilterParamNVOFFRUC());

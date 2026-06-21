@@ -1434,7 +1434,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     ret = parse_one_ctrl_option(option_name, strInput, i, nArgNum, &pParams->ctrl, argData);
     if (ret >= 0) return ret;
 
-    ret = parse_one_vppnv_option(option_name, strInput, i, nArgNum, &pParams->vppnv, argData, pParams->vpp.resize_algo);
+    ret = parse_one_vppnv_option(option_name, strInput, i, nArgNum, &pParams->vppnv, argData, pParams->vpp.resize_algo, pParams->vpp.resize_nis, pParams->vpp.resize_bicubic);
     if (ret >= 0) return ret;
 
     ret = parse_one_vpp_option(option_name, strInput, i, nArgNum, &pParams->vpp, argData);

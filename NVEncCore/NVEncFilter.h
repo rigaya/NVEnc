@@ -158,6 +158,8 @@ public:
     RGY_VPP_RESIZE_ALGO interp;
     RGY_VPP_RESIZE_ALGO nvvfxSubAlgo;
     VppResizeFsr1 fsr1;
+    VppResizeNis nis;
+    VppResizeBicubic bicubic;
     std::shared_ptr<NVEncFilterParamNvvfxSuperRes> nvvfxSuperRes;
     std::shared_ptr<NVEncFilterParamNGXVSR> ngxvsr;
     std::shared_ptr<NVEncFilterParamLibplaceboResample> libplaceboResample;
@@ -187,6 +189,12 @@ protected:
     std::unique_ptr<CUMemBuf> m_weightSpline;
     RGY_VPP_RESIZE_ALGO m_weightSplineAlgo;
     std::unique_ptr<CUFrameBuf> m_fsr1Easu;
+    std::unique_ptr<CUMemBuf> m_weightJinc;        // windowed-jinc EWA LUT (1024 floats), rebuilt per radius
+    RGY_VPP_RESIZE_ALGO m_weightJincAlgo;
+    std::unique_ptr<CUMemBuf> m_nisCoefScale;      // NIS coef_scale LUT (64x8 floats), uploaded once
+    std::unique_ptr<CUMemBuf> m_nisCoefUsm;        // NIS coef_usm LUT (64x8 floats), uploaded once
+    int m_nisStages;                               // NIS cascade stage count (1 for <=2x, N for larger ratios)
+    std::vector<std::unique_ptr<CUFrameBuf>> m_nisCascadeInter; // NIS cascade intermediate frames (stages-1)
     std::unique_ptr<NVEncFilterNvvfxSuperRes> m_nvvfxSuperRes;
     std::unique_ptr<NVEncFilterNGXVSR> m_ngxVSR;
     std::unique_ptr<NVEncFilterLibplaceboResample> m_libplaceboResample;

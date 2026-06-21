@@ -28,9 +28,11 @@
 
 #include <map>
 #include <array>
+#include <vector>
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "convert_csp.h"
+#include "nis_coef_tables.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterNvvfx.h"
 #include "NVEncFilterNGX.h"
@@ -78,8 +80,15 @@ enum RESIZE_WEIGHT_TYPE {
     WEIGHT_LANCZOS,
     WEIGHT_SPLINE,
     WEIGHT_BICUBIC,
+    WEIGHT_BICUBIC_MITCHELL,    // tunable bicubic preset B=1/3, C=1/3
+    WEIGHT_BICUBIC_CATMULL_ROM, // tunable bicubic preset B=0,   C=1/2
+    WEIGHT_BICUBIC_HERMITE,     // tunable bicubic preset B=0,   C=0
     WEIGHT_BILINEAR
 };
+
+// User-tunable B/C for algo=bicubic (set per-resize via cudaMemcpyToSymbolAsync on
+// the stream before launch). Defaults match the previous hardcoded bicubic.
+__constant__ float g_bicubicBC[2] = { 0.0f, 0.6f }; // defaults match FILTER_DEFAULT_RESIZE_BICUBIC_B/C
 
 template<typename TypePixel>
 cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const RGYFrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
@@ -250,7 +259,10 @@ void __inline__ __device__ calc_weight(
         switch (algo) {
         case WEIGHT_LANCZOS:  weight = factor_lanczos<radius>(delta); break;
         case WEIGHT_SPLINE:   weight = factor_spline<radius>(delta, psCopyFactor); break;
-        case WEIGHT_BICUBIC:  weight = factor_bicubic<radius>(delta, 0.0f, 0.6f); break;
+        case WEIGHT_BICUBIC:  weight = factor_bicubic<radius>(delta, g_bicubicBC[0], g_bicubicBC[1]); break;
+        case WEIGHT_BICUBIC_MITCHELL:    weight = factor_bicubic<radius>(delta, 1.0f / 3.0f, 1.0f / 3.0f); break;
+        case WEIGHT_BICUBIC_CATMULL_ROM: weight = factor_bicubic<radius>(delta, 0.0f, 0.5f); break;
+        case WEIGHT_BICUBIC_HERMITE:     weight = factor_bicubic<radius>(delta, 0.0f, 0.0f); break;
         case WEIGHT_BILINEAR: weight = factor_bilinear<radius>(delta); break;
         default:
             break;
@@ -288,7 +300,7 @@ __global__ void kernel_resize(uint8_t *__restrict__ pDst, const int dstPitch, co
 
     if (algo == WEIGHT_SPLINE) {
         if (threadIdx.y == 0) {
-            static_assert(radius * 4 < block_x, "radius * 4 < block_x");
+            static_assert(algo != WEIGHT_SPLINE || radius * 4 < block_x, "radius * 4 < block_x");
             if (threadIdx.x < radius * 4) {
                 psCopyFactor[threadIdx.x] = pgFactor[threadIdx.x];
             }
@@ -660,9 +672,292 @@ static RGY_ERR resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInp
     case RGY_VPP_RESIZE_LANCZOS2: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  2>(pOutputFrame, pInputFrame, pgFactor, stream);
     case RGY_VPP_RESIZE_LANCZOS3: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  3>(pOutputFrame, pInputFrame, pgFactor, stream);
     case RGY_VPP_RESIZE_LANCZOS4: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  4>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS5: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  5>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS6: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  6>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS7: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  7>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS8: return resize_frame<Type, bit_depth, WEIGHT_LANCZOS,  8>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_MITCHELL:    return resize_frame<Type, bit_depth, WEIGHT_BICUBIC_MITCHELL,    2>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_CATMULL_ROM: return resize_frame<Type, bit_depth, WEIGHT_BICUBIC_CATMULL_ROM, 2>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_HERMITE:     return resize_frame<Type, bit_depth, WEIGHT_BICUBIC_HERMITE,     2>(pOutputFrame, pInputFrame, pgFactor, stream);
     default:  return RGY_ERR_NONE;
     }
 }
+
+// --------- JINC (windowed-jinc EWA) resampler ---------
+// Ports the LUT-based circular EWA scheme from Asd-g/AviSynth-JincResize (MIT).
+// jinc(x) = 2 * J1(pi*x) / (pi*x); jinc(0) = 1. The windowed-jinc weight per
+// squared-radius is precomputed on the host into a 1024-entry LUT (built once per
+// radius, uploaded to device); the kernel does a single non-separable circular
+// gather. radius = tap (3/4/6/8 for jinc36/64/144/256).
+static const int JINC_LUT_SIZE = 1024;
+static const double JINC_ZERO_SQR_D = 1.48759464366204680005356; // (first zero of J1(pi*x)/x)^2
+
+// Bessel J1 (Abramowitz & Stegun 9.4.4 / 9.4.6).
+static double rgy_bessel_j1(double x) {
+    const double ax = fabs(x);
+    if (ax < 8.0) {
+        const double y = x * x;
+        const double num = x * (72362614232.0 + y * (-7895059235.0 + y * (242396853.1
+            + y * (-2972611.439 + y * (15704.48260 + y * (-30.16036606))))));
+        const double den = 144725228442.0 + y * (2300535178.0 + y * (18583304.74
+            + y * (99447.43394 + y * (376.9991397 + y * 1.0))));
+        return num / den;
+    } else {
+        const double z = 8.0 / ax;
+        const double y = z * z;
+        const double p1 = 1.0 + y * (0.183105e-2 + y * (-0.3516396496e-4
+            + y * (0.2457520174e-5 + y * (-0.240337019e-6))));
+        const double p2 = 0.04687499995 + y * (-0.2002690873e-3 + y * (0.8449199096e-5
+            + y * (-0.88228987e-6 + y * 0.105787412e-6)));
+        const double ans = sqrt(0.636619772 / ax)
+            * (cos(ax - 2.356194491) * p1 - z * sin(ax - 2.356194491) * p2);
+        return (x < 0.0) ? -ans : ans;
+    }
+}
+static double rgy_jinc(double r) {
+    if (r == 0.0) return 1.0;
+    const double pix = M_PI * r;
+    return 2.0 * rgy_bessel_j1(pix) / pix;
+}
+std::vector<float> buildJincLut(const int radius) {
+    const double tap2 = (double)radius * (double)radius;
+    const double win_scale = sqrt(JINC_ZERO_SQR_D / tap2);
+    std::vector<float> lut(JINC_LUT_SIZE);
+    for (int i = 0; i < JINC_LUT_SIZE; i++) {
+        const double r2 = (double)i * tap2 / (double)(JINC_LUT_SIZE - 1);
+        const double r  = sqrt(r2);
+        const double w  = (r >= (double)radius) ? 0.0 : (rgy_jinc(r) * rgy_jinc(win_scale * r));
+        lut[i] = (float)w;
+    }
+    return lut;
+}
+int jincRadius(const RGY_VPP_RESIZE_ALGO interp) {
+    switch (interp) {
+    case RGY_VPP_RESIZE_JINC36:  return 3;
+    case RGY_VPP_RESIZE_JINC64:  return 4;
+    case RGY_VPP_RESIZE_JINC144: return 6;
+    case RGY_VPP_RESIZE_JINC256: return 8;
+    default: return 0;
+    }
+}
+bool isJincResize(const RGY_VPP_RESIZE_ALGO interp) {
+    return interp == RGY_VPP_RESIZE_JINC36 || interp == RGY_VPP_RESIZE_JINC64
+        || interp == RGY_VPP_RESIZE_JINC144 || interp == RGY_VPP_RESIZE_JINC256;
+}
+
+#define JINC_BLOCK_X 32
+#define JINC_BLOCK_Y 8
+
+template<typename Type, int bit_depth, int radius>
+__global__ void kernel_resize_jinc(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
+    const float ratioX, const float ratioY, const float *__restrict__ lut) {
+    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
+    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (ix >= dstWidth || iy >= dstHeight) return;
+
+    const float ratioInvX = 1.0f / ratioX;
+    const float ratioInvY = 1.0f / ratioY;
+    const float fx = ((float)ix + 0.5f) * ratioInvX - 0.5f;
+    const float fy = ((float)iy + 0.5f) * ratioInvY - 0.5f;
+    const int sx0 = (int)floorf(fx) - radius + 1;
+    const int sy0 = (int)floorf(fy) - radius + 1;
+
+    const float tap2 = (float)(radius * radius);
+    const float lut_scale = (float)(JINC_LUT_SIZE - 1) / tap2;
+
+    float sum = 0.0f;
+    float wsum = 0.0f;
+    for (int dy = 0; dy < 2 * radius; dy++) {
+        const int sy_raw = sy0 + dy;
+        const float dyf = (float)sy_raw - fy;
+        const float dy2 = dyf * dyf;
+        if (dy2 >= tap2) continue;
+        const int sy = min(max(sy_raw, 0), srcHeight - 1);
+        const Type *srcRow = (const Type *)(pSrc + sy * srcPitch);
+        for (int dx = 0; dx < 2 * radius; dx++) {
+            const int sx_raw = sx0 + dx;
+            const float dxf = (float)sx_raw - fx;
+            const float r2 = dxf * dxf + dy2;
+            if (r2 >= tap2) continue;
+            const int sx = min(max(sx_raw, 0), srcWidth - 1);
+            int li = (int)(r2 * lut_scale + 0.5f);
+            if (li >= JINC_LUT_SIZE) li = JINC_LUT_SIZE - 1;
+            const float w = lut[li];
+            sum  += w * (float)srcRow[sx];
+            wsum += w;
+        }
+    }
+    const float v = (wsum > 0.0f) ? (sum / wsum) : 0.0f;
+    Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+    ptr[0] = (Type)clamp(v, 0.0f, (float)((1 << bit_depth) - 1) - 0.1f);
+}
+
+template<typename Type, int bit_depth, int radius>
+static RGY_ERR resize_jinc_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const float *lut, cudaStream_t stream) {
+    dim3 blockSize(JINC_BLOCK_X, JINC_BLOCK_Y);
+    dim3 gridSize(divCeil(pOutputPlane->width, blockSize.x), divCeil(pOutputPlane->height, blockSize.y));
+    const float ratioX = (float)pOutputPlane->width / pInputPlane->width;
+    const float ratioY = (float)pOutputPlane->height / pInputPlane->height;
+    kernel_resize_jinc<Type, bit_depth, radius><<<gridSize, blockSize, 0, stream>>>(
+        (uint8_t *)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
+        (const uint8_t *)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
+        ratioX, ratioY, lut);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type, int bit_depth>
+static RGY_ERR resize_jinc_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, const float *lut, cudaStream_t stream) {
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+        const auto planeInput = getPlane(pInputFrame, (RGY_PLANE)iplane);
+        auto planeOutput = getPlane(pOutputFrame, (RGY_PLANE)iplane);
+        RGY_ERR sts = RGY_ERR_NONE;
+        switch (interp) {
+        case RGY_VPP_RESIZE_JINC36:  sts = resize_jinc_plane<Type, bit_depth, 3>(&planeOutput, &planeInput, lut, stream); break;
+        case RGY_VPP_RESIZE_JINC64:  sts = resize_jinc_plane<Type, bit_depth, 4>(&planeOutput, &planeInput, lut, stream); break;
+        case RGY_VPP_RESIZE_JINC144: sts = resize_jinc_plane<Type, bit_depth, 6>(&planeOutput, &planeInput, lut, stream); break;
+        case RGY_VPP_RESIZE_JINC256: sts = resize_jinc_plane<Type, bit_depth, 8>(&planeOutput, &planeInput, lut, stream); break;
+        default: return RGY_ERR_UNSUPPORTED;
+        }
+        if (sts != RGY_ERR_NONE) return sts;
+    }
+    return RGY_ERR_NONE;
+}
+
+// --------- NIS (NVIDIA Image Scaling) resampler ---------
+// Ports the simplified separable NIS scaler: a 6-tap polyphase base resample
+// (coef_scale LUT) plus a band-gated unsharp-mask high-pass (coef_usm LUT),
+// from NVIDIA NIS v1.0.3 (MIT, tables in nis_coef_tables.h). Single-stage,
+// covers upscale ratios up to 2x (kScale in [0.5, 1.0]). sharpness in [0,1]
+// (default 0.5) controls the USM strength/limit; hdrMode 0=SDR (1/2 = HDR
+// bands) follows NVScalerUpdateConfig.
+#define NIS_BLOCK_X 32
+#define NIS_BLOCK_Y 8
+
+struct NISParams {
+    float kScaleX, kScaleY;
+    float kSharpStartY, kSharpScaleY;
+    float kSharpStrengthMin, kSharpStrengthScale;
+    float kSharpLimitMin, kSharpLimitScale;
+};
+
+// Port of NIS_Config.h NVScalerUpdateConfig (the 8 fields the scaler uses).
+static NISParams nisBuildParams(float sharpness, int hdrMode, int inW, int inH, int outW, int outH) {
+    sharpness = fminf(fmaxf(sharpness, 0.0f), 1.0f);
+    const float slider = sharpness - 0.5f;
+    const float MaxScale   = (slider >= 0.0f) ? 1.25f : 1.75f;
+    const float MinScale   = (slider >= 0.0f) ? 1.25f : 1.0f;
+    const float LimitScale = (slider >= 0.0f) ? 1.25f : 1.0f;
+    float startY = 0.45f, endY = 0.9f;
+    float strMin = fmaxf(0.0f, 0.4f + slider * MinScale * 1.2f);
+    float strMax = 1.6f + slider * MaxScale * 1.8f;
+    float limMin = fmaxf(0.1f, 0.14f + slider * LimitScale * 0.32f);
+    float limMax = 0.5f + slider * LimitScale * 0.6f;
+    if (hdrMode == 1 || hdrMode == 2) {
+        strMin = fmaxf(0.0f, 0.4f + slider * MinScale * 1.1f);
+        strMax = 2.2f + slider * MaxScale * 1.8f;
+        limMin = fmaxf(0.06f, 0.10f + slider * LimitScale * 0.28f);
+        limMax = 0.6f + slider * LimitScale * 0.6f;
+        if (hdrMode == 2) { startY = 0.35f; endY = 0.55f; } else { startY = 0.3f; endY = 0.5f; }
+    }
+    NISParams p;
+    p.kScaleX = (float)inW / outW;
+    p.kScaleY = (float)inH / outH;
+    p.kSharpStartY = startY;
+    p.kSharpScaleY = 1.0f / (endY - startY);
+    p.kSharpStrengthMin = strMin;
+    p.kSharpStrengthScale = strMax - strMin;
+    p.kSharpLimitMin = limMin;
+    p.kSharpLimitScale = limMax - limMin;
+    return p;
+}
+
+template<typename Type, int bit_depth>
+__device__ __forceinline__ float nis_sample(const uint8_t *src, int srcPitch, int srcW, int srcH, int x, int y) {
+    x = (x < 0) ? 0 : ((x >= srcW) ? (srcW - 1) : x);
+    y = (y < 0) ? 0 : ((y >= srcH) ? (srcH - 1) : y);
+    const Type *row = (const Type *)(src + y * srcPitch);
+    const float maxv = (float)((1 << bit_depth) - 1);
+    return (float)row[x] / maxv;
+}
+
+// 6-tap separable polyphase apply. coefTable is the flattened 64x8 LUT (taps
+// 0..5 carry weight). Pass coef_scale for the base resample, coef_usm for USM.
+template<typename Type, int bit_depth>
+__device__ __forceinline__ float nis_polyphase_apply(const uint8_t *src, int srcPitch, int srcW, int srcH,
+    float kScaleX, float kScaleY, const float *coefTable, int dx, int dy) {
+    const float sx = ((float)dx + 0.5f) * kScaleX - 0.5f;
+    const float sy = ((float)dy + 0.5f) * kScaleY - 0.5f;
+    const int isx_base = (int)floorf(sx);
+    const int isy_base = (int)floorf(sy);
+    const float fx = sx - (float)isx_base;
+    const float fy = sy - (float)isy_base;
+    int phase_x = (int)(fx * 64.0f); phase_x = min(max(phase_x, 0), 63);
+    int phase_y = (int)(fy * 64.0f); phase_y = min(max(phase_y, 0), 63);
+    const float *wx = coefTable + phase_x * 8;
+    const float *wy = coefTable + phase_y * 8;
+    float result = 0.0f;
+    #pragma unroll
+    for (int j = 0; j < 6; j++) {
+        const int sy_int = isy_base + (j - 2);
+        float rowsum = 0.0f;
+        #pragma unroll
+        for (int i = 0; i < 6; i++) {
+            rowsum += nis_sample<Type, bit_depth>(src, srcPitch, srcW, srcH, isx_base + (i - 2), sy_int) * wx[i];
+        }
+        result += rowsum * wy[j];
+    }
+    return result;
+}
+
+template<typename Type, int bit_depth>
+__global__ void kernel_nis_scaler(uint8_t *__restrict__ pDst, int dstPitch, int dstWidth, int dstHeight,
+    const uint8_t *__restrict__ pSrc, int srcPitch, int srcWidth, int srcHeight,
+    NISParams prm, const float *__restrict__ coefScale, const float *__restrict__ coefUsm) {
+    const int dx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int dy = blockIdx.y * blockDim.y + threadIdx.y;
+    if (dx >= dstWidth || dy >= dstHeight) return;
+
+    const float y_base = nis_polyphase_apply<Type, bit_depth>(pSrc, srcPitch, srcWidth, srcHeight, prm.kScaleX, prm.kScaleY, coefScale, dx, dy);
+    const float y_usm  = nis_polyphase_apply<Type, bit_depth>(pSrc, srcPitch, srcWidth, srcHeight, prm.kScaleX, prm.kScaleY, coefUsm, dx, dy);
+
+    float t = (y_base - prm.kSharpStartY) * prm.kSharpScaleY;
+    t = clamp(t, 0.0f, 1.0f);
+    const float strength = prm.kSharpStrengthMin + t * prm.kSharpStrengthScale;
+    const float limit    = prm.kSharpLimitMin    + t * prm.kSharpLimitScale;
+    const float usm_clamped = clamp(y_usm, -limit, limit);
+    const float result = y_base + strength * usm_clamped;
+
+    const float maxv = (float)((1 << bit_depth) - 1);
+    Type *ptr = (Type *)(pDst + dy * dstPitch + dx * sizeof(Type));
+    ptr[0] = (Type)(clamp(result * maxv, 0.0f, maxv) + 0.5f);
+}
+
+template<typename Type, int bit_depth>
+static RGY_ERR resize_nis_plane(RGYFrameInfo *pOut, const RGYFrameInfo *pIn, NISParams prm, const float *coefScale, const float *coefUsm, cudaStream_t stream) {
+    dim3 block(NIS_BLOCK_X, NIS_BLOCK_Y);
+    dim3 grid(divCeil(pOut->width, block.x), divCeil(pOut->height, block.y));
+    prm.kScaleX = (float)pIn->width / pOut->width;   // per-plane scale (same ratio as luma)
+    prm.kScaleY = (float)pIn->height / pOut->height;
+    kernel_nis_scaler<Type, bit_depth><<<grid, block, 0, stream>>>(
+        (uint8_t *)pOut->ptr[0], pOut->pitch[0], pOut->width, pOut->height,
+        (const uint8_t *)pIn->ptr[0], pIn->pitch[0], pIn->width, pIn->height,
+        prm, coefScale, coefUsm);
+    return err_to_rgy(cudaGetLastError());
+}
+
+template<typename Type, int bit_depth>
+static RGY_ERR resize_nis_frame(RGYFrameInfo *pOut, const RGYFrameInfo *pIn, NISParams prm, const float *coefScale, const float *coefUsm, cudaStream_t stream) {
+    for (int i = 0; i < RGY_CSP_PLANES[pIn->csp]; i++) {
+        const auto in = getPlane(pIn, (RGY_PLANE)i);
+        auto out = getPlane(pOut, (RGY_PLANE)i);
+        auto sts = resize_nis_plane<Type, bit_depth>(&out, &in, prm, coefScale, coefUsm, stream);
+        if (sts != RGY_ERR_NONE) return sts;
+    }
+    return RGY_ERR_NONE;
+}
+
+static bool isNisResize(const RGY_VPP_RESIZE_ALGO interp) { return interp == RGY_VPP_RESIZE_NIS; }
 
 template<typename T, typename Tfunc>
 static RGY_ERR resize_nppi_plane_call_func(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const Tfunc funcResize, const NppiInterpolationMode interpMode, cudaStream_t stream) {
@@ -875,6 +1170,12 @@ NVEncFilterResize::NVEncFilterResize() :
     m_weightSpline(),
     m_weightSplineAlgo(RGY_VPP_RESIZE_UNKNOWN),
     m_fsr1Easu(),
+    m_weightJinc(),
+    m_weightJincAlgo(RGY_VPP_RESIZE_UNKNOWN),
+    m_nisCoefScale(),
+    m_nisCoefUsm(),
+    m_nisStages(1),
+    m_nisCascadeInter(),
     m_nvvfxSuperRes(),
     m_ngxVSR(),
     m_libplaceboResample() {
@@ -1124,6 +1425,74 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_weightSplineAlgo = resizeInterp;
     }
 
+    if (isJincResize(resizeInterp) && (!m_weightJinc || m_weightJincAlgo != resizeInterp)) {
+        const std::vector<float> lut = buildJincLut(jincRadius(resizeInterp));
+        m_weightJinc = std::unique_ptr<CUMemBuf>(new CUMemBuf(sizeof(lut[0]) * lut.size()));
+        if (RGY_ERR_NONE != (sts = m_weightJinc->alloc())) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate jinc LUT memory: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        sts = err_to_rgy(cudaMemcpy(m_weightJinc->ptr, lut.data(), m_weightJinc->nSize, cudaMemcpyHostToDevice));
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to send jinc LUT to gpu memory: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        m_weightJincAlgo = resizeInterp;
+    }
+
+    if (isNisResize(resizeInterp)) {
+        if (!m_nisCoefScale || !m_nisCoefUsm) {
+            const size_t coefBytes = sizeof(float) * nis::kPhaseCount * nis::kFilterSize;
+            m_nisCoefScale = std::unique_ptr<CUMemBuf>(new CUMemBuf(coefBytes));
+            m_nisCoefUsm   = std::unique_ptr<CUMemBuf>(new CUMemBuf(coefBytes));
+            if (RGY_ERR_NONE != (sts = m_nisCoefScale->alloc()) || RGY_ERR_NONE != (sts = m_nisCoefUsm->alloc())) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate NIS coef memory: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+            sts = err_to_rgy(cudaMemcpy(m_nisCoefScale->ptr, &nis::coef_scale[0][0], coefBytes, cudaMemcpyHostToDevice));
+            if (sts == RGY_ERR_NONE) sts = err_to_rgy(cudaMemcpy(m_nisCoefUsm->ptr, &nis::coef_usm[0][0], coefBytes, cudaMemcpyHostToDevice));
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to send NIS coef to gpu memory: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+        }
+        // NIS cascade: NIS is tuned for <=2x (kScale in [0.5,1]). For larger ratios
+        // split into N geometric stages of <=2x each (e.g. 2.5x -> two ~1.58x stages),
+        // chaining through intermediate buffers; only the final stage applies USM.
+        const float ratioX = (float)pResizeParam->frameOut.width  / pResizeParam->frameIn.width;
+        const float ratioY = (float)pResizeParam->frameOut.height / pResizeParam->frameIn.height;
+        const float maxRatio = std::max(ratioX, ratioY);
+        int stages = 1;
+        if (maxRatio > 2.0f) {
+            stages = (int)std::ceil(std::log2(maxRatio) - 1e-4f);
+            if (stages < 2) stages = 2;
+        }
+        if (pResizeParam->nis.cascade == RGY_NIS_CASCADE_OFF && stages > 1) {
+            AddMessage(RGY_LOG_ERROR, _T("NIS cascade=off cannot handle %.2fx (> 2x). Use cascade=auto or a smaller output size.\n"), maxRatio);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (pResizeParam->nis.cascade == RGY_NIS_CASCADE_ON && stages < 2 && maxRatio > 1.0f) {
+            stages = 2; // force a 2-stage cascade even at <=2x (test path)
+        }
+        m_nisStages = stages;
+        m_nisCascadeInter.clear();
+        if (stages > 1) {
+            const float perStageRatio = std::pow(maxRatio, 1.0f / (float)stages);
+            for (int k = 0; k < stages - 1; k++) {
+                const int nextW = (int)std::round((float)pResizeParam->frameIn.width  * std::pow(perStageRatio, (float)(k + 1)));
+                const int nextH = (int)std::round((float)pResizeParam->frameIn.height * std::pow(perStageRatio, (float)(k + 1)));
+                auto inter = std::make_unique<CUFrameBuf>();
+                sts = inter->alloc(nextW, nextH, pResizeParam->frameOut.csp);
+                if (sts != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate NIS cascade intermediate %dx%d: %s.\n"), nextW, nextH, get_err_mes(sts));
+                    return sts;
+                }
+                AddMessage(RGY_LOG_DEBUG, _T("NIS cascade stage %d/%d intermediate: %dx%d.\n"), k + 1, stages, nextW, nextH);
+                m_nisCascadeInter.push_back(std::move(inter));
+            }
+        }
+    }
+
     tstring info;
     if (m_nvvfxSuperRes) {
         info = strsprintf(_T("resize: %s %dx%d -> %dx%d"),
@@ -1292,7 +1661,41 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
     if (   pInputFrame->width != ppOutputFrames[0]->width
         || pInputFrame->height != ppOutputFrames[0]->height) {
-        if (isNppResizeFiter(pResizeParam->interp)) {
+        if (isJincResize(pResizeParam->interp)) {
+            static const std::map<RGY_DATA_TYPE, decltype(resize_jinc_frame<uint8_t, 8>)*> jinc_list = {
+                { RGY_DATA_TYPE_U8,  resize_jinc_frame<uint8_t,   8> },
+                { RGY_DATA_TYPE_U16, resize_jinc_frame<uint16_t, 16> }
+            };
+            if (jinc_list.count(RGY_CSP_DATA_TYPE[pInputFrame->csp]) == 0) {
+                AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s for jinc.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
+                return RGY_ERR_UNSUPPORTED;
+            }
+            sts = jinc_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], pInputFrame, pResizeParam->interp, (float *)m_weightJinc->ptr, stream);
+        } else if (isNisResize(pResizeParam->interp)) {
+            static const std::map<RGY_DATA_TYPE, decltype(resize_nis_frame<uint8_t, 8>)*> nis_list = {
+                { RGY_DATA_TYPE_U8,  resize_nis_frame<uint8_t,   8> },
+                { RGY_DATA_TYPE_U16, resize_nis_frame<uint16_t, 16> }
+            };
+            if (nis_list.count(RGY_CSP_DATA_TYPE[pInputFrame->csp]) == 0) {
+                AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s for nis.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
+                return RGY_ERR_UNSUPPORTED;
+            }
+            auto nisFunc = nis_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp]);
+            // sharpen fields (kScale is recomputed per plane/stage in the launcher).
+            // hdr=auto/sdr -> SDR band; hdr=pq -> PQ specular-protect band.
+            const int nisHdr = (pResizeParam->nis.hdrMode == RGY_NIS_HDR_PQ) ? 2 : 0;
+            NISParams nisFull  = nisBuildParams(pResizeParam->nis.sharpness, nisHdr, pInputFrame->width, pInputFrame->height, ppOutputFrames[0]->width, ppOutputFrames[0]->height);
+            NISParams nisInter = nisFull; // intermediate stages: base resample only, no USM (avoid chained over-sharpen)
+            nisInter.kSharpStrengthMin = nisInter.kSharpStrengthScale = nisInter.kSharpLimitMin = nisInter.kSharpLimitScale = 0.0f;
+            const RGYFrameInfo *src = pInputFrame;
+            for (int k = 0; k < m_nisStages; k++) {
+                const bool finalStage = (k == m_nisStages - 1);
+                RGYFrameInfo *dst = finalStage ? ppOutputFrames[0] : &m_nisCascadeInter[k]->frame;
+                sts = nisFunc(dst, src, finalStage ? nisFull : nisInter, (float *)m_nisCoefScale->ptr, (float *)m_nisCoefUsm->ptr, stream);
+                if (sts != RGY_ERR_NONE) break;
+                src = dst;
+            }
+        } else if (isNppResizeFiter(pResizeParam->interp)) {
             static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
             if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), m_param->frameIn.csp) != supportedCspYUV444.end()) {
                 sts = resizeNppiYUV444(ppOutputFrames[0], pInputFrame, stream);
@@ -1309,6 +1712,7 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
                 return RGY_ERR_UNSUPPORTED;
             }
             if (resizeInterp == RGY_VPP_RESIZE_FSR1) {
+            if (resizeInterp == RGY_VPP_RESIZE_FSR1) {
                 if (!m_fsr1Easu) {
                     AddMessage(RGY_LOG_ERROR, _T("FSR intermediate buffer is not allocated.\n"));
                     return RGY_ERR_NULL_PTR;
@@ -1319,6 +1723,11 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
                 };
                 sts = resize_fsr1_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], pInputFrame, &m_fsr1Easu->frame, pResizeParam->fsr1.sharpness, stream);
             } else {
+                if (resizeInterp == RGY_VPP_RESIZE_BICUBIC) {
+                    // push the user-tunable bicubic B/C to constant memory (stream-ordered before the kernel).
+                    const float bc[2] = { pResizeParam->bicubic.b, pResizeParam->bicubic.c };
+                    cudaMemcpyToSymbolAsync(g_bicubicBC, bc, sizeof(bc), 0, cudaMemcpyHostToDevice, stream);
+                }
                 sts = resize_list.at(RGY_CSP_DATA_TYPE[pInputFrame->csp])(ppOutputFrames[0], pInputFrame, resizeInterp, (m_weightSpline) ? (float *)m_weightSpline->ptr : nullptr, stream);
             }
             if (sts != RGY_ERR_NONE) {
@@ -1363,5 +1772,11 @@ void NVEncFilterResize::close() {
     m_weightSpline.reset();
     m_weightSplineAlgo = RGY_VPP_RESIZE_UNKNOWN;
     m_fsr1Easu.reset();
+    m_weightJinc.reset();
+    m_weightJincAlgo = RGY_VPP_RESIZE_UNKNOWN;
+    m_nisCoefScale.reset();
+    m_nisCoefUsm.reset();
+    m_nisCascadeInter.clear();
+    m_nisStages = 1;
     m_bInterlacedWarn = false;
 }

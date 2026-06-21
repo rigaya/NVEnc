@@ -147,6 +147,8 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DEBAND,               _T("deband")),
     std::make_pair(VppType::CL_LIBPLACEBO_DEBAND,    _T("libplacebo-deband")),
     std::make_pair(VppType::CL_FRUC,                 _T("fruc")),
+    std::make_pair(VppType::CL_ONNX,                 _T("onnx")),
+    std::make_pair(VppType::CL_KAIZEN,               _T("kaizen")),
     std::make_pair(VppType::CL_PAD,                  _T("pad"))
 );
 MAP_PAIR_0_1(vppfilter, type, VppType, str, tstring, VPPTYPE_TO_STR, VppType::VPP_NONE, _T("none"));
@@ -3418,6 +3420,121 @@ tstring VppFruc::print() const {
     }
 }
 
+VppKaizen::VppKaizen() :
+    enable(false),
+    mode(VppKaizenMode::Original),
+    scale(FILTER_DEFAULT_KAIZEN_SCALE),
+    strength(FILTER_DEFAULT_KAIZEN_STRENGTH),
+    chromaResize(VppKaizenChromaResize::Spline36),
+    chroma(true),
+    darken(VppKaizenDarken::Off),
+    thin(VppKaizenThin::Off),
+    denoise(VppKaizenDenoise::Off),
+    denoiseIntensity(0.1f),
+    denoiseSpatial(1.0f),
+    denoiseCurve(1.0f),
+    denoiseHistReg(-1.0f),
+    prefilterDenoise(VppKaizenDenoise::Off),
+    clampHighlights(false),
+    antiring(0.0f),
+    postResizeW(0),
+    postResizeH(0),
+    postResizeAlgo(RGY_VPP_RESIZE_AUTO) {
+}
+bool VppKaizen::operator==(const VppKaizen &x) const {
+    return enable == x.enable && mode == x.mode && scale == x.scale && strength == x.strength
+        && chromaResize == x.chromaResize && chroma == x.chroma && darken == x.darken && thin == x.thin
+        && denoise == x.denoise && denoiseIntensity == x.denoiseIntensity && denoiseSpatial == x.denoiseSpatial
+        && denoiseCurve == x.denoiseCurve && denoiseHistReg == x.denoiseHistReg && prefilterDenoise == x.prefilterDenoise
+        && clampHighlights == x.clampHighlights && antiring == x.antiring
+        && postResizeW == x.postResizeW && postResizeH == x.postResizeH && postResizeAlgo == x.postResizeAlgo;
+}
+bool VppKaizen::operator!=(const VppKaizen &x) const { return !(*this == x); }
+tstring VppKaizen::print() const {
+    tstring s = strsprintf(_T("mode=%s,scale=%d,strength=%.2f,chroma_resize=%s"),
+        get_cx_desc(list_vpp_kaizen_mode, (int)mode), scale, strength,
+        get_cx_desc(list_vpp_kaizen_chroma_resize, (int)chromaResize));
+    if (darken != VppKaizenDarken::Off) s += strsprintf(_T(",darken=%s"), get_cx_desc(list_vpp_kaizen_darken, (int)darken));
+    if (thin != VppKaizenThin::Off) s += strsprintf(_T(",thin=%s"), get_cx_desc(list_vpp_kaizen_thin, (int)thin));
+    if (denoise != VppKaizenDenoise::Off) s += strsprintf(_T(",denoise=%s"), get_cx_desc(list_vpp_kaizen_denoise, (int)denoise));
+    if (prefilterDenoise != VppKaizenDenoise::Off) s += strsprintf(_T(",prefilter_denoise=%s"), get_cx_desc(list_vpp_kaizen_denoise, (int)prefilterDenoise));
+    if (clampHighlights) s += _T(",clamp_highlights=true");
+    if (antiring > 0.0f) s += strsprintf(_T(",antiring=%.2f"), antiring);
+    if (postResizeW != 0 && postResizeH != 0) {
+        s += strsprintf(_T(",out_res=%dx%d,resize=%s"), postResizeW, postResizeH, get_cx_desc(list_vpp_resize, postResizeAlgo));
+    }
+    return s;
+}
+
+VppOnnx::VppOnnx() :
+    enable(false),
+    modelFile(),
+    provider(_T("auto")),
+    device(_T("GPU.0")),
+    interop(_T("auto")),
+    colormatrix(_T("auto")),
+    colorrange(_T("auto")),
+    colorspace(_T("rgb")),
+    noise(15),
+    postResizeW(0),
+    postResizeH(0),
+    postResizeAlgo(RGY_VPP_RESIZE_AUTO) {
+
+}
+
+bool VppOnnx::operator==(const VppOnnx &x) const {
+    return enable == x.enable
+        && modelFile == x.modelFile
+        && provider == x.provider
+        && device == x.device
+        && interop == x.interop
+        && colormatrix == x.colormatrix
+        && colorrange == x.colorrange
+        && colorspace == x.colorspace
+        && noise == x.noise
+        && postResizeW == x.postResizeW
+        && postResizeH == x.postResizeH
+        && postResizeAlgo == x.postResizeAlgo;
+}
+bool VppOnnx::operator!=(const VppOnnx &x) const {
+    return !(*this == x);
+}
+
+tstring VppOnnx::print() const {
+    tstring s = strsprintf(_T("model=%s"), modelFile.c_str());
+    s += strsprintf(_T(",provider=%s"), provider.c_str());
+    s += strsprintf(_T(",colormatrix=%s"), colormatrix.c_str());
+    s += strsprintf(_T(",colorrange=%s"), colorrange.c_str());
+    s += strsprintf(_T(",colorspace=%s"), colorspace.c_str());
+    s += strsprintf(_T(",noise=%d"), noise);
+    if (postResizeW != 0 && postResizeH != 0) {
+        s += strsprintf(_T(",out_res=%dx%d"), postResizeW, postResizeH);
+        s += strsprintf(_T(",resize=%s"), get_cx_desc(list_vpp_resize, postResizeAlgo));
+    }
+    return s;
+}
+
+VppResizeBicubic::VppResizeBicubic() :
+    b(FILTER_DEFAULT_RESIZE_BICUBIC_B), c(FILTER_DEFAULT_RESIZE_BICUBIC_C) {
+}
+bool VppResizeBicubic::operator==(const VppResizeBicubic &x) const { return b == x.b && c == x.c; }
+bool VppResizeBicubic::operator!=(const VppResizeBicubic &x) const { return !(*this == x); }
+tstring VppResizeBicubic::print() const { return strsprintf(_T("bicubic(b=%.3f,c=%.3f)"), b, c); }
+
+VppResizeNis::VppResizeNis() :
+    cascade(FILTER_DEFAULT_RESIZE_NIS_CASCADE),
+    sharpness(FILTER_DEFAULT_RESIZE_NIS_SHARPNESS),
+    hdrMode(FILTER_DEFAULT_RESIZE_NIS_HDR) {
+}
+bool VppResizeNis::operator==(const VppResizeNis &x) const {
+    return cascade == x.cascade && sharpness == x.sharpness && hdrMode == x.hdrMode;
+}
+bool VppResizeNis::operator!=(const VppResizeNis &x) const { return !(*this == x); }
+tstring VppResizeNis::print() const {
+    return strsprintf(_T("nis(sharpness=%.2f,cascade=%s,hdr=%s)"), sharpness,
+        get_cx_desc(list_vpp_resize_nis_cascade, cascade), get_cx_desc(list_vpp_resize_nis_hdr, hdrMode));
+}
+
 RGYParamVpp::RGYParamVpp() :
     filterOrder(),
     resize_algo(RGY_VPP_RESIZE_AUTO),
@@ -3425,6 +3542,8 @@ RGYParamVpp::RGYParamVpp() :
     deintCsp(VppDeintCsp::Input),
     resize_libplacebo(),
     resize_fsr1(),
+    resize_nis(),
+    resize_bicubic(),
     colorspace(),
     libplacebo_tonemapping(),
     delogo(),
@@ -3489,6 +3608,8 @@ RGYParamVpp::RGYParamVpp() :
     libplacebo_deband(),
     overlay(),
     fruc(),
+    onnxChain(),
+    kaizenChain(),
     checkPerformance(false) {
 
 }
@@ -3499,6 +3620,8 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && deintCsp == x.deintCsp
         && resize_libplacebo == x.resize_libplacebo
         && resize_fsr1 == x.resize_fsr1
+        && resize_nis == x.resize_nis
+        && resize_bicubic == x.resize_bicubic
         && colorspace == x.colorspace
         && libplacebo_tonemapping == x.libplacebo_tonemapping
         && delogo == x.delogo
@@ -3562,6 +3685,8 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && deband == x.deband
         && libplacebo_deband == x.libplacebo_deband
         && overlay == x.overlay
+        && onnxChain == x.onnxChain
+        && kaizenChain == x.kaizenChain
         && checkPerformance == x.checkPerformance;
 }
 bool RGYParamVpp::operator!=(const RGYParamVpp& x) const {
