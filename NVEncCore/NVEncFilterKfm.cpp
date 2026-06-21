@@ -1594,6 +1594,11 @@ size_t NVEncFilterKfm::sourceCacheLimit() const {
     if (prm->kfm.timing == VppKfmTiming::RealtimePlus) {
         return std::max<size_t>(16, static_cast<size_t>(std::max(0, prm->kfm.pastCycles)) * 5 + KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN);
     }
+    if (lazyDeint60Enabled(*prm) && m_deint60Rtgmc) {
+        // Lazy deint60 emits RTGMC outputs after its internal temporal delay.
+        // Keep enough source frames for the delayed static-merge lookup.
+        return 32;
+    }
     return 16;
 }
 
