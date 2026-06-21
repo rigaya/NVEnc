@@ -3795,13 +3795,22 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     pkt->flags = AV_PKT_FLAG_KEY; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
     const AVRational samplerate = { 1, (muxAudio->outCodecEncodeCtx) ? muxAudio->outCodecEncodeCtx->sample_rate : muxAudio->streamIn->codecpar->sample_rate };
     const bool ptsInvalid = pkt->pts == AV_NOPTS_VALUE;
+    bool ptsEstimated = false;
+    const auto estimateAudioPts = [&]() {
+        if (muxAudio->lastPtsOut == AV_NOPTS_VALUE) {
+            muxAudio->outputSampleOffset = 0;
+            return (int64_t)0;
+        }
+        muxAudio->outputSampleOffset += samples;
+        return muxAudio->lastPtsOut + av_rescale_q(muxAudio->outputSampleOffset, samplerate, muxAudio->streamOut->time_base);
+    };
     if (!muxAudio->outCodecEncodeCtx) {
         if (samples > 0) {
             //av_rescale_deltaの入力ptsはAV_NOPTS_VALUEではない必要があるのでチェックする
             if (pkt->pts == AV_NOPTS_VALUE) {
-                muxAudio->outputSampleOffset += samples;
-                pkt->pts = muxAudio->lastPtsOut + (int)av_rescale_q(muxAudio->outputSampleOffset, samplerate, muxAudio->streamOut->time_base);
+                pkt->pts = estimateAudioPts();
                 muxAudio->dec_rescale_delta = AV_NOPTS_VALUE;
+                ptsEstimated = true;
             } else {
                 pkt->pts = av_rescale_delta(muxAudio->streamIn->time_base, pkt->pts, samplerate, samples, &muxAudio->dec_rescale_delta, muxAudio->streamOut->time_base);
             }
@@ -3809,7 +3818,12 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
             pkt->pts = av_rescale_q(pkt->pts, muxAudio->streamIn->time_base, muxAudio->streamOut->time_base);
         }
     } else {
-        pkt->pts = av_rescale_q(pkt->pts, muxAudio->outCodecEncodeCtx->time_base, muxAudio->streamOut->time_base);
+        if (pkt->pts == AV_NOPTS_VALUE) {
+            pkt->pts = estimateAudioPts();
+            ptsEstimated = true;
+        } else {
+            pkt->pts = av_rescale_q(pkt->pts, muxAudio->outCodecEncodeCtx->time_base, muxAudio->streamOut->time_base);
+        }
     }
     if (m_Mux.video.streamOut && m_Mux.video.inputFirstKeyPts != 0 && !m_Mux.format.timestampPassThrough) {
         pkt->pts -= av_rescale_q(m_Mux.video.inputFirstKeyPts, m_Mux.video.inputStreamTimebase, muxAudio->streamOut->time_base);
@@ -3839,7 +3853,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     if (pkt->duration == 0) {
         pkt->duration = (int)(pkt->pts - muxAudio->lastPtsOut);
     }
-    if (!ptsInvalid) {
+    if (!ptsInvalid || ptsEstimated) {
         muxAudio->lastPtsOut = pkt->pts;
         muxAudio->outputSampleOffset = 0;
     }
