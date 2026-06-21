@@ -236,7 +236,7 @@
   - [--vpp-knn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-knn-param1value1param2value2)
   - [--vpp-nlmeans \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nlmeans-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-pmd-param1value1param2value2)
-  - [--vpp-denoise-hqdn3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-denoise-hqdn3d-param1value1param2value2)
+  - [--vpp-hqdn3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-hqdn3d-param1value1param2value2)
   - [--vpp-descale \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-descale-param1value1param2value2)
   - [--vpp-gauss \<int\>](#--vpp-gauss-int)
   - [--vpp-subburn \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-subburn-param1value1param2value2)
@@ -1843,7 +1843,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-knn](#--vpp-knn-param1value1param2value2)
 - [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
 - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
-- [--vpp-denoise-hqdn3d](#--vpp-denoise-hqdn3d-param1value1param2value2)
+- [--vpp-hqdn3d](#--vpp-hqdn3d-param1value1param2value2)
 - [--vpp-descale](#--vpp-descale-param1value1param2value2)
 - [--vpp-degrain](#--vpp-degrain-param1value1) (`mode=degrain` / `tr=1,2`)
 - [--vpp-rtgmc-shimmer-repair](#--vpp-rtgmc-shimmer-repair-param1value1) (`stage=rep1/rep2`)
@@ -3008,7 +3008,7 @@ Rather weak noise reduction by modified pmd method, aimed to preserve edge while
   --vpp-pmd apply_count=2,strength=90,threshold=120
   ```
 
-### --vpp-denoise-hqdn3d [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+### --vpp-hqdn3d [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 HQDN3D spatial and temporal denoise filter. The CUDA path uses FP32 scratch buffers.
 
 - **Parameters**
@@ -3026,7 +3026,7 @@ HQDN3D spatial and temporal denoise filter. The CUDA path uses FP32 scratch buff
 
 - Examples
   ```
-  --vpp-denoise-hqdn3d luma_spatial=4.0,chroma_spatial=3.0,luma_temporal=6.0,chroma_temporal=4.5
+  --vpp-hqdn3d luma_spatial=4.0,chroma_spatial=3.0,luma_temporal=6.0,chroma_temporal=4.5
   ```
 
 ### --vpp-descale [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]

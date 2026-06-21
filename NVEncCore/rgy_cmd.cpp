@@ -5246,7 +5246,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-denoise-hqdn3d") && ENABLE_VPP_FILTER_HQDN3D) {
+    if (IS_OPTION("vpp-hqdn3d") && ENABLE_VPP_FILTER_HQDN3D) {
         vpp->hqdn3d.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -12383,9 +12383,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("chroma_temporal"), hqdn3d.chroma_temporal, 3);
         }
         if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-denoise-hqdn3d ") << tmp.str().substr(1);
+            cmd << _T(" --vpp-hqdn3d ") << tmp.str().substr(1);
         } else if (param->hqdn3d.enable) {
-            cmd << _T(" --vpp-denoise-hqdn3d");
+            cmd << _T(" --vpp-hqdn3d");
         }
     }
     if (param->descale != defaultPrm->descale) {
@@ -14822,7 +14822,7 @@ tstring gen_cmd_help_vpp() {
 #endif
 #if ENABLE_VPP_FILTER_HQDN3D
     str += strsprintf(_T("\n")
-        _T("   --vpp-denoise-hqdn3d [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("   --vpp-hqdn3d [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by hqdn3d.\n")
         _T("    params\n")
         _T("      luma_spatial=<float>     spatial denoise strength for luma (default=%.2f, 0.0-255.0)\n")
