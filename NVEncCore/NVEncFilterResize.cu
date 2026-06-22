@@ -1712,7 +1712,6 @@ RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
                 return RGY_ERR_UNSUPPORTED;
             }
             if (resizeInterp == RGY_VPP_RESIZE_FSR1) {
-            if (resizeInterp == RGY_VPP_RESIZE_FSR1) {
                 if (!m_fsr1Easu) {
                     AddMessage(RGY_LOG_ERROR, _T("FSR intermediate buffer is not allocated.\n"));
                     return RGY_ERR_NULL_PTR;
