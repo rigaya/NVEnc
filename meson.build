@@ -689,6 +689,7 @@ conf_data.set10('ENABLE_LIBHDR10PLUS', libhdr10plus_dep.found())
 conf_data.set10('ENABLE_VULKAN', have_vulkan_headers)
 conf_data.set10('ENABLE_LIBPLACEBO', have_libplacebo_headers)
 conf_data.set10('LIBPLACEBO_STATIC_LINK', have_libplacebo_headers and libplacebo_static and have_libplacebo_link)
+conf_data.set10('ENABLE_ONNXRUNTIME', false)
 conf_data.set10('LIBVMAF_STATIC_LINK', have_vmaf_headers and libvmaf_static and have_vmaf_link)
 conf_data.set10('ENABLE_PERF_COUNTER', false)
 
@@ -791,6 +792,7 @@ nvenccore_sources = files(
   'NVEncCore/NVEncFilterNGX.cpp',
   'NVEncCore/NVEncFilterNVOFFRUC.cpp',
   'NVEncCore/NVEncFilterNvvfx.cpp',
+  'NVEncCore/NVEncFilterOnnx.cpp',
   'NVEncCore/NVEncFilterOverlay.cpp',
   'NVEncCore/NVEncFilterPad.cpp',
   'NVEncCore/NVEncFilterParam.cpp',
@@ -850,6 +852,7 @@ nvenccore_sources = files(
   'NVEncCore/rgy_log.cpp',
   'NVEncCore/rgy_memmem.cpp',
   'NVEncCore/rgy_nvrtc.cpp',
+  'NVEncCore/rgy_onnxrt_cuda.cpp',
   'NVEncCore/rgy_output.cpp',
   'NVEncCore/rgy_output_avcodec.cpp',
   'NVEncCore/rgy_perf_counter.cpp',
@@ -891,6 +894,7 @@ cuda_sources = files(
   'NVEncCore/NVEncFilterAfsSynthesize.cu',
   'NVEncCore/NVEncFilterBwdif.cu',
   'NVEncCore/NVEncFilterIvtc.cu',
+  'NVEncCore/NVEncFilterKaizen.cu',
   'NVEncCore/NVEncFilterKfm.cu',
   'NVEncCore/NVEncFilterConvolution3d.cu',
   'NVEncCore/NVEncFilterCrop.cu',
