@@ -267,6 +267,8 @@
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-fruc \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fruc-param1value1param2value2)
+  - [--vpp-kaizen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-kaizen-param1value1param2value2)
+  - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [Other Options](#other-options)
@@ -1877,8 +1879,10 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
+- [--vpp-kaizen](#--vpp-kaizen-param1value1param2value2)
+- [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 
-### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Converts colorspace of the video. Available on x64 version.  
 Values for parameters will be copied from input file for "input" when using avhw/avsw reader.
 
@@ -3237,12 +3241,38 @@ Specify the resizing algorithm.
       | lanczos2       | 4x4 Lanczos resampling                                     |
       | lanczos3       | 6x6 Lanczos resampling                                     |
       | lanczos4       | 8x8 Lanczos resampling                                     |
+      | lanczos5       | 10x10 Lanczos resampling                                   |
+      | lanczos6       | 12x12 Lanczos resampling                                   |
+      | lanczos7       | 14x14 Lanczos resampling                                   |
+      | lanczos8       | 16x16 Lanczos resampling                                   |
+      | mitchell       | Mitchell-Netravali filter                                  |
+      | catmull-rom    | Catmull-Rom filter                                         |
+      | hermite        | Hermite filter                                             |
+      | jinc36         | EWA Jinc resampling (radius=3)                             |
+      | jinc64         | EWA Jinc resampling (radius=4)                             |
+      | jinc144        | EWA Jinc resampling (radius=6)                             |
+      | jinc256        | EWA Jinc resampling (radius=8)                             |
+      | nis            | NVIDIA Image Scaling 1.0.3                                 |
       | fsr1           | AMD FidelityFX Super Resolution 1.0 (EASU + RCAS)          |
 
       - Additional parameters for fsr1
 
         - sharpness=&lt;float&gt;
           RCAS sharpness. (0.0 - 1.0, default = 0.5)
+
+      - Additional parameters for nis / bicubic
+
+        - sharpness=&lt;float&gt;
+          NIS sharpness. (0.0 - 1.0, default = 0.5)
+
+        - cascade=&lt;string&gt;
+          NIS cascade mode for scaling over 2x: auto, on, off.
+
+        - hdr=&lt;string&gt;
+          NIS sharpening band: auto, sdr, pq.
+
+        - b=&lt;float&gt;, c=&lt;float&gt;
+          Mitchell-Netravali B/C coefficients for bicubic. (default B=0.0, C=0.6)
 
     - [npp](https://developer.nvidia.com/npp) library resize filters
 
@@ -3363,6 +3393,12 @@ Specify the resizing algorithm.
 
   Examples: Use fsr1
   --vpp-resize algo=fsr1,sharpness=0.8
+
+  Examples: Use nis
+  --vpp-resize algo=nis,sharpness=0.5,cascade=auto,hdr=sdr
+
+  Examples: Use jinc144
+  --vpp-resize algo=jinc144
   ```
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -4114,6 +4150,40 @@ Default paramters are based on the values on [the link](https://www.reddit.com/r
   
   Example: Convert to 59.94fps
   --vpp-fruc fps=60000/1001
+  ```
+
+### --vpp-kaizen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Anime-oriented upscale / restoration using a CUDA filter based on Anime4K v3.2. Currently supports 8bit YUV420 input only.
+
+- **Parameters**
+  - mode=&lt;string&gt; (default: ani4k_original)
+    ani4k_original, ani4k_deblur, ani4k_darken_hq, ani4k_thin_hq, ani4k_dog_sharpen, ani4k_dog, ani4k_dtd.
+  - strength=&lt;float&gt; (default: 0.5)
+  - chroma=&lt;bool&gt; (default: true)
+  - chroma_resize=&lt;string&gt; (default: spline36)
+    spline36, bilinear, bicubic, lanczos3, joint.
+  - out_res=&lt;int&gt;x&lt;int&gt;, resize=&lt;string&gt;
+    Resize to the specified resolution after the 2x processing.
+
+- Examples
+  ```
+  --vpp-kaizen mode=ani4k_original,out_res=1920x1080,resize=jinc144
+  ```
+
+### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+CNN filter which runs an ONNX model through ONNX Runtime CUDA / TensorRT provider. This is for Windows x64 and requires a CUDA 12 ONNX Runtime GPU build.
+
+- **Parameters**
+  - model=&lt;string&gt;
+    Path to the ONNX model file.
+  - provider=&lt;string&gt; (default: cuda)
+    cuda or tensorrt.
+  - out_res=&lt;int&gt;x&lt;int&gt;, resize=&lt;string&gt;
+    Resize to the specified resolution after model inference.
+
+- Examples
+  ```
+  --vpp-onnx model=acnet/acnet_s.onnx,provider=cuda,out_res=1920x1080,resize=lanczos4
   ```
 
 ### --vpp-perf-monitor
