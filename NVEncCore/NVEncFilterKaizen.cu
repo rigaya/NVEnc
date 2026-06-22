@@ -643,7 +643,7 @@ __global__ void kaizen_thin_kernel_xy(float4 *__restrict__ pDstA, const int dstP
     const int xl = max(ix - 1, 0), xr = min(ix + 1, outW - 1), yt = max(iy - 1, 0), yb = min(iy + 1, outH - 1);
     #define KZS(xx, yy) pSrcB[(yy) * srcPitchFloats + (xx)].x
     const float l_t = KZS(xl, yt), c_t = KZS(ix, yt), r_t = KZS(xr, yt);
-    const float l_c = KZS(xl, iy), c_c = KZS(ix, iy), r_c = KZS(xr, iy);
+    const float l_c = KZS(xl, iy), r_c = KZS(xr, iy);
     const float l_b = KZS(xl, yb), c_b = KZS(ix, yb), r_b = KZS(xr, yb);
     #undef KZS
     const float xg_t = -l_t + r_t, yg_t = l_t + c_t + c_t + r_t;
@@ -717,8 +717,8 @@ __global__ void kaizen_dog_kernel_y(float4 *__restrict__ pDstB, const int dstPit
     pDstB[iy * dstPitchFloats + ix] = make_float4(g, lo, hi, 0.0f);
 }
 template<typename Type, int bit_depth>
-__global__ void kaizen_dog_apply_soft(uint8_t *__restrict__ pDstY, const int dstPitch,
-    const uint8_t *__restrict__ pSrcLuma, const int srcLumaPitch, const float4 *__restrict__ pSrcMM, const int srcMMPitchFloats,
+__global__ void kaizen_dog_apply_soft(uint8_t *pDstY, const int dstPitch,
+    const uint8_t *pSrcLuma, const int srcLumaPitch, const float4 *__restrict__ pSrcMM, const int srcMMPitchFloats,
     const int W, const int H, const float strength) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
