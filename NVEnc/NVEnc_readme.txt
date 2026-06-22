@@ -214,6 +214,32 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.06.23 (9.20)
+- --vpp-chromashift を追加。
+- --vpp-deblock を追加。
+- --vpp-deflicker を追加。
+- --vpp-colorfix を追加。
+- --vpp-dehalo, --vpp-finedehalo, --vpp-hqdering を追加。
+- --vpp-maa フィルタを追加。
+- --vpp-stab を追加。
+- --vpp-vinverse を追加。
+- --vpp-hqdn3d, --vpp-cas, --vpp-descale を追加。
+- --vpp-nlmeans で一部の設定でノイズが出てしまうのを修正。
+- --vpp-msmooth, --vpp-msharpen, --vpp-warpsharp を拡張。
+- --vpp-ivtc を更新。
+- --vpp-resize に fsr1 を追加。
+- --vpp-rtgmc order指定時、実際の解除に反映するように修正。
+- --vpp-rtgmc slower source-match の chroma 補正を修正。
+- --vpp-deflicker の scene change 判定を修正。
+- --vpp-chromashift auto検出の budget を修正。
+- --vpp-colorfix の調整。
+- KFM realtime で source cache 不足による失敗を修正。
+- KFM search luma 保持でフレームプールが枯渇する問題を修正。
+- vpp-nnedi の参照バッファ確保不足を修正。
+- 音声 PTS 未設定時の mux タイムスタンプを補正。
+- hqdn3d の VPP オプション名を共通化。
+- 多数のフレーム出力が行われる場合のパイプライン制御を修正。
+
 2026.06.15 (9.19)
 - nnedi3_weight.binをパッケージに同梱。
 - vpp-kfmのRTGMC preset medium時のエラーを修正。(vpp-nnediのnnsize=5) ( #776 )

@@ -1,5 +1,32 @@
 # NVEnc Release Notes
 
+## 9.20
+
+- Add [--vpp-chromashift](./NVEncC_Options.en.md#--vpp-chromashift-param1value1param2value2).
+- Add [--vpp-deblock](./NVEncC_Options.en.md#--vpp-deblock-param1value1param2value2).
+- Add [--vpp-deflicker](./NVEncC_Options.en.md#--vpp-deflicker-param1value1param2value2).
+- Add [--vpp-colorfix](./NVEncC_Options.en.md#--vpp-colorfix-param1value1param2value2).
+- Add [--vpp-dehalo](./NVEncC_Options.en.md#--vpp-dehalo-param1value1param2value2), [--vpp-finedehalo](./NVEncC_Options.en.md#--vpp-finedehalo-param1value1param2value2), and [--vpp-hqdering](./NVEncC_Options.en.md#--vpp-hqdering-param1value1param2value2).
+- Add [--vpp-maa](./NVEncC_Options.en.md#--vpp-maa-param1value1param2value2) filter.
+- Add [--vpp-stab](./NVEncC_Options.en.md#--vpp-stab-param1value1param2value2).
+- Add [--vpp-vinverse](./NVEncC_Options.en.md#--vpp-vinverse-param1value1param2value2).
+- Add [--vpp-hqdn3d](./NVEncC_Options.en.md#--vpp-hqdn3d-param1value1param2value2), [--vpp-cas](./NVEncC_Options.en.md#--vpp-cas-param1value1param2value2), and [--vpp-descale](./NVEncC_Options.en.md#--vpp-descale-param1value1param2value2).
+- Fix [--vpp-nlmeans](./NVEncC_Options.en.md#--vpp-nlmeans-param1value1param2value2) causing artifacts in some settings.
+- Extend [--vpp-msmooth](./NVEncC_Options.en.md#--vpp-msmooth-param1value1param2value2), [--vpp-msharpen](./NVEncC_Options.en.md#--vpp-msharpen-param1value1param2value2), and [--vpp-warpsharp](./NVEncC_Options.en.md#--vpp-warpsharp-param1value1param2value2).
+- Update [--vpp-ivtc](./NVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2).
+- Add fsr1 to [--vpp-resize](./NVEncC_Options.en.md#--vpp-resize-string-or-param1value1param2value2).
+- Apply [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1) order to actual deinterlacing.
+- Fix [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1) slower source-match chroma correction.
+- Fix [--vpp-deflicker](./NVEncC_Options.en.md#--vpp-deflicker-param1value1param2value2) scene change detection.
+- Fix [--vpp-chromashift](./NVEncC_Options.en.md#--vpp-chromashift-param1value1param2value2) auto detection budget.
+- Adjust [--vpp-colorfix](./NVEncC_Options.en.md#--vpp-colorfix-param1value1param2value2).
+- Fix [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) realtime failure due to insufficient source cache.
+- Fix [--vpp-kfm](./NVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) frame pool exhaustion when retaining search luma.
+- Fix insufficient reference buffer allocation in [--vpp-nnedi](./NVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2).
+- Correct mux timestamps when audio PTS is unset.
+- Unify hqdn3d VPP option names.
+- Fix pipeline control when many frames are output.
+
 ## 9.19
 
 - Bundle nnedi3_weight.bin in the package.
