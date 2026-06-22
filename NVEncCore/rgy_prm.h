@@ -3700,8 +3700,8 @@ struct RGYParamVpp {
     VppLibplaceboDeband libplacebo_deband;
     std::vector<VppOverlay> overlay;
     VppFruc fruc;
-    std::vector<VppOnnx> onnxChain; // ordered chain of --vpp-onnx invocations (one entry per CLI flag)
-    std::vector<VppKaizen> kaizenChain; // ordered chain of --vpp-kaizen invocations
+    VppOnnx onnx;
+    VppKaizen kaizen;
     bool checkPerformance;
 
     RGYParamVpp();

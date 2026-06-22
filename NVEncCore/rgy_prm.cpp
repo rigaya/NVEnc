@@ -3608,8 +3608,8 @@ RGYParamVpp::RGYParamVpp() :
     libplacebo_deband(),
     overlay(),
     fruc(),
-    onnxChain(),
-    kaizenChain(),
+    onnx(),
+    kaizen(),
     checkPerformance(false) {
 
 }
@@ -3685,8 +3685,8 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && deband == x.deband
         && libplacebo_deband == x.libplacebo_deband
         && overlay == x.overlay
-        && onnxChain == x.onnxChain
-        && kaizenChain == x.kaizenChain
+        && onnx == x.onnx
+        && kaizen == x.kaizen
         && checkPerformance == x.checkPerformance;
 }
 bool RGYParamVpp::operator!=(const RGYParamVpp& x) const {

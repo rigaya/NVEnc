@@ -8726,10 +8726,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
     if (IS_OPTION("vpp-onnx") && ENABLE_VPP_FILTER_ONNX) {
-        VppOnnx newOnnx;
-        newOnnx.enable = true;
+        vpp->onnx.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
-            vpp->onnxChain.push_back(newOnnx);
             return 0;
         }
         i++;
@@ -8748,7 +8746,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("enable")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        newOnnx.enable = b;
+                        vpp->onnx.enable = b;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -8756,13 +8754,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("model") || param_arg == _T("modelfile")) {
-                    newOnnx.modelFile = param_val;
+                    vpp->onnx.modelFile = param_val;
                     continue;
                 }
                 if (param_arg == _T("provider")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("cuda") || v == _T("tensorrt") || v == _T("trt")) {
-                        newOnnx.provider = (v == _T("trt")) ? _T("tensorrt") : v;
+                        vpp->onnx.provider = (v == _T("trt")) ? _T("tensorrt") : v;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -8770,13 +8768,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("device")) {
-                    newOnnx.device = param_val;
+                    vpp->onnx.device = param_val;
                     continue;
                 }
                 if (param_arg == _T("interop")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("ocl") || v == _T("host")) {
-                        newOnnx.interop = v;
+                        vpp->onnx.interop = v;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -8786,7 +8784,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("colormatrix")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("bt601") || v == _T("bt709") || v == _T("bt2020")) {
-                        newOnnx.colormatrix = v;
+                        vpp->onnx.colormatrix = v;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -8796,7 +8794,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("colorrange")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("tv") || v == _T("limited") || v == _T("pc") || v == _T("full")) {
-                        newOnnx.colorrange = (v == _T("limited")) ? _T("tv") : (v == _T("full")) ? _T("pc") : v;
+                        vpp->onnx.colorrange = (v == _T("limited")) ? _T("tv") : (v == _T("full")) ? _T("pc") : v;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -8806,7 +8804,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("colorspace")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("rgb") || v == _T("ycbcr")) {
-                        newOnnx.colorspace = v;
+                        vpp->onnx.colorspace = v;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -8815,7 +8813,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("noise")) {
                     try {
-                        newOnnx.noise = std::stoi(param_val);
+                        vpp->onnx.noise = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -8840,14 +8838,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                             _T("expected WxH; a negative value keeps aspect (e.g. -2x1080); both cannot be negative"));
                         return 1;
                     }
-                    newOnnx.postResizeW = w;
-                    newOnnx.postResizeH = h;
+                    vpp->onnx.postResizeW = w;
+                    vpp->onnx.postResizeH = h;
                     continue;
                 }
                 if (param_arg == _T("resize")) {
                     int value = 0;
                     if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) {
-                        newOnnx.postResizeAlgo = (RGY_VPP_RESIZE_ALGO)value;
+                        vpp->onnx.postResizeAlgo = (RGY_VPP_RESIZE_ALGO)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize);
                         return 1;
@@ -8861,14 +8859,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 return 1;
             }
         }
-        vpp->onnxChain.push_back(newOnnx);
         return 0;
     }
     if (IS_OPTION("vpp-kaizen") && ENABLE_VPP_FILTER_KAIZEN) {
-        VppKaizen newKaizen;
-        newKaizen.enable = true;
+        vpp->kaizen.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
-            vpp->kaizenChain.push_back(newKaizen);
             return 0;
         }
         i++;
@@ -8887,39 +8882,39 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             param_arg = tolowercase(param_arg);
             if (param_arg == _T("enable")) {
                 bool b = false;
-                if (!cmd_string_to_bool(&b, param_val)) { newKaizen.enable = b; }
+                if (!cmd_string_to_bool(&b, param_val)) { vpp->kaizen.enable = b; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             if (param_arg == _T("mode")) {
                 int value = 0;
                 if (get_list_value(list_vpp_kaizen_mode, param_val.c_str(), &value)) {
-                    newKaizen.mode = (VppKaizenMode)value;
-                    if (newKaizen.mode == VppKaizenMode::Deblur && newKaizen.strength == FILTER_DEFAULT_KAIZEN_STRENGTH) {
-                        newKaizen.strength = 1.0f;
+                    vpp->kaizen.mode = (VppKaizenMode)value;
+                    if (vpp->kaizen.mode == VppKaizenMode::Deblur && vpp->kaizen.strength == FILTER_DEFAULT_KAIZEN_STRENGTH) {
+                        vpp->kaizen.strength = 1.0f;
                     }
                 } else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kaizen_mode); return 1; }
                 continue;
             }
             if (param_arg == _T("scale")) {
-                try { newKaizen.scale = std::stoi(param_val); }
+                try { vpp->kaizen.scale = std::stoi(param_val); }
                 catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             if (param_arg == _T("strength")) {
-                try { newKaizen.strength = std::stof(param_val); }
+                try { vpp->kaizen.strength = std::stof(param_val); }
                 catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             if (param_arg == _T("chroma_resize")) {
                 int value = 0;
-                if (get_list_value(list_vpp_kaizen_chroma_resize, param_val.c_str(), &value)) { newKaizen.chromaResize = (VppKaizenChromaResize)value; }
+                if (get_list_value(list_vpp_kaizen_chroma_resize, param_val.c_str(), &value)) { vpp->kaizen.chromaResize = (VppKaizenChromaResize)value; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kaizen_chroma_resize); return 1; }
                 continue;
             }
             if (param_arg == _T("chroma")) {
                 bool b = false;
-                if (!cmd_string_to_bool(&b, param_val)) { newKaizen.chroma = b; }
+                if (!cmd_string_to_bool(&b, param_val)) { vpp->kaizen.chroma = b; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
@@ -8934,69 +8929,68 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         _T("expected WxH; a negative value keeps aspect (e.g. -2x1080); both cannot be negative"));
                     return 1;
                 }
-                newKaizen.postResizeW = w; newKaizen.postResizeH = h;
+                vpp->kaizen.postResizeW = w; vpp->kaizen.postResizeH = h;
                 continue;
             }
             if (param_arg == _T("resize")) {
                 int value = 0;
-                if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) { newKaizen.postResizeAlgo = (RGY_VPP_RESIZE_ALGO)value; }
+                if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) { vpp->kaizen.postResizeAlgo = (RGY_VPP_RESIZE_ALGO)value; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize); return 1; }
                 continue;
             }
             if (param_arg == _T("darken")) {
                 int value = 0;
-                if (get_list_value(list_vpp_kaizen_darken, param_val.c_str(), &value)) { newKaizen.darken = (VppKaizenDarken)value; }
+                if (get_list_value(list_vpp_kaizen_darken, param_val.c_str(), &value)) { vpp->kaizen.darken = (VppKaizenDarken)value; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kaizen_darken); return 1; }
                 continue;
             }
             if (param_arg == _T("thin")) {
                 int value = 0;
-                if (get_list_value(list_vpp_kaizen_thin, param_val.c_str(), &value)) { newKaizen.thin = (VppKaizenThin)value; }
+                if (get_list_value(list_vpp_kaizen_thin, param_val.c_str(), &value)) { vpp->kaizen.thin = (VppKaizenThin)value; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kaizen_thin); return 1; }
                 continue;
             }
             if (param_arg == _T("denoise")) {
                 int value = 0;
-                if (get_list_value(list_vpp_kaizen_denoise, param_val.c_str(), &value)) { newKaizen.denoise = (VppKaizenDenoise)value; }
+                if (get_list_value(list_vpp_kaizen_denoise, param_val.c_str(), &value)) { vpp->kaizen.denoise = (VppKaizenDenoise)value; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kaizen_denoise); return 1; }
                 continue;
             }
             if (param_arg == _T("denoise_intensity")) {
-                try { newKaizen.denoiseIntensity = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try { vpp->kaizen.denoiseIntensity = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             if (param_arg == _T("denoise_spatial")) {
-                try { newKaizen.denoiseSpatial = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try { vpp->kaizen.denoiseSpatial = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             if (param_arg == _T("denoise_curve")) {
-                try { newKaizen.denoiseCurve = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try { vpp->kaizen.denoiseCurve = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             if (param_arg == _T("denoise_hist_reg")) {
-                try { newKaizen.denoiseHistReg = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try { vpp->kaizen.denoiseHistReg = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             if (param_arg == _T("prefilter_denoise")) {
                 int value = 0;
-                if (get_list_value(list_vpp_kaizen_denoise, param_val.c_str(), &value)) { newKaizen.prefilterDenoise = (VppKaizenDenoise)value; }
+                if (get_list_value(list_vpp_kaizen_denoise, param_val.c_str(), &value)) { vpp->kaizen.prefilterDenoise = (VppKaizenDenoise)value; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kaizen_denoise); return 1; }
                 continue;
             }
             if (param_arg == _T("clamp_highlights")) {
                 bool b = false;
-                if (!cmd_string_to_bool(&b, param_val)) { newKaizen.clampHighlights = b; }
+                if (!cmd_string_to_bool(&b, param_val)) { vpp->kaizen.clampHighlights = b; }
                 else { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             if (param_arg == _T("antiring")) {
-                try { newKaizen.antiring = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                try { vpp->kaizen.antiring = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
                 continue;
             }
             print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
             return 1;
         }
-        vpp->kaizenChain.push_back(newKaizen);
         return 0;
     }
     if (IS_OPTION("vpp-perf-monitor")) {
@@ -13504,63 +13498,53 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-fruc");
         }
     }
-    {
-        const VppOnnx onnxDefault;
-        for (size_t ci = 0; ci < param->onnxChain.size(); ci++) {
-            const auto &kv = param->onnxChain[ci];
-            if (kv == onnxDefault) continue;
-            tmp.str(tstring());
-            if (!kv.enable && save_disabled_prm) {
-                tmp << _T(",enable=false");
-            }
-            if (kv.enable || save_disabled_prm) {
-                if (!kv.modelFile.empty()) tmp << _T(",model=") << kv.modelFile;
-                if (kv.provider != onnxDefault.provider) tmp << _T(",provider=") << kv.provider;
-                if (kv.colormatrix != onnxDefault.colormatrix) tmp << _T(",colormatrix=") << kv.colormatrix;
-                if (kv.colorrange != onnxDefault.colorrange) tmp << _T(",colorrange=") << kv.colorrange;
-                if (kv.colorspace != onnxDefault.colorspace) tmp << _T(",colorspace=") << kv.colorspace;
-                if (kv.noise != onnxDefault.noise) tmp << _T(",noise=") << kv.noise;
-                if (kv.postResizeW != 0 && kv.postResizeH != 0) {
-                    tmp << _T(",out_res=") << kv.postResizeW << _T("x") << kv.postResizeH;
-                    tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, kv.postResizeAlgo);
-                }
-            }
-            if (!tmp.str().empty()) {
-                cmd << _T(" --vpp-onnx ") << tmp.str().substr(1);
-            } else if (kv.enable) {
-                cmd << _T(" --vpp-onnx");
+    if (param->onnx != defaultPrm->onnx) {
+        tmp.str(tstring());
+        if (!param->onnx.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->onnx.enable || save_disabled_prm) {
+            if (!param->onnx.modelFile.empty()) tmp << _T(",model=") << param->onnx.modelFile;
+            if (param->onnx.provider != defaultPrm->onnx.provider) tmp << _T(",provider=") << param->onnx.provider;
+            if (param->onnx.colormatrix != defaultPrm->onnx.colormatrix) tmp << _T(",colormatrix=") << param->onnx.colormatrix;
+            if (param->onnx.colorrange != defaultPrm->onnx.colorrange) tmp << _T(",colorrange=") << param->onnx.colorrange;
+            if (param->onnx.colorspace != defaultPrm->onnx.colorspace) tmp << _T(",colorspace=") << param->onnx.colorspace;
+            if (param->onnx.noise != defaultPrm->onnx.noise) tmp << _T(",noise=") << param->onnx.noise;
+            if (param->onnx.postResizeW != 0 && param->onnx.postResizeH != 0) {
+                tmp << _T(",out_res=") << param->onnx.postResizeW << _T("x") << param->onnx.postResizeH;
+                tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->onnx.postResizeAlgo);
             }
         }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-onnx ") << tmp.str().substr(1);
+        } else if (param->onnx.enable) {
+            cmd << _T(" --vpp-onnx");
+        }
     }
-    {
-        const VppKaizen kaizenDefault;
-        for (size_t ci = 0; ci < param->kaizenChain.size(); ci++) {
-            const auto &kv = param->kaizenChain[ci];
-            if (kv == kaizenDefault) continue;
-            tmp.str(tstring());
-            if (!kv.enable && save_disabled_prm) tmp << _T(",enable=false");
-            if (kv.enable || save_disabled_prm) {
-                if (kv.mode != kaizenDefault.mode) tmp << _T(",mode=") << get_cx_desc(list_vpp_kaizen_mode, (int)kv.mode);
-                if (kv.scale != kaizenDefault.scale) tmp << _T(",scale=") << kv.scale;
-                if (kv.strength != kaizenDefault.strength) tmp << _T(",strength=") << kv.strength;
-                if (kv.chromaResize != kaizenDefault.chromaResize) tmp << _T(",chroma_resize=") << get_cx_desc(list_vpp_kaizen_chroma_resize, (int)kv.chromaResize);
-                if (kv.chroma != kaizenDefault.chroma) tmp << _T(",chroma=") << (kv.chroma ? _T("true") : _T("false"));
-                if (kv.darken != kaizenDefault.darken) tmp << _T(",darken=") << get_cx_desc(list_vpp_kaizen_darken, (int)kv.darken);
-                if (kv.thin != kaizenDefault.thin) tmp << _T(",thin=") << get_cx_desc(list_vpp_kaizen_thin, (int)kv.thin);
-                if (kv.denoise != kaizenDefault.denoise) tmp << _T(",denoise=") << get_cx_desc(list_vpp_kaizen_denoise, (int)kv.denoise);
-                if (kv.prefilterDenoise != kaizenDefault.prefilterDenoise) tmp << _T(",prefilter_denoise=") << get_cx_desc(list_vpp_kaizen_denoise, (int)kv.prefilterDenoise);
-                if (kv.clampHighlights != kaizenDefault.clampHighlights) tmp << _T(",clamp_highlights=") << (kv.clampHighlights ? _T("true") : _T("false"));
-                if (kv.antiring != kaizenDefault.antiring) tmp << _T(",antiring=") << kv.antiring;
-                if (kv.postResizeW != 0 && kv.postResizeH != 0) {
-                    tmp << _T(",out_res=") << kv.postResizeW << _T("x") << kv.postResizeH;
-                    tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, kv.postResizeAlgo);
-                }
+    if (param->kaizen != defaultPrm->kaizen) {
+        tmp.str(tstring());
+        if (!param->kaizen.enable && save_disabled_prm) tmp << _T(",enable=false");
+        if (param->kaizen.enable || save_disabled_prm) {
+            if (param->kaizen.mode != defaultPrm->kaizen.mode) tmp << _T(",mode=") << get_cx_desc(list_vpp_kaizen_mode, (int)param->kaizen.mode);
+            if (param->kaizen.scale != defaultPrm->kaizen.scale) tmp << _T(",scale=") << param->kaizen.scale;
+            if (param->kaizen.strength != defaultPrm->kaizen.strength) tmp << _T(",strength=") << param->kaizen.strength;
+            if (param->kaizen.chromaResize != defaultPrm->kaizen.chromaResize) tmp << _T(",chroma_resize=") << get_cx_desc(list_vpp_kaizen_chroma_resize, (int)param->kaizen.chromaResize);
+            if (param->kaizen.chroma != defaultPrm->kaizen.chroma) tmp << _T(",chroma=") << (param->kaizen.chroma ? _T("true") : _T("false"));
+            if (param->kaizen.darken != defaultPrm->kaizen.darken) tmp << _T(",darken=") << get_cx_desc(list_vpp_kaizen_darken, (int)param->kaizen.darken);
+            if (param->kaizen.thin != defaultPrm->kaizen.thin) tmp << _T(",thin=") << get_cx_desc(list_vpp_kaizen_thin, (int)param->kaizen.thin);
+            if (param->kaizen.denoise != defaultPrm->kaizen.denoise) tmp << _T(",denoise=") << get_cx_desc(list_vpp_kaizen_denoise, (int)param->kaizen.denoise);
+            if (param->kaizen.prefilterDenoise != defaultPrm->kaizen.prefilterDenoise) tmp << _T(",prefilter_denoise=") << get_cx_desc(list_vpp_kaizen_denoise, (int)param->kaizen.prefilterDenoise);
+            if (param->kaizen.clampHighlights != defaultPrm->kaizen.clampHighlights) tmp << _T(",clamp_highlights=") << (param->kaizen.clampHighlights ? _T("true") : _T("false"));
+            if (param->kaizen.antiring != defaultPrm->kaizen.antiring) tmp << _T(",antiring=") << param->kaizen.antiring;
+            if (param->kaizen.postResizeW != 0 && param->kaizen.postResizeH != 0) {
+                tmp << _T(",out_res=") << param->kaizen.postResizeW << _T("x") << param->kaizen.postResizeH;
+                tmp << _T(",resize=") << get_cx_desc(list_vpp_resize, param->kaizen.postResizeAlgo);
             }
-            if (!tmp.str().empty()) {
-                cmd << _T(" --vpp-kaizen ") << tmp.str().substr(1);
-            } else if (kv.enable) {
-                cmd << _T(" --vpp-kaizen");
-            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-kaizen ") << tmp.str().substr(1);
+        } else if (param->kaizen.enable) {
+            cmd << _T(" --vpp-kaizen");
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), checkPerformance);
