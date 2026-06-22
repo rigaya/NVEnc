@@ -235,7 +235,7 @@ struct VppParam {
 };
 
 struct sArgsData;
-int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, [[maybe_unused]] int nArgNum, VppParam* vppnv, [[maybe_unused]] sArgsData* argData, RGY_VPP_RESIZE_ALGO& resize_algo);
+int parse_one_vppnv_option(const TCHAR* option_name, const TCHAR* strInput[], int& i, [[maybe_unused]] int nArgNum, VppParam* vppnv, [[maybe_unused]] sArgsData* argData, RGY_VPP_RESIZE_ALGO& resize_algo, VppResizeFsr1& resize_fsr1, VppResizeNis& resize_nis, VppResizeBicubic& resize_bicubic);
 tstring gen_cmd(const VppParam *param, const VppParam *defaultPrm, RGY_VPP_RESIZE_ALGO resize_algo, bool save_disabled_prm);
 
 #endif //_NVENC_FILTER_PARAM_H_
