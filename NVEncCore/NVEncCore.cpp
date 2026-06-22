@@ -5051,7 +5051,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         const auto onnxIndex = static_cast<size_t>(std::count_if(cufilters.begin(), cufilters.end(),
             [](const auto& filter) { return filter->name() == _T("onnx"); }));
         if (onnxIndex >= inputParam->vpp.onnxChain.size()) {
-            AddMessage(RGY_LOG_ERROR, _T("Invalid --vpp-onnx chain index.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Invalid --vpp-onnx chain index.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
         unique_ptr<NVEncFilter> filter(new NVEncFilterOnnx());
@@ -5080,7 +5080,7 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         const auto kaizenIndex = static_cast<size_t>(std::count_if(cufilters.begin(), cufilters.end(),
             [](const auto& filter) { return filter->name() == _T("kaizen"); }));
         if (kaizenIndex >= inputParam->vpp.kaizenChain.size()) {
-            AddMessage(RGY_LOG_ERROR, _T("Invalid --vpp-kaizen chain index.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Invalid --vpp-kaizen chain index.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
         unique_ptr<NVEncFilter> filter(new NVEncFilterKaizen());
