@@ -3012,8 +3012,8 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.pad.enable)        filterPipeline.push_back(VppType::CL_PAD);
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
     if (inputParam->vppnv.ngxTrueHDR.enable)     filterPipeline.push_back(VppType::NGX_TRUEHDR);
-    if (inputParam->vpp.onnxChain.size() > 0)    filterPipeline.push_back(VppType::CL_ONNX);
-    if (inputParam->vpp.kaizenChain.size() > 0)  filterPipeline.push_back(VppType::CL_KAIZEN);
+    for (size_t i = 0; i < inputParam->vpp.onnxChain.size(); i++)   filterPipeline.push_back(VppType::CL_ONNX);
+    for (size_t i = 0; i < inputParam->vpp.kaizenChain.size(); i++) filterPipeline.push_back(VppType::CL_KAIZEN);
     if (inputParam->vpp.fruc.enable)     filterPipeline.push_back(VppType::CL_FRUC);
 
     if (filterPipeline.size() == 0) {
@@ -5048,9 +5048,15 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
     }
     // fruc
     if (vppType == VppType::CL_ONNX) {
+        const auto onnxIndex = static_cast<size_t>(std::count_if(cufilters.begin(), cufilters.end(),
+            [](const auto& filter) { return filter->name() == _T("onnx"); }));
+        if (onnxIndex >= inputParam->vpp.onnxChain.size()) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid --vpp-onnx chain index.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
         unique_ptr<NVEncFilter> filter(new NVEncFilterOnnx());
         shared_ptr<NVEncFilterParamOnnx> param(new NVEncFilterParamOnnx());
-        param->onnx = inputParam->vpp.onnxChain[0];
+        param->onnx = inputParam->vpp.onnxChain[onnxIndex];
         param->deviceID = m_dev->id();
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
@@ -5071,9 +5077,15 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         return RGY_ERR_NONE;
     }
     if (vppType == VppType::CL_KAIZEN) {
+        const auto kaizenIndex = static_cast<size_t>(std::count_if(cufilters.begin(), cufilters.end(),
+            [](const auto& filter) { return filter->name() == _T("kaizen"); }));
+        if (kaizenIndex >= inputParam->vpp.kaizenChain.size()) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid --vpp-kaizen chain index.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
         unique_ptr<NVEncFilter> filter(new NVEncFilterKaizen());
         shared_ptr<NVEncFilterParamKaizen> param(new NVEncFilterParamKaizen());
-        param->kaizen = inputParam->vpp.kaizenChain[0];
+        param->kaizen = inputParam->vpp.kaizenChain[kaizenIndex];
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
