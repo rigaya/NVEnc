@@ -41,9 +41,10 @@ class NVEncFilterResize; // opt-in end-of-chain resize sub-filter (out_res=/resi
 class NVEncFilterParamOnnx : public NVEncFilterParam {
 public:
     VppOnnx onnx;
+    tstring modelDir;
     int sar[2] = { 0, 0 };  // input SAR (set by pipeline) -- resolves a negative out_res= (auto-aspect) DAR-correctly
     int deviceID = -1;      // CUDA device ordinal NVEnc selected (binds inference to the encoder's GPU; -1 = current device)
-    NVEncFilterParamOnnx() : onnx() {};
+    NVEncFilterParamOnnx() : onnx(), modelDir() {};
     virtual ~NVEncFilterParamOnnx() {};
     virtual tstring print() const override;
 };

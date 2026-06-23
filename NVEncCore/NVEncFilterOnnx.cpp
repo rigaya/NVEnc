@@ -28,6 +28,7 @@
 #include "NVEncFilterOnnx.h"
 #include "rgy_aspect_ratio.h"  // set_auto_resolution() for out_res= negative auto-aspect
 #include "rgy_filesystem.h"
+#include "rgy_model_registry.h"
 #include <cmath>
 #include <cstring>
 #include <algorithm>
@@ -176,6 +177,24 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     if (prm->onnx.modelFile.empty()) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: model= (path to an .onnx model) is required.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->onnx.modelFile.find_first_of(_T("/\\.")) == tstring::npos && !prm->modelDir.empty()) {
+        RGYModelRegistry registry;
+        auto jsonPath = PathCombineS(prm->modelDir, _T("models.json"));
+        auto err = registry.load(jsonPath, m_pLog);
+        if (err != RGY_ERR_NONE) return err;
+        auto entry = registry.find(prm->onnx.modelFile);
+        if (!entry) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: model \"%s\" not found in models.json\n"), prm->onnx.modelFile.c_str());
+            return RGY_ERR_NOT_FOUND;
+        }
+        prm->onnx.modelFile = registry.resolveModelPath(prm->onnx.modelFile);
+        if (prm->onnx.colorspace.empty() || prm->onnx.colorspace == _T("auto")) {
+            prm->onnx.colorspace = entry->colorspace;
+        }
+        if (prm->onnx.noise == 15) {
+            prm->onnx.noise = entry->noise;
+        }
     }
     if (!rgy_file_exists(prm->onnx.modelFile)) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: model file not found: %s\n"), prm->onnx.modelFile.c_str());

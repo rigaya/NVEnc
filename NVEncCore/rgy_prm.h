@@ -3701,6 +3701,8 @@ struct RGYParamVpp {
     std::vector<VppOverlay> overlay;
     VppFruc fruc;
     VppOnnx onnx;
+    tstring onnxModelDir;
+    bool    onnxListModels;
     VppAnime4k anime4k;
     bool checkPerformance;
 

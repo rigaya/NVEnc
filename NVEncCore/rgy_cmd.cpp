@@ -8855,10 +8855,19 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
+                if (tolowercase(param) == _T("list")) {
+                    vpp->onnxListModels = true;
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
         }
+        return 0;
+    }
+    if (IS_OPTION("vpp-onnx-model-dir") && ENABLE_VPP_FILTER_ONNX) {
+        i++;
+        vpp->onnxModelDir = tstring(strInput[i]);
         return 0;
     }
     if (IS_OPTION("vpp-anime4k-shader") && ENABLE_VPP_FILTER_ANIME4K) {
@@ -13521,6 +13530,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-onnx");
         }
     }
+    if (!param->onnxModelDir.empty()) {
+        cmd << _T(" --vpp-onnx-model-dir ") << param->onnxModelDir;
+    }
     if (param->anime4k != defaultPrm->anime4k) {
         tmp.str(tstring());
         if (!param->anime4k.enable && save_disabled_prm) tmp << _T(",enable=false");
@@ -15835,6 +15847,8 @@ tstring gen_cmd_help_vpp() {
         _T("      out_res=<int>x<int>         resize the network output to this resolution\n")
         _T("                                    (a negative axis keeps aspect, e.g. -2x1080)\n")
         _T("      resize=<string>             resampler for out_res (see --vpp-resize algo)\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
 #endif
 #if ENABLE_VPP_FILTER_ANIME4K
     str += strsprintf(_T("\n")

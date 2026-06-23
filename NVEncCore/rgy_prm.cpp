@@ -3609,6 +3609,8 @@ RGYParamVpp::RGYParamVpp() :
     overlay(),
     fruc(),
     onnx(),
+    onnxModelDir(),
+    onnxListModels(false),
     anime4k(),
     checkPerformance(false) {
 
@@ -3686,6 +3688,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && libplacebo_deband == x.libplacebo_deband
         && overlay == x.overlay
         && onnx == x.onnx
+        && onnxModelDir == x.onnxModelDir
         && anime4k == x.anime4k
         && checkPerformance == x.checkPerformance;
 }

@@ -36,8 +36,13 @@
 #include "NVEncCmd.h"
 #include "NVEncFilterAfs.h"
 #include "rgy_osdep.h"
+#include "rgy_filesystem.h"
 #include "rgy_perf_monitor.h"
 #include "rgy_avutil.h"
+#if ENABLE_VPP_FILTER_ONNX
+#include "rgy_model_registry.h"
+#include "rgy_log.h"
+#endif
 
 tstring GetNVEncVersion() {
     static const TCHAR *const ENABLED_INFO[] = { _T("no"), _T("yes") };
@@ -1497,6 +1502,30 @@ int parse_cmd(InEncodeVideoParam *pParams, int nArgNum, const TCHAR **strInput, 
             return sts;
         }
     }
+
+#if ENABLE_VPP_FILTER_ONNX
+    if (pParams->vpp.onnxListModels) {
+        if (pParams->vpp.onnxModelDir.empty()) {
+            _ftprintf(stderr, _T("Error: --vpp-onnx-model-dir must be specified with --vpp-onnx list.\n"));
+            return 1;
+        }
+        const auto jsonPath = PathCombineS(pParams->vpp.onnxModelDir, _T("models.json"));
+        RGYModelRegistry reg;
+        auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
+        if (reg.load(jsonPath, log) != RGY_ERR_NONE) {
+            _ftprintf(stderr, _T("Error: failed to load models.json from %s\n"), pParams->vpp.onnxModelDir.c_str());
+            return 1;
+        }
+        _ftprintf(stdout, _T("Available ONNX models:\n"));
+        for (const auto& [name, entry] : reg.models()) {
+            const auto fullPath = PathCombineS(reg.baseDir(), entry.path);
+            const bool exists = rgy_file_exists(fullPath);
+            _ftprintf(stdout, _T("  %-24s  %s%s\n"), name.c_str(), entry.path.c_str(),
+                exists ? _T("") : _T(" [not found]"));
+        }
+        return 1;
+    }
+#endif // ENABLE_VPP_FILTER_ONNX
 
     return 0;
 }
