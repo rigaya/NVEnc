@@ -85,7 +85,7 @@
 #include "NVEncFilterNvvfx.h"
 #include "NVEncFilterNGX.h"
 #include "NVEncFilterOnnx.h"
-#include "NVEncFilterKaizen.h"
+#include "NVEncFilterAnime4k.h"
 #include "NVEncFilterLibplacebo.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterDecimate.h"
@@ -3013,7 +3013,7 @@ std::vector<VppType> NVEncCore::InitFiltersCreateVppList(const InEncodeVideoPara
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
     if (inputParam->vppnv.ngxTrueHDR.enable)     filterPipeline.push_back(VppType::NGX_TRUEHDR);
     if (inputParam->vpp.onnx.enable)       filterPipeline.push_back(VppType::CL_ONNX);
-    if (inputParam->vpp.kaizen.enable)     filterPipeline.push_back(VppType::CL_KAIZEN);
+    if (inputParam->vpp.anime4k.enable)     filterPipeline.push_back(VppType::CL_ANIME4K);
     if (inputParam->vpp.fruc.enable)     filterPipeline.push_back(VppType::CL_FRUC);
 
     if (filterPipeline.size() == 0) {
@@ -5070,10 +5070,10 @@ RGY_ERR NVEncCore::AddFilterCUDA(std::vector<std::unique_ptr<NVEncFilter>>& cufi
         m_encFps = param->baseFps;
         return RGY_ERR_NONE;
     }
-    if (vppType == VppType::CL_KAIZEN) {
-        unique_ptr<NVEncFilter> filter(new NVEncFilterKaizen());
-        shared_ptr<NVEncFilterParamKaizen> param(new NVEncFilterParamKaizen());
-        param->kaizen = inputParam->vpp.kaizen;
+    if (vppType == VppType::CL_ANIME4K) {
+        unique_ptr<NVEncFilter> filter(new NVEncFilterAnime4k());
+        shared_ptr<NVEncFilterParamAnime4k> param(new NVEncFilterParamAnime4k());
+        param->anime4k = inputParam->vpp.anime4k;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

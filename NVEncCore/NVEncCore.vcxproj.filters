@@ -797,7 +797,7 @@
     <ClInclude Include="rgy_onnxrt_cuda.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="NVEncFilterKaizen.h">
+    <ClInclude Include="NVEncFilterAnime4k.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="nis_coef_tables.h">
@@ -964,7 +964,7 @@
     <CudaCompile Include="NVEncFilterIvtc.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
-    <CudaCompile Include="NVEncFilterKaizen.cu">
+    <CudaCompile Include="NVEncFilterAnime4k.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterSubburn.cu">

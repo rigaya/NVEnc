@@ -111,7 +111,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_ONNXRUNTIME 0
 #endif
 #define ENABLE_VPP_FILTER_ONNX         (ENABLE_ONNXRUNTIME && ENCODER_NVENC)
-#define ENABLE_VPP_FILTER_KAIZEN       (                 ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_ANIME4K       (                 ENCODER_NVENC)
 #define ENABLE_VPP_ORDER                   (CLFILTERS_AUF)
 
 #define ENABLE_PARALLEL_ENC            (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
@@ -248,7 +248,7 @@ enum class VppType : int {
     CL_FRUC,
 
     CL_ONNX,
-    CL_KAIZEN,
+    CL_ANIME4K,
 
     CL_PAD,
 
@@ -3526,77 +3526,77 @@ enum class VppDeintCsp {
 
 extern const CX_DESC list_vpp_deint_csp[];
 
-static const int   FILTER_DEFAULT_KAIZEN_SCALE = 2;
-static const float FILTER_DEFAULT_KAIZEN_STRENGTH = 0.5f;
+static const int   FILTER_DEFAULT_ANIME4K_SCALE = 2;
+static const float FILTER_DEFAULT_ANIME4K_STRENGTH = 0.5f;
 
-enum class VppKaizenMode {
+enum class VppAnime4kMode {
     Original = 0, Deblur = 1, DarkenHQ = 2, ThinHQ = 3,
     DogSharpen = 7, Dog = 8, Dtd = 9,
 };
-enum class VppKaizenChromaResize {
+enum class VppAnime4kChromaResize {
     Spline36 = 0, Bilinear = 1, Bicubic = 2, Lanczos3 = 3, Joint = 4,
 };
-enum class VppKaizenDarken  { Off = 0, HQ = 1, Fast = 2, VeryFast = 3, };
-enum class VppKaizenThin    { Off = 0, HQ = 1, Fast = 2, VeryFast = 3, };
-enum class VppKaizenDenoise { Off = 0, Mean = 1, Median = 2, Mode = 3, };
+enum class VppAnime4kDarken  { Off = 0, HQ = 1, Fast = 2, VeryFast = 3, };
+enum class VppAnime4kThin    { Off = 0, HQ = 1, Fast = 2, VeryFast = 3, };
+enum class VppAnime4kDenoise { Off = 0, Mean = 1, Median = 2, Mode = 3, };
 
-const CX_DESC list_vpp_kaizen_mode[] = {
-    { _T("ani4k_original"),    (int)VppKaizenMode::Original   },
-    { _T("ani4k_deblur"),      (int)VppKaizenMode::Deblur     },
-    { _T("ani4k_darken_hq"),   (int)VppKaizenMode::DarkenHQ   },
-    { _T("ani4k_thin_hq"),     (int)VppKaizenMode::ThinHQ     },
-    { _T("ani4k_dog_sharpen"), (int)VppKaizenMode::DogSharpen },
-    { _T("ani4k_dog"),         (int)VppKaizenMode::Dog        },
-    { _T("ani4k_dtd"),         (int)VppKaizenMode::Dtd        },
+const CX_DESC list_vpp_anime4k_mode[] = {
+    { _T("ani4k_original"),    (int)VppAnime4kMode::Original   },
+    { _T("ani4k_deblur"),      (int)VppAnime4kMode::Deblur     },
+    { _T("ani4k_darken_hq"),   (int)VppAnime4kMode::DarkenHQ   },
+    { _T("ani4k_thin_hq"),     (int)VppAnime4kMode::ThinHQ     },
+    { _T("ani4k_dog_sharpen"), (int)VppAnime4kMode::DogSharpen },
+    { _T("ani4k_dog"),         (int)VppAnime4kMode::Dog        },
+    { _T("ani4k_dtd"),         (int)VppAnime4kMode::Dtd        },
     { NULL, 0 }
 };
-const CX_DESC list_vpp_kaizen_chroma_resize[] = {
-    { _T("spline36"), (int)VppKaizenChromaResize::Spline36 },
-    { _T("bilinear"), (int)VppKaizenChromaResize::Bilinear },
-    { _T("bicubic"),  (int)VppKaizenChromaResize::Bicubic  },
-    { _T("lanczos3"), (int)VppKaizenChromaResize::Lanczos3 },
-    { _T("joint"),    (int)VppKaizenChromaResize::Joint    },
+const CX_DESC list_vpp_anime4k_chroma_resize[] = {
+    { _T("spline36"), (int)VppAnime4kChromaResize::Spline36 },
+    { _T("bilinear"), (int)VppAnime4kChromaResize::Bilinear },
+    { _T("bicubic"),  (int)VppAnime4kChromaResize::Bicubic  },
+    { _T("lanczos3"), (int)VppAnime4kChromaResize::Lanczos3 },
+    { _T("joint"),    (int)VppAnime4kChromaResize::Joint    },
     { NULL, 0 }
 };
-const CX_DESC list_vpp_kaizen_darken[] = {
-    { _T("off"), (int)VppKaizenDarken::Off }, { _T("hq"), (int)VppKaizenDarken::HQ },
-    { _T("fast"), (int)VppKaizenDarken::Fast }, { _T("veryfast"), (int)VppKaizenDarken::VeryFast },
-    { _T("false"), (int)VppKaizenDarken::Off }, { _T("true"), (int)VppKaizenDarken::HQ }, { NULL, 0 }
+const CX_DESC list_vpp_anime4k_darken[] = {
+    { _T("off"), (int)VppAnime4kDarken::Off }, { _T("hq"), (int)VppAnime4kDarken::HQ },
+    { _T("fast"), (int)VppAnime4kDarken::Fast }, { _T("veryfast"), (int)VppAnime4kDarken::VeryFast },
+    { _T("false"), (int)VppAnime4kDarken::Off }, { _T("true"), (int)VppAnime4kDarken::HQ }, { NULL, 0 }
 };
-const CX_DESC list_vpp_kaizen_thin[] = {
-    { _T("off"), (int)VppKaizenThin::Off }, { _T("hq"), (int)VppKaizenThin::HQ },
-    { _T("fast"), (int)VppKaizenThin::Fast }, { _T("veryfast"), (int)VppKaizenThin::VeryFast },
-    { _T("false"), (int)VppKaizenThin::Off }, { _T("true"), (int)VppKaizenThin::HQ }, { NULL, 0 }
+const CX_DESC list_vpp_anime4k_thin[] = {
+    { _T("off"), (int)VppAnime4kThin::Off }, { _T("hq"), (int)VppAnime4kThin::HQ },
+    { _T("fast"), (int)VppAnime4kThin::Fast }, { _T("veryfast"), (int)VppAnime4kThin::VeryFast },
+    { _T("false"), (int)VppAnime4kThin::Off }, { _T("true"), (int)VppAnime4kThin::HQ }, { NULL, 0 }
 };
-const CX_DESC list_vpp_kaizen_denoise[] = {
-    { _T("off"), (int)VppKaizenDenoise::Off }, { _T("mean"), (int)VppKaizenDenoise::Mean },
-    { _T("median"), (int)VppKaizenDenoise::Median }, { _T("mode"), (int)VppKaizenDenoise::Mode },
-    { _T("false"), (int)VppKaizenDenoise::Off }, { NULL, 0 }
+const CX_DESC list_vpp_anime4k_denoise[] = {
+    { _T("off"), (int)VppAnime4kDenoise::Off }, { _T("mean"), (int)VppAnime4kDenoise::Mean },
+    { _T("median"), (int)VppAnime4kDenoise::Median }, { _T("mode"), (int)VppAnime4kDenoise::Mode },
+    { _T("false"), (int)VppAnime4kDenoise::Off }, { NULL, 0 }
 };
 
-struct VppKaizen {
+struct VppAnime4k {
     bool enable;
-    VppKaizenMode mode;
+    VppAnime4kMode mode;
     int scale;
     float strength;
-    VppKaizenChromaResize chromaResize;
+    VppAnime4kChromaResize chromaResize;
     bool chroma;
-    VppKaizenDarken darken;
-    VppKaizenThin   thin;
-    VppKaizenDenoise denoise;
+    VppAnime4kDarken darken;
+    VppAnime4kThin   thin;
+    VppAnime4kDenoise denoise;
     float denoiseIntensity;
     float denoiseSpatial;
     float denoiseCurve;
     float denoiseHistReg;
-    VppKaizenDenoise prefilterDenoise;
+    VppAnime4kDenoise prefilterDenoise;
     bool  clampHighlights;
     float antiring;
     int                  postResizeW;
     int                  postResizeH;
     RGY_VPP_RESIZE_ALGO  postResizeAlgo;
-    VppKaizen();
-    bool operator==(const VppKaizen &x) const;
-    bool operator!=(const VppKaizen &x) const;
+    VppAnime4k();
+    bool operator==(const VppAnime4k &x) const;
+    bool operator!=(const VppAnime4k &x) const;
     tstring print() const;
 };
 
@@ -3701,7 +3701,7 @@ struct RGYParamVpp {
     std::vector<VppOverlay> overlay;
     VppFruc fruc;
     VppOnnx onnx;
-    VppKaizen kaizen;
+    VppAnime4k anime4k;
     bool checkPerformance;
 
     RGYParamVpp();

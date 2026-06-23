@@ -267,7 +267,7 @@
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-fruc \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fruc-param1value1param2value2)
-  - [--vpp-kaizen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-kaizen-param1value1param2value2)
+  - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
@@ -1879,7 +1879,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
-- [--vpp-kaizen](#--vpp-kaizen-param1value1param2value2)
+- [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -4152,7 +4152,7 @@ Default paramters are based on the values on [the link](https://www.reddit.com/r
   --vpp-fruc fps=60000/1001
   ```
 
-### --vpp-kaizen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+### --vpp-anime4k-shader [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Anime-oriented upscale / restoration using a CUDA filter based on Anime4K v3.2. Currently supports 8bit YUV420 input only.
 
 - **Parameters**
@@ -4167,7 +4167,7 @@ Anime-oriented upscale / restoration using a CUDA filter based on Anime4K v3.2. 
 
 - Examples
   ```
-  --vpp-kaizen mode=ani4k_original,out_res=1920x1080,resize=jinc144
+  --vpp-anime4k-shader mode=ani4k_original,out_res=1920x1080,resize=jinc144
   ```
 
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

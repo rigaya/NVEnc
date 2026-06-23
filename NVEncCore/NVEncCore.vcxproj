@@ -945,7 +945,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </ClCompile>
     <ClCompile Include="NVEncFilterOnnx.cpp" />
     <ClCompile Include="rgy_onnxrt_cuda.cpp" />
-    <CudaCompile Include="NVEncFilterKaizen.cu">
+    <CudaCompile Include="NVEncFilterAnime4k.cu">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -1899,7 +1899,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterNGX.h" />
     <ClInclude Include="NVEncFilterOnnx.h" />
     <ClInclude Include="rgy_onnxrt_cuda.h" />
-    <ClInclude Include="NVEncFilterKaizen.h" />
+    <ClInclude Include="NVEncFilterAnime4k.h" />
     <ClInclude Include="NVEncFilterNvvfx.h" />
     <ClInclude Include="NVEncFilterNVOFFRUC.h" />
     <ClInclude Include="NVEncFilterOverlay.h" />

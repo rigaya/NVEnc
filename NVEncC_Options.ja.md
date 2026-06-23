@@ -263,7 +263,7 @@
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-ngx-truehdr \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ngx-truehdr-param1value1param2value2)
   - [--vpp-fruc \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fruc-param1value1param2value2)
-  - [--vpp-kaizen \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-kaizen-param1value1param2value2)
+  - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
@@ -1871,7 +1871,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
 - [--vpp-ngx-truehdr](#--vpp-ngx-truehdr-param1value1param2value2)
 - [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
-- [--vpp-kaizen](#--vpp-kaizen-param1value1param2value2)
+- [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -4201,7 +4201,7 @@ Turing以降のGPUかつ、Windows x64版で550.58以降のドライバが必要
   --vpp-fruc fps=60000/1001
   ```
 
-### --vpp-kaizen [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+### --vpp-anime4k-shader [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Anime4K v3.2 ベースのCUDAフィルタによるアニメ向け拡大・復元を行う。現状は8bit YUV420入力のみ対応。
 
 - **パラメータ**
@@ -4216,7 +4216,7 @@ Anime4K v3.2 ベースのCUDAフィルタによるアニメ向け拡大・復元
 
 - 使用例
   ```
-  --vpp-kaizen mode=ani4k_original,out_res=1920x1080,resize=jinc144
+  --vpp-anime4k-shader mode=ani4k_original,out_res=1920x1080,resize=jinc144
   ```
 
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

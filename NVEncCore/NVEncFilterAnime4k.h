@@ -27,8 +27,8 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
-#ifndef __NVENC_FILTER_KAIZEN_H__
-#define __NVENC_FILTER_KAIZEN_H__
+#ifndef __NVENC_FILTER_ANIME4K_H__
+#define __NVENC_FILTER_ANIME4K_H__
 
 #include "NVEncFilter.h"
 #include "NVEncFilterParam.h"
@@ -37,24 +37,24 @@
 
 class NVEncFilterResize; // opt-in end-of-chain resize sub-filter (out_res=/resize=)
 
-class NVEncFilterParamKaizen : public NVEncFilterParam {
+class NVEncFilterParamAnime4k : public NVEncFilterParam {
 public:
-    VppKaizen kaizen;
+    VppAnime4k anime4k;
     int sar[2] = { 0, 0 };  // input SAR (resolves a negative out_res= DAR-correctly)
-    NVEncFilterParamKaizen() : kaizen() {};
-    virtual ~NVEncFilterParamKaizen() {};
+    NVEncFilterParamAnime4k() : anime4k() {};
+    virtual ~NVEncFilterParamAnime4k() {};
     virtual tstring print() const override;
 };
 
-// CUDA port of the GLSL Anime4K --vpp-kaizen filter (bloc97 Anime4K v3.2, MIT).
+// CUDA port of the GLSL Anime4K --vpp-anime4k-shader filter (bloc97 Anime4K v3.2, MIT).
 // Increment 1 implements the base upscale chain (ani4k_original / ani4k_deblur):
 // a 2x luma upscale via the Sobel + polynomial-refinement + directional-apply
 // passes, plus geometric chroma resize. The darken_hq / thin_hq / dog* post-
 // process modes and the joint-bilateral chroma path are added incrementally.
-class NVEncFilterKaizen : public NVEncFilter {
+class NVEncFilterAnime4k : public NVEncFilter {
 public:
-    NVEncFilterKaizen();
-    virtual ~NVEncFilterKaizen();
+    NVEncFilterAnime4k();
+    virtual ~NVEncFilterAnime4k();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
@@ -79,7 +79,7 @@ protected:
     RGY_ERR runClampHighlightsY(RGYFrameInfo *pOutY, const RGYFrameInfo *pSrcY, cudaStream_t stream);
     RGY_ERR runAntiringY(RGYFrameInfo *pOutY, const RGYFrameInfo *pSrcY, cudaStream_t stream);
 
-    VppKaizenMode m_mode;
+    VppAnime4kMode m_mode;
     bool  m_isDogMode;
     int   m_inW, m_inH;
     int   m_outW, m_outH;
@@ -89,15 +89,15 @@ protected:
     bool  m_chromaJoint;    // chroma_resize=joint (luma-guided)
     bool  m_doChroma;
     bool  m_doPrefilter;
-    VppKaizenDenoise m_prefilterDenoise;
-    // post-process params (resolved from VppKaizen at init).
+    VppAnime4kDenoise m_prefilterDenoise;
+    // post-process params (resolved from VppAnime4k at init).
     bool  m_doDarken;
     float m_darkenSigma;
     int   m_darkenRadius;
     bool  m_doThin;
     float m_thinSigma, m_thinRelstr;
     int   m_thinRadius;
-    VppKaizenDenoise m_denoise;
+    VppAnime4kDenoise m_denoise;
     float m_denoiseIntensity, m_denoiseSpatial, m_denoiseCurve, m_denoiseHistReg;
     bool  m_clampHighlights;
     float m_antiring;
@@ -115,4 +115,4 @@ protected:
     std::unique_ptr<NVEncFilterResize> m_postResize; // out_res= end-of-chain resize
 };
 
-#endif //__NVENC_FILTER_KAIZEN_H__
+#endif //__NVENC_FILTER_ANIME4K_H__
