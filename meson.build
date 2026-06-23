@@ -851,6 +851,7 @@ nvenccore_sources = files(
   'NVEncCore/rgy_libvship.cpp',
   'NVEncCore/rgy_log.cpp',
   'NVEncCore/rgy_memmem.cpp',
+  'NVEncCore/rgy_model_registry.cpp',
   'NVEncCore/rgy_nvrtc.cpp',
   'NVEncCore/rgy_onnxrt_cuda.cpp',
   'NVEncCore/rgy_output.cpp',
