@@ -101,6 +101,7 @@ const char *get_encoder_version();
 #define ENABLE_NVVFX 0
 #define ENABLE_NVOFFRUC 0
 #define ENABLE_NVSDKNGX 0
+#define ENABLE_ONNXRUNTIME 0
 #else
 #define ENABLE_NVML 1
 #define ENABLE_NVRTC 1
@@ -109,6 +110,7 @@ const char *get_encoder_version();
 #define ENABLE_NVVFX 1
 #define ENABLE_NVOFFRUC 1
 #define ENABLE_NVSDKNGX 1
+#define ENABLE_ONNXRUNTIME 1
 #endif
 
 #define ENABLE_VPP_SMOOTH_QP_FRAME 0

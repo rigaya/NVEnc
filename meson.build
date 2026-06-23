@@ -114,6 +114,8 @@ enable_vmaf_option = get_option('enable_vmaf')
 libvmaf_static = get_option('libvmaf_static')
 enable_libvship_option = get_option('enable_libvship')
 enable_vulkan_option = get_option('enable_vulkan')
+enable_onnxruntime_option = get_option('enable_onnxruntime')
+onnxruntime_dir = get_option('onnxruntime_dir')
 
 # ==============================================================================
 # 依存関係検出
@@ -528,6 +530,35 @@ int main(void) {
   endif
 endif
 
+have_onnxruntime_headers = false
+onnxruntime_compile_dep = declare_dependency()
+if enable_onnxruntime_option != 'disabled'
+  onnxruntime_search_dirs = []
+  if onnxruntime_dir != ''
+    onnxruntime_search_dirs += [onnxruntime_dir]
+  endif
+  onnxruntime_search_dirs += ['/usr/local', '/usr']
+  foreach dir : onnxruntime_search_dirs
+    if not have_onnxruntime_headers and fs.is_dir(dir)
+      onnxruntime_candidate_dep = declare_dependency(
+        compile_args: ['-I' + dir / 'include']
+      )
+      have_onnxruntime_headers = cpp.compiles(
+        '#include <onnxruntime_cxx_api.h>\nint main() { return ORT_API_VERSION > 0 ? 0 : 1; }',
+        dependencies: onnxruntime_candidate_dep,
+        name: 'ONNX Runtime headers in ' + dir
+      )
+      if have_onnxruntime_headers
+        onnxruntime_compile_dep = onnxruntime_candidate_dep
+        message('ONNX Runtime headers found in ' + dir)
+      endif
+    endif
+  endforeach
+  if enable_onnxruntime_option == 'enabled' and not have_onnxruntime_headers
+    error('ONNX Runtime headers not found. Set onnxruntime_dir or disable enable_onnxruntime.')
+  endif
+endif
+
 # ==============================================================================
 # libdovi / libhdr10plus (システムにあれば使う、なければビルドディレクトリ内でビルド)
 # ==============================================================================
@@ -689,7 +720,7 @@ conf_data.set10('ENABLE_LIBHDR10PLUS', libhdr10plus_dep.found())
 conf_data.set10('ENABLE_VULKAN', have_vulkan_headers)
 conf_data.set10('ENABLE_LIBPLACEBO', have_libplacebo_headers)
 conf_data.set10('LIBPLACEBO_STATIC_LINK', have_libplacebo_headers and libplacebo_static and have_libplacebo_link)
-conf_data.set10('ENABLE_ONNXRUNTIME', false)
+conf_data.set10('ENABLE_ONNXRUNTIME', have_onnxruntime_headers)
 conf_data.set10('LIBVMAF_STATIC_LINK', have_vmaf_headers and libvmaf_static and have_vmaf_link)
 conf_data.set10('ENABLE_PERF_COUNTER', false)
 
@@ -853,6 +884,7 @@ nvenccore_sources = files(
   'NVEncCore/rgy_memmem.cpp',
   'NVEncCore/rgy_model_registry.cpp',
   'NVEncCore/rgy_nvrtc.cpp',
+  'NVEncCore/rgy_onnxruntime.cpp',
   'NVEncCore/rgy_onnxrt_cuda.cpp',
   'NVEncCore/rgy_output.cpp',
   'NVEncCore/rgy_output_avcodec.cpp',
@@ -1080,6 +1112,9 @@ endif
 if have_libvship_headers
   all_deps += libvship_compile_dep
 endif
+if have_onnxruntime_headers
+  all_deps += onnxruntime_compile_dep
+endif
 if have_vulkan_headers
   all_deps += vulkan_compile_dep
 endif
@@ -1133,6 +1168,7 @@ summary({
   'VMAF': have_vmaf_headers,
   'VMAF static': have_vmaf_headers and libvmaf_static and have_vmaf_link,
   'libvship': have_libvship_headers,
+  'ONNX Runtime': have_onnxruntime_headers,
   'Vulkan': have_vulkan_headers,
   'libdovi': libdovi_dep.found(),
   'libhdr10plus': libhdr10plus_dep.found(),

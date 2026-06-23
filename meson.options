@@ -63,3 +63,16 @@ option('enable_vulkan',
   value: 'auto',
   description: 'Enable Vulkan support (auto: enable when Vulkan is detected)'
 )
+
+option('enable_onnxruntime',
+  type: 'combo',
+  choices: ['auto', 'enabled', 'disabled'],
+  value: 'auto',
+  description: 'Enable ONNX Runtime CUDA/TensorRT support (auto: enable when ONNX Runtime headers are detected)'
+)
+
+option('onnxruntime_dir',
+  type: 'string',
+  value: '',
+  description: 'ONNX Runtime installation path for headers (expects include/onnxruntime_cxx_api.h)'
+)

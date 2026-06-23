@@ -646,8 +646,8 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH;ENABLE_ONNXRUNTIME=1;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\NVEncNVSDKNGX;..\ffmpeg_lgpl\include;..\onnxruntime\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(VSHIP_DIR)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\NVEncNVSDKNGX;..\ffmpeg_lgpl\include;..\..\onnxruntime\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(VSHIP_DIR)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -754,8 +754,8 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH;ENABLE_ONNXRUNTIME=1;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\NVEncNVSDKNGX;..\ffmpeg_lgpl\include;..\onnxruntime\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(VSHIP_DIR)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\NVEncNVOFFRUC;..\NVEncNVSDKNGX;..\ffmpeg_lgpl\include;..\..\onnxruntime\include;..\ttmath;..\ChapterRW;..\jitify;..\dtl;..\cppcodec;..\tinyxml2;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(VSHIP_DIR)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4512;4127</DisableSpecificWarnings>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -945,6 +945,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </ClCompile>
     <ClCompile Include="NVEncFilterOnnx.cpp" />
     <ClCompile Include="rgy_model_registry.cpp" />
+    <ClCompile Include="rgy_onnxruntime.cpp" />
     <ClCompile Include="rgy_onnxrt_cuda.cpp" />
     <CudaCompile Include="NVEncFilterAnime4k.cu">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -1900,6 +1901,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterNGX.h" />
     <ClInclude Include="NVEncFilterOnnx.h" />
     <ClInclude Include="rgy_model_registry.h" />
+    <ClInclude Include="rgy_onnxruntime.h" />
     <ClInclude Include="rgy_onnxrt_cuda.h" />
     <ClInclude Include="NVEncFilterAnime4k.h" />
     <ClInclude Include="NVEncFilterNvvfx.h" />

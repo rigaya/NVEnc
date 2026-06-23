@@ -309,6 +309,9 @@
     <ClCompile Include="rgy_model_registry.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_onnxruntime.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="rgy_onnxrt_cuda.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -798,6 +801,9 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_model_registry.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="rgy_onnxruntime.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_onnxrt_cuda.h">

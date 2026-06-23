@@ -34,87 +34,42 @@
 #include <string>
 #include <mutex>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <cuda_runtime.h>
+#include "rgy_onnxruntime.h"
+#include "rgy_util.h"
 
-// ONNX Runtime is loaded dynamically (onnxruntime.dll dropped next to the exe),
-// so the C++ API must be initialised by hand rather than linking the import lib.
-#define ORT_API_MANUAL_INIT
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable: 4244 4267 4127 4100)
-#endif
-#include "onnxruntime_cxx_api.h"
-// The CUDA / TensorRT provider append functions are resolved dynamically by name
-// (PFN_AppendCUDA / PFN_AppendTensorRT below), so the provider factory headers
-// (which pull in the CUDA / TensorRT SDK) are not needed here.
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
-
-// ------- one-time dynamic load of onnxruntime.dll + Ort C++ API init ----------
-
-// Provider factory C entry points (exported by a CUDA / TensorRT-enabled
-// onnxruntime.dll). Resolved by name so no import library is needed.
-typedef OrtStatus*(ORT_API_CALL *PFN_AppendCUDA)(OrtSessionOptions *options, int device_id);
-typedef OrtStatus*(ORT_API_CALL *PFN_AppendTensorRT)(OrtSessionOptions *options, int device_id);
+// ------- one-time dynamic load of ONNX Runtime + Ort C++ API init -------------
 
 namespace {
     std::once_flag       s_ortInitOnce;
     bool                 s_ortReady = false;
     std::string          s_ortError;
-    PFN_AppendCUDA       s_appendCUDA = nullptr;
-    PFN_AppendTensorRT   s_appendTensorRT = nullptr;
+
+    RGYOnnxRuntimeLoader& onnxRuntime() {
+        static RGYOnnxRuntimeLoader loader;
+        return loader;
+    }
 
     void loadOrtOnce() {
         std::call_once(s_ortInitOnce, []() {
-            HMODULE h = LoadLibraryW(L"onnxruntime.dll");
-            if (!h) {
-                s_ortError = "could not load onnxruntime.dll (a CUDA/TensorRT-enabled ONNX Runtime). "
-                             "place onnxruntime.dll and its provider DLLs next to the executable.";
-                return;
-            }
-            auto pGetApiBase = reinterpret_cast<const OrtApiBase*(ORT_API_CALL*)()>(
-                GetProcAddress(h, "OrtGetApiBase"));
-            if (!pGetApiBase) {
-                s_ortError = "onnxruntime.dll is missing OrtGetApiBase (not an ONNX Runtime DLL?).";
-                return;
-            }
-            // Negotiate the API version: request the version the headers were built
-            // against, but fall back to the highest version the loaded DLL supports
-            // (a 1.22 DLL only exposes API 22 even though the 1.24 headers ask for 24).
-            // Only old API functions are used here, so an older-but-compatible DLL works.
-            const OrtApi *api = nullptr;
-            for (int v = ORT_API_VERSION; v >= 11; --v) {
-                api = pGetApiBase()->GetApi((uint32_t)v);
-                if (api) break;
-            }
-            if (!api) {
-                s_ortError = "this onnxruntime.dll is too old (no compatible ONNX Runtime API version).";
-                return;
-            }
-            Ort::InitApi(api);
-            // CUDA is the default/required provider; TensorRT is optional.
-            s_appendCUDA = reinterpret_cast<PFN_AppendCUDA>(
-                GetProcAddress(h, "OrtSessionOptionsAppendExecutionProvider_CUDA"));
-            s_appendTensorRT = reinterpret_cast<PFN_AppendTensorRT>(
-                GetProcAddress(h, "OrtSessionOptionsAppendExecutionProvider_Tensorrt"));
-            if (!s_appendCUDA) {
-                s_ortError = "onnxruntime.dll has no CUDA provider "
-                             "(install the GPU/CUDA build of onnxruntime).";
+            if (!onnxRuntime().load()) {
+                s_ortError = onnxRuntime().errMessage();
                 return;
             }
             s_ortReady = true;
         });
     }
 
-    std::wstring utf8ToWide(const std::string &s) {
+    std::basic_string<ORTCHAR_T> stringToOrtPath(const std::string &s) {
+#if defined(_WIN32) || defined(_WIN64)
         if (s.empty()) return std::wstring();
         int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
         std::wstring w(n, L'\0');
         MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &w[0], n);
         return w;
+#else
+        return s;
+#endif
     }
 
     std::string cudaDeviceName(int deviceID) {
@@ -168,8 +123,9 @@ RGY_ERR RGYOnnxRTCUDA::init(const std::string &modelPath, const int deviceID, co
         // requested, layers on top of CUDA (ORT requires the CUDA EP as the fallback
         // for any op TensorRT cannot run), so append TensorRT first, then CUDA.
         const bool wantTensorRT = (provider == RGYOnnxRTProvider::TensorRT);
-        if (wantTensorRT && s_appendTensorRT) {
-            OrtStatus *stTrt = s_appendTensorRT(static_cast<OrtSessionOptions*>(opts), deviceID);
+        auto& ort = onnxRuntime();
+        if (wantTensorRT && ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
+            OrtStatus *stTrt = ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()(static_cast<OrtSessionOptions*>(opts), deviceID);
             if (stTrt != nullptr) {
                 errMessage = std::string("AppendExecutionProvider_Tensorrt failed: ")
                            + Ort::GetApi().GetErrorMessage(stTrt);
@@ -177,11 +133,11 @@ RGY_ERR RGYOnnxRTCUDA::init(const std::string &modelPath, const int deviceID, co
                 return RGY_ERR_UNSUPPORTED;
             }
             I.provider = "tensorrt";
-        } else if (wantTensorRT && !s_appendTensorRT) {
-            // requested TensorRT but the DLL has no TensorRT provider: fall back to CUDA.
+        } else if (wantTensorRT && !ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
+            // requested TensorRT but the runtime library has no TensorRT provider: fall back to CUDA.
             I.provider = "cuda";
         }
-        OrtStatus *stCuda = s_appendCUDA(static_cast<OrtSessionOptions*>(opts), deviceID);
+        OrtStatus *stCuda = ort.p_OrtSessionOptionsAppendExecutionProviderCUDA()(static_cast<OrtSessionOptions*>(opts), deviceID);
         if (stCuda != nullptr) {
             errMessage = std::string("AppendExecutionProvider_CUDA failed: ")
                        + Ort::GetApi().GetErrorMessage(stCuda);
@@ -189,8 +145,8 @@ RGY_ERR RGYOnnxRTCUDA::init(const std::string &modelPath, const int deviceID, co
             return RGY_ERR_UNSUPPORTED;
         }
 
-        const std::wstring wpath = utf8ToWide(modelPath);
-        I.session = std::make_unique<Ort::Session>(*I.env, wpath.c_str(), opts);
+        const auto ortPath = stringToOrtPath(modelPath);
+        I.session = std::make_unique<Ort::Session>(*I.env, ortPath.c_str(), opts);
 
         if (I.session->GetInputCount() < 1 || I.session->GetOutputCount() < 1) {
             errMessage = "model has no input/output tensor.";

@@ -25,8 +25,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifdef ENABLE_VPP_FILTER_ONNX
-
 #include "rgy_model_registry.h"
 #include "rgy_filesystem.h"
 #include "rgy_util.h"
@@ -101,5 +99,3 @@ tstring RGYModelRegistry::resolveModelPath(const tstring& name) const {
     if (it == m_models.end()) return tstring();
     return PathCombineS(m_baseDir, it->second.path);
 }
-
-#endif // ENABLE_VPP_FILTER_ONNX
