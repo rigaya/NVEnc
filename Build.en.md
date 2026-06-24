@@ -16,6 +16,7 @@ To build NVEnc, components below are required.
 - CUDA 11.0 or later (x86)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
+- [Optional] [ONNX Runtime](https://github.com/microsoft/onnxruntime/releases) GPU package 1.23 or later (for `--vpp-onnx`)
 
 ### 1. Install build tools.
 
@@ -37,6 +38,22 @@ Additionally to build NVEncNVSDKNGX.dll and NVEncNVOFFRUC.dll using "ReleaseNVDL
 setx RTX_VIDEO_SDK "<...>\RTX_Video_SDK_v1.1.0"
 setx OPTICAL_FLOW_SDK "<...>\Optical_Flow_SDK_5.0.7"
 ```
+
+To build with `--vpp-onnx` support, download and extract the GPU package from [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases), and set `ONNXRUNTIME_DIR` to the extracted directory. For example, if [onnxruntime-win-x64-gpu-1.23.2.zip](https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-win-x64-gpu-1.23.2.zip) is extracted to `F:\VisualStudio2022\Projects\onnxruntime`, set the environment variable as below.
+
+```Batchfile
+setx ONNXRUNTIME_DIR "F:\VisualStudio2022\Projects\onnxruntime"
+```
+
+Environment variables set by `setx` become available to newly started command prompts or Visual Studio instances. Restart Visual Studio if it was already running.
+When launching a Windows build from WSL, also set `WSLENV` so the environment variable is passed to Windows processes.
+
+```Shell
+export ONNXRUNTIME_DIR='F:\VisualStudio2022\Projects\onnxruntime'
+export WSLENV=ONNXRUNTIME_DIR
+```
+
+At runtime, place `onnxruntime.dll` and provider DLLs (`onnxruntime_providers_cuda.dll`, etc.) in `%ONNXRUNTIME_DIR%\lib` next to `NVEncC64.exe`, or make them visible through `PATH`.
 
 ### 2. Download source code
 
@@ -71,6 +88,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 - libraries
   - ffmpeg 4.x-7.x libs (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
   - libass9
+  - [Optional] [ONNX Runtime](https://github.com/microsoft/onnxruntime/releases) GPU package 1.23 or later (for `--vpp-onnx`)
   - [Optional] AvisynthPlus
   - [Optional] VapourSynth
 
@@ -195,6 +213,16 @@ cd NVEnc
 meson setup ./build --buildtype=release
 meson compile -C ./build
 ```
+
+To build with `--vpp-onnx` support, download and extract the GPU package from [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases), and pass the extracted directory to `onnxruntime_dir`. For example, if [onnxruntime-linux-x64-gpu-1.23.2.tgz](https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-gpu-1.23.2.tgz) is extracted to `/opt/onnxruntime-linux-x64-gpu`, configure as below.
+
+```Shell
+meson setup ./build --buildtype=release -Donnxruntime_dir=/opt/onnxruntime-linux-x64-gpu
+meson compile -C ./build
+```
+
+At runtime, make `/opt/onnxruntime-linux-x64-gpu/lib` visible through `LD_LIBRARY_PATH` or an equivalent library search path.
+
 Check if it works properly.
 ```Shell
 ./build/nvencc --check-hw

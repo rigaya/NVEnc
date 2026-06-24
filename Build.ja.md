@@ -16,6 +16,7 @@
 - CUDA 11.0 以降 (x86)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
+- [オプション] [ONNX Runtime](https://github.com/microsoft/onnxruntime/releases) GPU版 1.23以降 (`--vpp-onnx` 用)
 
 ### 1. 環境準備
 
@@ -37,6 +38,22 @@ setx VAPOURSYNTH_SDK "C:\Program Files\VapourSynth\sdk"
 setx RTX_VIDEO_SDK "<...>\RTX_Video_SDK_v1.1.0"
 setx OPTICAL_FLOW_SDK "<...>\Optical_Flow_SDK_5.0.7"
 ```
+
+`--vpp-onnx` を有効にしてビルドする場合は、[ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases) から GPU版をダウンロードして展開し、展開先を環境変数 `ONNXRUNTIME_DIR` に設定します。例えば [onnxruntime-win-x64-gpu-1.23.2.zip](https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-win-x64-gpu-1.23.2.zip) を `F:\VisualStudio2022\Projects\onnxruntime` に展開した場合は下記のように設定します。
+
+```Batchfile
+setx ONNXRUNTIME_DIR "F:\VisualStudio2022\Projects\onnxruntime"
+```
+
+`setx` で設定した環境変数は、新しく起動したコマンドプロンプトやVisual Studioから有効になります。設定後に既存のVisual Studioを使っている場合は再起動してください。
+WSLからWindowsビルドを起動する場合は、WSL側からWindowsプロセスへ環境変数を渡すため、下記のように `WSLENV` も設定します。
+
+```Shell
+export ONNXRUNTIME_DIR='F:\VisualStudio2022\Projects\onnxruntime'
+export WSLENV=ONNXRUNTIME_DIR
+```
+
+実行時には、`%ONNXRUNTIME_DIR%\lib` にある `onnxruntime.dll` と provider DLL (`onnxruntime_providers_cuda.dll` など) を `NVEncC64.exe` と同じフォルダに置くか、`PATH` から見えるようにしてください。
 
 ### 2. ソースのダウンロード
 
@@ -72,6 +89,7 @@ NVEnc.slnを開き、ビルドします。
 - ライブラリ群
   - ffmpeg 4.x-7.x ライブラリ群 (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
   - libass-dev
+  - [オプション] [ONNX Runtime](https://github.com/microsoft/onnxruntime/releases) GPU版 1.23以降 (`--vpp-onnx` 用)
   - [オプション] AvisynthPlus
   - [オプション] VapourSynth
 
@@ -201,6 +219,15 @@ cd NVEnc
 meson setup ./build --buildtype=release
 meson compile -C ./build
 ```
+
+`--vpp-onnx` を有効にしてビルドする場合は、[ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases) から GPU版をダウンロードして展開し、`onnxruntime_dir` に展開先を指定します。例えば [onnxruntime-linux-x64-gpu-1.23.2.tgz](https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-gpu-1.23.2.tgz) を `/opt/onnxruntime-linux-x64-gpu` に展開した場合は下記のように指定します。
+
+```Shell
+meson setup ./build --buildtype=release -Donnxruntime_dir=/opt/onnxruntime-linux-x64-gpu
+meson compile -C ./build
+```
+
+実行時には、`/opt/onnxruntime-linux-x64-gpu/lib` を `LD_LIBRARY_PATH` などで見えるようにしてください。
 
 動作確認をします。
 ```Shell
