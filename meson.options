@@ -6,6 +6,12 @@ option('nvenc_cuda_dir',
   description: 'CUDA installation path (default: auto-detect from CUDA_PATH env or /usr/local/cuda)'
 )
 
+option('nvenc_dev_ptx',
+  type: 'boolean',
+  value: false,
+  description: 'Dev build: build PTX only for the local GPU (faster). Falls back to compute_75 if GPU detection fails. Default: false (all architectures)'
+)
+
 option('enable_vapoursynth',
   type: 'boolean',
   value: true,

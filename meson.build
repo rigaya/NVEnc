@@ -74,30 +74,46 @@ if cuda_ver_major < 10
 endif
 
 # CUDAバージョンに応じたGPU code生成オプション
-gpu_code_gen = []
+nvenc_dev_ptx = get_option('nvenc_dev_ptx')
 
-# CUDA 10以下: compute_30も追加
-if cuda_ver_major <= 10
-  gpu_code_gen += ['--generate-code', 'arch=compute_30,code=[compute_30,sm_30]']
-endif
+if nvenc_dev_ptx
+  # 開発ビルド: 環境のGPUのみをビルド対象にして高速化
+  nvidia_smi_result = run_command('nvidia-smi', '--query-gpu=compute_cap', '--format=csv,noheader', check: false)
+  if nvidia_smi_result.returncode() == 0
+    compute_cap = nvidia_smi_result.stdout().strip().split('\n')[0].strip()
+    compute_num = compute_cap.replace('.', '')
+    message('Dev PTX: detected GPU compute_' + compute_num)
+    gpu_code_gen = ['--generate-code', 'arch=compute_' + compute_num + ',code=[compute_' + compute_num + ',sm_' + compute_num + ']']
+  else
+    message('Dev PTX: nvidia-smi unavailable, falling back to compute_75')
+    gpu_code_gen = ['--generate-code', 'arch=compute_75,code=[compute_75,sm_75]']
+  endif
+else
+  gpu_code_gen = []
 
-# CUDA 12以下: compute_50, compute_61追加
-if cuda_ver_major <= 12
-  gpu_code_gen += ['--generate-code', 'arch=compute_50,code=[compute_50,sm_50]']
-  gpu_code_gen += ['--generate-code', 'arch=compute_61,code=[compute_61,sm_61]']
-endif
+  # CUDA 10以下: compute_30も追加
+  if cuda_ver_major <= 10
+    gpu_code_gen += ['--generate-code', 'arch=compute_30,code=[compute_30,sm_30]']
+  endif
 
-# 常に: compute_75
-gpu_code_gen += ['--generate-code', 'arch=compute_75,code=[compute_75,sm_75]']
+  # CUDA 12以下: compute_50, compute_61追加
+  if cuda_ver_major <= 12
+    gpu_code_gen += ['--generate-code', 'arch=compute_50,code=[compute_50,sm_50]']
+    gpu_code_gen += ['--generate-code', 'arch=compute_61,code=[compute_61,sm_61]']
+  endif
 
-# CUDA 11.1以上: compute_86追加
-if (cuda_ver_major == 11 and cuda_ver_minor >= 1) or cuda_ver_major >= 12
-  gpu_code_gen += ['--generate-code', 'arch=compute_86,code=[compute_86,sm_86]']
-endif
+  # 常に: compute_75
+  gpu_code_gen += ['--generate-code', 'arch=compute_75,code=[compute_75,sm_75]']
 
-# CUDA 12.8以上: compute_120追加
-if (cuda_ver_major == 12 and cuda_ver_minor >= 8) or cuda_ver_major >= 13
-  gpu_code_gen += ['--generate-code', 'arch=compute_120,code=[compute_120,sm_120]']
+  # CUDA 11.1以上: compute_86追加
+  if (cuda_ver_major == 11 and cuda_ver_minor >= 1) or cuda_ver_major >= 12
+    gpu_code_gen += ['--generate-code', 'arch=compute_86,code=[compute_86,sm_86]']
+  endif
+
+  # CUDA 12.8以上: compute_120追加
+  if (cuda_ver_major == 12 and cuda_ver_minor >= 8) or cuda_ver_major >= 13
+    gpu_code_gen += ['--generate-code', 'arch=compute_120,code=[compute_120,sm_120]']
+  endif
 endif
 
 message('GPU code generation targets: ' + ' '.join(gpu_code_gen))
