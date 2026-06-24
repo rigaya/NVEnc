@@ -64,6 +64,8 @@ protected:
         RGY_ERR add(const RGYFrameInfo *pInputFrame, cudaStream_t stream, bool copyChroma = true);
         CUFrameBuf *get(int iframe);
         int findIndexByInputFrameId(int inputFrameId) const;
+        int findIndexByFrameIdentity(const RGYFrameInfo *frame) const;
+        int findIndexForOutputFrame(const RGYFrameInfo *frame) const;
         int inframe() const { return m_nFramesInput; }
         void clear();
         // Logical reset for resetTemporalState(): rewind the ring buffer without freeing the
@@ -90,6 +92,11 @@ protected:
                 && inputFrameId == frame->inputFrameId
                 && timestamp == frame->timestamp
                 && duration == frame->duration;
+        }
+        bool matchesFrameIdentity(const RGYFrameInfo *frame) const {
+            return frame
+                && inputFrameId == frame->inputFrameId
+                && timestamp == frame->timestamp;
         }
     };
 

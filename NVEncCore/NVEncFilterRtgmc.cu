@@ -858,15 +858,61 @@ RGY_ERR NVEncFilterRtgmc::cacheSourceFrame(const RGYFrameInfo *frame, cudaStream
     return RGY_ERR_NONE;
 }
 
-const RGYFrameInfo *NVEncFilterRtgmc::findCachedSourceFrame(const RGYFrameInfo *frame, std::vector<RGYCudaEvent> *wait_events) {
+const NVEncFilterRtgmc::RtgmcSourceCacheFrame *NVEncFilterRtgmc::findCachedSourceEntry(const RGYFrameInfo *frame) const {
     if (!frame) {
         return nullptr;
     }
     const auto &cache = m_sharedAnalysisMode && m_sharedData.sourceCache ? *m_sharedData.sourceCache : m_sourceCache;
     auto cached = std::find_if(cache.begin(), cache.end(), [frame](const RtgmcSourceCacheFrame &entry) {
-        return entry.frame && entry.key.inputFrameId == frame->inputFrameId;
+        return entry.frame && entry.key.matches(frame);
     });
     if (cached == cache.end()) {
+        cached = std::find_if(cache.begin(), cache.end(), [frame](const RtgmcSourceCacheFrame &entry) {
+            return entry.frame && entry.key.matchesFrameIdentity(frame);
+        });
+    }
+    if (cached == cache.end()) {
+        const RtgmcSourceCacheFrame *best = nullptr;
+        for (const auto &entry : cache) {
+            if (!entry.frame || entry.key.inputFrameId != frame->inputFrameId || entry.key.duration <= 0) {
+                continue;
+            }
+            const auto start = entry.key.timestamp;
+            const auto end = start + entry.key.duration;
+            if (start <= frame->timestamp && frame->timestamp < end
+                && (!best || best->key.timestamp < entry.key.timestamp)) {
+                best = &entry;
+            }
+        }
+        if (best) {
+            return best;
+        }
+    }
+    if (cached == cache.end()) {
+        const RtgmcSourceCacheFrame *best = nullptr;
+        for (const auto &entry : cache) {
+            if (!entry.frame || entry.key.inputFrameId != frame->inputFrameId || entry.key.timestamp > frame->timestamp) {
+                continue;
+            }
+            if (!best || best->key.timestamp < entry.key.timestamp) {
+                best = &entry;
+            }
+        }
+        if (best) {
+            return best;
+        }
+    }
+    if (cached == cache.end()) {
+        cached = std::find_if(cache.begin(), cache.end(), [frame](const RtgmcSourceCacheFrame &entry) {
+            return entry.frame && entry.key.inputFrameId == frame->inputFrameId;
+        });
+    }
+    return (cached != cache.end()) ? &(*cached) : nullptr;
+}
+
+const RGYFrameInfo *NVEncFilterRtgmc::findCachedSourceFrame(const RGYFrameInfo *frame, std::vector<RGYCudaEvent> *wait_events) {
+    const auto cached = findCachedSourceEntry(frame);
+    if (!cached) {
         return nullptr;
     }
     if (wait_events && cached->event() != nullptr) {
@@ -880,23 +926,20 @@ int NVEncFilterRtgmc::sourceFieldForFrame(const RGYFrameInfo *frame) const {
         return 0;
     }
     const auto rtgmcParam = std::dynamic_pointer_cast<NVEncFilterParamRtgmc>(m_param);
-    const auto &cache = (m_sharedAnalysisMode && m_sharedData.sourceCache) ? *m_sharedData.sourceCache : m_sourceCache;
-    auto cached = std::find_if(cache.begin(), cache.end(), [frame](const RtgmcSourceCacheFrame &entry) {
-        return entry.frame && entry.key.inputFrameId == frame->inputFrameId;
-    });
+    const auto cached = findCachedSourceEntry(frame);
     bool tff = true;
     if (rtgmcParam) {
         if (rtgmcParam->rtgmc.bob.order == VppRtgmcBobOrder::BFF) {
             tff = false;
         } else if (rtgmcParam->rtgmc.bob.order == VppRtgmcBobOrder::TFF) {
             tff = true;
-        } else if (cached != cache.end() && cached->frame) {
+        } else if (cached && cached->frame) {
             tff = (cached->frame->frame.picstruct & RGY_PICSTRUCT_BFF) == 0;
         } else {
             tff = (frame->picstruct & RGY_PICSTRUCT_BFF) == 0;
         }
     }
-    if (cached == cache.end() || cached->key.duration <= 0) {
+    if (!cached || cached->key.duration <= 0) {
         return tff ? 0 : 1;
     }
     const auto halfDuration = (cached->key.duration + 1) / 2;
