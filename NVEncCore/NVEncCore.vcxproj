@@ -224,6 +224,22 @@
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- CUDA props are imported before the project-specific IntDir above, so refresh CUDA paths here. -->
+    <CudaIntDir>$(IntDir)</CudaIntDir>
+    <CudaIntDir Condition="HasTrailingSlash('$(CudaIntDir)')">$(CudaIntDir.Trim('\'))</CudaIntDir>
+    <CudaIntDirBasePath>$([System.IO.Path]::Combine('$(ProjectDir)', '$(CudaIntDir)'))</CudaIntDirBasePath>
+    <CudaIntDirFullPath>$(CudaIntDirBasePath.Replace('\\', '\'))</CudaIntDirFullPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <CudaCompile>
+      <CompileOut>$(CudaIntDirFullPath)\%(Filename)%(Extension).obj</CompileOut>
+      <DepsOutputDir>$(IntDir)</DepsOutputDir>
+      <DepsOutputPath>$(IntDir)%(DepsOutputFile)</DepsOutputPath>
+      <PropsCacheOutputPath>$(IntDir)%(PropsCacheOutputFile)</PropsCacheOutputPath>
+      <KeepDir>$(CudaIntDir)</KeepDir>
+    </CudaCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>
@@ -249,7 +265,7 @@
     <CudaCompile />
     <CudaCompile>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
@@ -302,7 +318,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile />
     <CudaCompile>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
@@ -354,7 +370,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile />
     <CudaCompile>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
@@ -404,7 +420,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
@@ -456,7 +472,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <GenerateLineInfo>false</GenerateLineInfo>
@@ -508,7 +524,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <GenerateLineInfo>false</GenerateLineInfo>
@@ -568,7 +584,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <UseHostDefines>true</UseHostDefines>
@@ -620,7 +636,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <UseHostDefines>true</UseHostDefines>
@@ -673,7 +689,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
@@ -727,7 +743,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
@@ -781,7 +797,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>
@@ -835,7 +851,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
       <AdditionalOptions>-Wno-deprecated-gpu-targets -Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177 --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465  --diag_suppress=63" $(CUDA_THREADS)  -allow-unsupported-compiler -std=c++17</AdditionalOptions>
       <FastMath>true</FastMath>
       <PtxAsOptionV>true</PtxAsOptionV>

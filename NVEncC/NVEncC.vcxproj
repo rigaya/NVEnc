@@ -291,7 +291,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -348,7 +348,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -405,7 +405,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -460,7 +460,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -518,7 +518,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -576,7 +576,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
     </CudaCompile>
     <CudaCompile>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
     <CudaLink>
       <GPUDebugInfo>true</GPUDebugInfo>
@@ -637,7 +637,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -692,7 +692,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" 
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
@@ -749,7 +749,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVDLL|Win32'">
@@ -806,7 +806,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
@@ -862,7 +862,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" 
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNVDLL|x64'">
@@ -918,7 +918,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" "$(OutDir)" 
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
-      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <CodeGeneration>$(CUDA_CODE_GEN_FOR_BUILD)</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -277,6 +277,9 @@
   <ImportGroup Label="ExtensionTargets">
     <Import Project="C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\BuildCustomizations\CUDA $(CUDA_VER).targets" />
   </ImportGroup>
+  <PropertyGroup>
+    <CUDA_CODE_GEN_FOR_BUILD>$(CUDA_CODE_GEN.Replace('%2C', ',').Replace('%2c', ','))</CUDA_CODE_GEN_FOR_BUILD>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
     <ClCompile>
       <PreprocessorDefinitions>NVENC_NVRTC_DLL_NAME_TSTR=_T("$(NVRTC_DLL_NAME)");NVENC_NVRTC_BUILTIN_DLL_NAME_TSTR=_T("$(NVRTC_BUILTIN_DLL_NAME)");NVENC_NPPI_DLL_NAME_TSTR=_T("$(NPPI_DLL_NAME)");%(PreprocessorDefinitions)</PreprocessorDefinitions>
