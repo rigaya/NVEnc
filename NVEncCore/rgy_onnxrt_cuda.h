@@ -29,7 +29,6 @@
 #ifndef __RGY_ONNXRT_CUDA_H__
 #define __RGY_ONNXRT_CUDA_H__
 
-#include <string>
 #include <memory>
 #include <cstdint>
 #include "rgy_err.h"
@@ -76,8 +75,8 @@ public:
     // model); a probe inference discovers the output shape (and, for TensorRT,
     // warms / builds the engine). On failure errMessage carries the ONNX Runtime
     // error text. If TensorRT is requested but unavailable, falls back to CUDA.
-    RGY_ERR init(const std::string &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
-                 const int height, const int width, std::string &errMessage);
+    RGY_ERR init(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
+                 const int height, const int width, tstring &errMessage);
 
     // Synchronous inference. in points to inChannels()*inHeight()*inWidth() floats
     // (CHW); out receives outChannels()*outHeight()*outWidth() floats (CHW).
@@ -92,9 +91,9 @@ public:
     int outWidth()    const;
     size_t outElemCount() const; // outChannels()*outHeight()*outWidth()
 
-    std::string deviceFullName() const;     // CUDA device name bound to
-    std::string inferencePrecision() const; // "f32"
-    std::string providerName() const;       // "cuda" or "tensorrt" (the EP actually used)
+    tstring deviceFullName() const;     // CUDA device name bound to
+    tstring inferencePrecision() const; // "f32"
+    tstring providerName() const;       // "cuda" or "tensorrt" (the EP actually used)
 
     static bool available() { return ENABLE_ONNXRUNTIME != 0; }
 

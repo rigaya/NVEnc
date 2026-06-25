@@ -227,13 +227,12 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     else                                                         provider = RGYOnnxRTProvider::Auto;
 
     m_ov = std::make_unique<RGYOnnxRTCUDA>();
-    std::string errMsg;
-    const std::string modelPathA = tchar_to_string(prm->onnx.modelFile);
+    tstring errMsg;
 
-    RGY_ERR err = m_ov->init(modelPathA, deviceID, provider, inH, inW, errMsg);
+    RGY_ERR err = m_ov->init(prm->onnx.modelFile, deviceID, provider, inH, inW, errMsg);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile model: %s\n"),
-            char_to_tstring(errMsg).c_str());
+            errMsg.c_str());
         return err;
     }
 
@@ -344,7 +343,7 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     tstring info = strsprintf(_T("onnx: %s  %dx%d -> %dx%d (x%d)  io=%s%s  backend=%s"),
         PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, outW, outH, m_scale,
         ioName[(int)m_io], (m_ycbcr && m_io == OnnxIO::RGB) ? _T("(ycbcr)") : _T(""),
-        char_to_tstring(m_ov->providerName()).c_str());
+        m_ov->providerName().c_str());
     if (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise || m_io == OnnxIO::Chroma) {
         info += strsprintf(_T(" matrix=bt%d range=%s"), matrixSel, rangeTV ? _T("tv") : _T("pc"));
     }
@@ -352,10 +351,10 @@ RGY_ERR NVEncFilterOnnx::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         info += strsprintf(_T(" noise=%d"), noiseClamped);
     }
     if (!m_ov->deviceFullName().empty()) {
-        info += strsprintf(_T(" [%s]"), char_to_tstring(m_ov->deviceFullName()).c_str());
+        info += strsprintf(_T(" [%s]"), m_ov->deviceFullName().c_str());
     }
     if (!m_ov->inferencePrecision().empty()) {
-        info += strsprintf(_T(" prec=%s"), char_to_tstring(m_ov->inferencePrecision()).c_str());
+        info += strsprintf(_T(" prec=%s"), m_ov->inferencePrecision().c_str());
     }
     if (m_postResize) {
         info += strsprintf(_T(" -> out_res %dx%d (%s)"), prm->frameOut.width, prm->frameOut.height,

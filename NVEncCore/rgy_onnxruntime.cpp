@@ -57,16 +57,16 @@ bool RGYOnnxRuntimeLoader::load() {
     m_errMessage.clear();
 
     if ((m_hModule = RGY_LOAD_LIBRARY(RGY_ONNXRUNTIME_DLL_NAME)) == nullptr) {
-        m_errMessage = strsprintf("could not load %s (a CUDA/TensorRT-enabled ONNX Runtime). "
-                                  "place it and its provider libraries next to the executable or in the library search path.",
-                                  tchar_to_string(RGY_ONNXRUNTIME_DLL_NAME).c_str());
+        m_errMessage = strsprintf(_T("could not load %s (a CUDA/TensorRT-enabled ONNX Runtime). ")
+                                  _T("place it and its provider libraries next to the executable or in the library search path."),
+                                  RGY_ONNXRUNTIME_DLL_NAME);
         return false;
     }
 
     auto loadFunc = [this](const char *funcName, void **func) {
         if ((*func = RGY_GET_PROC_ADDRESS(m_hModule, funcName)) == nullptr) {
-            m_errMessage = strsprintf("%s is missing %s (not a compatible ONNX Runtime library?).",
-                                      tchar_to_string(RGY_ONNXRUNTIME_DLL_NAME).c_str(), funcName);
+            m_errMessage = strsprintf(_T("%s is missing %s (not a compatible ONNX Runtime library?)."),
+                                      RGY_ONNXRUNTIME_DLL_NAME, char_to_tstring(funcName).c_str());
             close();
             return false;
         }
@@ -85,8 +85,8 @@ bool RGYOnnxRuntimeLoader::load() {
         }
     }
     if (!api) {
-        m_errMessage = strsprintf("%s is too old (no compatible ONNX Runtime API version).",
-                                  tchar_to_string(RGY_ONNXRUNTIME_DLL_NAME).c_str());
+        m_errMessage = strsprintf(_T("%s is too old (no compatible ONNX Runtime API version)."),
+                                  RGY_ONNXRUNTIME_DLL_NAME);
         close();
         return false;
     }

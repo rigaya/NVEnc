@@ -43,7 +43,7 @@
 namespace {
     std::once_flag       s_ortInitOnce;
     bool                 s_ortReady = false;
-    std::string          s_ortError;
+    tstring              s_ortError;
 
     RGYOnnxRuntimeLoader& onnxRuntime() {
         static RGYOnnxRuntimeLoader loader;
@@ -60,24 +60,12 @@ namespace {
         });
     }
 
-    std::basic_string<ORTCHAR_T> stringToOrtPath(const std::string &s) {
-#if defined(_WIN32) || defined(_WIN64)
-        if (s.empty()) return std::wstring();
-        int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
-        std::wstring w(n, L'\0');
-        MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &w[0], n);
-        return w;
-#else
-        return s;
-#endif
-    }
-
-    std::string cudaDeviceName(int deviceID) {
+    tstring cudaDeviceName(int deviceID) {
         cudaDeviceProp prop;
         if (cudaGetDeviceProperties(&prop, deviceID) == cudaSuccess) {
-            return std::string(prop.name);
+            return char_to_tstring(prop.name);
         }
-        return std::string();
+        return tstring();
     }
 }
 
@@ -95,16 +83,16 @@ public:
     std::string inName, outName;     // owned copies of the model's first I/O names
     int inC = 0, inH = 0, inW = 0;
     int outC = 0, outH = 0, outW = 0;
-    std::string deviceName;
-    std::string provider = "cuda";   // the EP actually used
-    std::string precision = "f32";
+    tstring deviceName;
+    tstring provider = _T("cuda");   // the EP actually used
+    tstring precision = _T("f32");
 };
 
 RGYOnnxRTCUDA::RGYOnnxRTCUDA() : m_impl(std::make_unique<Impl>()) {}
 RGYOnnxRTCUDA::~RGYOnnxRTCUDA() {}
 
-RGY_ERR RGYOnnxRTCUDA::init(const std::string &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
-                            const int height, const int width, std::string &errMessage) {
+RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const RGYOnnxRTProvider provider,
+                            const int height, const int width, tstring &errMessage) {
     loadOrtOnce();
     if (!s_ortReady) {
         errMessage = s_ortError;
@@ -127,29 +115,28 @@ RGY_ERR RGYOnnxRTCUDA::init(const std::string &modelPath, const int deviceID, co
         if (wantTensorRT && ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
             OrtStatus *stTrt = ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()(static_cast<OrtSessionOptions*>(opts), deviceID);
             if (stTrt != nullptr) {
-                errMessage = std::string("AppendExecutionProvider_Tensorrt failed: ")
-                           + Ort::GetApi().GetErrorMessage(stTrt);
+                errMessage = tstring(_T("AppendExecutionProvider_Tensorrt failed: "))
+                           + char_to_tstring(Ort::GetApi().GetErrorMessage(stTrt));
                 Ort::GetApi().ReleaseStatus(stTrt);
                 return RGY_ERR_UNSUPPORTED;
             }
-            I.provider = "tensorrt";
+            I.provider = _T("tensorrt");
         } else if (wantTensorRT && !ort.p_OrtSessionOptionsAppendExecutionProviderTensorRT()) {
             // requested TensorRT but the runtime library has no TensorRT provider: fall back to CUDA.
-            I.provider = "cuda";
+            I.provider = _T("cuda");
         }
         OrtStatus *stCuda = ort.p_OrtSessionOptionsAppendExecutionProviderCUDA()(static_cast<OrtSessionOptions*>(opts), deviceID);
         if (stCuda != nullptr) {
-            errMessage = std::string("AppendExecutionProvider_CUDA failed: ")
-                       + Ort::GetApi().GetErrorMessage(stCuda);
+            errMessage = tstring(_T("AppendExecutionProvider_CUDA failed: "))
+                       + char_to_tstring(Ort::GetApi().GetErrorMessage(stCuda));
             Ort::GetApi().ReleaseStatus(stCuda);
             return RGY_ERR_UNSUPPORTED;
         }
 
-        const auto ortPath = stringToOrtPath(modelPath);
-        I.session = std::make_unique<Ort::Session>(*I.env, ortPath.c_str(), opts);
+        I.session = std::make_unique<Ort::Session>(*I.env, modelPath.c_str(), opts);
 
         if (I.session->GetInputCount() < 1 || I.session->GetOutputCount() < 1) {
-            errMessage = "model has no input/output tensor.";
+            errMessage = _T("model has no input/output tensor.");
             return RGY_ERR_UNSUPPORTED;
         }
         // names (own the strings; the AllocatedStringPtr frees on scope exit)
@@ -179,17 +166,17 @@ RGY_ERR RGYOnnxRTCUDA::init(const std::string &modelPath, const int deviceID, co
         auto outs = I.session->Run(Ort::RunOptions{ nullptr }, inNames, &inT, 1, outNames, 1);
         auto oShape = outs[0].GetTensorTypeAndShapeInfo().GetShape();
         if (oShape.size() != 4) {
-            errMessage = "model output is not a 4D NCHW tensor.";
+            errMessage = _T("model output is not a 4D NCHW tensor.");
             return RGY_ERR_UNSUPPORTED;
         }
         I.outC = (int)oShape[1];
         I.outH = (int)oShape[2];
         I.outW = (int)oShape[3];
     } catch (const Ort::Exception &e) {
-        errMessage = e.what();
+        errMessage = char_to_tstring(e.what());
         return RGY_ERR_UNKNOWN;
     } catch (const std::exception &e) {
-        errMessage = e.what();
+        errMessage = char_to_tstring(e.what());
         return RGY_ERR_UNKNOWN;
     }
     return RGY_ERR_NONE;
@@ -231,17 +218,17 @@ int RGYOnnxRTCUDA::outWidth()    const { return m_impl->outW; }
 size_t RGYOnnxRTCUDA::outElemCount() const {
     return (size_t)m_impl->outC * m_impl->outH * m_impl->outW;
 }
-std::string RGYOnnxRTCUDA::deviceFullName() const { return m_impl->deviceName; }
-std::string RGYOnnxRTCUDA::inferencePrecision() const { return m_impl->precision; }
-std::string RGYOnnxRTCUDA::providerName() const { return m_impl->provider; }
+tstring RGYOnnxRTCUDA::deviceFullName() const { return m_impl->deviceName; }
+tstring RGYOnnxRTCUDA::inferencePrecision() const { return m_impl->precision; }
+tstring RGYOnnxRTCUDA::providerName() const { return m_impl->provider; }
 
 #else // !ENABLE_ONNXRUNTIME
 
 class RGYOnnxRTCUDA::Impl {};
 RGYOnnxRTCUDA::RGYOnnxRTCUDA() : m_impl(nullptr) {}
 RGYOnnxRTCUDA::~RGYOnnxRTCUDA() {}
-RGY_ERR RGYOnnxRTCUDA::init(const std::string &, const int, const RGYOnnxRTProvider, const int, const int, std::string &errMessage) {
-    errMessage = "this build of NVEnc has no ONNX Runtime CUDA support.";
+RGY_ERR RGYOnnxRTCUDA::init(const tstring &, const int, const RGYOnnxRTProvider, const int, const int, tstring &errMessage) {
+    errMessage = _T("this build of NVEnc has no ONNX Runtime CUDA support.");
     return RGY_ERR_UNSUPPORTED;
 }
 RGY_ERR RGYOnnxRTCUDA::infer(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
@@ -252,8 +239,8 @@ int RGYOnnxRTCUDA::outChannels() const { return 0; }
 int RGYOnnxRTCUDA::outHeight()   const { return 0; }
 int RGYOnnxRTCUDA::outWidth()    const { return 0; }
 size_t RGYOnnxRTCUDA::outElemCount() const { return 0; }
-std::string RGYOnnxRTCUDA::deviceFullName() const { return std::string(); }
-std::string RGYOnnxRTCUDA::inferencePrecision() const { return std::string(); }
-std::string RGYOnnxRTCUDA::providerName() const { return std::string(); }
+tstring RGYOnnxRTCUDA::deviceFullName() const { return tstring(); }
+tstring RGYOnnxRTCUDA::inferencePrecision() const { return tstring(); }
+tstring RGYOnnxRTCUDA::providerName() const { return tstring(); }
 
 #endif // ENABLE_ONNXRUNTIME
