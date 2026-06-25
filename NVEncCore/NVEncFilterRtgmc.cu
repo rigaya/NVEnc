@@ -686,6 +686,8 @@ RGY_ERR NVEncFilterRtgmc::updateCompReferenceStore(const RGYFrameInfo *frame, cu
     std::array<RGYDegrainCompensateInlineParams, 3> forwardParams = {};
     bool backwardReady = false;
     bool forwardReady = false;
+    bool backwardChroma = false;
+    bool forwardChroma = false;
     RGYFrameInfo backwardIdentity = {};
     RGYFrameInfo forwardIdentity = {};
 
@@ -707,8 +709,9 @@ RGY_ERR NVEncFilterRtgmc::updateCompReferenceStore(const RGYFrameInfo *frame, cu
         auto &params = (i == 0) ? backwardParams : forwardParams;
         auto &identity = (i == 0) ? backwardIdentity : forwardIdentity;
         auto &ready = (i == 0) ? backwardReady : forwardReady;
+        auto &chroma = (i == 0) ? backwardChroma : forwardChroma;
 
-        sts = filter->buildCompensateInlineParams(params, &identity, stream);
+        sts = filter->buildCompensateInlineParams(params, &identity, stream, &chroma);
         if (sts == RGY_ERR_NONE) {
             ready = true;
         } else if (sts != RGY_ERR_MORE_DATA) {
@@ -725,6 +728,7 @@ RGY_ERR NVEncFilterRtgmc::updateCompReferenceStore(const RGYFrameInfo *frame, cu
         }
         if (compRef) {
             compRef->hasInlineParams = true;
+            compRef->inlineParamsChroma = (!backwardReady || backwardChroma) && (!forwardReady || forwardChroma);
             compRef->backwardInlineParams = backwardParams;
             compRef->forwardInlineParams = forwardParams;
         }
@@ -754,6 +758,8 @@ RGY_ERR NVEncFilterRtgmc::drainCompReferenceStore(cudaStream_t stream) {
         std::array<RGYDegrainCompensateInlineParams, 3> forwardParams = {};
         bool backwardReady = false;
         bool forwardReady = false;
+        bool backwardChroma = false;
+        bool forwardChroma = false;
         RGYFrameInfo backwardIdentity = {};
         RGYFrameInfo forwardIdentity = {};
 
@@ -771,8 +777,9 @@ RGY_ERR NVEncFilterRtgmc::drainCompReferenceStore(cudaStream_t stream) {
             auto &params = (i == 0) ? backwardParams : forwardParams;
             auto &identity = (i == 0) ? backwardIdentity : forwardIdentity;
             auto &ready = (i == 0) ? backwardReady : forwardReady;
+            auto &chroma = (i == 0) ? backwardChroma : forwardChroma;
 
-            auto sts = filter->drainBuildInlineParams(params, &identity, stream);
+            auto sts = filter->drainBuildInlineParams(params, &identity, stream, &chroma);
             if (sts == RGY_ERR_NONE) {
                 ready = true;
                 progress = true;
@@ -790,6 +797,7 @@ RGY_ERR NVEncFilterRtgmc::drainCompReferenceStore(cudaStream_t stream) {
             }
             if (compRef) {
                 compRef->hasInlineParams = true;
+                compRef->inlineParamsChroma = (!backwardReady || backwardChroma) && (!forwardReady || forwardChroma);
                 compRef->backwardInlineParams = backwardParams;
                 compRef->forwardInlineParams = forwardParams;
             }
@@ -2229,7 +2237,7 @@ RGY_ERR NVEncFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInput
                         combinedParams[p].refForw = compRef->forwardInlineParams[p].refBack;
                         combinedParams[p].refDirForw = compRef->forwardInlineParams[p].refDirBack;
                     }
-                    const bool inlineCompChroma = rtgmcParam ? rtgmcParam->rtgmc.tr1.chroma : true;
+                    const bool inlineCompChroma = (rtgmcParam ? rtgmcParam->rtgmc.tr1.chroma : true) && compRef->inlineParamsChroma;
                     retouch->setTemporalLimitInlineComp(edi->frame(), combinedParams, inlineCompChroma);
                     usedInlineComp = true;
                 }

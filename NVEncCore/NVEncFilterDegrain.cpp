@@ -1143,7 +1143,11 @@ bool NVEncFilterDegrain::outputReady() const {
     return m_inputCount >= outputDelay() + 1;
 }
 
-RGY_ERR NVEncFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, cudaStream_t stream) {
+RGY_ERR NVEncFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity,
+    cudaStream_t stream, bool *processChromaOut) {
+    if (processChromaOut) {
+        *processChromaOut = false;
+    }
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
     if (!prm) {
         return RGY_ERR_INVALID_PARAM;
@@ -1192,7 +1196,10 @@ RGY_ERR NVEncFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCom
     const RGYDegrainRefDisableArray disableRefsArray = analysisAvailabilityDisableRefs(frames);
     const uint32_t disableMask = degrainDisableMask(disableRefsArray, layout.temporalDirections);
     const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
-    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && analysisSADIncludesChroma(prm) && degrainCanProcessChroma(frames.cur);
+    if (processChromaOut) {
+        *processChromaOut = processChroma;
+    }
 
     auto ensureRamp = [&](RGYDegrainWindowRampState &state, int planeScaleX, int planeScaleY) -> RGY_ERR {
         const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
@@ -1272,7 +1279,11 @@ bool NVEncFilterDegrain::drainReady() const {
     return m_drainCount < drainFrameCount();
 }
 
-RGY_ERR NVEncFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, cudaStream_t stream) {
+RGY_ERR NVEncFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity,
+    cudaStream_t stream, bool *processChromaOut) {
+    if (processChromaOut) {
+        *processChromaOut = false;
+    }
     if (!drainReady()) {
         return RGY_ERR_MORE_DATA;
     }
@@ -1329,7 +1340,10 @@ RGY_ERR NVEncFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensa
     const RGYDegrainRefDisableArray disableRefsArray = analysisAvailabilityDisableRefs(frames);
     const uint32_t disableMask = degrainDisableMask(disableRefsArray, layout.temporalDirections);
     const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
-    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && analysisSADIncludesChroma(prm) && degrainCanProcessChroma(frames.cur);
+    if (processChromaOut) {
+        *processChromaOut = processChroma;
+    }
 
     auto ensureRamp = [&](RGYDegrainWindowRampState &state, int planeScaleX, int planeScaleY) -> RGY_ERR {
         const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
@@ -2080,7 +2094,9 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
         }
     }
 
-    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
+    // Avoid applying temporal chroma degrain with luma-only SAD/MV analysis.
+    const bool includeChromaSad = analysisSADIncludesChroma(prm);
+    const bool processChroma = prm->degrain.chroma && includeChromaSad && degrainCanProcessChroma(frames.cur);
     const bool copyDegrainOutput = m_debugEnv.forceDegrainCopy
         || rgy_csp_has_alpha(frames.cur->csp)
         || RGY_CSP_PLANES[frames.cur->csp] != (processChroma ? 3 : 1)
@@ -2264,7 +2280,6 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
             analysisLayout().temporalDirections, prm->degrain.pel, prm->degrain.subpelInterp, stream);
     };
 
-    const bool includeChromaSad = analysisSADIncludesChroma(prm);
     const uint32_t scaledThSad = rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thsad, includeChromaSad);
     const uint32_t scaledThSadC = rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thsadc, includeChromaSad);
     const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };

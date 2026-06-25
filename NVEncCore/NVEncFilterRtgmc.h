@@ -118,6 +118,7 @@ protected:
         RGYCudaEvent backwardEvent;
         RGYCudaEvent forwardEvent;
         bool hasInlineParams;
+        bool inlineParamsChroma;
         std::array<RGYDegrainCompensateInlineParams, 3> backwardInlineParams;
         std::array<RGYDegrainCompensateInlineParams, 3> forwardInlineParams;
 
@@ -128,6 +129,7 @@ protected:
             backwardEvent(),
             forwardEvent(),
             hasInlineParams(false),
+            inlineParamsChroma(false),
             backwardInlineParams(),
             forwardInlineParams() {
         }

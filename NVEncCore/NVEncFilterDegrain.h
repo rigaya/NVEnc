@@ -77,9 +77,11 @@ public:
 
     RGY_ERR feedFrameOnly(const RGYFrameInfo *pInputFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events, RGYCudaEvent *event = nullptr);
     bool outputReady() const;
-    RGY_ERR buildCompensateInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, cudaStream_t stream);
+    RGY_ERR buildCompensateInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity,
+        cudaStream_t stream, bool *processChromaOut = nullptr);
     bool drainReady() const;
-    RGY_ERR drainBuildInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, cudaStream_t stream);
+    RGY_ERR drainBuildInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity,
+        cudaStream_t stream, bool *processChromaOut = nullptr);
 
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
