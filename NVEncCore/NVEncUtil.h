@@ -155,6 +155,25 @@ private:
     int64_t dataDuration;
     RGYFrameData **frameDataList;
     int frameDataNum;
+
+    void freeMem() {
+        if (dataptr && maxLength) {
+            _aligned_free(dataptr);
+        }
+        dataptr = nullptr;
+        maxLength = 0;
+    }
+
+    void copyMetadataFrom(const RGYBitstream *pBitstream) {
+        dataDts = pBitstream->dataDts;
+        dataPts = pBitstream->dataPts;
+        dataFlag = pBitstream->dataFlag;
+        dataAvgQP = pBitstream->dataAvgQP;
+        dataFrametype = pBitstream->dataFrametype;
+        dataPicstruct = pBitstream->dataPicstruct;
+        dataFrameIdx = pBitstream->dataFrameIdx;
+        dataDuration = pBitstream->dataDuration;
+    }
 public:
     uint8_t *bufptr() const {
         return dataptr;
@@ -262,14 +281,10 @@ public:
     }
 
     void clear() {
-        if (dataptr && maxLength) {
-            _aligned_free(dataptr);
-        }
-        dataptr = nullptr;
+        freeMem();
         clearFrameDataList();
         dataLength = 0;
         dataOffset = 0;
-        maxLength = 0;
     }
 
     RGY_ERR init(size_t nSize) {
@@ -297,11 +312,13 @@ public:
             return RGY_ERR_MORE_BITSTREAM;
         }
         if (maxLength < setSize) {
-            clear();
-            auto sts = init(setSize);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
+            freeMem();
+            dataLength = 0;
+            dataOffset = 0;
+            if (nullptr == (dataptr = (uint8_t *)_aligned_malloc(setSize, 32))) {
+                return RGY_ERR_NULL_PTR;
             }
+            maxLength = setSize;
         }
         dataLength = setSize;
         dataOffset = 0;
@@ -343,6 +360,7 @@ public:
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
+        copyMetadataFrom(pBitstream);
         return RGY_ERR_NONE;
     }
 
@@ -356,7 +374,7 @@ public:
         if (dataLength) {
             memcpy(pData, dataptr + dataOffset, (std::min)(nDataLen, nNewSize));
         }
-        clear();
+        freeMem();
 
         dataptr       = pData;
         dataOffset = 0;
