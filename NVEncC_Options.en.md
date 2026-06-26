@@ -4228,7 +4228,41 @@ A complete chain in one pass: optional pre-filter denoise -> main Anime4K mode -
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 CNN filter which runs an ONNX model through ONNX Runtime CUDA / TensorRT provider. This is for Windows x64 and requires the ONNX Runtime GPU package built for CUDA 12.
 
-Unlike the QSVEnc OpenVINO backend, NVEnc requires the ONNX Runtime GPU runtime DLLs to be installed separately at runtime. Make sure `onnxruntime.dll`, `onnxruntime_providers_cuda.dll`, and the CUDA runtime / cuDNN DLLs required by the ONNX Runtime GPU package are visible from `PATH` or placed in the same folder as `NVEncC64.exe`. When using `provider=tensorrt`, the TensorRT provider DLL (`onnxruntime_providers_tensorrt.dll`) and the TensorRT runtime DLLs must also be visible.
+Unlike the QSVEnc OpenVINO backend, NVEnc requires the ONNX Runtime GPU runtime DLLs to be installed separately at runtime. Make sure the following DLLs are visible from `PATH` or placed in the same folder as `NVEncC64.exe`.
+
+```text
+NVEncC64.exe
+├─ onnxruntime.dll
+│  ├─ onnxruntime_providers_shared.dll
+│  ├─ onnxruntime_providers_cuda.dll
+│  │  ├─ cudart64_12.dll
+│  │  ├─ cublas64_12.dll
+│  │  ├─ cublasLt64_12.dll
+│  │  ├─ cufft64_11.dll
+│  │  └─ cudnn64_9.dll
+│  │     ├─ cudnn_adv64_9.dll
+│  │     ├─ cudnn_cnn64_9.dll
+│  │     ├─ cudnn_ext64_9.dll
+│  │     ├─ cudnn_graph64_9.dll
+│  │     │  ├─ cudnn_heuristic64_9.dll
+│  │     │  ├─ cudnn_engines_precompiled64_9.dll
+│  │     │  ├─ cudnn_engines_runtime_compiled64_9.dll
+│  │     │  └─ cudnn_engines_tensor_ir64_9.dll
+│  │     └─ cudnn_ops64_9.dll
+│  └─ onnxruntime_providers_tensorrt.dll (when using provider=tensorrt)
+│     ├─ nvinfer_10.dll
+│     ├─ nvonnxparser_10.dll
+│     ├─ cudart64_12.dll
+│     ├─ cublas64_12.dll
+│     └─ cudnn64_9.dll
+```
+
+Even when using `provider=tensorrt`, the CUDA provider DLL set is required because NVEnc also appends the CUDA provider as a fallback for ops that TensorRT cannot run.
+
+- ONNX Runtime: Download the CUDA-enabled Windows x64 GPU package (`onnxruntime-win-x64-gpu-*.zip`) from [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases). Example: `onnxruntime-win-x64-gpu-1.23.2.zip`
+- CUDA runtime / cuBLAS / cuFFT: Install CUDA 12.x from [CUDA Toolkit Downloads](https://developer.nvidia.com/cuda-downloads) or [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive).
+- cuDNN: Install cuDNN 9.x for CUDA 12.x from [cuDNN Downloads](https://developer.nvidia.com/cudnn-downloads).
+- TensorRT (only when using `provider=tensorrt`): Install TensorRT 10.x for Windows x64 / CUDA 12.x from [TensorRT Downloads](https://developer.nvidia.com/tensorrt/download). Downloading may require signing in to NVIDIA Developer and accepting the license.
 
 Models can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases). Extract the archive and specify the directory with `--vpp-onnx-model-dir` when using short model names such as `model=artcnn_c4f32`.
 

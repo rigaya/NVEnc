@@ -4277,7 +4277,41 @@ CNNモデルは含まれておらず、そちらを使用する場合は、[`--v
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 ONNX Runtime CUDA/TensorRT provider を使用してONNXモデルを実行するCNNフィルタ。Windows x64向けで、CUDA 12対応のONNX Runtime GPU版が必要。
 
-QSVEnc の OpenVINO バックエンドとは異なり、NVEnc では実行時に ONNX Runtime GPU版のDLLを別途導入する必要がある。`onnxruntime.dll`、`onnxruntime_providers_cuda.dll`、および ONNX Runtime GPU版が必要とする CUDA runtime / cuDNN のDLLが `PATH` から見えるか、`NVEncC64.exe` と同じフォルダに配置されている必要がある。`provider=tensorrt` を使用する場合は、TensorRT provider DLL (`onnxruntime_providers_tensorrt.dll`) と TensorRT runtime のDLLも同様に見える必要がある。
+実行時に ONNX Runtime GPU版のDLLを別途導入する必要がある。下記のDLLが `PATH` から見えるか、`NVEncC64.exe` と同じフォルダに配置されている必要がある。
+
+```text
+NVEncC64.exe
+├─ onnxruntime.dll
+│  ├─ onnxruntime_providers_shared.dll
+│  ├─ onnxruntime_providers_cuda.dll
+│  │  ├─ cudart64_12.dll
+│  │  ├─ cublas64_12.dll
+│  │  ├─ cublasLt64_12.dll
+│  │  ├─ cufft64_11.dll
+│  │  └─ cudnn64_9.dll
+│  │     ├─ cudnn_adv64_9.dll
+│  │     ├─ cudnn_cnn64_9.dll
+│  │     ├─ cudnn_ext64_9.dll
+│  │     ├─ cudnn_graph64_9.dll
+│  │     │  ├─ cudnn_heuristic64_9.dll
+│  │     │  ├─ cudnn_engines_precompiled64_9.dll
+│  │     │  ├─ cudnn_engines_runtime_compiled64_9.dll
+│  │     │  └─ cudnn_engines_tensor_ir64_9.dll
+│  │     └─ cudnn_ops64_9.dll
+│  └─ onnxruntime_providers_tensorrt.dll (provider=tensorrt 使用時)
+│     ├─ nvinfer_10.dll
+│     ├─ nvonnxparser_10.dll
+│     ├─ cudart64_12.dll
+│     ├─ cublas64_12.dll
+│     └─ cudnn64_9.dll
+```
+
+`provider=tensorrt` を使用する場合も、TensorRTで実行できないopのfallback用に CUDA provider を追加するため、CUDA provider 用DLL一式が必要。
+
+- ONNX Runtime: [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases) から CUDA 対応の Windows x64 GPU 版 (`onnxruntime-win-x64-gpu-*.zip`) をダウンロードする。例: `onnxruntime-win-x64-gpu-1.23.2.zip`
+- CUDA runtime / cuBLAS / cuFFT: [CUDA Toolkit Downloads](https://developer.nvidia.com/cuda-downloads) または [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive) から CUDA 12.x 版を導入する。
+- cuDNN: [cuDNN Downloads](https://developer.nvidia.com/cudnn-downloads) から CUDA 12.x 対応の cuDNN 9.x を導入する。
+- TensorRT (`provider=tensorrt` 使用時のみ): [TensorRT Downloads](https://developer.nvidia.com/tensorrt/download) から Windows x64 / CUDA 12.x 対応の TensorRT 10.x を導入する。ダウンロードには NVIDIA Developer へのログインとライセンス同意が必要な場合がある。
 
 モデルファイルは [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases) からダウンロードできる。短縮モデル名 (`model=artcnn_c4f32` など) を使用する場合は、zipを展開したディレクトリを `--vpp-onnx-model-dir` で指定する。
 
