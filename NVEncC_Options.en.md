@@ -269,6 +269,7 @@
   - [--vpp-fruc \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fruc-param1value1param2value2)
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
+  - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [Other Options](#other-options)
@@ -1881,6 +1882,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 - [--vpp-fruc](#--vpp-overlay-param1value1param2value2)
 - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
 - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
+- [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Converts colorspace of the video. Available on x64 version.  
@@ -4153,38 +4155,139 @@ Default paramters are based on the values on [the link](https://www.reddit.com/r
   ```
 
 ### --vpp-anime4k-shader [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-Anime-oriented upscale / restoration using a CUDA filter based on Anime4K v3.2. Currently supports 8bit YUV420 input only.
+Enable a CUDA luma enhancement / 2x upscale chain based on bloc97 Anime4K v3.2. Currently supports 8bit YUV420 input only.
+The CNN models are not included in this filter; use [`--vpp-onnx`](#--vpp-onnx-param1value1param2value2) for CNN-based models.
+
+A complete chain in one pass: optional pre-filter denoise -> main Anime4K mode -> optional line darken / thin / denoise -> optional highlight clamp and anti-ring -> chroma handling -> end-of-chain resize.
 
 - **Parameters**
   - mode=&lt;string&gt; (default: ani4k_original)
-    ani4k_original, ani4k_deblur, ani4k_darken_hq, ani4k_thin_hq, ani4k_dog_sharpen, ani4k_dog, ani4k_dtd.
-  - strength=&lt;float&gt; (default: 0.5)
-  - chroma=&lt;bool&gt; (default: true)
+    Select the Anime4K variant.
+    - ani4k_original ... edge-refine 2x upscale (strength 0.5)
+    - ani4k_deblur ... edge-refine 2x upscale, stronger (strength 1.0)
+    - ani4k_darken_hq ... line-darkening 2x upscale
+    - ani4k_thin_hq ... line-thinning 2x upscale
+    - ani4k_dog_sharpen ... 1x Difference-of-Gaussians sharpen
+    - ani4k_dog ... 2x DoG upscale
+    - ani4k_dtd ... 2x composite darken-thin-deblur upscale
+
+  - scale=&lt;int&gt; (default: 2)
+    1 = refine at source resolution, 2 = 2x upscale + refine.
+    Some modes imply scale (dog_sharpen=1, dog/dtd=2).
+
+  - strength=&lt;float&gt; (default: 0.50)
+    Refine strength multiplier. Promoted to 1.0 for mode=ani4k_deblur with no explicit value.
+
+  - prefilter_denoise=&lt;string&gt; (default: off)
+    Denoise the luma before the main pass.
+    off / mean / median / mode (bilateral)
+
+  - darken=&lt;string&gt; (default: off)
+    Line-darkening pass after the main pass.
+    off / hq / fast / veryfast
+
+  - thin=&lt;string&gt; (default: off)
+    Line-thinning pass after the main pass.
+    off / hq / fast / veryfast
+
+  - denoise=&lt;string&gt; (default: off)
+    Denoise pass after the main pass.
+    off / mean / median / mode (bilateral)
+
+  - denoise_intensity, denoise_spatial, denoise_curve, denoise_hist_reg=&lt;float&gt;
+    Fine-tune the denoise passes (advanced, optional).
+
+  - clamp_highlights=&lt;bool&gt; (default: false)
+    Clamp output highlights to the local source max.
+
+  - antiring=&lt;float&gt; (default: 0.0)
+    Anti-ringing strength. Clamps each upscaled luma pixel to its 2x2 source min/max envelope.
+
   - chroma_resize=&lt;string&gt; (default: spline36)
-    spline36, bilinear, bicubic, lanczos3, joint.
-  - out_res=&lt;int&gt;x&lt;int&gt;, resize=&lt;string&gt;
-    Resize to the specified resolution after the 2x processing.
+    U/V resize kernel when scale=2.
+    spline36 / bilinear / bicubic / lanczos3 / joint
+    joint = luma-guided joint-bilateral chroma rebuild.
+
+  - chroma=&lt;bool&gt; (default: true)
+    When scale=2, resize chroma (true) or pass it through unchanged (false). scale=1 always passes through.
+
+  - out_res=&lt;WxH&gt;
+    End-of-chain resize to an arbitrary final size, applied after the Anime4K stage.
+    A negative value on one axis keeps the source aspect (e.g. out_res=-2x1080).
+
+  - resize=&lt;string&gt; (default: lanczos4)
+    Resampler for out_res.
 
 - Examples
   ```
-  --vpp-anime4k-shader mode=ani4k_original,out_res=1920x1080,resize=jinc144
+  --vpp-anime4k-shader mode=ani4k_original,scale=2
+  --vpp-anime4k-shader mode=ani4k_deblur,antiring=0.8,chroma_resize=joint
+  --vpp-anime4k-shader mode=ani4k_dog_sharpen,strength=0.6,out_res=1920x1080
   ```
 
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-CNN filter which runs an ONNX model through ONNX Runtime CUDA / TensorRT provider. This is for Windows x64 and requires a CUDA 12 ONNX Runtime GPU build.
+CNN filter which runs an ONNX model through ONNX Runtime CUDA / TensorRT provider. This is for Windows x64 and requires the ONNX Runtime GPU package built for CUDA 12.
+
+Unlike the QSVEnc OpenVINO backend, NVEnc requires the ONNX Runtime GPU runtime DLLs to be installed separately at runtime. Make sure `onnxruntime.dll`, `onnxruntime_providers_cuda.dll`, and the CUDA runtime / cuDNN DLLs required by the ONNX Runtime GPU package are visible from `PATH` or placed in the same folder as `NVEncC64.exe`. When using `provider=tensorrt`, the TensorRT provider DLL (`onnxruntime_providers_tensorrt.dll`) and the TensorRT runtime DLLs must also be visible.
+
+Models can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases). Extract the archive and specify the directory with `--vpp-onnx-model-dir` when using short model names such as `model=artcnn_c4f32`.
+
+Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3->2ch=chroma.
 
 - **Parameters**
   - model=&lt;string&gt;
-    Path to the ONNX model file.
-  - provider=&lt;string&gt; (default: cuda)
-    cuda or tensorrt.
-  - out_res=&lt;int&gt;x&lt;int&gt;, resize=&lt;string&gt;
-    Resize to the specified resolution after model inference.
+    Path to the ONNX model file (required). A model registered in models.json can be specified without extension when `--vpp-onnx-model-dir` is specified.
+
+  - provider=&lt;string&gt; (default: auto)
+    Execution provider. auto / cuda / tensorrt (trt)
+
+  - device=&lt;string&gt; (default: GPU.0)
+    Accepted for CLI compatibility. NVEnc inference uses the encoder's CUDA device.
+
+  - interop=&lt;string&gt; (default: auto)
+    Accepted for CLI compatibility. NVEnc uses the host-readback path.
+
+  - colormatrix=&lt;string&gt; (default: auto)
+    Color matrix. auto (bt601 for SD, bt709 for HD) / bt601 / bt709 / bt2020
+
+  - colorrange=&lt;string&gt; (default: auto)
+    Color range. auto (tv) / tv / pc
+
+  - colorspace=&lt;string&gt; (default: rgb)
+    Color space for 3ch models. rgb / ycbcr (for ArtCNN *_YCbCr models)
+
+  - noise=&lt;int&gt; (default: 15, range: 0 - 255)
+    Noise sigma for noise models.
+
+  - out_res=&lt;WxH&gt;
+    End-of-chain resize to an arbitrary final size, applied after model inference.
+    A negative value on one axis keeps the source aspect (e.g. out_res=-2x1080).
+
+  - resize=&lt;string&gt; (default: lanczos4)
+    Resampler for out_res.
+
+  - list
+    List the models registered in models.json. `--vpp-onnx-model-dir` must be specified.
 
 - Examples
   ```
+  --vpp-onnx model=artcnn_c4f32
   --vpp-onnx model=acnet/acnet_s.onnx,provider=cuda,out_res=1920x1080,resize=lanczos4
+  --vpp-onnx model=anime4k_restore_cnn_l,out_res=-2x1080
   ```
+
+### --vpp-onnx-model-dir &lt;string&gt;
+Specify the directory containing models.json and the model files for registered ONNX models.
+
+This option is required when using short model names with `--vpp-onnx model=<name>`, or when listing registered models with `--vpp-onnx list`.
+
+Model files can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases). Download the zip archive, extract it to an arbitrary directory, and specify that directory.
+
+This option only specifies where model files are located. The ONNX Runtime GPU, CUDA runtime, cuDNN, TensorRT, and related DLLs must still be made visible separately through `PATH` or by placing them next to `NVEncC64.exe`.
+
+```
+--vpp-onnx-model-dir C:\models\HWEnc-onnx-models
+```
 
 ### --vpp-perf-monitor
 Monitor the performance of each vpp filter, and output the average per frame processing time of the applied filter(s). Note that the overall encoding performance may slightly be harmed.
