@@ -812,9 +812,6 @@
     <ClInclude Include="NVEncFilterAnime4k.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="nis_coef_tables.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="NVEncFilterD3D11.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>

@@ -93,7 +93,7 @@ const char *get_encoder_version();
 #define ENABLE_NVOFFRUC_HEADER 0
 #endif
 
-#ifdef _M_IX86
+#if defined(_M_IX86) || defined(NVENC_AUO)
 #define ENABLE_NVML 0
 #define ENABLE_NVRTC 0
 #define ENABLE_VMAF 0
