@@ -220,14 +220,16 @@ meson setup ./build --buildtype=release
 meson compile -C ./build
 ```
 
-`--vpp-onnx` を有効にしてビルドする場合は、[ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases) から GPU版をダウンロードして展開し、`onnxruntime_dir` に展開先を指定します。例えば [onnxruntime-linux-x64-gpu-1.23.2.tgz](https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-gpu-1.23.2.tgz) を `/opt/onnxruntime-linux-x64-gpu` に展開した場合は下記のように指定します。
+`--vpp-onnx` 用の ONNX Runtime ヘッダは、標準の include パスと `onnxruntime_dir` から検出します。見つからない場合は、必要なヘッダをビルドディレクトリ内に自動でダウンロードします。
+
+展開済みの ONNX Runtime パッケージのヘッダを明示的に使う場合は、`onnxruntime_dir` に展開先を指定します。例えば [onnxruntime-linux-x64-gpu-1.23.2.tgz](https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-gpu-1.23.2.tgz) を `/opt/onnxruntime-linux-x64-gpu` に展開した場合は下記のように指定します。
 
 ```Shell
 meson setup ./build --buildtype=release -Donnxruntime_dir=/opt/onnxruntime-linux-x64-gpu
 meson compile -C ./build
 ```
 
-実行時には、`/opt/onnxruntime-linux-x64-gpu/lib` を `LD_LIBRARY_PATH` などで見えるようにしてください。
+実行時には、[ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases) の GPU版パッケージが引き続き必要です。`/opt/onnxruntime-linux-x64-gpu/lib` を `LD_LIBRARY_PATH` などで見えるようにしてください。
 
 動作確認をします。
 ```Shell

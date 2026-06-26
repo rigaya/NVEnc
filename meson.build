@@ -206,6 +206,7 @@ ffmpeg_deps = [
 _ext_headers_dir  = build_root / 'external_headers'
 _vpy_fetched_inc  = _ext_headers_dir / 'vapoursynth-R72' / 'include'
 _avs_fetched_inc  = _ext_headers_dir / 'AviSynthPlus-3.7.5' / 'avs_core' / 'include'
+_ort_fetched_inc  = _ext_headers_dir / 'onnxruntime-1.23.2' / 'include' / 'onnxruntime' / 'core' / 'session'
 
 # VapourSynth ヘッダ自動ダウンロード用シェルスクリプト
 _fetch_vpy_sh = '''
@@ -235,6 +236,21 @@ else
 fi
 tar xf "$dest/avs.tar.gz" -C "$dest" || exit 1
 rm -f "$dest/avs.tar.gz"
+'''
+
+# ONNX Runtime C/C++ APIヘッダ自動ダウンロード用シェルスクリプト
+_fetch_ort_sh = '''
+dest="$1"
+[ -f "$dest/onnxruntime-1.23.2/include/onnxruntime/core/session/onnxruntime_cxx_api.h" ] && exit 0
+mkdir -p "$dest"
+url="https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.23.2.tar.gz"
+if command -v wget >/dev/null 2>&1; then
+  wget -q -O "$dest/onnxruntime.tar.gz" "$url" || exit 1
+else
+  curl -fsSL -o "$dest/onnxruntime.tar.gz" "$url" || exit 1
+fi
+tar xf "$dest/onnxruntime.tar.gz" -C "$dest" --wildcards '*/include/onnxruntime/core/session/*' || exit 1
+rm -f "$dest/onnxruntime.tar.gz"
 '''
 
 vapoursynth_compile_dep = disabler()
@@ -549,27 +565,61 @@ endif
 have_onnxruntime_headers = false
 onnxruntime_compile_dep = declare_dependency()
 if enable_onnxruntime_option != 'disabled'
-  onnxruntime_search_dirs = []
+  onnxruntime_headers_code = '''
+#define ORT_API_MANUAL_INIT
+#include <onnxruntime_cxx_api.h>
+int main(void) { return ORT_API_VERSION > 0 ? 0 : 1; }
+'''
+  onnxruntime_include_dirs = []
   if onnxruntime_dir != ''
-    onnxruntime_search_dirs += [onnxruntime_dir]
+    onnxruntime_include_dirs += [
+      onnxruntime_dir / 'include',
+      onnxruntime_dir / 'include' / 'onnxruntime' / 'core' / 'session',
+    ]
   endif
-  onnxruntime_search_dirs += ['/usr/local', '/usr']
-  foreach dir : onnxruntime_search_dirs
-    if not have_onnxruntime_headers and fs.is_dir(dir)
+  onnxruntime_include_dirs += [
+    '/usr/local/include',
+    '/usr/local/include/onnxruntime/core/session',
+    '/usr/include',
+    '/usr/include/onnxruntime/core/session',
+  ]
+  foreach inc_dir : onnxruntime_include_dirs
+    if not have_onnxruntime_headers and fs.is_dir(inc_dir)
       onnxruntime_candidate_dep = declare_dependency(
-        compile_args: ['-I' + dir / 'include']
+        compile_args: ['-I' + inc_dir]
       )
       have_onnxruntime_headers = cpp.compiles(
-        '#include <onnxruntime_cxx_api.h>\nint main() { return ORT_API_VERSION > 0 ? 0 : 1; }',
+        onnxruntime_headers_code,
         dependencies: onnxruntime_candidate_dep,
-        name: 'ONNX Runtime headers in ' + dir
+        args: get_option('cpp_args'),
+        name: 'ONNX Runtime headers in ' + inc_dir
       )
       if have_onnxruntime_headers
         onnxruntime_compile_dep = onnxruntime_candidate_dep
-        message('ONNX Runtime headers found in ' + dir)
+        message('ONNX Runtime headers found in ' + inc_dir)
       endif
     endif
   endforeach
+  if not have_onnxruntime_headers
+    _fetch = run_command(
+      'sh', '-c', _fetch_ort_sh, 'fetch_ort', _ext_headers_dir,
+      check: false,
+    )
+    if _fetch.returncode() == 0
+      onnxruntime_compile_dep = declare_dependency(
+        compile_args: ['-I' + _ort_fetched_inc],
+      )
+      have_onnxruntime_headers = cpp.compiles(
+        onnxruntime_headers_code,
+        dependencies: onnxruntime_compile_dep,
+        args: get_option('cpp_args'),
+        name: 'ONNX Runtime headers in ' + _ort_fetched_inc
+      )
+      if have_onnxruntime_headers
+        message('ONNX Runtime headers fetched into ' + _ort_fetched_inc)
+      endif
+    endif
+  endif
   if enable_onnxruntime_option == 'enabled' and not have_onnxruntime_headers
     error('ONNX Runtime headers not found. Set onnxruntime_dir or disable enable_onnxruntime.')
   endif

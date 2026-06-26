@@ -214,14 +214,16 @@ meson setup ./build --buildtype=release
 meson compile -C ./build
 ```
 
-To build with `--vpp-onnx` support, download and extract the GPU package from [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases), and pass the extracted directory to `onnxruntime_dir`. For example, if [onnxruntime-linux-x64-gpu-1.23.2.tgz](https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-gpu-1.23.2.tgz) is extracted to `/opt/onnxruntime-linux-x64-gpu`, configure as below.
+For `--vpp-onnx` support, the build checks ONNX Runtime headers in standard include paths and `onnxruntime_dir`. If they are not found, the required headers are downloaded automatically into the build directory.
+
+To use an extracted ONNX Runtime package for the headers explicitly, pass it to `onnxruntime_dir`. For example, if [onnxruntime-linux-x64-gpu-1.23.2.tgz](https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-gpu-1.23.2.tgz) is extracted to `/opt/onnxruntime-linux-x64-gpu`, configure as below.
 
 ```Shell
 meson setup ./build --buildtype=release -Donnxruntime_dir=/opt/onnxruntime-linux-x64-gpu
 meson compile -C ./build
 ```
 
-At runtime, make `/opt/onnxruntime-linux-x64-gpu/lib` visible through `LD_LIBRARY_PATH` or an equivalent library search path.
+At runtime, the GPU package from [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases) is still required. Make `/opt/onnxruntime-linux-x64-gpu/lib` visible through `LD_LIBRARY_PATH` or an equivalent library search path.
 
 Check if it works properly.
 ```Shell
