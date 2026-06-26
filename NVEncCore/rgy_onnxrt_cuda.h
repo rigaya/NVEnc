@@ -91,6 +91,7 @@ public:
     tstring deviceFullName() const;     // CUDA device name bound to
     tstring inferencePrecision() const; // "f32"
     tstring providerName() const;       // "cuda" or "tensorrt" (the EP actually used)
+    tstring lastError() const;
 
     static bool available() { return ENABLE_ONNXRUNTIME != 0; }
 

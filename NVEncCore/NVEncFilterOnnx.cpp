@@ -574,7 +574,12 @@ RGY_ERR NVEncFilterOnnx::runHost(const RGYFrameInfo *in, RGYFrameInfo *out, cuda
     // 3. inference.
     err = m_ov->infer(m_inBuf.data(), m_outBuf.data());
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed.\n"));
+        const auto lastError = m_ov->lastError();
+        if (!lastError.empty()) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed: %s.\n"), lastError.c_str());
+        } else {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed.\n"));
+        }
         return err;
     }
 

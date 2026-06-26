@@ -67,6 +67,11 @@ namespace {
         }
         return tstring();
     }
+
+    tstring cudaErrorMessage(const TCHAR *func, const int deviceID, const cudaError_t err) {
+        return strsprintf(_T("%s(device=%d) failed: %s"),
+            func, deviceID, char_to_tstring(cudaGetErrorString(err)).c_str());
+    }
 }
 
 // ------------------------------- pimpl ---------------------------------------
@@ -83,9 +88,11 @@ public:
     std::string inName, outName;     // owned copies of the model's first I/O names
     int inC = 0, inH = 0, inW = 0;
     int outC = 0, outH = 0, outW = 0;
+    int deviceID = 0;
     tstring deviceName;
     tstring provider = _T("cuda");   // the EP actually used
     tstring precision = _T("f32");
+    tstring lastError;
 };
 
 RGYOnnxRTCUDA::RGYOnnxRTCUDA() : m_impl(std::make_unique<Impl>()) {}
@@ -100,6 +107,13 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
     }
     try {
         auto &I = *m_impl;
+        I.deviceID = deviceID;
+        auto cudaerr = cudaSetDevice(I.deviceID);
+        if (cudaerr != cudaSuccess) {
+            errMessage = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
+            return RGY_ERR_CUDA;
+        }
+        cudaGetLastError();
         // create the ORT env / allocator now that the API is initialised
         if (!I.env)   I.env   = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "nvenc-onnx");
         if (!I.alloc) I.alloc = std::make_unique<Ort::AllocatorWithDefaultOptions>();
@@ -163,6 +177,12 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
                                                          inDims.data(), inDims.size());
         const char *inNames[]  = { I.inName.c_str() };
         const char *outNames[] = { I.outName.c_str() };
+        cudaerr = cudaSetDevice(I.deviceID);
+        if (cudaerr != cudaSuccess) {
+            errMessage = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
+            return RGY_ERR_CUDA;
+        }
+        cudaGetLastError();
         auto outs = I.session->Run(Ort::RunOptions{ nullptr }, inNames, &inT, 1, outNames, 1);
         auto oShape = outs[0].GetTensorTypeAndShapeInfo().GetShape();
         if (oShape.size() != 4) {
@@ -186,6 +206,13 @@ RGY_ERR RGYOnnxRTCUDA::infer(const float *in, float *out) {
     if (!m_impl->session) return RGY_ERR_NULL_PTR;
     try {
         auto &I = *m_impl;
+        I.lastError.clear();
+        auto cudaerr = cudaSetDevice(I.deviceID);
+        if (cudaerr != cudaSuccess) {
+            I.lastError = cudaErrorMessage(_T("cudaSetDevice"), I.deviceID, cudaerr);
+            return RGY_ERR_CUDA;
+        }
+        cudaGetLastError();
         std::vector<int64_t> inDims  = { 1, I.inC,  I.inH,  I.inW };
         std::vector<int64_t> outDims = { 1, I.outC, I.outH, I.outW };
         const size_t inCount  = (size_t)I.inC  * I.inH  * I.inW;
@@ -193,17 +220,16 @@ RGY_ERR RGYOnnxRTCUDA::infer(const float *in, float *out) {
         Ort::MemoryInfo memCpu = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
         Ort::Value inT  = Ort::Value::CreateTensor<float>(memCpu, const_cast<float*>(in), inCount,
                                                           inDims.data(), inDims.size());
-        // Pre-bind the output to our host buffer so ONNX Runtime copies the result
-        // into CPU memory. With the CUDA/TensorRT EP an auto-allocated output lives in
-        // device memory, so reading it on the host would be invalid; binding a CPU
-        // output tensor makes Run() do the device->host copy for us.
         Ort::Value outT = Ort::Value::CreateTensor<float>(memCpu, out, outCount,
                                                           outDims.data(), outDims.size());
         const char *inNames[]  = { I.inName.c_str() };
         const char *outNames[] = { I.outName.c_str() };
         I.session->Run(Ort::RunOptions{ nullptr }, inNames, &inT, 1, outNames, &outT, 1);
     } catch (const Ort::Exception &e) {
-        (void)e;
+        m_impl->lastError = char_to_tstring(e.what());
+        return RGY_ERR_UNKNOWN;
+    } catch (const std::exception &e) {
+        m_impl->lastError = char_to_tstring(e.what());
         return RGY_ERR_UNKNOWN;
     }
     return RGY_ERR_NONE;
@@ -221,6 +247,7 @@ size_t RGYOnnxRTCUDA::outElemCount() const {
 tstring RGYOnnxRTCUDA::deviceFullName() const { return m_impl->deviceName; }
 tstring RGYOnnxRTCUDA::inferencePrecision() const { return m_impl->precision; }
 tstring RGYOnnxRTCUDA::providerName() const { return m_impl->provider; }
+tstring RGYOnnxRTCUDA::lastError() const { return m_impl->lastError; }
 
 #else // !ENABLE_ONNXRUNTIME
 
@@ -242,5 +269,6 @@ size_t RGYOnnxRTCUDA::outElemCount() const { return 0; }
 tstring RGYOnnxRTCUDA::deviceFullName() const { return tstring(); }
 tstring RGYOnnxRTCUDA::inferencePrecision() const { return tstring(); }
 tstring RGYOnnxRTCUDA::providerName() const { return tstring(); }
+tstring RGYOnnxRTCUDA::lastError() const { return tstring(); }
 
 #endif // ENABLE_ONNXRUNTIME
