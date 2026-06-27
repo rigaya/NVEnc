@@ -1,5 +1,15 @@
 # NVEnc Release Notes
 
+## 9.21
+
+- Add ONNX Runtime based filter [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+  - Model files can be downloaded from the link below.
+    https://github.com/rigaya/HWEnc-onnx-models/releases
+- Add Anime4K shader filter [--vpp-anime4k-shader](./NVEncC_Options.en.md#--vpp-anime4k-shader-param1value1param2value2).
+- Fix chroma degrain processing in [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Fix source frame reference after RFF expansion in RTGMC.
+- Add option to force `--parallel` with filters which use large memory. ([--parallel-force-large-memory-filters](./NVEncC_Options.en.md#--parallel-force-large-memory-filters), #780 )
+
 ## 9.20
 
 - Add [--vpp-chromashift](./NVEncC_Options.en.md#--vpp-chromashift-param1value1param2value2).

@@ -214,6 +214,13 @@ NVIDIA グラフィックドライバ 551.23
 今後の更新で設定ファイルの互換性がなくなるかもしれません。
 
 【メモ】
+2026.06.27 (9.21)
+- ONNX Runtime を用いたフィルタ --vpp-onnx を追加。
+- Anime4K シェーダフィルタ --vpp-anime4k-shader を追加。
+- --vpp-rtgmc の chroma degrain 処理を修正。
+- RTGMC で RFF 展開後の source frame 参照を修正。
+- --parallelを使用するフィルタによらず強制するオプションを追加。
+
 2026.06.23 (9.20)
 - --vpp-chromashift を追加。
 - --vpp-deblock を追加。
