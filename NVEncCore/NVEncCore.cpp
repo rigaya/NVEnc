@@ -840,23 +840,23 @@ RGY_ERR NVEncCore::InitParallelEncode(InEncodeVideoParam *inputParam, std::vecto
         // とんでもなく大きい値にする人がいそうなので、適当に制限する
         const int maxParallelCount = std::max(4, encoderCount * 2);
         // nvvfx, ngx使用時はGPUメモリ使用量の問題があるため、GPUにつき1スレッドに制限する
-        const bool limitOnePerGPU = inputParam->vppnv.nvvfxArtifactReduction.enable
+        const bool limitOnePerGPU = !inputParam->ctrl.parallelEnc.forceLargeMemoryFilters && (inputParam->vppnv.nvvfxArtifactReduction.enable
             || inputParam->vppnv.nvvfxDenoise.enable
             || inputParam->vppnv.ngxTrueHDR.enable
             || isNvvfxResizeFiter(inputParam->vpp.resize_algo)
-            || isNgxResizeFiter(inputParam->vpp.resize_algo);
+            || isNgxResizeFiter(inputParam->vpp.resize_algo));
         if (inputParam->ctrl.parallelEnc.parallelCount < 0) {
             inputParam->ctrl.parallelEnc.parallelCount = (limitOnePerGPU) ? (int)gpuList.size() : encoderCount;
             PrintMes(RGY_LOG_DEBUG, _T("parallelCount set to %d\n"), inputParam->ctrl.parallelEnc.parallelCount);
         } else if (limitOnePerGPU && inputParam->ctrl.parallelEnc.parallelCount > (int)gpuList.size()) {
             inputParam->ctrl.parallelEnc.parallelCount = (int)gpuList.size();
             if (inputParam->ctrl.parallelEnc.parallelCount <= 1) {
-                PrintMes(RGY_LOG_WARN, _T("Parallel encoding disabled, as nvvfx/ngx filter is enabled, which has large GPU RAM usage.\n"));
+                PrintMes(RGY_LOG_WARN, _T("Parallel encoding disabled, as large memory filter is enabled.\n"));
                 inputParam->ctrl.parallelEnc.parallelCount = 0;
                 inputParam->ctrl.parallelEnc.parallelId = -1;
                 return RGY_ERR_NONE;
             }
-            PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d, as nvvfx/ngx filter is enabled, which has large GPU RAM usage.\n"), inputParam->ctrl.parallelEnc.parallelCount);
+            PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d, as large memory filter is enabled.\n"), inputParam->ctrl.parallelEnc.parallelCount);
         } else if (inputParam->ctrl.parallelEnc.parallelCount > maxParallelCount) {
             inputParam->ctrl.parallelEnc.parallelCount = maxParallelCount;
             PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d.\n"), inputParam->ctrl.parallelEnc.parallelCount);

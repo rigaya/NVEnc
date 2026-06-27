@@ -274,6 +274,7 @@
   - [--vpp-nvvfx-model-dir \<string\>](#--vpp-nvvfx-model-dir-string)
 - [Other Options](#other-options)
   - [--parallel \[\<int\>\] or \[\<string\>\]](#--parallel-int-or-string)
+  - [--parallel-force-large-memory-filters](#--parallel-force-large-memory-filters)
   - [--cuda-schedule \<string\>](#--cuda-schedule-string)
   - [--cuda-stream \<int\>](#--cuda-stream-int)
   - [--cuda-mt \<int\>](#--cuda-mt-int)
@@ -4890,6 +4891,11 @@ In most cases, it is recommended to use parallel counts below the encoder count 
   | Restrictions      |None                                    | Many (as mentioned above)            |
   | RAM Usage         |Normal                                  | High                                 |
 
+
+### --parallel-force-large-memory-filters
+Disables the automatic --parallel count limit applied when filters with high GPU memory usage are enabled.
+
+Use this only when enough GPU memory is available, as it can increase the risk of GPU memory allocation errors or performance drops.
 
 
 ### --cuda-schedule &lt;string&gt;

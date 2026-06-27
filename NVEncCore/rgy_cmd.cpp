@@ -11904,6 +11904,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+    if (IS_OPTION("parallel-force-large-memory-filters") && ENABLE_PARALLEL_ENC) {
+        ctrl->parallelEnc.forceLargeMemoryFilters = true;
+        return 0;
+    }
     if (IS_OPTION("process-monitor-dev-usage")) {
         ctrl->processMonitorDevUsage = true;
         return 0;
@@ -14168,6 +14172,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         if (!tmp.str().empty()) {
             cmd << _T(" --parallel ") << tmp.str().substr(1);
         }
+        OPT_BOOL(_T("--parallel-force-large-memory-filters"), _T(""), parallelEnc.forceLargeMemoryFilters);
     }
     return cmd.str();
 }
@@ -15880,6 +15885,8 @@ tstring gen_cmd_help_ctrl() {
     tstring str = strsprintf(_T("\n")
 #if ENABLE_PARALLEL_ENC
         _T("   --parallel <int> or auto     Enable parallel encoding by file splitting.\n")
+        _T("   --parallel-force-large-memory-filters\n")
+        _T("                                Disable large memory filter parallel count limit.\n")
 #endif
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
