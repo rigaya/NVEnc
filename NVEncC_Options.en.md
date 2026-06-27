@@ -4226,7 +4226,9 @@ A complete chain in one pass: optional pre-filter denoise -> main Anime4K mode -
   ```
 
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-CNN filter which runs an ONNX model through ONNX Runtime CUDA / TensorRT provider. This is for Windows x64 and requires the ONNX Runtime GPU package built for CUDA 12.
+CNN filter which runs an ONNX model through ONNX Runtime CUDA / TensorRT provider. The ONNX Runtime GPU package built for CUDA 12 is required.
+
+#### Windows
 
 Unlike the QSVEnc OpenVINO backend, NVEnc requires the ONNX Runtime GPU runtime DLLs to be installed separately at runtime. Make sure the following DLLs are visible from `PATH` or placed in the same folder as `NVEncC64.exe`.
 
@@ -4251,18 +4253,87 @@ NVEncC64.exe
 │  │     └─ cudnn_ops64_9.dll
 │  └─ onnxruntime_providers_tensorrt.dll (when using provider=tensorrt)
 │     ├─ nvinfer_10.dll
+│     │  └─ nvinfer_builder_resource_*.dll
 │     ├─ nvonnxparser_10.dll
+│     ├─ nvinfer_plugin_10.dll
 │     ├─ cudart64_12.dll
 │     ├─ cublas64_12.dll
 │     └─ cudnn64_9.dll
 ```
 
 Even when using `provider=tensorrt`, the CUDA provider DLL set is required because NVEnc also appends the CUDA provider as a fallback for ops that TensorRT cannot run.
+`nvinfer_builder_resource_*.dll` is a GPU-architecture-specific resource DLL used when TensorRT builds an engine; `*` is replaced by names such as `sm89` or `ptx`. `nvinfer_plugin_10.dll` is required by models that use TensorRT plugins, so it is recommended for the additional TensorRT DLL package.
+`nvinfer_dispatch_10.dll`, `nvinfer_lean_10.dll`, and `nvinfer_vc_plugin_10.dll` are not required for normal ONNX Runtime TensorRT provider execution.
 
 - ONNX Runtime: Download the CUDA-enabled Windows x64 GPU package (`onnxruntime-win-x64-gpu-*.zip`) from [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases). Example: `onnxruntime-win-x64-gpu-1.23.2.zip`
 - CUDA runtime / cuBLAS / cuFFT: Install CUDA 12.x from [CUDA Toolkit Downloads](https://developer.nvidia.com/cuda-downloads) or [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive).
 - cuDNN: Install cuDNN 9.x for CUDA 12.x from [cuDNN Downloads](https://developer.nvidia.com/cudnn-downloads).
 - TensorRT (only when using `provider=tensorrt`): Install TensorRT 10.x for Windows x64 / CUDA 12.x from [TensorRT Downloads](https://developer.nvidia.com/tensorrt/download). Downloading may require signing in to NVIDIA Developer and accepting the license.
+
+#### Linux
+
+On Linux, extract the ONNX Runtime GPU `.so` files and install the CUDA/cuDNN/TensorRT runtime libraries through apt. Make the extracted ONNX Runtime `lib` directory visible through `LD_LIBRARY_PATH`.
+
+```text
+nvencc
+└─ libonnxruntime.so -> libonnxruntime.so.1 -> libonnxruntime.so.1.23.2
+   ├─ libonnxruntime_providers_shared.so
+   ├─ libonnxruntime_providers_cuda.so
+   │  ├─ libcudart.so.12           (cuda-cudart-12-8)
+   │  ├─ libcublas.so.12           (libcublas-12-8)
+   │  ├─ libcublasLt.so.12         (libcublas-12-8)
+   │  ├─ libcurand.so.10           (libcurand-12-8)
+   │  ├─ libcufft.so.11            (libcufft-12-8)
+   │  └─ libcudnn.so.9             (libcudnn9-cuda-12)
+   │     ├─ libcudnn_adv.so.9
+   │     ├─ libcudnn_cnn.so.9
+   │     ├─ libcudnn_ext.so.9
+   │     ├─ libcudnn_graph.so.9
+   │     ├─ libcudnn_heuristic.so.9
+   │     ├─ libcudnn_engines_precompiled.so.9
+   │     ├─ libcudnn_engines_runtime_compiled.so.9
+   │     ├─ libcudnn_engines_tensor_ir.so.9
+   │     └─ libcudnn_ops.so.9
+   └─ libonnxruntime_providers_tensorrt.so (when using provider=tensorrt)
+      ├─ libnvinfer.so.10          (libnvinfer10)
+      │  └─ libnvinfer_builder_resource_*.so.10
+      ├─ libnvonnxparser.so.10     (libnvonnxparsers10)
+      ├─ libcudart.so.12
+      ├─ libcublas.so.12
+      ├─ libcublasLt.so.12
+      └─ libcudnn.so.9
+```
+
+- ONNX Runtime: Download the CUDA-enabled Linux x64 GPU package (`onnxruntime-linux-x64-gpu-*.tgz`) from [ONNX Runtime Releases](https://github.com/microsoft/onnxruntime/releases) and extract it anywhere.
+- CUDA runtime / cuBLAS / cuFFT / cuRAND: Configure the NVIDIA CUDA apt repository from [CUDA Toolkit Downloads](https://developer.nvidia.com/cuda-downloads), then install the packages matching the CUDA 12.x version in use. Example for CUDA 12.8:
+
+```bash
+sudo apt-get install cuda-cudart-12-8 libcublas-12-8 libcufft-12-8 libcurand-12-8
+```
+
+- cuDNN: Download the cuDNN 9 local repository `.deb` for Ubuntu / x86_64 / CUDA 12 from [cuDNN Downloads](https://developer.nvidia.com/cudnn-downloads), then install `libcudnn9-cuda-12`.
+
+```bash
+sudo dpkg -i cudnn-local-repo-ubuntu2404-9.x.y_1.0-1_amd64.deb
+sudo cp /var/cudnn-local-repo-ubuntu2404-9.x.y/cudnn-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get install libcudnn9-cuda-12
+```
+
+- TensorRT (only when using `provider=tensorrt`): Download the TensorRT 10 local repository `.deb` for Ubuntu / x86_64 / CUDA 12 from [TensorRT Downloads](https://developer.nvidia.com/tensorrt/download), then install the runtime libraries. Downloading may require signing in to NVIDIA Developer and accepting the license.
+
+```bash
+sudo dpkg -i nv-tensorrt-local-repo-ubuntu2404-10.x.x-cuda-12.x_1.0-1_amd64.deb
+sudo cp /var/nv-tensorrt-local-repo-ubuntu2404-10.x.x-cuda-12.x/*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get install libnvinfer10 libnvonnxparsers10
+```
+
+`libcudnn*.so.9`, `libnvinfer*.so.10`, and `libnvonnxparser.so.10` are usually installed under `/lib/x86_64-linux-gnu` and become visible through `ldconfig` after apt installation. If CUDA libraries are not found, also add the CUDA `lib` directory to `LD_LIBRARY_PATH`.
+
+```bash
+export LD_LIBRARY_PATH=/path/to/onnxruntime-linux-x64-gpu/lib:/usr/local/cuda/targets/x86_64-linux/lib:$LD_LIBRARY_PATH
+```
 
 Models can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases). Extract the archive and specify the directory with `--vpp-onnx-model-dir` when using short model names such as `model=artcnn_c4f32`.
 

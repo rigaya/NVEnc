@@ -161,7 +161,8 @@ RGY_ERR RGYOnnxRTCUDA::init(const tstring &modelPath, const int deviceID, const 
             I.outName = outN.get();
         }
         // input channel count from the model (dim 1); N/H/W are pinned by us
-        auto inInfo  = I.session->GetInputTypeInfo(0).GetTensorTypeAndShapeInfo();
+        auto inTypeInfo = I.session->GetInputTypeInfo(0);
+        auto inInfo  = inTypeInfo.GetTensorTypeAndShapeInfo();
         auto inShape = inInfo.GetShape(); // may contain -1 for dynamic dims
         I.inC = (inShape.size() >= 2 && inShape[1] > 0) ? (int)inShape[1] : 1;
         I.inH = height;
