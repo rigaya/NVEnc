@@ -88,6 +88,8 @@ jobs:
           if "${{ matrix.arch }}" == "x64" 7z x -oNVEncNVSDKNGXBin -y NVEncNVSDKNGX_x64.7z
           curl -s -o hwenc_headers_20260411.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/hwenc_headers_20260411.7z
           7z x -o.. -y hwenc_headers_20260411.7z
+          curl -s -o onnxruntime-win-x64-gpu-1.23.2.zip -L https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-win-x64-gpu-1.23.2.zip
+          7z x -oonnxruntime -y onnxruntime-win-x64-gpu-1.23.2.zip
           if "${{ matrix.arch }}" == "x64" curl -s -o libvship_nvidia_5_0.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/libvship_nvidia_5_0.7z
           if "${{ matrix.arch }}" == "x64" 7z x -olibvship_nvidia_5_0 -y libvship_nvidia_5_0.7z
 
@@ -108,6 +110,7 @@ jobs:
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
           set VSHIP_DIR=${{ github.workspace }}\..\vship
+          set ONNXRUNTIME_DIR=${{ github.workspace }}\onnxruntime\onnxruntime-win-x64-gpu-1.23.2
           set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
           set CUDA_PATH_V11_8=%CUDA_PATH%
           msbuild NVEnc.sln /t:build /p:configuration=RelStatic /p:Platform=${{ matrix.platform }} -maxcpucount
@@ -119,6 +122,7 @@ jobs:
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
           set VSHIP_DIR=${{ github.workspace }}\..\vship
+          set ONNXRUNTIME_DIR=${{ github.workspace }}\onnxruntime\onnxruntime-win-x64-gpu-1.23.2
           set CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v${{ matrix.cuda_ver_major }}.${{ matrix.cuda_ver_minor }}
           set CUDA_PATH_V11_8=%CUDA_PATH%
           msbuild NVEnc.sln /t:build /p:configuration=Release /p:Platform=${{ matrix.platform }} -maxcpucount
