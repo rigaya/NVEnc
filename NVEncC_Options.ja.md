@@ -4279,7 +4279,16 @@ ONNX Runtime CUDA/TensorRT provider を使用してONNXモデルを実行するC
 
 #### Windows
 
-実行時に ONNX Runtime GPU版のDLLを別途導入する必要がある。下記のDLLが `PATH` から見えるか、`NVEncC64.exe` と同じフォルダに配置されている必要がある。
+必要な ONNX Runtime / cuDNN / TensorRT 関連 DLL を下記リンク先にまとめてある。これをダウンロードし、7z を展開して中身のDLLを `NVEncC64.exe` と同じフォルダに配置する。
+
+- [nvenc_vpp_onnx_dlls_20260627.7z](https://github.com/rigaya/HWEnc-onnx-models/releases/download/20260627/nvenc_vpp_onnx_dlls_20260627.7z)
+
+`provider=cuda` のみ使用する場合も、上記の一式で動作する。`provider=tensorrt` を使用しない場合、TensorRT 関連 DLL は実行時には読み込まれない。
+
+<details>
+<summary>必要モジュール詳細</summary>
+
+手動でDLLを揃える場合は、下記のDLLが `PATH` から見えるか、`NVEncC64.exe` と同じフォルダに配置されている必要がある。
 
 ```text
 NVEncC64.exe
@@ -4319,7 +4328,41 @@ NVEncC64.exe
 - cuDNN: [cuDNN Downloads](https://developer.nvidia.com/cudnn-downloads) から CUDA 12.x 対応の cuDNN 9.x を導入する。
 - TensorRT (`provider=tensorrt` 使用時のみ): [TensorRT Downloads](https://developer.nvidia.com/tensorrt/download) から Windows x64 / CUDA 12.x 対応の TensorRT 10.x を導入する。ダウンロードには NVIDIA Developer へのログインとライセンス同意が必要な場合がある。
 
+</details>
+
 #### Linux
+
+必要な ONNX Runtime / cuDNN / TensorRT 関連モジュールは下記のように導入する。ONNX Runtime は GPU版を展開し、CUDA/cuDNN/TensorRT は NVIDIA の apt repository から導入する。
+
+```bash
+tar xf onnxruntime-linux-x64-gpu-*.tgz
+export LD_LIBRARY_PATH=/path/to/onnxruntime-linux-x64-gpu/lib:/usr/local/cuda/targets/x86_64-linux/lib:$LD_LIBRARY_PATH
+```
+
+CUDA 12.8 を使用する場合の例:
+
+```bash
+sudo apt-get install cuda-cudart-12-8 libcublas-12-8 libcufft-12-8 libcurand-12-8
+```
+
+cuDNN 9 / TensorRT 10 は、NVIDIA の local repository `.deb` を登録してから runtime ライブラリを導入する。
+
+```bash
+sudo dpkg -i cudnn-local-repo-ubuntu2404-9.x.y_1.0-1_amd64.deb
+sudo cp /var/cudnn-local-repo-ubuntu2404-9.x.y/cudnn-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get install libcudnn9-cuda-12
+```
+
+```bash
+sudo dpkg -i nv-tensorrt-local-repo-ubuntu2404-10.x.x-cuda-12.x_1.0-1_amd64.deb
+sudo cp /var/nv-tensorrt-local-repo-ubuntu2404-10.x.x-cuda-12.x/*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get install libnvinfer10 libnvonnxparsers10
+```
+
+<details>
+<summary>必要モジュール詳細</summary>
 
 Linuxでは ONNX Runtime GPU版の `.so` を展開し、CUDA/cuDNN/TensorRT のruntimeライブラリをaptで導入する。ONNX Runtimeは展開した `lib` ディレクトリを `LD_LIBRARY_PATH` から見えるようにする。
 
@@ -4380,9 +4423,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 
 `libcudnn*.so.9`、`libnvinfer*.so.10`、`libnvonnxparser.so.10` は通常 `/lib/x86_64-linux-gnu` に配置され、apt導入後は `ldconfig` により参照できる。CUDA系ライブラリが見つからない場合は、CUDAの `lib` ディレクトリも `LD_LIBRARY_PATH` に追加する。
 
-```bash
-export LD_LIBRARY_PATH=/path/to/onnxruntime-linux-x64-gpu/lib:/usr/local/cuda/targets/x86_64-linux/lib:$LD_LIBRARY_PATH
-```
+</details>
 
 モデルファイルは [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases) からダウンロードできる。短縮モデル名 (`model=artcnn_c4f32` など) を使用する場合は、zipを展開したディレクトリを `--vpp-onnx-model-dir` で指定する。
 

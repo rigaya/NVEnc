@@ -4230,7 +4230,16 @@ CNN filter which runs an ONNX model through ONNX Runtime CUDA / TensorRT provide
 
 #### Windows
 
-Unlike the QSVEnc OpenVINO backend, NVEnc requires the ONNX Runtime GPU runtime DLLs to be installed separately at runtime. Make sure the following DLLs are visible from `PATH` or placed in the same folder as `NVEncC64.exe`.
+The required ONNX Runtime / cuDNN / TensorRT DLLs are packaged at the link below. Download it, extract the 7z archive, and place the DLLs in the same folder as `NVEncC64.exe`.
+
+- [nvenc_vpp_onnx_dlls_20260627.7z](https://github.com/rigaya/HWEnc-onnx-models/releases/download/20260627/nvenc_vpp_onnx_dlls_20260627.7z)
+
+The same package works when using only `provider=cuda`. TensorRT DLLs are not loaded at runtime unless `provider=tensorrt` is used.
+
+<details>
+<summary>Required module details</summary>
+
+When collecting DLLs manually, make sure the following DLLs are visible from `PATH` or placed in the same folder as `NVEncC64.exe`.
 
 ```text
 NVEncC64.exe
@@ -4270,7 +4279,41 @@ Even when using `provider=tensorrt`, the CUDA provider DLL set is required becau
 - cuDNN: Install cuDNN 9.x for CUDA 12.x from [cuDNN Downloads](https://developer.nvidia.com/cudnn-downloads).
 - TensorRT (only when using `provider=tensorrt`): Install TensorRT 10.x for Windows x64 / CUDA 12.x from [TensorRT Downloads](https://developer.nvidia.com/tensorrt/download). Downloading may require signing in to NVIDIA Developer and accepting the license.
 
+</details>
+
 #### Linux
+
+Install the required ONNX Runtime / cuDNN / TensorRT modules as follows. Extract the ONNX Runtime GPU package, and install CUDA/cuDNN/TensorRT through NVIDIA apt repositories.
+
+```bash
+tar xf onnxruntime-linux-x64-gpu-*.tgz
+export LD_LIBRARY_PATH=/path/to/onnxruntime-linux-x64-gpu/lib:/usr/local/cuda/targets/x86_64-linux/lib:$LD_LIBRARY_PATH
+```
+
+Example for CUDA 12.8:
+
+```bash
+sudo apt-get install cuda-cudart-12-8 libcublas-12-8 libcufft-12-8 libcurand-12-8
+```
+
+For cuDNN 9 / TensorRT 10, register NVIDIA local repository `.deb` packages, then install the runtime libraries.
+
+```bash
+sudo dpkg -i cudnn-local-repo-ubuntu2404-9.x.y_1.0-1_amd64.deb
+sudo cp /var/cudnn-local-repo-ubuntu2404-9.x.y/cudnn-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get install libcudnn9-cuda-12
+```
+
+```bash
+sudo dpkg -i nv-tensorrt-local-repo-ubuntu2404-10.x.x-cuda-12.x_1.0-1_amd64.deb
+sudo cp /var/nv-tensorrt-local-repo-ubuntu2404-10.x.x-cuda-12.x/*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get install libnvinfer10 libnvonnxparsers10
+```
+
+<details>
+<summary>Required module details</summary>
 
 On Linux, extract the ONNX Runtime GPU `.so` files and install the CUDA/cuDNN/TensorRT runtime libraries through apt. Make the extracted ONNX Runtime `lib` directory visible through `LD_LIBRARY_PATH`.
 
@@ -4331,9 +4374,7 @@ sudo apt-get install libnvinfer10 libnvonnxparsers10
 
 `libcudnn*.so.9`, `libnvinfer*.so.10`, and `libnvonnxparser.so.10` are usually installed under `/lib/x86_64-linux-gnu` and become visible through `ldconfig` after apt installation. If CUDA libraries are not found, also add the CUDA `lib` directory to `LD_LIBRARY_PATH`.
 
-```bash
-export LD_LIBRARY_PATH=/path/to/onnxruntime-linux-x64-gpu/lib:/usr/local/cuda/targets/x86_64-linux/lib:$LD_LIBRARY_PATH
-```
+</details>
 
 Models can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases). Extract the archive and specify the directory with `--vpp-onnx-model-dir` when using short model names such as `model=artcnn_c4f32`.
 
