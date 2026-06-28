@@ -1,7 +1,6 @@
 ﻿#include "NVEncFilterRtgmcShimmerRepair.h"
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <cstdlib>
 #include <cstdint>
@@ -26,26 +25,6 @@ static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_POS_GATE = 2;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_NEG_GATE = 3;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_INPUT_TMP = 6;
 static constexpr int RTGMC_SHIMMER_REPAIR_FRAME_REF_TMP = 7;
-static constexpr std::array<std::array<int, 4>, 8> RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS = {{
-    {{ 1, 1, 2, 2 }},
-    {{ 1, 1, 2, 2 }},
-    {{ 1, 1, 2, 2 }},
-    {{ 1, 1, 2, 2 }},
-    {{ 2, 2, 2, 2 }},
-    {{ 2, 2, 2, 2 }},
-    {{ 2, 2, 2, 2 }},
-    {{ 2, 2, 2, 2 }}
-}};
-static constexpr std::array<std::array<int, 4>, 8> RTGMC_SHIMMER_REPAIR_MIN_SUPPORT_PIXELS = {{
-    {{ 1, 1, 1, 1 }},
-    {{ 1, 1, 1, 1 }},
-    {{ 2, 1, 1, 1 }},
-    {{ 2, 1, 1, 1 }},
-    {{ 3, 2, 2, 2 }},
-    {{ 3, 2, 2, 2 }},
-    {{ 4, 3, 3, 3 }},
-    {{ 4, 3, 3, 3 }}
-}};
 
 static const char *rtgmcShimmerRepairTargetName(const RGYRtgmcShimmerRepairStage stage) {
     return (stage == RGYRtgmcShimmerRepairStage::PreRetouch) ? "rep1" : "rep2";
@@ -53,14 +32,6 @@ static const char *rtgmcShimmerRepairTargetName(const RGYRtgmcShimmerRepairStage
 
 static const TCHAR *rtgmcShimmerRepairStageName(const RGYRtgmcShimmerRepairStage stage) {
     return (stage == RGYRtgmcShimmerRepairStage::PreRetouch) ? _T("pre-retouch") : _T("post-tr2");
-}
-
-static int rtgmcShimmerRepairSupportRadius(const RGYRtgmcRepairProfile& profile) {
-    return RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS[profile.thinRejectLevel][profile.restorePaddingLevel];
-}
-
-static int rtgmcShimmerRepairMinSupportPixels(const RGYRtgmcRepairProfile& profile) {
-    return RTGMC_SHIMMER_REPAIR_MIN_SUPPORT_PIXELS[profile.thinRejectLevel][profile.restorePaddingLevel];
 }
 
 static void rtgmcShimmerRepairLoadProfile(NVEncFilterParamRtgmcShimmerRepair *prm) {
@@ -120,71 +91,464 @@ __device__ void rtgmc_write_pix(
 }
 
 template<typename Type>
-__device__ int rtgmcShimmerRepairCandidateSigned(
+__device__ int rtgmcShimmerRepairSignedToDiff(const int signedValue, const int rangeHalf, const int maxVal) {
+    return clamp(signedValue + rangeHalf, 0, maxVal);
+}
+
+template<typename Type>
+__device__ int rtgmcRepairDeltaCentered(
     const uint8_t *input, const int inputPitch,
     const uint8_t *reference, const int referencePitch,
     const int x, const int y,
     const int width, const int height,
-    const int positive,
-    const int supportRadius,
-    const int minSupportPixels,
-    const int restorePaddingLevel,
-    const int maxVal) {
-    int support = 0;
-    int peak = 0;
-    int sum = 0;
-    for (int dy = -supportRadius; dy <= supportRadius; dy++) {
-        for (int dx = -supportRadius; dx <= supportRadius; dx++) {
-            const int delta = rtgmc_read_pix<Type>(reference, x + dx, y + dy, referencePitch, width, height)
-                - rtgmc_read_pix<Type>(input, x + dx, y + dy, inputPitch, width, height);
-            if (positive ? (delta > 0) : (delta < 0)) {
-                const int magnitude = positive ? delta : -delta;
-                support++;
-                sum += magnitude;
-                peak = max(peak, magnitude);
-            }
+    const int rangeHalf,
+    const int maxVal
+) {
+    return clamp(
+        rtgmc_read_pix<Type>(reference, x, y, referencePitch, width, height)
+            - rtgmc_read_pix<Type>(input, x, y, inputPitch, width, height)
+            + rangeHalf,
+        0,
+        maxVal);
+}
+
+template<typename Type>
+__device__ int rtgmcRepairVerticalWindow(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal,
+    const int useMax
+) {
+    int value = rtgmcRepairDeltaCentered<Type>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    for (int dy = -2; dy <= 2; dy++) {
+        const int sample = rtgmcRepairDeltaCentered<Type>(input, inputPitch, reference, referencePitch, x, y + dy, width, height, rangeHalf, maxVal);
+        value = useMax ? max(value, sample) : min(value, sample);
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairPosVerticalContract(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairVerticalWindow<Type>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal, 0);
+    if constexpr (THIN_LEVEL > 5) {
+        for (int dy = -1; dy <= 1; dy++) {
+            value = min(value, rtgmcRepairVerticalWindow<Type>(input, inputPitch, reference, referencePitch, x, y + dy, width, height, rangeHalf, maxVal, 0));
         }
     }
-    if (support < minSupportPixels) {
-        return 0;
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairNegVerticalExpand(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairVerticalWindow<Type>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal, 1);
+    if constexpr (THIN_LEVEL > 5) {
+        for (int dy = -1; dy <= 1; dy++) {
+            value = max(value, rtgmcRepairVerticalWindow<Type>(input, inputPitch, reference, referencePitch, x, y + dy, width, height, rangeHalf, maxVal, 1));
+        }
     }
-    const int mean = (sum + (support / 2)) / support;
-    const int candidate = clamp(min(peak, mean + restorePaddingLevel), 0, maxVal);
-    return positive ? candidate : -candidate;
+    return value;
 }
 
-template<typename Type>
-__device__ int rtgmcShimmerRepairSelectSignedCorrection(
-    const int proposedSigned,
-    const int positiveMaskSigned,
-    const int negativeMaskSigned) {
-    switch ((proposedSigned > 0) - (proposedSigned < 0)) {
-    case 1:
-        return (positiveMaskSigned > 0) ? positiveMaskSigned : 0;
-    case -1:
-        return (negativeMaskSigned < 0) ? negativeMaskSigned : 0;
-    default:
-        return 0;
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairPosLocalContract(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int center = rtgmcRepairPosVerticalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if constexpr ((THIN_LEVEL % 3) == 0) {
+        return center;
     }
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmcRepairPosVerticalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height, rangeHalf, maxVal);
+        }
+    }
+    return min(center, (sum + 4) / 9);
 }
 
-template<typename Type>
-__device__ int rtgmcShimmerRepairApplySignedCorrection(
-    const int src,
-    const int proposedSigned,
-    const int positiveMaskSigned,
-    const int negativeMaskSigned,
-    const int maxVal) {
-    const int appliedSigned = rtgmcShimmerRepairSelectSignedCorrection<Type>(
-        proposedSigned,
-        positiveMaskSigned,
-        negativeMaskSigned);
-    return clamp(src + appliedSigned, 0, maxVal);
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairNegLocalExpand(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int center = rtgmcRepairNegVerticalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if constexpr ((THIN_LEVEL % 3) == 0) {
+        return center;
+    }
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmcRepairNegVerticalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height, rangeHalf, maxVal);
+        }
+    }
+    return max(center, (sum + 4) / 9);
 }
 
-template<typename Type>
-__device__ int rtgmcShimmerRepairSignedToDiff(const int signedValue, const int rangeHalf, const int maxVal) {
-    return clamp(signedValue + rangeHalf, 0, maxVal);
+__device__ void rtgmcRepairSort2(int *a, int *b) {
+    const int lo = min(*a, *b);
+    const int hi = max(*a, *b);
+    *a = lo;
+    *b = hi;
+}
+
+__device__ void rtgmcRepairSort2Desc(int *a, int *b) {
+    const int lo = min(*a, *b);
+    const int hi = max(*a, *b);
+    *a = hi;
+    *b = lo;
+}
+
+__device__ void rtgmcRepairSort8(int *v) {
+    rtgmcRepairSort2    (&v[0], &v[1]); rtgmcRepairSort2Desc(&v[2], &v[3]); rtgmcRepairSort2    (&v[4], &v[5]); rtgmcRepairSort2Desc(&v[6], &v[7]);
+    rtgmcRepairSort2    (&v[0], &v[2]); rtgmcRepairSort2    (&v[1], &v[3]); rtgmcRepairSort2Desc(&v[4], &v[6]); rtgmcRepairSort2Desc(&v[5], &v[7]);
+    rtgmcRepairSort2    (&v[0], &v[1]); rtgmcRepairSort2    (&v[2], &v[3]); rtgmcRepairSort2Desc(&v[4], &v[5]); rtgmcRepairSort2Desc(&v[6], &v[7]);
+    rtgmcRepairSort2    (&v[0], &v[4]); rtgmcRepairSort2    (&v[1], &v[5]); rtgmcRepairSort2    (&v[2], &v[6]); rtgmcRepairSort2    (&v[3], &v[7]);
+    rtgmcRepairSort2    (&v[0], &v[2]); rtgmcRepairSort2    (&v[1], &v[3]); rtgmcRepairSort2    (&v[4], &v[6]); rtgmcRepairSort2    (&v[5], &v[7]);
+    rtgmcRepairSort2    (&v[0], &v[1]); rtgmcRepairSort2    (&v[2], &v[3]); rtgmcRepairSort2    (&v[4], &v[5]); rtgmcRepairSort2    (&v[6], &v[7]);
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairPosRankLimit(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int center = rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if constexpr (THIN_LEVEL != 2 && THIN_LEVEL != 5) {
+        return center;
+    }
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int v[8] = {
+        rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x - 1, y - 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x    , y - 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + 1, y - 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x - 1, y    , width, height, rangeHalf, maxVal),
+        rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + 1, y    , width, height, rangeHalf, maxVal),
+        rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x - 1, y + 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x    , y + 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairPosLocalContract<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + 1, y + 1, width, height, rangeHalf, maxVal)
+    };
+    rtgmcRepairSort8(v);
+    return clamp(center, v[3], v[4]);
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairNegRankLimit(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int center = rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if constexpr (THIN_LEVEL != 2 && THIN_LEVEL != 5) {
+        return center;
+    }
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int v[8] = {
+        rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x - 1, y - 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x    , y - 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + 1, y - 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x - 1, y    , width, height, rangeHalf, maxVal),
+        rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + 1, y    , width, height, rangeHalf, maxVal),
+        rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x - 1, y + 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x    , y + 1, width, height, rangeHalf, maxVal),
+        rtgmcRepairNegLocalExpand<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + 1, y + 1, width, height, rangeHalf, maxVal)
+    };
+    rtgmcRepairSort8(v);
+    return clamp(center, v[3], v[4]);
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairPosVerticalRestore(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairPosRankLimit<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    for (int dy = -2; dy <= 2; dy++) {
+        value = max(value, rtgmcRepairPosRankLimit<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y + dy, width, height, rangeHalf, maxVal));
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairNegVerticalRestore(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairNegRankLimit<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    for (int dy = -2; dy <= 2; dy++) {
+        value = min(value, rtgmcRepairNegRankLimit<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y + dy, width, height, rangeHalf, maxVal));
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairPosRestoreWide(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairPosVerticalRestore<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if constexpr (THIN_LEVEL > 4) {
+        for (int dy = -1; dy <= 1; dy++) {
+            value = max(value, rtgmcRepairPosVerticalRestore<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y + dy, width, height, rangeHalf, maxVal));
+        }
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairNegRestoreWide(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairNegVerticalRestore<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if constexpr (THIN_LEVEL > 4) {
+        for (int dy = -1; dy <= 1; dy++) {
+            value = min(value, rtgmcRepairNegVerticalRestore<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y + dy, width, height, rangeHalf, maxVal));
+        }
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairPosRestoreSoftOnce(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int center = rtgmcRepairPosRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmcRepairPosRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height, rangeHalf, maxVal);
+        }
+    }
+    return max(center, (sum + 4) / 9);
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairNegRestoreSoftOnce(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int center = rtgmcRepairNegRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmcRepairNegRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height, rangeHalf, maxVal);
+        }
+    }
+    return min(center, (sum + 4) / 9);
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairPosRestoreSoftTwice(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int center = rtgmcRepairPosRestoreSoftOnce<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmcRepairPosRestoreSoftOnce<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height, rangeHalf, maxVal);
+        }
+    }
+    return max(center, (sum + 4) / 9);
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairNegRestoreSoftTwice(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    const int center = rtgmcRepairNegRestoreSoftOnce<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmcRepairNegRestoreSoftOnce<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height, rangeHalf, maxVal);
+        }
+    }
+    return min(center, (sum + 4) / 9);
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairPosRestoreArea(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairPosRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            value = max(value, rtgmcRepairPosRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height, rangeHalf, maxVal));
+        }
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL>
+__device__ int rtgmcRepairNegRestoreArea(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairNegRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            value = min(value, rtgmcRepairNegRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height, rangeHalf, maxVal));
+        }
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL, int PAD_LEVEL>
+__device__ int rtgmcRepairPosLimit(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairPosRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if constexpr (PAD_LEVEL == 1 || PAD_LEVEL == 2) {
+        value = (PAD_LEVEL == 1)
+            ? rtgmcRepairPosRestoreSoftOnce<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal)
+            : rtgmcRepairPosRestoreSoftTwice<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    } else if constexpr (PAD_LEVEL >= 3) {
+        value = rtgmcRepairPosRestoreArea<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL, int PAD_LEVEL>
+__device__ int rtgmcRepairNegLimit(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int value = rtgmcRepairNegRestoreWide<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if constexpr (PAD_LEVEL == 1 || PAD_LEVEL == 2) {
+        value = (PAD_LEVEL == 1)
+            ? rtgmcRepairNegRestoreSoftOnce<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal)
+            : rtgmcRepairNegRestoreSoftTwice<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    } else if constexpr (PAD_LEVEL >= 3) {
+        value = rtgmcRepairNegRestoreArea<Type, THIN_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    }
+    return value;
+}
+
+template<typename Type, int THIN_LEVEL, int PAD_LEVEL>
+__device__ int rtgmcRepairLimitedDelta(
+    const uint8_t *input, const int inputPitch,
+    const uint8_t *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height,
+    const int rangeHalf,
+    const int maxVal
+) {
+    int diff = rtgmcRepairDeltaCentered<Type>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+    if (diff >= rangeHalf + 1) {
+        const int upperEnvelope = rtgmcRepairPosLimit<Type, THIN_LEVEL, PAD_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+        diff = max(upperEnvelope, rangeHalf);
+    } else if (diff <= rangeHalf - 1) {
+        const int lowerEnvelope = rtgmcRepairNegLimit<Type, THIN_LEVEL, PAD_LEVEL>(input, inputPitch, reference, referencePitch, x, y, width, height, rangeHalf, maxVal);
+        diff = min(lowerEnvelope, rangeHalf);
+    }
+    return clamp(diff, 0, maxVal);
 }
 
 template<typename Type>
@@ -203,16 +567,13 @@ __global__ void kernel_rtgmc_shimmer_repair_copy(
     (void)maxVal;
 }
 
-template<typename Type>
+template<typename Type, int THIN_LEVEL, int PAD_LEVEL>
 __global__ void kernel_rtgmc_shimmer_repair_apply(
     uint8_t *pDst, const int dstPitch,
     const uint8_t *pInput, const int inputPitch,
     const uint8_t *pReference, const int referencePitch,
     const int width,
     const int height,
-    const int supportRadius,
-    const int minSupportPixels,
-    const int restorePaddingLevel,
     const int rangeHalf,
     const int maxVal
 ) {
@@ -221,30 +582,14 @@ __global__ void kernel_rtgmc_shimmer_repair_apply(
     if (ix >= width || iy >= height) return;
 
     const int inputValue = rtgmc_read_pix<Type>(pInput, ix, iy, inputPitch, width, height);
-    const int referenceValue = rtgmc_read_pix<Type>(pReference, ix, iy, referencePitch, width, height);
-    const int signedDelta = referenceValue - inputValue;
-    int positiveGateSigned = 0;
-    int negativeGateSigned = 0;
-    if (signedDelta > 0) {
-        positiveGateSigned = rtgmcShimmerRepairCandidateSigned<Type>(
-            pInput, inputPitch, pReference, referencePitch, ix, iy, width, height, 1,
-            supportRadius, minSupportPixels, restorePaddingLevel, maxVal);
-    } else if (signedDelta < 0) {
-        negativeGateSigned = rtgmcShimmerRepairCandidateSigned<Type>(
-            pInput, inputPitch, pReference, referencePitch, ix, iy, width, height, 0,
-            supportRadius, minSupportPixels, restorePaddingLevel, maxVal);
-    }
+    const int mergedDiff = rtgmcRepairLimitedDelta<Type, THIN_LEVEL, PAD_LEVEL>(
+        pInput, inputPitch, pReference, referencePitch, ix, iy, width, height, rangeHalf, maxVal);
 
     rtgmc_write_pix<Type>(pDst, ix, iy, dstPitch,
-        rtgmcShimmerRepairApplySignedCorrection<Type>(
-            inputValue,
-            signedDelta,
-            positiveGateSigned,
-            negativeGateSigned,
-            maxVal));
+        clamp(inputValue + mergedDiff - rangeHalf, 0, maxVal));
 }
 
-template<typename Type>
+template<typename Type, int THIN_LEVEL, int PAD_LEVEL>
 __global__ void kernel_rtgmc_shimmer_repair_apply_fused(
     uint8_t *pDst, const int dstPitch,
     uint8_t *pCorrectionDelta, const int correctionDeltaPitch,
@@ -254,9 +599,6 @@ __global__ void kernel_rtgmc_shimmer_repair_apply_fused(
     const uint8_t *pReference, const int referencePitch,
     const int width,
     const int height,
-    const int supportRadius,
-    const int minSupportPixels,
-    const int restorePaddingLevel,
     const int rangeHalf,
     const int maxVal
 ) {
@@ -267,17 +609,11 @@ __global__ void kernel_rtgmc_shimmer_repair_apply_fused(
     const int inputValue = rtgmc_read_pix<Type>(pInput, ix, iy, inputPitch, width, height);
     const int referenceValue = rtgmc_read_pix<Type>(pReference, ix, iy, referencePitch, width, height);
     const int signedDelta = referenceValue - inputValue;
-    int positiveGateSigned = 0;
-    int negativeGateSigned = 0;
-    if (signedDelta > 0) {
-        positiveGateSigned = rtgmcShimmerRepairCandidateSigned<Type>(
-            pInput, inputPitch, pReference, referencePitch, ix, iy, width, height, 1,
-            supportRadius, minSupportPixels, restorePaddingLevel, maxVal);
-    } else if (signedDelta < 0) {
-        negativeGateSigned = rtgmcShimmerRepairCandidateSigned<Type>(
-            pInput, inputPitch, pReference, referencePitch, ix, iy, width, height, 0,
-            supportRadius, minSupportPixels, restorePaddingLevel, maxVal);
-    }
+    const int mergedDiff = rtgmcRepairLimitedDelta<Type, THIN_LEVEL, PAD_LEVEL>(
+        pInput, inputPitch, pReference, referencePitch, ix, iy, width, height, rangeHalf, maxVal);
+    const int selectedSigned = mergedDiff - rangeHalf;
+    const int positiveGateSigned = (signedDelta > 0 && selectedSigned > 0) ? selectedSigned : 0;
+    const int negativeGateSigned = (signedDelta < 0 && selectedSigned < 0) ? selectedSigned : 0;
 
     rtgmc_write_pix<Type>(pCorrectionDelta, ix, iy, correctionDeltaPitch,
         rtgmcShimmerRepairSignedToDiff<Type>(signedDelta, rangeHalf, maxVal));
@@ -286,12 +622,87 @@ __global__ void kernel_rtgmc_shimmer_repair_apply_fused(
     rtgmc_write_pix<Type>(pNegativeCorrectionGate, ix, iy, negativeCorrectionGatePitch,
         rtgmcShimmerRepairSignedToDiff<Type>(negativeGateSigned, rangeHalf, maxVal));
     rtgmc_write_pix<Type>(pDst, ix, iy, dstPitch,
-        rtgmcShimmerRepairApplySignedCorrection<Type>(
-            inputValue,
-            signedDelta,
-            positiveGateSigned,
-            negativeGateSigned,
-            maxVal));
+        clamp(inputValue + selectedSigned, 0, maxVal));
+}
+
+template<typename Type, int THIN_LEVEL, int PAD_LEVEL>
+static bool launchRtgmcShimmerRepairApplyByProfile(
+    const int thinLevel, const int padLevel,
+    const dim3 gridSize, const dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, const int dstPitch,
+    const uint8_t *pInput, const int inputPitch,
+    const uint8_t *pReference, const int referencePitch,
+    const int width, const int height,
+    const int rangeHalf, const int maxVal) {
+    if (thinLevel == THIN_LEVEL && padLevel == PAD_LEVEL) {
+        kernel_rtgmc_shimmer_repair_apply<Type, THIN_LEVEL, PAD_LEVEL><<<gridSize, blockSize, 0, stream>>>(
+            pDst, dstPitch,
+            pInput, inputPitch,
+            pReference, referencePitch,
+            width, height,
+            rangeHalf, maxVal);
+        return true;
+    }
+    if constexpr (PAD_LEVEL < RGY_RTGMC_REPAIR_MAX_RESTORE_PADDING_LEVEL) {
+        return launchRtgmcShimmerRepairApplyByProfile<Type, THIN_LEVEL, PAD_LEVEL + 1>(
+            thinLevel, padLevel, gridSize, blockSize, stream,
+            pDst, dstPitch, pInput, inputPitch, pReference, referencePitch,
+            width, height, rangeHalf, maxVal);
+    } else if constexpr (THIN_LEVEL < RGY_RTGMC_REPAIR_MAX_THIN_REJECT_LEVEL) {
+        return launchRtgmcShimmerRepairApplyByProfile<Type, THIN_LEVEL + 1, RGY_RTGMC_REPAIR_MIN_RESTORE_PADDING_LEVEL>(
+            thinLevel, padLevel, gridSize, blockSize, stream,
+            pDst, dstPitch, pInput, inputPitch, pReference, referencePitch,
+            width, height, rangeHalf, maxVal);
+    } else {
+        return false;
+    }
+}
+
+template<typename Type, int THIN_LEVEL, int PAD_LEVEL>
+static bool launchRtgmcShimmerRepairFusedByProfile(
+    const int thinLevel, const int padLevel,
+    const dim3 gridSize, const dim3 blockSize, cudaStream_t stream,
+    uint8_t *pDst, const int dstPitch,
+    uint8_t *pCorrectionDelta, const int correctionDeltaPitch,
+    uint8_t *pPositiveCorrectionGate, const int positiveCorrectionGatePitch,
+    uint8_t *pNegativeCorrectionGate, const int negativeCorrectionGatePitch,
+    const uint8_t *pInput, const int inputPitch,
+    const uint8_t *pReference, const int referencePitch,
+    const int width, const int height,
+    const int rangeHalf, const int maxVal) {
+    if (thinLevel == THIN_LEVEL && padLevel == PAD_LEVEL) {
+        kernel_rtgmc_shimmer_repair_apply_fused<Type, THIN_LEVEL, PAD_LEVEL><<<gridSize, blockSize, 0, stream>>>(
+            pDst, dstPitch,
+            pCorrectionDelta, correctionDeltaPitch,
+            pPositiveCorrectionGate, positiveCorrectionGatePitch,
+            pNegativeCorrectionGate, negativeCorrectionGatePitch,
+            pInput, inputPitch,
+            pReference, referencePitch,
+            width, height,
+            rangeHalf, maxVal);
+        return true;
+    }
+    if constexpr (PAD_LEVEL < RGY_RTGMC_REPAIR_MAX_RESTORE_PADDING_LEVEL) {
+        return launchRtgmcShimmerRepairFusedByProfile<Type, THIN_LEVEL, PAD_LEVEL + 1>(
+            thinLevel, padLevel, gridSize, blockSize, stream,
+            pDst, dstPitch,
+            pCorrectionDelta, correctionDeltaPitch,
+            pPositiveCorrectionGate, positiveCorrectionGatePitch,
+            pNegativeCorrectionGate, negativeCorrectionGatePitch,
+            pInput, inputPitch, pReference, referencePitch,
+            width, height, rangeHalf, maxVal);
+    } else if constexpr (THIN_LEVEL < RGY_RTGMC_REPAIR_MAX_THIN_REJECT_LEVEL) {
+        return launchRtgmcShimmerRepairFusedByProfile<Type, THIN_LEVEL + 1, RGY_RTGMC_REPAIR_MIN_RESTORE_PADDING_LEVEL>(
+            thinLevel, padLevel, gridSize, blockSize, stream,
+            pDst, dstPitch,
+            pCorrectionDelta, correctionDeltaPitch,
+            pPositiveCorrectionGate, positiveCorrectionGatePitch,
+            pNegativeCorrectionGate, negativeCorrectionGatePitch,
+            pInput, inputPitch, pReference, referencePitch,
+            width, height, rangeHalf, maxVal);
+    } else {
+        return false;
+    }
 }
 
 tstring NVEncFilterParamRtgmcShimmerRepair::print() const {
@@ -360,19 +771,16 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::buildKernels(const std::shared_ptr<NVEncF
     const int pixelMax = (bitdepth >= 16) ? ((1 << 16) - 1) : ((1 << bitdepth) - 1);
     const int rangeHalf = 1 << (bitdepth - 1);
     const auto profile = prm->repairProfile;
-    const int supportRadius = rtgmcShimmerRepairSupportRadius(profile);
-    const int minSupportPixels = rtgmcShimmerRepairMinSupportPixels(profile);
     m_buildOptions = strsprintf(
         "-D Type=%s -D bit_depth=%d -D max_val=%d -D range_half=%d -D rtgmc_shimmer_repair_block_x=%d -D rtgmc_shimmer_repair_block_y=%d"
-        " -D RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS=%d -D RTGMC_SHIMMER_REPAIR_MIN_SUPPORT_PIXELS=%d -D RTGMC_SHIMMER_REPAIR_RESTORE_PADDING_LEVEL=%d",
+        " -D RTGMC_SHIMMER_REPAIR_THIN_LEVEL=%d -D RTGMC_SHIMMER_REPAIR_PAD_LEVEL=%d",
         bitdepth > 8 ? "ushort" : "uchar",
         bitdepth,
         pixelMax,
         rangeHalf,
         RTGMC_SHIMMER_REPAIR_BLOCK_X,
         RTGMC_SHIMMER_REPAIR_BLOCK_Y,
-        supportRadius,
-        minSupportPixels,
+        profile.thinRejectLevel,
         profile.restorePaddingLevel);
     AddMessage(RGY_LOG_DEBUG, _T("Using CUDA kernel for rtgmc-shimmer-repair: %s\n"),
         char_to_tstring(m_buildOptions).c_str());
@@ -571,12 +979,11 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::launchRtgmcShimmerRepairFused(
     const int maxVal = (bitdepth >= 16) ? ((1 << 16) - 1) : ((1 << bitdepth) - 1);
     const int rangeHalf = 1 << (bitdepth - 1);
     const auto profile = prm.repairProfile;
-    const int supportRadius = rtgmcShimmerRepairSupportRadius(profile);
-    const int minSupportPixels = rtgmcShimmerRepairMinSupportPixels(profile);
     const dim3 blockSize(RTGMC_SHIMMER_REPAIR_BLOCK_X, RTGMC_SHIMMER_REPAIR_BLOCK_Y);
     const dim3 gridSize(divCeil(outPlane.width, blockSize.x), divCeil(outPlane.height, blockSize.y));
-    if (bitdepth <= 8) {
-        kernel_rtgmc_shimmer_repair_apply_fused<uint8_t><<<gridSize, blockSize, 0, stream>>>(
+    const bool launched = (bitdepth <= 8)
+        ? launchRtgmcShimmerRepairFusedByProfile<uint8_t, RGY_RTGMC_REPAIR_MIN_THIN_REJECT_LEVEL, RGY_RTGMC_REPAIR_MIN_RESTORE_PADDING_LEVEL>(
+            profile.thinRejectLevel, profile.restorePaddingLevel, gridSize, blockSize, stream,
             (uint8_t *)outPlane.ptr[0], outPlane.pitch[0],
             (uint8_t *)deltaPlane.ptr[0], deltaPlane.pitch[0],
             (uint8_t *)positivePlane.ptr[0], positivePlane.pitch[0],
@@ -584,9 +991,9 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::launchRtgmcShimmerRepairFused(
             (const uint8_t *)inputPlane.ptr[0], inputPlane.pitch[0],
             (const uint8_t *)refPlane.ptr[0], refPlane.pitch[0],
             outPlane.width, outPlane.height,
-            supportRadius, minSupportPixels, profile.restorePaddingLevel, rangeHalf, maxVal);
-    } else {
-        kernel_rtgmc_shimmer_repair_apply_fused<uint16_t><<<gridSize, blockSize, 0, stream>>>(
+            rangeHalf, maxVal)
+        : launchRtgmcShimmerRepairFusedByProfile<uint16_t, RGY_RTGMC_REPAIR_MIN_THIN_REJECT_LEVEL, RGY_RTGMC_REPAIR_MIN_RESTORE_PADDING_LEVEL>(
+            profile.thinRejectLevel, profile.restorePaddingLevel, gridSize, blockSize, stream,
             (uint8_t *)outPlane.ptr[0], outPlane.pitch[0],
             (uint8_t *)deltaPlane.ptr[0], deltaPlane.pitch[0],
             (uint8_t *)positivePlane.ptr[0], positivePlane.pitch[0],
@@ -594,7 +1001,11 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::launchRtgmcShimmerRepairFused(
             (const uint8_t *)inputPlane.ptr[0], inputPlane.pitch[0],
             (const uint8_t *)refPlane.ptr[0], refPlane.pitch[0],
             outPlane.width, outPlane.height,
-            supportRadius, minSupportPixels, profile.restorePaddingLevel, rangeHalf, maxVal);
+            rangeHalf, maxVal);
+    if (!launched) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid rtgmc-shimmer-repair profile: thin=%d pad=%d.\n"),
+            profile.thinRejectLevel, profile.restorePaddingLevel);
+        return RGY_ERR_INVALID_PARAM;
     }
     const auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -619,24 +1030,27 @@ RGY_ERR NVEncFilterRtgmcShimmerRepair::launchRtgmcShimmerRepairApply(
     const int maxVal = (bitdepth >= 16) ? ((1 << 16) - 1) : ((1 << bitdepth) - 1);
     const int rangeHalf = 1 << (bitdepth - 1);
     const auto profile = prm.repairProfile;
-    const int supportRadius = rtgmcShimmerRepairSupportRadius(profile);
-    const int minSupportPixels = rtgmcShimmerRepairMinSupportPixels(profile);
     const dim3 blockSize(RTGMC_SHIMMER_REPAIR_BLOCK_X, RTGMC_SHIMMER_REPAIR_BLOCK_Y);
     const dim3 gridSize(divCeil(outPlane.width, blockSize.x), divCeil(outPlane.height, blockSize.y));
-    if (bitdepth <= 8) {
-        kernel_rtgmc_shimmer_repair_apply<uint8_t><<<gridSize, blockSize, 0, stream>>>(
+    const bool launched = (bitdepth <= 8)
+        ? launchRtgmcShimmerRepairApplyByProfile<uint8_t, RGY_RTGMC_REPAIR_MIN_THIN_REJECT_LEVEL, RGY_RTGMC_REPAIR_MIN_RESTORE_PADDING_LEVEL>(
+            profile.thinRejectLevel, profile.restorePaddingLevel, gridSize, blockSize, stream,
             (uint8_t *)outPlane.ptr[0], outPlane.pitch[0],
             (const uint8_t *)inputPlane.ptr[0], inputPlane.pitch[0],
             (const uint8_t *)refPlane.ptr[0], refPlane.pitch[0],
             outPlane.width, outPlane.height,
-            supportRadius, minSupportPixels, profile.restorePaddingLevel, rangeHalf, maxVal);
-    } else {
-        kernel_rtgmc_shimmer_repair_apply<uint16_t><<<gridSize, blockSize, 0, stream>>>(
+            rangeHalf, maxVal)
+        : launchRtgmcShimmerRepairApplyByProfile<uint16_t, RGY_RTGMC_REPAIR_MIN_THIN_REJECT_LEVEL, RGY_RTGMC_REPAIR_MIN_RESTORE_PADDING_LEVEL>(
+            profile.thinRejectLevel, profile.restorePaddingLevel, gridSize, blockSize, stream,
             (uint8_t *)outPlane.ptr[0], outPlane.pitch[0],
             (const uint8_t *)inputPlane.ptr[0], inputPlane.pitch[0],
             (const uint8_t *)refPlane.ptr[0], refPlane.pitch[0],
             outPlane.width, outPlane.height,
-            supportRadius, minSupportPixels, profile.restorePaddingLevel, rangeHalf, maxVal);
+            rangeHalf, maxVal);
+    if (!launched) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid rtgmc-shimmer-repair profile: thin=%d pad=%d.\n"),
+            profile.thinRejectLevel, profile.restorePaddingLevel);
+        return RGY_ERR_INVALID_PARAM;
     }
     const auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
