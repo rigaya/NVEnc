@@ -1,5 +1,9 @@
 # NVEnc Release Notes
 
+## 9.22
+
+- Improve post-tr2 correction in [--vpp-rtgmc](./NVEncC_Options.en.md#--vpp-rtgmc-param1value1). ( #777 )
+
 ## 9.21
 
 - Add ONNX Runtime based filter [--vpp-onnx](./NVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
