@@ -38,6 +38,10 @@
 #include <limits.h>
 #endif
 
+#ifndef LIBVMAF_STATIC_CUDA_LINK
+#define LIBVMAF_STATIC_CUDA_LINK 0
+#endif
+
 #if defined(_WIN32) || defined(_WIN64)
 const TCHAR *RGY_LIBVMAF_FILENAME = _T("libvmaf.dll");
 #elif LIBVMAF_STATIC_LINK
@@ -106,6 +110,10 @@ RGYLibVMAFLoader::RGYLibVMAFLoader() :
     m_vmaf_picture_alloc(nullptr),
     m_vmaf_picture_unref(nullptr),
     m_vmaf_version(nullptr),
+    m_vmaf_cuda_state_init(nullptr),
+    m_vmaf_cuda_import_state(nullptr),
+    m_vmaf_cuda_preallocate_pictures(nullptr),
+    m_vmaf_cuda_fetch_preallocated_picture(nullptr),
     m_vmaf_use_vmafossexec_aliases(nullptr),
     m_version(),
     m_versionClass(RGYLibVMAFVersion::UNKNOWN) {
@@ -138,6 +146,17 @@ bool RGYLibVMAFLoader::load() {
     m_vmaf_picture_alloc = &vmaf_picture_alloc;
     m_vmaf_picture_unref = &vmaf_picture_unref;
     m_vmaf_version = &vmaf_version;
+#if LIBVMAF_STATIC_CUDA_LINK
+    m_vmaf_cuda_state_init = &vmaf_cuda_state_init;
+    m_vmaf_cuda_import_state = &vmaf_cuda_import_state;
+    m_vmaf_cuda_preallocate_pictures = &vmaf_cuda_preallocate_pictures;
+    m_vmaf_cuda_fetch_preallocated_picture = &vmaf_cuda_fetch_preallocated_picture;
+#else
+    m_vmaf_cuda_state_init = nullptr;
+    m_vmaf_cuda_import_state = nullptr;
+    m_vmaf_cuda_preallocate_pictures = nullptr;
+    m_vmaf_cuda_fetch_preallocated_picture = nullptr;
+#endif
     m_vmaf_use_vmafossexec_aliases = nullptr;
     m_version = (m_vmaf_version != nullptr && m_vmaf_version() != nullptr) ? m_vmaf_version() : "";
     m_versionClass = rgy_libvmaf_version_class(m_version, std::string(), false);
@@ -173,6 +192,10 @@ bool RGYLibVMAFLoader::load() {
     if (!loadFunc("vmaf_picture_unref", (void **)&m_vmaf_picture_unref)) { close(); return false; }
     if (!loadFunc("vmaf_version", (void **)&m_vmaf_version)) { close(); return false; }
 
+    m_vmaf_cuda_state_init = (decltype(m_vmaf_cuda_state_init))RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_cuda_state_init");
+    m_vmaf_cuda_import_state = (decltype(m_vmaf_cuda_import_state))RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_cuda_import_state");
+    m_vmaf_cuda_preallocate_pictures = (decltype(m_vmaf_cuda_preallocate_pictures))RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_cuda_preallocate_pictures");
+    m_vmaf_cuda_fetch_preallocated_picture = (decltype(m_vmaf_cuda_fetch_preallocated_picture))RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_cuda_fetch_preallocated_picture");
     m_vmaf_use_vmafossexec_aliases = RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_use_vmafossexec_aliases");
     m_version = (m_vmaf_version != nullptr && m_vmaf_version() != nullptr) ? m_vmaf_version() : "";
     std::string modulePath;
@@ -223,9 +246,20 @@ void RGYLibVMAFLoader::close() {
     m_vmaf_picture_alloc = nullptr;
     m_vmaf_picture_unref = nullptr;
     m_vmaf_version = nullptr;
+    m_vmaf_cuda_state_init = nullptr;
+    m_vmaf_cuda_import_state = nullptr;
+    m_vmaf_cuda_preallocate_pictures = nullptr;
+    m_vmaf_cuda_fetch_preallocated_picture = nullptr;
     m_vmaf_use_vmafossexec_aliases = nullptr;
     m_version.clear();
     m_versionClass = RGYLibVMAFVersion::UNKNOWN;
+}
+
+bool RGYLibVMAFLoader::has_cuda() const {
+    return m_vmaf_cuda_state_init != nullptr
+        && m_vmaf_cuda_import_state != nullptr
+        && m_vmaf_cuda_preallocate_pictures != nullptr
+        && m_vmaf_cuda_fetch_preallocated_picture != nullptr;
 }
 
 #endif // ENABLE_VMAF

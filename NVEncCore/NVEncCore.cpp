@@ -5175,6 +5175,7 @@ RGY_ERR NVEncCore::InitSsimFilter(const InEncodeVideoParam *inputParam) {
         param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         param->bOutOverwrite = false;
         param->streamtimebase = m_outputTimebase;
+        param->cuctx = m_dev->cuCtx();
         param->vidctxlock = m_dev->vidCtxLock();
         param->threadParamCompare = inputParam->ctrl.threadParams.get(RGYThreadType::VIDEO_QUALITY);
         param->ssim = inputParam->common.metric.ssim;

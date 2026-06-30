@@ -360,6 +360,7 @@ vmaf_headers_from_default = false
 vmaf_compile_dep = declare_dependency()
 vmaf_link_dep = declare_dependency()
 have_vmaf_link = false
+have_vmaf_cuda_link = false
 if enable_vmaf_option != 'disabled'
   vmaf_headers_code = '''
 #include <libvmaf/libvmaf.h>
@@ -440,6 +441,24 @@ int main(void) {
   endif
   if enable_vmaf_option == 'enabled' and not have_vmaf_headers
     error('VMAF headers not found (libvmaf/libvmaf.h)')
+  endif
+  if have_vmaf_headers and libvmaf_static and have_vmaf_link
+    vmaf_cuda_link_code = '''
+#include <libvmaf/libvmaf.h>
+#include <libvmaf/libvmaf_cuda.h>
+int main(void) {
+  auto p0 = &vmaf_cuda_state_init;
+  auto p1 = &vmaf_cuda_import_state;
+  auto p2 = &vmaf_cuda_preallocate_pictures;
+  auto p3 = &vmaf_cuda_fetch_preallocated_picture;
+  return (p0 && p1 && p2 && p3) ? 0 : 1;
+}
+'''
+    have_vmaf_cuda_link = cpp.links(
+      vmaf_cuda_link_code,
+      dependencies: [vmaf_compile_dep, vmaf_link_dep],
+      args: get_option('cpp_args'),
+    )
   endif
 endif
 have_vulkan_headers = false
@@ -788,6 +807,7 @@ conf_data.set10('ENABLE_LIBPLACEBO', have_libplacebo_headers)
 conf_data.set10('LIBPLACEBO_STATIC_LINK', have_libplacebo_headers and libplacebo_static and have_libplacebo_link)
 conf_data.set10('ENABLE_ONNXRUNTIME', have_onnxruntime_headers)
 conf_data.set10('LIBVMAF_STATIC_LINK', have_vmaf_headers and libvmaf_static and have_vmaf_link)
+conf_data.set10('LIBVMAF_STATIC_CUDA_LINK', have_vmaf_headers and libvmaf_static and have_vmaf_link and have_vmaf_cuda_link)
 conf_data.set10('ENABLE_PERF_COUNTER', false)
 
 # AVS_INTERF_VER (AviSynth)

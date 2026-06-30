@@ -59,6 +59,7 @@ public:
     VshipCVVDPParam vshipCvvdp;
 #endif //#if ENABLE_LIBVSHIP
     int deviceId;
+    CUcontext cuctx;
     CUvideoctxlock vidctxlock;
     VideoInfo input;
     rgy_rational<int> streamtimebase;
@@ -68,7 +69,7 @@ public:
 #if ENABLE_LIBVSHIP
         , vshipSsimu2(), vshipButteraugli(), vshipCvvdp()
 #endif //#if ENABLE_LIBVSHIP
-        , deviceId(0), vidctxlock(), input(), streamtimebase(), threadParamCompare() {
+        , deviceId(0), cuctx(), vidctxlock(), input(), streamtimebase(), threadParamCompare() {
 
     };
     virtual ~NVEncFilterParamSsim() {};
@@ -172,6 +173,7 @@ protected:
     std::mutex m_mtx;     //m_input, m_unused操作用のロック
     std::atomic<bool> m_abort; //スレッド中断用
 
+    CUcontext m_cuctx; //CUDA context
     CUvideoctxlock m_vidctxlock; //cuvid用のlock
     std::deque<std::unique_ptr<NVEncFilterSsimFrameSlot>> m_input;  //使用中のフレームバッファ(オリジナルフレーム格納用)
     std::deque<std::unique_ptr<NVEncFilterSsimFrameSlot>> m_unused; //使っていないフレームバッファ(オリジナルフレーム格納用)

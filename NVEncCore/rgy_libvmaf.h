@@ -44,6 +44,30 @@
 #endif
 extern "C" {
 #include <libvmaf/libvmaf.h>
+#if __has_include(<libvmaf/libvmaf_cuda.h>)
+#include <libvmaf/libvmaf_cuda.h>
+#define RGY_LIBVMAF_CUDA_HEADER 1
+#else
+#define RGY_LIBVMAF_CUDA_HEADER 0
+typedef struct VmafCudaState VmafCudaState;
+typedef struct VmafCudaConfiguration {
+    void *cu_ctx;
+} VmafCudaConfiguration;
+enum VmafCudaPicturePreallocationMethod {
+    VMAF_CUDA_PICTURE_PREALLOCATION_METHOD_NONE = 0,
+    VMAF_CUDA_PICTURE_PREALLOCATION_METHOD_DEVICE,
+    VMAF_CUDA_PICTURE_PREALLOCATION_METHOD_HOST,
+    VMAF_CUDA_PICTURE_PREALLOCATION_METHOD_HOST_PINNED,
+};
+typedef struct VmafCudaPictureConfiguration {
+    struct {
+        unsigned w, h;
+        unsigned bpc;
+        enum VmafPixelFormat pix_fmt;
+    } pic_params;
+    enum VmafCudaPicturePreallocationMethod pic_prealloc_method;
+} VmafCudaPictureConfiguration;
+#endif
 }
 #ifdef _MSC_VER
 #pragma warning(pop)
@@ -79,6 +103,10 @@ private:
     decltype(&vmaf_picture_alloc) m_vmaf_picture_alloc;
     decltype(&vmaf_picture_unref) m_vmaf_picture_unref;
     decltype(&vmaf_version) m_vmaf_version;
+    int (*m_vmaf_cuda_state_init)(VmafCudaState **cu_state, VmafCudaConfiguration cfg);
+    int (*m_vmaf_cuda_import_state)(VmafContext *vmaf, VmafCudaState *cu_state);
+    int (*m_vmaf_cuda_preallocate_pictures)(VmafContext *vmaf, VmafCudaPictureConfiguration cfg);
+    int (*m_vmaf_cuda_fetch_preallocated_picture)(VmafContext *vmaf, VmafPicture *pic);
     void *m_vmaf_use_vmafossexec_aliases;
 
     std::string m_version;
@@ -109,8 +137,13 @@ public:
     auto p_vmaf_picture_alloc() const { return m_vmaf_picture_alloc; }
     auto p_vmaf_picture_unref() const { return m_vmaf_picture_unref; }
     auto p_vmaf_version() const { return m_vmaf_version; }
+    auto p_vmaf_cuda_state_init() const { return m_vmaf_cuda_state_init; }
+    auto p_vmaf_cuda_import_state() const { return m_vmaf_cuda_import_state; }
+    auto p_vmaf_cuda_preallocate_pictures() const { return m_vmaf_cuda_preallocate_pictures; }
+    auto p_vmaf_cuda_fetch_preallocated_picture() const { return m_vmaf_cuda_fetch_preallocated_picture; }
     const std::string& version() const { return m_version; }
     RGYLibVMAFVersion version_class() const { return m_versionClass; }
+    bool has_cuda() const;
 };
 
 #endif // ENABLE_VMAF

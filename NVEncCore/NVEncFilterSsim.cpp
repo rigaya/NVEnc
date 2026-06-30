@@ -109,6 +109,7 @@ NVEncFilterSsim::NVEncFilterSsim() :
     m_thread(),
     m_mtx(),
     m_abort(false),
+    m_cuctx(),
     m_vidctxlock(),
     m_input(),
     m_unused(),
@@ -205,6 +206,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     }
 
     m_vidctxlock = prm->vidctxlock;
+    m_cuctx = prm->cuctx;
     m_deviceId = prm->deviceId;
     m_crop.reset();
     if (pParam->frameOut.csp == RGY_CSP_NV12) {
@@ -780,10 +782,14 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
 
     VmafConfiguration cfg = {};
     cfg.log_level = (enum VmafLogLevel)VMAF_LOG_LEVEL_INFO;
+    const bool tryCuda = m_libvmaf.has_cuda();
     cfg.n_threads = prm->vmaf.threads;
     cfg.n_subsample = prm->vmaf.subsample;
     cfg.cpumask = disable_avx ? -1 : 0;
-    if (cfg.n_threads == 0) {
+    // libvmafのCUDA経路はthread pool使用時にCUDA pictureの後処理を飛ばすため、CUDA候補では無効化する。
+    if (tryCuda) {
+        cfg.n_threads = 0;
+    } else if (cfg.n_threads == 0) {
         cfg.n_threads = get_cpu_info().physical_cores;
     }
 
@@ -801,6 +807,35 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
         AddMessage(RGY_LOG_DEBUG, _T("Loaded %s (%s), runtime class %d.\n"), RGY_LIBVMAF_FILENAME, libvmafVersion.c_str(), (int)m_libvmaf.version_class());
     } else {
         AddMessage(RGY_LOG_DEBUG, _T("Loaded %s, runtime class %d.\n"), RGY_LIBVMAF_FILENAME, (int)m_libvmaf.version_class());
+    }
+
+    bool useCuda = false;
+    if (tryCuda) {
+        CUcontext cuCtx = m_cuctx;
+        VmafCudaState *cuState = nullptr;
+        VmafCudaConfiguration cudaCfg = {};
+        cudaCfg.cu_ctx = cuCtx;
+        auto cudaErr = m_libvmaf.p_vmaf_cuda_state_init()(&cuState, cudaCfg);
+        if (cudaErr == 0) {
+            cudaErr = m_libvmaf.p_vmaf_cuda_import_state()(vmaf.get(), cuState);
+        }
+        if (cudaErr == 0) {
+            VmafCudaPictureConfiguration cudaPicCfg = {};
+            cudaPicCfg.pic_params.pix_fmt = vmafPixFmt;
+            cudaPicCfg.pic_params.bpc = RGY_CSP_BIT_DEPTH[frameInfo.csp];
+            cudaPicCfg.pic_params.w = frameInfo.width;
+            cudaPicCfg.pic_params.h = frameInfo.height;
+            cudaPicCfg.pic_prealloc_method = VMAF_CUDA_PICTURE_PREALLOCATION_METHOD_HOST;
+            cudaErr = m_libvmaf.p_vmaf_cuda_preallocate_pictures()(vmaf.get(), cudaPicCfg);
+        }
+        if (cudaErr == 0) {
+            useCuda = true;
+            AddMessage(RGY_LOG_DEBUG, _T("libvmaf CUDA feature extraction enabled.\n"));
+        } else {
+            AddMessage(RGY_LOG_WARN, _T("libvmaf CUDA initialization failed (%d), falling back to CPU.\n"), cudaErr);
+        }
+    } else {
+        AddMessage(RGY_LOG_DEBUG, _T("libvmaf CUDA API not available, using CPU.\n"));
     }
 
     enum VmafModelFlags flags = (prm->vmaf.enable_transform || prm->vmaf.phone_model) ? VMAF_MODEL_FLAG_ENABLE_TRANSFORM : VMAF_MODEL_FLAGS_DEFAULT;
@@ -873,8 +908,13 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf(RGYParamThread threadParam) {
     for (picture_index = 0;; picture_index++) {
         VmafPicture pic_ref; // オリジナルのこと
         VmafPicture pic_dist; //エンコードしたもののこと
-        m_vmaf.error = m_libvmaf.p_vmaf_picture_alloc()(&pic_ref, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
-        m_vmaf.error |= m_libvmaf.p_vmaf_picture_alloc()(&pic_dist, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
+        if (useCuda) {
+            m_vmaf.error = m_libvmaf.p_vmaf_cuda_fetch_preallocated_picture()(vmaf.get(), &pic_ref);
+            m_vmaf.error |= m_libvmaf.p_vmaf_cuda_fetch_preallocated_picture()(vmaf.get(), &pic_dist);
+        } else {
+            m_vmaf.error = m_libvmaf.p_vmaf_picture_alloc()(&pic_ref, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
+            m_vmaf.error |= m_libvmaf.p_vmaf_picture_alloc()(&pic_dist, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
+        }
         if (m_vmaf.error) {
             m_libvmaf.p_vmaf_picture_unref()(&pic_ref);
             m_libvmaf.p_vmaf_picture_unref()(&pic_dist);
