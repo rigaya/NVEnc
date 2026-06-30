@@ -235,6 +235,10 @@ RGY_ERR NVEncFilterFineDehalo::checkParam(const std::shared_ptr<NVEncFilterParam
         AddMessage(RGY_LOG_ERROR, _T("finedehalo requires input width/height >= 4 (got %dx%d).\n"), prm->frameOut.width, prm->frameOut.height);
         return RGY_ERR_INVALID_PARAM;
     }
+    if (interlaced(prm->frameIn)) {
+        AddMessage(RGY_LOG_ERROR, _T("finedehalo does not support interlaced input. Please deinterlace before finedehalo.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
     auto &p = prm->finedehalo;
     if (!(p.rx >= 0.5f && p.rx <= 10.0f) || !(p.ry >= 0.5f && p.ry <= 10.0f)) return RGY_ERR_INVALID_PARAM;
     if (!(p.darkstr >= 0.0f && p.darkstr <= 1.0f) || !(p.brightstr >= 0.0f && p.brightstr <= 1.0f)) return RGY_ERR_INVALID_PARAM;
@@ -326,7 +330,10 @@ RGY_ERR NVEncFilterFineDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
         m_nFrameIdx = (m_nFrameIdx + 1) % m_frameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    if (interlaced(*pInputFrame)) return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], stream);
+    if (interlaced(*pInputFrame)) {
+        AddMessage(RGY_LOG_ERROR, _T("finedehalo does not support interlaced input. Please deinterlace before finedehalo.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
     if (getCudaMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type) != cudaMemcpyDeviceToDevice) return RGY_ERR_INVALID_PARAM;
 
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamFineDehalo>(m_param);
