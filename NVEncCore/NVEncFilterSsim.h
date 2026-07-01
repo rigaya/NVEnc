@@ -74,6 +74,7 @@ public:
     };
     virtual ~NVEncFilterParamSsim() {};
     virtual tstring print() const override;
+    tstring print(bool vmafUseCuda) const;
 };
 #if ENABLE_VMAF
 struct NVEncFilterVMAFData {

@@ -102,6 +102,22 @@ tstring NVEncFilterParamSsim::print() const {
     return str;
 }
 
+tstring NVEncFilterParamSsim::print(bool vmafUseCuda) const {
+    tstring str;
+    if (ssim) str += _T("ssim ");
+    if (psnr) str += _T("psnr ");
+    if (vmaf.enable) {
+        str += vmaf.print();
+        str += vmafUseCuda ? _T(", cuda") : _T(", cpu");
+    }
+#if ENABLE_LIBVSHIP
+    if (vshipSsimu2.enable) str += vshipSsimu2.print() + _T(" ");
+    if (vshipButteraugli.enable) str += vshipButteraugli.print() + _T(" ");
+    if (vshipCvvdp.enable) str += vshipCvvdp.print() + _T(" ");
+#endif //#if ENABLE_LIBVSHIP
+    return str;
+}
+
 NVEncFilterSsim::NVEncFilterSsim() :
     m_decodeStarted(false),
     m_deviceId(0),
@@ -300,7 +316,13 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     }
     m_psnrTotal = 0.0;
 
-    setFilterInfo(pParam->print() + _T("(") + RGY_CSP_NAMES[pParam->frameOut.csp] + _T(")"));
+    const bool vmafUseCuda =
+#if ENABLE_VMAF
+        prm->vmaf.enable && m_libvmaf.has_cuda();
+#else
+        false;
+#endif
+    setFilterInfo(prm->print(vmafUseCuda) + _T("(") + RGY_CSP_NAMES[pParam->frameOut.csp] + _T(")"));
     m_param = pParam;
     return sts;
 }
