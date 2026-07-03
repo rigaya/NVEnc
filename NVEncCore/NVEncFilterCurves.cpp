@@ -121,7 +121,7 @@ std::vector<Type> NVEncFilterCurves::createLUT(const std::vector<std::pair<doubl
 
 
     {
-        const int x1 = (int)(vec.front().first * scale);
+        const int x1 = clamp((int)(vec.front().first * scale), 0, scale - 1);
         const Type val = (Type)clamp((int)(vec.front().second * scale), 0, scale - 1);
         for (int ix = 0; ix <= x1; ix++) {
             table[ix] = val;
@@ -132,7 +132,7 @@ std::vector<Type> NVEncFilterCurves::createLUT(const std::vector<std::pair<doubl
         const double y1 = vec[i + 1].second;
 
         const double a0 = y0;
-        const double a1 = (y1 - y0) / h[i] - h[i] * tmp[1] * 0.5 - h[i] * (tmp[i + 1] - tmp[i]) * (1.0 / 6.0);
+        const double a1 = (y1 - y0) / h[i] - h[i] * tmp[i] * 0.5 - h[i] * (tmp[i + 1] - tmp[i]) * (1.0 / 6.0);
         const double a2 = tmp[i] * 0.5;
         const double a3 = (tmp[i + 1] - tmp[i]) / (h[i] * 6.0);
 
@@ -147,7 +147,7 @@ std::vector<Type> NVEncFilterCurves::createLUT(const std::vector<std::pair<doubl
         }
     }
     {
-        const int x0 = (int)(vec.back().first * scale);
+        const int x0 = clamp((int)(vec.back().first * scale), 0, scale - 1);
         const Type val = (Type)clamp((int)(vec.back().second * scale), 0, scale - 1);
         for (int ix = x0; ix < scale; ix++) {
             table[ix] = val;
