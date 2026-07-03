@@ -661,11 +661,11 @@ static void RGY_FORCEINLINE convert_rgb32_to_rgba_simd(void **dst, const void **
             if constexpr (plane_from0 != 0xff) _mm_storeu_si128((__m128i *)ptr_dst0, x0);
             if constexpr (plane_from1 != 0xff) _mm_storeu_si128((__m128i *)ptr_dst1, x1);
             if constexpr (plane_from2 != 0xff) _mm_storeu_si128((__m128i *)ptr_dst2, x2);
-            if constexpr (plane_from3 != 0xff) _mm_storeu_si128((__m128i *)ptr_dst3, x2);
+            if constexpr (plane_from3 != 0xff) _mm_storeu_si128((__m128i *)ptr_dst3, x3);
         }
         if (width & 15) {
             int x_offset = (16 - (width & 15));
-            ptr_src -= x_offset * 3;
+            ptr_src -= x_offset * 4;
             ptr_dst0 -= x_offset;
             ptr_dst1 -= x_offset;
             ptr_dst2 -= x_offset;
@@ -732,7 +732,7 @@ static void RGY_FORCEINLINE convert_rgb_to_rgb32_simd(void **dst, const void **s
         }
         if (width & 15) {
             int x_offset = (16 - (width & 15));
-            ptr_dst -= x_offset * 3;
+            ptr_dst -= x_offset * 4;
             ptr_srcR -= x_offset;
             ptr_srcG -= x_offset;
             ptr_srcB -= x_offset;
@@ -1976,9 +1976,9 @@ static void RGY_FORCEINLINE convert_yc48_to_yuv444_simd(void **dst, const void *
 template <bool aligned_store>
 static RGY_FORCEINLINE void convert_yc48_to_yuv444_16bit_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const auto y_range = thread_y_range(0, height, thread_id, thread_n);
-    char *Y_line = (char *)dst[0] + dst_y_pitch_byte + y_range.start_dst;
-    char *U_line = (char *)dst[1] + dst_y_pitch_byte + y_range.start_dst;
-    char *V_line = (char *)dst[2] + dst_y_pitch_byte + y_range.start_dst;
+    char *Y_line = (char *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
+    char *U_line = (char *)dst[1] + dst_y_pitch_byte * y_range.start_dst;
+    char *V_line = (char *)dst[2] + dst_y_pitch_byte * y_range.start_dst;
     char *pixel = (char *)src[0] + src_y_pitch_byte * y_range.start_src;
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
