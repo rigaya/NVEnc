@@ -122,7 +122,7 @@ __global__ void kernel_afs_analyze_map_filter(
     __shared__ uint32_t shared[2][FILTER_BLOCK_Y+4][FILTER_BLOCK_INT_X+2];
 
     //sharedメモリへのロード
-#define SRCPTR(ix, iy) *(uint32_t *)(ptr_src + clamp((iy), 0, height) * pitch_type + clamp((ix), 0, si_w_type))
+#define SRCPTR(ix, iy) *(uint32_t *)(ptr_src + clamp((iy), 0, height - 1) * pitch_type + clamp((ix), 0, si_w_type - 1))
     //中央部分のロード
     shared[0][ly][lx+1] = SRCPTR(imgx, imgy-2);
     if (lx < 2) {
