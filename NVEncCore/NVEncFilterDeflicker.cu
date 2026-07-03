@@ -344,6 +344,12 @@ RGY_ERR NVEncFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
             m_rollingMeans.pop_front();
             m_rollingSigmas.pop_front();
         }
+    } else {
+        // シーンチェンジ時: 旧シーンのローリングウィンドウをリセットし、新シーンの基準を開始
+        m_rollingMeans.clear();
+        m_rollingSigmas.clear();
+        m_rollingMeans.push_back(meanIn);
+        m_rollingSigmas.push_back(sigmaIn);
     }
 
     const bool haveReference = !m_rollingMeans.empty();
