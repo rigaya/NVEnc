@@ -260,12 +260,15 @@ __global__ void anime4k_chroma_luma_lowres(uint8_t *__restrict__ pLow, const int
 template<typename Type, int bit_depth>
 __global__ void anime4k_chroma_joint_bilateral(uint8_t *__restrict__ pDstC, const int dstPitch, const int dstW, const int dstH,
     const uint8_t *__restrict__ pSrcC, const int srcPitch, const int srcW, const int srcH,
-    const uint8_t *__restrict__ pLuma, const int lumaPitch, const uint8_t *__restrict__ pLow, const int lowPitch,
+    const uint8_t *__restrict__ pLuma, const int lumaPitch, const int lumaW, const int lumaH, const uint8_t *__restrict__ pLow, const int lowPitch,
     const float dist_coeff, const float int_coeff) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix >= dstW || iy >= dstH) return;
-    const float luma_zero = anime4k_rdnorm<Type, bit_depth>(pLuma, lumaPitch, ix, iy);
+    // 出力chroma座標をソースluma空間にマッピング (YUV420では等倍、YUV444では縮小)
+    const int lumaX = clamp((int)(((float)ix + 0.5f) * (float)lumaW / (float)dstW), 0, lumaW - 1);
+    const int lumaY = clamp((int)(((float)iy + 0.5f) * (float)lumaH / (float)dstH), 0, lumaH - 1);
+    const float luma_zero = anime4k_rdnorm<Type, bit_depth>(pLuma, lumaPitch, lumaX, lumaY);
     const float px = ((float)ix + 0.5f) * (float)srcW / (float)dstW - 0.5f;
     const float py = ((float)iy + 0.5f) * (float)srcH / (float)dstH - 0.5f;
     const int fx = (int)floorf(px), fy = (int)floorf(py);
@@ -930,7 +933,7 @@ RGY_ERR NVEncFilterAnime4k::runChromaJoint(RGYFrameInfo *pOutC, const RGYFrameIn
     anime4k_chroma_joint_bilateral<uint8_t, 8><<<grid, block, 0, stream>>>(
         (uint8_t *)pOutC->ptr[0], pOutC->pitch[0], pOutC->width, pOutC->height,
         (const uint8_t *)pInC->ptr[0], pInC->pitch[0], pInC->width, pInC->height,
-        (const uint8_t *)pSrcLumaY->ptr[0], pSrcLumaY->pitch[0],
+        (const uint8_t *)pSrcLumaY->ptr[0], pSrcLumaY->pitch[0], pSrcLumaY->width, pSrcLumaY->height,
         (const uint8_t *)m_chromaLumaLowres->ptr, m_chromaLowW, 2.0f, 128.0f);
     return err_to_rgy(cudaGetLastError());
 }
