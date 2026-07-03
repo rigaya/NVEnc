@@ -489,6 +489,8 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         y_pos = ALIGN((int)(outputFrame->height * y_factor + 0.5f), 2);
         y_pos = std::min(y_pos, outputFrame->height - rect->h);
     }
+    x_pos = std::max(0, x_pos);
+    y_pos = std::max(0, y_pos);
     return SubImageData(std::move(frame), std::move(frameTemp), std::move(bufCPU), x_pos, y_pos);
 }
 
