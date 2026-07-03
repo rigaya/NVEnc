@@ -1206,7 +1206,8 @@ RGY_ERR ColorspaceOpCtrl::addColorspaceOpClYUV2RGB(vector<ColorspaceOpInfo> &ops
     }
     auto func = getTrasferFunc(from.transfer, source_peak, true);
     if (func.to_linear) {
-        auto mat = from.matrix == RGY_MATRIX_DERIVED_CL ? matrixYUV2RGBfromPrim(from.colorprim) : matrixYUV2RGB(from.matrix);
+        // CL2RGBはg=(y-kr*r-kb*b)/kgで緑を復元するため、RGB→YUV行列の順方向輝度係数が必要
+        auto mat = from.matrix == RGY_MATRIX_DERIVED_CL ? matrixRGB2YUVfromPrim(from.colorprim) : matrixRGB2YUV(from.matrix);
         ops.push_back(ColorspaceOpInfo(from, to, make_unique<ColorspaceOpCL2RGB>(mat(0, 0), mat(0, 1), mat(0, 2), func.to_linear_scale, func)));
     }
     return RGY_ERR_NONE;
