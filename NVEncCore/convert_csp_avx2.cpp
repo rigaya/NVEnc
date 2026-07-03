@@ -1538,7 +1538,7 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_high_avx2_base(void **
         for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
             if (in_bit_depth == out_bit_depth) {
                 avx2_memcpy<true>((uint8_t *)dstLine, (const uint8_t *)srcYLine, y_width * (int)sizeof(uint16_t));
-            } else if (out_bit_depth > in_bit_depth) {
+            } else {
                 const uint16_t *src_ptr = srcYLine;
                 uint16_t *dst_ptr = dstLine;
                 for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
