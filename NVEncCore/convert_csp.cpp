@@ -1090,7 +1090,7 @@ static void RGY_FORCEINLINE convert_nv24_to_yuv444_c(void **dst, const void **sr
         const int x_fin = width - crop_right - crop_left;
         for (int x = 0; x < x_fin; x++, srcC += 2, dstU++, dstV++) {
             dstU[0] = (Tout)CHANGE_BIT_DEPTH_1(srcC[0], 0);
-            dstV[1] = (Tout)CHANGE_BIT_DEPTH_1(srcC[1], 0);
+            dstV[0] = (Tout)CHANGE_BIT_DEPTH_1(srcC[1], 0);
         }
     }
 }
@@ -1648,7 +1648,7 @@ static void RGY_FORCEINLINE convert_yuv444_to_yuv44_c_base(void **dst, const voi
             } else {
                 const Tin *src_ptr = srcYLine;
                 Tout *dst_ptr = dstLine;
-                for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
+                for (int x = 0; x < y_width; x++) {
                     dst_ptr[x] = (Tout)conv_bit_depth_<out_bit_depth, in_bit_depth, 0>(src_ptr[x]);
                 }
             }
