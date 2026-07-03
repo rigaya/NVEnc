@@ -259,6 +259,8 @@ protected:
     std::vector<uint8_t>  m_cycleIsSynth;                   // 1=synth (from expand=on), 0=coded; indexed like m_cycleDiffPrev
     std::deque<IvtcEmitEntry> m_emitQueue;                  // 1 call 1 emit 用の出力キュー (AFS/Decimate 方式)
     int m_stagingBase;                                      // m_frameBuf のうち emit-staging 領域の先頭 index
+    int m_stagingRingCount;                                 // staging リングのスロット数 (flush burst 分)
+    int m_stagingWrite;                                     // staging への回転書き込みカーソル
     int m_mixedDirectStagingBase;                           // mixed direct emit staging ring
     int m_mixedDirectStagingCount;
     int m_mixedDirectStagingNext;

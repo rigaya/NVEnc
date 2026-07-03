@@ -164,6 +164,8 @@ NVEncFilterIvtc::NVEncFilterIvtc() :
     m_cycleIsSynth(),
     m_emitQueue(),
     m_stagingBase(0),
+    m_stagingRingCount(0),
+    m_stagingWrite(0),
     m_mixedDirectStagingBase(0),
     m_mixedDirectStagingCount(0),
     m_mixedDirectStagingNext(0),
@@ -717,10 +719,14 @@ RGY_ERR NVEncFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
     // 安心して上書きできる。
     const int cycleLen = std::max(prm->ivtc.cycle, 0);
     const int stagingCount = (cycleLen > 0) ? (cycleLen - prm->ivtc.drop) : 0;
+    // expand/mixedで複数サイクルがdrain前にflushされるため、stagingはburst分のリングが必要
+    const int stagingRingCount = (cycleLen > 0) ? std::max(stagingCount, 2 * EXPAND_BUF_SIZE) : 0;
     const int mixedDirectStagingCount = (m_mixedActive && cycleLen > 0) ? std::max(stagingCount, 1) : 0;
-    const int bufCount = (cycleLen > 0) ? (cycleLen + 1 + stagingCount + mixedDirectStagingCount) : 1;
+    const int bufCount = (cycleLen > 0) ? (cycleLen + 1 + stagingRingCount + mixedDirectStagingCount) : 1;
     m_stagingBase = (cycleLen > 0) ? (cycleLen + 1) : 0;
-    m_mixedDirectStagingBase = m_stagingBase + stagingCount;
+    m_stagingRingCount = stagingRingCount;
+    m_stagingWrite = 0;
+    m_mixedDirectStagingBase = m_stagingBase + stagingRingCount;
     m_mixedDirectStagingCount = mixedDirectStagingCount;
     m_mixedDirectStagingNext = 0;
     sts = AllocFrameBuf(prm->frameOut, bufCount);
@@ -3498,7 +3504,9 @@ RGY_ERR NVEncFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, cudaS
     int emitted = 0;
     for (int i = 0; i < filled; i++) {
         if (i == dropIdx) continue;
-        const int stagingIdx = m_stagingBase + emitted;
+        // staging リングを回転書き込みし、flush跨ぎでスロットが重複しないようにする
+        const int stagingIdx = m_stagingBase + m_stagingWrite;
+        if (m_stagingRingCount > 0) m_stagingWrite = (m_stagingWrite + 1) % m_stagingRingCount;
         if (stagingIdx >= (int)m_frameBuf.size()) {
             AddMessage(RGY_LOG_ERROR, _T("ivtc staging overflow: idx=%d size=%lld.\n"), stagingIdx, (long long)m_frameBuf.size());
             return RGY_ERR_UNKNOWN;
@@ -3931,7 +3939,8 @@ RGY_ERR NVEncFilterIvtc::flushCycleMixed(bool finalFlush, int64_t cycleEndPts, b
     int emitted = 0;
     for (int i = 0; i < filled; i++) {
         if (i == dropIdx) continue;
-        const int stagingIdx = m_stagingBase + emitted;
+        const int stagingIdx = m_stagingBase + m_stagingWrite;
+        if (m_stagingRingCount > 0) m_stagingWrite = (m_stagingWrite + 1) % m_stagingRingCount;
         if (stagingIdx >= (int)m_frameBuf.size()) {
             AddMessage(RGY_LOG_ERROR, _T("ivtc mixed cycle staging overflow: idx=%d size=%lld.\n"), stagingIdx, (long long)m_frameBuf.size());
             return RGY_ERR_UNKNOWN;
@@ -4447,6 +4456,8 @@ void NVEncFilterIvtc::close() {
     m_cycleIsSynth.clear();
     m_emitQueue.clear();
     m_stagingBase = 0;
+    m_stagingRingCount = 0;
+    m_stagingWrite = 0;
     m_mixedDirectStagingBase = 0;
     m_mixedDirectStagingCount = 0;
     m_mixedDirectStagingNext = 0;
