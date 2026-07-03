@@ -982,6 +982,9 @@ void NVEncFilterDegrain::logAnalysisSamples(const TCHAR *sourceName, const RGYFr
         const bool forward = rgy_degrain_ref_index_is_forward(dir);
         for (int sample = 0; sample < (int)sampleBlocks.size(); sample++) {
             const size_t block = sampleBlocks[sample];
+            if (block >= layout.blockCount()) {
+                continue;
+            }
             if ((sample > 0 && block == sampleBlocks[sample - 1])
                 || (sample > 1 && block == sampleBlocks[sample - 2])) {
                 continue;
@@ -2300,9 +2303,10 @@ RGY_ERR NVEncFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &fra
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
-    const int currentFrame, cudaStream_t stream, const RGYCudaEvent &frameCopyEvent, RGYCudaEvent *event) {
-    if (!sourceFrame || !outputFrame || !m_analysis.mv || !m_analysis.sad) {
+RGY_ERR NVEncFilterDegrain::createAnalysisSideDataSnapshot(const RGYFrameInfo *frame, const int currentFrame,
+    const RGYDegrainRefDisableArray &availabilityDisableRefs, cudaStream_t stream,
+    std::shared_ptr<RGYFrameDataDegrain> &frameDataOut) {
+    if (!frame || !m_analysis.mv || !m_analysis.sad) {
         return RGY_ERR_INVALID_PARAM;
     }
 
@@ -2323,13 +2327,6 @@ RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, 
         return err;
     }
 
-    if (frameCopyEvent() != nullptr) {
-        err = err_to_rgy(cudaStreamWaitEvent(stream, frameCopyEvent(), 0));
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain frame copy event for side data: %s.\n"), get_err_mes(err));
-            return err;
-        }
-    }
     if (m_analysis.event() != nullptr) {
         err = err_to_rgy(cudaStreamWaitEvent(stream, m_analysis.event(), 0));
         if (err != RGY_ERR_NONE) {
@@ -2357,21 +2354,72 @@ RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, 
 
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDegrain>(m_param);
     const uint32_t flags = degrainAnalyzeFlags(prm, useAnalysisLumaCache() || m_lastAnalysisUsedSearchLuma, m_lastAnalysisIncludedChroma);
-    auto frameData = std::make_shared<RGYFrameDataDegrain>(
+    frameDataOut = std::make_shared<RGYFrameDataDegrain>(
         rgy_degrain_make_frame_meta_header(m_analysis.layout, flags),
         std::move(mv),
         std::move(sad),
         sideDataEvent,
         currentFrame,
-        sourceFrame->inputFrameId,
-        sourceFrame->timestamp,
-        sourceFrame->duration,
-        m_analysis.lastAvailabilityDisableRefs,
+        frame->inputFrameId,
+        frame->timestamp,
+        frame->duration,
+        availabilityDisableRefs,
         m_sideDataBufferPool);
+    return RGY_ERR_NONE;
+}
+
+void NVEncFilterDegrain::bindSnapshotAnalysisData(const std::shared_ptr<RGYFrameDataDegrain> &frameData, const RGYFrameInfo *frame, cudaStream_t stream) {
+    if (!frameData) {
+        return;
+    }
+    m_frameAnalysisData = frameData;
+    m_boundAnalyzeResult = frameData->analyzeResult();
+    m_frameAnalysisLayout = m_boundAnalyzeResult.layout;
+    if (degrainDebugLogEnabled() && frame && m_boundAnalyzeResult.valid()) {
+        logAnalyzeBinding(_T("snapshot"), frame, m_boundAnalyzeResult);
+        logAnalysisSamples(_T("snapshot"), frame, stream);
+    }
+}
+
+RGY_ERR NVEncFilterDegrain::snapshotFallbackAnalysisData(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, cudaStream_t stream) {
+    if (!frames.render.cur) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const auto availabilityDisableRefs = degrainReferenceAvailability(frames.analysis);
+    std::shared_ptr<RGYFrameDataDegrain> frameData;
+    auto err = createAnalysisSideDataSnapshot(frames.render.cur, currentFrame, availabilityDisableRefs, stream, frameData);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to snapshot degrain fallback analysis data.\n"));
+        return err;
+    }
+    bindSnapshotAnalysisData(frameData, frames.render.cur, stream);
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR NVEncFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
+    const int currentFrame, cudaStream_t stream, const RGYCudaEvent &frameCopyEvent, RGYCudaEvent *event) {
+    if (!sourceFrame || !outputFrame || !m_analysis.mv || !m_analysis.sad) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    if (frameCopyEvent() != nullptr) {
+        auto err = err_to_rgy(cudaStreamWaitEvent(stream, frameCopyEvent(), 0));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain frame copy event for side data: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    }
+
+    std::shared_ptr<RGYFrameDataDegrain> frameData;
+    auto err = createAnalysisSideDataSnapshot(sourceFrame, currentFrame, m_analysis.lastAvailabilityDisableRefs, stream, frameData);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
     rgy_degrain_erase_frame_data(outputFrame->dataList);
     outputFrame->dataList.push_back(frameData);
     if (event) {
-        *event = sideDataEvent;
+        *event = frameData->analyzeResult().event;
     }
     return RGY_ERR_NONE;
 }
@@ -3147,6 +3195,10 @@ RGY_ERR NVEncFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet
 
     if (!bindFrameAnalysisData(frames.render.cur, currentFrame, stream)) {
         auto err = prepareFallbackAnalysisState(frames, currentFrame, stream, wait_events);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        err = snapshotFallbackAnalysisData(frames, currentFrame, stream);
         if (err != RGY_ERR_NONE) {
             return err;
         }

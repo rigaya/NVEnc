@@ -109,6 +109,11 @@ protected:
         cudaStream_t stream, RGYCudaEvent *event);
     RGY_ERR attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
         int currentFrame, cudaStream_t stream, const RGYCudaEvent &frameCopyEvent, RGYCudaEvent *event);
+    RGY_ERR createAnalysisSideDataSnapshot(const RGYFrameInfo *frame, const int currentFrame,
+        const RGYDegrainRefDisableArray &availabilityDisableRefs, cudaStream_t stream,
+        std::shared_ptr<RGYFrameDataDegrain> &frameDataOut);
+    RGY_ERR snapshotFallbackAnalysisData(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, cudaStream_t stream);
+    void bindSnapshotAnalysisData(const std::shared_ptr<RGYFrameDataDegrain> &frameData, const RGYFrameInfo *frame, cudaStream_t stream);
     RGY_ERR prepareAnalysisState(const RGYFilterDegrainFrameSet &frames, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR prepareFallbackAnalysisState(const RGYFilterDegrainProcessFrameSet &frames, int currentFrame, cudaStream_t stream, const std::vector<RGYCudaEvent> &wait_events);
     RGY_ERR prepareAnalysisStateMotionSearch(const RGYFrameInfo &planeCur, const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> &refPlanes,
