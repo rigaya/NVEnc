@@ -311,7 +311,7 @@ RGY_ERR RGYInputAvs::InitAudio(const RGYInputAvsPrm *input_prm) {
     }
     if (pAudioSelect == nullptr) {
         //見つからなかったら、全指定(trackID = 0)のものを使用する
-        for (int i = 0; input_prm->nAudioSelectCount; i++) {
+        for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
             if (input_prm->ppAudioSelect[i]->trackID == 0) {
                 pAudioSelect = input_prm->ppAudioSelect[i];
                 break;
