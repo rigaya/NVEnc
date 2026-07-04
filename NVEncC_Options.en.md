@@ -2930,9 +2930,12 @@ Rather weak noise reduction by modified pmd method, aimed to preserve edge while
   - strength=&lt;float&gt;  (default=100, 0-100)  
     Strength of the filter. 
   
-  - threshold=&lt;float&gt;  (default=100, 0-255)  
+  - threshold=&lt;float&gt;  (default=100, 0-255)
     Threshold for edge detection. The smaller the value is, more will be detected as edge, which will be preserved.
-  
+
+  - useexp=&lt;bool&gt;  (default=true)
+    Use exp function for coefficient calculation. If set to false, a simplified formula will be used.
+
 - Examples
   ```
   Example: Slightly weak than default

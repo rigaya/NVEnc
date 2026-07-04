@@ -15308,8 +15308,10 @@ tstring gen_cmd_help_vpp() {
         _T("      apply_count=<int>         count to apply pmd denoise (default=%d)\n")
         _T("      strength=<float>          strength of pmd (default=%.2f, 0.0-100.0)\n")
         _T("      threshold=<float>         threshold of pmd (default=%.2f, 0.0-255.0)\n")
-        _T("                                  lower value will preserve edge.\n"),
-        FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
+        _T("                                  lower value will preserve edge.\n")
+        _T("      useexp=<bool>             use exp function (default=%s)\n"),
+        FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD,
+        FILTER_DEFAULT_PMD_USE_EXP ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_HQDN3D
     str += strsprintf(_T("\n")

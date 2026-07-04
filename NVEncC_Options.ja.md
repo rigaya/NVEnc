@@ -2981,9 +2981,12 @@ Non local meansを用いたノイズ除去フィルタ。Windowsでは64bit版�
   - strength=&lt;float&gt;  (default=100, 0-100)  
     1回ごとのフィルタの強さ。
   
-  - threshold=&lt;float&gt;  (default=100, 0-255)  
+  - threshold=&lt;float&gt;  (default=100, 0-255)
     フィルタの輪郭検出の閾値。小さいほど輪郭を保持するようになるが、フィルタの効果も弱まる。
-  
+
+  - useexp=&lt;bool&gt;  (default=true)
+    係数計算にexp関数を使用する。falseにすると簡易式を使用する。
+
 - 使用例
   ```
   例: すこし弱め
